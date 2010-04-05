@@ -1,0 +1,156 @@
+#
+# This is the SPEC file for creating binary RPMs for the Dom0.
+#
+#
+# The Qubes OS Project, http://www.qubes-os.org
+#
+# Copyright (C) 2010  Joanna Rutkowska <joanna@invisiblethingslab.com>
+# Copyright (C) 2010  Rafal Wojtczuk  <rafal@invisiblethingslab.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+#
+
+%{!?python_sitearch: %define python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1)")}
+
+%{!?version: %define version %(cat version_dom0)}
+
+Name:		qubes-core-dom0
+Version:	%{version}
+Release:	1
+Summary:	The Qubes core files (Dom0-side)
+
+Group:		Qubes
+Vendor:		Invisible Things Lab
+License:	GPL
+URL:		http://www.qubes-os.org
+Requires:	python, xen-runtime, pciutils, python-inotify, python-daemon, kernel-qubes-dom0
+
+%define _builddir %(pwd)/dom0
+
+%description
+The Qubes core files for installation on Dom0.
+
+%install
+
+mkdir -p $RPM_BUILD_ROOT/etc/init.d
+cp init.d/qubes_core $RPM_BUILD_ROOT/etc/init.d/
+cp init.d/qubes_netvm $RPM_BUILD_ROOT/etc/init.d/
+
+mkdir -p $RPM_BUILD_ROOT/usr/bin/
+cp qvm-tools/qvm-* $RPM_BUILD_ROOT/usr/bin
+cp clipboard_notifier/qclipd $RPM_BUILD_ROOT/usr/bin
+cp pendrive_swapper/qfilexchgd $RPM_BUILD_ROOT/usr/bin
+
+mkdir -p $RPM_BUILD_ROOT%{python_sitearch}/qubes
+cp qvm-core/qubes.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
+cp qvm-core/__init__.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
+
+mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
+cp aux-tools/patch_appvm_initramfs.sh $RPM_BUILD_ROOT/usr/lib/qubes
+cp aux-tools/unbind_pci_device.sh $RPM_BUILD_ROOT/usr/lib/qubes
+cp aux-tools/unbind_all_network_devices $RPM_BUILD_ROOT/usr/lib/qubes
+cp aux-tools/convert_apptemplate2vm.sh $RPM_BUILD_ROOT/usr/lib/qubes
+cp aux-tools/convert_dirtemplate2vm.sh $RPM_BUILD_ROOT/usr/lib/qubes
+cp aux-tools/create_apps_for_appvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
+cp aux-tools/remove_appvm_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes
+cp pendrive_swapper/qubes_pencmd $RPM_BUILD_ROOT/usr/lib/qubes
+
+mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
+mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/vm-templates
+mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/appvms
+
+mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/backup
+
+mkdir -p $RPM_BUILD_ROOT/usr/share/qubes/icons
+cp icons/*.png $RPM_BUILD_ROOT/usr/share/qubes/icons
+
+
+%post
+if [ "$1" !=  1 ] ; then
+# do this whole %post thing only when updating for the first time...
+exit 0
+fi
+
+#echo "Enabling essential services..."
+chkconfig haldaemon on
+chkconfig messagebus on
+chkconfig xenstored on
+chkconfig xend on
+chkconfig xenconsoled on
+
+chkconfig --add qubes_core || echo "WARNING: Cannot add service qubes_core!"
+chkconfig --add qubes_netvm || echo "WARNING: Cannot add service qubes_netvm!"
+
+chkconfig qubes_core on || echo "WARNING: Cannot enable service qubes_core!"
+chkconfig qubes_netvm on || echo "WARNING: Cannot enable service qubes_netvm!"
+
+if ! [ -e /var/lib/qubes/qubes.xml ]; then
+#    echo "Initializing Qubes DB..."
+    umask 007; sg qubes -c qvm-init-storage
+fi
+for i in /usr/share/qubes/icons/*.png ; do
+	xdg-icon-resource install --novendor --size 48 $i
+done
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+%pre
+if ! grep -q ^qubes: /etc/group ; then
+		groupadd qubes
+fi
+
+%preun
+if [ "$1" = 0 ] ; then
+	for i in /usr/share/qubes/icons/*.png ; do
+		xdg-icon-resource uninstall --novendor --size 48 $i
+	done
+fi
+
+%postun
+if [ "$1" = 0 ] ; then
+	# no more packages left
+    chgrp root /etc/xen
+    chmod 700 /etc/xen
+    groupdel qubes
+fi
+
+%files
+%defattr(-,root,root,-)
+/etc/init.d/qubes_core
+/etc/init.d/qubes_netvm
+/usr/bin/qvm-*
+/usr/bin/qclipd
+/usr/bin/qfilexchgd
+%{python_sitearch}/qubes/qubes.py
+%{python_sitearch}/qubes/qubes.pyc
+%{python_sitearch}/qubes/qubes.pyo
+%{python_sitearch}/qubes/__init__.py
+%{python_sitearch}/qubes/__init__.pyc
+%{python_sitearch}/qubes/__init__.pyo
+/usr/lib/qubes/patch_appvm_initramfs.sh
+/usr/lib/qubes/unbind_pci_device.sh
+/usr/lib/qubes/unbind_all_network_devices
+/usr/lib/qubes/convert_apptemplate2vm.sh
+/usr/lib/qubes/convert_dirtemplate2vm.sh
+/usr/lib/qubes/create_apps_for_appvm.sh
+/usr/lib/qubes/remove_appvm_appmenus.sh
+/usr/lib/qubes/qubes_pencmd
+%attr(770,root,qubes) %dir /var/lib/qubes
+%attr(770,root,qubes) %dir /var/lib/qubes/vm-templates
+%attr(770,root,qubes) %dir /var/lib/qubes/appvms
+%attr(770,root,qubes) %dir /var/lib/qubes/backup
+%dir /usr/share/qubes/icons/*.png

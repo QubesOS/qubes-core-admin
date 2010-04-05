@@ -1,0 +1,85 @@
+#!/usr/bin/python2.6
+#
+# The Qubes OS Project, http://www.qubes-os.org
+#
+# Copyright (C) 2010  Joanna Rutkowska <joanna@invisiblethingslab.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+#
+
+import os
+import daemon
+from pyinotify import WatchManager, Notifier, ThreadedNotifier, EventsCodes, ProcessEvent
+import dbus
+from qubes.qubes import QubesDaemonPidfile
+
+qubes_clipboard_info_file = "/var/run/qubes/qubes_clipboard.bin.source"
+
+def watch_qubes_clipboard():
+
+    def tray_notify(str, timeout = 3000):
+        notify_object.Notify("Qubes", 0, "dialog-information", "", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
+
+    notify_object = dbus.SessionBus().get_object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
+    wm = WatchManager()
+    mask = EventsCodes.OP_FLAGS.get('IN_CLOSE_WRITE')
+
+    if not os.path.exists (qubes_clipboard_info_file):
+        file = open (qubes_clipboard_info_file, 'w')
+        file.close()
+
+
+    class ClipboardWatcher(ProcessEvent):
+        def process_IN_CLOSE_WRITE (self, event):
+            src_info_file = open (qubes_clipboard_info_file, 'r')
+            src_vmname = src_info_file.readline().strip('\n')
+            if src_vmname == "":
+                tray_notify ("Qubes Clipboard has been copied to the VM and wiped.\n"\
+                             "<small>Trigger a paste operation (e.g. Ctrl-v) to insert it into an application.</small>" )
+            else:
+                print src_vmname
+                tray_notify ("Qubes Clipboard fetched from VM: <b>'{0}'</b>\n"\
+                             "<small>Press Ctrl-Shift-v to copy this clipboard onto dest VM's clipboard.</small>".format(src_vmname))
+            src_info_file.close()
+
+
+    notifier = Notifier(wm, ClipboardWatcher())
+    wdd = wm.add_watch(qubes_clipboard_info_file, mask)
+
+    while True:
+        notifier.process_events()
+        if notifier.check_events():
+            notifier.read_events()
+
+
+def main():
+    
+    lock = QubesDaemonPidfile ("qclipd")
+    if lock.pidfile_exists():
+        if lock.pidfile_is_stale():
+            lock.remove_pidfile()
+            print "Removed stale pidfile (has the previous daemon instance crashed?)."
+        else:
+            exit (0)
+
+    context = daemon.DaemonContext(
+        working_directory = "/var/run/qubes",
+        pidfile = lock)
+
+    with context:
+        watch_qubes_clipboard()
+
+main()

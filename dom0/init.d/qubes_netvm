@@ -1,0 +1,102 @@
+#!/bin/sh
+#
+# chkconfig: 2345 99 00
+# description: Starts/stops Qubes default netvm
+#
+### BEGIN INIT INFO
+# Provides:          qubes-networking
+# Required-Start:    qubes-core
+# Default-Start:     3 4 5
+# Default-Stop:      0 1 2 6
+# Default-Enabled:   yes
+# Short-Description: Start/stop qubes networking
+# Description:       Starts and stops the qubes networking
+### END INIT INFO
+
+
+#
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+NETVM=$(qvm-get-default-netvm)
+
+start()
+{
+    if [ x$NETVM = x ] ; then
+
+        echo WARNING: Qubes NetVM not configured!
+        echo -n $"Doing nothing:"
+
+    elif [ $NETVM = "dom0" ] ; then 
+
+        echo -n $"Setting up net backend in Dom0:"
+        /etc/init.d/NetworkManager start
+        brctl addbr br0 || exit 1
+        ifconfig br0 10.0.0.1 netmask 255.255.0.0 up || exit 1
+        echo "1" > /proc/sys/net/ipv4/ip_forward || exit 1
+        /usr/sbin/dnsmasq  --listen-address 10.0.0.1 --bind-interfaces || exit 1
+        iptables -t nat -A POSTROUTING -s 10.0.0.0/16 '!' -d 10.0.0.0/16 -j MASQUERADE || exit 1
+        iptables -I INPUT 1 -i br0 -s 10.0.0.0/16 -j ACCEPT || exit 1
+        iptables -I FORWARD 1 -i br0 -s 10.0.0.0/16 -j ACCEPT || exit 1
+        iptables -I FORWARD 1 -o br0 -d 10.0.0.0/16 -m state --state ESTABLISHED,RELATED -j  ACCEPT || exit 1
+
+    else
+
+        echo -n $"Starting default NetVM:"
+        /usr/lib/qubes/unbind_all_network_devices || exit 1
+        qvm-start -q --no-guid $NETVM || exit 1
+
+    fi
+    touch /var/lock/subsys/qubes_netvm
+    success
+    echo
+	return 0
+}
+
+stop()
+{
+    if [ x$NETVM = x ] ; then
+
+        echo WARNING: Qubes NetVM not configured!
+        echo -n $"Doing nothing:"
+
+    elif [ $NETVM = "dom0" ] ; then 
+
+        echo -n $"Stopping Qubes networking in Dom0:"
+        iptables -t nat -D POSTROUTING -s 10.0.0.0/16 '!' -d 10.0.0.0/16 -j MASQUERADE 
+        iptables -D INPUT -i br0 -s 10.0.0.0/16 -j ACCEPT || exit 1
+        iptables -D FORWARD -i br0 -s 10.0.0.0/16 -j ACCEPT || exit 1
+        iptables -D FORWARD -o br0 -d 10.0.0.0/16 -m state --state ESTABLISHED,RELATED -j ACCEPT || exit 1
+
+
+        killall dnsmasq
+        ifconfig br0 down
+        brctl delbr br0
+
+	else
+
+        echo -n $"Stopping default NetVM:"
+        qvm-run -q --shutdown --wait $NETVM
+
+    fi
+    rm -f /var/lock/subsys/qubes_netvm
+    success
+    echo
+
+	return 0
+}
+
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  *)
+	echo $"Usage: $0 {start|stop}"
+	exit 3
+	;;
+esac
+
+exit $RETVAL

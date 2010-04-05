@@ -1,0 +1,191 @@
+#!/usr/bin/python2.6
+#
+# The Qubes OS Project, http://www.qubes-os.org
+#
+# Copyright (C) 2010  Joanna Rutkowska <joanna@invisiblethingslab.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+#
+
+from qubes.qubes import QubesVmCollection
+from qubes.qubes import QubesException
+from optparse import OptionParser
+
+
+fields = {
+    "qid": {"func": "vm.qid"},
+
+    "name": {"func": "('=>' if qvm_collection.get_default_template_vm() is not None\
+             and vm.qid == qvm_collection.get_default_template_vm().qid else '')\
+             + ('[' if vm.is_templete() else '')\
+             + ('{' if vm.is_netvm() else '')\
+             + vm.name \
+             + (']' if vm.is_templete() else '')\
+             + ('}' if vm.is_netvm() else '')"},
+
+    "type": {"func": "'Tpl' if vm.is_templete() else \
+             (' Net' if vm.is_netvm() else '')"},
+
+    "updbl" : {"func": "'Yes' if vm.is_updateable() else ''"},
+
+    "template": {"func": "'n/a' if vm.is_templete() or vm.is_netvm() else\
+                 qvm_collection[vm.template_vm.qid].name"},
+
+    "netvm": {"func": "'n/a' if vm.is_netvm() else\
+              ('*' if vm.uses_default_netvm else '') +\
+              qvm_collection[vm.netvm_vm.qid].name\
+                     if vm.netvm_vm is not None else '-'"},
+
+    "ip" : {"func": "vm.ip"},
+    "netmask" : {"func": "vm.netmask"},
+    "gateway" : {"func": "vm.gateway"},
+
+    "xid" : {"func" : "vm.get_xid() if vm.is_running() else '-'"},
+
+    "mem" : {"func" : "(str(vm.get_mem()/1024/1024) + ' MB') if vm.is_running() else '-'"},
+    "cpu" : {"func" : "round (vm.get_cpu_total_load(), 1) if vm.is_running() else '-'"},
+    "disk": {"func" : "str(vm.get_disk_utilization()/(1024*1024)) + ' MB'"}, 
+    "state": {"func" : "vm.get_power_state()"},
+
+    "priv-curr": {"func" : "str(vm.get_disk_utilization_private_img()/(1024*1024)) + ' MB'"},
+    "priv-max": {"func" : "str(vm.get_private_img_sz()/(1024*1024)) + ' MB'"},
+    "priv-util": {"func" : "str(vm.get_disk_utilization_private_img()*100/vm.get_private_img_sz()) + '%' if vm.get_private_img_sz() != 0 else '-'"},
+
+    "root-curr": {"func" : "str(vm.get_disk_utilization_root_img()/(1024*1024)) + ' MB'"},
+    "root-max": {"func" : "str(vm.get_root_img_sz()/(1024*1024)) + ' MB'"},
+    "root-util": {"func" : "str(vm.get_disk_utilization_root_img()*100/vm.get_root_img_sz()) + '%' if vm.get_root_img_sz() != 0 else '-'"},
+
+    "label" : {"func" : "vm.label.name"},
+
+    "on" : {"func" : "'*' if vm.is_running() else ''"}
+
+}
+
+
+
+def main():
+    usage = "usage: %prog [options] <vm-name>"
+    parser = OptionParser (usage)
+
+    parser.add_option ("-n", "--network", dest="network",
+                       action="store_true", default=False,
+                       help="Show network addresses assigned to VMs")
+
+    parser.add_option ("-c", "--cpu", dest="cpu",
+                       action="store_true", default=False,
+                       help="Show CPU load")
+
+    parser.add_option ("-m", "--mem", dest="mem",
+                       action="store_true", default=False,
+                       help="Show memory usage")
+
+    parser.add_option ("-d", "--disk", dest="disk",
+                       action="store_true", default=False,
+                       help="Show VM disk utilization statistics")
+
+    parser.add_option ("-i", "--ids", dest="ids",
+                       action="store_true", default=False,
+                       help="Show Qubes and Xen id#s")
+
+
+    (options, args) = parser.parse_args ()
+
+    qvm_collection = QubesVmCollection()
+    qvm_collection.lock_db_for_reading()
+    qvm_collection.load()
+    qvm_collection.unlock_db()
+
+    fields_to_display = ["name", "on", "state", "updbl", "type", "template", "netvm", "label" ]
+
+    if (options.ids):
+        fields_to_display += ["qid", "xid"]
+
+    if (options.cpu):
+        fields_to_display += ["cpu"]
+
+    if (options.mem):
+        fields_to_display += ["mem"]
+
+    if (options.network):
+        fields_to_display.remove ("template")
+        fields_to_display += ["ip", "netmask", "gateway"]
+
+    if (options.disk):
+        fields_to_display.remove ("template")
+        fields_to_display.remove ("netvm")
+        fields_to_display += ["priv-curr", "priv-max", "root-curr", "root-max", "disk" ]
+
+    
+    vms_list = [vm for vm in qvm_collection.values()]
+    no_vms = len (vms_list)
+    vms_to_display = []
+    # Frist, the NetVMs...
+    for netvm in vms_list:
+        if netvm.is_netvm():
+            vms_to_display.append (netvm)
+
+    # Now, the template, and all its AppVMs...
+    for tvm in vms_list:
+        if tvm.is_templete():
+            vms_to_display.append (tvm)
+            for appvm in vms_list:
+                if appvm.is_appvm() and appvm.template_vm.qid == tvm.qid:
+                    vms_to_display.append(appvm)
+
+    assert len(vms_to_display) == no_vms
+
+    # First calculate the maximum width of each field we want to display
+    total_width = 0;
+    for f in fields_to_display:
+        fields[f]["max_width"] = len(f)
+        for vm in vms_to_display:
+            l = len(str(eval(fields[f]["func"])))
+            if l > fields[f]["max_width"]:
+                fields[f]["max_width"] = l
+        total_width += fields[f]["max_width"]
+
+
+    # Display the header
+    s = ""
+    for f in fields_to_display:
+        fmt="{{0:-^{0}}}-+".format(fields[f]["max_width"] + 1)
+        s += fmt.format('-')
+    print s
+    s = ""
+    for f in fields_to_display:
+        fmt="{{0:>{0}}} |".format(fields[f]["max_width"] + 1)
+        s += fmt.format(f) 
+    print s
+    s = ""
+    for f in fields_to_display:
+        fmt="{{0:-^{0}}}-+".format(fields[f]["max_width"] + 1)
+        s += fmt.format('-')
+    print s
+
+    # ... and the actual data
+    for vm in vms_to_display:
+        s = ""
+        for f in fields_to_display:
+            fmt="{{0:>{0}}} |".format(fields[f]["max_width"] + 1)
+            s += fmt.format(eval(fields[f]["func"])) 
+        print s
+
+        try:
+            vm.verify_files()
+        except QubesException as err:
+            print "WARNING: VM '{0}' has corrupted files!".format(vm.name)
+
+main()

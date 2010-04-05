@@ -1,0 +1,55 @@
+#!/bin/sh
+#
+# chkconfig: 345 90 90
+# description: Executes Qubes core scripts at VM boot
+#
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+start()
+{
+	echo -n $"Executing Qubes Core scripts NetVM:"
+
+	if ! [ -x /usr/bin/xenstore-read ] ; then
+		echo "ERROR: /usr/bin/xenstore-read not found!"
+		exit 1
+	fi
+
+	name=$(/usr/bin/xenstore-read name)
+	hostname $name
+
+    # Setup gateway for all the VMs this netVM is serviceing...
+    brctl addbr br0
+    gateway=$(/usr/bin/xenstore-read qubes_netvm_gateway)
+    netmask=$(/usr/bin/xenstore-read qubes_netvm_netmask)
+    network=$(/usr/bin/xenstore-read qubes_netvm_network)
+    ifconfig br0 $gateway netmask $netmask up
+    echo "1" > /proc/sys/net/ipv4/ip_forward
+    dnsmasq --listen-address $gateway --bind-interfaces
+#now done by iptables rc script
+#    iptables -t nat -A POSTROUTING -s $network/$netmask -j MASQUERADE
+	
+	success
+	echo ""
+	return 0
+}
+
+stop()
+{
+	return 0
+}
+
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  *)
+	echo $"Usage: $0 {start|stop}"
+	exit 3
+	;;
+esac
+
+exit $RETVAL

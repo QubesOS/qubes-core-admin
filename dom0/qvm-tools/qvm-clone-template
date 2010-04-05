@@ -1,0 +1,75 @@
+#!/usr/bin/python2.6
+#
+# The Qubes OS Project, http://www.qubes-os.org
+#
+# Copyright (C) 2010  Joanna Rutkowska <joanna@invisiblethingslab.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+#
+
+from qubes.qubes import QubesVmCollection
+from qubes.qubes import QubesException
+from optparse import OptionParser;
+
+def main():
+    usage = "usage: %prog [options] <src-template-name> <new-template-name>\n"\
+            "Clones an existing template by copying all its disk files"
+          
+    parser = OptionParser (usage)
+    parser.add_option ("-q", "--quiet", action="store_false", dest="verbose", default=True)
+    parser.add_option ("-p", "--path", dest="dir_path",
+                       help="Specify path to the template directory")
+
+    (options, args) = parser.parse_args ()
+    if (len (args) != 2):
+        parser.error ("You must specify at least the src and dst TemplateVM names!")
+    srcname = args[0]
+    dstname = args[1]
+
+    qvm_collection = QubesVmCollection()
+    qvm_collection.lock_db_for_writing()
+    qvm_collection.load()
+
+    src_tvm = qvm_collection.get_vm_by_name(srcname)
+    if src_tvm is  None:
+        print "ERROR: A VM with the name '{0}' does not exist in the system.".format(srcname)
+        exit(1)
+
+    if qvm_collection.get_vm_by_name(dstname) is not None:
+        print "ERROR: A VM with the name '{0}' already exists in the system.".format(dstname)
+        exit(1)
+
+    dst_tvm = qvm_collection.clone_templatevm(src_template_vm=src_tvm,
+                                              name=dstname, 
+                                              dir_path=options.dir_path)
+
+    try:
+        dst_tvm.clone_disk_files (src_template_vm=src_tvm, verbose=options.verbose)
+
+        if options.verbose:
+            print "--> Adding to Xen Storage..."
+ 
+        dst_tvm.add_to_xen_storage()
+
+    except (IOError, OSError) as err:
+        print "ERROR: {0}".format(err)
+        qvm_collection.pop(dst_tvm.qid)
+        exit (1)
+
+    qvm_collection.save()
+    qvm_collection.unlock_db()
+    
+main()

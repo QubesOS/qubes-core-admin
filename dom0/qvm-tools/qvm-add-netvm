@@ -1,0 +1,119 @@
+#!/usr/bin/python2.6
+#
+# The Qubes OS Project, http://www.qubes-os.org
+#
+# Copyright (C) 2010  Joanna Rutkowska <joanna@invisiblethingslab.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+#
+
+from optparse import OptionParser
+import subprocess
+import shutil
+import re
+
+from qubes.qubes import QubesVmCollection
+from qubes.qubes import QubesException
+
+def find_net_devices():
+    p = subprocess.Popen (["lspci", "-mm", "-n"], stdout=subprocess.PIPE)
+    result = p.communicate()
+    retcode = p.returncode
+    if (retcode != 0):
+        print "ERROR when executing lspci!"
+        raise IOError
+
+    net_devices = set()
+    rx_netdev = re.compile (r"^([0-9][0-9]:[0-9][0-9].[0-9]) \"02")
+    for dev in str(result[0]).splitlines():
+        match = rx_netdev.match (dev)
+        if match is not None:
+            dev_bdf = match.group(1)
+            assert dev_bdf is not None
+            net_devices.add (dev_bdf)
+
+    return  net_devices
+
+def main():
+    usage = "usage: %prog [options] <netvm-name>"
+    parser = OptionParser (usage)
+    parser.add_option ("-p", "--path", dest="dir_path",
+                       help="Specify path to the template directory")
+    parser.add_option ("-c", "--conf", dest="conf_file",
+                       help="Specify the Xen VM .conf file to use\
+                       (relative to the template dir path)")
+
+
+    (options, args) = parser.parse_args ()
+    if (len (args) != 1):
+        parser.error ("You must specify a NetVM name!")
+    netvmname = args[0]
+
+    qvm_collection = QubesVmCollection()
+    qvm_collection.lock_db_for_writing()
+    qvm_collection.load()
+
+    if qvm_collection.get_vm_by_name(netvmname) is not None:
+        print "ERROR: A VM with the name '{0}' already exists in the system.".format(netvmname)
+        exit(1)
+
+    vm = qvm_collection.add_new_netvm(netvmname, 
+                                         conf_file=options.conf_file,
+                                         dir_path=options.dir_path)
+
+    try:
+        vm.verify_files()
+    except QubesException as err:
+        print "ERROR: {0}".format(err)
+        qvm_collection.pop(vm.qid)
+        exit (1)
+
+
+    net_devices = find_net_devices()
+    print "Found the following net devices in your system:"
+    dev_str = ''
+    for dev in net_devices:
+        print "--> {0}".format(dev)
+        dev_str += '"{0}", '.format(dev)
+
+    print "Assigning them to the netvm '{0}'".format(netvmname)
+    rx_pcidevs = re.compile (r"%NETVMPCIDEVS%")
+    conf_template = open (vm.conf_file, "r")
+    conf_vm = open(vm.conf_file + ".processed", "w")
+
+    for line in conf_template:
+        line = rx_pcidevs.sub(dev_str, line)
+        conf_vm.write(line)
+
+    conf_template.close()
+    conf_vm.close()
+
+    shutil.move (vm.conf_file + ".processed", vm.conf_file)
+
+
+    try:
+        pass
+        vm.add_to_xen_storage()
+
+    except (IOError, OSError) as err:
+        print "ERROR: {0}".format(err)
+        qvm_collection.pop(vm.qid)
+        exit (1)
+
+    qvm_collection.save()
+    qvm_collection.unlock_db()
+
+main()

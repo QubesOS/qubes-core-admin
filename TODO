@@ -1,0 +1,16 @@
+* file exchange -- handle correctly files that have spaces in name
+-- qvm-copy-to-vm* do not copy files in the top directory has spaces in the name
+
+* qvm-update-appmenus
+-- let the user install appmenus for (potential) new apps after template update
+-- BUT: potential problem of Dom0 needing to mount the template's fs
+-- but: perhaps we should trust the template and its update process?
+
+* netvm: prevent inter-VM networking
+-- do not allow one AppVM to send any packets to other AppVMs that use the same netvm
+
+* qvm-prefs: allow to grow/shrink AppVM's private.img?
+
+* Dom0 udev scripts: do not load network drivers at all!
+
+* Dom0: detect when running without VT-d enabled and display a warning

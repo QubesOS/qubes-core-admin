@@ -1,0 +1,74 @@
+#!/usr/bin/python2.6
+#
+# The Qubes OS Project, http://www.qubes-os.org
+#
+# Copyright (C) 2010  Joanna Rutkowska <joanna@invisiblethingslab.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+#
+
+from optparse import OptionParser
+import subprocess
+import shutil
+import re
+
+
+def find_net_devices():
+    p = subprocess.Popen (["lspci", "-mm", "-n"], stdout=subprocess.PIPE)
+    result = p.communicate()
+    retcode = p.returncode
+    if (retcode != 0):
+        print "ERROR when executing lspci!"
+        raise IOError
+
+    net_devices = set()
+    rx_netdev = re.compile (r"^([0-9][0-9]:[0-9][0-9].[0-9]) \"02")
+    for dev in str(result[0]).splitlines():
+        match = rx_netdev.match (dev)
+        if match is not None:
+            dev_bdf = match.group(1)
+            assert dev_bdf is not None
+            net_devices.add (dev_bdf)
+
+    return  net_devices
+
+def main():
+    usage = "usage: %prog [options] <netvm-name>"
+    parser = OptionParser (usage)
+    parser.add_option ("-v", "--verbose", dest="verbose", action="store_true", default=False)
+    (options, args) = parser.parse_args ()
+
+    if options.verbose:
+        print "Loading Xen PCI Backend..."
+    retcode = subprocess.call (["/sbin/modprobe", "xen-pciback"])
+    if retcode != 0:
+        print "ERROR: Cannot load xen-pciback module!"
+        exit(1)
+
+    if options.verbose:
+        print "Unbinding the following net devices:"
+
+    net_devices = find_net_devices()
+
+    for dev in net_devices:
+        if options.verbose:
+            print "--> {0}".format(dev)
+        retcode = subprocess.call (["/usr/lib/qubes/unbind_pci_device.sh", dev])
+        if (retcode != 0):
+            print "WARNING: Could not unbind device {0}".format(dev)
+
+
+main()

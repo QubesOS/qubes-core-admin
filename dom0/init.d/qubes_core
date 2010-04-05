@@ -1,0 +1,63 @@
+#!/bin/sh
+#
+# chkconfig: 2345 99 00
+# description: Executes Qubes core scripts at Dom0 boot
+#
+### BEGIN INIT INFO
+# Provides:          qubes-core
+# Required-Start:    xend
+# Default-Start:     3 4 5
+# Default-Stop:      0 1 2 6
+# Default-Enabled:   yes
+# Short-Description: Start/stop qubes-core services
+# Description:       Starts and stops the qubes-core serives
+### END INIT INFO
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+
+
+start()
+{
+    echo -n $"Executing Qubes Core scripts:"
+    chgrp qubes /etc/xen
+    chmod 710 /etc/xen
+    chgrp qubes /var/run/xend
+    chmod 710 /var/run/xend
+    chgrp qubes /var/run/xend/xen-api.sock /var/run/xend/xmlrpc.sock
+    chmod 660 /var/run/xend/xen-api.sock /var/run/xend/xmlrpc.sock
+    chgrp qubes /var/run/xenstored/*
+    chmod 660 /var/run/xenstored/*
+    xm sched-credit -d 0 -w 65535
+    cp /var/lib/qubes/qubes.xml /var/lib/qubes/backup/qubes-$(date +%F-%T).xml
+    touch /var/lock/subsys/qubes_core
+    success
+    echo
+
+}
+
+stop()
+{
+    echo -n $"Shutting down all Qubes VMs:"
+    NETVM=$(qvm-get-default-netvm)
+    qvm-run -q --shutdown --all --wait --exclude $NETVM
+    rm -f /var/lock/subsys/qubes_core
+    success
+    echo
+}
+
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  *)
+	echo $"Usage: $0 {start|stop}"
+	exit 3
+	;;
+esac
+
+exit $RETVAL
