@@ -1,3 +1,7 @@
+* Correctly calculate expected Dom0 memory
+-- Account for the memory that has been freed when a VM was stopped
+   but not returned to Dom0
+
 * file exchange -- handle correctly files that have spaces in name
 -- qvm-copy-to-vm* do not copy files in the top directory has spaces in the name
 
