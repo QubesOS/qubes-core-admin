@@ -43,6 +43,10 @@ Requires:	python, xen-runtime, pciutils, python-inotify, python-daemon, kernel-q
 %description
 The Qubes core files for installation on Dom0.
 
+%build
+python -m compileall qvm-core
+python -O -m compileall qvm-core
+
 %install
 
 mkdir -p $RPM_BUILD_ROOT/etc/init.d
@@ -56,7 +60,9 @@ cp pendrive_swapper/qfilexchgd $RPM_BUILD_ROOT/usr/bin
 
 mkdir -p $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/qubes.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
+cp qvm-core/qubes.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/__init__.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
+cp qvm-core/__init__.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
 
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/patch_appvm_initramfs.sh $RPM_BUILD_ROOT/usr/lib/qubes
