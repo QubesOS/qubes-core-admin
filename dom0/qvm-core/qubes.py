@@ -400,6 +400,12 @@ class QubesVm(object):
         else:
             pass
 
+    def get_free_xen_memory(self, session):
+        hosts = session.xenapi.host.get_all()
+        host_record = session.xenapi.host.get_record(hosts[0])
+        host_metrics_record = session.xenapi.host_metrics.get_record(host_record["metrics"]) 
+        ret = host_metrics_record["memory_free"]
+        return long(ret)
 
     def start(self, debug_console = False, verbose = False):
         if dry_run:
@@ -420,7 +426,7 @@ class QubesVm(object):
 
         mem_required = self.get_mem_static_max()
         dom0_mem = dom0_vm.get_mem()
-        dom0_mem_new = dom0_mem - mem_required
+        dom0_mem_new = dom0_mem - mem_required + self.get_free_xen_memory(session)
         if verbose:
             print "--> AppVM required mem     : {0}".format(mem_required)
             print "--> Dom0 mem after launch  : {0}".format(dom0_mem_new)
