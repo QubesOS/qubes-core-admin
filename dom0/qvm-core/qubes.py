@@ -112,7 +112,7 @@ QubesVmLabels = {
     "yellow" : QubesVmLabel ("yellow"),
     "orange" : QubesVmLabel ("orange"),
     "red" : QubesVmLabel ("red"),
-    "purple" : QubesVmLabel ("purple"),
+    "purple" : QubesVmLabel ("purple", color="0xb83374"),
     "green" : QubesVmLabel ("green", color="0x5fa05e"),
     "blue" : QubesVmLabel ("blue"),
     "gray" : QubesVmLabel ("gray"),
