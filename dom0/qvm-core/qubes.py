@@ -106,7 +106,8 @@ class XendSession(object):
             print "get_xend_session_new_api(): cannot open session!"
 
 
-xend_session = XendSession()
+if not dry_run:
+    xend_session = XendSession()
  
 class QubesException (Exception) : pass
 
@@ -178,12 +179,7 @@ class QubesVm(object):
         self.icon_path = self.dir_path + "/icon.png"
 
         if not dry_run and xend_session.session is not None:
-            uuids = xend_session.session.xenapi.VM.get_by_name_label (self.name)
-            self.session_uuid = uuids[0] if len (uuids) > 0 else None
-            if self.session_uuid is not None:
-                self.session_metrics = xend_session.session.xenapi.VM.get_metrics(self.session_uuid)
-            else:
-                self.session_metrics = None
+            self.refresh_xend_session()
 
     @property
     def qid(self):
@@ -273,39 +269,54 @@ class QubesVm(object):
 
         self.in_xen_storage = False
 
+    def refresh_xend_session(self):
+        uuids = xend_session.session.xenapi.VM.get_by_name_label (self.name)
+        self.session_uuid = uuids[0] if len (uuids) > 0 else None
+        if self.session_uuid is not None:
+            self.session_metrics = xend_session.session.xenapi.VM.get_metrics(self.session_uuid)
+        else:
+            self.session_metrics = None
+
     def update_xen_storage(self):
         self.remove_from_xen_storage()
         self.add_to_xen_storage()
-
         if not dry_run and xend_session.session is not None:
-            uuids = xend_session.session.xenapi.VM.get_by_name_label (self.name)
-            self.session_uuid = uuids[0] if len (uuids) > 0 else None
-            if self.session_uuid is not None:
-                self.session_metrics = xend_session.session.xenapi.VM.get_metrics(self.session_uuid)
-            else:
-                self.session_metrics = None
-
-
+            self.refresh_xend_session()
 
     def get_xid(self):
         if dry_run:
             return 666
 
-        xid = int (xend_session.session.xenapi.VM.get_domid (self.session_uuid))
+        try:
+            xid = int (xend_session.session.xenapi.VM.get_domid (self.session_uuid))
+        except XenAPI.Failure:
+            self.refresh_xend_session()
+            xid = int (xend_session.session.xenapi.VM.get_domid (self.session_uuid))
+
         return xid
 
     def get_mem(self):
         if dry_run:
             return 666
 
-        mem = int (xend_session.session.xenapi.VM_metrics.get_memory_actual (self.session_metrics))
+        try:
+            mem = int (xend_session.session.xenapi.VM_metrics.get_memory_actual (self.session_metrics))
+        except XenAPI.Failure:
+            self.refresh_xend_session()
+            mem = int (xend_session.session.xenapi.VM_metrics.get_memory_actual (self.session_metrics))
+
         return mem
 
     def get_mem_static_max(self):
         if dry_run:
             return 666
 
-        mem = int(xend_session.session.xenapi.VM.get_memory_static_max(self.session_uuid))
+        try:
+            mem = int(xend_session.session.xenapi.VM.get_memory_static_max(self.session_uuid))
+        except XenAPI.Failure:
+            self.refresh_xend_session()
+            mem = int(xend_session.session.xenapi.VM.get_memory_static_max(self.session_uuid))
+
         return mem
 
 
@@ -314,7 +325,12 @@ class QubesVm(object):
             import random
             return random.random() * 100
 
-        cpus_util = xend_session.session.xenapi.VM_metrics.get_VCPUs_utilisation (self.session_metrics)
+        try:
+            cpus_util = xend_session.session.xenapi.VM_metrics.get_VCPUs_utilisation (self.session_metrics)
+        except XenAPI.Failure:
+            self.refresh_xend_session()
+            cpus_util = xend_session.session.xenapi.VM_metrics.get_VCPUs_utilisation (self.session_metrics)
+
         if len (cpus_util) == 0:
             return 0
 
@@ -331,10 +347,14 @@ class QubesVm(object):
         if dry_run:
             return "NA"
 
-        if self.session_uuid is None:
-            return "NA"
+        try:
+            power_state = xend_session.session.xenapi.VM.get_power_state (self.session_uuid)
+        except XenAPI.Failure:
+            self.refresh_xend_session()
+            if self.session_uuid is None:
+                return "NA"
+            power_state = xend_session.session.xenapi.VM.get_power_state (self.session_uuid)
 
-        power_state = xend_session.session.xenapi.VM.get_power_state (self.session_uuid)
         return power_state
 
     def is_running(self):
@@ -342,7 +362,6 @@ class QubesVm(object):
             return True
         else:
             return False
-
 
     def get_disk_usage(self, file_or_dir):
         if not os.path.exists(file_or_dir):
@@ -442,7 +461,12 @@ class QubesVm(object):
         if dom0_mem_new < dom0_min_memory:
             raise MemoryError ("ERROR: starting this VM would cause Dom0 memory to go below {0}B".format(dom0_min_memory))
 
-        xend_session.session.xenapi.VM.start (self.session_uuid, True) # Starting a VM paused
+        try:
+            xend_session.session.xenapi.VM.start (self.session_uuid, True) # Starting a VM paused
+        except XenAPI.Failure:
+            self.refresh_xend_session()
+            xend_session.session.xenapi.VM.start (self.session_uuid, True) # Starting a VM paused
+
         xid = int (xend_session.session.xenapi.VM.get_domid (self.session_uuid))
 
         if verbose:
@@ -487,7 +511,11 @@ class QubesVm(object):
         if dry_run:
             return
 
-        xend_session.session.xenapi.VM.hard_shutdown (self.session_uuid)
+        try:
+            xend_session.session.xenapi.VM.hard_shutdown (self.session_uuid)
+        except XenAPI.Failure:
+            self.refresh_xend_session()
+            xend_session.session.xenapi.VM.hard_shutdown (self.session_uuid)
 
     def remove_from_disk(self):
         if dry_run:
