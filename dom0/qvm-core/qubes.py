@@ -112,22 +112,23 @@ if not dry_run:
 class QubesException (Exception) : pass
 
 class QubesVmLabel(object):
-    def __init__(self, name, color = None, icon = None):
+    def __init__(self, name, index, color = None, icon = None):
         self.name = name
+        self.index = index
         self.color = color if color is not None else name
         self.icon = icon if icon is not None else name
         self.icon_path = "/usr/share/qubes/icons/" + self.icon + ".png"
 
 # Globally defined lables
 QubesVmLabels = {
-    "yellow" : QubesVmLabel ("yellow"),
-    "orange" : QubesVmLabel ("orange"),
-    "red" : QubesVmLabel ("red"),
-    "purple" : QubesVmLabel ("purple", color="0xb83374"),
-    "green" : QubesVmLabel ("green", color="0x5fa05e"),
-    "blue" : QubesVmLabel ("blue"),
-    "gray" : QubesVmLabel ("gray"),
-    "black" : QubesVmLabel ("black"),
+    "red" : QubesVmLabel ("red", 0),
+    "orange" : QubesVmLabel ("orange", 1),
+    "yellow" : QubesVmLabel ("yellow", 2),
+    "green" : QubesVmLabel ("green", 3, color="0x5fa05e"),
+    "gray" : QubesVmLabel ("gray", 4),
+    "blue" : QubesVmLabel ("blue", 5),
+    "purple" : QubesVmLabel ("purple", 6, color="0xb83374"),
+    "black" : QubesVmLabel ("black", 7),
 }
 
 default_appvm_label = QubesVmLabels["red"]
