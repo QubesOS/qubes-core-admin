@@ -43,6 +43,8 @@ if not dry_run:
     from xen.xend import sxp
 
 
+qubes_guid_path = "/usr/bin/qubes_guid"
+
 if dry_run:
     qubes_base_dir   = "."
 else:
