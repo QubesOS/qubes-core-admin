@@ -1018,7 +1018,7 @@ class QubesAppVm(QubesVm):
 
         if verbose:
             print "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
-            os.symlink (self.label.icon_path, self.icon_path)
+        os.symlink (self.label.icon_path, self.icon_path)
 
         subprocess.check_call ([qubes_appmenu_create_cmd, self.template_vm.appmenus_templates_dir, self.name])
 
