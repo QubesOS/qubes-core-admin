@@ -34,7 +34,7 @@ echo " received"
 mount /mnt/outgoing 
 VMNAME=$1
 shift
-cp -v -a $* /mnt/outgoing
+cp -v -a "$@" /mnt/outgoing
 #sometimes Dolphin lags a bit
 umount /mnt/outgoing || (sleep 1; umount /mnt/outgoing) || exit 1
 qubes_penctl send $VMNAME || exit 1
