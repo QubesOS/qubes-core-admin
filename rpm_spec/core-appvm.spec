@@ -66,6 +66,7 @@ mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
 cp iptables $RPM_BUILD_ROOT/etc/sysconfig/
 mkdir -p $RPM_BUILD_ROOT/mnt/incoming
 mkdir -p $RPM_BUILD_ROOT/mnt/outgoing
+mkdir -p $RPM_BUILD_ROOT/mnt/removable
 
 %post
 
@@ -160,3 +161,4 @@ rm -rf $RPM_BUILD_ROOT
 %dir /var/lib/qubes
 %dir /mnt/incoming
 %dir /mnt/outgoing
+%dir /mnt/removable
