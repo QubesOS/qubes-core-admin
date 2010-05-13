@@ -15,3 +15,4 @@ sysfs                   /sys                    sysfs   defaults        0 0
 proc                    /proc                   proc    defaults        0 0
 /dev/xvdg	/mnt/outgoing	vfat noauto,user,rw 0 0
 /dev/xvdh	/mnt/incoming	vfat noauto,user,rw 0 0
+/dev/xvdi	/mnt/removable	vfat noauto,user,rw 0 0
