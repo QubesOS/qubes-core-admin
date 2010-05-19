@@ -213,6 +213,13 @@ class QubesVm(object):
         else:
             return None
 
+    @property
+    def secondary_dns(self):
+        if self.netvm_vm is not None:
+            return self.netvm_vm.secondary_dns
+        else:
+            return None
+
     def is_updateable(self):
         return self.updateable
 
@@ -407,6 +414,11 @@ class QubesVm(object):
 
             retcode = subprocess.check_call ([
                 "/usr/bin/xenstore-write",
+                "/local/domain/{0}/qubes_netvm_secondary_dns".format(xid),
+                self.secondary_dns])
+
+            retcode = subprocess.check_call ([
+                "/usr/bin/xenstore-write",
                 "/local/domain/{0}/qubes_netvm_netmask".format(xid),
                 self.netmask])
 
@@ -430,6 +442,11 @@ class QubesVm(object):
                 "/usr/bin/xenstore-write",
                 "/local/domain/{0}/qubes_gateway".format(xid),
                 self.gateway])
+
+            retcode = subprocess.check_call ([
+                "/usr/bin/xenstore-write",
+                "/local/domain/{0}/qubes_secondary_dns".format(xid),
+                self.secondary_dns])
         else:
             pass
 
@@ -813,6 +830,7 @@ class QubesNetVm(QubesServiceVm):
         self.netprefix = "10.{0}.".format(netid)
         self.__netmask = vm_default_netmask
         self.__gateway = self.netprefix + "0.1"
+        self.__secondary_dns = self.netprefix + "255.254"
 
         if "label" not in kwargs or kwargs["label"] is None:
             kwargs["label"] = default_servicevm_label
@@ -821,6 +839,10 @@ class QubesNetVm(QubesServiceVm):
     @property
     def gateway(self):
         return self.__gateway
+
+    @property
+    def secondary_dns(self):
+        return self.__secondary_dns
 
     @property
     def netmask(self):

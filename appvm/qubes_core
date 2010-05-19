@@ -52,10 +52,12 @@ start()
 	    ip=$(/usr/bin/xenstore-read qubes_ip)
 	    netmask=$(/usr/bin/xenstore-read qubes_netmask)
 	    gateway=$(/usr/bin/xenstore-read qubes_gateway)
+	    secondary_dns=$(/usr/bin/xenstore-read qubes_secondary_dns)
         if [ x$ip != x ]; then
             /sbin/ifconfig eth0 $ip netmask $netmask up
             /sbin/route add default gw $gateway
             echo "nameserver $gateway" > /etc/resolv.conf
+            echo "nameserver $secondary_dns" >> /etc/resolv.conf
         fi
 	fi
 

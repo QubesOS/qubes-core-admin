@@ -23,12 +23,20 @@ start()
     gateway=$(/usr/bin/xenstore-read qubes_netvm_gateway)
     netmask=$(/usr/bin/xenstore-read qubes_netvm_netmask)
     network=$(/usr/bin/xenstore-read qubes_netvm_network)
+    secondary_dns=$(/usr/bin/xenstore-read qubes_netvm_secondary_dns)
     ifconfig br0 $gateway netmask $netmask up
+    ifconfig br0:1 $secondary_dns netmask $netmask
+    echo "NS1=$gateway" > /var/run/qubes_ns
+    echo "NS2=$secondary_dns" >> /var/run/qubes_ns
+    qubes_setup_dnat_to_ns
     echo "1" > /proc/sys/net/ipv4/ip_forward
-    dnsmasq --listen-address $gateway --bind-interfaces
+#now no need for dnsmasq
+#    dnsmasq --listen-address $gateway --bind-interfaces
 #now done by iptables rc script
 #    iptables -t nat -A POSTROUTING -s $network/$netmask -j MASQUERADE
-	
+#no, we cannot put ip-dependent stuff in sysconfig/iptables
+    iptables -t nat -A POSTROUTING -s $network/$netmask -d 224.0.0.0/8 -j ACCEPT	
+    iptables -t nat -A POSTROUTING -s $network/$netmask \! -d $network/$netmask -j MASQUERADE	
 	success
 	echo ""
 	return 0

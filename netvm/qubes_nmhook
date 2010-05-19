@@ -1,0 +1,2 @@
+#!/bin/sh
+/usr/bin/qubes_setup_dnat_to_ns

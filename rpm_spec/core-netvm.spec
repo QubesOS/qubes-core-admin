@@ -55,7 +55,12 @@ cp fstab $RPM_BUILD_ROOT/etc/fstab
 mkdir -p $RPM_BUILD_ROOT/etc/init.d
 cp qubes_core $RPM_BUILD_ROOT/etc/init.d/
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
-
+mkdir -p $RPM_BUILD_ROOT/usr/bin
+cp qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/bin
+mkdir -p $RPM_BUILD_ROOT/etc/dhclient.d
+ln -s /usr/bin/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/etc/dhclient.d/qubes_setup_dnat_to_ns.sh 
+mkdir -p $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
+cp qubes_nmhook $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 %post
 
 if [ "$1" !=  1 ] ; then
@@ -140,3 +145,6 @@ rm -rf $RPM_BUILD_ROOT
 /etc/sysconfig/iptables
 /etc/init.d/qubes_core
 %dir /var/lib/qubes
+/usr/bin/qubes_setup_dnat_to_ns
+/etc/dhclient.d/qubes_setup_dnat_to_ns.sh
+/etc/NetworkManager/dispatcher.d/qubes_nmhook
