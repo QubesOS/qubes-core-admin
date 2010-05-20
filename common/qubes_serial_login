@@ -1,0 +1,7 @@
+#!/bin/sh
+if /bin/ls -l /proc/self/fd/0 | grep -q /dev/hvc0 ; then
+	exec su - $2
+	exit
+else
+	exec /bin/login "$@"
+fi

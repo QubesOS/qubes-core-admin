@@ -63,6 +63,13 @@ mkdir -p $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 cp qubes_nmhook $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 mkdir -p $RPM_BUILD_ROOT/etc/yum.repos.d
 cp ../common/qubes.repo $RPM_BUILD_ROOT/etc/yum.repos.d
+mkdir -p $RPM_BUILD_ROOT/sbin   
+cp ../common/qubes_serial_login $RPM_BUILD_ROOT/sbin
+mkdir -p $RPM_BUILD_ROOT/etc
+cp ../common/qubes_eventd_serial $RPM_BUILD_ROOT/etc/
+
+%triggerin -- initscripts
+cp /etc/qubes_eventd_serial /etc/event.d/serial
 
 %post
 
@@ -144,6 +151,7 @@ if [ "$1" = 0 ] ; then
     chkconfig qubes_core off
     mv /var/lib/qubes/fstab.orig /etc/fstab
     mv /var/lib/qubes/removed-udev-scripts/* /etc/udev/rules.d/
+    mv /var/lib/qubes/serial.orig /etc/event.d
 fi
 
 %clean
@@ -159,3 +167,5 @@ rm -rf $RPM_BUILD_ROOT
 /etc/dhclient.d/qubes_setup_dnat_to_ns.sh
 /etc/NetworkManager/dispatcher.d/qubes_nmhook
 /etc/yum.repos.d/qubes.repo
+/sbin/qubes_serial_login
+/etc/qubes_eventd_serial

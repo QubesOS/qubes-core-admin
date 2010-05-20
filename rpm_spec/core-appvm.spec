@@ -69,9 +69,22 @@ mkdir -p $RPM_BUILD_ROOT/mnt/outgoing
 mkdir -p $RPM_BUILD_ROOT/mnt/removable
 mkdir -p $RPM_BUILD_ROOT/etc/yum.repos.d
 cp ../common/qubes.repo $RPM_BUILD_ROOT/etc/yum.repos.d
+mkdir -p $RPM_BUILD_ROOT/sbin   
+cp ../common/qubes_serial_login $RPM_BUILD_ROOT/sbin
+mkdir -p $RPM_BUILD_ROOT/etc
+cp ../common/qubes_eventd_serial $RPM_BUILD_ROOT/etc/
+
+%triggerin -- initscripts
+cp /etc/qubes_eventd_serial /etc/event.d/serial
 
 
 %post
+
+usermod -L root
+usermod -L user
+if ! [ -f /var/lib/qubes/serial.orig ] ; then
+	cp /etc/event.d/serial /var/lib/qubes/serial.orig
+fi
 
 if [ "$1" !=  1 ] ; then
 # do this whole %post thing only when updating for the first time...
@@ -132,7 +145,6 @@ do
 
     mv $f /var/lib/qubes/removed-udev-scripts/
 done
-
 mkdir -p /rw
 #rm -f /etc/mtab
 echo "--> Removing HWADDR setting from /etc/sysconfig/network-scripts/ifcfg-eth0"
@@ -145,6 +157,7 @@ if [ "$1" = 0 ] ; then
     chkconfig qubes_core off
     mv /var/lib/qubes/fstab.orig /etc/fstab
     mv /var/lib/qubes/removed-udev-scripts/* /etc/udev/rules.d/
+    mv /var/lib/qubes/serial.orig /etc/event.d
 fi
 
 %clean
@@ -166,3 +179,5 @@ rm -rf $RPM_BUILD_ROOT
 %dir /mnt/outgoing
 %dir /mnt/removable
 /etc/yum.repos.d/qubes.repo
+/sbin/qubes_serial_login
+/etc/qubes_eventd_serial
