@@ -59,6 +59,14 @@ start()
             echo "nameserver $gateway" > /etc/resolv.conf
             echo "nameserver $secondary_dns" >> /etc/resolv.conf
         fi
+	    if ! [ -L /usr/local ] ; then
+        	mv /usr/local /usr/local.orig
+        	ln -s /rw/usrlocal /usr/local
+	    fi
+	    if ! [ -d /rw/usrlocal ] ; then
+        	cp -a /usr/local.orig /rw/usrlocal
+	    fi
+
 	fi
 
 	
