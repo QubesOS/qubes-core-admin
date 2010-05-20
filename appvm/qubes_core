@@ -10,24 +10,6 @@ start()
 {
 	echo -n $"Executing Qubes Core scripts:"
 
-	if ! [ -d /rw/home ] ; then
-	    echo
-	    echo "--> Virgin boot of the VM: Linking /home to /rw/home"
-	    mv /home /home.orig
-	    mkdir -p /rw/config
-	    mkdir -p /rw/home
-	    ln -s /rw/home/ /home
-#	    chcon --reference /home.orig /rw/home
-	    cp -a /home.orig/user /home
-	    touch /rw/config/rc.local
-	    rm -fr /home.orig
-	    touch /var/lib/qubes/first_boot_completed
-    else
-	    mv /home /home.tmpl
-	    ln -s /rw/home/ /home
-	fi
-
-
 	if ! [ -x /usr/bin/xenstore-read ] ; then
 		echo "ERROR: /usr/bin/xenstore-read not found!"
 		exit 1
@@ -38,38 +20,35 @@ start()
 
 	vmtype=$(/usr/bin/xenstore-read qubes_vm_type)
 
-	if [ $vmtype == 'NetVM' ] ; then
-	    # Setup gateway for all the VMs this netVM is serviceing...
-	    brctl addbr br0
-	    gateway=$(/usr/bin/xenstore-read qubes_netvm_gateway)
-	    netmask=$(/usr/bin/xenstore-read qubes_netvm_netmask)
-	    network=$(/usr/bin/xenstore-read qubes_netvm_network)
-	    ifconfig br0 $gateway netmask $netmask up
-	    echo "1" > /proc/sys/net/ipv4/ip_forward
-	    dnsmasq
-	    iptables -t nat -A POSTROUTING -s $network/$netmask -j MASQUERADE
-	else
-	    ip=$(/usr/bin/xenstore-read qubes_ip)
-	    netmask=$(/usr/bin/xenstore-read qubes_netmask)
-	    gateway=$(/usr/bin/xenstore-read qubes_gateway)
-	    secondary_dns=$(/usr/bin/xenstore-read qubes_secondary_dns)
-        if [ x$ip != x ]; then
-            /sbin/ifconfig eth0 $ip netmask $netmask up
-            /sbin/route add default gw $gateway
-            echo "nameserver $gateway" > /etc/resolv.conf
-            echo "nameserver $secondary_dns" >> /etc/resolv.conf
-        fi
-	    if ! [ -L /usr/local ] ; then
+	
+	if ! [ "X"$vmtype = XAppVM ] ; then
+		echo "ERROR: vmtype=$vmtype"
+		exit 1
+	fi 		
+
+	ip=$(/usr/bin/xenstore-read qubes_ip)
+	netmask=$(/usr/bin/xenstore-read qubes_netmask)
+	gateway=$(/usr/bin/xenstore-read qubes_gateway)
+	secondary_dns=$(/usr/bin/xenstore-read qubes_secondary_dns)
+	if [ x$ip != x ]; then
+		/sbin/ifconfig eth0 $ip netmask $netmask up
+		/sbin/route add default gw $gateway
+		echo "nameserver $gateway" > /etc/resolv.conf
+		echo "nameserver $secondary_dns" >> /etc/resolv.conf
+	fi
+	if ! [ -L /home ] ; then
+		mv /home /home.orig
+		ln -s /rw/home /home
+	fi
+	if ! [ -L /usr/local ] ; then
         	mv /usr/local /usr/local.orig
         	ln -s /rw/usrlocal /usr/local
-	    fi
-	    if ! [ -d /rw/usrlocal ] ; then
+	fi
+#make it last, we want all above to work without /rw mounted
+	if ! [ -d /rw/usrlocal ] ; then
         	cp -a /usr/local.orig /rw/usrlocal
-	    fi
-
 	fi
 
-	
 	[ -x /rw/config/rc.local ] && /rw/config/rc.local
 	success
 	echo ""
