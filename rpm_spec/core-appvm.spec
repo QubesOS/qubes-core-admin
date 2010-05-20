@@ -67,6 +67,9 @@ cp iptables $RPM_BUILD_ROOT/etc/sysconfig/
 mkdir -p $RPM_BUILD_ROOT/mnt/incoming
 mkdir -p $RPM_BUILD_ROOT/mnt/outgoing
 mkdir -p $RPM_BUILD_ROOT/mnt/removable
+mkdir -p $RPM_BUILD_ROOT/etc/yum.repos.d
+cp ../common/qubes.repo $RPM_BUILD_ROOT/etc/yum.repos.d
+
 
 %post
 
@@ -162,3 +165,4 @@ rm -rf $RPM_BUILD_ROOT
 %dir /mnt/incoming
 %dir /mnt/outgoing
 %dir /mnt/removable
+/etc/yum.repos.d/qubes.repo

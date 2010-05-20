@@ -61,6 +61,9 @@ mkdir -p $RPM_BUILD_ROOT/etc/dhclient.d
 ln -s /usr/bin/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/etc/dhclient.d/qubes_setup_dnat_to_ns.sh 
 mkdir -p $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 cp qubes_nmhook $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
+mkdir -p $RPM_BUILD_ROOT/etc/yum.repos.d
+cp ../common/qubes.repo $RPM_BUILD_ROOT/etc/yum.repos.d
+
 %post
 
 sed 's/^net.ipv4.ip_forward.*/net.ipv4.ip_forward = 1/'  -i /etc/sysctl.conf
@@ -155,3 +158,4 @@ rm -rf $RPM_BUILD_ROOT
 /usr/bin/qubes_setup_dnat_to_ns
 /etc/dhclient.d/qubes_setup_dnat_to_ns.sh
 /etc/NetworkManager/dispatcher.d/qubes_nmhook
+/etc/yum.repos.d/qubes.repo

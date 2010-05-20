@@ -83,6 +83,8 @@ mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/backup
 mkdir -p $RPM_BUILD_ROOT/usr/share/qubes/icons
 cp icons/*.png $RPM_BUILD_ROOT/usr/share/qubes/icons
 
+mkdir -p $RPM_BUILD_ROOT/etc/yum.repos.d
+cp ../common/qubes.repo $RPM_BUILD_ROOT/etc/yum.repos.d
 
 %post
 if [ "$1" !=  1 ] ; then
@@ -160,3 +162,4 @@ fi
 %attr(770,root,qubes) %dir /var/lib/qubes/appvms
 %attr(770,root,qubes) %dir /var/lib/qubes/backup
 %dir /usr/share/qubes/icons/*.png
+/etc/yum.repos.d/qubes.repo
