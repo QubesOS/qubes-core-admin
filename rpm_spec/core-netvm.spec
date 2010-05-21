@@ -63,6 +63,13 @@ mkdir -p $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 cp qubes_nmhook $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 %post
 
+sed 's/^net.ipv4.ip_forward.*/net.ipv4.ip_forward = 1/'  -i /etc/sysctl.conf
+usermod -L root
+usermod -L user
+if ! [ -f /var/lib/qubes/serial.orig ] ; then
+       cp /etc/event.d/serial /var/lib/qubes/serial.orig
+fi
+
 if [ "$1" !=  1 ] ; then
 # do this whole %post thing only when updating for the first time...
 exit 0
