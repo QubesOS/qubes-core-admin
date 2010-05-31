@@ -56,11 +56,11 @@ mkdir -p $RPM_BUILD_ROOT/etc/init.d
 cp qubes_core $RPM_BUILD_ROOT/etc/init.d/
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/usr/bin
-cp qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/bin
+cp ../common/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/bin
 mkdir -p $RPM_BUILD_ROOT/etc/dhclient.d
 ln -s /usr/bin/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/etc/dhclient.d/qubes_setup_dnat_to_ns.sh 
 mkdir -p $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
-cp qubes_nmhook $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
+cp ../common/qubes_nmhook $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 mkdir -p $RPM_BUILD_ROOT/etc/yum.repos.d
 cp ../common/qubes.repo $RPM_BUILD_ROOT/etc/yum.repos.d
 mkdir -p $RPM_BUILD_ROOT/sbin   
