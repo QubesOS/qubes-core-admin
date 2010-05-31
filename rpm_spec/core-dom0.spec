@@ -93,6 +93,7 @@ exit 0
 fi
 
 #echo "Enabling essential services..."
+chkconfig rsyslog on
 chkconfig haldaemon on
 chkconfig messagebus on
 chkconfig xenstored on
