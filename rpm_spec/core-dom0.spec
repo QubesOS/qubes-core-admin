@@ -86,7 +86,19 @@ cp icons/*.png $RPM_BUILD_ROOT/usr/share/qubes/icons
 mkdir -p $RPM_BUILD_ROOT/etc/yum.repos.d
 cp ../common/qubes.repo $RPM_BUILD_ROOT/etc/yum.repos.d
 
+mkdir -p $RPM_BUILD_ROOT/usr/bin
+cp ../common/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/bin
+mkdir -p $RPM_BUILD_ROOT/etc/dhclient.d
+ln -s /usr/bin/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/etc/dhclient.d/qubes_setup_dnat_to_ns.sh 
+mkdir -p $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
+cp ../common/qubes_nmhook $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
+mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
+cp init.d/iptables $RPM_BUILD_ROOT/etc/sysconfig
 %post
+
+chkconfig iptables on
+sed 's/^net.ipv4.ip_forward.*/net.ipv4.ip_forward = 1/'  -i /etc/sysctl.conf
+
 if [ "$1" !=  1 ] ; then
 # do this whole %post thing only when updating for the first time...
 exit 0
@@ -164,3 +176,7 @@ fi
 %attr(770,root,qubes) %dir /var/lib/qubes/backup
 %dir /usr/share/qubes/icons/*.png
 /etc/yum.repos.d/qubes.repo
+/usr/bin/qubes_setup_dnat_to_ns
+/etc/dhclient.d/qubes_setup_dnat_to_ns.sh
+/etc/NetworkManager/dispatcher.d/qubes_nmhook
+/etc/sysconfig/iptables

@@ -33,13 +33,11 @@ start()
         /etc/init.d/NetworkManager start
         brctl addbr br0 || exit 1
         ifconfig br0 10.0.0.1 netmask 255.255.0.0 up || exit 1
+        ifconfig br0:1 10.0.255.254 netmask 255.255.0.0 up || exit 1
+        echo "NS1=10.0.0.1" > /var/run/qubes_ns
+        echo "NS2=10.0.255.254" >> /var/run/qubes_ns
+	qubes_setup_dnat_to_ns
         echo "1" > /proc/sys/net/ipv4/ip_forward || exit 1
-        /usr/sbin/dnsmasq  --listen-address 10.0.0.1 --bind-interfaces || exit 1
-        iptables -t nat -A POSTROUTING -s 10.0.0.0/16 '!' -d 10.0.0.0/16 -j MASQUERADE || exit 1
-        iptables -I INPUT 1 -i br0 -s 10.0.0.0/16 -j ACCEPT || exit 1
-        iptables -I FORWARD 1 -i br0 -s 10.0.0.0/16 -j ACCEPT || exit 1
-        iptables -I FORWARD 1 -o br0 -d 10.0.0.0/16 -m state --state ESTABLISHED,RELATED -j  ACCEPT || exit 1
-
     else
 
         echo -n $"Starting default NetVM:"
