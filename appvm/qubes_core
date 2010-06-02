@@ -14,6 +14,20 @@ start()
 		echo "ERROR: /usr/bin/xenstore-read not found!"
 		exit 1
 	fi
+	if xenstore-read qubes_save_request ; then 
+		dmesg -c >/dev/null
+#		echo 1 >/proc/sys/vm/drop_caches
+#		free | grep buffers/cache | 
+#			(read a b c d ; xenstore-write device/qubes_used_mem $c)
+		free | grep Mem: | 
+			(read a b c d ; xenstore-write device/qubes_used_mem $c)
+		echo "Waiting for restore"
+		while ! dmesg -c | grep "using vcpu" ; do usleep 10 ; done
+		while ! xenstore-read qubes_vm_type 2>/dev/null ; do 
+			usleep 10
+		done
+		echo Back to life.
+	fi
 
 	name=$(/usr/bin/xenstore-read name)
 	hostname $name
@@ -29,30 +43,36 @@ start()
 		echo "nameserver $secondary_dns" >> /etc/resolv.conf
 	fi
 
-	if ! [ -d /rw/home ] ; then
-	    echo
-	    echo "--> Virgin boot of the VM: Linking /home to /rw/home"
-	    mv /home /home.orig
-	    mkdir -p /rw/config
-	    mkdir -p /rw/home
-	    ln -s /rw/home/ /home
-	    cp -a /home.orig/user /home
-	    touch /rw/config/rc.local
-	    rm -fr /home.orig
-	    touch /var/lib/qubes/first_boot_completed
-	fi
+	if [ -e /dev/xvdb ] ; then
+		mount /rw
 
-	if ! [ -L /home ] ; then
-		mv /home /home.orig
-		ln -s /rw/home /home
-	fi
-	if ! [ -L /usr/local ] ; then
-        	mv /usr/local /usr/local.orig
-        	ln -s /rw/usrlocal /usr/local
-	fi
+        if ! [ -d /rw/home ] ; then
+            echo
+            echo "--> Virgin boot of the VM: Linking /home to /rw/home"
+            mv /home /home.orig
+            mkdir -p /rw/config
+            mkdir -p /rw/home
+            ln -s /rw/home/ /home
+            cp -a /home.orig/user /home
+            touch /rw/config/rc.local
+            rm -fr /home.orig
+            touch /var/lib/qubes/first_boot_completed
+        fi
+
+        if ! [ -L /home ] ; then
+            mv /home /home.orig
+            ln -s /rw/home /home
+        fi
+        if ! [ -L /usr/local ] ; then
+            mv /usr/local /usr/local.orig
+            ln -s /rw/usrlocal /usr/local
+        fi
 #make it last, we want all above to work without /rw mounted
-	if ! [ -d /rw/usrlocal ] ; then
-        	cp -a /usr/local.orig /rw/usrlocal
+		if ! [ -d /rw/usrlocal ] ; then
+        		cp -a /usr/local.orig /rw/usrlocal
+		fi
+	else
+		ln -sf /home_volatile /home
 	fi
 
 	[ -x /rw/config/rc.local ] && /rw/config/rc.local

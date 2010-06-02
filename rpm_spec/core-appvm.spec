@@ -60,7 +60,7 @@ mkdir -p $RPM_BUILD_ROOT/etc/init.d
 cp qubes_core $RPM_BUILD_ROOT/etc/init.d/
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/usr/bin
-cp qubes_add_pendrive_script qubes_penctl qvm-copy-to-vm  qvm-copy-to-vm.kde $RPM_BUILD_ROOT/usr/bin
+cp qubes_timestamp qubes_add_pendrive_script qubes_penctl qvm-copy-to-vm  qvm-copy-to-vm.kde $RPM_BUILD_ROOT/usr/bin
 mkdir -p $RPM_BUILD_ROOT/%{kde_service_dir}
 cp qvm-copy.desktop $RPM_BUILD_ROOT/%{kde_service_dir}
 mkdir -p $RPM_BUILD_ROOT/etc/udev/rules.d
@@ -76,6 +76,9 @@ mkdir -p $RPM_BUILD_ROOT/sbin
 cp ../common/qubes_serial_login $RPM_BUILD_ROOT/sbin
 mkdir -p $RPM_BUILD_ROOT/etc
 cp ../common/serial.conf $RPM_BUILD_ROOT/var/lib/qubes/
+
+mkdir -p $RPM_BUILD_ROOT/home_volatile/user
+chown 500:500 $RPM_BUILD_ROOT/home_volatile/user
 
 %triggerin -- initscripts
 cp /var/lib/qubes/serial.conf /etc/init/serial.conf
@@ -186,3 +189,6 @@ rm -rf $RPM_BUILD_ROOT
 %dir /mnt/removable
 /etc/yum.repos.d/qubes.repo
 /sbin/qubes_serial_login
+/usr/bin/qubes_timestamp
+%dir /home_volatile
+%attr(700,user,user) /home_volatile/user

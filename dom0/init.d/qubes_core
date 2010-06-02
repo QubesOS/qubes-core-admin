@@ -30,6 +30,8 @@ start()
     chgrp qubes /var/run/xenstored/*
     chmod 660 /var/run/xenstored/*
     xm sched-credit -d 0 -w 65535
+    printf "\x00\x00\x00\x00" > /var/run/qubes/dispVM_seq
+    xm mem-set 0 700
     cp /var/lib/qubes/qubes.xml /var/lib/qubes/backup/qubes-$(date +%F-%T).xml
     touch /var/lock/subsys/qubes_core
     success

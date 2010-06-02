@@ -46,6 +46,7 @@ The Qubes core files for installation on Dom0.
 %build
 python -m compileall qvm-core
 python -O -m compileall qvm-core
+make -C restore
 
 %install
 
@@ -57,6 +58,12 @@ mkdir -p $RPM_BUILD_ROOT/usr/bin/
 cp qvm-tools/qvm-* $RPM_BUILD_ROOT/usr/bin
 cp clipboard_notifier/qclipd $RPM_BUILD_ROOT/usr/bin
 cp pendrive_swapper/qfilexchgd $RPM_BUILD_ROOT/usr/bin
+cp restore/xenstore-watch $RPM_BUILD_ROOT/usr/bin
+cp restore/qubes_restore  $RPM_BUILD_ROOT/usr/bin
+cp restore/qubes_prepare_saved_domain.sh  $RPM_BUILD_ROOT/usr/bin
+
+mkdir -p $RPM_BUILD_ROOT/etc/xen/scripts
+cp restore/block.qubes $RPM_BUILD_ROOT/etc/xen/scripts
 
 mkdir -p $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/qubes.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
@@ -98,6 +105,9 @@ cp init.d/iptables $RPM_BUILD_ROOT/etc/sysconfig
 mkdir -p $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d
 cp pm-utils/01qubes-sync-vms-clock $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 cp pm-utils/02qubes-pause-vms $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
+
+%triggerin -- xen-runtime
+sed -i 's/\/block /\/block.qubes /' /etc/udev/rules.d/xen-backend.rules
 
 %post
 
@@ -167,6 +177,7 @@ if [ "$1" = 0 ] ; then
     chgrp root /etc/xen
     chmod 700 /etc/xen
     groupdel qubes
+    sed -i 's/\/block.qubes /\/block /' /etc/udev/rules.d/xen-backend.rules
 fi
 
 %files
@@ -202,3 +213,7 @@ fi
 /etc/sysconfig/iptables
 /usr/lib64/pm-utils/sleep.d/01qubes-sync-vms-clock
 /usr/lib64/pm-utils/sleep.d/02qubes-pause-vms
+/usr/bin/xenstore-watch
+/usr/bin/qubes_restore
+/usr/bin/qubes_prepare_saved_domain.sh
+/etc/xen/scripts/block.qubes

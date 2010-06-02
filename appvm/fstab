@@ -8,7 +8,7 @@
 #
 /dev/mapper/dmroot /                       ext4 defaults,noatime        1 1
 /dev/mapper/dmswap swap                    swap    defaults        0 0
-/dev/xvdb		/rw			ext4	defaults	0 0
+/dev/xvdb		/rw			ext4	noauto,defaults	0 0
 tmpfs                   /dev/shm                tmpfs   defaults        0 0
 devpts                  /dev/pts                devpts  gid=5,mode=620  0 0
 sysfs                   /sys                    sysfs   defaults        0 0
