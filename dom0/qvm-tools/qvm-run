@@ -81,7 +81,7 @@ def vm_run_cmd(vm, cmd, options):
         if options.verbose:
             print "--> Starting Qubes GUId..."
 
-        retcode = subprocess.call ([qubes_guid_path, "-d", str(xid), "-c", vm.label.color, "-e", cmd, "-i", vm.label.icon])
+        retcode = subprocess.call ([qubes_guid_path, "-d", str(xid), "-c", vm.label.color, "-e", cmd, "-i", vm.label.icon, "-l", str(vm.label.index)])
         if (retcode != 0) :
             print "ERROR: Cannot start qubes_guid!"
             if options.tray:
@@ -105,7 +105,7 @@ def vm_run_cmd(vm, cmd, options):
             s.send (cmd)
             s.close()
         else:
-            retcode = subprocess.call ([qubes_guid_path, "-d", str(xid), "-c", vm.label.color, "-e", cmd, "-i", vm.label.icon])
+            retcode = subprocess.call ([qubes_guid_path, "-d", str(xid), "-c", vm.label.color, "-e", cmd, "-i", vm.label.icon, "-l", str(vm.label.index)])
             if (retcode != 0) :
                 print "ERROR: Cannot start qubes_guid!"
                 if options.tray:
