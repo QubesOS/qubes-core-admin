@@ -7,7 +7,6 @@ rpms:
 	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-appvm.spec
 	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-netvm.spec
 	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-dom0.spec
-	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/dom0-cleanup.spec
 	rpm --addsign $(RPMS_DIR)/x86_64/*.rpm
 
 update_repo:
