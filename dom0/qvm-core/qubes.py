@@ -123,14 +123,14 @@ class QubesVmLabel(object):
 
 # Globally defined lables
 QubesVmLabels = {
-    "red" : QubesVmLabel ("red", 0),
-    "orange" : QubesVmLabel ("orange", 1),
-    "yellow" : QubesVmLabel ("yellow", 2),
-    "green" : QubesVmLabel ("green", 3, color="0x5fa05e"),
-    "gray" : QubesVmLabel ("gray", 4),
-    "blue" : QubesVmLabel ("blue", 5),
-    "purple" : QubesVmLabel ("purple", 6, color="0xb83374"),
-    "black" : QubesVmLabel ("black", 7),
+    "red" : QubesVmLabel ("red", 1),
+    "orange" : QubesVmLabel ("orange", 2),
+    "yellow" : QubesVmLabel ("yellow", 3),
+    "green" : QubesVmLabel ("green", 4, color="0x5fa05e"),
+    "gray" : QubesVmLabel ("gray", 5),
+    "blue" : QubesVmLabel ("blue", 6),
+    "purple" : QubesVmLabel ("purple", 7, color="0xb83374"),
+    "black" : QubesVmLabel ("black", 8),
 }
 
 default_appvm_label = QubesVmLabels["red"]
