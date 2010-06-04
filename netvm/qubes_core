@@ -35,8 +35,7 @@ start()
 #now done by iptables rc script
 #    iptables -t nat -A POSTROUTING -s $network/$netmask -j MASQUERADE
 #no, we cannot put ip-dependent stuff in sysconfig/iptables
-    iptables -t nat -A POSTROUTING -s $network/$netmask -d 224.0.0.0/8 -j ACCEPT	
-    iptables -t nat -A POSTROUTING -s $network/$netmask \! -d $network/$netmask -j MASQUERADE	
+#so make it ip-independent
 	success
 	echo ""
 	return 0
