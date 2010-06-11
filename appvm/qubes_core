@@ -18,14 +18,6 @@ start()
 	name=$(/usr/bin/xenstore-read name)
 	hostname $name
 
-	vmtype=$(/usr/bin/xenstore-read qubes_vm_type)
-
-	
-	if ! [ "X"$vmtype = XAppVM ] ; then
-		echo "ERROR: vmtype=$vmtype"
-		exit 1
-	fi 		
-
 	ip=$(/usr/bin/xenstore-read qubes_ip)
 	netmask=$(/usr/bin/xenstore-read qubes_netmask)
 	gateway=$(/usr/bin/xenstore-read qubes_gateway)
