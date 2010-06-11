@@ -97,6 +97,7 @@ cp init.d/iptables $RPM_BUILD_ROOT/etc/sysconfig
 %post
 
 chkconfig iptables on
+chkconfig NetworkManager on
 sed 's/^net.ipv4.ip_forward.*/net.ipv4.ip_forward = 1/'  -i /etc/sysctl.conf
 
 if [ "$1" !=  1 ] ; then

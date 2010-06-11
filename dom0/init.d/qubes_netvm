@@ -30,7 +30,6 @@ start()
     elif [ $NETVM = "dom0" ] ; then 
 
         echo -n $"Setting up net backend in Dom0:"
-        /etc/init.d/NetworkManager start
         brctl addbr br0 || exit 1
         ifconfig br0 10.0.0.1 netmask 255.255.0.0 up || exit 1
         ifconfig br0:1 10.0.255.254 netmask 255.255.0.0 up || exit 1
