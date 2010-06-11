@@ -2,19 +2,23 @@
 addrule()
 {
         if [ $FIRSTONE = yes ] ; then
-                NS=$NS1
                 FIRSTONE=no
+                RULE1="-A PREROUTING -d $NS1 -p udp --dport 53 -j DNAT --to $1"
         else
+                RULE2="-A PREROUTING -d $NS2 -p udp --dport 53 -j DNAT --to $1"
                 NS=$NS2
         fi
-        iptables -A PREROUTING -t nat -d $NS -p udp --dport 53 -j DNAT \
-                --to "$1"
 }
 export PATH=$PATH:/sbin:/bin
 source /var/run/qubes_ns
 if [ "X"$NS1 = "X" ] ; then exit ; fi
 iptables -t nat -F PREROUTING
 FIRSTONE=yes
-grep ^nameserver /etc/resolv.conf | head -2 | while read x y z ; do
-        addrule "$y"
-done
+grep ^nameserver /etc/resolv.conf | head -2 |
+        (
+        while read x y z ; do
+                addrule "$y"
+        done
+        (echo "*nat"; echo $RULE1; echo $RULE2; echo COMMIT) | iptables-restore -n
+        )
+
