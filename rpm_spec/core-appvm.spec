@@ -80,15 +80,15 @@ cp /etc/qubes_eventd_serial /etc/event.d/serial
 
 %post
 
+if [ "$1" !=  1 ] ; then
+# do this whole %post thing only when updating for the first time...
+exit 0
+fi
+
 usermod -L root
 usermod -L user
 if ! [ -f /var/lib/qubes/serial.orig ] ; then
 	cp /etc/event.d/serial /var/lib/qubes/serial.orig
-fi
-
-if [ "$1" !=  1 ] ; then
-# do this whole %post thing only when updating for the first time...
-exit 0
 fi
 
 echo "--> Disabling SELinux..."
