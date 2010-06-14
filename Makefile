@@ -1,7 +1,8 @@
 RPMS_DIR=rpm/
 help:
 	@echo "make rpms        -- generate binary rpm packages"
-	@echo "make update_repo -- copy newly generated rpms to qubes yum repo"
+	@echo "make update-repo -- copy newly generated rpms to qubes yum repo"
+	@echo "make update-repo-testing -- same, but to -testing repo"
 
 rpms:	
 	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-appvm.spec
@@ -9,9 +10,17 @@ rpms:
 	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-dom0.spec
 	rpm --addsign $(RPMS_DIR)/x86_64/*.rpm
 
-update_repo:
-	ln -f $(RPMS_DIR)/x86_64/*.rpm ../yum/rpm/
-	(if [ -d $(RPMS_DIR)/i686 ] ; then ln -f $(RPMS_DIR)/i686/*.rpm ../yum/rpm/; fi)
+update-repo:
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-*.rpm ../yum/r1/dom0/rpm/
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-appvm-*.rpm ../yum/r1/appvm/rpm/
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-netvm-*.rpm ../yum/r1/netvm/rpm/
+
+update-repo-testing:
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-*.rpm ../yum/r1-testing/dom0/rpm/
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-appvm-*.rpm ../yum/r1-testing/appvm/rpm/
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-netvm-*.rpm ../yum/r1-testing/netvm/rpm/
+
+
 
 clean:
 	(cd appvm && make clean)
