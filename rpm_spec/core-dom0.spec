@@ -101,6 +101,16 @@ if [ "$1" !=  1 ] ; then
 exit 0
 fi
 
+# TODO: This is only temporary, until we will have our own installer
+for f in /etc/init.d/*
+do
+        srv=`basename $f`
+        [ $srv = 'functions' ] && continue
+        [ $srv = 'killall' ] && continue
+        [ $srv = 'halt' ] && continue
+        chkconfig $srv off
+done
+
 chkconfig iptables on
 chkconfig NetworkManager on
 chkconfig rsyslog on
