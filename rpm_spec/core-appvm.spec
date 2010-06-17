@@ -72,10 +72,10 @@ cp ../appvm/qubes.repo $RPM_BUILD_ROOT/etc/yum.repos.d
 mkdir -p $RPM_BUILD_ROOT/sbin   
 cp ../common/qubes_serial_login $RPM_BUILD_ROOT/sbin
 mkdir -p $RPM_BUILD_ROOT/etc
-cp ../common/qubes_eventd_serial $RPM_BUILD_ROOT/etc/
+cp ../common/serial.conf $RPM_BUILD_ROOT/var/lib/qubes/
 
 %triggerin -- initscripts
-cp /etc/qubes_eventd_serial /etc/event.d/serial
+cp /var/lib/qubes/serial.conf /etc/init/serial.conf
 
 
 %post
@@ -88,7 +88,7 @@ fi
 usermod -L root
 usermod -L user
 if ! [ -f /var/lib/qubes/serial.orig ] ; then
-	cp /etc/event.d/serial /var/lib/qubes/serial.orig
+	cp /etc/init/serial.conf /var/lib/qubes/serial.orig
 fi
 
 echo "--> Disabling SELinux..."
@@ -157,7 +157,7 @@ if [ "$1" = 0 ] ; then
     chkconfig qubes_core off
     mv /var/lib/qubes/fstab.orig /etc/fstab
     mv /var/lib/qubes/removed-udev-scripts/* /etc/udev/rules.d/
-    mv /var/lib/qubes/serial.orig /etc/event.d
+    mv /var/lib/qubes/serial.orig /etc/init/serial.conf
 fi
 
 %clean
@@ -174,10 +174,9 @@ rm -rf $RPM_BUILD_ROOT
 /usr/bin/qubes_add_pendrive_script
 /etc/udev/rules.d/qubes.rules
 /etc/sysconfig/iptables
-%dir /var/lib/qubes
+/var/lib/qubes
 %dir /mnt/incoming
 %dir /mnt/outgoing
 %dir /mnt/removable
 /etc/yum.repos.d/qubes.repo
 /sbin/qubes_serial_login
-/etc/qubes_eventd_serial
