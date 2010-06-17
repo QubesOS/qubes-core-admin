@@ -69,7 +69,7 @@ pushd $TMP_DIR/initramfs.qubes
 
 gunzip < ../initramfs.cpio.gz | cpio -i --quiet || exit 1
 
-cp $QUBES_COW_SETUP_FILE pre-trigger/90_qubes_cow_setup.sh || exit 1
+cp $QUBES_COW_SETUP_FILE pre-udev/90_qubes_cow_setup.sh || exit 1
 
 find ./ | cpio -H newc -o --quiet > $TMP_DIR/initramfs.qubes.cpio || exit 1
 
