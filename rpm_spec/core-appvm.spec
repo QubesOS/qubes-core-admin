@@ -89,6 +89,7 @@ exit 0
 fi
 
 usermod -L root
+adduser --create-home user
 usermod -L user
 if ! [ -f /var/lib/qubes/serial.orig ] ; then
 	cp /etc/init/serial.conf /var/lib/qubes/serial.orig
