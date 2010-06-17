@@ -44,7 +44,9 @@ The Qubes core files for installation inside a Qubes AppVM.
 %pre
 
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
-[ -e $RPM_BUILD_ROOT/etc/fstab ] && mv $RPM_BUILD_ROOT/etc/fstab $RPM_BUILD_ROOT/var/lib/qubes/fstab.orig
+if [ -e $RPM_BUILD_ROOT/etc/fstab ] ; then 
+mv $RPM_BUILD_ROOT/etc/fstab $RPM_BUILD_ROOT/var/lib/qubes/fstab.orig
+fi
 
 %build
 make clean all
