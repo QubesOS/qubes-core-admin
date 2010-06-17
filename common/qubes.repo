@@ -1,6 +1,0 @@
-[qubes]
-name = Qubes OS Repository
-baseurl = http://qubes-os.org/yum/rpm
-gpgkey = http://qubes-os.org/keys/qubes-release-1-signing-key.asc
-gpgcheck = 1
-

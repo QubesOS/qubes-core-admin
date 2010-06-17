@@ -84,7 +84,7 @@ mkdir -p $RPM_BUILD_ROOT/usr/share/qubes/icons
 cp icons/*.png $RPM_BUILD_ROOT/usr/share/qubes/icons
 
 mkdir -p $RPM_BUILD_ROOT/etc/yum.repos.d
-cp ../common/qubes.repo $RPM_BUILD_ROOT/etc/yum.repos.d
+cp ../dom0/qubes.repo $RPM_BUILD_ROOT/etc/yum.repos.d
 
 mkdir -p $RPM_BUILD_ROOT/usr/bin
 cp ../common/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/bin

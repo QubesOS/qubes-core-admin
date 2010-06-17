@@ -1,0 +1,12 @@
+[qubes-netvm]
+name = Qubes OS Repository for NetVM
+baseurl = http://qubes-os.org/yum/r1/netvm/rpm
+gpgkey = http://qubes-os.org/keys/qubes-release-1-signing-key.asc
+gpgcheck = 1
+
+[qubes-netvm-testing]
+name = Qubes OS Repository for NetVM
+baseurl = http://qubes-os.org/yum/r1-testing/netvm/rpm
+gpgkey = http://qubes-os.org/keys/qubes-release-1-signing-key.asc
+gpgcheck = 1
+

@@ -1,0 +1,12 @@
+[qubes-appvm]
+name = Qubes OS Repository for AppVM
+baseurl = http://qubes-os.org/yum/r1/appvm/rpm
+gpgkey = http://qubes-os.org/keys/qubes-release-1-signing-key.asc
+gpgcheck = 1
+
+[qubes-appvm-testing]
+name = Qubes OS Repository for AppVM
+baseurl = http://qubes-os.org/yum/r1-testing/appvm/rpm
+gpgkey = http://qubes-os.org/keys/qubes-release-1-signing-key.asc
+gpgcheck = 1
+
