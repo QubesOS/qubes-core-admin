@@ -94,12 +94,12 @@ if ! [ -f /var/lib/qubes/serial.orig ] ; then
 	cp /etc/init/serial.conf /var/lib/qubes/serial.orig
 fi
 
-echo "--> Disabling SELinux..."
+#echo "--> Disabling SELinux..."
 sed -e s/^SELINUX=.*$/SELINUX=disabled/ </etc/selinux/config >/etc/selinux/config.processed
 mv /etc/selinux/config.processed /etc/selinux/config
-setenforce 0
+setenforce 0 2>/dev/null
 
-echo "--> Turning off unnecessary services..."
+#echo "--> Turning off unnecessary services..."
 # FIXME: perhaps there is more elegant way to do this? 
 for f in /etc/init.d/*
 do
@@ -107,10 +107,11 @@ do
         [ $srv = 'functions' ] && continue
         [ $srv = 'killall' ] && continue
         [ $srv = 'halt' ] && continue
+        [ $srv = 'single' ] && continue
         chkconfig $srv off
 done
 
-echo "--> Enabling essential services..."
+#echo "--> Enabling essential services..."
 chkconfig rsyslog on
 chkconfig haldaemon on
 chkconfig messagebus on
@@ -120,12 +121,13 @@ chkconfig --add qubes_core || echo "WARNING: Cannot add service qubes_core!"
 chkconfig qubes_core on || echo "WARNING: Cannot enable service qubes_core!"
 
 
+# TODO: make this not display the silly message about security context...
 sed -i s/^id:.:initdefault:/id:3:initdefault:/ /etc/inittab
 
 # Remove most of the udev scripts to speed up the VM boot time
 # Just leave the xen* scripts, that are needed if this VM was
 # ever used as a net backend (e.g. as a VPN domain in the future)
-echo "--> Removing unnecessary udev scripts..."
+#echo "--> Removing unnecessary udev scripts..."
 mkdir -p /var/lib/qubes/removed-udev-scripts
 for f in /etc/udev/rules.d/*
 do
