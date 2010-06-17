@@ -153,9 +153,9 @@ do
 done
 mkdir -p /rw
 #rm -f /etc/mtab
-echo "--> Removing HWADDR setting from /etc/sysconfig/network-scripts/ifcfg-eth0"
-mv /etc/sysconfig/network-scripts/ifcfg-eth0 /etc/sysconfig/network-scripts/ifcfg-eth0.orig
-grep -v HWADDR /etc/sysconfig/network-scripts/ifcfg-eth0.orig > /etc/sysconfig/network-scripts/ifcfg-eth0
+#echo "--> Removing HWADDR setting from /etc/sysconfig/network-scripts/ifcfg-eth0"
+#mv /etc/sysconfig/network-scripts/ifcfg-eth0 /etc/sysconfig/network-scripts/ifcfg-eth0.orig
+#grep -v HWADDR /etc/sysconfig/network-scripts/ifcfg-eth0.orig > /etc/sysconfig/network-scripts/ifcfg-eth0
 
 %preun
 if [ "$1" = 0 ] ; then
