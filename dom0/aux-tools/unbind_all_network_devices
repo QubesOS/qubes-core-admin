@@ -55,8 +55,10 @@ def main():
         print "Loading Xen PCI Backend..."
     retcode = subprocess.call (["/sbin/modprobe", "xen-pciback"])
     if retcode != 0:
-        print "ERROR: Cannot load xen-pciback module!"
-        exit(1)
+        retcode = subprocess.call (["/sbin/modprobe", "pciback"])
+        if retcode != 0:
+            print "ERROR: Cannot load xen-pciback module!"
+            exit(1)
 
     if options.verbose:
         print "Unbinding the following net devices:"
