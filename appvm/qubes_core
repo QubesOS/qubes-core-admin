@@ -28,6 +28,20 @@ start()
 		echo "nameserver $gateway" > /etc/resolv.conf
 		echo "nameserver $secondary_dns" >> /etc/resolv.conf
 	fi
+
+	if ! [ -d /rw/home ] ; then
+	    echo
+	    echo "--> Virgin boot of the VM: Linking /home to /rw/home"
+	    mv /home /home.orig
+	    mkdir -p /rw/config
+	    mkdir -p /rw/home
+	    ln -s /rw/home/ /home
+	    cp -a /home.orig/user /home
+	    touch /rw/config/rc.local
+	    rm -fr /home.orig
+	    touch /var/lib/qubes/first_boot_completed
+	fi
+
 	if ! [ -L /home ] ; then
 		mv /home /home.orig
 		ln -s /rw/home /home
