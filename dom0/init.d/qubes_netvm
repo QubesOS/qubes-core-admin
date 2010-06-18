@@ -35,7 +35,7 @@ start()
         ifconfig br0:1 10.0.255.254 netmask 255.255.0.0 up || exit 1
         echo "NS1=10.0.0.1" > /var/run/qubes_ns
         echo "NS2=10.0.255.254" >> /var/run/qubes_ns
-	qubes_setup_dnat_to_ns
+        qubes_setup_dnat_to_ns
         echo "1" > /proc/sys/net/ipv4/ip_forward || exit 1
     else
 
@@ -60,13 +60,8 @@ stop()
     elif [ $NETVM = "dom0" ] ; then 
 
         echo -n $"Stopping Qubes networking in Dom0:"
-        iptables -t nat -D POSTROUTING -s 10.0.0.0/16 '!' -d 10.0.0.0/16 -j MASQUERADE 
-        iptables -D INPUT -i br0 -s 10.0.0.0/16 -j ACCEPT || exit 1
-        iptables -D FORWARD -i br0 -s 10.0.0.0/16 -j ACCEPT || exit 1
-        iptables -D FORWARD -o br0 -d 10.0.0.0/16 -m state --state ESTABLISHED,RELATED -j ACCEPT || exit 1
+        iptables -t nat -F PREROUTING
 
-
-        killall dnsmasq
         ifconfig br0 down
         brctl delbr br0
 
