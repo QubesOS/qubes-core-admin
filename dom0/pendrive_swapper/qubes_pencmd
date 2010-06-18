@@ -41,6 +41,7 @@ function do_send()
 	FILE=$SHARE_DIR/pendrive.$3
 	vmname=$(xenstore-read /local/domain/$1/name)
 	xenstore-write /local/domain/$2/qubes_blocksrc $vmname
+	xenstore-write /local/domain/$2/qubes_transaction_seq "$4"
 	xm block-detach $1 /dev/xvdg || exit 1
 	xm block-attach $2 file:/$FILE /dev/xvdh w || exit 1
 }
@@ -62,11 +63,11 @@ elif [ "$1" = "umount" ] ; then
 	fi
 	do_umount "$2" "$3"
 elif [ "$1" = "send" ] ; then
-	if ! [ $# = 4 ] ; then
-		echo send requires 3 more args 
+	if ! [ $# = 5 ] ; then
+		echo send requires 4 more args 
 		exit 1
 	fi
-	do_send "$2" "$3" "$4"
+	do_send "$2" "$3" "$4" "$5"
 else
 	echo bad cmd
 	exit 1

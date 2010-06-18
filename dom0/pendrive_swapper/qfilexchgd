@@ -32,6 +32,7 @@ from qubes.qubes import QubesDaemonPidfile
 
 filename_seq = 50
 pen_cmd = '/usr/lib/qubes/qubes_pencmd'
+disposable_domains_dict = {}
 
 def get_next_filename_seq():
     global filename_seq
@@ -71,6 +72,8 @@ class DomainState:
         self.send_seq = None
         self.rcv_seq = None
         self.waiting_sender = None
+        self.allowed_dest = None
+        self.allowed_seq = None
 
     def handle_request(self, request):
         req_ok = False
@@ -79,9 +82,13 @@ class DomainState:
         tmp = request.split()
         rq = tmp[0]
         if len(tmp) > 1:
-            arg = tmp[1]
+            vmname = tmp[1]
         else:
-            arg = None
+            vmname = None
+        if len(tmp) > 2:
+            transaction_seq = tmp[2]
+        else:
+            transaction_seq = '0'
         if rq == 'new' and self.send_state == 'idle':
             self.send_seq = get_next_filename_seq()
             retcode = subprocess.call([pen_cmd, 'new', self.domain_id, self.send_seq])
@@ -89,9 +96,9 @@ class DomainState:
             if retcode == 0:
                 self.send_state = 'has_clean_pendrive'
             req_ok = True
-        if rq == 'send' and self.send_state == 'has_clean_pendrive' and arg is not None:
-            logproc( 'send from ' + self.domain_id + ' to ' + arg)
-            if self.handle_transfer(arg):
+        if rq == 'send' and self.send_state == 'has_clean_pendrive' and vmname is not None:
+            logproc( 'send from ' + self.domain_id + ' to ' + vmname)
+            if self.handle_transfer(vmname, transaction_seq):
                 self.send_state = 'idle'
             req_ok = True;
         if rq == 'umount' and self.rcv_state == 'has_loaded_pendrive':
@@ -129,7 +136,7 @@ class DomainState:
         else:
             return False
 
-    def handle_transfer(self, vmname):
+    def handle_transfer_regular(self, vmname, transaction_seq):
         qvm_collection = QubesVmCollection()
         qvm_collection.lock_db_for_reading()
         qvm_collection.load()
@@ -149,17 +156,45 @@ class DomainState:
                 target.waiting_sender=self
             logproc( 'target domain ' + target.domain_id + ' is not idle, now ' + target.rcv_state)
             return False
-        retcode = subprocess.call(['/usr/bin/kdialog', '--yesno', 'Do you authorize pendrive transfer from ' + self.name + ' to ' + vmname + '?' , '--title', 'Security confirmation'])
-        logproc('handle_transfer: kdialog retcode=' + str(retcode))
-        if retcode != 0:
-            return False
+        if self.allowed_seq is not None:
+            if self.allowed_seq != transaction_seq or self.allowed_dest != target.name:
+                logproc('sender ' + self.name + ' receiver ' + target.name + ' : allowed attributes mismatch, denied')
+                return False
+        else:
+            retcode = subprocess.call(['/usr/bin/kdialog', '--yesno', 'Do you authorize pendrive transfer from ' + self.name + ' to ' + vmname + '?' , '--title', 'Security confirmation'])
+            logproc('handle_transfer: kdialog retcode=' + str(retcode))
+            if retcode != 0:
+                return False
         target.rcv_state='has_loaded_pendrive'
-        retcode = subprocess.call([pen_cmd, 'send', self.domain_id, target.domain_id, self.send_seq])
+        retcode = subprocess.call([pen_cmd, 'send', self.domain_id, target.domain_id, self.send_seq, transaction_seq])
         target.rcv_seq = self.send_seq
         self.send_seq = None
         logproc( 'set state of ' + target.domain_id + ' to has_loaded_pendrive, retcode=' + str(retcode))
         return True
 
+    def handle_transfer_disposable(self, transaction_seq):
+        retcode = subprocess.call(['/usr/bin/qubes_restore', '/dev/shm/qubes/disposable_savefile'])
+        if retcode != 0:
+            subprocess.call(['/usr/bin/kdialog', '--sorry', 'DisposableVM creation failed'])
+            return False
+        f=open('/var/run/qubes/dispVM_xid', 'r');
+        disp_xid = f.readline()
+        f.close()
+        dispdom = DomainState(disp_xid, self.domdict)
+        disposable_domains_dict[disp_xid] = dispdom
+        retcode = subprocess.call([pen_cmd, 'send', self.domain_id, disp_xid, self.send_seq, transaction_seq])
+        dispdom.rcv_seq = self.send_seq
+        dispdom.rcv_state = 'has_loaded_pendrive'
+        dispdom.allowed_dest = self.name
+        dispdom.allowed_seq = transaction_seq 
+        self.send_seq = None
+        logproc( 'sent pendrive to disposable xid ' + disp_xid)
+        return True
+
+    def handle_transfer(self, vmname, transaction_seq):
+        if vmname != 'disposable':
+            return self.handle_transfer_regular(vmname, transaction_seq)
+        return self.handle_transfer_disposable(transaction_seq)
 
 class XS_Watcher:
     def __init__(self):
@@ -172,13 +207,17 @@ class XS_Watcher:
         if curr == None:
             return
         for i in only_in_first_list(curr, self.domdict.keys()):
-            newdom = DomainState(i, self.domdict)
+            if disposable_domains_dict.has_key(i):
+                newdom = disposable_domains_dict[i]
+                disposable_domains_dict.pop(i)
+            else:
+                newdom = DomainState(i, self.domdict)
+                newdom.name = ''
+            self.domdict[i] = newdom
             newdom.watch_token = WatchType(XS_Watcher.request, newdom)
             newdom.watch_name = WatchType(XS_Watcher.namechange, newdom)
-            self.domdict[i] = newdom
             self.handle.watch(get_req_node(i), newdom.watch_token)
             self.handle.watch(get_name_node(i), newdom.watch_name)
-            newdom.name = ''
             logproc( 'added domain ' + i)
         for i in only_in_first_list(self.domdict.keys(), curr):
             self.handle.unwatch(get_req_node(i), self.domdict[i].watch_token)
