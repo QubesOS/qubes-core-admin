@@ -24,7 +24,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <xs.h>
-int check_name(unsigned char *s)
+void check_name(unsigned char *s)
 {
 	int c;
 	for (; *s; s++) {
@@ -35,9 +35,16 @@ int check_name(unsigned char *s)
 			continue;
 		if (c == '_' || c == '-')
 			continue;
-		return 0;
+		fprintf(stderr, "invalid string %s\n", s);
+		exit(1);
 	}
-	return 1;
+}
+
+void usage(char *argv0)
+{
+	fprintf(stderr, "usage: %s new\n"
+		"%s send vmname [seq]\n", argv0, argv0);
+	exit(1);
 }
 
 int main(int argc, char **argv)
@@ -50,18 +57,21 @@ int main(int argc, char **argv)
 		perror("xs_domain_open");
 		exit(1);
 	}
-	if (argc < 2) {
-		fprintf(stderr, "usage: %s new\n"
-			"%s send vmname\n", argv[0], argv[0]);
-		exit(1);
-	}
-	if (argc > 2) {
-		if (!check_name((unsigned char*)argv[2])) {
-			fprintf(stderr, "invalid vmname %s\n", argv[2]);
-			exit(1);
-		}
+	switch (argc) {
+	case 2:
+		break;
+	case 3:
+		check_name((unsigned char *) argv[2]);
 		snprintf(buf, sizeof(buf), "send %s", argv[2]);
+		break;
+	case 4:
+		check_name((unsigned char *) argv[2]);
+		check_name((unsigned char *) argv[3]);
+		snprintf(buf, sizeof(buf), "send %s %s", argv[2], argv[3]);
+	default:
+		usage(argv[0]);
 	}
+
 	if (!xs_write(xs, 0, "device/qpen", buf, strlen(buf))) {
 		perror("xs_write");
 		exit(1);
