@@ -45,10 +45,7 @@ if not dry_run:
 
 qubes_guid_path = "/usr/bin/qubes_guid"
 
-if dry_run:
-    qubes_base_dir   = "."
-else:
-    qubes_base_dir   = "/var/lib/qubes"
+qubes_base_dir   = "/var/lib/qubes"
 
 qubes_appvms_dir = qubes_base_dir + "/appvms" 
 qubes_templates_dir = qubes_base_dir + "/vm-templates" 
