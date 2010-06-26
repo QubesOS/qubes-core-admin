@@ -643,7 +643,6 @@ class QubesTemplateVm(QubesVm):
                     format(src_template_vm.private_img, self.private_img)
         # We prefer to use Linux's cp, because it nicely handles sparse files
         retcode = subprocess.call (["cp", src_template_vm.private_img, self.private_img])
-        retcode = 0
         if retcode != 0:
             raise IOError ("Error while copying {0} to {1}".\
                            format(src_template_vm.private_img, self.private_img))
@@ -653,7 +652,6 @@ class QubesTemplateVm(QubesVm):
                     format(src_template_vm.root_img, self.root_img)
         # We prefer to use Linux's cp, because it nicely handles sparse files
         retcode = subprocess.call (["cp", src_template_vm.root_img, self.root_img])
-        retcode = 0
         if retcode != 0:
             raise IOError ("Error while copying {0} to {1}".\
                            format(src_template_vm.root_img, self.root_img))
