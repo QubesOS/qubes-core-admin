@@ -1,0 +1,243 @@
+#!/usr/bin/python2.6
+#
+# The Qubes OS Project, http://www.qubes-os.org
+#
+# Copyright (C) 2010  Joanna Rutkowska <joanna@invisiblethingslab.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+#
+
+from qubes.qubes import QubesVmCollection
+from qubes.qubes import QubesException
+from qubes.qubes import qubes_store_filename
+from qubes.qubes import qubes_base_dir
+from optparse import OptionParser
+import os
+import time
+import subprocess
+import sys
+
+def size_to_human (size):
+    if size < 1024:
+        return str (size);
+    elif size < 1024*1024:
+        return str(round(size/1024.0,1)) + ' KiB'
+    elif size < 1024*1024*1024:
+        return str(round(size/(1024.0*1024),1)) + ' MiB'
+    else:
+        return str(round(size/(1024.0*1024*1024),1)) + ' GiB'
+
+def file_to_backup (file_path, sz = None):
+    if sz is None:
+        sz = os.path.getsize (qubes_store_filename)
+
+    abs_file_path = os.path.abspath (file_path)
+    abs_base_dir = os.path.abspath (qubes_base_dir) + '/'
+    abs_file_dir = os.path.dirname (abs_file_path) + '/'
+    (nothing, dir, subdir) = abs_file_dir.partition (abs_base_dir)
+    assert nothing == ""
+    assert dir == abs_base_dir
+    return [ { "path" : file_path, "size": sz, "subdir": subdir} ]
+
+def main():
+    usage = "usage: %prog [options] <backup-dir-path>"
+    parser = OptionParser (usage)
+
+    (options, args) = parser.parse_args ()
+
+    if (len (args) != 1):
+        print "You must specify the target backup directory (e.g. /mnt/backup)"
+        print "qvm-backup will create a subdirectory there for each individual backup."
+        exit (0)
+
+    base_backup_dir = args[0]
+
+    if not os.path.exists (base_backup_dir):
+        print "The target directory doesn't exist!"
+        exit(1)
+
+    qvm_collection = QubesVmCollection()
+    qvm_collection.lock_db_for_reading()
+    qvm_collection.load()
+
+    vms_list = [vm for vm in qvm_collection.values()]
+    no_vms = len (vms_list)
+
+    files_to_backup = file_to_backup (qubes_store_filename)
+
+    appvms_to_backup = [vm for vm in vms_list if vm.is_appvm()]
+    there_are_running_vms = False
+
+    fields_to_display = [ 
+        { "name": "VM", "width": 16},
+        { "name": "type","width": 12 },
+        { "name": "size", "width": 12}  
+    ]
+
+    # Display the header
+    s = ""
+    for f in fields_to_display:
+        fmt="{{0:-^{0}}}-+".format(f["width"] + 1)
+        s += fmt.format('-')
+    print s
+    s = ""
+    for f in fields_to_display:
+        fmt="{{0:>{0}}} |".format(f["width"] + 1)
+        s += fmt.format(f["name"]) 
+    print s
+    s = ""
+    for f in fields_to_display:
+        fmt="{{0:-^{0}}}-+".format(f["width"] + 1)
+        s += fmt.format('-')
+    print s
+
+    if len (appvms_to_backup):
+        for vm in appvms_to_backup:
+
+            vm_sz = vm.get_disk_usage (vm.private_img)
+            files_to_backup += file_to_backup(vm.private_img, vm_sz )
+
+            files_to_backup += file_to_backup(vm.icon_path)
+            files_to_backup += file_to_backup(vm.conf_file)
+            #files_to_backup += file_to_backup(vm.dir_path + "/apps")
+
+            if vm.is_updateable():
+                sz = vm.get_disk_usage(vm.rootcow_img)
+                files_to_backup += file_to_backup(vm.rootcow_img, sz)
+                vm_sz += sz
+
+            s = ""
+            fmt="{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
+            s += fmt.format(vm.name) 
+
+            fmt="{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
+            s += fmt.format("AppVM" + (" + COW" if vm.is_updateable() else "")) 
+
+            fmt="{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
+            s += fmt.format(size_to_human(vm_sz)) 
+
+            if vm.is_running():
+                s +=  " <-- The VM is running, please shut it down before proceeding with the backup!"
+                there_are_running_vms = True
+
+            print s
+
+    template_vms_worth_backingup = [ vm for vm in vms_list if (vm.is_templete() and not vm.installed_by_rpm)]
+    if len (template_vms_worth_backingup):
+        for vm in template_vms_worth_backingup:
+            vm_sz = vm.get_disk_utilization()
+            files_to_backup += file_to_backup (vm.dir_path,  vm_sz)
+
+            s = ""
+            fmt="{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
+            s += fmt.format(vm.name) 
+
+            fmt="{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
+            s += fmt.format("Template VM") 
+
+            fmt="{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
+            s += fmt.format(size_to_human(vm_sz)) 
+
+            if vm.is_running():
+                s +=  " <-- The VM is running, please shut it down before proceeding with the backup!"
+                there_are_running_vms = True
+
+            print s
+
+
+
+    total_backup_sz = 0
+    for file in files_to_backup:
+        total_backup_sz += file["size"]
+
+    s = ""
+    for f in fields_to_display:
+        fmt="{{0:-^{0}}}-+".format(f["width"] + 1)
+        s += fmt.format('-')
+    print s
+
+    s = ""
+    fmt="{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
+    s += fmt.format("Total size:") 
+    fmt="{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1 + 2 + fields_to_display[2]["width"] + 1)
+    s += fmt.format(size_to_human(total_backup_sz)) 
+    print s
+
+    s = ""
+    for f in fields_to_display:
+        fmt="{{0:-^{0}}}-+".format(f["width"] + 1)
+        s += fmt.format('-')
+    print s
+
+    stat = os.statvfs(base_backup_dir)
+    backup_fs_free_sz = stat.f_bsize * stat.f_bavail
+    print
+    if (total_backup_sz > backup_fs_free_sz):
+        print "Not enough space avilable on the backup filesystem!"
+        exit (1)
+
+    if (there_are_running_vms):
+        print "Please shutdown all VMs before proceeding."
+        exit (1)
+
+
+    backup_dir = base_backup_dir + "/qubes-{0}".format (time.strftime("%Y-%m-%d-%H%M%S"))
+    if os.path.exists (backup_dir):
+        print "ERROR: the path {0} already exists?!".format(backup_dir)
+        print "Aborting..."
+        exit (1)
+
+    print "-> Backup dir: {0}".format (backup_dir)
+    print "-> Avilable space: {0}".format(size_to_human(backup_fs_free_sz))
+
+    prompt = raw_input ("Do you want to proceed? [y/N] ")
+    if not (prompt == "y" or prompt == "Y"):
+        exit (0)
+
+    os.mkdir (backup_dir)
+
+    if not os.path.exists (backup_dir):
+        print "ERROR: Strange: couldn't create backup dir: {0}?!".format(backup_dir)
+        print "Aborting..."
+        exit (1)
+
+    bytes_backedup = 0
+    for file in files_to_backup:
+        # We prefer to use Linux's cp, because it nicely handles sparse files
+        progress = bytes_backedup * 100 / total_backup_sz
+        print >> sys.stderr, "\r-> Backing up files: {0}%...".format (progress),
+        dest_dir = backup_dir + '/' + file["subdir"]
+        if file["subdir"] != "":
+            retcode = subprocess.call (["mkdir", "-p", dest_dir])
+            if retcode != 0:
+                print "Cannot create directory: {0}?!".format(dest_dir)
+                print "Aborting..."
+                exit(1)
+
+        retcode = subprocess.call (["cp", "-rp", file["path"], dest_dir])
+        if retcode != 0:
+            print "Error while copying file {0} to {1}".format(file["path"], dest_dir)
+            exit (1)
+
+        bytes_backedup += file["size"]
+        progress = bytes_backedup * 100 / total_backup_sz
+        print >> sys.stderr, "\r-> Backing up files: {0}%...".format (progress),
+
+    print
+    print "-> Backup completed."
+
+    qvm_collection.unlock_db()
+main()

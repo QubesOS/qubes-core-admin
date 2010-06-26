@@ -1042,6 +1042,9 @@ class QubesAppVm(QubesVm):
             print "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
         os.symlink (self.label.icon_path, self.icon_path)
 
+        self.create_appmenus (verbose)
+
+    def create_appmenus(self, verbose):
         subprocess.check_call ([qubes_appmenu_create_cmd, self.template_vm.appmenus_templates_dir, self.name])
 
     def get_disk_utilization_root_img(self):
@@ -1146,10 +1149,11 @@ class QubesVmCollection(dict):
     A collection of Qubes VMs indexed by Qubes id (qid)
     """
 
-    def __init__(self):
+    def __init__(self, store_filename=qubes_store_filename):
         super(QubesVmCollection, self).__init__()
         self.default_netvm_qid = None
         self.default_template_qid = None
+        self.qubes_store_filename = store_filename
 
     def values(self):
         for qid in self.keys():
@@ -1309,23 +1313,23 @@ class QubesVmCollection(dict):
 
     def check_if_storage_exists(self):
         try:
-            f = open (qubes_store_filename, 'r')
+            f = open (self.qubes_store_filename, 'r')
         except IOError:
             return False
         f.close()
         return True
 
     def create_empty_storage(self):
-        self.qubes_store_file = open (qubes_store_filename, 'w')
+        self.qubes_store_file = open (self.qubes_store_filename, 'w')
         self.clear()
         self.save()
 
     def lock_db_for_reading(self):
-        self.qubes_store_file = open (qubes_store_filename, 'r')
+        self.qubes_store_file = open (self.qubes_store_filename, 'r')
         fcntl.lockf (self.qubes_store_file, fcntl.LOCK_SH)
 
     def lock_db_for_writing(self):
-        self.qubes_store_file = open (qubes_store_filename, 'r+')
+        self.qubes_store_file = open (self.qubes_store_filename, 'r+')
         fcntl.lockf (self.qubes_store_file, fcntl.LOCK_EX)
 
     def unlock_db(self):
