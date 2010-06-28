@@ -15,6 +15,7 @@ start()
 		exit 1
 	fi
 	if xenstore-read qubes_save_request ; then 
+		touch /etc/this_is_dvm
 		dmesg -c >/dev/null
 #		echo 1 >/proc/sys/vm/drop_caches
 #		free | grep buffers/cache | 
