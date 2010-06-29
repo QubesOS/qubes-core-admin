@@ -24,6 +24,7 @@ from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
 from qubes.qubes import qubes_store_filename
 from qubes.qubes import qubes_base_dir
+from qubes.qubes import qubes_templates_dir
 from optparse import OptionParser
 
 import os
@@ -86,10 +87,21 @@ def restore_vm_file (backup_dir, file_path):
     #print "cp -rp {0} {1}".format (backup_file_path, file_path)
 
     # We prefer to use Linux's cp, because it nicely handles sparse files
-    retcode = subprocess.call (["cp", "-rp", backup_file_path, file_path])
+    retcode = subprocess.call (["cp", "-p", backup_file_path, file_path])
     if retcode != 0:
         print "*** Error while copying file {0} to {1}".format(backup_file_path, file_path)
-        return
+        exit (1)
+
+def restore_vm_dir (backup_dir, src_dir, dst_dir):
+
+    backup_src_dir = src_dir.replace (qubes_base_dir, backup_dir)
+
+    # We prefer to use Linux's cp, because it nicely handles sparse files
+    retcode = subprocess.call (["cp", "-rp", backup_src_dir, dst_dir])
+    if retcode != 0:
+        print "*** Error while copying file {0} to {1}".format(backup_src_dir, dest_dir)
+        exit (1)
+
 
 def main():
     usage = "usage: %prog [options] <backup-dir>"
@@ -271,7 +283,7 @@ def main():
                 restore_vm_file (backup_dir, vm.rootcow_img)
 
         elif vm.is_templete():
-            restore_vm_file (backup_dir, vm.dir_path + "/*");
+            restore_vm_dir (backup_dir, vm.dir_path, qubes_templates_dir);
         else:
             print "ERROR: VM '{0}', type='{1}': unsupported VM type!".format(vm.name, vm.type)
 
