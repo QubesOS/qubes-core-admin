@@ -362,15 +362,28 @@ void write_varrun_domid(int domid)
 }
 
 
+void redirect_stderr()
+{
+	int fd =
+	    open("/var/run/qubes/qubes_restore.log", O_CREAT | O_TRUNC | O_WRONLY, 0600);
+	if (fd < 0) {
+		syslog(LOG_DAEMON | LOG_ERR, "open dvm.log");
+		exit(1);
+	}
+	dup2(fd, 2);
+}
+
+
 int main(int argc, char **argv)
 {
 	int fd, domid, dispid;
 	char *resp;
 	char *name;
 	if (argc != 2 && argc != 3) {
-		fprintf(stderr, "usage: %s savefile\n", argv[0]);
+		fprintf(stderr, "usage: %s savefile [cmd] \n", argv[0]);
 		exit(1);
 	}
+	redirect_stderr();
 	fprintf(stderr, "time=%s, starting\n", gettime());
 	set_fast_flag();
 	atexit(rm_fast_flag);
