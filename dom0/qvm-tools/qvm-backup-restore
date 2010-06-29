@@ -287,11 +287,9 @@ def main():
         else:
             print "ERROR: VM '{0}', type='{1}': unsupported VM type!".format(vm.name, vm.type)
 
-    print "-> Adding to Qubes DB..."
-
     # Add templates...
     for vm in [ vm for vm in vms_to_restore if vm.is_templete()]:
-        print "--> Adding Template VM {0}...".format(vm.name)
+        print "-> Adding Template VM {0}...".format(vm.name)
         updateable = vm.updateable
         vm = host_collection.add_new_templatevm(vm.name, 
                                                conf_file=vm.conf_file,
@@ -319,7 +317,7 @@ def main():
     # ... then appvms...
     for vm in [ vm for vm in vms_to_restore if vm.is_appvm()]:
 
-        print "--> Adding AppVM {0}...".format(vm.name)
+        print "-> Adding AppVM {0}...".format(vm.name)
         template_vm = host_collection.get_vm_by_name(vm.template_vm.name)
 
         if not vm.uses_default_netvm:
@@ -360,4 +358,5 @@ def main():
     backup_collection.unlock_db()
     host_collection.save()
     host_collection.unlock_db()
+    print "-> Done."
 main()
