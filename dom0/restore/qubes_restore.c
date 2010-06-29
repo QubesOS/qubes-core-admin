@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/wait.h>
+#include <syslog.h>
 #include <xs.h>
 
 char xmlrpc_header[] =
@@ -367,7 +368,7 @@ void redirect_stderr()
 	int fd =
 	    open("/var/run/qubes/qubes_restore.log", O_CREAT | O_TRUNC | O_WRONLY, 0600);
 	if (fd < 0) {
-		syslog(LOG_DAEMON | LOG_ERR, "open dvm.log");
+		syslog(LOG_DAEMON | LOG_ERR, "open qubes_restore.log");
 		exit(1);
 	}
 	dup2(fd, 2);
