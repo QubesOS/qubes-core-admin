@@ -22,6 +22,7 @@
 
 import xen.lowlevel.xs
 import os
+import os.path
 import sys
 import subprocess
 import daemon
@@ -161,6 +162,7 @@ class DomainState:
                 logproc('sender ' + self.name + ' receiver ' + target.name + ' : allowed attributes mismatch, denied')
                 return False
         else:
+            transaction_seq = '0'
             retcode = subprocess.call(['/usr/bin/kdialog', '--yesno', 'Do you authorize pendrive transfer from ' + self.name + ' to ' + vmname + '?' , '--title', 'Security confirmation'])
             logproc('handle_transfer: kdialog retcode=' + str(retcode))
             if retcode != 0:
@@ -170,6 +172,8 @@ class DomainState:
         target.rcv_seq = self.send_seq
         self.send_seq = None
         logproc( 'set state of ' + target.domain_id + ' to has_loaded_pendrive, retcode=' + str(retcode))
+        if self.allowed_seq is not None and not os.path.isfile('/etc/debug-dvm'):
+            subprocess.call(['/usr/sbin/xm', 'destroy', self.domain_id])    
         return True
 
     def handle_transfer_disposable(self, transaction_seq):
