@@ -179,7 +179,7 @@ class DomainState:
     def handle_transfer_disposable(self, transaction_seq):
         retcode = subprocess.call(['/usr/bin/qubes_restore', '/dev/shm/qubes/disposable_savefile'])
         if retcode != 0:
-            subprocess.call(['/usr/bin/kdialog', '--sorry', 'DisposableVM creation failed'])
+            subprocess.call(['/usr/bin/kdialog', '--sorry', 'DisposableVM creation failed, see qubes_restore.log'])
             return False
         f=open('/var/run/qubes/dispVM_xid', 'r');
         disp_xid = f.readline()
