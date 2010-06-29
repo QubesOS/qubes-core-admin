@@ -66,7 +66,7 @@ cp qubes_timestamp qubes_add_pendrive_script qubes_penctl \
 	qvm-open-in-dvm $RPM_BUILD_ROOT/usr/bin
 ln -s qvm-open-in-dvm $RPM_BUILD_ROOT/usr/bin/qvm-dvm-transfer 
 mkdir -p $RPM_BUILD_ROOT/%{kde_service_dir}
-cp qvm-copy.desktop $RPM_BUILD_ROOT/%{kde_service_dir}
+cp qvm-copy.desktop qvm-dvm.desktop $RPM_BUILD_ROOT/%{kde_service_dir}
 mkdir -p $RPM_BUILD_ROOT/etc/udev/rules.d
 cp qubes.rules $RPM_BUILD_ROOT/etc/udev/rules.d
 mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
