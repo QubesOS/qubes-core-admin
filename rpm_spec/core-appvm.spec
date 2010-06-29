@@ -33,6 +33,7 @@ License:	GPL
 URL:		http://www.qubes-os.org
 Requires:	/usr/bin/xenstore-read
 Requires:   fedora-release = 13
+Requires:	/usr/bin/mimeopen
 Provides:   qubes-core-vm
 
 %define _builddir %(pwd)/appvm
