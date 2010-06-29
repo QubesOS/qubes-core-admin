@@ -42,14 +42,14 @@ void check_name(unsigned char *s)
 
 void usage(char *argv0)
 {
-	fprintf(stderr, "usage: %s new\n"
+	fprintf(stderr, "usage: %s [new|umount]\n"
 		"%s send vmname [seq]\n", argv0, argv0);
 	exit(1);
 }
 
 int main(int argc, char **argv)
 {
-	char buf[256] = "new";
+	char buf[256];
 	struct xs_handle *xs;
 	xs = xs_domain_open();
 	setuid(getuid());
@@ -59,6 +59,10 @@ int main(int argc, char **argv)
 	}
 	switch (argc) {
 	case 2:
+		if (!strcmp(argv[1], "umount"))
+			strcpy(buf, "umount");
+		else
+			strcpy(buf, "new");	
 		break;
 	case 3:
 		check_name((unsigned char *) argv[2]);
