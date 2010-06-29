@@ -185,6 +185,7 @@ rm -rf $RPM_BUILD_ROOT
 %attr(4755,root,root) /usr/bin/qvm-open-in-dvm
 /usr/bin/qvm-dvm-transfer
 %{kde_service_dir}/qvm-copy.desktop
+%{kde_service_dir}/qvm-dvm.desktop
 %attr(4755,root,root) /usr/bin/qubes_penctl
 /usr/bin/qubes_add_pendrive_script
 /etc/udev/rules.d/qubes.rules
