@@ -990,6 +990,7 @@ class QubesAppVm(QubesVm):
         if not self.template_vm.is_updateable():
             self.updateable = True
             self.reset_cow_storage()
+            self.reset_swap_cow_storage()
         else:
             # Temaplate VM is Updatable itself --> can't make the AppVM updateable too
             # as this would cause COW-backed storage incoherency
@@ -1100,6 +1101,7 @@ class QubesAppVm(QubesVm):
 
         if not self.is_updateable():
             self.reset_cow_storage()
+        self.reset_swap_cow_storage()
 
         return super(QubesAppVm, self).start(debug_console=debug_console, verbose=verbose)
 
@@ -1121,7 +1123,8 @@ class QubesAppVm(QubesVm):
         f_cow.close ()
         f_root.close()
 
-        print "--> Resetting the COW storage: {0}...".format (self.swapcow_img)
+    def reset_swap_cow_storage (self):
+        print "--> Resetting the swap COW storage: {0}...".format (self.swapcow_img)
         if os.path.exists (self.swapcow_img):
            os.remove (self.swapcow_img)
 
