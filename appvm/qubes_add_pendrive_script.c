@@ -100,7 +100,7 @@ void drop_to_user()
 		setuid(pw->pw_uid);
 }
 
-void copy_from_xvdh(int destfd, int srcfd, unsigned long long count)
+int copy_from_xvdh(int destfd, int srcfd, unsigned long long count)
 {
 	int n, size;
 	char buf[4096];
@@ -113,14 +113,15 @@ void copy_from_xvdh(int destfd, int srcfd, unsigned long long count)
 		n = read(srcfd, buf, size);
 		if (n != size) {
 			syslog(LOG_DAEMON | LOG_ERR, "reading xvdh");
-			exit(1);
+			return 0;
 		}
 		if (write(destfd, buf, size) != size) {
 			syslog(LOG_DAEMON | LOG_ERR, "writing file");
-			exit(1);
+			return 0;
 		}
 		total += size;
 	}
+	return 1;
 }
 
 void redirect_stderr()
@@ -157,7 +158,8 @@ void dvm_transaction_request(char *seq, struct xs_handle *xs)
 		syslog(LOG_DAEMON | LOG_ERR, "open file");
 		exit(1);
 	}
-	copy_from_xvdh(file_fd, xvdh_fd, header.file_size);
+	if (!copy_from_xvdh(file_fd, xvdh_fd, header.file_size))
+		exit(1);
 	close(xvdh_fd);
 	close(file_fd);
 	snprintf(cmdbuf, sizeof(cmdbuf),
@@ -183,32 +185,33 @@ void dvm_transaction_return(char *seq_string, struct xs_handle *xs)
 	xvdh_fd = open("/dev/xvdh", O_RDONLY);
 	if (xvdh_fd < 0) {
 		syslog(LOG_DAEMON | LOG_ERR, "open xvdh");
-		exit(1);
+		goto out_err;
 	}
 	if (read(xvdh_fd, &header, sizeof(header)) != sizeof(header)) {
 		syslog(LOG_DAEMON | LOG_ERR, "read dvm_header");
-		exit(1);
+		goto out_err;
 	}
 	drop_to_user();
 	snprintf(db_name, sizeof(db_name), DBDIR "/%d", seq);
 	db_fd = open(db_name, O_RDONLY);
 	if (!db_fd) {
 		syslog(LOG_DAEMON | LOG_ERR, "open db");
-		exit(1);
+		goto out_err;
 	}
 	if (read(db_fd, file_name, sizeof(file_name)) < 0) {
 		syslog(LOG_DAEMON | LOG_ERR, "read db");
-		exit(1);
+		goto out_err;
 	}
 	close(db_fd);
 	file_fd = open(file_name, O_WRONLY | O_TRUNC);
 	if (file_fd < 0) {
 		syslog(LOG_DAEMON | LOG_ERR, "open filename");
-		exit(1);
+		goto out_err;
 	}
 	copy_from_xvdh(file_fd, xvdh_fd, header.file_size);
 	close(xvdh_fd);
 	close(file_fd);
+out_err:
 	xs_write(xs, XBT_NULL, "device/qpen", "umount", 6);
 	xs_daemon_close(xs);
 }
