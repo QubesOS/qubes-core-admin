@@ -20,6 +20,8 @@ start()
 
     # Setup gateway for all the VMs this netVM is serviceing...
     brctl addbr br0
+    brctl stp br0 off
+    brctl setfd br0 1
     gateway=$(/usr/bin/xenstore-read qubes_netvm_gateway)
     netmask=$(/usr/bin/xenstore-read qubes_netvm_netmask)
     network=$(/usr/bin/xenstore-read qubes_netvm_network)
