@@ -120,7 +120,7 @@ class DomainState:
             tmp = self.waiting_sender
             self.waiting_sender = None
             if tmp.send_state == 'has_clean_pendrive':
-                if tmp.handle_transfer(self.name):
+                if tmp.handle_transfer(self.name, self.delayed_transaction_seq):
                     tmp.send_state = 'idle'
 
         if not req_ok:
@@ -155,6 +155,7 @@ class DomainState:
             if self.ask_to_umount(vmname):
                 target.rcv_state='waits_to_umount'
                 target.waiting_sender=self
+                self.delayed_transaction_seq=transaction_seq
             logproc( 'target domain ' + target.domain_id + ' is not idle, now ' + target.rcv_state)
             return False
         if self.allowed_seq is not None:
