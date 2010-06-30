@@ -150,6 +150,7 @@ void dvm_transaction_request(char *seq, struct xs_handle *xs)
 	int xvdh_fd, file_fd;
 	char *src_vm;
 	unsigned int len;
+	struct stat stat_pre, stat_post;
 	xvdh_fd = open("/dev/xvdh", O_RDONLY);
 	if (read(xvdh_fd, &header, sizeof(header)) != sizeof(header)) {
 		syslog(LOG_DAEMON | LOG_ERR, "read dvm_header");
@@ -171,12 +172,22 @@ void dvm_transaction_request(char *seq, struct xs_handle *xs)
 		suicide(xs);
 	close(xvdh_fd);
 	close(file_fd);
+	if (stat(filename, &stat_pre)) {
+		syslog(LOG_DAEMON | LOG_ERR, "stat pre");
+		suicide(xs);
+	}
 	snprintf(cmdbuf, sizeof(cmdbuf),
 		 "DISPLAY=:0 mimeopen -n '/tmp/%s'", header.name);
 	if (system(cmdbuf))
 		system("DISPLAY=:0 /usr/bin/kdialog --sorry 'Unable to handle mimetype of the requested file'");
+	if (stat(filename, &stat_post)) {
+		syslog(LOG_DAEMON | LOG_ERR, "stat post");
+		suicide(xs);
+	}
 	src_vm = xs_read(xs, XBT_NULL, "qubes_blocksrc", &len);
 	xs_write(xs, XBT_NULL, "device/qpen", "umount", 6);
+	if (stat_pre.st_mtime == stat_post.st_mtime)
+		suicide(xs);
 	xs_daemon_close(xs);
 	execl("/usr/bin/qvm-dvm-transfer", "qvm-dvm-transfer", src_vm,
 	      filename, seq, NULL);
