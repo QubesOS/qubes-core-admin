@@ -164,7 +164,8 @@ void dvm_transaction_request(char *seq, struct xs_handle *xs)
 	close(file_fd);
 	snprintf(cmdbuf, sizeof(cmdbuf),
 		 "DISPLAY=:0 mimeopen -n '/tmp/%s'", header.name);
-	system(cmdbuf);
+	if (system(cmdbuf))
+		system("DISPLAY=:0 /usr/bin/kdialog --sorry 'Unable to handle mimetype of the requested file'");
 	src_vm = xs_read(xs, XBT_NULL, "qubes_blocksrc", &len);
 	xs_write(xs, XBT_NULL, "device/qpen", "umount", 6);
 	xs_daemon_close(xs);
