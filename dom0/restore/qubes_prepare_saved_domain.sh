@@ -3,6 +3,7 @@ if ! [ $#  = 2 ] ; then
 	echo usage: $0 domainname savefile_to_be_created
 	exit 1
 fi
+export PATH=$PATH:/sbin:/usr/sbin
 VMDIR=/var/lib/qubes/appvms/$1
 if ! [ -d $VMDIR ] ; then
 	echo $VMDIR does not exist ?

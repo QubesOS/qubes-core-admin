@@ -45,7 +45,7 @@ function do_send()
 	xm block-detach $1 /dev/xvdg || exit 1
 	xm block-attach $2 file:/$FILE /dev/xvdh w || exit 1
 }
-
+export PATH=$PATH:/sbin:/usr/sbin
 if [ $# -lt 1 ] ; then
 	echo args missing ?
 	exit 1
