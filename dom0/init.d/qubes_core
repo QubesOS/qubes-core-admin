@@ -33,7 +33,7 @@ start()
     printf "\x00\x00\x00\x00" > /var/run/qubes/dispVM_seq
     chown root:qubes /var/run/qubes/dispVM_seq
     chmod 660 /var/run/qubes/dispVM_seq
-    xm mem-set 0 700
+    xm mem-set 0 800
     cp /var/lib/qubes/qubes.xml /var/lib/qubes/backup/qubes-$(date +%F-%T).xml
     touch /var/lock/subsys/qubes_core
     success
