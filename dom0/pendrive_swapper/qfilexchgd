@@ -76,6 +76,10 @@ class DomainState:
         self.allowed_dest = None
         self.allowed_seq = None
 
+    def killme(self):
+        if not os.path.isfile('/etc/debug-dvm'):
+            subprocess.call(['/usr/sbin/xm', 'destroy', self.domain_id])    
+        
     def handle_request(self, request):
         req_ok = False
         if request is None:
@@ -90,6 +94,9 @@ class DomainState:
             transaction_seq = tmp[2]
         else:
             transaction_seq = '0'
+        if rq == 'killme':
+            self.killme()
+            req_ok = True
         if rq == 'new' and self.send_state == 'idle':
             self.send_seq = get_next_filename_seq()
             retcode = subprocess.call([pen_cmd, 'new', self.domain_id, self.send_seq])
@@ -173,8 +180,8 @@ class DomainState:
         target.rcv_seq = self.send_seq
         self.send_seq = None
         logproc( 'set state of ' + target.domain_id + ' to has_loaded_pendrive, retcode=' + str(retcode))
-        if self.allowed_seq is not None and not os.path.isfile('/etc/debug-dvm'):
-            subprocess.call(['/usr/sbin/xm', 'destroy', self.domain_id])    
+        if self.allowed_seq is not None:
+            self.killme()
         return True
 
     def handle_transfer_disposable(self, transaction_seq):
