@@ -84,13 +84,14 @@ void background()
 	}
 }
 
-void check_legal_filename(char *name)
+int check_legal_filename(char *name)
 {
 	if (index(name, '/')) {
 		syslog(LOG_DAEMON | LOG_ERR,
 		       "the received filename contains /");
-		exit(1);
+		return 0;
 	}
+	return 1;
 }
 
 void drop_to_user()
@@ -135,6 +136,13 @@ void redirect_stderr()
 	dup2(fd, 2);
 }
 
+void suicide(struct xs_handle *xs)
+{
+	xs_write(xs, XBT_NULL, "device/qpen", "killme", 6);
+	xs_daemon_close(xs);
+	exit(1);
+}
+
 void dvm_transaction_request(char *seq, struct xs_handle *xs)
 {
 	char filename[1024], cmdbuf[1024];
@@ -145,21 +153,22 @@ void dvm_transaction_request(char *seq, struct xs_handle *xs)
 	xvdh_fd = open("/dev/xvdh", O_RDONLY);
 	if (read(xvdh_fd, &header, sizeof(header)) != sizeof(header)) {
 		syslog(LOG_DAEMON | LOG_ERR, "read dvm_header");
-		exit(1);
+		suicide(xs);
 	}
 
 	header.name[sizeof(header.name) - 1] = 0;
-	check_legal_filename(header.name);
+	if (!check_legal_filename(header.name))
+		suicide(xs);
 	snprintf(filename, sizeof(filename), "/tmp/%s", header.name);
 	drop_to_user();
 
 	file_fd = open(filename, O_CREAT | O_TRUNC | O_WRONLY, 0600);
 	if (file_fd < 0) {
 		syslog(LOG_DAEMON | LOG_ERR, "open file");
-		exit(1);
+		suicide(xs);
 	}
 	if (!copy_from_xvdh(file_fd, xvdh_fd, header.file_size))
-		exit(1);
+		suicide(xs);
 	close(xvdh_fd);
 	close(file_fd);
 	snprintf(cmdbuf, sizeof(cmdbuf),
@@ -172,7 +181,7 @@ void dvm_transaction_request(char *seq, struct xs_handle *xs)
 	execl("/usr/bin/qvm-dvm-transfer", "qvm-dvm-transfer", src_vm,
 	      filename, seq, NULL);
 	syslog(LOG_DAEMON | LOG_ERR, "execl qvm-dvm-transfer");
-	exit(1);
+	suicide(xs);
 }
 
 void dvm_transaction_return(char *seq_string, struct xs_handle *xs)
