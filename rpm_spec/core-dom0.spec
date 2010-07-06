@@ -100,6 +100,11 @@ cp pm-utils/01qubes-sync-vms-clock $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 
 %post
 
+if [ -e /etc/yum.repos.d/qubes-r1-dom0.repo ]; then
+# we want the user to use the repo that comes with qubes-code-dom0 packages instead
+rm -f /etc/yum.repos.d/qubes-r1-dom0.repo
+fi
+
 if [ "$1" !=  1 ] ; then
 # do this whole %post thing only when updating for the first time...
 exit 0
