@@ -1,0 +1,15 @@
+#!/bin/sh
+
+. "${PM_FUNCTIONS}"
+
+sync_qubes_vms_wallclock()
+{
+DATE=$(date)
+echo "Syncing VMs clock to: $DATE"
+qvm-run --all -u root "date -s \"$DATE\""
+}
+
+case "$1" in
+        thaw|resume) sync_qubes_vms_wallclock ;;
+        *) exit 0 ;;
+esac

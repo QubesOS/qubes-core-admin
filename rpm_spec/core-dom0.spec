@@ -94,6 +94,10 @@ mkdir -p $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 cp ../common/qubes_nmhook $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
 cp init.d/iptables $RPM_BUILD_ROOT/etc/sysconfig
+
+mkdir -p $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d
+cp pm-utils/01qubes-sync-vms-clock $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
+
 %post
 
 if [ "$1" !=  1 ] ; then
@@ -190,3 +194,4 @@ fi
 /etc/dhclient.d/qubes_setup_dnat_to_ns.sh
 /etc/NetworkManager/dispatcher.d/qubes_nmhook
 /etc/sysconfig/iptables
+/usr/lib64/pm-utils/sleep.d/01qubes-sync-vms-clock
