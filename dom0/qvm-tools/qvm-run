@@ -53,6 +53,18 @@ def vm_run_cmd(vm, cmd, options):
         subprocess.call (["/usr/sbin/xm", "shutdown", vm.name])
         return
 
+    if options.pause:
+        if options.verbose:
+            print "Pausing VM: '{0}'...".format(vm.name)
+        subprocess.call (["/usr/sbin/xm", "pause", vm.name])
+        return
+
+    if options.unpause:
+        if options.verbose:
+            print "UnPausing VM: '{0}'...".format(vm.name)
+        subprocess.call (["/usr/sbin/xm", "unpause", vm.name])
+        return
+
     if options.verbose:
         print "Running command on VM: '{0}'...".format(vm.name)
 
@@ -124,7 +136,7 @@ def main():
                        help="Use tray notifications instead of stdout" )
  
     parser.add_option ("--all", action="store_true", dest="run_on_all_running", default=False,
-                      help="Run command on all currently running VMs")
+                      help="Run command on all currently running VMs (or all paused, in case of --unpause)")
 
     parser.add_option ("--exclude", action="append", dest="exclude_list",
                        help="When --all is used: exclude this VM name (might be repeated)")
@@ -135,24 +147,36 @@ def main():
     parser.add_option ("--shutdown", action="store_true", dest="shutdown", default=False,
                       help="Do 'xm shutdown' for the VM(s) (can be combined this with --all and --wait)")
 
+    parser.add_option ("--pause", action="store_true", dest="pause", default=False,
+                      help="Do 'xm pause' for the VM(s) (can be combined this with --all and --wait)")
+
+    parser.add_option ("--unpause", action="store_true", dest="unpause", default=False,
+                      help="Do 'xm unpause' for the VM(s) (can be combined this with --all and --wait)")
+
+
     (options, args) = parser.parse_args ()
 
 
-    if options.run_on_all_running:
-        if len(args) < 1 and not options.shutdown:
-            parser.error ("You must provide a command to execute on all the VMs.")
-        if len(args) > 1 or (options.shutdown and len(args) > 0):
-            parser.error ("To many arguments...")
-        cmdstr = args[0] if not options.shutdown else None
+    if (options.shutdown or options.pause or options.unpause):
+        takes_cmd_argument = False
     else:
-        if len (args) < 1 and options.shutdown:
-            parser.error ("You must specify the VM name to shutdown.")
-        if len (args) < 2 and not options.shutdown:
+        takes_cmd_argument = True
+
+    if options.run_on_all_running:
+        if len(args) < 1 and takes_cmd_argument:
+            parser.error ("You must provide a command to execute on all the VMs.")
+        if len(args) > 1 or ((not takes_cmd_argument) and len(args) > 0):
+            parser.error ("To many arguments...")
+        cmdstr = args[0] if takes_cmd_argument else None
+    else:
+        if len (args) < 1 and not takes_cmd_argument:
+            parser.error ("You must specify the VM name to shutdown/pause/unpause.")
+        if len (args) < 2 and takes_cmd_argument:
             parser.error ("You must specify the VM name and the command to execute in the VM.")
-        if len (args) > 2 or (options.shutdown and len(args) > 1):
+        if len (args) > 2 or ((not takes_cmd_argument) and len(args) > 1):
             parser.error ("To many arguments...")
         vmname = args[0]
-        cmdstr = args[1] if not options.shutdown else None
+        cmdstr = args[1] if takes_cmd_argument else None
 
     if options.tray:
         global notify_object
@@ -171,7 +195,7 @@ def main():
                 continue
             if vm.qid == 0:
                 continue
-            if vm.is_running():
+            if (options.unpause and vm.is_paused()) or (not options.unpause and  vm.is_running()):
                 vms_list.append (vm)
     else:
         vm = qvm_collection.get_vm_by_name(vmname)
@@ -180,10 +204,10 @@ def main():
             exit(1)
         vms_list.append(vm)
 
-    if options.shutdown:
-        cmd = None
-    else:
+    if takes_cmd_argument:
         cmd = "{user}:{cmd}".format(user=options.user, cmd=cmdstr)
+    else:
+        cmd = None
 
     for vm in vms_list:
         vm_run_cmd(vm, cmd, options)

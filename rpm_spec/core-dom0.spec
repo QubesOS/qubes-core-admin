@@ -97,6 +97,7 @@ cp init.d/iptables $RPM_BUILD_ROOT/etc/sysconfig
 
 mkdir -p $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d
 cp pm-utils/01qubes-sync-vms-clock $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
+cp pm-utils/02qubes-pause-vms $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 
 %post
 
@@ -200,3 +201,4 @@ fi
 /etc/NetworkManager/dispatcher.d/qubes_nmhook
 /etc/sysconfig/iptables
 /usr/lib64/pm-utils/sleep.d/01qubes-sync-vms-clock
+/usr/lib64/pm-utils/sleep.d/02qubes-pause-vms

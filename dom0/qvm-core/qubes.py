@@ -370,6 +370,12 @@ class QubesVm(object):
         else:
             return False
 
+    def is_paused(self):
+        if self.get_power_state() == "Paused":
+            return True
+        else:
+            return False
+
     def get_disk_usage(self, file_or_dir):
         if not os.path.exists(file_or_dir):
             return 0
