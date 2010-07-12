@@ -184,15 +184,18 @@ int xend_connect()
 
 void start_guid(int domid, int argc, char **argv)
 {
+	int i;
 	char dstr[40];
+	char *guid_args[argc + 2];
 	snprintf(dstr, sizeof(dstr), "%d", domid);
-	if (argc == 2)
-		execl("/usr/bin/qubes_guid", "guid", "-d", dstr, "-c",
-		      "red", "-i", "red", NULL);
-	else
-		execl("/usr/bin/qubes_guid", "guid", "-d", dstr, "-c",
-		      "red", "-i", "red", "-e", argv[2], NULL);
-	perror("execl");
+	guid_args[0] = "qubes_guid";
+	guid_args[1] = "-d";
+	guid_args[2] = dstr;
+	for (i = 2; i < argc; i++)
+		guid_args[i + 1] = argv[i];
+	guid_args[argc + 1] = NULL;
+	execv("/usr/bin/qubes_guid", guid_args);
+	perror("execv");
 }
 
 void fix_savefile(int fd, char *buf, char *pattern, char *val)
@@ -218,9 +221,12 @@ void fix_savefile(int fd, char *buf, char *pattern, char *val)
 }
 
 
-
-
-
+char * dispname_by_dispid(int dispid)
+{
+	static char retbuf[16];
+	snprintf(retbuf, sizeof(retbuf), "disp%d", dispid);
+	return retbuf;
+}
 
 #define NAME_PATTERN "/root-cow.img"
 char *fix_savefile_and_get_vmname(int fd, int dispid)
@@ -237,8 +243,7 @@ char *fix_savefile_and_get_vmname(int fd, int dispid)
 	snprintf(val, sizeof(val),
 		 "064cd14c-95ad-4fc2-a4c9-cf9f522e5b%02x", dispid);
 	fix_savefile(fd, buf, "(uuid ", val);
-	snprintf(val, sizeof(val), "disp%02d", dispid);
-	fix_savefile(fd, buf, "(name ", val);
+	fix_savefile(fd, buf, "(name ", dispname_by_dispid(dispid));
 	snprintf(val, sizeof(val), "00:16:3e:7c:8b:%02x", dispid);
 	fix_savefile(fd, buf, "(mac ", val);
 	lseek(fd, 0, SEEK_SET);
@@ -351,14 +356,14 @@ int get_next_disposable_id()
 	return seq;
 }
 
-void write_varrun_domid(int domid)
+void write_varrun_domid(int domid, char * dispname, char *orig)
 {
 	FILE *f = fopen("/var/run/qubes/dispVM_xid", "w");
 	if (!f) {
 		perror("fopen dispVM_xid");
 		exit(1);
 	}
-	fprintf(f, "%d", domid);
+	fprintf(f, "%d\n%s\n%s\n", domid, dispname, orig);
 	fclose(f);
 }
 
@@ -366,7 +371,8 @@ void write_varrun_domid(int domid)
 void redirect_stderr()
 {
 	int fd =
-	    open("/var/run/qubes/qubes_restore.log", O_CREAT | O_TRUNC | O_WRONLY, 0600);
+	    open("/var/run/qubes/qubes_restore.log",
+		 O_CREAT | O_TRUNC | O_WRONLY, 0600);
 	if (fd < 0) {
 		syslog(LOG_DAEMON | LOG_ERR, "open qubes_restore.log");
 		exit(1);
@@ -380,8 +386,9 @@ int main(int argc, char **argv)
 	int fd, domid, dispid;
 	char *resp;
 	char *name;
-	if (argc != 2 && argc != 3) {
-		fprintf(stderr, "usage: %s savefile [cmd] \n", argv[0]);
+	if (argc < 2) {
+		fprintf(stderr, "usage: %s savefile [guid args] \n",
+			argv[0]);
 		exit(1);
 	}
 	redirect_stderr();
@@ -403,7 +410,7 @@ int main(int argc, char **argv)
 	send_req_restore(fd, argv[1]);
 	resp = recv_resp(fd);
 	domid = parse_resp(resp);
-	write_varrun_domid(domid);
+	write_varrun_domid(domid, dispname_by_dispid(dispid), name);
 	fprintf(stderr,
 		"time=%s, created domid=%d, executing set_mem 400\n",
 		gettime(), domid);

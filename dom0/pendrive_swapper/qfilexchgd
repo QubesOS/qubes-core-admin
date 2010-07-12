@@ -185,13 +185,39 @@ class DomainState:
         return True
 
     def handle_transfer_disposable(self, transaction_seq):
-        retcode = subprocess.call(['/usr/bin/qubes_restore', '/dev/shm/qubes/disposable_savefile'])
+
+        qvm_collection = QubesVmCollection()
+        qvm_collection.lock_db_for_writing()
+        qvm_collection.load()
+
+        vm = qvm_collection.get_vm_by_name(self.name)
+        if vm is None:
+            logproc( 'Domain ' + vmname + ' does not exist ?')
+            qvm_collection.unlock_db()
+            return False
+        retcode = subprocess.call(['/usr/bin/qubes_restore',
+            '/dev/shm/qubes/disposable_savefile',
+            '-c', vm.label.color,
+            '-i', vm.label.icon,
+            '-l', str(vm.label.index)])
         if retcode != 0:
             subprocess.call(['/usr/bin/kdialog', '--sorry', 'DisposableVM creation failed, see qubes_restore.log'])
+            qvm_collection.unlock_db()
             return False
-        f=open('/var/run/qubes/dispVM_xid', 'r');
-        disp_xid = f.readline()
+        f = open('/var/run/qubes/dispVM_xid', 'r');
+        disp_xid = f.readline().rstrip('\n')
+	disp_name = f.readline().rstrip('\n')
+	disptempl = f.readline().rstrip('\n')
         f.close()
+        vm_disptempl = qvm_collection.get_vm_by_name(disptempl);
+        if vm_disptempl is None:
+            logproc( 'Domain ' + disptempl + ' does not exist ?')
+            qvm_collection.unlock_db()
+            return False
+        qvm_collection.add_new_appvm(disp_name, vm_disptempl.template_vm, label=vm.label)
+        qvm_collection.save()
+        qvm_collection.unlock_db()
+
         dispdom = DomainState(disp_xid, self.domdict)
         disposable_domains_dict[disp_xid] = dispdom
         retcode = subprocess.call([pen_cmd, 'send', self.domain_id, disp_xid, self.send_seq, transaction_seq])
@@ -221,7 +247,6 @@ class XS_Watcher:
         for i in only_in_first_list(curr, self.domdict.keys()):
             if disposable_domains_dict.has_key(i):
                 newdom = disposable_domains_dict[i]
-                disposable_domains_dict.pop(i)
             else:
                 newdom = DomainState(i, self.domdict)
                 newdom.name = ''
@@ -232,6 +257,9 @@ class XS_Watcher:
             self.handle.watch(get_name_node(i), newdom.watch_name)
             logproc( 'added domain ' + i)
         for i in only_in_first_list(self.domdict.keys(), curr):
+            if disposable_domains_dict.has_key(i):
+                self.remove_disposable_from_qdb(self.domdict[i].name)
+                disposable_domains_dict.pop(i)
             self.handle.unwatch(get_req_node(i), self.domdict[i].watch_token)
             self.handle.unwatch(get_name_node(i), self.domdict[i].watch_name)
             self.domdict.pop(i)
@@ -247,6 +275,20 @@ class XS_Watcher:
 		domain_param.name = ret
                 logproc( 'Name for domain xid ' + domain_param.domain_id + ' is ' + ret )
 
+    def remove_disposable_from_qdb(self, name):
+        qvm_collection = QubesVmCollection()
+        qvm_collection.lock_db_for_writing()
+        qvm_collection.load()
+
+        vm = qvm_collection.get_vm_by_name(name)
+        if vm is None:
+            logproc( 'remove_disposable_from_qdb: Domain ' + vmname + ' does not exist ?')
+            qvm_collection.unlock_db()
+            return False
+        qvm_collection.pop(vm.qid)
+        qvm_collection.save()
+        qvm_collection.unlock_db()
+        
     def watch_loop(self):
         sys.stderr = file('/var/log/qubes/qfileexchgd.errors', 'a')
         while True:
