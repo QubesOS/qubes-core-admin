@@ -34,6 +34,7 @@ from qubes.qubes import QubesDaemonPidfile
 filename_seq = 50
 pen_cmd = '/usr/lib/qubes/qubes_pencmd'
 disposable_domains_dict = {}
+current_savefile = '/var/run/qubes/current_savefile'
 
 def get_next_filename_seq():
     global filename_seq
@@ -196,7 +197,7 @@ class DomainState:
             qvm_collection.unlock_db()
             return False
         retcode = subprocess.call(['/usr/bin/qubes_restore',
-            '/dev/shm/qubes/disposable_savefile',
+            current_savefile,
             '-c', vm.label.color,
             '-i', vm.label.icon,
             '-l', str(vm.label.index)])
@@ -230,8 +231,20 @@ class DomainState:
         return True
 
     def handle_transfer(self, vmname, transaction_seq):
+        dvmdata_dir = '/var/lib/qubes/dvmdata/'
         if vmname != 'disposable':
             return self.handle_transfer_regular(vmname, transaction_seq)
+        if not os.path.isfile(current_savefile):
+            subprocess.call(['/usr/bin/kdialog', '--sorry', 'There is no current savefile defined; run Qubes Manager'])
+            return False
+        if not os.path.isfile(dvmdata_dir+'default_savefile') or not os.path.isfile(dvmdata_dir+'savefile_root'):
+            subprocess.call(['/usr/bin/kdialog', '--sorry', 'Default savefile misconfiguration; run Qubes Manager'])
+            return False
+        dvm_mtime = os.stat(current_savefile).st_mtime
+        root_mtime = os.stat(dvmdata_dir+'savefile_root').st_mtime
+        if dvm_mtime < root_mtime:
+            subprocess.call(['/usr/bin/kdialog', '--sorry', 'Your current savefile is outdated, as you have updated the template VM. Run Qubes Manager and recreate the savefile'])
+            return False       
         return self.handle_transfer_disposable(transaction_seq)
 
 class XS_Watcher:

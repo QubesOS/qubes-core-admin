@@ -86,6 +86,7 @@ mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/vm-templates
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/appvms
 
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/backup
+mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/dvmdata
 
 mkdir -p $RPM_BUILD_ROOT/usr/share/qubes/icons
 cp icons/*.png $RPM_BUILD_ROOT/usr/share/qubes/icons
@@ -205,6 +206,7 @@ fi
 %attr(770,root,qubes) %dir /var/lib/qubes/vm-templates
 %attr(770,root,qubes) %dir /var/lib/qubes/appvms
 %attr(770,root,qubes) %dir /var/lib/qubes/backup
+%attr(770,root,qubes) %dir /var/lib/qubes/dvmdata
 %dir /usr/share/qubes/icons/*.png
 /etc/yum.repos.d/qubes.repo
 /usr/bin/qubes_setup_dnat_to_ns
