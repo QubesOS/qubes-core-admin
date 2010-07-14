@@ -1,9 +1,21 @@
 #!/bin/sh
-if ! [ $#  = 2 ] ; then
-	echo usage: $0 domainname savefile_to_be_created
+get_encoded_script()
+{
+	if ! [ -f "$1" ] ; then
+		echo $1 is not a file ?
+		exit 1
+	fi	
+	ENCODED_SCRIPT=`cat "$1" | perl -e 'use MIME::Base64 qw(encode_base64); local($/) = undef;print encode_base64(<STDIN>)'|tr -d "\n"`
+}
+
+if [ $# != 2 -a $# != 3 ] ; then
+	echo usage: $0 domainname savefile_to_be_created [preload script]
 	exit 1
 fi
 export PATH=$PATH:/sbin:/usr/sbin
+if [ $# = 3 ] ; then
+	get_encoded_script $3
+fi
 VMDIR=/var/lib/qubes/appvms/$1
 if ! [ -d $VMDIR ] ; then
 	echo $VMDIR does not exist ?
@@ -20,12 +32,15 @@ for i in $(xenstore-list /local/domain) ; do
 		ID=$i
 	fi
 done
-set -x
 if [ $ID = none ] ; then 
 	echo cannot get domain id
 	exit 1
 fi
 echo domainid=$ID
+if [ -n "$ENCODED_SCRIPT" ] ; then
+	xenstore-write /local/domain/$ID/qubes_save_script "$ENCODED_SCRIPT"
+fi
+set -x
 xenstore-write /local/domain/$ID/qubes_save_request 1 
 xenstore-watch /local/domain/$ID/device/qubes_used_mem
 xenstore-read /local/domain/$ID/qubes_gateway | \

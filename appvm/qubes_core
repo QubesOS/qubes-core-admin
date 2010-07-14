@@ -6,6 +6,18 @@
 # Source function library.
 . /etc/rc.d/init.d/functions
 
+possibly_run_save_script()
+{
+	ENCODED_SCRIPT=$(xenstore-read qubes_save_script)
+	if [ -z "$ENCODED_SCRIPT" ] ; then return ; fi
+	echo $ENCODED_SCRIPT|perl -e 'use MIME::Base64 qw(decode_base64); local($/) = undef;print decode_base64(<STDIN>)' >/tmp/qubes_save_script
+	chmod 755 /tmp/qubes_save_script
+	Xorg -config /etc/X11/xorg-preload-apps.conf :0 &
+	sleep 2
+	DISPLAY=:0 su - user -c /tmp/qubes_save_script
+	killall Xorg
+}
+
 start()
 {
 	echo -n $"Executing Qubes Core scripts:"
@@ -14,7 +26,8 @@ start()
 		echo "ERROR: /usr/bin/xenstore-read not found!"
 		exit 1
 	fi
-	if xenstore-read qubes_save_request ; then 
+	if xenstore-read qubes_save_request 2>/dev/null ; then
+		possibly_run_save_script 
 		touch /etc/this_is_dvm
 		dmesg -c >/dev/null
 #		echo 1 >/proc/sys/vm/drop_caches

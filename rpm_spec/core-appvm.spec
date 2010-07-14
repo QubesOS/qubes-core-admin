@@ -81,6 +81,9 @@ cp ../common/qubes_serial_login $RPM_BUILD_ROOT/sbin
 mkdir -p $RPM_BUILD_ROOT/etc
 cp ../common/serial.conf $RPM_BUILD_ROOT/var/lib/qubes/
 
+mkdir -p $RPM_BUILD_ROOT/etc/X11
+cp xorg-preload-apps.conf $RPM_BUILD_ROOT/etc/X11
+
 mkdir -p $RPM_BUILD_ROOT/home_volatile/user
 chown 500:500 $RPM_BUILD_ROOT/home_volatile/user
 
@@ -199,3 +202,4 @@ rm -rf $RPM_BUILD_ROOT
 /usr/bin/qubes_timestamp
 %dir /home_volatile
 %attr(700,user,user) /home_volatile/user
+/etc/X11/xorg-preload-apps.conf
