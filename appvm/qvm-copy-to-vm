@@ -24,7 +24,7 @@ if [ $# -lt 2 ] ; then
 	echo usage: $0 'vmname file [file]*'
 	exit 1
 fi
-qubes_penctl new || exit 1
+/usr/lib/qubes/qubes_penctl new || exit 1
 echo -n Waiting for the Qubes virtual pendrive
 while ! [ -e /dev/xvdg ] ; do
 	echo -n .
@@ -37,4 +37,4 @@ shift
 cp -v -a "$@" /mnt/outgoing
 #sometimes Dolphin lags a bit
 umount /mnt/outgoing || (sleep 1; umount /mnt/outgoing) || exit 1
-qubes_penctl send $VMNAME || exit 1
+/usr/lib/qubes/qubes_penctl send $VMNAME || exit 1

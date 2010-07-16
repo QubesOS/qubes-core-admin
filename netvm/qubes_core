@@ -28,9 +28,9 @@ start()
     secondary_dns=$(/usr/bin/xenstore-read qubes_netvm_secondary_dns)
     ifconfig br0 $gateway netmask $netmask up
     ifconfig br0:1 $secondary_dns netmask $netmask
-    echo "NS1=$gateway" > /var/run/qubes_ns
-    echo "NS2=$secondary_dns" >> /var/run/qubes_ns
-    qubes_setup_dnat_to_ns
+    echo "NS1=$gateway" > /var/run/qubes/qubes_ns
+    echo "NS2=$secondary_dns" >> /var/run/qubes/qubes_ns
+    /usr/lib/qubes/qubes_setup_dnat_to_ns
     echo "1" > /proc/sys/net/ipv4/ip_forward
 #now no need for dnsmasq
 #    dnsmasq --listen-address $gateway --bind-interfaces

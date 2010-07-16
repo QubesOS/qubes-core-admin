@@ -59,10 +59,10 @@ cp fstab $RPM_BUILD_ROOT/etc/fstab
 mkdir -p $RPM_BUILD_ROOT/etc/init.d
 cp qubes_core $RPM_BUILD_ROOT/etc/init.d/
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
-mkdir -p $RPM_BUILD_ROOT/usr/bin
-cp ../common/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/bin
+mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
+cp ../common/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/etc/dhclient.d
-ln -s /usr/bin/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/etc/dhclient.d/qubes_setup_dnat_to_ns.sh 
+ln -s /usr/lib/qubes/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/etc/dhclient.d/qubes_setup_dnat_to_ns.sh 
 mkdir -p $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 cp ../common/qubes_nmhook $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 mkdir -p $RPM_BUILD_ROOT/etc/yum.repos.d
@@ -71,6 +71,7 @@ mkdir -p $RPM_BUILD_ROOT/sbin
 cp ../common/qubes_serial_login $RPM_BUILD_ROOT/sbin
 mkdir -p $RPM_BUILD_ROOT/etc
 cp ../common/serial.conf $RPM_BUILD_ROOT/var/lib/qubes/
+mkdir -p $RPM_BUILD_ROOT/var/run/qubes
 
 %triggerin -- initscripts
 cp /var/lib/qubes/serial.conf /etc/init/serial.conf
@@ -168,8 +169,9 @@ rm -rf $RPM_BUILD_ROOT
 /etc/sysconfig/iptables
 /etc/init.d/qubes_core
 /var/lib/qubes
-/usr/bin/qubes_setup_dnat_to_ns
+/usr/lib/qubes/qubes_setup_dnat_to_ns
 /etc/dhclient.d/qubes_setup_dnat_to_ns.sh
 /etc/NetworkManager/dispatcher.d/qubes_nmhook
 /etc/yum.repos.d/qubes.repo
 /sbin/qubes_serial_login
+%dir /var/run/qubes

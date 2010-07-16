@@ -58,9 +58,6 @@ mkdir -p $RPM_BUILD_ROOT/usr/bin/
 cp qvm-tools/qvm-* $RPM_BUILD_ROOT/usr/bin
 cp clipboard_notifier/qclipd $RPM_BUILD_ROOT/usr/bin
 cp pendrive_swapper/qfilexchgd $RPM_BUILD_ROOT/usr/bin
-cp restore/xenstore-watch $RPM_BUILD_ROOT/usr/bin
-cp restore/qubes_restore  $RPM_BUILD_ROOT/usr/bin
-cp restore/qubes_prepare_saved_domain.sh  $RPM_BUILD_ROOT/usr/bin
 
 mkdir -p $RPM_BUILD_ROOT/etc/xen/scripts
 cp restore/block.qubes $RPM_BUILD_ROOT/etc/xen/scripts
@@ -81,6 +78,10 @@ cp aux-tools/create_apps_for_appvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/remove_appvm_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp pendrive_swapper/qubes_pencmd $RPM_BUILD_ROOT/usr/lib/qubes
 
+cp restore/xenstore-watch $RPM_BUILD_ROOT/usr/bin
+cp restore/qubes_restore  $RPM_BUILD_ROOT/usr/lib/qubes
+cp restore/qubes_prepare_saved_domain.sh  $RPM_BUILD_ROOT/usr/lib/qubes
+
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/vm-templates
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/appvms
@@ -95,9 +96,9 @@ mkdir -p $RPM_BUILD_ROOT/etc/yum.repos.d
 cp ../dom0/qubes.repo $RPM_BUILD_ROOT/etc/yum.repos.d
 
 mkdir -p $RPM_BUILD_ROOT/usr/bin
-cp ../common/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/bin
+cp ../common/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/etc/dhclient.d
-ln -s /usr/bin/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/etc/dhclient.d/qubes_setup_dnat_to_ns.sh 
+ln -s /usr/lib/qubes/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/etc/dhclient.d/qubes_setup_dnat_to_ns.sh 
 mkdir -p $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 cp ../common/qubes_nmhook $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
@@ -209,13 +210,13 @@ fi
 %attr(770,root,qubes) %dir /var/lib/qubes/dvmdata
 %dir /usr/share/qubes/icons/*.png
 /etc/yum.repos.d/qubes.repo
-/usr/bin/qubes_setup_dnat_to_ns
+/usr/lib/qubes/qubes_setup_dnat_to_ns
 /etc/dhclient.d/qubes_setup_dnat_to_ns.sh
 /etc/NetworkManager/dispatcher.d/qubes_nmhook
 /etc/sysconfig/iptables
 /usr/lib64/pm-utils/sleep.d/01qubes-sync-vms-clock
 /usr/lib64/pm-utils/sleep.d/02qubes-pause-vms
 /usr/bin/xenstore-watch
-/usr/bin/qubes_restore
-/usr/bin/qubes_prepare_saved_domain.sh
+/usr/lib/qubes/qubes_restore
+/usr/lib/qubes/qubes_prepare_saved_domain.sh
 /etc/xen/scripts/block.qubes

@@ -196,7 +196,7 @@ class DomainState:
             logproc( 'Domain ' + vmname + ' does not exist ?')
             qvm_collection.unlock_db()
             return False
-        retcode = subprocess.call(['/usr/bin/qubes_restore',
+        retcode = subprocess.call(['/usr/lib/qubes/qubes_restore',
             current_savefile,
             '-c', vm.label.color,
             '-i', vm.label.icon,

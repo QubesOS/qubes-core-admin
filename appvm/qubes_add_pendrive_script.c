@@ -189,7 +189,7 @@ void dvm_transaction_request(char *seq, struct xs_handle *xs)
 	if (stat_pre.st_mtime == stat_post.st_mtime)
 		suicide(xs);
 	xs_daemon_close(xs);
-	execl("/usr/bin/qvm-dvm-transfer", "qvm-dvm-transfer", src_vm,
+	execl("/usr/lib/qubes/qvm-dvm-transfer", "qvm-dvm-transfer", src_vm,
 	      filename, seq, NULL);
 	syslog(LOG_DAEMON | LOG_ERR, "execl qvm-dvm-transfer");
 	suicide(xs);

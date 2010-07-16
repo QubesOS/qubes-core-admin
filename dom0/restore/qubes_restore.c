@@ -371,7 +371,7 @@ void write_varrun_domid(int domid, char * dispname, char *orig)
 void redirect_stderr()
 {
 	int fd =
-	    open("/var/run/qubes/qubes_restore.log",
+	    open("/var/log/qubes/qubes_restore.log",
 		 O_CREAT | O_TRUNC | O_WRONLY, 0600);
 	if (fd < 0) {
 		syslog(LOG_DAEMON | LOG_ERR, "open qubes_restore.log");
