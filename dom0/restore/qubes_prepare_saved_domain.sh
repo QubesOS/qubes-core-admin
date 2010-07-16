@@ -51,7 +51,7 @@ echo MEM=$MEM
 xm mem-set $1 $(($MEM/1000))
 sleep 1
 touch $2
-xm save $1 $2
+if ! xm save $1 $2 ; then exit 1 ; fi
 cd $VMDIR
 tar -Scvf saved_cows.tar root-cow.img swap-cow.img
 
