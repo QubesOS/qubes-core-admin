@@ -1,0 +1,35 @@
+#!/bin/sh
+if [ $# != 1 -a $# != 2 ] ; then
+	echo Usage: qvm-create-default-dvm templatename [script-name]
+	exit 1
+fi
+if ! [ -d "/var/lib/qubes/vm-templates/$1" ] ; then
+	echo /var/lib/qubes/vm-templates/$1 is not a directory
+	exit 1
+fi
+DVMTMPL="$1"-dvm
+if ! [ -d "/var/lib/qubes/appvms/$DVMTMPL" ] ; then
+	if ! qvm-create -t "$1" -l red "$DVMTMPL" ; then exit 1 ; fi
+fi
+if ! /usr/lib/qubes/qubes_prepare_saved_domain.sh \
+	"$DVMTMPL" "/var/lib/qubes/appvms/$DVMTMPL/dvm-savefile" $2 ; then
+	exit 1
+fi
+ROOT=/var/lib/qubes/dvmdata/savefile_root
+DEFAULT=/var/lib/qubes/dvmdata/default_savefile
+CURRENT=/var/run/qubes/current_savefile
+SHMDIR=/dev/shm/qubes
+SHMCOPY=$SHMDIR/current_savefile
+rm -f $ROOT $DEFAULT $CURRENT
+ln -s "/var/lib/qubes/appvms/$DVMTMPL/dvm-savefile" $DEFAULT
+ln -s "/var/lib/qubes/vm-templates/$1/root.img" $ROOT
+if [ -f /var/lib/qubes/dvmdata/dont_use_shm ] ; then
+            ln -s $DEFAULT $CURRENT
+else
+	mkdir -m 770 $SHMDIR 2>/dev/null
+	chgrp qubes $SHMDIR 2>/dev/null
+	cp $DEFAULT $SHMCOPY || exit 1
+	chgrp qubes $SHMCOPY
+	chmod 660 $SHMCOPY
+	ln -s $SHMCOPY $CURRENT
+fi 

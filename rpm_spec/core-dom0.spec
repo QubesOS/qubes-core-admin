@@ -78,7 +78,7 @@ cp aux-tools/create_apps_for_appvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/remove_appvm_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp pendrive_swapper/qubes_pencmd $RPM_BUILD_ROOT/usr/lib/qubes
 
-cp restore/xenstore-watch $RPM_BUILD_ROOT/usr/bin
+cp restore/xenstore-watch restore/qvm-create-default-dvm $RPM_BUILD_ROOT/usr/bin
 cp restore/qubes_restore  $RPM_BUILD_ROOT/usr/lib/qubes
 cp restore/qubes_prepare_saved_domain.sh  $RPM_BUILD_ROOT/usr/lib/qubes
 
@@ -217,6 +217,7 @@ fi
 /usr/lib64/pm-utils/sleep.d/01qubes-sync-vms-clock
 /usr/lib64/pm-utils/sleep.d/02qubes-pause-vms
 /usr/bin/xenstore-watch
+/usr/bin/qvm-create-default-dvm
 /usr/lib/qubes/qubes_restore
 /usr/lib/qubes/qubes_prepare_saved_domain.sh
 /etc/xen/scripts/block.qubes
