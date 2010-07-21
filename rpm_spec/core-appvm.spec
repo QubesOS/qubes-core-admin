@@ -33,6 +33,7 @@ License:	GPL
 URL:		http://www.qubes-os.org
 Requires:	/usr/bin/xenstore-read
 Requires:   fedora-release = 13
+Requires:	/usr/bin/mimeopen
 Provides:   qubes-core-vm
 
 %define _builddir %(pwd)/appvm
@@ -60,9 +61,12 @@ mkdir -p $RPM_BUILD_ROOT/etc/init.d
 cp qubes_core $RPM_BUILD_ROOT/etc/init.d/
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/usr/bin
-cp qubes_add_pendrive_script qubes_penctl qvm-copy-to-vm  qvm-copy-to-vm.kde $RPM_BUILD_ROOT/usr/bin
+cp qubes_timestamp qvm-copy-to-vm qvm-open-in-dvm $RPM_BUILD_ROOT/usr/bin
+mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
+cp qubes_add_pendrive_script qubes_penctl qvm-copy-to-vm.kde $RPM_BUILD_ROOT/usr/lib/qubes
+ln -s /usr/bin/qvm-open-in-dvm $RPM_BUILD_ROOT/usr/lib/qubes/qvm-dvm-transfer 
 mkdir -p $RPM_BUILD_ROOT/%{kde_service_dir}
-cp qvm-copy.desktop $RPM_BUILD_ROOT/%{kde_service_dir}
+cp qvm-copy.desktop qvm-dvm.desktop $RPM_BUILD_ROOT/%{kde_service_dir}
 mkdir -p $RPM_BUILD_ROOT/etc/udev/rules.d
 cp qubes.rules $RPM_BUILD_ROOT/etc/udev/rules.d
 mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
@@ -76,6 +80,12 @@ mkdir -p $RPM_BUILD_ROOT/sbin
 cp ../common/qubes_serial_login $RPM_BUILD_ROOT/sbin
 mkdir -p $RPM_BUILD_ROOT/etc
 cp ../common/serial.conf $RPM_BUILD_ROOT/var/lib/qubes/
+
+mkdir -p $RPM_BUILD_ROOT/etc/X11
+cp xorg-preload-apps.conf $RPM_BUILD_ROOT/etc/X11
+
+mkdir -p $RPM_BUILD_ROOT/home_volatile/user
+chown 500:500 $RPM_BUILD_ROOT/home_volatile/user
 
 %triggerin -- initscripts
 cp /var/lib/qubes/serial.conf /etc/init/serial.conf
@@ -174,10 +184,13 @@ rm -rf $RPM_BUILD_ROOT
 /etc/fstab
 /etc/init.d/qubes_core
 /usr/bin/qvm-copy-to-vm
-/usr/bin/qvm-copy-to-vm.kde
+/usr/lib/qubes/qvm-copy-to-vm.kde
+%attr(4755,root,root) /usr/bin/qvm-open-in-dvm
+/usr/lib/qubes/qvm-dvm-transfer
 %{kde_service_dir}/qvm-copy.desktop
-%attr(4755,root,root) /usr/bin/qubes_penctl
-/usr/bin/qubes_add_pendrive_script
+%{kde_service_dir}/qvm-dvm.desktop
+%attr(4755,root,root) /usr/lib/qubes/qubes_penctl
+/usr/lib/qubes/qubes_add_pendrive_script
 /etc/udev/rules.d/qubes.rules
 /etc/sysconfig/iptables
 /var/lib/qubes
@@ -186,3 +199,7 @@ rm -rf $RPM_BUILD_ROOT
 %dir /mnt/removable
 /etc/yum.repos.d/qubes.repo
 /sbin/qubes_serial_login
+/usr/bin/qubes_timestamp
+%dir /home_volatile
+%attr(700,user,user) /home_volatile/user
+/etc/X11/xorg-preload-apps.conf

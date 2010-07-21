@@ -16,7 +16,27 @@
 # Source function library.
 . /etc/rc.d/init.d/functions
 
-
+setup_dvm_files()
+{
+    ROOT=/var/lib/qubes/dvmdata/savefile_root
+    DEFAULT=/var/lib/qubes/dvmdata/default_savefile
+    if ! [ -f $DEFAULT ] ; then return ; fi
+    if ! [ -f $ROOT ] ; then return ; fi
+    if [ $ROOT -nt $DEFAULT ] ; then
+        echo DVM require reconfiguration
+        return
+    fi
+    if [ -f /var/lib/qubes/dvmdata/dont_use_shm ] ; then
+        ln -s $DEFAULT /var/run/qubes/current_savefile
+    else
+    	mkdir -m 770 /dev/shm/qubes
+    	chown root.qubes /dev/shm/qubes
+    	cp $DEFAULT /dev/shm/qubes/current_savefile
+    	chown root.qubes /dev/shm/qubes/current_savefile
+    	chmod 660 /dev/shm/qubes/current_savefile
+    	ln -s /dev/shm/qubes/current_savefile /var/run/qubes/current_savefile
+    fi 
+}
 
 start()
 {
@@ -30,7 +50,12 @@ start()
     chgrp qubes /var/run/xenstored/*
     chmod 660 /var/run/xenstored/*
     xm sched-credit -d 0 -w 65535
+    printf "\x00\x00\x00\x00" > /var/run/qubes/dispVM_seq
+    chown root:qubes /var/run/qubes/dispVM_seq
+    chmod 660 /var/run/qubes/dispVM_seq
+    xm mem-set 0 800
     cp /var/lib/qubes/qubes.xml /var/lib/qubes/backup/qubes-$(date +%F-%T).xml
+    setup_dvm_files
     touch /var/lock/subsys/qubes_core
     success
     echo

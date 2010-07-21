@@ -46,6 +46,7 @@ The Qubes core files for installation on Dom0.
 %build
 python -m compileall qvm-core
 python -O -m compileall qvm-core
+make -C restore
 
 %install
 
@@ -57,6 +58,9 @@ mkdir -p $RPM_BUILD_ROOT/usr/bin/
 cp qvm-tools/qvm-* $RPM_BUILD_ROOT/usr/bin
 cp clipboard_notifier/qclipd $RPM_BUILD_ROOT/usr/bin
 cp pendrive_swapper/qfilexchgd $RPM_BUILD_ROOT/usr/bin
+
+mkdir -p $RPM_BUILD_ROOT/etc/xen/scripts
+cp restore/block.qubes $RPM_BUILD_ROOT/etc/xen/scripts
 
 mkdir -p $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/qubes.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
@@ -74,11 +78,16 @@ cp aux-tools/create_apps_for_appvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/remove_appvm_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp pendrive_swapper/qubes_pencmd $RPM_BUILD_ROOT/usr/lib/qubes
 
+cp restore/xenstore-watch restore/qvm-create-default-dvm $RPM_BUILD_ROOT/usr/bin
+cp restore/qubes_restore  $RPM_BUILD_ROOT/usr/lib/qubes
+cp restore/qubes_prepare_saved_domain.sh  $RPM_BUILD_ROOT/usr/lib/qubes
+
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/vm-templates
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/appvms
 
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/backup
+mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/dvmdata
 
 mkdir -p $RPM_BUILD_ROOT/usr/share/qubes/icons
 cp icons/*.png $RPM_BUILD_ROOT/usr/share/qubes/icons
@@ -87,9 +96,9 @@ mkdir -p $RPM_BUILD_ROOT/etc/yum.repos.d
 cp ../dom0/qubes.repo $RPM_BUILD_ROOT/etc/yum.repos.d
 
 mkdir -p $RPM_BUILD_ROOT/usr/bin
-cp ../common/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/bin
+cp ../common/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/etc/dhclient.d
-ln -s /usr/bin/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/etc/dhclient.d/qubes_setup_dnat_to_ns.sh 
+ln -s /usr/lib/qubes/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/etc/dhclient.d/qubes_setup_dnat_to_ns.sh 
 mkdir -p $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 cp ../common/qubes_nmhook $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
@@ -98,6 +107,9 @@ cp init.d/iptables $RPM_BUILD_ROOT/etc/sysconfig
 mkdir -p $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d
 cp pm-utils/01qubes-sync-vms-clock $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 cp pm-utils/02qubes-pause-vms $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
+
+%triggerin -- xen-runtime
+sed -i 's/\/block /\/block.qubes /' /etc/udev/rules.d/xen-backend.rules
 
 %post
 
@@ -167,6 +179,7 @@ if [ "$1" = 0 ] ; then
     chgrp root /etc/xen
     chmod 700 /etc/xen
     groupdel qubes
+    sed -i 's/\/block.qubes /\/block /' /etc/udev/rules.d/xen-backend.rules
 fi
 
 %files
@@ -194,11 +207,17 @@ fi
 %attr(770,root,qubes) %dir /var/lib/qubes/vm-templates
 %attr(770,root,qubes) %dir /var/lib/qubes/appvms
 %attr(770,root,qubes) %dir /var/lib/qubes/backup
+%attr(770,root,qubes) %dir /var/lib/qubes/dvmdata
 %dir /usr/share/qubes/icons/*.png
 /etc/yum.repos.d/qubes.repo
-/usr/bin/qubes_setup_dnat_to_ns
+/usr/lib/qubes/qubes_setup_dnat_to_ns
 /etc/dhclient.d/qubes_setup_dnat_to_ns.sh
 /etc/NetworkManager/dispatcher.d/qubes_nmhook
 /etc/sysconfig/iptables
 /usr/lib64/pm-utils/sleep.d/01qubes-sync-vms-clock
 /usr/lib64/pm-utils/sleep.d/02qubes-pause-vms
+/usr/bin/xenstore-watch
+/usr/bin/qvm-create-default-dvm
+/usr/lib/qubes/qubes_restore
+/usr/lib/qubes/qubes_prepare_saved_domain.sh
+/etc/xen/scripts/block.qubes

@@ -10,7 +10,7 @@ addrule()
         fi
 }
 export PATH=$PATH:/sbin:/bin
-source /var/run/qubes_ns
+source /var/run/qubes/qubes_ns
 if [ "X"$NS1 = "X" ] ; then exit ; fi
 iptables -t nat -F PREROUTING
 FIRSTONE=yes
