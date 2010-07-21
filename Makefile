@@ -24,3 +24,4 @@ update-repo-testing:
 
 clean:
 	(cd appvm && make clean)
+	(cd dom0/restore && make clean)
