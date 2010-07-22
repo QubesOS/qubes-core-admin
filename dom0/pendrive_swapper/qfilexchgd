@@ -187,6 +187,16 @@ class DomainState:
 
     def handle_transfer_disposable(self, transaction_seq):
 
+        mem_for_dvm = 400
+        xenfreepages_s = subprocess.Popen(["/usr/lib/qubes/xenfreepages"],stdout=subprocess.PIPE).stdout.readline()
+        xenfree_mb = int(xenfreepages_s)*4096/1024/1024
+        if xenfree_mb < mem_for_dvm:
+            errmsg = 'Not enough memory to create DVM: '
+            errmsg +='have ' + str(xenfree_mb) + 'MB, need '
+            errmsg +=str(mem_for_dvm) + 'MB. Terminate some appVM and retry.'
+            subprocess.call(['/usr/bin/kdialog', '--sorry', errmsg])
+            return False
+
         qvm_collection = QubesVmCollection()
         qvm_collection.lock_db_for_writing()
         qvm_collection.load()
