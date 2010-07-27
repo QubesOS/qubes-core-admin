@@ -27,6 +27,7 @@ start()
 		exit 1
 	fi
 	if xenstore-read qubes_save_request 2>/dev/null ; then
+		ln -sf /home_volatile /home
 		possibly_run_save_script 
 		touch /etc/this_is_dvm
 		dmesg -c >/dev/null
@@ -71,22 +72,11 @@ start()
             touch /rw/config/rc.local
             rm -fr /home.orig
             touch /var/lib/qubes/first_boot_completed
-        fi
 
-        if ! [ -L /home ] ; then
-            mv /home /home.orig
-            ln -s /rw/home /home
-        fi
-        if ! [ -L /usr/local ] ; then
             mv /usr/local /usr/local.orig
             ln -s /rw/usrlocal /usr/local
+            cp -a /usr/local.orig /rw/usrlocal
         fi
-#make it last, we want all above to work without /rw mounted
-		if ! [ -d /rw/usrlocal ] ; then
-        		cp -a /usr/local.orig /rw/usrlocal
-		fi
-	else
-		ln -sf /home_volatile /home
 	fi
 
 	[ -x /rw/config/rc.local ] && /rw/config/rc.local
