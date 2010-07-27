@@ -9,7 +9,7 @@ if ! [ -d "/var/lib/qubes/vm-templates/$1" ] ; then
 fi
 DVMTMPL="$1"-dvm
 if ! [ -d "/var/lib/qubes/appvms/$DVMTMPL" ] ; then
-	if ! qvm-create -t "$1" -l red "$DVMTMPL" ; then exit 1 ; fi
+	if ! qvm-create -t "$1" -l gray "$DVMTMPL" ; then exit 1 ; fi
 fi
 if ! /usr/lib/qubes/qubes_prepare_saved_domain.sh \
 	"$DVMTMPL" "/var/lib/qubes/appvms/$DVMTMPL/dvm-savefile" $2 ; then
