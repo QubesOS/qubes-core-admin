@@ -48,7 +48,12 @@ start()
 	fi
 
 	name=$(/usr/bin/xenstore-read name)
-	hostname $name
+	if ! [ -f /etc/this_is_dvm ] ; then
+		# we don't want to set hostname for DispVM
+		# because it makes some of the pre-created dotfiles invalid (e.g. .kde/cache-<hostname>)
+		# (let's be frank: nobody's gonna use xterm on DispVM)
+		hostname $name
+	fi
 
 	ip=$(/usr/bin/xenstore-read qubes_ip)
 	netmask=$(/usr/bin/xenstore-read qubes_netmask)
