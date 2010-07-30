@@ -177,9 +177,9 @@ void dvm_transaction_request(char *seq, struct xs_handle *xs)
 		suicide(xs);
 	}
 	snprintf(cmdbuf, sizeof(cmdbuf),
-		 "DISPLAY=:0 mimeopen -n '/tmp/%s'", header.name);
+		 "HOME=/home/user DISPLAY=:0 /usr/bin/mimeopen -n -M '/tmp/%s' 2>&1 > /tmp/kde-open.log", header.name);
 	if (system(cmdbuf))
-		system("DISPLAY=:0 /usr/bin/kdialog --sorry 'Unable to handle mimetype of the requested file'");
+		system("HOME=/home/user DISPLAY=:0 /usr/bin/kdialog --sorry 'Unable to handle mimetype of the requested file!'");
 	if (stat(filename, &stat_post)) {
 		syslog(LOG_DAEMON | LOG_ERR, "stat post");
 		suicide(xs);
