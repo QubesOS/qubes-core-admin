@@ -217,8 +217,8 @@ class DomainState:
             return False
         f = open('/var/run/qubes/dispVM_xid', 'r');
         disp_xid = f.readline().rstrip('\n')
-	disp_name = f.readline().rstrip('\n')
-	disptempl = f.readline().rstrip('\n')
+        disp_name = f.readline().rstrip('\n')
+        disptempl = f.readline().rstrip('\n')
         f.close()
         vm_disptempl = qvm_collection.get_vm_by_name(disptempl);
         if vm_disptempl is None:
