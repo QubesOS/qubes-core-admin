@@ -197,7 +197,10 @@ void start_guid(int domid, int argc, char **argv)
 	execv("/usr/bin/qubes_guid", guid_args);
 	perror("execv");
 }
-
+// modify the savefile. fd = fd to the open savefile,
+// buf - already read 1st page of the savefile
+// pattern - pattern to search for
+// val - string to replace pattern with
 void fix_savefile(int fd, char *buf, char *pattern, char *val)
 {
 	int i, len = strlen(val), origlen;
@@ -229,6 +232,10 @@ char * dispname_by_dispid(int dispid)
 }
 
 #define NAME_PATTERN "/root-cow.img"
+// replaces the unique portions of the savefile with per-dvm values
+// returns the name of VM the savefile was taken for 
+// by looking for /.../vmname/root-cow.img
+// normally, it should be "templatename-dvm"
 char *fix_savefile_and_get_vmname(int fd, int dispid)
 {
 	static char buf[4096];
@@ -264,6 +271,7 @@ char *fix_savefile_and_get_vmname(int fd, int dispid)
 	return slash + 1;
 }
 
+// restore the cow files as they were just before save
 void unpack_cows(char *name)
 {
 	char vmdir[4096];

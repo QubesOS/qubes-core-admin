@@ -39,6 +39,13 @@ void check_name(unsigned char *s)
 		exit(1);
 	}
 }
+/*
+A tool to request action from qfileexchgd by writing to device/qpen xenstore key. 
+new - please attach a vfat-formatted block device at /dev/xvdg; I will either write some files to it and
+	then request sending it to other AppVM, or I will place dvm_header+some file on it and send it to DVM
+send vmname - detach my /dev/xvdg and attach it to vmname at /dev/xvdh
+umount - I am done with my /dev/xvdh, please detach it
+*/
 
 void usage(char *argv0)
 {

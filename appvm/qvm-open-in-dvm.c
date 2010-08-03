@@ -62,7 +62,12 @@ int get_and_set_seq()
 	close(seq_fd);
 	return seq;
 }
-
+/*
+Write the filename we are sending to DVM to DBDIR/transaction_seq
+When DVM sends us a modified document via transaction with transaction_seq,
+we will know that we are supposed to update the document with the
+filename at DBDIR/transaction_seq
+*/ 
 void write_db(char *name, int seq)
 {
 	int db_fd;
@@ -137,6 +142,7 @@ int main(int argc, char **argv)
 		perror("xs_domain_open");
 		exit(1);
 	}
+	// request a new block device at /dev/xvdg from qfileexchgd
 	if (!xs_write(xs, 0, "device/qpen", "new", 3)) {
 		perror("xs_write");
 		exit(1);
@@ -150,8 +156,10 @@ int main(int argc, char **argv)
 	}
 	setuid(getuid());
 	if (argc == 3)
+		// we are AppVM; get new seq
 		seq = get_and_set_seq();
 	else
+		// we are DVM; use the cmdline transaction_seq
 		seq = strtoul(argv[3], 0, 0);
 	file_fd = open(abs_filename, O_RDONLY);
 	if (file_fd < 0) {
@@ -165,6 +173,9 @@ int main(int argc, char **argv)
 	copy_file(xvdg_fd, file_fd);
 	close(file_fd);
 	close(xvdg_fd);
+	// request qfileexchgd to send our /dev/xvdg to its destination
+	// either "disposable", which means "create DVM for me"
+	// or vmname, meaning this is a reply to originator AppVM
 	snprintf(buf, sizeof(buf), "send %s %d", argv[1], seq);
 	if (!xs_write(xs, 0, "device/qpen", buf, strlen(buf))) {
 		perror("xs_write");
