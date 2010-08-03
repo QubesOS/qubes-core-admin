@@ -1,0 +1,62 @@
+	qfilexchgd is a daemon responsible for managing exchange of block
+devices ("virtual pendrives") between VMs. It is used for
+a) copying files between AppVMs
+b) copying a single file between an AppVM and a DVM
+
+	qfilexchgd is event driven. The sources of events are:
+a) trigger of xenstore watch for the changes in /local/domain xenstore hierarchy - 
+to detect start/stop of VMs, and maintain vmname->vm_xid dictionary
+b) triger of xenstore watch for a change in /local/domain/domid/device/qpen
+key - VMs write to this key to request service from qfilexchgd
+	
+	Copying files between AppVMs is implemented as follows:
+1) AppVM1 user runs qvm-copy-to-vm script (accessible from Dolphin file manager by
+"right click on a file(s)->Actions->Send to VM" menu). It calls
+"/usr/lib/qubes/qubes_penctl new", and it writes "new" request to its device/qpen 
+key. qfilexchgd creates a new 1G file, makes vfat fs on it, and does block-attach 
+so that this file is attached as /dev/xvdg in AppVM1.
+2) AppVM1 mounts /dev/xvdg on /mnt/outgoing and copies some files there,
+then unmounts it.
+3) AppVM1 writes "send DestVM" request to its device/qpen key (calling
+"/usr/lib/qubes/qubes_penctl send DestVM"). After getting confirmation by
+displaying a dialog box in dom0 display, qfilexchgd detaches /dev/xvdg
+from AppVM1, attaches it as /dev/xvdh to DestVM.
+4) In DestVM, udev script for /dev/xvdh named qubes_add_pendrive_script (see 
+/etc/udev/rules.d/qubes.rules) mounts /dev/xvdh on /mnt/incoming, and then
+waits for /mnt/incoming to become unmounted. A file manager
+running in DestVM shows a new volume, and user in DestVM may copy files from
+it. When user in DestVM is done, then user unmounts /dev/xvdh.
+qubes_add_pendrive_script then tells qfilexchgd to detach /dev/xvdh and
+terminates. 
+
+	Copying a single file between AppVM and a DVM is implemented as
+follows:
+1) User in AppVM1 runs qvm-open-in-dvm (accessible from Dolphin file manager
+by "right click on a file->Actions->Open in DVM" menu). qvm-open-in-dvm 
+a) gets a new /dev/xvdg (just as described in previous paragraph)
+b) computes a new unique transaction seq SEQ,
+c) writes the requested file name (say, /home/user/document.txt) to 
+/home/user/.dvm/SEQ.
+d) creates a dvm_header (see core.git/appvm/dvm.h) on /dev/xvdg, followed by
+file contents 
+e) writes the "send disposable SEQ" to its device/qpen xenstore key.
+2) qfilexchgd sees that "send" argument=="disposable", and creates the new
+DVM by calling /usr/lib/qubes/qubes_restore. It adds new DVM to qubesDB via
+qvm_collection.add_new_appvm. Then it attaches /dev/xvdg from AppVM1 as
+/dev/xvdh in DVM.
+3) In DVM, qubes_add_pendrive_script sees non-zero "qubes_transaction_seq"
+key in xenstore, and instead processing it as in the case of normal copy,
+treats it as a request to DVM (because we run in DVM). It retrieves the 
+body of the file passed in
+/dev/xvdh, copies to /tmp, and runs "mime-open" to open appropriate
+executable to edit it. When mime-open returns, if the file was modified,
+it is sent back to AppVM1 (by writing "send AppVM1 SEQ" to device/qpen).
+Then DVM destroys itself.
+4) In AppVM1, a new /dev/xvdh appears (because DVM sent it). 
+qubes_add_pendrive_script sees non-zero "qubes_transaction_seq" key, and 
+treats it as response from DVM (because we run in AppVM, not DVM). It 
+retrieves the filename from
+/home/user/.dvm/SEQ, and copies data from /dev/xvdh to it.
+     
+	qfilexchgd is started after first qubes_guid is started, so that it
+has access to X display in dom0 to present dialog messages.
