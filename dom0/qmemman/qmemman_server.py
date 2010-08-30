@@ -75,6 +75,7 @@ class QMemmanReqHandler(SocketServer.BaseRequestHandler):
     """
 
     def handle(self):
+        global additional_balance_delay
         # self.request is the TCP socket connected to the client
         while True:
             self.data = self.request.recv(1024).strip()
@@ -105,9 +106,11 @@ def start_server():
     server.serve_forever()
 
 def start_balancer():
+    global additional_balance_delay
     while True:
         time.sleep(1)
-        if additional_balance_delay == 0:
+        if additional_balance_delay != 0:
+            print 'waiting additional_balance_delay to allow VM to start'
             time.sleep(additional_balance_delay)
             additional_balance_delay = 0
         global_lock.acquire()
