@@ -56,6 +56,8 @@ start()
     xm mem-set 0 1600
     cp /var/lib/qubes/qubes.xml /var/lib/qubes/backup/qubes-$(date +%F-%T).xml
     setup_dvm_files
+    /usr/lib/qubes/qmemman_daemon.py >/var/log/qubes/qmemman.log 2>/var/log/qubes/qmemman.errs & 
+    /usr/lib/qubes/meminfo-writer &
     touch /var/lock/subsys/qubes_core
     success
     echo

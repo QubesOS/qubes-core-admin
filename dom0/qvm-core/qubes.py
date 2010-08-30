@@ -29,6 +29,7 @@ import xml.parsers.expat
 import fcntl
 import re
 import shutil
+from qmemman_client import QMemmanClient
 
 # Do not use XenAPI or create/read any VM files
 # This is for testing only!
@@ -326,6 +327,18 @@ class QubesVm(object):
 
         return mem
 
+    def get_mem_dynamic_max(self):
+        if dry_run:
+            return 666
+
+        try:
+            mem = int(xend_session.session.xenapi.VM.get_memory_dynamic_max(self.session_uuid))
+        except XenAPI.Failure:
+            self.refresh_xend_session()
+            mem = int(xend_session.session.xenapi.VM.get_memory_dynamic_max(self.session_uuid))
+
+        return mem
+
 
     def get_cpu_total_load(self):
         if dry_run:
@@ -474,15 +487,11 @@ class QubesVm(object):
         if verbose:
             print "--> Loading the VM (type = {0})...".format(self.type)
 
-        mem_required = self.get_mem_static_max()
-        dom0_mem = dom0_vm.get_mem()
-        dom0_mem_new = dom0_mem - mem_required + self.get_free_xen_memory()
-        if verbose:
-            print "--> AppVM required mem     : {0}".format(mem_required)
-            print "--> Dom0 mem after launch  : {0}".format(dom0_mem_new)
-
-        if dom0_mem_new < dom0_min_memory:
-            raise MemoryError ("ERROR: starting this VM would cause Dom0 memory to go below {0}B".format(dom0_min_memory))
+        mem_required = self.get_mem_dynamic_max()
+        qmemman_client = QMemmanClient()
+        if not qmemman_client.request_memory(mem_required):
+            qmemman_client.close()
+            raise MemoryError ("ERROR: insufficient memory to start this VM")
 
         try:
             xend_session.session.xenapi.VM.start (self.session_uuid, True) # Starting a VM paused
@@ -490,6 +499,8 @@ class QubesVm(object):
             self.refresh_xend_session()
             xend_session.session.xenapi.VM.start (self.session_uuid, True) # Starting a VM paused
 
+        qmemman_client.close() # let qmemman_daemon resume balancing
+        
         xid = int (xend_session.session.xenapi.VM.get_domid (self.session_uuid))
 
         if verbose:

@@ -1,0 +1,4 @@
+#!/bin/sh
+while sleep 1 ; do
+	xenstore-write memory/meminfo "`cat /proc/meminfo`"
+done

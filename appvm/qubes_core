@@ -87,6 +87,7 @@ start()
         fi
 	fi
 
+	/usr/lib/qubes/meminfo-writer &
 	[ -x /rw/config/rc.local ] && /rw/config/rc.local
 	success
 	echo ""
