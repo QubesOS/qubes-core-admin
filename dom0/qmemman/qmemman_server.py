@@ -76,21 +76,25 @@ class QMemmanReqHandler(SocketServer.BaseRequestHandler):
 
     def handle(self):
         global additional_balance_delay
+        got_lock = False
         # self.request is the TCP socket connected to the client
         while True:
             self.data = self.request.recv(1024).strip()
             if len(self.data) == 0:
                 print 'EOF'
+                if got_lock:
+                    global_lock.release()
                 return
-            if self.data == "DONE":
+            if got_lock:
+                print 'Second request over qmemman.sock ?'
                 return
             global_lock.acquire()
+            got_lock = True
             if system_state.do_balloon(int(self.data)):
                 resp = "OK\n"
                 additional_balance_delay = 5
             else:
                 resp = "FAIL\n"
-            global_lock.release()
             self.request.send(resp)
 
 
