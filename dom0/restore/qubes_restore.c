@@ -336,6 +336,7 @@ void setup_xenstore(int domid, char *name)
 	snprintf(val, sizeof(val), "10.%s.255.254", netvm_id);
 	write_xs_single(xs, domid, "qubes_secondary_dns", val);
 	write_xs_single(xs, domid, "qubes_vm_type", "AppVM");
+	write_xs_single(xs, domid, "qubes_restore_complete", "True");
 	xs_daemon_close(xs);
 
 }

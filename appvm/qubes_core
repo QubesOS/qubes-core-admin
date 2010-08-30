@@ -35,13 +35,8 @@ start()
 			(read a b c d ; xenstore-write device/qubes_used_mem $c)
 		# we're still running in DispVM template
 		echo "Waiting for save/restore..."
-		# WARNING: Nergalism!
-		# Apparently it has been determined that DomU kernel
-		# dmesg's "using vcpu" after restore
-		while ! dmesg -c | grep "using vcpu" ; do usleep 10 ; done
-		# we're now after restore in a new instance of a DispVM
 		# ... wait until qubes_restore.c (in Dom0) recreates VM-specific keys
-		while ! xenstore-read qubes_vm_type 2>/dev/null ; do 
+		while ! xenstore-read qubes_restore_complete 2>/dev/null ; do 
 			usleep 10
 		done
 		echo Back to life.
