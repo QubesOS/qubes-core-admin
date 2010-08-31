@@ -104,6 +104,9 @@ class SystemState:
     
     def mem_set(self, id, val):
         uuid = self.domdict[id].uuid
+        if val >= 2**31:
+            print 'limiting memory from ', val, 'to maxint because of xml-rpc lameness'
+            val = 2**31 - 1
         print 'mem-set domain', id, 'to', val
         try:
             self.xend_session.session.xenapi.VM.set_memory_dynamic_max_live(uuid, val)
