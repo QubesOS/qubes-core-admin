@@ -105,8 +105,12 @@ class SystemState:
     def mem_set(self, id, val):
         uuid = self.domdict[id].uuid
         print 'mem-set domain', id, 'to', val
-        self.xend_session.session.xenapi.VM.set_memory_dynamic_max_live(uuid, val)
-        self.xend_session.session.xenapi.VM.set_memory_dynamic_min_live(uuid, val)
+        try:
+            self.xend_session.session.xenapi.VM.set_memory_dynamic_max_live(uuid, val)
+            self.xend_session.session.xenapi.VM.set_memory_dynamic_min_live(uuid, val)
+#can happen in the middle of domain shutdown
+        except XenAPI.Failure:
+            pass
 
     def do_balloon(self, memsize):
         MAX_TRIES = 20
