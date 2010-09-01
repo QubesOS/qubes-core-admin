@@ -64,25 +64,12 @@ def balloon(memsize, domdict):
     return request
 # REQ_SAFETY_NET_FACTOR is a bit greater that 1. So that if the domain yields a bit less than requested, due
 # to e.g. rounding errors, we will not get stuck. The surplus will return to the VM during "balance" call.
- 
-def balance(xenfree, domdict):
-    total_memneeded = 0
-    total_mem_pref = 0
-    recalc_mem_used(domdict)
-#pass 1: compute the above "total" values
-    for i in domdict.keys():
-        if domdict[i].meminfo is None:
-            continue
-        need = memneeded(domdict[i])
-        print 'domain' , i, 'act/pref', domdict[i].memory_actual, prefmem(domdict[i]), 'need=', need
-        total_memneeded += need
-        total_mem_pref += prefmem(domdict[i])
 
-    totalsum = xenfree - total_memneeded  
 
-#pass 2: redistribute "totalsum" of memory between domains, proportionally to prefmem
-    donors = list()
-    acceptors = list()
+#redistribute positive "totalsum" of memory between domains, proportionally to prefmem
+def balance_when_enough_memory(domdict, xenfree, total_mem_pref, totalsum):
+    donors_rq = list()
+    acceptors_rq = list()
     for i in domdict.keys():
         if domdict[i].meminfo is None:
             continue
@@ -92,10 +79,56 @@ def balance(xenfree, domdict):
 #prevent rounding errors
         target = int(0.995*target_nonint)
         if (target < domdict[i].memory_actual):
-            donors.append((i, target))
+            donors_rq.append((i, target))
         else:
-            acceptors.append((i, target))
-    print 'balance: xenfree=', xenfree, 'requests:', donors + acceptors
-    return donors + acceptors
+            acceptors_rq.append((i, target))
+    print 'balance(enough): xenfree=', xenfree, 'requests:', donors_rq + acceptors_rq
+    return donors_rq + acceptors_rq
+
+#when not enough mem to make everyone be above prefmem, make donors be at prefmem, and 
+#redistribute anything left between acceptors
+def balance_when_low_on_memory(domdict, xenfree, total_mem_pref_acceptors, donors, acceptors):
+    donors_rq = list()
+    acceptors_rq = list()
+    squeezed_mem = xenfree
+    for i in donors:
+        avail = -memneeded(domdict[i])
+        if avail < 10*1024*1024:
+            #probably we have already tried making it exactly at prefmem, give up
+            continue
+        squeezed_mem -= avail
+        donors_rq.append((i, prefmem(domdict[i])))
+    for i in acceptors:
+        scale = 1.0*prefmem(domdict[i])/total_mem_pref_acceptors
+        target_nonint = domdict[i].memory_actual + scale*squeezed_mem
+        acceptors_rq.append((i, int(target_nonint)))       
+    print 'balance(low): xenfree=', xenfree, 'requests:', donors_rq + acceptors_rq
+    return donors_rq + acceptors_rq
+ 
+def balance(xenfree, domdict):
+    total_memneeded = 0
+    total_mem_pref = 0
+    total_mem_pref_acceptors = 0
     
-    
+    recalc_mem_used(domdict)
+    donors = list()
+    acceptors = list()
+#pass 1: compute the above "total" values
+    for i in domdict.keys():
+        if domdict[i].meminfo is None:
+            continue
+        need = memneeded(domdict[i])
+        print 'domain' , i, 'act/pref', domdict[i].memory_actual, prefmem(domdict[i]), 'need=', need
+        if need < 0:
+            donors.append(i)
+        else:
+            acceptors.append(i)
+            total_mem_pref_acceptors += prefmem(domdict[i])
+        total_memneeded += need
+        total_mem_pref += prefmem(domdict[i])
+
+    totalsum = xenfree - total_memneeded  
+    if totalsum > 0:
+        return balance_when_enough_memory(domdict, xenfree, total_mem_pref, totalsum)
+    else:
+        return balance_when_low_on_memory(domdict, xenfree, total_mem_pref_acceptors, donors, acceptors)
