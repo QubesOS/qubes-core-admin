@@ -160,20 +160,29 @@ class SystemState:
         scaled_req = self.domdict[dom].memory_actual + scale*(mem - self.domdict[dom].memory_actual)
         return int(scaled_req)
 
+    def is_balance_req_significant(self, memset_reqs):
+        total_memory_transfer = 0
+        MIN_TOTAL_MEMORY_TRANSFER = 150*1024*1024
+        for rq in memset_reqs:
+            dom, mem = rq
+            memory_change = mem - self.domdict[dom].memory_actual
+            total_memory_transfer += abs(memory_change)
+        return total_memory_transfer > MIN_TOTAL_MEMORY_TRANSFER
+
     def do_balance(self):
         if os.path.isfile('/etc/do-not-membalance'):
             return
         self.refresh_memactual()
         xenfree = self.get_free_xen_memory()
         memset_reqs = qmemman_algo.balance(xenfree, self.domdict)
+        if not self.is_balance_req_significant(memset_reqs):
+            return
+            
         wait_before_first_inflate = False
         i = 0
         while i < len(memset_reqs):
             dom, mem = memset_reqs[i]
             memory_change = mem - self.domdict[dom].memory_actual
-            if abs(memory_change) < 100*1024*1024:
-                i = i + 1
-                continue
             if memory_change < 0:
                 wait_before_first_inflate = True
             else:
