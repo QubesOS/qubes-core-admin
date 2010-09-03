@@ -47,6 +47,7 @@ The Qubes core files for installation on Dom0.
 python -m compileall qvm-core qmemman
 python -O -m compileall qvm-core qmemman
 make -C restore
+make -C ../common
 
 %install
 

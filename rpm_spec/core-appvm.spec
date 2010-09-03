@@ -52,6 +52,7 @@ fi
 
 %build
 make clean all
+make -C ../common
 
 %install
 
