@@ -1,45 +1,23 @@
-import xmlrpclib
-from xen.xm import XenAPI
 import xen.lowlevel.xc
+import xen.lowlevel.xs
 import string
 import time
 import qmemman_algo
 import os
-
-class XendSession(object):
-    def __init__(self):
-#        self.get_xend_session_old_api()
-        self.get_xend_session_new_api()
-
-#    def get_xend_session_old_api(self):
-#        from xen.xend import XendClient
-#        from xen.util.xmlrpcclient import ServerProxy
-#        self.xend_server = ServerProxy(XendClient.uri)
-#        if self.xend_server is None:
-#            print "get_xend_session_old_api(): cannot open session!"
-
-
-    def get_xend_session_new_api(self):
-        xend_socket_uri = "httpu:///var/run/xend/xen-api.sock"
-        self.session = XenAPI.Session (xend_socket_uri)
-        self.session.login_with_password ("", "")
-        if self.session is None:
-            print "get_xend_session_new_api(): cannot open session!"
 
 class DomainState:
     def __init__(self, id):
         self.meminfo = None
         self.memory_actual = None
         self.mem_used = None
-        self.uuid = None
         self.id = id
         self.meminfo_updated = False
 
 class SystemState:
     def __init__(self):
-        self.xend_session = XendSession()
         self.domdict = {}
         self.xc = xen.lowlevel.xc.xc()
+        self.xs = xen.lowlevel.xs.xs()
         self.BALOON_DELAY = 0.1
 
     def add_domain(self, id):
@@ -57,24 +35,10 @@ class SystemState:
 #        return long(ret)
 
     def refresh_memactual(self):
-        update_uuid_info = False
         for domain in self.xc.domain_getinfo():
             id = str(domain['domid'])
             if self.domdict.has_key(id):
                 self.domdict[id].memory_actual = domain['mem_kb']*1024
-                if self.domdict[id].uuid is None:
-                    update_uuid_info = True
-        if not update_uuid_info:
-            return
-        dom_recs = self.xend_session.session.xenapi.VM.get_all_records()
-#        dom_metrics_recs = self.xend_session.session.xenapi.VM_metrics.get_all_records()
-        for dom_ref, dom_rec in dom_recs.items():
-#            dom_metrics_rec = dom_metrics_recs[dom_rec['metrics']]
-            id = dom_rec['domid']
-#            mem = int(dom_metrics_rec['memory_actual'])/1024
-            if (self.domdict.has_key(id)):
-#                self.domdict[id].memory_actual = mem
-                self.domdict[id].uuid = dom_rec['uuid']   
 
     def parse_meminfo(self, meminfo):
         dict = {}
@@ -98,11 +62,12 @@ class SystemState:
         return dict
 
 #the below works (and is fast), but then 'xm list' shows unchanged memory value
-    def mem_set_alternative(self, id, val):
-        os.system('xenstore-write /local/domain/' + id + '/memory/target ' + str(val/1024))
+    def mem_set(self, id, val):
+        print 'mem-set domain', id, 'to', val
+        self.xs.write('', '/local/domain/' + id + '/memory/target', str(val/1024))
         self.xc.domain_set_target_mem(int(id), val/1024)
     
-    def mem_set(self, id, val):
+    def mem_set_obsolete(self, id, val):
         uuid = self.domdict[id].uuid
         if val >= 2**31:
             print 'limiting memory from ', val, 'to maxint because of xml-rpc lameness'
