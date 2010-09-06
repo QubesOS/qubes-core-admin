@@ -501,18 +501,19 @@ class QubesVm(object):
             if verbose:
                 print "--> Attaching to the network backend (netvm={0})...".format(self.netvm_vm.name)
 
+            xm_cmdline = ["/usr/sbin/xm", "network-attach", self.name, "script=vif-route-qubes", "ip="+self.ip]
             if self.netvm_vm.qid != 0:
                 if not self.netvm_vm.is_running():
                     print "ERROR: NetVM not running, please start it first"
                     self.force_shutdown()
                     raise QubesException ("NetVM not running")
-                retcode = subprocess.call (["/usr/sbin/xm", "network-attach", self.name, "backend={0}".format(self.netvm_vm.name)])
+                retcode = subprocess.call (xm_cmdline + ["backend={0}".format(self.netvm_vm.name)])
                 if retcode != 0:
                     self.force_shutdown()
                     raise OSError ("ERROR: Cannot attach to network backend!")
 
             else:
-                retcode = subprocess.call (["/usr/sbin/xm", "network-attach", self.name, "backend=0"])
+                retcode = subprocess.call (xm_cmdline)
                 if retcode != 0:
                     self.force_shutdown()
                     raise OSError ("ERROR: Cannot attach to network backend!")
