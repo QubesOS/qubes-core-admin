@@ -61,6 +61,7 @@ cp pendrive_swapper/qfilexchgd $RPM_BUILD_ROOT/usr/bin
 
 mkdir -p $RPM_BUILD_ROOT/etc/xen/scripts
 cp restore/block.qubes $RPM_BUILD_ROOT/etc/xen/scripts
+cp ../common/vif-route-qubes $RPM_BUILD_ROOT/etc/xen/scripts
 
 mkdir -p $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/qubes.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
@@ -221,4 +222,5 @@ fi
 /usr/lib/qubes/qubes_restore
 /usr/lib/qubes/qubes_prepare_saved_domain.sh
 /etc/xen/scripts/block.qubes
+/etc/xen/scripts/vif-route-qubes
 %attr(4750,root,qubes) /usr/lib/qubes/xenfreepages

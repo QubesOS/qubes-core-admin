@@ -72,6 +72,8 @@ cp ../common/qubes_serial_login $RPM_BUILD_ROOT/sbin
 mkdir -p $RPM_BUILD_ROOT/etc
 cp ../common/serial.conf $RPM_BUILD_ROOT/var/lib/qubes/
 mkdir -p $RPM_BUILD_ROOT/var/run/qubes
+mkdir -p $RPM_BUILD_ROOT/etc/xen/scripts
+cp ../common/vif-route-qubes $RPM_BUILD_ROOT/etc/xen/scripts
 
 %triggerin -- initscripts
 cp /var/lib/qubes/serial.conf /etc/init/serial.conf
@@ -174,4 +176,5 @@ rm -rf $RPM_BUILD_ROOT
 /etc/NetworkManager/dispatcher.d/qubes_nmhook
 /etc/yum.repos.d/qubes.repo
 /sbin/qubes_serial_login
+/etc/xen/scripts/vif-route-qubes
 %dir /var/run/qubes

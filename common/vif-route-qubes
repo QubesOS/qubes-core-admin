@@ -1,0 +1,58 @@
+#!/bin/bash                              
+#============================================================================
+# /etc/xen/vif-route-qubes                                                   
+#                                                                            
+# Script for configuring a vif in routed mode.                               
+# The hotplugging system will call this script if it is specified either in  
+# the device configuration given to Xend, or the default Xend configuration  
+# in /etc/xen/xend-config.sxp.  If the script is specified in neither of those
+# places, then vif-bridge is the default.                                     
+#                                                                             
+# Usage:                                                                      
+# vif-route (add|remove|online|offline)                                       
+#                                                                             
+# Environment vars:                                                           
+# vif         vif interface name (required).                                  
+# XENBUS_PATH path to this device's details in the XenStore (required).       
+#                                                                             
+# Read from the store:                                                        
+# ip      list of IP networks for the vif, space-separated (default given in  
+#         this script).                                                       
+#============================================================================ 
+
+dir=$(dirname "$0")
+. "$dir/vif-common.sh"
+
+#main_ip=$(dom0_ip)
+
+case "$command" in
+	online)
+		ifconfig ${vif} up
+		echo 1 >/proc/sys/net/ipv4/conf/${vif}/proxy_arp
+		ipcmd='add'
+		iptables_cmd='-I FORWARD 1'
+		cmdprefix=''
+		;;
+	offline)
+		do_without_error ifdown ${vif}
+		ipcmd='del'
+		iptables_cmd='-D FORWARD'
+		cmdprefix='do_without_error'
+		;;
+esac
+
+if [ "${ip}" ] ; then
+	# If we've been given a list of IP addresses, then add routes from dom0 to
+	# the guest using those addresses.
+	for addr in ${ip} ; do
+		${cmdprefix} ip route ${ipcmd} ${addr} dev ${vif}
+	done
+		echo ${cmdprefix} iptables $iptables_cmd -i ${vif} \! -s ${ip} -j DROP
+		${cmdprefix} iptables $iptables_cmd -i ${vif} \! -s ${ip} -j DROP
+fi
+
+log debug "Successful vif-route-qubes $command for $vif."
+if [ "$command" = "online" ]
+then
+  success
+fi

@@ -30,11 +30,6 @@ start()
     elif [ $NETVM = "dom0" ] ; then 
 
         echo -n $"Setting up net backend in Dom0:"
-        brctl addbr br0 || exit 1
-        brctl stp br0 off
-        brctl setfd br0 1
-        ifconfig br0 10.0.0.1 netmask 255.255.0.0 up || exit 1
-        ifconfig br0:1 10.0.255.254 netmask 255.255.0.0 up || exit 1
         echo "NS1=10.0.0.1" > /var/run/qubes/qubes_ns
         echo "NS2=10.0.255.254" >> /var/run/qubes/qubes_ns
         /usr/lib/qubes/qubes_setup_dnat_to_ns
@@ -62,12 +57,7 @@ stop()
     elif [ $NETVM = "dom0" ] ; then 
 
         echo -n $"Stopping Qubes networking in Dom0:"
-        iptables -t nat -F PREROUTING
-
-        ifconfig br0 down
-        brctl delbr br0
-
-	else
+    else
 
         echo -n $"Stopping default NetVM:"
         qvm-run -q --shutdown --wait $NETVM

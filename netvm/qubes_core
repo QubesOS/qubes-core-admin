@@ -19,26 +19,15 @@ start()
 	hostname $name
 
     # Setup gateway for all the VMs this netVM is serviceing...
-    brctl addbr br0
-    brctl stp br0 off
-    brctl setfd br0 1
     modprobe netbk
     gateway=$(/usr/bin/xenstore-read qubes_netvm_gateway)
     netmask=$(/usr/bin/xenstore-read qubes_netvm_netmask)
     network=$(/usr/bin/xenstore-read qubes_netvm_network)
     secondary_dns=$(/usr/bin/xenstore-read qubes_netvm_secondary_dns)
-    ifconfig br0 $gateway netmask $netmask up
-    ifconfig br0:1 $secondary_dns netmask $netmask
     echo "NS1=$gateway" > /var/run/qubes/qubes_ns
     echo "NS2=$secondary_dns" >> /var/run/qubes/qubes_ns
     /usr/lib/qubes/qubes_setup_dnat_to_ns
     echo "1" > /proc/sys/net/ipv4/ip_forward
-#now no need for dnsmasq
-#    dnsmasq --listen-address $gateway --bind-interfaces
-#now done by iptables rc script
-#    iptables -t nat -A POSTROUTING -s $network/$netmask -j MASQUERADE
-#no, we cannot put ip-dependent stuff in sysconfig/iptables
-#so make it ip-independent
 	success
 	echo ""
 	return 0
