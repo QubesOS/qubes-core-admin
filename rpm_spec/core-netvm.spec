@@ -53,7 +53,7 @@ fi
 %install
 
 mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
-cp iptables $RPM_BUILD_ROOT/etc/sysconfig
+cp ../common/iptables $RPM_BUILD_ROOT/etc/sysconfig
 mkdir -p $RPM_BUILD_ROOT/etc
 cp fstab $RPM_BUILD_ROOT/etc/fstab
 mkdir -p $RPM_BUILD_ROOT/etc/init.d
