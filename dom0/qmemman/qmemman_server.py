@@ -30,7 +30,7 @@ class WatchType:
 class XS_Watcher:
     def __init__(self):
         self.handle = xen.lowlevel.xs.xs()
-        self.handle.watch('/local/domain', WatchType(XS_Watcher.dom_list_change, None))
+        self.handle.watch('/vm', WatchType(XS_Watcher.dom_list_change, None))
         self.watch_token_dict = {}
 
     def dom_list_change(self, param):
