@@ -1,4 +1,5 @@
 CC=gcc
+CFLAGS=-Wall
 all: qubes_restore xenstore-watch xenfreepages
 qubes_restore: qubes_restore.o
 	$(CC) -o qubes_restore qubes_restore.o -lxenstore

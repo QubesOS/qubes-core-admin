@@ -221,32 +221,33 @@ void fix_savefile(int fd, char *buf, char *pattern, char *val)
 }
 
 
-char * dispname_by_dispid(int dispid)
+char *dispname_by_dispid(int dispid)
 {
 	static char retbuf[16];
 	snprintf(retbuf, sizeof(retbuf), "disp%d", dispid);
 	return retbuf;
 }
 
+char *build_dvm_ip(int netvm, int id)
+{
+	static char buf[256];
+	snprintf(buf, sizeof(buf), "10.%d.%d.%d", netvm, id / 254 + 200,
+		 (id % 254) + 1);
+	return buf;
+}
+
 #define NAME_PATTERN "/root-cow.img"
-char *fix_savefile_and_get_vmname(int fd, int dispid)
+char *get_vmname_from_savefile(int fd)
 {
 	static char buf[4096];
 	char *name;
 	char *slash;
-	char val[256];
+	lseek(fd, 0, SEEK_SET);
 	if (read(fd, buf, sizeof(buf)) != sizeof(buf)) {
 		perror("read savefile");
 		exit(1);
 	}
 	buf[sizeof(buf) - 1] = 0;
-	snprintf(val, sizeof(val),
-		 "064cd14c-95ad-4fc2-a4c9-cf9f522e5b%02x", dispid);
-	fix_savefile(fd, buf, "(uuid ", val);
-	fix_savefile(fd, buf, "(name ", dispname_by_dispid(dispid));
-	snprintf(val, sizeof(val), "00:16:3e:7c:8b:%02x", dispid);
-	fix_savefile(fd, buf, "(mac ", val);
-	lseek(fd, 0, SEEK_SET);
 	name = strstr(buf + 20, NAME_PATTERN);
 	if (!name) {
 		fprintf(stderr,
@@ -262,6 +263,25 @@ char *fix_savefile_and_get_vmname(int fd, int dispid)
 		exit(1);
 	}
 	return slash + 1;
+}
+
+void fix_savefile_all(int fd, int dispid, int netvm_id)
+{
+	char val[256];
+	char buf[4096];
+	lseek(fd, 0, SEEK_SET);
+	if (read(fd, buf, sizeof(buf)) != sizeof(buf)) {
+		perror("read savefile");
+		exit(1);
+	}
+	buf[sizeof(buf) - 1] = 0;
+	snprintf(val, sizeof(val),
+		 "064cd14c-95ad-4fc2-a4c9-cf9f522e5b%02x", dispid);
+	fix_savefile(fd, buf, "(uuid ", val);
+	fix_savefile(fd, buf, "(name ", dispname_by_dispid(dispid));
+	snprintf(val, sizeof(val), "00:16:3e:7c:8b:%02x", dispid);
+	fix_savefile(fd, buf, "(mac ", val);
+	fix_savefile(fd, buf, "(ip ", build_dvm_ip(netvm_id, dispid));
 }
 
 void unpack_cows(char *name)
@@ -304,18 +324,11 @@ void write_xs_single(struct xs_handle *xs, int domid, char *name,
 	}
 }
 
-
-void setup_xenstore(int domid, char *name)
+int get_netvm_id_from_name(char *name)
 {
-	char val[256];
-	char netvm_id_path[256];
 	int fd, n;
 	char netvm_id[256];
-	struct xs_handle *xs = xs_daemon_open();
-	if (!xs) {
-		perror("xs_daemon_open");
-		exit(1);
-	}
+	char netvm_id_path[256];
 	snprintf(netvm_id_path, sizeof(netvm_id_path),
 		 "/var/lib/qubes/appvms/%s/netvm_id.txt", name);
 	fd = open(netvm_id_path, O_RDONLY);
@@ -326,14 +339,24 @@ void setup_xenstore(int domid, char *name)
 	n = read(fd, netvm_id, sizeof(netvm_id) - 1);
 	close(fd);
 	netvm_id[n] = 0;
+	return atoi(netvm_id);
+}
 
-	snprintf(val, sizeof(val), "10.%s.%d.%d", netvm_id,
-		 domid / 254 + 200, (domid % 254) + 1);
-	write_xs_single(xs, domid, "qubes_ip", val);
+void setup_xenstore(int netvm_id, int domid, int dvmid, char *name)
+{
+	char val[256];
+	struct xs_handle *xs = xs_daemon_open();
+	if (!xs) {
+		perror("xs_daemon_open");
+		exit(1);
+	}
+
+	write_xs_single(xs, domid, "qubes_ip",
+			build_dvm_ip(netvm_id, dvmid));
 	write_xs_single(xs, domid, "qubes_netmask", "255.255.0.0");
-	snprintf(val, sizeof(val), "10.%s.0.1", netvm_id);
+	snprintf(val, sizeof(val), "10.%d.0.1", netvm_id);
 	write_xs_single(xs, domid, "qubes_gateway", val);
-	snprintf(val, sizeof(val), "10.%s.255.254", netvm_id);
+	snprintf(val, sizeof(val), "10.%d.255.254", netvm_id);
 	write_xs_single(xs, domid, "qubes_secondary_dns", val);
 	write_xs_single(xs, domid, "qubes_vm_type", "AppVM");
 	xs_daemon_close(xs);
@@ -356,7 +379,7 @@ int get_next_disposable_id()
 	return seq;
 }
 
-void write_varrun_domid(int domid, char * dispname, char *orig)
+void write_varrun_domid(int domid, char *dispname, char *orig)
 {
 	FILE *f = fopen("/var/run/qubes/dispVM_xid", "w");
 	if (!f) {
@@ -370,9 +393,8 @@ void write_varrun_domid(int domid, char * dispname, char *orig)
 
 void redirect_stderr()
 {
-	int fd =
-	    open("/var/log/qubes/qubes_restore.log",
-		 O_CREAT | O_TRUNC | O_WRONLY, 0600);
+	int fd = open("/var/log/qubes/qubes_restore.log",
+		      O_CREAT | O_TRUNC | O_WRONLY, 0600);
 	if (fd < 0) {
 		syslog(LOG_DAEMON | LOG_ERR, "open qubes_restore.log");
 		exit(1);
@@ -383,12 +405,12 @@ void redirect_stderr()
 
 int main(int argc, char **argv)
 {
-	int fd, domid, dispid;
+	int fd, domid, dispid, netvm_id;
 	char *resp;
 	char *name;
 	if (argc < 2) {
-		fprintf(stderr, "usage: %s savefile [guid args] \n",
-			argv[0]);
+		fprintf(stderr,
+			"usage: %s savefile [guid args] \n", argv[0]);
 		exit(1);
 	}
 	redirect_stderr();
@@ -401,7 +423,8 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	dispid = get_next_disposable_id();
-	name = fix_savefile_and_get_vmname(fd, dispid);
+	name = get_vmname_from_savefile(fd);
+	netvm_id = get_netvm_id_from_name(name);
 //      printf("name=%s\n", name);
 	unpack_cows(name);
 //      no preloading for now, assume savefile in shm
@@ -419,7 +442,7 @@ int main(int argc, char **argv)
 	resp = recv_resp(fd);
 //      printf("%s\n", resp);
 	fprintf(stderr, "time=%s, creating xenstore entries\n", gettime());
-	setup_xenstore(domid, name);
+	setup_xenstore(netvm_id, domid, dispid, name);
 	fprintf(stderr, "time=%s, starting qubes_guid\n", gettime());
 	rm_fast_flag();
 	start_guid(domid, argc, argv);

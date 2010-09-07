@@ -1098,7 +1098,7 @@ class QubesAppVm(QubesVm):
             label=self.label.name)
         return element
 
-    def start(self, debug_console = False, verbose = False):
+    def start(self, debug_console = False, verbose = False, preparing_dvm = False):
         if dry_run:
             return
 
@@ -1113,7 +1113,7 @@ class QubesAppVm(QubesVm):
             self.reset_cow_storage()
         self.reset_swap_cow_storage()
 
-        return super(QubesAppVm, self).start(debug_console=debug_console, verbose=verbose)
+        return super(QubesAppVm, self).start(debug_console=debug_console, verbose=verbose, preparing_dvm=preparing_dvm)
 
     def reset_cow_storage (self):
 
