@@ -65,7 +65,12 @@ class SystemState:
     def mem_set(self, id, val):
         print 'mem-set domain', id, 'to', val
         self.xs.write('', '/local/domain/' + id + '/memory/target', str(val/1024))
-        self.xc.domain_set_target_mem(int(id), val/1024)
+#can happen in the middle of domain shutdown
+#apparently xc.lowlevel throws exceptions too
+        try:
+            self.xc.domain_set_target_mem(int(id), val/1024)
+        except:
+            pass
     
     def mem_set_obsolete(self, id, val):
         uuid = self.domdict[id].uuid
