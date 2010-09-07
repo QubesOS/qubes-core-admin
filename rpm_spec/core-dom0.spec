@@ -114,6 +114,9 @@ sed -i 's/\/block /\/block.qubes /' /etc/udev/rules.d/xen-backend.rules
 
 %post
 
+if ! grep -q ^no-auto-default.*=.*FE:FF:FF:FF:FF:FF /etc/NetworkManager/nm-system-settings.conf ; then
+	echo no-auto-default=FE:FF:FF:FF:FF:FF >> /etc/NetworkManager/nm-system-settings.conf
+fi
 if [ -e /etc/yum.repos.d/qubes-r1-dom0.repo ]; then
 # we want the user to use the repo that comes with qubes-code-dom0 packages instead
 rm -f /etc/yum.repos.d/qubes-r1-dom0.repo

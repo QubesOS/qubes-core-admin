@@ -80,6 +80,10 @@ cp /var/lib/qubes/serial.conf /etc/init/serial.conf
 
 %post
 
+if ! grep -q ^no-auto-default.*=.*FE:FF:FF:FF:FF:FF /etc/NetworkManager/nm-system-settings.conf ; then
+	echo no-auto-default=FE:FF:FF:FF:FF:FF >> /etc/NetworkManager/nm-system-settings.conf
+fi
+
 if [ "$1" !=  1 ] ; then
 # do this whole %post thing only when updating for the first time...
 exit 0
