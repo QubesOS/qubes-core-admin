@@ -460,7 +460,7 @@ class QubesVm(object):
         ret = host_metrics_record["memory_free"]
         return long(ret)
 
-    def start(self, debug_console = False, verbose = False):
+    def start(self, debug_console = False, verbose = False, preparing_dvm = False):
         if dry_run:
             return
 
@@ -500,8 +500,11 @@ class QubesVm(object):
             assert self.netvm_vm is not None
             if verbose:
                 print "--> Attaching to the network backend (netvm={0})...".format(self.netvm_vm.name)
-
-            xm_cmdline = ["/usr/sbin/xm", "network-attach", self.name, "script=vif-route-qubes", "ip="+self.ip]
+            if preparing_dvm:
+                actual_ip = "254.254.254.254"
+            else:
+                actual_ip = self.ip
+            xm_cmdline = ["/usr/sbin/xm", "network-attach", self.name, "script=vif-route-qubes", "ip="+actual_ip]
             if self.netvm_vm.qid != 0:
                 if not self.netvm_vm.is_running():
                     print "ERROR: NetVM not running, please start it first"

@@ -35,6 +35,8 @@ def main():
 		      help="Do not start the GUId")
     parser.add_option ("--console", action="store_true", dest="debug_console", default=False,
                       help="Attach debugging console to the newly started VM")
+    parser.add_option ("--dvm", action="store_true", dest="preparing_dvm", default=False,
+                      help="Do actions necessary when preparing DVM image")
 
     (options, args) = parser.parse_args ()
     if (len (args) != 1):
@@ -53,7 +55,7 @@ def main():
 
     try:
         vm.verify_files()
-        xid = vm.start(debug_console=options.debug_console, verbose=options.verbose)
+        xid = vm.start(debug_console=options.debug_console, verbose=options.verbose, preparing_dvm=options.preparing_dvm)
     except (IOError, OSError, QubesException) as err:
         print "ERROR: {0}".format(err)
         exit (1)
