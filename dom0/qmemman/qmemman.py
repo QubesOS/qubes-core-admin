@@ -140,7 +140,7 @@ class SystemState:
         return total_memory_transfer > MIN_TOTAL_MEMORY_TRANSFER
 
     def do_balance(self):
-        if os.path.isfile('/etc/do-not-membalance'):
+        if os.path.isfile('/var/run/qubes/do-not-membalance'):
             return
         self.refresh_memactual()
         xenfree = self.get_free_xen_memory()
