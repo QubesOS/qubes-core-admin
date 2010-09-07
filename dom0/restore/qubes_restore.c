@@ -425,6 +425,7 @@ int main(int argc, char **argv)
 	dispid = get_next_disposable_id();
 	name = get_vmname_from_savefile(fd);
 	netvm_id = get_netvm_id_from_name(name);
+	fix_savefile_all(fd, dispid, netvm_id);
 //      printf("name=%s\n", name);
 	unpack_cows(name);
 //      no preloading for now, assume savefile in shm
