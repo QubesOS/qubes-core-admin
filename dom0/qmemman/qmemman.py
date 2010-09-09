@@ -11,7 +11,6 @@ class DomainState:
         self.memory_actual = None
         self.mem_used = None
         self.id = id
-        self.meminfo_updated = False
         self.last_target = 0
 
 class SystemState:
@@ -40,27 +39,6 @@ class SystemState:
             id = str(domain['domid'])
             if self.domdict.has_key(id):
                 self.domdict[id].memory_actual = domain['mem_kb']*1024
-
-    def parse_meminfo(self, meminfo):
-        dict = {}
-        l1 = string.split(meminfo,"\n")
-        for i in l1:
-            l2 = string.split(i)
-            if len(l2) >= 2:
-                dict[string.rstrip(l2[0], ":")] = l2[1]
-
-        try:
-            for i in ('MemTotal', 'MemFree', 'Buffers', 'Cached', 'SwapTotal', 'SwapFree'):
-                val = int(dict[i])*1024
-                if (val < 0):
-                    return None
-                dict[i] = val
-        except:
-            return None
-
-        if dict['SwapTotal'] < dict['SwapFree']:
-            return None
-        return dict
 
 #the below works (and is fast), but then 'xm list' shows unchanged memory value
     def mem_set(self, id, val):
@@ -117,8 +95,7 @@ class SystemState:
             niter = niter + 1
             
     def refresh_meminfo(self, domid, val):
-        self.domdict[domid].meminfo = self.parse_meminfo(val)
-        self.domdict[domid].meminfo_updated = True
+        qmemman_algo.refresh_meminfo_for_domain(self.domdict[domid], val)
 
     def is_balance_req_significant(self, memset_reqs):
         total_memory_transfer = 0

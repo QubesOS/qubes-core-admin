@@ -1,3 +1,26 @@
+import string
+
+def parse_meminfo(self, meminfo):
+    dict = {}
+    l1 = string.split(meminfo,"\n")
+    for i in l1:
+        l2 = string.split(i)
+        if len(l2) >= 2:
+            dict[string.rstrip(l2[0], ":")] = l2[1]
+
+    try:
+        for i in ('MemTotal', 'MemFree', 'Buffers', 'Cached', 'SwapTotal', 'SwapFree'):
+            val = int(dict[i])*1024
+            if (val < 0):
+                return None
+            dict[i] = val
+    except:
+        return None
+
+    if dict['SwapTotal'] < dict['SwapFree']:
+        return None
+    return dict
+
 def is_suspicious(dom):
     ret = False
     if dom.meminfo['SwapTotal'] < dom.meminfo['SwapFree']:
@@ -8,20 +31,18 @@ def is_suspicious(dom):
         print 'suspicious meminfo for domain', dom.id, 'mem actual', dom.memory_actual, dom.meminfo
     return ret
 
-def recalc_mem_used(domdict):
-    for domid in domdict.keys():
-        dom = domdict[domid]
-        if dom.meminfo_updated:
-            dom.meminfo_updated = False
-            if is_suspicious(dom):
-                dom.meminfo = None
-                dom.mem_used = None
-            else:
-                dom.mem_used =  dom.meminfo['MemTotal'] - dom.meminfo['MemFree'] - dom.meminfo['Cached'] - dom.meminfo['Buffers'] + dom.meminfo['SwapTotal'] - dom.meminfo['SwapFree']
-
+def refresh_meminfo_for_domain(dom, xenstore_key):
+    meminfo = parse_meminfo(xenstore_key)
+    dom.meminfo = meminfo
+    if meminfo is None:
+        return
+    if is_suspicious(dom):
+        dom.meminfo = None
+        dom.mem_used = None
+    else:
+        dom.mem_used =  dom.meminfo['MemTotal'] - dom.meminfo['MemFree'] - dom.meminfo['Cached'] - dom.meminfo['Buffers'] + dom.meminfo['SwapTotal'] - dom.meminfo['SwapFree']
+                        
 def prefmem(dom):
-    if dom.meminfo_updated:
-        raise AssertionError('meminfo_updated=True in prefmem')
     CACHE_FACTOR = 1.3
 #dom0 is special, as it must have large cache, for vbds. Thus, give it a special boost
     if dom.id == '0':
@@ -40,7 +61,6 @@ def balloon(memsize, domdict):
     donors = list()
     request = list()
     available = 0
-    recalc_mem_used(domdict)
     for i in domdict.keys():
         if domdict[i].meminfo is None:
             continue
@@ -110,7 +130,6 @@ def balance(xenfree, domdict):
     total_mem_pref = 0
     total_mem_pref_acceptors = 0
     
-    recalc_mem_used(domdict)
     donors = list()
     acceptors = list()
 #pass 1: compute the above "total" values
