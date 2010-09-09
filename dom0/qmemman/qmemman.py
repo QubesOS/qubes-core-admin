@@ -50,7 +50,7 @@ class SystemState:
                 dict[string.rstrip(l2[0], ":")] = l2[1]
 
         try:
-            for i in ('MemFree', 'Buffers', 'Cached', 'SwapTotal', 'SwapFree'):
+            for i in ('MemTotal', 'MemFree', 'Buffers', 'Cached', 'SwapTotal', 'SwapFree'):
                 val = int(dict[i])*1024
                 if (val < 0):
                     return None

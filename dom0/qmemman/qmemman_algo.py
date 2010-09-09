@@ -2,7 +2,7 @@ def is_suspicious(dom):
     ret = False
     if dom.meminfo['SwapTotal'] < dom.meminfo['SwapFree']:
         ret = True
-    if dom.memory_actual < dom.meminfo['MemFree'] + dom.meminfo['Cached'] + dom.meminfo['Buffers']:
+    if dom.meminfo['MemTotal'] < dom.meminfo['MemFree'] + dom.meminfo['Cached'] + dom.meminfo['Buffers']:
         ret = True
     if ret:
         print 'suspicious meminfo for domain', dom.id, 'mem actual', dom.memory_actual, dom.meminfo
@@ -17,7 +17,7 @@ def recalc_mem_used(domdict):
                 dom.meminfo = None
                 dom.mem_used = None
             else:
-                dom.mem_used =  dom.memory_actual - dom.meminfo['MemFree'] - dom.meminfo['Cached'] - dom.meminfo['Buffers'] + dom.meminfo['SwapTotal'] - dom.meminfo['SwapFree']
+                dom.mem_used =  dom.meminfo['MemTotal'] - dom.meminfo['MemFree'] - dom.meminfo['Cached'] - dom.meminfo['Buffers'] + dom.meminfo['SwapTotal'] - dom.meminfo['SwapFree']
 
 def prefmem(dom):
     if dom.meminfo_updated:
