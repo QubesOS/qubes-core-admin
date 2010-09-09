@@ -57,7 +57,11 @@ start()
     cp /var/lib/qubes/qubes.xml /var/lib/qubes/backup/qubes-$(date +%F-%T).xml
     setup_dvm_files
     /usr/lib/qubes/qmemman_daemon.py >/var/log/qubes/qmemman.log 2>/var/log/qubes/qmemman.errs & 
-    /usr/lib/qubes/meminfo-writer &
+
+    MEM_CHANGE_THRESHOLD_KB=30000
+    MEMINFO_DELAY_USEC=100000
+    /usr/lib/qubes/meminfo-writer $MEM_CHANGE_THRESHOLD_KB $MEMINFO_DELAY_USEC &
+
     touch /var/lock/subsys/qubes_core
     success
     echo

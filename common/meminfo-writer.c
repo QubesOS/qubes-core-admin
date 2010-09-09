@@ -1,62 +1,120 @@
-/*
- * The Qubes OS Project, http://www.qubes-os.org
- *
- * Copyright (C) 2010  Rafal Wojtczuk  <rafal@invisiblethingslab.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- */
-#include <sys/types.h>
-#include <pwd.h>
-#include <stdio.h>
-#include <unistd.h>
 #include <fcntl.h>
+#include <unistd.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <xs.h>
 #include <syslog.h>
-int main()
-{
-	struct xs_handle *xs;
-	int fd, n;
-	char buf[4096];
+#include <string.h>
 
-	openlog("meminfo-writer", LOG_CONS | LOG_PID, LOG_DAEMON);
+unsigned long prev_used_mem;
+int used_mem_change_threshold;
+int delay;
+
+char *parse(char *buf)
+{
+	char *ptr = buf;
+	char name[256];
+	static char outbuf[4096];
+	int val;
+	int len;
+	int MemTotal=0, MemFree=0, Buffers=0, Cached=0, SwapTotal=0, SwapFree=0;
+	unsigned long long key;
+	long used_mem, used_mem_diff;
+	int nitems = 0;
+
+	while (nitems != 6) {
+		sscanf(ptr, "%s %d kB\n%n", name, &val, &len);
+		key = *(unsigned long long *) ptr;
+		if (key == *(unsigned long long *) "MemTotal:") {
+			MemTotal = val;
+			nitems++;
+		} else if (key == *(unsigned long long *) "MemFree:") {
+			MemFree = val;
+			nitems++;
+		} else if (key == *(unsigned long long *) "Buffers:") {
+			Buffers = val;
+			nitems++;
+		} else if (key == *(unsigned long long *) "Cached:  ") {
+			Cached = val;
+			nitems++;
+		} else if (key == *(unsigned long long *) "SwapTotal:") {
+			SwapTotal = val;
+			nitems++;
+		} else if (key == *(unsigned long long *) "SwapFree:") {
+			SwapFree = val;
+			nitems++;
+		}
+
+		ptr += len;
+	}
+
+	used_mem =
+	    MemTotal - Buffers - Cached - MemFree + SwapTotal - SwapFree;
+	if (used_mem < 0)
+		return NULL;
+
+	used_mem_diff = used_mem - prev_used_mem;
+	prev_used_mem = used_mem;
+	if (used_mem_diff < 0)
+		used_mem_diff = -used_mem_diff;
+	if (used_mem_diff > used_mem_change_threshold) {
+		sprintf(outbuf,
+			"MemTotal: %d kB\nMemFree: %d kB\nBuffers: %d kB\nCached: %d kB\n"
+			"SwapTotal: %d kB\nSwapFree: %d kB\n", MemTotal,
+			MemFree, Buffers, Cached, SwapTotal, SwapFree);
+		return outbuf;
+	}
+	return NULL;
+}
+
+void usage()
+{
+	fprintf(stderr,
+		"usage: meminfo_writer threshold_in_kb delay_in_us\n");
+	exit(1);
+}
+
+void send_to_qmemman(struct xs_handle *xs, char *data)
+{
+	if (!xs_write(xs, XBT_NULL, "memory/meminfo", data, strlen(data))) {
+		syslog(LOG_DAEMON | LOG_ERR, "error writing xenstore ?");
+		exit(1);
+	}
+}
+
+int
+main(int argc, char **argv)
+{
+	char buf[4096];
+	int n;
+	char *meminfo_data;
+	int fd;
+	struct xs_handle *xs;
+
+	if (argc != 3)
+		usage();
+	used_mem_change_threshold = atoi(argv[1]);
+	delay = atoi(argv[2]);
+	if (!used_mem_change_threshold || !delay)
+		usage();
+
+	fd = open("/proc/meminfo", O_RDONLY);
+	if (fd < 0) {
+		perror("open meminfo");
+		exit(1);
+	}
 	xs = xs_domain_open();
 	if (!xs) {
-		syslog(LOG_DAEMON | LOG_ERR, "xs_domain_open");
+		perror("xs_domain_open");
 		exit(1);
 	}
 	for (;;) {
-		fd = open("/proc/meminfo", O_RDONLY);
-		if (fd < 0) {
-			syslog(LOG_DAEMON | LOG_ERR,
-			       "error opening /proc/meminfo ?");
-			exit(1);
-		}
 		n = read(fd, buf, sizeof(buf));
-		if (n <= 0) {
-			syslog(LOG_DAEMON | LOG_ERR,
-			       "error reading /proc/meminfo ?");
-			exit(1);
-		}
-		close(fd);
-		if (!xs_write(xs, XBT_NULL, "memory/meminfo", buf, n)) {
-			syslog(LOG_DAEMON | LOG_ERR,
-			       "error writing xenstore ?");
-			exit(1);
-		}
-		sleep(1);
+		buf[n] = 0;
+		meminfo_data = parse(buf);
+		if (meminfo_data)
+			send_to_qmemman(xs, meminfo_data);
+		usleep(delay);
+		lseek(fd, 0, SEEK_SET);
 	}
 }
