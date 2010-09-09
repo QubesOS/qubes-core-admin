@@ -12,6 +12,7 @@ class DomainState:
         self.mem_used = None
         self.id = id
         self.meminfo_updated = False
+        self.last_target = 0
 
 class SystemState:
     def __init__(self):
@@ -64,6 +65,7 @@ class SystemState:
 #the below works (and is fast), but then 'xm list' shows unchanged memory value
     def mem_set(self, id, val):
         print 'mem-set domain', id, 'to', val
+        self.domdict[id].last_target = val
         self.xs.write('', '/local/domain/' + id + '/memory/target', str(val/1024))
 #can happen in the middle of domain shutdown
 #apparently xc.lowlevel throws exceptions too
@@ -118,24 +120,12 @@ class SystemState:
         self.domdict[domid].meminfo = self.parse_meminfo(val)
         self.domdict[domid].meminfo_updated = True
 
-    def adjust_inflates_to_xenfree(self, reqs, idx):
-        i = idx
-        memory_needed = 0
-        while i < len(reqs):
-            dom, mem = reqs[i]
-            memory_needed += mem - self.domdict[dom].memory_actual
-            i = i + 1
-        scale = 1.0*self.get_free_xen_memory()/memory_needed
-        dom, mem = reqs[idx]
-        scaled_req = self.domdict[dom].memory_actual + scale*(mem - self.domdict[dom].memory_actual)
-        return int(scaled_req)
-
     def is_balance_req_significant(self, memset_reqs):
         total_memory_transfer = 0
         MIN_TOTAL_MEMORY_TRANSFER = 150*1024*1024
         for rq in memset_reqs:
             dom, mem = rq
-            memory_change = mem - self.domdict[dom].memory_actual
+            memory_change = mem - self.domdict[dom].last_target
             total_memory_transfer += abs(memory_change)
         return total_memory_transfer > MIN_TOTAL_MEMORY_TRANSFER
 
@@ -155,22 +145,10 @@ class SystemState:
             return
             
         self.print_stats(xenfree, memset_reqs)
-        wait_before_first_inflate = False
-        i = 0
-        while i < len(memset_reqs):
-            dom, mem = memset_reqs[i]
-            memory_change = mem - self.domdict[dom].memory_actual
-            if memory_change < 0:
-                wait_before_first_inflate = True
-            else:
-                if wait_before_first_inflate:
-                    time.sleep(self.BALOON_DELAY)
-                    wait_before_first_inflate = False
-                #the following is called before _each_ inflate, to account for possibility that
-                #previously triggered memory release is in progress
-                mem = self.adjust_inflates_to_xenfree(memset_reqs, i)
+
+        for rq in memset_reqs:
+            dom, mem = rq
             self.mem_set(dom, mem)
-            i = i + 1
 
 #        for i in self.domdict.keys():
 #            print 'domain ', i, ' meminfo=', self.domdict[i].meminfo, 'actual mem', self.domdict[i].memory_actual
