@@ -9,7 +9,6 @@ from qmemman import SystemState
 
 system_state = SystemState()
 global_lock = thread.allocate_lock()
-additional_balance_delay = 0
 
 def only_in_first_list(l1, l2):
     ret=[]
@@ -75,7 +74,6 @@ class QMemmanReqHandler(SocketServer.BaseRequestHandler):
     """
 
     def handle(self):
-        global additional_balance_delay
         got_lock = False
         # self.request is the TCP socket connected to the client
         while True:
@@ -92,7 +90,6 @@ class QMemmanReqHandler(SocketServer.BaseRequestHandler):
             got_lock = True
             if system_state.do_balloon(int(self.data)):
                 resp = "OK\n"
-                additional_balance_delay = 5
             else:
                 resp = "FAIL\n"
             self.request.send(resp)
@@ -109,22 +106,8 @@ def start_server():
     os.umask(077)
     server.serve_forever()
 
-def start_balancer():
-    global additional_balance_delay
-    while True:
-        time.sleep(1)
-        if additional_balance_delay != 0:
-            print 'waiting additional_balance_delay to allow VM to start'
-            time.sleep(additional_balance_delay)
-            additional_balance_delay = 0
-        global_lock.acquire()
-        if additional_balance_delay == 0:
-            system_state.do_balance()
-        global_lock.release()
-
 class QMemmanServer:
     @staticmethod          
     def main():
         thread.start_new_thread(start_server, tuple([]))
-        thread.start_new_thread(start_balancer, tuple([]))
         XS_Watcher().watch_loop()

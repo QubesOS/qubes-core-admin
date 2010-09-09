@@ -96,6 +96,7 @@ class SystemState:
             
     def refresh_meminfo(self, domid, val):
         qmemman_algo.refresh_meminfo_for_domain(self.domdict[domid], val)
+        self.do_balance()
 
     def is_balance_req_significant(self, memset_reqs):
         total_memory_transfer = 0
