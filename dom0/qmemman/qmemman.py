@@ -139,6 +139,12 @@ class SystemState:
             total_memory_transfer += abs(memory_change)
         return total_memory_transfer > MIN_TOTAL_MEMORY_TRANSFER
 
+    def print_stats(self, xenfree, memset_reqs):
+        for i in self.domdict.keys():
+            if self.domdict[i].meminfo is not None:
+                print 'dom' , i, 'act/pref', self.domdict[i].memory_actual, qmemman_algo.prefmem(self.domdict[i])
+        print 'xenfree=', xenfree, 'balance req:', memset_reqs
+                                                
     def do_balance(self):
         if os.path.isfile('/var/run/qubes/do-not-membalance'):
             return
@@ -148,6 +154,7 @@ class SystemState:
         if not self.is_balance_req_significant(memset_reqs):
             return
             
+        self.print_stats(xenfree, memset_reqs)
         wait_before_first_inflate = False
         i = 0
         while i < len(memset_reqs):

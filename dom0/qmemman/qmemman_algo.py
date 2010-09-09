@@ -82,7 +82,7 @@ def balance_when_enough_memory(domdict, xenfree, total_mem_pref, totalsum):
             donors_rq.append((i, target))
         else:
             acceptors_rq.append((i, target))
-    print 'balance(enough): xenfree=', xenfree, 'requests:', donors_rq + acceptors_rq
+#    print 'balance(enough): xenfree=', xenfree, 'requests:', donors_rq + acceptors_rq
     return donors_rq + acceptors_rq
 
 #when not enough mem to make everyone be above prefmem, make donors be at prefmem, and 
@@ -102,7 +102,7 @@ def balance_when_low_on_memory(domdict, xenfree, total_mem_pref_acceptors, donor
         scale = 1.0*prefmem(domdict[i])/total_mem_pref_acceptors
         target_nonint = domdict[i].memory_actual + scale*squeezed_mem
         acceptors_rq.append((i, int(target_nonint)))       
-    print 'balance(low): xenfree=', xenfree, 'requests:', donors_rq + acceptors_rq
+#    print 'balance(low): xenfree=', xenfree, 'requests:', donors_rq + acceptors_rq
     return donors_rq + acceptors_rq
  
 def balance(xenfree, domdict):
@@ -118,7 +118,7 @@ def balance(xenfree, domdict):
         if domdict[i].meminfo is None:
             continue
         need = memneeded(domdict[i])
-        print 'domain' , i, 'act/pref', domdict[i].memory_actual, prefmem(domdict[i]), 'need=', need
+#        print 'domain' , i, 'act/pref', domdict[i].memory_actual, prefmem(domdict[i]), 'need=', need
         if need < 0:
             donors.append(i)
         else:
