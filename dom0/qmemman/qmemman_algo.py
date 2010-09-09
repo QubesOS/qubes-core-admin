@@ -1,6 +1,6 @@
 import string
 
-def parse_meminfo(self, meminfo):
+def parse_meminfo(meminfo):
     dict = {}
     l1 = string.split(meminfo,"\n")
     for i in l1:
