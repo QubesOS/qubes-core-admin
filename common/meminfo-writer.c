@@ -111,12 +111,11 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	for (;;) {
-		n = read(fd, buf, sizeof(buf));
+		n = pread(fd, buf, sizeof(buf), 0);
 		buf[n] = 0;
 		meminfo_data = parse(buf);
 		if (meminfo_data)
 			send_to_qmemman(xs, meminfo_data);
 		usleep(delay);
-		lseek(fd, 0, SEEK_SET);
 	}
 }
