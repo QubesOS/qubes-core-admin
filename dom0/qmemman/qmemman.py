@@ -101,10 +101,16 @@ class SystemState:
     def is_balance_req_significant(self, memset_reqs):
         total_memory_transfer = 0
         MIN_TOTAL_MEMORY_TRANSFER = 150*1024*1024
+        MIN_MEM_CHANGE_WHEN_UNDER_PREF = 15*1024*1024
         for rq in memset_reqs:
             dom, mem = rq
-            memory_change = mem - self.domdict[dom].last_target
+            last_target = self.domdict[dom].last_target
+            memory_change = mem - last_target
             total_memory_transfer += abs(memory_change)
+            pref = qmemman_algo.prefmem(self.domdict[dom])
+            if last_target > 0 and last_target < pref and memory_change > MIN_MEM_CHANGE_WHEN_UNDER_PREF:
+                print 'dom', dom, 'is below pref, allowing balance'
+                return True
         return total_memory_transfer > MIN_TOTAL_MEMORY_TRANSFER
 
     def print_stats(self, xenfree, memset_reqs):

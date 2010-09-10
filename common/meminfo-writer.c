@@ -17,7 +17,8 @@ char *parse(char *buf)
 	static char outbuf[4096];
 	int val;
 	int len;
-	int MemTotal=0, MemFree=0, Buffers=0, Cached=0, SwapTotal=0, SwapFree=0;
+	int MemTotal = 0, MemFree = 0, Buffers = 0, Cached = 0, SwapTotal =
+	    0, SwapFree = 0;
 	unsigned long long key;
 	long used_mem, used_mem_diff;
 	int nitems = 0;
@@ -54,10 +55,12 @@ char *parse(char *buf)
 		return NULL;
 
 	used_mem_diff = used_mem - prev_used_mem;
-	prev_used_mem = used_mem;
 	if (used_mem_diff < 0)
 		used_mem_diff = -used_mem_diff;
-	if (used_mem_diff > used_mem_change_threshold) {
+	if (used_mem_diff > used_mem_change_threshold
+	    || (used_mem > prev_used_mem && used_mem * 13 / 10 > MemTotal
+		&& used_mem_diff > used_mem_change_threshold/2)) {
+		prev_used_mem = used_mem;
 		sprintf(outbuf,
 			"MemTotal: %d kB\nMemFree: %d kB\nBuffers: %d kB\nCached: %d kB\n"
 			"SwapTotal: %d kB\nSwapFree: %d kB\n", MemTotal,
@@ -82,8 +85,7 @@ void send_to_qmemman(struct xs_handle *xs, char *data)
 	}
 }
 
-int
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	char buf[4096];
 	int n;
