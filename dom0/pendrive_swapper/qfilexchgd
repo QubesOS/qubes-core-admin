@@ -30,6 +30,7 @@ import time
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
 from qubes.qubes import QubesDaemonPidfile
+from qubes.qmemman_client import QMemmanClient
 
 filename_seq = 50
 pen_cmd = '/usr/lib/qubes/qubes_pencmd'
@@ -187,13 +188,11 @@ class DomainState:
 
     def handle_transfer_disposable(self, transaction_seq):
 
-        mem_for_dvm = 400
-        xenfreepages_s = subprocess.Popen(["/usr/lib/qubes/xenfreepages"],stdout=subprocess.PIPE).stdout.readline()
-        xenfree_mb = int(xenfreepages_s)*4096/1024/1024
-        if xenfree_mb < mem_for_dvm:
-            errmsg = 'Not enough memory to create DVM: '
-            errmsg +='have ' + str(xenfree_mb) + 'MB, need '
-            errmsg +=str(mem_for_dvm) + 'MB. Terminate some appVM and retry.'
+        qmemman_client = QMemmanClient()
+        if not qmemman_client.request_memory(400*1024*1024):
+            qmemman_client.close()
+            errmsg = 'Not enough memory to create DVM. '
+            errmsg +='Terminate some appVM and retry.'
             subprocess.call(['/usr/bin/kdialog', '--sorry', errmsg])
             return False
 
@@ -205,12 +204,14 @@ class DomainState:
         if vm is None:
             logproc( 'Domain ' + vmname + ' does not exist ?')
             qvm_collection.unlock_db()
+            qmemman_client.close()
             return False
         retcode = subprocess.call(['/usr/lib/qubes/qubes_restore',
             current_savefile,
             '-c', vm.label.color,
             '-i', vm.label.icon,
             '-l', str(vm.label.index)])
+        qmemman_client.close()
         if retcode != 0:
             subprocess.call(['/usr/bin/kdialog', '--sorry', 'DisposableVM creation failed, see qubes_restore.log'])
             qvm_collection.unlock_db()

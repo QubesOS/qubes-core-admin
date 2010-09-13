@@ -52,6 +52,7 @@ fi
 
 %build
 make clean all
+make -C ../common
 
 %install
 
@@ -65,6 +66,7 @@ cp qubes_timestamp qvm-copy-to-vm qvm-open-in-dvm $RPM_BUILD_ROOT/usr/bin
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
 cp qubes_add_pendrive_script qubes_penctl qvm-copy-to-vm.kde $RPM_BUILD_ROOT/usr/lib/qubes
 ln -s /usr/bin/qvm-open-in-dvm $RPM_BUILD_ROOT/usr/lib/qubes/qvm-dvm-transfer 
+cp ../common/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/%{kde_service_dir}
 cp qvm-copy.desktop qvm-dvm.desktop $RPM_BUILD_ROOT/%{kde_service_dir}
 mkdir -p $RPM_BUILD_ROOT/etc/udev/rules.d
@@ -187,6 +189,7 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib/qubes/qvm-copy-to-vm.kde
 %attr(4755,root,root) /usr/bin/qvm-open-in-dvm
 /usr/lib/qubes/qvm-dvm-transfer
+/usr/lib/qubes/meminfo-writer
 %{kde_service_dir}/qvm-copy.desktop
 %{kde_service_dir}/qvm-dvm.desktop
 %attr(4755,root,root) /usr/lib/qubes/qubes_penctl

@@ -44,9 +44,10 @@ Requires:	python, xen-runtime, pciutils, python-inotify, python-daemon, kernel-q
 The Qubes core files for installation on Dom0.
 
 %build
-python -m compileall qvm-core
-python -O -m compileall qvm-core
+python -m compileall qvm-core qmemman
+python -O -m compileall qvm-core qmemman
 make -C restore
+make -C ../common
 
 %install
 
@@ -68,6 +69,8 @@ cp qvm-core/qubes.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/qubes.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/__init__.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/__init__.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
+cp qmemman/qmemman*py $RPM_BUILD_ROOT%{python_sitearch}/qubes
+cp qmemman/qmemman*py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
 
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/patch_appvm_initramfs.sh $RPM_BUILD_ROOT/usr/lib/qubes
@@ -78,6 +81,8 @@ cp aux-tools/convert_dirtemplate2vm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/create_apps_for_appvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/remove_appvm_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp pendrive_swapper/qubes_pencmd $RPM_BUILD_ROOT/usr/lib/qubes
+cp qmemman/server.py $RPM_BUILD_ROOT/usr/lib/qubes/qmemman_daemon.py
+cp ../common/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
 
 cp restore/xenstore-watch restore/qvm-create-default-dvm $RPM_BUILD_ROOT/usr/bin
 cp restore/qubes_restore restore/xenfreepages $RPM_BUILD_ROOT/usr/lib/qubes
@@ -199,6 +204,7 @@ fi
 %{python_sitearch}/qubes/__init__.py
 %{python_sitearch}/qubes/__init__.pyc
 %{python_sitearch}/qubes/__init__.pyo
+%{python_sitearch}/qubes/qmemman*.py*
 /usr/lib/qubes/patch_appvm_initramfs.sh
 /usr/lib/qubes/unbind_pci_device.sh
 /usr/lib/qubes/unbind_all_network_devices
@@ -207,6 +213,8 @@ fi
 /usr/lib/qubes/create_apps_for_appvm.sh
 /usr/lib/qubes/remove_appvm_appmenus.sh
 /usr/lib/qubes/qubes_pencmd
+/usr/lib/qubes/qmemman_daemon.py*
+/usr/lib/qubes/meminfo-writer
 %attr(770,root,qubes) %dir /var/lib/qubes
 %attr(770,root,qubes) %dir /var/lib/qubes/vm-templates
 %attr(770,root,qubes) %dir /var/lib/qubes/appvms
