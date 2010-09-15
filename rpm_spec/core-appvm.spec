@@ -45,6 +45,13 @@ The Qubes core files for installation inside a Qubes AppVM.
 
 %pre
 
+if [ "$1" !=  1 ] ; then
+# do this whole %pre thing only when updating for the first time...
+exit 0
+fi
+
+adduser --create-home user
+
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 if [ -e $RPM_BUILD_ROOT/etc/fstab ] ; then 
 mv $RPM_BUILD_ROOT/etc/fstab $RPM_BUILD_ROOT/var/lib/qubes/fstab.orig
@@ -92,7 +99,6 @@ chown 500:500 $RPM_BUILD_ROOT/home_volatile/user
 %triggerin -- initscripts
 cp /var/lib/qubes/serial.conf /etc/init/serial.conf
 
-
 %post
 
 if [ "$1" !=  1 ] ; then
@@ -101,7 +107,6 @@ exit 0
 fi
 
 usermod -L root
-adduser --create-home user
 usermod -L user
 if ! [ -f /var/lib/qubes/serial.orig ] ; then
 	cp /etc/init/serial.conf /var/lib/qubes/serial.orig
