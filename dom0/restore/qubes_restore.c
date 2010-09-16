@@ -197,7 +197,10 @@ void start_guid(int domid, int argc, char **argv)
 	execv("/usr/bin/qubes_guid", guid_args);
 	perror("execv");
 }
-
+// modify the savefile. fd = fd to the open savefile,
+// buf - already read 1st page of the savefile
+// pattern - pattern to search for
+// val - string to replace pattern with
 void fix_savefile(int fd, char *buf, char *pattern, char *val)
 {
 	int i, len = strlen(val), origlen;
@@ -237,6 +240,10 @@ char *build_dvm_ip(int netvm, int id)
 }
 
 #define NAME_PATTERN "/root-cow.img"
+// replaces the unique portions of the savefile with per-dvm values
+// returns the name of VM the savefile was taken for 
+// by looking for /.../vmname/root-cow.img
+// normally, it should be "templatename-dvm"
 char *get_vmname_from_savefile(int fd)
 {
 	static char buf[4096];

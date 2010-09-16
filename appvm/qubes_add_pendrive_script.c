@@ -143,6 +143,8 @@ void suicide(struct xs_handle *xs)
 	exit(1);
 }
 
+// we are DVM, AppVM sends us a document to work on
+// /dev/xvdh contains the dvm_header and document data 
 void dvm_transaction_request(char *seq, struct xs_handle *xs)
 {
 	char filename[1024], cmdbuf[1024];
@@ -189,12 +191,16 @@ void dvm_transaction_request(char *seq, struct xs_handle *xs)
 	if (stat_pre.st_mtime == stat_post.st_mtime)
 		suicide(xs);
 	xs_daemon_close(xs);
+	// if the modify timestamp of the document file has changed, write back the
+	// modified content to the requestor AppVM
 	execl("/usr/lib/qubes/qvm-dvm-transfer", "qvm-dvm-transfer", src_vm,
 	      filename, seq, NULL);
 	syslog(LOG_DAEMON | LOG_ERR, "execl qvm-dvm-transfer");
 	suicide(xs);
 }
 
+// we are AppVM, DVM sends us a modified document
+// /dev/xvdh contains the dvm_header and document data 
 void dvm_transaction_return(char *seq_string, struct xs_handle *xs)
 {
 	int seq = strtoul(seq_string, 0, 10);
@@ -213,6 +219,7 @@ void dvm_transaction_return(char *seq_string, struct xs_handle *xs)
 		goto out_err;
 	}
 	drop_to_user();
+	// read the file name for which the open-in-dvm with transaction=="seq" was started
 	snprintf(db_name, sizeof(db_name), DBDIR "/%d", seq);
 	db_fd = open(db_name, O_RDONLY);
 	if (!db_fd) {
