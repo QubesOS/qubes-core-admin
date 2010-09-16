@@ -111,6 +111,32 @@ if not dry_run:
  
 class QubesException (Exception) : pass
 
+
+class QubesHost(object):
+    def __init__(self):
+        self.hosts = xend_session.session.xenapi.host.get_all()
+        self.host_record = xend_session.session.xenapi.host.get_record(self.hosts[0])
+        self.host_metrics_record = xend_session.session.xenapi.host_metrics.get_record(self.host_record["metrics"])
+
+        self.xen_total_mem = self.host_metrics_record["memory_total"]
+        self.xen_no_cpus = len (self.host_record["host_CPUs"])
+
+#        print "QubesHost: total_mem  = {0}B".format (self.xen_total_mem)
+#        print "QubesHost: free_mem   = {0}".format (self.get_free_xen_memory())
+#        print "QubesHost: total_cpus = {0}".format (self.xen_no_cpus)
+
+    @property
+    def memory_total(self):
+        return self.xen_total_mem
+
+    @property
+    def no_cpus(self):
+        return self.xen_no_cpus
+
+    def get_free_xen_memory(self):
+        ret = self.host_metrics_record["memory_free"]
+        return long(ret)
+
 class QubesVmLabel(object):
     def __init__(self, name, index, color = None, icon = None):
         self.name = name
@@ -466,12 +492,6 @@ class QubesVm(object):
         else:
             pass
 
-    def get_free_xen_memory(self):
-        hosts = xend_session.session.xenapi.host.get_all()
-        host_record = xend_session.session.xenapi.host.get_record(hosts[0])
-        host_metrics_record = xend_session.session.xenapi.host_metrics.get_record(host_record["metrics"])
-        ret = host_metrics_record["memory_free"]
-        return long(ret)
 
     def start(self, debug_console = False, verbose = False, preparing_dvm = False):
         if dry_run:
