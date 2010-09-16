@@ -97,7 +97,7 @@ def balance_when_enough_memory(domdict, xenfree, total_mem_pref, totalsum):
         scale = 1.0*prefmem(domdict[i])/total_mem_pref
         target_nonint = prefmem(domdict[i]) + scale*totalsum
 #prevent rounding errors
-        target = int(0.995*target_nonint)
+        target = int(0.999*target_nonint)
         if (target < domdict[i].memory_actual):
             donors_rq.append((i, target))
         else:
