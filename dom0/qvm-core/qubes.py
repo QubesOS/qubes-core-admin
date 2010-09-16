@@ -118,7 +118,7 @@ class QubesHost(object):
         self.host_record = xend_session.session.xenapi.host.get_record(self.hosts[0])
         self.host_metrics_record = xend_session.session.xenapi.host_metrics.get_record(self.host_record["metrics"])
 
-        self.xen_total_mem = int(self.host_metrics_record["memory_total"])
+        self.xen_total_mem = long(self.host_metrics_record["memory_total"])
         self.xen_no_cpus = len (self.host_record["host_CPUs"])
 
 #        print "QubesHost: total_mem  = {0}B".format (self.xen_total_mem)
