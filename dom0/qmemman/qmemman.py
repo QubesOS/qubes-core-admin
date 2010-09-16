@@ -99,7 +99,7 @@ class SystemState:
         qmemman_algo.refresh_meminfo_for_domain(self.domdict[domid], val)
         self.do_balance()
 
-    def is_balance_req_significant(self, memset_reqs):
+    def is_balance_req_significant(self, memset_reqs, xenfree):
         total_memory_transfer = 0
         MIN_TOTAL_MEMORY_TRANSFER = 150*1024*1024
         MIN_MEM_CHANGE_WHEN_UNDER_PREF = 15*1024*1024
@@ -112,7 +112,7 @@ class SystemState:
             if last_target > 0 and last_target < pref and memory_change > MIN_MEM_CHANGE_WHEN_UNDER_PREF:
                 print 'dom', dom, 'is below pref, allowing balance'
                 return True
-        return total_memory_transfer > MIN_TOTAL_MEMORY_TRANSFER
+        return total_memory_transfer + abs(xenfree - self.XEN_FREE_MEM_LEFT) > MIN_TOTAL_MEMORY_TRANSFER
 
     def print_stats(self, xenfree, memset_reqs):
         for i in self.domdict.keys():
@@ -126,7 +126,7 @@ class SystemState:
         self.refresh_memactual()
         xenfree = self.get_free_xen_memory()
         memset_reqs = qmemman_algo.balance(xenfree - self.XEN_FREE_MEM_LEFT, self.domdict)
-        if not self.is_balance_req_significant(memset_reqs):
+        if not self.is_balance_req_significant(memset_reqs, xenfree):
             return
             
         self.print_stats(xenfree, memset_reqs)
