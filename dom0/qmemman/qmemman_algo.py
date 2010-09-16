@@ -118,6 +118,9 @@ def balance_when_low_on_memory(domdict, xenfree, total_mem_pref_acceptors, donor
             continue
         squeezed_mem -= avail
         donors_rq.append((i, prefmem(domdict[i])))
+#the below can happen if initially xen free memory is below 50M
+    if squeezed_mem < 0:
+        return donors_rq
     for i in acceptors:
         scale = 1.0*prefmem(domdict[i])/total_mem_pref_acceptors
         target_nonint = domdict[i].memory_actual + scale*squeezed_mem

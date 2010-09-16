@@ -19,6 +19,7 @@ class SystemState:
         self.xc = xen.lowlevel.xc.xc()
         self.xs = xen.lowlevel.xs.xs()
         self.BALOON_DELAY = 0.1
+        self.XEN_FREE_MEM_LEFT = 50*1024*1024
 
     def add_domain(self, id):
         self.domdict[id] = DomainState(id)
@@ -74,7 +75,7 @@ class SystemState:
         while True:
             xenfree = self.get_free_xen_memory()
             print 'got xenfree=', xenfree
-            if xenfree >= memsize:
+            if xenfree >= memsize + self.XEN_FREE_MEM_LEFT:
                 return True
             self.refresh_memactual()
             if prev_memory_actual is not None:
@@ -82,7 +83,7 @@ class SystemState:
                     if prev_memory_actual[i] == self.domdict[i].memory_actual:
                         self.domdict[i].no_progress = True
                         print 'domain', i, 'stuck at', self.domdict[i].memory_actual
-            memset_reqs = qmemman_algo.balloon(memsize-xenfree, self.domdict)
+            memset_reqs = qmemman_algo.balloon(memsize + self.XEN_FREE_MEM_LEFT - xenfree, self.domdict)
             print 'requests:', memset_reqs
             if niter > MAX_TRIES or len(memset_reqs) == 0:
                 return False
@@ -124,7 +125,7 @@ class SystemState:
             return
         self.refresh_memactual()
         xenfree = self.get_free_xen_memory()
-        memset_reqs = qmemman_algo.balance(xenfree, self.domdict)
+        memset_reqs = qmemman_algo.balance(xenfree - self.XEN_FREE_MEM_LEFT, self.domdict)
         if not self.is_balance_req_significant(memset_reqs):
             return
             
