@@ -37,7 +37,7 @@ Vendor:		Invisible Things Lab
 License:	GPL
 URL:		http://www.qubes-os.org
 Requires:	python, xen-runtime, pciutils, python-inotify, python-daemon, kernel-qubes-dom0
-
+Requires:       NetworkManager >= 0.8.1-1
 %define _builddir %(pwd)/dom0
 
 %description
@@ -103,6 +103,7 @@ cp ../dom0/qubes.repo $RPM_BUILD_ROOT/etc/yum.repos.d
 
 mkdir -p $RPM_BUILD_ROOT/usr/bin
 cp ../common/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/lib/qubes
+cp ../common/qubes_fix_nm_conf.sh $RPM_BUILD_ROOT/usr/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/etc/dhclient.d
 ln -s /usr/lib/qubes/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/etc/dhclient.d/qubes_setup_dnat_to_ns.sh 
 mkdir -p $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
@@ -119,9 +120,8 @@ sed -i 's/\/block /\/block.qubes /' /etc/udev/rules.d/xen-backend.rules
 
 %post
 
-if ! grep -q ^no-auto-default.*=.*FE:FF:FF:FF:FF:FF /etc/NetworkManager/nm-system-settings.conf ; then
-	echo no-auto-default=FE:FF:FF:FF:FF:FF >> /etc/NetworkManager/nm-system-settings.conf
-fi
+/usr/lib/qubes/qubes_fix_nm_conf.sh
+
 if [ -e /etc/yum.repos.d/qubes-r1-dom0.repo ]; then
 # we want the user to use the repo that comes with qubes-code-dom0 packages instead
 rm -f /etc/yum.repos.d/qubes-r1-dom0.repo
@@ -223,6 +223,7 @@ fi
 %dir /usr/share/qubes/icons/*.png
 /etc/yum.repos.d/qubes.repo
 /usr/lib/qubes/qubes_setup_dnat_to_ns
+/usr/lib/qubes/qubes_fix_nm_conf.sh
 /etc/dhclient.d/qubes_setup_dnat_to_ns.sh
 /etc/NetworkManager/dispatcher.d/qubes_nmhook
 /etc/sysconfig/iptables
