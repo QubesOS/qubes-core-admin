@@ -33,6 +33,7 @@ License:	GPL
 URL:		http://www.qubes-os.org
 Requires:	/usr/bin/xenstore-read
 Requires:   fedora-release = 13
+Requires:       NetworkManager >= 0.8.1-1
 Provides:   qubes-core-vm
 
 %define _builddir %(pwd)/netvm
@@ -61,6 +62,7 @@ cp qubes_core $RPM_BUILD_ROOT/etc/init.d/
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../common/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/lib/qubes
+cp ../common/qubes_fix_nm_conf.sh $RPM_BUILD_ROOT/usr/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/etc/dhclient.d
 ln -s /usr/lib/qubes/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/etc/dhclient.d/qubes_setup_dnat_to_ns.sh 
 mkdir -p $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
@@ -80,9 +82,7 @@ cp /var/lib/qubes/serial.conf /etc/init/serial.conf
 
 %post
 
-if ! grep -q ^no-auto-default.*=.*FE:FF:FF:FF:FF:FF /etc/NetworkManager/nm-system-settings.conf ; then
-	echo no-auto-default=FE:FF:FF:FF:FF:FF >> /etc/NetworkManager/nm-system-settings.conf
-fi
+/usr/lib/qubes/qubes_fix_nm_conf.sh
 
 if [ "$1" !=  1 ] ; then
 # do this whole %post thing only when updating for the first time...
@@ -176,6 +176,7 @@ rm -rf $RPM_BUILD_ROOT
 /etc/init.d/qubes_core
 /var/lib/qubes
 /usr/lib/qubes/qubes_setup_dnat_to_ns
+/usr/lib/qubes/qubes_fix_nm_conf.sh
 /etc/dhclient.d/qubes_setup_dnat_to_ns.sh
 /etc/NetworkManager/dispatcher.d/qubes_nmhook
 /etc/yum.repos.d/qubes.repo
