@@ -1,18 +1,38 @@
 #!/bin/sh
 if [ $# != 1 -a $# != 2 ] ; then
-	echo Usage: qvm-create-default-dvm templatename [script-name]
+	echo 'Usage: qvm-create-default-dvm templatename|--default-template [script-name|--default-script]'
 	exit 1
 fi
-if ! [ -d "/var/lib/qubes/vm-templates/$1" ] ; then
-	echo /var/lib/qubes/vm-templates/$1 is not a directory
+if [ "$1" = --default-template ] ; then
+	TEMPLATENAME=$(qvm-get-default-template)
+	if [ "X"$TEMPLATENAME = "X" ] ; then
+		echo No default template ?
+		exit 1
+	fi
+else
+	TEMPLATENAME=$1
+fi
+
+if [ "X""$2" = "X""--default-script" ] ; then
+	SCRIPTNAME="/var/lib/qubes/vm-templates/$TEMPLATENAME"/dispvm-prerun.sh
+	if ! [ -f $SCRIPTNAME ] ; then
+		echo $SCRIPTNAME does not exist
+		exit 1
+	fi
+else
+		SCRIPTNAME=$2
+fi
+
+if ! [ -d "/var/lib/qubes/vm-templates/$TEMPLATENAME" ] ; then
+	echo /var/lib/qubes/vm-templates/$TEMPLATENAME is not a directory
 	exit 1
 fi
-DVMTMPL="$1"-dvm
+DVMTMPL="$TEMPLATENAME"-dvm
 if ! [ -d "/var/lib/qubes/appvms/$DVMTMPL" ] ; then
-	if ! qvm-create -t "$1" -l gray "$DVMTMPL" ; then exit 1 ; fi
+	if ! qvm-create -t "$TEMPLATENAME" -l gray "$DVMTMPL" ; then exit 1 ; fi
 fi
 if ! /usr/lib/qubes/qubes_prepare_saved_domain.sh \
-	"$DVMTMPL" "/var/lib/qubes/appvms/$DVMTMPL/dvm-savefile" $2 ; then
+	"$DVMTMPL" "/var/lib/qubes/appvms/$DVMTMPL/dvm-savefile" $SCRIPTNAME ; then
 	exit 1
 fi
 ROOT=/var/lib/qubes/dvmdata/savefile_root
@@ -22,7 +42,7 @@ SHMDIR=/dev/shm/qubes
 SHMCOPY=$SHMDIR/current_savefile
 rm -f $ROOT $DEFAULT $CURRENT
 ln -s "/var/lib/qubes/appvms/$DVMTMPL/dvm-savefile" $DEFAULT
-ln -s "/var/lib/qubes/vm-templates/$1/root.img" $ROOT
+ln -s "/var/lib/qubes/vm-templates/$TEMPLATENAME/root.img" $ROOT
 if [ -f /var/lib/qubes/dvmdata/dont_use_shm ] ; then
             ln -s $DEFAULT $CURRENT
 else
