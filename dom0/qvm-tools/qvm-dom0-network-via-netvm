@@ -1,0 +1,101 @@
+#!/usr/bin/python2.6
+#
+# The Qubes OS Project, http://www.qubes-os.org
+#
+# Copyright (C) 2010  Rafal Wojtczuk <rafal@invisiblethingslab.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+#
+
+from qubes.qubes import QubesVmCollection
+import os.path
+import os
+import sys
+
+def get_netvm():
+    qvm_collection = QubesVmCollection()
+    qvm_collection.lock_db_for_reading()
+    qvm_collection.load()
+    qvm_collection.unlock_db()
+    netvm = qvm_collection.get_default_netvm_vm()
+    if netvm is None or netvm.name == 'dom0':
+        print 'There seems to be no dedicated default netvm, aborting.'
+        sys.exit(1)
+    return netvm
+
+def vif_eth0_exists():
+    if not os.path.islink('/sys/class/net/eth0'):
+        return False
+    if not os.path.isdir('/sys/devices/xen/vif-0/net/eth0'):
+        print 'There is a dedicated netvm, but device eth0 is present'
+        print 'and it is not a Xen interface. Refusing to continue.'
+        sys.exit(1)
+    return True
+
+def bringup_eth0(netvm):
+    resolv_conf = open('/etc/resolv.conf', "w")
+    resolv_conf.write('nameserver ' + netvm.gateway + '\n')
+    resolv_conf.write('nameserver ' + netvm.secondary_dns + '\n')
+    resolv_conf.close()
+    return os.system('ifconfig eth0 10.0.0.1 netmask 255.255.255.255 && route add default dev eth0') == 0
+
+def unpause_all(netvm_name):
+     os.system('qvm-run --exclude=' + netvm_name + ' --all --unpause')
+
+def netup():
+    netvm = get_netvm()
+    if os.path.isfile('/var/lock/subsys/NetworkManager'):
+        os.system('/etc/init.d/NetworkManager stop')
+    if not vif_eth0_exists():
+        cmd = 'modprobe xennet && xm network-attach 0 ip=10.0.0.1 backend='
+        cmd += netvm.name
+        cmd += ' script=vif-route-qubes'
+        if os.system(cmd) != 0:
+            print 'Error creating network device'
+            sys.exit(1)
+    os.system('qvm-run --exclude=' + netvm.name + ' --all --pause')
+    if not bringup_eth0(netvm):
+        unpause_all(netvm.name)
+        sys.exit(1)
+
+def netdown():
+    netvm = get_netvm()
+    if not vif_eth0_exists():
+        print 'There is no eth0 that is a Xen vif device, aborting.'
+        sys.exit(1)
+    os.system('ifconfig eth0 down')
+    unpause_all(netvm.name)
+
+def usage():
+    print 'Usage: qvm-dom0-network-via-netvm [up|down]'
+    sys.exit(1)
+
+def main():
+    if len(sys.argv) != 2:
+        usage()
+    if os.getuid() != 0:
+        print 'This script must be run as root'
+        sys.exit(1)
+    if sys.argv[1] == 'up':
+        netup()
+        sys.exit(0)
+    if sys.argv[1] == 'down':
+        netdown()
+        sys.exit(0)
+    usage()
+
+main()
+            
