@@ -306,7 +306,7 @@ class XS_Watcher:
 
         vm = qvm_collection.get_vm_by_name(name)
         if vm is None:
-            logproc( 'remove_disposable_from_qdb: Domain ' + vmname + ' does not exist ?')
+            logproc( 'remove_disposable_from_qdb: Domain ' + name + ' does not exist ?')
             qvm_collection.unlock_db()
             return False
         qvm_collection.pop(vm.qid)
