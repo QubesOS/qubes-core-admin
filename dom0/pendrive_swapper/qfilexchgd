@@ -267,7 +267,7 @@ class DomainState:
         if vmname != 'disposable':
             return self.handle_transfer_regular(vmname, transaction_seq)
         if not self.dvm_setup_ok():
-            self.tray_notify("DVM requires savefile creation. Please wait up to 2 minutes")
+            self.tray_notify("Updating DisposableVM savefile, please wait")
             if os.system("qvm-create-default-dvm --default-template --default-script") != 0:
                 self.tray_notify_error("DVM savefile creation failed")
                 return False 
