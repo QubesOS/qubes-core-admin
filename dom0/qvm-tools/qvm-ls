@@ -31,9 +31,11 @@ fields = {
     "name": {"func": "('=>' if qvm_collection.get_default_template_vm() is not None\
              and vm.qid == qvm_collection.get_default_template_vm().qid else '')\
              + ('[' if vm.is_templete() else '')\
+             + ('<' if vm.is_disposablevm() else '')\
              + ('{' if vm.is_netvm() else '')\
              + vm.name \
              + (']' if vm.is_templete() else '')\
+             + ('>' if vm.is_disposablevm() else '')\
              + ('}' if vm.is_netvm() else '')"},
 
     "type": {"func": "'Tpl' if vm.is_templete() else \
@@ -141,9 +143,9 @@ def main():
     for tvm in vms_list:
         if tvm.is_templete():
             vms_to_display.append (tvm)
-            for appvm in vms_list:
-                if appvm.is_appvm() and appvm.template_vm.qid == tvm.qid:
-                    vms_to_display.append(appvm)
+            for vm in vms_list:
+                if (vm.is_appvm() or vm.is_disposablevm()) and vm.template_vm.qid == tvm.qid:
+                    vms_to_display.append(vm)
 
     assert len(vms_to_display) == no_vms
 

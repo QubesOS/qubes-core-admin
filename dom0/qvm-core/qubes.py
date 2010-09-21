@@ -84,6 +84,7 @@ swap_cow_sz = 1024*1024*1024
 VM_TEMPLATE = 'TempleteVM'
 VM_APPVM = 'AppVM'
 VM_NETVM = 'NetVM'
+VM_DISPOSABLEVM = 'DisposableVM'
 
 class XendSession(object):
     def __init__(self):
@@ -203,8 +204,11 @@ class QubesVm(object):
 
         self.updateable = updateable
         self.label = label if label is not None else QubesVmLabels["red"]
-        self.icon_path = self.dir_path + "/icon.png"
-
+        if self.dir_path is not None:
+            self.icon_path = self.dir_path + "/icon.png"
+        else:
+            self.icon_path = None
+            
         if not dry_run and xend_session.session is not None:
             self.refresh_xend_session()
 
@@ -279,6 +283,12 @@ class QubesVm(object):
 
     def is_netvm(self):
         if self.type == VM_NETVM:
+            return True
+        else:
+            return False
+
+    def is_disposablevm(self):
+        if self.type == VM_DISPOSABLEVM:
             return True
         else:
             return False
@@ -981,6 +991,38 @@ class QubesDom0NetVm(QubesNetVm):
     def verify_files(self):
         return True
 
+class QubesDisposableVm(QubesVm):
+    """
+    A class that represents an DisposableVM. A child of QubesVM.
+    """
+    def __init__(self, **kwargs):
+
+        template_vm = kwargs.pop("template_vm")
+
+        super(QubesDisposableVm, self).__init__(type=VM_DISPOSABLEVM, dir_path=None, **kwargs)
+        qid = kwargs["qid"]
+
+        assert template_vm is not None, "Missing template_vm for DisposableVM!"
+        if not template_vm.is_templete():
+            print "ERROR: template_qid={0} doesn't point to a valid TempleteVM".\
+                    format(new_vm.template_vm.qid)
+            return False
+
+        self.template_vm = template_vm
+        template_vm.appvms[qid] = self
+
+    def create_xml_element(self):
+        element = xml.etree.ElementTree.Element(
+            "QubesDisposableVm",
+            qid=str(self.qid),
+            name=self.name,
+            template_qid=str(self.template_vm.qid),
+            label=self.label.name)
+        return element
+
+    def verify_files(self):
+        return True
+
 
 class QubesAppVm(QubesVm):
     """
@@ -1224,6 +1266,19 @@ class QubesVmCollection(dict):
         vm = QubesAppVm (qid=qid, name=name, template_vm=template_vm,
                          dir_path=dir_path, conf_file=conf_file,
                          private_img=private_img,
+                         netvm_vm = self.get_default_netvm_vm(),
+                         label=label)
+
+        if not self.verify_new_vm (vm):
+            assert False, "Wrong VM description!"
+        self[vm.qid]=vm
+        return vm
+
+    def add_new_disposablevm(self, name, template_vm,
+                      label = None):
+
+        qid = self.get_new_unused_qid()
+        vm = QubesDisposableVm (qid=qid, name=name, template_vm=template_vm,
                          netvm_vm = self.get_default_netvm_vm(),
                          label=label)
 
@@ -1562,6 +1617,43 @@ class QubesVmCollection(dict):
                 self[vm.qid] = vm
             except (ValueError, LookupError) as err:
                 print("{0}: import error (QubesAppVm): {1}".format(
+                    os.path.basename(sys.argv[0]), err))
+                return False
+
+        # Really finally, read in the DisposableVMs
+        for element in tree.findall("QubesDisposableVm"):
+            try:
+                kwargs = {}
+                attr_list = ("qid", "name",
+                             "template_qid",
+                             "label")
+
+                for attribute in attr_list:
+                    kwargs[attribute] = element.get(attribute)
+
+                kwargs["qid"] = int(kwargs["qid"])
+                kwargs["template_qid"] = int(kwargs["template_qid"])
+
+                template_vm = self[kwargs.pop("template_qid")]
+                if template_vm is None:
+                    print "ERROR: DisposableVM '{0}' uses unkown template qid='{1}'!".\
+                            format(kwargs["name"], kwargs["template_qid"])
+
+                kwargs["template_vm"] = template_vm
+                kwargs["netvm_vm"] = self.get_default_netvm_vm() 
+                
+                if kwargs["label"] is not None:
+                    if kwargs["label"] not in QubesVmLabels:
+                        print "ERROR: incorrect label for VM '{0}'".format(kwargs["name"])
+                        kwargs.pop ("label")
+                    else:
+                        kwargs["label"] = QubesVmLabels[kwargs["label"]]
+
+                vm = QubesDisposableVm(**kwargs)
+
+                self[vm.qid] = vm
+            except (ValueError, LookupError) as err:
+                print("{0}: import error (DisposableAppVm): {1}".format(
                     os.path.basename(sys.argv[0]), err))
                 return False
 

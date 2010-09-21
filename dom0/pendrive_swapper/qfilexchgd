@@ -226,7 +226,7 @@ class DomainState:
             logproc( 'Domain ' + disptempl + ' does not exist ?')
             qvm_collection.unlock_db()
             return False
-        qvm_collection.add_new_appvm(disp_name, vm_disptempl.template_vm, label=vm.label)
+        qvm_collection.add_new_disposablevm(disp_name, vm_disptempl.template_vm, label=vm.label)
         qvm_collection.save()
         qvm_collection.unlock_db()
 
