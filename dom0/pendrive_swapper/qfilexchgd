@@ -27,6 +27,7 @@ import sys
 import subprocess
 import daemon
 import time
+import dbus
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
 from qubes.qubes import QubesDaemonPidfile
@@ -36,6 +37,9 @@ filename_seq = 50
 pen_cmd = '/usr/lib/qubes/qubes_pencmd'
 disposable_domains_dict = {}
 current_savefile = '/var/run/qubes/current_savefile'
+
+notify_object = None
+
 
 def get_next_filename_seq():
     global filename_seq
@@ -241,21 +245,32 @@ class DomainState:
         logproc( 'sent pendrive to disposable xid ' + disp_xid)
         return True
 
-    def handle_transfer(self, vmname, transaction_seq):
+    def dvm_setup_ok(self):
         dvmdata_dir = '/var/lib/qubes/dvmdata/'
-        if vmname != 'disposable':
-            return self.handle_transfer_regular(vmname, transaction_seq)
         if not os.path.isfile(current_savefile):
-            subprocess.call(['/usr/bin/kdialog', '--sorry', 'There is no current savefile defined; run Qubes Manager'])
             return False
         if not os.path.isfile(dvmdata_dir+'default_savefile') or not os.path.isfile(dvmdata_dir+'savefile_root'):
-            subprocess.call(['/usr/bin/kdialog', '--sorry', 'Default savefile misconfiguration; run Qubes Manager'])
             return False
         dvm_mtime = os.stat(current_savefile).st_mtime
         root_mtime = os.stat(dvmdata_dir+'savefile_root').st_mtime
         if dvm_mtime < root_mtime:
-            subprocess.call(['/usr/bin/kdialog', '--sorry', 'Your current savefile is outdated, as you have updated the template VM. Run Qubes Manager and recreate the savefile'])
             return False       
+        return True
+
+    def tray_notify(self, str, timeout = 3000):
+        notify_object.Notify("Qubes", 0, "red", "Qubes", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
+
+    def tray_notify_error(self, str, timeout = 3000):
+        notify_object.Notify("Qubes", 0, "dialog-error", "Qubes", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
+
+    def handle_transfer(self, vmname, transaction_seq):
+        if vmname != 'disposable':
+            return self.handle_transfer_regular(vmname, transaction_seq)
+        if not self.dvm_setup_ok():
+            self.tray_notify("DVM requires savefile creation. Please wait up to 2 minutes")
+            if os.system("qvm-create-default-dvm --default-template --default-script") != 0:
+                self.tray_notify_error("DVM savefile creation failed")
+                return False 
         return self.handle_transfer_disposable(transaction_seq)
 
 class XS_Watcher:
@@ -314,6 +329,9 @@ class XS_Watcher:
         qvm_collection.unlock_db()
         
     def watch_loop(self):
+        global notify_object
+        notify_object = dbus.SessionBus().get_object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
+
         sys.stderr = file('/var/log/qubes/qfileexchgd.errors', 'a')
         while True:
             result = self.handle.read_watch()
