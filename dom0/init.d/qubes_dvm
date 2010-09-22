@@ -16,10 +16,6 @@
 # Source function library.
 . /etc/rc.d/init.d/functions
 
-setup_dvm_files()
-{
-}
-
 start()
 {
     echo -n "Setting up DVM savefile at Dom0 boot:"
