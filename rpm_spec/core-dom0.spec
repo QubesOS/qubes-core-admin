@@ -54,7 +54,7 @@ make -C ../common
 mkdir -p $RPM_BUILD_ROOT/etc/init.d
 cp init.d/qubes_core $RPM_BUILD_ROOT/etc/init.d/
 cp init.d/qubes_netvm $RPM_BUILD_ROOT/etc/init.d/
-cp init.d/qubes_dvm $RPM_BUILD_ROOT/etc/init.d/
+cp init.d/qubes_setupdvm $RPM_BUILD_ROOT/etc/init.d/
 
 mkdir -p $RPM_BUILD_ROOT/usr/bin/
 cp qvm-tools/qvm-* $RPM_BUILD_ROOT/usr/bin
@@ -156,11 +156,11 @@ sed 's/^net.ipv4.ip_forward.*/net.ipv4.ip_forward = 1/'  -i /etc/sysctl.conf
 
 chkconfig --add qubes_core || echo "WARNING: Cannot add service qubes_core!"
 chkconfig --add qubes_netvm || echo "WARNING: Cannot add service qubes_netvm!"
-chkconfig --add qubes_dvm || echo "WARNING: Cannot add service qubes_dvm!"
+chkconfig --add qubes_setupdvm || echo "WARNING: Cannot add service qubes_setupdvm!"
 
 chkconfig qubes_core on || echo "WARNING: Cannot enable service qubes_core!"
 chkconfig qubes_netvm on || echo "WARNING: Cannot enable service qubes_netvm!"
-chkconfig qubes_dvm on || echo "WARNING: Cannot enable service qubes_dvm!"
+chkconfig qubes_setupdvm on || echo "WARNING: Cannot enable service qubes_setupdvm!"
 
 if ! [ -e /var/lib/qubes/qubes.xml ]; then
 #    echo "Initializing Qubes DB..."
@@ -198,7 +198,7 @@ fi
 %defattr(-,root,root,-)
 /etc/init.d/qubes_core
 /etc/init.d/qubes_netvm
-/etc/init.d/qubes_dvm
+/etc/init.d/qubes_setupdvm
 /usr/bin/qvm-*
 /usr/bin/qclipd
 /usr/bin/qfilexchgd

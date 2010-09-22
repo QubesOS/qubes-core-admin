@@ -45,7 +45,7 @@ start()
     	ln -s /dev/shm/qubes/current_savefile /var/run/qubes/current_savefile
     fi 
 
-    touch /var/lock/subsys/qubes_dvm
+    touch /var/lock/subsys/qubes_setupdvm
     success
     echo
 
