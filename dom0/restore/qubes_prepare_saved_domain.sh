@@ -36,18 +36,18 @@ if [ $ID = none ] ; then
 	echo cannot get domain id
 	exit 1
 fi
-echo domainid=$ID
+echo "Waiting for DVM domainid=$ID ..."
 if [ -n "$ENCODED_SCRIPT" ] ; then
 	xenstore-write /local/domain/$ID/qubes_save_script "$ENCODED_SCRIPT"
 fi
-set -x
+#set -x
 xenstore-write /local/domain/$ID/qubes_save_request 1 
 xenstore-watch /local/domain/$ID/device/qubes_used_mem
 xenstore-read /local/domain/$ID/qubes_gateway | \
 	cut -d . -f 2 | tr -d "\n" > $VMDIR/netvm_id.txt
 xm block-detach $1 /dev/xvdb
 MEM=$(xenstore-read /local/domain/$ID/device/qubes_used_mem)
-echo MEM=$MEM
+echo "DVM boot complete, memory used=$MEM. Saving image..."
 QMEMMAN_STOP=/var/run/qubes/do-not-membalance
 touch $QMEMMAN_STOP
 xm mem-set $1 $(($MEM/1000))
@@ -60,5 +60,4 @@ fi
 rm -f $QMEMMAN_STOP
 cd $VMDIR
 tar -Scvf saved_cows.tar root-cow.img swap-cow.img
-
-
+echo "DVM savefile created successfully."
