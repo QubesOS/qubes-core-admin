@@ -503,6 +503,13 @@ class QubesVm(object):
             pass
 
 
+    def get_total_xen_memory(self):
+        hosts = xend_session.session.xenapi.host.get_all()
+        host_record = xend_session.session.xenapi.host.get_record(hosts[0])
+        host_metrics_record = xend_session.session.xenapi.host_metrics.get_record(host_record["metrics"])
+        ret = host_metrics_record["memory_total"]
+        return long(ret)
+
     def start(self, debug_console = False, verbose = False, preparing_dvm = False):
         if dry_run:
             return
@@ -516,6 +523,10 @@ class QubesVm(object):
 
         if verbose:
             print "--> Loading the VM (type = {0})...".format(self.type)
+
+        if not self.is_netvm():          
+            total_mem_mb = self.get_total_xen_memory()/1024/1024 
+            xend_session.xend_server.xend.domain.maxmem_set(self.name, total_mem_mb)
 
         mem_required = self.get_mem_dynamic_max()
         qmemman_client = QMemmanClient()
