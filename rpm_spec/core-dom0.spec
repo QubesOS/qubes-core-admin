@@ -128,10 +128,10 @@ if [ -e /etc/yum.repos.d/qubes-r1-dom0.repo ]; then
 rm -f /etc/yum.repos.d/qubes-r1-dom0.repo
 fi
 
-if [ "$1" !=  1 ] ; then
-# do this whole %post thing only when updating for the first time...
-exit 0
-fi
+#if [ "$1" !=  1 ] ; then
+## do this whole %post thing only when updating for the first time...
+#exit 0
+#fi
 
 # TODO: This is only temporary, until we will have our own installer
 for f in /etc/init.d/*
