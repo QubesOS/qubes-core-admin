@@ -217,7 +217,7 @@ fi
 /usr/lib/qubes/convert_dirtemplate2vm.sh
 /usr/lib/qubes/create_apps_for_appvm.sh
 /usr/lib/qubes/remove_appvm_appmenus.sh
-/usr/lib/qubes/reset_vm_configs.py
+/usr/lib/qubes/reset_vm_configs.py*
 /usr/lib/qubes/qubes_pencmd
 /usr/lib/qubes/qmemman_daemon.py*
 /usr/lib/qubes/meminfo-writer
