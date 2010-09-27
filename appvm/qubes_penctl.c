@@ -35,6 +35,8 @@ void check_name(unsigned char *s)
 			continue;
 		if (c == '_' || c == '-')
 			continue;
+		if (c >= '0' && c <= '9')
+			continue;
 		fprintf(stderr, "invalid string %s\n", s);
 		exit(1);
 	}
