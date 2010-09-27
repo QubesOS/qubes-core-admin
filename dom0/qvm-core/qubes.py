@@ -1090,19 +1090,10 @@ class QubesAppVm(QubesVm):
             # as this would cause COW-backed storage incoherency
             raise QubesException ("TemaplteVM is updateable: cannot make the AppVM '{0}' updateable".format(self.name))
 
-    def create_on_disk(self, verbose):
-        if dry_run:
-            return
-
-
-        if verbose:
-            print "--> Creating directory: {0}".format(self.dir_path)
-        os.mkdir (self.dir_path)
-
-        if verbose:
-            print "--> Creating the VM config file: {0}".format(self.conf_file)
- 
+    def create_config_file(self):
         conf_template = open (self.template_vm.appvms_conf_file, "r")
+        if os.path.isfile(self.conf_file):
+            shutil.copy(self.conf_file, self.conf_file + ".backup")
         conf_appvm = open(self.conf_file, "w")
         rx_vmname = re.compile (r"%VMNAME%")
         rx_vmdir = re.compile (r"%VMDIR%")
@@ -1116,6 +1107,20 @@ class QubesAppVm(QubesVm):
 
         conf_template.close()
         conf_appvm.close()
+
+    def create_on_disk(self, verbose):
+        if dry_run:
+            return
+
+
+        if verbose:
+            print "--> Creating directory: {0}".format(self.dir_path)
+        os.mkdir (self.dir_path)
+
+        if verbose:
+            print "--> Creating the VM config file: {0}".format(self.conf_file)
+ 
+        self.create_config_file()
 
         template_priv = self.template_vm.private_img
         if verbose:
