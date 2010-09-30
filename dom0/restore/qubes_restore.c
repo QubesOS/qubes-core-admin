@@ -444,13 +444,15 @@ int main(int argc, char **argv)
 	domid = parse_resp(resp);
 	write_varrun_domid(domid, dispname_by_dispid(dispid), name);
 	fprintf(stderr,
-		"time=%s, created domid=%d, executing set_mem 400\n",
+		"time=%s, created domid=%d, creating xenstore entries\n",
 		gettime(), domid);
+#if 0
 	fd = xend_connect();
 	send_req_setmem(fd, domid, 400);
 	resp = recv_resp(fd);
 //      printf("%s\n", resp);
 	fprintf(stderr, "time=%s, creating xenstore entries\n", gettime());
+#endif	
 	setup_xenstore(netvm_id, domid, dispid, name);
 	fprintf(stderr, "time=%s, starting qubes_guid\n", gettime());
 	rm_fast_flag();
