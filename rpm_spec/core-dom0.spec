@@ -115,6 +115,7 @@ cp ../common/iptables $RPM_BUILD_ROOT/etc/sysconfig
 
 mkdir -p $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d
 cp pm-utils/01qubes-sync-vms-clock $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
+cp pm-utils/01qubes-swap-pci-devs $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 cp pm-utils/02qubes-pause-vms $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 
 %triggerin -- xen-runtime
@@ -234,6 +235,7 @@ fi
 /etc/NetworkManager/dispatcher.d/qubes_nmhook
 /etc/sysconfig/iptables
 /usr/lib64/pm-utils/sleep.d/01qubes-sync-vms-clock
+/usr/lib64/pm-utils/sleep.d/01qubes-swap-pci-devs
 /usr/lib64/pm-utils/sleep.d/02qubes-pause-vms
 /usr/bin/xenstore-watch
 /usr/bin/qvm-create-default-dvm

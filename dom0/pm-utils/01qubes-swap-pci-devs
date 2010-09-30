@@ -1,0 +1,48 @@
+#!/bin/sh
+
+. "${PM_FUNCTIONS}"
+
+get_domain_pci_devs()
+{
+	VM=$1
+	TMPFILE=$(mktemp -p /var/run/qubes/)
+	xm pci-list $VM > $TMPFILE
+	if grep -i -q vslt $TMPFILE ; then 
+		slt=valid_identifier
+	else
+		slt=""
+	fi
+	cat $TMPFILE | grep -v domain | sed 's/0x//g'| \
+		while read $slt a b c d; do echo $a:$b:$c.$d ; done > /var/run/qubes/$VM.pcidevs
+	rm -f $TMPFILE
+}
+
+detach_pcis()
+{
+	NETVM=$(qvm-get-default-netvm)
+	if [ "X"$NETVM = "X""dom0" -o "X"$NETVM = "X" -o "X"$NETVM = "X""none"] ; then
+		exit 0
+	fi
+	get_domain_pci_devs $NETVM
+	for dev in $(cat /var/run/qubes/$NETVM.pcidevs) ; do
+		xm pci-detach $NETVM $dev
+	done
+}
+
+attach_pcis()
+{
+	NETVM=$(qvm-get-default-netvm)
+	if [ "X"$NETVM = "X""dom0" -o "X"$NETVM = "X" -o "X"$NETVM = "X""none"] ; then
+		exit 0
+	fi
+	for dev in $(cat /var/run/qubes/$NETVM.pcidevs) ; do
+		xm pci-attach $NETVM $dev
+	done
+}
+
+ 
+case "$1" in
+        resume) attach_pcis ;;
+        suspend) detach_pcis ;;
+        *) exit 0 ;;
+esac
