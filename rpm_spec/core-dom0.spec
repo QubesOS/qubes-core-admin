@@ -190,6 +190,14 @@ if [ "$1" -gt 1 ] ; then
     /etc/init.d/qubes_core stop
 fi
 
+%triggerin -- xen
+/etc/init.d/qubes_core stop
+/etc/init.d/qubes_core start
+
+%triggerin -- xen-runtime
+/etc/init.d/qubes_core stop
+/etc/init.d/qubes_core start
+
 
 %preun
 if [ "$1" = 0 ] ; then
