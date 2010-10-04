@@ -173,7 +173,11 @@ for i in /usr/share/qubes/icons/*.png ; do
 done
 
 /etc/init.d/qubes_core start
-/etc/init.d/qubes_netvm start
+
+NETVM=$(qvm-get-default-netvm)
+if [ $NETVM = "dom0" ] ; then
+    /etc/init.d/qubes_netvm start
+fi
 
 
 %clean
@@ -186,7 +190,11 @@ fi
 
 if [ "$1" -gt 1 ] ; then
     # upgrading already installed package...
-    /etc/init.d/qubes_netvm stop
+    NETVM=$(qvm-get-default-netvm)
+    if [ $NETVM = "dom0" ] ; then
+        /etc/init.d/qubes_netvm stop
+    fi
+
     /etc/init.d/qubes_core stop
 fi
 
