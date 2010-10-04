@@ -29,7 +29,6 @@ start()
     chgrp qubes /var/run/xenstored/*
     chmod 660 /var/run/xenstored/*
     xm sched-credit -d 0 -w 65535
-    xm mem-set 0 1600
     cp /var/lib/qubes/qubes.xml /var/lib/qubes/backup/qubes-$(date +%F-%T).xml
 
     /usr/lib/qubes/qmemman_daemon.py >/var/log/qubes/qmemman.log 2>/var/log/qubes/qmemman.errs & 
