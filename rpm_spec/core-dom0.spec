@@ -172,6 +172,10 @@ for i in /usr/share/qubes/icons/*.png ; do
 	xdg-icon-resource install --novendor --size 48 $i
 done
 
+/etc/init.d/qubes_core start
+/etc/init.d/qubes_netvm start
+
+
 %clean
 rm -rf $RPM_BUILD_ROOT
 
@@ -180,8 +184,19 @@ if ! grep -q ^qubes: /etc/group ; then
 		groupadd qubes
 fi
 
+if [ "$1" -gt 1 ] ; then
+    # upgrading already installed package...
+    /etc/init.d/qubes_netvm stop
+    /etc/init.d/qubes_core stop
+fi
+
+
 %preun
 if [ "$1" = 0 ] ; then
+	# no more packages left
+    /etc/init.d/qubes_netvm stop
+    /etc/init.d/qubes_core stop
+
 	for i in /usr/share/qubes/icons/*.png ; do
 		xdg-icon-resource uninstall --novendor --size 48 $i
 	done
