@@ -49,6 +49,9 @@ stop()
     NETVM=$(qvm-get-default-netvm)
     qvm-run -q --shutdown --all --wait --exclude $NETVM
     rm -f /var/lock/subsys/qubes_core
+    killall meminfo-writer
+    killall qmemman_daemon.py
+    killall qfilexchgd
     success
     echo
 }
