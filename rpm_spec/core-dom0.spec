@@ -37,6 +37,7 @@ Vendor:		Invisible Things Lab
 License:	GPL
 URL:		http://www.qubes-os.org
 Requires:	python, xen-runtime, pciutils, python-inotify, python-daemon, kernel-qubes-dom0
+Requires:   qubes-gui-dom0 >= 1.1.13
 Requires:       NetworkManager >= 0.8.1-1
 %define _builddir %(pwd)/dom0
 
