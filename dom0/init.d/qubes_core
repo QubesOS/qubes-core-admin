@@ -46,6 +46,9 @@ stop()
 {
     echo -n $"Shutting down all Qubes VMs:"
     NETVM=$(qvm-get-default-netvm)
+    if [ "X"$NETVM = "X" ] ; then
+        NETVM="dom0"
+    fi
     qvm-run -q --shutdown --all --wait --exclude $NETVM
     rm -f /var/lock/subsys/qubes_core
     killall meminfo-writer

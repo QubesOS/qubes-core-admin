@@ -175,7 +175,7 @@ done
 /etc/init.d/qubes_core start
 
 NETVM=$(qvm-get-default-netvm)
-if [ $NETVM = "dom0" ] ; then
+if [ "X"$NETVM = "X""dom0" ] ; then
     /etc/init.d/qubes_netvm start
 fi
 
@@ -191,7 +191,7 @@ fi
 if [ "$1" -gt 1 ] ; then
     # upgrading already installed package...
     NETVM=$(qvm-get-default-netvm)
-    if [ $NETVM = "dom0" ] ; then
+    if [ "X"$NETVM = "X""dom0" ] ; then
         /etc/init.d/qubes_netvm stop
     fi
 
