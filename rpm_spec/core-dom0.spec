@@ -121,9 +121,6 @@ cp pm-utils/02qubes-pause-vms $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 mkdir -p $RPM_BUILD_ROOT/var/log/qubes
 mkdir -p $RPM_BUILD_ROOT/var/run/qubes
 
-%triggerin -- xen-runtime
-sed -i 's/\/block /\/block.qubes /' /etc/udev/rules.d/xen-backend.rules
-
 %post
 
 /usr/lib/qubes/qubes_fix_nm_conf.sh
@@ -206,6 +203,7 @@ fi
 /etc/init.d/qubes_core start
 
 %triggerin -- xen-runtime
+sed -i 's/\/block /\/block.qubes /' /etc/udev/rules.d/xen-backend.rules
 /etc/init.d/qubes_core stop
 /etc/init.d/qubes_core start
 
