@@ -118,6 +118,9 @@ cp pm-utils/01qubes-sync-vms-clock $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 cp pm-utils/01qubes-swap-pci-devs $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 cp pm-utils/02qubes-pause-vms $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 
+mkdir -p $RPM_BUILD_ROOT/var/log/qubes
+mkdir -p $RPM_BUILD_ROOT/var/run/qubes
+
 %triggerin -- xen-runtime
 sed -i 's/\/block /\/block.qubes /' /etc/udev/rules.d/xen-backend.rules
 
@@ -275,3 +278,5 @@ fi
 /etc/xen/scripts/block.qubes
 /etc/xen/scripts/vif-route-qubes
 %attr(4750,root,qubes) /usr/lib/qubes/xenfreepages
+%attr(2770,root,qubes) %dir /var/log/qubes
+%attr(770,root,qubes) %dir /var/run/qubes
