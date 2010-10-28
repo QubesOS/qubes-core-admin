@@ -133,7 +133,7 @@ class DomainState:
             tmp = self.waiting_sender
             self.waiting_sender = None
             if tmp.send_state == 'has_clean_pendrive':
-                if tmp.handle_transfer(self.name, self.delayed_transaction_seq):
+                if tmp.handle_transfer(self.name, tmp.delayed_transaction_seq):
                     tmp.send_state = 'idle'
 
         if not req_ok:
