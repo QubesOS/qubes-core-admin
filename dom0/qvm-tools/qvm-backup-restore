@@ -112,7 +112,10 @@ def main():
 
     parser.add_option ("--ignore-missing", action="store_true", dest="ignore_missing", default=False,
                        help="Ignore missing templates or netvms, restore VMs anyway")
- 
+
+    parser.add_option ("--skip-conflicting", action="store_true", dest="skip_conflicting", default=False,
+                       help="Do not restore VMs that are already present on the host")
+
     (options, args) = parser.parse_args ()
 
     if (len (args) != 1):
@@ -186,7 +189,7 @@ def main():
             if host_collection.get_vm_by_name (vm.name) is not None:
                 s +=  " <-- A VM with the same name already exists on the host!"
                 there_are_conflicting_vms = True
-                good_to_go = False
+                good_to_go = False # Do not overwrite VMs on the host!
 
             if vm.is_appvm():
                 templatevm_name = vm.template_vm.name
@@ -224,9 +227,11 @@ def main():
 
     if there_are_conflicting_vms:
         print "*** There VMs with conflicting names on the host! ***"
+    if options.skip_conflicting:
+        print "Those VMs will not be restored, the host VMs will not be overwritten!"
+    else:
         print "Remove VMs with conflicting names from the host before proceeding."
-        print "You can use 'qvm-remove <vmname>' command for this."
-        print "Be careful! Think twice before typing qvm-remove!!!"
+        print "... or use --skip-conflicting to restore only those VMs that do not exist on the host."
         exit (1)
 
     print "The above VMs will be copied and added to your system."
@@ -241,7 +246,7 @@ def main():
         elif options.skip_broken:
             print "... VMs that depend on it will not be restored (--skip-broken used)"
         elif options.ignore_missing:
-            print "... VMs that depend on it be restored anyway (--ignore-missing used)"
+            print "... VMs that depend on it will be restored anyway (--ignore-missing used)"
         else:
             print "INTERNAL ERROR?!"
             exit (1)
