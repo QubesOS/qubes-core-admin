@@ -81,12 +81,6 @@ qubes_appmenu_remove_cmd = "/usr/lib/qubes/remove_appvm_appmenus.sh"
 # as "should be good for everyone"
 swap_cow_sz = 1024*1024*1024
 
-VM_TEMPLATE = 'TempleteVM'
-VM_APPVM = 'AppVM'
-VM_NETVM = 'NetVM'
-VM_FWVM = 'FirewallVM'
-VM_DISPOSABLEVM = 'DisposableVM'
-
 class XendSession(object):
     def __init__(self):
         self.get_xend_session_old_api()
@@ -171,7 +165,7 @@ class QubesVm(object):
     Note that qid is not the same as Xen's domid!
     """
 
-    def __init__(self, qid, name, type,
+    def __init__(self, qid, name,
                  dir_path, conf_file = None,
                  uses_default_netvm = True,
                  netvm_vm = None,
@@ -196,7 +190,6 @@ class QubesVm(object):
                 else:
                     self.conf_file = dir_path + "/" + conf_file
 
-        self.__type = type
         self.uses_default_netvm = uses_default_netvm
         self.netvm_vm = netvm_vm
 
@@ -216,10 +209,6 @@ class QubesVm(object):
     @property
     def qid(self):
         return self.__qid
-
-    @property
-    def type(self):
-        return self.__type
 
     @property
     def ip(self):
@@ -271,34 +260,19 @@ class QubesVm(object):
         self.updateable = False
 
     def is_templete(self):
-        if self.type == VM_TEMPLATE:
-            return True
-        else:
-            return False
+        return isinstance(self, QubesTemplateVm)
 
     def is_appvm(self):
-        if self.type == VM_APPVM:
-            return True
-        else:
-            return False
+        return isinstance(self, QubesAppVm)
 
     def is_netvm(self):
-        if self.type == VM_NETVM or self.type == VM_FWVM:
-            return True
-        else:
-            return False
+        return isinstance(self, QubesNetVm)
 
     def is_fwvm(self):
-        if self.type == VM_FWVM:
-            return True
-        else:
-            return False
+        return isinstance(self, QubesFirewallVm)
 
     def is_disposablevm(self):
-        if self.type == VM_DISPOSABLEVM:
-            return True
-        else:
-            return False
+        return isinstance(self, QubesDisposableVm)
 
     def add_to_xen_storage(self):
         if dry_run:
@@ -625,7 +599,7 @@ class QubesTemplateVm(QubesVm):
         private_img = kwargs.pop("private_img") if "private_img" in kwargs else None
         appvms_conf_file = kwargs.pop("appvms_conf_file") if "appvms_conf_file" in kwargs else None
 
-        super(QubesTemplateVm, self).__init__(type=VM_TEMPLATE, label = default_template_label, **kwargs)
+        super(QubesTemplateVm, self).__init__(label = default_template_label, **kwargs)
 
         dir_path = kwargs["dir_path"]
 
@@ -652,6 +626,10 @@ class QubesTemplateVm(QubesVm):
         self.kernels_dir = self.dir_path + "/" + default_kernels_subdir
         self.appmenus_templates_dir = self.dir_path + "/" + default_appmenus_templates_subdir
         self.appvms = QubesVmCollection()
+
+    @property
+    def type(self):
+        return "TempleteVM"
 
     def set_updateable(self):
         if self.is_updateable():
@@ -896,9 +874,11 @@ class QubesNetVm(QubesServiceVm):
 
         if "label" not in kwargs or kwargs["label"] is None:
             kwargs["label"] = default_servicevm_label
-        if "type" not in kwargs or kwargs["type"] is None:
-            kwargs["type"] = VM_NETVM
         super(QubesNetVm, self).__init__(installed_by_rpm=True, **kwargs)
+
+    @property
+    def type(self):
+        return "NetVM"
 
     @property
     def gateway(self):
@@ -943,7 +923,11 @@ class QubesFirewallVm(QubesNetVm):
     def __init__(self, **kwargs):
         self.netvm_vm = kwargs.pop("netvm_vm") if "netvm_vm" in kwargs else None
 
-        super(QubesFirewallVm, self).__init__(type=VM_FWVM, **kwargs)
+        super(QubesFirewallVm, self).__init__(**kwargs)
+
+    @property
+    def type(self):
+        return "FirewallVM"
 
     def create_xml_element(self):
         element = xml.etree.ElementTree.Element(
@@ -1041,7 +1025,7 @@ class QubesDisposableVm(QubesVm):
 
         template_vm = kwargs.pop("template_vm")
 
-        super(QubesDisposableVm, self).__init__(type=VM_DISPOSABLEVM, dir_path=None, **kwargs)
+        super(QubesDisposableVm, self).__init__(dir_path=None, **kwargs)
         qid = kwargs["qid"]
 
         assert template_vm is not None, "Missing template_vm for DisposableVM!"
@@ -1052,6 +1036,10 @@ class QubesDisposableVm(QubesVm):
 
         self.template_vm = template_vm
         template_vm.appvms[qid] = self
+
+    @property
+    def type(self):
+        return "DisposableVM"
 
     def create_xml_element(self):
         element = xml.etree.ElementTree.Element(
@@ -1082,7 +1070,7 @@ class QubesAppVm(QubesVm):
         template_vm = kwargs.pop("template_vm")
 
 
-        super(QubesAppVm, self).__init__(type=VM_APPVM, **kwargs)
+        super(QubesAppVm, self).__init__(**kwargs)
         qid = kwargs["qid"]
         dir_path = kwargs["dir_path"]
 
@@ -1105,6 +1093,10 @@ class QubesAppVm(QubesVm):
         self.rootcow_img = dir_path + "/" + default_rootcow_img
         self.swapcow_img = dir_path + "/" + default_swapcow_img
 
+
+    @property
+    def type(self):
+        return "AppVM"
 
     def set_updateable(self):
         if self.is_updateable():
