@@ -947,9 +947,7 @@ class QubesFirewallVm(QubesNetVm):
     A class that represents a FirewallVM. A child of QubesNetVM.
     """
     def __init__(self, **kwargs):
-        self.netvm_vm = kwargs.pop("netvm_vm") if "netvm_vm" in kwargs else None
-
-        super(QubesFirewallVm, self).__init__(**kwargs)
+        super(QubesFirewallVm, self).__init__(uses_default_netvm=False, **kwargs)
 
     @property
     def type(self):
