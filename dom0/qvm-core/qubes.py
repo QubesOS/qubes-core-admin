@@ -84,6 +84,7 @@ swap_cow_sz = 1024*1024*1024
 VM_TEMPLATE = 'TempleteVM'
 VM_APPVM = 'AppVM'
 VM_NETVM = 'NetVM'
+VM_FWVM = 'FirewallVM'
 VM_DISPOSABLEVM = 'DisposableVM'
 
 class XendSession(object):
@@ -282,7 +283,13 @@ class QubesVm(object):
             return False
 
     def is_netvm(self):
-        if self.type == VM_NETVM:
+        if self.type == VM_NETVM or self.type == VM_FWVM:
+            return True
+        else:
+            return False
+
+    def is_fwvm(self):
+        if self.type == VM_FWVM:
             return True
         else:
             return False
@@ -559,9 +566,7 @@ class QubesVm(object):
             xm_cmdline = ["/usr/sbin/xm", "network-attach", self.name, "script=vif-route-qubes", "ip="+actual_ip]
             if self.netvm_vm.qid != 0:
                 if not self.netvm_vm.is_running():
-                    print "ERROR: NetVM not running, please start it first"
-                    self.force_shutdown()
-                    raise QubesException ("NetVM not running")
+                    self.netvm_vm.start()
                 retcode = subprocess.call (xm_cmdline + ["backend={0}".format(self.netvm_vm.name)])
                 if retcode != 0:
                     self.force_shutdown()
@@ -891,7 +896,9 @@ class QubesNetVm(QubesServiceVm):
 
         if "label" not in kwargs or kwargs["label"] is None:
             kwargs["label"] = default_servicevm_label
-        super(QubesNetVm, self).__init__(type=VM_NETVM, installed_by_rpm=True, **kwargs)
+        if "type" not in kwargs or kwargs["type"] is None:
+            kwargs["type"] = VM_NETVM
+        super(QubesNetVm, self).__init__(installed_by_rpm=True, **kwargs)
 
     @property
     def gateway(self):
@@ -924,6 +931,30 @@ class QubesNetVm(QubesServiceVm):
             dir_path=self.dir_path,
             conf_file=self.conf_file,
             root_img=self.root_img,
+            private_img=self.private_img,
+            installed_by_rpm=str(self.installed_by_rpm),
+            )
+        return element
+
+class QubesFirewallVm(QubesNetVm):
+    """
+    A class that represents a FirewallVM. A child of QubesNetVM.
+    """
+    def __init__(self, **kwargs):
+        self.netvm_vm = kwargs.pop("netvm_vm") if "netvm_vm" in kwargs else None
+
+        super(QubesFirewallVm, self).__init__(type=VM_FWVM, **kwargs)
+
+    def create_xml_element(self):
+        element = xml.etree.ElementTree.Element(
+            "QubesFirewallVm",
+            qid=str(self.qid),
+            netid=str(self.netid),
+            name=self.name,
+            dir_path=self.dir_path,
+            conf_file=self.conf_file,
+            root_img=self.root_img,
+            netvm_qid=str(self.netvm_vm.qid) if self.netvm_vm is not None else "none",
             private_img=self.private_img,
             installed_by_rpm=str(self.installed_by_rpm),
             )
@@ -1249,6 +1280,7 @@ class QubesVmCollection(dict):
     def __init__(self, store_filename=qubes_store_filename):
         super(QubesVmCollection, self).__init__()
         self.default_netvm_qid = None
+        self.default_fw_netvm_qid = None
         self.default_template_qid = None
         self.qubes_store_filename = store_filename
 
@@ -1348,6 +1380,27 @@ class QubesVmCollection(dict):
             assert False, "Wrong VM description!"
         self[vm.qid]=vm
 
+        if self.default_fw_netvm_qid is None:
+            self.set_default_fw_netvm_vm(vm)
+
+        return vm
+
+    def add_new_fwvm(self, name,
+                     dir_path = None, conf_file = None,
+                     root_img = None):
+
+        qid = self.get_new_unused_qid()
+        netid = self.get_new_unused_netid()
+        vm = QubesFirewallVm (qid=qid, name=name, 
+                              netid=netid,
+                              dir_path=dir_path, conf_file=conf_file,
+                              netvm_vm = self.get_default_fw_netvm_vm(),
+                              root_img=root_img)
+
+        if not self.verify_new_vm (vm):
+            assert False, "Wrong VM description!"
+        self[vm.qid]=vm
+
         if self.default_netvm_qid is None:
             self.set_default_netvm_vm(vm)
 
@@ -1372,6 +1425,16 @@ class QubesVmCollection(dict):
             return None
         else:
             return self[self.default_netvm_qid]
+
+    def set_default_fw_netvm_vm(self, vm):
+        assert vm.is_netvm(), "VM {0} is not a NetVM!".format(vm.name)
+        self.default_fw_netvm_qid = vm.qid
+
+    def get_default_fw_netvm_vm(self):
+        if self.default_fw_netvm_qid is None:
+            return None
+        else:
+            return self[self.default_fw_netvm_qid]
 
     def get_vm_by_name(self, name):
         for vm in self.values():
@@ -1525,6 +1588,40 @@ class QubesVmCollection(dict):
  
             except (ValueError, LookupError) as err:
                 print("{0}: import error (QubesNetVM) {1}".format(
+                    os.path.basename(sys.argv[0]), err))
+                return False
+
+        # Next read in the FirewallVMs, because they may be referenced
+        # by other VMs
+        for element in tree.findall("QubesFirewallVm"):
+            try:
+                kwargs = {}
+                attr_list = ("qid", "netid", "name", "dir_path", "conf_file",
+                              "private_img", "root_img", "netvm_qid")
+
+                for attribute in attr_list:
+                    kwargs[attribute] = element.get(attribute)
+
+                kwargs["qid"] = int(kwargs["qid"])
+                kwargs["netid"] = int(kwargs["netid"])
+
+                if kwargs["netvm_qid"] == "none" or kwargs["netvm_qid"] is None:
+                    netvm_vm = None
+                    kwargs.pop("netvm_qid")
+                else:
+                    netvm_qid = int(kwargs.pop("netvm_qid"))
+                    if netvm_qid not in self:
+                        netvm_vm = None
+                    else:
+                        netvm_vm = self[netvm_qid]
+
+                kwargs["netvm_vm"] = netvm_vm
+ 
+                vm = QubesFirewallVm(**kwargs)
+                self[vm.qid] = vm
+ 
+            except (ValueError, LookupError) as err:
+                print("{0}: import error (QubesFirewallVM) {1}".format(
                     os.path.basename(sys.argv[0]), err))
                 return False
 
