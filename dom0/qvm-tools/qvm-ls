@@ -39,14 +39,15 @@ fields = {
              + ('}' if vm.is_netvm() else '')"},
 
     "type": {"func": "'Tpl' if vm.is_templete() else \
-             (' Net' if vm.is_netvm() else '')"},
+             (' Fw' if vm.is_fwvm() else \
+             (' Net' if vm.is_netvm() else ''))"},
 
     "updbl" : {"func": "'Yes' if vm.is_updateable() else ''"},
 
     "template": {"func": "'n/a' if vm.is_templete() or vm.is_netvm() else\
                  qvm_collection[vm.template_vm.qid].name"},
 
-    "netvm": {"func": "'n/a' if vm.is_netvm() else\
+    "netvm": {"func": "'n/a' if vm.is_netvm() and not vm.is_fwvm() else\
               ('*' if vm.uses_default_netvm else '') +\
               qvm_collection[vm.netvm_vm.qid].name\
                      if vm.netvm_vm is not None else '-'"},
