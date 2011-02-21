@@ -65,6 +65,7 @@ default_appvms_conf_file = "appvm-template.conf"
 default_templatevm_conf_template = "templatevm.conf" # needed for TemplateVM cloning
 default_appmenus_templates_subdir = "apps.templates"
 default_kernels_subdir = "kernels"
+default_firewall_conf_file = "firewall.xml"
 
 # do not allow to start a new AppVM if Dom0 mem was to be less than this
 dom0_min_memory = 700*1024*1024
@@ -529,7 +530,7 @@ class QubesVm(object):
             print "--> Setting Xen Store info for the VM..."
         self.create_xenstore_entries(xid)
 
-        if not self.is_netvm() and self.netvm_vm is not None:
+        if (not self.is_netvm() or self.is_fwvm()) and self.netvm_vm is not None:
             assert self.netvm_vm is not None
             if verbose:
                 print "--> Attaching to the network backend (netvm={0})...".format(self.netvm_vm.name)
@@ -953,6 +954,20 @@ class QubesFirewallVm(QubesNetVm):
     def type(self):
         return "FirewallVM"
 
+    def create_xenstore_entries(self, xid):
+        if dry_run:
+            return
+
+        super(QubesFirewallVm, self).create_xenstore_entries(xid)
+        self.write_iptables_xenstore_entry()
+
+    def write_iptables_xenstore_entry(self):
+        iptables = ""
+        retcode = subprocess.check_call ([
+            "/usr/bin/xenstore-write",
+            "/local/domain/{0}/qubes_iptables".format(self.get_xid()),
+            iptables])
+
     def create_xml_element(self):
         element = xml.etree.ElementTree.Element(
             "QubesFirewallVm",
@@ -1117,6 +1132,11 @@ class QubesAppVm(QubesVm):
         self.rootcow_img = dir_path + "/" + default_rootcow_img
         self.swapcow_img = dir_path + "/" + default_swapcow_img
 
+        if "firewall_conf" not in kwargs or kwargs["firewall_conf"] is None:
+            kwargs["firewall_conf"] = dir_path + "/" + default_firewall_conf_file
+
+        self.firewall_conf = kwargs["firewall_conf"]
+
 
     @property
     def type(self):
@@ -1188,6 +1208,26 @@ class QubesAppVm(QubesVm):
 
     def create_appmenus(self, verbose):
         subprocess.check_call ([qubes_appmenu_create_cmd, self.template_vm.appmenus_templates_dir, self.name])
+
+    def write_firewall_conf(self, xml):
+        f = open(self.firewall_conf, 'a') # create the file if not exist
+        f.close()
+        with open(self.firewall_conf, 'w') as f:
+            fcntl.lockf(f, fcntl.LOCK_EX)
+            xml.write(f, "UTF-8")
+            fcntl.lockf(f, fcntl.LOCK_UN)
+        f.close()
+
+    def get_firewall_conf(self):
+        try:
+            tree = xml.etree.ElementTree.parse(self.firewall_conf)
+        except (EnvironmentError,
+                xml.parsers.expat.ExpatError) as err:
+            print("{0}: load error: {1}".format(
+                os.path.basename(sys.argv[0]), err))
+            return None
+
+        return tree.getroot()
 
     def get_disk_utilization_root_img(self):
         return 0
@@ -1546,7 +1586,7 @@ class QubesVmCollection(dict):
             self.qubes_store_file.truncate()
             tree.write(self.qubes_store_file, "UTF-8")
         except EnvironmentError as err:
-            print("{0}: import error: {1}".format(
+            print("{0}: export error: {1}".format(
                 os.path.basename(sys.argv[0]), err))
             return False
         return True
