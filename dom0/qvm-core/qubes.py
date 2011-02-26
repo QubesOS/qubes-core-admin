@@ -624,12 +624,13 @@ class QubesTemplateVm(QubesVm):
 
         dir_path = kwargs["dir_path"]
 
-        # TempleteVM doesn't use root-cow image
         if root_img is not None and os.path.isabs(root_img):
             self.root_img = root_img
         else:
             self.root_img = dir_path + "/" + (
                 root_img if root_img is not None else default_root_img)
+
+        self.rootcow_img = dir_path + "/" + default_rootcow_img
 
         if private_img is not None and os.path.isabs(private_img):
             self.private_img = private_img
@@ -715,6 +716,14 @@ class QubesTemplateVm(QubesVm):
             raise IOError ("Error while copying {0} to {1}".\
                            format(src_template_vm.root_img, self.root_img))
         if verbose:
+            print "--> Copying the template's root COW image:\n{0} ==>\n{1}".\
+                    format(src_template_vm.rootcow_img, self.rootcow_img)
+        # We prefer to use Linux's cp, because it nicely handles sparse files
+        retcode = subprocess.call (["cp", src_template_vm.rootcow_img, self.rootcow_img])
+        if retcode != 0:
+            raise IOError ("Error while copying {0} to {1}".\
+                           format(src_template_vm.root_img, self.root_img))
+        if verbose:
             print "--> Copying the template's kernel dir:\n{0} ==>\n{1}".\
                     format(src_template_vm.kernels_dir, self.kernels_dir)
         shutil.copytree (src_template_vm.kernels_dir, self.kernels_dir)
@@ -779,12 +788,28 @@ class QubesTemplateVm(QubesVm):
         if not self.is_updateable():
             raise QubesException ("Cannot start Template VM that is marked \"nonupdatable\"")
 
-        # First ensure that none of our appvms is running:
-        for appvm in self.appvms.values():
-            if appvm.is_running():
-                raise QubesException ("Cannot start TemplateVM when one of its AppVMs is running!")
+        # TODO?: check if none of running appvms are outdated
 
         return super(QubesTemplateVm, self).start(debug_console=debug_console, verbose=verbose)
+
+    def commit_changes (self):
+
+        assert not self.is_running(), "Attempt to commit changes on running Template VM!"
+
+        print "--> Commiting template updates... COW: {0}...".format (self.rootcow_img)
+
+        if dry_run:
+            return
+        if os.path.exists (self.rootcow_img):
+           os.remove (self.rootcow_img)
+
+
+        f_cow = open (self.rootcow_img, "w")
+        f_root = open (self.root_img, "r")
+        f_root.seek(0, os.SEEK_END)
+        f_cow.truncate (f_root.tell()) # make empty sparse file of the same size as root.img
+        f_cow.close ()
+        f_root.close()
 
     def create_xml_element(self):
         element = xml.etree.ElementTree.Element(
@@ -795,6 +820,7 @@ class QubesTemplateVm(QubesVm):
             conf_file=self.conf_file,
             appvms_conf_file=self.appvms_conf_file,
             root_img=self.root_img,
+            rootcow_img=self.rootcow_img,
             private_img=self.private_img,
             uses_default_netvm=str(self.uses_default_netvm),
             netvm_qid=str(self.netvm_vm.qid) if self.netvm_vm is not None else "none",
@@ -1193,10 +1219,6 @@ class QubesAppVm(QubesVm):
 
         if self.is_running():
             raise QubesException("VM is already running!")
-
-        # First ensure that our template is *not* running:
-        if self.template_vm.is_running():
-            raise QubesException ("Cannot start AppVM when its template is running!")
 
         if not self.is_updateable():
             self.reset_cow_storage()
@@ -1728,3 +1750,4 @@ class QubesDaemonPidfile(object):
         self.remove_pidfile()
 
 
+# vim:sw=4:et:
