@@ -42,6 +42,8 @@ def do_list(vm):
     print fmt.format ("config", vm.conf_file)
     if not vm.is_appvm():
         print fmt.format ("root img", vm.root_img)
+    if vm.is_templete():
+        print fmt.format ("root COW img", vm.rootcow_img)
     if vm.is_appvm():
         print fmt.format ("root img", vm.template_vm.root_img)
         print fmt.format ("root COW img", vm.rootcow_img)
