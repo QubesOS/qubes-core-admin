@@ -7,7 +7,6 @@
 dir=$(dirname "$0")
 . "$dir/block-common.sh"
 
-
 get_dev() {
   dev=$1
 
@@ -26,10 +25,10 @@ get_dev() {
       fatal "Unable to lookup $file: dev: $devnum inode: $inode"
     fi
 
-    dev_list=$(losetup -a | grep ' \[0*'${dev}'\]:'${inode} | cut -d : -f 1)
-    for dev in $dev_list; do
+    dev_list=$(losetup -a | grep ' \[0*'${devnum}'\]:'${inode} | cut -d : -f 1)
+    for loopdev in $dev_list; do
       # found existing loop to this file
-      echo $dev
+      echo $loopdev
       return
     done
 
@@ -141,40 +140,52 @@ case "$command" in
           fatal "No device node to remove"
         fi
 
+        if [ ! -e "$node" ]; then
+          fatal "Device $node does not exists"
+        fi
+
         claim_lock "block"
 
         use_count=$(dmsetup info $node|grep Open|awk '{print $3}')
 
         # do not remove snapshot if snapshot origin is still present
-        if [ "${node/snapshot/}" != "$node" -a
-          -e "/dev/mapper/origin-$(echo $node|cut -d- -f2)" ]; then
-          ((use_count++))
+        if [ "${node/snapshot/}" != "$node" -a -e "/dev/mapper/origin-$(echo $node|cut -d- -f2)" ]; then
+          use_count=1
         fi
 
         if [ "$use_count" -gt 0 ]; then
           log info "Device $node still in use - not removing"
+          release_lock "block"
           exit 0
         fi
 
         # get list of used (loop) devices
-        deps="$(dmsetup deps $node | cut -d: -f2 | sed -e 's#(7, \([0-9]+\))#/dev/loop\1#g')"
+        deps="$(dmsetup deps $node | cut -d: -f2 | sed -e 's#(7, \([0-9]\+\))#/dev/loop\1#g')"
 
-        # remove unused snapshots
-        for snap in /dev/mapper/snapshot-$(echo $node|cut -d- -f2); do
-          use_count=$(dmsetup info $snap|grep Open|awk '{print $3}')
-          if [ $use_count -eq 0 ]; then
-            # unused snapshot - remove it
-            deps="$deps $(dmsetup deps $snap | cut -d: -f2 | sed -e 's#(7, \([0-9]+\))#/dev/loop\1#g')"
-            dmsetup remove $snap
-          fi
-        done
-
-        do_or_die dmsetup remove $node
+        # if this is origin
+        if [ "${node/origin/}" != "$node" ]; then
+          # remove unused snapshots
+          for snap in /dev/mapper/snapshot-$(echo $node|cut -d- -f2)-*; do
+            use_count=$(dmsetup info $snap|grep Open|awk '{print $3}')
+            if [ "$use_count" -eq 0 ]; then
+              # unused snapshot - remove it
+              deps="$deps $(dmsetup deps $snap | cut -d: -f2 | sed -e 's#(7, \([0-9]\+\))#/dev/loop\1#g')"
+              log debug "Removing $snap"
+              dmsetup remove $snap
+            fi
+          done
+        fi
+	
+	if [ -e $node ]; then
+          log debug "Removing $node"
+          dmsetup remove $node
+	fi
 
         # try to free loop devices
         for dev in $deps; do
           if [ -b "$dev" ]; then
-            losetup -d $dev 2> /dev/null
+            log debug "Removing $dev"
+            losetup -d $dev || true 2> /dev/null
           fi
         done
 
