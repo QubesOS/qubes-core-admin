@@ -34,6 +34,8 @@ URL:		http://www.qubes-os.org
 Requires:	/usr/bin/xenstore-read
 Requires:   fedora-release = 13
 Requires:	/usr/bin/mimeopen
+BuildRequires:  gcc
+BuildRequires:  xen-devel
 Provides:   qubes-core-vm
 
 %define _builddir %(pwd)/appvm
