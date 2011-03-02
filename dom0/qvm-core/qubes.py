@@ -460,8 +460,8 @@ class QubesVm(object):
                 "/usr/bin/xenstore-write",
                 "/local/domain/{0}/qubes_netvm_network".format(xid),
                 self.network])
- 
-        elif self.netvm_vm is not None:
+
+        if self.netvm_vm is not None:
             retcode = subprocess.check_call ([
                 "/usr/bin/xenstore-write",
                 "/local/domain/{0}/qubes_ip".format(xid),
@@ -470,19 +470,17 @@ class QubesVm(object):
             retcode = subprocess.check_call ([
                 "/usr/bin/xenstore-write",
                 "/local/domain/{0}/qubes_netmask".format(xid),
-                self.netmask])
+                self.netvm_vm.netmask])
 
             retcode = subprocess.check_call ([
                 "/usr/bin/xenstore-write",
                 "/local/domain/{0}/qubes_gateway".format(xid),
-                self.gateway])
+                self.netvm_vm.gateway])
 
             retcode = subprocess.check_call ([
                 "/usr/bin/xenstore-write",
                 "/local/domain/{0}/qubes_secondary_dns".format(xid),
-                self.secondary_dns])
-        else:
-            pass
+                self.netvm_vm.secondary_dns])
 
 
     def get_total_xen_memory(self):
