@@ -1207,25 +1207,77 @@ class QubesAppVm(QubesVm):
     def create_appmenus(self, verbose):
         subprocess.check_call ([qubes_appmenu_create_cmd, self.template_vm.appmenus_templates_dir, self.name])
 
-    def write_firewall_conf(self, xml):
-        f = open(self.firewall_conf, 'a') # create the file if not exist
-        f.close()
-        with open(self.firewall_conf, 'w') as f:
-            fcntl.lockf(f, fcntl.LOCK_EX)
-            xml.write(f, "UTF-8")
-            fcntl.lockf(f, fcntl.LOCK_UN)
-        f.close()
+    def write_firewall_conf(self, conf):
+        root = xml.etree.ElementTree.Element(
+                "QubesFirwallRules",
+                policy="allow" if conf["allow"] else "deny"
+        )
+
+        for rule in conf["rules"]:
+            element = xml.etree.ElementTree.Element(
+                    "allow" if rule["allow"] else "deny",
+                    name=rule["name"],
+                    address=rule["address"],
+                    netmask=str(rule["netmask"]),
+                    port=str(rule["portBegin"]),
+            )
+            if rule["portEnd"] is not None:
+                element.set("toport", str(rule["portEnd"]))
+            root.append(element)
+
+        tree = xml.etree.ElementTree.ElementTree(root)
+
+        try:
+            f = open(self.firewall_conf, 'a') # create the file if not exist
+            f.close()
+
+            with open(self.firewall_conf, 'w') as f:
+                fcntl.lockf(f, fcntl.LOCK_EX)
+                tree.write(f, "UTF-8")
+                fcntl.lockf(f, fcntl.LOCK_UN)
+            f.close()
+        except EnvironmentError as err:
+            print "{0}: save error: {1}".format(
+                    os.path.basename(sys.argv[0]), err)
+            return False
+
+        return True
 
     def get_firewall_conf(self):
+        conf = { "allow": True, "rules": list() }
+
         try:
             tree = xml.etree.ElementTree.parse(self.firewall_conf)
-        except (EnvironmentError,
-                xml.parsers.expat.ExpatError) as err:
+            root = tree.getroot()
+
+            for element in root:
+                rule = { "allow": element.tag=="allow" }
+
+                attr_list = ("name", "address", "netmask", "port", "toport")
+
+                for attribute in attr_list:
+                    rule[attribute] = element.get(attribute)
+
+                rule["netmask"] = int(rule["netmask"])
+                rule["portBegin"] = int(rule["port"])
+                if rule["toport"] is not None:
+                    rule["portEnd"] = int(rule["toport"])
+                else:
+                    rule["portEnd"] = None
+                del(rule["port"])
+                del(rule["toport"])
+
+                conf["rules"].append(rule)
+
+        except (EnvironmentError) as err:
+            return conf
+        except (xml.parsers.expat.ExpatError,
+                ValueError, LookupError) as err:
             print("{0}: load error: {1}".format(
                 os.path.basename(sys.argv[0]), err))
             return None
 
-        return tree.getroot()
+        return conf
 
     def get_disk_utilization_root_img(self):
         return 0
