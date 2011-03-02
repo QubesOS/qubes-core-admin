@@ -48,9 +48,9 @@ qubes_guid_path = "/usr/bin/qubes_guid"
 
 qubes_base_dir   = "/var/lib/qubes"
 
-qubes_appvms_dir = qubes_base_dir + "/appvms" 
-qubes_templates_dir = qubes_base_dir + "/vm-templates" 
-qubes_servicevms_dir = qubes_base_dir + "/servicevms" 
+qubes_appvms_dir = qubes_base_dir + "/appvms"
+qubes_templates_dir = qubes_base_dir + "/vm-templates"
+qubes_servicevms_dir = qubes_base_dir + "/servicevms"
 qubes_store_filename = qubes_base_dir + "/qubes.xml"
 
 qubes_max_qid = 254*254
@@ -105,7 +105,7 @@ class XendSession(object):
 
 if not dry_run:
     xend_session = XendSession()
- 
+
 class QubesException (Exception) : pass
 
 
@@ -203,7 +203,7 @@ class QubesVm(object):
             self.icon_path = self.dir_path + "/icon.png"
         else:
             self.icon_path = None
-            
+
         if not dry_run and xend_session.session is not None:
             self.refresh_xend_session()
 
@@ -245,7 +245,7 @@ class QubesVm(object):
     def is_networked(self):
         if self.is_netvm():
             return True
-   
+
         if self.netvm_vm is not None:
             return True
         else:
@@ -376,7 +376,7 @@ class QubesVm(object):
         for cpu in cpus_util:
             cpu_total_load += cpus_util[cpu]
         cpu_total_load /= len(cpus_util)
-        p = 100*cpu_total_load 
+        p = 100*cpu_total_load
         if p > 100:
             p = 100
         return p
@@ -426,7 +426,7 @@ class QubesVm(object):
     def get_private_img_sz(self):
         if not os.path.exists(self.private_img):
             return 0
- 
+
         return os.path.getsize(self.private_img)
 
     def create_xenstore_entries(self, xid):
@@ -506,8 +506,8 @@ class QubesVm(object):
         if verbose:
             print "--> Loading the VM (type = {0})...".format(self.type)
 
-        if not self.is_netvm():          
-            total_mem_mb = self.get_total_xen_memory()/1024/1024 
+        if not self.is_netvm():
+            total_mem_mb = self.get_total_xen_memory()/1024/1024
             xend_session.xend_server.xend.domain.maxmem_set(self.name, total_mem_mb)
 
         mem_required = self.get_mem_dynamic_max()
@@ -523,7 +523,7 @@ class QubesVm(object):
             xend_session.session.xenapi.VM.start (self.session_uuid, True) # Starting a VM paused
 
         qmemman_client.close() # let qmemman_daemon resume balancing
-        
+
         xid = int (xend_session.session.xenapi.VM.get_domid (self.session_uuid))
 
         if verbose:
@@ -707,15 +707,15 @@ class QubesTemplateVm(QubesVm):
             print "--> Copying the template's appvm templates dir:\n{0} ==>\n{1}".\
                     format(src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
         shutil.copytree (src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
- 
- 
+
+
     def get_disk_utilization_root_img(self):
         return self.get_disk_usage(self.root_img)
 
     def get_root_img_sz(self):
         if not os.path.exists(self.root_img):
             return 0
- 
+
         return os.path.getsize(self.root_img)
 
     def verify_files(self):
@@ -752,7 +752,7 @@ class QubesTemplateVm(QubesVm):
             raise QubesException (
                 "VM's kernels directory does not exist: {0}".\
                 format(self.kernels_dir))
- 
+
         return True
 
     def start(self, debug_console = False, verbose = False):
@@ -824,7 +824,7 @@ class QubesServiceVm(QubesVm):
         # In fact there is no point in making it unpdatebale...
         # So, this is just for completncess
         assert not self.is_running()
-        self.updateable = True 
+        self.updateable = True
 
     def get_disk_utilization_root_img(self):
         return self.get_disk_usage(self.root_img)
@@ -832,7 +832,7 @@ class QubesServiceVm(QubesVm):
     def get_root_img_sz(self):
         if not os.path.exists(self.root_img):
             return 0
- 
+
         return os.path.getsize(self.root_img)
 
     def verify_files(self):
@@ -899,7 +899,7 @@ class QubesNetVm(QubesServiceVm):
 
     def get_ip_for_vm(self, qid):
         hi = qid / 253
-        lo = qid % 253 + 2 
+        lo = qid % 253 + 2
         assert hi >= 0 and hi <= 254 and lo >= 2 and lo <= 254, "Wrong IP address for VM"
         return self.netprefix  + "{0}.{1}".format(hi,lo)
 
@@ -980,7 +980,7 @@ class QubesDom0NetVm(QubesNetVm):
         for cpu in self.session_cpus:
             cpu_total_load += xend_session.session.xenapi.host_cpu.get_utilisation(cpu)
         cpu_total_load /= len(self.session_cpus)
-        p = 100*cpu_total_load 
+        p = 100*cpu_total_load
         if p > 100:
             p = 100
         return p
@@ -1160,14 +1160,14 @@ class QubesAppVm(QubesVm):
 
         if verbose:
             print "--> Creating the VM config file: {0}".format(self.conf_file)
- 
+
         self.create_config_file()
 
         template_priv = self.template_vm.private_img
         if verbose:
             print "--> Copying the template's private image: {0}".\
                     format(template_priv)
- 
+
         # We prefer to use Linux's cp, because it nicely handles sparse files
         retcode = subprocess.call (["cp", template_priv, self.private_img])
         if retcode != 0:
@@ -1371,7 +1371,7 @@ class QubesVmCollection(dict):
                            installed_by_rpm = True):
 
         qid = self.get_new_unused_qid()
-        vm = QubesTemplateVm (qid=qid, name=name, 
+        vm = QubesTemplateVm (qid=qid, name=name,
                               dir_path=dir_path, conf_file=conf_file,
                               root_img=root_img, private_img=private_img,
                               installed_by_rpm=installed_by_rpm,
@@ -1401,7 +1401,7 @@ class QubesVmCollection(dict):
 
         qid = self.get_new_unused_qid()
         netid = self.get_new_unused_netid()
-        vm = QubesNetVm (qid=qid, name=name, 
+        vm = QubesNetVm (qid=qid, name=name,
                          netid=netid,
                          dir_path=dir_path, conf_file=conf_file,
                          root_img=root_img)
@@ -1421,7 +1421,7 @@ class QubesVmCollection(dict):
 
         qid = self.get_new_unused_qid()
         netid = self.get_new_unused_netid()
-        vm = QubesFirewallVm (qid=qid, name=name, 
+        vm = QubesFirewallVm (qid=qid, name=name,
                               netid=netid,
                               dir_path=dir_path, conf_file=conf_file,
                               netvm_vm = self.get_default_fw_netvm_vm(),
@@ -1480,7 +1480,7 @@ class QubesVmCollection(dict):
         vms = set([vm for vm in self.values()
                    if (vm.is_appvm() and vm.template_vm.qid == template_qid)])
         return vms
-   
+
     def verify_new_vm(self, new_vm):
 
         # Verify that qid is unique
@@ -1557,7 +1557,7 @@ class QubesVmCollection(dict):
         tree = xml.etree.ElementTree.ElementTree(root)
 
         try:
-                
+
             # We need to manually truncate the file, as we open the
             # file as "r+" in the lock_db_for_writing() function
             self.qubes_store_file.seek (0, os.SEEK_SET)
@@ -1588,11 +1588,11 @@ class QubesVmCollection(dict):
             return False
 
         element = tree.getroot()
-        default_template = element.get("default_template") 
+        default_template = element.get("default_template")
         self.default_template_qid = int(default_template) \
                 if default_template != "None" else None
 
-        default_netvm = element.get("default_netvm") 
+        default_netvm = element.get("default_netvm")
         if default_netvm is not None:
             self.default_netvm_qid = int(default_netvm) \
                     if default_netvm != "None" else None
@@ -1615,7 +1615,7 @@ class QubesVmCollection(dict):
 
                 vm = QubesNetVm(**kwargs)
                 self[vm.qid] = vm
- 
+
             except (ValueError, LookupError) as err:
                 print("{0}: import error (QubesNetVM) {1}".format(
                     os.path.basename(sys.argv[0]), err))
@@ -1646,10 +1646,10 @@ class QubesVmCollection(dict):
                         netvm_vm = self[netvm_qid]
 
                 kwargs["netvm_vm"] = netvm_vm
- 
+
                 vm = QubesFirewallVm(**kwargs)
                 self[vm.qid] = vm
- 
+
             except (ValueError, LookupError) as err:
                 print("{0}: import error (QubesFirewallVM) {1}".format(
                     os.path.basename(sys.argv[0]), err))
@@ -1658,7 +1658,7 @@ class QubesVmCollection(dict):
 
         self.default_template_qid
         # Then, read in the TemplateVMs, because a reference to templete VM
-        # is needed to create each AppVM 
+        # is needed to create each AppVM
         for element in tree.findall("QubesTemplateVm"):
             try:
 
@@ -1695,7 +1695,7 @@ class QubesVmCollection(dict):
                             netvm_vm = self[netvm_qid]
 
                 kwargs["netvm_vm"] = netvm_vm
- 
+
                 vm = QubesTemplateVm(**kwargs)
 
                 self[vm.qid] = vm
@@ -1747,7 +1747,7 @@ class QubesVmCollection(dict):
                             netvm_vm = self[netvm_qid]
 
                 kwargs["netvm_vm"] = netvm_vm
- 
+
                 if kwargs["label"] is not None:
                     if kwargs["label"] not in QubesVmLabels:
                         print "ERROR: incorrect label for VM '{0}'".format(kwargs["name"])
@@ -1783,8 +1783,8 @@ class QubesVmCollection(dict):
                             format(kwargs["name"], kwargs["template_qid"])
 
                 kwargs["template_vm"] = template_vm
-                kwargs["netvm_vm"] = self.get_default_netvm_vm() 
-                
+                kwargs["netvm_vm"] = self.get_default_netvm_vm()
+
                 if kwargs["label"] is not None:
                     if kwargs["label"] not in QubesVmLabels:
                         print "ERROR: incorrect label for VM '{0}'".format(kwargs["name"])
