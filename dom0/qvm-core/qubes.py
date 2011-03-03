@@ -971,47 +971,36 @@ class QubesFirewallVm(QubesNetVm):
                 continue
 
             iptables += "# '{0}' VM:\n".format(vm.name)
+            iptables += "-A FORWARD ! -s {0}/32 -i vif{1}.0 -j DROP\n".format(vm.ip, xid)
+
+
+            accept_action = "ACCEPT"
+            reject_action = "REJECT --reject-with icmp-host-prohibited"
 
             if conf["allow"]:
-                iptables += "-A FORWARD ! -s {0}/32 -i vif{1}.0 -j DROP\n".format(vm.ip, xid)
-
-                allow_rules = 0
-                vm_iptables = ""
-
-                for rule in conf["rules"]:
-                    if rule["allow"]:
-                        allow_rules += 1
-
-                    vm_iptables += "# .. {0}:\n".format(rule["name"])
-
-                    vm_iptables += "-A FORWARD -i vif{0}.0 -d {1}".format(xid, rule["address"])
-                    if rule["netmask"] != 32:
-                        vm_iptables += "/{0}".format(rule["netmask"])
-
-                    if rule["portBegin"] > 0:
-                        vm_iptables += " -p tcp --dport {0}".format(rule["portBegin"])
-                        if rule["portEnd"] is not None and rule["portEnd"] > rule["portBegin"]:
-                            vm_iptables += ":{0}".format(rule["portEnd"])
-
-                    vm_iptables += " -j {0}\n".format("ACCEPT" if rule["allow"]\
-                            else "REJECT --reject-with icmp-host-prohibited",
-                        )
-
-                iptables += vm_iptables
-
-                if allow_rules > 0:
-                    iptables += "# .. Needs DNS access\n"
-                    iptables += "-A FORWARD -i vif{0}.0 -p udp --dport 53 -j ACCEPT\n".format(xid)
-                    iptables += "# .. Allow ICMP to test network connectivity\n"
-                    iptables += "-A FORWARD -i vif{0}.0 -p icmp -j ACCEPT\n".format(xid)
-                    iptables += "# .. Deny everything not allowed before\n"
-                    iptables += "-A FORWARD -i vif{0}.0 -j DROP\n".format(xid)
-                else:
-                    iptables += "# .. Allow everything not denied before\n"
-                    iptables += "-A FORWARD -i vif{0}.0 -j ACCEPT\n".format(xid)
-
+                rules_action = accept_action
+                default_action = reject_action
+                iptables += "-A FORWARD -i vif{0}.0 -p icmp -j ACCEPT\n".format(xid)
             else:
-                iptables += "-A FORWARD -i vif{0}.0 -j DROP\n".format(xid)
+                rules_action = reject_action
+                default_action = accept_action
+
+            for rule in conf["rules"]:
+                iptables += "-A FORWARD -i vif{0}.0 -d {1}".format(xid, rule["address"])
+                if rule["netmask"] != 32:
+                    iptables += "/{0}".format(rule["netmask"])
+
+                if rule["portBegin"] is not None and rule["portBegin"] > 0:
+                    iptables += " -p tcp --dport {0}".format(rule["portBegin"])
+                    if rule["portEnd"] is not None and rule["portEnd"] > rule["portBegin"]:
+                        iptables += ":{0}".format(rule["portEnd"])
+
+                iptables += " -j {0}\n".format(rules_action)
+
+            if conf["allowDns"]:
+                iptables += "-A FORWARD -i vif{0}.0 -p udp --dport 53 -j ACCEPT\n".format(xid)
+
+            iptables += "-A FORWARD -i vif{0}.0 -j {1}\n".format(xid, default_action)
 
         iptables += "#End of VM rules\n"
         iptables += "-A FORWARD -m state --state NEW,RELATED,ESTABLISHED -j ACCEPT\n"
@@ -1268,17 +1257,18 @@ class QubesAppVm(QubesVm):
     def write_firewall_conf(self, conf):
         root = xml.etree.ElementTree.Element(
                 "QubesFirwallRules",
-                policy="allow" if conf["allow"] else "deny"
+                policy = "allow" if conf["allow"] else "deny",
+                dns = "allow" if conf["allowDns"] else "deny"
         )
 
         for rule in conf["rules"]:
             element = xml.etree.ElementTree.Element(
-                    "allow" if rule["allow"] else "deny",
-                    name=rule["name"],
+                    "rule",
                     address=rule["address"],
-                    netmask=str(rule["netmask"]),
                     port=str(rule["portBegin"]),
             )
+            if rule["netmask"] is not None and rule["netmask"] != 32:
+                element.set("netmask", str(rule["netmask"]))
             if rule["portEnd"] is not None:
                 element.set("toport", str(rule["portEnd"]))
             root.append(element)
@@ -1302,32 +1292,40 @@ class QubesAppVm(QubesVm):
         return True
 
     def get_firewall_conf(self):
-        conf = { "allow": True, "rules": list() }
+        conf = { "rules": list() }
 
         try:
             tree = xml.etree.ElementTree.parse(self.firewall_conf)
             root = tree.getroot()
 
-            for element in root:
-                rule = { "allow": element.tag=="allow" }
+            conf["allow"] = (root.get("policy") == "allow")
+            conf["allowDns"] = (root.get("dns") == "allow")
 
-                attr_list = ("name", "address", "netmask", "port", "toport")
+            for element in root:
+                rule = {}
+                attr_list = ("address", "netmask", "port", "toport")
 
                 for attribute in attr_list:
                     rule[attribute] = element.get(attribute)
 
-                rule["netmask"] = int(rule["netmask"])
+                if rule["netmask"] is not None:
+                    rule["netmask"] = int(rule["netmask"])
+                else:
+                    rule["netmask"] = 32
+
                 rule["portBegin"] = int(rule["port"])
+
                 if rule["toport"] is not None:
                     rule["portEnd"] = int(rule["toport"])
                 else:
                     rule["portEnd"] = None
+
                 del(rule["port"])
                 del(rule["toport"])
 
                 conf["rules"].append(rule)
 
-        except (EnvironmentError) as err:
+        except EnvironmentError as err:
             return conf
         except (xml.parsers.expat.ExpatError,
                 ValueError, LookupError) as err:
