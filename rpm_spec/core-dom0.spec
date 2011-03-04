@@ -49,6 +49,7 @@ python -m compileall qvm-core qmemman
 python -O -m compileall qvm-core qmemman
 make -C restore
 make -C ../common
+make -C ../qrexec
 
 %install
 
@@ -86,6 +87,8 @@ cp aux-tools/reset_vm_configs.py  $RPM_BUILD_ROOT/usr/lib/qubes
 cp pendrive_swapper/qubes_pencmd $RPM_BUILD_ROOT/usr/lib/qubes
 cp qmemman/server.py $RPM_BUILD_ROOT/usr/lib/qubes/qmemman_daemon.py
 cp ../common/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
+cp ../qrexec/qrexec_daemon $RPM_BUILD_ROOT/usr/lib/qubes/
+cp ../qrexec/qrexec_client $RPM_BUILD_ROOT/usr/lib/qubes/
 
 cp restore/xenstore-watch restore/qvm-create-default-dvm $RPM_BUILD_ROOT/usr/bin
 cp restore/qubes_restore restore/xenfreepages $RPM_BUILD_ROOT/usr/lib/qubes
@@ -276,6 +279,8 @@ fi
 /usr/lib/qubes/qubes_prepare_saved_domain.sh
 /etc/xen/scripts/block.qubes
 /etc/xen/scripts/vif-route-qubes
+/usr/lib/qubes/qrexec_client
+%attr(4750,root,qubes) /usr/lib/qubes/qrexec_daemon
 %attr(4750,root,qubes) /usr/lib/qubes/xenfreepages
 %attr(2770,root,qubes) %dir /var/log/qubes
 %attr(770,root,qubes) %dir /var/run/qubes
