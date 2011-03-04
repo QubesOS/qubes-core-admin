@@ -72,7 +72,6 @@ void init(int xid)
 		 "/var/log/qubes/qrexec.%d.log", xid);
 	umask(0007);
 	logfd = open(dbg_log, O_WRONLY | O_CREAT | O_TRUNC, 0640);
-	umask(0077);
 	dup2(logfd, 1);
 	dup2(logfd, 2);
 
@@ -82,7 +81,9 @@ void init(int xid)
 		exit(1);
 	}
 
+	umask(0);
 	server_fd = get_server_socket(xid);
+	umask(0077);
 	peer_client_init(xid, REXEC_PORT);
 	setuid(getuid());
 	signal(SIGPIPE, SIG_IGN);
