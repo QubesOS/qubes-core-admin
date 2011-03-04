@@ -25,6 +25,8 @@
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include "qrexec.h"
 #include "buffer.h"
 #include "glue.h"
@@ -49,10 +51,37 @@ int server_fd;
 
 void init(int xid)
 {
+	char dbg_log[256];
+	int logfd;
+
 	if (xid <= 0) {
 		fprintf(stderr, "domain id=0?\n");
 		exit(1);
 	}
+	switch (fork()) {
+	case -1:
+		perror("fork");
+		exit(1);
+	case 0:
+		break;
+	default:
+		exit(0);
+	}
+	close(0);
+	snprintf(dbg_log, sizeof(dbg_log),
+		 "/var/log/qubes/qrexec.%d.log", xid);
+	umask(0007);
+	logfd = open(dbg_log, O_WRONLY | O_CREAT | O_TRUNC, 0640);
+	umask(0077);
+	dup2(logfd, 1);
+	dup2(logfd, 2);
+
+	chdir("/var/run/qubes");
+	if (setsid() < 0) {
+		perror("setsid()");
+		exit(1);
+	}
+
 	server_fd = get_server_socket(xid);
 	peer_client_init(xid, REXEC_PORT);
 	setuid(getuid());
@@ -209,8 +238,8 @@ void handle_agent_data()
 	struct server_header s_hdr;
 	read_all_vchan_ext(&s_hdr, sizeof s_hdr);
 
-//	fprintf(stderr, "got %x %x %x\n", s_hdr.type, s_hdr.clid,
-//		s_hdr.len);
+//      fprintf(stderr, "got %x %x %x\n", s_hdr.type, s_hdr.clid,
+//              s_hdr.len);
 
 	if (s_hdr.clid >= MAX_FDS || s_hdr.clid < 0) {
 		fprintf(stderr, "from agent: clid=%d\n", s_hdr.clid);
