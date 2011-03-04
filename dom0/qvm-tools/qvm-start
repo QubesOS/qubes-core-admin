@@ -26,6 +26,7 @@ from optparse import OptionParser
 import subprocess
 
 qubes_guid_path = "/usr/bin/qubes_guid"
+qrexec_daemon_path = "/usr/lib/qubes/qrexec_daemon"
 
 def main():
     usage = "usage: %prog [options] <vm-name>"
@@ -58,6 +59,11 @@ def main():
         xid = vm.start(debug_console=options.debug_console, verbose=options.verbose, preparing_dvm=options.preparing_dvm)
     except (IOError, OSError, QubesException) as err:
         print "ERROR: {0}".format(err)
+        exit (1)
+
+    retcode = subprocess.call ([qrexec_daemon_path, str(xid)])
+    if (retcode != 0) :
+        print "ERROR: Cannot start qrexec_daemon!"
         exit (1)
 
     if options.noguid:

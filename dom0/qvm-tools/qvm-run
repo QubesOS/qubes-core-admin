@@ -33,6 +33,7 @@ import time
 qubes_guid_path = "/usr/bin/qubes_guid"
 qubes_clipd_path = "/usr/bin/qclipd"
 qubes_qfilexchgd_path= "/usr/bin/qfilexchgd"
+qrexec_daemon_path = "/usr/lib/qubes/qrexec_daemon"
 notify_object = None
 
 # how long (in sec) to wait for VMs to shutdown
@@ -78,6 +79,11 @@ def vm_run_cmd(vm, cmd, options):
             if options.tray:
                 tray_notify ("Starting the '{0}' VM...".format(vm.name), label=vm.label)
             xid = vm.start(verbose=options.verbose)
+            retcode = subprocess.call ([qrexec_daemon_path, str(xid)])
+            if (retcode != 0) :
+                print "ERROR: Cannot start qrexec_daemon!"
+                exit (1)
+
         except (IOError, OSError, QubesException) as err:
             print "ERROR: {0}".format(err)
             if options.tray:
