@@ -68,7 +68,7 @@ def main():
         if template_vm is None:
             print "There is no (Templete)VM with the name '{0}'".format(options.template)
             exit (1)
-        if not template_vm.is_templete():
+        if not template_vm.is_template():
             print "VM '{0}' is not a TemplateVM".format(options.template)
             exit (1)
         if (options.verbose):

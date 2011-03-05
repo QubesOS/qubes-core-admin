@@ -47,18 +47,18 @@ fields = {
 
     "name": {"func": "('=>' if backup_collection.get_default_template_vm() is not None\
              and vm.qid == backup_collection.get_default_template_vm().qid else '')\
-             + ('[' if vm.is_templete() else '')\
+             + ('[' if vm.is_template() else '')\
              + ('{' if vm.is_netvm() else '')\
              + vm.name \
-             + (']' if vm.is_templete() else '')\
+             + (']' if vm.is_template() else '')\
              + ('}' if vm.is_netvm() else '')"},
 
-    "type": {"func": "'Tpl' if vm.is_templete() else \
+    "type": {"func": "'Tpl' if vm.is_template() else \
              (' Net' if vm.is_netvm() else 'App')"},
 
     "updbl" : {"func": "'Yes' if vm.is_updateable() else ''"},
 
-    "template": {"func": "'n/a' if vm.is_templete() or vm.is_netvm() else\
+    "template": {"func": "'n/a' if vm.is_template() or vm.is_netvm() else\
                  backup_collection[vm.template_vm.qid].name"},
 
     "netvm": {"func": "'n/a' if vm.is_netvm() else\
@@ -193,11 +193,11 @@ def main():
                 template_vm_on_host = host_collection.get_vm_by_name (templatevm_name)
 
                 # No template on the host?
-                if not ((template_vm_on_host is not None) and template_vm_on_host.is_templete):
+                if not ((template_vm_on_host is not None) and template_vm_on_host.is_template):
 
                     # Maybe the (custom) template is in the backup?
                     template_vm_on_backup = backup_collection.get_vm_by_name (templatevm_name)
-                    if not ((template_vm_on_backup is not None) and template_vm_on_backup.is_templete):
+                    if not ((template_vm_on_backup is not None) and template_vm_on_backup.is_template):
                         s += " <-- No matching template on the host or in the backup found!"
                         there_are_missing_templates = True
                         good_to_go = False if not (options.ignore_missing) else True
@@ -282,13 +282,13 @@ def main():
             if vm.is_updateable():
                 restore_vm_file (backup_dir, vm.rootcow_img)
 
-        elif vm.is_templete():
+        elif vm.is_template():
             restore_vm_dir (backup_dir, vm.dir_path, qubes_templates_dir);
         else:
             print "ERROR: VM '{0}', type='{1}': unsupported VM type!".format(vm.name, vm.type)
 
     # Add templates...
-    for vm in [ vm for vm in vms_to_restore if vm.is_templete()]:
+    for vm in [ vm for vm in vms_to_restore if vm.is_template()]:
         print "-> Adding Template VM {0}...".format(vm.name)
         updateable = vm.updateable
         vm = host_collection.add_new_templatevm(vm.name, 

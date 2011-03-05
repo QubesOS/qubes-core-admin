@@ -39,7 +39,7 @@ def main():
         print "A VM with the name '{0}' does not exist in the system.".format(vmname)
         exit(1)
 
-    if not vm.is_templete():
+    if not vm.is_template():
         print "VM '{0}' is not a TemplateVM".format(vmname)
         exit (1)
 

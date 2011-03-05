@@ -261,7 +261,7 @@ class QubesVm(object):
         # We can always downgrade a VM to non-updateable...
         self.updateable = False
 
-    def is_templete(self):
+    def is_template(self):
         return isinstance(self, QubesTemplateVm)
 
     def is_appvm(self):
@@ -1150,7 +1150,7 @@ class QubesDisposableVm(QubesVm):
         qid = kwargs["qid"]
 
         assert template_vm is not None, "Missing template_vm for DisposableVM!"
-        if not template_vm.is_templete():
+        if not template_vm.is_template():
             print "ERROR: template_qid={0} doesn't point to a valid TempleteVM".\
                     format(new_vm.template_vm.qid)
             return False
@@ -1196,7 +1196,7 @@ class QubesAppVm(QubesVm):
         dir_path = kwargs["dir_path"]
 
         assert template_vm is not None, "Missing template_vm for AppVM!"
-        if not template_vm.is_templete():
+        if not template_vm.is_template():
             print "ERROR: template_qid={0} doesn't point to a valid TempleteVM".\
                     format(new_vm.template_vm.qid)
             return False
@@ -1593,7 +1593,7 @@ class QubesVmCollection(dict):
         return vm
 
     def set_default_template_vm(self, vm):
-        assert vm.is_templete(), "VM {0} is not a TempleteVM!".format(vm.name)
+        assert vm.is_template(), "VM {0} is not a TempleteVM!".format(vm.name)
         self.default_template_qid = vm.qid
 
     def get_default_template_vm(self):
@@ -1813,7 +1813,7 @@ class QubesVmCollection(dict):
 
 
         self.default_template_qid
-        # Then, read in the TemplateVMs, because a reference to templete VM
+        # Then, read in the TemplateVMs, because a reference to template VM
         # is needed to create each AppVM
         for element in tree.findall("QubesTemplateVm"):
             try:

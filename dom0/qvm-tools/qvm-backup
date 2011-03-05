@@ -135,7 +135,7 @@ def main():
 
             print s
 
-    template_vms_worth_backingup = [ vm for vm in vms_list if (vm.is_templete() and not vm.installed_by_rpm)]
+    template_vms_worth_backingup = [ vm for vm in vms_list if (vm.is_template() and not vm.installed_by_rpm)]
     if len (template_vms_worth_backingup):
         for vm in template_vms_worth_backingup:
             vm_sz = vm.get_disk_utilization()

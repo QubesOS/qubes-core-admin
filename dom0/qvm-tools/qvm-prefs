@@ -42,7 +42,7 @@ def do_list(vm):
     print fmt.format ("config", vm.conf_file)
     if not vm.is_appvm():
         print fmt.format ("root img", vm.root_img)
-    if vm.is_templete():
+    if vm.is_template():
         print fmt.format ("root COW img", vm.rootcow_img)
     if vm.is_appvm():
         print fmt.format ("root img", vm.template_vm.root_img)
@@ -115,7 +115,7 @@ def set_updateable(vms, vm, args):
             print "If you want to make this AppVM updateable, you must first make the Template VM nonupdateable."
             return False
 
-    if vm.is_templete():
+    if vm.is_template():
         # Make sure that all the AppVMs are non-updateable...
         for appvm in vm.appvms.values():
             if appvm.is_updateable():

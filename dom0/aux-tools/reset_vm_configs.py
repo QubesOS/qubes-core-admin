@@ -14,7 +14,7 @@ def main():
     if tvm is None:
         print 'Template', templ, 'does not exist'
         sys.exit(1)
-    if not tvm.is_templete():
+    if not tvm.is_template():
         print templ, 'is not a template'
         sys.exit(1)
     for vm in qvm_collection.values():
