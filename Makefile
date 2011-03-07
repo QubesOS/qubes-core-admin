@@ -27,3 +27,4 @@ clean:
 	(cd dom0/restore && make clean)
 	(cd dom0/qmemman && make clean)
 	(cd common && make clean)
+	make -C qrexec clean
