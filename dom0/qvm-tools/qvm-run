@@ -29,11 +29,14 @@ import socket
 import errno
 import dbus
 import time
+import os
+import os.path
 
 qubes_guid_path = "/usr/bin/qubes_guid"
 qubes_clipd_path = "/usr/bin/qclipd"
 qubes_qfilexchgd_path= "/usr/bin/qfilexchgd"
 qrexec_daemon_path = "/usr/lib/qubes/qrexec_daemon"
+qrexec_client_path = "/usr/lib/qubes/qrexec_client"
 notify_object = None
 
 # how long (in sec) to wait for VMs to shutdown
@@ -46,6 +49,15 @@ def tray_notify(str, label, timeout = 3000):
 def tray_notify_error(str, timeout = 3000):
     notify_object.Notify("Qubes", 0, "dialog-error", "Qubes", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
 
+def actually_execute(domid, cmd, options):
+    args = [qrexec_client_path, "-d", domid, cmd]
+    if options.localcmd is not None:
+        args += [ "-l", options.localcmd]
+    if options.passio and not options.run_on_all_running:
+        os.execv(qrexec_client_path, args)
+        exit(1)
+    args += ["-e"]
+    subprocess.call(args)
 
 def vm_run_cmd(vm, cmd, options):
     if options.shutdown:
@@ -79,10 +91,6 @@ def vm_run_cmd(vm, cmd, options):
             if options.tray:
                 tray_notify ("Starting the '{0}' VM...".format(vm.name), label=vm.label)
             xid = vm.start(verbose=options.verbose)
-            retcode = subprocess.call ([qrexec_daemon_path, str(xid)])
-            if (retcode != 0) :
-                print "ERROR: Cannot start qrexec_daemon!"
-                exit (1)
 
         except (IOError, OSError, QubesException) as err:
             print "ERROR: {0}".format(err)
@@ -96,39 +104,37 @@ def vm_run_cmd(vm, cmd, options):
                 subprocess.call(["kdialog", "--error", "Not enough memory to start '{0}' VM! Close one or more running VMs and try again.".format(vm.name)])
             exit (1)
 
-        if options.verbose:
-            print "--> Starting Qubes GUId..."
+        if os.getenv("DISPLAY") is not None:
+            if options.verbose:
+                print "--> Starting Qubes GUId..."
 
-        retcode = subprocess.call ([qubes_guid_path, "-d", str(xid), "-c", vm.label.color, "-e", cmd, "-i", vm.label.icon, "-l", str(vm.label.index)])
-        if (retcode != 0) :
-            print "ERROR: Cannot start qubes_guid!"
-            if options.tray:
-                tray_notify_error ("ERROR: Cannot start qubes_guid!")
-            exit (1)
-    else: # VM already running...
-        guid_is_running = True
-        xid = vm.get_xid()
-        s = socket.socket (socket.AF_UNIX)
-        try:
-            s.connect ("/var/run/qubes/cmd_socket.{0}".format(xid))
-        except (IOError, OSError) as e:
-            if e.errno in [errno.ENOENT,errno.ECONNREFUSED]:
-                guid_is_running = False
-            else:
-                print "ERROR: unix-connect: {0}".format(e)                                  
+            retcode = subprocess.call ([qubes_guid_path, "-d", str(xid), "-c", vm.label.color, "-i", vm.label.icon, "-l", str(vm.label.index)])
+            if (retcode != 0) :
+                print "ERROR: Cannot start qubes_guid!"
                 if options.tray:
-                    tray_notify_error ("ERROR: Cannot connect to GUI daemon for this VM!")
-                exit(1)
-        if guid_is_running:
-            s.send (cmd)
-            s.close()
-        else:
-            retcode = subprocess.call ([qubes_guid_path, "-d", str(xid), "-c", vm.label.color, "-e", cmd, "-i", vm.label.icon, "-l", str(vm.label.index)])
+                    tray_notify_error ("ERROR: Cannot start qubes_guid!")
+                exit (1)
+
+        if options.verbose:
+            print "--> Starting Qubes rexec daemon..."
+
+        retcode = subprocess.call ([qrexec_daemon_path, str(xid)])
+        if (retcode != 0) :
+            print "ERROR: Cannot start qrexec_daemon!"
+            exit (1)
+
+        actually_execute(str(xid), cmd, options);
+
+    else: # VM already running...
+        xid = vm.get_xid()
+        if os.getenv("DISPLAY") is not None and not os.path.isfile("/var/run/qubes/guid_running.{0}".format(xid)):
+            retcode = subprocess.call ([qubes_guid_path, "-d", str(xid), "-c", vm.label.color, "-i", vm.label.icon, "-l", str(vm.label.index)])
             if (retcode != 0) :
                 print "ERROR: Cannot start qubes_guid!"
                 if options.tray:
                     tray_notify_error ("ERROR: Cannot start the GUI daemon for this VM!")
                 exit (1)
+        actually_execute(str(xid), cmd, options);
 
 def main():
     usage = "usage: %prog [options] [<vm-name>] [<cmd>]"
@@ -159,6 +165,11 @@ def main():
     parser.add_option ("--unpause", action="store_true", dest="unpause", default=False,
                       help="Do 'xm unpause' for the VM(s) (can be combined this with --all and --wait)")
 
+    parser.add_option ("--pass_io", action="store_true", dest="passio", default=False,
+                      help="Pass stdin/stdout/stderr from remote program")
+
+    parser.add_option ("--localcmd", action="store", dest="localcmd", default=None,
+                      help="With --pass_io, pass stdin/stdout/stderr to the given program")
 
     (options, args) = parser.parse_args ()
 
