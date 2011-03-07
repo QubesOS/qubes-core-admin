@@ -49,6 +49,11 @@ struct _client clients[MAX_FDS];
 int max_client_fd = -1;
 int server_fd;
 
+void handle_usr1(int x)
+{
+        exit(0);
+}
+
 void init(int xid)
 {
 	char dbg_log[256];
@@ -58,6 +63,7 @@ void init(int xid)
 		fprintf(stderr, "domain id=0?\n");
 		exit(1);
 	}
+	signal(SIGUSR1, handle_usr1);
 	switch (fork()) {
 	case -1:
 		perror("fork");
@@ -65,6 +71,7 @@ void init(int xid)
 	case 0:
 		break;
 	default:
+	        pause();
 		exit(0);
 	}
 	close(0);
@@ -87,6 +94,7 @@ void init(int xid)
 	peer_client_init(xid, REXEC_PORT);
 	setuid(getuid());
 	signal(SIGPIPE, SIG_IGN);
+	signal(SIGUSR1, SIG_DFL);
 }
 
 void handle_new_client()
