@@ -95,6 +95,7 @@ void init(int xid)
 	setuid(getuid());
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGUSR1, SIG_DFL);
+	kill(getppid(), SIGUSR1);
 }
 
 void handle_new_client()
