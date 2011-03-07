@@ -24,6 +24,7 @@ from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
 from optparse import OptionParser
 import subprocess
+import os
 
 qubes_guid_path = "/usr/bin/qubes_guid"
 qrexec_daemon_path = "/usr/lib/qubes/qrexec_daemon"
@@ -61,19 +62,21 @@ def main():
         print "ERROR: {0}".format(err)
         exit (1)
 
+    if not options.noguid and os.getenv("DISPLAY") is not None:
+        if options.verbose:
+            print "--> Starting Qubes GUId..."
+
+        retcode = subprocess.call ([qubes_guid_path, "-d", str(xid), "-c", vm.label.color, "-i", vm.label.icon, "-l", str(vm.label.index)])
+        if (retcode != 0) :
+            print "ERROR: Cannot start qubes_guid!"
+            exit (1)
+
+    if options.verbose:
+        print "--> Starting Qubes rexec..."
+
     retcode = subprocess.call ([qrexec_daemon_path, str(xid)])
     if (retcode != 0) :
         print "ERROR: Cannot start qrexec_daemon!"
-        exit (1)
-
-    if options.noguid:
-	exit (0)
-    if options.verbose:
-        print "--> Starting Qubes GUId..."
-
-    retcode = subprocess.call ([qubes_guid_path, "-d", str(xid), "-c", vm.label.color, "-i", vm.label.icon, "-l", str(vm.label.index)])
-    if (retcode != 0) :
-        print "ERROR: Cannot start qubes_guid!"
         exit (1)
 
 
