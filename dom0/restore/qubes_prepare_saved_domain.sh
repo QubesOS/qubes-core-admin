@@ -21,7 +21,7 @@ if ! [ -d $VMDIR ] ; then
 	echo $VMDIR does not exist ?
 	exit 1
 fi
-if ! qvm-start $1 --no-guid --dvm ; then
+if ! qvm-start $1 --no-guid --no-rexec --dvm ; then
 	exit 1
 fi
 

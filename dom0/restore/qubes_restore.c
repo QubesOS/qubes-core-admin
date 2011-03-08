@@ -182,6 +182,29 @@ int xend_connect()
 	return s;
 }
 
+void start_rexec(int domid)
+{
+	int pid, status;
+	char dstr[40];
+	snprintf(dstr, sizeof(dstr), "%d", domid);
+	switch (pid = fork()) {
+	case -1:
+		perror("fork");
+		exit(1);
+	case 0:
+		execl("/usr/lib/qubes/qrexec_daemon", "qrexec_daemon",
+		      dstr, NULL);
+		perror("execl");
+		exit(1);
+	default:;
+	}
+	if (waitpid(pid, &status, 0) < 0) {
+		perror("waitpid");
+		exit(1);
+	}
+}
+
+
 void start_guid(int domid, int argc, char **argv)
 {
 	int i;
@@ -197,6 +220,7 @@ void start_guid(int domid, int argc, char **argv)
 	execv("/usr/bin/qubes_guid", guid_args);
 	perror("execv");
 }
+
 // modify the savefile. fd = fd to the open savefile,
 // buf - already read 1st page of the savefile
 // pattern - pattern to search for
@@ -452,10 +476,11 @@ int main(int argc, char **argv)
 	resp = recv_resp(fd);
 //      printf("%s\n", resp);
 	fprintf(stderr, "time=%s, creating xenstore entries\n", gettime());
-#endif	
+#endif
 	setup_xenstore(netvm_id, domid, dispid, name);
 	fprintf(stderr, "time=%s, starting qubes_guid\n", gettime());
 	rm_fast_flag();
+	start_rexec(domid);
 	start_guid(domid, argc, argv);
 	return 0;
 }
