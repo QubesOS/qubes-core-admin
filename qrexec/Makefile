@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS+=-g -Wall
+CFLAGS+=-g -Wall -I../vchan
 XENLIBS=-lvchan -lxenstore -lxenctrl
 
 all: qrexec_daemon qrexec_agent qrexec_client

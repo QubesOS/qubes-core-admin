@@ -50,6 +50,8 @@ python -O -m compileall qvm-core qmemman
 make -C restore
 make -C ../common
 make -C ../qrexec
+make -C ../vchan
+make -C ../u2mfn
 
 %install
 
@@ -124,6 +126,9 @@ cp pm-utils/02qubes-pause-vms $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 
 mkdir -p $RPM_BUILD_ROOT/var/log/qubes
 mkdir -p $RPM_BUILD_ROOT/var/run/qubes
+
+install -D ../vchan/libvchan.so $RPM_BUILD_ROOT/%{_libdir}/libvchan.so
+install -D ../u2mfn/libu2mfn.so $RPM_BUILD_ROOT/%{_libdir}/libu2mfn.so
 
 %post
 
@@ -284,3 +289,5 @@ fi
 %attr(4750,root,qubes) /usr/lib/qubes/xenfreepages
 %attr(2770,root,qubes) %dir /var/log/qubes
 %attr(770,root,qubes) %dir /var/run/qubes
+%{_libdir}/libvchan.so
+%{_libdir}/libu2mfn.so
