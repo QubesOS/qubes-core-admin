@@ -2049,4 +2049,4 @@ class QubesDaemonPidfile(object):
         self.remove_pidfile()
 
 
-# vim:sw=4:et:ts=4:
+# vim:sw=4:et:
