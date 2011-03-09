@@ -1273,7 +1273,7 @@ class QubesAppVm(QubesCowVm):
     def __init__(self, **kwargs):
 
         super(QubesAppVm, self).__init__(**kwargs)
-        dir_path = kwargs["dir_path"]
+        dir_path = self.dir_path
 
         self.swapcow_img = dir_path + "/" + default_swapcow_img
 
