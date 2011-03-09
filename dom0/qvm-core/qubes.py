@@ -943,6 +943,14 @@ class QubesFirewallVm(QubesNetVm):
             return
 
         super(QubesFirewallVm, self).create_xenstore_entries(xid)
+        retcode = subprocess.check_call ([
+            "/usr/bin/xenstore-write",
+            "/local/domain/{0}/qubes_iptables_error".format(xid),
+            ""])
+        retcode = subprocess.check_call ([
+            "/usr/bin/xenstore-chmod",
+            "/local/domain/{0}/qubes_iptables_error".format(xid),
+            "r{0} w{1}".format(xid,xid)])
         self.write_iptables_xenstore_entry()
 
     def write_iptables_xenstore_entry(self):
