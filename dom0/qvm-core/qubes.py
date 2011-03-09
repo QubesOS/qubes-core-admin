@@ -552,11 +552,16 @@ class QubesVm(object):
                     self.force_shutdown()
                     raise OSError ("ERROR: Cannot attach to network backend!")
 
-        #if verbose:
-        #    print "--> Updating FirewallVMs rules..."
-        #for vm in qvm_collection.values():
-        #    if vm.is_fwvm():
-        #        vm.write_iptables_xenstore_entry()
+        qvm_collection = QubesVmCollection()
+        qvm_collection.lock_db_for_reading()
+        qvm_collection.load()
+        qvm_collection.unlock_db()
+
+        if verbose:
+            print "--> Updating FirewallVMs rules..."
+        for vm in qvm_collection.values():
+            if vm.is_fwvm():
+                vm.write_iptables_xenstore_entry()
 
         if verbose:
             print "--> Starting the VM..."
