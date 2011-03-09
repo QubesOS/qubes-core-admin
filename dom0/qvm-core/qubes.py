@@ -933,6 +933,7 @@ class QubesFirewallVm(QubesNetVm):
     """
     def __init__(self, **kwargs):
         super(QubesFirewallVm, self).__init__(uses_default_netvm=False, **kwargs)
+        self.rules_applied = None
 
     @property
     def type(self):
@@ -1021,6 +1022,7 @@ class QubesFirewallVm(QubesNetVm):
 
         iptables += "COMMIT"
 
+        self.rules_applied = None
         return subprocess.check_call ([
             "/usr/bin/xenstore-write",
             "/local/domain/{0}/qubes_iptables".format(self.get_xid()),
