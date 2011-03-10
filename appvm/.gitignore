@@ -1,3 +1,4 @@
 qubes_add_pendrive_script
 qubes_penctl
 qvm-open-in-dvm
+xenstore-watch
