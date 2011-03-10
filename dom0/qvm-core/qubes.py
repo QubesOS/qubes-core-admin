@@ -774,7 +774,7 @@ class QubesTemplateVm(QubesVm):
 
         return True
 
-    def start(self, debug_console = False, verbose = False):
+    def start(self, debug_console = False, verbose = False, preparing_dvm=False):
         if dry_run:
             return
 
