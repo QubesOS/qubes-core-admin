@@ -30,6 +30,7 @@
 #include <string.h>
 #include <pwd.h>
 #include <grp.h>
+#include <sys/stat.h>
 #include "qrexec.h"
 #include "buffer.h"
 #include "glue.h"
@@ -63,9 +64,16 @@ struct _process_fd process_fd[MAX_FDS];
 /* indexed by client id, which is descriptor number of a client in daemon */
 struct _client_info client_info[MAX_FDS];
 
+int trigger_fd;
+
 void init()
 {
 	peer_server_init(REXEC_PORT);
+	umask(0);
+	mkfifo(QREXEC_AGENT_TRIGGER_PATH, 0666);
+	umask(077);
+	trigger_fd =
+	    open(QREXEC_AGENT_TRIGGER_PATH, O_RDONLY | O_NONBLOCK);
 }
 
 void no_colon_in_cmd()
@@ -418,6 +426,11 @@ int fill_fds_for_select(fd_set * rdset, fd_set * wrset)
 			FD_SET(i, rdset);
 			max = i;
 		}
+
+	FD_SET(trigger_fd, rdset);
+	if (trigger_fd > max)
+		max = trigger_fd;
+
 	for (i = 0; i < MAX_FDS; i++)
 		if (client_info[i].pid > 0 && client_info[i].is_blocked) {
 			fd = client_info[i].stdin_fd;
@@ -446,6 +459,28 @@ void flush_client_data_agent(int clid)
 	}
 }
 
+void handle_trigger_io()
+{
+	struct server_header s_hdr;
+	char buf[5];
+
+	s_hdr.clid = 0;
+	s_hdr.len = 0;
+	if (read(trigger_fd, buf, 4) == 4) {
+		buf[4] = 0;
+		if (!strcmp(buf, "FCPR"))
+			s_hdr.clid = QREXEC_EXECUTE_FILE_COPY;
+		else if (!strcmp(buf, "DVMR"))
+			s_hdr.clid = QREXEC_EXECUTE_FILE_COPY_FOR_DISPVM;
+		if (s_hdr.clid) {
+			s_hdr.type = MSG_AGENT_TO_SERVER_TRIGGER_EXEC;
+			write_all_vchan_ext(&s_hdr, sizeof s_hdr);
+		}
+	}
+	close(trigger_fd);
+	trigger_fd =
+	    open(QREXEC_AGENT_TRIGGER_PATH, O_RDONLY | O_NONBLOCK);
+}
 
 int main()
 {
@@ -468,6 +503,9 @@ int main()
 
 		while (read_ready_vchan_ext())
 			handle_server_data();
+
+		if (FD_ISSET(trigger_fd, &rdset))
+			handle_trigger_io();
 
 		handle_process_data_all(&rdset);
 		for (i = 0; i <= MAX_FDS; i++)

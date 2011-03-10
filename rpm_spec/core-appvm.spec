@@ -107,6 +107,7 @@ install -D ../u2mfn/u2mfn-kernel.h $RPM_BUILD_ROOT/usr/include/u2mfn-kernel.h
 install -D ../vchan/libvchan.so $RPM_BUILD_ROOT/%{_libdir}/libvchan.so
 install -D ../u2mfn/libu2mfn.so $RPM_BUILD_ROOT/%{_libdir}/libu2mfn.so
 
+mkdir -p $RPM_BUILD_ROOT/var/run/qubes
 
 %triggerin -- initscripts
 cp /var/lib/qubes/serial.conf /etc/init/serial.conf
@@ -227,6 +228,7 @@ rm -rf $RPM_BUILD_ROOT
 /usr/include/libvchan.h
 %{_libdir}/libvchan.so
 %{_libdir}/libu2mfn.so
+%dir /var/run/qubes
 
 
 %package devel

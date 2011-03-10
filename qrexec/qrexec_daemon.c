@@ -51,8 +51,10 @@ int server_fd;
 
 void handle_usr1(int x)
 {
-        exit(0);
+	exit(0);
 }
+
+char domain_id[64];
 
 void init(int xid)
 {
@@ -63,6 +65,7 @@ void init(int xid)
 		fprintf(stderr, "domain id=0?\n");
 		exit(1);
 	}
+	snprintf(domain_id, sizeof(domain_id), "%d", xid);
 	signal(SIGUSR1, handle_usr1);
 	switch (fork()) {
 	case -1:
@@ -71,7 +74,7 @@ void init(int xid)
 	case 0:
 		break;
 	default:
-	        pause();
+		pause();
 		exit(0);
 	}
 	close(0);
@@ -94,6 +97,7 @@ void init(int xid)
 	peer_client_init(xid, REXEC_PORT);
 	setuid(getuid());
 	signal(SIGPIPE, SIG_IGN);
+	signal(SIGCHLD, SIG_IGN);
 	signal(SIGUSR1, SIG_DFL);
 	kill(getppid(), SIGUSR1);
 }
@@ -242,6 +246,41 @@ void pass_to_client(int clid, struct client_header *hdr)
 	}
 }
 
+void handle_trigger_exec(int req)
+{
+	char *rcmd = NULL, *lcmd = NULL;
+	int i;
+	switch (req) {
+	case QREXEC_EXECUTE_FILE_COPY:
+		rcmd = "directly:user:/usr/lib/qubes/qfile-agent";
+		lcmd = "/usr/lib/qubes/qfile-daemon";
+		break;
+	case QREXEC_EXECUTE_FILE_COPY_FOR_DISPVM:
+		rcmd = "directly:user:/usr/lib/qubes/qfile-agent-dvm";
+		lcmd = "/usr/lib/qubes/qfile-daemon-dvm";
+		break;
+	default:
+		fprintf(stderr, "got trigger exec no %d\n", req);
+		exit(1);
+	}
+	switch (fork()) {
+	case -1:
+		perror("fork");
+		exit(1);
+	case 0:
+		break;
+	default:
+		return;
+	}
+	for (i = 3; i < 256; i++)
+		close(i);
+	signal(SIGCHLD, SIG_DFL);
+	execl("/usr/lib/qubes/qrexec_client", "qrexec_client", "-d",
+	      domain_id, "-l", lcmd, rcmd, NULL);
+	perror("execl");
+	exit(1);
+}
+
 void handle_agent_data()
 {
 	struct client_header hdr;
@@ -250,6 +289,11 @@ void handle_agent_data()
 
 //      fprintf(stderr, "got %x %x %x\n", s_hdr.type, s_hdr.clid,
 //              s_hdr.len);
+
+	if (s_hdr.type == MSG_AGENT_TO_SERVER_TRIGGER_EXEC) {
+		handle_trigger_exec(s_hdr.clid);
+		return;
+	}
 
 	if (s_hdr.clid >= MAX_FDS || s_hdr.clid < 0) {
 		fprintf(stderr, "from agent: clid=%d\n", s_hdr.clid);
