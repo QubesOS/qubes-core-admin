@@ -560,7 +560,7 @@ class QubesVm(object):
         if verbose:
             print "--> Updating FirewallVMs rules..."
         for vm in qvm_collection.values():
-            if vm.is_fwvm():
+            if vm.is_proxyvm():
                 vm.write_iptables_xenstore_entry()
 
         if verbose:
