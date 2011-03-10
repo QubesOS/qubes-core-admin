@@ -28,6 +28,8 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <string.h>
+#include <pwd.h>
+#include <grp.h>
 #include "qrexec.h"
 #include "buffer.h"
 #include "glue.h"
@@ -66,18 +68,46 @@ void init()
 	peer_server_init(REXEC_PORT);
 }
 
+void no_colon_in_cmd()
+{
+	fprintf(stderr,
+		"cmdline is supposed to be in user:command form\n");
+	exit(1);
+}
+
+void do_exec_directly(char *cmd)
+{
+	struct passwd *pwd;
+	char *sep = index(cmd, ':');
+	if (!sep)
+		no_colon_in_cmd();
+	*sep = 0;
+	pwd = getpwnam(cmd);
+	if (!pwd) {
+		perror("getpwnam");
+		exit(1);
+	}
+	setgid(pwd->pw_gid);
+	initgroups(cmd, pwd->pw_gid);
+	setuid(pwd->pw_uid);
+	setenv("HOME", pwd->pw_dir, 1);
+	setenv("USER", cmd, 1);
+	execl(sep + 1, sep + 1, NULL);
+	perror("execl");
+	exit(1);
+}
+
 void do_exec(char *cmd)
 {
 	char *sep = index(cmd, ':');
-	if (!sep) {
-		fprintf(stderr,
-			"cmdline is supposed to be in user:command form\n");
-		exit(1);
-	}
+	if (!sep)
+		no_colon_in_cmd();
 	*sep = 0;
 	signal(SIGCHLD, SIG_DFL);
 	signal(SIGPIPE, SIG_DFL);
 
+	if (!strcmp(cmd, "directly"))
+		do_exec_directly(sep + 1);
 	execl("/bin/su", "su", "-", cmd, "-c", sep + 1, NULL);
 	perror("execl");
 	exit(1);
@@ -89,7 +119,7 @@ void handle_just_exec(int clid, int len)
 	int fdn, pid;
 
 	read_all_vchan_ext(buf, len);
-	switch (pid=fork()) {
+	switch (pid = fork()) {
 	case -1:
 		perror("fork");
 		exit(1);
