@@ -180,6 +180,7 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib/qubes/qubes_fix_nm_conf.sh
 /etc/dhclient.d/qubes_setup_dnat_to_ns.sh
 /etc/NetworkManager/dispatcher.d/qubes_nmhook
+/etc/NetworkManager/dispatcher.d/30-qubes_external_ip
 /etc/yum.repos.d/qubes.repo
 /sbin/qubes_serial_login
 /etc/xen/scripts/vif-route-qubes
