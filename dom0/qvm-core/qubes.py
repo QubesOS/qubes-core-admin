@@ -552,11 +552,16 @@ class QubesVm(object):
                     self.force_shutdown()
                     raise OSError ("ERROR: Cannot attach to network backend!")
 
-        #if verbose:
-        #    print "--> Updating FirewallVMs rules..."
-        #for vm in qvm_collection.values():
-        #    if vm.is_proxyvm():
-        #        vm.write_iptables_xenstore_entry()
+        qvm_collection = QubesVmCollection()
+        qvm_collection.lock_db_for_reading()
+        qvm_collection.load()
+        qvm_collection.unlock_db()
+
+        if verbose:
+            print "--> Updating FirewallVMs rules..."
+        for vm in qvm_collection.values():
+            if vm.is_fwvm():
+                vm.write_iptables_xenstore_entry()
 
         if verbose:
             print "--> Starting the VM..."
@@ -991,6 +996,7 @@ class QubesNetVm(QubesCowVm):
 
         if "dir_path" not in kwargs or kwargs["dir_path"] is None:
             kwargs["dir_path"] = qubes_servicevms_dir + "/" + kwargs["name"]
+        self.__external_ip_allowed_xids = set()
 
         if "label" not in kwargs or kwargs["label"] is None:
             kwargs["label"] = default_servicevm_label
@@ -1022,6 +1028,42 @@ class QubesNetVm(QubesCowVm):
         assert hi >= 0 and hi <= 254 and lo >= 2 and lo <= 254, "Wrong IP address for VM"
         return self.netprefix  + "{0}.{1}".format(hi,lo)
 
+    def create_xenstore_entries(self, xid):
+        if dry_run:
+            return
+
+        super(QubesNetVm, self).create_xenstore_entries(xid)
+        retcode = subprocess.check_call ([
+            "/usr/bin/xenstore-write",
+            "/local/domain/{0}/qubes_netvm_external_ip".format(xid),
+            ""])
+        self.update_external_ip_permissions()
+
+    def update_external_ip_permissions(self):
+        xid = self.get_xid()
+        command = [
+                "/usr/bin/xenstore-chmod",
+                "/local/domain/{0}/qubes_netvm_external_ip".format(xid)
+            ]
+
+        command.append("r{0}".format(xid,xid))
+        command.append("w{0}".format(xid,xid))
+
+        for id in self.__external_ip_allowed_xids:
+            command.append("r{0}".format(id))
+
+        return subprocess.check_call(command)
+
+    def add_external_ip_permission(self, xid):
+        if int(xid) < 0:
+            return
+        self.__external_ip_allowed_xids.add(int(xid))
+        self.update_external_ip_permissions()
+
+    def remove_external_ip_permission(self, xid):
+        self.__external_ip_allowed_xids.discard(int(xid))
+        self.update_external_ip_permissions()
+
     def create_xml_element(self):
         element = xml.etree.ElementTree.Element(
             "QubesNetVm",
@@ -1043,16 +1085,36 @@ class QubesProxyVm(QubesNetVm):
     """
     def __init__(self, **kwargs):
         super(QubesProxyVm, self).__init__(uses_default_netvm=False, **kwargs)
+        self.rules_applied = None
+        self.netvm_vm.add_external_ip_permission(self.get_xid())
 
     @property
     def type(self):
         return "ProxyVM"
+
+    def force_shutdown(self):
+        if dry_run:
+            return
+        self.netvm_vm.remove_external_ip_permission(self.get_xid())
+        super(QubesFirewallVm, self).force_shutdown()
 
     def create_xenstore_entries(self, xid):
         if dry_run:
             return
 
         super(QubesProxyVm, self).create_xenstore_entries(xid)
+        retcode = subprocess.check_call ([
+            "/usr/bin/xenstore-write",
+            "/local/domain/{0}/qubes_netvm_domid".format(xid),
+            "{0}".format(self.netvm_vm.get_xid())])
+        retcode = subprocess.check_call ([
+            "/usr/bin/xenstore-write",
+            "/local/domain/{0}/qubes_iptables_error".format(xid),
+            ""])
+        retcode = subprocess.check_call ([
+            "/usr/bin/xenstore-chmod",
+            "/local/domain/{0}/qubes_iptables_error".format(xid),
+            "r{0}".format(xid), "w{0}".format(xid)])
         self.write_iptables_xenstore_entry()
 
     def write_iptables_xenstore_entry(self):
@@ -1123,6 +1185,7 @@ class QubesProxyVm(QubesNetVm):
 
         iptables += "COMMIT"
 
+        self.rules_applied = None
         return subprocess.check_call ([
             "/usr/bin/xenstore-write",
             "/local/domain/{0}/qubes_iptables".format(self.get_xid()),
