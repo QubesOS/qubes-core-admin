@@ -300,7 +300,6 @@ fi
 /usr/lib64/pm-utils/sleep.d/01qubes-swap-pci-devs
 /usr/lib64/pm-utils/sleep.d/02qubes-pause-vms
 /usr/bin/xenstore-watch
-/usr/bin/qvm-create-default-dvm
 /usr/lib/qubes/qubes_restore
 /usr/lib/qubes/qubes_prepare_saved_domain.sh
 /etc/xen/scripts/block.qubes
