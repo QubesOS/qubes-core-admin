@@ -21,7 +21,7 @@ char *get_filename()
 	return retname;
 }
 
-void copy_all(int fdout, int fdin)
+int copy_fd_all(int fdout, int fdin)
 {
 	int ret;
 	char buf[4096];
@@ -31,13 +31,14 @@ void copy_all(int fdout, int fdin)
 			break;
 		if (ret < 0) {
 			perror("read");
-			exit(1);
+			return 0;
 		}
 		if (!write_all(fdout, buf, ret)) {
 			perror("write");
-			exit(1);
+			return 0;
 		}
 	}
+	return 1;
 }
 
 
@@ -48,7 +49,8 @@ void copy_file(char *filename)
 		perror("open file");
 		exit(1);
 	}
-	copy_all(fd, 0);
+	if (!copy_fd_all(fd, 0))
+        exit(1);
 	close(fd);
 }
 
@@ -59,7 +61,8 @@ void send_file_back(char * filename)
 		perror("open file");
 		exit(1);
 	}
-	copy_all(1, fd);
+	if (!copy_fd_all(1, fd))
+	 exit(1);
 	close(fd);
 }
 
