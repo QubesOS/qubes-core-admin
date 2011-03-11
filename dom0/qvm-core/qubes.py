@@ -1783,7 +1783,7 @@ class QubesVmCollection(dict):
                 attr_list = ("qid", "name", "dir_path", "conf_file",
                              "appvms_conf_file", "private_img", "root_img",
                              "installed_by_rpm", "updateable",
-                             "uses_default_netvm", "netvm_qid")
+                             "uses_default_netvm")
 
                 for attribute in attr_list:
                     kwargs[attribute] = element.get(attribute)
@@ -1792,26 +1792,6 @@ class QubesVmCollection(dict):
                 kwargs["installed_by_rpm"] = True if kwargs["installed_by_rpm"] == "True" else False
                 if kwargs["updateable"] is not None:
                     kwargs["updateable"] = True if kwargs["updateable"] == "True" else False
-
-                if "uses_default_netvm" not in kwargs:
-                    kwargs["uses_default_netvm"] = True
-                else:
-                    kwargs["uses_default_netvm"] = True if kwargs["uses_default_netvm"] == "True" else False
-                if kwargs["uses_default_netvm"] is True:
-                    netvm_vm = self.get_default_netvm_vm()
-                    kwargs.pop("netvm_qid")
-                else:
-                    if kwargs["netvm_qid"] == "none" or kwargs["netvm_qid"] is None:
-                        netvm_vm = None
-                        kwargs.pop("netvm_qid")
-                    else:
-                        netvm_qid = int(kwargs.pop("netvm_qid"))
-                        if netvm_qid not in self:
-                            netvm_vm = None
-                        else:
-                            netvm_vm = self[netvm_qid]
-
-                kwargs["netvm_vm"] = netvm_vm
 
                 vm = QubesTemplateVm(**kwargs)
 
@@ -1877,18 +1857,6 @@ class QubesVmCollection(dict):
 
                 kwargs["template_vm"] = template_vm
                 kwargs["netid"] = int(kwargs["netid"])
-
-                if kwargs["netvm_qid"] == "none" or kwargs["netvm_qid"] is None:
-                    netvm_vm = None
-                    kwargs.pop("netvm_qid")
-                else:
-                    netvm_qid = int(kwargs.pop("netvm_qid"))
-                    if netvm_qid not in self:
-                        netvm_vm = None
-                    else:
-                        netvm_vm = self[netvm_qid]
-
-                kwargs["netvm_vm"] = netvm_vm
 
                 vm = QubesProxyVm(**kwargs)
                 self[vm.qid] = vm
