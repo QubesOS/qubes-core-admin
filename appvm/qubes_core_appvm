@@ -1,0 +1,82 @@
+#!/bin/sh
+#
+# chkconfig: 345 85 85
+# description: Executes Qubes core scripts at AppVM boot
+#
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+possibly_run_save_script()
+{
+	ENCODED_SCRIPT=$(xenstore-read qubes_save_script)
+	if [ -z "$ENCODED_SCRIPT" ] ; then return ; fi
+	echo $ENCODED_SCRIPT|perl -e 'use MIME::Base64 qw(decode_base64); local($/) = undef;print decode_base64(<STDIN>)' >/tmp/qubes_save_script
+	chmod 755 /tmp/qubes_save_script
+	Xorg -config /etc/X11/xorg-preload-apps.conf :0 &
+	sleep 2
+	DISPLAY=:0 su - user -c /tmp/qubes_save_script
+	killall Xorg
+}
+
+start()
+{
+	if ! [ -x /usr/bin/xenstore-read ] ; then
+		echo "ERROR: /usr/bin/xenstore-read not found!"
+		exit 1
+	fi
+
+    type=$(/usr/bin/xenstore-read qubes_vm_type)
+    if [ "$type" != "AppVM" -a "$type" != "DisposableVM" ]; then
+        # This script runs only on AppVMs
+        return 0
+    fi
+    
+    # Start AppVM specific services
+    /sbin/service cups start
+
+	echo -n $"Executing Qubes Core scripts for AppVM:"
+
+	if xenstore-read qubes_save_request 2>/dev/null ; then
+		ln -sf /home_volatile /home
+		possibly_run_save_script 
+		touch /etc/this_is_dvm
+		dmesg -c >/dev/null
+		free | grep Mem: | 
+			(read a b c d ; xenstore-write device/qubes_used_mem $c)
+		# we're still running in DispVM template
+		echo "Waiting for save/restore..."
+		# ... wait until qubes_restore.c (in Dom0) recreates VM-specific keys
+		while ! xenstore-read qubes_restore_complete 2>/dev/null ; do 
+			usleep 10
+		done
+		echo Back to life.
+	fi
+
+    MEM_CHANGE_THRESHOLD_KB=30000
+    MEMINFO_DELAY_USEC=100000
+    /usr/lib/qubes/meminfo-writer $MEM_CHANGE_THRESHOLD_KB $MEMINFO_DELAY_USEC &
+
+	success
+	echo ""
+	return 0
+}
+
+stop()
+{
+	return 0
+}
+
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  *)
+	echo $"Usage: $0 {start|stop}"
+	exit 3
+	;;
+esac
+
+exit $RETVAL
