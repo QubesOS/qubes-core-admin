@@ -30,7 +30,7 @@
 #include "buffer.h"
 #include "glue.h"
 
-int connect_unix_socket(int domid)
+int connect_unix_socket(char *domname)
 {
 	int s, len;
 	struct sockaddr_un remote;
@@ -42,7 +42,7 @@ int connect_unix_socket(int domid)
 
 	remote.sun_family = AF_UNIX;
 	snprintf(remote.sun_path, sizeof remote.sun_path,
-		 QREXEC_DAEMON_SOCKET_DIR "/qrexec.%d", domid);
+		 QREXEC_DAEMON_SOCKET_DIR "/qrexec.%s", domname);
 	len = strlen(remote.sun_path) + sizeof(remote.sun_family);
 	if (connect(s, (struct sockaddr *) &remote, len) == -1) {
 		perror("connect");
@@ -204,14 +204,14 @@ void usage(char *name)
 int main(int argc, char **argv)
 {
 	int opt;
-	int domid = 0;
+	char *domname = NULL;
 	int s;
 	int just_exec = 0;
 	char *local_cmdline = NULL;
 	while ((opt = getopt(argc, argv, "d:l:e")) != -1) {
 		switch (opt) {
 		case 'd':
-			domid = atoi(optarg);
+			domname = strdup(optarg);
 			break;
 		case 'l':
 			local_cmdline = strdup(optarg);
@@ -223,10 +223,13 @@ int main(int argc, char **argv)
 			usage(argv[0]);
 		}
 	}
-	if (optind >= argc || !domid)
+	if (optind >= argc || !domname)
 		usage(argv[0]);
-	s = connect_unix_socket(domid);
+
+	s = connect_unix_socket(domname);
+	setenv("QREXEC_REMOTE_DOMAIN", domname, 1);
 	prepare_local_fds(local_cmdline);
+
 	if (just_exec)
 		send_cmdline(s, MSG_CLIENT_TO_SERVER_JUST_EXEC,
 			     argv[optind]);
