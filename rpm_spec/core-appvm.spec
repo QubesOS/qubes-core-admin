@@ -88,15 +88,15 @@ chown 500:500 $RPM_BUILD_ROOT/home_volatile/user
 
 %post
 
+chkconfig --add qubes_core_appvm || echo "WARNING: Cannot add service qubes_core!"
+chkconfig qubes_core_appvm on || echo "WARNING: Cannot enable service qubes_core!"
+
 if [ "$1" !=  1 ] ; then
 # do this whole %post thing only when updating for the first time...
 exit 0
 fi
 
 usermod -L user
-
-chkconfig --add qubes_core_appvm || echo "WARNING: Cannot add service qubes_core!"
-chkconfig qubes_core_appvm on || echo "WARNING: Cannot enable service qubes_core!"
 
 %preun
 if [ "$1" = 0 ] ; then

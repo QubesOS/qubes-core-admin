@@ -56,11 +56,6 @@ cp bin/qubes_netwatcher $RPM_BUILD_ROOT/usr/sbin/
 
 %post
 
-if [ "$1" !=  1 ] ; then
-# do this whole %post thing only when updating for the first time...
-exit 0
-fi
-
 chkconfig --add qubes_firewall || echo "WARNING: Cannot add service qubes_core!"
 chkconfig qubes_firewall on || echo "WARNING: Cannot enable service qubes_core!"
 

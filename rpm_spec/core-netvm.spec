@@ -68,14 +68,8 @@ cp ../common/vif-route-qubes $RPM_BUILD_ROOT/etc/xen/scripts
 
 /usr/lib/qubes/qubes_fix_nm_conf.sh
 
-if [ "$1" !=  1 ] ; then
-# do this whole %post thing only when updating for the first time...
-exit 0
-fi
-
 chkconfig --add qubes_core_netvm || echo "WARNING: Cannot add service qubes_core!"
 chkconfig qubes_core_netvm on || echo "WARNING: Cannot enable service qubes_core!"
-
 
 %preun
 if [ "$1" = 0 ] ; then
