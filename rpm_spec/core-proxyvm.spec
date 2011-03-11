@@ -49,8 +49,10 @@ The Qubes core files for installation inside a Qubes ProxyVM in addition to NetV
 
 mkdir -p $RPM_BUILD_ROOT/etc/init.d
 cp init.d/qubes_firewall $RPM_BUILD_ROOT/etc/init.d/
+cp init.d/qubes_netwatcher $RPM_BUILD_ROOT/etc/init.d/
 mkdir -p $RPM_BUILD_ROOT/usr/sbin
 cp bin/qubes_firewall $RPM_BUILD_ROOT/usr/sbin/
+cp bin/qubes_netwatcher $RPM_BUILD_ROOT/usr/sbin/
 
 %post
 
@@ -62,10 +64,14 @@ fi
 chkconfig --add qubes_firewall || echo "WARNING: Cannot add service qubes_core!"
 chkconfig qubes_firewall on || echo "WARNING: Cannot enable service qubes_core!"
 
+chkconfig --add qubes_netwatcher || echo "WARNING: Cannot add service qubes_core!"
+chkconfig qubes_netwatcher on || echo "WARNING: Cannot enable service qubes_core!"
+
 %preun
 if [ "$1" = 0 ] ; then
     # no more packages left
     chkconfig qubes_firewall off
+    chkconfig qubes_netwatcher off
 fi
 
 %clean
@@ -74,4 +80,6 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root,-)
 /etc/init.d/qubes_firewall
+/etc/init.d/qubes_netwatcher
 /usr/sbin/qubes_firewall
+/usr/sbin/qubes_netwatcher
