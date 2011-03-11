@@ -27,15 +27,21 @@
 #include <stdlib.h>
 #include "qrexec.h"
 
-int get_server_socket(int domid)
+int get_server_socket(int domid, char *domname)
 {
 	struct sockaddr_un sockname;
 	int s;
 	char socket_address[40];
+	char link_to_socket_name[strlen(domname) + sizeof(socket_address)];
 
 	snprintf(socket_address, sizeof(socket_address),
 		 QREXEC_DAEMON_SOCKET_DIR "/qrexec.%d", domid);
+	snprintf(link_to_socket_name, sizeof link_to_socket_name,
+		 QREXEC_DAEMON_SOCKET_DIR "/qrexec.%s", domname);
 	unlink(socket_address);
+	unlink(link_to_socket_name);
+	symlink(socket_address, link_to_socket_name);
+
 	s = socket(AF_UNIX, SOCK_STREAM, 0);
 	memset(&sockname, 0, sizeof(sockname));
 	sockname.sun_family = AF_UNIX;

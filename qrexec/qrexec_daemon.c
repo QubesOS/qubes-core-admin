@@ -55,7 +55,7 @@ void handle_usr1(int x)
 	exit(0);
 }
 
-char domain_id[64];
+char *remote_domain_name;
 
 void init(int xid)
 {
@@ -66,7 +66,6 @@ void init(int xid)
 		fprintf(stderr, "domain id=0?\n");
 		exit(1);
 	}
-	snprintf(domain_id, sizeof(domain_id), "%d", xid);
 	signal(SIGUSR1, handle_usr1);
 	switch (fork()) {
 	case -1:
@@ -83,6 +82,8 @@ void init(int xid)
 		 "/var/log/qubes/qrexec.%d.log", xid);
 	umask(0007);
 	logfd = open(dbg_log, O_WRONLY | O_CREAT | O_TRUNC, 0640);
+	umask(0077);
+
 	dup2(logfd, 1);
 	dup2(logfd, 2);
 
@@ -92,11 +93,9 @@ void init(int xid)
 		exit(1);
 	}
 
-	umask(0);
-	server_fd = get_server_socket(xid);
-	umask(0077);
-	peer_client_init(xid, REXEC_PORT);
+	remote_domain_name = peer_client_init(xid, REXEC_PORT);
 	setuid(getuid());
+	server_fd = get_server_socket(xid, remote_domain_name);
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGCHLD, SIG_IGN);
 	signal(SIGUSR1, SIG_DFL);
@@ -284,7 +283,7 @@ void handle_trigger_exec(int req)
 	signal(SIGCHLD, SIG_DFL);
 	signal(SIGPIPE, SIG_DFL);
 	execl("/usr/lib/qubes/qrexec_client", "qrexec_client", "-d",
-	      domain_id, "-l", lcmd, rcmd, NULL);
+	      remote_domain_name, "-l", lcmd, rcmd, NULL);
 	perror("execl");
 	exit(1);
 }

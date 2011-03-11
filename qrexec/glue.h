@@ -32,7 +32,7 @@ int write_all_vchan_ext(void *buf, int size);
 int buffer_space_vchan_ext();
 void fix_fds(int fdin, int fdout, int fderr);
 
-int get_server_socket(int domid);
+int get_server_socket(int domid, char * domname);
 int do_accept(int s);
 
 enum {
