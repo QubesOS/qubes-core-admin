@@ -282,6 +282,7 @@ void handle_trigger_exec(int req)
 	for (i = 3; i < 256; i++)
 		close(i);
 	signal(SIGCHLD, SIG_DFL);
+	signal(SIGPIPE, SIG_DFL);
 	execl("/usr/lib/qubes/qrexec_client", "qrexec_client", "-d",
 	      domain_id, "-l", lcmd, rcmd, NULL);
 	perror("execl");
