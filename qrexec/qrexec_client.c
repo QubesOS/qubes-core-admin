@@ -125,8 +125,10 @@ void handle_daemon_data(int s)
 	case MSG_SERVER_TO_CLIENT_STDOUT:
 		if (hdr.len == 0)
 			close(local_stdin_fd);
-		else
-			write_all(local_stdin_fd, buf, hdr.len);
+		else if (!write_all(local_stdin_fd, buf, hdr.len)) {
+			perror("write local stdout");
+			exit(1);
+		}
 		break;
 	case MSG_SERVER_TO_CLIENT_STDERR:
 		write_all(2, buf, hdr.len);
