@@ -1724,7 +1724,7 @@ class QubesVmCollection(dict):
             if self.default_template_qid is not None else "None",
 
             default_netvm=str(self.default_netvm_qid) \
-            if self.default_netvm_qid is not None else "None"
+            if self.default_netvm_qid is not None else "None",
 
             default_fw_netvm=str(self.default_fw_netvm_qid) \
             if self.default_fw_netvm_qid is not None else "None"
