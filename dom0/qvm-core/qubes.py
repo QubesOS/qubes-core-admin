@@ -1573,14 +1573,14 @@ class QubesVmCollection(dict):
 
     def add_new_netvm(self, name, template_vm,
                       dir_path = None, conf_file = None,
-                      root_img = None):
+                      private_img = None):
 
         qid = self.get_new_unused_qid()
         netid = self.get_new_unused_netid()
         vm = QubesNetVm (qid=qid, name=name, template_vm=template_vm,
                          netid=netid,
-                         dir_path=dir_path, conf_file=conf_file,
-                         root_img=root_img)
+                         private_img=private_img,
+                         dir_path=dir_path, conf_file=conf_file)
 
         if not self.verify_new_vm (vm):
             assert False, "Wrong VM description!"
@@ -1593,15 +1593,15 @@ class QubesVmCollection(dict):
 
     def add_new_proxyvm(self, name, template_vm,
                      dir_path = None, conf_file = None,
-                     root_img = None):
+                     private_img = None):
 
         qid = self.get_new_unused_qid()
         netid = self.get_new_unused_netid()
         vm = QubesProxyVm (qid=qid, name=name, template_vm=template_vm,
                               netid=netid,
+                              private_img=private_img,
                               dir_path=dir_path, conf_file=conf_file,
-                              netvm_vm = self.get_default_fw_netvm_vm(),
-                              root_img=root_img)
+                              netvm_vm = self.get_default_fw_netvm_vm())
 
         if not self.verify_new_vm (vm):
             assert False, "Wrong VM description!"
@@ -1827,7 +1827,7 @@ class QubesVmCollection(dict):
             try:
                 kwargs = {}
                 attr_list = ("qid", "netid", "name", "dir_path", "conf_file",
-                              "private_img", "root_img", "template_qid",
+                              "private_img", "template_qid", "updateable",
                               )
 
                 for attribute in attr_list:
@@ -1859,8 +1859,8 @@ class QubesVmCollection(dict):
         for element in tree.findall("QubesProxyVm"):
             try:
                 kwargs = {}
-                attr_list = ("qid", "netid", "name", "dir_path", "conf_file",
-                              "private_img", "root_img", "netvm_qid", "template_qid")
+                attr_list = ("qid", "netid", "name", "dir_path", "conf_file", "updateable",
+                              "private_img", "template_qid")
 
                 for attribute in attr_list:
                     kwargs[attribute] = element.get(attribute)
