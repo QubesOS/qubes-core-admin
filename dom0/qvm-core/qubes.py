@@ -1077,7 +1077,9 @@ class QubesFirewallVm(QubesNetVm):
                 iptables += " -j {0}\n".format(rules_action)
 
             if conf["allowDns"]:
-                iptables += "-A FORWARD -i vif{0}.0 -p udp --dport 53 -j ACCEPT\n".format(xid)
+                # PREROUTING does DNAT to NetVM DNSes, so we need self.netvm_vm. properties
+                iptables += "-A FORWARD -i vif{0}.0 -p udp -d {1} --dport 53 -j ACCEPT\n".format(xid,self.netvm_vm.gateway)
+                iptables += "-A FORWARD -i vif{0}.0 -p udp -d {1} --dport 53 -j ACCEPT\n".format(xid,self.netvm_vm.secondary_dns)
 
             iptables += "-A FORWARD -i vif{0}.0 -j {1}\n".format(xid, default_action)
 
