@@ -1,8 +1,8 @@
 CC=gcc
-CFLAGS=-Wall
+CFLAGS=-Wall -I../common
 all:	qubes_penctl qubes_add_pendrive_script qvm-open-in-dvm dvm_file_editor
-dvm_file_editor: dvm_file_editor.o
-	$(CC) -o dvm_file_editor dvm_file_editor.o
+dvm_file_editor: dvm_file_editor.o ../common/ioall.o
+	$(CC) -o dvm_file_editor dvm_file_editor.o ../common/ioall.o
 qubes_penctl: qubes_penctl.o
 	$(CC) -o qubes_penctl qubes_penctl.o -lxenstore
 qubes_add_pendrive_script: qubes_add_pendrive_script.o

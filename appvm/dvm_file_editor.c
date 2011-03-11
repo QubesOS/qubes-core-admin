@@ -4,43 +4,8 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <ioall.h>
 #include "dvm2.h"
-
-int write_all(int fd, void *buf, int size)
-{
-	int written = 0;
-	int ret;
-	while (written < size) {
-		ret = write(fd, (char *) buf + written, size - written);
-		if (ret <= 0) {
-			perror("write");
-			return 0;
-		}
-		written += ret;
-	}
-//      fprintf(stderr, "sent %d bytes\n", size);
-	return 1;
-}
-
-int read_all(int fd, void *buf, int size)
-{
-	int got_read = 0;
-	int ret;
-	while (got_read < size) {
-		ret = read(fd, (char *) buf + got_read, size - got_read);
-		if (ret == 0) {
-			fprintf(stderr, "EOF\n");
-			return 0;
-		}
-		if (ret < 0) {
-			perror("read");
-			return 0;
-		}
-		got_read += ret;
-	}
-//      fprintf(stderr, "read %d bytes\n", size);
-	return 1;
-}
 
 char *get_filename()
 {
