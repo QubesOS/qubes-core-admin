@@ -644,7 +644,7 @@ class QubesTemplateVm(QubesVm):
 
     @property
     def type(self):
-        return "TempleteVM"
+        return "TemplateVM"
 
     def set_updateable(self):
         if self.is_updateable():
@@ -655,7 +655,7 @@ class QubesTemplateVm(QubesVm):
         for appvm in self.appvms.values():
             if appvm.is_updateable():
                 raise QubesException("One of the AppVMs ('{0}')is also 'updateable'\
-                                     -- cannot make the TempleteVM {'{1}'} 'nonupdatable'".\
+                                     -- cannot make the TemplateVM {'{1}'} 'nonupdatable'".\
                                      format (appvm.name, self.name))
         self.updateable = True
 
@@ -840,7 +840,6 @@ class QubesCowVm(QubesVm):
         private_img = kwargs.pop("private_img")
         template_vm = kwargs.pop("template_vm")
 
-
         super(QubesCowVm, self).__init__(**kwargs)
         qid = kwargs["qid"]
         dir_path = kwargs["dir_path"]
@@ -848,7 +847,7 @@ class QubesCowVm(QubesVm):
         if not isinstance(self, QubesDom0NetVm):
             assert template_vm is not None, "Missing template_vm for template based VM!"
             if not template_vm.is_template():
-                print "ERROR: template_qid={0} doesn't point to a valid TempleteVM".\
+                print "ERROR: template_qid={0} doesn't point to a valid TemplateVM".\
                     format(template_vm.qid)
                 return False
 
@@ -1299,7 +1298,7 @@ class QubesDisposableVm(QubesVm):
 
         assert template_vm is not None, "Missing template_vm for DisposableVM!"
         if not template_vm.is_template():
-            print "ERROR: template_qid={0} doesn't point to a valid TempleteVM".\
+            print "ERROR: template_qid={0} doesn't point to a valid TemplateVM".\
                     format(new_vm.template_vm.qid)
             return False
 
@@ -1612,7 +1611,7 @@ class QubesVmCollection(dict):
         return vm
 
     def set_default_template_vm(self, vm):
-        assert vm.is_template(), "VM {0} is not a TempleteVM!".format(vm.name)
+        assert vm.is_template(), "VM {0} is not a TemplateVM!".format(vm.name)
         self.default_template_qid = vm.qid
 
     def get_default_template_vm(self):
