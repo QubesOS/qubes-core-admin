@@ -1104,13 +1104,6 @@ class QubesProxyVm(QubesNetVm):
     def __init__(self, **kwargs):
         super(QubesProxyVm, self).__init__(uses_default_netvm=False, **kwargs)
         self.rules_applied = None
-
-    def start(self, debug_console = False, verbose = False, preparing_dvm = False):
-        if dry_run:
-            return
-
-        super(QubesProxyVm, self).start(debug_console=debug_console, verbose=verbose, preparing_dvm=preparing_dvm)
-
         if self.netvm_vm is not None:
             self.netvm_vm.add_external_ip_permission(self.get_xid())
 
