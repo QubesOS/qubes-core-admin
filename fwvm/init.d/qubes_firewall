@@ -21,7 +21,7 @@ start()
 stop()
 {
 	echo -n "Stopping Qubes Firewall monitor:"
-	kill $(cat $PIDFILE) 2>/dev/null  && success || failure
+	kill -9 $(cat $PIDFILE) 2>/dev/null  && success || failure
 	echo ""
 	return 0
 }
