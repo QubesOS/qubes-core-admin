@@ -862,6 +862,7 @@ class QubesCowVm(QubesVm):
                 private_img if private_img is not None else default_private_img)
 
         self.rootcow_img = dir_path + "/" + default_rootcow_img
+        self.swapcow_img = dir_path + "/" + default_swapcow_img
 
     def set_updateable(self):
         if self.is_updateable():
@@ -872,6 +873,7 @@ class QubesCowVm(QubesVm):
         if not self.template_vm.is_updateable():
             self.updateable = True
             self.reset_cow_storage()
+            self.reset_swap_cow_storage()
         else:
             # Temaplate VM is Updatable itself --> can't make the AppVM updateable too
             # as this would cause COW-backed storage incoherency
@@ -957,6 +959,8 @@ class QubesCowVm(QubesVm):
         if not self.is_updateable():
             self.reset_cow_storage()
 
+        self.reset_swap_cow_storage()
+
         return super(QubesCowVm, self).start(debug_console=debug_console, verbose=verbose, preparing_dvm=preparing_dvm)
 
     def reset_cow_storage (self):
@@ -976,6 +980,16 @@ class QubesCowVm(QubesVm):
         f_cow.truncate (f_root.tell()) # make empty sparse file of the same size as root.img
         f_cow.close ()
         f_root.close()
+
+    def reset_swap_cow_storage (self):
+        print "--> Resetting the swap COW storage: {0}...".format (self.swapcow_img)
+        if os.path.exists (self.swapcow_img):
+           os.remove (self.swapcow_img)
+
+        f_swap_cow = open (self.swapcow_img, "w")
+        f_swap_cow.truncate (swap_cow_sz)
+        f_swap_cow.close()
+
 
     def remove_from_disk(self):
         if dry_run:
@@ -1331,8 +1345,6 @@ class QubesAppVm(QubesCowVm):
         super(QubesAppVm, self).__init__(**kwargs)
         dir_path = self.dir_path
 
-        self.swapcow_img = dir_path + "/" + default_swapcow_img
-
         if "firewall_conf" not in kwargs or kwargs["firewall_conf"] is None:
             kwargs["firewall_conf"] = dir_path + "/" + default_firewall_conf_file
 
@@ -1345,7 +1357,6 @@ class QubesAppVm(QubesCowVm):
     def set_updateable(self):
 
         super(QubesAppVm, self).set_updateable()
-        self.reset_swap_cow_storage()
 
     def create_on_disk(self, verbose):
         if dry_run:
@@ -1466,15 +1477,6 @@ class QubesAppVm(QubesCowVm):
         self.reset_swap_cow_storage()
 
         return super(QubesAppVm, self).start(debug_console=debug_console, verbose=verbose, preparing_dvm=preparing_dvm)
-
-    def reset_swap_cow_storage (self):
-        print "--> Resetting the swap COW storage: {0}...".format (self.swapcow_img)
-        if os.path.exists (self.swapcow_img):
-           os.remove (self.swapcow_img)
-
-        f_swap_cow = open (self.swapcow_img, "w")
-        f_swap_cow.truncate (swap_cow_sz)
-        f_swap_cow.close()
 
 class QubesVmCollection(dict):
     """
