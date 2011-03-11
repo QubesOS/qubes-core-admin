@@ -1724,6 +1724,9 @@ class QubesVmCollection(dict):
 
             default_netvm=str(self.default_netvm_qid) \
             if self.default_netvm_qid is not None else "None"
+
+            default_fw_netvm=str(self.default_fw_netvm_qid) \
+            if self.default_fw_netvm_qid is not None else "None"
         )
 
         for vm in self.values():
@@ -1772,6 +1775,12 @@ class QubesVmCollection(dict):
         if default_netvm is not None:
             self.default_netvm_qid = int(default_netvm) \
                     if default_netvm != "None" else None
+            #assert self.default_netvm_qid is not None
+
+        default_fw_netvm = element.get("default_netvm")
+        if default_fw_netvm is not None:
+            self.default_fw_netvm_qid = int(default_fw_netvm) \
+                    if default_fw_netvm != "None" else None
             #assert self.default_netvm_qid is not None
 
         # Then, read in the TemplateVMs, because a reference to template VM
