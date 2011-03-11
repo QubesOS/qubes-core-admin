@@ -27,6 +27,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <ioall.h>
 #include "qrexec.h"
 #include "buffer.h"
 #include "glue.h"
@@ -143,6 +144,12 @@ void pass_to_agent(int fd, struct server_header *s_hdr)
 	}
 	write_all_vchan_ext(s_hdr, sizeof(*s_hdr));
 	write_all_vchan_ext(buf, len);
+}
+
+void set_nonblock(int fd)
+{
+	int fl = fcntl(fd, F_GETFL, 0);
+	fcntl(fd, F_SETFL, fl | O_NONBLOCK);
 }
 
 void handle_client_cmdline(int fd)

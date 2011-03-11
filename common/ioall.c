@@ -59,9 +59,3 @@ int read_all(int fd, void *buf, int size)
 //      fprintf(stderr, "read %d bytes\n", size);
 	return 1;
 }
-
-void set_nonblock(int fd)
-{
-	int fl = fcntl(fd, F_GETFL, 0);
-	fcntl(fd, F_SETFL, fl | O_NONBLOCK);
-}

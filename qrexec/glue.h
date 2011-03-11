@@ -23,8 +23,6 @@
 
 void do_fork_exec(char *cmdline, int *pid, int *stdin_fd, int *stdout_fd,
 		  int *stderr_fd);
-int write_all(int fd, void *buf, int size);
-int read_all(int fd, void *buf, int size);
 int peer_server_init(int port);
 char *peer_client_init(int dom, int port);
 void wait_for_vchan_or_argfd(int max, fd_set * rdset, fd_set * wrset);
@@ -36,7 +34,6 @@ void fix_fds(int fdin, int fdout, int fderr);
 
 int get_server_socket(int domid);
 int do_accept(int s);
-void set_nonblock(int fd);
 
 enum {
 	WRITE_STDIN_OK = 0x200,

@@ -25,6 +25,7 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <ioall.h>
 #include "qrexec.h"
 #include "buffer.h"
 #include "glue.h"

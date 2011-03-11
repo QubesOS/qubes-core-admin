@@ -142,6 +142,12 @@ void handle_just_exec(int clid, int len)
 	fprintf(stderr, "executed (nowait) %s pid %d\n", buf, pid);
 }
 
+void set_nonblock(int fd)
+{
+	int fl = fcntl(fd, F_GETFL, 0);
+	fcntl(fd, F_SETFL, fl | O_NONBLOCK);
+}
+
 void handle_exec(int clid, int len)
 {
 	char buf[len];
