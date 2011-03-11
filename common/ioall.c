@@ -59,3 +59,24 @@ int read_all(int fd, void *buf, int size)
 //      fprintf(stderr, "read %d bytes\n", size);
 	return 1;
 }
+
+int copy_fd_all(int fdout, int fdin)
+{
+	int ret;
+	char buf[4096];
+	for (;;) {
+		ret = read(fdin, buf, sizeof(buf));
+		if (!ret)
+			break;
+		if (ret < 0) {
+			perror("read");
+			return 0;
+		}
+		if (!write_all(fdout, buf, ret)) {
+			perror("write");
+			return 0;
+		}
+	}
+	return 1;
+}
+

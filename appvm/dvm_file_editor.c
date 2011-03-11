@@ -21,27 +21,6 @@ char *get_filename()
 	return retname;
 }
 
-int copy_fd_all(int fdout, int fdin)
-{
-	int ret;
-	char buf[4096];
-	for (;;) {
-		ret = read(fdin, buf, sizeof(buf));
-		if (!ret)
-			break;
-		if (ret < 0) {
-			perror("read");
-			return 0;
-		}
-		if (!write_all(fdout, buf, ret)) {
-			perror("write");
-			return 0;
-		}
-	}
-	return 1;
-}
-
-
 void copy_file(char *filename)
 {
 	int fd = open(filename, O_WRONLY | O_CREAT, 0600);
