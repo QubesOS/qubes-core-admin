@@ -205,6 +205,9 @@ class QubesVm(object):
         else:
             self.icon_path = None
 
+        # PCI devices - used only by NetVM
+        self.pcidevs  = ""
+
         if not dry_run and xend_session.session is not None:
             self.refresh_xend_session()
 
@@ -883,11 +886,13 @@ class QubesCowVm(QubesVm):
         rx_vmname = re.compile (r"%VMNAME%")
         rx_vmdir = re.compile (r"%VMDIR%")
         rx_template = re.compile (r"%TEMPLATEDIR%")
+        rx_pcidevs = re.compile (r"%PCIDEVS%")
 
         for line in conf_template:
             line = rx_vmname.sub (self.name, line)
             line = rx_vmdir.sub (self.dir_path, line)
             line = rx_template.sub (self.template_vm.dir_path, line)
+            line = rx_pcidevs.sub (self.pcidevs, line)
             conf_appvm.write(line)
 
         conf_template.close()
