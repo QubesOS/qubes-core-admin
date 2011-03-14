@@ -34,6 +34,7 @@ URL:		http://www.qubes-os.org
 Requires:	/usr/bin/xenstore-read
 Requires:   fedora-release = 13
 Requires:       NetworkManager >= 0.8.1-1
+Requires:   qubes-core-commonvm
 Provides:   qubes-core-vm
 
 %define _builddir %(pwd)/netvm
@@ -43,22 +44,13 @@ The Qubes core files for installation inside a Qubes NetVM.
 
 %pre
 
-mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
-if [ -e $RPM_BUILD_ROOT/etc/fstab ] ; then 
-mv $RPM_BUILD_ROOT/etc/fstab $RPM_BUILD_ROOT/var/lib/qubes/fstab.orig
-fi
-
-
 %build
 
 %install
 
-mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
-cp ../common/iptables $RPM_BUILD_ROOT/etc/sysconfig
 mkdir -p $RPM_BUILD_ROOT/etc
-cp fstab $RPM_BUILD_ROOT/etc/fstab
 mkdir -p $RPM_BUILD_ROOT/etc/init.d
-cp qubes_core $RPM_BUILD_ROOT/etc/init.d/
+cp qubes_core_netvm $RPM_BUILD_ROOT/etc/init.d/
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../common/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/lib/qubes
@@ -67,103 +59,22 @@ mkdir -p $RPM_BUILD_ROOT/etc/dhclient.d
 ln -s /usr/lib/qubes/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/etc/dhclient.d/qubes_setup_dnat_to_ns.sh 
 mkdir -p $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 cp ../common/qubes_nmhook $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
-mkdir -p $RPM_BUILD_ROOT/etc/yum.repos.d
-cp ../netvm/qubes.repo $RPM_BUILD_ROOT/etc/yum.repos.d
-mkdir -p $RPM_BUILD_ROOT/sbin   
-cp ../common/qubes_serial_login $RPM_BUILD_ROOT/sbin
-mkdir -p $RPM_BUILD_ROOT/etc
-cp ../common/serial.conf $RPM_BUILD_ROOT/var/lib/qubes/
+cp ../netvm/30-qubes_external_ip $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 mkdir -p $RPM_BUILD_ROOT/var/run/qubes
 mkdir -p $RPM_BUILD_ROOT/etc/xen/scripts
 cp ../common/vif-route-qubes $RPM_BUILD_ROOT/etc/xen/scripts
-
-%triggerin -- initscripts
-cp /var/lib/qubes/serial.conf /etc/init/serial.conf
 
 %post
 
 /usr/lib/qubes/qubes_fix_nm_conf.sh
 
-if [ "$1" !=  1 ] ; then
-# do this whole %post thing only when updating for the first time...
-exit 0
-fi
-
-sed 's/^net.ipv4.ip_forward.*/net.ipv4.ip_forward = 1/'  -i /etc/sysctl.conf
-usermod -L root
-if ! [ -f /var/lib/qubes/serial.orig ] ; then
-	cp /etc/init/serial.conf /var/lib/qubes/serial.orig
-fi
-
-#echo "--> Disabling SELinux..."
-sed -e s/^SELINUX=.*$/SELINUX=disabled/ </etc/selinux/config >/etc/selinux/config.processed
-mv /etc/selinux/config.processed /etc/selinux/config
-setenforce 0 2>/dev/null
-
-#echo "--> Turning off unnecessary services..."
-# FIXME: perhaps there is more elegant way to do this? 
-for f in /etc/init.d/*
-do
-        srv=`basename $f`
-        [ $srv = 'functions' ] && continue
-        [ $srv = 'killall' ] && continue
-        [ $srv = 'halt' ] && continue
-        [ $srv = 'single' ] && continue
-        chkconfig $srv off
-done
-
-#echo "--> Enabling essential services..."
-chkconfig iptables on
-chkconfig rsyslog on
-chkconfig haldaemon on
-chkconfig messagebus on
-chkconfig NetworkManager on
-chkconfig --add qubes_core || echo "WARNING: Cannot add service qubes_core!"
-chkconfig qubes_core on || echo "WARNING: Cannot enable service qubes_core!"
-
-
-# TODO: make this not display the silly message about security context...
-sed -i s/^id:.:initdefault:/id:3:initdefault:/ /etc/inittab
-
-# Remove most of the udev scripts to speed up the VM boot time
-# Just leave the xen* scripts, that are needed if this VM was
-# ever used as a net backend (e.g. as a VPN domain in the future)
-#echo "--> Removing unnecessary udev scripts..."
-mkdir -p /var/lib/qubes/removed-udev-scripts
-for f in /etc/udev/rules.d/*
-do
-    if [ $(basename $f) == "xen-backend.rules" ] ; then
-        continue
-    fi
-
-    if [ $(basename $f) == "xend.rules" ] ; then
-        continue
-    fi
-
-    if [ $(basename $f) == "qubes.rules" ] ; then
-        continue
-    fi
-
-    if [ $(basename $f) == "90-hal.rules" ] ; then
-        continue
-    fi
-
-
-    mv $f /var/lib/qubes/removed-udev-scripts/
-done
-
-#rm -f /etc/mtab
-#echo "--> Removing HWADDR setting from /etc/sysconfig/network-scripts/ifcfg-eth0"
-#mv /etc/sysconfig/network-scripts/ifcfg-eth0 /etc/sysconfig/network-scripts/ifcfg-eth0.orig
-#grep -v HWADDR /etc/sysconfig/network-scripts/ifcfg-eth0.orig > /etc/sysconfig/network-scripts/ifcfg-eth0
+chkconfig --add qubes_core_netvm || echo "WARNING: Cannot add service qubes_core!"
+chkconfig qubes_core_netvm on || echo "WARNING: Cannot enable service qubes_core!"
 
 %preun
 if [ "$1" = 0 ] ; then
     # no more packages left
-    chkconfig qubes_core off
-    mv /var/lib/qubes/fstab.orig /etc/fstab
-    mv /var/lib/qubes/removed-udev-scripts/* /etc/udev/rules.d/
-    mv /var/lib/qubes/serial.orig /etc/init/serial.conf
+    chkconfig qubes_core_netvm off
 fi
 
 %clean
@@ -171,15 +82,11 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root,-)
-/etc/fstab
-/etc/sysconfig/iptables
-/etc/init.d/qubes_core
-/var/lib/qubes
+/etc/init.d/qubes_core_netvm
 /usr/lib/qubes/qubes_setup_dnat_to_ns
 /usr/lib/qubes/qubes_fix_nm_conf.sh
 /etc/dhclient.d/qubes_setup_dnat_to_ns.sh
 /etc/NetworkManager/dispatcher.d/qubes_nmhook
-/etc/yum.repos.d/qubes.repo
-/sbin/qubes_serial_login
+/etc/NetworkManager/dispatcher.d/30-qubes_external_ip
 /etc/xen/scripts/vif-route-qubes
 %dir /var/run/qubes

@@ -36,8 +36,9 @@ Group:		Qubes
 Vendor:		Invisible Things Lab
 License:	GPL
 URL:		http://www.qubes-os.org
+BuildRequires:  xen-devel
 Requires:	python, xen-runtime, pciutils, python-inotify, python-daemon, kernel-qubes-dom0
-Conflicts:   qubes-gui-dom0 < 1.1.13
+Conflicts:      qubes-gui-dom0 < 1.1.13
 Requires:       NetworkManager >= 0.8.1-1
 %define _builddir %(pwd)/dom0
 
@@ -65,6 +66,8 @@ cp pendrive_swapper/qfilexchgd $RPM_BUILD_ROOT/usr/bin
 mkdir -p $RPM_BUILD_ROOT/etc/xen/scripts
 cp restore/block.qubes $RPM_BUILD_ROOT/etc/xen/scripts
 cp ../common/vif-route-qubes $RPM_BUILD_ROOT/etc/xen/scripts
+cp ../common/block-snapshot $RPM_BUILD_ROOT/etc/xen/scripts
+ln -s block-snapshot $RPM_BUILD_ROOT/etc/xen/scripts/block-origin
 
 mkdir -p $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/qubes.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
@@ -94,6 +97,7 @@ cp restore/qubes_prepare_saved_domain.sh  $RPM_BUILD_ROOT/usr/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/vm-templates
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/appvms
+mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/servicevms
 
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/backup
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/dvmdata
@@ -124,10 +128,16 @@ mkdir -p $RPM_BUILD_ROOT/var/run/qubes
 
 %post
 
+# Create NetworkManager configuration if we do not have it
+if ! [ -e /etc/NetworkManager/NetworkManager.conf ]; then
+echo '[main]' > /etc/NetworkManager/NetworkManager.conf
+echo 'plugins = keyfile' >> /etc/NetworkManager/NetworkManager.conf
+echo '[keyfile]' >> /etc/NetworkManager/NetworkManager.conf
+fi
 /usr/lib/qubes/qubes_fix_nm_conf.sh
 
 if [ -e /etc/yum.repos.d/qubes-r1-dom0.repo ]; then
-# we want the user to use the repo that comes with qubes-code-dom0 packages instead
+# we want the user to use the repo that comes with qubes-core-dom0 packages instead
 rm -f /etc/yum.repos.d/qubes-r1-dom0.repo
 fi
 
@@ -136,15 +146,16 @@ fi
 #exit 0
 #fi
 
-# TODO: This is only temporary, until we will have our own installer
-for f in /etc/init.d/*
-do
-        srv=`basename $f`
-        [ $srv = 'functions' ] && continue
-        [ $srv = 'killall' ] && continue
-        [ $srv = 'halt' ] && continue
-        chkconfig $srv off
-done
+## TODO: This is only temporary, until we will have our own installer
+#for f in /etc/init.d/*
+#do
+#        srv=`basename $f`
+#        [ $srv = 'functions' ] && continue
+#        [ $srv = 'killall' ] && continue
+#        [ $srv = 'halt' ] && continue
+#        [ $srv = 'single' ] && continue
+#        chkconfig $srv off
+#done
 
 chkconfig iptables on
 chkconfig NetworkManager on
@@ -165,6 +176,20 @@ chkconfig qubes_core on || echo "WARNING: Cannot enable service qubes_core!"
 chkconfig qubes_netvm on || echo "WARNING: Cannot enable service qubes_netvm!"
 chkconfig qubes_setupdvm on || echo "WARNING: Cannot enable service qubes_setupdvm!"
 
+HAD_SYSCONFIG_NETWORK=yes
+if ! [ -e /etc/sysconfig/network ]; then
+    HAD_SYSCONFIG_NETWORK=no
+    # supplant empty one so NetworkManager init script does not complain
+    touch /etc/sysconfig/network
+fi
+
+# Load evtchn module - xenstored needs it
+modprobe evtchn
+
+# Now launch xend - we will need it for subsequent steps
+service xenstored start
+service xend start
+
 if ! [ -e /var/lib/qubes/qubes.xml ]; then
 #    echo "Initializing Qubes DB..."
     umask 007; sg qubes -c qvm-init-storage
@@ -173,13 +198,16 @@ for i in /usr/share/qubes/icons/*.png ; do
 	xdg-icon-resource install --novendor --size 48 $i
 done
 
-/etc/init.d/qubes_core start
+service qubes_core start
 
 NETVM=$(qvm-get-default-netvm)
 if [ "X"$NETVM = "X""dom0" ] ; then
-    /etc/init.d/qubes_netvm start
+    service qubes_netvm start
 fi
 
+if [ "x"$HAD_SYSCONFIG_NETWORK = "xno" ]; then
+    rm -f /etc/sysconfig/network
+fi
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -258,6 +286,7 @@ fi
 %attr(770,root,qubes) %dir /var/lib/qubes
 %attr(770,root,qubes) %dir /var/lib/qubes/vm-templates
 %attr(770,root,qubes) %dir /var/lib/qubes/appvms
+%attr(770,root,qubes) %dir /var/lib/qubes/servicevms
 %attr(770,root,qubes) %dir /var/lib/qubes/backup
 %attr(770,root,qubes) %dir /var/lib/qubes/dvmdata
 %dir /usr/share/qubes/icons/*.png
@@ -271,10 +300,11 @@ fi
 /usr/lib64/pm-utils/sleep.d/01qubes-swap-pci-devs
 /usr/lib64/pm-utils/sleep.d/02qubes-pause-vms
 /usr/bin/xenstore-watch
-/usr/bin/qvm-create-default-dvm
 /usr/lib/qubes/qubes_restore
 /usr/lib/qubes/qubes_prepare_saved_domain.sh
 /etc/xen/scripts/block.qubes
+/etc/xen/scripts/block-snapshot
+/etc/xen/scripts/block-origin
 /etc/xen/scripts/vif-route-qubes
 %attr(4750,root,qubes) /usr/lib/qubes/xenfreepages
 %attr(2770,root,qubes) %dir /var/log/qubes

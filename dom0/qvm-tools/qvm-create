@@ -24,6 +24,26 @@ from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesVmLabels
 from optparse import OptionParser;
 import subprocess
+import re
+
+def find_net_devices():
+    p = subprocess.Popen (["lspci", "-mm", "-n"], stdout=subprocess.PIPE)
+    result = p.communicate()
+    retcode = p.returncode
+    if (retcode != 0):
+        print "ERROR when executing lspci!"
+        raise IOError
+
+    net_devices = set()
+    rx_netdev = re.compile (r"^([0-9][0-9]:[0-9][0-9].[0-9]) \"02")
+    for dev in str(result[0]).splitlines():
+        match = rx_netdev.match (dev)
+        if match is not None:
+            dev_bdf = match.group(1)
+            assert dev_bdf is not None
+            net_devices.add (dev_bdf)
+
+    return  net_devices
 
 
 def main():
@@ -33,6 +53,10 @@ def main():
                        help="Specify the TemplateVM to use")
     parser.add_option ("-l", "--label", dest="label",
                        help="Specify the label to use for the new VM (e.g. red, yellow, green, ...)")
+    parser.add_option ("-p", "--proxy", action="store_true", dest="proxyvm", default=False,
+                        help="Create ProxyVM")
+    parser.add_option ("-n", "--net", action="store_true", dest="netvm", default=False,
+                        help="Create NetVM")
  
     parser.add_option ("-q", "--quiet", action="store_false", dest="verbose", default=True)
     (options, args) = parser.parse_args ()
@@ -40,20 +64,24 @@ def main():
         parser.error ("You must specify VM name!")
     vmname = args[0]
 
-    if options.label is None:
-        print "You must choose a label for the new VM by passing the --label option."
-        print "Possible values are:"
-        for l in QubesVmLabels.values():
-            print "* {0}".format(l.name)
-        exit (1)
+    if options.netvm and options.proxyvm:
+        parser.error ("You must specify at most one of --proxy and --net")
+        
+    label = None
+    if not options.proxyvm and not options.netvm:
+        if options.label is None:
+            print "You must choose a label for the new VM by passing the --label option."
+            print "Possible values are:"
+            for l in QubesVmLabels.values():
+                print "* {0}".format(l.name)
+            exit (1)
 
-    if options.label not in QubesVmLabels:
-        print "Wrong label name, supported values are the following:"
-        for l in QubesVmLabels.values():
-            print "* {0}".format(l.name)
-        exit (1)
-    label = QubesVmLabels[options.label]
-
+        if options.label not in QubesVmLabels:
+            print "Wrong label name, supported values are the following:"
+            for l in QubesVmLabels.values():
+                print "* {0}".format(l.name)
+            exit (1)
+        label = QubesVmLabels[options.label]
 
     qvm_collection = QubesVmCollection()
     qvm_collection.lock_db_for_writing()
@@ -68,7 +96,7 @@ def main():
         if template_vm is None:
             print "There is no (Templete)VM with the name '{0}'".format(options.template)
             exit (1)
-        if not template_vm.is_templete():
+        if not template_vm.is_template():
             print "VM '{0}' is not a TemplateVM".format(options.template)
             exit (1)
         if (options.verbose):
@@ -83,7 +111,24 @@ def main():
             if (options.verbose):
                 print "--> Using default TemplateVM: {0}".format(template_vm.name)
 
-    vm = qvm_collection.add_new_appvm(vmname, template_vm, label = label)
+    vm = None
+    if options.netvm:
+        vm = qvm_collection.add_new_netvm(vmname, template_vm)
+        
+        net_devices = find_net_devices()
+        print "Found the following net devices in your system:"
+        dev_str = ''
+        for dev in net_devices:
+            print "--> {0}".format(dev)
+            dev_str += '"{0}", '.format(dev)
+
+        print "Assigning them to the netvm '{0}'".format(vmname)
+        vm.pcidevs = dev_str
+
+    elif options.proxyvm:
+        vm = qvm_collection.add_new_proxyvm(vmname, template_vm)
+    else:
+        vm = qvm_collection.add_new_appvm(vmname, template_vm, label = label)
     try:
         vm.create_on_disk(verbose=options.verbose)
         vm.add_to_xen_storage()

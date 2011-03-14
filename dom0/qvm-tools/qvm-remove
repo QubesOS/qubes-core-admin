@@ -42,7 +42,7 @@ def main():
         print "A VM with the name '{0}' does not exist in the system.".format(vmname)
         exit(1)
 
-    if vm.is_templete():
+    if vm.is_template():
         dependent_vms = qvm_collection.get_vms_based_on(vm.qid)
         if len(dependent_vms) > 0:
             print "The following AppVMs use '{0}' as a template:".format(vmname)

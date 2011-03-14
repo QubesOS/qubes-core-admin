@@ -30,23 +30,25 @@ fields = {
 
     "name": {"func": "('=>' if qvm_collection.get_default_template_vm() is not None\
              and vm.qid == qvm_collection.get_default_template_vm().qid else '')\
-             + ('[' if vm.is_templete() else '')\
+             + ('[' if vm.is_template() else '')\
              + ('<' if vm.is_disposablevm() else '')\
              + ('{' if vm.is_netvm() else '')\
              + vm.name \
-             + (']' if vm.is_templete() else '')\
+             + (']' if vm.is_template() else '')\
              + ('>' if vm.is_disposablevm() else '')\
              + ('}' if vm.is_netvm() else '')"},
 
-    "type": {"func": "'Tpl' if vm.is_templete() else \
-             (' Net' if vm.is_netvm() else '')"},
+    "type": {"func": "'Tpl' if vm.is_template() else \
+             ('Proxy' if vm.is_proxyvm() else \
+             (' Net' if vm.is_netvm() else ''))"},
 
     "updbl" : {"func": "'Yes' if vm.is_updateable() else ''"},
 
-    "template": {"func": "'n/a' if vm.is_templete() or vm.is_netvm() else\
-                 qvm_collection[vm.template_vm.qid].name"},
+    "template": {"func": "'n/a' if vm.is_template() else\
+                 ('None' if vm.template_vm is None else\
+                 qvm_collection[vm.template_vm.qid].name)"},
 
-    "netvm": {"func": "'n/a' if vm.is_netvm() else\
+    "netvm": {"func": "'n/a' if vm.is_netvm() and not vm.is_proxyvm() else\
               ('*' if vm.uses_default_netvm else '') +\
               qvm_collection[vm.netvm_vm.qid].name\
                      if vm.netvm_vm is not None else '-'"},
@@ -141,7 +143,7 @@ def main():
 
     # Now, the template, and all its AppVMs...
     for tvm in vms_list:
-        if tvm.is_templete():
+        if tvm.is_template():
             vms_to_display.append (tvm)
             for vm in vms_list:
                 if (vm.is_appvm() or vm.is_disposablevm()) and vm.template_vm.qid == tvm.qid:

@@ -29,6 +29,7 @@ import xml.parsers.expat
 import fcntl
 import re
 import shutil
+from datetime import datetime
 from qmemman_client import QMemmanClient
 
 # Do not use XenAPI or create/read any VM files
@@ -48,9 +49,9 @@ qubes_guid_path = "/usr/bin/qubes_guid"
 
 qubes_base_dir   = "/var/lib/qubes"
 
-qubes_appvms_dir = qubes_base_dir + "/appvms" 
-qubes_templates_dir = qubes_base_dir + "/vm-templates" 
-qubes_servicevms_dir = qubes_base_dir + "/servicevms" 
+qubes_appvms_dir = qubes_base_dir + "/appvms"
+qubes_templates_dir = qubes_base_dir + "/vm-templates"
+qubes_servicevms_dir = qubes_base_dir + "/servicevms"
 qubes_store_filename = qubes_base_dir + "/qubes.xml"
 
 qubes_max_qid = 254*254
@@ -65,11 +66,12 @@ default_appvms_conf_file = "appvm-template.conf"
 default_templatevm_conf_template = "templatevm.conf" # needed for TemplateVM cloning
 default_appmenus_templates_subdir = "apps.templates"
 default_kernels_subdir = "kernels"
+default_firewall_conf_file = "firewall.xml"
 
 # do not allow to start a new AppVM if Dom0 mem was to be less than this
 dom0_min_memory = 700*1024*1024
 
-# We need this global reference, as each instance of QubesVM
+# We need this global reference, as each instance of QubesVm
 # must be able to ask Dom0 VM about how much memory it currently has...
 dom0_vm = None
 
@@ -80,11 +82,6 @@ qubes_appmenu_remove_cmd = "/usr/lib/qubes/remove_appvm_appmenus.sh"
 # rather than using this ugly hardcoded value, which was choosen here
 # as "should be good for everyone"
 swap_cow_sz = 1024*1024*1024
-
-VM_TEMPLATE = 'TempleteVM'
-VM_APPVM = 'AppVM'
-VM_NETVM = 'NetVM'
-VM_DISPOSABLEVM = 'DisposableVM'
 
 class XendSession(object):
     def __init__(self):
@@ -109,7 +106,7 @@ class XendSession(object):
 
 if not dry_run:
     xend_session = XendSession()
- 
+
 class QubesException (Exception) : pass
 
 
@@ -170,7 +167,7 @@ class QubesVm(object):
     Note that qid is not the same as Xen's domid!
     """
 
-    def __init__(self, qid, name, type,
+    def __init__(self, qid, name,
                  dir_path, conf_file = None,
                  uses_default_netvm = True,
                  netvm_vm = None,
@@ -195,11 +192,10 @@ class QubesVm(object):
                 else:
                     self.conf_file = dir_path + "/" + conf_file
 
-        self.__type = type
         self.uses_default_netvm = uses_default_netvm
         self.netvm_vm = netvm_vm
 
-        # We use it in remove from disk to avoid removing rpm files (for templates and netvms)
+        # We use it in remove from disk to avoid removing rpm files (for templates)
         self.installed_by_rpm = installed_by_rpm
 
         self.updateable = updateable
@@ -208,17 +204,16 @@ class QubesVm(object):
             self.icon_path = self.dir_path + "/icon.png"
         else:
             self.icon_path = None
-            
+
+        # PCI devices - used only by NetVM
+        self.pcidevs  = ""
+
         if not dry_run and xend_session.session is not None:
             self.refresh_xend_session()
 
     @property
     def qid(self):
         return self.__qid
-
-    @property
-    def type(self):
-        return self.__type
 
     @property
     def ip(self):
@@ -254,7 +249,7 @@ class QubesVm(object):
     def is_networked(self):
         if self.is_netvm():
             return True
-   
+
         if self.netvm_vm is not None:
             return True
         else:
@@ -269,29 +264,20 @@ class QubesVm(object):
         # We can always downgrade a VM to non-updateable...
         self.updateable = False
 
-    def is_templete(self):
-        if self.type == VM_TEMPLATE:
-            return True
-        else:
-            return False
+    def is_template(self):
+        return isinstance(self, QubesTemplateVm)
 
     def is_appvm(self):
-        if self.type == VM_APPVM:
-            return True
-        else:
-            return False
+        return isinstance(self, QubesAppVm)
 
     def is_netvm(self):
-        if self.type == VM_NETVM:
-            return True
-        else:
-            return False
+        return isinstance(self, QubesNetVm)
+
+    def is_proxyvm(self):
+        return isinstance(self, QubesProxyVm)
 
     def is_disposablevm(self):
-        if self.type == VM_DISPOSABLEVM:
-            return True
-        else:
-            return False
+        return isinstance(self, QubesDisposableVm)
 
     def add_to_xen_storage(self):
         if dry_run:
@@ -394,7 +380,7 @@ class QubesVm(object):
         for cpu in cpus_util:
             cpu_total_load += cpus_util[cpu]
         cpu_total_load /= len(cpus_util)
-        p = 100*cpu_total_load 
+        p = 100*cpu_total_load
         if p > 100:
             p = 100
         return p
@@ -444,7 +430,7 @@ class QubesVm(object):
     def get_private_img_sz(self):
         if not os.path.exists(self.private_img):
             return 0
- 
+
         return os.path.getsize(self.private_img)
 
     def create_xenstore_entries(self, xid):
@@ -478,8 +464,8 @@ class QubesVm(object):
                 "/usr/bin/xenstore-write",
                 "/local/domain/{0}/qubes_netvm_network".format(xid),
                 self.network])
- 
-        elif self.netvm_vm is not None:
+
+        if self.netvm_vm is not None:
             retcode = subprocess.check_call ([
                 "/usr/bin/xenstore-write",
                 "/local/domain/{0}/qubes_ip".format(xid),
@@ -488,19 +474,17 @@ class QubesVm(object):
             retcode = subprocess.check_call ([
                 "/usr/bin/xenstore-write",
                 "/local/domain/{0}/qubes_netmask".format(xid),
-                self.netmask])
+                self.netvm_vm.netmask])
 
             retcode = subprocess.check_call ([
                 "/usr/bin/xenstore-write",
                 "/local/domain/{0}/qubes_gateway".format(xid),
-                self.gateway])
+                self.netvm_vm.gateway])
 
             retcode = subprocess.check_call ([
                 "/usr/bin/xenstore-write",
                 "/local/domain/{0}/qubes_secondary_dns".format(xid),
-                self.secondary_dns])
-        else:
-            pass
+                self.netvm_vm.secondary_dns])
 
 
     def get_total_xen_memory(self):
@@ -524,8 +508,8 @@ class QubesVm(object):
         if verbose:
             print "--> Loading the VM (type = {0})...".format(self.type)
 
-        if not self.is_netvm():          
-            total_mem_mb = self.get_total_xen_memory()/1024/1024 
+        if not self.is_netvm():
+            total_mem_mb = self.get_total_xen_memory()/1024/1024
             xend_session.xend_server.xend.domain.maxmem_set(self.name, total_mem_mb)
 
         mem_required = self.get_mem_dynamic_max()
@@ -541,14 +525,14 @@ class QubesVm(object):
             xend_session.session.xenapi.VM.start (self.session_uuid, True) # Starting a VM paused
 
         qmemman_client.close() # let qmemman_daemon resume balancing
-        
+
         xid = int (xend_session.session.xenapi.VM.get_domid (self.session_uuid))
 
         if verbose:
             print "--> Setting Xen Store info for the VM..."
         self.create_xenstore_entries(xid)
 
-        if not self.is_netvm() and self.netvm_vm is not None:
+        if self.netvm_vm is not None:
             assert self.netvm_vm is not None
             if verbose:
                 print "--> Attaching to the network backend (netvm={0})...".format(self.netvm_vm.name)
@@ -559,9 +543,7 @@ class QubesVm(object):
             xm_cmdline = ["/usr/sbin/xm", "network-attach", self.name, "script=vif-route-qubes", "ip="+actual_ip]
             if self.netvm_vm.qid != 0:
                 if not self.netvm_vm.is_running():
-                    print "ERROR: NetVM not running, please start it first"
-                    self.force_shutdown()
-                    raise QubesException ("NetVM not running")
+                    self.netvm_vm.start()
                 retcode = subprocess.call (xm_cmdline + ["backend={0}".format(self.netvm_vm.name)])
                 if retcode != 0:
                     self.force_shutdown()
@@ -573,9 +555,20 @@ class QubesVm(object):
                     self.force_shutdown()
                     raise OSError ("ERROR: Cannot attach to network backend!")
 
+        qvm_collection = QubesVmCollection()
+        qvm_collection.lock_db_for_reading()
+        qvm_collection.load()
+        qvm_collection.unlock_db()
+
+        if verbose:
+            print "--> Updating FirewallVMs rules..."
+        for vm in qvm_collection.values():
+            if vm.is_proxyvm():
+                vm.write_iptables_xenstore_entry()
+
         if verbose:
             print "--> Starting the VM..."
-        xend_session.session.xenapi.VM.unpause (self.session_uuid) 
+        xend_session.session.xenapi.VM.unpause (self.session_uuid)
 
         # perhaps we should move it before unpause and fork?
         if debug_console:
@@ -606,7 +599,7 @@ class QubesVm(object):
 
 class QubesTemplateVm(QubesVm):
     """
-    A class that represents an TemplateVM. A child of QubesVM.
+    A class that represents an TemplateVM. A child of QubesVm.
     """
     def __init__(self, **kwargs):
 
@@ -620,16 +613,17 @@ class QubesTemplateVm(QubesVm):
         private_img = kwargs.pop("private_img") if "private_img" in kwargs else None
         appvms_conf_file = kwargs.pop("appvms_conf_file") if "appvms_conf_file" in kwargs else None
 
-        super(QubesTemplateVm, self).__init__(type=VM_TEMPLATE, label = default_template_label, **kwargs)
+        super(QubesTemplateVm, self).__init__(label = default_template_label, **kwargs)
 
         dir_path = kwargs["dir_path"]
 
-        # TempleteVM doesn't use root-cow image
         if root_img is not None and os.path.isabs(root_img):
             self.root_img = root_img
         else:
             self.root_img = dir_path + "/" + (
                 root_img if root_img is not None else default_root_img)
+
+        self.rootcow_img = dir_path + "/" + default_rootcow_img
 
         if private_img is not None and os.path.isabs(private_img):
             self.private_img = private_img
@@ -648,6 +642,10 @@ class QubesTemplateVm(QubesVm):
         self.appmenus_templates_dir = self.dir_path + "/" + default_appmenus_templates_subdir
         self.appvms = QubesVmCollection()
 
+    @property
+    def type(self):
+        return "TemplateVM"
+
     def set_updateable(self):
         if self.is_updateable():
             return
@@ -657,7 +655,7 @@ class QubesTemplateVm(QubesVm):
         for appvm in self.appvms.values():
             if appvm.is_updateable():
                 raise QubesException("One of the AppVMs ('{0}')is also 'updateable'\
-                                     -- cannot make the TempleteVM {'{1}'} 'nonupdatable'".\
+                                     -- cannot make the TemplateVM {'{1}'} 'nonupdatable'".\
                                      format (appvm.name, self.name))
         self.updateable = True
 
@@ -715,6 +713,14 @@ class QubesTemplateVm(QubesVm):
             raise IOError ("Error while copying {0} to {1}".\
                            format(src_template_vm.root_img, self.root_img))
         if verbose:
+            print "--> Copying the template's root COW image:\n{0} ==>\n{1}".\
+                    format(src_template_vm.rootcow_img, self.rootcow_img)
+        # We prefer to use Linux's cp, because it nicely handles sparse files
+        retcode = subprocess.call (["cp", src_template_vm.rootcow_img, self.rootcow_img])
+        if retcode != 0:
+            raise IOError ("Error while copying {0} to {1}".\
+                           format(src_template_vm.root_img, self.root_img))
+        if verbose:
             print "--> Copying the template's kernel dir:\n{0} ==>\n{1}".\
                     format(src_template_vm.kernels_dir, self.kernels_dir)
         shutil.copytree (src_template_vm.kernels_dir, self.kernels_dir)
@@ -723,15 +729,15 @@ class QubesTemplateVm(QubesVm):
             print "--> Copying the template's appvm templates dir:\n{0} ==>\n{1}".\
                     format(src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
         shutil.copytree (src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
- 
- 
+
+
     def get_disk_utilization_root_img(self):
         return self.get_disk_usage(self.root_img)
 
     def get_root_img_sz(self):
         if not os.path.exists(self.root_img):
             return 0
- 
+
         return os.path.getsize(self.root_img)
 
     def verify_files(self):
@@ -768,10 +774,10 @@ class QubesTemplateVm(QubesVm):
             raise QubesException (
                 "VM's kernels directory does not exist: {0}".\
                 format(self.kernels_dir))
- 
+
         return True
 
-    def start(self, debug_console = False, verbose = False):
+    def start(self, debug_console = False, verbose = False, preparing_dvm=False):
         if dry_run:
             return
 
@@ -779,12 +785,28 @@ class QubesTemplateVm(QubesVm):
         if not self.is_updateable():
             raise QubesException ("Cannot start Template VM that is marked \"nonupdatable\"")
 
-        # First ensure that none of our appvms is running:
-        for appvm in self.appvms.values():
-            if appvm.is_running():
-                raise QubesException ("Cannot start TemplateVM when one of its AppVMs is running!")
+        # TODO?: check if none of running appvms are outdated
 
         return super(QubesTemplateVm, self).start(debug_console=debug_console, verbose=verbose)
+
+    def commit_changes (self):
+
+        assert not self.is_running(), "Attempt to commit changes on running Template VM!"
+
+        print "--> Commiting template updates... COW: {0}...".format (self.rootcow_img)
+
+        if dry_run:
+            return
+        if os.path.exists (self.rootcow_img):
+           os.remove (self.rootcow_img)
+
+
+        f_cow = open (self.rootcow_img, "w")
+        f_root = open (self.root_img, "r")
+        f_root.seek(0, os.SEEK_END)
+        f_cow.truncate (f_root.tell()) # make empty sparse file of the same size as root.img
+        f_cow.close ()
+        f_root.close()
 
     def create_xml_element(self):
         element = xml.etree.ElementTree.Element(
@@ -795,6 +817,7 @@ class QubesTemplateVm(QubesVm):
             conf_file=self.conf_file,
             appvms_conf_file=self.appvms_conf_file,
             root_img=self.root_img,
+            rootcow_img=self.rootcow_img,
             private_img=self.private_img,
             uses_default_netvm=str(self.uses_default_netvm),
             netvm_qid=str(self.netvm_vm.qid) if self.netvm_vm is not None else "none",
@@ -803,58 +826,112 @@ class QubesTemplateVm(QubesVm):
             )
         return element
 
-class QubesServiceVm(QubesVm):
+class QubesCowVm(QubesVm):
     """
-    A class that represents a ServiceVM, e.g. NetVM. A child of QubesVM.
+        A class that represent a VM based on some template, i.e. doesn't have own root.img
     """
-    def __init__(self, **kwargs):
-
+    def __init__(self,  **kwargs):
         if "dir_path" not in kwargs or kwargs["dir_path"] is None:
-            kwargs["dir_path"] = qubes_servicevms_dir + "/" + kwargs["name"]
+            kwargs["dir_path"] = qubes_appvms_dir + "/" + kwargs["name"]
 
-        root_img = kwargs.pop("root_img") if "root_img" in kwargs else None
-        private_img = kwargs.pop("private_img") if "private_img" in kwargs else None
+        if "updateable" not in kwargs or kwargs["updateable"] is None:
+            kwargs["updateable"] = False
 
-        kwargs["updateable"] = True
-        super(QubesServiceVm, self).__init__(**kwargs)
+        private_img = kwargs.pop("private_img")
+        template_vm = kwargs.pop("template_vm")
 
+        super(QubesCowVm, self).__init__(**kwargs)
+        qid = kwargs["qid"]
         dir_path = kwargs["dir_path"]
-        assert dir_path is not None
+        # Dirty hack for QubesDom0NetVm...
+        if not isinstance(self, QubesDom0NetVm):
+            assert template_vm is not None, "Missing template_vm for template based VM!"
+            if not template_vm.is_template():
+                print "ERROR: template_qid={0} doesn't point to a valid TemplateVM".\
+                    format(template_vm.qid)
+                return False
 
-        if root_img is not None and os.path.isabs(root_img):
-            self.root_img = root_img
-        else:
-            self.root_img = dir_path + "/" + (
-                root_img if root_img is not None else default_root_img)
+            template_vm.appvms[qid] = self
+        self.template_vm = template_vm
 
+        # template based VM doesn't have its own root_img, it uses the one provided by the TemplateVM
         if private_img is not None and os.path.isabs(private_img):
             self.private_img = private_img
         else:
             self.private_img = dir_path + "/" + (
                 private_img if private_img is not None else default_private_img)
 
+        self.rootcow_img = dir_path + "/" + default_rootcow_img
+        self.swapcow_img = dir_path + "/" + default_swapcow_img
+
     def set_updateable(self):
         if self.is_updateable():
             return
-        # ServiceVMs are standalone, we can always make it updateable
-        # In fact there is no point in making it unpdatebale...
-        # So, this is just for completncess
+
         assert not self.is_running()
-        self.updateable = True 
+        # Check if the TemaplteVM is *non* updatable...
+        if not self.template_vm.is_updateable():
+            self.updateable = True
+            self.reset_cow_storage()
+            self.reset_swap_cow_storage()
+        else:
+            # Temaplate VM is Updatable itself --> can't make the AppVM updateable too
+            # as this would cause COW-backed storage incoherency
+            raise QubesException ("TemaplteVM is updateable: cannot make the template based VM '{0}' updateable".format(self.name))
+
+    def create_config_file(self):
+        conf_template = open (self.template_vm.appvms_conf_file, "r")
+        if os.path.isfile(self.conf_file):
+            shutil.copy(self.conf_file, self.conf_file + ".backup")
+        conf_appvm = open(self.conf_file, "w")
+        rx_vmname = re.compile (r"%VMNAME%")
+        rx_vmdir = re.compile (r"%VMDIR%")
+        rx_template = re.compile (r"%TEMPLATEDIR%")
+        rx_pcidevs = re.compile (r"%PCIDEVS%")
+
+        for line in conf_template:
+            line = rx_vmname.sub (self.name, line)
+            line = rx_vmdir.sub (self.dir_path, line)
+            line = rx_template.sub (self.template_vm.dir_path, line)
+            line = rx_pcidevs.sub (self.pcidevs, line)
+            conf_appvm.write(line)
+
+        conf_template.close()
+        conf_appvm.close()
+
+    def create_on_disk(self, verbose):
+        if dry_run:
+            return
+
+        if verbose:
+            print "--> Creating directory: {0}".format(self.dir_path)
+        os.mkdir (self.dir_path)
+
+        if verbose:
+            print "--> Creating the VM config file: {0}".format(self.conf_file)
+
+        self.create_config_file()
+
+        template_priv = self.template_vm.private_img
+        if verbose:
+            print "--> Copying the template's private image: {0}".\
+                    format(template_priv)
+
+        # We prefer to use Linux's cp, because it nicely handles sparse files
+        retcode = subprocess.call (["cp", template_priv, self.private_img])
+        if retcode != 0:
+            raise IOError ("Error while copying {0} to {1}".\
+                           format(template_priv, self.private_img))
 
     def get_disk_utilization_root_img(self):
-        return self.get_disk_usage(self.root_img)
+        return 0
 
     def get_root_img_sz(self):
-        if not os.path.exists(self.root_img):
-            return 0
- 
-        return os.path.getsize(self.root_img)
+        return 0
 
     def verify_files(self):
         if dry_run:
             return
-
 
         if not os.path.exists (self.dir_path):
             raise QubesException (
@@ -866,19 +943,65 @@ class QubesServiceVm(QubesVm):
                 "VM config file doesn't exist: {0}".\
                 format(self.conf_file))
 
-        if not os.path.exists (self.root_img):
+        if not os.path.exists (self.private_img):
             raise QubesException (
-                "VM root image file doesn't exist: {0}".\
-                format(self.root_img))
-
+                "VM private image file doesn't exist: {0}".\
+                format(self.private_img))
         return True
 
-    def create_xml_element(self):
-        raise NotImplementedError
+    def start(self, debug_console = False, verbose = False, preparing_dvm = False):
+        if dry_run:
+            return
 
-class QubesNetVm(QubesServiceVm):
+        if self.is_running():
+            raise QubesException("VM is already running!")
+
+        if not self.is_updateable():
+            self.reset_cow_storage()
+
+        self.reset_swap_cow_storage()
+
+        return super(QubesCowVm, self).start(debug_console=debug_console, verbose=verbose, preparing_dvm=preparing_dvm)
+
+    def reset_cow_storage (self):
+
+        print "--> Resetting the COW storage: {0}...".format (self.rootcow_img)
+
+        if dry_run:
+            return
+        # this is probbaly not needed, as open (..., "w") should remove the previous file
+        if os.path.exists (self.rootcow_img):
+           os.remove (self.rootcow_img)
+
+
+        f_cow = open (self.rootcow_img, "w")
+        f_root = open (self.template_vm.root_img, "r")
+        f_root.seek(0, os.SEEK_END)
+        f_cow.truncate (f_root.tell()) # make empty sparse file of the same size as root.img
+        f_cow.close ()
+        f_root.close()
+
+    def reset_swap_cow_storage (self):
+        print "--> Resetting the swap COW storage: {0}...".format (self.swapcow_img)
+        if os.path.exists (self.swapcow_img):
+           os.remove (self.swapcow_img)
+
+        f_swap_cow = open (self.swapcow_img, "w")
+        f_swap_cow.truncate (swap_cow_sz)
+        f_swap_cow.close()
+
+
+    def remove_from_disk(self):
+        if dry_run:
+            return
+
+
+        subprocess.check_call ([qubes_appmenu_remove_cmd, self.name])
+        shutil.rmtree (self.dir_path)
+
+class QubesNetVm(QubesCowVm):
     """
-    A class that represents a NetVM. A child of QubesServiceVM.
+    A class that represents a NetVM. A child of QubesCowVM.
     """
     def __init__(self, **kwargs):
         netid = kwargs.pop("netid")
@@ -889,9 +1012,17 @@ class QubesNetVm(QubesServiceVm):
         self.__gateway = self.netprefix + "0.1"
         self.__secondary_dns = self.netprefix + "255.254"
 
+        if "dir_path" not in kwargs or kwargs["dir_path"] is None:
+            kwargs["dir_path"] = qubes_servicevms_dir + "/" + kwargs["name"]
+        self.__external_ip_allowed_xids = set()
+
         if "label" not in kwargs or kwargs["label"] is None:
             kwargs["label"] = default_servicevm_label
-        super(QubesNetVm, self).__init__(type=VM_NETVM, installed_by_rpm=True, **kwargs)
+        super(QubesNetVm, self).__init__(installed_by_rpm=True, **kwargs)
+
+    @property
+    def type(self):
+        return "NetVM"
 
     @property
     def gateway(self):
@@ -911,9 +1042,49 @@ class QubesNetVm(QubesServiceVm):
 
     def get_ip_for_vm(self, qid):
         hi = qid / 253
-        lo = qid % 253 + 2 
+        lo = qid % 253 + 2
         assert hi >= 0 and hi <= 254 and lo >= 2 and lo <= 254, "Wrong IP address for VM"
         return self.netprefix  + "{0}.{1}".format(hi,lo)
+
+    def create_xenstore_entries(self, xid):
+        if dry_run:
+            return
+
+        super(QubesNetVm, self).create_xenstore_entries(xid)
+        retcode = subprocess.check_call ([
+            "/usr/bin/xenstore-write",
+            "/local/domain/{0}/qubes_netvm_external_ip".format(xid),
+            ""])
+        self.update_external_ip_permissions(xid)
+
+    def update_external_ip_permissions(self, xid = -1):
+        if xid < 0:
+            xid = self.get_xid()
+        if xid < 0:
+            return
+
+        command = [
+                "/usr/bin/xenstore-chmod",
+                "/local/domain/{0}/qubes_netvm_external_ip".format(xid)
+            ]
+
+        command.append("r{0}".format(xid,xid))
+        command.append("w{0}".format(xid,xid))
+
+        for id in self.__external_ip_allowed_xids:
+            command.append("r{0}".format(id))
+
+        return subprocess.check_call(command)
+
+    def add_external_ip_permission(self, xid):
+        if int(xid) < 0:
+            return
+        self.__external_ip_allowed_xids.add(int(xid))
+        self.update_external_ip_permissions()
+
+    def remove_external_ip_permission(self, xid):
+        self.__external_ip_allowed_xids.discard(int(xid))
+        self.update_external_ip_permissions()
 
     def create_xml_element(self):
         element = xml.etree.ElementTree.Element(
@@ -923,7 +1094,152 @@ class QubesNetVm(QubesServiceVm):
             name=self.name,
             dir_path=self.dir_path,
             conf_file=self.conf_file,
-            root_img=self.root_img,
+            template_qid=str(self.template_vm.qid),
+            updateable=str(self.updateable),
+            private_img=self.private_img,
+            installed_by_rpm=str(self.installed_by_rpm),
+            )
+        return element
+
+class QubesProxyVm(QubesNetVm):
+    """
+    A class that represents a ProxyVM, ex FirewallVM. A child of QubesNetVM.
+    """
+    def __init__(self, **kwargs):
+        super(QubesProxyVm, self).__init__(uses_default_netvm=False, **kwargs)
+        self.rules_applied = None
+
+    @property
+    def type(self):
+        return "ProxyVM"
+
+    def start(self, debug_console = False, verbose = False, preparing_dvm = False):
+        if dry_run:
+            return
+        retcode = super(QubesFirewallVm, self).start(debug_console=debug_console, verbose=verbose, preparing_dvm=preparing_dvm)
+        self.netvm_vm.add_external_ip_permission(self.get_xid())
+        self.write_netvm_domid_entry()
+        return retcode
+
+    def force_shutdown(self):
+        if dry_run:
+            return
+        self.netvm_vm.remove_external_ip_permission(self.get_xid())
+        super(QubesFirewallVm, self).force_shutdown()
+
+    def create_xenstore_entries(self, xid):
+        if dry_run:
+            return
+
+        super(QubesProxyVm, self).create_xenstore_entries(xid)
+        retcode = subprocess.check_call ([
+            "/usr/bin/xenstore-write",
+            "/local/domain/{0}/qubes_iptables_error".format(xid),
+            ""])
+        retcode = subprocess.check_call ([
+            "/usr/bin/xenstore-chmod",
+            "/local/domain/{0}/qubes_iptables_error".format(xid),
+            "r{0}".format(xid), "w{0}".format(xid)])
+        self.write_iptables_xenstore_entry()
+
+    def write_netvm_domid_entry(self, xid = -1):
+        if xid < 0:
+            xid = self.get_xid()
+
+        return subprocess.check_call ([
+            "/usr/bin/xenstore-write", "--",
+            "/local/domain/{0}/qubes_netvm_domid".format(xid),
+            "{0}".format(self.netvm_vm.get_xid())])
+
+    def write_iptables_xenstore_entry(self):
+        iptables =  "# Generated by Qubes Core on {0}\n".format(datetime.now().ctime())
+        iptables += "*filter\n"
+        iptables += ":INPUT DROP [0:0]\n"
+        iptables += ":FORWARD DROP [0:0]\n"
+        iptables += ":OUTPUT ACCEPT [0:0]\n"
+
+        # Strict INPUT rules
+        iptables += "-A INPUT -i vif+ -p udp -m udp --dport 68 -j DROP\n"
+        iptables += "-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT\n"
+        iptables += "-A INPUT -p icmp -j ACCEPT\n"
+        iptables += "-A INPUT -i lo -j ACCEPT\n"
+        iptables += "-A INPUT -j REJECT --reject-with icmp-host-prohibited\n"
+
+        # Allow dom0 networking
+        iptables += "-A FORWARD -i vif0.0 -j ACCEPT\n"
+
+        qvm_collection = QubesVmCollection()
+        qvm_collection.lock_db_for_reading()
+        qvm_collection.load()
+        qvm_collection.unlock_db()
+
+        vms = [vm for vm in qvm_collection.values() if vm.is_appvm()]
+        for vm in vms:
+            conf = vm.get_firewall_conf()
+
+            xid = vm.get_xid()
+            if xid < 0: # VM not active ATM
+                continue
+
+            iptables += "# '{0}' VM:\n".format(vm.name)
+            iptables += "-A FORWARD ! -s {0}/32 -i vif{1}.0 -j DROP\n".format(vm.ip, xid)
+
+
+            accept_action = "ACCEPT"
+            reject_action = "REJECT --reject-with icmp-host-prohibited"
+
+            if conf["allow"]:
+                rules_action = accept_action
+                default_action = reject_action
+                iptables += "-A FORWARD -i vif{0}.0 -p icmp -j ACCEPT\n".format(xid)
+            else:
+                rules_action = reject_action
+                default_action = accept_action
+
+            for rule in conf["rules"]:
+                iptables += "-A FORWARD -i vif{0}.0 -d {1}".format(xid, rule["address"])
+                if rule["netmask"] != 32:
+                    iptables += "/{0}".format(rule["netmask"])
+
+                if rule["portBegin"] is not None and rule["portBegin"] > 0:
+                    iptables += " -p tcp --dport {0}".format(rule["portBegin"])
+                    if rule["portEnd"] is not None and rule["portEnd"] > rule["portBegin"]:
+                        iptables += ":{0}".format(rule["portEnd"])
+
+                iptables += " -j {0}\n".format(rules_action)
+
+            if conf["allowDns"]:
+                # PREROUTING does DNAT to NetVM DNSes, so we need self.netvm_vm. properties
+                iptables += "-A FORWARD -i vif{0}.0 -p udp -d {1} --dport 53 -j ACCEPT\n".format(xid,self.netvm_vm.gateway)
+                iptables += "-A FORWARD -i vif{0}.0 -p udp -d {1} --dport 53 -j ACCEPT\n".format(xid,self.netvm_vm.secondary_dns)
+
+            iptables += "-A FORWARD -i vif{0}.0 -j {1}\n".format(xid, default_action)
+
+        iptables += "#End of VM rules\n"
+        iptables += "-A FORWARD -m state --state NEW,RELATED,ESTABLISHED -j ACCEPT\n"
+        iptables += "-A FORWARD -j DROP\n"
+
+        iptables += "COMMIT"
+
+        self.write_netvm_domid_entry()
+
+        self.rules_applied = None
+        return subprocess.check_call ([
+            "/usr/bin/xenstore-write",
+            "/local/domain/{0}/qubes_iptables".format(self.get_xid()),
+            iptables])
+
+    def create_xml_element(self):
+        element = xml.etree.ElementTree.Element(
+            "QubesProxyVm",
+            qid=str(self.qid),
+            netid=str(self.netid),
+            name=self.name,
+            dir_path=self.dir_path,
+            conf_file=self.conf_file,
+            template_qid=str(self.template_vm.qid),
+            updateable=str(self.updateable),
+            netvm_qid=str(self.netvm_vm.qid) if self.netvm_vm is not None else "none",
             private_img=self.private_img,
             installed_by_rpm=str(self.installed_by_rpm),
             )
@@ -932,8 +1248,9 @@ class QubesNetVm(QubesServiceVm):
 class QubesDom0NetVm(QubesNetVm):
     def __init__(self):
         super(QubesDom0NetVm, self).__init__(qid=0, name="dom0", netid=0,
-                                             dir_path=None, root_img = None,
+                                             dir_path=None,
                                              private_img = None,
+                                             template_vm = None,
                                              label = default_template_label)
         if not dry_run and xend_session.session is not None:
             self.session_hosts = xend_session.session.xenapi.host.get_all()
@@ -952,7 +1269,7 @@ class QubesDom0NetVm(QubesNetVm):
         for cpu in self.session_cpus:
             cpu_total_load += xend_session.session.xenapi.host_cpu.get_utilisation(cpu)
         cpu_total_load /= len(self.session_cpus)
-        p = 100*cpu_total_load 
+        p = 100*cpu_total_load
         if p > 100:
             p = 100
         return p
@@ -1004,23 +1321,27 @@ class QubesDom0NetVm(QubesNetVm):
 
 class QubesDisposableVm(QubesVm):
     """
-    A class that represents an DisposableVM. A child of QubesVM.
+    A class that represents an DisposableVM. A child of QubesVm.
     """
     def __init__(self, **kwargs):
 
         template_vm = kwargs.pop("template_vm")
 
-        super(QubesDisposableVm, self).__init__(type=VM_DISPOSABLEVM, dir_path=None, **kwargs)
+        super(QubesDisposableVm, self).__init__(dir_path=None, **kwargs)
         qid = kwargs["qid"]
 
         assert template_vm is not None, "Missing template_vm for DisposableVM!"
-        if not template_vm.is_templete():
-            print "ERROR: template_qid={0} doesn't point to a valid TempleteVM".\
+        if not template_vm.is_template():
+            print "ERROR: template_qid={0} doesn't point to a valid TemplateVM".\
                     format(new_vm.template_vm.qid)
             return False
 
         self.template_vm = template_vm
         template_vm.appvms[qid] = self
+
+    @property
+    def type(self):
+        return "DisposableVM"
 
     def create_xml_element(self):
         element = xml.etree.ElementTree.Element(
@@ -1035,103 +1356,33 @@ class QubesDisposableVm(QubesVm):
         return True
 
 
-class QubesAppVm(QubesVm):
+class QubesAppVm(QubesCowVm):
     """
-    A class that represents an AppVM. A child of QubesVM.
+    A class that represents an AppVM. A child of QubesVm.
     """
     def __init__(self, **kwargs):
 
-        if "dir_path" not in kwargs or kwargs["dir_path"] is None:
-            kwargs["dir_path"] = qubes_appvms_dir + "/" + kwargs["name"]
+        super(QubesAppVm, self).__init__(**kwargs)
+        dir_path = self.dir_path
 
-        if "updateable" not in kwargs or kwargs["updateable"] is None:
-            kwargs["updateable"] = False
+        if "firewall_conf" not in kwargs or kwargs["firewall_conf"] is None:
+            kwargs["firewall_conf"] = dir_path + "/" + default_firewall_conf_file
 
-        private_img = kwargs.pop("private_img")
-        template_vm = kwargs.pop("template_vm")
+        self.firewall_conf = kwargs["firewall_conf"]
 
-
-        super(QubesAppVm, self).__init__(type=VM_APPVM, **kwargs)
-        qid = kwargs["qid"]
-        dir_path = kwargs["dir_path"]
-
-        assert template_vm is not None, "Missing template_vm for AppVM!"
-        if not template_vm.is_templete():
-            print "ERROR: template_qid={0} doesn't point to a valid TempleteVM".\
-                    format(new_vm.template_vm.qid)
-            return False
-
-        self.template_vm = template_vm
-        template_vm.appvms[qid] = self
-
-        # AppVM doesn't have its own root_img, it uses the one provided by the TemplateVM
-        if private_img is not None and os.path.isabs(private_img):
-            self.private_img = private_img
-        else:
-            self.private_img = dir_path + "/" + (
-                private_img if private_img is not None else default_private_img)
-
-        self.rootcow_img = dir_path + "/" + default_rootcow_img
-        self.swapcow_img = dir_path + "/" + default_swapcow_img
-
+    @property
+    def type(self):
+        return "AppVM"
 
     def set_updateable(self):
-        if self.is_updateable():
-            return
 
-        assert not self.is_running()
-        # Check if the TemaplteVM is *non* updatable...
-        if not self.template_vm.is_updateable():
-            self.updateable = True
-            self.reset_cow_storage()
-            self.reset_swap_cow_storage()
-        else:
-            # Temaplate VM is Updatable itself --> can't make the AppVM updateable too
-            # as this would cause COW-backed storage incoherency
-            raise QubesException ("TemaplteVM is updateable: cannot make the AppVM '{0}' updateable".format(self.name))
-
-    def create_config_file(self):
-        conf_template = open (self.template_vm.appvms_conf_file, "r")
-        if os.path.isfile(self.conf_file):
-            shutil.copy(self.conf_file, self.conf_file + ".backup")
-        conf_appvm = open(self.conf_file, "w")
-        rx_vmname = re.compile (r"%VMNAME%")
-        rx_vmdir = re.compile (r"%VMDIR%")
-        rx_template = re.compile (r"%TEMPLATEDIR%")
-
-        for line in conf_template:
-            line = rx_vmname.sub (self.name, line)
-            line = rx_vmdir.sub (self.dir_path, line)
-            line = rx_template.sub (self.template_vm.dir_path, line)
-            conf_appvm.write(line)
-
-        conf_template.close()
-        conf_appvm.close()
+        super(QubesAppVm, self).set_updateable()
 
     def create_on_disk(self, verbose):
         if dry_run:
             return
 
-
-        if verbose:
-            print "--> Creating directory: {0}".format(self.dir_path)
-        os.mkdir (self.dir_path)
-
-        if verbose:
-            print "--> Creating the VM config file: {0}".format(self.conf_file)
- 
-        self.create_config_file()
-
-        template_priv = self.template_vm.private_img
-        if verbose:
-            print "--> Copying the template's private image: {0}".\
-                    format(template_priv)
- 
-        # We prefer to use Linux's cp, because it nicely handles sparse files
-        retcode = subprocess.call (["cp", template_priv, self.private_img])
-        if retcode != 0:
-            raise IOError ("Error while copying {0} to {1}".\
-                           format(template_priv, self.private_img))
+        super(QubesAppVm, self).create_on_disk(verbose)
 
         if verbose:
             print "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
@@ -1142,34 +1393,86 @@ class QubesAppVm(QubesVm):
     def create_appmenus(self, verbose):
         subprocess.check_call ([qubes_appmenu_create_cmd, self.template_vm.appmenus_templates_dir, self.name])
 
-    def get_disk_utilization_root_img(self):
-        return 0
+    def write_firewall_conf(self, conf):
+        root = xml.etree.ElementTree.Element(
+                "QubesFirwallRules",
+                policy = "allow" if conf["allow"] else "deny",
+                dns = "allow" if conf["allowDns"] else "deny"
+        )
 
-    def get_root_img_sz(self):
-        return 0
+        for rule in conf["rules"]:
+            element = xml.etree.ElementTree.Element(
+                    "rule",
+                    address=rule["address"],
+                    port=str(rule["portBegin"]),
+            )
+            if rule["netmask"] is not None and rule["netmask"] != 32:
+                element.set("netmask", str(rule["netmask"]))
+            if rule["portEnd"] is not None:
+                element.set("toport", str(rule["portEnd"]))
+            root.append(element)
 
+        tree = xml.etree.ElementTree.ElementTree(root)
 
-    def verify_files(self):
-        if dry_run:
-            return
+        try:
+            f = open(self.firewall_conf, 'a') # create the file if not exist
+            f.close()
 
+            with open(self.firewall_conf, 'w') as f:
+                fcntl.lockf(f, fcntl.LOCK_EX)
+                tree.write(f, "UTF-8")
+                fcntl.lockf(f, fcntl.LOCK_UN)
+            f.close()
+        except EnvironmentError as err:
+            print "{0}: save error: {1}".format(
+                    os.path.basename(sys.argv[0]), err)
+            return False
 
-        if not os.path.exists (self.dir_path):
-            raise QubesException (
-                "VM directory doesn't exist: {0}".\
-                format(self.dir_path))
-
-        if not os.path.exists (self.conf_file):
-            raise QubesException (
-                "VM config file doesn't exist: {0}".\
-                format(self.conf_file))
-
-        if not os.path.exists (self.private_img):
-            raise QubesException (
-                "VM private image file doesn't exist: {0}".\
-                format(self.private_img))
         return True
 
+    def get_firewall_conf(self):
+        conf = { "rules": list() }
+
+        try:
+            tree = xml.etree.ElementTree.parse(self.firewall_conf)
+            root = tree.getroot()
+
+            conf["allow"] = (root.get("policy") == "allow")
+            conf["allowDns"] = (root.get("dns") == "allow")
+
+            for element in root:
+                rule = {}
+                attr_list = ("address", "netmask", "port", "toport")
+
+                for attribute in attr_list:
+                    rule[attribute] = element.get(attribute)
+
+                if rule["netmask"] is not None:
+                    rule["netmask"] = int(rule["netmask"])
+                else:
+                    rule["netmask"] = 32
+
+                rule["portBegin"] = int(rule["port"])
+
+                if rule["toport"] is not None:
+                    rule["portEnd"] = int(rule["toport"])
+                else:
+                    rule["portEnd"] = None
+
+                del(rule["port"])
+                del(rule["toport"])
+
+                conf["rules"].append(rule)
+
+        except EnvironmentError as err:
+            return conf
+        except (xml.parsers.expat.ExpatError,
+                ValueError, LookupError) as err:
+            print("{0}: load error: {1}".format(
+                os.path.basename(sys.argv[0]), err))
+            return None
+
+        return conf
 
     def create_xml_element(self):
         element = xml.etree.ElementTree.Element(
@@ -1191,55 +1494,9 @@ class QubesAppVm(QubesVm):
         if dry_run:
             return
 
-        if self.is_running():
-            raise QubesException("VM is already running!")
-
-        # First ensure that our template is *not* running:
-        if self.template_vm.is_running():
-            raise QubesException ("Cannot start AppVM when its template is running!")
-
-        if not self.is_updateable():
-            self.reset_cow_storage()
         self.reset_swap_cow_storage()
 
         return super(QubesAppVm, self).start(debug_console=debug_console, verbose=verbose, preparing_dvm=preparing_dvm)
-
-    def reset_cow_storage (self):
-
-        print "--> Resetting the COW storage: {0}...".format (self.rootcow_img)
-
-        if dry_run:
-            return
-        # this is probbaly not needed, as open (..., "w") should remove the previous file
-        if os.path.exists (self.rootcow_img):
-           os.remove (self.rootcow_img)
-
-
-        f_cow = open (self.rootcow_img, "w")
-        f_root = open (self.template_vm.root_img, "r")
-        f_root.seek(0, os.SEEK_END)
-        f_cow.truncate (f_root.tell()) # make empty sparse file of the same size as root.img
-        f_cow.close ()
-        f_root.close()
-
-    def reset_swap_cow_storage (self):
-        print "--> Resetting the swap COW storage: {0}...".format (self.swapcow_img)
-        if os.path.exists (self.swapcow_img):
-           os.remove (self.swapcow_img)
-
-        f_swap_cow = open (self.swapcow_img, "w")
-        f_swap_cow.truncate (swap_cow_sz)
-        f_swap_cow.close()
-
-    def remove_from_disk(self):
-        if dry_run:
-            return
-
-
-        subprocess.check_call ([qubes_appmenu_remove_cmd, self.name])
-        shutil.rmtree (self.dir_path)
-
-
 
 class QubesVmCollection(dict):
     """
@@ -1249,6 +1506,7 @@ class QubesVmCollection(dict):
     def __init__(self, store_filename=qubes_store_filename):
         super(QubesVmCollection, self).__init__()
         self.default_netvm_qid = None
+        self.default_fw_netvm_qid = None
         self.default_template_qid = None
         self.qubes_store_filename = store_filename
 
@@ -1309,7 +1567,7 @@ class QubesVmCollection(dict):
                            installed_by_rpm = True):
 
         qid = self.get_new_unused_qid()
-        vm = QubesTemplateVm (qid=qid, name=name, 
+        vm = QubesTemplateVm (qid=qid, name=name,
                               dir_path=dir_path, conf_file=conf_file,
                               root_img=root_img, private_img=private_img,
                               installed_by_rpm=installed_by_rpm,
@@ -1333,16 +1591,37 @@ class QubesVmCollection(dict):
         return vm
 
 
-    def add_new_netvm(self, name,
+    def add_new_netvm(self, name, template_vm,
                       dir_path = None, conf_file = None,
-                      root_img = None):
+                      private_img = None):
 
         qid = self.get_new_unused_qid()
         netid = self.get_new_unused_netid()
-        vm = QubesNetVm (qid=qid, name=name, 
+        vm = QubesNetVm (qid=qid, name=name, template_vm=template_vm,
                          netid=netid,
-                         dir_path=dir_path, conf_file=conf_file,
-                         root_img=root_img)
+                         private_img=private_img,
+                         dir_path=dir_path, conf_file=conf_file)
+
+        if not self.verify_new_vm (vm):
+            assert False, "Wrong VM description!"
+        self[vm.qid]=vm
+
+        if self.default_fw_netvm_qid is None:
+            self.set_default_fw_netvm_vm(vm)
+
+        return vm
+
+    def add_new_proxyvm(self, name, template_vm,
+                     dir_path = None, conf_file = None,
+                     private_img = None):
+
+        qid = self.get_new_unused_qid()
+        netid = self.get_new_unused_netid()
+        vm = QubesProxyVm (qid=qid, name=name, template_vm=template_vm,
+                              netid=netid,
+                              private_img=private_img,
+                              dir_path=dir_path, conf_file=conf_file,
+                              netvm_vm = self.get_default_fw_netvm_vm())
 
         if not self.verify_new_vm (vm):
             assert False, "Wrong VM description!"
@@ -1354,7 +1633,7 @@ class QubesVmCollection(dict):
         return vm
 
     def set_default_template_vm(self, vm):
-        assert vm.is_templete(), "VM {0} is not a TempleteVM!".format(vm.name)
+        assert vm.is_template(), "VM {0} is not a TemplateVM!".format(vm.name)
         self.default_template_qid = vm.qid
 
     def get_default_template_vm(self):
@@ -1364,7 +1643,7 @@ class QubesVmCollection(dict):
             return self[self.default_template_qid]
 
     def set_default_netvm_vm(self, vm):
-        assert vm.is_netvm(), "VM {0} is not a NetVM!".format(vm.name)
+        assert vm.is_netvm(), "VM {0} does not provide network!".format(vm.name)
         self.default_netvm_qid = vm.qid
 
     def get_default_netvm_vm(self):
@@ -1372,6 +1651,16 @@ class QubesVmCollection(dict):
             return None
         else:
             return self[self.default_netvm_qid]
+
+    def set_default_fw_netvm_vm(self, vm):
+        assert vm.is_netvm(), "VM {0} does not provide network!".format(vm.name)
+        self.default_fw_netvm_qid = vm.qid
+
+    def get_default_fw_netvm_vm(self):
+        if self.default_fw_netvm_qid is None:
+            return None
+        else:
+            return self[self.default_fw_netvm_qid]
 
     def get_vm_by_name(self, name):
         for vm in self.values():
@@ -1387,7 +1676,7 @@ class QubesVmCollection(dict):
         vms = set([vm for vm in self.values()
                    if (vm.is_appvm() and vm.template_vm.qid == template_qid)])
         return vms
-   
+
     def verify_new_vm(self, new_vm):
 
         # Verify that qid is unique
@@ -1454,7 +1743,10 @@ class QubesVmCollection(dict):
             if self.default_template_qid is not None else "None",
 
             default_netvm=str(self.default_netvm_qid) \
-            if self.default_netvm_qid is not None else "None"
+            if self.default_netvm_qid is not None else "None",
+
+            default_fw_netvm=str(self.default_fw_netvm_qid) \
+            if self.default_fw_netvm_qid is not None else "None"
         )
 
         for vm in self.values():
@@ -1464,14 +1756,14 @@ class QubesVmCollection(dict):
         tree = xml.etree.ElementTree.ElementTree(root)
 
         try:
-                
+
             # We need to manually truncate the file, as we open the
             # file as "r+" in the lock_db_for_writing() function
             self.qubes_store_file.seek (0, os.SEEK_SET)
             self.qubes_store_file.truncate()
             tree.write(self.qubes_store_file, "UTF-8")
         except EnvironmentError as err:
-            print("{0}: import error: {1}".format(
+            print("{0}: export error: {1}".format(
                 os.path.basename(sys.argv[0]), err))
             return False
         return True
@@ -1495,43 +1787,24 @@ class QubesVmCollection(dict):
             return False
 
         element = tree.getroot()
-        default_template = element.get("default_template") 
+        default_template = element.get("default_template")
         self.default_template_qid = int(default_template) \
                 if default_template != "None" else None
 
-        default_netvm = element.get("default_netvm") 
+        default_netvm = element.get("default_netvm")
         if default_netvm is not None:
             self.default_netvm_qid = int(default_netvm) \
                     if default_netvm != "None" else None
             #assert self.default_netvm_qid is not None
 
-        # Read in the NetVMs first, because a reference to NetVM
-        # is needed to create all other VMs
-        for element in tree.findall("QubesNetVm"):
-            try:
-                kwargs = {}
-                attr_list = ("qid", "netid", "name", "dir_path", "conf_file",
-                              "private_img", "root_img",
-                              )
+        default_fw_netvm = element.get("default_netvm")
+        if default_fw_netvm is not None:
+            self.default_fw_netvm_qid = int(default_fw_netvm) \
+                    if default_fw_netvm != "None" else None
+            #assert self.default_netvm_qid is not None
 
-                for attribute in attr_list:
-                    kwargs[attribute] = element.get(attribute)
-
-                kwargs["qid"] = int(kwargs["qid"])
-                kwargs["netid"] = int(kwargs["netid"])
-
-                vm = QubesNetVm(**kwargs)
-                self[vm.qid] = vm
- 
-            except (ValueError, LookupError) as err:
-                print("{0}: import error (QubesNetVM) {1}".format(
-                    os.path.basename(sys.argv[0]), err))
-                return False
-
-
-        self.default_template_qid
-        # Then, read in the TemplateVMs, because a reference to templete VM
-        # is needed to create each AppVM 
+        # Then, read in the TemplateVMs, because a reference to template VM
+        # is needed to create each AppVM
         for element in tree.findall("QubesTemplateVm"):
             try:
 
@@ -1539,7 +1812,7 @@ class QubesVmCollection(dict):
                 attr_list = ("qid", "name", "dir_path", "conf_file",
                              "appvms_conf_file", "private_img", "root_img",
                              "installed_by_rpm", "updateable",
-                             "uses_default_netvm", "netvm_qid")
+                             "uses_default_netvm")
 
                 for attribute in attr_list:
                     kwargs[attribute] = element.get(attribute)
@@ -1549,11 +1822,97 @@ class QubesVmCollection(dict):
                 if kwargs["updateable"] is not None:
                     kwargs["updateable"] = True if kwargs["updateable"] == "True" else False
 
+                vm = QubesTemplateVm(**kwargs)
+
+                self[vm.qid] = vm
+            except (ValueError, LookupError) as err:
+                print("{0}: import error (QubesTemplateVm): {1}".format(
+                    os.path.basename(sys.argv[0]), err))
+                return False
+
+        # Read in the NetVMs first, because a reference to NetVM
+        # is needed to create all other VMs
+        for element in tree.findall("QubesNetVm"):
+            try:
+                kwargs = {}
+                attr_list = ("qid", "netid", "name", "dir_path", "conf_file",
+                              "private_img", "template_qid", "updateable",
+                              )
+
+                for attribute in attr_list:
+                    kwargs[attribute] = element.get(attribute)
+
+                kwargs["qid"] = int(kwargs["qid"])
+                kwargs["template_qid"] = int(kwargs["template_qid"])
+                if kwargs["updateable"] is not None:
+                    kwargs["updateable"] = True if kwargs["updateable"] == "True" else False
+
+                template_vm = self[kwargs.pop("template_qid")]
+                if template_vm is None:
+                    print "ERROR: NetVM '{0}' uses unkown template qid='{1}'!".\
+                            format(kwargs["name"], kwargs["template_qid"])
+
+                kwargs["template_vm"] = template_vm
+                kwargs["netid"] = int(kwargs["netid"])
+
+                vm = QubesNetVm(**kwargs)
+                self[vm.qid] = vm
+
+            except (ValueError, LookupError) as err:
+                print("{0}: import error (QubesNetVM) {1}".format(
+                    os.path.basename(sys.argv[0]), err))
+                return False
+
+        # Next read in the ProxyVMs, because they may be referenced
+        # by other VMs
+        for element in tree.findall("QubesProxyVm"):
+            try:
+                kwargs = {}
+                attr_list = ("qid", "netid", "name", "dir_path", "conf_file", "updateable",
+                              "private_img", "template_qid")
+
+                for attribute in attr_list:
+                    kwargs[attribute] = element.get(attribute)
+
+                kwargs["qid"] = int(kwargs["qid"])
+                kwargs["template_qid"] = int(kwargs["template_qid"])
+                if kwargs["updateable"] is not None:
+                    kwargs["updateable"] = True if kwargs["updateable"] == "True" else False
+
+                template_vm = self[kwargs.pop("template_qid")]
+                if template_vm is None:
+                    print "ERROR: ProxyVM '{0}' uses unkown template qid='{1}'!".\
+                            format(kwargs["name"], kwargs["template_qid"])
+
+                kwargs["template_vm"] = template_vm
+                kwargs["netid"] = int(kwargs["netid"])
+
+                vm = QubesProxyVm(**kwargs)
+                self[vm.qid] = vm
+
+            except (ValueError, LookupError) as err:
+                print("{0}: import error (QubesProxyVM) {1}".format(
+                    os.path.basename(sys.argv[0]), err))
+                return False
+
+        # After importing all NetVMs and ProxyVMs, set netvm references
+        # 1. For TemplateVMs
+        for element in tree.findall("QubesTemplateVm"):
+            try:
+
+                kwargs = {}
+                attr_list = ("qid", "uses_default_netvm", "netvm_qid")
+
+                for attribute in attr_list:
+                    kwargs[attribute] = element.get(attribute)
+
+                vm = self[int(kwargs["qid"])]
+
                 if "uses_default_netvm" not in kwargs:
-                    kwargs["uses_default_netvm"] = True
+                    vm.uses_default_netvm = True
                 else:
-                    kwargs["uses_default_netvm"] = True if kwargs["uses_default_netvm"] == "True" else False
-                if kwargs["uses_default_netvm"] is True:
+                    vm.uses_default_netvm = True if kwargs["uses_default_netvm"] == "True" else False
+                if vm.uses_default_netvm is True:
                     netvm_vm = self.get_default_netvm_vm()
                     kwargs.pop("netvm_qid")
                 else:
@@ -1567,13 +1926,38 @@ class QubesVmCollection(dict):
                         else:
                             netvm_vm = self[netvm_qid]
 
-                kwargs["netvm_vm"] = netvm_vm
- 
-                vm = QubesTemplateVm(**kwargs)
+                vm.netvm_vm = netvm_vm
 
-                self[vm.qid] = vm
             except (ValueError, LookupError) as err:
                 print("{0}: import error (QubesTemplateVm): {1}".format(
+                    os.path.basename(sys.argv[0]), err))
+                return False
+
+        # 2. For PoxyVMs
+        for element in tree.findall("QubesProxyVm"):
+            try:
+                kwargs = {}
+                attr_list = ("qid", "netvm_qid")
+
+                for attribute in attr_list:
+                    kwargs[attribute] = element.get(attribute)
+
+                vm = self[int(kwargs["qid"])]
+
+                if kwargs["netvm_qid"] == "none" or kwargs["netvm_qid"] is None:
+                    netvm_vm = None
+                    kwargs.pop("netvm_qid")
+                else:
+                    netvm_qid = int(kwargs.pop("netvm_qid"))
+                    if netvm_qid not in self:
+                        netvm_vm = None
+                    else:
+                        netvm_vm = self[netvm_qid]
+
+                vm.netvm_vm = netvm_vm
+
+            except (ValueError, LookupError) as err:
+                print("{0}: import error (QubesProxyVM) {1}".format(
                     os.path.basename(sys.argv[0]), err))
                 return False
 
@@ -1620,7 +2004,7 @@ class QubesVmCollection(dict):
                             netvm_vm = self[netvm_qid]
 
                 kwargs["netvm_vm"] = netvm_vm
- 
+
                 if kwargs["label"] is not None:
                     if kwargs["label"] not in QubesVmLabels:
                         print "ERROR: incorrect label for VM '{0}'".format(kwargs["name"])
@@ -1656,8 +2040,8 @@ class QubesVmCollection(dict):
                             format(kwargs["name"], kwargs["template_qid"])
 
                 kwargs["template_vm"] = template_vm
-                kwargs["netvm_vm"] = self.get_default_netvm_vm() 
-                
+                kwargs["netvm_vm"] = self.get_default_netvm_vm()
+
                 if kwargs["label"] is not None:
                     if kwargs["label"] not in QubesVmLabels:
                         print "ERROR: incorrect label for VM '{0}'".format(kwargs["name"])
@@ -1728,3 +2112,4 @@ class QubesDaemonPidfile(object):
         self.remove_pidfile()
 
 
+# vim:sw=4:et:

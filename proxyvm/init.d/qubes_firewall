@@ -1,0 +1,48 @@
+#!/bin/sh
+#
+# chkconfig: 345 91 91
+# description: Starts Qubes Firewall monitor
+#
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+PIDFILE=/var/run/qubes/qubes_firewall.pid
+
+start()
+{
+    type=$(/usr/bin/xenstore-read qubes_vm_type)
+    if [ "$type" == "ProxyVM" ]; then
+        echo -n $"Starting Qubes Firewall monitor:"
+        /sbin/ethtool -K eth0 sg off
+        /usr/sbin/qubes_firewall &
+        success
+        echo ""
+    fi
+	return 0
+}
+
+stop()
+{
+    type=$(/usr/bin/xenstore-read qubes_vm_type)
+    if [ "$type" == "ProxyVM" ]; then
+        echo -n "Stopping Qubes Firewall monitor:"
+        kill -9 $(cat $PIDFILE) 2>/dev/null  && success || failure
+        echo ""
+    fi
+	return 0
+}
+
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  *)
+	echo $"Usage: $0 {start|stop}"
+	exit 3
+	;;
+esac
+
+exit $RETVAL

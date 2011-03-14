@@ -1,0 +1,27 @@
+#!/bin/bash
+set -e
+
+PIDFILE=/var/run/qubes/qubes_netwatcher.pid
+CURR_NETCFG=""
+
+# PIDfile handling
+[[ -e $PIDFILE ]] && kill -s 0 $(<$PIDFILE) 2>/dev/null && exit 0
+echo $$ >$PIDFILE
+
+trap 'exit 0' SIGTERM
+
+while true; do
+	NET_DOMID=$(/usr/bin/xenstore-read qubes_netvm_domid)
+	if [[ -n "$NET_DOMID" ]] && [[ $NET_DOMID -gt 0 ]]; then
+		NETCFG=$(/usr/bin/xenstore-read /local/domain/$NET_DOMID/qubes_netvm_external_ip)
+		if [[ "$NETCFG" != "$CURR_NETCFG" ]]; then
+			/sbin/service qubes_firewall stop
+			/sbin/service qubes_firewall start
+			CURR_NETCFG="$NETCFG"
+		fi
+
+		/usr/bin/xenstore-watch /local/domain/$NET_DOMID/qubes_netvm_external_ip
+	else
+		/usr/bin/xenstore-watch qubes_netvm_domid
+	fi
+done
