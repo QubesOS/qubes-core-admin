@@ -1116,7 +1116,7 @@ class QubesProxyVm(QubesNetVm):
     def start(self, debug_console = False, verbose = False, preparing_dvm = False):
         if dry_run:
             return
-        retcode = super(QubesFirewallVm, self).start(debug_console=debug_console, verbose=verbose, preparing_dvm=preparing_dvm)
+        retcode = super(QubesProxyVm, self).start(debug_console=debug_console, verbose=verbose, preparing_dvm=preparing_dvm)
         self.netvm_vm.add_external_ip_permission(self.get_xid())
         self.write_netvm_domid_entry()
         return retcode
@@ -1125,7 +1125,7 @@ class QubesProxyVm(QubesNetVm):
         if dry_run:
             return
         self.netvm_vm.remove_external_ip_permission(self.get_xid())
-        super(QubesFirewallVm, self).force_shutdown()
+        super(QubesProxyVm, self).force_shutdown()
 
     def create_xenstore_entries(self, xid):
         if dry_run:
