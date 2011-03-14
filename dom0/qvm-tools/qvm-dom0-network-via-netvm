@@ -31,6 +31,8 @@ def get_netvm():
     qvm_collection.load()
     qvm_collection.unlock_db()
     netvm = qvm_collection.get_default_netvm_vm()
+    while netvm.netvm_vm is not None:
+        netvm = netvm.netvm_vm
     if netvm is None or netvm.name == 'dom0':
         print 'There seems to be no dedicated default netvm, aborting.'
         sys.exit(1)
@@ -98,4 +100,4 @@ def main():
     usage()
 
 main()
-            
+
