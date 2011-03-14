@@ -1431,7 +1431,7 @@ class QubesAppVm(QubesCowVm):
         return True
 
     def get_firewall_conf(self):
-        conf = { "rules": list() }
+        conf = { "rules": list(), "allow": True, "allowDns": True }
 
         try:
             tree = xml.etree.ElementTree.parse(self.firewall_conf)
