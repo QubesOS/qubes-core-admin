@@ -33,7 +33,7 @@ License:	GPL
 URL:		http://www.qubes-os.org
 Requires:	/usr/bin/xenstore-read
 Requires:   /sbin/ethtool
-Requires:   fedora-release = 13
+Requires:   fedora-release
 Requires:   qubes-core-netvm
 
 %define _builddir %(pwd)/proxyvm

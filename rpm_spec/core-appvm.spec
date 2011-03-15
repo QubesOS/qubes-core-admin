@@ -32,7 +32,7 @@ Vendor:		Invisible Things Lab
 License:	GPL
 URL:		http://www.qubes-os.org
 Requires:	/usr/bin/xenstore-read
-Requires:   fedora-release = 13
+Requires:   fedora-release
 Requires:	/usr/bin/mimeopen
 Requires:	qubes-core-commonvm
 BuildRequires:  gcc
