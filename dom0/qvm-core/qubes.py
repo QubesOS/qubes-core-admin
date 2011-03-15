@@ -63,6 +63,7 @@ default_rootcow_img = "root-cow.img"
 default_swapcow_img = "swap-cow.img"
 default_private_img = "private.img"
 default_appvms_conf_file = "appvm-template.conf"
+default_netvms_conf_file = "netvm-template.conf"
 default_templatevm_conf_template = "templatevm.conf" # needed for TemplateVM cloning
 default_appmenus_templates_subdir = "apps.templates"
 default_kernels_subdir = "kernels"
@@ -637,6 +638,12 @@ class QubesTemplateVm(QubesVm):
             self.appvms_conf_file = dir_path + "/" + (
                 appvms_conf_file if appvms_conf_file is not None else default_appvms_conf_file)
 
+        if netvms_conf_file is not None and os.path.isabs(netvms_conf_file):
+            self.netvms_conf_file = netvms_conf_file
+        else:
+            self.netvms_conf_file = dir_path + "/" + (
+                netvms_conf_file if netvms_conf_file is not None else default_netvms_conf_file)
+
         self.templatevm_conf_template = self.dir_path + "/" + default_templatevm_conf_template
         self.kernels_dir = self.dir_path + "/" + default_kernels_subdir
         self.appmenus_templates_dir = self.dir_path + "/" + default_appmenus_templates_subdir
@@ -694,6 +701,11 @@ class QubesTemplateVm(QubesVm):
             print "--> Copying the VM config template :\n{0} ==>\n{1}".\
                     format(src_template_vm.appvms_conf_file, self.appvms_conf_file)
         shutil.copy (src_template_vm.appvms_conf_file, self.appvms_conf_file)
+
+        if verbose:
+            print "--> Copying the VM config template :\n{0} ==>\n{1}".\
+                    format(src_template_vm.netvms_conf_file, self.netvms_conf_file)
+        shutil.copy (src_template_vm.netvms_conf_file, self.netvms_conf_file)
 
         if verbose:
             print "--> Copying the template's private image:\n{0} ==>\n{1}".\
@@ -816,6 +828,7 @@ class QubesTemplateVm(QubesVm):
             dir_path=self.dir_path,
             conf_file=self.conf_file,
             appvms_conf_file=self.appvms_conf_file,
+            netvms_conf_file=self.netvms_conf_file,
             root_img=self.root_img,
             rootcow_img=self.rootcow_img,
             private_img=self.private_img,
@@ -880,7 +893,11 @@ class QubesCowVm(QubesVm):
             raise QubesException ("TemaplteVM is updateable: cannot make the template based VM '{0}' updateable".format(self.name))
 
     def create_config_file(self):
-        conf_template = open (self.template_vm.appvms_conf_file, "r")
+        conf_template = None
+        if self.type == "NetVM":
+            conf_template = open (self.template_vm.netvms_conf_file, "r")
+        else:
+            conf_template = open (self.template_vm.appvms_conf_file, "r")
         if os.path.isfile(self.conf_file):
             shutil.copy(self.conf_file, self.conf_file + ".backup")
         conf_appvm = open(self.conf_file, "w")
@@ -1814,7 +1831,8 @@ class QubesVmCollection(dict):
 
                 kwargs = {}
                 attr_list = ("qid", "name", "dir_path", "conf_file",
-                             "appvms_conf_file", "private_img", "root_img",
+                             "appvms_conf_file", "appvms_conf_file", 
+                             "private_img", "root_img",
                              "installed_by_rpm", "updateable",
                              "uses_default_netvm")
 
