@@ -1098,6 +1098,7 @@ class QubesNetVm(QubesCowVm):
             updateable=str(self.updateable),
             private_img=self.private_img,
             installed_by_rpm=str(self.installed_by_rpm),
+            label=self.label.name,
             )
         return element
 
@@ -1242,6 +1243,7 @@ class QubesProxyVm(QubesNetVm):
             netvm_qid=str(self.netvm_vm.qid) if self.netvm_vm is not None else "none",
             private_img=self.private_img,
             installed_by_rpm=str(self.installed_by_rpm),
+            label=self.label.name,
             )
         return element
 
@@ -1593,12 +1595,13 @@ class QubesVmCollection(dict):
 
     def add_new_netvm(self, name, template_vm,
                       dir_path = None, conf_file = None,
-                      private_img = None):
+                      private_img = None,
+                      label = None):
 
         qid = self.get_new_unused_qid()
         netid = self.get_new_unused_netid()
         vm = QubesNetVm (qid=qid, name=name, template_vm=template_vm,
-                         netid=netid,
+                         netid=netid, label=label,
                          private_img=private_img,
                          dir_path=dir_path, conf_file=conf_file)
 
@@ -1613,12 +1616,13 @@ class QubesVmCollection(dict):
 
     def add_new_proxyvm(self, name, template_vm,
                      dir_path = None, conf_file = None,
-                     private_img = None):
+                     private_img = None,
+                     label = None):
 
         qid = self.get_new_unused_qid()
         netid = self.get_new_unused_netid()
         vm = QubesProxyVm (qid=qid, name=name, template_vm=template_vm,
-                              netid=netid,
+                              netid=netid, label=label,
                               private_img=private_img,
                               dir_path=dir_path, conf_file=conf_file,
                               netvm_vm = self.get_default_fw_netvm_vm())
@@ -1836,7 +1840,7 @@ class QubesVmCollection(dict):
             try:
                 kwargs = {}
                 attr_list = ("qid", "netid", "name", "dir_path", "conf_file",
-                              "private_img", "template_qid", "updateable",
+                              "private_img", "template_qid", "updateable", "label",
                               )
 
                 for attribute in attr_list:
@@ -1855,6 +1859,13 @@ class QubesVmCollection(dict):
                 kwargs["template_vm"] = template_vm
                 kwargs["netid"] = int(kwargs["netid"])
 
+                if kwargs["label"] is not None:
+                    if kwargs["label"] not in QubesVmLabels:
+                        print "ERROR: incorrect label for VM '{0}'".format(kwargs["name"])
+                        kwargs.pop ("label")
+                    else:
+                        kwargs["label"] = QubesVmLabels[kwargs["label"]]
+
                 vm = QubesNetVm(**kwargs)
                 self[vm.qid] = vm
 
@@ -1869,7 +1880,7 @@ class QubesVmCollection(dict):
             try:
                 kwargs = {}
                 attr_list = ("qid", "netid", "name", "dir_path", "conf_file", "updateable",
-                              "private_img", "template_qid")
+                              "private_img", "template_qid", "label")
 
                 for attribute in attr_list:
                     kwargs[attribute] = element.get(attribute)
@@ -1886,6 +1897,13 @@ class QubesVmCollection(dict):
 
                 kwargs["template_vm"] = template_vm
                 kwargs["netid"] = int(kwargs["netid"])
+
+                if kwargs["label"] is not None:
+                    if kwargs["label"] not in QubesVmLabels:
+                        print "ERROR: incorrect label for VM '{0}'".format(kwargs["name"])
+                        kwargs.pop ("label")
+                    else:
+                        kwargs["label"] = QubesVmLabels[kwargs["label"]]
 
                 vm = QubesProxyVm(**kwargs)
                 self[vm.qid] = vm

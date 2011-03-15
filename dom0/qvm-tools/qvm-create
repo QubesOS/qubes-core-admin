@@ -67,21 +67,19 @@ def main():
     if options.netvm and options.proxyvm:
         parser.error ("You must specify at most one of --proxy and --net")
         
-    label = None
-    if not options.proxyvm and not options.netvm:
-        if options.label is None:
-            print "You must choose a label for the new VM by passing the --label option."
-            print "Possible values are:"
-            for l in QubesVmLabels.values():
-                print "* {0}".format(l.name)
-            exit (1)
+    if options.label is None:
+        print "You must choose a label for the new VM by passing the --label option."
+        print "Possible values are:"
+        for l in QubesVmLabels.values():
+            print "* {0}".format(l.name)
+        exit (1)
 
-        if options.label not in QubesVmLabels:
-            print "Wrong label name, supported values are the following:"
-            for l in QubesVmLabels.values():
-                print "* {0}".format(l.name)
-            exit (1)
-        label = QubesVmLabels[options.label]
+    if options.label not in QubesVmLabels:
+        print "Wrong label name, supported values are the following:"
+        for l in QubesVmLabels.values():
+            print "* {0}".format(l.name)
+        exit (1)
+    label = QubesVmLabels[options.label]
 
     qvm_collection = QubesVmCollection()
     qvm_collection.lock_db_for_writing()
@@ -113,7 +111,7 @@ def main():
 
     vm = None
     if options.netvm:
-        vm = qvm_collection.add_new_netvm(vmname, template_vm)
+        vm = qvm_collection.add_new_netvm(vmname, template_vm, label = label)
         
         net_devices = find_net_devices()
         print "Found the following net devices in your system:"
@@ -126,12 +124,11 @@ def main():
         vm.pcidevs = dev_str
 
     elif options.proxyvm:
-        vm = qvm_collection.add_new_proxyvm(vmname, template_vm)
+        vm = qvm_collection.add_new_proxyvm(vmname, template_vm, label = label)
     else:
         vm = qvm_collection.add_new_appvm(vmname, template_vm, label = label)
     try:
         vm.create_on_disk(verbose=options.verbose)
-        vm.add_to_xen_storage()
 
     except (IOError, OSError) as err:
         print "ERROR: {0}".format(err)
