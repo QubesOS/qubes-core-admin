@@ -76,7 +76,7 @@ cp qubes_timestamp qvm-copy-to-vm qvm-open-in-dvm qvm-open-in-dvm2 $RPM_BUILD_RO
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
 cp qubes_add_pendrive_script qubes_penctl qvm-copy-to-vm.kde $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../qrexec/qrexec_agent $RPM_BUILD_ROOT/usr/lib/qubes
-cp dvm_file_editor qfile-agent qfile-agent-dvm $RPM_BUILD_ROOT/usr/lib/qubes
+cp dvm_file_editor qfile-agent qfile-agent-dvm qfile-unpacker $RPM_BUILD_ROOT/usr/lib/qubes
 ln -s /usr/bin/qvm-open-in-dvm $RPM_BUILD_ROOT/usr/lib/qubes/qvm-dvm-transfer 
 cp ../common/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/%{kde_service_dir}
@@ -218,6 +218,7 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib/qubes/qrexec_agent
 /usr/lib/qubes/qfile-agent
 /usr/lib/qubes/qfile-agent-dvm
+/usr/lib/qubes/qfile-unpacker
 /etc/udev/rules.d/qubes.rules
 /etc/sysconfig/iptables
 /var/lib/qubes
