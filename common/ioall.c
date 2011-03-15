@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <errno.h>
 
 int write_all(int fd, void *buf, int size)
 {
@@ -47,6 +48,7 @@ int read_all(int fd, void *buf, int size)
 	while (got_read < size) {
 		ret = read(fd, (char *) buf + got_read, size - got_read);
 		if (ret == 0) {
+			errno = 0;
 			fprintf(stderr, "EOF\n");
 			return 0;
 		}
