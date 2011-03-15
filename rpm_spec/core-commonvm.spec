@@ -39,6 +39,9 @@ Requires:   fedora-release = 13
 %description
 The Qubes core files for installation inside a Qubes VM.
 
+%build
+make
+
 %pre
 
 if [ "$1" !=  1 ] ; then
@@ -62,10 +65,12 @@ mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
 cp iptables $RPM_BUILD_ROOT/etc/sysconfig/
 mkdir -p $RPM_BUILD_ROOT/etc/yum.repos.d
 cp ../appvm/qubes.repo $RPM_BUILD_ROOT/etc/yum.repos.d
-mkdir -p $RPM_BUILD_ROOT/sbin   
-cp ../common/qubes_serial_login $RPM_BUILD_ROOT/sbin
+mkdir -p $RPM_BUILD_ROOT/sbin
+cp qubes_serial_login $RPM_BUILD_ROOT/sbin
+mkdir -p $RPM_BUILD_ROOT/usr/bin
+cp xenstore-watch $RPM_BUILD_ROOT/usr/bin
 mkdir -p $RPM_BUILD_ROOT/etc
-cp ../common/serial.conf $RPM_BUILD_ROOT/var/lib/qubes/
+cp serial.conf $RPM_BUILD_ROOT/var/lib/qubes/
 
 %triggerin -- initscripts
 cp /var/lib/qubes/serial.conf /etc/init/serial.conf
@@ -164,3 +169,4 @@ rm -rf $RPM_BUILD_ROOT
 /var/lib/qubes
 /etc/yum.repos.d/qubes.repo
 /sbin/qubes_serial_login
+/usr/bin/xenstore-watch
