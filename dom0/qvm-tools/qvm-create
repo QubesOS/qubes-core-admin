@@ -129,6 +129,7 @@ def main():
         vm = qvm_collection.add_new_appvm(vmname, template_vm, label = label)
     try:
         vm.create_on_disk(verbose=options.verbose)
+        vm.add_to_xen_storage()
 
     except (IOError, OSError) as err:
         print "ERROR: {0}".format(err)
