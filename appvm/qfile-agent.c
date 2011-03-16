@@ -186,9 +186,10 @@ void scan_spool(char *name)
 		gui_fatal("opendir %s", name);
 	while ((ent = readdir(dir))) {
 		char *fname = ent->d_name;
-		if (fname[0] != '.')
+		if (fname[0] != '.') {
 			process_spoolentry(fname);
-		break;
+        		break;
+                }
 	}
 	closedir(dir);
 }
