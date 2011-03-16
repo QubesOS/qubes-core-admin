@@ -483,9 +483,12 @@ void handle_trigger_io()
 			write_all_vchan_ext(&s_hdr, sizeof s_hdr);
 		}
 	}
+// trigger_fd is nonblock - so no need to reopen
+#if 0
 	close(trigger_fd);
 	trigger_fd =
 	    open(QREXEC_AGENT_TRIGGER_PATH, O_RDONLY | O_NONBLOCK);
+#endif
 }
 
 int main()
