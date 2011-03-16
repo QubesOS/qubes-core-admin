@@ -27,6 +27,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <ioall.h>
 #include "qrexec.h"
 #include "buffer.h"
@@ -54,6 +55,8 @@ void handle_usr1(int x)
 {
 	exit(0);
 }
+
+void sigchld_handler(int x);
 
 char *remote_domain_name;
 
@@ -97,7 +100,7 @@ void init(int xid)
 	setuid(getuid());
 	server_fd = get_server_socket(xid, remote_domain_name);
 	signal(SIGPIPE, SIG_IGN);
-	signal(SIGCHLD, SIG_IGN);
+	signal(SIGCHLD, sigchld_handler);
 	signal(SIGUSR1, SIG_DFL);
 	kill(getppid(), SIGUSR1);
 }
@@ -252,10 +255,48 @@ void pass_to_client(int clid, struct client_header *hdr)
 	}
 }
 
+int children_count;
+int child_exited;
+
+void sigchld_handler(int x)
+{
+	child_exited = 1;
+	signal(SIGCHLD, sigchld_handler);
+}
+
+void reap_children()
+{
+	int status;
+	while (waitpid(-1, &status, WNOHANG) > 0)
+		children_count--;
+	child_exited = 0;
+}
+
+void wait_for_child()
+{
+	int status;
+	waitpid(-1, &status, 0);
+	children_count--;
+}
+
+#define MAX_CHILDREN 10
+void check_children_count()
+{
+	if (children_count > MAX_CHILDREN) {
+		fprintf(stderr,
+			"max number of children reached, waiting for child exit...\n");
+		wait_for_child();
+		fprintf(stderr, "now children_count=%d, continuing.\n",
+			children_count);
+	}
+}
+
 void handle_trigger_exec(int req)
 {
 	char *rcmd = NULL, *lcmd = NULL;
 	int i;
+
+	check_children_count();
 	switch (req) {
 	case QREXEC_EXECUTE_FILE_COPY:
 		rcmd = "directly:user:/usr/lib/qubes/qfile-agent";
@@ -276,6 +317,7 @@ void handle_trigger_exec(int req)
 	case 0:
 		break;
 	default:
+		children_count++;
 		return;
 	}
 	for (i = 3; i < 256; i++)
@@ -405,5 +447,8 @@ int main(int argc, char **argv)
 			if (clients[i].state != CLIENT_INVALID
 			    && FD_ISSET(i, &wrset))
 				flush_client_data_daemon(i);
+		if (child_exited)
+			reap_children();
+
 	}
 }
