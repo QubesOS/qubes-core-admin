@@ -24,7 +24,7 @@
 
 Name:		qubes-core-appvm
 Version:	%{version}
-Release:	1
+Release:	1%{dist}
 Summary:	The Qubes core files for AppVM
 
 Group:		Qubes
