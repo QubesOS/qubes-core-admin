@@ -613,6 +613,7 @@ class QubesTemplateVm(QubesVm):
         root_img = kwargs.pop("root_img") if "root_img" in kwargs else None
         private_img = kwargs.pop("private_img") if "private_img" in kwargs else None
         appvms_conf_file = kwargs.pop("appvms_conf_file") if "appvms_conf_file" in kwargs else None
+        netvms_conf_file = kwargs.pop("netvms_conf_file") if "netvms_conf_file" in kwargs else None
 
         super(QubesTemplateVm, self).__init__(label = default_template_label, **kwargs)
 
