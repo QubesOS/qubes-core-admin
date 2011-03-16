@@ -57,6 +57,10 @@ def main():
                         help="Create ProxyVM")
     parser.add_option ("-n", "--net", action="store_true", dest="netvm", default=False,
                         help="Create NetVM")
+    parser.add_option ("-m", "--mem", dest="mem", default=None,
+                        help="Initial memory size (in MB)")
+    parser.add_option ("-c", "--vcpus", dest="vcpus", default=None,
+                        help="VCPUs count")
  
     parser.add_option ("-q", "--quiet", action="store_false", dest="verbose", default=True)
     (options, args) = parser.parse_args ()
@@ -127,6 +131,13 @@ def main():
         vm = qvm_collection.add_new_proxyvm(vmname, template_vm, label = label)
     else:
         vm = qvm_collection.add_new_appvm(vmname, template_vm, label = label)
+
+    if options.mem is not None:
+        vm.memory = options.mem
+
+    if options.vcpus is not None:
+        vm.vcpus = options.vcpus
+
     try:
         vm.create_on_disk(verbose=options.verbose)
         vm.add_to_xen_storage()

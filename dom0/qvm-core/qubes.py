@@ -68,6 +68,8 @@ default_templatevm_conf_template = "templatevm.conf" # needed for TemplateVM clo
 default_appmenus_templates_subdir = "apps.templates"
 default_kernels_subdir = "kernels"
 default_firewall_conf_file = "firewall.xml"
+default_memory = 400
+default_servicevm_vcpus = 1
 
 # do not allow to start a new AppVM if Dom0 mem was to be less than this
 dom0_min_memory = 700*1024*1024
@@ -174,7 +176,9 @@ class QubesVm(object):
                  netvm_vm = None,
                  installed_by_rpm = False,
                  updateable = False,
-                 label = None):
+                 label = None,
+                 memory = default_memory,
+                 vcpus = None):
 
 
         assert qid < qubes_max_qid, "VM id out of bounds!"
@@ -208,6 +212,15 @@ class QubesVm(object):
 
         # PCI devices - used only by NetVM
         self.pcidevs  = ""
+
+        self.memory = memory
+
+        # By default allow use all VCPUs
+        if vcpus is None:
+            qubes_host = QubesHost()
+            self.vcpus = qubes_host.no_cpus
+        else:
+            self.vcpus = vcpus
 
         if not dry_run and xend_session.session is not None:
             self.refresh_xend_session()
@@ -685,9 +698,13 @@ class QubesTemplateVm(QubesVm):
         conf_templatevm_template = open (src_template_vm.templatevm_conf_template, "r")
         conf_file = open(self.conf_file, "w")
         rx_templatename = re.compile (r"%TEMPLATENAME%")
+        rx_mem = re.compile (r"%MEM%")
+        rx_vcpus = re.compile (r"%VCPUS%")
 
         for line in conf_templatevm_template:
             line = rx_templatename.sub (self.name, line)
+            line = rx_mem.sub (str(self.memory), line)
+            line = rx_vcpus.sub (str(self.vcpus), line)
             conf_file.write(line)
 
         conf_templatevm_template.close()
@@ -906,12 +923,16 @@ class QubesCowVm(QubesVm):
         rx_vmdir = re.compile (r"%VMDIR%")
         rx_template = re.compile (r"%TEMPLATEDIR%")
         rx_pcidevs = re.compile (r"%PCIDEVS%")
+        rx_mem = re.compile (r"%MEM%")
+        rx_vcpus = re.compile (r"%VCPUS%")
 
         for line in conf_template:
             line = rx_vmname.sub (self.name, line)
             line = rx_vmdir.sub (self.dir_path, line)
             line = rx_template.sub (self.template_vm.dir_path, line)
             line = rx_pcidevs.sub (self.pcidevs, line)
+            line = rx_mem.sub (str(self.memory), line)
+            line = rx_vcpus.sub (str(self.vcpus), line)
             conf_appvm.write(line)
 
         conf_template.close()
@@ -1036,6 +1057,9 @@ class QubesNetVm(QubesCowVm):
 
         if "label" not in kwargs or kwargs["label"] is None:
             kwargs["label"] = default_servicevm_label
+
+        if "vcpus" not in kwargs or kwargs["vcpus"] is None:
+            kwargs["vcpus"] = default_servicevm_vcpus
         super(QubesNetVm, self).__init__(**kwargs)
 
     @property
@@ -1117,6 +1141,8 @@ class QubesNetVm(QubesCowVm):
             private_img=self.private_img,
             installed_by_rpm=str(self.installed_by_rpm),
             label=self.label.name,
+            memory=str(self.memory),
+            vcpus=str(self.vcpus),
             )
         return element
 
@@ -1262,6 +1288,8 @@ class QubesProxyVm(QubesNetVm):
             private_img=self.private_img,
             installed_by_rpm=str(self.installed_by_rpm),
             label=self.label.name,
+            memory=str(self.memory),
+            vcpus=str(self.vcpus),
             )
         return element
 
@@ -1507,7 +1535,10 @@ class QubesAppVm(QubesCowVm):
             private_img=self.private_img,
             installed_by_rpm=str(self.installed_by_rpm),
             updateable=str(self.updateable),
-            label=self.label.name)
+            label=self.label.name,
+            memory=str(self.memory),
+            vcpus=str(self.vcpus),
+            )
         return element
 
     def start(self, debug_console = False, verbose = False, preparing_dvm = False):
