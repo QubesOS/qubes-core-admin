@@ -56,6 +56,9 @@ def main():
     usage = "usage: %prog [options] <backup-dir-path>"
     parser = OptionParser (usage)
 
+    parser.add_option ("-x", "--exclude", action="append", dest="exclude_list",
+                       help="Exclude the specified VM from backup (might be repeated)")
+
     (options, args) = parser.parse_args ()
 
     if (len (args) != 1):
@@ -73,7 +76,13 @@ def main():
     qvm_collection.lock_db_for_reading()
     qvm_collection.load()
 
-    vms_list = [vm for vm in qvm_collection.values()]
+
+    if options is not None and options.exclude_list is not None:
+        print "Excluding the following VMs:", options.exclude_list
+        vms_list = [vm for vm in qvm_collection.values() if vm.name not in options.exclude_list]
+    else:
+        vms_list = [vm for vm in qvm_collection.values()]
+
     no_vms = len (vms_list)
 
     files_to_backup = file_to_backup (qubes_store_filename)
