@@ -25,6 +25,14 @@
 #include <fcntl.h>
 #include <errno.h>
 
+void perror_wrapper(char * msg)
+{
+	int prev=errno;
+	perror(msg);
+	errno=prev;
+}
+
+
 int write_all(int fd, void *buf, int size)
 {
 	int written = 0;
@@ -34,7 +42,7 @@ int write_all(int fd, void *buf, int size)
 		if (ret == -1 && errno == EINTR)
 			continue;
 		if (ret <= 0) {
-			perror("write");
+			perror_wrapper("write");
 			return 0;
 		}
 		written += ret;
@@ -57,7 +65,7 @@ int read_all(int fd, void *buf, int size)
 			return 0;
 		}
 		if (ret < 0) {
-			perror("read");
+			perror_wrapper("read");
 			return 0;
 		}
 		got_read += ret;
@@ -77,11 +85,11 @@ int copy_fd_all(int fdout, int fdin)
 		if (!ret)
 			break;
 		if (ret < 0) {
-			perror("read");
+			perror_wrapper("read");
 			return 0;
 		}
 		if (!write_all(fdout, buf, ret)) {
-			perror("write");
+			perror_wrapper("write");
 			return 0;
 		}
 	}
