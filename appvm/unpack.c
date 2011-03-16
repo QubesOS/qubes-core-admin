@@ -53,7 +53,11 @@ void process_one_file_reg(struct file_header *hdr, char *name)
 
 void process_one_file_dir(struct file_header *hdr, char *name)
 {
-	if (mkdir(name, 0700) && errno != EEXIST)
+// fix perms only when the directory is sent for the second time
+// it allows to transfer r.x directory contents, as we create it rwx initially
+	if (!mkdir(name, 0700))
+		return;
+	if (errno != EEXIST)
 		do_exit(errno);
 	fix_times_and_perms(hdr, name);
 }
