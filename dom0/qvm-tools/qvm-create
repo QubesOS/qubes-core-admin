@@ -57,6 +57,8 @@ def main():
                         help="Create ProxyVM")
     parser.add_option ("-n", "--net", action="store_true", dest="netvm", default=False,
                         help="Create NetVM")
+    parser.add_option ("-s", "--standalone", action="store_true", dest="standalone", default=False,
+                        help="Create standalone VM - independent of template ")
     parser.add_option ("-m", "--mem", dest="mem", default=None,
                         help="Initial memory size (in MB)")
     parser.add_option ("-c", "--vcpus", dest="vcpus", default=None,
@@ -115,7 +117,7 @@ def main():
 
     vm = None
     if options.netvm:
-        vm = qvm_collection.add_new_netvm(vmname, template_vm, label = label)
+        vm = qvm_collection.add_new_netvm(vmname, template_vm, label = label, updateable = options.standalone)
         
         net_devices = find_net_devices()
         print "Found the following net devices in your system:"
@@ -128,9 +130,9 @@ def main():
         vm.pcidevs = dev_str
 
     elif options.proxyvm:
-        vm = qvm_collection.add_new_proxyvm(vmname, template_vm, label = label)
+        vm = qvm_collection.add_new_proxyvm(vmname, template_vm, label = label, updateable = options.standalone)
     else:
-        vm = qvm_collection.add_new_appvm(vmname, template_vm, label = label)
+        vm = qvm_collection.add_new_appvm(vmname, template_vm, label = label, updateable = options.standalone)
 
     if options.mem is not None:
         vm.memory = options.mem
