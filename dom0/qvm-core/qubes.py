@@ -1035,7 +1035,7 @@ class QubesNetVm(QubesCowVm):
 
         if "label" not in kwargs or kwargs["label"] is None:
             kwargs["label"] = default_servicevm_label
-        super(QubesNetVm, self).__init__(installed_by_rpm=True, **kwargs)
+        super(QubesNetVm, self).__init__(**kwargs)
 
     @property
     def type(self):
@@ -1612,14 +1612,14 @@ class QubesVmCollection(dict):
 
     def add_new_netvm(self, name, template_vm,
                       dir_path = None, conf_file = None,
-                      private_img = None,
+                      private_img = None, installed_by_rpm = False,
                       label = None):
 
         qid = self.get_new_unused_qid()
         netid = self.get_new_unused_netid()
         vm = QubesNetVm (qid=qid, name=name, template_vm=template_vm,
                          netid=netid, label=label,
-                         private_img=private_img,
+                         private_img=private_img, installed_by_rpm=installed_by_rpm,
                          dir_path=dir_path, conf_file=conf_file)
 
         if not self.verify_new_vm (vm):
@@ -1633,14 +1633,14 @@ class QubesVmCollection(dict):
 
     def add_new_proxyvm(self, name, template_vm,
                      dir_path = None, conf_file = None,
-                     private_img = None,
+                     private_img = None, installed_by_rpm = False,
                      label = None):
 
         qid = self.get_new_unused_qid()
         netid = self.get_new_unused_netid()
         vm = QubesProxyVm (qid=qid, name=name, template_vm=template_vm,
                               netid=netid, label=label,
-                              private_img=private_img,
+                              private_img=private_img, installed_by_rpm=installed_by_rpm,
                               dir_path=dir_path, conf_file=conf_file,
                               netvm_vm = self.get_default_fw_netvm_vm())
 
