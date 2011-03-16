@@ -12,8 +12,16 @@
 #include <gui-fatal.h>
 #include "filecopy.h"
 
+enum {
+	PROGRESS_FLAG_NORMAL,
+	PROGRESS_FLAG_INIT,
+	PROGRESS_FLAG_DONE
+};
+
+
+
 char *client_flags;
-void do_notify_progress(long long total)
+void do_notify_progress(long long total, int flag)
 {
 	FILE *progress;
 	if (!client_flags[0])
@@ -21,17 +29,19 @@ void do_notify_progress(long long total)
 	progress = fopen(client_flags, "w");
 	if (!progress)
 		return;
-	fprintf(progress, "%d %lld", getpid(), total);
+	fprintf(progress, "%d %lld %s", getpid(), total,
+		flag == PROGRESS_FLAG_DONE ? "DONE" : "BUSY");
 	fclose(progress);
 }
 
-void notify_progress(int size, int force)
+void notify_progress(int size, int flag)
 {
 	static long long total = 0;
 	static long long prev_total = 0;
 	total += size;
-	if (total > prev_total + PROGRESS_NOTIFY_DELTA || force) {
-		do_notify_progress(total);
+	if (total > prev_total + PROGRESS_NOTIFY_DELTA
+	    || (flag != PROGRESS_FLAG_NORMAL)) {
+		do_notify_progress(total, flag);
 		prev_total = total;
 	}
 }
@@ -139,7 +149,7 @@ void parse_entry(char *data, int datasize)
 	char *vmname, *entry, *sep;
 	vmname = get_item(data, &current, datasize);
 	client_flags = get_item(data, &current, datasize);
-	notify_progress(0, 1);
+	notify_progress(0, PROGRESS_FLAG_INIT);
 	send_vmname(vmname);
 	while ((entry = get_item(data, &current, datasize))) {
 		do {
@@ -155,7 +165,7 @@ void parse_entry(char *data, int datasize)
 			gui_fatal("chdir to %s", entry);
 		do_fs_walk(sep + 1);
 	}
-	notify_progress(0, 1);
+	notify_progress(0, PROGRESS_FLAG_DONE);
 }
 
 void process_spoolentry(char *entry_name)
