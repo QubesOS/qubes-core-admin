@@ -31,6 +31,8 @@ int write_all(int fd, void *buf, int size)
 	int ret;
 	while (written < size) {
 		ret = write(fd, (char *) buf + written, size - written);
+		if (ret == -1 && errno == EINTR)
+			continue;
 		if (ret <= 0) {
 			perror("write");
 			return 0;
@@ -47,6 +49,8 @@ int read_all(int fd, void *buf, int size)
 	int ret;
 	while (got_read < size) {
 		ret = read(fd, (char *) buf + got_read, size - got_read);
+		if (ret == -1 && errno == EINTR)
+			continue;
 		if (ret == 0) {
 			errno = 0;
 			fprintf(stderr, "EOF\n");
@@ -68,6 +72,8 @@ int copy_fd_all(int fdout, int fdin)
 	char buf[4096];
 	for (;;) {
 		ret = read(fdin, buf, sizeof(buf));
+		if (ret == -1 && errno == EINTR)
+			continue;
 		if (!ret)
 			break;
 		if (ret < 0) {
@@ -81,4 +87,3 @@ int copy_fd_all(int fdout, int fdin)
 	}
 	return 1;
 }
-
