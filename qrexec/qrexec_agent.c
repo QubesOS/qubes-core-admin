@@ -469,10 +469,11 @@ void handle_trigger_io()
 {
 	struct server_header s_hdr;
 	char buf[5];
+	int ret;
 
 	s_hdr.clid = 0;
 	s_hdr.len = 0;
-	if (read(trigger_fd, buf, 4) == 4) {
+	if ((ret = read(trigger_fd, buf, 4)) == 4) {
 		buf[4] = 0;
 		if (!strcmp(buf, "FCPR"))
 			s_hdr.clid = QREXEC_EXECUTE_FILE_COPY;
@@ -484,11 +485,12 @@ void handle_trigger_io()
 		}
 	}
 // trigger_fd is nonblock - so no need to reopen
-#if 0
-	close(trigger_fd);
-	trigger_fd =
-	    open(QREXEC_AGENT_TRIGGER_PATH, O_RDONLY | O_NONBLOCK);
-#endif
+// not really, need to reopen at EOF
+	if (ret <= 0) {
+		close(trigger_fd);
+		trigger_fd =
+		    open(QREXEC_AGENT_TRIGGER_PATH, O_RDONLY | O_NONBLOCK);
+	}
 }
 
 int main()
