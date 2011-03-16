@@ -57,15 +57,15 @@ int single_file_processor(char *filename, struct stat *st)
 	hdr.mtime_nsec = st->st_mtim.tv_nsec;
 
 	if (S_ISREG(mode)) {
-	        char * ret;
+		char *ret;
 		fd = open(filename, O_RDONLY);
 		if (!fd)
 			gui_fatal("open %s", filename);
 		hdr.filelen = st->st_size;
 		write_headers(&hdr, filename);
-		ret=copy_file(1, fd, hdr.filelen);
+		ret = copy_file(1, fd, hdr.filelen);
 		if (ret)
-		        gui_fatal("Copying file %s: %s", filename, ret);
+			gui_fatal("Copying file %s: %s", filename, ret);
 		close(fd);
 	}
 	if (S_ISDIR(mode)) {
@@ -142,10 +142,13 @@ void parse_entry(char *data, int datasize)
 	notify_progress(0, 1);
 	send_vmname(vmname);
 	while ((entry = get_item(data, &current, datasize))) {
-		sep = rindex(entry, '/');
-		if (!sep)
-			gui_fatal("Internal error: nonabsolute filenames not allowed");
-		*sep = 0;
+		do {
+			sep = rindex(entry, '/');
+			if (!sep)
+				gui_fatal
+				    ("Internal error: nonabsolute filenames not allowed");
+			*sep = 0;
+		} while (sep[1] == 0);
 		if (entry[0] == 0)
 			chdir("/");
 		else if (chdir(entry))
@@ -188,8 +191,8 @@ void scan_spool(char *name)
 		char *fname = ent->d_name;
 		if (fname[0] != '.') {
 			process_spoolentry(fname);
-        		break;
-                }
+			break;
+		}
 	}
 	closedir(dir);
 }
