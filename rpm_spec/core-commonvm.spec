@@ -96,6 +96,7 @@ do
         [ $srv = 'killall' ] && continue
         [ $srv = 'halt' ] && continue
         [ $srv = 'single' ] && continue
+        [ $srv = 'reboot' ] && continue
         [ $srv = 'qubes_gui' ] && continue
         chkconfig $srv off
 done
