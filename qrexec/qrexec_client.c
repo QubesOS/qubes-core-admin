@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <ioall.h>
+#include <sys/wait.h>
 #include "qrexec.h"
 #include "buffer.h"
 #include "glue.h"
@@ -58,6 +59,18 @@ void do_exec(char *prog)
 
 int local_stdin_fd, local_stdout_fd;
 
+void do_exit(int code)
+{
+	int status;
+// sever communication lines; wait for child, if any
+// so that qrexec-daemon can count (recursively) spawned processes correctly          
+	close(local_stdin_fd);
+	close(local_stdout_fd);
+	waitpid(-1, &status, 0);
+	exit(code);
+}
+
+
 void prepare_local_fds(char *cmdline)
 {
 	int pid;
@@ -79,7 +92,7 @@ void send_cmdline(int s, int type, char *cmdline)
 	if (!write_all(s, &hdr, sizeof(hdr))
 	    || !write_all(s, cmdline, hdr.len)) {
 		perror("write daemon");
-		exit(1);
+		do_exit(1);
 	}
 }
 
@@ -90,7 +103,7 @@ void handle_input(int s)
 	ret = read(local_stdout_fd, buf, sizeof(buf));
 	if (ret < 0) {
 		perror("read");
-		exit(1);
+		do_exit(1);
 	}
 	if (ret == 0) {
 		local_stdout_fd = -1;
@@ -98,7 +111,7 @@ void handle_input(int s)
 	}
 	if (!write_all(s, buf, ret)) {
 		perror("write daemon");
-		exit(1);
+		do_exit(1);
 	}
 }
 
@@ -110,15 +123,15 @@ void handle_daemon_data(int s)
 
 	if (!read_all(s, &hdr, sizeof hdr)) {
 		perror("read daemon");
-		exit(1);
+		do_exit(1);
 	}
 	if (hdr.len > MAX_DATA_CHUNK) {
 		fprintf(stderr, "client_header.len=%d\n", hdr.len);
-		exit(1);
+		do_exit(1);
 	}
 	if (!read_all(s, buf, hdr.len)) {
 		perror("read daemon");
-		exit(1);
+		do_exit(1);
 	}
 
 	switch (hdr.type) {
@@ -127,7 +140,7 @@ void handle_daemon_data(int s)
 			close(local_stdin_fd);
 		else if (!write_all(local_stdin_fd, buf, hdr.len)) {
 			perror("write local stdout");
-			exit(1);
+			do_exit(1);
 		}
 		break;
 	case MSG_SERVER_TO_CLIENT_STDERR:
@@ -136,13 +149,13 @@ void handle_daemon_data(int s)
 	case MSG_SERVER_TO_CLIENT_EXIT_CODE:
 		status = *(unsigned int *) buf;
 		if (WIFEXITED(status))
-			exit(WEXITSTATUS(status));
+			do_exit(WEXITSTATUS(status));
 		else
-			exit(255);
+			do_exit(255);
 		break;
 	default:
 		fprintf(stderr, "unknown msg %d\n", hdr.type);
-		exit(1);
+		do_exit(1);
 	}
 }
 
@@ -160,7 +173,7 @@ void handle_daemon_only_until_writable(s)
 
 		if (select(s + 1, &rdset, &wrset, NULL, NULL) < 0) {
 			perror("select");
-			exit(1);
+			do_exit(1);
 		}
 		if (FD_ISSET(s, &rdset))
 			handle_daemon_data(s);
@@ -183,7 +196,7 @@ void select_loop(int s)
 		}
 		if (select(max + 1, &select_set, NULL, NULL, NULL) < 0) {
 			perror("select");
-			exit(1);
+			do_exit(1);
 		}
 		if (FD_ISSET(s, &select_set))
 			handle_daemon_data(s);
