@@ -640,6 +640,34 @@ class QubesVm(object):
 
         shutil.rmtree (self.dir_path)
 
+    def get_xml_attrs(self):
+        attrs = {}
+        attrs["qid"]  = str(self.qid)
+        attrs["name"] = self.name
+        attrs["dir_path"] = self.dir_path
+        attrs["conf_file"] = self.conf_file
+        attrs["root_img"] = self.root_img
+        attrs["rootcow_img"] = self.rootcow_img
+        attrs["private_img"] = self.private_img
+        attrs["uses_default_netvm"] = str(self.uses_default_netvm)
+        attrs["netvm_qid"] = str(self.netvm_vm.qid) if self.netvm_vm is not None else "none"
+        attrs["installed_by_rpm"] = str(self.installed_by_rpm)
+        attrs["updateable"] = str(self.updateable)
+        attrs["label"] = self.label.name
+        attrs["memory"] = str(self.memory)
+        attrs["vcpus"] = str(self.vcpus)
+        return attrs
+
+    def create_xml_element(self):
+        # Compatibility hack (Qubes*VM in type vs Qubes*Vm in XML)...
+        rx_type = re.compile (r"VM")
+
+        attrs = self.get_xml_attrs()
+        element = xml.etree.ElementTree.Element(
+            "Qubes" + rx_type.sub("Vm", self.type),
+            **attrs)
+        return element
+
 
 class QubesTemplateVm(QubesVm):
     """
@@ -854,25 +882,12 @@ class QubesTemplateVm(QubesVm):
         f_cow.close ()
         f_root.close()
 
-    def create_xml_element(self):
-        element = xml.etree.ElementTree.Element(
-            "QubesTemplateVm",
-            qid=str(self.qid),
-            name=self.name,
-            dir_path=self.dir_path,
-            conf_file=self.conf_file,
-            appvms_conf_file=self.appvms_conf_file,
-            netvms_conf_file=self.netvms_conf_file,
-            standalonevms_conf_file=self.standalonevms_conf_file,
-            root_img=self.root_img,
-            rootcow_img=self.rootcow_img,
-            private_img=self.private_img,
-            uses_default_netvm=str(self.uses_default_netvm),
-            netvm_qid=str(self.netvm_vm.qid) if self.netvm_vm is not None else "none",
-            installed_by_rpm=str(self.installed_by_rpm),
-            updateable=str(self.updateable),
-            )
-        return element
+    def get_xml_attrs(self):
+        attrs = super(QubesTemplateVm, self).get_xml_attrs()
+        attrs["appvms_conf_file"] = self.appvms_conf_file
+        attrs["netvms_conf_file"] = self.netvms_conf_file
+        attrs["standalonevms_conf_file"] = self.standalonevms_conf_file
+        return attrs
 
 class QubesCowVm(QubesVm):
     """
@@ -1055,6 +1070,11 @@ class QubesCowVm(QubesVm):
         subprocess.check_call ([qubes_appmenu_remove_cmd, self.name])
         shutil.rmtree (self.dir_path)
 
+    def get_xml_attrs(self):
+        attrs = super(QubesCowVm, self).get_xml_attrs()
+        attrs["template_qid"] = str(self.template_vm.qid) if self.template_vm is not None else "none"
+        return attrs
+
 class QubesNetVm(QubesCowVm):
     """
     A class that represents a NetVM. A child of QubesCowVM.
@@ -1145,24 +1165,12 @@ class QubesNetVm(QubesCowVm):
         self.__external_ip_allowed_xids.discard(int(xid))
         self.update_external_ip_permissions()
 
-    def create_xml_element(self):
-        element = xml.etree.ElementTree.Element(
-            "QubesNetVm",
-            qid=str(self.qid),
-            netid=str(self.netid),
-            name=self.name,
-            dir_path=self.dir_path,
-            conf_file=self.conf_file,
-            template_qid=str(self.template_vm.qid) if self.template_vm is not None else "none",
-            updateable=str(self.updateable),
-            root_img=self.root_img,
-            private_img=self.private_img,
-            installed_by_rpm=str(self.installed_by_rpm),
-            label=self.label.name,
-            memory=str(self.memory),
-            vcpus=str(self.vcpus),
-            )
-        return element
+    def get_xml_attrs(self):
+        attrs = super(QubesNetVm, self).get_xml_attrs()
+        attrs.pop("netvm_qid")
+        attrs.pop("uses_default_netvm")
+        attrs["netid"] = str(self.netid)
+        return attrs
 
 class QubesProxyVm(QubesNetVm):
     """
@@ -1292,25 +1300,10 @@ class QubesProxyVm(QubesNetVm):
             "/local/domain/{0}/qubes_iptables".format(self.get_xid()),
             iptables])
 
-    def create_xml_element(self):
-        element = xml.etree.ElementTree.Element(
-            "QubesProxyVm",
-            qid=str(self.qid),
-            netid=str(self.netid),
-            name=self.name,
-            dir_path=self.dir_path,
-            conf_file=self.conf_file,
-            template_qid=str(self.template_vm.qid) if self.template_vm is not None else "none",
-            updateable=str(self.updateable),
-            netvm_qid=str(self.netvm_vm.qid) if self.netvm_vm is not None else "none",
-            root_img=self.root_img,
-            private_img=self.private_img,
-            installed_by_rpm=str(self.installed_by_rpm),
-            label=self.label.name,
-            memory=str(self.memory),
-            vcpus=str(self.vcpus),
-            )
-        return element
+    def get_xml_attrs(self):
+        attrs = super(QubesProxyVm, self).get_xml_attrs()
+        attrs["netvm_qid"] = str(self.netvm_vm.qid) if self.netvm_vm is not None else "none"
+        return attrs
 
 class QubesDom0NetVm(QubesNetVm):
     def __init__(self):
@@ -1410,14 +1403,13 @@ class QubesDisposableVm(QubesVm):
     def type(self):
         return "DisposableVM"
 
-    def create_xml_element(self):
-        element = xml.etree.ElementTree.Element(
-            "QubesDisposableVm",
-            qid=str(self.qid),
-            name=self.name,
-            template_qid=str(self.template_vm.qid),
-            label=self.label.name)
-        return element
+    def get_xml_attrs(self):
+        attrs = {}
+        attrs["qid"] = str(self.qid)
+        attrs["name"] = self.name
+        attrs["template_qid"] = str(self.template_vm.qid)
+        attrs["label"] = self.label.name
+        return attrs
 
     def verify_files(self):
         return True
@@ -1536,26 +1528,6 @@ class QubesAppVm(QubesCowVm):
             return None
 
         return conf
-
-    def create_xml_element(self):
-        element = xml.etree.ElementTree.Element(
-            "QubesAppVm",
-            qid=str(self.qid),
-            name=self.name,
-            dir_path=self.dir_path,
-            conf_file=self.conf_file,
-            template_qid=str(self.template_vm.qid) if self.template_vm is not None else "none",
-            uses_default_netvm=str(self.uses_default_netvm),
-            netvm_qid=str(self.netvm_vm.qid) if self.netvm_vm is not None else "none",
-            root_img=self.root_img,
-            private_img=self.private_img,
-            installed_by_rpm=str(self.installed_by_rpm),
-            updateable=str(self.updateable),
-            label=self.label.name,
-            memory=str(self.memory),
-            vcpus=str(self.vcpus),
-            )
-        return element
 
     def start(self, debug_console = False, verbose = False, preparing_dvm = False):
         if dry_run:
