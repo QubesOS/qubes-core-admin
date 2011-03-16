@@ -73,8 +73,10 @@ cp qubes_core $RPM_BUILD_ROOT/etc/init.d/
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/usr/bin
 cp qubes_timestamp qvm-copy-to-vm qvm-open-in-dvm qvm-open-in-dvm2 $RPM_BUILD_ROOT/usr/bin
+cp qvm-copy-to-vm2 $RPM_BUILD_ROOT/usr/bin
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
 cp qubes_add_pendrive_script qubes_penctl qvm-copy-to-vm.kde $RPM_BUILD_ROOT/usr/lib/qubes
+cp qvm-copy-to-vm2.kde $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../qrexec/qrexec_agent $RPM_BUILD_ROOT/usr/lib/qubes
 cp dvm_file_editor qfile-agent qfile-agent-dvm qfile-unpacker $RPM_BUILD_ROOT/usr/lib/qubes
 ln -s /usr/bin/qvm-open-in-dvm $RPM_BUILD_ROOT/usr/lib/qubes/qvm-dvm-transfer 
@@ -205,7 +207,9 @@ rm -rf $RPM_BUILD_ROOT
 /etc/fstab
 /etc/init.d/qubes_core
 /usr/bin/qvm-copy-to-vm
+/usr/bin/qvm-copy-to-vm2
 /usr/lib/qubes/qvm-copy-to-vm.kde
+/usr/lib/qubes/qvm-copy-to-vm2.kde
 %attr(4755,root,root) /usr/bin/qvm-open-in-dvm
 /usr/bin/qvm-open-in-dvm2
 /usr/lib/qubes/qvm-dvm-transfer
