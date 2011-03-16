@@ -40,6 +40,7 @@ BuildRequires:  xen-devel
 Requires:	python, xen-runtime, pciutils, python-inotify, python-daemon, kernel-qubes-dom0
 Conflicts:      qubes-gui-dom0 < 1.1.13
 Requires:       NetworkManager >= 0.8.1-1
+Requires:       xen >= 3.4.3-6
 %define _builddir %(pwd)/dom0
 
 %description
