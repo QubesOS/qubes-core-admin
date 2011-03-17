@@ -53,6 +53,7 @@ struct _client_info {
 
 	int pid;
 	int is_blocked;
+	int is_close_after_flush_needed;
 	struct buffer buffer;
 };
 
@@ -176,6 +177,7 @@ void handle_exec(int clid, int len)
 	client_info[clid].stderr_fd = stderr_fd;
 	client_info[clid].pid = pid;
 	client_info[clid].is_blocked = 0;
+	client_info[clid].is_close_after_flush_needed = 0;
 	buffer_init(&client_info[clid].buffer);
 
 	fprintf(stderr, "executed %s pid %d\n", buf, pid);
@@ -242,8 +244,12 @@ void handle_input(int clid, int len)
 		return;
 
 	if (len == 0) {
-		close(client_info[clid].stdin_fd);
-		client_info[clid].stdin_fd = -1;
+		if (client_info[clid].is_blocked)
+			client_info[clid].is_close_after_flush_needed = 1;
+		else {
+			close(client_info[clid].stdin_fd);
+			client_info[clid].stdin_fd = -1;
+		}
 		return;
 	}
 
@@ -453,6 +459,11 @@ void flush_client_data_agent(int clid)
 	switch (flush_client_data(info->stdin_fd, clid, &info->buffer)) {
 	case WRITE_STDIN_OK:
 		info->is_blocked = 0;
+		if (info->is_close_after_flush_needed) {
+			close(info->stdin_fd);
+			info->stdin_fd = -1;
+			info->is_close_after_flush_needed = 0;
+		}
 		break;
 	case WRITE_STDIN_ERROR:
 		remove_process(clid, 128);
