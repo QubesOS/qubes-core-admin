@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
 #include "qrexec.h"
 #include "buffer.h"
 #include "glue.h"
@@ -88,4 +89,10 @@ int write_stdin(int fd, int clid, char *data, int len,
 		return WRITE_STDIN_ERROR;
 	}
 
+}
+
+void set_nonblock(int fd)
+{
+	int fl = fcntl(fd, F_GETFL, 0);
+	fcntl(fd, F_SETFL, fl | O_NONBLOCK);
 }

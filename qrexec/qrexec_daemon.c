@@ -148,12 +148,6 @@ void pass_to_agent(int fd, struct server_header *s_hdr)
 	write_all_vchan_ext(buf, len);
 }
 
-void set_nonblock(int fd)
-{
-	int fl = fcntl(fd, F_GETFL, 0);
-	fcntl(fd, F_SETFL, fl | O_NONBLOCK);
-}
-
 void handle_client_cmdline(int fd)
 {
 	struct client_header hdr;
