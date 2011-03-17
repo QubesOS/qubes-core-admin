@@ -60,6 +60,12 @@ int write_stdin(int fd, int clid, char *data, int len,
 		struct buffer *buffer)
 {
 	int ret;
+
+	if (buffer_len(buffer)) {
+		buffer_append(buffer, data, len);
+		return WRITE_STDIN_BUFFERED;
+	}
+	
 	ret = write(fd, data, len);
 	if (ret == len)
 		return WRITE_STDIN_OK;
