@@ -45,3 +45,4 @@ int flush_client_data(int fd, int clid, struct buffer *buffer);
 int write_stdin(int fd, int clid, char *data, int len,
 		struct buffer *buffer);
 void set_nonblock(int fd);
+int fork_and_flush_stdin(int fd, struct buffer *buffer);

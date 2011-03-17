@@ -206,8 +206,11 @@ void remove_process(int clid, int status)
 	int i;
 	if (!client_info[clid].pid)
 		return;
+        fork_and_flush_stdin(client_info[clid].stdin_fd, &client_info[clid].buffer); 
+#if 0 
+//      let's let it die by itself, possibly after it has received buffered stdin
 	kill(client_info[clid].pid, SIGKILL);
-
+#endif
 	if (status != -1)
 		send_exit_code(clid, status);
 

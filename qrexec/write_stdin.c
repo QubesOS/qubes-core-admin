@@ -23,6 +23,8 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <ioall.h>
+#include <stdlib.h>
 #include "qrexec.h"
 #include "buffer.h"
 #include "glue.h"
@@ -66,7 +68,7 @@ int write_stdin(int fd, int clid, char *data, int len,
 		buffer_append(buffer, data, len);
 		return WRITE_STDIN_BUFFERED;
 	}
-	
+
 	ret = write(fd, data, len);
 	if (ret == len)
 		return WRITE_STDIN_OK;
@@ -95,4 +97,32 @@ void set_nonblock(int fd)
 {
 	int fl = fcntl(fd, F_GETFL, 0);
 	fcntl(fd, F_SETFL, fl | O_NONBLOCK);
+}
+
+void set_block(int fd)
+{
+	int fl = fcntl(fd, F_GETFL, 0);
+	fcntl(fd, F_SETFL, fl & ~O_NONBLOCK);
+}
+
+int fork_and_flush_stdin(int fd, struct buffer *buffer)
+{
+	int i;
+	if (!buffer_len(buffer))
+		return 0;
+	switch (fork()) {
+	case -1:
+		perror("fork");
+		exit(1);
+	case 0:
+		break;
+	default:
+		return 1;
+	}
+	for (i = 0; i < MAX_FDS; i++)
+		if (i != fd && i != 2)
+			close(i);
+	set_block(fd);
+	write_all(fd, buffer_data(buffer), buffer_len(buffer));
+	exit(0);
 }

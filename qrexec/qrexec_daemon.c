@@ -118,10 +118,15 @@ void handle_new_client()
 		max_client_fd = fd;
 }
 
+int children_count;
+
 void flush_client(int fd)
 {
 	int i;
 	struct server_header s_hdr;
+	
+	if (fork_and_flush_stdin(fd, &clients[fd].buffer))
+	        children_count++;
 	close(fd);
 	clients[fd].state = CLIENT_INVALID;
 	buffer_free(&clients[fd].buffer);
@@ -249,7 +254,6 @@ void pass_to_client(int clid, struct client_header *hdr)
 	}
 }
 
-int children_count;
 int child_exited;
 
 void sigchld_handler(int x)
