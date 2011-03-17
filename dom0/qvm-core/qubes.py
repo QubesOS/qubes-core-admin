@@ -685,7 +685,10 @@ class QubesTemplateVm(QubesVm):
         netvms_conf_file = kwargs.pop("netvms_conf_file") if "netvms_conf_file" in kwargs else None
         standalonevms_conf_file = kwargs.pop("standalonevms_conf_file") if "standalonevms_conf_file" in kwargs else None
 
-        super(QubesTemplateVm, self).__init__(label = default_template_label, **kwargs)
+        if "label" not in kwargs or kwargs["label"] == None:
+            kwargs["label"] = default_template_label
+
+        super(QubesTemplateVm, self).__init__(**kwargs)
 
         dir_path = kwargs["dir_path"]
         if appvms_conf_file is not None and os.path.isabs(appvms_conf_file):
@@ -901,7 +904,10 @@ class QubesCowVm(QubesVm):
         if "updateable" not in kwargs or kwargs["updateable"] is None:
             kwargs["updateable"] = False
 
-        template_vm = kwargs.pop("template_vm")
+        if "template_vm" in kwargs:
+            template_vm = kwargs.pop("template_vm")
+        else:
+            template_vm = None
 
         super(QubesCowVm, self).__init__(**kwargs)
         qid = kwargs["qid"]
@@ -1072,7 +1078,7 @@ class QubesCowVm(QubesVm):
 
     def get_xml_attrs(self):
         attrs = super(QubesCowVm, self).get_xml_attrs()
-        attrs["template_qid"] = str(self.template_vm.qid) if self.template_vm is not None else "none"
+        attrs["template_qid"] = str(self.template_vm.qid) if not self.is_updateable() else "none"
         return attrs
 
 class QubesNetVm(QubesCowVm):
@@ -1177,7 +1183,8 @@ class QubesProxyVm(QubesNetVm):
     A class that represents a ProxyVM, ex FirewallVM. A child of QubesNetVM.
     """
     def __init__(self, **kwargs):
-        super(QubesProxyVm, self).__init__(uses_default_netvm=False, **kwargs)
+        kwargs["uses_default_netvm"] = False
+        super(QubesProxyVm, self).__init__(**kwargs)
         self.rules_applied = None
 
     @property
@@ -1813,6 +1820,73 @@ class QubesVmCollection(dict):
             return False
         return True
 
+    def parse_xml_element(self, element):
+        kwargs = {}
+        common_attr_list = ("qid", "name", "dir_path", "conf_file",
+                "private_img", "root_img", "template_qid",
+                "installed_by_rpm", "updateable",
+                "uses_default_netvm", "label")
+
+        for attribute in common_attr_list:
+            kwargs[attribute] = element.get(attribute)
+
+        kwargs["qid"] = int(kwargs["qid"])
+        if kwargs["updateable"] is not None:
+            kwargs["updateable"] = True if kwargs["updateable"] == "True" else False
+
+        if "installed_by_rpm" in kwargs:
+            kwargs["installed_by_rpm"] = True if kwargs["installed_by_rpm"] == "True" else False
+
+        if "template_qid" in kwargs:
+            if kwargs["template_qid"] == "none" or kwargs["template_qid"] is None:
+                kwargs.pop("template_qid")
+            else:
+                kwargs["template_qid"] = int(kwargs["template_qid"])
+                template_vm = self[kwargs.pop("template_qid")]
+                if template_vm is None:
+                    print "ERROR: VM '{0}' uses unkown template qid='{1}'!".\
+                            format(kwargs["name"], kwargs["template_qid"])
+
+                kwargs["template_vm"] = template_vm
+
+        if kwargs["label"] is not None:
+            if kwargs["label"] not in QubesVmLabels:
+                print "ERROR: incorrect label for VM '{0}'".format(kwargs["name"])
+                kwargs.pop ("label")
+            else:
+                kwargs["label"] = QubesVmLabels[kwargs["label"]]
+
+        return kwargs
+
+    def set_netvm_dependency(self, element):
+        kwargs = {}
+        attr_list = ("qid", "uses_default_netvm", "netvm_qid")
+
+        for attribute in attr_list:
+            kwargs[attribute] = element.get(attribute)
+
+        vm = self[int(kwargs["qid"])]
+
+        if "uses_default_netvm" not in kwargs:
+            vm.uses_default_netvm = True
+        else:
+            vm.uses_default_netvm = True if kwargs["uses_default_netvm"] == "True" else False
+        if vm.uses_default_netvm is True:
+            netvm_vm = self.get_default_netvm_vm()
+            kwargs.pop("netvm_qid")
+        else:
+            if kwargs["netvm_qid"] == "none" or kwargs["netvm_qid"] is None:
+                netvm_vm = None
+                kwargs.pop("netvm_qid")
+            else:
+                netvm_qid = int(kwargs.pop("netvm_qid"))
+                if netvm_qid not in self:
+                    netvm_vm = None
+                else:
+                    netvm_vm = self[netvm_qid]
+
+        vm.netvm_vm = netvm_vm
+
     def load(self):
         self.clear()
 
@@ -1853,20 +1927,12 @@ class QubesVmCollection(dict):
         for element in tree.findall("QubesTemplateVm"):
             try:
 
-                kwargs = {}
-                attr_list = ("qid", "name", "dir_path", "conf_file",
-                             "appvms_conf_file", "netvms_conf_file", "standalonevms_conf_file",
-                             "private_img", "root_img",
-                             "installed_by_rpm", "updateable",
-                             "uses_default_netvm")
+                kwargs = self.parse_xml_element(element)
+                # Add TemplateVM specific fields
+                attr_list = ("appvms_conf_file", "netvms_conf_file", "standalonevms_conf_file")
 
                 for attribute in attr_list:
                     kwargs[attribute] = element.get(attribute)
-
-                kwargs["qid"] = int(kwargs["qid"])
-                kwargs["installed_by_rpm"] = True if kwargs["installed_by_rpm"] == "True" else False
-                if kwargs["updateable"] is not None:
-                    kwargs["updateable"] = True if kwargs["updateable"] == "True" else False
 
                 vm = QubesTemplateVm(**kwargs)
 
@@ -1880,38 +1946,14 @@ class QubesVmCollection(dict):
         # is needed to create all other VMs
         for element in tree.findall("QubesNetVm"):
             try:
-                kwargs = {}
-                attr_list = ("qid", "netid", "name", "dir_path", "conf_file",
-                              "private_img", "template_qid", "updateable", "label",
-                              "root_img",
-                              )
+                kwargs = self.parse_xml_element(element)
+                # Add NetVM specific fields
+                attr_list = ("netid",)
 
                 for attribute in attr_list:
                     kwargs[attribute] = element.get(attribute)
 
-                kwargs["qid"] = int(kwargs["qid"])
-                if kwargs["updateable"] is not None:
-                    kwargs["updateable"] = True if kwargs["updateable"] == "True" else False
-
-                template_vm = None
-                if kwargs["updateable"] == False:
-                    kwargs["template_qid"] = int(kwargs["template_qid"])
-                    template_vm = self[kwargs.pop("template_qid")]
-                    if template_vm is None:
-                        print "ERROR: NetVM '{0}' uses unkown template qid='{1}'!".\
-                                format(kwargs["name"], kwargs["template_qid"])
-                else:
-                    kwargs.pop("template_qid")
-
-                kwargs["template_vm"] = template_vm
                 kwargs["netid"] = int(kwargs["netid"])
-
-                if kwargs["label"] is not None:
-                    if kwargs["label"] not in QubesVmLabels:
-                        print "ERROR: incorrect label for VM '{0}'".format(kwargs["name"])
-                        kwargs.pop ("label")
-                    else:
-                        kwargs["label"] = QubesVmLabels[kwargs["label"]]
 
                 vm = QubesNetVm(**kwargs)
                 self[vm.qid] = vm
@@ -1925,36 +1967,14 @@ class QubesVmCollection(dict):
         # by other VMs
         for element in tree.findall("QubesProxyVm"):
             try:
-                kwargs = {}
-                attr_list = ("qid", "netid", "name", "dir_path", "conf_file", "updateable",
-                              "private_img", "template_qid", "label")
+                kwargs = self.parse_xml_element(element)
+                # Add ProxyVM specific fields
+                attr_list = ("netid",)
 
                 for attribute in attr_list:
                     kwargs[attribute] = element.get(attribute)
 
-                kwargs["qid"] = int(kwargs["qid"])
-                if kwargs["updateable"] is not None:
-                    kwargs["updateable"] = True if kwargs["updateable"] == "True" else False
-
-                template_vm = None
-                if kwargs["updateable"] == False:
-                    kwargs["template_qid"] = int(kwargs["template_qid"])
-                    template_vm = self[kwargs.pop("template_qid")]
-                    if template_vm is None:
-                        print "ERROR: ProxyVM '{0}' uses unkown template qid='{1}'!".\
-                                format(kwargs["name"], kwargs["template_qid"])
-                else:
-                    kwargs.pop("template_qid")
-
-                kwargs["template_vm"] = template_vm
                 kwargs["netid"] = int(kwargs["netid"])
-
-                if kwargs["label"] is not None:
-                    if kwargs["label"] not in QubesVmLabels:
-                        print "ERROR: incorrect label for VM '{0}'".format(kwargs["name"])
-                        kwargs.pop ("label")
-                    else:
-                        kwargs["label"] = QubesVmLabels[kwargs["label"]]
 
                 vm = QubesProxyVm(**kwargs)
                 self[vm.qid] = vm
@@ -1968,35 +1988,7 @@ class QubesVmCollection(dict):
         # 1. For TemplateVMs
         for element in tree.findall("QubesTemplateVm"):
             try:
-
-                kwargs = {}
-                attr_list = ("qid", "uses_default_netvm", "netvm_qid")
-
-                for attribute in attr_list:
-                    kwargs[attribute] = element.get(attribute)
-
-                vm = self[int(kwargs["qid"])]
-
-                if "uses_default_netvm" not in kwargs:
-                    vm.uses_default_netvm = True
-                else:
-                    vm.uses_default_netvm = True if kwargs["uses_default_netvm"] == "True" else False
-                if vm.uses_default_netvm is True:
-                    netvm_vm = self.get_default_netvm_vm()
-                    kwargs.pop("netvm_qid")
-                else:
-                    if kwargs["netvm_qid"] == "none" or kwargs["netvm_qid"] is None:
-                        netvm_vm = None
-                        kwargs.pop("netvm_qid")
-                    else:
-                        netvm_qid = int(kwargs.pop("netvm_qid"))
-                        if netvm_qid not in self:
-                            netvm_vm = None
-                        else:
-                            netvm_vm = self[netvm_qid]
-
-                vm.netvm_vm = netvm_vm
-
+                self.set_netvm_dependency(element)
             except (ValueError, LookupError) as err:
                 print("{0}: import error (QubesTemplateVm): {1}".format(
                     os.path.basename(sys.argv[0]), err))
@@ -2005,26 +1997,7 @@ class QubesVmCollection(dict):
         # 2. For PoxyVMs
         for element in tree.findall("QubesProxyVm"):
             try:
-                kwargs = {}
-                attr_list = ("qid", "netvm_qid")
-
-                for attribute in attr_list:
-                    kwargs[attribute] = element.get(attribute)
-
-                vm = self[int(kwargs["qid"])]
-
-                if kwargs["netvm_qid"] == "none" or kwargs["netvm_qid"] is None:
-                    netvm_vm = None
-                    kwargs.pop("netvm_qid")
-                else:
-                    netvm_qid = int(kwargs.pop("netvm_qid"))
-                    if netvm_qid not in self:
-                        netvm_vm = None
-                    else:
-                        netvm_vm = self[netvm_qid]
-
-                vm.netvm_vm = netvm_vm
-
+                self.set_netvm_dependency(element)
             except (ValueError, LookupError) as err:
                 print("{0}: import error (QubesProxyVM) {1}".format(
                     os.path.basename(sys.argv[0]), err))
@@ -2033,61 +2006,12 @@ class QubesVmCollection(dict):
         # Finally, read in the AppVMs
         for element in tree.findall("QubesAppVm"):
             try:
-                kwargs = {}
-                attr_list = ("qid", "name", "dir_path", "conf_file",
-                             "private_img", "template_qid",
-                             "updateable", "label", "netvm_qid",
-                             "uses_default_netvm")
-
-                for attribute in attr_list:
-                    kwargs[attribute] = element.get(attribute)
-
-                kwargs["qid"] = int(kwargs["qid"])
-                if kwargs["updateable"] is not None:
-                    kwargs["updateable"] = True if kwargs["updateable"] == "True" else False
-
-                template_vm = None
-                if kwargs["updateable"] == False:
-                    kwargs["template_qid"] = int(kwargs["template_qid"])
-                    template_vm = self[kwargs.pop("template_qid")]
-                    if template_vm is None:
-                        print "ERROR: AppVM '{0}' uses unkown template qid='{1}'!".\
-                                format(kwargs["name"], kwargs["template_qid"])
-                else:
-                    kwargs.pop("template_qid")
-
-                kwargs["template_vm"] = template_vm
-
-                if "uses_default_netvm" not in kwargs:
-                    kwargs["uses_default_netvm"] = True
-                else:
-                    kwargs["uses_default_netvm"] = True if kwargs["uses_default_netvm"] == "True" else False
-                if kwargs["uses_default_netvm"] is True:
-                    netvm_vm = self.get_default_netvm_vm()
-                    kwargs.pop("netvm_qid")
-                else:
-                    if kwargs["netvm_qid"] == "none" or kwargs["netvm_qid"] is None:
-                        netvm_vm = None
-                        kwargs.pop("netvm_qid")
-                    else:
-                        netvm_qid = int(kwargs.pop("netvm_qid"))
-                        if netvm_qid not in self:
-                            netvm_vm = None
-                        else:
-                            netvm_vm = self[netvm_qid]
-
-                kwargs["netvm_vm"] = netvm_vm
-
-                if kwargs["label"] is not None:
-                    if kwargs["label"] not in QubesVmLabels:
-                        print "ERROR: incorrect label for VM '{0}'".format(kwargs["name"])
-                        kwargs.pop ("label")
-                    else:
-                        kwargs["label"] = QubesVmLabels[kwargs["label"]]
-
+                kwargs = self.parse_xml_element(element)
                 vm = QubesAppVm(**kwargs)
 
                 self[vm.qid] = vm
+
+                self.set_netvm_dependency(element)
             except (ValueError, LookupError) as err:
                 print("{0}: import error (QubesAppVm): {1}".format(
                     os.path.basename(sys.argv[0]), err))
