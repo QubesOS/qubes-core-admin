@@ -58,24 +58,30 @@ int flush_client_data(int fd, int clid, struct buffer *buffer)
 
 }
 
-
 int write_stdin(int fd, int clid, char *data, int len,
 		struct buffer *buffer)
 {
 	int ret;
+	int written = 0;
 
 	if (buffer_len(buffer)) {
 		buffer_append(buffer, data, len);
 		return WRITE_STDIN_BUFFERED;
 	}
-
-	ret = write(fd, data, len);
-	if (ret == len)
-		return WRITE_STDIN_OK;
-	if (ret == -1) {
-		if (errno == EAGAIN) {
+	while (written < len) {
+		ret = write(fd, data + written, len - written);
+		if (ret == 0) {
+			perror("write_stdin: write returns 0 ???");
+			exit(1);
+		}
+		if (ret == -1) {
 			struct server_header s_hdr;
-			buffer_append(buffer, data, len);
+
+			if (errno != EAGAIN)
+				return WRITE_STDIN_ERROR;
+
+			buffer_append(buffer, data + written,
+				      len - written);
 
 			s_hdr.type = MSG_XOFF;
 			s_hdr.clid = clid;
@@ -83,13 +89,10 @@ int write_stdin(int fd, int clid, char *data, int len,
 			write_all_vchan_ext(&s_hdr, sizeof s_hdr);
 
 			return WRITE_STDIN_BUFFERED;
-		} else
-			return WRITE_STDIN_ERROR;
-	} else {
-		fprintf(stderr,
-			"writes < PIPE_BUF were supposed to be atomic ?\n");
-		return WRITE_STDIN_ERROR;
+		}
+		written += ret;
 	}
+	return WRITE_STDIN_OK;
 
 }
 
