@@ -1189,12 +1189,12 @@ class QubesProxyVm(QubesNetVm):
             reject_action = "REJECT --reject-with icmp-host-prohibited"
 
             if conf["allow"]:
-                rules_action = accept_action
-                default_action = reject_action
+                default_action = accept_action
+                rules_action = reject_action
                 iptables += "-A FORWARD -i vif{0}.0 -p icmp -j ACCEPT\n".format(xid)
             else:
-                rules_action = reject_action
-                default_action = accept_action
+                default_action = reject_action
+                rules_action = accept_action
 
             for rule in conf["rules"]:
                 iptables += "-A FORWARD -i vif{0}.0 -d {1}".format(xid, rule["address"])
