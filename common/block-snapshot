@@ -176,10 +176,10 @@ case "$command" in
           done
         fi
 	
-	if [ -e $node ]; then
+        if [ -e $node ]; then
           log debug "Removing $node"
           dmsetup remove $node
-	fi
+        fi
 
         # try to free loop devices
         for dev in $deps; do
