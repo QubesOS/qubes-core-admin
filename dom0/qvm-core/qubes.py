@@ -973,6 +973,12 @@ class QubesCowVm(QubesVm):
 
         raise QubesException ("Change 'updateable' flag is not supported. Please use qvm-create.")
 
+    def set_nonupdateable(self):
+        if self.is_updateable():
+            return
+
+        raise QubesException ("Change 'updateable' flag is not supported. Please use qvm-create.")
+
     def create_config_file(self):
         conf_template = None
         if self.type == "NetVM":
