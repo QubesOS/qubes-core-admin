@@ -690,7 +690,7 @@ class QubesTemplateVm(QubesVm):
 
         # Clean image for root-cow and swap (AppVM side)
         self.clean_volatile_img = self.dir_path + "/" + default_clean_volatile_img
-
+        
         # Image for template changes
         self.rootcow_img = self.dir_path + "/" + default_rootcow_img
 
@@ -915,7 +915,6 @@ class QubesTemplateVm(QubesVm):
             return
         if os.path.exists (self.rootcow_img):
            os.remove (self.rootcow_img)
-
 
         f_cow = open (self.rootcow_img, "w")
         f_root = open (self.root_img, "r")
