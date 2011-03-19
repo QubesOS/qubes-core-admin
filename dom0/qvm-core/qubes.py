@@ -890,7 +890,7 @@ class QubesTemplateVm(QubesVm):
 
         return super(QubesTemplateVm, self).start(debug_console=debug_console, verbose=verbose)
 
-    def reset_volatile_storage():
+    def reset_volatile_storage(self):
         assert not self.is_running(), "Attempt to clean volatile image of running Template VM!"
 
         print "--> Cleaning volatile image: {0}...".format (self.volatile_img)
@@ -1079,14 +1079,11 @@ class QubesCowVm(QubesVm):
         if self.is_running():
             raise QubesException("VM is already running!")
 
-        if not self.is_updateable():
-            self.reset_volatile_storage()
-
         self.reset_volatile_storage()
 
         return super(QubesCowVm, self).start(debug_console=debug_console, verbose=verbose, preparing_dvm=preparing_dvm)
 
-    def reset_volatile_storage():
+    def reset_volatile_storage(self):
         assert not self.is_running(), "Attempt to clean volatile image of running VM!"
 
         # Only makes sense on template based VM
