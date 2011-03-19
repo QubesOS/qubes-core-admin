@@ -59,5 +59,5 @@ if ! xm save $1 $2 ; then
 fi
 rm -f $QMEMMAN_STOP
 cd $VMDIR
-tar -Scvf saved_cows.tar root-cow.img swap-cow.img
+tar -Scvf saved_cows.tar volatile.img
 echo "DVM savefile created successfully."

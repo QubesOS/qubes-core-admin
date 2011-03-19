@@ -46,7 +46,7 @@ def do_list(vm):
         print fmt.format ("root COW img", vm.rootcow_img)
     if vm.is_appvm():
         print fmt.format ("root img", vm.template_vm.root_img)
-        print fmt.format ("root COW img", vm.rootcow_img)
+        print fmt.format ("root volatile img", vm.volatile_img)
 
     print fmt.format ("private img", vm.private_img)
 

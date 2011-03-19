@@ -60,7 +60,8 @@ vm_default_netmask = "255.255.0.0"
 
 default_root_img = "root.img"
 default_rootcow_img = "root-cow.img"
-default_swapcow_img = "swap-cow.img"
+default_volatile_img = "volatile.img"
+default_clean_volatile_img = "clean-volatile.img"
 default_private_img = "private.img"
 default_appvms_conf_file = "appvm-template.conf"
 default_netvms_conf_file = "netvm-template.conf"
@@ -81,11 +82,6 @@ dom0_vm = None
 
 qubes_appmenu_create_cmd = "/usr/lib/qubes/create_apps_for_appvm.sh"
 qubes_appmenu_remove_cmd = "/usr/lib/qubes/remove_appvm_appmenus.sh"
-
-# TODO: we should detect the actual size of the AppVM's swap partition
-# rather than using this ugly hardcoded value, which was choosen here
-# as "should be good for everyone"
-swap_cow_sz = 1024*1024*1024
 
 class XendSession(object):
     def __init__(self):
@@ -213,7 +209,7 @@ class QubesVm(object):
             self.root_img = dir_path + "/" + (
                 root_img if root_img is not None else default_root_img)
 
-        self.rootcow_img = dir_path + "/" + default_rootcow_img
+        self.volatile_img = dir_path + "/" + default_volatile_img
 
         if private_img is not None and os.path.isabs(private_img):
             self.private_img = private_img
@@ -647,7 +643,7 @@ class QubesVm(object):
         attrs["dir_path"] = self.dir_path
         attrs["conf_file"] = self.conf_file
         attrs["root_img"] = self.root_img
-        attrs["rootcow_img"] = self.rootcow_img
+        attrs["volatile_img"] = self.volatile_img
         attrs["private_img"] = self.private_img
         attrs["uses_default_netvm"] = str(self.uses_default_netvm)
         attrs["netvm_qid"] = str(self.netvm_vm.qid) if self.netvm_vm is not None else "none"
@@ -691,6 +687,13 @@ class QubesTemplateVm(QubesVm):
         super(QubesTemplateVm, self).__init__(**kwargs)
 
         dir_path = kwargs["dir_path"]
+
+        # Clean image for root-cow and swap (AppVM side)
+        self.clean_volatile_img = self.dir_path + "/" + default_clean_volatile_img
+
+        # Image for template changes
+        self.rootcow_img = self.dir_path + "/" + default_rootcow_img
+
         if appvms_conf_file is not None and os.path.isabs(appvms_conf_file):
             self.appvms_conf_file = appvms_conf_file
         else:
@@ -799,13 +802,21 @@ class QubesTemplateVm(QubesVm):
             raise IOError ("Error while copying {0} to {1}".\
                            format(src_template_vm.root_img, self.root_img))
         if verbose:
-            print "--> Copying the template's root COW image:\n{0} ==>\n{1}".\
-                    format(src_template_vm.rootcow_img, self.rootcow_img)
+            print "--> Copying the template's clean volatile image:\n{0} ==>\n{1}".\
+                    format(src_template_vm.clean_volatile_img, self.clean_volatile_img)
         # We prefer to use Linux's cp, because it nicely handles sparse files
-        retcode = subprocess.call (["cp", src_template_vm.rootcow_img, self.rootcow_img])
+        retcode = subprocess.call (["cp", src_template_vm.clean_volatile_img, self.clean_volatile_img])
         if retcode != 0:
             raise IOError ("Error while copying {0} to {1}".\
-                           format(src_template_vm.root_img, self.root_img))
+                           format(src_template_vm.clean_volatile_img, self.clean_volatile_img))
+        if verbose:
+            print "--> Copying the template's volatile image:\n{0} ==>\n{1}".\
+                    format(self.clean_volatile_img, self.volatile_img)
+        # We prefer to use Linux's cp, because it nicely handles sparse files
+        retcode = subprocess.call (["cp", self.clean_volatile_img, self.volatile_img])
+        if retcode != 0:
+            raise IOError ("Error while copying {0} to {1}".\
+                           format(self.clean_volatile_img, self.volatile_img))
         if verbose:
             print "--> Copying the template's kernel dir:\n{0} ==>\n{1}".\
                     format(src_template_vm.kernels_dir, self.kernels_dir)
@@ -816,6 +827,8 @@ class QubesTemplateVm(QubesVm):
                     format(src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
         shutil.copytree (src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
 
+        # Create root-cow.img
+        self.commit_changes()
 
     def verify_files(self):
         if dry_run:
@@ -847,6 +860,16 @@ class QubesTemplateVm(QubesVm):
                 "VM private image file doesn't exist: {0}".\
                 format(self.private_img))
 
+        if not os.path.exists (self.volatile_img):
+            raise QubesException (
+                "VM volatile image file doesn't exist: {0}".\
+                format(self.volatile_img))
+
+        if not os.path.exists (self.clean_volatile_img):
+            raise QubesException (
+                "Clean VM volatile image file doesn't exist: {0}".\
+                format(self.clean_volatile_img))
+
         if not os.path.exists (self.kernels_dir):
             raise QubesException (
                 "VM's kernels directory does not exist: {0}".\
@@ -858,6 +881,7 @@ class QubesTemplateVm(QubesVm):
         if dry_run:
             return
 
+        self.reset_volatile_storage()
 
         if not self.is_updateable():
             raise QubesException ("Cannot start Template VM that is marked \"nonupdatable\"")
@@ -865,6 +889,21 @@ class QubesTemplateVm(QubesVm):
         # TODO?: check if none of running appvms are outdated
 
         return super(QubesTemplateVm, self).start(debug_console=debug_console, verbose=verbose)
+
+    def reset_volatile_storage():
+        assert not self.is_running(), "Attempt to clean volatile image of running Template VM!"
+
+        print "--> Cleaning volatile image: {0}...".format (self.volatile_img)
+        if dry_run:
+            return
+        if os.path.exists (self.volatile_img):
+           os.remove (self.volatile_img)
+
+        # We prefer to use Linux's cp, because it nicely handles sparse files
+        retcode = subprocess.call (["cp", self.clean_volatile_img, self.volatile_img])
+        if retcode != 0:
+            raise IOError ("Error while copying {0} to {1}".\
+                           format(self.clean_volatile_img, self.volatile_img))
 
     def commit_changes (self):
 
@@ -890,6 +929,8 @@ class QubesTemplateVm(QubesVm):
         attrs["appvms_conf_file"] = self.appvms_conf_file
         attrs["netvms_conf_file"] = self.netvms_conf_file
         attrs["standalonevms_conf_file"] = self.standalonevms_conf_file
+        attrs["clean_volatile_img"] = self.clean_volatile_img
+        attrs["rootcow_img"] = self.rootcow_img
         return attrs
 
 class QubesCowVm(QubesVm):
@@ -926,8 +967,6 @@ class QubesCowVm(QubesVm):
             assert self.root_img is not None, "Missing root_img for standalone VM!"
 
         self.template_vm = template_vm
-
-        self.swapcow_img = dir_path + "/" + default_swapcow_img
 
     def set_updateable(self):
         if self.is_updateable():
@@ -1001,6 +1040,9 @@ class QubesCowVm(QubesVm):
                 raise IOError ("Error while copying {0} to {1}".\
                                format(template_root, self.root_img))
 
+        # Create volatile.img
+        self.reset_volatile_storage()
+
     def verify_files(self):
         if dry_run:
             return
@@ -1034,44 +1076,34 @@ class QubesCowVm(QubesVm):
             raise QubesException("VM is already running!")
 
         if not self.is_updateable():
-            self.reset_cow_storage()
+            self.reset_volatile_storage()
 
-        self.reset_swap_cow_storage()
+        self.reset_volatile_storage()
 
         return super(QubesCowVm, self).start(debug_console=debug_console, verbose=verbose, preparing_dvm=preparing_dvm)
 
-    def reset_cow_storage (self):
+    def reset_volatile_storage():
+        assert not self.is_running(), "Attempt to clean volatile image of running VM!"
 
-        print "--> Resetting the COW storage: {0}...".format (self.rootcow_img)
+        # Only makes sense on template based VM
+        if not self.template_vm:
+            return
 
+        print "--> Cleaning volatile image: {0}...".format (self.volatile_img)
         if dry_run:
             return
-        # this is probbaly not needed, as open (..., "w") should remove the previous file
-        if os.path.exists (self.rootcow_img):
-           os.remove (self.rootcow_img)
+        if os.path.exists (self.volatile_img):
+           os.remove (self.volatile_img)
 
-
-        f_cow = open (self.rootcow_img, "w")
-        f_root = open (self.template_vm.root_img, "r")
-        f_root.seek(0, os.SEEK_END)
-        f_cow.truncate (f_root.tell()) # make empty sparse file of the same size as root.img
-        f_cow.close ()
-        f_root.close()
-
-    def reset_swap_cow_storage (self):
-        print "--> Resetting the swap COW storage: {0}...".format (self.swapcow_img)
-        if os.path.exists (self.swapcow_img):
-           os.remove (self.swapcow_img)
-
-        f_swap_cow = open (self.swapcow_img, "w")
-        f_swap_cow.truncate (swap_cow_sz)
-        f_swap_cow.close()
-
+        # We prefer to use Linux's cp, because it nicely handles sparse files
+        retcode = subprocess.call (["cp", self.template_vm.clean_volatile_img, self.volatile_img])
+        if retcode != 0:
+            raise IOError ("Error while copying {0} to {1}".\
+                           format(self.template_vm.clean_volatile_img, self.volatile_img))
 
     def remove_from_disk(self):
         if dry_run:
             return
-
 
         subprocess.check_call ([qubes_appmenu_remove_cmd, self.name])
         shutil.rmtree (self.dir_path)
@@ -1535,14 +1567,6 @@ class QubesAppVm(QubesCowVm):
             return None
 
         return conf
-
-    def start(self, debug_console = False, verbose = False, preparing_dvm = False):
-        if dry_run:
-            return
-
-        self.reset_swap_cow_storage()
-
-        return super(QubesAppVm, self).start(debug_console=debug_console, verbose=verbose, preparing_dvm=preparing_dvm)
 
 class QubesVmCollection(dict):
     """

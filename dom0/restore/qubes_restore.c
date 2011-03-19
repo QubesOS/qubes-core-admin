@@ -239,10 +239,10 @@ char *build_dvm_ip(int netvm, int id)
 	return buf;
 }
 
-#define NAME_PATTERN "/root-cow.img"
+#define NAME_PATTERN "/volatile.img"
 // replaces the unique portions of the savefile with per-dvm values
 // returns the name of VM the savefile was taken for 
-// by looking for /.../vmname/root-cow.img
+// by looking for /.../vmname/volatile.img
 // normally, it should be "templatename-dvm"
 char *get_vmname_from_savefile(int fd)
 {
@@ -258,7 +258,7 @@ char *get_vmname_from_savefile(int fd)
 	name = strstr(buf + 20, NAME_PATTERN);
 	if (!name) {
 		fprintf(stderr,
-			"cannot find 'root-cow.img' in savefile\n");
+			"cannot find 'volatile.img' in savefile\n");
 		exit(1);
 	}
 	*name = 0;
