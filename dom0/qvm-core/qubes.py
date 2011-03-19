@@ -61,7 +61,7 @@ vm_default_netmask = "255.255.0.0"
 default_root_img = "root.img"
 default_rootcow_img = "root-cow.img"
 default_volatile_img = "volatile.img"
-default_clean_volatile_img = "clean-volatile.img"
+default_clean_volatile_img = "clean-volatile.img.tar"
 default_private_img = "private.img"
 default_appvms_conf_file = "appvm-template.conf"
 default_netvms_conf_file = "netvm-template.conf"
@@ -899,11 +899,10 @@ class QubesTemplateVm(QubesVm):
         if os.path.exists (self.volatile_img):
            os.remove (self.volatile_img)
 
-        # We prefer to use Linux's cp, because it nicely handles sparse files
-        retcode = subprocess.call (["cp", self.clean_volatile_img, self.volatile_img])
+        retcode = subprocess.call (["tar", "xf", self.clean_volatile_img, "-C", self.dir_path])
         if retcode != 0:
-            raise IOError ("Error while copying {0} to {1}".\
-                           format(self.clean_volatile_img, self.volatile_img))
+            raise IOError ("Error while unpacking {0} to {1}".\
+                           format(self.template_vm.clean_volatile_img, self.volatile_img))
 
     def commit_changes (self):
 
@@ -1100,10 +1099,9 @@ class QubesCowVm(QubesVm):
         if os.path.exists (self.volatile_img):
            os.remove (self.volatile_img)
 
-        # We prefer to use Linux's cp, because it nicely handles sparse files
-        retcode = subprocess.call (["cp", self.template_vm.clean_volatile_img, self.volatile_img])
+        retcode = subprocess.call (["tar", "xf", self.template_vm.clean_volatile_img, "-C", self.dir_path])
         if retcode != 0:
-            raise IOError ("Error while copying {0} to {1}".\
+            raise IOError ("Error while unpacking {0} to {1}".\
                            format(self.template_vm.clean_volatile_img, self.volatile_img))
 
     def remove_from_disk(self):
