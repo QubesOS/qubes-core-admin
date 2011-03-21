@@ -45,6 +45,9 @@ The Qubes core files for installation inside a Qubes NetVM.
 %pre
 
 %build
+make -C ../qrexec
+make -C ../vchan
+make -C ../u2mfn
 
 %install
 
@@ -53,6 +56,7 @@ mkdir -p $RPM_BUILD_ROOT/etc/init.d
 cp qubes_core_netvm $RPM_BUILD_ROOT/etc/init.d/
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
+cp ../qrexec/qrexec_agent $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../common/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../common/qubes_fix_nm_conf.sh $RPM_BUILD_ROOT/usr/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/etc/dhclient.d
@@ -63,6 +67,10 @@ cp ../netvm/30-qubes_external_ip $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d
 mkdir -p $RPM_BUILD_ROOT/var/run/qubes
 mkdir -p $RPM_BUILD_ROOT/etc/xen/scripts
 cp ../common/vif-route-qubes $RPM_BUILD_ROOT/etc/xen/scripts
+install -D ../vchan/libvchan.so $RPM_BUILD_ROOT/%{_libdir}/libvchan.so
+install -D ../u2mfn/libu2mfn.so $RPM_BUILD_ROOT/%{_libdir}/libu2mfn.so
+
+mkdir -p $RPM_BUILD_ROOT/var/run/qubes
 
 %post
 
@@ -83,10 +91,14 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root,-)
 /etc/init.d/qubes_core_netvm
+/usr/lib/qubes/qrexec_agent
 /usr/lib/qubes/qubes_setup_dnat_to_ns
 /usr/lib/qubes/qubes_fix_nm_conf.sh
 /etc/dhclient.d/qubes_setup_dnat_to_ns.sh
 /etc/NetworkManager/dispatcher.d/qubes_nmhook
 /etc/NetworkManager/dispatcher.d/30-qubes_external_ip
 /etc/xen/scripts/vif-route-qubes
+%dir /var/run/qubes
+%{_libdir}/libvchan.so
+%{_libdir}/libu2mfn.so
 %dir /var/run/qubes

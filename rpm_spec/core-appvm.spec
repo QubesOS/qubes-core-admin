@@ -60,6 +60,9 @@ mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 %build
 make clean all
 make -C ../common
+make -C ../qrexec
+make -C ../vchan
+make -C ../u2mfn
 
 %install
 
@@ -67,9 +70,13 @@ mkdir -p $RPM_BUILD_ROOT/etc/init.d
 cp qubes_core_appvm $RPM_BUILD_ROOT/etc/init.d/
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/usr/bin
-cp qubes_timestamp qvm-copy-to-vm qvm-open-in-dvm $RPM_BUILD_ROOT/usr/bin
+cp qubes_timestamp qvm-copy-to-vm qvm-open-in-dvm qvm-open-in-dvm2 $RPM_BUILD_ROOT/usr/bin
+cp qvm-copy-to-vm2 $RPM_BUILD_ROOT/usr/bin
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
 cp qubes_add_pendrive_script qubes_penctl qvm-copy-to-vm.kde $RPM_BUILD_ROOT/usr/lib/qubes
+cp qvm-copy-to-vm2.kde $RPM_BUILD_ROOT/usr/lib/qubes
+cp ../qrexec/qrexec_agent $RPM_BUILD_ROOT/usr/lib/qubes
+cp dvm_file_editor qfile-agent qfile-agent-dvm qfile-unpacker $RPM_BUILD_ROOT/usr/lib/qubes
 ln -s /usr/bin/qvm-open-in-dvm $RPM_BUILD_ROOT/usr/lib/qubes/qvm-dvm-transfer 
 cp ../common/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/%{kde_service_dir}
@@ -85,6 +92,18 @@ cp xorg-preload-apps.conf $RPM_BUILD_ROOT/etc/X11
 
 mkdir -p $RPM_BUILD_ROOT/home_volatile/user
 chown 500:500 $RPM_BUILD_ROOT/home_volatile/user
+
+install -D ../vchan/libvchan.h $RPM_BUILD_ROOT/usr/include/libvchan.h
+install -D ../u2mfn/u2mfnlib.h $RPM_BUILD_ROOT/usr/include/u2mfnlib.h
+install -D ../u2mfn/u2mfn-kernel.h $RPM_BUILD_ROOT/usr/include/u2mfn-kernel.h
+
+install -D ../vchan/libvchan.so $RPM_BUILD_ROOT/%{_libdir}/libvchan.so
+install -D ../u2mfn/libu2mfn.so $RPM_BUILD_ROOT/%{_libdir}/libu2mfn.so
+
+mkdir -p $RPM_BUILD_ROOT/var/run/qubes
+
+%triggerin -- initscripts
+cp /var/lib/qubes/serial.conf /etc/init/serial.conf
 
 %post
 
@@ -111,14 +130,22 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 /etc/init.d/qubes_core_appvm
 /usr/bin/qvm-copy-to-vm
+/usr/bin/qvm-copy-to-vm2
 /usr/lib/qubes/qvm-copy-to-vm.kde
+/usr/lib/qubes/qvm-copy-to-vm2.kde
 %attr(4755,root,root) /usr/bin/qvm-open-in-dvm
+/usr/bin/qvm-open-in-dvm2
 /usr/lib/qubes/qvm-dvm-transfer
 /usr/lib/qubes/meminfo-writer
+/usr/lib/qubes/dvm_file_editor
 %{kde_service_dir}/qvm-copy.desktop
 %{kde_service_dir}/qvm-dvm.desktop
 %attr(4755,root,root) /usr/lib/qubes/qubes_penctl
 /usr/lib/qubes/qubes_add_pendrive_script
+/usr/lib/qubes/qrexec_agent
+/usr/lib/qubes/qfile-agent
+/usr/lib/qubes/qfile-agent-dvm
+/usr/lib/qubes/qfile-unpacker
 /etc/udev/rules.d/qubes.rules
 %dir /mnt/incoming
 %dir /mnt/outgoing
@@ -127,3 +154,20 @@ rm -rf $RPM_BUILD_ROOT
 %dir /home_volatile
 %attr(700,user,user) /home_volatile/user
 /etc/X11/xorg-preload-apps.conf
+/usr/include/libvchan.h
+%{_libdir}/libvchan.so
+%{_libdir}/libu2mfn.so
+%dir /var/run/qubes
+
+
+%package devel
+Summary:        Include files for qubes core libraries
+License:        GPL v2 only
+Group:          Development/Sources 
+
+%description devel
+
+%files devel
+/usr/include/libvchan.h
+/usr/include/u2mfnlib.h
+/usr/include/u2mfn-kernel.h
