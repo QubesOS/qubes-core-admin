@@ -1184,14 +1184,12 @@ class QubesProxyVm(QubesNetVm):
             iptables += "# '{0}' VM:\n".format(vm.name)
             iptables += "-A FORWARD ! -s {0}/32 -i vif{1}.0 -j DROP\n".format(vm.ip, xid)
 
-
             accept_action = "ACCEPT"
             reject_action = "REJECT --reject-with icmp-host-prohibited"
 
             if conf["allow"]:
                 default_action = accept_action
                 rules_action = reject_action
-                iptables += "-A FORWARD -i vif{0}.0 -p icmp -j ACCEPT\n".format(xid)
             else:
                 default_action = reject_action
                 rules_action = accept_action
@@ -1212,6 +1210,8 @@ class QubesProxyVm(QubesNetVm):
                 # PREROUTING does DNAT to NetVM DNSes, so we need self.netvm_vm. properties
                 iptables += "-A FORWARD -i vif{0}.0 -p udp -d {1} --dport 53 -j ACCEPT\n".format(xid,self.netvm_vm.gateway)
                 iptables += "-A FORWARD -i vif{0}.0 -p udp -d {1} --dport 53 -j ACCEPT\n".format(xid,self.netvm_vm.secondary_dns)
+            if conf["allowIcmp"]:
+                iptables += "-A FORWARD -i vif{0}.0 -p icmp -j ACCEPT\n".format(xid)
 
             iptables += "-A FORWARD -i vif{0}.0 -j {1}\n".format(xid, default_action)
 
@@ -1397,7 +1397,8 @@ class QubesAppVm(QubesCowVm):
         root = xml.etree.ElementTree.Element(
                 "QubesFirwallRules",
                 policy = "allow" if conf["allow"] else "deny",
-                dns = "allow" if conf["allowDns"] else "deny"
+                dns = "allow" if conf["allowDns"] else "deny",
+                icmp = "allow" if conf["allowIcmp"] else "deny"
         )
 
         for rule in conf["rules"]:
@@ -1431,7 +1432,7 @@ class QubesAppVm(QubesCowVm):
         return True
 
     def get_firewall_conf(self):
-        conf = { "rules": list(), "allow": True, "allowDns": True }
+        conf = { "rules": list(), "allow": True, "allowDns": True, "allowIcmp": True }
 
         try:
             tree = xml.etree.ElementTree.parse(self.firewall_conf)
@@ -1439,6 +1440,7 @@ class QubesAppVm(QubesCowVm):
 
             conf["allow"] = (root.get("policy") == "allow")
             conf["allowDns"] = (root.get("dns") == "allow")
+            conf["allowIcmp"] = (root.get("icmp") == "allow")
 
             for element in root:
                 rule = {}
