@@ -51,9 +51,9 @@ python -m compileall qvm-core qmemman
 python -O -m compileall qvm-core qmemman
 make -C restore
 make -C ../common
-make -C ../qrexec
 make -C ../vchan
 make -C ../u2mfn
+make -C ../qrexec
 
 %install
 
