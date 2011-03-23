@@ -45,7 +45,6 @@ The Qubes core files for installation inside a Qubes NetVM.
 %pre
 
 %build
-make -C ../qrexec
 make -C ../vchan
 make -C ../u2mfn
 
@@ -56,7 +55,6 @@ mkdir -p $RPM_BUILD_ROOT/etc/init.d
 cp qubes_core_netvm $RPM_BUILD_ROOT/etc/init.d/
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
-cp ../qrexec/qrexec_agent $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../common/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../common/qubes_fix_nm_conf.sh $RPM_BUILD_ROOT/usr/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/etc/dhclient.d
@@ -91,7 +89,6 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root,-)
 /etc/init.d/qubes_core_netvm
-/usr/lib/qubes/qrexec_agent
 /usr/lib/qubes/qubes_setup_dnat_to_ns
 /usr/lib/qubes/qubes_fix_nm_conf.sh
 /etc/dhclient.d/qubes_setup_dnat_to_ns.sh
