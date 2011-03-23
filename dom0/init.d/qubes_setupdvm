@@ -30,11 +30,21 @@ start()
     if ! [ -f $ROOT ] ; then create_neeed=1 ; fi
     if [ $ROOT -nt $DEFAULT ] ; then create_neeed=1 ; fi
     if [ $create_neeed = 1 ] ; then
-        echo Creating the default DVM. This may take up to 2 minutes...
+        MSG="Creating default DVM. This may take up to 2 minutes..."
+        echo " $MSG"
+        if [ -x /usr/bin/plymouth ]; then
+            /usr/bin/plymouth message --text="$MSG"
+            /usr/bin/plymouth pause-progress
+        fi
         qvm-create-default-dvm --default-template --default-script
         DVMDIR="/var/lib/qubes/appvms/`qvm-get-default-template`-dvm"
         /bin/chown -R root.qubes "$DVMDIR"
         /bin/chmod -R ug=rwX,o=rX "$DVMDIR"
+        if [ -x /usr/bin/plymouth ]; then
+            /usr/bin/plymouth message --text=""
+            /usr/bin/plymouth unpause-progress
+        fi
+        success
         return
     fi
     if [ -f /var/lib/qubes/dvmdata/dont_use_shm ] ; then
