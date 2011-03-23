@@ -32,6 +32,9 @@ start()
     if [ $create_neeed = 1 ] ; then
         echo Creating the default DVM. This may take up to 2 minutes...
         qvm-create-default-dvm --default-template --default-script
+        DVMDIR="/var/lib/qubes/appvms/`qvm-get-default-template`-dvm"
+        /bin/chown -R root.qubes "$DVMDIR"
+        /bin/chmod -R ug=rwX,o=rX "$DVMDIR"
         return
     fi
     if [ -f /var/lib/qubes/dvmdata/dont_use_shm ] ; then
