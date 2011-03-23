@@ -1,0 +1,59 @@
+#!/usr/bin/python2.6
+#
+# The Qubes OS Project, http://www.qubes-os.org
+#
+# Copyright (C) 2010  Rafal Wojtczuk  <rafal@invisiblethingslab.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+#
+import os
+import sys
+import subprocess
+from qubes.qubes import QubesVmCollection
+
+def is_copy_allowed(vm):
+#    if vm.copy_allowed:
+#        return True
+    q = 'Do you authorize file copy from '
+    q+= os.getenv("QREXEC_REMOTE_DOMAIN")
+    q+= ' to ' + vm.name + ' ?'
+    retcode = subprocess.call(['/usr/bin/kdialog', '--yesno', q, '--title', 'File transfer confirmation'])
+    return retcode == 0
+
+def main():
+    FILECOPY_VMNAME_SIZE = 32
+    blob=os.read(0, FILECOPY_VMNAME_SIZE)
+    vmname = blob.split("\x00")[0]
+
+    qvm_collection = QubesVmCollection()
+    qvm_collection.lock_db_for_reading()
+    qvm_collection.load()
+    qvm_collection.unlock_db()
+
+    vm = qvm_collection.get_vm_by_name(vmname)
+# we do not want to flood dom0 with error windows; so just log to stderr
+    if vm is None:
+        print >> sys.stderr, 'Domain ' + vmname + ' does not exist ?'
+        exit(1)
+    if not vm.is_running():
+        print >> sys.stderr, 'Domain ' + vmname + ' is not running ?'
+        exit(1)
+    if not is_copy_allowed(vm):
+        exit(1)
+    cmd = "root:/usr/lib/qubes/qfile-unpacker " + os.getenv("QREXEC_REMOTE_DOMAIN")
+    os.execl("/usr/lib/qubes/qrexec_client", "qrexec_client", "-d", vmname, cmd)
+
+main()

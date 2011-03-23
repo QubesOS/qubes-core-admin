@@ -28,7 +28,8 @@ if ! [ -d "/var/lib/qubes/vm-templates/$TEMPLATENAME" ] ; then
 	exit 1
 fi
 DVMTMPL="$TEMPLATENAME"-dvm
-if ! [ -d "/var/lib/qubes/appvms/$DVMTMPL" ] ; then
+DVMTMPLDIR="/var/lib/qubes/appvms/$DVMTMPL"
+if ! [ -d "$DVMTMPLDIR" ] ; then
 	if ! qvm-create -t "$TEMPLATENAME" -l gray "$DVMTMPL" ; then exit 1 ; fi
 fi
 if ! /usr/lib/qubes/qubes_prepare_saved_domain.sh \
@@ -53,3 +54,7 @@ else
 	chmod 660 $SHMCOPY
 	ln -s $SHMCOPY $CURRENT
 fi 
+
+chgrp qubes "$DVMTMPLDIR" "$DVMTMPLDIR"/*
+chmod 660 "$DVMTMPLDIR"/*
+chmod 770 "$DVMTMPLDIR"

@@ -54,6 +54,8 @@ start()
         fi
 	fi
 
+	/usr/lib/qubes/qrexec_agent 2>/var/log/qubes/qrexec_agent.log &
+
 	[ -x /rw/config/rc.local ] && /rw/config/rc.local
 	success
 	echo ""

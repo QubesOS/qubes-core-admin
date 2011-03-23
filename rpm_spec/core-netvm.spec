@@ -45,6 +45,8 @@ The Qubes core files for installation inside a Qubes NetVM.
 %pre
 
 %build
+make -C ../vchan
+make -C ../u2mfn
 
 %install
 
@@ -89,4 +91,3 @@ rm -rf $RPM_BUILD_ROOT
 /etc/NetworkManager/dispatcher.d/qubes_nmhook
 /etc/NetworkManager/dispatcher.d/30-qubes_external_ip
 /etc/xen/scripts/vif-route-qubes
-%dir /var/run/qubes

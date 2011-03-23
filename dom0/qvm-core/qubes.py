@@ -1306,17 +1306,15 @@ class QubesProxyVm(QubesNetVm):
             iptables += "# '{0}' VM:\n".format(vm.name)
             iptables += "-A FORWARD ! -s {0}/32 -i vif{1}.0 -j DROP\n".format(vm.ip, xid)
 
-
             accept_action = "ACCEPT"
             reject_action = "REJECT --reject-with icmp-host-prohibited"
 
             if conf["allow"]:
-                rules_action = accept_action
-                default_action = reject_action
-                iptables += "-A FORWARD -i vif{0}.0 -p icmp -j ACCEPT\n".format(xid)
-            else:
-                rules_action = reject_action
                 default_action = accept_action
+                rules_action = reject_action
+            else:
+                default_action = reject_action
+                rules_action = accept_action
 
             for rule in conf["rules"]:
                 iptables += "-A FORWARD -i vif{0}.0 -d {1}".format(xid, rule["address"])
@@ -1334,6 +1332,8 @@ class QubesProxyVm(QubesNetVm):
                 # PREROUTING does DNAT to NetVM DNSes, so we need self.netvm_vm. properties
                 iptables += "-A FORWARD -i vif{0}.0 -p udp -d {1} --dport 53 -j ACCEPT\n".format(xid,self.netvm_vm.gateway)
                 iptables += "-A FORWARD -i vif{0}.0 -p udp -d {1} --dport 53 -j ACCEPT\n".format(xid,self.netvm_vm.secondary_dns)
+            if conf["allowIcmp"]:
+                iptables += "-A FORWARD -i vif{0}.0 -p icmp -j ACCEPT\n".format(xid)
 
             iptables += "-A FORWARD -i vif{0}.0 -j {1}\n".format(xid, default_action)
 
@@ -1438,7 +1438,7 @@ class QubesDisposableVm(QubesVm):
 
         template_vm = kwargs.pop("template_vm")
 
-        super(QubesDisposableVm, self).__init__(dir_path=None, **kwargs)
+        super(QubesDisposableVm, self).__init__(dir_path="/nonexistent", **kwargs)
         qid = kwargs["qid"]
 
         assert template_vm is not None, "Missing template_vm for DisposableVM!"
@@ -1503,7 +1503,8 @@ class QubesAppVm(QubesCowVm):
         root = xml.etree.ElementTree.Element(
                 "QubesFirwallRules",
                 policy = "allow" if conf["allow"] else "deny",
-                dns = "allow" if conf["allowDns"] else "deny"
+                dns = "allow" if conf["allowDns"] else "deny",
+                icmp = "allow" if conf["allowIcmp"] else "deny"
         )
 
         for rule in conf["rules"]:
@@ -1537,7 +1538,7 @@ class QubesAppVm(QubesCowVm):
         return True
 
     def get_firewall_conf(self):
-        conf = { "rules": list(), "allow": True, "allowDns": True }
+        conf = { "rules": list(), "allow": True, "allowDns": True, "allowIcmp": True }
 
         try:
             tree = xml.etree.ElementTree.parse(self.firewall_conf)
@@ -1545,6 +1546,7 @@ class QubesAppVm(QubesCowVm):
 
             conf["allow"] = (root.get("policy") == "allow")
             conf["allowDns"] = (root.get("dns") == "allow")
+            conf["allowIcmp"] = (root.get("icmp") == "allow")
 
             for element in root:
                 rule = {}
