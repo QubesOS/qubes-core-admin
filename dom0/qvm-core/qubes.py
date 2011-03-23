@@ -1044,6 +1044,13 @@ class QubesCowVm(QubesVm):
                 raise IOError ("Error while copying {0} to {1}".\
                                format(template_root, self.root_img))
 
+            kernels_dir = self.dir_path + '/' + default_kernels_subdir
+            if verbose:
+                print "--> Copying the template's kernel dir: {0}".\
+                        format(self.template_vm.kernels_dir)
+            shutil.copytree (self.template_vm.kernels_dir, kernels_dir)
+
+
         # Create volatile.img
         self.reset_volatile_storage()
 
