@@ -32,7 +32,6 @@ start()
 		/usr/lib/qubes/qubes_setup_dnat_to_ns
 		echo "1" > /proc/sys/net/ipv4/ip_forward
 	fi
-	/usr/lib/qubes/qrexec_agent 2>/var/log/qubes/qrexec_agent.log &
 	
 	success
 	echo ""
