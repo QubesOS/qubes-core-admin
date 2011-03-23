@@ -1426,7 +1426,7 @@ class QubesDisposableVm(QubesVm):
 
         template_vm = kwargs.pop("template_vm")
 
-        super(QubesDisposableVm, self).__init__(dir_path=None, **kwargs)
+        super(QubesDisposableVm, self).__init__(dir_path="/nonexistent", **kwargs)
         qid = kwargs["qid"]
 
         assert template_vm is not None, "Missing template_vm for DisposableVM!"
