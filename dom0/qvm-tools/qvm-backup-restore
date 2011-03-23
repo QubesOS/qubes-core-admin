@@ -285,7 +285,7 @@ def main():
             restore_vm_file (backup_dir, vm.conf_file)
 
             if vm.is_updateable():
-                restore_vm_file (backup_dir, vm.rootcow_img)
+                restore_vm_file (backup_dir, vm.root_img)
 
         elif vm.is_template():
             restore_vm_dir (backup_dir, vm.dir_path, qubes_templates_dir);

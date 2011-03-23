@@ -124,8 +124,8 @@ def main():
             #files_to_backup += file_to_backup(vm.dir_path + "/apps")
 
             if vm.is_updateable():
-                sz = vm.get_disk_usage(vm.rootcow_img)
-                files_to_backup += file_to_backup(vm.rootcow_img, sz)
+                sz = vm.get_disk_usage(vm.root_img)
+                files_to_backup += file_to_backup(vm.root_img, sz)
                 vm_sz += sz
 
             s = ""

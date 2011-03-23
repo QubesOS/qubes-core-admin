@@ -40,6 +40,7 @@ BuildRequires:  xen-devel
 Requires:	python, xen-runtime, pciutils, python-inotify, python-daemon, kernel-qubes-dom0
 Conflicts:      qubes-gui-dom0 < 1.1.13
 Requires:       NetworkManager >= 0.8.1-1
+Requires:       xen >= 3.4.3-6
 %define _builddir %(pwd)/dom0
 
 %description
@@ -50,6 +51,9 @@ python -m compileall qvm-core qmemman
 python -O -m compileall qvm-core qmemman
 make -C restore
 make -C ../common
+make -C ../qrexec
+make -C ../vchan
+make -C ../u2mfn
 
 %install
 
@@ -89,10 +93,14 @@ cp aux-tools/reset_vm_configs.py  $RPM_BUILD_ROOT/usr/lib/qubes
 cp pendrive_swapper/qubes_pencmd $RPM_BUILD_ROOT/usr/lib/qubes
 cp qmemman/server.py $RPM_BUILD_ROOT/usr/lib/qubes/qmemman_daemon.py
 cp ../common/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
+cp ../qrexec/qrexec_daemon $RPM_BUILD_ROOT/usr/lib/qubes/
+cp ../qrexec/qrexec_client $RPM_BUILD_ROOT/usr/lib/qubes/
 
 cp restore/xenstore-watch restore/qvm-create-default-dvm $RPM_BUILD_ROOT/usr/bin
 cp restore/qubes_restore restore/xenfreepages $RPM_BUILD_ROOT/usr/lib/qubes
 cp restore/qubes_prepare_saved_domain.sh  $RPM_BUILD_ROOT/usr/lib/qubes
+cp restore/qfile-daemon-dvm $RPM_BUILD_ROOT/usr/lib/qubes
+cp restore/qfile-daemon $RPM_BUILD_ROOT/usr/lib/qubes
 
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/vm-templates
@@ -125,6 +133,9 @@ cp pm-utils/02qubes-pause-vms $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 
 mkdir -p $RPM_BUILD_ROOT/var/log/qubes
 mkdir -p $RPM_BUILD_ROOT/var/run/qubes
+
+install -D ../vchan/libvchan.so $RPM_BUILD_ROOT/%{_libdir}/libvchan.so
+install -D ../u2mfn/libu2mfn.so $RPM_BUILD_ROOT/%{_libdir}/libu2mfn.so
 
 %post
 
@@ -283,6 +294,8 @@ fi
 /usr/lib/qubes/qubes_pencmd
 /usr/lib/qubes/qmemman_daemon.py*
 /usr/lib/qubes/meminfo-writer
+/usr/lib/qubes/qfile-daemon-dvm*
+/usr/lib/qubes/qfile-daemon
 %attr(770,root,qubes) %dir /var/lib/qubes
 %attr(770,root,qubes) %dir /var/lib/qubes/vm-templates
 %attr(770,root,qubes) %dir /var/lib/qubes/appvms
@@ -306,6 +319,10 @@ fi
 /etc/xen/scripts/block-snapshot
 /etc/xen/scripts/block-origin
 /etc/xen/scripts/vif-route-qubes
+/usr/lib/qubes/qrexec_client
+%attr(4750,root,qubes) /usr/lib/qubes/qrexec_daemon
 %attr(4750,root,qubes) /usr/lib/qubes/xenfreepages
 %attr(2770,root,qubes) %dir /var/log/qubes
 %attr(770,root,qubes) %dir /var/run/qubes
+%{_libdir}/libvchan.so
+%{_libdir}/libu2mfn.so

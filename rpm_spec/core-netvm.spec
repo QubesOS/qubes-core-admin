@@ -32,7 +32,7 @@ Vendor:		Invisible Things Lab
 License:	GPL
 URL:		http://www.qubes-os.org
 Requires:	/usr/bin/xenstore-read
-Requires:   fedora-release = 13
+Requires:   fedora-release
 Requires:       NetworkManager >= 0.8.1-1
 Requires:   qubes-core-commonvm
 Provides:   qubes-core-vm
@@ -45,6 +45,8 @@ The Qubes core files for installation inside a Qubes NetVM.
 %pre
 
 %build
+make -C ../vchan
+make -C ../u2mfn
 
 %install
 
@@ -89,4 +91,3 @@ rm -rf $RPM_BUILD_ROOT
 /etc/NetworkManager/dispatcher.d/qubes_nmhook
 /etc/NetworkManager/dispatcher.d/30-qubes_external_ip
 /etc/xen/scripts/vif-route-qubes
-%dir /var/run/qubes

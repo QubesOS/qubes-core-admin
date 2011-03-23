@@ -141,12 +141,18 @@ def main():
         if netvm.is_netvm():
             vms_to_display.append (netvm)
 
+    # Now, the AppVMs without template...
+    for appvm in vms_list:
+        if appvm.is_appvm() and appvm.template_vm is None:
+            vms_to_display.append (appvm)
+
     # Now, the template, and all its AppVMs...
     for tvm in vms_list:
         if tvm.is_template():
             vms_to_display.append (tvm)
             for vm in vms_list:
-                if (vm.is_appvm() or vm.is_disposablevm()) and vm.template_vm.qid == tvm.qid:
+                if (vm.is_appvm() or vm.is_disposablevm()) and \
+		    vm.template_vm and vm.template_vm.qid == tvm.qid:
                     vms_to_display.append(vm)
 
     assert len(vms_to_display) == no_vms

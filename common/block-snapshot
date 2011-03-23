@@ -174,12 +174,18 @@ case "$command" in
               dmsetup remove $snap
             fi
           done
+          # Commit template changes
+          domain=$(xenstore_read "$XENBUS_PATH/domain")
+          if [ "$domain" ]; then
+            # Dont stop on errors
+            /usr/bin/qvm-template-commit "$domain" || true
+          fi
         fi
 	
-	if [ -e $node ]; then
+        if [ -e $node ]; then
           log debug "Removing $node"
           dmsetup remove $node
-	fi
+        fi
 
         # try to free loop devices
         for dev in $deps; do

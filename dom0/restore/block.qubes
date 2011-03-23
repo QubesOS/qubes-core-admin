@@ -28,7 +28,7 @@ hexnumber()
 process()
 {
 	if ! [ "x""$1" = "xfile" ] ; then
-		exec /etc/xen/scripts/block "$@"	
+		exec /etc/xen/scripts/block $ORIG_ARGS	
 	fi
 	while true ; do
 		dev=$(losetup -f --show $2)
@@ -48,6 +48,8 @@ XENBUS_PATH="${XENBUS_PATH:?}"
 if ! [ "$1" = "add" ] || ! [ -f /var/run/qubes/fast_block_attach ] ; then
 	exec /etc/xen/scripts/block "$@"
 fi
+
+ORIG_ARGS="$@"
   
 vars=$(xenstore-read "$XENBUS_PATH/type" "$XENBUS_PATH/params")
 process $vars

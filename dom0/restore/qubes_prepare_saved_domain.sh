@@ -21,7 +21,7 @@ if ! [ -d $VMDIR ] ; then
 	echo $VMDIR does not exist ?
 	exit 1
 fi
-if ! qvm-start $1 --no-guid --dvm ; then
+if ! qvm-start $1 --no-guid --no-rexec --dvm ; then
 	exit 1
 fi
 
@@ -59,5 +59,5 @@ if ! xm save $1 $2 ; then
 fi
 rm -f $QMEMMAN_STOP
 cd $VMDIR
-tar -Scvf saved_cows.tar root-cow.img swap-cow.img
+tar -Scvf saved_cows.tar volatile.img
 echo "DVM savefile created successfully."

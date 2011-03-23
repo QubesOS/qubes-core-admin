@@ -32,7 +32,7 @@ Vendor:		Invisible Things Lab
 License:	GPL
 URL:		http://www.qubes-os.org
 Requires:	/usr/bin/xenstore-read
-Requires:   fedora-release = 13
+Requires:   fedora-release
 
 %define _builddir %(pwd)/common
 
@@ -101,6 +101,7 @@ do
         [ $srv = 'killall' ] && continue
         [ $srv = 'halt' ] && continue
         [ $srv = 'single' ] && continue
+        [ $srv = 'reboot' ] && continue
         [ $srv = 'qubes_gui' ] && continue
         chkconfig $srv off
 done

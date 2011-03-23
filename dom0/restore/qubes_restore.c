@@ -182,6 +182,29 @@ int xend_connect()
 	return s;
 }
 
+void start_rexec(int domid)
+{
+	int pid, status;
+	char dstr[40];
+	snprintf(dstr, sizeof(dstr), "%d", domid);
+	switch (pid = fork()) {
+	case -1:
+		perror("fork");
+		exit(1);
+	case 0:
+		execl("/usr/lib/qubes/qrexec_daemon", "qrexec_daemon",
+		      dstr, NULL);
+		perror("execl");
+		exit(1);
+	default:;
+	}
+	if (waitpid(pid, &status, 0) < 0) {
+		perror("waitpid");
+		exit(1);
+	}
+}
+
+
 void start_guid(int domid, int argc, char **argv)
 {
 	int i;
@@ -197,6 +220,7 @@ void start_guid(int domid, int argc, char **argv)
 	execv("/usr/bin/qubes_guid", guid_args);
 	perror("execv");
 }
+
 // modify the savefile. fd = fd to the open savefile,
 // buf - already read 1st page of the savefile
 // pattern - pattern to search for
@@ -239,10 +263,10 @@ char *build_dvm_ip(int netvm, int id)
 	return buf;
 }
 
-#define NAME_PATTERN "/root-cow.img"
+#define NAME_PATTERN "/volatile.img"
 // replaces the unique portions of the savefile with per-dvm values
 // returns the name of VM the savefile was taken for 
-// by looking for /.../vmname/root-cow.img
+// by looking for /.../vmname/volatile.img
 // normally, it should be "templatename-dvm"
 char *get_vmname_from_savefile(int fd)
 {
@@ -258,7 +282,7 @@ char *get_vmname_from_savefile(int fd)
 	name = strstr(buf + 20, NAME_PATTERN);
 	if (!name) {
 		fprintf(stderr,
-			"cannot find 'root-cow.img' in savefile\n");
+			"cannot find 'volatile.img' in savefile\n");
 		exit(1);
 	}
 	*name = 0;
@@ -452,10 +476,11 @@ int main(int argc, char **argv)
 	resp = recv_resp(fd);
 //      printf("%s\n", resp);
 	fprintf(stderr, "time=%s, creating xenstore entries\n", gettime());
-#endif	
+#endif
 	setup_xenstore(netvm_id, domid, dispid, name);
 	fprintf(stderr, "time=%s, starting qubes_guid\n", gettime());
 	rm_fast_flag();
+	start_rexec(domid);
 	start_guid(domid, argc, argv);
 	return 0;
 }

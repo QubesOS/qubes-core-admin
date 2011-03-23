@@ -1,0 +1,133 @@
+#!/usr/bin/python2.6
+#
+# The Qubes OS Project, http://www.qubes-os.org
+#
+# Copyright (C) 2010  Rafal Wojtczuk  <rafal@invisiblethingslab.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+#
+import os
+import dbus
+import subprocess
+import sys
+
+from qubes.qubes import QubesVmCollection
+from qubes.qubes import QubesException
+from qubes.qubes import QubesDaemonPidfile
+from qubes.qmemman_client import QMemmanClient
+
+current_savefile = '/var/run/qubes/current_savefile'
+notify_object = None
+
+class QfileDaemonDvm:
+    def __init__(self, name):
+        self.name = name
+        
+    def do_get_dvm(self):
+        qmemman_client = QMemmanClient()
+        if not qmemman_client.request_memory(400*1024*1024):
+            qmemman_client.close()
+            errmsg = 'Not enough memory to create DVM. '
+            errmsg +='Terminate some appVM and retry.'
+            subprocess.call(['/usr/bin/kdialog', '--sorry', errmsg])
+            return None
+
+        qvm_collection = QubesVmCollection()
+        qvm_collection.lock_db_for_writing()
+        qvm_collection.load()
+
+        vm = qvm_collection.get_vm_by_name(self.name)
+        if vm is None:
+            sys.stderr.write( 'Domain ' + vmname + ' does not exist ?')
+            qvm_collection.unlock_db()
+            qmemman_client.close()
+            return None
+        retcode = subprocess.call(['/usr/lib/qubes/qubes_restore',
+            current_savefile,
+            '-c', vm.label.color,
+            '-i', vm.label.icon,
+            '-l', str(vm.label.index)])
+        qmemman_client.close()
+        if retcode != 0:
+            subprocess.call(['/usr/bin/kdialog', '--sorry', 'DisposableVM creation failed, see qubes_restore.log'])
+            qvm_collection.unlock_db()
+            return None
+        f = open('/var/run/qubes/dispVM_xid', 'r');
+        disp_xid = f.readline().rstrip('\n')
+        disp_name = f.readline().rstrip('\n')
+        disptempl = f.readline().rstrip('\n')
+        f.close()
+        vm_disptempl = qvm_collection.get_vm_by_name(disptempl);
+        if vm_disptempl is None:
+            sys.stderr.write( 'Domain ' + disptempl + ' does not exist ?')
+            qvm_collection.unlock_db()
+            return None
+        qvm_collection.add_new_disposablevm(disp_name, vm_disptempl.template_vm, label=vm.label)
+        qvm_collection.save()
+        qvm_collection.unlock_db()
+
+        return disp_name
+
+    def dvm_setup_ok(self):
+        dvmdata_dir = '/var/lib/qubes/dvmdata/'
+        if not os.path.isfile(current_savefile):
+            return False
+        if not os.path.isfile(dvmdata_dir+'default_savefile') or not os.path.isfile(dvmdata_dir+'savefile_root'):
+            return False
+        dvm_mtime = os.stat(current_savefile).st_mtime
+        root_mtime = os.stat(dvmdata_dir+'savefile_root').st_mtime
+        if dvm_mtime < root_mtime:
+            return False       
+        return True
+
+    def tray_notify(self, str, timeout = 3000):
+        notify_object.Notify("Qubes", 0, "red", "Qubes", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
+
+    def tray_notify_error(self, str, timeout = 3000):
+        notify_object.Notify("Qubes", 0, "dialog-error", "Qubes", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
+
+    def get_dvm(self):
+        if not self.dvm_setup_ok():
+            self.tray_notify("Updating DisposableVM savefile, please wait")
+            if os.system("qvm-create-default-dvm --default-template --default-script >/var/run/qubes/qvm-create-default-dvm.stdout </dev/null" ) != 0:
+                self.tray_notify_error("DVM savefile creation failed")
+                return None 
+        return self.do_get_dvm()
+
+    def remove_disposable_from_qdb(self, name):
+        qvm_collection = QubesVmCollection()
+        qvm_collection.lock_db_for_writing()
+        qvm_collection.load()
+        vm = qvm_collection.get_vm_by_name(name)
+        if vm is None:
+            qvm_collection.unlock_db()
+            return False
+        qvm_collection.pop(vm.qid)
+        qvm_collection.save()
+        qvm_collection.unlock_db()
+
+def main():
+    global notify_object
+    notify_object = dbus.SessionBus().get_object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
+    qfile = QfileDaemonDvm(os.getenv("QREXEC_REMOTE_DOMAIN"))
+    dispname = qfile.get_dvm()
+    if dispname is not None:
+        subprocess.call(['/usr/lib/qubes/qrexec_client', '-d', dispname, 'directly:user:/usr/lib/qubes/dvm_file_editor'])
+        subprocess.call(['/usr/sbin/xm', 'destroy', dispname])
+        qfile.remove_disposable_from_qdb(dispname)
+
+main()
+ 
