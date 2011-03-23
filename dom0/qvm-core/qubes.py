@@ -473,6 +473,11 @@ class QubesVm(object):
 
         return os.path.getsize(self.private_img)
 
+    def resize_private_img(self, size):
+        f_private = open (self.private_img, "a+b")
+        f_private.truncate (size)
+        f_private.close ()
+
     def create_xenstore_entries(self, xid):
         if dry_run:
             return
