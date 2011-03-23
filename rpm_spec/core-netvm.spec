@@ -65,10 +65,6 @@ cp ../netvm/30-qubes_external_ip $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d
 mkdir -p $RPM_BUILD_ROOT/var/run/qubes
 mkdir -p $RPM_BUILD_ROOT/etc/xen/scripts
 cp ../common/vif-route-qubes $RPM_BUILD_ROOT/etc/xen/scripts
-install -D ../vchan/libvchan.so $RPM_BUILD_ROOT/%{_libdir}/libvchan.so
-install -D ../u2mfn/libu2mfn.so $RPM_BUILD_ROOT/%{_libdir}/libu2mfn.so
-
-mkdir -p $RPM_BUILD_ROOT/var/run/qubes
 
 %post
 
@@ -95,7 +91,3 @@ rm -rf $RPM_BUILD_ROOT
 /etc/NetworkManager/dispatcher.d/qubes_nmhook
 /etc/NetworkManager/dispatcher.d/30-qubes_external_ip
 /etc/xen/scripts/vif-route-qubes
-%dir /var/run/qubes
-%{_libdir}/libvchan.so
-%{_libdir}/libu2mfn.so
-%dir /var/run/qubes
