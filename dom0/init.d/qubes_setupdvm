@@ -31,19 +31,19 @@ start()
     if [ $ROOT -nt $DEFAULT ] ; then create_neeed=1 ; fi
     if [ $create_neeed = 1 ] ; then
         echo Creating the default DVM. This may take up to 2 minutes...
-        qvm-create-default-dvm --default-template --default-script 
+        qvm-create-default-dvm --default-template --default-script
         return
-    fi   	
+    fi
     if [ -f /var/lib/qubes/dvmdata/dont_use_shm ] ; then
         ln -s $DEFAULT /var/run/qubes/current_savefile
     else
-    	mkdir -m 770 /dev/shm/qubes
-    	chown root.qubes /dev/shm/qubes
-    	cp $DEFAULT /dev/shm/qubes/current_savefile
-    	chown root.qubes /dev/shm/qubes/current_savefile
-    	chmod 660 /dev/shm/qubes/current_savefile
-    	ln -s /dev/shm/qubes/current_savefile /var/run/qubes/current_savefile
-    fi 
+        mkdir -m 770 /dev/shm/qubes
+        chown root.qubes /dev/shm/qubes
+        cp $DEFAULT /dev/shm/qubes/current_savefile
+        chown root.qubes /dev/shm/qubes/current_savefile
+        chmod 660 /dev/shm/qubes/current_savefile
+        ln -s /dev/shm/qubes/current_savefile /var/run/qubes/current_savefile
+    fi
 
     touch /var/lock/subsys/qubes_setupdvm
     success
@@ -60,15 +60,15 @@ stop()
 
 case "$1" in
   start)
-	start
-	;;
+    start
+    ;;
   stop)
-	stop
-	;;
+    stop
+    ;;
   *)
-	echo $"Usage: $0 {start|stop}"
-	exit 3
-	;;
+    echo $"Usage: $0 {start|stop}"
+    exit 3
+    ;;
 esac
 
 exit $RETVAL
