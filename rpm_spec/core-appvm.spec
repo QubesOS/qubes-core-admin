@@ -154,9 +154,6 @@ rm -rf $RPM_BUILD_ROOT
 %dir /home_volatile
 %attr(700,user,user) /home_volatile/user
 /etc/X11/xorg-preload-apps.conf
-/usr/include/libvchan.h
-%{_libdir}/libvchan.so
-%{_libdir}/libu2mfn.so
 %dir /var/run/qubes
 
 
@@ -171,3 +168,15 @@ Group:          Development/Sources
 /usr/include/libvchan.h
 /usr/include/u2mfnlib.h
 /usr/include/u2mfn-kernel.h
+
+%package libs
+Summary:        Qubes core libraries
+License:        GPL v2 only
+Group:          Development/Sources 
+
+%description libs
+
+%files libs
+%{_libdir}/libvchan.so
+%{_libdir}/libu2mfn.so
+
