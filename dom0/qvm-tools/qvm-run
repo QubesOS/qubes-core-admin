@@ -34,7 +34,6 @@ import os.path
 
 qubes_guid_path = "/usr/bin/qubes_guid"
 qubes_clipd_path = "/usr/bin/qclipd"
-qubes_qfilexchgd_path= "/usr/bin/qfilexchgd"
 qrexec_daemon_path = "/usr/lib/qubes/qrexec_daemon"
 qrexec_client_path = "/usr/lib/qubes/qrexec_client"
 notify_object = None
@@ -257,12 +256,6 @@ def main():
         print "ERROR: Cannot start qclipd!"
         if options.tray:
             tray_notify ("ERROR: Cannot start the Qubes Clipboard Notifier!")
-
-    retcode = subprocess.call([qubes_qfilexchgd_path])
-    if retcode != 0:
-        print "ERROR: Cannot start qfilexchgd!"
-        if options.tray:
-            tray_notify ("ERROR: Cannot start the Qubes Inter-VM File Exchange Daemon!")
 
 
 main()

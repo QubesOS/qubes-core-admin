@@ -58,11 +58,11 @@ main()
 		exit(1);
 	}
 	snprintf(cmdbuf, sizeof(cmdbuf),
-		 "HOME=/home/user DISPLAY=:0 /usr/bin/mimeopen -n -M '%s' 2>&1 > /tmp/kde-open.log </dev/null",
+		 "HOME=/home/user DISPLAY=:0 /usr/bin/mimeopen -n -M '%s' > /tmp/kde-open.log 2>&1 </dev/null",
 		 filename);
 	if (system(cmdbuf))
 		system
-		    ("HOME=/home/user DISPLAY=:0 /usr/bin/kdialog --sorry 'Unable to handle mimetype of the requested file!'");
+		    ("HOME=/home/user DISPLAY=:0 /usr/bin/kdialog --sorry 'Unable to handle mimetype of the requested file!' > /tmp/kdialog.log 2>&1 </dev/null");
 	if (stat(filename, &stat_post)) {
 		perror("stat post");
 		exit(1);

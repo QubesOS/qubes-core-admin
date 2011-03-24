@@ -1,1 +1,0 @@
-SUBSYSTEM=="block", KERNEL=="xvdh", ACTION=="add", RUN+="/usr/lib/qubes/qubes_add_pendrive_script"
