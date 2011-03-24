@@ -57,6 +57,9 @@ else
 	ln -s $SHMCOPY $CURRENT
 fi 
 
-chgrp qubes "$DVMTMPLDIR" "$DVMTMPLDIR"/*
-chmod 660 "$DVMTMPLDIR"/*
-chmod 770 "$DVMTMPLDIR"
+if [ $(whoami) = "root" ] ; then
+	chgrp qubes "$DVMTMPLDIR" "$DVMTMPLDIR"/*
+	chmod 660 "$DVMTMPLDIR"/*
+	chmod 770 "$DVMTMPLDIR"
+fi
+
