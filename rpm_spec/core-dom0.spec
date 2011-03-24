@@ -29,7 +29,7 @@
 
 Name:		qubes-core-dom0
 Version:	%{version}
-Release:	1
+Release:	1%{dist}
 Summary:	The Qubes core files (Dom0-side)
 
 Group:		Qubes

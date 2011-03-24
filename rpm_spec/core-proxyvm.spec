@@ -24,7 +24,7 @@
 
 Name:		qubes-core-proxyvm
 Version:	%{version}
-Release:	1
+Release:	1%{dist}
 Summary:	The Qubes core files for NetVM
 
 Group:		Qubes
