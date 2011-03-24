@@ -60,8 +60,8 @@ mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 %build
 make clean all
 make -C ../common
-make -C ../vchan
 make -C ../u2mfn
+make -C ../vchan
 make -C ../qrexec
 
 %install
