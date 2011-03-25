@@ -31,10 +31,12 @@ if [ $# != 2 ]; then
 fi
 mkdir -p $APPSDIR
 
-echo "--> Converting Appmenu Templates..."
-find $SRCDIR -name "*.desktop" -exec /usr/lib/qubes/convert_apptemplate2vm.sh {} $APPSDIR $VMNAME $VMDIR \;
+if [ "$SRCDIR" != "none" ]; then
+    echo "--> Converting Appmenu Templates..."
+    find $SRCDIR -name "*.desktop" -exec /usr/lib/qubes/convert_apptemplate2vm.sh {} $APPSDIR $VMNAME $VMDIR \;
 
-/usr/lib/qubes/convert_dirtemplate2vm.sh $SRCDIR/qubes-vm.directory.template $APPSDIR/$VMNAME-vm.directory $VMNAME $VMDIR
+    /usr/lib/qubes/convert_dirtemplate2vm.sh $SRCDIR/qubes-vm.directory.template $APPSDIR/$VMNAME-vm.directory $VMNAME $VMDIR
+fi
 
 echo "--> Adding Apps to the Menu..."
 xdg-desktop-menu install $APPSDIR/*.directory $APPSDIR/*.desktop

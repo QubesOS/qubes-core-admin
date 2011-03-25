@@ -1500,7 +1500,11 @@ class QubesAppVm(QubesCowVm):
         self.create_appmenus (verbose)
 
     def create_appmenus(self, verbose):
-        subprocess.check_call ([qubes_appmenu_create_cmd, self.template_vm.appmenus_templates_dir, self.name])
+        if self.template_vm is not None:
+            subprocess.check_call ([qubes_appmenu_create_cmd, self.template_vm.appmenus_templates_dir, self.name])
+        else:
+            # Only add apps to menu
+            subprocess.check_call ([qubes_appmenu_create_cmd, "none", self.name])
 
     def write_firewall_conf(self, conf):
         root = xml.etree.ElementTree.Element(
