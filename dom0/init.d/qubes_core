@@ -53,7 +53,6 @@ stop()
     rm -f /var/lock/subsys/qubes_core
     killall meminfo-writer
     killall qmemman_daemon.py
-    killall qfilexchgd
     success
     echo
 }

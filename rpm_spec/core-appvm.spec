@@ -70,21 +70,15 @@ mkdir -p $RPM_BUILD_ROOT/etc/init.d
 cp qubes_core_appvm $RPM_BUILD_ROOT/etc/init.d/
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/usr/bin
-cp qubes_timestamp qvm-copy-to-vm qvm-open-in-dvm qvm-open-in-dvm2 $RPM_BUILD_ROOT/usr/bin
+cp qubes_timestamp qvm-open-in-dvm2 $RPM_BUILD_ROOT/usr/bin
 cp qvm-copy-to-vm2 $RPM_BUILD_ROOT/usr/bin
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
-cp qubes_add_pendrive_script qubes_penctl qvm-copy-to-vm.kde $RPM_BUILD_ROOT/usr/lib/qubes
 cp qvm-copy-to-vm2.kde $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../qrexec/qrexec_agent $RPM_BUILD_ROOT/usr/lib/qubes
 cp dvm_file_editor qfile-agent qfile-agent-dvm qfile-unpacker $RPM_BUILD_ROOT/usr/lib/qubes
-ln -s /usr/bin/qvm-open-in-dvm $RPM_BUILD_ROOT/usr/lib/qubes/qvm-dvm-transfer 
 cp ../common/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/%{kde_service_dir}
 cp qvm-copy.desktop qvm-dvm.desktop $RPM_BUILD_ROOT/%{kde_service_dir}
-mkdir -p $RPM_BUILD_ROOT/etc/udev/rules.d
-cp qubes.rules $RPM_BUILD_ROOT/etc/udev/rules.d
-mkdir -p $RPM_BUILD_ROOT/mnt/incoming
-mkdir -p $RPM_BUILD_ROOT/mnt/outgoing
 mkdir -p $RPM_BUILD_ROOT/mnt/removable
 
 mkdir -p $RPM_BUILD_ROOT/etc/X11
@@ -129,26 +123,17 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root,-)
 /etc/init.d/qubes_core_appvm
-/usr/bin/qvm-copy-to-vm
 /usr/bin/qvm-copy-to-vm2
-/usr/lib/qubes/qvm-copy-to-vm.kde
 /usr/lib/qubes/qvm-copy-to-vm2.kde
-%attr(4755,root,root) /usr/bin/qvm-open-in-dvm
 /usr/bin/qvm-open-in-dvm2
-/usr/lib/qubes/qvm-dvm-transfer
 /usr/lib/qubes/meminfo-writer
 /usr/lib/qubes/dvm_file_editor
 %{kde_service_dir}/qvm-copy.desktop
 %{kde_service_dir}/qvm-dvm.desktop
-%attr(4755,root,root) /usr/lib/qubes/qubes_penctl
-/usr/lib/qubes/qubes_add_pendrive_script
 /usr/lib/qubes/qrexec_agent
 /usr/lib/qubes/qfile-agent
 /usr/lib/qubes/qfile-agent-dvm
 /usr/lib/qubes/qfile-unpacker
-/etc/udev/rules.d/qubes.rules
-%dir /mnt/incoming
-%dir /mnt/outgoing
 %dir /mnt/removable
 /usr/bin/qubes_timestamp
 %dir /home_volatile

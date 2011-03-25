@@ -65,7 +65,6 @@ cp init.d/qubes_setupdvm $RPM_BUILD_ROOT/etc/init.d/
 mkdir -p $RPM_BUILD_ROOT/usr/bin/
 cp qvm-tools/qvm-* $RPM_BUILD_ROOT/usr/bin
 cp clipboard_notifier/qclipd $RPM_BUILD_ROOT/usr/bin
-cp pendrive_swapper/qfilexchgd $RPM_BUILD_ROOT/usr/bin
 
 mkdir -p $RPM_BUILD_ROOT/etc/xen/scripts
 cp restore/block.qubes $RPM_BUILD_ROOT/etc/xen/scripts
@@ -90,7 +89,6 @@ cp aux-tools/convert_dirtemplate2vm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/create_apps_for_appvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/remove_appvm_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/reset_vm_configs.py  $RPM_BUILD_ROOT/usr/lib/qubes
-cp pendrive_swapper/qubes_pencmd $RPM_BUILD_ROOT/usr/lib/qubes
 cp qmemman/server.py $RPM_BUILD_ROOT/usr/lib/qubes/qmemman_daemon.py
 cp ../common/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_daemon $RPM_BUILD_ROOT/usr/lib/qubes/
@@ -275,7 +273,6 @@ fi
 /etc/init.d/qubes_setupdvm
 /usr/bin/qvm-*
 /usr/bin/qclipd
-/usr/bin/qfilexchgd
 %{python_sitearch}/qubes/qubes.py
 %{python_sitearch}/qubes/qubes.pyc
 %{python_sitearch}/qubes/qubes.pyo
@@ -291,7 +288,6 @@ fi
 /usr/lib/qubes/create_apps_for_appvm.sh
 /usr/lib/qubes/remove_appvm_appmenus.sh
 /usr/lib/qubes/reset_vm_configs.py*
-/usr/lib/qubes/qubes_pencmd
 /usr/lib/qubes/qmemman_daemon.py*
 /usr/lib/qubes/meminfo-writer
 /usr/lib/qubes/qfile-daemon-dvm*
