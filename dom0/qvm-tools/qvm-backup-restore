@@ -368,14 +368,14 @@ def main():
             vm.verify_files()
         except QubesException as err:
             print "ERROR: {0}".format(err)
-            print "*** Skiping VM: {0}".vm.name
+            print "*** Skiping VM: {0}".format(vm.name)
             host_collection.pop(vm.qid)
 
         try:
             vm.add_to_xen_storage()
         except (IOError, OSError) as err:
             print "ERROR: {0}".format(err)
-            print "*** Skiping VM: {0}".vm.name
+            print "*** Skiping VM: {0}".format(vm.name)
             host_collection.pop(vm.qid)
 
 
