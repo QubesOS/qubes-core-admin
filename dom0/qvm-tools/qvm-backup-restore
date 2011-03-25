@@ -25,12 +25,14 @@ from qubes.qubes import QubesException
 from qubes.qubes import qubes_store_filename
 from qubes.qubes import qubes_base_dir
 from qubes.qubes import qubes_templates_dir
+from qubes.qubes import qubes_appvms_dir
 from optparse import OptionParser
 
 import os
 import time
 import subprocess
 import sys
+import re
 
 def size_to_human (size):
     if size < 1024:
@@ -58,8 +60,9 @@ fields = {
 
     "updbl" : {"func": "'Yes' if vm.is_updateable() else ''"},
 
-    "template": {"func": "'n/a' if vm.is_template() or vm.is_netvm() else\
-                 backup_collection[vm.template_vm.qid].name"},
+    "template": {"func": "'n/a' if vm.is_template() or vm.template_vm is None else\
+                 find_template_name(backup_collection[vm.template_vm.qid].name,\
+                         options.replace_template)"},
 
     "netvm": {"func": "'n/a' if vm.is_netvm() else\
               ('*' if vm.uses_default_netvm else '') +\
@@ -102,6 +105,14 @@ def restore_vm_dir (backup_dir, src_dir, dst_dir):
         print "*** Error while copying file {0} to {1}".format(backup_src_dir, dest_dir)
         exit (1)
 
+def find_template_name(template, replaces):
+    rx_replace = re.compile("(.*):(.*)")
+    for r in replaces:
+        m = rx_replace.match(r)
+        if m.group(1) == template:
+            return m.group(2)
+
+    return template
 
 def main():
     usage = "usage: %prog [options] <backup-dir>"
@@ -115,6 +126,12 @@ def main():
 
     parser.add_option ("--skip-conflicting", action="store_true", dest="skip_conflicting", default=False,
                        help="Do not restore VMs that are already present on the host")
+
+    parser.add_option ("--recreate-conf-files", action="store_true", dest="recreate_conf", default=False,
+                       help="Recreate conf files after restore")
+
+    parser.add_option ("--replace-template", action="append", dest="replace_template", default=[],
+                       help="Restore VMs using another template, syntax: old-template-name:new-template-name (might be repeated)")
 
     (options, args) = parser.parse_args ()
 
@@ -191,12 +208,12 @@ def main():
                 there_are_conflicting_vms = True
                 good_to_go = False # Do not overwrite VMs on the host!
 
-            if vm.is_appvm():
-                templatevm_name = vm.template_vm.name
+            if vm.template_vm is not None:
+                templatevm_name = find_template_name(vm.template_vm.name, options.replace_template)
                 template_vm_on_host = host_collection.get_vm_by_name (templatevm_name)
 
                 # No template on the host?
-                if not ((template_vm_on_host is not None) and template_vm_on_host.is_template):
+                if not ((template_vm_on_host is not None) and template_vm_on_host.is_template()):
 
                     # Maybe the (custom) template is in the backup?
                     template_vm_on_backup = backup_collection.get_vm_by_name (templatevm_name)
@@ -279,14 +296,7 @@ def main():
             continue
 
         if vm.is_appvm():
-
-            restore_vm_file (backup_dir, vm.private_img)
-            restore_vm_file (backup_dir, vm.icon_path)
-            restore_vm_file (backup_dir, vm.conf_file)
-
-            if vm.is_updateable():
-                restore_vm_file (backup_dir, vm.root_img)
-
+            restore_vm_dir (backup_dir, vm.dir_path, qubes_appvms_dir);
         elif vm.is_template():
             restore_vm_dir (backup_dir, vm.dir_path, qubes_templates_dir);
         else:
@@ -323,7 +333,13 @@ def main():
     for vm in [ vm for vm in vms_to_restore if vm.is_appvm()]:
 
         print "-> Adding AppVM {0}...".format(vm.name)
-        template_vm = host_collection.get_vm_by_name(vm.template_vm.name)
+        template_vm = None
+        recreate_conf = options.recreate_conf
+        if vm.template_vm is not None:
+            template_name = find_template_name(vm.template_vm.name, options.replace_template)
+            template_vm = host_collection.get_vm_by_name(template_name)
+            if template_name != vm.template_vm.name:
+                recreate_conf = True
 
         if not vm.uses_default_netvm:
             uses_default_netvm = False
@@ -336,27 +352,30 @@ def main():
         vm = host_collection.add_new_appvm(vm.name, template_vm,
                                           conf_file=vm.conf_file,
                                           dir_path=vm.dir_path,
+                                          updateable=updateable,
                                           label=vm.label)
 
-        vm.updateable = updateable
         if not uses_default_netvm:
             vm.uses_default_netvm = False
             vm.netvm_vm = netvm_vm
 
+        if template_vm is not None and recreate_conf:
+            print "--> Recreating config file..."
+            vm.create_config_file()
 
         vm.create_appmenus(verbose=True)
         try:
             vm.verify_files()
         except QubesException as err:
             print "ERROR: {0}".format(err)
-            print "*** Skiping VM: {0}".vm.name
+            print "*** Skiping VM: {0}".format(vm.name)
             host_collection.pop(vm.qid)
 
         try:
             vm.add_to_xen_storage()
         except (IOError, OSError) as err:
             print "ERROR: {0}".format(err)
-            print "*** Skiping VM: {0}".vm.name
+            print "*** Skiping VM: {0}".format(vm.name)
             host_collection.pop(vm.qid)
 
 

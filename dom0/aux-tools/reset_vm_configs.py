@@ -18,7 +18,7 @@ def main():
         print templ, 'is not a template'
         sys.exit(1)
     for vm in qvm_collection.values():
-        if vm.is_appvm() and vm.template_vm.qid == tvm.qid:
+        if vm.template_vm is not None and vm.template_vm.qid == tvm.qid:
             vm.create_config_file()
     
 main()

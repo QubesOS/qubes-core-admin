@@ -199,6 +199,9 @@ class QubesVm(object):
         self.uses_default_netvm = uses_default_netvm
         self.netvm_vm = netvm_vm
 
+        # Create template_vm property - used in AppVM, NetVM, ProxyVM
+        self.template_vm = None
+
         # We use it in remove from disk to avoid removing rpm files (for templates)
         self.installed_by_rpm = installed_by_rpm
 
@@ -472,6 +475,11 @@ class QubesVm(object):
             return 0
 
         return os.path.getsize(self.private_img)
+
+    def resize_private_img(self, size):
+        f_private = open (self.private_img, "a+b")
+        f_private.truncate (size)
+        f_private.close ()
 
     def create_xenstore_entries(self, xid):
         if dry_run:
@@ -1492,7 +1500,11 @@ class QubesAppVm(QubesCowVm):
         self.create_appmenus (verbose)
 
     def create_appmenus(self, verbose):
-        subprocess.check_call ([qubes_appmenu_create_cmd, self.template_vm.appmenus_templates_dir, self.name])
+        if self.template_vm is not None:
+            subprocess.check_call ([qubes_appmenu_create_cmd, self.template_vm.appmenus_templates_dir, self.name])
+        else:
+            # Only add apps to menu
+            subprocess.check_call ([qubes_appmenu_create_cmd, "none", self.name])
 
     def write_firewall_conf(self, conf):
         root = xml.etree.ElementTree.Element(
