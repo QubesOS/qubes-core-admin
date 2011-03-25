@@ -199,6 +199,9 @@ class QubesVm(object):
         self.uses_default_netvm = uses_default_netvm
         self.netvm_vm = netvm_vm
 
+        # Create template_vm property - used in AppVM, NetVM, ProxyVM
+        self.template_vm = None
+
         # We use it in remove from disk to avoid removing rpm files (for templates)
         self.installed_by_rpm = installed_by_rpm
 
