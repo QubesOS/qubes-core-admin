@@ -139,7 +139,7 @@ def main():
             s += fmt.format(vm.name) 
 
             fmt="{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
-            s += fmt.format("AppVM" + (" + Root FS" if vm.is_updateable() else ""))
+            s += fmt.format("AppVM" + (" + Sys" if vm.is_updateable() else ""))
 
             fmt="{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
             s += fmt.format(size_to_human(vm_sz)) 
