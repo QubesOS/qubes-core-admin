@@ -52,7 +52,7 @@ def bringup_eth0(netvm):
     resolv_conf.write('nameserver ' + netvm.gateway + '\n')
     resolv_conf.write('nameserver ' + netvm.secondary_dns + '\n')
     resolv_conf.close()
-    return os.system('ifconfig eth0 10.0.0.1 netmask 255.255.255.255 && route add default dev eth0') == 0
+    return os.system('ifconfig eth0 10.137.0.1 netmask 255.255.255.255 && route add default dev eth0') == 0
 
 def unpause_all(netvm_name):
      os.system('qvm-run --exclude=' + netvm_name + ' --all --unpause')
@@ -62,7 +62,7 @@ def netup():
     if os.path.isfile('/var/lock/subsys/NetworkManager'):
         os.system('/etc/init.d/NetworkManager stop')
     if not vif_eth0_exists():
-        cmd = 'modprobe xennet && xm network-attach 0 ip=10.0.0.1 backend='
+        cmd = 'modprobe xennet && xm network-attach 0 ip=10.137.0.1 backend='
         cmd += netvm.name
         cmd += ' script=vif-route-qubes'
         if os.system(cmd) != 0:

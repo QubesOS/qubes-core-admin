@@ -54,9 +54,9 @@ qubes_templates_dir = qubes_base_dir + "/vm-templates"
 qubes_servicevms_dir = qubes_base_dir + "/servicevms"
 qubes_store_filename = qubes_base_dir + "/qubes.xml"
 
-qubes_max_qid = 254*254
+qubes_max_qid = 254
 qubes_max_netid = 254
-vm_default_netmask = "255.255.0.0"
+vm_default_netmask = "255.255.255.0"
 
 default_root_img = "root.img"
 default_rootcow_img = "root-cow.img"
@@ -1135,11 +1135,11 @@ class QubesNetVm(QubesCowVm):
     def __init__(self, **kwargs):
         netid = kwargs.pop("netid")
         self.netid = netid
-        self.__network = "10.{0}.0.0".format(netid)
-        self.netprefix = "10.{0}.".format(netid)
+        self.__network = "10.137.{0}.0".format(netid)
+        self.netprefix = "10.137.{0}.".format(netid)
         self.__netmask = vm_default_netmask
-        self.__gateway = self.netprefix + "0.1"
-        self.__secondary_dns = self.netprefix + "255.254"
+        self.__gateway = self.netprefix + "1"
+        self.__secondary_dns = self.netprefix + "254"
 
         if "dir_path" not in kwargs or kwargs["dir_path"] is None:
             kwargs["dir_path"] = qubes_servicevms_dir + "/" + kwargs["name"]
@@ -1173,10 +1173,9 @@ class QubesNetVm(QubesCowVm):
         return self.__network
 
     def get_ip_for_vm(self, qid):
-        hi = qid / 253
         lo = qid % 253 + 2
-        assert hi >= 0 and hi <= 254 and lo >= 2 and lo <= 254, "Wrong IP address for VM"
-        return self.netprefix  + "{0}.{1}".format(hi,lo)
+        assert lo >= 2 and lo <= 254, "Wrong IP address for VM"
+        return self.netprefix  + "{0}".format(lo)
 
     def create_xenstore_entries(self, xid):
         if dry_run:
