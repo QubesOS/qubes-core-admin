@@ -1333,7 +1333,7 @@ class QubesProxyVm(QubesNetVm):
             iptables += "-A FORWARD -i vif{0}.0 -j {1}\n".format(xid, default_action)
 
         iptables += "#End of VM rules\n"
-        iptables += "-A FORWARD -m state --state NEW,RELATED,ESTABLISHED -j ACCEPT\n"
+        iptables += "-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n"
         iptables += "-A FORWARD -j DROP\n"
 
         iptables += "COMMIT"
