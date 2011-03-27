@@ -85,7 +85,6 @@ void init(int xid)
 		 "/var/log/qubes/qrexec.%d.log", xid);
 	umask(0007);
 	logfd = open(dbg_log, O_WRONLY | O_CREAT | O_TRUNC, 0640);
-	umask(0077);
 
 	dup2(logfd, 1);
 	dup2(logfd, 2);
@@ -98,7 +97,10 @@ void init(int xid)
 
 	remote_domain_name = peer_client_init(xid, REXEC_PORT);
 	setuid(getuid());
+	/* When running as root, make the socket accessible; perms on /var/run/qubes still apply */
+	umask(0);
 	server_fd = get_server_socket(xid, remote_domain_name);
+	umask(0077);
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGCHLD, sigchld_handler);
 	signal(SIGUSR1, SIG_DFL);
