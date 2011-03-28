@@ -23,6 +23,7 @@ import os
 import dbus
 import subprocess
 import sys
+import fcntl
 
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
@@ -123,7 +124,10 @@ def main():
     global notify_object
     notify_object = dbus.SessionBus().get_object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
     qfile = QfileDaemonDvm(os.getenv("QREXEC_REMOTE_DOMAIN"))
+    lockf = open("/var/run/qubes/qfile-daemon-dvm.lock", 'a')
+    fcntl.flock(lockf, fcntl.LOCK_EX)
     dispname = qfile.get_dvm()
+    lockf.close()
     if dispname is not None:
         subprocess.call(['/usr/lib/qubes/qrexec_client', '-d', dispname, 'directly:user:/usr/lib/qubes/dvm_file_editor'])
         subprocess.call(['/usr/sbin/xm', 'destroy', dispname])
