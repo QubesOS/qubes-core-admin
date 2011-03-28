@@ -29,7 +29,7 @@
 
 Name:		qubes-core-dom0
 Version:	%{version}
-Release:	1
+Release:	1%{dist}
 Summary:	The Qubes core files (Dom0-side)
 
 Group:		Qubes
@@ -51,9 +51,9 @@ python -m compileall qvm-core qmemman
 python -O -m compileall qvm-core qmemman
 make -C restore
 make -C ../common
-make -C ../qrexec
 make -C ../vchan
 make -C ../u2mfn
+make -C ../qrexec
 
 %install
 
