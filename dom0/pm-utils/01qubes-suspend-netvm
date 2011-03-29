@@ -1,0 +1,28 @@
+#!/bin/sh
+
+. "${PM_FUNCTIONS}"
+
+suspend_net()
+{
+	NETVM=$(qvm-get-default-netvm)
+	if [ "X"$NETVM = "X""dom0" -o "X"$NETVM = "X" -o "X"$NETVM = "X""none"] ; then
+		exit 0
+	fi
+    qvm-run -u root --pass_io $NETVM "source /usr/lib64/pm-utils/pm-functions; run_hooks sleep suspend suspend"
+}
+
+resume_net()
+{
+	NETVM=$(qvm-get-default-netvm)
+	if [ "X"$NETVM = "X""dom0" -o "X"$NETVM = "X" -o "X"$NETVM = "X""none"] ; then
+		exit 0
+	fi
+    qvm-run -u root --pass_io $NETVM "source /usr/lib64/pm-utils/pm-functions; run_hooks sleep resume suspend reverse"
+}
+
+ 
+case "$1" in
+        resume) resume_net ;;
+        suspend) suspend_net ;;
+        *) exit 0 ;;
+esac
