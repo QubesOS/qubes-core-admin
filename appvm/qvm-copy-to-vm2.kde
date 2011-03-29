@@ -43,6 +43,7 @@ done
 
 qdbus $REF close
 rm -f $PROGRESS_FILE
-if ! [ "x"$agentstatus = xDONE ] ; then 
-	kdialog --sorry 'Abnormal file copy termination; see /var/log/qubes/qrexec.xid.log in dom0 for more details'
-fi
+# we do not want a dozen error messages, do we
+# if ! [ "x"$agentstatus = xDONE ] ; then 
+# 	kdialog --sorry 'Abnormal file copy termination; see /var/log/qubes/qrexec.xid.log in dom0 for more details'
+# fi

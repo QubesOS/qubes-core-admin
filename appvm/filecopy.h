@@ -6,13 +6,21 @@
 #define LEGAL_EOF 31415926
 
 struct file_header {
-unsigned int namelen;
-unsigned int mode;
-unsigned long long filelen;
-unsigned int atime;
-unsigned int atime_nsec;
-unsigned int mtime;
-unsigned int mtime_nsec;
+	unsigned int namelen;
+	unsigned int mode;
+	unsigned long long filelen;
+	unsigned int atime;
+	unsigned int atime_nsec;
+	unsigned int mtime;
+	unsigned int mtime_nsec;
 };
 
-char * copy_file(int outfd, int infd, long long size);
+enum {
+	COPY_FILE_OK,
+	COPY_FILE_READ_EOF,
+	COPY_FILE_READ_ERROR,
+	COPY_FILE_WRITE_ERROR
+};
+
+int copy_file(int outfd, int infd, long long size);
+char *copy_file_status_to_str(int status);

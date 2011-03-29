@@ -38,14 +38,19 @@ void fix_times_and_perms(struct file_header *hdr, char *name)
 
 void process_one_file_reg(struct file_header *hdr, char *name)
 {
-	char *ret;
+	int ret;
 	int fdout =
 	    open(name, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0700);
 	if (fdout < 0)
 		do_exit(errno);
 	ret = copy_file(fdout, 0, hdr->filelen);
-	if (ret)
-		do_exit(errno);
+	if (ret != COPY_FILE_OK) {
+		if (ret == COPY_FILE_READ_EOF
+		    || ret == COPY_FILE_READ_ERROR)
+			do_exit(LEGAL_EOF);	// hopefully remote will produce error message
+		else
+			do_exit(errno);
+	}
 	close(fdout);
 	fix_times_and_perms(hdr, name);
 }
@@ -68,7 +73,7 @@ void process_one_file_link(struct file_header *hdr, char *name)
 	if (hdr->filelen > MAX_PATH_LENGTH - 1)
 		do_exit(ENAMETOOLONG);
 	if (!read_all(0, content, hdr->filelen))
-		do_exit(errno);
+		do_exit(LEGAL_EOF);	// hopefully remote has produced error message
 	content[hdr->filelen] = 0;
 	if (symlink(content, name))
 		do_exit(errno);
@@ -80,7 +85,7 @@ void process_one_file(struct file_header *hdr)
 	if (hdr->namelen > MAX_PATH_LENGTH - 1)
 		do_exit(ENAMETOOLONG);
 	if (!read_all(0, namebuf, hdr->namelen))
-		do_exit(errno);
+		do_exit(LEGAL_EOF);	// hopefully remote has produced error message
 	namebuf[hdr->namelen] = 0;
 	if (S_ISREG(hdr->mode))
 		process_one_file_reg(hdr, namebuf);

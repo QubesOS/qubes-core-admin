@@ -50,7 +50,7 @@ void write_headers(struct file_header *hdr, char *filename)
 {
 	if (!write_all(1, hdr, sizeof(*hdr))
 	    || !write_all(1, filename, hdr->namelen))
-		gui_fatal("writing file headers to remove AppVM");
+		exit(1);
 }
 
 int single_file_processor(char *filename, struct stat *st)
@@ -67,15 +67,21 @@ int single_file_processor(char *filename, struct stat *st)
 	hdr.mtime_nsec = st->st_mtim.tv_nsec;
 
 	if (S_ISREG(mode)) {
-		char *ret;
+		int ret;
 		fd = open(filename, O_RDONLY);
 		if (!fd)
 			gui_fatal("open %s", filename);
 		hdr.filelen = st->st_size;
 		write_headers(&hdr, filename);
 		ret = copy_file(1, fd, hdr.filelen);
-		if (ret)
-			gui_fatal("Copying file %s: %s", filename, ret);
+		// if COPY_FILE_WRITE_ERROR, hopefully remote will produce a message
+		if (ret != COPY_FILE_OK) {
+			if (ret != COPY_FILE_WRITE_ERROR)
+				gui_fatal("Copying file %s: %s", filename,
+					  copy_file_status_to_str(ret));
+			else
+				exit(1);
+		}
 		close(fd);
 	}
 	if (S_ISDIR(mode)) {
@@ -89,7 +95,7 @@ int single_file_processor(char *filename, struct stat *st)
 		hdr.filelen = st->st_size + 1;
 		write_headers(&hdr, filename);
 		if (!write_all(1, name, st->st_size + 1))
-			gui_fatal("write to remote VM");
+			exit(1);
 	}
 	return 0;
 }
@@ -130,7 +136,7 @@ void send_vmname(char *vmname)
 	memset(buf, 0, sizeof(buf));
 	strncat(buf, vmname, sizeof(buf) - 1);
 	if (!write_all(1, buf, sizeof buf))
-		gui_fatal("writing vmname to remote VM");
+		exit(1);
 }
 
 char *get_item(char *data, char **current, int size)
