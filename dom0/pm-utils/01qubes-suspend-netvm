@@ -9,6 +9,8 @@ suspend_net()
 		exit 0
 	fi
     qvm-run -u root --pass_io $NETVM "source /usr/lib64/pm-utils/pm-functions; run_hooks sleep suspend suspend"
+    # Ignore exit status from netvm...
+    return 0
 }
 
 resume_net()
@@ -18,6 +20,8 @@ resume_net()
 		exit 0
 	fi
     qvm-run -u root --pass_io $NETVM "source /usr/lib64/pm-utils/pm-functions; run_hooks sleep resume suspend reverse"
+    # Ignore exit status from netvm...
+    return 0
 }
 
  
