@@ -23,7 +23,7 @@
 VM=$(kdialog -inputbox "Enter the VM name to send files to:")
 if [ X$VM = X ] ; then exit 0 ; fi
 
-SIZE=$(du -c "$@" | tail -1 | cut -f 1)
+SIZE=$(du --apparent-size -c "$@" | tail -1 | cut -f 1)
 REF=$(kdialog --progressbar "Copy progress")
 qdbus $REF org.freedesktop.DBus.Properties.Set "" maximum $SIZE
 
