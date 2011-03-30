@@ -74,6 +74,7 @@ cp qubes_core_appvm $RPM_BUILD_ROOT/etc/init.d/
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/usr/bin
 cp qubes_timestamp qvm-open-in-dvm2 $RPM_BUILD_ROOT/usr/bin
+cp qvm-copy-to-vm $RPM_BUILD_ROOT/usr/bin
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
 cp qvm-copy-to-vm2.kde $RPM_BUILD_ROOT/usr/lib/qubes
 cp qvm-trigger-copy-to-vm $RPM_BUILD_ROOT/usr/lib/qubes
@@ -126,6 +127,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root,-)
 /etc/init.d/qubes_core_appvm
+/usr/bin/qvm-copy-to-vm
 /usr/lib/qubes/qvm-copy-to-vm2.kde
 /usr/bin/qvm-open-in-dvm2
 /usr/lib/qubes/meminfo-writer
