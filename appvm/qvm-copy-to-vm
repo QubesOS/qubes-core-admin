@@ -20,31 +20,50 @@
 #
 #
 
-VM=$(kdialog -inputbox "Enter the VM name to send files to:")
-if [ X$VM = X ] ; then exit 0 ; fi
+if [ x"$1" = "x--with-progress" ] ; then
+	DO_PROGRESS=1
+	shift
+else
+	DO_PROGRESS=0
+fi
 
-SIZE=$(du --apparent-size -c "$@" | tail -1 | cut -f 1)
-REF=$(kdialog --progressbar "Copy progress")
-qdbus $REF org.freedesktop.DBus.Properties.Set "" maximum $SIZE
+if [ $# -lt 2 ] ; then
+	echo usage: $0 '[--with-progress] dest_vmname file [file]+'
+	exit 1
+fi
+
+VM="$1"
+shift
+
+if [ $DO_PROGRESS = 1 ] ; then
+	SIZE=$(du --apparent-size -c "$@" | tail -1 | cut -f 1)
+fi
 
 export PROGRESS_FILE=$(mktemp)
 /usr/lib/qubes/qvm-trigger-copy-to-vm $VM "$@"
 while ! [ -s $PROGRESS_FILE ] ; do
 	sleep 0.1
 done
+
 while true ; do
 	read agentpid sentsize agentstatus < $PROGRESS_FILE
 	if [ "x"$agentstatus = x ] ; then continue ; fi
 	if ! [ -e /proc/$agentpid ] ; then break ; fi
 	if [ "x"$agentstatus = xdone ] ; then break ; fi
 	CURRSIZE=$(($sentsize/1024))
-	qdbus $REF  org.freedesktop.DBus.Properties.Set "" value $CURRSIZE
+	if [ $DO_PROGRESS = 1 ] ; then 
+		echo -ne "\r sent $CURRSIZE/$SIZE KB                   " 
+	fi
 	sleep 0.4
 done
 
-qdbus $REF close
 rm -f $PROGRESS_FILE
-# we do not want a dozen error messages, do we
-# if ! [ "x"$agentstatus = xDONE ] ; then 
-# 	kdialog --sorry 'Abnormal file copy termination; see /var/log/qubes/qrexec.xid.log in dom0 for more details'
-# fi
+if [ $DO_PROGRESS = 1 ] ; then
+	echo
+fi
+
+if ! [ "x"$agentstatus = xDONE ] ; then 
+	exit 1
+else
+	exit 0
+fi
