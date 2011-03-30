@@ -28,7 +28,7 @@ REF=$(kdialog --progressbar "Copy progress")
 qdbus $REF org.freedesktop.DBus.Properties.Set "" maximum $SIZE
 
 export PROGRESS_FILE=$(mktemp)
-qvm-copy-to-vm2 $VM "$@"
+/usr/lib/qubes/qvm-trigger-copy-to-vm $VM "$@"
 while ! [ -s $PROGRESS_FILE ] ; do
 	sleep 0.1
 done
