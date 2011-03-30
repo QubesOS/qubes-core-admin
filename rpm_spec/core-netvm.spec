@@ -73,6 +73,9 @@ cp ../common/vif-route-qubes $RPM_BUILD_ROOT/etc/xen/scripts
 chkconfig --add qubes_core_netvm || echo "WARNING: Cannot add service qubes_core!"
 chkconfig qubes_core_netvm on || echo "WARNING: Cannot enable service qubes_core!"
 
+# Remove ip_forward setting from sysctl, so NM will not reset it
+sed 's/^net.ipv4.ip_forward.*/#\0/'  -i /etc/sysctl.conf
+
 %preun
 if [ "$1" = 0 ] ; then
     # no more packages left
