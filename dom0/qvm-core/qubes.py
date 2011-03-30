@@ -1773,6 +1773,25 @@ class QubesVmCollection(dict):
                    if (vm.is_appvm() and vm.template_vm.qid == template_qid)])
         return vms
 
+    def get_vms_connected_to(self, netvm_qid):
+        new_vms = [ netvm_qid ]
+        dependend_vms_qid = []
+
+        # Dependency resolving only makes sense on NetVM (or derivative)
+        if not self[netvm_qid].is_netvm():
+            return set([])
+
+        while len(new_vms) > 0:
+            cur_vm = new_vms.pop()
+            for vm in self.values():
+                if vm.netvm_vm and vm.netvm_vm.qid == cur_vm and vm.qid not in dependend_vms_qid:
+                    dependend_vms_qid.append(vm.qid)
+                    if vm.is_netvm():
+                        new_vms.append(vm.qid)
+
+        vms = [vm for vm in self.values() if vm.qid in dependend_vms_qid]
+        return vms
+
     def verify_new_vm(self, new_vm):
 
         # Verify that qid is unique
