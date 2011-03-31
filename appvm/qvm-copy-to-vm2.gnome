@@ -38,6 +38,6 @@ done
 	CURRSIZE=$(($sentsize/1024))
 	echo $((100*$CURRSIZE/$SIZE))
 	sleep 0.1
-done) | zenity --progress --text="Copying..."
+done) | zenity --progress --text="Copying files to domain: $VM..."
 
 rm -f $PROGRESS_FILE
