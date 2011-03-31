@@ -1348,7 +1348,7 @@ class QubesProxyVm(QubesNetVm):
         qvm_collection.load()
         qvm_collection.unlock_db()
 
-        vms = [vm for vm in qvm_collection.values() if vm.is_appvm()]
+        vms = [vm for vm in qvm_collection.values() if vm.has_firewall()]
         for vm in vms:
             conf = vm.get_firewall_conf()
 
