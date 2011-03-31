@@ -61,8 +61,14 @@ main()
 		 "HOME=/home/user DISPLAY=:0 /usr/bin/mimeopen -n -M '%s' > /tmp/kde-open.log 2>&1 </dev/null",
 		 filename);
 	if (system(cmdbuf))
+#ifdef USE_KDIALOG
 		system
 		    ("HOME=/home/user DISPLAY=:0 /usr/bin/kdialog --sorry 'Unable to handle mimetype of the requested file!' > /tmp/kdialog.log 2>&1 </dev/null");
+#else
+		system
+		    ("HOME=/home/user DISPLAY=:0 /usr/bin/zenity --error --text 'Unable to handle mimetype of the requested file!' > /tmp/kdialog.log 2>&1 </dev/null");
+#endif
+
 	if (stat(filename, &stat_post)) {
 		perror("stat post");
 		exit(1);

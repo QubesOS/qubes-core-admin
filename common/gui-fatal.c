@@ -15,18 +15,23 @@ static void fix_display()
 
 static void produce_message(char * type, const char *fmt, va_list args)
 {
-	char *kdialog_msg;
+	char *dialog_msg;
 	char buf[1024];
 	(void) vsnprintf(buf, sizeof(buf), fmt, args);
-	asprintf(&kdialog_msg, "%s: %s: %s (error type: %s)",
+	asprintf(&dialog_msg, "%s: %s: %s (error type: %s)",
 		 program_invocation_short_name, type, buf, strerror(errno));
-	fprintf(stderr, "%s", kdialog_msg);
+	fprintf(stderr, "%s", dialog_msg);
 	switch (fork()) {
 	case -1:
 		exit(1);	//what else
 	case 0:
 		fix_display();
-		execlp("kdialog", "kdialog", "--sorry", kdialog_msg, NULL);
+#ifdef USE_KDIALOG
+		execlp("kdialog", "kdialog", "--sorry", dialog_msg, NULL);
+#else
+
+		execlp("zenity", "zenity", "--error --text", dialog_msg, NULL);
+#endif
 		exit(1);
 	default:;
 	}

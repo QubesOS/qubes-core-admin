@@ -1,0 +1,43 @@
+#!/bin/sh
+#
+# The Qubes OS Project, http://www.qubes-os.org
+#
+# Copyright (C) 2010  Rafal Wojtczuk  <rafal@invisiblethingslab.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+#
+
+VM=$(zenity --entry --title="File Copy" --text="Enter the destination domain name:")
+if [ X$VM = X ] ; then exit 0 ; fi
+
+SIZE=$(du --apparent-size -c "$@" | tail -1 | cut -f 1)
+
+export PROGRESS_FILE=$(mktemp)
+/usr/lib/qubes/qvm-trigger-copy-to-vm $VM "$@"
+while ! [ -s $PROGRESS_FILE ] ; do
+	sleep 0.1
+done
+(while true ; do
+	read agentpid sentsize agentstatus < $PROGRESS_FILE
+	if [ "x"$agentstatus = x ] ; then continue ; fi
+	if ! [ -e /proc/$agentpid ] ; then break ; fi
+	if [ "x"$agentstatus = xdone ] ; then break ; fi
+	CURRSIZE=$(($sentsize/1024))
+	echo $((100*$CURRSIZE/$SIZE))
+	sleep 0.1
+done) | | zenity --progress --text="Copying..."
+
+rm -f $PROGRESS_FILE
