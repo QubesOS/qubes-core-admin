@@ -27,7 +27,6 @@ import subprocess
 import os
 
 qubes_guid_path = "/usr/bin/qubes_guid"
-qrexec_daemon_path = "/usr/lib/qubes/qrexec_daemon"
 
 def main():
     usage = "usage: %prog [options] <vm-name>"
@@ -35,8 +34,6 @@ def main():
     parser.add_option ("-q", "--quiet", action="store_false", dest="verbose", default=True)
     parser.add_option ("--no-guid", action="store_true", dest="noguid", default=False,
 		      help="Do not start the GUId")
-    parser.add_option ("--no-rexec", action="store_true", dest="norexec", default=False,
-		      help="Do not start rexec")
     parser.add_option ("--console", action="store_true", dest="debug_console", default=False,
                       help="Attach debugging console to the newly started VM")
     parser.add_option ("--dvm", action="store_true", dest="preparing_dvm", default=False,
@@ -71,15 +68,6 @@ def main():
         retcode = subprocess.call ([qubes_guid_path, "-d", str(xid), "-c", vm.label.color, "-i", vm.label.icon, "-l", str(vm.label.index)])
         if (retcode != 0) :
             print "ERROR: Cannot start qubes_guid!"
-            exit (1)
-
-    if not options.norexec:
-        if options.verbose:
-            print "--> Starting Qubes rexec..."
-
-        retcode = subprocess.call ([qrexec_daemon_path, str(xid)])
-        if (retcode != 0) :
-            print "ERROR: Cannot start qrexec_daemon!"
             exit (1)
 
 
