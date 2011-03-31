@@ -306,14 +306,17 @@ class QubesVm(object):
         else:
             return False
 
+    def set_updateable(self):
+        if self.is_updateable():
+            return
+
+        raise QubesException ("Change 'updateable' flag is not supported. Please use qvm-create.")
 
     def set_nonupdateable(self):
         if not self.is_updateable():
             return
 
-        assert not self.is_running()
-        # We can always downgrade a VM to non-updateable...
-        self.updateable = False
+        raise QubesException ("Change 'updateable' flag is not supported. Please use qvm-create.")
 
     def is_template(self):
         return isinstance(self, QubesTemplateVm)
