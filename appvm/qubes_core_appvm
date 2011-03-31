@@ -56,13 +56,6 @@ start()
 	MEMINFO_DELAY_USEC=100000
 	/usr/lib/qubes/meminfo-writer $MEM_CHANGE_THRESHOLD_KB $MEMINFO_DELAY_USEC &
 
-	if ! [ -f /home/user/.gnome2/nautilus-scripts/qvm-* ] ; then
-		echo "Creating symlinks for nautilus actions..."
-		su user -c 'mkdir -p /home/user/.gnome2/nautilus-scripts'
-		su user -c 'ln -s /usr/lib/qubes/qvm-copy-to-vm2.gnome /home/user/.gnome2/nautilus-scripts/"Copy to other AppVM"'
-		su user -c 'ln -s /usr/bin/qvm-open-in-dvm2 /home/user/.gnome2/nautilus-scripts/"Open in DisposableVM"'
-	fi
-
 	success
 	echo ""
 	return 0
