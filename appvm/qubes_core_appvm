@@ -25,14 +25,14 @@ start()
 		exit 1
 	fi
 
-    type=$(/usr/bin/xenstore-read qubes_vm_type)
-    if [ "$type" != "AppVM" -a "$type" != "DisposableVM" ]; then
-        # This script runs only on AppVMs
-        return 0
-    fi
+	type=$(/usr/bin/xenstore-read qubes_vm_type)
+	if [ "$type" != "AppVM" -a "$type" != "DisposableVM" ]; then
+		# This script runs only on AppVMs
+		return 0
+	fi
     
-    # Start AppVM specific services
-    /sbin/service cups start
+	# Start AppVM specific services
+	/sbin/service cups start
 
 	echo -n $"Executing Qubes Core scripts for AppVM:"
 
@@ -52,9 +52,9 @@ start()
 		echo Back to life.
 	fi
 
-    MEM_CHANGE_THRESHOLD_KB=30000
-    MEMINFO_DELAY_USEC=100000
-    /usr/lib/qubes/meminfo-writer $MEM_CHANGE_THRESHOLD_KB $MEMINFO_DELAY_USEC &
+	MEM_CHANGE_THRESHOLD_KB=30000
+	MEMINFO_DELAY_USEC=100000
+	/usr/lib/qubes/meminfo-writer $MEM_CHANGE_THRESHOLD_KB $MEMINFO_DELAY_USEC &
 
 	success
 	echo ""
