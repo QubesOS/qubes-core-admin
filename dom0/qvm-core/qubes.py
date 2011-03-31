@@ -46,6 +46,7 @@ if not dry_run:
 
 
 qubes_guid_path = "/usr/bin/qubes_guid"
+qrexec_daemon_path = "/usr/lib/qubes/qrexec_daemon"
 
 qubes_base_dir   = "/var/lib/qubes"
 
@@ -617,6 +618,14 @@ class QubesVm(object):
         if verbose:
             print "--> Starting the VM..."
         xend_session.session.xenapi.VM.unpause (self.session_uuid)
+
+        if not preparing_dvm:
+            if verbose:
+                print "--> Starting the qrexec daemon..."
+            retcode = subprocess.call ([qrexec_daemon_path, str(xid)])
+            if (retcode != 0) :
+                self.force_shutdown()
+                raise OSError ("ERROR: Cannot execute qrexec_daemon!")
 
         # perhaps we should move it before unpause and fork?
         if debug_console:
