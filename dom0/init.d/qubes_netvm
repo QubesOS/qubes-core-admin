@@ -20,6 +20,17 @@
 
 NETVM=$(qvm-get-default-netvm)
 
+get_running_netvms() {
+    # Actually get running VMs with PCI devices attached
+    RUNNING_VMS=`xm list --state=Running | tail -n +3 | cut -f 1 -d " "`
+    RUNNING_NETVMS=""
+    for VM in $RUNNING_VMS; do
+        if [ -n "`xm pci-list $VM`" ]; then
+            echo "$VM"
+        fi
+    done
+}
+
 start()
 {
     if [ x$NETVM = x ] ; then
@@ -59,8 +70,10 @@ stop()
         echo -n $"Stopping Qubes networking in Dom0:"
     else
 
-        echo -n $"Stopping default NetVM:"
-        qvm-run -q --shutdown --wait $NETVM
+        echo -n $"Stopping NetVMs:"
+        for VM in `get_running_netvms`; do
+            qvm-run -q --shutdown --wait $VM
+        done
 
     fi
     rm -f /var/lock/subsys/qubes_netvm

@@ -219,6 +219,11 @@ def main():
             print "A VM with the name '{0}' does not exist in the system!".format(vmname)
             exit(1)
         vms_list.append(vm)
+    
+        # If stopping NetVM - stop connected VMs too
+        if options.shutdown and vm.is_netvm():
+            vms_list += [vm for vm in qvm_collection.get_vms_connected_to(vm.qid) if vm.is_running()]
+            vms_list.reverse()
 
     if takes_cmd_argument:
         cmd = "{user}:{cmd}".format(user=options.user, cmd=cmdstr)
