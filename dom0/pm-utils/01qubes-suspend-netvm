@@ -2,24 +2,31 @@
 
 . "${PM_FUNCTIONS}"
 
+get_running_netvms() {
+    # Actually get running VMs with PCI devices attached
+    RUNNING_VMS=`xm list --state=Running | tail -n +3 | cut -f 1 -d " "`
+    RUNNING_NETVMS=""
+    for VM in $RUNNING_VMS; do
+        if [ -n "`xm pci-list $VM`" ]; then
+            echo "$VM"
+        fi
+    done
+}
+
 suspend_net()
 {
-	NETVM=$(qvm-get-default-netvm)
-	if [ "X"$NETVM = "X""dom0" -o "X"$NETVM = "X" -o "X"$NETVM = "X""none"] ; then
-		exit 0
-	fi
-    qvm-run -u root --pass_io $NETVM "source /usr/lib64/pm-utils/pm-functions; run_hooks sleep suspend suspend"
+    for VM in `get_running_netvms`; do
+        qvm-run -u root --pass_io $VM "service NetworkManager stop"
+    done
     # Ignore exit status from netvm...
     return 0
 }
 
 resume_net()
 {
-	NETVM=$(qvm-get-default-netvm)
-	if [ "X"$NETVM = "X""dom0" -o "X"$NETVM = "X" -o "X"$NETVM = "X""none"] ; then
-		exit 0
-	fi
-    qvm-run -u root --pass_io $NETVM "source /usr/lib64/pm-utils/pm-functions; run_hooks sleep resume suspend reverse"
+    for VM in `get_running_netvms`; do
+        qvm-run -u root --pass_io $VM "service NetworkManager start"
+    done
     # Ignore exit status from netvm...
     return 0
 }
