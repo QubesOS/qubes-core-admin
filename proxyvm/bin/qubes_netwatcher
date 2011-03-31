@@ -18,6 +18,7 @@ while true; do
 			/sbin/service qubes_firewall stop
 			/sbin/service qubes_firewall start
 			CURR_NETCFG="$NETCFG"
+			/usr/bin/xenstore-write qubes_netvm_external_ip "$CURR_NETCFG"
 		fi
 
 		/usr/bin/xenstore-watch /local/domain/$NET_DOMID/qubes_netvm_external_ip

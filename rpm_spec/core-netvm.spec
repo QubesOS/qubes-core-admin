@@ -68,6 +68,12 @@ cp ../common/vif-route-qubes $RPM_BUILD_ROOT/etc/xen/scripts
 
 %post
 
+# Create NetworkManager configuration if we do not have it
+if ! [ -e /etc/NetworkManager/NetworkManager.conf ]; then
+echo '[main]' > /etc/NetworkManager/NetworkManager.conf
+echo 'plugins = keyfile' >> /etc/NetworkManager/NetworkManager.conf
+echo '[keyfile]' >> /etc/NetworkManager/NetworkManager.conf
+fi
 /usr/lib/qubes/qubes_fix_nm_conf.sh
 
 chkconfig --add qubes_core_netvm || echo "WARNING: Cannot add service qubes_core!"
