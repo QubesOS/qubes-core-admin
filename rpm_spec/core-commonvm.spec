@@ -33,6 +33,7 @@ License:	GPL
 URL:		http://www.qubes-os.org
 Requires:	/usr/bin/xenstore-read
 Requires:   fedora-release
+BuildRequires: xen-devel
 
 %define _builddir %(pwd)/common
 
