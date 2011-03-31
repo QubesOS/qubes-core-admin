@@ -30,7 +30,7 @@ static void produce_message(char * type, const char *fmt, va_list args)
 		execlp("kdialog", "kdialog", "--sorry", dialog_msg, NULL);
 #else
 
-		execlp("zenity", "zenity", "--error --text", dialog_msg, NULL);
+		execlp("zenity", "zenity", "--error",  "--text", dialog_msg, NULL);
 #endif
 		exit(1);
 	default:;
