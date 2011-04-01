@@ -127,6 +127,9 @@ def main():
     parser.add_option ("--skip-conflicting", action="store_true", dest="skip_conflicting", default=False,
                        help="Do not restore VMs that are already present on the host")
 
+    parser.add_option ("--force-root", action="store_true", dest="force_root", default=False,
+                       help="Force to run, even with root privileges")
+
     parser.add_option ("--recreate-conf-files", action="store_true", dest="recreate_conf", default=False,
                        help="Recreate conf files after restore")
 
@@ -241,6 +244,15 @@ def main():
                 vms_to_restore.append (vm)
 
     print
+
+    if os.geteuid() == 0:
+        print "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
+        if options.force_root:
+            print "Continuing as commanded. You have been warned."
+        else:
+            print "Retry as unprivileged user."
+            print "... or use --force-root to continue anyway."
+            exit(1)
 
     if there_are_conflicting_vms:
         print "*** There VMs with conflicting names on the host! ***"
