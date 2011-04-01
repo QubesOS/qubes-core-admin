@@ -237,10 +237,11 @@ class QubesVm(object):
 
         self.memory = memory
 
+        self.template_vm = template_vm
         if template_vm is not None:
             if updateable:
                 print "ERROR: Template based VM cannot be updateable!"
-                return false
+                return False
             if not template_vm.is_template():
                 print "ERROR: template_qid={0} doesn't point to a valid TemplateVM".\
                     format(template_vm.qid)
@@ -249,8 +250,6 @@ class QubesVm(object):
             template_vm.appvms[qid] = self
         else:
             assert self.root_img is not None, "Missing root_img for standalone VM!"
-
-        self.template_vm = template_vm
 
         # By default allow use all VCPUs
         if vcpus is None:
