@@ -180,6 +180,7 @@ class QubesVm(object):
                  template_vm = None,
                  firewall_conf = None,
                  volatile_img = None,
+                 pcidevs = None,
                  vcpus = None):
 
 
@@ -233,7 +234,10 @@ class QubesVm(object):
             self.icon_path = None
 
         # PCI devices - used only by NetVM
-        self.pcidevs  = ""
+        if pcidevs is None or pcidevs == "none":
+            self.pcidevs = ""
+        else:
+            self.pcidevs  = pcidevs
 
         self.memory = memory
 
@@ -898,6 +902,7 @@ class QubesVm(object):
         attrs["updateable"] = str(self.updateable)
         attrs["label"] = self.label.name
         attrs["memory"] = str(self.memory)
+        attrs["pcidevs"] = str(self.pcidevs)
         attrs["vcpus"] = str(self.vcpus)
         return attrs
 
@@ -1851,7 +1856,7 @@ class QubesVmCollection(dict):
         common_attr_list = ("qid", "name", "dir_path", "conf_file",
                 "private_img", "root_img", "template_qid",
                 "installed_by_rpm", "updateable",
-                "uses_default_netvm", "label")
+                "uses_default_netvm", "label", "memory", "vcpus", "pcidevs")
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)
