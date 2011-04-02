@@ -480,6 +480,30 @@ class QubesVm(object):
         else:
             return False
 
+    def is_outdated(self):
+        # Makes sense only on VM based on template
+        if self.template_vm is None:
+            return False
+
+        if not self.is_running():
+            return False
+
+        rootimg_inode = os.stat(self.template_vm.root_img)
+        rootcow_inode = os.stat(self.template_vm.rootcow_img)
+       
+        current_dmdev = "/dev/mapper/snapshot-{0:x}:{1}-{2:x}:{3}".format(
+                rootimg_inode[2], rootimg_inode[1],
+                rootcow_inode[2], rootcow_inode[1])
+
+        # Don't know why, but 51712 is xvda
+        #  backend node name not available through xenapi :(
+        p = subprocess.Popen (["xenstore-read", 
+            "/local/domain/0/backend/vbd/{0}/51712/node".format(self.get_xid())],
+                              stdout=subprocess.PIPE)
+        used_dmdev = p.communicate()[0].strip()
+
+        return used_dmdev != current_dmdev
+
     def get_disk_usage(self, file_or_dir):
         if not os.path.exists(file_or_dir):
             return 0
