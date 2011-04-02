@@ -1378,6 +1378,10 @@ class QubesProxyVm(QubesNetVm):
 
         vms = [vm for vm in qvm_collection.values() if vm.has_firewall()]
         for vm in vms:
+            # Process only VMs connected to this ProxyVM
+            if not vm.netvm_vm or vm.netvm_vm.qid != self.qid:
+                continue
+
             conf = vm.get_firewall_conf()
 
             xid = vm.get_xid()
