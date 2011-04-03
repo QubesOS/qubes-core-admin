@@ -142,31 +142,6 @@ echo '[keyfile]' >> /etc/NetworkManager/NetworkManager.conf
 fi
 /usr/lib/qubes/qubes_fix_nm_conf.sh
 
-#if [ "$1" !=  1 ] ; then
-## do this whole %post thing only when updating for the first time...
-#exit 0
-#fi
-
-## TODO: This is only temporary, until we will have our own installer
-#for f in /etc/init.d/*
-#do
-#        srv=`basename $f`
-#        [ $srv = 'functions' ] && continue
-#        [ $srv = 'killall' ] && continue
-#        [ $srv = 'halt' ] && continue
-#        [ $srv = 'single' ] && continue
-#        chkconfig $srv off
-#done
-
-chkconfig iptables on
-chkconfig NetworkManager on
-chkconfig rsyslog on
-chkconfig haldaemon on
-chkconfig messagebus on
-chkconfig xenstored on
-chkconfig xend on
-chkconfig xenconsoled on
-
 sed 's/^net.ipv4.ip_forward.*/net.ipv4.ip_forward = 1/'  -i /etc/sysctl.conf
 
 chkconfig --add qubes_core || echo "WARNING: Cannot add service qubes_core!"
