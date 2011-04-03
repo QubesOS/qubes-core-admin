@@ -201,11 +201,6 @@ done
 
 service qubes_core start
 
-NETVM=$(qvm-get-default-netvm)
-if [ "X"$NETVM = "X""dom0" ] ; then
-    service qubes_netvm start
-fi
-
 if [ "x"$HAD_SYSCONFIG_NETWORK = "xno" ]; then
     rm -f /etc/sysconfig/network
 fi
@@ -220,10 +215,6 @@ fi
 
 if [ "$1" -gt 1 ] ; then
     # upgrading already installed package...
-    NETVM=$(qvm-get-default-netvm)
-    if [ "X"$NETVM = "X""dom0" ] ; then
-        /etc/init.d/qubes_netvm stop
-    fi
 
     /etc/init.d/qubes_core stop
 fi
