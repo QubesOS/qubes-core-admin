@@ -181,6 +181,7 @@ class QubesVm(object):
                  firewall_conf = None,
                  volatile_img = None,
                  pcidevs = None,
+                 internal = False,
                  vcpus = None):
 
 
@@ -261,6 +262,9 @@ class QubesVm(object):
             self.vcpus = qubes_host.no_cpus
         else:
             self.vcpus = vcpus
+
+        # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
+        self.internal = internal
 
         if not dry_run and xend_session.session is not None:
             self.refresh_xend_session()
@@ -928,6 +932,7 @@ class QubesVm(object):
         attrs["memory"] = str(self.memory)
         attrs["pcidevs"] = str(self.pcidevs)
         attrs["vcpus"] = str(self.vcpus)
+        attrs["internal"] = str(self.internal)
         return attrs
 
     def create_xml_element(self):
@@ -1567,7 +1572,8 @@ class QubesAppVm(QubesVm):
             print "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
         os.symlink (self.label.icon_path, self.icon_path)
 
-        self.create_appmenus (verbose)
+        if not self.internal:
+            self.create_appmenus (verbose)
 
     def remove_from_disk(self):
         if dry_run:
@@ -1883,7 +1889,7 @@ class QubesVmCollection(dict):
         kwargs = {}
         common_attr_list = ("qid", "name", "dir_path", "conf_file",
                 "private_img", "root_img", "template_qid",
-                "installed_by_rpm", "updateable",
+                "installed_by_rpm", "updateable", "internal"
                 "uses_default_netvm", "label", "memory", "vcpus", "pcidevs")
 
         for attribute in common_attr_list:
@@ -1895,6 +1901,9 @@ class QubesVmCollection(dict):
 
         if "installed_by_rpm" in kwargs:
             kwargs["installed_by_rpm"] = True if kwargs["installed_by_rpm"] == "True" else False
+
+        if "internal" in kwargs:
+            kwargs["internal"] = True if kwargs["internal"] == "True" else False
 
         if "template_qid" in kwargs:
             if kwargs["template_qid"] == "none" or kwargs["template_qid"] is None:
