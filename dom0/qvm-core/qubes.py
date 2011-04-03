@@ -1889,7 +1889,7 @@ class QubesVmCollection(dict):
         kwargs = {}
         common_attr_list = ("qid", "name", "dir_path", "conf_file",
                 "private_img", "root_img", "template_qid",
-                "installed_by_rpm", "updateable", "internal"
+                "installed_by_rpm", "updateable", "internal",
                 "uses_default_netvm", "label", "memory", "vcpus", "pcidevs")
 
         for attribute in common_attr_list:
