@@ -124,6 +124,15 @@ def vm_run_cmd(vm, cmd, options):
                 if options.tray:
                     tray_notify_error ("ERROR: Cannot start the GUI daemon for this VM!")
                 exit (1)
+
+        if not os.path.exists("/var/run/qubes/qrexec.{0}".format(xid)):
+            retcode = subprocess.call ([qrexec_daemon_path, str(xid)])
+            if (retcode != 0) :
+                print "ERROR: Cannot start qrexec!"
+                if options.tray:
+                    tray_notify_error ("ERROR: Cannot start the QRexec daemon for this VM!")
+                exit (1)
+
         actually_execute(str(xid), cmd, options);
 
 def main():

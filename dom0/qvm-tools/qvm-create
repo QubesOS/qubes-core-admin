@@ -63,6 +63,8 @@ def main():
                         help="Initial memory size (in MB)")
     parser.add_option ("-c", "--vcpus", dest="vcpus", default=None,
                         help="VCPUs count")
+    parser.add_option ("-i", "--internal", action="store_true", dest="internal", default=False,
+                        help="Create VM for internal use only (hidden in qubes-manager, no appmenus)")
  
     parser.add_option ("-q", "--quiet", action="store_false", dest="verbose", default=True)
     (options, args) = parser.parse_args ()
@@ -133,6 +135,9 @@ def main():
         vm = qvm_collection.add_new_proxyvm(vmname, template_vm, label = label, updateable = options.standalone)
     else:
         vm = qvm_collection.add_new_appvm(vmname, template_vm, label = label, updateable = options.standalone)
+
+    if options.internal:
+        vm.internal = True
 
     if options.mem is not None:
         vm.memory = options.mem
