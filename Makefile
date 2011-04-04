@@ -1,8 +1,13 @@
 RPMS_DIR=rpm/
+
+VERSION_DOM0 := $(shell cat version_dom0)
+VERSION_VM := $(shell cat version_vm)
+
 help:
-	@echo "make rpms        -- generate binary rpm packages"
-	@echo "make update-repo -- copy newly generated rpms to qubes yum repo"
-	@echo "make update-repo-testing -- same, but to -testing repo"
+	@echo "make rpms                  -- generate binary rpm packages"
+	@echo "make update-repo-current   -- copy newly generated rpms to qubes yum repo"
+	@echo "make update-repo-unstable  -- same, but to -testing repo"
+	@echo "make clean                 -- cleanup"
 
 rpms:	
 	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-commonvm.spec
@@ -10,23 +15,19 @@ rpms:
 	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-netvm.spec
 	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-proxyvm.spec
 	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-dom0.spec
-	rpm --addsign $(RPMS_DIR)/x86_64/*.rpm
+	rpm --addsign \
+		$(RPMS_DIR)/x86_64/qubes-core-dom0-*$(VERSION_DOM0)*.rpm \
+		$(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_DOM0)*.rpm
 
-update-repo:
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-*.rpm ../yum/r1/dom0/rpm/
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-appvm-*.rpm ../yum/r1/appvm/rpm/
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-commonvm-*.rpm ../yum/r1/netvm/rpm/
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-netvm-*.rpm ../yum/r1/netvm/rpm/
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-proxyvm-*.rpm ../yum/r1/netvm/rpm/
+update-repo-current:
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-*$(VERSION_DOM0)*.rpm ../yum/current-release/current/dom0/rpm/
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*.rpm ../yum/current-release/current/vm/rpm/
+	cd ../yum && ./update_repo.sh
 
-update-repo-testing:
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-*.rpm ../yum/r1-testing/dom0/rpm/
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-appvm-*.rpm ../yum/r1-testing/appvm/rpm/
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-commonvm-*.rpm ../yum/r1-testing/netvm/rpm/
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-netvm-*.rpm ../yum/r1-testing/netvm/rpm/
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-proxyvm-*.rpm ../yum/r1-testing/netvm/rpm/
-
-
+update-repo-unstable:
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-*$(VERSION_DOM0)*.rpm ../yum/current-release/unstable/dom0/rpm/
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*.rpm ../yum/current-release/unstable/vm/rpm/
+	cd ../yum && ./update_repo.sh
 
 clean:
 	(cd appvm && make clean)
