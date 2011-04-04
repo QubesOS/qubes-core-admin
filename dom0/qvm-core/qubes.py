@@ -1390,13 +1390,16 @@ class QubesProxyVm(QubesNetVm):
         qvm_collection.load()
         qvm_collection.unlock_db()
 
-        vms = [vm for vm in qvm_collection.values() if vm.has_firewall()]
+        vms = [vm for vm in qvm_collection.values()]
         for vm in vms:
             # Process only VMs connected to this ProxyVM
             if not vm.netvm_vm or vm.netvm_vm.qid != self.qid:
                 continue
 
-            conf = vm.get_firewall_conf()
+            if vm.has_firewall():
+                conf = vm.get_firewall_conf()
+            else:
+                conf = { "rules": list(), "allow": True, "allowDns": True, "allowIcmp": True }
 
             xid = vm.get_xid()
             if xid < 0: # VM not active ATM
