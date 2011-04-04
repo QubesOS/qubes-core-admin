@@ -589,16 +589,18 @@ class QubesVm(object):
                 "/local/domain/{0}/qubes_secondary_dns".format(xid),
                 self.netvm_vm.secondary_dns])
 
-    def create_config_file(self):
-        assert self.template_vm is not None
+    def create_config_file(self, source_template = None):
+        if source_template is None:
+            source_template = self.template_vm
+        assert source_template is not None
 
         conf_template = None
         if self.type == "NetVM":
-            conf_template = open (self.template_vm.netvms_conf_file, "r")
+            conf_template = open (source_template.netvms_conf_file, "r")
         elif self.updateable:
-            conf_template = open (self.template_vm.standalonevms_conf_file, "r")
+            conf_template = open (source_template.standalonevms_conf_file, "r")
         else:
-            conf_template = open (self.template_vm.appvms_conf_file, "r")
+            conf_template = open (source_template.appvms_conf_file, "r")
         if os.path.isfile(self.conf_file):
             shutil.copy(self.conf_file, self.conf_file + ".backup")
         conf_appvm = open(self.conf_file, "w")
@@ -612,7 +614,7 @@ class QubesVm(object):
         for line in conf_template:
             line = rx_vmname.sub (self.name, line)
             line = rx_vmdir.sub (self.dir_path, line)
-            line = rx_template.sub (self.template_vm.dir_path, line)
+            line = rx_template.sub (source_template.dir_path, line)
             line = rx_pcidevs.sub (self.pcidevs, line)
             line = rx_mem.sub (str(self.memory), line)
             line = rx_vcpus.sub (str(self.vcpus), line)
@@ -621,8 +623,10 @@ class QubesVm(object):
         conf_template.close()
         conf_appvm.close()
 
-    def create_on_disk(self, verbose):
-        assert self.template_vm is not None
+    def create_on_disk(self, verbose, source_template = None):
+        if source_template is None:
+            source_template = self.template_vm
+        assert source_template is not None
 
         if dry_run:
             return
@@ -634,9 +638,9 @@ class QubesVm(object):
         if verbose:
             print "--> Creating the VM config file: {0}".format(self.conf_file)
 
-        self.create_config_file()
+        self.create_config_file(source_template = source_template)
 
-        template_priv = self.template_vm.private_img
+        template_priv = source_template.private_img
         if verbose:
             print "--> Copying the template's private image: {0}".\
                     format(template_priv)
@@ -648,7 +652,7 @@ class QubesVm(object):
                            format(template_priv, self.private_img))
 
         if self.is_updateable():
-            template_root = self.template_vm.root_img
+            template_root = source_template.root_img
             if verbose:
                 print "--> Copying the template's root image: {0}".\
                         format(template_root)
@@ -662,12 +666,12 @@ class QubesVm(object):
             kernels_dir = self.dir_path + '/' + default_kernels_subdir
             if verbose:
                 print "--> Copying the template's kernel dir: {0}".\
-                        format(self.template_vm.kernels_dir)
-            shutil.copytree (self.template_vm.kernels_dir, kernels_dir)
+                        format(source_template.kernels_dir)
+            shutil.copytree (source_template.kernels_dir, kernels_dir)
 
 
         # Create volatile.img
-        self.reset_volatile_storage()
+        self.reset_volatile_storage(source_template = source_template)
 
     def verify_files(self):
         if dry_run:
@@ -694,11 +698,14 @@ class QubesVm(object):
                 format(self.private_img))
         return True
 
-    def reset_volatile_storage(self):
+    def reset_volatile_storage(self, source_template = None):
         assert not self.is_running(), "Attempt to clean volatile image of running VM!"
 
+        if source_template is None:
+            source_template = self.template_vm
+
         # Only makes sense on template based VM
-        if self.template_vm is None:
+        if source_template is None:
             return
 
         print "--> Cleaning volatile image: {0}...".format (self.volatile_img)
@@ -707,10 +714,10 @@ class QubesVm(object):
         if os.path.exists (self.volatile_img):
            os.remove (self.volatile_img)
 
-        retcode = subprocess.call (["tar", "xf", self.template_vm.clean_volatile_img, "-C", self.dir_path])
+        retcode = subprocess.call (["tar", "xf", source_template.clean_volatile_img, "-C", self.dir_path])
         if retcode != 0:
             raise IOError ("Error while unpacking {0} to {1}".\
-                           format(self.template_vm.clean_volatile_img, self.volatile_img))
+                           format(source_template.clean_volatile_img, self.volatile_img))
 
     def remove_from_disk(self):
         if dry_run:
@@ -1574,18 +1581,18 @@ class QubesAppVm(QubesVm):
     def type(self):
         return "AppVM"
 
-    def create_on_disk(self, verbose):
+    def create_on_disk(self, verbose, source_template = None):
         if dry_run:
             return
 
-        super(QubesAppVm, self).create_on_disk(verbose)
+        super(QubesAppVm, self).create_on_disk(verbose, source_template=source_template)
 
         if verbose:
             print "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
         os.symlink (self.label.icon_path, self.icon_path)
 
         if not self.internal:
-            self.create_appmenus (verbose)
+            self.create_appmenus (verbose, source_template=source_template)
 
     def remove_from_disk(self):
         if dry_run:
@@ -1594,9 +1601,12 @@ class QubesAppVm(QubesVm):
         subprocess.check_call ([qubes_appmenu_remove_cmd, self.name])
         super(QubesAppVm, self).remove_from_disk()
 
-    def create_appmenus(self, verbose):
-        if self.template_vm is not None:
-            subprocess.check_call ([qubes_appmenu_create_cmd, self.template_vm.appmenus_templates_dir, self.name])
+    def create_appmenus(self, verbose, source_template = None):
+        if source_template is None:
+            source_template = self.template_vm
+
+        if source_template is not None:
+            subprocess.check_call ([qubes_appmenu_create_cmd, source_template.appmenus_templates_dir, self.name])
         else:
             # Only add apps to menu
             subprocess.check_call ([qubes_appmenu_create_cmd, "none", self.name])
