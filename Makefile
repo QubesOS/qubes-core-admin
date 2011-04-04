@@ -17,7 +17,7 @@ rpms:
 	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-dom0.spec
 	rpm --addsign \
 		$(RPMS_DIR)/x86_64/qubes-core-dom0-*$(VERSION_DOM0)*.rpm \
-		$(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_DOM0)*.rpm
+		$(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*.rpm
 
 update-repo-current:
 	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-*$(VERSION_DOM0)*.rpm ../yum/current-release/current/dom0/rpm/
