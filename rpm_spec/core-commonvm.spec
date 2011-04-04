@@ -65,7 +65,9 @@ mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
 cp iptables $RPM_BUILD_ROOT/etc/sysconfig/
 mkdir -p $RPM_BUILD_ROOT/etc/yum.repos.d
-cp ../appvm/qubes.repo $RPM_BUILD_ROOT/etc/yum.repos.d
+cp qubes.repo $RPM_BUILD_ROOT/etc/yum.repos.d
+install -d -m 755 $RPM_BUILD_ROOT/etc/pki/rpm-gpg
+install -m 644 RPM-GPG-KEY-qubes* $RPM_BUILD_ROOT/etc/pki/rpm-gpg/
 mkdir -p $RPM_BUILD_ROOT/sbin
 cp qubes_serial_login $RPM_BUILD_ROOT/sbin
 mkdir -p $RPM_BUILD_ROOT/usr/bin
@@ -170,5 +172,6 @@ rm -rf $RPM_BUILD_ROOT
 /etc/sysconfig/iptables
 /var/lib/qubes
 /etc/yum.repos.d/qubes.repo
+/etc/pki/rpm-gpg/RPM-GPG-KEY-qubes*
 /sbin/qubes_serial_login
 /usr/bin/xenstore-watch
