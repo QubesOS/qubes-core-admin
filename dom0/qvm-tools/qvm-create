@@ -117,9 +117,14 @@ def main():
             if (options.verbose):
                 print "--> Using default TemplateVM: {0}".format(template_vm.name)
 
+    if options.standalone:
+        new_vm_template = None
+    else:
+        new_vm_template = template_vm
+
     vm = None
     if options.netvm:
-        vm = qvm_collection.add_new_netvm(vmname, template_vm, label = label, updateable = options.standalone)
+        vm = qvm_collection.add_new_netvm(vmname, new_vm_template, label = label, updateable = options.standalone)
         
         net_devices = find_net_devices()
         print "Found the following net devices in your system:"
@@ -132,9 +137,9 @@ def main():
         vm.pcidevs = dev_str
 
     elif options.proxyvm:
-        vm = qvm_collection.add_new_proxyvm(vmname, template_vm, label = label, updateable = options.standalone)
+        vm = qvm_collection.add_new_proxyvm(vmname, new_vm_template, label = label, updateable = options.standalone)
     else:
-        vm = qvm_collection.add_new_appvm(vmname, template_vm, label = label, updateable = options.standalone)
+        vm = qvm_collection.add_new_appvm(vmname, new_vm_template, label = label, updateable = options.standalone)
 
     if options.internal:
         vm.internal = True
@@ -146,7 +151,7 @@ def main():
         vm.vcpus = options.vcpus
 
     try:
-        vm.create_on_disk(verbose=options.verbose)
+        vm.create_on_disk(verbose=options.verbose, source_template=template_vm)
         vm.add_to_xen_storage()
 
     except (IOError, OSError) as err:
