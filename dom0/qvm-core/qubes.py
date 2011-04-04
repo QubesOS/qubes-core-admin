@@ -203,6 +203,8 @@ class QubesVm(object):
 
         self.uses_default_netvm = uses_default_netvm
         self.netvm_vm = netvm_vm
+        if netvm_vm is not None:
+            netvm_vm.connected_vms[qid] = self
 
         # We use it in remove from disk to avoid removing rpm files (for templates)
         self.installed_by_rpm = installed_by_rpm
@@ -1242,6 +1244,7 @@ class QubesNetVm(QubesVm):
         if "vcpus" not in kwargs or kwargs["vcpus"] is None:
             kwargs["vcpus"] = default_servicevm_vcpus
         super(QubesNetVm, self).__init__(**kwargs)
+        self.connected_vms = QubesVmCollection()
 
     @property
     def type(self):
@@ -1383,17 +1386,8 @@ class QubesProxyVm(QubesNetVm):
         # Allow dom0 networking
         iptables += "-A FORWARD -i vif0.0 -j ACCEPT\n"
 
-        qvm_collection = QubesVmCollection()
-        qvm_collection.lock_db_for_reading()
-        qvm_collection.load()
-        qvm_collection.unlock_db()
-
-        vms = [vm for vm in qvm_collection.values() if vm.has_firewall()]
+        vms = [vm for vm in self.connected_vms.values() if vm.has_firewall()]
         for vm in vms:
-            # Process only VMs connected to this ProxyVM
-            if not vm.netvm_vm or vm.netvm_vm.qid != self.qid:
-                continue
-
             conf = vm.get_firewall_conf()
 
             xid = vm.get_xid()
@@ -1795,8 +1789,8 @@ class QubesVmCollection(dict):
 
         while len(new_vms) > 0:
             cur_vm = new_vms.pop()
-            for vm in self.values():
-                if vm.netvm_vm and vm.netvm_vm.qid == cur_vm and vm.qid not in dependend_vms_qid:
+            for vm in cur_vm.connected_vms.values():
+                if vm.qid not in dependend_vms_qid:
                     dependend_vms_qid.append(vm.qid)
                     if vm.is_netvm():
                         new_vms.append(vm.qid)
@@ -1964,6 +1958,8 @@ class QubesVmCollection(dict):
                     netvm_vm = self[netvm_qid]
 
         vm.netvm_vm = netvm_vm
+        if netvm_vm:
+            netvm_vm.connected_vms[vm.qid] = vm
 
     def load(self):
         self.clear()
