@@ -156,7 +156,6 @@ def main():
 
     except (IOError, OSError) as err:
         print "ERROR: {0}".format(err)
-        vm.remove_from_disk()
         exit (1)
 
 
