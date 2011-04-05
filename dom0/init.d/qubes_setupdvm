@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# chkconfig: 2345 99 00
+# chkconfig: 2345 82 00
 # description: Sets up DVM savefile at Dom0 boot
 #
 ### BEGIN INIT INFO

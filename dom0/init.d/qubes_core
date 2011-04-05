@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# chkconfig: 2345 99 00
+# chkconfig: 2345 80 00
 # description: Executes Qubes core scripts at Dom0 boot
 #
 ### BEGIN INIT INFO

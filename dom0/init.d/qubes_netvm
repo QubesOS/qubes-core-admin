@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# chkconfig: 2345 99 00
+# chkconfig: 2345 81 00
 # description: Starts/stops Qubes default netvm
 #
 ### BEGIN INIT INFO
