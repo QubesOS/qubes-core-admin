@@ -20,6 +20,7 @@ class SystemState:
         self.xs = xen.lowlevel.xs.xs()
         self.BALOON_DELAY = 0.1
         self.XEN_FREE_MEM_LEFT = 50*1024*1024
+        self.XEN_FREE_MEM_MIN = 25*1024*1024
 
     def add_domain(self, id):
         self.domdict[id] = DomainState(id)
@@ -75,7 +76,7 @@ class SystemState:
         while True:
             xenfree = self.get_free_xen_memory()
             print 'got xenfree=', xenfree
-            if xenfree >= memsize + self.XEN_FREE_MEM_LEFT:
+            if xenfree >= memsize + self.XEN_FREE_MEM_MIN:
                 return True
             self.refresh_memactual()
             if prev_memory_actual is not None:
