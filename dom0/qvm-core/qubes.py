@@ -46,6 +46,7 @@ if not dry_run:
 
 
 qubes_guid_path = "/usr/bin/qubes_guid"
+qrexec_daemon_path = "/usr/lib/qubes/qrexec_daemon"
 
 qubes_base_dir   = "/var/lib/qubes"
 
@@ -897,6 +898,14 @@ class QubesVm(object):
             print "--> Starting the VM..."
         xend_session.session.xenapi.VM.unpause (self.session_uuid)
 
+        if not preparing_dvm:
+            if verbose:
+                print "--> Starting the qrexec daemon..."
+            retcode = subprocess.call ([qrexec_daemon_path, str(xid)])
+            if (retcode != 0) :
+                self.force_shutdown()
+                raise OSError ("ERROR: Cannot execute qrexec_daemon!")
+
         # perhaps we should move it before unpause and fork?
         if debug_console:
             from xen.xm import console
@@ -1386,9 +1395,12 @@ class QubesProxyVm(QubesNetVm):
         # Allow dom0 networking
         iptables += "-A FORWARD -i vif0.0 -j ACCEPT\n"
 
-        vms = [vm for vm in self.connected_vms.values() if vm.has_firewall()]
+        vms = [vm for vm in self.connected_vms.values()]
         for vm in vms:
-            conf = vm.get_firewall_conf()
+            if vm.has_firewall():
+                conf = vm.get_firewall_conf()
+            else:
+                conf = { "rules": list(), "allow": True, "allowDns": True, "allowIcmp": True }
 
             xid = vm.get_xid()
             if xid < 0: # VM not active ATM

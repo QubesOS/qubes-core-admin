@@ -53,6 +53,7 @@ int server_fd;
 
 void handle_usr1(int x)
 {
+	fprintf(stderr, "connected\n");
 	exit(0);
 }
 
@@ -77,7 +78,11 @@ void init(int xid)
 	case 0:
 		break;
 	default:
-		pause();
+		fprintf(stderr, "Waiting for VM's qrexec agent.");
+		for (;;) {
+			sleep(1);
+			fprintf(stderr, ".");
+		}
 		exit(0);
 	}
 	close(0);
@@ -126,9 +131,9 @@ void flush_client(int fd)
 {
 	int i;
 	struct server_header s_hdr;
-	
+
 	if (fork_and_flush_stdin(fd, &clients[fd].buffer))
-	        children_count++;
+		children_count++;
 	close(fd);
 	clients[fd].state = CLIENT_INVALID;
 	buffer_free(&clients[fd].buffer);

@@ -111,9 +111,6 @@ mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/dvmdata
 mkdir -p $RPM_BUILD_ROOT/usr/share/qubes/icons
 cp icons/*.png $RPM_BUILD_ROOT/usr/share/qubes/icons
 
-mkdir -p $RPM_BUILD_ROOT/etc/yum.repos.d
-cp ../dom0/qubes.repo $RPM_BUILD_ROOT/etc/yum.repos.d
-
 mkdir -p $RPM_BUILD_ROOT/usr/bin
 cp ../common/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../common/qubes_fix_nm_conf.sh $RPM_BUILD_ROOT/usr/lib/qubes
@@ -144,36 +141,6 @@ echo 'plugins = keyfile' >> /etc/NetworkManager/NetworkManager.conf
 echo '[keyfile]' >> /etc/NetworkManager/NetworkManager.conf
 fi
 /usr/lib/qubes/qubes_fix_nm_conf.sh
-
-if [ -e /etc/yum.repos.d/qubes-r1-dom0.repo ]; then
-# we want the user to use the repo that comes with qubes-core-dom0 packages instead
-rm -f /etc/yum.repos.d/qubes-r1-dom0.repo
-fi
-
-#if [ "$1" !=  1 ] ; then
-## do this whole %post thing only when updating for the first time...
-#exit 0
-#fi
-
-## TODO: This is only temporary, until we will have our own installer
-#for f in /etc/init.d/*
-#do
-#        srv=`basename $f`
-#        [ $srv = 'functions' ] && continue
-#        [ $srv = 'killall' ] && continue
-#        [ $srv = 'halt' ] && continue
-#        [ $srv = 'single' ] && continue
-#        chkconfig $srv off
-#done
-
-chkconfig iptables on
-chkconfig NetworkManager on
-chkconfig rsyslog on
-chkconfig haldaemon on
-chkconfig messagebus on
-chkconfig xenstored on
-chkconfig xend on
-chkconfig xenconsoled on
 
 sed 's/^net.ipv4.ip_forward.*/net.ipv4.ip_forward = 1/'  -i /etc/sysctl.conf
 
@@ -209,11 +176,6 @@ done
 
 service qubes_core start
 
-NETVM=$(qvm-get-default-netvm)
-if [ "X"$NETVM = "X""dom0" ] ; then
-    service qubes_netvm start
-fi
-
 if [ "x"$HAD_SYSCONFIG_NETWORK = "xno" ]; then
     rm -f /etc/sysconfig/network
 fi
@@ -228,10 +190,6 @@ fi
 
 if [ "$1" -gt 1 ] ; then
     # upgrading already installed package...
-    NETVM=$(qvm-get-default-netvm)
-    if [ "X"$NETVM = "X""dom0" ] ; then
-        /etc/init.d/qubes_netvm stop
-    fi
 
     /etc/init.d/qubes_core stop
 fi
@@ -299,7 +257,6 @@ fi
 %attr(770,root,qubes) %dir /var/lib/qubes/backup
 %attr(770,root,qubes) %dir /var/lib/qubes/dvmdata
 %dir /usr/share/qubes/icons/*.png
-/etc/yum.repos.d/qubes.repo
 /usr/lib/qubes/qubes_setup_dnat_to_ns
 /usr/lib/qubes/qubes_fix_nm_conf.sh
 /etc/dhclient.d/qubes_setup_dnat_to_ns.sh
