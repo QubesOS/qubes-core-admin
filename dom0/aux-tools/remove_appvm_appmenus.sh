@@ -8,5 +8,7 @@ if [ $# != 1 ]; then
     exit
 fi
 
-xdg-desktop-menu uninstall $APPSDIR/*.directory $APPSDIR/*.desktop
+if ls $APPSDIR/*.directory $APPSDIR/*.desktop > /dev/null 2>&1; then
+    xdg-desktop-menu uninstall $APPSDIR/*.directory $APPSDIR/*.desktop
+fi
 

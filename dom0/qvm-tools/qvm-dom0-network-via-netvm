@@ -54,9 +54,6 @@ def bringup_eth0(netvm):
     resolv_conf.close()
     return os.system('ifconfig eth0 10.137.0.1 netmask 255.255.255.255 && route add default dev eth0') == 0
 
-def unpause_all(netvm_name):
-     os.system('qvm-run --exclude=' + netvm_name + ' --all --unpause')
-
 def netup():
     netvm = get_netvm()
     if os.path.isfile('/var/lock/subsys/NetworkManager'):
@@ -68,9 +65,7 @@ def netup():
         if os.system(cmd) != 0:
             print 'Error creating network device'
             sys.exit(1)
-    os.system('qvm-run --exclude=' + netvm.name + ' --all --pause')
     if not bringup_eth0(netvm):
-        unpause_all(netvm.name)
         sys.exit(1)
 
 def netdown():
@@ -79,7 +74,6 @@ def netdown():
         print 'There is no eth0 that is a Xen vif device, aborting.'
         sys.exit(1)
     os.system('ifconfig eth0 down')
-    unpause_all(netvm.name)
 
 def usage():
     print 'Usage: qvm-dom0-network-via-netvm [up|down]'
