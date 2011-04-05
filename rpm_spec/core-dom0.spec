@@ -131,6 +131,9 @@ mkdir -p $RPM_BUILD_ROOT/var/run/qubes
 install -D ../vchan/libvchan.so $RPM_BUILD_ROOT/%{_libdir}/libvchan.so
 install -D ../u2mfn/libu2mfn.so $RPM_BUILD_ROOT/%{_libdir}/libu2mfn.so
 
+install -d $RPM_BUILD_ROOT/etc/sudoers.d
+install -m 0440 qubes.sudoers $RPM_BUILD_ROOT/etc/sudoers.d/qubes
+
 %post
 
 # Create NetworkManager configuration if we do not have it
@@ -275,3 +278,4 @@ fi
 %attr(770,root,qubes) %dir /var/run/qubes
 %{_libdir}/libvchan.so
 %{_libdir}/libu2mfn.so
+/etc/sudoers.d/qubes
