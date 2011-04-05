@@ -48,7 +48,7 @@ def main():
             print "The following AppVMs use '{0}' as a template:".format(vmname)
             for vm in dependent_vms:
                 print "{name:<12} (qid={qid})".format(qid=vm.qid, name=vm.name)
-            print "Please remove those VMs first, or use the --force option."
+            print "Please remove those VMs first."
             exit (1)
         if qvm_collection.default_template_qid == vm.qid:
             qvm_collection.default_template_qid = None

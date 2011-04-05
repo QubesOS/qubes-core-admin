@@ -1776,7 +1776,7 @@ class QubesVmCollection(dict):
 
     def get_vms_based_on(self, template_qid):
         vms = set([vm for vm in self.values()
-                   if (vm.is_appvm() and vm.template_vm.qid == template_qid)])
+                   if (vm.template_vm and vm.template_vm.qid == template_qid)])
         return vms
 
     def get_vms_connected_to(self, netvm_qid):
