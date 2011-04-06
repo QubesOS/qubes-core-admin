@@ -1392,8 +1392,11 @@ class QubesProxyVm(QubesNetVm):
         iptables += "-A INPUT -i lo -j ACCEPT\n"
         iptables += "-A INPUT -j REJECT --reject-with icmp-host-prohibited\n"
 
+        iptables += "-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n"
         # Allow dom0 networking
         iptables += "-A FORWARD -i vif0.0 -j ACCEPT\n"
+        # Deny inter-VMs networking
+        iptables += "-A FORWARD -i vif+ -o vif+ -j DROP\n"
 
         vms = [vm for vm in self.connected_vms.values()]
         for vm in vms:
@@ -1441,7 +1444,6 @@ class QubesProxyVm(QubesNetVm):
             iptables += "-A FORWARD -i vif{0}.0 -j {1}\n".format(xid, default_action)
 
         iptables += "#End of VM rules\n"
-        iptables += "-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n"
         iptables += "-A FORWARD -j DROP\n"
 
         iptables += "COMMIT"
