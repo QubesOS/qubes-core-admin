@@ -1252,6 +1252,10 @@ class QubesNetVm(QubesVm):
 
         if "vcpus" not in kwargs or kwargs["vcpus"] is None:
             kwargs["vcpus"] = default_servicevm_vcpus
+
+        if "memory" not in kwargs or kwargs["memory"] is None:
+            kwargs["memory"] = 200
+
         super(QubesNetVm, self).__init__(**kwargs)
         self.connected_vms = QubesVmCollection()
 
