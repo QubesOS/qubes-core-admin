@@ -372,7 +372,11 @@ class QubesVm(object):
             self.session_metrics = None
 
     def update_xen_storage(self):
-        self.remove_from_xen_storage()
+        try:
+            self.remove_from_xen_storage()
+        except OSError as ex:
+            print "WARNING: {0}. Continuing anyway...".format(str(ex))
+            pass
         self.add_to_xen_storage()
         if not dry_run and xend_session.session is not None:
             self.refresh_xend_session()
