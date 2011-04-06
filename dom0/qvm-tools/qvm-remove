@@ -22,6 +22,7 @@
 
 from qubes.qubes import QubesVmCollection
 from optparse import OptionParser;
+import os
 
 def main():
     usage = "usage: %prog [options] <vm-name>"

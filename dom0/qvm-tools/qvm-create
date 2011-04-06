@@ -25,6 +25,7 @@ from qubes.qubes import QubesVmLabels
 from optparse import OptionParser;
 import subprocess
 import re
+import os
 
 def find_net_devices():
     p = subprocess.Popen (["lspci", "-mm", "-n"], stdout=subprocess.PIPE)
