@@ -192,14 +192,14 @@ if ! grep -q ^qubes: /etc/group ; then
 		groupadd qubes
 fi
 
-if [ "$1" -gt 1 ] ; then
+#if [ "$1" -gt 1 ] ; then
     # upgrading already installed package...
 
 # Do not restart core during upgrade
 # most upgrades only modifies qvm-* tools
 # and it makes no sense to force all VMs shutdown
 #    /etc/init.d/qubes_core stop
-fi
+#fi
 
 %triggerin -- xen
 /etc/init.d/qubes_core stop
