@@ -20,17 +20,15 @@ rpms:
 		$(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*.rpm
 
 update-repo-current:
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-*$(VERSION_DOM0)*.rpm ../yum/current-release/current/dom0/rpm/
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-*$(VERSION_DOM0)*fc13*.rpm ../yum/current-release/current/dom0/rpm/
 	ln -f $(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*fc13*.rpm ../yum/current-release/current/vm/f13/rpm/
 	ln -f $(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*fc14*.rpm ../yum/current-release/current/vm/f14/rpm/
 	cd ../yum && ./update_repo.sh
 
 update-repo-unstable:
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-*$(VERSION_DOM0)*.rpm ../yum/current-release/unstable/dom0/rpm/
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-*$(VERSION_DOM0)*fc13*.rpm ../yum/current-release/unstable/dom0/rpm/
 	ln -f $(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*fc13*.rpm ../yum/current-release/unstable/vm/f13/rpm/
 	ln -f $(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*fc14*.rpm ../yum/current-release/unstable/vm/f14/rpm/
-
-
 	cd ../yum && ./update_repo.sh
 
 clean:
