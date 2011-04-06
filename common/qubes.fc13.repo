@@ -1,12 +1,12 @@
 [qubes-vm-current]
 name = Qubes OS Repository for VM (updates)
-baseurl = http://yum.qubes-os.org/r1-beta1/current/vm
+baseurl = http://yum.qubes-os.org/r1-beta1/current/vm/f13
 gpgkey = file:///etc/pki/rpm-gpg/RPM-GPG-KEY-qubes-1-primary
 gpgcheck = 1
 
 [qubes-vm-unstable]
 name = Qubes OS Repository for VM (unstable)
-baseurl = http://yum.qubes-os.org/r1-beta1/unstable/vm
+baseurl = http://yum.qubes-os.org/r1-beta1/unstable/vm/f13
 gpgkey = file:///etc/pki/rpm-gpg/RPM-GPG-KEY-qubes-1-primary
 gpgcheck = 1
 enabled=0
