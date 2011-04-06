@@ -174,7 +174,11 @@ for i in /usr/share/qubes/icons/*.png ; do
 	xdg-icon-resource install --novendor --size 48 $i
 done
 
-service qubes_core start
+# Because we now have an installer
+# this script is always executed during upgrade
+# and we decided not to restart core during upgrade
+#service qubes_core start
+
 
 if [ "x"$HAD_SYSCONFIG_NETWORK = "xno" ]; then
     rm -f /etc/sysconfig/network
@@ -191,7 +195,10 @@ fi
 if [ "$1" -gt 1 ] ; then
     # upgrading already installed package...
 
-    /etc/init.d/qubes_core stop
+# Do not restart core during upgrade
+# most upgrades only modifies qvm-* tools
+# and it makes no sense to force all VMs shutdown
+#    /etc/init.d/qubes_core stop
 fi
 
 %triggerin -- xen
