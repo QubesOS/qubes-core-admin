@@ -65,6 +65,8 @@ def main():
                         help="VCPUs count")
     parser.add_option ("-i", "--internal", action="store_true", dest="internal", default=False,
                         help="Create VM for internal use only (hidden in qubes-manager, no appmenus)")
+    parser.add_option ("--force-root", action="store_true", dest="force_root", default=False,
+                       help="Force to run, even with root privileges")
  
     parser.add_option ("-q", "--quiet", action="store_false", dest="verbose", default=True)
     (options, args) = parser.parse_args ()
@@ -75,6 +77,15 @@ def main():
     if options.netvm and options.proxyvm:
         parser.error ("You must specify at most one of --proxy and --net")
         
+    if os.geteuid() == 0:
+        print "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
+        if options.force_root:
+            print "Continuing as commanded. You have been warned."
+        else:
+            print "Retry as unprivileged user."
+            print "... or use --force-root to continue anyway."
+            exit(1)
+
     if options.label is None:
         print "You must choose a label for the new VM by passing the --label option."
         print "Possible values are:"
