@@ -48,12 +48,17 @@ The Qubes core files for installation inside a Qubes AppVM.
 
 %pre
 
+# Remove password for root, so PolicyKit will not ask for it
+usermod -p '' root
+
 if [ "$1" !=  1 ] ; then
+# remove user password if this is upgrade
+usermod -p '' user
 # do this whole %pre thing only when updating for the first time...
 exit 0
 fi
 
-adduser --create-home user
+adduser -p '' --create-home user
 su user -c 'mkdir -p /home/user/.gnome2/nautilus-scripts'
 su user -c 'ln -s /usr/lib/qubes/qvm-copy-to-vm2.gnome /home/user/.gnome2/nautilus-scripts/"Copy to other AppVM"'
 su user -c 'ln -s /usr/bin/qvm-open-in-dvm2 /home/user/.gnome2/nautilus-scripts/"Open in DisposableVM"'
@@ -98,6 +103,9 @@ install -D ../u2mfn/u2mfn-kernel.h $RPM_BUILD_ROOT/usr/include/u2mfn-kernel.h
 
 install -D ../vchan/libvchan.so $RPM_BUILD_ROOT/%{_libdir}/libvchan.so
 install -D ../u2mfn/libu2mfn.so $RPM_BUILD_ROOT/%{_libdir}/libu2mfn.so
+
+install -d $RPM_BUILD_ROOT/etc/sudoers.d
+install -m 0440 qubes.sudoers $RPM_BUILD_ROOT/etc/sudoers.d/qubes
 
 mkdir -p $RPM_BUILD_ROOT/var/run/qubes
 
@@ -147,7 +155,7 @@ rm -rf $RPM_BUILD_ROOT
 %attr(700,user,user) /home_volatile/user
 /etc/X11/xorg-preload-apps.conf
 %dir /var/run/qubes
-
+/etc/sudoers.d/qubes
 
 %package devel
 Summary:        Include files for qubes core libraries
