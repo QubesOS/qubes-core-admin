@@ -1,0 +1,19 @@
+#!/bin/sh
+# light up laptop screen for vaio VPCZ12
+
+. "${PM_FUNCTIONS}"
+
+resume_lapscreen()
+{
+    if [ x$DISPLAY = x ]; then
+      export DISPLAY=:0
+      export XAUTHORITY=`ls /var/run/kdm/.Xauth*`
+    fi
+    /usr/bin/xrandr --output DP3 --off
+    /usr/bin/xrandr --output DP3 --auto
+}
+
+case "$1" in
+        thaw|resume) resume_lapscreen ;;
+        *) exit 0 ;;
+esac

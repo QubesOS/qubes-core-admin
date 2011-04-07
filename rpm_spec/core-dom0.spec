@@ -125,6 +125,11 @@ cp pm-utils/01qubes-sync-vms-clock $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 cp pm-utils/01qubes-suspend-netvm $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 cp pm-utils/02qubes-pause-vms $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 
+# Optional scripts for Vaio (they go into separate package)
+cp vaio_fixes/00sony-vaio-audio $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
+cp vaio_fixes/99sony-vaio-audio $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
+cp vaio_fixes/01sony-vaio-display $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
+
 mkdir -p $RPM_BUILD_ROOT/var/log/qubes
 mkdir -p $RPM_BUILD_ROOT/var/run/qubes
 
@@ -286,3 +291,18 @@ fi
 %{_libdir}/libvchan.so
 %{_libdir}/libu2mfn.so
 /etc/sudoers.d/qubes
+
+
+%package vaio-fixes
+Summary: Additional scripts for supporting suspend on Vaio Z laptops
+
+%description vaio-fixes
+Additional scripts for supporting suspend on Vaio Z laptops.
+
+Due to broken Linux GPU drivers we need to do some additional actions during
+suspend/resume.
+
+%files vaio-fixes
+/usr/lib64/pm-utils/sleep.d/00sony-vaio-audio
+/usr/lib64/pm-utils/sleep.d/99sony-vaio-audio
+/usr/lib64/pm-utils/sleep.d/01sony-vaio-display
