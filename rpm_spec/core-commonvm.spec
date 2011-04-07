@@ -80,6 +80,9 @@ cp /var/lib/qubes/serial.conf /etc/init/serial.conf
 
 %post
 
+# Disable gpk-update-icon
+sed 's/^NotShowIn=KDE;$/\0QUBES;/' -i /etc/xdg/autostart/gpk-update-icon.desktop
+
 if [ "$1" !=  1 ] ; then
 # do this whole %post thing only when updating for the first time...
 exit 0
