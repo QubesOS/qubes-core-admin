@@ -1,1 +1,29 @@
 %qubes ALL=(ALL) NOPASSWD: ALL
+
+#
+# What we're saying above basically means: if the attacker got user access in
+# Dom0, then you're screwed already, as there are dozens of ways for the
+# attacker to escalate to root from user (e.g. via xend).
+#
+# Even that is not necessary, in fact! As all the VM control actions can be
+# done by user -- after all this is why you can easily start/create VMs and
+# apps in VMs from GUI -- all that the attacker needs is user access in Dom0.
+#
+# So, because in Qubes OS, in Dom0, user account is just as sensitive as root
+# account, we don't pretend otherwise, and try to make life a bit easier for
+# the user allowing for easy escalation (no need to choose and remember a root
+# password in Dom0).
+#
+# This is also why we don't pretend that Qubes OS is a multiuser system -- it
+# is not! (for the reasons given above). The assumption is that there is only
+# one user that logs into GUI manager: YOU. This is hardly a limiting factor
+# these days, when it's not uncommon for a single person to own not one, but
+# several computers, which are not shared with others (phone, tablet, laptops).
+# We live in a PC-era! :)
+#
+# This means that the user password you choose during installation servers only
+# one purpose: it allows you to lock your screen while you're away via the
+# screen saver. Nothing more!
+#
+# joanna.
+#
