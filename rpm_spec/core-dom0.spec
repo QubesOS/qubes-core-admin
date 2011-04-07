@@ -139,6 +139,9 @@ install -D ../u2mfn/libu2mfn.so $RPM_BUILD_ROOT/%{_libdir}/libu2mfn.so
 install -d $RPM_BUILD_ROOT/etc/sudoers.d
 install -m 0440 qubes.sudoers $RPM_BUILD_ROOT/etc/sudoers.d/qubes
 
+install -d $RPM_BUILD_ROOT/etc/xdg/autostart
+install -m 0644 qubes-guid.desktop $RPM_BUILD_ROOT/etc/xdg/autostart/
+
 %post
 
 # Create NetworkManager configuration if we do not have it
@@ -291,7 +294,7 @@ fi
 %{_libdir}/libvchan.so
 %{_libdir}/libu2mfn.so
 /etc/sudoers.d/qubes
-
+/etc/xdg/autostart/qubes-guid.desktop
 
 %package vaio-fixes
 Summary: Additional scripts for supporting suspend on Vaio Z laptops
