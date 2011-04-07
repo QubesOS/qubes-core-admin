@@ -48,17 +48,12 @@ The Qubes core files for installation inside a Qubes AppVM.
 
 %pre
 
-# Remove password for root, so PolicyKit will not ask for it
-usermod -p '' root
-
 if [ "$1" !=  1 ] ; then
-# remove user password if this is upgrade
-usermod -p '' user
 # do this whole %pre thing only when updating for the first time...
 exit 0
 fi
 
-adduser -p '' --create-home user
+adduser --create-home user
 su user -c 'mkdir -p /home/user/.gnome2/nautilus-scripts'
 su user -c 'ln -s /usr/lib/qubes/qvm-copy-to-vm2.gnome /home/user/.gnome2/nautilus-scripts/"Copy to other AppVM"'
 su user -c 'ln -s /usr/bin/qvm-open-in-dvm2 /home/user/.gnome2/nautilus-scripts/"Open in DisposableVM"'
