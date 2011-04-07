@@ -66,6 +66,9 @@ mkdir -p $RPM_BUILD_ROOT/var/run/qubes
 mkdir -p $RPM_BUILD_ROOT/etc/xen/scripts
 cp ../common/vif-route-qubes $RPM_BUILD_ROOT/etc/xen/scripts
 
+mkdir -p $RPM_BUILD_ROOT/etc/dbus-1/system.d
+cp ../netvm/dbus-nm-applet.conf $RPM_BUILD_ROOT/etc/dbus-1/system.d/qubes-nm-applet.conf
+
 %post
 
 # Create NetworkManager configuration if we do not have it
@@ -88,6 +91,11 @@ if [ "$1" = 0 ] ; then
     chkconfig qubes_core_netvm off
 fi
 
+%triggerin -- NetworkManager
+# Fix PolicyKit settings to allow run as normal user not visible to ConsoleKit
+sed 's#<defaults>$#\0<allow_any>yes</allow_any>#' -i /usr/share/polkit-1/actions/org.freedesktop.NetworkManager.policy
+
+
 %clean
 rm -rf $RPM_BUILD_ROOT
 
@@ -100,3 +108,4 @@ rm -rf $RPM_BUILD_ROOT
 /etc/NetworkManager/dispatcher.d/qubes_nmhook
 /etc/NetworkManager/dispatcher.d/30-qubes_external_ip
 /etc/xen/scripts/vif-route-qubes
+/etc/dbus-1/system.d/qubes-nm-applet.conf
