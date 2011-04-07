@@ -1811,7 +1811,7 @@ class QubesVmCollection(dict):
 
         while len(new_vms) > 0:
             cur_vm = new_vms.pop()
-            for vm in cur_vm.connected_vms.values():
+            for vm in self[cur_vm].connected_vms.values():
                 if vm.qid not in dependend_vms_qid:
                     dependend_vms_qid.append(vm.qid)
                     if vm.is_netvm():
