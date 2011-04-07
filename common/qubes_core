@@ -15,6 +15,9 @@ start()
 		exit 1
 	fi
 
+    # Set permissions to /proc/xen/xenbus, so normal user can use xenstore-read
+    chmod 666 /proc/xen/xenbus
+
 	name=$(/usr/bin/xenstore-read name)
 	if ! [ -f /etc/this_is_dvm ] ; then
 		# we don't want to set hostname for DispVM
