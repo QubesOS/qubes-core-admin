@@ -123,6 +123,7 @@ def main():
             files_to_backup += file_to_backup(vm.conf_file)
             if vm.is_updateable():
                 files_to_backup += file_to_backup(vm.dir_path + "/apps")
+                files_to_backup += file_to_backup(vm.dir_path + "/kernels")
             if os.path.exists (vm.firewall_conf):
                 files_to_backup += file_to_backup(vm.firewall_conf)
 
