@@ -213,13 +213,9 @@ fi
 #fi
 
 %triggerin -- xen
-/etc/init.d/qubes_core stop
-/etc/init.d/qubes_core start
 
 %triggerin -- xen-runtime
 sed -i 's/\/block /\/block.qubes /' /etc/udev/rules.d/xen-backend.rules
-/etc/init.d/qubes_core stop
-/etc/init.d/qubes_core start
 
 
 %preun
