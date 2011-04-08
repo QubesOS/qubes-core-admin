@@ -298,6 +298,7 @@ fi
 
 %package vaio-fixes
 Summary: Additional scripts for supporting suspend on Vaio Z laptops
+Requires: alsa-utils
 
 %description vaio-fixes
 Additional scripts for supporting suspend on Vaio Z laptops.
