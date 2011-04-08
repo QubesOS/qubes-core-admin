@@ -32,7 +32,7 @@ DVMTMPLDIR="/var/lib/qubes/appvms/$DVMTMPL"
 if ! [ -d "$DVMTMPLDIR" ] ; then
 	# unfortunately, currently there are reliability issues with save of a domain
 	# with multiple CPUs
-	if ! qvm-create --vcpus=1 --internal -t "$TEMPLATENAME" -l gray "$DVMTMPL" ; then exit 1 ; fi
+	if ! qvm-create --force-root --vcpus=1 --internal -t "$TEMPLATENAME" -l gray "$DVMTMPL" ; then exit 1 ; fi
 fi
 if ! /usr/lib/qubes/qubes_prepare_saved_domain.sh \
 	"$DVMTMPL" "/var/lib/qubes/appvms/$DVMTMPL/dvm-savefile" $SCRIPTNAME ; then
