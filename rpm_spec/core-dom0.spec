@@ -304,6 +304,12 @@ fi
 Summary: Additional scripts for supporting suspend on Vaio Z laptops
 Requires: alsa-utils
 
+%post vaio-fixes
+grubby --update-kernel=/boot/vmlinuz-2.6.34.1-14.xenlinux.qubes.x86_64 --args="i8042.nopnp=1"
+
+%postun vaio-fixes
+grubby --update-kernel=/boot/vmlinuz-2.6.34.1-14.xenlinux.qubes.x86_64 --remove-args="i8042.nopnp=1"
+
 %description vaio-fixes
 Additional scripts for supporting suspend on Vaio Z laptops.
 
