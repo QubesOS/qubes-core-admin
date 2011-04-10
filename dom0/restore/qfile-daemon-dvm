@@ -102,7 +102,7 @@ class QfileDaemonDvm:
 
     def get_dvm(self):
         if not self.dvm_setup_ok():
-            self.tray_notify("Updating DisposableVM savefile, please wait")
+            self.tray_notify("Updating DisposableVM savefile, please wait", 120000)
             if os.system("qvm-create-default-dvm --default-template --default-script >/var/run/qubes/qvm-create-default-dvm.stdout </dev/null" ) != 0:
                 self.tray_notify_error("DVM savefile creation failed")
                 return None 
