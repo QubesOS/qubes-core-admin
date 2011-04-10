@@ -54,6 +54,7 @@ exit 0
 fi
 
 adduser --create-home user
+su user -c 'mkdir -p /home/user/.local/share'
 su user -c 'mkdir -p /home/user/.gnome2/nautilus-scripts'
 su user -c 'ln -s /usr/lib/qubes/qvm-copy-to-vm2.gnome /home/user/.gnome2/nautilus-scripts/"Copy to other AppVM"'
 su user -c 'ln -s /usr/bin/qvm-open-in-dvm2 /home/user/.gnome2/nautilus-scripts/"Open in DisposableVM"'

@@ -99,7 +99,7 @@ def vm_run_cmd(vm, cmd, options):
 
     if not vm.is_running():
         if not options.auto:
-            print "VM '{0}' is not running, please start it first, or use the '--auto' switch"
+            print "VM '{0}' is not running. Please start it first or use the '--auto' switch".format(vm.name)
             exit (1)
     	try:
             if options.verbose:
