@@ -161,9 +161,9 @@ chkconfig --add qubes_core || echo "WARNING: Cannot add service qubes_core!"
 chkconfig --add qubes_netvm || echo "WARNING: Cannot add service qubes_netvm!"
 chkconfig --add qubes_setupdvm || echo "WARNING: Cannot add service qubes_setupdvm!"
 
-chkconfig qubes_core on || echo "WARNING: Cannot enable service qubes_core!"
-chkconfig qubes_netvm on || echo "WARNING: Cannot enable service qubes_netvm!"
-chkconfig qubes_setupdvm on || echo "WARNING: Cannot enable service qubes_setupdvm!"
+chkconfig --level 5 qubes_core on || echo "WARNING: Cannot enable service qubes_core!"
+chkconfig --level 5 qubes_netvm on || echo "WARNING: Cannot enable service qubes_netvm!"
+chkconfig --level 5 qubes_setupdvm on || echo "WARNING: Cannot enable service qubes_setupdvm!"
 
 HAD_SYSCONFIG_NETWORK=yes
 if ! [ -e /etc/sysconfig/network ]; then
