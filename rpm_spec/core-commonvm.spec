@@ -80,8 +80,56 @@ cp /var/lib/qubes/serial.conf /etc/init/serial.conf
 
 %post
 
-# Disable gpk-update-icon
-sed 's/^NotShowIn=KDE;$/\0QUBES;/' -i /etc/xdg/autostart/gpk-update-icon.desktop
+# disable some Upstart services
+for F in plymouth-shutdown prefdm splash-manager start-ttys tty ; do
+	if [ -e /etc/init/$F.conf ]; then
+		mv -f /etc/init/$F.conf /etc/init/$F.conf.disabled
+	fi
+done
+
+remove_ShowIn () {
+	if [ -e /etc/xdg/autostart/$1.desktop ]; then
+		sed -i '/^\(Not\|Only\)ShowIn/d' /etc/xdg/autostart/$1.desktop
+	fi
+}
+
+# don't want it at all
+for F in abrt-applet deja-dup-monitor imsettings-start krb5-auth-dialog pulseaudio restorecond sealertauto ; do
+	if [ -e /etc/xdg/autostart/$F.desktop ]; then
+		remove_ShowIn $F
+		echo 'NotShowIn=QUBES' >> /etc/xdg/autostart/$F.desktop
+	fi
+done
+
+# don't want it in DisposableVM
+for F in gcm-apply ; do
+	if [ -e /etc/xdg/autostart/$F.desktop ]; then
+		remove_ShowIn $F
+		echo 'NotShowIn=DisposableVM' >> /etc/xdg/autostart/$F.desktop
+	fi
+done
+
+# want it in AppVM and StandaloneVM only
+for F in gnome-keyring-gpg gnome-keyring-pkcs11 gnome-keyring-secrets gnome-keyring-ssh gnome-settings-daemon user-dirs-update-gtk gsettings-data-convert ; do
+	if [ -e /etc/xdg/autostart/$F.desktop ]; then
+		remove_ShowIn $F
+		echo 'OnlyShowIn=GNOME;AppVM;StandaloneVM;' >> /etc/xdg/autostart/$F.desktop
+	fi
+done
+
+# remove existing rule to add own later
+for F in gpk-update-icon nm-applet print-applet ; do
+	remove_ShowIn $F
+done
+
+echo 'OnlyShowIn=GNOME;StandaloneVM;TemplateVM;' >> /etc/xdg/autostart/gpk-update-icon.desktop || :
+echo 'OnlyShowIn=GNOME;NetVM;' >> /etc/xdg/autostart/nm-applet.desktop || :
+echo 'OnlyShowIn=GNOME;AppVM;UtilityVM;' >> /etc/xdg/autostart/print-applet.desktop || :
+
+# start cups only in AppVM and UtilityVM
+if [ -e /etc/init.d/cups ] && ! grep -q xenstore-read /etc/init.d/cups ; then
+	sed -i '/echo.*Starting /s#^#\ntype=$(/usr/bin/xenstore-read qubes_vm_type)\nif [ "$type" != "AppVM" -a "$type" != "UtilityVM" ]; then\nreturn 0\nfi\n\n#' /etc/init.d/cups
+fi
 
 if [ "$1" !=  1 ] ; then
 # do this whole %post thing only when updating for the first time...
