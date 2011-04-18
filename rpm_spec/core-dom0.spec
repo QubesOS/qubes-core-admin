@@ -94,7 +94,8 @@ cp ../common/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_daemon $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_client $RPM_BUILD_ROOT/usr/lib/qubes/
 
-cp restore/xenstore-watch restore/qvm-create-default-dvm $RPM_BUILD_ROOT/usr/bin/xenstore-watch-qubes
+cp restore/qvm-create-default-dvm $RPM_BUILD_ROOT/usr/bin
+cp restore/xenstore-watch $RPM_BUILD_ROOT/usr/bin/xenstore-watch-qubes
 cp restore/qubes_restore restore/xenfreepages $RPM_BUILD_ROOT/usr/lib/qubes
 cp restore/qubes_prepare_saved_domain.sh  $RPM_BUILD_ROOT/usr/lib/qubes
 cp restore/qfile-daemon-dvm $RPM_BUILD_ROOT/usr/lib/qubes
