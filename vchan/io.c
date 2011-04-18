@@ -149,7 +149,7 @@ int libvchan_close(struct libvchan *ctrl)
 /// The fd to use for select() set
 int libvchan_fd_for_select(struct libvchan *ctrl)
 {
-	return ctrl->evfd;
+	return xc_evtchn_fd(ctrl->evfd);
 }
 
 /// Unmasks event channel; must be called before calling select(), and only then

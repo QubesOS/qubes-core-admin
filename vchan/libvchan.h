@@ -20,6 +20,7 @@
  */
 
 #include <stdint.h>
+#include <xenctrl.h>
 typedef uint32_t VCHAN_RING_IDX;
 
 /// struct vchan_interface is placed in memory shared between domains
@@ -37,7 +38,11 @@ struct libvchan {
 	struct vchan_interface *ring;
 	uint32_t ring_ref;
 	/// descriptor to event channel interface
+#ifdef XENCTRL_HAS_XC_INTERFACE
+    xc_evtchn *evfd;
+#else
 	int evfd;
+#endif
 	int evport;
 	VCHAN_RING_IDX *wr_cons, *wr_prod, *rd_cons, *rd_prod;
 	char *rd_ring, *wr_ring;

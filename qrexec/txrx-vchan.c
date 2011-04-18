@@ -83,7 +83,11 @@ int buffer_space_vchan_ext()
 // if the remote domain is destroyed, we get no notification
 // thus, we check for the status periodically
 
+#ifdef XENCTRL_HAS_XC_INTERFACE
+static xc_interface *xc_handle = NULL;
+#else
 static int xc_handle = -1;
+#endif
 void slow_check_for_libvchan_is_eof(struct libvchan *ctrl)
 {
 	struct evtchn_status evst;
@@ -198,8 +202,13 @@ char *peer_client_init(int dom, int port)
 	// now client init should succeed; "while" is redundant
 	while (!(ctrl = libvchan_client_init(dom, port)));
 
+#ifdef XENCTRL_HAS_XC_INTERFACE
+	xc_handle = xc_interface_open(NULL, 0, 0);
+	if (!xc_handle) {
+#else
 	xc_handle = xc_interface_open();
 	if (xc_handle < 0) {
+#endif
 		perror("xc_interface_open");
 		exit(1);
 	}
