@@ -39,7 +39,7 @@ if [ "$SRCDIR" != "none" ]; then
     echo "--> Converting Appmenu Templates..."
     find $SRCDIR -name "*.desktop" -exec /usr/lib/qubes/convert_apptemplate2vm.sh {} $APPSDIR $VMNAME $VMDIR \;
 
-    /usr/lib/qubes/convert_dirtemplate2vm.sh $SRCDIR/qubes-vm.directory.template $APPSDIR/$VMNAME-vm.directory $VMNAME $VMDIR
+    /usr/lib/qubes/convert_dirtemplate2vm.sh $SRCDIR/qubes-*.directory.template $APPSDIR/$VMNAME-vm.directory $VMNAME $VMDIR
 fi
 
 echo "--> Adding Apps to the Menu..."
