@@ -26,7 +26,7 @@ start()
 	fi
 
 	type=$(/usr/bin/xenstore-read qubes_vm_type)
-	if [ "$type" != "AppVM" -a "$type" != "DisposableVM" ]; then
+	if [ "$type" != "AppVM" -a "$type" != "DisposableVM" -a "$type" != "TemplateVM" ]; then
 		# This script runs only on AppVMs
 		return 0
 	fi
