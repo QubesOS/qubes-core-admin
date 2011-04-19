@@ -22,11 +22,15 @@
 
 SRCDIR=$1
 VMNAME=$2
-VMDIR=/var/lib/qubes/appvms/$VMNAME
+VMTYPE=$3
+if [ -z "$VMTYPE" ]; then
+    VMTYPE=appvms
+fi
+VMDIR=/var/lib/qubes/$VMTYPE/$VMNAME
 APPSDIR=$VMDIR/apps
 
-if [ $# != 2 ]; then
-    echo "usage: $0 <apps_templates_dir> <vmname>"
+if [ $# -lt 2 ]; then
+    echo "usage: $0 <apps_templates_dir> <vmname> [appvms|vm-templates|servicevms]"
     exit
 fi
 mkdir -p $APPSDIR

@@ -679,6 +679,19 @@ class QubesVm(object):
         # Create volatile.img
         self.reset_volatile_storage(source_template = source_template)
 
+    def create_appmenus(self, verbose, source_template = None):
+        if source_template is None:
+            source_template = self.template_vm
+
+        try:
+            if source_template is not None:
+                subprocess.check_call ([qubes_appmenu_create_cmd, source_template.appmenus_templates_dir, self.name])
+            else:
+                # Only add apps to menu
+                subprocess.check_call ([qubes_appmenu_create_cmd, "none", self.name, vmtype])
+        except subprocess.CalledProcessError:
+            print "Ooops, there was a problem creating appmenus for {0} VM!".format (self.name)
+
     def verify_files(self):
         if dry_run:
             return
@@ -1126,12 +1139,28 @@ class QubesTemplateVm(QubesVm):
         shutil.copytree (src_template_vm.kernels_dir, self.kernels_dir)
 
         if verbose:
-            print "--> Copying the template's appvm templates dir:\n{0} ==>\n{1}".\
+            print "--> Copying the template's appmenus templates dir:\n{0} ==>\n{1}".\
                     format(src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
         shutil.copytree (src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
 
         # Create root-cow.img
         self.commit_changes()
+
+        # Create appmenus
+        self.create_appmenus(verbose, source_template = self)
+
+    def create_appmenus(self, verbose, source_template = None):
+        if source_template is None:
+            source_template = self.template_vm
+
+        try:
+            if source_template is not None:
+                subprocess.check_call ([qubes_appmenu_create_cmd, source_template.dir_path + "/apps-template.templates", self.name, "vm-templates"])
+            else:
+                # Only add apps to menu
+                subprocess.check_call ([qubes_appmenu_create_cmd, "none", self.name, vmtype])
+        except subprocess.CalledProcessError:
+            print "Ooops, there was a problem creating appmenus for {0} VM!".format (self.name)
 
     def verify_files(self):
         if dry_run:
@@ -1604,19 +1633,6 @@ class QubesAppVm(QubesVm):
 
         subprocess.check_call ([qubes_appmenu_remove_cmd, self.name])
         super(QubesAppVm, self).remove_from_disk()
-
-    def create_appmenus(self, verbose, source_template = None):
-        if source_template is None:
-            source_template = self.template_vm
-
-        try:
-            if source_template is not None:
-                subprocess.check_call ([qubes_appmenu_create_cmd, source_template.appmenus_templates_dir, self.name])
-            else:
-                # Only add apps to menu
-                subprocess.check_call ([qubes_appmenu_create_cmd, "none", self.name])
-        except subprocess.CalledProcessError:
-            print "Ooops, there was a problem creating appmenus for {0} VM!".format (self.name)
 
 
 class QubesVmCollection(dict):
