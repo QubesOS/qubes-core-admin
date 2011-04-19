@@ -109,27 +109,21 @@ for F in gcm-apply ; do
 	fi
 done
 
-# want it in AppVM and StandaloneVM only
+# want it in AppVM only
 for F in gnome-keyring-gpg gnome-keyring-pkcs11 gnome-keyring-secrets gnome-keyring-ssh gnome-settings-daemon user-dirs-update-gtk gsettings-data-convert ; do
 	if [ -e /etc/xdg/autostart/$F.desktop ]; then
 		remove_ShowIn $F
-		echo 'OnlyShowIn=GNOME;AppVM;StandaloneVM;' >> /etc/xdg/autostart/$F.desktop
+		echo 'OnlyShowIn=GNOME;AppVM;' >> /etc/xdg/autostart/$F.desktop
 	fi
 done
 
 # remove existing rule to add own later
-for F in gpk-update-icon nm-applet print-applet ; do
+for F in gpk-update-icon nm-applet ; do
 	remove_ShowIn $F
 done
 
-echo 'OnlyShowIn=GNOME;StandaloneVM;TemplateVM;' >> /etc/xdg/autostart/gpk-update-icon.desktop || :
+echo 'OnlyShowIn=GNOME;UpdateableVM;' >> /etc/xdg/autostart/gpk-update-icon.desktop || :
 echo 'OnlyShowIn=GNOME;NetVM;' >> /etc/xdg/autostart/nm-applet.desktop || :
-echo 'OnlyShowIn=GNOME;AppVM;UtilityVM;' >> /etc/xdg/autostart/print-applet.desktop || :
-
-# start cups only in AppVM and UtilityVM
-if [ -e /etc/init.d/cups ] && ! grep -q xenstore-read /etc/init.d/cups ; then
-	sed -i '/echo.*Starting /s#^#\ntype=$(/usr/bin/xenstore-read qubes_vm_type)\nif [ "$type" != "AppVM" -a "$type" != "UtilityVM" ]; then\nreturn 0\nfi\n\n#' /etc/init.d/cups
-fi
 
 if [ "$1" !=  1 ] ; then
 # do this whole %post thing only when updating for the first time...
