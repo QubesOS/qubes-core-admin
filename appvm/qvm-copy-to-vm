@@ -20,15 +20,15 @@
 #
 #
 
-if [ x"$1" = "x--with-progress" ] ; then
-	DO_PROGRESS=1
+if [ x"$1" = "x--without-progress" ] ; then
+	DO_PROGRESS=0
 	shift
 else
-	DO_PROGRESS=0
+	DO_PROGRESS=1
 fi
 
 if [ $# -lt 2 ] ; then
-	echo usage: $0 '[--with-progress] dest_vmname file [file]+'
+	echo usage: $0 '[--without-progress] dest_vmname file [file]+'
 	exit 1
 fi
 
