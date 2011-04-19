@@ -1,6 +1,10 @@
 #!/bin/sh
 VMNAME=$1
-VMDIR=/var/lib/qubes/appvms/$VMNAME
+VMTYPE=$2
+if [ -z "$VMTYPE" ]; then
+    VMTYPE=appvms
+fi
+VMDIR=/var/lib/qubes/$VMTYPE/$VMNAME
 APPSDIR=$VMDIR/apps
 
 if [ $# != 1 ]; then

@@ -1174,6 +1174,13 @@ class QubesTemplateVm(QubesVm):
         except subprocess.CalledProcessError:
             print "Ooops, there was a problem creating appmenus for {0} VM!".format (self.name)
 
+    def remove_from_disk(self):
+        if dry_run:
+            return
+
+        subprocess.check_call ([qubes_appmenu_remove_cmd, self.name, "vm-templates"])
+        super(QubesTemplateVm, self).remove_from_disk()
+
     def verify_files(self):
         if dry_run:
             return
