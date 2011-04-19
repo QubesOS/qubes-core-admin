@@ -16,7 +16,7 @@ get_running_netvms() {
 suspend_net()
 {
     for VM in `get_running_netvms`; do
-        qvm-run -u root --pass_io $VM "service NetworkManager stop"
+        qvm-run -u root --pass_io $VM 'service NetworkManager stop; for if in `ls /sys/class/net|grep -v "lo\|vif"`; do ip l s $if down; done'
     done
     # Ignore exit status from netvm...
     return 0
