@@ -1143,6 +1143,11 @@ class QubesTemplateVm(QubesVm):
                     format(src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
         shutil.copytree (src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
 
+        icon_path = "/usr/share/qubes/icons/template.png"
+        if verbose:
+            print "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, icon_path)
+        os.symlink (icon_path, self.icon_path)
+
         # Create root-cow.img
         self.commit_changes()
 
