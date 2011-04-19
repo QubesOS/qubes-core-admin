@@ -49,7 +49,7 @@ while true ; do
 	read agentpid sentsize agentstatus < $PROGRESS_FILE
 	if [ "x"$agentstatus = x ] ; then continue ; fi
 	if ! [ -e /proc/$agentpid ] ; then break ; fi
-	if [ "x"$agentstatus = xdone ] ; then break ; fi
+	if [ "x"$agentstatus = xDONE ] ; then break ; fi
 	CURRSIZE=$(($sentsize/1024))
 	if [ $DO_PROGRESS = 1 ] ; then 
 		echo -ne "\r sent $CURRSIZE/$SIZE KB                   " 
