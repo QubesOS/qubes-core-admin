@@ -7,8 +7,8 @@ fi
 VMDIR=/var/lib/qubes/$VMTYPE/$VMNAME
 APPSDIR=$VMDIR/apps
 
-if [ $# != 1 ]; then
-    echo "usage: $0 <vmname>"
+if [ $# -lt 1 ]; then
+    echo "usage: $0 <vmname> [appvms|vm-templates|servicevms]"
     exit
 fi
 
