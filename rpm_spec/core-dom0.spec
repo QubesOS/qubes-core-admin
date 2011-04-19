@@ -131,6 +131,8 @@ cp pm-utils/02qubes-pause-vms $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 cp vaio_fixes/00sony-vaio-audio $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 cp vaio_fixes/99sony-vaio-audio $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 cp vaio_fixes/01sony-vaio-display $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
+mkdir -p $RPM_BUILD_ROOT/etc/modprobe.d/
+cp vaio_fixes/snd-hda-intel-sony-vaio.conf $RPM_BUILD_ROOT/etc/modprobe.d/
 
 mkdir -p $RPM_BUILD_ROOT/var/log/qubes
 mkdir -p $RPM_BUILD_ROOT/var/run/qubes
@@ -160,9 +162,9 @@ chkconfig --add qubes_core || echo "WARNING: Cannot add service qubes_core!"
 chkconfig --add qubes_netvm || echo "WARNING: Cannot add service qubes_netvm!"
 chkconfig --add qubes_setupdvm || echo "WARNING: Cannot add service qubes_setupdvm!"
 
-chkconfig qubes_core on || echo "WARNING: Cannot enable service qubes_core!"
-chkconfig qubes_netvm on || echo "WARNING: Cannot enable service qubes_netvm!"
-chkconfig qubes_setupdvm on || echo "WARNING: Cannot enable service qubes_setupdvm!"
+chkconfig --level 5 qubes_core on || echo "WARNING: Cannot enable service qubes_core!"
+chkconfig --level 5 qubes_netvm on || echo "WARNING: Cannot enable service qubes_netvm!"
+chkconfig --level 5 qubes_setupdvm on || echo "WARNING: Cannot enable service qubes_setupdvm!"
 
 HAD_SYSCONFIG_NETWORK=yes
 if ! [ -e /etc/sysconfig/network ]; then
@@ -317,3 +319,4 @@ suspend/resume.
 /usr/lib64/pm-utils/sleep.d/00sony-vaio-audio
 /usr/lib64/pm-utils/sleep.d/99sony-vaio-audio
 /usr/lib64/pm-utils/sleep.d/01sony-vaio-display
+/etc/modprobe.d/snd-hda-intel-sony-vaio.conf

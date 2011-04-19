@@ -30,7 +30,7 @@ start()
     else
         mkdir -m 770 /dev/shm/qubes
         chown root.qubes /dev/shm/qubes
-        cp $DEFAULT /dev/shm/qubes/current_savefile
+        cp -a $(readlink $DEFAULT) /dev/shm/qubes/current_savefile
         chown root.qubes /dev/shm/qubes/current_savefile
         chmod 660 /dev/shm/qubes/current_savefile
         ln -s /dev/shm/qubes/current_savefile /var/run/qubes/current_savefile
