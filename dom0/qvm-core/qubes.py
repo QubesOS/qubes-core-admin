@@ -69,6 +69,7 @@ default_netvms_conf_file = "netvm-template.conf"
 default_standalonevms_conf_file = "standalone-template.conf"
 default_templatevm_conf_template = "templatevm.conf" # needed for TemplateVM cloning
 default_appmenus_templates_subdir = "apps.templates"
+default_appmenus_template_templates_subdir = "apps-template.templates"
 default_kernels_subdir = "kernels"
 default_firewall_conf_file = "firewall.xml"
 default_memory = 400
@@ -1031,6 +1032,7 @@ class QubesTemplateVm(QubesVm):
         self.templatevm_conf_template = self.dir_path + "/" + default_templatevm_conf_template
         self.kernels_dir = self.dir_path + "/" + default_kernels_subdir
         self.appmenus_templates_dir = self.dir_path + "/" + default_appmenus_templates_subdir
+        self.appmenus_template_templates_dir = self.dir_path + "/" + default_appmenus_template_templates_subdir
         self.appvms = QubesVmCollection()
 
     @property
@@ -1143,6 +1145,11 @@ class QubesTemplateVm(QubesVm):
                     format(src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
         shutil.copytree (src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
 
+        if verbose:
+            print "--> Copying the template's appmenus (for template) templates dir:\n{0} ==>\n{1}".\
+                    format(src_template_vm.appmenus_template_templates_dir, self.appmenus_template_templates_dir)
+        shutil.copytree (src_template_vm.appmenus_template_templates_dir, self.appmenus_template_templates_dir)
+
         icon_path = "/usr/share/qubes/icons/template.png"
         if verbose:
             print "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, icon_path)
@@ -1152,7 +1159,7 @@ class QubesTemplateVm(QubesVm):
         self.commit_changes()
 
         # Create appmenus
-        self.create_appmenus(verbose, source_template = self)
+        self.create_appmenus(verbose, source_template = src_template_vm)
 
     def create_appmenus(self, verbose, source_template = None):
         if source_template is None:
@@ -1160,7 +1167,7 @@ class QubesTemplateVm(QubesVm):
 
         try:
             if source_template is not None:
-                subprocess.check_call ([qubes_appmenu_create_cmd, source_template.dir_path + "/apps-template.templates", self.name, "vm-templates"])
+                subprocess.check_call ([qubes_appmenu_create_cmd, source_template.appmenus_template_templates_dir, self.name, "vm-templates"])
             else:
                 # Only add apps to menu
                 subprocess.check_call ([qubes_appmenu_create_cmd, "none", self.name, vmtype])
