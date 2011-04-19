@@ -553,6 +553,11 @@ class QubesVm(object):
                 "/local/domain/{0}/qubes_vm_type".format(xid),
                 self.type])
 
+        retcode = subprocess.check_call ([
+                "/usr/bin/xenstore-write",
+                "/local/domain/{0}/qubes_vm_updateable".format(xid),
+                str(self.updateable)])
+
         if self.is_netvm():
             retcode = subprocess.check_call ([
                 "/usr/bin/xenstore-write",
