@@ -318,18 +318,19 @@ def main():
     for vm in [ vm for vm in vms_to_restore if vm.is_template()]:
         print "-> Adding Template VM {0}...".format(vm.name)
         updateable = vm.updateable
-        vm = host_collection.add_new_templatevm(vm.name, 
+        try:
+            vm = host_collection.add_new_templatevm(vm.name, 
                                                conf_file=vm.conf_file,
                                                dir_path=vm.dir_path,
                                                installed_by_rpm=False)
 
-        vm.updateable = updateable
-        try:
+            vm.updateable = updateable
             vm.verify_files()
-        except QubesException as err:
+        except Exception as err:
             print "ERROR: {0}".format(err)
             print "*** Skiping VM: {0}".vm.name
-            host_collection.pop(vm.qid)
+            if vm:
+                host_collection.pop(vm.qid)
             continue
 
         try:
@@ -361,34 +362,50 @@ def main():
 
         updateable = vm.updateable
 
-        vm = host_collection.add_new_appvm(vm.name, template_vm,
+        try:
+            vm = host_collection.add_new_appvm(vm.name, template_vm,
                                           conf_file=vm.conf_file,
                                           dir_path=vm.dir_path,
                                           updateable=updateable,
                                           label=vm.label)
+        except Exception as err:
+            print "ERROR: {0}".format(err)
+            print "*** Skiping VM: {0}".format(vm.name)
+            if vm:
+                host_collection.pop(vm.qid)
+            continue
 
         if not uses_default_netvm:
             vm.uses_default_netvm = False
             vm.netvm_vm = netvm_vm
 
-        if template_vm is not None and recreate_conf:
-            print "--> Recreating config file..."
-            vm.create_config_file()
+        try:
+            if template_vm is not None and recreate_conf:
+                print "--> Recreating config file..."
+                vm.create_config_file()
+        except QubesException as err:
+            print "ERROR xen config restore: {0}".format(err)
+            print "*** VM '{0}' will not boot until you manually fix it (or correctly restore this VM)!".format(vm.name)
 
-        vm.create_appmenus(verbose=True)
+        try:
+            vm.create_appmenus(verbose=True)
+        except QubesException as err:
+            print "ERROR during appmenu restore: {0}".format(err)
+            print "*** VM '{0}' will not have appmenus".format(vm.name)
+
         try:
             vm.verify_files()
         except QubesException as err:
             print "ERROR: {0}".format(err)
             print "*** Skiping VM: {0}".format(vm.name)
             host_collection.pop(vm.qid)
+            continue
 
         try:
             vm.add_to_xen_storage()
         except (IOError, OSError) as err:
             print "ERROR: {0}".format(err)
-            print "*** Skiping VM: {0}".format(vm.name)
-            host_collection.pop(vm.qid)
+            print "*** VM '{0}' will not boot until you manually fix it (or correctly restore this VM)!".format(vm.name)
 
 
     backup_collection.unlock_db()
