@@ -74,6 +74,10 @@ mkdir -p $RPM_BUILD_ROOT/usr/bin
 cp xenstore-watch $RPM_BUILD_ROOT/usr/bin
 mkdir -p $RPM_BUILD_ROOT/etc
 cp serial.conf $RPM_BUILD_ROOT/var/lib/qubes/
+mkdir -p $RPM_BUILD_ROOT/etc/udev/rules.d
+cp qubes_network.rules $RPM_BUILD_ROOT/etc/udev/rules.d/
+mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes/
+cp setup_ip $RPM_BUILD_ROOT/usr/lib/qubes/
 
 %triggerin -- initscripts
 cp /var/lib/qubes/serial.conf /etc/init/serial.conf
@@ -220,3 +224,5 @@ rm -rf $RPM_BUILD_ROOT
 /etc/pki/rpm-gpg/RPM-GPG-KEY-qubes*
 /sbin/qubes_serial_login
 /usr/bin/xenstore-watch
+/etc/udev/rules.d/qubes_network.rules
+/usr/lib/qubes/setup_ip

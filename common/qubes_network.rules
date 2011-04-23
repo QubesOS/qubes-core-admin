@@ -1,0 +1,2 @@
+
+SUBSYSTEMS=="xen", KERNEL=="eth*", ACTION=="add", RUN+="/usr/lib/qubes/setup_ip"

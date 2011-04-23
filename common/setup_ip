@@ -1,0 +1,12 @@
+#!/bin/sh
+
+ip=`/usr/bin/xenstore-read qubes_ip`
+netmask=`/usr/bin/xenstore-read qubes_netmask`
+gateway=`/usr/bin/xenstore-read qubes_gateway`
+secondary_dns=`/usr/bin/xenstore-read qubes_secondary_dns`
+if [ x$ip != x ]; then
+    /sbin/ifconfig $INTERFACE $ip netmask 255.255.255.255 up
+    /sbin/route add default dev $INTERFACE
+    echo "nameserver $gateway" > /etc/resolv.conf
+    echo "nameserver $secondary_dns" >> /etc/resolv.conf
+fi
