@@ -543,6 +543,28 @@ class QubesVm(object):
         f_private.truncate (size)
         f_private.close ()
 
+    def cleanup_vifs(self):
+        """
+        Xend does not remove vif when backend domain is down, so we must do it
+        manually
+        """
+
+        if not self.is_running():
+            return
+
+        p = subprocess.Popen (["/usr/sbin/xm", "network-list", self.name],
+                 stdout=subprocess.PIPE)
+        result = p.communicate()
+        for line in result[0].split('\n'):
+            m = re.match(r"^(\d+)\s*(\d+)", line)
+            if m:
+                retcode = subprocess.call(["/usr/sbin/xm", "list", m.group(2)],
+                        stderr=subprocess.PIPE)
+                if retcode != 0:
+                    # Don't check retcode - it always will fail when backend domain is down
+                    subprocess.call(["/usr/sbin/xm",
+                            "network-detach", self.name, m.group(1), "-f"], stderr=subprocess.PIPE)
+
     def create_xenstore_entries(self, xid):
         if dry_run:
             return
@@ -1371,6 +1393,29 @@ class QubesNetVm(QubesVm):
 
         return subprocess.check_call(command)
 
+    def start(self, debug_console = False, verbose = False, preparing_dvm=False):
+        if dry_run:
+            return
+
+        xid=super(QubesNetVm, self).start(debug_console=debug_console, verbose=verbose)
+
+        # Connect vif's of already running VMs
+        for vm in self.connected_vms.values():
+            if not vm.is_running():
+                continue
+
+            if verbose:
+                print "--> Attaching network to '{0}'...".format(vm.name)
+
+            # Cleanup stale VIFs
+            vm.cleanup_vifs()
+
+            xm_cmdline = ["/usr/sbin/xm", "network-attach", vm.name, "script=vif-route-qubes", "ip="+vm.ip, "backend="+self.name ]
+            retcode = subprocess.call (xm_cmdline)
+            if retcode != 0:
+                print ("WARNING: Cannot attach to network to '{0}'!".format(vm.name))
+        return xid
+
     def add_external_ip_permission(self, xid):
         if int(xid) < 0:
             return
@@ -1471,7 +1516,7 @@ class QubesProxyVm(QubesNetVm):
                 continue
 
             iptables += "# '{0}' VM:\n".format(vm.name)
-            iptables += "-A FORWARD ! -s {0}/32 -i vif{1}.0 -j DROP\n".format(vm.ip, xid)
+            iptables += "-A FORWARD ! -s {0}/32 -i vif{1}.+ -j DROP\n".format(vm.ip, xid)
 
             accept_action = "ACCEPT"
             reject_action = "REJECT --reject-with icmp-host-prohibited"
@@ -1484,7 +1529,7 @@ class QubesProxyVm(QubesNetVm):
                 rules_action = accept_action
 
             for rule in conf["rules"]:
-                iptables += "-A FORWARD -i vif{0}.0 -d {1}".format(xid, rule["address"])
+                iptables += "-A FORWARD -i vif{0}.+ -d {1}".format(xid, rule["address"])
                 if rule["netmask"] != 32:
                     iptables += "/{0}".format(rule["netmask"])
 
@@ -1497,12 +1542,12 @@ class QubesProxyVm(QubesNetVm):
 
             if conf["allowDns"]:
                 # PREROUTING does DNAT to NetVM DNSes, so we need self.netvm_vm. properties
-                iptables += "-A FORWARD -i vif{0}.0 -p udp -d {1} --dport 53 -j ACCEPT\n".format(xid,self.netvm_vm.gateway)
-                iptables += "-A FORWARD -i vif{0}.0 -p udp -d {1} --dport 53 -j ACCEPT\n".format(xid,self.netvm_vm.secondary_dns)
+                iptables += "-A FORWARD -i vif{0}.+ -p udp -d {1} --dport 53 -j ACCEPT\n".format(xid,self.netvm_vm.gateway)
+                iptables += "-A FORWARD -i vif{0}.+ -p udp -d {1} --dport 53 -j ACCEPT\n".format(xid,self.netvm_vm.secondary_dns)
             if conf["allowIcmp"]:
-                iptables += "-A FORWARD -i vif{0}.0 -p icmp -j ACCEPT\n".format(xid)
+                iptables += "-A FORWARD -i vif{0}.+ -p icmp -j ACCEPT\n".format(xid)
 
-            iptables += "-A FORWARD -i vif{0}.0 -j {1}\n".format(xid, default_action)
+            iptables += "-A FORWARD -i vif{0}.+ -j {1}\n".format(xid, default_action)
 
         iptables += "#End of VM rules\n"
         iptables += "-A FORWARD -j DROP\n"
