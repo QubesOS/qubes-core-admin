@@ -179,6 +179,7 @@ class QubesVm(object):
                  root_img = None,
                  private_img = None,
                  memory = default_memory,
+                 maxmem = None,
                  template_vm = None,
                  firewall_conf = None,
                  volatile_img = None,
@@ -245,6 +246,12 @@ class QubesVm(object):
             self.pcidevs  = pcidevs
 
         self.memory = memory
+
+        if maxmem is None:
+            total_mem_mb = self.get_total_xen_memory()/1024/1024
+            self.maxmem = total_mem_mb/2
+        else:
+            self.maxmem = maxmem
 
         self.template_vm = template_vm
         if template_vm is not None:
@@ -882,8 +889,7 @@ class QubesVm(object):
             print "--> Loading the VM (type = {0})...".format(self.type)
 
         if not self.is_netvm():
-            total_mem_mb = self.get_total_xen_memory()/1024/1024
-            xend_session.xend_server.xend.domain.maxmem_set(self.name, total_mem_mb)
+            xend_session.xend_server.xend.domain.maxmem_set(self.name, self.maxmem)
 
         mem_required = self.get_mem_dynamic_max()
         qmemman_client = QMemmanClient()
@@ -993,6 +999,7 @@ class QubesVm(object):
         attrs["updateable"] = str(self.updateable)
         attrs["label"] = self.label.name
         attrs["memory"] = str(self.memory)
+        attrs["maxmem"] = str(self.maxmem)
         attrs["pcidevs"] = str(self.pcidevs)
         attrs["vcpus"] = str(self.vcpus)
         attrs["internal"] = str(self.internal)
@@ -2004,7 +2011,8 @@ class QubesVmCollection(dict):
         common_attr_list = ("qid", "name", "dir_path", "conf_file",
                 "private_img", "root_img", "template_qid",
                 "installed_by_rpm", "updateable", "internal",
-                "uses_default_netvm", "label", "memory", "vcpus", "pcidevs")
+                "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
+                "maxmem" )
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)

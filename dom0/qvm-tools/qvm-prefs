@@ -49,6 +49,8 @@ def do_list(vm):
         print fmt.format ("root volatile img", vm.volatile_img)
 
     print fmt.format ("private img", vm.private_img)
+    print fmt.format ("memory", vm.memory)
+    print fmt.format ("maxmem", vm.maxmem)
 
 
 def set_label(vms, vm, args):
@@ -65,6 +67,17 @@ def set_label(vms, vm, args):
     vm.label = QubesVmLabels[label]
     subprocess.check_call (["ln", "-sf", vm.label.icon_path, vm.icon_path])
 
+def set_memory(vms, vm, args):
+    if len (args) != 1:
+        print "Missing memory argument!"
+
+    vm.memory = int(args[0])
+
+def set_maxmem(vms, vm, args):
+    if len (args) != 1:
+        print "Missing maxmem argument!"
+
+    vm.maxmem = int(args[0])
 
 def set_netvm(vms, vm, args):
     if len (args) != 1:
@@ -153,6 +166,8 @@ properties = {
     "nonupdateable": set_nonupdateable,
     "label" : set_label,
     "netvm" : set_netvm,
+    "maxmem" : set_maxmem,
+    "memory" : set_memory,
 }
 
 
