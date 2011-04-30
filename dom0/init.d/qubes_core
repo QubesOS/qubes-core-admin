@@ -28,7 +28,7 @@ start()
     chmod 660 /var/run/xend/xen-api.sock /var/run/xend/xmlrpc.sock
     chgrp qubes /var/run/xenstored/*
     chmod 660 /var/run/xenstored/*
-    xm sched-credit -d 0 -w 65535
+    xm sched-credit -d 0 -w 512
     cp /var/lib/qubes/qubes.xml /var/lib/qubes/backup/qubes-$(date +%F-%T).xml
 
     /usr/lib/qubes/qmemman_daemon.py >/var/log/qubes/qmemman.log 2>/var/log/qubes/qmemman.errs & 
