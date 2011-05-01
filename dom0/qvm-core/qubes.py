@@ -889,7 +889,7 @@ class QubesVm(object):
             print "--> Loading the VM (type = {0})...".format(self.type)
 
         if not self.is_netvm():
-            xend_session.xend_server.xend.domain.maxmem_set(self.name, self.maxmem)
+            subprocess.check_call(['/usr/sbin/xm', 'mem-max', self.name, str(self.maxmem)])
 
         mem_required = self.get_mem_dynamic_max()
         qmemman_client = QMemmanClient()
