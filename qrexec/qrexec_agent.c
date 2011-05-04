@@ -42,7 +42,7 @@ enum fdtype {
 };
 
 struct _process_fd {
-	int clid;
+	int client_id;
 	int type;
 	int is_blocked;
 };
@@ -122,7 +122,7 @@ void do_exec(char *cmd)
 	exit(1);
 }
 
-void handle_just_exec(int clid, int len)
+void handle_just_exec(int client_id, int len)
 {
 	char buf[len];
 	int fdn, pid;
@@ -143,7 +143,7 @@ void handle_just_exec(int clid, int len)
 	fprintf(stderr, "executed (nowait) %s pid %d\n", buf, pid);
 }
 
-void handle_exec(int clid, int len)
+void handle_exec(int client_id, int len)
 {
 	char buf[len];
 	int pid, stdin_fd, stdout_fd, stderr_fd;
@@ -152,10 +152,10 @@ void handle_exec(int clid, int len)
 
 	do_fork_exec(buf, &pid, &stdin_fd, &stdout_fd, &stderr_fd);
 
-	process_fd[stdout_fd].clid = clid;
+	process_fd[stdout_fd].client_id = client_id;
 	process_fd[stdout_fd].type = FDTYPE_STDOUT;
 	process_fd[stdout_fd].is_blocked = 0;
-	process_fd[stderr_fd].clid = clid;
+	process_fd[stderr_fd].client_id = client_id;
 	process_fd[stderr_fd].type = FDTYPE_STDERR;
 	process_fd[stderr_fd].is_blocked = 0;
 
@@ -166,13 +166,13 @@ void handle_exec(int clid, int len)
 
 	set_nonblock(stdin_fd);
 
-	client_info[clid].stdin_fd = stdin_fd;
-	client_info[clid].stdout_fd = stdout_fd;
-	client_info[clid].stderr_fd = stderr_fd;
-	client_info[clid].pid = pid;
-	client_info[clid].is_blocked = 0;
-	client_info[clid].is_close_after_flush_needed = 0;
-	buffer_init(&client_info[clid].buffer);
+	client_info[client_id].stdin_fd = stdin_fd;
+	client_info[client_id].stdout_fd = stdout_fd;
+	client_info[client_id].stderr_fd = stderr_fd;
+	client_info[client_id].pid = pid;
+	client_info[client_id].is_blocked = 0;
+	client_info[client_id].is_close_after_flush_needed = 0;
+	buffer_init(&client_info[client_id].buffer);
 
 	fprintf(stderr, "executed %s pid %d\n", buf, pid);
 
@@ -187,79 +187,79 @@ void update_max_process_fd()
 	max_process_fd = i;
 }
 
-void send_exit_code(int clid, int status)
+void send_exit_code(int client_id, int status)
 {
 	struct server_header s_hdr;
 	s_hdr.type = MSG_AGENT_TO_SERVER_EXIT_CODE;
-	s_hdr.clid = clid;
+	s_hdr.client_id = client_id;
 	s_hdr.len = sizeof status;
 	write_all_vchan_ext(&s_hdr, sizeof s_hdr);
 	write_all_vchan_ext(&status, sizeof(status));
-	fprintf(stderr, "send exit code for clid %d pid %d\n", clid,
-		client_info[clid].pid);
+	fprintf(stderr, "send exit code for client_id %d pid %d\n", client_id,
+		client_info[client_id].pid);
 }
 
 
 // erase process data structures, possibly forced by remote
-void remove_process(int clid, int status)
+void remove_process(int client_id, int status)
 {
 	int i;
-	if (!client_info[clid].pid)
+	if (!client_info[client_id].pid)
 		return;
-        fork_and_flush_stdin(client_info[clid].stdin_fd, &client_info[clid].buffer); 
+        fork_and_flush_stdin(client_info[client_id].stdin_fd, &client_info[client_id].buffer); 
 #if 0 
 //      let's let it die by itself, possibly after it has received buffered stdin
-	kill(client_info[clid].pid, SIGKILL);
+	kill(client_info[client_id].pid, SIGKILL);
 #endif
 	if (status != -1)
-		send_exit_code(clid, status);
+		send_exit_code(client_id, status);
 
 
-	close(client_info[clid].stdin_fd);
-	client_info[clid].pid = 0;
-	client_info[clid].stdin_fd = -1;
-	client_info[clid].is_blocked = 0;
-	buffer_free(&client_info[clid].buffer);
+	close(client_info[client_id].stdin_fd);
+	client_info[client_id].pid = 0;
+	client_info[client_id].stdin_fd = -1;
+	client_info[client_id].is_blocked = 0;
+	buffer_free(&client_info[client_id].buffer);
 
 	for (i = 0; i <= max_process_fd; i++)
 		if (process_fd[i].type != FDTYPE_INVALID
-		    && process_fd[i].clid == clid) {
+		    && process_fd[i].client_id == client_id) {
 			process_fd[i].type = FDTYPE_INVALID;
-			process_fd[i].clid = -1;
+			process_fd[i].client_id = -1;
 			process_fd[i].is_blocked = 0;
 			close(i);
 		}
 	update_max_process_fd();
 }
 
-void handle_input(int clid, int len)
+void handle_input(int client_id, int len)
 {
 	char buf[len];
 
 	read_all_vchan_ext(buf, len);
-	if (!client_info[clid].pid)
+	if (!client_info[client_id].pid)
 		return;
 
 	if (len == 0) {
-		if (client_info[clid].is_blocked)
-			client_info[clid].is_close_after_flush_needed = 1;
+		if (client_info[client_id].is_blocked)
+			client_info[client_id].is_close_after_flush_needed = 1;
 		else {
-			close(client_info[clid].stdin_fd);
-			client_info[clid].stdin_fd = -1;
+			close(client_info[client_id].stdin_fd);
+			client_info[client_id].stdin_fd = -1;
 		}
 		return;
 	}
 
 	switch (write_stdin
-		(client_info[clid].stdin_fd, clid, buf, len,
-		 &client_info[clid].buffer)) {
+		(client_info[client_id].stdin_fd, client_id, buf, len,
+		 &client_info[client_id].buffer)) {
 	case WRITE_STDIN_OK:
 		break;
 	case WRITE_STDIN_BUFFERED:
-		client_info[clid].is_blocked = 1;
+		client_info[client_id].is_blocked = 1;
 		break;
 	case WRITE_STDIN_ERROR:
-		remove_process(clid, 128);
+		remove_process(client_id, 128);
 		break;
 	default:
 		fprintf(stderr, "unknown write_stdin?\n");
@@ -268,10 +268,10 @@ void handle_input(int clid, int len)
 
 }
 
-void set_blocked_outerr(int clid, int val)
+void set_blocked_outerr(int client_id, int val)
 {
-	process_fd[client_info[clid].stdout_fd].is_blocked = val;
-	process_fd[client_info[clid].stderr_fd].is_blocked = val;
+	process_fd[client_info[client_id].stdout_fd].is_blocked = val;
+	process_fd[client_info[client_id].stderr_fd].is_blocked = val;
 }
 
 void handle_server_data()
@@ -279,27 +279,27 @@ void handle_server_data()
 	struct server_header s_hdr;
 	read_all_vchan_ext(&s_hdr, sizeof s_hdr);
 
-//      fprintf(stderr, "got %x %x %x\n", s_hdr.type, s_hdr.clid,
+//      fprintf(stderr, "got %x %x %x\n", s_hdr.type, s_hdr.client_id,
 //              s_hdr.len);
 
 	switch (s_hdr.type) {
 	case MSG_XON:
-		set_blocked_outerr(s_hdr.clid, 0);
+		set_blocked_outerr(s_hdr.client_id, 0);
 		break;
 	case MSG_XOFF:
-		set_blocked_outerr(s_hdr.clid, 1);
+		set_blocked_outerr(s_hdr.client_id, 1);
 		break;
 	case MSG_SERVER_TO_AGENT_EXEC_CMDLINE:
-		handle_exec(s_hdr.clid, s_hdr.len);
+		handle_exec(s_hdr.client_id, s_hdr.len);
 		break;
 	case MSG_SERVER_TO_AGENT_JUST_EXEC:
-		handle_just_exec(s_hdr.clid, s_hdr.len);
+		handle_just_exec(s_hdr.client_id, s_hdr.len);
 		break;
 	case MSG_SERVER_TO_AGENT_INPUT:
-		handle_input(s_hdr.clid, s_hdr.len);
+		handle_input(s_hdr.client_id, s_hdr.len);
 		break;
 	case MSG_SERVER_TO_AGENT_CLIENT_END:
-		remove_process(s_hdr.clid, -1);
+		remove_process(s_hdr.client_id, -1);
 		break;
 	default:
 		fprintf(stderr, "msg type from daemon is %d ?\n",
@@ -320,15 +320,15 @@ void handle_process_data(int fd)
 		return;
 
 	ret = read(fd, buf, len - sizeof s_hdr);
-	s_hdr.clid = process_fd[fd].clid;
+	s_hdr.client_id = process_fd[fd].client_id;
 
 	if (process_fd[fd].type == FDTYPE_STDOUT)
 		s_hdr.type = MSG_AGENT_TO_SERVER_STDOUT;
 	else if (process_fd[fd].type == FDTYPE_STDERR)
 		s_hdr.type = MSG_AGENT_TO_SERVER_STDERR;
 	else {
-		fprintf(stderr, "fd=%d, clid=%d, type=%d ?\n", fd,
-			process_fd[fd].clid, process_fd[fd].type);
+		fprintf(stderr, "fd=%d, client_id=%d, type=%d ?\n", fd,
+			process_fd[fd].client_id, process_fd[fd].type);
 		exit(1);
 	}
 	s_hdr.len = ret;
@@ -338,13 +338,13 @@ void handle_process_data(int fd)
 	}
 	if (ret == 0) {
 		process_fd[fd].type = FDTYPE_INVALID;
-		process_fd[fd].clid = -1;
+		process_fd[fd].client_id = -1;
 		process_fd[fd].is_blocked = 0;
 		close(fd);
 		update_max_process_fd();
 	}
 	if (ret < 0)
-		remove_process(process_fd[fd].clid, 127);
+		remove_process(process_fd[fd].client_id, 127);
 }
 
 volatile int child_exited;
@@ -375,7 +375,7 @@ void handle_process_data_all(fd_set * select_fds)
 }
 
 
-void flush_out_err(int clid)
+void flush_out_err(int client_id)
 {
 	fd_set select_set;
 	int fd_max = -1;
@@ -387,7 +387,7 @@ void flush_out_err(int clid)
 		for (i = 0; i <= max_process_fd; i++) {
 			if (process_fd[i].type != FDTYPE_INVALID
 			    && !process_fd[i].is_blocked
-			    && process_fd[i].clid == clid) {
+			    && process_fd[i].client_id == client_id) {
 				FD_SET(i, &select_set);
 				fd_max = i;
 			}
@@ -411,13 +411,13 @@ void reap_children()
 {
 	int status;
 	int pid;
-	int clid;
+	int client_id;
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-		clid = find_info(pid);
-		if (clid < 0)
+		client_id = find_info(pid);
+		if (client_id < 0)
 			continue;
-		flush_out_err(clid);
-		remove_process(clid, status);
+		flush_out_err(client_id);
+		remove_process(client_id, status);
 	}
 	child_exited = 0;
 }
@@ -450,10 +450,10 @@ int fill_fds_for_select(fd_set * rdset, fd_set * wrset)
 	return max;
 }
 
-void flush_client_data_agent(int clid)
+void flush_client_data_agent(int client_id)
 {
-	struct _client_info *info = &client_info[clid];
-	switch (flush_client_data(info->stdin_fd, clid, &info->buffer)) {
+	struct _client_info *info = &client_info[client_id];
+	switch (flush_client_data(info->stdin_fd, client_id, &info->buffer)) {
 	case WRITE_STDIN_OK:
 		info->is_blocked = 0;
 		if (info->is_close_after_flush_needed) {
@@ -463,7 +463,7 @@ void flush_client_data_agent(int clid)
 		}
 		break;
 	case WRITE_STDIN_ERROR:
-		remove_process(clid, 128);
+		remove_process(client_id, 128);
 		break;
 	case WRITE_STDIN_BUFFERED:
 		break;
@@ -479,15 +479,15 @@ void handle_trigger_io()
 	char buf[5];
 	int ret;
 
-	s_hdr.clid = 0;
+	s_hdr.client_id = 0;
 	s_hdr.len = 0;
 	if ((ret = read(trigger_fd, buf, 4)) == 4) {
 		buf[4] = 0;
 		if (!strcmp(buf, "FCPR"))
-			s_hdr.clid = QREXEC_EXECUTE_FILE_COPY;
+			s_hdr.client_id = QREXEC_EXECUTE_FILE_COPY;
 		else if (!strcmp(buf, "DVMR"))
-			s_hdr.clid = QREXEC_EXECUTE_FILE_COPY_FOR_DISPVM;
-		if (s_hdr.clid) {
+			s_hdr.client_id = QREXEC_EXECUTE_FILE_COPY_FOR_DISPVM;
+		if (s_hdr.client_id) {
 			s_hdr.type = MSG_AGENT_TO_SERVER_TRIGGER_EXEC;
 			write_all_vchan_ext(&s_hdr, sizeof s_hdr);
 		}

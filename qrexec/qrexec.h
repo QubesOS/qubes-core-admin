@@ -56,7 +56,7 @@ enum {
 	
 struct server_header {
 	unsigned int type;
-	unsigned int clid;
+	unsigned int client_id;
 	unsigned int len;
 };
 

@@ -29,7 +29,12 @@
 #include "buffer.h"
 #include "glue.h"
 
-int flush_client_data(int fd, int clid, struct buffer *buffer)
+/* 
+There is buffered data in "buffer" for client id "client_id", and select()
+reports that "fd" is writable. Write as much as possible to fd, if all sent,
+notify the peer that this client's pipe is no longer full.
+*/
+int flush_client_data(int fd, int client_id, struct buffer *buffer)
 {
 	int ret;
 	int len;
@@ -49,7 +54,7 @@ int flush_client_data(int fd, int clid, struct buffer *buffer)
 		if (!len) {
 			struct server_header s_hdr;
 			s_hdr.type = MSG_XON;
-			s_hdr.clid = clid;
+			s_hdr.client_id = client_id;
 			s_hdr.len = 0;
 			write_all_vchan_ext(&s_hdr, sizeof s_hdr);
 			return WRITE_STDIN_OK;
@@ -58,7 +63,12 @@ int flush_client_data(int fd, int clid, struct buffer *buffer)
 
 }
 
-int write_stdin(int fd, int clid, char *data, int len,
+/*
+Write "len" bytes from "data" to "fd". If not all written, buffer the rest
+to "buffer", and notify the peer that the client "client_id" pipe is full via 
+MSG_XOFF message.
+*/
+int write_stdin(int fd, int client_id, char *data, int len,
 		struct buffer *buffer)
 {
 	int ret;
@@ -84,7 +94,7 @@ int write_stdin(int fd, int clid, char *data, int len,
 				      len - written);
 
 			s_hdr.type = MSG_XOFF;
-			s_hdr.clid = clid;
+			s_hdr.client_id = client_id;
 			s_hdr.len = 0;
 			write_all_vchan_ext(&s_hdr, sizeof s_hdr);
 
@@ -108,6 +118,11 @@ void set_block(int fd)
 	fcntl(fd, F_SETFL, fl & ~O_NONBLOCK);
 }
 
+/* 
+Data feed process has exited, so we need to clear all control structures for 
+the client. However, if we have buffered data for the client (which is rare btw),
+fire&forget a separate process to flush them.
+*/
 int fork_and_flush_stdin(int fd, struct buffer *buffer)
 {
 	int i;
