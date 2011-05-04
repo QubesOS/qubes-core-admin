@@ -195,8 +195,8 @@ void send_exit_code(int client_id, int status)
 	s_hdr.len = sizeof status;
 	write_all_vchan_ext(&s_hdr, sizeof s_hdr);
 	write_all_vchan_ext(&status, sizeof(status));
-	fprintf(stderr, "send exit code for client_id %d pid %d\n", client_id,
-		client_info[client_id].pid);
+	fprintf(stderr, "send exit code for client_id %d pid %d\n",
+		client_id, client_info[client_id].pid);
 }
 
 
@@ -206,8 +206,9 @@ void remove_process(int client_id, int status)
 	int i;
 	if (!client_info[client_id].pid)
 		return;
-        fork_and_flush_stdin(client_info[client_id].stdin_fd, &client_info[client_id].buffer); 
-#if 0 
+	fork_and_flush_stdin(client_info[client_id].stdin_fd,
+			     &client_info[client_id].buffer);
+#if 0
 //      let's let it die by itself, possibly after it has received buffered stdin
 	kill(client_info[client_id].pid, SIGKILL);
 #endif
@@ -242,7 +243,8 @@ void handle_input(int client_id, int len)
 
 	if (len == 0) {
 		if (client_info[client_id].is_blocked)
-			client_info[client_id].is_close_after_flush_needed = 1;
+			client_info[client_id].
+			    is_close_after_flush_needed = 1;
 		else {
 			close(client_info[client_id].stdin_fd);
 			client_info[client_id].stdin_fd = -1;
@@ -453,7 +455,8 @@ int fill_fds_for_select(fd_set * rdset, fd_set * wrset)
 void flush_client_data_agent(int client_id)
 {
 	struct _client_info *info = &client_info[client_id];
-	switch (flush_client_data(info->stdin_fd, client_id, &info->buffer)) {
+	switch (flush_client_data
+		(info->stdin_fd, client_id, &info->buffer)) {
 	case WRITE_STDIN_OK:
 		info->is_blocked = 0;
 		if (info->is_close_after_flush_needed) {
@@ -486,7 +489,8 @@ void handle_trigger_io()
 		if (!strcmp(buf, "FCPR"))
 			s_hdr.client_id = QREXEC_EXECUTE_FILE_COPY;
 		else if (!strcmp(buf, "DVMR"))
-			s_hdr.client_id = QREXEC_EXECUTE_FILE_COPY_FOR_DISPVM;
+			s_hdr.client_id =
+			    QREXEC_EXECUTE_FILE_COPY_FOR_DISPVM;
 		if (s_hdr.client_id) {
 			s_hdr.type = MSG_AGENT_TO_SERVER_TRIGGER_EXEC;
 			write_all_vchan_ext(&s_hdr, sizeof s_hdr);
