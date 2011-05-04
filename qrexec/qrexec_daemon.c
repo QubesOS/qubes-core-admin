@@ -98,6 +98,11 @@ void init(int xid)
 	umask(0007); 		// make the log readable by the "qubes" group
 	logfd = open(qrexec_error_log_name, O_WRONLY | O_CREAT | O_TRUNC, 0640);
 
+	if (logfd < 0) {
+	        perror("open");
+	        exit(1);
+        }
+
 	dup2(logfd, 1);
 	dup2(logfd, 2);
 

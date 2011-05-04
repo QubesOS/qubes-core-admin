@@ -49,7 +49,10 @@ int flush_client_data(int fd, int client_id, struct buffer *buffer)
 			} else
 				return WRITE_STDIN_BUFFERED;
 		}
-		buffer_remove(buffer, len);
+		// we previously called buffer_remove(buffer, len)
+		// it will be wrong if we change MAX_DATA_CHUNK to something large
+		// as pipes writes are atomic only to PIPE_MAX limit 
+		buffer_remove(buffer, ret);
 		len = buffer_len(buffer);
 		if (!len) {
 			struct server_header s_hdr;
