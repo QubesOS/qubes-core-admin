@@ -96,8 +96,8 @@ class SystemState:
             time.sleep(self.BALOON_DELAY)
             niter = niter + 1
             
-    def refresh_meminfo(self, domid, val):
-        qmemman_algo.refresh_meminfo_for_domain(self.domdict[domid], val)
+    def refresh_meminfo(self, domid, untrusted_meminfo_key):
+        qmemman_algo.refresh_meminfo_for_domain(self.domdict[domid], untrusted_meminfo_key)
         self.do_balance()
 
     def is_balance_req_significant(self, memset_reqs, xenfree):

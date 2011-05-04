@@ -1,45 +1,58 @@
 import string
 
-def parse_meminfo(meminfo):
-    dict = {}
-    l1 = string.split(meminfo,"\n")
-    for i in l1:
-        l2 = string.split(i)
-        if len(l2) >= 2:
-            dict[string.rstrip(l2[0], ":")] = l2[1]
+#untrusted meminfo size is taken from xenstore key, thus its size is limited
+#so splits do not require excessive memory
+def parse_meminfo(untrusted_meminfo):
+    untrusted_dict = {}
+#split meminfo contents into lines
+    untrusted_lines = string.split(untrusted_meminfo,"\n")
+    for untrusted_lines_iterator in untrusted_lines:
+#split a single meminfo line into words
+        untrusted_words = string.split(untrusted_lines_iterator)
+        if len(untrusted_words) >= 2:
+            untrusted_dict[string.rstrip(untrusted_words[0], ":")] = untrusted_words[1]
 
+    return untrusted_dict
+
+def is_meminfo_suspicious(dom, untrusted_meminfo):
+    ret = False
+    
+#check whether the required keys exist and are not negative
     try:
         for i in ('MemTotal', 'MemFree', 'Buffers', 'Cached', 'SwapTotal', 'SwapFree'):
-            val = int(dict[i])*1024
+            val = int(untrusted_meminfo[i])*1024
             if (val < 0):
-                return None
-            dict[i] = val
+                ret = True
+            untrusted_meminfo[i] = val
     except:
-        return None
-
-    if dict['SwapTotal'] < dict['SwapFree']:
-        return None
-    return dict
-
-def is_suspicious(dom):
-    ret = False
-    if dom.meminfo['SwapTotal'] < dom.meminfo['SwapFree']:
         ret = True
-    if dom.meminfo['MemTotal'] < dom.meminfo['MemFree'] + dom.meminfo['Cached'] + dom.meminfo['Buffers']:
+
+    if not ret and untrusted_meminfo['SwapTotal'] < untrusted_meminfo['SwapFree']:
         ret = True
+    if not ret and untrusted_meminfo['MemTotal'] < untrusted_meminfo['MemFree'] + untrusted_meminfo['Cached'] + untrusted_meminfo['Buffers']:
+        ret = True
+#we could also impose some limits on all the above values
+#but it has little purpose - all the domain can gain by passing e.g. 
+#very large SwapTotal is that it will be assigned all free Xen memory
+#it can be achieved with legal values, too, and it will not allow to
+#starve existing domains, by design
     if ret:
-        print 'suspicious meminfo for domain', dom.id, 'mem actual', dom.memory_actual, dom.meminfo
+        print 'suspicious meminfo for domain', dom.id, 'mem actual', dom.memory_actual, untrusted_meminfo
     return ret
 
-def refresh_meminfo_for_domain(dom, xenstore_key):
-    meminfo = parse_meminfo(xenstore_key)
-    dom.meminfo = meminfo
-    if meminfo is None:
+def refresh_meminfo_for_domain(dom, untrusted_xenstore_key):
+    untrusted_meminfo = parse_meminfo(untrusted_xenstore_key)
+    if untrusted_meminfo is None:
+        dom.meminfo = None
         return
-    if is_suspicious(dom):
+#sanitize start
+    if is_meminfo_suspicious(dom, untrusted_meminfo):
+#sanitize end
         dom.meminfo = None
         dom.mem_used = None
     else:
+#sanitized, can assign
+        dom.meminfo = untrusted_meminfo
         dom.mem_used =  dom.meminfo['MemTotal'] - dom.meminfo['MemFree'] - dom.meminfo['Cached'] - dom.meminfo['Buffers'] + dom.meminfo['SwapTotal'] - dom.meminfo['SwapFree']
                         
 def prefmem(dom):

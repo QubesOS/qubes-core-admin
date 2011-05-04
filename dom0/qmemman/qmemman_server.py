@@ -49,11 +49,11 @@ class XS_Watcher:
         global_lock.release()
 
     def request(self, domain_id):
-        ret = self.handle.read('', get_req_node(domain_id))
-        if ret == None or ret == '':
+        untrusted_meminfo_key = self.handle.read('', get_req_node(domain_id))
+        if untrusted_meminfo_key == None or untrusted_meminfo_key == '':
             return
         global_lock.acquire()
-        system_state.refresh_meminfo(domain_id, ret)
+        system_state.refresh_meminfo(domain_id, untrusted_meminfo_key)
         global_lock.release()
 
     def watch_loop(self):
