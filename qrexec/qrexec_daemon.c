@@ -335,11 +335,62 @@ void handle_trigger_exec(int req)
 	exit(1);
 }
 
+void check_clid_in_range(unsigned int untrusted_clid)
+{
+	if (untrusted_clid >= MAX_FDS || untrusted_clid < 0) {
+		fprintf(stderr, "from agent: clid=%d\n", untrusted_clid);
+		exit(1);
+	}
+}
+
+
+void sanitize_message_from_agent(struct server_header *untrusted_header)
+{
+	int untrusted_cmd;
+	switch (untrusted_header->type) {
+	case MSG_AGENT_TO_SERVER_TRIGGER_EXEC:
+		untrusted_cmd = untrusted_header->clid;
+		if (untrusted_cmd != QREXEC_EXECUTE_FILE_COPY &&
+		    untrusted_cmd != QREXEC_EXECUTE_FILE_COPY_FOR_DISPVM) {
+			fprintf(stderr,
+				"received MSG_AGENT_TO_SERVER_TRIGGER_EXEC cmd %d ?\n",
+				untrusted_cmd);
+			exit(1);
+		}
+		break;
+	case MSG_AGENT_TO_SERVER_STDOUT:
+	case MSG_SERVER_TO_CLIENT_STDERR:
+	case MSG_AGENT_TO_SERVER_EXIT_CODE:
+		check_clid_in_range(untrusted_header->clid);
+		if (untrusted_header->len > MAX_DATA_CHUNK
+		    || untrusted_header->len < 0) {
+			fprintf(stderr, "agent feeded %d of data bytes?\n",
+				untrusted_header->len);
+			exit(1);
+		}
+		break;
+
+	case MSG_XOFF:
+	case MSG_XON:
+		check_clid_in_range(untrusted_header->clid);
+		break;
+	default:
+		fprintf(stderr, "unknown mesage type %d from agent\n",
+			untrusted_header->type);
+		exit(1);
+	}
+}
+
 void handle_agent_data()
 {
 	struct client_header hdr;
-	struct server_header s_hdr;
-	read_all_vchan_ext(&s_hdr, sizeof s_hdr);
+	struct server_header s_hdr, untrusted_s_hdr;
+
+	read_all_vchan_ext(&untrusted_s_hdr, sizeof untrusted_s_hdr);
+	/* sanitize start */
+	sanitize_message_from_agent(&untrusted_s_hdr);
+	s_hdr = untrusted_s_hdr;
+	/* sanitize end */
 
 //      fprintf(stderr, "got %x %x %x\n", s_hdr.type, s_hdr.clid,
 //              s_hdr.len);
@@ -347,11 +398,6 @@ void handle_agent_data()
 	if (s_hdr.type == MSG_AGENT_TO_SERVER_TRIGGER_EXEC) {
 		handle_trigger_exec(s_hdr.clid);
 		return;
-	}
-
-	if (s_hdr.clid >= MAX_FDS || s_hdr.clid < 0) {
-		fprintf(stderr, "from agent: clid=%d\n", s_hdr.clid);
-		exit(1);
 	}
 
 	if (s_hdr.type == MSG_XOFF) {
@@ -373,16 +419,11 @@ void handle_agent_data()
 	case MSG_AGENT_TO_SERVER_EXIT_CODE:
 		hdr.type = MSG_SERVER_TO_CLIENT_EXIT_CODE;
 		break;
-	default:
+	default: /* cannot happen */
 		fprintf(stderr, "from agent: type=%d\n", s_hdr.type);
 		exit(1);
 	}
 	hdr.len = s_hdr.len;
-	if (hdr.len > MAX_DATA_CHUNK) {
-		fprintf(stderr, "agent feeded %d of data bytes?\n",
-			hdr.len);
-		exit(1);
-	}
 	if (clients[s_hdr.clid].state == CLIENT_INVALID) {
 		// benefit of doubt - maybe client exited earlier
 		char buf[MAX_DATA_CHUNK];
