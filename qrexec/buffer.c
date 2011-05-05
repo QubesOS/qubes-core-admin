@@ -61,6 +61,12 @@ void buffer_free(struct buffer *b)
 	buffer_init(b);
 }
 
+/*
+The following two functions can be made much more efficient.
+Yet the profiling output show they are not significant CPU hogs, so
+we keep them so simple to make them obviously correct.
+*/
+
 void buffer_append(struct buffer *b, char *data, int len)
 {
 	int newsize = len + b->buflen;
