@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include "filecopy.h"
 
-char namebuf[MAX_PATH_LENGTH];
+char untrusted_namebuf[MAX_PATH_LENGTH];
 void notify_progress(int p1, int p2)
 {
 }
@@ -22,28 +22,30 @@ void do_exit(int code)
 }
 
 
-void fix_times_and_perms(struct file_header *hdr, char *name)
+void fix_times_and_perms(struct file_header *untrusted_hdr,
+			 char *untrusted_name)
 {
 	struct timeval times[2] =
-	    { {hdr->atime, hdr->atime_nsec / 1000}, {hdr->mtime,
-						     hdr->mtime_nsec / 1000}
+	    { {untrusted_hdr->atime, untrusted_hdr->atime_nsec / 1000},
+	    {untrusted_hdr->mtime,
+	     untrusted_hdr->mtime_nsec / 1000}
 	};
-	if (chmod(name, hdr->mode & 07777))
+	if (chmod(untrusted_name, untrusted_hdr->mode & 07777))	/* safe because of chroot */
 		do_exit(errno);
-	if (utimes(name, times))
+	if (utimes(untrusted_name, times))	/* as above */
 		do_exit(errno);
 }
 
 
 
-void process_one_file_reg(struct file_header *hdr, char *name)
+void process_one_file_reg(struct file_header *untrusted_hdr,
+			  char *untrusted_name)
 {
 	int ret;
-	int fdout =
-	    open(name, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0700);
+	int fdout = open(untrusted_name, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0700);	/* safe because of chroot */
 	if (fdout < 0)
 		do_exit(errno);
-	ret = copy_file(fdout, 0, hdr->filelen);
+	ret = copy_file(fdout, 0, untrusted_hdr->filelen);
 	if (ret != COPY_FILE_OK) {
 		if (ret == COPY_FILE_READ_EOF
 		    || ret == COPY_FILE_READ_ERROR)
@@ -52,47 +54,53 @@ void process_one_file_reg(struct file_header *hdr, char *name)
 			do_exit(errno);
 	}
 	close(fdout);
-	fix_times_and_perms(hdr, name);
+	fix_times_and_perms(untrusted_hdr, untrusted_name);
 }
 
 
-void process_one_file_dir(struct file_header *hdr, char *name)
+void process_one_file_dir(struct file_header *untrusted_hdr,
+			  char *untrusted_name)
 {
 // fix perms only when the directory is sent for the second time
 // it allows to transfer r.x directory contents, as we create it rwx initially
-	if (!mkdir(name, 0700))
+	if (!mkdir(untrusted_name, 0700))	/* safe because of chroot */
 		return;
 	if (errno != EEXIST)
 		do_exit(errno);
-	fix_times_and_perms(hdr, name);
+	fix_times_and_perms(untrusted_hdr, untrusted_name);
 }
 
-void process_one_file_link(struct file_header *hdr, char *name)
+void process_one_file_link(struct file_header *untrusted_hdr,
+			   char *untrusted_name)
 {
-	char content[MAX_PATH_LENGTH];
-	if (hdr->filelen > MAX_PATH_LENGTH - 1)
+	char untrusted_content[MAX_PATH_LENGTH];
+	unsigned int filelen;
+	if (untrusted_hdr->filelen > MAX_PATH_LENGTH - 1)
 		do_exit(ENAMETOOLONG);
-	if (!read_all(0, content, hdr->filelen))
+	filelen = untrusted_hdr->filelen;	/* sanitized above */
+	if (!read_all(0, untrusted_content, filelen))
 		do_exit(LEGAL_EOF);	// hopefully remote has produced error message
-	content[hdr->filelen] = 0;
-	if (symlink(content, name))
+	untrusted_content[filelen] = 0;
+	if (symlink(untrusted_content, untrusted_name))	/* safe because of chroot */
 		do_exit(errno);
 
 }
 
-void process_one_file(struct file_header *hdr)
+void process_one_file(struct file_header *untrusted_hdr)
 {
-	if (hdr->namelen > MAX_PATH_LENGTH - 1)
+	unsigned int namelen;
+	if (untrusted_hdr->namelen > MAX_PATH_LENGTH - 1)
 		do_exit(ENAMETOOLONG);
-	if (!read_all(0, namebuf, hdr->namelen))
+	namelen = untrusted_hdr->namelen;	/* sanitized above */
+	if (!read_all(0, untrusted_namebuf, namelen))
 		do_exit(LEGAL_EOF);	// hopefully remote has produced error message
-	namebuf[hdr->namelen] = 0;
-	if (S_ISREG(hdr->mode))
-		process_one_file_reg(hdr, namebuf);
-	else if (S_ISLNK(hdr->mode))
-		process_one_file_link(hdr, namebuf);
-	else if (S_ISDIR(hdr->mode))
-		process_one_file_dir(hdr, namebuf);
+	untrusted_namebuf[namelen] = 0;
+	if (S_ISREG(untrusted_hdr->mode))
+		process_one_file_reg(untrusted_hdr, untrusted_namebuf);
+	else if (S_ISLNK(untrusted_hdr->mode))
+		process_one_file_link(untrusted_hdr, untrusted_namebuf);
+	else if (S_ISDIR(untrusted_hdr->mode))
+		process_one_file_dir(untrusted_hdr, untrusted_namebuf);
 	else
 		do_exit(EINVAL);
 }
@@ -100,9 +108,9 @@ void process_one_file(struct file_header *hdr)
 void do_unpack(int fd)
 {
 	global_status_fd = fd;
-	struct file_header hdr;
-	while (read_all(0, &hdr, sizeof hdr))
-		process_one_file(&hdr);
+	struct file_header untrusted_hdr;
+	while (read_all(0, &untrusted_hdr, sizeof untrusted_hdr))
+		process_one_file(&untrusted_hdr);
 	if (errno)
 		do_exit(errno);
 	else
