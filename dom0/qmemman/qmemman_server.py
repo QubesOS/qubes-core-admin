@@ -17,7 +17,7 @@ def only_in_first_list(l1, l2):
             ret.append(i)
     return ret
 
-def get_req_node(domain_id):
+def get_domain_meminfo_key(domain_id):
     return '/local/domain/'+domain_id+'/memory/meminfo'
 
                     
@@ -29,31 +29,33 @@ class WatchType:
 class XS_Watcher:
     def __init__(self):
         self.handle = xen.lowlevel.xs.xs()
-        self.handle.watch('/vm', WatchType(XS_Watcher.dom_list_change, None))
+        self.handle.watch('/vm', WatchType(XS_Watcher.domain_list_changed, None))
         self.watch_token_dict = {}
 
-    def dom_list_change(self, param):
+    def domain_list_changed(self, param):
         curr = self.handle.ls('', '/local/domain')
         if curr == None:
             return
         global_lock.acquire()
         for i in only_in_first_list(curr, self.watch_token_dict.keys()):
-            watch = WatchType(XS_Watcher.request, i)
+#new domain has been created
+            watch = WatchType(XS_Watcher.meminfo_changed, i)
             self.watch_token_dict[i] = watch
-            self.handle.watch(get_req_node(i), watch)
+            self.handle.watch(get_domain_meminfo_key(i), watch)
             system_state.add_domain(i)
         for i in only_in_first_list(self.watch_token_dict.keys(), curr):
-            self.handle.unwatch(get_req_node(i), self.watch_token_dict[i])
+#domain destroyed
+            self.handle.unwatch(get_domain_meminfo_key(i), self.watch_token_dict[i])
             self.watch_token_dict.pop(i)
             system_state.del_domain(i)
         global_lock.release()
 
-    def request(self, domain_id):
-        ret = self.handle.read('', get_req_node(domain_id))
-        if ret == None or ret == '':
+    def meminfo_changed(self, domain_id):
+        untrusted_meminfo_key = self.handle.read('', get_domain_meminfo_key(domain_id))
+        if untrusted_meminfo_key == None or untrusted_meminfo_key == '':
             return
         global_lock.acquire()
-        system_state.refresh_meminfo(domain_id, ret)
+        system_state.refresh_meminfo(domain_id, untrusted_meminfo_key)
         global_lock.release()
 
     def watch_loop(self):
