@@ -410,7 +410,7 @@ void sanitize_message_from_agent(struct server_header *untrusted_header)
 		}
 		break;
 	case MSG_AGENT_TO_SERVER_STDOUT:
-	case MSG_SERVER_TO_CLIENT_STDERR:
+	case MSG_AGENT_TO_SERVER_STDERR:
 	case MSG_AGENT_TO_SERVER_EXIT_CODE:
 		check_client_id_in_range(untrusted_header->client_id);
 		if (untrusted_header->len > MAX_DATA_CHUNK
