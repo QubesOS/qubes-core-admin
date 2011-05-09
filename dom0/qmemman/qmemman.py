@@ -7,11 +7,11 @@ import os
 
 class DomainState:
     def __init__(self, id):
-        self.meminfo = None
-        self.memory_actual = None
-        self.mem_used = None
-        self.id = id
-        self.last_target = 0
+        self.meminfo = None		#dictionary of memory info read from client
+        self.memory_actual = None	#the current memory size
+        self.mem_used = None		#used memory, computed based on meminfo
+        self.id = id			#domain id
+        self.last_target = 0		#the last memset target
 
 class SystemState:
     def __init__(self):
@@ -36,6 +36,7 @@ class SystemState:
 #        ret = host_metrics_record["memory_free"]
 #        return long(ret)
 
+#refresh information on memory assigned to all domains
     def refresh_memactual(self):
         for domain in self.xc.domain_getinfo():
             id = str(domain['domid'])
@@ -67,6 +68,7 @@ class SystemState:
         except XenAPI.Failure:
             pass
 
+#perform memory ballooning, across all domains, to add "memsize" to Xen free memory
     def do_balloon(self, memsize):
         MAX_TRIES = 20
         niter = 0
@@ -82,6 +84,7 @@ class SystemState:
             if prev_memory_actual is not None:
                 for i in prev_memory_actual.keys():
                     if prev_memory_actual[i] == self.domdict[i].memory_actual:
+                        #domain not responding to memset requests, remove it from donors
                         self.domdict[i].no_progress = True
                         print 'domain', i, 'stuck at', self.domdict[i].memory_actual
             memset_reqs = qmemman_algo.balloon(memsize + self.XEN_FREE_MEM_LEFT - xenfree, self.domdict)
@@ -96,10 +99,12 @@ class SystemState:
             time.sleep(self.BALOON_DELAY)
             niter = niter + 1
             
-    def refresh_meminfo(self, domid, val):
-        qmemman_algo.refresh_meminfo_for_domain(self.domdict[domid], val)
+    def refresh_meminfo(self, domid, untrusted_meminfo_key):
+        qmemman_algo.refresh_meminfo_for_domain(self.domdict[domid], untrusted_meminfo_key)
         self.do_balance()
 
+#is the computed balance request big enough ?
+#so that we do not trash with small adjustments
     def is_balance_req_significant(self, memset_reqs, xenfree):
         total_memory_transfer = 0
         MIN_TOTAL_MEMORY_TRANSFER = 150*1024*1024

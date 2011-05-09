@@ -34,24 +34,30 @@
 #include "glue.h"
 
 enum client_flags {
-	CLIENT_INVALID = 0,
-	CLIENT_CMDLINE = 1,
-	CLIENT_DATA = 2,
-	CLIENT_DONT_READ = 4,
-	CLIENT_OUTQ_FULL = 8
+	CLIENT_INVALID = 0,	// table slot not used
+	CLIENT_CMDLINE = 1,	// waiting for cmdline from client
+	CLIENT_DATA = 2,	// waiting for data from client
+	CLIENT_DONT_READ = 4,	// don't read from the client, the other side pipe is full, or EOF
+	CLIENT_OUTQ_FULL = 8	// don't write to client, its stdin pipe is full
 };
 
 struct _client {
-	int state;
-	struct buffer buffer;
+	int state;		// combination of above enum client_flags
+	struct buffer buffer;	// buffered data to client, if any
 };
 
-struct _client clients[MAX_FDS];
+/*
+The "clients" array is indexed by client's fd.
+Thus its size must be equal MAX_FDS; defining MAX_CLIENTS for clarity.
+*/
 
-int max_client_fd = -1;
-int server_fd;
+#define MAX_CLIENTS MAX_FDS
+struct _client clients[MAX_CLIENTS];	// data on all qrexec_client connections
 
-void handle_usr1(int x)
+int max_client_fd = -1;		// current max fd of all clients; so that we need not to scan all the "clients" table
+int qrexec_daemon_unix_socket_fd;	// /var/run/qubes/qrexec.xid descriptor
+
+void sigusr1_handler(int x)
 {
 	fprintf(stderr, "connected\n");
 	exit(0);
@@ -59,18 +65,19 @@ void handle_usr1(int x)
 
 void sigchld_handler(int x);
 
-char *remote_domain_name;
+char *remote_domain_name;	// guess what
 
+/* do the preparatory tasks, needed before entering the main event loop */
 void init(int xid)
 {
-	char dbg_log[256];
+	char qrexec_error_log_name[256];
 	int logfd;
 
 	if (xid <= 0) {
 		fprintf(stderr, "domain id=0?\n");
 		exit(1);
 	}
-	signal(SIGUSR1, handle_usr1);
+	signal(SIGUSR1, sigusr1_handler);
 	switch (fork()) {
 	case -1:
 		perror("fork");
@@ -86,10 +93,17 @@ void init(int xid)
 		exit(0);
 	}
 	close(0);
-	snprintf(dbg_log, sizeof(dbg_log),
+	snprintf(qrexec_error_log_name, sizeof(qrexec_error_log_name),
 		 "/var/log/qubes/qrexec.%d.log", xid);
-	umask(0007);
-	logfd = open(dbg_log, O_WRONLY | O_CREAT | O_TRUNC, 0640);
+	umask(0007);		// make the log readable by the "qubes" group
+	logfd =
+	    open(qrexec_error_log_name, O_WRONLY | O_CREAT | O_TRUNC,
+		 0640);
+
+	if (logfd < 0) {
+		perror("open");
+		exit(1);
+	}
 
 	dup2(logfd, 1);
 	dup2(logfd, 2);
@@ -104,18 +118,19 @@ void init(int xid)
 	setuid(getuid());
 	/* When running as root, make the socket accessible; perms on /var/run/qubes still apply */
 	umask(0);
-	server_fd = get_server_socket(xid, remote_domain_name);
+	qrexec_daemon_unix_socket_fd =
+	    get_server_socket(xid, remote_domain_name);
 	umask(0077);
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGCHLD, sigchld_handler);
 	signal(SIGUSR1, SIG_DFL);
-	kill(getppid(), SIGUSR1);
+	kill(getppid(), SIGUSR1);	// let the parent know we are ready
 }
 
 void handle_new_client()
 {
-	int fd = do_accept(server_fd);
-	if (fd >= MAX_FDS) {
+	int fd = do_accept(qrexec_daemon_unix_socket_fd);
+	if (fd >= MAX_CLIENTS) {
 		fprintf(stderr, "too many clients ?\n");
 		exit(1);
 	}
@@ -125,9 +140,13 @@ void handle_new_client()
 		max_client_fd = fd;
 }
 
+/* 
+we need to track the number of children, so that excessive QREXEC_EXECUTE_*
+commands do not fork-bomb dom0
+*/
 int children_count;
 
-void flush_client(int fd)
+void terminate_client_and_flush_data(int fd)
 {
 	int i;
 	struct server_header s_hdr;
@@ -143,29 +162,31 @@ void flush_client(int fd)
 		max_client_fd = i;
 	}
 	s_hdr.type = MSG_SERVER_TO_AGENT_CLIENT_END;
-	s_hdr.clid = fd;
+	s_hdr.client_id = fd;
 	s_hdr.len = 0;
 	write_all_vchan_ext(&s_hdr, sizeof(s_hdr));
 }
 
-void pass_to_agent(int fd, struct server_header *s_hdr)
+void get_cmdline_body_from_client_and_pass_to_agent(int fd,
+						    struct server_header
+						    *s_hdr)
 {
 	int len = s_hdr->len;
 	char buf[len];
 	if (!read_all(fd, buf, len)) {
-		flush_client(fd);
+		terminate_client_and_flush_data(fd);
 		return;
 	}
 	write_all_vchan_ext(s_hdr, sizeof(*s_hdr));
 	write_all_vchan_ext(buf, len);
 }
 
-void handle_client_cmdline(int fd)
+void handle_cmdline_message_from_client(int fd)
 {
 	struct client_header hdr;
 	struct server_header s_hdr;
 	if (!read_all(fd, &hdr, sizeof hdr)) {
-		flush_client(fd);
+		terminate_client_and_flush_data(fd);
 		return;
 	}
 	switch (hdr.type) {
@@ -176,59 +197,69 @@ void handle_client_cmdline(int fd)
 		s_hdr.type = MSG_SERVER_TO_AGENT_JUST_EXEC;
 		break;
 	default:
-		flush_client(fd);
+		terminate_client_and_flush_data(fd);
 		return;
 	}
 
-	s_hdr.clid = fd;
+	s_hdr.client_id = fd;
 	s_hdr.len = hdr.len;
-	pass_to_agent(fd, &s_hdr);
+	get_cmdline_body_from_client_and_pass_to_agent(fd, &s_hdr);
 	clients[fd].state = CLIENT_DATA;
-	set_nonblock(fd);
+	set_nonblock(fd);	// so that we can detect full queue without blocking
 	if (hdr.type == MSG_CLIENT_TO_SERVER_JUST_EXEC)
-		flush_client(fd);
+		terminate_client_and_flush_data(fd);
 
 }
 
-void handle_client_data(int fd)
+/* handle data received from one of qrexec_client processes */
+void handle_message_from_client(int fd)
 {
 	struct server_header s_hdr;
 	char buf[MAX_DATA_CHUNK];
 	int len, ret;
 
 	if (clients[fd].state == CLIENT_CMDLINE) {
-		handle_client_cmdline(fd);
+		handle_cmdline_message_from_client(fd);
 		return;
 	}
+	// We have already passed cmdline from client. 
+	// Now the client passes us raw data from its stdin.
 	len = buffer_space_vchan_ext();
 	if (len <= sizeof s_hdr)
 		return;
+	/* Read at most the amount of data that we have room for in vchan */
 	ret = read(fd, buf, len - sizeof(s_hdr));
 	if (ret < 0) {
 		perror("read client");
-		flush_client(fd);
+		terminate_client_and_flush_data(fd);
 		return;
 	}
-	s_hdr.clid = fd;
+	s_hdr.client_id = fd;
 	s_hdr.len = ret;
 	s_hdr.type = MSG_SERVER_TO_AGENT_INPUT;
 
 	write_all_vchan_ext(&s_hdr, sizeof(s_hdr));
 	write_all_vchan_ext(buf, ret);
-	if (ret == 0)
+	if (ret == 0)		// EOF - so don't select() on this client
 		clients[fd].state |= CLIENT_DONT_READ;
 }
 
-void flush_client_data_daemon(int clid)
+/* 
+Called when there is buffered data for this client, and select() reports
+that client's pipe is writable; so we should be able to flush some
+buffered data.
+*/
+void write_buffered_data_to_client(int client_id)
 {
-	switch (flush_client_data(clid, clid, &clients[clid].buffer)) {
-	case WRITE_STDIN_OK:
-		clients[clid].state &= ~CLIENT_OUTQ_FULL;
+	switch (flush_client_data
+		(client_id, client_id, &clients[client_id].buffer)) {
+	case WRITE_STDIN_OK:	// no more buffered data
+		clients[client_id].state &= ~CLIENT_OUTQ_FULL;
 		break;
 	case WRITE_STDIN_ERROR:
-		flush_client(clid);
+		terminate_client_and_flush_data(client_id);
 		break;
-	case WRITE_STDIN_BUFFERED:
+	case WRITE_STDIN_BUFFERED:	// no room for all data, don't clear CLIENT_OUTQ_FULL flag
 		break;
 	default:
 		fprintf(stderr, "unknown flush_client_data?\n");
@@ -236,30 +267,43 @@ void flush_client_data_daemon(int clid)
 	}
 }
 
-void pass_to_client(int clid, struct client_header *hdr)
+/* 
+The header (hdr argument) is already built. Just read the raw data from
+the packet, and pass it along with the header to the client.
+*/
+void get_packet_data_from_agent_and_pass_to_client(int client_id,
+						   struct client_header
+						   *hdr)
 {
 	int len = hdr->len;
 	char buf[sizeof(*hdr) + len];
 
+	/* make both the header and data be consecutive in the buffer */
 	*(struct client_header *) buf = *hdr;
 	read_all_vchan_ext(buf + sizeof(*hdr), len);
 
 	switch (write_stdin
-		(clid, clid, buf, len + sizeof(*hdr),
-		 &clients[clid].buffer)) {
+		(client_id, client_id, buf, len + sizeof(*hdr),
+		 &clients[client_id].buffer)) {
 	case WRITE_STDIN_OK:
 		break;
-	case WRITE_STDIN_BUFFERED:
-		clients[clid].state |= CLIENT_OUTQ_FULL;
+	case WRITE_STDIN_BUFFERED:	// some data have been buffered
+		clients[client_id].state |= CLIENT_OUTQ_FULL;
 		break;
 	case WRITE_STDIN_ERROR:
-		flush_client(clid);
+		terminate_client_and_flush_data(client_id);
 		break;
 	default:
 		fprintf(stderr, "unknown write_stdin?\n");
 		exit(1);
 	}
 }
+
+/* 
+The signal handler executes asynchronously; therefore all it should do is
+to set a flag "signal has arrived", and let the main even loop react to this
+flag in appropriate moment.
+*/
 
 int child_exited;
 
@@ -269,6 +313,7 @@ void sigchld_handler(int x)
 	signal(SIGCHLD, sigchld_handler);
 }
 
+/* clean zombies, update children_count */
 void reap_children()
 {
 	int status;
@@ -277,6 +322,7 @@ void reap_children()
 	child_exited = 0;
 }
 
+/* too many children - wait for one of them to terminate */
 void wait_for_child()
 {
 	int status;
@@ -285,7 +331,7 @@ void wait_for_child()
 }
 
 #define MAX_CHILDREN 10
-void check_children_count()
+void check_children_count_and_wait_if_too_many()
 {
 	if (children_count > MAX_CHILDREN) {
 		fprintf(stderr,
@@ -296,12 +342,16 @@ void check_children_count()
 	}
 }
 
-void handle_trigger_exec(int req)
+/* 
+Called when agent sends a message asking to execute a predefined command.
+*/
+
+void handle_execute_predefined_command(int req)
 {
 	char *rcmd = NULL, *lcmd = NULL;
 	int i;
 
-	check_children_count();
+	check_children_count_and_wait_if_too_many();
 	switch (req) {
 	case QREXEC_EXECUTE_FILE_COPY:
 		rcmd = "directly:user:/usr/lib/qubes/qfile-agent";
@@ -311,7 +361,7 @@ void handle_trigger_exec(int req)
 		rcmd = "directly:user:/usr/lib/qubes/qfile-agent-dvm";
 		lcmd = "/usr/lib/qubes/qfile-daemon-dvm";
 		break;
-	default:
+	default:		/* cannot happen, already sanitized */
 		fprintf(stderr, "got trigger exec no %d\n", req);
 		exit(1);
 	}
@@ -325,7 +375,7 @@ void handle_trigger_exec(int req)
 		children_count++;
 		return;
 	}
-	for (i = 3; i < 256; i++)
+	for (i = 3; i < MAX_FDS; i++)
 		close(i);
 	signal(SIGCHLD, SIG_DFL);
 	signal(SIGPIPE, SIG_DFL);
@@ -335,31 +385,79 @@ void handle_trigger_exec(int req)
 	exit(1);
 }
 
-void handle_agent_data()
+void check_client_id_in_range(unsigned int untrusted_client_id)
+{
+	if (untrusted_client_id >= MAX_CLIENTS || untrusted_client_id < 0) {
+		fprintf(stderr, "from agent: client_id=%d\n",
+			untrusted_client_id);
+		exit(1);
+	}
+}
+
+
+void sanitize_message_from_agent(struct server_header *untrusted_header)
+{
+	int untrusted_cmd;
+	switch (untrusted_header->type) {
+	case MSG_AGENT_TO_SERVER_TRIGGER_EXEC:
+		untrusted_cmd = untrusted_header->client_id;
+		if (untrusted_cmd != QREXEC_EXECUTE_FILE_COPY &&
+		    untrusted_cmd != QREXEC_EXECUTE_FILE_COPY_FOR_DISPVM) {
+			fprintf(stderr,
+				"received MSG_AGENT_TO_SERVER_TRIGGER_EXEC cmd %d ?\n",
+				untrusted_cmd);
+			exit(1);
+		}
+		break;
+	case MSG_AGENT_TO_SERVER_STDOUT:
+	case MSG_SERVER_TO_CLIENT_STDERR:
+	case MSG_AGENT_TO_SERVER_EXIT_CODE:
+		check_client_id_in_range(untrusted_header->client_id);
+		if (untrusted_header->len > MAX_DATA_CHUNK
+		    || untrusted_header->len < 0) {
+			fprintf(stderr, "agent feeded %d of data bytes?\n",
+				untrusted_header->len);
+			exit(1);
+		}
+		break;
+
+	case MSG_XOFF:
+	case MSG_XON:
+		check_client_id_in_range(untrusted_header->client_id);
+		break;
+	default:
+		fprintf(stderr, "unknown mesage type %d from agent\n",
+			untrusted_header->type);
+		exit(1);
+	}
+}
+
+void handle_message_from_agent()
 {
 	struct client_header hdr;
-	struct server_header s_hdr;
-	read_all_vchan_ext(&s_hdr, sizeof s_hdr);
+	struct server_header s_hdr, untrusted_s_hdr;
 
-//      fprintf(stderr, "got %x %x %x\n", s_hdr.type, s_hdr.clid,
+	read_all_vchan_ext(&untrusted_s_hdr, sizeof untrusted_s_hdr);
+	/* sanitize start */
+	sanitize_message_from_agent(&untrusted_s_hdr);
+	s_hdr = untrusted_s_hdr;
+	/* sanitize end */
+
+//      fprintf(stderr, "got %x %x %x\n", s_hdr.type, s_hdr.client_id,
 //              s_hdr.len);
 
 	if (s_hdr.type == MSG_AGENT_TO_SERVER_TRIGGER_EXEC) {
-		handle_trigger_exec(s_hdr.clid);
+		handle_execute_predefined_command(s_hdr.client_id);
 		return;
-	}
-
-	if (s_hdr.clid >= MAX_FDS || s_hdr.clid < 0) {
-		fprintf(stderr, "from agent: clid=%d\n", s_hdr.clid);
-		exit(1);
 	}
 
 	if (s_hdr.type == MSG_XOFF) {
-		clients[s_hdr.clid].state |= CLIENT_DONT_READ;
+		clients[s_hdr.client_id].state |= CLIENT_DONT_READ;
 		return;
 	}
+
 	if (s_hdr.type == MSG_XON) {
-		clients[s_hdr.clid].state &= ~CLIENT_DONT_READ;
+		clients[s_hdr.client_id].state &= ~CLIENT_DONT_READ;
 		return;
 	}
 
@@ -373,54 +471,57 @@ void handle_agent_data()
 	case MSG_AGENT_TO_SERVER_EXIT_CODE:
 		hdr.type = MSG_SERVER_TO_CLIENT_EXIT_CODE;
 		break;
-	default:
+	default:		/* cannot happen, already sanitized */
 		fprintf(stderr, "from agent: type=%d\n", s_hdr.type);
 		exit(1);
 	}
 	hdr.len = s_hdr.len;
-	if (hdr.len > MAX_DATA_CHUNK) {
-		fprintf(stderr, "agent feeded %d of data bytes?\n",
-			hdr.len);
-		exit(1);
-	}
-	if (clients[s_hdr.clid].state == CLIENT_INVALID) {
+	if (clients[s_hdr.client_id].state == CLIENT_INVALID) {
 		// benefit of doubt - maybe client exited earlier
+		// just eat the packet data and continue
 		char buf[MAX_DATA_CHUNK];
 		read_all_vchan_ext(buf, s_hdr.len);
 		return;
 	}
-	pass_to_client(s_hdr.clid, &hdr);
+	get_packet_data_from_agent_and_pass_to_client(s_hdr.client_id,
+						      &hdr);
 	if (s_hdr.type == MSG_AGENT_TO_SERVER_EXIT_CODE)
-		flush_client(s_hdr.clid);
+		terminate_client_and_flush_data(s_hdr.client_id);
 }
 
-int fill_fds_for_select(fd_set * rdset, fd_set * wrset)
+/* 
+Scan the "clients" table, add ones we want to read from (because the other 
+end has not send MSG_XOFF on them) to read_fdset, add ones we want to write
+to (because its pipe is full) to write_fdset. Return the highest used file 
+descriptor number, needed for the first select() parameter.
+*/
+int fill_fdsets_for_select(fd_set * read_fdset, fd_set * write_fdset)
 {
 	int i;
 	int max = -1;
-	FD_ZERO(rdset);
-	FD_ZERO(wrset);
+	FD_ZERO(read_fdset);
+	FD_ZERO(write_fdset);
 	for (i = 0; i <= max_client_fd; i++) {
 		if (clients[i].state != CLIENT_INVALID
 		    && !(clients[i].state & CLIENT_DONT_READ)) {
-			FD_SET(i, rdset);
+			FD_SET(i, read_fdset);
 			max = i;
 		}
 		if (clients[i].state != CLIENT_INVALID
 		    && clients[i].state & CLIENT_OUTQ_FULL) {
-			FD_SET(i, wrset);
+			FD_SET(i, write_fdset);
 			max = i;
 		}
 	}
-	FD_SET(server_fd, rdset);
-	if (server_fd > max)
-		max = server_fd;
+	FD_SET(qrexec_daemon_unix_socket_fd, read_fdset);
+	if (qrexec_daemon_unix_socket_fd > max)
+		max = qrexec_daemon_unix_socket_fd;
 	return max;
 }
 
 int main(int argc, char **argv)
 {
-	fd_set rdset, wrset;
+	fd_set read_fdset, write_fdset;
 	int i;
 	int max;
 
@@ -429,29 +530,36 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	init(atoi(argv[1]));
+	/*
+	   The main event loop. Waits for one of the following events:
+	   - message from client
+	   - message from agent
+	   - new client
+	   - child exited
+	 */
 	for (;;) {
-		max = fill_fds_for_select(&rdset, &wrset);
+		max = fill_fdsets_for_select(&read_fdset, &write_fdset);
 		if (buffer_space_vchan_ext() <=
 		    sizeof(struct server_header))
-			FD_ZERO(&rdset);
+			FD_ZERO(&read_fdset);	// vchan full - don't read from clients
 
-		wait_for_vchan_or_argfd(max, &rdset, &wrset);
+		wait_for_vchan_or_argfd(max, &read_fdset, &write_fdset);
 
-		if (FD_ISSET(server_fd, &rdset))
+		if (FD_ISSET(qrexec_daemon_unix_socket_fd, &read_fdset))
 			handle_new_client();
 
 		while (read_ready_vchan_ext())
-			handle_agent_data();
+			handle_message_from_agent();
 
 		for (i = 0; i <= max_client_fd; i++)
 			if (clients[i].state != CLIENT_INVALID
-			    && FD_ISSET(i, &rdset))
-				handle_client_data(i);
+			    && FD_ISSET(i, &read_fdset))
+				handle_message_from_client(i);
 
 		for (i = 0; i <= max_client_fd; i++)
 			if (clients[i].state != CLIENT_INVALID
-			    && FD_ISSET(i, &wrset))
-				flush_client_data_daemon(i);
+			    && FD_ISSET(i, &write_fdset))
+				write_buffered_data_to_client(i);
 		if (child_exited)
 			reap_children();
 
