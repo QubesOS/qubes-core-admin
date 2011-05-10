@@ -6,6 +6,7 @@ VERSION_VM := $(shell cat version_vm)
 help:
 	@echo "make rpms                  -- generate binary rpm packages"
 	@echo "make update-repo-current   -- copy newly generated rpms to qubes yum repo"
+	@echo "make update-repo-current-testing  -- same, but to -current-testing repo"
 	@echo "make update-repo-unstable  -- same, but to -testing repo"
 	@echo "make update-repo-installer -- copy dom0 rpms to installer repo"
 	@echo "make clean                 -- cleanup"
@@ -25,6 +26,13 @@ update-repo-current:
 	ln -f $(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*fc13*.rpm ../yum/current-release/current/vm/f13/rpm/
 	ln -f $(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*fc14*.rpm ../yum/current-release/current/vm/f14/rpm/
 	cd ../yum && ./update_repo.sh
+
+update-repo-current-testing:
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-*$(VERSION_DOM0)*fc13*.rpm ../yum/current-release/current-testing/dom0/rpm/
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*fc13*.rpm ../yum/current-release/current-testing/vm/f13/rpm/
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*fc14*.rpm ../yum/current-release/current-testing/vm/f14/rpm/
+	cd ../yum && ./update_repo.sh
+
 
 update-repo-unstable:
 	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-*$(VERSION_DOM0)*fc13*.rpm ../yum/current-release/unstable/dom0/rpm/
