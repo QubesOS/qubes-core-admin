@@ -1,3 +1,4 @@
+#define _GNU_SOURCE /* For O_NOFOLLOW. */
 #include <errno.h>
 #include <ioall.h>
 #include <fcntl.h>
