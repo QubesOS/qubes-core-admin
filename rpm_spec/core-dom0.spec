@@ -126,13 +126,6 @@ cp pm-utils/01qubes-sync-vms-clock $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 cp pm-utils/01qubes-suspend-netvm $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 cp pm-utils/02qubes-pause-vms $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 
-# Optional scripts for Vaio (they go into separate package)
-cp vaio_fixes/00sony-vaio-audio $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
-cp vaio_fixes/99sony-vaio-audio $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
-cp vaio_fixes/01sony-vaio-display $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
-mkdir -p $RPM_BUILD_ROOT/etc/modprobe.d/
-cp vaio_fixes/snd-hda-intel-sony-vaio.conf $RPM_BUILD_ROOT/etc/modprobe.d/
-
 mkdir -p $RPM_BUILD_ROOT/var/log/qubes
 mkdir -p $RPM_BUILD_ROOT/var/run/qubes
 
@@ -297,25 +290,3 @@ fi
 %{_libdir}/libu2mfn.so
 /etc/sudoers.d/qubes
 /etc/xdg/autostart/qubes-guid.desktop
-
-%package vaio-fixes
-Summary: Additional scripts for supporting suspend on Vaio Z laptops
-Requires: alsa-utils
-
-%post vaio-fixes
-grubby --update-kernel=/boot/vmlinuz-2.6.34.1-14.xenlinux.qubes.x86_64 --args="i8042.nopnp=1"
-
-%postun vaio-fixes
-grubby --update-kernel=/boot/vmlinuz-2.6.34.1-14.xenlinux.qubes.x86_64 --remove-args="i8042.nopnp=1"
-
-%description vaio-fixes
-Additional scripts for supporting suspend on Vaio Z laptops.
-
-Due to broken Linux GPU drivers we need to do some additional actions during
-suspend/resume.
-
-%files vaio-fixes
-/usr/lib64/pm-utils/sleep.d/00sony-vaio-audio
-/usr/lib64/pm-utils/sleep.d/99sony-vaio-audio
-/usr/lib64/pm-utils/sleep.d/01sony-vaio-display
-/etc/modprobe.d/snd-hda-intel-sony-vaio.conf
