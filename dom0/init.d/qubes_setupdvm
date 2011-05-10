@@ -44,7 +44,7 @@ start()
 
 stop()
 {
-    rm -f /var/lock/subsys/qubes_netvm
+    rm -f /var/lock/subsys/qubes_setupdvm
     success
     echo
 }
