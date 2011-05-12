@@ -499,6 +499,20 @@ class QubesVm(object):
         else:
             return False
 
+    def get_start_time(self):
+        if not self.is_running():
+            return 0
+
+        try:
+            start_time = xend_session.session.xenapi.VM_metrics.get_record (self.session_metrics)['start_time']
+        except XenAPI.Failure:
+            self.refresh_xend_session()
+            if self.session_uuid is None:
+                return "NA"
+            start_time = xend_session.session.xenapi.VM_metrics.get_record (self.session_metrics)['start_time']
+
+        return start_time
+
     def is_outdated(self):
         # Makes sense only on VM based on template
         if self.template_vm is None:
