@@ -9,6 +9,7 @@ class DomainState:
     def __init__(self, id):
         self.meminfo = None		#dictionary of memory info read from client
         self.memory_actual = None	#the current memory size
+        self.memory_maximum = None	#the maximum memory size
         self.mem_used = None		#used memory, computed based on meminfo
         self.id = id			#domain id
         self.last_target = 0		#the last memset target
@@ -42,6 +43,7 @@ class SystemState:
             id = str(domain['domid'])
             if self.domdict.has_key(id):
                 self.domdict[id].memory_actual = domain['mem_kb']*1024
+                self.domdict[id].memory_maximum = domain['maxmem_kb']*1024
 
 #the below works (and is fast), but then 'xm list' shows unchanged memory value
     def mem_set(self, id, val):
