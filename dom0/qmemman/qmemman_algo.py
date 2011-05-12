@@ -126,7 +126,7 @@ def balance_when_enough_memory(domain_dictionary, xen_free_memory, total_mem_pre
             acceptors_count += 1
         target_memory[i] = target
 # distribute left memory across all acceptors
-    while left_memory > 0:
+    while left_memory > 0 and acceptors_count > 0:
         print '  left_memory:', left_memory, 'acceptors_count:', acceptors_count
         new_left_memory = 0
         for i in target_memory.keys():
