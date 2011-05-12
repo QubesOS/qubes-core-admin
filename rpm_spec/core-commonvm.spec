@@ -129,12 +129,12 @@ done
 echo 'OnlyShowIn=GNOME;UpdateableVM;' >> /etc/xdg/autostart/gpk-update-icon.desktop || :
 echo 'OnlyShowIn=GNOME;NetVM;' >> /etc/xdg/autostart/nm-applet.desktop || :
 
+usermod -p '' root
 if [ "$1" !=  1 ] ; then
 # do this whole %post thing only when updating for the first time...
 exit 0
 fi
 
-usermod -L root
 if ! [ -f /var/lib/qubes/serial.orig ] ; then
 	cp /etc/init/serial.conf /var/lib/qubes/serial.orig
 fi
