@@ -32,7 +32,7 @@ def do_list(vm):
     print fmt.format ("name", vm.name)
     print fmt.format ("label", vm.label.name)
     print fmt.format ("type", vm.type)
-    if vm.is_appvm():
+    if vm.template_vm is not None:
         print fmt.format ("template", vm.template_vm.name)
     if vm.netvm_vm is not None:
         print fmt.format ("netvm", vm.netvm_vm.name)
@@ -44,9 +44,9 @@ def do_list(vm):
         print fmt.format ("root img", vm.root_img)
     if vm.is_template():
         print fmt.format ("root COW img", vm.rootcow_img)
-    if vm.is_appvm():
+    if vm.template_vm is not None:
         print fmt.format ("root img", vm.template_vm.root_img)
-        print fmt.format ("root volatile img", vm.volatile_img)
+    print fmt.format ("root volatile img", vm.volatile_img)
 
     print fmt.format ("private img", vm.private_img)
     print fmt.format ("memory", vm.memory)
