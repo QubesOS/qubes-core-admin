@@ -47,6 +47,7 @@ if not dry_run:
 
 qubes_guid_path = "/usr/bin/qubes_guid"
 qrexec_daemon_path = "/usr/lib/qubes/qrexec_daemon"
+qrexec_client_path = "/usr/lib/qubes/qrexec_client"
 
 qubes_base_dir   = "/var/lib/qubes"
 
