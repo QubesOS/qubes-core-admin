@@ -14,5 +14,6 @@ fi
 
 if ls $APPSDIR/*.directory $APPSDIR/*.desktop > /dev/null 2>&1; then
     xdg-desktop-menu uninstall $APPSDIR/*.directory $APPSDIR/*.desktop
+    rm -f $APPSDIR/*.desktop $APPSDIR/*.directory
 fi
 
