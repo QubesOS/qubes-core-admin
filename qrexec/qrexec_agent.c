@@ -51,6 +51,8 @@ struct _client_info {
 	int stdout_fd;
 	int stderr_fd;
 
+	int exit_status;
+	int is_exited;
 	int pid;
 	int is_blocked;
 	int is_close_after_flush_needed;
@@ -169,6 +171,8 @@ void handle_exec(int client_id, int len)
 	client_info[client_id].stdin_fd = stdin_fd;
 	client_info[client_id].stdout_fd = stdout_fd;
 	client_info[client_id].stderr_fd = stderr_fd;
+	client_info[client_id].exit_status = 0;
+	client_info[client_id].is_exited = 0;
 	client_info[client_id].pid = pid;
 	client_info[client_id].is_blocked = 0;
 	client_info[client_id].is_close_after_flush_needed = 0;
@@ -233,6 +237,18 @@ void remove_process(int client_id, int status)
 	update_max_process_fd();
 }
 
+// remove process not immediately after it has exited, but after its stdout and stderr has been drained
+// previous method implemented in flush_out_err was broken - it cannot work when peer signalled it is blocked
+void possibly_remove_process(int client_id)
+{
+	if (client_info[client_id].stdout_fd == -1 &&
+	    client_info[client_id].stderr_fd == -1 &&
+	    client_info[client_id].is_exited)
+		remove_process(client_id,
+			       client_info[client_id].exit_status);
+}
+
+
 void handle_input(int client_id, int len)
 {
 	char buf[len];
@@ -243,8 +259,8 @@ void handle_input(int client_id, int len)
 
 	if (len == 0) {
 		if (client_info[client_id].is_blocked)
-			client_info[client_id].
-			    is_close_after_flush_needed = 1;
+			client_info[client_id].is_close_after_flush_needed
+			    = 1;
 		else {
 			close(client_info[client_id].stdin_fd);
 			client_info[client_id].stdin_fd = -1;
@@ -339,11 +355,18 @@ void handle_process_data(int fd)
 		write_all_vchan_ext(buf, ret);
 	}
 	if (ret == 0) {
+		int client_id = process_fd[fd].client_id;
+		if (process_fd[fd].type == FDTYPE_STDOUT)
+			client_info[client_id].stdout_fd = -1;
+		else
+			client_info[client_id].stderr_fd = -1;
+
 		process_fd[fd].type = FDTYPE_INVALID;
 		process_fd[fd].client_id = -1;
 		process_fd[fd].is_blocked = 0;
 		close(fd);
 		update_max_process_fd();
+		possibly_remove_process(client_id);
 	}
 	if (ret < 0)
 		remove_process(process_fd[fd].client_id, 127);
@@ -376,39 +399,6 @@ void handle_process_data_all(fd_set * select_fds)
 			handle_process_data(i);
 }
 
-
-void flush_out_err(int client_id)
-{
-	fd_set select_set;
-	int fd_max = -1;
-	int i;
-	int ret;
-	struct timeval tv;
-	for (;;) {
-		FD_ZERO(&select_set);
-		for (i = 0; i <= max_process_fd; i++) {
-			if (process_fd[i].type != FDTYPE_INVALID
-			    && !process_fd[i].is_blocked
-			    && process_fd[i].client_id == client_id) {
-				FD_SET(i, &select_set);
-				fd_max = i;
-			}
-		}
-		if (fd_max == -1)
-			return;
-		tv.tv_sec = 0;
-		tv.tv_usec = 0;
-		ret = select(fd_max + 1, &select_set, NULL, NULL, &tv);
-		if (ret < 0 && errno != EINTR) {
-			perror("select");
-			exit(1);
-		}
-		if (!ret)
-			return;
-		handle_process_data_all(&select_set);
-	}
-}
-
 void reap_children()
 {
 	int status;
@@ -418,8 +408,9 @@ void reap_children()
 		client_id = find_info(pid);
 		if (client_id < 0)
 			continue;
-		flush_out_err(client_id);
-		remove_process(client_id, status);
+		client_info[client_id].is_exited = 1;
+		client_info[client_id].exit_status = status;
+		possibly_remove_process(client_id);
 	}
 	child_exited = 0;
 }
