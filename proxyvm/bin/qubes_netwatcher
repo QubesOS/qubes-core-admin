@@ -13,11 +13,14 @@ trap 'exit 0' SIGTERM
 while true; do
 	NET_DOMID=$(/usr/bin/xenstore-read qubes_netvm_domid)
 	if [[ -n "$NET_DOMID" ]] && [[ $NET_DOMID -gt 0 ]]; then
-		NETCFG=$(/usr/bin/xenstore-read /local/domain/$NET_DOMID/qubes_netvm_external_ip)
-		if [[ "$NETCFG" != "$CURR_NETCFG" ]]; then
+		UNTRUSTED_NETCFG=$(/usr/bin/xenstore-read /local/domain/$NET_DOMID/qubes_netvm_external_ip)
+		# UNTRUSTED_NETCFG is not parsed in any way
+		# thus, no sanitization ready
+		# but be careful when passing it to other shell scripts
+		if [[ "$UNTRUSTED_NETCFG" != "$CURR_NETCFG" ]]; then
 			/sbin/service qubes_firewall stop
 			/sbin/service qubes_firewall start
-			CURR_NETCFG="$NETCFG"
+			CURR_NETCFG="$UNTRUSTED_NETCFG"
 			/usr/bin/xenstore-write qubes_netvm_external_ip "$CURR_NETCFG"
 		fi
 
