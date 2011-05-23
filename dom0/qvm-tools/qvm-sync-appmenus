@@ -27,9 +27,7 @@ import sys
 import fnmatch
 from optparse import OptionParser
 from qubes.qubes import QubesVmCollection,QubesException
-from qubes.qubes import qrexec_client_path,default_appmenus_templates_subdir
-
-#TODO: qrexec_client_path
+from qubes.qubes import qrexec_client_path
 
 # fields required to be present (and verified) in retrieved desktop file
 required_fields = [ "Name", "Exec" ]
@@ -156,32 +154,30 @@ def main():
         print "ERROR: No appmenus received, terminating"
         exit(1)
 
-    # Contstruct path to work also for StandaloneVM
-    appmenus_templates = vm.dir_path + '/' + default_appmenus_templates_subdir
-    assert os.path.exists(appmenus_templates)
+    assert os.path.exists(vm.appmenus_templates_dir)
 
     # Create new/update existing templates
     if options.verbose:
         print "--> Got {0} appmenus, storing to disk".format(str(len(new_appmenus)))
     for appmenu_file in new_appmenus.keys():
         if options.verbose:
-            if os.path.exists(appmenus_templates + '/' + appmenu_file):
+            if os.path.exists(appmenus_templates_dir + '/' + appmenu_file):
                 print "---> Updating {0}".format(appmenu_file)
             else:
                 print "---> Creating {0}".format(appmenu_file)
-        create_template(appmenus_templates + '/' + appmenu_file, new_appmenus[appmenu_file])
+        create_template(appmenus_templates_dir + '/' + appmenu_file, new_appmenus[appmenu_file])
 
     # Delete appmenus of remove applications
     if options.verbose:
         print "--> Cleaning old files"
-    for appmenu_file in os.listdir(appmenus_templates):
+    for appmenu_file in os.listdir(appmenus_templates_dir):
         if not fnmatch.fnmatch(appmenu_file, '*.desktop'):
             continue
 
         if not new_appmenus.has_key(appmenu_file):
             if options.verbose:
                 print "---> Removing {0}".format(appmenu_file)
-            os.unlink(appmenus_templates + '/' + appmenu_file)
+            os.unlink(appmenus_templates_dir + '/' + appmenu_file)
 
 main()
 

@@ -268,6 +268,9 @@ class QubesVm(object):
         else:
             assert self.root_img is not None, "Missing root_img for standalone VM!"
 
+        if updateable:
+            self.appmenus_templates_dir = self.dir_path + "/" + default_appmenus_templates_subdir
+
         # By default allow use all VCPUs
         if vcpus is None:
             qubes_host = QubesHost()
