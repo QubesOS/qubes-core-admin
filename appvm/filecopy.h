@@ -15,6 +15,11 @@ struct file_header {
 	unsigned int mtime_nsec;
 };
 
+struct result_header {
+	unsigned int error_code;
+	unsigned long crc32;
+};
+
 enum {
 	COPY_FILE_OK,
 	COPY_FILE_READ_EOF,
@@ -22,5 +27,5 @@ enum {
 	COPY_FILE_WRITE_ERROR
 };
 
-int copy_file(int outfd, int infd, long long size);
+int copy_file(int outfd, int infd, long long size, unsigned long *crc32);
 char *copy_file_status_to_str(int status);

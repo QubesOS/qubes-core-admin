@@ -1,10 +1,11 @@
 #include <unistd.h>
 #include <ioall.h>
 #include "filecopy.h"
+#include "crc32.h"
 
 extern void notify_progress(int, int);
 
-int copy_file(int outfd, int infd, long long size)
+int copy_file(int outfd, int infd, long long size, unsigned long *crc32)
 {
 	char buf[4096];
 	long long written = 0;
@@ -20,6 +21,9 @@ int copy_file(int outfd, int infd, long long size)
 			return COPY_FILE_READ_EOF;
 		if (ret < 0)
 			return COPY_FILE_READ_ERROR;
+		/* acumulate crc32 if requested */
+		if (crc32)
+			*crc32 = Crc32_ComputeBuf(*crc32, buf, ret);
 		if (!write_all(outfd, buf, ret))
 			return COPY_FILE_WRITE_ERROR;
 		notify_progress(ret, 0);

@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <gui-fatal.h>
 #include "filecopy.h"
+#include "crc32.h"
 
 enum {
 	PROGRESS_FLAG_NORMAL,
@@ -18,6 +19,11 @@ enum {
 	PROGRESS_FLAG_DONE
 };
 
+unsigned long crc32_sum;
+int write_all_with_crc(int fd, void *buf, int size) {
+	crc32_sum = Crc32_ComputeBuf(crc32_sum, buf, size);
+	return write_all(fd, buf, size);
+}
 
 
 char *client_flags;
@@ -48,8 +54,8 @@ void notify_progress(int size, int flag)
 
 void write_headers(struct file_header *hdr, char *filename)
 {
-	if (!write_all(1, hdr, sizeof(*hdr))
-	    || !write_all(1, filename, hdr->namelen))
+	if (!write_all_with_crc(1, hdr, sizeof(*hdr))
+	    || !write_all_with_crc(1, filename, hdr->namelen))
 		exit(1);
 }
 
@@ -73,7 +79,7 @@ int single_file_processor(char *filename, struct stat *st)
 			gui_fatal("open %s", filename);
 		hdr.filelen = st->st_size;
 		write_headers(&hdr, filename);
-		ret = copy_file(1, fd, hdr.filelen);
+		ret = copy_file(1, fd, hdr.filelen, &crc32_sum);
 		// if COPY_FILE_WRITE_ERROR, hopefully remote will produce a message
 		if (ret != COPY_FILE_OK) {
 			if (ret != COPY_FILE_WRITE_ERROR)
@@ -94,7 +100,7 @@ int single_file_processor(char *filename, struct stat *st)
 			gui_fatal("readlink %s", filename);
 		hdr.filelen = st->st_size + 1;
 		write_headers(&hdr, filename);
-		if (!write_all(1, name, st->st_size + 1))
+		if (!write_all_with_crc(1, name, st->st_size + 1))
 			exit(1);
 	}
 	return 0;
@@ -149,6 +155,29 @@ char *get_item(char *data, char **current, int size)
 	return ret;
 }
 
+void notify_end_and_wait_for_result()
+{
+	struct result_header hdr;
+	struct file_header end_hdr;
+
+	/* nofity end of transfer */
+	memset(&end_hdr, 0, sizeof(end_hdr));
+	end_hdr.namelen = 0;
+	end_hdr.filelen = 0;
+	write_all_with_crc(1, &end_hdr, sizeof(end_hdr));
+
+	/* wait for result */
+	if (!read_all(0, &hdr, sizeof(hdr))) {
+		exit(1); // hopefully remote has produced error message
+	}
+	if (hdr.error_code != 0) {
+		gui_fatal("Error writing files: %s", strerror(hdr.error_code));
+	}
+	if (hdr.crc32 != crc32_sum) {
+		gui_fatal("File transfer failed: checksum mismatch");
+	}
+}
+
 void parse_entry(char *data, int datasize)
 {
 	char *current = data;
@@ -157,6 +186,7 @@ void parse_entry(char *data, int datasize)
 	client_flags = get_item(data, &current, datasize);
 	notify_progress(0, PROGRESS_FLAG_INIT);
 	send_vmname(vmname);
+	crc32_sum = 0;
 	while ((entry = get_item(data, &current, datasize))) {
 		do {
 			sep = rindex(entry, '/');
@@ -171,6 +201,7 @@ void parse_entry(char *data, int datasize)
 			gui_fatal("chdir to %s", entry);
 		do_fs_walk(sep + 1);
 	}
+	notify_end_and_wait_for_result();
 	notify_progress(0, PROGRESS_FLAG_DONE);
 }
 
