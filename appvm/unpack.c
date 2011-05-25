@@ -7,10 +7,20 @@
 #include <unistd.h>
 #include <stdio.h>
 #include "filecopy.h"
+#include "crc32.h"
 
 char untrusted_namebuf[MAX_PATH_LENGTH];
 void notify_progress(int p1, int p2)
 {
+}
+
+unsigned long crc32_sum = 0;
+int read_all_with_crc(int fd, void *buf, int size) {
+	int ret;
+	ret = read_all(fd, buf, size);
+	if (ret)
+		crc32_sum = Crc32_ComputeBuf(crc32_sum, buf, size);
+	return ret;
 }
 
 int global_status_fd;
@@ -45,7 +55,7 @@ void process_one_file_reg(struct file_header *untrusted_hdr,
 	int fdout = open(untrusted_name, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0700);	/* safe because of chroot */
 	if (fdout < 0)
 		do_exit(errno);
-	ret = copy_file(fdout, 0, untrusted_hdr->filelen);
+	ret = copy_file(fdout, 0, untrusted_hdr->filelen, &crc32_sum);
 	if (ret != COPY_FILE_OK) {
 		if (ret == COPY_FILE_READ_EOF
 		    || ret == COPY_FILE_READ_ERROR)
@@ -78,7 +88,7 @@ void process_one_file_link(struct file_header *untrusted_hdr,
 	if (untrusted_hdr->filelen > MAX_PATH_LENGTH - 1)
 		do_exit(ENAMETOOLONG);
 	filelen = untrusted_hdr->filelen;	/* sanitized above */
-	if (!read_all(0, untrusted_content, filelen))
+	if (!read_all_with_crc(0, untrusted_content, filelen))
 		do_exit(LEGAL_EOF);	// hopefully remote has produced error message
 	untrusted_content[filelen] = 0;
 	if (symlink(untrusted_content, untrusted_name))	/* safe because of chroot */
@@ -92,7 +102,7 @@ void process_one_file(struct file_header *untrusted_hdr)
 	if (untrusted_hdr->namelen > MAX_PATH_LENGTH - 1)
 		do_exit(ENAMETOOLONG);
 	namelen = untrusted_hdr->namelen;	/* sanitized above */
-	if (!read_all(0, untrusted_namebuf, namelen))
+	if (!read_all_with_crc(0, untrusted_namebuf, namelen))
 		do_exit(LEGAL_EOF);	// hopefully remote has produced error message
 	untrusted_namebuf[namelen] = 0;
 	if (S_ISREG(untrusted_hdr->mode))
@@ -105,12 +115,32 @@ void process_one_file(struct file_header *untrusted_hdr)
 		do_exit(EINVAL);
 }
 
+void send_status_and_crc() {
+	struct result_header hdr;
+	int saved_errno;
+
+	saved_errno = errno;
+	hdr.error_code = errno;
+	hdr.crc32 = crc32_sum;
+	write_all(1, &hdr, sizeof(hdr));
+	errno = saved_errno;
+}
+
 void do_unpack(int fd)
 {
 	global_status_fd = fd;
 	struct file_header untrusted_hdr;
-	while (read_all(0, &untrusted_hdr, sizeof untrusted_hdr))
+	/* initialize checksum */
+	crc32_sum = 0;
+	while (read_all_with_crc(0, &untrusted_hdr, sizeof untrusted_hdr)) {
+		/* check for end of transfer marker */
+		if (untrusted_hdr.namelen == 0) {
+			errno = 0;
+			break;
+		}
 		process_one_file(&untrusted_hdr);
+	}
+	send_status_and_crc();
 	if (errno)
 		do_exit(errno);
 	else
