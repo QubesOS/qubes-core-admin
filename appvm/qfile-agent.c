@@ -75,7 +75,7 @@ int single_file_processor(char *filename, struct stat *st)
 	if (S_ISREG(mode)) {
 		int ret;
 		fd = open(filename, O_RDONLY);
-		if (!fd)
+		if (fd < 0)
 			gui_fatal("open %s", filename);
 		hdr.filelen = st->st_size;
 		write_headers(&hdr, filename);
