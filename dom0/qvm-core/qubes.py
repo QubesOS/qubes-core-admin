@@ -1589,6 +1589,23 @@ class QubesDom0NetVm(QubesNetVm):
     def start(self, debug_console = False, verbose = False):
         raise QubesException ("Cannot start Dom0 fake domain!")
 
+    def get_xl_dominfo(self):
+        if dry_run:
+            return
+
+        domains = xl_ctx.list_domains()
+        for dominfo in domains:
+            if dominfo.domid == 0:
+                return dominfo
+        return None
+
+    def get_xc_dominfo(self):
+        if dry_run:
+            return
+
+        domains = xc.domain_getinfo(0, 1)
+        return domains[0]
+
     def create_xml_element(self):
         return None
 
