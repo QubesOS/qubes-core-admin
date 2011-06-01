@@ -40,7 +40,7 @@ BuildRequires:  xen-devel
 Requires:	python, xen-runtime, pciutils, python-inotify, python-daemon, kernel-qubes-dom0
 Conflicts:      qubes-gui-dom0 < 1.1.13
 Requires:       NetworkManager >= 0.8.1-1
-Requires:       xen >= 3.4.3-6
+Requires:       xen >= 4.1.0-2
 %define _builddir %(pwd)/dom0
 
 %description
@@ -159,6 +159,10 @@ chkconfig --level 5 qubes_core on || echo "WARNING: Cannot enable service qubes_
 chkconfig --level 5 qubes_netvm on || echo "WARNING: Cannot enable service qubes_netvm!"
 chkconfig --level 5 qubes_setupdvm on || echo "WARNING: Cannot enable service qubes_setupdvm!"
 
+# Conflicts with libxl stack, so disable it
+service xend stop
+chkconfig --level 5 xend off
+
 HAD_SYSCONFIG_NETWORK=yes
 if ! [ -e /etc/sysconfig/network ]; then
     HAD_SYSCONFIG_NETWORK=no
@@ -168,10 +172,6 @@ fi
 
 # Load evtchn module - xenstored needs it
 modprobe evtchn
-
-# Now launch xend - we will need it for subsequent steps
-service xenstored start
-service xend start
 
 if ! [ -e /var/lib/qubes/qubes.xml ]; then
 #    echo "Initializing Qubes DB..."

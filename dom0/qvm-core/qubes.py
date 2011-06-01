@@ -29,6 +29,8 @@ import xml.parsers.expat
 import fcntl
 import re
 import shutil
+import uuid
+import time
 from datetime import datetime
 from qmemman_client import QMemmanClient
 
@@ -44,6 +46,10 @@ if not dry_run:
     from xen.xm import XenAPI
     from xen.xend import sxp
 
+    import xen.lowlevel.xc
+    import xen.lowlevel.xl
+    import xen.lowlevel.xs
+
 
 qubes_guid_path = "/usr/bin/qubes_guid"
 qrexec_daemon_path = "/usr/lib/qubes/qrexec_daemon"
@@ -56,6 +62,7 @@ qubes_templates_dir = qubes_base_dir + "/vm-templates"
 qubes_servicevms_dir = qubes_base_dir + "/servicevms"
 qubes_store_filename = qubes_base_dir + "/qubes.xml"
 
+qubes_max_xid = 1024
 qubes_max_qid = 254
 qubes_max_netid = 254
 vm_default_netmask = "255.255.255.0"
@@ -86,41 +93,19 @@ dom0_vm = None
 qubes_appmenu_create_cmd = "/usr/lib/qubes/create_apps_for_appvm.sh"
 qubes_appmenu_remove_cmd = "/usr/lib/qubes/remove_appvm_appmenus.sh"
 
-class XendSession(object):
-    def __init__(self):
-        self.get_xend_session_old_api()
-        self.get_xend_session_new_api()
-
-    def get_xend_session_old_api(self):
-        from xen.xend import XendClient
-        from xen.util.xmlrpcclient import ServerProxy
-        self.xend_server = ServerProxy(XendClient.uri)
-        if self.xend_server is None:
-            print "get_xend_session_old_api(): cannot open session!"
-
-
-    def get_xend_session_new_api(self):
-        xend_socket_uri = "httpu:///var/run/xend/xen-api.sock"
-        self.session = XenAPI.Session (xend_socket_uri)
-        self.session.login_with_password ("", "")
-        if self.session is None:
-            print "get_xend_session_new_api(): cannot open session!"
-
-
-if not dry_run:
-    xend_session = XendSession()
-
 class QubesException (Exception) : pass
 
+if not dry_run:
+    xc = xen.lowlevel.xc.xc()
+    xs = xen.lowlevel.xs.xs()
+    xl_ctx = xen.lowlevel.xl.ctx()
 
 class QubesHost(object):
     def __init__(self):
-        self.hosts = xend_session.session.xenapi.host.get_all()
-        self.host_record = xend_session.session.xenapi.host.get_record(self.hosts[0])
-        self.host_metrics_record = xend_session.session.xenapi.host_metrics.get_record(self.host_record["metrics"])
+        self.physinfo = xc.physinfo()
 
-        self.xen_total_mem = long(self.host_metrics_record["memory_total"])
-        self.xen_no_cpus = len (self.host_record["host_CPUs"])
+        self.xen_total_mem = long(self.physinfo['total_memory'])
+        self.xen_no_cpus = self.physinfo['nr_cpus']
 
 #        print "QubesHost: total_mem  = {0}B".format (self.xen_total_mem)
 #        print "QubesHost: free_mem   = {0}".format (self.get_free_xen_memory())
@@ -135,8 +120,35 @@ class QubesHost(object):
         return self.xen_no_cpus
 
     def get_free_xen_memory(self):
-        ret = self.host_metrics_record["memory_free"]
+        ret = self.physinfo['free_memory']
         return long(ret)
+
+    # measure cpu usage for all domains at once
+    def measure_cpu_usage(self, previous=None, previous_time = None, wait_time=1):
+        if previous is None:
+            previous_time = time.time()
+            previous = {}
+            info = xc.domain_getinfo(0, qubes_max_xid)
+            for vm in info:
+                previous[vm['domid']] = {}
+                previous[vm['domid']]['cpu_time'] = vm['cpu_time']/vm['online_vcpus']
+                previous[vm['domid']]['cpu_usage'] = 0
+            time.sleep(wait_time)
+
+        current_time = time.time()
+        current = {}
+        info = xc.domain_getinfo(0, qubes_max_xid)
+        for vm in info:
+            current[vm['domid']] = {}
+            current[vm['domid']]['cpu_time'] = vm['cpu_time']/vm['online_vcpus']
+            if vm['domid'] in previous.keys():
+                current[vm['domid']]['cpu_usage'] = \
+                    float(current[vm['domid']]['cpu_time'] - previous[vm['domid']]['cpu_time']) \
+                    / long(1000**3) / (current_time-previous_time) * 100
+            else:
+                current[vm['domid']]['cpu_usage'] = 0
+
+        return (current_time, current)
 
 class QubesVmLabel(object):
     def __init__(self, name, index, color = None, icon = None):
@@ -249,7 +261,8 @@ class QubesVm(object):
         self.memory = memory
 
         if maxmem is None:
-            total_mem_mb = self.get_total_xen_memory()/1024/1024
+            host = QubesHost()
+            total_mem_mb = host.memory_total/1024
             self.maxmem = total_mem_mb/2
         else:
             self.maxmem = maxmem
@@ -268,6 +281,11 @@ class QubesVm(object):
         else:
             assert self.root_img is not None, "Missing root_img for standalone VM!"
 
+        if template_vm is not None:
+            self.kernels_dir = template_vm.kernels_dir
+        else:
+            self.kernels_dir = self.dir_path + "/" + default_kernels_subdir
+
         if updateable:
             self.appmenus_templates_dir = self.dir_path + "/" + default_appmenus_templates_subdir
 
@@ -281,8 +299,8 @@ class QubesVm(object):
         # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
         self.internal = internal
 
-        if not dry_run and xend_session.session is not None:
-            self.refresh_xend_session()
+        self.xid = -1
+        self.xid = self.get_xid()
 
     @property
     def qid(self):
@@ -355,115 +373,80 @@ class QubesVm(object):
     def is_disposablevm(self):
         return isinstance(self, QubesDisposableVm)
 
-    def add_to_xen_storage(self):
+    def get_xl_dominfo(self):
         if dry_run:
             return
 
-        retcode = subprocess.call (["/usr/sbin/xm", "new", "-q",  self.conf_file])
-        if retcode != 0:
-            raise OSError ("Cannot add VM '{0}' to Xen Store!".format(self.name))
+        domains = xl_ctx.list_domains()
+        for dominfo in domains:
+            domname = xl_ctx.domid_to_name(dominfo.domid)
+            if domname == self.name:
+                return dominfo
+        return None
 
-        return True
-
-    def remove_from_xen_storage(self):
+    def get_xc_dominfo(self):
         if dry_run:
             return
 
-        retcode = subprocess.call (["/usr/sbin/xm", "delete", self.name])
-        if retcode != 0:
-            raise OSError ("Cannot remove VM '{0}' from Xen Store!".format(self.name))
-
-        self.in_xen_storage = False
-
-    def refresh_xend_session(self):
-        uuids = xend_session.session.xenapi.VM.get_by_name_label (self.name)
-        self.session_uuid = uuids[0] if len (uuids) > 0 else None
-        if self.session_uuid is not None:
-            self.session_metrics = xend_session.session.xenapi.VM.get_metrics(self.session_uuid)
-        else:
-            self.session_metrics = None
-
-    def update_xen_storage(self):
-        try:
-            self.remove_from_xen_storage()
-        except OSError as ex:
-            print "WARNING: {0}. Continuing anyway...".format(str(ex))
-            pass
-        self.add_to_xen_storage()
-        if not dry_run and xend_session.session is not None:
-            self.refresh_xend_session()
+        start_xid = self.xid
+        if start_xid < 0:
+            start_xid = 0
+        domains = xc.domain_getinfo(start_xid, qubes_max_xid-start_xid)
+        for dominfo in domains:
+            domname = xl_ctx.domid_to_name(dominfo['domid'])
+            if domname == self.name:
+                return dominfo
+        return None
 
     def get_xid(self):
         if dry_run:
             return 666
 
-        try:
-            xid = int (xend_session.session.xenapi.VM.get_domid (self.session_uuid))
-        except XenAPI.Failure:
-            self.refresh_xend_session()
-            xid = int (xend_session.session.xenapi.VM.get_domid (self.session_uuid))
+        dominfo = self.get_xc_dominfo()
+        if dominfo:
+            return dominfo['domid']
+        else:
+            return -1
 
-        return xid
+    def get_uuid(self):
+
+        dominfo = self.get_xl_dominfo()
+        if dominfo:
+            uuid = uuid.UUID(''.join('%02x' % b for b in dominfo.uuid))
+            return uuid
+        else:
+            return None
 
     def get_mem(self):
         if dry_run:
             return 666
 
-        try:
-            mem = int (xend_session.session.xenapi.VM_metrics.get_memory_actual (self.session_metrics))
-        except XenAPI.Failure:
-            self.refresh_xend_session()
-            mem = int (xend_session.session.xenapi.VM_metrics.get_memory_actual (self.session_metrics))
-
-        return mem
+        dominfo = self.get_xc_dominfo()
+        if dominfo:
+            return dominfo['mem_kb']
+        else:
+            return 0
 
     def get_mem_static_max(self):
         if dry_run:
             return 666
 
-        try:
-            mem = int(xend_session.session.xenapi.VM.get_memory_static_max(self.session_uuid))
-        except XenAPI.Failure:
-            self.refresh_xend_session()
-            mem = int(xend_session.session.xenapi.VM.get_memory_static_max(self.session_uuid))
+        dominfo = self.get_xc_dominfo()
+        if dominfo:
+            return dominfo['maxmem_kb']
+        else:
+            return 0
 
-        return mem
-
-    def get_mem_dynamic_max(self):
-        if dry_run:
-            return 666
-
-        try:
-            mem = int(xend_session.session.xenapi.VM.get_memory_dynamic_max(self.session_uuid))
-        except XenAPI.Failure:
-            self.refresh_xend_session()
-            mem = int(xend_session.session.xenapi.VM.get_memory_dynamic_max(self.session_uuid))
-
-        return mem
-
-
-    def get_cpu_total_load(self):
+    def get_per_cpu_time(self):
         if dry_run:
             import random
             return random.random() * 100
 
-        try:
-            cpus_util = xend_session.session.xenapi.VM_metrics.get_VCPUs_utilisation (self.session_metrics)
-        except XenAPI.Failure:
-            self.refresh_xend_session()
-            cpus_util = xend_session.session.xenapi.VM_metrics.get_VCPUs_utilisation (self.session_metrics)
-
-        if len (cpus_util) == 0:
+        dominfo = self.get_xc_dominfo()
+        if dominfo:
+            return dominfo['cpu_time']/dominfo['online_vcpus']
+        else:
             return 0
-
-        cpu_total_load = 0.0
-        for cpu in cpus_util:
-            cpu_total_load += cpus_util[cpu]
-        cpu_total_load /= len(cpus_util)
-        p = 100*cpu_total_load
-        if p > 100:
-            p = 100
-        return p
 
     def get_disk_utilization_root_img(self):
         if not os.path.exists(self.root_img):
@@ -481,15 +464,22 @@ class QubesVm(object):
         if dry_run:
             return "NA"
 
-        try:
-            power_state = xend_session.session.xenapi.VM.get_power_state (self.session_uuid)
-        except XenAPI.Failure:
-            self.refresh_xend_session()
-            if self.session_uuid is None:
-                return "NA"
-            power_state = xend_session.session.xenapi.VM.get_power_state (self.session_uuid)
+        dominfo = self.get_xc_dominfo()
+        if dominfo:
+            if dominfo['paused']:
+                return "Paused"
+            elif dominfo['shutdown']:
+                return "Halted"
+            elif dominfo['crashed']:
+                return "Crashed"
+            elif dominfo['dying']:
+                return "Dying"
+            else:
+                return "Running"
+        else:
+            return 'Halted'
 
-        return power_state
+        return "NA"
 
     def is_running(self):
         if self.get_power_state() == "Running":
@@ -507,13 +497,13 @@ class QubesVm(object):
         if not self.is_running():
             return 0
 
-        try:
-            start_time = xend_session.session.xenapi.VM_metrics.get_record (self.session_metrics)['start_time']
-        except XenAPI.Failure:
-            self.refresh_xend_session()
-            if self.session_uuid is None:
-                return "NA"
-            start_time = xend_session.session.xenapi.VM_metrics.get_record (self.session_metrics)['start_time']
+        dominfo = self.get_xl_dominfo()
+
+        uuid = self.get_uuid()
+
+        xs_trans = xs.transaction_start()
+        start_time = xs.read(xs_trans, "/vm/%s/start_time" % str(uuid))
+        xs.transaction_end()
 
         return start_time
 
@@ -527,14 +517,14 @@ class QubesVm(object):
 
         rootimg_inode = os.stat(self.template_vm.root_img)
         rootcow_inode = os.stat(self.template_vm.rootcow_img)
-       
+
         current_dmdev = "/dev/mapper/snapshot-{0:x}:{1}-{2:x}:{3}".format(
                 rootimg_inode[2], rootimg_inode[1],
                 rootcow_inode[2], rootcow_inode[1])
 
         # Don't know why, but 51712 is xvda
         #  backend node name not available through xenapi :(
-        p = subprocess.Popen (["xenstore-read", 
+        p = subprocess.Popen (["xenstore-read",
             "/local/domain/0/backend/vbd/{0}/51712/node".format(self.get_xid())],
                               stdout=subprocess.PIPE)
         used_dmdev = p.communicate()[0].strip()
@@ -577,76 +567,63 @@ class QubesVm(object):
         if not self.is_running():
             return
 
-        p = subprocess.Popen (["/usr/sbin/xm", "network-list", self.name],
+        p = subprocess.Popen (["/usr/sbin/xl", "network-list", self.name],
                  stdout=subprocess.PIPE)
         result = p.communicate()
         for line in result[0].split('\n'):
             m = re.match(r"^(\d+)\s*(\d+)", line)
             if m:
-                retcode = subprocess.call(["/usr/sbin/xm", "list", m.group(2)],
+                retcode = subprocess.call(["/usr/sbin/xl", "list", m.group(2)],
                         stderr=subprocess.PIPE)
                 if retcode != 0:
                     # Don't check retcode - it always will fail when backend domain is down
-                    subprocess.call(["/usr/sbin/xm",
-                            "network-detach", self.name, m.group(1), "-f"], stderr=subprocess.PIPE)
+                    subprocess.call(["/usr/sbin/xl",
+                            "network-detach", self.name, m.group(1)], stderr=subprocess.PIPE)
 
     def create_xenstore_entries(self, xid):
         if dry_run:
             return
 
+        domain_path = xs.get_domain_path(xid)
+
         # Set Xen Store entires with VM networking info:
+        xs_trans = xs.transaction_start()
 
-        retcode = subprocess.check_call ([
-                "/usr/bin/xenstore-write",
-                "/local/domain/{0}/qubes_vm_type".format(xid),
-                self.type])
-
-        retcode = subprocess.check_call ([
-                "/usr/bin/xenstore-write",
-                "/local/domain/{0}/qubes_vm_updateable".format(xid),
-                str(self.updateable)])
+        xs.write(xs_trans, "{0}/qubes_vm_type".format(domain_path),
+                self.type)
+        xs.write(xs_trans, "{0}/qubes_vm_updateable".format(domain_path),
+                str(self.updateable))
 
         if self.is_netvm():
-            retcode = subprocess.check_call ([
-                "/usr/bin/xenstore-write",
-                "/local/domain/{0}/qubes_netvm_gateway".format(xid),
-                self.gateway])
-
-            retcode = subprocess.check_call ([
-                "/usr/bin/xenstore-write",
-                "/local/domain/{0}/qubes_netvm_secondary_dns".format(xid),
-                self.secondary_dns])
-
-            retcode = subprocess.check_call ([
-                "/usr/bin/xenstore-write",
-                "/local/domain/{0}/qubes_netvm_netmask".format(xid),
-                self.netmask])
-
-            retcode = subprocess.check_call ([
-                "/usr/bin/xenstore-write",
-                "/local/domain/{0}/qubes_netvm_network".format(xid),
-                self.network])
+            xs.write(xs_trans,
+                    "{0}/qubes_netvm_gateway".format(domain_path),
+                    self.gateway)
+            xs.write(xs_trans,
+                    "{0}/qubes_netvm_secondary_dns".format(domain_path),
+                    self.secondary_dns)
+            xs.write(xs_trans,
+                    "{0}/qubes_netvm_netmask".format(domain_path),
+                    self.netmask)
+            xs.write(xs_trans,
+                    "{0}/qubes_netvm_network".format(domain_path),
+                    self.network)
 
         if self.netvm_vm is not None:
-            retcode = subprocess.check_call ([
-                "/usr/bin/xenstore-write",
-                "/local/domain/{0}/qubes_ip".format(xid),
-                self.ip])
+            xs.write(xs_trans, "{0}/qubes_ip".format(domain_path), self.ip)
+            xs.write(xs_trans, "{0}/qubes_netmask".format(domain_path),
+                    self.netvm_vm.netmask)
+            xs.write(xs_trans, "{0}/qubes_gateway".format(domain_path),
+                    self.netvm_vm.gateway)
+            xs.write(xs_trans,
+                    "{0}/qubes_secondary_dns".format(domain_path),
+                    self.netvm_vm.secondary_dns)
 
-            retcode = subprocess.check_call ([
-                "/usr/bin/xenstore-write",
-                "/local/domain/{0}/qubes_netmask".format(xid),
-                self.netvm_vm.netmask])
-
-            retcode = subprocess.check_call ([
-                "/usr/bin/xenstore-write",
-                "/local/domain/{0}/qubes_gateway".format(xid),
-                self.netvm_vm.gateway])
-
-            retcode = subprocess.check_call ([
-                "/usr/bin/xenstore-write",
-                "/local/domain/{0}/qubes_secondary_dns".format(xid),
-                self.netvm_vm.secondary_dns])
+        # Fix permissions
+        xs.set_permissions(xs_trans, '{0}/device'.format(domain_path), 
+                [{ 'dom': xid }])
+        xs.set_permissions(xs_trans, '{0}/memory'.format(domain_path), 
+                [{ 'dom': xid }])
+        xs.transaction_end(xs_trans)
 
     def create_config_file(self, source_template = None):
         if source_template is None:
@@ -883,13 +860,6 @@ class QubesVm(object):
 
         return conf
 
-    def get_total_xen_memory(self):
-        hosts = xend_session.session.xenapi.host.get_all()
-        host_record = xend_session.session.xenapi.host.get_record(hosts[0])
-        host_metrics_record = xend_session.session.xenapi.host_metrics.get_record(host_record["metrics"])
-        ret = host_metrics_record["memory_total"]
-        return long(ret)
-
     def start(self, debug_console = False, verbose = False, preparing_dvm = False):
         if dry_run:
             return
@@ -898,32 +868,28 @@ class QubesVm(object):
             raise QubesException ("VM is already running!")
 
         self.reset_volatile_storage()
-
-        if verbose:
-            print "--> Rereading the VM's conf file ({0})...".format(self.conf_file)
-        self.update_xen_storage()
-
         if verbose:
             print "--> Loading the VM (type = {0})...".format(self.type)
 
-        if not self.is_netvm():
-            subprocess.check_call(['/usr/sbin/xm', 'mem-max', self.name, str(self.maxmem)])
-
-        mem_required = self.get_mem_dynamic_max()
+        mem_required = int(self.memory) * 1024 * 1024
         qmemman_client = QMemmanClient()
         if not qmemman_client.request_memory(mem_required):
             qmemman_client.close()
             raise MemoryError ("ERROR: insufficient memory to start this VM")
 
+        xl_cmdline = ['/usr/sbin/xl', 'create', self.conf_file, '-p']
+        if not self.is_netvm():
+            xl_cmdline += ['maxmem={0}'.format(self.maxmem)]
+
         try:
-            xend_session.session.xenapi.VM.start (self.session_uuid, True) # Starting a VM paused
+            subprocess.check_call(xl_cmdline)
         except XenAPI.Failure:
-            self.refresh_xend_session()
-            xend_session.session.xenapi.VM.start (self.session_uuid, True) # Starting a VM paused
+            raise QubesException("Failed to load VM config")
+        finally:
+            qmemman_client.close() # let qmemman_daemon resume balancing
 
-        qmemman_client.close() # let qmemman_daemon resume balancing
-
-        xid = int (xend_session.session.xenapi.VM.get_domid (self.session_uuid))
+        xid = self.get_xid()
+        self.xid = xid
 
         if verbose:
             print "--> Setting Xen Store info for the VM..."
@@ -937,17 +903,17 @@ class QubesVm(object):
                 actual_ip = "254.254.254.254"
             else:
                 actual_ip = self.ip
-            xm_cmdline = ["/usr/sbin/xm", "network-attach", self.name, "script=vif-route-qubes", "ip="+actual_ip]
+            xl_cmdline = ["/usr/sbin/xl", "network-attach", self.name, "script=/etc/xen/scripts/vif-route-qubes", "ip="+actual_ip]
             if self.netvm_vm.qid != 0:
                 if not self.netvm_vm.is_running():
                     self.netvm_vm.start()
-                retcode = subprocess.call (xm_cmdline + ["backend={0}".format(self.netvm_vm.name)])
+                retcode = subprocess.call (xl_cmdline + ["backend={0}".format(self.netvm_vm.name)])
                 if retcode != 0:
                     self.force_shutdown()
                     raise OSError ("ERROR: Cannot attach to network backend!")
 
             else:
-                retcode = subprocess.call (xm_cmdline)
+                retcode = subprocess.call (xl_cmdline)
                 if retcode != 0:
                     self.force_shutdown()
                     raise OSError ("ERROR: Cannot attach to network backend!")
@@ -965,7 +931,7 @@ class QubesVm(object):
 
         if verbose:
             print "--> Starting the VM..."
-        xend_session.session.xenapi.VM.unpause (self.session_uuid)
+        xc.domain_unpause(xid)
 
         if not preparing_dvm:
             if verbose:
@@ -976,6 +942,7 @@ class QubesVm(object):
                 raise OSError ("ERROR: Cannot execute qrexec_daemon!")
 
         # perhaps we should move it before unpause and fork?
+        # FIXME: this uses obsolete xm api
         if debug_console:
             from xen.xm import console
             if verbose:
@@ -988,11 +955,8 @@ class QubesVm(object):
         if dry_run:
             return
 
-        try:
-            xend_session.session.xenapi.VM.hard_shutdown (self.session_uuid)
-        except XenAPI.Failure:
-            self.refresh_xend_session()
-            xend_session.session.xenapi.VM.hard_shutdown (self.session_uuid)
+        subprocess.call (['/usr/sbin/xl', 'destroy', self.name])
+        #xc.domain_destroy(self.get_xid())
 
     def remove_from_disk(self):
         if dry_run:
@@ -1082,7 +1046,6 @@ class QubesTemplateVm(QubesVm):
                 standalonevms_conf_file if standalonevms_conf_file is not None else default_standalonevms_conf_file)
 
         self.templatevm_conf_template = self.dir_path + "/" + default_templatevm_conf_template
-        self.kernels_dir = self.dir_path + "/" + default_kernels_subdir
         self.appmenus_templates_dir = self.dir_path + "/" + default_appmenus_templates_subdir
         self.appmenus_template_templates_dir = self.dir_path + "/" + default_appmenus_template_templates_subdir
         self.appvms = QubesVmCollection()
@@ -1435,7 +1398,7 @@ class QubesNetVm(QubesVm):
             # Cleanup stale VIFs
             vm.cleanup_vifs()
 
-            xm_cmdline = ["/usr/sbin/xm", "network-attach", vm.name, "script=vif-route-qubes", "ip="+vm.ip, "backend="+self.name ]
+            xm_cmdline = ["/usr/sbin/xl", "network-attach", vm.name, "script=vif-route-qubes", "ip="+vm.ip, "backend="+self.name ]
             retcode = subprocess.call (xm_cmdline)
             if retcode != 0:
                 print ("WARNING: Cannot attach to network to '{0}'!".format(vm.name))
@@ -1599,45 +1562,9 @@ class QubesDom0NetVm(QubesNetVm):
                                              private_img = None,
                                              template_vm = None,
                                              label = default_template_label)
-        if not dry_run and xend_session.session is not None:
-            self.session_hosts = xend_session.session.xenapi.host.get_all()
-            self.session_cpus = xend_session.session.xenapi.host.get_host_CPUs(self.session_hosts[0])
-
 
     def is_running(self):
         return True
-
-    def get_cpu_total_load(self):
-        if dry_run:
-            import random
-            return random.random() * 100
-
-        cpu_total_load = 0.0
-        for cpu in self.session_cpus:
-            cpu_total_load += xend_session.session.xenapi.host_cpu.get_utilisation(cpu)
-        cpu_total_load /= len(self.session_cpus)
-        p = 100*cpu_total_load
-        if p > 100:
-            p = 100
-        return p
-
-    def get_mem(self):
-
-        # Unfortunately XenAPI provides only info about total memory, not the one actually usable by Dom0...
-        #session = get_xend_session_new_api()
-        #hosts = session.xenapi.host.get_all()
-        #metrics = session.xenapi.host.get_metrics(hosts[0])
-        #memory_total = int(session.xenapi.metrics.get_memory_total(metrics))
-
-        # ... so we must read /proc/meminfo, just like free command does
-        f = open ("/proc/meminfo")
-        for line in f:
-            match = re.match(r"^MemTotal\:\s*(\d+) kB", line)
-            if match is not None:
-                break
-        f.close()
-        assert match is not None
-        return int(match.group(1))*1024
 
     def get_xid(self):
         return 0
