@@ -1563,6 +1563,7 @@ class QubesDom0NetVm(QubesNetVm):
                                              private_img = None,
                                              template_vm = None,
                                              label = default_template_label)
+        self.xid = 0
 
     def is_running(self):
         return True
