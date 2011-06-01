@@ -404,7 +404,8 @@ class QubesVm(object):
 
         dominfo = self.get_xc_dominfo()
         if dominfo:
-            return dominfo['domid']
+            self.xid = dominfo['domid']
+            return self.xid
         else:
             return -1
 
