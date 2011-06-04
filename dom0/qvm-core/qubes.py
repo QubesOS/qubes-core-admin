@@ -140,7 +140,7 @@ class QubesHost(object):
         info = xc.domain_getinfo(0, qubes_max_xid)
         for vm in info:
             current[vm['domid']] = {}
-            current[vm['domid']]['cpu_time'] = vm['cpu_time']/vm['online_vcpus']
+            current[vm['domid']]['cpu_time'] = vm['cpu_time']/max(vm['online_vcpus'],1)
             if vm['domid'] in previous.keys():
                 current[vm['domid']]['cpu_usage'] = \
                     float(current[vm['domid']]['cpu_time'] - previous[vm['domid']]['cpu_time']) \
