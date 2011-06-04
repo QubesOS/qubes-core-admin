@@ -19,6 +19,9 @@ while true; do
 		IPTABLES_SAVE=$(/sbin/iptables-save | sed '/^\*filter/,/^COMMIT/d')
 		OUT=`echo -e "$RULES\n$IPTABLES_SAVE" | /sbin/iptables-restore 2>&1 || :`
 		/usr/bin/xenstore-write $XENSTORE_ERROR "$OUT"
+		if [ "$OUT" ]; then
+			DISPLAY=:0 /usr/bin/notify-send -t 3000 "Firewall loading error ($HOSTNAME)" "$OUT" || :
+		fi
 
 		if [[ -z "$OUT" ]]; then
 			# If OK save it for later
