@@ -391,7 +391,11 @@ class QubesVm(object):
         start_xid = self.xid
         if start_xid < 0:
             start_xid = 0
-        domains = xc.domain_getinfo(start_xid, qubes_max_xid-start_xid)
+        try:
+            domains = xc.domain_getinfo(start_xid, qubes_max_xid-start_xid)
+        except xen.lowlevel.xc.Error:
+            return None
+
         for dominfo in domains:
             domname = xl_ctx.domid_to_name(dominfo['domid'])
             if domname == self.name:
