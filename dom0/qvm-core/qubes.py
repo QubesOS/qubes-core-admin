@@ -1259,6 +1259,8 @@ class QubesNetVm(QubesVm):
         if "memory" not in kwargs or kwargs["memory"] is None:
             kwargs["memory"] = 200
 
+        kwargs["maxmem"] = kwargs["memory"]
+
         super(QubesNetVm, self).__init__(**kwargs)
         self.connected_vms = QubesVmCollection()
 
