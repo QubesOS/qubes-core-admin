@@ -68,10 +68,6 @@ default_rootcow_img = "root-cow.img"
 default_volatile_img = "volatile.img"
 default_clean_volatile_img = "clean-volatile.img.tar"
 default_private_img = "private.img"
-default_appvms_conf_file = "appvm-template.conf"
-default_netvms_conf_file = "netvm-template.conf"
-default_standalonevms_conf_file = "standalone-template.conf"
-default_templatevm_conf_template = "templatevm.conf" # needed for TemplateVM cloning
 default_appmenus_templates_subdir = "apps.templates"
 default_appmenus_template_templates_subdir = "apps-template.templates"
 default_kernels_subdir = "kernels"
@@ -623,38 +619,43 @@ class QubesVm(object):
                 [{ 'dom': xid }])
         xs.transaction_end(xs_trans)
 
-    def create_config_file(self, source_template = None):
+    def get_rootdev(self, source_template=None):
+        if self.template_vm:
+            return "'script:snapshot:{dir}/root.img:{dir}/root-cow.img,xvda,r',".format(dir=self.template_vm.dir_path)
+        else:
+            return "'script:file:{dir}/root.img,xvda,w',".format(dir=self.dir_path)
+
+    def get_config_params(self, source_template=None):
+        args = {}
+        args['name'] = self.name
+        args['kerneldir'] = self.kernels_dir
+        args['vmdir'] = self.dir_path
+        args['pcidev'] = self.pcidevs
+        args['mem'] = str(self.memory)
+        args['maxmem'] = str(self.maxmem)
+        args['vcpus'] = str(self.vcpus)
+        args['netdev'] = ''
+        args['rootdev'] = self.get_rootdev(source_template=source_template)
+        args['privatedev'] = "'script:file:{dir}/private.img,xvdb,w',".format(dir=self.dir_path)
+        args['volatiledev'] = "'script:file:{dir}/volatile.img,xvdc,w',".format(dir=self.dir_path)
+        args['kernelopts'] = ''
+
+        return args
+
+    def create_config_file(self, file_path = None, source_template = None):
+        if file_path is None:
+            file_path = self.conf_file
         if source_template is None:
             source_template = self.template_vm
-        assert source_template is not None
 
-        conf_template = None
-        if self.type == "NetVM":
-            conf_template = open (source_template.netvms_conf_file, "r")
-        elif self.updateable:
-            conf_template = open (source_template.standalonevms_conf_file, "r")
-        else:
-            conf_template = open (source_template.appvms_conf_file, "r")
-        if os.path.isfile(self.conf_file):
-            shutil.copy(self.conf_file, self.conf_file + ".backup")
+        f_conf_template = open('/usr/share/qubes/vm-template.conf', 'r')
+        conf_template = f_conf_template.read()
+        f_conf_template.close()
+
+        template_params = self.get_config_params(source_template)
         conf_appvm = open(self.conf_file, "w")
-        rx_vmname = re.compile (r"%VMNAME%")
-        rx_vmdir = re.compile (r"%VMDIR%")
-        rx_template = re.compile (r"%TEMPLATEDIR%")
-        rx_pcidevs = re.compile (r"%PCIDEVS%")
-        rx_mem = re.compile (r"%MEM%")
-        rx_vcpus = re.compile (r"%VCPUS%")
 
-        for line in conf_template:
-            line = rx_vmname.sub (self.name, line)
-            line = rx_vmdir.sub (self.dir_path, line)
-            line = rx_template.sub (source_template.dir_path, line)
-            line = rx_pcidevs.sub (self.pcidevs, line)
-            line = rx_mem.sub (str(self.memory), line)
-            line = rx_vcpus.sub (str(self.vcpus), line)
-            conf_appvm.write(line)
-
-        conf_template.close()
+        conf_appvm.write(conf_template.format(**template_params))
         conf_appvm.close()
 
     def create_on_disk(self, verbose, source_template = None):
@@ -728,11 +729,6 @@ class QubesVm(object):
             raise QubesException (
                 "VM directory doesn't exist: {0}".\
                 format(self.dir_path))
-
-        if not os.path.exists (self.conf_file):
-            raise QubesException (
-                "VM config file doesn't exist: {0}".\
-                format(self.conf_file))
 
         if self.is_updateable() and not os.path.exists (self.root_img):
             raise QubesException (
@@ -869,6 +865,9 @@ class QubesVm(object):
         if verbose:
             print "--> Loading the VM (type = {0})...".format(self.type)
 
+        # refresh config file
+        self.create_config_file()
+
         limit_memlock = resource.getrlimit(resource.RLIMIT_MEMLOCK)
         # try to increase limit if needed
         if limit_memlock[0] < int(self.memory) * 1024:
@@ -884,8 +883,6 @@ class QubesVm(object):
             raise MemoryError ("ERROR: insufficient memory to start this VM")
 
         xl_cmdline = ['/usr/sbin/xl', 'create', self.conf_file, '-p']
-        if not self.is_netvm():
-            xl_cmdline += ['maxmem={0}'.format(self.maxmem)]
 
         try:
             subprocess.check_call(xl_cmdline)
@@ -1016,10 +1013,6 @@ class QubesTemplateVm(QubesVm):
         if "updateable" not in kwargs or kwargs["updateable"] is None :
             kwargs["updateable"] = True
 
-        appvms_conf_file = kwargs.pop("appvms_conf_file") if "appvms_conf_file" in kwargs else None
-        netvms_conf_file = kwargs.pop("netvms_conf_file") if "netvms_conf_file" in kwargs else None
-        standalonevms_conf_file = kwargs.pop("standalonevms_conf_file") if "standalonevms_conf_file" in kwargs else None
-
         if "label" not in kwargs or kwargs["label"] == None:
             kwargs["label"] = default_template_label
 
@@ -1033,25 +1026,6 @@ class QubesTemplateVm(QubesVm):
         # Image for template changes
         self.rootcow_img = self.dir_path + "/" + default_rootcow_img
 
-        if appvms_conf_file is not None and os.path.isabs(appvms_conf_file):
-            self.appvms_conf_file = appvms_conf_file
-        else:
-            self.appvms_conf_file = dir_path + "/" + (
-                appvms_conf_file if appvms_conf_file is not None else default_appvms_conf_file)
-
-        if netvms_conf_file is not None and os.path.isabs(netvms_conf_file):
-            self.netvms_conf_file = netvms_conf_file
-        else:
-            self.netvms_conf_file = dir_path + "/" + (
-                netvms_conf_file if netvms_conf_file is not None else default_netvms_conf_file)
-
-        if standalonevms_conf_file is not None and os.path.isabs(standalonevms_conf_file):
-            self.standalonevms_conf_file = standalonevms_conf_file
-        else:
-            self.standalonevms_conf_file = dir_path + "/" + (
-                standalonevms_conf_file if standalonevms_conf_file is not None else default_standalonevms_conf_file)
-
-        self.templatevm_conf_template = self.dir_path + "/" + default_templatevm_conf_template
         self.appmenus_templates_dir = self.dir_path + "/" + default_appmenus_templates_subdir
         self.appmenus_template_templates_dir = self.dir_path + "/" + default_appmenus_template_templates_subdir
         self.appvms = QubesVmCollection()
@@ -1073,6 +1047,8 @@ class QubesTemplateVm(QubesVm):
                                      format (appvm.name, self.name))
         self.updateable = True
 
+    def get_rootdev(self, source_template=None):
+        return "'script:origin:{dir}/root.img:{dir}/root-cow.img,xvda,w',".format(dir=self.dir_path)
 
     def clone_disk_files(self, src_template_vm, verbose):
         if dry_run:
@@ -1086,42 +1062,9 @@ class QubesTemplateVm(QubesVm):
         os.mkdir (self.dir_path)
 
         if verbose:
-            print "--> Copying the VM config file:\n{0} =*>\n{1}".\
-                    format(src_template_vm.templatevm_conf_template, self.conf_file)
-        conf_templatevm_template = open (src_template_vm.templatevm_conf_template, "r")
-        conf_file = open(self.conf_file, "w")
-        rx_templatename = re.compile (r"%TEMPLATENAME%")
-        rx_mem = re.compile (r"%MEM%")
-        rx_vcpus = re.compile (r"%VCPUS%")
-
-        for line in conf_templatevm_template:
-            line = rx_templatename.sub (self.name, line)
-            line = rx_mem.sub (str(self.memory), line)
-            line = rx_vcpus.sub (str(self.vcpus), line)
-            conf_file.write(line)
-
-        conf_templatevm_template.close()
-        conf_file.close()
-
-        if verbose:
-            print "--> Copying the VM config template :\n{0} ==>\n{1}".\
-                    format(src_template_vm.templatevm_conf_template, self.templatevm_conf_template)
-        shutil.copy (src_template_vm.templatevm_conf_template, self.templatevm_conf_template)
-
-        if verbose:
-            print "--> Copying the VM config template :\n{0} ==>\n{1}".\
-                    format(src_template_vm.appvms_conf_file, self.appvms_conf_file)
-        shutil.copy (src_template_vm.appvms_conf_file, self.appvms_conf_file)
-
-        if verbose:
-            print "--> Copying the VM config template :\n{0} ==>\n{1}".\
-                    format(src_template_vm.netvms_conf_file, self.netvms_conf_file)
-        shutil.copy (src_template_vm.netvms_conf_file, self.netvms_conf_file)
-
-        if verbose:
-            print "--> Copying the VM config template :\n{0} ==>\n{1}".\
-                    format(src_template_vm.standalonevms_conf_file, self.standalonevms_conf_file)
-        shutil.copy (src_template_vm.standalonevms_conf_file, self.standalonevms_conf_file)
+            print "--> Creating VM config file: {0}".\
+                    format(self.conf_file)
+        self.create_config_file(source_template=src_template_vm)
 
         if verbose:
             print "--> Copying the template's private image:\n{0} ==>\n{1}".\
@@ -1212,16 +1155,6 @@ class QubesTemplateVm(QubesVm):
                 "VM directory doesn't exist: {0}".\
                 format(self.dir_path))
 
-        if not os.path.exists (self.conf_file):
-            raise QubesException (
-                "VM config file doesn't exist: {0}".\
-                format(self.conf_file))
-
-        if not os.path.exists (self.appvms_conf_file):
-            raise QubesException (
-                "Appvm template config file doesn't exist: {0}".\
-                format(self.appvms_conf_file))
-
         if not os.path.exists (self.root_img):
             raise QubesException (
                 "VM root image file doesn't exist: {0}".\
@@ -1296,9 +1229,6 @@ class QubesTemplateVm(QubesVm):
 
     def get_xml_attrs(self):
         attrs = super(QubesTemplateVm, self).get_xml_attrs()
-        attrs["appvms_conf_file"] = self.appvms_conf_file
-        attrs["netvms_conf_file"] = self.netvms_conf_file
-        attrs["standalonevms_conf_file"] = self.standalonevms_conf_file
         attrs["clean_volatile_img"] = self.clean_volatile_img
         attrs["rootcow_img"] = self.rootcow_img
         return attrs
@@ -1356,6 +1286,11 @@ class QubesNetVm(QubesVm):
         lo = qid % 253 + 2
         assert lo >= 2 and lo <= 254, "Wrong IP address for VM"
         return self.netprefix  + "{0}".format(lo)
+
+    def get_config_params(self, source_template=None):
+        args = super(QubesNetVm, self).get_config_params(source_template)
+        args['kernelopts'] = ' swiotlb=force pci=nomsi'
+        return args
 
     def create_xenstore_entries(self, xid):
         if dry_run:
@@ -2078,11 +2013,6 @@ class QubesVmCollection(dict):
             try:
 
                 kwargs = self.parse_xml_element(element)
-                # Add TemplateVM specific fields
-                attr_list = ("appvms_conf_file", "netvms_conf_file", "standalonevms_conf_file")
-
-                for attribute in attr_list:
-                    kwargs[attribute] = element.get(attribute)
 
                 vm = QubesTemplateVm(**kwargs)
 
