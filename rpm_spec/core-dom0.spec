@@ -121,6 +121,8 @@ mkdir -p $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 cp ../common/qubes_nmhook $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
 cp ../common/iptables $RPM_BUILD_ROOT/etc/sysconfig
+mkdir -p $RPM_BUILD_ROOT/etc/security/limits.d
+cp misc/limits-qubes.conf $RPM_BUILD_ROOT/etc/security/limits.d/99-qubes.conf
 
 mkdir -p $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d
 cp pm-utils/01qubes-sync-vms-clock $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
@@ -291,3 +293,4 @@ fi
 %{_libdir}/libu2mfn.so
 /etc/sudoers.d/qubes
 /etc/xdg/autostart/qubes-guid.desktop
+/etc/security/limits.d/99-qubes.conf
