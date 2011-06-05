@@ -31,6 +31,7 @@ import re
 import shutil
 import uuid
 import time
+import resource
 from datetime import datetime
 from qmemman_client import QMemmanClient
 
@@ -867,6 +868,14 @@ class QubesVm(object):
         self.reset_volatile_storage()
         if verbose:
             print "--> Loading the VM (type = {0})...".format(self.type)
+
+        limit_memlock = resource.getrlimit(resource.RLIMIT_MEMLOCK)
+        # try to increase limit if needed
+        if limit_memlock[0] < int(self.memory) * 1024:
+            # intentionally don't catch exceptions - if it fails - there is no
+            # memory for new VM
+            resource.setrlimit(resource.RLIMIT_MEMLOCK,
+                    (int(self.memory) * 1024, limit_memlock[1]))
 
         mem_required = int(self.memory) * 1024 * 1024
         qmemman_client = QMemmanClient()
