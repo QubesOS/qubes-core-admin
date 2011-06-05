@@ -123,6 +123,8 @@ mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
 cp ../common/iptables $RPM_BUILD_ROOT/etc/sysconfig
 mkdir -p $RPM_BUILD_ROOT/etc/security/limits.d
 cp misc/limits-qubes.conf $RPM_BUILD_ROOT/etc/security/limits.d/99-qubes.conf
+mkdir -p $RPM_BUILD_ROOT/etc/xen/
+cp misc/xl.conf $RPM_BUILD_ROOT/etc/xen/
 
 mkdir -p $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d
 cp pm-utils/01qubes-sync-vms-clock $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
@@ -294,3 +296,4 @@ fi
 /etc/sudoers.d/qubes
 /etc/xdg/autostart/qubes-guid.desktop
 /etc/security/limits.d/99-qubes.conf
+/etc/xen/xl.conf
