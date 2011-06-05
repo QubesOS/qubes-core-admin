@@ -41,11 +41,6 @@ dry_run = False
 
 
 if not dry_run:
-    # Xen API
-    import xmlrpclib
-    from xen.xm import XenAPI
-    from xen.xend import sxp
-
     import xen.lowlevel.xc
     import xen.lowlevel.xl
     import xen.lowlevel.xs
@@ -888,7 +883,7 @@ class QubesVm(object):
 
         try:
             subprocess.check_call(xl_cmdline)
-        except XenAPI.Failure:
+        except:
             raise QubesException("Failed to load VM config")
         finally:
             qmemman_client.close() # let qmemman_daemon resume balancing
