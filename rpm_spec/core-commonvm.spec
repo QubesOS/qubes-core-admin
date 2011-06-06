@@ -71,7 +71,7 @@ install -m 644 RPM-GPG-KEY-qubes* $RPM_BUILD_ROOT/etc/pki/rpm-gpg/
 mkdir -p $RPM_BUILD_ROOT/sbin
 cp qubes_serial_login $RPM_BUILD_ROOT/sbin
 mkdir -p $RPM_BUILD_ROOT/usr/bin
-cp xenstore-watch $RPM_BUILD_ROOT/usr/bin
+cp xenstore-watch $RPM_BUILD_ROOT/usr/bin/xenstore-watch-qubes
 mkdir -p $RPM_BUILD_ROOT/etc
 cp serial.conf $RPM_BUILD_ROOT/var/lib/qubes/
 mkdir -p $RPM_BUILD_ROOT/etc/udev/rules.d
@@ -223,6 +223,6 @@ rm -rf $RPM_BUILD_ROOT
 /etc/yum.repos.d/qubes%{dist}.repo
 /etc/pki/rpm-gpg/RPM-GPG-KEY-qubes*
 /sbin/qubes_serial_login
-/usr/bin/xenstore-watch
+/usr/bin/xenstore-watch-qubes
 /etc/udev/rules.d/qubes_network.rules
 /usr/lib/qubes/setup_ip

@@ -32,5 +32,5 @@ while true; do
 	fi
 
 	# Wait for changes in xenstore file
-	/usr/bin/xenstore-watch $XENSTORE_IPTABLES
+	/usr/bin/xenstore-watch-qubes $XENSTORE_IPTABLES
 done
