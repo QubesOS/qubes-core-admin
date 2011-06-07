@@ -44,7 +44,9 @@ class SystemState:
             id = str(domain['domid'])
             if self.domdict.has_key(id):
                 self.domdict[id].memory_actual = domain['mem_kb']*1024
-                self.domdict[id].memory_maximum = domain['maxmem_kb']*1024
+                self.domdict[id].memory_maximum = self.xs.read('', '/local/domain/%s/memory/static-max' % str(id))
+                if not self.domdict[id].memory_maximum:
+                    self.domdict[id].memory_maximum = domain['maxmem_kb']*1024
 
 #the below works (and is fast), but then 'xm list' shows unchanged memory value
     def mem_set(self, id, val):
@@ -54,6 +56,7 @@ class SystemState:
 #can happen in the middle of domain shutdown
 #apparently xc.lowlevel throws exceptions too
         try:
+            self.xc.domain_setmaxmem(int(id), val/1024 + 1024) # LIBXL_MAXMEM_CONSTANT=1024
             self.xc.domain_set_target_mem(int(id), val/1024)
         except:
             pass
