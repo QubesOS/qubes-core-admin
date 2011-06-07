@@ -129,6 +129,7 @@ def balance_when_enough_memory(domain_dictionary, xen_free_memory, total_mem_pre
     while left_memory > 0 and acceptors_count > 0:
         print '  left_memory:', left_memory, 'acceptors_count:', acceptors_count
         new_left_memory = 0
+        new_acceptors_count = acceptors_count
         for i in target_memory.keys():
             target = target_memory[i]
             if target < domain_dictionary[i].memory_maximum:
@@ -136,11 +137,12 @@ def balance_when_enough_memory(domain_dictionary, xen_free_memory, total_mem_pre
                 if target+memory_bonus >= domain_dictionary[i].memory_maximum:
                     new_left_memory += target+memory_bonus - domain_dictionary[i].memory_maximum
                     target = domain_dictionary[i].memory_maximum
-                    acceptors_count -= 1
+                    new_acceptors_count -= 1
                 else:
                     target += memory_bonus
             target_memory[i] = target
         left_memory = new_left_memory
+        acceptors_count = new_acceptors_count
 # split target_memory dictionary to donors and acceptors
 #  this is needed to first get memory from donors and only then give it to acceptors
     donors_rq = list()
