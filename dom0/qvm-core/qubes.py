@@ -929,7 +929,7 @@ class QubesVm(object):
         if verbose:
             print "--> Updating firewall rules..."
         for vm in qvm_collection.values():
-            if vm.is_proxyvm():
+            if vm.is_proxyvm() and vm.is_running():
                 vm.write_iptables_xenstore_entry()
 
         if verbose:
