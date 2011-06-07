@@ -33,6 +33,7 @@ class XS_Watcher:
         self.watch_token_dict = {}
 
     def domain_list_changed(self, param):
+        time.sleep(0.05)
         curr = self.handle.ls('', '/local/domain')
         if curr == None:
             return
