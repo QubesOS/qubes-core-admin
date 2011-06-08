@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 get_encoded_script()
 {
 	if ! [ -f "$1" ] ; then
