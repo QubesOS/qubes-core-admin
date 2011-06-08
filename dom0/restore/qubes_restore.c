@@ -258,8 +258,7 @@ char *dispname_by_dispid(int dispid)
 char *build_dvm_ip(int netvm, int id)
 {
 	static char buf[256];
-	snprintf(buf, sizeof(buf), "10.%d.%d.%d", netvm, id / 254 + 200,
-		 (id % 254) + 1);
+	snprintf(buf, sizeof(buf), "10.138.%d.%d", netvm, (id % 254) + 1);
 	return buf;
 }
 
@@ -385,9 +384,9 @@ void setup_xenstore(int netvm_id, int domid, int dvmid, char *name)
 	write_xs_single(xs, domid, "qubes_ip",
 			build_dvm_ip(netvm_id, dvmid));
 	write_xs_single(xs, domid, "qubes_netmask", "255.255.0.0");
-	snprintf(val, sizeof(val), "10.%d.0.1", netvm_id);
+	snprintf(val, sizeof(val), "10.137.%d.1", netvm_id);
 	write_xs_single(xs, domid, "qubes_gateway", val);
-	snprintf(val, sizeof(val), "10.%d.255.254", netvm_id);
+	snprintf(val, sizeof(val), "10.137.%d.254", netvm_id);
 	write_xs_single(xs, domid, "qubes_secondary_dns", val);
 	write_xs_single(xs, domid, "qubes_vm_type", "AppVM");
 	write_xs_single(xs, domid, "qubes_restore_complete", "True");

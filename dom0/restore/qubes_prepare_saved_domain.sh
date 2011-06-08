@@ -44,7 +44,7 @@ fi
 xenstore-write /local/domain/$ID/qubes_save_request 1 
 xenstore-watch-qubes /local/domain/$ID/device/qubes_used_mem
 xenstore-read /local/domain/$ID/qubes_gateway | \
-	cut -d . -f 2 | tr -d "\n" > $VMDIR/netvm_id.txt
+	cut -d . -f 3 | tr -d "\n" > $VMDIR/netvm_id.txt
 xl block-detach $1 /dev/xvdb
 MEM=$(xenstore-read /local/domain/$ID/device/qubes_used_mem)
 echo "DVM boot complete, memory used=$MEM. Saving image..."
