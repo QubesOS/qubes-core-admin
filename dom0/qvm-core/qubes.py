@@ -648,7 +648,7 @@ class QubesVm(object):
 
         return args
 
-    def create_config_file(self, file_path = None, source_template = None):
+    def create_config_file(self, file_path = None, source_template = None, prepare_dvm = False):
         if file_path is None:
             file_path = self.conf_file
         if source_template is None:
@@ -659,6 +659,10 @@ class QubesVm(object):
         f_conf_template.close()
 
         template_params = self.get_config_params(source_template)
+        if prepare_dvm:
+            template_params['name'] = '%NAME%'
+            template_params['privatedev'] = ''
+            template_params['netdev'] = re.sub(r"ip=[0-9.]*", "ip=%IP%", template_params['netdev'])
         conf_appvm = open(file_path, "w")
 
         conf_appvm.write(conf_template.format(**template_params))
@@ -933,6 +937,11 @@ class QubesVm(object):
             if (retcode != 0) :
                 self.force_shutdown()
                 raise OSError ("ERROR: Cannot execute qrexec_daemon!")
+
+        if preparing_dvm:
+            if verbose:
+                print "--> Preparing config template for DispVM"
+            self.create_config_file(file_path = self.dir_path + '/dvm.conf', prepare_dvm = True)
 
         # perhaps we should move it before unpause and fork?
         # FIXME: this uses obsolete xm api
