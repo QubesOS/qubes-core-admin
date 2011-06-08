@@ -634,7 +634,13 @@ class QubesVm(object):
         args['mem'] = str(self.memory)
         args['maxmem'] = str(self.maxmem)
         args['vcpus'] = str(self.vcpus)
-        args['netdev'] = ''
+        if self.netvm_vm is not None:
+            args['netdev'] = "'script=/etc/xen/scripts/vif-route-qubes,ip={ip}".format(ip=self.ip)
+            if self.netvm_vm.qid != 0:
+                args['netdev'] += ",backend={0}".format(self.netvm_vm.name)
+            args['netdev'] += "'"
+        else:
+            args['netdev'] = ''
         args['rootdev'] = self.get_rootdev(source_template=source_template)
         args['privatedev'] = "'script:file:{dir}/private.img,xvdb,w',".format(dir=self.dir_path)
         args['volatiledev'] = "'script:file:{dir}/volatile.img,xvdc,w',".format(dir=self.dir_path)
@@ -861,6 +867,13 @@ class QubesVm(object):
         if self.is_running():
             raise QubesException ("VM is already running!")
 
+        if self.netvm_vm is not None:
+            if self.netvm_vm.qid != 0:
+                if not self.netvm_vm.is_running():
+                    if verbose:
+                        print "--> Starting NetVM {0}...".format(self.netvm_vm.name)
+                    self.netvm_vm.start()
+
         self.reset_volatile_storage()
         if verbose:
             print "--> Loading the VM (type = {0})...".format(self.type)
@@ -897,29 +910,6 @@ class QubesVm(object):
         if verbose:
             print "--> Setting Xen Store info for the VM..."
         self.create_xenstore_entries(xid)
-
-        if self.netvm_vm is not None:
-            assert self.netvm_vm is not None
-            if verbose:
-                print "--> Attaching to the network backend (netvm={0})...".format(self.netvm_vm.name)
-            if preparing_dvm:
-                actual_ip = "254.254.254.254"
-            else:
-                actual_ip = self.ip
-            xl_cmdline = ["/usr/sbin/xl", "network-attach", self.name, "script=/etc/xen/scripts/vif-route-qubes", "ip="+actual_ip]
-            if self.netvm_vm.qid != 0:
-                if not self.netvm_vm.is_running():
-                    self.netvm_vm.start()
-                retcode = subprocess.call (xl_cmdline + ["backend={0}".format(self.netvm_vm.name)])
-                if retcode != 0:
-                    self.force_shutdown()
-                    raise OSError ("ERROR: Cannot attach to network backend!")
-
-            else:
-                retcode = subprocess.call (xl_cmdline)
-                if retcode != 0:
-                    self.force_shutdown()
-                    raise OSError ("ERROR: Cannot attach to network backend!")
 
         qvm_collection = QubesVmCollection()
         qvm_collection.lock_db_for_reading()
