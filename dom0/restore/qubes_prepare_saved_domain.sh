@@ -45,7 +45,7 @@ xenstore-write /local/domain/$ID/qubes_save_request 1
 xenstore-watch-qubes /local/domain/$ID/device/qubes_used_mem
 xenstore-read /local/domain/$ID/qubes_gateway | \
 	cut -d . -f 3 | tr -d "\n" > $VMDIR/netvm_id.txt
-xl block-detach $1 /dev/xvdb
+xl block-detach $1 xvdb
 MEM=$(xenstore-read /local/domain/$ID/device/qubes_used_mem)
 echo "DVM boot complete, memory used=$MEM. Saving image..."
 QMEMMAN_STOP=/var/run/qubes/do-not-membalance
@@ -59,5 +59,7 @@ if ! xl save $1 $2 ; then
 fi
 rm -f $QMEMMAN_STOP
 cd $VMDIR
+# Fix start memory
+sed -i -e "s/^memory.*/memory = $((MEM/1000))/" dvm.conf
 tar -Scvf saved_cows.tar volatile.img
 echo "DVM savefile created successfully."

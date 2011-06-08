@@ -31,6 +31,7 @@ from qubes.qubes import QubesDaemonPidfile
 from qubes.qmemman_client import QMemmanClient
 
 current_savefile = '/var/run/qubes/current_savefile'
+current_dvm_conf = '/var/run/qubes/current_dvm.conf'
 notify_object = None
 
 class QfileDaemonDvm:
@@ -58,6 +59,7 @@ class QfileDaemonDvm:
             return None
         retcode = subprocess.call(['/usr/lib/qubes/qubes_restore',
             current_savefile,
+            current_dvm_conf,
             '-c', vm.label.color,
             '-i', vm.label.icon,
             '-l', str(vm.label.index)])
