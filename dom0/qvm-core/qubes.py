@@ -659,7 +659,7 @@ class QubesVm(object):
         f_conf_template.close()
 
         template_params = self.get_config_params(source_template)
-        conf_appvm = open(self.conf_file, "w")
+        conf_appvm = open(file_path, "w")
 
         conf_appvm.write(conf_template.format(**template_params))
         conf_appvm.close()
