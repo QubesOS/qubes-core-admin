@@ -7,6 +7,8 @@
 dir=$(dirname "$0")
 . "$dir/block-common.sh"
 
+HOTPLUG_STORE="/var/run/xen-hotplug/${XENBUS_PATH//\//-}"
+
 get_dev() {
   dev=$1
 
@@ -89,7 +91,6 @@ create_dm_snapshot_origin() {
 
 t=$(xenstore_read_default "$XENBUS_PATH/type" 'MISSING')
 
-
 case "$command" in
   add)
     case $t in
@@ -117,14 +118,20 @@ case "$command" in
         if [ "$t" == "snapshot" ]; then
           #that's all for snapshot, store name of prepared device
           xenstore_write "$XENBUS_PATH/node" "/dev/mapper/$dm_devname"
+          echo "/dev/mapper/$dm_devname" > "$HOTPLUG_STORE-node"
           write_dev /dev/mapper/$dm_devname
         elif [ "$t" == "origin" ]; then
           # for origin - prepare snapshot-origin device and store its name
           dm_devname=origin-$(stat -c '%D:%i' "$base")
           create_dm_snapshot_origin $dm_devname "$base"
           xenstore_write "$XENBUS_PATH/node" "/dev/mapper/$dm_devname"
+          echo "/dev/mapper/$dm_devname" > "$HOTPLUG_STORE-node"
           write_dev /dev/mapper/$dm_devname
         fi
+        # Save domain name for template commit on device remove
+        domid=$(xenstore_read "$XENBUS_PATH/frontend-id")
+        domain=$(xl domname $domid)
+        echo $domain > "$HOTPLUG_STORE-domain"
 
         release_lock "block"
         exit 0
@@ -134,7 +141,7 @@ case "$command" in
   remove)
     case $t in
       snapshot|origin)
-        node=$(xenstore_read "$XENBUS_PATH/node")
+        node=$(cat "$HOTPLUG_STORE-node")
 
         if [ -z "$node" ]; then
           fatal "No device node to remove"
@@ -175,13 +182,13 @@ case "$command" in
             fi
           done
           # Commit template changes
-          domain=$(xenstore_read "$XENBUS_PATH/domain")
+          domain=$(cat "$HOTPLUG_STORE-domain")
           if [ "$domain" ]; then
             # Dont stop on errors
             /usr/bin/qvm-template-commit "$domain" || true
           fi
         fi
-	
+
         if [ -e $node ]; then
           log debug "Removing $node"
           dmsetup remove $node
