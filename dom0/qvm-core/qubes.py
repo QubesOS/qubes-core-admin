@@ -1217,7 +1217,7 @@ class QubesTemplateVm(QubesVm):
         if dry_run:
             return
         if os.path.exists (self.rootcow_img):
-           os.remove (self.rootcow_img)
+           os.rename (self.rootcow_img, self.rootcow_img + '.old')
 
         f_cow = open (self.rootcow_img, "w")
         f_root = open (self.root_img, "r")
