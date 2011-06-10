@@ -121,7 +121,7 @@ def main():
             break
         print "\r-> Reverting template changes: {0} of {1} left".format(blocks_used, root_blocks),
         time.sleep(1)
-    print "\r-> Reverting template changes: done".format(blocks_used, root_blocks)
+    print "\r-> Reverting template changes: done                  ".format(blocks_used, root_blocks)
 
     dm_table_elements[2] = 'snapshot'
     dm_table = ' '.join(dm_table_elements)
