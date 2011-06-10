@@ -31,7 +31,6 @@ import re
 import shutil
 import uuid
 import time
-import resource
 from datetime import datetime
 from qmemman_client import QMemmanClient
 
@@ -885,21 +884,13 @@ class QubesVm(object):
         # refresh config file
         self.create_config_file()
 
-        limit_memlock = resource.getrlimit(resource.RLIMIT_MEMLOCK)
-        # try to increase limit if needed
-        if limit_memlock[0] < int(self.memory) * 1024:
-            # intentionally don't catch exceptions - if it fails - there is no
-            # memory for new VM
-            resource.setrlimit(resource.RLIMIT_MEMLOCK,
-                    (int(self.memory) * 1024, limit_memlock[1]))
-
         mem_required = int(self.memory) * 1024 * 1024
         qmemman_client = QMemmanClient()
         if not qmemman_client.request_memory(mem_required):
             qmemman_client.close()
             raise MemoryError ("ERROR: insufficient memory to start this VM")
 
-        xl_cmdline = ['/usr/sbin/xl', 'create', self.conf_file, '-p']
+        xl_cmdline = ['sudo', '/usr/sbin/xl', 'create', self.conf_file, '-p']
 
         try:
             subprocess.check_call(xl_cmdline)
