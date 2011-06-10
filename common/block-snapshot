@@ -7,6 +7,8 @@
 dir=$(dirname "$0")
 . "$dir/block-common.sh"
 
+shopt -s nullglob
+
 HOTPLUG_STORE="/var/run/xen-hotplug/${XENBUS_PATH//\//-}"
 
 get_dev() {
