@@ -40,6 +40,7 @@ def do_list(vm):
     print fmt.format ("installed by RPM?", vm.installed_by_rpm)
     print fmt.format ("dir", vm.dir_path)
     print fmt.format ("config", vm.conf_file)
+    print fmt.format ("pcidevs", vm.pcidevs)
     if not vm.is_appvm():
         print fmt.format ("root img", vm.root_img)
     if vm.is_template():
@@ -78,6 +79,12 @@ def set_maxmem(vms, vm, args):
         print "Missing maxmem argument!"
 
     vm.maxmem = int(args[0])
+
+def set_pcidevs(vms, vm, args):
+    if len (args) != 1:
+        print "Missing memory argument!"
+
+    vm.pcidevs = args[0]
 
 def set_netvm(vms, vm, args):
     if len (args) != 1:
@@ -164,6 +171,7 @@ def set_nonupdateable(vms, vm, args):
 properties = {
     "updateable": set_updateable,
     "nonupdateable": set_nonupdateable,
+    "pcidevs": set_pcidevs,
     "label" : set_label,
     "netvm" : set_netvm,
     "maxmem" : set_maxmem,
