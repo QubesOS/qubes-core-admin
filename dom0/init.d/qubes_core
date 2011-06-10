@@ -37,6 +37,11 @@ start()
     chmod 660 /proc/xen/privcmd
     chgrp qubes /dev/xen/evtchn
     chmod 660 /dev/xen/evtchn
+    touch /var/run/qubes/xl-lock
+    chgrp qubes /var/run/qubes/xl-lock
+    chmod 660 /var/run/qubes/xl-lock
+
+    xenstore-write /local/domain/0/name Domain-0
     
     xl sched-credit -d 0 -w 512
     cp /var/lib/qubes/qubes.xml /var/lib/qubes/backup/qubes-$(date +%F-%T).xml
