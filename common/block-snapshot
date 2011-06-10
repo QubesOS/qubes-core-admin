@@ -131,8 +131,11 @@ case "$command" in
           write_dev /dev/mapper/$dm_devname
         fi
         # Save domain name for template commit on device remove
-        domid=$(xenstore_read "$XENBUS_PATH/frontend-id")
-        domain=$(xl domname $domid)
+        domain=$(xenstore_read_default "$XENBUS_PATH/domain" '')
+        if [ -z "$domain" ]; then
+          domid=$(xenstore_read "$XENBUS_PATH/frontend-id")
+          domain=$(xl domname $domid)
+        fi
         echo $domain > "$HOTPLUG_STORE-domain"
 
         release_lock "block"
