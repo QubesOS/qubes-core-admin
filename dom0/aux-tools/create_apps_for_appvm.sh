@@ -42,6 +42,7 @@ if [ "$SRCDIR" != "none" ]; then
     else
         find $SRCDIR -name "*.desktop" $CHECK_WHITELISTED -exec /usr/lib/qubes/convert_apptemplate2vm.sh {} $APPSDIR $VMNAME $VMDIR \;
     fi
+    /usr/lib/qubes/convert_apptemplate2vm.sh /usr/share/qubes/qubes-appmenu-select.template $APPSDIR $VMNAME $VMDIR
 
     /usr/lib/qubes/convert_dirtemplate2vm.sh $SRCDIR/qubes-*.directory.template $APPSDIR/$VMNAME-vm.directory $VMNAME $VMDIR
 fi
