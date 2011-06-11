@@ -482,6 +482,9 @@ void handle_trigger_io()
 		else if (!strcmp(buf, "DVMR"))
 			s_hdr.client_id =
 			    QREXEC_EXECUTE_FILE_COPY_FOR_DISPVM;
+		else if (!strcmp(buf, "SYNC"))
+			s_hdr.client_id =
+			    QREXEC_EXECUTE_APPMENUS_SYNC;
 		if (s_hdr.client_id) {
 			s_hdr.type = MSG_AGENT_TO_SERVER_TRIGGER_EXEC;
 			write_all_vchan_ext(&s_hdr, sizeof s_hdr);

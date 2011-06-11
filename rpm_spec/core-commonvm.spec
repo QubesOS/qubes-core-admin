@@ -33,6 +33,7 @@ License:	GPL
 URL:		http://www.qubes-os.org
 Requires:	/usr/bin/xenstore-read
 Requires:   fedora-release
+Requires:   yum-plugin-post-transaction-actions
 BuildRequires: xen-devel
 
 %define _builddir %(pwd)/common
@@ -78,6 +79,10 @@ mkdir -p $RPM_BUILD_ROOT/etc/udev/rules.d
 cp qubes_network.rules $RPM_BUILD_ROOT/etc/udev/rules.d/
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes/
 cp setup_ip $RPM_BUILD_ROOT/usr/lib/qubes/
+mkdir -p $RPM_BUILD_ROOT/etc/yum/post-actions
+cp qubes_trigger_sync_appmenus.action $RPM_BUILD_ROOT/etc/yum/post-actions/
+mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
+cp qubes_trigger_sync_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 
 %triggerin -- initscripts
 cp /var/lib/qubes/serial.conf /etc/init/serial.conf
@@ -226,3 +231,5 @@ rm -rf $RPM_BUILD_ROOT
 /usr/bin/xenstore-watch-qubes
 /etc/udev/rules.d/qubes_network.rules
 /usr/lib/qubes/setup_ip
+/etc/yum/post-actions/qubes_trigger_sync_appmenus.action
+/usr/lib/qubes/qubes_trigger_sync_appmenus.sh
