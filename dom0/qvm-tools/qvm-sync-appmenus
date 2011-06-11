@@ -154,7 +154,8 @@ def main():
         print "ERROR: No appmenus received, terminating"
         exit(1)
 
-    assert os.path.exists(vm.appmenus_templates_dir)
+    if not os.path.exists(vm.appmenus_templates_dir):
+        os.mkdir(vm.appmenus_templates_dir)
 
     # Create new/update existing templates
     if options.verbose:
