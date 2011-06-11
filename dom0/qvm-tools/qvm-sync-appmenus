@@ -79,10 +79,10 @@ def get_appmenus(xid):
 
                     appmenus[filename][key]=value
                 else:
-                    print "Warning: ignoring key %s: %s" % (untrusted_key, untrusted_value)
+                    print >>sys.stderr, "Warning: ignoring key %s: %s" % (untrusted_key, untrusted_value)
             # else: ignore this key
         else:
-            print "Warning: ignoring line: %s" % (untrusted_line);
+            print >>sys.stderr, "Warning: ignoring line: %s" % (untrusted_line);
 
     return appmenus
 
@@ -92,7 +92,7 @@ def create_template(path, values):
     # check if all required fields are present
     for key in required_fields:
         if not values.has_key(key):
-            print "Warning: not creating/updating '%s' because of missing '%s' key" % (path, key)
+            print >>sys.stderr, "Warning: not creating/updating '%s' because of missing '%s' key" % (path, key)
             return
 
     desktop_file = open(path, "w")
@@ -140,15 +140,15 @@ def main():
     vm = qvm_collection.get_vm_by_name(vmname)
 
     if vm is None:
-        print "ERROR: A VM with the name '{0}' does not exist in the system.".format(vmname)
+        print >>sys.stderr, "ERROR: A VM with the name '{0}' does not exist in the system.".format(vmname)
         exit(1)
 
     if not vm.is_updateable():
-        print "ERROR: To sync appmenus for non-updateable VM, do it on template instead"
+        print >>sys.stderr, "ERROR: To sync appmenus for non-updateable VM, do it on template instead"
         exit(1)
 
     if not vm.is_running():
-        print "ERROR: Appmenus can be retrieved only from running VM - start it first"
+        print >>sys.stderr, "ERROR: Appmenus can be retrieved only from running VM - start it first"
         exit(1)
 
     new_appmenus = {}
@@ -159,10 +159,11 @@ def main():
 
         new_appmenus = get_appmenus(xid)
     else:
+        options.verbose = False
         new_appmenus = get_appmenus(-1)
 
     if len(new_appmenus) == 0:
-        print "ERROR: No appmenus received, terminating"
+        print >>sys.stderr, "ERROR: No appmenus received, terminating"
         exit(1)
 
     if not os.path.exists(vm.appmenus_templates_dir):
