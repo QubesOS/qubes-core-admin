@@ -25,6 +25,7 @@ import re
 import os
 import sys
 import fnmatch
+import shutil
 from optparse import OptionParser
 from qubes.qubes import QubesVmCollection,QubesException
 from qubes.qubes import qrexec_client_path
@@ -156,6 +157,10 @@ def main():
 
     if not os.path.exists(vm.appmenus_templates_dir):
         os.mkdir(vm.appmenus_templates_dir)
+        if vm.is_template():
+            shutil.copy('/usr/share/qubes/qubes-templatevm.directory.template', vm.appmenus_templates_dir)
+        else:
+            shutil.copy('/usr/share/qubes/qubes-vm.directory.template', vm.appmenus_templates_dir)
 
     # Create new/update existing templates
     if options.verbose:
@@ -181,9 +186,3 @@ def main():
             os.unlink(vm.appmenus_templates_dir + '/' + appmenu_file)
 
 main()
-
-
-
-    
-    
-
