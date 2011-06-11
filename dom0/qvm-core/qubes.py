@@ -136,6 +136,9 @@ class QubesHost(object):
                 current[vm['domid']]['cpu_usage'] = \
                     float(current[vm['domid']]['cpu_time'] - previous[vm['domid']]['cpu_time']) \
                     / long(1000**3) / (current_time-previous_time) * 100
+                if current[vm['domid']]['cpu_usage'] < 0:
+                    # VM has been rebooted
+                    current[vm['domid']]['cpu_usage'] = 0
             else:
                 current[vm['domid']]['cpu_usage'] = 0
 
