@@ -44,12 +44,15 @@ fields_regexp = {
 }
 
 def get_appmenus(xid):
-    p = subprocess.Popen ([qrexec_client_path, '-d', str(xid),
-            'user:grep -H = /usr/share/applications/*.desktop'], stdout=subprocess.PIPE)
-    untrusted_appmenulist = p.communicate()[0].split('\n')
-    if p.returncode != 0:
-        raise QubesException("Error getting application list")
-    
+    untrusted_appmenulist = []
+    if xid == -1:
+        untrusted_appmenulist = sys.stdin.readlines()
+    else:
+        p = subprocess.Popen ([qrexec_client_path, '-d', str(xid),
+                'user:grep -H = /usr/share/applications/*.desktop'], stdout=subprocess.PIPE)
+        untrusted_appmenulist = p.communicate()[0].split('\n')
+        if p.returncode != 0:
+            raise QubesException("Error getting application list")
 
     row_no = 0
     appmenus = {}
@@ -113,7 +116,7 @@ def create_template(path, values):
 
 def main():
 
-
+    env_vmname = os.environ.get("QREXEC_REMOTE_DOMAIN")
     usage = "usage: %prog [options] <vm-name>\n"\
             "Updates desktop file templates for given StandaloneVM or TemplateVM"
 
@@ -121,10 +124,13 @@ def main():
     parser.add_option ("-v", "--verbose", action="store_true", dest="verbose", default=False)
 
     (options, args) = parser.parse_args ()
-    if (len (args) != 1):
+    if (len (args) != 1) and env_vmname is None:
         parser.error ("You must specify at least the VM name!")
 
-    vmname=args[0]
+    if env_vmname:
+        vmname=env_vmname
+    else:
+        vmname=args[0]
 
     qvm_collection = QubesVmCollection()
     qvm_collection.lock_db_for_reading()
@@ -145,11 +151,15 @@ def main():
         print "ERROR: Appmenus can be retrieved only from running VM - start it first"
         exit(1)
 
-    # Get appmenus from VM
-    xid = vm.get_xid()
-    assert xid > 0
+    new_appmenus = {}
+    if env_vmname is None:
+        # Get appmenus from VM
+        xid = vm.get_xid()
+        assert xid > 0
 
-    new_appmenus = get_appmenus(xid)
+        new_appmenus = get_appmenus(xid)
+    else:
+        new_appmenus = get_appmenus(-1)
 
     if len(new_appmenus) == 0:
         print "ERROR: No appmenus received, terminating"
