@@ -74,6 +74,8 @@ default_firewall_conf_file = "firewall.xml"
 default_memory = 400
 default_servicevm_vcpus = 1
 
+dom0_update_check_interval = 6*3600
+
 # do not allow to start a new AppVM if Dom0 mem was to be less than this
 dom0_min_memory = 700*1024*1024
 
@@ -937,6 +939,13 @@ class QubesVm(object):
                 print "--> Preparing config template for DispVM"
             self.create_config_file(file_path = self.dir_path + '/dvm.conf', prepare_dvm = True)
 
+        if qvm_collection.updatevm_qid == self.qid:
+            # Sync RPMDB
+            subprocess.call(["/usr/lib/qubes/sync_rpmdb_updatevm.sh"])
+            # Start polling
+            subprocess.call([qrexec_client_path, '-d', xid, '-e',
+                    "while true; do sleep %d; /usr/lib/qubes/qubes_download_dom0_updates.sh; done" % dom0_update_check_interval])
+
         # perhaps we should move it before unpause and fork?
         # FIXME: this uses obsolete xm api
         if debug_console:
@@ -1609,6 +1618,7 @@ class QubesVmCollection(dict):
         self.default_netvm_qid = None
         self.default_fw_netvm_qid = None
         self.default_template_qid = None
+        self.updatevm_qid = None
         self.qubes_store_filename = store_filename
 
     def values(self):
@@ -1769,6 +1779,15 @@ class QubesVmCollection(dict):
         else:
             return self[self.default_fw_netvm_qid]
 
+    def set_updatevm_vm(self, vm):
+        self.updatevm_qid = vm.qid
+
+    def get_updatevm_vm(self):
+        if self.updatevm_qid is None:
+            return None
+        else:
+            return self[self.updatevm_qid]
+
     def get_vm_by_name(self, name):
         for vm in self.values():
             if (vm.name == name):
@@ -1872,7 +1891,10 @@ class QubesVmCollection(dict):
             if self.default_netvm_qid is not None else "None",
 
             default_fw_netvm=str(self.default_fw_netvm_qid) \
-            if self.default_fw_netvm_qid is not None else "None"
+            if self.default_fw_netvm_qid is not None else "None",
+
+            updatevm=str(self.updatevm_qid) \
+            if self.updatevm_qid is not None else "None"
         )
 
         for vm in self.values():
@@ -2001,6 +2023,13 @@ class QubesVmCollection(dict):
             self.default_fw_netvm_qid = int(default_fw_netvm) \
                     if default_fw_netvm != "None" else None
             #assert self.default_netvm_qid is not None
+
+        updatevm = element.get("updatevm")
+        if updatevm is not None:
+            self.updatevm_qid = int(updatevm) \
+                    if updatevm != "None" else None
+            #assert self.default_netvm_qid is not None
+
 
         # Then, read in the TemplateVMs, because a reference to template VM
         # is needed to create each AppVM
