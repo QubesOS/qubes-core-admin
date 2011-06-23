@@ -196,6 +196,7 @@ fi
 
 # Load evtchn module - xenstored needs it
 modprobe evtchn
+service xenstored start
 
 if ! [ -e /var/lib/qubes/qubes.xml ]; then
 #    echo "Initializing Qubes DB..."
