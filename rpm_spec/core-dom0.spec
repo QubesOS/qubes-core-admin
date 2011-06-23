@@ -138,8 +138,6 @@ mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
 cp ../common/iptables $RPM_BUILD_ROOT/etc/sysconfig
 mkdir -p $RPM_BUILD_ROOT/etc/security/limits.d
 cp misc/limits-qubes.conf $RPM_BUILD_ROOT/etc/security/limits.d/99-qubes.conf
-mkdir -p $RPM_BUILD_ROOT/etc/xen/
-cp misc/xl.conf $RPM_BUILD_ROOT/etc/xen/
 
 mkdir -p $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d
 cp pm-utils/01qubes-sync-vms-clock $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
@@ -169,6 +167,10 @@ fi
 /usr/lib/qubes/qubes_fix_nm_conf.sh
 
 sed 's/^net.ipv4.ip_forward.*/net.ipv4.ip_forward = 1/'  -i /etc/sysctl.conf
+
+sed '/^autoballoon=/d;/^lockfile=/d' -i /etc/xen/xl.conf
+echo 'autoballoon=0' >> /etc/xen/xl.conf
+echo 'lockfile="/var/run/qubes/xl-lock"' >> /etc/xen/xl.conf
 
 sed '/^reposdir=/d' -i /etc/yum.conf
 echo reposdir=/etc/yum.real.repos.d >> /etc/yum.conf
@@ -321,5 +323,4 @@ fi
 /etc/sudoers.d/qubes
 /etc/xdg/autostart/qubes-guid.desktop
 /etc/security/limits.d/99-qubes.conf
-/etc/xen/xl.conf
 /etc/yum/post-actions/qubes_sync_rpmdb_updatevm.action
