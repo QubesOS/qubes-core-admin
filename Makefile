@@ -29,23 +29,28 @@ rpms-vaio-fixes:
 update-repo-current:
 	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION_DOM0)*fc13*.rpm ../yum/current-release/current/dom0/rpm/
 	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-vaio-fixes-$(VERSION_VAIO_FIXES)*fc13*.rpm ../yum/current-release/current/dom0/rpm/
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*fc13*.rpm ../yum/current-release/current/vm/f13/rpm/
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*fc14*.rpm ../yum/current-release/current/vm/f14/rpm/
+	for vmrepo in ../yum/current-release/current/vm/* ; do \
+		dist=$$(basename $$vmrepo) ;\
+		ln -f $(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*$$dist*.rpm $$vmrepo/rpm/ ;\
+	done
 	cd ../yum && ./update_repo.sh
 
 update-repo-current-testing:
 	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION_DOM0)*fc13*.rpm ../yum/current-release/current-testing/dom0/rpm/
 	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-vaio-fixes-$(VERSION_VAIO_FIXES)*fc13*.rpm ../yum/current-release/current-testing/dom0/rpm/
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*fc13*.rpm ../yum/current-release/current-testing/vm/f13/rpm/
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*fc14*.rpm ../yum/current-release/current-testing/vm/f14/rpm/
+	for vmrepo in ../yum/current-release/current-testing/vm/* ; do \
+		dist=$$(basename $$vmrepo) ;\
+		ln -f $(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*$$dist*.rpm $$vmrepo/rpm/ ;\
+	done
 	cd ../yum && ./update_repo.sh
-
 
 update-repo-unstable:
 	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION_DOM0)*fc13*.rpm ../yum/current-release/unstable/dom0/rpm/
 	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-vaio-fixes-$(VERSION_VAIO_FIXES)*fc13*.rpm ../yum/current-release/unstable/dom0/rpm/
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*fc13*.rpm ../yum/current-release/unstable/vm/f13/rpm/
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*fc14*.rpm ../yum/current-release/unstable/vm/f14/rpm/
+	for vmrepo in ../yum/current-release/unstable/vm/* ; do \
+		dist=$$(basename $$vmrepo) ;\
+		ln -f $(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*$$dist*.rpm $$vmrepo/rpm/ ;\
+	done
 	cd ../yum && ./update_repo.sh
 
 update-repo-installer:
