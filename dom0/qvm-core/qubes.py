@@ -29,6 +29,8 @@ import xml.parsers.expat
 import fcntl
 import re
 import shutil
+import uuid
+import time
 from datetime import datetime
 from qmemman_client import QMemmanClient
 
@@ -39,14 +41,14 @@ dry_run = False
 
 
 if not dry_run:
-    # Xen API
-    import xmlrpclib
-    from xen.xm import XenAPI
-    from xen.xend import sxp
+    import xen.lowlevel.xc
+    import xen.lowlevel.xl
+    import xen.lowlevel.xs
 
 
 qubes_guid_path = "/usr/bin/qubes_guid"
 qrexec_daemon_path = "/usr/lib/qubes/qrexec_daemon"
+qrexec_client_path = "/usr/lib/qubes/qrexec_client"
 
 qubes_base_dir   = "/var/lib/qubes"
 
@@ -55,6 +57,7 @@ qubes_templates_dir = qubes_base_dir + "/vm-templates"
 qubes_servicevms_dir = qubes_base_dir + "/servicevms"
 qubes_store_filename = qubes_base_dir + "/qubes.xml"
 
+qubes_max_xid = 1024
 qubes_max_qid = 254
 qubes_max_netid = 254
 vm_default_netmask = "255.255.255.0"
@@ -64,15 +67,14 @@ default_rootcow_img = "root-cow.img"
 default_volatile_img = "volatile.img"
 default_clean_volatile_img = "clean-volatile.img.tar"
 default_private_img = "private.img"
-default_appvms_conf_file = "appvm-template.conf"
-default_netvms_conf_file = "netvm-template.conf"
-default_standalonevms_conf_file = "standalone-template.conf"
-default_templatevm_conf_template = "templatevm.conf" # needed for TemplateVM cloning
 default_appmenus_templates_subdir = "apps.templates"
+default_appmenus_template_templates_subdir = "apps-template.templates"
 default_kernels_subdir = "kernels"
 default_firewall_conf_file = "firewall.xml"
 default_memory = 400
 default_servicevm_vcpus = 1
+
+dom0_update_check_interval = 6*3600
 
 # do not allow to start a new AppVM if Dom0 mem was to be less than this
 dom0_min_memory = 700*1024*1024
@@ -84,41 +86,19 @@ dom0_vm = None
 qubes_appmenu_create_cmd = "/usr/lib/qubes/create_apps_for_appvm.sh"
 qubes_appmenu_remove_cmd = "/usr/lib/qubes/remove_appvm_appmenus.sh"
 
-class XendSession(object):
-    def __init__(self):
-        self.get_xend_session_old_api()
-        self.get_xend_session_new_api()
-
-    def get_xend_session_old_api(self):
-        from xen.xend import XendClient
-        from xen.util.xmlrpcclient import ServerProxy
-        self.xend_server = ServerProxy(XendClient.uri)
-        if self.xend_server is None:
-            print "get_xend_session_old_api(): cannot open session!"
-
-
-    def get_xend_session_new_api(self):
-        xend_socket_uri = "httpu:///var/run/xend/xen-api.sock"
-        self.session = XenAPI.Session (xend_socket_uri)
-        self.session.login_with_password ("", "")
-        if self.session is None:
-            print "get_xend_session_new_api(): cannot open session!"
-
-
-if not dry_run:
-    xend_session = XendSession()
-
 class QubesException (Exception) : pass
 
+if not dry_run:
+    xc = xen.lowlevel.xc.xc()
+    xs = xen.lowlevel.xs.xs()
+    xl_ctx = xen.lowlevel.xl.ctx()
 
 class QubesHost(object):
     def __init__(self):
-        self.hosts = xend_session.session.xenapi.host.get_all()
-        self.host_record = xend_session.session.xenapi.host.get_record(self.hosts[0])
-        self.host_metrics_record = xend_session.session.xenapi.host_metrics.get_record(self.host_record["metrics"])
+        self.physinfo = xc.physinfo()
 
-        self.xen_total_mem = long(self.host_metrics_record["memory_total"])
-        self.xen_no_cpus = len (self.host_record["host_CPUs"])
+        self.xen_total_mem = long(self.physinfo['total_memory'])
+        self.xen_no_cpus = self.physinfo['nr_cpus']
 
 #        print "QubesHost: total_mem  = {0}B".format (self.xen_total_mem)
 #        print "QubesHost: free_mem   = {0}".format (self.get_free_xen_memory())
@@ -133,8 +113,38 @@ class QubesHost(object):
         return self.xen_no_cpus
 
     def get_free_xen_memory(self):
-        ret = self.host_metrics_record["memory_free"]
+        ret = self.physinfo['free_memory']
         return long(ret)
+
+    # measure cpu usage for all domains at once
+    def measure_cpu_usage(self, previous=None, previous_time = None, wait_time=1):
+        if previous is None:
+            previous_time = time.time()
+            previous = {}
+            info = xc.domain_getinfo(0, qubes_max_xid)
+            for vm in info:
+                previous[vm['domid']] = {}
+                previous[vm['domid']]['cpu_time'] = vm['cpu_time']/vm['online_vcpus']
+                previous[vm['domid']]['cpu_usage'] = 0
+            time.sleep(wait_time)
+
+        current_time = time.time()
+        current = {}
+        info = xc.domain_getinfo(0, qubes_max_xid)
+        for vm in info:
+            current[vm['domid']] = {}
+            current[vm['domid']]['cpu_time'] = vm['cpu_time']/max(vm['online_vcpus'],1)
+            if vm['domid'] in previous.keys():
+                current[vm['domid']]['cpu_usage'] = \
+                    float(current[vm['domid']]['cpu_time'] - previous[vm['domid']]['cpu_time']) \
+                    / long(1000**3) / (current_time-previous_time) * 100
+                if current[vm['domid']]['cpu_usage'] < 0:
+                    # VM has been rebooted
+                    current[vm['domid']]['cpu_usage'] = 0
+            else:
+                current[vm['domid']]['cpu_usage'] = 0
+
+        return (current_time, current)
 
 class QubesVmLabel(object):
     def __init__(self, name, index, color = None, icon = None):
@@ -178,6 +188,7 @@ class QubesVm(object):
                  root_img = None,
                  private_img = None,
                  memory = default_memory,
+                 maxmem = None,
                  template_vm = None,
                  firewall_conf = None,
                  volatile_img = None,
@@ -245,6 +256,13 @@ class QubesVm(object):
 
         self.memory = memory
 
+        if maxmem is None:
+            host = QubesHost()
+            total_mem_mb = host.memory_total/1024
+            self.maxmem = total_mem_mb/2
+        else:
+            self.maxmem = maxmem
+
         self.template_vm = template_vm
         if template_vm is not None:
             if updateable:
@@ -259,6 +277,14 @@ class QubesVm(object):
         else:
             assert self.root_img is not None, "Missing root_img for standalone VM!"
 
+        if template_vm is not None:
+            self.kernels_dir = template_vm.kernels_dir
+        else:
+            self.kernels_dir = self.dir_path + "/" + default_kernels_subdir
+
+        if updateable:
+            self.appmenus_templates_dir = self.dir_path + "/" + default_appmenus_templates_subdir
+
         # By default allow use all VCPUs
         if vcpus is None:
             qubes_host = QubesHost()
@@ -269,8 +295,8 @@ class QubesVm(object):
         # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
         self.internal = internal
 
-        if not dry_run and xend_session.session is not None:
-            self.refresh_xend_session()
+        self.xid = -1
+        self.xid = self.get_xid()
 
     @property
     def qid(self):
@@ -343,115 +369,85 @@ class QubesVm(object):
     def is_disposablevm(self):
         return isinstance(self, QubesDisposableVm)
 
-    def add_to_xen_storage(self):
+    def get_xl_dominfo(self):
         if dry_run:
             return
 
-        retcode = subprocess.call (["/usr/sbin/xm", "new", "-q",  self.conf_file])
-        if retcode != 0:
-            raise OSError ("Cannot add VM '{0}' to Xen Store!".format(self.name))
+        domains = xl_ctx.list_domains()
+        for dominfo in domains:
+            domname = xl_ctx.domid_to_name(dominfo.domid)
+            if domname == self.name:
+                return dominfo
+        return None
 
-        return True
-
-    def remove_from_xen_storage(self):
+    def get_xc_dominfo(self):
         if dry_run:
             return
 
-        retcode = subprocess.call (["/usr/sbin/xm", "delete", self.name])
-        if retcode != 0:
-            raise OSError ("Cannot remove VM '{0}' from Xen Store!".format(self.name))
-
-        self.in_xen_storage = False
-
-    def refresh_xend_session(self):
-        uuids = xend_session.session.xenapi.VM.get_by_name_label (self.name)
-        self.session_uuid = uuids[0] if len (uuids) > 0 else None
-        if self.session_uuid is not None:
-            self.session_metrics = xend_session.session.xenapi.VM.get_metrics(self.session_uuid)
-        else:
-            self.session_metrics = None
-
-    def update_xen_storage(self):
+        start_xid = self.xid
+        if start_xid < 0:
+            start_xid = 0
         try:
-            self.remove_from_xen_storage()
-        except OSError as ex:
-            print "WARNING: {0}. Continuing anyway...".format(str(ex))
-            pass
-        self.add_to_xen_storage()
-        if not dry_run and xend_session.session is not None:
-            self.refresh_xend_session()
+            domains = xc.domain_getinfo(start_xid, qubes_max_xid-start_xid)
+        except xen.lowlevel.xc.Error:
+            return None
+
+        for dominfo in domains:
+            domname = xl_ctx.domid_to_name(dominfo['domid'])
+            if domname == self.name:
+                return dominfo
+        return None
 
     def get_xid(self):
         if dry_run:
             return 666
 
-        try:
-            xid = int (xend_session.session.xenapi.VM.get_domid (self.session_uuid))
-        except XenAPI.Failure:
-            self.refresh_xend_session()
-            xid = int (xend_session.session.xenapi.VM.get_domid (self.session_uuid))
+        dominfo = self.get_xc_dominfo()
+        if dominfo:
+            self.xid = dominfo['domid']
+            return self.xid
+        else:
+            return -1
 
-        return xid
+    def get_uuid(self):
+
+        dominfo = self.get_xl_dominfo()
+        if dominfo:
+            uuid = uuid.UUID(''.join('%02x' % b for b in dominfo.uuid))
+            return uuid
+        else:
+            return None
 
     def get_mem(self):
         if dry_run:
             return 666
 
-        try:
-            mem = int (xend_session.session.xenapi.VM_metrics.get_memory_actual (self.session_metrics))
-        except XenAPI.Failure:
-            self.refresh_xend_session()
-            mem = int (xend_session.session.xenapi.VM_metrics.get_memory_actual (self.session_metrics))
-
-        return mem
+        dominfo = self.get_xc_dominfo()
+        if dominfo:
+            return dominfo['mem_kb']
+        else:
+            return 0
 
     def get_mem_static_max(self):
         if dry_run:
             return 666
 
-        try:
-            mem = int(xend_session.session.xenapi.VM.get_memory_static_max(self.session_uuid))
-        except XenAPI.Failure:
-            self.refresh_xend_session()
-            mem = int(xend_session.session.xenapi.VM.get_memory_static_max(self.session_uuid))
+        dominfo = self.get_xc_dominfo()
+        if dominfo:
+            return dominfo['maxmem_kb']
+        else:
+            return 0
 
-        return mem
-
-    def get_mem_dynamic_max(self):
-        if dry_run:
-            return 666
-
-        try:
-            mem = int(xend_session.session.xenapi.VM.get_memory_dynamic_max(self.session_uuid))
-        except XenAPI.Failure:
-            self.refresh_xend_session()
-            mem = int(xend_session.session.xenapi.VM.get_memory_dynamic_max(self.session_uuid))
-
-        return mem
-
-
-    def get_cpu_total_load(self):
+    def get_per_cpu_time(self):
         if dry_run:
             import random
             return random.random() * 100
 
-        try:
-            cpus_util = xend_session.session.xenapi.VM_metrics.get_VCPUs_utilisation (self.session_metrics)
-        except XenAPI.Failure:
-            self.refresh_xend_session()
-            cpus_util = xend_session.session.xenapi.VM_metrics.get_VCPUs_utilisation (self.session_metrics)
-
-        if len (cpus_util) == 0:
+        dominfo = self.get_xc_dominfo()
+        if dominfo:
+            return dominfo['cpu_time']/dominfo['online_vcpus']
+        else:
             return 0
-
-        cpu_total_load = 0.0
-        for cpu in cpus_util:
-            cpu_total_load += cpus_util[cpu]
-        cpu_total_load /= len(cpus_util)
-        p = 100*cpu_total_load
-        if p > 100:
-            p = 100
-        return p
 
     def get_disk_utilization_root_img(self):
         if not os.path.exists(self.root_img):
@@ -469,15 +465,22 @@ class QubesVm(object):
         if dry_run:
             return "NA"
 
-        try:
-            power_state = xend_session.session.xenapi.VM.get_power_state (self.session_uuid)
-        except XenAPI.Failure:
-            self.refresh_xend_session()
-            if self.session_uuid is None:
-                return "NA"
-            power_state = xend_session.session.xenapi.VM.get_power_state (self.session_uuid)
+        dominfo = self.get_xc_dominfo()
+        if dominfo:
+            if dominfo['paused']:
+                return "Paused"
+            elif dominfo['shutdown']:
+                return "Halted"
+            elif dominfo['crashed']:
+                return "Crashed"
+            elif dominfo['dying']:
+                return "Dying"
+            else:
+                return "Running"
+        else:
+            return 'Halted'
 
-        return power_state
+        return "NA"
 
     def is_running(self):
         if self.get_power_state() == "Running":
@@ -491,6 +494,20 @@ class QubesVm(object):
         else:
             return False
 
+    def get_start_time(self):
+        if not self.is_running():
+            return 0
+
+        dominfo = self.get_xl_dominfo()
+
+        uuid = self.get_uuid()
+
+        xs_trans = xs.transaction_start()
+        start_time = xs.read(xs_trans, "/vm/%s/start_time" % str(uuid))
+        xs.transaction_end()
+
+        return start_time
+
     def is_outdated(self):
         # Makes sense only on VM based on template
         if self.template_vm is None:
@@ -501,17 +518,14 @@ class QubesVm(object):
 
         rootimg_inode = os.stat(self.template_vm.root_img)
         rootcow_inode = os.stat(self.template_vm.rootcow_img)
-       
+
         current_dmdev = "/dev/mapper/snapshot-{0:x}:{1}-{2:x}:{3}".format(
                 rootimg_inode[2], rootimg_inode[1],
                 rootcow_inode[2], rootcow_inode[1])
 
         # Don't know why, but 51712 is xvda
         #  backend node name not available through xenapi :(
-        p = subprocess.Popen (["xenstore-read", 
-            "/local/domain/0/backend/vbd/{0}/51712/node".format(self.get_xid())],
-                              stdout=subprocess.PIPE)
-        used_dmdev = p.communicate()[0].strip()
+        used_dmdev = xs.read('', "/local/domain/0/backend/vbd/{0}/51712/node".format(self.get_xid()))
 
         return used_dmdev != current_dmdev
 
@@ -542,91 +556,120 @@ class QubesVm(object):
         f_private.truncate (size)
         f_private.close ()
 
+    def cleanup_vifs(self):
+        """
+        Xend does not remove vif when backend domain is down, so we must do it
+        manually
+        """
+
+        if not self.is_running():
+            return
+
+        p = subprocess.Popen (["/usr/sbin/xl", "network-list", self.name],
+                 stdout=subprocess.PIPE)
+        result = p.communicate()
+        for line in result[0].split('\n'):
+            m = re.match(r"^(\d+)\s*(\d+)", line)
+            if m:
+                retcode = subprocess.call(["/usr/sbin/xl", "list", m.group(2)],
+                        stderr=subprocess.PIPE)
+                if retcode != 0:
+                    # Don't check retcode - it always will fail when backend domain is down
+                    subprocess.call(["/usr/sbin/xl",
+                            "network-detach", self.name, m.group(1)], stderr=subprocess.PIPE)
+
     def create_xenstore_entries(self, xid):
         if dry_run:
             return
 
-        # Set Xen Store entires with VM networking info:
+        domain_path = xs.get_domain_path(xid)
 
-        retcode = subprocess.check_call ([
-                "/usr/bin/xenstore-write",
-                "/local/domain/{0}/qubes_vm_type".format(xid),
-                self.type])
+        # Set Xen Store entires with VM networking info:
+        xs_trans = xs.transaction_start()
+
+        xs.write(xs_trans, "{0}/qubes_vm_type".format(domain_path),
+                self.type)
+        xs.write(xs_trans, "{0}/qubes_vm_updateable".format(domain_path),
+                str(self.updateable))
 
         if self.is_netvm():
-            retcode = subprocess.check_call ([
-                "/usr/bin/xenstore-write",
-                "/local/domain/{0}/qubes_netvm_gateway".format(xid),
-                self.gateway])
-
-            retcode = subprocess.check_call ([
-                "/usr/bin/xenstore-write",
-                "/local/domain/{0}/qubes_netvm_secondary_dns".format(xid),
-                self.secondary_dns])
-
-            retcode = subprocess.check_call ([
-                "/usr/bin/xenstore-write",
-                "/local/domain/{0}/qubes_netvm_netmask".format(xid),
-                self.netmask])
-
-            retcode = subprocess.check_call ([
-                "/usr/bin/xenstore-write",
-                "/local/domain/{0}/qubes_netvm_network".format(xid),
-                self.network])
+            xs.write(xs_trans,
+                    "{0}/qubes_netvm_gateway".format(domain_path),
+                    self.gateway)
+            xs.write(xs_trans,
+                    "{0}/qubes_netvm_secondary_dns".format(domain_path),
+                    self.secondary_dns)
+            xs.write(xs_trans,
+                    "{0}/qubes_netvm_netmask".format(domain_path),
+                    self.netmask)
+            xs.write(xs_trans,
+                    "{0}/qubes_netvm_network".format(domain_path),
+                    self.network)
 
         if self.netvm_vm is not None:
-            retcode = subprocess.check_call ([
-                "/usr/bin/xenstore-write",
-                "/local/domain/{0}/qubes_ip".format(xid),
-                self.ip])
+            xs.write(xs_trans, "{0}/qubes_ip".format(domain_path), self.ip)
+            xs.write(xs_trans, "{0}/qubes_netmask".format(domain_path),
+                    self.netvm_vm.netmask)
+            xs.write(xs_trans, "{0}/qubes_gateway".format(domain_path),
+                    self.netvm_vm.gateway)
+            xs.write(xs_trans,
+                    "{0}/qubes_secondary_dns".format(domain_path),
+                    self.netvm_vm.secondary_dns)
 
-            retcode = subprocess.check_call ([
-                "/usr/bin/xenstore-write",
-                "/local/domain/{0}/qubes_netmask".format(xid),
-                self.netvm_vm.netmask])
+        # Fix permissions
+        xs.set_permissions(xs_trans, '{0}/device'.format(domain_path), 
+                [{ 'dom': xid }])
+        xs.set_permissions(xs_trans, '{0}/memory'.format(domain_path), 
+                [{ 'dom': xid }])
+        xs.transaction_end(xs_trans)
 
-            retcode = subprocess.check_call ([
-                "/usr/bin/xenstore-write",
-                "/local/domain/{0}/qubes_gateway".format(xid),
-                self.netvm_vm.gateway])
+    def get_rootdev(self, source_template=None):
+        if self.template_vm:
+            return "'script:snapshot:{dir}/root.img:{dir}/root-cow.img,xvda,r',".format(dir=self.template_vm.dir_path)
+        else:
+            return "'script:file:{dir}/root.img,xvda,w',".format(dir=self.dir_path)
 
-            retcode = subprocess.check_call ([
-                "/usr/bin/xenstore-write",
-                "/local/domain/{0}/qubes_secondary_dns".format(xid),
-                self.netvm_vm.secondary_dns])
+    def get_config_params(self, source_template=None):
+        args = {}
+        args['name'] = self.name
+        args['kerneldir'] = self.kernels_dir
+        args['vmdir'] = self.dir_path
+        args['pcidev'] = self.pcidevs
+        args['mem'] = str(self.memory)
+        args['maxmem'] = str(self.maxmem)
+        args['vcpus'] = str(self.vcpus)
+        if self.netvm_vm is not None:
+            args['netdev'] = "'script=/etc/xen/scripts/vif-route-qubes,ip={ip}".format(ip=self.ip)
+            if self.netvm_vm.qid != 0:
+                args['netdev'] += ",backend={0}".format(self.netvm_vm.name)
+            args['netdev'] += "'"
+        else:
+            args['netdev'] = ''
+        args['rootdev'] = self.get_rootdev(source_template=source_template)
+        args['privatedev'] = "'script:file:{dir}/private.img,xvdb,w',".format(dir=self.dir_path)
+        args['volatiledev'] = "'script:file:{dir}/volatile.img,xvdc,w',".format(dir=self.dir_path)
+        args['kernelopts'] = ''
 
-    def create_config_file(self, source_template = None):
+        return args
+
+    def create_config_file(self, file_path = None, source_template = None, prepare_dvm = False):
+        if file_path is None:
+            file_path = self.conf_file
         if source_template is None:
             source_template = self.template_vm
-        assert source_template is not None
 
-        conf_template = None
-        if self.type == "NetVM":
-            conf_template = open (source_template.netvms_conf_file, "r")
-        elif self.updateable:
-            conf_template = open (source_template.standalonevms_conf_file, "r")
-        else:
-            conf_template = open (source_template.appvms_conf_file, "r")
-        if os.path.isfile(self.conf_file):
-            shutil.copy(self.conf_file, self.conf_file + ".backup")
-        conf_appvm = open(self.conf_file, "w")
-        rx_vmname = re.compile (r"%VMNAME%")
-        rx_vmdir = re.compile (r"%VMDIR%")
-        rx_template = re.compile (r"%TEMPLATEDIR%")
-        rx_pcidevs = re.compile (r"%PCIDEVS%")
-        rx_mem = re.compile (r"%MEM%")
-        rx_vcpus = re.compile (r"%VCPUS%")
+        f_conf_template = open('/usr/share/qubes/vm-template.conf', 'r')
+        conf_template = f_conf_template.read()
+        f_conf_template.close()
 
-        for line in conf_template:
-            line = rx_vmname.sub (self.name, line)
-            line = rx_vmdir.sub (self.dir_path, line)
-            line = rx_template.sub (source_template.dir_path, line)
-            line = rx_pcidevs.sub (self.pcidevs, line)
-            line = rx_mem.sub (str(self.memory), line)
-            line = rx_vcpus.sub (str(self.vcpus), line)
-            conf_appvm.write(line)
+        template_params = self.get_config_params(source_template)
+        if prepare_dvm:
+            template_params['name'] = '%NAME%'
+            template_params['privatedev'] = ''
+            template_params['netdev'] = re.sub(r"ip=[0-9.]*", "ip=%IP%", template_params['netdev'])
+        conf_appvm = open(file_path, "w")
 
-        conf_template.close()
+        conf_appvm.write(conf_template.format(**template_params))
         conf_appvm.close()
 
     def create_on_disk(self, verbose, source_template = None):
@@ -679,6 +722,19 @@ class QubesVm(object):
         # Create volatile.img
         self.reset_volatile_storage(source_template = source_template)
 
+    def create_appmenus(self, verbose, source_template = None):
+        if source_template is None:
+            source_template = self.template_vm
+
+        try:
+            if source_template is not None:
+                subprocess.check_call ([qubes_appmenu_create_cmd, source_template.appmenus_templates_dir, self.name])
+            else:
+                # Only add apps to menu
+                subprocess.check_call ([qubes_appmenu_create_cmd, "none", self.name, vmtype])
+        except subprocess.CalledProcessError:
+            print "Ooops, there was a problem creating appmenus for {0} VM!".format (self.name)
+
     def verify_files(self):
         if dry_run:
             return
@@ -687,11 +743,6 @@ class QubesVm(object):
             raise QubesException (
                 "VM directory doesn't exist: {0}".\
                 format(self.dir_path))
-
-        if not os.path.exists (self.conf_file):
-            raise QubesException (
-                "VM config file doesn't exist: {0}".\
-                format(self.conf_file))
 
         if self.is_updateable() and not os.path.exists (self.root_img):
             raise QubesException (
@@ -817,13 +868,6 @@ class QubesVm(object):
 
         return conf
 
-    def get_total_xen_memory(self):
-        hosts = xend_session.session.xenapi.host.get_all()
-        host_record = xend_session.session.xenapi.host.get_record(hosts[0])
-        host_metrics_record = xend_session.session.xenapi.host_metrics.get_record(host_record["metrics"])
-        ret = host_metrics_record["memory_total"]
-        return long(ret)
-
     def start(self, debug_console = False, verbose = False, preparing_dvm = False):
         if dry_run:
             return
@@ -831,61 +875,41 @@ class QubesVm(object):
         if self.is_running():
             raise QubesException ("VM is already running!")
 
+        if self.netvm_vm is not None:
+            if self.netvm_vm.qid != 0:
+                if not self.netvm_vm.is_running():
+                    if verbose:
+                        print "--> Starting NetVM {0}...".format(self.netvm_vm.name)
+                    self.netvm_vm.start()
+
         self.reset_volatile_storage()
-
-        if verbose:
-            print "--> Rereading the VM's conf file ({0})...".format(self.conf_file)
-        self.update_xen_storage()
-
         if verbose:
             print "--> Loading the VM (type = {0})...".format(self.type)
 
-        if not self.is_netvm():
-            total_mem_mb = self.get_total_xen_memory()/1024/1024
-            xend_session.xend_server.xend.domain.maxmem_set(self.name, total_mem_mb)
+        # refresh config file
+        self.create_config_file()
 
-        mem_required = self.get_mem_dynamic_max()
+        mem_required = int(self.memory) * 1024 * 1024
         qmemman_client = QMemmanClient()
         if not qmemman_client.request_memory(mem_required):
             qmemman_client.close()
             raise MemoryError ("ERROR: insufficient memory to start this VM")
 
+        xl_cmdline = ['sudo', '/usr/sbin/xl', 'create', self.conf_file, '-p']
+
         try:
-            xend_session.session.xenapi.VM.start (self.session_uuid, True) # Starting a VM paused
-        except XenAPI.Failure:
-            self.refresh_xend_session()
-            xend_session.session.xenapi.VM.start (self.session_uuid, True) # Starting a VM paused
+            subprocess.check_call(xl_cmdline)
+        except:
+            raise QubesException("Failed to load VM config")
+        finally:
+            qmemman_client.close() # let qmemman_daemon resume balancing
 
-        qmemman_client.close() # let qmemman_daemon resume balancing
-
-        xid = int (xend_session.session.xenapi.VM.get_domid (self.session_uuid))
+        xid = self.get_xid()
+        self.xid = xid
 
         if verbose:
             print "--> Setting Xen Store info for the VM..."
         self.create_xenstore_entries(xid)
-
-        if self.netvm_vm is not None:
-            assert self.netvm_vm is not None
-            if verbose:
-                print "--> Attaching to the network backend (netvm={0})...".format(self.netvm_vm.name)
-            if preparing_dvm:
-                actual_ip = "254.254.254.254"
-            else:
-                actual_ip = self.ip
-            xm_cmdline = ["/usr/sbin/xm", "network-attach", self.name, "script=vif-route-qubes", "ip="+actual_ip]
-            if self.netvm_vm.qid != 0:
-                if not self.netvm_vm.is_running():
-                    self.netvm_vm.start()
-                retcode = subprocess.call (xm_cmdline + ["backend={0}".format(self.netvm_vm.name)])
-                if retcode != 0:
-                    self.force_shutdown()
-                    raise OSError ("ERROR: Cannot attach to network backend!")
-
-            else:
-                retcode = subprocess.call (xm_cmdline)
-                if retcode != 0:
-                    self.force_shutdown()
-                    raise OSError ("ERROR: Cannot attach to network backend!")
 
         qvm_collection = QubesVmCollection()
         qvm_collection.lock_db_for_reading()
@@ -895,12 +919,12 @@ class QubesVm(object):
         if verbose:
             print "--> Updating firewall rules..."
         for vm in qvm_collection.values():
-            if vm.is_proxyvm():
+            if vm.is_proxyvm() and vm.is_running():
                 vm.write_iptables_xenstore_entry()
 
         if verbose:
             print "--> Starting the VM..."
-        xend_session.session.xenapi.VM.unpause (self.session_uuid)
+        xc.domain_unpause(xid)
 
         if not preparing_dvm:
             if verbose:
@@ -910,7 +934,20 @@ class QubesVm(object):
                 self.force_shutdown()
                 raise OSError ("ERROR: Cannot execute qrexec_daemon!")
 
+        if preparing_dvm:
+            if verbose:
+                print "--> Preparing config template for DispVM"
+            self.create_config_file(file_path = self.dir_path + '/dvm.conf', prepare_dvm = True)
+
+        if qvm_collection.updatevm_qid == self.qid:
+            # Sync RPMDB
+            subprocess.call(["/usr/lib/qubes/sync_rpmdb_updatevm.sh"])
+            # Start polling
+            subprocess.call([qrexec_client_path, '-d', xid, '-e',
+                    "while true; do sleep %d; /usr/lib/qubes/qubes_download_dom0_updates.sh; done" % dom0_update_check_interval])
+
         # perhaps we should move it before unpause and fork?
+        # FIXME: this uses obsolete xm api
         if debug_console:
             from xen.xm import console
             if verbose:
@@ -923,11 +960,8 @@ class QubesVm(object):
         if dry_run:
             return
 
-        try:
-            xend_session.session.xenapi.VM.hard_shutdown (self.session_uuid)
-        except XenAPI.Failure:
-            self.refresh_xend_session()
-            xend_session.session.xenapi.VM.hard_shutdown (self.session_uuid)
+        subprocess.call (['/usr/sbin/xl', 'destroy', self.name])
+        #xc.domain_destroy(self.get_xid())
 
     def remove_from_disk(self):
         if dry_run:
@@ -952,6 +986,7 @@ class QubesVm(object):
         attrs["updateable"] = str(self.updateable)
         attrs["label"] = self.label.name
         attrs["memory"] = str(self.memory)
+        attrs["maxmem"] = str(self.maxmem)
         attrs["pcidevs"] = str(self.pcidevs)
         attrs["vcpus"] = str(self.vcpus)
         attrs["internal"] = str(self.internal)
@@ -980,10 +1015,6 @@ class QubesTemplateVm(QubesVm):
         if "updateable" not in kwargs or kwargs["updateable"] is None :
             kwargs["updateable"] = True
 
-        appvms_conf_file = kwargs.pop("appvms_conf_file") if "appvms_conf_file" in kwargs else None
-        netvms_conf_file = kwargs.pop("netvms_conf_file") if "netvms_conf_file" in kwargs else None
-        standalonevms_conf_file = kwargs.pop("standalonevms_conf_file") if "standalonevms_conf_file" in kwargs else None
-
         if "label" not in kwargs or kwargs["label"] == None:
             kwargs["label"] = default_template_label
 
@@ -997,27 +1028,8 @@ class QubesTemplateVm(QubesVm):
         # Image for template changes
         self.rootcow_img = self.dir_path + "/" + default_rootcow_img
 
-        if appvms_conf_file is not None and os.path.isabs(appvms_conf_file):
-            self.appvms_conf_file = appvms_conf_file
-        else:
-            self.appvms_conf_file = dir_path + "/" + (
-                appvms_conf_file if appvms_conf_file is not None else default_appvms_conf_file)
-
-        if netvms_conf_file is not None and os.path.isabs(netvms_conf_file):
-            self.netvms_conf_file = netvms_conf_file
-        else:
-            self.netvms_conf_file = dir_path + "/" + (
-                netvms_conf_file if netvms_conf_file is not None else default_netvms_conf_file)
-
-        if standalonevms_conf_file is not None and os.path.isabs(standalonevms_conf_file):
-            self.standalonevms_conf_file = standalonevms_conf_file
-        else:
-            self.standalonevms_conf_file = dir_path + "/" + (
-                standalonevms_conf_file if standalonevms_conf_file is not None else default_standalonevms_conf_file)
-
-        self.templatevm_conf_template = self.dir_path + "/" + default_templatevm_conf_template
-        self.kernels_dir = self.dir_path + "/" + default_kernels_subdir
         self.appmenus_templates_dir = self.dir_path + "/" + default_appmenus_templates_subdir
+        self.appmenus_template_templates_dir = self.dir_path + "/" + default_appmenus_template_templates_subdir
         self.appvms = QubesVmCollection()
 
     @property
@@ -1037,6 +1049,8 @@ class QubesTemplateVm(QubesVm):
                                      format (appvm.name, self.name))
         self.updateable = True
 
+    def get_rootdev(self, source_template=None):
+        return "'script:origin:{dir}/root.img:{dir}/root-cow.img,xvda,w',".format(dir=self.dir_path)
 
     def clone_disk_files(self, src_template_vm, verbose):
         if dry_run:
@@ -1050,42 +1064,9 @@ class QubesTemplateVm(QubesVm):
         os.mkdir (self.dir_path)
 
         if verbose:
-            print "--> Copying the VM config file:\n{0} =*>\n{1}".\
-                    format(src_template_vm.templatevm_conf_template, self.conf_file)
-        conf_templatevm_template = open (src_template_vm.templatevm_conf_template, "r")
-        conf_file = open(self.conf_file, "w")
-        rx_templatename = re.compile (r"%TEMPLATENAME%")
-        rx_mem = re.compile (r"%MEM%")
-        rx_vcpus = re.compile (r"%VCPUS%")
-
-        for line in conf_templatevm_template:
-            line = rx_templatename.sub (self.name, line)
-            line = rx_mem.sub (str(self.memory), line)
-            line = rx_vcpus.sub (str(self.vcpus), line)
-            conf_file.write(line)
-
-        conf_templatevm_template.close()
-        conf_file.close()
-
-        if verbose:
-            print "--> Copying the VM config template :\n{0} ==>\n{1}".\
-                    format(src_template_vm.templatevm_conf_template, self.templatevm_conf_template)
-        shutil.copy (src_template_vm.templatevm_conf_template, self.templatevm_conf_template)
-
-        if verbose:
-            print "--> Copying the VM config template :\n{0} ==>\n{1}".\
-                    format(src_template_vm.appvms_conf_file, self.appvms_conf_file)
-        shutil.copy (src_template_vm.appvms_conf_file, self.appvms_conf_file)
-
-        if verbose:
-            print "--> Copying the VM config template :\n{0} ==>\n{1}".\
-                    format(src_template_vm.netvms_conf_file, self.netvms_conf_file)
-        shutil.copy (src_template_vm.netvms_conf_file, self.netvms_conf_file)
-
-        if verbose:
-            print "--> Copying the VM config template :\n{0} ==>\n{1}".\
-                    format(src_template_vm.standalonevms_conf_file, self.standalonevms_conf_file)
-        shutil.copy (src_template_vm.standalonevms_conf_file, self.standalonevms_conf_file)
+            print "--> Creating VM config file: {0}".\
+                    format(self.conf_file)
+        self.create_config_file(source_template=src_template_vm)
 
         if verbose:
             print "--> Copying the template's private image:\n{0} ==>\n{1}".\
@@ -1126,9 +1107,14 @@ class QubesTemplateVm(QubesVm):
         shutil.copytree (src_template_vm.kernels_dir, self.kernels_dir)
 
         if verbose:
-            print "--> Copying the template's appvm templates dir:\n{0} ==>\n{1}".\
+            print "--> Copying the template's appmenus templates dir:\n{0} ==>\n{1}".\
                     format(src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
         shutil.copytree (src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
+
+        if verbose:
+            print "--> Copying the template's appmenus (for template) templates dir:\n{0} ==>\n{1}".\
+                    format(src_template_vm.appmenus_template_templates_dir, self.appmenus_template_templates_dir)
+        shutil.copytree (src_template_vm.appmenus_template_templates_dir, self.appmenus_template_templates_dir)
 
         icon_path = "/usr/share/qubes/icons/template.png"
         if verbose:
@@ -1137,6 +1123,29 @@ class QubesTemplateVm(QubesVm):
 
         # Create root-cow.img
         self.commit_changes()
+
+        # Create appmenus
+        self.create_appmenus(verbose, source_template = src_template_vm)
+
+    def create_appmenus(self, verbose, source_template = None):
+        if source_template is None:
+            source_template = self.template_vm
+
+        try:
+            if source_template is not None:
+                subprocess.check_call ([qubes_appmenu_create_cmd, source_template.appmenus_template_templates_dir, self.name, "vm-templates"])
+            else:
+                # Only add apps to menu
+                subprocess.check_call ([qubes_appmenu_create_cmd, "none", self.name, vmtype])
+        except subprocess.CalledProcessError:
+            print "Ooops, there was a problem creating appmenus for {0} VM!".format (self.name)
+
+    def remove_from_disk(self):
+        if dry_run:
+            return
+
+        subprocess.check_call ([qubes_appmenu_remove_cmd, self.name, "vm-templates"])
+        super(QubesTemplateVm, self).remove_from_disk()
 
     def verify_files(self):
         if dry_run:
@@ -1147,16 +1156,6 @@ class QubesTemplateVm(QubesVm):
             raise QubesException (
                 "VM directory doesn't exist: {0}".\
                 format(self.dir_path))
-
-        if not os.path.exists (self.conf_file):
-            raise QubesException (
-                "VM config file doesn't exist: {0}".\
-                format(self.conf_file))
-
-        if not os.path.exists (self.appvms_conf_file):
-            raise QubesException (
-                "Appvm template config file doesn't exist: {0}".\
-                format(self.appvms_conf_file))
 
         if not os.path.exists (self.root_img):
             raise QubesException (
@@ -1221,7 +1220,7 @@ class QubesTemplateVm(QubesVm):
         if dry_run:
             return
         if os.path.exists (self.rootcow_img):
-           os.remove (self.rootcow_img)
+           os.rename (self.rootcow_img, self.rootcow_img + '.old')
 
         f_cow = open (self.rootcow_img, "w")
         f_root = open (self.root_img, "r")
@@ -1232,9 +1231,6 @@ class QubesTemplateVm(QubesVm):
 
     def get_xml_attrs(self):
         attrs = super(QubesTemplateVm, self).get_xml_attrs()
-        attrs["appvms_conf_file"] = self.appvms_conf_file
-        attrs["netvms_conf_file"] = self.netvms_conf_file
-        attrs["standalonevms_conf_file"] = self.standalonevms_conf_file
         attrs["clean_volatile_img"] = self.clean_volatile_img
         attrs["rootcow_img"] = self.rootcow_img
         return attrs
@@ -1265,6 +1261,8 @@ class QubesNetVm(QubesVm):
         if "memory" not in kwargs or kwargs["memory"] is None:
             kwargs["memory"] = 200
 
+        kwargs["maxmem"] = kwargs["memory"]
+
         super(QubesNetVm, self).__init__(**kwargs)
         self.connected_vms = QubesVmCollection()
 
@@ -1293,15 +1291,17 @@ class QubesNetVm(QubesVm):
         assert lo >= 2 and lo <= 254, "Wrong IP address for VM"
         return self.netprefix  + "{0}".format(lo)
 
+    def get_config_params(self, source_template=None):
+        args = super(QubesNetVm, self).get_config_params(source_template)
+        args['kernelopts'] = ' swiotlb=force pci=nomsi'
+        return args
+
     def create_xenstore_entries(self, xid):
         if dry_run:
             return
 
         super(QubesNetVm, self).create_xenstore_entries(xid)
-        retcode = subprocess.check_call ([
-            "/usr/bin/xenstore-write",
-            "/local/domain/{0}/qubes_netvm_external_ip".format(xid),
-            ""])
+        xs.write('', "/local/domain/{0}/qubes_netvm_external_ip".format(xid), '')
         self.update_external_ip_permissions(xid)
 
     def update_external_ip_permissions(self, xid = -1):
@@ -1322,6 +1322,29 @@ class QubesNetVm(QubesVm):
             command.append("r{0}".format(id))
 
         return subprocess.check_call(command)
+
+    def start(self, debug_console = False, verbose = False, preparing_dvm=False):
+        if dry_run:
+            return
+
+        xid=super(QubesNetVm, self).start(debug_console=debug_console, verbose=verbose)
+
+        # Connect vif's of already running VMs
+        for vm in self.connected_vms.values():
+            if not vm.is_running():
+                continue
+
+            if verbose:
+                print "--> Attaching network to '{0}'...".format(vm.name)
+
+            # Cleanup stale VIFs
+            vm.cleanup_vifs()
+
+            xm_cmdline = ["/usr/sbin/xl", "network-attach", vm.name, "script=vif-route-qubes", "ip="+vm.ip, "backend="+self.name ]
+            retcode = subprocess.call (xm_cmdline)
+            if retcode != 0:
+                print ("WARNING: Cannot attach to network to '{0}'!".format(vm.name))
+        return xid
 
     def add_external_ip_permission(self, xid):
         if int(xid) < 0:
@@ -1372,24 +1395,19 @@ class QubesProxyVm(QubesNetVm):
             return
 
         super(QubesProxyVm, self).create_xenstore_entries(xid)
-        retcode = subprocess.check_call ([
-            "/usr/bin/xenstore-write",
-            "/local/domain/{0}/qubes_iptables_error".format(xid),
-            ""])
-        retcode = subprocess.check_call ([
-            "/usr/bin/xenstore-chmod",
-            "/local/domain/{0}/qubes_iptables_error".format(xid),
-            "r{0}".format(xid), "w{0}".format(xid)])
+        xs_trans = xs.start_transaction()
+        xs.write(xs_trans, "/local/domain/{0}/qubes_iptables_error".format(xid), '')
+        xs.set_permissions(xs_trans, "/local/domain/{0}/qubes_iptables_error".format(xid),
+                [{ 'dom': xid, 'write': True }])
+        xs.end_transaction(xs_trans)
         self.write_iptables_xenstore_entry()
 
     def write_netvm_domid_entry(self, xid = -1):
         if xid < 0:
             xid = self.get_xid()
 
-        return subprocess.check_call ([
-            "/usr/bin/xenstore-write", "--",
-            "/local/domain/{0}/qubes_netvm_domid".format(xid),
-            "{0}".format(self.netvm_vm.get_xid())])
+        xs.write('', "/local/domain/{0}/qubes_netvm_domid".format(xid),
+                "{0}".format(self.netvm_vm.get_xid()))
 
     def write_iptables_xenstore_entry(self):
         iptables =  "# Generated by Qubes Core on {0}\n".format(datetime.now().ctime())
@@ -1423,7 +1441,7 @@ class QubesProxyVm(QubesNetVm):
                 continue
 
             iptables += "# '{0}' VM:\n".format(vm.name)
-            iptables += "-A FORWARD ! -s {0}/32 -i vif{1}.0 -j DROP\n".format(vm.ip, xid)
+            iptables += "-A FORWARD ! -s {0}/32 -i vif{1}.+ -j DROP\n".format(vm.ip, xid)
 
             accept_action = "ACCEPT"
             reject_action = "REJECT --reject-with icmp-host-prohibited"
@@ -1436,7 +1454,7 @@ class QubesProxyVm(QubesNetVm):
                 rules_action = accept_action
 
             for rule in conf["rules"]:
-                iptables += "-A FORWARD -i vif{0}.0 -d {1}".format(xid, rule["address"])
+                iptables += "-A FORWARD -i vif{0}.+ -d {1}".format(xid, rule["address"])
                 if rule["netmask"] != 32:
                     iptables += "/{0}".format(rule["netmask"])
 
@@ -1449,12 +1467,12 @@ class QubesProxyVm(QubesNetVm):
 
             if conf["allowDns"]:
                 # PREROUTING does DNAT to NetVM DNSes, so we need self.netvm_vm. properties
-                iptables += "-A FORWARD -i vif{0}.0 -p udp -d {1} --dport 53 -j ACCEPT\n".format(xid,self.netvm_vm.gateway)
-                iptables += "-A FORWARD -i vif{0}.0 -p udp -d {1} --dport 53 -j ACCEPT\n".format(xid,self.netvm_vm.secondary_dns)
+                iptables += "-A FORWARD -i vif{0}.+ -p udp -d {1} --dport 53 -j ACCEPT\n".format(xid,self.netvm_vm.gateway)
+                iptables += "-A FORWARD -i vif{0}.+ -p udp -d {1} --dport 53 -j ACCEPT\n".format(xid,self.netvm_vm.secondary_dns)
             if conf["allowIcmp"]:
-                iptables += "-A FORWARD -i vif{0}.0 -p icmp -j ACCEPT\n".format(xid)
+                iptables += "-A FORWARD -i vif{0}.+ -p icmp -j ACCEPT\n".format(xid)
 
-            iptables += "-A FORWARD -i vif{0}.0 -j {1}\n".format(xid, default_action)
+            iptables += "-A FORWARD -i vif{0}.+ -j {1}\n".format(xid, default_action)
 
         iptables += "#End of VM rules\n"
         iptables += "-A FORWARD -j DROP\n"
@@ -1464,10 +1482,7 @@ class QubesProxyVm(QubesNetVm):
         self.write_netvm_domid_entry()
 
         self.rules_applied = None
-        return subprocess.check_call ([
-            "/usr/bin/xenstore-write",
-            "/local/domain/{0}/qubes_iptables".format(self.get_xid()),
-            iptables])
+        xs.write('', "/local/domain/{0}/qubes_iptables".format(self.get_xid()), iptables)
 
     def get_xml_attrs(self):
         attrs = super(QubesProxyVm, self).get_xml_attrs()
@@ -1481,45 +1496,10 @@ class QubesDom0NetVm(QubesNetVm):
                                              private_img = None,
                                              template_vm = None,
                                              label = default_template_label)
-        if not dry_run and xend_session.session is not None:
-            self.session_hosts = xend_session.session.xenapi.host.get_all()
-            self.session_cpus = xend_session.session.xenapi.host.get_host_CPUs(self.session_hosts[0])
-
+        self.xid = 0
 
     def is_running(self):
         return True
-
-    def get_cpu_total_load(self):
-        if dry_run:
-            import random
-            return random.random() * 100
-
-        cpu_total_load = 0.0
-        for cpu in self.session_cpus:
-            cpu_total_load += xend_session.session.xenapi.host_cpu.get_utilisation(cpu)
-        cpu_total_load /= len(self.session_cpus)
-        p = 100*cpu_total_load
-        if p > 100:
-            p = 100
-        return p
-
-    def get_mem(self):
-
-        # Unfortunately XenAPI provides only info about total memory, not the one actually usable by Dom0...
-        #session = get_xend_session_new_api()
-        #hosts = session.xenapi.host.get_all()
-        #metrics = session.xenapi.host.get_metrics(hosts[0])
-        #memory_total = int(session.xenapi.metrics.get_memory_total(metrics))
-
-        # ... so we must read /proc/meminfo, just like free command does
-        f = open ("/proc/meminfo")
-        for line in f:
-            match = re.match(r"^MemTotal\:\s*(\d+) kB", line)
-            if match is not None:
-                break
-        f.close()
-        assert match is not None
-        return int(match.group(1))*1024
 
     def get_xid(self):
         return 0
@@ -1541,6 +1521,23 @@ class QubesDom0NetVm(QubesNetVm):
 
     def start(self, debug_console = False, verbose = False):
         raise QubesException ("Cannot start Dom0 fake domain!")
+
+    def get_xl_dominfo(self):
+        if dry_run:
+            return
+
+        domains = xl_ctx.list_domains()
+        for dominfo in domains:
+            if dominfo.domid == 0:
+                return dominfo
+        return None
+
+    def get_xc_dominfo(self):
+        if dry_run:
+            return
+
+        domains = xc.domain_getinfo(0, 1)
+        return domains[0]
 
     def create_xml_element(self):
         return None
@@ -1610,19 +1607,6 @@ class QubesAppVm(QubesVm):
         subprocess.check_call ([qubes_appmenu_remove_cmd, self.name])
         super(QubesAppVm, self).remove_from_disk()
 
-    def create_appmenus(self, verbose, source_template = None):
-        if source_template is None:
-            source_template = self.template_vm
-
-        try:
-            if source_template is not None:
-                subprocess.check_call ([qubes_appmenu_create_cmd, source_template.appmenus_templates_dir, self.name])
-            else:
-                # Only add apps to menu
-                subprocess.check_call ([qubes_appmenu_create_cmd, "none", self.name])
-        except subprocess.CalledProcessError:
-            print "Ooops, there was a problem creating appmenus for {0} VM!".format (self.name)
-
 
 class QubesVmCollection(dict):
     """
@@ -1634,6 +1618,7 @@ class QubesVmCollection(dict):
         self.default_netvm_qid = None
         self.default_fw_netvm_qid = None
         self.default_template_qid = None
+        self.updatevm_qid = None
         self.qubes_store_filename = store_filename
 
     def values(self):
@@ -1794,6 +1779,15 @@ class QubesVmCollection(dict):
         else:
             return self[self.default_fw_netvm_qid]
 
+    def set_updatevm_vm(self, vm):
+        self.updatevm_qid = vm.qid
+
+    def get_updatevm_vm(self):
+        if self.updatevm_qid is None:
+            return None
+        else:
+            return self[self.updatevm_qid]
+
     def get_vm_by_name(self, name):
         for vm in self.values():
             if (vm.name == name):
@@ -1897,7 +1891,10 @@ class QubesVmCollection(dict):
             if self.default_netvm_qid is not None else "None",
 
             default_fw_netvm=str(self.default_fw_netvm_qid) \
-            if self.default_fw_netvm_qid is not None else "None"
+            if self.default_fw_netvm_qid is not None else "None",
+
+            updatevm=str(self.updatevm_qid) \
+            if self.updatevm_qid is not None else "None"
         )
 
         for vm in self.values():
@@ -1924,7 +1921,8 @@ class QubesVmCollection(dict):
         common_attr_list = ("qid", "name", "dir_path", "conf_file",
                 "private_img", "root_img", "template_qid",
                 "installed_by_rpm", "updateable", "internal",
-                "uses_default_netvm", "label", "memory", "vcpus", "pcidevs")
+                "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
+                "maxmem" )
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)
@@ -2026,17 +2024,19 @@ class QubesVmCollection(dict):
                     if default_fw_netvm != "None" else None
             #assert self.default_netvm_qid is not None
 
+        updatevm = element.get("updatevm")
+        if updatevm is not None:
+            self.updatevm_qid = int(updatevm) \
+                    if updatevm != "None" else None
+            #assert self.default_netvm_qid is not None
+
+
         # Then, read in the TemplateVMs, because a reference to template VM
         # is needed to create each AppVM
         for element in tree.findall("QubesTemplateVm"):
             try:
 
                 kwargs = self.parse_xml_element(element)
-                # Add TemplateVM specific fields
-                attr_list = ("appvms_conf_file", "netvms_conf_file", "standalonevms_conf_file")
-
-                for attribute in attr_list:
-                    kwargs[attribute] = element.get(attribute)
 
                 vm = QubesTemplateVm(**kwargs)
 

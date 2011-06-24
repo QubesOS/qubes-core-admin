@@ -33,6 +33,7 @@ License:	GPL
 URL:		http://www.qubes-os.org
 Requires:	/usr/bin/xenstore-read
 Requires:   fedora-release
+Requires:   yum-plugin-post-transaction-actions
 BuildRequires: xen-devel
 
 %define _builddir %(pwd)/common
@@ -71,24 +72,76 @@ install -m 644 RPM-GPG-KEY-qubes* $RPM_BUILD_ROOT/etc/pki/rpm-gpg/
 mkdir -p $RPM_BUILD_ROOT/sbin
 cp qubes_serial_login $RPM_BUILD_ROOT/sbin
 mkdir -p $RPM_BUILD_ROOT/usr/bin
-cp xenstore-watch $RPM_BUILD_ROOT/usr/bin
+cp xenstore-watch $RPM_BUILD_ROOT/usr/bin/xenstore-watch-qubes
 mkdir -p $RPM_BUILD_ROOT/etc
 cp serial.conf $RPM_BUILD_ROOT/var/lib/qubes/
+mkdir -p $RPM_BUILD_ROOT/etc/udev/rules.d
+cp qubes_network.rules $RPM_BUILD_ROOT/etc/udev/rules.d/
+mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes/
+cp setup_ip $RPM_BUILD_ROOT/usr/lib/qubes/
+cp qubes_download_dom0_updates.sh $RPM_BUILD_ROOT/usr/lib/qubes/
+mkdir -p $RPM_BUILD_ROOT/etc/yum/post-actions
+cp qubes_trigger_sync_appmenus.action $RPM_BUILD_ROOT/etc/yum/post-actions/
+mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
+cp qubes_trigger_sync_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes/
+mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/dom0-updates
 
 %triggerin -- initscripts
 cp /var/lib/qubes/serial.conf /etc/init/serial.conf
 
 %post
 
-# Disable gpk-update-icon
-sed 's/^NotShowIn=KDE;$/\0QUBES;/' -i /etc/xdg/autostart/gpk-update-icon.desktop
+# disable some Upstart services
+for F in plymouth-shutdown prefdm splash-manager start-ttys tty ; do
+	if [ -e /etc/init/$F.conf ]; then
+		mv -f /etc/init/$F.conf /etc/init/$F.conf.disabled
+	fi
+done
 
+remove_ShowIn () {
+	if [ -e /etc/xdg/autostart/$1.desktop ]; then
+		sed -i '/^\(Not\|Only\)ShowIn/d' /etc/xdg/autostart/$1.desktop
+	fi
+}
+
+# don't want it at all
+for F in abrt-applet deja-dup-monitor imsettings-start krb5-auth-dialog pulseaudio restorecond sealertauto ; do
+	if [ -e /etc/xdg/autostart/$F.desktop ]; then
+		remove_ShowIn $F
+		echo 'NotShowIn=QUBES' >> /etc/xdg/autostart/$F.desktop
+	fi
+done
+
+# don't want it in DisposableVM
+for F in gcm-apply ; do
+	if [ -e /etc/xdg/autostart/$F.desktop ]; then
+		remove_ShowIn $F
+		echo 'NotShowIn=DisposableVM' >> /etc/xdg/autostart/$F.desktop
+	fi
+done
+
+# want it in AppVM only
+for F in gnome-keyring-gpg gnome-keyring-pkcs11 gnome-keyring-secrets gnome-keyring-ssh gnome-settings-daemon user-dirs-update-gtk gsettings-data-convert ; do
+	if [ -e /etc/xdg/autostart/$F.desktop ]; then
+		remove_ShowIn $F
+		echo 'OnlyShowIn=GNOME;AppVM;' >> /etc/xdg/autostart/$F.desktop
+	fi
+done
+
+# remove existing rule to add own later
+for F in gpk-update-icon nm-applet ; do
+	remove_ShowIn $F
+done
+
+echo 'OnlyShowIn=GNOME;UpdateableVM;' >> /etc/xdg/autostart/gpk-update-icon.desktop || :
+echo 'OnlyShowIn=GNOME;NetVM;' >> /etc/xdg/autostart/nm-applet.desktop || :
+
+usermod -p '' root
 if [ "$1" !=  1 ] ; then
 # do this whole %post thing only when updating for the first time...
 exit 0
 fi
 
-usermod -L root
 if ! [ -f /var/lib/qubes/serial.orig ] ; then
 	cp /etc/init/serial.conf /var/lib/qubes/serial.orig
 fi
@@ -177,4 +230,9 @@ rm -rf $RPM_BUILD_ROOT
 /etc/yum.repos.d/qubes%{dist}.repo
 /etc/pki/rpm-gpg/RPM-GPG-KEY-qubes*
 /sbin/qubes_serial_login
-/usr/bin/xenstore-watch
+/usr/bin/xenstore-watch-qubes
+/etc/udev/rules.d/qubes_network.rules
+/usr/lib/qubes/setup_ip
+/etc/yum/post-actions/qubes_trigger_sync_appmenus.action
+/usr/lib/qubes/qubes_trigger_sync_appmenus.sh
+/usr/lib/qubes/qubes_download_dom0_updates.sh

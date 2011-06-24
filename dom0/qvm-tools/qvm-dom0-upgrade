@@ -1,0 +1,20 @@
+#!/bin/bash
+
+UPDATEVM=`qvm-get-updatevm`
+if [ -z "$UPDATEVM" ]; then
+    echo "UpdateVM not set, exiting"
+    exit 1
+fi
+
+echo "Checking for dom0 updates"
+
+# Start VM if not running already
+qvm-run -a $UPDATEVM true || exit 1
+/usr/lib/qubes/sync_rpmdb_updatevm.sh || exit 1
+qvm-run -u root --pass_io $UPDATEVM "/usr/lib/qubes/qubes_download_dom0_updates.sh --doit $@" || exit 1
+yum check-update
+if [ $? -ne 100 ]; then
+    exit 0
+fi
+gpk-update-viewer
+

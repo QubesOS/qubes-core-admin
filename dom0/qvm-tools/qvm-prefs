@@ -32,7 +32,7 @@ def do_list(vm):
     print fmt.format ("name", vm.name)
     print fmt.format ("label", vm.label.name)
     print fmt.format ("type", vm.type)
-    if vm.is_appvm():
+    if vm.template_vm is not None:
         print fmt.format ("template", vm.template_vm.name)
     if vm.netvm_vm is not None:
         print fmt.format ("netvm", vm.netvm_vm.name)
@@ -40,15 +40,18 @@ def do_list(vm):
     print fmt.format ("installed by RPM?", vm.installed_by_rpm)
     print fmt.format ("dir", vm.dir_path)
     print fmt.format ("config", vm.conf_file)
+    print fmt.format ("pcidevs", vm.pcidevs)
     if not vm.is_appvm():
         print fmt.format ("root img", vm.root_img)
     if vm.is_template():
         print fmt.format ("root COW img", vm.rootcow_img)
-    if vm.is_appvm():
+    if vm.template_vm is not None:
         print fmt.format ("root img", vm.template_vm.root_img)
-        print fmt.format ("root volatile img", vm.volatile_img)
+    print fmt.format ("root volatile img", vm.volatile_img)
 
     print fmt.format ("private img", vm.private_img)
+    print fmt.format ("memory", vm.memory)
+    print fmt.format ("maxmem", vm.maxmem)
 
 
 def set_label(vms, vm, args):
@@ -65,6 +68,23 @@ def set_label(vms, vm, args):
     vm.label = QubesVmLabels[label]
     subprocess.check_call (["ln", "-sf", vm.label.icon_path, vm.icon_path])
 
+def set_memory(vms, vm, args):
+    if len (args) != 1:
+        print "Missing memory argument!"
+
+    vm.memory = int(args[0])
+
+def set_maxmem(vms, vm, args):
+    if len (args) != 1:
+        print "Missing maxmem argument!"
+
+    vm.maxmem = int(args[0])
+
+def set_pcidevs(vms, vm, args):
+    if len (args) != 1:
+        print "Missing memory argument!"
+
+    vm.pcidevs = args[0]
 
 def set_netvm(vms, vm, args):
     if len (args) != 1:
@@ -151,8 +171,11 @@ def set_nonupdateable(vms, vm, args):
 properties = {
     "updateable": set_updateable,
     "nonupdateable": set_nonupdateable,
+    "pcidevs": set_pcidevs,
     "label" : set_label,
     "netvm" : set_netvm,
+    "maxmem" : set_maxmem,
+    "memory" : set_memory,
 }
 
 

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+HOTPLUG_STORE="/var/run/xen-hotplug/${XENBUS_PATH//\//-}"
+
 hd_arr[10]=a
 hd_arr[11]=b
 hd_arr[12]=c
@@ -38,6 +40,8 @@ process()
 	xenstore-write "$XENBUS_PATH/node" "$dev" \
 		"$XENBUS_PATH/physical-device" "7:"$HEXNUMBER \
  		"$XENBUS_PATH/hotplug-status" connected
+	echo "$dev" > "$HOTPLUG_STORE-node"
+	echo "file" > "$HOTPLUG_STORE-type"
 }
 
 #exec 2>>/tmp/block.$$

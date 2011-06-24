@@ -164,7 +164,6 @@ def main():
 
     try:
         vm.create_on_disk(verbose=options.verbose, source_template=template_vm)
-        vm.add_to_xen_storage()
 
     except (IOError, OSError) as err:
         print "ERROR: {0}".format(err)

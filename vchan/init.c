@@ -65,15 +65,25 @@ static int server_interface_init(struct libvchan *ctrl, int devno)
 	struct xs_handle *xs;
 	char buf[64];
 	char ref[16];
+#ifdef XENCTRL_HAS_XC_INTERFACE
+    xc_evtchn *evfd;
+#else
 	int evfd;
+#endif
 	evtchn_port_or_error_t port;
 	xs = xs_domain_open();
 	if (!xs) {
 		return ret;
 	}
+#ifdef XENCTRL_HAS_XC_INTERFACE
+	evfd = xc_evtchn_open(NULL, 0);
+	if (!evfd)
+		goto fail;
+#else
 	evfd = xc_evtchn_open();
 	if (evfd < 0)
 		goto fail;
+#endif
 	ctrl->evfd = evfd;
 	// the following hardcoded 0 is the peer domain id
 	port = xc_evtchn_bind_unbound_port(evfd, 0);	
@@ -98,7 +108,11 @@ static int server_interface_init(struct libvchan *ctrl, int devno)
 	ret = 0;
       fail2:
 	if (ret)
+#ifdef XENCTRL_HAS_XC_INTERFACE
+        xc_evtchn_close(evfd);
+#else
 		close(evfd);
+#endif
       fail:
 	xs_daemon_close(xs);
 	return ret;
@@ -152,10 +166,18 @@ static int client_interface_init(struct libvchan *ctrl, int domain, int devno)
 	int ret = -1;
 	unsigned int len;
 	struct xs_handle *xs;
+#ifdef XENCTRL_HAS_XC_INTERFACE
+    xc_interface *xcfd;
+#else
 	int xcfd;
+#endif
 	char buf[64];
 	char *ref;
+#ifdef XENCTRL_HAS_XC_INTERFACE
+    xc_evtchn *evfd;
+#else
 	int evfd;
+#endif
 	int remote_port;
 	xs = xs_daemon_open();
 	if (!xs) {
@@ -181,23 +203,43 @@ static int client_interface_init(struct libvchan *ctrl, int domain, int devno)
 	if (!remote_port)
 		goto fail;
 	free(ref);
+#ifdef XENCTRL_HAS_XC_INTERFACE
+	xcfd = xc_interface_open(NULL, NULL, 0);
+	if (!xcfd)
+		goto fail;
+#else
 	xcfd = xc_interface_open();
 	if (xcfd < 0)
 		goto fail;
+#endif
 	ctrl->ring = (struct vchan_interface *)
 	    xc_map_foreign_range(xcfd, domain, 4096,
 				 PROT_READ | PROT_WRITE, ctrl->ring_ref);
+#ifdef XENCTRL_HAS_XC_INTERFACE
+    xc_interface_close(xcfd);
+#else
 	close(xcfd);
+#endif
 	if (ctrl->ring == 0 || ctrl->ring == MAP_FAILED)
 		goto fail;
+#ifdef XENCTRL_HAS_XC_INTERFACE
+	evfd = xc_evtchn_open(NULL, 0);
+	if (!evfd)
+		goto fail;
+#else
 	evfd = xc_evtchn_open();
 	if (evfd < 0)
 		goto fail;
+#endif
 	ctrl->evfd = evfd;
 	ctrl->evport =
 	    xc_evtchn_bind_interdomain(evfd, domain, remote_port);
 	if (ctrl->evport < 0 || xc_evtchn_notify(evfd, ctrl->evport))
+#ifdef XENCTRL_HAS_XC_INTERFACE
+        xc_evtchn_close(evfd);
+#else
 		close(evfd);
+#endif
 	else
 		ret = 0;
       fail:

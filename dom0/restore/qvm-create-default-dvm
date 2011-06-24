@@ -40,12 +40,16 @@ if ! /usr/lib/qubes/qubes_prepare_saved_domain.sh \
 fi
 ROOT=/var/lib/qubes/dvmdata/savefile_root
 DEFAULT=/var/lib/qubes/dvmdata/default_savefile
+DEFAULTCONF=/var/lib/qubes/dvmdata/default_dvm.conf
 CURRENT=/var/run/qubes/current_savefile
+CURRENTCONF=/var/run/qubes/current_dvm.conf
 SHMDIR=/dev/shm/qubes
 SHMCOPY=$SHMDIR/current_savefile
-rm -f $ROOT $DEFAULT $CURRENT
+rm -f $ROOT $DEFAULT $CURRENT $DEFAULTCONF $CURRENTCONF
 ln -s "/var/lib/qubes/appvms/$DVMTMPL/dvm-savefile" $DEFAULT
 ln -s "/var/lib/qubes/vm-templates/$TEMPLATENAME/root.img" $ROOT
+ln -s $DVMTMPLDIR/dvm.conf $DEFAULTCONF
+ln -s $DVMTMPLDIR/dvm.conf $CURRENTCONF
 if [ -f /var/lib/qubes/dvmdata/dont_use_shm ] ; then
             ln -s $DEFAULT $CURRENT
 else

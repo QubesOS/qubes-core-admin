@@ -29,10 +29,11 @@ class WatchType:
 class XS_Watcher:
     def __init__(self):
         self.handle = xen.lowlevel.xs.xs()
-        self.handle.watch('/vm', WatchType(XS_Watcher.domain_list_changed, None))
+        self.handle.watch('/local/domain', WatchType(XS_Watcher.domain_list_changed, None))
         self.watch_token_dict = {}
 
     def domain_list_changed(self, param):
+        time.sleep(0.05)
         curr = self.handle.ls('', '/local/domain')
         if curr == None:
             return

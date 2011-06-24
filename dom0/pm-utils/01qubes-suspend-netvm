@@ -4,10 +4,10 @@
 
 get_running_netvms() {
     # Actually get running VMs with PCI devices attached
-    RUNNING_VMS=`xm list --state=Running | tail -n +3 | cut -f 1 -d " "`
+    RUNNING_VMS=`xl list | tail -n +3 | cut -f 1 -d " "`
     RUNNING_NETVMS=""
     for VM in $RUNNING_VMS; do
-        if [ -n "`xm pci-list $VM`" ]; then
+        if [ -n "`xl pci-list $VM|tail -n +2`" ]; then
             echo "$VM"
         fi
     done

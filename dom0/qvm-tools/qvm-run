@@ -79,19 +79,19 @@ def vm_run_cmd(vm, cmd, options):
     if options.shutdown:
         if options.verbose:
             print "Shutting down VM: '{0}'...".format(vm.name)
-        subprocess.call (["/usr/sbin/xm", "shutdown", vm.name])
+        subprocess.call (["/usr/sbin/xl", "shutdown", vm.name])
         return
 
     if options.pause:
         if options.verbose:
             print "Pausing VM: '{0}'...".format(vm.name)
-        subprocess.call (["/usr/sbin/xm", "pause", vm.name])
+        subprocess.call (["/usr/sbin/xl", "pause", vm.name])
         return
 
     if options.unpause:
         if options.verbose:
             print "UnPausing VM: '{0}'...".format(vm.name)
-        subprocess.call (["/usr/sbin/xm", "unpause", vm.name])
+        subprocess.call (["/usr/sbin/xl", "unpause", vm.name])
         return
 
     if options.verbose:
@@ -152,19 +152,22 @@ def main():
                       help="Wait for the VM(s) to shutdown")
 
     parser.add_option ("--shutdown", action="store_true", dest="shutdown", default=False,
-                      help="Do 'xm shutdown' for the VM(s) (can be combined this with --all and --wait)")
+                      help="Do 'xl shutdown' for the VM(s) (can be combined this with --all and --wait)")
 
     parser.add_option ("--pause", action="store_true", dest="pause", default=False,
-                      help="Do 'xm pause' for the VM(s) (can be combined this with --all and --wait)")
+                      help="Do 'xl pause' for the VM(s) (can be combined this with --all and --wait)")
 
     parser.add_option ("--unpause", action="store_true", dest="unpause", default=False,
-                      help="Do 'xm unpause' for the VM(s) (can be combined this with --all and --wait)")
+                      help="Do 'xl unpause' for the VM(s) (can be combined this with --all and --wait)")
 
     parser.add_option ("--pass_io", action="store_true", dest="passio", default=False,
                       help="Pass stdin/stdout/stderr from remote program")
 
     parser.add_option ("--localcmd", action="store", dest="localcmd", default=None,
                       help="With --pass_io, pass stdin/stdout/stderr to the given program")
+
+    parser.add_option ("--force", action="store_true", dest="force", default=False,
+                      help="Force operation, even if may damage other VMs (eg shutdown of NetVM)")
 
     (options, args) = parser.parse_args ()
 
@@ -218,8 +221,12 @@ def main():
     
         # If stopping NetVM - stop connected VMs too
         if options.shutdown and vm.is_netvm():
-            vms_list += [vm for vm in qvm_collection.get_vms_connected_to(vm.qid) if vm.is_running()]
-            vms_list.reverse()
+            connected_vms =  [vm for vm in qvm_collection.get_vms_connected_to(vm.qid) if vm.is_running()]
+            if connected_vms and not options.force:
+                print "ERROR: There are other VMs connected to this VM, "
+                print "       shutdown them first or use --force option"
+                print "VMs list: " + str([vm.name for vm in connected_vms])
+                exit(1)
 
     if takes_cmd_argument:
         cmd = "{user}:{cmd}".format(user=options.user, cmd=cmdstr)

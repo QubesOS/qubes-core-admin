@@ -361,6 +361,10 @@ void handle_execute_predefined_command(int req)
 		rcmd = "directly:user:/usr/lib/qubes/qfile-agent-dvm";
 		lcmd = "/usr/lib/qubes/qfile-daemon-dvm";
 		break;
+	case QREXEC_EXECUTE_APPMENUS_SYNC:
+		rcmd = "user:grep -H = /usr/share/applications/*.desktop";
+		lcmd = "/usr/bin/qvm-sync-appmenus";
+		break;
 	default:		/* cannot happen, already sanitized */
 		fprintf(stderr, "got trigger exec no %d\n", req);
 		exit(1);
@@ -402,7 +406,8 @@ void sanitize_message_from_agent(struct server_header *untrusted_header)
 	case MSG_AGENT_TO_SERVER_TRIGGER_EXEC:
 		untrusted_cmd = untrusted_header->client_id;
 		if (untrusted_cmd != QREXEC_EXECUTE_FILE_COPY &&
-		    untrusted_cmd != QREXEC_EXECUTE_FILE_COPY_FOR_DISPVM) {
+		    untrusted_cmd != QREXEC_EXECUTE_FILE_COPY_FOR_DISPVM &&
+		    untrusted_cmd != QREXEC_EXECUTE_APPMENUS_SYNC) {
 			fprintf(stderr,
 				"received MSG_AGENT_TO_SERVER_TRIGGER_EXEC cmd %d ?\n",
 				untrusted_cmd);

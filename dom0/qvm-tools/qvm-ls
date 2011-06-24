@@ -21,6 +21,7 @@
 #
 
 from qubes.qubes import QubesVmCollection
+from qubes.qubes import QubesHost
 from qubes.qubes import QubesException
 from optparse import OptionParser
 
@@ -59,8 +60,8 @@ fields = {
 
     "xid" : {"func" : "vm.get_xid() if vm.is_running() else '-'"},
 
-    "mem" : {"func" : "(str(vm.get_mem()/1024/1024) + ' MB') if vm.is_running() else '-'"},
-    "cpu" : {"func" : "round (vm.get_cpu_total_load(), 1) if vm.is_running() else '-'"},
+    "mem" : {"func" : "(str(vm.get_mem()/1024) + ' MB') if vm.is_running() else '-'"},
+    "cpu" : {"func" : "round (cpu_usages[vm.get_xid()]['cpu_usage'], 1) if vm.is_running() else '-'"},
     "disk": {"func" : "str(vm.get_disk_utilization()/(1024*1024)) + ' MB'"}, 
     "state": {"func" : "vm.get_power_state()"},
 
@@ -114,10 +115,14 @@ def main():
 
     fields_to_display = ["name", "on", "state", "updbl", "type", "template", "netvm", "label" ]
 
+    cpu_usages = None
+
     if (options.ids):
         fields_to_display += ["qid", "xid"]
 
     if (options.cpu):
+        qhost = QubesHost()
+        (measure_time, cpu_usages) = qhost.measure_cpu_usage()
         fields_to_display += ["cpu"]
 
     if (options.mem):

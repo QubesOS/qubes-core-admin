@@ -5,7 +5,16 @@
 # This creates dm-snapshot device on given arguments
 
 dir=$(dirname "$0")
-. "$dir/block-common.sh"
+if [ "$1" = "prepare" ] || [ "$1" = "cleanup" ]; then
+  . "$dir/xen-hotplug-common.sh"
+  command=$1
+else
+  . "$dir/block-common.sh"
+fi
+
+shopt -s nullglob
+
+HOTPLUG_STORE="/var/run/xen-hotplug/${XENBUS_PATH//\//-}"
 
 get_dev() {
   dev=$1
@@ -89,7 +98,6 @@ create_dm_snapshot_origin() {
 
 t=$(xenstore_read_default "$XENBUS_PATH/type" 'MISSING')
 
-
 case "$command" in
   add)
     case $t in
@@ -117,13 +125,61 @@ case "$command" in
         if [ "$t" == "snapshot" ]; then
           #that's all for snapshot, store name of prepared device
           xenstore_write "$XENBUS_PATH/node" "/dev/mapper/$dm_devname"
+          echo "/dev/mapper/$dm_devname" > "$HOTPLUG_STORE-node"
           write_dev /dev/mapper/$dm_devname
         elif [ "$t" == "origin" ]; then
           # for origin - prepare snapshot-origin device and store its name
           dm_devname=origin-$(stat -c '%D:%i' "$base")
           create_dm_snapshot_origin $dm_devname "$base"
           xenstore_write "$XENBUS_PATH/node" "/dev/mapper/$dm_devname"
+          echo "/dev/mapper/$dm_devname" > "$HOTPLUG_STORE-node"
           write_dev /dev/mapper/$dm_devname
+        fi
+        # Save domain name for template commit on device remove
+        domain=$(xenstore_read_default "$XENBUS_PATH/domain" '')
+        if [ -z "$domain" ]; then
+          domid=$(xenstore_read "$XENBUS_PATH/frontend-id")
+          domain=$(xl domname $domid)
+        fi
+        echo $domain > "$HOTPLUG_STORE-domain"
+
+        release_lock "block"
+        exit 0
+        ;;
+    esac
+    ;;
+  prepare)
+    t=$2
+    case $t in
+      snapshot|origin)
+        p=$3
+        base=${p/:*/}
+        cow=${p/*:/}
+
+        if [ -L "$base" ]; then
+          base=$(readlink -f "$base") || fatal "$base link does not exist."
+        fi
+
+        if [ -L "$cow" ]; then
+          cow=$(readlink -f "$cow") || fatal "$cow link does not exist."
+        fi
+
+        # first ensure that snapshot device exists (to write somewhere changes from snapshot-origin)
+        dm_devname=$(get_dm_snapshot_name "$base" "$cow")
+
+        claim_lock "block"
+
+        # prepare snapshot device
+        create_dm_snapshot $dm_devname "$base" "$cow"
+
+        if [ "$t" == "snapshot" ]; then
+          #that's all for snapshot, store name of prepared device
+          echo "/dev/mapper/$dm_devname"
+        elif [ "$t" == "origin" ]; then
+          # for origin - prepare snapshot-origin device and store its name
+          dm_devname=origin-$(stat -c '%D:%i' "$base")
+          create_dm_snapshot_origin $dm_devname "$base"
+          echo "/dev/mapper/$dm_devname"
         fi
 
         release_lock "block"
@@ -131,10 +187,19 @@ case "$command" in
         ;;
     esac
     ;;
-  remove)
+  remove|cleanup)
+    if [ "$command" = "cleanup" ]; then
+      t=$2
+    else
+      t=$(cat $HOTPLUG_STORE-type)
+    fi
     case $t in
       snapshot|origin)
-        node=$(xenstore_read "$XENBUS_PATH/node")
+        if [ "$command" = "cleanup" ]; then
+          node=$3
+        else
+          node=$(cat "$HOTPLUG_STORE-node")
+        fi
 
         if [ -z "$node" ]; then
           fatal "No device node to remove"
@@ -174,14 +239,16 @@ case "$command" in
               dmsetup remove $snap
             fi
           done
-          # Commit template changes
-          domain=$(xenstore_read "$XENBUS_PATH/domain")
-          if [ "$domain" ]; then
-            # Dont stop on errors
-            /usr/bin/qvm-template-commit "$domain" || true
+          if [ "$command" = "remove" ]; then
+            # Commit template changes
+            domain=$(cat "$HOTPLUG_STORE-domain")
+            if [ "$domain" ]; then
+              # Dont stop on errors
+              /usr/bin/qvm-template-commit "$domain" || true
+            fi
           fi
         fi
-	
+
         if [ -e $node ]; then
           log debug "Removing $node"
           dmsetup remove $node

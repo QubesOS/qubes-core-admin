@@ -39,8 +39,9 @@ URL:		http://www.qubes-os.org
 BuildRequires:  xen-devel
 Requires:	python, xen-runtime, pciutils, python-inotify, python-daemon, kernel-qubes-dom0
 Conflicts:      qubes-gui-dom0 < 1.1.13
+Requires:       yum-plugin-post-transaction-actions
 Requires:       NetworkManager >= 0.8.1-1
-Requires:       xen >= 3.4.3-6
+Requires:       xen >= 4.1.0-2
 %define _builddir %(pwd)/dom0
 
 %description
@@ -50,6 +51,7 @@ The Qubes core files for installation on Dom0.
 python -m compileall qvm-core qmemman
 python -O -m compileall qvm-core qmemman
 make -C restore
+make -C aux-tools
 make -C ../common
 make -C ../vchan
 make -C ../u2mfn
@@ -89,16 +91,25 @@ cp aux-tools/convert_dirtemplate2vm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/create_apps_for_appvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/remove_appvm_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/reset_vm_configs.py  $RPM_BUILD_ROOT/usr/lib/qubes
+cp aux-tools/sync_rpmdb_updatevm.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 cp qmemman/server.py $RPM_BUILD_ROOT/usr/lib/qubes/qmemman_daemon.py
 cp ../common/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_daemon $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_client $RPM_BUILD_ROOT/usr/lib/qubes/
+cp aux-tools/qfile-dom0-unpacker $RPM_BUILD_ROOT/usr/lib/qubes/
 
-cp restore/xenstore-watch restore/qvm-create-default-dvm $RPM_BUILD_ROOT/usr/bin
+cp restore/qvm-create-default-dvm $RPM_BUILD_ROOT/usr/bin
+cp restore/xenstore-watch $RPM_BUILD_ROOT/usr/bin/xenstore-watch-qubes
 cp restore/qubes_restore restore/xenfreepages $RPM_BUILD_ROOT/usr/lib/qubes
 cp restore/qubes_prepare_saved_domain.sh  $RPM_BUILD_ROOT/usr/lib/qubes
 cp restore/qfile-daemon-dvm $RPM_BUILD_ROOT/usr/lib/qubes
 cp restore/qfile-daemon $RPM_BUILD_ROOT/usr/lib/qubes
+
+mkdir -p $RPM_BUILD_ROOT/etc/yum.real.repos.d
+cp qubes-cached.repo $RPM_BUILD_ROOT/etc/yum.real.repos.d/
+
+mkdir -p $RPM_BUILD_ROOT/etc/yum/post-actions
+cp misc/qubes_sync_rpmdb_updatevm.action $RPM_BUILD_ROOT/etc/yum/post-actions/
 
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/vm-templates
@@ -108,8 +119,14 @@ mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/servicevms
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/backup
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/dvmdata
 
+mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/updates
+
 mkdir -p $RPM_BUILD_ROOT/usr/share/qubes/icons
 cp icons/*.png $RPM_BUILD_ROOT/usr/share/qubes/icons
+cp misc/qubes-vm.directory.template $RPM_BUILD_ROOT/usr/share/qubes/
+cp misc/qubes-templatevm.directory.template $RPM_BUILD_ROOT/usr/share/qubes/
+cp misc/qubes-appmenu-select.template $RPM_BUILD_ROOT/usr/share/qubes/
+cp misc/vm-template.conf $RPM_BUILD_ROOT/usr/share/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/usr/bin
 cp ../common/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/lib/qubes
@@ -120,6 +137,8 @@ mkdir -p $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 cp ../common/qubes_nmhook $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
 cp ../common/iptables $RPM_BUILD_ROOT/etc/sysconfig
+mkdir -p $RPM_BUILD_ROOT/etc/security/limits.d
+cp misc/limits-qubes.conf $RPM_BUILD_ROOT/etc/security/limits.d/99-qubes.conf
 
 mkdir -p $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d
 cp pm-utils/01qubes-sync-vms-clock $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
@@ -150,6 +169,13 @@ fi
 
 sed 's/^net.ipv4.ip_forward.*/net.ipv4.ip_forward = 1/'  -i /etc/sysctl.conf
 
+sed '/^autoballoon=/d;/^lockfile=/d' -i /etc/xen/xl.conf
+echo 'autoballoon=0' >> /etc/xen/xl.conf
+echo 'lockfile="/var/run/qubes/xl-lock"' >> /etc/xen/xl.conf
+
+sed '/^reposdir=/d' -i /etc/yum.conf
+echo reposdir=/etc/yum.real.repos.d >> /etc/yum.conf
+
 chkconfig --add qubes_core || echo "WARNING: Cannot add service qubes_core!"
 chkconfig --add qubes_netvm || echo "WARNING: Cannot add service qubes_netvm!"
 chkconfig --add qubes_setupdvm || echo "WARNING: Cannot add service qubes_setupdvm!"
@@ -157,6 +183,10 @@ chkconfig --add qubes_setupdvm || echo "WARNING: Cannot add service qubes_setupd
 chkconfig --level 5 qubes_core on || echo "WARNING: Cannot enable service qubes_core!"
 chkconfig --level 5 qubes_netvm on || echo "WARNING: Cannot enable service qubes_netvm!"
 chkconfig --level 5 qubes_setupdvm on || echo "WARNING: Cannot enable service qubes_setupdvm!"
+
+# Conflicts with libxl stack, so disable it
+service xend stop
+chkconfig --level 5 xend off
 
 HAD_SYSCONFIG_NETWORK=yes
 if ! [ -e /etc/sysconfig/network ]; then
@@ -167,10 +197,7 @@ fi
 
 # Load evtchn module - xenstored needs it
 modprobe evtchn
-
-# Now launch xend - we will need it for subsequent steps
 service xenstored start
-service xend start
 
 if ! [ -e /var/lib/qubes/qubes.xml ]; then
 #    echo "Initializing Qubes DB..."
@@ -259,13 +286,20 @@ fi
 /usr/lib/qubes/meminfo-writer
 /usr/lib/qubes/qfile-daemon-dvm*
 /usr/lib/qubes/qfile-daemon
+/usr/lib/qubes/sync_rpmdb_updatevm.sh
+%attr(4750,root,qubes) /usr/lib/qubes/qfile-dom0-unpacker
 %attr(770,root,qubes) %dir /var/lib/qubes
 %attr(770,root,qubes) %dir /var/lib/qubes/vm-templates
 %attr(770,root,qubes) %dir /var/lib/qubes/appvms
 %attr(770,root,qubes) %dir /var/lib/qubes/servicevms
 %attr(770,root,qubes) %dir /var/lib/qubes/backup
 %attr(770,root,qubes) %dir /var/lib/qubes/dvmdata
+%attr(770,root,qubes) %dir /var/lib/qubes/updates
 %dir /usr/share/qubes/icons/*.png
+/usr/share/qubes/qubes-vm.directory.template
+/usr/share/qubes/qubes-templatevm.directory.template
+/usr/share/qubes/qubes-appmenu-select.template
+/usr/share/qubes/vm-template.conf
 /usr/lib/qubes/qubes_setup_dnat_to_ns
 /usr/lib/qubes/qubes_fix_nm_conf.sh
 /etc/dhclient.d/qubes_setup_dnat_to_ns.sh
@@ -274,7 +308,7 @@ fi
 /usr/lib64/pm-utils/sleep.d/01qubes-sync-vms-clock
 /usr/lib64/pm-utils/sleep.d/01qubes-suspend-netvm
 /usr/lib64/pm-utils/sleep.d/02qubes-pause-vms
-/usr/bin/xenstore-watch
+/usr/bin/xenstore-watch-qubes
 /usr/lib/qubes/qubes_restore
 /usr/lib/qubes/qubes_prepare_saved_domain.sh
 /etc/xen/scripts/block.qubes
@@ -288,5 +322,8 @@ fi
 %attr(770,root,qubes) %dir /var/run/qubes
 %{_libdir}/libvchan.so
 %{_libdir}/libu2mfn.so
+/etc/yum.real.repos.d/qubes-cached.repo
 /etc/sudoers.d/qubes
 /etc/xdg/autostart/qubes-guid.desktop
+/etc/security/limits.d/99-qubes.conf
+/etc/yum/post-actions/qubes_sync_rpmdb_updatevm.action
