@@ -502,9 +502,7 @@ class QubesVm(object):
 
         uuid = self.get_uuid()
 
-        xs_trans = xs.transaction_start()
-        start_time = xs.read(xs_trans, "/vm/%s/start_time" % str(uuid))
-        xs.transaction_end()
+        start_time = xs.read('', "/vm/%s/start_time" % str(uuid))
 
         return start_time
 
@@ -585,43 +583,41 @@ class QubesVm(object):
         domain_path = xs.get_domain_path(xid)
 
         # Set Xen Store entires with VM networking info:
-        xs_trans = xs.transaction_start()
 
-        xs.write(xs_trans, "{0}/qubes_vm_type".format(domain_path),
+        xs.write('', "{0}/qubes_vm_type".format(domain_path),
                 self.type)
-        xs.write(xs_trans, "{0}/qubes_vm_updateable".format(domain_path),
+        xs.write('', "{0}/qubes_vm_updateable".format(domain_path),
                 str(self.updateable))
 
         if self.is_netvm():
-            xs.write(xs_trans,
+            xs.write('',
                     "{0}/qubes_netvm_gateway".format(domain_path),
                     self.gateway)
-            xs.write(xs_trans,
+            xs.write('',
                     "{0}/qubes_netvm_secondary_dns".format(domain_path),
                     self.secondary_dns)
-            xs.write(xs_trans,
+            xs.write('',
                     "{0}/qubes_netvm_netmask".format(domain_path),
                     self.netmask)
-            xs.write(xs_trans,
+            xs.write('',
                     "{0}/qubes_netvm_network".format(domain_path),
                     self.network)
 
         if self.netvm_vm is not None:
-            xs.write(xs_trans, "{0}/qubes_ip".format(domain_path), self.ip)
-            xs.write(xs_trans, "{0}/qubes_netmask".format(domain_path),
+            xs.write('', "{0}/qubes_ip".format(domain_path), self.ip)
+            xs.write('', "{0}/qubes_netmask".format(domain_path),
                     self.netvm_vm.netmask)
-            xs.write(xs_trans, "{0}/qubes_gateway".format(domain_path),
+            xs.write('', "{0}/qubes_gateway".format(domain_path),
                     self.netvm_vm.gateway)
-            xs.write(xs_trans,
+            xs.write('',
                     "{0}/qubes_secondary_dns".format(domain_path),
                     self.netvm_vm.secondary_dns)
 
         # Fix permissions
-        xs.set_permissions(xs_trans, '{0}/device'.format(domain_path), 
+        xs.set_permissions('', '{0}/device'.format(domain_path),
                 [{ 'dom': xid }])
-        xs.set_permissions(xs_trans, '{0}/memory'.format(domain_path), 
+        xs.set_permissions('', '{0}/memory'.format(domain_path),
                 [{ 'dom': xid }])
-        xs.transaction_end(xs_trans)
 
     def get_rootdev(self, source_template=None):
         if self.template_vm:
@@ -1395,11 +1391,9 @@ class QubesProxyVm(QubesNetVm):
             return
 
         super(QubesProxyVm, self).create_xenstore_entries(xid)
-        xs_trans = xs.start_transaction()
-        xs.write(xs_trans, "/local/domain/{0}/qubes_iptables_error".format(xid), '')
-        xs.set_permissions(xs_trans, "/local/domain/{0}/qubes_iptables_error".format(xid),
+        xs.write('', "/local/domain/{0}/qubes_iptables_error".format(xid), '')
+        xs.set_permissions('', "/local/domain/{0}/qubes_iptables_error".format(xid),
                 [{ 'dom': xid, 'write': True }])
-        xs.end_transaction(xs_trans)
         self.write_iptables_xenstore_entry()
 
     def write_netvm_domid_entry(self, xid = -1):
