@@ -1741,6 +1741,9 @@ class QubesVmCollection(dict):
         if self.default_netvm_qid is None:
             self.set_default_netvm_vm(vm)
 
+        if self.updatevm_qid is None:
+            self.set_updatevm_vm(vm)
+
         return vm
 
     def set_default_template_vm(self, vm):
