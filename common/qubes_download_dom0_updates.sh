@@ -21,7 +21,26 @@ fi
 mkdir -p $DOM0_UPDATES_DIR/etc
 cp /etc/yum.conf $DOM0_UPDATES_DIR/etc/
 
-echo "Checking for updates..."
+# check also for template updates
+echo "Checking for template updates..."
+TEMPLATEPKGLIST=`yum check-update -q | cut -f 1 -d ' '`
+if [ -n "$TEMPLATEPKGLIST" ] && [ "$GUI" = 1 ]; then
+    TEMPLATE_UPDATE_COUNT=`echo "$TEMPLATEPKGLIST" | wc -w`
+    NOTIFY_UPDATE_COUNT=`cat /var/run/qubes/template_update_last_notify_count 2> /dev/null`
+    if [ "$NOTIFY_UPDATE_COUNT" != "$TEMPLATE_UPDATE_COUNT" ]; then
+        echo -n $TEMPLATE_UPDATE_COUNT > /var/run/qubes/template_update_last_notify_count
+        NOTIFY_PID=`cat /var/run/qubes/template_update_notify.pid 2> /dev/null`
+        if [ -z "$NOTIFY_PID" ] || ! kill -0 $NOTIFY_PID; then
+            NOTIFY_TITLE="Template update"
+            NOTIFY_TEXT="There are $TEMPLATE_UPDATE_COUNT updates available for TemplateVM"
+            NOTIFY_INFO="$NOTIFY_TEXT. Start TemplateVM to update it."
+            ( zenity --notification --text "$NOTIFY_TEXT"; zenity --warning --title "$NOTIFY_TITLE" --text "$NOTIFY_INFO") &
+            echo $! > /var/run/qubes/template_update_notify.pid
+        fi
+    fi
+fi
+
+echo "Checking for dom0 updates..."
 PKGLIST=`yum --installroot $DOM0_UPDATES_DIR check-update -q | cut -f 1 -d ' '`
 
 if [ -z $PKGLIST ]; then
