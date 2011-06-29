@@ -250,7 +250,7 @@ void fill_field(FILE *conf, char *field, int dispid, int netvm_id)
 // val - string to replace pattern with
 void fix_conffile(FILE *conf, int conf_templ, int dispid, int netvm_id)
 {
-	int buflen, cur_len = 0;
+	int buflen = 0, cur_len = 0;
 	char buf[4096];
 	char *bufpos = buf;
 	char *pattern, *patternend;
