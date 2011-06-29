@@ -115,6 +115,7 @@ mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/vm-templates
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/appvms
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/servicevms
+mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/vm-kernels
 
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/backup
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/dvmdata
@@ -295,6 +296,7 @@ fi
 %attr(770,root,qubes) %dir /var/lib/qubes/backup
 %attr(770,root,qubes) %dir /var/lib/qubes/dvmdata
 %attr(770,root,qubes) %dir /var/lib/qubes/updates
+%attr(770,root,qubes) %dir /var/lib/qubes/vm-kernels
 %dir /usr/share/qubes/icons/*.png
 /usr/share/qubes/qubes-vm.directory.template
 /usr/share/qubes/qubes-templatevm.directory.template

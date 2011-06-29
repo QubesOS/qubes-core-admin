@@ -9,6 +9,7 @@
 /dev/mapper/dmroot /                       ext4 defaults,noatime        1 1
 /dev/xvdb		/rw			ext4	noauto,defaults	0 0
 /dev/xvdc1      swap                    swap    defaults        0 0
+/dev/xvdd       /lib/modules        ext3    defaults,ro 0 0
 tmpfs                   /dev/shm                tmpfs   defaults        0 0
 devpts                  /dev/pts                devpts  gid=5,mode=620  0 0
 sysfs                   /sys                    sysfs   defaults        0 0

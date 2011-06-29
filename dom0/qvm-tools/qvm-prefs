@@ -22,8 +22,10 @@
 
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesVmLabels
+from qubes.qubes import qubes_kernels_base_dir
 from optparse import OptionParser
 import subprocess
+import os
 
 def do_list(vm):
     label_width = 18
@@ -52,6 +54,10 @@ def do_list(vm):
     print fmt.format ("private img", vm.private_img)
     print fmt.format ("memory", vm.memory)
     print fmt.format ("maxmem", vm.maxmem)
+    if vm.uses_default_kernel:
+        print fmt.format ("kernel", "%s (default)" % vm.kernel)
+    else:
+        print fmt.format ("kernel", vm.kernel)
 
 
 def set_label(vms, vm, args):
@@ -168,6 +174,33 @@ def set_nonupdateable(vms, vm, args):
     vm.set_nonupdateable()
     return True
 
+def set_kernel(vms, vm, args):
+    if len (args) != 1:
+        print "Missing kernel version argument!"
+        print "Possible values:"
+        print "1) default"
+        print "2) none (kernels subdir in VM)"
+        print "3) <kernel version>, one of:"
+        for k in os.listdir(qubes_kernels_base_dir):
+            print "  -", k
+        return
+
+    kernel = args[0]
+    if kernel == "default":
+        kernel = vms.get_default_kernel()
+        vm.uses_default_kernel = True
+    elif kernel == "none":
+        kernel = None
+        vm.uses_default_kernel = False
+    else:
+        if not os.path.exists(qubes_kernels_base_dir + '/' + kernel):
+            print "Kernel version {0} not installed.".format(kernel)
+            exit(1)
+        vm.uses_default_kernel = False
+
+    vm.kernel = kernel
+
+
 properties = {
     "updateable": set_updateable,
     "nonupdateable": set_nonupdateable,
@@ -176,6 +209,7 @@ properties = {
     "netvm" : set_netvm,
     "maxmem" : set_maxmem,
     "memory" : set_memory,
+    "kernel" : set_kernel,
 }
 
 

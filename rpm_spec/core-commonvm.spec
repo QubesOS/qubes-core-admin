@@ -86,6 +86,9 @@ mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
 cp qubes_trigger_sync_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/dom0-updates
 
+mkdir -p $RPM_BUILD_ROOT/lib/firmware
+ln -s /lib/modules/firmware $RPM_BUILD_ROOT/lib/firmware/updates
+
 %triggerin -- initscripts
 cp /var/lib/qubes/serial.conf /etc/init/serial.conf
 
@@ -236,3 +239,4 @@ rm -rf $RPM_BUILD_ROOT
 /etc/yum/post-actions/qubes_trigger_sync_appmenus.action
 /usr/lib/qubes/qubes_trigger_sync_appmenus.sh
 /usr/lib/qubes/qubes_download_dom0_updates.sh
+/lib/firmware/updates
