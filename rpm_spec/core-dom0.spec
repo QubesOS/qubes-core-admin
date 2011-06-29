@@ -177,6 +177,9 @@ echo 'lockfile="/var/run/qubes/xl-lock"' >> /etc/xen/xl.conf
 sed '/^reposdir=/d' -i /etc/yum.conf
 echo reposdir=/etc/yum.real.repos.d >> /etc/yum.conf
 
+sed '/^installonlypkgs=/d' -i /etc/yum.conf
+echo 'installonlypkgs += kernel-qubes-vm' >> /etc/yum.conf
+
 chkconfig --add qubes_core || echo "WARNING: Cannot add service qubes_core!"
 chkconfig --add qubes_netvm || echo "WARNING: Cannot add service qubes_netvm!"
 chkconfig --add qubes_setupdvm || echo "WARNING: Cannot add service qubes_setupdvm!"
