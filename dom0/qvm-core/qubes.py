@@ -56,6 +56,7 @@ qubes_appvms_dir = qubes_base_dir + "/appvms"
 qubes_templates_dir = qubes_base_dir + "/vm-templates"
 qubes_servicevms_dir = qubes_base_dir + "/servicevms"
 qubes_store_filename = qubes_base_dir + "/qubes.xml"
+qubes_kernels_base_dir = qubes_base_dir + "/vm-kernels"
 
 qubes_max_xid = 1024
 qubes_max_qid = 254
@@ -194,7 +195,9 @@ class QubesVm(object):
                  volatile_img = None,
                  pcidevs = None,
                  internal = False,
-                 vcpus = None):
+                 vcpus = None,
+                 kernel = None,
+                 uses_default_kernel = True):
 
 
         assert qid < qubes_max_qid, "VM id out of bounds!"
@@ -277,10 +280,17 @@ class QubesVm(object):
         else:
             assert self.root_img is not None, "Missing root_img for standalone VM!"
 
+        self.kernel = kernel
+
         if template_vm is not None:
             self.kernels_dir = template_vm.kernels_dir
+        elif self.kernel is not None:
+            self.kernels_dir = qubes_kernels_base_dir + "/" + self.kernel
         else:
+            # for backward compatibility (or another rare case): kernel=None -> kernel in VM dir
             self.kernels_dir = self.dir_path + "/" + default_kernels_subdir
+
+        self.uses_default_kernel = uses_default_kernel
 
         if updateable:
             self.appmenus_templates_dir = self.dir_path + "/" + default_appmenus_templates_subdir
@@ -644,6 +654,7 @@ class QubesVm(object):
         args['rootdev'] = self.get_rootdev(source_template=source_template)
         args['privatedev'] = "'script:file:{dir}/private.img,xvdb,w',".format(dir=self.dir_path)
         args['volatiledev'] = "'script:file:{dir}/volatile.img,xvdc,w',".format(dir=self.dir_path)
+        args['otherdevs'] = "'script:file:{dir}/modules.img,xvdd,r',".format(dir=self.kernels_dir)
         args['kernelopts'] = ''
 
         return args
@@ -708,13 +719,6 @@ class QubesVm(object):
                 raise IOError ("Error while copying {0} to {1}".\
                                format(template_root, self.root_img))
 
-            kernels_dir = self.dir_path + '/' + default_kernels_subdir
-            if verbose:
-                print "--> Copying the template's kernel dir: {0}".\
-                        format(source_template.kernels_dir)
-            shutil.copytree (source_template.kernels_dir, kernels_dir)
-
-
         # Create volatile.img
         self.reset_volatile_storage(source_template = source_template)
 
@@ -749,6 +753,21 @@ class QubesVm(object):
             raise QubesException (
                 "VM private image file doesn't exist: {0}".\
                 format(self.private_img))
+
+        if not os.path.exists (self.kernels_dir + '/vmlinuz'):
+            raise QubesException (
+                "VM kernel does not exists: {0}".\
+                format(self.kernels_dir + '/vmlinuz'))
+
+        if not os.path.exists (self.kernels_dir + '/initramfs'):
+            raise QubesException (
+                "VM initramfs does not exists: {0}".\
+                format(self.kernels_dir + '/initramfs'))
+
+        if not os.path.exists (self.kernels_dir + '/modules.img'):
+            raise QubesException (
+                "VM kernel modules image does not exists: {0}".\
+                format(self.kernels_dir + '/modules.img'))
         return True
 
     def reset_volatile_storage(self, source_template = None):
@@ -986,6 +1005,8 @@ class QubesVm(object):
         attrs["pcidevs"] = str(self.pcidevs)
         attrs["vcpus"] = str(self.vcpus)
         attrs["internal"] = str(self.internal)
+        attrs["uses_default_kernel"] = str(self.uses_default_kernel)
+        attrs["kernel"] = str(self.kernel)
         return attrs
 
     def create_xml_element(self):
@@ -1020,7 +1041,7 @@ class QubesTemplateVm(QubesVm):
 
         # Clean image for root-cow and swap (AppVM side)
         self.clean_volatile_img = self.dir_path + "/" + default_clean_volatile_img
-        
+
         # Image for template changes
         self.rootcow_img = self.dir_path + "/" + default_rootcow_img
 
@@ -1097,11 +1118,6 @@ class QubesTemplateVm(QubesVm):
         if retcode != 0:
             raise IOError ("Error while copying {0} to {1}".\
                            format(self.clean_volatile_img, self.volatile_img))
-        if verbose:
-            print "--> Copying the template's kernel dir:\n{0} ==>\n{1}".\
-                    format(src_template_vm.kernels_dir, self.kernels_dir)
-        shutil.copytree (src_template_vm.kernels_dir, self.kernels_dir)
-
         if verbose:
             print "--> Copying the template's appmenus templates dir:\n{0} ==>\n{1}".\
                     format(src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
@@ -1741,6 +1757,9 @@ class QubesVmCollection(dict):
         if self.default_netvm_qid is None:
             self.set_default_netvm_vm(vm)
 
+        if self.updatevm_qid is None:
+            self.set_updatevm_vm(vm)
+
         return vm
 
     def set_default_template_vm(self, vm):
@@ -1762,6 +1781,13 @@ class QubesVmCollection(dict):
             return None
         else:
             return self[self.default_netvm_qid]
+
+    def set_default_kernel(self, kernel):
+        assert os.path.exists(qubes_kernels_base_dir + '/' + kernel), "Kerel {0} not installed!".format(kernel)
+        self.default_kernel = kernel
+
+    def get_default_kernel(self):
+        return self.default_kernel
 
     def set_default_fw_netvm_vm(self, vm):
         assert vm.is_netvm(), "VM {0} does not provide network!".format(vm.name)
@@ -1888,7 +1914,10 @@ class QubesVmCollection(dict):
             if self.default_fw_netvm_qid is not None else "None",
 
             updatevm=str(self.updatevm_qid) \
-            if self.updatevm_qid is not None else "None"
+            if self.updatevm_qid is not None else "None",
+
+            default_kernel=str(self.default_kernel) \
+            if self.default_kernel is not None else "None",
         )
 
         for vm in self.values():
@@ -1916,7 +1945,7 @@ class QubesVmCollection(dict):
                 "private_img", "root_img", "template_qid",
                 "installed_by_rpm", "updateable", "internal",
                 "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
-                "maxmem" )
+                "maxmem", "kernel", "uses_default_kernel" )
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)
@@ -1949,6 +1978,20 @@ class QubesVmCollection(dict):
                 kwargs.pop ("label")
             else:
                 kwargs["label"] = QubesVmLabels[kwargs["label"]]
+
+        if "kernel" in kwargs and kwargs["kernel"] == "None":
+            kwargs["kernel"] = None
+        if "uses_default_kernel" in kwargs:
+            kwargs["uses_default_kernel"] = True if kwargs["uses_default_kernel"] == "True" else False
+        else:
+            # For backward compatibility
+            kwargs["uses_default_kernel"] = False
+        if kwargs["uses_default_kernel"]:
+            kwargs["kernel"] = self.get_default_kernel()
+        else:
+            if "kernel" in kwargs and kwargs["kernel"]=="None":
+                kwargs["kernel"]=None
+            # for other cases - generic assigment is ok
 
         return kwargs
 
@@ -2024,6 +2067,7 @@ class QubesVmCollection(dict):
                     if updatevm != "None" else None
             #assert self.default_netvm_qid is not None
 
+        self.default_kernel = element.get("default_kernel")
 
         # Then, read in the TemplateVMs, because a reference to template VM
         # is needed to create each AppVM

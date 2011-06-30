@@ -59,9 +59,9 @@ def netup():
     if os.path.isfile('/var/lock/subsys/NetworkManager'):
         os.system('/etc/init.d/NetworkManager stop')
     if not vif_eth0_exists():
-        cmd = 'modprobe xennet && xm network-attach 0 ip=10.137.0.1 backend='
+        cmd = 'modprobe xennet && xl network-attach 0 ip=10.137.0.1 backend='
         cmd += netvm.name
-        cmd += ' script=vif-route-qubes'
+        cmd += ' script=/etc/xen/scripts/vif-route-qubes'
         if os.system(cmd) != 0:
             print 'Error creating network device'
             sys.exit(1)

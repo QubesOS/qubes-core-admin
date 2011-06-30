@@ -23,10 +23,6 @@ start()
     modprobe evtchn
     chgrp qubes /etc/xen
     chmod 710 /etc/xen
-    chgrp qubes /var/run/xend
-    chmod 710 /var/run/xend
-    chgrp qubes /var/run/xend/xen-api.sock /var/run/xend/xmlrpc.sock
-    chmod 660 /var/run/xend/xen-api.sock /var/run/xend/xmlrpc.sock
     chgrp qubes /var/run/xenstored/*
     chmod 660 /var/run/xenstored/*
     chgrp qubes /var/lib/xen

@@ -27,3 +27,5 @@
 #
 # joanna.
 #
+
+Defaults    !requiretty

@@ -71,6 +71,11 @@ start()
 
 	success
 	echo ""
+
+	type=$(/usr/bin/xenstore-read qubes_vm_type)
+	if [ "$type" == "ProxyVM" ]; then
+		/sbin/service ntpd start
+	fi
 	return 0
 }
 

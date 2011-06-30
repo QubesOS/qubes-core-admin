@@ -33,6 +33,10 @@ from qubes.qubes import qrexec_client_path
 # fields required to be present (and verified) in retrieved desktop file
 required_fields = [ "Name", "Exec" ]
 
+#limits
+appmenus_line_size = 1024
+appmenus_line_count = 100000
+
 # regexps for sanitization of retrieved values
 std_re = re.compile(r"^[/a-zA-Z0-9.,&() -]*$")
 fields_regexp = {
@@ -44,15 +48,32 @@ fields_regexp = {
 }
 
 def get_appmenus(xid):
+    global appmenus_line_count
+    global appmenus_line_size
     untrusted_appmenulist = []
     if xid == -1:
-        untrusted_appmenulist = sys.stdin.readlines()
+        while appmenus_line_count > 0:
+            line = sys.stdin.readline(appmenus_line_size)
+            if line == "":
+                break;
+            untrusted_appmenulist.append(line.strip())
+            appmenus_line_count -= 1
+        if appmenus_line_count == 0:
+            raise QubesException("Line count limit exceeded")
     else:
         p = subprocess.Popen ([qrexec_client_path, '-d', str(xid),
                 'user:grep -H = /usr/share/applications/*.desktop'], stdout=subprocess.PIPE)
-        untrusted_appmenulist = p.communicate()[0].split('\n')
+        while appmenus_line_count > 0:
+            line = p.stdout.readline(appmenus_line_size)
+            if line == "":
+                break;
+            untrusted_appmenulist.append(line.strip())
+            appmenus_line_count -= 1
+        p.wait()
         if p.returncode != 0:
             raise QubesException("Error getting application list")
+        if appmenus_line_count == 0:
+            raise QubesException("Line count limit exceeded")
 
     row_no = 0
     appmenus = {}
