@@ -33,7 +33,6 @@ update-repo-current:
 		dist=$$(basename $$vmrepo) ;\
 		ln -f $(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*$$dist*.rpm $$vmrepo/rpm/ ;\
 	done
-	cd ../yum && ./update_repo.sh
 
 update-repo-current-testing:
 	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION_DOM0)*fc13*.rpm ../yum/current-release/current-testing/dom0/rpm/
@@ -42,7 +41,6 @@ update-repo-current-testing:
 		dist=$$(basename $$vmrepo) ;\
 		ln -f $(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*$$dist*.rpm $$vmrepo/rpm/ ;\
 	done
-	cd ../yum && ./update_repo.sh
 
 update-repo-unstable:
 	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION_DOM0)*fc13*.rpm ../yum/current-release/unstable/dom0/rpm/
@@ -51,7 +49,6 @@ update-repo-unstable:
 		dist=$$(basename $$vmrepo) ;\
 		ln -f $(RPMS_DIR)/x86_64/qubes-core-*vm-*$(VERSION_VM)*$$dist*.rpm $$vmrepo/rpm/ ;\
 	done
-	cd ../yum && ./update_repo.sh
 
 update-repo-installer:
 	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-*$(VERSION_DOM0)*fc13*.rpm ../installer/yum/qubes-dom0/rpm/
