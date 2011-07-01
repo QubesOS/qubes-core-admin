@@ -175,6 +175,10 @@ def set_nonupdateable(vms, vm, args):
     return True
 
 def set_kernel(vms, vm, args):
+    if vm.template_vm is not None:
+        print "Cannot set kernel for template-based VM. Set it for template instead."
+        return False
+
     if len (args) != 1:
         print "Missing kernel version argument!"
         print "Possible values:"
