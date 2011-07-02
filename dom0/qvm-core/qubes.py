@@ -959,7 +959,7 @@ class QubesVm(object):
             # Sync RPMDB
             subprocess.call(["/usr/lib/qubes/sync_rpmdb_updatevm.sh"])
             # Start polling
-            subprocess.call([qrexec_client_path, '-d', xid, '-e',
+            subprocess.call([qrexec_client_path, '-d', str(xid), '-e',
                     "while true; do sleep %d; /usr/lib/qubes/qubes_download_dom0_updates.sh; done" % dom0_update_check_interval])
 
         # perhaps we should move it before unpause and fork?
