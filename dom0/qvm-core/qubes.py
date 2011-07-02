@@ -1663,6 +1663,8 @@ class QubesVmCollection(dict):
                          dir_path=dir_path, conf_file=conf_file,
                          private_img=private_img,
                          netvm_vm = self.get_default_netvm_vm(),
+                         kernel = self.get_default_kernel(),
+                         uses_default_kernel = True,
                          updateable=updateable,
                          label=label)
 
@@ -1694,7 +1696,9 @@ class QubesVmCollection(dict):
                               dir_path=dir_path, conf_file=conf_file,
                               root_img=root_img, private_img=private_img,
                               installed_by_rpm=installed_by_rpm,
-                              netvm_vm = self.get_default_netvm_vm())
+                              netvm_vm = self.get_default_netvm_vm(),
+                              kernel = self.get_default_kernel(),
+                              uses_default_kernel = True)
 
         if not self.verify_new_vm (vm):
             assert False, "Wrong VM description!"
@@ -1725,6 +1729,8 @@ class QubesVmCollection(dict):
                          netid=netid, label=label,
                          private_img=private_img, installed_by_rpm=installed_by_rpm,
                          updateable=updateable,
+                         kernel = self.get_default_kernel(),
+                         uses_default_kernel = True,
                          dir_path=dir_path, conf_file=conf_file)
 
         if not self.verify_new_vm (vm):
@@ -1748,6 +1754,8 @@ class QubesVmCollection(dict):
                               private_img=private_img, installed_by_rpm=installed_by_rpm,
                               dir_path=dir_path, conf_file=conf_file,
                               updateable=updateable,
+                              kernel = self.get_default_kernel(),
+                              uses_default_kernel = True,
                               netvm_vm = self.get_default_fw_netvm_vm())
 
         if not self.verify_new_vm (vm):
