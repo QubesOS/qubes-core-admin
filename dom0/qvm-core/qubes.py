@@ -911,7 +911,9 @@ class QubesVm(object):
             qmemman_client.close()
             raise MemoryError ("ERROR: insufficient memory to start this VM")
 
+        time.sleep(1) # REMOVEME!!!
         xl_cmdline = ['sudo', '/usr/sbin/xl', 'create', self.conf_file, '-p']
+        time.sleep(1) # REMOVEME!!!
 
         try:
             subprocess.check_call(xl_cmdline)
@@ -940,6 +942,7 @@ class QubesVm(object):
 
         if verbose:
             print "--> Starting the VM..."
+        time.sleep(1) # REMOVEME!!!
         xc.domain_unpause(xid)
 
         if not preparing_dvm:
