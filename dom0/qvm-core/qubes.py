@@ -720,7 +720,7 @@ class QubesVm(object):
                                format(template_root, self.root_img))
 
         # Create volatile.img
-        self.reset_volatile_storage(source_template = source_template)
+        self.reset_volatile_storage(source_template = source_template, verbose=verbose)
 
     def create_appmenus(self, verbose, source_template = None):
         if source_template is None:
@@ -770,7 +770,7 @@ class QubesVm(object):
                 format(self.kernels_dir + '/modules.img'))
         return True
 
-    def reset_volatile_storage(self, source_template = None):
+    def reset_volatile_storage(self, source_template = None, verbose = False):
         assert not self.is_running(), "Attempt to clean volatile image of running VM!"
 
         if source_template is None:
@@ -780,7 +780,8 @@ class QubesVm(object):
         if source_template is None:
             return
 
-        print "--> Cleaning volatile image: {0}...".format (self.volatile_img)
+        if verbose:
+            print "--> Cleaning volatile image: {0}...".format (self.volatile_img)
         if dry_run:
             return
         if os.path.exists (self.volatile_img):
@@ -897,7 +898,7 @@ class QubesVm(object):
                         print "--> Starting NetVM {0}...".format(self.netvm_vm.name)
                     self.netvm_vm.start()
 
-        self.reset_volatile_storage()
+        self.reset_volatile_storage(verbose=verbose)
         if verbose:
             print "--> Loading the VM (type = {0})...".format(self.type)
 
@@ -1134,7 +1135,7 @@ class QubesTemplateVm(QubesVm):
         os.symlink (icon_path, self.icon_path)
 
         # Create root-cow.img
-        self.commit_changes()
+        self.commit_changes(verbose=verbose)
 
         # Create appmenus
         self.create_appmenus(verbose, source_template = src_template_vm)
@@ -1200,7 +1201,7 @@ class QubesTemplateVm(QubesVm):
         if dry_run:
             return
 
-        self.reset_volatile_storage()
+        self.reset_volatile_storage(verbose=verbose)
 
         if not self.is_updateable():
             raise QubesException ("Cannot start Template VM that is marked \"nonupdatable\"")
@@ -1209,10 +1210,11 @@ class QubesTemplateVm(QubesVm):
 
         return super(QubesTemplateVm, self).start(debug_console=debug_console, verbose=verbose)
 
-    def reset_volatile_storage(self):
+    def reset_volatile_storage(self, verbose = False):
         assert not self.is_running(), "Attempt to clean volatile image of running Template VM!"
 
-        print "--> Cleaning volatile image: {0}...".format (self.volatile_img)
+        if verbose:
+            print "--> Cleaning volatile image: {0}...".format (self.volatile_img)
         if dry_run:
             return
         if os.path.exists (self.volatile_img):
@@ -1223,11 +1225,12 @@ class QubesTemplateVm(QubesVm):
             raise IOError ("Error while unpacking {0} to {1}".\
                            format(self.template_vm.clean_volatile_img, self.volatile_img))
 
-    def commit_changes (self):
+    def commit_changes (self, verbose = False):
 
         assert not self.is_running(), "Attempt to commit changes on running Template VM!"
 
-        print "--> Commiting template updates... COW: {0}...".format (self.rootcow_img)
+        if verbose:
+            print "--> Commiting template updates... COW: {0}...".format (self.rootcow_img)
 
         if dry_run:
             return
