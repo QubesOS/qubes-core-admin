@@ -166,14 +166,14 @@ void start_guid(int domid, int argc, char **argv)
 {
 	int i;
 	char dstr[40];
-	char *guid_args[argc + 2];
+	char *guid_args[argc + 1];
 	snprintf(dstr, sizeof(dstr), "%d", domid);
 	guid_args[0] = "qubes_guid";
 	guid_args[1] = "-d";
 	guid_args[2] = dstr;
 	for (i = 3; i < argc; i++)
-		guid_args[i + 1] = argv[i];
-	guid_args[argc + 1] = NULL;
+		guid_args[i] = argv[i];
+	guid_args[argc] = NULL;
 	execv("/usr/bin/qubes_guid", guid_args);
 	perror("execv");
 }
