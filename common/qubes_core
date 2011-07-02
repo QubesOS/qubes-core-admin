@@ -15,6 +15,7 @@ start()
 		exit 1
 	fi
 
+    modprobe evtchn
     modprobe u2mfn
 
     # Set permissions to /proc/xen/xenbus, so normal user can use xenstore-read
