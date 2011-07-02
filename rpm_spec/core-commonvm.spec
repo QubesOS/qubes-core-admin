@@ -86,6 +86,8 @@ mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
 cp qubes_trigger_sync_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/dom0-updates
 
+install -D qubes_core.modules $RPM_BUILD_ROOT/etc/sysconfig/modules/qubes_core.modules
+
 mkdir -p $RPM_BUILD_ROOT/lib/firmware
 ln -s /lib/modules/firmware $RPM_BUILD_ROOT/lib/firmware/updates
 
@@ -235,6 +237,7 @@ rm -rf $RPM_BUILD_ROOT
 /sbin/qubes_serial_login
 /usr/bin/xenstore-watch-qubes
 /etc/udev/rules.d/qubes_network.rules
+/etc/sysconfig/modules/qubes_core.modules
 /usr/lib/qubes/setup_ip
 /etc/yum/post-actions/qubes_trigger_sync_appmenus.action
 /usr/lib/qubes/qubes_trigger_sync_appmenus.sh

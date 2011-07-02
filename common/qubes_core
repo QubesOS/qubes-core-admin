@@ -15,8 +15,6 @@ start()
 		exit 1
 	fi
 
-	modprobe evtchn
-
 	# Set permissions to /proc/xen/xenbus, so normal user can use xenstore-read
 	chmod 666 /proc/xen/xenbus
 
