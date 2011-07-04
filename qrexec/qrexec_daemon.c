@@ -29,6 +29,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <ioall.h>
+#include <string.h>
 #include "qrexec.h"
 #include "buffer.h"
 #include "glue.h"
@@ -66,6 +67,21 @@ void sigusr1_handler(int x)
 void sigchld_handler(int x);
 
 char *remote_domain_name;	// guess what
+
+int create_qrexec_socket(int domid, char *domname)
+{
+	char socket_address[40];
+	char link_to_socket_name[strlen(domname) + sizeof(socket_address)];
+
+	snprintf(socket_address, sizeof(socket_address),
+		 QREXEC_DAEMON_SOCKET_DIR "/qrexec.%d", domid);
+	snprintf(link_to_socket_name, sizeof link_to_socket_name,
+		 QREXEC_DAEMON_SOCKET_DIR "/qrexec.%s", domname);
+	unlink(link_to_socket_name);
+	symlink(socket_address, link_to_socket_name);
+	return get_server_socket(socket_address);
+}
+
 
 /* do the preparatory tasks, needed before entering the main event loop */
 void init(int xid)
@@ -119,7 +135,7 @@ void init(int xid)
 	/* When running as root, make the socket accessible; perms on /var/run/qubes still apply */
 	umask(0);
 	qrexec_daemon_unix_socket_fd =
-	    get_server_socket(xid, remote_domain_name);
+	    create_qrexec_socket(xid, remote_domain_name);
 	umask(0077);
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGCHLD, sigchld_handler);
@@ -167,8 +183,7 @@ void terminate_client_and_flush_data(int fd)
 	write_all_vchan_ext(&s_hdr, sizeof(s_hdr));
 }
 
-void get_cmdline_body_from_client_and_pass_to_agent(int fd,
-						    struct server_header
+void get_cmdline_body_from_client_and_pass_to_agent(int fd, struct server_header
 						    *s_hdr)
 {
 	int len = s_hdr->len;
@@ -271,8 +286,7 @@ void write_buffered_data_to_client(int client_id)
 The header (hdr argument) is already built. Just read the raw data from
 the packet, and pass it along with the header to the client.
 */
-void get_packet_data_from_agent_and_pass_to_client(int client_id,
-						   struct client_header
+void get_packet_data_from_agent_and_pass_to_client(int client_id, struct client_header
 						   *hdr)
 {
 	int len = hdr->len;
