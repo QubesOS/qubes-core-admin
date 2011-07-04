@@ -26,11 +26,13 @@
 #define REXEC_PORT 512
 
 #define QREXEC_AGENT_TRIGGER_PATH "/var/run/qubes/qrexec_agent"
+#define QREXEC_AGENT_FDPASS_PATH "/var/run/qubes/qrexec_agent_fdpass"
 
 enum {
 	MSG_CLIENT_TO_SERVER_EXEC_CMDLINE = 0x100,
 	MSG_CLIENT_TO_SERVER_JUST_EXEC,
 
+	MSG_SERVER_TO_AGENT_CONNECT_EXISTING,
 	MSG_SERVER_TO_AGENT_EXEC_CMDLINE,
 	MSG_SERVER_TO_AGENT_JUST_EXEC,
 	MSG_SERVER_TO_AGENT_INPUT,
@@ -42,19 +44,13 @@ enum {
 	MSG_AGENT_TO_SERVER_STDOUT,
 	MSG_AGENT_TO_SERVER_STDERR,
 	MSG_AGENT_TO_SERVER_EXIT_CODE,
-	MSG_AGENT_TO_SERVER_TRIGGER_EXEC,
+	MSG_AGENT_TO_SERVER_TRIGGER_CONNECT_EXISTING,
 
 	MSG_SERVER_TO_CLIENT_STDOUT,
 	MSG_SERVER_TO_CLIENT_STDERR,
 	MSG_SERVER_TO_CLIENT_EXIT_CODE
 };
 
-enum {
-	QREXEC_EXECUTE_FILE_COPY=0x700,
-	QREXEC_EXECUTE_FILE_COPY_FOR_DISPVM,
-	QREXEC_EXECUTE_APPMENUS_SYNC
-};
-	
 struct server_header {
 	unsigned int type;
 	unsigned int client_id;
@@ -64,4 +60,14 @@ struct server_header {
 struct client_header {
 	unsigned int type;
 	unsigned int len;
+};
+
+struct connect_existing_params {
+	char ident[32];
+};
+
+struct trigger_connect_params {
+	char exec_index[64];
+	char target_vmname[32];
+	struct connect_existing_params process_fds;
 };

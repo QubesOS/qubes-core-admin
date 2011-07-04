@@ -356,33 +356,27 @@ void check_children_count_and_wait_if_too_many()
 	}
 }
 
+#define ENSURE_NULL_TERMINATED(x) x[sizeof(x)-1] = 0
+
 /* 
 Called when agent sends a message asking to execute a predefined command.
 */
 
-void handle_execute_predefined_command(int req)
+void handle_execute_predefined_command()
 {
-	char *rcmd = NULL, *lcmd = NULL;
 	int i;
+	struct trigger_connect_params untrusted_params, params;
 
 	check_children_count_and_wait_if_too_many();
-	switch (req) {
-	case QREXEC_EXECUTE_FILE_COPY:
-		rcmd = "directly:user:/usr/lib/qubes/qfile-agent";
-		lcmd = "/usr/lib/qubes/qfile-daemon";
-		break;
-	case QREXEC_EXECUTE_FILE_COPY_FOR_DISPVM:
-		rcmd = "directly:user:/usr/lib/qubes/qfile-agent-dvm";
-		lcmd = "/usr/lib/qubes/qfile-daemon-dvm";
-		break;
-	case QREXEC_EXECUTE_APPMENUS_SYNC:
-		rcmd = "user:grep -H = /usr/share/applications/*.desktop";
-		lcmd = "/usr/bin/qvm-sync-appmenus";
-		break;
-	default:		/* cannot happen, already sanitized */
-		fprintf(stderr, "got trigger exec no %d\n", req);
-		exit(1);
-	}
+	read_all_vchan_ext(&untrusted_params, sizeof(params));
+
+	/* sanitize start */
+	ENSURE_NULL_TERMINATED(untrusted_params.exec_index);
+	ENSURE_NULL_TERMINATED(untrusted_params.target_vmname);
+	ENSURE_NULL_TERMINATED(untrusted_params.process_fds.ident);
+	params = untrusted_params;
+	/* sanitize end */
+
 	switch (fork()) {
 	case -1:
 		perror("fork");
@@ -397,8 +391,9 @@ void handle_execute_predefined_command(int req)
 		close(i);
 	signal(SIGCHLD, SIG_DFL);
 	signal(SIGPIPE, SIG_DFL);
-	execl("/usr/lib/qubes/qrexec_client", "qrexec_client", "-d",
-	      remote_domain_name, "-l", lcmd, rcmd, NULL);
+	execl("/usr/lib/qubes/qrexec_policy", "qrexec_policy",
+	      remote_domain_name, params.target_vmname,
+	      params.exec_index, params.process_fds.ident, NULL);
 	perror("execl");
 	exit(1);
 }
@@ -415,18 +410,8 @@ void check_client_id_in_range(unsigned int untrusted_client_id)
 
 void sanitize_message_from_agent(struct server_header *untrusted_header)
 {
-	int untrusted_cmd;
 	switch (untrusted_header->type) {
-	case MSG_AGENT_TO_SERVER_TRIGGER_EXEC:
-		untrusted_cmd = untrusted_header->client_id;
-		if (untrusted_cmd != QREXEC_EXECUTE_FILE_COPY &&
-		    untrusted_cmd != QREXEC_EXECUTE_FILE_COPY_FOR_DISPVM &&
-		    untrusted_cmd != QREXEC_EXECUTE_APPMENUS_SYNC) {
-			fprintf(stderr,
-				"received MSG_AGENT_TO_SERVER_TRIGGER_EXEC cmd %d ?\n",
-				untrusted_cmd);
-			exit(1);
-		}
+	case MSG_AGENT_TO_SERVER_TRIGGER_CONNECT_EXISTING:
 		break;
 	case MSG_AGENT_TO_SERVER_STDOUT:
 	case MSG_AGENT_TO_SERVER_STDERR:
@@ -465,8 +450,8 @@ void handle_message_from_agent()
 //      fprintf(stderr, "got %x %x %x\n", s_hdr.type, s_hdr.client_id,
 //              s_hdr.len);
 
-	if (s_hdr.type == MSG_AGENT_TO_SERVER_TRIGGER_EXEC) {
-		handle_execute_predefined_command(s_hdr.client_id);
+	if (s_hdr.type == MSG_AGENT_TO_SERVER_TRIGGER_CONNECT_EXISTING) {
+		handle_execute_predefined_command();
 		return;
 	}
 
