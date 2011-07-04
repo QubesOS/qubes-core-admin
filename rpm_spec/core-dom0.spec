@@ -115,6 +115,7 @@ mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/vm-templates
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/appvms
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/servicevms
+mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/vm-kernels
 
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/backup
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/dvmdata
@@ -175,6 +176,9 @@ echo 'lockfile="/var/run/qubes/xl-lock"' >> /etc/xen/xl.conf
 
 sed '/^reposdir=/d' -i /etc/yum.conf
 echo reposdir=/etc/yum.real.repos.d >> /etc/yum.conf
+
+sed '/^installonlypkgs=/d' -i /etc/yum.conf
+echo 'installonlypkgs += kernel-qubes-vm' >> /etc/yum.conf
 
 chkconfig --add qubes_core || echo "WARNING: Cannot add service qubes_core!"
 chkconfig --add qubes_netvm || echo "WARNING: Cannot add service qubes_netvm!"
@@ -295,6 +299,7 @@ fi
 %attr(770,root,qubes) %dir /var/lib/qubes/backup
 %attr(770,root,qubes) %dir /var/lib/qubes/dvmdata
 %attr(770,root,qubes) %dir /var/lib/qubes/updates
+%attr(770,root,qubes) %dir /var/lib/qubes/vm-kernels
 %dir /usr/share/qubes/icons/*.png
 /usr/share/qubes/qubes-vm.directory.template
 /usr/share/qubes/qubes-templatevm.directory.template

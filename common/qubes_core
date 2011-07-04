@@ -15,8 +15,8 @@ start()
 		exit 1
 	fi
 
-    # Set permissions to /proc/xen/xenbus, so normal user can use xenstore-read
-    chmod 666 /proc/xen/xenbus
+	# Set permissions to /proc/xen/xenbus, so normal user can use xenstore-read
+	chmod 666 /proc/xen/xenbus
 
 	name=$(/usr/bin/xenstore-read name)
 	if ! [ -f /etc/this_is_dvm ] ; then
@@ -24,17 +24,6 @@ start()
 		# because it makes some of the pre-created dotfiles invalid (e.g. .kde/cache-<hostname>)
 		# (let's be frank: nobody's gonna use xterm on DispVM)
 		hostname $name
-	fi
-
-	ip=$(/usr/bin/xenstore-read qubes_ip)
-	netmask=$(/usr/bin/xenstore-read qubes_netmask)
-	gateway=$(/usr/bin/xenstore-read qubes_gateway)
-	secondary_dns=$(/usr/bin/xenstore-read qubes_secondary_dns)
-	if [ x$ip != x ]; then
-		/sbin/ifconfig eth0 $ip netmask 255.255.255.255 up
-		/sbin/route add default dev eth0
-		echo "nameserver $gateway" > /etc/resolv.conf
-		echo "nameserver $secondary_dns" >> /etc/resolv.conf
 	fi
 
 	if [ -e /dev/xvdb ] ; then
@@ -71,6 +60,11 @@ start()
 
 	success
 	echo ""
+
+	type=$(/usr/bin/xenstore-read qubes_vm_type)
+	if [ "$type" == "ProxyVM" ]; then
+		/sbin/service ntpd start
+	fi
 	return 0
 }
 

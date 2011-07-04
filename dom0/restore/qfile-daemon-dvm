@@ -127,6 +127,7 @@ def main():
     notify_object = dbus.SessionBus().get_object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
     qfile = QfileDaemonDvm(os.getenv("QREXEC_REMOTE_DOMAIN"))
     lockf = open("/var/run/qubes/qfile-daemon-dvm.lock", 'a')
+    fcntl.fcntl(lockf, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
     fcntl.flock(lockf, fcntl.LOCK_EX)
     dispname = qfile.get_dvm()
     lockf.close()
