@@ -209,8 +209,9 @@ void select_loop(int s)
 void usage(char *name)
 {
 	fprintf(stderr,
-		"usage: %s -d domain_num [-l local_prog] -e remote_cmdline\n"
-		"-e means exit after sending cmd\n", name);
+		"usage: %s -d domain_num [-l local_prog] -e -c remote_cmdline\n"
+		"-e means exit after sending cmd, -c: connect to existing process\n",
+		name);
 	exit(1);
 }
 
@@ -220,6 +221,7 @@ int main(int argc, char **argv)
 	char *domname = NULL;
 	int s;
 	int just_exec = 0;
+	int connect_existing = 0;
 	char *local_cmdline = NULL;
 	while ((opt = getopt(argc, argv, "d:l:e")) != -1) {
 		switch (opt) {
@@ -231,6 +233,9 @@ int main(int argc, char **argv)
 			break;
 		case 'e':
 			just_exec = 1;
+			break;
+		case 'c':
+			connect_existing = 1;
 			break;
 		default:
 			usage(argv[0]);
@@ -247,8 +252,12 @@ int main(int argc, char **argv)
 		send_cmdline(s, MSG_CLIENT_TO_SERVER_JUST_EXEC,
 			     argv[optind]);
 	else {
-		send_cmdline(s, MSG_CLIENT_TO_SERVER_EXEC_CMDLINE,
-			     argv[optind]);
+		int cmd;
+		if (connect_existing)
+			cmd = MSG_CLIENT_TO_SERVER_CONNECT_EXISTING;
+		else
+			cmd = MSG_CLIENT_TO_SERVER_EXEC_CMDLINE;
+		send_cmdline(s, cmd, argv[optind]);
 		select_loop(s);
 	}
 	return 0;

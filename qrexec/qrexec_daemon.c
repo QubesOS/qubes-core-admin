@@ -211,6 +211,9 @@ void handle_cmdline_message_from_client(int fd)
 	case MSG_CLIENT_TO_SERVER_JUST_EXEC:
 		s_hdr.type = MSG_SERVER_TO_AGENT_JUST_EXEC;
 		break;
+	case MSG_CLIENT_TO_SERVER_CONNECT_EXISTING:
+		s_hdr.type = MSG_SERVER_TO_AGENT_CONNECT_EXISTING;
+		break;
 	default:
 		terminate_client_and_flush_data(fd);
 		return;
