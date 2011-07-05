@@ -82,11 +82,14 @@ cp qvm-copy-to-vm2.gnome $RPM_BUILD_ROOT/usr/lib/qubes
 cp qvm-trigger-copy-to-vm $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../qrexec/qrexec_agent $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../qrexec/qrexec_client_vm $RPM_BUILD_ROOT/usr/lib/qubes
+cp ../qrexec/qubes_rpc_multiplexer $RPM_BUILD_ROOT/usr/lib/qubes
 cp dvm_file_editor qfile-agent qfile-agent-dvm qfile-unpacker $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../common/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/%{kde_service_dir}
 cp qvm-copy.desktop qvm-dvm.desktop $RPM_BUILD_ROOT/%{kde_service_dir}
 mkdir -p $RPM_BUILD_ROOT/mnt/removable
+mkdir -p $RPM_BUILD_ROOT/etc/qubes_rpc
+
 
 mkdir -p $RPM_BUILD_ROOT/etc/X11
 cp xorg-preload-apps.conf $RPM_BUILD_ROOT/etc/X11
@@ -144,10 +147,12 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib/qubes/qvm-trigger-copy-to-vm
 /usr/lib/qubes/qrexec_agent
 /usr/lib/qubes/qrexec_client_vm
+/usr/lib/qubes/qubes_rpc_multiplexer
 /usr/lib/qubes/qfile-agent
 /usr/lib/qubes/qfile-agent-dvm
 /usr/lib/qubes/qfile-unpacker
 %dir /mnt/removable
+%dir /etc/qubes_rpc
 /usr/bin/qubes_timestamp
 %dir /home_volatile
 %attr(700,user,user) /home_volatile/user

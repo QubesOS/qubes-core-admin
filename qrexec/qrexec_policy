@@ -1,0 +1,75 @@
+#!/usr/bin/python
+import sys
+import os
+import subprocess
+ 
+POLICY_FILE_DIR="/etc/qubes_rpc/policy"
+QREXEC_CLIENT="/usr/lib/qubes/qrexec_client"
+
+def read_policy_file(exec_index):
+    policy=list()
+    f = open(POLICY_FILE_DIR+"/"+exec_index)
+    for iter in f.readlines():
+        policy.append(iter.split())
+    f.close()
+    return policy
+
+def is_match(item, config_term):
+    return (item is not "dom0" and config_term == "anyvm") or item == config_term
+
+def apply_policy(policy, domain, target):
+    for iter in policy:
+        if len(iter) < 3:
+            continue
+        if not is_match(domain, iter[0]):
+            continue
+        if not is_match(target, iter[1]):
+            continue
+        ret=iter[2].split("=")
+        if len(ret)==1:
+            return (ret[0], None)
+        else:
+            return (ret[0], ret[1])
+    return (None, None)
+        
+def do_execute(domain, target, exec_index, process_ident):
+    cmd= "qvm-run -q -a --pass_io "+target
+    cmd+=" '/usr/lib/qubes/qubes_rpc_multiplexer "+exec_index + " " + domain + "'"
+    os.execl(QREXEC_CLIENT, "qrexec_client", "-d", domain, "-l", cmd, "-c", process_ident)
+
+def confirm_execution(domain, target, exec_index):
+    text = "Do you allow domain \"" +domain + "\" to execute " + exec_index
+    text+= " operation on the domain \"" + target +"\"?" 
+    retcode = subprocess.call(["/usr/bin/zenity", "--question", "--text", text])
+    return retcode==0
+
+def policy_editor(domain, target, exec_index):
+    text = "Policy editor not yet implemented. Please add a line in the form \""
+    text+= domain + " " + target + "action_to_take\""
+    text+= " to /etc/qubes_rpc/policy/" + exec_index +" file in dom0, then close this info."
+    subprocess.call(["/usr/bin/zenity", "--info", "--text", text]) 
+
+def main():
+    domain=sys.argv[1]
+    target=sys.argv[2]
+    exec_index=sys.argv[3]
+    process_ident=sys.argv[4]
+    
+    action = None
+    while action is None:
+        policy = read_policy_file(exec_index)
+        (action, params) = apply_policy(policy, domain, target)
+        if action is None:
+            policy_editor(domain, target, exec_index)
+    if action == "allow":
+        do_execute(domain, target, exec_index, process_ident)
+    elif action == "divert":
+        do_execute(domain, params, exec_index, process_ident)
+    elif action == "ask":
+        if confirm_execution(domain, target, exec_index):
+            do_execute(domain, target, exec_index, process_ident)
+    print >> sys.stderr, "Rpc denied:", domain, target, exec_index    
+    os.execl(QREXEC_CLIENT, "qrexec_client", "-d", domain, "-l", "/bin/false", "-c", process_ident)
+
+main()
+                
