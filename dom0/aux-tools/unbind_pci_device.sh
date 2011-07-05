@@ -27,6 +27,11 @@ if [ x$BDF = x ] ; then
 fi
 BDF=0000:$BDF
 #echo -n "Binding device $BDF to xen-pciback..."
+if [ -e /sys/bus/pci/drivers/pciback/$BDF ]; then
+    # Already bound to pciback
+    exit 0
+fi
+
 if [ -e /sys/bus/pci/devices/$BDF/driver/unbind ] ; then 
     echo -n $BDF > /sys/bus/pci/devices/$BDF/driver/unbind || exit 1
 fi

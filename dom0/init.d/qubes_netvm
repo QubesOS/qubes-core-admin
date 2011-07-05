@@ -41,7 +41,6 @@ start()
     else
 
         echo -n $"Starting default NetVM:"
-        /usr/lib/qubes/unbind_all_network_devices || exit 1
         qvm-start -q --no-guid $NETVM || exit 1
 
     fi

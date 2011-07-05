@@ -88,6 +88,7 @@ dom0_vm = None
 
 qubes_appmenu_create_cmd = "/usr/lib/qubes/create_apps_for_appvm.sh"
 qubes_appmenu_remove_cmd = "/usr/lib/qubes/remove_appvm_appmenus.sh"
+qubes_pciback_cmd = '/usr/lib/qubes/unbind_pci_device.sh'
 
 class QubesException (Exception) : pass
 
@@ -925,6 +926,10 @@ class QubesVm(object):
         if not qmemman_client.request_memory(mem_required):
             qmemman_client.close()
             raise MemoryError ("ERROR: insufficient memory to start this VM")
+
+        # Bind pci devices to pciback driver
+        for pci in self.pcidevs:
+            subprocess.check_call('sudo', qubes_pciback_cmd, pci)
 
         xl_cmdline = ['sudo', '/usr/sbin/xl', 'create', self.conf_file, '-p']
 
