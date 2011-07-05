@@ -197,7 +197,7 @@ void handle_connect_existing(int client_id, int len)
 	char buf[len];
 	read_all_vchan_ext(buf, len);
 	sscanf(buf, "%d %d %d", &stdin_fd, &stdout_fd, &stderr_fd);
-	create_info_about_client(client_id, -1, stdin_fd, stdout_fd,
+	create_info_about_client(client_id, 0, stdin_fd, stdout_fd,
 				 stderr_fd);
 	client_info[client_id].is_exited = 1;	//do not wait for SIGCHLD
 }
