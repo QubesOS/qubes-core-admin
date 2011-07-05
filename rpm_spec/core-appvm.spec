@@ -81,6 +81,7 @@ cp qvm-copy-to-vm2.kde $RPM_BUILD_ROOT/usr/lib/qubes
 cp qvm-copy-to-vm2.gnome $RPM_BUILD_ROOT/usr/lib/qubes
 cp qvm-trigger-copy-to-vm $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../qrexec/qrexec_agent $RPM_BUILD_ROOT/usr/lib/qubes
+cp ../qrexec/qrexec_client_vm $RPM_BUILD_ROOT/usr/lib/qubes
 cp dvm_file_editor qfile-agent qfile-agent-dvm qfile-unpacker $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../common/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/%{kde_service_dir}
@@ -142,6 +143,7 @@ rm -rf $RPM_BUILD_ROOT
 %{kde_service_dir}/qvm-dvm.desktop
 /usr/lib/qubes/qvm-trigger-copy-to-vm
 /usr/lib/qubes/qrexec_agent
+/usr/lib/qubes/qrexec_client_vm
 /usr/lib/qubes/qfile-agent
 /usr/lib/qubes/qfile-agent-dvm
 /usr/lib/qubes/qfile-unpacker
