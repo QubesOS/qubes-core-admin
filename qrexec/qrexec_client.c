@@ -223,7 +223,7 @@ int main(int argc, char **argv)
 	int just_exec = 0;
 	int connect_existing = 0;
 	char *local_cmdline = NULL;
-	while ((opt = getopt(argc, argv, "d:l:e")) != -1) {
+	while ((opt = getopt(argc, argv, "d:l:ec")) != -1) {
 		switch (opt) {
 		case 'd':
 			domname = strdup(optarg);
