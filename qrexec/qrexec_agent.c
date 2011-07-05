@@ -191,13 +191,12 @@ void handle_exec(int client_id, int len)
 
 }
 
-void handle_connect_existing(int client_id)
+void handle_connect_existing(int client_id, int len)
 {
 	int stdin_fd, stdout_fd, stderr_fd;
-	struct connect_existing_params params;
-	read_all_vchan_ext(&params, sizeof(params));
-	sscanf(params.ident, "%d %d %d", &stdin_fd, &stdout_fd,
-	       &stderr_fd);
+	char buf[len];
+	read_all_vchan_ext(buf, len);
+	sscanf(buf, "%d %d %d", &stdin_fd, &stdout_fd, &stderr_fd);
 	create_info_about_client(client_id, 0, stdin_fd, stdout_fd,
 				 stderr_fd);
 	client_info[client_id].is_exited = 1;	//do not wait for SIGCHLD
@@ -328,7 +327,7 @@ void handle_server_data()
 		set_blocked_outerr(s_hdr.client_id, 1);
 		break;
 	case MSG_SERVER_TO_AGENT_CONNECT_EXISTING:
-		handle_connect_existing(s_hdr.client_id);
+		handle_connect_existing(s_hdr.client_id, s_hdr.len);
 		break;
 	case MSG_SERVER_TO_AGENT_EXEC_CMDLINE:
 		handle_exec(s_hdr.client_id, s_hdr.len);
