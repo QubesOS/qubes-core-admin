@@ -18,7 +18,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  *
  */
-
+#define _GNU_SOURCE
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <stdio.h>
@@ -81,6 +81,9 @@ int main(int argc, char **argv)
 		local_fd[i] = connect_unix_socket();
 		read(local_fd[i], &remote_fd[i], sizeof(remote_fd[i]));
 		if (i != 2 || getenv("PASS_LOCAL_STDERR")) {
+		        char * env;
+		        asprintf(&env, "SAVED_FD_%d=%d", i, dup(i));
+		        putenv(env);	
 			dup2(local_fd[i], i);
 			close(local_fd[i]);
 		}
