@@ -255,9 +255,12 @@ class QubesVm(object):
 
         # PCI devices - used only by NetVM
         if pcidevs is None or pcidevs == "none":
-            self.pcidevs = ""
+            self.pcidevs = []
+        elif pcidevs.find('[') < 0:
+            # Backward compatibility
+            self.pcidevs = eval('[' + pcidevs + ']')
         else:
-            self.pcidevs  = pcidevs
+            self.pcidevs  = eval(pcidevs)
 
         self.memory = memory
 
@@ -645,7 +648,7 @@ class QubesVm(object):
         args['name'] = self.name
         args['kerneldir'] = self.kernels_dir
         args['vmdir'] = self.dir_path
-        args['pcidev'] = self.pcidevs
+        args['pcidev'] = str(self.pcidevs).strip('[]')
         args['mem'] = str(self.memory)
         args['maxmem'] = str(self.maxmem)
         args['vcpus'] = str(self.vcpus)

@@ -88,9 +88,9 @@ def set_maxmem(vms, vm, args):
 
 def set_pcidevs(vms, vm, args):
     if len (args) != 1:
-        print "Missing memory argument!"
+        print "Missing pcidevs argument!"
 
-    vm.pcidevs = args[0]
+    vm.pcidevs = list(eval(args[0]))
 
 def set_netvm(vms, vm, args):
     if len (args) != 1:

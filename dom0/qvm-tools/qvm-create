@@ -140,13 +140,13 @@ def main():
         
         net_devices = find_net_devices()
         print "Found the following net devices in your system:"
-        dev_str = ''
+        devs = []
         for dev in net_devices:
             print "--> {0}".format(dev)
-            dev_str += '"{0}", '.format(dev)
+            devs.append(dev)
 
         print "Assigning them to the netvm '{0}'".format(vmname)
-        vm.pcidevs = dev_str
+        vm.pcidevs = str(devs)
 
     elif options.proxyvm:
         vm = qvm_collection.add_new_proxyvm(vmname, new_vm_template, label = label, updateable = options.standalone)
