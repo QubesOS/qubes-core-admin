@@ -75,6 +75,8 @@ default_firewall_conf_file = "firewall.xml"
 default_memory = 400
 default_servicevm_vcpus = 1
 
+qubes_whitelisted_appmenus = 'whitelisted-appmenus.list'
+
 dom0_update_check_interval = 6*3600
 
 # do not allow to start a new AppVM if Dom0 mem was to be less than this
@@ -707,6 +709,13 @@ class QubesVm(object):
             raise IOError ("Error while copying {0} to {1}".\
                            format(template_priv, self.private_img))
 
+        if os.path.exists(source_template.dir_path + '/vm-' + qubes_whitelisted_appmenus):
+            if verbose:
+                print "--> Creating default whitelisted apps list: {0}".
+                    format(self.dir_path + '/' + qubes_whitelisted_appmenus)
+            shutil.copy(source_template.dir_path + '/vm-' + qubes_whitelisted_appmenus,
+                    self.dir_path + '/' + qubes_whitelisted_appmenus)
+
         if self.is_updateable():
             template_root = source_template.root_img
             if verbose:
@@ -1128,6 +1137,13 @@ class QubesTemplateVm(QubesVm):
             print "--> Copying the template's appmenus (for template) templates dir:\n{0} ==>\n{1}".\
                     format(src_template_vm.appmenus_template_templates_dir, self.appmenus_template_templates_dir)
         shutil.copytree (src_template_vm.appmenus_template_templates_dir, self.appmenus_template_templates_dir)
+
+        if os.path.exists(src_template_vm.dir_path + '/vm-' + qubes_whitelisted_appmenus):
+            if verbose:
+                print "--> Copying default whitelisted apps list: {0}".
+                    format(self.dir_path + '/vm-' + qubes_whitelisted_appmenus)
+            shutil.copy(src_template_vm.dir_path + '/vm-' + qubes_whitelisted_appmenus,
+                    self.dir_path + '/vm-' + qubes_whitelisted_appmenus)
 
         icon_path = "/usr/share/qubes/icons/template.png"
         if verbose:
