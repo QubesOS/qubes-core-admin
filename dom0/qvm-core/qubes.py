@@ -294,8 +294,11 @@ class QubesVm(object):
 
         self.uses_default_kernel = uses_default_kernel
 
+        self.appmenus_templates_dir = None
         if updateable:
             self.appmenus_templates_dir = self.dir_path + "/" + default_appmenus_templates_subdir
+        else if template_vm is not None:
+            self.appmenus_templates_dir = template_vm.appmenus_templates_dir
 
         # By default allow use all VCPUs
         if vcpus is None:
