@@ -197,7 +197,7 @@ void handle_connect_existing(int client_id, int len)
 	char buf[len];
 	read_all_vchan_ext(buf, len);
 	sscanf(buf, "%d %d %d", &stdin_fd, &stdout_fd, &stderr_fd);
-	create_info_about_client(client_id, 0, stdin_fd, stdout_fd,
+	create_info_about_client(client_id, -1, stdin_fd, stdout_fd,
 				 stderr_fd);
 	client_info[client_id].is_exited = 1;	//do not wait for SIGCHLD
 }
@@ -459,7 +459,7 @@ int fill_fds_for_select(fd_set * rdset, fd_set * wrset)
 		max = passfd_socket;
 
 	for (i = 0; i < MAX_FDS; i++)
-		if (client_info[i].pid > 0 && client_info[i].is_blocked) {
+		if (client_info[i].pid && client_info[i].is_blocked) {
 			fd = client_info[i].stdin_fd;
 			FD_SET(fd, wrset);
 			if (fd > max)
@@ -557,7 +557,7 @@ int main()
 
 		handle_process_data_all(&rdset);
 		for (i = 0; i <= MAX_FDS; i++)
-			if (client_info[i].pid > 0
+			if (client_info[i].pid
 			    && client_info[i].is_blocked
 			    && FD_ISSET(client_info[i].stdin_fd, &wrset))
 				flush_client_data_agent(i);
