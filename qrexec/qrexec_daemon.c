@@ -359,6 +359,24 @@ void check_children_count_and_wait_if_too_many()
 	}
 }
 
+void sanitize_name(char * untrusted_s_signed)
+{
+        unsigned char * untrusted_s;
+        for (untrusted_s=(unsigned char*)untrusted_s_signed; *untrusted_s; untrusted_s++) {
+                if (*untrusted_s >= 'a' && *untrusted_s <= 'z')
+                        continue;
+                if (*untrusted_s >= 'A' && *untrusted_s <= 'A')
+                        continue;
+                if (*untrusted_s >= '0' && *untrusted_s <= '9')
+                        continue;
+                if (*untrusted_s == '_' || *untrusted_s == '-' || *untrusted_s == '.' || *untrusted_s == ' ')
+                        continue;
+                *untrusted_s = '_';
+        }
+}
+                        
+
+
 #define ENSURE_NULL_TERMINATED(x) x[sizeof(x)-1] = 0
 
 /* 
@@ -377,6 +395,9 @@ void handle_execute_predefined_command()
 	ENSURE_NULL_TERMINATED(untrusted_params.exec_index);
 	ENSURE_NULL_TERMINATED(untrusted_params.target_vmname);
 	ENSURE_NULL_TERMINATED(untrusted_params.process_fds.ident);
+	sanitize_name(untrusted_params.exec_index);
+	sanitize_name(untrusted_params.target_vmname);
+	sanitize_name(untrusted_params.process_fds.ident);
 	params = untrusted_params;
 	/* sanitize end */
 
