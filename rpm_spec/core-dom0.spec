@@ -100,13 +100,13 @@ cp ../qrexec/qrexec_policy $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/qfile-dom0-unpacker $RPM_BUILD_ROOT/usr/lib/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/etc/qubes_rpc/policy
+cp ../appvm/qubes.Filecopy.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.Filecopy
 
 cp restore/qvm-create-default-dvm $RPM_BUILD_ROOT/usr/bin
 cp restore/xenstore-watch $RPM_BUILD_ROOT/usr/bin/xenstore-watch-qubes
 cp restore/qubes_restore restore/xenfreepages $RPM_BUILD_ROOT/usr/lib/qubes
 cp restore/qubes_prepare_saved_domain.sh  $RPM_BUILD_ROOT/usr/lib/qubes
 cp restore/qfile-daemon-dvm $RPM_BUILD_ROOT/usr/lib/qubes
-cp restore/qfile-daemon $RPM_BUILD_ROOT/usr/lib/qubes
 
 mkdir -p $RPM_BUILD_ROOT/etc/yum.real.repos.d
 cp qubes-cached.repo $RPM_BUILD_ROOT/etc/yum.real.repos.d/
@@ -292,7 +292,6 @@ fi
 /usr/lib/qubes/qmemman_daemon.py*
 /usr/lib/qubes/meminfo-writer
 /usr/lib/qubes/qfile-daemon-dvm*
-/usr/lib/qubes/qfile-daemon
 /usr/lib/qubes/sync_rpmdb_updatevm.sh
 %attr(4750,root,qubes) /usr/lib/qubes/qfile-dom0-unpacker
 %attr(770,root,qubes) %dir /var/lib/qubes
@@ -326,6 +325,7 @@ fi
 /usr/lib/qubes/qrexec_client
 /usr/lib/qubes/qrexec_policy
 %dir /etc/qubes_rpc/policy
+/etc/qubes_rpc/policy/qubes.Filecopy
 %attr(4750,root,qubes) /usr/lib/qubes/qrexec_daemon
 %attr(4750,root,qubes) /usr/lib/qubes/xenfreepages
 %attr(2770,root,qubes) %dir /var/log/qubes

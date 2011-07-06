@@ -25,19 +25,11 @@ if [ X$VM = X ] ; then exit 0 ; fi
 
 SIZE=$(du --apparent-size -c "$@" | tail -1 | cut -f 1)
 
-export PROGRESS_FILE=$(mktemp)
-/usr/lib/qubes/qvm-trigger-copy-to-vm $VM "$@"
-while ! [ -s $PROGRESS_FILE ] ; do
-	sleep 0.1
-done
-(while true ; do
-	read agentpid sentsize agentstatus < $PROGRESS_FILE
-	if [ "x"$agentstatus = x ] ; then continue ; fi
-	if ! [ -e /proc/$agentpid ] ; then break ; fi
-	if [ "x"$agentstatus = xdone ] ; then break ; fi
+export PROGRESS_TYPE=gui
+
+/usr/lib/qubes/qrexec_client_vm /usr/lib/qubes/qfile-agent \
+	$VM qubes.Filecopy "$@" | 
+(while read sentsize ; do
 	CURRSIZE=$(($sentsize/1024))
 	echo $((100*$CURRSIZE/$SIZE))
-	sleep 0.1
 done) | zenity --progress --text="Copying files to domain: $VM..." --auto-close
-
-rm -f $PROGRESS_FILE

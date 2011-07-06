@@ -20,24 +20,33 @@ enum {
 };
 
 unsigned long crc32_sum;
-int write_all_with_crc(int fd, void *buf, int size) {
+int write_all_with_crc(int fd, void *buf, int size)
+{
 	crc32_sum = Crc32_ComputeBuf(crc32_sum, buf, size);
 	return write_all(fd, buf, size);
 }
 
-
-char *client_flags;
 void do_notify_progress(long long total, int flag)
 {
-	FILE *progress;
-	if (!client_flags[0])
+	char *du_size_env = getenv("FILECOPY_TOTAL_SIZE");
+	char *progress_type_env = getenv("PROGRESS_TYPE");
+	char *saved_stdout_env = getenv("SAVED_FD_1");
+	if (!progress_type_env)
 		return;
-	progress = fopen(client_flags, "w");
-	if (!progress)
-		return;
-	fprintf(progress, "%d %lld %s", getpid(), total,
-		flag == PROGRESS_FLAG_DONE ? "DONE" : "BUSY");
-	fclose(progress);
+	if (!strcmp(progress_type_env, "console") && du_size_env) {
+		char msg[256];
+		snprintf(msg, sizeof(msg), "sent %lld/%lld KB\r",
+			 total / 1024, strtoull(du_size_env, NULL, 0));
+		write(2, msg, strlen(msg));
+		if (flag == PROGRESS_FLAG_DONE)
+			write(2, "\n", 1);
+	}
+	if (!strcmp(progress_type_env, "gui") && saved_stdout_env) {
+		char msg[256];
+		snprintf(msg, sizeof(msg), "%lld\n", total);
+		write(strtoul(saved_stdout_env, NULL, 0), msg,
+		      strlen(msg));
+	}
 }
 
 void notify_progress(int size, int flag)
@@ -136,25 +145,6 @@ int do_fs_walk(char *file)
 	return 0;
 }
 
-void send_vmname(char *vmname)
-{
-	char buf[FILECOPY_VMNAME_SIZE];
-	memset(buf, 0, sizeof(buf));
-	strncat(buf, vmname, sizeof(buf) - 1);
-	if (!write_all(1, buf, sizeof buf))
-		exit(1);
-}
-
-char *get_item(char *data, char **current, int size)
-{
-	char *ret;
-	if ((unsigned long) *current >= (unsigned long) data + size)
-		return NULL;
-	ret = *current;
-	*current += strlen(ret) + 1;
-	return ret;
-}
-
 void notify_end_and_wait_for_result()
 {
 	struct result_header hdr;
@@ -168,26 +158,40 @@ void notify_end_and_wait_for_result()
 
 	/* wait for result */
 	if (!read_all(0, &hdr, sizeof(hdr))) {
-		exit(1); // hopefully remote has produced error message
+		exit(1);	// hopefully remote has produced error message
 	}
 	if (hdr.error_code != 0) {
-		gui_fatal("Error writing files: %s", strerror(hdr.error_code));
+		gui_fatal("Error writing files: %s",
+			  strerror(hdr.error_code));
 	}
 	if (hdr.crc32 != crc32_sum) {
 		gui_fatal("File transfer failed: checksum mismatch");
 	}
 }
 
-void parse_entry(char *data, int datasize)
+char *get_abs_path(char *cwd, char *pathname)
 {
-	char *current = data;
-	char *vmname, *entry, *sep;
-	vmname = get_item(data, &current, datasize);
-	client_flags = get_item(data, &current, datasize);
+	char *ret;
+	if (pathname[0] == '/')
+		return strdup(pathname);
+	asprintf(&ret, "%s/%s", cwd, pathname);
+	return ret;
+}
+
+int main(int argc, char **argv)
+{
+	int i;
+	char *entry;
+	char *cwd;
+	char *sep;
+
+	signal(SIGPIPE, SIG_IGN);
 	notify_progress(0, PROGRESS_FLAG_INIT);
-	send_vmname(vmname);
 	crc32_sum = 0;
-	while ((entry = get_item(data, &current, datasize))) {
+	cwd = getcwd(NULL, 0);
+	for (i = 1; i < argc; i++) {
+		entry = get_abs_path(cwd, argv[i]);
+
 		do {
 			sep = rindex(entry, '/');
 			if (!sep)
@@ -200,53 +204,9 @@ void parse_entry(char *data, int datasize)
 		else if (chdir(entry))
 			gui_fatal("chdir to %s", entry);
 		do_fs_walk(sep + 1);
+		free(entry);
 	}
 	notify_end_and_wait_for_result();
 	notify_progress(0, PROGRESS_FLAG_DONE);
-}
-
-void process_spoolentry(char *entry_name)
-{
-	char *abs_spool_entry_name;
-	int entry_fd;
-	struct stat st;
-	char *entry;
-	int entry_size;
-	asprintf(&abs_spool_entry_name, "%s/%s", FILECOPY_SPOOL,
-		 entry_name);
-	entry_fd = open(abs_spool_entry_name, O_RDONLY);
-	unlink(abs_spool_entry_name);
-	if (entry_fd < 0 || fstat(entry_fd, &st))
-		gui_fatal("bad file copy spool entry");
-	entry_size = st.st_size;
-	entry = calloc(1, entry_size + 1);
-	if (!entry)
-		gui_fatal("malloc");
-	if (!read_all(entry_fd, entry, entry_size))
-		gui_fatal("read filecopy entry");
-	close(entry_fd);
-	parse_entry(entry, entry_size);
-}
-
-void scan_spool(char *name)
-{
-	struct dirent *ent;
-	DIR *dir = opendir(name);
-	if (!dir)
-		gui_fatal("opendir %s", name);
-	while ((ent = readdir(dir))) {
-		char *fname = ent->d_name;
-		if (fname[0] != '.') {
-			process_spoolentry(fname);
-			break;
-		}
-	}
-	closedir(dir);
-}
-
-int main()
-{
-	signal(SIGPIPE, SIG_IGN);
-	scan_spool(FILECOPY_SPOOL);
 	return 0;
 }
