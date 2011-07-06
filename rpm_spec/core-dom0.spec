@@ -337,7 +337,9 @@ fi
 /etc/qubes_rpc/policy/qubes.Filecopy
 /etc/qubes_rpc/policy/qubes.OpenInVM
 /etc/qubes_rpc/policy/qubes.SyncAppMenus
+/etc/qubes_rpc/policy//qubes.ReceiveUpdates
 /etc/qubes_rpc/qubes.SyncAppMenus
+/etc/qubes_rpc/qubes.ReceiveUpdates
 %attr(4750,root,qubes) /usr/lib/qubes/qrexec_daemon
 %attr(4750,root,qubes) /usr/lib/qubes/xenfreepages
 %attr(2770,root,qubes) %dir /var/log/qubes
