@@ -1,0 +1,72 @@
+#!/usr/bin/python2.6
+#
+# The Qubes OS Project, http://www.qubes-os.org
+#
+# Copyright (C) 2010  Rafal Wojtczuk  <rafal@invisiblethingslab.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+#
+import os
+import sys
+import subprocess
+import shutil
+import glob
+from qubes.qubes import QubesVmCollection
+
+updates_dir = "/var/lib/qubes/updates"
+updates_rpm_dir = updates_dir + "/rpm"
+
+def dom0updates_fatal(msg):
+    print >> sys.stderr, msg
+    shutil.rmtree(updates_rpm_dir)
+    exit(1)
+
+def handle_dom0updates(updatevm):
+    source=os.getenv("QREXEC_REMOTE_DOMAIN")
+    if source != updatevm.name:
+        print >> sys.stderr, 'Domain ' + source + ' not allowed to send dom0 updates'
+        exit(1)
+    # Clean old packages
+    if os.path.exists(updates_rpm_dir):
+        shutil.rmtree(updates_rpm_dir)
+    subprocess.check_call(["/usr/lib/qubes/qfile-dom0-unpacker", os.getlogin(), updates_rpm_dir])
+    # Verify received files
+    for f in os.listdir(updates_rpm_dir):
+        if glob.fnmatch.fnmatch(f, "*.rpm"):
+            p = subprocess.Popen (["/bin/rpm", "-K", updates_rpm_dir + "/" + f],
+                    stdout=subprocess.PIPE)
+            output = p.communicate()[0]
+            if p.returncode != 0:
+                dom0updates_fatal('Error while verifing %s signature: %s' % (f, output))
+            if output.find("pgp") < 0:
+                dom0updates_fatal('Domain ' + source + ' sent not signed rpm: ' + f)
+        else:
+            dom0updates_fatal('Domain ' + source + ' sent unexpected file: ' + f)
+    # After updates received - create repo metadata
+    subprocess.check_call(["/usr/bin/createrepo", "-q", "/var/lib/qubes/updates"])
+    exit(0)
+
+def main():
+
+    qvm_collection = QubesVmCollection()
+    qvm_collection.lock_db_for_reading()
+    qvm_collection.load()
+    qvm_collection.unlock_db()
+    
+    updatevm = qvm_collection.get_updatevm_vm()
+    handle_dom0updates(updatevm)
+
+main()
