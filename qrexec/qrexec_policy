@@ -33,8 +33,11 @@ def apply_policy(policy, domain, target):
     return (None, None)
         
 def do_execute(domain, target, exec_index, process_ident):
-    cmd= "qvm-run -uroot -q -a --pass_io "+target
-    cmd+=" '/usr/lib/qubes/qubes_rpc_multiplexer "+exec_index + " " + domain + "'"
+    if target == "dispvm":
+        cmd = "/usr/lib/qubes/qfile-daemon-dvm " + exec_index + " " + domain
+    else:
+        cmd= "qvm-run -uroot -q -a --pass_io "+target
+        cmd+=" '/usr/lib/qubes/qubes_rpc_multiplexer "+exec_index + " " + domain + "'"
     os.execl(QREXEC_CLIENT, "qrexec_client", "-d", domain, "-l", cmd, "-c", process_ident)
 
 def confirm_execution(domain, target, exec_index):

@@ -20,9 +20,9 @@
 #
 #
 
-if ! [ $# = 1 ] ; then 
-	echo "Usage: $0 filename"
+if ! [ $# = 2 ] ; then 
+	echo "Usage: $0 vmname filename"
 	exit 1
 fi
 
-exec /usr/lib/qubes/qrexec_client_vm "/usr/lib/qubes/qopen-in-vm" dispvm qubes.OpenInVM "$1"
+exec /usr/lib/qubes/qrexec_client_vm "/usr/lib/qubes/qopen-in-vm" "$1" qubes.OpenInVM "$2"
