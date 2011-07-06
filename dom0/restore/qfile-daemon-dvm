@@ -126,6 +126,8 @@ def main():
     global notify_object
     exec_index = sys.argv[1]
     src_vmname = sys.argv[2]
+    user = sys.argv[3]
+
     notify_object = dbus.SessionBus().get_object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
     qfile = QfileDaemonDvm(src_vmname)
     lockf = open("/var/run/qubes/qfile-daemon-dvm.lock", 'a')
@@ -135,7 +137,7 @@ def main():
     lockf.close()
     if dispname is not None:
         subprocess.call(['/usr/lib/qubes/qrexec_client', '-d', dispname,
-            'user:exec /usr/lib/qubes/qubes_rpc_multiplexer ' + exec_index + " " + src_vmname])
+            user+":exec /usr/lib/qubes/qubes_rpc_multiplexer ' + exec_index + " " + src_vmname])
         subprocess.call(['/usr/sbin/xl', 'destroy', dispname])
         qfile.remove_disposable_from_qdb(dispname)
 
