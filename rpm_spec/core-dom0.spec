@@ -102,6 +102,7 @@ cp aux-tools/qfile-dom0-unpacker $RPM_BUILD_ROOT/usr/lib/qubes/
 mkdir -p $RPM_BUILD_ROOT/etc/qubes_rpc/policy
 cp ../appvm/qubes.Filecopy.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.Filecopy
 cp ../appvm/qubes.OpenInVM.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.OpenInVM
+cp ../qrexec/qubes_rpc_multiplexer $RPM_BUILD_ROOT/usr/lib/qubes
 
 cp restore/qvm-create-default-dvm $RPM_BUILD_ROOT/usr/bin
 cp restore/xenstore-watch $RPM_BUILD_ROOT/usr/bin/xenstore-watch-qubes
@@ -324,6 +325,7 @@ fi
 /etc/xen/scripts/block-origin
 /etc/xen/scripts/vif-route-qubes
 /usr/lib/qubes/qrexec_client
+/usr/lib/qubes/qubes_rpc_multiplexer
 /usr/lib/qubes/qrexec_policy
 %dir /etc/qubes_rpc/policy
 /etc/qubes_rpc/policy/qubes.Filecopy
