@@ -30,7 +30,7 @@ hexnumber()
 process()
 {
 	if ! [ "x""$1" = "xfile" ] ; then
-		exec /etc/xen/scripts/block $ORIG_ARGS	
+		exec flock /var/run/qubes/hotplug-block /etc/xen/scripts/block $ORIG_ARGS	
 	fi
 	while true ; do
 		dev=$(losetup -f --show $2)
@@ -50,7 +50,7 @@ export PATH="/sbin:/bin:/usr/bin:/usr/sbin:$PATH"
 
 XENBUS_PATH="${XENBUS_PATH:?}"
 if ! [ "$1" = "add" ] || ! [ -f /var/run/qubes/fast_block_attach ] ; then
-	exec /etc/xen/scripts/block "$@"
+	exec flock /var/run/qubes/hotplug-block /etc/xen/scripts/block "$@"
 fi
 
 ORIG_ARGS="$@"
