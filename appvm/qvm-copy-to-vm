@@ -40,4 +40,4 @@ if [ $PROGRESS_TYPE = console ] ; then
 	export FILECOPY_TOTAL_SIZE=$(du --apparent-size -c "$@" | tail -1 | cut -f 1)
 fi
 
-exec /usr/lib/qubes/qrexec_client_vm /usr/lib/qubes/qfile-agent $VM qubes.Filecopy "$@"
+exec /usr/lib/qubes/qrexec_client_vm $VM qubes.Filecopy /usr/lib/qubes/qfile-agent "$@"

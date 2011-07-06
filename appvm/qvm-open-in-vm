@@ -25,4 +25,4 @@ if ! [ $# = 2 ] ; then
 	exit 1
 fi
 
-exec /usr/lib/qubes/qrexec_client_vm "/usr/lib/qubes/qopen-in-vm" "$1" qubes.OpenInVM "$2"
+exec /usr/lib/qubes/qrexec_client_vm "$1" qubes.OpenInVM "/usr/lib/qubes/qopen-in-vm" "$2"

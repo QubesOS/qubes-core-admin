@@ -29,8 +29,8 @@ qdbus $REF org.freedesktop.DBus.Properties.Set "" maximum $SIZE
 
 export PROGRESS_TYPE=gui
 
-/usr/lib/qubes/qrexec_client_vm /usr/lib/qubes/qfile-agent \
-	$VM qubes.Filecopy "$@" | 
+/usr/lib/qubes/qrexec_client_vm $VM qubes.Filecopy \
+	/usr/lib/qubes/qfile-agent "$@" | 
 (while read sentsize ; do
 	CURRSIZE=$(($sentsize/1024))
 	qdbus $REF  org.freedesktop.DBus.Properties.Set "" value $CURRSIZE

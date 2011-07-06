@@ -66,7 +66,7 @@ int main(int argc, char **argv)
 
 	if (argc < 4) {
 		fprintf(stderr,
-			"usage: %s local_program target_vmname program_ident [local program arguments]\n",
+			"usage: %s target_vmname program_ident local_program [local program arguments]\n",
 			argv[0]);
 		exit(1);
 	}
@@ -90,8 +90,8 @@ int main(int argc, char **argv)
 	}
 	
 	memset(&params, 0, sizeof(params));
-	strncpy(params.exec_index, argv[3], sizeof(params.exec_index));
-	strncpy(params.target_vmname, argv[2],
+	strncpy(params.exec_index, argv[2], sizeof(params.exec_index));
+	strncpy(params.target_vmname, argv[1],
 		sizeof(params.target_vmname));
 	snprintf(params.process_fds.ident,
 		 sizeof(params.process_fds.ident), "%d %d %d",
@@ -100,7 +100,7 @@ int main(int argc, char **argv)
 	write(trigger_fd, &params, sizeof(params));
 	close(trigger_fd);
 
-	argv[3] = get_program_name(argv[1]);
+	argv[3] = get_program_name(argv[3]);
 	execv(argv[1], argv + 3);
 	perror("execv");
 	return 1;

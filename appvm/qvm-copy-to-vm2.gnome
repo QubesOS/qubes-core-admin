@@ -27,8 +27,7 @@ SIZE=$(du --apparent-size -c "$@" | tail -1 | cut -f 1)
 
 export PROGRESS_TYPE=gui
 
-/usr/lib/qubes/qrexec_client_vm /usr/lib/qubes/qfile-agent \
-	$VM qubes.Filecopy "$@" | 
+/usr/lib/qubes/qrexec_client_vm $VM qubes.Filecopy /usr/lib/qubes/qfile-agent "$@" |
 (while read sentsize ; do
 	CURRSIZE=$(($sentsize/1024))
 	echo $((100*$CURRSIZE/$SIZE))
