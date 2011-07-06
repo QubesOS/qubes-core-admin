@@ -63,6 +63,7 @@ int main(int argc, char **argv)
 	struct trigger_connect_params params;
 	int local_fd[3], remote_fd[3];
 	int i;
+	char *abs_exec_path;
 
 	if (argc < 4) {
 		fprintf(stderr,
@@ -81,14 +82,14 @@ int main(int argc, char **argv)
 		local_fd[i] = connect_unix_socket();
 		read(local_fd[i], &remote_fd[i], sizeof(remote_fd[i]));
 		if (i != 2 || getenv("PASS_LOCAL_STDERR")) {
-		        char * env;
-		        asprintf(&env, "SAVED_FD_%d=%d", i, dup(i));
-		        putenv(env);	
+			char *env;
+			asprintf(&env, "SAVED_FD_%d=%d", i, dup(i));
+			putenv(env);
 			dup2(local_fd[i], i);
 			close(local_fd[i]);
 		}
 	}
-	
+
 	memset(&params, 0, sizeof(params));
 	strncpy(params.exec_index, argv[2], sizeof(params.exec_index));
 	strncpy(params.target_vmname, argv[1],
@@ -100,8 +101,9 @@ int main(int argc, char **argv)
 	write(trigger_fd, &params, sizeof(params));
 	close(trigger_fd);
 
+	abs_exec_path = strdup(argv[3]);
 	argv[3] = get_program_name(argv[3]);
-	execv(argv[1], argv + 3);
+	execv(abs_exec_path, argv + 3);
 	perror("execv");
 	return 1;
 }
