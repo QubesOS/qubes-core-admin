@@ -3,6 +3,7 @@ import sys
 import os
 import os.path
 import subprocess
+import xen.lowlevel.xl
  
 POLICY_FILE_DIR="/etc/qubes_rpc/policy"
 QREXEC_CLIENT="/usr/lib/qubes/qrexec_client"
@@ -55,6 +56,22 @@ def find_policy(policy, domain, target):
             continue
         return iter
     return get_default_policy()
+
+def is_domain_running(target):
+    xl_ctx = xen.lowlevel.xl.ctx()         
+    domains = xl_ctx.list_domains()
+    for dominfo in domains:
+        domname = xl_ctx.domid_to_name(dominfo.domid)
+        if domname == target:
+            return True
+    return False
+                
+def spawn_target_if_necessary(target):
+    if not is_domain_running(target):
+        return
+    null=open("/dev/null", "r+")
+    subprocess.call("qvm-run -a -q " + target + " true", stdin=null, stdout=null)
+    null.close()
                 
 def do_execute(domain, target, user, exec_index, process_ident):
     if target == "dom0":
@@ -62,9 +79,11 @@ def do_execute(domain, target, user, exec_index, process_ident):
     elif target == "dispvm":
         cmd = "/usr/lib/qubes/qfile-daemon-dvm " + exec_index + " " + domain + " " +user
     else:
-#fixme: qvm-run --pass_io is broken for non-running target domain
-        cmd= "qvm-run -uroot -q --pass_io "+target + " -u" + user 
-        cmd+=" '/usr/lib/qubes/qubes_rpc_multiplexer "+exec_index + " " + domain + "'"
+    # see the previous commit why "qvm-run -a" is broken and dangerous
+    # also, dangling "xl" would keep stderr open and may prevent closing connection
+        spawn_target_if_necessary(target)
+        cmd= QREXEC_CLIENT + " -d " + target + " " + user 
+        cmd+=":/usr/lib/qubes/qubes_rpc_multiplexer "+ exec_index + " " + domain
     os.execl(QREXEC_CLIENT, "qrexec_client", "-d", domain, "-l", cmd, "-c", process_ident)
 
 def confirm_execution(domain, target, exec_index):
