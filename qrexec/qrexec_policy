@@ -67,10 +67,10 @@ def is_domain_running(target):
     return False
                 
 def spawn_target_if_necessary(target):
-    if not is_domain_running(target):
+    if is_domain_running(target):
         return
     null=open("/dev/null", "r+")
-    subprocess.call("qvm-run -a -q " + target + " true", stdin=null, stdout=null)
+    subprocess.call(["qvm-run", "-a", "-q", target, "true"], stdin=null, stdout=null)
     null.close()
                 
 def do_execute(domain, target, user, exec_index, process_ident):
@@ -82,8 +82,8 @@ def do_execute(domain, target, user, exec_index, process_ident):
     # see the previous commit why "qvm-run -a" is broken and dangerous
     # also, dangling "xl" would keep stderr open and may prevent closing connection
         spawn_target_if_necessary(target)
-        cmd= QREXEC_CLIENT + " -d " + target + " " + user 
-        cmd+=":/usr/lib/qubes/qubes_rpc_multiplexer "+ exec_index + " " + domain
+        cmd= QREXEC_CLIENT + " -d " + target + " '" + user 
+        cmd+=":/usr/lib/qubes/qubes_rpc_multiplexer "+ exec_index + " " + domain + "'"
     os.execl(QREXEC_CLIENT, "qrexec_client", "-d", domain, "-l", cmd, "-c", process_ident)
 
 def confirm_execution(domain, target, exec_index):
