@@ -63,7 +63,7 @@ def do_execute(domain, target, user, exec_index, process_ident):
         cmd = "/usr/lib/qubes/qfile-daemon-dvm " + exec_index + " " + domain + " " +user
     else:
 #fixme: qvm-run --pass_io is broken for non-running target domain
-        cmd= "qvm-run -uroot -q -a --pass_io "+target + " -u" + user 
+        cmd= "qvm-run -uroot -q --pass_io "+target + " -u" + user 
         cmd+=" '/usr/lib/qubes/qubes_rpc_multiplexer "+exec_index + " " + domain + "'"
     os.execl(QREXEC_CLIENT, "qrexec_client", "-d", domain, "-l", cmd, "-c", process_ident)
 
