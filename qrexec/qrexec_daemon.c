@@ -365,7 +365,7 @@ void sanitize_name(char * untrusted_s_signed)
         for (untrusted_s=(unsigned char*)untrusted_s_signed; *untrusted_s; untrusted_s++) {
                 if (*untrusted_s >= 'a' && *untrusted_s <= 'z')
                         continue;
-                if (*untrusted_s >= 'A' && *untrusted_s <= 'A')
+                if (*untrusted_s >= 'A' && *untrusted_s <= 'Z')
                         continue;
                 if (*untrusted_s >= '0' && *untrusted_s <= '9')
                         continue;
