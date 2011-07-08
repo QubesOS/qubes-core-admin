@@ -931,7 +931,9 @@ class QubesVm(object):
         for pci in self.pcidevs:
             subprocess.check_call('sudo', qubes_pciback_cmd, pci)
 
+        time.sleep(1) # REMOVEME!!!
         xl_cmdline = ['sudo', '/usr/sbin/xl', 'create', self.conf_file, '-p']
+        time.sleep(1) # REMOVEME!!!
 
         try:
             subprocess.check_call(xl_cmdline)
@@ -960,6 +962,7 @@ class QubesVm(object):
 
         if verbose:
             print "--> Starting the VM..."
+        time.sleep(1) # REMOVEME!!!
         xc.domain_unpause(xid)
 
         if not preparing_dvm:
@@ -979,7 +982,7 @@ class QubesVm(object):
             # Sync RPMDB
             subprocess.call(["/usr/lib/qubes/sync_rpmdb_updatevm.sh"])
             # Start polling
-            subprocess.call([qrexec_client_path, '-d', xid, '-e',
+            subprocess.call([qrexec_client_path, '-d', str(xid), '-e',
                     "while true; do sleep %d; /usr/lib/qubes/qubes_download_dom0_updates.sh; done" % dom0_update_check_interval])
 
         # perhaps we should move it before unpause and fork?
