@@ -301,7 +301,7 @@ class QubesVm(object):
         self.appmenus_templates_dir = None
         if updateable:
             self.appmenus_templates_dir = self.dir_path + "/" + default_appmenus_templates_subdir
-        else if template_vm is not None:
+        elif template_vm is not None:
             self.appmenus_templates_dir = template_vm.appmenus_templates_dir
 
         # By default allow use all VCPUs
@@ -718,7 +718,7 @@ class QubesVm(object):
 
         if os.path.exists(source_template.dir_path + '/vm-' + qubes_whitelisted_appmenus):
             if verbose:
-                print "--> Creating default whitelisted apps list: {0}".
+                print "--> Creating default whitelisted apps list: {0}".\
                     format(self.dir_path + '/' + qubes_whitelisted_appmenus)
             shutil.copy(source_template.dir_path + '/vm-' + qubes_whitelisted_appmenus,
                     self.dir_path + '/' + qubes_whitelisted_appmenus)
@@ -1151,7 +1151,7 @@ class QubesTemplateVm(QubesVm):
 
         if os.path.exists(src_template_vm.dir_path + '/vm-' + qubes_whitelisted_appmenus):
             if verbose:
-                print "--> Copying default whitelisted apps list: {0}".
+                print "--> Copying default whitelisted apps list: {0}".\
                     format(self.dir_path + '/vm-' + qubes_whitelisted_appmenus)
             shutil.copy(src_template_vm.dir_path + '/vm-' + qubes_whitelisted_appmenus,
                     self.dir_path + '/vm-' + qubes_whitelisted_appmenus)
