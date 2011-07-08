@@ -931,9 +931,7 @@ class QubesVm(object):
         for pci in self.pcidevs:
             subprocess.check_call('sudo', qubes_pciback_cmd, pci)
 
-        time.sleep(1) # REMOVEME!!!
         xl_cmdline = ['sudo', '/usr/sbin/xl', 'create', self.conf_file, '-p']
-        time.sleep(1) # REMOVEME!!!
 
         try:
             subprocess.check_call(xl_cmdline)
@@ -962,7 +960,6 @@ class QubesVm(object):
 
         if verbose:
             print "--> Starting the VM..."
-        time.sleep(1) # REMOVEME!!!
         xc.domain_unpause(xid)
 
         if not preparing_dvm:
