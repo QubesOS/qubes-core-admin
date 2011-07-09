@@ -80,15 +80,6 @@ def main():
             exit (1)
 
     try:
-        if options.verbose:
-            print "--> Removing from Xen Storage..."
-        vm.remove_from_xen_storage()
-    except (IOError, OSError) as err:
-        print "Warning: {0}".format(err)
-        # Do not exit, perhaps the VM was not in the Xen store
-        # so just remove it from Qubes DB
-
-    try:
         if vm.installed_by_rpm:
             if options.verbose:
                 print "--> VM installed by RPM, leaving all the files on disk"

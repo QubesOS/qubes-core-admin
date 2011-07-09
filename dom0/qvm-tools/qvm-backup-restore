@@ -333,15 +333,6 @@ def main():
                 host_collection.pop(vm.qid)
             continue
 
-        try:
-            vm.add_to_xen_storage()
-
-        except (IOError, OSError) as err:
-            print "ERROR: {0}".format(err)
-            print "*** Skiping VM: {0}".vm.name
-            host_collection.pop(vm.qid)
-            continue
-
     # ... then appvms...
     for vm in [ vm for vm in vms_to_restore if vm.is_appvm()]:
 
@@ -400,13 +391,6 @@ def main():
             print "*** Skiping VM: {0}".format(vm.name)
             host_collection.pop(vm.qid)
             continue
-
-        try:
-            vm.add_to_xen_storage()
-        except (IOError, OSError) as err:
-            print "ERROR: {0}".format(err)
-            print "*** VM '{0}' will not boot until you manually fix it (or correctly restore this VM)!".format(vm.name)
-
 
     backup_collection.unlock_db()
     host_collection.save()

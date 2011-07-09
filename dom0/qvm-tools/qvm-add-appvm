@@ -68,14 +68,6 @@ def main():
         qvm_collection.pop(vm.qid)
         exit (1)
 
-    try:
-        vm.add_to_xen_storage()
-
-    except (IOError, OSError) as err:
-        print "ERROR: {0}".format(err)
-        qvm_collection.pop(vm.qid)
-        exit (1)
-
     qvm_collection.save()
     qvm_collection.unlock_db()
     
