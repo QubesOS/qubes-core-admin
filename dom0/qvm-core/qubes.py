@@ -1286,6 +1286,7 @@ class QubesNetVm(QubesVm):
         self.netid = netid
         self.__network = "10.137.{0}.0".format(netid)
         self.netprefix = "10.137.{0}.".format(netid)
+        self.dispnetprefix = "10.138.{0}.".format(netid)
         self.__netmask = vm_default_netmask
         self.__gateway = self.netprefix + "1"
         self.__secondary_dns = self.netprefix + "254"
@@ -1332,6 +1333,11 @@ class QubesNetVm(QubesVm):
         lo = qid % 253 + 2
         assert lo >= 2 and lo <= 254, "Wrong IP address for VM"
         return self.netprefix  + "{0}".format(lo)
+
+    def get_ip_for_dispvm(self, dispid):
+        lo = dispid % 254 + 1
+        assert lo >= 1 and lo <= 254, "Wrong IP address for VM"
+        return self.dispnetprefix  + "{0}".format(lo)
 
     def get_config_params(self, source_template=None):
         args = super(QubesNetVm, self).get_config_params(source_template)
@@ -1594,16 +1600,27 @@ class QubesDisposableVm(QubesVm):
         template_vm = kwargs["template_vm"]
         assert template_vm is not None, "Missing template_vm for DisposableVM!"
 
+        self.dispid = kwargs.pop("dispid")
+
         super(QubesDisposableVm, self).__init__(dir_path="/nonexistent", **kwargs)
 
     @property
     def type(self):
         return "DisposableVM"
 
+    @property
+    def ip(self):
+        if self.netvm_vm is not None:
+            return self.netvm_vm.get_ip_for_dispvm(self.dispid)
+        else:
+            return None
+
+
     def get_xml_attrs(self):
         attrs = {}
         attrs["qid"] = str(self.qid)
         attrs["name"] = self.name
+        attrs["dispid"] = str(self.dispid)
         attrs["template_qid"] = str(self.template_vm.qid)
         attrs["label"] = self.label.name
         return attrs
@@ -1703,13 +1720,13 @@ class QubesVmCollection(dict):
         self[vm.qid]=vm
         return vm
 
-    def add_new_disposablevm(self, name, template_vm,
+    def add_new_disposablevm(self, name, template_vm, dispid,
                       label = None):
 
         qid = self.get_new_unused_qid()
         vm = QubesDisposableVm (qid=qid, name=name, template_vm=template_vm,
                          netvm_vm = self.get_default_netvm_vm(),
-                         label=label)
+                         label=label, dispid=dispid)
 
         if not self.verify_new_vm (vm):
             assert False, "Wrong VM description!"
@@ -2203,12 +2220,13 @@ class QubesVmCollection(dict):
                 kwargs = {}
                 attr_list = ("qid", "name",
                              "template_qid",
-                             "label")
+                             "label", "dispid")
 
                 for attribute in attr_list:
                     kwargs[attribute] = element.get(attribute)
 
                 kwargs["qid"] = int(kwargs["qid"])
+                kwargs["dispid"] = int(kwargs["dispid"])
                 kwargs["template_qid"] = int(kwargs["template_qid"])
 
                 template_vm = self[kwargs.pop("template_qid")]

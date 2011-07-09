@@ -78,7 +78,8 @@ class QfileDaemonDvm:
             sys.stderr.write( 'Domain ' + disptempl + ' does not exist ?')
             qvm_collection.unlock_db()
             return None
-        qvm_collection.add_new_disposablevm(disp_name, vm_disptempl.template_vm, label=vm.label)
+        dispid=int(disp_name[4:])
+        qvm_collection.add_new_disposablevm(disp_name, vm_disptempl.template_vm, label=vm.label, dispid=dispid)
         qvm_collection.save()
         qvm_collection.unlock_db()
 
