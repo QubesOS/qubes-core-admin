@@ -82,6 +82,10 @@ class QfileDaemonDvm:
         qvm_collection.add_new_disposablevm(disp_name, vm_disptempl.template_vm, label=vm.label, dispid=dispid)
         qvm_collection.save()
         qvm_collection.unlock_db()
+        # Reload firewall rules
+        for vm in qvm_collection.values():
+            if vm.is_proxyvm() and vm.is_running():
+                vm.write_iptables_xenstore_entry()
 
         return disp_name
 
