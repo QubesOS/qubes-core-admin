@@ -93,47 +93,11 @@ void talk_to_daemon(char *fname)
 	recv_file(fname);
 }
 
-void process_spoolentry(char *entry_name)
-{
-	char *abs_spool_entry_name;
-	int entry_fd;
-	struct stat st;
-	char *filename;
-	int entry_size;
-	asprintf(&abs_spool_entry_name, "%s/%s", DVM_SPOOL, entry_name);
-	entry_fd = open(abs_spool_entry_name, O_RDONLY);
-	unlink(abs_spool_entry_name);
-	if (entry_fd < 0 || fstat(entry_fd, &st))
-		gui_fatal("bad dvm_entry");
-	entry_size = st.st_size;
-	filename = calloc(1, entry_size + DVM_FILENAME_SIZE);
-	if (!filename)
-		gui_fatal("malloc");
-	if (!read_all(entry_fd, filename, entry_size))
-		gui_fatal("read dvm entry %s", abs_spool_entry_name);
-	close(entry_fd);
-	talk_to_daemon(filename);
-}
-
-void scan_spool(char *name)
-{
-	struct dirent *ent;
-	DIR *dir = opendir(name);
-	if (!dir)
-		gui_fatal("opendir %s", name);
-	while ((ent = readdir(dir))) {
-		char *fname = ent->d_name;
-		if (!strcmp(fname, ".") || !strcmp(fname, ".."))
-			continue;
-		process_spoolentry(fname);
-		break;
-	}
-	closedir(dir);
-}
-
-int main()
+int main(int argc, char ** argv)
 {
 	signal(SIGPIPE, SIG_IGN);
-	scan_spool(DVM_SPOOL);
+	if (argc!=2) 
+		gui_fatal("OpenInVM - no file given?");
+	talk_to_daemon(argv[1]);
 	return 0;
-}
+}	

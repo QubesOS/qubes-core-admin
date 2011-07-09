@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
@@ -20,27 +20,9 @@
 #
 #
 
-if [ $# -lt 2 ] ; then
-	echo usage: $0 'vmname file [file]*'
+if ! [ $# = 2 ] ; then 
+	echo "Usage: $0 vmname filename"
 	exit 1
 fi
 
-FILECOPY_SPOOL=/home/user/.filecopyspool
-if ! [ -e $FILECOPY_SPOOL ] ; then
-	mkdir $FILECOPY_SPOOL
-fi
-
-REQ_FILE_TMP=$FILECOPY_SPOOL/.req.$$
-echo -ne "$1""\x00" > $REQ_FILE_TMP
-echo -ne "$PROGRESS_FILE""\x00" >> $REQ_FILE_TMP
-
-shift
-for FILE in "$@" ; do
-	if ! [ "X""${FILE:0:1}" = X/ ] ; then
-        	FILE="$PWD"/"$FILE"
-	fi
-	echo -ne "$FILE""\x00" >> $REQ_FILE_TMP
-done
-
-mv $REQ_FILE_TMP $FILECOPY_SPOOL/req.$$
-echo -n FCPR > /var/run/qubes/qrexec_agent 
+exec /usr/lib/qubes/qrexec_client_vm "$1" qubes.OpenInVM "/usr/lib/qubes/qopen-in-vm" "$2"

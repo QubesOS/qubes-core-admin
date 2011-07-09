@@ -1,0 +1,64 @@
+	Currently (after commit 2600134e3bb781fca25fe77e464f8b875741dc83), 
+qrexec_agent can request a service (specified by a "exec_index") to be 
+executed on a different VM or dom0. Access control is enforced in dom0 via 
+files in /etc/qubes_rpc/policy. File copy, Open in Dispvm, sync appmenus, 
+upload updates to dom0 - they all have been ported to the new API.
+See the quick HOWTO section on how to add a new service. Note we have
+qvm-open-in-vm utility practically for free.
+
+CHANGES
+
+	Besides flexibility offered by /etc/qubes_rpc/policy, writing a client
+is much simpler now. The workflow used to be (using "filecopy" service as
+an example):
+a) "filecopy_ui" process places job description in some spool directory, 
+signals qrexec_agent to signal qrexec_daemon
+b) qrexec_daemon executes "qrexec_client -d domain filecopy_worker ...."
+and "filecopy_worker" process needed to parse spool and retrieve job 
+description from there. Particularly, "filecopy_ui" had no connection to 
+remote.
+	Now, the flow is:
+a) qrexec_client_vm process obtains 3 unix socket descriptors from 
+qrexec_agent, dup stdin/out/err to them; forms "existing_process_handle" from
+them
+b) qrexec_client_vm signals qrexec_agent to signal qrexec_daemon, with a 
+"exec_index" (so, type of service) as an argument
+c) qrexec_daemon executed "qrexec_client -d domain -c existing_process_handle ...."
+d) qrexec_client_vm execve filecopy_program. 
+
+Thus, there is only one service program, and it has direct access to remote via 
+stdin/stdout.
+
+HOWTO
+
+Let's add a new "test.Add" service, that will add two numbers. We need the
+following files in the template fs:
+==========================
+/usr/bin/our_test_add_client:
+#!/bin/sh
+echo $1 $2
+exec cat >&2
+# more correct: exec cat >&$SAVED_FD_1, but do not scare the reader
+==========================
+/usr/bin/our_test_add_server:
+#!/bin/sh
+read arg1 arg2
+echo $(($arg1+$arg2))
+==========================
+/etc/qubes_rpc/test.Add:
+/usr/bin/our_test_add_server
+
+Now, on the client side, we start the client via
+/usr/lib/qubes/qrexec_client_vm target_vm test.Add /usr/bin/our_test_add_client 11 22
+
+Because there is no policy yet, dom0 will ask you to create one (of cource you
+can do it before the first run of our_test_add_client). So, in dom0, create (by now, 
+with a file editor) the /etc/qubes_rpc/policy/test.Add file with
+anyvm anyvm ask
+content. The format of the /etc/qubes_rpc/policy/* files is
+srcvm destvm (allow|deny|ask)[,user=user_to_run_as][,target=VM_to_redirect_to]
+
+You can specify srcvm and destvm by name, or by one of "anyvm", "dispvm", "dom0"
+reserved keywords.
+Then, when you confirm the operation, you will get the result in the client vm.
+

@@ -3,5 +3,5 @@
 UPDATEABLE=`/usr/bin/xenstore-read qubes_vm_updateable`
 
 if [ "$UPDATEABLE" = "True" ]; then
-    echo -n SYNC > /var/run/qubes/qrexec_agent
+    /usr/lib/qubes/qrexec_client_vm dom0 qubes.SyncAppMenus /bin/grep -H = /usr/share/applications/*.desktop
 fi

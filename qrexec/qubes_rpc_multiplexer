@@ -1,0 +1,14 @@
+#!/bin/sh
+QUBES_RPC=/etc/qubes_rpc
+if ! [ $# = 2 ] ; then
+	echo $0: bad argument count >&2
+	exit 1
+fi
+CFG_FILE=$QUBES_RPC/"$1"
+if [ -s "$CFG_FILE" ] ; then
+	exec $(cat "$CFG_FILE") "$2"
+	echo "$0: failed to execute handler for" "$1" >&2
+	exit 1
+fi
+echo "$0: nonexistent or empty" "$CFG_FILE" file >&2
+exit 1

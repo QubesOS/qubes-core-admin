@@ -96,14 +96,24 @@ cp qmemman/server.py $RPM_BUILD_ROOT/usr/lib/qubes/qmemman_daemon.py
 cp ../common/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_daemon $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_client $RPM_BUILD_ROOT/usr/lib/qubes/
+cp ../qrexec/qrexec_policy $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/qfile-dom0-unpacker $RPM_BUILD_ROOT/usr/lib/qubes/
+cp aux-tools/qubes-receive-updates $RPM_BUILD_ROOT/usr/lib/qubes/
+
+mkdir -p $RPM_BUILD_ROOT/etc/qubes_rpc/policy
+cp ../appvm/qubes.Filecopy.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.Filecopy
+cp ../appvm/qubes.OpenInVM.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.OpenInVM
+cp qubes.SyncAppMenus.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.SyncAppMenus
+cp qubes.SyncAppMenus $RPM_BUILD_ROOT/etc/qubes_rpc/
+cp ../qrexec/qubes_rpc_multiplexer $RPM_BUILD_ROOT/usr/lib/qubes
+cp aux-tools/qubes.ReceiveUpdates.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.ReceiveUpdates
+cp aux-tools/qubes.ReceiveUpdates $RPM_BUILD_ROOT/etc/qubes_rpc/
 
 cp restore/qvm-create-default-dvm $RPM_BUILD_ROOT/usr/bin
 cp restore/xenstore-watch $RPM_BUILD_ROOT/usr/bin/xenstore-watch-qubes
 cp restore/qubes_restore restore/xenfreepages $RPM_BUILD_ROOT/usr/lib/qubes
 cp restore/qubes_prepare_saved_domain.sh  $RPM_BUILD_ROOT/usr/lib/qubes
 cp restore/qfile-daemon-dvm $RPM_BUILD_ROOT/usr/lib/qubes
-cp restore/qfile-daemon $RPM_BUILD_ROOT/usr/lib/qubes
 
 mkdir -p $RPM_BUILD_ROOT/etc/yum.real.repos.d
 cp qubes-cached.repo $RPM_BUILD_ROOT/etc/yum.real.repos.d/
@@ -289,8 +299,8 @@ fi
 /usr/lib/qubes/qmemman_daemon.py*
 /usr/lib/qubes/meminfo-writer
 /usr/lib/qubes/qfile-daemon-dvm*
-/usr/lib/qubes/qfile-daemon
 /usr/lib/qubes/sync_rpmdb_updatevm.sh
+/usr/lib/qubes/qubes-receive-updates
 %attr(4750,root,qubes) /usr/lib/qubes/qfile-dom0-unpacker
 %attr(770,root,qubes) %dir /var/lib/qubes
 %attr(770,root,qubes) %dir /var/lib/qubes/vm-templates
@@ -321,6 +331,15 @@ fi
 /etc/xen/scripts/block-origin
 /etc/xen/scripts/vif-route-qubes
 /usr/lib/qubes/qrexec_client
+/usr/lib/qubes/qubes_rpc_multiplexer
+/usr/lib/qubes/qrexec_policy
+%dir /etc/qubes_rpc/policy
+/etc/qubes_rpc/policy/qubes.Filecopy
+/etc/qubes_rpc/policy/qubes.OpenInVM
+/etc/qubes_rpc/policy/qubes.SyncAppMenus
+/etc/qubes_rpc/policy//qubes.ReceiveUpdates
+/etc/qubes_rpc/qubes.SyncAppMenus
+/etc/qubes_rpc/qubes.ReceiveUpdates
 %attr(4750,root,qubes) /usr/lib/qubes/qrexec_daemon
 %attr(4750,root,qubes) /usr/lib/qubes/xenfreepages
 %attr(2770,root,qubes) %dir /var/log/qubes

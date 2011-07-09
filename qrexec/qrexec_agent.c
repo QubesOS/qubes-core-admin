@@ -68,12 +68,14 @@ struct _process_fd process_fd[MAX_FDS];
 struct _client_info client_info[MAX_FDS];
 
 int trigger_fd;
+int passfd_socket;
 
 void init()
 {
 	peer_server_init(REXEC_PORT);
 	umask(0);
 	mkfifo(QREXEC_AGENT_TRIGGER_PATH, 0666);
+	passfd_socket = get_server_socket(QREXEC_AGENT_FDPASS_PATH);
 	umask(077);
 	trigger_fd =
 	    open(QREXEC_AGENT_TRIGGER_PATH, O_RDONLY | O_NONBLOCK);
@@ -145,15 +147,9 @@ void handle_just_exec(int client_id, int len)
 	fprintf(stderr, "executed (nowait) %s pid %d\n", buf, pid);
 }
 
-void handle_exec(int client_id, int len)
+void create_info_about_client(int client_id, int pid, int stdin_fd,
+			      int stdout_fd, int stderr_fd)
 {
-	char buf[len];
-	int pid, stdin_fd, stdout_fd, stderr_fd;
-
-	read_all_vchan_ext(buf, len);
-
-	do_fork_exec(buf, &pid, &stdin_fd, &stdout_fd, &stderr_fd);
-
 	process_fd[stdout_fd].client_id = client_id;
 	process_fd[stdout_fd].type = FDTYPE_STDOUT;
 	process_fd[stdout_fd].is_blocked = 0;
@@ -177,11 +173,34 @@ void handle_exec(int client_id, int len)
 	client_info[client_id].is_blocked = 0;
 	client_info[client_id].is_close_after_flush_needed = 0;
 	buffer_init(&client_info[client_id].buffer);
+}
+
+void handle_exec(int client_id, int len)
+{
+	char buf[len];
+	int pid, stdin_fd, stdout_fd, stderr_fd;
+
+	read_all_vchan_ext(buf, len);
+
+	do_fork_exec(buf, &pid, &stdin_fd, &stdout_fd, &stderr_fd);
+
+	create_info_about_client(client_id, pid, stdin_fd, stdout_fd,
+				 stderr_fd);
 
 	fprintf(stderr, "executed %s pid %d\n", buf, pid);
 
 }
 
+void handle_connect_existing(int client_id, int len)
+{
+	int stdin_fd, stdout_fd, stderr_fd;
+	char buf[len];
+	read_all_vchan_ext(buf, len);
+	sscanf(buf, "%d %d %d", &stdin_fd, &stdout_fd, &stderr_fd);
+	create_info_about_client(client_id, -1, stdin_fd, stdout_fd,
+				 stderr_fd);
+	client_info[client_id].is_exited = 1;	//do not wait for SIGCHLD
+}
 
 void update_max_process_fd()
 {
@@ -306,6 +325,9 @@ void handle_server_data()
 		break;
 	case MSG_XOFF:
 		set_blocked_outerr(s_hdr.client_id, 1);
+		break;
+	case MSG_SERVER_TO_AGENT_CONNECT_EXISTING:
+		handle_connect_existing(s_hdr.client_id, s_hdr.len);
 		break;
 	case MSG_SERVER_TO_AGENT_EXEC_CMDLINE:
 		handle_exec(s_hdr.client_id, s_hdr.len);
@@ -432,9 +454,12 @@ int fill_fds_for_select(fd_set * rdset, fd_set * wrset)
 	FD_SET(trigger_fd, rdset);
 	if (trigger_fd > max)
 		max = trigger_fd;
+	FD_SET(passfd_socket, rdset);
+	if (passfd_socket > max)
+		max = passfd_socket;
 
 	for (i = 0; i < MAX_FDS; i++)
-		if (client_info[i].pid > 0 && client_info[i].is_blocked) {
+		if (client_info[i].pid && client_info[i].is_blocked) {
 			fd = client_info[i].stdin_fd;
 			FD_SET(fd, wrset);
 			if (fd > max)
@@ -467,28 +492,31 @@ void flush_client_data_agent(int client_id)
 	}
 }
 
+void handle_new_passfd()
+{
+	int fd = do_accept(passfd_socket);
+	if (fd >= MAX_FDS) {
+		fprintf(stderr, "too many clients ?\n");
+		exit(1);
+	}
+	// let client know what fd has been allocated
+	write(fd, &fd, sizeof(fd));
+}
+
+
 void handle_trigger_io()
 {
 	struct server_header s_hdr;
-	char buf[5];
+	struct trigger_connect_params params;
 	int ret;
 
 	s_hdr.client_id = 0;
 	s_hdr.len = 0;
-	if ((ret = read(trigger_fd, buf, 4)) == 4) {
-		buf[4] = 0;
-		if (!strcmp(buf, "FCPR"))
-			s_hdr.client_id = QREXEC_EXECUTE_FILE_COPY;
-		else if (!strcmp(buf, "DVMR"))
-			s_hdr.client_id =
-			    QREXEC_EXECUTE_FILE_COPY_FOR_DISPVM;
-		else if (!strcmp(buf, "SYNC"))
-			s_hdr.client_id =
-			    QREXEC_EXECUTE_APPMENUS_SYNC;
-		if (s_hdr.client_id) {
-			s_hdr.type = MSG_AGENT_TO_SERVER_TRIGGER_EXEC;
-			write_all_vchan_ext(&s_hdr, sizeof s_hdr);
-		}
+	ret = read(trigger_fd, &params, sizeof(params));
+	if (ret == sizeof(params)) {
+		s_hdr.type = MSG_AGENT_TO_SERVER_TRIGGER_CONNECT_EXISTING;
+		write_all_vchan_ext(&s_hdr, sizeof s_hdr);
+		write_all_vchan_ext(&params, sizeof params);
 	}
 // trigger_fd is nonblock - so no need to reopen
 // not really, need to reopen at EOF
@@ -518,6 +546,9 @@ int main()
 
 		wait_for_vchan_or_argfd(max, &rdset, &wrset);
 
+		if (FD_ISSET(passfd_socket, &rdset))
+			handle_new_passfd();
+
 		while (read_ready_vchan_ext())
 			handle_server_data();
 
@@ -526,7 +557,7 @@ int main()
 
 		handle_process_data_all(&rdset);
 		for (i = 0; i <= MAX_FDS; i++)
-			if (client_info[i].pid > 0
+			if (client_info[i].pid
 			    && client_info[i].is_blocked
 			    && FD_ISSET(client_info[i].stdin_fd, &wrset))
 				flush_client_data_agent(i);

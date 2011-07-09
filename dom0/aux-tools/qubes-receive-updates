@@ -29,15 +29,6 @@ from qubes.qubes import QubesVmCollection
 updates_dir = "/var/lib/qubes/updates"
 updates_rpm_dir = updates_dir + "/rpm"
 
-def is_copy_allowed(vm):
-#    if vm.copy_allowed:
-#        return True
-    q = 'Do you authorize file copy from '
-    q+= os.getenv("QREXEC_REMOTE_DOMAIN")
-    q+= ' to ' + vm.name + ' ?'
-    retcode = subprocess.call(['/usr/bin/kdialog', '--yesno', q, '--title', 'File transfer confirmation'])
-    return retcode == 0
-
 def dom0updates_fatal(msg):
     print >> sys.stderr, msg
     shutil.rmtree(updates_rpm_dir)
@@ -69,31 +60,13 @@ def handle_dom0updates(updatevm):
     exit(0)
 
 def main():
-    FILECOPY_VMNAME_SIZE = 32
-    blob=os.read(0, FILECOPY_VMNAME_SIZE)
-    vmname = blob.split("\x00")[0]
 
     qvm_collection = QubesVmCollection()
     qvm_collection.lock_db_for_reading()
     qvm_collection.load()
     qvm_collection.unlock_db()
     
-    if vmname == '@dom0updates':
-        updatevm = qvm_collection.get_updatevm_vm()
-        handle_dom0updates(updatevm)
-        # handle_dom0updates never returns
-
-    vm = qvm_collection.get_vm_by_name(vmname)
-# we do not want to flood dom0 with error windows; so just log to stderr
-    if vm is None:
-        print >> sys.stderr, 'Domain ' + vmname + ' does not exist ?'
-        exit(1)
-    if not vm.is_running():
-        print >> sys.stderr, 'Domain ' + vmname + ' is not running ?'
-        exit(1)
-    if not is_copy_allowed(vm):
-        exit(1)
-    cmd = "root:/usr/lib/qubes/qfile-unpacker " + os.getenv("QREXEC_REMOTE_DOMAIN")
-    os.execl("/usr/lib/qubes/qrexec_client", "qrexec_client", "-d", vmname, cmd)
+    updatevm = qvm_collection.get_updatevm_vm()
+    handle_dom0updates(updatevm)
 
 main()

@@ -67,4 +67,4 @@ else
 fi
 
 # qvm-copy-to-vm works only from user
-su -c "qvm-copy-to-vm @dom0updates $DOM0_UPDATES_DIR/packages/*.rpm" user
+su -c "/usr/lib/qubes/qrexec_client_vm dom0 qubes.ReceiveUpdates /usr/lib/qubes/qfile-agent $DOM0_UPDATES_DIR/packages/*.rpm" user

@@ -29,6 +29,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <ioall.h>
+#include <string.h>
 #include "qrexec.h"
 #include "buffer.h"
 #include "glue.h"
@@ -66,6 +67,21 @@ void sigusr1_handler(int x)
 void sigchld_handler(int x);
 
 char *remote_domain_name;	// guess what
+
+int create_qrexec_socket(int domid, char *domname)
+{
+	char socket_address[40];
+	char link_to_socket_name[strlen(domname) + sizeof(socket_address)];
+
+	snprintf(socket_address, sizeof(socket_address),
+		 QREXEC_DAEMON_SOCKET_DIR "/qrexec.%d", domid);
+	snprintf(link_to_socket_name, sizeof link_to_socket_name,
+		 QREXEC_DAEMON_SOCKET_DIR "/qrexec.%s", domname);
+	unlink(link_to_socket_name);
+	symlink(socket_address, link_to_socket_name);
+	return get_server_socket(socket_address);
+}
+
 
 /* do the preparatory tasks, needed before entering the main event loop */
 void init(int xid)
@@ -119,7 +135,7 @@ void init(int xid)
 	/* When running as root, make the socket accessible; perms on /var/run/qubes still apply */
 	umask(0);
 	qrexec_daemon_unix_socket_fd =
-	    get_server_socket(xid, remote_domain_name);
+	    create_qrexec_socket(xid, remote_domain_name);
 	umask(0077);
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGCHLD, sigchld_handler);
@@ -167,8 +183,7 @@ void terminate_client_and_flush_data(int fd)
 	write_all_vchan_ext(&s_hdr, sizeof(s_hdr));
 }
 
-void get_cmdline_body_from_client_and_pass_to_agent(int fd,
-						    struct server_header
+void get_cmdline_body_from_client_and_pass_to_agent(int fd, struct server_header
 						    *s_hdr)
 {
 	int len = s_hdr->len;
@@ -195,6 +210,9 @@ void handle_cmdline_message_from_client(int fd)
 		break;
 	case MSG_CLIENT_TO_SERVER_JUST_EXEC:
 		s_hdr.type = MSG_SERVER_TO_AGENT_JUST_EXEC;
+		break;
+	case MSG_CLIENT_TO_SERVER_CONNECT_EXISTING:
+		s_hdr.type = MSG_SERVER_TO_AGENT_CONNECT_EXISTING;
 		break;
 	default:
 		terminate_client_and_flush_data(fd);
@@ -271,8 +289,7 @@ void write_buffered_data_to_client(int client_id)
 The header (hdr argument) is already built. Just read the raw data from
 the packet, and pass it along with the header to the client.
 */
-void get_packet_data_from_agent_and_pass_to_client(int client_id,
-						   struct client_header
+void get_packet_data_from_agent_and_pass_to_client(int client_id, struct client_header
 						   *hdr)
 {
 	int len = hdr->len;
@@ -342,33 +359,48 @@ void check_children_count_and_wait_if_too_many()
 	}
 }
 
+void sanitize_name(char * untrusted_s_signed)
+{
+        unsigned char * untrusted_s;
+        for (untrusted_s=(unsigned char*)untrusted_s_signed; *untrusted_s; untrusted_s++) {
+                if (*untrusted_s >= 'a' && *untrusted_s <= 'z')
+                        continue;
+                if (*untrusted_s >= 'A' && *untrusted_s <= 'Z')
+                        continue;
+                if (*untrusted_s >= '0' && *untrusted_s <= '9')
+                        continue;
+                if (*untrusted_s == '_' || *untrusted_s == '-' || *untrusted_s == '.' || *untrusted_s == ' ')
+                        continue;
+                *untrusted_s = '_';
+        }
+}
+                        
+
+
+#define ENSURE_NULL_TERMINATED(x) x[sizeof(x)-1] = 0
+
 /* 
 Called when agent sends a message asking to execute a predefined command.
 */
 
-void handle_execute_predefined_command(int req)
+void handle_execute_predefined_command()
 {
-	char *rcmd = NULL, *lcmd = NULL;
 	int i;
+	struct trigger_connect_params untrusted_params, params;
 
 	check_children_count_and_wait_if_too_many();
-	switch (req) {
-	case QREXEC_EXECUTE_FILE_COPY:
-		rcmd = "directly:user:/usr/lib/qubes/qfile-agent";
-		lcmd = "/usr/lib/qubes/qfile-daemon";
-		break;
-	case QREXEC_EXECUTE_FILE_COPY_FOR_DISPVM:
-		rcmd = "directly:user:/usr/lib/qubes/qfile-agent-dvm";
-		lcmd = "/usr/lib/qubes/qfile-daemon-dvm";
-		break;
-	case QREXEC_EXECUTE_APPMENUS_SYNC:
-		rcmd = "user:grep -H = /usr/share/applications/*.desktop";
-		lcmd = "/usr/bin/qvm-sync-appmenus";
-		break;
-	default:		/* cannot happen, already sanitized */
-		fprintf(stderr, "got trigger exec no %d\n", req);
-		exit(1);
-	}
+	read_all_vchan_ext(&untrusted_params, sizeof(params));
+
+	/* sanitize start */
+	ENSURE_NULL_TERMINATED(untrusted_params.exec_index);
+	ENSURE_NULL_TERMINATED(untrusted_params.target_vmname);
+	ENSURE_NULL_TERMINATED(untrusted_params.process_fds.ident);
+	sanitize_name(untrusted_params.exec_index);
+	sanitize_name(untrusted_params.target_vmname);
+	sanitize_name(untrusted_params.process_fds.ident);
+	params = untrusted_params;
+	/* sanitize end */
+
 	switch (fork()) {
 	case -1:
 		perror("fork");
@@ -383,8 +415,9 @@ void handle_execute_predefined_command(int req)
 		close(i);
 	signal(SIGCHLD, SIG_DFL);
 	signal(SIGPIPE, SIG_DFL);
-	execl("/usr/lib/qubes/qrexec_client", "qrexec_client", "-d",
-	      remote_domain_name, "-l", lcmd, rcmd, NULL);
+	execl("/usr/lib/qubes/qrexec_policy", "qrexec_policy",
+	      remote_domain_name, params.target_vmname,
+	      params.exec_index, params.process_fds.ident, NULL);
 	perror("execl");
 	exit(1);
 }
@@ -401,18 +434,8 @@ void check_client_id_in_range(unsigned int untrusted_client_id)
 
 void sanitize_message_from_agent(struct server_header *untrusted_header)
 {
-	int untrusted_cmd;
 	switch (untrusted_header->type) {
-	case MSG_AGENT_TO_SERVER_TRIGGER_EXEC:
-		untrusted_cmd = untrusted_header->client_id;
-		if (untrusted_cmd != QREXEC_EXECUTE_FILE_COPY &&
-		    untrusted_cmd != QREXEC_EXECUTE_FILE_COPY_FOR_DISPVM &&
-		    untrusted_cmd != QREXEC_EXECUTE_APPMENUS_SYNC) {
-			fprintf(stderr,
-				"received MSG_AGENT_TO_SERVER_TRIGGER_EXEC cmd %d ?\n",
-				untrusted_cmd);
-			exit(1);
-		}
+	case MSG_AGENT_TO_SERVER_TRIGGER_CONNECT_EXISTING:
 		break;
 	case MSG_AGENT_TO_SERVER_STDOUT:
 	case MSG_AGENT_TO_SERVER_STDERR:
@@ -451,8 +474,8 @@ void handle_message_from_agent()
 //      fprintf(stderr, "got %x %x %x\n", s_hdr.type, s_hdr.client_id,
 //              s_hdr.len);
 
-	if (s_hdr.type == MSG_AGENT_TO_SERVER_TRIGGER_EXEC) {
-		handle_execute_predefined_command(s_hdr.client_id);
+	if (s_hdr.type == MSG_AGENT_TO_SERVER_TRIGGER_CONNECT_EXISTING) {
+		handle_execute_predefined_command();
 		return;
 	}
 

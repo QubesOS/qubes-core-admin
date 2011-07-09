@@ -25,16 +25,4 @@ if ! [ $# = 1 ] ; then
 	exit 1
 fi
 
-FILE="$1"
-if ! [ "X""${FILE:0:1}" = X/ ] ; then
-	FILE="$PWD"/"$1"
-fi
-
-DVMSPOOL=/home/user/.dvmspool
-if ! [ -e $DVMSPOOL ] ; then
-	mkdir $DVMSPOOL || exit 1
-fi
-
-echo -n "$FILE" > $DVMSPOOL/req.$$
-echo -n DVMR > /var/run/qubes/qrexec_agent
-	
+exec /usr/lib/qubes/qrexec_client_vm dispvm qubes.OpenInVM "/usr/lib/qubes/qopen-in-vm" "$1"
