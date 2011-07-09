@@ -929,7 +929,7 @@ class QubesVm(object):
 
         # Bind pci devices to pciback driver
         for pci in self.pcidevs:
-            subprocess.check_call('sudo', qubes_pciback_cmd, pci)
+            subprocess.check_call(['sudo', qubes_pciback_cmd, pci])
 
         xl_cmdline = ['sudo', '/usr/sbin/xl', 'create', self.conf_file, '-p']
 
