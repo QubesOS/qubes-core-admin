@@ -53,7 +53,7 @@ class QfileDaemonDvm:
 
         vm = qvm_collection.get_vm_by_name(self.name)
         if vm is None:
-            sys.stderr.write( 'Domain ' + vmname + ' does not exist ?')
+            sys.stderr.write( 'Domain ' + self.name + ' does not exist ?')
             qvm_collection.unlock_db()
             qmemman_client.close()
             return None
