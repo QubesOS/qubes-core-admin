@@ -67,6 +67,9 @@ def main():
             exit (1)
 
         pci = args[1]
+        if not os.path.exists('/sys/bus/pci/devices/0000:%s' % pci):
+            print "Invalid PCI device: %s" % pci
+            exit(1)
         if vm.pcidevs.count(pci) == 0:
             vm.pcidevs.append(pci)
         qvm_collection.save()
