@@ -1067,7 +1067,6 @@ class QubesTemplateVm(QubesVm):
         self.rootcow_img = self.dir_path + "/" + default_rootcow_img
 
         self.appmenus_templates_dir = self.dir_path + "/" + default_appmenus_templates_subdir
-        self.appmenus_template_templates_dir = self.dir_path + "/" + default_appmenus_template_templates_subdir
         self.appvms = QubesVmCollection()
 
     @property
@@ -1144,10 +1143,6 @@ class QubesTemplateVm(QubesVm):
                     format(src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
         shutil.copytree (src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
 
-        if verbose:
-            print "--> Copying the template's appmenus (for template) templates dir:\n{0} ==>\n{1}".\
-                    format(src_template_vm.appmenus_template_templates_dir, self.appmenus_template_templates_dir)
-        shutil.copytree (src_template_vm.appmenus_template_templates_dir, self.appmenus_template_templates_dir)
 
         if os.path.exists(src_template_vm.dir_path + '/vm-' + qubes_whitelisted_appmenus):
             if verbose:
