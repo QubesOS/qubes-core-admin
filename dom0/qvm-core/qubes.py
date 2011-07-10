@@ -1143,6 +1143,12 @@ class QubesTemplateVm(QubesVm):
                     format(src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
         shutil.copytree (src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
 
+        if os.path.exists(src_template_vm.dir_path + '/' + qubes_whitelisted_appmenus):
+            if verbose:
+                print "--> Copying whitelisted apps list: {0}".\
+                    format(self.dir_path + '/' + qubes_whitelisted_appmenus)
+            shutil.copy(src_template_vm.dir_path + '/' + qubes_whitelisted_appmenus,
+                    self.dir_path + '/' + qubes_whitelisted_appmenus)
 
         if os.path.exists(src_template_vm.dir_path + '/vm-' + qubes_whitelisted_appmenus):
             if verbose:
