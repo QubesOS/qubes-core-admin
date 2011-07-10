@@ -1173,11 +1173,7 @@ class QubesTemplateVm(QubesVm):
             source_template = self.template_vm
 
         try:
-            if source_template is not None:
-                subprocess.check_call ([qubes_appmenu_create_cmd, source_template.appmenus_template_templates_dir, self.name, "vm-templates"])
-            else:
-                # Only add apps to menu
-                subprocess.check_call ([qubes_appmenu_create_cmd, "none", self.name, vmtype])
+            subprocess.check_call ([qubes_appmenu_create_cmd, self.appmenus_templates_dir, self.name, "vm-templates"])
         except subprocess.CalledProcessError:
             print "Ooops, there was a problem creating appmenus for {0} VM!".format (self.name)
 
