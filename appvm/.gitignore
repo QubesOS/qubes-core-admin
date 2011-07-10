@@ -5,3 +5,5 @@ dvm_file_editor
 qfile-agent
 qfile-agent-dvm
 qfile-unpacker
+qopen-in-vm
+vm-file-editor
