@@ -189,10 +189,6 @@ def main():
 
     if not os.path.exists(vm.appmenus_templates_dir):
         os.mkdir(vm.appmenus_templates_dir)
-        if vm.is_template():
-            shutil.copy('/usr/share/qubes/qubes-templatevm.directory.template', vm.appmenus_templates_dir)
-        else:
-            shutil.copy('/usr/share/qubes/qubes-vm.directory.template', vm.appmenus_templates_dir)
 
     # Create new/update existing templates
     if options.verbose:
