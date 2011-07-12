@@ -137,7 +137,7 @@ mkdir -p $RPM_BUILD_ROOT/usr/share/qubes/icons
 cp icons/*.png $RPM_BUILD_ROOT/usr/share/qubes/icons
 cp misc/qubes-vm.directory.template $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/qubes-templatevm.directory.template $RPM_BUILD_ROOT/usr/share/qubes/
-cp misc/qubes-appmenu-select.template $RPM_BUILD_ROOT/usr/share/qubes/
+cp misc/qubes-appmenu-select.desktop $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/vm-template.conf $RPM_BUILD_ROOT/usr/share/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/usr/bin
@@ -314,7 +314,7 @@ fi
 %dir /usr/share/qubes/icons/*.png
 /usr/share/qubes/qubes-vm.directory.template
 /usr/share/qubes/qubes-templatevm.directory.template
-/usr/share/qubes/qubes-appmenu-select.template
+/usr/share/qubes/qubes-appmenu-select.desktop
 /usr/share/qubes/vm-template.conf
 /usr/lib/qubes/qubes_setup_dnat_to_ns
 /usr/lib/qubes/qubes_fix_nm_conf.sh
