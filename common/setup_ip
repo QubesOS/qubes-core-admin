@@ -1,10 +1,10 @@
 #!/bin/sh
 
-ip=`/usr/bin/xenstore-read qubes_ip`
-netmask=`/usr/bin/xenstore-read qubes_netmask`
-gateway=`/usr/bin/xenstore-read qubes_gateway`
-secondary_dns=`/usr/bin/xenstore-read qubes_secondary_dns`
+ip=`/usr/bin/xenstore-read qubes_ip 2> /dev/null`
 if [ x$ip != x ]; then
+    netmask=`/usr/bin/xenstore-read qubes_netmask`
+    gateway=`/usr/bin/xenstore-read qubes_gateway`
+    secondary_dns=`/usr/bin/xenstore-read qubes_secondary_dns`
     /sbin/ifconfig $INTERFACE $ip netmask 255.255.255.255
     /sbin/ifconfig $INTERFACE up
     /sbin/route add default dev $INTERFACE

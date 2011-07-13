@@ -50,13 +50,6 @@ start()
 			usleep 10
 		done
 		echo Back to life.
-		# Fix IP address (replace template IP with DispVM one)
-		IP=$(/usr/bin/xenstore-read qubes_ip 2>/dev/null)
-		if [ "$IP" ]; then
-			ip addr flush dev eth0
-			ip addr add dev eth0 $IP/32
-			ip route add dev eth0
-		fi
 	fi
 
 	MEM_CHANGE_THRESHOLD_KB=30000
