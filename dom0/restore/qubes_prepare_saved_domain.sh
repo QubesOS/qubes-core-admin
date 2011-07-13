@@ -53,7 +53,7 @@ touch $QMEMMAN_STOP
 xl mem-set $1 $(($MEM/1000))
 sleep 1
 touch $2
-if ! xl save $1 $2 ; then 
+if ! xl save $1 $2 $VMDIR/$1.conf; then 
 	rm -f $QMEMMAN_STOP
 	exit 1
 fi
