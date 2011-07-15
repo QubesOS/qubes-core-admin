@@ -20,6 +20,7 @@
 #
 #
 import os
+import re
 import sys
 import subprocess
 import shutil
@@ -28,6 +29,8 @@ from qubes.qubes import QubesVmCollection
 
 updates_dir = "/var/lib/qubes/updates"
 updates_rpm_dir = updates_dir + "/rpm"
+
+package_regex = re.compile(r"^[abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._+-]{1,128}.rpm$")
 
 def dom0updates_fatal(msg):
     print >> sys.stderr, msg
@@ -45,7 +48,7 @@ def handle_dom0updates(updatevm):
     subprocess.check_call(["/usr/lib/qubes/qfile-dom0-unpacker", os.getlogin(), updates_rpm_dir])
     # Verify received files
     for f in os.listdir(updates_rpm_dir):
-        if glob.fnmatch.fnmatch(f, "*.rpm"):
+        if package_regex.match(f):
             p = subprocess.Popen (["/bin/rpm", "-K", updates_rpm_dir + "/" + f],
                     stdout=subprocess.PIPE)
             output = p.communicate()[0]
