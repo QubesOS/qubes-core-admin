@@ -12,6 +12,10 @@
 #include <gui-fatal.h>
 #include <errno.h>
 #include "filecopy.h"
+
+#define DEFAULT_MAX_UPDATES_BYTES (2L<<30)
+#define DEFAULT_MAX_UPDATES_FILES 2048
+
 int prepare_creds_return_uid(char *username)
 {
 	struct passwd *pwd;
@@ -50,11 +54,19 @@ int main(int argc, char ** argv)
 	char *incoming_dir;
 	int pipefds[2];
 	int uid;
+	char *var;
+	long long files_limit = DEFAULT_MAX_UPDATES_FILES;
+	long long bytes_limit = DEFAULT_MAX_UPDATES_BYTES;
 
 	if (argc < 3) {
 		fprintf(stderr, "Invalid parameters, usage: %s user dir\n", argv[0]);
 		exit(1);
 	}
+
+	if ((var=getenv("UPDATES_MAX_BYTES")))
+		bytes_limit = atoll(var);
+	if ((var=getenv("UPDATES_MAX_FILES")))
+		files_limit = atoll(var);
 
 	pipe(pipefds);
 
@@ -73,6 +85,7 @@ int main(int argc, char ** argv)
 			gui_fatal("Error chroot to %s", incoming_dir);
 		setuid(uid);
 		close(pipefds[0]);
+		set_size_limit(bytes_limit, files_limit);
 		do_unpack(pipefds[1]);
 		exit(0);
 	default:;

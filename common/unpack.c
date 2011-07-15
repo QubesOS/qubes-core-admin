@@ -11,8 +11,19 @@
 #include "crc32.h"
 
 char untrusted_namebuf[MAX_PATH_LENGTH];
+long long bytes_limit = 0;
+long long files_limit = 0;
+long long total_bytes = 0;
+long long total_files = 0;
+
 void notify_progress(int p1, int p2)
 {
+}
+
+void set_size_limit(long long new_bytes_limit, long long new_files_limit)
+{
+	bytes_limit = new_bytes_limit;
+	files_limit = new_files_limit;
 }
 
 unsigned long crc32_sum = 0;
@@ -56,6 +67,9 @@ void process_one_file_reg(struct file_header *untrusted_hdr,
 	int fdout = open(untrusted_name, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0700);	/* safe because of chroot */
 	if (fdout < 0)
 		do_exit(errno);
+	total_bytes += untrusted_hdr->filelen;
+	if (bytes_limit && total_bytes > bytes_limit)
+		do_exit(EDQUOT);
 	ret = copy_file(fdout, 0, untrusted_hdr->filelen, &crc32_sum);
 	if (ret != COPY_FILE_OK) {
 		if (ret == COPY_FILE_READ_EOF
@@ -140,6 +154,9 @@ void do_unpack(int fd)
 			break;
 		}
 		process_one_file(&untrusted_hdr);
+		total_files++;
+		if (files_limit && total_files > files_limit)
+			do_exit(EDQUOT);
 	}
 	send_status_and_crc();
 	if (errno)
