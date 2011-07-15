@@ -11,10 +11,11 @@ echo "Checking for dom0 updates"
 # Start VM if not running already
 qvm-run -a $UPDATEVM true || exit 1
 /usr/lib/qubes/sync_rpmdb_updatevm.sh || exit 1
-qvm-run -u root --pass_io $UPDATEVM "/usr/lib/qubes/qubes_download_dom0_updates.sh --doit $@" || exit 1
+qvm-run --pass_io $UPDATEVM "/usr/lib/qubes/qubes_download_dom0_updates.sh $*" || exit 1
+# Wait for download completed
+while pidof -x qubes-receive-updates >/dev/null; do sleep 0.5; done
 yum check-update
 if [ $? -ne 100 ]; then
     exit 0
 fi
 gpk-update-viewer
-
