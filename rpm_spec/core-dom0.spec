@@ -91,6 +91,7 @@ cp aux-tools/convert_dirtemplate2vm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/create_apps_for_appvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/remove_appvm_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/reset_vm_configs.py  $RPM_BUILD_ROOT/usr/lib/qubes
+cp aux-tools/regenerate_initramfs.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/sync_rpmdb_updatevm.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 cp qmemman/server.py $RPM_BUILD_ROOT/usr/lib/qubes/qmemman_daemon.py
 cp ../common/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
@@ -300,6 +301,7 @@ fi
 /usr/lib/qubes/qmemman_daemon.py*
 /usr/lib/qubes/meminfo-writer
 /usr/lib/qubes/qfile-daemon-dvm*
+/usr/lib/qubes/regenerate_initramfs.sh
 /usr/lib/qubes/sync_rpmdb_updatevm.sh
 /usr/lib/qubes/qubes-receive-updates
 %attr(4750,root,qubes) /usr/lib/qubes/qfile-dom0-unpacker
