@@ -1672,6 +1672,7 @@ class QubesVmCollection(dict):
         self.default_netvm_qid = None
         self.default_fw_netvm_qid = None
         self.default_template_qid = None
+        self.default_kernel = None
         self.updatevm_qid = None
         self.qubes_store_filename = store_filename
 
