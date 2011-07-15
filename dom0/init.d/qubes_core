@@ -36,6 +36,7 @@ start()
     touch /var/run/qubes/xl-lock
     chgrp qubes /var/run/qubes/xl-lock
     chmod 660 /var/run/qubes/xl-lock
+    mkdir -p /var/run/xen-hotplug
 
     xenstore-write /local/domain/0/name Domain-0
     
