@@ -80,6 +80,7 @@ cp qubes_network.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_network.rules
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes/
 cp setup_ip $RPM_BUILD_ROOT/usr/lib/qubes/
 cp qubes_download_dom0_updates.sh $RPM_BUILD_ROOT/usr/lib/qubes/
+cp qubes_check_for_updates.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 mkdir -p $RPM_BUILD_ROOT/etc/yum/post-actions
 cp qubes_trigger_sync_appmenus.action $RPM_BUILD_ROOT/etc/yum/post-actions/
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
@@ -242,4 +243,5 @@ rm -rf $RPM_BUILD_ROOT
 /etc/yum/post-actions/qubes_trigger_sync_appmenus.action
 /usr/lib/qubes/qubes_trigger_sync_appmenus.sh
 /usr/lib/qubes/qubes_download_dom0_updates.sh
+/usr/lib/qubes/qubes_check_for_updates.sh
 /lib/firmware/updates
