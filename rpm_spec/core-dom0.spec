@@ -42,6 +42,7 @@ Conflicts:      qubes-gui-dom0 < 1.1.13
 Requires:       yum-plugin-post-transaction-actions
 Requires:       NetworkManager >= 0.8.1-1
 Requires:       xen >= 4.1.0-2
+Requires:       createrepo
 %define _builddir %(pwd)/dom0
 
 %description
@@ -100,6 +101,7 @@ cp ../qrexec/qrexec_client $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_policy $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/qfile-dom0-unpacker $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/qubes-receive-updates $RPM_BUILD_ROOT/usr/lib/qubes/
+cp aux-tools/qubes-watch-updates.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/etc/qubes_rpc/policy
 cp ../appvm/qubes.Filecopy.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.Filecopy
@@ -169,6 +171,7 @@ install -m 0440 qubes.sudoers $RPM_BUILD_ROOT/etc/sudoers.d/qubes
 
 install -d $RPM_BUILD_ROOT/etc/xdg/autostart
 install -m 0644 qubes-guid.desktop $RPM_BUILD_ROOT/etc/xdg/autostart/
+install -m 0644 qubes-update-watch.desktop $RPM_BUILD_ROOT/etc/xdg/autostart/
 
 %post
 
@@ -227,7 +230,6 @@ done
 # this script is always executed during upgrade
 # and we decided not to restart core during upgrade
 #service qubes_core start
-
 
 if [ "x"$HAD_SYSCONFIG_NETWORK = "xno" ]; then
     rm -f /etc/sysconfig/network
@@ -305,6 +307,7 @@ fi
 /usr/lib/qubes/sync_rpmdb_updatevm.sh
 /usr/lib/qubes/qubes-receive-updates
 %attr(4750,root,qubes) /usr/lib/qubes/qfile-dom0-unpacker
+/usr/lib/qubes/qubes-watch-updates.sh
 %attr(770,root,qubes) %dir /var/lib/qubes
 %attr(770,root,qubes) %dir /var/lib/qubes/vm-templates
 %attr(770,root,qubes) %dir /var/lib/qubes/appvms
@@ -353,5 +356,6 @@ fi
 /etc/yum.real.repos.d/qubes-cached.repo
 /etc/sudoers.d/qubes
 /etc/xdg/autostart/qubes-guid.desktop
+/etc/xdg/autostart/qubes-update-watch.desktop
 /etc/security/limits.d/99-qubes.conf
 /etc/yum/post-actions/qubes_sync_rpmdb_updatevm.action

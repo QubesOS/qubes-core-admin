@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Qubes Updates watch
+Comment=Starts watching for dom0 updates
+Icon=qubes
+Exec=/usr/lib/qubes/qubes-watch-updates.sh
+Terminal=false
+Type=Application
