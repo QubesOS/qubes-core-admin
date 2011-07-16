@@ -91,6 +91,7 @@ mkdir -p $RPM_BUILD_ROOT/mnt/removable
 mkdir -p $RPM_BUILD_ROOT/etc/qubes_rpc
 cp qubes.Filecopy $RPM_BUILD_ROOT/etc/qubes_rpc
 cp qubes.OpenInVM $RPM_BUILD_ROOT/etc/qubes_rpc
+mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/dom0-updates
 
 mkdir -p $RPM_BUILD_ROOT/etc/X11
 cp xorg-preload-apps.conf $RPM_BUILD_ROOT/etc/X11
@@ -161,6 +162,7 @@ rm -rf $RPM_BUILD_ROOT
 %attr(700,user,user) /home_volatile/user
 /etc/X11/xorg-preload-apps.conf
 %dir /var/run/qubes
+%dir %attr(0775,user,user) /var/lib/qubes/dom0-updates
 /etc/sudoers.d/qubes
 
 %package devel

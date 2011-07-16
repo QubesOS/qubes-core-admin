@@ -85,7 +85,6 @@ mkdir -p $RPM_BUILD_ROOT/etc/yum/post-actions
 cp qubes_trigger_sync_appmenus.action $RPM_BUILD_ROOT/etc/yum/post-actions/
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
 cp qubes_trigger_sync_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes/
-mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/dom0-updates
 
 install -D qubes_core.modules $RPM_BUILD_ROOT/etc/sysconfig/modules/qubes_core.modules
 
