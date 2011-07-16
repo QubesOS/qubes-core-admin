@@ -45,6 +45,8 @@ def handle_dom0updates(updatevm):
     # Clean old packages
     if os.path.exists(updates_rpm_dir):
         shutil.rmtree(updates_rpm_dir)
+    os.mkdir(updates_rpm_dir)
+    os.chmod(updates_rpm_dir, 0775)
     subprocess.check_call(["/usr/lib/qubes/qfile-dom0-unpacker", os.getlogin(), updates_rpm_dir])
     # Verify received files
     for f in os.listdir(updates_rpm_dir):
