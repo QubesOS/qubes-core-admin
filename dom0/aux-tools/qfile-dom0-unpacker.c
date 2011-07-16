@@ -19,15 +19,20 @@
 int prepare_creds_return_uid(char *username)
 {
 	struct passwd *pwd;
+	// First try name
 	pwd = getpwnam(username);
 	if (!pwd) {
-		perror("getpwnam");
-		exit(1);
+		// Then try UID
+		pwd = getpwuid(atoi(username));
+		if (!pwd) {
+			perror("getpwuid");
+			exit(1);
+		}
 	}
 	setenv("HOME", pwd->pw_dir, 1);
-	setenv("USER", username, 1);
+	setenv("USER", pwd->pw_name, 1);
 	setgid(pwd->pw_gid);
-	initgroups(username, pwd->pw_gid);
+	initgroups(pwd->pw_name, pwd->pw_gid);
 	setfsuid(pwd->pw_uid);
 	return pwd->pw_uid;
 }
