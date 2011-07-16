@@ -23,17 +23,19 @@ start()
     printf "\x00\x00\x00\x00" > /var/run/qubes/dispVM_seq
     chown root:qubes /var/run/qubes/dispVM_seq
     chmod 660 /var/run/qubes/dispVM_seq
-    ROOT=/var/lib/qubes/dvmdata/savefile_root
     DEFAULT=/var/lib/qubes/dvmdata/default_savefile
-    if [ -f /var/lib/qubes/dvmdata/dont_use_shm ] ; then
-        ln -s $DEFAULT /var/run/qubes/current_savefile
-    else
-        mkdir -m 770 /dev/shm/qubes
-        chown root.qubes /dev/shm/qubes
-        cp -a $(readlink $DEFAULT) /dev/shm/qubes/current_savefile
-        chown root.qubes /dev/shm/qubes/current_savefile
-        chmod 660 /dev/shm/qubes/current_savefile
-        ln -s /dev/shm/qubes/current_savefile /var/run/qubes/current_savefile
+    # setup DispVM files only when they exists
+    if [ -r $DEFAULT ]; then
+        if [ -f /var/lib/qubes/dvmdata/dont_use_shm ] ; then
+            ln -s $DEFAULT /var/run/qubes/current_savefile
+        else
+            mkdir -m 770 /dev/shm/qubes
+            chown root.qubes /dev/shm/qubes
+            cp -a $(readlink $DEFAULT) /dev/shm/qubes/current_savefile
+            chown root.qubes /dev/shm/qubes/current_savefile
+            chmod 660 /dev/shm/qubes/current_savefile
+            ln -s /dev/shm/qubes/current_savefile /var/run/qubes/current_savefile
+        fi
     fi
 
     touch /var/lock/subsys/qubes_setupdvm
