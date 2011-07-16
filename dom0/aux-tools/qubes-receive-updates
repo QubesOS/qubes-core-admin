@@ -25,10 +25,12 @@ import sys
 import subprocess
 import shutil
 import glob
+import grp
 from qubes.qubes import QubesVmCollection
 
 updates_dir = "/var/lib/qubes/updates"
 updates_rpm_dir = updates_dir + "/rpm"
+updates_repodata_dir = updates_dir + "/repodata"
 
 package_regex = re.compile(r"^[abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._+-]{1,128}.rpm$")
 
@@ -45,7 +47,11 @@ def handle_dom0updates(updatevm):
     # Clean old packages
     if os.path.exists(updates_rpm_dir):
         shutil.rmtree(updates_rpm_dir)
+    if os.path.exists(updates_repodata_dir):
+        shutil.rmtree(updates_repodata_dir)
+    qubes_gid = grp.getgrnam('qubes').gr_gid
     os.mkdir(updates_rpm_dir)
+    os.chown(updates_rpm_dir, -1, qubes_gid)
     os.chmod(updates_rpm_dir, 0775)
     subprocess.check_call(["/usr/lib/qubes/qfile-dom0-unpacker", str(os.getuid()), updates_rpm_dir])
     # Verify received files
@@ -61,7 +67,9 @@ def handle_dom0updates(updatevm):
         else:
             dom0updates_fatal('Domain ' + source + ' sent unexpected file: ' + f)
     # After updates received - create repo metadata
-    subprocess.check_call(["/usr/bin/createrepo", "-q", "/var/lib/qubes/updates"])
+    subprocess.check_call(["/usr/bin/createrepo", "-q", updates_dir])
+    os.chown(updates_repodata_dir, -1, qubes_gid)
+    os.chmod(updates_repodata_dir, 0775)
     exit(0)
 
 def main():
