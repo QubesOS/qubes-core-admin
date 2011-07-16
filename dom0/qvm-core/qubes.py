@@ -931,7 +931,7 @@ class QubesVm(object):
         for pci in self.pcidevs:
             subprocess.check_call(['sudo', qubes_pciback_cmd, pci])
 
-        xl_cmdline = ['sudo', '/usr/sbin/xl', 'create', self.conf_file, '-p']
+        xl_cmdline = ['sudo', '/usr/sbin/xl', 'create', self.conf_file, '-q', '-p']
 
         try:
             subprocess.check_call(xl_cmdline)
