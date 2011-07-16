@@ -41,7 +41,7 @@ start()
     else
 
         echo -n $"Starting default NetVM:"
-        qvm-start -q --no-guid $NETVM || exit 1
+        DISPLAY=:0 sg qubes "qvm-start -q --no-guid $NETVM" || exit 1
 
     fi
     touch /var/lock/subsys/qubes_netvm
