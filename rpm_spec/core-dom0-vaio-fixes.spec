@@ -23,24 +23,10 @@ suspend/resume.
 mkdir -p $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d
 cp vaio_fixes/00sony-vaio-audio $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 cp vaio_fixes/99sony-vaio-audio $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
-cp vaio_fixes/01sony-vaio-display $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 mkdir -p $RPM_BUILD_ROOT/etc/modprobe.d/
 cp vaio_fixes/snd-hda-intel-sony-vaio.conf $RPM_BUILD_ROOT/etc/modprobe.d/
-
-%post
-grubby --update-kernel=/boot/vmlinuz-2.6.34.1-14.xenlinux.qubes.x86_64 --args="i8042.nopnp=1"
-
-%triggerin -- kernel
-grubby --update-kernel=/boot/vmlinuz-2.6.34.1-14.xenlinux.qubes.x86_64 --args="i8042.nopnp=1"
-
-%postun
-if [ "$1" = 0 ] ; then
-	# no more packages left
-    grubby --update-kernel=/boot/vmlinuz-2.6.34.1-14.xenlinux.qubes.x86_64 --remove-args="i8042.nopnp=1"
-fi
 
 %files
 /usr/lib64/pm-utils/sleep.d/00sony-vaio-audio
 /usr/lib64/pm-utils/sleep.d/99sony-vaio-audio
-/usr/lib64/pm-utils/sleep.d/01sony-vaio-display
 /etc/modprobe.d/snd-hda-intel-sony-vaio.conf
