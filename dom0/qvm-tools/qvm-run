@@ -172,6 +172,9 @@ def main():
     (options, args) = parser.parse_args ()
 
 
+    if options.passio:
+        options.verbose = False
+
     if (options.shutdown or options.pause or options.unpause):
         takes_cmd_argument = False
     else:
