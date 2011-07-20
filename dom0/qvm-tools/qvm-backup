@@ -87,7 +87,7 @@ def main():
 
     files_to_backup = file_to_backup (qubes_store_filename)
 
-    appvms_to_backup = [vm for vm in vms_list if vm.is_appvm()]
+    appvms_to_backup = [vm for vm in vms_list if vm.is_appvm() and not vm.name.endswith('-dvm')]
     there_are_running_vms = False
 
     fields_to_display = [ 
