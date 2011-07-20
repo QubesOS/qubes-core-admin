@@ -1100,11 +1100,6 @@ class QubesTemplateVm(QubesVm):
         os.mkdir (self.dir_path)
 
         if verbose:
-            print "--> Creating VM config file: {0}".\
-                    format(self.conf_file)
-        self.create_config_file(source_template=src_template_vm)
-
-        if verbose:
             print "--> Copying the template's private image:\n{0} ==>\n{1}".\
                     format(src_template_vm.private_img, self.private_img)
         # We prefer to use Linux's cp, because it nicely handles sparse files
