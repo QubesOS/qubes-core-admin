@@ -61,7 +61,7 @@ stop()
 
         echo -n $"Stopping NetVMs:"
         for VM in `get_running_netvms`; do
-            qvm-run -q --shutdown --wait $VM
+            qvm-run -q --force --shutdown --wait $VM
         done
 
     fi
