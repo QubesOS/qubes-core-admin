@@ -742,6 +742,12 @@ class QubesVm(object):
         if source_template is None:
             source_template = self.template_vm
 
+        vmtype = None
+        if self.is_netvm():
+            vmtype = 'servicevms'
+        else:
+            vmtype = 'appvms'
+
         try:
             if source_template is not None:
                 subprocess.check_call ([qubes_appmenu_create_cmd, source_template.appmenus_templates_dir, self.name])
