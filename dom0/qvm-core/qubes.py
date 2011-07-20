@@ -432,8 +432,8 @@ class QubesVm(object):
 
         dominfo = self.get_xl_dominfo()
         if dominfo:
-            uuid = uuid.UUID(''.join('%02x' % b for b in dominfo.uuid))
-            return uuid
+            vmuuid = uuid.UUID(''.join('%02x' % b for b in dominfo.uuid))
+            return vmuuid
         else:
             return None
 
