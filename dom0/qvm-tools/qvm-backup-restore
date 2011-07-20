@@ -298,25 +298,16 @@ def main():
     if not (prompt == "y" or prompt == "Y"):
         exit (0)
 
-    for vm in vms_to_restore:
-        print "-> Restoring: {0} ...".format(vm.name)
-
+    # Add templates...
+    for vm in [ vm for vm in vms_to_restore if vm.is_template()]:
+        print "-> Restoring Template VM {0}...".format(vm.name)
         retcode = subprocess.call (["mkdir", "-p", vm.dir_path])
         if retcode != 0:
             print ("*** Cannot create directory: {0}?!".format(dest_dir))
             print ("Skiping...")
             continue
 
-        if vm.is_appvm():
-            restore_vm_dir (backup_dir, vm.dir_path, qubes_appvms_dir);
-        elif vm.is_template():
-            restore_vm_dir (backup_dir, vm.dir_path, qubes_templates_dir);
-        else:
-            print "ERROR: VM '{0}', type='{1}': unsupported VM type!".format(vm.name, vm.type)
-
-    # Add templates...
-    for vm in [ vm for vm in vms_to_restore if vm.is_template()]:
-        print "-> Adding Template VM {0}...".format(vm.name)
+        restore_vm_dir (backup_dir, vm.dir_path, qubes_templates_dir);
         updateable = vm.updateable
         try:
             vm = host_collection.add_new_templatevm(vm.name, 
@@ -336,14 +327,19 @@ def main():
     # ... then appvms...
     for vm in [ vm for vm in vms_to_restore if vm.is_appvm()]:
 
-        print "-> Adding AppVM {0}...".format(vm.name)
+        print "-> Restoring AppVM {0}...".format(vm.name)
+        retcode = subprocess.call (["mkdir", "-p", vm.dir_path])
+        if retcode != 0:
+            print ("*** Cannot create directory: {0}?!".format(dest_dir))
+            print ("Skiping...")
+            continue
+
+        restore_vm_dir (backup_dir, vm.dir_path, qubes_appvms_dir);
+
         template_vm = None
-        recreate_conf = options.recreate_conf
         if vm.template_vm is not None:
             template_name = find_template_name(vm.template_vm.name, options.replace_template)
             template_vm = host_collection.get_vm_by_name(template_name)
-            if template_name != vm.template_vm.name:
-                recreate_conf = True
 
         if not vm.uses_default_netvm:
             uses_default_netvm = False
@@ -371,22 +367,14 @@ def main():
             vm.netvm_vm = netvm_vm
 
         try:
-            if template_vm is not None and recreate_conf:
-                print "--> Recreating config file..."
-                vm.create_config_file()
-        except QubesException as err:
-            print "ERROR xen config restore: {0}".format(err)
-            print "*** VM '{0}' will not boot until you manually fix it (or correctly restore this VM)!".format(vm.name)
-
-        try:
             vm.create_appmenus(verbose=True)
-        except QubesException as err:
+        except Exception as err:
             print "ERROR during appmenu restore: {0}".format(err)
             print "*** VM '{0}' will not have appmenus".format(vm.name)
 
         try:
             vm.verify_files()
-        except QubesException as err:
+        except Exception as err:
             print "ERROR: {0}".format(err)
             print "*** Skiping VM: {0}".format(vm.name)
             host_collection.pop(vm.qid)
