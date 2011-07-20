@@ -58,12 +58,6 @@ def main():
 
     try:
         dst_tvm.clone_disk_files (src_template_vm=src_tvm, verbose=options.verbose)
-
-        if options.verbose:
-            print "--> Adding to Xen Storage..."
- 
-        dst_tvm.add_to_xen_storage()
-
     except (IOError, OSError) as err:
         print "ERROR: {0}".format(err)
         qvm_collection.pop(dst_tvm.qid)
