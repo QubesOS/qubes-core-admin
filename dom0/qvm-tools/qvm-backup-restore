@@ -130,9 +130,6 @@ def main():
     parser.add_option ("--force-root", action="store_true", dest="force_root", default=False,
                        help="Force to run, even with root privileges")
 
-    parser.add_option ("--recreate-conf-files", action="store_true", dest="recreate_conf", default=False,
-                       help="Recreate conf files after restore")
-
     parser.add_option ("--replace-template", action="append", dest="replace_template", default=[],
                        help="Restore VMs using another template, syntax: old-template-name:new-template-name (might be repeated)")
 
