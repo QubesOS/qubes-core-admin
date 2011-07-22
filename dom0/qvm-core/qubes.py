@@ -943,8 +943,6 @@ class QubesVm(object):
             subprocess.check_call(xl_cmdline)
         except:
             raise QubesException("Failed to load VM config")
-        finally:
-            qmemman_client.close() # let qmemman_daemon resume balancing
 
         xid = self.get_xid()
         self.xid = xid
@@ -975,6 +973,13 @@ class QubesVm(object):
             if (retcode != 0) :
                 self.force_shutdown()
                 raise OSError ("ERROR: Cannot execute qrexec_daemon!")
+
+# close() is not really needed, because the descriptor is close-on-exec
+# anyway, the reason to postpone close() is that possibly xl is not done
+# constructing the domain after its main process exits 
+# so we close() when we know the domain is up
+# the successful qrexec connect is a good indicator of it
+        qmemman_client.close()
 
         if preparing_dvm:
             if verbose:
