@@ -22,6 +22,7 @@ class SystemState:
         self.BALOON_DELAY = 0.1
         self.XEN_FREE_MEM_LEFT = 50*1024*1024
         self.XEN_FREE_MEM_MIN = 25*1024*1024
+        self.ALL_PHYS_MEM = self.xc.physinfo()['total_memory']*1024
 
     def add_domain(self, id):
         self.domdict[id] = DomainState(id)
@@ -46,7 +47,13 @@ class SystemState:
                 self.domdict[id].memory_actual = domain['mem_kb']*1024
                 self.domdict[id].memory_maximum = self.xs.read('', '/local/domain/%s/memory/static-max' % str(id))
                 if not self.domdict[id].memory_maximum:
-                    self.domdict[id].memory_maximum = domain['maxmem_kb']*1024
+                    self.domdict[id].memory_maximum = self.ALL_PHYS_MEM
+# the previous line used to be                                   
+#                    self.domdict[id].memory_maximum = domain['maxmem_kb']*1024
+# but domain['maxmem_kb'] changes in self.mem_set as well, and this results in
+# the memory never increasing
+# in fact, the only possible case of nonexisting memory/static-max is dom0
+# see #307
 
 #the below works (and is fast), but then 'xm list' shows unchanged memory value
     def mem_set(self, id, val):
