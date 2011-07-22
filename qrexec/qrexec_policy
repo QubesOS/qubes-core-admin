@@ -12,6 +12,10 @@ def line_to_dict(line):
     tokens=line.split()
     if len(tokens) < 3:
         return None
+
+    if tokens[0][0] == '#':
+        return None  
+
     dict={}
     dict['source']=tokens[0]
     dict['dest']=tokens[1]
