@@ -81,6 +81,15 @@ class SystemState:
         except XenAPI.Failure:
             pass
 
+# this is called at the end of ballooning, when we have Xen free mem already
+# make sure that past mem_set will not decrease Xen free mem
+    def inhibit_balloon_up(self):
+        for i in self.domdict.keys():
+            dom = self.domdict[i]
+            if dom.memory_actual is not None and dom.memory_actual + 200*1024 < dom.last_target:
+                print "Preventing balloon up to", dom.last_target 
+                self.mem_set(i, dom.memory_actual)
+
 #perform memory ballooning, across all domains, to add "memsize" to Xen free memory
     def do_balloon(self, memsize):
         MAX_TRIES = 20
@@ -88,12 +97,14 @@ class SystemState:
         prev_memory_actual = None
         for i in self.domdict.keys():
             self.domdict[i].no_progress = False
+        print "do_balloon start"
         while True:
+            self.refresh_memactual()
             xenfree = self.get_free_xen_memory()
             print 'got xenfree=', xenfree
             if xenfree >= memsize + self.XEN_FREE_MEM_MIN:
+                self.inhibit_balloon_up()
                 return True
-            self.refresh_memactual()
             if prev_memory_actual is not None:
                 for i in prev_memory_actual.keys():
                     if prev_memory_actual[i] == self.domdict[i].memory_actual:
