@@ -82,12 +82,14 @@ int create_qrexec_socket(int domid, char *domname)
 	return get_server_socket(socket_address);
 }
 
+#define MAX_STARTUP_TIME 120
 
 /* do the preparatory tasks, needed before entering the main event loop */
 void init(int xid)
 {
 	char qrexec_error_log_name[256];
 	int logfd;
+	int i;
 
 	if (xid <= 0) {
 		fprintf(stderr, "domain id=0?\n");
@@ -102,11 +104,12 @@ void init(int xid)
 		break;
 	default:
 		fprintf(stderr, "Waiting for VM's qrexec agent.");
-		for (;;) {
+		for (i=0;i<MAX_STARTUP_TIME;i++) {
 			sleep(1);
 			fprintf(stderr, ".");
 		}
-		exit(0);
+		fprintf(stderr, "Cannot connect to qrexec agent for %d seconds, giving up\n", MAX_STARTUP_TIME);
+		exit(1);
 	}
 	close(0);
 	snprintf(qrexec_error_log_name, sizeof(qrexec_error_log_name),
