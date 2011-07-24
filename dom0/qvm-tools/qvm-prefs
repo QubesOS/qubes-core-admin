@@ -204,6 +204,24 @@ def set_kernel(vms, vm, args):
 
     vm.kernel = kernel
 
+def set_template(vms, vm, args):
+    if len (args) != 1:
+        print "Missing template name argument!"
+        return False
+
+    template_name = args[0];
+    template_vm = vms.get_vm_by_name(template_name)
+    if template_vm is None or template_vm.qid not in vms:
+        print "A VM with the name '{0}' does not exist in the system.".format(template_name)
+        return False
+
+    if not template_vm.is_template():
+        print "VM '{0}' is not a TemplateVM".format(template_name)
+        return False
+
+    print "Setting template for VM '{0}' to '{1}'...".format (vm.name, template_name)
+    vm.template_vm = template_vm
+    return True
 
 properties = {
     "updateable": set_updateable,
@@ -214,6 +232,7 @@ properties = {
     "maxmem" : set_maxmem,
     "memory" : set_memory,
     "kernel" : set_kernel,
+    "template" : set_template,
 }
 
 
