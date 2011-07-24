@@ -14,8 +14,13 @@ qvm-run -a $UPDATEVM true || exit 1
 qvm-run --pass_io $UPDATEVM "/usr/lib/qubes/qubes_download_dom0_updates.sh $*" || exit 1
 # Wait for download completed
 while pidof -x qubes-receive-updates >/dev/null; do sleep 0.5; done
-yum check-update
-if [ $? -ne 100 ]; then
-    exit 0
+if [ $# -gt 0 ]; then
+    echo "You can now install downloaded packages (eg. using yum)"
+elif [ -f /var/lib/qubes/updates/repodata/repomd.xml ]; then
+    yum check-update
+    if [ $? -eq 100 ]; then
+        gpk-update-viewer
+    fi
+else
+    echo "No updates avaliable"
 fi
-gpk-update-viewer

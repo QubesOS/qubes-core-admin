@@ -28,6 +28,8 @@ PKGLIST="$*"
 if [ "x$PKGLIST" = "x" ]; then
     echo "Checking for dom0 updates..."
     PKGLIST=`yum --installroot $DOM0_UPDATES_DIR check-update -q | cut -f 1 -d ' '`
+else
+    PKGS_FROM_CMDLINE=1
 fi
 
 if [ -z "$PKGLIST" ]; then
@@ -35,10 +37,15 @@ if [ -z "$PKGLIST" ]; then
     exit 0
 fi
 
-if [ "$DOIT" != "1" ]; then
+if [ "$DOIT" != "1" -a "$PKGS_FROM_CMDLINE" != "1" ]; then
     PKGCOUNT=`echo $PKGLIST|wc -w`
     zenity --question --title="Qubes Dom0 updates" \
       --text="$PKGCOUNT updates for dom0 available. Do you want to download its now?" || exit 0
+fi
+
+if [ "$PKGS_FROM_CMDLINE" == 1 ]; then
+    OPTS="--resolve"
+    GUI=0
 fi
 
 mkdir -p "$DOM0_UPDATES_DIR/packages"
@@ -47,11 +54,15 @@ set -e
 
 if [ "$GUI" = 1 ]; then
     ( echo "1"
-    yumdownloader --destdir "$DOM0_UPDATES_DIR/packages" --installroot "$DOM0_UPDATES_DIR" $PKGLIST
+    yumdownloader --destdir "$DOM0_UPDATES_DIR/packages" --installroot "$DOM0_UPDATES_DIR" $OPTS $PKGLIST
     echo 100 ) | zenity --progress --pulsate --auto-close --auto-kill \
          --text="Downloading updates for Dom0, please wait..." --title="Qubes Dom0 updates"
 else
-    yumdownloader --destdir "$DOM0_UPDATES_DIR/packages" --installroot "$DOM0_UPDATES_DIR" $PKGLIST
+    yumdownloader --destdir "$DOM0_UPDATES_DIR/packages" --installroot "$DOM0_UPDATES_DIR" $OPTS $PKGLIST
 fi
 
-/usr/lib/qubes/qrexec_client_vm dom0 qubes.ReceiveUpdates /usr/lib/qubes/qfile-agent $DOM0_UPDATES_DIR/packages/*.rpm
+if ls $DOM0_UPDATES_DIR/packages/*.rpm > /dev/null 2>&1; then
+    /usr/lib/qubes/qrexec_client_vm dom0 qubes.ReceiveUpdates /usr/lib/qubes/qfile-agent $DOM0_UPDATES_DIR/packages/*.rpm
+else
+    echo "No packages downloaded"
+fi
