@@ -22,6 +22,7 @@ class SystemState:
         self.BALOON_DELAY = 0.1
         self.XEN_FREE_MEM_LEFT = 50*1024*1024
         self.XEN_FREE_MEM_MIN = 25*1024*1024
+        self.ALL_PHYS_MEM = self.xc.physinfo()['total_memory']*1024
 
     def add_domain(self, id):
         self.domdict[id] = DomainState(id)
@@ -46,7 +47,13 @@ class SystemState:
                 self.domdict[id].memory_actual = domain['mem_kb']*1024
                 self.domdict[id].memory_maximum = self.xs.read('', '/local/domain/%s/memory/static-max' % str(id))
                 if not self.domdict[id].memory_maximum:
-                    self.domdict[id].memory_maximum = domain['maxmem_kb']*1024
+                    self.domdict[id].memory_maximum = self.ALL_PHYS_MEM
+# the previous line used to be                                   
+#                    self.domdict[id].memory_maximum = domain['maxmem_kb']*1024
+# but domain['maxmem_kb'] changes in self.mem_set as well, and this results in
+# the memory never increasing
+# in fact, the only possible case of nonexisting memory/static-max is dom0
+# see #307
 
 #the below works (and is fast), but then 'xm list' shows unchanged memory value
     def mem_set(self, id, val):
@@ -74,6 +81,15 @@ class SystemState:
         except XenAPI.Failure:
             pass
 
+# this is called at the end of ballooning, when we have Xen free mem already
+# make sure that past mem_set will not decrease Xen free mem
+    def inhibit_balloon_up(self):
+        for i in self.domdict.keys():
+            dom = self.domdict[i]
+            if dom.memory_actual is not None and dom.memory_actual + 200*1024 < dom.last_target:
+                print "Preventing balloon up to", dom.last_target 
+                self.mem_set(i, dom.memory_actual)
+
 #perform memory ballooning, across all domains, to add "memsize" to Xen free memory
     def do_balloon(self, memsize):
         MAX_TRIES = 20
@@ -81,12 +97,14 @@ class SystemState:
         prev_memory_actual = None
         for i in self.domdict.keys():
             self.domdict[i].no_progress = False
+        print "do_balloon start"
         while True:
+            self.refresh_memactual()
             xenfree = self.get_free_xen_memory()
             print 'got xenfree=', xenfree
             if xenfree >= memsize + self.XEN_FREE_MEM_MIN:
+                self.inhibit_balloon_up()
                 return True
-            self.refresh_memactual()
             if prev_memory_actual is not None:
                 for i in prev_memory_actual.keys():
                     if prev_memory_actual[i] == self.domdict[i].memory_actual:

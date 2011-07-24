@@ -87,7 +87,7 @@ def main():
 
     files_to_backup = file_to_backup (qubes_store_filename)
 
-    appvms_to_backup = [vm for vm in vms_list if vm.is_appvm()]
+    appvms_to_backup = [vm for vm in vms_list if vm.is_appvm() and not vm.name.endswith('-dvm')]
     there_are_running_vms = False
 
     fields_to_display = [ 
@@ -120,12 +120,12 @@ def main():
             files_to_backup += file_to_backup(vm.private_img, vm_sz )
 
             files_to_backup += file_to_backup(vm.icon_path)
-            files_to_backup += file_to_backup(vm.conf_file)
             if vm.is_updateable():
-                files_to_backup += file_to_backup(vm.dir_path + "/apps")
-                files_to_backup += file_to_backup(vm.dir_path + "/kernels")
+                files_to_backup += file_to_backup(vm.dir_path + "/apps.templates")
             if os.path.exists (vm.firewall_conf):
                 files_to_backup += file_to_backup(vm.firewall_conf)
+            if os.path.exists(vm.dir_path + '/whitelisted-appmenus.list'):
+                files_to_backup += file_to_backup(vm.dir_path + '/whitelisted-appmenus.list')
 
             if vm.is_updateable():
                 sz = vm.get_disk_usage(vm.root_img)

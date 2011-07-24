@@ -432,8 +432,8 @@ class QubesVm(object):
 
         dominfo = self.get_xl_dominfo()
         if dominfo:
-            uuid = uuid.UUID(''.join('%02x' % b for b in dominfo.uuid))
-            return uuid
+            vmuuid = uuid.UUID(''.join('%02x' % b for b in dominfo.uuid))
+            return vmuuid
         else:
             return None
 
@@ -742,6 +742,12 @@ class QubesVm(object):
         if source_template is None:
             source_template = self.template_vm
 
+        vmtype = None
+        if self.is_netvm():
+            vmtype = 'servicevms'
+        else:
+            vmtype = 'appvms'
+
         try:
             if source_template is not None:
                 subprocess.check_call ([qubes_appmenu_create_cmd, source_template.appmenus_templates_dir, self.name])
@@ -937,8 +943,6 @@ class QubesVm(object):
             subprocess.check_call(xl_cmdline)
         except:
             raise QubesException("Failed to load VM config")
-        finally:
-            qmemman_client.close() # let qmemman_daemon resume balancing
 
         xid = self.get_xid()
         self.xid = xid
@@ -969,6 +973,13 @@ class QubesVm(object):
             if (retcode != 0) :
                 self.force_shutdown()
                 raise OSError ("ERROR: Cannot execute qrexec_daemon!")
+
+# close() is not really needed, because the descriptor is close-on-exec
+# anyway, the reason to postpone close() is that possibly xl is not done
+# constructing the domain after its main process exits 
+# so we close() when we know the domain is up
+# the successful qrexec connect is a good indicator of it
+        qmemman_client.close()
 
         if preparing_dvm:
             if verbose:
@@ -1092,11 +1103,6 @@ class QubesTemplateVm(QubesVm):
         if verbose:
             print "--> Creating directory: {0}".format(self.dir_path)
         os.mkdir (self.dir_path)
-
-        if verbose:
-            print "--> Creating VM config file: {0}".\
-                    format(self.conf_file)
-        self.create_config_file(source_template=src_template_vm)
 
         if verbose:
             print "--> Copying the template's private image:\n{0} ==>\n{1}".\
