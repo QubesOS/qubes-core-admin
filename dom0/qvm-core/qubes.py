@@ -1137,6 +1137,13 @@ class QubesTemplateVm(QubesVm):
         if retcode != 0:
             raise IOError ("Error while copying {0} to {1}".\
                            format(self.clean_volatile_img, self.volatile_img))
+
+        if verbose:
+            print "--> Copying the template's DispVM prerun script..."
+        retcode = subprocess.call (["cp", src_template_vm.dir_path + '/dispvm-prerun.sh', self.dir_path + '/dispvm-prerun.sh'])
+        if retcode != 0:
+            raise IOError ("Error while copying DispVM prerun script")
+
         if verbose:
             print "--> Copying the template's appmenus templates dir:\n{0} ==>\n{1}".\
                     format(src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)

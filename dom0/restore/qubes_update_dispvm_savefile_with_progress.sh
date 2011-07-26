@@ -3,7 +3,7 @@ trap "exit 1" USR1 TERM
 export SHELL_PID=$$
 (
 	echo "1"
-	if ! qvm-create-default-dvm --default-template --default-script >/var/run/qubes/qvm-create-default-dvm.stdout </dev/null ; then 
+	if ! qvm-create-default-dvm --used-template --default-script >/var/run/qubes/qvm-create-default-dvm.stdout </dev/null ; then 
 		kill -USR1 $SHELL_PID
 	fi
         echo 100 
