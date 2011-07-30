@@ -58,9 +58,13 @@ while true; do
     done
     
     # At the end synchronize clock
-    UNTRUSTED_CURRENT_TIME="`$QREXEC_CLIENT -d $UPDATES_VM 'user:date +%s.%N'`"
-    # I believe that date has safe input parsing...
-    sudo date -s "$UNTRUSTED_CURRENT_TIME"
+
+    # dd is supposed to not allow memory exhaustion
+    # grep does basic sanity checking
+    # there seems to be no way to pass output of date +%s.%N to date,
+    # so we use human-readable format
+    CURRENT_TIME="$($QREXEC_CLIENT -d $UPDATES_VM 'user:date -u' | dd count=1 2>/dev/null | grep '^[A-Za-z]* [A-Za-z]* [0-9]* [0-9][0-9]:[0-9][0-9]:[0-9][0-9] UTC [0-9][0-9][0-9][0-9]$'|head -1)"
+    if [ -n "$CURRENT_TIME" ] ; then sudo date -u -s "$CURRENT_TIME" ; fi
     sleep $UPDATES_SLEEP
 done
 
