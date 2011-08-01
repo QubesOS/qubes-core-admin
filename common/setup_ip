@@ -10,4 +10,14 @@ if [ x$ip != x ]; then
     /sbin/route add default dev $INTERFACE
     echo "nameserver $gateway" > /etc/resolv.conf
     echo "nameserver $secondary_dns" >> /etc/resolv.conf
+	network=$(/usr/bin/xenstore-read qubes_netvm_network 2>/dev/null)
+	if [ "x$network" != "x" ]; then
+		gateway=$(/usr/bin/xenstore-read qubes_netvm_gateway)
+		netmask=$(/usr/bin/xenstore-read qubes_netvm_netmask)
+		secondary_dns=$(/usr/bin/xenstore-read qubes_netvm_secondary_dns)
+		echo "NS1=$gateway" > /var/run/qubes/qubes_ns
+		echo "NS2=$secondary_dns" >> /var/run/qubes/qubes_ns
+		/usr/lib/qubes/qubes_setup_dnat_to_ns
+	fi
+
 fi
