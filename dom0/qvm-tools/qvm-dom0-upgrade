@@ -19,7 +19,7 @@ if [ $# -gt 0 ]; then
 elif [ -f /var/lib/qubes/updates/repodata/repomd.xml ]; then
     yum check-update
     if [ $? -eq 100 ]; then
-        gpk-update-viewer
+        kpackagekit --updates
     fi
 else
     echo "No updates avaliable"
