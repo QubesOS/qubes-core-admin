@@ -121,7 +121,12 @@ def main():
 
             files_to_backup += file_to_backup(vm.icon_path)
             if vm.is_updateable():
-                files_to_backup += file_to_backup(vm.dir_path + "/apps.templates")
+                if os.path.exists(vm.dir_path + "/apps.templates"):
+                    # template
+                    files_to_backup += file_to_backup(vm.dir_path + "/apps.templates")
+                else:
+                    # standaloneVM
+                    files_to_backup += file_to_backup(vm.dir_path + "/apps")
             if os.path.exists (vm.firewall_conf):
                 files_to_backup += file_to_backup(vm.firewall_conf)
             if os.path.exists(vm.dir_path + '/whitelisted-appmenus.list'):
