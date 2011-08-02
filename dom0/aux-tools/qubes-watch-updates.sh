@@ -52,7 +52,7 @@ while true; do
                 # Yes, I know that it will block future checking for updates,
                 # but it is intentional (to not flood user with updates
                 # notification)
-                kpackagekit --updates
+                gpk-update-viewer
             fi
         fi
     done

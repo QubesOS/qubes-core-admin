@@ -42,7 +42,6 @@ Conflicts:      qubes-gui-dom0 < 1.1.13
 Requires:       yum-plugin-post-transaction-actions
 Requires:       xen >= 4.1.0-2
 Requires:       createrepo
-Requires:       kpackagekit
 %define _builddir %(pwd)/dom0
 
 %description
