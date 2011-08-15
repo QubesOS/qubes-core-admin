@@ -1,16 +1,23 @@
 #!/bin/sh
 if [ $# != 1 -a $# != 2 ] ; then
-	echo 'Usage: qvm-create-default-dvm templatename|--default-template [script-name|--default-script]'
+	echo 'Usage: qvm-create-default-dvm templatename|--default-template|--used-template [script-name|--default-script]'
 	exit 1
 fi
-if [ "$1" = --default-template ] ; then
+export ROOT=/var/lib/qubes/dvmdata/savefile_root
+TEMPLATENAME=$1
+if [ "$TEMPLATENAME" = --used-template ] ; then
+	if [ -e $ROOT ] ; then
+		TEMPLATENAME=$(readlink $ROOT | sed -e 's/.root.img//' -e 's/.*\///')
+	else
+		TEMPLATENAME=--default-template
+	fi
+fi
+if [ "$TEMPLATENAME" = --default-template ] ; then
 	TEMPLATENAME=$(qvm-get-default-template)
 	if [ "X"$TEMPLATENAME = "X" ] ; then
 		echo No default template ?
 		exit 1
 	fi
-else
-	TEMPLATENAME=$1
 fi
 
 if [ "X""$2" = "X""--default-script" ] ; then
@@ -38,7 +45,6 @@ if ! /usr/lib/qubes/qubes_prepare_saved_domain.sh \
 	"$DVMTMPL" "/var/lib/qubes/appvms/$DVMTMPL/dvm-savefile" $SCRIPTNAME ; then
 	exit 1
 fi
-ROOT=/var/lib/qubes/dvmdata/savefile_root
 DEFAULT=/var/lib/qubes/dvmdata/default_savefile
 DEFAULTCONF=/var/lib/qubes/dvmdata/default_dvm.conf
 CURRENT=/var/run/qubes/current_savefile

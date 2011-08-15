@@ -6,6 +6,10 @@ if [ -z "$UPDATEVM" ]; then
     exit 1
 fi
 
+# We should ensure the clocks in Dom0 and UpdateVM are in sync
+# becuase otherwise yum might complain about future timestamps
+qvm-sync-dom0-clock
+
 echo "Checking for dom0 updates"
 
 # Start VM if not running already

@@ -214,6 +214,9 @@ mkdir -p /rw
 #mv /etc/sysconfig/network-scripts/ifcfg-eth0 /etc/sysconfig/network-scripts/ifcfg-eth0.orig
 #grep -v HWADDR /etc/sysconfig/network-scripts/ifcfg-eth0.orig > /etc/sysconfig/network-scripts/ifcfg-eth0
 
+# Prevent unnecessary updates in VMs:
+echo 'exclude = kernel, xorg-*' >> /etc/yum.conf
+
 %preun
 if [ "$1" = 0 ] ; then
     # no more packages left

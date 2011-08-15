@@ -58,9 +58,8 @@ while true; do
     done
     
     # At the end synchronize clock
-    UNTRUSTED_CURRENT_TIME="`$QREXEC_CLIENT -d $UPDATES_VM 'user:date +%s.%N'`"
-    # I believe that date has safe input parsing...
-    sudo date -s "$UNTRUSTED_CURRENT_TIME"
+    qvm-sync-dom0-clock
+
     sleep $UPDATES_SLEEP
 done
 

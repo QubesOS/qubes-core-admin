@@ -3,9 +3,9 @@ set -e
 
 PIDFILE=/var/run/qubes/qubes_firewall.pid
 XENSTORE_IPTABLES=qubes_iptables
+XENSTORE_IPTABLES_HEADER=qubes_iptables_header
 XENSTORE_ERROR=qubes_iptables_error
 OLD_RULES=""
-
 # PIDfile handling
 [[ -e $PIDFILE ]] && kill -s 0 $(<$PIDFILE) 2>/dev/null && exit 0
 echo $$ >$PIDFILE
@@ -13,24 +13,26 @@ echo $$ >$PIDFILE
 trap 'exit 0' SIGTERM
 
 while true; do
-	RULES=$(/usr/bin/xenstore-read $XENSTORE_IPTABLES)
-
-	if [[ "$RULES" != "$OLD_RULES" ]]; then
-		IPTABLES_SAVE=$(/sbin/iptables-save | sed '/^\*filter/,/^COMMIT/d')
-		OUT=`echo -e "$RULES\n$IPTABLES_SAVE" | /sbin/iptables-restore 2>&1 || :`
-		/usr/bin/xenstore-write $XENSTORE_ERROR "$OUT"
-		if [ "$OUT" ]; then
-			DISPLAY=:0 /usr/bin/notify-send -t 3000 "Firewall loading error ($HOSTNAME)" "$OUT" || :
-		fi
-
-		if [[ -z "$OUT" ]]; then
-			# If OK save it for later
-			/sbin/service iptables save >/dev/null
-		fi
-
-		OLD_RULES="$RULES"
-	fi
-
 	# Wait for changes in xenstore file
 	/usr/bin/xenstore-watch-qubes $XENSTORE_IPTABLES
+	TRIGGER=$(/usr/bin/xenstore-read $XENSTORE_IPTABLES)
+
+	if ! [ "$TRIGGER" = "reload" ]; then continue ; fi
+	RULES=$(/usr/bin/xenstore-read $XENSTORE_IPTABLES_HEADER)
+	IPTABLES_SAVE=$(/sbin/iptables-save | sed '/^\*filter/,/^COMMIT/d')
+	OUT=`echo -e "$RULES\n$IPTABLES_SAVE" | /sbin/iptables-restore 2>&1 || :`
+
+	for i in $(xenstore-list qubes_iptables_domainrules) ; do 
+		RULES=$(/usr/bin/xenstore-read qubes_iptables_domainrules/"$i")
+		ERRS=`echo -e "$RULES" | /sbin/iptables-restore -n 2>&1 || :`
+		OUT="$OUT""$ERRS"
+	done		
+	/usr/bin/xenstore-write $XENSTORE_ERROR "$OUT"
+	if [ "$OUT" ]; then
+		DISPLAY=:0 /usr/bin/notify-send -t 3000 "Firewall loading error ($HOSTNAME)" "$OUT" || :
+	fi
+	if [[ -z "$OUT" ]]; then
+		# If OK save it for later
+		/sbin/service iptables save >/dev/null
+	fi
 done
