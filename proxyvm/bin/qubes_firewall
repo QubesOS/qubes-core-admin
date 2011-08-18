@@ -31,10 +31,6 @@ while true; do
 	if [ "$OUT" ]; then
 		DISPLAY=:0 /usr/bin/notify-send -t 3000 "Firewall loading error ($HOSTNAME)" "$OUT" || :
 	fi
-	if [[ -z "$OUT" ]]; then
-		# If OK save it for later
-		/sbin/service iptables save >/dev/null
-	fi
 
 	# Check if user didn't define some custom rules to be applied as well...
 	[ -x /rw/config/qubes_firewall_user_script ] && /rw/config/qubes_firewall_user_script
