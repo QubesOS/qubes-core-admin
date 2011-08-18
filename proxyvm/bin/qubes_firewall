@@ -13,11 +13,20 @@ echo $$ >$PIDFILE
 trap 'exit 0' SIGTERM
 
 while true; do
+
+	echo "1" > /proc/sys/net/ipv4/ip_forward
+
 	# Wait for changes in xenstore file
 	/usr/bin/xenstore-watch-qubes $XENSTORE_IPTABLES
 	TRIGGER=$(/usr/bin/xenstore-read $XENSTORE_IPTABLES)
 
 	if ! [ "$TRIGGER" = "reload" ]; then continue ; fi
+
+	# Disable forarding to prevent potential "leaks" that might
+	# be bypassing the firewall or some proxy service (e.g. tor)
+	# during the time when the rules are being (re)applied
+	echo "0" > /proc/sys/net/ipv4/ip_forward
+
 	RULES=$(/usr/bin/xenstore-read $XENSTORE_IPTABLES_HEADER)
 	IPTABLES_SAVE=$(/sbin/iptables-save | sed '/^\*filter/,/^COMMIT/d')
 	OUT=`echo -e "$RULES\n$IPTABLES_SAVE" | /sbin/iptables-restore 2>&1 || :`
