@@ -106,6 +106,7 @@ cp aux-tools/qubes-watch-updates.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 mkdir -p $RPM_BUILD_ROOT/etc/qubes_rpc/policy
 cp ../appvm/qubes.Filecopy.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.Filecopy
 cp ../appvm/qubes.OpenInVM.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.OpenInVM
+cp ../appvm/qubes.VMShell.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.VMShell
 cp qubes.SyncAppMenus.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.SyncAppMenus
 cp qubes.SyncAppMenus $RPM_BUILD_ROOT/etc/qubes_rpc/
 cp ../qrexec/qubes_rpc_multiplexer $RPM_BUILD_ROOT/usr/lib/qubes
@@ -347,6 +348,7 @@ fi
 /etc/qubes_rpc/policy/qubes.OpenInVM
 /etc/qubes_rpc/policy/qubes.SyncAppMenus
 /etc/qubes_rpc/policy//qubes.ReceiveUpdates
+/etc/qubes_rpc/policy/qubes.VMShell
 /etc/qubes_rpc/qubes.SyncAppMenus
 /etc/qubes_rpc/qubes.ReceiveUpdates
 %attr(4750,root,qubes) /usr/lib/qubes/qrexec_daemon
