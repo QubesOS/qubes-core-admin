@@ -25,4 +25,7 @@ if ! [ $# = 1 ] ; then
 	exit 1
 fi
 
-exec /usr/lib/qubes/qrexec_client_vm '$dispvm' qubes.OpenInVM "/usr/lib/qubes/qopen-in-vm" "$1"
+. /usr/lib/qubes/wrap_in_html_if_url.sh
+wrap_in_html_if_url "$1"
+
+exec /usr/lib/qubes/qrexec_client_vm '$dispvm' qubes.OpenInVM "/usr/lib/qubes/qopen-in-vm" "$FILE_ARGUMENT"

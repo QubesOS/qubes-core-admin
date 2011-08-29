@@ -79,6 +79,7 @@ cp qvm-open-in-vm $RPM_BUILD_ROOT/usr/bin
 cp qvm-copy-to-vm $RPM_BUILD_ROOT/usr/bin
 cp qvm-run $RPM_BUILD_ROOT/usr/bin
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
+cp wrap_in_html_if_url.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp qvm-copy-to-vm2.kde $RPM_BUILD_ROOT/usr/lib/qubes
 cp qvm-copy-to-vm2.gnome $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../qrexec/qrexec_agent $RPM_BUILD_ROOT/usr/lib/qubes
@@ -159,6 +160,7 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib/qubes/qfile-unpacker
 /usr/lib/qubes/vm-shell
 /usr/lib/qubes/qrun-in-vm
+/usr/lib/qubes/wrap_in_html_if_url.sh
 %dir /mnt/removable
 %dir /etc/qubes_rpc
 /etc/qubes_rpc/qubes.Filecopy
