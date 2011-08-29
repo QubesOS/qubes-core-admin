@@ -26,4 +26,7 @@ if [ $# -lt 2 ] ; then
 fi
 VMNAME=$1
 shift
+if [ $VMNAME = "--dispvm" ] ; then
+	VMNAME='$dispvm'
+fi
 exec /usr/lib/qubes/qrexec_client_vm $VMNAME qubes.VMShell "/usr/lib/qubes/qrun-in-vm" "$@"
