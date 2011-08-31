@@ -19,6 +19,7 @@ if [ x$ip != x ]; then
 		echo "NS1=$gateway" > /var/run/qubes/qubes_ns
 		echo "NS2=$secondary_dns" >> /var/run/qubes/qubes_ns
 		/usr/lib/qubes/qubes_setup_dnat_to_ns
+		[ -x /rw/config/qubes_ip_change_hook ] && /rw/config/qubes_ip_change_hook
 	fi
 
 fi
