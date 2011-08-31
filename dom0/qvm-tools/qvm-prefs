@@ -61,6 +61,10 @@ def do_list(vm):
         print fmt.format ("kernel", "%s (default)" % vm.kernel)
     else:
         print fmt.format ("kernel", vm.kernel)
+    if vm.uses_default_kernelopts:
+        print fmt.format ("kernelopts", "%s (default)" % vm.kernelopts)
+    else:
+        print fmt.format ("kernelopts", vm.kernelopts)
 
 
 def set_label(vms, vm, args):
@@ -262,6 +266,25 @@ def set_vcpus(vms, vm, args):
     vm.vcpus = vcpus
     return True
 
+def set_kernelopts(vms, vm, args):
+    if len (args) != 1:
+        print "Missing kernel opts argument!"
+
+    if len (args) != 1:
+        print "Missing kernel opts argument!"
+        print "Possible values:"
+        print "1) default"
+        print "2) <opts>"
+        return False
+    
+    if args[0] == 'default':
+        vm.uses_default_kernelopts = True
+    else:
+        vm.uses_default_kernelopts = False
+        vm.kernelopts = args[0]
+
+    return True
+
 properties = {
     "updateable": set_updateable,
     "nonupdateable": set_nonupdateable,
@@ -273,6 +296,7 @@ properties = {
     "kernel" : set_kernel,
     "template" : set_template,
     "vcpus" : set_vcpus,
+    "kernelopts": set_kernelopts,
 }
 
 

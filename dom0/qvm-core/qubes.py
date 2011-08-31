@@ -74,6 +74,9 @@ default_kernels_subdir = "kernels"
 default_firewall_conf_file = "firewall.xml"
 default_memory = 400
 default_servicevm_vcpus = 1
+default_kernelopts = ""
+# TODO: change to iommu=soft when we migrate to pvops in domU
+default_kernelopts_pcidevs = "swiotlb=force pci=nomsi"
 
 qubes_whitelisted_appmenus = 'whitelisted-appmenus.list'
 
@@ -200,7 +203,9 @@ class QubesVm(object):
                  internal = False,
                  vcpus = None,
                  kernel = None,
-                 uses_default_kernel = True):
+                 uses_default_kernel = True,
+                 kernelopts = "",
+                 uses_default_kernelopts = True):
 
 
         assert qid < qubes_max_qid, "VM id out of bounds!"
@@ -311,6 +316,15 @@ class QubesVm(object):
             self.vcpus = qubes_host.no_cpus
         else:
             self.vcpus = vcpus
+
+        self.uses_default_kernelopts = uses_default_kernelopts
+        if self.uses_default_kernelopts:
+            if len(self.pcidevs) > 0:
+                self.kernelopts = default_kernelopts_pcidevs
+            else:
+                self.kernelopts = default_kernelopts
+        else:
+            self.kernelopts = kernelopts
 
         # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
         self.internal = internal
@@ -665,7 +679,7 @@ class QubesVm(object):
         args['privatedev'] = "'script:file:{dir}/private.img,xvdb,w',".format(dir=self.dir_path)
         args['volatiledev'] = "'script:file:{dir}/volatile.img,xvdc,w',".format(dir=self.dir_path)
         args['otherdevs'] = "'script:file:{dir}/modules.img,xvdd,r',".format(dir=self.kernels_dir)
-        args['kernelopts'] = ''
+        args['kernelopts'] = self.kernelopts
 
         return args
 
@@ -1033,6 +1047,8 @@ class QubesVm(object):
         attrs["internal"] = str(self.internal)
         attrs["uses_default_kernel"] = str(self.uses_default_kernel)
         attrs["kernel"] = str(self.kernel)
+        attrs["uses_default_kernelopts"] = str(self.uses_default_kernelopts)
+        attrs["kernelopts"] = str(self.kernelopts)
         return attrs
 
     def create_xml_element(self):
@@ -1342,11 +1358,6 @@ class QubesNetVm(QubesVm):
         lo = dispid % 254 + 1
         assert lo >= 1 and lo <= 254, "Wrong IP address for VM"
         return self.dispnetprefix  + "{0}".format(lo)
-
-    def get_config_params(self, source_template=None):
-        args = super(QubesNetVm, self).get_config_params(source_template)
-        args['kernelopts'] = ' swiotlb=force pci=nomsi'
-        return args
 
     def create_xenstore_entries(self, xid):
         if dry_run:
@@ -2007,7 +2018,7 @@ class QubesVmCollection(dict):
                 "private_img", "root_img", "template_qid",
                 "installed_by_rpm", "updateable", "internal",
                 "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
-                "maxmem", "kernel", "uses_default_kernel" )
+                "maxmem", "kernel", "uses_default_kernel", "kernelopts", "uses_default_kernel" )
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)
@@ -2054,6 +2065,9 @@ class QubesVmCollection(dict):
             if "kernel" in kwargs and kwargs["kernel"]=="None":
                 kwargs["kernel"]=None
             # for other cases - generic assigment is ok
+
+        if "uses_default_kernelopts" in kwargs:
+            kwargs["uses_default_kernelopts"] = True if kwargs["uses_default_kernelopts"] == "True" else False
 
         return kwargs
 
