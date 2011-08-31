@@ -24,5 +24,6 @@ if ! [ $# = 2 ] ; then
 	echo "Usage: $0 vmname filename"
 	exit 1
 fi
-
-exec /usr/lib/qubes/qrexec_client_vm "$1" qubes.OpenInVM "/usr/lib/qubes/qopen-in-vm" "$2"
+. /usr/lib/qubes/wrap_in_html_if_url.sh
+wrap_in_html_if_url "$2"
+exec /usr/lib/qubes/qrexec_client_vm "$1" qubes.OpenInVM "/usr/lib/qubes/qopen-in-vm" "$FILE_ARGUMENT"

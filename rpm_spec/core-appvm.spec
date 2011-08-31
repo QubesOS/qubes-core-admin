@@ -77,13 +77,16 @@ mkdir -p $RPM_BUILD_ROOT/usr/bin
 cp qubes_timestamp qvm-open-in-dvm2 $RPM_BUILD_ROOT/usr/bin
 cp qvm-open-in-vm $RPM_BUILD_ROOT/usr/bin
 cp qvm-copy-to-vm $RPM_BUILD_ROOT/usr/bin
+cp qvm-run $RPM_BUILD_ROOT/usr/bin
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
+cp wrap_in_html_if_url.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp qvm-copy-to-vm2.kde $RPM_BUILD_ROOT/usr/lib/qubes
 cp qvm-copy-to-vm2.gnome $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../qrexec/qrexec_agent $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../qrexec/qrexec_client_vm $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../qrexec/qubes_rpc_multiplexer $RPM_BUILD_ROOT/usr/lib/qubes
 cp vm-file-editor qfile-agent qopen-in-vm qfile-unpacker $RPM_BUILD_ROOT/usr/lib/qubes
+cp vm-shell qrun-in-vm $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../common/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/%{kde_service_dir}
 cp qvm-copy.desktop qvm-dvm.desktop $RPM_BUILD_ROOT/%{kde_service_dir}
@@ -91,6 +94,7 @@ mkdir -p $RPM_BUILD_ROOT/mnt/removable
 mkdir -p $RPM_BUILD_ROOT/etc/qubes_rpc
 cp qubes.Filecopy $RPM_BUILD_ROOT/etc/qubes_rpc
 cp qubes.OpenInVM $RPM_BUILD_ROOT/etc/qubes_rpc
+cp qubes.VMShell $RPM_BUILD_ROOT/etc/qubes_rpc
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/dom0-updates
 
 mkdir -p $RPM_BUILD_ROOT/etc/X11
@@ -143,6 +147,7 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib/qubes/qvm-copy-to-vm2.gnome
 /usr/bin/qvm-open-in-dvm2
 /usr/bin/qvm-open-in-vm
+/usr/bin/qvm-run
 /usr/lib/qubes/meminfo-writer
 /usr/lib/qubes/vm-file-editor
 %{kde_service_dir}/qvm-copy.desktop
@@ -153,10 +158,14 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib/qubes/qfile-agent
 /usr/lib/qubes/qopen-in-vm
 /usr/lib/qubes/qfile-unpacker
+/usr/lib/qubes/vm-shell
+/usr/lib/qubes/qrun-in-vm
+/usr/lib/qubes/wrap_in_html_if_url.sh
 %dir /mnt/removable
 %dir /etc/qubes_rpc
 /etc/qubes_rpc/qubes.Filecopy
 /etc/qubes_rpc/qubes.OpenInVM
+/etc/qubes_rpc/qubes.VMShell
 /usr/bin/qubes_timestamp
 %dir /home_volatile
 %attr(700,user,user) /home_volatile/user

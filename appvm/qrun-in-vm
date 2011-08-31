@@ -1,0 +1,4 @@
+#!/bin/sh
+# pass aguments to the remote stdin, shovel back the remote output
+echo "$@"
+exec /bin/cat >&$SAVED_FD_1

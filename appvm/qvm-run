@@ -20,12 +20,13 @@
 #
 #
 
-if ! [ $# = 1 ] ; then 
-	echo "Usage: $0 filename"
+if [ $# -lt 2 ] ; then 
+	echo "Usage: $0 vmname command arguments"
 	exit 1
 fi
-
-. /usr/lib/qubes/wrap_in_html_if_url.sh
-wrap_in_html_if_url "$1"
-
-exec /usr/lib/qubes/qrexec_client_vm '$dispvm' qubes.OpenInVM "/usr/lib/qubes/qopen-in-vm" "$FILE_ARGUMENT"
+VMNAME=$1
+shift
+if [ $VMNAME = "--dispvm" ] ; then
+	VMNAME='$dispvm'
+fi
+exec /usr/lib/qubes/qrexec_client_vm $VMNAME qubes.VMShell "/usr/lib/qubes/qrun-in-vm" "$@"
