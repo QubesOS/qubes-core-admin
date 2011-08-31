@@ -54,7 +54,9 @@ def do_list(vm):
     print fmt.format ("private img", vm.private_img)
     print fmt.format ("memory", vm.memory)
     print fmt.format ("maxmem", vm.maxmem)
-    if vm.uses_default_kernel:
+    if vm.template_vm is not None:
+        print fmt.format ("kernel", "%s (from template)" % vm.kernel)
+    elif vm.uses_default_kernel:
         print fmt.format ("kernel", "%s (default)" % vm.kernel)
     else:
         print fmt.format ("kernel", vm.kernel)

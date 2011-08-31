@@ -290,6 +290,7 @@ class QubesVm(object):
 
         if template_vm is not None:
             self.kernels_dir = template_vm.kernels_dir
+            self.kernel = template_vm.kernel
         elif self.kernel is not None:
             self.kernels_dir = qubes_kernels_base_dir + "/" + self.kernel
         else:
