@@ -52,6 +52,7 @@ def do_list(vm):
     print fmt.format ("root volatile img", vm.volatile_img)
 
     print fmt.format ("private img", vm.private_img)
+    print fmt.format ("vcpus", str(vm.vcpus))
     print fmt.format ("memory", vm.memory)
     print fmt.format ("maxmem", vm.maxmem)
     if vm.template_vm is not None:
@@ -242,6 +243,25 @@ def set_template(vms, vm, args):
     vm.template_vm = template_vm
     return True
 
+def set_vcpus(vms, vm, args):
+    if len (args) != 1:
+        print "Missing vcpus count argument!"
+        return False
+
+    vcpus = int(args[0])
+    if vcpus <= 0:
+        print "A vcpus count must be positive."
+        return False
+
+    qubes_host = QubesHost()
+    if vcpus > qubes_host.no_cpus:
+        print "This host has only {0} cpus".format(ubes_host.no_cpus)
+        return False
+
+    print "Setting vcpus count for VM '{0}' to '{1}'...".format (vm.name, vcpus)
+    vm.vcpus = vcpus
+    return True
+
 properties = {
     "updateable": set_updateable,
     "nonupdateable": set_nonupdateable,
@@ -252,6 +272,7 @@ properties = {
     "memory" : set_memory,
     "kernel" : set_kernel,
     "template" : set_template,
+    "vcpus" : set_vcpus,
 }
 
 
