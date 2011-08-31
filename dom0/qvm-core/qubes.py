@@ -1403,7 +1403,7 @@ class QubesNetVm(QubesVm):
             # Cleanup stale VIFs
             vm.cleanup_vifs()
 
-            xm_cmdline = ["/usr/sbin/xl", "network-attach", vm.name, "script=vif-route-qubes", "ip="+vm.ip, "backend="+self.name ]
+            xm_cmdline = ["/usr/sbin/xl", "network-attach", vm.name, "script=/etc/xen/scripts/vif-route-qubes", "ip="+vm.ip, "backend="+self.name ]
             retcode = subprocess.call (xm_cmdline)
             if retcode != 0:
                 print ("WARNING: Cannot attach to network to '{0}'!".format(vm.name))
