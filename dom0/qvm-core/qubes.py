@@ -687,7 +687,10 @@ class QubesVm(object):
         args['rootdev'] = self.get_rootdev(source_template=source_template)
         args['privatedev'] = "'script:file:{dir}/private.img,xvdb,w',".format(dir=self.dir_path)
         args['volatiledev'] = "'script:file:{dir}/volatile.img,xvdc,w',".format(dir=self.dir_path)
-        args['otherdevs'] = "'script:file:{dir}/modules.img,xvdd,r',".format(dir=self.kernels_dir)
+        modulesmode='r'
+        if self.is_updateable() and self.kernel is None:
+            modulesmode='w'
+        args['otherdevs'] = "'script:file:{dir}/modules.img,xvdd,{mode}',".format(dir=self.kernels_dir, mode=modulesmode)
         args['kernelopts'] = self.kernelopts
 
         return args
