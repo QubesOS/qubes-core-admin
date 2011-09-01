@@ -555,12 +555,15 @@ int main(int argc, char **argv)
 	fd_set read_fdset, write_fdset;
 	int i;
 	int max;
+	sigset_t chld_set;
 
 	if (argc != 2) {
 		fprintf(stderr, "usage: %s domainid\n", argv[0]);
 		exit(1);
 	}
 	init(atoi(argv[1]));
+	sigemptyset(&chld_set);
+	sigaddset(&chld_set, SIGCHLD);
 	/*
 	   The main event loop. Waits for one of the following events:
 	   - message from client
@@ -574,7 +577,11 @@ int main(int argc, char **argv)
 		    sizeof(struct server_header))
 			FD_ZERO(&read_fdset);	// vchan full - don't read from clients
 
+		sigprocmask(SIG_BLOCK, &chld_set, NULL);
+		if (child_exited)
+			reap_children();
 		wait_for_vchan_or_argfd(max, &read_fdset, &write_fdset);
+		sigprocmask(SIG_UNBLOCK, &chld_set, NULL);
 
 		if (FD_ISSET(qrexec_daemon_unix_socket_fd, &read_fdset))
 			handle_new_client();
@@ -591,8 +598,6 @@ int main(int argc, char **argv)
 			if (clients[i].state != CLIENT_INVALID
 			    && FD_ISSET(i, &write_fdset))
 				write_buffered_data_to_client(i);
-		if (child_exited)
-			reap_children();
 
 	}
 }

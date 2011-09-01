@@ -22,6 +22,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <libvchan.h>
 #include <xs.h>
 #include <xenctrl.h>
@@ -107,13 +108,17 @@ void slow_check_for_libvchan_is_eof(struct libvchan *ctrl)
 int wait_for_vchan_or_argfd_once(int max, fd_set * rdset, fd_set * wrset)
 {
 	int vfd, ret;
-	struct timeval tv = { 1, 100000 };
+	struct timespec tv = { 1, 100000000 };
+	sigset_t empty_set;
+
+	sigemptyset(&empty_set);
+
 	vfd = libvchan_fd_for_select(ctrl);
 	FD_SET(vfd, rdset);
 	if (vfd > max)
 		max = vfd;
 	max++;
-	ret = select(max, rdset, wrset, NULL, &tv);
+	ret = pselect(max, rdset, wrset, NULL, &tv, &empty_set);
 	if (ret < 0) {
 		if (errno != EINTR) {
 			perror("select");

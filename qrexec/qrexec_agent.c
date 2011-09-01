@@ -532,10 +532,13 @@ int main()
 	fd_set rdset, wrset;
 	int max;
 	int i;
+	sigset_t chld_set;
 
 	init();
 	signal(SIGCHLD, sigchld_handler);
 	signal(SIGPIPE, SIG_IGN);
+	sigemptyset(&chld_set);
+	sigaddset(&chld_set, SIGCHLD);
 
 
 	for (;;) {
@@ -544,7 +547,11 @@ int main()
 		    sizeof(struct server_header))
 			FD_ZERO(&rdset);
 
+		sigprocmask(SIG_BLOCK, &chld_set, NULL);
+		if (child_exited)
+			reap_children();
 		wait_for_vchan_or_argfd(max, &rdset, &wrset);
+		sigprocmask(SIG_UNBLOCK, &chld_set, NULL);
 
 		if (FD_ISSET(passfd_socket, &rdset))
 			handle_new_passfd();
@@ -561,8 +568,5 @@ int main()
 			    && client_info[i].is_blocked
 			    && FD_ISSET(client_info[i].stdin_fd, &wrset))
 				flush_client_data_agent(i);
-
-		if (child_exited)
-			reap_children();
 	}
 }
