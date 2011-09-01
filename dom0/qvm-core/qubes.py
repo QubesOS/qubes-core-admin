@@ -762,6 +762,13 @@ class QubesVm(object):
                 raise IOError ("Error while copying {0} to {1}".\
                                format(template_root, self.root_img))
 
+            kernels_dir = source_template.kernels_dir
+            if verbose:
+                print "--> Copying the kernel (set kernel \"none\" to use it): {0}".\
+                        format(kernels_dir)
+
+            shutil.copytree(kernels_dir, self.dir_path + '/kernels')
+
         # Create volatile.img
         self.reset_volatile_storage(source_template = source_template, verbose=verbose)
 
