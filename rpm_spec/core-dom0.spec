@@ -92,7 +92,6 @@ cp aux-tools/convert_dirtemplate2vm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/create_apps_for_appvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/remove_appvm_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/reset_vm_configs.py  $RPM_BUILD_ROOT/usr/lib/qubes
-cp aux-tools/regenerate_initramfs.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/sync_rpmdb_updatevm.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 cp qmemman/server.py $RPM_BUILD_ROOT/usr/lib/qubes/qmemman_daemon.py
 cp ../common/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
@@ -174,6 +173,12 @@ install -m 0440 qubes.sudoers $RPM_BUILD_ROOT/etc/sudoers.d/qubes
 install -d $RPM_BUILD_ROOT/etc/xdg/autostart
 install -m 0644 qubes-guid.desktop $RPM_BUILD_ROOT/etc/xdg/autostart/
 install -m 0644 qubes-update-watch.desktop $RPM_BUILD_ROOT/etc/xdg/autostart/
+
+mkdir -p $RPM_BUILD_ROOT/etc/dracut.conf.d
+cp dracut/dracut.conf.d/* $RPM_BUILD_ROOT/etc/dracut.conf.d/
+
+mkdir -p $RPM_BUILD_ROOT/usr/share/dracut/modules.d
+cp -r dracut/modules.d/* $RPM_BUILD_ROOT/usr/share/dracut/modules.d/
 
 %post
 
@@ -305,7 +310,6 @@ fi
 /usr/lib/qubes/qmemman_daemon.py*
 /usr/lib/qubes/meminfo-writer
 /usr/lib/qubes/qfile-daemon-dvm*
-/usr/lib/qubes/regenerate_initramfs.sh
 /usr/lib/qubes/sync_rpmdb_updatevm.sh
 /usr/lib/qubes/qubes-receive-updates
 %attr(4750,root,qubes) /usr/lib/qubes/qfile-dom0-unpacker
@@ -363,3 +367,6 @@ fi
 /etc/xdg/autostart/qubes-update-watch.desktop
 /etc/security/limits.d/99-qubes.conf
 /etc/yum/post-actions/qubes_sync_rpmdb_updatevm.action
+%dir /etc/dracut.conf.d/*
+%dir /usr/share/dracut/modules.d/
+%dir /usr/share/dracut/modules.d/90qubes-pciback/*

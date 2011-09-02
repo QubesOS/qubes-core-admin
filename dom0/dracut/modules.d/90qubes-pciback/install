@@ -1,0 +1,5 @@
+#!/bin/bash
+inst_hook cmdline 02 "$moddir/qubes-pciback.sh"
+inst lspci
+inst grep
+inst awk
