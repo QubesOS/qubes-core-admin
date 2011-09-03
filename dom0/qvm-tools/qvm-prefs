@@ -128,22 +128,15 @@ def set_netvm(vms, vm, args):
     vm.netvm_vm = netvm_vm
     if not vm.is_running():
         return
+    # this can fail if VM was not connected to any NetVM
+    subprocess.call(["xl", "network-detach", vm.name, "0"], stderr=subprocess.PIPE)
+    if vm.netvm_vm is None:
+        return
     if not vm.netvm_vm.is_running():
         subprocess.check_call(["qvm-start", vm.netvm_vm.name])
-    subprocess.check_call(["xl", "network-detach", vm.name, "0"])
-    domain_path="/local/domain/"+str(vm.get_xid())
-    subprocess.check_call(["xenstore-write",
-        domain_path+"/qubes_ip",
-        vm.ip])
-    subprocess.check_call(["xenstore-write",
-        domain_path+"/qubes_gateway",
-        vm.netvm_vm.gateway])
-    subprocess.check_call(["xenstore-write",
-        domain_path+"/qubes_secondary_dns",
-        vm.netvm_vm.secondary_dns])
-    subprocess.check_call(["xl", "network-attach", vm.name, "ip="+vm.ip,
-        "backend="+vm.netvm_vm.name,
-        "script=/etc/xen/scripts/vif-route-qubes"])
+    # refresh IP, DNS etc
+    vm.create_xenstore_entries()
+    vm.attach_network(verbose = True)
 
 def set_updateable(vms, vm, args):
     if vm.is_updateable():

@@ -25,7 +25,10 @@ import os.path
 import os
 import sys
 
+qvm_collection = None
+
 def get_netvm():
+    global qvm_collection
     qvm_collection = QubesVmCollection()
     qvm_collection.lock_db_for_reading()
     qvm_collection.load()
@@ -59,12 +62,11 @@ def netup():
     if os.path.isfile('/var/lock/subsys/NetworkManager'):
         os.system('/etc/init.d/NetworkManager stop')
     if not vif_eth0_exists():
-        cmd = 'modprobe xennet && xl network-attach 0 ip=10.137.0.1 backend='
-        cmd += netvm.name
-        cmd += ' script=/etc/xen/scripts/vif-route-qubes'
+        cmd = 'modprobe xennet'
         if os.system(cmd) != 0:
             print 'Error creating network device'
             sys.exit(1)
+        qvm_collection[0].attach_network(verbose=True, netvm=netvm, wait=True)
     if not bringup_eth0(netvm):
         sys.exit(1)
 

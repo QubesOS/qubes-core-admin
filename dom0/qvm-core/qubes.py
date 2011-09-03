@@ -942,6 +942,44 @@ class QubesVm(object):
 
         return conf
 
+    def attach_network(self, verbose = False, wait = True, netvm = None):
+        if dry_run:
+            return
+
+        if not self.is_running():
+            raise QubesException ("VM not running!")
+
+        if netvm is None:
+            netvm = self.netvm_vm
+
+        if netvm is None:
+            raise QubesException ("NetVM not set!")
+
+        if netvm.qid != 0:
+            if not netvm.is_running():
+                if verbose:
+                    print "--> Starting NetVM {0}...".format(netvm.name)
+                netvm.start()
+
+        xs_path = '/local/domain/%d/device/vif/0/state' % (self.xid)
+        if xs.read('', xs_path) is not None:
+            # TODO: check its state and backend state (this can be stale vif after NetVM restart)
+            if verbose:
+                print "NOTICE: Network already attached"
+                return
+
+        xm_cmdline = ["/usr/sbin/xl", "network-attach", str(self.xid), "script=/etc/xen/scripts/vif-route-qubes", "ip="+self.ip, "backend="+netvm.name ]
+        retcode = subprocess.call (xm_cmdline)
+        if retcode != 0:
+            print ("WARNING: Cannot attach to network to '{0}'!".format(self.name))
+        if wait:
+            tries = 0
+            while xs.read('', xs_path) != '4':
+                tries += 1
+                if tries > 50:
+                    raise QubesException ("Network attach timed out!")
+                time.sleep(0.2)
+
     def start(self, debug_console = False, verbose = False, preparing_dvm = False):
         if dry_run:
             return
@@ -1424,10 +1462,14 @@ class QubesNetVm(QubesVm):
             # Cleanup stale VIFs
             vm.cleanup_vifs()
 
-            xm_cmdline = ["/usr/sbin/xl", "network-attach", vm.name, "script=/etc/xen/scripts/vif-route-qubes", "ip="+vm.ip, "backend="+self.name ]
-            retcode = subprocess.call (xm_cmdline)
-            if retcode != 0:
-                print ("WARNING: Cannot attach to network to '{0}'!".format(vm.name))
+            # wait for frontend to forget about this device (UGLY HACK)
+            time.sleep(0.1)
+
+            try:
+                vm.attach_network(wait=False)
+            except QubesException as ex:
+                print ("WARNING: Cannot attach to network to '{0}': {1}".format(vm.name, ex))
+
         return xid
 
     def add_external_ip_permission(self, xid):
@@ -1602,6 +1644,10 @@ class QubesDom0NetVm(QubesNetVm):
 
     def get_private_img_sz(self):
         return 0
+
+    @property
+    def ip(self):
+        return "10.137.0.1"
 
     def start(self, debug_console = False, verbose = False):
         raise QubesException ("Cannot start Dom0 fake domain!")
