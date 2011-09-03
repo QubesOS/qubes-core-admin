@@ -19,7 +19,7 @@ qvm-run --pass_io $UPDATEVM "/usr/lib/qubes/qubes_download_dom0_updates.sh $*" |
 # Wait for download completed
 while pidof -x qubes-receive-updates >/dev/null; do sleep 0.5; done
 if [ $# -gt 0 ]; then
-    echo "You can now install downloaded packages (eg. using yum)"
+    yum install $@
 elif [ -f /var/lib/qubes/updates/repodata/repomd.xml ]; then
     yum check-update
     if [ $? -eq 100 ]; then
