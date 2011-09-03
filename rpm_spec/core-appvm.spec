@@ -56,8 +56,10 @@ fi
 adduser --create-home user
 su user -c 'mkdir -p /home/user/.local/share'
 su user -c 'mkdir -p /home/user/.gnome2/nautilus-scripts'
-su user -c 'ln -s /usr/lib/qubes/qvm-copy-to-vm2.gnome /home/user/.gnome2/nautilus-scripts/"Copy to other AppVM"'
-su user -c 'ln -s /usr/bin/qvm-open-in-dvm2 /home/user/.gnome2/nautilus-scripts/"Open in DisposableVM"'
+su user -c 'ln -s /usr/lib/qubes/qvm-copy-to-vm.gnome /home/user/.gnome2/nautilus-scripts/"Copy to other AppVM"'
+su user -c 'ln -s /usr/bin/qvm-open-in-dvm /home/user/.gnome2/nautilus-scripts/"Open in DisposableVM"'
+su user -c 'touch /home/user/.gnome2/nautilus-scripts/.scripts_created'
+
 
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 
@@ -74,14 +76,14 @@ mkdir -p $RPM_BUILD_ROOT/etc/init.d
 cp qubes_core_appvm $RPM_BUILD_ROOT/etc/init.d/
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/usr/bin
-cp qubes_timestamp qvm-open-in-dvm2 $RPM_BUILD_ROOT/usr/bin
+cp qubes_timestamp qvm-open-in-dvm $RPM_BUILD_ROOT/usr/bin
 cp qvm-open-in-vm $RPM_BUILD_ROOT/usr/bin
 cp qvm-copy-to-vm $RPM_BUILD_ROOT/usr/bin
 cp qvm-run $RPM_BUILD_ROOT/usr/bin
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
 cp wrap_in_html_if_url.sh $RPM_BUILD_ROOT/usr/lib/qubes
-cp qvm-copy-to-vm2.kde $RPM_BUILD_ROOT/usr/lib/qubes
-cp qvm-copy-to-vm2.gnome $RPM_BUILD_ROOT/usr/lib/qubes
+cp qvm-copy-to-vm.kde $RPM_BUILD_ROOT/usr/lib/qubes
+cp qvm-copy-to-vm.gnome $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../qrexec/qrexec_agent $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../qrexec/qrexec_client_vm $RPM_BUILD_ROOT/usr/lib/qubes
 cp ../qrexec/qubes_rpc_multiplexer $RPM_BUILD_ROOT/usr/lib/qubes
@@ -143,9 +145,9 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 /etc/init.d/qubes_core_appvm
 /usr/bin/qvm-copy-to-vm
-/usr/lib/qubes/qvm-copy-to-vm2.kde
-/usr/lib/qubes/qvm-copy-to-vm2.gnome
-/usr/bin/qvm-open-in-dvm2
+/usr/lib/qubes/qvm-copy-to-vm.kde
+/usr/lib/qubes/qvm-copy-to-vm.gnome
+/usr/bin/qvm-open-in-dvm
 /usr/bin/qvm-open-in-vm
 /usr/bin/qvm-run
 /usr/lib/qubes/meminfo-writer
