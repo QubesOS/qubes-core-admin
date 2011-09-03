@@ -2085,7 +2085,7 @@ class QubesVmCollection(dict):
                 "private_img", "root_img", "template_qid",
                 "installed_by_rpm", "updateable", "internal",
                 "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
-                "maxmem", "kernel", "uses_default_kernel", "kernelopts", "uses_default_kernel" )
+                "maxmem", "kernel", "uses_default_kernel", "kernelopts", "uses_default_kernelopts" )
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)
