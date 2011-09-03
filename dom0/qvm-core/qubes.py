@@ -767,7 +767,9 @@ class QubesVm(object):
                 print "--> Copying the kernel (set kernel \"none\" to use it): {0}".\
                         format(kernels_dir)
 
-            shutil.copytree(kernels_dir, self.dir_path + '/kernels')
+            os.mkdir (self.dir_path + '/kernels')
+            for f in ("vmlinuz", "initramfs", "modules.img"):
+                shutil.copy(kernels_dir + '/' + f, self.dir_path + '/kernels/' + f)
 
         # Create volatile.img
         self.reset_volatile_storage(source_template = source_template, verbose=verbose)
