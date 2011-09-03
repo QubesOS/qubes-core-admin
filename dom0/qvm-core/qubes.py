@@ -75,8 +75,7 @@ default_firewall_conf_file = "firewall.xml"
 default_memory = 400
 default_servicevm_vcpus = 1
 default_kernelopts = ""
-# TODO: change to iommu=soft when we migrate to pvops in domU
-default_kernelopts_pcidevs = "swiotlb=force pci=nomsi"
+default_kernelopts_pcidevs = "iommu=soft pci=nomsi"
 
 qubes_whitelisted_appmenus = 'whitelisted-appmenus.list'
 
