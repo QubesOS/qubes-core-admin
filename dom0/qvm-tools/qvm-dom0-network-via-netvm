@@ -76,6 +76,7 @@ def netdown():
         print 'There is no eth0 that is a Xen vif device, aborting.'
         sys.exit(1)
     os.system('ifconfig eth0 down')
+    os.system('xl network-detach 0 0')
 
 def usage():
     print 'Usage: qvm-dom0-network-via-netvm [up|down]'
