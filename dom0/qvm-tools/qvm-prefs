@@ -262,9 +262,6 @@ def set_vcpus(vms, vm, args):
 def set_kernelopts(vms, vm, args):
     if len (args) != 1:
         print "Missing kernel opts argument!"
-
-    if len (args) != 1:
-        print "Missing kernel opts argument!"
         print "Possible values:"
         print "1) default"
         print "2) <opts>"
