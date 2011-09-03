@@ -609,10 +609,10 @@ class QubesVm(object):
                     # Don't check retcode - it always will fail when backend domain is down
                     subprocess.call(["/usr/sbin/xl",
                             "network-detach", self.name, m.group(1)], stderr=subprocess.PIPE)
-                    # Wait for device destroy
+                    # Wait for device destroy (in most cases just ensure that device already is removed)
                     tries = 0
-                    path = "'{0}/device/vif/0/state".format(xs.get_domain_path(self.xid))
-                    while xs.read(path):
+                    path = "{0}/device/vif/0/state".format(xs.get_domain_path(self.xid))
+                    while xs.read('', path) is not None:
                         time.sleep(0.1)
                         tries += 1
                         if tries > 10:
