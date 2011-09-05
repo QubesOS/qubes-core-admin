@@ -127,6 +127,9 @@ def main():
                 else:
                     # standaloneVM
                     files_to_backup += file_to_backup(vm.dir_path + "/apps")
+
+                if os.path.exists(vm.dir_path + "/kernels"):
+                    files_to_backup += file_to_backup(vm.dir_path + "/kernels")
             if os.path.exists (vm.firewall_conf):
                 files_to_backup += file_to_backup(vm.firewall_conf)
             if os.path.exists(vm.dir_path + '/whitelisted-appmenus.list'):
