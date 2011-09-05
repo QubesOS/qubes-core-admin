@@ -618,9 +618,12 @@ class QubesVm(object):
                             # timeout
                             break
 
-    def create_xenstore_entries(self, xid):
+    def create_xenstore_entries(self, xid = None):
         if dry_run:
             return
+
+        if xid is None:
+            xid = self.xid
 
         domain_path = xs.get_domain_path(xid)
 
