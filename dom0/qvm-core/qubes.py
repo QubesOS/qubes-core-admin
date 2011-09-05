@@ -1755,7 +1755,12 @@ class QubesAppVm(QubesVm):
         if dry_run:
             return
 
-        subprocess.check_call ([qubes_appmenu_remove_cmd, self.name])
+        vmtype = ''
+        if self.is_netvm():
+            vmtype = 'servicevms'
+        else:
+            vmtype = 'appvms'
+        subprocess.check_call ([qubes_appmenu_remove_cmd, self.name, vmtype])
         super(QubesAppVm, self).remove_from_disk()
 
 
