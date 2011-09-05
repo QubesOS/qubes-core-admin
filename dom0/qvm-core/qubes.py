@@ -789,6 +789,8 @@ class QubesVm(object):
         try:
             if source_template is not None:
                 subprocess.check_call ([qubes_appmenu_create_cmd, source_template.appmenus_templates_dir, self.name])
+            elif self.appmenus_templates_dir is not None:
+                subprocess.check_call ([qubes_appmenu_create_cmd, self.appmenus_templates_dir, self.name])
             else:
                 # Only add apps to menu
                 subprocess.check_call ([qubes_appmenu_create_cmd, "none", self.name, vmtype])
@@ -1735,6 +1737,12 @@ class QubesAppVm(QubesVm):
             return
 
         super(QubesAppVm, self).create_on_disk(verbose, source_template=source_template)
+
+        if self.is_updateable():
+            if verbose:
+                print "--> Copying the template's appmenus templates dir:\n{0} ==>\n{1}".\
+                        format(source_template.appmenus_templates_dir, self.appmenus_templates_dir)
+            shutil.copytree (source_template.appmenus_templates_dir, self.appmenus_templates_dir)
 
         if verbose:
             print "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
