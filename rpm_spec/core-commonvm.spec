@@ -77,6 +77,7 @@ mkdir -p $RPM_BUILD_ROOT/etc
 cp serial.conf $RPM_BUILD_ROOT/var/lib/qubes/
 mkdir -p $RPM_BUILD_ROOT/etc/udev/rules.d
 cp qubes_network.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_network.rules
+cp qubes_memory.rules $RPM_BUILD_ROOT/etc/udev/rules.d/50-qubes_memory.rules
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes/
 cp setup_ip $RPM_BUILD_ROOT/usr/lib/qubes/
 cp qubes_download_dom0_updates.sh $RPM_BUILD_ROOT/usr/lib/qubes/
@@ -240,6 +241,7 @@ rm -rf $RPM_BUILD_ROOT
 /sbin/qubes_serial_login
 /usr/bin/xenstore-watch-qubes
 /etc/udev/rules.d/99-qubes_network.rules
+/etc/udev/rules.d/50-qubes_memory.rules
 /etc/sysconfig/modules/qubes_core.modules
 /usr/lib/qubes/setup_ip
 /etc/yum/post-actions/qubes_trigger_sync_appmenus.action
