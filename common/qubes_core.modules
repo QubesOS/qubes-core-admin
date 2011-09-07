@@ -1,1 +1,1 @@
-modprobe evtchn
+modprobe evtchn 2>/dev/null || modprobe xen-evtchn
