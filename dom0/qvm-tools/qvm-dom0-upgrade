@@ -1,5 +1,13 @@
 #!/bin/bash
 
+ID=$(id -ur)
+
+if [ $ID != 0 ] ; then
+    echo "This script should be run as root, use sudo. "
+    exit 1
+fi
+
+
 UPDATEVM=`qvm-get-updatevm`
 if [ -z "$UPDATEVM" ]; then
     echo "UpdateVM not set, exiting"
