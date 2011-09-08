@@ -75,7 +75,7 @@ default_firewall_conf_file = "firewall.xml"
 default_memory = 400
 default_servicevm_vcpus = 1
 default_kernelopts = ""
-default_kernelopts_pcidevs = "iommu=soft swiotlb=2048 pci=nomsi"
+default_kernelopts_pcidevs = "iommu=soft swiotlb=2048"
 
 qubes_whitelisted_appmenus = 'whitelisted-appmenus.list'
 
