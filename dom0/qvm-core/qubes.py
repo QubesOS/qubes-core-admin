@@ -2149,7 +2149,11 @@ class QubesVmCollection(dict):
             # for other cases - generic assigment is ok
 
         if "uses_default_kernelopts" in kwargs:
-            kwargs["uses_default_kernelopts"] = True if kwargs["uses_default_kernelopts"] == "True" else False
+            kwargs["uses_default_kernelopts"] = False if kwargs["uses_default_kernelopts"] == "False" else True
+
+        if "kernelopts" in kwargs and kwargs["kernelopts"] == "None" or kwargs["kernelopts"] is None:
+            kwargs.pop("kernelopts")
+            kwargs["uses_default_kernelopts"] = True
 
         return kwargs
 
