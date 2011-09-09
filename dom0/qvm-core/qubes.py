@@ -1422,9 +1422,13 @@ class QubesNetVm(QubesVm):
         assert lo >= 1 and lo <= 254, "Wrong IP address for VM"
         return self.dispnetprefix  + "{0}".format(lo)
 
-    def create_xenstore_entries(self, xid):
+    def create_xenstore_entries(self, xid = None):
         if dry_run:
             return
+
+        if xid is None:
+            xid = self.xid
+
 
         super(QubesNetVm, self).create_xenstore_entries(xid)
         xs.write('', "/local/domain/{0}/qubes_netvm_external_ip".format(xid), '')
@@ -1520,9 +1524,13 @@ class QubesProxyVm(QubesNetVm):
         self.netvm_vm.remove_external_ip_permission(self.get_xid())
         super(QubesProxyVm, self).force_shutdown()
 
-    def create_xenstore_entries(self, xid):
+    def create_xenstore_entries(self, xid = None):
         if dry_run:
             return
+
+        if xid is None:
+            xid = self.xid
+
 
         super(QubesProxyVm, self).create_xenstore_entries(xid)
         xs.write('', "/local/domain/{0}/qubes_iptables_error".format(xid), '')
