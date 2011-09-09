@@ -82,7 +82,7 @@ int create_qrexec_socket(int domid, char *domname)
 	return get_server_socket(socket_address);
 }
 
-#define MAX_STARTUP_TIME 120
+#define MAX_STARTUP_TIME 30
 
 /* do the preparatory tasks, needed before entering the main event loop */
 void init(int xid)
