@@ -1,10 +1,20 @@
 #!/bin/bash
 
-
 UPDATEVM=`qvm-get-updatevm`
 if [ -z "$UPDATEVM" ]; then
     echo "UpdateVM not set, exiting"
     exit 1
+fi
+
+if [ "$1" = "--help" ]; then
+    echo "This tool is used to download packages for dom0. Without package list"
+    echo "it checks for updates for installed packages"
+    echo ""
+    echo "Usage: $0 [--clean] [<pkg list>]"
+    echo "    --clean      clean yum cache before doing anything"
+    echo "    <pkg list>   download (and install if run by root) new packages"
+    echo "                 in dom0 instead of updating"
+    exit
 fi
 
 # We should ensure the clocks in Dom0 and UpdateVM are in sync
