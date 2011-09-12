@@ -40,9 +40,17 @@ if [ $# -gt 0 ]; then
 
     yum install $@
 elif [ -f /var/lib/qubes/updates/repodata/repomd.xml ]; then
+    # Above file exists only when at least one package was downloaded
     yum check-update
     if [ $? -eq 100 ]; then
-        gpk-update-viewer
+
+        ID=$(id -ur)
+        if [ $ID != 0 ] ; then
+            echo "This script should be run as root, use sudo next time."
+            echo "Now you can manually run yum update (use sudo again)."
+            exit
+        fi
+        yum update
     fi
 else
     echo "No updates avaliable"
