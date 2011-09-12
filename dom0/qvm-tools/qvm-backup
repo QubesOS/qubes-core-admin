@@ -88,6 +88,7 @@ def main():
     files_to_backup = file_to_backup (qubes_store_filename)
 
     appvms_to_backup = [vm for vm in vms_list if vm.is_appvm() and not vm.name.endswith('-dvm')]
+    netvms_to_backup = [vm for vm in vms_list if vm.is_netvm()]
     there_are_running_vms = False
 
     fields_to_display = [ 
@@ -113,8 +114,8 @@ def main():
         s += fmt.format('-')
     print s
 
-    if len (appvms_to_backup):
-        for vm in appvms_to_backup:
+    if len (appvms_to_backup + netvms_to_backup):
+        for vm in appvms_to_backup + netvms_to_backup:
 
             vm_sz = vm.get_disk_usage (vm.private_img)
             files_to_backup += file_to_backup(vm.private_img, vm_sz )
@@ -148,7 +149,10 @@ def main():
             s += fmt.format(vm.name) 
 
             fmt="{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
-            s += fmt.format("AppVM" + (" + Sys" if vm.is_updateable() else ""))
+            if vm.is_netvm():
+                s += fmt.format("NetVM" + (" + Sys" if vm.is_updateable() else ""))
+            else:
+                s += fmt.format("AppVM" + (" + Sys" if vm.is_updateable() else ""))
 
             fmt="{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
             s += fmt.format(size_to_human(vm_sz)) 
