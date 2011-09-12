@@ -53,9 +53,8 @@ if [ -z "$PKGLIST" ]; then
 fi
 
 if [ "$DOIT" != "1" -a "$PKGS_FROM_CMDLINE" != "1" ]; then
-    PKGCOUNT=`echo $PKGLIST|wc -w`
     zenity --question --title="Qubes Dom0 updates" \
-      --text="$PKGCOUNT updates for dom0 available. Do you want to download its now?" || exit 0
+      --text="There are updates for dom0 available, do you want to download them now?" || exit 0
 fi
 
 if [ "$PKGS_FROM_CMDLINE" == 1 ]; then
