@@ -120,7 +120,8 @@ def main():
             vm_sz = vm.get_disk_usage (vm.private_img)
             files_to_backup += file_to_backup(vm.private_img, vm_sz )
 
-            files_to_backup += file_to_backup(vm.icon_path)
+            if vm.is_appvm():
+                files_to_backup += file_to_backup(vm.icon_path)
             if vm.is_updateable():
                 if os.path.exists(vm.dir_path + "/apps.templates"):
                     # template
