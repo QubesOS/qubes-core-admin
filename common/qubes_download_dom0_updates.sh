@@ -4,7 +4,7 @@ DOM0_UPDATES_DIR=/var/lib/qubes/dom0-updates
 
 DOIT=0
 GUI=1
-OPTS=
+OPTS="--installroot $DOM0_UPDATES_DIR"
 PKGLIST=
 while [ -n "$1" ]; do
     case "$1" in
@@ -34,7 +34,7 @@ cp /etc/yum.conf $DOM0_UPDATES_DIR/etc/
 
 if [ "x$PKGLIST" = "x" ]; then
     echo "Checking for dom0 updates..."
-    PKGLIST=`yum --installroot $DOM0_UPDATES_DIR $OPTS check-update -q | cut -f 1 -d ' '`
+    PKGLIST=`yum $OPTS check-update -q | cut -f 1 -d ' '`
 else
     PKGS_FROM_CMDLINE=1
 fi
@@ -61,11 +61,11 @@ set -e
 
 if [ "$GUI" = 1 ]; then
     ( echo "1"
-    yumdownloader --destdir "$DOM0_UPDATES_DIR/packages" --installroot "$DOM0_UPDATES_DIR" $OPTS $PKGLIST
+    yumdownloader --destdir "$DOM0_UPDATES_DIR/packages" $OPTS $PKGLIST
     echo 100 ) | zenity --progress --pulsate --auto-close --auto-kill \
          --text="Downloading updates for Dom0, please wait..." --title="Qubes Dom0 updates"
 else
-    yumdownloader --destdir "$DOM0_UPDATES_DIR/packages" --installroot "$DOM0_UPDATES_DIR" $OPTS $PKGLIST
+    yumdownloader --destdir "$DOM0_UPDATES_DIR/packages" $OPTS $PKGLIST
 fi
 
 if ls $DOM0_UPDATES_DIR/packages/*.rpm > /dev/null 2>&1; then
