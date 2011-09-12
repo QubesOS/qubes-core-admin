@@ -4,6 +4,7 @@ DOM0_UPDATES_DIR=/var/lib/qubes/dom0-updates
 
 DOIT=0
 GUI=1
+CLEAN=0
 OPTS="--installroot $DOM0_UPDATES_DIR"
 PKGLIST=
 while [ -n "$1" ]; do
@@ -13,6 +14,9 @@ while [ -n "$1" ]; do
             ;;
         --nogui)
             GUI=0
+            ;;
+        --clean)
+            CLEAN=1
             ;;
         -*)
             OPTS="$OPTS $1"
@@ -31,6 +35,10 @@ fi
 
 mkdir -p $DOM0_UPDATES_DIR/etc
 cp /etc/yum.conf $DOM0_UPDATES_DIR/etc/
+
+if [ "x$CLEAN" = "1" ]; then
+    yum $OPTS clean all
+fi
 
 if [ "x$PKGLIST" = "x" ]; then
     echo "Checking for dom0 updates..."
