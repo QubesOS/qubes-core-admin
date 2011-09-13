@@ -34,7 +34,7 @@ if ! [ -d "$DOM0_UPDATES_DIR" ]; then
 fi
 
 mkdir -p $DOM0_UPDATES_DIR/etc
-cp /etc/yum.conf $DOM0_UPDATES_DIR/etc/
+sed -i '/^reposdir\s*=/d' $DOM0_UPDATES_DIR/etc/yum.conf
 
 if [ "x$CLEAN" = "1" ]; then
     yum $OPTS clean all
