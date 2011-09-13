@@ -502,10 +502,10 @@ class QubesVm(object):
         if dominfo:
             if dominfo['paused']:
                 return "Paused"
-            elif dominfo['shutdown']:
-                return "Halted"
             elif dominfo['crashed']:
                 return "Crashed"
+            elif dominfo['shutdown']:
+                return "Halting"
             elif dominfo['dying']:
                 return "Dying"
             else:
@@ -988,7 +988,8 @@ class QubesVm(object):
         if dry_run:
             return
 
-        if self.is_running():
+        # Intentionally not used is_running(): eliminate also "Paused", "Crashed", "Halting"
+        if self.get_power_state() != "Halted":
             raise QubesException ("VM is already running!")
 
         if self.netvm_vm is not None:
