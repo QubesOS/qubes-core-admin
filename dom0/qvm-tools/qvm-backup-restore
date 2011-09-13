@@ -57,7 +57,8 @@ fields = {
              + ('}' if vm.is_netvm() else '')"},
 
     "type": {"func": "'Tpl' if vm.is_template() else \
-             (' Net' if vm.is_netvm() else 'App')"},
+             ('Proxy' if vm.is_proxyvm() else \
+             (' Net' if vm.is_netvm() else 'App'))"},
 
     "updbl" : {"func": "'Yes' if vm.is_updateable() else ''"},
 
@@ -325,7 +326,7 @@ def main():
     # ... then NetVMs...
     for vm in [ vm for vm in vms_to_restore if vm.is_netvm()]:
 
-        print "-> Restoring NetVM {0}...".format(vm.name)
+        print "-> Restoring {0} {1}...".format(vm.type, vm.name)
         retcode = subprocess.call (["mkdir", "-p", vm.dir_path])
         if retcode != 0:
             print ("*** Cannot create directory: {0}?!".format(dest_dir))
@@ -348,11 +349,18 @@ def main():
         updateable = vm.updateable
 
         try:
-            vm = host_collection.add_new_netvm(vm.name, template_vm,
-                                          conf_file=vm.conf_file,
-                                          dir_path=vm.dir_path,
-                                          updateable=updateable,
-                                          label=vm.label)
+            if vm.type == "NetVM":
+                vm = host_collection.add_new_netvm(vm.name, template_vm,
+                                              conf_file=vm.conf_file,
+                                              dir_path=vm.dir_path,
+                                              updateable=updateable,
+                                              label=vm.label)
+            elif vm.type == "ProxyVM":
+                vm = host_collection.add_new_proxyvm(vm.name, template_vm,
+                                              conf_file=vm.conf_file,
+                                              dir_path=vm.dir_path,
+                                              updateable=updateable,
+                                              label=vm.label)
         except Exception as err:
             print "ERROR: {0}".format(err)
             print "*** Skiping VM: {0}".format(vm.name)
@@ -360,7 +368,7 @@ def main():
                 host_collection.pop(vm.qid)
             continue
 
-        if not uses_default_netvm:
+        if vm.is_proxyvm() and not uses_default_netvm:
             vm.uses_default_netvm = False
             vm.netvm_vm = netvm_vm
 
