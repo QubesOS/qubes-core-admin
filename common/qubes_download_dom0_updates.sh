@@ -33,7 +33,7 @@ while [ -n "$1" ]; do
 done
 
 if ! [ -d "$DOM0_UPDATES_DIR" ]; then
-    echo "Dom0 updates dir does not exists: $DOM0_UPDATES_DIR"
+    echo "Dom0 updates dir does not exists: $DOM0_UPDATES_DIR" >&2
     exit 1
 fi
 
@@ -46,7 +46,7 @@ if [ "$CLEAN" = "1" ]; then
 fi
 
 if [ "x$PKGLIST" = "x" ]; then
-    echo "Checking for dom0 updates..."
+    echo "Checking for dom0 updates..." >&2
     PKGLIST=`yum $OPTS check-update -q | cut -f 1 -d ' '`
 else
     PKGS_FROM_CMDLINE=1
