@@ -42,7 +42,7 @@ while true; do
                     echo $! > /var/run/qubes/template_update_notify.pid
                 fi
             fi
-        elif [ "x$domain" = "dom0" -a -n "$packages" ]; then
+        elif [ "x$domain" = "xdom0" -a -n "$packages" ]; then
             PKGCOUNT=`echo -- "$packages" | wc -w`
             if zenity --question --title="Qubes Dom0 updates" \
                --text="$PKGCOUNT updates for dom0 available. Do you want to download its now?"; then
