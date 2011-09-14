@@ -59,6 +59,7 @@ su user -c 'mkdir -p /home/user/.gnome2/nautilus-scripts'
 su user -c 'ln -s /usr/lib/qubes/qvm-copy-to-vm.gnome /home/user/.gnome2/nautilus-scripts/"Copy to other AppVM"'
 su user -c 'ln -s /usr/bin/qvm-open-in-dvm /home/user/.gnome2/nautilus-scripts/"Open in DisposableVM"'
 su user -c 'touch /home/user/.gnome2/nautilus-scripts/.scripts_created'
+su user -c 'touch /home/user/.gnome2/nautilus-scripts/.scripts_created2'
 
 
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes

@@ -64,6 +64,14 @@ start()
 		su user -c 'touch /home/user/.gnome2/nautilus-scripts/.scripts_created'
 	fi
 
+    if ! [ -f /home/user/.gnome2/nautilus-scripts/.scripts_created2 ] ; then
+        # as we have recently renamed tools, the symlinks would need to be fixed for older templates
+        su user -c 'ln -sf /usr/lib/qubes/qvm-copy-to-vm.gnome /home/user/.gnome2/nautilus-scripts/"Copy to other AppVM"'
+        su user -c 'ln -sf /usr/bin/qvm-open-in-dvm /home/user/.gnome2/nautilus-scripts/"Open in DisposableVM"'
+        su user -c 'touch /home/user/.gnome2/nautilus-scripts/.scripts_created2'
+    fi
+
+
 	success
 	echo ""
 
