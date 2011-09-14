@@ -36,7 +36,7 @@ fi
 mkdir -p $DOM0_UPDATES_DIR/etc
 sed -i '/^reposdir\s*=/d' $DOM0_UPDATES_DIR/etc/yum.conf
 
-if [ "x$CLEAN" = "1" ]; then
+if [ "$CLEAN" = "1" ]; then
     yum $OPTS clean all
     rm -f $DOM0_UPDATES_DIR/packages/*
 fi
