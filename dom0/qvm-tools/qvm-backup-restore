@@ -323,6 +323,12 @@ def main():
                 host_collection.pop(vm.qid)
             continue
 
+        try:
+            vm.create_appmenus(verbose=True)
+        except Exception as err:
+            print "ERROR during appmenu restore: {0}".format(err)
+            print "*** VM '{0}' will not have appmenus".format(vm.name)
+
     # ... then NetVMs...
     for vm in [ vm for vm in vms_to_restore if vm.is_netvm()]:
 
