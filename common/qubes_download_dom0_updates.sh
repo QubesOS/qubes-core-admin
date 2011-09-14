@@ -5,6 +5,7 @@ DOM0_UPDATES_DIR=/var/lib/qubes/dom0-updates
 DOIT=0
 GUI=1
 CLEAN=0
+CHECK_ONLY=0
 OPTS="--installroot $DOM0_UPDATES_DIR"
 PKGLIST=
 while [ -n "$1" ]; do
@@ -17,6 +18,9 @@ while [ -n "$1" ]; do
             ;;
         --clean)
             CLEAN=1
+            ;;
+        --check-only)
+            CHECK_ONLY=1
             ;;
         -*)
             OPTS="$OPTS $1"
@@ -46,6 +50,15 @@ if [ "x$PKGLIST" = "x" ]; then
     PKGLIST=`yum $OPTS check-update -q | cut -f 1 -d ' '`
 else
     PKGS_FROM_CMDLINE=1
+fi
+
+if [ "$CHECK_ONLY" = "1" ]; then
+    # check also for template updates
+    echo "Checking for template updates..." >&2
+    TEMPLATEPKGLIST=`yum check-update -q | cut -f 1 -d ' '`
+    echo "template:$TEMPLATEPKGLIST"
+    echo "dom0:$PKGLIST"
+    exit
 fi
 
 if [ -z "$PKGLIST" ]; then

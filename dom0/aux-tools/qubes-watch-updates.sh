@@ -22,7 +22,7 @@ flock --nonblock -s 200 || exit 1
 /usr/lib/qubes/sync_rpmdb_updatevm.sh
 while true; do
     # Output of this script is UNTRUSTED!
-    $QREXEC_CLIENT -d $UPDATES_VM "user:/usr/lib/qubes/qubes_check_for_updates.sh" |\
+    $QREXEC_CLIENT -d $UPDATES_VM "user:/usr/lib/qubes/qubes_download_dom0_updates.sh --check-only" |\
     while IFS=: read -n 819200 domain packages; do
         if [ "x$domain" = "xtemplate" -a -n "$packages" ]; then
             TEMPLATE_UPDATE_COUNT=`echo "$packages" | wc -w`
