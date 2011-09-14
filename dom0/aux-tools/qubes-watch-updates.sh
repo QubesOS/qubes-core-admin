@@ -43,9 +43,8 @@ while true; do
                 fi
             fi
         elif [ "x$domain" = "xdom0" -a -n "$packages" ]; then
-            PKGCOUNT=`echo -- "$packages" | wc -w`
             if zenity --question --title="Qubes Dom0 updates" \
-               --text="$PKGCOUNT updates for dom0 available. Do you want to download its now?"; then
+               --text="Updates for dom0 available. Do you want to download them now?"; then
                 $QREXEC_CLIENT -d $UPDATES_VM "user:/usr/lib/qubes/qubes_download_dom0_updates.sh --doit"
                 # Wait for download completed
                 while pidof -x qubes-receive-updates >/dev/null; do sleep 0.5; done
