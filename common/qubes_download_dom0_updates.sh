@@ -38,7 +38,7 @@ sed -i '/^reposdir\s*=/d' $DOM0_UPDATES_DIR/etc/yum.conf
 
 if [ "x$CLEAN" = "1" ]; then
     yum $OPTS clean all
-    rm -- $DOM0_UPDATES_DIR/packages/*
+    rm -f $DOM0_UPDATES_DIR/packages/*
 fi
 
 if [ "x$PKGLIST" = "x" ]; then
