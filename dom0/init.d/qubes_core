@@ -50,6 +50,8 @@ start()
     MEMINFO_DELAY_USEC=100000
     /usr/lib/qubes/meminfo-writer $MEM_CHANGE_THRESHOLD_KB $MEMINFO_DELAY_USEC &
 
+    /usr/lib/qubes/keep-dom0-clock-synced > /var/log/qubes/dom0-clock-sync.log 2>&1 &
+
     touch /var/lock/subsys/qubes_core
     success
     echo
