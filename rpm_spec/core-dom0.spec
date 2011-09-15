@@ -39,7 +39,6 @@ URL:		http://www.qubes-os.org
 BuildRequires:  xen-devel
 Requires:	python, xen-runtime, pciutils, python-inotify, python-daemon, kernel-qubes-dom0
 Conflicts:      qubes-gui-dom0 < 1.1.13
-Requires:       yum-plugin-post-transaction-actions
 Requires:       xen >= 4.1.0-2
 Requires:       createrepo
 Requires:       gnome-packagekit
@@ -92,7 +91,6 @@ cp aux-tools/convert_dirtemplate2vm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/create_apps_for_appvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/remove_appvm_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/reset_vm_configs.py  $RPM_BUILD_ROOT/usr/lib/qubes
-cp aux-tools/sync_rpmdb_updatevm.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 cp qmemman/server.py $RPM_BUILD_ROOT/usr/lib/qubes/qmemman_daemon.py
 cp ../common/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_daemon $RPM_BUILD_ROOT/usr/lib/qubes/
@@ -122,9 +120,6 @@ cp restore/qfile-daemon-dvm $RPM_BUILD_ROOT/usr/lib/qubes
 
 mkdir -p $RPM_BUILD_ROOT/etc/yum.real.repos.d
 cp qubes-cached.repo $RPM_BUILD_ROOT/etc/yum.real.repos.d/
-
-mkdir -p $RPM_BUILD_ROOT/etc/yum/post-actions
-cp misc/qubes_sync_rpmdb_updatevm.action $RPM_BUILD_ROOT/etc/yum/post-actions/
 
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/vm-templates
@@ -310,7 +305,6 @@ fi
 /usr/lib/qubes/qmemman_daemon.py*
 /usr/lib/qubes/meminfo-writer
 /usr/lib/qubes/qfile-daemon-dvm*
-/usr/lib/qubes/sync_rpmdb_updatevm.sh
 /usr/lib/qubes/qubes-receive-updates
 %attr(4750,root,qubes) /usr/lib/qubes/qfile-dom0-unpacker
 /usr/lib/qubes/keep-dom0-clock-synced
@@ -366,7 +360,6 @@ fi
 /etc/xdg/autostart/qubes-guid.desktop
 /etc/xdg/autostart/qubes-clock-watch.desktop
 /etc/security/limits.d/99-qubes.conf
-/etc/yum/post-actions/qubes_sync_rpmdb_updatevm.action
 %dir /etc/dracut.conf.d/*
 %dir /usr/share/dracut/modules.d/
 %dir /usr/share/dracut/modules.d/90qubes-pciback/*
