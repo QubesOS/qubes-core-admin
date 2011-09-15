@@ -14,7 +14,7 @@ fi
 echo "Waiting for UpdateVM to be started"
 # Intentionally used xl domid here to check if domain is running (in case of
 # eg. stale qrexec socket)
-while ! [ -f /var/run/qubes/qrexec.`xl domid "$UPDATES_VM" 2>/dev/null` ]; do
+while ! [ -S /var/run/qubes/qrexec.`xl domid "$UPDATES_VM" 2>/dev/null` ]; do
     sleep 1
 done
 
