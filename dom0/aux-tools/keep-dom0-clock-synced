@@ -1,0 +1,29 @@
+#!/bin/sh
+
+# 6h
+UPDATES_SLEEP=21600
+UPDATES_VM=`qvm-get-updatevm`
+
+QREXEC_CLIENT=/usr/lib/qubes/qrexec_client
+
+if [ -z "$UPDATES_VM" ]; then
+    echo "UpdateVM not set, exiting!" >&2
+    exit 1
+fi
+
+if ! xl domid "$UPDATES_VM" > /dev/null 2>&1; then
+    echo "UpdateVM not started, exiting!"
+    exit 1
+fi
+
+(
+# Allow only one instance
+flock --nonblock -s 200 || exit 1
+while true; do
+    qvm-sync-dom0-clock
+
+    sleep $UPDATES_SLEEP
+done
+
+
+) 200> /var/run/qubes/clock-watch-lock

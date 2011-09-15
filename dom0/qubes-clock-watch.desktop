@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Qubes Dom0 clock watch
+Comment=Keeps dom0 clock synced with UpdateVM
+Icon=qubes
+Exec=/usr/lib/qubes/keep-dom0-clock-synced
+Terminal=false
+Type=Application
