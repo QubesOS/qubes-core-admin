@@ -52,18 +52,14 @@ else
     PKGS_FROM_CMDLINE=1
 fi
 
-if [ "$CHECK_ONLY" = "1" ]; then
-    # check also for template updates
-    echo "Checking for template updates..." >&2
-    TEMPLATEPKGLIST=`yum check-update -q | cut -f 1 -d ' '`
-    echo "template:$TEMPLATEPKGLIST"
-    echo "dom0:$PKGLIST"
-    exit
-fi
-
 if [ -z "$PKGLIST" ]; then
     # No new updates
     exit 0
+fi
+
+if [ "$CHECK_ONLY" = "1" ]; then
+    echo "Available updates: $PKGLIST"
+    exit 100
 fi
 
 if [ "$DOIT" != "1" -a "$PKGS_FROM_CMDLINE" != "1" ]; then
