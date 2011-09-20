@@ -315,7 +315,7 @@ fi
 %attr(770,root,qubes) %dir /var/lib/qubes/dvmdata
 %attr(770,root,qubes) %dir /var/lib/qubes/updates
 %attr(770,root,qubes) %dir /var/lib/qubes/vm-kernels
-%dir /usr/share/qubes/icons/*.png
+/usr/share/qubes/icons/*.png
 /usr/share/qubes/qubes-vm.directory.template
 /usr/share/qubes/qubes-templatevm.directory.template
 /usr/share/qubes/qubes-appmenu-select.desktop
@@ -358,6 +358,6 @@ fi
 /etc/sudoers.d/qubes
 /etc/xdg/autostart/qubes-guid.desktop
 /etc/security/limits.d/99-qubes.conf
-%dir /etc/dracut.conf.d/*
-%dir /usr/share/dracut/modules.d/
-%dir /usr/share/dracut/modules.d/90qubes-pciback/*
+/etc/dracut.conf.d/*
+%dir /usr/share/dracut/modules.d/90qubes-pciback
+/usr/share/dracut/modules.d/90qubes-pciback/*
