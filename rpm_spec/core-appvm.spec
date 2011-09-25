@@ -104,7 +104,6 @@ mkdir -p $RPM_BUILD_ROOT/etc/X11
 cp xorg-preload-apps.conf $RPM_BUILD_ROOT/etc/X11
 
 mkdir -p $RPM_BUILD_ROOT/home_volatile/user
-chown 500:500 $RPM_BUILD_ROOT/home_volatile/user
 
 install -D ../vchan/libvchan.h $RPM_BUILD_ROOT/usr/include/libvchan.h
 install -D ../u2mfn/u2mfnlib.h $RPM_BUILD_ROOT/usr/include/u2mfnlib.h
