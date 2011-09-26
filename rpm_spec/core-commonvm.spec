@@ -170,6 +170,8 @@ do
         chkconfig $srv off
 done
 
+[ -x /bin/systemctl ] && /bin/systemctl disable NetworkManager.service
+
 #echo "--> Enabling essential services..."
 chkconfig rsyslog on
 chkconfig haldaemon on

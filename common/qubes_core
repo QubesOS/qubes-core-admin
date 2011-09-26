@@ -32,6 +32,8 @@ start()
 	# xenstore-read fails
 	INTERFACE=eth0 /usr/lib/qubes/setup_ip
 
+	mkdir -p /var/run/qubes
+
 	if [ -e /dev/xvdb ] ; then
 		mount /rw
 
