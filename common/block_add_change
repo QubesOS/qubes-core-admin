@@ -1,0 +1,29 @@
+#!/bin/bash
+
+NAME=${DEVNAME#/dev/}
+DESC="${ID_MODEL} (${ID_FS_LABEL})"
+SIZE=$(cat /sys/$DEVPATH/size)
+MODE=w
+XS_KEY="qubes-block-devices/$NAME"
+
+# Ignore mounted...
+if fgrep -q $DEVNAME /proc/mounts; then
+    xenstore-rm "$XS_KEY"
+    exit 0
+fi
+# ... and used by device-mapper
+if [ -n "`ls -A /sys/$DEVPATH/holders 2> /dev/null`" ]; then
+    xenstore-rm "$XS_KEY"
+    exit 0
+fi
+
+# Special case for CD
+if [ "$ID_TYPE" = "cd" ]; then
+    if [ "$ID_MEDIA_CDROM" != "1" ]; then
+        # Hide empty cdrom drive
+        xenstore-rm "$XS_KEY"
+        exit 0
+    fi
+    MODE=r
+fi
+xenstore-write "$XS_KEY/desc" "$DESC" "$XS_KEY/size" "$SIZE" "$XS_KEY/mode" "$MODE"

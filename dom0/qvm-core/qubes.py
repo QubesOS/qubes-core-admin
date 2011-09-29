@@ -658,10 +658,16 @@ class QubesVm(object):
                     "{0}/qubes_secondary_dns".format(domain_path),
                     self.netvm_vm.secondary_dns)
 
+        xs.write('',
+                "{0}/qubes-block-devices".format(domain_path),
+                '')
+
         # Fix permissions
         xs.set_permissions('', '{0}/device'.format(domain_path),
                 [{ 'dom': xid }])
         xs.set_permissions('', '{0}/memory'.format(domain_path),
+                [{ 'dom': xid }])
+        xs.set_permissions('', '{0}/qubes-block-devices'.format(domain_path),
                 [{ 'dom': xid }])
 
     def get_rootdev(self, source_template=None):

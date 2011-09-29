@@ -1,0 +1,5 @@
+#!/bin/sh
+
+NAME=${DEVNAME#/dev/}
+XS_KEY="qubes-block-devices/$NAME"
+xenstore-rm "$XS_KEY"

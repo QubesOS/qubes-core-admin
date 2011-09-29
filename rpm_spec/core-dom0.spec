@@ -74,6 +74,9 @@ cp ../common/vif-route-qubes $RPM_BUILD_ROOT/etc/xen/scripts
 cp ../common/block-snapshot $RPM_BUILD_ROOT/etc/xen/scripts
 ln -s block-snapshot $RPM_BUILD_ROOT/etc/xen/scripts/block-origin
 
+mkdir -p $RPM_BUILD_ROOT/etc/udev/rules.d
+cp ../common/qubes_block.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_block.rules
+
 mkdir -p $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/qubes.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/qubes.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
@@ -99,6 +102,8 @@ cp ../qrexec/qrexec_policy $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/qfile-dom0-unpacker $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/qubes-receive-updates $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/keep-dom0-clock-synced $RPM_BUILD_ROOT/usr/lib/qubes/
+cp ../common/block_add_change $RPM_BUILD_ROOT/usr/lib/qubes/
+cp ../common/block_remove $RPM_BUILD_ROOT/usr/lib/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/etc/qubes_rpc/policy
 cp ../appvm/qubes.Filecopy.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.Filecopy
@@ -305,6 +310,8 @@ fi
 /usr/lib/qubes/meminfo-writer
 /usr/lib/qubes/qfile-daemon-dvm*
 /usr/lib/qubes/qubes-receive-updates
+/usr/lib/qubes/block_add_change
+/usr/lib/qubes/block_remove
 %attr(4750,root,qubes) /usr/lib/qubes/qfile-dom0-unpacker
 /usr/lib/qubes/keep-dom0-clock-synced
 %attr(770,root,qubes) %dir /var/lib/qubes
@@ -358,6 +365,7 @@ fi
 /etc/sudoers.d/qubes
 /etc/xdg/autostart/qubes-guid.desktop
 /etc/security/limits.d/99-qubes.conf
+/etc/udev/rules.d/99-qubes_block.rules
 /etc/dracut.conf.d/*
 %dir /usr/share/dracut/modules.d/90qubes-pciback
 /usr/share/dracut/modules.d/90qubes-pciback/*
