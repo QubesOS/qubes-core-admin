@@ -80,6 +80,8 @@ cp ../common/qubes_block.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_block.r
 mkdir -p $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/qubes.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/qubes.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
+cp qvm-core/qubesutils.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
+cp qvm-core/qubesutils.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/__init__.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/__init__.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qmemman/qmemman*py $RPM_BUILD_ROOT%{python_sitearch}/qubes
@@ -294,6 +296,9 @@ fi
 %{python_sitearch}/qubes/qubes.py
 %{python_sitearch}/qubes/qubes.pyc
 %{python_sitearch}/qubes/qubes.pyo
+%{python_sitearch}/qubes/qubesutils.py
+%{python_sitearch}/qubes/qubesutils.pyc
+%{python_sitearch}/qubes/qubesutils.pyo
 %{python_sitearch}/qubes/__init__.py
 %{python_sitearch}/qubes/__init__.pyc
 %{python_sitearch}/qubes/__init__.pyo
