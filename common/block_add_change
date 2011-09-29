@@ -27,3 +27,6 @@ if [ "$ID_TYPE" = "cd" ]; then
     MODE=r
 fi
 xenstore-write "$XS_KEY/desc" "$DESC" "$XS_KEY/size" "$SIZE" "$XS_KEY/mode" "$MODE"
+
+# Make sure that block backend is loaded
+modprobe xen-blkback 2> /dev/null || modprobe blkbk
