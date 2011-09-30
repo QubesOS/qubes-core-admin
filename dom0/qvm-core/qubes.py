@@ -1452,8 +1452,7 @@ class QubesNetVm(QubesVm):
                 "/local/domain/{0}/qubes_netvm_external_ip".format(xid)
             ]
 
-        command.append("r{0}".format(xid,xid))
-        command.append("w{0}".format(xid,xid))
+        command.append("n{0}".format(xid))
 
         for id in self.__external_ip_allowed_xids:
             command.append("r{0}".format(id))

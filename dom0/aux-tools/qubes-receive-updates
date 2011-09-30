@@ -20,6 +20,7 @@
 #
 #
 import os
+import os.path
 import re
 import sys
 import subprocess
@@ -33,6 +34,7 @@ updates_rpm_dir = updates_dir + "/rpm"
 updates_repodata_dir = updates_dir + "/repodata"
 
 package_regex = re.compile(r"^[abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._+-]{1,128}.rpm$")
+gpg_ok_regex = re.compile(r"pgp md5 OK$")
 
 def dom0updates_fatal(msg):
     print >> sys.stderr, msg
@@ -56,13 +58,16 @@ def handle_dom0updates(updatevm):
     subprocess.check_call(["/usr/lib/qubes/qfile-dom0-unpacker", str(os.getuid()), updates_rpm_dir])
     # Verify received files
     for f in os.listdir(updates_rpm_dir):
+        full_path = updates_rpm_dir + "/" + f
         if package_regex.match(f):
-            p = subprocess.Popen (["/bin/rpm", "-K", updates_rpm_dir + "/" + f],
+            if os.path.islink(full_path) or not os.path.isfile(full_path):
+                dom0updates_fatal('Domain ' + source + ' sent not regular file')
+            p = subprocess.Popen (["/bin/rpm", "-K", full_path],
                     stdout=subprocess.PIPE)
             output = p.communicate()[0]
             if p.returncode != 0:
                 dom0updates_fatal('Error while verifing %s signature: %s' % (f, output))
-            if output.find("pgp") < 0:
+            if not gpg_ok_regex.search(output.strip()):
                 dom0updates_fatal('Domain ' + source + ' sent not signed rpm: ' + f)
         else:
             dom0updates_fatal('Domain ' + source + ' sent unexpected file: ' + f)
