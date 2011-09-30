@@ -29,7 +29,6 @@ class SystemState:
 
     def del_domain(self, id):
         self.domdict.pop(id)
-        self.do_balance()
 
     def get_free_xen_memory(self):
         return self.xc.physinfo()['free_memory']*1024
