@@ -19,7 +19,7 @@ fi
 
 # Special case for CD
 if [ "$ID_TYPE" = "cd" ]; then
-    if [ "$ID_MEDIA_CDROM" != "1" ]; then
+    if [ "$ID_CDROM_MEDIA" != "1" ]; then
         # Hide empty cdrom drive
         xenstore-rm "$XS_KEY"
         exit 0
