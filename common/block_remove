@@ -3,3 +3,30 @@
 NAME=${DEVNAME#/dev/}
 XS_KEY="qubes-block-devices/$NAME"
 xenstore-rm "$XS_KEY"
+
+# If device was connected to some VM - detach it
+# Notice: this can be run also in VM, so we cannot use xl...
+
+device_detach() {
+    xs_path=$1
+
+    xenstore-write $xs_path/online 0 $xs_path/state 5
+
+    # Wait for backend to finish dev shutdown
+    try=30
+    # -lt will break loop also when 'state' will be empty
+    while [ "`xenstore-read $xs_path/state 2> /dev/null`" -lt 6 ]; do
+        try=$[ $try - 1 ]
+        [ "$try" -le 0 ] && break
+        sleep 0.1
+    done
+    xenstore-rm $xs_path
+}
+
+for XS_DEV_PATH in `xenstore-ls -f backend/vbd | grep 'backend/vbd/[0-9]*/[0-9]* ' | cut -f 1 -d ' '`; do
+    CUR_DEVICE=`xenstore-read "$XS_DEV_PATH/params"`
+    if [ "$CUR_DEVICE" == "$DEVNAME" ]; then
+        device_detach "$XS_DEV_PATH"
+        exit 0
+    fi
+done

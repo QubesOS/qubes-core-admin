@@ -84,6 +84,7 @@ cp setup_ip $RPM_BUILD_ROOT/usr/lib/qubes/
 cp qubes_download_dom0_updates.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 cp block_add_change $RPM_BUILD_ROOT/usr/lib/qubes/
 cp block_remove $RPM_BUILD_ROOT/usr/lib/qubes/
+cp block_cleanup $RPM_BUILD_ROOT/usr/lib/qubes/
 mkdir -p $RPM_BUILD_ROOT/etc/yum/post-actions
 cp qubes_trigger_sync_appmenus.action $RPM_BUILD_ROOT/etc/yum/post-actions/
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
@@ -254,4 +255,5 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib/qubes/qubes_download_dom0_updates.sh
 /usr/lib/qubes/block_add_change
 /usr/lib/qubes/block_remove
+/usr/lib/qubes/block_cleanup
 /lib/firmware/updates

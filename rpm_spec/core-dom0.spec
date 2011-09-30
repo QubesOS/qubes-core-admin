@@ -106,6 +106,7 @@ cp aux-tools/qubes-receive-updates $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/keep-dom0-clock-synced $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../common/block_add_change $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../common/block_remove $RPM_BUILD_ROOT/usr/lib/qubes/
+cp ../common/block_cleanup $RPM_BUILD_ROOT/usr/lib/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/etc/qubes_rpc/policy
 cp ../appvm/qubes.Filecopy.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.Filecopy
@@ -317,6 +318,7 @@ fi
 /usr/lib/qubes/qubes-receive-updates
 /usr/lib/qubes/block_add_change
 /usr/lib/qubes/block_remove
+/usr/lib/qubes/block_cleanup
 %attr(4750,root,qubes) /usr/lib/qubes/qfile-dom0-unpacker
 /usr/lib/qubes/keep-dom0-clock-synced
 %attr(770,root,qubes) %dir /var/lib/qubes

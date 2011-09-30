@@ -17,3 +17,6 @@ ACTION=="change", RUN+="/usr/lib/qubes/block_add_change"
 ACTION=="remove", RUN+="/usr/lib/qubes/block_remove"
 
 LABEL="qubes_block_end"
+
+# Cleanup disconnected frontend from xenstore
+ACTION=="remove", SUBSYSTEM=="block", ENV{MAJOR}=="202", RUN+="/usr/lib/qubes/block_cleanup"
