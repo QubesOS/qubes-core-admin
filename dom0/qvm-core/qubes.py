@@ -2145,9 +2145,11 @@ class QubesVmCollection(dict):
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)
+            if kwargs[attribute] is None:
+                kwargs.pop(attribute)
 
         kwargs["qid"] = int(kwargs["qid"])
-        if kwargs["updateable"] is not None:
+        if "updateable" in kwargs:
             kwargs["updateable"] = True if kwargs["updateable"] == "True" else False
 
         if "installed_by_rpm" in kwargs:
@@ -2168,7 +2170,7 @@ class QubesVmCollection(dict):
 
                 kwargs["template_vm"] = template_vm
 
-        if kwargs["label"] is not None:
+        if "label" in kwargs:
             if kwargs["label"] not in QubesVmLabels:
                 print "ERROR: incorrect label for VM '{0}'".format(kwargs["name"])
                 kwargs.pop ("label")
@@ -2192,7 +2194,7 @@ class QubesVmCollection(dict):
         if "uses_default_kernelopts" in kwargs:
             kwargs["uses_default_kernelopts"] = False if kwargs["uses_default_kernelopts"] == "False" else True
 
-        if "kernelopts" in kwargs and kwargs["kernelopts"] == "None" or kwargs["kernelopts"] is None:
+        if "kernelopts" not in kwargs or kwargs["kernelopts"] == "None":
             kwargs.pop("kernelopts")
             kwargs["uses_default_kernelopts"] = True
 
