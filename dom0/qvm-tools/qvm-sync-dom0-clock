@@ -1,16 +1,16 @@
 #!/bin/sh
 
-UPDATES_VM=`qvm-get-updatevm`
+CLOCK_VM=`qvm-get-clockvm`
 
 QREXEC_CLIENT=/usr/lib/qubes/qrexec_client
 
-if [ -z "$UPDATES_VM" ]; then
-    echo "UpdateVM not set, exiting!" >&2
+if [ -z "$CLOCK_VM" ]; then
+    echo "ClockVM not set, exiting!" >&2
     exit 1
 fi
 
-if ! xl domid "$UPDATES_VM" > /dev/null 2>&1; then
-    echo "UpdateVM not started, exiting!"
+if ! xl domid "$CLOCK_VM" > /dev/null 2>&1; then
+    echo "ClockVM not started, exiting!"
     exit 1
 fi
 
@@ -19,7 +19,7 @@ fi
 # there seems to be no way to pass output of date +%s.%N to date,
 # so we use human-readable format
 
-CURRENT_TIME="$($QREXEC_CLIENT -d $UPDATES_VM 'user:date -u' |
+CURRENT_TIME="$($QREXEC_CLIENT -d $CLOCK_VM 'user:date -u' |
 	dd count=1 2>/dev/null |
 	grep '^[A-Za-z]* [A-Za-z]* [ 0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9] [A-Z]* [0-9][0-9][0-9][0-9]$'|
 	head -1)"
@@ -29,6 +29,6 @@ if [ -n "$CURRENT_TIME" ] ; then
 	sudo date -u -s "$CURRENT_TIME" ;
 	echo Done.
 else
-	echo "Error while parsing the time obtained from the UpdateVM ($UPDATES_VM).."
+	echo "Error while parsing the time obtained from the ClockVM ($CLOCK_VM).."
 fi
 

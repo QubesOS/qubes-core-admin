@@ -1802,6 +1802,7 @@ class QubesVmCollection(dict):
         self.default_kernel = None
         self.updatevm_qid = None
         self.qubes_store_filename = store_filename
+        self.clockvm_qid = None
 
     def values(self):
         for qid in self.keys():
@@ -1988,6 +1989,15 @@ class QubesVmCollection(dict):
         else:
             return self[self.updatevm_qid]
 
+    def set_clockvm_vm(self, vm):
+        self.clockvm_qid = vm.qid
+
+    def get_clockvm_vm(self):
+        if self.clockvm_qid is None:
+            return None
+        else:
+            return self[self.clockvm_qid]
+
     def get_vm_by_name(self, name):
         for vm in self.values():
             if (vm.name == name):
@@ -2095,6 +2105,9 @@ class QubesVmCollection(dict):
 
             updatevm=str(self.updatevm_qid) \
             if self.updatevm_qid is not None else "None",
+
+            clockvm=str(self.clockvm_qid) \
+            if self.clockvm_qid is not None else "None",
 
             default_kernel=str(self.default_kernel) \
             if self.default_kernel is not None else "None",
@@ -2255,6 +2268,11 @@ class QubesVmCollection(dict):
                     if updatevm != "None" else None
             #assert self.default_netvm_qid is not None
 
+        clockvm = element.get("clockvm")
+        if clockvm is not None:
+            self.clockvm_qid = int(clockvm) \
+                    if clockvm != "None" else None
+
         self.default_kernel = element.get("default_kernel")
 
         # Then, read in the TemplateVMs, because a reference to template VM
@@ -2385,10 +2403,21 @@ class QubesVmCollection(dict):
                     os.path.basename(sys.argv[0]), err))
                 return False
 
+        # if there was no clockvm entry in qubes.xml, try to determine default:
+        # root of default NetVM chain
+        if clockvm is None:
+            if self.default_netvm_qid is not None:
+                clockvm = self[self.default_netvm_qid]
+                # Find root of netvm chain
+                while clockvm.netvm_vm is not None:
+                    clockvm = clockvm.netvm_vm
+
+                self.clockvm_qid = clockvm.qid
+
+        # Enable ntpd in ClockVM
+        if self.clockvm_qid is not None:
+            self[self.clockvm_qid].services['ntpd'] = True
         return True
-
-
-
 
 class QubesDaemonPidfile(object):
     def __init__(self, name):
