@@ -534,15 +534,17 @@ class QubesVm(object):
 
     def get_start_time(self):
         if not self.is_running():
-            return 0
+            return None
 
         dominfo = self.get_xl_dominfo()
 
         uuid = self.get_uuid()
 
         start_time = xs.read('', "/vm/%s/start_time" % str(uuid))
-
-        return start_time
+        if start_time != '':
+            return datetime.datetime.fromtimestamp(float(start_time))
+        else:
+            return None
 
     def is_outdated(self):
         # Makes sense only on VM based on template
