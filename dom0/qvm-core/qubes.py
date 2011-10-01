@@ -204,7 +204,8 @@ class QubesVm(object):
                  kernel = None,
                  uses_default_kernel = True,
                  kernelopts = "",
-                 uses_default_kernelopts = True):
+                 uses_default_kernelopts = True,
+                 services = None):
 
 
         assert qid < qubes_max_qid, "VM id out of bounds!"
@@ -324,6 +325,10 @@ class QubesVm(object):
                 self.kernelopts = default_kernelopts
         else:
             self.kernelopts = kernelopts
+
+        self.services = {}
+        if services is not None:
+            self.services = eval(str(services))
 
         # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
         self.internal = internal
@@ -657,6 +662,11 @@ class QubesVm(object):
             xs.write('',
                     "{0}/qubes_secondary_dns".format(domain_path),
                     self.netvm_vm.secondary_dns)
+
+        for srv in self.services.keys():
+            # convert True/False to "1"/"0"
+            xs.write('', "{0}/qubes-service/{1}".format(domain_path, srv),
+                    str(int(self.services[srv])))
 
         xs.write('',
                 "{0}/qubes-block-devices".format(domain_path),
@@ -1119,6 +1129,7 @@ class QubesVm(object):
         attrs["kernel"] = str(self.kernel)
         attrs["uses_default_kernelopts"] = str(self.uses_default_kernelopts)
         attrs["kernelopts"] = str(self.kernelopts)
+        attrs["services"] = str(self.services)
         return attrs
 
     def create_xml_element(self):
@@ -2114,7 +2125,8 @@ class QubesVmCollection(dict):
                 "private_img", "root_img", "template_qid",
                 "installed_by_rpm", "updateable", "internal",
                 "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
-                "maxmem", "kernel", "uses_default_kernel", "kernelopts", "uses_default_kernelopts" )
+                "maxmem", "kernel", "uses_default_kernel", "kernelopts", "uses_default_kernelopts",
+                "services" )
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)

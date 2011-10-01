@@ -30,9 +30,17 @@ start()
 		# This script runs only on AppVMs
 		return 0
 	fi
-    
+
 	# Start AppVM specific services
-	/sbin/service cups start
+	start_cups=$(/usr/bin/xenstore-read qubes-service/cups 2> /dev/null)
+	if [ "$start_cups" != "0" ]; then
+		/sbin/service cups start
+		# Allow also notification icon
+		sed -i -e '/^NotShowIn=.*QUBES/s/;QUBES//' /etc/xdg/autostart/print-applet.desktop
+	else
+		# Disable notification icon
+		sed -i -e '/QUBES/!s/^NotShowIn=.*/\1QUBES;/' /etc/xdg/autostart/print-applet.desktop
+	fi
 
 	echo -n $"Executing Qubes Core scripts for AppVM:"
 
@@ -52,9 +60,12 @@ start()
 		echo Back to life.
 	fi
 
-	MEM_CHANGE_THRESHOLD_KB=30000
-	MEMINFO_DELAY_USEC=100000
-	/usr/lib/qubes/meminfo-writer $MEM_CHANGE_THRESHOLD_KB $MEMINFO_DELAY_USEC &
+	start_meminfo_writer=$(/usr/bin/xenstore-read qubes-service/meminfo-writer)
+	if [ "$start_meminfo_writer" != "0" ]; then
+		MEM_CHANGE_THRESHOLD_KB=30000
+		MEMINFO_DELAY_USEC=100000
+		/usr/lib/qubes/meminfo-writer $MEM_CHANGE_THRESHOLD_KB $MEMINFO_DELAY_USEC &
+	fi
 
 	success
 	echo ""

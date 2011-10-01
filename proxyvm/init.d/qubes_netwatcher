@@ -11,7 +11,8 @@ PIDFILE=/var/run/qubes/qubes_netwatcher.pid
 start()
 {
     type=$(/usr/bin/xenstore-read qubes_vm_type)
-    if [ "$type" == "ProxyVM" ]; then
+    start_netwatcher=$(/usr/bin/xenstore-read qubes-service/qubes-netwatcher)
+    if [ -z "$start_netwatcher" ] && [ "$type" == "ProxyVM" ] || [ "$start_netwatcher" == "1" ]; then
         echo -n $"Starting Qubes Network monitor:"
         /sbin/ethtool -K eth0 sg off
         /usr/sbin/qubes_netwatcher &
@@ -23,8 +24,7 @@ start()
 
 stop()
 {
-    type=$(/usr/bin/xenstore-read qubes_vm_type)
-    if [ "$type" == "ProxyVM" ]; then
+    if [ -r "$PIDFILE" ]; then
         echo -n "Stopping Qubes Network monitor:"
         kill -9 $(cat $PIDFILE) 2>/dev/null  && success || failure
         echo ""
