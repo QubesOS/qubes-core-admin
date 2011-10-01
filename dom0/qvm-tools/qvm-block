@@ -107,7 +107,7 @@ def main():
             attached_to_str = ""
             if attached_to:
                 attached_to_str = " (attached to '%s' as '%s')" % (attached_to['vm'], attached_to['frontend'])
-            size_str = kbytes_to_kmg(dev['size'])
+            size_str = bytes_to_kmg(dev['size'])
             print "%s\t%s %s%s" % (dev['name'], dev['desc'], size_str, attached_to_str)
         exit (0)
 

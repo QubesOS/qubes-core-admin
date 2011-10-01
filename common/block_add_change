@@ -2,7 +2,7 @@
 
 NAME=${DEVNAME#/dev/}
 DESC="${ID_MODEL} (${ID_FS_LABEL})"
-SIZE=$(cat /sys/$DEVPATH/size)
+SIZE=$[ $(cat /sys/$DEVPATH/size) * 512 ]
 MODE=w
 XS_KEY="qubes-block-devices/$NAME"
 
