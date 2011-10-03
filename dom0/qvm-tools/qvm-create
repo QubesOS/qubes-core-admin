@@ -27,26 +27,6 @@ import subprocess
 import re
 import os
 
-def find_net_devices():
-    p = subprocess.Popen (["lspci", "-mm", "-n"], stdout=subprocess.PIPE)
-    result = p.communicate()
-    retcode = p.returncode
-    if (retcode != 0):
-        print "ERROR when executing lspci!"
-        raise IOError
-
-    net_devices = set()
-    rx_netdev = re.compile (r"^([0-9][0-9]:[0-9][0-9].[0-9]) \"02")
-    for dev in str(result[0]).splitlines():
-        match = rx_netdev.match (dev)
-        if match is not None:
-            dev_bdf = match.group(1)
-            assert dev_bdf is not None
-            net_devices.add (dev_bdf)
-
-    return  net_devices
-
-
 def main():
     usage = "usage: %prog [options] <vm-name>"
     parser = OptionParser (usage)
@@ -137,17 +117,6 @@ def main():
     vm = None
     if options.netvm:
         vm = qvm_collection.add_new_netvm(vmname, new_vm_template, label = label, updateable = options.standalone)
-        
-        net_devices = find_net_devices()
-        print "Found the following net devices in your system:"
-        devs = []
-        for dev in net_devices:
-            print "--> {0}".format(dev)
-            devs.append(dev)
-
-        print "Assigning them to the netvm '{0}'".format(vmname)
-        vm.pcidevs = str(devs)
-
     elif options.proxyvm:
         vm = qvm_collection.add_new_proxyvm(vmname, new_vm_template, label = label, updateable = options.standalone)
     else:
