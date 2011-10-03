@@ -603,28 +603,17 @@ class QubesVm(object):
         if not self.is_running():
             return
 
-        p = subprocess.Popen (["/usr/sbin/xl", "network-list", self.name],
-                 stdout=subprocess.PIPE)
-        result = p.communicate()
-        for line in result[0].split('\n'):
-            m = re.match(r"^(\d+)\s*(\d+)", line)
-            if m:
-                retcode = subprocess.call(["/usr/sbin/xl", "list", m.group(2)],
-                        stderr=subprocess.PIPE)
-                if retcode != 0:
-                    # Don't check retcode - it always will fail when backend domain is down
-                    subprocess.call(["/usr/sbin/xl",
-                            "network-detach", self.name, m.group(1)], stderr=subprocess.PIPE)
-                    # Wait for device destroy (in most cases just ensure that device already is removed)
-                    tries = 0
-                    path = "{0}/device/vif/0/state".format(xs.get_domain_path(self.xid))
-                    while xs.read('', path) is not None:
-                        time.sleep(0.1)
-                        tries += 1
-                        if tries > 10:
-                            # timeout
-                            break
-
+        dev_basepath = '/local/domain/%d/device/vif' % self.xid
+        for dev in xs.list('', dev_basepath):
+            # check if backend domain is alive
+            backend_xid = int(xs.read('', '%s/%s/backend-id' % (dev_basepath, dev)))
+            if xl_ctx.domid_to_name(backend_xid) is not None:
+                # check if device is still active
+                if xs.read('', '%s/%s/state' % (dev_basepath, dev)) == '4':
+                    continue
+            # remove dead device
+            xs.rm('', '%s/%s' % (dev_basepath, dev))
+                    
     def create_xenstore_entries(self, xid = None):
         if dry_run:
             return
