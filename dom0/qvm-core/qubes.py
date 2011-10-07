@@ -2156,8 +2156,8 @@ class QubesVmCollection(dict):
                 if template_vm is None:
                     print >> sys.stderr, "ERROR: VM '{0}' uses unkown template qid='{1}'!".\
                             format(kwargs["name"], kwargs["template_qid"])
-
-                kwargs["template_vm"] = template_vm
+                else:
+                    kwargs["template_vm"] = template_vm
 
         if "label" in kwargs:
             if kwargs["label"] not in QubesVmLabels:
@@ -2377,8 +2377,9 @@ class QubesVmCollection(dict):
                 if template_vm is None:
                     print >> sys.stderr, "ERROR: DisposableVM '{0}' uses unkown template qid='{1}'!".\
                             format(kwargs["name"], kwargs["template_qid"])
+                else:
+                    kwargs["template_vm"] = template_vm
 
-                kwargs["template_vm"] = template_vm
                 kwargs["netvm_vm"] = self.get_default_netvm_vm()
 
                 if kwargs["label"] is not None:
