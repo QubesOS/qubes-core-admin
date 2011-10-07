@@ -280,10 +280,10 @@ class QubesVm(object):
         self.template_vm = template_vm
         if template_vm is not None:
             if updateable:
-                print "ERROR: Template based VM cannot be updateable!"
+                print >> sys.stderr, "ERROR: Template based VM cannot be updateable!"
                 return False
             if not template_vm.is_template():
-                print "ERROR: template_qid={0} doesn't point to a valid TemplateVM".\
+                print >> sys.stderr, "ERROR: template_qid={0} doesn't point to a valid TemplateVM".\
                     format(template_vm.qid)
                 return False
 
@@ -733,17 +733,17 @@ class QubesVm(object):
             return
 
         if verbose:
-            print "--> Creating directory: {0}".format(self.dir_path)
+            print >> sys.stderr, "--> Creating directory: {0}".format(self.dir_path)
         os.mkdir (self.dir_path)
 
         if verbose:
-            print "--> Creating the VM config file: {0}".format(self.conf_file)
+            print >> sys.stderr, "--> Creating the VM config file: {0}".format(self.conf_file)
 
         self.create_config_file(source_template = source_template)
 
         template_priv = source_template.private_img
         if verbose:
-            print "--> Copying the template's private image: {0}".\
+            print >> sys.stderr, "--> Copying the template's private image: {0}".\
                     format(template_priv)
 
         # We prefer to use Linux's cp, because it nicely handles sparse files
@@ -754,7 +754,7 @@ class QubesVm(object):
 
         if os.path.exists(source_template.dir_path + '/vm-' + qubes_whitelisted_appmenus):
             if verbose:
-                print "--> Creating default whitelisted apps list: {0}".\
+                print >> sys.stderr, "--> Creating default whitelisted apps list: {0}".\
                     format(self.dir_path + '/' + qubes_whitelisted_appmenus)
             shutil.copy(source_template.dir_path + '/vm-' + qubes_whitelisted_appmenus,
                     self.dir_path + '/' + qubes_whitelisted_appmenus)
@@ -762,7 +762,7 @@ class QubesVm(object):
         if self.is_updateable():
             template_root = source_template.root_img
             if verbose:
-                print "--> Copying the template's root image: {0}".\
+                print >> sys.stderr, "--> Copying the template's root image: {0}".\
                         format(template_root)
 
             # We prefer to use Linux's cp, because it nicely handles sparse files
@@ -773,7 +773,7 @@ class QubesVm(object):
 
             kernels_dir = source_template.kernels_dir
             if verbose:
-                print "--> Copying the kernel (set kernel \"none\" to use it): {0}".\
+                print >> sys.stderr, "--> Copying the kernel (set kernel \"none\" to use it): {0}".\
                         format(kernels_dir)
 
             os.mkdir (self.dir_path + '/kernels')
@@ -802,7 +802,7 @@ class QubesVm(object):
                 # Only add apps to menu
                 subprocess.check_call ([qubes_appmenu_create_cmd, "none", self.name, vmtype])
         except subprocess.CalledProcessError:
-            print "Ooops, there was a problem creating appmenus for {0} VM!".format (self.name)
+            print >> sys.stderr, "Ooops, there was a problem creating appmenus for {0} VM!".format (self.name)
 
     def verify_files(self):
         if dry_run:
@@ -850,7 +850,7 @@ class QubesVm(object):
             return
 
         if verbose:
-            print "--> Cleaning volatile image: {0}...".format (self.volatile_img)
+            print >> sys.stderr, "--> Cleaning volatile image: {0}...".format (self.volatile_img)
         if dry_run:
             return
         if os.path.exists (self.volatile_img):
@@ -899,7 +899,7 @@ class QubesVm(object):
                 fcntl.lockf(f, fcntl.LOCK_UN)
             f.close()
         except EnvironmentError as err:
-            print "{0}: save error: {1}".format(
+            print >> sys.stderr, "{0}: save error: {1}".format(
                     os.path.basename(sys.argv[0]), err)
             return False
 
@@ -969,20 +969,20 @@ class QubesVm(object):
         if netvm.qid != 0:
             if not netvm.is_running():
                 if verbose:
-                    print "--> Starting NetVM {0}...".format(netvm.name)
+                    print >> sys.stderr, "--> Starting NetVM {0}...".format(netvm.name)
                 netvm.start()
 
         xs_path = '/local/domain/%d/device/vif/0/state' % (self.xid)
         if xs.read('', xs_path) is not None:
             # TODO: check its state and backend state (this can be stale vif after NetVM restart)
             if verbose:
-                print "NOTICE: Network already attached"
+                print >> sys.stderr, "NOTICE: Network already attached"
                 return
 
         xm_cmdline = ["/usr/sbin/xl", "network-attach", str(self.xid), "script=/etc/xen/scripts/vif-route-qubes", "ip="+self.ip, "backend="+netvm.name ]
         retcode = subprocess.call (xm_cmdline)
         if retcode != 0:
-            print ("WARNING: Cannot attach to network to '{0}'!".format(self.name))
+            print >> sys.stderr, ("WARNING: Cannot attach to network to '{0}'!".format(self.name))
         if wait:
             tries = 0
             while xs.read('', xs_path) != '4':
@@ -1003,12 +1003,12 @@ class QubesVm(object):
             if self.netvm_vm.qid != 0:
                 if not self.netvm_vm.is_running():
                     if verbose:
-                        print "--> Starting NetVM {0}...".format(self.netvm_vm.name)
+                        print >> sys.stderr, "--> Starting NetVM {0}...".format(self.netvm_vm.name)
                     self.netvm_vm.start()
 
         self.reset_volatile_storage(verbose=verbose)
         if verbose:
-            print "--> Loading the VM (type = {0})...".format(self.type)
+            print >> sys.stderr, "--> Loading the VM (type = {0})...".format(self.type)
 
         # refresh config file
         self.create_config_file()
@@ -1034,7 +1034,7 @@ class QubesVm(object):
         self.xid = xid
 
         if verbose:
-            print "--> Setting Xen Store info for the VM..."
+            print >> sys.stderr, "--> Setting Xen Store info for the VM..."
         self.create_xenstore_entries(xid)
 
         qvm_collection = QubesVmCollection()
@@ -1043,18 +1043,18 @@ class QubesVm(object):
         qvm_collection.unlock_db()
 
         if verbose:
-            print "--> Updating firewall rules..."
+            print >> sys.stderr, "--> Updating firewall rules..."
         for vm in qvm_collection.values():
             if vm.is_proxyvm() and vm.is_running():
                 vm.write_iptables_xenstore_entry()
 
         if verbose:
-            print "--> Starting the VM..."
+            print >> sys.stderr, "--> Starting the VM..."
         xc.domain_unpause(xid)
 
         if not preparing_dvm:
             if verbose:
-                print "--> Starting the qrexec daemon..."
+                print >> sys.stderr, "--> Starting the qrexec daemon..."
             retcode = subprocess.call ([qrexec_daemon_path, str(xid)])
             if (retcode != 0) :
                 self.force_shutdown()
@@ -1069,7 +1069,7 @@ class QubesVm(object):
 
         if preparing_dvm:
             if verbose:
-                print "--> Preparing config template for DispVM"
+                print >> sys.stderr, "--> Preparing config template for DispVM"
             self.create_config_file(file_path = self.dir_path + '/dvm.conf', prepare_dvm = True)
 
         # perhaps we should move it before unpause and fork?
@@ -1077,7 +1077,7 @@ class QubesVm(object):
         if debug_console:
             from xen.xm import console
             if verbose:
-                print "--> Starting debug console..."
+                print >> sys.stderr, "--> Starting debug console..."
             console.execConsole (xid)
 
         return xid
@@ -1190,11 +1190,11 @@ class QubesTemplateVm(QubesVm):
         assert not src_template_vm.is_running(), "Attempt to clone a running Template VM!"
 
         if verbose:
-            print "--> Creating directory: {0}".format(self.dir_path)
+            print >> sys.stderr, "--> Creating directory: {0}".format(self.dir_path)
         os.mkdir (self.dir_path)
 
         if verbose:
-            print "--> Copying the template's private image:\n{0} ==>\n{1}".\
+            print >> sys.stderr, "--> Copying the template's private image:\n{0} ==>\n{1}".\
                     format(src_template_vm.private_img, self.private_img)
         # We prefer to use Linux's cp, because it nicely handles sparse files
         retcode = subprocess.call (["cp", src_template_vm.private_img, self.private_img])
@@ -1203,7 +1203,7 @@ class QubesTemplateVm(QubesVm):
                            format(src_template_vm.private_img, self.private_img))
 
         if verbose:
-            print "--> Copying the template's root image:\n{0} ==>\n{1}".\
+            print >> sys.stderr, "--> Copying the template's root image:\n{0} ==>\n{1}".\
                     format(src_template_vm.root_img, self.root_img)
         # We prefer to use Linux's cp, because it nicely handles sparse files
         retcode = subprocess.call (["cp", src_template_vm.root_img, self.root_img])
@@ -1211,7 +1211,7 @@ class QubesTemplateVm(QubesVm):
             raise IOError ("Error while copying {0} to {1}".\
                            format(src_template_vm.root_img, self.root_img))
         if verbose:
-            print "--> Copying the template's clean volatile image:\n{0} ==>\n{1}".\
+            print >> sys.stderr, "--> Copying the template's clean volatile image:\n{0} ==>\n{1}".\
                     format(src_template_vm.clean_volatile_img, self.clean_volatile_img)
         # We prefer to use Linux's cp, because it nicely handles sparse files
         retcode = subprocess.call (["cp", src_template_vm.clean_volatile_img, self.clean_volatile_img])
@@ -1219,7 +1219,7 @@ class QubesTemplateVm(QubesVm):
             raise IOError ("Error while copying {0} to {1}".\
                            format(src_template_vm.clean_volatile_img, self.clean_volatile_img))
         if verbose:
-            print "--> Copying the template's volatile image:\n{0} ==>\n{1}".\
+            print >> sys.stderr, "--> Copying the template's volatile image:\n{0} ==>\n{1}".\
                     format(self.clean_volatile_img, self.volatile_img)
         # We prefer to use Linux's cp, because it nicely handles sparse files
         retcode = subprocess.call (["cp", self.clean_volatile_img, self.volatile_img])
@@ -1228,33 +1228,33 @@ class QubesTemplateVm(QubesVm):
                            format(self.clean_volatile_img, self.volatile_img))
 
         if verbose:
-            print "--> Copying the template's DispVM prerun script..."
+            print >> sys.stderr, "--> Copying the template's DispVM prerun script..."
         retcode = subprocess.call (["cp", src_template_vm.dir_path + '/dispvm-prerun.sh', self.dir_path + '/dispvm-prerun.sh'])
         if retcode != 0:
             raise IOError ("Error while copying DispVM prerun script")
 
         if verbose:
-            print "--> Copying the template's appmenus templates dir:\n{0} ==>\n{1}".\
+            print >> sys.stderr, "--> Copying the template's appmenus templates dir:\n{0} ==>\n{1}".\
                     format(src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
         shutil.copytree (src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
 
         if os.path.exists(src_template_vm.dir_path + '/' + qubes_whitelisted_appmenus):
             if verbose:
-                print "--> Copying whitelisted apps list: {0}".\
+                print >> sys.stderr, "--> Copying whitelisted apps list: {0}".\
                     format(self.dir_path + '/' + qubes_whitelisted_appmenus)
             shutil.copy(src_template_vm.dir_path + '/' + qubes_whitelisted_appmenus,
                     self.dir_path + '/' + qubes_whitelisted_appmenus)
 
         if os.path.exists(src_template_vm.dir_path + '/vm-' + qubes_whitelisted_appmenus):
             if verbose:
-                print "--> Copying default whitelisted apps list: {0}".\
+                print >> sys.stderr, "--> Copying default whitelisted apps list: {0}".\
                     format(self.dir_path + '/vm-' + qubes_whitelisted_appmenus)
             shutil.copy(src_template_vm.dir_path + '/vm-' + qubes_whitelisted_appmenus,
                     self.dir_path + '/vm-' + qubes_whitelisted_appmenus)
 
         icon_path = "/usr/share/qubes/icons/template.png"
         if verbose:
-            print "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, icon_path)
+            print >> sys.stderr, "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, icon_path)
         os.symlink (icon_path, self.icon_path)
 
         # Create root-cow.img
@@ -1270,7 +1270,7 @@ class QubesTemplateVm(QubesVm):
         try:
             subprocess.check_call ([qubes_appmenu_create_cmd, self.appmenus_templates_dir, self.name, "vm-templates"])
         except subprocess.CalledProcessError:
-            print "Ooops, there was a problem creating appmenus for {0} VM!".format (self.name)
+            print >> sys.stderr, "Ooops, there was a problem creating appmenus for {0} VM!".format (self.name)
 
     def remove_from_disk(self):
         if dry_run:
@@ -1333,7 +1333,7 @@ class QubesTemplateVm(QubesVm):
         assert not self.is_running(), "Attempt to clean volatile image of running Template VM!"
 
         if verbose:
-            print "--> Cleaning volatile image: {0}...".format (self.volatile_img)
+            print >> sys.stderr, "--> Cleaning volatile image: {0}...".format (self.volatile_img)
         if dry_run:
             return
         if os.path.exists (self.volatile_img):
@@ -1349,7 +1349,7 @@ class QubesTemplateVm(QubesVm):
         assert not self.is_running(), "Attempt to commit changes on running Template VM!"
 
         if verbose:
-            print "--> Commiting template updates... COW: {0}...".format (self.rootcow_img)
+            print >> sys.stderr, "--> Commiting template updates... COW: {0}...".format (self.rootcow_img)
 
         if dry_run:
             return
@@ -1473,7 +1473,7 @@ class QubesNetVm(QubesVm):
                 continue
 
             if verbose:
-                print "--> Attaching network to '{0}'...".format(vm.name)
+                print >> sys.stderr, "--> Attaching network to '{0}'...".format(vm.name)
 
             # Cleanup stale VIFs
             vm.cleanup_vifs()
@@ -1484,7 +1484,7 @@ class QubesNetVm(QubesVm):
             try:
                 vm.attach_network(wait=False)
             except QubesException as ex:
-                print ("WARNING: Cannot attach to network to '{0}': {1}".format(vm.name, ex))
+                print >> sys.stderr, ("WARNING: Cannot attach to network to '{0}': {1}".format(vm.name, ex))
 
         return xid
 
@@ -1756,12 +1756,12 @@ class QubesAppVm(QubesVm):
 
         if self.is_updateable():
             if verbose:
-                print "--> Copying the template's appmenus templates dir:\n{0} ==>\n{1}".\
+                print >> sys.stderr, "--> Copying the template's appmenus templates dir:\n{0} ==>\n{1}".\
                         format(source_template.appmenus_templates_dir, self.appmenus_templates_dir)
             shutil.copytree (source_template.appmenus_templates_dir, self.appmenus_templates_dir)
 
         if verbose:
-            print "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
+            print >> sys.stderr, "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
         os.symlink (self.label.icon_path, self.icon_path)
 
         if not self.internal:
@@ -2028,14 +2028,14 @@ class QubesVmCollection(dict):
         # Verify that qid is unique
         for vm in self.values():
             if vm.qid == new_vm.qid:
-                print "ERROR: The qid={0} is already used by VM '{1}'!".\
+                print >> sys.stderr, "ERROR: The qid={0} is already used by VM '{1}'!".\
                         format(vm.qid, vm.name)
                 return False
 
         # Verify that name is unique
         for vm in self.values():
             if vm.name == new_vm.name:
-                print "ERROR: The name={0} is already used by other VM with qid='{1}'!".\
+                print >> sys.stderr, "ERROR: The name={0} is already used by other VM with qid='{1}'!".\
                         format(vm.name, vm.qid)
                 return False
 
@@ -2154,14 +2154,14 @@ class QubesVmCollection(dict):
                 kwargs["template_qid"] = int(kwargs["template_qid"])
                 template_vm = self[kwargs.pop("template_qid")]
                 if template_vm is None:
-                    print "ERROR: VM '{0}' uses unkown template qid='{1}'!".\
+                    print >> sys.stderr, "ERROR: VM '{0}' uses unkown template qid='{1}'!".\
                             format(kwargs["name"], kwargs["template_qid"])
 
                 kwargs["template_vm"] = template_vm
 
         if "label" in kwargs:
             if kwargs["label"] not in QubesVmLabels:
-                print "ERROR: incorrect label for VM '{0}'".format(kwargs["name"])
+                print >> sys.stderr, "ERROR: incorrect label for VM '{0}'".format(kwargs["name"])
                 kwargs.pop ("label")
             else:
                 kwargs["label"] = QubesVmLabels[kwargs["label"]]
@@ -2375,7 +2375,7 @@ class QubesVmCollection(dict):
 
                 template_vm = self[kwargs.pop("template_qid")]
                 if template_vm is None:
-                    print "ERROR: DisposableVM '{0}' uses unkown template qid='{1}'!".\
+                    print >> sys.stderr, "ERROR: DisposableVM '{0}' uses unkown template qid='{1}'!".\
                             format(kwargs["name"], kwargs["template_qid"])
 
                 kwargs["template_vm"] = template_vm
@@ -2383,7 +2383,7 @@ class QubesVmCollection(dict):
 
                 if kwargs["label"] is not None:
                     if kwargs["label"] not in QubesVmLabels:
-                        print "ERROR: incorrect label for VM '{0}'".format(kwargs["name"])
+                        print >> sys.stderr, "ERROR: incorrect label for VM '{0}'".format(kwargs["name"])
                         kwargs.pop ("label")
                     else:
                         kwargs["label"] = QubesVmLabels[kwargs["label"]]
@@ -2438,7 +2438,7 @@ class QubesDaemonPidfile(object):
         # check if the pid file is valid...
         proc_path = "/proc/" + str(self.read_pid()) + "/cmdline"
         if not os.path.exists (proc_path):
-            print "Path {0} doesn't exist, assuming stale pidfile.".format(proc_path)
+            print >> sys.stderr, "Path {0} doesn't exist, assuming stale pidfile.".format(proc_path)
             return True
 
         f = open (proc_path)
@@ -2447,7 +2447,7 @@ class QubesDaemonPidfile(object):
 
 #       The following doesn't work with python -- one would have to get argv[1] and compare it with self.name...
 #        if not cmdline.strip().endswith(self.name):
-#            print "{0} = {1} doesn't seem to point to our process ({2}), assuming stale pidile.".format(proc_path, cmdline, self.name)
+#            print >> sys.stderr, "{0} = {1} doesn't seem to point to our process ({2}), assuming stale pidile.".format(proc_path, cmdline, self.name)
 #            return True
 
         return False # It's a good pidfile
