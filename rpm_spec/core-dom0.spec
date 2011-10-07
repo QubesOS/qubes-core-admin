@@ -118,6 +118,7 @@ cp ../qrexec/qubes_rpc_multiplexer $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/qubes.ReceiveUpdates.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.ReceiveUpdates
 cp aux-tools/qubes.ReceiveUpdates $RPM_BUILD_ROOT/etc/qubes_rpc/
 install -D aux-tools/qubes-dom0.modules $RPM_BUILD_ROOT/etc/sysconfig/modules/qubes-dom0.modules
+install -D aux-tools/qubes-dom0-updates.cron $RPM_BUILD_ROOT/etc/cron.daily/qubes-dom0-updates.cron
 
 cp restore/qvm-create-default-dvm $RPM_BUILD_ROOT/usr/bin
 cp restore/xenstore-watch $RPM_BUILD_ROOT/usr/bin/xenstore-watch-qubes
@@ -373,6 +374,7 @@ fi
 /etc/xdg/autostart/qubes-guid.desktop
 /etc/security/limits.d/99-qubes.conf
 /etc/udev/rules.d/99-qubes_block.rules
+/etc/cron.daily/qubes-dom0-updates.cron
 /etc/dracut.conf.d/*
 %dir /usr/share/dracut/modules.d/90qubes-pciback
 /usr/share/dracut/modules.d/90qubes-pciback/*
