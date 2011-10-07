@@ -10,35 +10,19 @@ if [ "$1" = "--help" ]; then
     echo "This tool is used to download packages for dom0. Without package list"
     echo "it checks for updates for installed packages"
     echo ""
-    echo "Usage: $0 [--clean] [<pkg list>]"
+    echo "Usage: $0 [--clean] [--check-only] [--gui] [<pkg list>]"
     echo "    --clean      clean yum cache before doing anything"
+    echo "    --check-only only check for updates (no install)"
+    echo "    --gui        use gpk-update-viewer for update selection"
     echo "    <pkg list>   download (and install if run by root) new packages"
     echo "                 in dom0 instead of updating"
     exit
 fi
 
-ID=$(id -ur)
-if [ $ID != 0 ] ; then
-    echo "This script should be run as root, use sudo."
-    exit
-fi
-
-# We should ensure the clocks in Dom0 and UpdateVM are in sync
-# becuase otherwise yum might complain about future timestamps
-qvm-sync-dom0-clock
-
-echo "Checking for dom0 updates"
-
-# Start VM if not running already
-qvm-run -a $UPDATEVM true || exit 1
-
-/usr/lib/qubes/qrexec_client -d "$UPDATEVM" -l 'tar c /var/lib/rpm /etc/yum.repos.d /etc/yum.conf 2>/dev/null' 'user:tar x -C /var/lib/qubes/dom0-updates'
-
-qvm-run --pass_io $UPDATEVM "/usr/lib/qubes/qubes_download_dom0_updates.sh --doit --nogui $*" || exit 1
-# Wait for download completed
-while pidof -x qubes-receive-updates >/dev/null; do sleep 0.5; done
 PKGS=
-OPTS=
+YUM_OPTS=
+GUI=
+CHECK_ONLY=
 # Filter out some yum options and collect packages list
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -46,8 +30,14 @@ while [ $# -gt 0 ]; do
         --disablerepo=*|\
         --clean)
             ;;
+        --gui)
+            GUI=1
+            ;;
+        --check-only)
+            CHECK_ONLY=1
+            ;;
         -*)
-            OPTS="$OPTS $1"
+            YUM_OPTS="$YUM_OPTS $1"
             ;;
         *)
             PKGS="$PKGS $1"
@@ -56,14 +46,56 @@ while [ $# -gt 0 ]; do
     shift
 done
 
+ID=$(id -ur)
+if [ $ID != 0 -a -z "$GUI" -z "$CHECK_ONLY" ] ; then
+    echo "This script should be run as root (when used in console mode), use sudo." >&2
+    exit
+fi
+
+if [ "$GUI" == "1" -a -n "$PKGS" ]; then
+    echo "ERROR: GUI mode can be used only for updates" >&2
+    exit 1
+fi
+
+# Do not start VM automaticaly when running from cron (only checking for updates)
+if [ "$CHECK_ONLY" == "1" ] && ! xl domid $UPDATEVM > /dev/null 2>&1; then
+    echo "ERROR: UpdateVM not running, not starting it in non-interactive mode" >&2
+    exit 1
+fi
+
+# We should ensure the clocks in Dom0 and UpdateVM are in sync
+# becuase otherwise yum might complain about future timestamps
+qvm-sync-dom0-clock
+
+echo "Checking for dom0 updates" >&2
+
+# Start VM if not running already
+qvm-run -a $UPDATEVM true || exit 1
+
+/usr/lib/qubes/qrexec_client -d "$UPDATEVM" -l 'tar c /var/lib/rpm /etc/yum.repos.d /etc/yum.conf 2>/dev/null' 'user:tar x -C /var/lib/qubes/dom0-updates'
+
+qvm-run --pass_io $UPDATEVM "/usr/lib/qubes/qubes_download_dom0_updates.sh --doit --nogui $*"
+RETCODE=$?
+if [ "$CHECK_ONLY" == "1" ]; then
+    exit $RETCODE
+elif [ "$RETCODE" -ne 0 ]; then
+    exit $RETCODE
+fi
+# Wait for download completed
+while pidof -x qubes-receive-updates >/dev/null; do sleep 0.5; done
+
 if [ "x$PKGS" != "x" ]; then
-    yum $OPTS install $PKGS
+    yum $YUM_OPTS install $PKGS
 elif [ -f /var/lib/qubes/updates/repodata/repomd.xml ]; then
     # Above file exists only when at least one package was downloaded
-    yum check-update
-    if [ $? -eq 100 ]; then
-        yum $OPTS update
+    if [ "$GUI" == "1" ]; then
+        gpk-update-viewer
+    else
+        yum check-update
+        if [ $? -eq 100 ]; then
+            yum $YUM_OPTS update
+        fi
     fi
 else
-    echo "No updates avaliable"
+    echo "No updates avaliable" >&2
 fi
