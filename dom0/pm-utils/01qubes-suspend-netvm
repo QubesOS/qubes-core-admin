@@ -16,7 +16,7 @@ get_running_netvms() {
 suspend_net()
 {
     for VM in `get_running_netvms`; do
-        qvm-run -u root --pass_io $VM 'service NetworkManager stop; for if in `ls /sys/class/net|grep -v "lo\|vif"`; do ip l s $if down; done; rmmod ehci_hcd'
+        qvm-run -u root --pass_io $VM 'service NetworkManager stop; for if in `ls /sys/class/net|grep -v "lo\|vif"`; do ip l s $if down; done; modprobe -r uhci_hcd ehci_hcd'
     done
     # Ignore exit status from netvm...
     return 0
@@ -25,7 +25,7 @@ suspend_net()
 resume_net()
 {
     for VM in `get_running_netvms`; do
-        qvm-run -u root --pass_io $VM "modprobe ehci_hcd; service NetworkManager start"
+        qvm-run -u root --pass_io $VM "modprobe ehci_hcd; modprobe uhci_hcd; service NetworkManager start"
     done
     # Ignore exit status from netvm...
     return 0
