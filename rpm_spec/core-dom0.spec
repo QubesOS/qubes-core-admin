@@ -205,6 +205,8 @@ echo reposdir=/etc/yum.real.repos.d >> /etc/yum.conf
 sed '/^installonlypkgs\s*=/d' -i /etc/yum.conf
 echo 'installonlypkgs = kernel, kernel-qubes-vm' >> /etc/yum.conf
 
+sed 's/^PRELINKING\s*=.*/PRELINKING=no/' -i /etc/sysconfig/prelink
+
 chkconfig --add qubes_core || echo "WARNING: Cannot add service qubes_core!"
 chkconfig --add qubes_netvm || echo "WARNING: Cannot add service qubes_netvm!"
 chkconfig --add qubes_setupdvm || echo "WARNING: Cannot add service qubes_setupdvm!"
