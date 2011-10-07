@@ -16,6 +16,9 @@ while [ -n "$1" ]; do
         --nogui)
             GUI=0
             ;;
+        --gui)
+            GUI=1
+            ;;
         --clean)
             CLEAN=1
             ;;
