@@ -21,11 +21,12 @@
 #
 
 from qubes.qubes import QubesVmCollection
+import sys
 
 def main():
     qvm_collection = QubesVmCollection()
     if qvm_collection.check_if_storage_exists():
-        print "Storage exists, not overwriting."
+        print >> sys.stderr, "Storage exists, not overwriting."
         exit(1)
     qvm_collection.create_empty_storage()
 

@@ -23,6 +23,7 @@
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
 from optparse import OptionParser;
+import sys
 
 def main():
     usage = "usage: %prog [options] <src-template-name> <new-template-name>\n"\
@@ -45,11 +46,11 @@ def main():
 
     src_tvm = qvm_collection.get_vm_by_name(srcname)
     if src_tvm is  None:
-        print "ERROR: A VM with the name '{0}' does not exist in the system.".format(srcname)
+        print >> sys.stderr, "ERROR: A VM with the name '{0}' does not exist in the system.".format(srcname)
         exit(1)
 
     if qvm_collection.get_vm_by_name(dstname) is not None:
-        print "ERROR: A VM with the name '{0}' already exists in the system.".format(dstname)
+        print >> sys.stderr, "ERROR: A VM with the name '{0}' already exists in the system.".format(dstname)
         exit(1)
 
     dst_tvm = qvm_collection.clone_templatevm(src_template_vm=src_tvm,
@@ -59,7 +60,7 @@ def main():
     try:
         dst_tvm.clone_disk_files (src_template_vm=src_tvm, verbose=options.verbose)
     except (IOError, OSError) as err:
-        print "ERROR: {0}".format(err)
+        print >> sys.stderr, "ERROR: {0}".format(err)
         qvm_collection.pop(dst_tvm.qid)
         exit (1)
 

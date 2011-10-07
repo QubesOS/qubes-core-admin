@@ -23,6 +23,7 @@
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
 from optparse import OptionParser;
+import sys
 
 def main():
     usage = "usage: %prog [options] <vm-template-name>\n"\
@@ -49,7 +50,7 @@ def main():
     qvm_collection.load()
 
     if qvm_collection.get_vm_by_name(vmname) is not None:
-        print "ERROR: A VM with the name '{0}' already exists in the system.".format(vmname)
+        print >> sys.stderr, "ERROR: A VM with the name '{0}' already exists in the system.".format(vmname)
         exit(1)
 
     vm = qvm_collection.add_new_templatevm(vmname, 
@@ -60,7 +61,7 @@ def main():
     try:
         vm.verify_files()
     except QubesException as err:
-        print "ERROR: {0}".format(err)
+        print >> sys.stderr, "ERROR: {0}".format(err)
         qvm_collection.pop(vm.qid)
         exit (1)
 

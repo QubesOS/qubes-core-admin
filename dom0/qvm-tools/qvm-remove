@@ -23,6 +23,7 @@
 from qubes.qubes import QubesVmCollection
 from optparse import OptionParser;
 import os
+import sys
 
 def main():
     usage = "usage: %prog [options] <vm-name>"
@@ -42,25 +43,25 @@ def main():
     qvm_collection.load()
     vm = qvm_collection.get_vm_by_name(vmname)
     if vm is None or vm.qid not in qvm_collection:
-        print "A VM with the name '{0}' does not exist in the system.".format(vmname)
+        print >> sys.stderr, "A VM with the name '{0}' does not exist in the system.".format(vmname)
         exit(1)
 
     if os.geteuid() == 0:
-        print "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
+        print >> sys.stderr, "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
         if options.force_root:
-            print "Continuing as commanded. You have been warned."
+            print >> sys.stderr, "Continuing as commanded. You have been warned."
         else:
-            print "Retry as unprivileged user."
-            print "... or use --force-root to continue anyway."
+            print >> sys.stderr, "Retry as unprivileged user."
+            print >> sys.stderr, "... or use --force-root to continue anyway."
             exit(1)
 
     if vm.is_template():
         dependent_vms = qvm_collection.get_vms_based_on(vm.qid)
         if len(dependent_vms) > 0:
-            print "The following AppVMs use '{0}' as a template:".format(vmname)
+            print >> sys.stderr, "The following AppVMs use '{0}' as a template:".format(vmname)
             for vm in dependent_vms:
-                print "{name:<12} (qid={qid})".format(qid=vm.qid, name=vm.name)
-            print "Please remove those VMs first."
+                print >> sys.stderr, "{name:<12} (qid={qid})".format(qid=vm.qid, name=vm.name)
+            print >> sys.stderr, "Please remove those VMs first."
             exit (1)
         if qvm_collection.default_template_qid == vm.qid:
             qvm_collection.default_template_qid = None
@@ -71,18 +72,18 @@ def main():
 
 
     if vm.is_running():
-        print "Cannot remove a running VM, stop it first"
+        print >> sys.stderr, "Cannot remove a running VM, stop it first"
         exit (1)
 
     if vm.installed_by_rpm and not options.remove_from_db_only:
         if options.verbose:
-            print "This VM has been installed by RPM, use rpm -e <pkg name> to remove it!"
+            print >> sys.stderr, "This VM has been installed by RPM, use rpm -e <pkg name> to remove it!"
             exit (1)
 
     try:
         if vm.installed_by_rpm:
             if options.verbose:
-                print "--> VM installed by RPM, leaving all the files on disk"
+                print >> sys.stderr, "--> VM installed by RPM, leaving all the files on disk"
         else:
             if options.verbose:
                 print "--> Removing all the files on disk..."
@@ -92,7 +93,7 @@ def main():
 
 
     except (IOError, OSError) as err:
-        print "Warning: {0}".format(err)
+        print >> sys.stderr, "Warning: {0}".format(err)
         # Do not exit, perhaps the VM files were somehow removed
         # so just remove it from Qubes DB
 

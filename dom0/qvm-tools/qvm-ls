@@ -24,6 +24,7 @@ from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesHost
 from qubes.qubes import QubesException
 from optparse import OptionParser
+import sys
 
 
 fields = {
@@ -201,6 +202,6 @@ def main():
         try:
             vm.verify_files()
         except QubesException as err:
-            print "WARNING: VM '{0}' has corrupted files!".format(vm.name)
+            print >> sys.stderr, "WARNING: VM '{0}' has corrupted files!".format(vm.name)
 
 main()

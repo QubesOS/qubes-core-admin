@@ -94,7 +94,7 @@ def restore_vm_file (backup_dir, file_path):
     # We prefer to use Linux's cp, because it nicely handles sparse files
     retcode = subprocess.call (["cp", "-p", backup_file_path, file_path])
     if retcode != 0:
-        print "*** Error while copying file {0} to {1}".format(backup_file_path, file_path)
+        print >> sys.stderr, "*** Error while copying file {0} to {1}".format(backup_file_path, file_path)
         exit (1)
 
 def restore_vm_dir (backup_dir, src_dir, dst_dir):
@@ -104,7 +104,7 @@ def restore_vm_dir (backup_dir, src_dir, dst_dir):
     # We prefer to use Linux's cp, because it nicely handles sparse files
     retcode = subprocess.call (["cp", "-rp", backup_src_dir, dst_dir])
     if retcode != 0:
-        print "*** Error while copying file {0} to {1}".format(backup_src_dir, dest_dir)
+        print >> sys.stderr, "*** Error while copying file {0} to {1}".format(backup_src_dir, dest_dir)
         exit (1)
 
 def find_template_name(template, replaces):
@@ -138,13 +138,13 @@ def main():
     (options, args) = parser.parse_args ()
 
     if (len (args) != 1):
-        print "You must specify the backup directory (e.g. /mnt/backup/qubes-2010-12-01-235959)"
+        print >> sys.stderr, "You must specify the backup directory (e.g. /mnt/backup/qubes-2010-12-01-235959)"
         exit (0)
 
     backup_dir = args[0]
 
     if not os.path.exists (backup_dir):
-        print "The backup directory doesn't exist!"
+        print >> sys.stderr, "The backup directory doesn't exist!"
         exit(1)
 
     backup_collection = QubesVmCollection(store_filename = backup_dir + "/qubes.xml")
@@ -245,52 +245,52 @@ def main():
     print
 
     if os.geteuid() == 0:
-        print "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
+        print >> sys.stderr, "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
         if options.force_root:
-            print "Continuing as commanded. You have been warned."
+            print >> sys.stderr, "Continuing as commanded. You have been warned."
         else:
-            print "Retry as unprivileged user."
-            print "... or use --force-root to continue anyway."
+            print >> sys.stderr, "Retry as unprivileged user."
+            print >> sys.stderr, "... or use --force-root to continue anyway."
             exit(1)
 
     if there_are_conflicting_vms:
-        print "*** There VMs with conflicting names on the host! ***"
+        print >> sys.stderr, "*** There VMs with conflicting names on the host! ***"
         if options.skip_conflicting:
-            print "Those VMs will not be restored, the host VMs will not be overwritten!"
+            print >> sys.stderr, "Those VMs will not be restored, the host VMs will not be overwritten!"
         else:
-            print "Remove VMs with conflicting names from the host before proceeding."
-            print "... or use --skip-conflicting to restore only those VMs that do not exist on the host."
+            print >> sys.stderr, "Remove VMs with conflicting names from the host before proceeding."
+            print >> sys.stderr, "... or use --skip-conflicting to restore only those VMs that do not exist on the host."
             exit (1)
 
     print "The above VMs will be copied and added to your system."
     print "Exisiting VMs will not be removed."
  
     if there_are_missing_templates:
-        print "*** One or more template VM is missing on the host! ***"
+        print >> sys.stderr, "*** One or more template VM is missing on the host! ***"
         if not (options.skip_broken or options.ignore_missing):
-            print "Install it first, before proceeding with backup restore."
-            print "Or pass: --skip-broken or --ignore-missing switch."
+            print >> sys.stderr, "Install it first, before proceeding with backup restore."
+            print >> sys.stderr, "Or pass: --skip-broken or --ignore-missing switch."
             exit (1)
         elif options.skip_broken:
-            print "... VMs that depend on it will not be restored (--skip-broken used)"
+            print >> sys.stderr, "... VMs that depend on it will not be restored (--skip-broken used)"
         elif options.ignore_missing:
-            print "... VMs that depend on it will be restored anyway (--ignore-missing used)"
+            print >> sys.stderr, "... VMs that depend on it will be restored anyway (--ignore-missing used)"
         else:
-            print "INTERNAL ERROR?!"
+            print >> sys.stderr, "INTERNAL ERROR?!"
             exit (1)
 
     if there_are_missing_netvms:
-        print "*** One or more network VM is missing on the host! ***"
+        print >> sys.stderr, "*** One or more network VM is missing on the host! ***"
         if not (options.skip_broken or options.ignore_missing):
-            print "Install it first, before proceeding with backup restore."
-            print "Or pass: --skip_broken or --ignore_missing switch."
+            print >> sys.stderr, "Install it first, before proceeding with backup restore."
+            print >> sys.stderr, "Or pass: --skip_broken or --ignore_missing switch."
             exit (1)
         elif options.skip_broken:
-            print "... VMs that depend on it will not be restored (--skip-broken used)"
+            print >> sys.stderr, "... VMs that depend on it will not be restored (--skip-broken used)"
         elif options.ignore_missing:
-            print "... VMs that depend on it be restored anyway (--ignore-missing used)"
+            print >> sys.stderr, "... VMs that depend on it be restored anyway (--ignore-missing used)"
         else:
-            print "INTERNAL ERROR?!"
+            print >> sys.stderr, "INTERNAL ERROR?!"
             exit (1)
 
     prompt = raw_input ("Do you want to proceed? [y/N] ")
@@ -302,8 +302,8 @@ def main():
         print "-> Restoring Template VM {0}...".format(vm.name)
         retcode = subprocess.call (["mkdir", "-p", vm.dir_path])
         if retcode != 0:
-            print ("*** Cannot create directory: {0}?!".format(dest_dir))
-            print ("Skiping...")
+            print >> sys.stderr, ("*** Cannot create directory: {0}?!".format(dest_dir))
+            print >> sys.stderr, ("Skiping...")
             continue
 
         restore_vm_dir (backup_dir, vm.dir_path, qubes_templates_dir);
@@ -317,8 +317,8 @@ def main():
             vm.updateable = updateable
             vm.verify_files()
         except Exception as err:
-            print "ERROR: {0}".format(err)
-            print "*** Skiping VM: {0}".vm.name
+            print >> sys.stderr, "ERROR: {0}".format(err)
+            print >> sys.stderr, "*** Skiping VM: {0}".vm.name
             if vm:
                 host_collection.pop(vm.qid)
             continue
@@ -326,8 +326,8 @@ def main():
         try:
             vm.create_appmenus(verbose=True)
         except Exception as err:
-            print "ERROR during appmenu restore: {0}".format(err)
-            print "*** VM '{0}' will not have appmenus".format(vm.name)
+            print >> sys.stderr, "ERROR during appmenu restore: {0}".format(err)
+            print >> sys.stderr, "*** VM '{0}' will not have appmenus".format(vm.name)
 
     # ... then NetVMs...
     for vm in [ vm for vm in vms_to_restore if vm.is_netvm()]:
@@ -335,8 +335,8 @@ def main():
         print "-> Restoring {0} {1}...".format(vm.type, vm.name)
         retcode = subprocess.call (["mkdir", "-p", vm.dir_path])
         if retcode != 0:
-            print ("*** Cannot create directory: {0}?!".format(dest_dir))
-            print ("Skiping...")
+            print >> sys.stderr, ("*** Cannot create directory: {0}?!".format(dest_dir))
+            print >> sys.stderr, ("Skiping...")
             continue
 
         restore_vm_dir (backup_dir, vm.dir_path, qubes_servicevms_dir);
@@ -368,8 +368,8 @@ def main():
                                               updateable=updateable,
                                               label=vm.label)
         except Exception as err:
-            print "ERROR: {0}".format(err)
-            print "*** Skiping VM: {0}".format(vm.name)
+            print >> sys.stderr, "ERROR: {0}".format(err)
+            print >> sys.stderr, "*** Skiping VM: {0}".format(vm.name)
             if vm:
                 host_collection.pop(vm.qid)
             continue
@@ -381,8 +381,8 @@ def main():
         try:
             vm.verify_files()
         except Exception as err:
-            print "ERROR: {0}".format(err)
-            print "*** Skiping VM: {0}".format(vm.name)
+            print >> sys.stderr, "ERROR: {0}".format(err)
+            print >> sys.stderr, "*** Skiping VM: {0}".format(vm.name)
             host_collection.pop(vm.qid)
             continue
 
@@ -392,8 +392,8 @@ def main():
         print "-> Restoring AppVM {0}...".format(vm.name)
         retcode = subprocess.call (["mkdir", "-p", vm.dir_path])
         if retcode != 0:
-            print ("*** Cannot create directory: {0}?!".format(dest_dir))
-            print ("Skiping...")
+            print >> sys.stderr, ("*** Cannot create directory: {0}?!".format(dest_dir))
+            print >> sys.stderr, ("Skiping...")
             continue
 
         restore_vm_dir (backup_dir, vm.dir_path, qubes_appvms_dir);
@@ -418,8 +418,8 @@ def main():
                                           updateable=updateable,
                                           label=vm.label)
         except Exception as err:
-            print "ERROR: {0}".format(err)
-            print "*** Skiping VM: {0}".format(vm.name)
+            print >> sys.stderr, "ERROR: {0}".format(err)
+            print >> sys.stderr, "*** Skiping VM: {0}".format(vm.name)
             if vm:
                 host_collection.pop(vm.qid)
             continue
@@ -431,14 +431,14 @@ def main():
         try:
             vm.create_appmenus(verbose=True)
         except Exception as err:
-            print "ERROR during appmenu restore: {0}".format(err)
-            print "*** VM '{0}' will not have appmenus".format(vm.name)
+            print >> sys.stderr, "ERROR during appmenu restore: {0}".format(err)
+            print >> sys.stderr, "*** VM '{0}' will not have appmenus".format(vm.name)
 
         try:
             vm.verify_files()
         except Exception as err:
-            print "ERROR: {0}".format(err)
-            print "*** Skiping VM: {0}".format(vm.name)
+            print >> sys.stderr, "ERROR: {0}".format(err)
+            print >> sys.stderr, "*** Skiping VM: {0}".format(vm.name)
             host_collection.pop(vm.qid)
             continue
 

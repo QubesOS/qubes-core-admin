@@ -62,14 +62,14 @@ def main():
     (options, args) = parser.parse_args ()
 
     if (len (args) != 1):
-        print "You must specify the target backup directory (e.g. /mnt/backup)"
-        print "qvm-backup will create a subdirectory there for each individual backup."
+        print >> sys.stderr, "You must specify the target backup directory (e.g. /mnt/backup)"
+        print >> sys.stderr, "qvm-backup will create a subdirectory there for each individual backup."
         exit (0)
 
     base_backup_dir = args[0]
 
     if not os.path.exists (base_backup_dir):
-        print "The target directory doesn't exist!"
+        print >> sys.stderr, "The target directory doesn't exist!"
         exit(1)
 
     qvm_collection = QubesVmCollection()
@@ -78,7 +78,7 @@ def main():
 
 
     if options is not None and options.exclude_list is not None:
-        print "Excluding the following VMs:", options.exclude_list
+        print >> sys.stderr, "Excluding the following VMs:", options.exclude_list
         vms_list = [vm for vm in qvm_collection.values() if vm.name not in options.exclude_list]
     else:
         vms_list = [vm for vm in qvm_collection.values()]
@@ -215,18 +215,18 @@ def main():
     backup_fs_free_sz = stat.f_bsize * stat.f_bavail
     print
     if (total_backup_sz > backup_fs_free_sz):
-        print "Not enough space avilable on the backup filesystem!"
+        print >> sys.stderr, "Not enough space avilable on the backup filesystem!"
         exit (1)
 
     if (there_are_running_vms):
-        print "Please shutdown all VMs before proceeding."
+        print >> sys.stderr, "Please shutdown all VMs before proceeding."
         exit (1)
 
 
     backup_dir = base_backup_dir + "/qubes-{0}".format (time.strftime("%Y-%m-%d-%H%M%S"))
     if os.path.exists (backup_dir):
-        print "ERROR: the path {0} already exists?!".format(backup_dir)
-        print "Aborting..."
+        print >> sys.stderr, "ERROR: the path {0} already exists?!".format(backup_dir)
+        print >> sys.stderr, "Aborting..."
         exit (1)
 
     print "-> Backup dir: {0}".format (backup_dir)
@@ -239,8 +239,8 @@ def main():
     os.mkdir (backup_dir)
 
     if not os.path.exists (backup_dir):
-        print "ERROR: Strange: couldn't create backup dir: {0}?!".format(backup_dir)
-        print "Aborting..."
+        print >> sys.stderr, "ERROR: Strange: couldn't create backup dir: {0}?!".format(backup_dir)
+        print >> sys.stderr, "Aborting..."
         exit (1)
 
     bytes_backedup = 0
@@ -252,13 +252,13 @@ def main():
         if file["subdir"] != "":
             retcode = subprocess.call (["mkdir", "-p", dest_dir])
             if retcode != 0:
-                print "Cannot create directory: {0}?!".format(dest_dir)
-                print "Aborting..."
+                print >> sys.stderr, "Cannot create directory: {0}?!".format(dest_dir)
+                print >> sys.stderr, "Aborting..."
                 exit(1)
 
         retcode = subprocess.call (["cp", "-rp", file["path"], dest_dir])
         if retcode != 0:
-            print "Error while copying file {0} to {1}".format(file["path"], dest_dir)
+            print >> sys.stderr, "Error while copying file {0} to {1}".format(file["path"], dest_dir)
             exit (1)
 
         bytes_backedup += file["size"]

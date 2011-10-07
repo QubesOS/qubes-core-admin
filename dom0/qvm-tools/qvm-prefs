@@ -26,6 +26,7 @@ from qubes.qubes import qubes_kernels_base_dir
 from optparse import OptionParser
 import subprocess
 import os
+import sys
 
 def do_list(vm):
     label_width = 18
@@ -69,13 +70,13 @@ def do_list(vm):
 
 def set_label(vms, vm, args):
     if len (args) != 1:
-        print "Missing label name argument!"
+        print >> sys.stderr, "Missing label name argument!"
 
     label = args[0]
     if label not in QubesVmLabels:
-        print "Wrong label name, supported values are the following:"
+        print >> sys.stderr, "Wrong label name, supported values are the following:"
         for l in QubesVmLabels.values():
-            print "* {0}".format(l.name)
+            print >> sys.stderr, "* {0}".format(l.name)
         exit (1)
 
     vm.label = QubesVmLabels[label]
@@ -83,29 +84,29 @@ def set_label(vms, vm, args):
 
 def set_memory(vms, vm, args):
     if len (args) != 1:
-        print "Missing memory argument!"
+        print >> sys.stderr, "Missing memory argument!"
 
     vm.memory = int(args[0])
 
 def set_maxmem(vms, vm, args):
     if len (args) != 1:
-        print "Missing maxmem argument!"
+        print >> sys.stderr, "Missing maxmem argument!"
 
     vm.maxmem = int(args[0])
 
 def set_pcidevs(vms, vm, args):
     if len (args) != 1:
-        print "Missing pcidevs argument!"
+        print >> sys.stderr, "Missing pcidevs argument!"
 
     vm.pcidevs = list(eval(args[0]))
 
 def set_netvm(vms, vm, args):
     if len (args) != 1:
-        print "Missing netvm name argument!"
-        print "Possible values:"
-        print "1) default"
-        print "2) none"
-        print "3) <vmaname>"
+        print >> sys.stderr, "Missing netvm name argument!"
+        print >> sys.stderr, "Possible values:"
+        print >> sys.stderr, "1) default"
+        print >> sys.stderr, "2) none"
+        print >> sys.stderr, "3) <vmaname>"
         return
 
     netvm = args[0]
@@ -118,10 +119,10 @@ def set_netvm(vms, vm, args):
     else:
         netvm_vm = vms.get_vm_by_name (netvm)
         if netvm_vm is None:
-            print "A VM with the name '{0}' does not exist in the system.".format(netvm)
+            print >> sys.stderr, "A VM with the name '{0}' does not exist in the system.".format(netvm)
             exit(1)
         if not netvm_vm.is_netvm():
-            print "VM '{0}' is not a NetVM".format(netvm)
+            print >> sys.stderr, "VM '{0}' is not a NetVM".format(netvm)
             exit (1)
         vm.uses_default_netvm = False
 
@@ -140,70 +141,70 @@ def set_netvm(vms, vm, args):
 
 def set_updateable(vms, vm, args):
     if vm.is_updateable():
-        print "VM '{0}' is already set 'updateable', no action required.".format(vm.name)
+        print >> sys.stderr, "VM '{0}' is already set 'updateable', no action required.".format(vm.name)
         return True
 
     if vm.is_running():
-        print "Cannot change 'updateable' attribute of a running VM. Shut it down first."
+        print >> sys.stderr, "Cannot change 'updateable' attribute of a running VM. Shut it down first."
         return False
 
     if vm.is_appvm():
         # Check if the Template is *non* updateable...
         if not vm.template_vm.is_updateable():
-            print "VM '{0}': Setting 'updateable' attribute to True.".format(vm.name)
+            print >> sys.stderr, "VM '{0}': Setting 'updateable' attribute to True.".format(vm.name)
             vm.set_updateable()
         else:
-            print "The Template VM ('{0}') is marked as 'updateable' itself!".format(vm.template_vm.name)
-            print "Cannot make the AppVM updateable too, as this might cause COW-backed storage incoherency."
-            print "If you want to make this AppVM updateable, you must first make the Template VM nonupdateable."
+            print >> sys.stderr, "The Template VM ('{0}') is marked as 'updateable' itself!".format(vm.template_vm.name)
+            print >> sys.stderr, "Cannot make the AppVM updateable too, as this might cause COW-backed storage incoherency."
+            print >> sys.stderr, "If you want to make this AppVM updateable, you must first make the Template VM nonupdateable."
             return False
 
     if vm.is_template():
         # Make sure that all the AppVMs are non-updateable...
         for appvm in vm.appvms.values():
             if appvm.is_updateable():
-                print "At least one of the AppVMs ('{0}') of this Template VM is also marked 'updateable'.".format(appvm.name)
-                print "Cannot make the Template VM updateable too, as this might cause COW-backed storage incoherency."
-                print "If you want to make this Template VM updateable, you must first make all its decedent AppVMs nonupdateable."
+                print >> sys.stderr, "At least one of the AppVMs ('{0}') of this Template VM is also marked 'updateable'.".format(appvm.name)
+                print >> sys.stderr, "Cannot make the Template VM updateable too, as this might cause COW-backed storage incoherency."
+                print >> sys.stderr, "If you want to make this Template VM updateable, you must first make all its decedent AppVMs nonupdateable."
                 return False
 
 
-        print "VM '{0}': Setting 'updateable' attribute to True.".format(vm.name)
+        print >> sys.stderr, "VM '{0}': Setting 'updateable' attribute to True.".format(vm.name)
         vm.set_updateable()
  
     return True
 
 def set_nonupdateable(vms, vm, args):
     if not vm.is_updateable():
-        print "VM '{0}' is already set 'nonupdateable', no action required.".format(vm.name)
+        print >> sys.stderr, "VM '{0}' is already set 'nonupdateable', no action required.".format(vm.name)
         return True
 
     if vm.is_running():
-        print "Cannot change 'updateable' attribute of a running VM. Shut it down first."
+        print >> sys.stderr, "Cannot change 'updateable' attribute of a running VM. Shut it down first."
         return False
 
     if vm.is_netvm():
-        print "Why, on earth, would you want to make a NetVM 'nonupdateable'?"
+        print >> sys.stderr, "Why, on earth, would you want to make a NetVM 'nonupdateable'?"
         return False
 
 
-    print "VM '{0}': Setting 'updateable' attribute to False.".format(vm.name)
+    print >> sys.stderr, "VM '{0}': Setting 'updateable' attribute to False.".format(vm.name)
     vm.set_nonupdateable()
     return True
 
 def set_kernel(vms, vm, args):
     if vm.template_vm is not None:
-        print "Cannot set kernel for template-based VM. Set it for template instead."
+        print >> sys.stderr, "Cannot set kernel for template-based VM. Set it for template instead."
         return False
 
     if len (args) != 1:
-        print "Missing kernel version argument!"
-        print "Possible values:"
-        print "1) default"
-        print "2) none (kernels subdir in VM)"
-        print "3) <kernel version>, one of:"
+        print >> sys.stderr, "Missing kernel version argument!"
+        print >> sys.stderr, "Possible values:"
+        print >> sys.stderr, "1) default"
+        print >> sys.stderr, "2) none (kernels subdir in VM)"
+        print >> sys.stderr, "3) <kernel version>, one of:"
         for k in os.listdir(qubes_kernels_base_dir):
-            print "  -", k
+            print >> sys.stderr, "  -", k
         return
 
     kernel = args[0]
@@ -215,7 +216,7 @@ def set_kernel(vms, vm, args):
         vm.uses_default_kernel = False
     else:
         if not os.path.exists(qubes_kernels_base_dir + '/' + kernel):
-            print "Kernel version {0} not installed.".format(kernel)
+            print >> sys.stderr, "Kernel version {0} not installed.".format(kernel)
             exit(1)
         vm.uses_default_kernel = False
 
@@ -223,48 +224,48 @@ def set_kernel(vms, vm, args):
 
 def set_template(vms, vm, args):
     if len (args) != 1:
-        print "Missing template name argument!"
+        print >> sys.stderr, "Missing template name argument!"
         return False
 
     template_name = args[0];
     template_vm = vms.get_vm_by_name(template_name)
     if template_vm is None or template_vm.qid not in vms:
-        print "A VM with the name '{0}' does not exist in the system.".format(template_name)
+        print >> sys.stderr, "A VM with the name '{0}' does not exist in the system.".format(template_name)
         return False
 
     if not template_vm.is_template():
-        print "VM '{0}' is not a TemplateVM".format(template_name)
+        print >> sys.stderr, "VM '{0}' is not a TemplateVM".format(template_name)
         return False
 
-    print "Setting template for VM '{0}' to '{1}'...".format (vm.name, template_name)
+    print >> sys.stderr, "Setting template for VM '{0}' to '{1}'...".format (vm.name, template_name)
     vm.template_vm = template_vm
     return True
 
 def set_vcpus(vms, vm, args):
     if len (args) != 1:
-        print "Missing vcpus count argument!"
+        print >> sys.stderr, "Missing vcpus count argument!"
         return False
 
     vcpus = int(args[0])
     if vcpus <= 0:
-        print "A vcpus count must be positive."
+        print >> sys.stderr, "A vcpus count must be positive."
         return False
 
     qubes_host = QubesHost()
     if vcpus > qubes_host.no_cpus:
-        print "This host has only {0} cpus".format(ubes_host.no_cpus)
+        print >> sys.stderr, "This host has only {0} cpus".format(ubes_host.no_cpus)
         return False
 
-    print "Setting vcpus count for VM '{0}' to '{1}'...".format (vm.name, vcpus)
+    print >> sys.stderr, "Setting vcpus count for VM '{0}' to '{1}'...".format (vm.name, vcpus)
     vm.vcpus = vcpus
     return True
 
 def set_kernelopts(vms, vm, args):
     if len (args) != 1:
-        print "Missing kernel opts argument!"
-        print "Possible values:"
-        print "1) default"
-        print "2) <opts>"
+        print >> sys.stderr, "Missing kernel opts argument!"
+        print >> sys.stderr, "Possible values:"
+        print >> sys.stderr, "1) default"
+        print >> sys.stderr, "2) <opts>"
         return False
     
     if args[0] == 'default':
@@ -292,7 +293,7 @@ properties = {
 
 def do_set(vms, vm, property, args):
     if property not in properties.keys():
-        print "ERROR: Wrong property name: '{0}'".format(property)
+        print >> sys.stderr, "ERROR: Wrong property name: '{0}'".format(property)
         return False
 
     return properties[property](vms, vm, args)
@@ -314,7 +315,7 @@ def main():
     vmname = args[0]
 
     if options.do_list and options.do_set:
-        print "You cannot provide -l and -s at the same time!"
+        print >> sys.stderr, "You cannot provide -l and -s at the same time!"
         exit (1)
 
 
@@ -331,15 +332,15 @@ def main():
 
     vm = qvm_collection.get_vm_by_name(vmname)
     if vm is None or vm.qid not in qvm_collection:
-        print "A VM with the name '{0}' does not exist in the system.".format(vmname)
+        print >> sys.stderr, "A VM with the name '{0}' does not exist in the system.".format(vmname)
         exit(1)
 
     if options.do_set:
         if len (args) < 2:
-            print "You must specify the property you wish to set..."
-            print "Available properties:"
+            print >> sys.stderr, "You must specify the property you wish to set..."
+            print >> sys.stderr, "Available properties:"
             for p in properties.keys():
-                print "--> '{0}'".format(p)
+                print >> sys.stderr, "--> '{0}'".format(p)
             exit (1)
 
         property = args[1]

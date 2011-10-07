@@ -192,25 +192,25 @@ def main():
 
     # Create new/update existing templates
     if options.verbose:
-        print "--> Got {0} appmenus, storing to disk".format(str(len(new_appmenus)))
+        print >> sys.stderr, "--> Got {0} appmenus, storing to disk".format(str(len(new_appmenus)))
     for appmenu_file in new_appmenus.keys():
         if options.verbose:
             if os.path.exists(vm.appmenus_templates_dir + '/' + appmenu_file):
-                print "---> Updating {0}".format(appmenu_file)
+                print >> sys.stderr, "---> Updating {0}".format(appmenu_file)
             else:
-                print "---> Creating {0}".format(appmenu_file)
+                print >> sys.stderr, "---> Creating {0}".format(appmenu_file)
         create_template(vm.appmenus_templates_dir + '/' + appmenu_file, new_appmenus[appmenu_file])
 
     # Delete appmenus of remove applications
     if options.verbose:
-        print "--> Cleaning old files"
+        print >> sys.stderr, "--> Cleaning old files"
     for appmenu_file in os.listdir(vm.appmenus_templates_dir):
         if not fnmatch.fnmatch(appmenu_file, '*.desktop'):
             continue
 
         if not new_appmenus.has_key(appmenu_file):
             if options.verbose:
-                print "---> Removing {0}".format(appmenu_file)
+                print >> sys.stderr, "---> Removing {0}".format(appmenu_file)
             os.unlink(vm.appmenus_templates_dir + '/' + appmenu_file)
 
 main()

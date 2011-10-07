@@ -26,6 +26,7 @@ from optparse import OptionParser;
 import subprocess
 import re
 import os
+import sys
 
 def main():
     usage = "usage: %prog [options] <vm-name>"
@@ -59,25 +60,25 @@ def main():
         parser.error ("You must specify at most one of --proxy and --net")
         
     if os.geteuid() == 0:
-        print "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
+        print >> sys.stderr, "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
         if options.force_root:
-            print "Continuing as commanded. You have been warned."
+            print >> sys.stderr, "Continuing as commanded. You have been warned."
         else:
-            print "Retry as unprivileged user."
-            print "... or use --force-root to continue anyway."
+            print >> sys.stderr, "Retry as unprivileged user."
+            print >> sys.stderr, "... or use --force-root to continue anyway."
             exit(1)
 
     if options.label is None:
-        print "You must choose a label for the new VM by passing the --label option."
-        print "Possible values are:"
+        print >> sys.stderr, "You must choose a label for the new VM by passing the --label option."
+        print >> sys.stderr, "Possible values are:"
         for l in QubesVmLabels.values():
-            print "* {0}".format(l.name)
+            print >> sys.stderr, "* {0}".format(l.name)
         exit (1)
 
     if options.label not in QubesVmLabels:
-        print "Wrong label name, supported values are the following:"
+        print >> sys.stderr, "Wrong label name, supported values are the following:"
         for l in QubesVmLabels.values():
-            print "* {0}".format(l.name)
+            print >> sys.stderr, "* {0}".format(l.name)
         exit (1)
     label = QubesVmLabels[options.label]
 
@@ -86,23 +87,23 @@ def main():
     qvm_collection.load()
 
     if qvm_collection.get_vm_by_name(vmname) is not None:
-        print "A VM with the name '{0}' already exists in the system.".format(vmname)
+        print >> sys.stderr, "A VM with the name '{0}' already exists in the system.".format(vmname)
         exit(1)
 
     if options.template is not None:
         template_vm = qvm_collection.get_vm_by_name(options.template)
         if template_vm is None:
-            print "There is no (Templete)VM with the name '{0}'".format(options.template)
+            print >> sys.stderr, "There is no (Templete)VM with the name '{0}'".format(options.template)
             exit (1)
         if not template_vm.is_template():
-            print "VM '{0}' is not a TemplateVM".format(options.template)
+            print >> sys.stderr, "VM '{0}' is not a TemplateVM".format(options.template)
             exit (1)
         if (options.verbose):
             print "--> Using TemplateVM: {0}".format(template_vm.name)
 
     else:
         if qvm_collection.get_default_template_vm() is None:
-            print "No default TempleteVM defined!"
+            print >> sys.stderr, "No default TempleteVM defined!"
             exit (1)
         else:
             template_vm = qvm_collection.get_default_template_vm()
@@ -135,7 +136,7 @@ def main():
         vm.create_on_disk(verbose=options.verbose, source_template=template_vm)
 
     except (IOError, OSError) as err:
-        print "ERROR: {0}".format(err)
+        print >> sys.stderr, "ERROR: {0}".format(err)
         exit (1)
 
 

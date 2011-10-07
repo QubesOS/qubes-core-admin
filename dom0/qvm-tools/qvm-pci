@@ -24,6 +24,7 @@ from qubes.qubes import QubesVmCollection
 from optparse import OptionParser
 import subprocess
 import os
+import sys
 
 def main():
     usage = "usage: %prog -l [options] <vm-name>\n"\
@@ -43,7 +44,7 @@ def main():
     vmname = args[0]
 
     if options.do_list + options.do_add + options.do_delete > 1:
-        print "Only one of -l -a -d is allowed!"
+        print >> sys.stderr, "Only one of -l -a -d is allowed!"
         exit (1)
 
     if options.do_add or options.do_delete:
@@ -58,17 +59,17 @@ def main():
 
     vm = qvm_collection.get_vm_by_name(vmname)
     if vm is None or vm.qid not in qvm_collection:
-        print "A VM with the name '{0}' does not exist in the system.".format(vmname)
+        print >> sys.stderr, "A VM with the name '{0}' does not exist in the system.".format(vmname)
         exit(1)
 
     if options.do_add:
         if len (args) < 2:
-            print "You must specify the PCI device to add"
+            print >> sys.stderr, "You must specify the PCI device to add"
             exit (1)
 
         pci = args[1]
         if not os.path.exists('/sys/bus/pci/devices/0000:%s' % pci):
-            print "Invalid PCI device: %s" % pci
+            print >> sys.stderr, "Invalid PCI device: %s" % pci
             exit(1)
         if vm.pcidevs.count(pci) == 0:
             vm.pcidevs.append(pci)
@@ -77,7 +78,7 @@ def main():
 
     elif options.do_delete:
         if len (args) < 2:
-            print "You must specify the PCI device to delete"
+            print >> sys.stderr, "You must specify the PCI device to delete"
             exit (1)
 
         pci = args[1]

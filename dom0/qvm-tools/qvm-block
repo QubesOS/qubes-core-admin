@@ -49,7 +49,7 @@ def main():
     (options, args) = parser.parse_args ()
 
     if options.do_list + options.do_attach + options.do_detach > 1:
-        print "Only one of -l -a -d is allowed!"
+        print >> sys.stderr, "Only one of -l -a -d is allowed!"
         exit (1)
 
     if options.do_attach or options.do_detach:

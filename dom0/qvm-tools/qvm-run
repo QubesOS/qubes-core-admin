@@ -29,6 +29,7 @@ import socket
 import errno
 import dbus
 import time
+import sys
 import os
 import os.path
 
@@ -59,18 +60,18 @@ def actually_execute(domid, cmd, options):
 
 def start_guid(vm, options):
     if options.verbose:
-        print "--> Starting Qubes GUId..."
+        print >> sys.stderr, "--> Starting Qubes GUId..."
     xid = vm.get_xid()
 
     retcode = subprocess.call ([qubes_guid_path, "-d", str(xid), "-c", vm.label.color, "-i", vm.label.icon, "-l", str(vm.label.index)])
     if (retcode != 0) :
-        print "ERROR: Cannot start qubes_guid!"
+        print >> sys.stderr, "ERROR: Cannot start qubes_guid!"
         if options.tray:
             tray_notify_error ("ERROR: Cannot start qubes_guid!")
         exit (1)
 
     if options.verbose:
-        print "--> Waiting for qubes-session..."
+        print >> sys.stderr, "--> Waiting for qubes-session..."
 
     subprocess.call([qrexec_client_path, "-d", str(xid), "user:echo $$ >> /tmp/qubes-session-waiter; [ ! -f /tmp/qubes-session-env ] && exec sleep 365d"])
 
@@ -78,44 +79,44 @@ def start_guid(vm, options):
 def vm_run_cmd(vm, cmd, options):
     if options.shutdown:
         if options.verbose:
-            print "Shutting down VM: '{0}'...".format(vm.name)
+            print >> sys.stderr, "Shutting down VM: '{0}'...".format(vm.name)
         subprocess.call (["/usr/sbin/xl", "shutdown", vm.name])
         return
 
     if options.pause:
         if options.verbose:
-            print "Pausing VM: '{0}'...".format(vm.name)
+            print >> sys.stderr, "Pausing VM: '{0}'...".format(vm.name)
         subprocess.call (["/usr/sbin/xl", "pause", vm.name])
         return
 
     if options.unpause:
         if options.verbose:
-            print "UnPausing VM: '{0}'...".format(vm.name)
+            print >> sys.stderr, "UnPausing VM: '{0}'...".format(vm.name)
         subprocess.call (["/usr/sbin/xl", "unpause", vm.name])
         return
 
     if options.verbose:
-        print "Running command on VM: '{0}'...".format(vm.name)
+        print >> sys.stderr, "Running command on VM: '{0}'...".format(vm.name)
 
     if not vm.is_running():
         if not options.auto:
-            print "VM '{0}' is not running. Please start it first or use the '--auto' switch".format(vm.name)
+            print >> sys.stderr, "VM '{0}' is not running. Please start it first or use the '--auto' switch".format(vm.name)
             exit (1)
     	try:
             if options.verbose:
-                print "Starting the VM '{0}'...".format(vm.name)
+                print >> sys.stderr, "Starting the VM '{0}'...".format(vm.name)
             if options.tray:
                 tray_notify ("Starting the '{0}' VM...".format(vm.name), label=vm.label)
             xid = vm.start(verbose=options.verbose)
 
         except (IOError, OSError, QubesException) as err:
-            print "ERROR: {0}".format(err)
+            print >> sys.stderr, "ERROR: {0}".format(err)
             if options.tray:
                 tray_notify_error ("Error while starting the '{0}' VM: {1}".format(vm.name, err))
             exit (1)
         except (MemoryError) as err:
-            print "ERROR: {0}".format(err)
-            print "Close one or more running VMs and try again."
+            print >> sys.stderr, "ERROR: {0}".format(err)
+            print >> sys.stderr, "Close one or more running VMs and try again."
             if options.tray:
                 subprocess.call(["kdialog", "--error", "Not enough memory to start '{0}' VM! Close one or more running VMs and try again.".format(vm.name)])
             exit (1)
@@ -218,7 +219,7 @@ def main():
     else:
         vm = qvm_collection.get_vm_by_name(vmname)
         if vm is None:
-            print "A VM with the name '{0}' does not exist in the system!".format(vmname)
+            print >> sys.stderr, "A VM with the name '{0}' does not exist in the system!".format(vmname)
             exit(1)
         vms_list.append(vm)
     
@@ -226,9 +227,9 @@ def main():
         if options.shutdown and vm.is_netvm():
             connected_vms =  [vm for vm in qvm_collection.get_vms_connected_to(vm.qid) if vm.is_running()]
             if connected_vms and not options.force:
-                print "ERROR: There are other VMs connected to this VM, "
-                print "       shutdown them first or use --force option"
-                print "VMs list: " + str([vm.name for vm in connected_vms])
+                print >> sys.stderr, "ERROR: There are other VMs connected to this VM, "
+                print >> sys.stderr, "       shutdown them first or use --force option"
+                print >> sys.stderr, "VMs list: " + str([vm.name for vm in connected_vms])
                 exit(1)
 
     if takes_cmd_argument:
@@ -242,19 +243,19 @@ def main():
 
     if options.wait_for_shutdown:
         if options.verbose:
-            print "Waiting for the VM(s) to shutdown..."
+            print >> sys.stderr, "Waiting for the VM(s) to shutdown..."
         shutdown_counter = 0
 
         while len (vms_list):
             if options.verbose:
-                print "Waiting for VMs: ", [vm.name for vm in vms_list] 
+                print >> sys.stderr, "Waiting for VMs: ", [vm.name for vm in vms_list] 
             for vm in vms_list:
                 if not vm.is_running():
                     vms_list.remove (vm)
                 if shutdown_counter > shutdown_counter_max:
                     # kill the VM
                     if options.verbose:
-                        print "Killing the (apparently hanging) VM '{0}'...".format(vm.name)
+                        print >> sys.stderr, "Killing the (apparently hanging) VM '{0}'...".format(vm.name)
                     vm.force_shutdown()
                     #vms_list.remove(vm)
 
@@ -264,7 +265,7 @@ def main():
 
     retcode = subprocess.call([qubes_clipd_path])
     if retcode != 0:
-        print "ERROR: Cannot start qclipd!"
+        print >> sys.stderr, "ERROR: Cannot start qclipd!"
         if options.tray:
             tray_notify ("ERROR: Cannot start the Qubes Clipboard Notifier!")
 

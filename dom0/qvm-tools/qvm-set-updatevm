@@ -22,6 +22,7 @@
 
 from qubes.qubes import QubesVmCollection
 from optparse import OptionParser;
+import sys
 
 def main():
     usage = "usage: %prog <vm-name>"
@@ -36,7 +37,7 @@ def main():
     qvm_collection.load()
     vm = qvm_collection.get_vm_by_name(vmname)
     if vm is None or vm.qid not in qvm_collection:
-        print "A VM with the name '{0}' does not exist in the system.".format(vmname)
+        print >> sys.stderr, "A VM with the name '{0}' does not exist in the system.".format(vmname)
         exit(1)
 
     qvm_collection.set_updatevm_vm(vm)

@@ -23,6 +23,7 @@
 from qubes.qubes import QubesVmCollection, qubes_kernels_base_dir
 from optparse import OptionParser;
 import os
+import sys
 
 def main():
     usage = "usage: %prog <kernel>"
@@ -33,7 +34,7 @@ def main():
     kernel = args[0]
     
     if not os.path.exists(qubes_kernels_base_dir + "/" + kernel):
-        print "Kernel {0} not installed".format(kernel)
+        print >> sys.stderr, "Kernel {0} not installed".format(kernel)
         exit(1)   
 
     qvm_collection = QubesVmCollection()

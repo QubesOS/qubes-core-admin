@@ -37,7 +37,7 @@ def get_netvm():
     while netvm.netvm_vm is not None:
         netvm = netvm.netvm_vm
     if netvm is None or netvm.name == 'dom0':
-        print 'There seems to be no dedicated default netvm, aborting.'
+        print >> sys.stderr, 'There seems to be no dedicated default netvm, aborting.'
         sys.exit(1)
     return netvm
 
@@ -45,8 +45,8 @@ def vif_eth0_exists():
     if not os.path.islink('/sys/class/net/eth0'):
         return False
     if not os.path.isdir('/sys/devices/xen/vif-0/net/eth0'):
-        print 'There is a dedicated netvm, but device eth0 is present'
-        print 'and it is not a Xen interface. Refusing to continue.'
+        print >> sys.stderr, 'There is a dedicated netvm, but device eth0 is present'
+        print >> sys.stderr, 'and it is not a Xen interface. Refusing to continue.'
         sys.exit(1)
     return True
 
@@ -64,7 +64,7 @@ def netup():
     if not vif_eth0_exists():
         cmd = 'modprobe xennet'
         if os.system(cmd) != 0:
-            print 'Error creating network device'
+            print >> sys.stderr, 'Error creating network device'
             sys.exit(1)
         qvm_collection[0].attach_network(verbose=True, netvm=netvm, wait=True)
     if not bringup_eth0(netvm):
@@ -73,20 +73,20 @@ def netup():
 def netdown():
     netvm = get_netvm()
     if not vif_eth0_exists():
-        print 'There is no eth0 that is a Xen vif device, aborting.'
+        print >> sys.stderr, 'There is no eth0 that is a Xen vif device, aborting.'
         sys.exit(1)
     os.system('ifconfig eth0 down')
     os.system('xl network-detach 0 0')
 
 def usage():
-    print 'Usage: qvm-dom0-network-via-netvm [up|down]'
+    print >> sys.stderr, 'Usage: qvm-dom0-network-via-netvm [up|down]'
     sys.exit(1)
 
 def main():
     if len(sys.argv) != 2:
         usage()
     if os.getuid() != 0:
-        print 'This script must be run as root'
+        print >> sys.stderr, 'This script must be run as root'
         sys.exit(1)
     if sys.argv[1] == 'up':
         netup()
