@@ -228,7 +228,7 @@ def main():
                 netvm_name = vm.netvm_vm.name
                 netvm_vm_on_host = host_collection.get_vm_by_name (netvm_name)
 
-                # No netv, on the host?
+                # No netvm on the host?
                 if not ((netvm_vm_on_host is not None) and netvm_vm_on_host.is_netvm):
 
                     # Maybe the (custom) netvm is in the backup?
