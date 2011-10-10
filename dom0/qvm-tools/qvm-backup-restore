@@ -34,6 +34,7 @@ import time
 import subprocess
 import sys
 import re
+import pwd,grp
 
 def size_to_human (size):
     if size < 1024:
@@ -135,6 +136,12 @@ def main():
     parser.add_option ("--replace-template", action="append", dest="replace_template", default=[],
                        help="Restore VMs using another template, syntax: old-template-name:new-template-name (might be repeated)")
 
+    parser.add_option ("--skip-dom0-home", action="store_false", dest="dom0_home", default=True,
+                       help="Do not restore dom0 user home dir")
+
+    parser.add_option ("--ignore-username-mismatch", action="store_true", dest="ignore_username_mismatch", default=False,
+                       help="Ignore dom0 username mismatch while restoring homedir")
+
     (options, args) = parser.parse_args ()
 
     if (len (args) != 1):
@@ -158,6 +165,7 @@ def main():
     backup_vms_list = [vm for vm in backup_collection.values()]
     host_vms_list = [vm for vm in host_collection.values()]
     vms_to_restore = []
+    backup_dom0_home_dir = None
 
     fields_to_display = ["name", "type", "template", "updbl", "netvm", "label" ]
 
@@ -195,6 +203,8 @@ def main():
     there_are_conflicting_vms = False
     there_are_missing_templates = False
     there_are_missing_netvms = False
+    dom0_username_mismatch = False
+    restore_home = False
     # ... and the actual data
     for vm in backup_vms_list:
         if is_vm_included_in_backup (backup_dir, vm):
@@ -241,6 +251,34 @@ def main():
             print s
             if good_to_go:
                 vms_to_restore.append (vm)
+
+    # ...and dom0 home
+    if options.dom0_home and os.path.exists(backup_dir + '/dom0-home'):
+        local_user = grp.getgrnam('qubes').gr_mem[0]
+        s = ""
+        for f in fields_to_display:
+            fmt="{{0:>{0}}} |".format(fields[f]["max_width"] + 1)
+            if f == "name":
+                s += fmt.format("Dom0")
+            elif f == "type":
+                s += fmt.format("Home")
+            else:
+                s += fmt.format("")
+
+        dom0_homes = os.listdir(backup_dir + '/dom0-home')
+        if len(dom0_homes) > 1:
+            print >> sys.stderr, "ERROR: more than one dom0 homedir in backup!"
+            exit(1)
+
+        if dom0_homes[0] != local_user:
+            s += " <-- username in backup and dom0 mismatch"
+            dom0_username_mismatch = True
+
+        backup_dom0_home_dir = backup_dir + '/dom0-home/' + dom0_homes[0]
+
+        print s
+        restore_home = True
+        restore_home_backupdir = "home-pre-restore-{0}".format (time.strftime("%Y-%m-%d-%H%M%S"))
 
     print
 
@@ -292,6 +330,17 @@ def main():
         else:
             print >> sys.stderr, "INTERNAL ERROR?!"
             exit (1)
+
+    if restore_home:
+        if dom0_username_mismatch:
+            print >> sys.stderr, "*** Dom0 username mismatch! This can break some settings ***"
+            if not options.ignore_username_mismatch:
+                print >> sys.stderr, "Skip dom0 home restore (--skip-dom0-home)"
+                print >> sys.stderr, "Or pass: --ignore-username-mismatch to continue anyway"
+                exit(1)
+            else:
+                print >> sys.stderr, "Continuing as directed"
+        print >> sys.stderr, "While restoring user homedir, existing files/dirs will be backed up in '{0}' dir".format(restore_home_backupdir)
 
     prompt = raw_input ("Do you want to proceed? [y/N] ")
     if not (prompt == "y" or prompt == "Y"):
@@ -445,5 +494,20 @@ def main():
     backup_collection.unlock_db()
     host_collection.save()
     host_collection.unlock_db()
+
+    # ... and dom0 home as last step
+    if restore_home:
+        home_dir = pwd.getpwnam(local_user).pw_dir
+        print "-> Restoring home of user '{0}'...".format(local_user)
+        os.mkdir(home_dir + '/' +restore_home_backupdir)
+        for f in os.listdir(backup_dom0_home_dir):
+            home_file = home_dir + '/' + f
+            if os.path.exists(home_file):
+                os.rename(home_file, home_dir + '/' + restore_home_backupdir + '/' + f)
+            retcode = subprocess.call (["cp", "-nrp", backup_dom0_home_dir + '/' + f, home_file])
+            if retcode != 0:
+                print >> sys.stderr, "*** Error while copying file {0} to {1}".format(backup_dom0_home_dir + '/' + f, home_file)
+                exit (1)
+
     print "-> Done."
 main()

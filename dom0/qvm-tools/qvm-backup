@@ -29,6 +29,8 @@ import os
 import time
 import subprocess
 import sys
+import re
+import grp,pwd
 
 def size_to_human (size):
     if size < 1024:
@@ -39,6 +41,18 @@ def size_to_human (size):
         return str(round(size/(1024.0*1024),1)) + ' MiB'
     else:
         return str(round(size/(1024.0*1024*1024),1)) + ' GiB'
+
+def get_disk_usage(file_or_dir):
+    if not os.path.exists(file_or_dir):
+        return 0
+
+    p = subprocess.Popen (["du", "-s", "--block-size=1", file_or_dir],
+            stdout=subprocess.PIPE)
+    result = p.communicate()
+    m = re.match(r"^(\d+)\s.*", result[0])
+    sz = int(m.group(1)) if m is not None else 0
+    return sz
+
 
 def file_to_backup (file_path, sz = None):
     if sz is None:
@@ -186,6 +200,24 @@ def main():
 
             print s
 
+    # Dom0 user home
+    local_user = grp.getgrnam('qubes').gr_mem[0]
+    home_dir = pwd.getpwnam(local_user).pw_dir
+    home_sz = get_disk_usage(home_dir)
+    home_to_backup = [ { "path" : home_dir, "size": home_sz, "subdir": 'dom0-home'} ]
+    files_to_backup += home_to_backup
+
+    s = ""
+    fmt="{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
+    s += fmt.format('Dom0')
+
+    fmt="{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
+    s += fmt.format("User home")
+
+    fmt="{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
+    s += fmt.format(size_to_human(home_sz))
+
+    print s
 
 
     total_backup_sz = 0
