@@ -1052,6 +1052,13 @@ class QubesVm(object):
             print >> sys.stderr, "--> Starting the VM..."
         xc.domain_unpause(xid)
 
+# close() is not really needed, because the descriptor is close-on-exec
+# anyway, the reason to postpone close() is that possibly xl is not done
+# constructing the domain after its main process exits
+# so we close() when we know the domain is up
+# the successful unpause is some indicator of it
+        qmemman_client.close()
+
         if not preparing_dvm:
             if verbose:
                 print >> sys.stderr, "--> Starting the qrexec daemon..."
@@ -1059,13 +1066,6 @@ class QubesVm(object):
             if (retcode != 0) :
                 self.force_shutdown()
                 raise OSError ("ERROR: Cannot execute qrexec_daemon!")
-
-# close() is not really needed, because the descriptor is close-on-exec
-# anyway, the reason to postpone close() is that possibly xl is not done
-# constructing the domain after its main process exits 
-# so we close() when we know the domain is up
-# the successful qrexec connect is a good indicator of it
-        qmemman_client.close()
 
         if preparing_dvm:
             if verbose:
