@@ -604,7 +604,7 @@ class QubesVm(object):
             return
 
         dev_basepath = '/local/domain/%d/device/vif' % self.xid
-        for dev in xs.list('', dev_basepath):
+        for dev in xs.ls('', dev_basepath):
             # check if backend domain is alive
             backend_xid = int(xs.read('', '%s/%s/backend-id' % (dev_basepath, dev)))
             if xl_ctx.domid_to_name(backend_xid) is not None:
@@ -1479,7 +1479,7 @@ class QubesNetVm(QubesVm):
             vm.cleanup_vifs()
 
             # wait for frontend to forget about this device (UGLY HACK)
-            time.sleep(0.1)
+            time.sleep(0.2)
 
             try:
                 vm.attach_network(wait=False)
