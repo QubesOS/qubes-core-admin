@@ -47,7 +47,7 @@ while [ $# -gt 0 ]; do
 done
 
 ID=$(id -ur)
-if [ $ID != 0 -a -z "$GUI" -z "$CHECK_ONLY" ] ; then
+if [ $ID != 0 -a -z "$GUI" -a -z "$CHECK_ONLY" ] ; then
     echo "This script should be run as root (when used in console mode), use sudo." >&2
     exit
 fi
