@@ -58,10 +58,11 @@ def refresh_meminfo_for_domain(domain, untrusted_xenstore_key):
                         
 def prefmem(domain):
     CACHE_FACTOR = 1.3
+    MIN_PREFMEM = 100*1024*1024
 #dom0 is special, as it must have large cache, for vbds. Thus, give it a special boost
     if domain.id == '0':
         return min(domain.mem_used*CACHE_FACTOR + 350*1024*1024, domain.memory_maximum)
-    return min(domain.mem_used*CACHE_FACTOR, domain.memory_maximum)
+    return max(min(domain.mem_used*CACHE_FACTOR, domain.memory_maximum), MIN_PREFMEM)
 
 def memory_needed(domain):
 #do not change
