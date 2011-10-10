@@ -136,6 +136,9 @@ def main():
     parser.add_option ("--replace-template", action="append", dest="replace_template", default=[],
                        help="Restore VMs using another template, syntax: old-template-name:new-template-name (might be repeated)")
 
+    parser.add_option ("-x", "--exclude", action="append", dest="exclude", default=[],
+                       help="Skip restore of specified VM (might be repeated)")
+
     parser.add_option ("--skip-dom0-home", action="store_false", dest="dom0_home", default=True,
                        help="Do not restore dom0 user home dir")
 
@@ -215,12 +218,16 @@ def main():
                 fmt="{{0:>{0}}} |".format(fields[f]["max_width"] + 1)
                 s += fmt.format(eval(fields[f]["func"])) 
 
-            if host_collection.get_vm_by_name (vm.name) is not None:
+            if vm.name in options.exclude:
+                s += " <-- Excluded from restore"
+                good_to_go = False
+
+            if good_to_go and host_collection.get_vm_by_name (vm.name) is not None:
                 s +=  " <-- A VM with the same name already exists on the host!"
                 there_are_conflicting_vms = True
                 good_to_go = False # Do not overwrite VMs on the host!
 
-            if vm.template_vm is not None:
+            if good_to_go and vm.template_vm is not None:
                 templatevm_name = find_template_name(vm.template_vm.name, options.replace_template)
                 template_vm_on_host = host_collection.get_vm_by_name (templatevm_name)
 
@@ -234,7 +241,7 @@ def main():
                         there_are_missing_templates = True
                         good_to_go = False if not (options.ignore_missing) else True
                 
-            if not vm.is_netvm() and vm.netvm_vm is not None:
+            if good_to_go and not vm.is_netvm() and vm.netvm_vm is not None:
                 netvm_name = vm.netvm_vm.name
                 netvm_vm_on_host = host_collection.get_vm_by_name (netvm_name)
 
