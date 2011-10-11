@@ -4,9 +4,16 @@ import os
 import os.path
 import subprocess
 import xen.lowlevel.xl
+import qubes.guihelpers
+import fcntl
  
 POLICY_FILE_DIR="/etc/qubes_rpc/policy"
 QREXEC_CLIENT="/usr/lib/qubes/qrexec_client"
+
+class UserChoice:
+    ALLOW=0
+    DENY=1
+    ALWAYS_ALLOW=2
 
 def line_to_dict(line):
     tokens=line.split()
@@ -20,6 +27,7 @@ def line_to_dict(line):
     dict['source']=tokens[0]
     dict['dest']=tokens[1]
     
+    dict['full-action']=tokens[2]
     action_list=tokens[2].split(',')
     dict['action']=action_list.pop(0)
     
@@ -36,6 +44,7 @@ def read_policy_file(exec_index):
         return None
     policy_list=list()
     f = open(policy_file)
+    fcntl.flock(f, fcntl.LOCK_SH)
     for iter in f.readlines():
         dict = line_to_dict(iter)
         if dict is not None:
@@ -92,9 +101,23 @@ def do_execute(domain, target, user, exec_index, process_ident):
 
 def confirm_execution(domain, target, exec_index):
     text = "Do you allow domain \"" +domain + "\" to execute " + exec_index
-    text+= " operation on the domain \"" + target +"\"?" 
-    retcode = subprocess.call(["/usr/bin/zenity", "--question", "--text", text])
-    return retcode==0
+    text+= " operation on the domain \"" + target +"\"?<br>"
+    text+= " \"Yes to All\" option will automatically allow this operation in the future."
+    return qubes.guihelpers.ask(text, yestoall=True)
+
+def add_always_allow(domain, target, exec_index, options):
+    policy_file=POLICY_FILE_DIR+"/"+exec_index
+    if not os.path.isfile(policy_file):
+        return None
+    f = open(policy_file, 'r+')
+    fcntl.flock(f, fcntl.LOCK_EX)
+    lines = []
+    for l in f.readlines():
+        lines.append(l)
+    lines.insert(0, "%s\t%s\tallow%s\n" % (domain, target, options))
+    f.seek(0)
+    f.write("".join(lines))
+    f.close()
 
 def policy_editor(domain, target, exec_index):
     text = "Policy editor not yet implemented. Please add a line in the form \""
@@ -118,7 +141,11 @@ def main():
     policy_dict=find_policy(policy_list, domain, target)
     
     if policy_dict["action"] == "ask":
-        if confirm_execution(domain, target, exec_index):
+        user_choice = confirm_execution(domain, target, exec_index)
+        if user_choice == UserChoice.ALWAYS_ALLOW:
+            add_always_allow(domain, target, exec_index, policy_dict["full-action"].lstrip('ask'))
+            policy_dict["action"] = "allow"
+        elif user_choice == UserChoice.ALLOW:
             policy_dict["action"] = "allow"
         else:
             policy_dict["action"] = "deny"
@@ -136,4 +163,3 @@ def main():
     os.execl(QREXEC_CLIENT, "qrexec_client", "-d", domain, "-l", "/bin/false", "-c", process_ident)
 
 main()
-                

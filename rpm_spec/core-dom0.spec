@@ -82,6 +82,8 @@ cp qvm-core/qubes.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/qubes.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/qubesutils.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/qubesutils.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
+cp qvm-core/guihelpers.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
+cp qvm-core/guihelpers.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/__init__.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/__init__.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qmemman/qmemman*py $RPM_BUILD_ROOT%{python_sitearch}/qubes
@@ -303,6 +305,9 @@ fi
 %{python_sitearch}/qubes/qubesutils.py
 %{python_sitearch}/qubes/qubesutils.pyc
 %{python_sitearch}/qubes/qubesutils.pyo
+%{python_sitearch}/qubes/guihelpers.py
+%{python_sitearch}/qubes/guihelpers.pyc
+%{python_sitearch}/qubes/guihelpers.pyo
 %{python_sitearch}/qubes/__init__.py
 %{python_sitearch}/qubes/__init__.pyc
 %{python_sitearch}/qubes/__init__.pyo
@@ -358,11 +363,11 @@ fi
 /usr/lib/qubes/qubes_rpc_multiplexer
 /usr/lib/qubes/qrexec_policy
 %dir /etc/qubes_rpc/policy
-/etc/qubes_rpc/policy/qubes.Filecopy
-/etc/qubes_rpc/policy/qubes.OpenInVM
-/etc/qubes_rpc/policy/qubes.SyncAppMenus
-/etc/qubes_rpc/policy//qubes.ReceiveUpdates
-/etc/qubes_rpc/policy/qubes.VMShell
+%attr(0664,root,qubes) /etc/qubes_rpc/policy/qubes.Filecopy
+%attr(0664,root,qubes) /etc/qubes_rpc/policy/qubes.OpenInVM
+%attr(0664,root,qubes) /etc/qubes_rpc/policy/qubes.SyncAppMenus
+%attr(0664,root,qubes) /etc/qubes_rpc/policy/qubes.ReceiveUpdates
+%attr(0664,root,qubes) /etc/qubes_rpc/policy/qubes.VMShell
 /etc/qubes_rpc/qubes.SyncAppMenus
 /etc/qubes_rpc/qubes.ReceiveUpdates
 %attr(4750,root,qubes) /usr/lib/qubes/qrexec_daemon
