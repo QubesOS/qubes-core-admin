@@ -80,7 +80,7 @@ def vm_run_cmd(vm, cmd, options):
     if options.shutdown:
         if options.verbose:
             print >> sys.stderr, "Shutting down VM: '{0}'...".format(vm.name)
-        subprocess.call (["/usr/sbin/xl", "shutdown", vm.name])
+        vm.shutdown()
         return
 
     if options.pause:

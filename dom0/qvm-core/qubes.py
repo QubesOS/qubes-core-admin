@@ -1082,6 +1082,13 @@ class QubesVm(object):
 
         return xid
 
+    def shutdown(self):
+        if dry_run:
+            return
+
+        subprocess.call (['/usr/sbin/xl', 'shutdown', self.name])
+        #xc.domain_destroy(self.get_xid())
+
     def force_shutdown(self):
         if dry_run:
             return
