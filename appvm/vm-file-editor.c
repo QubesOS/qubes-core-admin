@@ -51,23 +51,45 @@ main()
 	char cmdbuf[512];
 	struct stat stat_pre, stat_post;
 	char *filename = get_filename();
+	int child, status, log_fd;
 
 	copy_file(filename);
 	if (stat(filename, &stat_pre)) {
 		perror("stat pre");
 		exit(1);
 	}
-	snprintf(cmdbuf, sizeof(cmdbuf),
-		 "HOME=/home/user DISPLAY=:0 /usr/bin/mimeopen -n -M '%s' > /tmp/kde-open.log 2>&1 </dev/null",
-		 filename);
-	if (system(cmdbuf))
+	switch (child = fork()) {
+		case -1:
+			perror("fork");
+			exit(1);
+		case 0:
+			close(0);
+			log_fd = open("/tmp/mimeopen.log", O_CREAT | O_APPEND, 0666);
+			if (log_fd == -1) {
+				perror("open /tmp/mimeopen.log");
+				exit(1);
+			}
+			dup2(log_fd, 1);
+			dup2(log_fd, 2);
+			close(log_fd);
+
+			setenv("HOME", "/home/user", 1);
+			setenv("DISPLAY", ":0", 1);
+			execl("/usr/bin/mimeopen", "mimeopen", "-n", "-M", filename);
+			perror("execl");
+			exit(1);
+		default:
+			waitpid(child, &status, 0);
+			if (status != 0) {
 #ifdef USE_KDIALOG
-		system
-		    ("HOME=/home/user DISPLAY=:0 /usr/bin/kdialog --sorry 'Unable to handle mimetype of the requested file!' > /tmp/kdialog.log 2>&1 </dev/null");
+				system
+					("HOME=/home/user DISPLAY=:0 /usr/bin/kdialog --sorry 'Unable to handle mimetype of the requested file!' > /tmp/kdialog.log 2>&1 </dev/null");
 #else
-		system
-		    ("HOME=/home/user DISPLAY=:0 /usr/bin/zenity --error --text 'Unable to handle mimetype of the requested file!' > /tmp/kdialog.log 2>&1 </dev/null");
+				system
+					("HOME=/home/user DISPLAY=:0 /usr/bin/zenity --error --text 'Unable to handle mimetype of the requested file!' > /tmp/kdialog.log 2>&1 </dev/null");
 #endif
+			}
+	}
 
 	if (stat(filename, &stat_post)) {
 		perror("stat post");
