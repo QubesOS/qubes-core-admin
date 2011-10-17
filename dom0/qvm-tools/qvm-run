@@ -80,7 +80,14 @@ def vm_run_cmd(vm, cmd, options):
     if options.shutdown:
         if options.verbose:
             print >> sys.stderr, "Shutting down VM: '{0}'...".format(vm.name)
-        vm.shutdown()
+        try:
+            vm.shutdown(force=options.force)
+        except (QubesException) as err:
+            # "There are other VMs connected to this VM:"
+            print >> sys.stderr, "ERROR: {0}".format(err)
+            if str(err).startswith("There are other VMs connected"):
+                print >> sys.stderr, "Shutdown them first or use --force switch"
+            exit(1)
         return
 
     if options.pause:
@@ -222,15 +229,6 @@ def main():
             print >> sys.stderr, "A VM with the name '{0}' does not exist in the system!".format(vmname)
             exit(1)
         vms_list.append(vm)
-    
-        # If stopping NetVM - stop connected VMs too
-        if options.shutdown and vm.is_netvm():
-            connected_vms =  [vm for vm in qvm_collection.get_vms_connected_to(vm.qid) if vm.is_running()]
-            if connected_vms and not options.force:
-                print >> sys.stderr, "ERROR: There are other VMs connected to this VM, "
-                print >> sys.stderr, "       shutdown them first or use --force option"
-                print >> sys.stderr, "VMs list: " + str([vm.name for vm in connected_vms])
-                exit(1)
 
     if takes_cmd_argument:
         cmd = "{user}:{cmd}".format(user=options.user, cmd=cmdstr)

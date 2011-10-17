@@ -1082,7 +1082,7 @@ class QubesVm(object):
 
         return xid
 
-    def shutdown(self):
+    def shutdown(self, force=False):
         if dry_run:
             return
 
@@ -1494,6 +1494,16 @@ class QubesNetVm(QubesVm):
                 print >> sys.stderr, ("WARNING: Cannot attach to network to '{0}': {1}".format(vm.name, ex))
 
         return xid
+
+    def shutdown(self, force=False):
+        if dry_run:
+            return
+
+        connected_vms =  [vm for vm in self.connected_vms.values() if vm.is_running()]
+        if connected_vms and not force:
+            raise QubesException("There are other VMs connected to this VM: " + str([vm.name for vm in connected_vms]))
+
+        super(QubesNetVm, self).shutdown(force=force)
 
     def add_external_ip_permission(self, xid):
         if int(xid) < 0:

@@ -27,6 +27,10 @@ import sys
 def main():
     usage = "usage: %prog [options] <vm-name>"
     parser = OptionParser (usage)
+    
+    parser.add_option ("--force", action="store_true", dest="force", default=False,
+                      help="Force operation, even if may damage other VMs (eg shutdown of NetVM)")
+
     (options, args) = parser.parse_args ()
     if (len (args) != 1):
         parser.error ("You must specify VM name!")
@@ -43,7 +47,7 @@ def main():
         exit(1)
 
     try:
-        vm.shutdown()
+        vm.shutdown(force=options.force)
     except (IOError, OSError) as err:
         print >> sys.stderr, "ERROR: {0}".format(err)
         exit (1)
