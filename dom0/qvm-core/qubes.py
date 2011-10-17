@@ -1925,6 +1925,10 @@ class QubesVmCollection(dict):
         if self.default_fw_netvm_qid is None:
             self.set_default_fw_netvm_vm(vm)
 
+        # by default ClockVM is the first NetVM
+        if self.clockvm_qid is None:
+            self.set_clockvm_vm(vm)
+
         return vm
 
     def add_new_proxyvm(self, name, template_vm,
