@@ -83,7 +83,7 @@ dom0_update_check_interval = 6*3600
 
 # how long (in sec) to wait for VMs to shutdown
 # before killing them (when used qvm-run with --wait option)
-shutdown_counter_max = 30
+shutdown_counter_max = 60
 
 # do not allow to start a new AppVM if Dom0 mem was to be less than this
 dom0_min_memory = 700*1024*1024
