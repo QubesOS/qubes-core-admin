@@ -20,7 +20,7 @@
 #
 #
 
-from qubes.qubes import QubesVmCollection
+from qubes.qubes import QubesVmCollection,QubesException
 from optparse import OptionParser;
 import sys
 
@@ -48,7 +48,7 @@ def main():
 
     try:
         vm.shutdown(force=options.force)
-    except (IOError, OSError) as err:
+    except (IOError, OSError, QubesException) as err:
         print >> sys.stderr, "ERROR: {0}".format(err)
         exit (1)
 
