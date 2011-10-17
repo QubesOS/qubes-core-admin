@@ -21,15 +21,20 @@
 #
 
 from qubes.qubes import QubesVmCollection,QubesException
+from qubes.qubes import shutdown_counter_max
 from optparse import OptionParser;
 import sys
+import time
 
 def main():
     usage = "usage: %prog [options] <vm-name>"
     parser = OptionParser (usage)
     
+    parser.add_option ("-q", "--quiet", action="store_false", dest="verbose", default=True)
     parser.add_option ("--force", action="store_true", dest="force", default=False,
                       help="Force operation, even if may damage other VMs (eg shutdown of NetVM)")
+    parser.add_option ("--wait", action="store_true", dest="wait_for_shutdown", default=False,
+                      help="Wait for the VM(s) to shutdown")
 
     (options, args) = parser.parse_args ()
     if (len (args) != 1):
@@ -52,5 +57,19 @@ def main():
         print >> sys.stderr, "ERROR: {0}".format(err)
         exit (1)
 
+    if options.wait_for_shutdown:
+        if options.verbose:
+            print >> sys.stderr, "Waiting for the VM(s) to shutdown..."
+        shutdown_counter = 0
+
+        while vm.is_running():
+            if shutdown_counter > shutdown_counter_max:
+                # kill the VM
+                if options.verbose:
+                    print >> sys.stderr, "Killing the (apparently hanging) VM '{0}'...".format(vm.name)
+                vm.force_shutdown()
+
+            shutdown_counter += 1
+            time.sleep (1)
 
 main()
