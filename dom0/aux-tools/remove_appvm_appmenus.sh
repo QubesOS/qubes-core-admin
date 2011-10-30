@@ -17,3 +17,6 @@ if ls $APPSDIR/*.directory $APPSDIR/*.desktop > /dev/null 2>&1; then
     rm -f $APPSDIR/*.desktop $APPSDIR/*.directory
 fi
 
+if [ -n "$KDE_SESSION_UID" ]; then
+    kbuildsycoca4
+fi

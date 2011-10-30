@@ -54,3 +54,6 @@ fi
 echo "--> Adding Apps to the Menu..."
 xdg-desktop-menu install $APPSDIR/*.directory $APPSDIR/*.desktop
 
+if [ -n "$KDE_SESSION_UID" ]; then
+    kbuildsycoca4
+fi
