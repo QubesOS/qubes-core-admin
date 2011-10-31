@@ -21,9 +21,9 @@
 #
 
 from qubes import QubesVm,QubesException
-from qubes import xs, xl_ctx
+from qubes import xs, xl_ctx, qubes_guid_path, qubes_clipd_path, qrexec_client_path
 import sys
-#import os
+import os
 #import os.path
 import subprocess
 #import fcntl
@@ -228,5 +228,57 @@ def block_detach(vm, frontend = "xvdi", vm_xid = None):
 
     xl_cmd = [ '/usr/sbin/xl', 'block-detach', str(vm_xid), str(frontend)]
     subprocess.check_call(xl_cmd)
+
+def start_guid(vm, verbose = True, notify_function = None):
+    if verbose:
+        print >> sys.stderr, "--> Starting Qubes GUId..."
+    xid = vm.get_xid()
+
+    retcode = subprocess.call ([qubes_guid_path, "-d", str(xid), "-c", vm.label.color, "-i", vm.label.icon, "-l", str(vm.label.index)])
+    if (retcode != 0) :
+        raise QubesException("Cannot start qubes_guid!")
+
+    if verbose:
+        print >> sys.stderr, "--> Waiting for qubes-session..."
+
+    subprocess.call([qrexec_client_path, "-d", str(xid), "user:echo $$ >> /tmp/qubes-session-waiter; [ ! -f /tmp/qubes-session-env ] && exec sleep 365d"])
+
+    retcode = subprocess.call([qubes_clipd_path])
+    if retcode != 0:
+        print >> sys.stderr, "ERROR: Cannot start qclipd!"
+        if notify_function is not None:
+            notify_function("error", "ERROR: Cannot start the Qubes Clipboard Notifier!")
+
+def run_in_vm(vm, command, verbose = True, autostart = False, notify_function = None, passio = False, localcmd = None):
+    assert vm is not None
+
+    if not vm.is_running():
+        if not autostart:
+            raise QubesException("VM not running")
+
+        try:
+            if verbose:
+                print >> sys.stderr, "Starting the VM '{0}'...".format(vm.name)
+            if notify_function is not None:
+                notify_function ("info", "Starting the '{0}' VM...".format(vm.name), label=vm.label)
+            xid = vm.start(verbose=verbose)
+
+        except (IOError, OSError, QubesException) as err:
+            raise QubesException("Error while starting the '{0}' VM: {1}".format(vm.name, err))
+        except (MemoryError) as err:
+            raise QubesException("Not enough memory to start '{0}' VM! Close one or more running VMs and try again.".format(vm.name))
+
+    xid = vm.get_xid()
+    if os.getenv("DISPLAY") is not None and not os.path.isfile("/var/run/qubes/guid_running.{0}".format(xid)):
+        start_guid(vm, verbose = verbose, notify_function = notify_function)
+
+    args = [qrexec_client_path, "-d", str(xid), command]
+    if localcmd is not None:
+        args += [ "-l", localcmd]
+    if passio:
+        os.execv(qrexec_client_path, args)
+        exit(1)
+    args += ["-e"]
+    return subprocess.call(args)
 
 # vim:sw=4:et:
