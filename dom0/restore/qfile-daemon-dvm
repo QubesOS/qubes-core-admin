@@ -24,6 +24,7 @@ import dbus
 import subprocess
 import sys
 import fcntl
+import shutil
 
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
@@ -79,7 +80,12 @@ class QfileDaemonDvm:
             qvm_collection.unlock_db()
             return None
         dispid=int(disp_name[4:])
-        qvm_collection.add_new_disposablevm(disp_name, vm_disptempl.template_vm, label=vm.label, dispid=dispid)
+        dispvm=qvm_collection.add_new_disposablevm(disp_name, vm_disptempl.template_vm, label=vm.label, dispid=dispid)
+        # By default inherit firewall rules from calling VM
+        if os.path.exists(vm.firewall_conf):
+            disp_firewall_conf = '/var/run/qubes/%s-firewall.xml' % disp_name
+            shutil.copy(vm.firewall_conf, disp_firewall_conf)
+            dispvm.firewall_conf = disp_firewall_conf
         qvm_collection.save()
         qvm_collection.unlock_db()
         # Reload firewall rules

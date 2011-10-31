@@ -1748,6 +1748,7 @@ class QubesDisposableVm(QubesVm):
         attrs["dispid"] = str(self.dispid)
         attrs["template_qid"] = str(self.template_vm.qid)
         attrs["label"] = self.label.name
+        attrs["firewall_conf"] = self.firewall_conf
         return attrs
 
     def verify_files(self):
@@ -2389,7 +2390,7 @@ class QubesVmCollection(dict):
                 kwargs = {}
                 attr_list = ("qid", "name",
                              "template_qid",
-                             "label", "dispid")
+                             "label", "dispid", "firewall_conf" )
 
                 for attribute in attr_list:
                     kwargs[attribute] = element.get(attribute)
