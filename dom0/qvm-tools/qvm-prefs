@@ -126,7 +126,7 @@ def set_netvm(vms, vm, args):
             exit (1)
         vm.uses_default_netvm = False
 
-    vm.netvm_vm = netvm_vm
+    vm.set_netvm_vm(netvm_vm)
     if not vm.is_running():
         return
     # this can fail if VM was not connected to any NetVM

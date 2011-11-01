@@ -397,6 +397,23 @@ class QubesVm(object):
 
         raise QubesException ("Change 'updateable' flag is not supported. Please use qvm-create.")
 
+
+    def set_netvm_vm(self, netvm_vm):
+        if self.netvm_vm is not None:
+            self.netvm_vm.connected_vms.pop(self.qid)
+
+        if netvm_vm is None:
+            # Set also firewall to block all traffic as discussed in #370
+            if os.path.exists(self.firewall_conf):
+                shutil.copy(self.firewall_conf, "%s/backup/%s-firewall-%s.xml"
+                        % (qubes_base_dir, self.name, time.strftime('%Y-%m-%d-%H:%M:%S')))
+            self.write_firewall_conf({'allow': False, 'allowDns': False,
+                    'allowIcmp': False, 'rules': []})
+        else:
+            netvm_vm.connected_vms[self.qid]=self
+
+        self.netvm_vm = netvm_vm
+
     def is_template(self):
         return isinstance(self, QubesTemplateVm)
 
