@@ -260,7 +260,7 @@ def run_in_vm(vm, command, verbose = True, autostart = False, notify_function = 
             if verbose:
                 print >> sys.stderr, "Starting the VM '{0}'...".format(vm.name)
             if notify_function is not None:
-                notify_function ("info", "Starting the '{0}' VM...".format(vm.name), label=vm.label)
+                notify_function ("info", "Starting the '{0}' VM...".format(vm.name))
             xid = vm.start(verbose=verbose)
 
         except (IOError, OSError, QubesException) as err:

@@ -47,12 +47,6 @@ def tray_notify(str, label, timeout = 3000):
 def tray_notify_error(str, timeout = 3000):
     notify_object.Notify("Qubes", 0, "dialog-error", "Qubes", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
 
-def tray_notify_generic(level, str):
-    if level == "info":
-        tray_notify(str)
-    elif level == "error":
-        tray_notify_error(str)
-
 def vm_run_cmd(vm, cmd, options):
     if options.shutdown:
         if options.verbose:
@@ -83,6 +77,12 @@ def vm_run_cmd(vm, cmd, options):
         print >> sys.stderr, "Running command on VM: '{0}'...".format(vm.name)
 
     try:
+        def tray_notify_generic(level, str):
+            if level == "info":
+                tray_notify(str, label=vm.label)
+            elif level == "error":
+                tray_notify_error(str)
+
         return qubesutils.run_in_vm(vm, cmd, autostart = options.auto,
             verbose = options.verbose,
             notify_function = tray_notify_generic if options.tray else None,
