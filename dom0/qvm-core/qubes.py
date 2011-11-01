@@ -816,6 +816,14 @@ class QubesVm(object):
         except subprocess.CalledProcessError:
             print >> sys.stderr, "Ooops, there was a problem creating appmenus for {0} VM!".format (self.name)
 
+    def remove_appmenus(self):
+        vmtype = None
+        if self.is_netvm():
+            vmtype = 'servicevms'
+        else:
+            vmtype = 'appvms'
+        subprocess.check_call ([qubes_appmenu_remove_cmd, self.name, vmtype])
+
     def verify_files(self):
         if dry_run:
             return
@@ -1291,11 +1299,14 @@ class QubesTemplateVm(QubesVm):
         except subprocess.CalledProcessError:
             print >> sys.stderr, "Ooops, there was a problem creating appmenus for {0} VM!".format (self.name)
 
+    def remove_appmenus(self):
+        subprocess.check_call ([qubes_appmenu_remove_cmd, self.name, "vm-templates"])
+
     def remove_from_disk(self):
         if dry_run:
             return
 
-        subprocess.check_call ([qubes_appmenu_remove_cmd, self.name, "vm-templates"])
+        self.remove_appmenus()
         super(QubesTemplateVm, self).remove_from_disk()
 
     def verify_files(self):
@@ -1801,12 +1812,7 @@ class QubesAppVm(QubesVm):
         if dry_run:
             return
 
-        vmtype = ''
-        if self.is_netvm():
-            vmtype = 'servicevms'
-        else:
-            vmtype = 'appvms'
-        subprocess.check_call ([qubes_appmenu_remove_cmd, self.name, vmtype])
+        self.remove_appmenus()
         super(QubesAppVm, self).remove_from_disk()
 
 
