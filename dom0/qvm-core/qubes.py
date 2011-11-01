@@ -404,6 +404,44 @@ class QubesVm(object):
 
         self.netvm_vm = netvm_vm
 
+    def pre_rename(self, new_name):
+        pass
+
+    def set_name(self, name):
+        if self.is_running():
+            raise QubesException("Cannot change name of running VM!")
+
+        self.pre_rename(name)
+
+        new_conf = "%s/%s.conf" % (self.dir_path, name)
+        if os.path.exists(self.conf_file):
+            os.rename(self.conf_file, "%s/%s.conf" % (self.dir_path, name))
+        old_dirpath = self.dir_path
+        new_dirpath = os.path.dirname(self.dir_path) + '/' + name
+        os.rename(old_dirpath, new_dirpath)
+        self.dir_path = new_dirpath
+        old_name = self.name
+        self.name = name
+        if self.private_img is not None:
+            self.private_img = self.private_img.replace(old_dirpath, new_dirpath)
+        if self.root_img is not None:
+            self.root_img = self.root_img.replace(old_dirpath, new_dirpath)
+        if self.volatile_img is not None:
+            self.volatile_img = self.volatile_img.replace(old_dirpath, new_dirpath)
+        if self.conf_file is not None:
+            self.conf_file = new_conf.replace(old_dirpath, new_dirpath)
+        if self.appmenus_templates_dir is not None:
+            self.appmenus_templates_dir = self.appmenus_templates_dir.replace(old_dirpath, new_dirpath)
+        if self.icon_path is not None:
+            self.icon_path = self.icon_path.replace(old_dirpath, new_dirpath)
+        if self.kernels_dir is not None:
+            self.kernels_dir = self.kernels_dir.replace(old_dirpath, new_dirpath)
+
+        self.post_rename(old_name)
+
+    def post_rename(self, old_name):
+        pass
+
     def is_template(self):
         return isinstance(self, QubesTemplateVm)
 
@@ -1302,6 +1340,16 @@ class QubesTemplateVm(QubesVm):
     def remove_appmenus(self):
         subprocess.check_call ([qubes_appmenu_remove_cmd, self.name, "vm-templates"])
 
+    def pre_rename(self, new_name):
+        self.remove_appmenus()
+
+    def post_rename(self, old_name):
+        self.create_appmenus(False)
+
+        old_dirpath = os.path.dirname(self.dir_path) + '/' + old_name
+        self.clean_volatile_img = self.clean_volatile_img.replace(old_dirpath, self.dir_path)
+        self.rootcow_img = self.rootcow_img.replace(old_dirpath, self.dir_path)
+
     def remove_from_disk(self):
         if dry_run:
             return
@@ -1814,6 +1862,12 @@ class QubesAppVm(QubesVm):
 
         self.remove_appmenus()
         super(QubesAppVm, self).remove_from_disk()
+
+    def pre_rename(self, new_name):
+        self.remove_appmenus()
+
+    def post_rename(self, old_name):
+        self.create_appmenus(False)
 
 
 class QubesVmCollection(dict):

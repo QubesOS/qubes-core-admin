@@ -276,6 +276,17 @@ def set_kernelopts(vms, vm, args):
 
     return True
 
+def set_name(vms, vm, args):
+    if len (args) != 1:
+        print >> sys.stderr, "Missing new name!"
+        return False
+
+    if args[0] == vm.name:
+        return False
+    vm.set_name(args[0])
+    return True
+
+
 properties = {
     "updateable": set_updateable,
     "nonupdateable": set_nonupdateable,
@@ -288,6 +299,7 @@ properties = {
     "template" : set_template,
     "vcpus" : set_vcpus,
     "kernelopts": set_kernelopts,
+    "name": set_name,
 }
 
 
