@@ -217,17 +217,9 @@ class QubesVm(object):
         self.__qid = qid
         self.name = name
 
-        dir_path = dir_path
         self.dir_path = dir_path
-        conf_file = conf_file
-        if self.dir_path is not None:
-            if (conf_file is None):
-                self.conf_file = dir_path + "/" + name + ".conf"
-            else:
-                if os.path.isabs(conf_file):
-                    self.conf_file = conf_file
-                else:
-                    self.conf_file = dir_path + "/" + conf_file
+
+        self.conf_file = self.absolute_path(conf_file, name + ".conf")
 
         self.uses_default_netvm = uses_default_netvm
         self.netvm_vm = netvm_vm
@@ -238,24 +230,13 @@ class QubesVm(object):
         self.installed_by_rpm = installed_by_rpm
 
         # Setup standard VM storage; some VM types may not use them all
-        if root_img is not None and os.path.isabs(root_img):
-            self.root_img = root_img
-        else:
-            self.root_img = dir_path + "/" + (
-                root_img if root_img is not None else default_root_img)
+        self.root_img = self.absolute_path(root_img, default_root_img)
 
-        self.volatile_img = dir_path + "/" + default_volatile_img
+        self.volatile_img = self.absolute_path(volatile_img, default_volatile_img)
 
-        if private_img is not None and os.path.isabs(private_img):
-            self.private_img = private_img
-        else:
-            self.private_img = dir_path + "/" + (
-                private_img if private_img is not None else default_private_img)
+        self.private_img = self.absolute_path(private_img, default_private_img)
 
-        if firewall_conf is None:
-            self.firewall_conf = dir_path + "/" + default_firewall_conf_file
-        else:
-            self.firewall_conf = firewall_conf
+        self.firewall_conf = self.absolute_path(firewall_conf, default_firewall_conf_file)
 
         self.updateable = updateable
         self.label = label if label is not None else QubesVmLabels["red"]
@@ -340,6 +321,15 @@ class QubesVm(object):
 
         self.xid = -1
         self.xid = self.get_xid()
+
+    def absolute_path(self, arg, default):
+        if arg is not None and os.path.isabs(arg):
+            return arg
+        else:
+            return self.dir_path + "/" + (arg if arg is not None else default)
+
+    def relative_path(self, arg):
+        return arg.replace(self.dir_path + '/', '')
 
     @property
     def qid(self):
@@ -1130,10 +1120,10 @@ class QubesVm(object):
         attrs["qid"]  = str(self.qid)
         attrs["name"] = self.name
         attrs["dir_path"] = self.dir_path
-        attrs["conf_file"] = self.conf_file
-        attrs["root_img"] = self.root_img
-        attrs["volatile_img"] = self.volatile_img
-        attrs["private_img"] = self.private_img
+        attrs["conf_file"] = self.relative_path(self.conf_file)
+        attrs["root_img"] = self.relative_path(self.root_img)
+        attrs["volatile_img"] = self.relative_path(self.volatile_img)
+        attrs["private_img"] = self.relative_path(self.private_img)
         attrs["uses_default_netvm"] = str(self.uses_default_netvm)
         attrs["netvm_qid"] = str(self.netvm_vm.qid) if self.netvm_vm is not None else "none"
         attrs["installed_by_rpm"] = str(self.installed_by_rpm)
@@ -1766,7 +1756,7 @@ class QubesDisposableVm(QubesVm):
         attrs["dispid"] = str(self.dispid)
         attrs["template_qid"] = str(self.template_vm.qid)
         attrs["label"] = self.label.name
-        attrs["firewall_conf"] = self.firewall_conf
+        attrs["firewall_conf"] = self.relative_path(self.firewall_conf)
         return attrs
 
     def verify_files(self):
