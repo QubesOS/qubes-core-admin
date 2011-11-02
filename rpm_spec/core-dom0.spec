@@ -124,7 +124,7 @@ install -D aux-tools/qubes-dom0-updates.cron $RPM_BUILD_ROOT/etc/cron.daily/qube
 
 cp restore/qvm-create-default-dvm $RPM_BUILD_ROOT/usr/bin
 cp restore/xenstore-watch $RPM_BUILD_ROOT/usr/bin/xenstore-watch-qubes
-cp restore/qubes_restore restore/xenfreepages $RPM_BUILD_ROOT/usr/lib/qubes
+cp restore/qubes_restore $RPM_BUILD_ROOT/usr/lib/qubes
 cp restore/qubes_prepare_saved_domain.sh  $RPM_BUILD_ROOT/usr/lib/qubes
 cp restore/qubes_update_dispvm_savefile_with_progress.sh  $RPM_BUILD_ROOT/usr/lib/qubes
 cp restore/qfile-daemon-dvm $RPM_BUILD_ROOT/usr/lib/qubes
@@ -371,7 +371,6 @@ fi
 /etc/qubes_rpc/qubes.SyncAppMenus
 /etc/qubes_rpc/qubes.ReceiveUpdates
 %attr(4750,root,qubes) /usr/lib/qubes/qrexec_daemon
-%attr(4750,root,qubes) /usr/lib/qubes/xenfreepages
 %attr(2770,root,qubes) %dir /var/log/qubes
 %attr(770,root,qubes) %dir /var/run/qubes
 %{_libdir}/libvchan.so
