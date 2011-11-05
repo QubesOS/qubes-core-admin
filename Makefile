@@ -52,7 +52,6 @@ update-repo-unstable:
 
 update-repo-installer:
 	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-*$(VERSION_DOM0)*fc13*.rpm ../installer/yum/qubes-dom0/rpm/
-	cd ../installer/yum && ./update_repo.sh
 
 clean:
 	(cd appvm && make clean)
