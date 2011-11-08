@@ -22,7 +22,7 @@
 
 from qubes.qubes import QubesVmCollection
 from qubes.qubesutils import block_list,block_attach,block_detach,block_check_attached
-from qubes.qubesutils import kbytes_to_kmg
+from qubes.qubesutils import kbytes_to_kmg, bytes_to_kmg
 from optparse import OptionParser
 import subprocess
 import sys
