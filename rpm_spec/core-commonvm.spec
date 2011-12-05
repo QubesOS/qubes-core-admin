@@ -146,6 +146,11 @@ echo 'OnlyShowIn=GNOME;UpdateableVM;' >> /etc/xdg/autostart/gpk-update-icon.desk
 echo 'OnlyShowIn=GNOME;NetVM;' >> /etc/xdg/autostart/nm-applet.desktop || :
 
 usermod -p '' root
+
+# Prevent unnecessary updates in VMs:
+sed -i -e '/^exclude = kernel/d' /etc/yum.conf
+echo 'exclude = kernel, xorg-x11-drv-*, xorg-x11-drivers, xorg-x11-server-*' >> /etc/yum.conf
+
 if [ "$1" !=  1 ] ; then
 # do this whole %post thing only when updating for the first time...
 exit 0
@@ -219,9 +224,6 @@ mkdir -p /rw
 #echo "--> Removing HWADDR setting from /etc/sysconfig/network-scripts/ifcfg-eth0"
 #mv /etc/sysconfig/network-scripts/ifcfg-eth0 /etc/sysconfig/network-scripts/ifcfg-eth0.orig
 #grep -v HWADDR /etc/sysconfig/network-scripts/ifcfg-eth0.orig > /etc/sysconfig/network-scripts/ifcfg-eth0
-
-# Prevent unnecessary updates in VMs:
-echo 'exclude = kernel, xorg-*' >> /etc/yum.conf
 
 %preun
 if [ "$1" = 0 ] ; then
