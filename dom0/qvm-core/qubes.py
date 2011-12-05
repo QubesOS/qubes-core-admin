@@ -1049,6 +1049,26 @@ class QubesVm(object):
                     raise QubesException ("Network attach timed out!")
                 time.sleep(0.2)
 
+    def start_guid(self, verbose = True, notify_function = None):
+        if verbose:
+            print >> sys.stderr, "--> Starting Qubes GUId..."
+        xid = self.get_xid()
+
+        retcode = subprocess.call ([qubes_guid_path, "-d", str(xid), "-c", self.label.color, "-i", self.label.icon, "-l", str(self.label.index)])
+        if (retcode != 0) :
+            raise QubesException("Cannot start qubes_guid!")
+
+        if verbose:
+            print >> sys.stderr, "--> Waiting for qubes-session..."
+
+        subprocess.call([qrexec_client_path, "-d", str(xid), "user:echo $$ >> /tmp/qubes-session-waiter; [ ! -f /tmp/qubes-session-env ] && exec sleep 365d"])
+
+        retcode = subprocess.call([qubes_clipd_path])
+        if retcode != 0:
+            print >> sys.stderr, "ERROR: Cannot start qclipd!"
+            if notify_function is not None:
+                notify_function("error", "ERROR: Cannot start the Qubes Clipboard Notifier!")
+
     def start(self, debug_console = False, verbose = False, preparing_dvm = False):
         if dry_run:
             return
@@ -1124,6 +1144,8 @@ class QubesVm(object):
             if (retcode != 0) :
                 self.force_shutdown()
                 raise OSError ("ERROR: Cannot execute qrexec_daemon!")
+
+        self.start_guid(verbose=verbose)
 
         if preparing_dvm:
             if verbose:

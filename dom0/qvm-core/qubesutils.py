@@ -229,26 +229,6 @@ def block_detach(vm, frontend = "xvdi", vm_xid = None):
     xl_cmd = [ '/usr/sbin/xl', 'block-detach', str(vm_xid), str(frontend)]
     subprocess.check_call(xl_cmd)
 
-def start_guid(vm, verbose = True, notify_function = None):
-    if verbose:
-        print >> sys.stderr, "--> Starting Qubes GUId..."
-    xid = vm.get_xid()
-
-    retcode = subprocess.call ([qubes_guid_path, "-d", str(xid), "-c", vm.label.color, "-i", vm.label.icon, "-l", str(vm.label.index)])
-    if (retcode != 0) :
-        raise QubesException("Cannot start qubes_guid!")
-
-    if verbose:
-        print >> sys.stderr, "--> Waiting for qubes-session..."
-
-    subprocess.call([qrexec_client_path, "-d", str(xid), "user:echo $$ >> /tmp/qubes-session-waiter; [ ! -f /tmp/qubes-session-env ] && exec sleep 365d"])
-
-    retcode = subprocess.call([qubes_clipd_path])
-    if retcode != 0:
-        print >> sys.stderr, "ERROR: Cannot start qclipd!"
-        if notify_function is not None:
-            notify_function("error", "ERROR: Cannot start the Qubes Clipboard Notifier!")
-
 def run_in_vm(vm, command, verbose = True, autostart = False, notify_function = None, passio = False, localcmd = None):
     assert vm is not None
 
@@ -270,7 +250,7 @@ def run_in_vm(vm, command, verbose = True, autostart = False, notify_function = 
 
     xid = vm.get_xid()
     if os.getenv("DISPLAY") is not None and not os.path.isfile("/var/run/qubes/guid_running.{0}".format(xid)):
-        start_guid(vm, verbose = verbose, notify_function = notify_function)
+        vm.start_guid(verbose = verbose, notify_function = notify_function)
 
     args = [qrexec_client_path, "-d", str(xid), command]
     if localcmd is not None:
