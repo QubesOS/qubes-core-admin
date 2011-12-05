@@ -1145,7 +1145,8 @@ class QubesVm(object):
                 self.force_shutdown()
                 raise OSError ("ERROR: Cannot execute qrexec_daemon!")
 
-        self.start_guid(verbose=verbose)
+        if subprocess.call('xprop -root >/dev/null 2>&1', shell=True) == 0:
+            self.start_guid(verbose=verbose)
 
         if preparing_dvm:
             if verbose:
