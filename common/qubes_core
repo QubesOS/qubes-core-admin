@@ -24,6 +24,7 @@ start()
 		# because it makes some of the pre-created dotfiles invalid (e.g. .kde/cache-<hostname>)
 		# (let's be frank: nobody's gonna use xterm on DispVM)
 		hostname $name
+		(grep -v "\<$name\>" /etc/hosts; echo "127.0.0.1 $name") > /etc/hosts
 	fi
 
 	# Set IP address again (besides action in udev rules); this is needed by
