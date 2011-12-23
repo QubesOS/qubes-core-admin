@@ -2530,6 +2530,20 @@ class QubesVmCollection(dict):
             self[self.clockvm_qid].services['ntpd'] = True
         return True
 
+    def pop(self, qid):
+        if self.default_netvm_qid == qid:
+            self.default_netvm_qid = None
+        if self.default_fw_netvm_qid == qid:
+            self.default_fw_netvm_qid = None
+        if self.clockvm_qid == qid:
+            self.clockvm_qid = None
+        if self.updatevm_qid == qid:
+            self.updatevm_qid = None
+        if self.default_template_qid == qid:
+            self.default_template_qid = None
+
+        return super(QubesVmCollection, self).pop(qid)
+
 class QubesDaemonPidfile(object):
     def __init__(self, name):
         self.name = name
