@@ -64,7 +64,7 @@ start()
 	if [ "$start_meminfo_writer" != "0" ]; then
 		MEM_CHANGE_THRESHOLD_KB=30000
 		MEMINFO_DELAY_USEC=100000
-		/usr/lib/qubes/meminfo-writer $MEM_CHANGE_THRESHOLD_KB $MEMINFO_DELAY_USEC &
+		/usr/lib/qubes/meminfo-writer $MEM_CHANGE_THRESHOLD_KB $MEMINFO_DELAY_USEC /var/run/meminfo-writer.pid
 	fi
 
 	success

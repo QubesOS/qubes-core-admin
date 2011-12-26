@@ -70,6 +70,8 @@ struct _client_info client_info[MAX_FDS];
 int trigger_fd;
 int passfd_socket;
 
+int meminfo_write_started = 0;
+
 void init()
 {
 	peer_server_init(REXEC_PORT);
@@ -79,6 +81,29 @@ void init()
 	umask(077);
 	trigger_fd =
 	    open(QREXEC_AGENT_TRIGGER_PATH, O_RDONLY | O_NONBLOCK);
+}
+
+void wake_meminfo_writer() {
+	FILE *f;
+	pid_t pid;
+
+	if (meminfo_write_started)
+		/* wake meminfo-writer only once */
+		return;
+
+	f = fopen(MEMINFO_WRITER_PIDFILE, "r");
+	if (f == NULL) {
+		/* no meminfo-writer found, ignoring */
+		return;
+	}
+	if (fscanf(f, "%d", &pid) < 1) {
+		/* no meminfo-writer found, ignoring */
+		return;
+	}
+
+	fclose(f);
+	kill(pid, SIGUSR1);
+	meminfo_write_started = 1;
 }
 
 void no_colon_in_cmd()
@@ -330,9 +355,11 @@ void handle_server_data()
 		handle_connect_existing(s_hdr.client_id, s_hdr.len);
 		break;
 	case MSG_SERVER_TO_AGENT_EXEC_CMDLINE:
+		wake_meminfo_writer();
 		handle_exec(s_hdr.client_id, s_hdr.len);
 		break;
 	case MSG_SERVER_TO_AGENT_JUST_EXEC:
+		wake_meminfo_writer();
 		handle_just_exec(s_hdr.client_id, s_hdr.len);
 		break;
 	case MSG_SERVER_TO_AGENT_INPUT:

@@ -27,6 +27,7 @@
 
 #define QREXEC_AGENT_TRIGGER_PATH "/var/run/qubes/qrexec_agent"
 #define QREXEC_AGENT_FDPASS_PATH "/var/run/qubes/qrexec_agent_fdpass"
+#define MEMINFO_WRITER_PIDFILE "/var/run/meminfo-writer.pid"
 
 enum {
 	MSG_CLIENT_TO_SERVER_EXEC_CMDLINE = 0x100,
