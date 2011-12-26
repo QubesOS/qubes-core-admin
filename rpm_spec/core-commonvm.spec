@@ -212,6 +212,10 @@ do
         continue
     fi
 
+    if [ $(basename $f) == "99-qubes_block.rules" ] ; then
+        continue
+    fi
+
     if [ $(basename $f) == "90-hal.rules" ] ; then
         continue
     fi
