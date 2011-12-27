@@ -34,7 +34,7 @@ def main():
     parser = OptionParser (usage)
     parser.add_option ("-q", "--quiet", action="store_false", dest="verbose", default=True)
     parser.add_option ("--no-guid", action="store_true", dest="noguid", default=False,
-		      help="Do not start the GUId")
+		      help="Do not start the GUId (ignored)")
     parser.add_option ("--console", action="store_true", dest="debug_console", default=False,
                       help="Attach debugging console to the newly started VM")
     parser.add_option ("--dvm", action="store_true", dest="preparing_dvm", default=False,
@@ -61,15 +61,5 @@ def main():
     except (IOError, OSError, QubesException) as err:
         print >> sys.stderr, "ERROR: {0}".format(err)
         exit (1)
-
-    if not options.noguid and os.getenv("DISPLAY") is not None:
-        if options.verbose:
-            print >> sys.stderr, "--> Starting Qubes GUId..."
-
-        retcode = subprocess.call ([qubes_guid_path, "-d", str(xid), "-c", vm.label.color, "-i", vm.label.icon, "-l", str(vm.label.index)])
-        if (retcode != 0) :
-            print >> sys.stderr, "ERROR: Cannot start qubes_guid!"
-            exit (1)
-
 
 main()
