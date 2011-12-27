@@ -1,4 +1,5 @@
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -48,7 +49,6 @@ void send_file_back(char * filename)
 int
 main()
 {
-	char cmdbuf[512];
 	struct stat stat_pre, stat_post;
 	char *filename = get_filename();
 	int child, status, log_fd;
@@ -75,7 +75,7 @@ main()
 
 			setenv("HOME", "/home/user", 1);
 			setenv("DISPLAY", ":0", 1);
-			execl("/usr/bin/mimeopen", "mimeopen", "-n", "-M", filename);
+			execl("/usr/bin/mimeopen", "mimeopen", "-n", "-M", filename, (char*)NULL);
 			perror("execl");
 			exit(1);
 		default:
