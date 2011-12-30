@@ -180,6 +180,7 @@ do
 done
 
 [ -x /bin/systemctl ] && /bin/systemctl disable NetworkManager.service
+[ -x /bin/systemctl ] && /bin/systemctl disable crond.service
 
 #echo "--> Enabling essential services..."
 chkconfig rsyslog on
