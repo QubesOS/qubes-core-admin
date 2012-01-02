@@ -60,7 +60,7 @@ start()
 		echo Back to life.
 	fi
 
-	start_meminfo_writer=$(/usr/bin/xenstore-read qubes-service/meminfo-writer)
+	start_meminfo_writer=$(/usr/bin/xenstore-read qubes-service/meminfo-writer 2>/dev/null)
 	if [ "$start_meminfo_writer" != "0" ]; then
 		MEM_CHANGE_THRESHOLD_KB=30000
 		MEMINFO_DELAY_USEC=100000

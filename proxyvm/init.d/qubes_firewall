@@ -11,7 +11,7 @@ PIDFILE=/var/run/qubes/qubes_firewall.pid
 start()
 {
     type=$(/usr/bin/xenstore-read qubes_vm_type)
-    start_firewall=$(/usr/bin/xenstore-read qubes-service/qubes-firewall)
+    start_firewall=$(/usr/bin/xenstore-read qubes-service/qubes-firewall 2> /dev/null)
     if [ -z "$start_firewall" ] && [ "$type" == "ProxyVM" ] || [ "$start_firewall" == "1" ]; then
         echo -n $"Starting Qubes Firewall monitor:"
         /sbin/ethtool -K eth0 sg off
