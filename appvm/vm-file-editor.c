@@ -110,13 +110,16 @@ main()
 		default:
 			waitpid(child, &status, 0);
 			if (status != 0) {
+				char cmd[512];
 #ifdef USE_KDIALOG
-				system
-					("HOME=/home/user DISPLAY=:0 /usr/bin/kdialog --sorry 'Unable to handle mimetype of the requested file!' > /tmp/kdialog.log 2>&1 </dev/null");
+				snprintf(cmd, sizeof(cmd),
+						"HOME=/home/user DISPLAY=:0 /usr/bin/kdialog --sorry 'Unable to handle mimetype of the requested file (exit status: %d)!' > /tmp/kdialog.log 2>&1 </dev/null", status);
+					("HOME=/home/user DISPLAY=:0 /usr/bin/kdialog --sorry 'Unable to handle mimetype of the requested file (exit status: %d)!' > /tmp/kdialog.log 2>&1 </dev/null", status);
 #else
-				system
-					("HOME=/home/user DISPLAY=:0 /usr/bin/zenity --error --text 'Unable to handle mimetype of the requested file!' > /tmp/kdialog.log 2>&1 </dev/null");
+				snprintf(cmd, sizeof(cmd),
+						"HOME=/home/user DISPLAY=:0 /usr/bin/zenity --error --text 'Unable to handle mimetype of the requested file (exit status: %d)!' > /tmp/kdialog.log 2>&1 </dev/null", status);
 #endif
+				system(cmd);
 			}
 	}
 
