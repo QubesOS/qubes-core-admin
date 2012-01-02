@@ -49,14 +49,43 @@ void send_file_back(char * filename)
 int
 main()
 {
-	struct stat stat_pre, stat_post;
+	struct stat stat_pre, stat_post, session_stat;
 	char *filename = get_filename();
 	int child, status, log_fd;
+	FILE *waiter_pidfile;
 
 	copy_file(filename);
 	if (stat(filename, &stat_pre)) {
 		perror("stat pre");
 		exit(1);
+	}
+	// wait for X server to starts (especially in DispVM)
+	if (stat("/tmp/qubes-session-env", &session_stat)) {
+		switch (child = fork()) {
+			case -1:
+				perror("fork");
+				exit(1);
+			case 0:
+				waiter_pidfile = fopen("/tmp/qubes-session-waiter", "a");
+				if (waiter_pidfile == NULL) {
+					perror("fopen waiter_pidfile");
+					exit(1);
+				}
+				fprintf(waiter_pidfile, "%d\n", getpid());
+				fclose(waiter_pidfile);
+				// check the second time, to prevent race
+				if (stat("/tmp/qubes-session-env", &session_stat)) {
+					// wait for qubes-session notify
+					pause();
+				}
+				exit(0);
+			default:
+				waitpid(child, &status, 0);
+				if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
+					//propagate exit code from child
+					exit(WEXITSTATUS(status));
+				}
+		}
 	}
 	switch (child = fork()) {
 		case -1:
