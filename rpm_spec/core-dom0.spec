@@ -52,7 +52,7 @@ python -m compileall qvm-core qmemman
 python -O -m compileall qvm-core qmemman
 make -C restore
 make -C aux-tools
-make -C ../common
+make -C ../qubes_rpc
 make -C ../vchan
 make -C ../u2mfn
 make -C ../qrexec
@@ -70,12 +70,12 @@ cp clipboard_notifier/qclipd $RPM_BUILD_ROOT/usr/bin
 
 mkdir -p $RPM_BUILD_ROOT/etc/xen/scripts
 cp restore/block.qubes $RPM_BUILD_ROOT/etc/xen/scripts
-cp ../common/vif-route-qubes $RPM_BUILD_ROOT/etc/xen/scripts
-cp ../common/block-snapshot $RPM_BUILD_ROOT/etc/xen/scripts
+cp ../network/vif-route-qubes $RPM_BUILD_ROOT/etc/xen/scripts
+cp ../misc/block-snapshot $RPM_BUILD_ROOT/etc/xen/scripts
 ln -s block-snapshot $RPM_BUILD_ROOT/etc/xen/scripts/block-origin
 
 mkdir -p $RPM_BUILD_ROOT/etc/udev/rules.d
-cp ../common/qubes_block.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_block.rules
+cp ../misc/qubes_block.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_block.rules
 
 mkdir -p $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/qubes.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
@@ -99,21 +99,21 @@ cp aux-tools/create_apps_for_appvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/remove_appvm_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/reset_vm_configs.py  $RPM_BUILD_ROOT/usr/lib/qubes
 cp qmemman/server.py $RPM_BUILD_ROOT/usr/lib/qubes/qmemman_daemon.py
-cp ../common/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
+cp ../misc/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_daemon $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_client $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_policy $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/qfile-dom0-unpacker $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/qubes-receive-updates $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/keep-dom0-clock-synced $RPM_BUILD_ROOT/usr/lib/qubes/
-cp ../common/block_add_change $RPM_BUILD_ROOT/usr/lib/qubes/
-cp ../common/block_remove $RPM_BUILD_ROOT/usr/lib/qubes/
-cp ../common/block_cleanup $RPM_BUILD_ROOT/usr/lib/qubes/
+cp ../misc/block_add_change $RPM_BUILD_ROOT/usr/lib/qubes/
+cp ../misc/block_remove $RPM_BUILD_ROOT/usr/lib/qubes/
+cp ../misc/block_cleanup $RPM_BUILD_ROOT/usr/lib/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/etc/qubes_rpc/policy
-cp ../appvm/qubes.Filecopy.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.Filecopy
-cp ../appvm/qubes.OpenInVM.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.OpenInVM
-cp ../appvm/qubes.VMShell.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.VMShell
+cp ../qubes_rpc/qubes.Filecopy.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.Filecopy
+cp ../qubes_rpc/qubes.OpenInVM.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.OpenInVM
+cp ../qubes_rpc/qubes.VMShell.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.VMShell
 cp qubes.SyncAppMenus.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.SyncAppMenus
 cp qubes.SyncAppMenus $RPM_BUILD_ROOT/etc/qubes_rpc/
 cp ../qrexec/qubes_rpc_multiplexer $RPM_BUILD_ROOT/usr/lib/qubes
@@ -151,14 +151,14 @@ cp misc/qubes-appmenu-select.desktop $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/vm-template.conf $RPM_BUILD_ROOT/usr/share/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/usr/bin
-cp ../common/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/lib/qubes
-cp ../common/qubes_fix_nm_conf.sh $RPM_BUILD_ROOT/usr/lib/qubes
+cp ../network/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/lib/qubes
+cp ../network/qubes_fix_nm_conf.sh $RPM_BUILD_ROOT/usr/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/etc/dhclient.d
 ln -s /usr/lib/qubes/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/etc/dhclient.d/qubes_setup_dnat_to_ns.sh 
 mkdir -p $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
-cp ../common/qubes_nmhook $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
+cp ../network/qubes_nmhook $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
-cp ../common/iptables $RPM_BUILD_ROOT/etc/sysconfig
+cp ../network/iptables $RPM_BUILD_ROOT/etc/sysconfig
 mkdir -p $RPM_BUILD_ROOT/etc/security/limits.d
 cp misc/limits-qubes.conf $RPM_BUILD_ROOT/etc/security/limits.d/99-qubes.conf
 
