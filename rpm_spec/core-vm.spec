@@ -38,6 +38,10 @@ Requires:   NetworkManager >= 0.8.1-1
 Requires:	/usr/bin/mimeopen
 Requires:   /sbin/ethtool
 Provides:   qubes-core-vm
+Obsoletes:  qubes-core-commonvm
+Obsoletes:  qubes-core-appvm
+Obsoletes:  qubes-core-netvm
+Obsoletes:  qubes-core-proxyvm
 BuildRequires: xen-devel
 
 %define _builddir %(pwd)
@@ -397,6 +401,7 @@ rm -rf $RPM_BUILD_ROOT
 Summary:        Include files for qubes core libraries
 License:        GPL v2 only
 Group:          Development/Sources 
+Obsoletes:      qubes-core-appvm-devel
 
 %description devel
 
@@ -409,6 +414,7 @@ Group:          Development/Sources
 Summary:        Qubes core libraries
 License:        GPL v2 only
 Group:          Development/Sources 
+Obsoletes:      qubes-core-appvm-libs
 
 %description libs
 
