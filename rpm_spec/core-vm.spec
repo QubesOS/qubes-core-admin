@@ -240,43 +240,6 @@ sed -e s/^SELINUX=.*$/SELINUX=disabled/ </etc/selinux/config >/etc/selinux/confi
 mv /etc/selinux/config.processed /etc/selinux/config
 setenforce 0 2>/dev/null
 
-#echo "--> Turning off unnecessary services..."
-# FIXME: perhaps there is more elegant way to do this? 
-for f in /etc/init.d/*
-do
-        srv=`basename $f`
-        [ $srv = 'functions' ] && continue
-        [ $srv = 'killall' ] && continue
-        [ $srv = 'halt' ] && continue
-        [ $srv = 'single' ] && continue
-        [ $srv = 'reboot' ] && continue
-        [ $srv = 'qubes_gui' ] && continue
-        chkconfig $srv off
-done
-
-[ -x /bin/systemctl ] && /bin/systemctl disable NetworkManager.service
-[ -x /bin/systemctl ] && /bin/systemctl disable crond.service
-
-#echo "--> Enabling essential services..."
-chkconfig rsyslog on
-chkconfig haldaemon on
-chkconfig messagebus on
-chkconfig iptables on
-chkconfig --add qubes_core || echo "WARNING: Cannot add service qubes_core!"
-chkconfig qubes_core on || echo "WARNING: Cannot enable service qubes_core!"
-chkconfig --add qubes_core_netvm || echo "WARNING: Cannot add service qubes_core!"
-chkconfig qubes_core_netvm on || echo "WARNING: Cannot enable service qubes_core!"
-chkconfig --add qubes_core_appvm || echo "WARNING: Cannot add service qubes_core!"
-chkconfig qubes_core_appvm on || echo "WARNING: Cannot enable service qubes_core!"
-chkconfig --add qubes_firewall || echo "WARNING: Cannot add service qubes_core!"
-chkconfig qubes_firewall on || echo "WARNING: Cannot enable service qubes_core!"
-chkconfig --add qubes_netwatcher || echo "WARNING: Cannot add service qubes_core!"
-chkconfig qubes_netwatcher on || echo "WARNING: Cannot enable service qubes_core!"
-
-
-# TODO: make this not display the silly message about security context...
-sed -i s/^id:.:initdefault:/id:3:initdefault:/ /etc/inittab
-
 # Remove most of the udev scripts to speed up the VM boot time
 # Just leave the xen* scripts, that are needed if this VM was
 # ever used as a net backend (e.g. as a VPN domain in the future)
@@ -316,11 +279,6 @@ mkdir -p /rw
 %preun
 if [ "$1" = 0 ] ; then
     # no more packages left
-    chkconfig qubes_core off
-    chkconfig qubes_core_netvm off
-    chkconfig qubes_core_appvm off
-    chkconfig qubes_firewall off
-    chkconfig qubes_netwatcher off
     mv /var/lib/qubes/fstab.orig /etc/fstab
     mv /var/lib/qubes/removed-udev-scripts/* /etc/udev/rules.d/
     mv /var/lib/qubes/serial.orig /etc/init/serial.conf
@@ -341,11 +299,6 @@ rm -rf $RPM_BUILD_ROOT
 /etc/X11/xorg-preload-apps.conf
 /etc/dhclient.d/qubes_setup_dnat_to_ns.sh
 /etc/fstab
-/etc/init.d/qubes_core
-/etc/init.d/qubes_core_appvm
-/etc/init.d/qubes_core_netvm
-/etc/init.d/qubes_firewall
-/etc/init.d/qubes_netwatcher
 /etc/pki/rpm-gpg/RPM-GPG-KEY-qubes*
 %dir /etc/qubes_rpc
 /etc/qubes_rpc/qubes.Filecopy
@@ -421,3 +374,66 @@ Obsoletes:      qubes-core-appvm-libs
 %files libs
 %{_libdir}/libvchan.so
 %{_libdir}/libu2mfn.so
+
+%package sysvinit
+Summary:        Qubes unit files for SysV init style or upstart
+License:        GPL v2 only
+Group:          Qubes
+Requires:       upstart
+Requires:       qubes-core-vm
+Provides:       qubes-core-vm-init-scripts
+
+%description sysvinit
+The Qubes core startup configuration for SysV init (or upstart).
+
+%files sysvinit
+/etc/init.d/qubes_core
+/etc/init.d/qubes_core_appvm
+/etc/init.d/qubes_core_netvm
+/etc/init.d/qubes_firewall
+/etc/init.d/qubes_netwatcher
+
+%post sysvinit
+
+#echo "--> Turning off unnecessary services..."
+# FIXME: perhaps there is more elegant way to do this?
+for f in /etc/init.d/*
+do
+        srv=`basename $f`
+        [ $srv = 'functions' ] && continue
+        [ $srv = 'killall' ] && continue
+        [ $srv = 'halt' ] && continue
+        [ $srv = 'single' ] && continue
+        [ $srv = 'reboot' ] && continue
+        [ $srv = 'qubes_gui' ] && continue
+        chkconfig $srv off
+done
+
+#echo "--> Enabling essential services..."
+chkconfig rsyslog on
+chkconfig haldaemon on
+chkconfig messagebus on
+chkconfig iptables on
+chkconfig --add qubes_core || echo "WARNING: Cannot add service qubes_core!"
+chkconfig qubes_core on || echo "WARNING: Cannot enable service qubes_core!"
+chkconfig --add qubes_core_netvm || echo "WARNING: Cannot add service qubes_core!"
+chkconfig qubes_core_netvm on || echo "WARNING: Cannot enable service qubes_core!"
+chkconfig --add qubes_core_appvm || echo "WARNING: Cannot add service qubes_core!"
+chkconfig qubes_core_appvm on || echo "WARNING: Cannot enable service qubes_core!"
+chkconfig --add qubes_firewall || echo "WARNING: Cannot add service qubes_core!"
+chkconfig qubes_firewall on || echo "WARNING: Cannot enable service qubes_core!"
+chkconfig --add qubes_netwatcher || echo "WARNING: Cannot add service qubes_core!"
+chkconfig qubes_netwatcher on || echo "WARNING: Cannot enable service qubes_core!"
+
+# TODO: make this not display the silly message about security context...
+sed -i s/^id:.:initdefault:/id:3:initdefault:/ /etc/inittab
+
+%preun sysvinit
+if [ "$1" = 0 ] ; then
+    # no more packages left
+    chkconfig qubes_core off
+    chkconfig qubes_core_netvm off
+    chkconfig qubes_core_appvm off
+    chkconfig qubes_firewall off
+    chkconfig qubes_netwatcher off
+fi
