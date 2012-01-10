@@ -1,0 +1,12 @@
+[Unit]
+Description=Qubes memory information reporter
+ConditionPathExists=/var/run/qubes-service/meminfo-writer
+
+[Service]
+Type=forking
+ExecStart=/usr/lib/qubes/meminfo-writer 30000 100000 /var/run/meminfo-writer.pid
+PIDFile=/var/run/meminfo-writer.pid
+StandardOutput=syslog
+
+[Install]
+WantedBy=multi-user.target

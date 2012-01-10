@@ -1,0 +1,11 @@
+[Unit]
+Description=Qubes network monitor
+ConditionPathExists=/var/run/qubes-service/qubes-netwatcher
+After=qubes-firewall.service
+
+[Service]
+ExecStart=/usr/sbin/qubes_netwatcher
+StandardOutput=syslog
+
+[Install]
+WantedBy=multi-user.target

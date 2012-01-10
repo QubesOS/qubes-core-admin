@@ -84,6 +84,13 @@ install -D misc/fstab $RPM_BUILD_ROOT/etc/fstab
 install -d $RPM_BUILD_ROOT/etc/init.d
 install vm-init.d/* $RPM_BUILD_ROOT/etc/init.d/
 
+install -d $RPM_BUILD_ROOT/lib/systemd/system $RPM_BUILD_ROOT/usr/lib/qubes/init
+install -m 0755 vm-systemd/*.sh $RPM_BUILD_ROOT/usr/lib/qubes/init/
+install -m 0644 vm-systemd/qubes-*.service $RPM_BUILD_ROOT/lib/systemd/system/
+install -m 0644 vm-systemd/NetworkManager.service $RPM_BUILD_ROOT/usr/lib/qubes/init/
+install -m 0644 vm-systemd/cups.service $RPM_BUILD_ROOT/usr/lib/qubes/init/
+install -m 0644 vm-systemd/ntpd.service $RPM_BUILD_ROOT/usr/lib/qubes/init/
+
 install -D -m 0440 misc/qubes.sudoers $RPM_BUILD_ROOT/etc/sudoers.d/qubes
 install -D misc/qubes.repo $RPM_BUILD_ROOT/etc/yum.repos.d/qubes.repo
 install -D misc/serial.conf $RPM_BUILD_ROOT/usr/lib/qubes/serial.conf
@@ -382,6 +389,7 @@ Group:          Qubes
 Requires:       upstart
 Requires:       qubes-core-vm
 Provides:       qubes-core-vm-init-scripts
+Conflicts:      qubes-core-vm-systemd
 
 %description sysvinit
 The Qubes core startup configuration for SysV init (or upstart).
@@ -437,3 +445,100 @@ if [ "$1" = 0 ] ; then
     chkconfig qubes_firewall off
     chkconfig qubes_netwatcher off
 fi
+
+%package systemd
+Summary:        Qubes unit files for SystemD init style
+License:        GPL v2 only
+Group:          Qubes
+Requires:       systemd
+Requires:       qubes-core-vm
+Provides:       qubes-core-vm-init-scripts
+Conflicts:      qubes-core-vm-sysvinit
+
+%description systemd
+The Qubes core startup configuration for SystemD init.
+
+%files systemd
+%defattr(-,root,root,-)
+/lib/systemd/system/qubes-dvm.service
+/lib/systemd/system/qubes-meminfo-writer.service
+/lib/systemd/system/qubes-qrexec-agent.service
+/lib/systemd/system/qubes-misc-post.service
+/lib/systemd/system/qubes-firewall.service
+/lib/systemd/system/qubes-netwatcher.service
+/lib/systemd/system/qubes-network.service
+/lib/systemd/system/qubes-sysinit.service
+%dir /usr/lib/qubes/init
+/usr/lib/qubes/init/prepare-dvm.sh
+/usr/lib/qubes/init/network-proxy-setup.sh
+/usr/lib/qubes/init/misc-post.sh
+/usr/lib/qubes/init/qubes-sysinit.sh
+/usr/lib/qubes/init/NetworkManager.service
+/usr/lib/qubes/init/cups.service
+/usr/lib/qubes/init/ntpd.service
+%ghost %attr(0644,root,root) /etc/systemd/system/NetworkManager.service
+%ghost %attr(0644,root,root) /etc/systemd/system/cups.service
+
+%post systemd
+
+for srv in qubes-dvm qubes-meminfo-writer qubes-qrexec-agent qubes-sysinit qubes-misc-post qubes-netwatcher qubes-network; do
+    /bin/systemctl enable $srv.service
+done
+
+# Install overriden services only when original exists
+for srv in cups NetworkManager ntpd; do
+    if [ -f /lib/systemd/system/$srv.service ]; then
+        cp /usr/lib/qubes/init/$srv.service /etc/systemd/system/$srv.service
+    fi
+done
+
+# Set default "runlevel"
+rm -f /etc/systemd/system/default.target
+ln -s /lib/systemd/system/multi-user.target /etc/systemd/system/default.target
+
+# Services to disable
+#echo "--> Turning off unnecessary services..."
+# FIXME: perhaps there is more elegant way to do this?
+for f in /etc/init.d/*
+do
+        srv=`basename $f`
+        [ $srv = 'functions' ] && continue
+        [ $srv = 'killall' ] && continue
+        [ $srv = 'halt' ] && continue
+        [ $srv = 'single' ] && continue
+        [ $srv = 'reboot' ] && continue
+        [ $srv = 'qubes_gui' ] && continue
+        chkconfig $srv off
+done
+
+DISABLE_SERVICES="alsa-store alsa-restore auditd backuppc cpuspeed crond dbus-org.freedesktop.Avahi"
+DISABLE_SERVICES="$DISABLE_SERVICES fedora-autorelabel fedora-autorelabel-mark ipmi hwclock-load hwclock-save"
+DISABLE_SERVICES="$DISABLE_SERVICES mdmonitor multipathd openct rpcbind mcelog fedora-storage-init fedora-storage-init-late"
+DISABLE_SERVICES="$DISABLE_SERVICES plymouth-start plymouth-read-write plymouth-quit plymouth-quit-wait"
+for srv in $DISABLE_SERVICES; do
+    if [ -f /lib/systemd/system/$srv.service ]; then
+        if fgrep -q '[Install]' /lib/systemd/system/$srv.service; then
+            /bin/systemctl disable $srv.service
+        else
+            # forcibly disable
+            ln -sf /dev/null /etc/systemd/system/$srv.service
+        fi
+    fi
+done
+
+rm -f /etc/systemd/system/getty.target.wants/getty@tty*.service
+
+# Enable some services
+/bin/systemctl enable iptables.service
+/bin/systemctl enable rsyslog.service
+
+%postun systemd
+
+#Do not run this part on upgrades
+if [ "$1" != 0 ] ; then
+    exit 0
+fi
+
+for srv in qubes-dvm qubes-meminfo-writer qubes-qrexec-agent qubes-sysinit qubes-misc-post qubes-netwatcher qubes-network; do
+    /bin/systemctl disable $srv.service
+do

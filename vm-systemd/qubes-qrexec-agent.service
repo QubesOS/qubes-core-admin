@@ -1,0 +1,10 @@
+[Unit]
+Description=Qubes remote exec agent
+After=qubes-dvm.service
+
+[Service]
+ExecStart=/usr/lib/qubes/qrexec_agent
+StandardOutput=syslog
+
+[Install]
+WantedBy=multi-user.target

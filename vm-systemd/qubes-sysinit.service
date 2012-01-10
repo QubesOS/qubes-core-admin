@@ -1,0 +1,11 @@
+[Unit]
+Description=Init Qubes Services settings
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/qubes/init/qubes-sysinit.sh
+StandardOutput=syslog
+
+[Install]
+WantedBy=sysinit.target
