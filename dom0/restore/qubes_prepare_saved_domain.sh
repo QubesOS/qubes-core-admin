@@ -25,14 +25,8 @@ if ! qvm-start $1 --no-guid --dvm ; then
 	exit 1
 fi
 
-ID=none
-for i in $(xenstore-list /local/domain) ; do
-	name=$(xenstore-read /local/domain/$i/name)
-	if [ "x"$name = "x"$1 ] ; then
-		ID=$i
-	fi
-done
-if [ $ID = none ] ; then 
+ID=`xl domid $1`
+if [ "$ID" = "" ] ; then 
 	echo cannot get domain id
 	exit 1
 fi
