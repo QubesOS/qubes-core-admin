@@ -12,11 +12,17 @@ char *get_filename()
 {
 	char buf[DVM_FILENAME_SIZE];
 	static char retname[sizeof(buf) + sizeof("/tmp/")];
+	int i;
 	if (!read_all(0, buf, sizeof(buf)))
 		exit(1);
 	if (index(buf, '/')) {
 		fprintf(stderr, "filename contains /");
 		exit(1);
+	}
+	for (i=0; i < DVM_FILENAME_SIZE && buf[i]!=0; i++) {
+		// replace some characters with _ (eg mimeopen have problems with some of them)
+		if ((buf[i] > 0x20 && buf[i] < 0x30) || index(";:<=>?`~", buf[i]))
+			buf[i]='_';
 	}
 	snprintf(retname, sizeof(retname), "/tmp/%s", buf);
 	return retname;
