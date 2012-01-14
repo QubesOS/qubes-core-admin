@@ -545,6 +545,12 @@ rm -f /etc/systemd/system/getty.target.wants/getty@tty*.service
 # Enable some services
 /bin/systemctl enable iptables.service
 /bin/systemctl enable rsyslog.service
+/bin/systemctl enable ntpd.service
+/bin/systemctl enable NetworkManager.service
+# Enable cups only when it is real SystemD service
+[ -e /lib/systemd/system/cups.service ] && /bin/systemctl enable cups.service
+
+exit 0
 
 %postun systemd
 
