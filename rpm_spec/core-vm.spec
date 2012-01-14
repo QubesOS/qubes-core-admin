@@ -95,6 +95,8 @@ install -D -m 0440 misc/qubes.sudoers $RPM_BUILD_ROOT/etc/sudoers.d/qubes
 install -D misc/qubes.repo $RPM_BUILD_ROOT/etc/yum.repos.d/qubes.repo
 install -D misc/serial.conf $RPM_BUILD_ROOT/usr/lib/qubes/serial.conf
 install -D misc/qubes_serial_login $RPM_BUILD_ROOT/sbin/qubes_serial_login
+install -d $RPM_BUILD_ROOT/usr/share/glib-2.0/schemas/
+install misc/org.gnome.settings-daemon.plugins.updates.gschema.override $RPM_BUILD_ROOT/usr/share/glib-2.0/schemas/
 
 install -d $RPM_BUILD_ROOT/var/lib/qubes
 
@@ -291,6 +293,14 @@ if [ "$1" = 0 ] ; then
     mv /var/lib/qubes/serial.orig /etc/init/serial.conf
 fi
 
+%postun
+if [ $1 -eq 0 ] ; then
+    /usr/bin/glib-compile-schemas %{_datadir}/glib-2.0/schemas &> /dev/null || :
+fi
+
+%posttrans
+    /usr/bin/glib-compile-schemas %{_datadir}/glib-2.0/schemas &> /dev/null || :
+
 %clean
 rm -rf $RPM_BUILD_ROOT
 
@@ -352,6 +362,7 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib/qubes/wrap_in_html_if_url.sh
 /usr/sbin/qubes_firewall
 /usr/sbin/qubes_netwatcher
+/usr/share/glib-2.0/schemas/org.gnome.settings-daemon.plugins.updates.gschema.override
 %dir /home_volatile
 %attr(700,user,user) /home_volatile/user
 %dir /mnt/removable
