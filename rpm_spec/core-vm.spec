@@ -185,7 +185,7 @@ remove_ShowIn () {
 }
 
 # don't want it at all
-for F in abrt-applet deja-dup-monitor imsettings-start krb5-auth-dialog pulseaudio restorecond sealertauto ; do
+for F in abrt-applet deja-dup-monitor imsettings-start krb5-auth-dialog pulseaudio restorecond sealertauto gnome-power-manager gnome-sound-applet gnome-screensaver orca-autostart; do
 	if [ -e /etc/xdg/autostart/$F.desktop ]; then
 		remove_ShowIn $F
 		echo 'NotShowIn=QUBES' >> /etc/xdg/autostart/$F.desktop
