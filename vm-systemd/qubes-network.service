@@ -2,6 +2,7 @@
 Names=qubes_firewall.service
 Description=Qubes network forwarding setup
 ConditionPathExists=/var/run/qubes-service/qubes-network
+Before=network.target
 
 [Service]
 Type=oneshot
@@ -11,4 +12,4 @@ ExecStart=/usr/lib/qubes/init/network-proxy-setup.sh
 StandardOutput=syslog
 
 [Install]
-WantedBy=network.target
+WantedBy=multi-user.target
