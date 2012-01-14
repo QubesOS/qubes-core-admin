@@ -21,7 +21,7 @@ char *get_filename()
 	}
 	for (i=0; i < DVM_FILENAME_SIZE && buf[i]!=0; i++) {
 		// replace some characters with _ (eg mimeopen have problems with some of them)
-		if ((buf[i] > 0x20 && buf[i] < 0x30) || index(";:<=>?`~", buf[i]))
+		if (index(" !?\"#$%^&*()[]<>;`~", buf[i]))
 			buf[i]='_';
 	}
 	snprintf(retname, sizeof(retname), "/tmp/%s", buf);
