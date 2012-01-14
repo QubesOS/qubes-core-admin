@@ -462,6 +462,9 @@ Summary:        Qubes unit files for SystemD init style
 License:        GPL v2 only
 Group:          Qubes
 Requires:       systemd
+Requires(post): systemd-units
+Requires(preun): systemd-units
+Requires(postun): systemd-units
 Requires:       qubes-core-vm
 Provides:       qubes-core-vm-init-scripts
 Conflicts:      qubes-core-vm-sysvinit
