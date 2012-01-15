@@ -1,0 +1,2 @@
+[org.gnome.settings-daemon.plugins.updates]
+auto-update-type='none'

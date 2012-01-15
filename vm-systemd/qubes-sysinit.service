@@ -1,0 +1,14 @@
+[Unit]
+Description=Init Qubes Services settings
+DefaultDependencies=no
+Before=sysinit.target
+After=local-fs.target proc-xen.mount
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/qubes/init/qubes-sysinit.sh
+StandardOutput=syslog
+
+[Install]
+WantedBy=sysinit.target

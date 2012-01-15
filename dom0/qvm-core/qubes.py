@@ -1111,6 +1111,8 @@ class QubesVm(object):
         xid = self.get_xid()
         self.xid = xid
 
+        if preparing_dvm:
+            self.services['qubes-dvm'] = True
         if verbose:
             print >> sys.stderr, "--> Setting Xen Store info for the VM..."
         self.create_xenstore_entries(xid)

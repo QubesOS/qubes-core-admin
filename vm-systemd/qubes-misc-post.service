@@ -1,0 +1,11 @@
+[Unit]
+Description=Qubes misc post-boot actions
+After=qubes-dvm.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/qubes/init/misc-post.sh
+
+[Install]
+WantedBy=multi-user.target

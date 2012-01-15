@@ -1,7 +1,7 @@
 CC=gcc
-CFLAGS+=-g -Wall -I../vchan -I../common -pie -fPIC
+CFLAGS+=-g -Wall -I../vchan -I../qubes_rpc -pie -fPIC
 XENLIBS=-lvchan -lu2mfn -lxenstore -lxenctrl
-COMMONIOALL=../common/ioall.o
+COMMONIOALL=../qubes_rpc/ioall.o
 
 all: qrexec_daemon qrexec_agent qrexec_client qrexec_client_vm
 qrexec_daemon: qrexec_daemon.o unix_server.o $(COMMONIOALL) txrx-vchan.o buffer.o write_stdin.o

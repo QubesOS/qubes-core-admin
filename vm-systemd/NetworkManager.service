@@ -1,0 +1,3 @@
+.include /lib/systemd/system/NetworkManager.service
+[Unit]
+ConditionPathExists=/var/run/qubes-service/network-manager

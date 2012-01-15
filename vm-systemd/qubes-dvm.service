@@ -1,0 +1,12 @@
+[Unit]
+Description=Prepare Qubes DispVM Template
+ConditionPathExists=/var/run/qubes-service/qubes-dvm
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/qubes/init/prepare-dvm.sh
+StandardOutput=syslog
+
+[Install]
+WantedBy=multi-user.target

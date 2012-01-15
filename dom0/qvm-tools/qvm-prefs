@@ -22,6 +22,7 @@
 
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesVmLabels
+from qubes.qubes import QubesHost
 from qubes.qubes import qubes_kernels_base_dir
 from optparse import OptionParser
 import subprocess
