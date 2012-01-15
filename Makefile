@@ -54,7 +54,6 @@ clean:
 	make -C dom0/qmemman clean
 	make -C dom0/restore clean
 	make -C misc clean
-	make -C network clean
 	make -C qrexec clean
 	make -C u2mfn clean
 	make -C vchan clean
