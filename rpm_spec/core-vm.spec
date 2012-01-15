@@ -52,11 +52,11 @@ BuildRequires: xen-devel
 The Qubes core files for installation inside a Qubes VM.
 
 %build
+make -C u2mfn
+make -C vchan
 make -C misc
 make -C qubes_rpc
 make -C qrexec
-make -C vchan
-make -C u2mfn
 
 %pre
 
