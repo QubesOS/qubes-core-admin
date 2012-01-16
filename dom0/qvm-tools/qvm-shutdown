@@ -35,39 +35,74 @@ def main():
                       help="Force operation, even if may damage other VMs (eg shutdown of NetVM)")
     parser.add_option ("--wait", action="store_true", dest="wait_for_shutdown", default=False,
                       help="Wait for the VM(s) to shutdown")
+    parser.add_option ("--all", action="store_true", dest="shutdown_all", default=False,
+                      help="Shutdown all running VMs")
+    parser.add_option ("--exclude", action="append", dest="exclude_list",
+                       help="When --all is used: exclude this VM name (might be repeated)")
 
     (options, args) = parser.parse_args ()
-    if (len (args) != 1):
+    if not options.shutdown_all and (len (args) != 1):
         parser.error ("You must specify VM name!")
-    vmname = args[0]
 
     qvm_collection = QubesVmCollection()
     qvm_collection.lock_db_for_reading()
     qvm_collection.load()
     qvm_collection.unlock_db()
 
-    vm = qvm_collection.get_vm_by_name(vmname)
-    if vm is None:
-        print >> sys.stderr, "A VM with the name '{0}' does not exist in the system.".format(vmname)
-        exit(1)
+    vms_list = []
+    if options.shutdown_all:
+        all_vms = [vm for vm in qvm_collection.values()]
+        for vm in all_vms:
+            if options.exclude_list is not None and vm.name in options.exclude_list:
+                continue
+            if vm.qid == 0:
+                continue
+            if vm.is_running():
+                vms_list.append (vm)
+    else:
+        vmname = args[0]
+        vm = qvm_collection.get_vm_by_name(vmname)
+        if vm is None:
+            print >> sys.stderr, "A VM with the name '{0}' does not exist in the system!".format(vmname)
+            exit(1)
+        vms_list.append(vm)
 
-    try:
-        vm.shutdown(force=options.force)
-    except (IOError, OSError, QubesException) as err:
-        print >> sys.stderr, "ERROR: {0}".format(err)
-        exit (1)
+    # Check VMs network dependencies
+    if not options.force:
+        for vm in vms_list:
+            if vm.is_netvm():
+                for connected_vm in vm.connected_vms.values():
+                    if connected_vm.is_running() and not connected_vm in vms_list:
+                        print >> sys.stderr, "ERROR: There are other VMs connected to VM '%s'" % vm.name
+                        exit(1)
+
+    for vm in vms_list:
+        try:
+            if options.verbose:
+                print >> sys.stderr, "Shutting down VM: '{0}'...".format(vm.name)
+            # Dependencies already checked above
+            vm.shutdown(force=True)
+        except (IOError, OSError, QubesException) as err:
+            print >> sys.stderr, "ERROR: {0}".format(err)
+            exit (1)
 
     if options.wait_for_shutdown:
         if options.verbose:
             print >> sys.stderr, "Waiting for the VM(s) to shutdown..."
         shutdown_counter = 0
 
-        while vm.is_running():
-            if shutdown_counter > shutdown_counter_max:
-                # kill the VM
-                if options.verbose:
-                    print >> sys.stderr, "Killing the (apparently hanging) VM '{0}'...".format(vm.name)
-                vm.force_shutdown()
+        while len (vms_list):
+            if options.verbose:
+                print >> sys.stderr, "Waiting for VMs: ", [vm.name for vm in vms_list]
+            for vm in vms_list:
+                if not vm.is_running():
+                    vms_list.remove (vm)
+                if shutdown_counter > shutdown_counter_max:
+                    # kill the VM
+                    if options.verbose:
+                        print >> sys.stderr, "Killing the (apparently hanging) VM '{0}'...".format(vm.name)
+                    vm.force_shutdown()
+                    #vms_list.remove(vm)
 
             shutdown_counter += 1
             time.sleep (1)
