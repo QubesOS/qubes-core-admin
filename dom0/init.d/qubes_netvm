@@ -58,10 +58,9 @@ stop()
         echo -n $"Doing nothing:"
 
     else
-
         echo -n $"Stopping NetVMs:"
         for VM in `get_running_netvms`; do
-            qvm-run -q --force --shutdown --wait $VM
+            qvm-shutdown -q --force --wait $VM
         done
 
     fi
