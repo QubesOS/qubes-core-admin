@@ -495,7 +495,7 @@ The Qubes core startup configuration for SystemD init.
 
 %post systemd
 
-for srv in qubes-dvm qubes-meminfo-writer qubes-qrexec-agent qubes-sysinit qubes-misc-post qubes-netwatcher qubes-network; do
+for srv in qubes-dvm qubes-meminfo-writer qubes-qrexec-agent qubes-sysinit qubes-misc-post qubes-netwatcher qubes-network qubes-firewall; do
     /bin/systemctl enable $srv.service
 done
 
