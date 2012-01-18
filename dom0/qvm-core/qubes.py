@@ -644,6 +644,19 @@ class QubesVm(object):
         f_private.truncate (size)
         f_private.close ()
 
+    # FIXME: should be outside of QubesVM?
+    def get_timezone(self):
+        clock_config = open('/etc/sysconfig/clock', "r")
+        clock_config_lines = clock_config.readlines()
+        clock_config.close()
+        zone_re = re.compile(r'^ZONE="(.*)"')
+        for line in clock_config_lines:
+            line_match = zone_re.match(line)
+            if line_match:
+                return line_match.group(1)
+
+        return None
+
     def cleanup_vifs(self):
         """
         Xend does not remove vif when backend domain is down, so we must do it
@@ -703,6 +716,12 @@ class QubesVm(object):
             xs.write('',
                     "{0}/qubes_secondary_dns".format(domain_path),
                     self.netvm_vm.secondary_dns)
+
+        tzname = self.get_timezone()
+        if tzname:
+             xs.write('',
+                     "{0}/qubes-timezone".format(domain_path),
+                     tzname)
 
         for srv in self.services.keys():
             # convert True/False to "1"/"0"
