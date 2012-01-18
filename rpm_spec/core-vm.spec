@@ -496,7 +496,7 @@ The Qubes core startup configuration for SystemD init.
 %post systemd
 
 for srv in qubes-dvm qubes-meminfo-writer qubes-qrexec-agent qubes-sysinit qubes-misc-post qubes-netwatcher qubes-network qubes-firewall; do
-    /bin/systemctl enable $srv.service
+    /bin/systemctl enable $srv.service 2> /dev/null
 done
 
 # Install overriden services only when original exists
@@ -522,7 +522,7 @@ do
         [ $srv = 'single' ] && continue
         [ $srv = 'reboot' ] && continue
         [ $srv = 'qubes_gui' ] && continue
-        chkconfig $srv off
+        chkconfig $srv off 2> /dev/null
 done
 
 DISABLE_SERVICES="alsa-store alsa-restore auditd backuppc cpuspeed crond dbus-org.freedesktop.Avahi"
@@ -532,7 +532,7 @@ DISABLE_SERVICES="$DISABLE_SERVICES plymouth-start plymouth-read-write plymouth-
 for srv in $DISABLE_SERVICES; do
     if [ -f /lib/systemd/system/$srv.service ]; then
         if fgrep -q '[Install]' /lib/systemd/system/$srv.service; then
-            /bin/systemctl disable $srv.service
+            /bin/systemctl disable $srv.service 2> /dev/null
         else
             # forcibly disable
             ln -sf /dev/null /etc/systemd/system/$srv.service
@@ -543,12 +543,12 @@ done
 rm -f /etc/systemd/system/getty.target.wants/getty@tty*.service
 
 # Enable some services
-/bin/systemctl enable iptables.service
-/bin/systemctl enable rsyslog.service
-/bin/systemctl enable ntpd.service
+/bin/systemctl enable iptables.service 2> /dev/null
+/bin/systemctl enable rsyslog.service 2> /dev/null
+/bin/systemctl enable ntpd.service 2> /dev/null
 /bin/systemctl enable NetworkManager.service
 # Enable cups only when it is real SystemD service
-[ -e /lib/systemd/system/cups.service ] && /bin/systemctl enable cups.service
+[ -e /lib/systemd/system/cups.service ] && /bin/systemctl enable cups.service 2> /dev/null
 
 exit 0
 
