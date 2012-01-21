@@ -11,4 +11,5 @@ if [ "x$network" != "x" ]; then
     echo "NS2=$secondary_dns" >> /var/run/qubes/qubes_ns
     /usr/lib/qubes/qubes_setup_dnat_to_ns
     echo "1" > /proc/sys/net/ipv4/ip_forward
+    /sbin/ethtool -K eth0 sg off
 fi

@@ -7,7 +7,6 @@ Before=network.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStartPre=/sbin/ethtool -K eth0 sg off
 ExecStart=/usr/lib/qubes/init/network-proxy-setup.sh
 StandardOutput=syslog
 
