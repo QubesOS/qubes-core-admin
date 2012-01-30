@@ -8,7 +8,7 @@ sync_qubes_vms_wallclock()
 DATE=$(date)
 echo
 echo "Syncing VMs clock to: $DATE"
-qvm-run --all -u root "date -s \"$DATE\""
+qvm-run --all --exclude=`qvm-get-clockvm` -u root "date -s \"$DATE\""
 }
 
 case "$1" in
