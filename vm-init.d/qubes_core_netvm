@@ -15,6 +15,7 @@ start()
 
 	type=$(/usr/bin/xenstore-read qubes_vm_type)
 	if [ "$type" == "NetVM" ]; then
+		/usr/lib/qubes/network-manager-prepare-conf-dir
 		/sbin/service NetworkManager start
 	fi
 

@@ -13,6 +13,11 @@ read_service() {
     $XS_READ qubes-service/$1 2> /dev/null
 }
 
+# Wait for evtchn initialization
+while [ ! -e /proc/xen/xenbus ]; do
+  sleep 0.1
+done
+
 mkdir -p /var/run/qubes
 mkdir -p /var/run/qubes-service
 mkdir -p /var/run/xen-hotplug

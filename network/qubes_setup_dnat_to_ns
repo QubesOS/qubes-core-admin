@@ -14,7 +14,7 @@ source /var/run/qubes/qubes_ns
 if [ "X"$NS1 = "X" ] ; then exit ; fi
 iptables -t nat -F PR-QBS
 FIRSTONE=yes
-grep ^nameserver /etc/resolv.conf | head -2 |
+grep ^nameserver /etc/resolv.conf | grep -v ":.*:" | head -2 |
         (
         while read x y z ; do
                 addrule "$y"

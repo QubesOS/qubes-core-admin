@@ -1,0 +1,10 @@
+#!/bin/sh
+
+if [ -d /etc/NetworkManager/system-connections ]; then
+    mkdir -p /rw/config/NM-system-connections
+    mv /etc/NetworkManager/system-connections/* /rw/config/NM-system-connections/ 2> /dev/null || true
+    rmdir /etc/NetworkManager/system-connections
+    ln -s /rw/config/NM-system-connections /etc/NetworkManager/system-connections
+fi
+
+exit 0
