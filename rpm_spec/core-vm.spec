@@ -119,6 +119,7 @@ install network/qubes_network.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_ne
 install network/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/lib/qubes
 install network/qubes_fix_nm_conf.sh $RPM_BUILD_ROOT/usr/lib/qubes
 install network/setup_ip $RPM_BUILD_ROOT/usr/lib/qubes/
+install network/network-manager-prepare-conf-dir $RPM_BUILD_ROOT/usr/lib/qubes/
 install -d $RPM_BUILD_ROOT/etc/dhclient.d
 ln -s /usr/lib/qubes/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/etc/dhclient.d/qubes_setup_dnat_to_ns.sh 
 install -d $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
@@ -342,6 +343,7 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib/qubes/block_cleanup
 /usr/lib/qubes/block_remove
 /usr/lib/qubes/meminfo-writer
+/usr/lib/qubes/network-manager-prepare-conf-dir
 /usr/lib/qubes/qfile-agent
 /usr/lib/qubes/qfile-unpacker
 /usr/lib/qubes/qopen-in-vm
