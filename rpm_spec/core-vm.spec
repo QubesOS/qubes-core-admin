@@ -241,7 +241,7 @@ if [ "$1" !=  1 ] ; then
 exit 0
 fi
 
-if ! [ -f /var/lib/qubes/serial.orig ] ; then
+if [ -e /etc/init/serial.conf ] && ! [ -f /var/lib/qubes/serial.orig ] ; then
 	cp /etc/init/serial.conf /var/lib/qubes/serial.orig
 fi
 
