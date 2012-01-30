@@ -4,6 +4,7 @@
 
 sync_qubes_vms_wallclock()
 {
+/usr/bin/qvm-sync-dom0-clock
 DATE=$(date)
 echo
 echo "Syncing VMs clock to: $DATE"
