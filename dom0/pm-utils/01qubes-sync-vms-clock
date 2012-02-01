@@ -4,16 +4,16 @@
 
 sync_qubes_vms_wallclock()
 {
-# Try to sync clock from the network
-/usr/bin/qvm-sync-clock && exit 0
-# If failed - fallback to sync based on dom0 clock
+# Sync all VMs based on dom0 clock
 DATE=$(date)
 echo
 echo "Syncing VMs clock to: $DATE"
 qvm-run --all --exclude=`qvm-get-clockvm` -u root "date -s \"$DATE\""
+# Then try to sync from the network
+/usr/bin/qvm-sync-clock &
 }
 
 case "$1" in
-        thaw|resume) sync_qubes_vms_wallclock & ;;
+        thaw|resume) sync_qubes_vms_wallclock ;;
         *) exit 0 ;;
 esac
