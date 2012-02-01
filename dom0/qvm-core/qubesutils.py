@@ -229,7 +229,7 @@ def block_detach(vm, frontend = "xvdi", vm_xid = None):
     xl_cmd = [ '/usr/sbin/xl', 'block-detach', str(vm_xid), str(frontend)]
     subprocess.check_call(xl_cmd)
 
-def run_in_vm(vm, command, verbose = True, autostart = False, notify_function = None, passio = False, localcmd = None):
+def run_in_vm(vm, command, verbose = True, autostart = False, notify_function = None, passio = False, passio_popen = False, localcmd = None, wait = False):
     assert vm is not None
 
     if not vm.is_running():
@@ -258,7 +258,11 @@ def run_in_vm(vm, command, verbose = True, autostart = False, notify_function = 
     if passio:
         os.execv(qrexec_client_path, args)
         exit(1)
-    args += ["-e"]
+    if passio_popen:
+        p = subprocess.Popen (args, stdout=subprocess.PIPE)
+        return p
+    if not wait: 
+        args += ["-e"]
     return subprocess.call(args)
 
 # vim:sw=4:et:
