@@ -1,0 +1,95 @@
+#!/usr/bin/python2.6
+#
+# The Qubes OS Project, http://www.qubes-os.org
+#
+# Copyright (C) 2010  Marek Marczykowski <marmarek@invisiblethingslab.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+#
+
+from qubes.qubes import QubesVmCollection
+from qubes.qubesutils import run_in_vm
+import os.path
+import os
+import sys
+import re
+import subprocess
+
+qvm_collection = None
+
+def get_netvm_of_vm(vm):
+    netvm = vm
+    while netvm.netvm_vm is not None:
+        netvm = netvm.netvm_vm
+    if netvm is None or netvm.name == 'dom0':
+        print >> sys.stderr, 'There seems to be no network connected to ClockVM, aborting.'
+        sys.exit(1)
+    return netvm
+
+def main():
+    verbose = False
+    if len(sys.argv) > 1 and sys.argv[1] in [ '--verbose', '-v' ]:
+        verbose = True
+    
+    qvm_collection = QubesVmCollection()
+    qvm_collection.lock_db_for_reading()
+    qvm_collection.load()
+    qvm_collection.unlock_db()
+
+    clock_vm = qvm_collection.get_clockvm_vm()
+
+    if clock_vm is None:
+        print >> sys.stderr, 'There is no selected ClockVM, aborting.'
+        sys.exit(1)
+
+    if not clock_vm.is_running():
+        print >> sys.stderr, 'ClockVM not started, exiting!'
+        sys.exit(1)
+
+    net_vm = get_netvm_of_vm(clock_vm)
+    if verbose:
+        print >> sys.stderr, '--> Waiting for network for ClockVM.'
+
+    # Ignore retcode, try even if nm-online failed - user can setup network manually
+    #  on-online has timeout 30sec by default
+    run_in_vm(net_vm, 'user:nm-online -x', verbose=verbose, wait=True)
+
+    # Sync clock
+    if run_in_vm(clock_vm, 'root:/etc/init.d/ntpdate restart', verbose=verbose, wait=True) != 0:
+        print >> sys.stderr, 'Time sync failed, aborting!'
+        sys.exit(1)
+    
+    p = run_in_vm(clock_vm, 'user:date -u', verbose=verbose, passio_popen=True)
+    date_out = p.stdout.read(100)
+    if not re.match(r'^[A-Za-z]* [A-Za-z]* [ 0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9] [A-Z]* [0-9][0-9][0-9][0-9]$', date_out):
+        print >> sys.stderr, 'Invalid date output, aborting!'
+        sys.exit(1)
+
+    # Sync dom0 time
+    if verbose:
+        print >> sys.stderr, '--> Syncing dom0 clock.'
+
+    subprocess.check_call(['sudo', 'date', '-u', '-s', date_out])
+
+    # Sync other VMs clock
+    for vm in qvm_collection.values():
+        if vm.is_running() and vm.qid != 0 and vm.qid != clock_vm.qid:
+            if verbose:
+                print >> sys.stderr, '--> Syncing \'%s\' clock.' % vm.name
+            run_in_vm(vm, 'root:date -u -s "%s"' % date_out, verbose=verbose)
+
+main()
+
