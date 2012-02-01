@@ -83,6 +83,7 @@ def main():
         print >> sys.stderr, '--> Syncing dom0 clock.'
 
     subprocess.check_call(['sudo', 'date', '-u', '-s', date_out])
+    subprocess.check_call(['sudo', 'hwclock', '--systohc'])
 
     # Sync other VMs clock
     for vm in qvm_collection.values():
