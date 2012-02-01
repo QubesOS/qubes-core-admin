@@ -42,6 +42,7 @@ Conflicts:      qubes-gui-dom0 < 1.1.13
 Requires:       xen >= 4.1.0-2
 Requires:       createrepo
 Requires:       gnome-packagekit
+Requires:       cronie
 %define _builddir %(pwd)/dom0
 
 %description
@@ -105,7 +106,6 @@ cp ../qrexec/qrexec_client $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_policy $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/qfile-dom0-unpacker $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/qubes-receive-updates $RPM_BUILD_ROOT/usr/lib/qubes/
-cp aux-tools/keep-dom0-clock-synced $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_add_change $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_remove $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_cleanup $RPM_BUILD_ROOT/usr/lib/qubes/
@@ -121,6 +121,7 @@ cp aux-tools/qubes.ReceiveUpdates.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qu
 cp aux-tools/qubes.ReceiveUpdates $RPM_BUILD_ROOT/etc/qubes_rpc/
 install -D aux-tools/qubes-dom0.modules $RPM_BUILD_ROOT/etc/sysconfig/modules/qubes-dom0.modules
 install -D aux-tools/qubes-dom0-updates.cron $RPM_BUILD_ROOT/etc/cron.daily/qubes-dom0-updates.cron
+install -D aux-tools/qubes-sync-clock.cron $RPM_BUILD_ROOT/etc/cron.d/qubes-sync-clock.cron
 
 cp restore/qvm-create-default-dvm $RPM_BUILD_ROOT/usr/bin
 cp restore/xenstore-watch $RPM_BUILD_ROOT/usr/bin/xenstore-watch-qubes
@@ -328,7 +329,6 @@ fi
 /usr/lib/qubes/block_remove
 /usr/lib/qubes/block_cleanup
 %attr(4750,root,qubes) /usr/lib/qubes/qfile-dom0-unpacker
-/usr/lib/qubes/keep-dom0-clock-synced
 %attr(770,root,qubes) %dir /var/lib/qubes
 %attr(770,root,qubes) %dir /var/lib/qubes/vm-templates
 %attr(770,root,qubes) %dir /var/lib/qubes/appvms
@@ -381,6 +381,7 @@ fi
 /etc/security/limits.d/99-qubes.conf
 /etc/udev/rules.d/99-qubes_block.rules
 /etc/cron.daily/qubes-dom0-updates.cron
+/etc/cron.d/qubes-sync-clock.cron
 /etc/dracut.conf.d/*
 %dir /usr/share/dracut/modules.d/90qubes-pciback
 /usr/share/dracut/modules.d/90qubes-pciback/*
