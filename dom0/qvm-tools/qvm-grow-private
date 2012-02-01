@@ -99,7 +99,7 @@ def main():
         # resize loop device
         retcode = subprocess.check_call(["losetup", "--set-capacity", loop_dev])
 
-        retcode = subprocess.check_call([qvm_run_path, "-uroot", "--pass_io", vmname, 
+        retcode = subprocess.check_call([qvm_run_path, "-uroot", "--pass-io", vmname, 
                 "while [ \"`blockdev --getsize64 /dev/xvdb`\" -lt {0} ]; do sleep 0.2; done; resize2fs /dev/xvdb".format(size_bytes) ])
     else:
         retcode = subprocess.check_call(["resize2fs", "-f", vm.private_img])

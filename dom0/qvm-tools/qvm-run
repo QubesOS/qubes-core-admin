@@ -120,11 +120,11 @@ def main():
     parser.add_option ("--unpause", action="store_true", dest="unpause", default=False,
                       help="Do 'xl unpause' for the VM(s) (can be combined this with --all and --wait)")
 
-    parser.add_option ("-p", "--pass_io", action="store_true", dest="passio", default=False,
+    parser.add_option ("-p", "--pass-io", action="store_true", dest="passio", default=False,
                       help="Pass stdin/stdout/stderr from remote program")
 
     parser.add_option ("--localcmd", action="store", dest="localcmd", default=None,
-                      help="With --pass_io, pass stdin/stdout/stderr to the given program")
+                      help="With --pass-io, pass stdin/stdout/stderr to the given program")
 
     parser.add_option ("--force", action="store_true", dest="force", default=False,
                       help="Force operation, even if may damage other VMs (eg shutdown of NetVM)")

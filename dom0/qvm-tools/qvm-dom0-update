@@ -75,7 +75,7 @@ qvm-run -a $UPDATEVM true || exit 1
 
 /usr/lib/qubes/qrexec_client -d "$UPDATEVM" -l 'tar c /var/lib/rpm /etc/yum.repos.d /etc/yum.conf 2>/dev/null' 'user:tar x -C /var/lib/qubes/dom0-updates'
 
-qvm-run --pass_io $UPDATEVM "/usr/lib/qubes/qubes_download_dom0_updates.sh --doit --nogui $ALL_OPTS"
+qvm-run --pass-io $UPDATEVM "/usr/lib/qubes/qubes_download_dom0_updates.sh --doit --nogui $ALL_OPTS"
 RETCODE=$?
 if [ "$CHECK_ONLY" == "1" ]; then
     exit $RETCODE
