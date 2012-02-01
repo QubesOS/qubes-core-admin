@@ -2546,9 +2546,9 @@ class QubesVmCollection(dict):
 
                 self.clockvm_qid = clockvm.qid
 
-        # Enable ntpd in ClockVM
+        # Disable ntpd in ClockVM - to not conflict with ntpdate (both are using 123/udp port)
         if self.clockvm_qid is not None:
-            self[self.clockvm_qid].services['ntpd'] = True
+            self[self.clockvm_qid].services['ntpd'] = False
         return True
 
     def pop(self, qid):
