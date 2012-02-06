@@ -110,7 +110,7 @@ main()
 
 			setenv("HOME", "/home/user", 1);
 			setenv("DISPLAY", ":0", 1);
-			execl("/usr/bin/mimeopen", "mimeopen", "-n", "-M", filename, (char*)NULL);
+			execl("/usr/bin/mimeopen", "mimeopen", "-n", filename, (char*)NULL);
 			perror("execl");
 			exit(1);
 		default:
