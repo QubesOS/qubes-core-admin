@@ -92,11 +92,11 @@ install -m 0644 vm-systemd/cups.service $RPM_BUILD_ROOT/usr/lib/qubes/init/
 install -m 0644 vm-systemd/ntpd.service $RPM_BUILD_ROOT/usr/lib/qubes/init/
 
 install -D -m 0440 misc/qubes.sudoers $RPM_BUILD_ROOT/etc/sudoers.d/qubes
-install -D misc/qubes.repo $RPM_BUILD_ROOT/etc/yum.repos.d/qubes.repo
-install -D misc/serial.conf $RPM_BUILD_ROOT/usr/lib/qubes/serial.conf
+install -D -m 0644 misc/qubes.repo $RPM_BUILD_ROOT/etc/yum.repos.d/qubes.repo
+install -D -m 0644 misc/serial.conf $RPM_BUILD_ROOT/usr/lib/qubes/serial.conf
 install -D misc/qubes_serial_login $RPM_BUILD_ROOT/sbin/qubes_serial_login
 install -d $RPM_BUILD_ROOT/usr/share/glib-2.0/schemas/
-install misc/org.gnome.settings-daemon.plugins.updates.gschema.override $RPM_BUILD_ROOT/usr/share/glib-2.0/schemas/
+install -m 0644 misc/org.gnome.settings-daemon.plugins.updates.gschema.override $RPM_BUILD_ROOT/usr/share/glib-2.0/schemas/
 
 install -d $RPM_BUILD_ROOT/var/lib/qubes
 
@@ -104,13 +104,13 @@ install -d -m 755 $RPM_BUILD_ROOT/etc/pki/rpm-gpg
 install -m 644 misc/RPM-GPG-KEY-qubes* $RPM_BUILD_ROOT/etc/pki/rpm-gpg/
 install -D misc/xenstore-watch $RPM_BUILD_ROOT/usr/bin/xenstore-watch-qubes
 install -d $RPM_BUILD_ROOT/etc/udev/rules.d
-install  misc/qubes_memory.rules $RPM_BUILD_ROOT/etc/udev/rules.d/50-qubes_memory.rules
-install  misc/qubes_block.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_block.rules
+install -m 0644 misc/qubes_memory.rules $RPM_BUILD_ROOT/etc/udev/rules.d/50-qubes_memory.rules
+install -m 0644 misc/qubes_block.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_block.rules
 install -d $RPM_BUILD_ROOT/usr/lib/qubes/
 install misc/qubes_download_dom0_updates.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 install misc/{block_add_change,block_remove,block_cleanup} $RPM_BUILD_ROOT/usr/lib/qubes/
 install misc/qubes_trigger_sync_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes/
-install -D misc/qubes_trigger_sync_appmenus.action $RPM_BUILD_ROOT/etc/yum/post-actions/qubes_trigger_sync_appmenus.action
+install -D -m 0644 misc/qubes_trigger_sync_appmenus.action $RPM_BUILD_ROOT/etc/yum/post-actions/qubes_trigger_sync_appmenus.action
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
 
 install -D misc/qubes_core.modules $RPM_BUILD_ROOT/etc/sysconfig/modules/qubes_core.modules
@@ -143,9 +143,9 @@ install qubes_rpc/qvm-copy-to-vm.gnome $RPM_BUILD_ROOT/usr/lib/qubes
 install qubes_rpc/{vm-file-editor,qfile-agent,qopen-in-vm,qfile-unpacker} $RPM_BUILD_ROOT/usr/lib/qubes
 install qubes_rpc/{vm-shell,qrun-in-vm} $RPM_BUILD_ROOT/usr/lib/qubes
 install -d $RPM_BUILD_ROOT/%{kde_service_dir}
-install qubes_rpc/{qvm-copy.desktop,qvm-dvm.desktop} $RPM_BUILD_ROOT/%{kde_service_dir}
+install -m 0644 qubes_rpc/{qvm-copy.desktop,qvm-dvm.desktop} $RPM_BUILD_ROOT/%{kde_service_dir}
 install -d $RPM_BUILD_ROOT/etc/qubes_rpc
-install qubes_rpc/{qubes.Filecopy,qubes.OpenInVM,qubes.VMShell} $RPM_BUILD_ROOT/etc/qubes_rpc
+install -m 0644 qubes_rpc/{qubes.Filecopy,qubes.OpenInVM,qubes.VMShell} $RPM_BUILD_ROOT/etc/qubes_rpc
 
 install qrexec/qrexec_agent $RPM_BUILD_ROOT/usr/lib/qubes
 install qrexec/qrexec_client_vm $RPM_BUILD_ROOT/usr/lib/qubes
@@ -155,14 +155,14 @@ install misc/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes
 install -d $RPM_BUILD_ROOT/mnt/removable
 install -d $RPM_BUILD_ROOT/var/lib/qubes/dom0-updates
 
-install -D misc/xorg-preload-apps.conf $RPM_BUILD_ROOT/etc/X11/xorg-preload-apps.conf
+install -D -m 0644 misc/xorg-preload-apps.conf $RPM_BUILD_ROOT/etc/X11/xorg-preload-apps.conf
 
 install -d $RPM_BUILD_ROOT/var/run/qubes
 install -d $RPM_BUILD_ROOT/home_volatile/user
 
-install -D vchan/libvchan.h $RPM_BUILD_ROOT/usr/include/libvchan.h
-install -D u2mfn/u2mfnlib.h $RPM_BUILD_ROOT/usr/include/u2mfnlib.h
-install -D u2mfn/u2mfn-kernel.h $RPM_BUILD_ROOT/usr/include/u2mfn-kernel.h
+install -D -m 0644 vchan/libvchan.h $RPM_BUILD_ROOT/usr/include/libvchan.h
+install -D -m 0644 u2mfn/u2mfnlib.h $RPM_BUILD_ROOT/usr/include/u2mfnlib.h
+install -D -m 0644 u2mfn/u2mfn-kernel.h $RPM_BUILD_ROOT/usr/include/u2mfn-kernel.h
 
 install -D vchan/libvchan.so $RPM_BUILD_ROOT/%{_libdir}/libvchan.so
 install -D u2mfn/libu2mfn.so $RPM_BUILD_ROOT/%{_libdir}/libu2mfn.so
