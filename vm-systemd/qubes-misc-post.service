@@ -6,6 +6,7 @@ After=qubes-dvm.service
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/usr/lib/qubes/init/misc-post.sh
+ExecStop=/usr/lib/qubes/init/misc-post-stop.sh
 
 [Install]
 WantedBy=multi-user.target

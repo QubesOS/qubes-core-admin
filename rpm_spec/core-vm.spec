@@ -488,6 +488,7 @@ The Qubes core startup configuration for SystemD init.
 /usr/lib/qubes/init/prepare-dvm.sh
 /usr/lib/qubes/init/network-proxy-setup.sh
 /usr/lib/qubes/init/misc-post.sh
+/usr/lib/qubes/init/misc-post-stop.sh
 /usr/lib/qubes/init/qubes-sysinit.sh
 /usr/lib/qubes/init/NetworkManager.service
 /usr/lib/qubes/init/cups.service
