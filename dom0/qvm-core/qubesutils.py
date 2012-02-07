@@ -20,8 +20,9 @@
 #
 #
 
-from qubes import QubesVm,QubesException
+from qubes import QubesVm,QubesException,QubesVmCollection
 from qubes import xs, xl_ctx, qubes_guid_path, qubes_clipd_path, qrexec_client_path
+from qubes import qubes_store_filename, qubes_base_dir
 import sys
 import os
 #import os.path
@@ -30,7 +31,8 @@ import subprocess
 import re
 #import shutil
 #import uuid
-#import time
+import time
+import grp,pwd
 from datetime import datetime
 from qmemman_client import QMemmanClient
 
@@ -55,6 +57,17 @@ def bytes_to_kmg(size):
         return kbytes_to_kmg(size/1024)
     else:
         return "%d B" % size
+
+def size_to_human (size):
+    """Humane readable size, with 1/10 precission"""
+    if size < 1024:
+        return str (size);
+    elif size < 1024*1024:
+        return str(round(size/1024.0,1)) + ' KiB'
+    elif size < 1024*1024*1024:
+        return str(round(size/(1024.0*1024),1)) + ' MiB'
+    else:
+        return str(round(size/(1024.0*1024*1024),1)) + ' GiB'
 
 
 def block_devid_to_name(devid):
@@ -264,5 +277,251 @@ def run_in_vm(vm, command, verbose = True, autostart = False, notify_function = 
     if not wait: 
         args += ["-e"]
     return subprocess.call(args)
+
+def get_disk_usage(file_or_dir):
+    if not os.path.exists(file_or_dir):
+        return 0
+
+    p = subprocess.Popen (["du", "-s", "--block-size=1", file_or_dir],
+            stdout=subprocess.PIPE)
+    result = p.communicate()
+    m = re.match(r"^(\d+)\s.*", result[0])
+    sz = int(m.group(1)) if m is not None else 0
+    return sz
+
+
+def file_to_backup (file_path, sz = None):
+    if sz is None:
+        sz = os.path.getsize (qubes_store_filename)
+
+    abs_file_path = os.path.abspath (file_path)
+    abs_base_dir = os.path.abspath (qubes_base_dir) + '/'
+    abs_file_dir = os.path.dirname (abs_file_path) + '/'
+    (nothing, dir, subdir) = abs_file_dir.partition (abs_base_dir)
+    assert nothing == ""
+    assert dir == abs_base_dir
+    return [ { "path" : file_path, "size": sz, "subdir": subdir} ]
+
+def print_stdout(text):
+    print (text)
+
+def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_callback = print_stdout):
+    """If vms = None, include all (sensible) VMs; exclude_list is always applied"""
+
+    if not os.path.exists (base_backup_dir):
+        raise QubesException("The target directory doesn't exist!")
+
+    files_to_backup = file_to_backup (qubes_store_filename)
+
+    if vms_list is None:
+        qvm_collection = QubesVmCollection()
+        qvm_collection.lock_db_for_reading()
+        qvm_collection.load()
+        # FIXME: should be after backup completed
+        qvm_collection.unlock_db()
+
+        all_vms = [vm for vm in qvm_collection.values()]
+        appvms_to_backup = [vm for vm in all_vms if vm.is_appvm() and not vm.internal]
+        netvms_to_backup = [vm for vm in all_vms if vm.is_netvm() and not vm.qid == 0]
+        template_vms_worth_backingup = [vm for vm in all_vms if (vm.is_template() and not vm.installed_by_rpm)]
+
+        vms_list = appvms_to_backup + netvms_to_backup + template_vms_worth_backingup
+
+    vms_for_backup = vms_list
+    # Apply exclude list
+    if exclude_list:
+        vms_for_backup = [vm for vm in vms_list if vm.name not in exclude_list]
+
+    no_vms = len (vms_for_backup)
+
+    there_are_running_vms = False
+
+    fields_to_display = [
+        { "name": "VM", "width": 16},
+        { "name": "type","width": 12 },
+        { "name": "size", "width": 12}
+    ]
+
+    # Display the header
+    s = ""
+    for f in fields_to_display:
+        fmt="{{0:-^{0}}}-+".format(f["width"] + 1)
+        s += fmt.format('-')
+    print_callback(s)
+    s = ""
+    for f in fields_to_display:
+        fmt="{{0:>{0}}} |".format(f["width"] + 1)
+        s += fmt.format(f["name"])
+    print_callback(s)
+    s = ""
+    for f in fields_to_display:
+        fmt="{{0:-^{0}}}-+".format(f["width"] + 1)
+        s += fmt.format('-')
+    print_callback(s)
+
+    for vm in vms_for_backup:
+        if vm.is_template():
+            # handle templates later
+            continue
+
+        vm_sz = vm.get_disk_usage (vm.private_img)
+        files_to_backup += file_to_backup(vm.private_img, vm_sz )
+
+        if vm.is_appvm():
+            files_to_backup += file_to_backup(vm.icon_path)
+        if vm.is_updateable():
+            if os.path.exists(vm.dir_path + "/apps.templates"):
+                # template
+                files_to_backup += file_to_backup(vm.dir_path + "/apps.templates")
+            else:
+                # standaloneVM
+                files_to_backup += file_to_backup(vm.dir_path + "/apps")
+
+            if os.path.exists(vm.dir_path + "/kernels"):
+                files_to_backup += file_to_backup(vm.dir_path + "/kernels")
+        if os.path.exists (vm.firewall_conf):
+            files_to_backup += file_to_backup(vm.firewall_conf)
+        if os.path.exists(vm.dir_path + '/whitelisted-appmenus.list'):
+            files_to_backup += file_to_backup(vm.dir_path + '/whitelisted-appmenus.list')
+
+        if vm.is_updateable():
+            sz = vm.get_disk_usage(vm.root_img)
+            files_to_backup += file_to_backup(vm.root_img, sz)
+            vm_sz += sz
+            sz = vm.get_disk_usage(vm.volatile_img)
+            files_to_backup += file_to_backup(vm.volatile_img, sz)
+            vm_sz += sz
+
+        s = ""
+        fmt="{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
+        s += fmt.format(vm.name)
+
+        fmt="{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
+        if vm.is_netvm():
+            s += fmt.format("NetVM" + (" + Sys" if vm.is_updateable() else ""))
+        else:
+            s += fmt.format("AppVM" + (" + Sys" if vm.is_updateable() else ""))
+
+        fmt="{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
+        s += fmt.format(size_to_human(vm_sz))
+
+        if vm.is_running():
+            s +=  " <-- The VM is running, please shut it down before proceeding with the backup!"
+            there_are_running_vms = True
+
+        print_callback(s)
+
+    for vm in vms_for_backup:
+        if not vm.is_template():
+            # already handled
+            continue
+        vm_sz = vm.get_disk_utilization()
+        files_to_backup += file_to_backup (vm.dir_path,  vm_sz)
+
+        s = ""
+        fmt="{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
+        s += fmt.format(vm.name)
+
+        fmt="{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
+        s += fmt.format("Template VM")
+
+        fmt="{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
+        s += fmt.format(size_to_human(vm_sz))
+
+        if vm.is_running():
+            s +=  " <-- The VM is running, please shut it down before proceeding with the backup!"
+            there_are_running_vms = True
+
+        print_callback(s)
+
+    # Dom0 user home
+    local_user = grp.getgrnam('qubes').gr_mem[0]
+    home_dir = pwd.getpwnam(local_user).pw_dir
+    home_sz = get_disk_usage(home_dir)
+    home_to_backup = [ { "path" : home_dir, "size": home_sz, "subdir": 'dom0-home'} ]
+    files_to_backup += home_to_backup
+
+    s = ""
+    fmt="{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
+    s += fmt.format('Dom0')
+
+    fmt="{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
+    s += fmt.format("User home")
+
+    fmt="{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
+    s += fmt.format(size_to_human(home_sz))
+
+    print_callback(s)
+
+    total_backup_sz = 0
+    for file in files_to_backup:
+        total_backup_sz += file["size"]
+
+    s = ""
+    for f in fields_to_display:
+        fmt="{{0:-^{0}}}-+".format(f["width"] + 1)
+        s += fmt.format('-')
+    print_callback(s)
+
+    s = ""
+    fmt="{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
+    s += fmt.format("Total size:")
+    fmt="{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1 + 2 + fields_to_display[2]["width"] + 1)
+    s += fmt.format(size_to_human(total_backup_sz))
+    print_callback(s)
+
+    s = ""
+    for f in fields_to_display:
+        fmt="{{0:-^{0}}}-+".format(f["width"] + 1)
+        s += fmt.format('-')
+    print_callback(s)
+
+    stat = os.statvfs(base_backup_dir)
+    backup_fs_free_sz = stat.f_bsize * stat.f_bavail
+    print_callback("")
+    if (total_backup_sz > backup_fs_free_sz):
+        raise QubesException("Not enough space avilable on the backup filesystem!")
+
+    if (there_are_running_vms):
+        raise QubesException("Please shutdown all VMs before proceeding.")
+
+    print_callback("-> Avilable space: {0}".format(size_to_human(backup_fs_free_sz)))
+
+    return files_to_backup
+
+def backup_do(base_backup_dir, files_to_backup, progress_callback = None):
+
+    total_backup_sz = 0
+    for file in files_to_backup:
+        total_backup_sz += file["size"]
+
+    backup_dir = base_backup_dir + "/qubes-{0}".format (time.strftime("%Y-%m-%d-%H%M%S"))
+    if os.path.exists (backup_dir):
+        raise QubesException("ERROR: the path {0} already exists?!".format(backup_dir))
+
+    os.mkdir (backup_dir)
+
+    if not os.path.exists (backup_dir):
+        raise QubesException("Strange: couldn't create backup dir: {0}?!".format(backup_dir))
+
+    bytes_backedup = 0
+    for file in files_to_backup:
+        # We prefer to use Linux's cp, because it nicely handles sparse files
+        progress = bytes_backedup * 100 / total_backup_sz
+        progress_callback(progress)
+        dest_dir = backup_dir + '/' + file["subdir"]
+        if file["subdir"] != "":
+            retcode = subprocess.call (["mkdir", "-p", dest_dir])
+            if retcode != 0:
+                raise QubesException("Cannot create directory: {0}?!".format(dest_dir))
+
+        retcode = subprocess.call (["cp", "-rp", file["path"], dest_dir])
+        if retcode != 0:
+            raise QubesException("Error while copying file {0} to {1}".format(file["path"], dest_dir))
+
+        bytes_backedup += file["size"]
+        progress = bytes_backedup * 100 / total_backup_sz
+        progress_callback(progress)
+
 
 # vim:sw=4:et:
