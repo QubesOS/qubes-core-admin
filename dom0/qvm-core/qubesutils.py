@@ -42,15 +42,15 @@ import xen.lowlevel.xs
 
 def mbytes_to_kmg(size):
     if size > 1024:
-        return "%d GB" % (size/1024)
+        return "%d GiB" % (size/1024)
     else:
-        return "%d MB" % size
+        return "%d MiB" % size
 
 def kbytes_to_kmg(size):
     if size > 1024:
         return mbytes_to_kmg(size/1024)
     else:
-        return "%d KB" % size
+        return "%d KiB" % size
 
 def bytes_to_kmg(size):
     if size > 1024:
@@ -274,7 +274,7 @@ def run_in_vm(vm, command, verbose = True, autostart = False, notify_function = 
     if passio_popen:
         p = subprocess.Popen (args, stdout=subprocess.PIPE)
         return p
-    if not wait: 
+    if not wait:
         args += ["-e"]
     return subprocess.call(args)
 
