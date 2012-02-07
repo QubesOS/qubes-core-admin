@@ -13,7 +13,7 @@ if [ "$TEMPLATENAME" = --used-template ] ; then
 	fi
 fi
 if [ "$TEMPLATENAME" = --default-template ] ; then
-	TEMPLATENAME=$(qvm-get-default-template)
+	TEMPLATENAME=$(qubes-prefs --get default-template)
 	if [ "X"$TEMPLATENAME = "X" ] ; then
 		echo No default template ?
 		exit 1

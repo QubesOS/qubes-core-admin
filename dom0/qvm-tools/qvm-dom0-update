@@ -1,6 +1,6 @@
 #!/bin/bash
 
-UPDATEVM=`qvm-get-updatevm`
+UPDATEVM=`qubes-prefs --get updatevm`
 if [ -z "$UPDATEVM" ]; then
     echo "UpdateVM not set, exiting"
     exit 1

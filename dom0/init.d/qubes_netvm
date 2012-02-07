@@ -18,7 +18,7 @@
 # Source function library.
 . /etc/rc.d/init.d/functions
 
-NETVM=$(qvm-get-default-netvm)
+NETVM=$(qubes-prefs --get default-netvm)
 
 get_running_netvms() {
     # Actually get running VMs with PCI devices attached
