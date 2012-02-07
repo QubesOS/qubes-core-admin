@@ -67,6 +67,7 @@ cp init.d/qubes_setupdvm $RPM_BUILD_ROOT/etc/init.d/
 
 mkdir -p $RPM_BUILD_ROOT/usr/bin/
 cp qvm-tools/qvm-* $RPM_BUILD_ROOT/usr/bin
+cp qvm-tools/qubes-* $RPM_BUILD_ROOT/usr/bin
 cp clipboard_notifier/qclipd $RPM_BUILD_ROOT/usr/bin
 
 mkdir -p $RPM_BUILD_ROOT/etc/xen/scripts
@@ -299,6 +300,7 @@ fi
 /etc/init.d/qubes_netvm
 /etc/init.d/qubes_setupdvm
 /usr/bin/qvm-*
+/usr/bin/qubes-*
 /usr/bin/qclipd
 %{python_sitearch}/qubes/qubes.py
 %{python_sitearch}/qubes/qubes.pyc
