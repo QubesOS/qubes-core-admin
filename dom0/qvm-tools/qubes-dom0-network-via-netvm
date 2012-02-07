@@ -79,7 +79,7 @@ def netdown():
     os.system('xl network-detach 0 0')
 
 def usage():
-    print >> sys.stderr, 'Usage: qvm-dom0-network-via-netvm [up|down]'
+    print >> sys.stderr, 'Usage: {0} [up|down]'.format(sys.argv[0])
     sys.exit(1)
 
 def main():
