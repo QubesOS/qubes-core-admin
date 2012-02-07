@@ -43,14 +43,11 @@ def handle_vm(vms, label, new_value = None):
         if vm is None:
             print >> sys.stderr, "A VM with the name '{0}' does not exist in the system.".format(new_value)
             exit(1)
-        # Additional checks
-        if label in [ 'default-netvm', 'default-fw-netvm' ] and not vm.is_netvm():
-            print >> sys.stderr, "VM '{0}' is not a NetVM".format(new_value)
-            exit (1)
-        if label in [ 'default-templatevm' ] and not vm.is_template():
-            print >> sys.stderr, "VM '{0}' is not a template".format(new_value)
-            exit (1)
-        vms.__getattribute__(functions[label][1])(vm)
+        try:
+            vms.__getattribute__(functions[label][1])(vm)
+        except Exception as e:
+            print >> sys.stderr, "ERROR: {0}".format(str(e))
+            exit(1)
     else:
         vm = vms.__getattribute__(functions[label][0])()
         if vm is not None:
