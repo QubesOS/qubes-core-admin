@@ -15,5 +15,7 @@ sync_qubes_vms_wallclock()
 
 case "$1" in
         thaw|resume) sync_qubes_vms_wallclock ;;
+        # Kill qvm-sync-clock (if running) to not desync time after resume
+        suspend|hibernate) killall qvm-sync-clock 2> /dev/null ;;
         *) exit 0 ;;
 esac
