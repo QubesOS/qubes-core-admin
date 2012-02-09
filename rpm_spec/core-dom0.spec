@@ -166,8 +166,8 @@ cp misc/limits-qubes.conf $RPM_BUILD_ROOT/etc/security/limits.d/99-qubes.conf
 
 mkdir -p $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d
 cp pm-utils/01qubes-sync-vms-clock $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
-cp pm-utils/01qubes-suspend-netvm $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
-cp pm-utils/02qubes-pause-vms $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
+cp pm-utils/51qubes-suspend-netvm $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
+cp pm-utils/52qubes-pause-vms $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 
 mkdir -p $RPM_BUILD_ROOT/var/log/qubes
 mkdir -p $RPM_BUILD_ROOT/var/run/qubes
@@ -351,8 +351,8 @@ fi
 /etc/sysconfig/iptables
 /etc/sysconfig/modules/qubes-dom0.modules
 /usr/lib64/pm-utils/sleep.d/01qubes-sync-vms-clock
-/usr/lib64/pm-utils/sleep.d/01qubes-suspend-netvm
-/usr/lib64/pm-utils/sleep.d/02qubes-pause-vms
+/usr/lib64/pm-utils/sleep.d/51qubes-suspend-netvm
+/usr/lib64/pm-utils/sleep.d/52qubes-pause-vms
 /usr/bin/xenstore-watch-qubes
 /usr/lib/qubes/qubes_restore
 /usr/lib/qubes/qubes_prepare_saved_domain.sh
