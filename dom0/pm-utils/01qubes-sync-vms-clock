@@ -4,13 +4,13 @@
 
 sync_qubes_vms_wallclock()
 {
-# Sync all VMs based on dom0 clock
-DATE=$(date)
-echo
-echo "Syncing VMs clock to: $DATE"
-qvm-run --all --exclude=`qubes-prefs --get clockvm` -u root "date -s \"$DATE\""
-# Then try to sync from the network
-/usr/bin/qvm-sync-clock &
+    # Sync all VMs based on dom0 clock
+    DATE=$(date)
+    echo
+    echo "Syncing VMs clock to: $DATE"
+    qvm-run --all --exclude=`qubes-prefs --get clockvm` -u root "date -s \"$DATE\""
+    # Then try to sync from the network
+    /usr/bin/qvm-sync-clock &
 }
 
 case "$1" in
