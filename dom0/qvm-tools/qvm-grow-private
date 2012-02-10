@@ -51,15 +51,7 @@ def main():
         print >> sys.stderr, "A VM with the name '{0}' does not exist in the system.".format(vmname)
         exit(1)
 
-    if vm.is_running() and os.geteuid() != 0:
-        print >> sys.stderr, "You must be root to grow private.img on running VM."
-        exit(1)
-
     size_bytes = parse_size(size)
-
-    if size_bytes < vm.get_private_img_sz():
-        print >> sys.stderr, "Cannot shrink private.img ({0} < {1})".format(size_bytes, vm.get_private_img_sz())
-        exit(1)
 
     try:
         vm.resize_private_img(size_bytes)
@@ -67,26 +59,6 @@ def main():
         print >> sys.stderr, "ERROR: {0}".format(err)
         exit (1)
 
-    if vm.is_running():
-        # find loop device
-        p = subprocess.Popen (["losetup", "--associated", vm.private_img],
-                stdout=subprocess.PIPE)
-        result = p.communicate()
-        m = re.match(r"^(/dev/loop\d+):\s", result[0])
-        if m is None:
-            print >> sys.stderr, "ERROR: Cannot find loop device!"
-            exit(1)
-
-        loop_dev = m.group(1)
-
-        # resize loop device
-        retcode = subprocess.check_call(["losetup", "--set-capacity", loop_dev])
-
-        retcode = subprocess.check_call([qvm_run_path, "-uroot", "--pass-io", vmname, 
-                "while [ \"`blockdev --getsize64 /dev/xvdb`\" -lt {0} ]; do sleep 0.2; done; resize2fs /dev/xvdb".format(size_bytes) ])
-    else:
-        retcode = subprocess.check_call(["resize2fs", "-f", vm.private_img])
-        
 	exit (0)
 
 

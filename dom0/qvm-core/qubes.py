@@ -640,9 +640,34 @@ class QubesVm(object):
         return os.path.getsize(self.private_img)
 
     def resize_private_img(self, size):
+        assert size >= self.get_private_img_sz(), "Cannot shrink private.img"
+
         f_private = open (self.private_img, "a+b")
         f_private.truncate (size)
         f_private.close ()
+
+        retcode = 0
+        if self.is_running():
+            # find loop device
+            p = subprocess.Popen (["losetup", "--associated", vm.private_img],
+                    stdout=subprocess.PIPE)
+            result = p.communicate()
+            m = re.match(r"^(/dev/loop\d+):\s", result[0])
+            if m is None:
+                raise QubesException("ERROR: Cannot find loop device!")
+
+            loop_dev = m.group(1)
+
+            # resize loop device
+            subprocess.check_call(["sudo", "losetup", "--set-capacity", loop_dev])
+
+            retcode = self.run("root:while [ \"`blockdev --getsize64 /dev/xvdb`\" -lt {0} ]; do " +
+                "head /dev/xvdb > /dev/null; sleep 0.2; done; resize2fs /dev/xvdb".format(size_bytes), wait=True)
+        else:
+            retcode = subprocess.check_call(["sudo", "resize2fs", "-f", vm.private_img])
+        if retcode != 0:
+            raise QubesException("resize2fs failed")
+
 
     # FIXME: should be outside of QubesVM?
     def get_timezone(self):
