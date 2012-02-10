@@ -69,6 +69,11 @@ def size_to_human (size):
     else:
         return str(round(size/(1024.0*1024*1024),1)) + ' GiB'
 
+def print_stdout(text):
+    print (text)
+
+def print_stderr(text):
+    print >> sys.stderr, (text)
 
 def block_devid_to_name(devid):
     major = devid / 256
@@ -301,9 +306,6 @@ def file_to_backup (file_path, sz = None):
     assert nothing == ""
     assert dir == abs_base_dir
     return [ { "path" : file_path, "size": sz, "subdir": subdir} ]
-
-def print_stdout(text):
-    print (text)
 
 def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_callback = print_stdout):
     """If vms = None, include all (sensible) VMs; exclude_list is always applied"""
