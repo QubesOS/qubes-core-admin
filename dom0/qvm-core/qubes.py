@@ -676,7 +676,7 @@ class QubesVm(object):
                     continue
             # remove dead device
             xs.rm('', '%s/%s' % (dev_basepath, dev))
-                    
+
     def create_xenstore_entries(self, xid = None):
         if dry_run:
             return
