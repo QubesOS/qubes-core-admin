@@ -70,6 +70,23 @@ def size_to_human (size):
     else:
         return str(round(size/(1024.0*1024*1024),1)) + ' GiB'
 
+def parse_size(size):
+    units = [ ('K', 1024), ('KB', 1024),
+        ('M', 1024*1024), ('MB', 1024*1024),
+        ('G', 1024*1024*1024), ('GB', 1024*1024*1024),
+    ]
+
+    size = size.strip().upper()
+    if size.isdigit():
+        return size
+
+    for unit, multiplier in units:
+        if size.endswith(unit):
+            size = size[:-len(unit)].strip()
+            return int(size)*multiplier
+
+    raise QubesException("Invalid size: {0}.".format(size))
+
 def print_stdout(text):
     print (text)
 

@@ -22,6 +22,7 @@
 
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
+from qubesutils import parse_size
 from optparse import OptionParser
 import subprocess
 import os
@@ -29,24 +30,6 @@ import re
 import sys
 
 qvm_run_path = "/usr/bin/qvm-run"
-
-def parse_size(size):
-    units = [ ('K', 1024), ('KB', 1024),
-        ('M', 1024*1024), ('MB', 1024*1024),
-        ('G', 1024*1024*1024), ('GB', 1024*1024*1024),
-    ]
-
-    size = size.strip().upper()
-    if size.isdigit():
-        return size
-
-    for unit, multiplier in units:
-        if size.endswith(unit):
-            size = size[:-len(unit)].strip()
-            return int(size)*multiplier
-    
-    print >> sys.stderr, "Invalid size: {0}.".format(size)
-    exit(1)
 
 def main():
     usage = "usage: %prog <vm-name> <size>"
