@@ -24,7 +24,6 @@
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
 from optparse import OptionParser
-from qubes import qubesutils
 import subprocess
 import socket
 import errno
@@ -83,7 +82,7 @@ def vm_run_cmd(vm, cmd, options):
             elif level == "error":
                 tray_notify_error(str)
 
-        return qubesutils.run_in_vm(vm, cmd, autostart = options.auto,
+        return vm.run(cmd, autostart = options.auto,
             verbose = options.verbose,
             notify_function = tray_notify_generic if options.tray else None,
             passio = options.passio, localcmd = options.localcmd)
