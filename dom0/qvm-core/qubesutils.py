@@ -23,6 +23,7 @@
 from qubes import QubesVm,QubesException,QubesVmCollection
 from qubes import xs, xl_ctx, qubes_guid_path, qubes_clipd_path, qrexec_client_path
 from qubes import qubes_store_filename, qubes_base_dir
+from qubes import qubes_servicevms_dir, qubes_templates_dir, qubes_appvms_dir
 import sys
 import os
 #import os.path
@@ -525,5 +526,469 @@ def backup_do(base_backup_dir, files_to_backup, progress_callback = None):
         progress = bytes_backedup * 100 / total_backup_sz
         progress_callback(progress)
 
+def backup_restore_set_defaults(options):
+    if 'use-default-netvm' not in options:
+        options['use-default-netvm'] = False
+    if 'use-none-netvm' not in options:
+        options['use-none-netvm'] = False
+    if 'use-default-template' not in options:
+        options['use-default-template'] = False
+    if 'dom0-home' not in options:
+        options['dom0-home'] = True
+    if 'replace-template' not in options:
+        options['replace-template'] = []
+
+    return options
+
+
+def backup_restore_prepare(backup_dir, options = {}, host_collection = None):
+    # Defaults
+    backup_restore_set_defaults(options)
+
+    #### Private functions begin
+    def is_vm_included_in_backup (backup_dir, vm):
+        if vm.qid == 0:
+            # Dom0 is not included, obviously
+            return False
+
+        backup_vm_dir_path = vm.dir_path.replace (qubes_base_dir, backup_dir)
+
+        if os.path.exists (backup_vm_dir_path):
+            return True
+        else:
+            return False
+
+    def find_template_name(template, replaces):
+        rx_replace = re.compile("(.*):(.*)")
+        for r in replaces:
+            m = rx_replace.match(r)
+            if m.group(1) == template:
+                return m.group(2)
+
+        return template
+
+    #### Private functions end
+
+    if not os.path.exists (backup_dir):
+        raise QubesException("The backup directory doesn't exist!")
+
+    backup_collection = QubesVmCollection(store_filename = backup_dir + "/qubes.xml")
+    backup_collection.lock_db_for_reading()
+    backup_collection.load()
+
+    if host_collection is None:
+        host_collection = QubesVmCollection()
+        host_collection.lock_db_for_reading()
+        host_collection.load()
+        host_collection.unlock_db()
+
+    backup_vms_list = [vm for vm in backup_collection.values()]
+    host_vms_list = [vm for vm in host_collection.values()]
+    vms_to_restore = {}
+
+    there_are_conflicting_vms = False
+    there_are_missing_templates = False
+    there_are_missing_netvms = False
+    dom0_username_mismatch = False
+    restore_home = False
+    # ... and the actual data
+    for vm in backup_vms_list:
+        if is_vm_included_in_backup (backup_dir, vm):
+
+            vms_to_restore[vm.name] = {}
+            vms_to_restore[vm.name]['vm'] = vm;
+            if 'exclude' in options.keys():
+                vms_to_restore[vm.name]['excluded'] = vm.name in options['exclude']
+                vms_to_restore[vm.name]['good-to-go'] = False
+
+            if host_collection.get_vm_by_name (vm.name) is not None:
+                vms_to_restore[vm.name]['already-exists'] = True
+                vms_to_restore[vm.name]['good-to-go'] = False
+
+            if vm.template_vm is not None:
+                vms_to_restore[vm.name]['template'] = None
+            else:
+                templatevm_name = find_template_name(vm.template_vm.name, options['replace-template'])
+                vms_to_restore[vm.name]['template'] = templatevm_name
+                template_vm_on_host = host_collection.get_vm_by_name (templatevm_name)
+
+                # No template on the host?
+                if not ((template_vm_on_host is not None) and template_vm_on_host.is_template()):
+                    # Maybe the (custom) template is in the backup?
+                    template_vm_on_backup = backup_collection.get_vm_by_name (templatevm_name)
+                    if template_vm_on_backup is None or template_vm_on_backup.is_template():
+                        if options['use-default-template']:
+                            vms_to_restore[vm.name]['template'] = host_collection.get_default_tempate_vm().name
+                        else:
+                            vms_to_restore[vm.name]['missing-template'] = True
+                            vms_to_restore[vm.name]['good-to-go'] = False
+                            continue
+
+            if vm.netvm_vm is None:
+                vms_to_restore[vm.name]['netvm'] = None
+            else:
+                netvm_name = vm.netvm_vm.name
+                vms_to_restore[vm.name]['netvm'] = netvm_name
+                netvm_vm_on_host = host_collection.get_vm_by_name (netvm_name)
+
+                # No netvm on the host?
+                if not ((netvm_vm_on_host is not None) and netvm_vm_on_host.is_netvm()):
+
+                    # Maybe the (custom) netvm is in the backup?
+                    netvm_vm_on_backup = backup_collection.get_vm_by_name (netvm_name)
+                    if not ((netvm_vm_on_backup is not None) and netvm_vm_on_backup.is_netvm):
+                        if options['use-default-netvm']:
+                            vms_to_restore[vm.name]['netvm'] = host_collection.get_default_netvm_vm().name
+                            vm.uses_default_netvm = True
+                        elif options['use-none-netvm']:
+                            vms_to_restore[vm.name]['netvm'] = None
+                        else:
+                            vms_to_restore[vm.name]['missing-netvm'] = True
+                            vms_to_restore[vm.name]['good-to-go'] = False
+                            continue
+
+            if 'good-to-go' not in vms_to_restore[vm.name].keys():
+                vms_to_restore[vm.name]['good-to-go'] = True
+
+    # ...and dom0 home
+    if options['dom0-home'] and os.path.exists(backup_dir + '/dom0-home'):
+        vms_to_restore['dom0'] = {}
+        local_user = grp.getgrnam('qubes').gr_mem[0]
+
+        dom0_homes = os.listdir(backup_dir + '/dom0-home')
+        if len(dom0_homes) > 1:
+            raise QubesException("More than one dom0 homedir in backup")
+
+        vms_to_restore['dom0']['username'] = dom0_homes[0]
+        if dom0_homes[0] != local_user:
+            vms_to_restore['dom0']['username-mismatch'] = True
+            if not options['ignore-dom0-username-mismatch']:
+                vms_to_restore['dom0']['good-to-go'] = False
+
+        if 'good-to-go' not in vms_to_restore['dom0']:
+            vms_to_restore['dom0']['good-to-go'] = True
+
+    return vms_to_restore
+
+def backup_restore_print_summary(restore_info, print_callback = print_stdout):
+    fields = {
+        "qid": {"func": "vm.qid"},
+
+        "name": {"func": "('[' if vm.is_template() else '')\
+                 + ('{' if vm.is_netvm() else '')\
+                 + vm.name \
+                 + (']' if vm.is_template() else '')\
+                 + ('}' if vm.is_netvm() else '')"},
+
+        "type": {"func": "'Tpl' if vm.is_template() else \
+                 ('Proxy' if vm.is_proxyvm() else \
+                 (' Net' if vm.is_netvm() else 'App'))"},
+
+        "updbl" : {"func": "'Yes' if vm.is_updateable() else ''"},
+
+        "template": {"func": "'n/a' if vm.is_template() or vm.template_vm is None else\
+                     vm_info['template']"},
+
+        "netvm": {"func": "'n/a' if vm.is_netvm() else\
+                  ('*' if vm.uses_default_netvm else '') +\
+                    vm_info['netvm'] if vm.netvm_vm is not None else '-'"},
+
+        "label" : {"func" : "vm.label.name"},
+    }
+
+    fields_to_display = ["name", "type", "template", "updbl", "netvm", "label" ]
+
+    # First calculate the maximum width of each field we want to display
+    total_width = 0;
+    for f in fields_to_display:
+        fields[f]["max_width"] = len(f)
+        for vm_info in restore_info.values():
+            if 'vm' in vm_info.keys():
+                vm = vm_info['vm']
+                l = len(str(eval(fields[f]["func"])))
+                if l > fields[f]["max_width"]:
+                    fields[f]["max_width"] = l
+        total_width += fields[f]["max_width"]
+
+    print_callback("")
+    print_callback("The following VMs are included in the backup:")
+    print_callback("")
+
+    # Display the header
+    s = ""
+    for f in fields_to_display:
+        fmt="{{0:-^{0}}}-+".format(fields[f]["max_width"] + 1)
+        s += fmt.format('-')
+    print_callback(s)
+    s = ""
+    for f in fields_to_display:
+        fmt="{{0:>{0}}} |".format(fields[f]["max_width"] + 1)
+        s += fmt.format(f)
+    print_callback(s)
+    s = ""
+    for f in fields_to_display:
+        fmt="{{0:-^{0}}}-+".format(fields[f]["max_width"] + 1)
+        s += fmt.format('-')
+    print_callback(s)
+
+    for vm_info in restore_info.values():
+        # Skip non-VM here
+        if not 'vm' in vm_info:
+            continue
+        vm = vm_info['vm']
+        s = ""
+        for f in fields_to_display:
+            fmt="{{0:>{0}}} |".format(fields[f]["max_width"] + 1)
+            s += fmt.format(eval(fields[f]["func"]))
+
+        if 'excluded' in vm_info and vm_info['excluded']:
+            s += " <-- Excluded from restore"
+        elif 'already-exists' in vm_info:
+            s +=  " <-- A VM with the same name already exists on the host!"
+        elif 'missing-template' in vm_info:
+            s += " <-- No matching template on the host or in the backup found!"
+        elif 'missing-netvm' in vm_info:
+            s += " <-- No matching netvm on the host or in the backup found!"
+
+        print_callback(s)
+
+    if 'dom0' in restore_info.keys():
+        s = ""
+        for f in fields_to_display:
+            fmt="{{0:>{0}}} |".format(fields[f]["max_width"] + 1)
+            if f == "name":
+                s += fmt.format("Dom0")
+            elif f == "type":
+                s += fmt.format("Home")
+            else:
+                s += fmt.format("")
+        if 'username-mismatch' in restore_info['dom0']:
+            s += " <-- username in backup and dom0 mismatch"
+
+        print_callback(s)
+
+def backup_restore_do(backup_dir, restore_info, host_collection = None, print_callback = print_stdout, error_callback = print_stderr):
+
+    #### Private functions begin
+    def restore_vm_file (backup_dir, file_path):
+
+        backup_file_path = file_path.replace (qubes_base_dir, backup_dir)
+        #print "cp -rp {0} {1}".format (backup_file_path, file_path)
+
+        # We prefer to use Linux's cp, because it nicely handles sparse files
+        retcode = subprocess.call (["cp", "-p", backup_file_path, file_path])
+        if retcode != 0:
+            raise QubesException("*** Error while copying file {0} to {1}".format(backup_file_path, file_path))
+
+    def restore_vm_dir (backup_dir, src_dir, dst_dir):
+
+        backup_src_dir = src_dir.replace (qubes_base_dir, backup_dir)
+
+        # We prefer to use Linux's cp, because it nicely handles sparse files
+        retcode = subprocess.call (["cp", "-rp", backup_src_dir, dst_dir])
+        if retcode != 0:
+            raise QubesException("*** Error while copying file {0} to {1}".format(backup_src_dir, dest_dir))
+
+    #### Private functions end
+
+    lock_obtained = False
+    if host_collection is None:
+        host_collection = QubesVmCollection()
+        host_collection.lock_db_for_writing()
+        host_collection.load()
+        lock_obtained = True
+
+    # Add templates...
+    for vm_info in restore_info.values():
+        if not vm_info['good-to-go']:
+            continue
+        if 'vm' not in vm_info:
+            continue
+        vm = vm_info['vm']
+        if not vm.is_template():
+            continue
+        print_callback("-> Restoring Template VM {0}...".format(vm.name))
+        retcode = subprocess.call (["mkdir", "-p", vm.dir_path])
+        if retcode != 0:
+            error_callback("*** Cannot create directory: {0}?!".format(dest_dir))
+            error_callback("Skiping...")
+            continue
+
+        updateable = vm.updateable
+
+        new_vm = None
+
+        try:
+            restore_vm_dir (backup_dir, vm.dir_path, qubes_templates_dir);
+            new_vm = host_collection.add_new_templatevm(vm.name,
+                                               conf_file=vm.conf_file,
+                                               dir_path=vm.dir_path,
+                                               installed_by_rpm=False)
+
+            new_vm.updateable = updateable
+            new_vm.verify_files()
+        except Exception as err:
+            error_callback("ERROR: {0}".format(err))
+            error_callback("*** Skiping VM: {0}".vm.name)
+            if new_vm:
+                host_collection.pop(new_vm.qid)
+            continue
+
+        try:
+            new_vm.create_appmenus(verbose=True)
+        except Exception as err:
+            error_callback("ERROR during appmenu restore: {0}".format(err))
+            error_callback("*** VM '{0}' will not have appmenus".format(vm.name))
+
+    # ... then NetVMs...
+    for vm_info in restore_info.values():
+        if not vm_info['good-to-go']:
+            continue
+        if 'vm' not in vm_info:
+            continue
+        vm = vm_info['vm']
+        if not vm.is_netvm():
+            continue
+
+        print_callback("-> Restoring {0} {1}...".format(vm.type, vm.name))
+        retcode = subprocess.call (["mkdir", "-p", vm.dir_path])
+        if retcode != 0:
+            error_callback("*** Cannot create directory: {0}?!".format(dest_dir))
+            error_callback("Skiping...")
+            continue
+
+        template_vm = None
+        if vm.template_vm is not None:
+            template_name = vm_info['template']
+            template_vm = host_collection.get_vm_by_name(template_name)
+
+        if not vm.uses_default_netvm:
+            uses_default_netvm = False
+            netvm_vm = host_collection.get_vm_by_name (vm_info['netvm']) if vm_info['netvm'] is not None else None
+        else:
+            uses_default_netvm = True
+
+        updateable = vm.updateable
+
+        new_vm = None
+        try:
+            restore_vm_dir (backup_dir, vm.dir_path, qubes_servicevms_dir);
+
+            if vm.type == "NetVM":
+                new_vm = host_collection.add_new_netvm(vm.name, template_vm,
+                                              conf_file=vm.conf_file,
+                                              dir_path=vm.dir_path,
+                                              updateable=updateable,
+                                              label=vm.label)
+            elif vm.type == "ProxyVM":
+                new_vm = host_collection.add_new_proxyvm(vm.name, template_vm,
+                                              conf_file=vm.conf_file,
+                                              dir_path=vm.dir_path,
+                                              updateable=updateable,
+                                              label=vm.label)
+        except Exception as err:
+            error_callback("ERROR: {0}".format(err))
+            error_callback("*** Skiping VM: {0}".format(vm.name))
+            if new_vm:
+                host_collection.pop(new_vm.qid)
+            continue
+
+        if vm.is_proxyvm() and not uses_default_netvm:
+            new_vm.uses_default_netvm = False
+            new_vm.netvm_vm = netvm_vm
+
+        try:
+            new_vm.verify_files()
+        except Exception as err:
+            error_callback("ERROR: {0}".format(err))
+            error_callback("*** Skiping VM: {0}".format(vm.name))
+            host_collection.pop(new_vm.qid)
+            continue
+
+    # ... then appvms...
+    for vm_info in restore_info.values():
+        if not vm_info['good-to-go']:
+            continue
+        if 'vm' not in vm_info:
+            continue
+        vm = vm_info['vm']
+        if not vm.is_appvm():
+            continue
+
+        print_callback("-> Restoring AppVM {0}...".format(vm.name))
+        retcode = subprocess.call (["mkdir", "-p", vm.dir_path])
+        if retcode != 0:
+            error_callback("*** Cannot create directory: {0}?!".format(dest_dir))
+            error_callback("Skiping...")
+            continue
+
+        template_vm = None
+        if vm.template_vm is not None:
+            template_name = vm_info['template']
+            template_vm = host_collection.get_vm_by_name(template_name)
+
+        if not vm.uses_default_netvm:
+            uses_default_netvm = False
+            netvm_vm = host_collection.get_vm_by_name (vm_info['netvm']) if vm_info['netvm'] is not None else None
+        else:
+            uses_default_netvm = True
+
+        updateable = vm.updateable
+
+        new_vm = None
+        try:
+            restore_vm_dir (backup_dir, vm.dir_path, qubes_appvms_dir);
+            new_vm = host_collection.add_new_appvm(vm.name, template_vm,
+                                          conf_file=vm.conf_file,
+                                          dir_path=vm.dir_path,
+                                          updateable=updateable,
+                                          label=vm.label)
+        except Exception as err:
+            error_callback("ERROR: {0}".format(err))
+            error_callback("*** Skiping VM: {0}".format(vm.name))
+            if new_vm:
+                host_collection.pop(new_vm.qid)
+            continue
+
+        if not uses_default_netvm:
+            new_vm.uses_default_netvm = False
+            new_vm.netvm_vm = netvm_vm
+
+        try:
+            new_vm.create_appmenus(verbose=True)
+        except Exception as err:
+            error_callback("ERROR during appmenu restore: {0}".format(err))
+            error_callback("*** VM '{0}' will not have appmenus".format(vm.name))
+
+        try:
+            new_vm.verify_files()
+        except Exception as err:
+            error_callback("ERROR: {0}".format(err))
+            error_callback("*** Skiping VM: {0}".format(vm.name))
+            host_collection.pop(new_vm.qid)
+            continue
+
+    host_collection.save()
+    if lock_obtained:
+        host_collection.unlock_db()
+
+    # ... and dom0 home as last step
+    if 'dom0' in restore_info.keys() and restore_info['dom0']['good-to-go']:
+        backup_info = restore_info['dom0']
+        local_user = grp.getgrnam('qubes').gr_mem[0]
+        home_dir = pwd.getpwnam(local_user).pw_dir
+        backup_dom0_home_dir = backup_dir + '/dom0-home/' + restore_info['username']
+        restore_home_backupdir = "home-pre-restore-{0}".format (time.strftime("%Y-%m-%d-%H%M%S"))
+
+        print_callback("-> Restoring home of user '{0}'...".format(local_user))
+        print_callback("--> Existing files/dirs backed up in '{0}' dir".format(restore_home_backupdir))
+        os.mkdir(home_dir + '/' + restore_home_backupdir)
+        for f in os.listdir(backup_dom0_home_dir):
+            home_file = home_dir + '/' + f
+            if os.path.exists(home_file):
+                os.rename(home_file, home_dir + '/' + restore_home_backupdir + '/' + f)
+            retcode = subprocess.call (["cp", "-nrp", backup_dom0_home_dir + '/' + f, home_file])
+            if retcode != 0:
+                error_callback("*** Error while copying file {0} to {1}".format(backup_dom0_home_dir + '/' + f, home_file))
 
 # vim:sw=4:et:
