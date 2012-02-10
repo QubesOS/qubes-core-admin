@@ -248,42 +248,6 @@ def block_detach(vm, frontend = "xvdi", vm_xid = None):
     xl_cmd = [ '/usr/sbin/xl', 'block-detach', str(vm_xid), str(frontend)]
     subprocess.check_call(xl_cmd)
 
-def run_in_vm(vm, command, verbose = True, autostart = False, notify_function = None, passio = False, passio_popen = False, localcmd = None, wait = False):
-    assert vm is not None
-
-    if not vm.is_running():
-        if not autostart:
-            raise QubesException("VM not running")
-
-        try:
-            if verbose:
-                print >> sys.stderr, "Starting the VM '{0}'...".format(vm.name)
-            if notify_function is not None:
-                notify_function ("info", "Starting the '{0}' VM...".format(vm.name))
-            xid = vm.start(verbose=verbose)
-
-        except (IOError, OSError, QubesException) as err:
-            raise QubesException("Error while starting the '{0}' VM: {1}".format(vm.name, err))
-        except (MemoryError) as err:
-            raise QubesException("Not enough memory to start '{0}' VM! Close one or more running VMs and try again.".format(vm.name))
-
-    xid = vm.get_xid()
-    if os.getenv("DISPLAY") is not None and not os.path.isfile("/var/run/qubes/guid_running.{0}".format(xid)):
-        vm.start_guid(verbose = verbose, notify_function = notify_function)
-
-    args = [qrexec_client_path, "-d", str(xid), command]
-    if localcmd is not None:
-        args += [ "-l", localcmd]
-    if passio:
-        os.execv(qrexec_client_path, args)
-        exit(1)
-    if passio_popen:
-        p = subprocess.Popen (args, stdout=subprocess.PIPE)
-        return p
-    if not wait:
-        args += ["-e"]
-    return subprocess.call(args)
-
 def get_disk_usage(file_or_dir):
     if not os.path.exists(file_or_dir):
         return 0

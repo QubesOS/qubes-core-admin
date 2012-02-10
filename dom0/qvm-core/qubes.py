@@ -1030,6 +1030,42 @@ class QubesVm(object):
 
         return conf
 
+    def run(self, command, verbose = True, autostart = False, notify_function = None, passio = False, passio_popen = False, localcmd = None, wait = False):
+        """command should be in form 'user:cmdline'"""
+
+        if not self.is_running():
+            if not autostart:
+                raise QubesException("VM not running")
+
+            try:
+                if notify_function is not None:
+                    notify_function ("info", "Starting the '{0}' VM...".format(self.name))
+                elif verbose:
+                    print >> sys.stderr, "Starting the VM '{0}'...".format(self.name)
+                xid = self.start(verbose=verbose)
+
+            except (IOError, OSError, QubesException) as err:
+                raise QubesException("Error while starting the '{0}' VM: {1}".format(self.name, err))
+            except (MemoryError) as err:
+                raise QubesException("Not enough memory to start '{0}' VM! Close one or more running VMs and try again.".format(self.name))
+
+        xid = self.get_xid()
+        if os.getenv("DISPLAY") is not None and not os.path.isfile("/var/run/qubes/guid_running.{0}".format(xid)):
+            self.start_guid(verbose = verbose, notify_function = notify_function)
+
+        args = [qrexec_client_path, "-d", str(xid), command]
+        if localcmd is not None:
+            args += [ "-l", localcmd]
+        if passio:
+            os.execv(qrexec_client_path, args)
+            exit(1)
+        if passio_popen:
+            p = subprocess.Popen (args, stdout=subprocess.PIPE)
+            return p
+        if not wait:
+            args += ["-e"]
+        return subprocess.call(args)
+
     def attach_network(self, verbose = False, wait = True, netvm = None):
         if dry_run:
             return
