@@ -29,12 +29,12 @@ while true; do
 
 	RULES=$(/usr/bin/xenstore-read $XENSTORE_IPTABLES_HEADER)
 	IPTABLES_SAVE=$(/sbin/iptables-save | sed '/^\*filter/,/^COMMIT/d')
-	OUT=`echo -e "$RULES\n$IPTABLES_SAVE" | /sbin/iptables-restore 2>&1 || :`
+	OUT=`echo -e "$RULES\n$IPTABLES_SAVE" | /sbin/iptables-restore 2>&1 || true`
 
 	for i in $(xenstore-list qubes_iptables_domainrules) ; do 
 		RULES=$(/usr/bin/xenstore-read qubes_iptables_domainrules/"$i")
-		ERRS=`echo -e "$RULES" | /sbin/iptables-restore -n 2>&1 || :`
-		OUT="$OUT""$ERRS"
+		ERRS=`echo -e "$RULES" | /sbin/iptables-restore -n 2>&1 || true`
+		OUT="$OUT$ERRS"
 	done		
 	/usr/bin/xenstore-write $XENSTORE_ERROR "$OUT"
 	if [ "$OUT" ]; then
