@@ -6,7 +6,7 @@ DOIT=0
 GUI=1
 CLEAN=0
 CHECK_ONLY=0
-OPTS="--installroot $DOM0_UPDATES_DIR"
+OPTS="--installroot $DOM0_UPDATES_DIR --config=$DOM0_UPDATES_DIR/etc/yum.conf"
 PKGLIST=
 while [ -n "$1" ]; do
     case "$1" in
