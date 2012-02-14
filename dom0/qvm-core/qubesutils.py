@@ -158,6 +158,19 @@ def block_name_to_devid(name):
     (major, minor) = block_name_to_majorminor(name)
     return major << 8 | minor
 
+def block_find_unused_frontend(vm = None):
+    assert vm is not None
+    assert vm.is_running()
+
+    vbd_list = xs.ls('', '/local/domain/%d/device/vbd' % vm.xid)
+    # xvd* devices
+    major = 202
+    # prefer xvdi
+    for minor in range(8*16,254,16)+range(0,8*16,16):
+        if str(major << 8 | minor) not in vbd_list:
+            return block_devid_to_name(major << 8 | minor)
+    return None
+
 def block_list(vm = None):
     device_re = re.compile(r"^[a-z0-9]{1,8}$")
     # FIXME: any better idea of desc_re?
@@ -235,16 +248,21 @@ def block_check_attached(backend_vm, device, backend_xid = None):
                 return {"xid":int(vm_xid), "frontend": frontend, "devid": int(devid), "vm": vm_name}
     return None
 
-def block_attach(vm, backend_vm, device, frontend="xvdi", mode="w", auto_detach=False):
+def block_attach(vm, backend_vm, device, frontend=None, mode="w", auto_detach=False):
     if not vm.is_running():
         raise QubesException("VM %s not running" % vm.name)
 
     if not backend_vm.is_running():
         raise QubesException("VM %s not running" % backend_vm.name)
 
-    # Check if any device attached at this frontend
-    if xs.read('', '/local/domain/%d/device/vbd/%d/state' % (vm.xid, block_name_to_devid(frontend))) == '4':
-        raise QubesException("Frontend %s busy in VM %s, detach it first" % (frontend, vm.name))
+    if frontend is None:
+        frontend = block_find_unused_frontend(vm)
+        if frontend is None:
+            raise QubesException("No unused frontend found")
+    else:
+        # Check if any device attached at this frontend
+        if xs.read('', '/local/domain/%d/device/vbd/%d/state' % (vm.xid, block_name_to_devid(frontend))) == '4':
+            raise QubesException("Frontend %s busy in VM %s, detach it first" % (frontend, vm.name))
 
     # Check if this device is attached to some domain
     attached_vm = block_check_attached(backend_vm, device)
