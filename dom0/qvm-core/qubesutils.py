@@ -214,13 +214,21 @@ def block_check_attached(backend_vm, device, backend_xid = None):
     device_majorminor = block_name_to_majorminor(device)
     for vm_xid in vm_list:
         for devid in xs.ls('', '/local/domain/%d/backend/vbd/%s' % (backend_xid, vm_xid)):
+            (tmp_major, tmp_minor) = (0, 0)
             phys_device = xs.read('', '/local/domain/%d/backend/vbd/%s/%s/physical-device' % (backend_xid, vm_xid, devid))
-            if phys_device is None or not phys_device.find(':'):
-                # Skip not-phy devices
-                continue
-            (tmp_major, tmp_minor) = phys_device.split(":")
-            tmp_major = int(tmp_major, 16)
-            tmp_minor = int(tmp_minor, 16)
+            if phys_device and phys_device.find(':'):
+                (tmp_major, tmp_minor) = phys_device.split(":")
+                tmp_major = int(tmp_major, 16)
+                tmp_minor = int(tmp_minor, 16)
+            else:
+                # perhaps not ready yet - check params
+                dev_params = xs.read('', '/local/domain/%d/backend/vbd/%s/%s/params' % (backend_xid, vm_xid, devid))
+                if not dev_params or not dev_params.startswith('/dev/'):
+                    # Skip not-phy devices
+                    continue
+                else:
+                    (tmp_major, tmp_minor) = block_name_to_majorminor(dev_params.lstrip('/dev/'))
+
             if (tmp_major, tmp_minor) == device_majorminor:
                 vm_name = xl_ctx.domid_to_name(int(vm_xid))
                 frontend = block_devid_to_name(int(devid))
