@@ -167,7 +167,7 @@ def block_find_unused_frontend(vm = None):
     major = 202
     # prefer xvdi
     for minor in range(8*16,254,16)+range(0,8*16,16):
-        if str(major << 8 | minor) not in vbd_list:
+        if vbd_list is None or str(major << 8 | minor) not in vbd_list:
             return block_devid_to_name(major << 8 | minor)
     return None
 
