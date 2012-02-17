@@ -445,23 +445,24 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
         print_callback(s)
 
     # Dom0 user home
-    local_user = grp.getgrnam('qubes').gr_mem[0]
-    home_dir = pwd.getpwnam(local_user).pw_dir
-    home_sz = get_disk_usage(home_dir)
-    home_to_backup = [ { "path" : home_dir, "size": home_sz, "subdir": 'dom0-home'} ]
-    files_to_backup += home_to_backup
+    if not 'dom0' in exclude_list:
+        local_user = grp.getgrnam('qubes').gr_mem[0]
+        home_dir = pwd.getpwnam(local_user).pw_dir
+        home_sz = get_disk_usage(home_dir)
+        home_to_backup = [ { "path" : home_dir, "size": home_sz, "subdir": 'dom0-home'} ]
+        files_to_backup += home_to_backup
 
-    s = ""
-    fmt="{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
-    s += fmt.format('Dom0')
+        s = ""
+        fmt="{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
+        s += fmt.format('Dom0')
 
-    fmt="{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
-    s += fmt.format("User home")
+        fmt="{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
+        s += fmt.format("User home")
 
-    fmt="{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
-    s += fmt.format(size_to_human(home_sz))
+        fmt="{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
+        s += fmt.format(size_to_human(home_sz))
 
-    print_callback(s)
+        print_callback(s)
 
     total_backup_sz = 0
     for file in files_to_backup:
