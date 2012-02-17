@@ -495,7 +495,7 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
     if (there_are_running_vms):
         raise QubesException("Please shutdown all VMs before proceeding.")
 
-    print_callback("-> Avilable space: {0}".format(size_to_human(backup_fs_free_sz)))
+    print_callback("-> Available space: {0}".format(size_to_human(backup_fs_free_sz)))
 
     return files_to_backup
 
