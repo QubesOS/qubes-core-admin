@@ -239,7 +239,7 @@ class QubesVm(object):
         self.firewall_conf = self.absolute_path(firewall_conf, default_firewall_conf_file)
 
         self.updateable = updateable
-        self.label = label if label is not None else QubesVmLabels["red"]
+        self._label = label if label is not None else QubesVmLabels["red"]
         if self.dir_path is not None:
             self.icon_path = self.dir_path + "/icon.png"
         else:
@@ -334,6 +334,20 @@ class QubesVm(object):
     @property
     def qid(self):
         return self.__qid
+
+    @property
+    def label(self):
+        return self._label
+
+    @label.setter
+    def label(self, new_label):
+        self._label = new_label
+        if self.icon_path:
+            try:
+                os.remove(self.icon_path)
+            except:
+                pass
+            os.symlink (new_label.icon_path, self.icon_path)
 
     @property
     def ip(self):
