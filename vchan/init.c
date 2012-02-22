@@ -19,6 +19,9 @@
  *
  */
 
+#include <sys/types.h>
+#include <sys/unistd.h>
+#include <sys/stat.h>
 #include <sys/mman.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -29,25 +32,38 @@
 #include <xenctrl.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <mm.h>
 #include "libvchan.h"
+#ifndef CONFIG_STUBDOM
 #include "../u2mfn/u2mfnlib.h"
+#endif
 
 static int ring_init(struct libvchan *ctrl)
 {
-	int u2mfn = open("/proc/u2mfn", O_RDONLY);
 	int mfn;
 	struct vchan_interface *ring;
+#ifdef CONFIG_STUBDOM
+	ring = (struct vchan_interface *) memalign(XC_PAGE_SIZE, sizeof(*ring));
+
+	if (!ring)
+		return -1;
+
+
+	mfn = virtual_to_mfn(ring);
+#else
+	int u2mfn = open("/proc/u2mfn", O_RDONLY);
 	ring = (struct vchan_interface *) u2mfn_alloc_kpage ();
-        
+
 	if (ring == MAP_FAILED)
 		return -1;
 
-	ctrl->ring = ring;
 	if (u2mfn_get_last_mfn (&mfn) < 0)
 		return -1;
-
-	ctrl->ring_ref = mfn;
 	close(u2mfn);
+#endif
+
+	ctrl->ring = ring;
+	ctrl->ring_ref = mfn;
 	ring->cons_in = ring->prod_in = ring->cons_out = ring->prod_out =
 	    0;
 	ring->server_closed = ring->client_closed = 0;
@@ -65,13 +81,18 @@ static int server_interface_init(struct libvchan *ctrl, int devno)
 	struct xs_handle *xs;
 	char buf[64];
 	char ref[16];
+	/* XXX temp hack begin */
+	char *domid_s;
+	int domid = 0;
+	unsigned int len;
+	/* XXX temp hack end */
 #ifdef XENCTRL_HAS_XC_INTERFACE
     xc_evtchn *evfd;
 #else
 	int evfd;
 #endif
 	evtchn_port_or_error_t port;
-	xs = xs_domain_open();
+	xs = xs_daemon_open();
 	if (!xs) {
 		return ret;
 	}
@@ -90,20 +111,41 @@ static int server_interface_init(struct libvchan *ctrl, int devno)
 	if (port < 0)
 		goto fail2;
 	ctrl->evport = port;
+	ctrl->devno = devno;
+
+	// stubdom debug HACK XXX
+	domid_s = xs_read(xs, 0, "domid", &len);
+	if (domid_s)
+		domid = atoi(domid_s);
+
 	snprintf(ref, sizeof ref, "%d", ctrl->ring_ref);
 	snprintf(buf, sizeof buf, "device/vchan/%d/ring-ref", devno);
 	if (!xs_write(xs, 0, buf, ref, strlen(ref)))
+#ifdef CONFIG_STUBDOM
+		// TEMP HACK XXX FIXME goto fail2;
+		fprintf(stderr, "xenstore-write /local/domain/%d/%s %s\n", domid, buf, ref);
+#else
 		goto fail2;
+#endif
 	snprintf(ref, sizeof ref, "%d", ctrl->evport);
 	snprintf(buf, sizeof buf, "device/vchan/%d/event-channel", devno);
 	if (!xs_write(xs, 0, buf, ref, strlen(ref)))
+#ifdef CONFIG_STUBDOM
+		// TEMP HACK XXX FIXME goto fail2;
+		fprintf(stderr, "xenstore-write /local/domain/%d/%s %s\n", domid, buf, ref);
+#else
 		goto fail2;
+#endif
+		// do not block in stubdom - libvchan_server_handle_connected will be
+		// called on first input
+#ifndef CONFIG_STUBDOM
         // wait for the peer to arrive
 	if (xc_evtchn_pending(evfd) == -1)
 		goto fail2;
         xc_evtchn_unmask(ctrl->evfd, ctrl->evport);
 	snprintf(buf, sizeof buf, "device/vchan/%d", devno);
 	xs_rm(xs, 0, buf);
+#endif
 
 	ret = 0;
       fail2:
@@ -129,8 +171,8 @@ static int server_interface_init(struct libvchan *ctrl, int devno)
         ctrl->rd_ring_size = sizeof(ctrl->ring->buf_##dir2)
 
 /**
-        Run in AppVM (any domain). 
-        Sleeps until the connection is established.
+        Run in AppVM (any domain).
+        Sleeps until the connection is established. (unless in stubdom)
         \param devno something like a well-known port.
         \returns NULL on failure, handle on success
 */
@@ -154,6 +196,39 @@ struct libvchan *libvchan_server_init(int devno)
 	dir_select(in, out);
 	ctrl->is_server = 1;
 	return ctrl;
+}
+
+int libvchan_server_handle_connected(struct libvchan *ctrl)
+{
+	struct xs_handle *xs;
+	char buf[64];
+	int ret = -1;
+	int libvchan_fd;
+	fd_set rfds;
+
+	xs = xs_daemon_open();
+	if (!xs) {
+		return ret;
+	}
+	// clear the pending flag
+	xc_evtchn_pending(ctrl->evfd);
+
+	snprintf(buf, sizeof buf, "device/vchan/%d", ctrl->devno);
+	xs_rm(xs, 0, buf);
+
+	ret = 0;
+
+#if 0
+fail2:
+	if (ret)
+#ifdef XENCTRL_HAS_XC_INTERFACE
+        xc_evtchn_close(ctrl->evfd);
+#else
+		close(ctrl->evfd);
+#endif
+#endif
+	xs_daemon_close(xs);
+	return ret;
 }
 
 /**
@@ -250,7 +325,7 @@ static int client_interface_init(struct libvchan *ctrl, int domain, int devno)
 /**
         Run on the client side of connection (currently, must be dom0).
         \returns NULL on failure (e.g. noone listening), handle on success
-*/        
+*/
 struct libvchan *libvchan_client_init(int domain, int devno)
 {
 	struct libvchan *ctrl =

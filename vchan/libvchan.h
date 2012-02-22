@@ -19,6 +19,9 @@
  *
  */
 
+#ifndef _LIBVCHAN_H
+#define _LIBVCHAN_H
+
 #include <stdint.h>
 #include <xenctrl.h>
 typedef uint32_t VCHAN_RING_IDX;
@@ -44,6 +47,7 @@ struct libvchan {
 	int evfd;
 #endif
 	int evport;
+	int devno;
 	VCHAN_RING_IDX *wr_cons, *wr_prod, *rd_cons, *rd_prod;
 	char *rd_ring, *wr_ring;
 	int rd_ring_size, wr_ring_size;
@@ -51,6 +55,7 @@ struct libvchan {
 };
 
 struct libvchan *libvchan_server_init(int devno);
+int libvchan_server_handle_connected(struct libvchan *ctrl);
 
 struct libvchan *libvchan_client_init(int domain, int devno);
 
@@ -63,3 +68,5 @@ int libvchan_fd_for_select(struct libvchan *ctrl);
 int libvchan_is_eof(struct libvchan *ctrl);
 int libvchan_data_ready(struct libvchan *ctrl);
 int libvchan_buffer_space(struct libvchan *ctrl);
+
+#endif /* _LIBVCHAN_H */

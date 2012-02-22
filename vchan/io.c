@@ -22,6 +22,8 @@
 #include "libvchan.h"
 #include <xenctrl.h>
 #include <string.h>
+#include <errno.h>
+#include <sys/select.h>
 /**
         \return How much data is immediately available for reading
 */
@@ -67,7 +69,24 @@ int libvchan_is_eof(struct libvchan *ctrl)
 int libvchan_wait(struct libvchan *ctrl)
 {
 	int ret;
+#ifndef CONFIG_STUBDOM
 	ret = xc_evtchn_pending(ctrl->evfd);
+#else
+	int vchan_fd = libvchan_fd_for_select(ctrl);
+	fd_set rfds;
+
+	libvchan_prepare_to_select(ctrl);
+	while ((ret = xc_evtchn_pending(ctrl->evfd)) < 0) {
+        FD_ZERO(&rfds);
+        FD_SET(0, &rfds);
+        FD_SET(vchan_fd, &rfds);
+        ret = select(vchan_fd + 1, &rfds, NULL, NULL, NULL);
+        if (ret < 0 && errno != EINTR) {
+            perror("select");
+			return ret;
+        }
+	}
+#endif
 	if (ret!=-1 && xc_evtchn_unmask(ctrl->evfd, ctrl->evport))
 		return -1;
 	if (ret!=-1 && libvchan_is_eof(ctrl))
