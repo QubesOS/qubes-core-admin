@@ -45,7 +45,8 @@ if [ "${ip}" ] ; then
 	# If we've been given a list of IP addresses, then add routes from dom0 to
 	# the guest using those addresses.
 	for addr in ${ip} ; do
-		${cmdprefix} ip route ${ipcmd} ${addr} dev ${vif}
+		${cmdprefix} ip route del ${addr} || true
+		${cmdprefix} ip route ${ipcmd} ${addr} dev ${vif} || true
 	done
 		echo ${cmdprefix} iptables $iptables_cmd -i ${vif} \! -s ${ip} -j DROP
 		${cmdprefix} iptables $iptables_cmd -i ${vif} \! -s ${ip} -j DROP
