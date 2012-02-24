@@ -37,10 +37,14 @@ def main():
                        help="Specify the label to use for the new VM (e.g. red, yellow, green, ...)")
     parser.add_option ("-p", "--proxy", action="store_true", dest="proxyvm", default=False,
                         help="Create ProxyVM")
+    parser.add_option ("-H", "--hvm", action="store_true", dest="hvm", default=False,
+                        help="Create HVM (implies --standalone)")
     parser.add_option ("-n", "--net", action="store_true", dest="netvm", default=False,
                         help="Create NetVM")
     parser.add_option ("-s", "--standalone", action="store_true", dest="standalone", default=False,
                         help="Create standalone VM - independent of template ")
+    parser.add_option ("-r", "--root", dest="root", default=None,
+                        help="Use provided root.img instead of default/empty one (file will be MOVED)")
     parser.add_option ("-m", "--mem", dest="mem", default=None,
                         help="Initial memory size (in MB)")
     parser.add_option ("-c", "--vcpus", dest="vcpus", default=None,
@@ -82,6 +86,18 @@ def main():
         exit (1)
     label = QubesVmLabels[options.label]
 
+    if options.hvm:
+        # Only standalone HVMs are supported for now
+        options.standalone = True
+
+    if not options.standalone and options.root is not None:
+        print >> sys.stderr, "root.img can be specified only for standalone VMs"
+        exit (1)
+
+    if options.root is not None and not os.path.exists(options.root):
+        print >> sys.stderr, "File specified as root.img does not exists"
+        exit (1)
+
     qvm_collection = QubesVmCollection()
     qvm_collection.lock_db_for_writing()
     qvm_collection.load()
@@ -90,6 +106,7 @@ def main():
         print >> sys.stderr, "A VM with the name '{0}' already exists in the system.".format(vmname)
         exit(1)
 
+    template_vm = None
     if options.template is not None:
         template_vm = qvm_collection.get_vm_by_name(options.template)
         if template_vm is None:
@@ -101,7 +118,7 @@ def main():
         if (options.verbose):
             print "--> Using TemplateVM: {0}".format(template_vm.name)
 
-    else:
+    elif not options.hvm:
         if qvm_collection.get_default_template_vm() is None:
             print >> sys.stderr, "No default TempleteVM defined!"
             exit (1)
@@ -120,6 +137,8 @@ def main():
         vm = qvm_collection.add_new_netvm(vmname, new_vm_template, label = label, updateable = options.standalone)
     elif options.proxyvm:
         vm = qvm_collection.add_new_proxyvm(vmname, new_vm_template, label = label, updateable = options.standalone)
+    elif options.hvm:
+        vm = qvm_collection.add_new_hvm(vmname, label = label)
     else:
         vm = qvm_collection.add_new_appvm(vmname, new_vm_template, label = label, updateable = options.standalone)
 
@@ -134,6 +153,9 @@ def main():
 
     try:
         vm.create_on_disk(verbose=options.verbose, source_template=template_vm)
+        if options.root:
+            os.unlink(vm.root_img)
+            os.rename(options.root, vm.root_img)
 
     except (IOError, OSError) as err:
         print >> sys.stderr, "ERROR: {0}".format(err)
