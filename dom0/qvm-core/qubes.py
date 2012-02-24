@@ -21,6 +21,7 @@
 #
 
 import sys
+import stat
 import os
 import os.path
 import subprocess
@@ -78,7 +79,10 @@ default_servicevm_vcpus = 1
 default_kernelopts = ""
 default_kernelopts_pcidevs = "iommu=soft swiotlb=2048"
 
+default_hvm_disk_size = 20*1024*1024*1024
+
 config_template_pv = '/usr/share/qubes/vm-template.conf'
+config_template_hvm = '/usr/share/qubes/vm-template-hvm.conf'
 
 qubes_whitelisted_appmenus = 'whitelisted-appmenus.list'
 
@@ -1978,6 +1982,127 @@ class QubesAppVm(QubesVm):
     def post_rename(self, old_name):
         self.create_appmenus(False)
 
+class QubesHVm(QubesVm):
+    """
+    A class that represents an HVM. A child of QubesVm.
+    """
+
+    # FIXME: logically should inherit after QubesAppVm, but none of its methods
+    # are useful for HVM
+    def __init__(self, **kwargs):
+
+        if "dir_path" not in kwargs or kwargs["dir_path"] is None:
+            kwargs["dir_path"] = qubes_appvms_dir + "/" + kwargs["name"]
+
+        super(QubesHVm, self).__init__(**kwargs)
+        self.updateable = True
+        self.config_file_template = config_template_hvm
+        # remove settings not used by HVM (at least for now)
+        self.__delattr__('kernel')
+        self.__delattr__('kernelopts')
+        self.__delattr__('uses_default_kernel')
+        self.__delattr__('uses_default_kernelopts')
+        self.__delattr__('private_img')
+        self.__delattr__('volatile_img')
+        # HVM doesn't support dynamic memory management
+        self.maxmem = self.memory
+
+        self.drive = None
+        if 'drive' in kwargs.keys():
+            self.drive = kwargs['drive']
+
+    @property
+    def type(self):
+        return "HVM"
+
+    def is_appvm(self):
+        return True
+
+    def create_on_disk(self, verbose, source_template = None):
+        if dry_run:
+            return
+
+        if verbose:
+            print >> sys.stderr, "--> Creating directory: {0}".format(self.dir_path)
+        os.mkdir (self.dir_path)
+
+        self.create_config_file()
+
+        # create empty disk
+        f_root = open(self.root_img, "w")
+        f_root.truncate(default_hvm_disk_size)
+        f_root.close()
+
+
+    def get_disk_utilization_private_img(self):
+        return 0
+
+    def get_private_img_sz(self):
+        return 0
+
+    def resize_private_img(self, size):
+        raise NotImplementedError("HVM has no private.img")
+
+    def get_config_params(self, source_template=None):
+
+        params = super(QubesHVm, self).get_config_params(source_template=source_template)
+
+        params['volatiledev'] = ''
+        params['privatedev'] = ''
+        if self.drive:
+            stat_res = os.stat(self.drive)
+            if stat.S_ISBLK(stat_res.st_mode):
+                params['otherdevs'] = "'phy:%s,hdc:cdrom,r'," % self.drive
+            else:
+                params['otherdevs'] = "'script:file:%s,hdc:cdrom,r'," % self.drive
+        else:
+             params['otherdevs'] = ''
+        return params
+
+    def verify_files(self):
+        if dry_run:
+            return
+
+        if not os.path.exists (self.dir_path):
+            raise QubesException (
+                    "VM directory doesn't exist: {0}".\
+                    format(self.dir_path))
+
+        if self.is_updateable() and not os.path.exists (self.root_img):
+            raise QubesException (
+                    "VM root image file doesn't exist: {0}".\
+                    format(self.root_img))
+
+        return True
+
+    def reset_volatile_storage(self, **kwargs):
+        pass
+
+    def run(self, command, **kwargs):
+        raise NotImplementedError("Needs qrexec agent - TODO")
+
+    @property
+    def stubdom_xid(self):
+        if not self.is_running():
+            return -1
+
+        return int(xs.read('', '/local/domain/%d/image/device-model-domid' % self.xid))
+
+    def start_guid(self, verbose = True, notify_function = None):
+        if verbose:
+            print >> sys.stderr, "--> Starting Qubes GUId..."
+
+        retcode = subprocess.call ([qubes_guid_path, "-d", str(self.stubdom_xid), "-c", self.label.color, "-i", self.label.icon, "-l", str(self.label.index)])
+        if (retcode != 0) :
+            raise QubesException("Cannot start qubes_guid!")
+
+    def start_qrexec_daemon(self, **kwargs):
+        pass
+
+    def get_xml_attrs(self):
+        attrs = super(QubesHVm, self).get_xml_attrs()
+        attrs["drive"] = str(self.drive)
+        return attrs
 
 class QubesVmCollection(dict):
     """
@@ -2029,6 +2154,20 @@ class QubesVmCollection(dict):
                          kernel = self.get_default_kernel(),
                          uses_default_kernel = True,
                          updateable=updateable,
+                         label=label)
+
+        if not self.verify_new_vm (vm):
+            assert False, "Wrong VM description!"
+        self[vm.qid]=vm
+        return vm
+
+    def add_new_hvm(self, name, label = None):
+
+        qid = self.get_new_unused_qid()
+        vm = QubesHVm (qid=qid, name=name,
+                         netvm_vm = self.get_default_netvm_vm(),
+                         kernel = self.get_default_kernel(),
+                         uses_default_kernel = True,
                          label=label)
 
         if not self.verify_new_vm (vm):
@@ -2558,6 +2697,20 @@ class QubesVmCollection(dict):
                 self.set_netvm_dependency(element)
             except (ValueError, LookupError) as err:
                 print("{0}: import error (QubesAppVm): {1}".format(
+                    os.path.basename(sys.argv[0]), err))
+                return False
+
+        # And HVMs
+        for element in tree.findall("QubesHVm"):
+            try:
+                kwargs = self.parse_xml_element(element)
+                vm = QubesHVm(**kwargs)
+
+                self[vm.qid] = vm
+
+                self.set_netvm_dependency(element)
+            except (ValueError, LookupError) as err:
+                print("{0}: import error (QubesHVm): {1}".format(
                     os.path.basename(sys.argv[0]), err))
                 return False
 
