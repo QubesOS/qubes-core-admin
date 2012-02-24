@@ -78,6 +78,8 @@ default_servicevm_vcpus = 1
 default_kernelopts = ""
 default_kernelopts_pcidevs = "iommu=soft swiotlb=2048"
 
+config_template_pv = '/usr/share/qubes/vm-template.conf'
+
 qubes_whitelisted_appmenus = 'whitelisted-appmenus.list'
 
 dom0_update_check_interval = 6*3600
@@ -861,7 +863,7 @@ class QubesVm(object):
         if source_template is None:
             source_template = self.template_vm
 
-        f_conf_template = open('/usr/share/qubes/vm-template.conf', 'r')
+        f_conf_template = open(self.config_file_template, 'r')
         conf_template = f_conf_template.read()
         f_conf_template.close()
 
