@@ -53,21 +53,26 @@ def do_list(vm):
         print fmt.format ("root COW img", vm.rootcow_img)
     if vm.template is not None:
         print fmt.format ("root img", vm.template.root_img)
-    print fmt.format ("root volatile img", vm.volatile_img)
+    if hasattr(vm, 'volatile_img'):
+        print fmt.format ("root volatile img", vm.volatile_img)
 
-    print fmt.format ("private img", vm.private_img)
+    if hasattr(vm, 'private_img'):
+        print fmt.format ("private img", vm.private_img)
     print fmt.format ("vcpus", str(vm.vcpus))
     print fmt.format ("memory", vm.memory)
-    print fmt.format ("maxmem", vm.maxmem)
+    if hasattr(vm, 'maxmem'):
+        print fmt.format ("maxmem", vm.maxmem)
     print fmt.format ("MAC", "%s%s" % (vm.mac, " (auto)" if vm._mac is None else ""))
-    if vm.uses_default_kernel:
-        print fmt.format ("kernel", "%s (default)" % vm.kernel)
-    else:
-        print fmt.format ("kernel", vm.kernel)
-    if vm.uses_default_kernelopts:
-        print fmt.format ("kernelopts", "%s (default)" % vm.kernelopts)
-    else:
-        print fmt.format ("kernelopts", vm.kernelopts)
+    if hasattr(vm, 'kernel'):
+        if vm.uses_default_kernel:
+            print fmt.format ("kernel", "%s (default)" % vm.kernel)
+        else:
+            print fmt.format ("kernel", vm.kernel)
+    if hasattr(vm, 'kernelopts'):
+        if vm.uses_default_kernelopts:
+            print fmt.format ("kernelopts", "%s (default)" % vm.kernelopts)
+        else:
+            print fmt.format ("kernelopts", vm.kernelopts)
 
 def set_label(vms, vm, args):
     if len (args) != 1:
@@ -293,6 +298,10 @@ def do_set(vms, vm, property, args):
         print >> sys.stderr, "ERROR: Wrong property name: '{0}'".format(property)
         return False
 
+    if not hasattr(vm, property):
+        print >> sys.stderr, "ERROR: Property '{0}' not available for this VM".format(property)
+        return False
+
     return properties[property](vms, vm, args)
 
 
@@ -337,7 +346,8 @@ def main():
             print >> sys.stderr, "You must specify the property you wish to set..."
             print >> sys.stderr, "Available properties:"
             for p in properties.keys():
-                print >> sys.stderr, "--> '{0}'".format(p)
+                if hasattr(vm, p):
+                    print >> sys.stderr, "--> '{0}'".format(p)
             exit (1)
 
         property = args[1]

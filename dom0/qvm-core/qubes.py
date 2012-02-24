@@ -856,7 +856,8 @@ class QubesVm(object):
     def get_config_params(self, source_template=None):
         args = {}
         args['name'] = self.name
-        args['kerneldir'] = self.kernels_dir
+        if hasattr(self, 'kernels_dir'):
+            args['kerneldir'] = self.kernels_dir
         args['vmdir'] = self.dir_path
         args['pcidev'] = str(self.pcidevs).strip('[]')
         args['mem'] = str(self.memory)
@@ -883,11 +884,13 @@ class QubesVm(object):
         args['rootdev'] = self.get_rootdev(source_template=source_template)
         args['privatedev'] = "'script:file:{dir}/private.img,xvdb,w',".format(dir=self.dir_path)
         args['volatiledev'] = "'script:file:{dir}/volatile.img,xvdc,w',".format(dir=self.dir_path)
-        modulesmode='r'
-        if self.updateable and self.kernel is None:
-            modulesmode='w'
-        args['otherdevs'] = "'script:file:{dir}/modules.img,xvdd,{mode}',".format(dir=self.kernels_dir, mode=modulesmode)
-        args['kernelopts'] = self.kernelopts
+        if hasattr(self, 'kernel'):
+            modulesmode='r'
+            if self.updateable and self.kernel is None:
+                modulesmode='w'
+            args['otherdevs'] = "'script:file:{dir}/modules.img,xvdd,{mode}',".format(dir=self.kernels_dir, mode=modulesmode)
+        if hasattr(self, 'kernelopts'):
+            args['kernelopts'] = self.kernelopts
 
         return args
 
