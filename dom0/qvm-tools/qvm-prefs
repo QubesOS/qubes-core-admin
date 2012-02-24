@@ -75,6 +75,9 @@ def do_list(vm):
         else:
             print fmt.format ("kernelopts", vm.kernelopts)
 
+    if hasattr(vm, 'drive'):
+        print fmt.format("drive", str(vm.drive))
+
 
 def set_label(vms, vm, args):
     if len (args) != 1:
@@ -294,6 +297,13 @@ def set_name(vms, vm, args):
     vm.set_name(args[0])
     return True
 
+def set_drive(vms, vm, args):
+    if len (args) != 1:
+        print >> sys.stderr, "Missing new drive content (file/device)!"
+        return False
+
+    vm.drive = args[0]
+    return True
 
 properties = {
     "updateable": set_updateable,
@@ -308,6 +318,7 @@ properties = {
     "vcpus" : set_vcpus,
     "kernelopts": set_kernelopts,
     "name": set_name,
+    "drive": set_drive,
 }
 
 
