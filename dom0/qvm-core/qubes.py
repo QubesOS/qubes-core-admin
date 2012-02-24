@@ -1314,26 +1314,20 @@ class QubesVm(object):
         attrs["qid"]  = str(self.qid)
         attrs["name"] = self.name
         attrs["dir_path"] = self.dir_path
-        attrs["conf_file"] = self.relative_path(self.conf_file)
-        attrs["root_img"] = self.relative_path(self.root_img)
-        attrs["volatile_img"] = self.relative_path(self.volatile_img)
-        attrs["private_img"] = self.relative_path(self.private_img)
-        attrs["uses_default_netvm"] = str(self.uses_default_netvm)
+        # Simple paths
+        for prop in ['conf_file', 'root_img', 'volatile_img', 'private_img']:
+            if hasattr(self, prop):
+                attrs[prop] = self.relative_path(self.__getattribute__(prop))
+        # Simple string attrs
+        for prop in ['memory', 'maxmem', 'pcidevs', 'vcpus', 'internal',\
+            'uses_default_kernel', 'kernel', 'uses_default_kernelopts',\
+            'kernelopts', 'services', 'updateable', 'installed_by_rpm',\
+            'uses_default_netvm' ]:
+            if hasattr(self, prop):
+                attrs[prop] = str(self.__getattribute__(prop))
         attrs["netvm_qid"] = str(self.netvm_vm.qid) if self.netvm_vm is not None else "none"
-        attrs["installed_by_rpm"] = str(self.installed_by_rpm)
         attrs["template_qid"] = str(self.template_vm.qid) if self.template_vm and not self.is_updateable() else "none"
-        attrs["updateable"] = str(self.updateable)
         attrs["label"] = self.label.name
-        attrs["memory"] = str(self.memory)
-        attrs["maxmem"] = str(self.maxmem)
-        attrs["pcidevs"] = str(self.pcidevs)
-        attrs["vcpus"] = str(self.vcpus)
-        attrs["internal"] = str(self.internal)
-        attrs["uses_default_kernel"] = str(self.uses_default_kernel)
-        attrs["kernel"] = str(self.kernel)
-        attrs["uses_default_kernelopts"] = str(self.uses_default_kernelopts)
-        attrs["kernelopts"] = str(self.kernelopts)
-        attrs["services"] = str(self.services)
         return attrs
 
     def create_xml_element(self):
