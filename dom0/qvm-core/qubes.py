@@ -1153,6 +1153,14 @@ class QubesVm(object):
             if notify_function is not None:
                 notify_function("error", "ERROR: Cannot start the Qubes Clipboard Notifier!")
 
+    def start_qrexec_daemon(self, verbose = False):
+        if verbose:
+            print >> sys.stderr, "--> Starting the qrexec daemon..."
+        retcode = subprocess.call ([qrexec_daemon_path, str(xid)])
+        if (retcode != 0) :
+            self.force_shutdown()
+            raise OSError ("ERROR: Cannot execute qrexec_daemon!")
+
     def start(self, debug_console = False, verbose = False, preparing_dvm = False):
         if dry_run:
             return
@@ -1224,12 +1232,7 @@ class QubesVm(object):
         qmemman_client.close()
 
         if not preparing_dvm:
-            if verbose:
-                print >> sys.stderr, "--> Starting the qrexec daemon..."
-            retcode = subprocess.call ([qrexec_daemon_path, str(xid)])
-            if (retcode != 0) :
-                self.force_shutdown()
-                raise OSError ("ERROR: Cannot execute qrexec_daemon!")
+            self.start_qrexec_daemon(verbose=verbose)
 
         if not preparing_dvm and os.path.exists('/var/run/shm.id'):
             self.start_guid(verbose=verbose)
