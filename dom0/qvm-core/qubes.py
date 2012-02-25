@@ -348,6 +348,7 @@ class QubesVm(object):
             except:
                 pass
             os.symlink (new_label.icon_path, self.icon_path)
+            subprocess.call(['sudo', 'xdg-icon-resource', 'forceupdate'])
 
     @property
     def ip(self):
