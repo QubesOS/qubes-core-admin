@@ -231,7 +231,7 @@ if ! [ -e /etc/sysconfig/network ]; then
 fi
 
 # Load evtchn module - xenstored needs it
-modprobe evtchn
+modprobe evtchn 2> /dev/null || modprobe xen-evtchn
 service xenstored start
 
 if ! [ -e /var/lib/qubes/qubes.xml ]; then

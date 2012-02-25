@@ -20,7 +20,7 @@
 start()
 {
     echo -n $"Executing Qubes Core scripts:"
-    modprobe evtchn
+    modprobe evtchn 2> /dev/null || modprobe xen-evtchn
     chgrp qubes /etc/xen
     chmod 710 /etc/xen
     chgrp qubes /var/run/xenstored/*
