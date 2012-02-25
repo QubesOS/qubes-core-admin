@@ -82,7 +82,6 @@ def set_label(vms, vm, args):
         exit (1)
 
     vm.label = QubesVmLabels[label]
-    subprocess.check_call (["ln", "-sf", vm.label.icon_path, vm.icon_path])
 
 def set_memory(vms, vm, args):
     if len (args) != 1:
