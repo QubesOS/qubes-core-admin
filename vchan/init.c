@@ -32,10 +32,11 @@
 #include <xenctrl.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <mm.h>
 #include "libvchan.h"
 #ifndef CONFIG_STUBDOM
 #include "../u2mfn/u2mfnlib.h"
+#else
+#include <mm.h>
 #endif
 
 static int ring_init(struct libvchan *ctrl)
