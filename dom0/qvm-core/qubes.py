@@ -993,15 +993,21 @@ class QubesVm(object):
         )
 
         for rule in conf["rules"]:
+            # For backward compatibility
+            if "proto" not in rule:
+                rule["proto"] = "tcp"
             element = xml.etree.ElementTree.Element(
                     "rule",
                     address=rule["address"],
-                    port=str(rule["portBegin"]),
+                    proto=str(rule["proto"]),
             )
             if rule["netmask"] is not None and rule["netmask"] != 32:
                 element.set("netmask", str(rule["netmask"]))
-            if rule["portEnd"] is not None:
+            if rule["portBegin"] is not None and rule["portBegin"] > 0:
+                element.set("port", str(rule["portBegin"]))
+            if rule["portEnd"] is not None and rule["portEnd"] > 0:
                 element.set("toport", str(rule["portEnd"]))
+
             root.append(element)
 
         tree = xml.etree.ElementTree.ElementTree(root)
@@ -1038,7 +1044,7 @@ class QubesVm(object):
 
             for element in root:
                 rule = {}
-                attr_list = ("address", "netmask", "port", "toport")
+                attr_list = ("address", "netmask", "proto", "port", "toport")
 
                 for attribute in attr_list:
                     rule[attribute] = element.get(attribute)
@@ -1048,7 +1054,15 @@ class QubesVm(object):
                 else:
                     rule["netmask"] = 32
 
-                rule["portBegin"] = int(rule["port"])
+                # For backward compatibility default to tcp
+                if rule["proto" is None:
+                    rule["proto"] = "tcp"
+
+                if rule["port"] is not None:
+                    rule["portBegin"] = int(rule["port"])
+                else:
+                    # backward compatibility
+                    rule["portBegin"] = 0
 
                 if rule["toport"] is not None:
                     rule["portEnd"] = int(rule["toport"])
@@ -1814,10 +1828,12 @@ class QubesProxyVm(QubesNetVm):
                 if rule["netmask"] != 32:
                     iptables += "/{0}".format(rule["netmask"])
 
-                if rule["portBegin"] is not None and rule["portBegin"] > 0:
-                    iptables += " -p tcp --dport {0}".format(rule["portBegin"])
-                    if rule["portEnd"] is not None and rule["portEnd"] > rule["portBegin"]:
-                        iptables += ":{0}".format(rule["portEnd"])
+                if rule["proto"] is not None and rule["proto"] != "any":
+                    iptables += " -p {0}".format(rule["proto"])
+                    if rule["portBegin"] is not None and rule["portBegin"] > 0:
+                        iptables += " --dport {0}".format(rule["portBegin"])
+                        if rule["portEnd"] is not None and rule["portEnd"] > rule["portBegin"]:
+                            iptables += ":{0}".format(rule["portEnd"])
 
                 iptables += " -j {0}\n".format(rules_action)
 
