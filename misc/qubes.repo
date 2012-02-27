@@ -14,7 +14,7 @@ enabled=0
 [qubes-vm-unstable]
 name = Qubes OS Repository for VM (unstable)
 baseurl = http://yum.qubes-os.org/r1/unstable/vm/fc$releasever
-gpgkey = file:///etc/pki/rpm-gpg/RPM-GPG-KEY-qubes-1-primary
+gpgkey = file:///etc/pki/rpm-gpg/RPM-GPG-KEY-qubes-1-unstable
 gpgcheck = 1
 enabled=0
 

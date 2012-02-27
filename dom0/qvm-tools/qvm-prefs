@@ -82,6 +82,7 @@ def do_list(vm):
 def set_label(vms, vm, args):
     if len (args) != 1:
         print >> sys.stderr, "Missing label name argument!"
+        exit (1)
 
     label = args[0]
     if label not in QubesVmLabels:
@@ -91,7 +92,6 @@ def set_label(vms, vm, args):
         exit (1)
 
     vm.label = QubesVmLabels[label]
-    subprocess.check_call (["ln", "-sf", vm.label.icon_path, vm.icon_path])
 
 def set_memory(vms, vm, args):
     if len (args) != 1:
