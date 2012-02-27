@@ -1055,7 +1055,7 @@ class QubesVm(object):
                     rule["netmask"] = 32
 
                 # For backward compatibility default to tcp
-                if rule["proto" is None:
+                if rule["proto"] is None:
                     rule["proto"] = "tcp"
 
                 if rule["port"] is not None:
