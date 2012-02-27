@@ -1006,7 +1006,10 @@ class QubesVm(object):
         for rule in conf["rules"]:
             # For backward compatibility
             if "proto" not in rule:
-                rule["proto"] = "tcp"
+                if rule["portBegin"] is not None and rule["portBegin"] > 0:
+                    rule["proto"] = "tcp"
+                else:
+                    rule["proto"] = "any"
             element = xml.etree.ElementTree.Element(
                     "rule",
                     address=rule["address"],
@@ -1065,15 +1068,18 @@ class QubesVm(object):
                 else:
                     rule["netmask"] = 32
 
-                # For backward compatibility default to tcp
-                if rule["proto"] is None:
-                    rule["proto"] = "tcp"
-
                 if rule["port"] is not None:
                     rule["portBegin"] = int(rule["port"])
                 else:
                     # backward compatibility
                     rule["portBegin"] = 0
+
+                # For backward compatibility
+                if rule["proto"] is None:
+                    if rule["portBegin"] > 0:
+                        rule["proto"] = "tcp"
+                    else:
+                        rule["proto"] = "any"
 
                 if rule["toport"] is not None:
                     rule["portEnd"] = int(rule["toport"])
