@@ -1192,6 +1192,7 @@ class QubesVm(object):
     def start_qrexec_daemon(self, verbose = False):
         if verbose:
             print >> sys.stderr, "--> Starting the qrexec daemon..."
+        xid = self.get_xid()
         retcode = subprocess.call ([qrexec_daemon_path, str(xid)])
         if (retcode != 0) :
             self.force_shutdown()
@@ -2556,8 +2557,9 @@ class QubesVmCollection(dict):
         if "uses_default_kernelopts" in kwargs:
             kwargs["uses_default_kernelopts"] = False if kwargs["uses_default_kernelopts"] == "False" else True
 
-        if "kernelopts" not in kwargs or kwargs["kernelopts"] == "None":
+        if "kernelopts" in kwargs and kwargs["kernelopts"] == "None":
             kwargs.pop("kernelopts")
+        if "kernelopts" not in kwargs:
             kwargs["uses_default_kernelopts"] = True
 
         return kwargs
