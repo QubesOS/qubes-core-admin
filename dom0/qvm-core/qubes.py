@@ -2526,8 +2526,9 @@ class QubesVmCollection(dict):
         if "uses_default_kernelopts" in kwargs:
             kwargs["uses_default_kernelopts"] = False if kwargs["uses_default_kernelopts"] == "False" else True
 
-        if "kernelopts" not in kwargs or kwargs["kernelopts"] == "None":
+        if "kernelopts" in kwargs and kwargs["kernelopts"] == "None":
             kwargs.pop("kernelopts")
+        if "kernelopts" not in kwargs:
             kwargs["uses_default_kernelopts"] = True
 
         return kwargs
