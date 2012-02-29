@@ -22,7 +22,7 @@
 
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
-from qubesutils import parse_size
+from qubes.qubesutils import parse_size
 from optparse import OptionParser
 import subprocess
 import os

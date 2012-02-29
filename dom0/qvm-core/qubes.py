@@ -664,7 +664,7 @@ class QubesVm(object):
         retcode = 0
         if self.is_running():
             # find loop device
-            p = subprocess.Popen (["losetup", "--associated", vm.private_img],
+            p = subprocess.Popen (["sudo", "losetup", "--associated", self.private_img],
                     stdout=subprocess.PIPE)
             result = p.communicate()
             m = re.match(r"^(/dev/loop\d+):\s", result[0])
@@ -676,10 +676,10 @@ class QubesVm(object):
             # resize loop device
             subprocess.check_call(["sudo", "losetup", "--set-capacity", loop_dev])
 
-            retcode = self.run("root:while [ \"`blockdev --getsize64 /dev/xvdb`\" -lt {0} ]; do " +
-                "head /dev/xvdb > /dev/null; sleep 0.2; done; resize2fs /dev/xvdb".format(size_bytes), wait=True)
+            retcode = self.run("root:while [ \"`blockdev --getsize64 /dev/xvdb`\" -lt {0} ]; do ".format(size) +
+                "head /dev/xvdb > /dev/null; sleep 0.2; done; resize2fs /dev/xvdb", wait=True)
         else:
-            retcode = subprocess.check_call(["sudo", "resize2fs", "-f", vm.private_img])
+            retcode = subprocess.check_call(["sudo", "resize2fs", "-f", self.private_img])
         if retcode != 0:
             raise QubesException("resize2fs failed")
 
