@@ -323,6 +323,9 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
 
     files_to_backup = file_to_backup (qubes_store_filename)
 
+    if exclude_list is None:
+        exclude_list = []
+
     if vms_list is None:
         qvm_collection = QubesVmCollection()
         qvm_collection.lock_db_for_reading()
