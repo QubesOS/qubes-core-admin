@@ -323,6 +323,9 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
 
     files_to_backup = file_to_backup (qubes_store_filename)
 
+    if exclude_list is None:
+        exclude_list = []
+
     if vms_list is None:
         qvm_collection = QubesVmCollection()
         qvm_collection.lock_db_for_reading()
@@ -613,7 +616,7 @@ def backup_restore_prepare(backup_dir, options = {}, host_collection = None):
                 vms_to_restore[vm.name]['already-exists'] = True
                 vms_to_restore[vm.name]['good-to-go'] = False
 
-            if vm.template_vm is not None:
+            if vm.template_vm is None:
                 vms_to_restore[vm.name]['template'] = None
             else:
                 templatevm_name = find_template_name(vm.template_vm.name, options['replace-template'])
@@ -624,13 +627,13 @@ def backup_restore_prepare(backup_dir, options = {}, host_collection = None):
                 if not ((template_vm_on_host is not None) and template_vm_on_host.is_template()):
                     # Maybe the (custom) template is in the backup?
                     template_vm_on_backup = backup_collection.get_vm_by_name (templatevm_name)
-                    if template_vm_on_backup is None or template_vm_on_backup.is_template():
+                    if template_vm_on_backup is None or not template_vm_on_backup.is_template():
                         if options['use-default-template']:
-                            vms_to_restore[vm.name]['template'] = host_collection.get_default_tempate_vm().name
+                            vms_to_restore[vm.name]['orig-template'] = templatevm_name
+                            vms_to_restore[vm.name]['template'] = host_collection.get_default_template_vm().name
                         else:
                             vms_to_restore[vm.name]['missing-template'] = True
                             vms_to_restore[vm.name]['good-to-go'] = False
-                            continue
 
             if vm.netvm_vm is None:
                 vms_to_restore[vm.name]['netvm'] = None
@@ -653,7 +656,6 @@ def backup_restore_prepare(backup_dir, options = {}, host_collection = None):
                         else:
                             vms_to_restore[vm.name]['missing-netvm'] = True
                             vms_to_restore[vm.name]['good-to-go'] = False
-                            continue
 
             if 'good-to-go' not in vms_to_restore[vm.name].keys():
                 vms_to_restore[vm.name]['good-to-go'] = True
@@ -757,6 +759,8 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
             s += " <-- No matching template on the host or in the backup found!"
         elif 'missing-netvm' in vm_info:
             s += " <-- No matching netvm on the host or in the backup found!"
+        elif 'orig-template' in vm_info:
+            s += " <-- Original template was '%s'" % (vm_info['orig-template'])
 
         print_callback(s)
 
