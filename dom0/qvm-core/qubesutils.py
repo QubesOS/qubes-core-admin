@@ -616,7 +616,7 @@ def backup_restore_prepare(backup_dir, options = {}, host_collection = None):
                 vms_to_restore[vm.name]['already-exists'] = True
                 vms_to_restore[vm.name]['good-to-go'] = False
 
-            if vm.template_vm is not None:
+            if vm.template_vm is None:
                 vms_to_restore[vm.name]['template'] = None
             else:
                 templatevm_name = find_template_name(vm.template_vm.name, options['replace-template'])
