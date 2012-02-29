@@ -989,7 +989,7 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
         backup_info = restore_info['dom0']
         local_user = grp.getgrnam('qubes').gr_mem[0]
         home_dir = pwd.getpwnam(local_user).pw_dir
-        backup_dom0_home_dir = backup_dir + '/dom0-home/' + restore_info['username']
+        backup_dom0_home_dir = backup_dir + '/dom0-home/' + backup_info['username']
         restore_home_backupdir = "home-pre-restore-{0}".format (time.strftime("%Y-%m-%d-%H%M%S"))
 
         print_callback("-> Restoring home of user '{0}'...".format(local_user))
