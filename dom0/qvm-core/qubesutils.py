@@ -629,6 +629,7 @@ def backup_restore_prepare(backup_dir, options = {}, host_collection = None):
                     template_vm_on_backup = backup_collection.get_vm_by_name (templatevm_name)
                     if template_vm_on_backup is None or not template_vm_on_backup.is_template():
                         if options['use-default-template']:
+                            vms_to_restore[vm.name]['orig-template'] = templatevm_name
                             vms_to_restore[vm.name]['template'] = host_collection.get_default_template_vm().name
                         else:
                             vms_to_restore[vm.name]['missing-template'] = True
@@ -758,6 +759,8 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
             s += " <-- No matching template on the host or in the backup found!"
         elif 'missing-netvm' in vm_info:
             s += " <-- No matching netvm on the host or in the backup found!"
+        elif 'orig-template' in vm_info:
+            s += " <-- Original template was '%s'" % (vm_info['orig-template'])
 
         print_callback(s)
 
