@@ -627,13 +627,12 @@ def backup_restore_prepare(backup_dir, options = {}, host_collection = None):
                 if not ((template_vm_on_host is not None) and template_vm_on_host.is_template()):
                     # Maybe the (custom) template is in the backup?
                     template_vm_on_backup = backup_collection.get_vm_by_name (templatevm_name)
-                    if template_vm_on_backup is None or template_vm_on_backup.is_template():
+                    if template_vm_on_backup is None or not template_vm_on_backup.is_template():
                         if options['use-default-template']:
-                            vms_to_restore[vm.name]['template'] = host_collection.get_default_tempate_vm().name
+                            vms_to_restore[vm.name]['template'] = host_collection.get_default_template_vm().name
                         else:
                             vms_to_restore[vm.name]['missing-template'] = True
                             vms_to_restore[vm.name]['good-to-go'] = False
-                            continue
 
             if vm.netvm_vm is None:
                 vms_to_restore[vm.name]['netvm'] = None
@@ -656,7 +655,6 @@ def backup_restore_prepare(backup_dir, options = {}, host_collection = None):
                         else:
                             vms_to_restore[vm.name]['missing-netvm'] = True
                             vms_to_restore[vm.name]['good-to-go'] = False
-                            continue
 
             if 'good-to-go' not in vms_to_restore[vm.name].keys():
                 vms_to_restore[vm.name]['good-to-go'] = True
