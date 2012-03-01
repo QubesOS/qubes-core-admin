@@ -71,7 +71,6 @@ if [ "$DOIT" != "1" -a "$PKGS_FROM_CMDLINE" != "1" ]; then
 fi
 
 if [ "$PKGS_FROM_CMDLINE" == 1 ]; then
-    OPTS="$OPTS --resolve"
     GUI=0
 fi
 
@@ -81,11 +80,11 @@ set -e
 
 if [ "$GUI" = 1 ]; then
     ( echo "1"
-    yumdownloader --destdir "$DOM0_UPDATES_DIR/packages" $OPTS $PKGLIST
+    yumdownloader --resolve --destdir "$DOM0_UPDATES_DIR/packages" $OPTS $PKGLIST
     echo 100 ) | zenity --progress --pulsate --auto-close --auto-kill \
          --text="Downloading updates for Dom0, please wait..." --title="Qubes Dom0 updates"
 else
-    yumdownloader --destdir "$DOM0_UPDATES_DIR/packages" $OPTS $PKGLIST
+    yumdownloader --resolve --destdir "$DOM0_UPDATES_DIR/packages" $OPTS $PKGLIST
 fi
 
 if ls $DOM0_UPDATES_DIR/packages/*.rpm > /dev/null 2>&1; then
