@@ -40,6 +40,7 @@ BuildRequires:  xen-devel
 Requires:	python, xen-runtime, pciutils, python-inotify, python-daemon, kernel-qubes-dom0
 Conflicts:      qubes-gui-dom0 < 1.1.13
 Requires:       xen >= 4.1.0-2
+Requires:       xen-hvm
 Requires:       createrepo
 Requires:       gnome-packagekit
 Requires:       cronie
