@@ -2090,9 +2090,9 @@ class QubesHVm(QubesVm):
         if self.drive:
             stat_res = os.stat(self.drive)
             if stat.S_ISBLK(stat_res.st_mode):
-                params['otherdevs'] = "'phy:%s,hdc:cdrom,r'," % self.drive
+                params['otherdevs'] = "'phy:%s,xvdc:cdrom,r'," % self.drive
             else:
-                params['otherdevs'] = "'script:file:%s,hdc:cdrom,r'," % self.drive
+                params['otherdevs'] = "'script:file:%s,xvdc:cdrom,r'," % self.drive
         else:
              params['otherdevs'] = ''
         return params
