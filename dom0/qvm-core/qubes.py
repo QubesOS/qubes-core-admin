@@ -2044,6 +2044,10 @@ class QubesHVm(QubesVm):
         if "dir_path" not in kwargs or kwargs["dir_path"] is None:
             kwargs["dir_path"] = qubes_appvms_dir + "/" + kwargs["name"]
 
+        # only updateable HVM supported
+        kwargs["updateable"] = True
+        kwargs["template_vm"] = None
+
         super(QubesHVm, self).__init__(**kwargs)
         self.updateable = True
         self.config_file_template = config_template_hvm
