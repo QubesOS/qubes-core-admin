@@ -2159,7 +2159,7 @@ class QubesHVm(QubesVm):
 
     @property
     def stubdom_xid(self):
-        if not self.is_running():
+        if self.xid < 0:
             return -1
 
         return int(xs.read('', '/local/domain/%d/image/device-model-domid' % self.xid))
