@@ -937,7 +937,8 @@ class QubesVm(object):
 
     def get_clone_attrs(self):
         return ['kernel', 'uses_default_kernel', 'netvm_vm', 'uses_default_netvm', \
-            'memory', 'maxmem', 'kernelopts', 'uses_default_kernelopts', 'services', 'vcpus']
+            'memory', 'maxmem', 'kernelopts', 'uses_default_kernelopts', 'services', 'vcpus', \
+            '_mac']
 
     def clone_attrs(self, src_vm):
         for prop in self.get_clone_attrs():
