@@ -84,6 +84,8 @@ default_hvm_disk_size = 20*1024*1024*1024
 config_template_pv = '/usr/share/qubes/vm-template.conf'
 config_template_hvm = '/usr/share/qubes/vm-template-hvm.conf'
 
+start_appmenu_template = '/usr/share/qubes/qubes-start.desktop'
+
 qubes_whitelisted_appmenus = 'whitelisted-appmenus.list'
 
 dom0_update_check_interval = 6*3600
@@ -386,6 +388,14 @@ class QubesVm(object):
         else:
             return None
 
+    @property
+    def vif(self):
+        if self.xid < 0:
+            return None
+        if self.netvm_vm is None:
+            return None
+        return "vif{0}.+".format(self.xid)
+
     def is_updateable(self):
         return self.updateable
 
@@ -672,7 +682,7 @@ class QubesVm(object):
         retcode = 0
         if self.is_running():
             # find loop device
-            p = subprocess.Popen (["losetup", "--associated", vm.private_img],
+            p = subprocess.Popen (["sudo", "losetup", "--associated", self.private_img],
                     stdout=subprocess.PIPE)
             result = p.communicate()
             m = re.match(r"^(/dev/loop\d+):\s", result[0])
@@ -684,10 +694,10 @@ class QubesVm(object):
             # resize loop device
             subprocess.check_call(["sudo", "losetup", "--set-capacity", loop_dev])
 
-            retcode = self.run("root:while [ \"`blockdev --getsize64 /dev/xvdb`\" -lt {0} ]; do " +
-                "head /dev/xvdb > /dev/null; sleep 0.2; done; resize2fs /dev/xvdb".format(size_bytes), wait=True)
+            retcode = self.run("root:while [ \"`blockdev --getsize64 /dev/xvdb`\" -lt {0} ]; do ".format(size) +
+                "head /dev/xvdb > /dev/null; sleep 0.2; done; resize2fs /dev/xvdb", wait=True)
         else:
-            retcode = subprocess.check_call(["sudo", "resize2fs", "-f", vm.private_img])
+            retcode = subprocess.check_call(["sudo", "resize2fs", "-f", self.private_img])
         if retcode != 0:
             raise QubesException("resize2fs failed")
 
@@ -1825,8 +1835,12 @@ class QubesProxyVm(QubesNetVm):
             if xid < 0: # VM not active ATM
                 continue
 
+            vif = vm.vif
+            if vif is None:
+                continue
+
             iptables += "# '{0}' VM:\n".format(vm.name)
-            iptables += "-A FORWARD ! -s {0}/32 -i vif{1}.+ -j DROP\n".format(vm.ip, xid)
+            iptables += "-A FORWARD ! -s {0}/32 -i {1} -j DROP\n".format(vm.ip, vif)
 
             accept_action = "ACCEPT"
             reject_action = "REJECT --reject-with icmp-host-prohibited"
@@ -1839,7 +1853,7 @@ class QubesProxyVm(QubesNetVm):
                 rules_action = accept_action
 
             for rule in conf["rules"]:
-                iptables += "-A FORWARD -i vif{0}.+ -d {1}".format(xid, rule["address"])
+                iptables += "-A FORWARD -i {0} -d {1}".format(vif, rule["address"])
                 if rule["netmask"] != 32:
                     iptables += "/{0}".format(rule["netmask"])
 
@@ -1854,12 +1868,12 @@ class QubesProxyVm(QubesNetVm):
 
             if conf["allowDns"]:
                 # PREROUTING does DNAT to NetVM DNSes, so we need self.netvm_vm. properties
-                iptables += "-A FORWARD -i vif{0}.+ -p udp -d {1} --dport 53 -j ACCEPT\n".format(xid,self.netvm_vm.gateway)
-                iptables += "-A FORWARD -i vif{0}.+ -p udp -d {1} --dport 53 -j ACCEPT\n".format(xid,self.netvm_vm.secondary_dns)
+                iptables += "-A FORWARD -i {0} -p udp -d {1} --dport 53 -j ACCEPT\n".format(vif,self.netvm_vm.gateway)
+                iptables += "-A FORWARD -i {0} -p udp -d {1} --dport 53 -j ACCEPT\n".format(vif,self.netvm_vm.secondary_dns)
             if conf["allowIcmp"]:
-                iptables += "-A FORWARD -i vif{0}.+ -p icmp -j ACCEPT\n".format(xid)
+                iptables += "-A FORWARD -i {0} -p icmp -j ACCEPT\n".format(vif)
 
-            iptables += "-A FORWARD -i vif{0}.+ -j {1}\n".format(xid, default_action)
+            iptables += "-A FORWARD -i {0} -j {1}\n".format(vif, default_action)
             iptables += "COMMIT\n"
             xs.write('', "/local/domain/"+str(self.get_xid())+"/qubes_iptables_domainrules/"+str(xid), iptables)
         # no need for ending -A FORWARD -j DROP, cause default action is DROP
@@ -2032,6 +2046,10 @@ class QubesHVm(QubesVm):
         if "dir_path" not in kwargs or kwargs["dir_path"] is None:
             kwargs["dir_path"] = qubes_appvms_dir + "/" + kwargs["name"]
 
+        # only updateable HVM supported
+        kwargs["updateable"] = True
+        kwargs["template_vm"] = None
+
         super(QubesHVm, self).__init__(**kwargs)
         self.updateable = True
         self.config_file_template = config_template_hvm
@@ -2063,6 +2081,18 @@ class QubesHVm(QubesVm):
         if verbose:
             print >> sys.stderr, "--> Creating directory: {0}".format(self.dir_path)
         os.mkdir (self.dir_path)
+
+        if verbose:
+            print >> sys.stderr, "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
+        os.symlink (self.label.icon_path, self.icon_path)
+
+        if verbose:
+            print >> sys.stderr, "--> Creating appmenus directory: {0}".format(self.appmenus_templates_dir)
+        os.mkdir (self.appmenus_templates_dir)
+        shutil.copy (start_appmenu_template, self.appmenus_templates_dir)
+
+        if not self.internal:
+            self.create_appmenus (verbose, source_template=source_template)
 
         self.create_config_file()
 
@@ -2116,12 +2146,20 @@ class QubesHVm(QubesVm):
     def reset_volatile_storage(self, **kwargs):
         pass
 
+    @property
+    def vif(self):
+        if self.xid < 0:
+            return None
+        if self.netvm_vm is None:
+            return None
+        return "vif{0}.+".format(self.stubdom_xid)
+
     def run(self, command, **kwargs):
         raise NotImplementedError("Needs qrexec agent - TODO")
 
     @property
     def stubdom_xid(self):
-        if not self.is_running():
+        if self.xid < 0:
             return -1
 
         return int(xs.read('', '/local/domain/%d/image/device-model-domid' % self.xid))
