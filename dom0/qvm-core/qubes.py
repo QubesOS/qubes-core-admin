@@ -80,6 +80,7 @@ default_kernelopts = ""
 default_kernelopts_pcidevs = "iommu=soft swiotlb=2048"
 
 default_hvm_disk_size = 20*1024*1024*1024
+default_hvm_memory = 512
 
 config_template_pv = '/usr/share/qubes/vm-template.conf'
 config_template_hvm = '/usr/share/qubes/vm-template-hvm.conf'
@@ -218,6 +219,7 @@ class QubesVm(object):
                  uses_default_kernel = True,
                  kernelopts = "",
                  uses_default_kernelopts = True,
+                 mac = None,
                  services = None):
 
 
@@ -233,6 +235,8 @@ class QubesVm(object):
         self.netvm_vm = netvm_vm
         if netvm_vm is not None:
             netvm_vm.connected_vms[qid] = self
+
+        self._mac = mac
 
         # We use it in remove from disk to avoid removing rpm files (for templates)
         self.installed_by_rpm = installed_by_rpm
@@ -395,6 +399,17 @@ class QubesVm(object):
         if self.netvm_vm is None:
             return None
         return "vif{0}.+".format(self.xid)
+
+    @property
+    def mac(self):
+        if self._mac is not None:
+            return self._mac
+        else:
+            return "00:16:3E:5E:6C:{qid:02X}".format(qid=self.qid)
+
+    @mac.setter
+    def mac(self, new_mac):
+        self._mac = new_mac
 
     def is_updateable(self):
         return self.updateable
@@ -815,7 +830,7 @@ class QubesVm(object):
         args['maxmem'] = str(self.maxmem)
         args['vcpus'] = str(self.vcpus)
         if self.netvm_vm is not None:
-            args['netdev'] = "'mac=00:16:3E:5E:6C:{qid:02X},script=/etc/xen/scripts/vif-route-qubes,ip={ip}".format(ip=self.ip, qid=self.qid)
+            args['netdev'] = "'mac={mac},script=/etc/xen/scripts/vif-route-qubes,ip={ip}".format(ip=self.ip, mac=self.mac)
             if self.netvm_vm.qid != 0:
                 args['netdev'] += ",backend={0}".format(self.netvm_vm.name)
             args['netdev'] += "'"
@@ -933,6 +948,74 @@ class QubesVm(object):
                 subprocess.check_call ([qubes_appmenu_create_cmd, "none", self.name, vmtype])
         except subprocess.CalledProcessError:
             print >> sys.stderr, "Ooops, there was a problem creating appmenus for {0} VM!".format (self.name)
+
+    def get_clone_attrs(self):
+        return ['kernel', 'uses_default_kernel', 'netvm_vm', 'uses_default_netvm', \
+            'memory', 'maxmem', 'kernelopts', 'uses_default_kernelopts', 'services', 'vcpus', \
+            '_mac']
+
+    def clone_attrs(self, src_vm):
+        for prop in self.get_clone_attrs():
+            setattr(self, prop, getattr(src_vm, prop))
+
+    def clone_disk_files(self, src_vm, verbose):
+        if dry_run:
+            return
+
+        if src_vm.is_running():
+            raise QubesException("Attempt to clone a running VM!")
+
+        if verbose:
+            print >> sys.stderr, "--> Creating directory: {0}".format(self.dir_path)
+        os.mkdir (self.dir_path)
+
+        if src_vm.private_img is not None and self.private_img is not None:
+            if verbose:
+                print >> sys.stderr, "--> Copying the private image:\n{0} ==>\n{1}".\
+                        format(src_vm.private_img, self.private_img)
+            # We prefer to use Linux's cp, because it nicely handles sparse files
+            retcode = subprocess.call (["cp", src_vm.private_img, self.private_img])
+            if retcode != 0:
+                raise IOError ("Error while copying {0} to {1}".\
+                               format(src_vm.private_img, self.private_img))
+
+        if src_vm.updateable and src_vm.root_img is not None and self.root_img is not None:
+            if verbose:
+                print >> sys.stderr, "--> Copying the root image:\n{0} ==>\n{1}".\
+                        format(src_vm.root_img, self.root_img)
+            # We prefer to use Linux's cp, because it nicely handles sparse files
+            retcode = subprocess.call (["cp", src_vm.root_img, self.root_img])
+            if retcode != 0:
+                raise IOError ("Error while copying {0} to {1}".\
+                           format(src_vm.root_img, self.root_img))
+
+        if src_vm.updateable and src_vm.appmenus_templates_dir is not None and self.appmenus_templates_dir is not None:
+            if verbose:
+                print >> sys.stderr, "--> Copying the template's appmenus templates dir:\n{0} ==>\n{1}".\
+                        format(src_vm.appmenus_templates_dir, self.appmenus_templates_dir)
+            shutil.copytree (src_vm.appmenus_templates_dir, self.appmenus_templates_dir)
+
+        if os.path.exists(src_vm.dir_path + '/' + qubes_whitelisted_appmenus):
+            if verbose:
+                print >> sys.stderr, "--> Copying whitelisted apps list: {0}".\
+                    format(self.dir_path + '/' + qubes_whitelisted_appmenus)
+            shutil.copy(src_vm.dir_path + '/' + qubes_whitelisted_appmenus,
+                    self.dir_path + '/' + qubes_whitelisted_appmenus)
+
+        if src_vm.icon_path is not None and self.icon_path is not None:
+            if os.path.exists (src_vm.dir_path):
+                if os.path.islink(src_vm.dir_path):
+                    icon_path = os.readlink(src_vm.dir_path)
+                    if verbose:
+                        print >> sys.stderr, "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, icon_path)
+                    os.symlink (icon_path, self.icon_path)
+                else:
+                    if verbose:
+                        print >> sys.stderr, "--> Copying icon: {0} -> {1}".format(src_vm.icon_path, self.icon_path)
+                    shutil.copy(src_vm.icon_path, self.icon_path)
+
+        # Create appmenus
+        self.create_appmenus(verbose)
 
     def remove_appmenus(self):
         vmtype = None
@@ -1342,6 +1425,8 @@ class QubesVm(object):
             'uses_default_netvm' ]:
             if hasattr(self, prop):
                 attrs[prop] = str(self.__getattribute__(prop))
+        if self._mac is not None:
+            attrs["mac"] = str(self._mac)
         attrs["netvm_qid"] = str(self.netvm_vm.qid) if self.netvm_vm is not None else "none"
         attrs["template_qid"] = str(self.template_vm.qid) if self.template_vm and not self.is_updateable() else "none"
         attrs["label"] = self.label.name
@@ -1406,39 +1491,24 @@ class QubesTemplateVm(QubesVm):
     def get_rootdev(self, source_template=None):
         return "'script:origin:{dir}/root.img:{dir}/root-cow.img,xvda,w',".format(dir=self.dir_path)
 
-    def clone_disk_files(self, src_template_vm, verbose):
+    def clone_disk_files(self, src_vm, verbose):
         if dry_run:
             return
 
+        super(QubesTemplateVM, self).clone_disk_files(src_vm=src_vm, verbose=verbose)
 
-        assert not src_template_vm.is_running(), "Attempt to clone a running Template VM!"
+        if os.path.exists(src_vm.dir_path + '/vm-' + qubes_whitelisted_appmenus):
+            if verbose:
+                print >> sys.stderr, "--> Copying default whitelisted apps list: {0}".\
+                    format(self.dir_path + '/vm-' + qubes_whitelisted_appmenus)
+            shutil.copy(src_vm.dir_path + '/vm-' + qubes_whitelisted_appmenus,
+                    self.dir_path + '/vm-' + qubes_whitelisted_appmenus)
 
-        if verbose:
-            print >> sys.stderr, "--> Creating directory: {0}".format(self.dir_path)
-        os.mkdir (self.dir_path)
-
-        if verbose:
-            print >> sys.stderr, "--> Copying the template's private image:\n{0} ==>\n{1}".\
-                    format(src_template_vm.private_img, self.private_img)
-        # We prefer to use Linux's cp, because it nicely handles sparse files
-        retcode = subprocess.call (["cp", src_template_vm.private_img, self.private_img])
-        if retcode != 0:
-            raise IOError ("Error while copying {0} to {1}".\
-                           format(src_template_vm.private_img, self.private_img))
-
-        if verbose:
-            print >> sys.stderr, "--> Copying the template's root image:\n{0} ==>\n{1}".\
-                    format(src_template_vm.root_img, self.root_img)
-        # We prefer to use Linux's cp, because it nicely handles sparse files
-        retcode = subprocess.call (["cp", src_template_vm.root_img, self.root_img])
-        if retcode != 0:
-            raise IOError ("Error while copying {0} to {1}".\
-                           format(src_template_vm.root_img, self.root_img))
         if verbose:
             print >> sys.stderr, "--> Copying the template's clean volatile image:\n{0} ==>\n{1}".\
-                    format(src_template_vm.clean_volatile_img, self.clean_volatile_img)
+                    format(src_vm.clean_volatile_img, self.clean_volatile_img)
         # We prefer to use Linux's cp, because it nicely handles sparse files
-        retcode = subprocess.call (["cp", src_template_vm.clean_volatile_img, self.clean_volatile_img])
+        retcode = subprocess.call (["cp", src_vm.clean_volatile_img, self.clean_volatile_img])
         if retcode != 0:
             raise IOError ("Error while copying {0} to {1}".\
                            format(src_template_vm.clean_volatile_img, self.clean_volatile_img))
@@ -1449,43 +1519,16 @@ class QubesTemplateVm(QubesVm):
         retcode = subprocess.call (["cp", self.clean_volatile_img, self.volatile_img])
         if retcode != 0:
             raise IOError ("Error while copying {0} to {1}".\
-                           format(self.clean_volatile_img, self.volatile_img))
+                           format(self.clean_img, self.volatile_img))
 
         if verbose:
             print >> sys.stderr, "--> Copying the template's DispVM prerun script..."
-        retcode = subprocess.call (["cp", src_template_vm.dir_path + '/dispvm-prerun.sh', self.dir_path + '/dispvm-prerun.sh'])
+        retcode = subprocess.call (["cp", src_vm.dir_path + '/dispvm-prerun.sh', self.dir_path + '/dispvm-prerun.sh'])
         if retcode != 0:
             raise IOError ("Error while copying DispVM prerun script")
 
-        if verbose:
-            print >> sys.stderr, "--> Copying the template's appmenus templates dir:\n{0} ==>\n{1}".\
-                    format(src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
-        shutil.copytree (src_template_vm.appmenus_templates_dir, self.appmenus_templates_dir)
-
-        if os.path.exists(src_template_vm.dir_path + '/' + qubes_whitelisted_appmenus):
-            if verbose:
-                print >> sys.stderr, "--> Copying whitelisted apps list: {0}".\
-                    format(self.dir_path + '/' + qubes_whitelisted_appmenus)
-            shutil.copy(src_template_vm.dir_path + '/' + qubes_whitelisted_appmenus,
-                    self.dir_path + '/' + qubes_whitelisted_appmenus)
-
-        if os.path.exists(src_template_vm.dir_path + '/vm-' + qubes_whitelisted_appmenus):
-            if verbose:
-                print >> sys.stderr, "--> Copying default whitelisted apps list: {0}".\
-                    format(self.dir_path + '/vm-' + qubes_whitelisted_appmenus)
-            shutil.copy(src_template_vm.dir_path + '/vm-' + qubes_whitelisted_appmenus,
-                    self.dir_path + '/vm-' + qubes_whitelisted_appmenus)
-
-        icon_path = "/usr/share/qubes/icons/template.png"
-        if verbose:
-            print >> sys.stderr, "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, icon_path)
-        os.symlink (icon_path, self.icon_path)
-
         # Create root-cow.img
         self.commit_changes(verbose=verbose)
-
-        # Create appmenus
-        self.create_appmenus(verbose, source_template = src_template_vm)
 
     def create_appmenus(self, verbose, source_template = None):
         if source_template is None:
@@ -2049,6 +2092,8 @@ class QubesHVm(QubesVm):
         # only updateable HVM supported
         kwargs["updateable"] = True
         kwargs["template_vm"] = None
+        if "memory" not in kwargs or kwargs["memory"] is None:
+            kwargs["memory"] = default_hvm_memory
 
         super(QubesHVm, self).__init__(**kwargs)
         self.updateable = True
@@ -2073,6 +2118,15 @@ class QubesHVm(QubesVm):
 
     def is_appvm(self):
         return True
+
+    def get_clone_attrs(self):
+        attrs = super(QubesHVm, self).get_clone_attrs()
+        attrs.remove('kernel')
+        attrs.remove('uses_default_kernel')
+        attrs.remove('kernelopts')
+        attrs.remove('uses_default_kernelopts')
+        attrs.remove('maxmem')
+        return attrs
 
     def create_on_disk(self, verbose, source_template = None):
         if dry_run:
@@ -2548,7 +2602,7 @@ class QubesVmCollection(dict):
                 "installed_by_rpm", "updateable", "internal",
                 "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
                 "maxmem", "kernel", "uses_default_kernel", "kernelopts", "uses_default_kernelopts",
-                "services" )
+                "mac", "services" )
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)
