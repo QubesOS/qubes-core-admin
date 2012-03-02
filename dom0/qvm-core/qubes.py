@@ -84,6 +84,8 @@ default_hvm_disk_size = 20*1024*1024*1024
 config_template_pv = '/usr/share/qubes/vm-template.conf'
 config_template_hvm = '/usr/share/qubes/vm-template-hvm.conf'
 
+start_appmenu_template = '/usr/share/qubes/qubes-start.desktop'
+
 qubes_whitelisted_appmenus = 'whitelisted-appmenus.list'
 
 dom0_update_check_interval = 6*3600
@@ -2079,6 +2081,14 @@ class QubesHVm(QubesVm):
         if verbose:
             print >> sys.stderr, "--> Creating directory: {0}".format(self.dir_path)
         os.mkdir (self.dir_path)
+
+        if verbose:
+            print >> sys.stderr, "--> Creating appmenus directory: {0}".format(self.appmenus_templates_dir)
+        os.mkdir (self.appmenus_templates_dir)
+        shutil.copy (start_appmenu_template, self.appmenus_templates_dir)
+
+        if not self.internal:
+            self.create_appmenus (verbose, source_template=source_template)
 
         self.create_config_file()
 
