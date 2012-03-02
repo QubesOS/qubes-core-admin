@@ -51,10 +51,10 @@ def do_list(vm):
         print fmt.format ("root COW img", vm.rootcow_img)
     if vm.template_vm is not None:
         print fmt.format ("root img", vm.template_vm.root_img)
-    if hasattr(vm, 'volatile_img'):
+    if hasattr(vm, 'volatile_img') and vm.volatile_img is not None:
         print fmt.format ("root volatile img", vm.volatile_img)
 
-    if hasattr(vm, 'private_img'):
+    if hasattr(vm, 'private_img') and vm.private_img is not None:
         print fmt.format ("private img", vm.private_img)
     print fmt.format ("vcpus", str(vm.vcpus))
     print fmt.format ("memory", vm.memory)
