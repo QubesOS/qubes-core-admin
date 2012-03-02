@@ -380,7 +380,7 @@ class QubesVm(object):
 
     @property
     def vif(self):
-        if not self.is_running():
+        if self.xid < 0:
             return None
         if self.netvm_vm is None:
             return None
