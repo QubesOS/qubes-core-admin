@@ -80,6 +80,7 @@ default_kernelopts = ""
 default_kernelopts_pcidevs = "iommu=soft swiotlb=2048"
 
 default_hvm_disk_size = 20*1024*1024*1024
+default_hvm_memory = 512
 
 config_template_pv = '/usr/share/qubes/vm-template.conf'
 config_template_hvm = '/usr/share/qubes/vm-template-hvm.conf'
@@ -2049,6 +2050,8 @@ class QubesHVm(QubesVm):
         # only updateable HVM supported
         kwargs["updateable"] = True
         kwargs["template_vm"] = None
+        if "memory" not in kwargs or kwargs["memory"] is None:
+            kwargs["memory"] = default_hvm_memory
 
         super(QubesHVm, self).__init__(**kwargs)
         self.updateable = True
