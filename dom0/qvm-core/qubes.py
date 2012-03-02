@@ -378,6 +378,14 @@ class QubesVm(object):
         else:
             return None
 
+    @property
+    def vif(self):
+        if not self.is_running():
+            return None
+        if self.netvm_vm is None:
+            return None
+        return "vif{0}.+".format(self.xid)
+
     def is_updateable(self):
         return self.updateable
 
@@ -1816,8 +1824,12 @@ class QubesProxyVm(QubesNetVm):
             if xid < 0: # VM not active ATM
                 continue
 
+            vif = vm.vif
+            if vif is None:
+                continue
+
             iptables += "# '{0}' VM:\n".format(vm.name)
-            iptables += "-A FORWARD ! -s {0}/32 -i vif{1}.+ -j DROP\n".format(vm.ip, xid)
+            iptables += "-A FORWARD ! -s {0}/32 -i {1} -j DROP\n".format(vm.ip, vif)
 
             accept_action = "ACCEPT"
             reject_action = "REJECT --reject-with icmp-host-prohibited"
@@ -1830,7 +1842,7 @@ class QubesProxyVm(QubesNetVm):
                 rules_action = accept_action
 
             for rule in conf["rules"]:
-                iptables += "-A FORWARD -i vif{0}.+ -d {1}".format(xid, rule["address"])
+                iptables += "-A FORWARD -i {0} -d {1}".format(vif, rule["address"])
                 if rule["netmask"] != 32:
                     iptables += "/{0}".format(rule["netmask"])
 
@@ -1845,12 +1857,12 @@ class QubesProxyVm(QubesNetVm):
 
             if conf["allowDns"]:
                 # PREROUTING does DNAT to NetVM DNSes, so we need self.netvm_vm. properties
-                iptables += "-A FORWARD -i vif{0}.+ -p udp -d {1} --dport 53 -j ACCEPT\n".format(xid,self.netvm_vm.gateway)
-                iptables += "-A FORWARD -i vif{0}.+ -p udp -d {1} --dport 53 -j ACCEPT\n".format(xid,self.netvm_vm.secondary_dns)
+                iptables += "-A FORWARD -i {0} -p udp -d {1} --dport 53 -j ACCEPT\n".format(vif,self.netvm_vm.gateway)
+                iptables += "-A FORWARD -i {0} -p udp -d {1} --dport 53 -j ACCEPT\n".format(vif,self.netvm_vm.secondary_dns)
             if conf["allowIcmp"]:
-                iptables += "-A FORWARD -i vif{0}.+ -p icmp -j ACCEPT\n".format(xid)
+                iptables += "-A FORWARD -i {0} -p icmp -j ACCEPT\n".format(vif)
 
-            iptables += "-A FORWARD -i vif{0}.+ -j {1}\n".format(xid, default_action)
+            iptables += "-A FORWARD -i {0} -j {1}\n".format(vif, default_action)
             iptables += "COMMIT\n"
             xs.write('', "/local/domain/"+str(self.get_xid())+"/qubes_iptables_domainrules/"+str(xid), iptables)
         # no need for ending -A FORWARD -j DROP, cause default action is DROP
