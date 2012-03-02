@@ -804,7 +804,7 @@ class QubesVm(object):
         args['maxmem'] = str(self.maxmem)
         args['vcpus'] = str(self.vcpus)
         if self.netvm_vm is not None:
-            args['netdev'] = "'script=/etc/xen/scripts/vif-route-qubes,ip={ip}".format(ip=self.ip)
+            args['netdev'] = "'mac=00:16:3E:5E:6C:{qid:02X},script=/etc/xen/scripts/vif-route-qubes,ip={ip}".format(ip=self.ip, qid=self.qid)
             if self.netvm_vm.qid != 0:
                 args['netdev'] += ",backend={0}".format(self.netvm_vm.name)
             args['netdev'] += "'"
