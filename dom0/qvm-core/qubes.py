@@ -2118,6 +2118,15 @@ class QubesHVm(QubesVm):
     def is_appvm(self):
         return True
 
+    def get_clone_attrs(self):
+        attrs = super(QubesHVm, self).get_clone_attrs()
+        attrs.remove('kernel')
+        attrs.remove('uses_default_kernel')
+        attrs.remove('kernelopts')
+        attrs.remove('uses_default_kernelopts')
+        attrs.remove('maxmem')
+        return attrs
+
     def create_on_disk(self, verbose, source_template = None):
         if dry_run:
             return
