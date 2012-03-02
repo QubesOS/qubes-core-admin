@@ -2083,6 +2083,10 @@ class QubesHVm(QubesVm):
         os.mkdir (self.dir_path)
 
         if verbose:
+            print >> sys.stderr, "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
+        os.symlink (self.label.icon_path, self.icon_path)
+
+        if verbose:
             print >> sys.stderr, "--> Creating appmenus directory: {0}".format(self.appmenus_templates_dir)
         os.mkdir (self.appmenus_templates_dir)
         shutil.copy (start_appmenu_template, self.appmenus_templates_dir)
