@@ -210,6 +210,7 @@ class QubesVm(object):
                  uses_default_kernel = True,
                  kernelopts = "",
                  uses_default_kernelopts = True,
+                 mac = None,
                  services = None):
 
 
@@ -225,6 +226,8 @@ class QubesVm(object):
         self.netvm_vm = netvm_vm
         if netvm_vm is not None:
             netvm_vm.connected_vms[qid] = self
+
+        self._mac = mac
 
         # We use it in remove from disk to avoid removing rpm files (for templates)
         self.installed_by_rpm = installed_by_rpm
@@ -385,6 +388,17 @@ class QubesVm(object):
         if self.netvm_vm is None:
             return None
         return "vif{0}.+".format(self.xid)
+
+    @property
+    def mac(self):
+        if self._mac is not None:
+            return self._mac
+        else:
+            return "00:16:3E:5E:6C:{qid:02X}".format(qid=self.qid)
+
+    @mac.setter
+    def mac(self, new_mac):
+        self._mac = new_mac
 
     def is_updateable(self):
         return self.updateable
@@ -804,7 +818,7 @@ class QubesVm(object):
         args['maxmem'] = str(self.maxmem)
         args['vcpus'] = str(self.vcpus)
         if self.netvm_vm is not None:
-            args['netdev'] = "'mac=00:16:3E:5E:6C:{qid:02X},script=/etc/xen/scripts/vif-route-qubes,ip={ip}".format(ip=self.ip, qid=self.qid)
+            args['netdev'] = "'mac={mac},script=/etc/xen/scripts/vif-route-qubes,ip={ip}".format(ip=self.ip, mac=self.mac)
             if self.netvm_vm.qid != 0:
                 args['netdev'] += ",backend={0}".format(self.netvm_vm.name)
             args['netdev'] += "'"
@@ -1392,6 +1406,8 @@ class QubesVm(object):
             'uses_default_netvm' ]:
             if hasattr(self, prop):
                 attrs[prop] = str(self.__getattribute__(prop))
+        if self._mac is not None:
+            attrs["mac"] = str(self._mac)
         attrs["netvm_qid"] = str(self.netvm_vm.qid) if self.netvm_vm is not None else "none"
         attrs["template_qid"] = str(self.template_vm.qid) if self.template_vm and not self.is_updateable() else "none"
         attrs["label"] = self.label.name
@@ -2397,7 +2413,7 @@ class QubesVmCollection(dict):
                 "installed_by_rpm", "updateable", "internal",
                 "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
                 "maxmem", "kernel", "uses_default_kernel", "kernelopts", "uses_default_kernelopts",
-                "services" )
+                "mac", "services" )
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)
