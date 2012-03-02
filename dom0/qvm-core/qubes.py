@@ -1333,7 +1333,7 @@ class QubesVm(object):
         attrs["dir_path"] = self.dir_path
         # Simple paths
         for prop in ['conf_file', 'root_img', 'volatile_img', 'private_img']:
-            if hasattr(self, prop):
+            if hasattr(self, prop) and self.__getattribute__(prop) is not None:
                 attrs[prop] = self.relative_path(self.__getattribute__(prop))
         # Simple string attrs
         for prop in ['memory', 'maxmem', 'pcidevs', 'vcpus', 'internal',\
@@ -2053,13 +2053,13 @@ class QubesHVm(QubesVm):
         super(QubesHVm, self).__init__(**kwargs)
         self.updateable = True
         self.config_file_template = config_template_hvm
+        self.private_img = None
+        self.volatile_img = None
         # remove settings not used by HVM (at least for now)
         self.__delattr__('kernel')
         self.__delattr__('kernelopts')
         self.__delattr__('uses_default_kernel')
         self.__delattr__('uses_default_kernelopts')
-        self.__delattr__('private_img')
-        self.__delattr__('volatile_img')
         # HVM doesn't support dynamic memory management
         self.maxmem = self.memory
 
