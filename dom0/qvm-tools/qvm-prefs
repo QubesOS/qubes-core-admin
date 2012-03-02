@@ -28,6 +28,7 @@ from optparse import OptionParser
 import subprocess
 import os
 import sys
+import re
 
 def do_list(vm):
     label_width = 18
@@ -60,6 +61,7 @@ def do_list(vm):
     print fmt.format ("memory", vm.memory)
     if hasattr(vm, 'maxmem'):
         print fmt.format ("maxmem", vm.maxmem)
+    print fmt.format ("MAC", "%s%s" % (vm.mac, " (auto)" if vm._mac is None else ""))
 
     if hasattr(vm, 'kernel'):
         if vm.template_vm is not None:
@@ -78,7 +80,6 @@ def do_list(vm):
     if hasattr(vm, 'drive'):
         print fmt.format("drive", str(vm.drive))
 
-
 def set_label(vms, vm, args):
     if len (args) != 1:
         print >> sys.stderr, "Missing label name argument!"
@@ -96,18 +97,38 @@ def set_label(vms, vm, args):
 def set_memory(vms, vm, args):
     if len (args) != 1:
         print >> sys.stderr, "Missing memory argument!"
+        exit (1)
 
     vm.memory = int(args[0])
 
 def set_maxmem(vms, vm, args):
     if len (args) != 1:
         print >> sys.stderr, "Missing maxmem argument!"
+        exit (1)
 
     vm.maxmem = int(args[0])
+
+def set_mac(vms, vm, args):
+    if len (args) != 1:
+        print >> sys.stderr, "Missing MAC argument!"
+        exit (1)
+
+    if not re.match("[0-9a-fA-F:]{17}|auto", args[0]):
+        print >> sys.stderr, "Invalid MAC argument!"
+        print >> sys.stderr, "Possible values:"
+        print >> sys.stderr, "1) auto"
+        print >> sys.stderr, "2) MAC in format: XX:XX:XX:XX:XX:XX"
+        exit (1)
+
+    mac = args[0]
+    if mac == "auto":
+        mac = None
+    vm.mac = mac
 
 def set_pcidevs(vms, vm, args):
     if len (args) != 1:
         print >> sys.stderr, "Missing pcidevs argument!"
+        exit (1)
 
     vm.pcidevs = list(eval(args[0]))
 
@@ -319,6 +340,7 @@ properties = {
     "kernelopts": set_kernelopts,
     "name": set_name,
     "drive": set_drive,
+    "mac": set_mac,
 }
 
 
