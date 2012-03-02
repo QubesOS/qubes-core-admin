@@ -2128,6 +2128,14 @@ class QubesHVm(QubesVm):
     def reset_volatile_storage(self, **kwargs):
         pass
 
+    @property
+    def vif(self):
+        if not self.is_running():
+            return None
+        if self.netvm_vm is None:
+            return None
+        return "vif{0}.+".format(self.stubdom_xid)
+
     def run(self, command, **kwargs):
         raise NotImplementedError("Needs qrexec agent - TODO")
 
