@@ -30,13 +30,13 @@ case "$command" in
 		ifconfig ${vif} up
 		echo 1 >/proc/sys/net/ipv4/conf/${vif}/proxy_arp
 		ipcmd='replace'
-		iptables_cmd='-I FORWARD 1'
+		iptables_cmd='-I PREROUTING 1'
 		cmdprefix=''
 		;;
 	offline)
 		do_without_error ifdown ${vif}
 		ipcmd='del'
-		iptables_cmd='-D FORWARD'
+		iptables_cmd='-D PREROUTING'
 		cmdprefix='do_without_error'
 		;;
 esac
@@ -47,7 +47,7 @@ if [ "${ip}" ] ; then
 	for addr in ${ip} ; do
 		${cmdprefix} ip route ${ipcmd} ${addr} dev ${vif} || true
 	done
-		echo ${cmdprefix} iptables $iptables_cmd -i ${vif} \! -s ${ip} -j DROP
+		echo ${cmdprefix} iptables -t raw $iptables_cmd -i ${vif} \! -s ${ip} -j DROP
 		${cmdprefix} iptables $iptables_cmd -i ${vif} \! -s ${ip} -j DROP
 fi
 
