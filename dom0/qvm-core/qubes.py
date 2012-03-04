@@ -201,7 +201,7 @@ class QubesVm(object):
     def __init__(self, qid, name,
                  dir_path, conf_file = None,
                  uses_default_netvm = True,
-                 netvm_vm = None,
+                 netvm = None,
                  installed_by_rpm = False,
                  updateable = False,
                  label = None,
@@ -232,9 +232,9 @@ class QubesVm(object):
         self.conf_file = self.absolute_path(conf_file, name + ".conf")
 
         self.uses_default_netvm = uses_default_netvm
-        self.netvm_vm = netvm_vm
-        if netvm_vm is not None:
-            netvm_vm.connected_vms[qid] = self
+        self.netvm = netvm
+        if netvm is not None:
+            netvm.connected_vms[qid] = self
 
         self._mac = mac
 
@@ -366,29 +366,29 @@ class QubesVm(object):
 
     @property
     def ip(self):
-        if self.netvm_vm is not None:
-            return self.netvm_vm.get_ip_for_vm(self.qid)
+        if self.netvm is not None:
+            return self.netvm.get_ip_for_vm(self.qid)
         else:
             return None
 
     @property
     def netmask(self):
-        if self.netvm_vm is not None:
-            return self.netvm_vm.netmask
+        if self.netvm is not None:
+            return self.netvm.netmask
         else:
             return None
 
     @property
     def gateway(self):
-        if self.netvm_vm is not None:
-            return self.netvm_vm.gateway
+        if self.netvm is not None:
+            return self.netvm.gateway
         else:
             return None
 
     @property
     def secondary_dns(self):
-        if self.netvm_vm is not None:
-            return self.netvm_vm.secondary_dns
+        if self.netvm is not None:
+            return self.netvm.secondary_dns
         else:
             return None
 
@@ -396,7 +396,7 @@ class QubesVm(object):
     def vif(self):
         if self.xid < 0:
             return None
-        if self.netvm_vm is None:
+        if self.netvm is None:
             return None
         return "vif{0}.+".format(self.xid)
 
@@ -418,7 +418,7 @@ class QubesVm(object):
         if self.is_netvm():
             return True
 
-        if self.netvm_vm is not None:
+        if self.netvm is not None:
             return True
         else:
             return False
@@ -436,11 +436,11 @@ class QubesVm(object):
         raise QubesException ("Change 'updateable' flag is not supported. Please use qvm-create.")
 
 
-    def set_netvm_vm(self, netvm_vm):
-        if self.netvm_vm is not None:
-            self.netvm_vm.connected_vms.pop(self.qid)
+    def set_netvm(self, netvm):
+        if self.netvm is not None:
+            self.netvm.connected_vms.pop(self.qid)
 
-        if netvm_vm is None:
+        if netvm is None:
             # Set also firewall to block all traffic as discussed in #370
             if os.path.exists(self.firewall_conf):
                 shutil.copy(self.firewall_conf, "%s/backup/%s-firewall-%s.xml"
@@ -448,9 +448,9 @@ class QubesVm(object):
             self.write_firewall_conf({'allow': False, 'allowDns': False,
                     'allowIcmp': False, 'rules': []})
         else:
-            netvm_vm.connected_vms[self.qid]=self
+            netvm.connected_vms[self.qid]=self
 
-        self.netvm_vm = netvm_vm
+        self.netvm = netvm
 
     def pre_rename(self, new_name):
         pass
@@ -780,15 +780,15 @@ class QubesVm(object):
                     "{0}/qubes_netvm_network".format(domain_path),
                     self.network)
 
-        if self.netvm_vm is not None:
+        if self.netvm is not None:
             xs.write('', "{0}/qubes_ip".format(domain_path), self.ip)
             xs.write('', "{0}/qubes_netmask".format(domain_path),
-                    self.netvm_vm.netmask)
+                    self.netvm.netmask)
             xs.write('', "{0}/qubes_gateway".format(domain_path),
-                    self.netvm_vm.gateway)
+                    self.netvm.gateway)
             xs.write('',
                     "{0}/qubes_secondary_dns".format(domain_path),
-                    self.netvm_vm.secondary_dns)
+                    self.netvm.secondary_dns)
 
         tzname = self.get_timezone()
         if tzname:
@@ -829,10 +829,10 @@ class QubesVm(object):
         args['mem'] = str(self.memory)
         args['maxmem'] = str(self.maxmem)
         args['vcpus'] = str(self.vcpus)
-        if self.netvm_vm is not None:
+        if self.netvm is not None:
             args['netdev'] = "'mac={mac},script=/etc/xen/scripts/vif-route-qubes,ip={ip}".format(ip=self.ip, mac=self.mac)
-            if self.netvm_vm.qid != 0:
-                args['netdev'] += ",backend={0}".format(self.netvm_vm.name)
+            if self.netvm.qid != 0:
+                args['netdev'] += ",backend={0}".format(self.netvm.name)
             args['netdev'] += "'"
         else:
             args['netdev'] = ''
@@ -950,7 +950,7 @@ class QubesVm(object):
             print >> sys.stderr, "Ooops, there was a problem creating appmenus for {0} VM!".format (self.name)
 
     def get_clone_attrs(self):
-        return ['kernel', 'uses_default_kernel', 'netvm_vm', 'uses_default_netvm', \
+        return ['kernel', 'uses_default_kernel', 'netvm', 'uses_default_netvm', \
             'memory', 'maxmem', 'kernelopts', 'uses_default_kernelopts', 'services', 'vcpus', \
             '_mac']
 
@@ -1238,7 +1238,7 @@ class QubesVm(object):
             raise QubesException ("VM not running!")
 
         if netvm is None:
-            netvm = self.netvm_vm
+            netvm = self.netvm
 
         if netvm is None:
             raise QubesException ("NetVM not set!")
@@ -1305,12 +1305,12 @@ class QubesVm(object):
         if self.get_power_state() != "Halted":
             raise QubesException ("VM is already running!")
 
-        if self.netvm_vm is not None:
-            if self.netvm_vm.qid != 0:
-                if not self.netvm_vm.is_running():
+        if self.netvm is not None:
+            if self.netvm.qid != 0:
+                if not self.netvm.is_running():
                     if verbose:
-                        print >> sys.stderr, "--> Starting NetVM {0}...".format(self.netvm_vm.name)
-                    self.netvm_vm.start()
+                        print >> sys.stderr, "--> Starting NetVM {0}...".format(self.netvm.name)
+                    self.netvm.start()
 
         self.reset_volatile_storage(verbose=verbose)
         if verbose:
@@ -1427,7 +1427,7 @@ class QubesVm(object):
                 attrs[prop] = str(self.__getattribute__(prop))
         if self._mac is not None:
             attrs["mac"] = str(self._mac)
-        attrs["netvm_qid"] = str(self.netvm_vm.qid) if self.netvm_vm is not None else "none"
+        attrs["netvm_qid"] = str(self.netvm.qid) if self.netvm is not None else "none"
         attrs["template_qid"] = str(self.template_vm.qid) if self.template_vm and not self.is_updateable() else "none"
         attrs["label"] = self.label.name
         return attrs
@@ -1812,14 +1812,14 @@ class QubesProxyVm(QubesNetVm):
         if dry_run:
             return
         retcode = super(QubesProxyVm, self).start(debug_console=debug_console, verbose=verbose, preparing_dvm=preparing_dvm)
-        self.netvm_vm.add_external_ip_permission(self.get_xid())
+        self.netvm.add_external_ip_permission(self.get_xid())
         self.write_netvm_domid_entry()
         return retcode
 
     def force_shutdown(self):
         if dry_run:
             return
-        self.netvm_vm.remove_external_ip_permission(self.get_xid())
+        self.netvm.remove_external_ip_permission(self.get_xid())
         super(QubesProxyVm, self).force_shutdown()
 
     def create_xenstore_entries(self, xid = None):
@@ -1841,7 +1841,7 @@ class QubesProxyVm(QubesNetVm):
             xid = self.get_xid()
 
         xs.write('', "/local/domain/{0}/qubes_netvm_domid".format(xid),
-                "{0}".format(self.netvm_vm.get_xid()))
+                "{0}".format(self.netvm.get_xid()))
 
     def write_iptables_xenstore_entry(self):
         xs.rm('', "/local/domain/{0}/qubes_iptables_domainrules".format(self.get_xid()))
@@ -1910,9 +1910,9 @@ class QubesProxyVm(QubesNetVm):
                 iptables += " -j {0}\n".format(rules_action)
 
             if conf["allowDns"]:
-                # PREROUTING does DNAT to NetVM DNSes, so we need self.netvm_vm. properties
-                iptables += "-A FORWARD -i {0} -p udp -d {1} --dport 53 -j ACCEPT\n".format(vif,self.netvm_vm.gateway)
-                iptables += "-A FORWARD -i {0} -p udp -d {1} --dport 53 -j ACCEPT\n".format(vif,self.netvm_vm.secondary_dns)
+                # PREROUTING does DNAT to NetVM DNSes, so we need self.netvm. properties
+                iptables += "-A FORWARD -i {0} -p udp -d {1} --dport 53 -j ACCEPT\n".format(vif,self.netvm.gateway)
+                iptables += "-A FORWARD -i {0} -p udp -d {1} --dport 53 -j ACCEPT\n".format(vif,self.netvm.secondary_dns)
             if conf["allowIcmp"]:
                 iptables += "-A FORWARD -i {0} -p icmp -j ACCEPT\n".format(vif)
 
@@ -1928,7 +1928,7 @@ class QubesProxyVm(QubesNetVm):
 
     def get_xml_attrs(self):
         attrs = super(QubesProxyVm, self).get_xml_attrs()
-        attrs["netvm_qid"] = str(self.netvm_vm.qid) if self.netvm_vm is not None else "none"
+        attrs["netvm_qid"] = str(self.netvm.qid) if self.netvm is not None else "none"
         return attrs
 
 class QubesDom0NetVm(QubesNetVm):
@@ -2010,8 +2010,8 @@ class QubesDisposableVm(QubesVm):
 
     @property
     def ip(self):
-        if self.netvm_vm is not None:
-            return self.netvm_vm.get_ip_for_dispvm(self.dispid)
+        if self.netvm is not None:
+            return self.netvm.get_ip_for_dispvm(self.dispid)
         else:
             return None
 
@@ -2280,7 +2280,7 @@ class QubesVmCollection(dict):
         vm = QubesAppVm (qid=qid, name=name, template_vm=template_vm,
                          dir_path=dir_path, conf_file=conf_file,
                          private_img=private_img,
-                         netvm_vm = self.get_default_netvm_vm(),
+                         netvm = self.get_default_netvm(),
                          kernel = self.get_default_kernel(),
                          uses_default_kernel = True,
                          updateable=updateable,
@@ -2310,7 +2310,7 @@ class QubesVmCollection(dict):
 
         qid = self.get_new_unused_qid()
         vm = QubesDisposableVm (qid=qid, name=name, template_vm=template_vm,
-                         netvm_vm = self.get_default_netvm_vm(),
+                         netvm = self.get_default_netvm(),
                          label=label, dispid=dispid)
 
         if not self.verify_new_vm (vm):
@@ -2328,7 +2328,7 @@ class QubesVmCollection(dict):
                               dir_path=dir_path, conf_file=conf_file,
                               root_img=root_img, private_img=private_img,
                               installed_by_rpm=installed_by_rpm,
-                              netvm_vm = self.get_default_netvm_vm(),
+                              netvm = self.get_default_netvm(),
                               kernel = self.get_default_kernel(),
                               uses_default_kernel = True)
 
@@ -2370,7 +2370,7 @@ class QubesVmCollection(dict):
         self[vm.qid]=vm
 
         if self.default_fw_netvm_qid is None:
-            self.set_default_fw_netvm_vm(vm)
+            self.set_default_fw_netvm(vm)
 
         # by default ClockVM is the first NetVM
         if self.clockvm_qid is None:
@@ -2392,14 +2392,14 @@ class QubesVmCollection(dict):
                               updateable=updateable,
                               kernel = self.get_default_kernel(),
                               uses_default_kernel = True,
-                              netvm_vm = self.get_default_fw_netvm_vm())
+                              netvm = self.get_default_fw_netvm())
 
         if not self.verify_new_vm (vm):
             assert False, "Wrong VM description!"
         self[vm.qid]=vm
 
         if self.default_netvm_qid is None:
-            self.set_default_netvm_vm(vm)
+            self.set_default_netvm(vm)
 
         if self.updatevm_qid is None:
             self.set_updatevm_vm(vm)
@@ -2416,11 +2416,11 @@ class QubesVmCollection(dict):
         else:
             return self[self.default_template_qid]
 
-    def set_default_netvm_vm(self, vm):
+    def set_default_netvm(self, vm):
         assert vm.is_netvm(), "VM {0} does not provide network!".format(vm.name)
         self.default_netvm_qid = vm.qid
 
-    def get_default_netvm_vm(self):
+    def get_default_netvm(self):
         if self.default_netvm_qid is None:
             return None
         else:
@@ -2433,11 +2433,11 @@ class QubesVmCollection(dict):
     def get_default_kernel(self):
         return self.default_kernel
 
-    def set_default_fw_netvm_vm(self, vm):
+    def set_default_fw_netvm(self, vm):
         assert vm.is_netvm(), "VM {0} does not provide network!".format(vm.name)
         self.default_fw_netvm_qid = vm.qid
 
-    def get_default_fw_netvm_vm(self):
+    def get_default_fw_netvm(self):
         if self.default_fw_netvm_qid is None:
             return None
         else:
@@ -2676,22 +2676,22 @@ class QubesVmCollection(dict):
         else:
             vm.uses_default_netvm = True if kwargs["uses_default_netvm"] == "True" else False
         if vm.uses_default_netvm is True:
-            netvm_vm = self.get_default_netvm_vm()
+            netvm = self.get_default_netvm()
             kwargs.pop("netvm_qid")
         else:
             if kwargs["netvm_qid"] == "none" or kwargs["netvm_qid"] is None:
-                netvm_vm = None
+                netvm = None
                 kwargs.pop("netvm_qid")
             else:
                 netvm_qid = int(kwargs.pop("netvm_qid"))
                 if netvm_qid not in self:
-                    netvm_vm = None
+                    netvm = None
                 else:
-                    netvm_vm = self[netvm_qid]
+                    netvm = self[netvm_qid]
 
-        vm.netvm_vm = netvm_vm
-        if netvm_vm:
-            netvm_vm.connected_vms[vm.qid] = vm
+        vm.netvm = netvm
+        if netvm:
+            netvm.connected_vms[vm.qid] = vm
 
     def load(self):
         self.clear()
@@ -2867,7 +2867,7 @@ class QubesVmCollection(dict):
                 else:
                     kwargs["template_vm"] = template_vm
 
-                kwargs["netvm_vm"] = self.get_default_netvm_vm()
+                kwargs["netvm"] = self.get_default_netvm()
 
                 if kwargs["label"] is not None:
                     if kwargs["label"] not in QubesVmLabels:
@@ -2890,8 +2890,8 @@ class QubesVmCollection(dict):
             if self.default_netvm_qid is not None:
                 clockvm = self[self.default_netvm_qid]
                 # Find root of netvm chain
-                while clockvm.netvm_vm is not None:
-                    clockvm = clockvm.netvm_vm
+                while clockvm.netvm is not None:
+                    clockvm = clockvm.netvm
 
                 self.clockvm_qid = clockvm.qid
 

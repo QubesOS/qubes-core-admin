@@ -52,8 +52,8 @@ fields = {
 
     "netvm": {"func": "'n/a' if vm.is_netvm() and not vm.is_proxyvm() else\
               ('*' if vm.uses_default_netvm else '') +\
-              qvm_collection[vm.netvm_vm.qid].name\
-                     if vm.netvm_vm is not None else '-'"},
+              qvm_collection[vm.netvm.qid].name\
+                     if vm.netvm is not None else '-'"},
 
     "ip" : {"func": "vm.ip"},
     "netmask" : {"func": "vm.netmask"},

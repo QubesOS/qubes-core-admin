@@ -30,8 +30,8 @@ import sys
 
 def handle_vm(vms, label, new_value = None):
     functions = { # label: [ getter, setter ],
-        'default-netvm': [ 'get_default_netvm_vm', 'set_default_netvm_vm' ],
-        'default-fw-netvm': [ 'get_default_fw_netvm_vm', 'set_default_fw_netvm_vm' ],
+        'default-netvm': [ 'get_default_netvm', 'set_default_netvm' ],
+        'default-fw-netvm': [ 'get_default_fw_netvm', 'set_default_fw_netvm' ],
         'default-template': [ 'get_default_template_vm', 'set_default_template_vm' ],
         'clockvm': [ 'get_clockvm_vm', 'set_clockvm_vm' ],
         'updatevm': [ 'get_updatevm_vm', 'set_updatevm_vm' ],

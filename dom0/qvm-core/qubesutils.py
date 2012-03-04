@@ -635,21 +635,21 @@ def backup_restore_prepare(backup_dir, options = {}, host_collection = None):
                             vms_to_restore[vm.name]['missing-template'] = True
                             vms_to_restore[vm.name]['good-to-go'] = False
 
-            if vm.netvm_vm is None:
+            if vm.netvm is None:
                 vms_to_restore[vm.name]['netvm'] = None
             else:
-                netvm_name = vm.netvm_vm.name
+                netvm_name = vm.netvm.name
                 vms_to_restore[vm.name]['netvm'] = netvm_name
-                netvm_vm_on_host = host_collection.get_vm_by_name (netvm_name)
+                netvm_on_host = host_collection.get_vm_by_name (netvm_name)
 
                 # No netvm on the host?
-                if not ((netvm_vm_on_host is not None) and netvm_vm_on_host.is_netvm()):
+                if not ((netvm_on_host is not None) and netvm_on_host.is_netvm()):
 
                     # Maybe the (custom) netvm is in the backup?
-                    netvm_vm_on_backup = backup_collection.get_vm_by_name (netvm_name)
-                    if not ((netvm_vm_on_backup is not None) and netvm_vm_on_backup.is_netvm):
+                    netvm_on_backup = backup_collection.get_vm_by_name (netvm_name)
+                    if not ((netvm_on_backup is not None) and netvm_on_backup.is_netvm):
                         if options['use-default-netvm']:
-                            vms_to_restore[vm.name]['netvm'] = host_collection.get_default_netvm_vm().name
+                            vms_to_restore[vm.name]['netvm'] = host_collection.get_default_netvm().name
                             vm.uses_default_netvm = True
                         elif options['use-none-netvm']:
                             vms_to_restore[vm.name]['netvm'] = None
@@ -701,7 +701,7 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
 
         "netvm": {"func": "'n/a' if vm.is_netvm() else\
                   ('*' if vm.uses_default_netvm else '') +\
-                    vm_info['netvm'] if vm.netvm_vm is not None else '-'"},
+                    vm_info['netvm'] if vm.netvm is not None else '-'"},
 
         "label" : {"func" : "vm.label.name"},
     }
@@ -876,7 +876,7 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
 
         if not vm.uses_default_netvm:
             uses_default_netvm = False
-            netvm_vm = host_collection.get_vm_by_name (vm_info['netvm']) if vm_info['netvm'] is not None else None
+            netvm = host_collection.get_vm_by_name (vm_info['netvm']) if vm_info['netvm'] is not None else None
         else:
             uses_default_netvm = True
 
@@ -907,7 +907,7 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
 
         if vm.is_proxyvm() and not uses_default_netvm:
             new_vm.uses_default_netvm = False
-            new_vm.netvm_vm = netvm_vm
+            new_vm.netvm = netvm
 
         try:
             new_vm.verify_files()
@@ -941,7 +941,7 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
 
         if not vm.uses_default_netvm:
             uses_default_netvm = False
-            netvm_vm = host_collection.get_vm_by_name (vm_info['netvm']) if vm_info['netvm'] is not None else None
+            netvm = host_collection.get_vm_by_name (vm_info['netvm']) if vm_info['netvm'] is not None else None
         else:
             uses_default_netvm = True
 
@@ -964,7 +964,7 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
 
         if not uses_default_netvm:
             new_vm.uses_default_netvm = False
-            new_vm.netvm_vm = netvm_vm
+            new_vm.netvm = netvm
 
         try:
             new_vm.create_appmenus(verbose=True)
