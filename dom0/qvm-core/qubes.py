@@ -2204,7 +2204,7 @@ class QubesHVm(QubesVm):
     def vif(self):
         if self.xid < 0:
             return None
-        if self.netvm_vm is None:
+        if self.netvm is None:
             return None
         return "vif{0}.+".format(self.stubdom_xid)
 
@@ -2295,7 +2295,7 @@ class QubesVmCollection(dict):
 
         qid = self.get_new_unused_qid()
         vm = QubesHVm (qid=qid, name=name,
-                         netvm_vm = self.get_default_netvm_vm(),
+                         netvm = self.get_default_netvm(),
                          kernel = self.get_default_kernel(),
                          uses_default_kernel = True,
                          label=label)
