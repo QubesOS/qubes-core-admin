@@ -39,8 +39,8 @@ def do_list(vm):
     print fmt.format ("type", vm.type)
     if vm.template_vm is not None:
         print fmt.format ("template", vm.template_vm.name)
-    if vm.netvm_vm is not None:
-        print fmt.format ("netvm", vm.netvm_vm.name)
+    if vm.netvm is not None:
+        print fmt.format ("netvm", vm.netvm.name)
     print fmt.format ("updateable?", vm.is_updateable())
     print fmt.format ("installed by RPM?", vm.installed_by_rpm)
     print fmt.format ("dir", vm.dir_path)
@@ -134,30 +134,30 @@ def set_netvm(vms, vm, args):
 
     netvm = args[0]
     if netvm == "none":
-        netvm_vm = None
+        netvm = None
         vm.uses_default_netvm = False
     elif netvm == "default":
-        netvm_vm = vms.get_default_netvm_vm()
+        netvm = vms.get_default_netvm()
         vm.uses_default_netvm = True
     else:
-        netvm_vm = vms.get_vm_by_name (netvm)
-        if netvm_vm is None:
+        netvm = vms.get_vm_by_name (netvm)
+        if netvm is None:
             print >> sys.stderr, "A VM with the name '{0}' does not exist in the system.".format(netvm)
             exit(1)
-        if not netvm_vm.is_netvm():
+        if not netvm.is_netvm():
             print >> sys.stderr, "VM '{0}' is not a NetVM".format(netvm)
             exit (1)
         vm.uses_default_netvm = False
 
-    vm.set_netvm_vm(netvm_vm)
+    vm.set_netvm(netvm)
     if not vm.is_running():
         return
     # this can fail if VM was not connected to any NetVM
     subprocess.call(["xl", "network-detach", vm.name, "0"], stderr=subprocess.PIPE)
-    if vm.netvm_vm is None:
+    if vm.netvm is None:
         return
-    if not vm.netvm_vm.is_running():
-        subprocess.check_call(["qvm-start", vm.netvm_vm.name])
+    if not vm.netvm.is_running():
+        subprocess.check_call(["qvm-start", vm.netvm.name])
     # refresh IP, DNS etc
     vm.create_xenstore_entries()
     vm.attach_network(verbose = True)

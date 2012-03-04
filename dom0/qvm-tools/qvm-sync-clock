@@ -31,8 +31,8 @@ qvm_collection = None
 
 def get_netvm_of_vm(vm):
     netvm = vm
-    while netvm.netvm_vm is not None:
-        netvm = netvm.netvm_vm
+    while netvm.netvm is not None:
+        netvm = netvm.netvm
     if netvm is None or netvm.name == 'dom0':
         print >> sys.stderr, 'There seems to be no network connected to ClockVM, aborting.'
         sys.exit(1)
