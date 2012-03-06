@@ -89,7 +89,10 @@ def main():
         if vm.is_running() and vm.qid != 0 and vm.qid != clock_vm.qid:
             if verbose:
                 print >> sys.stderr, '--> Syncing \'%s\' clock.' % vm.name
-            vm.run('root:date -u -s "%s"' % date_out, verbose=verbose)
+            try:
+                vm.run('root:date -u -s "%s"' % date_out, verbose=verbose)
+            except NotImplementedError:
+                pass
 
 main()
 

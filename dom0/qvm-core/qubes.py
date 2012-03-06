@@ -829,6 +829,12 @@ class QubesVm(object):
         args['mem'] = str(self.memory)
         args['maxmem'] = str(self.maxmem)
         args['vcpus'] = str(self.vcpus)
+        args['ip'] = self.ip
+        args['mac'] = self.mac
+        args['gateway'] = self.gateway
+        args['dns1'] = self.gateway
+        args['dns2'] = self.secondary_dns
+        args['netmask'] = self.netmask
         if self.netvm is not None:
             args['netdev'] = "'mac={mac},script=/etc/xen/scripts/vif-route-qubes,ip={ip}".format(ip=self.ip, mac=self.mac)
             if self.netvm.qid != 0:
