@@ -122,6 +122,7 @@ cp ../qrexec/qubes_rpc_multiplexer $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/qubes.ReceiveUpdates.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.ReceiveUpdates
 cp aux-tools/qubes.ReceiveUpdates $RPM_BUILD_ROOT/etc/qubes_rpc/
 install -D aux-tools/qubes-dom0.modules $RPM_BUILD_ROOT/etc/sysconfig/modules/qubes-dom0.modules
+install -D aux-tools/cpufreq-xen.modules $RPM_BUILD_ROOT/etc/sysconfig/modules/cpufreq-xen.modules
 install -D aux-tools/qubes-dom0-updates.cron $RPM_BUILD_ROOT/etc/cron.daily/qubes-dom0-updates.cron
 install -D aux-tools/qubes-sync-clock.cron $RPM_BUILD_ROOT/etc/cron.d/qubes-sync-clock.cron
 
@@ -213,6 +214,9 @@ sed '/^installonlypkgs\s*=/d' -i /etc/yum.conf
 echo 'installonlypkgs = kernel, kernel-qubes-vm' >> /etc/yum.conf
 
 sed 's/^PRELINKING\s*=.*/PRELINKING=no/' -i /etc/sysconfig/prelink
+
+sed 's/^#\?\s*XENCONSOLED_LOG_HYPERVISOR\s*=.*/XENCONSOLED_LOG_HYPERVISOR=yes/' -i /etc/sysconfig/xenconsoled
+sed 's/^#\?\s*XENCONSOLED_LOG_GUESTS\s*=.*/XENCONSOLED_LOG_HYPERVISOR=yes/' -i /etc/sysconfig/xenconsoled
 
 chkconfig --add qubes_core || echo "WARNING: Cannot add service qubes_core!"
 chkconfig --add qubes_netvm || echo "WARNING: Cannot add service qubes_netvm!"
@@ -355,6 +359,7 @@ fi
 /etc/NetworkManager/dispatcher.d/qubes_nmhook
 /etc/sysconfig/iptables
 /etc/sysconfig/modules/qubes-dom0.modules
+/etc/sysconfig/modules/cpufreq-xen.modules
 /usr/lib64/pm-utils/sleep.d/01qubes-sync-vms-clock
 /usr/lib64/pm-utils/sleep.d/51qubes-suspend-netvm
 /usr/lib64/pm-utils/sleep.d/52qubes-pause-vms
