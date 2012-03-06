@@ -84,7 +84,7 @@ def main():
         if vm.installed_by_rpm:
             if options.verbose:
                 print >> sys.stderr, "--> VM installed by RPM, leaving all the files on disk"
-        else:
+        elif not options.remove_from_db_only:
             if options.verbose:
                 print "--> Removing all the files on disk..."
             #TODO:  ask for confirmation, perhaps?
