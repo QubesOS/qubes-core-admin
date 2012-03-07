@@ -2010,6 +2010,11 @@ class QubesDisposableVm(QubesVm):
 
         super(QubesDisposableVm, self).__init__(dir_path="/nonexistent", **kwargs)
 
+        # Use DispVM icon with the same color
+        self._label.icon = "dispvm-" + self.label.icon
+        self._label.icon_path = "/usr/share/qubes/icons/" + self.label.icon + ".png"
+        self.icon_path = self._label.icon_path
+
     @property
     def type(self):
         return "DisposableVM"
