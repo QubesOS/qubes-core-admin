@@ -222,6 +222,7 @@ class QubesVm(object):
                  kernelopts = "",
                  uses_default_kernelopts = True,
                  mac = None,
+                 include_in_backups = True,
                  services = None):
 
 
@@ -253,6 +254,8 @@ class QubesVm(object):
         self.firewall_conf = self.absolute_path(firewall_conf, default_firewall_conf_file)
 
         self.updateable = updateable
+        self.include_in_backups = include_in_backups
+
         self._label = label if label is not None else QubesVmLabels["red"]
         if self.dir_path is not None:
             self.icon_path = self.dir_path + "/icon.png"
@@ -1421,7 +1424,7 @@ class QubesVm(object):
         for prop in ['memory', 'maxmem', 'pcidevs', 'vcpus', 'internal',\
             'uses_default_kernel', 'kernel', 'uses_default_kernelopts',\
             'kernelopts', 'services', 'updateable', 'installed_by_rpm',\
-            'uses_default_netvm' ]:
+            'uses_default_netvm', 'include_in_backups' ]:
             if hasattr(self, prop):
                 attrs[prop] = str(self.__getattribute__(prop))
         if self._mac is not None:
@@ -2436,7 +2439,7 @@ class QubesVmCollection(dict):
                 "installed_by_rpm", "updateable", "internal",
                 "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
                 "maxmem", "kernel", "uses_default_kernel", "kernelopts", "uses_default_kernelopts",
-                "mac", "services" )
+                "mac", "services", "include_in_backups" )
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)
@@ -2446,6 +2449,9 @@ class QubesVmCollection(dict):
         kwargs["qid"] = int(kwargs["qid"])
         if "updateable" in kwargs:
             kwargs["updateable"] = True if kwargs["updateable"] == "True" else False
+
+        if "include_in_backups" in kwargs:
+            kwargs["include_in_backups"] = True if kwargs["include_in_backups"] == "True" else False
 
         if "installed_by_rpm" in kwargs:
             kwargs["installed_by_rpm"] = True if kwargs["installed_by_rpm"] == "True" else False

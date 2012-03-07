@@ -43,6 +43,7 @@ def do_list(vm):
         print fmt.format ("netvm", vm.netvm.name)
     print fmt.format ("updateable?", vm.is_updateable())
     print fmt.format ("installed by RPM?", vm.installed_by_rpm)
+    print fmt.format ("include in backups", vm.include_in_backups)
     print fmt.format ("dir", vm.dir_path)
     print fmt.format ("config", vm.conf_file)
     print fmt.format ("pcidevs", vm.pcidevs)
@@ -310,7 +311,16 @@ def set_name(vms, vm, args):
     return True
 
 
+def set_include_in_backups(vms, vm, args):
+    if len (args) != 1:
+        print >> sys.stderr, "Missing value (True/False)!"
+        return False
+
+    vm.include_in_backups = bool(eval(args[0].capitalize()))
+    return True
+
 properties = {
+    "include_in_backups": set_include_in_backups,
     "updateable": set_updateable,
     "nonupdateable": set_nonupdateable,
     "pcidevs": set_pcidevs,
