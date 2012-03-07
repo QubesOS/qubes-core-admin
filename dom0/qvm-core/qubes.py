@@ -177,6 +177,17 @@ QubesVmLabels = {
     "black" : QubesVmLabel ("black", 8),
 }
 
+QubesDispVmLabels = {
+    "red" : QubesVmLabel ("red", 1, icon="dispvm-red"),
+    "orange" : QubesVmLabel ("orange", 2, icon="dispvm-orange"),
+    "yellow" : QubesVmLabel ("yellow", 3, icon="dispvm-yellow"),
+    "green" : QubesVmLabel ("green", 4, color="0x5fa05e", icon="dispvm-green"),
+    "gray" : QubesVmLabel ("gray", 5, icon="dispvm-gray"),
+    "blue" : QubesVmLabel ("blue", 6, icon="dispvm-blue"),
+    "purple" : QubesVmLabel ("purple", 7, color="0xb83374", icon="dispvm-purple"),
+    "black" : QubesVmLabel ("black", 8, icon="dispvm-black"),
+}
+
 default_appvm_label = QubesVmLabels["red"]
 default_template_label = QubesVmLabels["gray"]
 default_servicevm_label = QubesVmLabels["red"]
@@ -1993,9 +2004,9 @@ class QubesDisposableVm(QubesVm):
         super(QubesDisposableVm, self).__init__(dir_path="/nonexistent", **kwargs)
 
         # Use DispVM icon with the same color
-        self._label.icon = "dispvm-" + self.label.icon
-        self._label.icon_path = "/usr/share/qubes/icons/" + self.label.icon + ".png"
-        self.icon_path = self._label.icon_path
+        if self._label:
+            self._label = QubesDispVmLabels[self._label.name]
+            self.icon_path = self._label.icon_path
 
     @property
     def type(self):
