@@ -1895,12 +1895,12 @@ class QubesProxyVm(QubesNetVm):
             if xid < 0: # VM not active ATM
                 continue
 
-            vif = vm.vif
-            if vif is None:
+            ip = vm.ip
+            if ip is None:
                 continue
 
             iptables += "# '{0}' VM:\n".format(vm.name)
-            iptables += "-A FORWARD ! -s {0}/32 -i {1} -j DROP\n".format(vm.ip, vif)
+            # Anti-spoof rules are added by vif-script (vif-route-qubes), here we trust IP address
 
             accept_action = "ACCEPT"
             reject_action = "REJECT --reject-with icmp-host-prohibited"
@@ -1913,7 +1913,7 @@ class QubesProxyVm(QubesNetVm):
                 rules_action = accept_action
 
             for rule in conf["rules"]:
-                iptables += "-A FORWARD -i {0} -d {1}".format(vif, rule["address"])
+                iptables += "-A FORWARD -s {0} -d {1}".format(ip, rule["address"])
                 if rule["netmask"] != 32:
                     iptables += "/{0}".format(rule["netmask"])
 
@@ -1928,12 +1928,12 @@ class QubesProxyVm(QubesNetVm):
 
             if conf["allowDns"]:
                 # PREROUTING does DNAT to NetVM DNSes, so we need self.netvm. properties
-                iptables += "-A FORWARD -i {0} -p udp -d {1} --dport 53 -j ACCEPT\n".format(vif,self.netvm.gateway)
-                iptables += "-A FORWARD -i {0} -p udp -d {1} --dport 53 -j ACCEPT\n".format(vif,self.netvm.secondary_dns)
+                iptables += "-A FORWARD -s {0} -p udp -d {1} --dport 53 -j ACCEPT\n".format(ip,self.netvm.gateway)
+                iptables += "-A FORWARD -s {0} -p udp -d {1} --dport 53 -j ACCEPT\n".format(ip,self.netvm.secondary_dns)
             if conf["allowIcmp"]:
-                iptables += "-A FORWARD -i {0} -p icmp -j ACCEPT\n".format(vif)
+                iptables += "-A FORWARD -s {0} -p icmp -j ACCEPT\n".format(ip)
 
-            iptables += "-A FORWARD -i {0} -j {1}\n".format(vif, default_action)
+            iptables += "-A FORWARD -s {0} -j {1}\n".format(ip, default_action)
             iptables += "COMMIT\n"
             xs.write('', "/local/domain/"+str(self.get_xid())+"/qubes_iptables_domainrules/"+str(xid), iptables)
         # no need for ending -A FORWARD -j DROP, cause default action is DROP
