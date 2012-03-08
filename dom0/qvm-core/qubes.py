@@ -242,8 +242,8 @@ class QubesVm(object):
             "netvm": { "default": None, 'order': 20 },
             "label": { "attr": "_label", "default": QubesVmLabels["red"], 'order': 20 },
             "memory": { "default": default_memory, 'order': 20 },
-            "maxmem": { "default": None, 'order': 20 },
-            "pcidevs": { "default": '[]', 'order': 20, "eval": \
+            "maxmem": { "default": None, 'order': 25 },
+            "pcidevs": { "default": '[]', 'order': 25, "eval": \
                 '[] if value in ["none", None] else eval(value) if value.find("[") >= 0 else eval("[" + value + "]")'  },
             # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
             "internal": { "default": False },
@@ -1456,28 +1456,27 @@ class QubesTemplateVm(QubesVm):
     """
     A class that represents an TemplateVM. A child of QubesVm.
     """
+
+    def _get_attrs_config(self):
+        attrs_config = super(QubesTemplateVm, self)._get_attrs_config()
+        attrs_config['dir_path']['eval'] = 'value if value is not None else qubes_templates_dir + "/" + self.name'
+        attrs_config['updateable']['default'] = True
+        attrs_config['label']['default'] = default_template_label
+
+        # New attributes
+
+        # Image for template changes
+        attrs_config['rootcow_img'] = { 'eval': 'self.dir_path + "/" + default_rootcow_img' }
+        # Clean image for root-cow and swap (AppVM side)
+        attrs_config['clean_volatile_img'] = { 'eval': 'self.dir_path + "/" + default_clean_volatile_img' }
+
+        attrs_config['appmenus_templates_dir'] = { 'eval': 'self.dir_path + "/" + default_appmenus_templates_subdir' }
+        return attrs_config
+
     def __init__(self, **kwargs):
-
-        if "dir_path" not in kwargs or kwargs["dir_path"] is None:
-            kwargs["dir_path"] = qubes_templates_dir + "/" + kwargs["name"]
-
-        if "updateable" not in kwargs or kwargs["updateable"] is None :
-            kwargs["updateable"] = True
-
-        if "label" not in kwargs or kwargs["label"] == None:
-            kwargs["label"] = default_template_label
 
         super(QubesTemplateVm, self).__init__(**kwargs)
 
-        dir_path = kwargs["dir_path"]
-
-        # Clean image for root-cow and swap (AppVM side)
-        self.clean_volatile_img = self.dir_path + "/" + default_clean_volatile_img
-
-        # Image for template changes
-        self.rootcow_img = self.dir_path + "/" + default_rootcow_img
-
-        self.appmenus_templates_dir = self.dir_path + "/" + default_appmenus_templates_subdir
         self.appvms = QubesVmCollection()
 
     @property
@@ -1652,43 +1651,39 @@ class QubesTemplateVm(QubesVm):
         f_cow.close ()
         f_root.close()
 
-    def get_xml_attrs(self):
-        attrs = super(QubesTemplateVm, self).get_xml_attrs()
-        attrs["clean_volatile_img"] = self.clean_volatile_img
-        attrs["rootcow_img"] = self.rootcow_img
-        return attrs
-
 class QubesNetVm(QubesVm):
     """
     A class that represents a NetVM. A child of QubesCowVM.
     """
+    def _get_attrs_config(self):
+        attrs_config = super(QubesNetVm, self)._get_attrs_config()
+        attrs_config['dir_path']['eval'] = 'value if value is not None else qubes_servicevms_dir + "/" + self.name'
+        attrs_config['label']['default'] = default_servicevm_label
+        attrs_config['vcpus']['default'] = default_servicevm_vcpus
+        attrs_config['memory']['default'] = 200
+        attrs_config['maxmem']['eval'] = 'self.memory'
+        
+        # New attributes
+        attrs_config['netid'] = { 'save': 'str(self.netid)', 'order': 30 }
+        attrs_config['netprefix'] = { 'eval': '"10.137.{0}.".format(self.netid)' }
+        attrs_config['dispnetprefix'] = { 'eval': '"10.138.{0}.".format(self.netid)' }
+
+        # Dont save netvm prop
+        attrs_config['netvm'].pop('save')
+        attrs_config['uses_default_netvm'].pop('save')
+
+        return attrs_config
+
     def __init__(self, **kwargs):
-        netid = kwargs.pop("netid")
-        self.netid = netid
-        self.__network = "10.137.{0}.0".format(netid)
-        self.netprefix = "10.137.{0}.".format(netid)
-        self.dispnetprefix = "10.138.{0}.".format(netid)
+        super(QubesNetVm, self).__init__(**kwargs)
+        self.connected_vms = QubesVmCollection()
+
+        self.__network = "10.137.{0}.0".format(self.netid)
         self.__netmask = vm_default_netmask
         self.__gateway = self.netprefix + "1"
         self.__secondary_dns = self.netprefix + "254"
 
-        if "dir_path" not in kwargs or kwargs["dir_path"] is None:
-            kwargs["dir_path"] = qubes_servicevms_dir + "/" + kwargs["name"]
         self.__external_ip_allowed_xids = set()
-
-        if "label" not in kwargs or kwargs["label"] is None:
-            kwargs["label"] = default_servicevm_label
-
-        if "vcpus" not in kwargs or kwargs["vcpus"] is None:
-            kwargs["vcpus"] = default_servicevm_vcpus
-
-        if "memory" not in kwargs or kwargs["memory"] is None:
-            kwargs["memory"] = 200
-
-        kwargs["maxmem"] = kwargs["memory"]
-
-        super(QubesNetVm, self).__init__(**kwargs)
-        self.connected_vms = QubesVmCollection()
 
     @property
     def type(self):
@@ -1797,19 +1792,20 @@ class QubesNetVm(QubesVm):
         self.__external_ip_allowed_xids.discard(int(xid))
         self.update_external_ip_permissions()
 
-    def get_xml_attrs(self):
-        attrs = super(QubesNetVm, self).get_xml_attrs()
-        attrs.pop("netvm_qid")
-        attrs.pop("uses_default_netvm")
-        attrs["netid"] = str(self.netid)
-        return attrs
-
 class QubesProxyVm(QubesNetVm):
     """
     A class that represents a ProxyVM, ex FirewallVM. A child of QubesNetVM.
     """
+
+    def _get_attrs_config(self):
+        attrs_config = super(QubesProxyVm, self)._get_attrs_config()
+        attrs_config['uses_default_netvm']['eval'] = 'False'
+        # Save netvm prop again
+        attrs_config['netvm']['save'] = 'str(self.netvm.qid) if self.netvm is not None else "none"'
+
+        return attrs_config
+
     def __init__(self, **kwargs):
-        kwargs["uses_default_netvm"] = False
         super(QubesProxyVm, self).__init__(**kwargs)
         self.rules_applied = None
 
@@ -1935,11 +1931,6 @@ class QubesProxyVm(QubesNetVm):
         self.rules_applied = None
         xs.write('', "/local/domain/{0}/qubes_iptables".format(self.get_xid()), 'reload')
 
-    def get_xml_attrs(self):
-        attrs = super(QubesProxyVm, self).get_xml_attrs()
-        attrs["netvm_qid"] = str(self.netvm.qid) if self.netvm is not None else "none"
-        return attrs
-
 class QubesDom0NetVm(QubesNetVm):
     def __init__(self):
         super(QubesDom0NetVm, self).__init__(qid=0, name="dom0", netid=0,
@@ -2004,14 +1995,20 @@ class QubesDisposableVm(QubesVm):
     """
     A class that represents an DisposableVM. A child of QubesVm.
     """
+
+    def _get_attrs_config(self):
+        attrs_config = super(QubesDisposableVm, self)._get_attrs_config()
+
+        # New attributes
+        attrs_config['dispid'] = { 'save': 'str(self.dispid)' }
+
+        return attrs_config
+
     def __init__(self, **kwargs):
 
-        template_vm = kwargs["template_vm"]
-        assert template_vm is not None, "Missing template_vm for DisposableVM!"
-
-        self.dispid = kwargs.pop("dispid")
-
         super(QubesDisposableVm, self).__init__(dir_path="/nonexistent", **kwargs)
+
+        assert self.template_vm is not None, "Missing template_vm for DisposableVM!"
 
         # Use DispVM icon with the same color
         if self._label:
@@ -2031,6 +2028,7 @@ class QubesDisposableVm(QubesVm):
 
 
     def get_xml_attrs(self):
+        # Minimal set - do not inherit rest of attributes
         attrs = {}
         attrs["qid"] = str(self.qid)
         attrs["name"] = self.name
@@ -2048,12 +2046,11 @@ class QubesAppVm(QubesVm):
     """
     A class that represents an AppVM. A child of QubesVm.
     """
-    def __init__(self, **kwargs):
+    def _get_attrs_config(self):
+        attrs_config = super(QubesAppVm, self)._get_attrs_config()
+        attrs_config['dir_path']['eval'] = 'value if value is not None else qubes_appvms_dir + "/" + self.name'
 
-        if "dir_path" not in kwargs or kwargs["dir_path"] is None:
-            kwargs["dir_path"] = qubes_appvms_dir + "/" + kwargs["name"]
-
-        super(QubesAppVm, self).__init__(**kwargs)
+        return attrs_config
 
     @property
     def type(self):
