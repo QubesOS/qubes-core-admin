@@ -48,7 +48,7 @@ if [ "${ip}" ] ; then
 		${cmdprefix} ip route ${ipcmd} ${addr} dev ${vif} || true
 	done
 		echo ${cmdprefix} iptables -t raw $iptables_cmd -i ${vif} \! -s ${ip} -j DROP
-		${cmdprefix} iptables $iptables_cmd -i ${vif} \! -s ${ip} -j DROP
+		${cmdprefix} iptables -t raw $iptables_cmd -i ${vif} \! -s ${ip} -j DROP
 fi
 
 log debug "Successful vif-route-qubes $command for $vif."
