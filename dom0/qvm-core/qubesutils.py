@@ -136,7 +136,8 @@ def block_name_to_majorminor(name):
         disk = False
         major = 11
     else:
-        raise QubesException("Unknown device type %s" % name_match.group(1))
+        # Unknown device
+        return (0, 0)
 
     if disk:
         minor = (ord(name_match.group(2))-ord('a')) * 16
@@ -210,6 +211,10 @@ def block_list(vm = None):
                 continue
             if not mode_re.match(device_mode):
                 print >> sys.stderr, "Invalid %s device mode in VM '%s'" % (device, vm_name)
+                continue
+            # Check if we know major number for this device; attach will work without this, but detach and check_attached don't
+            if block_name_to_majorminor(device) == (0, 0):
+                print >> sys.stderr, "Unsupported device %s:%s" % (vm_name, device)
                 continue
             visible_name = "%s:%s" % (vm_name, device)
             devices_list[visible_name] = {"name": visible_name, "xid":int(xid),
