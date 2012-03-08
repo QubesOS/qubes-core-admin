@@ -63,13 +63,13 @@ def vm_run_cmd(vm, cmd, options):
     if options.pause:
         if options.verbose:
             print >> sys.stderr, "Pausing VM: '{0}'...".format(vm.name)
-        subprocess.call (["/usr/sbin/xl", "pause", vm.name])
+        vm.pause()
         return
 
     if options.unpause:
         if options.verbose:
             print >> sys.stderr, "UnPausing VM: '{0}'...".format(vm.name)
-        subprocess.call (["/usr/sbin/xl", "unpause", vm.name])
+        vm.unpause()
         return
 
     if options.verbose:
