@@ -2095,6 +2095,22 @@ class QubesHVm(QubesVm):
 
     # FIXME: logically should inherit after QubesAppVm, but none of its methods
     # are useful for HVM
+
+    def _get_attrs_config(self):
+        attrs = super(QubesHVm, self)._get_attrs_config()
+        attrs.pop('kernel')
+        attrs.pop('kernels_dir')
+        attrs.pop('kernelopts')
+        attrs.pop('uses_default_kernel')
+        attrs.pop('uses_default_kernelopts')
+        attrs['private_img']['eval'] = 'None'
+        attrs['volatile_img']['eval'] = 'None'
+        attrs['config_file_template']['eval'] = 'config_template_hvm'
+        attrs['drive'] = { 'save': 'str(self.drive)' }
+        attrs['maxmem'].pop('save')
+
+        return attrs
+
     def __init__(self, **kwargs):
 
         if "dir_path" not in kwargs or kwargs["dir_path"] is None:
@@ -2107,21 +2123,9 @@ class QubesHVm(QubesVm):
             kwargs["memory"] = default_hvm_memory
 
         super(QubesHVm, self).__init__(**kwargs)
-        self.updateable = True
         self.config_file_template = config_template_hvm
-        self.private_img = None
-        self.volatile_img = None
-        # remove settings not used by HVM (at least for now)
-        self.__delattr__('kernel')
-        self.__delattr__('kernelopts')
-        self.__delattr__('uses_default_kernel')
-        self.__delattr__('uses_default_kernelopts')
         # HVM doesn't support dynamic memory management
         self.maxmem = self.memory
-
-        self.drive = None
-        if 'drive' in kwargs.keys():
-            self.drive = kwargs['drive']
 
     @property
     def type(self):
@@ -2129,15 +2133,6 @@ class QubesHVm(QubesVm):
 
     def is_appvm(self):
         return True
-
-    def get_clone_attrs(self):
-        attrs = super(QubesHVm, self).get_clone_attrs()
-        attrs.remove('kernel')
-        attrs.remove('uses_default_kernel')
-        attrs.remove('kernelopts')
-        attrs.remove('uses_default_kernelopts')
-        attrs.remove('maxmem')
-        return attrs
 
     def create_on_disk(self, verbose, source_template = None):
         if dry_run:
