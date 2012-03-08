@@ -1420,6 +1420,18 @@ class QubesVm(object):
         subprocess.call (['/usr/sbin/xl', 'destroy', self.name])
         #xc.domain_destroy(self.get_xid())
 
+    def pause(self):
+        if dry_run:
+            return
+
+        xc.domain_pause(self.get_xid())
+
+    def unpause(self):
+        if dry_run:
+            return
+
+        xc.domain_unpause(self.get_xid())
+
     def remove_from_disk(self):
         if dry_run:
             return
