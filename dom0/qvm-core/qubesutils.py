@@ -135,6 +135,9 @@ def block_name_to_majorminor(name):
     elif name.startswith("sr"):
         disk = False
         major = 11
+    elif name.startswith("md"):
+        disk = False
+        major = 9
     else:
         # Unknown device
         return (0, 0)
