@@ -2247,6 +2247,20 @@ class QubesHVm(QubesVm):
     def start_qrexec_daemon(self, **kwargs):
         pass
 
+    def pause(self):
+        if dry_run:
+            return
+
+        xc.domain_pause(self.stubdom_xid)
+        super(QubesHVm, self).pause()
+
+    def unpause(self):
+        if dry_run:
+            return
+
+        xc.domain_unpause(self.stubdom_xid)
+        super(QubesHVm, self).unpause()
+
     def get_xml_attrs(self):
         attrs = super(QubesHVm, self).get_xml_attrs()
         attrs["drive"] = str(self.drive)
