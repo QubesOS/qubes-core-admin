@@ -29,7 +29,7 @@ case "$command" in
 	online)
 		ifconfig ${vif} up
 		echo 1 >/proc/sys/net/ipv4/conf/${vif}/proxy_arp
-		ipcmd='replace'
+		ipcmd='add'
 		iptables_cmd='-I PREROUTING 1'
 		cmdprefix=''
 		;;
@@ -41,14 +41,20 @@ case "$command" in
 		;;
 esac
 
+domid=${vif/vif/}
+domid=${domid/.*/}
+# metric must be possitive, but prefer later interface
+#  32752 is max XID aka domid
+metric=$[ 32752 - $domid ]
+
 if [ "${ip}" ] ; then
 	# If we've been given a list of IP addresses, then add routes from dom0 to
 	# the guest using those addresses.
 	for addr in ${ip} ; do
-		${cmdprefix} ip route ${ipcmd} ${addr} dev ${vif} || true
+		${cmdprefix} ip route ${ipcmd} ${addr} dev ${vif} metric $metric
 	done
 		echo ${cmdprefix} iptables -t raw $iptables_cmd -i ${vif} \! -s ${ip} -j DROP
-		${cmdprefix} iptables $iptables_cmd -i ${vif} \! -s ${ip} -j DROP
+		${cmdprefix} iptables -t raw $iptables_cmd -i ${vif} \! -s ${ip} -j DROP
 fi
 
 log debug "Successful vif-route-qubes $command for $vif."

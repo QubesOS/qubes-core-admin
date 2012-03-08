@@ -186,6 +186,17 @@ QubesVmLabels = {
     "black" : QubesVmLabel ("black", 8),
 }
 
+QubesDispVmLabels = {
+    "red" : QubesVmLabel ("red", 1, icon="dispvm-red"),
+    "orange" : QubesVmLabel ("orange", 2, icon="dispvm-orange"),
+    "yellow" : QubesVmLabel ("yellow", 3, icon="dispvm-yellow"),
+    "green" : QubesVmLabel ("green", 4, color="0x5fa05e", icon="dispvm-green"),
+    "gray" : QubesVmLabel ("gray", 5, icon="dispvm-gray"),
+    "blue" : QubesVmLabel ("blue", 6, icon="dispvm-blue"),
+    "purple" : QubesVmLabel ("purple", 7, color="0xb83374", icon="dispvm-purple"),
+    "black" : QubesVmLabel ("black", 8, icon="dispvm-black"),
+}
+
 default_appvm_label = QubesVmLabels["red"]
 default_template_label = QubesVmLabels["gray"]
 default_servicevm_label = QubesVmLabels["red"]
@@ -198,140 +209,141 @@ class QubesVm(object):
     Note that qid is not the same as Xen's domid!
     """
 
-    def __init__(self, qid, name,
-                 dir_path, conf_file = None,
-                 uses_default_netvm = True,
-                 netvm = None,
-                 installed_by_rpm = False,
-                 updateable = False,
-                 label = None,
-                 root_img = None,
-                 private_img = None,
-                 memory = default_memory,
-                 maxmem = None,
-                 template_vm = None,
-                 firewall_conf = None,
-                 volatile_img = None,
-                 pcidevs = None,
-                 internal = False,
-                 vcpus = None,
-                 kernel = None,
-                 uses_default_kernel = True,
-                 kernelopts = "",
-                 uses_default_kernelopts = True,
-                 mac = None,
-                 services = None):
+    def _get_attrs_config(self):
+        """ Object attributes for serialization/deserialization
+            inner dict keys:
+             - order: initialization order (to keep dependency intact)
+                      attrs without order will be evaluated at the end
+             - default: default value used when attr not given to object constructor
+             - attr: set value to this attribute instead of parameter name
+             - eval: assign result of this expression instead of value directly;
+                     local variable 'value' contains attribute value (or default if it was not given)
+             - save: use evaluation result as value for XML serialization; only attrs with 'save' key will be saved in XML
+             - save_skip: if present and evaluates to true, attr will be omitted in XML
+             - save_attr: save to this XML attribute instead of parameter name
+             """
 
+        attrs = {
+            # __qid cannot be accessed by setattr, so must be set manually in __init__
+            "qid": { "attr": "_qid", "order": 0 },
+            "name": { "order": 1 },
+            "dir_path": { "default": None, "order": 2 },
+            "conf_file": { "eval": 'self.absolute_path(value, self.name + ".conf")', 'order': 3 },
+            # order >= 10: have base attrs set
+            "root_img": { "eval": 'self.absolute_path(value, default_root_img)', 'order': 10 },
+            "private_img": { "eval": 'self.absolute_path(value, default_private_img)', 'order': 10 },
+            "volatile_img": { "eval": 'self.absolute_path(value, default_volatile_img)', 'order': 10 },
+            "firewall_conf": { "eval": 'self.absolute_path(value, default_firewall_conf_file)', 'order': 10 },
+            "installed_by_rpm": { "default": False, 'order': 10 },
+            "updateable": { "default": False, 'order': 10 },
+            "template_vm": { "default": None, 'order': 10 },
+            # order >= 20: have template set
+            "uses_default_netvm": { "default": True, 'order': 20 },
+            "netvm": { "default": None, 'order': 20 },
+            "label": { "attr": "_label", "default": QubesVmLabels["red"], 'order': 20 },
+            "memory": { "default": default_memory, 'order': 20 },
+            "maxmem": { "default": None, 'order': 25 },
+            "pcidevs": { "default": '[]', 'order': 25, "eval": \
+                '[] if value in ["none", None] else eval(value) if value.find("[") >= 0 else eval("[" + value + "]")'  },
+            # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
+            "internal": { "default": False },
+            "vcpus": { "default": None },
+            "kernel": { "default": None, 'eval': \
+                'self.template_vm.kernel if self.template_vm is not None else value' },
+            "uses_default_kernel": { "default": True },
+            "uses_default_kernelopts": { "default": True },
+            "kernelopts": { "default": "", "eval": \
+                'value if not self.uses_default_kernelopts else default_kernelopts_pcidevs if len(self.pcidevs) > 0 else default_kernelopts' },
+            "mac": { "attr": "_mac", "default": None },
+            "include_in_backups": { "default": True },
+            "services": { "default": {}, "eval": "eval(str(value))" },
+            ##### Internal attributes - will be overriden in __init__ regardless of args
+            "appmenus_templates_dir": { "eval": \
+                'self.dir_path + "/" + default_appmenus_templates_subdir if self.updateable else ' + \
+                'self.template_vm.appmenus_templates_dir if self.template_vm is not None else None' },
+            "config_file_template": { "eval": "config_template_pv" },
+            "icon_path": { "eval": 'self.dir_path + "/icon.png" if self.dir_path is not None else None' },
+            "kernels_dir": { 'eval': 'self.template_vm.kernels_dir if self.template_vm is not None else ' + \
+                'qubes_kernels_base_dir + "/" + self.kernel if self.kernel is not None else ' + \
+                # for backward compatibility (or another rare case): kernel=None -> kernel in VM dir
+                'self.dir_path + "/" + default_kernels_subdir' },
+            }
 
-        assert qid < qubes_max_qid, "VM id out of bounds!"
-        self.__qid = qid
-        self.name = name
+        ### Mark attrs for XML inclusion
+        # Simple string attrs
+        for prop in ['qid', 'name', 'dir_path', 'memory', 'maxmem', 'pcidevs', 'vcpus', 'internal',\
+            'uses_default_kernel', 'kernel', 'uses_default_kernelopts',\
+            'kernelopts', 'services', 'updateable', 'installed_by_rpm',\
+            'uses_default_netvm', 'include_in_backups' ]:
+            attrs[prop]['save'] = 'str(self.%s)' % prop
+        # Simple paths
+        for prop in ['conf_file', 'root_img', 'volatile_img', 'private_img']:
+            attrs[prop]['save'] = 'self.relative_path(self.%s)' % prop
+            attrs[prop]['save_skip'] = 'self.%s is None' % prop
 
-        self.dir_path = dir_path
+        attrs['mac']['save'] = 'str(self._mac)'
+        attrs['mac']['save_skip'] = 'self._mac is None'
 
-        self.conf_file = self.absolute_path(conf_file, name + ".conf")
+        attrs['netvm']['save'] = 'str(self.netvm.qid) if self.netvm is not None else "none"'
+        attrs['netvm']['save_attr'] = "netvm_qid"
+        attrs['template_vm']['save'] = 'str(self.template_vm.qid) if self.template_vm and not self.is_updateable() else "none"'
+        attrs['template_vm']['save_attr'] = "template_qid"
+        attrs['label']['save'] = 'self.label.name'
 
-        self.uses_default_netvm = uses_default_netvm
-        self.netvm = netvm
-        if netvm is not None:
-            netvm.connected_vms[qid] = self
+        return attrs
 
-        self._mac = mac
+    def __init__(self, **kwargs):
 
-        # We use it in remove from disk to avoid removing rpm files (for templates)
-        self.installed_by_rpm = installed_by_rpm
+        attrs = self._get_attrs_config()
+        for attr_name in sorted(attrs, key=lambda _x: attrs[_x]['order'] if 'order' in attrs[_x] else 1000):
+            attr_config = attrs[attr_name]
+            attr = attr_name
+            if 'attr' in attr_config:
+                attr = attr_config['attr']
+            value = None
+            if attr_name not in kwargs:
+                if 'default' in attr_config:
+                    value = attr_config['default']
+            else:
+                value = kwargs[attr_name]
+            if 'eval' in attr_config:
+                setattr(self, attr, eval(attr_config['eval']))
+            else:
+                #print "setting %s to %s" % (attr, value)
+                setattr(self, attr, value)
 
-        # Setup standard VM storage; some VM types may not use them all
-        self.root_img = self.absolute_path(root_img, default_root_img)
+        #Init private attrs
+        self.__qid = self._qid
 
-        self.volatile_img = self.absolute_path(volatile_img, default_volatile_img)
+        assert self.__qid < qubes_max_qid, "VM id out of bounds!"
+        assert self.name is not None
 
-        self.private_img = self.absolute_path(private_img, default_private_img)
+        if self.netvm is not None:
+            self.netvm.connected_vms[self.qid] = self
 
-        self.firewall_conf = self.absolute_path(firewall_conf, default_firewall_conf_file)
-
-        self.config_file_template = config_template_pv
-
-        self.updateable = updateable
-        self._label = label if label is not None else QubesVmLabels["red"]
-        if self.dir_path is not None:
-            self.icon_path = self.dir_path + "/icon.png"
-        else:
-            self.icon_path = None
-
-        # PCI devices - used only by NetVM
-        if pcidevs is None or pcidevs == "none":
-            self.pcidevs = []
-        elif pcidevs.find('[') < 0:
-            # Backward compatibility
-            self.pcidevs = eval('[' + pcidevs + ']')
-        else:
-            self.pcidevs  = eval(pcidevs)
-
-        self.memory = memory
-
-        if maxmem is None:
-            host = QubesHost()
-            total_mem_mb = host.memory_total/1024
+        # Not in generic way to not create QubesHost() to frequently
+        if self.maxmem is None:
+            qubes_host = QubesHost()
+            total_mem_mb = qubes_host.memory_total/1024
             self.maxmem = total_mem_mb/2
-        else:
-            self.maxmem = maxmem
-
-        self.template_vm = template_vm
-        if template_vm is not None:
-            if updateable:
-                print >> sys.stderr, "ERROR: Template based VM cannot be updateable!"
-                return False
-            if not template_vm.is_template():
-                print >> sys.stderr, "ERROR: template_qid={0} doesn't point to a valid TemplateVM".\
-                    format(template_vm.qid)
-                return False
-
-            template_vm.appvms[qid] = self
-        else:
-            assert self.root_img is not None, "Missing root_img for standalone VM!"
-
-        self.kernel = kernel
-
-        if template_vm is not None:
-            self.kernels_dir = template_vm.kernels_dir
-            self.kernel = template_vm.kernel
-        elif self.kernel is not None:
-            self.kernels_dir = qubes_kernels_base_dir + "/" + self.kernel
-        else:
-            # for backward compatibility (or another rare case): kernel=None -> kernel in VM dir
-            self.kernels_dir = self.dir_path + "/" + default_kernels_subdir
-
-        self.uses_default_kernel = uses_default_kernel
-
-        self.appmenus_templates_dir = None
-        if updateable:
-            self.appmenus_templates_dir = self.dir_path + "/" + default_appmenus_templates_subdir
-        elif template_vm is not None:
-            self.appmenus_templates_dir = template_vm.appmenus_templates_dir
 
         # By default allow use all VCPUs
-        if vcpus is None:
+        if self.vcpus is None:
             qubes_host = QubesHost()
             self.vcpus = qubes_host.no_cpus
+
+        # Some additional checks for template based VM
+        if self.template_vm is not None:
+            if self.updateable:
+                print >> sys.stderr, "ERROR: Template based VM cannot be updateable!"
+                return False
+            if not self.template_vm.is_template():
+                print >> sys.stderr, "ERROR: template_qid={0} doesn't point to a valid TemplateVM".\
+                    format(self.template_vm.qid)
+                return False
+            self.template_vm.appvms[self.qid] = self
         else:
-            self.vcpus = vcpus
-
-        self.uses_default_kernelopts = uses_default_kernelopts
-        if self.uses_default_kernelopts:
-            if len(self.pcidevs) > 0:
-                self.kernelopts = default_kernelopts_pcidevs
-            else:
-                self.kernelopts = default_kernelopts
-        else:
-            self.kernelopts = kernelopts
-
-        self.services = {}
-        if services is not None:
-            self.services = eval(str(services))
-
-        # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
-        self.internal = internal
+            assert self.root_img is not None, "Missing root_img for standalone VM!"
 
         self.xid = -1
         self.xid = self.get_xid()
@@ -482,7 +494,7 @@ class QubesVm(object):
             self.appmenus_templates_dir = self.appmenus_templates_dir.replace(old_dirpath, new_dirpath)
         if self.icon_path is not None:
             self.icon_path = self.icon_path.replace(old_dirpath, new_dirpath)
-        if self.kernels_dir is not None:
+        if hasattr(self, 'kernels_dir') and self.kernels_dir is not None:
             self.kernels_dir = self.kernels_dir.replace(old_dirpath, new_dirpath)
 
         self.post_rename(old_name)
@@ -1408,6 +1420,18 @@ class QubesVm(object):
         subprocess.call (['/usr/sbin/xl', 'destroy', self.name])
         #xc.domain_destroy(self.get_xid())
 
+    def pause(self):
+        if dry_run:
+            return
+
+        xc.domain_pause(self.get_xid())
+
+    def unpause(self):
+        if dry_run:
+            return
+
+        xc.domain_unpause(self.get_xid())
+
     def remove_from_disk(self):
         if dry_run:
             return
@@ -1417,25 +1441,16 @@ class QubesVm(object):
 
     def get_xml_attrs(self):
         attrs = {}
-        attrs["qid"]  = str(self.qid)
-        attrs["name"] = self.name
-        attrs["dir_path"] = self.dir_path
-        # Simple paths
-        for prop in ['conf_file', 'root_img', 'volatile_img', 'private_img']:
-            if hasattr(self, prop) and self.__getattribute__(prop) is not None:
-                attrs[prop] = self.relative_path(self.__getattribute__(prop))
-        # Simple string attrs
-        for prop in ['memory', 'maxmem', 'pcidevs', 'vcpus', 'internal',\
-            'uses_default_kernel', 'kernel', 'uses_default_kernelopts',\
-            'kernelopts', 'services', 'updateable', 'installed_by_rpm',\
-            'uses_default_netvm' ]:
-            if hasattr(self, prop):
-                attrs[prop] = str(self.__getattribute__(prop))
-        if self._mac is not None:
-            attrs["mac"] = str(self._mac)
-        attrs["netvm_qid"] = str(self.netvm.qid) if self.netvm is not None else "none"
-        attrs["template_qid"] = str(self.template_vm.qid) if self.template_vm and not self.is_updateable() else "none"
-        attrs["label"] = self.label.name
+        attrs_config = self._get_attrs_config()
+        for attr in attrs_config:
+            attr_config = attrs_config[attr]
+            if 'save' in attr_config:
+                if 'save_skip' in attr_config and eval(attr_config['save_skip']):
+                    continue
+                if 'save_attr' in attr_config:
+                    attrs[attr_config['save_attr']] = eval(attr_config['save'])
+                else:
+                    attrs[attr] = eval(attr_config['save'])
         return attrs
 
     def create_xml_element(self):
@@ -1453,28 +1468,27 @@ class QubesTemplateVm(QubesVm):
     """
     A class that represents an TemplateVM. A child of QubesVm.
     """
+
+    def _get_attrs_config(self):
+        attrs_config = super(QubesTemplateVm, self)._get_attrs_config()
+        attrs_config['dir_path']['eval'] = 'value if value is not None else qubes_templates_dir + "/" + self.name'
+        attrs_config['updateable']['default'] = True
+        attrs_config['label']['default'] = default_template_label
+
+        # New attributes
+
+        # Image for template changes
+        attrs_config['rootcow_img'] = { 'eval': 'self.dir_path + "/" + default_rootcow_img' }
+        # Clean image for root-cow and swap (AppVM side)
+        attrs_config['clean_volatile_img'] = { 'eval': 'self.dir_path + "/" + default_clean_volatile_img' }
+
+        attrs_config['appmenus_templates_dir'] = { 'eval': 'self.dir_path + "/" + default_appmenus_templates_subdir' }
+        return attrs_config
+
     def __init__(self, **kwargs):
-
-        if "dir_path" not in kwargs or kwargs["dir_path"] is None:
-            kwargs["dir_path"] = qubes_templates_dir + "/" + kwargs["name"]
-
-        if "updateable" not in kwargs or kwargs["updateable"] is None :
-            kwargs["updateable"] = True
-
-        if "label" not in kwargs or kwargs["label"] == None:
-            kwargs["label"] = default_template_label
 
         super(QubesTemplateVm, self).__init__(**kwargs)
 
-        dir_path = kwargs["dir_path"]
-
-        # Clean image for root-cow and swap (AppVM side)
-        self.clean_volatile_img = self.dir_path + "/" + default_clean_volatile_img
-
-        # Image for template changes
-        self.rootcow_img = self.dir_path + "/" + default_rootcow_img
-
-        self.appmenus_templates_dir = self.dir_path + "/" + default_appmenus_templates_subdir
         self.appvms = QubesVmCollection()
 
     @property
@@ -1649,43 +1663,39 @@ class QubesTemplateVm(QubesVm):
         f_cow.close ()
         f_root.close()
 
-    def get_xml_attrs(self):
-        attrs = super(QubesTemplateVm, self).get_xml_attrs()
-        attrs["clean_volatile_img"] = self.clean_volatile_img
-        attrs["rootcow_img"] = self.rootcow_img
-        return attrs
-
 class QubesNetVm(QubesVm):
     """
     A class that represents a NetVM. A child of QubesCowVM.
     """
+    def _get_attrs_config(self):
+        attrs_config = super(QubesNetVm, self)._get_attrs_config()
+        attrs_config['dir_path']['eval'] = 'value if value is not None else qubes_servicevms_dir + "/" + self.name'
+        attrs_config['label']['default'] = default_servicevm_label
+        attrs_config['vcpus']['default'] = default_servicevm_vcpus
+        attrs_config['memory']['default'] = 200
+        attrs_config['maxmem']['eval'] = 'self.memory'
+        
+        # New attributes
+        attrs_config['netid'] = { 'save': 'str(self.netid)', 'order': 30 }
+        attrs_config['netprefix'] = { 'eval': '"10.137.{0}.".format(self.netid)' }
+        attrs_config['dispnetprefix'] = { 'eval': '"10.138.{0}.".format(self.netid)' }
+
+        # Dont save netvm prop
+        attrs_config['netvm'].pop('save')
+        attrs_config['uses_default_netvm'].pop('save')
+
+        return attrs_config
+
     def __init__(self, **kwargs):
-        netid = kwargs.pop("netid")
-        self.netid = netid
-        self.__network = "10.137.{0}.0".format(netid)
-        self.netprefix = "10.137.{0}.".format(netid)
-        self.dispnetprefix = "10.138.{0}.".format(netid)
+        super(QubesNetVm, self).__init__(**kwargs)
+        self.connected_vms = QubesVmCollection()
+
+        self.__network = "10.137.{0}.0".format(self.netid)
         self.__netmask = vm_default_netmask
         self.__gateway = self.netprefix + "1"
         self.__secondary_dns = self.netprefix + "254"
 
-        if "dir_path" not in kwargs or kwargs["dir_path"] is None:
-            kwargs["dir_path"] = qubes_servicevms_dir + "/" + kwargs["name"]
         self.__external_ip_allowed_xids = set()
-
-        if "label" not in kwargs or kwargs["label"] is None:
-            kwargs["label"] = default_servicevm_label
-
-        if "vcpus" not in kwargs or kwargs["vcpus"] is None:
-            kwargs["vcpus"] = default_servicevm_vcpus
-
-        if "memory" not in kwargs or kwargs["memory"] is None:
-            kwargs["memory"] = 200
-
-        kwargs["maxmem"] = kwargs["memory"]
-
-        super(QubesNetVm, self).__init__(**kwargs)
-        self.connected_vms = QubesVmCollection()
 
     @property
     def type(self):
@@ -1794,19 +1804,20 @@ class QubesNetVm(QubesVm):
         self.__external_ip_allowed_xids.discard(int(xid))
         self.update_external_ip_permissions()
 
-    def get_xml_attrs(self):
-        attrs = super(QubesNetVm, self).get_xml_attrs()
-        attrs.pop("netvm_qid")
-        attrs.pop("uses_default_netvm")
-        attrs["netid"] = str(self.netid)
-        return attrs
-
 class QubesProxyVm(QubesNetVm):
     """
     A class that represents a ProxyVM, ex FirewallVM. A child of QubesNetVM.
     """
+
+    def _get_attrs_config(self):
+        attrs_config = super(QubesProxyVm, self)._get_attrs_config()
+        attrs_config['uses_default_netvm']['eval'] = 'False'
+        # Save netvm prop again
+        attrs_config['netvm']['save'] = 'str(self.netvm.qid) if self.netvm is not None else "none"'
+
+        return attrs_config
+
     def __init__(self, **kwargs):
-        kwargs["uses_default_netvm"] = False
         super(QubesProxyVm, self).__init__(**kwargs)
         self.rules_applied = None
 
@@ -1884,12 +1895,12 @@ class QubesProxyVm(QubesNetVm):
             if xid < 0: # VM not active ATM
                 continue
 
-            vif = vm.vif
-            if vif is None:
+            ip = vm.ip
+            if ip is None:
                 continue
 
             iptables += "# '{0}' VM:\n".format(vm.name)
-            iptables += "-A FORWARD ! -s {0}/32 -i {1} -j DROP\n".format(vm.ip, vif)
+            # Anti-spoof rules are added by vif-script (vif-route-qubes), here we trust IP address
 
             accept_action = "ACCEPT"
             reject_action = "REJECT --reject-with icmp-host-prohibited"
@@ -1902,7 +1913,7 @@ class QubesProxyVm(QubesNetVm):
                 rules_action = accept_action
 
             for rule in conf["rules"]:
-                iptables += "-A FORWARD -i {0} -d {1}".format(vif, rule["address"])
+                iptables += "-A FORWARD -s {0} -d {1}".format(ip, rule["address"])
                 if rule["netmask"] != 32:
                     iptables += "/{0}".format(rule["netmask"])
 
@@ -1917,12 +1928,12 @@ class QubesProxyVm(QubesNetVm):
 
             if conf["allowDns"]:
                 # PREROUTING does DNAT to NetVM DNSes, so we need self.netvm. properties
-                iptables += "-A FORWARD -i {0} -p udp -d {1} --dport 53 -j ACCEPT\n".format(vif,self.netvm.gateway)
-                iptables += "-A FORWARD -i {0} -p udp -d {1} --dport 53 -j ACCEPT\n".format(vif,self.netvm.secondary_dns)
+                iptables += "-A FORWARD -s {0} -p udp -d {1} --dport 53 -j ACCEPT\n".format(ip,self.netvm.gateway)
+                iptables += "-A FORWARD -s {0} -p udp -d {1} --dport 53 -j ACCEPT\n".format(ip,self.netvm.secondary_dns)
             if conf["allowIcmp"]:
-                iptables += "-A FORWARD -i {0} -p icmp -j ACCEPT\n".format(vif)
+                iptables += "-A FORWARD -s {0} -p icmp -j ACCEPT\n".format(ip)
 
-            iptables += "-A FORWARD -i {0} -j {1}\n".format(vif, default_action)
+            iptables += "-A FORWARD -s {0} -j {1}\n".format(ip, default_action)
             iptables += "COMMIT\n"
             xs.write('', "/local/domain/"+str(self.get_xid())+"/qubes_iptables_domainrules/"+str(xid), iptables)
         # no need for ending -A FORWARD -j DROP, cause default action is DROP
@@ -1931,11 +1942,6 @@ class QubesProxyVm(QubesNetVm):
 
         self.rules_applied = None
         xs.write('', "/local/domain/{0}/qubes_iptables".format(self.get_xid()), 'reload')
-
-    def get_xml_attrs(self):
-        attrs = super(QubesProxyVm, self).get_xml_attrs()
-        attrs["netvm_qid"] = str(self.netvm.qid) if self.netvm is not None else "none"
-        return attrs
 
 class QubesDom0NetVm(QubesNetVm):
     def __init__(self):
@@ -2001,14 +2007,25 @@ class QubesDisposableVm(QubesVm):
     """
     A class that represents an DisposableVM. A child of QubesVm.
     """
+
+    def _get_attrs_config(self):
+        attrs_config = super(QubesDisposableVm, self)._get_attrs_config()
+
+        # New attributes
+        attrs_config['dispid'] = { 'save': 'str(self.dispid)' }
+
+        return attrs_config
+
     def __init__(self, **kwargs):
 
-        template_vm = kwargs["template_vm"]
-        assert template_vm is not None, "Missing template_vm for DisposableVM!"
-
-        self.dispid = kwargs.pop("dispid")
-
         super(QubesDisposableVm, self).__init__(dir_path="/nonexistent", **kwargs)
+
+        assert self.template_vm is not None, "Missing template_vm for DisposableVM!"
+
+        # Use DispVM icon with the same color
+        if self._label:
+            self._label = QubesDispVmLabels[self._label.name]
+            self.icon_path = self._label.icon_path
 
     @property
     def type(self):
@@ -2023,6 +2040,7 @@ class QubesDisposableVm(QubesVm):
 
 
     def get_xml_attrs(self):
+        # Minimal set - do not inherit rest of attributes
         attrs = {}
         attrs["qid"] = str(self.qid)
         attrs["name"] = self.name
@@ -2040,12 +2058,11 @@ class QubesAppVm(QubesVm):
     """
     A class that represents an AppVM. A child of QubesVm.
     """
-    def __init__(self, **kwargs):
+    def _get_attrs_config(self):
+        attrs_config = super(QubesAppVm, self)._get_attrs_config()
+        attrs_config['dir_path']['eval'] = 'value if value is not None else qubes_appvms_dir + "/" + self.name'
 
-        if "dir_path" not in kwargs or kwargs["dir_path"] is None:
-            kwargs["dir_path"] = qubes_appvms_dir + "/" + kwargs["name"]
-
-        super(QubesAppVm, self).__init__(**kwargs)
+        return attrs_config
 
     @property
     def type(self):
@@ -2090,6 +2107,22 @@ class QubesHVm(QubesVm):
 
     # FIXME: logically should inherit after QubesAppVm, but none of its methods
     # are useful for HVM
+
+    def _get_attrs_config(self):
+        attrs = super(QubesHVm, self)._get_attrs_config()
+        attrs.pop('kernel')
+        attrs.pop('kernels_dir')
+        attrs.pop('kernelopts')
+        attrs.pop('uses_default_kernel')
+        attrs.pop('uses_default_kernelopts')
+        attrs['private_img']['eval'] = 'None'
+        attrs['volatile_img']['eval'] = 'None'
+        attrs['config_file_template']['eval'] = 'config_template_hvm'
+        attrs['drive'] = { 'save': 'str(self.drive)' }
+        attrs['maxmem'].pop('save')
+
+        return attrs
+
     def __init__(self, **kwargs):
 
         if "dir_path" not in kwargs or kwargs["dir_path"] is None:
@@ -2102,21 +2135,9 @@ class QubesHVm(QubesVm):
             kwargs["memory"] = default_hvm_memory
 
         super(QubesHVm, self).__init__(**kwargs)
-        self.updateable = True
         self.config_file_template = config_template_hvm
-        self.private_img = None
-        self.volatile_img = None
-        # remove settings not used by HVM (at least for now)
-        self.__delattr__('kernel')
-        self.__delattr__('kernelopts')
-        self.__delattr__('uses_default_kernel')
-        self.__delattr__('uses_default_kernelopts')
         # HVM doesn't support dynamic memory management
         self.maxmem = self.memory
-
-        self.drive = None
-        if 'drive' in kwargs.keys():
-            self.drive = kwargs['drive']
 
     @property
     def type(self):
@@ -2124,15 +2145,6 @@ class QubesHVm(QubesVm):
 
     def is_appvm(self):
         return True
-
-    def get_clone_attrs(self):
-        attrs = super(QubesHVm, self).get_clone_attrs()
-        attrs.remove('kernel')
-        attrs.remove('uses_default_kernel')
-        attrs.remove('kernelopts')
-        attrs.remove('uses_default_kernelopts')
-        attrs.remove('maxmem')
-        return attrs
 
     def create_on_disk(self, verbose, source_template = None):
         if dry_run:
@@ -2234,6 +2246,20 @@ class QubesHVm(QubesVm):
 
     def start_qrexec_daemon(self, **kwargs):
         pass
+
+    def pause(self):
+        if dry_run:
+            return
+
+        xc.domain_pause(self.stubdom_xid)
+        super(QubesHVm, self).pause()
+
+    def unpause(self):
+        if dry_run:
+            return
+
+        xc.domain_unpause(self.stubdom_xid)
+        super(QubesHVm, self).unpause()
 
     def get_xml_attrs(self):
         attrs = super(QubesHVm, self).get_xml_attrs()
@@ -2608,7 +2634,7 @@ class QubesVmCollection(dict):
                 "installed_by_rpm", "updateable", "internal",
                 "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
                 "maxmem", "kernel", "uses_default_kernel", "kernelopts", "uses_default_kernelopts",
-                "mac", "services" )
+                "mac", "services", "include_in_backups" )
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)
@@ -2618,6 +2644,9 @@ class QubesVmCollection(dict):
         kwargs["qid"] = int(kwargs["qid"])
         if "updateable" in kwargs:
             kwargs["updateable"] = True if kwargs["updateable"] == "True" else False
+
+        if "include_in_backups" in kwargs:
+            kwargs["include_in_backups"] = True if kwargs["include_in_backups"] == "True" else False
 
         if "installed_by_rpm" in kwargs:
             kwargs["installed_by_rpm"] = True if kwargs["installed_by_rpm"] == "True" else False
