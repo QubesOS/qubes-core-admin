@@ -239,7 +239,7 @@ class QubesVm(object):
             "template_vm": { "default": None, 'order': 10 },
             # order >= 20: have template set
             "uses_default_netvm": { "default": True, 'order': 20 },
-            "netvm": { "default": None, 'order': 20 },
+            "netvm": { "default": None, "attr": "_netvm", 'order': 20 },
             "label": { "attr": "_label", "default": QubesVmLabels["red"], 'order': 20 },
             "memory": { "default": default_memory, 'order': 20 },
             "maxmem": { "default": None, 'order': 25 },
@@ -377,6 +377,47 @@ class QubesVm(object):
             subprocess.call(['sudo', 'xdg-icon-resource', 'forceupdate'])
 
     @property
+    def netvm(self):
+        return self._netvm
+
+    # Don't know how properly call setter from base class, so workaround it...
+    @netvm.setter
+    def netvm(self, new_netvm):
+        self._set_netvm(new_netvm)
+
+    def _set_netvm(self, new_netvm):
+        if self.netvm is not None:
+            self.netvm.connected_vms.pop(self.qid)
+            if self.is_running():
+                subprocess.call(["xl", "network-detach", self.name, "0"], stderr=subprocess.PIPE)
+                if hasattr(self.netvm, 'post_vm_net_detach'):
+                    self.netvm.post_vm_net_detach(self)
+
+        if new_netvm is None:
+            # Set also firewall to block all traffic as discussed in #370
+            if os.path.exists(self.firewall_conf):
+                shutil.copy(self.firewall_conf, "%s/backup/%s-firewall-%s.xml"
+                        % (qubes_base_dir, self.name, time.strftime('%Y-%m-%d-%H:%M:%S')))
+            self.write_firewall_conf({'allow': False, 'allowDns': False,
+                    'allowIcmp': False, 'rules': []})
+        else:
+            new_netvm.connected_vms[self.qid]=self
+
+        self._netvm = new_netvm
+
+        if new_netvm is None:
+            return
+
+        if self.is_running():
+            if not new_netvm.is_running():
+                new_netvm.start()
+            # refresh IP, DNS etc
+            self.create_xenstore_entries()
+            self.attach_network()
+            if hasattr(self.netvm, 'post_vm_net_attach'):
+                self.netvm.post_vm_net_attach(self)
+
+    @property
     def ip(self):
         if self.netvm is not None:
             return self.netvm.get_ip_for_vm(self.qid)
@@ -447,22 +488,6 @@ class QubesVm(object):
 
         raise QubesException ("Change 'updateable' flag is not supported. Please use qvm-create.")
 
-
-    def set_netvm(self, netvm):
-        if self.netvm is not None:
-            self.netvm.connected_vms.pop(self.qid)
-
-        if netvm is None:
-            # Set also firewall to block all traffic as discussed in #370
-            if os.path.exists(self.firewall_conf):
-                shutil.copy(self.firewall_conf, "%s/backup/%s-firewall-%s.xml"
-                        % (qubes_base_dir, self.name, time.strftime('%Y-%m-%d-%H:%M:%S')))
-            self.write_firewall_conf({'allow': False, 'allowDns': False,
-                    'allowIcmp': False, 'rules': []})
-        else:
-            netvm.connected_vms[self.qid]=self
-
-        self.netvm = netvm
 
     def pre_rename(self, new_name):
         pass
@@ -1825,6 +1850,25 @@ class QubesProxyVm(QubesNetVm):
     def type(self):
         return "ProxyVM"
 
+    def _set_netvm(self, new_netvm):
+        old_netvm = self.netvm
+        super(QubesProxyVm, self)._set_netvm(new_netvm)
+        if self.netvm is not None:
+            self.netvm.add_external_ip_permission(self.get_xid())
+        self.write_netvm_domid_entry()
+        if old_netvm is not None:
+            old_netvm.remove_external_ip_permission(self.get_xid())
+
+    def post_vm_net_attach(self, vm):
+        """ Called after some VM net-attached to this ProxyVm """
+
+        self.write_iptables_xenstore_entry()
+
+    def post_vm_net_detach(self, vm):
+        """ Called after some VM net-detached from this ProxyVm """
+
+        self.write_iptables_xenstore_entry()
+
     def start(self, debug_console = False, verbose = False, preparing_dvm = False):
         if dry_run:
             return
@@ -2724,7 +2768,8 @@ class QubesVmCollection(dict):
                 else:
                     netvm = self[netvm_qid]
 
-        vm.netvm = netvm
+        # directly set internal attr to not call setters...
+        vm._netvm = netvm
         if netvm:
             netvm.connected_vms[vm.qid] = vm
 

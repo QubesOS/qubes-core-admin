@@ -18,14 +18,14 @@ while true; do
 		# thus, no sanitization ready
 		# but be careful when passing it to other shell scripts
 		if [[ "$UNTRUSTED_NETCFG" != "$CURR_NETCFG" ]]; then
-			/sbin/service qubes_firewall stop
-			/sbin/service qubes_firewall start
+			/sbin/service qubes-firewall stop
+			/sbin/service qubes-firewall start
 			CURR_NETCFG="$UNTRUSTED_NETCFG"
 			/usr/bin/xenstore-write qubes_netvm_external_ip "$CURR_NETCFG"
 		fi
 
-		/usr/bin/xenstore-watch-qubes /local/domain/$NET_DOMID/qubes_netvm_external_ip
+		/usr/bin/xenstore-watch -n 3 /local/domain/$NET_DOMID/qubes_netvm_external_ip qubes_netvm_domid
 	else
-		/usr/bin/xenstore-watch-qubes qubes_netvm_domid
+		/usr/bin/xenstore-watch -n 2 qubes_netvm_domid
 	fi
 done
