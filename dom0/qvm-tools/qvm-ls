@@ -130,12 +130,15 @@ def main():
         fields_to_display += ["mem"]
 
     if (options.network):
-        fields_to_display.remove ("template")
+        if 'template' in fields_to_display:
+            fields_to_display.remove ("template")
         fields_to_display += ["ip", "netmask", "gateway"]
 
     if (options.disk):
-        fields_to_display.remove ("template")
-        fields_to_display.remove ("netvm")
+        if 'template' in fields_to_display:
+            fields_to_display.remove ("template")
+        if 'netvm' in fields_to_display:
+            fields_to_display.remove ("netvm")
         fields_to_display += ["priv-curr", "priv-max", "root-curr", "root-max", "disk" ]
 
     
