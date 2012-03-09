@@ -24,8 +24,8 @@ while true; do
 			/usr/bin/xenstore-write qubes_netvm_external_ip "$CURR_NETCFG"
 		fi
 
-		/usr/bin/xenstore-watch -n 2 /local/domain/$NET_DOMID/qubes_netvm_external_ip qubes_netvm_domid
+		/usr/bin/xenstore-watch -n 3 /local/domain/$NET_DOMID/qubes_netvm_external_ip qubes_netvm_domid
 	else
-		/usr/bin/xenstore-watch -n 1 qubes_netvm_domid
+		/usr/bin/xenstore-watch -n 2 qubes_netvm_domid
 	fi
 done
