@@ -60,7 +60,7 @@ def main():
                                               dir_path=options.dir_path, installed_by_rpm=False)
     elif isinstance(src_vm, QubesAppVm):
         dst_vm = qvm_collection.add_new_appvm(name=dstname, template=src_vm.template,
-                                              updateable=src_vm.updateable, label=src_vm.label, 
+                                              label=src_vm.label,
                                               dir_path=options.dir_path)
     else:
         print >> sys.stderr, "ERROR: Clone not supported for this type of VM"

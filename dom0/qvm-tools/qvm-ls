@@ -44,7 +44,7 @@ fields = {
              ('Proxy' if vm.is_proxyvm() else \
              (' Net' if vm.is_netvm() else ''))"},
 
-    "updbl" : {"func": "'Yes' if vm.is_updateable() else ''"},
+    "updbl" : {"func": "'Yes' if vm.updateable else ''"},
 
     "template": {"func": "'n/a' if vm.is_template() else\
                  ('None' if vm.template is None else\

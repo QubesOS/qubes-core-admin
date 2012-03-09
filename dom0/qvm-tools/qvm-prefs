@@ -41,7 +41,7 @@ def do_list(vm):
         print fmt.format ("template", vm.template.name)
     if vm.netvm is not None:
         print fmt.format ("netvm", vm.netvm.name)
-    print fmt.format ("updateable?", vm.is_updateable())
+    print fmt.format ("updateable?", vm.updateable)
     print fmt.format ("installed by RPM?", vm.installed_by_rpm)
     print fmt.format ("include in backups", vm.include_in_backups)
     print fmt.format ("dir", vm.dir_path)
@@ -152,59 +152,6 @@ def set_netvm(vms, vm, args):
 
     vm.netvm = netvm
 
-def set_updateable(vms, vm, args):
-    if vm.is_updateable():
-        print >> sys.stderr, "VM '{0}' is already set 'updateable', no action required.".format(vm.name)
-        return True
-
-    if vm.is_running():
-        print >> sys.stderr, "Cannot change 'updateable' attribute of a running VM. Shut it down first."
-        return False
-
-    if vm.is_appvm():
-        # Check if the Template is *non* updateable...
-        if not vm.template.is_updateable():
-            print >> sys.stderr, "VM '{0}': Setting 'updateable' attribute to True.".format(vm.name)
-            vm.set_updateable()
-        else:
-            print >> sys.stderr, "The Template VM ('{0}') is marked as 'updateable' itself!".format(vm.template.name)
-            print >> sys.stderr, "Cannot make the AppVM updateable too, as this might cause COW-backed storage incoherency."
-            print >> sys.stderr, "If you want to make this AppVM updateable, you must first make the Template VM nonupdateable."
-            return False
-
-    if vm.is_template():
-        # Make sure that all the AppVMs are non-updateable...
-        for appvm in vm.appvms.values():
-            if appvm.is_updateable():
-                print >> sys.stderr, "At least one of the AppVMs ('{0}') of this Template VM is also marked 'updateable'.".format(appvm.name)
-                print >> sys.stderr, "Cannot make the Template VM updateable too, as this might cause COW-backed storage incoherency."
-                print >> sys.stderr, "If you want to make this Template VM updateable, you must first make all its decedent AppVMs nonupdateable."
-                return False
-
-
-        print >> sys.stderr, "VM '{0}': Setting 'updateable' attribute to True.".format(vm.name)
-        vm.set_updateable()
- 
-    return True
-
-def set_nonupdateable(vms, vm, args):
-    if not vm.is_updateable():
-        print >> sys.stderr, "VM '{0}' is already set 'nonupdateable', no action required.".format(vm.name)
-        return True
-
-    if vm.is_running():
-        print >> sys.stderr, "Cannot change 'updateable' attribute of a running VM. Shut it down first."
-        return False
-
-    if vm.is_netvm():
-        print >> sys.stderr, "Why, on earth, would you want to make a NetVM 'nonupdateable'?"
-        return False
-
-
-    print >> sys.stderr, "VM '{0}': Setting 'updateable' attribute to False.".format(vm.name)
-    vm.set_nonupdateable()
-    return True
-
 def set_kernel(vms, vm, args):
     if vm.template is not None:
         print >> sys.stderr, "Cannot set kernel for template-based VM. Set it for template instead."
@@ -310,8 +257,6 @@ def set_include_in_backups(vms, vm, args):
 
 properties = {
     "include_in_backups": set_include_in_backups,
-    "updateable": set_updateable,
-    "nonupdateable": set_nonupdateable,
     "pcidevs": set_pcidevs,
     "label" : set_label,
     "netvm" : set_netvm,

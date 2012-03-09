@@ -117,11 +117,11 @@ def main():
 
     vm = None
     if options.netvm:
-        vm = qvm_collection.add_new_netvm(vmname, new_vm_template, label = label, updateable = options.standalone)
+        vm = qvm_collection.add_new_netvm(vmname, new_vm_template, label = label)
     elif options.proxyvm:
-        vm = qvm_collection.add_new_proxyvm(vmname, new_vm_template, label = label, updateable = options.standalone)
+        vm = qvm_collection.add_new_proxyvm(vmname, new_vm_template, label = label)
     else:
-        vm = qvm_collection.add_new_appvm(vmname, new_vm_template, label = label, updateable = options.standalone)
+        vm = qvm_collection.add_new_appvm(vmname, new_vm_template, label = label)
 
     if options.internal:
         vm.internal = True
