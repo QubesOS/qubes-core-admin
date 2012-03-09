@@ -30,8 +30,8 @@ import sys
 fields = {
     "qid": {"func": "vm.qid"},
 
-    "name": {"func": "('=>' if qvm_collection.get_default_template_vm() is not None\
-             and vm.qid == qvm_collection.get_default_template_vm().qid else '')\
+    "name": {"func": "('=>' if qvm_collection.get_default_template() is not None\
+             and vm.qid == qvm_collection.get_default_template().qid else '')\
              + ('[' if vm.is_template() else '')\
              + ('<' if vm.is_disposablevm() else '')\
              + ('{' if vm.is_netvm() else '')\
@@ -47,8 +47,8 @@ fields = {
     "updbl" : {"func": "'Yes' if vm.is_updateable() else ''"},
 
     "template": {"func": "'n/a' if vm.is_template() else\
-                 ('None' if vm.template_vm is None else\
-                 qvm_collection[vm.template_vm.qid].name)"},
+                 ('None' if vm.template is None else\
+                 qvm_collection[vm.template.qid].name)"},
 
     "netvm": {"func": "'n/a' if vm.is_netvm() and not vm.is_proxyvm() else\
               ('*' if vm.uses_default_netvm else '') +\
@@ -149,7 +149,7 @@ def main():
 
     # Now, the AppVMs without template...
     for appvm in vms_list:
-        if appvm.is_appvm() and appvm.template_vm is None:
+        if appvm.is_appvm() and appvm.template is None:
             vms_to_display.append (appvm)
 
     # Now, the template, and all its AppVMs...
@@ -158,7 +158,7 @@ def main():
             vms_to_display.append (tvm)
             for vm in vms_list:
                 if (vm.is_appvm() or vm.is_disposablevm()) and \
-		    vm.template_vm and vm.template_vm.qid == tvm.qid:
+		    vm.template and vm.template.qid == tvm.qid:
                     vms_to_display.append(vm)
 
     assert len(vms_to_display) == no_vms

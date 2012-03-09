@@ -624,10 +624,10 @@ def backup_restore_prepare(backup_dir, options = {}, host_collection = None):
                 vms_to_restore[vm.name]['already-exists'] = True
                 vms_to_restore[vm.name]['good-to-go'] = False
 
-            if vm.template_vm is None:
+            if vm.template is None:
                 vms_to_restore[vm.name]['template'] = None
             else:
-                templatevm_name = find_template_name(vm.template_vm.name, options['replace-template'])
+                templatevm_name = find_template_name(vm.template.name, options['replace-template'])
                 vms_to_restore[vm.name]['template'] = templatevm_name
                 template_vm_on_host = host_collection.get_vm_by_name (templatevm_name)
 
@@ -638,7 +638,7 @@ def backup_restore_prepare(backup_dir, options = {}, host_collection = None):
                     if template_vm_on_backup is None or not template_vm_on_backup.is_template():
                         if options['use-default-template']:
                             vms_to_restore[vm.name]['orig-template'] = templatevm_name
-                            vms_to_restore[vm.name]['template'] = host_collection.get_default_template_vm().name
+                            vms_to_restore[vm.name]['template'] = host_collection.get_default_template().name
                         else:
                             vms_to_restore[vm.name]['missing-template'] = True
                             vms_to_restore[vm.name]['good-to-go'] = False
@@ -704,7 +704,7 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
 
         "updbl" : {"func": "'Yes' if vm.is_updateable() else ''"},
 
-        "template": {"func": "'n/a' if vm.is_template() or vm.template_vm is None else\
+        "template": {"func": "'n/a' if vm.is_template() or vm.template is None else\
                      vm_info['template']"},
 
         "netvm": {"func": "'n/a' if vm.is_netvm() else\
@@ -877,10 +877,10 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
             error_callback("Skiping...")
             continue
 
-        template_vm = None
-        if vm.template_vm is not None:
+        template = None
+        if vm.template is not None:
             template_name = vm_info['template']
-            template_vm = host_collection.get_vm_by_name(template_name)
+            template = host_collection.get_vm_by_name(template_name)
 
         if not vm.uses_default_netvm:
             uses_default_netvm = False
@@ -895,13 +895,13 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
             restore_vm_dir (backup_dir, vm.dir_path, qubes_servicevms_dir);
 
             if vm.type == "NetVM":
-                new_vm = host_collection.add_new_netvm(vm.name, template_vm,
+                new_vm = host_collection.add_new_netvm(vm.name, template,
                                               conf_file=vm.conf_file,
                                               dir_path=vm.dir_path,
                                               updateable=updateable,
                                               label=vm.label)
             elif vm.type == "ProxyVM":
-                new_vm = host_collection.add_new_proxyvm(vm.name, template_vm,
+                new_vm = host_collection.add_new_proxyvm(vm.name, template,
                                               conf_file=vm.conf_file,
                                               dir_path=vm.dir_path,
                                               updateable=updateable,
@@ -942,10 +942,10 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
             error_callback("Skiping...")
             continue
 
-        template_vm = None
-        if vm.template_vm is not None:
+        template = None
+        if vm.template is not None:
             template_name = vm_info['template']
-            template_vm = host_collection.get_vm_by_name(template_name)
+            template = host_collection.get_vm_by_name(template_name)
 
         if not vm.uses_default_netvm:
             uses_default_netvm = False
@@ -958,7 +958,7 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
         new_vm = None
         try:
             restore_vm_dir (backup_dir, vm.dir_path, qubes_appvms_dir);
-            new_vm = host_collection.add_new_appvm(vm.name, template_vm,
+            new_vm = host_collection.add_new_appvm(vm.name, template,
                                           conf_file=vm.conf_file,
                                           dir_path=vm.dir_path,
                                           updateable=updateable,

@@ -80,7 +80,7 @@ class QfileDaemonDvm:
             qvm_collection.unlock_db()
             return None
         dispid=int(disp_name[4:])
-        dispvm=qvm_collection.add_new_disposablevm(disp_name, vm_disptempl.template_vm, label=vm.label, dispid=dispid)
+        dispvm=qvm_collection.add_new_disposablevm(disp_name, vm_disptempl.template, label=vm.label, dispid=dispid)
         # By default inherit firewall rules from calling VM
         if os.path.exists(vm.firewall_conf):
             disp_firewall_conf = '/var/run/qubes/%s-firewall.xml' % disp_name
