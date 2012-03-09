@@ -159,18 +159,7 @@ def set_netvm(vms, vm, args):
             exit (1)
         vm.uses_default_netvm = False
 
-    vm.set_netvm(netvm)
-    if not vm.is_running():
-        return
-    # this can fail if VM was not connected to any NetVM
-    subprocess.call(["xl", "network-detach", vm.name, "0"], stderr=subprocess.PIPE)
-    if vm.netvm is None:
-        return
-    if not vm.netvm.is_running():
-        subprocess.check_call(["qvm-start", vm.netvm.name])
-    # refresh IP, DNS etc
-    vm.create_xenstore_entries()
-    vm.attach_network(verbose = True)
+    vm.netvm = netvm
 
 def set_updateable(vms, vm, args):
     if vm.is_updateable():

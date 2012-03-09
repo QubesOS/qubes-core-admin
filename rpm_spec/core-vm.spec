@@ -411,8 +411,8 @@ The Qubes core startup configuration for SysV init (or upstart).
 /etc/init.d/qubes_core
 /etc/init.d/qubes_core_appvm
 /etc/init.d/qubes_core_netvm
-/etc/init.d/qubes_firewall
-/etc/init.d/qubes_netwatcher
+/etc/init.d/qubes-firewall
+/etc/init.d/qubes-netwatcher
 
 %post sysvinit
 
@@ -443,8 +443,8 @@ chkconfig --add qubes_core_appvm || echo "WARNING: Cannot add service qubes_core
 chkconfig qubes_core_appvm on || echo "WARNING: Cannot enable service qubes_core!"
 chkconfig --add qubes_firewall || echo "WARNING: Cannot add service qubes_core!"
 chkconfig qubes_firewall on || echo "WARNING: Cannot enable service qubes_core!"
-chkconfig --add qubes_netwatcher || echo "WARNING: Cannot add service qubes_core!"
-chkconfig qubes_netwatcher on || echo "WARNING: Cannot enable service qubes_core!"
+chkconfig --add qubes-netwatcher || echo "WARNING: Cannot add service qubes_core!"
+chkconfig qubes-netwatcher on || echo "WARNING: Cannot enable service qubes_core!"
 
 # TODO: make this not display the silly message about security context...
 sed -i s/^id:.:initdefault:/id:3:initdefault:/ /etc/inittab
@@ -455,8 +455,8 @@ if [ "$1" = 0 ] ; then
     chkconfig qubes_core off
     chkconfig qubes_core_netvm off
     chkconfig qubes_core_appvm off
-    chkconfig qubes_firewall off
-    chkconfig qubes_netwatcher off
+    chkconfig qubes-firewall off
+    chkconfig qubes-netwatcher off
 fi
 
 %package systemd
