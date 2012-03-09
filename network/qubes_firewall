@@ -12,13 +12,20 @@ echo $$ >$PIDFILE
 
 trap 'exit 0' SIGTERM
 
+FIRST_TIME=yes
+
 while true; do
 
 	echo "1" > /proc/sys/net/ipv4/ip_forward
 
-	# Wait for changes in xenstore file
-	/usr/bin/xenstore-watch-qubes $XENSTORE_IPTABLES
-	TRIGGER=$(/usr/bin/xenstore-read $XENSTORE_IPTABLES)
+	if [ "$FIRST_TIME" ]; then
+		FIRST_TIME=
+		TRIGGER=reload
+	else
+		# Wait for changes in xenstore file
+		/usr/bin/xenstore-watch-qubes $XENSTORE_IPTABLES
+		TRIGGER=$(/usr/bin/xenstore-read $XENSTORE_IPTABLES)
+	fi
 
 	if ! [ "$TRIGGER" = "reload" ]; then continue ; fi
 
