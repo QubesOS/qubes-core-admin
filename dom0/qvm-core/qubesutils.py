@@ -390,7 +390,7 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
 
         if vm.is_appvm():
             files_to_backup += file_to_backup(vm.icon_path)
-        if vm.is_updateable():
+        if vm.updateable:
             if os.path.exists(vm.dir_path + "/apps.templates"):
                 # template
                 files_to_backup += file_to_backup(vm.dir_path + "/apps.templates")
@@ -405,7 +405,7 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
         if os.path.exists(vm.dir_path + '/whitelisted-appmenus.list'):
             files_to_backup += file_to_backup(vm.dir_path + '/whitelisted-appmenus.list')
 
-        if vm.is_updateable():
+        if vm.updateable:
             sz = vm.get_disk_usage(vm.root_img)
             files_to_backup += file_to_backup(vm.root_img, sz)
             vm_sz += sz
@@ -419,9 +419,9 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
 
         fmt="{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
         if vm.is_netvm():
-            s += fmt.format("NetVM" + (" + Sys" if vm.is_updateable() else ""))
+            s += fmt.format("NetVM" + (" + Sys" if vm.updateable else ""))
         else:
-            s += fmt.format("AppVM" + (" + Sys" if vm.is_updateable() else ""))
+            s += fmt.format("AppVM" + (" + Sys" if vm.updateable else ""))
 
         fmt="{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
         s += fmt.format(size_to_human(vm_sz))
@@ -624,10 +624,10 @@ def backup_restore_prepare(backup_dir, options = {}, host_collection = None):
                 vms_to_restore[vm.name]['already-exists'] = True
                 vms_to_restore[vm.name]['good-to-go'] = False
 
-            if vm.template_vm is None:
+            if vm.template is None:
                 vms_to_restore[vm.name]['template'] = None
             else:
-                templatevm_name = find_template_name(vm.template_vm.name, options['replace-template'])
+                templatevm_name = find_template_name(vm.template.name, options['replace-template'])
                 vms_to_restore[vm.name]['template'] = templatevm_name
                 template_vm_on_host = host_collection.get_vm_by_name (templatevm_name)
 
@@ -638,7 +638,7 @@ def backup_restore_prepare(backup_dir, options = {}, host_collection = None):
                     if template_vm_on_backup is None or not template_vm_on_backup.is_template():
                         if options['use-default-template']:
                             vms_to_restore[vm.name]['orig-template'] = templatevm_name
-                            vms_to_restore[vm.name]['template'] = host_collection.get_default_template_vm().name
+                            vms_to_restore[vm.name]['template'] = host_collection.get_default_template().name
                         else:
                             vms_to_restore[vm.name]['missing-template'] = True
                             vms_to_restore[vm.name]['good-to-go'] = False
@@ -702,9 +702,9 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
                  ('Proxy' if vm.is_proxyvm() else \
                  (' Net' if vm.is_netvm() else 'App'))"},
 
-        "updbl" : {"func": "'Yes' if vm.is_updateable() else ''"},
+        "updbl" : {"func": "'Yes' if vm.updateable else ''"},
 
-        "template": {"func": "'n/a' if vm.is_template() or vm.template_vm is None else\
+        "template": {"func": "'n/a' if vm.is_template() or vm.template is None else\
                      vm_info['template']"},
 
         "netvm": {"func": "'n/a' if vm.is_netvm() else\
@@ -834,8 +834,6 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
             error_callback("Skiping...")
             continue
 
-        updateable = vm.updateable
-
         new_vm = None
 
         try:
@@ -845,7 +843,6 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
                                                dir_path=vm.dir_path,
                                                installed_by_rpm=False)
 
-            new_vm.updateable = updateable
             new_vm.verify_files()
         except Exception as err:
             error_callback("ERROR: {0}".format(err))
@@ -877,10 +874,10 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
             error_callback("Skiping...")
             continue
 
-        template_vm = None
-        if vm.template_vm is not None:
+        template = None
+        if vm.template is not None:
             template_name = vm_info['template']
-            template_vm = host_collection.get_vm_by_name(template_name)
+            template = host_collection.get_vm_by_name(template_name)
 
         if not vm.uses_default_netvm:
             uses_default_netvm = False
@@ -888,23 +885,19 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
         else:
             uses_default_netvm = True
 
-        updateable = vm.updateable
-
         new_vm = None
         try:
             restore_vm_dir (backup_dir, vm.dir_path, qubes_servicevms_dir);
 
             if vm.type == "NetVM":
-                new_vm = host_collection.add_new_netvm(vm.name, template_vm,
+                new_vm = host_collection.add_new_netvm(vm.name, template,
                                               conf_file=vm.conf_file,
                                               dir_path=vm.dir_path,
-                                              updateable=updateable,
                                               label=vm.label)
             elif vm.type == "ProxyVM":
-                new_vm = host_collection.add_new_proxyvm(vm.name, template_vm,
+                new_vm = host_collection.add_new_proxyvm(vm.name, template,
                                               conf_file=vm.conf_file,
                                               dir_path=vm.dir_path,
-                                              updateable=updateable,
                                               label=vm.label)
         except Exception as err:
             error_callback("ERROR: {0}".format(err))
@@ -942,10 +935,10 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
             error_callback("Skiping...")
             continue
 
-        template_vm = None
-        if vm.template_vm is not None:
+        template = None
+        if vm.template is not None:
             template_name = vm_info['template']
-            template_vm = host_collection.get_vm_by_name(template_name)
+            template = host_collection.get_vm_by_name(template_name)
 
         if not vm.uses_default_netvm:
             uses_default_netvm = False
@@ -953,15 +946,12 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
         else:
             uses_default_netvm = True
 
-        updateable = vm.updateable
-
         new_vm = None
         try:
             restore_vm_dir (backup_dir, vm.dir_path, qubes_appvms_dir);
-            new_vm = host_collection.add_new_appvm(vm.name, template_vm,
+            new_vm = host_collection.add_new_appvm(vm.name, template,
                                           conf_file=vm.conf_file,
                                           dir_path=vm.dir_path,
-                                          updateable=updateable,
                                           label=vm.label)
         except Exception as err:
             error_callback("ERROR: {0}".format(err))

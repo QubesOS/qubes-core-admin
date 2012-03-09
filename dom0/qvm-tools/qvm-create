@@ -108,39 +108,39 @@ def main():
 
     template_vm = None
     if options.template is not None:
-        template_vm = qvm_collection.get_vm_by_name(options.template)
-        if template_vm is None:
+        template = qvm_collection.get_vm_by_name(options.template)
+        if template is None:
             print >> sys.stderr, "There is no (Templete)VM with the name '{0}'".format(options.template)
             exit (1)
-        if not template_vm.is_template():
+        if not template.is_template():
             print >> sys.stderr, "VM '{0}' is not a TemplateVM".format(options.template)
             exit (1)
         if (options.verbose):
-            print "--> Using TemplateVM: {0}".format(template_vm.name)
+            print "--> Using TemplateVM: {0}".format(template.name)
 
     elif not options.hvm:
-        if qvm_collection.get_default_template_vm() is None:
+        if qvm_collection.get_default_template() is None:
             print >> sys.stderr, "No default TempleteVM defined!"
             exit (1)
         else:
-            template_vm = qvm_collection.get_default_template_vm()
+            template = qvm_collection.get_default_template()
             if (options.verbose):
-                print "--> Using default TemplateVM: {0}".format(template_vm.name)
+                print "--> Using default TemplateVM: {0}".format(template.name)
 
     if options.standalone:
         new_vm_template = None
     else:
-        new_vm_template = template_vm
+        new_vm_template = template
 
     vm = None
     if options.netvm:
-        vm = qvm_collection.add_new_netvm(vmname, new_vm_template, label = label, updateable = options.standalone)
+        vm = qvm_collection.add_new_netvm(vmname, new_vm_template, label = label)
     elif options.proxyvm:
-        vm = qvm_collection.add_new_proxyvm(vmname, new_vm_template, label = label, updateable = options.standalone)
+        vm = qvm_collection.add_new_proxyvm(vmname, new_vm_template, label = label)
     elif options.hvm:
         vm = qvm_collection.add_new_hvm(vmname, label = label)
     else:
-        vm = qvm_collection.add_new_appvm(vmname, new_vm_template, label = label, updateable = options.standalone)
+        vm = qvm_collection.add_new_appvm(vmname, new_vm_template, label = label)
 
     if options.internal:
         vm.internal = True
@@ -152,7 +152,7 @@ def main():
         vm.vcpus = options.vcpus
 
     try:
-        vm.create_on_disk(verbose=options.verbose, source_template=template_vm)
+        vm.create_on_disk(verbose=options.verbose, source_template=template)
         if options.root:
             os.unlink(vm.root_img)
             os.rename(options.root, vm.root_img)

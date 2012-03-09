@@ -164,8 +164,8 @@ def main():
         print >>sys.stderr, "ERROR: A VM with the name '{0}' does not exist in the system.".format(vmname)
         exit(1)
 
-    if not vm.is_updateable():
-        print >>sys.stderr, "ERROR: To sync appmenus for non-updateable VM, do it on template instead"
+    if vm.template is not None:
+        print >>sys.stderr, "ERROR: To sync appmenus for template based VM, do it on template instead"
         exit(1)
 
     if not vm.is_running():

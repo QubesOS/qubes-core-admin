@@ -235,8 +235,7 @@ class QubesVm(object):
             "volatile_img": { "eval": 'self.absolute_path(value, default_volatile_img)', 'order': 10 },
             "firewall_conf": { "eval": 'self.absolute_path(value, default_firewall_conf_file)', 'order': 10 },
             "installed_by_rpm": { "default": False, 'order': 10 },
-            "updateable": { "default": False, 'order': 10 },
-            "template_vm": { "default": None, 'order': 10 },
+            "template": { "default": None, 'order': 10 },
             # order >= 20: have template set
             "uses_default_netvm": { "default": True, 'order': 20 },
             "netvm": { "default": None, "attr": "_netvm", 'order': 20 },
@@ -249,7 +248,7 @@ class QubesVm(object):
             "internal": { "default": False },
             "vcpus": { "default": None },
             "kernel": { "default": None, 'eval': \
-                'self.template_vm.kernel if self.template_vm is not None else value' },
+                'self.template.kernel if self.template is not None else value' },
             "uses_default_kernel": { "default": True },
             "uses_default_kernelopts": { "default": True },
             "kernelopts": { "default": "", "eval": \
@@ -260,10 +259,10 @@ class QubesVm(object):
             ##### Internal attributes - will be overriden in __init__ regardless of args
             "appmenus_templates_dir": { "eval": \
                 'self.dir_path + "/" + default_appmenus_templates_subdir if self.updateable else ' + \
-                'self.template_vm.appmenus_templates_dir if self.template_vm is not None else None' },
+                'self.template.appmenus_templates_dir if self.template is not None else None' },
             "config_file_template": { "eval": "config_template_pv" },
             "icon_path": { "eval": 'self.dir_path + "/icon.png" if self.dir_path is not None else None' },
-            "kernels_dir": { 'eval': 'self.template_vm.kernels_dir if self.template_vm is not None else ' + \
+            "kernels_dir": { 'eval': 'self.template.kernels_dir if self.template is not None else ' + \
                 'qubes_kernels_base_dir + "/" + self.kernel if self.kernel is not None else ' + \
                 # for backward compatibility (or another rare case): kernel=None -> kernel in VM dir
                 'self.dir_path + "/" + default_kernels_subdir' },
@@ -273,7 +272,7 @@ class QubesVm(object):
         # Simple string attrs
         for prop in ['qid', 'name', 'dir_path', 'memory', 'maxmem', 'pcidevs', 'vcpus', 'internal',\
             'uses_default_kernel', 'kernel', 'uses_default_kernelopts',\
-            'kernelopts', 'services', 'updateable', 'installed_by_rpm',\
+            'kernelopts', 'services', 'installed_by_rpm',\
             'uses_default_netvm', 'include_in_backups' ]:
             attrs[prop]['save'] = 'str(self.%s)' % prop
         # Simple paths
@@ -286,8 +285,8 @@ class QubesVm(object):
 
         attrs['netvm']['save'] = 'str(self.netvm.qid) if self.netvm is not None else "none"'
         attrs['netvm']['save_attr'] = "netvm_qid"
-        attrs['template_vm']['save'] = 'str(self.template_vm.qid) if self.template_vm and not self.is_updateable() else "none"'
-        attrs['template_vm']['save_attr'] = "template_qid"
+        attrs['template']['save'] = 'str(self.template.qid) if self.template else "none"'
+        attrs['template']['save_attr'] = "template_qid"
         attrs['label']['save'] = 'self.label.name'
 
         return attrs
@@ -333,15 +332,12 @@ class QubesVm(object):
             self.vcpus = qubes_host.no_cpus
 
         # Some additional checks for template based VM
-        if self.template_vm is not None:
-            if self.updateable:
-                print >> sys.stderr, "ERROR: Template based VM cannot be updateable!"
-                return False
-            if not self.template_vm.is_template():
+        if self.template is not None:
+            if not self.template.is_template():
                 print >> sys.stderr, "ERROR: template_qid={0} doesn't point to a valid TemplateVM".\
-                    format(self.template_vm.qid)
+                    format(self.template.qid)
                 return False
-            self.template_vm.appvms[self.qid] = self
+            self.template.appvms[self.qid] = self
         else:
             assert self.root_img is not None, "Missing root_img for standalone VM!"
 
@@ -464,6 +460,11 @@ class QubesVm(object):
     def mac(self, new_mac):
         self._mac = new_mac
 
+    @property
+    def updateable(self):
+        return self.template is None
+
+    # Leaved for compatibility
     def is_updateable(self):
         return self.updateable
 
@@ -475,19 +476,6 @@ class QubesVm(object):
             return True
         else:
             return False
-
-    def set_updateable(self):
-        if self.is_updateable():
-            return
-
-        raise QubesException ("Change 'updateable' flag is not supported. Please use qvm-create.")
-
-    def set_nonupdateable(self):
-        if not self.is_updateable():
-            return
-
-        raise QubesException ("Change 'updateable' flag is not supported. Please use qvm-create.")
-
 
     def pre_rename(self, new_name):
         pass
@@ -683,14 +671,14 @@ class QubesVm(object):
 
     def is_outdated(self):
         # Makes sense only on VM based on template
-        if self.template_vm is None:
+        if self.template is None:
             return False
 
         if not self.is_running():
             return False
 
-        rootimg_inode = os.stat(self.template_vm.root_img)
-        rootcow_inode = os.stat(self.template_vm.rootcow_img)
+        rootimg_inode = os.stat(self.template.root_img)
+        rootcow_inode = os.stat(self.template.rootcow_img)
 
         current_dmdev = "/dev/mapper/snapshot-{0:x}:{1}-{2:x}:{3}".format(
                 rootimg_inode[2], rootimg_inode[1],
@@ -851,8 +839,8 @@ class QubesVm(object):
                 [{ 'dom': xid }])
 
     def get_rootdev(self, source_template=None):
-        if self.template_vm:
-            return "'script:snapshot:{dir}/root.img:{dir}/root-cow.img,xvda,r',".format(dir=self.template_vm.dir_path)
+        if self.template:
+            return "'script:snapshot:{dir}/root.img:{dir}/root-cow.img,xvda,r',".format(dir=self.template.dir_path)
         else:
             return "'script:file:{dir}/root.img,xvda,w',".format(dir=self.dir_path)
 
@@ -884,7 +872,7 @@ class QubesVm(object):
         args['volatiledev'] = "'script:file:{dir}/volatile.img,xvdc,w',".format(dir=self.dir_path)
         if hasattr(self, 'kernel'):
             modulesmode='r'
-            if self.is_updateable() and self.kernel is None:
+            if self.updateable and self.kernel is None:
                 modulesmode='w'
             args['otherdevs'] = "'script:file:{dir}/modules.img,xvdd,{mode}',".format(dir=self.kernels_dir, mode=modulesmode)
         if hasattr(self, 'kernelopts'):
@@ -896,7 +884,7 @@ class QubesVm(object):
         if file_path is None:
             file_path = self.conf_file
         if source_template is None:
-            source_template = self.template_vm
+            source_template = self.template
 
         f_conf_template = open(self.config_file_template, 'r')
         conf_template = f_conf_template.read()
@@ -914,7 +902,7 @@ class QubesVm(object):
 
     def create_on_disk(self, verbose, source_template = None):
         if source_template is None:
-            source_template = self.template_vm
+            source_template = self.template
         assert source_template is not None
 
         if dry_run:
@@ -947,7 +935,7 @@ class QubesVm(object):
             shutil.copy(source_template.dir_path + '/vm-' + qubes_whitelisted_appmenus,
                     self.dir_path + '/' + qubes_whitelisted_appmenus)
 
-        if self.is_updateable():
+        if self.updateable:
             template_root = source_template.root_img
             if verbose:
                 print >> sys.stderr, "--> Copying the template's root image: {0}".\
@@ -973,7 +961,7 @@ class QubesVm(object):
 
     def create_appmenus(self, verbose, source_template = None):
         if source_template is None:
-            source_template = self.template_vm
+            source_template = self.template
 
         vmtype = None
         if self.is_netvm():
@@ -1077,7 +1065,7 @@ class QubesVm(object):
                 "VM directory doesn't exist: {0}".\
                 format(self.dir_path))
 
-        if self.is_updateable() and not os.path.exists (self.root_img):
+        if self.updateable and not os.path.exists (self.root_img):
             raise QubesException (
                 "VM root image file doesn't exist: {0}".\
                 format(self.root_img))
@@ -1107,7 +1095,7 @@ class QubesVm(object):
         assert not self.is_running(), "Attempt to clean volatile image of running VM!"
 
         if source_template is None:
-            source_template = self.template_vm
+            source_template = self.template
 
         # Only makes sense on template based VM
         if source_template is None:
@@ -1497,7 +1485,6 @@ class QubesTemplateVm(QubesVm):
     def _get_attrs_config(self):
         attrs_config = super(QubesTemplateVm, self)._get_attrs_config()
         attrs_config['dir_path']['eval'] = 'value if value is not None else qubes_templates_dir + "/" + self.name'
-        attrs_config['updateable']['default'] = True
         attrs_config['label']['default'] = default_template_label
 
         # New attributes
@@ -1520,18 +1507,9 @@ class QubesTemplateVm(QubesVm):
     def type(self):
         return "TemplateVM"
 
-    def set_updateable(self):
-        if self.is_updateable():
-            return
-
-        assert not self.is_running()
-        # Make sure that all the AppVMs are non-updateable...
-        for appvm in self.appvms.values():
-            if appvm.is_updateable():
-                raise QubesException("One of the AppVMs ('{0}')is also 'updateable'\
-                                     -- cannot make the TemplateVM {'{1}'} 'nonupdatable'".\
-                                     format (appvm.name, self.name))
-        self.updateable = True
+    @property
+    def updateable(self):
+        return True
 
     def get_rootdev(self, source_template=None):
         return "'script:origin:{dir}/root.img:{dir}/root-cow.img,xvda,w',".format(dir=self.dir_path)
@@ -1556,7 +1534,7 @@ class QubesTemplateVm(QubesVm):
         retcode = subprocess.call (["cp", src_vm.clean_volatile_img, self.clean_volatile_img])
         if retcode != 0:
             raise IOError ("Error while copying {0} to {1}".\
-                           format(src_template_vm.clean_volatile_img, self.clean_volatile_img))
+                           format(src_vm.clean_volatile_img, self.clean_volatile_img))
         if verbose:
             print >> sys.stderr, "--> Copying the template's volatile image:\n{0} ==>\n{1}".\
                     format(self.clean_volatile_img, self.volatile_img)
@@ -1577,7 +1555,7 @@ class QubesTemplateVm(QubesVm):
 
     def create_appmenus(self, verbose, source_template = None):
         if source_template is None:
-            source_template = self.template_vm
+            source_template = self.template
 
         try:
             subprocess.check_call ([qubes_appmenu_create_cmd, self.appmenus_templates_dir, self.name, "vm-templates"])
@@ -1647,7 +1625,7 @@ class QubesTemplateVm(QubesVm):
 
         self.reset_volatile_storage(verbose=verbose)
 
-        if not self.is_updateable():
+        if not self.updateable:
             raise QubesException ("Cannot start Template VM that is marked \"nonupdatable\"")
 
         # TODO?: check if none of running appvms are outdated
@@ -1667,7 +1645,7 @@ class QubesTemplateVm(QubesVm):
         retcode = subprocess.call (["tar", "xf", self.clean_volatile_img, "-C", self.dir_path])
         if retcode != 0:
             raise IOError ("Error while unpacking {0} to {1}".\
-                           format(self.template_vm.clean_volatile_img, self.volatile_img))
+                           format(self.template.clean_volatile_img, self.volatile_img))
 
     def commit_changes (self, verbose = False):
 
@@ -1992,7 +1970,7 @@ class QubesDom0NetVm(QubesNetVm):
         super(QubesDom0NetVm, self).__init__(qid=0, name="dom0", netid=0,
                                              dir_path=None,
                                              private_img = None,
-                                             template_vm = None,
+                                             template = None,
                                              label = default_template_label)
         self.xid = 0
 
@@ -2064,7 +2042,7 @@ class QubesDisposableVm(QubesVm):
 
         super(QubesDisposableVm, self).__init__(dir_path="/nonexistent", **kwargs)
 
-        assert self.template_vm is not None, "Missing template_vm for DisposableVM!"
+        assert self.template is not None, "Missing template for DisposableVM!"
 
         # Use DispVM icon with the same color
         if self._label:
@@ -2089,7 +2067,7 @@ class QubesDisposableVm(QubesVm):
         attrs["qid"] = str(self.qid)
         attrs["name"] = self.name
         attrs["dispid"] = str(self.dispid)
-        attrs["template_qid"] = str(self.template_vm.qid)
+        attrs["template_qid"] = str(self.template.qid)
         attrs["label"] = self.label.name
         attrs["firewall_conf"] = self.relative_path(self.firewall_conf)
         return attrs
@@ -2118,7 +2096,7 @@ class QubesAppVm(QubesVm):
 
         super(QubesAppVm, self).create_on_disk(verbose, source_template=source_template)
 
-        if self.is_updateable():
+        if self.updateable:
             if verbose:
                 print >> sys.stderr, "--> Copying the template's appmenus templates dir:\n{0} ==>\n{1}".\
                         format(source_template.appmenus_templates_dir, self.appmenus_templates_dir)
@@ -2346,20 +2324,18 @@ class QubesVmCollection(dict):
             assert False, "Attempt to add VM with qid that already exists in the collection!"
 
 
-    def add_new_appvm(self, name, template_vm,
+    def add_new_appvm(self, name, template,
                       dir_path = None, conf_file = None,
                       private_img = None,
-                      updateable = False,
                       label = None):
 
         qid = self.get_new_unused_qid()
-        vm = QubesAppVm (qid=qid, name=name, template_vm=template_vm,
+        vm = QubesAppVm (qid=qid, name=name, template=template,
                          dir_path=dir_path, conf_file=conf_file,
                          private_img=private_img,
                          netvm = self.get_default_netvm(),
                          kernel = self.get_default_kernel(),
                          uses_default_kernel = True,
-                         updateable=updateable,
                          label=label)
 
         if not self.verify_new_vm (vm):
@@ -2381,11 +2357,11 @@ class QubesVmCollection(dict):
         self[vm.qid]=vm
         return vm
 
-    def add_new_disposablevm(self, name, template_vm, dispid,
+    def add_new_disposablevm(self, name, template, dispid,
                       label = None):
 
         qid = self.get_new_unused_qid()
-        vm = QubesDisposableVm (qid=qid, name=name, template_vm=template_vm,
+        vm = QubesDisposableVm (qid=qid, name=name, template=template,
                          netvm = self.get_default_netvm(),
                          label=label, dispid=dispid)
 
@@ -2413,30 +2389,29 @@ class QubesVmCollection(dict):
         self[vm.qid]=vm
 
         if self.default_template_qid is None:
-            self.set_default_template_vm(vm)
+            self.set_default_template(vm)
 
         return vm
 
-    def clone_templatevm(self, src_template_vm, name, dir_path = None, verbose = False):
+    def clone_templatevm(self, src_template, name, dir_path = None, verbose = False):
 
-        assert not src_template_vm.is_running(), "Attempt to clone a running Template VM!"
+        assert not src_template.is_running(), "Attempt to clone a running Template VM!"
 
         vm = self.add_new_templatevm (name=name, dir_path=dir_path, installed_by_rpm = False)
 
         return vm
 
 
-    def add_new_netvm(self, name, template_vm,
+    def add_new_netvm(self, name, template,
                       dir_path = None, conf_file = None,
                       private_img = None, installed_by_rpm = False,
-                      label = None, updateable = False):
+                      label = None):
 
         qid = self.get_new_unused_qid()
         netid = self.get_new_unused_netid()
-        vm = QubesNetVm (qid=qid, name=name, template_vm=template_vm,
+        vm = QubesNetVm (qid=qid, name=name, template=template,
                          netid=netid, label=label,
                          private_img=private_img, installed_by_rpm=installed_by_rpm,
-                         updateable=updateable,
                          kernel = self.get_default_kernel(),
                          uses_default_kernel = True,
                          dir_path=dir_path, conf_file=conf_file)
@@ -2454,18 +2429,17 @@ class QubesVmCollection(dict):
 
         return vm
 
-    def add_new_proxyvm(self, name, template_vm,
+    def add_new_proxyvm(self, name, template,
                      dir_path = None, conf_file = None,
                      private_img = None, installed_by_rpm = False,
-                     label = None, updateable = False):
+                     label = None):
 
         qid = self.get_new_unused_qid()
         netid = self.get_new_unused_netid()
-        vm = QubesProxyVm (qid=qid, name=name, template_vm=template_vm,
+        vm = QubesProxyVm (qid=qid, name=name, template=template,
                               netid=netid, label=label,
                               private_img=private_img, installed_by_rpm=installed_by_rpm,
                               dir_path=dir_path, conf_file=conf_file,
-                              updateable=updateable,
                               kernel = self.get_default_kernel(),
                               uses_default_kernel = True,
                               netvm = self.get_default_fw_netvm())
@@ -2482,11 +2456,11 @@ class QubesVmCollection(dict):
 
         return vm
 
-    def set_default_template_vm(self, vm):
+    def set_default_template(self, vm):
         assert vm.is_template(), "VM {0} is not a TemplateVM!".format(vm.name)
         self.default_template_qid = vm.qid
 
-    def get_default_template_vm(self):
+    def get_default_template(self):
         if self.default_template_qid is None:
             return None
         else:
@@ -2549,7 +2523,7 @@ class QubesVmCollection(dict):
 
     def get_vms_based_on(self, template_qid):
         vms = set([vm for vm in self.values()
-                   if (vm.template_vm and vm.template_vm.qid == template_qid)])
+                   if (vm.template and vm.template.qid == template_qid)])
         return vms
 
     def get_vms_connected_to(self, netvm_qid):
@@ -2675,7 +2649,7 @@ class QubesVmCollection(dict):
         kwargs = {}
         common_attr_list = ("qid", "name", "dir_path", "conf_file",
                 "private_img", "root_img", "template_qid",
-                "installed_by_rpm", "updateable", "internal",
+                "installed_by_rpm", "internal",
                 "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
                 "maxmem", "kernel", "uses_default_kernel", "kernelopts", "uses_default_kernelopts",
                 "mac", "services", "include_in_backups" )
@@ -2686,8 +2660,6 @@ class QubesVmCollection(dict):
                 kwargs.pop(attribute)
 
         kwargs["qid"] = int(kwargs["qid"])
-        if "updateable" in kwargs:
-            kwargs["updateable"] = True if kwargs["updateable"] == "True" else False
 
         if "include_in_backups" in kwargs:
             kwargs["include_in_backups"] = True if kwargs["include_in_backups"] == "True" else False
@@ -2703,12 +2675,12 @@ class QubesVmCollection(dict):
                 kwargs.pop("template_qid")
             else:
                 kwargs["template_qid"] = int(kwargs["template_qid"])
-                template_vm = self[kwargs.pop("template_qid")]
-                if template_vm is None:
+                template = self[kwargs.pop("template_qid")]
+                if template is None:
                     print >> sys.stderr, "ERROR: VM '{0}' uses unkown template qid='{1}'!".\
                             format(kwargs["name"], kwargs["template_qid"])
                 else:
-                    kwargs["template_vm"] = template_vm
+                    kwargs["template"] = template
 
         if "label" in kwargs:
             if kwargs["label"] not in QubesVmLabels:
@@ -2940,12 +2912,12 @@ class QubesVmCollection(dict):
                 kwargs["dispid"] = int(kwargs["dispid"])
                 kwargs["template_qid"] = int(kwargs["template_qid"])
 
-                template_vm = self[kwargs.pop("template_qid")]
-                if template_vm is None:
+                template = self[kwargs.pop("template_qid")]
+                if template is None:
                     print >> sys.stderr, "ERROR: DisposableVM '{0}' uses unkown template qid='{1}'!".\
                             format(kwargs["name"], kwargs["template_qid"])
                 else:
-                    kwargs["template_vm"] = template_vm
+                    kwargs["template"] = template
 
                 kwargs["netvm"] = self.get_default_netvm()
 

@@ -59,8 +59,8 @@ def main():
         dst_vm = qvm_collection.add_new_templatevm(name=dstname,
                                               dir_path=options.dir_path, installed_by_rpm=False)
     elif isinstance(src_vm, QubesAppVm):
-        dst_vm = qvm_collection.add_new_appvm(name=dstname, template_vm=src_vm.template_vm,
-                                              updateable=src_vm.updateable, label=src_vm.label, 
+        dst_vm = qvm_collection.add_new_appvm(name=dstname, template=src_vm.template,
+                                              label=src_vm.label,
                                               dir_path=options.dir_path)
     elif isinstance(src_vm, QubesHVm):
         dst_vm = qvm_collection.add_new_hvm(name=dstname, label=src_vm.label)
