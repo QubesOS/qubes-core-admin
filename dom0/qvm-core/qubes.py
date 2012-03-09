@@ -1542,7 +1542,7 @@ class QubesTemplateVm(QubesVm):
         retcode = subprocess.call (["cp", src_vm.clean_volatile_img, self.clean_volatile_img])
         if retcode != 0:
             raise IOError ("Error while copying {0} to {1}".\
-                           format(src_template_vm.clean_volatile_img, self.clean_volatile_img))
+                           format(src_vm.clean_volatile_img, self.clean_volatile_img))
         if verbose:
             print >> sys.stderr, "--> Copying the template's volatile image:\n{0} ==>\n{1}".\
                     format(self.clean_volatile_img, self.volatile_img)
