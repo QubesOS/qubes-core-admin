@@ -385,8 +385,9 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
             # handle templates later
             continue
 
-        vm_sz = vm.get_disk_usage (vm.private_img)
-        files_to_backup += file_to_backup(vm.private_img, vm_sz )
+        if vm.private_img is not None:
+            vm_sz = vm.get_disk_usage (vm.private_img)
+            files_to_backup += file_to_backup(vm.private_img, vm_sz )
 
         if vm.is_appvm():
             files_to_backup += file_to_backup(vm.icon_path)
