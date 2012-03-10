@@ -80,6 +80,7 @@ default_kernelopts = ""
 default_kernelopts_pcidevs = "iommu=soft swiotlb=2048"
 
 default_hvm_disk_size = 20*1024*1024*1024
+default_hvm_private_img_size = 2*1024*1024*1024
 default_hvm_memory = 512
 
 config_template_pv = '/usr/share/qubes/vm-template.conf'
@@ -2137,7 +2138,6 @@ class QubesHVm(QubesVm):
         attrs.pop('kernelopts')
         attrs.pop('uses_default_kernel')
         attrs.pop('uses_default_kernelopts')
-        attrs['private_img']['eval'] = 'None'
         attrs['volatile_img']['eval'] = 'None'
         attrs['config_file_template']['eval'] = 'config_template_hvm'
         attrs['drive'] = { 'save': 'str(self.drive)' }
@@ -2195,6 +2195,10 @@ class QubesHVm(QubesVm):
         f_root.truncate(default_hvm_disk_size)
         f_root.close()
 
+        # create empty private.img
+        f_private = open(self.private_img, "w")
+        f_private.truncate(default_private_img_size)
+        f_root.close()
 
     def get_disk_utilization_private_img(self):
         return 0
@@ -2210,7 +2214,6 @@ class QubesHVm(QubesVm):
         params = super(QubesHVm, self).get_config_params(source_template=source_template)
 
         params['volatiledev'] = ''
-        params['privatedev'] = ''
         if self.drive:
             stat_res = os.stat(self.drive)
             if stat.S_ISBLK(stat_res.st_mode):
