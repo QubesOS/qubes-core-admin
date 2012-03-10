@@ -1337,6 +1337,8 @@ class QubesVm(object):
         if self.get_power_state() != "Halted":
             raise QubesException ("VM is already running!")
 
+        self.verify_files()
+
         if self.netvm is not None:
             if self.netvm.qid != 0:
                 if not self.netvm.is_running():
