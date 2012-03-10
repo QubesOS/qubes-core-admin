@@ -2238,6 +2238,11 @@ class QubesHVm(QubesVm):
                     "VM root image file doesn't exist: {0}".\
                     format(self.root_img))
 
+        if not os.path.exists (self.private_img):
+            raise QubesException (
+                "VM private image file doesn't exist: {0}".\
+                format(self.private_img))
+
         return True
 
     def reset_volatile_storage(self, **kwargs):
