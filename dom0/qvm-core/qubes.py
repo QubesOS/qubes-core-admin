@@ -383,6 +383,8 @@ class QubesVm(object):
         self._set_netvm(new_netvm)
 
     def _set_netvm(self, new_netvm):
+        if self.is_running() and not new_netvm.is_running():
+            raise QubesException("Cannot dynamically attach to stopped NetVM")
         if self.netvm is not None:
             self.netvm.connected_vms.pop(self.qid)
             if self.is_running():
@@ -406,8 +408,6 @@ class QubesVm(object):
             return
 
         if self.is_running():
-            if not new_netvm.is_running():
-                new_netvm.start()
             # refresh IP, DNS etc
             self.create_xenstore_entries()
             self.attach_network()
