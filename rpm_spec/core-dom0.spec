@@ -212,8 +212,9 @@ echo 'installonlypkgs = kernel, kernel-qubes-vm' >> /etc/yum.conf
 
 sed 's/^PRELINKING\s*=.*/PRELINKING=no/' -i /etc/sysconfig/prelink
 
-sed 's/^#\?\s*XENCONSOLED_LOG_HYPERVISOR\s*=.*/XENCONSOLED_LOG_HYPERVISOR=yes/' -i /etc/sysconfig/xenconsoled
-sed 's/^#\?\s*XENCONSOLED_LOG_GUESTS\s*=.*/XENCONSOLED_LOG_HYPERVISOR=yes/' -i /etc/sysconfig/xenconsoled
+sed '/^\s*XENCONSOLED_LOG_\(HYPERVISOR\|GUESTS\)\s*=.*/d' -i /etc/sysconfig/xenconsoled
+echo XENCONSOLED_LOG_HYPERVISOR=yes >> /etc/sysconfig/xenconsoled
+echo XENCONSOLED_LOG_GUESTS=yes >> /etc/sysconfig/xenconsoled
 
 chkconfig --add qubes_core || echo "WARNING: Cannot add service qubes_core!"
 chkconfig --add qubes_netvm || echo "WARNING: Cannot add service qubes_netvm!"
