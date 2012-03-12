@@ -2242,7 +2242,7 @@ class QubesHVm(QubesVm):
 
         if not os.path.exists (self.private_img):
             print >>sys.stderr, "WARNING: Creating empty VM private image file: {0}".\
-                format(self.private_img))
+                format(self.private_img)
             f_private = open(self.private_img, "w")
             f_private.truncate(default_private_img_size)
             f_root.close()
