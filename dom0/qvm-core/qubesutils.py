@@ -410,9 +410,6 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
             sz = vm.get_disk_usage(vm.root_img)
             files_to_backup += file_to_backup(vm.root_img, sz)
             vm_sz += sz
-            sz = vm.get_disk_usage(vm.volatile_img)
-            files_to_backup += file_to_backup(vm.volatile_img, sz)
-            vm_sz += sz
 
         s = ""
         fmt="{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
