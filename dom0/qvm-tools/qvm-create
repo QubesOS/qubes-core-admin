@@ -106,7 +106,7 @@ def main():
         print >> sys.stderr, "A VM with the name '{0}' already exists in the system.".format(vmname)
         exit(1)
 
-    template_vm = None
+    template = None
     if options.template is not None:
         template = qvm_collection.get_vm_by_name(options.template)
         if template is None:
