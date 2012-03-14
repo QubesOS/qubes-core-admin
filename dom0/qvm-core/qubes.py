@@ -2199,7 +2199,7 @@ class QubesHVm(QubesVm):
 
         # create empty private.img
         f_private = open(self.private_img, "w")
-        f_private.truncate(default_private_img_size)
+        f_private.truncate(default_hvm_private_img_size)
         f_root.close()
 
     def get_disk_utilization_private_img(self):
@@ -2244,7 +2244,7 @@ class QubesHVm(QubesVm):
             print >>sys.stderr, "WARNING: Creating empty VM private image file: {0}".\
                 format(self.private_img)
             f_private = open(self.private_img, "w")
-            f_private.truncate(default_private_img_size)
+            f_private.truncate(default_hvm_private_img_size)
             f_root.close()
 
         return True
