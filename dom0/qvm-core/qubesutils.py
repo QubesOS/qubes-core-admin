@@ -119,16 +119,23 @@ def block_name_to_majorminor(name):
 
     major = 0
     minor = 0
+    dXpY_style = False
 
     name_match = re.match(r"([a-z]+)([a-z])([0-9]*)", name)
     if not name_match:
-        raise QubesException("Invalid device name: %s" % name)
+        name_match = re.match(r"([a-z]+)([0-9]*)(?:p([0-9]+)?", name)
+        if not name_match:
+            raise QubesException("Invalid device name: %s" % name)
+        else:
+            dXpY_style = True
 
     disk = True
     if name_match.group(1) == "xvd":
         major = 202
     elif name_match.group(1) == "sd":
         major = 8
+    elif name_match.group(1) == "mmcblk":
+        major = 179
     elif name.startswith("scd"):
         disk = False
         major = 11
@@ -143,7 +150,10 @@ def block_name_to_majorminor(name):
         return (0, 0)
 
     if disk:
-        minor = (ord(name_match.group(2))-ord('a')) * 16
+        if dXpY_style:
+            minor = int(name_match.group(2))*8
+        else:
+            minor = (ord(name_match.group(2))-ord('a')) * 16
     else:
         minor = 0
     if name_match.group(3):
