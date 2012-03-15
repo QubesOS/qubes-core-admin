@@ -881,9 +881,15 @@ class QubesVm(object):
 
         return args
 
+    @property
+    def uses_custom_config(self):
+        return self.conf_file != self.absolute_path(self.name + ".conf", None)
+
     def create_config_file(self, file_path = None, source_template = None, prepare_dvm = False):
         if file_path is None:
             file_path = self.conf_file
+            if self.uses_custom_config:
+                return
         if source_template is None:
             source_template = self.template
 
