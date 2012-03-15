@@ -39,6 +39,8 @@ def main():
                       help="Attach debugging console to the newly started VM")
     parser.add_option ("--dvm", action="store_true", dest="preparing_dvm", default=False,
                       help="Do actions necessary when preparing DVM image")
+    parser.add_option ("--custom-config", action="store", dest="custom_config", default=None,
+                      help="Use custom Xen config instead of Qubes-generated one")
 
     (options, args) = parser.parse_args ()
     if (len (args) != 1):
@@ -54,6 +56,9 @@ def main():
     if vm is None:
         print >> sys.stderr, "A VM with the name '{0}' does not exist in the system.".format(vmname)
         exit(1)
+
+    if options.custom_config:
+        vm.conf_file = options.custom_config
 
     try:
         vm.verify_files()
