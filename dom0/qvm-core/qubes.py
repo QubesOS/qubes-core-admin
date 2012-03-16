@@ -881,9 +881,15 @@ class QubesVm(object):
 
         return args
 
+    @property
+    def uses_custom_config(self):
+        return self.conf_file != self.absolute_path(self.name + ".conf", None)
+
     def create_config_file(self, file_path = None, source_template = None, prepare_dvm = False):
         if file_path is None:
             file_path = self.conf_file
+            if self.uses_custom_config:
+                return
         if source_template is None:
             source_template = self.template
 
@@ -1621,19 +1627,6 @@ class QubesTemplateVm(QubesVm):
                 format(self.kernels_dir))
 
         return True
-
-    def start(self, debug_console = False, verbose = False, preparing_dvm=False):
-        if dry_run:
-            return
-
-        self.reset_volatile_storage(verbose=verbose)
-
-        if not self.updateable:
-            raise QubesException ("Cannot start Template VM that is marked \"nonupdatable\"")
-
-        # TODO?: check if none of running appvms are outdated
-
-        return super(QubesTemplateVm, self).start(debug_console=debug_console, verbose=verbose)
 
     def reset_volatile_storage(self, verbose = False):
         assert not self.is_running(), "Attempt to clean volatile image of running Template VM!"
