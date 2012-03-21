@@ -2210,11 +2210,26 @@ class QubesHVm(QubesVm):
 
         params['volatiledev'] = ''
         if self.drive:
-            stat_res = os.stat(self.drive)
-            if stat.S_ISBLK(stat_res.st_mode):
-                params['otherdevs'] = "'phy:%s,xvdc:cdrom,r'," % self.drive
+            type_mode = ":cdrom,r"
+            drive_path = self.drive
+            # leave empty to use standard syntax in case of dom0
+            backend_domain = ""
+            if drive_path.startswith("hd:"):
+                type_mode = ",w"
+                drive_path = drive_path[3:]
+            backend_split = re.match(r"^([a-zA-Z0-9]*):(.*)", drive_path)
+            if backend_split:
+                backend_domain = "," + backend_split.group(1)
+                drive_path = backend_split.group(2)
+
+            # FIXME: os.stat will work only when backend in dom0...
+            stat_res = None
+            if backend_domain == "":
+                stat_res = os.stat(drive_path)
+            if stat_res and stat.S_ISBLK(stat_res.st_mode):
+                params['otherdevs'] = "'phy:%s,xvdc%s%s'," % (drive_path, type_mode, backend_domain)
             else:
-                params['otherdevs'] = "'script:file:%s,xvdc:cdrom,r'," % self.drive
+                params['otherdevs'] = "'script:file:%s,xvdc%s%s'," % (drive_path, type_mode, backend_domain)
         else:
              params['otherdevs'] = ''
         return params
