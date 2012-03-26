@@ -2227,7 +2227,7 @@ class QubesHVm(QubesVm):
             elif drive_path.startswith("cdrom:"):
                 type_mode = ":cdrom,r"
                 drive_path = drive_path[6:]
-            backend_split = re.match(r"^([a-zA-Z0-9]*):(.*)", drive_path)
+            backend_split = re.match(r"^([a-zA-Z0-9-]*):(.*)", drive_path)
             if backend_split:
                 backend_domain = "," + backend_split.group(1)
                 drive_path = backend_split.group(2)
