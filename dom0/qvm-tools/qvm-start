@@ -38,6 +38,10 @@ def main():
     parser.add_option ("--console", action="store_true", dest="debug_console", default=False,
                       help="Attach debugging console to the newly started VM")
     parser.add_option ("--drive", dest="drive", default=None,
+                      help="Temporarily attach specified drive as CD/DVD or hard disk (can be specified with prefix 'hd:' or 'cdrom:', default is cdrom)")
+    parser.add_option ("--hddisk", dest="drive_hd", default=None,
+                      help="Temporarily attach specified drive as hard disk")
+    parser.add_option ("--cdrom", dest="drive_cdrom", default=None,
                       help="Temporarily attach specified drive as CD/DVD")
     parser.add_option ("--dvm", action="store_true", dest="preparing_dvm", default=False,
                       help="Do actions necessary when preparing DVM image")
@@ -58,6 +62,16 @@ def main():
     if vm is None:
         print >> sys.stderr, "A VM with the name '{0}' does not exist in the system.".format(vmname)
         exit(1)
+
+    if bool(options.drive_hd) + bool(options.drive_cdrom) + bool(options.drive) > 1:
+        print >> sys.stderr, "Only one of --drive, --cdrom, --hddisk can be specified"
+        exit(1)
+
+    if options.drive_hd:
+        options.drive = 'hd:' + options.drive_hd
+
+    if options.drive_cdrom:
+        options.drive = 'cdrom:' + options.drive_hd
 
     if options.drive:
         if hasattr(vm, 'drive'):
