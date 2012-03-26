@@ -142,6 +142,9 @@ def block_name_to_majorminor(name):
     elif name.startswith("sr"):
         disk = False
         major = 11
+    elif name.startswith("loop"):
+        disk = False
+        major = 7
     elif name.startswith("md"):
         disk = False
         major = 9
@@ -242,25 +245,34 @@ def block_check_attached(backend_vm, device, backend_xid = None):
     vm_list = xs.ls('', '/local/domain/%d/backend/vbd' % backend_xid)
     if vm_list is None:
         return None
-    device_majorminor = block_name_to_majorminor(device)
+    device_majorminor = None
+    try:
+        device_majorminor = block_name_to_majorminor(device)
+    except:
+        # Unknown devices will be compared directly - perhaps it is a filename?
+        pass
     for vm_xid in vm_list:
         for devid in xs.ls('', '/local/domain/%d/backend/vbd/%s' % (backend_xid, vm_xid)):
             (tmp_major, tmp_minor) = (0, 0)
             phys_device = xs.read('', '/local/domain/%d/backend/vbd/%s/%s/physical-device' % (backend_xid, vm_xid, devid))
+            dev_params = xs.read('', '/local/domain/%d/backend/vbd/%s/%s/params' % (backend_xid, vm_xid, devid))
             if phys_device and phys_device.find(':'):
                 (tmp_major, tmp_minor) = phys_device.split(":")
                 tmp_major = int(tmp_major, 16)
                 tmp_minor = int(tmp_minor, 16)
             else:
                 # perhaps not ready yet - check params
-                dev_params = xs.read('', '/local/domain/%d/backend/vbd/%s/%s/params' % (backend_xid, vm_xid, devid))
-                if not dev_params or not dev_params.startswith('/dev/'):
+                if not dev_params:
                     # Skip not-phy devices
                     continue
+                elif not dev_params.startswith('/dev/'):
+                    # will compare params directly
+                    pass
                 else:
                     (tmp_major, tmp_minor) = block_name_to_majorminor(dev_params.lstrip('/dev/'))
 
-            if (tmp_major, tmp_minor) == device_majorminor:
+            if (device_majorminor and (tmp_major, tmp_minor) == device_majorminor) or \
+               (device_majorminor is None and dev_params == device):
                 vm_name = xl_ctx.domid_to_name(int(vm_xid))
                 frontend = block_devid_to_name(int(devid))
                 return {"xid":int(vm_xid), "frontend": frontend, "devid": int(devid), "vm": vm_name}
@@ -290,7 +302,12 @@ def block_attach(vm, backend_vm, device, frontend=None, mode="w", auto_detach=Fa
         else:
             raise QubesException("Device %s from %s already connected to VM %s as %s" % (device, backend_vm.name, attached_vm['vm'], attached_vm['frontend']))
 
-    xl_cmd = [ '/usr/sbin/xl', 'block-attach', vm.name, 'phy:/dev/' + device, frontend, mode, str(backend_vm.xid) ]
+    if device.startswith('/'):
+        backend_dev = 'script:file:' + device
+    else:
+        backend_dev = 'phy:/dev/' + device
+
+    xl_cmd = [ '/usr/sbin/xl', 'block-attach', vm.name, backend_dev, frontend, mode, str(backend_vm.xid) ]
     subprocess.check_call(xl_cmd)
 
 def block_detach(vm, frontend = "xvdi", vm_xid = None):
