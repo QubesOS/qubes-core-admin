@@ -6,9 +6,6 @@ SUBSYSTEM!="block", GOTO="qubes_block_end"
 # Skip xen-blkfront devices
 ENV{MAJOR}=="202", GOTO="qubes_block_end"
 
-# Skip loop devices
-ENV{MAJOR}=="7", GOTO="qubes_block_end"
-
 # Skip device-mapper devices
 ENV{MAJOR}=="253", GOTO="qubes_block_end"
 

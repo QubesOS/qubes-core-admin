@@ -37,6 +37,8 @@ def main():
 
     parser = OptionParser (usage)
     parser.add_option ("-l", "--list", action="store_true", dest="do_list", default=False)
+    parser.add_option ("-A", "--attach-file", action="store", dest="file_path", default=None,
+                        help="Attach specified file instead of physical device (syntax: qvm-block -A file backend-VM frontend-VM)")
     parser.add_option ("-a", "--attach", action="store_true", dest="do_attach", default=False)
     parser.add_option ("-d", "--detach", action="store_true", dest="do_detach", default=False)
     parser.add_option ("-f", "--frontend", dest="frontend", 
@@ -48,8 +50,11 @@ def main():
 
     (options, args) = parser.parse_args ()
 
+    if options.file_path:
+        options.do_attach = True
+
     if options.do_list + options.do_attach + options.do_detach > 1:
-        print >> sys.stderr, "Only one of -l -a -d is allowed!"
+        print >> sys.stderr, "Only one of -l -a/-A -d is allowed!"
         exit (1)
 
     if options.do_attach or options.do_detach:
@@ -64,10 +69,16 @@ def main():
         vm = qvm_collection.get_vm_by_name(args[1])
         if vm is None:
             parser.error ("Invalid VM name: %s" % args[1])
-        dev_list = block_list()
-        if not args[0] in dev_list.keys():
-            parser.error ("Invalid device name: %s" % args[0])
-        dev = dev_list[args[0]]
+        if options.file_path:
+            dev = {}
+            dev['vm'] = args[0]
+            dev['device'] = options.file_path
+            dev['mode'] = 'w'
+        else:
+            dev_list = block_list()
+            if not args[0] in dev_list.keys():
+                parser.error ("Invalid device name: %s" % args[0])
+            dev = dev_list[args[0]]
         backend_vm = qvm_collection.get_vm_by_name(dev['vm'])
         assert backend_vm is not None
         kwargs = {}
