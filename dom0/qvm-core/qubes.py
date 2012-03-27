@@ -332,6 +332,10 @@ class QubesVm(object):
             qubes_host = QubesHost()
             self.vcpus = qubes_host.no_cpus
 
+        # Always set if meminfo-writer should be active or not
+        if 'meminfo-writer' not in self.services:
+            self.services['meminfo-writer'] = not (len(self.pcidevs) > 0)
+
         # Some additional checks for template based VM
         if self.template is not None:
             if not self.template.is_template():
