@@ -240,11 +240,10 @@ class QubesVm(object):
             # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
             "internal": { "default": False },
             "vcpus": { "default": None },
-            "kernel": { "default": None, 'eval': \
-                'self.template.kernel if self.template is not None else value' },
-            "uses_default_kernel": { "default": True },
-            "uses_default_kernelopts": { "default": True },
-            "kernelopts": { "default": "", "eval": \
+            "kernel": { "default": None, 'order': 30 },
+            "uses_default_kernel": { "default": True, 'order': 30 },
+            "uses_default_kernelopts": { "default": True, 'order': 30 },
+            "kernelopts": { "default": "", 'order': 30, "eval": \
                 'value if not self.uses_default_kernelopts else default_kernelopts_pcidevs if len(self.pcidevs) > 0 else default_kernelopts' },
             "mac": { "attr": "_mac", "default": None },
             "include_in_backups": { "default": True },
@@ -255,8 +254,7 @@ class QubesVm(object):
                 'self.template.appmenus_templates_dir if self.template is not None else None' },
             "config_file_template": { "eval": "config_template_pv" },
             "icon_path": { "eval": 'self.dir_path + "/icon.png" if self.dir_path is not None else None' },
-            "kernels_dir": { 'eval': 'self.template.kernels_dir if self.template is not None else ' + \
-                'qubes_kernels_base_dir + "/" + self.kernel if self.kernel is not None else ' + \
+            "kernels_dir": { 'eval': 'qubes_kernels_base_dir + "/" + self.kernel if self.kernel is not None else ' + \
                 # for backward compatibility (or another rare case): kernel=None -> kernel in VM dir
                 'self.dir_path + "/" + default_kernels_subdir' },
             }
