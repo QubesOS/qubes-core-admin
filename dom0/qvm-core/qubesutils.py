@@ -78,7 +78,7 @@ def parse_size(size):
 
     size = size.strip().upper()
     if size.isdigit():
-        return size
+        return int(size)
 
     for unit, multiplier in units:
         if size.endswith(unit):
