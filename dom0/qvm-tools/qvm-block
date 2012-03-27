@@ -48,6 +48,8 @@ def main():
                         help="Force read-only mode")
     parser.add_option ("--no-auto-detach", dest="auto_detach", action="store_false", default=True,
                         help="Fail when device already connected to other VM")
+    parser.add_option ("--show-system-disks", dest="system_disks", action="store_true", default=False,
+                        help="List also system disks")
 
     (options, args) = parser.parse_args ()
 
@@ -116,7 +118,9 @@ def main():
             block_detach(None, attached_to['devid'], vm_xid=attached_to['xid'])
     else:
         # do_list
-        for dev in block_list().values():
+        kwargs = {}
+        kwargs['system_disks'] = options.system_disks
+        for dev in block_list(**kwargs).values():
             attached_to = block_check_attached(None, dev['device'], backend_xid = dev['xid'])
             attached_to_str = ""
             if attached_to:
