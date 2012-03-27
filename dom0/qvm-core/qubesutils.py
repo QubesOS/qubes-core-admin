@@ -188,7 +188,7 @@ def block_find_unused_frontend(vm = None):
             return block_devid_to_name(major << 8 | minor)
     return None
 
-def block_list(vm = None):
+def block_list(vm = None, system_disks = False):
     device_re = re.compile(r"^[a-z0-9]{1,8}$")
     # FIXME: any better idea of desc_re?
     desc_re = re.compile(r"^.{1,255}$")
@@ -232,6 +232,11 @@ def block_list(vm = None):
             if block_name_to_majorminor(device) == (0, 0):
                 print >> sys.stderr, "Unsupported device %s:%s" % (vm_name, device)
                 continue
+
+            if not system_disks:
+                if xid == '0' and device_desc.startswith(qubes_base_dir):
+                    continue
+
             visible_name = "%s:%s" % (vm_name, device)
             devices_list[visible_name] = {"name": visible_name, "xid":int(xid),
                 "vm": vm_name, "device":device, "size":int(device_size),
