@@ -6,6 +6,12 @@ import xen.lowlevel.xs
 import sys
 import os
 from qmemman import SystemState
+import qmemman_algo
+from ConfigParser import SafeConfigParser
+from optparse import OptionParser
+from qubesutils import parse_size
+
+config_path = '/etc/qubes/qmemman.conf'
 
 system_state = SystemState()
 global_lock = thread.allocate_lock()
@@ -113,5 +119,23 @@ def start_server():
 class QMemmanServer:
     @staticmethod          
     def main():
+        usage = "usage: %prog [options]"
+        parser = OptionParser(usage)
+        parser.add_option("-c", "--config", action="store", dest="config", default=config_path)
+        (options, args) = parser.parse_args()
+
+        config = SafeConfigParser({
+                'vm-min-mem': str(qmemman_algo.MIN_PREFMEM),
+                'dom0-mem-boost': str(qmemman_algo.DOM0_MEM_BOOST),
+                'cache-margin-factor': str(qmemman_algo.CACHE_FACTOR)
+                })
+        config.read(options.config)
+        if config.has_section('global'):
+            qmemman_algo.MIN_PREFMEM = parse_size(config.get('global', 'vm-min-mem'))
+            qmemman_algo.DOM0_MEM_BOOST = parse_size(config.get('global', 'dom0-mem-boost'))
+            qmemman_algo.CACHE_FACTOR = config.getfloat('global', 'cache-margin-factor')
+
+        print "values: %s, %s, %s" % (str(qmemman_algo.MIN_PREFMEM), str(qmemman_algo.DOM0_MEM_BOOST), str(qmemman_algo.CACHE_FACTOR))
+
         thread.start_new_thread(start_server, tuple([]))
         XS_Watcher().watch_loop()
