@@ -4,6 +4,7 @@
 DEFAULT_ENABLED_NETVM="network-manager qubes-network"
 DEFAULT_ENABLED_PROXYVM="meminfo-writer qubes-network qubes-firewall qubes-netwatcher"
 DEFAULT_ENABLED_APPVM="meminfo-writer cups"
+DEFAULT_ENABLED_TEMPLATEVM=$DEFAULT_ENABLED_APPVM
 DEFAULT_ENABLED="meminfo-writer"
 
 XS_READ=/usr/bin/xenstore-read
@@ -30,6 +31,7 @@ TYPE=`$XS_READ qubes_vm_type 2> /dev/null`
 [ "$TYPE" == "AppVM" ] && DEFAULT_ENABLED=$DEFAULT_ENABLED_APPVM
 [ "$TYPE" == "NetVM" ] && DEFAULT_ENABLED=$DEFAULT_ENABLED_NETVM
 [ "$TYPE" == "ProxyVM" ] && DEFAULT_ENABLED=$DEFAULT_ENABLED_PROXYVM
+[ "$TYPE" == "TemplateVM" ] && DEFAULT_ENABLED=$DEFAULT_ENABLED_TEMPLATEVM
 
 # Enable default services
 for srv in $DEFAULT_ENABLED; do
