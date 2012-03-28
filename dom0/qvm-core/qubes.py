@@ -2226,6 +2226,7 @@ class QubesHVm(QubesVm):
             backend_domain = ""
             if drive_path.startswith("hd:"):
                 type_mode = ",w"
+                drive_path = drive_path[3:]
             elif drive_path.startswith("cdrom:"):
                 type_mode = ":cdrom,r"
                 drive_path = drive_path[6:]
