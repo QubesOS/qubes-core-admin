@@ -219,6 +219,9 @@ def block_list(vm = None, system_disks = False):
             device_desc = xs.read('', '/local/domain/%s/qubes-block-devices/%s/desc' % (xid, device))
             device_mode = xs.read('', '/local/domain/%s/qubes-block-devices/%s/mode' % (xid, device))
 
+            if device_size is None or device_desc is None or device_mode is None:
+                print >> sys.stderr, "Missing field in %s device parameters" % device
+                continue
             if not device_size.isdigit():
                 print >> sys.stderr, "Invalid %s device size in VM '%s'" % (device, vm_name)
                 continue
