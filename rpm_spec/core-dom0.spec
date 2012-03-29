@@ -92,8 +92,8 @@ cp qvm-core/__init__.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qmemman/qmemman*py $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qmemman/qmemman*py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
 
-mkdir -p $RPM_BUILD_DIR/etc/qubes
-cp dom0/misc/qmemman.conf $RPM_BUILD_DIR%{_sysconfdir}/qubes/
+mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/qubes
+cp misc/qmemman.conf $RPM_BUILD_ROOT%{_sysconfdir}/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/patch_appvm_initramfs.sh $RPM_BUILD_ROOT/usr/lib/qubes
@@ -310,7 +310,7 @@ fi
 /etc/init.d/qubes_core
 /etc/init.d/qubes_netvm
 /etc/init.d/qubes_setupdvm
-%config(noreplace) %{_sysconfdir}/qubes/qmemman.conf
+%config(noreplace) %attr(0664,root,qubes) %{_sysconfdir}/qubes/qmemman.conf
 /usr/bin/qvm-*
 /usr/bin/qubes-*
 /usr/bin/qclipd
