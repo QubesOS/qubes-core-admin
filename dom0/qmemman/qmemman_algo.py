@@ -1,5 +1,11 @@
 import string
 
+# This are only defaults - can be overriden by QMemmanServer with values from
+# config file
+CACHE_FACTOR = 1.3
+MIN_PREFMEM = 200*1024*1024
+DOM0_MEM_BOOST = 350*1024*1024
+
 #untrusted meminfo size is taken from xenstore key, thus its size is limited
 #so splits do not require excessive memory
 def parse_meminfo(untrusted_meminfo):
@@ -57,8 +63,6 @@ def refresh_meminfo_for_domain(domain, untrusted_xenstore_key):
         domain.mem_used =  domain.meminfo['MemTotal'] - domain.meminfo['MemFree'] - domain.meminfo['Cached'] - domain.meminfo['Buffers'] + domain.meminfo['SwapTotal'] - domain.meminfo['SwapFree']
                         
 def prefmem(domain):
-    CACHE_FACTOR = 1.3
-    MIN_PREFMEM = 200*1024*1024
 #dom0 is special, as it must have large cache, for vbds. Thus, give it a special boost
     if domain.id == '0':
         return min(domain.mem_used*CACHE_FACTOR + 350*1024*1024, domain.memory_maximum)

@@ -248,11 +248,10 @@ class QubesVm(object):
             # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
             "internal": { "default": False },
             "vcpus": { "default": None },
-            "kernel": { "default": None, 'eval': \
-                'self.template.kernel if self.template is not None else value' },
-            "uses_default_kernel": { "default": True },
-            "uses_default_kernelopts": { "default": True },
-            "kernelopts": { "default": "", "eval": \
+            "kernel": { "default": None, 'order': 30 },
+            "uses_default_kernel": { "default": True, 'order': 30 },
+            "uses_default_kernelopts": { "default": True, 'order': 30 },
+            "kernelopts": { "default": "", 'order': 30, "eval": \
                 'value if not self.uses_default_kernelopts else default_kernelopts_pcidevs if len(self.pcidevs) > 0 else default_kernelopts' },
             "mac": { "attr": "_mac", "default": None },
             "include_in_backups": { "default": True },
@@ -263,8 +262,7 @@ class QubesVm(object):
                 'self.template.appmenus_templates_dir if self.template is not None else None' },
             "config_file_template": { "eval": "config_template_pv" },
             "icon_path": { "eval": 'self.dir_path + "/icon.png" if self.dir_path is not None else None' },
-            "kernels_dir": { 'eval': 'self.template.kernels_dir if self.template is not None else ' + \
-                'qubes_kernels_base_dir + "/" + self.kernel if self.kernel is not None else ' + \
+            "kernels_dir": { 'eval': 'qubes_kernels_base_dir + "/" + self.kernel if self.kernel is not None else ' + \
                 # for backward compatibility (or another rare case): kernel=None -> kernel in VM dir
                 'self.dir_path + "/" + default_kernels_subdir' },
             }
@@ -331,6 +329,10 @@ class QubesVm(object):
         if self.vcpus is None:
             qubes_host = QubesHost()
             self.vcpus = qubes_host.no_cpus
+
+        # Always set if meminfo-writer should be active or not
+        if 'meminfo-writer' not in self.services:
+            self.services['meminfo-writer'] = not (len(self.pcidevs) > 0)
 
         # Some additional checks for template based VM
         if self.template is not None:
@@ -2163,6 +2165,14 @@ class QubesHVm(QubesVm):
     def is_appvm(self):
         return True
 
+    def get_clone_attrs(self):
+        attrs = super(QubesHVm, self).get_clone_attrs()
+        attrs.remove('kernel')
+        attrs.remove('uses_default_kernel')
+        attrs.remove('kernelopts')
+        attrs.remove('uses_default_kernelopts')
+        return attrs
+
     def create_on_disk(self, verbose, source_template = None):
         if dry_run:
             return
@@ -2217,7 +2227,10 @@ class QubesHVm(QubesVm):
             if drive_path.startswith("hd:"):
                 type_mode = ",w"
                 drive_path = drive_path[3:]
-            backend_split = re.match(r"^([a-zA-Z0-9]*):(.*)", drive_path)
+            elif drive_path.startswith("cdrom:"):
+                type_mode = ":cdrom,r"
+                drive_path = drive_path[6:]
+            backend_split = re.match(r"^([a-zA-Z0-9-]*):(.*)", drive_path)
             if backend_split:
                 backend_domain = "," + backend_split.group(1)
                 drive_path = backend_split.group(2)
@@ -2368,8 +2381,6 @@ class QubesVmCollection(dict):
         qid = self.get_new_unused_qid()
         vm = QubesHVm (qid=qid, name=name,
                          netvm = self.get_default_netvm(),
-                         kernel = self.get_default_kernel(),
-                         uses_default_kernel = True,
                          label=label)
 
         if not self.verify_new_vm (vm):

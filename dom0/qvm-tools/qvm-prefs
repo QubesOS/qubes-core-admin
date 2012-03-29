@@ -65,9 +65,7 @@ def do_list(vm):
     print fmt.format ("MAC", "%s%s" % (vm.mac, " (auto)" if vm._mac is None else ""))
 
     if hasattr(vm, 'kernel'):
-        if vm.template is not None:
-            print fmt.format ("kernel", "%s (from template)" % vm.kernel)
-        elif vm.uses_default_kernel:
+        if vm.uses_default_kernel:
             print fmt.format ("kernel", "%s (default)" % vm.kernel)
         else:
             print fmt.format ("kernel", vm.kernel)
@@ -162,10 +160,6 @@ def set_netvm(vms, vm, args):
     vm.netvm = netvm
 
 def set_kernel(vms, vm, args):
-    if vm.template is not None:
-        print >> sys.stderr, "Cannot set kernel for template-based VM. Set it for template instead."
-        return False
-
     if len (args) != 1:
         print >> sys.stderr, "Missing kernel version argument!"
         print >> sys.stderr, "Possible values:"
