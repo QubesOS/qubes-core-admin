@@ -219,6 +219,9 @@ def block_list(vm = None, system_disks = False):
             device_desc = xs.read('', '/local/domain/%s/qubes-block-devices/%s/desc' % (xid, device))
             device_mode = xs.read('', '/local/domain/%s/qubes-block-devices/%s/mode' % (xid, device))
 
+            if device_size is None or device_desc is None or device_mode is None:
+                print >> sys.stderr, "Missing field in %s device parameters" % device
+                continue
             if not device_size.isdigit():
                 print >> sys.stderr, "Invalid %s device size in VM '%s'" % (device, vm_name)
                 continue
@@ -303,7 +306,7 @@ def block_attach(vm, backend_vm, device, frontend=None, mode="w", auto_detach=Fa
     attached_vm = block_check_attached(backend_vm, device)
     if attached_vm:
         if auto_detach:
-            block_detach(None, attached_vm['devid'], vm_xid=attached_vm['vm_xid'])
+            block_detach(None, attached_vm['devid'], vm_xid=attached_vm['xid'])
         else:
             raise QubesException("Device %s from %s already connected to VM %s as %s" % (device, backend_vm.name, attached_vm['vm'], attached_vm['frontend']))
 
