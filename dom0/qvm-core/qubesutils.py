@@ -298,7 +298,7 @@ def block_attach(vm, backend_vm, device, frontend=None, mode="w", auto_detach=Fa
     attached_vm = block_check_attached(backend_vm, device)
     if attached_vm:
         if auto_detach:
-            block_detach(None, attached_vm['devid'], vm_xid=attached_vm['vm_xid'])
+            block_detach(None, attached_vm['devid'], vm_xid=attached_vm['xid'])
         else:
             raise QubesException("Device %s from %s already connected to VM %s as %s" % (device, backend_vm.name, attached_vm['vm'], attached_vm['frontend']))
 
