@@ -30,13 +30,16 @@ import os
 
 def main():
     usage = "usage: %prog -l [options]\n"\
-            "usage: %prog -a [options] <device> <vm-name>\n"\
-            "usage: %prog -d [options] <device>\n"\
+            "usage: %prog -a [options] <vm-name> <device-vm-name>:<device>\n"\
+            "usage: %prog -A [options] <vm-name> <file-vm-name>:<file>\n"\
+            "usage: %prog -d [options] <device-vm-name>:<device>\n"\
             "usage: %prog -d [options] <vm-name>\n"\
             "List/set VM PCI devices."
 
     parser = OptionParser (usage)
     parser.add_option ("-l", "--list", action="store_true", dest="do_list", default=False)
+    parser.add_option ("-A", "--attach-file", action="store_true", dest="do_file_attach", default=False,
+                        help="Attach specified file instead of physical device")
     parser.add_option ("-a", "--attach", action="store_true", dest="do_attach", default=False)
     parser.add_option ("-d", "--detach", action="store_true", dest="do_detach", default=False)
     parser.add_option ("-f", "--frontend", dest="frontend", 
@@ -45,11 +48,16 @@ def main():
                         help="Force read-only mode")
     parser.add_option ("--no-auto-detach", dest="auto_detach", action="store_false", default=True,
                         help="Fail when device already connected to other VM")
+    parser.add_option ("--show-system-disks", dest="system_disks", action="store_true", default=False,
+                        help="List also system disks")
 
     (options, args) = parser.parse_args ()
 
+    if options.do_file_attach:
+        options.do_attach = True
+
     if options.do_list + options.do_attach + options.do_detach > 1:
-        print >> sys.stderr, "Only one of -l -a -d is allowed!"
+        print >> sys.stderr, "Only one of -l -a/-A -d is allowed!"
         exit (1)
 
     if options.do_attach or options.do_detach:
@@ -61,13 +69,21 @@ def main():
     if options.do_attach:
         if (len (args) < 2):
             parser.error ("You must provide device and vm name!")
-        vm = qvm_collection.get_vm_by_name(args[1])
+        vm = qvm_collection.get_vm_by_name(args[0])
         if vm is None:
-            parser.error ("Invalid VM name: %s" % args[1])
-        dev_list = block_list()
-        if not args[0] in dev_list.keys():
-            parser.error ("Invalid device name: %s" % args[0])
-        dev = dev_list[args[0]]
+            parser.error ("Invalid VM name: %s" % args[0])
+        # FIXME: here we assume that device is always in form "domain:dev", which can be changed in the future
+        if args[1].find(":") < 0:
+            parser.error ("Invalid device syntax" % args[1])
+        if options.do_file_attach:
+            dev = {}
+            (dev['vm'], dev['device']) = args[1].split(":")
+            dev['mode'] = 'w'
+        else:
+            dev_list = block_list()
+            if not args[1] in dev_list.keys():
+                parser.error ("Invalid device name: %s" % args[1])
+            dev = dev_list[args[1]]
         backend_vm = qvm_collection.get_vm_by_name(dev['vm'])
         assert backend_vm is not None
         kwargs = {}
@@ -102,7 +118,9 @@ def main():
             block_detach(None, attached_to['devid'], vm_xid=attached_to['xid'])
     else:
         # do_list
-        for dev in block_list().values():
+        kwargs = {}
+        kwargs['system_disks'] = options.system_disks
+        for dev in block_list(**kwargs).values():
             attached_to = block_check_attached(None, dev['device'], backend_xid = dev['xid'])
             attached_to_str = ""
             if attached_to:
