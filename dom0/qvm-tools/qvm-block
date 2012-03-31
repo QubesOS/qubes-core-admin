@@ -53,7 +53,7 @@ def main():
 
     (options, args) = parser.parse_args ()
 
-    if options.file_path:
+    if options.do_file_attach:
         options.do_attach = True
 
     if options.do_list + options.do_attach + options.do_detach > 1:
