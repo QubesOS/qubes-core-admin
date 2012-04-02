@@ -203,10 +203,11 @@ def block_list(vm = None, system_disks = False):
     else:
          vm_list = xs.ls('', '/local/domain')
 
+    xs_trans = xs.transaction_start()
     devices_list = {}
     for xid in vm_list:
-        vm_name = xs.read('', '/local/domain/%s/name' % xid)
-        vm_devices = xs.ls('', '/local/domain/%s/qubes-block-devices' % xid)
+        vm_name = xs.read(xs_trans, '/local/domain/%s/name' % xid)
+        vm_devices = xs.ls(xs_trans, '/local/domain/%s/qubes-block-devices' % xid)
         if vm_devices is None:
             continue
         for device in vm_devices:
@@ -215,9 +216,9 @@ def block_list(vm = None, system_disks = False):
                 print >> sys.stderr, "Invalid device name in VM '%s'" % vm_name
                 continue
 
-            device_size = xs.read('', '/local/domain/%s/qubes-block-devices/%s/size' % (xid, device))
-            device_desc = xs.read('', '/local/domain/%s/qubes-block-devices/%s/desc' % (xid, device))
-            device_mode = xs.read('', '/local/domain/%s/qubes-block-devices/%s/mode' % (xid, device))
+            device_size = xs.read(xs_trans, '/local/domain/%s/qubes-block-devices/%s/size' % (xid, device))
+            device_desc = xs.read(xs_trans, '/local/domain/%s/qubes-block-devices/%s/desc' % (xid, device))
+            device_mode = xs.read(xs_trans, '/local/domain/%s/qubes-block-devices/%s/mode' % (xid, device))
 
             if device_size is None or device_desc is None or device_mode is None:
                 print >> sys.stderr, "Missing field in %s device parameters" % device
@@ -245,13 +246,16 @@ def block_list(vm = None, system_disks = False):
                 "vm": vm_name, "device":device, "size":int(device_size),
                 "desc":device_desc, "mode":device_mode}
 
+    xs.transaction_end(xs_trans)
     return devices_list
 
 def block_check_attached(backend_vm, device, backend_xid = None):
     if backend_xid is None:
         backend_xid = backend_vm.xid
-    vm_list = xs.ls('', '/local/domain/%d/backend/vbd' % backend_xid)
+    xs_trans = xs.transaction_start()
+    vm_list = xs.ls(xs_trans, '/local/domain/%d/backend/vbd' % backend_xid)
     if vm_list is None:
+        xs.transaction_end(xs_trans)
         return None
     device_majorminor = None
     try:
@@ -260,10 +264,10 @@ def block_check_attached(backend_vm, device, backend_xid = None):
         # Unknown devices will be compared directly - perhaps it is a filename?
         pass
     for vm_xid in vm_list:
-        for devid in xs.ls('', '/local/domain/%d/backend/vbd/%s' % (backend_xid, vm_xid)):
+        for devid in xs.ls(xs_trans, '/local/domain/%d/backend/vbd/%s' % (backend_xid, vm_xid)):
             (tmp_major, tmp_minor) = (0, 0)
-            phys_device = xs.read('', '/local/domain/%d/backend/vbd/%s/%s/physical-device' % (backend_xid, vm_xid, devid))
-            dev_params = xs.read('', '/local/domain/%d/backend/vbd/%s/%s/params' % (backend_xid, vm_xid, devid))
+            phys_device = xs.read(xs_trans, '/local/domain/%d/backend/vbd/%s/%s/physical-device' % (backend_xid, vm_xid, devid))
+            dev_params = xs.read(xs_trans, '/local/domain/%d/backend/vbd/%s/%s/params' % (backend_xid, vm_xid, devid))
             if phys_device and phys_device.find(':'):
                 (tmp_major, tmp_minor) = phys_device.split(":")
                 tmp_major = int(tmp_major, 16)
@@ -283,7 +287,9 @@ def block_check_attached(backend_vm, device, backend_xid = None):
                (device_majorminor is None and dev_params == device):
                 vm_name = xl_ctx.domid_to_name(int(vm_xid))
                 frontend = block_devid_to_name(int(devid))
+                xs.transaction_end(xs_trans)
                 return {"xid":int(vm_xid), "frontend": frontend, "devid": int(devid), "vm": vm_name}
+    xs.transaction_end(xs_trans)
     return None
 
 def block_attach(vm, backend_vm, device, frontend=None, mode="w", auto_detach=False):
