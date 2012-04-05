@@ -2266,7 +2266,7 @@ class QubesHVm(QubesVm):
                 format(self.private_img)
             f_private = open(self.private_img, "w")
             f_private.truncate(default_hvm_private_img_size)
-            f_root.close()
+            f_private.close()
 
         return True
 
