@@ -93,6 +93,8 @@ def print_stdout(text):
 def print_stderr(text):
     print >> sys.stderr, (text)
 
+###### Block devices ########
+
 def block_devid_to_name(devid):
     major = devid / 256
     minor = devid % 256
@@ -340,6 +342,8 @@ def block_detach(vm, frontend = "xvdi", vm_xid = None):
     xl_cmd = [ '/usr/sbin/xl', 'block-detach', str(vm_xid), str(frontend)]
     subprocess.check_call(xl_cmd)
 
+####### QubesWatch ######
+
 def only_in_first_list(l1, l2):
     ret=[]
     for i in l1:
@@ -422,6 +426,8 @@ class QubesWatch(object):
     def watch_loop(self):
         while True:
             self.watch_single()
+
+######## Backups #########
 
 def get_disk_usage(file_or_dir):
     if not os.path.exists(file_or_dir):
