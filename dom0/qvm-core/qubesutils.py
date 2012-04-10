@@ -340,6 +340,89 @@ def block_detach(vm, frontend = "xvdi", vm_xid = None):
     xl_cmd = [ '/usr/sbin/xl', 'block-detach', str(vm_xid), str(frontend)]
     subprocess.check_call(xl_cmd)
 
+def only_in_first_list(l1, l2):
+    ret=[]
+    for i in l1:
+        if not i in l2:
+            ret.append(i)
+    return ret
+
+class QubesWatch(object):
+    class WatchType(object):
+        def __init__(self, fn, param):
+            self.fn = fn
+            self.param = param
+
+    def __init__(self):
+        self.xs = xen.lowlevel.xs.xs()
+        self.watch_tokens_block = {}
+        self.watch_tokens_vbd = {}
+        self.block_callback = None
+        self.domain_callback = None
+        self.xs.watch('@introduceDomain', QubesWatch.WatchType(self.domain_list_changed, None))
+        self.xs.watch('@releaseDomain', QubesWatch.WatchType(self.domain_list_changed, None))
+
+    def setup_block_watch(self, callback):
+        old_block_callback = self.block_callback
+        self.block_callback = callback
+        if old_block_callback is not None and callback is None:
+            # remove watches
+            self.update_watches_vbd([])
+            self.update_watches_block([])
+        else:
+            # possibly add watches
+            self.domain_list_changed(None)
+
+    def setup_domain_watch(self, callback):
+        self.domain_callback = callback
+
+    def get_block_key(self, xid):
+        return '/local/domain/%s/qubes-block-devices' % xid
+
+    def get_vbd_key(self, xid):
+        return '/local/domain/%s/device/vbd' % xid
+
+    def update_watches_block(self, xid_list):
+        for i in only_in_first_list(xid_list, self.watch_tokens_block.keys()):
+            #new domain has been created
+            watch = QubesWatch.WatchType(self.block_callback, i)
+            self.watch_tokens_block[i] = watch
+            self.xs.watch(self.get_block_key(i), watch)
+        for i in only_in_first_list(self.watch_tokens_block.keys(), xid_list):
+            #domain destroyed
+            self.xs.unwatch(self.get_block_key(i), self.watch_tokens_block[i])
+            self.watch_tokens_block.pop(i)
+
+    def update_watches_vbd(self, xid_list):
+        for i in only_in_first_list(xid_list, self.watch_tokens_vbd.keys()):
+            #new domain has been created
+            watch = QubesWatch.WatchType(self.block_callback, i)
+            self.watch_tokens_block[i] = watch
+            self.xs.watch(self.get_vbd_key(i), watch)
+        for i in only_in_first_list(self.watch_tokens_vbd.keys(), xid_list):
+            #domain destroyed
+            self.xs.unwatch(self.get_vbd_key(i), self.watch_tokens_vbd[i])
+            self.watch_tokens_vbd.pop(i)
+
+    def domain_list_changed(self, param):
+        curr = self.xs.ls('', '/local/domain')
+        if curr == None:
+            return
+        if self.domain_callback:
+            self.domain_callback()
+        if self.block_callback:
+            self.update_watches_block(curr)
+            self.update_watches_vbd(curr)
+
+    def watch_single(self):
+        result = self.xs.read_watch()
+        token = result[1]
+        token.fn(token.param)
+
+    def watch_loop(self):
+        while True:
+            self.watch_single()
+
 def get_disk_usage(file_or_dir):
     if not os.path.exists(file_or_dir):
         return 0
