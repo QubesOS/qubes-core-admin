@@ -401,7 +401,7 @@ class QubesWatch(object):
         for i in only_in_first_list(xid_list, self.watch_tokens_vbd.keys()):
             #new domain has been created
             watch = QubesWatch.WatchType(self.block_callback, i)
-            self.watch_tokens_block[i] = watch
+            self.watch_tokens_vbd[i] = watch
             self.xs.watch(self.get_vbd_key(i), watch)
         for i in only_in_first_list(self.watch_tokens_vbd.keys(), xid_list):
             #domain destroyed
