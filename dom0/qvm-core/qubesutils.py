@@ -294,7 +294,7 @@ def block_check_attached(backend_vm, device, backend_xid = None):
     xs.transaction_end(xs_trans)
     return None
 
-def block_attach(vm, backend_vm, device, frontend=None, mode="w", auto_detach=False):
+def block_attach(vm, backend_vm, device, frontend=None, mode="w", auto_detach=False, wait=True):
     if not vm.is_running():
         raise QubesException("VM %s not running" % vm.name)
 
@@ -325,6 +325,36 @@ def block_attach(vm, backend_vm, device, frontend=None, mode="w", auto_detach=Fa
 
     xl_cmd = [ '/usr/sbin/xl', 'block-attach', vm.name, backend_dev, frontend, mode, str(backend_vm.xid) ]
     subprocess.check_call(xl_cmd)
+    if wait:
+        be_path = '/local/domain/%d/backend/vbd/%d/%d' % (backend_vm.xid, vm.xid, block_name_to_devid(frontend))
+        # There is no way to use xenstore watch with a timeout, so must check in a loop
+        interval = 0.100
+        # 5sec timeout
+        timeout = 5/interval
+        while timeout > 0:
+            be_state = xs.read('', be_path + '/state')
+            hotplug_state = xs.read('', be_path + '/hotplug-status')
+            if be_state is None:
+                raise QubesException("Backend device disappeared, something weird happend")
+            elif int(be_state) == 4:
+                # Ok
+                return
+            elif int(be_state) > 4:
+                # Error
+                error = xs.read('/local/domain/%d/error/backend/vbd/%d/%d/error' % (backend_vm.xid, vm.xid, block_name_to_devid(frontend)))
+                if error is None:
+                    raise QubesException("Error while connecting block device: " + error)
+                else:
+                    raise QubesException("Unknown error while connecting block device")
+            elif hotplug_state == 'error':
+                hotplug_error = xs.read('', be_path + '/hotplug-error')
+                if hotplug_error:
+                    raise QubesException("Error while connecting block device: " + hotplug_error)
+                else:
+                    raise QubesException("Unknown hotplug error while connecting block device")
+            time.sleep(interval)
+            timeout -= interval
+        raise QubesException("Timeout while waiting for block defice connection")
 
 def block_detach(vm, frontend = "xvdi", vm_xid = None):
     # Get XID if not provided already
