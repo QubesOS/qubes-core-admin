@@ -20,7 +20,7 @@
 #
 #
 
-from qubes.qubes import QubesVmCollection
+from qubes.qubes import QubesVmCollection, QubesException
 from qubes.qubesutils import block_list,block_attach,block_detach,block_check_attached
 from qubes.qubesutils import kbytes_to_kmg, bytes_to_kmg
 from optparse import OptionParser
@@ -94,7 +94,11 @@ def main():
         else:
             kwargs['mode'] = dev['mode']
         kwargs['auto_detach'] = options.auto_detach
-        block_attach(vm, backend_vm, dev['device'], **kwargs)
+        try:
+            block_attach(vm, backend_vm, dev['device'], **kwargs)
+        except QubesException as e:
+            print >> sys.stderr, "ERROR: %s" % str(e)
+            sys.exit(1)
     elif options.do_detach:
         if (len (args) < 1):
             parser.error ("You must provide device or vm name!")
