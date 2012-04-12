@@ -372,6 +372,34 @@ def block_detach(vm, frontend = "xvdi", vm_xid = None):
     xl_cmd = [ '/usr/sbin/xl', 'block-detach', str(vm_xid), str(frontend)]
     subprocess.check_call(xl_cmd)
 
+def block_detach_all(vm, vm_xid = None):
+    """ Detach all non-system devices"""
+    # Get XID if not provided already
+    if vm_xid is None:
+        if not vm.is_running():
+            raise QubesException("VM %s not running" % vm.name)
+        # FIXME: potential race
+        vm_xid = vm.xid
+
+    xs_trans = xs.transaction_start()
+    devices = xs.ls(xs_trans, '/local/domain/%d/device/vbd' % vm_xid)
+    if devices is None:
+        return
+    devices_to_detach = []
+    for devid in devices:
+        # check if this is system disk
+        be_path = xs.read(xs_trans, '/local/domain/%d/device/vbd/%s/backend' % (vm_xid, devid))
+        assert be_path is not None
+        be_params = xs.read(xs_trans, be_path + '/params')
+        if be_path.startswith('/local/domain/0/') and be_params is not None and be_params.startswith(qubes_base_dir):
+            # system disk
+            continue
+        devices_to_detach.append(devid)
+    xs.transaction_end(xs_trans)
+    for devid in devices_to_detach:
+        xl_cmd = [ '/usr/sbin/xl', 'block-detach', str(vm_xid), devid]
+        subprocess.check_call(xl_cmd)
+
 ####### QubesWatch ######
 
 def only_in_first_list(l1, l2):
