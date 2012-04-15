@@ -385,7 +385,7 @@ class QubesVm(object):
         self._set_netvm(new_netvm)
 
     def _set_netvm(self, new_netvm):
-        if self.is_running() and not new_netvm.is_running():
+        if self.is_running() and new_netvm is not None and not new_netvm.is_running():
             raise QubesException("Cannot dynamically attach to stopped NetVM")
         if self.netvm is not None:
             self.netvm.connected_vms.pop(self.qid)
@@ -2266,7 +2266,7 @@ class QubesHVm(QubesVm):
                 format(self.private_img)
             f_private = open(self.private_img, "w")
             f_private.truncate(default_hvm_private_img_size)
-            f_root.close()
+            f_private.close()
 
         return True
 
