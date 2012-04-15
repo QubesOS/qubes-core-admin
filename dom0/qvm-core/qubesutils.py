@@ -93,6 +93,8 @@ def print_stdout(text):
 def print_stderr(text):
     print >> sys.stderr, (text)
 
+###### Block devices ########
+
 def block_devid_to_name(devid):
     major = devid / 256
     minor = devid % 256
@@ -203,10 +205,11 @@ def block_list(vm = None, system_disks = False):
     else:
          vm_list = xs.ls('', '/local/domain')
 
+    xs_trans = xs.transaction_start()
     devices_list = {}
     for xid in vm_list:
-        vm_name = xs.read('', '/local/domain/%s/name' % xid)
-        vm_devices = xs.ls('', '/local/domain/%s/qubes-block-devices' % xid)
+        vm_name = xs.read(xs_trans, '/local/domain/%s/name' % xid)
+        vm_devices = xs.ls(xs_trans, '/local/domain/%s/qubes-block-devices' % xid)
         if vm_devices is None:
             continue
         for device in vm_devices:
@@ -215,9 +218,9 @@ def block_list(vm = None, system_disks = False):
                 print >> sys.stderr, "Invalid device name in VM '%s'" % vm_name
                 continue
 
-            device_size = xs.read('', '/local/domain/%s/qubes-block-devices/%s/size' % (xid, device))
-            device_desc = xs.read('', '/local/domain/%s/qubes-block-devices/%s/desc' % (xid, device))
-            device_mode = xs.read('', '/local/domain/%s/qubes-block-devices/%s/mode' % (xid, device))
+            device_size = xs.read(xs_trans, '/local/domain/%s/qubes-block-devices/%s/size' % (xid, device))
+            device_desc = xs.read(xs_trans, '/local/domain/%s/qubes-block-devices/%s/desc' % (xid, device))
+            device_mode = xs.read(xs_trans, '/local/domain/%s/qubes-block-devices/%s/mode' % (xid, device))
 
             if device_size is None or device_desc is None or device_mode is None:
                 print >> sys.stderr, "Missing field in %s device parameters" % device
@@ -245,13 +248,16 @@ def block_list(vm = None, system_disks = False):
                 "vm": vm_name, "device":device, "size":int(device_size),
                 "desc":device_desc, "mode":device_mode}
 
+    xs.transaction_end(xs_trans)
     return devices_list
 
 def block_check_attached(backend_vm, device, backend_xid = None):
     if backend_xid is None:
         backend_xid = backend_vm.xid
-    vm_list = xs.ls('', '/local/domain/%d/backend/vbd' % backend_xid)
+    xs_trans = xs.transaction_start()
+    vm_list = xs.ls(xs_trans, '/local/domain/%d/backend/vbd' % backend_xid)
     if vm_list is None:
+        xs.transaction_end(xs_trans)
         return None
     device_majorminor = None
     try:
@@ -260,10 +266,10 @@ def block_check_attached(backend_vm, device, backend_xid = None):
         # Unknown devices will be compared directly - perhaps it is a filename?
         pass
     for vm_xid in vm_list:
-        for devid in xs.ls('', '/local/domain/%d/backend/vbd/%s' % (backend_xid, vm_xid)):
+        for devid in xs.ls(xs_trans, '/local/domain/%d/backend/vbd/%s' % (backend_xid, vm_xid)):
             (tmp_major, tmp_minor) = (0, 0)
-            phys_device = xs.read('', '/local/domain/%d/backend/vbd/%s/%s/physical-device' % (backend_xid, vm_xid, devid))
-            dev_params = xs.read('', '/local/domain/%d/backend/vbd/%s/%s/params' % (backend_xid, vm_xid, devid))
+            phys_device = xs.read(xs_trans, '/local/domain/%d/backend/vbd/%s/%s/physical-device' % (backend_xid, vm_xid, devid))
+            dev_params = xs.read(xs_trans, '/local/domain/%d/backend/vbd/%s/%s/params' % (backend_xid, vm_xid, devid))
             if phys_device and phys_device.find(':'):
                 (tmp_major, tmp_minor) = phys_device.split(":")
                 tmp_major = int(tmp_major, 16)
@@ -283,10 +289,12 @@ def block_check_attached(backend_vm, device, backend_xid = None):
                (device_majorminor is None and dev_params == device):
                 vm_name = xl_ctx.domid_to_name(int(vm_xid))
                 frontend = block_devid_to_name(int(devid))
+                xs.transaction_end(xs_trans)
                 return {"xid":int(vm_xid), "frontend": frontend, "devid": int(devid), "vm": vm_name}
+    xs.transaction_end(xs_trans)
     return None
 
-def block_attach(vm, backend_vm, device, frontend=None, mode="w", auto_detach=False):
+def block_attach(vm, backend_vm, device, frontend=None, mode="w", auto_detach=False, wait=True):
     if not vm.is_running():
         raise QubesException("VM %s not running" % vm.name)
 
@@ -317,6 +325,36 @@ def block_attach(vm, backend_vm, device, frontend=None, mode="w", auto_detach=Fa
 
     xl_cmd = [ '/usr/sbin/xl', 'block-attach', vm.name, backend_dev, frontend, mode, str(backend_vm.xid) ]
     subprocess.check_call(xl_cmd)
+    if wait:
+        be_path = '/local/domain/%d/backend/vbd/%d/%d' % (backend_vm.xid, vm.xid, block_name_to_devid(frontend))
+        # There is no way to use xenstore watch with a timeout, so must check in a loop
+        interval = 0.100
+        # 5sec timeout
+        timeout = 5/interval
+        while timeout > 0:
+            be_state = xs.read('', be_path + '/state')
+            hotplug_state = xs.read('', be_path + '/hotplug-status')
+            if be_state is None:
+                raise QubesException("Backend device disappeared, something weird happend")
+            elif int(be_state) == 4:
+                # Ok
+                return
+            elif int(be_state) > 4:
+                # Error
+                error = xs.read('/local/domain/%d/error/backend/vbd/%d/%d/error' % (backend_vm.xid, vm.xid, block_name_to_devid(frontend)))
+                if error is None:
+                    raise QubesException("Error while connecting block device: " + error)
+                else:
+                    raise QubesException("Unknown error while connecting block device")
+            elif hotplug_state == 'error':
+                hotplug_error = xs.read('', be_path + '/hotplug-error')
+                if hotplug_error:
+                    raise QubesException("Error while connecting block device: " + hotplug_error)
+                else:
+                    raise QubesException("Unknown hotplug error while connecting block device")
+            time.sleep(interval)
+            timeout -= interval
+        raise QubesException("Timeout while waiting for block defice connection")
 
 def block_detach(vm, frontend = "xvdi", vm_xid = None):
     # Get XID if not provided already
@@ -333,6 +371,121 @@ def block_detach(vm, frontend = "xvdi", vm_xid = None):
 
     xl_cmd = [ '/usr/sbin/xl', 'block-detach', str(vm_xid), str(frontend)]
     subprocess.check_call(xl_cmd)
+
+def block_detach_all(vm, vm_xid = None):
+    """ Detach all non-system devices"""
+    # Get XID if not provided already
+    if vm_xid is None:
+        if not vm.is_running():
+            raise QubesException("VM %s not running" % vm.name)
+        # FIXME: potential race
+        vm_xid = vm.xid
+
+    xs_trans = xs.transaction_start()
+    devices = xs.ls(xs_trans, '/local/domain/%d/device/vbd' % vm_xid)
+    if devices is None:
+        return
+    devices_to_detach = []
+    for devid in devices:
+        # check if this is system disk
+        be_path = xs.read(xs_trans, '/local/domain/%d/device/vbd/%s/backend' % (vm_xid, devid))
+        assert be_path is not None
+        be_params = xs.read(xs_trans, be_path + '/params')
+        if be_path.startswith('/local/domain/0/') and be_params is not None and be_params.startswith(qubes_base_dir):
+            # system disk
+            continue
+        devices_to_detach.append(devid)
+    xs.transaction_end(xs_trans)
+    for devid in devices_to_detach:
+        xl_cmd = [ '/usr/sbin/xl', 'block-detach', str(vm_xid), devid]
+        subprocess.check_call(xl_cmd)
+
+####### QubesWatch ######
+
+def only_in_first_list(l1, l2):
+    ret=[]
+    for i in l1:
+        if not i in l2:
+            ret.append(i)
+    return ret
+
+class QubesWatch(object):
+    class WatchType(object):
+        def __init__(self, fn, param):
+            self.fn = fn
+            self.param = param
+
+    def __init__(self):
+        self.xs = xen.lowlevel.xs.xs()
+        self.watch_tokens_block = {}
+        self.watch_tokens_vbd = {}
+        self.block_callback = None
+        self.domain_callback = None
+        self.xs.watch('@introduceDomain', QubesWatch.WatchType(self.domain_list_changed, None))
+        self.xs.watch('@releaseDomain', QubesWatch.WatchType(self.domain_list_changed, None))
+
+    def setup_block_watch(self, callback):
+        old_block_callback = self.block_callback
+        self.block_callback = callback
+        if old_block_callback is not None and callback is None:
+            # remove watches
+            self.update_watches_vbd([])
+            self.update_watches_block([])
+        else:
+            # possibly add watches
+            self.domain_list_changed(None)
+
+    def setup_domain_watch(self, callback):
+        self.domain_callback = callback
+
+    def get_block_key(self, xid):
+        return '/local/domain/%s/qubes-block-devices' % xid
+
+    def get_vbd_key(self, xid):
+        return '/local/domain/%s/device/vbd' % xid
+
+    def update_watches_block(self, xid_list):
+        for i in only_in_first_list(xid_list, self.watch_tokens_block.keys()):
+            #new domain has been created
+            watch = QubesWatch.WatchType(self.block_callback, i)
+            self.watch_tokens_block[i] = watch
+            self.xs.watch(self.get_block_key(i), watch)
+        for i in only_in_first_list(self.watch_tokens_block.keys(), xid_list):
+            #domain destroyed
+            self.xs.unwatch(self.get_block_key(i), self.watch_tokens_block[i])
+            self.watch_tokens_block.pop(i)
+
+    def update_watches_vbd(self, xid_list):
+        for i in only_in_first_list(xid_list, self.watch_tokens_vbd.keys()):
+            #new domain has been created
+            watch = QubesWatch.WatchType(self.block_callback, i)
+            self.watch_tokens_vbd[i] = watch
+            self.xs.watch(self.get_vbd_key(i), watch)
+        for i in only_in_first_list(self.watch_tokens_vbd.keys(), xid_list):
+            #domain destroyed
+            self.xs.unwatch(self.get_vbd_key(i), self.watch_tokens_vbd[i])
+            self.watch_tokens_vbd.pop(i)
+
+    def domain_list_changed(self, param):
+        curr = self.xs.ls('', '/local/domain')
+        if curr == None:
+            return
+        if self.domain_callback:
+            self.domain_callback()
+        if self.block_callback:
+            self.update_watches_block(curr)
+            self.update_watches_vbd(curr)
+
+    def watch_single(self):
+        result = self.xs.read_watch()
+        token = result[1]
+        token.fn(token.param)
+
+    def watch_loop(self):
+        while True:
+            self.watch_single()
+
+######## Backups #########
 
 def get_disk_usage(file_or_dir):
     if not os.path.exists(file_or_dir):

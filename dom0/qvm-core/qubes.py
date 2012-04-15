@@ -377,7 +377,7 @@ class QubesVm(object):
         self._set_netvm(new_netvm)
 
     def _set_netvm(self, new_netvm):
-        if self.is_running() and not new_netvm.is_running():
+        if self.is_running() and new_netvm is not None and not new_netvm.is_running():
             raise QubesException("Cannot dynamically attach to stopped NetVM")
         if self.netvm is not None:
             self.netvm.connected_vms.pop(self.qid)
