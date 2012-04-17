@@ -1758,18 +1758,18 @@ class QubesNetVm(QubesVm):
 
         return subprocess.check_call(command)
 
-    def start(self, debug_console = False, verbose = False, preparing_dvm=False):
+    def start(self, **kwargs):
         if dry_run:
             return
 
-        xid=super(QubesNetVm, self).start(debug_console=debug_console, verbose=verbose)
+        xid=super(QubesNetVm, self).start(**kwargs)
 
         # Connect vif's of already running VMs
         for vm in self.connected_vms.values():
             if not vm.is_running():
                 continue
 
-            if verbose:
+            if 'verbose' in kwargs and kwargs['verbose']:
                 print >> sys.stderr, "--> Attaching network to '{0}'...".format(vm.name)
 
             # Cleanup stale VIFs
@@ -1845,10 +1845,10 @@ class QubesProxyVm(QubesNetVm):
 
         self.write_iptables_xenstore_entry()
 
-    def start(self, debug_console = False, verbose = False, preparing_dvm = False):
+    def start(self, **kwargs):
         if dry_run:
             return
-        retcode = super(QubesProxyVm, self).start(debug_console=debug_console, verbose=verbose, preparing_dvm=preparing_dvm)
+        retcode = super(QubesProxyVm, self).start(**kwargs)
         self.netvm.add_external_ip_permission(self.get_xid())
         self.write_netvm_domid_entry()
         return retcode
@@ -1997,7 +1997,7 @@ class QubesDom0NetVm(QubesNetVm):
     def ip(self):
         return "10.137.0.1"
 
-    def start(self, debug_console = False, verbose = False):
+    def start(self, **kwargs):
         raise QubesException ("Cannot start Dom0 fake domain!")
 
     def get_xl_dominfo(self):
