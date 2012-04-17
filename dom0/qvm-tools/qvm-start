@@ -62,7 +62,7 @@ def main():
 
     try:
         vm.verify_files()
-        xid = vm.start(debug_console=options.debug_console, verbose=options.verbose, preparing_dvm=options.preparing_dvm)
+        xid = vm.start(debug_console=options.debug_console, verbose=options.verbose, preparing_dvm=options.preparing_dvm, start_guid=not options.noguid)
     except (IOError, OSError, QubesException) as err:
         print >> sys.stderr, "ERROR: {0}".format(err)
         exit (1)
