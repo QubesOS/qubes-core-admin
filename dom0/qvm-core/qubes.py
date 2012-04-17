@@ -847,6 +847,9 @@ class QubesVm(object):
         args['pcidev'] = str(self.pcidevs).strip('[]')
         args['mem'] = str(self.memory)
         args['maxmem'] = str(self.maxmem)
+        if 'meminfo-writer' in self.services and not self.services['meminfo-writer']:
+            # If dynamic memory management disabled, set maxmem=mem
+            args['maxmem'] = args['mem']
         args['vcpus'] = str(self.vcpus)
         args['ip'] = self.ip
         args['mac'] = self.mac
