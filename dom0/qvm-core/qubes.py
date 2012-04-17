@@ -1337,7 +1337,7 @@ class QubesVm(object):
             self.force_shutdown()
             raise OSError ("ERROR: Cannot execute qrexec_daemon!")
 
-    def start(self, debug_console = False, verbose = False, preparing_dvm = False):
+    def start(self, debug_console = False, verbose = False, preparing_dvm = False, start_guid = True):
         if dry_run:
             return
 
@@ -1412,7 +1412,7 @@ class QubesVm(object):
         if not preparing_dvm:
             self.start_qrexec_daemon(verbose=verbose)
 
-        if not preparing_dvm and os.path.exists('/var/run/shm.id'):
+        if start_guid and not preparing_dvm and os.path.exists('/var/run/shm.id'):
             self.start_guid(verbose=verbose)
 
         if preparing_dvm:
