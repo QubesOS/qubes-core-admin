@@ -846,6 +846,8 @@ class QubesVm(object):
         args['vmdir'] = self.dir_path
         args['pcidev'] = str(self.pcidevs).strip('[]')
         args['mem'] = str(self.memory)
+        if self.maxmem < self.memory:
+            args['mem'] = str(self.maxmem)
         args['maxmem'] = str(self.maxmem)
         if 'meminfo-writer' in self.services and not self.services['meminfo-writer']:
             # If dynamic memory management disabled, set maxmem=mem
