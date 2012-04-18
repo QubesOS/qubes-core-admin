@@ -98,14 +98,38 @@ def set_memory(vms, vm, args):
         print >> sys.stderr, "Missing memory argument!"
         exit (1)
 
-    vm.memory = int(args[0])
+    new_memory = int(args[0])
+
+    if new_memory <= 0:
+        print >>sys.stderr, "Memory size must be positive"
+        return False
+
+    if new_memory > vm.maxmem:
+        print >>sys.stderr, "Memory size must be less or equal to maxmem"
+        return False
+
+    vm.memory = new_memory
 
 def set_maxmem(vms, vm, args):
     if len (args) != 1:
         print >> sys.stderr, "Missing maxmem argument!"
         exit (1)
 
-    vm.maxmem = int(args[0])
+    new_maxmem = int(args[0])
+
+    if new_maxmem <= 0:
+        print >>sys.stderr, "Memory size must be positive"
+        return False
+
+    qubes_host = QubesHost()
+    if new_maxmem > qubes_host.memory_total/1024:
+        print >> sys.stderr, "This host has only {0} MB of RAM".format(qubes_host.memory_total/1024)
+        return False
+
+    if new_maxmem < vm.memory:
+        print >> sys.stderr, "WARNING: new maxmem smaller than memory property - VM will be able to use only 'maxmem' memory amount".
+
+    vm.maxmem = new_maxmem
 
 def set_mac(vms, vm, args):
     if len (args) != 1:
