@@ -15,6 +15,7 @@ fi
 if ls $APPSDIR/*.directory $APPSDIR/*.desktop > /dev/null 2>&1; then
     xdg-desktop-menu uninstall $APPSDIR/*.directory $APPSDIR/*.desktop
     rm -f $APPSDIR/*.desktop $APPSDIR/*.directory
+    rm -f $HOME/.config/menus/applications-merged/user-$VMNAME-vm.menu
 fi
 
 if [ -n "$KDE_SESSION_UID" ]; then
