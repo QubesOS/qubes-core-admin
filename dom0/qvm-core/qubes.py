@@ -632,14 +632,28 @@ class QubesVm(object):
             elif dominfo['dying']:
                 return "Dying"
             else:
-                return "Running"
+                if not self.is_fully_usable():
+                    return "Starting"
+                else:
+                    return "Running"
         else:
             return 'Halted'
 
         return "NA"
 
+    def is_fully_usable(self):
+        xid = self.get_xid()
+        if xid < 0:
+            return False
+        if not os.path.exists('/var/run/qubes/guid_running.%d' % xid):
+            return False
+        # currently qrexec daemon doesn't cleanup socket in /var/run/qubes, so
+        # it can be left from some other VM
+        return True
+
     def is_running(self):
-        if self.get_power_state() == "Running":
+        # in terms of Xen and internal logic - starting VM is running
+        if self.get_power_state() in ["Running", "Starting"]:
             return True
         else:
             return False
