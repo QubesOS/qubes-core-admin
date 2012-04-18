@@ -2208,6 +2208,19 @@ class QubesHVm(QubesVm):
         f_private.truncate(default_hvm_private_img_size)
         f_root.close()
 
+    def remove_from_disk(self):
+        if dry_run:
+            return
+
+        self.remove_appmenus()
+        super(QubesHVm, self).remove_from_disk()
+
+    def pre_rename(self, new_name):
+        self.remove_appmenus()
+
+    def post_rename(self, old_name):
+        self.create_appmenus(False)
+
     def get_disk_utilization_private_img(self):
         return 0
 
