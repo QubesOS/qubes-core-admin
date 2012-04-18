@@ -1372,7 +1372,10 @@ class QubesVm(object):
 
         # Bind pci devices to pciback driver
         for pci in self.pcidevs:
-            subprocess.check_call(['sudo', qubes_pciback_cmd, pci])
+            try:
+                subprocess.check_call(['sudo', qubes_pciback_cmd, pci])
+            except subprocess.CalledProcessError:
+                raise QubesException("Failed to prepare PCI device %s" % pci)
 
         xl_cmdline = ['sudo', '/usr/sbin/xl', 'create', self.conf_file, '-q', '-p']
 
