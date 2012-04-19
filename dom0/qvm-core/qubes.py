@@ -1896,11 +1896,17 @@ class QubesProxyVm(QubesNetVm):
         self.write_iptables_xenstore_entry()
 
     def write_netvm_domid_entry(self, xid = -1):
+        if not self.is_running():
+            return
+
         if xid < 0:
             xid = self.get_xid()
 
-        xs.write('', "/local/domain/{0}/qubes_netvm_domid".format(xid),
-                "{0}".format(self.netvm.get_xid()))
+        if self.netvm is None:
+            xs.write('', "/local/domain/{0}/qubes_netvm_domid".format(xid), '')
+        else:
+            xs.write('', "/local/domain/{0}/qubes_netvm_domid".format(xid),
+                    "{0}".format(self.netvm.get_xid()))
 
     def write_iptables_xenstore_entry(self):
         xs.rm('', "/local/domain/{0}/qubes_iptables_domainrules".format(self.get_xid()))
