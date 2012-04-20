@@ -241,8 +241,8 @@ class QubesVm(object):
             "uses_default_netvm": { "default": True, 'order': 20 },
             "netvm": { "default": None, "attr": "_netvm", 'order': 20 },
             "label": { "attr": "_label", "default": QubesVmLabels["red"], 'order': 20 },
-            "memory": { "default": default_memory, 'order': 20 },
-            "maxmem": { "default": None, 'order': 25 },
+            "memory": { "default": default_memory, 'order': 20, "eval": "int(value)" },
+            "maxmem": { "default": None, 'order': 25, "eval": "int(value) if value eles None" },
             "pcidevs": { "default": '[]', 'order': 25, "eval": \
                 '[] if value in ["none", None] else eval(value) if value.find("[") >= 0 else eval("[" + value + "]")'  },
             # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
