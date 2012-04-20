@@ -891,6 +891,7 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
                  + ('}' if vm.is_netvm() else '')"},
 
         "type": {"func": "'Tpl' if vm.is_template() else \
+                 'HVM' if vm.type == 'HVM' else \
                  vm.type.replace('VM','')"},
 
         "updbl" : {"func": "'Yes' if vm.updateable else ''"},
