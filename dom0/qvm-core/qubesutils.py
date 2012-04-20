@@ -834,6 +834,12 @@ def backup_restore_prepare(backup_dir, options = {}, host_collection = None):
             else:
                 netvm_name = vm.netvm.name
                 vms_to_restore[vm.name]['netvm'] = netvm_name
+                # Set to None to not confuse QubesVm object from backup
+                # collection with host collection (further in clone_attrs). Set
+                # directly _netvm to suppress setter action, especially
+                # modifying firewall
+                vm._netvm = None
+
                 netvm_on_host = host_collection.get_vm_by_name (netvm_name)
 
                 # No netvm on the host?
@@ -1038,6 +1044,12 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
             continue
 
         try:
+            new_vm.clone_attrs(vm)
+        except Exception as err:
+            error_callback("ERROR: {0}".format(err))
+            error_callback("*** Some VM property will not be restored")
+
+        try:
             new_vm.create_appmenus(verbose=True)
         except Exception as err:
             error_callback("ERROR during appmenu restore: {0}".format(err))
@@ -1097,6 +1109,12 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
             new_vm.netvm = netvm
 
         try:
+            new_vm.clone_attrs(vm)
+        except Exception as err:
+            error_callback("ERROR: {0}".format(err))
+            error_callback("*** Some VM property will not be restored")
+
+        try:
             new_vm.verify_files()
         except Exception as err:
             error_callback("ERROR: {0}".format(err))
@@ -1149,6 +1167,12 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
         if not uses_default_netvm:
             new_vm.uses_default_netvm = False
             new_vm.netvm = netvm
+
+        try:
+            new_vm.clone_attrs(vm)
+        except Exception as err:
+            error_callback("ERROR: {0}".format(err))
+            error_callback("*** Some VM property will not be restored")
 
         try:
             new_vm.create_appmenus(verbose=True)
