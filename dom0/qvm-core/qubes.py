@@ -633,7 +633,7 @@ class QubesVm(object):
                 return "Dying"
             else:
                 if not self.is_fully_usable():
-                    return "Starting"
+                    return "Transient"
                 else:
                     return "Running"
         else:
@@ -653,7 +653,7 @@ class QubesVm(object):
 
     def is_running(self):
         # in terms of Xen and internal logic - starting VM is running
-        if self.get_power_state() in ["Running", "Starting"]:
+        if self.get_power_state() in ["Running", "Transient"]:
             return True
         else:
             return False
