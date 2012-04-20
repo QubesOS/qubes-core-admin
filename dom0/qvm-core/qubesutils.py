@@ -1077,12 +1077,6 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
             template_name = vm_info['template']
             template = host_collection.get_vm_by_name(template_name)
 
-        if not vm.uses_default_netvm:
-            uses_default_netvm = False
-            netvm = host_collection.get_vm_by_name (vm_info['netvm']) if vm_info['netvm'] is not None else None
-        else:
-            uses_default_netvm = True
-
         new_vm = None
         try:
             restore_vm_dir (backup_dir, vm.dir_path, qubes_servicevms_dir);
@@ -1103,10 +1097,6 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
             if new_vm:
                 host_collection.pop(new_vm.qid)
             continue
-
-        if vm.is_proxyvm() and not uses_default_netvm:
-            new_vm.uses_default_netvm = False
-            new_vm.netvm = netvm
 
         try:
             new_vm.clone_attrs(vm)
@@ -1144,12 +1134,6 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
             template_name = vm_info['template']
             template = host_collection.get_vm_by_name(template_name)
 
-        if not vm.uses_default_netvm:
-            uses_default_netvm = False
-            netvm = host_collection.get_vm_by_name (vm_info['netvm']) if vm_info['netvm'] is not None else None
-        else:
-            uses_default_netvm = True
-
         new_vm = None
         try:
             restore_vm_dir (backup_dir, vm.dir_path, qubes_appvms_dir);
@@ -1167,10 +1151,6 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
             if new_vm:
                 host_collection.pop(new_vm.qid)
             continue
-
-        if not uses_default_netvm:
-            new_vm.uses_default_netvm = False
-            new_vm.netvm = netvm
 
         try:
             new_vm.clone_attrs(vm)
@@ -1191,6 +1171,21 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
             error_callback("*** Skiping VM: {0}".format(vm.name))
             host_collection.pop(new_vm.qid)
             continue
+
+    # Set network dependencies - only non-default netvm setting
+    for vm_info in restore_info.values():
+        if not vm_info['good-to-go']:
+            continue
+        if 'vm' not in vm_info:
+            continue
+        vm = vm_info['vm']
+        host_vm = host_collection.get_vm_by_name(vm.name)
+        if host_vm is None:
+            # Failed/skipped VM
+            continue
+
+        if not vm.uses_default_netvm:
+            host_vm.netvm = host_collection.get_vm_by_name (vm_info['netvm']) if vm_info['netvm'] is not None else None
 
     host_collection.save()
     if lock_obtained:
