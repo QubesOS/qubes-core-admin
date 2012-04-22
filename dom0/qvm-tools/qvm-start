@@ -71,7 +71,7 @@ def main():
         options.drive = 'hd:' + options.drive_hd
 
     if options.drive_cdrom:
-        options.drive = 'cdrom:' + options.drive_hd
+        options.drive = 'cdrom:' + options.drive_cdrom
 
     if options.drive:
         if hasattr(vm, 'drive'):
