@@ -127,7 +127,7 @@ def set_maxmem(vms, vm, args):
         return False
 
     if new_maxmem < vm.memory:
-        print >> sys.stderr, "WARNING: new maxmem smaller than memory property - VM will be able to use only 'maxmem' memory amount".
+        print >> sys.stderr, "WARNING: new maxmem smaller than memory property - VM will be able to use only 'maxmem' memory amount"
 
     vm.maxmem = new_maxmem
 
