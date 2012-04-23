@@ -87,6 +87,8 @@ def vm_run_cmd(vm, cmd, options):
             notify_function = tray_notify_generic if options.tray else None,
             passio = options.passio, localcmd = options.localcmd)
     except QubesException as err:
+        if options.tray:
+            tray_notify_error(str(err))
         print >> sys.stderr, "ERROR: %s" % str(err)
         exit(1)
 
