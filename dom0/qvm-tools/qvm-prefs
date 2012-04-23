@@ -73,6 +73,8 @@ def do_list(vm):
             print fmt.format ("kernelopts", "%s (default)" % vm.kernelopts)
         else:
             print fmt.format ("kernelopts", vm.kernelopts)
+    if hasattr(vm, 'debug'):
+        print fmt.format("debug", "on" if vm.debug else "off")
 
 def set_label(vms, vm, args):
     if len (args) != 1:
@@ -269,6 +271,19 @@ def set_name(vms, vm, args):
     return True
 
 
+def set_debug(vms, vm, args):
+    if len (args) != 1:
+        print >> sys.stderr, "Missing value (True/False or on/off)!"
+        return False
+
+    if args[0].lower() == "on":
+        vm.debug = True
+    elif args[0].lower() == "off":
+        vm.debug = False
+    else:
+        vm.debug = bool(eval(args[0].capitalize()))
+    return True
+
 properties = {
     "include_in_backups": set_include_in_backups,
     "pcidevs": set_pcidevs,
@@ -282,6 +297,7 @@ properties = {
     "kernelopts": set_kernelopts,
     "name": set_name,
     "mac": set_mac,
+    "debug": set_debug,
 }
 
 
