@@ -289,14 +289,6 @@ def set_include_in_backups(vms, vm, args):
     vm.include_in_backups = bool(eval(args[0].capitalize()))
     return True
 
-def set_include_in_backups(vms, vm, args):
-    if len (args) != 1:
-        print >> sys.stderr, "Missing value (True/False)!"
-        return False
-
-    vm.include_in_backups = bool(eval(args[0].capitalize()))
-    return True
-
 properties = {
     "include_in_backups": set_include_in_backups,
     "pcidevs": set_pcidevs,
