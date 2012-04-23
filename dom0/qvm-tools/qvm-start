@@ -35,8 +35,6 @@ def main():
     parser.add_option ("-q", "--quiet", action="store_false", dest="verbose", default=True)
     parser.add_option ("--no-guid", action="store_true", dest="noguid", default=False,
 		      help="Do not start the GUId (ignored)")
-    parser.add_option ("--console", action="store_true", dest="debug_console", default=False,
-                      help="Attach debugging console to the newly started VM")
     parser.add_option ("--drive", dest="drive", default=None,
                       help="Temporarily attach specified drive as CD/DVD or hard disk (can be specified with prefix 'hd:' or 'cdrom:', default is cdrom)")
     parser.add_option ("--hddisk", dest="drive_hd", default=None,
@@ -85,7 +83,7 @@ def main():
 
     try:
         vm.verify_files()
-        xid = vm.start(debug_console=options.debug_console, verbose=options.verbose, preparing_dvm=options.preparing_dvm, start_guid=not options.noguid)
+        xid = vm.start(verbose=options.verbose, preparing_dvm=options.preparing_dvm, start_guid=not options.noguid)
     except (IOError, OSError, QubesException) as err:
         print >> sys.stderr, "ERROR: {0}".format(err)
         exit (1)
