@@ -101,8 +101,9 @@ def set_memory(vms, vm, args):
         print >>sys.stderr, "Memory size must be positive"
         return False
 
-    if new_memory > vm.maxmem:
-        print >>sys.stderr, "Memory size must be less or equal to maxmem"
+    qubes_host = QubesHost()
+    if new_memory > qubes_host.memory_total/1024:
+        print >> sys.stderr, "This host has only {0} MB of RAM".format(qubes_host.memory_total/1024)
         return False
 
     vm.memory = new_memory
