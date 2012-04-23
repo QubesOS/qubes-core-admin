@@ -1374,7 +1374,7 @@ class QubesVm(object):
         qmemman_client = QMemmanClient()
         if not qmemman_client.request_memory(mem_required):
             qmemman_client.close()
-            raise MemoryError ("ERROR: insufficient memory to start this VM")
+            raise MemoryError ("ERROR: insufficient memory to start VM '%s'" % self.name)
 
         # Bind pci devices to pciback driver
         for pci in self.pcidevs:
