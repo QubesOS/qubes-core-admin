@@ -75,6 +75,8 @@ def do_list(vm):
             print fmt.format ("kernelopts", "%s (default)" % vm.kernelopts)
         else:
             print fmt.format ("kernelopts", vm.kernelopts)
+    if hasattr(vm, 'debug'):
+        print fmt.format("debug", "on" if vm.debug else "off")
 
     if hasattr(vm, 'drive'):
         print fmt.format("drive", str(vm.drive))
@@ -289,6 +291,19 @@ def set_include_in_backups(vms, vm, args):
     vm.include_in_backups = bool(eval(args[0].capitalize()))
     return True
 
+def set_debug(vms, vm, args):
+    if len (args) != 1:
+        print >> sys.stderr, "Missing value (True/False or on/off)!"
+        return False
+
+    if args[0].lower() == "on":
+        vm.debug = True
+    elif args[0].lower() == "off":
+        vm.debug = False
+    else:
+        vm.debug = bool(eval(args[0].capitalize()))
+    return True
+
 properties = {
     "include_in_backups": set_include_in_backups,
     "pcidevs": set_pcidevs,
@@ -303,6 +318,7 @@ properties = {
     "name": set_name,
     "drive": set_drive,
     "mac": set_mac,
+    "debug": set_debug,
 }
 
 

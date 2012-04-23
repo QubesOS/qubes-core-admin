@@ -256,6 +256,7 @@ class QubesVm(object):
             "mac": { "attr": "_mac", "default": None },
             "include_in_backups": { "default": True },
             "services": { "default": {}, "eval": "eval(str(value))" },
+            "debug": { "default": False },
             ##### Internal attributes - will be overriden in __init__ regardless of args
             "appmenus_templates_dir": { "eval": \
                 'self.dir_path + "/" + default_appmenus_templates_subdir if self.updateable else ' + \
@@ -272,7 +273,7 @@ class QubesVm(object):
         for prop in ['qid', 'name', 'dir_path', 'memory', 'maxmem', 'pcidevs', 'vcpus', 'internal',\
             'uses_default_kernel', 'kernel', 'uses_default_kernelopts',\
             'kernelopts', 'services', 'installed_by_rpm',\
-            'uses_default_netvm', 'include_in_backups' ]:
+            'uses_default_netvm', 'include_in_backups', 'debug' ]:
             attrs[prop]['save'] = 'str(self.%s)' % prop
         # Simple paths
         for prop in ['conf_file', 'root_img', 'volatile_img', 'private_img']:
@@ -899,6 +900,9 @@ class QubesVm(object):
             args['otherdevs'] = "'script:file:{dir}/modules.img,xvdd,{mode}',".format(dir=self.kernels_dir, mode=modulesmode)
         if hasattr(self, 'kernelopts'):
             args['kernelopts'] = self.kernelopts
+            if self.debug:
+                print >> sys.stderr, "--> Debug mode: adding 'earlyprintk=xen' to kernel opts"
+                args['kernelopts'] += ' earlyprintk=xen'
 
         return args
 
@@ -1332,7 +1336,10 @@ class QubesVm(object):
             print >> sys.stderr, "--> Starting Qubes GUId..."
         xid = self.get_xid()
 
-        retcode = subprocess.call ([qubes_guid_path, "-d", str(xid), "-c", self.label.color, "-i", self.label.icon, "-l", str(self.label.index)])
+        guid_cmd = [qubes_guid_path, "-d", str(xid), "-c", self.label.color, "-i", self.label.icon, "-l", str(self.label.index)]
+        if self.debug:
+            guid_cmd += ['-v', '-v']
+        retcode = subprocess.call (guid_cmd)
         if (retcode != 0) :
             raise QubesException("Cannot start qubes_guid!")
 
@@ -2724,7 +2731,7 @@ class QubesVmCollection(dict):
                 "installed_by_rpm", "internal",
                 "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
                 "maxmem", "kernel", "uses_default_kernel", "kernelopts", "uses_default_kernelopts",
-                "mac", "services", "include_in_backups" )
+                "mac", "services", "include_in_backups", "debug" )
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)
@@ -2782,6 +2789,9 @@ class QubesVmCollection(dict):
             kwargs.pop("kernelopts")
         if "kernelopts" not in kwargs:
             kwargs["uses_default_kernelopts"] = True
+
+        if "debug" in kwargs:
+            kwargs["debug"] = True if kwargs["debug"] == "True" else False
 
         return kwargs
 
