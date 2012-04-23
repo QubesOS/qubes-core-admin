@@ -45,6 +45,8 @@ def main():
                       help="Do actions necessary when preparing DVM image")
     parser.add_option ("--custom-config", action="store", dest="custom_config", default=None,
                       help="Use custom Xen config instead of Qubes-generated one")
+    parser.add_option ("--debug", action="store_true", dest="debug", default=False,
+                      help="Enable debug mode for this VM (until its shutdown)")
 
     (options, args) = parser.parse_args ()
     if (len (args) != 1):
@@ -81,11 +83,20 @@ def main():
     if options.custom_config:
         vm.conf_file = options.custom_config
 
+    if options.debug:
+        vm.debug = True
+
     try:
         vm.verify_files()
         xid = vm.start(verbose=options.verbose, preparing_dvm=options.preparing_dvm, start_guid=not options.noguid)
     except (IOError, OSError, QubesException) as err:
         print >> sys.stderr, "ERROR: {0}".format(err)
         exit (1)
+
+    if options.debug:
+        print >> sys.stderr, "--> Debug mode enabled. Useful logs: "
+        print >> sys.stderr, "    /var/log/xen/console/guest-%s.log" % vmname
+        print >> sys.stderr, "    /var/log/qubes/guid.%d.log" % xid
+        print >> sys.stderr, "    /var/log/qubes/qrexec.%d.log" % xid
 
 main()
