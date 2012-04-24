@@ -2174,6 +2174,7 @@ class QubesHVm(QubesVm):
         attrs['config_file_template']['eval'] = 'config_template_hvm'
         attrs['drive'] = { 'save': 'str(self.drive)' }
         attrs['maxmem'].pop('save')
+        attrs['timezone'] = { 'default': 'localtime', 'save': 'str(self.timezone)' }
 
         return attrs
 
@@ -2205,6 +2206,7 @@ class QubesHVm(QubesVm):
         attrs.remove('uses_default_kernel')
         attrs.remove('kernelopts')
         attrs.remove('uses_default_kernelopts')
+        attrs += [ 'timezone' ]
         return attrs
 
     def create_on_disk(self, verbose, source_template = None):
@@ -2292,6 +2294,17 @@ class QubesHVm(QubesVm):
                 params['otherdevs'] = "'script:file:%s,xvdc%s%s'," % (drive_path, type_mode, backend_domain)
         else:
              params['otherdevs'] = ''
+
+        if self.timezone.lower() == 'localtime':
+             params['localtime'] = '1'
+             params['timeoffset'] = '0'
+        elif self.timezone.isdigit():
+            params['localtime'] = '0'
+            params['timeoffset'] = self.timezone
+        else:
+            print >>sys.stderr, "WARNING: invalid 'timezone' value: %s" % self.timezone
+            params['localtime'] = '0'
+            params['timeoffset'] = '0'
         return params
 
     def verify_files(self):
