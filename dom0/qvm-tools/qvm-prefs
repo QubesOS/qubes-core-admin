@@ -284,7 +284,10 @@ def set_drive(vms, vm, args):
         print >> sys.stderr, "Missing new drive content (file/device)!"
         return False
 
-    vm.drive = args[0]
+    if args[0] == '' or args[0].lower() == 'none':
+        vm.drive = None
+    else:
+        vm.drive = args[0]
     return True
 
 def set_include_in_backups(vms, vm, args):
