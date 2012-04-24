@@ -81,6 +81,9 @@ def do_list(vm):
     if hasattr(vm, 'drive'):
         print fmt.format("drive", str(vm.drive))
 
+    if hasattr(vm, 'timezone'):
+        print fmt.format("timezone", str(vm.timezone))
+
 def set_label(vms, vm, args):
     if len (args) != 1:
         print >> sys.stderr, "Missing label name argument!"
@@ -305,6 +308,18 @@ def set_debug(vms, vm, args):
         vm.debug = bool(eval(args[0].capitalize()))
     return True
 
+def set_timezone(vms, vm, args):
+    if len (args) != 1:
+        print >> sys.stderr, "Missing value ('localtime' or timeoffset in seconds)!"
+        return False
+
+    if not args[0].isdigit() and args[0].lower() == 'localtime':
+        print >> sys.stderr, "Invalid timezone value!"
+        return False
+
+    vm.timezone = args[0]
+    return True
+
 properties = {
     "include_in_backups": set_include_in_backups,
     "pcidevs": set_pcidevs,
@@ -320,6 +335,7 @@ properties = {
     "drive": set_drive,
     "mac": set_mac,
     "debug": set_debug,
+    "timezone": set_timezone,
 }
 
 
