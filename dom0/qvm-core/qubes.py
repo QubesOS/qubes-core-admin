@@ -2189,7 +2189,6 @@ class QubesHVm(QubesVm):
             kwargs["memory"] = default_hvm_memory
 
         super(QubesHVm, self).__init__(**kwargs)
-        self.config_file_template = config_template_hvm
         # HVM doesn't support dynamic memory management
         self.maxmem = self.memory
 
