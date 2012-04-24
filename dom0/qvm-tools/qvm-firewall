@@ -300,7 +300,7 @@ def main():
         if not options.numeric:
             load_services()
         if not vm.has_firewall():
-            print "INFO: This VM has no firewall set, below defaults are listed"
+            print "INFO: This VM has no firewall rules set, below defaults are listed"
         display_firewall(conf)
 
     if changed:
