@@ -57,6 +57,9 @@ fi
 
 if [ -z "$PKGLIST" ]; then
     # No new updates
+    if [ "$GUI" = 1 ]; then
+        zenity --info --text="No new updates available"
+    fi
     exit 0
 fi
 
