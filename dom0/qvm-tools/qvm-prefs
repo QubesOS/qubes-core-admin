@@ -75,9 +75,14 @@ def do_list(vm):
             print fmt.format ("kernelopts", "%s (default)" % vm.kernelopts)
         else:
             print fmt.format ("kernelopts", vm.kernelopts)
+    if hasattr(vm, 'debug'):
+        print fmt.format("debug", "on" if vm.debug else "off")
 
     if hasattr(vm, 'drive'):
         print fmt.format("drive", str(vm.drive))
+
+    if hasattr(vm, 'timezone'):
+        print fmt.format("timezone", str(vm.timezone))
 
 def set_label(vms, vm, args):
     if len (args) != 1:
@@ -104,8 +109,9 @@ def set_memory(vms, vm, args):
         print >>sys.stderr, "Memory size must be positive"
         return False
 
-    if new_memory > vm.maxmem:
-        print >>sys.stderr, "Memory size must be less or equal to maxmem"
+    qubes_host = QubesHost()
+    if new_memory > qubes_host.memory_total/1024:
+        print >> sys.stderr, "This host has only {0} MB of RAM".format(qubes_host.memory_total/1024)
         return False
 
     vm.memory = new_memory
@@ -127,7 +133,7 @@ def set_maxmem(vms, vm, args):
         return False
 
     if new_maxmem < vm.memory:
-        print >> sys.stderr, "WARNING: new maxmem smaller than memory property - VM will be able to use only 'maxmem' memory amount".
+        print >> sys.stderr, "WARNING: new maxmem smaller than memory property - VM will be able to use only 'maxmem' memory amount"
 
     vm.maxmem = new_maxmem
 
@@ -278,7 +284,10 @@ def set_drive(vms, vm, args):
         print >> sys.stderr, "Missing new drive content (file/device)!"
         return False
 
-    vm.drive = args[0]
+    if args[0] == '' or args[0].lower() == 'none':
+        vm.drive = None
+    else:
+        vm.drive = args[0]
     return True
 
 def set_include_in_backups(vms, vm, args):
@@ -289,12 +298,29 @@ def set_include_in_backups(vms, vm, args):
     vm.include_in_backups = bool(eval(args[0].capitalize()))
     return True
 
-def set_include_in_backups(vms, vm, args):
+def set_debug(vms, vm, args):
     if len (args) != 1:
-        print >> sys.stderr, "Missing value (True/False)!"
+        print >> sys.stderr, "Missing value (True/False or on/off)!"
         return False
 
-    vm.include_in_backups = bool(eval(args[0].capitalize()))
+    if args[0].lower() == "on":
+        vm.debug = True
+    elif args[0].lower() == "off":
+        vm.debug = False
+    else:
+        vm.debug = bool(eval(args[0].capitalize()))
+    return True
+
+def set_timezone(vms, vm, args):
+    if len (args) != 1:
+        print >> sys.stderr, "Missing value ('localtime' or timeoffset in seconds)!"
+        return False
+
+    if not args[0].isdigit() and args[0].lower() == 'localtime':
+        print >> sys.stderr, "Invalid timezone value!"
+        return False
+
+    vm.timezone = args[0]
     return True
 
 properties = {
@@ -311,6 +337,8 @@ properties = {
     "name": set_name,
     "drive": set_drive,
     "mac": set_mac,
+    "debug": set_debug,
+    "timezone": set_timezone,
 }
 
 

@@ -26,17 +26,26 @@ from optparse import OptionParser
 import subprocess
 import os
 import sys
+import dbus
 
 qubes_guid_path = "/usr/bin/qubes_guid"
+
+notify_object = None
+
+def tray_notify(str, label, timeout = 3000):
+    notify_object.Notify("Qubes", 0, label.icon, "Qubes", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
+
+def tray_notify_error(str, timeout = 3000):
+    notify_object.Notify("Qubes", 0, "dialog-error", "Qubes", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
 
 def main():
     usage = "usage: %prog [options] <vm-name>"
     parser = OptionParser (usage)
     parser.add_option ("-q", "--quiet", action="store_false", dest="verbose", default=True)
+    parser.add_option ("--tray", action="store_true", dest="tray", default=False,
+                       help="Use tray notifications instead of stdout" )
     parser.add_option ("--no-guid", action="store_true", dest="noguid", default=False,
 		      help="Do not start the GUId (ignored)")
-    parser.add_option ("--console", action="store_true", dest="debug_console", default=False,
-                      help="Attach debugging console to the newly started VM")
     parser.add_option ("--drive", dest="drive", default=None,
                       help="Temporarily attach specified drive as CD/DVD or hard disk (can be specified with prefix 'hd:' or 'cdrom:', default is cdrom)")
     parser.add_option ("--hddisk", dest="drive_hd", default=None,
@@ -47,11 +56,17 @@ def main():
                       help="Do actions necessary when preparing DVM image")
     parser.add_option ("--custom-config", action="store", dest="custom_config", default=None,
                       help="Use custom Xen config instead of Qubes-generated one")
+    parser.add_option ("--debug", action="store_true", dest="debug", default=False,
+                      help="Enable debug mode for this VM (until its shutdown)")
 
     (options, args) = parser.parse_args ()
     if (len (args) != 1):
         parser.error ("You must specify VM name!")
     vmname = args[0]
+
+    if options.tray:
+        global notify_object
+        notify_object = dbus.SessionBus().get_object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
 
     qvm_collection = QubesVmCollection()
     qvm_collection.lock_db_for_reading()
@@ -71,7 +86,7 @@ def main():
         options.drive = 'hd:' + options.drive_hd
 
     if options.drive_cdrom:
-        options.drive = 'cdrom:' + options.drive_hd
+        options.drive = 'cdrom:' + options.drive_cdrom
 
     if options.drive:
         if hasattr(vm, 'drive'):
@@ -83,11 +98,23 @@ def main():
     if options.custom_config:
         vm.conf_file = options.custom_config
 
+    if options.debug:
+        vm.debug = True
+
     try:
         vm.verify_files()
-        xid = vm.start(debug_console=options.debug_console, verbose=options.verbose, preparing_dvm=options.preparing_dvm, start_guid=not options.noguid)
-    except (IOError, OSError, QubesException) as err:
-        print >> sys.stderr, "ERROR: {0}".format(err)
+        xid = vm.start(verbose=options.verbose, preparing_dvm=options.preparing_dvm, start_guid=not options.noguid)
+    except (IOError, OSError, QubesException, MemoryError) as err:
+        if options.tray:
+            tray_notify_error(str(err))
+        else:
+            print >> sys.stderr, "ERROR: {0}".format(err)
         exit (1)
+
+    if options.debug:
+        print >> sys.stderr, "--> Debug mode enabled. Useful logs: "
+        print >> sys.stderr, "    /var/log/xen/console/guest-%s.log" % vmname
+        print >> sys.stderr, "    /var/log/qubes/guid.%d.log" % xid
+        print >> sys.stderr, "    /var/log/qubes/qrexec.%d.log" % xid
 
 main()

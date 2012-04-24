@@ -256,6 +256,7 @@ class QubesVm(object):
             "mac": { "attr": "_mac", "default": None },
             "include_in_backups": { "default": True },
             "services": { "default": {}, "eval": "eval(str(value))" },
+            "debug": { "default": False },
             ##### Internal attributes - will be overriden in __init__ regardless of args
             "appmenus_templates_dir": { "eval": \
                 'self.dir_path + "/" + default_appmenus_templates_subdir if self.updateable else ' + \
@@ -272,7 +273,7 @@ class QubesVm(object):
         for prop in ['qid', 'name', 'dir_path', 'memory', 'maxmem', 'pcidevs', 'vcpus', 'internal',\
             'uses_default_kernel', 'kernel', 'uses_default_kernelopts',\
             'kernelopts', 'services', 'installed_by_rpm',\
-            'uses_default_netvm', 'include_in_backups' ]:
+            'uses_default_netvm', 'include_in_backups', 'debug' ]:
             attrs[prop]['save'] = 'str(self.%s)' % prop
         # Simple paths
         for prop in ['conf_file', 'root_img', 'volatile_img', 'private_img']:
@@ -899,6 +900,9 @@ class QubesVm(object):
             args['otherdevs'] = "'script:file:{dir}/modules.img,xvdd,{mode}',".format(dir=self.kernels_dir, mode=modulesmode)
         if hasattr(self, 'kernelopts'):
             args['kernelopts'] = self.kernelopts
+            if self.debug:
+                print >> sys.stderr, "--> Debug mode: adding 'earlyprintk=xen' to kernel opts"
+                args['kernelopts'] += ' earlyprintk=xen'
 
         return args
 
@@ -1332,7 +1336,10 @@ class QubesVm(object):
             print >> sys.stderr, "--> Starting Qubes GUId..."
         xid = self.get_xid()
 
-        retcode = subprocess.call ([qubes_guid_path, "-d", str(xid), "-c", self.label.color, "-i", self.label.icon, "-l", str(self.label.index)])
+        guid_cmd = [qubes_guid_path, "-d", str(xid), "-c", self.label.color, "-i", self.label.icon, "-l", str(self.label.index)]
+        if self.debug:
+            guid_cmd += ['-v', '-v']
+        retcode = subprocess.call (guid_cmd)
         if (retcode != 0) :
             raise QubesException("Cannot start qubes_guid!")
 
@@ -1384,7 +1391,7 @@ class QubesVm(object):
         qmemman_client = QMemmanClient()
         if not qmemman_client.request_memory(mem_required):
             qmemman_client.close()
-            raise MemoryError ("ERROR: insufficient memory to start this VM")
+            raise MemoryError ("ERROR: insufficient memory to start VM '%s'" % self.name)
 
         # Bind pci devices to pciback driver
         for pci in self.pcidevs:
@@ -2167,6 +2174,7 @@ class QubesHVm(QubesVm):
         attrs['config_file_template']['eval'] = 'config_template_hvm'
         attrs['drive'] = { 'save': 'str(self.drive)' }
         attrs['maxmem'].pop('save')
+        attrs['timezone'] = { 'default': 'localtime', 'save': 'str(self.timezone)' }
 
         return attrs
 
@@ -2182,7 +2190,6 @@ class QubesHVm(QubesVm):
             kwargs["memory"] = default_hvm_memory
 
         super(QubesHVm, self).__init__(**kwargs)
-        self.config_file_template = config_template_hvm
         # HVM doesn't support dynamic memory management
         self.maxmem = self.memory
 
@@ -2199,6 +2206,7 @@ class QubesHVm(QubesVm):
         attrs.remove('uses_default_kernel')
         attrs.remove('kernelopts')
         attrs.remove('uses_default_kernelopts')
+        attrs += [ 'timezone' ]
         return attrs
 
     def create_on_disk(self, verbose, source_template = None):
@@ -2286,6 +2294,17 @@ class QubesHVm(QubesVm):
                 params['otherdevs'] = "'script:file:%s,xvdc%s%s'," % (drive_path, type_mode, backend_domain)
         else:
              params['otherdevs'] = ''
+
+        if self.timezone.lower() == 'localtime':
+             params['localtime'] = '1'
+             params['timeoffset'] = '0'
+        elif self.timezone.isdigit():
+            params['localtime'] = '0'
+            params['timeoffset'] = self.timezone
+        else:
+            print >>sys.stderr, "WARNING: invalid 'timezone' value: %s" % self.timezone
+            params['localtime'] = '0'
+            params['timeoffset'] = '0'
         return params
 
     def verify_files(self):
@@ -2356,11 +2375,6 @@ class QubesHVm(QubesVm):
 
         xc.domain_unpause(self.stubdom_xid)
         super(QubesHVm, self).unpause()
-
-    def get_xml_attrs(self):
-        attrs = super(QubesHVm, self).get_xml_attrs()
-        attrs["drive"] = str(self.drive)
-        return attrs
 
 class QubesVmCollection(dict):
     """
@@ -2724,7 +2738,7 @@ class QubesVmCollection(dict):
                 "installed_by_rpm", "internal",
                 "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
                 "maxmem", "kernel", "uses_default_kernel", "kernelopts", "uses_default_kernelopts",
-                "mac", "services", "include_in_backups" )
+                "mac", "services", "include_in_backups", "debug", "drive" )
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)
@@ -2782,6 +2796,12 @@ class QubesVmCollection(dict):
             kwargs.pop("kernelopts")
         if "kernelopts" not in kwargs:
             kwargs["uses_default_kernelopts"] = True
+
+        if "debug" in kwargs:
+            kwargs["debug"] = True if kwargs["debug"] == "True" else False
+
+        if "drive" in kwargs and kwargs["drive"] == "None":
+            kwargs["drive"] = None
 
         return kwargs
 
