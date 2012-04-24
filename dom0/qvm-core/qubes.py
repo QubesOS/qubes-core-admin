@@ -2364,11 +2364,6 @@ class QubesHVm(QubesVm):
         xc.domain_unpause(self.stubdom_xid)
         super(QubesHVm, self).unpause()
 
-    def get_xml_attrs(self):
-        attrs = super(QubesHVm, self).get_xml_attrs()
-        attrs["drive"] = str(self.drive)
-        return attrs
-
 class QubesVmCollection(dict):
     """
     A collection of Qubes VMs indexed by Qubes id (qid)
@@ -2731,7 +2726,7 @@ class QubesVmCollection(dict):
                 "installed_by_rpm", "internal",
                 "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
                 "maxmem", "kernel", "uses_default_kernel", "kernelopts", "uses_default_kernelopts",
-                "mac", "services", "include_in_backups", "debug" )
+                "mac", "services", "include_in_backups", "debug", "drive" )
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)
@@ -2792,6 +2787,9 @@ class QubesVmCollection(dict):
 
         if "debug" in kwargs:
             kwargs["debug"] = True if kwargs["debug"] == "True" else False
+
+        if "drive" in kwargs and kwargs["drive"] == "None":
+            kwargs["drive"] = None
 
         return kwargs
 
