@@ -13,7 +13,7 @@ echo $$ > $PIDFILE
 trap "rm $PIDFILE" EXIT
 
 # If no updates available - exit here
-qvm-dom0-updates --check-only && exit
+qubes-dom0-updates --check-only && exit
 RETCODE=$?
 
 if [ "$RETCODE" -ne 100 ]; then
@@ -32,4 +32,4 @@ zenity --notification --window-icon=$NOTIFY_ICON --text="Qubes dom0 updates avai
 zenity --question --title="Qubes Dom0 updates" \
       --text="There are updates for dom0 available, do you want to download them now?" || exit 0
 
-su -c "DISPLAY=:0 qvm-dom0-update --gui" $LOCAL_USER
+su -c "DISPLAY=:0 qubes-dom0-update --gui" $LOCAL_USER
