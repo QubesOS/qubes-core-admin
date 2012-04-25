@@ -14,7 +14,9 @@ fi
 
 shopt -s nullglob
 
-HOTPLUG_STORE="/var/run/xen-hotplug/${XENBUS_PATH//\//-}"
+if [ -n "$XENBUS_PATH" ]; then
+  HOTPLUG_STORE="/var/run/xen-hotplug/${XENBUS_PATH//\//-}"
+fi
 
 get_dev() {
   dev=$1
@@ -102,7 +104,10 @@ case "$command" in
   add)
     case $t in
       snapshot|origin)
-        p=$(xenstore_read "$XENBUS_PATH/params")
+        p=$(xenstore_read_default "$XENBUS_PATH/params" 'MISSING')
+        if [ "$p" == "MISSING" ]; then
+          fatal "Missing device parameters ($t $XENBUS_PATH/params)"
+        fi
         base=${p/:*/}
         cow=${p/*:/}
 
@@ -191,18 +196,20 @@ case "$command" in
     if [ "$command" = "cleanup" ]; then
       t=$2
     else
-      t=$(cat $HOTPLUG_STORE-type)
+      t=$(cat $HOTPLUG_STORE-type 2>/dev/null || echo 'MISSING')
     fi
-    case $t in
+    case "$t" in
       snapshot|origin)
         if [ "$command" = "cleanup" ]; then
           node=$3
         else
-          node=$(cat "$HOTPLUG_STORE-node")
+          node=$(cat "$HOTPLUG_STORE-node" 2> /dev/null)
         fi
 
         if [ -z "$node" ]; then
-          fatal "No device node to remove"
+          #fatal "No device node to remove"
+          #Most likely already removed
+          exit 0
         fi
 
         if [ ! -e "$node" ]; then
@@ -258,10 +265,13 @@ case "$command" in
         for dev in $deps; do
           if [ -b "$dev" ]; then
             log debug "Removing $dev"
-            losetup -d $dev || true 2> /dev/null
+            losetup -d $dev 2> /dev/null || true
           fi
         done
 
+        if [ -n "$HOTPLUG_STORE" ]; then
+          rm $HOTPLUG_STORE-*
+        fi
         release_lock "block"
         
         exit 0
