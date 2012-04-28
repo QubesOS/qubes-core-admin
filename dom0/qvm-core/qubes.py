@@ -2375,6 +2375,14 @@ class QubesHVm(QubesVm):
         xc.domain_unpause(self.stubdom_xid)
         super(QubesHVm, self).unpause()
 
+    def is_fully_usable(self):
+        xid = self.stubdom_xid
+        if xid < 0:
+            return False
+        if not os.path.exists('/var/run/qubes/guid_running.%d' % xid):
+            return False
+        return True
+
 class QubesVmCollection(dict):
     """
     A collection of Qubes VMs indexed by Qubes id (qid)
