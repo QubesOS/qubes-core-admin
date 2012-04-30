@@ -174,7 +174,10 @@ def main():
     for vm in vms_to_display:
         data_row = {}
         for f in fields_to_display:
-            data_row[f] = str(eval(fields[f]["func"]))
+            if vm.qid == 0 and (f.startswith('priv-') or f.startswith('root-') or f == 'disk'):
+                data_row[f] = 'n/a'
+            else:
+                data_row[f] = str(eval(fields[f]["func"]))
             l = len(data_row[f])
             if l > fields[f]["max_width"]:
                 fields[f]["max_width"] = l

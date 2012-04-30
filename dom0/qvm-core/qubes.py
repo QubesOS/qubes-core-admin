@@ -60,7 +60,6 @@ qubes_servicevms_dir = qubes_base_dir + "/servicevms"
 qubes_store_filename = qubes_base_dir + "/qubes.xml"
 qubes_kernels_base_dir = qubes_base_dir + "/vm-kernels"
 
-qubes_max_xid = 1024
 qubes_max_qid = 254
 qubes_max_netid = 254
 vm_default_netmask = "255.255.255.0"
@@ -142,7 +141,7 @@ class QubesHost(object):
         if previous is None:
             previous_time = time.time()
             previous = {}
-            info = xc.domain_getinfo(0, qubes_max_xid)
+            info = xc.domain_getinfo(0, qubes_max_qid)
             for vm in info:
                 previous[vm['domid']] = {}
                 previous[vm['domid']]['cpu_time'] = vm['cpu_time']/vm['online_vcpus']
@@ -151,7 +150,7 @@ class QubesHost(object):
 
         current_time = time.time()
         current = {}
-        info = xc.domain_getinfo(0, qubes_max_xid)
+        info = xc.domain_getinfo(0, qubes_max_qid)
         for vm in info:
             current[vm['domid']] = {}
             current[vm['domid']]['cpu_time'] = vm['cpu_time']/max(vm['online_vcpus'],1)
@@ -553,7 +552,7 @@ class QubesVm(object):
         if start_xid < 0:
             start_xid = 0
         try:
-            domains = xc.domain_getinfo(start_xid, qubes_max_xid-start_xid)
+            domains = xc.domain_getinfo(start_xid, qubes_max_qid)
         except xen.lowlevel.xc.Error:
             return None
 
@@ -2375,6 +2374,14 @@ class QubesHVm(QubesVm):
 
         xc.domain_unpause(self.stubdom_xid)
         super(QubesHVm, self).unpause()
+
+    def is_fully_usable(self):
+        xid = self.stubdom_xid
+        if xid < 0:
+            return False
+        if not os.path.exists('/var/run/qubes/guid_running.%d' % xid):
+            return False
+        return True
 
 class QubesVmCollection(dict):
     """

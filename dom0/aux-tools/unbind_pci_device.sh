@@ -32,7 +32,7 @@ if [ -e /sys/bus/pci/drivers/pciback/$BDF ]; then
     # Check if device not assigned to any RUNNING VM
     XS_PATH=/local/domain/0/backend/pci
     GREP_RE="^$XS_PATH/[0-9]*/[0-9]*/dev-[0-9]* = \"$BDF\""
-    if xenstore-ls -f $XS_PATH | grep -q "$GREP_RE"; then
+    if xenstore-ls -f $XS_PATH 2> /dev/null | grep -q "$GREP_RE"; then
         DOMID=`xenstore-ls -f $XS_PATH | grep  "$GREP_RE"|cut -d/ -f7`
         echo "ERROR: Device already attached to the running VM '`xl domname $DOMID`'" >&2
         exit 1
