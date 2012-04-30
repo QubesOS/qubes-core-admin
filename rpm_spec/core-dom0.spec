@@ -108,6 +108,7 @@ cp ../qrexec/qrexec_daemon $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_client $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_policy $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/qfile-dom0-unpacker $RPM_BUILD_ROOT/usr/lib/qubes/
+cp aux-tools/qubes-notify-updates $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/qubes-receive-updates $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_add_change $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_remove $RPM_BUILD_ROOT/usr/lib/qubes/
@@ -120,6 +121,8 @@ cp ../qubes_rpc/qubes.VMShell.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.
 cp qubes.SyncAppMenus.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.SyncAppMenus
 cp qubes.SyncAppMenus $RPM_BUILD_ROOT/etc/qubes_rpc/
 cp ../qrexec/qubes_rpc_multiplexer $RPM_BUILD_ROOT/usr/lib/qubes
+cp aux-tools/qubes.NotifyUpdates.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.NotifyUpdates
+cp aux-tools/qubes.NotifyUpdates $RPM_BUILD_ROOT/etc/qubes_rpc/
 cp aux-tools/qubes.ReceiveUpdates.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.ReceiveUpdates
 cp aux-tools/qubes.ReceiveUpdates $RPM_BUILD_ROOT/etc/qubes_rpc/
 install -D aux-tools/qubes-dom0.modules $RPM_BUILD_ROOT/etc/sysconfig/modules/qubes-dom0.modules
@@ -333,6 +336,7 @@ fi
 /usr/lib/qubes/qmemman_daemon.py*
 /usr/lib/qubes/meminfo-writer
 /usr/lib/qubes/qfile-daemon-dvm*
+/usr/lib/qubes/qubes-notify-updates
 /usr/lib/qubes/qubes-receive-updates
 /usr/lib/qubes/block_add_change
 /usr/lib/qubes/block_remove
@@ -376,9 +380,11 @@ fi
 %attr(0664,root,qubes) /etc/qubes_rpc/policy/qubes.Filecopy
 %attr(0664,root,qubes) /etc/qubes_rpc/policy/qubes.OpenInVM
 %attr(0664,root,qubes) /etc/qubes_rpc/policy/qubes.SyncAppMenus
+%attr(0664,root,qubes) /etc/qubes_rpc/policy/qubes.NotifyUpdates
 %attr(0664,root,qubes) /etc/qubes_rpc/policy/qubes.ReceiveUpdates
 %attr(0664,root,qubes) /etc/qubes_rpc/policy/qubes.VMShell
 /etc/qubes_rpc/qubes.SyncAppMenus
+/etc/qubes_rpc/qubes.NotifyUpdates
 /etc/qubes_rpc/qubes.ReceiveUpdates
 %attr(4750,root,qubes) /usr/lib/qubes/qrexec_daemon
 %attr(2770,root,qubes) %dir /var/log/qubes
