@@ -1,0 +1,7 @@
+[Unit]
+Description=Qubes check for VM updates and notify dom0
+ConditionPathExists=/var/run/qubes-service/qubes-update-check
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/qubes/qrexec_client_vm dom0 qubes.NotifyUpdates /bin/sh -c 'yum -q check-update|wc -l'

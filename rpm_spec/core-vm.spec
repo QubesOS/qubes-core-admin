@@ -87,6 +87,7 @@ install vm-init.d/* $RPM_BUILD_ROOT/etc/init.d/
 install -d $RPM_BUILD_ROOT/lib/systemd/system $RPM_BUILD_ROOT/usr/lib/qubes/init
 install -m 0755 vm-systemd/*.sh $RPM_BUILD_ROOT/usr/lib/qubes/init/
 install -m 0644 vm-systemd/qubes-*.service $RPM_BUILD_ROOT/lib/systemd/system/
+install -m 0644 vm-systemd/qubes-*.timer $RPM_BUILD_ROOT/lib/systemd/system/
 install -m 0644 vm-systemd/NetworkManager.service $RPM_BUILD_ROOT/usr/lib/qubes/init/
 install -m 0644 vm-systemd/cups.service $RPM_BUILD_ROOT/usr/lib/qubes/init/
 install -m 0644 vm-systemd/ntpd.service $RPM_BUILD_ROOT/usr/lib/qubes/init/
@@ -484,6 +485,8 @@ The Qubes core startup configuration for SystemD init.
 /lib/systemd/system/qubes-netwatcher.service
 /lib/systemd/system/qubes-network.service
 /lib/systemd/system/qubes-sysinit.service
+/lib/systemd/system/qubes-update-check.service
+/lib/systemd/system/qubes-update-check.timer
 %dir /usr/lib/qubes/init
 /usr/lib/qubes/init/prepare-dvm.sh
 /usr/lib/qubes/init/network-proxy-setup.sh
@@ -501,6 +504,8 @@ The Qubes core startup configuration for SystemD init.
 for srv in qubes-dvm qubes-meminfo-writer qubes-qrexec-agent qubes-sysinit qubes-misc-post qubes-netwatcher qubes-network qubes-firewall; do
     /bin/systemctl enable $srv.service 2> /dev/null
 done
+
+/bin/systemctl enable qubes-update-check.timer 2> /dev/null
 
 # Install overriden services only when original exists
 for srv in cups NetworkManager ntpd; do
