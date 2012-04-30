@@ -90,6 +90,7 @@ start_appmenu_template = '/usr/share/qubes/qubes-start.desktop'
 qubes_whitelisted_appmenus = 'whitelisted-appmenus.list'
 
 dom0_update_check_interval = 6*3600
+updates_stat_file = 'updates.stat'
 
 # how long (in sec) to wait for VMs to shutdown
 # before killing them (when used qvm-run with --wait option)
