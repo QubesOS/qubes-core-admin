@@ -103,7 +103,6 @@ cp aux-tools/convert_apptemplate2vm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/convert_dirtemplate2vm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/create_apps_for_appvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/remove_appvm_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes
-cp aux-tools/reset_vm_configs.py  $RPM_BUILD_ROOT/usr/lib/qubes
 cp qmemman/server.py $RPM_BUILD_ROOT/usr/lib/qubes/qmemman_daemon.py
 cp ../misc/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_daemon $RPM_BUILD_ROOT/usr/lib/qubes/
@@ -334,7 +333,6 @@ fi
 /usr/lib/qubes/convert_dirtemplate2vm.sh
 /usr/lib/qubes/create_apps_for_appvm.sh
 /usr/lib/qubes/remove_appvm_appmenus.sh
-/usr/lib/qubes/reset_vm_configs.py*
 /usr/lib/qubes/qmemman_daemon.py*
 /usr/lib/qubes/meminfo-writer
 /usr/lib/qubes/qfile-daemon-dvm*
