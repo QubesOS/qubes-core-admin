@@ -980,8 +980,17 @@ class QubesVm(object):
             for f in ("vmlinuz", "initramfs", "modules.img"):
                 shutil.copy(kernels_dir + '/' + f, self.dir_path + '/kernels/' + f)
 
+            if verbose:
+                print >> sys.stderr, "--> Copying the template's appmenus templates dir:\n{0} ==>\n{1}".\
+                        format(source_template.appmenus_templates_dir, self.appmenus_templates_dir)
+            shutil.copytree (source_template.appmenus_templates_dir, self.appmenus_templates_dir)
+
         # Create volatile.img
         self.reset_volatile_storage(source_template = source_template, verbose=verbose)
+
+        if verbose:
+            print >> sys.stderr, "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
+        os.symlink (self.label.icon_path, self.icon_path)
 
     def create_appmenus(self, verbose, source_template = None):
         if source_template is None:
@@ -2116,16 +2125,6 @@ class QubesAppVm(QubesVm):
             return
 
         super(QubesAppVm, self).create_on_disk(verbose, source_template=source_template)
-
-        if self.updateable:
-            if verbose:
-                print >> sys.stderr, "--> Copying the template's appmenus templates dir:\n{0} ==>\n{1}".\
-                        format(source_template.appmenus_templates_dir, self.appmenus_templates_dir)
-            shutil.copytree (source_template.appmenus_templates_dir, self.appmenus_templates_dir)
-
-        if verbose:
-            print >> sys.stderr, "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
-        os.symlink (self.label.icon_path, self.icon_path)
 
         if not self.internal:
             self.create_appmenus (verbose, source_template=source_template)
