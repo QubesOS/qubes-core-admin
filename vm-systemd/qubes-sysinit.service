@@ -2,7 +2,7 @@
 Description=Init Qubes Services settings
 DefaultDependencies=no
 Before=sysinit.target
-After=local-fs.target proc-xen.mount
+After=local-fs.target
 
 [Service]
 Type=oneshot
