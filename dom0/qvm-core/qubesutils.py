@@ -645,6 +645,11 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
     if not 'dom0' in exclude_list:
         local_user = grp.getgrnam('qubes').gr_mem[0]
         home_dir = pwd.getpwnam(local_user).pw_dir
+        # Home dir should have only user-owned files, so fix it now to prevent
+        # permissions problems - some root-owned files can left after
+        # 'sudo bash' and similar commands
+        subprocess.check_call(['sudo', 'chown', '-R', local_user, home_dir])
+
         home_sz = get_disk_usage(home_dir)
         home_to_backup = [ { "path" : home_dir, "size": home_sz, "subdir": 'dom0-home'} ]
         files_to_backup += home_to_backup
