@@ -1012,9 +1012,9 @@ class QubesVm(object):
 
         try:
             if source_template is not None:
-                subprocess.check_call ([qubes_appmenu_create_cmd, source_template.appmenus_templates_dir, self.name])
+                subprocess.check_call ([qubes_appmenu_create_cmd, source_template.appmenus_templates_dir, self.name, vmtype])
             elif self.appmenus_templates_dir is not None:
-                subprocess.check_call ([qubes_appmenu_create_cmd, self.appmenus_templates_dir, self.name])
+                subprocess.check_call ([qubes_appmenu_create_cmd, self.appmenus_templates_dir, self.name, vmtype])
             else:
                 # Only add apps to menu
                 subprocess.check_call ([qubes_appmenu_create_cmd, "none", self.name, vmtype])
@@ -1842,6 +1842,22 @@ class QubesNetVm(QubesVm):
     def remove_external_ip_permission(self, xid):
         self.__external_ip_allowed_xids.discard(int(xid))
         self.update_external_ip_permissions()
+
+    def create_on_disk(self, verbose, source_template = None):
+        if dry_run:
+            return
+
+        super(QubesNetVm, self).create_on_disk(verbose, source_template=source_template)
+
+        if os.path.exists(source_template.dir_path + '/netvm-' + qubes_whitelisted_appmenus):
+            if verbose:
+                print >> sys.stderr, "--> Creating default whitelisted apps list: {0}".\
+                    format(self.dir_path + '/' + qubes_whitelisted_appmenus)
+            shutil.copy(source_template.dir_path + '/netvm-' + qubes_whitelisted_appmenus,
+                    self.dir_path + '/' + qubes_whitelisted_appmenus)
+
+        if not self.internal:
+            self.create_appmenus (verbose, source_template=source_template)
 
 class QubesProxyVm(QubesNetVm):
     """
