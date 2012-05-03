@@ -73,6 +73,8 @@ def main():
             exit(1)
         if vm.pcidevs.count(pci) == 0:
             vm.pcidevs.append(pci)
+            if vm.is_running():
+                print >>sys.stderr, "NOTICE: Changes will be seen by VM after VM restart"
         qvm_collection.save()
         qvm_collection.unlock_db()
 
@@ -84,6 +86,8 @@ def main():
         pci = args[1]
         if vm.pcidevs.count(pci) > 0:
             vm.pcidevs.remove(pci)
+            if vm.is_running():
+                print >>sys.stderr, "NOTICE: Changes will be seen by VM after VM restart"
         qvm_collection.save()
         qvm_collection.unlock_db()
 
