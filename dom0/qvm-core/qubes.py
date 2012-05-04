@@ -2310,6 +2310,9 @@ class QubesHVm(QubesVm):
         else:
              params['otherdevs'] = ''
 
+        # Disable currently unused private.img - to be enabled when TemplateHVm done
+        params['privatedev'] = ''
+
         if self.timezone.lower() == 'localtime':
              params['localtime'] = '1'
              params['timeoffset'] = '0'
