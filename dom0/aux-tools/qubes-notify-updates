@@ -37,6 +37,10 @@ def main():
 
     source = os.getenv("QREXEC_REMOTE_DOMAIN")
 
+    if source is None:
+        print >> sys.stderr, 'This script must be called as qrexec service!'
+        exit(1)
+
     source_vm = qvm_collection.get_vm_by_name(source)
     if source_vm is None:
         print >> sys.stderr, 'Domain ' + source + ' does not exists (?!)'
@@ -48,7 +52,7 @@ def main():
         exit(1)
     if source_vm.updateable:
         # Just trust information from VM itself
-        update_f = open(vm.dir_path + '/' + updates_stat_file, "w")
+        update_f = open(source_vm.dir_path + '/' + updates_stat_file, "w")
         update_f.write(update_count)
         update_f.close()
     elif source_vm.template is not None:
