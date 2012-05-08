@@ -52,7 +52,7 @@ done
 name=`$XS_READ name`
 if [ -n "$name" ]; then
     hostname $name
-    (grep -v "\<$name\>" /etc/hosts; echo "127.0.0.1 $name") > /etc/hosts
+    (grep -v "\<$name\>" /etc/hosts; echo "127.0.0.1 $name localhost") > /etc/hosts
 fi
 
 timezone=`$XS_READ qubes-timezone 2> /dev/null`
