@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically check for updates
+ConditionPathExists=/var/run/qubes-service/qubes-update-check
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=2d
+
+[Install]
+WantedBy=multi-user.target
+

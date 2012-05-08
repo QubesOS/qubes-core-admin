@@ -82,6 +82,7 @@ config_template_pv = '/usr/share/qubes/vm-template.conf'
 qubes_whitelisted_appmenus = 'whitelisted-appmenus.list'
 
 dom0_update_check_interval = 6*3600
+updates_stat_file = 'updates.stat'
 
 # how long (in sec) to wait for VMs to shutdown
 # before killing them (when used qvm-run with --wait option)
@@ -979,8 +980,17 @@ class QubesVm(object):
             for f in ("vmlinuz", "initramfs", "modules.img"):
                 shutil.copy(kernels_dir + '/' + f, self.dir_path + '/kernels/' + f)
 
+            if verbose:
+                print >> sys.stderr, "--> Copying the template's appmenus templates dir:\n{0} ==>\n{1}".\
+                        format(source_template.appmenus_templates_dir, self.appmenus_templates_dir)
+            shutil.copytree (source_template.appmenus_templates_dir, self.appmenus_templates_dir)
+
         # Create volatile.img
         self.reset_volatile_storage(source_template = source_template, verbose=verbose)
+
+        if verbose:
+            print >> sys.stderr, "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
+        os.symlink (self.label.icon_path, self.icon_path)
 
     def create_appmenus(self, verbose, source_template = None):
         if source_template is None:
@@ -994,9 +1004,9 @@ class QubesVm(object):
 
         try:
             if source_template is not None:
-                subprocess.check_call ([qubes_appmenu_create_cmd, source_template.appmenus_templates_dir, self.name])
+                subprocess.check_call ([qubes_appmenu_create_cmd, source_template.appmenus_templates_dir, self.name, vmtype])
             elif self.appmenus_templates_dir is not None:
-                subprocess.check_call ([qubes_appmenu_create_cmd, self.appmenus_templates_dir, self.name])
+                subprocess.check_call ([qubes_appmenu_create_cmd, self.appmenus_templates_dir, self.name, vmtype])
             else:
                 # Only add apps to menu
                 subprocess.check_call ([qubes_appmenu_create_cmd, "none", self.name, vmtype])
@@ -1821,6 +1831,22 @@ class QubesNetVm(QubesVm):
         self.__external_ip_allowed_xids.discard(int(xid))
         self.update_external_ip_permissions()
 
+    def create_on_disk(self, verbose, source_template = None):
+        if dry_run:
+            return
+
+        super(QubesNetVm, self).create_on_disk(verbose, source_template=source_template)
+
+        if os.path.exists(source_template.dir_path + '/netvm-' + qubes_whitelisted_appmenus):
+            if verbose:
+                print >> sys.stderr, "--> Creating default whitelisted apps list: {0}".\
+                    format(self.dir_path + '/' + qubes_whitelisted_appmenus)
+            shutil.copy(source_template.dir_path + '/netvm-' + qubes_whitelisted_appmenus,
+                    self.dir_path + '/' + qubes_whitelisted_appmenus)
+
+        if not self.internal:
+            self.create_appmenus (verbose, source_template=source_template)
+
 class QubesProxyVm(QubesNetVm):
     """
     A class that represents a ProxyVM, ex FirewallVM. A child of QubesNetVM.
@@ -2115,16 +2141,6 @@ class QubesAppVm(QubesVm):
             return
 
         super(QubesAppVm, self).create_on_disk(verbose, source_template=source_template)
-
-        if self.updateable:
-            if verbose:
-                print >> sys.stderr, "--> Copying the template's appmenus templates dir:\n{0} ==>\n{1}".\
-                        format(source_template.appmenus_templates_dir, self.appmenus_templates_dir)
-            shutil.copytree (source_template.appmenus_templates_dir, self.appmenus_templates_dir)
-
-        if verbose:
-            print >> sys.stderr, "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
-        os.symlink (self.label.icon_path, self.icon_path)
 
         if not self.internal:
             self.create_appmenus (verbose, source_template=source_template)

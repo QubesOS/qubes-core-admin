@@ -75,6 +75,15 @@ def handle_dom0updates(updatevm):
     subprocess.check_call(["/usr/bin/createrepo", "-q", updates_dir])
     os.chown(updates_repodata_dir, -1, qubes_gid)
     os.chmod(updates_repodata_dir, 0775)
+    # Clean old cache
+    subprocess.call(["/usr/bin/yum", "-q", "clean", "all"], stdout=sys.stderr)
+    # This will fail because of "smart" detection of no-network, but it will invalidate the cache
+    try:
+        null = open('/dev/null','w')
+        subprocess.call(["/usr/bin/pkcon", "refresh"], stdout=null)
+        null.close()
+    except:
+        pass
     exit(0)
 
 def main():
