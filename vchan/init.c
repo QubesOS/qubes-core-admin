@@ -52,7 +52,6 @@ static int ring_init(struct libvchan *ctrl)
 
 	mfn = virtual_to_mfn(ring);
 #else
-	int u2mfn = open("/proc/u2mfn", O_RDONLY);
 	ring = (struct vchan_interface *) u2mfn_alloc_kpage ();
 
 	if (ring == MAP_FAILED)
@@ -60,7 +59,6 @@ static int ring_init(struct libvchan *ctrl)
 
 	if (u2mfn_get_last_mfn (&mfn) < 0)
 		return -1;
-	close(u2mfn);
 #endif
 
 	ctrl->ring = ring;
