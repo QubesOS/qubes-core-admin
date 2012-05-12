@@ -26,7 +26,7 @@ start()
 		# because it makes some of the pre-created dotfiles invalid (e.g. .kde/cache-<hostname>)
 		# (let's be frank: nobody's gonna use xterm on DispVM)
 		hostname $name
-		(grep -v "\<$name\>" /etc/hosts; echo "127.0.0.1 $name localhost") > /etc/hosts
+		sed -i "s/^\(127\.0\.0\.1 .*\) \($name \)\?\(.*\)/\1\2 $name/" /etc/hosts
 	fi
 
 	timezone=`/usr/bin/xenstore-read qubes-timezone 2> /dev/null`

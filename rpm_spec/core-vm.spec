@@ -237,6 +237,14 @@ sed 's/^net.ipv4.ip_forward.*/#\0/'  -i /etc/sysctl.conf
 sed -i -e '/^exclude = kernel/d' /etc/yum.conf
 echo 'exclude = kernel, xorg-x11-drv-*, xorg-x11-drivers, xorg-x11-server-*' >> /etc/yum.conf
 
+# qubes-core-vm has been broken for some time - it overrides /etc/hosts; restore original content
+if ! grep -q localhost /etc/hosts; then
+  cat <<EOF > /etc/hosts
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4 `hostname`
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+EOF
+fi
+
 if [ "$1" !=  1 ] ; then
 # do the rest of %post thing only when updating for the first time...
 exit 0
