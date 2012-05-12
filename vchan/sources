@@ -1,6 +1,6 @@
 TARGETNAME=libvchan
 TARGETTYPE=LIBRARY
-TARGETPATH=..\libs
+TARGETPATH=..\win\libs
 
 #BUILD_PASS0_CONSUMES=gntmem evtchn xenstore
 #BUILD_PASS0_PRODUCES=vchan
@@ -10,7 +10,7 @@ USE_MSVCRT=1
 DLLDEF=libvchan.def
 
 INCLUDES=$(INCLUDES); \
-                    ..\include;\
+                    ..\win\include;\
 
 SOURCES=io.c init.c
 
