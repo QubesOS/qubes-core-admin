@@ -264,9 +264,9 @@ static int client_interface_init(struct libvchan *ctrl, int domain, int devno)
 	if (!ref)
 		goto fail;
 	ctrl->ring_ref = atoi(ref);
+	free(ref);
 	if (!ctrl->ring_ref)
 		goto fail;
-	free(ref);
 	snprintf(buf, sizeof buf,
 		 "/local/domain/%d/device/vchan/%d/event-channel", domain,
 		 devno);
@@ -274,9 +274,9 @@ static int client_interface_init(struct libvchan *ctrl, int domain, int devno)
 	if (!ref)
 		goto fail;
 	remote_port = atoi(ref);
+	free(ref);
 	if (!remote_port)
 		goto fail;
-	free(ref);
 #ifdef XENCTRL_HAS_XC_INTERFACE
 	xcfd = xc_interface_open(NULL, NULL, 0);
 	if (!xcfd)
