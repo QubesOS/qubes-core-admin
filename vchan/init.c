@@ -19,6 +19,8 @@
  *
  */
 
+#ifndef WINNT
+
 #include <sys/types.h>
 #include <sys/unistd.h>
 #include <sys/stat.h>
@@ -27,17 +29,65 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <malloc.h>
-#include <xs.h>
 #include <string.h>
 #include <xenctrl.h>
 #include <unistd.h>
-#include <stdlib.h>
-#include "libvchan.h"
 #ifndef CONFIG_STUBDOM
 #include "../u2mfn/u2mfnlib.h"
 #else
 #include <mm.h>
 #endif
+
+#endif
+
+#include <xs.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include "libvchan.h"
+
+
+static int fill_ctrl(struct libvchan *ctrl, struct vchan_interface *ring, int ring_ref)
+{
+	if (!ctrl || !ring)
+		return -1;
+
+	ctrl->ring = ring;
+	ctrl->ring_ref = ring_ref;
+
+	ring->cons_in = ring->prod_in = ring->cons_out = ring->prod_out =
+	    0;
+	ring->server_closed = ring->client_closed = 0;
+	ring->debug = 0xaabbccdd;
+
+	return 0;	
+}
+
+#ifdef WINNT
+static int ring_init(struct libvchan *ctrl)
+{
+	struct gntmem_handle*	h;
+	grant_ref_t	grants[1];
+	int	result;
+	struct vchan_interface *ring;
+
+	h = gntmem_open();
+	if (h == INVALID_HANDLE_VALUE)
+		return -1;
+
+	gntmem_set_local_quota(h, 1);
+	gntmem_set_global_quota(h, 1);
+
+	memset(grants, 0, sizeof(grants));
+	ring = gntmem_grant_pages_to_domain(h, 0, 1, grants);
+	if (!ring) {
+		gntmem_close(h);
+		return -1;
+	}
+
+	return fill_ctrl(ctrl, ring, grants[0]);
+}
+
+#else
 
 static int ring_init(struct libvchan *ctrl)
 {
@@ -61,14 +111,11 @@ static int ring_init(struct libvchan *ctrl)
 		return -1;
 #endif
 
-	ctrl->ring = ring;
-	ctrl->ring_ref = mfn;
-	ring->cons_in = ring->prod_in = ring->cons_out = ring->prod_out =
-	    0;
-	ring->server_closed = ring->client_closed = 0;
-	ring->debug = 0xaabbccdd;
-	return 0;
+	return fill_ctrl(ctrl, ring, mfn);
 }
+
+#endif
+
 /**
         creates event channel;
         creates "ring-ref" and "event-channel" xenstore entries;
@@ -86,12 +133,16 @@ static int server_interface_init(struct libvchan *ctrl, int devno)
 	unsigned int len;
 	/* XXX temp hack end */
 #ifdef XENCTRL_HAS_XC_INTERFACE
-    xc_evtchn *evfd;
+	xc_evtchn *evfd;
 #else
-	int evfd;
+	EVTCHN evfd;
 #endif
 	evtchn_port_or_error_t port;
+#ifdef WINNT
+	xs = xs_domain_open();
+#else
 	xs = xs_daemon_open();
+#endif
 	if (!xs) {
 		return ret;
 	}
@@ -116,6 +167,10 @@ static int server_interface_init(struct libvchan *ctrl, int devno)
 	domid_s = xs_read(xs, 0, "domid", &len);
 	if (domid_s)
 		domid = atoi(domid_s);
+
+	snprintf(buf, sizeof buf, "device/vchan/%d/version", devno);
+	if (!xs_write(xs, 0, buf, "2", strlen("2")))
+		goto fail2;
 
 	snprintf(ref, sizeof ref, "%d", ctrl->ring_ref);
 	snprintf(buf, sizeof buf, "device/vchan/%d/ring-ref", devno);
@@ -152,7 +207,11 @@ static int server_interface_init(struct libvchan *ctrl, int devno)
 #ifdef XENCTRL_HAS_XC_INTERFACE
         xc_evtchn_close(evfd);
 #else
+#ifdef WINNT
+        xc_evtchn_close(evfd);
+#else
 		close(evfd);
+#endif
 #endif
       fail:
 	xs_daemon_close(xs);
@@ -196,6 +255,8 @@ struct libvchan *libvchan_server_init(int devno)
 	ctrl->is_server = 1;
 	return ctrl;
 }
+
+#ifndef WINNT
 
 int libvchan_server_handle_connected(struct libvchan *ctrl)
 {
@@ -241,14 +302,16 @@ static int client_interface_init(struct libvchan *ctrl, int domain, int devno)
 	unsigned int len;
 	struct xs_handle *xs;
 #ifdef XENCTRL_HAS_XC_INTERFACE
-    xc_interface *xcfd;
+	xc_interface *xcfd;
 #else
 	int xcfd;
 #endif
+	int xcg;
 	char buf[64];
 	char *ref;
+	int version;
 #ifdef XENCTRL_HAS_XC_INTERFACE
-    xc_evtchn *evfd;
+	xc_evtchn *evfd;
 #else
 	int evfd;
 #endif
@@ -257,6 +320,18 @@ static int client_interface_init(struct libvchan *ctrl, int domain, int devno)
 	if (!xs) {
 		return ret;
 	}
+
+	version = 1;
+	snprintf(buf, sizeof buf,
+		 "/local/domain/%d/device/vchan/%d/version", domain,
+		 devno);
+	ref = xs_read(xs, 0, buf, &len);
+	if (ref) {
+	    version = atoi(ref);
+	    free(ref);
+	}
+
+
 	snprintf(buf, sizeof buf,
 		 "/local/domain/%d/device/vchan/%d/ring-ref", domain,
 		 devno);
@@ -277,23 +352,40 @@ static int client_interface_init(struct libvchan *ctrl, int domain, int devno)
 	free(ref);
 	if (!remote_port)
 		goto fail;
+
+	switch (version) {
+	case 1:
+		
 #ifdef XENCTRL_HAS_XC_INTERFACE
-	xcfd = xc_interface_open(NULL, NULL, 0);
-	if (!xcfd)
-		goto fail;
+        	xcfd = xc_interface_open(NULL, NULL, 0);
+		if (!xcfd)
+			goto fail;
 #else
-	xcfd = xc_interface_open();
-	if (xcfd < 0)
-		goto fail;
+		xcfd = xc_interface_open();
+		if (xcfd < 0)
+			goto fail;
 #endif
-	ctrl->ring = (struct vchan_interface *)
-	    xc_map_foreign_range(xcfd, domain, 4096,
-				 PROT_READ | PROT_WRITE, ctrl->ring_ref);
+		ctrl->ring = (struct vchan_interface *)
+		    xc_map_foreign_range(xcfd, domain, 4096,
+					 PROT_READ | PROT_WRITE, ctrl->ring_ref);
 #ifdef XENCTRL_HAS_XC_INTERFACE
-    xc_interface_close(xcfd);
+		xc_interface_close(xcfd);
 #else
-	close(xcfd);
+		close(xcfd);
 #endif
+		break;
+	case 2:
+		xcg = xc_gnttab_open();
+		if (xcg < 0)
+			goto fail;
+		ctrl->ring = (struct vchan_interface *)
+		    xc_gnttab_map_grant_ref(xcg, domain, ctrl->ring_ref, PROT_READ | PROT_WRITE);
+		xc_gnttab_close(xcg);
+		break;
+	default:
+		goto fail;
+	}
+
 	if (ctrl->ring == 0 || ctrl->ring == MAP_FAILED)
 		goto fail;
 #ifdef XENCTRL_HAS_XC_INTERFACE
@@ -312,7 +404,7 @@ static int client_interface_init(struct libvchan *ctrl, int domain, int devno)
 #ifdef XENCTRL_HAS_XC_INTERFACE
         xc_evtchn_close(evfd);
 #else
-		close(evfd);
+	close(evfd);
 #endif
 	else
 		ret = 0;
@@ -338,3 +430,19 @@ struct libvchan *libvchan_client_init(int domain, int devno)
 	ctrl->is_server = 0;
 	return ctrl;
 }
+
+#else
+
+// Windows domains can not be dom0
+
+int libvchan_server_handle_connected(struct libvchan *ctrl)
+{
+	return -1;
+}
+
+struct libvchan *libvchan_client_init(int domain, int devno)
+{
+	return NULL;
+}
+
+#endif

@@ -20,10 +20,15 @@
  */
 
 #include "libvchan.h"
+
+#ifndef WINNT
 #include <xenctrl.h>
-#include <string.h>
 #include <errno.h>
 #include <sys/select.h>
+#endif
+
+#include <string.h>
+
 /**
         \return How much data is immediately available for reading
 */
@@ -166,7 +171,7 @@ int libvchan_close(struct libvchan *ctrl)
 }
 
 /// The fd to use for select() set
-int libvchan_fd_for_select(struct libvchan *ctrl)
+EVTCHN libvchan_fd_for_select(struct libvchan *ctrl)
 {
 	return xc_evtchn_fd(ctrl->evfd);
 }
