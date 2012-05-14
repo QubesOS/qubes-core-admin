@@ -4,6 +4,7 @@
 LOCAL_USER=`users | sed -e 's/root *//' | cut -d' ' -f 1`
 PIDFILE=/var/run/qubes/dom0-update-notification.pid
 NOTIFY_ICON=/usr/share/qubes/icons/dom0-update-avail.svg
+UPDATES_STAT_FILE=/var/lib/qubes/updates/dom0-updates-available
 
 # Do not allow multiple instances
 [ -r $PIDFILE ] && kill -0 `cat $PIDFILE` && exit 0
@@ -26,6 +27,9 @@ if [ -z "$LOCAL_USER" ]; then
     exit 1
 fi
 
+# Touch stat file for qubes-manager
+touch $UPDATES_STAT_FILE
+
 # Notify about updates using system tray
 zenity --notification --window-icon=$NOTIFY_ICON --text="Qubes dom0 updates available."
 
@@ -33,3 +37,6 @@ zenity --question --title="Qubes Dom0 updates" \
       --text="There are updates for dom0 available, do you want to download them now?" || exit 0
 
 su -c "DISPLAY=:0 qubes-dom0-update --gui" $LOCAL_USER
+
+# Check if user installed updates
+yum -q check-updates && rm $UPDATES_STAT_FILE
