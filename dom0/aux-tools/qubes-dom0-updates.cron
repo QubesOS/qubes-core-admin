@@ -13,7 +13,7 @@ echo $$ > $PIDFILE
 trap "rm $PIDFILE" EXIT
 
 # If no updates available - exit here
-qubes-dom0-updates --check-only && exit
+qubes-dom0-update --check-only >/dev/null && exit
 RETCODE=$?
 
 if [ "$RETCODE" -ne 100 ]; then
