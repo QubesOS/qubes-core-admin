@@ -1712,7 +1712,6 @@ class QubesNetVm(QubesVm):
         attrs_config['label']['default'] = default_servicevm_label
         attrs_config['vcpus']['default'] = default_servicevm_vcpus
         attrs_config['memory']['default'] = 200
-        attrs_config['maxmem']['eval'] = 'self.memory'
         
         # New attributes
         attrs_config['netid'] = { 'save': 'str(self.netid)', 'order': 30 }
