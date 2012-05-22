@@ -848,6 +848,9 @@ class QubesVm(object):
                 "{0}/qubes-block-devices".format(domain_path),
                 '')
 
+        xs.write('', "{0}/qubes-debug-mode".format(domain_path),
+                str(int(self.debug)))
+
         # Fix permissions
         xs.set_permissions('', '{0}/device'.format(domain_path),
                 [{ 'dom': xid }])
