@@ -73,7 +73,6 @@ default_appmenus_template_templates_subdir = "apps-template.templates"
 default_kernels_subdir = "kernels"
 default_firewall_conf_file = "firewall.xml"
 default_memory = 400
-default_servicevm_vcpus = 1
 default_kernelopts = ""
 default_kernelopts_pcidevs = "iommu=soft swiotlb=2048"
 
@@ -1701,7 +1700,6 @@ class QubesNetVm(QubesVm):
         attrs_config = super(QubesNetVm, self)._get_attrs_config()
         attrs_config['dir_path']['eval'] = 'value if value is not None else qubes_servicevms_dir + "/" + self.name'
         attrs_config['label']['default'] = default_servicevm_label
-        attrs_config['vcpus']['default'] = default_servicevm_vcpus
         attrs_config['memory']['default'] = 200
         
         # New attributes
