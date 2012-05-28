@@ -24,6 +24,7 @@ import os.path
 import sys
 import subprocess
 import shutil
+import grp
 from datetime import datetime
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import updates_stat_file
@@ -46,6 +47,9 @@ def main():
         print >> sys.stderr, 'Domain ' + source + ' does not exists (?!)'
         exit(1)
 
+    os.umask(0002)
+    qubes_gid = grp.getgrnam('qubes').gr_gid
+    
     update_count = sys.stdin.readline(128).strip()
     if not update_count.isdigit():
         print >> sys.stderr, 'Domain ' + source + ' sent invalid number of updates: ' + update_count
@@ -55,6 +59,7 @@ def main():
         update_f = open(source_vm.dir_path + '/' + updates_stat_file, "w")
         update_f.write(update_count)
         update_f.close()
+        os.chown(source_vm.dir_path + '/' + updates_stat_file, -1, qubes_gid)
     elif source_vm.template is not None:
         # Hint about updates availability in template
         # If template is running - it will notify about updates itself
@@ -72,6 +77,7 @@ def main():
             update_f = open(stat_file, "w")
             update_f.write(update_count)
             update_f.close()
+            os.chown(stat_file, -1, qubes_gid)
         else:
             print >> sys.stderr, 'Ignoring notification of no updates'
 

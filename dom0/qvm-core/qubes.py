@@ -840,6 +840,9 @@ class QubesVm(object):
                 "{0}/qubes-block-devices".format(domain_path),
                 '')
 
+        xs.write('', "{0}/qubes-debug-mode".format(domain_path),
+                str(int(self.debug)))
+
         # Fix permissions
         xs.set_permissions('', '{0}/device'.format(domain_path),
                 [{ 'dom': xid }])
@@ -1700,7 +1703,6 @@ class QubesNetVm(QubesVm):
         attrs_config['label']['default'] = default_servicevm_label
         attrs_config['vcpus']['default'] = default_servicevm_vcpus
         attrs_config['memory']['default'] = 200
-        attrs_config['maxmem']['eval'] = 'self.memory'
         
         # New attributes
         attrs_config['netid'] = { 'save': 'str(self.netid)', 'order': 30 }
