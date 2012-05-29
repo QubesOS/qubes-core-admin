@@ -9,6 +9,8 @@ USE_MSVCRT=1
 
 DLLDEF=libvchan.def
 
+C_DEFINES = $(C_DEFINES)  /DCONFIG_STUBDOM
+
 INCLUDES=$(INCLUDES); \
                     ..\win\include;\
 

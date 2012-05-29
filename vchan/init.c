@@ -256,7 +256,7 @@ struct libvchan *libvchan_server_init(int devno)
 	return ctrl;
 }
 
-#ifndef WINNT
+
 
 int libvchan_server_handle_connected(struct libvchan *ctrl)
 {
@@ -264,14 +264,21 @@ int libvchan_server_handle_connected(struct libvchan *ctrl)
 	char buf[64];
 	int ret = -1;
 	int libvchan_fd;
-	fd_set rfds;
+//	fd_set rfds;
 
+#ifdef WINNT
+	xs = xs_domain_open();
+#else
 	xs = xs_daemon_open();
+#endif
 	if (!xs) {
 		return ret;
 	}
+
+#ifndef WINNT
 	// clear the pending flag
 	xc_evtchn_pending(ctrl->evfd);
+#endif
 
 	snprintf(buf, sizeof buf, "device/vchan/%d", ctrl->devno);
 	xs_rm(xs, 0, buf);
@@ -290,6 +297,8 @@ fail2:
 	xs_daemon_close(xs);
 	return ret;
 }
+
+#ifndef WINNT
 
 /**
         retrieves ring-ref and event-channel numbers from xenstore (if
@@ -434,11 +443,6 @@ struct libvchan *libvchan_client_init(int domain, int devno)
 #else
 
 // Windows domains can not be dom0
-
-int libvchan_server_handle_connected(struct libvchan *ctrl)
-{
-	return -1;
-}
 
 struct libvchan *libvchan_client_init(int domain, int devno)
 {
