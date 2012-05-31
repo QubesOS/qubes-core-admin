@@ -54,6 +54,8 @@ if [ "${ip}" ] ; then
 		${cmdprefix} ip route ${ipcmd} ${addr} dev ${vif} metric $metric
 	done
 	${cmdprefix} iptables -t raw $iptables_cmd -i ${vif} \! -s ${ip} -j DROP
+	back_ip=${ip%.*}.1
+	${cmdprefix} ip addr ${ipcmd} ${back_ip}/32 dev ${vif}
 fi
 
 log debug "Successful vif-route-qubes $command for $vif."
