@@ -1,5 +1,11 @@
 #!/bin/sh
 
+if [ -f /var/run/qubes-service/yum-proxy-setup ]; then
+    echo proxy=http://10.137.255.254:8082/ > /etc/yum.conf.d/qubes-proxy.conf
+else
+    echo > /etc/yum.conf.d/qubes-proxy.conf
+fi
+
 # Set IP address again (besides action in udev rules); this is needed by
 # DispVM (to override DispVM-template IP) and in case when qubes_ip was
 # called by udev before loading evtchn kernel module - in which case

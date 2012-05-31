@@ -36,6 +36,13 @@ start()
 		echo "ZONE=\"$timezone\"" >> /etc/sysconfig/clock
 	fi
 
+	yum_proxy_setup=$(/usr/bin/xenstore-read qubes-service/yum-proxy-setup 2> /dev/null)
+	if [ "$yum_proxy_setup" != "0" ]; then
+		echo proxy=http://10.137.255.254:8082/ > /etc/yum.conf.d/qubes-proxy.conf
+	else
+		echo > /etc/yum.conf.d/qubes-proxy.conf
+	fi
+
 	# Set IP address again (besides action in udev rules); this is needed by
 	# DispVM (to override DispVM-template IP) and in case when qubes_ip was
 	# called by udev before loading evtchn kernel module - in which case
