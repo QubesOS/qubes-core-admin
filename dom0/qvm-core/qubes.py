@@ -1713,7 +1713,7 @@ class QubesNetVm(QubesVm):
         attrs_config['dir_path']['eval'] = 'value if value is not None else qubes_servicevms_dir + "/" + self.name'
         attrs_config['label']['default'] = default_servicevm_label
         attrs_config['memory']['default'] = 200
-        
+
         # New attributes
         attrs_config['netid'] = { 'save': 'str(self.netid)', 'order': 30 }
         attrs_config['netprefix'] = { 'eval': '"10.137.{0}.".format(self.netid)' }
