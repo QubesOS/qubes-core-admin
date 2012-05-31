@@ -314,6 +314,7 @@ def main():
         if vm.is_running():
             if vm.netvm is not None and vm.netvm.is_proxyvm():
                 vm.netvm.write_iptables_xenstore_entry()
+        qvm_collection.save()
 
     if not options.do_list:
         qvm_collection.unlock_db()

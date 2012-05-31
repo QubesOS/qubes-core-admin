@@ -1211,6 +1211,13 @@ class QubesVm(object):
                     os.path.basename(sys.argv[0]), err)
             return False
 
+        # Automatically enable/disable 'yum-proxy-setup' service based on allowYumProxy
+        if conf['allowYumProxy']:
+            self.services['yum-proxy-setup'] = True
+        else:
+            if self.services.has_key('yum-proxy-setup'):
+                self.services.pop('yum-proxy-setup')
+
         return True
 
     def has_firewall(self):
