@@ -37,6 +37,7 @@ Requires:   yum-plugin-post-transaction-actions
 Requires:   NetworkManager >= 0.8.1-1
 Requires:	/usr/bin/mimeopen
 Requires:   /sbin/ethtool
+Requires:   tinyproxy
 Provides:   qubes-core-vm
 Obsoletes:  qubes-core-commonvm
 Obsoletes:  qubes-core-appvm
@@ -127,6 +128,8 @@ install -d $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 install network/{qubes_nmhook,30-qubes_external_ip} $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 install -D network/vif-route-qubes $RPM_BUILD_ROOT/etc/xen/scripts/vif-route-qubes
 install -m 0644 -D network/iptables $RPM_BUILD_ROOT/etc/sysconfig/iptables
+install -m 0644 -D network/tinyproxy-qubes-yum.conf $RPM_BUILD_ROOT/etc/tinyproxy/tinyproxy-qubes-yum.conf
+install -m 0644 -D network/filter-qubes-yum $RPM_BUILD_ROOT/etc/tinyproxy/filter-qubes-yum
 
 install -d $RPM_BUILD_ROOT/usr/sbin
 install network/qubes_firewall $RPM_BUILD_ROOT/usr/sbin/
@@ -334,6 +337,8 @@ rm -rf $RPM_BUILD_ROOT
 /etc/sudoers.d/qubes
 /etc/sysconfig/iptables
 /etc/sysconfig/modules/qubes_core.modules
+/etc/tinyproxy/filter-qubes-yum
+/etc/tinyproxy/tinyproxy-qubes-yum.conf
 /etc/udev/rules.d/50-qubes_memory.rules
 /etc/udev/rules.d/99-qubes_block.rules
 /etc/udev/rules.d/99-qubes_network.rules
@@ -422,6 +427,7 @@ The Qubes core startup configuration for SysV init (or upstart).
 /etc/init.d/qubes_core_netvm
 /etc/init.d/qubes-firewall
 /etc/init.d/qubes-netwatcher
+/etc/init.d/qubes-yum-proxy
 
 %post sysvinit
 
@@ -454,6 +460,8 @@ chkconfig --add qubes_firewall || echo "WARNING: Cannot add service qubes_core!"
 chkconfig qubes_firewall on || echo "WARNING: Cannot enable service qubes_core!"
 chkconfig --add qubes-netwatcher || echo "WARNING: Cannot add service qubes_core!"
 chkconfig qubes-netwatcher on || echo "WARNING: Cannot enable service qubes_core!"
+chkconfig --add qubes-yum-proxy || echo "WARNING: Cannot add service qubes-yum-proxy!"
+chkconfig qubes-yum-proxy on || echo "WARNING: Cannot enable service qubes-yum-proxy!"
 
 # TODO: make this not display the silly message about security context...
 sed -i s/^id:.:initdefault:/id:3:initdefault:/ /etc/inittab
@@ -466,6 +474,7 @@ if [ "$1" = 0 ] ; then
     chkconfig qubes_core_appvm off
     chkconfig qubes-firewall off
     chkconfig qubes-netwatcher off
+    chkconfig qubes-yum-proxy off
 fi
 
 %package systemd
@@ -495,6 +504,7 @@ The Qubes core startup configuration for SystemD init.
 /lib/systemd/system/qubes-sysinit.service
 /lib/systemd/system/qubes-update-check.service
 /lib/systemd/system/qubes-update-check.timer
+/lib/systemd/system/qubes-yum-proxy.service
 %dir /usr/lib/qubes/init
 /usr/lib/qubes/init/prepare-dvm.sh
 /usr/lib/qubes/init/network-proxy-setup.sh
@@ -509,7 +519,7 @@ The Qubes core startup configuration for SystemD init.
 
 %post systemd
 
-for srv in qubes-dvm qubes-meminfo-writer qubes-qrexec-agent qubes-sysinit qubes-misc-post qubes-netwatcher qubes-network qubes-firewall; do
+for srv in qubes-dvm qubes-meminfo-writer qubes-qrexec-agent qubes-sysinit qubes-misc-post qubes-netwatcher qubes-network qubes-firewall qubes-yum-proxy; do
     /bin/systemctl enable $srv.service 2> /dev/null
 done
 
