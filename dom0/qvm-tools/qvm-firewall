@@ -189,7 +189,8 @@ def display_firewall(conf):
     print "Firewall policy: %s" % (
             "ALLOW all traffic except" if conf['allow'] else "DENY all traffic except")
     print "ICMP: %s" % ("ALLOW" if conf['allowIcmp'] else 'DENY')
-    print "DMS: %s" % ("ALLOW" if conf['allowDns'] else 'DENY')
+    print "DNS: %s" % ("ALLOW" if conf['allowDns'] else 'DENY')
+    print "Qubes yum proxy: %s" % ("ALLOW" if conf['allowYumProxy'] else 'DENY')
     list_rules(conf['rules'])
 
 def add_rule(conf, args):
@@ -251,6 +252,8 @@ def main():
             help="Set ICMP access (allow/deny)")
     parser.add_option ("-D", "--dns", dest="set_dns", action="store", default=None,
             help="Set DNS access (allow/deny)")
+    parser.add_option ("-Y", "--yum-proxy", dest="set_yum_proxy", action="store", default=None,
+            help="Set access to Qubes yum proxy (allow/deny)")
 
     parser.add_option ("-n", "--numeric", dest="numeric", action="store_true", default=False,
             help="Display port numbers instead of services (makes sense only with --list)")
@@ -261,7 +264,7 @@ def main():
     vmname = args[0]
     args = args[1:]
 
-    if options.do_add or options.do_del or options.set_policy or options.set_icmp or options.set_dns:
+    if options.do_add or options.do_del or options.set_policy or options.set_icmp or options.set_dns or options.set_yum_proxy:
         options.do_list = False
     qvm_collection = QubesVmCollection()
     if options.do_list:
@@ -288,6 +291,9 @@ def main():
         changed = True
     if options.set_dns:
         conf['allowDns'] = allow_deny_value(options.set_dns)
+        changed = True
+    if options.set_yum_proxy:
+        conf['allowYumProxy'] = allow_deny_value(options.set_yum_proxy)
         changed = True
 
     if options.do_add:
