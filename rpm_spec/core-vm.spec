@@ -80,7 +80,7 @@ su user -c 'touch /home/user/.gnome2/nautilus-scripts/.scripts_created2'
 
 %install
 
-install -D misc/fstab $RPM_BUILD_ROOT/etc/fstab
+install -m 0644 -D misc/fstab $RPM_BUILD_ROOT/etc/fstab
 install -d $RPM_BUILD_ROOT/etc/init.d
 install vm-init.d/* $RPM_BUILD_ROOT/etc/init.d/
 
@@ -116,7 +116,7 @@ mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
 
 install -D misc/qubes_core.modules $RPM_BUILD_ROOT/etc/sysconfig/modules/qubes_core.modules
 
-install network/qubes_network.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_network.rules
+install -m 0644 network/qubes_network.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_network.rules
 install network/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/lib/qubes
 install network/qubes_fix_nm_conf.sh $RPM_BUILD_ROOT/usr/lib/qubes
 install network/setup_ip $RPM_BUILD_ROOT/usr/lib/qubes/
@@ -126,7 +126,7 @@ ln -s /usr/lib/qubes/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/etc/dhclient.d/qubes
 install -d $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 install network/{qubes_nmhook,30-qubes_external_ip} $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 install -D network/vif-route-qubes $RPM_BUILD_ROOT/etc/xen/scripts/vif-route-qubes
-install -D network/iptables $RPM_BUILD_ROOT/etc/sysconfig/iptables
+install -m 0644 -D network/iptables $RPM_BUILD_ROOT/etc/sysconfig/iptables
 
 install -d $RPM_BUILD_ROOT/usr/sbin
 install network/qubes_firewall $RPM_BUILD_ROOT/usr/sbin/
