@@ -131,6 +131,9 @@ install -m 0644 -D network/iptables $RPM_BUILD_ROOT/etc/sysconfig/iptables
 install -m 0644 -D network/tinyproxy-qubes-yum.conf $RPM_BUILD_ROOT/etc/tinyproxy/tinyproxy-qubes-yum.conf
 install -m 0644 -D network/filter-qubes-yum $RPM_BUILD_ROOT/etc/tinyproxy/filter-qubes-yum
 
+install -d $RPM_BUILD_ROOT/etc/yum.conf.d
+touch $RPM_BUILD_ROOT/etc/yum.conf.d/qubes-proxy.conf
+
 install -d $RPM_BUILD_ROOT/usr/sbin
 install network/qubes_firewall $RPM_BUILD_ROOT/usr/sbin/
 install network/qubes_netwatcher $RPM_BUILD_ROOT/usr/sbin/
@@ -235,6 +238,12 @@ fi
 
 # Remove ip_forward setting from sysctl, so NM will not reset it
 sed 's/^net.ipv4.ip_forward.*/#\0/'  -i /etc/sysctl.conf
+
+if ! grep -q '/etc/yum\.conf\.d/qubes-proxy\.conf'; then
+  echo >> /etc/yum.conf
+  echo '# Yum does not support inclusion of config dir...' >> /etc/yum.conf
+  echo 'include=file:///etc/yum.conf.d/qubes-proxy.conf' >> /etc/yum.conf
+fi
 
 # Prevent unnecessary updates in VMs:
 sed -i -e '/^exclude = kernel/d' /etc/yum.conf
@@ -343,6 +352,7 @@ rm -rf $RPM_BUILD_ROOT
 /etc/udev/rules.d/99-qubes_block.rules
 /etc/udev/rules.d/99-qubes_network.rules
 /etc/xen/scripts/vif-route-qubes
+/etc/yum.conf.d/qubes-proxy.conf
 /etc/yum.repos.d/qubes.repo
 /etc/yum/post-actions/qubes_trigger_sync_appmenus.action
 /lib/firmware/updates
