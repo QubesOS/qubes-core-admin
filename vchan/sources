@@ -1,0 +1,24 @@
+TARGETNAME=libvchan
+TARGETTYPE=LIBRARY
+TARGETPATH=..\win\libs
+
+#BUILD_PASS0_CONSUMES=gntmem evtchn xenstore
+#BUILD_PASS0_PRODUCES=vchan
+
+USE_MSVCRT=1
+
+DLLDEF=libvchan.def
+
+C_DEFINES = $(C_DEFINES)  /DCONFIG_STUBDOM
+
+INCLUDES=$(INCLUDES); \
+                    ..\win\include;\
+
+SOURCES=io.c init.c
+
+TARGETLIBS=\
+        $(SDK_LIB_PATH)\setupapi.lib     \
+        $(SDK_LIB_PATH)\kernel32.lib
+
+
+

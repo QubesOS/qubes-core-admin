@@ -20,10 +20,15 @@
  */
 
 #include "libvchan.h"
+
+#ifndef WINNT
 #include <xenctrl.h>
-#include <string.h>
 #include <errno.h>
 #include <sys/select.h>
+#endif
+
+#include <string.h>
+
 /**
         \return How much data is immediately available for reading
 */
@@ -66,6 +71,22 @@ int libvchan_is_eof(struct libvchan *ctrl)
 /**
         \return -1 return value means peer has closed
 */
+
+#ifdef WINNT
+int libvchan_wait(struct libvchan *ctrl)
+{
+	int ret;
+
+	ret = xc_evtchn_pending(ctrl->evfd);
+	if (ret!=-1 && xc_evtchn_unmask(ctrl->evfd, ctrl->evport))
+		return -1;
+	if (ret!=-1 && libvchan_is_eof(ctrl))
+		return -1;
+	return ret;
+}
+
+#else
+
 int libvchan_wait(struct libvchan *ctrl)
 {
 	int ret;
@@ -93,6 +114,7 @@ int libvchan_wait(struct libvchan *ctrl)
 		return -1;
 	return ret;
 }
+#endif
 
 /**
         may sleep (only if no buffer space available);
@@ -166,7 +188,7 @@ int libvchan_close(struct libvchan *ctrl)
 }
 
 /// The fd to use for select() set
-int libvchan_fd_for_select(struct libvchan *ctrl)
+EVTCHN libvchan_fd_for_select(struct libvchan *ctrl)
 {
 	return xc_evtchn_fd(ctrl->evfd);
 }
