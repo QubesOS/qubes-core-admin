@@ -127,11 +127,6 @@ static int server_interface_init(struct libvchan *ctrl, int devno)
 	struct xs_handle *xs;
 	char buf[64];
 	char ref[16];
-	/* XXX temp hack begin */
-	char *domid_s;
-	int domid = 0;
-	unsigned int len;
-	/* XXX temp hack end */
 #ifdef XENCTRL_HAS_XC_INTERFACE
 	xc_evtchn *evfd;
 #else
@@ -163,11 +158,6 @@ static int server_interface_init(struct libvchan *ctrl, int devno)
 	ctrl->evport = port;
 	ctrl->devno = devno;
 
-	// stubdom debug HACK XXX
-	domid_s = xs_read(xs, 0, "domid", &len);
-	if (domid_s)
-		domid = atoi(domid_s);
-
 	snprintf(buf, sizeof buf, "device/vchan/%d/version", devno);
 	if (!xs_write(xs, 0, buf, "2", strlen("2")))
 		goto fail2;
@@ -175,21 +165,11 @@ static int server_interface_init(struct libvchan *ctrl, int devno)
 	snprintf(ref, sizeof ref, "%d", ctrl->ring_ref);
 	snprintf(buf, sizeof buf, "device/vchan/%d/ring-ref", devno);
 	if (!xs_write(xs, 0, buf, ref, strlen(ref)))
-#ifdef CONFIG_STUBDOM
-		// TEMP HACK XXX FIXME goto fail2;
-		fprintf(stderr, "xenstore-write /local/domain/%d/%s %s\n", domid, buf, ref);
-#else
 		goto fail2;
-#endif
 	snprintf(ref, sizeof ref, "%d", ctrl->evport);
 	snprintf(buf, sizeof buf, "device/vchan/%d/event-channel", devno);
 	if (!xs_write(xs, 0, buf, ref, strlen(ref)))
-#ifdef CONFIG_STUBDOM
-		// TEMP HACK XXX FIXME goto fail2;
-		fprintf(stderr, "xenstore-write /local/domain/%d/%s %s\n", domid, buf, ref);
-#else
 		goto fail2;
-#endif
 		// do not block in stubdom - libvchan_server_handle_connected will be
 		// called on first input
 #ifndef CONFIG_STUBDOM
