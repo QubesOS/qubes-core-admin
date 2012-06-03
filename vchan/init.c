@@ -184,15 +184,7 @@ static int server_interface_init(struct libvchan *ctrl, int devno)
 	ret = 0;
       fail2:
 	if (ret)
-#ifdef XENCTRL_HAS_XC_INTERFACE
         xc_evtchn_close(evfd);
-#else
-#ifdef WINNT
-        xc_evtchn_close(evfd);
-#else
-		close(evfd);
-#endif
-#endif
       fail:
 	xs_daemon_close(xs);
 	return ret;
@@ -268,11 +260,7 @@ int libvchan_server_handle_connected(struct libvchan *ctrl)
 #if 0
 fail2:
 	if (ret)
-#ifdef XENCTRL_HAS_XC_INTERFACE
         xc_evtchn_close(ctrl->evfd);
-#else
-		close(ctrl->evfd);
-#endif
 #endif
 	xs_daemon_close(xs);
 	return ret;
@@ -357,11 +345,7 @@ static int client_interface_init(struct libvchan *ctrl, int domain, int devno)
 		ctrl->ring = (struct vchan_interface *)
 		    xc_map_foreign_range(xcfd, domain, 4096,
 					 PROT_READ | PROT_WRITE, ctrl->ring_ref);
-#ifdef XENCTRL_HAS_XC_INTERFACE
 		xc_interface_close(xcfd);
-#else
-		close(xcfd);
-#endif
 		break;
 	case 2:
 		xcg = xc_gnttab_open();
@@ -390,11 +374,7 @@ static int client_interface_init(struct libvchan *ctrl, int domain, int devno)
 	ctrl->evport =
 	    xc_evtchn_bind_interdomain(evfd, domain, remote_port);
 	if (ctrl->evport < 0 || xc_evtchn_notify(evfd, ctrl->evport))
-#ifdef XENCTRL_HAS_XC_INTERFACE
         xc_evtchn_close(evfd);
-#else
-	close(evfd);
-#endif
 	else
 		ret = 0;
       fail:
