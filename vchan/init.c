@@ -62,7 +62,7 @@ static int fill_ctrl(struct libvchan *ctrl, struct vchan_interface *ring, int ri
 	return 0;	
 }
 
-#ifdef WINNT
+#ifdef QREXEC_RING_V2
 static int ring_init(struct libvchan *ctrl)
 {
 	struct gntmem_handle*	h;
@@ -158,9 +158,11 @@ static int server_interface_init(struct libvchan *ctrl, int devno)
 	ctrl->evport = port;
 	ctrl->devno = devno;
 
+#ifdef QREXEC_RING_V2
 	snprintf(buf, sizeof buf, "device/vchan/%d/version", devno);
 	if (!xs_write(xs, 0, buf, "2", strlen("2")))
 		goto fail2;
+#endif
 
 	snprintf(ref, sizeof ref, "%d", ctrl->ring_ref);
 	snprintf(buf, sizeof buf, "device/vchan/%d/ring-ref", devno);
@@ -170,10 +172,10 @@ static int server_interface_init(struct libvchan *ctrl, int devno)
 	snprintf(buf, sizeof buf, "device/vchan/%d/event-channel", devno);
 	if (!xs_write(xs, 0, buf, ref, strlen(ref)))
 		goto fail2;
-		// do not block in stubdom - libvchan_server_handle_connected will be
-		// called on first input
-#ifndef CONFIG_STUBDOM
-        // wait for the peer to arrive
+	// do not block in stubdom and windows - libvchan_server_handle_connected will be
+	// called on first input
+#ifdef ASYNC_INIT
+	// wait for the peer to arrive
 	if (xc_evtchn_pending(evfd) == -1)
 		goto fail2;
         xc_evtchn_unmask(ctrl->evfd, ctrl->evport);

@@ -28,11 +28,19 @@
 #include <xs.h>
 typedef HANDLE EVTCHN;
 #define snprintf _snprintf
-#else
+#else /* WINNT */
 #include <stdint.h>
 typedef int EVTCHN;
-#endif
+#endif /* WINNT */
 
+/* config vchan features */
+#ifdef WINNT
+#define QREXEC_RING_V2
+#define ASYNC_INIT
+#endif /* WINNT */
+#ifdef CONFIG_STUBDOM
+#define ASYNC_INIT
+#endif /* CONFIG_STUBDOM */
 
 #include <xenctrl.h>
 typedef uint32_t VCHAN_RING_IDX;
