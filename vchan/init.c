@@ -278,10 +278,11 @@ static int client_interface_init(struct libvchan *ctrl, int domain, int devno)
 	struct xs_handle *xs;
 #ifdef XENCTRL_HAS_XC_INTERFACE
 	xc_interface *xcfd;
+	xc_gnttab *xcg;
 #else
 	int xcfd;
-#endif
 	int xcg;
+#endif
 	char buf[64];
 	char *ref;
 	int version;
@@ -346,7 +347,7 @@ static int client_interface_init(struct libvchan *ctrl, int domain, int devno)
 		xc_interface_close(xcfd);
 		break;
 	case 2:
-		xcg = xc_gnttab_open();
+		xcg = xc_gnttab_open(NULL, 0);
 		if (xcg < 0)
 			goto fail;
 		ctrl->ring = (struct vchan_interface *)
