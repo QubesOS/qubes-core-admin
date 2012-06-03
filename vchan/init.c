@@ -235,8 +235,6 @@ int libvchan_server_handle_connected(struct libvchan *ctrl)
 	struct xs_handle *xs;
 	char buf[64];
 	int ret = -1;
-	int libvchan_fd;
-//	fd_set rfds;
 
 #ifdef WINNT
 	xs = xs_domain_open();
