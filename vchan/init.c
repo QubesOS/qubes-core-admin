@@ -174,7 +174,7 @@ static int server_interface_init(struct libvchan *ctrl, int devno)
 		goto fail2;
 	// do not block in stubdom and windows - libvchan_server_handle_connected will be
 	// called on first input
-#ifdef ASYNC_INIT
+#ifndef ASYNC_INIT
 	// wait for the peer to arrive
 	if (xc_evtchn_pending(evfd) == -1)
 		goto fail2;
