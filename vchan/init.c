@@ -62,7 +62,7 @@ static int fill_ctrl(struct libvchan *ctrl, struct vchan_interface *ring, int ri
 	return 0;	
 }
 
-#ifdef WINNT
+#ifdef QREXEC_RING_V2
 static int ring_init(struct libvchan *ctrl)
 {
 	struct gntmem_handle*	h;
@@ -127,11 +127,6 @@ static int server_interface_init(struct libvchan *ctrl, int devno)
 	struct xs_handle *xs;
 	char buf[64];
 	char ref[16];
-	/* XXX temp hack begin */
-	char *domid_s;
-	int domid = 0;
-	unsigned int len;
-	/* XXX temp hack end */
 #ifdef XENCTRL_HAS_XC_INTERFACE
 	xc_evtchn *evfd;
 #else
@@ -163,37 +158,24 @@ static int server_interface_init(struct libvchan *ctrl, int devno)
 	ctrl->evport = port;
 	ctrl->devno = devno;
 
-	// stubdom debug HACK XXX
-	domid_s = xs_read(xs, 0, "domid", &len);
-	if (domid_s)
-		domid = atoi(domid_s);
-
+#ifdef QREXEC_RING_V2
 	snprintf(buf, sizeof buf, "device/vchan/%d/version", devno);
 	if (!xs_write(xs, 0, buf, "2", strlen("2")))
 		goto fail2;
+#endif
 
 	snprintf(ref, sizeof ref, "%d", ctrl->ring_ref);
 	snprintf(buf, sizeof buf, "device/vchan/%d/ring-ref", devno);
 	if (!xs_write(xs, 0, buf, ref, strlen(ref)))
-#ifdef CONFIG_STUBDOM
-		// TEMP HACK XXX FIXME goto fail2;
-		fprintf(stderr, "xenstore-write /local/domain/%d/%s %s\n", domid, buf, ref);
-#else
 		goto fail2;
-#endif
 	snprintf(ref, sizeof ref, "%d", ctrl->evport);
 	snprintf(buf, sizeof buf, "device/vchan/%d/event-channel", devno);
 	if (!xs_write(xs, 0, buf, ref, strlen(ref)))
-#ifdef CONFIG_STUBDOM
-		// TEMP HACK XXX FIXME goto fail2;
-		fprintf(stderr, "xenstore-write /local/domain/%d/%s %s\n", domid, buf, ref);
-#else
 		goto fail2;
-#endif
-		// do not block in stubdom - libvchan_server_handle_connected will be
-		// called on first input
-#ifndef CONFIG_STUBDOM
-        // wait for the peer to arrive
+	// do not block in stubdom and windows - libvchan_server_handle_connected will be
+	// called on first input
+#ifndef ASYNC_INIT
+	// wait for the peer to arrive
 	if (xc_evtchn_pending(evfd) == -1)
 		goto fail2;
         xc_evtchn_unmask(ctrl->evfd, ctrl->evport);
@@ -204,15 +186,7 @@ static int server_interface_init(struct libvchan *ctrl, int devno)
 	ret = 0;
       fail2:
 	if (ret)
-#ifdef XENCTRL_HAS_XC_INTERFACE
         xc_evtchn_close(evfd);
-#else
-#ifdef WINNT
-        xc_evtchn_close(evfd);
-#else
-		close(evfd);
-#endif
-#endif
       fail:
 	xs_daemon_close(xs);
 	return ret;
@@ -263,8 +237,6 @@ int libvchan_server_handle_connected(struct libvchan *ctrl)
 	struct xs_handle *xs;
 	char buf[64];
 	int ret = -1;
-	int libvchan_fd;
-//	fd_set rfds;
 
 #ifdef WINNT
 	xs = xs_domain_open();
@@ -288,11 +260,7 @@ int libvchan_server_handle_connected(struct libvchan *ctrl)
 #if 0
 fail2:
 	if (ret)
-#ifdef XENCTRL_HAS_XC_INTERFACE
         xc_evtchn_close(ctrl->evfd);
-#else
-		close(ctrl->evfd);
-#endif
 #endif
 	xs_daemon_close(xs);
 	return ret;
@@ -312,10 +280,11 @@ static int client_interface_init(struct libvchan *ctrl, int domain, int devno)
 	struct xs_handle *xs;
 #ifdef XENCTRL_HAS_XC_INTERFACE
 	xc_interface *xcfd;
+	xc_gnttab *xcg;
 #else
 	int xcfd;
-#endif
 	int xcg;
+#endif
 	char buf[64];
 	char *ref;
 	int version;
@@ -377,14 +346,10 @@ static int client_interface_init(struct libvchan *ctrl, int domain, int devno)
 		ctrl->ring = (struct vchan_interface *)
 		    xc_map_foreign_range(xcfd, domain, 4096,
 					 PROT_READ | PROT_WRITE, ctrl->ring_ref);
-#ifdef XENCTRL_HAS_XC_INTERFACE
 		xc_interface_close(xcfd);
-#else
-		close(xcfd);
-#endif
 		break;
 	case 2:
-		xcg = xc_gnttab_open();
+		xcg = xc_gnttab_open(NULL, 0);
 		if (xcg < 0)
 			goto fail;
 		ctrl->ring = (struct vchan_interface *)
@@ -410,11 +375,7 @@ static int client_interface_init(struct libvchan *ctrl, int domain, int devno)
 	ctrl->evport =
 	    xc_evtchn_bind_interdomain(evfd, domain, remote_port);
 	if (ctrl->evport < 0 || xc_evtchn_notify(evfd, ctrl->evport))
-#ifdef XENCTRL_HAS_XC_INTERFACE
         xc_evtchn_close(evfd);
-#else
-	close(evfd);
-#endif
 	else
 		ret = 0;
       fail:
