@@ -76,6 +76,9 @@ fields = {
 
     "label" : {"func" : "vm.label.name"},
 
+    "kernel" : {"func" : "('*' if vm.uses_default_kernel else '') + str(vm.kernel) if hasattr(vm, 'kernel') else 'n/a'"},
+    "kernelopts" : {"func" : "('*' if vm.uses_default_kernelopts else '') + str(vm.kernelopts) if hasattr(vm, 'kernelopts') else 'n/a'"},
+
     "on" : {"func" : "'*' if vm.is_running() else ''"}
 
 }
@@ -101,6 +104,10 @@ def main():
     parser.add_option ("-d", "--disk", dest="disk",
                        action="store_true", default=False,
                        help="Show VM disk utilization statistics")
+
+    parser.add_option ("-k", "--kernel", dest="kernel",
+                       action="store_true", default=False,
+                       help="Show VM kernel options")
 
     parser.add_option ("-i", "--ids", dest="ids",
                        action="store_true", default=False,
@@ -140,6 +147,9 @@ def main():
         if 'netvm' in fields_to_display:
             fields_to_display.remove ("netvm")
         fields_to_display += ["priv-curr", "priv-max", "root-curr", "root-max", "disk" ]
+
+    if (options.kernel):
+        fields_to_display += ["kernel", "kernelopts" ]
 
     
     vms_list = [vm for vm in qvm_collection.values()]

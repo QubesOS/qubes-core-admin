@@ -114,6 +114,7 @@ cp aux-tools/qubes-receive-updates $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_add_change $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_remove $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_cleanup $RPM_BUILD_ROOT/usr/lib/qubes/
+cp aux-tools/block_cleaner_daemon.py $RPM_BUILD_ROOT/usr/lib/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/etc/qubes_rpc/policy
 cp ../qubes_rpc/qubes.Filecopy.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.Filecopy
@@ -344,6 +345,7 @@ fi
 /usr/lib/qubes/block_add_change
 /usr/lib/qubes/block_remove
 /usr/lib/qubes/block_cleanup
+/usr/lib/qubes/block_cleaner_daemon.py*
 %attr(4750,root,qubes) /usr/lib/qubes/qfile-dom0-unpacker
 %attr(770,root,qubes) %dir /var/lib/qubes
 %attr(770,root,qubes) %dir /var/lib/qubes/vm-templates

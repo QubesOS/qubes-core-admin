@@ -1,0 +1,121 @@
+#!/bin/sh
+#
+# tinyproxy     Startup script for the tinyproxy server as Qubes yum proxy
+#
+# chkconfig:   - 85 15
+# description: small, efficient HTTP/SSL proxy daemon
+#
+# processname: tinyproxy
+# config:      /etc/tinyproxy/tinyproxy-qubes-yum.conf
+# config:      /etc/sysconfig/tinyproxy-qubes-yum
+# pidfile:     /var/run/tinyproxy/tinyproxy-qubes-yum.pid
+#
+# Note: pidfile is created by tinyproxy in its config
+# see PidFile in the configuration file.
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+# Source networking configuration.
+.  /etc/sysconfig/network
+
+# Check that networking is up.
+[ "$NETWORKING" = "no" ] && exit 0
+
+exec="/usr/sbin/tinyproxy"
+prog=$(basename $exec)
+config="/etc/tinyproxy/tinyproxy-qubes-yum.conf"
+pidfile="/var/run/tinyproxy/tinyproxy-qubes-yum.pid"
+
+[ -e /etc/sysconfig/tinyproxy-qubes-yum ] && . /etc/sysconfig/tinyproxy-qubes-yum
+
+lockfile=/var/lock/subsys/tinyproxy-qubes-yum
+
+start() {
+    type=`/usr/bin/xenstore-read qubes_vm_type`
+    start_yum_proxy=`/usr/bin/xenstore-read qubes-service/qubes-yum-proxy 2>/dev/null`
+    if [ -z "$start_yum_proxy" ] && [ "$type" != "NetVM" ] || [ "$start_yum_proxy" != "1" ]; then
+        # Yum proxy disabled
+        exit 0
+    fi
+
+    [ -x $exec ] || exit 5
+    [ -f $config ] || exit 6
+    # setup network redirection
+    /sbin/iptables -I INPUT -i vif+ -p tcp --dport 8082 -j ACCEPT
+    /sbin/iptables -t nat -A PR-QBS-SERVICES -i vif+ -d 10.137.255.254 -p tcp --dport 8082 -j REDIRECT
+
+    echo -n $"Starting $prog (as Qubes yum proxy): "
+    daemon $exec -c $config
+    retval=$?
+    echo
+    [ $retval -eq 0 ] && touch $lockfile
+    return $retval
+}
+
+stop() {
+    echo -n $"Stopping $prog: "
+    killproc -p $pidfile $prog
+    retval=$?
+    echo
+    /sbin/iptables -t nat -D PR-QBS-SERVICES -i vif+ -d 10.137.255.254 -p tcp --dport 8082 -j REDIRECT
+    /sbin/iptables -D INPUT -i vif+ -p tcp --dport 8082 -j ACCEPT
+    [ $retval -eq 0 ] && rm -f $lockfile
+    return $retval
+}
+
+restart() {
+    stop
+    start
+}
+
+reload() {
+    echo -n $"Reloading $prog: "
+    killproc -p $pidfile $prog -HUP
+    echo
+}
+
+force_reload() {
+    restart
+}
+
+rh_status() {
+    status $prog
+}
+
+rh_status_q() {
+    rh_status >/dev/null 2>&1
+}
+
+case "$1" in
+    start)
+        rh_status_q && exit 0
+        $1
+        ;;
+    stop)
+        rh_status_q || exit 0
+        $1
+        ;;
+    restart)
+        $1
+        ;;
+    reload)
+        rh_status_q || exit 7
+        $1
+        ;;
+    force-reload)
+        force_reload
+        ;;
+    status)
+        rh_status
+        ;;
+    condrestart|try-restart)
+        rh_status_q || exit 0
+        restart
+        ;;
+    *)
+        echo $"Usage: $0 {start|stop|status|restart|condrestart|try-restart|reload|force-reload}"
+        exit 2
+esac
+exit $?
+

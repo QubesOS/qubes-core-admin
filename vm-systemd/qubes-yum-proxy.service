@@ -1,0 +1,15 @@
+[Unit]
+Description=Qubes yum proxy (tinyproxy)
+ConditionPathExists=/var/run/qubes-service/qubes-yum-proxy
+After=iptables.service
+
+[Service]
+ExecStartPre=/usr/bin/install -d --owner tinyproxy --group tinyproxy /var/run/tinyproxy
+ExecStartPre=/sbin/iptables -I INPUT -i vif+ -p tcp --dport 8082 -j ACCEPT
+ExecStartPre=/sbin/iptables -t nat -A PR-QBS-SERVICES -i vif+ -d 10.137.255.254 -p tcp --dport 8082 -j REDIRECT
+ExecStart=/usr/sbin/tinyproxy -d -c /etc/tinyproxy/tinyproxy-qubes-yum.conf
+ExecStopPost=/sbin/iptables -t nat -D PR-QBS-SERVICES -i vif+ -d 10.137.255.254 -p tcp --dport 8082 -j REDIRECT
+ExecStopPost=/sbin/iptables -D INPUT -i vif+ -p tcp --dport 8082 -j ACCEPT
+
+[Install]
+WantedBy=multi-user.target

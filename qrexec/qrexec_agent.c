@@ -113,28 +113,6 @@ void no_colon_in_cmd()
 	exit(1);
 }
 
-void do_exec_directly(char *cmd)
-{
-	struct passwd *pwd;
-	char *sep = index(cmd, ':');
-	if (!sep)
-		no_colon_in_cmd();
-	*sep = 0;
-	pwd = getpwnam(cmd);
-	if (!pwd) {
-		perror("getpwnam");
-		exit(1);
-	}
-	setgid(pwd->pw_gid);
-	initgroups(cmd, pwd->pw_gid);
-	setuid(pwd->pw_uid);
-	setenv("HOME", pwd->pw_dir, 1);
-	setenv("USER", cmd, 1);
-	execl(sep + 1, sep + 1, NULL);
-	perror("execl");
-	exit(1);
-}
-
 void do_exec(char *cmd)
 {
 	char *sep = index(cmd, ':');
@@ -144,8 +122,6 @@ void do_exec(char *cmd)
 	signal(SIGCHLD, SIG_DFL);
 	signal(SIGPIPE, SIG_DFL);
 
-	if (!strcmp(cmd, "directly"))
-		do_exec_directly(sep + 1);
 	execl("/bin/su", "su", "-", cmd, "-c", sep + 1, NULL);
 	perror("execl");
 	exit(1);

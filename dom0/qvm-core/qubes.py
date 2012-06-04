@@ -74,7 +74,6 @@ default_appmenus_template_templates_subdir = "apps-template.templates"
 default_kernels_subdir = "kernels"
 default_firewall_conf_file = "firewall.xml"
 default_memory = 400
-default_servicevm_vcpus = 1
 default_kernelopts = ""
 default_kernelopts_pcidevs = "iommu=soft swiotlb=2048"
 
@@ -106,6 +105,9 @@ dom0_vm = None
 qubes_appmenu_create_cmd = "/usr/lib/qubes/create_apps_for_appvm.sh"
 qubes_appmenu_remove_cmd = "/usr/lib/qubes/remove_appvm_appmenus.sh"
 qubes_pciback_cmd = '/usr/lib/qubes/unbind_pci_device.sh'
+
+yum_proxy_ip = '10.137.255.254'
+yum_proxy_port = '8082'
 
 class QubesException (Exception) : pass
 
@@ -401,7 +403,7 @@ class QubesVm(object):
                 shutil.copy(self.firewall_conf, "%s/backup/%s-firewall-%s.xml"
                         % (qubes_base_dir, self.name, time.strftime('%Y-%m-%d-%H:%M:%S')))
             self.write_firewall_conf({'allow': False, 'allowDns': False,
-                    'allowIcmp': False, 'rules': []})
+                    'allowIcmp': False, 'allowYumProxy': False, 'rules': []})
         else:
             new_netvm.connected_vms[self.qid]=self
 
@@ -848,6 +850,9 @@ class QubesVm(object):
                 "{0}/qubes-block-devices".format(domain_path),
                 '')
 
+        xs.write('', "{0}/qubes-debug-mode".format(domain_path),
+                str(int(self.debug)))
+
         # Fix permissions
         xs.set_permissions('', '{0}/device'.format(domain_path),
                 [{ 'dom': xid }])
@@ -1165,7 +1170,8 @@ class QubesVm(object):
                 "QubesFirwallRules",
                 policy = "allow" if conf["allow"] else "deny",
                 dns = "allow" if conf["allowDns"] else "deny",
-                icmp = "allow" if conf["allowIcmp"] else "deny"
+                icmp = "allow" if conf["allowIcmp"] else "deny",
+                yumProxy = "allow" if conf["allowYumProxy"] else "deny"
         )
 
         for rule in conf["rules"]:
@@ -1205,13 +1211,20 @@ class QubesVm(object):
                     os.path.basename(sys.argv[0]), err)
             return False
 
+        # Automatically enable/disable 'yum-proxy-setup' service based on allowYumProxy
+        if conf['allowYumProxy']:
+            self.services['yum-proxy-setup'] = True
+        else:
+            if self.services.has_key('yum-proxy-setup'):
+                self.services.pop('yum-proxy-setup')
+
         return True
 
     def has_firewall(self):
         return os.path.exists (self.firewall_conf)
 
     def get_firewall_conf(self):
-        conf = { "rules": list(), "allow": True, "allowDns": True, "allowIcmp": True }
+        conf = { "rules": list(), "allow": True, "allowDns": True, "allowIcmp": True, "allowYumProxy": False }
 
         try:
             tree = xml.etree.ElementTree.parse(self.firewall_conf)
@@ -1220,6 +1233,7 @@ class QubesVm(object):
             conf["allow"] = (root.get("policy") == "allow")
             conf["allowDns"] = (root.get("dns") == "allow")
             conf["allowIcmp"] = (root.get("icmp") == "allow")
+            conf["allowYumProxy"] = (root.get("yumProxy") == "allow")
 
             for element in root:
                 rule = {}
@@ -1710,10 +1724,8 @@ class QubesNetVm(QubesVm):
         attrs_config = super(QubesNetVm, self)._get_attrs_config()
         attrs_config['dir_path']['eval'] = 'value if value is not None else qubes_servicevms_dir + "/" + self.name'
         attrs_config['label']['default'] = default_servicevm_label
-        attrs_config['vcpus']['default'] = default_servicevm_vcpus
         attrs_config['memory']['default'] = 200
-        attrs_config['maxmem']['eval'] = 'self.memory'
-        
+
         # New attributes
         attrs_config['netid'] = { 'save': 'str(self.netid)', 'order': 30 }
         attrs_config['netprefix'] = { 'eval': '"10.137.{0}.".format(self.netid)' }
@@ -1969,7 +1981,7 @@ class QubesProxyVm(QubesNetVm):
             if vm.has_firewall():
                 conf = vm.get_firewall_conf()
             else:
-                conf = { "rules": list(), "allow": True, "allowDns": True, "allowIcmp": True }
+                conf = { "rules": list(), "allow": True, "allowDns": True, "allowIcmp": True, "allowYumProxy": False }
 
             xid = vm.get_xid()
             if xid < 0: # VM not active ATM
@@ -2012,6 +2024,10 @@ class QubesProxyVm(QubesNetVm):
                 iptables += "-A FORWARD -s {0} -p udp -d {1} --dport 53 -j ACCEPT\n".format(ip,self.netvm.secondary_dns)
             if conf["allowIcmp"]:
                 iptables += "-A FORWARD -s {0} -p icmp -j ACCEPT\n".format(ip)
+            if conf["allowYumProxy"]:
+                iptables += "-A FORWARD -s {0} -p tcp -d {1} --dport {2} -j ACCEPT\n".format(ip, yum_proxy_ip, yum_proxy_port)
+            else:
+                iptables += "-A FORWARD -s {0} -p tcp -d {1} --dport {2} -j DROP\n".format(ip, yum_proxy_ip, yum_proxy_port)
 
             iptables += "-A FORWARD -s {0} -j {1}\n".format(ip, default_action)
             iptables += "COMMIT\n"

@@ -1,0 +1,6 @@
+.*/repodata/[A-Za-z0-9-]*\(primary\|filelist\|comps\(-[a-z0-9]*\)\?\|other\|prestodelta\)\.\(sqlite\|xml\)\(\.bz2\|\.gz\)\?$
+.*/repodata/repomd\.xml$
+.*\.rpm$
+.*\.drpm$
+mirrors.fedoraproject.org:443
+^http://mirrors\..*/mirrorlist

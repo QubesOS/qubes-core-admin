@@ -4,4 +4,4 @@ ConditionPathExists=/var/run/qubes-service/qubes-update-check
 
 [Service]
 Type=oneshot
-ExecStart=/usr/lib/qubes/qrexec_client_vm dom0 qubes.NotifyUpdates /bin/sh -c 'yum -q check-update|wc -l'
+ExecStart=/usr/lib/qubes/qrexec_client_vm dom0 qubes.NotifyUpdates /bin/sh -c 'yum -q check-update >/dev/null; [ $? -eq 100 ] && echo 1 || echo 0'
