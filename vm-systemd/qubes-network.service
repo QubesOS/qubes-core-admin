@@ -3,6 +3,7 @@ Names=qubes_firewall.service
 Description=Qubes network forwarding setup
 ConditionPathExists=/var/run/qubes-service/qubes-network
 Before=network.target
+After=iptables.service
 
 [Service]
 Type=oneshot
