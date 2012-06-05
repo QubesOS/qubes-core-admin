@@ -4,7 +4,7 @@
 DEFAULT_ENABLED_NETVM="network-manager qubes-network qubes-update-check qubes-yum-proxy"
 DEFAULT_ENABLED_PROXYVM="meminfo-writer qubes-network qubes-firewall qubes-netwatcher qubes-update-check"
 DEFAULT_ENABLED_APPVM="meminfo-writer cups qubes-update-check"
-DEFAULT_ENABLED_TEMPLATEVM=$DEFAULT_ENABLED_APPVM
+DEFAULT_ENABLED_TEMPLATEVM="$DEFAULT_ENABLED_APPVM yum-proxy-setup"
 DEFAULT_ENABLED="meminfo-writer"
 
 XS_READ=/usr/bin/xenstore-read
