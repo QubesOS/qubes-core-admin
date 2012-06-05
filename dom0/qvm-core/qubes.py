@@ -1164,6 +1164,11 @@ class QubesVm(object):
         shutil.rmtree (self.dir_path)
 
     def write_firewall_conf(self, conf):
+        defaults = self.get_firewall_conf()
+        for item in defaults.keys():
+            if item not in conf:
+                conf[item] = defaults[item]
+
         root = xml.etree.ElementTree.Element(
                 "QubesFirwallRules",
                 policy = "allow" if conf["allow"] else "deny",
