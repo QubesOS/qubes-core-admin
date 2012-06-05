@@ -1577,6 +1577,9 @@ class QubesTemplateVm(QubesVm):
     def updateable(self):
         return True
 
+    def get_firewall_defaults(self):
+        return { "rules": list(), "allow": False, "allowDns": False, "allowIcmp": False, "allowYumProxy": True }
+
     def get_rootdev(self, source_template=None):
         return "'script:origin:{dir}/root.img:{dir}/root-cow.img,xvda,w',".format(dir=self.dir_path)
 
