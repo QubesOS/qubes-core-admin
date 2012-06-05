@@ -427,10 +427,8 @@ class QubesVm(object):
 
     @property
     def gateway(self):
-        if self.netvm is not None:
-            return self.netvm.gateway
-        else:
-            return None
+        # This is gateway IP for _other_ VMs, so make sense only in NetVMs
+        return None
 
     @property
     def secondary_dns(self):
