@@ -99,6 +99,8 @@ install -D -m 0644 misc/serial.conf $RPM_BUILD_ROOT/usr/lib/qubes/serial.conf
 install -D misc/qubes_serial_login $RPM_BUILD_ROOT/sbin/qubes_serial_login
 install -d $RPM_BUILD_ROOT/usr/share/glib-2.0/schemas/
 install -m 0644 misc/org.gnome.settings-daemon.plugins.updates.gschema.override $RPM_BUILD_ROOT/usr/share/glib-2.0/schemas/
+install -d $RPM_BUILD_ROOT/usr/lib/yum-plugins/
+install -m 0644 misc/yum-qubes-hooks.py* $RPM_BUILD_ROOT/usr/lib/yum-plugins/
 
 install -d $RPM_BUILD_ROOT/var/lib/qubes
 
@@ -386,6 +388,7 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib/qubes/vm-file-editor
 /usr/lib/qubes/vm-shell
 /usr/lib/qubes/wrap_in_html_if_url.sh
+/usr/lib/yum-plugins/yum-qubes-hooks.py*
 /usr/sbin/qubes_firewall
 /usr/sbin/qubes_netwatcher
 /usr/share/glib-2.0/schemas/org.gnome.settings-daemon.plugins.updates.gschema.override
