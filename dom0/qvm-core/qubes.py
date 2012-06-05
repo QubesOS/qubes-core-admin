@@ -1215,8 +1215,11 @@ class QubesVm(object):
     def has_firewall(self):
         return os.path.exists (self.firewall_conf)
 
+    def get_firewall_defaults(self):
+        return { "rules": list(), "allow": True, "allowDns": True, "allowIcmp": True, "allowYumProxy": False }
+
     def get_firewall_conf(self):
-        conf = { "rules": list(), "allow": True, "allowDns": True, "allowIcmp": True, "allowYumProxy": False }
+        conf = self.get_firewall_defaults()
 
         try:
             tree = xml.etree.ElementTree.parse(self.firewall_conf)
