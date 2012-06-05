@@ -56,8 +56,8 @@ fields = {
                      if vm.netvm is not None else '-'"},
 
     "ip" : {"func": "vm.ip"},
-    "netmask" : {"func": "vm.netmask"},
-    "gateway" : {"func": "vm.gateway"},
+    "ip back" : {"func": "vm.gateway if vm.is_netvm() else 'n/a'"},
+    "gateway/DNS" : {"func": "vm.netvm.gateway if vm.netvm else 'n/a'"},
 
     "xid" : {"func" : "vm.get_xid() if vm.is_running() else '-'"},
 
@@ -139,7 +139,7 @@ def main():
     if (options.network):
         if 'template' in fields_to_display:
             fields_to_display.remove ("template")
-        fields_to_display += ["ip", "netmask", "gateway"]
+        fields_to_display += ["ip", "ip back", "gateway/DNS"]
 
     if (options.disk):
         if 'template' in fields_to_display:
