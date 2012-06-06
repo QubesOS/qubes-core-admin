@@ -36,7 +36,7 @@ Requires:   fedora-release
 Requires:   yum-plugin-post-transaction-actions
 Requires:   NetworkManager >= 0.8.1-1
 Requires:	/usr/bin/mimeopen
-Requires:   /sbin/ethtool
+Requires:   ethtool
 Requires:   tinyproxy
 Provides:   qubes-core-vm
 Obsoletes:  qubes-core-commonvm
