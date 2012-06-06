@@ -6,19 +6,26 @@ SIZE=$[ $(cat /sys/$DEVPATH/size) * 512 ]
 MODE=w
 XS_KEY="qubes-block-devices/$NAME"
 
+xs_remove() {
+    if [ "$QUBES_EXPOSED" == "1" ]; then
+        xenstore-rm "$XS_KEY"
+    fi
+    echo QUBES_EXPOSED=0
+}
+
 # Ignore mounted...
 if fgrep -q $DEVNAME /proc/mounts; then
-    xenstore-rm "$XS_KEY"
+    xs_remove
     exit 0
 fi
 # ... and used by device-mapper
 if [ -n "`ls -A /sys/$DEVPATH/holders 2> /dev/null`" ]; then
-    xenstore-rm "$XS_KEY"
+    xs_remove
     exit 0
 fi
 # ... and "empty" loop devices
 if [ "$MAJOR" -eq 7 -a ! -d /sys/$DEVPATH/loop ]; then
-    xenstore-rm "$XS_KEY"
+    xs_remove
     exit 0
 fi
 
@@ -26,7 +33,7 @@ fi
 if [ "$ID_TYPE" = "cd" ]; then
     if [ "$ID_CDROM_MEDIA" != "1" ]; then
         # Hide empty cdrom drive
-        xenstore-rm "$XS_KEY"
+        xs_remove
         exit 0
     fi
     MODE=r
@@ -37,6 +44,7 @@ if [ -d /sys/$DEVPATH/loop ]; then
     DESC=$(cat /sys/$DEVPATH/loop/backing_file)
 fi
 xenstore-write "$XS_KEY/desc" "$DESC" "$XS_KEY/size" "$SIZE" "$XS_KEY/mode" "$MODE"
+echo QUBES_EXPOSED=1
 
 # Make sure that block backend is loaded
 /sbin/modprobe xen-blkback 2> /dev/null || /sbin/modprobe blkbk

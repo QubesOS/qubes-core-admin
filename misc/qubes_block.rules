@@ -9,8 +9,8 @@ ENV{MAJOR}=="202", GOTO="qubes_block_end"
 # Skip device-mapper devices
 ENV{MAJOR}=="253", GOTO="qubes_block_end"
 
-ACTION=="add", RUN+="/usr/lib/qubes/block_add_change"
-ACTION=="change", RUN+="/usr/lib/qubes/block_add_change"
+ACTION=="add", IMPORT{program}="/usr/lib/qubes/block_add_change"
+ACTION=="change", IMPORT{program}="/usr/lib/qubes/block_add_change"
 ACTION=="remove", RUN+="/usr/lib/qubes/block_remove"
 
 LABEL="qubes_block_end"
