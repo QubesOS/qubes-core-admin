@@ -140,9 +140,6 @@ install -d $RPM_BUILD_ROOT/usr/sbin
 install network/qubes_firewall $RPM_BUILD_ROOT/usr/sbin/
 install network/qubes_netwatcher $RPM_BUILD_ROOT/usr/sbin/
 
-install -d $RPM_BUILD_ROOT/lib/firmware
-ln -s /lib/modules/firmware $RPM_BUILD_ROOT/lib/firmware/updates
-
 install -d $RPM_BUILD_ROOT/usr/bin
 
 install qubes_rpc/{qvm-open-in-dvm,qvm-open-in-vm,qvm-copy-to-vm,qvm-run} $RPM_BUILD_ROOT/usr/bin
@@ -241,6 +238,11 @@ fi
 # Remove ip_forward setting from sysctl, so NM will not reset it
 sed 's/^net.ipv4.ip_forward.*/#\0/'  -i /etc/sysctl.conf
 
+# Install firmware link only on system which haven't it yet
+if ! [ -e /lib/firmware/updates ]; then
+  ln -s /lib/modules/firmware /lib/firmware/updates
+fi
+
 if ! grep -q '/etc/yum\.conf\.d/qubes-proxy\.conf'; then
   echo >> /etc/yum.conf
   echo '# Yum does not support inclusion of config dir...' >> /etc/yum.conf
@@ -320,6 +322,10 @@ fi
 %postun
 if [ $1 -eq 0 ] ; then
     /usr/bin/glib-compile-schemas %{_datadir}/glib-2.0/schemas &> /dev/null || :
+
+    if [ -l /lib/firmware/updates ]; then
+      rm /lib/firmware/updates
+    fi
 fi
 
 %posttrans
@@ -357,7 +363,6 @@ rm -rf $RPM_BUILD_ROOT
 /etc/yum.conf.d/qubes-proxy.conf
 /etc/yum.repos.d/qubes.repo
 /etc/yum/post-actions/qubes_trigger_sync_appmenus.action
-/lib/firmware/updates
 /sbin/qubes_serial_login
 /usr/bin/qvm-copy-to-vm
 /usr/bin/qvm-open-in-dvm
