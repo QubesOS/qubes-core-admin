@@ -101,6 +101,7 @@ install -d $RPM_BUILD_ROOT/usr/share/glib-2.0/schemas/
 install -m 0644 misc/org.gnome.settings-daemon.plugins.updates.gschema.override $RPM_BUILD_ROOT/usr/share/glib-2.0/schemas/
 install -d $RPM_BUILD_ROOT/usr/lib/yum-plugins/
 install -m 0644 misc/yum-qubes-hooks.py* $RPM_BUILD_ROOT/usr/lib/yum-plugins/
+install -D -m 0644 misc/yum-qubes-hooks.conf $RPM_BUILD_ROOT/etc/yum/pluginconf.d/yum-qubes-hooks.conf
 
 install -d $RPM_BUILD_ROOT/var/lib/qubes
 
@@ -362,6 +363,7 @@ rm -rf $RPM_BUILD_ROOT
 /etc/xen/scripts/vif-route-qubes
 /etc/yum.conf.d/qubes-proxy.conf
 /etc/yum.repos.d/qubes.repo
+/etc/yum/pluginconf.d/yum-qubes-hooks.conf
 /etc/yum/post-actions/qubes_trigger_sync_appmenus.action
 /sbin/qubes_serial_login
 /usr/bin/qvm-copy-to-vm
