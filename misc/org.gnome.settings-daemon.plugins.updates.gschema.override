@@ -1,2 +1,4 @@
 [org.gnome.settings-daemon.plugins.updates]
 auto-update-type='none'
+active=false
+frequency-get-updates=0
