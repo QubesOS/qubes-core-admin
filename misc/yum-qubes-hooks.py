@@ -39,4 +39,4 @@ def posttrans_hook(conduit):
     filtered_updates = filter(lambda x: x not in all, pkg_list.updates)
 
     # Notify dom0 about left updates count
-    subprocess.call(['/usr/lib/qubes/qrexec_client_vm', 'dom0', 'qubes.NotifyUpdates', 'echo', str(len(filtered_updates))])
+    subprocess.call(['/usr/lib/qubes/qrexec_client_vm', 'dom0', 'qubes.NotifyUpdates', '/bin/echo', str(len(filtered_updates))])
