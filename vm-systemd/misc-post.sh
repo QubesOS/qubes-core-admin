@@ -30,6 +30,11 @@ if [ -e /dev/xvdb ] ; then
 
         touch /var/lib/qubes/first_boot_completed
     fi
+    # Chown home if user UID have changed - can be the case on template switch
+    HOME_USER_UID=`ls -dn /home/user | awk '{print $3}'`
+    if [ "`id -u user`" -ne "$HOME_USER_UID" ]; then
+        find /home/user -uid "$HOME_USER_UID" -print0 | xargs -0 chown user:user
+    fi
 fi
 
 [ -x /rw/config/rc.local ] && /rw/config/rc.local
