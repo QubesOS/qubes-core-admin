@@ -43,6 +43,10 @@ fi
 mkdir -p $DOM0_UPDATES_DIR/etc
 sed -i '/^reposdir\s*=/d' $DOM0_UPDATES_DIR/etc/yum.conf
 
+# Rebuild rpm database in case of different rpm version
+rm -f $DOM0_UPDATES_DIR/var/lib/rpm/__*
+rpm --root=$DOM0_UPDATES_DIR --rebuilddb
+
 if [ "$CLEAN" = "1" ]; then
     yum $OPTS clean all
     rm -f $DOM0_UPDATES_DIR/packages/*
