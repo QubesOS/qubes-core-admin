@@ -882,8 +882,8 @@ class QubesVm(object):
         args['vcpus'] = str(self.vcpus)
         args['ip'] = self.ip
         args['mac'] = self.mac
-        args['gateway'] = self.gateway
-        args['dns1'] = self.gateway
+        args['gateway'] = self.netvm.gateway
+        args['dns1'] = self.netvm.gateway
         args['dns2'] = self.secondary_dns
         args['netmask'] = self.netmask
         if self.netvm is not None:
