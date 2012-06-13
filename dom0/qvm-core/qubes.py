@@ -2431,7 +2431,7 @@ class QubesHVm(QubesVm):
         xc.domain_unpause(self.stubdom_xid)
         super(QubesHVm, self).unpause()
 
-    def is_fully_usable(self):
+    def is_guid_running(self):
         xid = self.stubdom_xid
         if xid < 0:
             return False
