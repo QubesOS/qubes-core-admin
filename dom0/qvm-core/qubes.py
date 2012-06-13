@@ -253,7 +253,7 @@ class QubesVm(object):
             "kernel": { "default": None, 'order': 30 },
             "uses_default_kernel": { "default": True, 'order': 30 },
             "uses_default_kernelopts": { "default": True, 'order': 30 },
-            "kernelopts": { "default": "", 'order': 30, "eval": \
+            "kernelopts": { "default": "", 'order': 31, "eval": \
                 'value if not self.uses_default_kernelopts else default_kernelopts_pcidevs if len(self.pcidevs) > 0 else default_kernelopts' },
             "mac": { "attr": "_mac", "default": None },
             "include_in_backups": { "default": True },
