@@ -2404,7 +2404,11 @@ class QubesHVm(QubesVm):
         if self.xid < 0:
             return -1
 
-        return int(xs.read('', '/local/domain/%d/image/device-model-domid' % self.xid))
+        stubdom_xid_str = xs.read('', '/local/domain/%d/image/device-model-domid' % self.xid)
+        if stubdom_xid_str is not None:
+            return int(stubdom_xid_str)
+        else:
+            return -1
 
     def start_guid(self, verbose = True, notify_function = None):
         if verbose:
