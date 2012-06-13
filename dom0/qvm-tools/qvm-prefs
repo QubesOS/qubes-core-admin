@@ -78,6 +78,9 @@ def do_list(vm):
     if hasattr(vm, 'debug'):
         print fmt.format("debug", "on" if vm.debug else "off")
 
+    if hasattr(vm, 'default_user'):
+        print fmt.format("default user", str(vm.default_user))
+
     if hasattr(vm, 'qrexec_installed'):
         print fmt.format("qrexec_installed", str(vm.qrexec_installed))
 
@@ -314,6 +317,14 @@ def set_debug(vms, vm, args):
         vm.debug = bool(eval(args[0].capitalize()))
     return True
 
+def set_default_user(vms, vm, args):
+    if len (args) != 1:
+        print >> sys.stderr, "Missing user name!"
+        return False
+
+    vm.default_user = args[0]
+    return True
+
 def set_qrexec_installed(vms, vm, args):
     if len (args) != 1:
         print >> sys.stderr, "Missing value (True/False)!"
@@ -349,6 +360,7 @@ properties = {
     "drive": set_drive,
     "mac": set_mac,
     "debug": set_debug,
+    "default_user": set_default_user,
     "qrexec_installed": set_qrexec_installed,
     "timezone": set_timezone,
 }

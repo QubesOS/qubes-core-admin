@@ -259,6 +259,7 @@ class QubesVm(object):
             "include_in_backups": { "default": True },
             "services": { "default": {}, "eval": "eval(str(value))" },
             "debug": { "default": False },
+            "default_user": { "default": "user" },
             ##### Internal attributes - will be overriden in __init__ regardless of args
             "appmenus_templates_dir": { "eval": \
                 'self.dir_path + "/" + default_appmenus_templates_subdir if self.updateable else ' + \
@@ -276,7 +277,8 @@ class QubesVm(object):
         for prop in ['qid', 'name', 'dir_path', 'memory', 'maxmem', 'pcidevs', 'vcpus', 'internal',\
             'uses_default_kernel', 'kernel', 'uses_default_kernelopts',\
             'kernelopts', 'services', 'installed_by_rpm',\
-            'uses_default_netvm', 'include_in_backups', 'debug' ]:
+            'uses_default_netvm', 'include_in_backups', 'debug',\
+            'default_user' ]:
             attrs[prop]['save'] = 'str(self.%s)' % prop
         # Simple paths
         for prop in ['conf_file', 'root_img', 'volatile_img', 'private_img']:
@@ -2815,7 +2817,7 @@ class QubesVmCollection(dict):
                 "installed_by_rpm", "internal",
                 "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
                 "maxmem", "kernel", "uses_default_kernel", "kernelopts", "uses_default_kernelopts",
-                "mac", "services", "include_in_backups", "debug", "qrexec_installed", "drive" )
+                "mac", "services", "include_in_backups", "debug", "default_user", "qrexec_installed", "drive" )
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)

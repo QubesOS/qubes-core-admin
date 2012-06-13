@@ -98,7 +98,7 @@ def main():
     parser.add_option ("-q", "--quiet", action="store_false", dest="verbose", default=True)
     parser.add_option ("-a", "--auto", action="store_true", dest="auto", default=False,
                        help="Auto start the VM if not running")
-    parser.add_option ("-u", "--user", action="store", dest="user", default="user",
+    parser.add_option ("-u", "--user", action="store", dest="user", default=None,
                        help="Run command in a VM as a specified user")
     parser.add_option ("--tray", action="store_true", dest="tray", default=False,
                        help="Use tray notifications instead of stdout" )
@@ -188,12 +188,12 @@ def main():
             exit(1)
         vms_list.append(vm)
 
-    if takes_cmd_argument:
-        cmd = "{user}:{cmd}".format(user=options.user, cmd=cmdstr)
-    else:
-        cmd = None
-
     for vm in vms_list:
+        if takes_cmd_argument:
+            cmd = "{user}:{cmd}".format(user=options.user if options.user else vm.default_user, cmd=cmdstr)
+        else:
+            cmd = None
+
         vm_run_cmd(vm, cmd, options)
 
 
