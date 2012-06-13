@@ -880,18 +880,24 @@ class QubesVm(object):
             # If dynamic memory management disabled, set maxmem=mem
             args['maxmem'] = args['mem']
         args['vcpus'] = str(self.vcpus)
-        args['ip'] = self.ip
-        args['mac'] = self.mac
-        args['gateway'] = self.gateway
-        args['dns1'] = self.gateway
-        args['dns2'] = self.secondary_dns
-        args['netmask'] = self.netmask
         if self.netvm is not None:
+            args['ip'] = self.ip
+            args['mac'] = self.mac
+            args['gateway'] = self.netvm.gateway
+            args['dns1'] = self.netvm.gateway
+            args['dns2'] = self.secondary_dns
+            args['netmask'] = self.netmask
             args['netdev'] = "'mac={mac},script=/etc/xen/scripts/vif-route-qubes,ip={ip}".format(ip=self.ip, mac=self.mac)
             if self.netvm.qid != 0:
                 args['netdev'] += ",backend={0}".format(self.netvm.name)
             args['netdev'] += "'"
         else:
+            args['ip'] = ''
+            args['mac'] = ''
+            args['gateway'] = ''
+            args['dns1'] = ''
+            args['dns2'] = ''
+            args['netmask'] = ''
             args['netdev'] = ''
         args['rootdev'] = self.get_rootdev(source_template=source_template)
         args['privatedev'] = "'script:file:{dir}/private.img,xvdb,w',".format(dir=self.dir_path)
