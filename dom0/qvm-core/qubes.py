@@ -268,6 +268,7 @@ class QubesVm(object):
             "kernels_dir": { 'eval': 'qubes_kernels_base_dir + "/" + self.kernel if self.kernel is not None else ' + \
                 # for backward compatibility (or another rare case): kernel=None -> kernel in VM dir
                 'self.dir_path + "/" + default_kernels_subdir' },
+            "_start_guid_first": { 'eval': 'False' },
             }
 
         ### Mark attrs for XML inclusion
@@ -1479,10 +1480,13 @@ class QubesVm(object):
 # the successful unpause is some indicator of it
         qmemman_client.close()
 
+        if self._start_guid_first and start_guid and not preparing_dvm and os.path.exists('/var/run/shm.id'):
+            self.start_guid(verbose=verbose)
+
         if not preparing_dvm:
             self.start_qrexec_daemon(verbose=verbose)
 
-        if start_guid and not preparing_dvm and os.path.exists('/var/run/shm.id'):
+        if not self._start_guid_first and start_guid and not preparing_dvm and os.path.exists('/var/run/shm.id'):
             self.start_guid(verbose=verbose)
 
         if preparing_dvm:
@@ -2227,6 +2231,8 @@ class QubesHVm(QubesVm):
         attrs['drive'] = { 'save': 'str(self.drive)' }
         attrs['maxmem'].pop('save')
         attrs['timezone'] = { 'default': 'localtime', 'save': 'str(self.timezone)' }
+        attrs['qrexec_installed'] = { 'default': False, 'save': 'str(self.qrexec_installed)' }
+        attrs['_start_guid_first']['eval'] = 'True'
 
         return attrs
 
@@ -2397,7 +2403,10 @@ class QubesHVm(QubesVm):
         return "vif{0}.+".format(self.stubdom_xid)
 
     def run(self, command, **kwargs):
-        raise NotImplementedError("Needs qrexec agent - TODO")
+        if self.qrexec_installed:
+            super(QubesHVm, self).run(command, **kwargs)
+        else:
+            raise QubesException("Needs qrexec agent installed in VM to use this function. See also qvm-prefs.")
 
     @property
     def stubdom_xid(self):
@@ -2419,7 +2428,8 @@ class QubesHVm(QubesVm):
             raise QubesException("Cannot start qubes_guid!")
 
     def start_qrexec_daemon(self, **kwargs):
-        pass
+        if self.qrexec_installed:
+            super(QubesHVm, self).start_qrexec_daemon(**kwargs)
 
     def pause(self):
         if dry_run:
@@ -2805,7 +2815,7 @@ class QubesVmCollection(dict):
                 "installed_by_rpm", "internal",
                 "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
                 "maxmem", "kernel", "uses_default_kernel", "kernelopts", "uses_default_kernelopts",
-                "mac", "services", "include_in_backups", "debug", "drive" )
+                "mac", "services", "include_in_backups", "debug", "qrexec_installed", "drive" )
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)
@@ -2866,6 +2876,9 @@ class QubesVmCollection(dict):
 
         if "debug" in kwargs:
             kwargs["debug"] = True if kwargs["debug"] == "True" else False
+
+        if "qrexec_installed" in kwargs:
+            kwargs["qrexec_installed"] = True if kwargs["qrexec_installed"] == "True" else False
 
         if "drive" in kwargs and kwargs["drive"] == "None":
             kwargs["drive"] = None
