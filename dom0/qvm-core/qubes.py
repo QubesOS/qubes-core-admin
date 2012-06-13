@@ -650,11 +650,17 @@ class QubesVm(object):
 
         return "NA"
 
-    def is_fully_usable(self):
+    def is_guid_running(self):
         xid = self.get_xid()
         if xid < 0:
             return False
         if not os.path.exists('/var/run/qubes/guid_running.%d' % xid):
+            return False
+        return True
+
+    def is_fully_usable(self):
+        # Running gui-daemon implies also VM running
+        if not self.is_guid_running():
             return False
         # currently qrexec daemon doesn't cleanup socket in /var/run/qubes, so
         # it can be left from some other VM
@@ -1312,7 +1318,7 @@ class QubesVm(object):
                 raise QubesException("Not enough memory to start '{0}' VM! Close one or more running VMs and try again.".format(self.name))
 
         xid = self.get_xid()
-        if os.getenv("DISPLAY") is not None and not os.path.isfile("/var/run/qubes/guid_running.{0}".format(xid)):
+        if os.getenv("DISPLAY") is not None and not self.is_guid_running():
             self.start_guid(verbose = verbose, notify_function = notify_function)
 
         args = [qrexec_client_path, "-d", str(xid), command]
