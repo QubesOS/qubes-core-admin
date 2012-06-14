@@ -253,12 +253,13 @@ class QubesVm(object):
             "kernel": { "default": None, 'order': 30 },
             "uses_default_kernel": { "default": True, 'order': 30 },
             "uses_default_kernelopts": { "default": True, 'order': 30 },
-            "kernelopts": { "default": "", 'order': 30, "eval": \
+            "kernelopts": { "default": "", 'order': 31, "eval": \
                 'value if not self.uses_default_kernelopts else default_kernelopts_pcidevs if len(self.pcidevs) > 0 else default_kernelopts' },
             "mac": { "attr": "_mac", "default": None },
             "include_in_backups": { "default": True },
             "services": { "default": {}, "eval": "eval(str(value))" },
             "debug": { "default": False },
+            "default_user": { "default": "user" },
             ##### Internal attributes - will be overriden in __init__ regardless of args
             "appmenus_templates_dir": { "eval": \
                 'self.dir_path + "/" + default_appmenus_templates_subdir if self.updateable else ' + \
@@ -268,6 +269,7 @@ class QubesVm(object):
             "kernels_dir": { 'eval': 'qubes_kernels_base_dir + "/" + self.kernel if self.kernel is not None else ' + \
                 # for backward compatibility (or another rare case): kernel=None -> kernel in VM dir
                 'self.dir_path + "/" + default_kernels_subdir' },
+            "_start_guid_first": { 'eval': 'False' },
             }
 
         ### Mark attrs for XML inclusion
@@ -275,7 +277,8 @@ class QubesVm(object):
         for prop in ['qid', 'name', 'dir_path', 'memory', 'maxmem', 'pcidevs', 'vcpus', 'internal',\
             'uses_default_kernel', 'kernel', 'uses_default_kernelopts',\
             'kernelopts', 'services', 'installed_by_rpm',\
-            'uses_default_netvm', 'include_in_backups', 'debug' ]:
+            'uses_default_netvm', 'include_in_backups', 'debug',\
+            'default_user' ]:
             attrs[prop]['save'] = 'str(self.%s)' % prop
         # Simple paths
         for prop in ['conf_file', 'root_img', 'volatile_img', 'private_img']:
@@ -650,11 +653,17 @@ class QubesVm(object):
 
         return "NA"
 
-    def is_fully_usable(self):
+    def is_guid_running(self):
         xid = self.get_xid()
         if xid < 0:
             return False
         if not os.path.exists('/var/run/qubes/guid_running.%d' % xid):
+            return False
+        return True
+
+    def is_fully_usable(self):
+        # Running gui-daemon implies also VM running
+        if not self.is_guid_running():
             return False
         # currently qrexec daemon doesn't cleanup socket in /var/run/qubes, so
         # it can be left from some other VM
@@ -1312,7 +1321,7 @@ class QubesVm(object):
                 raise QubesException("Not enough memory to start '{0}' VM! Close one or more running VMs and try again.".format(self.name))
 
         xid = self.get_xid()
-        if os.getenv("DISPLAY") is not None and not os.path.isfile("/var/run/qubes/guid_running.{0}".format(xid)):
+        if os.getenv("DISPLAY") is not None and not self.is_guid_running():
             self.start_guid(verbose = verbose, notify_function = notify_function)
 
         args = [qrexec_client_path, "-d", str(xid), command]
@@ -1473,10 +1482,13 @@ class QubesVm(object):
 # the successful unpause is some indicator of it
         qmemman_client.close()
 
+        if self._start_guid_first and start_guid and not preparing_dvm and os.path.exists('/var/run/shm.id'):
+            self.start_guid(verbose=verbose)
+
         if not preparing_dvm:
             self.start_qrexec_daemon(verbose=verbose)
 
-        if start_guid and not preparing_dvm and os.path.exists('/var/run/shm.id'):
+        if not self._start_guid_first and start_guid and not preparing_dvm and os.path.exists('/var/run/shm.id'):
             self.start_guid(verbose=verbose)
 
         if preparing_dvm:
@@ -2221,6 +2233,8 @@ class QubesHVm(QubesVm):
         attrs['drive'] = { 'save': 'str(self.drive)' }
         attrs['maxmem'].pop('save')
         attrs['timezone'] = { 'default': 'localtime', 'save': 'str(self.timezone)' }
+        attrs['qrexec_installed'] = { 'default': False, 'save': 'str(self.qrexec_installed)' }
+        attrs['_start_guid_first']['eval'] = 'True'
 
         return attrs
 
@@ -2391,14 +2405,21 @@ class QubesHVm(QubesVm):
         return "vif{0}.+".format(self.stubdom_xid)
 
     def run(self, command, **kwargs):
-        raise NotImplementedError("Needs qrexec agent - TODO")
+        if self.qrexec_installed:
+            super(QubesHVm, self).run(command, **kwargs)
+        else:
+            raise QubesException("Needs qrexec agent installed in VM to use this function. See also qvm-prefs.")
 
     @property
     def stubdom_xid(self):
         if self.xid < 0:
             return -1
 
-        return int(xs.read('', '/local/domain/%d/image/device-model-domid' % self.xid))
+        stubdom_xid_str = xs.read('', '/local/domain/%d/image/device-model-domid' % self.xid)
+        if stubdom_xid_str is not None:
+            return int(stubdom_xid_str)
+        else:
+            return -1
 
     def start_guid(self, verbose = True, notify_function = None):
         if verbose:
@@ -2409,7 +2430,8 @@ class QubesHVm(QubesVm):
             raise QubesException("Cannot start qubes_guid!")
 
     def start_qrexec_daemon(self, **kwargs):
-        pass
+        if self.qrexec_installed:
+            super(QubesHVm, self).start_qrexec_daemon(**kwargs)
 
     def pause(self):
         if dry_run:
@@ -2425,7 +2447,7 @@ class QubesHVm(QubesVm):
         xc.domain_unpause(self.stubdom_xid)
         super(QubesHVm, self).unpause()
 
-    def is_fully_usable(self):
+    def is_guid_running(self):
         xid = self.stubdom_xid
         if xid < 0:
             return False
@@ -2795,7 +2817,7 @@ class QubesVmCollection(dict):
                 "installed_by_rpm", "internal",
                 "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
                 "maxmem", "kernel", "uses_default_kernel", "kernelopts", "uses_default_kernelopts",
-                "mac", "services", "include_in_backups", "debug", "drive" )
+                "mac", "services", "include_in_backups", "debug", "default_user", "qrexec_installed", "drive" )
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)
@@ -2856,6 +2878,9 @@ class QubesVmCollection(dict):
 
         if "debug" in kwargs:
             kwargs["debug"] = True if kwargs["debug"] == "True" else False
+
+        if "qrexec_installed" in kwargs:
+            kwargs["qrexec_installed"] = True if kwargs["qrexec_installed"] == "True" else False
 
         if "drive" in kwargs and kwargs["drive"] == "None":
             kwargs["drive"] = None
