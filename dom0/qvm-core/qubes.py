@@ -245,12 +245,13 @@ class QubesVm(object):
             "kernel": { "default": None, 'order': 30 },
             "uses_default_kernel": { "default": True, 'order': 30 },
             "uses_default_kernelopts": { "default": True, 'order': 30 },
-            "kernelopts": { "default": "", 'order': 30, "eval": \
+            "kernelopts": { "default": "", 'order': 31, "eval": \
                 'value if not self.uses_default_kernelopts else default_kernelopts_pcidevs if len(self.pcidevs) > 0 else default_kernelopts' },
             "mac": { "attr": "_mac", "default": None },
             "include_in_backups": { "default": True },
             "services": { "default": {}, "eval": "eval(str(value))" },
             "debug": { "default": False },
+            "default_user": { "default": "user" },
             ##### Internal attributes - will be overriden in __init__ regardless of args
             "appmenus_templates_dir": { "eval": \
                 'self.dir_path + "/" + default_appmenus_templates_subdir if self.updateable else ' + \
@@ -267,7 +268,8 @@ class QubesVm(object):
         for prop in ['qid', 'name', 'dir_path', 'memory', 'maxmem', 'pcidevs', 'vcpus', 'internal',\
             'uses_default_kernel', 'kernel', 'uses_default_kernelopts',\
             'kernelopts', 'services', 'installed_by_rpm',\
-            'uses_default_netvm', 'include_in_backups', 'debug' ]:
+            'uses_default_netvm', 'include_in_backups', 'debug',\
+            'default_user' ]:
             attrs[prop]['save'] = 'str(self.%s)' % prop
         # Simple paths
         for prop in ['conf_file', 'root_img', 'volatile_img', 'private_img']:
@@ -642,11 +644,17 @@ class QubesVm(object):
 
         return "NA"
 
-    def is_fully_usable(self):
+    def is_guid_running(self):
         xid = self.get_xid()
         if xid < 0:
             return False
         if not os.path.exists('/var/run/qubes/guid_running.%d' % xid):
+            return False
+        return True
+
+    def is_fully_usable(self):
+        # Running gui-daemon implies also VM running
+        if not self.is_guid_running():
             return False
         # currently qrexec daemon doesn't cleanup socket in /var/run/qubes, so
         # it can be left from some other VM
@@ -1298,7 +1306,7 @@ class QubesVm(object):
                 raise QubesException("Not enough memory to start '{0}' VM! Close one or more running VMs and try again.".format(self.name))
 
         xid = self.get_xid()
-        if os.getenv("DISPLAY") is not None and not os.path.isfile("/var/run/qubes/guid_running.{0}".format(xid)):
+        if os.getenv("DISPLAY") is not None and not self.is_guid_running():
             self.start_guid(verbose = verbose, notify_function = notify_function)
 
         args = [qrexec_client_path, "-d", str(xid), command]
@@ -2534,7 +2542,7 @@ class QubesVmCollection(dict):
                 "installed_by_rpm", "internal",
                 "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
                 "maxmem", "kernel", "uses_default_kernel", "kernelopts", "uses_default_kernelopts",
-                "mac", "services", "include_in_backups", "debug" )
+                "mac", "services", "include_in_backups", "debug", "default_user" )
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)

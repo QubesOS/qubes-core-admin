@@ -53,8 +53,12 @@ start()
     MEMINFO_DELAY_USEC=100000
     /usr/lib/qubes/meminfo-writer $MEM_CHANGE_THRESHOLD_KB $MEMINFO_DELAY_USEC &
 
-    # Reply block events to hide mounted devices from qubes-block list (at first udev run, only / is mounted)
-    udevadm trigger --subsystem-match=block --action=add
+    # Hide mounted devices from qubes-block list (at first udev run, only / is mounted)
+    for dev in `xenstore-list /local/domain/0/qubes-block-devices`; do
+    ( eval `udevadm info -q property -n $dev|sed -e 's/\([^=]*\)=\(.*\)/export \1="\2"/'`; 
+      /usr/lib/qubes/block_add_change
+    )
+    done
 
     touch /var/lock/subsys/qubes_core
     success
