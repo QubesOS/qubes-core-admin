@@ -85,7 +85,7 @@ def vm_run_cmd(vm, cmd, options):
         return vm.run(cmd, autostart = options.auto,
             verbose = options.verbose,
             notify_function = tray_notify_generic if options.tray else None,
-            passio = options.passio, localcmd = options.localcmd)
+            passio = options.passio, localcmd = options.localcmd, gui = options.gui)
     except QubesException as err:
         if options.tray:
             tray_notify_error(str(err))
@@ -129,6 +129,9 @@ def main():
 
     parser.add_option ("--force", action="store_true", dest="force", default=False,
                       help="Force operation, even if may damage other VMs (eg shutdown of NetVM)")
+
+    parser.add_option ("--nogui", action="store_false", dest="gui", default=True,
+                      help="Run command without gui")
 
     (options, args) = parser.parse_args ()
 
