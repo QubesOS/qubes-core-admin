@@ -1983,10 +1983,7 @@ class QubesProxyVm(QubesNetVm):
         vms = [vm for vm in self.connected_vms.values()]
         for vm in vms:
             iptables="*filter\n"
-            if vm.has_firewall():
-                conf = vm.get_firewall_conf()
-            else:
-                conf = { "rules": list(), "allow": True, "allowDns": True, "allowIcmp": True, "allowYumProxy": False }
+            conf = vm.get_firewall_conf()
 
             xid = vm.get_xid()
             if xid < 0: # VM not active ATM
