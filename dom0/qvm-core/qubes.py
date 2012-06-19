@@ -1286,7 +1286,7 @@ class QubesVm(object):
 
         return conf
 
-    def run(self, command, verbose = True, autostart = False, notify_function = None, passio = False, passio_popen = False, localcmd = None, wait = False):
+    def run(self, command, verbose = True, autostart = False, notify_function = None, passio = False, passio_popen = False, localcmd = None, wait = False, gui = True):
         """command should be in form 'user:cmdline'"""
 
         if not self.is_running():
@@ -1306,7 +1306,7 @@ class QubesVm(object):
                 raise QubesException("Not enough memory to start '{0}' VM! Close one or more running VMs and try again.".format(self.name))
 
         xid = self.get_xid()
-        if os.getenv("DISPLAY") is not None and not self.is_guid_running():
+        if gui and os.getenv("DISPLAY") is not None and not self.is_guid_running():
             self.start_guid(verbose = verbose, notify_function = notify_function)
 
         args = [qrexec_client_path, "-d", str(xid), command]
@@ -1983,10 +1983,7 @@ class QubesProxyVm(QubesNetVm):
         vms = [vm for vm in self.connected_vms.values()]
         for vm in vms:
             iptables="*filter\n"
-            if vm.has_firewall():
-                conf = vm.get_firewall_conf()
-            else:
-                conf = { "rules": list(), "allow": True, "allowDns": True, "allowIcmp": True, "allowYumProxy": False }
+            conf = vm.get_firewall_conf()
 
             xid = vm.get_xid()
             if xid < 0: # VM not active ATM
