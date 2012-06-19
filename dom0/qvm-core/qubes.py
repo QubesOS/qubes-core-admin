@@ -1301,7 +1301,7 @@ class QubesVm(object):
 
         return conf
 
-    def run(self, command, verbose = True, autostart = False, notify_function = None, passio = False, passio_popen = False, localcmd = None, wait = False):
+    def run(self, command, verbose = True, autostart = False, notify_function = None, passio = False, passio_popen = False, localcmd = None, wait = False, gui = True):
         """command should be in form 'user:cmdline'"""
 
         if not self.is_running():
@@ -1321,7 +1321,7 @@ class QubesVm(object):
                 raise QubesException("Not enough memory to start '{0}' VM! Close one or more running VMs and try again.".format(self.name))
 
         xid = self.get_xid()
-        if os.getenv("DISPLAY") is not None and not self.is_guid_running():
+        if gui and os.getenv("DISPLAY") is not None and not self.is_guid_running():
             self.start_guid(verbose = verbose, notify_function = notify_function)
 
         args = [qrexec_client_path, "-d", str(xid), command]
@@ -2406,6 +2406,8 @@ class QubesHVm(QubesVm):
 
     def run(self, command, **kwargs):
         if self.qrexec_installed:
+            if 'gui' in kwargs and kwargs['gui']==False:
+                command = "nogui:" + command
             super(QubesHVm, self).run(command, **kwargs)
         else:
             raise QubesException("Needs qrexec agent installed in VM to use this function. See also qvm-prefs.")
