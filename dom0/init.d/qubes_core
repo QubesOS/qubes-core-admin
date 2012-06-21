@@ -56,7 +56,7 @@ start()
     # Hide mounted devices from qubes-block list (at first udev run, only / is mounted)
     for dev in `xenstore-list /local/domain/0/qubes-block-devices`; do
     ( eval `udevadm info -q property -n $dev|sed -e 's/\([^=]*\)=\(.*\)/export \1="\2"/'`; 
-      /usr/lib/qubes/block_add_change
+      /usr/lib/qubes/block_add_change > /dev/null
     )
     done
 
