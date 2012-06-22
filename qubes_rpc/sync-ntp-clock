@@ -1,0 +1,12 @@
+#!/bin/sh
+
+if [ -x /usr/libexec/ntpdate-wrapper ]; then
+    /usr/libexec/ntpdate-wrapper
+elif [ -x /etc/init.d/ntpdate ]; then
+    /etc/init.d/ntpdate restart
+elif [ -x /usr/sbin/ntpdate ]; then
+    /usr/sbin/ntpdate pool.ntp.org
+else
+    echo "No ntpdate installed, giving up."
+    exit 1
+fi
