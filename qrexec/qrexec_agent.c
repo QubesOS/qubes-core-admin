@@ -115,14 +115,23 @@ void no_colon_in_cmd()
 
 void do_exec(char *cmd)
 {
-	char *sep = index(cmd, ':');
-	if (!sep)
+	char buf[strlen(QUBES_RPC_MULTIPLEXER_PATH) + strlen(cmd) - strlen(QUBES_RPC_MAGIC_CMD) + 1];
+	char *realcmd = index(cmd, ':');
+	if (!realcmd)
 		no_colon_in_cmd();
-	*sep = 0;
+	/* mark end of username and move to command */
+	*realcmd = 0;
+	realcmd++;
+	/* replace magic RPC cmd with RPC multiplexer path */
+	if (strncmp(realcmd, QUBES_RPC_MAGIC_CMD " ", strlen(QUBES_RPC_MAGIC_CMD)+1)==0) {
+		strcpy(buf, QUBES_RPC_MULTIPLEXER_PATH);
+		strcpy(buf + strlen(QUBES_RPC_MULTIPLEXER_PATH), realcmd + strlen(QUBES_RPC_MAGIC_CMD));
+		realcmd = buf;
+	}
 	signal(SIGCHLD, SIG_DFL);
 	signal(SIGPIPE, SIG_DFL);
 
-	execl("/bin/su", "su", "-", cmd, "-c", sep + 1, NULL);
+	execl("/bin/su", "su", "-", cmd, "-c", realcmd, NULL);
 	perror("execl");
 	exit(1);
 }

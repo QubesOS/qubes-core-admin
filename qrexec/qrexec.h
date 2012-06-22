@@ -30,6 +30,9 @@
 #define QREXEC_AGENT_TRIGGER_PATH "/var/run/qubes/qrexec_agent"
 #define QREXEC_AGENT_FDPASS_PATH "/var/run/qubes/qrexec_agent_fdpass"
 #define MEMINFO_WRITER_PIDFILE "/var/run/meminfo-writer.pid"
+#define QUBES_RPC_MULTIPLEXER_PATH "/usr/lib/qubes/qubes_rpc_multiplexer"
+
+#define QUBES_RPC_MAGIC_CMD "QUBESRPC"
 
 enum {
 	/* messages from qrexec_client to qrexec_daemon (both in dom0) */
