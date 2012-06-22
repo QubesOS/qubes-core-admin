@@ -1,7 +1,7 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Exec=qubes-appmenu-select %VMNAME%
+Exec=qubes-vm-settings %VMNAME% applications
 Icon=/usr/share/qubes/icons/qubes.png
 Terminal=false
 Name=%VMNAME%: Add more shortcuts...
