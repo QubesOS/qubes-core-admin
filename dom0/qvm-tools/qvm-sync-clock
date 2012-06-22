@@ -67,7 +67,7 @@ def main():
     net_vm.run('user:nm-online -x', verbose=verbose, wait=True)
 
     # Sync clock
-    if clock_vm.run('root:/etc/init.d/ntpdate restart', verbose=verbose, wait=True) != 0:
+    if clock_vm.run('root:QUBESRPC qubes.SyncNtpClock dom0', verbose=verbose, wait=True) != 0:
         print >> sys.stderr, 'Time sync failed, aborting!'
         sys.exit(1)
     
