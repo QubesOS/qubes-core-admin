@@ -76,7 +76,7 @@ def handle_dom0updates(updatevm):
     os.chown(updates_repodata_dir, -1, qubes_gid)
     os.chmod(updates_repodata_dir, 0775)
     # Clean old cache
-    subprocess.call(["/usr/bin/yum", "-q", "clean", "all"], stdout=sys.stderr)
+    subprocess.call(["sudo", "/usr/bin/yum", "-q", "clean", "all"], stdout=sys.stderr)
     # This will fail because of "smart" detection of no-network, but it will invalidate the cache
     try:
         null = open('/dev/null','w')
