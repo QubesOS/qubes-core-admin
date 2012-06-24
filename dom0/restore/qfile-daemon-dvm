@@ -29,6 +29,7 @@ import shutil
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
 from qubes.qubes import QubesDaemonPidfile
+from qubes.qubes import QubesDispVmLabels
 from qubes.qmemman_client import QMemmanClient
 
 current_savefile = '/var/run/qubes/current_savefile'
@@ -58,12 +59,16 @@ class QfileDaemonDvm:
             qvm_collection.unlock_db()
             qmemman_client.close()
             return None
+        label = vm.label
+        if len(sys.argv) > 4 and len(sys.argv[4]) > 0:
+            assert sys.argv[4] in QubesDispVmLabels.keys(), "Invalid label"
+            label = QubesDispVmLabels[sys.argv[4]]
         retcode = subprocess.call(['/usr/lib/qubes/qubes_restore',
             current_savefile,
             current_dvm_conf,
-            '-c', vm.label.color,
-            '-i', vm.label.icon,
-            '-l', str(vm.label.index)])
+            '-c', label.color,
+            '-i', label.icon,
+            '-l', str(label.index)])
         qmemman_client.close()
         if retcode != 0:
             subprocess.call(['/usr/bin/kdialog', '--sorry', 'DisposableVM creation failed, see qubes_restore.log'])
@@ -80,12 +85,15 @@ class QfileDaemonDvm:
             qvm_collection.unlock_db()
             return None
         dispid=int(disp_name[4:])
-        dispvm=qvm_collection.add_new_disposablevm(disp_name, vm_disptempl.template, label=vm.label, dispid=dispid)
+        dispvm=qvm_collection.add_new_disposablevm(disp_name, vm_disptempl.template, label=label, dispid=dispid)
         # By default inherit firewall rules from calling VM
         if os.path.exists(vm.firewall_conf):
             disp_firewall_conf = '/var/run/qubes/%s-firewall.xml' % disp_name
             shutil.copy(vm.firewall_conf, disp_firewall_conf)
             dispvm.firewall_conf = disp_firewall_conf
+        if len(sys.argv) > 5 and len(sys.argv[5]) > 0:
+            assert os.path.exists(sys.argv[5]), "Invalid firewall.conf location"
+            dispvm.firewall_conf = sys.argv[5]
         qvm_collection.save()
         qvm_collection.unlock_db()
         # Reload firewall rules
@@ -137,6 +145,9 @@ def main():
     exec_index = sys.argv[1]
     src_vmname = sys.argv[2]
     user = sys.argv[3]
+    #accessed directly by get_dvm()
+    # sys.argv[4] - override label
+    # sys.argv[5] - override firewall
 
     notify_object = dbus.SessionBus().get_object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
     qfile = QfileDaemonDvm(src_vmname)

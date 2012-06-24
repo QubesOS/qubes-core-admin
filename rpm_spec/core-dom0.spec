@@ -157,6 +157,8 @@ mkdir -p $RPM_BUILD_ROOT/usr/share/qubes/icons
 cp icons/*.png $RPM_BUILD_ROOT/usr/share/qubes/icons
 cp misc/qubes-vm.directory.template $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/qubes-templatevm.directory.template $RPM_BUILD_ROOT/usr/share/qubes/
+cp misc/qubes-dispvm.directory $RPM_BUILD_ROOT/usr/share/qubes/
+cp misc/qubes-dispvm-firefox.desktop $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/qubes-appmenu-select.desktop $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/qubes-start.desktop $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/vm-template.conf $RPM_BUILD_ROOT/usr/share/qubes/
@@ -256,6 +258,8 @@ for i in /usr/share/qubes/icons/*.png ; do
 	xdg-icon-resource install --novendor --size 48 $i
 done
 
+xdg-desktop-menu install /usr/share/qubes/qubes-dispvm.directory /usr/share/qubes/qubes-dispvm-firefox.desktop
+
 # Because we now have an installer
 # this script is always executed during upgrade
 # and we decided not to restart core during upgrade
@@ -297,6 +301,8 @@ if [ "$1" = 0 ] ; then
 	for i in /usr/share/qubes/icons/*.png ; do
 		xdg-icon-resource uninstall --novendor --size 48 $i
 	done
+
+    xdg-desktop-menu uninstall /usr/share/qubes/qubes-dispvm.directory /usr/share/qubes/qubes-dispvm-firefox.desktop
 fi
 
 %postun
@@ -358,6 +364,8 @@ fi
 /usr/share/qubes/icons/*.png
 /usr/share/qubes/qubes-vm.directory.template
 /usr/share/qubes/qubes-templatevm.directory.template
+/usr/share/qubes/qubes-dispvm.directory
+/usr/share/qubes/qubes-dispvm-firefox.desktop
 /usr/share/qubes/qubes-appmenu-select.desktop
 /usr/share/qubes/qubes-start.desktop
 /usr/share/qubes/vm-template.conf
