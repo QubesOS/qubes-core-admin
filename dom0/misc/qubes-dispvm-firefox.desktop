@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Exec=sh -c 'echo firefox | /usr/lib/qubes/qfile-daemon-dvm qubes.VMShell dom0 user red'
+Icon=/usr/share/qubes/icons/dispvm-red.png
+Terminal=false
+Name=DispVM: Firefox web browser
+GenericName=DispVM: Web browser
+StartupNotify=false
+Categories=Network;
