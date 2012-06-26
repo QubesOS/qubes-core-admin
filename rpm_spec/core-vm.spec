@@ -596,7 +596,9 @@ rm -f /etc/systemd/system/getty.target.wants/getty@tty*.service
 /bin/systemctl enable iptables.service 2> /dev/null
 /bin/systemctl enable rsyslog.service 2> /dev/null
 /bin/systemctl enable ntpd.service 2> /dev/null
-/bin/systemctl enable NetworkManager.service
+# Disable original service to enable overriden one
+/bin/systemctl disable NetworkManager.service 2> /dev/null
+/bin/systemctl enable NetworkManager.service 2> /dev/null
 # Enable cups only when it is real SystemD service
 [ -e /lib/systemd/system/cups.service ] && /bin/systemctl enable cups.service 2> /dev/null
 
