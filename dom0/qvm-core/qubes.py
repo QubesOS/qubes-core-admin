@@ -1586,7 +1586,7 @@ class QubesTemplateVm(QubesVm):
         if dry_run:
             return
 
-        super(QubesTemplateVM, self).clone_disk_files(src_vm=src_vm, verbose=verbose)
+        super(QubesTemplateVm, self).clone_disk_files(src_vm=src_vm, verbose=verbose)
 
         if os.path.exists(src_vm.dir_path + '/vm-' + qubes_whitelisted_appmenus):
             if verbose:
