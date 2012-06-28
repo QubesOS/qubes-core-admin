@@ -2817,7 +2817,6 @@ class QubesVmCollection(dict):
                 "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
                 "maxmem", "kernel", "uses_default_kernel", "kernelopts", "uses_default_kernelopts",
                 "mac", "services", "include_in_backups", "debug", "default_user", "qrexec_installed", "drive" )
-                "mac", "services", "include_in_backups", "debug", "default_user" )
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)
