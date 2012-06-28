@@ -476,14 +476,14 @@ chkconfig messagebus on
 chkconfig iptables on
 chkconfig --add qubes_core || echo "WARNING: Cannot add service qubes_core!"
 chkconfig qubes_core on || echo "WARNING: Cannot enable service qubes_core!"
-chkconfig --add qubes_core_netvm || echo "WARNING: Cannot add service qubes_core!"
-chkconfig qubes_core_netvm on || echo "WARNING: Cannot enable service qubes_core!"
-chkconfig --add qubes_core_appvm || echo "WARNING: Cannot add service qubes_core!"
-chkconfig qubes_core_appvm on || echo "WARNING: Cannot enable service qubes_core!"
-chkconfig --add qubes_firewall || echo "WARNING: Cannot add service qubes_core!"
-chkconfig qubes_firewall on || echo "WARNING: Cannot enable service qubes_core!"
-chkconfig --add qubes-netwatcher || echo "WARNING: Cannot add service qubes_core!"
-chkconfig qubes-netwatcher on || echo "WARNING: Cannot enable service qubes_core!"
+chkconfig --add qubes_core_netvm || echo "WARNING: Cannot add service qubes_core_netvm!"
+chkconfig qubes_core_netvm on || echo "WARNING: Cannot enable service qubes_core_netvm!"
+chkconfig --add qubes_core_appvm || echo "WARNING: Cannot add service qubes_core_appvm!"
+chkconfig qubes_core_appvm on || echo "WARNING: Cannot enable service qubes_core_appvm!"
+chkconfig --add qubes-firewall || echo "WARNING: Cannot add service qubes-firewall!"
+chkconfig qubes-firewall on || echo "WARNING: Cannot enable service qubes-firewall!"
+chkconfig --add qubes-netwatcher || echo "WARNING: Cannot add service qubes-netwatcher!"
+chkconfig qubes-netwatcher on || echo "WARNING: Cannot enable service qubes-netwatcher!"
 chkconfig --add qubes-yum-proxy || echo "WARNING: Cannot add service qubes-yum-proxy!"
 chkconfig qubes-yum-proxy on || echo "WARNING: Cannot enable service qubes-yum-proxy!"
 
@@ -596,7 +596,9 @@ rm -f /etc/systemd/system/getty.target.wants/getty@tty*.service
 /bin/systemctl enable iptables.service 2> /dev/null
 /bin/systemctl enable rsyslog.service 2> /dev/null
 /bin/systemctl enable ntpd.service 2> /dev/null
-/bin/systemctl enable NetworkManager.service
+# Disable original service to enable overriden one
+/bin/systemctl disable NetworkManager.service 2> /dev/null
+/bin/systemctl enable NetworkManager.service 2> /dev/null
 # Enable cups only when it is real SystemD service
 [ -e /lib/systemd/system/cups.service ] && /bin/systemctl enable cups.service 2> /dev/null
 

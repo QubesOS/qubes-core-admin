@@ -132,6 +132,9 @@ class SystemState:
         total_memory_transfer = 0
         MIN_TOTAL_MEMORY_TRANSFER = 150*1024*1024
         MIN_MEM_CHANGE_WHEN_UNDER_PREF = 15*1024*1024
+        # If xenfree to low, return immediately
+        if self.XEN_FREE_MEM_LEFT - xenfree > MIN_MEM_CHANGE_WHEN_UNDER_PREF:
+            return True
         for rq in memset_reqs:
             dom, mem = rq
             last_target = self.domdict[dom].last_target
