@@ -559,6 +559,10 @@ done
 
 /bin/systemctl enable qubes-update-check.timer 2> /dev/null
 
+# Disable D-BUS activation of NetworkManager - in AppVm it causes problems (eg PackageKit timeouts)
+/bin/systemctl disable NetworkManager.service 2> /dev/null
+/bin/systemctl mask dbus-org.freedesktop.NetworkManager.service 2> /dev/null
+
 # Install overriden services only when original exists
 for srv in cups NetworkManager ntpd; do
     if [ -f /lib/systemd/system/$srv.service ]; then
