@@ -5,6 +5,9 @@ import time
 import qmemman_algo
 import os
 
+no_progress_msg="VM refused to give back requested memory"
+slow_memset_react_msg="VM didn't give back all requested memory"
+
 class DomainState:
     def __init__(self, id):
         self.meminfo = None		#dictionary of memory info read from client
@@ -13,6 +16,8 @@ class DomainState:
         self.mem_used = None		#used memory, computed based on meminfo
         self.id = id			#domain id
         self.last_target = 0		#the last memset target
+        self.no_progress = False    #no react to memset
+        self.slow_memset_react = False #slow react to memset (after few tries still above target)
 
 class SystemState:
     def __init__(self):
@@ -53,6 +58,17 @@ class SystemState:
 # the memory never increasing
 # in fact, the only possible case of nonexisting memory/static-max is dom0
 # see #307
+
+    def clear_outdated_error_markers(self):
+        # Clear outdated errors
+        for i in self.domdict.keys():
+            if self.domdict[i].slow_memset_react and \
+                    self.domdict[i].memory_actual <= self.domdict[i].last_target + self.XEN_FREE_MEM_LEFT/4:
+                self.domdict[i].slow_memset_react = False
+
+            if self.domdict[i].no_progress and \
+                    self.domdict[i].memory_actual <= self.domdict[i].last_target + self.XEN_FREE_MEM_LEFT/4:
+                self.domdict[i].no_progress = False
 
 #the below works (and is fast), but then 'xm list' shows unchanged memory value
     def mem_set(self, id, val):
@@ -156,6 +172,7 @@ class SystemState:
         if os.path.isfile('/var/run/qubes/do-not-membalance'):
             return
         self.refresh_memactual()
+        self.clear_outdated_error_markers()
         xenfree = self.get_free_xen_memory()
         memset_reqs = qmemman_algo.balance(xenfree - self.XEN_FREE_MEM_LEFT, self.domdict)
         if not self.is_balance_req_significant(memset_reqs, xenfree):
@@ -163,8 +180,40 @@ class SystemState:
 
         self.print_stats(xenfree, memset_reqs)
 
+        prev_memactual = {}
+        for i in self.domdict.keys():
+            prev_memactual[i] = self.domdict[i].memory_actual
         for rq in memset_reqs:
             dom, mem = rq
+            # Force to always have at least 0.9*self.XEN_FREE_MEM_LEFT (some
+            # margin for rounding errors). Before giving memory to
+            # domain, ensure that others have gived it back.
+            # If not - wait a little.
+            ntries = 5
+            while self.get_free_xen_memory() - (mem - self.domdict[dom].memory_actual) < 0.9*self.XEN_FREE_MEM_LEFT:
+                time.sleep(self.BALOON_DELAY)
+                ntries -= 1
+                if ntries <= 0:
+                    # Waiting haven't helped; Find which domain get stuck and
+                    # abort balance (after distributing what we have)
+                    self.refresh_memactual()
+                    for rq2 in memset_reqs:
+                        dom2, mem2 = rq2
+                        if dom2 == dom:
+                            # All donors have been procesed
+                             break
+                        # allow some small margin
+                        if self.domdict[dom2].memory_actual > self.domdict[dom2].last_target + self.XEN_FREE_MEM_LEFT/4:
+                            # VM didn't react to memory request at all, remove from donors
+                            if prev_memactual[dom2] == self.domdict[dom2].memory_actual:
+                                print 'dom %s didnt react to memory request (holds %d, requested balloon down to %d)' % (dom2, self.domdict[dom2].memory_actual, mem2)
+                                self.domdict[dom2].no_progress = True
+                            else:
+                                print 'dom %s still hold more memory than have assigned (%d > %d)' % (dom2, self.domdict[dom2].memory_actual, mem2)
+                                self.domdict[dom2].slow_memset_react = True
+                    self.mem_set(dom, self.get_free_xen_memory() + self.domdict[dom].memory_actual - self.XEN_FREE_MEM_LEFT)
+                    return
+
             self.mem_set(dom, mem)
 
 #        for i in self.domdict.keys():
