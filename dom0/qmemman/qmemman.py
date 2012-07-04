@@ -58,15 +58,15 @@ class SystemState:
     def mem_set(self, id, val):
         print 'mem-set domain', id, 'to', val
         self.domdict[id].last_target = val
-        self.xs.write('', '/local/domain/' + id + '/memory/target', str(val/1024))
 #can happen in the middle of domain shutdown
 #apparently xc.lowlevel throws exceptions too
         try:
-            self.xc.domain_setmaxmem(int(id), val/1024 + 1024) # LIBXL_MAXMEM_CONSTANT=1024
-            self.xc.domain_set_target_mem(int(id), val/1024)
+            self.xc.domain_setmaxmem(int(id), int(val/1024) + 1024) # LIBXL_MAXMEM_CONSTANT=1024
+            self.xc.domain_set_target_mem(int(id), int(val/1024))
         except:
             pass
-    
+        self.xs.write('', '/local/domain/' + id + '/memory/target', str(int(val/1024)))
+
     def mem_set_obsolete(self, id, val):
         uuid = self.domdict[id].uuid
         if val >= 2**31:
