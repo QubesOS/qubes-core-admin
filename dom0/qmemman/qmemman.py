@@ -4,6 +4,7 @@ import string
 import time
 import qmemman_algo
 import os
+from guihelpers import notify_error_qubes_manager, clear_error_qubes_manager
 
 no_progress_msg="VM refused to give back requested memory"
 slow_memset_react_msg="VM didn't give back all requested memory"
@@ -64,10 +65,14 @@ class SystemState:
         for i in self.domdict.keys():
             if self.domdict[i].slow_memset_react and \
                     self.domdict[i].memory_actual <= self.domdict[i].last_target + self.XEN_FREE_MEM_LEFT/4:
+                dom_name = self.xs.read('', '/local/domain/%s/name' % str(i))
+                clear_error_qubes_manager(dom_name, slow_memset_react_msg)
                 self.domdict[i].slow_memset_react = False
 
             if self.domdict[i].no_progress and \
                     self.domdict[i].memory_actual <= self.domdict[i].last_target + self.XEN_FREE_MEM_LEFT/4:
+                dom_name = self.xs.read('', '/local/domain/%s/name' % str(i))
+                clear_error_qubes_manager(dom_name, no_progress_msg)
                 self.domdict[i].no_progress = False
 
 #the below works (and is fast), but then 'xm list' shows unchanged memory value
@@ -208,9 +213,13 @@ class SystemState:
                             if prev_memactual[dom2] == self.domdict[dom2].memory_actual:
                                 print 'dom %s didnt react to memory request (holds %d, requested balloon down to %d)' % (dom2, self.domdict[dom2].memory_actual, mem2)
                                 self.domdict[dom2].no_progress = True
+                                dom_name = self.xs.read('', '/local/domain/%s/name' % str(dom2))
+                                notify_error_qubes_manager(dom_name, no_progress_msg)
                             else:
                                 print 'dom %s still hold more memory than have assigned (%d > %d)' % (dom2, self.domdict[dom2].memory_actual, mem2)
                                 self.domdict[dom2].slow_memset_react = True
+                                dom_name = self.xs.read('', '/local/domain/%s/name' % str(dom2))
+                                notify_error_qubes_manager(dom_name, slow_memset_react_msg)
                     self.mem_set(dom, self.get_free_xen_memory() + self.domdict[dom].memory_actual - self.XEN_FREE_MEM_LEFT)
                     return
 
