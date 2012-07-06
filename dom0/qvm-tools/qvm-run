@@ -23,6 +23,7 @@
 
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
+from qubes.guihelpers import notify_error_qubes_manager
 from optparse import OptionParser
 import subprocess
 import socket
@@ -89,6 +90,7 @@ def vm_run_cmd(vm, cmd, options):
     except QubesException as err:
         if options.tray:
             tray_notify_error(str(err))
+            notify_error_qubes_manager(vm.name, str(err))
         print >> sys.stderr, "ERROR: %s" % str(err)
         exit(1)
 

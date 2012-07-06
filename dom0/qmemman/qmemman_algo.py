@@ -117,6 +117,8 @@ def balance_when_enough_memory(domain_dictionary, xen_free_memory, total_mem_pre
     for i in domain_dictionary.keys():
         if domain_dictionary[i].meminfo is None:
             continue
+        if domain_dictionary[i].no_progress:
+            continue
 #distribute total_available_memory proportionally to mempref
         scale = 1.0*prefmem(domain_dictionary[i])/total_mem_pref
         target_nonint = prefmem(domain_dictionary[i]) + scale*total_available_memory
@@ -211,6 +213,8 @@ def balance(xen_free_memory, domain_dictionary):
 #pass 1: compute the above "total" values
     for i in domain_dictionary.keys():
         if domain_dictionary[i].meminfo is None:
+            continue
+        if domain_dictionary[i].no_progress:
             continue
         need = memory_needed(domain_dictionary[i])
 #        print 'domain' , i, 'act/pref', domain_dictionary[i].memory_actual, prefmem(domain_dictionary[i]), 'need=', need
