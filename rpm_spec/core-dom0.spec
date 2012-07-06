@@ -265,6 +265,10 @@ if [ "x"$HAD_SYSCONFIG_NETWORK = "xno" ]; then
     rm -f /etc/sysconfig/network
 fi
 
+# Remove unnecessary udev rules that causes problems in dom0 (#605)
+mkdir -p /var/lib/qubes/removed-udev-scripts
+mv -f /lib/udev/rules.d/69-xorg-vmmouse.rules /var/lib/qubes/removed-udev-scripts/
+
 %clean
 rm -rf $RPM_BUILD_ROOT
 
@@ -287,6 +291,8 @@ fi
 %triggerin -- xen-runtime
 sed -i 's/\/block /\/block.qubes /' /etc/udev/rules.d/xen-backend.rules
 
+%triggerin -- xorg-x11-drv-vmmouse
+mv -f /lib/udev/rules.d/69-xorg-vmmouse.rules /var/lib/qubes/removed-udev-scripts/
 
 %preun
 if [ "$1" = 0 ] ; then
