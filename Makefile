@@ -56,4 +56,4 @@ clean:
 	make -C misc clean
 	make -C qrexec clean
 	make -C u2mfn clean
-	make -C vchan clean
+	make -C vchan -f Makefile.linux clean
