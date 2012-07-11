@@ -50,8 +50,17 @@ def main():
                         help="Fail when device already connected to other VM")
     parser.add_option ("--show-system-disks", dest="system_disks", action="store_true", default=False,
                         help="List also system disks")
+    parser.add_option ("--force-root", action="store_true", dest="force_root", default=False,
+                       help="Force to run, even with root privileges")
 
     (options, args) = parser.parse_args ()
+
+    if os.geteuid() == 0:
+        if not options.force_root:
+            print >> sys.stderr, "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
+            print >> sys.stderr, "Retry as unprivileged user."
+            print >> sys.stderr, "... or use --force-root to continue anyway."
+            exit(1)
 
     if options.do_file_attach:
         options.do_attach = True

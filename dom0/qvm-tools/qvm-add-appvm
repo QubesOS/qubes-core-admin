@@ -37,12 +37,21 @@ def main():
     parser.add_option ("-c", "--conf", dest="conf_file",
                        help="Specify the Xen VM .conf file to use\
                        (relative to the template dir path)")
+    parser.add_option ("--force-root", action="store_true", dest="force_root", default=False,
+                       help="Force to run, even with root privileges")
 
     (options, args) = parser.parse_args ()
     if (len (args) != 2):
         parser.error ("You must specify at least the AppVM and TemplateVM names!")
     vmname = args[0]
     templatename = args[1]
+
+    if os.geteuid() == 0:
+        if not options.force_root:
+            print >> sys.stderr, "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
+            print >> sys.stderr, "Retry as unprivileged user."
+            print >> sys.stderr, "... or use --force-root to continue anyway."
+            exit(1)
 
     qvm_collection = QubesVmCollection()
     qvm_collection.lock_db_for_writing()
