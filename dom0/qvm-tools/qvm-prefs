@@ -342,12 +342,21 @@ def main():
     parser = OptionParser (usage)
     parser.add_option ("-l", "--list", action="store_true", dest="do_list", default=False)
     parser.add_option ("-s", "--set", action="store_true", dest="do_set", default=False)
+    parser.add_option ("--force-root", action="store_true", dest="force_root", default=False,
+                       help="Force to run, even with root privileges")
 
     (options, args) = parser.parse_args ()
     if (len (args) < 1):
         parser.error ("You must provide at least the vmname!")
 
     vmname = args[0]
+
+    if os.geteuid() == 0:
+        if not options.force_root:
+            print >> sys.stderr, "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
+            print >> sys.stderr, "Retry as unprivileged user."
+            print >> sys.stderr, "... or use --force-root to continue anyway."
+            exit(1)
 
     if options.do_list and options.do_set:
         print >> sys.stderr, "You cannot provide -l and -s at the same time!"
