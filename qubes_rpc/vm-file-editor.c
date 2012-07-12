@@ -58,6 +58,8 @@ main()
 	struct stat stat_pre, stat_post, session_stat;
 	char *filename = get_filename();
 	int child, status, log_fd;
+	char var[1024], val[4096];
+	FILE *env_file;
 	FILE *waiter_pidfile;
 
 	copy_file(filename);
@@ -99,6 +101,13 @@ main()
 			exit(1);
 		case 0:
 			close(0);
+
+			env_file = fopen("/tmp/qubes-session-env", "r");
+			while(fscanf(env_file, "%1024[^=]=%4096[^\n]\n", var, val) == 2) {
+				setenv(var, val, 1);
+			}
+			fclose(env_file);
+
 			log_fd = open("/tmp/mimeopen.log", O_CREAT | O_APPEND, 0666);
 			if (log_fd == -1) {
 				perror("open /tmp/mimeopen.log");
