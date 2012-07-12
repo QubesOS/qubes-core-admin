@@ -73,6 +73,7 @@ def main():
     
     p = clock_vm.run('user:date -u', verbose=verbose, passio_popen=True)
     date_out = p.stdout.read(100)
+    date_out = date_out.strip()
     if not re.match(r'^[A-Za-z]* [A-Za-z]* [ 0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9] [A-Z]* [0-9][0-9][0-9][0-9]$', date_out):
         print >> sys.stderr, 'Invalid date output, aborting!'
         sys.exit(1)
