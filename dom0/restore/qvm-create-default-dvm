@@ -21,13 +21,9 @@ if [ "$TEMPLATENAME" = --default-template ] ; then
 fi
 
 if [ "X""$2" = "X""--default-script" ] ; then
-	SCRIPTNAME="/var/lib/qubes/vm-templates/$TEMPLATENAME"/dispvm-prerun.sh
-	if ! [ -f $SCRIPTNAME ] ; then
-		echo $SCRIPTNAME does not exist
-		exit 1
-	fi
+	SCRIPTNAME="vm-default"
 else
-		SCRIPTNAME=$2
+	SCRIPTNAME=$2
 fi
 
 if ! [ -d "/var/lib/qubes/vm-templates/$TEMPLATENAME" ] ; then
