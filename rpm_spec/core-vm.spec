@@ -583,10 +583,11 @@ do
         chkconfig $srv off 2> /dev/null
 done
 
-DISABLE_SERVICES="alsa-store alsa-restore auditd backuppc cpuspeed crond dbus-org.freedesktop.Avahi"
+DISABLE_SERVICES="alsa-store alsa-restore auditd avahi backuppc cpuspeed crond"
 DISABLE_SERVICES="$DISABLE_SERVICES fedora-autorelabel fedora-autorelabel-mark ipmi hwclock-load hwclock-save"
 DISABLE_SERVICES="$DISABLE_SERVICES mdmonitor multipathd openct rpcbind mcelog fedora-storage-init fedora-storage-init-late"
 DISABLE_SERVICES="$DISABLE_SERVICES plymouth-start plymouth-read-write plymouth-quit plymouth-quit-wait"
+DISABLE_SERVICES="$DISABLE_SERVICES sshd tcsd sm-client sendmail mdmonitor-takeover"
 for srv in $DISABLE_SERVICES; do
     if [ -f /lib/systemd/system/$srv.service ]; then
         if fgrep -q '[Install]' /lib/systemd/system/$srv.service; then
