@@ -49,6 +49,8 @@ class QfileDaemonDvm:
             subprocess.call(['/usr/bin/kdialog', '--sorry', errmsg])
             return None
 
+        self.tray_notify("Starting new DispVM...")
+
         qvm_collection = QubesVmCollection()
         qvm_collection.lock_db_for_writing()
         qvm_collection.load()
