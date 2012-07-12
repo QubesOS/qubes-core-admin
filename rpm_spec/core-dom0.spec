@@ -267,7 +267,7 @@ fi
 
 # Remove unnecessary udev rules that causes problems in dom0 (#605)
 mkdir -p /var/lib/qubes/removed-udev-scripts
-mv -f /lib/udev/rules.d/69-xorg-vmmouse.rules /var/lib/qubes/removed-udev-scripts/
+mv -f /lib/udev/rules.d/69-xorg-vmmouse.rules /var/lib/qubes/removed-udev-scripts/ 2> /dev/null || :
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -292,7 +292,7 @@ fi
 sed -i 's/\/block /\/block.qubes /' /etc/udev/rules.d/xen-backend.rules
 
 %triggerin -- xorg-x11-drv-vmmouse
-mv -f /lib/udev/rules.d/69-xorg-vmmouse.rules /var/lib/qubes/removed-udev-scripts/
+mv -f /lib/udev/rules.d/69-xorg-vmmouse.rules /var/lib/qubes/removed-udev-scripts/ 2> /dev/null || :
 
 %preun
 if [ "$1" = 0 ] ; then
