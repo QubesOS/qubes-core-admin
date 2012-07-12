@@ -119,6 +119,13 @@ install misc/qubes_trigger_sync_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 install -D -m 0644 misc/qubes_trigger_sync_appmenus.action $RPM_BUILD_ROOT/etc/yum/post-actions/qubes_trigger_sync_appmenus.action
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
 
+if [ -r misc/dispvm-dotfiles.%{dist}.tbz ]; then
+    install misc/dispvm-dotfiles.%{dist}.tbz $RPM_BUILD_ROOT/etc/dispvm-dotfiles.tbz
+else
+    install misc/dispvm-dotfiles.tbz $RPM_BUILD_ROOT/etc/dispvm-dotfiles.tbz
+fi
+install misc/dispvm-prerun.sh $RPM_BUILD_ROOT/usr/lib/qubes/dispvm-prerun.sh
+
 install -D misc/qubes_core.modules $RPM_BUILD_ROOT/etc/sysconfig/modules/qubes_core.modules
 
 install -m 0644 network/qubes_network.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_network.rules
@@ -355,6 +362,7 @@ rm -rf $RPM_BUILD_ROOT
 /etc/NetworkManager/dispatcher.d/30-qubes_external_ip
 /etc/NetworkManager/dispatcher.d/qubes_nmhook
 /etc/X11/xorg-preload-apps.conf
+/etc/dispvm-dotfiles.tbz
 /etc/dhclient.d/qubes_setup_dnat_to_ns.sh
 /etc/fstab
 /etc/pki/rpm-gpg/RPM-GPG-KEY-qubes*
@@ -386,6 +394,7 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib/qubes/block_add_change
 /usr/lib/qubes/block_cleanup
 /usr/lib/qubes/block_remove
+/usr/lib/qubes/dispvm-prerun.sh
 /usr/lib/qubes/sync-ntp-clock
 /usr/lib/qubes/meminfo-writer
 /usr/lib/qubes/network-manager-prepare-conf-dir
