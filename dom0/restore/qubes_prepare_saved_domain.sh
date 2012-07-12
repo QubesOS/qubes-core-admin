@@ -1,11 +1,15 @@
 #!/bin/bash
 get_encoded_script()
 {
-	if ! [ -f "$1" ] ; then
+    if [ "$1" == "vm-default" ]; then
+        SCRIPT_CMD="echo /usr/lib/qubes/dispvm-prerun.sh"
+    elif ! [ -f "$1" ] ; then
 		echo $1 is not a file ?
 		exit 1
+    else
+        SCRIPT_CMD="cat $1"
 	fi	
-	ENCODED_SCRIPT=`cat "$1" | perl -e 'use MIME::Base64 qw(encode_base64); local($/) = undef;print encode_base64(<STDIN>)'|tr -d "\n"`
+	ENCODED_SCRIPT=`$SCRIPT_CMD | perl -e 'use MIME::Base64 qw(encode_base64); local($/) = undef;print encode_base64(<STDIN>)'|tr -d "\n"`
 }
 
 if [ $# != 2 -a $# != 3 ] ; then

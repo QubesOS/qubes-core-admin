@@ -1612,12 +1612,6 @@ class QubesTemplateVm(QubesVm):
             raise IOError ("Error while copying {0} to {1}".\
                            format(self.clean_img, self.volatile_img))
 
-        if verbose:
-            print >> sys.stderr, "--> Copying the template's DispVM prerun script..."
-        retcode = subprocess.call (["cp", src_vm.dir_path + '/dispvm-prerun.sh', self.dir_path + '/dispvm-prerun.sh'])
-        if retcode != 0:
-            raise IOError ("Error while copying DispVM prerun script")
-
         # Create root-cow.img
         self.commit_changes(verbose=verbose)
 
