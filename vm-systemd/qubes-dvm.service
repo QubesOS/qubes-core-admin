@@ -1,6 +1,7 @@
 [Unit]
 Description=Prepare Qubes DispVM Template
 ConditionPathExists=/var/run/qubes-service/qubes-dvm
+After=systemd-readahead-replay.service
 
 [Service]
 Type=oneshot
