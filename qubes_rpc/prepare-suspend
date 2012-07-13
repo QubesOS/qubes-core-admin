@@ -1,0 +1,16 @@
+#!/bin/sh
+
+action=$1
+[ -z "$action" ] && action=suspend
+
+if [ x"$action" == x"suspend" ]; then
+    nmcli nm sleep true || service NetworkManager stop
+    # Force interfaces down, just in case when NM didn't done it
+    for if in `ls /sys/class/net|grep -v "lo\|vif"`; do 
+        ip l s $if down
+    done
+    modprobe -r uhci_hcd ehci_hcd
+else
+    modprobe ehci_hcd; modprobe uhci_hcd; 
+    nmcli nm sleep false || { [ -x /bin/systemctl ] && systemctl start NetworkManager.service; } || service qubes_core_netvm start
+fi
