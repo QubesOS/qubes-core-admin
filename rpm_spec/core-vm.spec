@@ -158,10 +158,12 @@ install qubes_rpc/qvm-copy-to-vm.gnome $RPM_BUILD_ROOT/usr/lib/qubes
 install qubes_rpc/{vm-file-editor,qfile-agent,qopen-in-vm,qfile-unpacker} $RPM_BUILD_ROOT/usr/lib/qubes
 install qubes_rpc/{vm-shell,qrun-in-vm} $RPM_BUILD_ROOT/usr/lib/qubes
 install qubes_rpc/sync-ntp-clock $RPM_BUILD_ROOT/usr/lib/qubes
+install qubes_rpc/prepare-suspend $RPM_BUILD_ROOT/usr/lib/qubes
 install -d $RPM_BUILD_ROOT/%{kde_service_dir}
 install -m 0644 qubes_rpc/{qvm-copy.desktop,qvm-dvm.desktop} $RPM_BUILD_ROOT/%{kde_service_dir}
 install -d $RPM_BUILD_ROOT/etc/qubes_rpc
 install -m 0644 qubes_rpc/{qubes.Filecopy,qubes.OpenInVM,qubes.VMShell,qubes.SyncNtpClock} $RPM_BUILD_ROOT/etc/qubes_rpc
+install -m 0644 qubes_rpc/{qubes.SuspendPre,qubes.SuspendPost} $RPM_BUILD_ROOT/etc/qubes_rpc
 
 install qrexec/qrexec_agent $RPM_BUILD_ROOT/usr/lib/qubes
 install qrexec/qrexec_client_vm $RPM_BUILD_ROOT/usr/lib/qubes
@@ -371,6 +373,8 @@ rm -rf $RPM_BUILD_ROOT
 /etc/qubes_rpc/qubes.OpenInVM
 /etc/qubes_rpc/qubes.VMShell
 /etc/qubes_rpc/qubes.SyncNtpClock
+/etc/qubes_rpc/qubes.SuspendPre
+/etc/qubes_rpc/qubes.SuspendPost
 /etc/sudoers.d/qubes
 /etc/sysconfig/iptables
 /etc/sysconfig/modules/qubes_core.modules
@@ -396,6 +400,7 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib/qubes/block_remove
 /usr/lib/qubes/dispvm-prerun.sh
 /usr/lib/qubes/sync-ntp-clock
+/usr/lib/qubes/prepare-suspend
 /usr/lib/qubes/meminfo-writer
 /usr/lib/qubes/network-manager-prepare-conf-dir
 /usr/lib/qubes/qfile-agent
