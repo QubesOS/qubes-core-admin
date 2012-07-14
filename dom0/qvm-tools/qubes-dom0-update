@@ -1,6 +1,8 @@
 #!/bin/bash
 
 UPDATEVM=`qubes-prefs --get updatevm`
+UPDATES_STAT_FILE=/var/lib/qubes/updates/dom0-updates-available
+
 if [ -z "$UPDATEVM" ]; then
     echo "UpdateVM not set, exiting"
     exit 1
@@ -97,6 +99,7 @@ elif [ -f /var/lib/qubes/updates/repodata/repomd.xml ]; then
             yum $YUM_OPTS update
         fi
     fi
+    yum -q check-updates && rm $UPDATES_STAT_FILE
 else
     echo "No updates avaliable" >&2
 fi
