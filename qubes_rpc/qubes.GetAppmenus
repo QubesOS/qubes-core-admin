@@ -1,0 +1,2 @@
+shopt -s nullglob
+/bin/grep -H = /usr/share/applications/*.desktop /usr/local/share/applications/*.desktop 2> /dev/null
