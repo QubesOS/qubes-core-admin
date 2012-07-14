@@ -7,7 +7,7 @@ fi
 CFG_FILE=$QUBES_RPC/"$1"
 export QREXEC_REMOTE_DOMAIN="$2"
 if [ -s "$CFG_FILE" ] ; then
-	exec $(cat "$CFG_FILE")
+	exec /bin/sh "$CFG_FILE"
 	echo "$0: failed to execute handler for" "$1" >&2
 	exit 1
 fi
