@@ -1870,6 +1870,15 @@ class QubesNetVm(QubesVm):
         if not self.internal:
             self.create_appmenus (verbose, source_template=source_template)
 
+    def remove_from_disk(self):
+        if dry_run:
+            return
+
+        if not self.internal:
+            self.remove_appmenus()
+        super(QubesNetVm, self).remove_from_disk()
+
+
 class QubesProxyVm(QubesNetVm):
     """
     A class that represents a ProxyVM, ex FirewallVM. A child of QubesNetVM.
