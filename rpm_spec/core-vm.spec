@@ -156,7 +156,7 @@ install qubes_rpc/wrap_in_html_if_url.sh $RPM_BUILD_ROOT/usr/lib/qubes
 install qubes_rpc/qvm-copy-to-vm.kde $RPM_BUILD_ROOT/usr/lib/qubes
 install qubes_rpc/qvm-copy-to-vm.gnome $RPM_BUILD_ROOT/usr/lib/qubes
 install qubes_rpc/{vm-file-editor,qfile-agent,qopen-in-vm,qfile-unpacker} $RPM_BUILD_ROOT/usr/lib/qubes
-install qubes_rpc/{vm-shell,qrun-in-vm} $RPM_BUILD_ROOT/usr/lib/qubes
+install qubes_rpc/qrun-in-vm $RPM_BUILD_ROOT/usr/lib/qubes
 install qubes_rpc/sync-ntp-clock $RPM_BUILD_ROOT/usr/lib/qubes
 install qubes_rpc/prepare-suspend $RPM_BUILD_ROOT/usr/lib/qubes
 install -d $RPM_BUILD_ROOT/%{kde_service_dir}
@@ -419,7 +419,6 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib/qubes/serial.conf
 /usr/lib/qubes/setup_ip
 /usr/lib/qubes/vm-file-editor
-/usr/lib/qubes/vm-shell
 /usr/lib/qubes/wrap_in_html_if_url.sh
 /usr/lib/yum-plugins/yum-qubes-hooks.py*
 /usr/sbin/qubes_firewall
