@@ -1510,13 +1510,6 @@ class QubesVm(object):
 
         xc.domain_unpause(self.get_xid())
 
-    def remove_from_disk(self):
-        if dry_run:
-            return
-
-
-        shutil.rmtree (self.dir_path)
-
     def get_xml_attrs(self):
         attrs = {}
         attrs_config = self._get_attrs_config()
