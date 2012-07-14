@@ -163,7 +163,7 @@ install -d $RPM_BUILD_ROOT/%{kde_service_dir}
 install -m 0644 qubes_rpc/{qvm-copy.desktop,qvm-dvm.desktop} $RPM_BUILD_ROOT/%{kde_service_dir}
 install -d $RPM_BUILD_ROOT/etc/qubes_rpc
 install -m 0644 qubes_rpc/{qubes.Filecopy,qubes.OpenInVM,qubes.VMShell,qubes.SyncNtpClock} $RPM_BUILD_ROOT/etc/qubes_rpc
-install -m 0644 qubes_rpc/{qubes.SuspendPre,qubes.SuspendPost} $RPM_BUILD_ROOT/etc/qubes_rpc
+install -m 0644 qubes_rpc/{qubes.SuspendPre,qubes.SuspendPost,qubes.GetAppmenus} $RPM_BUILD_ROOT/etc/qubes_rpc
 
 install qrexec/qrexec_agent $RPM_BUILD_ROOT/usr/lib/qubes
 install qrexec/qrexec_client_vm $RPM_BUILD_ROOT/usr/lib/qubes
@@ -371,6 +371,7 @@ rm -rf $RPM_BUILD_ROOT
 %dir /etc/qubes_rpc
 /etc/qubes_rpc/qubes.Filecopy
 /etc/qubes_rpc/qubes.OpenInVM
+/etc/qubes_rpc/qubes.GetAppmenus
 /etc/qubes_rpc/qubes.VMShell
 /etc/qubes_rpc/qubes.SyncNtpClock
 /etc/qubes_rpc/qubes.SuspendPre
