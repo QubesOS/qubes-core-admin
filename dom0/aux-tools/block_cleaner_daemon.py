@@ -35,7 +35,7 @@ def handle_vbd_state(path):
             vm_xid = path_components[6]
             vm_dev = path_components[7]
             if vm_xid in domain_list:
-                subprocess.call('xl', 'block-detach', vm_xid, vm_dev)
+                subprocess.call(['xl', 'block-detach', vm_xid, vm_dev])
 
 def main():
 
