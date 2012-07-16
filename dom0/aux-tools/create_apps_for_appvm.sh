@@ -45,10 +45,13 @@ if [ "$SRCDIR" != "none" ]; then
     /usr/lib/qubes/convert_apptemplate2vm.sh /usr/share/qubes/qubes-appmenu-select.desktop $APPSDIR $VMNAME $VMDIR
 
     if [ "$VMTYPE" = "vm-templates" ]; then
-        /usr/lib/qubes/convert_dirtemplate2vm.sh /usr/share/qubes/qubes-templatevm.directory.template $APPSDIR/$VMNAME-vm.directory $VMNAME $VMDIR
+        DIR_TEMPLATE=/usr/share/qubes/qubes-templatevm.directory.template
+    elif [ "$VMTYPE" = "servicevms" ]; then
+        DIR_TEMPLATE=/usr/share/qubes/qubes-servicevm.directory.template
     else
-        /usr/lib/qubes/convert_dirtemplate2vm.sh /usr/share/qubes/qubes-vm.directory.template $APPSDIR/$VMNAME-vm.directory $VMNAME $VMDIR
+        DIR_TEMPLATE=/usr/share/qubes/qubes-vm.directory.template
     fi
+    /usr/lib/qubes/convert_dirtemplate2vm.sh $DIR_TEMPLATE $APPSDIR/$VMNAME-vm.directory $VMNAME $VMDIR
 fi
 
 echo "--> Adding Apps to the Menu..."

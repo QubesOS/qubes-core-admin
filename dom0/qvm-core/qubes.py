@@ -1286,9 +1286,14 @@ class QubesVm(object):
 
         return conf
 
-    def run(self, command, verbose = True, autostart = False, notify_function = None, passio = False, passio_popen = False, localcmd = None, wait = False, gui = True):
-        """command should be in form 'user:cmdline'"""
+    def run(self, command, verbose = True, autostart = False, notify_function = None, passio = False, passio_popen = False, passio_stderr=False, ignore_stderr=False, localcmd = None, wait = False, gui = True):
+        """command should be in form 'user:cmdline'
+            When passio_popen=True, popen object with stdout connected to pipe.
+            When additionally passio_stderr=True, stderr also is connected to pipe.
+            When ignore_stderr=True, stderr is connected to /dev/null.
+            """
 
+        null = None
         if not self.is_running():
             if not autostart:
                 raise QubesException("VM not running")
@@ -1315,12 +1320,28 @@ class QubesVm(object):
         if passio:
             os.execv(qrexec_client_path, args)
             exit(1)
+
+        call_kwargs = {}
+        if ignore_stderr:
+            null = open("/dev/null", "w")
+            call_kwargs['stderr'] = null
+
         if passio_popen:
-            p = subprocess.Popen (args, stdout=subprocess.PIPE)
+            popen_kwargs={'stdout': subprocess.PIPE}
+            if passio_stderr:
+                popen_kwargs['stderr'] = subprocess.PIPE
+            else:
+                popen_kwargs['stderr'] = call_kwargs.get('stderr', None)
+            p = subprocess.Popen (args, **popen_kwargs)
+            if null:
+                null.close()
             return p
         if not wait:
             args += ["-e"]
-        return subprocess.call(args)
+        retcode = subprocess.call(args, **call_kwargs)
+        if null:
+            null.close()
+        return retcode
 
     def attach_network(self, verbose = False, wait = True, netvm = None):
         if dry_run:
@@ -1509,13 +1530,6 @@ class QubesVm(object):
             return
 
         xc.domain_unpause(self.get_xid())
-
-    def remove_from_disk(self):
-        if dry_run:
-            return
-
-
-        shutil.rmtree (self.dir_path)
 
     def get_xml_attrs(self):
         attrs = {}
@@ -1869,6 +1883,15 @@ class QubesNetVm(QubesVm):
 
         if not self.internal:
             self.create_appmenus (verbose, source_template=source_template)
+
+    def remove_from_disk(self):
+        if dry_run:
+            return
+
+        if not self.internal:
+            self.remove_appmenus()
+        super(QubesNetVm, self).remove_from_disk()
+
 
 class QubesProxyVm(QubesNetVm):
     """

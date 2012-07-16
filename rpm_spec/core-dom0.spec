@@ -155,6 +155,7 @@ mkdir -p $RPM_BUILD_ROOT/usr/share/qubes/icons
 cp icons/*.png $RPM_BUILD_ROOT/usr/share/qubes/icons
 cp misc/qubes-vm.directory.template $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/qubes-templatevm.directory.template $RPM_BUILD_ROOT/usr/share/qubes/
+cp misc/qubes-servicevm.directory.template $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/qubes-dispvm.directory $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/qubes-dispvm-firefox.desktop $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/qubes-appmenu-select.desktop $RPM_BUILD_ROOT/usr/share/qubes/
@@ -365,6 +366,7 @@ fi
 /usr/share/qubes/icons/*.png
 /usr/share/qubes/qubes-vm.directory.template
 /usr/share/qubes/qubes-templatevm.directory.template
+/usr/share/qubes/qubes-servicevm.directory.template
 /usr/share/qubes/qubes-dispvm.directory
 /usr/share/qubes/qubes-dispvm-firefox.desktop
 /usr/share/qubes/qubes-appmenu-select.desktop

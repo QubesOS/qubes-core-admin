@@ -1,3 +1,0 @@
-#!/bin/sh
-# just ignore the cmdline argument (the remote vm name)
-exec /bin/bash
