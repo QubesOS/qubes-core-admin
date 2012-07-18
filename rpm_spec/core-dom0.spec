@@ -113,6 +113,7 @@ cp aux-tools/qubes-receive-updates $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_add_change $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_remove $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_cleanup $RPM_BUILD_ROOT/usr/lib/qubes/
+cp aux-tools/fix_dir_perms.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/etc/qubes_rpc/policy
 cp ../qubes_rpc/qubes.Filecopy.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.Filecopy
@@ -291,6 +292,7 @@ fi
 
 %triggerin -- xen-runtime
 sed -i 's/\/block /\/block.qubes /' /etc/udev/rules.d/xen-backend.rules
+/usr/lib/qubes/fix_dir_perms.sh
 
 %triggerin -- xorg-x11-drv-vmmouse
 mv -f /lib/udev/rules.d/69-xorg-vmmouse.rules /var/lib/qubes/removed-udev-scripts/ 2> /dev/null || :
@@ -354,6 +356,7 @@ fi
 /usr/lib/qubes/block_add_change
 /usr/lib/qubes/block_remove
 /usr/lib/qubes/block_cleanup
+/usr/lib/qubes/fix_dir_perms.sh
 %attr(4750,root,qubes) /usr/lib/qubes/qfile-dom0-unpacker
 %attr(770,root,qubes) %dir /var/lib/qubes
 %attr(770,root,qubes) %dir /var/lib/qubes/vm-templates
