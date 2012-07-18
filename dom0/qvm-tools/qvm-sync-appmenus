@@ -62,7 +62,7 @@ def get_appmenus(xid):
             raise QubesException("Line count limit exceeded")
     else:
         p = subprocess.Popen ([qrexec_client_path, '-d', str(xid),
-                'user:grep -H = /usr/share/applications/*.desktop'], stdout=subprocess.PIPE)
+                'user:QUBESRPC qubes.GetAppmenus dom0'], stdout=subprocess.PIPE)
         while appmenus_line_count > 0:
             line = p.stdout.readline(appmenus_line_size)
             if line == "":

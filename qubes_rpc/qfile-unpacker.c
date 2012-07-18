@@ -51,13 +51,19 @@ int main(int argc, char ** argv)
 	char *incoming_dir;
 	int pipefds[2];
 	int uid;
+	char *remote_domain;
 
 	pipe(pipefds);
 
 	uid = prepare_creds_return_uid("user");
 
+	remote_domain = getenv("QREXEC_REMOTE_DOMAIN");
+	if (!remote_domain) {
+		gui_fatal("Cannot get remote domain name");
+		exit(1);
+	}
 	mkdir(INCOMING_DIR_ROOT, 0700);
-	asprintf(&incoming_dir, "%s/from-%s", INCOMING_DIR_ROOT, argv[1]);
+	asprintf(&incoming_dir, "%s/from-%s", INCOMING_DIR_ROOT, remote_domain);
 	mkdir(incoming_dir, 0700);
 	if (chdir(incoming_dir))
 		gui_fatal("Error chdir to %s", incoming_dir); 
