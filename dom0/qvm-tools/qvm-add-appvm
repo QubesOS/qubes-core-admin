@@ -24,6 +24,7 @@ from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
 from optparse import OptionParser;
 import sys
+import os
 
 def main():
     usage = "usage: %prog [options] <appvm-name> <vm-template-name>\n\n"\
