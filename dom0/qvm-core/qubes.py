@@ -331,6 +331,10 @@ class QubesVm(object):
         if 'meminfo-writer' not in self.services:
             self.services['meminfo-writer'] = not (len(self.pcidevs) > 0)
 
+        # Additionally force meminfo-writer disabled when VM have PCI devices
+        if len(self.pcidevs) > 0:
+            self.services['meminfo-writer'] = False
+
         # Some additional checks for template based VM
         if self.template is not None:
             if not self.template.is_template():
