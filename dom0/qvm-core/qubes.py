@@ -1434,7 +1434,11 @@ class QubesVm(object):
 
         mem_required = int(self.memory) * 1024 * 1024
         qmemman_client = QMemmanClient()
-        if not qmemman_client.request_memory(mem_required):
+        try:
+            got_memory = qmemman_client.request_memory(mem_required)
+        except IOError as e:
+            raise IOError("ERROR: Failed to connect to qmemman: %s" % str(e))
+        if not got_memory:
             qmemman_client.close()
             raise MemoryError ("ERROR: insufficient memory to start VM '%s'" % self.name)
 
