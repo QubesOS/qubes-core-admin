@@ -340,6 +340,10 @@ class QubesVm(object):
         if 'meminfo-writer' not in self.services:
             self.services['meminfo-writer'] = not (len(self.pcidevs) > 0)
 
+        # Additionally force meminfo-writer disabled when VM have PCI devices
+        if len(self.pcidevs) > 0:
+            self.services['meminfo-writer'] = False
+
         # Some additional checks for template based VM
         if self.template is not None:
             if not self.template.is_template():
@@ -1411,7 +1415,7 @@ class QubesVm(object):
         if verbose:
             print >> sys.stderr, "--> Waiting for qubes-session..."
 
-        subprocess.call([qrexec_client_path, "-d", str(xid), "user:echo $$ >> /tmp/qubes-session-waiter; [ ! -f /tmp/qubes-session-env ] && exec sleep 365d"])
+        self.run('echo $$ >> /tmp/qubes-session-waiter; [ ! -f /tmp/qubes-session-env ] && exec sleep 365d', ignore_stderr=True, gui=False, wait=True)
 
         retcode = subprocess.call([qubes_clipd_path])
         if retcode != 0:
@@ -1454,7 +1458,11 @@ class QubesVm(object):
 
         mem_required = int(self.memory) * 1024 * 1024
         qmemman_client = QMemmanClient()
-        if not qmemman_client.request_memory(mem_required):
+        try:
+            got_memory = qmemman_client.request_memory(mem_required)
+        except IOError as e:
+            raise IOError("ERROR: Failed to connect to qmemman: %s" % str(e))
+        if not got_memory:
             qmemman_client.close()
             raise MemoryError ("ERROR: insufficient memory to start VM '%s'" % self.name)
 

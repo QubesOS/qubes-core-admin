@@ -21,25 +21,7 @@ start()
 {
     echo -n $"Executing Qubes Core scripts:"
     modprobe evtchn 2> /dev/null || modprobe xen-evtchn
-    chgrp qubes /etc/xen
-    chmod 710 /etc/xen
-    chgrp qubes /var/run/xenstored/*
-    chmod 660 /var/run/xenstored/*
-    chgrp qubes /var/lib/xen
-    chmod 770 /var/lib/xen
-    chgrp qubes /var/log/xen
-    chmod 770 /var/log/xen
-    chgrp qubes /proc/xen/privcmd
-    chmod 660 /proc/xen/privcmd
-    chgrp qubes /dev/xen/evtchn
-    chmod 660 /dev/xen/evtchn
-    touch /var/run/qubes/xl-lock
-    chgrp qubes /var/run/qubes/xl-lock
-    chmod 660 /var/run/qubes/xl-lock
-    chgrp -R qubes /var/log/xen
-    chmod -R g+rX /var/log/xen
-    chmod g+s /var/log/xen/console
-    mkdir -p /var/run/xen-hotplug
+    /usr/lib/qubes/fix_dir_perms.sh
 
     xenstore-write /local/domain/0/name dom0
     DOM0_MAXMEM=`/usr/sbin/xl info | grep total_memory | awk '{ print $3 }'`
@@ -48,10 +30,10 @@ start()
     xl sched-credit -d 0 -w 512
     cp /var/lib/qubes/qubes.xml /var/lib/qubes/backup/qubes-$(date +%F-%T).xml
 
-    /usr/lib/qubes/qmemman_daemon.py >/var/log/qubes/qmemman.log 2>/var/log/qubes/qmemman.errs & 
+    /usr/lib/qubes/qmemman_daemon.py
     MEM_CHANGE_THRESHOLD_KB=30000
     MEMINFO_DELAY_USEC=100000
-    /usr/lib/qubes/meminfo-writer $MEM_CHANGE_THRESHOLD_KB $MEMINFO_DELAY_USEC &
+    /usr/lib/qubes/meminfo-writer $MEM_CHANGE_THRESHOLD_KB $MEMINFO_DELAY_USEC
 
     /usr/lib/qubes/block_cleaner_daemon.py > /var/log/qubes/block_cleaner.log 2>&1 &
 
