@@ -33,7 +33,7 @@ start()
     /usr/lib/qubes/qmemman_daemon.py
     MEM_CHANGE_THRESHOLD_KB=30000
     MEMINFO_DELAY_USEC=100000
-    /usr/lib/qubes/meminfo-writer $MEM_CHANGE_THRESHOLD_KB $MEMINFO_DELAY_USEC &
+    /usr/lib/qubes/meminfo-writer $MEM_CHANGE_THRESHOLD_KB $MEMINFO_DELAY_USEC
 
     /usr/lib/qubes/block_cleaner_daemon.py > /var/log/qubes/block_cleaner.log 2>&1 &
 
