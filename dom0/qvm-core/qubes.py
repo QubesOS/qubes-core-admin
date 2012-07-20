@@ -266,6 +266,8 @@ class QubesVm(object):
                 'self.template.appmenus_templates_dir if self.template is not None else None' },
             "config_file_template": { "eval": "config_template_pv" },
             "icon_path": { "eval": 'self.dir_path + "/icon.png" if self.dir_path is not None else None' },
+            # used to suppress side effects of clone_attrs
+            "_do_not_reset_firewall": { "eval": 'False' },
             "kernels_dir": { 'eval': 'qubes_kernels_base_dir + "/" + self.kernel if self.kernel is not None else ' + \
                 # for backward compatibility (or another rare case): kernel=None -> kernel in VM dir
                 'self.dir_path + "/" + default_kernels_subdir' },
@@ -405,12 +407,13 @@ class QubesVm(object):
                     self.netvm.post_vm_net_detach(self)
 
         if new_netvm is None:
-            # Set also firewall to block all traffic as discussed in #370
-            if os.path.exists(self.firewall_conf):
-                shutil.copy(self.firewall_conf, "%s/backup/%s-firewall-%s.xml"
-                        % (qubes_base_dir, self.name, time.strftime('%Y-%m-%d-%H:%M:%S')))
-            self.write_firewall_conf({'allow': False, 'allowDns': False,
-                    'allowIcmp': False, 'allowYumProxy': False, 'rules': []})
+            if not self._do_not_reset_firewall:
+                # Set also firewall to block all traffic as discussed in #370
+                if os.path.exists(self.firewall_conf):
+                    shutil.copy(self.firewall_conf, "%s/backup/%s-firewall-%s.xml"
+                            % (qubes_base_dir, self.name, time.strftime('%Y-%m-%d-%H:%M:%S')))
+                self.write_firewall_conf({'allow': False, 'allowDns': False,
+                        'allowIcmp': False, 'allowYumProxy': False, 'rules': []})
         else:
             new_netvm.connected_vms[self.qid]=self
 
@@ -1049,8 +1052,10 @@ class QubesVm(object):
             '_mac', 'pcidevs', 'include_in_backups']
 
     def clone_attrs(self, src_vm):
+        self._do_not_reset_firewall = True
         for prop in self.get_clone_attrs():
             setattr(self, prop, getattr(src_vm, prop))
+        self._do_not_reset_firewall = False
 
     def clone_disk_files(self, src_vm, verbose):
         if dry_run:
