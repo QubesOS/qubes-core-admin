@@ -224,14 +224,14 @@ class QubesVm(object):
             "name": { "order": 1 },
             "dir_path": { "default": None, "order": 2 },
             "conf_file": { "eval": 'self.absolute_path(value, self.name + ".conf")', 'order': 3 },
-            # order >= 10: have base attrs set
+            ### order >= 10: have base attrs set
             "root_img": { "eval": 'self.absolute_path(value, default_root_img)', 'order': 10 },
             "private_img": { "eval": 'self.absolute_path(value, default_private_img)', 'order': 10 },
             "volatile_img": { "eval": 'self.absolute_path(value, default_volatile_img)', 'order': 10 },
             "firewall_conf": { "eval": 'self.absolute_path(value, default_firewall_conf_file)', 'order': 10 },
             "installed_by_rpm": { "default": False, 'order': 10 },
             "template": { "default": None, 'order': 10 },
-            # order >= 20: have template set
+            ### order >= 20: have template set
             "uses_default_netvm": { "default": True, 'order': 20 },
             "netvm": { "default": None, "attr": "_netvm", 'order': 20 },
             "label": { "attr": "_label", "default": QubesVmLabels["red"], 'order': 20 },
