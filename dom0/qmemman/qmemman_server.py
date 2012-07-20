@@ -12,6 +12,8 @@ from optparse import OptionParser
 from qubesutils import parse_size
 
 config_path = '/etc/qubes/qmemman.conf'
+SOCK_PATH='/var/run/qubes/qmemman.sock'
+LOG_PATH='/var/log/qubes/qmemman.log'
 
 system_state = SystemState()
 global_lock = thread.allocate_lock()
@@ -105,15 +107,7 @@ class QMemmanReqHandler(SocketServer.BaseRequestHandler):
             self.request.send(resp)
 
 
-def start_server():
-    SOCK_PATH='/var/run/qubes/qmemman.sock'
-    try:
-        os.unlink(SOCK_PATH)
-    except:
-        pass
-    os.umask(0)
-    server = SocketServer.UnixStreamServer(SOCK_PATH, QMemmanReqHandler)
-    os.umask(077)
+def start_server(server):
     server.serve_forever()
 
 class QMemmanServer:
@@ -123,6 +117,19 @@ class QMemmanServer:
         parser = OptionParser(usage)
         parser.add_option("-c", "--config", action="store", dest="config", default=config_path)
         (options, args) = parser.parse_args()
+
+        logfd = os.open(LOG_PATH, os.O_WRONLY|os.O_APPEND|os.O_CREAT, 0644)
+        if logfd < 0:
+            print sys.stderr, "ERROR: Failed to open log file (%s)" % LOG_PATH
+            exit(1)
+        # reinitialize python stdout/err
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os.dup2(logfd, 1)
+        os.dup2(logfd, 2)
+        os.close(logfd)
+        devnull = os.open('/dev/null', os.O_RDONLY)
+        os.dup2(devnull, 0)
 
         config = SafeConfigParser({
                 'vm-min-mem': str(qmemman_algo.MIN_PREFMEM),
@@ -137,5 +144,13 @@ class QMemmanServer:
 
         print "values: %s, %s, %s" % (str(qmemman_algo.MIN_PREFMEM), str(qmemman_algo.DOM0_MEM_BOOST), str(qmemman_algo.CACHE_FACTOR))
 
-        thread.start_new_thread(start_server, tuple([]))
-        XS_Watcher().watch_loop()
+        try:
+            os.unlink(SOCK_PATH)
+        except:
+            pass
+        os.umask(0)
+        server = SocketServer.UnixStreamServer(SOCK_PATH, QMemmanReqHandler)
+        os.umask(077)
+        if os.fork() == 0:
+            thread.start_new_thread(start_server, tuple([server]))
+            XS_Watcher().watch_loop()
