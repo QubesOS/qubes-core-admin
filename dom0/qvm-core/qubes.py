@@ -1873,8 +1873,9 @@ class QubesNetVm(QubesVm):
             # Cleanup stale VIFs
             vm.cleanup_vifs()
 
-            # wait for frontend to forget about this device (UGLY HACK)
-            time.sleep(0.2)
+            # force frontend to forget about this device
+            #  module actually will be loaded back by udev, as soon as network is attached
+            vm.run("root:modprobe -r xen-netfront xennet")
 
             try:
                 vm.attach_network(wait=False)

@@ -908,7 +908,7 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
 
         "netvm": {"func": "'n/a' if vm.is_netvm() and not vm.is_proxyvm() else\
                   ('*' if vm.uses_default_netvm else '') +\
-                    vm_info['netvm'] if vm.netvm is not None else '-'"},
+                    vm_info['netvm'] if vm_info['netvm'] is not None else '-'"},
 
         "label" : {"func" : "vm.label.name"},
     }
