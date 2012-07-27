@@ -1405,7 +1405,7 @@ class QubesVm(object):
         if verbose:
             print >> sys.stderr, "--> Waiting for qubes-session..."
 
-        self.run('echo $$ >> /tmp/qubes-session-waiter; [ ! -f /tmp/qubes-session-env ] && exec sleep 365d', ignore_stderr=True, gui=False, wait=True)
+        self.run('%s:echo $$ >> /tmp/qubes-session-waiter; [ ! -f /tmp/qubes-session-env ] && exec sleep 365d' % self.default_user, ignore_stderr=True, gui=False, wait=True)
 
         retcode = subprocess.call([qubes_clipd_path])
         if retcode != 0:
