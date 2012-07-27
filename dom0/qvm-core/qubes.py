@@ -905,7 +905,7 @@ class QubesVm(object):
         args['volatiledev'] = "'script:file:{dir}/volatile.img,xvdc,w',".format(dir=self.dir_path)
         if hasattr(self, 'kernel'):
             modulesmode='r'
-            if self.updateable and self.kernel is None:
+            if self.kernel is None:
                 modulesmode='w'
             args['otherdevs'] = "'script:file:{dir}/modules.img,xvdd,{mode}',".format(dir=self.kernels_dir, mode=modulesmode)
         if hasattr(self, 'kernelopts'):
