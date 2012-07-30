@@ -342,7 +342,7 @@ def block_attach(vm, backend_vm, device, frontend=None, mode="w", auto_detach=Fa
             elif int(be_state) > 4:
                 # Error
                 error = xs.read('', '/local/domain/%d/error/backend/vbd/%d/%d/error' % (backend_vm.xid, vm.xid, block_name_to_devid(frontend)))
-                if error is None:
+                if error is not None:
                     raise QubesException("Error while connecting block device: " + error)
                 else:
                     raise QubesException("Unknown error while connecting block device")
