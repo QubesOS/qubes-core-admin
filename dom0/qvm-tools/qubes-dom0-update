@@ -87,6 +87,13 @@ fi
 # Wait for download completed
 while pidof -x qubes-receive-updates >/dev/null; do sleep 0.5; done
 
+if [ -r /var/lib/qubes/updates/errors ]; then
+    echo "*** ERROR while receiving updates:" >&2
+    cat /var/lib/qubes/updates/errors >&2
+    echo "--> if you want to use packages that were downloaded correctly, use yum directly now" >&2
+    exit 1
+fi
+
 if [ "x$PKGS" != "x" ]; then
     yum $YUM_OPTS install $PKGS
 elif [ -f /var/lib/qubes/updates/repodata/repomd.xml ]; then
@@ -99,7 +106,7 @@ elif [ -f /var/lib/qubes/updates/repodata/repomd.xml ]; then
             yum $YUM_OPTS update
         fi
     fi
-    yum -q check-updates && rm $UPDATES_STAT_FILE
+    yum -q check-update && rm -f $UPDATES_STAT_FILE
 else
     echo "No updates avaliable" >&2
 fi

@@ -32,25 +32,34 @@ from qubes.qubes import QubesVmCollection
 updates_dir = "/var/lib/qubes/updates"
 updates_rpm_dir = updates_dir + "/rpm"
 updates_repodata_dir = updates_dir + "/repodata"
+updates_error_file = updates_dir + "/errors"
+updates_error_file_handle = None
 
 package_regex = re.compile(r"^[abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._+-]{1,128}.rpm$")
 gpg_ok_regex = re.compile(r"pgp md5 OK$")
 
-def dom0updates_fatal(msg):
+def dom0updates_fatal(pkg, msg):
+    global updates_error_file_handle
     print >> sys.stderr, msg
-    shutil.rmtree(updates_rpm_dir)
-    exit(1)
+    if updates_error_file_handle is None:
+        updates_error_file_handle = open(updates_error_file, "a")
+    updates_error_file_handle.write(msg + "\n")
+    os.remove(pkg)
 
 def handle_dom0updates(updatevm):
+    global updates_error_file_handle
+
     source=os.getenv("QREXEC_REMOTE_DOMAIN")
     if source != updatevm.name:
-        print >> sys.stderr, 'Domain ' + source + ' not allowed to send dom0 updates'
+        print >> sys.stderr, 'Domain ' + str(source) + ' not allowed to send dom0 updates'
         exit(1)
     # Clean old packages
     if os.path.exists(updates_rpm_dir):
         shutil.rmtree(updates_rpm_dir)
     if os.path.exists(updates_repodata_dir):
         shutil.rmtree(updates_repodata_dir)
+    if os.path.exists(updates_error_file):
+        os.remove(updates_error_file)
     qubes_gid = grp.getgrnam('qubes').gr_gid
     os.mkdir(updates_rpm_dir)
     os.chown(updates_rpm_dir, -1, qubes_gid)
@@ -61,16 +70,18 @@ def handle_dom0updates(updatevm):
         full_path = updates_rpm_dir + "/" + f
         if package_regex.match(f):
             if os.path.islink(full_path) or not os.path.isfile(full_path):
-                dom0updates_fatal('Domain ' + source + ' sent not regular file')
+                dom0updates_fatal(f, 'Domain ' + source + ' sent not regular file')
             p = subprocess.Popen (["/bin/rpm", "-K", full_path],
                     stdout=subprocess.PIPE)
             output = p.communicate()[0]
             if p.returncode != 0:
-                dom0updates_fatal('Error while verifing %s signature: %s' % (f, output))
+                dom0updates_fatal(f, 'Error while verifing %s signature: %s' % (f, output))
             if not gpg_ok_regex.search(output.strip()):
-                dom0updates_fatal('Domain ' + source + ' sent not signed rpm: ' + f)
+                dom0updates_fatal(f, 'Domain ' + source + ' sent not signed rpm: ' + f)
         else:
-            dom0updates_fatal('Domain ' + source + ' sent unexpected file: ' + f)
+            dom0updates_fatal(f, 'Domain ' + source + ' sent unexpected file: ' + f)
+    if updates_error_file_handle is not None:
+        updates_error_file_handle.close()
     # After updates received - create repo metadata
     subprocess.check_call(["/usr/bin/createrepo", "-q", updates_dir])
     os.chown(updates_repodata_dir, -1, qubes_gid)

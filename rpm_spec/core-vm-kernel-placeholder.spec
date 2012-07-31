@@ -10,6 +10,12 @@ Vendor:		Invisible Things Lab
 License:	GPL
 Group:		Qubes
 URL:		http://www.qubes-os.org
+#  template released with 1.0-rc1 have kernel-debug installed by mistake. This
+#  line is required to smooth upgrade.
+Obsoletes:  kernel-debug
+#  this driver require exact kernel-drm-nouveau version; as isn't needed in VM,
+#  just remove it
+Obsoletes:  xorg-x11-drv-nouveau
 #  choose the oldest Qubes-supported VM kernel
 Provides:   kernel = 3.2.7
 
