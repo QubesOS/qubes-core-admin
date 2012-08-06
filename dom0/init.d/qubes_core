@@ -30,6 +30,8 @@ start()
     xl sched-credit -d 0 -w 512
     cp /var/lib/qubes/qubes.xml /var/lib/qubes/backup/qubes-$(date +%F-%T).xml
 
+    /usr/lib/qubes/cleanup_dispvms
+
     /usr/lib/qubes/qmemman_daemon.py
     MEM_CHANGE_THRESHOLD_KB=30000
     MEMINFO_DELAY_USEC=100000

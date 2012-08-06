@@ -1025,7 +1025,7 @@ class QubesVm(object):
             print >> sys.stderr, "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
         os.symlink (self.label.icon_path, self.icon_path)
 
-    def create_appmenus(self, verbose, source_template = None):
+    def create_appmenus(self, verbose=False, source_template = None):
         if source_template is None:
             source_template = self.template
 
@@ -1114,7 +1114,7 @@ class QubesVm(object):
                     shutil.copy(src_vm.icon_path, self.icon_path)
 
         # Create appmenus
-        self.create_appmenus(verbose)
+        self.create_appmenus(verbose=verbose)
 
     def remove_appmenus(self):
         vmtype = None
@@ -1664,7 +1664,7 @@ class QubesTemplateVm(QubesVm):
         # Create root-cow.img
         self.commit_changes(verbose=verbose)
 
-    def create_appmenus(self, verbose, source_template = None):
+    def create_appmenus(self, verbose=False, source_template = None):
         if source_template is None:
             source_template = self.template
 
@@ -1680,7 +1680,7 @@ class QubesTemplateVm(QubesVm):
         self.remove_appmenus()
 
     def post_rename(self, old_name):
-        self.create_appmenus(False)
+        self.create_appmenus(verbose=False)
 
         old_dirpath = os.path.dirname(self.dir_path) + '/' + old_name
         self.clean_volatile_img = self.clean_volatile_img.replace(old_dirpath, self.dir_path)
@@ -1918,7 +1918,7 @@ class QubesNetVm(QubesVm):
                     self.dir_path + '/' + qubes_whitelisted_appmenus)
 
         if not self.internal:
-            self.create_appmenus (verbose, source_template=source_template)
+            self.create_appmenus (verbose=verbose, source_template=source_template)
 
     def remove_from_disk(self):
         if dry_run:
@@ -2226,7 +2226,7 @@ class QubesAppVm(QubesVm):
         super(QubesAppVm, self).create_on_disk(verbose, source_template=source_template)
 
         if not self.internal:
-            self.create_appmenus (verbose, source_template=source_template)
+            self.create_appmenus (verbose=verbose, source_template=source_template)
 
     def remove_from_disk(self):
         if dry_run:
@@ -2239,7 +2239,7 @@ class QubesAppVm(QubesVm):
         self.remove_appmenus()
 
     def post_rename(self, old_name):
-        self.create_appmenus(False)
+        self.create_appmenus(verbose=False)
 
 class QubesHVm(QubesVm):
     """
