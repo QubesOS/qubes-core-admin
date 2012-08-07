@@ -342,7 +342,7 @@ def block_attach(vm, backend_vm, device, frontend=None, mode="w", auto_detach=Fa
             elif int(be_state) > 4:
                 # Error
                 error = xs.read('', '/local/domain/%d/error/backend/vbd/%d/%d/error' % (backend_vm.xid, vm.xid, block_name_to_devid(frontend)))
-                if error is None:
+                if error is not None:
                     raise QubesException("Error while connecting block device: " + error)
                 else:
                     raise QubesException("Unknown error while connecting block device")
@@ -826,7 +826,9 @@ def backup_restore_prepare(backup_dir, options = {}, host_collection = None):
                 if not ((template_vm_on_host is not None) and template_vm_on_host.is_template()):
                     # Maybe the (custom) template is in the backup?
                     template_vm_on_backup = backup_collection.get_vm_by_name (templatevm_name)
-                    if template_vm_on_backup is None or not template_vm_on_backup.is_template():
+                    if template_vm_on_backup is None or not \
+                        (is_vm_included_in_backup(backup_dir, template_vm_on_backup) and \
+                         template_vm_on_backup.is_template()):
                         if options['use-default-template']:
                             vms_to_restore[vm.name]['orig-template'] = templatevm_name
                             vms_to_restore[vm.name]['template'] = host_collection.get_default_template().name
@@ -852,7 +854,7 @@ def backup_restore_prepare(backup_dir, options = {}, host_collection = None):
 
                     # Maybe the (custom) netvm is in the backup?
                     netvm_on_backup = backup_collection.get_vm_by_name (netvm_name)
-                    if not ((netvm_on_backup is not None) and netvm_on_backup.is_netvm):
+                    if not ((netvm_on_backup is not None) and netvm_on_backup.is_netvm() and is_vm_included_in_backup(backup_dir, netvm_on_backup)):
                         if options['use-default-netvm']:
                             vms_to_restore[vm.name]['netvm'] = host_collection.get_default_netvm().name
                             vm.uses_default_netvm = True
@@ -906,7 +908,7 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
 
         "netvm": {"func": "'n/a' if vm.is_netvm() and not vm.is_proxyvm() else\
                   ('*' if vm.uses_default_netvm else '') +\
-                    vm_info['netvm'] if vm.netvm is not None else '-'"},
+                    vm_info['netvm'] if vm_info['netvm'] is not None else '-'"},
 
         "label" : {"func" : "vm.label.name"},
     }

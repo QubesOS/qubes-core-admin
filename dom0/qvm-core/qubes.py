@@ -232,14 +232,14 @@ class QubesVm(object):
             "name": { "order": 1 },
             "dir_path": { "default": None, "order": 2 },
             "conf_file": { "eval": 'self.absolute_path(value, self.name + ".conf")', 'order': 3 },
-            # order >= 10: have base attrs set
+            ### order >= 10: have base attrs set
             "root_img": { "eval": 'self.absolute_path(value, default_root_img)', 'order': 10 },
             "private_img": { "eval": 'self.absolute_path(value, default_private_img)', 'order': 10 },
             "volatile_img": { "eval": 'self.absolute_path(value, default_volatile_img)', 'order': 10 },
             "firewall_conf": { "eval": 'self.absolute_path(value, default_firewall_conf_file)', 'order': 10 },
             "installed_by_rpm": { "default": False, 'order': 10 },
             "template": { "default": None, 'order': 10 },
-            # order >= 20: have template set
+            ### order >= 20: have template set
             "uses_default_netvm": { "default": True, 'order': 20 },
             "netvm": { "default": None, "attr": "_netvm", 'order': 20 },
             "label": { "attr": "_label", "default": QubesVmLabels["red"], 'order': 20 },
@@ -266,6 +266,8 @@ class QubesVm(object):
                 'self.template.appmenus_templates_dir if self.template is not None else None' },
             "config_file_template": { "eval": "config_template_pv" },
             "icon_path": { "eval": 'self.dir_path + "/icon.png" if self.dir_path is not None else None' },
+            # used to suppress side effects of clone_attrs
+            "_do_not_reset_firewall": { "eval": 'False' },
             "kernels_dir": { 'eval': 'qubes_kernels_base_dir + "/" + self.kernel if self.kernel is not None else ' + \
                 # for backward compatibility (or another rare case): kernel=None -> kernel in VM dir
                 'self.dir_path + "/" + default_kernels_subdir' },
@@ -405,12 +407,13 @@ class QubesVm(object):
                     self.netvm.post_vm_net_detach(self)
 
         if new_netvm is None:
-            # Set also firewall to block all traffic as discussed in #370
-            if os.path.exists(self.firewall_conf):
-                shutil.copy(self.firewall_conf, "%s/backup/%s-firewall-%s.xml"
-                        % (qubes_base_dir, self.name, time.strftime('%Y-%m-%d-%H:%M:%S')))
-            self.write_firewall_conf({'allow': False, 'allowDns': False,
-                    'allowIcmp': False, 'allowYumProxy': False, 'rules': []})
+            if not self._do_not_reset_firewall:
+                # Set also firewall to block all traffic as discussed in #370
+                if os.path.exists(self.firewall_conf):
+                    shutil.copy(self.firewall_conf, "%s/backup/%s-firewall-%s.xml"
+                            % (qubes_base_dir, self.name, time.strftime('%Y-%m-%d-%H:%M:%S')))
+                self.write_firewall_conf({'allow': False, 'allowDns': False,
+                        'allowIcmp': False, 'allowYumProxy': False, 'rules': []})
         else:
             new_netvm.connected_vms[self.qid]=self
 
@@ -917,7 +920,7 @@ class QubesVm(object):
         args['volatiledev'] = "'script:file:{dir}/volatile.img,xvdc,w',".format(dir=self.dir_path)
         if hasattr(self, 'kernel'):
             modulesmode='r'
-            if self.updateable and self.kernel is None:
+            if self.kernel is None:
                 modulesmode='w'
             args['otherdevs'] = "'script:file:{dir}/modules.img,xvdd,{mode}',".format(dir=self.kernels_dir, mode=modulesmode)
         if hasattr(self, 'kernelopts'):
@@ -1022,7 +1025,7 @@ class QubesVm(object):
             print >> sys.stderr, "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
         os.symlink (self.label.icon_path, self.icon_path)
 
-    def create_appmenus(self, verbose, source_template = None):
+    def create_appmenus(self, verbose=False, source_template = None):
         if source_template is None:
             source_template = self.template
 
@@ -1049,8 +1052,10 @@ class QubesVm(object):
             '_mac', 'pcidevs', 'include_in_backups']
 
     def clone_attrs(self, src_vm):
+        self._do_not_reset_firewall = True
         for prop in self.get_clone_attrs():
             setattr(self, prop, getattr(src_vm, prop))
+        self._do_not_reset_firewall = False
 
     def clone_disk_files(self, src_vm, verbose):
         if dry_run:
@@ -1109,7 +1114,7 @@ class QubesVm(object):
                     shutil.copy(src_vm.icon_path, self.icon_path)
 
         # Create appmenus
-        self.create_appmenus(verbose)
+        self.create_appmenus(verbose=verbose)
 
     def remove_appmenus(self):
         vmtype = None
@@ -1415,7 +1420,7 @@ class QubesVm(object):
         if verbose:
             print >> sys.stderr, "--> Waiting for qubes-session..."
 
-        self.run('echo $$ >> /tmp/qubes-session-waiter; [ ! -f /tmp/qubes-session-env ] && exec sleep 365d', ignore_stderr=True, gui=False, wait=True)
+        self.run('%s:echo $$ >> /tmp/qubes-session-waiter; [ ! -f /tmp/qubes-session-env ] && exec sleep 365d' % self.default_user, ignore_stderr=True, gui=False, wait=True)
 
         retcode = subprocess.call([qubes_clipd_path])
         if retcode != 0:
@@ -1659,7 +1664,7 @@ class QubesTemplateVm(QubesVm):
         # Create root-cow.img
         self.commit_changes(verbose=verbose)
 
-    def create_appmenus(self, verbose, source_template = None):
+    def create_appmenus(self, verbose=False, source_template = None):
         if source_template is None:
             source_template = self.template
 
@@ -1675,7 +1680,7 @@ class QubesTemplateVm(QubesVm):
         self.remove_appmenus()
 
     def post_rename(self, old_name):
-        self.create_appmenus(False)
+        self.create_appmenus(verbose=False)
 
         old_dirpath = os.path.dirname(self.dir_path) + '/' + old_name
         self.clean_volatile_img = self.clean_volatile_img.replace(old_dirpath, self.dir_path)
@@ -1868,8 +1873,9 @@ class QubesNetVm(QubesVm):
             # Cleanup stale VIFs
             vm.cleanup_vifs()
 
-            # wait for frontend to forget about this device (UGLY HACK)
-            time.sleep(0.2)
+            # force frontend to forget about this device
+            #  module actually will be loaded back by udev, as soon as network is attached
+            vm.run("root:modprobe -r xen-netfront xennet")
 
             try:
                 vm.attach_network(wait=False)
@@ -1912,7 +1918,7 @@ class QubesNetVm(QubesVm):
                     self.dir_path + '/' + qubes_whitelisted_appmenus)
 
         if not self.internal:
-            self.create_appmenus (verbose, source_template=source_template)
+            self.create_appmenus (verbose=verbose, source_template=source_template)
 
     def remove_from_disk(self):
         if dry_run:
@@ -2220,7 +2226,7 @@ class QubesAppVm(QubesVm):
         super(QubesAppVm, self).create_on_disk(verbose, source_template=source_template)
 
         if not self.internal:
-            self.create_appmenus (verbose, source_template=source_template)
+            self.create_appmenus (verbose=verbose, source_template=source_template)
 
     def remove_from_disk(self):
         if dry_run:
@@ -2233,7 +2239,7 @@ class QubesAppVm(QubesVm):
         self.remove_appmenus()
 
     def post_rename(self, old_name):
-        self.create_appmenus(False)
+        self.create_appmenus(verbose=False)
 
 class QubesHVm(QubesVm):
     """

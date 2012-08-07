@@ -14,10 +14,12 @@ help:
 
 rpms:	
 	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-vm.spec
+	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-vm-kernel-placeholder.spec
 	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-dom0.spec
 	rpm --addsign \
 		$(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION_DOM0)*.rpm \
-		$(RPMS_DIR)/x86_64/qubes-core-vm-*$(VERSION_VM)*.rpm
+		$(RPMS_DIR)/x86_64/qubes-core-vm-*$(VERSION_VM)*.rpm \
+		$(RPMS_DIR)/x86_64/qubes-core-vm-kernel-placeholder-*.rpm
 
 rpms-vaio-fixes:
 	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-dom0-vaio-fixes.spec
@@ -29,6 +31,7 @@ update-repo-current:
 	for vmrepo in ../yum/current-release/current/vm/* ; do \
 		dist=$$(basename $$vmrepo) ;\
 		ln -f $(RPMS_DIR)/x86_64/qubes-core-vm-*$(VERSION_VM)*$$dist*.rpm $$vmrepo/rpm/ ;\
+		ln -f $(RPMS_DIR)/x86_64/qubes-core-vm-kernel-placeholder-*$$dist*.rpm $$vmrepo/rpm/ ;\
 	done
 
 update-repo-current-testing:
@@ -37,6 +40,7 @@ update-repo-current-testing:
 	for vmrepo in ../yum/current-release/current-testing/vm/* ; do \
 		dist=$$(basename $$vmrepo) ;\
 		ln -f $(RPMS_DIR)/x86_64/qubes-core-vm-*$(VERSION_VM)*$$dist*.rpm $$vmrepo/rpm/ ;\
+		ln -f $(RPMS_DIR)/x86_64/qubes-core-vm-kernel-placeholder-*$$dist*.rpm $$vmrepo/rpm/ ;\
 	done
 
 update-repo-unstable:
@@ -45,6 +49,7 @@ update-repo-unstable:
 	for vmrepo in ../yum/current-release/unstable/vm/* ; do \
 		dist=$$(basename $$vmrepo) ;\
 		ln -f $(RPMS_DIR)/x86_64/qubes-core-vm-*$(VERSION_VM)*$$dist*.rpm $$vmrepo/rpm/ ;\
+		ln -f $(RPMS_DIR)/x86_64/qubes-core-vm-kernel-placeholder-*$$dist*.rpm $$vmrepo/rpm/ ;\
 	done
 
 update-repo-installer:
