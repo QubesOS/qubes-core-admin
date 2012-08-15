@@ -214,12 +214,14 @@ class SystemState:
                                 print 'dom %s didnt react to memory request (holds %d, requested balloon down to %d)' % (dom2, self.domdict[dom2].memory_actual, mem2)
                                 self.domdict[dom2].no_progress = True
                                 dom_name = self.xs.read('', '/local/domain/%s/name' % str(dom2))
-                                notify_error_qubes_manager(dom_name, no_progress_msg)
+                                if dom_name is not None:
+                                    notify_error_qubes_manager(str(dom_name), no_progress_msg)
                             else:
                                 print 'dom %s still hold more memory than have assigned (%d > %d)' % (dom2, self.domdict[dom2].memory_actual, mem2)
                                 self.domdict[dom2].slow_memset_react = True
                                 dom_name = self.xs.read('', '/local/domain/%s/name' % str(dom2))
-                                notify_error_qubes_manager(dom_name, slow_memset_react_msg)
+                                if dom_name is not None:
+                                    notify_error_qubes_manager(str(dom_name), slow_memset_react_msg)
                     self.mem_set(dom, self.get_free_xen_memory() + self.domdict[dom].memory_actual - self.XEN_FREE_MEM_LEFT)
                     return
 
