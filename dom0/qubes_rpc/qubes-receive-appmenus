@@ -53,10 +53,10 @@ def get_appmenus(xid):
     untrusted_appmenulist = []
     if xid == -1:
         while appmenus_line_count > 0:
-            line = sys.stdin.readline(appmenus_line_size)
-            if line == "":
+            untrusted_line = sys.stdin.readline(appmenus_line_size)
+            if untrusted_line == "":
                 break;
-            untrusted_appmenulist.append(line.strip())
+            untrusted_appmenulist.append(untrusted_line.strip())
             appmenus_line_count -= 1
         if appmenus_line_count == 0:
             raise QubesException("Line count limit exceeded")
@@ -64,10 +64,10 @@ def get_appmenus(xid):
         p = subprocess.Popen ([qrexec_client_path, '-d', str(xid),
                 'user:QUBESRPC qubes.GetAppmenus dom0'], stdout=subprocess.PIPE)
         while appmenus_line_count > 0:
-            line = p.stdout.readline(appmenus_line_size)
-            if line == "":
+            untrusted_line = p.stdout.readline(appmenus_line_size)
+            if untrusted_line == "":
                 break;
-            untrusted_appmenulist.append(line.strip())
+            untrusted_appmenulist.append(untrusted_line.strip())
             appmenus_line_count -= 1
         p.wait()
         if p.returncode != 0:
@@ -88,6 +88,7 @@ def get_appmenus(xid):
         if untrusted_m:
             untrusted_key = untrusted_m.group(2)
             untrusted_value = untrusted_m.group(3)
+            # Look only at predefined keys
             if fields_regexp.has_key(untrusted_key):
                 if fields_regexp[untrusted_key].match(untrusted_value):
                     # now values are sanitized
