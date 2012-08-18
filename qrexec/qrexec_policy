@@ -96,7 +96,7 @@ def do_execute(domain, target, user, exec_index, process_ident):
     # also, dangling "xl" would keep stderr open and may prevent closing connection
         spawn_target_if_necessary(target)
         cmd= QREXEC_CLIENT + " -d " + target + " '" + user 
-        cmd+=":/usr/lib/qubes/qubes_rpc_multiplexer "+ exec_index + " " + domain + "'"
+        cmd+=":QUBESRPC "+ exec_index + " " + domain + "'"
     os.execl(QREXEC_CLIENT, "qrexec_client", "-d", domain, "-l", cmd, "-c", process_ident)
 
 def confirm_execution(domain, target, exec_index):
