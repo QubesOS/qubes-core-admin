@@ -5,6 +5,7 @@ import os.path
 import subprocess
 import xen.lowlevel.xl
 import qubes.guihelpers
+from qubes.qubes import QubesVmCollection
 import fcntl
  
 POLICY_FILE_DIR="/etc/qubes_rpc/policy"
@@ -156,7 +157,16 @@ def main():
         if policy_dict.has_key("action.user"):
             user=policy_dict["action.user"]
         else:
-            user="user"
+            qvm_collection = QubesVmCollection()
+            qvm_collection.lock_db_for_reading()
+            qvm_collection.load()
+            qvm_collection.unlock_db()
+            vm = qvm_collection.get_vm_by_name(target)
+            if vm is None:
+                print >> sys.stderr, "Cannot find settings of VM '%s', assuming default user 'user'" % target
+                user = "user"
+            else:
+                user = vm.default_user
         do_execute(domain, target, user, exec_index, process_ident)
 
     print >> sys.stderr, "Rpc denied:", domain, target, exec_index    
