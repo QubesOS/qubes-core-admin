@@ -125,12 +125,6 @@ int libvchan_write(struct libvchan *ctrl, char *data, int size)
 {
 	int avail, avail_contig;
 	int real_idx;
-#ifdef WINNT
-	// because of mask-on-fire and do_notify called previously, evtchn must be
-	// unmasked before libvchan_wait. Do it before checking if data is
-	// available to prevent race
-	libvchan_prepare_to_select(ctrl);
-#endif
 	while ((avail = libvchan_buffer_space(ctrl)) == 0)
 		if (libvchan_wait(ctrl) < 0)
 			return -1;
@@ -156,12 +150,6 @@ int libvchan_read(struct libvchan *ctrl, char *data, int size)
 {
 	int avail, avail_contig;
 	int real_idx;
-#ifdef WINNT
-	// because of mask-on-fire and do_notify called previously, evtchn must be
-	// unmasked before libvchan_wait. Do it before checking if data is
-	// available to prevent race
-	libvchan_prepare_to_select(ctrl);
-#endif
 	while ((avail = libvchan_data_ready(ctrl)) == 0)
 		if (libvchan_wait(ctrl) < 0)
 			return -1;
