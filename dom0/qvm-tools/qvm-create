@@ -22,6 +22,7 @@
 
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesVmLabels
+from qubes.qubes import QubesException
 from optparse import OptionParser;
 import subprocess
 import re
@@ -116,12 +117,16 @@ def main():
         new_vm_template = template
 
     vm = None
-    if options.netvm:
-        vm = qvm_collection.add_new_netvm(vmname, new_vm_template, label = label)
-    elif options.proxyvm:
-        vm = qvm_collection.add_new_proxyvm(vmname, new_vm_template, label = label)
-    else:
-        vm = qvm_collection.add_new_appvm(vmname, new_vm_template, label = label)
+    try:
+        if options.netvm:
+            vm = qvm_collection.add_new_netvm(vmname, new_vm_template, label = label)
+        elif options.proxyvm:
+            vm = qvm_collection.add_new_proxyvm(vmname, new_vm_template, label = label)
+        else:
+            vm = qvm_collection.add_new_appvm(vmname, new_vm_template, label = label)
+    except QubesException as err:
+        print >> sys.stderr, "ERROR: {0}".format(err)
+        exit (1)
 
     if options.internal:
         vm.internal = True

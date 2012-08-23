@@ -331,7 +331,11 @@ def do_set(vms, vm, property, args):
         print >> sys.stderr, "ERROR: Property '{0}' not available for this VM".format(property)
         return False
 
-    return properties[property](vms, vm, args)
+    try:
+        return properties[property](vms, vm, args)
+    except Exception as err:
+        print >> sys.stderr, "ERROR: %s" % str(err)
+        return False
 
 
 def main():
