@@ -77,7 +77,7 @@ int libvchan_wait(struct libvchan *ctrl)
 {
 	int ret;
 
-	ret = xc_evtchn_pending(ctrl->evfd);
+	ret = xc_evtchn_pending_with_flush(ctrl->evfd);
 	if (ret!=-1 && xc_evtchn_unmask(ctrl->evfd, ctrl->evport))
 		return -1;
 	if (ret!=-1 && libvchan_is_eof(ctrl))
