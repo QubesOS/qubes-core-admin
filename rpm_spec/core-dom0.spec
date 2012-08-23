@@ -53,7 +53,7 @@ The Qubes core files for installation on Dom0.
 python -m compileall qvm-core qmemman
 python -O -m compileall qvm-core qmemman
 make -C restore
-make -C aux-tools
+make -C qubes_rpc
 make -C ../qubes_rpc
 make -C ../vchan -f Makefile.linux
 make -C ../u2mfn
@@ -109,9 +109,10 @@ cp ../misc/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_daemon $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_client $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_policy $RPM_BUILD_ROOT/usr/lib/qubes/
-cp aux-tools/qfile-dom0-unpacker $RPM_BUILD_ROOT/usr/lib/qubes/
-cp aux-tools/qubes-notify-updates $RPM_BUILD_ROOT/usr/lib/qubes/
-cp aux-tools/qubes-receive-updates $RPM_BUILD_ROOT/usr/lib/qubes/
+cp qubes_rpc/qfile-dom0-unpacker $RPM_BUILD_ROOT/usr/lib/qubes/
+cp qubes_rpc/qubes-notify-updates $RPM_BUILD_ROOT/usr/lib/qubes/
+cp qubes_rpc/qubes-receive-appmenus $RPM_BUILD_ROOT/usr/lib/qubes/
+cp qubes_rpc/qubes-receive-updates $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_add_change $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_remove $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_cleanup $RPM_BUILD_ROOT/usr/lib/qubes/
@@ -122,13 +123,13 @@ mkdir -p $RPM_BUILD_ROOT/etc/qubes_rpc/policy
 cp ../qubes_rpc/qubes.Filecopy.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.Filecopy
 cp ../qubes_rpc/qubes.OpenInVM.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.OpenInVM
 cp ../qubes_rpc/qubes.VMShell.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.VMShell
-cp qubes.SyncAppMenus.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.SyncAppMenus
-cp qubes.SyncAppMenus $RPM_BUILD_ROOT/etc/qubes_rpc/
+cp qubes_rpc/qubes.SyncAppMenus.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.SyncAppMenus
+cp qubes_rpc/qubes.SyncAppMenus $RPM_BUILD_ROOT/etc/qubes_rpc/
 cp ../qrexec/qubes_rpc_multiplexer $RPM_BUILD_ROOT/usr/lib/qubes
-cp aux-tools/qubes.NotifyUpdates.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.NotifyUpdates
-cp aux-tools/qubes.NotifyUpdates $RPM_BUILD_ROOT/etc/qubes_rpc/
-cp aux-tools/qubes.ReceiveUpdates.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.ReceiveUpdates
-cp aux-tools/qubes.ReceiveUpdates $RPM_BUILD_ROOT/etc/qubes_rpc/
+cp qubes_rpc/qubes.NotifyUpdates.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.NotifyUpdates
+cp qubes_rpc/qubes.NotifyUpdates $RPM_BUILD_ROOT/etc/qubes_rpc/
+cp qubes_rpc/qubes.ReceiveUpdates.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.ReceiveUpdates
+cp qubes_rpc/qubes.ReceiveUpdates $RPM_BUILD_ROOT/etc/qubes_rpc/
 install -D aux-tools/qubes-dom0.modules $RPM_BUILD_ROOT/etc/sysconfig/modules/qubes-dom0.modules
 install -D aux-tools/cpufreq-xen.modules $RPM_BUILD_ROOT/etc/sysconfig/modules/cpufreq-xen.modules
 install -D aux-tools/qubes-dom0-updates.cron $RPM_BUILD_ROOT/etc/cron.daily/qubes-dom0-updates.cron
@@ -358,6 +359,7 @@ fi
 /usr/lib/qubes/meminfo-writer
 /usr/lib/qubes/qfile-daemon-dvm*
 /usr/lib/qubes/qubes-notify-updates
+/usr/lib/qubes/qubes-receive-appmenus
 /usr/lib/qubes/qubes-receive-updates
 /usr/lib/qubes/block_add_change
 /usr/lib/qubes/block_remove
