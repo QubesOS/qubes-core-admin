@@ -324,6 +324,9 @@ class QubesVm(object):
         assert self.__qid < qubes_max_qid, "VM id out of bounds!"
         assert self.name is not None
 
+        if not self.verify_name(self.name):
+            raise QubesException("Invalid characters in VM name")
+
         if self.netvm is not None:
             self.netvm.connected_vms[self.qid] = self
 
@@ -491,12 +494,18 @@ class QubesVm(object):
         else:
             return False
 
+    def verify_name(self, name):
+        return re.match(r"^[a-zA-Z0-9-]*$", name) is not None
+
     def pre_rename(self, new_name):
         pass
 
     def set_name(self, name):
         if self.is_running():
             raise QubesException("Cannot change name of running VM!")
+
+        if not self.verify_name(name):
+            raise QubesException("Invalid characters in VM name")
 
         self.pre_rename(name)
 
