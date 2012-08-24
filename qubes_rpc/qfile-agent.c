@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <ioall.h>
 #include <unistd.h>
+#include <errno.h>
 #include <gui-fatal.h>
 #include "filecopy.h"
 #include "crc32.h"
@@ -49,6 +50,37 @@ void do_notify_progress(long long total, int flag)
 	}
 }
 
+void wait_for_result()
+{
+	struct result_header hdr;
+
+	if (!read_all(0, &hdr, sizeof(hdr))) {
+		if (errno == EAGAIN) {
+			// no result sent and stdin still open
+			return;
+		} else {
+			// other read error or EOF
+			exit(1);	// hopefully remote has produced error message
+		}
+	}
+	if (hdr.error_code != 0) {
+		switch (hdr.error_code) {
+			case EEXIST:
+				gui_fatal("File copy: not overwriting existing file. Clean incoming dir, and retry copy");
+				break;
+			case EINVAL:
+				gui_fatal("File copy: Corrupted data from packer");
+				break;
+			default:
+				gui_fatal("File copy: %s",
+						strerror(hdr.error_code));
+		}
+	}
+	if (hdr.crc32 != crc32_sum) {
+		gui_fatal("File transfer failed: checksum mismatch");
+	}
+}
+
 void notify_progress(int size, int flag)
 {
 	static long long total = 0;
@@ -56,6 +88,11 @@ void notify_progress(int size, int flag)
 	total += size;
 	if (total > prev_total + PROGRESS_NOTIFY_DELTA
 	    || (flag != PROGRESS_FLAG_NORMAL)) {
+		// check for possible error from qfile-unpacker; if error occured,
+		// exit() will be called, so don't bother with current state
+		// (notify_progress can be called as callback from copy_file())
+		if (flag == PROGRESS_FLAG_NORMAL)
+			wait_for_result();
 		do_notify_progress(total, flag);
 		prev_total = total;
 	}
@@ -64,8 +101,11 @@ void notify_progress(int size, int flag)
 void write_headers(struct file_header *hdr, char *filename)
 {
 	if (!write_all_with_crc(1, hdr, sizeof(*hdr))
-	    || !write_all_with_crc(1, filename, hdr->namelen))
+	    || !write_all_with_crc(1, filename, hdr->namelen)) {
+		set_block(0);
+		wait_for_result();
 		exit(1);
+	}
 }
 
 int single_file_processor(char *filename, struct stat *st)
@@ -89,13 +129,15 @@ int single_file_processor(char *filename, struct stat *st)
 		hdr.filelen = st->st_size;
 		write_headers(&hdr, filename);
 		ret = copy_file(1, fd, hdr.filelen, &crc32_sum);
-		// if COPY_FILE_WRITE_ERROR, hopefully remote will produce a message
 		if (ret != COPY_FILE_OK) {
 			if (ret != COPY_FILE_WRITE_ERROR)
 				gui_fatal("Copying file %s: %s", filename,
 					  copy_file_status_to_str(ret));
-			else
+			else {
+				set_block(0);
+				wait_for_result();
 				exit(1);
+			}
 		}
 		close(fd);
 	}
@@ -109,9 +151,14 @@ int single_file_processor(char *filename, struct stat *st)
 			gui_fatal("readlink %s", filename);
 		hdr.filelen = st->st_size + 1;
 		write_headers(&hdr, filename);
-		if (!write_all_with_crc(1, name, st->st_size + 1))
+		if (!write_all_with_crc(1, name, st->st_size + 1)) {
+			set_block(0);
+			wait_for_result();
 			exit(1);
+		}
 	}
+	// check for possible error from qfile-unpacker
+	wait_for_result();
 	return 0;
 }
 
@@ -147,7 +194,6 @@ int do_fs_walk(char *file)
 
 void notify_end_and_wait_for_result()
 {
-	struct result_header hdr;
 	struct file_header end_hdr;
 
 	/* nofity end of transfer */
@@ -156,17 +202,8 @@ void notify_end_and_wait_for_result()
 	end_hdr.filelen = 0;
 	write_all_with_crc(1, &end_hdr, sizeof(end_hdr));
 
-	/* wait for result */
-	if (!read_all(0, &hdr, sizeof(hdr))) {
-		exit(1);	// hopefully remote has produced error message
-	}
-	if (hdr.error_code != 0) {
-		gui_fatal("Error writing files: %s",
-			  strerror(hdr.error_code));
-	}
-	if (hdr.crc32 != crc32_sum) {
-		gui_fatal("File transfer failed: checksum mismatch");
-	}
+	set_block(0);
+	wait_for_result();
 }
 
 char *get_abs_path(char *cwd, char *pathname)
@@ -186,6 +223,8 @@ int main(int argc, char **argv)
 	char *sep;
 
 	signal(SIGPIPE, SIG_IGN);
+	// this will allow checking for possible feedback packet in the middle of transfer
+	set_nonblock(0);
 	notify_progress(0, PROGRESS_FLAG_INIT);
 	crc32_sum = 0;
 	cwd = getcwd(NULL, 0);
