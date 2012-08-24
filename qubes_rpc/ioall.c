@@ -75,8 +75,13 @@ int read_all(int fd, void *buf, int size)
 			return 0;
 		}
 		if (ret < 0) {
-			perror_wrapper("read");
+			if (errno != EAGAIN)
+				perror_wrapper("read");
 			return 0;
+		}
+		if (got_read == 0) {
+			// force blocking operation on further reads
+			set_block(fd);
 		}
 		got_read += ret;
 	}
