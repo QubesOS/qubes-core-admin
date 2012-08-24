@@ -32,6 +32,17 @@ void perror_wrapper(char * msg)
 	errno=prev;
 }
 
+void set_nonblock(int fd)
+{
+	int fl = fcntl(fd, F_GETFL, 0);
+	fcntl(fd, F_SETFL, fl | O_NONBLOCK);
+}
+
+void set_block(int fd)
+{
+	int fl = fcntl(fd, F_GETFL, 0);
+	fcntl(fd, F_SETFL, fl & ~O_NONBLOCK);
+}
 
 int write_all(int fd, void *buf, int size)
 {
