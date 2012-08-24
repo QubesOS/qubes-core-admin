@@ -81,6 +81,8 @@ int main(int argc, char ** argv)
 	default:;
 	}
 
+	close(0);
+	close(1);
 	setuid(uid);
 	close(pipefds[1]);
 	wait_for_child(pipefds[0]);
