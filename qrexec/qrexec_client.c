@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <ioall.h>
 #include <sys/wait.h>
+#include <errno.h>
 #include "qrexec.h"
 #include "buffer.h"
 #include "glue.h"
@@ -108,6 +109,10 @@ void handle_input(int s)
 	if (ret == 0) {
 		local_stdout_fd = -1;
 		shutdown(s, SHUT_WR);
+		if (local_stdin_fd == -1) {
+			// if pipe in opposite direction already closed, no need to stay alive
+			do_exit(0);
+		}
 	}
 	if (!write_all(s, buf, ret)) {
 		perror("write daemon");
@@ -136,11 +141,20 @@ void handle_daemon_data(int s)
 
 	switch (hdr.type) {
 	case MSG_SERVER_TO_CLIENT_STDOUT:
-		if (hdr.len == 0)
+		if (local_stdin_fd == -1)
+			break;
+		if (hdr.len == 0) {
 			close(local_stdin_fd);
-		else if (!write_all(local_stdin_fd, buf, hdr.len)) {
-			perror("write local stdout");
-			do_exit(1);
+			local_stdin_fd = -1;
+		} else if (!write_all(local_stdin_fd, buf, hdr.len)) {
+			if (errno == EPIPE) {
+				// remote side have closed its stdin, handle data in oposite
+				// direction (if any) before exit
+				local_stdin_fd = -1;
+			} else {
+				perror("write local stdout");
+				do_exit(1);
+			}
 		}
 		break;
 	case MSG_SERVER_TO_CLIENT_STDERR:
