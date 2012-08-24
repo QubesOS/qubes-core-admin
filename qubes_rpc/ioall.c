@@ -42,7 +42,6 @@ int write_all(int fd, void *buf, int size)
 		if (ret == -1 && errno == EINTR)
 			continue;
 		if (ret <= 0) {
-			perror_wrapper("write");
 			return 0;
 		}
 		written += ret;
