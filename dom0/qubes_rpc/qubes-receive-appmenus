@@ -1,0 +1,226 @@
+#!/usr/bin/python
+#
+# The Qubes OS Project, http://www.qubes-os.org
+#
+# Copyright (C) 2011  Marek Marczykowski <marmarek@mimuw.edu.pl>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+#
+
+import subprocess
+import re
+import os
+import sys
+import fnmatch
+import shutil
+from optparse import OptionParser
+from qubes.qubes import QubesVmCollection,QubesException
+from qubes.qubes import qrexec_client_path
+
+# fields required to be present (and verified) in retrieved desktop file
+required_fields = [ "Name", "Exec" ]
+
+#limits
+appmenus_line_size = 1024
+appmenus_line_count = 100000
+
+# regexps for sanitization of retrieved values
+std_re = re.compile(r"^[/a-zA-Z0-9.,&() -]*$")
+fields_regexp = {
+    "Name": std_re,
+    "GenericName": std_re,
+    "Comment": std_re,
+    "Categories": re.compile(r"^[a-zA-Z0-9/.; -]*$"),
+    "Exec": re.compile(r"^[a-zA-Z0-9%>/:.= -]*$"),
+}
+
+def get_appmenus(xid):
+    global appmenus_line_count
+    global appmenus_line_size
+    untrusted_appmenulist = []
+    if xid == -1:
+        while appmenus_line_count > 0:
+            untrusted_line = sys.stdin.readline(appmenus_line_size)
+            if untrusted_line == "":
+                break;
+            untrusted_appmenulist.append(untrusted_line.strip())
+            appmenus_line_count -= 1
+        if appmenus_line_count == 0:
+            raise QubesException("Line count limit exceeded")
+    else:
+        p = subprocess.Popen ([qrexec_client_path, '-d', str(xid),
+                'user:QUBESRPC qubes.GetAppmenus dom0'], stdout=subprocess.PIPE)
+        while appmenus_line_count > 0:
+            untrusted_line = p.stdout.readline(appmenus_line_size)
+            if untrusted_line == "":
+                break;
+            untrusted_appmenulist.append(untrusted_line.strip())
+            appmenus_line_count -= 1
+        p.wait()
+        if p.returncode != 0:
+            raise QubesException("Error getting application list")
+        if appmenus_line_count == 0:
+            raise QubesException("Line count limit exceeded")
+
+    row_no = 0
+    appmenus = {}
+    line_rx = re.compile(r"([a-zA-Z0-9-.]+.desktop):([a-zA-Z0-9-]+(?:\[[a-zA-Z@_]+\])?)=(.*)")
+    ignore_rx = re.compile(r".*([a-zA-Z0-9-.]+.desktop):(#.*|\s+)$")
+    for untrusted_line in untrusted_appmenulist:
+        # Ignore blank lines and comments
+        if len(untrusted_line) == 0 or ignore_rx.match(untrusted_line):
+            continue 
+        # use search instead of match to skip file path
+        untrusted_m = line_rx.search(untrusted_line)
+        if untrusted_m:
+            untrusted_key = untrusted_m.group(2)
+            untrusted_value = untrusted_m.group(3)
+            # Look only at predefined keys
+            if fields_regexp.has_key(untrusted_key):
+                if fields_regexp[untrusted_key].match(untrusted_value):
+                    # now values are sanitized
+                    key = untrusted_key
+                    value = untrusted_value
+                    filename = untrusted_m.group(1)
+
+                    if not appmenus.has_key(filename):
+                        appmenus[filename] = {}
+
+                    appmenus[filename][key]=value
+                else:
+                    print >>sys.stderr, "Warning: ignoring key %s: %s" % (untrusted_key, untrusted_value)
+            # else: ignore this key
+        else:
+            print >>sys.stderr, "Warning: ignoring line: %s" % (untrusted_line);
+
+    return appmenus
+
+
+def create_template(path, values):
+
+    # check if all required fields are present
+    for key in required_fields:
+        if not values.has_key(key):
+            print >>sys.stderr, "Warning: not creating/updating '%s' because of missing '%s' key" % (path, key)
+            return
+
+    desktop_file = open(path, "w")
+    desktop_file.write("[Desktop Entry]\n")
+    desktop_file.write("Version=1.0\n")
+    desktop_file.write("Type=Application\n")
+    desktop_file.write("Terminal=false\n")
+    desktop_file.write("X-Qubes-VmName=%VMNAME%\n")
+    desktop_file.write("Icon=%VMDIR%/icon.png\n")
+    for key in ["Name", "GenericName" ]:
+        if values.has_key(key):
+            desktop_file.write("{0}=%VMNAME%: {1}\n".format(key, values[key]))
+    
+    for key in [ "Comment", "Categories" ]:
+        if values.has_key(key):
+            desktop_file.write("{0}={1}\n".format(key, values[key]))
+
+    desktop_file.write("Exec=qvm-run -q --tray -a %VMNAME% '{0}'\n".format(values['Exec']))
+    desktop_file.close()
+
+
+def main():
+
+    env_vmname = os.environ.get("QREXEC_REMOTE_DOMAIN")
+    usage = "usage: %prog [options] <vm-name>\n"\
+            "Updates desktop file templates for given StandaloneVM or TemplateVM"
+
+    parser = OptionParser (usage)
+    parser.add_option ("-v", "--verbose", action="store_true", dest="verbose", default=False)
+    parser.add_option ("--force-root", action="store_true", dest="force_root", default=False,
+                       help="Force to run, even with root privileges")
+
+    (options, args) = parser.parse_args ()
+    if (len (args) != 1) and env_vmname is None:
+        parser.error ("You must specify at least the VM name!")
+
+    if env_vmname:
+        vmname=env_vmname
+    else:
+        vmname=args[0]
+
+    if os.geteuid() == 0:
+        if not options.force_root:
+            print >> sys.stderr, "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
+            print >> sys.stderr, "Retry as unprivileged user."
+            print >> sys.stderr, "... or use --force-root to continue anyway."
+            exit(1)
+
+    qvm_collection = QubesVmCollection()
+    qvm_collection.lock_db_for_reading()
+    qvm_collection.load()
+    qvm_collection.unlock_db()
+
+    vm = qvm_collection.get_vm_by_name(vmname)
+
+    if vm is None:
+        print >>sys.stderr, "ERROR: A VM with the name '{0}' does not exist in the system.".format(vmname)
+        exit(1)
+
+    if vm.template is not None:
+        print >>sys.stderr, "ERROR: To sync appmenus for template based VM, do it on template instead"
+        exit(1)
+
+    if not vm.is_running():
+        print >>sys.stderr, "ERROR: Appmenus can be retrieved only from running VM - start it first"
+        exit(1)
+
+    new_appmenus = {}
+    if env_vmname is None:
+        # Get appmenus from VM
+        xid = vm.get_xid()
+        assert xid > 0
+
+        new_appmenus = get_appmenus(xid)
+    else:
+        options.verbose = False
+        new_appmenus = get_appmenus(-1)
+
+    if len(new_appmenus) == 0:
+        print >>sys.stderr, "ERROR: No appmenus received, terminating"
+        exit(1)
+
+    if not os.path.exists(vm.appmenus_templates_dir):
+        os.mkdir(vm.appmenus_templates_dir)
+
+    # Create new/update existing templates
+    if options.verbose:
+        print >> sys.stderr, "--> Got {0} appmenus, storing to disk".format(str(len(new_appmenus)))
+    for appmenu_file in new_appmenus.keys():
+        if options.verbose:
+            if os.path.exists(vm.appmenus_templates_dir + '/' + appmenu_file):
+                print >> sys.stderr, "---> Updating {0}".format(appmenu_file)
+            else:
+                print >> sys.stderr, "---> Creating {0}".format(appmenu_file)
+        create_template(vm.appmenus_templates_dir + '/' + appmenu_file, new_appmenus[appmenu_file])
+
+    # Delete appmenus of remove applications
+    if options.verbose:
+        print >> sys.stderr, "--> Cleaning old files"
+    for appmenu_file in os.listdir(vm.appmenus_templates_dir):
+        if not fnmatch.fnmatch(appmenu_file, '*.desktop'):
+            continue
+
+        if not new_appmenus.has_key(appmenu_file):
+            if options.verbose:
+                print >> sys.stderr, "---> Removing {0}".format(appmenu_file)
+            os.unlink(vm.appmenus_templates_dir + '/' + appmenu_file)
+
+main()

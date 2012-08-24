@@ -66,9 +66,12 @@ def handle_dom0updates(updatevm):
     os.chmod(updates_rpm_dir, 0775)
     subprocess.check_call(["/usr/lib/qubes/qfile-dom0-unpacker", str(os.getuid()), updates_rpm_dir])
     # Verify received files
-    for f in os.listdir(updates_rpm_dir):
-        full_path = updates_rpm_dir + "/" + f
-        if package_regex.match(f):
+    for untrusted_f in os.listdir(updates_rpm_dir):
+        if not package_regex.match(untrusted_f):
+            dom0updates_fatal(untrusted_f, 'Domain ' + source + ' sent unexpected file: ' + untrusted_f)
+        else:
+            f = untrusted_f
+            full_path = updates_rpm_dir + "/" + f
             if os.path.islink(full_path) or not os.path.isfile(full_path):
                 dom0updates_fatal(f, 'Domain ' + source + ' sent not regular file')
             p = subprocess.Popen (["/bin/rpm", "-K", full_path],
@@ -78,8 +81,6 @@ def handle_dom0updates(updatevm):
                 dom0updates_fatal(f, 'Error while verifing %s signature: %s' % (f, output))
             if not gpg_ok_regex.search(output.strip()):
                 dom0updates_fatal(f, 'Domain ' + source + ' sent not signed rpm: ' + f)
-        else:
-            dom0updates_fatal(f, 'Domain ' + source + ' sent unexpected file: ' + f)
     if updates_error_file_handle is not None:
         updates_error_file_handle.close()
     # After updates received - create repo metadata

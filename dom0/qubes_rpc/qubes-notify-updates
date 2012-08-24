@@ -50,10 +50,12 @@ def main():
     os.umask(0002)
     qubes_gid = grp.getgrnam('qubes').gr_gid
     
-    update_count = sys.stdin.readline(128).strip()
-    if not update_count.isdigit():
-        print >> sys.stderr, 'Domain ' + source + ' sent invalid number of updates: ' + update_count
+    untrusted_update_count = sys.stdin.readline(128).strip()
+    if not untrusted_update_count.isdigit():
+        print >> sys.stderr, 'Domain ' + source + ' sent invalid number of updates: %s' % untrusted_update_count
         exit(1)
+    # now sanitized
+    update_count = untrusted_update_count
     if source_vm.updateable:
         # Just trust information from VM itself
         update_f = open(source_vm.dir_path + '/' + updates_stat_file, "w")
