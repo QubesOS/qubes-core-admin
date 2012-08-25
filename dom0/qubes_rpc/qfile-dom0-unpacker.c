@@ -52,12 +52,11 @@ void wait_for_child(int statusfd)
 	}
 }
 
-extern void do_unpack(int);
+extern int do_unpack(void);
 
 int main(int argc, char ** argv)
 {
 	char *incoming_dir;
-	int pipefds[2];
 	int uid;
 	char *var;
 	long long files_limit = DEFAULT_MAX_UPDATES_FILES;
@@ -73,32 +72,15 @@ int main(int argc, char ** argv)
 	if ((var=getenv("UPDATES_MAX_FILES")))
 		files_limit = atoll(var);
 
-	pipe(pipefds);
-
 	uid = prepare_creds_return_uid(argv[1]);
 
 	incoming_dir = argv[2];
 	mkdir(incoming_dir, 0700);
 	if (chdir(incoming_dir))
 		gui_fatal("Error chdir to %s", incoming_dir); 
-	switch (fork()) {
-	case -1:
-		perror("fork");
-		exit(1);
-	case 0:
-		if (chroot(incoming_dir)) //impossible
-			gui_fatal("Error chroot to %s", incoming_dir);
-		setuid(uid);
-		close(pipefds[0]);
-		set_size_limit(bytes_limit, files_limit);
-		do_unpack(pipefds[1]);
-		exit(0);
-	default:;
-	}
-
+	if (chroot(incoming_dir)) //impossible
+		gui_fatal("Error chroot to %s", incoming_dir);
 	setuid(uid);
-	close(pipefds[1]);
-	wait_for_child(pipefds[0]);
-
-	return 0;
+	set_size_limit(bytes_limit, files_limit);
+	return do_unpack();
 }
