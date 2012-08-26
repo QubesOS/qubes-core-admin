@@ -107,6 +107,7 @@ void handle_input(int s)
 		do_exit(1);
 	}
 	if (ret == 0) {
+		close(local_stdout_fd);
 		local_stdout_fd = -1;
 		shutdown(s, SHUT_WR);
 		if (local_stdin_fd == -1) {
