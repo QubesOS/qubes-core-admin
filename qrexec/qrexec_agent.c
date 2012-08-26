@@ -228,8 +228,8 @@ void send_exit_code(int client_id, int status)
 	s_hdr.len = sizeof status;
 	write_all_vchan_ext(&s_hdr, sizeof s_hdr);
 	write_all_vchan_ext(&status, sizeof(status));
-	fprintf(stderr, "send exit code for client_id %d pid %d\n",
-		client_id, client_info[client_id].pid);
+	fprintf(stderr, "send exit code %d for client_id %d pid %d\n",
+		status, client_id, client_info[client_id].pid);
 }
 
 
