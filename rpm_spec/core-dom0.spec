@@ -400,12 +400,12 @@ fi
 /usr/lib/qubes/qubes_rpc_multiplexer
 /usr/lib/qubes/qrexec_policy
 %dir /etc/qubes_rpc/policy
-%attr(0664,root,qubes) /etc/qubes_rpc/policy/qubes.Filecopy
-%attr(0664,root,qubes) /etc/qubes_rpc/policy/qubes.OpenInVM
-%attr(0664,root,qubes) /etc/qubes_rpc/policy/qubes.SyncAppMenus
-%attr(0664,root,qubes) /etc/qubes_rpc/policy/qubes.NotifyUpdates
-%attr(0664,root,qubes) /etc/qubes_rpc/policy/qubes.ReceiveUpdates
-%attr(0664,root,qubes) /etc/qubes_rpc/policy/qubes.VMShell
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes_rpc/policy/qubes.Filecopy
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes_rpc/policy/qubes.OpenInVM
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes_rpc/policy/qubes.SyncAppMenus
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes_rpc/policy/qubes.NotifyUpdates
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes_rpc/policy/qubes.ReceiveUpdates
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes_rpc/policy/qubes.VMShell
 /etc/qubes_rpc/qubes.SyncAppMenus
 /etc/qubes_rpc/qubes.NotifyUpdates
 /etc/qubes_rpc/qubes.ReceiveUpdates
