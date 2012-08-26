@@ -116,8 +116,24 @@ void handle_input(int s)
 		}
 	}
 	if (!write_all(s, buf, ret)) {
-		perror("write daemon");
-		do_exit(1);
+		if (errno == EPIPE) {
+			// daemon disconnected its end of socket, so no future data will be
+			// send there; there is no sense to read from child stdout
+			//
+			// since AF_UNIX socket is buffered it doesn't mean all data was
+			// received from the agent
+			close(local_stdout_fd);
+			local_stdout_fd = -1;
+			if (local_stdin_fd == -1) {
+				// since child does no longer accept data on its stdin, doesn't
+				// make sense to process the data from the daemon
+				//
+				// we don't know real exit VM process code (exiting here, before
+				// MSG_SERVER_TO_CLIENT_EXIT_CODE message)
+				do_exit(1);
+			}
+		} else
+			perror("write daemon");
 	}
 }
 

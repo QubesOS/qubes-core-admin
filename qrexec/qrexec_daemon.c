@@ -38,8 +38,10 @@ enum client_flags {
 	CLIENT_INVALID = 0,	// table slot not used
 	CLIENT_CMDLINE = 1,	// waiting for cmdline from client
 	CLIENT_DATA = 2,	// waiting for data from client
-	CLIENT_DONT_READ = 4,	// don't read from the client, the other side pipe is full, or EOF
-	CLIENT_OUTQ_FULL = 8	// don't write to client, its stdin pipe is full
+	CLIENT_DONT_READ = 4,	// don't read from the client, the other side pipe is full, or EOF (additionally marked with CLIENT_EOF)
+	CLIENT_OUTQ_FULL = 8,	// don't write to client, its stdin pipe is full
+	CLIENT_EOF = 16,	// got EOF
+	CLIENT_EXITED = 32	// only send remaining data from client and remove from list
 };
 
 struct _client {
@@ -170,7 +172,7 @@ void terminate_client_and_flush_data(int fd)
 	int i;
 	struct server_header s_hdr;
 
-	if (fork_and_flush_stdin(fd, &clients[fd].buffer))
+	if (!(clients[fd].state & CLIENT_EXITED) && fork_and_flush_stdin(fd, &clients[fd].buffer))
 		children_count++;
 	close(fd);
 	clients[fd].state = CLIENT_INVALID;
@@ -266,7 +268,10 @@ void handle_message_from_client(int fd)
 	write_all_vchan_ext(&s_hdr, sizeof(s_hdr));
 	write_all_vchan_ext(buf, ret);
 	if (ret == 0)		// EOF - so don't select() on this client
-		clients[fd].state |= CLIENT_DONT_READ;
+		clients[fd].state |= CLIENT_DONT_READ | CLIENT_EOF;
+	if (clients[fd].state & CLIENT_EXITED)
+		//client already exited and all data sent - cleanup now
+		terminate_client_and_flush_data(fd);
 }
 
 /* 
@@ -282,7 +287,14 @@ void write_buffered_data_to_client(int client_id)
 		clients[client_id].state &= ~CLIENT_OUTQ_FULL;
 		break;
 	case WRITE_STDIN_ERROR:
-		terminate_client_and_flush_data(client_id);
+		// do not write to this fd anymore
+		clients[client_id].state |= CLIENT_EXITED;
+		if (clients[client_id].state & CLIENT_EOF)
+			terminate_client_and_flush_data(client_id);
+		else
+			// client will be removed when read returns 0 (EOF)
+			// clear CLIENT_OUTQ_FULL flag to no select on this fd anymore
+			clients[client_id].state &= ~CLIENT_OUTQ_FULL;
 		break;
 	case WRITE_STDIN_BUFFERED:	// no room for all data, don't clear CLIENT_OUTQ_FULL flag
 		break;
@@ -305,6 +317,9 @@ void get_packet_data_from_agent_and_pass_to_client(int client_id, struct client_
 	/* make both the header and data be consecutive in the buffer */
 	*(struct client_header *) buf = *hdr;
 	read_all_vchan_ext(buf + sizeof(*hdr), len);
+	if (clients[client_id].state & CLIENT_EXITED)
+		// ignore data for no longer running client
+		return;
 
 	switch (write_stdin
 		(client_id, client_id, buf, len + sizeof(*hdr),
@@ -315,7 +330,11 @@ void get_packet_data_from_agent_and_pass_to_client(int client_id, struct client_
 		clients[client_id].state |= CLIENT_OUTQ_FULL;
 		break;
 	case WRITE_STDIN_ERROR:
-		terminate_client_and_flush_data(client_id);
+		// do not write to this fd anymore
+		clients[client_id].state |= CLIENT_EXITED;
+		// if already got EOF, remove client
+		if (clients[client_id].state & CLIENT_EOF)
+			terminate_client_and_flush_data(client_id);
 		break;
 	default:
 		fprintf(stderr, "unknown write_stdin?\n");
