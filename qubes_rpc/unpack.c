@@ -49,6 +49,7 @@ void send_status_and_crc(int code) {
 
 void do_exit(int code)
 {
+	close(0);
 	send_status_and_crc(code);
 	exit(code);
 }
