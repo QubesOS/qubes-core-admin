@@ -186,17 +186,18 @@ void terminate_client_and_flush_data(int fd)
 	write_all_vchan_ext(&s_hdr, sizeof(s_hdr));
 }
 
-void get_cmdline_body_from_client_and_pass_to_agent(int fd, struct server_header
+int get_cmdline_body_from_client_and_pass_to_agent(int fd, struct server_header
 						    *s_hdr)
 {
 	int len = s_hdr->len;
 	char buf[len];
 	if (!read_all(fd, buf, len)) {
 		terminate_client_and_flush_data(fd);
-		return;
+		return 0;
 	}
 	write_all_vchan_ext(s_hdr, sizeof(*s_hdr));
 	write_all_vchan_ext(buf, len);
+	return 1;
 }
 
 void handle_cmdline_message_from_client(int fd)
@@ -224,7 +225,10 @@ void handle_cmdline_message_from_client(int fd)
 
 	s_hdr.client_id = fd;
 	s_hdr.len = hdr.len;
-	get_cmdline_body_from_client_and_pass_to_agent(fd, &s_hdr);
+	if (!get_cmdline_body_from_client_and_pass_to_agent(fd, &s_hdr))
+		// client disconnected while sending cmdline, above call already
+		// cleaned up client info
+		return;
 	clients[fd].state = CLIENT_DATA;
 	set_nonblock(fd);	// so that we can detect full queue without blocking
 	if (hdr.type == MSG_CLIENT_TO_SERVER_JUST_EXEC)
