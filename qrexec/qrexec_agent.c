@@ -239,8 +239,9 @@ void remove_process(int client_id, int status)
 	int i;
 	if (!client_info[client_id].pid)
 		return;
-	fork_and_flush_stdin(client_info[client_id].stdin_fd,
-			     &client_info[client_id].buffer);
+	if (client_info[client_id].stdin_fd >= 0)
+		fork_and_flush_stdin(client_info[client_id].stdin_fd,
+				&client_info[client_id].buffer);
 #if 0
 //      let's let it die by itself, possibly after it has received buffered stdin
 	kill(client_info[client_id].pid, SIGKILL);
@@ -283,7 +284,7 @@ void handle_input(int client_id, int len)
 	char buf[len];
 
 	read_all_vchan_ext(buf, len);
-	if (!client_info[client_id].pid)
+	if (!client_info[client_id].pid || client_info[client_id].stdin_fd == -1)
 		return;
 
 	if (len == 0) {
@@ -306,7 +307,10 @@ void handle_input(int client_id, int len)
 		client_info[client_id].is_blocked = 1;
 		break;
 	case WRITE_STDIN_ERROR:
-		remove_process(client_id, 128);
+		// do not remove process, as it still can write data to stdout
+		close(client_info[client_id].stdin_fd);
+		client_info[client_id].stdin_fd = -1;
+		client_info[client_id].is_blocked = 0;
 		break;
 	default:
 		fprintf(stderr, "unknown write_stdin?\n");
@@ -494,7 +498,11 @@ void flush_client_data_agent(int client_id)
 		}
 		break;
 	case WRITE_STDIN_ERROR:
-		remove_process(client_id, 128);
+		// do not remove process, as it still can write data to stdout
+		info->is_blocked = 0;
+		close(info->stdin_fd);
+		info->stdin_fd = -1;
+		info->is_close_after_flush_needed = 0;
 		break;
 	case WRITE_STDIN_BUFFERED:
 		break;
