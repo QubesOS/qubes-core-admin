@@ -42,7 +42,8 @@ void send_status_and_crc(int code) {
 	saved_errno = errno;
 	hdr.error_code = code;
 	hdr.crc32 = crc32_sum;
-	write_all(1, &hdr, sizeof(hdr));
+	if (!write_all(1, &hdr, sizeof(hdr)))
+		perror("write status");
 	errno = saved_errno;
 }
 
