@@ -122,21 +122,14 @@ def block_name_to_majorminor(name):
     major = 0
     minor = 0
     dXpY_style = False
-
-    name_match = re.match(r"([a-z]+)([a-z])([0-9]*)", name)
-    if not name_match:
-        name_match = re.match(r"([a-z]+)([0-9]*)(?:p([0-9]+)?", name)
-        if not name_match:
-            raise QubesException("Invalid device name: %s" % name)
-        else:
-            dXpY_style = True
-
     disk = True
-    if name_match.group(1) == "xvd":
+
+    if name.startswith("xvd"):
         major = 202
-    elif name_match.group(1) == "sd":
+    elif name.startswith("sd"):
         major = 8
-    elif name_match.group(1) == "mmcblk":
+    elif name.startswith("mmcblk"):
+        dXpY_style = True
         major = 179
     elif name.startswith("scd"):
         disk = False
@@ -153,6 +146,13 @@ def block_name_to_majorminor(name):
     else:
         # Unknown device
         return (0, 0)
+
+    if not dXpY_style:
+        name_match = re.match(r"^([a-z]+)([a-z])([0-9]*)$", name)
+    else:
+        name_match = re.match(r"^([a-z]+)([0-9]*)(?:p([0-9]+))?$", name)
+    if not name_match:
+        raise QubesException("Invalid device name: %s" % name)
 
     if disk:
         if dXpY_style:
@@ -191,7 +191,7 @@ def block_find_unused_frontend(vm = None):
     return None
 
 def block_list(vm = None, system_disks = False):
-    device_re = re.compile(r"^[a-z0-9]{1,8}$")
+    device_re = re.compile(r"^[a-z0-9]{1,12}$")
     # FIXME: any better idea of desc_re?
     desc_re = re.compile(r"^.{1,255}$")
     mode_re = re.compile(r"^[rw]$")

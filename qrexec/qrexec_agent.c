@@ -554,14 +554,14 @@ int main()
 
 
 	for (;;) {
+		sigprocmask(SIG_BLOCK, &chld_set, NULL);
+		if (child_exited)
+			reap_children();
 		max = fill_fds_for_select(&rdset, &wrset);
 		if (buffer_space_vchan_ext() <=
 		    sizeof(struct server_header))
 			FD_ZERO(&rdset);
 
-		sigprocmask(SIG_BLOCK, &chld_set, NULL);
-		if (child_exited)
-			reap_children();
 		wait_for_vchan_or_argfd(max, &rdset, &wrset);
 		sigprocmask(SIG_UNBLOCK, &chld_set, NULL);
 
