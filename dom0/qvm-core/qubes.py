@@ -1441,7 +1441,7 @@ class QubesVm(object):
         if verbose:
             print >> sys.stderr, "--> Starting the qrexec daemon..."
         xid = self.get_xid()
-        retcode = subprocess.call ([qrexec_daemon_path, str(xid)])
+        retcode = subprocess.call ([qrexec_daemon_path, str(xid), self.default_user])
         if (retcode != 0) :
             self.force_shutdown()
             raise OSError ("ERROR: Cannot execute qrexec_daemon!")

@@ -59,6 +59,9 @@ struct _client clients[MAX_CLIENTS];	// data on all qrexec_client connections
 
 int max_client_fd = -1;		// current max fd of all clients; so that we need not to scan all the "clients" table
 int qrexec_daemon_unix_socket_fd;	// /var/run/qubes/qrexec.xid descriptor
+char *default_user = "user";
+char default_user_keyword[] = "DEFAULT:";
+#define default_user_keyword_len_without_colon (sizeof(default_user_keyword)-2)
 
 void sigusr1_handler(int x)
 {
@@ -193,12 +196,22 @@ int get_cmdline_body_from_client_and_pass_to_agent(int fd, struct server_header
 {
 	int len = s_hdr->len;
 	char buf[len];
+	int use_default_user = 0;
 	if (!read_all(fd, buf, len)) {
 		terminate_client_and_flush_data(fd);
 		return 0;
 	}
+	if (!strncmp(buf, default_user_keyword, default_user_keyword_len_without_colon+1)) {
+		use_default_user = 1;
+		s_hdr->len -= default_user_keyword_len_without_colon; // -1 because of colon
+		s_hdr->len += strlen(default_user);
+	}
 	write_all_vchan_ext(s_hdr, sizeof(*s_hdr));
-	write_all_vchan_ext(buf, len);
+	if (use_default_user) {
+		write_all_vchan_ext(default_user, strlen(default_user));
+		write_all_vchan_ext(buf+default_user_keyword_len_without_colon, len-default_user_keyword_len_without_colon);
+	} else
+		write_all_vchan_ext(buf, len);
 	return 1;
 }
 
@@ -580,10 +593,12 @@ int main(int argc, char **argv)
 	int max;
 	sigset_t chld_set;
 
-	if (argc != 2) {
-		fprintf(stderr, "usage: %s domainid\n", argv[0]);
+	if (argc != 2 && argc != 3) {
+		fprintf(stderr, "usage: %s domainid [default user]\n", argv[0]);
 		exit(1);
 	}
+	if (argc == 3)
+		default_user = argv[2];
 	init(atoi(argv[1]));
 	sigemptyset(&chld_set);
 	sigaddset(&chld_set, SIGCHLD);
