@@ -64,14 +64,14 @@ def main():
 
     # Ignore retcode, try even if nm-online failed - user can setup network manually
     #  on-online has timeout 30sec by default
-    net_vm.run('user:nm-online -x', verbose=verbose, wait=True, ignore_stderr=True)
+    net_vm.run('DEFAULT:nm-online -x', verbose=verbose, wait=True, ignore_stderr=True)
 
     # Sync clock
     if clock_vm.run('root:QUBESRPC qubes.SyncNtpClock dom0', verbose=verbose, wait=True, ignore_stderr=True) != 0:
         print >> sys.stderr, 'Time sync failed, aborting!'
         sys.exit(1)
     
-    p = clock_vm.run('user:date -u', verbose=verbose, passio_popen=True, ignore_stderr=True)
+    p = clock_vm.run('DEFAULT:date -u', verbose=verbose, passio_popen=True, ignore_stderr=True)
     date_out = p.stdout.read(100)
     date_out = date_out.strip()
     if not re.match(r'^[A-Za-z]* [A-Za-z]* [ 0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9] [A-Z]* [0-9][0-9][0-9][0-9]$', date_out):
