@@ -174,7 +174,7 @@ def main():
         if policy_dict.has_key("action.user"):
             user=policy_dict["action.user"]
         else:
-            user="user"
+            user="DEFAULT"
         do_execute(domain, target, user, exec_index, process_ident)
 
     print >> sys.stderr, "Rpc denied:", domain, target, exec_index    
