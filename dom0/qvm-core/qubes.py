@@ -486,7 +486,7 @@ class QubesVm(object):
             return False
 
     def verify_name(self, name):
-        return re.match(r"^[a-zA-Z0-9-]*$", name) is not None
+        return re.match(r"^[a-zA-Z0-9_-]*$", name) is not None
 
     def pre_rename(self, new_name):
         pass
