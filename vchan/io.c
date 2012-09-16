@@ -78,6 +78,14 @@ int libvchan_wait(struct libvchan *ctrl)
 	int ret;
 
 	ret = xc_evtchn_pending_with_flush(ctrl->evfd);
+	// I don't know how to avoid evtchn ring buffer overflow without
+	// introducing any race condition (in qrexec-agent code). Because of that,
+	// handle overflow with ring reset - because we just received some events
+	// (overflow means ring full, so some events was recorded...) the reset
+	// isn't critical here - always after libvchan_wait we check if there is
+	// something to read from the vchan
+	if (ret == -1 && GetLastError() == ERROR_IO_DEVICE)
+		ret = xc_evtchn_reset(ctrl->evfd);
 	if (ret!=-1 && xc_evtchn_unmask(ctrl->evfd, ctrl->evport))
 		return -1;
 	if (ret!=-1 && libvchan_is_eof(ctrl))
