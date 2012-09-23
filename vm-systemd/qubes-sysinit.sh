@@ -69,3 +69,6 @@ debug_mode=`$XS_READ qubes-debug-mode 2> /dev/null`
 if [ -n "$debug_mode" -a "$debug_mode" -gt 0 ]; then
     echo "GUI_OPTS=-vv" >> /var/run/qubes-service-environment
 fi
+
+[ -x /rw/config/rc.local-early ] && /rw/config/rc.local-early
+

@@ -21,6 +21,7 @@ if [ -e /dev/xvdb ] ; then
 
         mkdir -p /rw/config
         touch /rw/config/rc.local
+        touch /rw/config/rc.local-early
 
         mkdir -p /rw/home
         cp -a /home.orig/user /home
