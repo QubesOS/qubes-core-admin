@@ -2446,7 +2446,7 @@ class QubesHVm(QubesVm):
         if self.qrexec_installed:
             if 'gui' in kwargs and kwargs['gui']==False:
                 command = "nogui:" + command
-            super(QubesHVm, self).run(command, **kwargs)
+            return super(QubesHVm, self).run(command, **kwargs)
         else:
             raise QubesException("Needs qrexec agent installed in VM to use this function. See also qvm-prefs.")
 
