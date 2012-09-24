@@ -2473,6 +2473,16 @@ class QubesHVm(QubesVm):
         if self.qrexec_installed:
             super(QubesHVm, self).start_qrexec_daemon(**kwargs)
 
+            if kwargs.get('verbose'):
+                print >> sys.stderr, "--> Waiting for user '%s' login..." % self.default_user
+
+            p = self.run('SYSTEM:QUBESRPC qubes.WaitForSession', passio_popen=True, gui=False, wait=True)
+            p.communicate(input=self.default_user)
+
+            retcode = subprocess.call([qubes_clipd_path])
+            if retcode != 0:
+                print >> sys.stderr, "ERROR: Cannot start qclipd!"
+
     def pause(self):
         if dry_run:
             return
