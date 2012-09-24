@@ -1361,6 +1361,7 @@ class QubesVm(object):
 
         if passio_popen:
             popen_kwargs={'stdout': subprocess.PIPE}
+            popen_kwargs['stdin'] = subprocess.PIPE
             if passio_stderr:
                 popen_kwargs['stderr'] = subprocess.PIPE
             else:
