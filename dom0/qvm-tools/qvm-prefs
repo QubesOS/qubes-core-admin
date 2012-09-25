@@ -84,6 +84,9 @@ def do_list(vm):
     if hasattr(vm, 'qrexec_installed'):
         print fmt.format("qrexec_installed", str(vm.qrexec_installed))
 
+    if hasattr(vm, 'qrexec_timeout'):
+        print fmt.format("qrexec timeout", str(vm.qrexec_timeout))
+
     if hasattr(vm, 'drive'):
         print fmt.format("drive", str(vm.drive))
 
@@ -333,6 +336,14 @@ def set_qrexec_installed(vms, vm, args):
     vm.qrexec_installed = bool(eval(args[0].capitalize()))
     return True
 
+def set_qrexec_timeout(vms, vm, args):
+    if len (args) != 1:
+        print >> sys.stderr, "Missing timeout value (seconds)!"
+        return False
+
+    vm.qrexec_timeout = int(args[0])
+    return True
+
 def set_timezone(vms, vm, args):
     if len (args) != 1:
         print >> sys.stderr, "Missing value ('localtime' or timeoffset in seconds)!"
@@ -362,6 +373,7 @@ properties = {
     "debug": set_debug,
     "default_user": set_default_user,
     "qrexec_installed": set_qrexec_installed,
+    "qrexec_timeout": set_qrexec_timeout,
     "timezone": set_timezone,
 }
 

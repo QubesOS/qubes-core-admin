@@ -260,6 +260,7 @@ class QubesVm(object):
             "services": { "default": {}, "eval": "eval(str(value))" },
             "debug": { "default": False },
             "default_user": { "default": "user" },
+            "qrexec_timeout": { "default": 60, "eval": "int(value)" },
             ##### Internal attributes - will be overriden in __init__ regardless of args
             "appmenus_templates_dir": { "eval": \
                 'self.dir_path + "/" + default_appmenus_templates_subdir if self.updateable else ' + \
@@ -280,7 +281,7 @@ class QubesVm(object):
             'uses_default_kernel', 'kernel', 'uses_default_kernelopts',\
             'kernelopts', 'services', 'installed_by_rpm',\
             'uses_default_netvm', 'include_in_backups', 'debug',\
-            'default_user' ]:
+            'default_user', 'qrexec_timeout' ]:
             attrs[prop]['save'] = 'str(self.%s)' % prop
         # Simple paths
         for prop in ['conf_file', 'root_img', 'volatile_img', 'private_img']:
@@ -1442,7 +1443,9 @@ class QubesVm(object):
         if verbose:
             print >> sys.stderr, "--> Starting the qrexec daemon..."
         xid = self.get_xid()
-        retcode = subprocess.call ([qrexec_daemon_path, str(xid), self.default_user])
+        qrexec_env = os.environ
+        qrexec_env['QREXEC_STARTUP_TIMEOUT'] = str(self.qrexec_timeout)
+        retcode = subprocess.call ([qrexec_daemon_path, str(xid), self.default_user], env=qrexec_env)
         if (retcode != 0) :
             self.force_shutdown()
             raise OSError ("ERROR: Cannot execute qrexec_daemon!")
@@ -2867,7 +2870,8 @@ class QubesVmCollection(dict):
                 "installed_by_rpm", "internal",
                 "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
                 "maxmem", "kernel", "uses_default_kernel", "kernelopts", "uses_default_kernelopts",
-                "mac", "services", "include_in_backups", "debug", "default_user", "qrexec_installed", "drive" )
+                "mac", "services", "include_in_backups", "debug",
+                "default_user", "qrexec_timeout", "qrexec_installed", "drive" )
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)
