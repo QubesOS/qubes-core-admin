@@ -95,13 +95,14 @@ void init(int xid)
 	char qrexec_error_log_name[256];
 	int logfd;
 	int i;
+	pid_t pid;
 
 	if (xid <= 0) {
 		fprintf(stderr, "domain id=0?\n");
 		exit(1);
 	}
 	signal(SIGUSR1, sigusr1_handler);
-	switch (fork()) {
+	switch (pid=fork()) {
 	case -1:
 		perror("fork");
 		exit(1);
@@ -114,6 +115,7 @@ void init(int xid)
 			fprintf(stderr, ".");
 		}
 		fprintf(stderr, "Cannot connect to qrexec agent for %d seconds, giving up\n", MAX_STARTUP_TIME);
+		kill(pid, SIGTERM);
 		exit(1);
 	}
 	close(0);
