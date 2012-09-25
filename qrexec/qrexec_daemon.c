@@ -87,7 +87,31 @@ int create_qrexec_socket(int domid, char *domname)
 	return get_server_socket(socket_address);
 }
 
-#define MAX_STARTUP_TIME 60
+#define MAX_STARTUP_TIME_DEFAULT 60
+
+/* ask on qrexec connect timeout */
+int ask_on_connect_timeout(int xid, int timeout)
+{
+	char text[1024];
+	int ret;
+	snprintf(text, sizeof(text),
+			"kdialog --title 'Qrexec daemon' --warningyesno "
+			"'Timeout while trying connecting to qrexec agent (Xen domain ID: %d). Do you want to wait next %d seconds?'",
+			xid, timeout);
+	ret = system(text);
+	ret = WEXITSTATUS(ret);
+	//              fprintf(stderr, "ret=%d\n", ret);
+	switch (ret) {
+		case 1: /* NO */
+			return 0;
+		case 0: /*YES */
+			return 1;
+		default:
+			// this can be the case at system startup (netvm), when Xorg isn't running yet
+			// so just don't give possibility to extend the timeout
+			return 0;
+	}
+}
 
 /* do the preparatory tasks, needed before entering the main event loop */
 void init(int xid)
@@ -96,10 +120,19 @@ void init(int xid)
 	int logfd;
 	int i;
 	pid_t pid;
+	int startup_timeout = MAX_STARTUP_TIME_DEFAULT;
+	char *startup_timeout_str = NULL;
 
 	if (xid <= 0) {
 		fprintf(stderr, "domain id=0?\n");
 		exit(1);
+	}
+	startup_timeout_str = getenv("QREXEC_STARTUP_TIMEOUT");
+	if (startup_timeout_str) {
+		startup_timeout = atoi(startup_timeout_str);
+		if (startup_timeout == 0)
+			// invalid number
+			startup_timeout = MAX_STARTUP_TIME_DEFAULT;
 	}
 	signal(SIGUSR1, sigusr1_handler);
 	switch (pid=fork()) {
@@ -110,11 +143,15 @@ void init(int xid)
 		break;
 	default:
 		fprintf(stderr, "Waiting for VM's qrexec agent.");
-		for (i=0;i<MAX_STARTUP_TIME;i++) {
+		for (i=0;i<startup_timeout;i++) {
 			sleep(1);
 			fprintf(stderr, ".");
+			if (i==startup_timeout-1) {
+				if (ask_on_connect_timeout(xid, startup_timeout))
+					i=0;
+			}
 		}
-		fprintf(stderr, "Cannot connect to qrexec agent for %d seconds, giving up\n", MAX_STARTUP_TIME);
+		fprintf(stderr, "Cannot connect to qrexec agent for %d seconds, giving up\n", startup_timeout);
 		kill(pid, SIGTERM);
 		exit(1);
 	}
