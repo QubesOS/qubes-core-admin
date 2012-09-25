@@ -2,5 +2,5 @@
 /repodata/repomd\.xml$
 \.rpm$
 \.drpm$
-^mirrors.fedoraproject.org:443$
-^http://mirrors\..*/mirrorlist
+^mirrors\.fedoraproject\.org:443$
+^http://mirrors\..*/mirrorlist\?
