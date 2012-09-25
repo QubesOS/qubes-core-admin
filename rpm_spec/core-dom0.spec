@@ -173,6 +173,7 @@ mkdir -p $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 cp ../network/qubes_nmhook $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
 cp ../network/iptables $RPM_BUILD_ROOT/etc/sysconfig
+cp ../network/ip6tables $RPM_BUILD_ROOT/etc/sysconfig
 mkdir -p $RPM_BUILD_ROOT/etc/security/limits.d
 cp misc/limits-qubes.conf $RPM_BUILD_ROOT/etc/security/limits.d/99-qubes.conf
 
@@ -383,6 +384,7 @@ fi
 /etc/dhclient.d/qubes_setup_dnat_to_ns.sh
 /etc/NetworkManager/dispatcher.d/qubes_nmhook
 /etc/sysconfig/iptables
+/etc/sysconfig/ip6tables
 /etc/sysconfig/modules/qubes-dom0.modules
 /etc/sysconfig/modules/cpufreq-xen.modules
 /usr/lib64/pm-utils/sleep.d/01qubes-sync-vms-clock
