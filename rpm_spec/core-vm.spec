@@ -153,7 +153,7 @@ install network/qubes_netwatcher $RPM_BUILD_ROOT/usr/sbin/
 
 install -d $RPM_BUILD_ROOT/usr/bin
 
-install qubes_rpc/{qvm-open-in-dvm,qvm-open-in-vm,qvm-copy-to-vm,qvm-run} $RPM_BUILD_ROOT/usr/bin
+install qubes_rpc/{qvm-open-in-dvm,qvm-open-in-vm,qvm-copy-to-vm,qvm-run,qvm-mru-entry} $RPM_BUILD_ROOT/usr/bin
 install qubes_rpc/wrap_in_html_if_url.sh $RPM_BUILD_ROOT/usr/lib/qubes
 install qubes_rpc/qvm-copy-to-vm.kde $RPM_BUILD_ROOT/usr/lib/qubes
 install qubes_rpc/qvm-copy-to-vm.gnome $RPM_BUILD_ROOT/usr/lib/qubes
@@ -393,6 +393,7 @@ rm -rf $RPM_BUILD_ROOT
 /usr/bin/qvm-open-in-dvm
 /usr/bin/qvm-open-in-vm
 /usr/bin/qvm-run
+/usr/bin/qvm-mru-entry
 /usr/bin/xenstore-watch-qubes
 %dir /usr/lib/qubes
 /usr/lib/qubes/block_add_change
