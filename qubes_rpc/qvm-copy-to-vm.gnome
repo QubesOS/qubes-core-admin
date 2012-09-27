@@ -20,7 +20,7 @@
 #
 #
 
-VM=$(zenity --entry --title="File Copy" --text="Enter the destination domain name:")
+VM=$(qvm-mru-entry --title="File Copy" --text="Enter the destination domain name:" --mrufile "qvm-mru-filecopy")
 if [ X$VM = X ] ; then exit 0 ; fi
 
 SIZE=$(du --apparent-size -c "$@" | tail -1 | cut -f 1)
