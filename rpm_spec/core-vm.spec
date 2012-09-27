@@ -328,9 +328,13 @@ mkdir -p /rw
 %preun
 if [ "$1" = 0 ] ; then
     # no more packages left
+    if [ -e /var/lib/qubes/fstab.orig ] ; then
     mv /var/lib/qubes/fstab.orig /etc/fstab
+    fi
     mv /var/lib/qubes/removed-udev-scripts/* /etc/udev/rules.d/
+    if [ -e /var/lib/qubes/serial.orig ] ; then
     mv /var/lib/qubes/serial.orig /etc/init/serial.conf
+    fi
 fi
 
 %postun
