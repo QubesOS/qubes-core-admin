@@ -1624,12 +1624,13 @@ class QubesTemplateVm(QubesVm):
 
         super(QubesTemplateVm, self).clone_disk_files(src_vm=src_vm, verbose=verbose)
 
-        if os.path.exists(src_vm.dir_path + '/vm-' + qubes_whitelisted_appmenus):
-            if verbose:
-                print >> sys.stderr, "--> Copying default whitelisted apps list: {0}".\
-                    format(self.dir_path + '/vm-' + qubes_whitelisted_appmenus)
-            shutil.copy(src_vm.dir_path + '/vm-' + qubes_whitelisted_appmenus,
-                    self.dir_path + '/vm-' + qubes_whitelisted_appmenus)
+        for whitelist in ['/vm-' + qubes_whitelisted_appmenus, '/netvm-' + qubes_whitelisted_appmenus]:
+            if os.path.exists(src_vm.dir_path + whitelist):
+                if verbose:
+                    print >> sys.stderr, "--> Copying default whitelisted apps list: {0}".\
+                        format(self.dir_path + whitelist)
+                shutil.copy(src_vm.dir_path + whitelist,
+                        self.dir_path + whitelist)
 
         if verbose:
             print >> sys.stderr, "--> Copying the template's clean volatile image:\n{0} ==>\n{1}".\
