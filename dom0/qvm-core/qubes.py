@@ -1097,8 +1097,8 @@ class QubesVm(object):
 
         if src_vm.icon_path is not None and self.icon_path is not None:
             if os.path.exists (src_vm.dir_path):
-                if os.path.islink(src_vm.dir_path):
-                    icon_path = os.readlink(src_vm.dir_path)
+                if os.path.islink(src_vm.icon_path):
+                    icon_path = os.readlink(src_vm.icon_path)
                     if verbose:
                         print >> sys.stderr, "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, icon_path)
                     os.symlink (icon_path, self.icon_path)
