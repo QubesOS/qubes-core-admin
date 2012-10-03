@@ -489,7 +489,7 @@ class QubesVm(object):
         return re.match(r"^[a-zA-Z0-9_-]*$", name) is not None
 
     def pre_rename(self, new_name):
-        pass
+        self.remove_appmenus()
 
     def set_name(self, name):
         if self.is_running():
@@ -527,7 +527,7 @@ class QubesVm(object):
         self.post_rename(old_name)
 
     def post_rename(self, old_name):
-        pass
+        self.create_appmenus(verbose=False)
 
     def is_template(self):
         return isinstance(self, QubesTemplateVm)
@@ -2222,12 +2222,6 @@ class QubesAppVm(QubesVm):
 
         self.remove_appmenus()
         super(QubesAppVm, self).remove_from_disk()
-
-    def pre_rename(self, new_name):
-        self.remove_appmenus()
-
-    def post_rename(self, old_name):
-        self.create_appmenus(verbose=False)
 
 
 class QubesVmCollection(dict):
