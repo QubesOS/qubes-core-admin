@@ -57,7 +57,7 @@ main()
 {
 	struct stat stat_pre, stat_post, session_stat;
 	char *filename = get_filename();
-	int child, status, log_fd;
+	int child, status, log_fd, null_fd;
 	char var[1024], val[4096];
 	FILE *env_file;
 	FILE *waiter_pidfile;
@@ -100,7 +100,9 @@ main()
 			perror("fork");
 			exit(1);
 		case 0:
-			close(0);
+			null_fd = open("/dev/null", O_RDONLY);
+			dup2(null_fd, 0);
+			close(null_fd);		
 
 			env_file = fopen("/tmp/qubes-session-env", "r");
 			while(fscanf(env_file, "%1024[^=]=%4096[^\n]\n", var, val) == 2) {

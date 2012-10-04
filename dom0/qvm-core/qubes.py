@@ -499,7 +499,7 @@ class QubesVm(object):
         return re.match(r"^[a-zA-Z0-9_-]*$", name) is not None
 
     def pre_rename(self, new_name):
-        pass
+        self.remove_appmenus()
 
     def set_name(self, name):
         if self.is_running():
@@ -537,7 +537,7 @@ class QubesVm(object):
         self.post_rename(old_name)
 
     def post_rename(self, old_name):
-        pass
+        self.create_appmenus(verbose=False)
 
     def is_template(self):
         return isinstance(self, QubesTemplateVm)
@@ -1113,8 +1113,8 @@ class QubesVm(object):
 
         if src_vm.icon_path is not None and self.icon_path is not None:
             if os.path.exists (src_vm.dir_path):
-                if os.path.islink(src_vm.dir_path):
-                    icon_path = os.readlink(src_vm.dir_path)
+                if os.path.islink(src_vm.icon_path):
+                    icon_path = os.readlink(src_vm.icon_path)
                     if verbose:
                         print >> sys.stderr, "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, icon_path)
                     os.symlink (icon_path, self.icon_path)
@@ -1650,12 +1650,13 @@ class QubesTemplateVm(QubesVm):
 
         super(QubesTemplateVm, self).clone_disk_files(src_vm=src_vm, verbose=verbose)
 
-        if os.path.exists(src_vm.dir_path + '/vm-' + qubes_whitelisted_appmenus):
-            if verbose:
-                print >> sys.stderr, "--> Copying default whitelisted apps list: {0}".\
-                    format(self.dir_path + '/vm-' + qubes_whitelisted_appmenus)
-            shutil.copy(src_vm.dir_path + '/vm-' + qubes_whitelisted_appmenus,
-                    self.dir_path + '/vm-' + qubes_whitelisted_appmenus)
+        for whitelist in ['/vm-' + qubes_whitelisted_appmenus, '/netvm-' + qubes_whitelisted_appmenus]:
+            if os.path.exists(src_vm.dir_path + whitelist):
+                if verbose:
+                    print >> sys.stderr, "--> Copying default whitelisted apps list: {0}".\
+                        format(self.dir_path + whitelist)
+                shutil.copy(src_vm.dir_path + whitelist,
+                        self.dir_path + whitelist)
 
         if verbose:
             print >> sys.stderr, "--> Copying the template's clean volatile image:\n{0} ==>\n{1}".\
@@ -2248,12 +2249,6 @@ class QubesAppVm(QubesVm):
         self.remove_appmenus()
         super(QubesAppVm, self).remove_from_disk()
 
-    def pre_rename(self, new_name):
-        self.remove_appmenus()
-
-    def post_rename(self, old_name):
-        self.create_appmenus(verbose=False)
-
 class QubesHVm(QubesVm):
     """
     A class that represents an HVM. A child of QubesVm.
@@ -2348,12 +2343,6 @@ class QubesHVm(QubesVm):
 
         self.remove_appmenus()
         super(QubesHVm, self).remove_from_disk()
-
-    def pre_rename(self, new_name):
-        self.remove_appmenus()
-
-    def post_rename(self, old_name):
-        self.create_appmenus(False)
 
     def get_disk_utilization_private_img(self):
         return 0

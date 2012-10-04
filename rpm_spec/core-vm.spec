@@ -139,7 +139,8 @@ ln -s /usr/lib/qubes/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/etc/dhclient.d/qubes
 install -d $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 install network/{qubes_nmhook,30-qubes_external_ip} $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 install -D network/vif-route-qubes $RPM_BUILD_ROOT/etc/xen/scripts/vif-route-qubes
-install -m 0644 -D network/iptables $RPM_BUILD_ROOT/etc/sysconfig/iptables
+install -m 0400 -D network/iptables $RPM_BUILD_ROOT/etc/sysconfig/iptables
+install -m 0400 -D network/ip6tables $RPM_BUILD_ROOT/etc/sysconfig/ip6tables
 install -m 0644 -D network/tinyproxy-qubes-yum.conf $RPM_BUILD_ROOT/etc/tinyproxy/tinyproxy-qubes-yum.conf
 install -m 0644 -D network/filter-qubes-yum $RPM_BUILD_ROOT/etc/tinyproxy/filter-qubes-yum
 
@@ -152,7 +153,7 @@ install network/qubes_netwatcher $RPM_BUILD_ROOT/usr/sbin/
 
 install -d $RPM_BUILD_ROOT/usr/bin
 
-install qubes_rpc/{qvm-open-in-dvm,qvm-open-in-vm,qvm-copy-to-vm,qvm-run} $RPM_BUILD_ROOT/usr/bin
+install qubes_rpc/{qvm-open-in-dvm,qvm-open-in-vm,qvm-copy-to-vm,qvm-run,qvm-mru-entry} $RPM_BUILD_ROOT/usr/bin
 install qubes_rpc/wrap_in_html_if_url.sh $RPM_BUILD_ROOT/usr/lib/qubes
 install qubes_rpc/qvm-copy-to-vm.kde $RPM_BUILD_ROOT/usr/lib/qubes
 install qubes_rpc/qvm-copy-to-vm.gnome $RPM_BUILD_ROOT/usr/lib/qubes
@@ -327,9 +328,13 @@ mkdir -p /rw
 %preun
 if [ "$1" = 0 ] ; then
     # no more packages left
+    if [ -e /var/lib/qubes/fstab.orig ] ; then
     mv /var/lib/qubes/fstab.orig /etc/fstab
+    fi
     mv /var/lib/qubes/removed-udev-scripts/* /etc/udev/rules.d/
+    if [ -e /var/lib/qubes/serial.orig ] ; then
     mv /var/lib/qubes/serial.orig /etc/init/serial.conf
+    fi
 fi
 
 %postun
@@ -371,6 +376,7 @@ rm -rf $RPM_BUILD_ROOT
 /etc/qubes_rpc/qubes.SuspendPost
 /etc/sudoers.d/qubes
 /etc/sysconfig/iptables
+/etc/sysconfig/ip6tables
 /etc/sysconfig/modules/qubes_core.modules
 /etc/tinyproxy/filter-qubes-yum
 /etc/tinyproxy/tinyproxy-qubes-yum.conf
@@ -387,6 +393,7 @@ rm -rf $RPM_BUILD_ROOT
 /usr/bin/qvm-open-in-dvm
 /usr/bin/qvm-open-in-vm
 /usr/bin/qvm-run
+/usr/bin/qvm-mru-entry
 /usr/bin/xenstore-watch-qubes
 %dir /usr/lib/qubes
 /usr/lib/qubes/block_add_change
@@ -489,6 +496,7 @@ chkconfig rsyslog on
 chkconfig haldaemon on
 chkconfig messagebus on
 chkconfig iptables on
+chkconfig ip6tables on
 chkconfig --add qubes_core || echo "WARNING: Cannot add service qubes_core!"
 chkconfig qubes_core on || echo "WARNING: Cannot enable service qubes_core!"
 chkconfig --add qubes_core_netvm || echo "WARNING: Cannot add service qubes_core_netvm!"
@@ -610,6 +618,7 @@ rm -f /etc/systemd/system/getty.target.wants/getty@tty*.service
 
 # Enable some services
 /bin/systemctl enable iptables.service 2> /dev/null
+/bin/systemctl enable ip6tables.service 2> /dev/null
 /bin/systemctl enable rsyslog.service 2> /dev/null
 /bin/systemctl enable ntpd.service 2> /dev/null
 # Disable original service to enable overriden one

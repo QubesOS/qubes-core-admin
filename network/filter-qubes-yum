@@ -1,6 +1,6 @@
-.*/repodata/[A-Za-z0-9-]*\(primary\|filelists\|comps\(-[a-z0-9]*\)\?\|other\|prestodelta\|updateinfo\)\.\(sqlite\|xml\)\(\.bz2\|\.gz\)\?$
-.*/repodata/repomd\.xml$
-.*\.rpm$
-.*\.drpm$
-mirrors.fedoraproject.org:443
-^http://mirrors\..*/mirrorlist
+/repodata/[A-Za-z0-9-]*\(primary\|filelists\|comps\(-[a-z0-9]*\)\?\|other\|prestodelta\|updateinfo\|pkgtags\)\.\(sqlite\|xml\)\(\.bz2\|\.gz\)\?$
+/repodata/repomd\.xml$
+\.rpm$
+\.drpm$
+^mirrors\.fedoraproject\.org:443$
+^http://mirrors\..*/mirrorlist\?

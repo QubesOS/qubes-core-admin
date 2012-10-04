@@ -70,19 +70,20 @@ def main():
     if clock_vm.run('root:QUBESRPC qubes.SyncNtpClock dom0', verbose=verbose, wait=True, ignore_stderr=True) != 0:
         print >> sys.stderr, 'Time sync failed, aborting!'
         sys.exit(1)
-    
-    p = clock_vm.run('DEFAULT:date -u', verbose=verbose, passio_popen=True, ignore_stderr=True)
+
+    # Use the date format based on RFC2822 to avoid localisation issues
+    p = clock_vm.run('DEFAULT:date -u -R', verbose=verbose, passio_popen=True, ignore_stderr=True)
     date_out = p.stdout.read(100)
     date_out = date_out.strip()
-    if not re.match(r'^[A-Za-z]* [A-Za-z]* [ 0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9] [A-Z]* [0-9][0-9][0-9][0-9]$', date_out):
-        print >> sys.stderr, 'Invalid date output, aborting!'
+    if not re.match(r'^[A-Za-z]+[,] [0-9][0-9] [A-Za-z]+ [0-9][0-9][0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9] [+]0000$', date_out):
+        print >> sys.stderr, date_out, 'Invalid date output, aborting!'
         sys.exit(1)
 
     # Sync dom0 time
     if verbose:
         print >> sys.stderr, '--> Syncing dom0 clock.'
 
-    subprocess.check_call(['sudo', 'date', '-u', '-s', date_out])
+    subprocess.check_call(['sudo', 'date', '-u', '-R', '-s', date_out])
     subprocess.check_call(['sudo', 'hwclock', '--systohc'])
 
     # Sync other VMs clock
@@ -91,7 +92,7 @@ def main():
             if verbose:
                 print >> sys.stderr, '--> Syncing \'%s\' clock.' % vm.name
             try:
-                vm.run('root:date -u -s "%s"' % date_out, verbose=verbose)
+                vm.run('root:date -u -R -s "%s"' % date_out, verbose=verbose)
             except Exception as e:
                 print >> sys.stderr, "ERROR syncing time in VM '%s': %s" % (vm.name, str(e))
                 pass
