@@ -1,2 +1,1 @@
-shopt -s nullglob
-awk '/^\[/ { if (tolower($0) != "\[desktop entry\]") nextfile } /=/ {print FILENAME ":" $0 }' /usr/share/applications/*.desktop /usr/local/share/applications/*.desktop 2> /dev/null
+find /usr/share/applications/ /usr/local/share/applications/ -name '*.desktop' | xargs awk '/^\[/ { if (tolower($0) != "\[desktop entry\]") nextfile } /=/ {print FILENAME ":" $0 }' 2> /dev/null
