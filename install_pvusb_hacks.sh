@@ -15,5 +15,5 @@ udevadm control --reload-rules
 xenstore-rm qubes-usb-devices
 udevadm trigger --action=change
 sleep 1
-xenstore-ls qubes-usb-devices
+xenstore-ls -f qubes-usb-devices
 
