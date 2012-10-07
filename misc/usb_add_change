@@ -8,10 +8,11 @@
 ## running in dom0.
 ##
 
-# FIXME: Ignore USB hubs.
+# FIXME: Ignore USB hubs and other wierd devices.
 [ "$DEVNUM" = "001" ] && exit 0
+[ "$DEVTYPE" != "usb_device" ] && exit 0
 
-NAME="${BUSNUM}/${DEVNUM}"
+NAME=`basename ${DEVPATH}`
 # FIXME: For some devices (my Cherry keyboard) ID_SERIAL does not
 # contain proper human-readable name, should find better method to
 # build devide description.
