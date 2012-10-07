@@ -201,11 +201,12 @@ def block_list(vm = None, system_disks = False):
     vm_list = []
     if vm is not None:
         if not vm.is_running():
+            xs.transaction_end(xs_trans)
             return []
         else:
             vm_list = [ str(vm.xid) ]
     else:
-         vm_list = xs.ls('', '/local/domain')
+         vm_list = xs.ls(xs_trans, '/local/domain')
 
     devices_list = {}
     for xid in vm_list:
