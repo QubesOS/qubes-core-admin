@@ -1,6 +1,15 @@
 #!/bin/sh
 
-[ "x$DEVTYPE" = "xusb_device" ] || exit 0
+##
+## This script is invoked by udev rules whenever USB device appears or
+## changes. This happens in usbvm domain (or dom0 if USB controller
+## drivers are in dom0). The script records information about available
+## USB devices into XS directory, making it available to qvm-usb tool
+## running in dom0.
+##
+
+# Ignore USB hubs.
+[ "$DEVTYPE" = "usb_device" ] || exit 0
 
 NAME="${ID_VENDOR_ID}_${ID_MODEL_ID}"
 DESC="${NAME} ${ID_SERIAL}"
@@ -8,4 +17,5 @@ XS_KEY="qubes-usb-devices/$NAME"
 
 xenstore-write "$XS_KEY/desc" "$DESC"
 
+# Make sure PVUSB backend driver is loaded.
 /sbin/modprobe xen-usbback 2> /dev/null || /sbin/modprobe usbbk
