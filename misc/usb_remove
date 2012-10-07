@@ -1,10 +1,9 @@
 #!/bin/sh
 
-[ "x$DEVTYPE" = "xusb_device" ] || exit 0
+# FIXME: Ignore USB hubs.
+[ "$DEVNUM" = "001" ] && exit 0
 
-NAME="${ID_VENDOR_ID}_${ID_MODEL_ID}"
-DESC="${NAME} ${ID_SERIAL}"
+NAME="${BUSNUM}/${DEVNUM}"
 XS_KEY="qubes-usb-devices/$NAME"
 
 xenstore-rm "$XS_KEY"
-
