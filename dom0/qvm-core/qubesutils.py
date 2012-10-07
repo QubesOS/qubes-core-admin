@@ -196,6 +196,8 @@ def block_list(vm = None, system_disks = False):
     desc_re = re.compile(r"^.{1,255}$")
     mode_re = re.compile(r"^[rw]$")
 
+    xs_trans = xs.transaction_start()
+
     vm_list = []
     if vm is not None:
         if not vm.is_running():
@@ -205,7 +207,6 @@ def block_list(vm = None, system_disks = False):
     else:
          vm_list = xs.ls('', '/local/domain')
 
-    xs_trans = xs.transaction_start()
     devices_list = {}
     for xid in vm_list:
         vm_name = xs.read(xs_trans, '/local/domain/%s/name' % xid)
