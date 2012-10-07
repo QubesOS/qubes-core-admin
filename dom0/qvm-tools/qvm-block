@@ -34,7 +34,7 @@ def main():
             "usage: %prog -A [options] <vm-name> <file-vm-name>:<file>\n"\
             "usage: %prog -d [options] <device-vm-name>:<device>\n"\
             "usage: %prog -d [options] <vm-name>\n"\
-            "List/set VM PCI devices."
+            "List/set VM block devices."
 
     parser = OptionParser (usage)
     parser.add_option ("-l", "--list", action="store_true", dest="do_list", default=False)
