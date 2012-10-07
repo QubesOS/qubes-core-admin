@@ -7,3 +7,5 @@ DESC="${NAME} ${ID_SERIAL}"
 XS_KEY="qubes-usb-devices/$NAME"
 
 xenstore-write "$XS_KEY/desc" "$DESC"
+
+/sbin/modprobe xen-usbback 2> /dev/null || /sbin/modprobe usbbk
