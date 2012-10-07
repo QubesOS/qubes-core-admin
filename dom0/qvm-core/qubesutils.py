@@ -398,6 +398,43 @@ def block_detach_all(vm, vm_xid = None):
         xl_cmd = [ '/usr/sbin/xl', 'block-detach', str(vm_xid), devid]
         subprocess.check_call(xl_cmd)
 
+####### USB devices ######
+
+def usb_check_attached(backend_vm, device, backend_xid = None):
+    return None
+
+def usb_list():
+    device_re = re.compile(r"^[0-9]+-[0-9]+$")
+    # FIXME: any better idea of desc_re?
+    desc_re = re.compile(r"^.{1,255}$")
+
+    devices_list = {}
+
+    xs_trans = xs.transaction_start()
+    vm_list = xs.ls('', '/local/domain')
+
+    for xid in vm_list:
+        vm_name = xs.read(xs_trans, '/local/domain/%s/name' % xid)
+        vm_devices = xs.ls(xs_trans, '/local/domain/%s/qubes-usb-devices' % xid)
+        if vm_devices is None:
+            continue
+        for device in vm_devices:
+            # Sanitize device id
+            if not device_re.match(device):
+                print >> sys.stderr, "Invalid device id in VM '%s'" % vm_name
+                continue
+            device_desc = xs.read(xs_trans, '/local/domain/%s/qubes-usb-devices/%s/desc' % (xid, device))
+            if not desc_re.match(device_desc):
+                print >> sys.stderr, "Invalid %s device desc in VM '%s'" % (device, vm_name)
+                continue
+            visible_name = "%s:%s" % (vm_name, device)
+            devices_list[visible_name] = {"name": visible_name, "xid":int(xid),
+                "vm": vm_name, "device":device,
+                "desc":device_desc}
+
+    xs.transaction_end(xs_trans)
+    return devices_list
+
 ####### QubesWatch ######
 
 def only_in_first_list(l1, l2):

@@ -3,11 +3,14 @@
 d=/home/abb/qubes-core
 
 # Install
-ln -sf $d/misc/qubes_usb.rules /etc/udev/rules.d/99-qubes_usb.rules
+cp $d/misc/qubes_usb.rules /etc/udev/rules.d/99-qubes_usb.rules
 
 for f in usb_add_change usb_remove ; do
-	ln -sf $d/misc/$f /usr/lib/qubes/$f
+	cp $d/misc/$f /usr/lib/qubes/$f
 done
+
+cp $d/dom0/qvm-core/qubesutils.py /usr/lib64/python2.6/site-packages/qubes/qubesutils.py
+cp $d/dom0/qvm-tools/qvm-usb /usr/bin/qvm-usb
 
 udevadm control --reload-rules
 
