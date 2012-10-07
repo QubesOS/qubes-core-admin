@@ -4,7 +4,7 @@ tmpf=`mktemp`
 
 sudo xenstore-ls -f qubes-usb-devices | sort > $tmpf
 
-cat << 'END' | diff -u $tmpf -
+cat << 'END' | diff -u - $tmpf
 qubes-usb-devices/045e_0745 = ""
 qubes-usb-devices/045e_0745/desc = "045e_0745 Microsoft_Microsoft\xc2\xae_Nano_Transceiver_v1.0"
 qubes-usb-devices/046a_0021 = ""

@@ -6,7 +6,7 @@ tmpf=`mktemp`
 echo 'qvm-block -l'
 qvm-block -l > $tmpf
 
-cat <<'END' | diff -u $tmpf -
+cat <<'END' | diff -u - $tmpf
 netvm:sda	STORAGE_DEVICE () 0 B
 dom0:sdb1	Cruzer () 3 GiB
 dom0:sdb	Cruzer () 3 GiB
@@ -20,7 +20,7 @@ qvm-block -a work dom0:sdb | diff -u /dev/null -
 echo 'qvm-block -l'
 qvm-block -l > $tmpf
 
-cat <<'END' | diff -u $tmpf -
+cat <<'END' | diff -u - $tmpf
 netvm:sda	STORAGE_DEVICE () 0 B
 dom0:sdb1	Cruzer () 3 GiB
 dom0:sdb	Cruzer () 3 GiB (attached to 'work' as 'xvdi')
@@ -30,7 +30,7 @@ END
 echo 'qvm-run work fdisk'
 qvm-run -qp work 'su - root -c "fdisk -l /dev/xvdi"' > $tmpf
 
-cat <<'END' | diff -u $tmpf -
+cat <<'END' | diff -u - $tmpf
 
 Disk /dev/xvdi: 4022 MB, 4022337024 bytes
 124 heads, 62 sectors/track, 1021 cylinders, total 7856127 sectors
