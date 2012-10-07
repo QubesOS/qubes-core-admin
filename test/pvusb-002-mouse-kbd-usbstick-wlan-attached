@@ -5,16 +5,14 @@ tmpf=`mktemp`
 sudo xenstore-ls -f qubes-usb-devices | sort > $tmpf
 
 cat << 'END' | diff -u - $tmpf
-qubes-usb-devices/002 = ""
-qubes-usb-devices/002/002 = ""
-qubes-usb-devices/002/002/desc = "046a:0021 046a_0021"
-qubes-usb-devices/002/003 = ""
-qubes-usb-devices/002/003/desc = "045e:0745 Microsoft_Microsoft\xc2\xae_Nano_Transceiver_v1.0"
-qubes-usb-devices/007 = ""
-qubes-usb-devices/007/010 = ""
-qubes-usb-devices/007/010/desc = "0781:5530 SanDisk_Cruzer_1942531DB09038A6"
-qubes-usb-devices/007/013 = ""
-qubes-usb-devices/007/013/desc = "07d1:3c0a Ralink_11n_Adapter_1.0"
+qubes-usb-devices/2-1 = ""
+qubes-usb-devices/2-1/desc = "046a:0021 046a_0021"
+qubes-usb-devices/2-2 = ""
+qubes-usb-devices/2-2/desc = "045e:0745 Microsoft_Microsoft\xc2\xae_Nano_Transceiver_v1.0"
+qubes-usb-devices/7-1 = ""
+qubes-usb-devices/7-1/desc = "07d1:3c0a Ralink_11n_Adapter_1.0"
+qubes-usb-devices/7-5 = ""
+qubes-usb-devices/7-5/desc = "0781:5530 SanDisk_Cruzer_1942531DB09038A6"
 END
 
 rm $tmpf
