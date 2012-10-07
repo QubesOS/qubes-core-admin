@@ -8,7 +8,7 @@
 ## running in dom0.
 ##
 
-# Ignore USB hubs.
+# FIXME: Ignore USB hubs.
 [ "$DEVTYPE" = "usb_device" ] || exit 0
 
 NAME="${ID_VENDOR_ID}_${ID_MODEL_ID}"
@@ -16,6 +16,8 @@ DESC="${NAME} ${ID_SERIAL}"
 XS_KEY="qubes-usb-devices/$NAME"
 
 xenstore-write "$XS_KEY/desc" "$DESC"
+#xenstore-write "$XS_KEY/_devname" "$DEVNAME"
+#xenstore-write "$XS_KEY/_devtype" "$DEVTYPE"
 
 # Make sure PVUSB backend driver is loaded.
 /sbin/modprobe xen-usbback 2> /dev/null || /sbin/modprobe usbbk
