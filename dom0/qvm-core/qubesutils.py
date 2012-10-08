@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
@@ -26,12 +26,8 @@ from qubes import qubes_store_filename, qubes_base_dir
 from qubes import qubes_servicevms_dir, qubes_templates_dir, qubes_appvms_dir
 import sys
 import os
-#import os.path
 import subprocess
-#import fcntl
 import re
-#import shutil
-#import uuid
 import time
 import grp,pwd
 from datetime import datetime
@@ -990,17 +986,7 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
 
 def backup_restore_do(backup_dir, restore_info, host_collection = None, print_callback = print_stdout, error_callback = print_stderr):
 
-    #### Private functions begin
-    def restore_vm_file (backup_dir, file_path):
-
-        backup_file_path = file_path.replace (qubes_base_dir, backup_dir)
-        #print "cp -rp {0} {1}".format (backup_file_path, file_path)
-
-        # We prefer to use Linux's cp, because it nicely handles sparse files
-        retcode = subprocess.call (["cp", "-p", backup_file_path, file_path])
-        if retcode != 0:
-            raise QubesException("*** Error while copying file {0} to {1}".format(backup_file_path, file_path))
-
+    ### Private functions begin
     def restore_vm_dir (backup_dir, src_dir, dst_dir):
 
         backup_src_dir = src_dir.replace (qubes_base_dir, backup_dir)
@@ -1009,8 +995,7 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
         retcode = subprocess.call (["cp", "-rp", backup_src_dir, dst_dir])
         if retcode != 0:
             raise QubesException("*** Error while copying file {0} to {1}".format(backup_src_dir, dest_dir))
-
-    #### Private functions end
+    ### Private functions end
 
     lock_obtained = False
     if host_collection is None:
