@@ -333,7 +333,7 @@ def block_attach(vm, backend_vm, device, frontend=None, mode="w", auto_detach=Fa
             be_state = xs.read('', be_path + '/state')
             hotplug_state = xs.read('', be_path + '/hotplug-status')
             if be_state is None:
-                raise QubesException("Backend device disappeared, something weird happend")
+                raise QubesException("Backend device disappeared, something weird happened")
             elif int(be_state) == 4:
                 # Ok
                 return
@@ -691,7 +691,7 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
     backup_fs_free_sz = stat.f_bsize * stat.f_bavail
     print_callback("")
     if (total_backup_sz > backup_fs_free_sz):
-        raise QubesException("Not enough space avilable on the backup filesystem!")
+        raise QubesException("Not enough space available on the backup filesystem!")
 
     if (there_are_running_vms):
         raise QubesException("Please shutdown all VMs before proceeding.")
@@ -1017,7 +1017,7 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
         retcode = subprocess.call (["mkdir", "-p", vm.dir_path])
         if retcode != 0:
             error_callback("*** Cannot create directory: {0}?!".format(dest_dir))
-            error_callback("Skiping...")
+            error_callback("Skipping...")
             continue
 
         new_vm = None
@@ -1032,7 +1032,7 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
             new_vm.verify_files()
         except Exception as err:
             error_callback("ERROR: {0}".format(err))
-            error_callback("*** Skiping VM: {0}".vm.name)
+            error_callback("*** Skipping VM: {0}".vm.name)
             if new_vm:
                 host_collection.pop(new_vm.qid)
             continue
@@ -1063,7 +1063,7 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
         retcode = subprocess.call (["mkdir", "-p", vm.dir_path])
         if retcode != 0:
             error_callback("*** Cannot create directory: {0}?!".format(dest_dir))
-            error_callback("Skiping...")
+            error_callback("Skipping...")
             continue
 
         template = None
@@ -1087,7 +1087,7 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
                                               label=vm.label)
         except Exception as err:
             error_callback("ERROR: {0}".format(err))
-            error_callback("*** Skiping VM: {0}".format(vm.name))
+            error_callback("*** Skipping VM: {0}".format(vm.name))
             if new_vm:
                 host_collection.pop(new_vm.qid)
             continue
@@ -1102,7 +1102,7 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
             new_vm.verify_files()
         except Exception as err:
             error_callback("ERROR: {0}".format(err))
-            error_callback("*** Skiping VM: {0}".format(vm.name))
+            error_callback("*** Skipping VM: {0}".format(vm.name))
             host_collection.pop(new_vm.qid)
             continue
 
@@ -1120,7 +1120,7 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
         retcode = subprocess.call (["mkdir", "-p", vm.dir_path])
         if retcode != 0:
             error_callback("*** Cannot create directory: {0}?!".format(dest_dir))
-            error_callback("Skiping...")
+            error_callback("Skipping...")
             continue
 
         template = None
@@ -1137,7 +1137,7 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
                                           label=vm.label)
         except Exception as err:
             error_callback("ERROR: {0}".format(err))
-            error_callback("*** Skiping VM: {0}".format(vm.name))
+            error_callback("*** Skipping VM: {0}".format(vm.name))
             if new_vm:
                 host_collection.pop(new_vm.qid)
             continue
@@ -1158,7 +1158,7 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
             new_vm.verify_files()
         except Exception as err:
             error_callback("ERROR: {0}".format(err))
-            error_callback("*** Skiping VM: {0}".format(vm.name))
+            error_callback("*** Skipping VM: {0}".format(vm.name))
             host_collection.pop(new_vm.qid)
             continue
 
