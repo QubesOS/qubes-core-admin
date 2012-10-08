@@ -400,9 +400,6 @@ def block_detach_all(vm, vm_xid = None):
 
 ####### USB devices ######
 
-def usb_check_attached(backend_vm, device, backend_xid = None):
-    return None
-
 def usb_list():
     device_re = re.compile(r"^[0-9]+-[0-9]+$")
     # FIXME: any better idea of desc_re?
@@ -434,6 +431,18 @@ def usb_list():
 
     xs.transaction_end(xs_trans)
     return devices_list
+
+def usb_check_attached(backend_vm, device, backend_xid = None):
+    return None
+
+def usb_attach(vm, backend_vm, device, frontend=None, auto_detach=False, wait=True):
+    raise NotImplementedError()
+
+def usb_detach(vm, frontend, vm_xid = None):
+    raise NotImplementedError()
+
+def usb_detach_all(vm, vm_xid = None):
+    raise NotImplementedError()
 
 ####### QubesWatch ######
 
