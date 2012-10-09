@@ -7,7 +7,7 @@ domu='qdvp'
 echo 'qvm-usb -l'
 qvm-usb -l | sort > $tmpf
 
-cat <<'END' | diff -u - $tmpf
+cat <<'END' | diff -bu - $tmpf
 dom0:2-1        046a:0021 046a_0021
 dom0:2-2        045e:0745 Microsoft_Microsoft®_Nano_Transceiver_v1.0
 dom0:7-1        07d1:3c0a Ralink_11n_Adapter_1.0
@@ -16,7 +16,7 @@ END
 
 ## === Attach
 echo 'qvm-usb -a'
-qvm-usb -a $domu dom0:7-5 | diff -u /dev/null -
+qvm-usb -a $domu dom0:7-5 | diff -bu /dev/null -
 #echo 'pvusb-script/usb-attach.py'
 #sudo /home/abb/pvusb-scripts/usb-attach.py 7-5 3 1
 
@@ -25,7 +25,7 @@ echo 'qvm-usb -l'
 qvm-usb -l | sort > $tmpf
 
 # FIXME
-cat <<'END' | diff -u - $tmpf
+cat <<'END' | diff -bu - $tmpf
 dom0:2-1        046a:0021 046a_0021
 dom0:2-2        045e:0745 Microsoft_Microsoft®_Nano_Transceiver_v1.0
 dom0:7-1        07d1:3c0a Ralink_11n_Adapter_1.0
@@ -37,7 +37,7 @@ read -p 'Press ENTER to continue'
 ## === Use: try ls
 echo 'qvm-run $domu ls /dev/sda'
 qvm-run -p $domu 'ls /dev/sda' > $tmpf
-cat <<'END' | diff -u - $tmpf
+cat <<'END' | diff -bu - $tmpf
 /dev/sda
 END
 
@@ -45,7 +45,7 @@ END
 echo 'qvm-run $domu fdisk'
 qvm-run -p $domu 'su - root -c "fdisk -l /dev/sda"' > $tmpf
 
-cat <<'END' | diff -u - $tmpf
+cat <<'END' | diff -bu - $tmpf
 
 Disk /dev/sda: 4022 MB, 4022337024 bytes
 124 heads, 62 sectors/track, 1021 cylinders, total 7856127 sectors
@@ -60,7 +60,7 @@ END
 
 ## === Detach
 #echo 'qvm-usb -d'
-#qvm-usb -d $domu:7-5 | diff -u /dev/null -
+#qvm-usb -d $domu:7-5 | diff -bu /dev/null -
 echo 'pvusb-script/usb-detach.py'
 sudo /home/abb/pvusb-scripts/usb-detach.py 7-5 4 1
 
