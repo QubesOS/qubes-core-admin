@@ -107,7 +107,7 @@ def main():
             if not args[0] in dev_list.keys():
                 parser.error ("Invalid VM or device name: %s" % args[0])
             dev = dev_list[args[0]]
-            attached_to = usb_check_attached(None, dev['device'], backend_xid = dev['xid'])
+            attached_to = usb_check_attached(backend_xid, dev['device'])
             if attached_to is None:
                 print >> sys.stderr, "WARNING: Device not connected to any VM"
                 exit(0)
@@ -117,7 +117,7 @@ def main():
             parser.error ("Too many parameters")
         # do_list
         for dev in usb_list().values():
-            attached_to = usb_check_attached(None, dev['device'], backend_xid = dev['xid'])
+            attached_to = usb_check_attached(dev['xid'], dev['device'])
             attached_to_str = ""
             if attached_to:
                 attached_to_str = " (attached to '%s' as '%s')" % (attached_to['vm'], attached_to['frontend'])

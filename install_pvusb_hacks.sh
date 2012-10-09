@@ -5,7 +5,7 @@ d=/home/abb/qubes-core
 # Install
 cp $d/misc/qubes_usb.rules /etc/udev/rules.d/99-qubes_usb.rules
 
-for f in usb_add_change usb_remove ; do
+for f in usb_add_change usb_remove xl-qvm-usb-attach.py ; do
 	cp $d/misc/$f /usr/lib/qubes/$f
 done
 
@@ -17,6 +17,6 @@ udevadm control --reload-rules
 # Rerun
 xenstore-rm qubes-usb-devices
 udevadm trigger --action=change
-sleep 1
-xenstore-ls -f qubes-usb-devices
+#sleep 1
+#xenstore-ls -f qubes-usb-devices
 

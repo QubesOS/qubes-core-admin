@@ -293,12 +293,18 @@ def block_check_attached(backend_vm, device, backend_xid = None):
     return None
 
 def block_attach(vm, backend_vm, device, frontend=None, mode="w", auto_detach=False, wait=True):
+    device_attach_check(vm, backend_vm, device, frontend)
+    do_block_attach(vm, backend_vm, device, frontend, mode, auto_detach, wait)
+
+def device_attach_check(vm, backend_vm, device, frontend):
+    """ Checks all the parameters, dies on errors """
     if not vm.is_running():
         raise QubesException("VM %s not running" % vm.name)
 
     if not backend_vm.is_running():
         raise QubesException("VM %s not running" % backend_vm.name)
 
+def do_block_attach(vm, backend_vm, device, frontend, mode, auto_detach, wait):
     if frontend is None:
         frontend = block_find_unused_frontend(vm)
         if frontend is None:
@@ -432,11 +438,74 @@ def usb_list():
     xs.transaction_end(xs_trans)
     return devices_list
 
-def usb_check_attached(backend_vm, device, backend_xid = None):
+def usb_check_attached(backend_vm, device):
+    # example: /local/domain/0/backend/vusb/4/0/port/1 = "7-5"
+    ##print "*** usb_check_attached(%s, %s) called" % (str(backend_vm), str(device))
+    # FIXME use XS transaction
+    xs_trans = ''
+    vms = xs.ls(xs_trans, '/local/domain/%d/backend/vusb' % backend_vm)
+    ##print "*** usb_check_attached: vms=%s" % str(vms)
+    if vms is None:
+        return None
+    for vm in vms:
+        # FIXME validate vm?
+        frontend_devs = xs.ls(xs_trans, '/local/domain/%d/backend/vusb/%s' % (backend_vm, vm))
+        ##print "*** usb_check_attached: frontend_devs=%s" % str(frontend_devs)
+        if frontend_devs is None:
+            continue
+        for frontend_dev in frontend_devs:
+            # FIXME validate frontend_dev?
+            ##print '>>>/local/domain/%d/backend/vusb/%s/%s/port' % (backend_vm, vm, frontend_dev)
+            ports = xs.ls(xs_trans, '/local/domain/%d/backend/vusb/%s/%s/port' % (backend_vm, vm, frontend_dev))
+            ##print "*** usb_check_attached: ports=%s" % str(ports)
+            if ports is None:
+                continue
+            for port in ports:
+                # FIXME validate ports?
+                dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%s/%s/port/%s' % (backend_vm, vm, frontend_dev, port))
+                ##print "*** usb_check_attached: port=%s, device=%s" % (port, str(dev))
+                if dev == device:
+                    frontend = "%s-%s" % (frontend_dev, port)
+                    return {"xid":int(vm), "frontend": frontend, "devid": device, "vm": "FIXME"}
     return None
 
+def usb_check_frontend_busy(vm, front_dev, port):
+    devport = frontend.split("-")
+    if len(devport) != 2:
+        raise QubesException("Malformed frontend syntax, must be in device-port format")
+    # FIXME
+    # return xs.read('', '/local/domain/%d/device/vusb/%d/state' % (vm.xid, frontend)) == '4'
+    return False
+
+def usb_find_unused_frontend(vm):
+    front_dev = 0
+    port = 1
+    # FIXME raise QubesException("No unused frontend found")
+    return '%d-%d' % (front_dev, port)
+        
 def usb_attach(vm, backend_vm, device, frontend=None, auto_detach=False, wait=True):
-    raise NotImplementedError()
+    device_attach_check(vm, backend_vm, device, frontend)
+    do_usb_attach(vm, backend_vm, device, frontend, auto_detach, wait)
+
+def do_usb_attach(vm, backend_vm, device, frontend, auto_detach, wait):
+    if frontend is None:
+        frontend = usb_find_unused_frontend(vm)
+    else:
+        # Check if any device attached at this frontend
+        if usb_check_frontend_busy(vm, frontend):
+            raise QubesException("Frontend %s busy in VM %s, detach it first" % (frontend, vm.name))
+
+    # Check if this device is attached to some domain
+    attached_vm = usb_check_attached(backend_vm.xid, device)
+    if attached_vm:
+        if auto_detach:
+            usb_detach(None, attached_vm['devid'], vm_xid=attached_vm['xid'])
+        else:
+            raise QubesException("Device %s from %s already connected to VM %s as %s" % (device, backend_vm.name, attached_vm['vm'], attached_vm['frontend']))
+
+    # FIXME sudo
+    xl_cmd = [ 'sudo', '/usr/lib/qubes/xl-qvm-usb-attach.py', str(vm.xid), device, frontend, str(backend_vm.xid) ]
+    subprocess.check_call(xl_cmd)
 
 def usb_detach(vm, frontend, vm_xid = None):
     raise NotImplementedError()
