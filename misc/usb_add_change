@@ -8,7 +8,7 @@
 ## running in dom0.
 ##
 
-# FIXME: Ignore USB hubs and other wierd devices.
+# FIXME: Ignore USB hubs and other wierd devices (see also in usb_remove).
 [ "$DEVNUM" = "001" ] && exit 0
 [ "$DEVTYPE" != "usb_device" ] && exit 0
 

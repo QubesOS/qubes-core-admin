@@ -18,8 +18,9 @@ if len(frontend)!=2:
 
 backend=sys.argv[4]
 
-# FIXME command injection
+# FIXME: command injection
 os.system("xenstore-write /local/domain/%s/backend/vusb/%s/%s/port/%s %s"
 	% (backend, domain, controller, port, device))
 
+# FIXME: should this happen in the backend domain?
 vusb_util.bind_usb_device(device)

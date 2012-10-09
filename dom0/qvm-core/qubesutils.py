@@ -439,31 +439,25 @@ def usb_list():
     return devices_list
 
 def usb_check_attached(backend_vm, device):
-    # example: /local/domain/0/backend/vusb/4/0/port/1 = "7-5"
-    ##print "*** usb_check_attached(%s, %s) called" % (str(backend_vm), str(device))
-    # FIXME use XS transaction
+    # sample xs content: /local/domain/0/backend/vusb/4/0/port/1 = "7-5"
+    # FIXME: use XS transaction
     xs_trans = ''
     vms = xs.ls(xs_trans, '/local/domain/%d/backend/vusb' % backend_vm)
-    ##print "*** usb_check_attached: vms=%s" % str(vms)
     if vms is None:
         return None
     for vm in vms:
-        # FIXME validate vm?
+        # FIXME: validate vm?
         frontend_devs = xs.ls(xs_trans, '/local/domain/%d/backend/vusb/%s' % (backend_vm, vm))
-        ##print "*** usb_check_attached: frontend_devs=%s" % str(frontend_devs)
         if frontend_devs is None:
             continue
         for frontend_dev in frontend_devs:
-            # FIXME validate frontend_dev?
-            ##print '>>>/local/domain/%d/backend/vusb/%s/%s/port' % (backend_vm, vm, frontend_dev)
+            # FIXME: validate frontend_dev?
             ports = xs.ls(xs_trans, '/local/domain/%d/backend/vusb/%s/%s/port' % (backend_vm, vm, frontend_dev))
-            ##print "*** usb_check_attached: ports=%s" % str(ports)
             if ports is None:
                 continue
             for port in ports:
-                # FIXME validate ports?
+                # FIXME: validate ports?
                 dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%s/%s/port/%s' % (backend_vm, vm, frontend_dev, port))
-                ##print "*** usb_check_attached: port=%s, device=%s" % (port, str(dev))
                 if dev == device:
                     frontend = "%s-%s" % (frontend_dev, port)
                     return {"xid":int(vm), "frontend": frontend, "devid": device, "vm": "FIXME"}
@@ -473,14 +467,14 @@ def usb_check_frontend_busy(vm, front_dev, port):
     devport = frontend.split("-")
     if len(devport) != 2:
         raise QubesException("Malformed frontend syntax, must be in device-port format")
-    # FIXME
+    # FIXME:
     # return xs.read('', '/local/domain/%d/device/vusb/%d/state' % (vm.xid, frontend)) == '4'
     return False
 
 def usb_find_unused_frontend(vm):
     front_dev = 0
     port = 1
-    # FIXME raise QubesException("No unused frontend found")
+    # FIXME: raise QubesException("No unused frontend found")
     return '%d-%d' % (front_dev, port)
         
 def usb_attach(vm, backend_vm, device, frontend=None, auto_detach=False, wait=True):
