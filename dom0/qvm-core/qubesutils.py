@@ -440,10 +440,11 @@ def usb_list():
 
 def usb_check_attached(backend_vm, device):
     # sample xs content: /local/domain/0/backend/vusb/4/0/port/1 = "7-5"
-    # FIXME: use XS transaction
-    xs_trans = ''
+    attached_dev = None
+    xs_trans = xs.transaction_start()
     vms = xs.ls(xs_trans, '/local/domain/%d/backend/vusb' % backend_vm)
     if vms is None:
+        xs.transaction_end(xs_trans)
         return None
     for vm in vms:
         # FIXME: validate vm?
@@ -460,8 +461,10 @@ def usb_check_attached(backend_vm, device):
                 dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%s/%s/port/%s' % (backend_vm, vm, frontend_dev, port))
                 if dev == device:
                     frontend = "%s-%s" % (frontend_dev, port)
-                    return {"xid":int(vm), "frontend": frontend, "devid": device, "vm": "FIXME"}
-    return None
+                    attached_dev = {"xid":int(vm), "frontend": frontend, "devid": device, "vm": "FIXME"}
+                    break
+    xs.transaction_end(xs_trans)
+    return attached_dev
 
 def usb_check_frontend_busy(vm, front_dev, port):
     devport = frontend.split("-")
