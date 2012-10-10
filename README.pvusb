@@ -1,19 +1,28 @@
 Installation
 ~~~~~~~~~~~~
 
-In dom0:
+In dom0, once:
  qvm-create -l red usbvm
+
  # FIXME: use your own PCI device IDs
  qvm-pci -a usbvm 00:1d.0
  qvm-pci -a usbvm 00:1d.1
  qvm-pci -a usbvm 00:1d.2
  qvm-pci -a usbvm 00:1d.7
+
+In dom0, after each dom0 reboot:
+ sudo ./install-pvusb-dom0.sh
  qvm-start usbvm
 
-In usbvm:
+In dom0, after each usbvm reboot:
+ usbvm_xid=`xl list | awk '($1=="usbvm"){print $2}'`
+ xenstore-write /local/domain/${usbvm_xid}/qubes-usb-devices ''
+ xenstore-chmod /local/domain/${usbvm_xid}/qubes-usb-devices n0 b${usbvm_xid}
+
+In usbvm, after each reboot:
  sudo ./install-pvusb-backend.sh 
 
-In appvms:
+In appvms, after each reboot:
  sudo ./install-pvusb-frontend.sh 
 
 Attach
@@ -55,7 +64,8 @@ Known issues
 
 * The content of backend/vusb does not get cleaned on domain shutdown (no impact on functionality)
 * System keyboard / mouse are listed and can be detached away
-* The installation is not persistent, not retained between reboots
-* The configuration is not persistent, not retained between reboots
+* Virtual USB devices (ones created by PVUSB frontend) may be listed
+* The installation/configuration is not persistent, not retained between reboots
 * The name of the default usbvm is hardcoded in qubesutils.py
+* No logging / audit trail?
 
