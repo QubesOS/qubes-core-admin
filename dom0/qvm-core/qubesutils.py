@@ -532,6 +532,9 @@ def usb_check_attached(backend_vm, device):
                 if dev == device:
                     frontend = "%s-%s" % (frontend_dev, port)
                     vm_name = xl_ctx.domid_to_name(int(vm))
+                    if vm_name is None:
+                        # FIXME: should we wipe references to frontends running on nonexistent VMs?
+                        continue
                     attached_dev = {"xid":int(vm), "frontend": frontend, "devid": device, "vm": vm_name}
                     break
     xs.transaction_end(xs_trans)

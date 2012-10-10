@@ -16,9 +16,9 @@ if len(sys.argv)!=3:
 device=sys.argv[2]
 if sys.argv[1] == 'bind':
     vusb_util.bind_usb_device(device)
-elif sys.argv[1] == 'ubind':
+elif sys.argv[1] == 'unbind':
     vusb_util.unbind_usb_device(device)
-else
+else:
     print "Invalid command, must be 'bind' or 'unbind'"
     sys.exit(1)
 

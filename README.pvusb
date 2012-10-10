@@ -25,6 +25,9 @@ In usbvm, after each reboot:
 In appvms, after each reboot:
  sudo ./install-pvusb-frontend.sh 
 
+In dom0, after each usbvm and appvm reboot (FIXME):
+ sudo initpv.py <backend-id> <frontend-id> <device-id>
+
 Attach
 ~~~~~~
 
