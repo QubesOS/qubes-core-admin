@@ -11,10 +11,8 @@ cp misc/usb_remove /usr/lib/qubes/usb_remove
 cp misc/vusb-ctl.py /usr/lib/qubes/vusb-ctl.py
 cp misc/qubes_usb.rules /etc/udev/rules.d/99-qubes_usb.rules
 
-# Reload PVUSB backend and cleanup xenstore
-rmmod xen-usbback > /dev/null 2>&1 || true
+# Load PVUSB backend
 modprobe xen-usbback
-xenstore-rm qubes-usb-devices > /dev/null 2>&1 || true
 
 # Configure udevd and make it re-populate xenstore
 udevadm control --reload-rules
