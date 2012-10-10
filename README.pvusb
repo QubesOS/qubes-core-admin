@@ -1,0 +1,61 @@
+Installation
+~~~~~~~~~~~~
+
+In dom0:
+ qvm-create -l red usbvm
+ # FIXME: use your own PCI device IDs
+ qvm-pci -a usbvm 00:1d.0
+ qvm-pci -a usbvm 00:1d.1
+ qvm-pci -a usbvm 00:1d.2
+ qvm-pci -a usbvm 00:1d.7
+ qvm-start usbvm
+
+In usbvm:
+ sudo ./install-pvusb-backend.sh 
+
+In appvms:
+ sudo ./install-pvusb-frontend.sh 
+
+Attach
+~~~~~~
+
+In dom0:
+ qvm-usb -a [-b <usbvm-name>] [-f <frontend-controller> [--p <frontend-port>]] [--no-auto-detach] <vm-name> <controller>-<port>
+
+Defaults:
+ usbvm-name = 'usbvm'
+ frontend-controller = 0
+ frontend-port = first unused between 1 and 8
+
+Example:
+ qvm-usb -a netvm usbvm:4-1
+
+List
+~~~~
+
+In dom0:
+ qvm-usb -l
+
+Example output:
+ usbvm:4-1 1234:5678 My Bluetooth Dongle
+ usbvm:4-2 5678:1234 My Wireless Adapter (attached to 'netvm' as '0-1')
+
+Detach
+~~~~~~
+
+In dom0:
+ qvm-usb -d <vm-name>:<vusb-controller>-<vusb-port>
+ qvm-usb -d <vm-name>
+
+Example:
+ qvm-usb -d netvm:0-1
+
+Known issues
+~~~~~~~~~~~~
+
+* The content of backend/vusb does not get cleaned on domain shutdown (no impact on functionality)
+* System keyboard / mouse are listed and can be detached away
+* The installation is not persistent, not retained between reboots
+* The configuration is not persistent, not retained between reboots
+* The name of the default usbvm is hardcoded in qubesutils.py
+
