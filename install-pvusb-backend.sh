@@ -6,13 +6,9 @@
 ##
 
 # Copy files
-for f in usb_add_change usb_remove xl-qvm-usb-attach.py ; do
-	cp misc/$f /usr/lib/qubes/$f
-done
-
-cp dom0/qvm-core/qubesutils.py /usr/lib64/python2.6/site-packages/qubes/qubesutils.py
-cp dom0/qvm-tools/qvm-usb /usr/bin/qvm-usb
-
+cp misc/usb_add_change /usr/lib/qubes/usb_add_change
+cp misc/usb_remove /usr/lib/qubes/usb_remove
+# FIXME cp misc/xen-vusb-helper.py /usr/lib/qubes/xen-vusb-helper.py
 cp misc/qubes_usb.rules /etc/udev/rules.d/99-qubes_usb.rules
 
 # Reload PVUSB backend and cleanup xenstore
