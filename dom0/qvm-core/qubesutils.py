@@ -467,17 +467,23 @@ def usb_check_attached(backend_vm, device):
         xs.transaction_end(xs_trans)
         return None
     for vm in vms:
-        # FIXME: validate vm?
+        if not vm.isdigit():
+            print >> sys.stderr, "Invalid VM id"
+            continue
         frontend_devs = xs.ls(xs_trans, '/local/domain/%d/backend/vusb/%s' % (backend_vm, vm))
         if frontend_devs is None:
             continue
         for frontend_dev in frontend_devs:
-            # FIXME: validate frontend_dev?
+            if not frontend_dev.isdigit():
+                print >> sys.stderr, "Invalid frontend in VM %s" % vm
+                continue
             ports = xs.ls(xs_trans, '/local/domain/%d/backend/vusb/%s/%s/port' % (backend_vm, vm, frontend_dev))
             if ports is None:
                 continue
             for port in ports:
-                # FIXME: validate ports?
+                if not port.isdigit():
+                    print >> sys.stderr, "Invalid port in VM %s frontend %s" % (vm, frontend)
+                    continue
                 dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%s/%s/port/%s' % (backend_vm, vm, frontend_dev, port))
                 if dev == device:
                     frontend = "%s-%s" % (frontend_dev, port)
