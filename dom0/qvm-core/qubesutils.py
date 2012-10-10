@@ -423,7 +423,7 @@ def usb_list():
     devices_list = {}
 
     xs_trans = xs.transaction_start()
-    vm_list = xs.ls('', '/local/domain')
+    vm_list = xs.ls(xs_trans, '/local/domain')
 
     for xid in vm_list:
         vm_name = xs.read(xs_trans, '/local/domain/%s/name' % xid)
