@@ -406,6 +406,50 @@ def block_detach_all(vm, vm_xid = None):
 
 ####### USB devices ######
 
+def usb_setup(backend, frontend, devid):
+    """
+    Attach frontend to the backend.
+    FIXME
+    """
+    trans = xs.transaction_start()
+
+    be_path = "/local/domain/%d/backend/%s/%d/%d" % (backend, dev_name, frontend, devid)
+    fe_path = "/local/domain/%d/device/%s/%d" % (frontend, dev_name, devid)
+
+    be_perm = [{'dom': backend}, {'dom': frontend, 'read': True} ]
+    fe_perm = [{'dom': frontend}, {'dom': backend, 'read': True} ]
+
+    # Create directories and set permissions
+    xs.write(trans, be_path, "")
+    xs.set_permissions(trans, be_path, be_perm)
+
+    xs.write(trans, fe_path, "")
+    xs.set_permissions(trans, fe_path, fe_perm)
+
+    # Write backend information into the location that frontend look for.
+    xs.write(trans, "%s/backend-id" % fe_path, str(backend))
+    xs.write(trans, "%s/backend" % fe_path, be_path)
+
+    # Write frontend information into the location that backend look for.
+    xs.write(trans, "%s/frontend-id" % be_path, str(frontend))
+    xs.write(trans, "%s/frontend" % be_path, fe_path)
+
+    # Write USB Spec version field.
+    xs.write(trans, "%s/usb-ver" % be_path, "2")
+
+    # Write virtual root hub field.
+    xs.write(trans, "%s/num-ports" % be_path, str(num_ports))
+    for port in range(1, num_ports+1):
+            # Set all port to disconnected state
+            xs.write(trans, "%s/port/%d" % (be_path, port), "")
+
+    # Set state to XenbusStateInitialising
+    xs.write(trans, "%s/state" % fe_path, "1")
+    xs.write(trans, "%s/state" % be_path, "1")
+    xs.write(trans, "%s/online" % be_path, "1")
+
+    xs.transaction_end(trans)
+
 def usb_list():
     """
     Returns a dictionary of USB devices (for PVUSB backends running in all VM).
