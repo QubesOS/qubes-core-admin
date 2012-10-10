@@ -481,7 +481,8 @@ def usb_check_attached(backend_vm, device):
                 dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%s/%s/port/%s' % (backend_vm, vm, frontend_dev, port))
                 if dev == device:
                     frontend = "%s-%s" % (frontend_dev, port)
-                    attached_dev = {"xid":int(vm), "frontend": frontend, "devid": device, "vm": "FIXME"}
+                    vm_name = xl_ctx.domid_to_name(int(vm))
+                    attached_dev = {"xid":int(vm), "frontend": frontend, "devid": device, "vm": vm_name}
                     break
     xs.transaction_end(xs_trans)
     return attached_dev
