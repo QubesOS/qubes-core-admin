@@ -8,7 +8,7 @@
 # Copy files
 cp misc/usb_add_change /usr/lib/qubes/usb_add_change
 cp misc/usb_remove /usr/lib/qubes/usb_remove
-cp misc/misc/vusb-ctl.py /usr/lib/qubes/misc/vusb-ctl.py
+cp misc/vusb-ctl.py /usr/lib/qubes/misc/vusb-ctl.py
 cp misc/qubes_usb.rules /etc/udev/rules.d/99-qubes_usb.rules
 
 # Reload PVUSB backend and cleanup xenstore
