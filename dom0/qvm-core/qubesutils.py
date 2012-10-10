@@ -407,6 +407,15 @@ def block_detach_all(vm, vm_xid = None):
 ####### USB devices ######
 
 def usb_list():
+    """
+    Returns a dictionary of USB devices (for PVUSB backends running in all VM).
+    The dictionary is keyed by 'name' (see below), each element is a dictionary itself:
+     vm   = name of the backend domain
+     xid  = xid of the backend domain
+     device = <frontend device number>-<frontend port number>
+     name = <name of backend domain>:<frontend device number>-<frontend port number>
+     desc = description
+    """
     device_re = re.compile(r"^[0-9]+-[0-9]+$")
     # FIXME: any better idea of desc_re?
     desc_re = re.compile(r"^.{1,255}$")
@@ -439,6 +448,17 @@ def usb_list():
     return devices_list
 
 def usb_check_attached(backend_vm, device):
+    """
+    Checks if the given device in the given backend attached to any frontend.
+    Parameters:
+     backend_vm - xid of the backend domain
+     device - device name in the backend domain
+    Returns None or a dictionary:
+     vm - the name of the frontend domain
+     xid - xid of the frontend domain
+     frontend - frontend device number
+     devid - frontend port number
+    """
     # sample xs content: /local/domain/0/backend/vusb/4/0/port/1 = "7-5"
     attached_dev = None
     xs_trans = xs.transaction_start()
