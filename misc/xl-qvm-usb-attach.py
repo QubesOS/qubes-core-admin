@@ -24,16 +24,19 @@ if len(frontend)!=2:
     sys.exit(1)
 (controller, port)=frontend
 
-backendvm_xid=0
 if len(sys.argv)>4:
-    backendvm_xid=sys.argv[4]
-
-# determine the name of the backend-vm
-backendvm_name=xen.lowlevel.xl.ctx().domid_to_name(int(backendvm_xid))
+    backendvm_xid=int(sys.argv[4])
+    backendvm_name=xen.lowlevel.xl.ctx().domid_to_name(backendvm_xid)
+else:
+    backendvm_xid=0
 
 # FIXME: command injection
 os.system("xenstore-write /local/domain/%s/backend/vusb/%s/%s/port/%s %s"
 	% (backendvm_xid, frontendvm_xid, controller, port, backendvm_device))
 
 # FIXME: vm.run
-print "### qvm-run %s sudo /usr/lib/qubes/vusb-ctl.py unbind %s" % (backendvm_name, backendvm_device)
+cmd = "sudo /usr/lib/qubes/vusb-ctl.py bind %s" % backendvm_device
+if backendvm_xid == 0:
+    os.system(cmd)
+else:
+    os.system("qvm-run -p %s '%s'" % (backendvm_name, cmd))

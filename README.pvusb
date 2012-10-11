@@ -26,7 +26,11 @@ In appvms, after each reboot:
  sudo ./install-pvusb-frontend.sh 
 
 In dom0, after each usbvm and appvm reboot (FIXME):
- sudo initpv.py <backend-id> <frontend-id> <device-id>
+ sudo ../pvusb-scripts/initpv.py <backend-id> <frontend-id> <device-id>
+
+After the above is done:
+ 'qvm-usb -l' in usbvm displays a list of local USB devices
+ 'lsusb' in appvm displays an entry for the root hub
 
 Attach
 ~~~~~~

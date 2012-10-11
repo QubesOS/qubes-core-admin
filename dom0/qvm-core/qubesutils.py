@@ -574,8 +574,8 @@ def do_usb_attach(vm, backend_vm, device, frontend, auto_detach, wait):
         else:
             raise QubesException("Device %s from %s already connected to VM %s as %s" % (device, backend_vm.name, attached_vm['vm'], attached_vm['frontend']))
 
-    # FIXME sudo
-    xl_cmd = [ 'sudo', '/usr/lib/qubes/xl-qvm-usb-attach.py', str(vm.xid), device, frontend, str(backend_vm.xid) ]
+    # Run helper script
+    xl_cmd = [ '/usr/lib/qubes/xl-qvm-usb-attach.py', str(vm.xid), device, frontend, str(backend_vm.xid) ]
     subprocess.check_call(xl_cmd)
 
 def usb_detach(vm, frontend, vm_xid = None):
