@@ -2,10 +2,10 @@
 
 #usbvm=usbvm
 usbvm=
-appvm=netvm
+appvms="netvm qdvp"
 
 # --- Copy files ---------------------------------------------------------
-for vm in $usbvm $appvm ; do
+for vm in $usbvm $appvms ; do
 	(cd .. && tar c qubes-core) | qvm-run -p $vm 'tar x'
 done
 
@@ -28,4 +28,7 @@ else
 fi
 
 # --- Init appvm ---------------------------------------------------------
-qvm-run -p $appvm 'script -qc "cd qubes-core && sudo ./install-pvusb-frontend.sh" /dev/null'
+for appvm in $appvms ; do
+	qvm-run -p $appvm 'script -qc "cd qubes-core && sudo ./install-pvusb-frontend.sh" /dev/null'
+done
+
