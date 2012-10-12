@@ -543,13 +543,13 @@ def usb_check_attached(backend_vm, device):
     xs.transaction_end(xs_trans)
     return attached_dev
 
-def usb_check_frontend_busy(vm, front_dev, port):
-    devport = frontend.split("-")
-    if len(devport) != 2:
-        raise QubesException("Malformed frontend syntax, must be in device-port format")
-    # FIXME:
-    # return xs.read('', '/local/domain/%d/device/vusb/%d/state' % (vm.xid, frontend)) == '4'
-    return False
+#def usb_check_frontend_busy(vm, front_dev, port):
+#    devport = frontend.split("-")
+#    if len(devport) != 2:
+#        raise QubesException("Malformed frontend syntax, must be in device-port format")
+#    # FIXME:
+#    # return xs.read('', '/local/domain/%d/device/vusb/%d/state' % (vm.xid, frontend)) == '4'
+#    return False
 
 def usb_find_unused_frontend(backend_vm_xid, vm_xid):
     """
@@ -593,8 +593,9 @@ def usb_attach(vm, backend_vm, device, frontend=None, auto_detach=False, wait=Tr
         frontend = usb_find_unused_frontend(backend_vm.xid, vm.xid)
     else:
         # Check if any device attached at this frontend
-        if usb_check_frontend_busy(vm, frontend):
-            raise QubesException("Frontend %s busy in VM %s, detach it first" % (frontend, vm.name))
+        #if usb_check_frontend_busy(vm, frontend):
+        #    raise QubesException("Frontend %s busy in VM %s, detach it first" % (frontend, vm.name))
+        raise NotImplementedError("Explicit USB frontend specification is not implemented yet")
 
     # Check if this device is attached to some domain
     attached_vm = usb_check_attached(backend_vm.xid, device)

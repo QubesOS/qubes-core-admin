@@ -37,8 +37,8 @@ def main():
     parser.add_option ("-l", "--list", action="store_true", dest="do_list", default=False)
     parser.add_option ("-a", "--attach", action="store_true", dest="do_attach", default=False)
     parser.add_option ("-d", "--detach", action="store_true", dest="do_detach", default=False)
-    parser.add_option ("-f", "--frontend", dest="frontend", 
-                        help="Specify device id at destination VM [default: first unused]")
+#    parser.add_option ("-f", "--frontend", dest="frontend", 
+#                        help="Specify device id at destination VM [default: first unused]")
     parser.add_option ("--no-auto-detach", dest="auto_detach", action="store_false", default=True,
                         help="Fail when device already connected to other VM")
     parser.add_option ("--force-root", action="store_true", dest="force_root", default=False,
@@ -79,8 +79,8 @@ def main():
         backend_vm = qvm_collection.get_vm_by_name(dev['vm'])
         assert backend_vm is not None
         kwargs = {}
-        if options.frontend:
-            kwargs['frontend'] = options.frontend
+#        if options.frontend:
+#            kwargs['frontend'] = options.frontend
         kwargs['auto_detach'] = options.auto_detach
         try:
             usb_attach(vm, backend_vm, dev['device'], **kwargs)
