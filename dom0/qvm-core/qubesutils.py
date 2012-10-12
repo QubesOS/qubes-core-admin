@@ -406,18 +406,20 @@ def block_detach_all(vm, vm_xid = None):
 
 ####### USB devices ######
 
-def usb_setup(backend, frontend, devid):
+def usb_setup(backend_vm_xid, vm_xid, devid):
     """
     Attach frontend to the backend.
-    FIXME
+     backend_vm_xid - id of the backend domain
+     vm_xid - id of the frontend domain
+     devid  - id of the pvusb controller
     """
     trans = xs.transaction_start()
 
-    be_path = "/local/domain/%d/backend/%s/%d/%d" % (backend, dev_name, frontend, devid)
-    fe_path = "/local/domain/%d/device/%s/%d" % (frontend, dev_name, devid)
+    be_path = "/local/domain/%d/backend/vsub/%d/%d" % (backend_vm_xid, vm_xid, devid)
+    fe_path = "/local/domain/%d/device/vusb/%d" % (vm_xid, devid)
 
-    be_perm = [{'dom': backend}, {'dom': frontend, 'read': True} ]
-    fe_perm = [{'dom': frontend}, {'dom': backend, 'read': True} ]
+    be_perm = [{'dom': backend_vm_xid}, {'dom': vm_xid, 'read': True} ]
+    fe_perm = [{'dom': vm_xid}, {'dom': backend_vm_xid, 'read': True} ]
 
     # Create directories and set permissions
     xs.write(trans, be_path, "")
@@ -426,12 +428,12 @@ def usb_setup(backend, frontend, devid):
     xs.write(trans, fe_path, "")
     xs.set_permissions(trans, fe_path, fe_perm)
 
-    # Write backend information into the location that frontend look for.
-    xs.write(trans, "%s/backend-id" % fe_path, str(backend))
+    # Write backend information into the location that frontend looks for
+    xs.write(trans, "%s/backend-id" % fe_path, str(backend_vm_xid))
     xs.write(trans, "%s/backend" % fe_path, be_path)
 
-    # Write frontend information into the location that backend look for.
-    xs.write(trans, "%s/frontend-id" % be_path, str(frontend))
+    # Write frontend information into the location that backend looks for
+    xs.write(trans, "%s/frontend-id" % be_path, str(vm_xid))
     xs.write(trans, "%s/frontend" % be_path, fe_path)
 
     # Write USB Spec version field.
@@ -548,19 +550,44 @@ def usb_check_frontend_busy(vm, front_dev, port):
     # return xs.read('', '/local/domain/%d/device/vusb/%d/state' % (vm.xid, frontend)) == '4'
     return False
 
-def usb_find_unused_frontend(vm):
-    front_dev = 0
-    port = 1
-    # FIXME: raise QubesException("No unused frontend found")
-    return '%d-%d' % (front_dev, port)
+def usb_find_unused_frontend(backend_vm_xid, vm_xid):
+    """
+    Find an unused frontend/port to link the given backend with the given frontend.
+    Create new frontend if needed.
+    """
+    xs_trans='' # FIXME
+
+    last_frontend_dev = -1
+    frontend_devs = xs.ls(xs_trans, "/local/domain/%d/device/vusb" % vm_xid)
+    if frontend_devs is not None:
+        for frontend_dev in frontend_devs:
+            if not frontend_dev.isdigit():
+                print >> sys.stderr, "Invalid frontend_dev in VM %d" % vm_xid
+                continue
+            frontend_dev = int(frontend_dev)
+            fe_path = "/local/domain/%d/device/vusb/%d" % (vm_xid, frontend_dev)
+            if xs.read(xs_trans, "%s/backend-id" % fe_path) == str(backend_vm_xid):
+                ports = xs.ls(xs_trans, '/local/domain/%d/backend/vusb/%d/%d/port' % (backend_vm_xid, vm_xid, frontend_dev))
+                if ports is None:
+                    continue
+                for port in ports:
+                    if not port.isdigit():
+                        print >> sys.stderr, "Invalid port in VM %d frontend_dev %d" % (vm_xid, frontend_dev)
+                        continue
+                    port = int(port)
+                    dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%d/%d/port/%d' % (backend_vm_xid, vm_xid, frontend_dev, port))
+                    if dev == "":
+                        return '%d-%d' % (frontend_dev, port)
+            last_frontend_dev = frontend_dev
+
+    # FIXME: create a new frontend_dev and link it to the backend
+    raise QubesException("No unused frontends in VM %d found" % vm_xid)
         
 def usb_attach(vm, backend_vm, device, frontend=None, auto_detach=False, wait=True):
     device_attach_check(vm, backend_vm, device, frontend)
-    do_usb_attach(vm, backend_vm, device, frontend, auto_detach, wait)
 
-def do_usb_attach(vm, backend_vm, device, frontend, auto_detach, wait):
     if frontend is None:
-        frontend = usb_find_unused_frontend(vm)
+        frontend = usb_find_unused_frontend(backend_vm.xid, vm.xid)
     else:
         # Check if any device attached at this frontend
         if usb_check_frontend_busy(vm, frontend):
