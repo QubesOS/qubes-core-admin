@@ -510,7 +510,6 @@ def usb_check_attached(xs_trans, backend_vm, device):
     attached_dev = None
     vms = xs.ls(xs_trans, '/local/domain/%d/backend/vusb' % backend_vm)
     if vms is None:
-        xs.transaction_end(xs_trans)
         return None
     for vm in vms:
         if not vm.isdigit():
