@@ -1,5 +1,5 @@
-Installation
-~~~~~~~~~~~~
+Dedicated usbvm
+~~~~~~~~~~~~~~~
 
 In dom0, once:
  qvm-create -l red usbvm
@@ -10,41 +10,42 @@ In dom0, once:
  qvm-pci -a usbvm 00:1d.2
  qvm-pci -a usbvm 00:1d.7
 
+After each dom0 reboot:
+ qvm-start usbvm
+
+Confirm it finds all the devices
+
+Installation (short way)
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Check install-pvusb.sh, change parameters on the top. Defaults are:
+ dom0_usbvm=y # deploy pvusb backend in dom0
+ usbvms="usbvm" # deploy pvusb backend in these domUs
+ appvms="netvm qdvp" # deploy pvusb frontend in these domUs
+
+Run it in dom0 (it will use sudo inside as needed):
+ ./install-pvusb.sh
+
+Installation (long way)
+~~~~~~~~~~~~~~~~~~~~~~~
+
 In dom0, after each dom0 reboot:
  sudo ./install-pvusb-dom0.sh
- qvm-start usbvm
+FIXME: merge the installer into some rpm
 
 In dom0, after each usbvm reboot:
  usbvm_xid=`xl list | awk '($1=="usbvm"){print $2}'`
  xenstore-write /local/domain/${usbvm_xid}/qubes-usb-devices ''
  xenstore-chmod /local/domain/${usbvm_xid}/qubes-usb-devices n0 b${usbvm_xid}
+FIXME: some kind of hook in dom0?
 
 In usbvm, after each reboot:
  sudo ./install-pvusb-backend.sh 
+FIXME: convert the installer into "qubes-pvusb-backend" rpm?
 
 In appvms, after each reboot:
  sudo ./install-pvusb-frontend.sh 
-
-In dom0, after each usbvm and appvm reboot (FIXME):
- sudo ../pvusb-scripts/initpv.py <backend-id> <frontend-id> <device-id>
-
-After the above is done:
- 'qvm-usb -l' in usbvm displays a list of local USB devices
- 'lsusb' in appvm displays an entry for the root hub
-
-Attach
-~~~~~~
-
-In dom0:
- qvm-usb -a [-b <usbvm-name>] [-f <frontend-controller> [--p <frontend-port>]] [--no-auto-detach] <vm-name> <controller>-<port>
-
-Defaults:
- usbvm-name = 'usbvm'
- frontend-controller = 0
- frontend-port = first unused between 1 and 8
-
-Example:
- qvm-usb -a netvm usbvm:4-1
+FIXME: convert the installer into "qubes-pvusb-frontend" rpm?
 
 List
 ~~~~
@@ -53,15 +54,25 @@ In dom0:
  qvm-usb -l
 
 Example output:
- usbvm:4-1 1234:5678 My Bluetooth Dongle
- usbvm:4-2 5678:1234 My Wireless Adapter (attached to 'netvm' as '0-1')
+ dom0:7-4        0718:061a TDKMedia_Trans-It_Drive_070326AE8AF92D95 (attached to qdvp:0-1)
+ dom0:7-5        0b05:1706 ASUS_802.11g_WLAN_Drive (attached to netvm:0-1)
+ dom0:1-1        045e:0084 Microsoft_Basic_Optical_Mouse
+ usbvm:4-6       05e3:0723 Generic_USB_Storage (attached to qdvp:1-1)
+
+Attach
+~~~~~~
+
+In dom0:
+ qvm-usb -a [--no-auto-detach] <vm-name> <device-vm-name>:<backend-controller>-<backend-port>
+
+Example:
+ qvm-usb -a netvm usbvm:4-1
 
 Detach
 ~~~~~~
 
 In dom0:
  qvm-usb -d <vm-name>:<vusb-controller>-<vusb-port>
- qvm-usb -d <vm-name>
 
 Example:
  qvm-usb -d netvm:0-1
@@ -69,12 +80,13 @@ Example:
 Known issues
 ~~~~~~~~~~~~
 
-* The content of backend/vusb does not get cleaned on domain shutdown (no impact on functionality)
+* The content of backend/vusb does not get cleaned on domain shutdown (?)
 * System keyboard / mouse are listed and can be detached away
 * Virtual USB devices (ones created by PVUSB frontend) may be listed
 * The installation/configuration is not persistent, not retained between reboots
-* No logging / audit trail?
+* No debugging / logging / audit trail
 * When an attached device is physically unplugged, USB port remains mapped but not displayed in the list. If device is plugged back it continues to work. Unlisted device cannot be detached.
 * We are not attaching actual devices, but USB ports (different behavior from VMWare, might be confusing)
-* After device is detached from the frontend and returned back to the backend it is not usable there
+* After device is detached from the frontend and returned back to the backend it is not alwayws usable there
+* Code changing configuration of pvusb fe/be and vusb bind/unbind helper are located misc/xl-qvm-usb-attach.py misc/xl-qvm-usb-detach.py misc/vusb-ctl.py. These helpers are deployed into the backend domain. The initialization code is qubesutils.py in usb_setup(), should probably also be moved into an external helper. Perhaps the functionality of these external helpers should be merged into libxl? The is one catch is invokation of vusb helper in the backend domain -- now it relies on qubes-specific API.
 
