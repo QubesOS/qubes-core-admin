@@ -120,7 +120,7 @@ def main():
             attached_to = usb_check_attached(dev['xid'], dev['device'])
             attached_to_str = ""
             if attached_to:
-                attached_to_str = " (attached to '%s' as '%s')" % (attached_to['vm'], attached_to['frontend'])
+                attached_to_str = " (attached to %s:%s)" % (attached_to['vm'], attached_to['frontend'])
             print "%s\t%s%s" % (dev['name'], dev['desc'], attached_to_str)
         exit (0)
 
