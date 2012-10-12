@@ -73,6 +73,8 @@ Known issues
 * System keyboard / mouse are listed and can be detached away
 * Virtual USB devices (ones created by PVUSB frontend) may be listed
 * The installation/configuration is not persistent, not retained between reboots
-* The name of the default usbvm is hardcoded in qubesutils.py
 * No logging / audit trail?
+* When an attached device is physically unplugged, USB port remains mapped but not displayed in the list
+* We are not attaching actual devices, but USB ports (different behavior from VMWare, might be confusing)
+* After device is detached from the frontend and returned back to the backend it is not usable there
 

@@ -413,9 +413,10 @@ def usb_setup(backend_vm_xid, vm_xid, devid):
      vm_xid - id of the frontend domain
      devid  - id of the pvusb controller
     """
+    num_ports = 8
     trans = xs.transaction_start()
 
-    be_path = "/local/domain/%d/backend/vsub/%d/%d" % (backend_vm_xid, vm_xid, devid)
+    be_path = "/local/domain/%d/backend/vusb/%d/%d" % (backend_vm_xid, vm_xid, devid)
     fe_path = "/local/domain/%d/device/vusb/%d" % (vm_xid, devid)
 
     be_perm = [{'dom': backend_vm_xid}, {'dom': vm_xid, 'read': True} ]
@@ -580,8 +581,10 @@ def usb_find_unused_frontend(backend_vm_xid, vm_xid):
                         return '%d-%d' % (frontend_dev, port)
             last_frontend_dev = frontend_dev
 
-    # FIXME: create a new frontend_dev and link it to the backend
-    raise QubesException("No unused frontends in VM %d found" % vm_xid)
+    # create a new frontend_dev and link it to the backend
+    frontend_dev = last_frontend_dev + 1
+    usb_setup(backend_vm_xid, vm_xid, frontend_dev)
+    return '%d-%d' % (frontend_dev, 1)
         
 def usb_attach(vm, backend_vm, device, frontend=None, auto_detach=False, wait=True):
     device_attach_check(vm, backend_vm, device, frontend)
