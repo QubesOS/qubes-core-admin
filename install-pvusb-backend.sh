@@ -11,7 +11,9 @@ cp misc/usb_remove /usr/lib/qubes/usb_remove
 cp misc/vusb-ctl.py /usr/lib/qubes/vusb-ctl.py
 cp misc/qubes_usb.rules /etc/udev/rules.d/99-qubes_usb.rules
 
-# FIXME: /usr/lib64/python2.6/site-packages/xen
+# FIXME: need better way to deploy libraries needed by xen.vusb_util
+[ -d /usr/lib64/python2.7/site-packages ] &&
+    tar xzf install-pvusb-xen.tgz -C /usr/lib64/python2.7/site-packages
 
 # Load PVUSB backend
 modprobe xen-usbback
