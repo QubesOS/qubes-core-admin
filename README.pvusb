@@ -1,5 +1,5 @@
-Dedicated usbvm
-~~~~~~~~~~~~~~~
+Dedicated usbvm (optional)
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In dom0, once:
  qvm-create -l red usbvm
@@ -19,6 +19,7 @@ Installation (short way)
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 Check install-pvusb.sh, change parameters on the top. Defaults are:
+
  dom0_usbvm=y # deploy pvusb backend in dom0
  usbvms="usbvm" # deploy pvusb backend in these domUs
  appvms="netvm qdvp" # deploy pvusb frontend in these domUs
@@ -79,6 +80,8 @@ Example:
 
 Known issues
 ~~~~~~~~~~~~
+
+List/attach/detach operations seem to work ok, devices are recognized by the target VM etc. But actual usage of the attached devices is unstable at best. In fact the only working device I saw was one USB stick (and this only after it took a minute to time out and reset the bus couple times). Kernel crashes are normal as well. I have not investigated these issues yet, I had similar experience with Marek's scripts.
 
 * The content of backend/vusb does not get cleaned on domain shutdown (?)
 * System keyboard / mouse are listed and can be detached away
