@@ -494,7 +494,7 @@ def usb_list():
     xs.transaction_end(xs_trans)
     return devices_list
 
-def usb_check_attached(backend_vm, device):
+def usb_check_attached(xs_trans, backend_vm, device):
     """
     Checks if the given device in the given backend attached to any frontend.
     Parameters:
@@ -503,12 +503,11 @@ def usb_check_attached(backend_vm, device):
     Returns None or a dictionary:
      vm - the name of the frontend domain
      xid - xid of the frontend domain
-     frontend - frontend device number
-     devid - frontend port number
+     frontend - frontend device number FIXME
+     devid - frontend port number FIXME
     """
     # sample xs content: /local/domain/0/backend/vusb/4/0/port/1 = "7-5"
     attached_dev = None
-    xs_trans = xs.transaction_start()
     vms = xs.ls(xs_trans, '/local/domain/%d/backend/vusb' % backend_vm)
     if vms is None:
         xs.transaction_end(xs_trans)
@@ -540,7 +539,6 @@ def usb_check_attached(backend_vm, device):
                         continue
                     attached_dev = {"xid":int(vm), "frontend": frontend, "devid": device, "vm": vm_name}
                     break
-    xs.transaction_end(xs_trans)
     return attached_dev
 
 #def usb_check_frontend_busy(vm, front_dev, port):
@@ -551,12 +549,12 @@ def usb_check_attached(backend_vm, device):
 #    # return xs.read('', '/local/domain/%d/device/vusb/%d/state' % (vm.xid, frontend)) == '4'
 #    return False
 
-def usb_find_unused_frontend(backend_vm_xid, vm_xid):
+def usb_find_unused_frontend(xs_trans, backend_vm_xid, vm_xid):
     """
     Find an unused frontend/port to link the given backend with the given frontend.
-    Create new frontend if needed.
+    Creates new frontend if needed.
+    Returns frontend specification in <device>-<port> format.
     """
-    xs_trans='' # FIXME
 
     last_frontend_dev = -1
     frontend_devs = xs.ls(xs_trans, "/local/domain/%d/device/vusb" % vm_xid)
@@ -589,19 +587,23 @@ def usb_find_unused_frontend(backend_vm_xid, vm_xid):
 def usb_attach(vm, backend_vm, device, frontend=None, auto_detach=False, wait=True):
     device_attach_check(vm, backend_vm, device, frontend)
 
+    xs_trans = xs.transaction_start()
     if frontend is None:
-        frontend = usb_find_unused_frontend(backend_vm.xid, vm.xid)
+        frontend = usb_find_unused_frontend(xs_trans, backend_vm.xid, vm.xid)
     else:
         # Check if any device attached at this frontend
         #if usb_check_frontend_busy(vm, frontend):
         #    raise QubesException("Frontend %s busy in VM %s, detach it first" % (frontend, vm.name))
+        xs.transaction_end(xs_trans)
         raise NotImplementedError("Explicit USB frontend specification is not implemented yet")
 
     # Check if this device is attached to some domain
-    attached_vm = usb_check_attached(backend_vm.xid, device)
+    attached_vm = usb_check_attached(xs_trans, backend_vm.xid, device)
+    xs.transaction_end(xs_trans)
+
     if attached_vm:
         if auto_detach:
-            usb_detach(None, attached_vm['devid'], vm_xid=attached_vm['xid'])
+            usb_detach(backend_vm, attached_vm)
         else:
             raise QubesException("Device %s from %s already connected to VM %s as %s" % (device, backend_vm.name, attached_vm['vm'], attached_vm['frontend']))
 
@@ -609,11 +611,12 @@ def usb_attach(vm, backend_vm, device, frontend=None, auto_detach=False, wait=Tr
     xl_cmd = [ '/usr/lib/qubes/xl-qvm-usb-attach.py', str(vm.xid), device, frontend, str(backend_vm.xid) ]
     subprocess.check_call(xl_cmd)
 
-def usb_detach(vm, frontend, vm_xid = None):
-    raise NotImplementedError()
+def usb_detach(backend_vm, attachment):
+    xl_cmd = [ '/usr/lib/qubes/xl-qvm-usb-detach.py', str(attachment['xid']), attachment['devid'], attachment['frontend'], str(backend_vm.xid) ]
+    subprocess.check_call(xl_cmd)
 
-def usb_detach_all(vm, vm_xid = None):
-    raise NotImplementedError()
+def usb_detach_all(vm):
+    raise NotImplementedError("Detaching all devices from a given VM is not implemented yet")
 
 ####### QubesWatch ######
 

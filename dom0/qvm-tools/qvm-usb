@@ -30,8 +30,8 @@ def main():
     usage = "usage: %prog -l [options]\n"\
             "usage: %prog -a [options] <vm-name> <device-vm-name>:<device>\n"\
             "usage: %prog -d [options] <device-vm-name>:<device>\n"\
-            "usage: %prog -d [options] <vm-name>\n"\
             "List/set VM USB devices."
+#            "usage: %prog -d [options] <vm-name>\n"\
 
     parser = OptionParser (usage)
     parser.add_option ("-l", "--list", action="store_true", dest="do_list", default=False)
@@ -69,6 +69,7 @@ def main():
         vm = qvm_collection.get_vm_by_name(args[0])
         if vm is None:
             parser.error ("Invalid VM name: %s" % args[0])
+
         # FIXME: here we assume that device is always in form "domain:dev", which can be changed in the future
         if args[1].find(":") < 0:
             parser.error ("Invalid device syntax: %s" % args[1])
@@ -78,6 +79,7 @@ def main():
         dev = dev_list[args[1]]
         backend_vm = qvm_collection.get_vm_by_name(dev['vm'])
         assert backend_vm is not None
+
         kwargs = {}
 #        if options.frontend:
 #            kwargs['frontend'] = options.frontend
@@ -95,29 +97,37 @@ def main():
         # Check if provided name is VM
         vm = qvm_collection.get_vm_by_name(args[0])
         if vm is not None:
-            kwargs = {}
-            if options.frontend:
-                kwargs['frontend'] = options.frontend
-                usb_detach(vm, **kwargs)
-            else:
-                usb_detach_all(vm)
+            #kwargs = {}
+            #if options.frontend:
+            #    kwargs['frontend'] = options.frontend
+            #    usb_detach(vm, **kwargs)
+            #else:
+            usb_detach_all(vm)
         else:
-            # Maybe device?
+            # Maybe usbvm:device?
+
+	    # FIXME: nasty copy-paste from attach code half a page above
+            # FIXME: here we assume that device is always in form "domain:dev", which can be changed in the future
+            if args[0].find(":") < 0:
+                parser.error ("Invalid device syntax: %s" % args[0])
             dev_list = usb_list()
             if not args[0] in dev_list.keys():
-                parser.error ("Invalid VM or device name: %s" % args[0])
+                parser.error ("Invalid device name: %s" % args[0])
             dev = dev_list[args[0]]
-            attached_to = usb_check_attached(backend_xid, dev['device'])
+            backend_vm = qvm_collection.get_vm_by_name(dev['vm'])
+            assert backend_vm is not None
+
+            attached_to = usb_check_attached('', backend_vm.xid, dev['device'])
             if attached_to is None:
                 print >> sys.stderr, "WARNING: Device not connected to any VM"
                 exit(0)
-            usb_detach(None, attached_to['devid'], vm_xid=attached_to['xid'])
+            usb_detach(backend_vm, attached_to)
     else:
 	if len(args) > 0:
             parser.error ("Too many parameters")
         # do_list
         for dev in usb_list().values():
-            attached_to = usb_check_attached(dev['xid'], dev['device'])
+            attached_to = usb_check_attached('', dev['xid'], dev['device'])
             attached_to_str = ""
             if attached_to:
                 attached_to_str = " (attached to %s:%s)" % (attached_to['vm'], attached_to['frontend'])

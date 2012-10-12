@@ -74,7 +74,7 @@ Known issues
 * Virtual USB devices (ones created by PVUSB frontend) may be listed
 * The installation/configuration is not persistent, not retained between reboots
 * No logging / audit trail?
-* When an attached device is physically unplugged, USB port remains mapped but not displayed in the list
+* When an attached device is physically unplugged, USB port remains mapped but not displayed in the list. If device is plugged back it continues to work. Unlisted device cannot be detached.
 * We are not attaching actual devices, but USB ports (different behavior from VMWare, might be confusing)
 * After device is detached from the frontend and returned back to the backend it is not usable there
 
