@@ -11,7 +11,7 @@ echo $$ >$PIDFILE
 trap 'exit 0' SIGTERM
 
 while true; do
-	NET_DOMID=$(/usr/bin/xenstore-read qubes_netvm_domid)
+	NET_DOMID=$(/usr/bin/xenstore-read qubes_netvm_domid || :)
 	if [[ -n "$NET_DOMID" ]] && [[ $NET_DOMID -gt 0 ]]; then
 		UNTRUSTED_NETCFG=$(/usr/bin/xenstore-read /local/domain/$NET_DOMID/qubes_netvm_external_ip || :)
 		# UNTRUSTED_NETCFG is not parsed in any way
