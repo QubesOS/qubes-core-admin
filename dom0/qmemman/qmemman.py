@@ -66,13 +66,15 @@ class SystemState:
             if self.domdict[i].slow_memset_react and \
                     self.domdict[i].memory_actual <= self.domdict[i].last_target + self.XEN_FREE_MEM_LEFT/4:
                 dom_name = self.xs.read('', '/local/domain/%s/name' % str(i))
-                clear_error_qubes_manager(dom_name, slow_memset_react_msg)
+                if dom_name is not None:
+                    clear_error_qubes_manager(dom_name, slow_memset_react_msg)
                 self.domdict[i].slow_memset_react = False
 
             if self.domdict[i].no_progress and \
                     self.domdict[i].memory_actual <= self.domdict[i].last_target + self.XEN_FREE_MEM_LEFT/4:
                 dom_name = self.xs.read('', '/local/domain/%s/name' % str(i))
-                clear_error_qubes_manager(dom_name, no_progress_msg)
+                if dom_name is not None:
+                    clear_error_qubes_manager(dom_name, no_progress_msg)
                 self.domdict[i].no_progress = False
 
 #the below works (and is fast), but then 'xm list' shows unchanged memory value
