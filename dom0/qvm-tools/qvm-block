@@ -76,8 +76,8 @@ def main():
         qvm_collection.unlock_db()
 
     if options.do_attach:
-        if (len (args) < 2):
-            parser.error ("You must provide device and vm name!")
+        if (len (args) != 2):
+            parser.error ("You must provide vm name and device!")
         vm = qvm_collection.get_vm_by_name(args[0])
         if vm is None:
             parser.error ("Invalid VM name: %s" % args[0])
@@ -111,6 +111,8 @@ def main():
     elif options.do_detach:
         if (len (args) < 1):
             parser.error ("You must provide device or vm name!")
+        if len(args) > 1:
+             parser.error ("Too many parameters")
         # Check if provided name is VM
         vm = qvm_collection.get_vm_by_name(args[0])
         if vm is not None:
@@ -133,6 +135,8 @@ def main():
             block_detach(None, attached_to['devid'], vm_xid=attached_to['xid'])
     else:
         # do_list
+        if len(args) > 0:
+            parser.error ("Too many parameters")
         kwargs = {}
         kwargs['system_disks'] = options.system_disks
         for dev in block_list(**kwargs).values():
