@@ -72,3 +72,4 @@ fi
 
 [ -x /rw/config/rc.local-early ] && /rw/config/rc.local-early
 
+exit 0
