@@ -29,7 +29,6 @@ from qubes.qubes import QubesDaemonPidfile
 qubes_clipboard_info_file = "/var/run/qubes/qubes_clipboard.bin.source"
 
 def watch_qubes_clipboard():
-
     def tray_notify(str, timeout = 3000):
         notify_object.Notify("Qubes", 0, "dialog-information", "", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
 
@@ -40,7 +39,6 @@ def watch_qubes_clipboard():
     if not os.path.exists (qubes_clipboard_info_file):
         file = open (qubes_clipboard_info_file, 'w')
         file.close()
-
 
     class ClipboardWatcher(ProcessEvent):
         def process_IN_CLOSE_WRITE (self, event):
@@ -55,7 +53,6 @@ def watch_qubes_clipboard():
                              "<small>Press Ctrl-Shift-v to copy this clipboard onto dest VM's clipboard.</small>".format(src_vmname))
             src_info_file.close()
 
-
     notifier = Notifier(wm, ClipboardWatcher())
     wdd = wm.add_watch(qubes_clipboard_info_file, mask)
 
@@ -64,9 +61,7 @@ def watch_qubes_clipboard():
         if notifier.check_events():
             notifier.read_events()
 
-
 def main():
-    
     lock = QubesDaemonPidfile ("qclipd")
     if lock.pidfile_exists():
         if lock.pidfile_is_stale():
@@ -82,4 +77,7 @@ def main():
     with context:
         watch_qubes_clipboard()
 
-main()
+    lock.remove_pidfile()
+
+if __name__ == "__main__":
+    main()
