@@ -34,12 +34,6 @@ In dom0, after each dom0 reboot:
  sudo ./install-pvusb-dom0.sh
 FIXME: merge the installer into some rpm
 
-In dom0, after each usbvm reboot:
- usbvm_xid=`xl list | awk '($1=="usbvm"){print $2}'`
- xenstore-write /local/domain/${usbvm_xid}/qubes-usb-devices ''
- xenstore-chmod /local/domain/${usbvm_xid}/qubes-usb-devices n0 b${usbvm_xid}
-FIXME: some kind of hook in dom0?
-
 In usbvm, after each reboot:
  sudo ./install-pvusb-backend.sh 
 FIXME: convert the installer into "qubes-pvusb-backend" rpm?

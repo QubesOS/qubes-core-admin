@@ -874,6 +874,10 @@ class QubesVm(object):
                 "{0}/qubes-block-devices".format(domain_path),
                 '')
 
+        xs.write('',
+                "{0}/qubes-usb-devices".format(domain_path),
+                '')
+
         xs.write('', "{0}/qubes-debug-mode".format(domain_path),
                 str(int(self.debug)))
 
@@ -883,6 +887,8 @@ class QubesVm(object):
         xs.set_permissions('', '{0}/memory'.format(domain_path),
                 [{ 'dom': xid }])
         xs.set_permissions('', '{0}/qubes-block-devices'.format(domain_path),
+                [{ 'dom': xid }])
+        xs.set_permissions('', '{0}/qubes-usb-devices'.format(domain_path),
                 [{ 'dom': xid }])
 
     def get_rootdev(self, source_template=None):
