@@ -896,8 +896,8 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
                  + ('}' if vm.is_netvm() else '')"},
 
         "type": {"func": "'Tpl' if vm.is_template() else \
-                 ('Proxy' if vm.is_proxyvm() else \
-                 (' Net' if vm.is_netvm() else 'App'))"},
+                 'HVM' if vm.type == 'HVM' else \
+                 vm.type.replace('VM','')"},
 
         "updbl" : {"func": "'Yes' if vm.updateable else ''"},
 
@@ -1131,10 +1131,14 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
         new_vm = None
         try:
             restore_vm_dir (backup_dir, vm.dir_path, qubes_appvms_dir);
-            new_vm = host_collection.add_new_appvm(vm.name, template,
-                                          conf_file=vm.conf_file,
-                                          dir_path=vm.dir_path,
-                                          label=vm.label)
+            if vm.type == "HVM":
+                new_vm = host_collection.add_new_hvm(vm.name,
+                                              label=vm.label)
+            else:
+                new_vm = host_collection.add_new_appvm(vm.name, template,
+                                              conf_file=vm.conf_file,
+                                              dir_path=vm.dir_path,
+                                              label=vm.label)
         except Exception as err:
             error_callback("ERROR: {0}".format(err))
             error_callback("*** Skipping VM: {0}".format(vm.name))

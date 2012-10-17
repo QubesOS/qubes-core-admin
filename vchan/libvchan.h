@@ -19,7 +19,29 @@
  *
  */
 
+#ifndef _LIBVCHAN_H
+#define _LIBVCHAN_H
+
+#ifdef WINNT
+#include <windows.h>
+#include <xen_gntmem.h>
+#include <xs.h>
+typedef HANDLE EVTCHN;
+#define snprintf _snprintf
+#else /* WINNT */
 #include <stdint.h>
+typedef int EVTCHN;
+#endif /* WINNT */
+
+/* config vchan features */
+#ifdef WINNT
+#define QREXEC_RING_V2
+#define ASYNC_INIT
+#endif /* WINNT */
+#ifdef CONFIG_STUBDOM
+#define ASYNC_INIT
+#endif /* CONFIG_STUBDOM */
+
 #include <xenctrl.h>
 typedef uint32_t VCHAN_RING_IDX;
 
@@ -39,11 +61,12 @@ struct libvchan {
 	uint32_t ring_ref;
 	/// descriptor to event channel interface
 #ifdef XENCTRL_HAS_XC_INTERFACE
-    xc_evtchn *evfd;
+	xc_evtchn *evfd;
 #else
-	int evfd;
+	EVTCHN evfd;
 #endif
 	int evport;
+	int devno;
 	VCHAN_RING_IDX *wr_cons, *wr_prod, *rd_cons, *rd_prod;
 	char *rd_ring, *wr_ring;
 	int rd_ring_size, wr_ring_size;
@@ -54,12 +77,15 @@ struct libvchan *libvchan_server_init(int devno);
 
 struct libvchan *libvchan_client_init(int domain, int devno);
 
+int libvchan_server_handle_connected(struct libvchan *ctrl);
 int libvchan_write(struct libvchan *ctrl, char *data, int size);
 int libvchan_read(struct libvchan *ctrl, char *data, int size);
 int libvchan_wait(struct libvchan *ctrl);
 int libvchan_close(struct libvchan *ctrl);
 void libvchan_prepare_to_select(struct libvchan *ctrl);
-int libvchan_fd_for_select(struct libvchan *ctrl);
+EVTCHN libvchan_fd_for_select(struct libvchan *ctrl);
 int libvchan_is_eof(struct libvchan *ctrl);
 int libvchan_data_ready(struct libvchan *ctrl);
 int libvchan_buffer_space(struct libvchan *ctrl);
+
+#endif /* _LIBVCHAN_H */

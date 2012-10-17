@@ -32,6 +32,17 @@ void perror_wrapper(char * msg)
 	errno=prev;
 }
 
+void set_nonblock(int fd)
+{
+	int fl = fcntl(fd, F_GETFL, 0);
+	fcntl(fd, F_SETFL, fl | O_NONBLOCK);
+}
+
+void set_block(int fd)
+{
+	int fl = fcntl(fd, F_GETFL, 0);
+	fcntl(fd, F_SETFL, fl & ~O_NONBLOCK);
+}
 
 int write_all(int fd, void *buf, int size)
 {
@@ -42,7 +53,6 @@ int write_all(int fd, void *buf, int size)
 		if (ret == -1 && errno == EINTR)
 			continue;
 		if (ret <= 0) {
-			perror_wrapper("write");
 			return 0;
 		}
 		written += ret;
@@ -65,8 +75,13 @@ int read_all(int fd, void *buf, int size)
 			return 0;
 		}
 		if (ret < 0) {
-			perror_wrapper("read");
+			if (errno != EAGAIN)
+				perror_wrapper("read");
 			return 0;
+		}
+		if (got_read == 0) {
+			// force blocking operation on further reads
+			set_block(fd);
 		}
 		got_read += ret;
 	}

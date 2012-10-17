@@ -109,18 +109,6 @@ int write_stdin(int fd, int client_id, char *data, int len,
 
 }
 
-void set_nonblock(int fd)
-{
-	int fl = fcntl(fd, F_GETFL, 0);
-	fcntl(fd, F_SETFL, fl | O_NONBLOCK);
-}
-
-void set_block(int fd)
-{
-	int fl = fcntl(fd, F_GETFL, 0);
-	fcntl(fd, F_SETFL, fl & ~O_NONBLOCK);
-}
-
 /* 
 Data feed process has exited, so we need to clear all control structures for 
 the client. However, if we have buffered data for the client (which is rare btw),

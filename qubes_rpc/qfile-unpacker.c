@@ -29,31 +29,13 @@ int prepare_creds_return_uid(char *username)
 	return pwd->pw_uid;
 }
 
-void wait_for_child(int statusfd)
-{
-	int status;
-	if (read(statusfd, &status, sizeof status)!=sizeof status)
-		gui_fatal("File copy error: Internal error reading status from unpacker");
-	errno = status;
-	switch (status) {
-	case LEGAL_EOF: break;
-	case 0: gui_fatal("File copy: Connection terminated unexpectedly"); break;
-	case EINVAL: gui_fatal("File copy: Corrupted data from packer"); break;
-	case EEXIST: gui_fatal("File copy: not overwriting existing file. Clean ~/incoming, and retry copy"); break;
-	default: gui_fatal("File copy"); 
-	}
-}
-
-extern void do_unpack(int);
+extern int do_unpack(void);
 
 int main(int argc, char ** argv)
 {
 	char *incoming_dir;
-	int pipefds[2];
 	int uid;
 	char *remote_domain;
-
-	pipe(pipefds);
 
 	uid = prepare_creds_return_uid("user");
 
@@ -67,23 +49,8 @@ int main(int argc, char ** argv)
 	mkdir(incoming_dir, 0700);
 	if (chdir(incoming_dir))
 		gui_fatal("Error chdir to %s", incoming_dir); 
-	switch (fork()) {
-	case -1:
-		perror("fork");
-		exit(1);
-	case 0:
-		if (chroot(incoming_dir)) //impossible
-			gui_fatal("Error chroot to %s", incoming_dir);
-		setuid(uid);
-		close(pipefds[0]);
-		do_unpack(pipefds[1]);
-		exit(0);
-	default:;
-	}
-
+	if (chroot(incoming_dir)) //impossible
+		gui_fatal("Error chroot to %s", incoming_dir);
 	setuid(uid);
-	close(pipefds[1]);
-	wait_for_child(pipefds[0]);
-
-	return 0;
+	return do_unpack();
 }

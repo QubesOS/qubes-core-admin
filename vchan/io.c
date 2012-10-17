@@ -20,8 +20,15 @@
  */
 
 #include "libvchan.h"
+
+#ifndef WINNT
 #include <xenctrl.h>
+#include <errno.h>
+#include <sys/select.h>
+#endif
+
 #include <string.h>
+
 /**
         \return How much data is immediately available for reading
 */
@@ -64,16 +71,58 @@ int libvchan_is_eof(struct libvchan *ctrl)
 /**
         \return -1 return value means peer has closed
 */
+
+#ifdef WINNT
 int libvchan_wait(struct libvchan *ctrl)
 {
 	int ret;
-	ret = xc_evtchn_pending(ctrl->evfd);
+
+	ret = xc_evtchn_pending_with_flush(ctrl->evfd);
+	// I don't know how to avoid evtchn ring buffer overflow without
+	// introducing any race condition (in qrexec-agent code). Because of that,
+	// handle overflow with ring reset - because we just received some events
+	// (overflow means ring full, so some events was recorded...) the reset
+	// isn't critical here - always after libvchan_wait we check if there is
+	// something to read from the vchan
+	if (ret == -1 && GetLastError() == ERROR_IO_DEVICE)
+		ret = xc_evtchn_reset(ctrl->evfd);
 	if (ret!=-1 && xc_evtchn_unmask(ctrl->evfd, ctrl->evport))
 		return -1;
 	if (ret!=-1 && libvchan_is_eof(ctrl))
 		return -1;
 	return ret;
 }
+
+#else
+
+int libvchan_wait(struct libvchan *ctrl)
+{
+	int ret;
+#ifndef CONFIG_STUBDOM
+	ret = xc_evtchn_pending(ctrl->evfd);
+#else
+	int vchan_fd = libvchan_fd_for_select(ctrl);
+	fd_set rfds;
+
+	libvchan_prepare_to_select(ctrl);
+	while ((ret = xc_evtchn_pending(ctrl->evfd)) < 0) {
+        FD_ZERO(&rfds);
+        FD_SET(0, &rfds);
+        FD_SET(vchan_fd, &rfds);
+        ret = select(vchan_fd + 1, &rfds, NULL, NULL, NULL);
+        if (ret < 0 && errno != EINTR) {
+            perror("select");
+			return ret;
+        }
+	}
+#endif
+	if (ret!=-1 && xc_evtchn_unmask(ctrl->evfd, ctrl->evport))
+		return -1;
+	if (ret!=-1 && libvchan_is_eof(ctrl))
+		return -1;
+	return ret;
+}
+#endif
 
 /**
         may sleep (only if no buffer space available);
@@ -147,7 +196,7 @@ int libvchan_close(struct libvchan *ctrl)
 }
 
 /// The fd to use for select() set
-int libvchan_fd_for_select(struct libvchan *ctrl)
+EVTCHN libvchan_fd_for_select(struct libvchan *ctrl)
 {
 	return xc_evtchn_fd(ctrl->evfd);
 }

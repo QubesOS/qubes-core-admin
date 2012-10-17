@@ -405,7 +405,7 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib/qubes/meminfo-writer
 /usr/lib/qubes/network-manager-prepare-conf-dir
 /usr/lib/qubes/qfile-agent
-/usr/lib/qubes/qfile-unpacker
+%attr(4755,root,root) /usr/lib/qubes/qfile-unpacker
 /usr/lib/qubes/qopen-in-vm
 /usr/lib/qubes/qrexec_agent
 /usr/lib/qubes/qrexec_client_vm

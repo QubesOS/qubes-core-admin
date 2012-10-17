@@ -35,14 +35,24 @@ int read_all_with_crc(int fd, void *buf, int size) {
 	return ret;
 }
 
-int global_status_fd;
-void do_exit(int code)
-{
-	int codebuf = code;
-	write(global_status_fd, &codebuf, sizeof codebuf);
-	exit(0);
+void send_status_and_crc(int code) {
+	struct result_header hdr;
+	int saved_errno;
+
+	saved_errno = errno;
+	hdr.error_code = code;
+	hdr.crc32 = crc32_sum;
+	if (!write_all(1, &hdr, sizeof(hdr)))
+		perror("write status");
+	errno = saved_errno;
 }
 
+void do_exit(int code)
+{
+	close(0);
+	send_status_and_crc(code);
+	exit(code);
+}
 
 void fix_times_and_perms(struct file_header *untrusted_hdr,
 			 char *untrusted_name)
@@ -130,20 +140,8 @@ void process_one_file(struct file_header *untrusted_hdr)
 		do_exit(EINVAL);
 }
 
-void send_status_and_crc() {
-	struct result_header hdr;
-	int saved_errno;
-
-	saved_errno = errno;
-	hdr.error_code = errno;
-	hdr.crc32 = crc32_sum;
-	write_all(1, &hdr, sizeof(hdr));
-	errno = saved_errno;
-}
-
-void do_unpack(int fd)
+int do_unpack()
 {
-	global_status_fd = fd;
 	struct file_header untrusted_hdr;
 	/* initialize checksum */
 	crc32_sum = 0;
@@ -158,9 +156,6 @@ void do_unpack(int fd)
 		if (files_limit && total_files > files_limit)
 			do_exit(EDQUOT);
 	}
-	send_status_and_crc();
-	if (errno)
-		do_exit(errno);
-	else
-		do_exit(LEGAL_EOF);
+	send_status_and_crc(errno);
+	return errno;
 }

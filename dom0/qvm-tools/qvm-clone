@@ -21,7 +21,7 @@
 #
 
 from qubes.qubes import QubesVmCollection
-from qubes.qubes import QubesAppVm, QubesTemplateVm
+from qubes.qubes import QubesAppVm, QubesTemplateVm, QubesHVm
 from qubes.qubes import QubesException
 from optparse import OptionParser;
 import sys
@@ -72,6 +72,8 @@ def main():
         dst_vm = qvm_collection.add_new_appvm(name=dstname, template=src_vm.template,
                                               label=src_vm.label,
                                               dir_path=options.dir_path)
+    elif isinstance(src_vm, QubesHVm):
+        dst_vm = qvm_collection.add_new_hvm(name=dstname, label=src_vm.label)
     else:
         print >> sys.stderr, "ERROR: Clone not supported for this type of VM"
         exit(1)

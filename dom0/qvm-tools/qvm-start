@@ -78,6 +78,23 @@ def main():
         print >> sys.stderr, "A VM with the name '{0}' does not exist in the system.".format(vmname)
         exit(1)
 
+    if bool(options.drive_hd) + bool(options.drive_cdrom) + bool(options.drive) > 1:
+        print >> sys.stderr, "Only one of --drive, --cdrom, --hddisk can be specified"
+        exit(1)
+
+    if options.drive_hd:
+        options.drive = 'hd:' + options.drive_hd
+
+    if options.drive_cdrom:
+        options.drive = 'cdrom:' + options.drive_cdrom
+
+    if options.drive:
+        if hasattr(vm, 'drive'):
+            vm.drive = options.drive
+        else:
+            print >> sys.stderr, "This VM does not support attaching drives"
+            exit (1)
+
     if options.custom_config:
         vm.conf_file = options.custom_config
 

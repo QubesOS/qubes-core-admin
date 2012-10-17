@@ -21,6 +21,7 @@
 #
 
 import sys
+import stat
 import os
 import os.path
 import subprocess
@@ -76,7 +77,14 @@ default_memory = 400
 default_kernelopts = ""
 default_kernelopts_pcidevs = "iommu=soft swiotlb=2048"
 
+default_hvm_disk_size = 20*1024*1024*1024
+default_hvm_private_img_size = 2*1024*1024*1024
+default_hvm_memory = 512
+
 config_template_pv = '/usr/share/qubes/vm-template.conf'
+config_template_hvm = '/usr/share/qubes/vm-template-hvm.conf'
+
+start_appmenu_template = '/usr/share/qubes/qubes-start.desktop'
 
 qubes_whitelisted_appmenus = 'whitelisted-appmenus.list'
 
@@ -252,6 +260,7 @@ class QubesVm(object):
             "services": { "default": {}, "eval": "eval(str(value))" },
             "debug": { "default": False },
             "default_user": { "default": "user" },
+            "qrexec_timeout": { "default": 60, "eval": "int(value)" },
             ##### Internal attributes - will be overriden in __init__ regardless of args
             "appmenus_templates_dir": { "eval": \
                 'self.dir_path + "/" + default_appmenus_templates_subdir if self.updateable else ' + \
@@ -263,6 +272,7 @@ class QubesVm(object):
             "kernels_dir": { 'eval': 'qubes_kernels_base_dir + "/" + self.kernel if self.kernel is not None else ' + \
                 # for backward compatibility (or another rare case): kernel=None -> kernel in VM dir
                 'self.dir_path + "/" + default_kernels_subdir' },
+            "_start_guid_first": { 'eval': 'False' },
             }
 
         ### Mark attrs for XML inclusion
@@ -271,7 +281,7 @@ class QubesVm(object):
             'uses_default_kernel', 'kernel', 'uses_default_kernelopts',\
             'kernelopts', 'services', 'installed_by_rpm',\
             'uses_default_netvm', 'include_in_backups', 'debug',\
-            'default_user' ]:
+            'default_user', 'qrexec_timeout' ]:
             attrs[prop]['save'] = 'str(self.%s)' % prop
         # Simple paths
         for prop in ['conf_file', 'root_img', 'volatile_img', 'private_img']:
@@ -896,18 +906,24 @@ class QubesVm(object):
             # If dynamic memory management disabled, set maxmem=mem
             args['maxmem'] = args['mem']
         args['vcpus'] = str(self.vcpus)
-        args['ip'] = self.ip
-        args['mac'] = self.mac
-        args['gateway'] = self.gateway
-        args['dns1'] = self.gateway
-        args['dns2'] = self.secondary_dns
-        args['netmask'] = self.netmask
         if self.netvm is not None:
+            args['ip'] = self.ip
+            args['mac'] = self.mac
+            args['gateway'] = self.netvm.gateway
+            args['dns1'] = self.netvm.gateway
+            args['dns2'] = self.secondary_dns
+            args['netmask'] = self.netmask
             args['netdev'] = "'mac={mac},script=/etc/xen/scripts/vif-route-qubes,ip={ip}".format(ip=self.ip, mac=self.mac)
             if self.netvm.qid != 0:
                 args['netdev'] += ",backend={0}".format(self.netvm.name)
             args['netdev'] += "'"
         else:
+            args['ip'] = ''
+            args['mac'] = ''
+            args['gateway'] = ''
+            args['dns1'] = ''
+            args['dns2'] = ''
+            args['netmask'] = ''
             args['netdev'] = ''
         args['rootdev'] = self.get_rootdev(source_template=source_template)
         args['privatedev'] = "'script:file:{dir}/private.img,xvdb,w',".format(dir=self.dir_path)
@@ -1346,6 +1362,7 @@ class QubesVm(object):
 
         if passio_popen:
             popen_kwargs={'stdout': subprocess.PIPE}
+            popen_kwargs['stdin'] = subprocess.PIPE
             if passio_stderr:
                 popen_kwargs['stderr'] = subprocess.PIPE
             else:
@@ -1421,6 +1438,17 @@ class QubesVm(object):
             print >> sys.stderr, "ERROR: Cannot start qclipd!"
             if notify_function is not None:
                 notify_function("error", "ERROR: Cannot start the Qubes Clipboard Notifier!")
+
+    def start_qrexec_daemon(self, verbose = False):
+        if verbose:
+            print >> sys.stderr, "--> Starting the qrexec daemon..."
+        xid = self.get_xid()
+        qrexec_env = os.environ
+        qrexec_env['QREXEC_STARTUP_TIMEOUT'] = str(self.qrexec_timeout)
+        retcode = subprocess.call ([qrexec_daemon_path, str(xid), self.default_user], env=qrexec_env)
+        if (retcode != 0) :
+            self.force_shutdown()
+            raise OSError ("ERROR: Cannot execute qrexec_daemon!")
 
     def start(self, debug_console = False, verbose = False, preparing_dvm = False, start_guid = True):
         if dry_run:
@@ -1501,15 +1529,13 @@ class QubesVm(object):
 # the successful unpause is some indicator of it
         qmemman_client.close()
 
-        if not preparing_dvm:
-            if verbose:
-                print >> sys.stderr, "--> Starting the qrexec daemon..."
-            retcode = subprocess.call ([qrexec_daemon_path, str(xid)])
-            if (retcode != 0) :
-                self.force_shutdown()
-                raise OSError ("ERROR: Cannot execute qrexec_daemon!")
+        if self._start_guid_first and start_guid and not preparing_dvm and os.path.exists('/var/run/shm.id'):
+            self.start_guid(verbose=verbose)
 
-        if start_guid and not preparing_dvm and os.path.exists('/var/run/shm.id'):
+        if not preparing_dvm:
+            self.start_qrexec_daemon(verbose=verbose)
+
+        if not self._start_guid_first and start_guid and not preparing_dvm and os.path.exists('/var/run/shm.id'):
             self.start_guid(verbose=verbose)
 
         if preparing_dvm:
@@ -2223,6 +2249,253 @@ class QubesAppVm(QubesVm):
         self.remove_appmenus()
         super(QubesAppVm, self).remove_from_disk()
 
+class QubesHVm(QubesVm):
+    """
+    A class that represents an HVM. A child of QubesVm.
+    """
+
+    # FIXME: logically should inherit after QubesAppVm, but none of its methods
+    # are useful for HVM
+
+    def _get_attrs_config(self):
+        attrs = super(QubesHVm, self)._get_attrs_config()
+        attrs.pop('kernel')
+        attrs.pop('kernels_dir')
+        attrs.pop('kernelopts')
+        attrs.pop('uses_default_kernel')
+        attrs.pop('uses_default_kernelopts')
+        attrs['volatile_img']['eval'] = 'None'
+        attrs['config_file_template']['eval'] = 'config_template_hvm'
+        attrs['drive'] = { 'save': 'str(self.drive)' }
+        attrs['maxmem'].pop('save')
+        attrs['timezone'] = { 'default': 'localtime', 'save': 'str(self.timezone)' }
+        attrs['qrexec_installed'] = { 'default': False, 'save': 'str(self.qrexec_installed)' }
+        attrs['_start_guid_first']['eval'] = 'True'
+
+        return attrs
+
+    def __init__(self, **kwargs):
+
+        if "dir_path" not in kwargs or kwargs["dir_path"] is None:
+            kwargs["dir_path"] = qubes_appvms_dir + "/" + kwargs["name"]
+
+        # only updateable HVM supported
+        kwargs["updateable"] = True
+        kwargs["template_vm"] = None
+        if "memory" not in kwargs or kwargs["memory"] is None:
+            kwargs["memory"] = default_hvm_memory
+
+        super(QubesHVm, self).__init__(**kwargs)
+        # HVM doesn't support dynamic memory management
+        self.maxmem = self.memory
+
+    @property
+    def type(self):
+        return "HVM"
+
+    def is_appvm(self):
+        return True
+
+    def get_clone_attrs(self):
+        attrs = super(QubesHVm, self).get_clone_attrs()
+        attrs.remove('kernel')
+        attrs.remove('uses_default_kernel')
+        attrs.remove('kernelopts')
+        attrs.remove('uses_default_kernelopts')
+        attrs += [ 'timezone' ]
+        return attrs
+
+    def create_on_disk(self, verbose, source_template = None):
+        if dry_run:
+            return
+
+        if verbose:
+            print >> sys.stderr, "--> Creating directory: {0}".format(self.dir_path)
+        os.mkdir (self.dir_path)
+
+        if verbose:
+            print >> sys.stderr, "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
+        os.symlink (self.label.icon_path, self.icon_path)
+
+        if verbose:
+            print >> sys.stderr, "--> Creating appmenus directory: {0}".format(self.appmenus_templates_dir)
+        os.mkdir (self.appmenus_templates_dir)
+        shutil.copy (start_appmenu_template, self.appmenus_templates_dir)
+
+        if not self.internal:
+            self.create_appmenus (verbose, source_template=source_template)
+
+        self.create_config_file()
+
+        # create empty disk
+        f_root = open(self.root_img, "w")
+        f_root.truncate(default_hvm_disk_size)
+        f_root.close()
+
+        # create empty private.img
+        f_private = open(self.private_img, "w")
+        f_private.truncate(default_hvm_private_img_size)
+        f_root.close()
+
+    def remove_from_disk(self):
+        if dry_run:
+            return
+
+        self.remove_appmenus()
+        super(QubesHVm, self).remove_from_disk()
+
+    def get_disk_utilization_private_img(self):
+        return 0
+
+    def get_private_img_sz(self):
+        return 0
+
+    def resize_private_img(self, size):
+        raise NotImplementedError("HVM has no private.img")
+
+    def get_config_params(self, source_template=None):
+
+        params = super(QubesHVm, self).get_config_params(source_template=source_template)
+
+        params['volatiledev'] = ''
+        if self.drive:
+            type_mode = ":cdrom,r"
+            drive_path = self.drive
+            # leave empty to use standard syntax in case of dom0
+            backend_domain = ""
+            if drive_path.startswith("hd:"):
+                type_mode = ",w"
+                drive_path = drive_path[3:]
+            elif drive_path.startswith("cdrom:"):
+                type_mode = ":cdrom,r"
+                drive_path = drive_path[6:]
+            backend_split = re.match(r"^([a-zA-Z0-9-]*):(.*)", drive_path)
+            if backend_split:
+                backend_domain = "," + backend_split.group(1)
+                drive_path = backend_split.group(2)
+
+            # FIXME: os.stat will work only when backend in dom0...
+            stat_res = None
+            if backend_domain == "":
+                stat_res = os.stat(drive_path)
+            if stat_res and stat.S_ISBLK(stat_res.st_mode):
+                params['otherdevs'] = "'phy:%s,xvdc%s%s'," % (drive_path, type_mode, backend_domain)
+            else:
+                params['otherdevs'] = "'script:file:%s,xvdc%s%s'," % (drive_path, type_mode, backend_domain)
+        else:
+             params['otherdevs'] = ''
+
+        # Disable currently unused private.img - to be enabled when TemplateHVm done
+        params['privatedev'] = ''
+
+        if self.timezone.lower() == 'localtime':
+             params['localtime'] = '1'
+             params['timeoffset'] = '0'
+        elif self.timezone.isdigit():
+            params['localtime'] = '0'
+            params['timeoffset'] = self.timezone
+        else:
+            print >>sys.stderr, "WARNING: invalid 'timezone' value: %s" % self.timezone
+            params['localtime'] = '0'
+            params['timeoffset'] = '0'
+        return params
+
+    def verify_files(self):
+        if dry_run:
+            return
+
+        if not os.path.exists (self.dir_path):
+            raise QubesException (
+                    "VM directory doesn't exist: {0}".\
+                    format(self.dir_path))
+
+        if self.is_updateable() and not os.path.exists (self.root_img):
+            raise QubesException (
+                    "VM root image file doesn't exist: {0}".\
+                    format(self.root_img))
+
+        if not os.path.exists (self.private_img):
+            print >>sys.stderr, "WARNING: Creating empty VM private image file: {0}".\
+                format(self.private_img)
+            f_private = open(self.private_img, "w")
+            f_private.truncate(default_hvm_private_img_size)
+            f_private.close()
+
+        return True
+
+    def reset_volatile_storage(self, **kwargs):
+        pass
+
+    @property
+    def vif(self):
+        if self.xid < 0:
+            return None
+        if self.netvm is None:
+            return None
+        return "vif{0}.+".format(self.stubdom_xid)
+
+    def run(self, command, **kwargs):
+        if self.qrexec_installed:
+            if 'gui' in kwargs and kwargs['gui']==False:
+                command = "nogui:" + command
+            return super(QubesHVm, self).run(command, **kwargs)
+        else:
+            raise QubesException("Needs qrexec agent installed in VM to use this function. See also qvm-prefs.")
+
+    @property
+    def stubdom_xid(self):
+        if self.xid < 0:
+            return -1
+
+        stubdom_xid_str = xs.read('', '/local/domain/%d/image/device-model-domid' % self.xid)
+        if stubdom_xid_str is not None:
+            return int(stubdom_xid_str)
+        else:
+            return -1
+
+    def start_guid(self, verbose = True, notify_function = None):
+        if verbose:
+            print >> sys.stderr, "--> Starting Qubes GUId..."
+
+        retcode = subprocess.call ([qubes_guid_path, "-d", str(self.stubdom_xid), "-c", self.label.color, "-i", self.label.icon, "-l", str(self.label.index)])
+        if (retcode != 0) :
+            raise QubesException("Cannot start qubes_guid!")
+
+    def start_qrexec_daemon(self, **kwargs):
+        if self.qrexec_installed:
+            super(QubesHVm, self).start_qrexec_daemon(**kwargs)
+
+            if kwargs.get('verbose'):
+                print >> sys.stderr, "--> Waiting for user '%s' login..." % self.default_user
+
+            p = self.run('SYSTEM:QUBESRPC qubes.WaitForSession', passio_popen=True, gui=False, wait=True)
+            p.communicate(input=self.default_user)
+
+            retcode = subprocess.call([qubes_clipd_path])
+            if retcode != 0:
+                print >> sys.stderr, "ERROR: Cannot start qclipd!"
+
+    def pause(self):
+        if dry_run:
+            return
+
+        xc.domain_pause(self.stubdom_xid)
+        super(QubesHVm, self).pause()
+
+    def unpause(self):
+        if dry_run:
+            return
+
+        xc.domain_unpause(self.stubdom_xid)
+        super(QubesHVm, self).unpause()
+
+    def is_guid_running(self):
+        xid = self.stubdom_xid
+        if xid < 0:
+            return False
+        if not os.path.exists('/var/run/qubes/guid_running.%d' % xid):
+            return False
+        return True
 
 class QubesVmCollection(dict):
     """
@@ -2272,6 +2545,18 @@ class QubesVmCollection(dict):
                          netvm = self.get_default_netvm(),
                          kernel = self.get_default_kernel(),
                          uses_default_kernel = True,
+                         label=label)
+
+        if not self.verify_new_vm (vm):
+            assert False, "Wrong VM description!"
+        self[vm.qid]=vm
+        return vm
+
+    def add_new_hvm(self, name, label = None):
+
+        qid = self.get_new_unused_qid()
+        vm = QubesHVm (qid=qid, name=name,
+                         netvm = self.get_default_netvm(),
                          label=label)
 
         if not self.verify_new_vm (vm):
@@ -2574,7 +2859,8 @@ class QubesVmCollection(dict):
                 "installed_by_rpm", "internal",
                 "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
                 "maxmem", "kernel", "uses_default_kernel", "kernelopts", "uses_default_kernelopts",
-                "mac", "services", "include_in_backups", "debug", "default_user" )
+                "mac", "services", "include_in_backups", "debug",
+                "default_user", "qrexec_timeout", "qrexec_installed", "drive" )
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)
@@ -2628,12 +2914,19 @@ class QubesVmCollection(dict):
         if "uses_default_kernelopts" in kwargs:
             kwargs["uses_default_kernelopts"] = False if kwargs["uses_default_kernelopts"] == "False" else True
 
-        if "kernelopts" not in kwargs or kwargs["kernelopts"] == "None":
+        if "kernelopts" in kwargs and kwargs["kernelopts"] == "None":
             kwargs.pop("kernelopts")
+        if "kernelopts" not in kwargs:
             kwargs["uses_default_kernelopts"] = True
 
         if "debug" in kwargs:
             kwargs["debug"] = True if kwargs["debug"] == "True" else False
+
+        if "qrexec_installed" in kwargs:
+            kwargs["qrexec_installed"] = True if kwargs["qrexec_installed"] == "True" else False
+
+        if "drive" in kwargs and kwargs["drive"] == "None":
+            kwargs["drive"] = None
 
         return kwargs
 
@@ -2804,6 +3097,20 @@ class QubesVmCollection(dict):
                 self.set_netvm_dependency(element)
             except (ValueError, LookupError) as err:
                 print("{0}: import error (QubesAppVm): {1}".format(
+                    os.path.basename(sys.argv[0]), err))
+                return False
+
+        # And HVMs
+        for element in tree.findall("QubesHVm"):
+            try:
+                kwargs = self.parse_xml_element(element)
+                vm = QubesHVm(**kwargs)
+
+                self[vm.qid] = vm
+
+                self.set_netvm_dependency(element)
+            except (ValueError, LookupError) as err:
+                print("{0}: import error (QubesHVm): {1}".format(
                     os.path.basename(sys.argv[0]), err))
                 return False
 

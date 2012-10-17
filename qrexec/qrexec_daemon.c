@@ -38,8 +38,10 @@ enum client_flags {
 	CLIENT_INVALID = 0,	// table slot not used
 	CLIENT_CMDLINE = 1,	// waiting for cmdline from client
 	CLIENT_DATA = 2,	// waiting for data from client
-	CLIENT_DONT_READ = 4,	// don't read from the client, the other side pipe is full, or EOF
-	CLIENT_OUTQ_FULL = 8	// don't write to client, its stdin pipe is full
+	CLIENT_DONT_READ = 4,	// don't read from the client, the other side pipe is full, or EOF (additionally marked with CLIENT_EOF)
+	CLIENT_OUTQ_FULL = 8,	// don't write to client, its stdin pipe is full
+	CLIENT_EOF = 16,	// got EOF
+	CLIENT_EXITED = 32	// only send remaining data from client and remove from list
 };
 
 struct _client {
@@ -57,6 +59,9 @@ struct _client clients[MAX_CLIENTS];	// data on all qrexec_client connections
 
 int max_client_fd = -1;		// current max fd of all clients; so that we need not to scan all the "clients" table
 int qrexec_daemon_unix_socket_fd;	// /var/run/qubes/qrexec.xid descriptor
+char *default_user = "user";
+char default_user_keyword[] = "DEFAULT:";
+#define default_user_keyword_len_without_colon (sizeof(default_user_keyword)-2)
 
 void sigusr1_handler(int x)
 {
@@ -82,7 +87,31 @@ int create_qrexec_socket(int domid, char *domname)
 	return get_server_socket(socket_address);
 }
 
-#define MAX_STARTUP_TIME 60
+#define MAX_STARTUP_TIME_DEFAULT 60
+
+/* ask on qrexec connect timeout */
+int ask_on_connect_timeout(int xid, int timeout)
+{
+	char text[1024];
+	int ret;
+	snprintf(text, sizeof(text),
+			"kdialog --title 'Qrexec daemon' --warningyesno "
+			"'Timeout while trying connecting to qrexec agent (Xen domain ID: %d). Do you want to wait next %d seconds?'",
+			xid, timeout);
+	ret = system(text);
+	ret = WEXITSTATUS(ret);
+	//              fprintf(stderr, "ret=%d\n", ret);
+	switch (ret) {
+		case 1: /* NO */
+			return 0;
+		case 0: /*YES */
+			return 1;
+		default:
+			// this can be the case at system startup (netvm), when Xorg isn't running yet
+			// so just don't give possibility to extend the timeout
+			return 0;
+	}
+}
 
 /* do the preparatory tasks, needed before entering the main event loop */
 void init(int xid)
@@ -90,13 +119,23 @@ void init(int xid)
 	char qrexec_error_log_name[256];
 	int logfd;
 	int i;
+	pid_t pid;
+	int startup_timeout = MAX_STARTUP_TIME_DEFAULT;
+	char *startup_timeout_str = NULL;
 
 	if (xid <= 0) {
 		fprintf(stderr, "domain id=0?\n");
 		exit(1);
 	}
+	startup_timeout_str = getenv("QREXEC_STARTUP_TIMEOUT");
+	if (startup_timeout_str) {
+		startup_timeout = atoi(startup_timeout_str);
+		if (startup_timeout == 0)
+			// invalid number
+			startup_timeout = MAX_STARTUP_TIME_DEFAULT;
+	}
 	signal(SIGUSR1, sigusr1_handler);
-	switch (fork()) {
+	switch (pid=fork()) {
 	case -1:
 		perror("fork");
 		exit(1);
@@ -104,11 +143,16 @@ void init(int xid)
 		break;
 	default:
 		fprintf(stderr, "Waiting for VM's qrexec agent.");
-		for (i=0;i<MAX_STARTUP_TIME;i++) {
+		for (i=0;i<startup_timeout;i++) {
 			sleep(1);
 			fprintf(stderr, ".");
+			if (i==startup_timeout-1) {
+				if (ask_on_connect_timeout(xid, startup_timeout))
+					i=0;
+			}
 		}
-		fprintf(stderr, "Cannot connect to qrexec agent for %d seconds, giving up\n", MAX_STARTUP_TIME);
+		fprintf(stderr, "Cannot connect to qrexec agent for %d seconds, giving up\n", startup_timeout);
+		kill(pid, SIGTERM);
 		exit(1);
 	}
 	close(0);
@@ -170,7 +214,7 @@ void terminate_client_and_flush_data(int fd)
 	int i;
 	struct server_header s_hdr;
 
-	if (fork_and_flush_stdin(fd, &clients[fd].buffer))
+	if (!(clients[fd].state & CLIENT_EXITED) && fork_and_flush_stdin(fd, &clients[fd].buffer))
 		children_count++;
 	close(fd);
 	clients[fd].state = CLIENT_INVALID;
@@ -186,17 +230,28 @@ void terminate_client_and_flush_data(int fd)
 	write_all_vchan_ext(&s_hdr, sizeof(s_hdr));
 }
 
-void get_cmdline_body_from_client_and_pass_to_agent(int fd, struct server_header
+int get_cmdline_body_from_client_and_pass_to_agent(int fd, struct server_header
 						    *s_hdr)
 {
 	int len = s_hdr->len;
 	char buf[len];
+	int use_default_user = 0;
 	if (!read_all(fd, buf, len)) {
 		terminate_client_and_flush_data(fd);
-		return;
+		return 0;
+	}
+	if (!strncmp(buf, default_user_keyword, default_user_keyword_len_without_colon+1)) {
+		use_default_user = 1;
+		s_hdr->len -= default_user_keyword_len_without_colon; // -1 because of colon
+		s_hdr->len += strlen(default_user);
 	}
 	write_all_vchan_ext(s_hdr, sizeof(*s_hdr));
-	write_all_vchan_ext(buf, len);
+	if (use_default_user) {
+		write_all_vchan_ext(default_user, strlen(default_user));
+		write_all_vchan_ext(buf+default_user_keyword_len_without_colon, len-default_user_keyword_len_without_colon);
+	} else
+		write_all_vchan_ext(buf, len);
+	return 1;
 }
 
 void handle_cmdline_message_from_client(int fd)
@@ -224,7 +279,10 @@ void handle_cmdline_message_from_client(int fd)
 
 	s_hdr.client_id = fd;
 	s_hdr.len = hdr.len;
-	get_cmdline_body_from_client_and_pass_to_agent(fd, &s_hdr);
+	if (!get_cmdline_body_from_client_and_pass_to_agent(fd, &s_hdr))
+		// client disconnected while sending cmdline, above call already
+		// cleaned up client info
+		return;
 	clients[fd].state = CLIENT_DATA;
 	set_nonblock(fd);	// so that we can detect full queue without blocking
 	if (hdr.type == MSG_CLIENT_TO_SERVER_JUST_EXEC)
@@ -262,7 +320,10 @@ void handle_message_from_client(int fd)
 	write_all_vchan_ext(&s_hdr, sizeof(s_hdr));
 	write_all_vchan_ext(buf, ret);
 	if (ret == 0)		// EOF - so don't select() on this client
-		clients[fd].state |= CLIENT_DONT_READ;
+		clients[fd].state |= CLIENT_DONT_READ | CLIENT_EOF;
+	if (clients[fd].state & CLIENT_EXITED)
+		//client already exited and all data sent - cleanup now
+		terminate_client_and_flush_data(fd);
 }
 
 /* 
@@ -278,7 +339,14 @@ void write_buffered_data_to_client(int client_id)
 		clients[client_id].state &= ~CLIENT_OUTQ_FULL;
 		break;
 	case WRITE_STDIN_ERROR:
-		terminate_client_and_flush_data(client_id);
+		// do not write to this fd anymore
+		clients[client_id].state |= CLIENT_EXITED;
+		if (clients[client_id].state & CLIENT_EOF)
+			terminate_client_and_flush_data(client_id);
+		else
+			// client will be removed when read returns 0 (EOF)
+			// clear CLIENT_OUTQ_FULL flag to no select on this fd anymore
+			clients[client_id].state &= ~CLIENT_OUTQ_FULL;
 		break;
 	case WRITE_STDIN_BUFFERED:	// no room for all data, don't clear CLIENT_OUTQ_FULL flag
 		break;
@@ -301,6 +369,9 @@ void get_packet_data_from_agent_and_pass_to_client(int client_id, struct client_
 	/* make both the header and data be consecutive in the buffer */
 	*(struct client_header *) buf = *hdr;
 	read_all_vchan_ext(buf + sizeof(*hdr), len);
+	if (clients[client_id].state & CLIENT_EXITED)
+		// ignore data for no longer running client
+		return;
 
 	switch (write_stdin
 		(client_id, client_id, buf, len + sizeof(*hdr),
@@ -311,7 +382,11 @@ void get_packet_data_from_agent_and_pass_to_client(int client_id, struct client_
 		clients[client_id].state |= CLIENT_OUTQ_FULL;
 		break;
 	case WRITE_STDIN_ERROR:
-		terminate_client_and_flush_data(client_id);
+		// do not write to this fd anymore
+		clients[client_id].state |= CLIENT_EXITED;
+		// if already got EOF, remove client
+		if (clients[client_id].state & CLIENT_EOF)
+			terminate_client_and_flush_data(client_id);
 		break;
 	default:
 		fprintf(stderr, "unknown write_stdin?\n");
@@ -557,10 +632,12 @@ int main(int argc, char **argv)
 	int max;
 	sigset_t chld_set;
 
-	if (argc != 2) {
-		fprintf(stderr, "usage: %s domainid\n", argv[0]);
+	if (argc != 2 && argc != 3) {
+		fprintf(stderr, "usage: %s domainid [default user]\n", argv[0]);
 		exit(1);
 	}
+	if (argc == 3)
+		default_user = argv[2];
 	init(atoi(argv[1]));
 	sigemptyset(&chld_set);
 	sigaddset(&chld_set, SIGCHLD);

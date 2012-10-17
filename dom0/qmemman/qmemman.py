@@ -53,7 +53,7 @@ class SystemState:
                 self.domdict[id].memory_maximum = self.xs.read('', '/local/domain/%s/memory/static-max' % str(id))
                 if not self.domdict[id].memory_maximum:
                     self.domdict[id].memory_maximum = self.ALL_PHYS_MEM
-# the previous line used to be                                   
+# the previous line used to be
 #                    self.domdict[id].memory_maximum = domain['maxmem_kb']*1024
 # but domain['maxmem_kb'] changes in self.mem_set as well, and this results in
 # the memory never increasing
@@ -109,7 +109,7 @@ class SystemState:
         for i in self.domdict.keys():
             dom = self.domdict[i]
             if dom.memory_actual is not None and dom.memory_actual + 200*1024 < dom.last_target:
-                print "Preventing balloon up to", dom.last_target 
+                print "Preventing balloon up to", dom.last_target
                 self.mem_set(i, dom.memory_actual)
 
 #perform memory ballooning, across all domains, to add "memsize" to Xen free memory
@@ -144,7 +144,7 @@ class SystemState:
                 prev_memory_actual[dom] = self.domdict[dom].memory_actual
             time.sleep(self.BALOON_DELAY)
             niter = niter + 1
-            
+
     def refresh_meminfo(self, domid, untrusted_meminfo_key):
         qmemman_algo.refresh_meminfo_for_domain(self.domdict[domid], untrusted_meminfo_key)
         self.do_balance()
@@ -174,7 +174,7 @@ class SystemState:
             if self.domdict[i].meminfo is not None:
                 print 'dom' , i, 'act/pref', self.domdict[i].memory_actual, qmemman_algo.prefmem(self.domdict[i])
         print 'xenfree=', xenfree, 'balance req:', memset_reqs
-                                                
+
     def do_balance(self):
         if os.path.isfile('/var/run/qubes/do-not-membalance'):
             return
@@ -184,7 +184,7 @@ class SystemState:
         memset_reqs = qmemman_algo.balance(xenfree - self.XEN_FREE_MEM_LEFT, self.domdict)
         if not self.is_balance_req_significant(memset_reqs, xenfree):
             return
-            
+
         self.print_stats(xenfree, memset_reqs)
 
         prev_memactual = {}

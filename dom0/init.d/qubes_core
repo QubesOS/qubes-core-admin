@@ -37,8 +37,10 @@ start()
     MEMINFO_DELAY_USEC=100000
     /usr/lib/qubes/meminfo-writer $MEM_CHANGE_THRESHOLD_KB $MEMINFO_DELAY_USEC
 
+    /usr/lib/qubes/block_cleaner_daemon.py > /var/log/qubes/block_cleaner.log 2>&1 &
+
     # Hide mounted devices from qubes-block list (at first udev run, only / is mounted)
-    for dev in `xenstore-list /local/domain/0/qubes-block-devices`; do
+    for dev in `xenstore-list /local/domain/0/qubes-block-devices 2> /dev/null`; do
     ( eval `udevadm info -q property -n $dev|sed -e 's/\([^=]*\)=\(.*\)/export \1="\2"/'`; 
       /usr/lib/qubes/block_add_change > /dev/null
     )

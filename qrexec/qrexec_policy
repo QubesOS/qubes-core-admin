@@ -5,6 +5,7 @@ import os.path
 import subprocess
 import xen.lowlevel.xl
 import qubes.guihelpers
+from optparse import OptionParser
 import fcntl
  
 POLICY_FILE_DIR="/etc/qubes_rpc/policy"
@@ -126,10 +127,18 @@ def policy_editor(domain, target, exec_index):
     subprocess.call(["/usr/bin/zenity", "--info", "--text", text]) 
 
 def main():
-    domain=sys.argv[1]
-    target=sys.argv[2]
-    exec_index=sys.argv[3]
-    process_ident=sys.argv[4]
+    usage = "usage: %prog [options] <src-domain> <target-domain> <service> <process-ident>"
+    parser = OptionParser (usage)
+    parser.add_option ("--assume-yes-for-ask", action="store_true", dest="assume_yes_for_ask", default=False,
+                      help="Allow run of service without confirmation if policy say 'ask'")
+    parser.add_option ("--just-evaluate", action="store_true", dest="just_evaluate", default=False,
+                      help="Do not run the service, only evaluate policy; retcode=0 means 'allow'")
+
+    (options, args) = parser.parse_args ()
+    domain=args[0]
+    target=args[1]
+    exec_index=args[2]
+    process_ident=args[3]
     
     policy_list=read_policy_file(exec_index)
     if policy_list==None:
@@ -139,6 +148,9 @@ def main():
             policy_list=list()
 
     policy_dict=find_policy(policy_list, domain, target)
+
+    if policy_dict["action"] == "ask" and options.assume_yes_for_ask:
+        policy_dict["action"] = "allow"
     
     if policy_dict["action"] == "ask":
         user_choice = confirm_execution(domain, target, exec_index)
@@ -149,14 +161,20 @@ def main():
             policy_dict["action"] = "allow"
         else:
             policy_dict["action"] = "deny"
-    
+
+    if options.just_evaluate:
+        if policy_dict["action"] == "allow":
+            exit(0)
+        else:
+            exit(1)    
+
     if policy_dict["action"] == "allow":
         if policy_dict.has_key("action.target"):
             target=policy_dict["action.target"]
         if policy_dict.has_key("action.user"):
             user=policy_dict["action.user"]
         else:
-            user="user"
+            user="DEFAULT"
         do_execute(domain, target, user, exec_index, process_ident)
 
     print >> sys.stderr, "Rpc denied:", domain, target, exec_index    

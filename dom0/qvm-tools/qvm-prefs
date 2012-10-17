@@ -53,21 +53,23 @@ def do_list(vm):
         print fmt.format ("root COW img", vm.rootcow_img)
     if vm.template is not None:
         print fmt.format ("root img", vm.template.root_img)
-    if hasattr(vm, 'volatile_img'):
+    if hasattr(vm, 'volatile_img') and vm.volatile_img is not None:
         print fmt.format ("root volatile img", vm.volatile_img)
 
-    if hasattr(vm, 'private_img'):
+    if hasattr(vm, 'private_img') and vm.private_img is not None:
         print fmt.format ("private img", vm.private_img)
     print fmt.format ("vcpus", str(vm.vcpus))
     print fmt.format ("memory", vm.memory)
     if hasattr(vm, 'maxmem'):
         print fmt.format ("maxmem", vm.maxmem)
     print fmt.format ("MAC", "%s%s" % (vm.mac, " (auto)" if vm._mac is None else ""))
+
     if hasattr(vm, 'kernel'):
         if vm.uses_default_kernel:
             print fmt.format ("kernel", "%s (default)" % vm.kernel)
         else:
             print fmt.format ("kernel", vm.kernel)
+
     if hasattr(vm, 'kernelopts'):
         if vm.uses_default_kernelopts:
             print fmt.format ("kernelopts", "%s (default)" % vm.kernelopts)
@@ -78,6 +80,18 @@ def do_list(vm):
 
     if hasattr(vm, 'default_user'):
         print fmt.format("default user", str(vm.default_user))
+
+    if hasattr(vm, 'qrexec_installed'):
+        print fmt.format("qrexec_installed", str(vm.qrexec_installed))
+
+    if hasattr(vm, 'qrexec_timeout'):
+        print fmt.format("qrexec timeout", str(vm.qrexec_timeout))
+
+    if hasattr(vm, 'drive'):
+        print fmt.format("drive", str(vm.drive))
+
+    if hasattr(vm, 'timezone'):
+        print fmt.format("timezone", str(vm.timezone))
 
 def set_label(vms, vm, args):
     if len (args) != 1:
@@ -274,6 +288,16 @@ def set_name(vms, vm, args):
     vm.set_name(args[0])
     return True
 
+def set_drive(vms, vm, args):
+    if len (args) != 1:
+        print >> sys.stderr, "Missing new drive content (file/device)!"
+        return False
+
+    if args[0] == '' or args[0].lower() == 'none':
+        vm.drive = None
+    else:
+        vm.drive = args[0]
+    return True
 
 def set_debug(vms, vm, args):
     if len (args) != 1:
@@ -304,6 +328,34 @@ def set_include_in_backups(vms, vm, args):
     vm.include_in_backups = bool(eval(args[0].capitalize()))
     return True
 
+def set_qrexec_installed(vms, vm, args):
+    if len (args) != 1:
+        print >> sys.stderr, "Missing value (True/False)!"
+        return False
+
+    vm.qrexec_installed = bool(eval(args[0].capitalize()))
+    return True
+
+def set_qrexec_timeout(vms, vm, args):
+    if len (args) != 1:
+        print >> sys.stderr, "Missing timeout value (seconds)!"
+        return False
+
+    vm.qrexec_timeout = int(args[0])
+    return True
+
+def set_timezone(vms, vm, args):
+    if len (args) != 1:
+        print >> sys.stderr, "Missing value ('localtime' or timeoffset in seconds)!"
+        return False
+
+    if not args[0].isdigit() and args[0].lower() == 'localtime':
+        print >> sys.stderr, "Invalid timezone value!"
+        return False
+
+    vm.timezone = args[0]
+    return True
+
 properties = {
     "include_in_backups": set_include_in_backups,
     "pcidevs": set_pcidevs,
@@ -316,9 +368,13 @@ properties = {
     "vcpus" : set_vcpus,
     "kernelopts": set_kernelopts,
     "name": set_name,
+    "drive": set_drive,
     "mac": set_mac,
     "debug": set_debug,
     "default_user": set_default_user,
+    "qrexec_installed": set_qrexec_installed,
+    "qrexec_timeout": set_qrexec_timeout,
+    "timezone": set_timezone,
 }
 
 

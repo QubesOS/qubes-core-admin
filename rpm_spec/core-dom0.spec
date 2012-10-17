@@ -40,6 +40,7 @@ BuildRequires:  xen-devel
 Requires:	python, xen-runtime, pciutils, python-inotify, python-daemon, kernel-qubes-dom0
 Conflicts:      qubes-gui-dom0 < 1.1.13
 Requires:       xen >= 4.1.0-2
+Requires:       xen-hvm
 Requires:       createrepo
 Requires:       gnome-packagekit
 Requires:       cronie
@@ -115,6 +116,7 @@ cp qubes_rpc/qubes-receive-updates $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_add_change $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_remove $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_cleanup $RPM_BUILD_ROOT/usr/lib/qubes/
+cp aux-tools/block_cleaner_daemon.py $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/fix_dir_perms.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/etc/qubes_rpc/policy
@@ -162,7 +164,9 @@ cp misc/qubes-servicevm.directory.template $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/qubes-dispvm.directory $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/qubes-dispvm-firefox.desktop $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/qubes-appmenu-select.desktop $RPM_BUILD_ROOT/usr/share/qubes/
+cp misc/qubes-start.desktop $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/vm-template.conf $RPM_BUILD_ROOT/usr/share/qubes/
+cp misc/vm-template-hvm.conf $RPM_BUILD_ROOT/usr/share/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/usr/bin
 cp ../network/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/lib/qubes
@@ -361,6 +365,7 @@ fi
 /usr/lib/qubes/block_add_change
 /usr/lib/qubes/block_remove
 /usr/lib/qubes/block_cleanup
+/usr/lib/qubes/block_cleaner_daemon.py*
 /usr/lib/qubes/fix_dir_perms.sh
 %attr(4750,root,qubes) /usr/lib/qubes/qfile-dom0-unpacker
 %attr(770,root,qubes) %dir /var/lib/qubes
@@ -378,7 +383,9 @@ fi
 /usr/share/qubes/qubes-dispvm.directory
 /usr/share/qubes/qubes-dispvm-firefox.desktop
 /usr/share/qubes/qubes-appmenu-select.desktop
+/usr/share/qubes/qubes-start.desktop
 /usr/share/qubes/vm-template.conf
+/usr/share/qubes/vm-template-hvm.conf
 /usr/lib/qubes/qubes_setup_dnat_to_ns
 /usr/lib/qubes/qubes_fix_nm_conf.sh
 /etc/dhclient.d/qubes_setup_dnat_to_ns.sh
