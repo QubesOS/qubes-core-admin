@@ -25,7 +25,7 @@ import stat
 import os
 import os.path
 import subprocess
-import xml.etree.ElementTree
+import lxml.etree
 import xml.parsers.expat
 import fcntl
 import re
@@ -1203,7 +1203,7 @@ class QubesVm(object):
             if item not in conf:
                 conf[item] = defaults[item]
 
-        root = xml.etree.ElementTree.Element(
+        root = lxml.etree.Element(
                 "QubesFirwallRules",
                 policy = "allow" if conf["allow"] else "deny",
                 dns = "allow" if conf["allowDns"] else "deny",
@@ -1218,7 +1218,7 @@ class QubesVm(object):
                     rule["proto"] = "tcp"
                 else:
                     rule["proto"] = "any"
-            element = xml.etree.ElementTree.Element(
+            element = lxml.etree.Element(
                     "rule",
                     address=rule["address"],
                     proto=str(rule["proto"]),
@@ -1232,7 +1232,7 @@ class QubesVm(object):
 
             root.append(element)
 
-        tree = xml.etree.ElementTree.ElementTree(root)
+        tree = lxml.etree.ElementTree(root)
 
         try:
             f = open(self.firewall_conf, 'a') # create the file if not exist
@@ -1240,7 +1240,7 @@ class QubesVm(object):
 
             with open(self.firewall_conf, 'w') as f:
                 fcntl.lockf(f, fcntl.LOCK_EX)
-                tree.write(f, "UTF-8")
+                tree.write(f, encoding="UTF-8", pretty_print=True)
                 fcntl.lockf(f, fcntl.LOCK_UN)
             f.close()
         except EnvironmentError as err:
@@ -1267,7 +1267,7 @@ class QubesVm(object):
         conf = self.get_firewall_defaults()
 
         try:
-            tree = xml.etree.ElementTree.parse(self.firewall_conf)
+            tree = lxml.etree.parse(self.firewall_conf)
             root = tree.getroot()
 
             conf["allow"] = (root.get("policy") == "allow")
@@ -1598,7 +1598,7 @@ class QubesVm(object):
         rx_type = re.compile (r"VM")
 
         attrs = self.get_xml_attrs()
-        element = xml.etree.ElementTree.Element(
+        element = lxml.etree.Element(
             "Qubes" + rx_type.sub("Vm", self.type),
             **attrs)
         return element
@@ -2811,7 +2811,7 @@ class QubesVmCollection(dict):
         self.qubes_store_file.close()
 
     def save(self):
-        root = xml.etree.ElementTree.Element(
+        root = lxml.etree.Element(
             "QubesVmCollection",
 
             default_template=str(self.default_template_qid) \
@@ -2837,7 +2837,7 @@ class QubesVmCollection(dict):
             element = vm.create_xml_element()
             if element is not None:
                 root.append(element)
-        tree = xml.etree.ElementTree.ElementTree(root)
+        tree = lxml.etree.ElementTree(root)
 
         try:
 
@@ -2845,7 +2845,7 @@ class QubesVmCollection(dict):
             # file as "r+" in the lock_db_for_writing() function
             self.qubes_store_file.seek (0, os.SEEK_SET)
             self.qubes_store_file.truncate()
-            tree.write(self.qubes_store_file, "UTF-8")
+            tree.write(self.qubes_store_file, encoding="UTF-8", pretty_print=True)
         except EnvironmentError as err:
             print("{0}: export error: {1}".format(
                 os.path.basename(sys.argv[0]), err))
@@ -2973,7 +2973,7 @@ class QubesVmCollection(dict):
         dom0_vm = dom0vm
 
         try:
-            tree = xml.etree.ElementTree.parse(self.qubes_store_file)
+            tree = lxml.etree.parse(self.qubes_store_file)
         except (EnvironmentError,
                 xml.parsers.expat.ExpatError) as err:
             print("{0}: import error: {1}".format(
