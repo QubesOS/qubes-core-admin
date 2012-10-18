@@ -75,6 +75,8 @@ def netdown():
     if not vif_eth0_exists():
         print >> sys.stderr, 'There is no eth0 that is a Xen vif device, aborting.'
         sys.exit(1)
+    resolv_conf = open('/etc/resolv.conf', "w")
+    resolv_conf.close()
     os.system('ifconfig eth0 down')
     os.system('xl network-detach 0 0')
 
