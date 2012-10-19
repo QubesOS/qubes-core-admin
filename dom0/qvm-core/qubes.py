@@ -2114,7 +2114,7 @@ class QubesDom0NetVm(QubesNetVm):
 
     @property
     def ip(self):
-        return "10.137.0.1"
+        return "10.137.0.2"
 
     def start(self, **kwargs):
         raise QubesException ("Cannot start Dom0 fake domain!")
