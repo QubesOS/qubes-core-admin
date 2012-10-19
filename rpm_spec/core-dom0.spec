@@ -38,6 +38,7 @@ License:	GPL
 URL:		http://www.qubes-os.org
 BuildRequires:  xen-devel
 Requires:	python, xen-runtime, pciutils, python-inotify, python-daemon, kernel-qubes-dom0
+Requires:       python-lxml
 Conflicts:      qubes-gui-dom0 < 1.1.13
 Requires:       xen >= 4.1.0-2
 Requires:       xen-hvm
