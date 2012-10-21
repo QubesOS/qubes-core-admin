@@ -80,6 +80,7 @@ ln -s block-snapshot $RPM_BUILD_ROOT/etc/xen/scripts/block-origin
 
 mkdir -p $RPM_BUILD_ROOT/etc/udev/rules.d
 cp ../misc/qubes_block.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_block.rules
+cp ../misc/qubes_usb.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_usb.rules
 
 mkdir -p $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/qubes.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
@@ -117,6 +118,11 @@ cp qubes_rpc/qubes-receive-updates $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_add_change $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_remove $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_cleanup $RPM_BUILD_ROOT/usr/lib/qubes/
+cp ../misc/usb_add_change $RPM_BUILD_ROOT/usr/lib/qubes/
+cp ../misc/usb_remove $RPM_BUILD_ROOT/usr/lib/qubes/
+cp ../misc/vusb-ctl.py $RPM_BUILD_ROOT/usr/lib/qubes/
+cp ../misc/xl-qvm-usb-attach.py $RPM_BUILD_ROOT/usr/lib/qubes/
+cp ../misc/xl-qvm-usb-detach.py $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/block_cleaner_daemon.py $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/fix_dir_perms.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 
@@ -367,6 +373,11 @@ fi
 /usr/lib/qubes/block_remove
 /usr/lib/qubes/block_cleanup
 /usr/lib/qubes/block_cleaner_daemon.py*
+/usr/lib/qubes/usb_add_change
+/usr/lib/qubes/usb_remove
+/usr/lib/qubes/vusb-ctl.py
+/usr/lib/qubes/xl-qvm-usb-attach.py
+/usr/lib/qubes/xl-qvm-usb-detach.py
 /usr/lib/qubes/fix_dir_perms.sh
 %attr(4750,root,qubes) /usr/lib/qubes/qfile-dom0-unpacker
 %attr(770,root,qubes) %dir /var/lib/qubes
@@ -429,6 +440,7 @@ fi
 /etc/xdg/autostart/qubes-guid.desktop
 /etc/security/limits.d/99-qubes.conf
 /etc/udev/rules.d/99-qubes_block.rules
+/etc/udev/rules.d/99-qubes_usb.rules
 /etc/cron.daily/qubes-dom0-updates.cron
 /etc/cron.d/qubes-sync-clock.cron
 /etc/dracut.conf.d/*

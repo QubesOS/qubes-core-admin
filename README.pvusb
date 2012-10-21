@@ -13,35 +13,6 @@ In dom0, once:
 After each dom0 reboot:
  qvm-start usbvm
 
-Confirm it finds all the devices
-
-Installation (short way)
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-Check install-pvusb.sh, change parameters on the top. Defaults are:
-
- dom0_usbvm=y # deploy pvusb backend in dom0
- usbvms="usbvm" # deploy pvusb backend in these domUs
- appvms="netvm qdvp" # deploy pvusb frontend in these domUs
-
-Run it in dom0 (it will use sudo inside as needed):
- ./install-pvusb.sh
-
-Installation (long way)
-~~~~~~~~~~~~~~~~~~~~~~~
-
-In dom0, after each dom0 reboot:
- sudo ./install-pvusb-dom0.sh
-FIXME: merge the installer into some rpm
-
-In usbvm, after each reboot:
- sudo ./install-pvusb-backend.sh 
-FIXME: convert the installer into "qubes-pvusb-backend" rpm?
-
-In appvms, after each reboot:
- sudo ./install-pvusb-frontend.sh 
-FIXME: convert the installer into "qubes-pvusb-frontend" rpm?
-
 List
 ~~~~
 
@@ -75,15 +46,24 @@ Example:
 Known issues
 ~~~~~~~~~~~~
 
-List/attach/detach operations seem to work ok, devices are recognized by the target VM etc. But actual usage of the attached devices is unstable at best. In fact the only working device I saw was one USB stick (and this only after it took a minute to time out and reset the bus couple times). Kernel crashes are normal as well. I have not investigated these issues yet, I had similar experience with Marek's scripts.
+List/attach/detach operations seem to work ok, devices are recognized by the target VM etc.
+But actual usage of the attached devices is unstable at best. In fact the only working device
+I saw was one USB stick (and this only after it took a minute to time out and reset the bus
+couple times). Kernel crashes are normal as well. I have not investigated these issues yet,
+I had similar experience with Marek's scripts.
 
-* The content of backend/vusb does not get cleaned on domain shutdown (?)
 * System keyboard / mouse are listed and can be detached away
 * Virtual USB devices (ones created by PVUSB frontend) may be listed
 * The installation/configuration is not persistent, not retained between reboots
 * No debugging / logging / audit trail
-* When an attached device is physically unplugged, USB port remains mapped but not displayed in the list. If device is plugged back it continues to work. Unlisted device cannot be detached.
+* When an attached device is physically unplugged, USB port remains mapped but not displayed
+in the list. If device is plugged back it continues to work. Unlisted device cannot be detached.
 * We are not attaching actual devices, but USB ports (different behavior from VMWare, might be confusing)
 * After device is detached from the frontend and returned back to the backend it is not alwayws usable there
-* Code changing configuration of pvusb fe/be and vusb bind/unbind helper are located misc/xl-qvm-usb-attach.py misc/xl-qvm-usb-detach.py misc/vusb-ctl.py. These helpers are deployed into the backend domain. The initialization code is qubesutils.py in usb_setup(), should probably also be moved into an external helper. Perhaps the functionality of these external helpers should be merged into libxl? The is one catch is invokation of vusb helper in the backend domain -- now it relies on qubes-specific API.
+* Code changing configuration of pvusb fe/be and vusb bind/unbind helper are located
+misc/xl-qvm-usb-attach.py misc/xl-qvm-usb-detach.py misc/vusb-ctl.py. These helpers are
+deployed into the backend domain. The initialization code is qubesutils.py in usb_setup(),
+should probably also be moved into an external helper. Perhaps the functionality of these
+external helpers should be merged into libxl? The is one catch is invokation of vusb helper
+in the backend domain -- now it relies on qubes-specific API.
 
