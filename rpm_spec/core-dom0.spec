@@ -375,9 +375,9 @@ fi
 /usr/lib/qubes/block_cleaner_daemon.py*
 /usr/lib/qubes/usb_add_change
 /usr/lib/qubes/usb_remove
-/usr/lib/qubes/vusb-ctl.py
-/usr/lib/qubes/xl-qvm-usb-attach.py
-/usr/lib/qubes/xl-qvm-usb-detach.py
+/usr/lib/qubes/vusb-ctl.py*
+/usr/lib/qubes/xl-qvm-usb-attach.py*
+/usr/lib/qubes/xl-qvm-usb-detach.py*
 /usr/lib/qubes/fix_dir_perms.sh
 %attr(4750,root,qubes) /usr/lib/qubes/qfile-dom0-unpacker
 %attr(770,root,qubes) %dir /var/lib/qubes
