@@ -118,6 +118,7 @@ install -d $RPM_BUILD_ROOT/usr/lib/qubes/
 install misc/qubes_download_dom0_updates.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 install misc/{block_add_change,block_remove,block_cleanup} $RPM_BUILD_ROOT/usr/lib/qubes/
 install misc/{usb_add_change,usb_remove} $RPM_BUILD_ROOT/usr/lib/qubes/
+install misc/vusb-ctl.py $RPM_BUILD_ROOT/usr/lib/qubes/
 install misc/qubes_trigger_sync_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 install -D -m 0644 misc/qubes_trigger_sync_appmenus.action $RPM_BUILD_ROOT/etc/yum/post-actions/qubes_trigger_sync_appmenus.action
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
@@ -408,6 +409,7 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib/qubes/block_remove
 /usr/lib/qubes/usb_add_change
 /usr/lib/qubes/usb_remove
+/usr/lib/qubes/vusb-ctl.py*
 /usr/lib/qubes/dispvm-prerun.sh
 /usr/lib/qubes/sync-ntp-clock
 /usr/lib/qubes/prepare-suspend
