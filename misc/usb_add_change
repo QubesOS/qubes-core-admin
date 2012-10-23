@@ -9,7 +9,7 @@
 ##
 
 # FIXME: Ignore USB hubs and other wierd devices (see also in usb_remove).
-[ "$DEVNUM" = "001" ] && exit 0
+[ "`echo $TYPE | cut -f1 -d/`" = "9" ] && exit 0
 [ "$DEVTYPE" != "usb_device" ] && exit 0
 
 # xenstore doesn't allow dot in key name
