@@ -380,14 +380,14 @@ fi
 /usr/lib/qubes/xl-qvm-usb-detach.py*
 /usr/lib/qubes/fix_dir_perms.sh
 %attr(4750,root,qubes) /usr/lib/qubes/qfile-dom0-unpacker
-%attr(770,root,qubes) %dir /var/lib/qubes
-%attr(770,root,qubes) %dir /var/lib/qubes/vm-templates
-%attr(770,root,qubes) %dir /var/lib/qubes/appvms
-%attr(770,root,qubes) %dir /var/lib/qubes/servicevms
-%attr(770,root,qubes) %dir /var/lib/qubes/backup
-%attr(770,root,qubes) %dir /var/lib/qubes/dvmdata
-%attr(770,root,qubes) %dir /var/lib/qubes/updates
-%attr(770,root,qubes) %dir /var/lib/qubes/vm-kernels
+%attr(0770,root,qubes) %dir /var/lib/qubes
+%attr(0770,root,qubes) %dir /var/lib/qubes/vm-templates
+%attr(0770,root,qubes) %dir /var/lib/qubes/appvms
+%attr(0770,root,qubes) %dir /var/lib/qubes/servicevms
+%attr(0770,root,qubes) %dir /var/lib/qubes/backup
+%attr(0770,root,qubes) %dir /var/lib/qubes/dvmdata
+%attr(0770,root,qubes) %dir /var/lib/qubes/updates
+%attr(0770,root,qubes) %dir /var/lib/qubes/vm-kernels
 /usr/share/qubes/icons/*.png
 /usr/share/qubes/qubes-vm.directory.template
 /usr/share/qubes/qubes-templatevm.directory.template
@@ -432,7 +432,7 @@ fi
 /etc/qubes_rpc/qubes.ReceiveUpdates
 %attr(4750,root,qubes) /usr/lib/qubes/qrexec_daemon
 %attr(2770,root,qubes) %dir /var/log/qubes
-%attr(770,root,qubes) %dir /var/run/qubes
+%attr(0770,root,qubes) %dir /var/run/qubes
 %{_libdir}/libvchan.so
 %{_libdir}/libu2mfn.so
 /etc/yum.real.repos.d/qubes-cached.repo
@@ -441,8 +441,8 @@ fi
 /etc/security/limits.d/99-qubes.conf
 /etc/udev/rules.d/99-qubes_block.rules
 /etc/udev/rules.d/99-qubes_usb.rules
-/etc/cron.daily/qubes-dom0-updates.cron
-/etc/cron.d/qubes-sync-clock.cron
+%attr(0644,root,root) /etc/cron.daily/qubes-dom0-updates.cron
+%attr(0644,root,root) /etc/cron.d/qubes-sync-clock.cron
 /etc/dracut.conf.d/*
 %dir /usr/share/dracut/modules.d/90qubes-pciback
 /usr/share/dracut/modules.d/90qubes-pciback/*
