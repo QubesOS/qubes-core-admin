@@ -3,7 +3,7 @@
 # FIXME: Ignore USB hubs.
 [ "$DEVNUM" = "001" ] && exit 0
 
-NAME=`basename ${DEVPATH}`
+NAME=`basename ${DEVPATH} | tr . _`
 XS_KEY="qubes-usb-devices/$NAME"
 
 xenstore-rm "$XS_KEY"

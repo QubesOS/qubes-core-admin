@@ -463,7 +463,7 @@ def usb_list():
      name = <name of backend domain>:<frontend device number>-<frontend port number>
      desc = description
     """
-    device_re = re.compile(r"^[0-9]+-[0-9]+$")
+    device_re = re.compile(r"^[0-9]+-[0-9]+(_[0-9]+)?$")
     # FIXME: any better idea of desc_re?
     desc_re = re.compile(r"^.{1,255}$")
 
@@ -486,6 +486,8 @@ def usb_list():
             if not desc_re.match(device_desc):
                 print >> sys.stderr, "Invalid %s device desc in VM '%s'" % (device, vm_name)
                 continue
+            # xenstore doesn't allow dot in key names - was translated to underscore
+            device = device.replace('_', '.')
             visible_name = "%s:%s" % (vm_name, device)
             devices_list[visible_name] = {"name": visible_name, "xid":int(xid),
                 "vm": vm_name, "device":device,

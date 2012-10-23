@@ -12,7 +12,8 @@
 [ "$DEVNUM" = "001" ] && exit 0
 [ "$DEVTYPE" != "usb_device" ] && exit 0
 
-NAME=`basename ${DEVPATH}`
+# xenstore doesn't allow dot in key name
+NAME=`basename ${DEVPATH} | tr . _`
 # FIXME: For some devices (my Cherry keyboard) ID_SERIAL does not
 # contain proper human-readable name, should find better method to
 # build devide description.
