@@ -13,15 +13,30 @@
 [ "$DEVTYPE" != "usb_device" ] && exit 0
 
 # xenstore doesn't allow dot in key name
-NAME=`basename ${DEVPATH} | tr . _`
+NAME=`basename ${DEVPATH}`
+XSNAME=`echo ${NAME} | tr . _`
+
 # FIXME: For some devices (my Cherry keyboard) ID_SERIAL does not
 # contain proper human-readable name, should find better method to
 # build devide description.
 #DESC=`python -c "dev='%d-%d' % (int('${BUSNUM}'.lstrip('0')), (int('${DEVNUM}'.lstrip('0'))-1)); from xen.util import vusb_util; print vusb_util.get_usbdevice_info(dev);"`
 DESC="${ID_VENDOR_ID}:${ID_MODEL_ID} ${ID_SERIAL}"
-XS_KEY="qubes-usb-devices/$NAME"
+
+VERSION=`cat /sys/bus/usb/devices/${NAME}/version`
+if [ "${VERSION}" = " 1.00" -o "${VERSION}" = " 1.10" ] ; then
+	VERSION=1
+elif [ "${VERSION}" = " 2.00" ] ; then
+	VERSION=2
+else
+	# FIXME: silently ignoring devices with unexpected USB version
+	#exit 0
+	true
+fi
+
+XS_KEY="qubes-usb-devices/$XSNAME"
 
 xenstore-write "$XS_KEY/desc" "$DESC"
+xenstore-write "$XS_KEY/version" "${VERSION}"
 
 # Make sure PVUSB backend driver is loaded.
 /sbin/modprobe xen-usbback 2> /dev/null || /sbin/modprobe usbbk
