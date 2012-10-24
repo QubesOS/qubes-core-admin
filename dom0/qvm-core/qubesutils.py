@@ -406,7 +406,7 @@ def block_detach_all(vm, vm_xid = None):
 
 ####### USB devices ######
 
-def usb_setup(backend_vm_xid, vm_xid, devid):
+def usb_setup(backend_vm_xid, vm_xid, devid, usb_ver):
     """
     Attach frontend to the backend.
      backend_vm_xid - id of the backend domain
@@ -438,7 +438,7 @@ def usb_setup(backend_vm_xid, vm_xid, devid):
     xs.write(trans, "%s/frontend" % be_path, fe_path)
 
     # Write USB Spec version field.
-    xs.write(trans, "%s/usb-ver" % be_path, "2")
+    xs.write(trans, "%s/usb-ver" % be_path, usb_ver)
 
     # Write virtual root hub field.
     xs.write(trans, "%s/num-ports" % be_path, str(num_ports))
@@ -550,7 +550,7 @@ def usb_check_attached(xs_trans, backend_vm, device):
 #    # return xs.read('', '/local/domain/%d/device/vusb/%d/state' % (vm.xid, frontend)) == '4'
 #    return False
 
-def usb_find_unused_frontend(xs_trans, backend_vm_xid, vm_xid):
+def usb_find_unused_frontend(xs_trans, backend_vm_xid, vm_xid, usb_ver):
     """
     Find an unused frontend/port to link the given backend with the given frontend.
     Creates new frontend if needed.
@@ -567,6 +567,10 @@ def usb_find_unused_frontend(xs_trans, backend_vm_xid, vm_xid):
             frontend_dev = int(frontend_dev)
             fe_path = "/local/domain/%d/device/vusb/%d" % (vm_xid, frontend_dev)
             if xs.read(xs_trans, "%s/backend-id" % fe_path) == str(backend_vm_xid):
+                if xs.read(xs_trans, '/local/domain/%d/backend/vusb/%d/%d/usb-ver' % (backend_vm_xid, vm_xid, frontend_dev)) != usb_ver:
+                    continue
+                if xs.read(xs_trans, "%s/backend-id" % fe_path) == str(backend_vm_xid):
+                    continue
                 ports = xs.ls(xs_trans, '/local/domain/%d/backend/vusb/%d/%d/port' % (backend_vm_xid, vm_xid, frontend_dev))
                 if ports is None:
                     continue
@@ -582,15 +586,18 @@ def usb_find_unused_frontend(xs_trans, backend_vm_xid, vm_xid):
 
     # create a new frontend_dev and link it to the backend
     frontend_dev = last_frontend_dev + 1
-    usb_setup(backend_vm_xid, vm_xid, frontend_dev)
+    usb_setup(backend_vm_xid, vm_xid, frontend_dev, usb_ver)
     return '%d-%d' % (frontend_dev, 1)
         
 def usb_attach(vm, backend_vm, device, frontend=None, auto_detach=False, wait=True):
     device_attach_check(vm, backend_vm, device, frontend)
 
+    # FIXME: detect USB version of the device
+    usb_ver = "2"
+
     xs_trans = xs.transaction_start()
     if frontend is None:
-        frontend = usb_find_unused_frontend(xs_trans, backend_vm.xid, vm.xid)
+        frontend = usb_find_unused_frontend(xs_trans, backend_vm.xid, vm.xid, usb_ver)
     else:
         # Check if any device attached at this frontend
         #if usb_check_frontend_busy(vm, frontend):
