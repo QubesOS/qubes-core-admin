@@ -131,7 +131,7 @@ def main():
             attached_to_str = ""
             if attached_to:
                 attached_to_str = " (attached to %s:%s)" % (attached_to['vm'], attached_to['frontend'])
-            print "%s\t%s%s" % (dev['name'], dev['desc'], attached_to_str)
+            print "%s\t%s%s (USBv%s)" % (dev['name'], dev['desc'], attached_to_str, dev['usb_ver'])
         exit (0)
 
 main()

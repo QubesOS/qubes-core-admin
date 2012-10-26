@@ -466,6 +466,7 @@ def usb_list():
     device_re = re.compile(r"^[0-9]+-[0-9]+(_[0-9]+)?$")
     # FIXME: any better idea of desc_re?
     desc_re = re.compile(r"^.{1,255}$")
+    usb_ver_re = re.compile(r"^(1|2)$")
 
     devices_list = {}
 
@@ -489,9 +490,15 @@ def usb_list():
             # xenstore doesn't allow dot in key names - was translated to underscore
             device = device.replace('_', '.')
             visible_name = "%s:%s" % (vm_name, device)
+            # grab version
+            usb_ver = xs.read(xs_trans, '/local/domain/%s/qubes-usb-devices/%s/usb-ver' % (xid, device))
+            if usb_ver is None or not usb_ver_re.match(usb_ver):
+                print >> sys.stderr, "Invalid %s device USB version in VM '%s'" % (device, vm_name)
+                continue
             devices_list[visible_name] = {"name": visible_name, "xid":int(xid),
                 "vm": vm_name, "device":device,
-                "desc":device_desc}
+                "desc":device_desc,
+                "usb_ver":usb_ver}
 
     xs.transaction_end(xs_trans)
     return devices_list

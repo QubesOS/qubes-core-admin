@@ -35,7 +35,7 @@ fi
 XS_KEY="qubes-usb-devices/$XSNAME"
 
 xenstore-write "$XS_KEY/desc" "$DESC"
-xenstore-write "$XS_KEY/version" "$VERSION"
+xenstore-write "$XS_KEY/usb-ver" "$VERSION"
 
 # Make sure PVUSB backend driver is loaded.
 /sbin/modprobe xen-usbback 2> /dev/null || /sbin/modprobe usbbk
