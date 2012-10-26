@@ -406,6 +406,8 @@ def block_detach_all(vm, vm_xid = None):
 
 ####### USB devices ######
 
+usb_ver_re = re.compile(r"^(1|2)$")
+
 def usb_setup(backend_vm_xid, vm_xid, devid, usb_ver):
     """
     Attach frontend to the backend.
@@ -466,7 +468,6 @@ def usb_list():
     device_re = re.compile(r"^[0-9]+-[0-9]+(_[0-9]+)?$")
     # FIXME: any better idea of desc_re?
     desc_re = re.compile(r"^.{1,255}$")
-    usb_ver_re = re.compile(r"^(1|2)$")
 
     devices_list = {}
 
@@ -575,11 +576,14 @@ def usb_find_unused_frontend(xs_trans, backend_vm_xid, vm_xid, usb_ver):
             fe_path = "/local/domain/%d/device/vusb/%d" % (vm_xid, frontend_dev)
             if xs.read(xs_trans, "%s/backend-id" % fe_path) == str(backend_vm_xid):
                 if xs.read(xs_trans, '/local/domain/%d/backend/vusb/%d/%d/usb-ver' % (backend_vm_xid, vm_xid, frontend_dev)) != usb_ver:
+                    last_frontend_dev = frontend_dev
                     continue
                 if xs.read(xs_trans, "%s/backend-id" % fe_path) == str(backend_vm_xid):
+                    last_frontend_dev = frontend_dev
                     continue
                 ports = xs.ls(xs_trans, '/local/domain/%d/backend/vusb/%d/%d/port' % (backend_vm_xid, vm_xid, frontend_dev))
                 if ports is None:
+                    last_frontend_dev = frontend_dev
                     continue
                 for port in ports:
                     if not port.isdigit():
@@ -599,10 +603,13 @@ def usb_find_unused_frontend(xs_trans, backend_vm_xid, vm_xid, usb_ver):
 def usb_attach(vm, backend_vm, device, frontend=None, auto_detach=False, wait=True):
     device_attach_check(vm, backend_vm, device, frontend)
 
-    # FIXME: detect USB version of the device
-    usb_ver = "2"
-
     xs_trans = xs.transaction_start()
+
+    usb_ver = xs.read(xs_trans, '/local/domain/%s/qubes-usb-devices/%s/usb-ver' % (backend_vm.xid, device))
+    if usb_ver is None or not usb_ver_re.match(usb_ver):
+        xs.transaction_end(xs_trans)
+        raise QubesException("Invalid %s device USB version in VM '%s'" % (device, backend_vm.name))
+
     if frontend is None:
         frontend = usb_find_unused_frontend(xs_trans, backend_vm.xid, vm.xid, usb_ver)
     else:
