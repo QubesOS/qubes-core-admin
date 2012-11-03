@@ -19,6 +19,10 @@
  *
  */
 
+int u2mfn_get_fd();
 int u2mfn_get_mfn_for_page(long va, int *mfn) ;
+int u2mfn_get_mfn_for_page_with_fd(int fd, long va, int *mfn) ;
 int u2mfn_get_last_mfn(int *mfn) ;
-char *u2mfn_alloc_kpage(void) ;
+int u2mfn_get_last_mfn_with_fd(int fd, int *mfn) ;
+char *u2mfn_alloc_kpage(void);
+char *u2mfn_alloc_kpage_with_fd(int fd);
