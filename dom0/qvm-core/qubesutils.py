@@ -565,7 +565,10 @@ def usb_find_unused_frontend(xs_trans, backend_vm_xid, vm_xid, usb_ver):
     Returns frontend specification in <device>-<port> format.
     """
 
+    # This variable holds an index of last frontend scanned by the loop below.
+    # If nothing found, this value will be used to derive the index of a new frontend.
     last_frontend_dev = -1
+
     frontend_devs = xs.ls(xs_trans, "/local/domain/%d/device/vusb" % vm_xid)
     if frontend_devs is not None:
         for frontend_dev in frontend_devs:
