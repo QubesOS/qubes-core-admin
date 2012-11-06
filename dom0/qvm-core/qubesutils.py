@@ -578,9 +578,7 @@ def usb_find_unused_frontend(xs_trans, backend_vm_xid, vm_xid, usb_ver):
                 if xs.read(xs_trans, '/local/domain/%d/backend/vusb/%d/%d/usb-ver' % (backend_vm_xid, vm_xid, frontend_dev)) != usb_ver:
                     last_frontend_dev = frontend_dev
                     continue
-                if xs.read(xs_trans, "%s/backend-id" % fe_path) == str(backend_vm_xid):
-                    last_frontend_dev = frontend_dev
-                    continue
+                # here: found an existing frontend already connected to right backend using an appropriate USB version
                 ports = xs.ls(xs_trans, '/local/domain/%d/backend/vusb/%d/%d/port' % (backend_vm_xid, vm_xid, frontend_dev))
                 if ports is None:
                     last_frontend_dev = frontend_dev
