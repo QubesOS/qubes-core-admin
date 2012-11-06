@@ -581,6 +581,7 @@ def usb_find_unused_frontend(xs_trans, backend_vm_xid, vm_xid, usb_ver):
                 # here: found an existing frontend already connected to right backend using an appropriate USB version
                 ports = xs.ls(xs_trans, '/local/domain/%d/backend/vusb/%d/%d/port' % (backend_vm_xid, vm_xid, frontend_dev))
                 if ports is None:
+                    print >> sys.stderr, "No ports in VM %d frontend_dev %d?" % (vm_xid, frontend_dev)
                     last_frontend_dev = frontend_dev
                     continue
                 for port in ports:
