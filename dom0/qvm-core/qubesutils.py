@@ -408,6 +408,7 @@ def block_detach_all(vm, vm_xid = None):
 
 usb_ver_re = re.compile(r"^(1|2)$")
 usb_device_re = re.compile(r"^[0-9]+-[0-9]+(_[0-9]+)?$")
+usb_port_re = re.compile(r"^$|^[0-9]+-[0-9]+(\.[0-9]+)?$")
 
 def usb_setup(backend_vm_xid, vm_xid, devid, usb_ver):
     """
@@ -548,15 +549,15 @@ def usb_check_attached(xs_trans, backend_vm, device):
                 if not port.isdigit():
                     print >> sys.stderr, "Invalid port in VM %s frontend %s" % (vm, frontend)
                     continue
-                xs_encoded_dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%s/%s/port/%s' % (backend_vm, vm, frontend_dev, port))
-                if xs_encoded_dev == "":
+                dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%s/%s/port/%s' % (backend_vm, vm, frontend_dev, port))
+                if dev == "":
                     continue 
                 # Sanitize device id
-                if not usb_device_re.match(xs_encoded_dev):
+                if not usb_port_re.match(dev):
                     print >> sys.stderr, "Invalid device id in backend VM %d @ %s/%s/port/%s" % \
                         (backend_vm, vm, frontend_dev, port)
                     continue
-                if usb_decode_device_from_xs(xs_encoded_dev) == device:
+                if dev == device:
                     frontend = "%s-%s" % (frontend_dev, port)
                     vm_name = xl_ctx.domid_to_name(int(vm))
                     if vm_name is None:
@@ -609,13 +610,13 @@ def usb_find_unused_frontend(xs_trans, backend_vm_xid, vm_xid, usb_ver):
                         print >> sys.stderr, "Invalid port in VM %d frontend_dev %d" % (vm_xid, frontend_dev)
                         continue
                     port = int(port)
-                    xs_encoded_dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%d/%d/port/%d' % (backend_vm_xid, vm_xid, frontend_dev, port))
+                    dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%s/%s/port/%s' % (backend_vm, vm, frontend_dev, port))
                     # Sanitize device id
-                    if xs_encoded_dev != "" and not usb_device_re.match(xs_encoded_dev):
+                    if not usb_port_re.match(dev):
                         print >> sys.stderr, "Invalid device id in backend VM %d @ %d/%d/port/%d" % \
                             (backend_vm_xid, vm_xid, frontend_dev, port)
                         continue
-                    if xs_encoded_dev == "":
+                    if dev == "":
                         return '%d-%d' % (frontend_dev, port)
             last_frontend_dev = frontend_dev
 
