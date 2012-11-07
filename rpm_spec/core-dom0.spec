@@ -56,8 +56,8 @@ python -O -m compileall qvm-core qmemman
 make -C restore
 make -C qubes_rpc
 make -C ../qubes_rpc
-make -C ../vchan -f Makefile.linux
 make -C ../u2mfn
+make -C ../vchan -f Makefile.linux
 make -C ../qrexec
 make -C ../misc
 
