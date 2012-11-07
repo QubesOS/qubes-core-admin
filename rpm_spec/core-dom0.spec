@@ -59,6 +59,7 @@ make -C ../qubes_rpc
 make -C ../vchan -f Makefile.linux
 make -C ../u2mfn
 make -C ../qrexec
+make -C ../misc
 
 %install
 
