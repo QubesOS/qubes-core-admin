@@ -407,6 +407,7 @@ def block_detach_all(vm, vm_xid = None):
 ####### USB devices ######
 
 usb_ver_re = re.compile(r"^(1|2)$")
+usb_device_re = re.compile(r"^[0-9]+-[0-9]+(_[0-9]+)?$")
 
 def usb_setup(backend_vm_xid, vm_xid, devid, usb_ver):
     """
@@ -473,7 +474,6 @@ def usb_list():
      name = <name of backend domain>:<frontend device number>-<frontend port number>
      desc = description
     """
-    device_re = re.compile(r"^[0-9]+-[0-9]+(_[0-9]+)?$")
     # FIXME: any better idea of desc_re?
     desc_re = re.compile(r"^.{1,255}$")
 
@@ -490,7 +490,7 @@ def usb_list():
         # when listing devices in xenstore we get encoded names
         for xs_encoded_device in vm_devices:
             # Sanitize device id
-            if not device_re.match(xs_encoded_device):
+            if not usb_device_re.match(xs_encoded_device):
                 print >> sys.stderr, "Invalid device id in VM '%s'" % vm_name
                 continue
             device = usb_decode_device_from_xs(xs_encoded_device)
@@ -544,10 +544,15 @@ def usb_check_attached(xs_trans, backend_vm, device):
             if ports is None:
                 continue
             for port in ports:
+                # FIXME: refactor, see similar loop in usb_find_unused_frontend(), use usb_list() instead?
                 if not port.isdigit():
                     print >> sys.stderr, "Invalid port in VM %s frontend %s" % (vm, frontend)
                     continue
                 xs_encoded_dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%s/%s/port/%s' % (backend_vm, vm, frontend_dev, port))
+                # Sanitize device id
+                if not usb_device_re.match(xs_encoded_dev):
+                    print >> sys.stderr, "Invalid device id in VM %d" % (backend_vm)
+                    continue
                 if usb_decode_device_from_xs(xs_encoded_dev) == device:
                     frontend = "%s-%s" % (frontend_dev, port)
                     vm_name = xl_ctx.domid_to_name(int(vm))
@@ -596,11 +601,16 @@ def usb_find_unused_frontend(xs_trans, backend_vm_xid, vm_xid, usb_ver):
                     last_frontend_dev = frontend_dev
                     continue
                 for port in ports:
+                    # FIXME: refactor, see similar loop in usb_check_attached(), use usb_list() instead?
                     if not port.isdigit():
                         print >> sys.stderr, "Invalid port in VM %d frontend_dev %d" % (vm_xid, frontend_dev)
                         continue
                     port = int(port)
                     xs_encoded_dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%d/%d/port/%d' % (backend_vm_xid, vm_xid, frontend_dev, port))
+                    # Sanitize device id
+                    if not usb_device_re.match(xs_encoded_dev):
+                        print >> sys.stderr, "Invalid device id in VM %d" % (backend_vm_xid)
+                        continue
                     if xs_encoded_dev == "":
                         return '%d-%d' % (frontend_dev, port)
             last_frontend_dev = frontend_dev
