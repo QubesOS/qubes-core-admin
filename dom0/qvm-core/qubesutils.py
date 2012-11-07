@@ -455,6 +455,14 @@ def usb_setup(backend_vm_xid, vm_xid, devid, usb_ver):
 
     xs.transaction_end(trans)
 
+def usb_decode_device_from_xs(xs_encoded_device):
+    """ recover actual device name (xenstore doesn't allow dot in key names, so it was translated to underscore) """
+    return xs_encoded_device.replace('_', '.')
+
+def usb_encode_device_for_xs(device):
+    """ encode actual device name (xenstore doesn't allow dot in key names, so translated it into underscore) """
+    return device.replace('.', '_')
+
 def usb_list():
     """
     Returns a dictionary of USB devices (for PVUSB backends running in all VM).
@@ -479,20 +487,20 @@ def usb_list():
         vm_devices = xs.ls(xs_trans, '/local/domain/%s/qubes-usb-devices' % xid)
         if vm_devices is None:
             continue
-        for device in vm_devices:
+        # when listing devices in xenstore we get encoded names
+        for xs_encoded_device in vm_devices:
             # Sanitize device id
-            if not device_re.match(device):
+            if not device_re.match(xs_encoded_device):
                 print >> sys.stderr, "Invalid device id in VM '%s'" % vm_name
                 continue
-            device_desc = xs.read(xs_trans, '/local/domain/%s/qubes-usb-devices/%s/desc' % (xid, device))
+            device = usb_decode_device_from_xs(xs_encoded_device)
+            device_desc = xs.read(xs_trans, '/local/domain/%s/qubes-usb-devices/%s/desc' % (xid, xs_encoded_device))
             if not desc_re.match(device_desc):
                 print >> sys.stderr, "Invalid %s device desc in VM '%s'" % (device, vm_name)
                 continue
-            # xenstore doesn't allow dot in key names - was translated to underscore
-            device = device.replace('_', '.')
             visible_name = "%s:%s" % (vm_name, device)
             # grab version
-            usb_ver = xs.read(xs_trans, '/local/domain/%s/qubes-usb-devices/%s/usb-ver' % (xid, device))
+            usb_ver = xs.read(xs_trans, '/local/domain/%s/qubes-usb-devices/%s/usb-ver' % (xid, xs_encoded_device))
             if usb_ver is None or not usb_ver_re.match(usb_ver):
                 print >> sys.stderr, "Invalid %s device USB version in VM '%s'" % (device, vm_name)
                 continue
@@ -539,8 +547,8 @@ def usb_check_attached(xs_trans, backend_vm, device):
                 if not port.isdigit():
                     print >> sys.stderr, "Invalid port in VM %s frontend %s" % (vm, frontend)
                     continue
-                dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%s/%s/port/%s' % (backend_vm, vm, frontend_dev, port))
-                if dev == device:
+                xs_encoded_dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%s/%s/port/%s' % (backend_vm, vm, frontend_dev, port))
+                if usb_decode_device_from_xs(xs_encoded_dev) == device:
                     frontend = "%s-%s" % (frontend_dev, port)
                     vm_name = xl_ctx.domid_to_name(int(vm))
                     if vm_name is None:
@@ -592,8 +600,8 @@ def usb_find_unused_frontend(xs_trans, backend_vm_xid, vm_xid, usb_ver):
                         print >> sys.stderr, "Invalid port in VM %d frontend_dev %d" % (vm_xid, frontend_dev)
                         continue
                     port = int(port)
-                    dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%d/%d/port/%d' % (backend_vm_xid, vm_xid, frontend_dev, port))
-                    if dev == "":
+                    xs_encoded_dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%d/%d/port/%d' % (backend_vm_xid, vm_xid, frontend_dev, port))
+                    if xs_encoded_dev == "":
                         return '%d-%d' % (frontend_dev, port)
             last_frontend_dev = frontend_dev
 
@@ -607,7 +615,8 @@ def usb_attach(vm, backend_vm, device, frontend=None, auto_detach=False, wait=Tr
 
     xs_trans = xs.transaction_start()
 
-    usb_ver = xs.read(xs_trans, '/local/domain/%s/qubes-usb-devices/%s/usb-ver' % (backend_vm.xid, device))
+    xs_encoded_device = usb_encode_device_for_xs(device)
+    usb_ver = xs.read(xs_trans, '/local/domain/%s/qubes-usb-devices/%s/usb-ver' % (backend_vm.xid, xs_encoded_device))
     if usb_ver is None or not usb_ver_re.match(usb_ver):
         xs.transaction_end(xs_trans)
         raise QubesException("Invalid %s device USB version in VM '%s'" % (device, backend_vm.name))
