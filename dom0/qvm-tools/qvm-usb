@@ -26,6 +26,8 @@ from optparse import OptionParser
 import sys
 import os
 
+pvusb_enable_flagfile = '/var/lib/qubes/pvusb-enable.flag'
+
 def main():
     usage = "usage: %prog -l [options]\n"\
             "usage: %prog -a [options] <vm-name> <device-vm-name>:<device>\n"\
@@ -45,6 +47,23 @@ def main():
                        help="Force to run, even with root privileges")
 
     (options, args) = parser.parse_args ()
+
+    if not os.path.exists(pvusb_enable_flagfile):
+        print >> sys.stderr, ""
+        print >> sys.stderr, "******* WARNING *** WARNING *** WARNING *** WARNING *******"
+        print >> sys.stderr, "***                                                     ***"
+        print >> sys.stderr, "*** PVUSB passthrough kernel support is still unstable. ***"
+        print >> sys.stderr, "***                It can CRASH your VMs                ***"
+        print >> sys.stderr, "***                                                     ***"
+        print >> sys.stderr, "***********************************************************"
+        print >> sys.stderr, ""
+        print >> sys.stderr, "If you still want to use it, type capital YES"
+        print >> sys.stderr, ""
+        prompt = raw_input ("Do you want enable PV USB support? ")
+        if prompt == "YES":
+            open(pvusb_enable_flagfile, "w").close()
+        else:
+            exit(1)
 
     if os.geteuid() == 0:
         if not options.force_root:

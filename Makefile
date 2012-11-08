@@ -12,14 +12,19 @@ help:
 	@echo "make update-repo-installer -- copy dom0 rpms to installer repo"
 	@echo "make clean                 -- cleanup"
 
-rpms:	
+rpms: rpms-vm rpms-dom0
+
+rpms-vm:
 	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-vm.spec
 	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-vm-kernel-placeholder.spec
-	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-dom0.spec
 	rpm --addsign \
-		$(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION_DOM0)*.rpm \
 		$(RPMS_DIR)/x86_64/qubes-core-vm-*$(VERSION_VM)*.rpm \
 		$(RPMS_DIR)/x86_64/qubes-core-vm-kernel-placeholder-*.rpm
+
+rpms-dom0:
+	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-dom0.spec
+	rpm --addsign \
+		$(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION_DOM0)*.rpm
 
 rpms-vaio-fixes:
 	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-dom0-vaio-fixes.spec

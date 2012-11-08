@@ -212,7 +212,7 @@ remove_ShowIn () {
 for F in abrt-applet deja-dup-monitor imsettings-start krb5-auth-dialog pulseaudio restorecond sealertauto gnome-power-manager gnome-sound-applet gnome-screensaver orca-autostart; do
 	if [ -e /etc/xdg/autostart/$F.desktop ]; then
 		remove_ShowIn $F
-		echo 'NotShowIn=QUBES' >> /etc/xdg/autostart/$F.desktop
+		echo 'NotShowIn=QUBES;' >> /etc/xdg/autostart/$F.desktop
 	fi
 done
 
@@ -220,7 +220,7 @@ done
 for F in gcm-apply ; do
 	if [ -e /etc/xdg/autostart/$F.desktop ]; then
 		remove_ShowIn $F
-		echo 'NotShowIn=DisposableVM' >> /etc/xdg/autostart/$F.desktop
+		echo 'NotShowIn=DisposableVM;' >> /etc/xdg/autostart/$F.desktop
 	fi
 done
 
