@@ -549,6 +549,8 @@ def usb_check_attached(xs_trans, backend_vm, device):
                     print >> sys.stderr, "Invalid port in VM %s frontend %s" % (vm, frontend)
                     continue
                 xs_encoded_dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%s/%s/port/%s' % (backend_vm, vm, frontend_dev, port))
+                if xs_encoded_dev == "":
+                    continue 
                 # Sanitize device id
                 if not usb_device_re.match(xs_encoded_dev):
                     print >> sys.stderr, "Invalid device id in VM %d" % (backend_vm)
@@ -608,8 +610,9 @@ def usb_find_unused_frontend(xs_trans, backend_vm_xid, vm_xid, usb_ver):
                     port = int(port)
                     xs_encoded_dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%d/%d/port/%d' % (backend_vm_xid, vm_xid, frontend_dev, port))
                     # Sanitize device id
-                    if not usb_device_re.match(xs_encoded_dev):
-                        print >> sys.stderr, "Invalid device id in VM %d" % (backend_vm_xid)
+                    if xs_encoded_dev != "" and not usb_device_re.match(xs_encoded_dev):
+                        print >> sys.stderr, "Invalid device id in backend VM %d @ %d/%d/port/%d" % \
+                            (backend_vm_xid, vm_xid, frontend_dev, port)
                         continue
                     if xs_encoded_dev == "":
                         return '%d-%d' % (frontend_dev, port)
