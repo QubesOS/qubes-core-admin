@@ -491,7 +491,7 @@ def usb_list():
         for xs_encoded_device in vm_devices:
             # Sanitize device id
             if not usb_device_re.match(xs_encoded_device):
-                print >> sys.stderr, "Invalid device id in VM '%s'" % vm_name
+                print >> sys.stderr, "Invalid device id in backend VM '%s'" % vm_name
                 continue
             device = usb_decode_device_from_xs(xs_encoded_device)
             device_desc = xs.read(xs_trans, '/local/domain/%s/qubes-usb-devices/%s/desc' % (xid, xs_encoded_device))
@@ -553,7 +553,8 @@ def usb_check_attached(xs_trans, backend_vm, device):
                     continue 
                 # Sanitize device id
                 if not usb_device_re.match(xs_encoded_dev):
-                    print >> sys.stderr, "Invalid device id in VM %d" % (backend_vm)
+                    print >> sys.stderr, "Invalid device id in backend VM %d @ %s/%s/port/%s" % \
+                        (backend_vm, vm, frontend_dev, port)
                     continue
                 if usb_decode_device_from_xs(xs_encoded_dev) == device:
                     frontend = "%s-%s" % (frontend_dev, port)
