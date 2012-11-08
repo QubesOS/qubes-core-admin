@@ -53,11 +53,12 @@ def main():
         print >> sys.stderr, "******* WARNING *** WARNING *** WARNING *** WARNING *******"
         print >> sys.stderr, "***                                                     ***"
         print >> sys.stderr, "*** PVUSB passthrough kernel support is still unstable. ***"
-        print >> sys.stderr, "***                It can CRASH your VMs                ***"
+        print >> sys.stderr, "***                It can CRASH your VMs.               ***"
         print >> sys.stderr, "***                                                     ***"
         print >> sys.stderr, "***********************************************************"
         print >> sys.stderr, ""
-        print >> sys.stderr, "If you still want to use it, type capital YES"
+        print >> sys.stderr, "To use it, you need install kernel from \"unstable\" repository"
+        print >> sys.stderr, "If you still want to enable it, type capital YES"
         print >> sys.stderr, ""
         prompt = raw_input ("Do you want enable PV USB support? ")
         if prompt == "YES":
