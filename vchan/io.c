@@ -129,7 +129,7 @@ int libvchan_wait(struct libvchan *ctrl)
         may write less data than requested;
         returns the amount of data processed, -1 on error or peer close
 */        
-int libvchan_write(struct libvchan *ctrl, char *data, int size)
+int libvchan_write(struct libvchan *ctrl, const char *data, int size)
 {
 	int avail, avail_contig;
 	int real_idx;

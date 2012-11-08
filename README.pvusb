@@ -1,0 +1,69 @@
+Dedicated usbvm (optional)
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In dom0, once:
+ qvm-create -l red usbvm
+
+ # FIXME: use your own PCI device IDs
+ qvm-pci -a usbvm 00:1d.0
+ qvm-pci -a usbvm 00:1d.1
+ qvm-pci -a usbvm 00:1d.2
+ qvm-pci -a usbvm 00:1d.7
+
+After each dom0 reboot:
+ qvm-start usbvm
+
+List
+~~~~
+
+In dom0:
+ qvm-usb -l
+
+Example output:
+ dom0:7-4        0718:061a TDKMedia_Trans-It_Drive_070326AE8AF92D95 (attached to qdvp:0-1)
+ dom0:7-5        0b05:1706 ASUS_802.11g_WLAN_Drive (attached to netvm:0-1)
+ dom0:1-1        045e:0084 Microsoft_Basic_Optical_Mouse
+ usbvm:4-6       05e3:0723 Generic_USB_Storage (attached to qdvp:1-1)
+
+Attach
+~~~~~~
+
+In dom0:
+ qvm-usb -a [--no-auto-detach] <vm-name> <device-vm-name>:<backend-controller>-<backend-port>
+
+Example:
+ qvm-usb -a netvm usbvm:4-1
+
+Detach
+~~~~~~
+
+In dom0:
+ qvm-usb -d <vm-name>:<vusb-controller>-<vusb-port>
+
+Example:
+ qvm-usb -d netvm:0-1
+
+Known issues
+~~~~~~~~~~~~
+
+List/attach/detach operations seem to work ok, devices are recognized by the target VM etc.
+But actual usage of the attached devices is unstable at best. In fact the only working device
+I saw was one USB stick (and this only after it took a minute to time out and reset the bus
+couple times). Kernel crashes are normal as well. I have not investigated these issues yet,
+I had similar experience with Marek's scripts.
+
+* System keyboard / mouse are listed and can be detached away
+* Virtual USB devices (ones created by PVUSB frontend) may be listed
+* The installation/configuration is not persistent, not retained between reboots
+* No debugging / logging / audit trail
+* When an attached device is physically unplugged, USB port remains mapped but not displayed
+in the list. If device is plugged back it continues to work. Unlisted device cannot be detached.
+* We are not attaching actual devices, but USB ports (different behavior from VMWare, might be confusing)
+* After device is detached from the frontend and returned back to the backend it is not alwayws usable there
+* Code changing configuration of pvusb fe/be and vusb bind/unbind helper are located
+misc/xl-qvm-usb-attach.py misc/xl-qvm-usb-detach.py misc/vusb-ctl.py. These helpers are
+deployed into the backend domain. The initialization code is qubesutils.py in usb_setup(),
+should probably also be moved into an external helper. Perhaps the functionality of these
+external helpers should be merged into libxl? The is one catch is invokation of vusb helper
+in the backend domain -- now it relies on qubes-specific API.
+

@@ -113,9 +113,12 @@ install -D misc/xenstore-watch $RPM_BUILD_ROOT/usr/bin/xenstore-watch-qubes
 install -d $RPM_BUILD_ROOT/etc/udev/rules.d
 install -m 0644 misc/qubes_memory.rules $RPM_BUILD_ROOT/etc/udev/rules.d/50-qubes_memory.rules
 install -m 0644 misc/qubes_block.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_block.rules
+install -m 0644 misc/qubes_usb.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_usb.rules
 install -d $RPM_BUILD_ROOT/usr/lib/qubes/
 install misc/qubes_download_dom0_updates.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 install misc/{block_add_change,block_remove,block_cleanup} $RPM_BUILD_ROOT/usr/lib/qubes/
+install misc/{usb_add_change,usb_remove} $RPM_BUILD_ROOT/usr/lib/qubes/
+install misc/vusb-ctl.py $RPM_BUILD_ROOT/usr/lib/qubes/
 install misc/qubes_trigger_sync_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 install -D -m 0644 misc/qubes_trigger_sync_appmenus.action $RPM_BUILD_ROOT/etc/yum/post-actions/qubes_trigger_sync_appmenus.action
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
@@ -209,7 +212,7 @@ remove_ShowIn () {
 for F in abrt-applet deja-dup-monitor imsettings-start krb5-auth-dialog pulseaudio restorecond sealertauto gnome-power-manager gnome-sound-applet gnome-screensaver orca-autostart; do
 	if [ -e /etc/xdg/autostart/$F.desktop ]; then
 		remove_ShowIn $F
-		echo 'NotShowIn=QUBES' >> /etc/xdg/autostart/$F.desktop
+		echo 'NotShowIn=QUBES;' >> /etc/xdg/autostart/$F.desktop
 	fi
 done
 
@@ -217,7 +220,7 @@ done
 for F in gcm-apply ; do
 	if [ -e /etc/xdg/autostart/$F.desktop ]; then
 		remove_ShowIn $F
-		echo 'NotShowIn=DisposableVM' >> /etc/xdg/autostart/$F.desktop
+		echo 'NotShowIn=DisposableVM;' >> /etc/xdg/autostart/$F.desktop
 	fi
 done
 
@@ -312,6 +315,10 @@ do
         continue
     fi
 
+    if [ $(basename $f) == "99-qubes_usb.rules" ] ; then
+        continue
+    fi
+
     if [ $(basename $f) == "90-hal.rules" ] ; then
         continue
     fi
@@ -383,6 +390,7 @@ rm -rf $RPM_BUILD_ROOT
 /etc/udev/rules.d/50-qubes_memory.rules
 /etc/udev/rules.d/99-qubes_block.rules
 /etc/udev/rules.d/99-qubes_network.rules
+/etc/udev/rules.d/99-qubes_usb.rules
 /etc/xen/scripts/vif-route-qubes
 /etc/yum.conf.d/qubes-proxy.conf
 /etc/yum.repos.d/qubes.repo
@@ -399,6 +407,9 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib/qubes/block_add_change
 /usr/lib/qubes/block_cleanup
 /usr/lib/qubes/block_remove
+/usr/lib/qubes/usb_add_change
+/usr/lib/qubes/usb_remove
+/usr/lib/qubes/vusb-ctl.py*
 /usr/lib/qubes/dispvm-prerun.sh
 /usr/lib/qubes/sync-ntp-clock
 /usr/lib/qubes/prepare-suspend

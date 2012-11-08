@@ -1,0 +1,10 @@
+# Expose all USB devices (except block) via xenstore
+
+# Handle only USB devices
+SUBSYSTEM!="usb", GOTO="qubes_usb_end"
+
+ACTION=="add", IMPORT{program}="/usr/lib/qubes/usb_add_change"
+ACTION=="change", IMPORT{program}="/usr/lib/qubes/usb_add_change"
+ACTION=="remove", RUN+="/usr/lib/qubes/usb_remove"
+
+LABEL="qubes_usb_end"

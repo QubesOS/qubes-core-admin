@@ -75,7 +75,7 @@ default_kernels_subdir = "kernels"
 default_firewall_conf_file = "firewall.xml"
 default_memory = 400
 default_kernelopts = ""
-default_kernelopts_pcidevs = "iommu=soft swiotlb=2048"
+default_kernelopts_pcidevs = "iommu=soft swiotlb=4096"
 
 default_hvm_disk_size = 20*1024*1024*1024
 default_hvm_private_img_size = 2*1024*1024*1024
@@ -874,6 +874,10 @@ class QubesVm(object):
                 "{0}/qubes-block-devices".format(domain_path),
                 '')
 
+        xs.write('',
+                "{0}/qubes-usb-devices".format(domain_path),
+                '')
+
         xs.write('', "{0}/qubes-debug-mode".format(domain_path),
                 str(int(self.debug)))
 
@@ -883,6 +887,8 @@ class QubesVm(object):
         xs.set_permissions('', '{0}/memory'.format(domain_path),
                 [{ 'dom': xid }])
         xs.set_permissions('', '{0}/qubes-block-devices'.format(domain_path),
+                [{ 'dom': xid }])
+        xs.set_permissions('', '{0}/qubes-usb-devices'.format(domain_path),
                 [{ 'dom': xid }])
 
     def get_rootdev(self, source_template=None):

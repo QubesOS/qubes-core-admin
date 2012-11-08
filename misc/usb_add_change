@@ -1,0 +1,40 @@
+#!/bin/sh
+
+##
+## This script is invoked by udev rules whenever USB device appears or
+## changes. This happens in usbvm domain (or dom0 if USB controller
+## drivers are in dom0). The script records information about available
+## USB devices into XS directory, making it available to qvm-usb tool
+## running in dom0.
+##
+
+# FIXME: Ignore USB hubs and other wierd devices (see also in usb_remove).
+[ "`echo $TYPE | cut -f1 -d/`" = "9" ] && exit 0
+[ "$DEVTYPE" != "usb_device" ] && exit 0
+
+# xenstore doesn't allow dot in key name
+XSNAME=`basename ${DEVPATH} | tr . _`
+
+# FIXME: For some devices (my Cherry keyboard) ID_SERIAL does not
+# contain proper human-readable name, should find better method to
+# build devide description.
+#DESC=`python -c "dev='%d-%d' % (int('${BUSNUM}'.lstrip('0')), (int('${DEVNUM}'.lstrip('0'))-1)); from xen.util import vusb_util; print vusb_util.get_usbdevice_info(dev);"`
+DESC="${ID_VENDOR_ID}:${ID_MODEL_ID} ${ID_SERIAL}"
+
+VERSION=`cat /sys/$DEVPATH/version`
+if [ "${VERSION}" = " 1.00" -o "${VERSION}" = " 1.10" ] ; then
+	VERSION=1
+elif [ "${VERSION}" = " 2.00" ] ; then
+	VERSION=2
+else
+	# FIXME: silently ignoring devices with unexpected USB version
+	exit 0
+fi
+
+XS_KEY="qubes-usb-devices/$XSNAME"
+
+xenstore-write "$XS_KEY/desc" "$DESC"
+xenstore-write "$XS_KEY/usb-ver" "$VERSION"
+
+# Make sure PVUSB backend driver is loaded.
+/sbin/modprobe xen-usbback 2> /dev/null || /sbin/modprobe usbbk

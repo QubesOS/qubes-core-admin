@@ -293,12 +293,18 @@ def block_check_attached(backend_vm, device, backend_xid = None):
     return None
 
 def block_attach(vm, backend_vm, device, frontend=None, mode="w", auto_detach=False, wait=True):
+    device_attach_check(vm, backend_vm, device, frontend)
+    do_block_attach(vm, backend_vm, device, frontend, mode, auto_detach, wait)
+
+def device_attach_check(vm, backend_vm, device, frontend):
+    """ Checks all the parameters, dies on errors """
     if not vm.is_running():
         raise QubesException("VM %s not running" % vm.name)
 
     if not backend_vm.is_running():
         raise QubesException("VM %s not running" % backend_vm.name)
 
+def do_block_attach(vm, backend_vm, device, frontend, mode, auto_detach, wait):
     if frontend is None:
         frontend = block_find_unused_frontend(vm)
         if frontend is None:
@@ -397,6 +403,268 @@ def block_detach_all(vm, vm_xid = None):
     for devid in devices_to_detach:
         xl_cmd = [ '/usr/sbin/xl', 'block-detach', str(vm_xid), devid]
         subprocess.check_call(xl_cmd)
+
+####### USB devices ######
+
+usb_ver_re = re.compile(r"^(1|2)$")
+usb_device_re = re.compile(r"^[0-9]+-[0-9]+(_[0-9]+)?$")
+usb_port_re = re.compile(r"^$|^[0-9]+-[0-9]+(\.[0-9]+)?$")
+
+def usb_setup(backend_vm_xid, vm_xid, devid, usb_ver):
+    """
+    Attach frontend to the backend.
+     backend_vm_xid - id of the backend domain
+     vm_xid - id of the frontend domain
+     devid  - id of the pvusb controller
+    """
+    num_ports = 8
+    trans = xs.transaction_start()
+
+    be_path = "/local/domain/%d/backend/vusb/%d/%d" % (backend_vm_xid, vm_xid, devid)
+    fe_path = "/local/domain/%d/device/vusb/%d" % (vm_xid, devid)
+
+    be_perm = [{'dom': backend_vm_xid}, {'dom': vm_xid, 'read': True} ]
+    fe_perm = [{'dom': vm_xid}, {'dom': backend_vm_xid, 'read': True} ]
+
+    # Create directories and set permissions
+    xs.write(trans, be_path, "")
+    xs.set_permissions(trans, be_path, be_perm)
+
+    xs.write(trans, fe_path, "")
+    xs.set_permissions(trans, fe_path, fe_perm)
+
+    # Write backend information into the location that frontend looks for
+    xs.write(trans, "%s/backend-id" % fe_path, str(backend_vm_xid))
+    xs.write(trans, "%s/backend" % fe_path, be_path)
+
+    # Write frontend information into the location that backend looks for
+    xs.write(trans, "%s/frontend-id" % be_path, str(vm_xid))
+    xs.write(trans, "%s/frontend" % be_path, fe_path)
+
+    # Write USB Spec version field.
+    xs.write(trans, "%s/usb-ver" % be_path, usb_ver)
+
+    # Write virtual root hub field.
+    xs.write(trans, "%s/num-ports" % be_path, str(num_ports))
+    for port in range(1, num_ports+1):
+            # Set all port to disconnected state
+            xs.write(trans, "%s/port/%d" % (be_path, port), "")
+
+    # Set state to XenbusStateInitialising
+    xs.write(trans, "%s/state" % fe_path, "1")
+    xs.write(trans, "%s/state" % be_path, "1")
+    xs.write(trans, "%s/online" % be_path, "1")
+
+    xs.transaction_end(trans)
+
+def usb_decode_device_from_xs(xs_encoded_device):
+    """ recover actual device name (xenstore doesn't allow dot in key names, so it was translated to underscore) """
+    return xs_encoded_device.replace('_', '.')
+
+def usb_encode_device_for_xs(device):
+    """ encode actual device name (xenstore doesn't allow dot in key names, so translated it into underscore) """
+    return device.replace('.', '_')
+
+def usb_list():
+    """
+    Returns a dictionary of USB devices (for PVUSB backends running in all VM).
+    The dictionary is keyed by 'name' (see below), each element is a dictionary itself:
+     vm   = name of the backend domain
+     xid  = xid of the backend domain
+     device = <frontend device number>-<frontend port number>
+     name = <name of backend domain>:<frontend device number>-<frontend port number>
+     desc = description
+    """
+    # FIXME: any better idea of desc_re?
+    desc_re = re.compile(r"^.{1,255}$")
+
+    devices_list = {}
+
+    xs_trans = xs.transaction_start()
+    vm_list = xs.ls(xs_trans, '/local/domain')
+
+    for xid in vm_list:
+        vm_name = xs.read(xs_trans, '/local/domain/%s/name' % xid)
+        vm_devices = xs.ls(xs_trans, '/local/domain/%s/qubes-usb-devices' % xid)
+        if vm_devices is None:
+            continue
+        # when listing devices in xenstore we get encoded names
+        for xs_encoded_device in vm_devices:
+            # Sanitize device id
+            if not usb_device_re.match(xs_encoded_device):
+                print >> sys.stderr, "Invalid device id in backend VM '%s'" % vm_name
+                continue
+            device = usb_decode_device_from_xs(xs_encoded_device)
+            device_desc = xs.read(xs_trans, '/local/domain/%s/qubes-usb-devices/%s/desc' % (xid, xs_encoded_device))
+            if not desc_re.match(device_desc):
+                print >> sys.stderr, "Invalid %s device desc in VM '%s'" % (device, vm_name)
+                continue
+            visible_name = "%s:%s" % (vm_name, device)
+            # grab version
+            usb_ver = xs.read(xs_trans, '/local/domain/%s/qubes-usb-devices/%s/usb-ver' % (xid, xs_encoded_device))
+            if usb_ver is None or not usb_ver_re.match(usb_ver):
+                print >> sys.stderr, "Invalid %s device USB version in VM '%s'" % (device, vm_name)
+                continue
+            devices_list[visible_name] = {"name": visible_name, "xid":int(xid),
+                "vm": vm_name, "device":device,
+                "desc":device_desc,
+                "usb_ver":usb_ver}
+
+    xs.transaction_end(xs_trans)
+    return devices_list
+
+def usb_check_attached(xs_trans, backend_vm, device):
+    """
+    Checks if the given device in the given backend attached to any frontend.
+    Parameters:
+     backend_vm - xid of the backend domain
+     device - device name in the backend domain
+    Returns None or a dictionary:
+     vm - the name of the frontend domain
+     xid - xid of the frontend domain
+     frontend - frontend device number FIXME
+     devid - frontend port number FIXME
+    """
+    # sample xs content: /local/domain/0/backend/vusb/4/0/port/1 = "7-5"
+    attached_dev = None
+    vms = xs.ls(xs_trans, '/local/domain/%d/backend/vusb' % backend_vm)
+    if vms is None:
+        return None
+    for vm in vms:
+        if not vm.isdigit():
+            print >> sys.stderr, "Invalid VM id"
+            continue
+        frontend_devs = xs.ls(xs_trans, '/local/domain/%d/backend/vusb/%s' % (backend_vm, vm))
+        if frontend_devs is None:
+            continue
+        for frontend_dev in frontend_devs:
+            if not frontend_dev.isdigit():
+                print >> sys.stderr, "Invalid frontend in VM %s" % vm
+                continue
+            ports = xs.ls(xs_trans, '/local/domain/%d/backend/vusb/%s/%s/port' % (backend_vm, vm, frontend_dev))
+            if ports is None:
+                continue
+            for port in ports:
+                # FIXME: refactor, see similar loop in usb_find_unused_frontend(), use usb_list() instead?
+                if not port.isdigit():
+                    print >> sys.stderr, "Invalid port in VM %s frontend %s" % (vm, frontend)
+                    continue
+                dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%s/%s/port/%s' % (backend_vm, vm, frontend_dev, port))
+                if dev == "":
+                    continue 
+                # Sanitize device id
+                if not usb_port_re.match(dev):
+                    print >> sys.stderr, "Invalid device id in backend VM %d @ %s/%s/port/%s" % \
+                        (backend_vm, vm, frontend_dev, port)
+                    continue
+                if dev == device:
+                    frontend = "%s-%s" % (frontend_dev, port)
+                    vm_name = xl_ctx.domid_to_name(int(vm))
+                    if vm_name is None:
+                        # FIXME: should we wipe references to frontends running on nonexistent VMs?
+                        continue
+                    attached_dev = {"xid":int(vm), "frontend": frontend, "devid": device, "vm": vm_name}
+                    break
+    return attached_dev
+
+#def usb_check_frontend_busy(vm, front_dev, port):
+#    devport = frontend.split("-")
+#    if len(devport) != 2:
+#        raise QubesException("Malformed frontend syntax, must be in device-port format")
+#    # FIXME:
+#    # return xs.read('', '/local/domain/%d/device/vusb/%d/state' % (vm.xid, frontend)) == '4'
+#    return False
+
+def usb_find_unused_frontend(xs_trans, backend_vm_xid, vm_xid, usb_ver):
+    """
+    Find an unused frontend/port to link the given backend with the given frontend.
+    Creates new frontend if needed.
+    Returns frontend specification in <device>-<port> format.
+    """
+
+    # This variable holds an index of last frontend scanned by the loop below.
+    # If nothing found, this value will be used to derive the index of a new frontend.
+    last_frontend_dev = -1
+
+    frontend_devs = xs.ls(xs_trans, "/local/domain/%d/device/vusb" % vm_xid)
+    if frontend_devs is not None:
+        for frontend_dev in frontend_devs:
+            if not frontend_dev.isdigit():
+                print >> sys.stderr, "Invalid frontend_dev in VM %d" % vm_xid
+                continue
+            frontend_dev = int(frontend_dev)
+            fe_path = "/local/domain/%d/device/vusb/%d" % (vm_xid, frontend_dev)
+            if xs.read(xs_trans, "%s/backend-id" % fe_path) == str(backend_vm_xid):
+                if xs.read(xs_trans, '/local/domain/%d/backend/vusb/%d/%d/usb-ver' % (backend_vm_xid, vm_xid, frontend_dev)) != usb_ver:
+                    last_frontend_dev = frontend_dev
+                    continue
+                # here: found an existing frontend already connected to right backend using an appropriate USB version
+                ports = xs.ls(xs_trans, '/local/domain/%d/backend/vusb/%d/%d/port' % (backend_vm_xid, vm_xid, frontend_dev))
+                if ports is None:
+                    print >> sys.stderr, "No ports in VM %d frontend_dev %d?" % (vm_xid, frontend_dev)
+                    last_frontend_dev = frontend_dev
+                    continue
+                for port in ports:
+                    # FIXME: refactor, see similar loop in usb_check_attached(), use usb_list() instead?
+                    if not port.isdigit():
+                        print >> sys.stderr, "Invalid port in VM %d frontend_dev %d" % (vm_xid, frontend_dev)
+                        continue
+                    port = int(port)
+                    dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%s/%s/port/%s' % (backend_vm, vm, frontend_dev, port))
+                    # Sanitize device id
+                    if not usb_port_re.match(dev):
+                        print >> sys.stderr, "Invalid device id in backend VM %d @ %d/%d/port/%d" % \
+                            (backend_vm_xid, vm_xid, frontend_dev, port)
+                        continue
+                    if dev == "":
+                        return '%d-%d' % (frontend_dev, port)
+            last_frontend_dev = frontend_dev
+
+    # create a new frontend_dev and link it to the backend
+    frontend_dev = last_frontend_dev + 1
+    usb_setup(backend_vm_xid, vm_xid, frontend_dev, usb_ver)
+    return '%d-%d' % (frontend_dev, 1)
+        
+def usb_attach(vm, backend_vm, device, frontend=None, auto_detach=False, wait=True):
+    device_attach_check(vm, backend_vm, device, frontend)
+
+    xs_trans = xs.transaction_start()
+
+    xs_encoded_device = usb_encode_device_for_xs(device)
+    usb_ver = xs.read(xs_trans, '/local/domain/%s/qubes-usb-devices/%s/usb-ver' % (backend_vm.xid, xs_encoded_device))
+    if usb_ver is None or not usb_ver_re.match(usb_ver):
+        xs.transaction_end(xs_trans)
+        raise QubesException("Invalid %s device USB version in VM '%s'" % (device, backend_vm.name))
+
+    if frontend is None:
+        frontend = usb_find_unused_frontend(xs_trans, backend_vm.xid, vm.xid, usb_ver)
+    else:
+        # Check if any device attached at this frontend
+        #if usb_check_frontend_busy(vm, frontend):
+        #    raise QubesException("Frontend %s busy in VM %s, detach it first" % (frontend, vm.name))
+        xs.transaction_end(xs_trans)
+        raise NotImplementedError("Explicit USB frontend specification is not implemented yet")
+
+    # Check if this device is attached to some domain
+    attached_vm = usb_check_attached(xs_trans, backend_vm.xid, device)
+    xs.transaction_end(xs_trans)
+
+    if attached_vm:
+        if auto_detach:
+            usb_detach(backend_vm, attached_vm)
+        else:
+            raise QubesException("Device %s from %s already connected to VM %s as %s" % (device, backend_vm.name, attached_vm['vm'], attached_vm['frontend']))
+
+    # Run helper script
+    xl_cmd = [ '/usr/lib/qubes/xl-qvm-usb-attach.py', str(vm.xid), device, frontend, str(backend_vm.xid) ]
+    subprocess.check_call(xl_cmd)
+
+def usb_detach(backend_vm, attachment):
+    xl_cmd = [ '/usr/lib/qubes/xl-qvm-usb-detach.py', str(attachment['xid']), attachment['devid'], attachment['frontend'], str(backend_vm.xid) ]
+    subprocess.check_call(xl_cmd)
+
+def usb_detach_all(vm):
+    raise NotImplementedError("Detaching all devices from a given VM is not implemented yet")
 
 ####### QubesWatch ######
 

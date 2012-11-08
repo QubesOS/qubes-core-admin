@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# FIXME: Ignore USB hubs.
+[ "`echo $TYPE | cut -f1 -d/`" = "9" ] && exit 0
+
+NAME=`basename ${DEVPATH} | tr . _`
+XS_KEY="qubes-usb-devices/$NAME"
+
+xenstore-rm "$XS_KEY"

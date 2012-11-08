@@ -56,9 +56,10 @@ python -O -m compileall qvm-core qmemman
 make -C restore
 make -C qubes_rpc
 make -C ../qubes_rpc
-make -C ../vchan -f Makefile.linux
 make -C ../u2mfn
+make -C ../vchan -f Makefile.linux
 make -C ../qrexec
+make -C ../misc
 
 %install
 
@@ -80,6 +81,7 @@ ln -s block-snapshot $RPM_BUILD_ROOT/etc/xen/scripts/block-origin
 
 mkdir -p $RPM_BUILD_ROOT/etc/udev/rules.d
 cp ../misc/qubes_block.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_block.rules
+cp ../misc/qubes_usb.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_usb.rules
 
 mkdir -p $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/qubes.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
@@ -117,6 +119,11 @@ cp qubes_rpc/qubes-receive-updates $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_add_change $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_remove $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../misc/block_cleanup $RPM_BUILD_ROOT/usr/lib/qubes/
+cp ../misc/usb_add_change $RPM_BUILD_ROOT/usr/lib/qubes/
+cp ../misc/usb_remove $RPM_BUILD_ROOT/usr/lib/qubes/
+cp ../misc/vusb-ctl.py $RPM_BUILD_ROOT/usr/lib/qubes/
+cp ../misc/xl-qvm-usb-attach.py $RPM_BUILD_ROOT/usr/lib/qubes/
+cp ../misc/xl-qvm-usb-detach.py $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/block_cleaner_daemon.py $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/fix_dir_perms.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 
@@ -168,6 +175,7 @@ cp misc/qubes-appmenu-select.desktop $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/qubes-start.desktop $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/vm-template.conf $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/vm-template-hvm.conf $RPM_BUILD_ROOT/usr/share/qubes/
+cp misc/Fedora-13-comps.xml $RPM_BUILD_ROOT/usr/share/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/usr/bin
 cp ../network/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/lib/qubes
@@ -367,16 +375,21 @@ fi
 /usr/lib/qubes/block_remove
 /usr/lib/qubes/block_cleanup
 /usr/lib/qubes/block_cleaner_daemon.py*
+/usr/lib/qubes/usb_add_change
+/usr/lib/qubes/usb_remove
+/usr/lib/qubes/vusb-ctl.py*
+/usr/lib/qubes/xl-qvm-usb-attach.py*
+/usr/lib/qubes/xl-qvm-usb-detach.py*
 /usr/lib/qubes/fix_dir_perms.sh
 %attr(4750,root,qubes) /usr/lib/qubes/qfile-dom0-unpacker
-%attr(770,root,qubes) %dir /var/lib/qubes
-%attr(770,root,qubes) %dir /var/lib/qubes/vm-templates
-%attr(770,root,qubes) %dir /var/lib/qubes/appvms
-%attr(770,root,qubes) %dir /var/lib/qubes/servicevms
-%attr(770,root,qubes) %dir /var/lib/qubes/backup
-%attr(770,root,qubes) %dir /var/lib/qubes/dvmdata
-%attr(770,root,qubes) %dir /var/lib/qubes/updates
-%attr(770,root,qubes) %dir /var/lib/qubes/vm-kernels
+%attr(0770,root,qubes) %dir /var/lib/qubes
+%attr(0770,root,qubes) %dir /var/lib/qubes/vm-templates
+%attr(0770,root,qubes) %dir /var/lib/qubes/appvms
+%attr(0770,root,qubes) %dir /var/lib/qubes/servicevms
+%attr(0770,root,qubes) %dir /var/lib/qubes/backup
+%attr(0770,root,qubes) %dir /var/lib/qubes/dvmdata
+%attr(0770,root,qubes) %dir /var/lib/qubes/updates
+%attr(0770,root,qubes) %dir /var/lib/qubes/vm-kernels
 /usr/share/qubes/icons/*.png
 /usr/share/qubes/qubes-vm.directory.template
 /usr/share/qubes/qubes-templatevm.directory.template
@@ -387,6 +400,7 @@ fi
 /usr/share/qubes/qubes-start.desktop
 /usr/share/qubes/vm-template.conf
 /usr/share/qubes/vm-template-hvm.conf
+/usr/share/qubes/Fedora-13-comps.xml
 /usr/lib/qubes/qubes_setup_dnat_to_ns
 /usr/lib/qubes/qubes_fix_nm_conf.sh
 /etc/dhclient.d/qubes_setup_dnat_to_ns.sh
@@ -421,7 +435,7 @@ fi
 /etc/qubes_rpc/qubes.ReceiveUpdates
 %attr(4750,root,qubes) /usr/lib/qubes/qrexec_daemon
 %attr(2770,root,qubes) %dir /var/log/qubes
-%attr(770,root,qubes) %dir /var/run/qubes
+%attr(0770,root,qubes) %dir /var/run/qubes
 %{_libdir}/libvchan.so
 %{_libdir}/libu2mfn.so
 /etc/yum.real.repos.d/qubes-cached.repo
@@ -429,8 +443,9 @@ fi
 /etc/xdg/autostart/qubes-guid.desktop
 /etc/security/limits.d/99-qubes.conf
 /etc/udev/rules.d/99-qubes_block.rules
-/etc/cron.daily/qubes-dom0-updates.cron
-/etc/cron.d/qubes-sync-clock.cron
+/etc/udev/rules.d/99-qubes_usb.rules
+%attr(0644,root,root) /etc/cron.daily/qubes-dom0-updates.cron
+%attr(0644,root,root) /etc/cron.d/qubes-sync-clock.cron
 /etc/dracut.conf.d/*
 %dir /usr/share/dracut/modules.d/90qubes-pciback
 /usr/share/dracut/modules.d/90qubes-pciback/*

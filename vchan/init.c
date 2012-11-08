@@ -92,6 +92,7 @@ static int ring_init(struct libvchan *ctrl)
 static int ring_init(struct libvchan *ctrl)
 {
 	int mfn;
+	int u2mfn_fd;
 	struct vchan_interface *ring;
 #ifdef CONFIG_STUBDOM
 	ring = (struct vchan_interface *) memalign(XC_PAGE_SIZE, sizeof(*ring));
@@ -102,12 +103,15 @@ static int ring_init(struct libvchan *ctrl)
 
 	mfn = virtual_to_mfn(ring);
 #else
-	ring = (struct vchan_interface *) u2mfn_alloc_kpage ();
+	u2mfn_fd = u2mfn_get_fd();
+	if (u2mfn_fd < 0)
+		return -1;
+	ring = (struct vchan_interface *) u2mfn_alloc_kpage_with_fd (u2mfn_fd);
 
 	if (ring == MAP_FAILED)
 		return -1;
 
-	if (u2mfn_get_last_mfn (&mfn) < 0)
+	if (u2mfn_get_last_mfn_with_fd (u2mfn_fd, &mfn) < 0)
 		return -1;
 #endif
 
