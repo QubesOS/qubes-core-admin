@@ -2,7 +2,12 @@
 
 apps="evince /usr/libexec/evinced soffice firefox"
 
-cat /etc/dispvm-dotfiles.tbz | tar -xjf- --overwrite -C /home/user --owner user 2>&1 >/tmp/dispvm-dotfiles-errors.log
+#If user have customized DispVM settings, use its home instead of default dotfiles
+if [ -e /rw/home/user/.qubes-dispvm-customized ]; then
+	cp -af /rw/home/user /home/
+else
+	cat /etc/dispvm-dotfiles.tbz | tar -xjf- --overwrite -C /home/user --owner user 2>&1 >/tmp/dispvm-dotfiles-errors.log
+fi
 
 for app in $apps ; do
     echo "Launching: $app..."
@@ -22,6 +27,10 @@ done
 
 ps ax > /tmp/dispvm-prerun-proclist.log
 
-cat /etc/dispvm-dotfiles.tbz | tar -xjf- --overwrite -C /home/user --owner user 2>&1 >>/tmp/dispvm-dotfiles-errors.log
+if [ -e /rw/home/user/.qubes-dispvm-customized ]; then
+	cp -af /rw/home/user /home/
+else
+	cat /etc/dispvm-dotfiles.tbz | tar -xjf- --overwrite -C /home/user --owner user 2>&1 >>/tmp/dispvm-dotfiles-errors.log
+fi
 
 echo done.

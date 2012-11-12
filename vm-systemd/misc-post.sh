@@ -12,7 +12,7 @@ fi
 # xenstore-read fails
 INTERFACE=eth0 /usr/lib/qubes/setup_ip
 
-if [ -e /dev/xvdb ] ; then
+if [ -e /dev/xvdb -a ! -e /etc/this_is_dvm ] ; then
     mount /rw
 
     if ! [ -d /rw/home ] ; then
