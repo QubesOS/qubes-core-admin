@@ -139,7 +139,7 @@ void preload_cache(int fd)
 	}
 }
 
-void start_rexec(int domid)
+void start_rexec(int domid, char *default_user)
 {
 	int pid, status;
 	char dstr[40];
@@ -150,7 +150,7 @@ void start_rexec(int domid)
 		exit(1);
 	case 0:
 		execl("/usr/lib/qubes/qrexec_daemon", "qrexec_daemon",
-		      dstr, NULL);
+		      dstr, default_user, NULL);
 		perror("execl");
 		exit(1);
 	default:;
@@ -171,9 +171,9 @@ void start_guid(int domid, int argc, char **argv)
 	guid_args[0] = "qubes_guid";
 	guid_args[1] = "-d";
 	guid_args[2] = dstr;
-	for (i = 3; i < argc; i++)
-		guid_args[i] = argv[i];
-	guid_args[argc] = NULL;
+	for (i = 0; i < argc; i++)
+		guid_args[i+3] = argv[i];
+	guid_args[argc+3] = NULL;
 	execv("/usr/bin/qubes_guid", guid_args);
 	perror("execv");
 }
@@ -434,9 +434,11 @@ int main(int argc, char **argv)
 	FILE *conf;
 	char *name;
 	char confname[256];
+	char *default_user = NULL;
+	int guid_args_start = 3;
 	if (argc < 3) {
 		fprintf(stderr,
-			"usage: %s savefile conf_templ [guid args] \n", argv[0]);
+			"usage: %s savefile conf_templ [-u default_user] [guid args] \n", argv[0]);
 		exit(1);
 	}
 	redirect_stderr();
@@ -447,6 +449,10 @@ int main(int argc, char **argv)
 	if (conf_templ < 0) {
 		perror("fopen vm conf");
 		exit(1);
+	}
+	if (argc > 4 && strcmp(argv[3], "-u")==0) {
+		default_user = argv[4];
+		guid_args_start += 2;
 	}
 	dispid = get_next_disposable_id();
 	name = get_vmname_from_savefile(conf_templ);
@@ -472,7 +478,7 @@ int main(int argc, char **argv)
 	setup_xenstore(netvm_id, domid, dispid, name);
 	fprintf(stderr, "time=%s, starting qubes_guid\n", gettime());
 	rm_fast_flag();
-	start_rexec(domid);
-	start_guid(domid, argc, argv);
+	start_rexec(domid, default_user);
+	start_guid(domid, argc-guid_args_start, argv+guid_args_start);
 	return 0;
 }
