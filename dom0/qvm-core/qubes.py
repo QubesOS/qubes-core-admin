@@ -778,8 +778,8 @@ class QubesVm(object):
             # resize loop device
             subprocess.check_call(["sudo", "losetup", "--set-capacity", loop_dev])
 
-            retcode = self.run("root:while [ \"`blockdev --getsize64 /dev/xvdb`\" -lt {0} ]; do ".format(size) +
-                "head /dev/xvdb > /dev/null; sleep 0.2; done; resize2fs /dev/xvdb", wait=True)
+            retcode = self.run("while [ \"`blockdev --getsize64 /dev/xvdb`\" -lt {0} ]; do ".format(size) +
+                "head /dev/xvdb > /dev/null; sleep 0.2; done; resize2fs /dev/xvdb", user="root", wait=True)
         else:
             retcode = subprocess.check_call(["sudo", "resize2fs", "-f", self.private_img])
         if retcode != 0:
@@ -1326,13 +1326,15 @@ class QubesVm(object):
 
         return conf
 
-    def run(self, command, verbose = True, autostart = False, notify_function = None, passio = False, passio_popen = False, passio_stderr=False, ignore_stderr=False, localcmd = None, wait = False, gui = True):
-        """command should be in form 'user:cmdline'
+    def run(self, command, user = None, verbose = True, autostart = False, notify_function = None, passio = False, passio_popen = False, passio_stderr=False, ignore_stderr=False, localcmd = None, wait = False, gui = True):
+        """command should be in form 'cmdline'
             When passio_popen=True, popen object with stdout connected to pipe.
             When additionally passio_stderr=True, stderr also is connected to pipe.
             When ignore_stderr=True, stderr is connected to /dev/null.
             """
 
+        if user is None:
+            user = self.default_user
         null = None
         if not self.is_running():
             if not autostart:
@@ -1354,7 +1356,7 @@ class QubesVm(object):
         if gui and os.getenv("DISPLAY") is not None and not self.is_guid_running():
             self.start_guid(verbose = verbose, notify_function = notify_function)
 
-        args = [qrexec_client_path, "-d", str(xid), command]
+        args = [qrexec_client_path, "-d", str(xid), "%s:%s" % (user, command)]
         if localcmd is not None:
             args += [ "-l", localcmd]
         if passio:
@@ -1437,7 +1439,7 @@ class QubesVm(object):
         if verbose:
             print >> sys.stderr, "--> Waiting for qubes-session..."
 
-        self.run('%s:echo $$ >> /tmp/qubes-session-waiter; [ ! -f /tmp/qubes-session-env ] && exec sleep 365d' % self.default_user, ignore_stderr=True, gui=False, wait=True)
+        self.run('echo $$ >> /tmp/qubes-session-waiter; [ ! -f /tmp/qubes-session-env ] && exec sleep 365d', ignore_stderr=True, gui=False, wait=True)
 
         retcode = subprocess.call([qubes_clipd_path])
         if retcode != 0:
@@ -1895,7 +1897,7 @@ class QubesNetVm(QubesVm):
 
             # force frontend to forget about this device
             #  module actually will be loaded back by udev, as soon as network is attached
-            vm.run("root:modprobe -r xen-netfront xennet")
+            vm.run("modprobe -r xen-netfront xennet", user="root")
 
             try:
                 vm.attach_network(wait=False)
@@ -2474,7 +2476,7 @@ class QubesHVm(QubesVm):
             if kwargs.get('verbose'):
                 print >> sys.stderr, "--> Waiting for user '%s' login..." % self.default_user
 
-            p = self.run('SYSTEM:QUBESRPC qubes.WaitForSession', passio_popen=True, gui=False, wait=True)
+            p = self.run('QUBESRPC qubes.WaitForSession', user="SYSTEM", passio_popen=True, gui=False, wait=True)
             p.communicate(input=self.default_user)
 
             retcode = subprocess.call([qubes_clipd_path])

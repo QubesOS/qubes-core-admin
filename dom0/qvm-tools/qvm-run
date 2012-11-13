@@ -85,6 +85,7 @@ def vm_run_cmd(vm, cmd, options):
 
         return vm.run(cmd, autostart = options.auto,
             verbose = options.verbose,
+            user = options.user,
             notify_function = tray_notify_generic if options.tray else None,
             passio = options.passio, localcmd = options.localcmd, gui = options.gui)
     except QubesException as err:
@@ -194,13 +195,7 @@ def main():
         vms_list.append(vm)
 
     for vm in vms_list:
-        if takes_cmd_argument:
-            cmd = "{user}:{cmd}".format(user=options.user if options.user else vm.default_user, cmd=cmdstr)
-        else:
-            cmd = None
-
-        vm_run_cmd(vm, cmd, options)
-
+        vm_run_cmd(vm, cmdstr, options)
 
     if options.wait_for_shutdown:
         if options.verbose:

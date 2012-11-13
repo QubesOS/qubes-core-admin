@@ -45,4 +45,4 @@ else:
     qvm_collection.unlock_db()
 
     # launch
-    qvm_collection.get_vm_by_name(backendvm_name).run("root: %s" % cmd)
+    qvm_collection.get_vm_by_name(backendvm_name).run(cmd, user="root")

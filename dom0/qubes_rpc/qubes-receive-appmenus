@@ -61,7 +61,7 @@ def get_appmenus(vm):
         if appmenus_line_count == 0:
             raise QubesException("Line count limit exceeded")
     else:
-        p = vm.run('DEFAULT:QUBESRPC qubes.GetAppmenus dom0', passio_popen=True)
+        p = vm.run('QUBESRPC qubes.GetAppmenus dom0', passio_popen=True)
         while appmenus_line_count > 0:
             untrusted_line = p.stdout.readline(appmenus_line_size)
             if untrusted_line == "":
