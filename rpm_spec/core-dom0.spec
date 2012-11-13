@@ -99,7 +99,6 @@ mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/qubes
 cp misc/qmemman.conf $RPM_BUILD_ROOT%{_sysconfdir}/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
-cp aux-tools/patch_appvm_initramfs.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/unbind_pci_device.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/unbind_all_network_devices $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/convert_apptemplate2vm.sh $RPM_BUILD_ROOT/usr/lib/qubes
@@ -357,7 +356,6 @@ fi
 %{python_sitearch}/qubes/__init__.pyc
 %{python_sitearch}/qubes/__init__.pyo
 %{python_sitearch}/qubes/qmemman*.py*
-/usr/lib/qubes/patch_appvm_initramfs.sh
 /usr/lib/qubes/unbind_pci_device.sh
 /usr/lib/qubes/unbind_all_network_devices
 /usr/lib/qubes/cleanup_dispvms
