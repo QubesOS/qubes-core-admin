@@ -6,6 +6,8 @@ VERSION_VM := $(shell cat version_vm)
 
 help:
 	@echo "make rpms                  -- generate binary rpm packages"
+	@echo "make rpms-vm               -- generate binary rpm packages for VM"
+	@echo "make rpms-dom0             -- generate binary rpm packages for Dom0"
 	@echo "make update-repo-current   -- copy newly generated rpms to qubes yum repo"
 	@echo "make update-repo-current-testing  -- same, but to -current-testing repo"
 	@echo "make update-repo-unstable  -- same, but to -testing repo"
@@ -21,7 +23,7 @@ rpms-vm:
 		$(RPMS_DIR)/x86_64/qubes-core-vm-*$(VERSION_VM)*.rpm \
 		$(RPMS_DIR)/x86_64/qubes-core-vm-kernel-placeholder-*.rpm
 
-rpms-dom0:
+rpms-dom0: rpms-vaio-fixes
 	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-dom0.spec
 	rpm --addsign \
 		$(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION_DOM0)*.rpm
