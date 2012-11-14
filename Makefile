@@ -74,6 +74,14 @@ update-repo-installer:
 	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-*$(VERSION_DOM0)*fc13*.rpm ../installer/yum/qubes-dom0/rpm/
 	ln -f $(RPMS_DIR)/x86_64/qubes-core-libs-$(VERSION_LIBS)*fc13*.rpm ../installer/yum/qubes-dom0/rpm/
 
+update-repo-template:
+	for vmrepo in ../template-builder/yum_repo_qubes/* ; do \
+		dist=$$(basename $$vmrepo) ;\
+		ln -f $(RPMS_DIR)/x86_64/qubes-core-vm-*$(VERSION_VM)*$$dist*.rpm $$vmrepo/rpm/ ;\
+		ln -f $(RPMS_DIR)/x86_64/qubes-core-vm-kernel-placeholder-*$$dist*.rpm $$vmrepo/rpm/ ;\
+		ln -f $(RPMS_DIR)/x86_64/qubes-core-libs-$(VERSION_LIBS)*$$dist*.rpm $$vmrepo/rpm/;\
+	done
+
 clean:
 	make -C dom0/qmemman clean
 	make -C dom0/restore clean
