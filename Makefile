@@ -25,6 +25,10 @@ rpms-vaio-fixes:
 	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-dom0-vaio-fixes.spec
 	rpm --addsign $(RPMS_DIR)/x86_64/qubes-core-dom0-vaio-fixes-$(VERSION_VAIO_FIXES)*.rpm 
 
+rpms-upgrade:
+	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/upgrade-vm.spec
+	rpm --addsign $(RPMS_DIR)/x86_64/qubes-upgrade-vm*.rpm
+
 update-repo-current:
 	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION_DOM0)*fc13*.rpm ../yum/current-release/current/dom0/rpm/
 	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-vaio-fixes-$(VERSION_VAIO_FIXES)*fc13*.rpm ../yum/current-release/current/dom0/rpm/
