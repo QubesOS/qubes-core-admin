@@ -24,18 +24,23 @@ if [ -e /dev/xvdb -a ! -e /etc/this_is_dvm ] ; then
         touch /rw/config/rc.local-early
 
         mkdir -p /rw/home
-        cp -a /home.orig/user /home
+        cp -a /home.orig/user /rw/home
 
         mkdir -p /rw/usrlocal
-        cp -a /usr/local.orig/* /usr/local
+        cp -a /usr/local.orig/* /rw/usrlocal
 
         touch /var/lib/qubes/first_boot_completed
     fi
     # Chown home if user UID have changed - can be the case on template switch
-    HOME_USER_UID=`ls -dn /home/user | awk '{print $3}'`
+    HOME_USER_UID=`ls -dn /rw/home/user | awk '{print $3}'`
     if [ "`id -u user`" -ne "$HOME_USER_UID" ]; then
-        find /home/user -uid "$HOME_USER_UID" -print0 | xargs -0 chown user:user
+        find /rw/home/user -uid "$HOME_USER_UID" -print0 | xargs -0 chown user:user
     fi
+    if [ -L /home ]; then
+        rm /home
+        mkdir /home
+    fi
+    mount /home
 fi
 
 [ -x /rw/config/rc.local ] && /rw/config/rc.local
