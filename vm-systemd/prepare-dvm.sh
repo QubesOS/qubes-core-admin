@@ -13,7 +13,11 @@ possibly_run_save_script()
 }
 
 if xenstore-read qubes_save_request 2>/dev/null ; then
-    ln -sf /home_volatile /home
+    if [ -L /home ]; then
+        rm /home
+        mkdir /home
+    fi
+    mount --bind /home_volatile /home
     touch /etc/this_is_dvm
     mount /rw
     possibly_run_save_script
