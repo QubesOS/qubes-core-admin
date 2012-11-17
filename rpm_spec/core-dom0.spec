@@ -38,6 +38,7 @@ License:	GPL
 URL:		http://www.qubes-os.org
 BuildRequires:  xen-devel
 Requires:	python, xen-runtime, pciutils, python-inotify, python-daemon, kernel-qubes-dom0
+Requires:	qubes-core-libs
 Requires:       python-lxml
 Conflicts:      qubes-gui-dom0 < 1.1.13
 Requires:       xen >= 4.1.0-2
@@ -99,7 +100,6 @@ mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/qubes
 cp misc/qmemman.conf $RPM_BUILD_ROOT%{_sysconfdir}/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
-cp aux-tools/patch_appvm_initramfs.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/unbind_pci_device.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/unbind_all_network_devices $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/convert_apptemplate2vm.sh $RPM_BUILD_ROOT/usr/lib/qubes
@@ -197,9 +197,6 @@ cp pm-utils/52qubes-pause-vms $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 
 mkdir -p $RPM_BUILD_ROOT/var/log/qubes
 mkdir -p $RPM_BUILD_ROOT/var/run/qubes
-
-install -D ../vchan/libvchan.so $RPM_BUILD_ROOT/%{_libdir}/libvchan.so
-install -D ../u2mfn/libu2mfn.so $RPM_BUILD_ROOT/%{_libdir}/libu2mfn.so
 
 install -d $RPM_BUILD_ROOT/etc/sudoers.d
 install -m 0440 qubes.sudoers $RPM_BUILD_ROOT/etc/sudoers.d/qubes
@@ -357,7 +354,6 @@ fi
 %{python_sitearch}/qubes/__init__.pyc
 %{python_sitearch}/qubes/__init__.pyo
 %{python_sitearch}/qubes/qmemman*.py*
-/usr/lib/qubes/patch_appvm_initramfs.sh
 /usr/lib/qubes/unbind_pci_device.sh
 /usr/lib/qubes/unbind_all_network_devices
 /usr/lib/qubes/cleanup_dispvms
@@ -436,8 +432,6 @@ fi
 %attr(4750,root,qubes) /usr/lib/qubes/qrexec_daemon
 %attr(2770,root,qubes) %dir /var/log/qubes
 %attr(0770,root,qubes) %dir /var/run/qubes
-%{_libdir}/libvchan.so
-%{_libdir}/libu2mfn.so
 /etc/yum.real.repos.d/qubes-cached.repo
 /etc/sudoers.d/qubes
 /etc/xdg/autostart/qubes-guid.desktop

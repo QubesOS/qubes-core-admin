@@ -65,14 +65,19 @@ start()
             touch /rw/config/rc.local
 
             mkdir -p /rw/home
-            cp -a /home.orig/user /home
+            cp -a /home.orig/user /rw/home
 
             mkdir -p /rw/usrlocal
-            cp -a /usr/local.orig/* /usr/local
+            cp -a /usr/local.orig/* /rw/usrlocal
 
             touch /var/lib/qubes/first_boot_completed
         fi
 	fi
+    if [ -L /home ]; then
+        rm /home
+        mkdir /home
+    fi
+    mount /home
 
 	/usr/lib/qubes/qrexec_agent 2>/var/log/qubes/qrexec_agent.log &
 

@@ -68,6 +68,7 @@ class QfileDaemonDvm:
         retcode = subprocess.call(['/usr/lib/qubes/qubes_restore',
             current_savefile,
             current_dvm_conf,
+            '-u', str(vm.default_user),
             '-c', label.color,
             '-i', label.icon,
             '-l', str(label.index)])

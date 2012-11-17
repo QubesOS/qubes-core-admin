@@ -29,6 +29,11 @@
 
 static int u2mfn_fd = -1;
 
+int u2mfn_get_fd()
+{
+	return open("/proc/u2mfn", O_RDWR);
+}
+
 static int get_fd()
 {
 	if (u2mfn_fd == -1)
@@ -36,11 +41,6 @@ static int get_fd()
 	if (u2mfn_fd < 0)
 		return -1;
 	return 0;
-}
-
-int u2mfn_get_fd()
-{
-	return open("/proc/u2mfn", O_RDWR);
 }
 
 int u2mfn_get_mfn_for_page_with_fd(int fd, long va, int *mfn)

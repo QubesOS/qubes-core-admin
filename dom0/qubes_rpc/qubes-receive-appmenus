@@ -47,11 +47,11 @@ fields_regexp = {
     "Exec": re.compile(r"^[a-zA-Z0-9%>/:.= -]*$"),
 }
 
-def get_appmenus(xid):
+def get_appmenus(vm):
     global appmenus_line_count
     global appmenus_line_size
     untrusted_appmenulist = []
-    if xid == -1:
+    if vm is None:
         while appmenus_line_count > 0:
             untrusted_line = sys.stdin.readline(appmenus_line_size)
             if untrusted_line == "":
@@ -61,8 +61,7 @@ def get_appmenus(xid):
         if appmenus_line_count == 0:
             raise QubesException("Line count limit exceeded")
     else:
-        p = subprocess.Popen ([qrexec_client_path, '-d', str(xid),
-                'user:QUBESRPC qubes.GetAppmenus dom0'], stdout=subprocess.PIPE)
+        p = vm.run('QUBESRPC qubes.GetAppmenus dom0', passio_popen=True)
         while appmenus_line_count > 0:
             untrusted_line = p.stdout.readline(appmenus_line_size)
             if untrusted_line == "":
@@ -184,14 +183,10 @@ def main():
 
     new_appmenus = {}
     if env_vmname is None:
-        # Get appmenus from VM
-        xid = vm.get_xid()
-        assert xid > 0
-
-        new_appmenus = get_appmenus(xid)
+        new_appmenus = get_appmenus(vm)
     else:
         options.verbose = False
-        new_appmenus = get_appmenus(-1)
+        new_appmenus = get_appmenus(None)
 
     if len(new_appmenus) == 0:
         print >>sys.stderr, "ERROR: No appmenus received, terminating"

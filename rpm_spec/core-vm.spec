@@ -40,11 +40,13 @@ Requires:   ethtool
 Requires:   tinyproxy
 Requires:   ntpdate
 Requires:   qubes-core-vm-kernel-placeholder
+Requires:   qubes-core-libs
 Provides:   qubes-core-vm
 Obsoletes:  qubes-core-commonvm
 Obsoletes:  qubes-core-appvm
 Obsoletes:  qubes-core-netvm
 Obsoletes:  qubes-core-proxyvm
+Obsoletes:  qubes-upgrade-vm < 2.0
 BuildRequires: xen-devel
 
 %define _builddir %(pwd)
@@ -182,13 +184,6 @@ install -D -m 0644 misc/xorg-preload-apps.conf $RPM_BUILD_ROOT/etc/X11/xorg-prel
 
 install -d $RPM_BUILD_ROOT/var/run/qubes
 install -d $RPM_BUILD_ROOT/home_volatile/user
-
-install -D -m 0644 vchan/libvchan.h $RPM_BUILD_ROOT/usr/include/libvchan.h
-install -D -m 0644 u2mfn/u2mfnlib.h $RPM_BUILD_ROOT/usr/include/u2mfnlib.h
-install -D -m 0644 u2mfn/u2mfn-kernel.h $RPM_BUILD_ROOT/usr/include/u2mfn-kernel.h
-
-install -D vchan/libvchan.so $RPM_BUILD_ROOT/%{_libdir}/libvchan.so
-install -D u2mfn/libu2mfn.so $RPM_BUILD_ROOT/%{_libdir}/libu2mfn.so
 
 %triggerin -- initscripts
 cp /usr/lib/qubes/serial.conf /etc/init/serial.conf
@@ -439,32 +434,6 @@ rm -rf $RPM_BUILD_ROOT
 %dir /home_volatile
 %attr(700,user,user) /home_volatile/user
 %dir /mnt/removable
-
-
-%package devel
-Summary:        Include files for qubes core libraries
-License:        GPL v2 only
-Group:          Development/Sources 
-Obsoletes:      qubes-core-appvm-devel
-
-%description devel
-
-%files devel
-/usr/include/libvchan.h
-/usr/include/u2mfnlib.h
-/usr/include/u2mfn-kernel.h
-
-%package libs
-Summary:        Qubes core libraries
-License:        GPL v2 only
-Group:          Development/Sources 
-Obsoletes:      qubes-core-appvm-libs
-
-%description libs
-
-%files libs
-%{_libdir}/libvchan.so
-%{_libdir}/libu2mfn.so
 
 %package sysvinit
 Summary:        Qubes unit files for SysV init style or upstart

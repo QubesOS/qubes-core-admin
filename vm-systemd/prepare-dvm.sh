@@ -13,9 +13,15 @@ possibly_run_save_script()
 }
 
 if xenstore-read qubes_save_request 2>/dev/null ; then
-    ln -sf /home_volatile /home
-    possibly_run_save_script 
+    if [ -L /home ]; then
+        rm /home
+        mkdir /home
+    fi
+    mount --bind /home_volatile /home
     touch /etc/this_is_dvm
+    mount /rw
+    possibly_run_save_script
+    umount /rw
     dmesg -c >/dev/null
     free | grep Mem: | 
         (read a b c d ; xenstore-write device/qubes_used_mem $c)
