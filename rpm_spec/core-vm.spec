@@ -133,6 +133,7 @@ fi
 install misc/dispvm-prerun.sh $RPM_BUILD_ROOT/usr/lib/qubes/dispvm-prerun.sh
 
 install -D misc/qubes_core.modules $RPM_BUILD_ROOT/etc/sysconfig/modules/qubes_core.modules
+install -D misc/qubes_misc.modules $RPM_BUILD_ROOT/etc/sysconfig/modules/qubes_misc.modules
 
 install -m 0644 network/qubes_network.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_network.rules
 install network/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/lib/qubes
@@ -380,6 +381,7 @@ rm -rf $RPM_BUILD_ROOT
 /etc/sysconfig/iptables
 /etc/sysconfig/ip6tables
 /etc/sysconfig/modules/qubes_core.modules
+/etc/sysconfig/modules/qubes_misc.modules
 /etc/tinyproxy/filter-qubes-yum
 /etc/tinyproxy/tinyproxy-qubes-yum.conf
 /etc/udev/rules.d/50-qubes_memory.rules
