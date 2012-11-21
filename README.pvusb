@@ -66,4 +66,4 @@ deployed into the backend domain. The initialization code is qubesutils.py in us
 should probably also be moved into an external helper. Perhaps the functionality of these
 external helpers should be merged into libxl? The is one catch is invokation of vusb helper
 in the backend domain -- now it relies on qubes-specific API.
-
+* After reboot attached USB devices are not listed by 'qvm-usb -l' until replugged.

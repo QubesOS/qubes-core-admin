@@ -610,7 +610,7 @@ def usb_find_unused_frontend(xs_trans, backend_vm_xid, vm_xid, usb_ver):
                         print >> sys.stderr, "Invalid port in VM %d frontend_dev %d" % (vm_xid, frontend_dev)
                         continue
                     port = int(port)
-                    dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%s/%s/port/%s' % (backend_vm, vm, frontend_dev, port))
+                    dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%d/%s/port/%s' % (backend_vm_xid, vm_xid, frontend_dev, port))
                     # Sanitize device id
                     if not usb_port_re.match(dev):
                         print >> sys.stderr, "Invalid device id in backend VM %d @ %d/%d/port/%d" % \
