@@ -303,6 +303,10 @@ do
         continue
     fi
 
+    if [ $(basename $f) == "50-qubes_misc.rules" ] ; then
+        continue
+    fi
+
     if [ $(basename $f) == "99-qubes_network.rules" ] ; then
         continue
     fi
