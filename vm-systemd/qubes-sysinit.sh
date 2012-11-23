@@ -26,7 +26,7 @@ mkdir -p /var/run/xen-hotplug
 # Set permissions to /proc/xen/xenbus, so normal user can use xenstore-read
 chmod 666 /proc/xen/xenbus
 # Set permissions to files needed to listen at vchan
-chmod 666 /proc/u2mfn /dev/xen/evtchn
+chmod 666 /proc/u2mfn
 
 # Set default services depending on VM type
 TYPE=`$XS_READ qubes_vm_type 2> /dev/null`

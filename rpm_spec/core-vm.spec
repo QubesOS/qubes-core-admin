@@ -113,7 +113,7 @@ install -d -m 755 $RPM_BUILD_ROOT/etc/pki/rpm-gpg
 install -m 644 misc/RPM-GPG-KEY-qubes* $RPM_BUILD_ROOT/etc/pki/rpm-gpg/
 install -D misc/xenstore-watch $RPM_BUILD_ROOT/usr/bin/xenstore-watch-qubes
 install -d $RPM_BUILD_ROOT/etc/udev/rules.d
-install -m 0644 misc/qubes_memory.rules $RPM_BUILD_ROOT/etc/udev/rules.d/50-qubes_memory.rules
+install -m 0644 misc/qubes_misc.rules $RPM_BUILD_ROOT/etc/udev/rules.d/50-qubes_misc.rules
 install -m 0644 misc/qubes_block.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_block.rules
 install -m 0644 misc/qubes_usb.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_usb.rules
 install -d $RPM_BUILD_ROOT/usr/lib/qubes/
@@ -303,6 +303,10 @@ do
         continue
     fi
 
+    if [ $(basename $f) == "50-qubes_misc.rules" ] ; then
+        continue
+    fi
+
     if [ $(basename $f) == "99-qubes_network.rules" ] ; then
         continue
     fi
@@ -384,7 +388,7 @@ rm -rf $RPM_BUILD_ROOT
 /etc/sysconfig/modules/qubes_misc.modules
 /etc/tinyproxy/filter-qubes-yum
 /etc/tinyproxy/tinyproxy-qubes-yum.conf
-/etc/udev/rules.d/50-qubes_memory.rules
+/etc/udev/rules.d/50-qubes_misc.rules
 /etc/udev/rules.d/99-qubes_block.rules
 /etc/udev/rules.d/99-qubes_network.rules
 /etc/udev/rules.d/99-qubes_usb.rules
