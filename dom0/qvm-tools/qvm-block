@@ -83,7 +83,7 @@ def main():
             parser.error ("Invalid VM name: %s" % args[0])
         # FIXME: here we assume that device is always in form "domain:dev", which can be changed in the future
         if args[1].find(":") < 0:
-            parser.error ("Invalid device syntax" % args[1])
+            parser.error ("Invalid device syntax (missing VM name): %s" % args[1])
         if options.do_file_attach:
             dev = {}
             (dev['vm'], dev['device']) = args[1].split(":")
