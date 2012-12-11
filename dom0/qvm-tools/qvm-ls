@@ -42,7 +42,8 @@ fields = {
 
     "type": {"func": "'Tpl' if vm.is_template() else \
              ('Proxy' if vm.is_proxyvm() else \
-             (' Net' if vm.is_netvm() else ''))"},
+             (' Net' if vm.is_netvm() else \
+             ('HVM' if vm.type == 'HVM' else '')))"},
 
     "updbl" : {"func": "'Yes' if vm.updateable else ''"},
 
