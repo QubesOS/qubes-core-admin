@@ -46,22 +46,30 @@ Requires:       xen-hvm
 Requires:       createrepo
 Requires:       gnome-packagekit
 Requires:       cronie
-%define _builddir %(pwd)/dom0
+%define _builddir %(pwd)
 
 %description
 The Qubes core files for installation on Dom0.
 
+%prep
+# we operate on the current directory, so no need to unpack anything
+# symlink is to generate useful debuginfo packages
+rm -f %{name}-%{version}
+ln -sf . %{name}-%{version}
+%setup -T -D
+
 %build
-python -m compileall qvm-core qmemman
-python -O -m compileall qvm-core qmemman
-make -C restore
-make -C qubes_rpc
-make -C ../qubes_rpc
-make -C ../vchan -f Makefile.linux
-make -C ../qrexec
-make -C ../misc
+python -m compileall dom0/qvm-core dom0/qmemman
+python -O -m compileall dom0/qvm-core dom0/qmemman
+for dir in dom0/restore dom0/qubes_rpc misc; do
+  (cd $dir; make)
+done
+(cd vchan; make -f Makefile.linux)
+(cd qrexec; make)
 
 %install
+
+cd dom0
 
 mkdir -p $RPM_BUILD_ROOT/etc/init.d
 cp init.d/qubes_core $RPM_BUILD_ROOT/etc/init.d/
@@ -285,6 +293,7 @@ mv -f /lib/udev/rules.d/69-xorg-vmmouse.rules /var/lib/qubes/removed-udev-script
 
 %clean
 rm -rf $RPM_BUILD_ROOT
+rm -f %{name}-%{version}
 
 %pre
 if ! grep -q ^qubes: /etc/group ; then
