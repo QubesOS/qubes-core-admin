@@ -56,12 +56,19 @@ BuildRequires: xen-devel
 %description
 The Qubes core files for installation inside a Qubes VM.
 
+%prep
+# we operate on the current directory, so no need to unpack anything
+# symlink is to generate useful debuginfo packages
+rm -f %{name}-%{version}
+ln -sf . %{name}-%{version}
+%setup -T -D
+
 %build
-make -C u2mfn
-make -C vchan -f Makefile.linux
-make -C misc
-make -C qubes_rpc
-make -C qrexec
+(cd vchan; make -f Makefile.linux)
+(cd qrexec; make)
+for dir in qubes_rpc misc; do
+  (cd $dir; make)
+done
 
 %pre
 
@@ -358,6 +365,7 @@ fi
 
 %clean
 rm -rf $RPM_BUILD_ROOT
+rm -f %{name}-%{version}
 
 %files
 %defattr(-,root,root,-)

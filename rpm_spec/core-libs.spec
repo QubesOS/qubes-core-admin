@@ -42,9 +42,16 @@ BuildRequires: xen-devel
 %description
 The Qubes core libraries for installation inside a Qubes Dom0 and VM.
 
+%prep
+# we operate on the current directory, so no need to unpack anything
+# symlink is to generate useful debuginfo packages
+rm -f %{name}-%{version}
+ln -sf . %{name}-%{version}
+%setup -T -D
+
 %build
-make -C u2mfn
-make -C vchan -f Makefile.linux
+(cd u2mfn; make)
+(cd vchan; make -f Makefile.linux)
 
 %install
 install -D -m 0644 vchan/libvchan.h $RPM_BUILD_ROOT/usr/include/libvchan.h
@@ -53,6 +60,10 @@ install -D -m 0644 u2mfn/u2mfn-kernel.h $RPM_BUILD_ROOT/usr/include/u2mfn-kernel
 
 install -D vchan/libvchan.so $RPM_BUILD_ROOT/%{_libdir}/libvchan.so
 install -D u2mfn/libu2mfn.so $RPM_BUILD_ROOT/%{_libdir}/libu2mfn.so
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+rm -f %{name}-%{version}
 
 %files
 %{_libdir}/libvchan.so
