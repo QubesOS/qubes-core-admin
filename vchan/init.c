@@ -207,6 +207,49 @@ static int server_interface_init(struct libvchan *ctrl, int devno)
         ctrl->rd_ring_size = sizeof(ctrl->ring->buf_##dir2)
 
 /**
+	Run in AppVM (any domain).
+	Release resources used by vchan link. Should be used after
+	libvchan_close() to clean connection shutdown, but can be used alone in
+	recovery case.
+        \param ctrl connection to cleanup
+        \returns -1 on failure (errno for details), 0 on success
+*/
+int libvchan_cleanup(struct libvchan *ctrl)
+{
+	if (!ctrl)
+		return 0;
+	if (!ctrl->is_server)
+		return 0;
+	/* do not wait flush remaining queue to allow use libvchan_cleanup for
+	 * recovery situation. If someone want clean close, should call
+	 * libvchan_close() first.
+	 */
+#if 0
+	if (!ctrl->ring->server_closed)
+		libvchan_close(ctrl);
+#endif
+	if (xc_evtchn_unbind(ctrl->evfd, ctrl->evport) < 0)
+		return -1;
+        xc_evtchn_close(ctrl->evfd);
+#ifdef QREXEC_RING_V2
+	/* not implemented yet, need to store gntmem_handle from ring_init somewhere */
+	assert(0);
+	/* in case of disabled assertions */
+	errno = EINVAL;
+	return -1;
+#else /* QREXEC_RING_V2 */
+#ifdef CONFIG_STUBDOM
+	free(ctrl->ring);
+#else /* CONFIG_STUBDOM */
+	munmap(ctrl->ring, 4096);
+	/* FIXME: leak of u2mfn_fd, check u2mfnlib.c */
+#endif /* CONFIG_STUBDOM */
+#endif /* QREXEC_RING_V2 */
+	free(ctrl);
+	return 0;
+}
+
+/**
         Run in AppVM (any domain).
         Sleeps until the connection is established. (unless in stubdom)
         \param devno something like a well-known port.

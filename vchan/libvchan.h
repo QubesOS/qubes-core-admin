@@ -88,4 +88,6 @@ int libvchan_is_eof(struct libvchan *ctrl);
 int libvchan_data_ready(struct libvchan *ctrl);
 int libvchan_buffer_space(struct libvchan *ctrl);
 
+int libvchan_cleanup(struct libvchan *ctrl);
+
 #endif /* _LIBVCHAN_H */
