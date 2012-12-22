@@ -923,6 +923,7 @@ class QubesVm(object):
             if self.netvm.qid != 0:
                 args['netdev'] += ",backend={0}".format(self.netvm.name)
             args['netdev'] += "'"
+            args['disable_network'] = '';
         else:
             args['ip'] = ''
             args['mac'] = ''
@@ -931,6 +932,7 @@ class QubesVm(object):
             args['dns2'] = ''
             args['netmask'] = ''
             args['netdev'] = ''
+            args['disable_network'] = '#';
         args['rootdev'] = self.get_rootdev(source_template=source_template)
         args['privatedev'] = "'script:file:{dir}/private.img,xvdb,w',".format(dir=self.dir_path)
         args['volatiledev'] = "'script:file:{dir}/volatile.img,xvdc,w',".format(dir=self.dir_path)
