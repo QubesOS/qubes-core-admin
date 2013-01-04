@@ -16,6 +16,7 @@ Obsoletes:  kernel-debug
 #  this driver require exact kernel-drm-nouveau version; as isn't needed in VM,
 #  just remove it
 Obsoletes:  xorg-x11-drv-nouveau
+Provides:   xorg-x11-drv-nouveau
 #  choose the oldest Qubes-supported VM kernel
 Provides:   kernel = 3.2.7
 
