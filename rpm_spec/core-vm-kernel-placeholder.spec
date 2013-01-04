@@ -5,7 +5,7 @@
 Name:       qubes-core-vm-kernel-placeholder
 Summary:    Placeholder for kernel package as it is managed by Dom0
 Version:	1.0
-Release:	1%{dist}
+Release:	2%{dist}
 Vendor:		Invisible Things Lab
 License:	GPL
 Group:		Qubes
