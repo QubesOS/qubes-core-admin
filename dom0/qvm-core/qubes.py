@@ -2070,7 +2070,6 @@ class QubesProxyVm(QubesNetVm):
             if ip is None:
                 continue
 
-            iptables += "# '{0}' VM:\n".format(vm.name)
             # Anti-spoof rules are added by vif-script (vif-route-qubes), here we trust IP address
 
             accept_action = "ACCEPT"
