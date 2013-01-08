@@ -122,6 +122,9 @@ void do_exec(char *cmd)
 	/* mark end of username and move to command */
 	*realcmd = 0;
 	realcmd++;
+	/* ignore "nogui:" prefix in linux agent */
+	if (strncmp(realcmd, "nogui:", 6) == 0)
+		realcmd+=6;
 	/* replace magic RPC cmd with RPC multiplexer path */
 	if (strncmp(realcmd, QUBES_RPC_MAGIC_CMD " ", strlen(QUBES_RPC_MAGIC_CMD)+1)==0) {
 		strcpy(buf, QUBES_RPC_MULTIPLEXER_PATH);
