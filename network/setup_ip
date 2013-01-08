@@ -10,6 +10,7 @@ if [ x$ip != x ]; then
     /sbin/route add -host $gateway dev $INTERFACE
     /sbin/route add default gw $gateway
     /sbin/ethtool -K $INTERFACE sg off
+    /sbin/ethtool -K $INTERFACE tx off
     echo "nameserver $gateway" > /etc/resolv.conf
     echo "nameserver $secondary_dns" >> /etc/resolv.conf
 	network=$(/usr/bin/xenstore-read qubes_netvm_network 2>/dev/null)
