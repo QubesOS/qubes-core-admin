@@ -179,6 +179,7 @@ install -m 0644 qubes_rpc/{qvm-copy.desktop,qvm-dvm.desktop} $RPM_BUILD_ROOT/%{k
 install -d $RPM_BUILD_ROOT/etc/qubes_rpc
 install -m 0644 qubes_rpc/{qubes.Filecopy,qubes.OpenInVM,qubes.VMShell,qubes.SyncNtpClock} $RPM_BUILD_ROOT/etc/qubes_rpc
 install -m 0644 qubes_rpc/{qubes.SuspendPre,qubes.SuspendPost,qubes.GetAppmenus} $RPM_BUILD_ROOT/etc/qubes_rpc
+install -m 0644 qubes_rpc/qubes.WaitForSession $RPM_BUILD_ROOT/etc/qubes_rpc
 
 install qrexec/qrexec_agent $RPM_BUILD_ROOT/usr/lib/qubes
 install qrexec/qrexec_client_vm $RPM_BUILD_ROOT/usr/lib/qubes
@@ -389,6 +390,7 @@ rm -f %{name}-%{version}
 /etc/qubes_rpc/qubes.SyncNtpClock
 /etc/qubes_rpc/qubes.SuspendPre
 /etc/qubes_rpc/qubes.SuspendPost
+/etc/qubes_rpc/qubes.WaitForSession 
 /etc/sudoers.d/qubes
 /etc/sysconfig/iptables
 /etc/sysconfig/ip6tables
