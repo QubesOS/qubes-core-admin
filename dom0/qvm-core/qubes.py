@@ -1347,7 +1347,7 @@ class QubesVm(object):
                     notify_function ("info", "Starting the '{0}' VM...".format(self.name))
                 elif verbose:
                     print >> sys.stderr, "Starting the VM '{0}'...".format(self.name)
-                xid = self.start(verbose=verbose)
+                xid = self.start(verbose=verbose, notify_function=notify_function)
 
             except (IOError, OSError, QubesException) as err:
                 raise QubesException("Error while starting the '{0}' VM: {1}".format(self.name, err))
@@ -1449,7 +1449,7 @@ class QubesVm(object):
             if notify_function is not None:
                 notify_function("error", "ERROR: Cannot start the Qubes Clipboard Notifier!")
 
-    def start_qrexec_daemon(self, verbose = False):
+    def start_qrexec_daemon(self, verbose = False, notify_function = None):
         if verbose:
             print >> sys.stderr, "--> Starting the qrexec daemon..."
         xid = self.get_xid()
@@ -1460,7 +1460,7 @@ class QubesVm(object):
             self.force_shutdown()
             raise OSError ("ERROR: Cannot execute qrexec_daemon!")
 
-    def start(self, debug_console = False, verbose = False, preparing_dvm = False, start_guid = True):
+    def start(self, debug_console = False, verbose = False, preparing_dvm = False, start_guid = True, notify_function = None):
         if dry_run:
             return
 
@@ -1540,13 +1540,13 @@ class QubesVm(object):
         qmemman_client.close()
 
         if self._start_guid_first and start_guid and not preparing_dvm and os.path.exists('/var/run/shm.id'):
-            self.start_guid(verbose=verbose)
+            self.start_guid(verbose=verbose,notify_function=notify_function)
 
         if not preparing_dvm:
-            self.start_qrexec_daemon(verbose=verbose)
+            self.start_qrexec_daemon(verbose=verbose,notify_function=notify_function)
 
         if not self._start_guid_first and start_guid and not preparing_dvm and os.path.exists('/var/run/shm.id'):
-            self.start_guid(verbose=verbose)
+            self.start_guid(verbose=verbose,notify_function=notify_function)
 
         if preparing_dvm:
             if verbose:

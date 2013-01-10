@@ -38,6 +38,12 @@ def tray_notify(str, label, timeout = 3000):
 def tray_notify_error(str, timeout = 3000):
     notify_object.Notify("Qubes", 0, "dialog-error", "Qubes", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
 
+def tray_notify_generic(level, str):
+    if level == "info":
+        tray_notify(str, label=vm.label)
+    elif level == "error":
+        tray_notify_error(str)
+
 def main():
     usage = "usage: %prog [options] <vm-name>"
     parser = OptionParser (usage)
@@ -103,7 +109,7 @@ def main():
 
     try:
         vm.verify_files()
-        xid = vm.start(verbose=options.verbose, preparing_dvm=options.preparing_dvm, start_guid=not options.noguid)
+        xid = vm.start(verbose=options.verbose, preparing_dvm=options.preparing_dvm, start_guid=not options.noguid, notify_function=tray_notify_generic if options.tray else None)
     except (IOError, OSError, QubesException, MemoryError) as err:
         if options.tray:
             tray_notify_error(str(err))
