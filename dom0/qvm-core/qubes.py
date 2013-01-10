@@ -2289,6 +2289,7 @@ class QubesHVm(QubesVm):
         attrs['qrexec_installed'] = { 'default': False, 'save': 'str(self.qrexec_installed)' }
         attrs['guiagent_installed'] = { 'default' : False, 'save': 'str(self.guiagent_installed)' }
         attrs['_start_guid_first']['eval'] = 'True'
+        attrs['services']['default'] = "{'meminfo-writer': False}"
 
         return attrs
 
