@@ -2304,8 +2304,9 @@ class QubesHVm(QubesVm):
             kwargs["memory"] = default_hvm_memory
 
         super(QubesHVm, self).__init__(**kwargs)
-        # HVM doesn't support dynamic memory management
-        self.maxmem = self.memory
+        # HVM normally doesn't support dynamic memory management
+        if not ('meminfo-writer' in self.services and self.services['meminfo-writer']):
+            self.maxmem = self.memory
 
 	# Disable qemu GUID if the user installed qubes gui agent
 	if self.guiagent_installed:
