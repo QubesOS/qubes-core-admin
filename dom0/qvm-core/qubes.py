@@ -2287,6 +2287,7 @@ class QubesHVm(QubesVm):
         attrs['maxmem'].pop('save')
         attrs['timezone'] = { 'default': 'localtime', 'save': 'str(self.timezone)' }
         attrs['qrexec_installed'] = { 'default': False, 'save': 'str(self.qrexec_installed)' }
+        attrs['guiagent_installed'] = { 'default' : False, 'save': 'str(self.guiagent_installed)' }
         attrs['_start_guid_first']['eval'] = 'True'
 
         return attrs
@@ -2305,6 +2306,10 @@ class QubesHVm(QubesVm):
         super(QubesHVm, self).__init__(**kwargs)
         # HVM doesn't support dynamic memory management
         self.maxmem = self.memory
+
+	# Disable qemu GUID if the user installed qubes gui agent
+	if self.guiagent_installed:
+		self._start_guid_first = False
 
     @property
     def type(self):
@@ -2471,26 +2476,27 @@ class QubesHVm(QubesVm):
             return -1
 
     def start_guid(self, verbose = True, notify_function = None):
-        if verbose:
-            print >> sys.stderr, "--> Starting Qubes GUId..."
+        # If user force the guiagent, start_guid will mimic a standard QubesVM
+        if self.guiagent_installed:
+            super(QubesHVm, self).start_guid(verbose, notify_function)
+        else:
+            if verbose:
+                print >> sys.stderr, "--> Starting Qubes GUId..."
 
-        retcode = subprocess.call ([qubes_guid_path, "-d", str(self.stubdom_xid), "-c", self.label.color, "-i", self.label.icon, "-l", str(self.label.index)])
-        if (retcode != 0) :
-            raise QubesException("Cannot start qubes_guid!")
+            retcode = subprocess.call ([qubes_guid_path, "-d", str(self.stubdom_xid), "-c", self.label.color, "-i", self.label.icon, "-l", str(self.label.index)])
+            if (retcode != 0) :
+                raise QubesException("Cannot start qubes_guid!")
 
     def start_qrexec_daemon(self, **kwargs):
         if self.qrexec_installed:
             super(QubesHVm, self).start_qrexec_daemon(**kwargs)
 
-            if kwargs.get('verbose'):
-                print >> sys.stderr, "--> Waiting for user '%s' login..." % self.default_user
+            if self._start_guid_first:
+                if kwargs.get('verbose'):
+                    print >> sys.stderr, "--> Waiting for user '%s' login..." % self.default_user
 
-            p = self.run('QUBESRPC qubes.WaitForSession', user="SYSTEM", passio_popen=True, gui=False, wait=True)
-            p.communicate(input=self.default_user)
-
-            retcode = subprocess.call([qubes_clipd_path])
-            if retcode != 0:
-                print >> sys.stderr, "ERROR: Cannot start qclipd!"
+                # TODO retrieve the notify_function from kwargs ?
+                self.wait_for_session(**kwargs)
 
     def pause(self):
         if dry_run:
@@ -2507,12 +2513,16 @@ class QubesHVm(QubesVm):
         super(QubesHVm, self).unpause()
 
     def is_guid_running(self):
-        xid = self.stubdom_xid
-        if xid < 0:
-            return False
-        if not os.path.exists('/var/run/qubes/guid_running.%d' % xid):
-            return False
-        return True
+        # If user force the guiagent, is_guid_running will mimic a standard QubesVM
+        if self.guiagent_installed:
+            return super(QubesHVm, self).is_guid_running()
+        else:
+            xid = self.stubdom_xid
+            if xid < 0:
+                return False
+            if not os.path.exists('/var/run/qubes/guid_running.%d' % xid):
+                return False
+            return True
 
 class QubesVmCollection(dict):
     """
@@ -2877,7 +2887,7 @@ class QubesVmCollection(dict):
                 "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
                 "maxmem", "kernel", "uses_default_kernel", "kernelopts", "uses_default_kernelopts",
                 "mac", "services", "include_in_backups", "debug",
-                "default_user", "qrexec_timeout", "qrexec_installed", "drive" )
+                "default_user", "qrexec_timeout", "qrexec_installed", "guiagent_installed", "drive" )
 
         for attribute in common_attr_list:
             kwargs[attribute] = element.get(attribute)
@@ -2941,6 +2951,9 @@ class QubesVmCollection(dict):
 
         if "qrexec_installed" in kwargs:
             kwargs["qrexec_installed"] = True if kwargs["qrexec_installed"] == "True" else False
+
+        if "guiagent_installed" in kwargs:
+            kwargs["guiagent_installed"] = True if kwargs["guiagent_installed"] == "True" else False
 
         if "drive" in kwargs and kwargs["drive"] == "None":
             kwargs["drive"] = None
