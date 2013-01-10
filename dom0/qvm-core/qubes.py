@@ -1426,6 +1426,20 @@ class QubesVm(object):
                     raise QubesException ("Network attach timed out!")
                 time.sleep(0.2)
 
+    def wait_for_session(self, notify_function = None):
+        #self.run('echo $$ >> /tmp/qubes-session-waiter; [ ! -f /tmp/qubes-session-env ] && exec sleep 365d', ignore_stderr=True, gui=False, wait=True)
+
+        # Note : User root is redefined to SYSTEM in the Windows agent code
+        p = self.run('QUBESRPC qubes.WaitForSession none', user="root", passio_popen=True, gui=False, wait=True)
+        p.communicate(input=self.default_user)
+
+        retcode = subprocess.call([qubes_clipd_path])
+        if retcode != 0:
+            print >> sys.stderr, "ERROR: Cannot start qclipd!"
+
+            if notify_function is not None:
+                notify_function("error", "ERROR: Cannot start the Qubes Clipboard Notifier!")
+
     def start_guid(self, verbose = True, notify_function = None):
         if verbose:
             print >> sys.stderr, "--> Starting Qubes GUId..."
@@ -1441,13 +1455,7 @@ class QubesVm(object):
         if verbose:
             print >> sys.stderr, "--> Waiting for qubes-session..."
 
-        self.run('echo $$ >> /tmp/qubes-session-waiter; [ ! -f /tmp/qubes-session-env ] && exec sleep 365d', ignore_stderr=True, gui=False, wait=True)
-
-        retcode = subprocess.call([qubes_clipd_path])
-        if retcode != 0:
-            print >> sys.stderr, "ERROR: Cannot start qclipd!"
-            if notify_function is not None:
-                notify_function("error", "ERROR: Cannot start the Qubes Clipboard Notifier!")
+        self.wait_for_session(notify_function)
 
     def start_qrexec_daemon(self, verbose = False, notify_function = None):
         if verbose:
