@@ -291,6 +291,25 @@ fi
 mkdir -p /var/lib/qubes/removed-udev-scripts
 mv -f /lib/udev/rules.d/69-xorg-vmmouse.rules /var/lib/qubes/removed-udev-scripts/ 2> /dev/null || :
 
+if [ "$1" -gt 1 ] ; then
+    # upgrade
+
+    # Fix HVM setting - meminfo-writer was erroneously enabled by default
+    cat << __EOF__ | python
+from qubes.qubes import QubesVmCollection
+qc = QubesVmCollection ()
+qc.lock_db_for_writing ()
+qc.load ()
+for vm in qc.values():
+    if vm.type == "HVM" and vm.memory == vm.maxmem:
+        vm.services['meminfo-writer'] = False
+
+qc.save()
+qc.unlock_db ()
+exit()
+__EOF__
+
+fi
 %clean
 rm -rf $RPM_BUILD_ROOT
 rm -f %{name}-%{version}
