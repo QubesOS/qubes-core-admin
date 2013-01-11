@@ -2305,6 +2305,13 @@ class QubesHVm(QubesVm):
             kwargs["memory"] = default_hvm_memory
 
         super(QubesHVm, self).__init__(**kwargs)
+
+        # Default for meminfo-writer have changed to (correct) False in the
+        # same version as introduction of guiagent_installed, so for older VMs
+        # with wrong setting, change it based on 'guiagent_installed' presence
+        if "guiagent_installed" not in kwargs:
+            self.services['meminfo-writer'] = False
+
         # HVM normally doesn't support dynamic memory management
         if not ('meminfo-writer' in self.services and self.services['meminfo-writer']):
             self.maxmem = self.memory
