@@ -1,10 +1,11 @@
 #!/bin/sh
 
-if [ -d /etc/NetworkManager/system-connections ]; then
+NM_CONFIG_DIR=/etc/NetworkManager/system-connections
+if [ -d $NM_CONFIG_DIR -a ! -h $NM_CONFIG_DIR ]; then
     mkdir -p /rw/config/NM-system-connections
-    mv /etc/NetworkManager/system-connections/* /rw/config/NM-system-connections/ 2> /dev/null || true
-    rmdir /etc/NetworkManager/system-connections
-    ln -s /rw/config/NM-system-connections /etc/NetworkManager/system-connections
+    mv $NM_CONFIG_DIR/* /rw/config/NM-system-connections/ 2> /dev/null || true
+    rmdir $NM_CONFIG_DIR
+    ln -s /rw/config/NM-system-connections $NM_CONFIG_DIR
 fi
 
 exit 0
