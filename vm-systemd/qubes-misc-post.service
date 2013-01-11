@@ -1,6 +1,6 @@
 [Unit]
 Description=Qubes misc post-boot actions
-After=qubes-dvm.service
+After=qubes-dvm.service network.target
 
 [Service]
 Type=oneshot
