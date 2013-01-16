@@ -2637,15 +2637,6 @@ class QubesVmCollection(dict):
 
         return vm
 
-    def clone_templatevm(self, src_template, name, dir_path = None, verbose = False):
-
-        assert not src_template.is_running(), "Attempt to clone a running Template VM!"
-
-        vm = self.add_new_templatevm (name=name, dir_path=dir_path, installed_by_rpm = False)
-
-        return vm
-
-
     def add_new_netvm(self, name, template,
                       dir_path = None, conf_file = None,
                       private_img = None, installed_by_rpm = False,
