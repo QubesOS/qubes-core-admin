@@ -2230,6 +2230,7 @@ class QubesDisposableVm(QubesVm):
         attrs["template_qid"] = str(self.template.qid)
         attrs["label"] = self.label.name
         attrs["firewall_conf"] = self.relative_path(self.firewall_conf)
+        attrs["netvm_qid"] = str(self.netvm.qid) if self.netvm is not None else "none"
         return attrs
 
     def verify_files(self):
@@ -2601,11 +2602,11 @@ class QubesVmCollection(dict):
         return vm
 
     def add_new_disposablevm(self, name, template, dispid,
-                      label = None):
+                      label = None, netvm = None):
 
         qid = self.get_new_unused_qid()
         vm = QubesDisposableVm (qid=qid, name=name, template=template,
-                         netvm = self.get_default_netvm(),
+                         netvm = netvm,
                          label=label, dispid=dispid)
 
         if not self.verify_new_vm (vm):
