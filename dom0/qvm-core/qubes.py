@@ -2126,12 +2126,13 @@ class QubesProxyVm(QubesNetVm):
         xs.write('', "/local/domain/{0}/qubes_iptables".format(self.get_xid()), 'reload')
 
 class QubesDom0NetVm(QubesNetVm):
-    def __init__(self):
+    def __init__(self, **kwargs):
         super(QubesDom0NetVm, self).__init__(qid=0, name="dom0", netid=0,
                                              dir_path=None,
                                              private_img = None,
                                              template = None,
-                                             label = default_template_label)
+                                             label = default_template_label,
+                                             **kwargs)
         self.xid = 0
 
     def is_running(self):
