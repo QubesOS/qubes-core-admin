@@ -204,6 +204,11 @@ default_appvm_label = QubesVmLabels["red"]
 default_template_label = QubesVmLabels["gray"]
 default_servicevm_label = QubesVmLabels["red"]
 
+QubesVmClasses = {}
+def register_qubes_vm_class(class_name, vm_class):
+    global QubesVmClasses
+    QubesVmClasses[class_name] = vm_class
+
 class QubesVm(object):
     """
     A representation of one Qubes VM
@@ -211,6 +216,9 @@ class QubesVm(object):
     information, e.g. Xen dom id, etc, are to be retrieved via Xen API
     Note that qid is not the same as Xen's domid!
     """
+
+    # In which order load this VM type from qubes.xml
+    load_order = 100
 
     def _get_attrs_config(self):
         """ Object attributes for serialization/deserialization
@@ -242,7 +250,8 @@ class QubesVm(object):
             ### order >= 20: have template set
             "uses_default_netvm": { "default": True, 'order': 20 },
             "netvm": { "default": None, "attr": "_netvm", 'order': 20 },
-            "label": { "attr": "_label", "default": QubesVmLabels["red"], 'order': 20 },
+            "label": { "attr": "_label", "default": QubesVmLabels["red"], 'order': 20,
+                'xml_deserialize': lambda _x: QubesVmLabels[_x] },
             "memory": { "default": default_memory, 'order': 20, "eval": "int(value)" },
             "maxmem": { "default": None, 'order': 25, "eval": "int(value) if value else None" },
             "pcidevs": { "default": '[]', 'order': 25, "eval": \
@@ -250,9 +259,10 @@ class QubesVm(object):
             # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
             "internal": { "default": False },
             "vcpus": { "default": None },
-            "kernel": { "default": None, 'order': 30 },
             "uses_default_kernel": { "default": True, 'order': 30 },
             "uses_default_kernelopts": { "default": True, 'order': 30 },
+            "kernel": { "default": None, 'order': 31,
+                'eval': 'collection.get_default_kernel() if self.uses_default_kernel else value' },
             "kernelopts": { "default": "", 'order': 31, "eval": \
                 'value if not self.uses_default_kernelopts else default_kernelopts_pcidevs if len(self.pcidevs) > 0 else default_kernelopts' },
             "mac": { "attr": "_mac", "default": None },
@@ -299,8 +309,35 @@ class QubesVm(object):
 
         return attrs
 
+    def __basic_parse_xml_attr(self, value):
+        if value is None:
+            return None
+        if value.lower() == "none":
+            return None
+        if value.lower() == "true":
+            return True
+        if value.lower() == "false":
+            return False
+        if value.isdigit():
+            return int(value)
+        return value
+
     def __init__(self, **kwargs):
 
+        collection = None
+        if 'collection' in kwargs:
+            collection = kwargs['collection']
+        else:
+            raise ValueError("No collection given to QubesVM constructor")
+
+        # Special case for template b/c it is given in "template_qid" property
+        if "xml_element" in kwargs and kwargs["xml_element"].get("template_qid"):
+            template_qid = kwargs["xml_element"].get("template_qid")
+            if template_qid.lower() != "none":
+                if int(template_qid) in collection:
+                    kwargs["template"] = collection[int(template_qid)]
+                else:
+                    raise ValueError("Unknown template with QID %s" % template_qid)
         attrs = self._get_attrs_config()
         for attr_name in sorted(attrs, key=lambda _x: attrs[_x]['order'] if 'order' in attrs[_x] else 1000):
             attr_config = attrs[attr_name]
@@ -308,11 +345,16 @@ class QubesVm(object):
             if 'attr' in attr_config:
                 attr = attr_config['attr']
             value = None
-            if attr_name not in kwargs:
+            if attr_name in kwargs:
+                value = kwargs[attr_name]
+            elif 'xml_element' in kwargs and kwargs['xml_element'].get(attr_name) is not None:
+                if 'xml_deserialize' in attr_config and callable(attr_config['xml_deserialize']):
+                    value = attr_config['xml_deserialize'](kwargs['xml_element'].get(attr_name))
+                else:
+                    value = self.__basic_parse_xml_attr(kwargs['xml_element'].get(attr_name))
+            else:
                 if 'default' in attr_config:
                     value = attr_config['default']
-            else:
-                value = kwargs[attr_name]
             if 'eval' in attr_config:
                 setattr(self, attr, eval(attr_config['eval']))
             else:
@@ -1627,6 +1669,9 @@ class QubesTemplateVm(QubesVm):
     A class that represents an TemplateVM. A child of QubesVm.
     """
 
+    # In which order load this VM type from qubes.xml
+    load_order = 50
+
     def _get_attrs_config(self):
         attrs_config = super(QubesTemplateVm, self)._get_attrs_config()
         attrs_config['dir_path']['eval'] = 'value if value is not None else qubes_templates_dir + "/" + self.name'
@@ -1800,6 +1845,10 @@ class QubesNetVm(QubesVm):
     """
     A class that represents a NetVM. A child of QubesCowVM.
     """
+
+    # In which order load this VM type from qubes.xml
+    load_order = 70
+
     def _get_attrs_config(self):
         attrs_config = super(QubesNetVm, self)._get_attrs_config()
         attrs_config['dir_path']['eval'] = 'value if value is not None else qubes_servicevms_dir + "/" + self.name'
@@ -1807,7 +1856,8 @@ class QubesNetVm(QubesVm):
         attrs_config['memory']['default'] = 200
 
         # New attributes
-        attrs_config['netid'] = { 'save': 'str(self.netid)', 'order': 30 }
+        attrs_config['netid'] = { 'save': 'str(self.netid)', 'order': 30,
+            'eval': 'value if value is not None else collection.get_new_unused_netid()' }
         attrs_config['netprefix'] = { 'eval': '"10.137.{0}.".format(self.netid)' }
         attrs_config['dispnetprefix'] = { 'eval': '"10.138.{0}.".format(self.netid)' }
 
@@ -1959,7 +2009,6 @@ class QubesNetVm(QubesVm):
         if not self.internal:
             self.remove_appmenus()
         super(QubesNetVm, self).remove_from_disk()
-
 
 class QubesProxyVm(QubesNetVm):
     """
@@ -2191,6 +2240,9 @@ class QubesDisposableVm(QubesVm):
     A class that represents an DisposableVM. A child of QubesVm.
     """
 
+    # In which order load this VM type from qubes.xml
+    load_order = 120
+
     def _get_attrs_config(self):
         attrs_config = super(QubesDisposableVm, self)._get_attrs_config()
 
@@ -2236,7 +2288,6 @@ class QubesDisposableVm(QubesVm):
 
     def verify_files(self):
         return True
-
 
 class QubesAppVm(QubesVm):
     """
@@ -2307,7 +2358,8 @@ class QubesHVm(QubesVm):
         # Default for meminfo-writer have changed to (correct) False in the
         # same version as introduction of guiagent_installed, so for older VMs
         # with wrong setting, change it based on 'guiagent_installed' presence
-        if "guiagent_installed" not in kwargs:
+        if "guiagent_installed" not in kwargs and \
+            (not 'xml_element' in kwargs or kwargs['xml_element'].get('guiagent_installed') is None):
             self.services['meminfo-writer'] = False
 
         # HVM normally doesn't support dynamic memory management
@@ -2530,6 +2582,13 @@ class QubesHVm(QubesVm):
             if not os.path.exists('/var/run/qubes/guid_running.%d' % xid):
                 return False
             return True
+
+register_qubes_vm_class("QubesTemplateVm", QubesTemplateVm)
+register_qubes_vm_class("QubesNetVm", QubesNetVm)
+register_qubes_vm_class("QubesProxyVm", QubesProxyVm)
+register_qubes_vm_class("QubesDisposableVm", QubesDisposableVm)
+register_qubes_vm_class("QubesAppVm", QubesAppVm)
+register_qubes_vm_class("QubesHVm", QubesHVm)
 
 class QubesVmCollection(dict):
     """
@@ -2877,87 +2936,6 @@ class QubesVmCollection(dict):
             return False
         return True
 
-    def parse_xml_element(self, element):
-        kwargs = {}
-        common_attr_list = ("qid", "name", "dir_path", "conf_file",
-                "private_img", "root_img", "template_qid",
-                "installed_by_rpm", "internal",
-                "uses_default_netvm", "label", "memory", "vcpus", "pcidevs",
-                "maxmem", "kernel", "uses_default_kernel", "kernelopts", "uses_default_kernelopts",
-                "mac", "services", "include_in_backups", "debug",
-                "default_user", "qrexec_timeout", "qrexec_installed", "guiagent_installed", "drive" )
-
-        for attribute in common_attr_list:
-            kwargs[attribute] = element.get(attribute)
-            if kwargs[attribute] is None:
-                kwargs.pop(attribute)
-
-        kwargs["qid"] = int(kwargs["qid"])
-
-        if "include_in_backups" in kwargs:
-            kwargs["include_in_backups"] = True if kwargs["include_in_backups"] == "True" else False
-
-        if "installed_by_rpm" in kwargs:
-            kwargs["installed_by_rpm"] = True if kwargs["installed_by_rpm"] == "True" else False
-
-        if "internal" in kwargs:
-            kwargs["internal"] = True if kwargs["internal"] == "True" else False
-
-        if "template_qid" in kwargs:
-            if kwargs["template_qid"] == "none" or kwargs["template_qid"] is None:
-                kwargs.pop("template_qid")
-            else:
-                kwargs["template_qid"] = int(kwargs["template_qid"])
-                template = self[kwargs.pop("template_qid")]
-                if template is None:
-                    print >> sys.stderr, "ERROR: VM '{0}' uses unkown template qid='{1}'!".\
-                            format(kwargs["name"], kwargs["template_qid"])
-                else:
-                    kwargs["template"] = template
-
-        if "label" in kwargs:
-            if kwargs["label"] not in QubesVmLabels:
-                print >> sys.stderr, "ERROR: incorrect label for VM '{0}'".format(kwargs["name"])
-                kwargs.pop ("label")
-            else:
-                kwargs["label"] = QubesVmLabels[kwargs["label"]]
-
-        if "kernel" in kwargs and kwargs["kernel"] == "None":
-            kwargs["kernel"] = None
-        if "uses_default_kernel" in kwargs:
-            kwargs["uses_default_kernel"] = True if kwargs["uses_default_kernel"] == "True" else False
-        else:
-            # For backward compatibility
-            kwargs["uses_default_kernel"] = False
-        if kwargs["uses_default_kernel"]:
-            kwargs["kernel"] = self.get_default_kernel()
-        else:
-            if "kernel" in kwargs and kwargs["kernel"]=="None":
-                kwargs["kernel"]=None
-            # for other cases - generic assigment is ok
-
-        if "uses_default_kernelopts" in kwargs:
-            kwargs["uses_default_kernelopts"] = False if kwargs["uses_default_kernelopts"] == "False" else True
-
-        if "kernelopts" in kwargs and kwargs["kernelopts"] == "None":
-            kwargs.pop("kernelopts")
-        if "kernelopts" not in kwargs:
-            kwargs["uses_default_kernelopts"] = True
-
-        if "debug" in kwargs:
-            kwargs["debug"] = True if kwargs["debug"] == "True" else False
-
-        if "qrexec_installed" in kwargs:
-            kwargs["qrexec_installed"] = True if kwargs["qrexec_installed"] == "True" else False
-
-        if "guiagent_installed" in kwargs:
-            kwargs["guiagent_installed"] = True if kwargs["guiagent_installed"] == "True" else False
-
-        if "drive" in kwargs and kwargs["drive"] == "None":
-            kwargs["drive"] = None
-
-        return kwargs
-
     def set_netvm_dependency(self, element):
         kwargs = {}
         attr_list = ("qid", "uses_default_netvm", "netvm_qid")
@@ -2990,28 +2968,11 @@ class QubesVmCollection(dict):
         if netvm:
             netvm.connected_vms[vm.qid] = vm
 
-    def load(self):
-        self.clear()
 
-        dom0vm = QubesDom0NetVm ()
-        self[dom0vm.qid] = dom0vm
-        self.default_netvm_qid = 0
-
-        global dom0_vm
-        dom0_vm = dom0vm
-
-        try:
-            tree = lxml.etree.parse(self.qubes_store_file)
-        except (EnvironmentError,
-                xml.parsers.expat.ExpatError) as err:
-            print("{0}: import error: {1}".format(
-                os.path.basename(sys.argv[0]), err))
-            return False
-
-        element = tree.getroot()
+    def load_globals(self, element):
         default_template = element.get("default_template")
         self.default_template_qid = int(default_template) \
-                if default_template != "None" else None
+                if default_template.lower() != "none" else None
 
         default_netvm = element.get("default_netvm")
         if default_netvm is not None:
@@ -3038,152 +2999,53 @@ class QubesVmCollection(dict):
 
         self.default_kernel = element.get("default_kernel")
 
-        # Then, read in the TemplateVMs, because a reference to template VM
-        # is needed to create each AppVM
-        for element in tree.findall("QubesTemplateVm"):
-            try:
 
-                kwargs = self.parse_xml_element(element)
+    def load(self):
+        self.clear()
 
-                vm = QubesTemplateVm(**kwargs)
+        dom0vm = QubesDom0NetVm (collection=self)
+        self[dom0vm.qid] = dom0vm
+        self.default_netvm_qid = 0
 
-                self[vm.qid] = vm
-            except (ValueError, LookupError) as err:
-                print("{0}: import error (QubesTemplateVm): {1}".format(
-                    os.path.basename(sys.argv[0]), err))
-                return False
+        global dom0_vm
+        dom0_vm = dom0vm
 
-        # Read in the NetVMs first, because a reference to NetVM
-        # is needed to create all other VMs
-        for element in tree.findall("QubesNetVm"):
-            try:
-                kwargs = self.parse_xml_element(element)
-                # Add NetVM specific fields
-                attr_list = ("netid",)
+        try:
+            tree = lxml.etree.parse(self.qubes_store_file)
+        except (EnvironmentError,
+                xml.parsers.expat.ExpatError) as err:
+            print("{0}: import error: {1}".format(
+                os.path.basename(sys.argv[0]), err))
+            return False
 
-                for attribute in attr_list:
-                    kwargs[attribute] = element.get(attribute)
+        self.load_globals(tree.getroot())
 
-                kwargs["netid"] = int(kwargs["netid"])
+        for (vm_class_name, vm_class) in sorted(QubesVmClasses.items(),
+                key=lambda _x: _x[1].load_order):
+            for element in tree.findall(vm_class_name):
+                try:
+                    vm = vm_class(xml_element=element, collection=self)
+                    self[vm.qid] = vm
+                except (ValueError, LookupError) as err:
+                    print("{0}: import error ({1}): {2}".format(
+                        os.path.basename(sys.argv[0]), vm_class_name, err))
+                    raise
+                    return False
 
-                vm = QubesNetVm(**kwargs)
-                self[vm.qid] = vm
-
-            except (ValueError, LookupError) as err:
-                print("{0}: import error (QubesNetVM) {1}".format(
-                    os.path.basename(sys.argv[0]), err))
-                return False
-
-        # Next read in the ProxyVMs, because they may be referenced
-        # by other VMs
-        for element in tree.findall("QubesProxyVm"):
-            try:
-                kwargs = self.parse_xml_element(element)
-                # Add ProxyVM specific fields
-                attr_list = ("netid",)
-
-                for attribute in attr_list:
-                    kwargs[attribute] = element.get(attribute)
-
-                kwargs["netid"] = int(kwargs["netid"])
-
-                vm = QubesProxyVm(**kwargs)
-                self[vm.qid] = vm
-
-            except (ValueError, LookupError) as err:
-                print("{0}: import error (QubesProxyVM) {1}".format(
-                    os.path.basename(sys.argv[0]), err))
-                return False
-
-        # After importing all NetVMs and ProxyVMs, set netvm references
-        # 1. For TemplateVMs
-        for element in tree.findall("QubesTemplateVm"):
-            try:
-                self.set_netvm_dependency(element)
-            except (ValueError, LookupError) as err:
-                print("{0}: import error (QubesTemplateVm): {1}".format(
-                    os.path.basename(sys.argv[0]), err))
-                return False
-
-        # 2. For PoxyVMs
-        for element in tree.findall("QubesProxyVm"):
-            try:
-                self.set_netvm_dependency(element)
-            except (ValueError, LookupError) as err:
-                print("{0}: import error (QubesProxyVM) {1}".format(
-                    os.path.basename(sys.argv[0]), err))
-                return False
-
-        # Finally, read in the AppVMs
-        for element in tree.findall("QubesAppVm"):
-            try:
-                kwargs = self.parse_xml_element(element)
-                vm = QubesAppVm(**kwargs)
-
-                self[vm.qid] = vm
-
-                self.set_netvm_dependency(element)
-            except (ValueError, LookupError) as err:
-                print("{0}: import error (QubesAppVm): {1}".format(
-                    os.path.basename(sys.argv[0]), err))
-                return False
-
-        # And HVMs
-        for element in tree.findall("QubesHVm"):
-            try:
-                kwargs = self.parse_xml_element(element)
-                vm = QubesHVm(**kwargs)
-
-                self[vm.qid] = vm
-
-                self.set_netvm_dependency(element)
-            except (ValueError, LookupError) as err:
-                print("{0}: import error (QubesHVm): {1}".format(
-                    os.path.basename(sys.argv[0]), err))
-                return False
-
-        # Really finally, read in the DisposableVMs
-        for element in tree.findall("QubesDisposableVm"):
-            try:
-                kwargs = {}
-                attr_list = ("qid", "name",
-                             "template_qid",
-                             "label", "dispid", "firewall_conf" )
-
-                for attribute in attr_list:
-                    kwargs[attribute] = element.get(attribute)
-
-                kwargs["qid"] = int(kwargs["qid"])
-                kwargs["dispid"] = int(kwargs["dispid"])
-                kwargs["template_qid"] = int(kwargs["template_qid"])
-
-                template = self[kwargs.pop("template_qid")]
-                if template is None:
-                    print >> sys.stderr, "ERROR: DisposableVM '{0}' uses unkown template qid='{1}'!".\
-                            format(kwargs["name"], kwargs["template_qid"])
-                else:
-                    kwargs["template"] = template
-
-                kwargs["netvm"] = self.get_default_netvm()
-
-                if kwargs["label"] is not None:
-                    if kwargs["label"] not in QubesVmLabels:
-                        print >> sys.stderr, "ERROR: incorrect label for VM '{0}'".format(kwargs["name"])
-                        kwargs.pop ("label")
-                    else:
-                        kwargs["label"] = QubesVmLabels[kwargs["label"]]
-
-                vm = QubesDisposableVm(**kwargs)
-
-                self[vm.qid] = vm
-            except (ValueError, LookupError) as err:
-                print("{0}: import error (DisposableAppVm): {1}".format(
-                    os.path.basename(sys.argv[0]), err))
-                return False
+        # After importing all VMs, set netvm references, in the same order
+        for (vm_class_name, vm_class) in sorted(QubesVmClasses.items(),
+                key=lambda _x: _x[1].load_order):
+            for element in tree.findall(vm_class_name):
+                try:
+                    self.set_netvm_dependency(element)
+                except (ValueError, LookupError) as err:
+                    print("{0}: import error2 ({}): {}".format(
+                        os.path.basename(sys.argv[0]), vm_class_name, err))
+                    return False
 
         # if there was no clockvm entry in qubes.xml, try to determine default:
         # root of default NetVM chain
-        if clockvm is None:
+        if element.get("clockvm") is None:
             if self.default_netvm_qid is not None:
                 clockvm = self[self.default_netvm_qid]
                 # Find root of netvm chain
