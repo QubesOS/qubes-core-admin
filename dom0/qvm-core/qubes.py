@@ -2283,6 +2283,7 @@ class QubesHVm(QubesVm):
         attrs.pop('kernelopts')
         attrs.pop('uses_default_kernel')
         attrs.pop('uses_default_kernelopts')
+        attrs['dir_path']['eval'] = 'value if value is not None else qubes_appvms_dir + "/" + self.name'
         attrs['volatile_img']['eval'] = 'None'
         attrs['config_file_template']['eval'] = 'config_template_hvm'
         attrs['drive'] = { 'save': 'str(self.drive)' }
@@ -2293,18 +2294,13 @@ class QubesHVm(QubesVm):
         attrs['_start_guid_first']['eval'] = 'True'
         attrs['services']['default'] = "{'meminfo-writer': False}"
 
+        # only standalone HVM supported for now
+        attrs['template']['eval'] = 'None'
+        attrs['memory']['default'] = default_hvm_memory
+
         return attrs
 
     def __init__(self, **kwargs):
-
-        if "dir_path" not in kwargs or kwargs["dir_path"] is None:
-            kwargs["dir_path"] = qubes_appvms_dir + "/" + kwargs["name"]
-
-        # only updateable HVM supported
-        kwargs["updateable"] = True
-        kwargs["template_vm"] = None
-        if "memory" not in kwargs or kwargs["memory"] is None:
-            kwargs["memory"] = default_hvm_memory
 
         super(QubesHVm, self).__init__(**kwargs)
 
