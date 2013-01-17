@@ -32,6 +32,7 @@ import re
 import shutil
 import uuid
 import time
+import warnings
 from datetime import datetime
 from qmemman_client import QMemmanClient
 
@@ -2625,14 +2626,45 @@ class QubesVmCollection(dict):
         else:
             assert False, "Attempt to add VM with qid that already exists in the collection!"
 
+    def add_new_vm(self, vm_type, **kwargs):
+        if vm_type not in QubesVmClasses.keys():
+            raise ValueError("Unknown VM type: %s" % vm_type)
+
+        qid = self.get_new_unused_qid()
+        vm = QubesVmClasses[vm_type](qid=qid, collection=self, **kwargs)
+        if not self.verify_new_vm(vm):
+            raise QubesException("Wrong VM description!")
+        self[vm.qid]=vm
+
+        # make first created NetVM the default one
+        if self.default_fw_netvm_qid is None and vm.is_netvm():
+            self.set_default_fw_netvm(vm)
+
+        if self.default_netvm_qid is None and vm.is_proxyvm():
+            self.set_default_netvm(vm)
+
+        # make first created TemplateVM the default one
+        if self.default_template_qid is None and vm.is_template():
+            self.set_default_template(vm)
+
+        # make first created ProxyVM the UpdateVM
+        if self.updatevm_qid is None and vm.is_proxyvm():
+            self.set_updatevm_vm(vm)
+
+        # by default ClockVM is the first NetVM
+        if self.clockvm_qid is None and vm.is_netvm():
+            self.set_clockvm_vm(vm)
+
+        return vm
 
     def add_new_appvm(self, name, template,
                       dir_path = None, conf_file = None,
                       private_img = None,
                       label = None):
 
-        qid = self.get_new_unused_qid()
-        vm = QubesAppVm (qid=qid, name=name, template=template,
+        warnings.warn("Call to deprecated function, use add_new_vm instead",
+                DeprecationWarning, stacklevel=2)
+        return self.add_new_vm("QubesAppVm", name=name, template=template,
                          dir_path=dir_path, conf_file=conf_file,
                          private_img=private_img,
                          netvm = self.get_default_netvm(),
@@ -2640,43 +2672,29 @@ class QubesVmCollection(dict):
                          uses_default_kernel = True,
                          label=label)
 
-        if not self.verify_new_vm (vm):
-            assert False, "Wrong VM description!"
-        self[vm.qid]=vm
-        return vm
-
     def add_new_hvm(self, name, label = None):
 
-        qid = self.get_new_unused_qid()
-        vm = QubesHVm (qid=qid, name=name,
-                         netvm = self.get_default_netvm(),
-                         label=label)
-
-        if not self.verify_new_vm (vm):
-            assert False, "Wrong VM description!"
-        self[vm.qid]=vm
-        return vm
+        warnings.warn("Call to deprecated function, use add_new_vm instead",
+                DeprecationWarning, stacklevel=2)
+        return self.add_new_vm("QubesHVm", name=name, label=label)
 
     def add_new_disposablevm(self, name, template, dispid,
                       label = None, netvm = None):
 
-        qid = self.get_new_unused_qid()
-        vm = QubesDisposableVm (qid=qid, name=name, template=template,
+        warnings.warn("Call to deprecated function, use add_new_vm instead",
+                DeprecationWarning, stacklevel=2)
+        return self.add_new_vm("QubesDisposableVm", name=name, template=template,
                          netvm = netvm,
                          label=label, dispid=dispid)
-
-        if not self.verify_new_vm (vm):
-            assert False, "Wrong VM description!"
-        self[vm.qid]=vm
-        return vm
 
     def add_new_templatevm(self, name,
                            dir_path = None, conf_file = None,
                            root_img = None, private_img = None,
                            installed_by_rpm = True):
 
-        qid = self.get_new_unused_qid()
-        vm = QubesTemplateVm (qid=qid, name=name,
+        warnings.warn("Call to deprecated function, use add_new_vm instead",
+                DeprecationWarning, stacklevel=2)
+        return self.add_new_vm("QubesTemplateVm", name=name,
                               dir_path=dir_path, conf_file=conf_file,
                               root_img=root_img, private_img=private_img,
                               installed_by_rpm=installed_by_rpm,
@@ -2684,68 +2702,32 @@ class QubesVmCollection(dict):
                               kernel = self.get_default_kernel(),
                               uses_default_kernel = True)
 
-        if not self.verify_new_vm (vm):
-            assert False, "Wrong VM description!"
-        self[vm.qid]=vm
-
-        if self.default_template_qid is None:
-            self.set_default_template(vm)
-
-        return vm
-
     def add_new_netvm(self, name, template,
                       dir_path = None, conf_file = None,
                       private_img = None, installed_by_rpm = False,
                       label = None):
 
-        qid = self.get_new_unused_qid()
-        netid = self.get_new_unused_netid()
-        vm = QubesNetVm (qid=qid, name=name, template=template,
-                         netid=netid, label=label,
+        warnings.warn("Call to deprecated function, use add_new_vm instead",
+                DeprecationWarning, stacklevel=2)
+        return self.add_new_vm("QubesNetVm", name=name, template=template,
+                         label=label,
                          private_img=private_img, installed_by_rpm=installed_by_rpm,
-                         kernel = self.get_default_kernel(),
                          uses_default_kernel = True,
                          dir_path=dir_path, conf_file=conf_file)
-
-        if not self.verify_new_vm (vm):
-            assert False, "Wrong VM description!"
-        self[vm.qid]=vm
-
-        if self.default_fw_netvm_qid is None:
-            self.set_default_fw_netvm(vm)
-
-        # by default ClockVM is the first NetVM
-        if self.clockvm_qid is None:
-            self.set_clockvm_vm(vm)
-
-        return vm
 
     def add_new_proxyvm(self, name, template,
                      dir_path = None, conf_file = None,
                      private_img = None, installed_by_rpm = False,
                      label = None):
 
-        qid = self.get_new_unused_qid()
-        netid = self.get_new_unused_netid()
-        vm = QubesProxyVm (qid=qid, name=name, template=template,
-                              netid=netid, label=label,
+        warnings.warn("Call to deprecated function, use add_new_vm instead",
+                DeprecationWarning, stacklevel=2)
+        return self.add_new_vm("QubesProxyVm", name=name, template=template,
+                              label=label,
                               private_img=private_img, installed_by_rpm=installed_by_rpm,
                               dir_path=dir_path, conf_file=conf_file,
-                              kernel = self.get_default_kernel(),
                               uses_default_kernel = True,
                               netvm = self.get_default_fw_netvm())
-
-        if not self.verify_new_vm (vm):
-            assert False, "Wrong VM description!"
-        self[vm.qid]=vm
-
-        if self.default_netvm_qid is None:
-            self.set_default_netvm(vm)
-
-        if self.updatevm_qid is None:
-            self.set_updatevm_vm(vm)
-
-        return vm
 
     def set_default_template(self, vm):
         assert vm.is_template(), "VM {0} is not a TemplateVM!".format(vm.name)
