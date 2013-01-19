@@ -1506,7 +1506,7 @@ class QubesVm(object):
                 print >> sys.stderr, "--> Starting the qrexec daemon..."
             retcode = subprocess.call ([qrexec_daemon_path, str(xid)])
             if (retcode != 0) :
-                self.force_shutdown()
+                self.force_shutdown(xid=xid)
                 raise OSError ("ERROR: Cannot execute qrexec_daemon!")
 
         if start_guid and not preparing_dvm and os.path.exists('/var/run/shm.id'):
@@ -1527,19 +1527,18 @@ class QubesVm(object):
 
         return xid
 
-    def shutdown(self, force=False):
+    def shutdown(self, force=False, xid = None):
         if dry_run:
             return
 
-        subprocess.call (['/usr/sbin/xl', 'shutdown', self.name])
+        subprocess.call (['/usr/sbin/xl', 'shutdown', str(xid) if xid is not None else self.name])
         #xc.domain_destroy(self.get_xid())
 
-    def force_shutdown(self):
+    def force_shutdown(self, xid = None):
         if dry_run:
             return
 
-        subprocess.call (['/usr/sbin/xl', 'destroy', self.name])
-        #xc.domain_destroy(self.get_xid())
+        subprocess.call (['/usr/sbin/xl', 'destroy', str(xid) if xid is not None else self.name])
 
     def pause(self):
         if dry_run:
@@ -1965,11 +1964,11 @@ class QubesProxyVm(QubesNetVm):
         self.write_netvm_domid_entry()
         return retcode
 
-    def force_shutdown(self):
+    def force_shutdown(self, **kwargs):
         if dry_run:
             return
-        self.netvm.remove_external_ip_permission(self.get_xid())
-        super(QubesProxyVm, self).force_shutdown()
+        self.netvm.remove_external_ip_permission(kwargs['xid'] if 'xid' in kwargs else self.get_xid())
+        super(QubesProxyVm, self).force_shutdown(**kwargs)
 
     def create_xenstore_entries(self, xid = None):
         if dry_run:
