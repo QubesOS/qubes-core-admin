@@ -1,4 +1,4 @@
-#!/usr/bin/python2.6
+#!/usr/bin/python2
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
