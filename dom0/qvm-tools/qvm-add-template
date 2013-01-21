@@ -63,7 +63,7 @@ def main():
         print >> sys.stderr, "ERROR: A VM with the name '{0}' already exists in the system.".format(vmname)
         exit(1)
 
-    vm = qvm_collection.add_new_templatevm(vmname, 
+    vm = qvm_collection.add_new_vm("QubesTemplateVm", name=vmname,
                                          conf_file=options.conf_file,
                                          dir_path=options.dir_path,
                                          installed_by_rpm=options.installed_by_rpm)

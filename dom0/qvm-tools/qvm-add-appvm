@@ -68,7 +68,7 @@ def main():
         exit(1)
 
 
-    vm = qvm_collection.add_new_appvm(vmname, template,
+    vm = qvm_collection.add_new_vm("QubesAppVm", name=vmname, template=template,
                                       conf_file=options.conf_file,
                                       dir_path=options.dir_path)
 

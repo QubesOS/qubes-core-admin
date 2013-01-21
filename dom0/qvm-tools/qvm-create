@@ -134,15 +134,17 @@ def main():
         new_vm_template = template
 
     vm = None
+    if options.netvm:
+        vmtype = "QubesNetVm"
+    elif options.proxyvm:
+        vmtype = "QubesProxyVm"
+    elif options.hvm:
+        vmtype = "QubesHVm"
+    else:
+        vmtype = "QubesAppVm"
+
     try:
-        if options.netvm:
-            vm = qvm_collection.add_new_netvm(vmname, new_vm_template, label = label)
-        elif options.proxyvm:
-            vm = qvm_collection.add_new_proxyvm(vmname, new_vm_template, label = label)
-        elif options.hvm:
-            vm = qvm_collection.add_new_hvm(vmname, label = label)
-        else:
-            vm = qvm_collection.add_new_appvm(vmname, new_vm_template, label = label)
+        vm = qvm_collection.add_new_vm(vmtype, name=vmname, template=new_vm_template, label = label)
     except QubesException as err:
         print >> sys.stderr, "ERROR: {0}".format(err)
         exit (1)

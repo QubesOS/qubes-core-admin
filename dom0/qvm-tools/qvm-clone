@@ -64,19 +64,13 @@ def main():
         print >> sys.stderr, "ERROR: A VM with the name '{0}' already exists in the system.".format(dstname)
         exit(1)
 
-    dst_vm = None
-    if isinstance(src_vm, QubesTemplateVm):
-        dst_vm = qvm_collection.add_new_templatevm(name=dstname,
-                                              dir_path=options.dir_path, installed_by_rpm=False)
-    elif isinstance(src_vm, QubesAppVm):
-        dst_vm = qvm_collection.add_new_appvm(name=dstname, template=src_vm.template,
-                                              label=src_vm.label,
-                                              dir_path=options.dir_path)
-    elif isinstance(src_vm, QubesHVm):
-        dst_vm = qvm_collection.add_new_hvm(name=dstname, label=src_vm.label)
-    else:
+    if src_vm.is_disposablevm():
         print >> sys.stderr, "ERROR: Clone not supported for this type of VM"
         exit(1)
+
+    dst_vm = qvm_collection.add_new_vm(src_vm.__class__.__name__,
+            name=dstname, template=src_vm.template,
+            dir_path=options.dir_path, installed_by_rpm=False)
 
     try:
         dst_vm.clone_attrs(src_vm)
