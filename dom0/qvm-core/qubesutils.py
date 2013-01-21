@@ -21,6 +21,7 @@
 #
 
 from qubes import QubesVm,QubesException,QubesVmCollection
+from qubes import QubesVmClasses
 from qubes import xs, xl_ctx, qubes_guid_path, qubes_clipd_path, qrexec_client_path
 from qubes import qubes_store_filename, qubes_base_dir
 from qubes import qubes_servicevms_dir, qubes_templates_dir, qubes_appvms_dir
@@ -1272,167 +1273,59 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
         host_collection.load()
         lock_obtained = True
 
-    # Add templates...
-    for vm_info in restore_info.values():
-        if not vm_info['good-to-go']:
-            continue
-        if 'vm' not in vm_info:
-            continue
-        vm = vm_info['vm']
-        if not vm.is_template():
-            continue
-        print_callback("-> Restoring Template VM {0}...".format(vm.name))
-        retcode = subprocess.call (["mkdir", "-p", vm.dir_path])
-        if retcode != 0:
-            error_callback("*** Cannot create directory: {0}?!".format(dest_dir))
-            error_callback("Skipping...")
-            continue
+    # Add VM in right order
+    for (vm_class_name, vm_class) in sorted(QubesVmClasses.items(),
+            key=lambda _x: _x[1].load_order):
+        for vm_info in restore_info.values():
+            if not vm_info['good-to-go']:
+                continue
+            if 'vm' not in vm_info:
+                continue
+            vm = vm_info['vm']
+            if not vm.__class__ == vm_class:
+                continue
+            print_callback("-> Restoring {type} {0}...".format(vm.name, type=vm_class_name))
+            retcode = subprocess.call (["mkdir", "-p", vm.dir_path])
+            if retcode != 0:
+                error_callback("*** Cannot create directory: {0}?!".format(dest_dir))
+                error_callback("Skipping...")
+                continue
 
-        new_vm = None
 
-        try:
-            restore_vm_dir (backup_dir, vm.dir_path, qubes_templates_dir);
-            new_vm = host_collection.add_new_templatevm(vm.name,
-                                               conf_file=vm.conf_file,
-                                               dir_path=vm.dir_path,
-                                               installed_by_rpm=False)
+            template = None
+            if vm.template is not None:
+                template_name = vm_info['template']
+                template = host_collection.get_vm_by_name(template_name)
 
-            new_vm.verify_files()
-        except Exception as err:
-            error_callback("ERROR: {0}".format(err))
-            error_callback("*** Skipping VM: {0}".vm.name)
-            if new_vm:
-                host_collection.pop(new_vm.qid)
-            continue
+            new_vm = None
 
-        try:
-            new_vm.clone_attrs(vm)
-        except Exception as err:
-            error_callback("ERROR: {0}".format(err))
-            error_callback("*** Some VM property will not be restored")
+            try:
+                new_vm = host_collection.add_new_vm(vm_class_name, name=vm.name,
+                                                   conf_file=vm.conf_file,
+                                                   dir_path=vm.dir_path,
+                                                   template=template,
+                                                   installed_by_rpm=False)
+                restore_vm_dir (backup_dir, vm.dir_path, os.path.dirname(new_vm.dir_path));
 
-        try:
-            new_vm.create_appmenus(verbose=True)
-        except Exception as err:
-            error_callback("ERROR during appmenu restore: {0}".format(err))
-            error_callback("*** VM '{0}' will not have appmenus".format(vm.name))
+                new_vm.verify_files()
+            except Exception as err:
+                error_callback("ERROR: {0}".format(err))
+                error_callback("*** Skipping VM: {0}".format(vm.name))
+                if new_vm:
+                    host_collection.pop(new_vm.qid)
+                continue
 
-    # ... then NetVMs...
-    for vm_info in restore_info.values():
-        if not vm_info['good-to-go']:
-            continue
-        if 'vm' not in vm_info:
-            continue
-        vm = vm_info['vm']
-        if not vm.is_netvm():
-            continue
+            try:
+                new_vm.clone_attrs(vm)
+            except Exception as err:
+                error_callback("ERROR: {0}".format(err))
+                error_callback("*** Some VM property will not be restored")
 
-        print_callback("-> Restoring {0} {1}...".format(vm.type, vm.name))
-        retcode = subprocess.call (["mkdir", "-p", vm.dir_path])
-        if retcode != 0:
-            error_callback("*** Cannot create directory: {0}?!".format(dest_dir))
-            error_callback("Skipping...")
-            continue
-
-        template = None
-        if vm.template is not None:
-            template_name = vm_info['template']
-            template = host_collection.get_vm_by_name(template_name)
-
-        new_vm = None
-        try:
-            restore_vm_dir (backup_dir, vm.dir_path, qubes_servicevms_dir);
-
-            if vm.type == "NetVM":
-                new_vm = host_collection.add_new_netvm(vm.name, template,
-                                              conf_file=vm.conf_file,
-                                              dir_path=vm.dir_path,
-                                              label=vm.label)
-            elif vm.type == "ProxyVM":
-                new_vm = host_collection.add_new_proxyvm(vm.name, template,
-                                              conf_file=vm.conf_file,
-                                              dir_path=vm.dir_path,
-                                              label=vm.label)
-        except Exception as err:
-            error_callback("ERROR: {0}".format(err))
-            error_callback("*** Skipping VM: {0}".format(vm.name))
-            if new_vm:
-                host_collection.pop(new_vm.qid)
-            continue
-
-        try:
-            new_vm.clone_attrs(vm)
-        except Exception as err:
-            error_callback("ERROR: {0}".format(err))
-            error_callback("*** Some VM property will not be restored")
-
-        try:
-            new_vm.verify_files()
-        except Exception as err:
-            error_callback("ERROR: {0}".format(err))
-            error_callback("*** Skipping VM: {0}".format(vm.name))
-            host_collection.pop(new_vm.qid)
-            continue
-
-    # ... then appvms...
-    for vm_info in restore_info.values():
-        if not vm_info['good-to-go']:
-            continue
-        if 'vm' not in vm_info:
-            continue
-        vm = vm_info['vm']
-        if not vm.is_appvm():
-            continue
-
-        print_callback("-> Restoring AppVM {0}...".format(vm.name))
-        retcode = subprocess.call (["mkdir", "-p", vm.dir_path])
-        if retcode != 0:
-            error_callback("*** Cannot create directory: {0}?!".format(dest_dir))
-            error_callback("Skipping...")
-            continue
-
-        template = None
-        if vm.template is not None:
-            template_name = vm_info['template']
-            template = host_collection.get_vm_by_name(template_name)
-
-        new_vm = None
-        try:
-            restore_vm_dir (backup_dir, vm.dir_path, qubes_appvms_dir);
-            if vm.type == "HVM":
-                new_vm = host_collection.add_new_hvm(vm.name,
-                                              label=vm.label)
-            else:
-                new_vm = host_collection.add_new_appvm(vm.name, template,
-                                              conf_file=vm.conf_file,
-                                              dir_path=vm.dir_path,
-                                              label=vm.label)
-        except Exception as err:
-            error_callback("ERROR: {0}".format(err))
-            error_callback("*** Skipping VM: {0}".format(vm.name))
-            if new_vm:
-                host_collection.pop(new_vm.qid)
-            continue
-
-        try:
-            new_vm.clone_attrs(vm)
-        except Exception as err:
-            error_callback("ERROR: {0}".format(err))
-            error_callback("*** Some VM property will not be restored")
-
-        try:
-            new_vm.create_appmenus(verbose=True)
-        except Exception as err:
-            error_callback("ERROR during appmenu restore: {0}".format(err))
-            error_callback("*** VM '{0}' will not have appmenus".format(vm.name))
-
-        try:
-            new_vm.verify_files()
-        except Exception as err:
-            error_callback("ERROR: {0}".format(err))
-            error_callback("*** Skipping VM: {0}".format(vm.name))
-            host_collection.pop(new_vm.qid)
-            continue
+            try:
+                new_vm.create_appmenus(verbose=True)
+            except Exception as err:
+                error_callback("ERROR during appmenu restore: {0}".format(err))
+                error_callback("*** VM '{0}' will not have appmenus".format(vm.name))
 
     # Set network dependencies - only non-default netvm setting
     for vm_info in restore_info.values():
