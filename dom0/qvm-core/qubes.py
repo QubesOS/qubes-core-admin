@@ -1526,7 +1526,7 @@ class QubesVm(object):
                 if not self.netvm.is_running():
                     if verbose:
                         print >> sys.stderr, "--> Starting NetVM {0}...".format(self.netvm.name)
-                    self.netvm.start()
+                    self.netvm.start(verbose = verbose, start_guid = start_guid, notify_function = notify_function)
 
         self.reset_volatile_storage(verbose=verbose)
         if verbose:
