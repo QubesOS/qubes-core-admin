@@ -3026,7 +3026,7 @@ class QubesVmCollection(dict):
 
         # if there was no clockvm entry in qubes.xml, try to determine default:
         # root of default NetVM chain
-        if element.get("clockvm") is None:
+        if tree.getroot().get("clockvm") is None:
             if self.default_netvm_qid is not None:
                 clockvm = self[self.default_netvm_qid]
                 # Find root of netvm chain
