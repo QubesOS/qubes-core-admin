@@ -831,14 +831,19 @@ class QubesVm(object):
 
     # FIXME: should be outside of QubesVM?
     def get_timezone(self):
-        clock_config = open('/etc/sysconfig/clock', "r")
-        clock_config_lines = clock_config.readlines()
-        clock_config.close()
-        zone_re = re.compile(r'^ZONE="(.*)"')
-        for line in clock_config_lines:
-            line_match = zone_re.match(line)
-            if line_match:
-                return line_match.group(1)
+        # fc18
+        if os.path.islink('/etc/localtime'):
+            return '/'.join(os.readlink('/etc/localtime').split('/')[-2:])
+        # <=fc17
+        elif os.path.exists('/etc/sysconfig/clock'):
+            clock_config = open('/etc/sysconfig/clock', "r")
+            clock_config_lines = clock_config.readlines()
+            clock_config.close()
+            zone_re = re.compile(r'^ZONE="(.*)"')
+            for line in clock_config_lines:
+                line_match = zone_re.match(line)
+                if line_match:
+                    return line_match.group(1)
 
         return None
 
