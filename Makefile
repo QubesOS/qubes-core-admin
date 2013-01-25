@@ -5,6 +5,8 @@ VERSION_VAIO_FIXES := $(shell cat version_vaio_fixes)
 VERSION_VM := $(shell cat version_vm)
 VERSION_LIBS := $(shell cat version_libs)
 
+DIST_DOM0 ?= fc13
+
 help:
 	@echo "make rpms                  -- generate binary rpm packages"
 	@echo "make rpms-vm               -- generate binary rpm packages for VM"
@@ -38,9 +40,9 @@ rpms-vaio-fixes:
 	rpm --addsign $(RPMS_DIR)/x86_64/qubes-core-dom0-vaio-fixes-$(VERSION_VAIO_FIXES)*.rpm 
 
 update-repo-current:
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION_DOM0)*fc13*.rpm ../yum/current-release/current/dom0/rpm/
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-vaio-fixes-$(VERSION_VAIO_FIXES)*fc13*.rpm ../yum/current-release/current/dom0/rpm/
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-libs-$(VERSION_LIBS)*fc13*.rpm ../yum/current-release/current/dom0/rpm/
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION_DOM0)*$(DIST_DOM0)*.rpm ../yum/current-release/current/dom0/rpm/
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-vaio-fixes-$(VERSION_VAIO_FIXES)*$(DIST_DOM0)*.rpm ../yum/current-release/current/dom0/rpm/
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-libs-$(VERSION_LIBS)*$(DIST_DOM0)*.rpm ../yum/current-release/current/dom0/rpm/
 	for vmrepo in ../yum/current-release/current/vm/* ; do \
 		dist=$$(basename $$vmrepo) ;\
 		ln -f $(RPMS_DIR)/x86_64/qubes-core-vm-*$(VERSION_VM)*$$dist*.rpm $$vmrepo/rpm/ ;\
@@ -49,9 +51,9 @@ update-repo-current:
 	done
 
 update-repo-current-testing:
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION_DOM0)*fc13*.rpm ../yum/current-release/current-testing/dom0/rpm/
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-vaio-fixes-$(VERSION_VAIO_FIXES)*fc13*.rpm ../yum/current-release/current-testing/dom0/rpm/
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-libs-$(VERSION_LIBS)*fc13*.rpm ../yum/current-release/current-testing/dom0/rpm/
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION_DOM0)*$(DIST_DOM0)*.rpm ../yum/current-release/current-testing/dom0/rpm/
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-vaio-fixes-$(VERSION_VAIO_FIXES)*$(DIST_DOM0)*.rpm ../yum/current-release/current-testing/dom0/rpm/
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-libs-$(VERSION_LIBS)*$(DIST_DOM0)*.rpm ../yum/current-release/current-testing/dom0/rpm/
 	for vmrepo in ../yum/current-release/current-testing/vm/* ; do \
 		dist=$$(basename $$vmrepo) ;\
 		ln -f $(RPMS_DIR)/x86_64/qubes-core-vm-*$(VERSION_VM)*$$dist*.rpm $$vmrepo/rpm/ ;\
@@ -60,9 +62,9 @@ update-repo-current-testing:
 	done
 
 update-repo-unstable:
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION_DOM0)*fc13*.rpm ../yum/current-release/unstable/dom0/rpm/
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-vaio-fixes-$(VERSION_VAIO_FIXES)*fc13*.rpm ../yum/current-release/unstable/dom0/rpm/
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-libs-$(VERSION_LIBS)*fc13*.rpm ../yum/current-release/current-testing/dom0/rpm/
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION_DOM0)*$(DIST_DOM0)*.rpm ../yum/current-release/unstable/dom0/rpm/
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-vaio-fixes-$(VERSION_VAIO_FIXES)*$(DIST_DOM0)*.rpm ../yum/current-release/unstable/dom0/rpm/
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-libs-$(VERSION_LIBS)*$(DIST_DOM0)*.rpm ../yum/current-release/current-testing/dom0/rpm/
 	for vmrepo in ../yum/current-release/unstable/vm/* ; do \
 		dist=$$(basename $$vmrepo) ;\
 		ln -f $(RPMS_DIR)/x86_64/qubes-core-vm-*$(VERSION_VM)*$$dist*.rpm $$vmrepo/rpm/ ;\
@@ -71,8 +73,8 @@ update-repo-unstable:
 	done
 
 update-repo-installer:
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-*$(VERSION_DOM0)*fc13*.rpm ../installer/yum/qubes-dom0/rpm/
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-libs-$(VERSION_LIBS)*fc13*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-*$(VERSION_DOM0)*$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
+	ln -f $(RPMS_DIR)/x86_64/qubes-core-libs-$(VERSION_LIBS)*fc18*.rpm ../installer/yum/qubes-dom0/rpm/
 
 update-repo-template:
 	for vmrepo in ../template-builder/yum_repo_qubes/* ; do \
