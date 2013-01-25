@@ -27,6 +27,11 @@
 
 %{!?version: %define version %(cat version_dom0)}
 
+%define _dracutmoddir	/usr/lib/dracut/modules.d
+%if %{fedora} < 17
+%define _dracutmoddir   /usr/share/dracut/modules.d
+%endif
+
 Name:		qubes-core-dom0
 Version:	%{version}
 Release:	1%{dist}
@@ -214,8 +219,8 @@ install -m 0644 qubes-guid.desktop $RPM_BUILD_ROOT/etc/xdg/autostart/
 mkdir -p $RPM_BUILD_ROOT/etc/dracut.conf.d
 cp dracut/dracut.conf.d/* $RPM_BUILD_ROOT/etc/dracut.conf.d/
 
-mkdir -p $RPM_BUILD_ROOT/usr/share/dracut/modules.d
-cp -r dracut/modules.d/* $RPM_BUILD_ROOT/usr/share/dracut/modules.d/
+mkdir -p $RPM_BUILD_ROOT%{_dracutmoddir}
+cp -r dracut/modules.d/* $RPM_BUILD_ROOT%{_dracutmoddir}/
 
 %post
 
@@ -449,5 +454,5 @@ fi
 %attr(0644,root,root) /etc/cron.daily/qubes-dom0-updates.cron
 %attr(0644,root,root) /etc/cron.d/qubes-sync-clock.cron
 /etc/dracut.conf.d/*
-%dir /usr/share/dracut/modules.d/90qubes-pciback
-/usr/share/dracut/modules.d/90qubes-pciback/*
+%dir %{_dracutmoddir}/90qubes-pciback
+%{_dracutmoddir}/90qubes-pciback/*
