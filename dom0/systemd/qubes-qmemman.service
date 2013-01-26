@@ -1,0 +1,11 @@
+[Unit]
+Description=Qubes memory management daemon
+After=qubes-core.service
+
+[Service]
+Type=forking
+ExecStart=/usr/lib/qubes/qmemman_daemon.py
+StandardOutput=syslog
+
+[Install]
+WantedBy=multi-user.target

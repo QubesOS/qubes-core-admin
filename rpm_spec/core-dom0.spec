@@ -27,6 +27,12 @@
 
 %{!?version: %define version %(cat version_dom0)}
 
+%if %{fedora} >= 15
+%{!?use_systemd: %define use_systemd	1}
+%else
+%{!?use_systemd: %define use_systemd	0}
+%endif
+
 %define _dracutmoddir	/usr/lib/dracut/modules.d
 %if %{fedora} < 17
 %define _dracutmoddir   /usr/share/dracut/modules.d
@@ -42,6 +48,12 @@ Vendor:		Invisible Things Lab
 License:	GPL
 URL:		http://www.qubes-os.org
 BuildRequires:  xen-devel
+%if %{use_systemd}
+BuildRequires:	systemd-units
+Requires(post): systemd-units
+Requires(preun): systemd-units
+Requires(postun): systemd-units
+%endif
 Requires:	python, xen-runtime, pciutils, python-inotify, python-daemon, kernel-qubes-dom0
 Requires:	qubes-core-libs
 Requires:       python-lxml
@@ -76,10 +88,21 @@ done
 
 cd dom0
 
+%if !%{use_systemd}
 mkdir -p $RPM_BUILD_ROOT/etc/init.d
 cp init.d/qubes_core $RPM_BUILD_ROOT/etc/init.d/
 cp init.d/qubes_netvm $RPM_BUILD_ROOT/etc/init.d/
 cp init.d/qubes_setupdvm $RPM_BUILD_ROOT/etc/init.d/
+%else
+
+mkdir -p $RPM_BUILD_ROOT/usr/lib/systemd/system
+cp systemd/qubes-block-cleaner.service $RPM_BUILD_ROOT%{_unitdir}
+cp systemd/qubes-core.service $RPM_BUILD_ROOT%{_unitdir}
+cp systemd/qubes-dispvm.service $RPM_BUILD_ROOT%{_unitdir}
+cp systemd/qubes-meminfo-writer.service $RPM_BUILD_ROOT%{_unitdir}
+cp systemd/qubes-netvm.service $RPM_BUILD_ROOT%{_unitdir}
+cp systemd/qubes-qmemman.service $RPM_BUILD_ROOT%{_unitdir}
+%endif
 
 mkdir -p $RPM_BUILD_ROOT/usr/bin/
 cp qvm-tools/qvm-* $RPM_BUILD_ROOT/usr/bin
@@ -119,6 +142,8 @@ cp aux-tools/convert_dirtemplate2vm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/create_apps_for_appvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/remove_appvm_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/cleanup_dispvms $RPM_BUILD_ROOT/usr/lib/qubes
+cp aux-tools/startup-dvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
+cp aux-tools/startup-misc.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp qmemman/server.py $RPM_BUILD_ROOT/usr/lib/qubes/qmemman_daemon.py
 cp ../misc/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_daemon $RPM_BUILD_ROOT/usr/lib/qubes/
@@ -250,6 +275,18 @@ sed '/^\s*XENCONSOLED_LOG_\(HYPERVISOR\|GUESTS\)\s*=.*/d' -i /etc/sysconfig/xenc
 echo XENCONSOLED_LOG_HYPERVISOR=yes >> /etc/sysconfig/xenconsoled
 echo XENCONSOLED_LOG_GUESTS=yes >> /etc/sysconfig/xenconsoled
 
+
+%if %{use_systemd}
+systemctl --no-reload enable qubes-core.service >/dev/null 2>&1
+systemctl --no-reload enable qubes-netvm.service >/dev/null 2>&1
+systemctl --no-reload enable qubes-setupdvm.service >/dev/null 2>&1
+
+# Conflicts with libxl stack, so disable it
+systemctl --no-reload disable xend.service >/dev/null 2>&1
+systemctl demon-reload >/dev/null 2>&1 || :
+
+%else
+
 chkconfig --add qubes_core || echo "WARNING: Cannot add service qubes_core!"
 chkconfig --add qubes_netvm || echo "WARNING: Cannot add service qubes_netvm!"
 chkconfig --add qubes_setupdvm || echo "WARNING: Cannot add service qubes_setupdvm!"
@@ -261,6 +298,8 @@ chkconfig --level 5 qubes_setupdvm on || echo "WARNING: Cannot enable service qu
 # Conflicts with libxl stack, so disable it
 service xend stop
 chkconfig --level 5 xend off
+
+%endif
 
 HAD_SYSCONFIG_NETWORK=yes
 if ! [ -e /etc/sysconfig/network ]; then
@@ -326,8 +365,8 @@ mv -f /lib/udev/rules.d/69-xorg-vmmouse.rules /var/lib/qubes/removed-udev-script
 %preun
 if [ "$1" = 0 ] ; then
 	# no more packages left
-    /etc/init.d/qubes_netvm stop
-    /etc/init.d/qubes_core stop
+    service qubes_netvm stop
+    service qubes_core stop
 
 	for i in /usr/share/qubes/icons/*.png ; do
 		xdg-icon-resource uninstall --novendor --size 48 $i
@@ -347,9 +386,11 @@ fi
 
 %files
 %defattr(-,root,root,-)
+%if !%{use_systemd}
 /etc/init.d/qubes_core
 /etc/init.d/qubes_netvm
 /etc/init.d/qubes_setupdvm
+%endif
 %config(noreplace) %attr(0664,root,qubes) %{_sysconfdir}/qubes/qmemman.conf
 /usr/bin/qvm-*
 /usr/bin/qubes-*
@@ -390,7 +431,17 @@ fi
 /usr/lib/qubes/xl-qvm-usb-attach.py*
 /usr/lib/qubes/xl-qvm-usb-detach.py*
 /usr/lib/qubes/fix_dir_perms.sh
+/usr/lib/qubes/startup-dvm.sh
+/usr/lib/qubes/startup-misc.sh
 %attr(4750,root,qubes) /usr/lib/qubes/qfile-dom0-unpacker
+%if %{use_systemd}
+%{_unitdir}/qubes-block-cleaner.service
+%{_unitdir}/qubes-core.service
+%{_unitdir}/qubes-dispvm.service
+%{_unitdir}/qubes-meminfo-writer.service
+%{_unitdir}/qubes-netvm.service
+%{_unitdir}/qubes-qmemman.service
+%endif
 %attr(0770,root,qubes) %dir /var/lib/qubes
 %attr(0770,root,qubes) %dir /var/lib/qubes/vm-templates
 %attr(0770,root,qubes) %dir /var/lib/qubes/appvms

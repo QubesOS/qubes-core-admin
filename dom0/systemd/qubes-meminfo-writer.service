@@ -1,0 +1,11 @@
+[Unit]
+Description=Qubes memory information reporter
+After=qubes-core.service
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/qubes/meminfo-writer 30000 100000
+StandardOutput=syslog
+
+[Install]
+WantedBy=multi-user.target

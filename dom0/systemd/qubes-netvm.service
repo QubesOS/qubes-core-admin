@@ -1,0 +1,16 @@
+[Unit]
+Description=Qubes NetVM startup
+After=qubes-core.service
+
+[Service]
+Type=oneshot
+Group=qubes
+Environment=DISPLAY=:0
+RemainAfterExit=yes
+KillMode=none
+ExecStart=/bin/sh -c 'NETVM=`qubes-prefs --get default-netvm`; [ -n "$NETVM" ] && qvm-start -q --no-guid $NETVM'
+
+[Install]
+WantedBy=multi-user.target
+# Cover legacy init.d script
+Alias=qubes_netvm.service
