@@ -43,6 +43,17 @@ fi
 if [ -d /sys/$DEVPATH/loop ]; then
     DESC=$(cat /sys/$DEVPATH/loop/backing_file)
 fi
+
+# Get lock only in dom0 - there are so many block devices so it causes xenstore
+# deadlocks sometimes.
+if [ -f /etc/qubes-release ]; then
+    # Skip xenstore-write if cannot obtain lock. This can mean very early system startup
+    # stage without /run mounted (or populated). Devices will be rediscovered later
+    # by qubes-core startup script.
+    exec 9>>/var/run/qubes/block-xenstore.lock || exit 0
+    flock 9
+fi
+
 xenstore-write "$XS_KEY/desc" "$DESC" "$XS_KEY/size" "$SIZE" "$XS_KEY/mode" "$MODE"
 echo QUBES_EXPOSED=1
 
