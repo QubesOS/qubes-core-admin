@@ -84,7 +84,7 @@ def handle_dom0updates(updatevm):
     if updates_error_file_handle is not None:
         updates_error_file_handle.close()
     # After updates received - create repo metadata
-    subprocess.check_call(["/usr/bin/createrepo", "-g", "/usr/share/qubes/Fedora-13-comps.xml", "-q", updates_dir])
+    subprocess.check_call(["/usr/bin/createrepo", "-g", "/usr/share/qubes/Fedora-comps.xml", "-q", updates_dir])
     os.chown(updates_repodata_dir, -1, qubes_gid)
     os.chmod(updates_repodata_dir, 0775)
     # Clean old cache

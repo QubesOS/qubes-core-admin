@@ -187,7 +187,7 @@ cp misc/qubes-appmenu-select.desktop $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/qubes-start.desktop $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/vm-template.conf $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/vm-template-hvm.conf $RPM_BUILD_ROOT/usr/share/qubes/
-cp misc/Fedora-13-comps.xml $RPM_BUILD_ROOT/usr/share/qubes/
+cp misc/Fedora-%{fedora}-comps.xml $RPM_BUILD_ROOT/usr/share/qubes/Fedora-comps.xml
 
 mkdir -p $RPM_BUILD_ROOT/usr/bin
 cp ../network/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/lib/qubes
@@ -409,7 +409,7 @@ fi
 /usr/share/qubes/qubes-start.desktop
 /usr/share/qubes/vm-template.conf
 /usr/share/qubes/vm-template-hvm.conf
-/usr/share/qubes/Fedora-13-comps.xml
+/usr/share/qubes/Fedora-comps.xml
 /usr/lib/qubes/qubes_setup_dnat_to_ns
 /usr/lib/qubes/qubes_fix_nm_conf.sh
 /etc/dhclient.d/qubes_setup_dnat_to_ns.sh
