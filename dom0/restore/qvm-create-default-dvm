@@ -36,7 +36,7 @@ if ! [ -d "$DVMTMPLDIR" ] ; then
 	# unfortunately, currently there are reliability issues with save of a domain
 	# with multiple CPUs and/or more than 4000M RAM
 	if ! qvm-create --force-root --vcpus=1 --internal -t "$TEMPLATENAME" -l gray "$DVMTMPL" ; then exit 1 ; fi
-	MAXMEM=`qvm-prefs $DVMTMPL|grep ^maxmem|awk 'print $3'`
+	MAXMEM=`qvm-prefs --force-root $DVMTMPL|grep ^maxmem|awk 'print $3'`
 	if [ "$MAXMEM" -ge 4000 ]; then
 		qvm-prefs --force-root -s $DVMTMPL maxmem 4000
 	fi
