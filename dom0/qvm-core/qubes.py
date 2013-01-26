@@ -2059,14 +2059,16 @@ class QubesProxyVm(QubesNetVm):
         if dry_run:
             return
         retcode = super(QubesProxyVm, self).start(**kwargs)
-        self.netvm.add_external_ip_permission(self.get_xid())
+        if self.netvm is not None:
+            self.netvm.add_external_ip_permission(self.get_xid())
         self.write_netvm_domid_entry()
         return retcode
 
     def force_shutdown(self, **kwargs):
         if dry_run:
             return
-        self.netvm.remove_external_ip_permission(kwargs['xid'] if 'xid' in kwargs else self.get_xid())
+        if self.netvm is not None:
+            self.netvm.remove_external_ip_permission(kwargs['xid'] if 'xid' in kwargs else self.get_xid())
         super(QubesProxyVm, self).force_shutdown(**kwargs)
 
     def create_xenstore_entries(self, xid = None):
@@ -2158,7 +2160,7 @@ class QubesProxyVm(QubesNetVm):
 
                 iptables += " -j {0}\n".format(rules_action)
 
-            if conf["allowDns"]:
+            if conf["allowDns"] and self.netvm is not None:
                 # PREROUTING does DNAT to NetVM DNSes, so we need self.netvm. properties
                 iptables += "-A FORWARD -s {0} -p udp -d {1} --dport 53 -j ACCEPT\n".format(ip,self.netvm.gateway)
                 iptables += "-A FORWARD -s {0} -p udp -d {1} --dport 53 -j ACCEPT\n".format(ip,self.netvm.secondary_dns)
@@ -2936,7 +2938,10 @@ class QubesVmCollection(dict):
         else:
             vm.uses_default_netvm = True if kwargs["uses_default_netvm"] == "True" else False
         if vm.uses_default_netvm is True:
-            netvm = self.get_default_netvm()
+            if vm.is_proxyvm():
+                netvm = self.get_default_fw_netvm()
+            else:
+                netvm = self.get_default_netvm()
             kwargs.pop("netvm_qid")
         else:
             if kwargs["netvm_qid"] == "none" or kwargs["netvm_qid"] is None:
