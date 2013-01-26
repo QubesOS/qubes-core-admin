@@ -68,19 +68,19 @@ def handle_dom0updates(updatevm):
     # Verify received files
     for untrusted_f in os.listdir(updates_rpm_dir):
         if not package_regex.match(untrusted_f):
-            dom0updates_fatal(untrusted_f, 'Domain ' + source + ' sent unexpected file: ' + untrusted_f)
+            dom0updates_fatal(updates_rpm_dir + '/' + untrusted_f, 'Domain ' + source + ' sent unexpected file: ' + untrusted_f)
         else:
             f = untrusted_f
             full_path = updates_rpm_dir + "/" + f
             if os.path.islink(full_path) or not os.path.isfile(full_path):
-                dom0updates_fatal(f, 'Domain ' + source + ' sent not regular file')
+                dom0updates_fatal(full_path, 'Domain ' + source + ' sent not regular file')
             p = subprocess.Popen (["/bin/rpm", "-K", full_path],
                     stdout=subprocess.PIPE)
             output = p.communicate()[0]
             if p.returncode != 0:
-                dom0updates_fatal(f, 'Error while verifing %s signature: %s' % (f, output))
+                dom0updates_fatal(full_path, 'Error while verifing %s signature: %s' % (f, output))
             if not gpg_ok_regex.search(output.strip()):
-                dom0updates_fatal(f, 'Domain ' + source + ' sent not signed rpm: ' + f)
+                dom0updates_fatal(full_path, 'Domain ' + source + ' sent not signed rpm: ' + f)
     if updates_error_file_handle is not None:
         updates_error_file_handle.close()
     # After updates received - create repo metadata
