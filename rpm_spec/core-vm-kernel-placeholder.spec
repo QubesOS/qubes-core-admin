@@ -18,7 +18,7 @@ Obsoletes:  kernel-debug
 Obsoletes:  xorg-x11-drv-nouveau
 Provides:   xorg-x11-drv-nouveau
 #  choose the oldest Qubes-supported VM kernel
-Provides:   kernel = 3.2.7
+Provides:   kernel = 3.7.4
 
 %description
 Placeholder for kernel package as it is managed by Dom0.
