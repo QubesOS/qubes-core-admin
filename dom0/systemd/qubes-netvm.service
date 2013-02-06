@@ -1,6 +1,6 @@
 [Unit]
 Description=Qubes NetVM startup
-After=qubes-core.service
+After=qubes-core.service qubes-qmemman.service
 
 [Service]
 Type=oneshot
