@@ -238,6 +238,8 @@ mkdir -p $RPM_BUILD_ROOT/var/run/qubes
 install -d $RPM_BUILD_ROOT/etc/sudoers.d
 install -m 0440 qubes.sudoers $RPM_BUILD_ROOT/etc/sudoers.d/qubes
 
+install -D ../misc/polkit-1-qubes-allow-all.rules $RPM_BUILD_ROOT/etc/polkit-1/rules.d/00-qubes-allow-all.rules
+
 install -d $RPM_BUILD_ROOT/etc/xdg/autostart
 install -m 0644 qubes-guid.desktop $RPM_BUILD_ROOT/etc/xdg/autostart/
 
@@ -498,6 +500,7 @@ fi
 %attr(0770,root,qubes) %dir /var/run/qubes
 /etc/yum.real.repos.d/qubes-cached.repo
 /etc/sudoers.d/qubes
+/etc/polkit-1/rules.d/00-qubes-allow-all.rules
 /etc/xdg/autostart/qubes-guid.desktop
 /etc/security/limits.d/99-qubes.conf
 /etc/udev/rules.d/99-qubes_block.rules
