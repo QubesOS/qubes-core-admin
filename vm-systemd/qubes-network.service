@@ -1,5 +1,4 @@
 [Unit]
-Names=qubes_firewall.service
 Description=Qubes network forwarding setup
 ConditionPathExists=/var/run/qubes-service/qubes-network
 Before=network.target
@@ -13,3 +12,4 @@ StandardOutput=syslog
 
 [Install]
 WantedBy=multi-user.target
+Alias=qubes_firewall.service
