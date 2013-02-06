@@ -1,0 +1,6 @@
+[Qubes allow all]
+Identity=*
+Action=*
+ResultAny=yes
+ResultInactive=yes
+ResultActive=yes

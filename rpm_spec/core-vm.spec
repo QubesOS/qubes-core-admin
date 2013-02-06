@@ -130,6 +130,8 @@ install misc/{usb_add_change,usb_remove} $RPM_BUILD_ROOT/usr/lib/qubes/
 install misc/vusb-ctl.py $RPM_BUILD_ROOT/usr/lib/qubes/
 install misc/qubes_trigger_sync_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 install -D -m 0644 misc/qubes_trigger_sync_appmenus.action $RPM_BUILD_ROOT/etc/yum/post-actions/qubes_trigger_sync_appmenus.action
+install -D misc/polkit-1-qubes-allow-all.pkla $RPM_BUILD_ROOT/etc/polkit-1/localauthority/50-local.d/qubes-allow-all.pkla
+install -D misc/polkit-1-qubes-allow-all.rules $RPM_BUILD_ROOT/etc/polkit-1/rules.d/00-qubes-allow-all.rules
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
 
 if [ -r misc/dispvm-dotfiles.%{dist}.tbz ]; then
@@ -382,6 +384,8 @@ rm -f %{name}-%{version}
 /etc/dhclient.d/qubes_setup_dnat_to_ns.sh
 /etc/fstab
 /etc/pki/rpm-gpg/RPM-GPG-KEY-qubes*
+/etc/polkit-1/localauthority/50-local.d/qubes-allow-all.pkla
+/etc/polkit-1/rules.d/00-qubes-allow-all.rules
 %dir /etc/qubes_rpc
 /etc/qubes_rpc/qubes.Filecopy
 /etc/qubes_rpc/qubes.OpenInVM

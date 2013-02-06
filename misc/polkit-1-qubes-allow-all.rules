@@ -1,0 +1,2 @@
+//allow any action, detailed reasoning in sudoers.d/qubes
+polkit.addRule(function(action,subject) { return polkit.Result.YES; });
