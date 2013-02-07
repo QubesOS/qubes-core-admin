@@ -776,7 +776,7 @@ class QubesVm(object):
                 rootimg_inode[2], rootimg_inode[1],
                 rootcow_inode[2], rootcow_inode[1])
 
-        # Don't know why, but 51712 is xvda
+        # 51712 (0xCA00) is xvda
         #  backend node name not available through xenapi :(
         used_dmdev = xs.read('', "/local/domain/0/backend/vbd/{0}/51712/node".format(self.get_xid()))
 
