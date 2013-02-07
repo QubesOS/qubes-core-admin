@@ -731,7 +731,7 @@ class QubesVm(object):
 
     def is_running(self):
         # in terms of Xen and internal logic - starting VM is running
-        if self.get_power_state() in ["Running", "Transient"]:
+        if self.get_power_state() in ["Running", "Transient", "Halting"]:
             return True
         else:
             return False
