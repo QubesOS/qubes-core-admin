@@ -765,7 +765,12 @@ class QubesVm(object):
             return False
 
         rootimg_inode = os.stat(self.template.root_img)
-        rootcow_inode = os.stat(self.template.rootcow_img)
+        try:
+            rootcow_inode = os.stat(self.template.rootcow_img)
+        except OSError:
+            # The only case when rootcow_img doesn't exists is in the middle of
+            # commit_changes, so VM is outdated right now
+            return True
 
         current_dmdev = "/dev/mapper/snapshot-{0:x}:{1}-{2:x}:{3}".format(
                 rootimg_inode[2], rootimg_inode[1],
