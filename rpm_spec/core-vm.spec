@@ -39,6 +39,7 @@ Requires:	/usr/bin/mimeopen
 Requires:   ethtool
 Requires:   tinyproxy
 Requires:   ntpdate
+Requires:   net-tools
 Requires:   qubes-core-vm-kernel-placeholder
 Requires:   qubes-core-libs
 Provides:   qubes-core-vm
