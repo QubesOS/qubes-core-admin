@@ -1628,12 +1628,18 @@ class QubesVm(object):
         if dry_run:
             return
 
+        if not self.is_running():
+            raise QubesException ("VM already stopped!")
+
         subprocess.call (['/usr/sbin/xl', 'shutdown', str(xid) if xid is not None else self.name])
         #xc.domain_destroy(self.get_xid())
 
     def force_shutdown(self, xid = None):
         if dry_run:
             return
+
+        if not self.is_running() and not self.is_paused():
+            raise QubesException ("VM already stopped!")
 
         subprocess.call (['/usr/sbin/xl', 'destroy', str(xid) if xid is not None else self.name])
 
