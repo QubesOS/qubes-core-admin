@@ -102,6 +102,7 @@ install -m 0755 vm-systemd/*.sh $RPM_BUILD_ROOT/usr/lib/qubes/init/
 install -m 0644 vm-systemd/qubes-*.service $RPM_BUILD_ROOT/lib/systemd/system/
 install -m 0644 vm-systemd/qubes-*.timer $RPM_BUILD_ROOT/lib/systemd/system/
 install -m 0644 vm-systemd/NetworkManager.service $RPM_BUILD_ROOT/usr/lib/qubes/init/
+install -m 0644 vm-systemd/NetworkManager-wait-online.service $RPM_BUILD_ROOT/usr/lib/qubes/init/
 install -m 0644 vm-systemd/cups.service $RPM_BUILD_ROOT/usr/lib/qubes/init/
 install -m 0644 vm-systemd/ntpd.service $RPM_BUILD_ROOT/usr/lib/qubes/init/
 
@@ -560,9 +561,11 @@ The Qubes core startup configuration for SystemD init.
 /usr/lib/qubes/init/misc-post-stop.sh
 /usr/lib/qubes/init/qubes-sysinit.sh
 /usr/lib/qubes/init/NetworkManager.service
+/usr/lib/qubes/init/NetworkManager-wait-online.service
 /usr/lib/qubes/init/cups.service
 /usr/lib/qubes/init/ntpd.service
 %ghost %attr(0644,root,root) /etc/systemd/system/NetworkManager.service
+%ghost %attr(0644,root,root) /etc/systemd/system/NetworkManager-wait-online.service
 %ghost %attr(0644,root,root) /etc/systemd/system/cups.service
 
 %post systemd
@@ -574,7 +577,7 @@ done
 /bin/systemctl enable qubes-update-check.timer 2> /dev/null
 
 # Install overriden services only when original exists
-for srv in cups NetworkManager ntpd; do
+for srv in cups NetworkManager NetworkManager-wait-online ntpd; do
     if [ -f /lib/systemd/system/$srv.service ]; then
         cp /usr/lib/qubes/init/$srv.service /etc/systemd/system/$srv.service
     fi
