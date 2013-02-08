@@ -274,9 +274,8 @@ if ! grep -q '/etc/yum\.conf\.d/qubes-proxy\.conf' /etc/yum.conf; then
   echo 'include=file:///etc/yum.conf.d/qubes-proxy.conf' >> /etc/yum.conf
 fi
 
-# Prevent unnecessary updates in VMs:
+# Revert 'Prevent unnecessary updates in VMs':
 sed -i -e '/^exclude = kernel/d' /etc/yum.conf
-echo 'exclude = kernel, xorg-x11-drv-*, xorg-x11-drivers, xorg-x11-server-*' >> /etc/yum.conf
 
 # qubes-core-vm has been broken for some time - it overrides /etc/hosts; restore original content
 if ! grep -q localhost /etc/hosts; then
