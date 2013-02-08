@@ -35,6 +35,11 @@ Requires:	/usr/bin/xenstore-read
 Requires:   fedora-release
 Requires:   yum-plugin-post-transaction-actions
 Requires:   NetworkManager >= 0.8.1-1
+%if %{fedora} >= 18
+# Fedora >= 18 defaults to firewalld, which isn't supported nor needed by Qubes
+Requires:   iptables-services
+Conflicts:  firewalld
+%endif
 Requires:	/usr/bin/mimeopen
 Requires:   ethtool
 Requires:   tinyproxy
