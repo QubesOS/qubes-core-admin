@@ -28,21 +28,12 @@ get_dev() {
   if [ -f "$dev" ]; then
     file=$dev
 
-    inode=$(stat -c '%i' "$file")
-    devnum=$(stat -c '%D' "$file")
-    if [ -z "$inode" ] || [ -z "$devnum" ]
-    then
-      release_lock "block"
-      fatal "Unable to lookup $file: dev: $devnum inode: $inode"
-    fi
-
-    dev_list=$(losetup -a | grep ' \[0*'${devnum}'\]:'${inode} | cut -d : -f 1)
-    for loopdev in $dev_list; do
+    loopdev=$(losetup -j $file | head -1 | cut -d : -f 1)
+    if [ -n "$loopdev" ]; then
       # found existing loop to this file
       echo $loopdev
       return
-    done
-
+    fi
 
     # assign new loop device
     loopdev=$(losetup -f 2>/dev/null || find_free_loopback_dev)
