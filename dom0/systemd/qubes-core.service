@@ -4,7 +4,7 @@ Description=Qubes Dom0 startup setup
 
 [Service]
 Type=oneshot
-StandardOuptut=syslog
+StandardOutput=syslog
 RemainAfterExit=yes
 ExecStart=/usr/lib/qubes/startup-misc.sh
 ExecStop=/usr/bin/qvm-shutdown -q --all --wait
