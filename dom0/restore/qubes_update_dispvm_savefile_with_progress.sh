@@ -1,19 +1,29 @@
 #!/bin/sh
 
-ref=`kdialog --title="Updating default DispVM savefile" \
---progressbar \
+line1="<b>Please wait (up to 120s) while the DispVM savefile is being updated.</b>"
+line2="<i><small>This only happens when you have updated the template.</small></i>"
+line3="<i><small>Next time will be much faster.</small></i>"
+
+if type kdialog &> /dev/null; then
+    ref=`kdialog --title="Updating default DispVM savefile" \
+        --progressbar \
 "<center>
     <font>
-        <b>Please wait (up to 120s) while the DispVM savefile is being updated.</b>
-        <br>
-        <i><small>
-            This only happens when you have updated the template.<br>
-            Next time will be much faster.
-        </small></i>
+        $line1<br>
+        $line2<br>
+        $line3
     </font>
 </center>" 0`;
 
-trap "qdbus $ref close" EXIT
+    trap "qdbus $ref close" EXIT
+else
+    pipe=/tmp/qvm-create-default-dvm-$$.progress
+    mkfifo $pipe
+    zenity --progress --pulsate --auto-close --text "$line1\n$line2\n$line3" < $pipe &
+    exec 5>$pipe
+    echo 0 >&5
+    trap "echo 100 >&5" EXIT
+fi
 
 #qdbus $ref showCancelButton true;
 
