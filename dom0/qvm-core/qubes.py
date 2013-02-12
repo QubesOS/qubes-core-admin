@@ -1120,7 +1120,7 @@ class QubesVm(object):
     def get_clone_attrs(self):
         return ['kernel', 'uses_default_kernel', 'netvm', 'uses_default_netvm', \
             'memory', 'maxmem', 'kernelopts', 'uses_default_kernelopts', 'services', 'vcpus', \
-            '_mac', 'pcidevs', 'include_in_backups', 'label']
+            '_mac', 'pcidevs', 'include_in_backups', '_label']
 
     def clone_attrs(self, src_vm):
         self._do_not_reset_firewall = True
