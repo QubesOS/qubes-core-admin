@@ -32,7 +32,7 @@ def watch_qubes_clipboard():
     def tray_notify(str, timeout = 3000):
         notify_object.Notify("Qubes", 0, "dialog-information", "", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
 
-    notify_object = dbus.SessionBus().get_object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
+    notify_object = dbus.SessionBus().get_object("org.freedesktop.Notifications", "/org/freedesktop/Notifications", follow_name_owner_changes=True)
     wm = WatchManager()
     mask = EventsCodes.OP_FLAGS.get('IN_CLOSE_WRITE')
 
