@@ -98,7 +98,7 @@ cp init.d/qubes_setupdvm $RPM_BUILD_ROOT/etc/init.d/
 mkdir -p $RPM_BUILD_ROOT/usr/lib/systemd/system
 cp systemd/qubes-block-cleaner.service $RPM_BUILD_ROOT%{_unitdir}
 cp systemd/qubes-core.service $RPM_BUILD_ROOT%{_unitdir}
-cp systemd/qubes-dispvm.service $RPM_BUILD_ROOT%{_unitdir}
+cp systemd/qubes-setupdvm.service $RPM_BUILD_ROOT%{_unitdir}
 cp systemd/qubes-meminfo-writer.service $RPM_BUILD_ROOT%{_unitdir}
 cp systemd/qubes-netvm.service $RPM_BUILD_ROOT%{_unitdir}
 cp systemd/qubes-qmemman.service $RPM_BUILD_ROOT%{_unitdir}
@@ -439,7 +439,7 @@ fi
 %if %{use_systemd}
 %{_unitdir}/qubes-block-cleaner.service
 %{_unitdir}/qubes-core.service
-%{_unitdir}/qubes-dispvm.service
+%{_unitdir}/qubes-setupdvm.service
 %{_unitdir}/qubes-meminfo-writer.service
 %{_unitdir}/qubes-netvm.service
 %{_unitdir}/qubes-qmemman.service
