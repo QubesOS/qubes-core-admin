@@ -6,6 +6,7 @@ After=qubes-core.service
 Type=simple
 ExecStart=/usr/lib/qubes/meminfo-writer 30000 100000
 StandardOutput=syslog
+RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
