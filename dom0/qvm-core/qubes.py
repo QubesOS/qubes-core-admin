@@ -3121,8 +3121,10 @@ class QubesDaemonPidfile(object):
     def __enter__ (self):
         # assumes the pidfile doesn't exist -- you should ensure it before opening the context
         self.create_pidfile()
-    def __exit__ (self):
+
+    def __exit__ (self, exc_type, exc_val, exc_tb):
         self.remove_pidfile()
+        return False
 
 
 # vim:sw=4:et:
