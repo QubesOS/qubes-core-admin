@@ -24,6 +24,8 @@ import os
 import daemon
 from pyinotify import WatchManager, Notifier, ThreadedNotifier, EventsCodes, ProcessEvent
 import dbus
+from dbus.mainloop.glib import DBusGMainLoop
+import glib,gobject
 from qubes.qubes import QubesDaemonPidfile
 
 qubes_clipboard_info_file = "/var/run/qubes/qubes_clipboard.bin.source"
@@ -32,6 +34,7 @@ def watch_qubes_clipboard():
     def tray_notify(str, timeout = 3000):
         notify_object.Notify("Qubes", 0, "dialog-information", "", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
 
+    glib_mainloop = DBusGMainLoop(set_as_default=True)
     notify_object = dbus.SessionBus().get_object("org.freedesktop.Notifications", "/org/freedesktop/Notifications", follow_name_owner_changes=True)
     wm = WatchManager()
     mask = EventsCodes.OP_FLAGS.get('IN_CLOSE_WRITE')
@@ -56,10 +59,15 @@ def watch_qubes_clipboard():
     notifier = Notifier(wm, ClipboardWatcher())
     wdd = wm.add_watch(qubes_clipboard_info_file, mask)
 
-    while True:
-        notifier.process_events()
+    def process_inotify(source, cb_condition):
         if notifier.check_events():
             notifier.read_events()
+        notifier.process_events()
+        return True
+
+    glib.io_add_watch(wm.get_fd(), glib.IO_IN, process_inotify)
+
+    gobject.MainLoop().run()
 
 def main():
     lock = QubesDaemonPidfile ("qclipd")
