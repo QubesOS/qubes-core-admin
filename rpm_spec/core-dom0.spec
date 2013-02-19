@@ -48,6 +48,7 @@ Vendor:		Invisible Things Lab
 License:	GPL
 URL:		http://www.qubes-os.org
 BuildRequires:  xen-devel
+BuildRequires:  ImageMagick
 %if %{use_systemd}
 BuildRequires:	systemd-units
 Requires(post): systemd-units
@@ -202,7 +203,9 @@ mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/dvmdata
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/updates
 
 mkdir -p $RPM_BUILD_ROOT/usr/share/qubes/icons
-cp icons/*.png $RPM_BUILD_ROOT/usr/share/qubes/icons
+for icon in icons/*.png; do
+    convert -resize 48 $icon $RPM_BUILD_ROOT/usr/share/qubes/$icon
+done
 cp misc/qubes-vm.directory.template $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/qubes-templatevm.directory.template $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/qubes-servicevm.directory.template $RPM_BUILD_ROOT/usr/share/qubes/
