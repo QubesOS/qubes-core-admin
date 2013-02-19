@@ -1498,7 +1498,7 @@ class QubesVm(object):
             print >> sys.stderr, "--> Starting Qubes GUId..."
         xid = self.get_xid()
 
-        guid_cmd = [qubes_guid_path, "-d", str(xid), "-c", self.label.color, "-i", self.label.icon, "-l", str(self.label.index)]
+        guid_cmd = [qubes_guid_path, "-d", str(xid), "-c", self.label.color, "-i", self.label.icon_path, "-l", str(self.label.index)]
         if self.debug:
             guid_cmd += ['-v', '-v']
         retcode = subprocess.call (guid_cmd)
@@ -2560,7 +2560,7 @@ class QubesHVm(QubesVm):
             if verbose:
                 print >> sys.stderr, "--> Starting Qubes GUId..."
 
-            retcode = subprocess.call ([qubes_guid_path, "-d", str(self.stubdom_xid), "-c", self.label.color, "-i", self.label.icon, "-l", str(self.label.index)])
+            retcode = subprocess.call ([qubes_guid_path, "-d", str(self.stubdom_xid), "-c", self.label.color, "-i", self.label.icon_path, "-l", str(self.label.index)])
             if (retcode != 0) :
                 raise QubesException("Cannot start qubes_guid!")
 

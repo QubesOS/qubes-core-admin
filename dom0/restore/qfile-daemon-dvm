@@ -73,7 +73,7 @@ class QfileDaemonDvm:
             current_dvm_conf,
             '-u', str(vm.default_user),
             '-c', label.color,
-            '-i', label.icon,
+            '-i', label.icon_path,
             '-l', str(label.index)])
         qmemman_client.close()
         if retcode != 0:
