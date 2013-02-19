@@ -1391,7 +1391,7 @@ class QubesVm(object):
         if user is None:
             user = self.default_user
         null = None
-        if not self.is_running():
+        if not self.is_running() and not self.is_paused():
             if not autostart:
                 raise QubesException("VM not running")
 
