@@ -202,7 +202,7 @@ QubesDispVmLabels = {
 }
 
 default_appvm_label = QubesVmLabels["red"]
-default_template_label = QubesVmLabels["gray"]
+default_template_label = QubesVmLabels["black"]
 default_servicevm_label = QubesVmLabels["red"]
 
 QubesVmClasses = {}
