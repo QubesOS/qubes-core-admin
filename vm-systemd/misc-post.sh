@@ -45,21 +45,6 @@ fi
 
 [ -x /rw/config/rc.local ] && /rw/config/rc.local
 
-if ! [ -f /home/user/.gnome2/nautilus-scripts/.scripts_created ] ; then
-    echo "Creating symlinks for nautilus actions..."
-    su user -c 'mkdir -p /home/user/.gnome2/nautilus-scripts'
-    su user -c 'ln -s /usr/lib/qubes/qvm-copy-to-vm.gnome /home/user/.gnome2/nautilus-scripts/"Copy to other AppVM"'
-    su user -c 'ln -s /usr/bin/qvm-open-in-dvm /home/user/.gnome2/nautilus-scripts/"Open in DisposableVM"'
-    su user -c 'touch /home/user/.gnome2/nautilus-scripts/.scripts_created'
-fi
-
-if ! [ -f /home/user/.gnome2/nautilus-scripts/.scripts_created2 ] ; then
-    # as we have recently renamed tools, the symlinks would need to be fixed for older templates
-    su user -c 'ln -sf /usr/lib/qubes/qvm-copy-to-vm.gnome /home/user/.gnome2/nautilus-scripts/"Copy to other AppVM"'
-    su user -c 'ln -sf /usr/bin/qvm-open-in-dvm /home/user/.gnome2/nautilus-scripts/"Open in DisposableVM"'
-    su user -c 'touch /home/user/.gnome2/nautilus-scripts/.scripts_created2'
-fi
-
 # Start services which haven't own proper systemd unit:
 
 # Start AppVM specific services

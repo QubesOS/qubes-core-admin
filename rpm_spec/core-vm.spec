@@ -45,6 +45,7 @@ Requires:   ethtool
 Requires:   tinyproxy
 Requires:   ntpdate
 Requires:   net-tools
+Requires:   nautilus-actions
 Requires:   qubes-core-vm-kernel-placeholder
 Requires:   qubes-core-libs
 Provides:   qubes-core-vm
@@ -89,12 +90,6 @@ mv /etc/fstab /var/lib/qubes/fstab.orig
 fi
 
 adduser --create-home user
-su user -c 'mkdir -p /home/user/.local/share'
-su user -c 'mkdir -p /home/user/.gnome2/nautilus-scripts'
-su user -c 'ln -s /usr/lib/qubes/qvm-copy-to-vm.gnome /home/user/.gnome2/nautilus-scripts/"Copy to other AppVM"'
-su user -c 'ln -s /usr/bin/qvm-open-in-dvm /home/user/.gnome2/nautilus-scripts/"Open in DisposableVM"'
-su user -c 'touch /home/user/.gnome2/nautilus-scripts/.scripts_created'
-su user -c 'touch /home/user/.gnome2/nautilus-scripts/.scripts_created2'
 
 %install
 
@@ -189,6 +184,11 @@ install -d $RPM_BUILD_ROOT/etc/qubes_rpc
 install -m 0644 qubes_rpc/{qubes.Filecopy,qubes.OpenInVM,qubes.VMShell,qubes.SyncNtpClock} $RPM_BUILD_ROOT/etc/qubes_rpc
 install -m 0644 qubes_rpc/{qubes.SuspendPre,qubes.SuspendPost,qubes.GetAppmenus} $RPM_BUILD_ROOT/etc/qubes_rpc
 install -m 0644 qubes_rpc/qubes.WaitForSession $RPM_BUILD_ROOT/etc/qubes_rpc
+
+install -d $RPM_BUILD_ROOT/usr/share/file-manager/actions
+install -m 0644 qubes_rpc/*-gnome.desktop $RPM_BUILD_ROOT/usr/share/file-manager/actions
+
+install -D misc/nautilus-actions.conf $RPM_BUILD_ROOT/etc/xdg/nautilus-actions/nautilus-actions.conf
 
 install qrexec/qrexec_agent $RPM_BUILD_ROOT/usr/lib/qubes
 install qrexec/qrexec_client_vm $RPM_BUILD_ROOT/usr/lib/qubes
@@ -412,6 +412,7 @@ rm -f %{name}-%{version}
 /etc/udev/rules.d/99-qubes_block.rules
 /etc/udev/rules.d/99-qubes_network.rules
 /etc/udev/rules.d/99-qubes_usb.rules
+/etc/xdg/nautilus-actions/nautilus-actions.conf
 /etc/xen/scripts/vif-route-qubes
 %config(noreplace) /etc/yum.conf.d/qubes-proxy.conf
 %config(noreplace) /etc/yum.repos.d/qubes.repo
@@ -457,6 +458,8 @@ rm -f %{name}-%{version}
 /usr/sbin/qubes_firewall
 /usr/sbin/qubes_netwatcher
 /usr/share/glib-2.0/schemas/org.gnome.settings-daemon.plugins.updates.gschema.override
+/usr/share/file-manager/actions/qvm-copy-gnome.desktop
+/usr/share/file-manager/actions/qvm-dvm-gnome.desktop
 %dir /home_volatile
 %attr(700,user,user) /home_volatile/user
 %dir /mnt/removable

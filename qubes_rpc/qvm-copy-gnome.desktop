@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Action
+ToolbarLabel[C]=Copy to other AppVM
+Name[C]=Copy to other AppVM
+Profiles=profile-zero;
+
+[X-Action-Profile profile-zero]
+Exec=/usr/lib/qubes/qvm-copy-to-vm.gnome %F
+Name[C]=Default profile
