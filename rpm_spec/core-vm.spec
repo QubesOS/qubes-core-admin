@@ -400,21 +400,21 @@ rm -f %{name}-%{version}
 /etc/qubes_rpc/qubes.SyncNtpClock
 /etc/qubes_rpc/qubes.SuspendPre
 /etc/qubes_rpc/qubes.SuspendPost
-/etc/qubes_rpc/qubes.WaitForSession 
+/etc/qubes_rpc/qubes.WaitForSession
 /etc/sudoers.d/qubes
-/etc/sysconfig/iptables
-/etc/sysconfig/ip6tables
+%config(noreplace) /etc/sysconfig/iptables
+%config(noreplace) /etc/sysconfig/ip6tables
 /etc/sysconfig/modules/qubes_core.modules
 /etc/sysconfig/modules/qubes_misc.modules
-/etc/tinyproxy/filter-qubes-yum
-/etc/tinyproxy/tinyproxy-qubes-yum.conf
+%config(noreplace) /etc/tinyproxy/filter-qubes-yum
+%config(noreplace) /etc/tinyproxy/tinyproxy-qubes-yum.conf
 /etc/udev/rules.d/50-qubes_misc.rules
 /etc/udev/rules.d/99-qubes_block.rules
 /etc/udev/rules.d/99-qubes_network.rules
 /etc/udev/rules.d/99-qubes_usb.rules
 /etc/xen/scripts/vif-route-qubes
-/etc/yum.conf.d/qubes-proxy.conf
-/etc/yum.repos.d/qubes.repo
+%config(noreplace) /etc/yum.conf.d/qubes-proxy.conf
+%config(noreplace) /etc/yum.repos.d/qubes.repo
 /etc/yum/pluginconf.d/yum-qubes-hooks.conf
 /etc/yum/post-actions/qubes_trigger_sync_appmenus.action
 /sbin/qubes_serial_login
