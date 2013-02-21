@@ -401,6 +401,7 @@ fi
 /usr/bin/qvm-*
 /usr/bin/qubes-*
 /usr/bin/qclipd
+%dir %{python_sitearch}/qubes
 %{python_sitearch}/qubes/qubes.py
 %{python_sitearch}/qubes/qubes.pyc
 %{python_sitearch}/qubes/qubes.pyo
