@@ -52,7 +52,7 @@ done
 ID=$(id -ur)
 if [ $ID != 0 -a -z "$GUI" -a -z "$CHECK_ONLY" ] ; then
     echo "This script should be run as root (when used in console mode), use sudo." >&2
-    exit
+    exit 1
 fi
 
 if [ "$GUI" == "1" -a -n "$PKGS" ]; then
