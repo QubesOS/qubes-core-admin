@@ -12,7 +12,7 @@
 #include <gui-fatal.h>
 #include <errno.h>
 #include "filecopy.h"
-#define INCOMING_DIR_ROOT "/home/user/incoming"
+#define INCOMING_DIR_ROOT "/home/user/QubesIncoming"
 int prepare_creds_return_uid(char *username)
 {
 	struct passwd *pwd;
@@ -45,7 +45,7 @@ int main(int argc, char ** argv)
 		exit(1);
 	}
 	mkdir(INCOMING_DIR_ROOT, 0700);
-	asprintf(&incoming_dir, "%s/from-%s", INCOMING_DIR_ROOT, remote_domain);
+	asprintf(&incoming_dir, "%s/%s", INCOMING_DIR_ROOT, remote_domain);
 	mkdir(incoming_dir, 0700);
 	if (chdir(incoming_dir))
 		gui_fatal("Error chdir to %s", incoming_dir); 

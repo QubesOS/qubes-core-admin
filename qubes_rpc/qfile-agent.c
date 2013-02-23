@@ -66,7 +66,7 @@ void wait_for_result()
 	if (hdr.error_code != 0) {
 		switch (hdr.error_code) {
 			case EEXIST:
-				gui_fatal("File copy: not overwriting existing file. Clean incoming dir, and retry copy");
+				gui_fatal("File copy: not overwriting existing file. Clean QubesIncoming dir, and retry copy");
 				break;
 			case EINVAL:
 				gui_fatal("File copy: Corrupted data from packer");
