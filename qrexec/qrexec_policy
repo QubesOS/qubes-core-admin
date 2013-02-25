@@ -121,9 +121,8 @@ def add_always_allow(domain, target, exec_index, options):
     f.close()
 
 def policy_editor(domain, target, exec_index):
-    text = "Policy editor not yet implemented. Please add a line in the form \""
-    text+= domain + " " + target + " action_to_take\""
-    text+= " to /etc/qubes_rpc/policy/" + exec_index +" file in dom0, then close this info."
+    text = "No policy definition found for " + exec_index + " action. "
+    text+= "Please create a policy file in Dom0 in " + "/etc/qubes_rpc/policy/" + exec_index
     subprocess.call(["/usr/bin/zenity", "--info", "--text", text]) 
 
 def main():
