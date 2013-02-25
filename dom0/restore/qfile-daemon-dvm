@@ -68,6 +68,7 @@ class QfileDaemonDvm:
         if len(sys.argv) > 4 and len(sys.argv[4]) > 0:
             assert sys.argv[4] in QubesDispVmLabels.keys(), "Invalid label"
             label = QubesDispVmLabels[sys.argv[4]]
+        print >>sys.stderr, "time=%s, starting qubes_restore" % (str(time.time()))
         retcode = subprocess.call(['/usr/lib/qubes/qubes_restore',
             current_savefile,
             current_dvm_conf,
@@ -88,6 +89,7 @@ class QfileDaemonDvm:
         disp_name = f.readline().rstrip('\n')
         disptempl = f.readline().rstrip('\n')
         f.close()
+        print >>sys.stderr, "time=%s, adding to qubes.xml" % (str(time.time()))
         vm_disptempl = qvm_collection.get_vm_by_name(disptempl);
         if vm_disptempl is None:
             sys.stderr.write( 'Domain ' + disptempl + ' does not exist ?')
@@ -106,6 +108,7 @@ class QfileDaemonDvm:
         qvm_collection.save()
         qvm_collection.unlock_db()
         # Reload firewall rules
+        print >>sys.stderr, "time=%s, reloading firewall" % (str(time.time()))
         for vm in qvm_collection.values():
             if vm.is_proxyvm() and vm.is_running():
                 vm.write_iptables_xenstore_entry()
@@ -158,7 +161,9 @@ def main():
     # sys.argv[4] - override label
     # sys.argv[5] - override firewall
 
+    print >>sys.stderr, "time=%s, qfile-daemon-dvm init" % (str(time.time()))
     notify_object = dbus.SessionBus().get_object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
+    print >>sys.stderr, "time=%s, creating DispVM" % (str(time.time()))
     qfile = QfileDaemonDvm(src_vmname)
     lockf = open("/var/run/qubes/qfile-daemon-dvm.lock", 'a')
     fcntl.fcntl(lockf, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
@@ -166,6 +171,7 @@ def main():
     dispname = qfile.get_dvm()
     lockf.close()
     if dispname is not None:
+        print >>sys.stderr, "time=%s, starting VM process" % (str(time.time()))
         subprocess.call(['/usr/lib/qubes/qrexec_client', '-d', dispname,
             user+':exec /usr/lib/qubes/qubes_rpc_multiplexer ' + exec_index + " " + src_vmname])
         subprocess.call(['/usr/sbin/xl', 'destroy', dispname])

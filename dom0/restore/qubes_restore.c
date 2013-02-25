@@ -476,9 +476,11 @@ int main(int argc, char **argv)
 		"time=%s, created domid=%d, creating xenstore entries\n",
 		gettime(), domid);
 	setup_xenstore(netvm_id, domid, dispid, name);
-	fprintf(stderr, "time=%s, starting qubes_guid\n", gettime());
 	rm_fast_flag();
+	fprintf(stderr, "time=%s, starting qrexec\n", gettime());
 	start_rexec(domid, default_user);
+	fprintf(stderr, "time=%s, starting qubes_guid\n", gettime());
 	start_guid(domid, argc-guid_args_start, argv+guid_args_start);
+	fprintf(stderr, "time=%s, started qubes_guid\n", gettime());
 	return 0;
 }

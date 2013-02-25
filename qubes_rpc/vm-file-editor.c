@@ -8,6 +8,16 @@
 #include <ioall.h>
 #include "dvm2.h"
 
+char *gettime()
+{
+	static char retbuf[60];
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	snprintf(retbuf, sizeof(retbuf), "%lld.%lld",
+		 (long long) tv.tv_sec, (long long) tv.tv_usec);
+	return retbuf;
+}
+
 char *get_filename()
 {
 	char buf[DVM_FILENAME_SIZE];
@@ -67,6 +77,7 @@ main()
 		perror("stat pre");
 		exit(1);
 	}
+	fprintf(stderr, "time=%s, waiting for qubes-session\n", gettime());
 	// wait for X server to starts (especially in DispVM)
 	if (stat("/tmp/qubes-session-env", &session_stat)) {
 		switch (child = fork()) {
@@ -95,6 +106,7 @@ main()
 				}
 		}
 	}
+	fprintf(stderr, "time=%s, starting editor\n", gettime());
 	switch (child = fork()) {
 		case -1:
 			perror("fork");
