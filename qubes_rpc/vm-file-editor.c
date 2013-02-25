@@ -128,7 +128,6 @@ main()
 				exit(1);
 			}
 			dup2(log_fd, 1);
-			dup2(log_fd, 2);
 			close(log_fd);
 
 			setenv("HOME", "/home/user", 1);
