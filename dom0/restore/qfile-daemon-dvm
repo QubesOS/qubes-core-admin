@@ -25,6 +25,7 @@ import subprocess
 import sys
 import fcntl
 import shutil
+import time
 
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
