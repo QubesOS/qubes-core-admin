@@ -1400,7 +1400,7 @@ class QubesVm(object):
                     notify_function ("info", "Starting the '{0}' VM...".format(self.name))
                 elif verbose:
                     print >> sys.stderr, "Starting the VM '{0}'...".format(self.name)
-                xid = self.start(verbose=verbose, notify_function=notify_function)
+                xid = self.start(verbose=verbose, start_guid = gui, notify_function=notify_function)
 
             except (IOError, OSError, QubesException) as err:
                 raise QubesException("Error while starting the '{0}' VM: {1}".format(self.name, err))
