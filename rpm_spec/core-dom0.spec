@@ -145,6 +145,7 @@ cp aux-tools/remove_appvm_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/cleanup_dispvms $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/startup-dvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/startup-misc.sh $RPM_BUILD_ROOT/usr/lib/qubes
+cp aux-tools/prepare_volatile_img.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp qmemman/server.py $RPM_BUILD_ROOT/usr/lib/qubes/qmemman_daemon.py
 cp ../misc/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_daemon $RPM_BUILD_ROOT/usr/lib/qubes/
@@ -440,6 +441,7 @@ fi
 /usr/lib/qubes/fix_dir_perms.sh
 /usr/lib/qubes/startup-dvm.sh
 /usr/lib/qubes/startup-misc.sh
+/usr/lib/qubes/prepare_volatile_img.sh
 %attr(4750,root,qubes) /usr/lib/qubes/qfile-dom0-unpacker
 %if %{use_systemd}
 %{_unitdir}/qubes-block-cleaner.service
