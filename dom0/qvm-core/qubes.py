@@ -2584,8 +2584,7 @@ class QubesHVm(QubesVm):
                 if kwargs.get('verbose'):
                     print >> sys.stderr, "--> Waiting for user '%s' login..." % self.default_user
 
-                # TODO retrieve the notify_function from kwargs ?
-                self.wait_for_session(**kwargs)
+                self.wait_for_session(notify_function=kwargs.get('notify_function', None))
 
     def pause(self):
         if dry_run:
