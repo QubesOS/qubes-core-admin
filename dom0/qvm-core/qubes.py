@@ -2412,6 +2412,8 @@ class QubesHVm(QubesVm):
         attrs.remove('kernelopts')
         attrs.remove('uses_default_kernelopts')
         attrs += [ 'timezone' ]
+        attrs += [ 'qrexec_installed' ]
+        attrs += [ 'guiagent_installed' ]
         return attrs
 
     def create_on_disk(self, verbose, source_template = None):
