@@ -26,6 +26,7 @@ YUM_OPTS=
 GUI=
 CHECK_ONLY=
 ALL_OPTS=$*
+QVMRUN_OPTS=
 # Filter out some yum options and collect packages list
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -60,6 +61,10 @@ if [ "$GUI" == "1" -a -n "$PKGS" ]; then
     exit 1
 fi
 
+if [ "$GUI" != "1" ]; then
+    QVMRUN_OPTS=--nogui
+fi
+
 # Do not start VM automaticaly when running from cron (only checking for updates)
 if [ "$CHECK_ONLY" == "1" ] && ! xl domid $UPDATEVM > /dev/null 2>&1; then
     echo "ERROR: UpdateVM not running, not starting it in non-interactive mode" >&2
@@ -73,11 +78,11 @@ qvm-sync-clock
 echo "Checking for dom0 updates" >&2
 
 # Start VM if not running already
-qvm-run -a $UPDATEVM true || exit 1
+qvm-run $QVMRUN_OPTS -a $UPDATEVM true || exit 1
 
 /usr/lib/qubes/qrexec_client -d "$UPDATEVM" -l 'tar c /var/lib/rpm /etc/yum.repos.d /etc/yum.conf 2>/dev/null' 'user:tar x -C /var/lib/qubes/dom0-updates' 2> /dev/null
 
-qvm-run --pass-io $UPDATEVM "/usr/lib/qubes/qubes_download_dom0_updates.sh --doit --nogui $ALL_OPTS"
+qvm-run $QVMRUN_OPTS --pass-io $UPDATEVM "/usr/lib/qubes/qubes_download_dom0_updates.sh --doit --nogui $ALL_OPTS"
 RETCODE=$?
 if [ "$CHECK_ONLY" == "1" ]; then
     exit $RETCODE

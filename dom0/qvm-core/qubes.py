@@ -106,6 +106,7 @@ dom0_vm = None
 qubes_appmenu_create_cmd = "/usr/lib/qubes/create_apps_for_appvm.sh"
 qubes_appmenu_remove_cmd = "/usr/lib/qubes/remove_appvm_appmenus.sh"
 qubes_pciback_cmd = '/usr/lib/qubes/unbind_pci_device.sh'
+prepare_volatile_img_cmd = '/usr/lib/qubes/prepare_volatile_img.sh'
 
 yum_proxy_ip = '10.137.255.254'
 yum_proxy_port = '8082'
@@ -1238,6 +1239,15 @@ class QubesVm(object):
 
         # Only makes sense on template based VM
         if source_template is None:
+            # For StandaloneVM create it only if not already exists (eg after backup-restore)
+            if not os.path.exists(self.volatile_img):
+                if verbose:
+                    print >> sys.stderr, "--> Creating volatile image: {0}...".format (self.volatile_img)
+                f_root = open (self.root_img, "r")
+                f_root.seek(0, os.SEEK_END)
+                root_size = f_root.tell()
+                f_root.close()
+                subprocess.check_call([prepare_volatile_img_cmd, self.volatile_img, str(root_size / 1024 / 1024)])
             return
 
         if verbose:
@@ -1400,7 +1410,7 @@ class QubesVm(object):
                     notify_function ("info", "Starting the '{0}' VM...".format(self.name))
                 elif verbose:
                     print >> sys.stderr, "Starting the VM '{0}'...".format(self.name)
-                xid = self.start(verbose=verbose, notify_function=notify_function)
+                xid = self.start(verbose=verbose, start_guid = gui, notify_function=notify_function)
 
             except (IOError, OSError, QubesException) as err:
                 raise QubesException("Error while starting the '{0}' VM: {1}".format(self.name, err))
