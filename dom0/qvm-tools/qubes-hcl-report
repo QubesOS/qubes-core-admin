@@ -8,8 +8,8 @@ fi
 
 DATE=`date +%Y%m%d`
 
-BRAND=`sudo dmidecode |grep -A9 "System Information" |grep "Manufacturer:" |cut -d ' ' -f2- |tr -s [:blank:] _`
-PRODUCT=`sudo dmidecode |grep -A9 "System Information" |grep "Product Name:" |cut -d ' ' -f3- |tr -s [:blank:] _`
+BRAND=`sudo dmidecode |grep -A9 "System Information" |grep "Manufacturer:" |cut -d ' ' -f2- |tr -s '[:blank:]' _`
+PRODUCT=`sudo dmidecode |grep -A9 "System Information" |grep "Product Name:" |cut -d ' ' -f3- |tr -s '[:blank:]' _`
 
 CPU=`sudo cat /proc/cpuinfo |grep "model name" |sort -u |cut -d ' ' -f3-`
 CHIPSET=`sudo lspci -nn |grep "00:00.0.*Host bridge"`
