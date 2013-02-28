@@ -5,7 +5,7 @@ VERSION_VAIO_FIXES := $(shell cat version_vaio_fixes)
 VERSION_VM := $(shell cat version_vm)
 VERSION_LIBS := $(shell cat version_libs)
 
-DIST_DOM0 ?= fc13
+DIST_DOM0 ?= fc18
 
 help:
 	@echo "make rpms                  -- generate binary rpm packages"
