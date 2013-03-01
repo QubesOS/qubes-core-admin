@@ -64,6 +64,10 @@ Requires:       xen-hvm
 Requires:       createrepo
 Requires:       gnome-packagekit
 Requires:       cronie
+
+# Prevent preupgrade from installation (it pretend to provide distribution upgrade)
+Obsoletes:	preupgrade < 2.0
+Provides:	preupgrade = 2.0
 %define _builddir %(pwd)
 
 %description
@@ -368,6 +372,10 @@ sed -i 's/\/block /\/block.qubes /' /etc/udev/rules.d/xen-backend.rules
 
 %triggerin -- xorg-x11-drv-vmmouse
 mv -f /lib/udev/rules.d/69-xorg-vmmouse.rules /var/lib/qubes/removed-udev-scripts/ 2> /dev/null || :
+
+%triggerin -- PackageKit
+# dom0 have no network, but still can receive updates (qubes-dom0-update)
+sed -i 's/^UseNetworkHeuristic=.*/UseNetworkHeuristic=false/' /etc/PackageKit/PackageKit.conf
 
 %preun
 if [ "$1" = 0 ] ; then
