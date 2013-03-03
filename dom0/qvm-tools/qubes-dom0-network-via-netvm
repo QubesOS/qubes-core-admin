@@ -44,7 +44,7 @@ def get_netvm():
 def vif_eth0_exists():
     if not os.path.islink('/sys/class/net/eth0'):
         return False
-    if not os.path.isdir('/sys/devices/xen/vif-0/net/eth0'):
+    if not os.path.isdir('/sys/devices/vif-0/net/eth0'):
         print >> sys.stderr, 'There is a dedicated netvm, but device eth0 is present'
         print >> sys.stderr, 'and it is not a Xen interface. Refusing to continue.'
         sys.exit(1)
@@ -62,7 +62,7 @@ def netup():
     if os.path.isfile('/var/lock/subsys/NetworkManager'):
         os.system('/etc/init.d/NetworkManager stop')
     if not vif_eth0_exists():
-        cmd = 'modprobe xennet'
+        cmd = 'modprobe xen-netfront'
         if os.system(cmd) != 0:
             print >> sys.stderr, 'Error creating network device'
             sys.exit(1)
