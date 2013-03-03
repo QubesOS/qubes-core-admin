@@ -2,7 +2,7 @@
 # See man pages fstab(5), findfs(8), mount(8) and/or blkid(8) for more info
 #
 /dev/mapper/dmroot /                       ext4 defaults,noatime        1 1
-/dev/xvdb		/rw			ext4	noauto,defaults	1 2
+/dev/xvdb		/rw			ext4	noauto,defaults,discard	1 2
 /rw/home        /home       none    noauto,bind,defaults 0 0
 /dev/xvdc1      swap                    swap    defaults        0 0
 tmpfs                   /dev/shm                tmpfs   defaults        0 0
