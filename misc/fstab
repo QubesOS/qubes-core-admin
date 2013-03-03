@@ -1,8 +1,3 @@
-
-#
-# /etc/fstab
-# Created by anaconda on Thu Dec  3 11:26:49 2009
-#
 # Accessible filesystems, by reference, are maintained under '/dev/disk'
 # See man pages fstab(5), findfs(8), mount(8) and/or blkid(8) for more info
 #
