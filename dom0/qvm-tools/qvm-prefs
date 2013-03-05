@@ -96,6 +96,8 @@ def do_list(vm):
     if hasattr(vm, 'timezone'):
         print fmt.format("timezone", str(vm.timezone))
 
+    print fmt.format ("internal", vm.internal)
+
 def set_label(vms, vm, args):
     if len (args) != 1:
         print >> sys.stderr, "Missing label name argument!"
@@ -339,6 +341,14 @@ def set_qrexec_installed(vms, vm, args):
     vm.qrexec_installed = bool(eval(args[0].capitalize()))
     return True
 
+def set_internal(vms, vm, args):
+    if len (args) != 1:
+        print >> sys.stderr, "Missing value (True/False)!"
+        return False
+
+    vm.internal = bool(eval(args[0].capitalize()))
+    return True
+
 def set_guiagent_installed(vms, vm, args):
     if len (args) != 1:
         print >> sys.stderr, "Missing value (True/False)!"
@@ -387,6 +397,7 @@ properties = {
     "guiagent_installed": set_guiagent_installed,
     "qrexec_timeout": set_qrexec_timeout,
     "timezone": set_timezone,
+    "internal": set_internal,
 }
 
 
