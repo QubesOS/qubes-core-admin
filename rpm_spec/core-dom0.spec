@@ -223,12 +223,8 @@ cp misc/vm-template-hvm.conf $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/Fedora-%{fedora}-comps.xml $RPM_BUILD_ROOT/usr/share/qubes/Fedora-comps.xml
 
 mkdir -p $RPM_BUILD_ROOT/usr/bin
-cp ../network/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/usr/lib/qubes
-cp ../network/qubes_fix_nm_conf.sh $RPM_BUILD_ROOT/usr/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/etc/dhclient.d
-ln -s /usr/lib/qubes/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/etc/dhclient.d/qubes_setup_dnat_to_ns.sh 
 mkdir -p $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
-cp ../network/qubes_nmhook $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
 cp system-config/iptables $RPM_BUILD_ROOT/etc/sysconfig
 cp system-config/ip6tables $RPM_BUILD_ROOT/etc/sysconfig
@@ -478,10 +474,6 @@ fi
 /usr/share/qubes/vm-template.conf
 /usr/share/qubes/vm-template-hvm.conf
 /usr/share/qubes/Fedora-comps.xml
-/usr/lib/qubes/qubes_setup_dnat_to_ns
-/usr/lib/qubes/qubes_fix_nm_conf.sh
-/etc/dhclient.d/qubes_setup_dnat_to_ns.sh
-/etc/NetworkManager/dispatcher.d/qubes_nmhook
 /etc/sysconfig/iptables
 /etc/sysconfig/ip6tables
 /etc/sysconfig/modules/qubes-dom0.modules
