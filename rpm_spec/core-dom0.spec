@@ -83,7 +83,7 @@ ln -sf . %{name}-%{version}
 %build
 python -m compileall dom0/qvm-core dom0/qmemman
 python -O -m compileall dom0/qvm-core dom0/qmemman
-for dir in dom0/restore dom0/qubes_rpc misc; do
+for dir in dom0/restore dom0/qubes_rpc dom0/qmemman; do
   (cd $dir; make)
 done
 (cd vchan; make -f Makefile.linux)
