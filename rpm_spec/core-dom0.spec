@@ -116,13 +116,13 @@ cp clipboard_notifier/qclipd $RPM_BUILD_ROOT/usr/bin
 
 mkdir -p $RPM_BUILD_ROOT/etc/xen/scripts
 cp restore/block.qubes $RPM_BUILD_ROOT/etc/xen/scripts
-cp ../network/vif-route-qubes $RPM_BUILD_ROOT/etc/xen/scripts
-cp ../misc/block-snapshot $RPM_BUILD_ROOT/etc/xen/scripts
+cp system-config/vif-route-qubes $RPM_BUILD_ROOT/etc/xen/scripts
+cp system-config/block-snapshot $RPM_BUILD_ROOT/etc/xen/scripts
 ln -s block-snapshot $RPM_BUILD_ROOT/etc/xen/scripts/block-origin
 
 mkdir -p $RPM_BUILD_ROOT/etc/udev/rules.d
-cp ../misc/qubes_block.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_block.rules
-cp ../misc/qubes_usb.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_usb.rules
+cp system-config/qubes_block.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_block.rules
+cp system-config/qubes_usb.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_usb.rules
 
 mkdir -p $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qvm-core/qubes.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
@@ -151,7 +151,7 @@ cp aux-tools/startup-dvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/startup-misc.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/prepare_volatile_img.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp qmemman/server.py $RPM_BUILD_ROOT/usr/lib/qubes/qmemman_daemon.py
-cp ../misc/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
+cp qmemman/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_daemon $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_client $RPM_BUILD_ROOT/usr/lib/qubes/
 cp ../qrexec/qrexec_policy $RPM_BUILD_ROOT/usr/lib/qubes/
@@ -159,21 +159,21 @@ cp qubes_rpc/qfile-dom0-unpacker $RPM_BUILD_ROOT/usr/lib/qubes/
 cp qubes_rpc/qubes-notify-updates $RPM_BUILD_ROOT/usr/lib/qubes/
 cp qubes_rpc/qubes-receive-appmenus $RPM_BUILD_ROOT/usr/lib/qubes/
 cp qubes_rpc/qubes-receive-updates $RPM_BUILD_ROOT/usr/lib/qubes/
-cp ../misc/block_add_change $RPM_BUILD_ROOT/usr/lib/qubes/
-cp ../misc/block_remove $RPM_BUILD_ROOT/usr/lib/qubes/
-cp ../misc/block_cleanup $RPM_BUILD_ROOT/usr/lib/qubes/
-cp ../misc/usb_add_change $RPM_BUILD_ROOT/usr/lib/qubes/
-cp ../misc/usb_remove $RPM_BUILD_ROOT/usr/lib/qubes/
-cp ../misc/vusb-ctl.py $RPM_BUILD_ROOT/usr/lib/qubes/
-cp ../misc/xl-qvm-usb-attach.py $RPM_BUILD_ROOT/usr/lib/qubes/
-cp ../misc/xl-qvm-usb-detach.py $RPM_BUILD_ROOT/usr/lib/qubes/
+cp aux-tools/block_add_change $RPM_BUILD_ROOT/usr/lib/qubes/
+cp aux-tools/block_remove $RPM_BUILD_ROOT/usr/lib/qubes/
+cp aux-tools/block_cleanup $RPM_BUILD_ROOT/usr/lib/qubes/
+cp aux-tools/usb_add_change $RPM_BUILD_ROOT/usr/lib/qubes/
+cp aux-tools/usb_remove $RPM_BUILD_ROOT/usr/lib/qubes/
+cp aux-tools/vusb-ctl.py $RPM_BUILD_ROOT/usr/lib/qubes/
+cp aux-tools/xl-qvm-usb-attach.py $RPM_BUILD_ROOT/usr/lib/qubes/
+cp aux-tools/xl-qvm-usb-detach.py $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/block_cleaner_daemon.py $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/fix_dir_perms.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/etc/qubes_rpc/policy
-cp ../qubes_rpc/qubes.Filecopy.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.Filecopy
-cp ../qubes_rpc/qubes.OpenInVM.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.OpenInVM
-cp ../qubes_rpc/qubes.VMShell.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.VMShell
+cp qubes_rpc/qubes.Filecopy.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.Filecopy
+cp qubes_rpc/qubes.OpenInVM.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.OpenInVM
+cp qubes_rpc/qubes.VMShell.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.VMShell
 cp qubes_rpc/qubes.SyncAppMenus.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.SyncAppMenus
 cp qubes_rpc/qubes.SyncAppMenus $RPM_BUILD_ROOT/etc/qubes_rpc/
 cp ../qrexec/qubes_rpc_multiplexer $RPM_BUILD_ROOT/usr/lib/qubes
@@ -230,8 +230,8 @@ ln -s /usr/lib/qubes/qubes_setup_dnat_to_ns $RPM_BUILD_ROOT/etc/dhclient.d/qubes
 mkdir -p $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 cp ../network/qubes_nmhook $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
-cp ../network/iptables $RPM_BUILD_ROOT/etc/sysconfig
-cp ../network/ip6tables $RPM_BUILD_ROOT/etc/sysconfig
+cp system-config/iptables $RPM_BUILD_ROOT/etc/sysconfig
+cp system-config/ip6tables $RPM_BUILD_ROOT/etc/sysconfig
 mkdir -p $RPM_BUILD_ROOT/etc/security/limits.d
 cp misc/limits-qubes.conf $RPM_BUILD_ROOT/etc/security/limits.d/99-qubes.conf
 
@@ -246,7 +246,7 @@ mkdir -p $RPM_BUILD_ROOT/var/run/qubes
 install -d $RPM_BUILD_ROOT/etc/sudoers.d
 install -m 0440 qubes.sudoers $RPM_BUILD_ROOT/etc/sudoers.d/qubes
 
-install -D ../misc/polkit-1-qubes-allow-all.rules $RPM_BUILD_ROOT/etc/polkit-1/rules.d/00-qubes-allow-all.rules
+install -D system-config/polkit-1-qubes-allow-all.rules $RPM_BUILD_ROOT/etc/polkit-1/rules.d/00-qubes-allow-all.rules
 
 install -d $RPM_BUILD_ROOT/etc/xdg/autostart
 install -m 0644 qubes-guid.desktop $RPM_BUILD_ROOT/etc/xdg/autostart/

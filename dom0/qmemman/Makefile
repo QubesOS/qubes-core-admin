@@ -1,5 +1,7 @@
-all:
-	@echo "Nothing to do here."
+all: meminfo-writer
+
+meminfo-writer: meminfo-writer.o
+	$(CC) -g -o meminfo-writer meminfo-writer.o -lxenstore
 
 clean:
 	rm -f *.pyo 
