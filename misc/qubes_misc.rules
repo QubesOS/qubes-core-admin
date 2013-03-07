@@ -1,2 +1,0 @@
-SUBSYSTEM=="memory", ACTION=="add", ATTR{state}=="offline", ATTR{state}="online"
-KERNEL=="xen/evtchn", MODE="0666"

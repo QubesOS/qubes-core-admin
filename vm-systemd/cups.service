@@ -1,3 +1,0 @@
-.include /lib/systemd/system/cups.service
-[Unit]
-ConditionPathExists=/var/run/qubes-service/cups

@@ -1,3 +1,0 @@
-.include /lib/systemd/system/ntpd.service
-[Unit]
-ConditionPathExists=/var/run/qubes-service/ntpd

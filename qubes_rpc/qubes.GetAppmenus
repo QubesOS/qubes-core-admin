@@ -1,1 +1,0 @@
-find /usr/share/applications/ /usr/local/share/applications/ -name '*.desktop' | xargs awk '/^\[/ { if (tolower($0) != "\[desktop entry\]") nextfile } /=/ {print FILENAME ":" $0 }' 2> /dev/null

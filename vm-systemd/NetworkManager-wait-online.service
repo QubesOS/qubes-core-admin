@@ -1,5 +1,0 @@
-.include /lib/systemd/system/NetworkManager-wait-online.service
-[Unit]
-ConditionPathExists=/var/run/qubes-service/network-manager
-# For /rw
-After=qubes-misc-post.service

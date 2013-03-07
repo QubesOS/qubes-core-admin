@@ -1,2 +1,0 @@
-read USERNAME
-su -c 'echo $$ >> /tmp/qubes-session-waiter; [ ! -f /tmp/qubes-session-env ] && exec sleep 365d' - "$USERNAME"

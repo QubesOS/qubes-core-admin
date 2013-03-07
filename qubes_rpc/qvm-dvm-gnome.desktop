@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Action
-ToolbarLabel[C]=Open in DisposableVM
-Name[C]=Open in DisposableVM
-Profiles=profile-zero;
-
-[X-Action-Profile profile-zero]
-Exec=/usr/bin/qvm-open-in-dvm %f
-Name[C]=Default profile

@@ -1,8 +1,0 @@
-.include /lib/systemd/system/NetworkManager.service
-[Unit]
-ConditionPathExists=/var/run/qubes-service/network-manager
-# For /rw
-After=qubes-misc-post.service
-
-[Service]
-ExecStartPre=/usr/lib/qubes/network-manager-prepare-conf-dir
