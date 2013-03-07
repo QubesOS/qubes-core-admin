@@ -9,7 +9,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/fsuid.h>
-#include <gui-fatal.h>
 #include <errno.h>
 #include "filecopy.h"
 
@@ -37,21 +36,6 @@ int prepare_creds_return_uid(char *username)
 	return pwd->pw_uid;
 }
 
-void wait_for_child(int statusfd)
-{
-	int status;
-	if (read(statusfd, &status, sizeof status)!=sizeof status)
-		gui_fatal("File copy error: Internal error reading status from unpacker");
-	errno = status;
-	switch (status) {
-	case LEGAL_EOF: break;
-	case 0: gui_fatal("File copy: Connection terminated unexpectedly"); break;
-	case EINVAL: gui_fatal("File copy: Corrupted data from packer"); break;
-	case EEXIST: gui_fatal("File copy: not overwriting existing file. Clean ~/incoming, and retry copy"); break;
-	default: gui_fatal("File copy"); 
-	}
-}
-
 extern int do_unpack(void);
 
 int main(int argc, char ** argv)
@@ -76,10 +60,14 @@ int main(int argc, char ** argv)
 
 	incoming_dir = argv[2];
 	mkdir(incoming_dir, 0700);
-	if (chdir(incoming_dir))
-		gui_fatal("Error chdir to %s", incoming_dir); 
-	if (chroot(incoming_dir)) //impossible
-		gui_fatal("Error chroot to %s", incoming_dir);
+	if (chdir(incoming_dir)) {
+		fprintf(stderr, "Error chdir to %s", incoming_dir);
+		exit(1);
+	}
+	if (chroot(incoming_dir)) {//impossible
+		fprintf(stderr, "Error chroot to %s", incoming_dir);
+		exit(1);
+	}
 	setuid(uid);
 	set_size_limit(bytes_limit, files_limit);
 	return do_unpack();
