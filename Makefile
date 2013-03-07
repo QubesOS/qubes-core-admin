@@ -3,7 +3,6 @@ RPMS_DIR=rpm/
 VERSION_DOM0 := $(shell cat version_dom0)
 VERSION_VAIO_FIXES := $(shell cat version_vaio_fixes)
 VERSION_VM := $(shell cat version_vm)
-VERSION_LIBS := $(shell cat version_libs)
 
 DIST_DOM0 ?= fc18
 
