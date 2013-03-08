@@ -83,7 +83,7 @@ ln -sf . %{name}-%{version}
 %build
 python -m compileall dom0/qvm-core dom0/qmemman
 python -O -m compileall dom0/qvm-core dom0/qmemman
-for dir in dom0/restore dom0/qubes_rpc dom0/qmemman; do
+for dir in dom0/dispvm dom0/qubes_rpc dom0/qmemman; do
   (cd $dir; make)
 done
 
@@ -113,7 +113,7 @@ cp qvm-tools/qubes-* $RPM_BUILD_ROOT/usr/bin
 cp clipboard_notifier/qclipd $RPM_BUILD_ROOT/usr/bin
 
 mkdir -p $RPM_BUILD_ROOT/etc/xen/scripts
-cp restore/block.qubes $RPM_BUILD_ROOT/etc/xen/scripts
+cp dispvm/block.qubes $RPM_BUILD_ROOT/etc/xen/scripts
 cp system-config/vif-route-qubes $RPM_BUILD_ROOT/etc/xen/scripts
 cp system-config/block-snapshot $RPM_BUILD_ROOT/etc/xen/scripts
 ln -s block-snapshot $RPM_BUILD_ROOT/etc/xen/scripts/block-origin
@@ -180,12 +180,12 @@ install -D aux-tools/cpufreq-xen.modules $RPM_BUILD_ROOT/etc/sysconfig/modules/c
 install -D aux-tools/qubes-dom0-updates.cron $RPM_BUILD_ROOT/etc/cron.daily/qubes-dom0-updates.cron
 install -D aux-tools/qubes-sync-clock.cron $RPM_BUILD_ROOT/etc/cron.d/qubes-sync-clock.cron
 
-cp restore/qvm-create-default-dvm $RPM_BUILD_ROOT/usr/bin
-cp restore/xenstore-watch $RPM_BUILD_ROOT/usr/bin/xenstore-watch-qubes
-cp restore/qubes_restore $RPM_BUILD_ROOT/usr/lib/qubes
-cp restore/qubes_prepare_saved_domain.sh  $RPM_BUILD_ROOT/usr/lib/qubes
-cp restore/qubes_update_dispvm_savefile_with_progress.sh  $RPM_BUILD_ROOT/usr/lib/qubes
-cp restore/qfile-daemon-dvm $RPM_BUILD_ROOT/usr/lib/qubes
+cp dispvm/qvm-create-default-dvm $RPM_BUILD_ROOT/usr/bin
+cp dispvm/xenstore-watch $RPM_BUILD_ROOT/usr/bin/xenstore-watch-qubes
+cp dispvm/qubes_restore $RPM_BUILD_ROOT/usr/lib/qubes
+cp dispvm/qubes_prepare_saved_domain.sh  $RPM_BUILD_ROOT/usr/lib/qubes
+cp dispvm/qubes_update_dispvm_savefile_with_progress.sh  $RPM_BUILD_ROOT/usr/lib/qubes
+cp dispvm/qfile-daemon-dvm $RPM_BUILD_ROOT/usr/lib/qubes
 
 mkdir -p $RPM_BUILD_ROOT/etc/yum.real.repos.d
 cp qubes-cached.repo $RPM_BUILD_ROOT/etc/yum.real.repos.d/
