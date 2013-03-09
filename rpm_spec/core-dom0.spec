@@ -64,6 +64,8 @@ Requires:       xen-hvm
 Requires:       createrepo
 Requires:       gnome-packagekit
 Requires:       cronie
+# for qubes-hcl-report
+Requires:       dmidecode
 
 # Prevent preupgrade from installation (it pretend to provide distribution upgrade)
 Obsoletes:	preupgrade < 2.0
