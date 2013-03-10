@@ -46,7 +46,7 @@ def ask(text, title="Question", yestoall=False):
     if yestoall:
         buttons |= QMessageBox.YesToAll
 
-    reply = QMessageBox.question(None, title, text, buttons)
+    reply = QMessageBox.question(None, title, text, buttons, defaultButton=QMessageBox.Yes)
     if reply == QMessageBox.Yes:
         return 0
     elif reply == QMessageBox.No:
