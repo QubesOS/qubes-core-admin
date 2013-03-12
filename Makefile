@@ -21,8 +21,10 @@ rpms-vm:
 
 rpms-dom0: rpms-vaio-fixes
 	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-dom0.spec
+	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-dom0-doc.spec
 	rpm --addsign \
-		$(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION)*.rpm
+		$(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION)*.rpm \
+		$(RPMS_DIR)/noarch/qubes-core-dom0-doc-$(VERSION)*rpm
 
 rpms-vaio-fixes:
 	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-dom0-vaio-fixes.spec
