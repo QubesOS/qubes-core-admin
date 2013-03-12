@@ -25,7 +25,7 @@
 
 %{!?python_sitearch: %define python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1)")}
 
-%{!?version: %define version %(cat version_dom0)}
+%{!?version: %define version %(cat version)}
 
 %if %{fedora} >= 15
 %{!?use_systemd: %define use_systemd	1}
