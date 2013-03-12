@@ -181,7 +181,6 @@ install -D aux-tools/cpufreq-xen.modules $RPM_BUILD_ROOT/etc/sysconfig/modules/c
 install -D aux-tools/qubes-dom0-updates.cron $RPM_BUILD_ROOT/etc/cron.daily/qubes-dom0-updates.cron
 install -D aux-tools/qubes-sync-clock.cron $RPM_BUILD_ROOT/etc/cron.d/qubes-sync-clock.cron
 
-cp dispvm/qvm-create-default-dvm $RPM_BUILD_ROOT/usr/bin
 cp dispvm/xenstore-watch $RPM_BUILD_ROOT/usr/bin/xenstore-watch-qubes
 cp dispvm/qubes_restore $RPM_BUILD_ROOT/usr/lib/qubes
 cp dispvm/qubes_prepare_saved_domain.sh  $RPM_BUILD_ROOT/usr/lib/qubes
