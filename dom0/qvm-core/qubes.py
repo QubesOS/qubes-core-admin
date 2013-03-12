@@ -51,7 +51,6 @@ if not dry_run:
 qubes_guid_path = "/usr/bin/qubes_guid"
 qrexec_daemon_path = "/usr/lib/qubes/qrexec_daemon"
 qrexec_client_path = "/usr/lib/qubes/qrexec_client"
-qubes_clipd_path = "/usr/bin/qclipd"
 
 qubes_base_dir   = "/var/lib/qubes"
 
@@ -1495,13 +1494,6 @@ class QubesVm(object):
         # Note : User root is redefined to SYSTEM in the Windows agent code
         p = self.run('QUBESRPC qubes.WaitForSession none', user="root", passio_popen=True, gui=False, wait=True)
         p.communicate(input=self.default_user)
-
-        retcode = subprocess.call([qubes_clipd_path])
-        if retcode != 0:
-            print >> sys.stderr, "ERROR: Cannot start qclipd!"
-
-            if notify_function is not None:
-                notify_function("error", "ERROR: Cannot start the Qubes Clipboard Notifier!")
 
     def start_guid(self, verbose = True, notify_function = None):
         if verbose:

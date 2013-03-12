@@ -34,7 +34,6 @@ import sys
 import os
 import os.path
 
-qubes_clipd_path = "/usr/bin/qclipd"
 notify_object = None
 
 # how long (in sec) to wait for VMs to shutdown

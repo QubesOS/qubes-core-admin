@@ -112,7 +112,6 @@ cp systemd/qubes-qmemman.service $RPM_BUILD_ROOT%{_unitdir}
 mkdir -p $RPM_BUILD_ROOT/usr/bin/
 cp qvm-tools/qvm-* $RPM_BUILD_ROOT/usr/bin
 cp qvm-tools/qubes-* $RPM_BUILD_ROOT/usr/bin
-cp clipboard_notifier/qclipd $RPM_BUILD_ROOT/usr/bin
 
 mkdir -p $RPM_BUILD_ROOT/etc/xen/scripts
 cp dispvm/block.qubes $RPM_BUILD_ROOT/etc/xen/scripts
@@ -401,7 +400,6 @@ fi
 %config(noreplace) %attr(0664,root,qubes) %{_sysconfdir}/qubes/qmemman.conf
 /usr/bin/qvm-*
 /usr/bin/qubes-*
-/usr/bin/qclipd
 %dir %{python_sitearch}/qubes
 %{python_sitearch}/qubes/qubes.py
 %{python_sitearch}/qubes/qubes.pyc

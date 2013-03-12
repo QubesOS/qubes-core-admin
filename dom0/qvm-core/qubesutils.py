@@ -22,7 +22,7 @@
 
 from qubes import QubesVm,QubesException,QubesVmCollection
 from qubes import QubesVmClasses
-from qubes import xs, xl_ctx, qubes_guid_path, qubes_clipd_path, qrexec_client_path
+from qubes import xs, xl_ctx, qubes_guid_path, qrexec_client_path
 from qubes import qubes_store_filename, qubes_base_dir
 from qubes import qubes_servicevms_dir, qubes_templates_dir, qubes_appvms_dir
 import sys
