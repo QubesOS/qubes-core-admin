@@ -35,7 +35,7 @@ updates_repodata_dir = updates_dir + "/repodata"
 updates_error_file = updates_dir + "/errors"
 updates_error_file_handle = None
 
-comps_file = '/usr/share/qubes/Fedora-comps.xml'
+comps_file = None
 if os.path.exists('/usr/share/qubes/Qubes-comps.xml'):
     comps_file = '/usr/share/qubes/Qubes-comps.xml'
 
@@ -88,7 +88,11 @@ def handle_dom0updates(updatevm):
     if updates_error_file_handle is not None:
         updates_error_file_handle.close()
     # After updates received - create repo metadata
-    subprocess.check_call(["/usr/bin/createrepo", "-g", comps_file, "-q", updates_dir])
+    createrepo_cmd = ["/usr/bin/createrepo"]
+    if comps_file:
+        createrepo_cmd += ["-g", comps_file]
+    createrepo_cmd += ["-q", updates_dir]
+    subprocess.check_call(createrepo_cmd)
     os.chown(updates_repodata_dir, -1, qubes_gid)
     os.chmod(updates_repodata_dir, 0775)
     # Clean old cache

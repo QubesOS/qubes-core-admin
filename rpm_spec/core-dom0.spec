@@ -198,7 +198,6 @@ cp misc/qubes-appmenu-select.desktop $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/qubes-start.desktop $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/vm-template.conf $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/vm-template-hvm.conf $RPM_BUILD_ROOT/usr/share/qubes/
-cp misc/Fedora-%{fedora}-comps.xml $RPM_BUILD_ROOT/usr/share/qubes/Fedora-comps.xml
 
 mkdir -p $RPM_BUILD_ROOT/usr/bin
 mkdir -p $RPM_BUILD_ROOT/etc/dhclient.d
@@ -417,7 +416,6 @@ fi
 /usr/share/qubes/qubes-start.desktop
 /usr/share/qubes/vm-template.conf
 /usr/share/qubes/vm-template-hvm.conf
-/usr/share/qubes/Fedora-comps.xml
 /etc/sysconfig/iptables
 /etc/sysconfig/ip6tables
 /etc/sysconfig/modules/qubes-dom0.modules
