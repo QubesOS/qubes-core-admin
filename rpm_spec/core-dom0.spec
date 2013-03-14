@@ -77,7 +77,7 @@ ln -sf . %{name}-%{version}
 %build
 python -m compileall dom0/qvm-core dom0/qmemman
 python -O -m compileall dom0/qvm-core dom0/qmemman
-for dir in dom0/dispvm dom0/qubes_rpc dom0/qmemman; do
+for dir in dom0/dispvm dom0/qubes-rpc dom0/qmemman; do
   (cd $dir; make)
 done
 
@@ -135,10 +135,10 @@ cp aux-tools/startup-misc.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/prepare_volatile_img.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp qmemman/server.py $RPM_BUILD_ROOT/usr/lib/qubes/qmemman_daemon.py
 cp qmemman/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
-cp qubes_rpc/qfile-dom0-unpacker $RPM_BUILD_ROOT/usr/lib/qubes/
-cp qubes_rpc/qubes-notify-updates $RPM_BUILD_ROOT/usr/lib/qubes/
-cp qubes_rpc/qubes-receive-appmenus $RPM_BUILD_ROOT/usr/lib/qubes/
-cp qubes_rpc/qubes-receive-updates $RPM_BUILD_ROOT/usr/lib/qubes/
+cp qubes-rpc/qfile-dom0-unpacker $RPM_BUILD_ROOT/usr/lib/qubes/
+cp qubes-rpc/qubes-notify-updates $RPM_BUILD_ROOT/usr/lib/qubes/
+cp qubes-rpc/qubes-receive-appmenus $RPM_BUILD_ROOT/usr/lib/qubes/
+cp qubes-rpc/qubes-receive-updates $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/block_add_change $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/block_remove $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/block_cleanup $RPM_BUILD_ROOT/usr/lib/qubes/
@@ -150,16 +150,16 @@ cp aux-tools/xl-qvm-usb-detach.py $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/block_cleaner_daemon.py $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/fix_dir_perms.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 
-mkdir -p $RPM_BUILD_ROOT/etc/qubes_rpc/policy
-cp qubes_rpc/qubes.Filecopy.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.Filecopy
-cp qubes_rpc/qubes.OpenInVM.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.OpenInVM
-cp qubes_rpc/qubes.VMShell.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.VMShell
-cp qubes_rpc/qubes.SyncAppMenus.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.SyncAppMenus
-cp qubes_rpc/qubes.SyncAppMenus $RPM_BUILD_ROOT/etc/qubes_rpc/
-cp qubes_rpc/qubes.NotifyUpdates.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.NotifyUpdates
-cp qubes_rpc/qubes.NotifyUpdates $RPM_BUILD_ROOT/etc/qubes_rpc/
-cp qubes_rpc/qubes.ReceiveUpdates.policy $RPM_BUILD_ROOT/etc/qubes_rpc/policy/qubes.ReceiveUpdates
-cp qubes_rpc/qubes.ReceiveUpdates $RPM_BUILD_ROOT/etc/qubes_rpc/
+mkdir -p $RPM_BUILD_ROOT/etc/qubes-rpc/policy
+cp qubes-rpc-policy/qubes.Filecopy.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.Filecopy
+cp qubes-rpc-policy/qubes.OpenInVM.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.OpenInVM
+cp qubes-rpc-policy/qubes.VMShell.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.VMShell
+cp qubes-rpc-policy/qubes.SyncAppMenus.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.SyncAppMenus
+cp qubes-rpc/qubes.SyncAppMenus $RPM_BUILD_ROOT/etc/qubes-rpc/
+cp qubes-rpc-policy/qubes.NotifyUpdates.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.NotifyUpdates
+cp qubes-rpc/qubes.NotifyUpdates $RPM_BUILD_ROOT/etc/qubes-rpc/
+cp qubes-rpc-policy/qubes.ReceiveUpdates.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.ReceiveUpdates
+cp qubes-rpc/qubes.ReceiveUpdates $RPM_BUILD_ROOT/etc/qubes-rpc/
 install -D aux-tools/qubes-dom0.modules $RPM_BUILD_ROOT/etc/sysconfig/modules/qubes-dom0.modules
 install -D aux-tools/cpufreq-xen.modules $RPM_BUILD_ROOT/etc/sysconfig/modules/cpufreq-xen.modules
 install -D aux-tools/qubes-dom0-updates.cron $RPM_BUILD_ROOT/etc/cron.daily/qubes-dom0-updates.cron
@@ -431,15 +431,15 @@ fi
 /etc/xen/scripts/block-snapshot
 /etc/xen/scripts/block-origin
 /etc/xen/scripts/vif-route-qubes
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes_rpc/policy/qubes.Filecopy
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes_rpc/policy/qubes.OpenInVM
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes_rpc/policy/qubes.SyncAppMenus
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes_rpc/policy/qubes.NotifyUpdates
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes_rpc/policy/qubes.ReceiveUpdates
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes_rpc/policy/qubes.VMShell
-/etc/qubes_rpc/qubes.SyncAppMenus
-/etc/qubes_rpc/qubes.NotifyUpdates
-/etc/qubes_rpc/qubes.ReceiveUpdates
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.Filecopy
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.OpenInVM
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.SyncAppMenus
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.NotifyUpdates
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.ReceiveUpdates
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.VMShell
+/etc/qubes-rpc/qubes.SyncAppMenus
+/etc/qubes-rpc/qubes.NotifyUpdates
+/etc/qubes-rpc/qubes.ReceiveUpdates
 %attr(2770,root,qubes) %dir /var/log/qubes
 %attr(0770,root,qubes) %dir /var/run/qubes
 /etc/yum.real.repos.d/qubes-cached.repo
