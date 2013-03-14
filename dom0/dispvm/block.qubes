@@ -49,7 +49,7 @@ process()
 export PATH="/sbin:/bin:/usr/bin:/usr/sbin:$PATH"
 
 XENBUS_PATH="${XENBUS_PATH:?}"
-if ! [ "$1" = "add" ] || ! [ -f /var/run/qubes/fast_block_attach ] ; then
+if ! [ "$1" = "add" ] || ! [ -f /var/run/qubes/fast-block-attach ] ; then
 	exec flock /var/run/qubes/hotplug-block /etc/xen/scripts/block "$@"
 fi
 

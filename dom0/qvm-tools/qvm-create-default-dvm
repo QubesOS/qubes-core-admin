@@ -3,7 +3,7 @@ if [ $# != 1 -a $# != 2 ] ; then
 	echo 'Usage: qvm-create-default-dvm templatename|--default-template|--used-template [script-name|--default-script]'
 	exit 1
 fi
-export ROOT=/var/lib/qubes/dvmdata/savefile_root
+export ROOT=/var/lib/qubes/dvmdata/savefile-root
 TEMPLATENAME=$1
 if [ "$TEMPLATENAME" = --used-template ] ; then
 	if [ -e $ROOT ] ; then
@@ -45,18 +45,18 @@ if ! /usr/lib/qubes/qubes-prepare-saved-domain.sh \
 	"$DVMTMPL" "/var/lib/qubes/appvms/$DVMTMPL/dvm-savefile" $SCRIPTNAME ; then
 	exit 1
 fi
-DEFAULT=/var/lib/qubes/dvmdata/default_savefile
-DEFAULTCONF=/var/lib/qubes/dvmdata/default_dvm.conf
-CURRENT=/var/run/qubes/current_savefile
-CURRENTCONF=/var/run/qubes/current_dvm.conf
+DEFAULT=/var/lib/qubes/dvmdata/default-savefile
+DEFAULTCONF=/var/lib/qubes/dvmdata/default-dvm.conf
+CURRENT=/var/run/qubes/current-savefile
+CURRENTCONF=/var/run/qubes/current-dvm.conf
 SHMDIR=/dev/shm/qubes
-SHMCOPY=$SHMDIR/current_savefile
+SHMCOPY=$SHMDIR/current-savefile
 rm -f $ROOT $DEFAULT $CURRENT $DEFAULTCONF $CURRENTCONF
 ln -s "/var/lib/qubes/appvms/$DVMTMPL/dvm-savefile" $DEFAULT
 ln -s "/var/lib/qubes/vm-templates/$TEMPLATENAME/root.img" $ROOT
 ln -s $DVMTMPLDIR/dvm.conf $DEFAULTCONF
 ln -s $DVMTMPLDIR/dvm.conf $CURRENTCONF
-if [ -f /var/lib/qubes/dvmdata/dont_use_shm ] ; then
+if [ -f /var/lib/qubes/dvmdata/dont-use-shm ] ; then
             ln -s $DEFAULT $CURRENT
 else
 	mkdir -m 770 $SHMDIR 2>/dev/null

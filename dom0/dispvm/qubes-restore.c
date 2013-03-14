@@ -91,7 +91,7 @@ char *gettime()
 }
 
 int actually_do_unlink = 1;
-#define FAST_FLAG_PATH "/var/run/qubes/fast_block_attach"
+#define FAST_FLAG_PATH "/var/run/qubes/fast-block-attach"
 void set_fast_flag()
 {
 	int fd = open(FAST_FLAG_PATH, O_CREAT | O_RDONLY, 0600);
@@ -297,7 +297,7 @@ void unpack_cows(char *name)
 	int status;
 	snprintf(vmdir, sizeof(vmdir), "/var/lib/qubes/appvms/%s", name);
 	snprintf(tarfile, sizeof(tarfile),
-		 "/var/lib/qubes/appvms/%s/saved_cows.tar", name);
+		 "/var/lib/qubes/appvms/%s/saved-cows.tar", name);
 	switch (fork()) {
 	case -1:
 		fprintf(stderr, "fork");
@@ -347,7 +347,7 @@ int get_netvm_id_from_name(char *name)
 	char netvm_id[256];
 	char netvm_id_path[256];
 	snprintf(netvm_id_path, sizeof(netvm_id_path),
-		 "/var/lib/qubes/appvms/%s/netvm_id.txt", name);
+		 "/var/lib/qubes/appvms/%s/netvm-id.txt", name);
 	fd = open(netvm_id_path, O_RDONLY);
 	if (fd < 0) {
 		perror("open netvm_id");
@@ -391,9 +391,9 @@ void setup_xenstore(int netvm_id, int domid, int dvmid, char *name)
 int get_next_disposable_id()
 {
 	int seq = 0;
-	int fd = open("/var/run/qubes/dispVM_seq", O_RDWR);
+	int fd = open("/var/run/qubes/dispVM.seq", O_RDWR);
 	if (fd < 0) {
-		perror("open dispVM_seq");
+		perror("open dispVM.seq");
 		exit(1);
 	}
 	read(fd, &seq, sizeof(seq));
@@ -406,9 +406,9 @@ int get_next_disposable_id()
 
 void write_varrun_domid(int domid, char *dispname, char *orig)
 {
-	FILE *f = fopen("/var/run/qubes/dispVM_xid", "w");
+	FILE *f = fopen("/var/run/qubes/dispVM.xid", "w");
 	if (!f) {
-		perror("fopen dispVM_xid");
+		perror("fopen dispVM.xid");
 		exit(1);
 	}
 	fprintf(f, "%d\n%s\n%s\n", domid, dispname, orig);
@@ -418,10 +418,10 @@ void write_varrun_domid(int domid, char *dispname, char *orig)
 
 void redirect_stderr()
 {
-	int fd = open("/var/log/qubes/qubes_restore.log",
+	int fd = open("/var/log/qubes/qubes-restore.log",
 		      O_CREAT | O_TRUNC | O_WRONLY, 0600);
 	if (fd < 0) {
-		syslog(LOG_DAEMON | LOG_ERR, "open qubes_restore.log");
+		syslog(LOG_DAEMON | LOG_ERR, "open qubes-restore.log");
 		exit(1);
 	}
 	dup2(fd, 2);
