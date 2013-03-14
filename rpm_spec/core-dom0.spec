@@ -161,7 +161,6 @@ cp qubes-rpc/qubes.NotifyUpdates $RPM_BUILD_ROOT/etc/qubes-rpc/
 cp qubes-rpc-policy/qubes.ReceiveUpdates.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.ReceiveUpdates
 cp qubes-rpc/qubes.ReceiveUpdates $RPM_BUILD_ROOT/etc/qubes-rpc/
 install -D aux-tools/qubes-dom0.modules $RPM_BUILD_ROOT/etc/sysconfig/modules/qubes-dom0.modules
-install -D aux-tools/cpufreq-xen.modules $RPM_BUILD_ROOT/etc/sysconfig/modules/cpufreq-xen.modules
 install -D aux-tools/qubes-dom0-updates.cron $RPM_BUILD_ROOT/etc/cron.daily/qubes-dom0-updates.cron
 install -D aux-tools/qubes-sync-clock.cron $RPM_BUILD_ROOT/etc/cron.d/qubes-sync-clock.cron
 
@@ -205,8 +204,8 @@ mkdir -p $RPM_BUILD_ROOT/etc/NetworkManager/dispatcher.d/
 mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
 cp system-config/iptables $RPM_BUILD_ROOT/etc/sysconfig
 cp system-config/ip6tables $RPM_BUILD_ROOT/etc/sysconfig
-mkdir -p $RPM_BUILD_ROOT/etc/security/limits.d
-cp misc/limits-qubes.conf $RPM_BUILD_ROOT/etc/security/limits.d/99-qubes.conf
+install -m 0644 -D system-config/limits-qubes.conf $RPM_BUILD_ROOT/etc/security/limits.d/99-qubes.conf
+install -D system-config/cpufreq-xen.modules $RPM_BUILD_ROOT/etc/sysconfig/modules/cpufreq-xen.modules
 
 mkdir -p $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d
 cp pm-utils/01qubes-sync-vms-clock $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
@@ -216,8 +215,7 @@ cp pm-utils/52qubes-pause-vms $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 mkdir -p $RPM_BUILD_ROOT/var/log/qubes
 mkdir -p $RPM_BUILD_ROOT/var/run/qubes
 
-install -d $RPM_BUILD_ROOT/etc/sudoers.d
-install -m 0440 qubes.sudoers $RPM_BUILD_ROOT/etc/sudoers.d/qubes
+install -m 0440 -D system-config/qubes.sudoers $RPM_BUILD_ROOT/etc/sudoers.d/qubes
 
 install -D system-config/polkit-1-qubes-allow-all.rules $RPM_BUILD_ROOT/etc/polkit-1/rules.d/00-qubes-allow-all.rules
 
