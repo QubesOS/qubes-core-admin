@@ -36,15 +36,15 @@ if [ "$ID" = "" ] ; then
 fi
 echo "Waiting for DVM domainid=$ID ..."
 if [ -n "$ENCODED_SCRIPT" ] ; then
-	xenstore-write /local/domain/$ID/qubes_save_script "$ENCODED_SCRIPT"
+	xenstore-write /local/domain/$ID/qubes-save-script "$ENCODED_SCRIPT"
 fi
 #set -x
-xenstore-write /local/domain/$ID/qubes_save_request 1 
-xenstore-watch-qubes /local/domain/$ID/device/qubes_used_mem
-xenstore-read /local/domain/$ID/qubes_gateway | \
+xenstore-write /local/domain/$ID/qubes-save-request 1 
+xenstore-watch-qubes /local/domain/$ID/device/qubes-used-mem
+xenstore-read /local/domain/$ID/qubes-gateway | \
 	cut -d . -f 3 | tr -d "\n" > $VMDIR/netvm_id.txt
 xl block-detach $1 xvdb
-MEM=$(xenstore-read /local/domain/$ID/device/qubes_used_mem)
+MEM=$(xenstore-read /local/domain/$ID/device/qubes-used-mem)
 echo "DVM boot complete, memory used=$MEM. Saving image..."
 QMEMMAN_STOP=/var/run/qubes/do-not-membalance
 touch $QMEMMAN_STOP

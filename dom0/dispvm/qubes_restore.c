@@ -369,15 +369,15 @@ void setup_xenstore(int netvm_id, int domid, int dvmid, char *name)
 		exit(1);
 	}
 
-	write_xs_single(xs, domid, "qubes_ip",
+	write_xs_single(xs, domid, "qubes-ip",
 			build_dvm_ip(netvm_id, dvmid));
-	write_xs_single(xs, domid, "qubes_netmask", "255.255.0.0");
+	write_xs_single(xs, domid, "qubes-netmask", "255.255.0.0");
 	snprintf(val, sizeof(val), "10.137.%d.1", netvm_id);
-	write_xs_single(xs, domid, "qubes_gateway", val);
+	write_xs_single(xs, domid, "qubes-gateway", val);
 	snprintf(val, sizeof(val), "10.137.%d.254", netvm_id);
-	write_xs_single(xs, domid, "qubes_secondary_dns", val);
-	write_xs_single(xs, domid, "qubes_vm_type", "DisposableVM");
-	write_xs_single(xs, domid, "qubes_restore_complete", "True");
+	write_xs_single(xs, domid, "qubes-secondary-dns", val);
+	write_xs_single(xs, domid, "qubes-vm-type", "DisposableVM");
+	write_xs_single(xs, domid, "qubes-restore-complete", "True");
 
 	perm[0].id = domid;
 	perm[0].perms = XS_PERM_NONE;
