@@ -104,8 +104,8 @@ cp system-config/block-snapshot $RPM_BUILD_ROOT/etc/xen/scripts
 ln -s block-snapshot $RPM_BUILD_ROOT/etc/xen/scripts/block-origin
 
 mkdir -p $RPM_BUILD_ROOT/etc/udev/rules.d
-cp system-config/qubes_block.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_block.rules
-cp system-config/qubes_usb.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_usb.rules
+cp system-config/udev-qubes-block.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes-block.rules
+cp system-config/udev-qubes-usb.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes-usb.rules
 
 mkdir -p $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp core/qubes.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
@@ -123,31 +123,31 @@ mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/qubes
 cp qmemman/qmemman.conf $RPM_BUILD_ROOT%{_sysconfdir}/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
-cp aux-tools/unbind_pci_device.sh $RPM_BUILD_ROOT/usr/lib/qubes
-cp aux-tools/convert_apptemplate2vm.sh $RPM_BUILD_ROOT/usr/lib/qubes
-cp aux-tools/convert_dirtemplate2vm.sh $RPM_BUILD_ROOT/usr/lib/qubes
-cp aux-tools/create_apps_for_appvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
-cp aux-tools/remove_appvm_appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes
-cp aux-tools/cleanup_dispvms $RPM_BUILD_ROOT/usr/lib/qubes
+cp aux-tools/unbind-pci-device.sh $RPM_BUILD_ROOT/usr/lib/qubes
+cp aux-tools/convert-apptemplate2vm.sh $RPM_BUILD_ROOT/usr/lib/qubes
+cp aux-tools/convert-dirtemplate2vm.sh $RPM_BUILD_ROOT/usr/lib/qubes
+cp aux-tools/create-apps-for-appvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
+cp aux-tools/remove-appvm-appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes
+cp aux-tools/cleanup-dispvms $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/startup-dvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/startup-misc.sh $RPM_BUILD_ROOT/usr/lib/qubes
-cp aux-tools/prepare_volatile_img.sh $RPM_BUILD_ROOT/usr/lib/qubes
+cp aux-tools/prepare-volatile-img.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp qmemman/server.py $RPM_BUILD_ROOT/usr/lib/qubes/qmemman_daemon.py
 cp qmemman/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
 cp qubes-rpc/qfile-dom0-unpacker $RPM_BUILD_ROOT/usr/lib/qubes/
 cp qubes-rpc/qubes-notify-updates $RPM_BUILD_ROOT/usr/lib/qubes/
 cp qubes-rpc/qubes-receive-appmenus $RPM_BUILD_ROOT/usr/lib/qubes/
 cp qubes-rpc/qubes-receive-updates $RPM_BUILD_ROOT/usr/lib/qubes/
-cp aux-tools/block_add_change $RPM_BUILD_ROOT/usr/lib/qubes/
-cp aux-tools/block_remove $RPM_BUILD_ROOT/usr/lib/qubes/
-cp aux-tools/block_cleanup $RPM_BUILD_ROOT/usr/lib/qubes/
-cp aux-tools/usb_add_change $RPM_BUILD_ROOT/usr/lib/qubes/
-cp aux-tools/usb_remove $RPM_BUILD_ROOT/usr/lib/qubes/
+cp aux-tools/udev-block-add-change $RPM_BUILD_ROOT/usr/lib/qubes/
+cp aux-tools/udev-block-remove $RPM_BUILD_ROOT/usr/lib/qubes/
+cp aux-tools/udev-block-cleanup $RPM_BUILD_ROOT/usr/lib/qubes/
+cp aux-tools/udev-usb-add-change $RPM_BUILD_ROOT/usr/lib/qubes/
+cp aux-tools/udev-usb-remove $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/vusb-ctl.py $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/xl-qvm-usb-attach.py $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/xl-qvm-usb-detach.py $RPM_BUILD_ROOT/usr/lib/qubes/
-cp aux-tools/block_cleaner_daemon.py $RPM_BUILD_ROOT/usr/lib/qubes/
-cp aux-tools/fix_dir_perms.sh $RPM_BUILD_ROOT/usr/lib/qubes/
+cp aux-tools/block-cleaner-daemon.py $RPM_BUILD_ROOT/usr/lib/qubes/
+cp aux-tools/fix-dir-perms.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/etc/qubes-rpc/policy
 cp qubes-rpc-policy/qubes.Filecopy.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.Filecopy
@@ -164,9 +164,9 @@ install -D aux-tools/qubes-dom0-updates.cron $RPM_BUILD_ROOT/etc/cron.daily/qube
 install -D aux-tools/qubes-sync-clock.cron $RPM_BUILD_ROOT/etc/cron.d/qubes-sync-clock.cron
 
 cp dispvm/xenstore-watch $RPM_BUILD_ROOT/usr/bin/xenstore-watch-qubes
-cp dispvm/qubes_restore $RPM_BUILD_ROOT/usr/lib/qubes
-cp dispvm/qubes_prepare_saved_domain.sh  $RPM_BUILD_ROOT/usr/lib/qubes
-cp dispvm/qubes_update_dispvm_savefile_with_progress.sh  $RPM_BUILD_ROOT/usr/lib/qubes
+cp dispvm/qubes-restore $RPM_BUILD_ROOT/usr/lib/qubes
+cp dispvm/qubes-prepare-saved-domain.sh  $RPM_BUILD_ROOT/usr/lib/qubes
+cp dispvm/qubes-update-dispvm-savefile-with-progress.sh  $RPM_BUILD_ROOT/usr/lib/qubes
 cp dispvm/qfile-daemon-dvm $RPM_BUILD_ROOT/usr/lib/qubes
 
 mkdir -p $RPM_BUILD_ROOT/etc/yum.real.repos.d
@@ -235,7 +235,7 @@ echo '[main]' > /etc/NetworkManager/NetworkManager.conf
 echo 'plugins = keyfile' >> /etc/NetworkManager/NetworkManager.conf
 echo '[keyfile]' >> /etc/NetworkManager/NetworkManager.conf
 fi
-/usr/lib/qubes/qubes_fix_nm_conf.sh
+/usr/lib/qubes/qubes-fix-nm-conf.sh
 
 sed 's/^net.ipv4.ip_forward.*/net.ipv4.ip_forward = 1/'  -i /etc/sysctl.conf
 
@@ -312,7 +312,7 @@ fi
 
 %triggerin -- xen-runtime
 sed -i 's/\/block /\/block.qubes /' /etc/udev/rules.d/xen-backend.rules
-/usr/lib/qubes/fix_dir_perms.sh
+/usr/lib/qubes/fix-dir-perms.sh
 
 %triggerin -- xorg-x11-drv-vmmouse
 mv -f /lib/udev/rules.d/69-xorg-vmmouse.rules /var/lib/qubes/removed-udev-scripts/ 2> /dev/null || :
@@ -362,31 +362,31 @@ fi
 %{python_sitearch}/qubes/__init__.pyc
 %{python_sitearch}/qubes/__init__.pyo
 %{python_sitearch}/qubes/qmemman*.py*
-/usr/lib/qubes/unbind_pci_device.sh
-/usr/lib/qubes/cleanup_dispvms
-/usr/lib/qubes/convert_apptemplate2vm.sh
-/usr/lib/qubes/convert_dirtemplate2vm.sh
-/usr/lib/qubes/create_apps_for_appvm.sh
-/usr/lib/qubes/remove_appvm_appmenus.sh
+/usr/lib/qubes/unbind-pci-device.sh
+/usr/lib/qubes/cleanup-dispvms
+/usr/lib/qubes/convert-apptemplate2vm.sh
+/usr/lib/qubes/convert-dirtemplate2vm.sh
+/usr/lib/qubes/create-apps-for-appvm.sh
+/usr/lib/qubes/remove-appvm-appmenus.sh
 /usr/lib/qubes/qmemman_daemon.py*
 /usr/lib/qubes/meminfo-writer
 /usr/lib/qubes/qfile-daemon-dvm*
 /usr/lib/qubes/qubes-notify-updates
 /usr/lib/qubes/qubes-receive-appmenus
 /usr/lib/qubes/qubes-receive-updates
-/usr/lib/qubes/block_add_change
-/usr/lib/qubes/block_remove
-/usr/lib/qubes/block_cleanup
-/usr/lib/qubes/block_cleaner_daemon.py*
-/usr/lib/qubes/usb_add_change
-/usr/lib/qubes/usb_remove
+/usr/lib/qubes/udev-block-add-change
+/usr/lib/qubes/udev-block-remove
+/usr/lib/qubes/udev-block-cleanup
+/usr/lib/qubes/block-cleaner-daemon.py*
+/usr/lib/qubes/udev-usb-add-change
+/usr/lib/qubes/udev-usb-remove
 /usr/lib/qubes/vusb-ctl.py*
 /usr/lib/qubes/xl-qvm-usb-attach.py*
 /usr/lib/qubes/xl-qvm-usb-detach.py*
-/usr/lib/qubes/fix_dir_perms.sh
+/usr/lib/qubes/fix-dir-perms.sh
 /usr/lib/qubes/startup-dvm.sh
 /usr/lib/qubes/startup-misc.sh
-/usr/lib/qubes/prepare_volatile_img.sh
+/usr/lib/qubes/prepare-volatile-img.sh
 %attr(4750,root,qubes) /usr/lib/qubes/qfile-dom0-unpacker
 %{_unitdir}/qubes-block-cleaner.service
 %{_unitdir}/qubes-core.service
@@ -420,9 +420,9 @@ fi
 /usr/lib64/pm-utils/sleep.d/51qubes-suspend-netvm
 /usr/lib64/pm-utils/sleep.d/52qubes-pause-vms
 /usr/bin/xenstore-watch-qubes
-/usr/lib/qubes/qubes_restore
-/usr/lib/qubes/qubes_prepare_saved_domain.sh
-/usr/lib/qubes/qubes_update_dispvm_savefile_with_progress.sh
+/usr/lib/qubes/qubes-restore
+/usr/lib/qubes/qubes-prepare-saved-domain.sh
+/usr/lib/qubes/qubes-update-dispvm-savefile-with-progress.sh
 /etc/xen/scripts/block.qubes
 /etc/xen/scripts/block-snapshot
 /etc/xen/scripts/block-origin
@@ -443,8 +443,8 @@ fi
 /etc/polkit-1/rules.d/00-qubes-allow-all.rules
 /etc/xdg/autostart/qubes-guid.desktop
 /etc/security/limits.d/99-qubes.conf
-/etc/udev/rules.d/99-qubes_block.rules
-/etc/udev/rules.d/99-qubes_usb.rules
+/etc/udev/rules.d/99-qubes-block.rules
+/etc/udev/rules.d/99-qubes-usb.rules
 %attr(0644,root,root) /etc/cron.daily/qubes-dom0-updates.cron
 %attr(0644,root,root) /etc/cron.d/qubes-sync-clock.cron
 /etc/dracut.conf.d/*

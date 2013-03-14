@@ -8,7 +8,7 @@
 ## running in dom0.
 ##
 
-# FIXME: Ignore USB hubs and other wierd devices (see also in usb_remove).
+# FIXME: Ignore USB hubs and other wierd devices (see also in udev-usb-remove).
 [ "`echo $TYPE | cut -f1 -d/`" = "9" ] && exit 0
 [ "$DEVTYPE" != "usb_device" ] && exit 0
 

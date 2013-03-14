@@ -70,7 +70,7 @@ class QfileDaemonDvm:
             assert sys.argv[4] in QubesDispVmLabels.keys(), "Invalid label"
             label = QubesDispVmLabels[sys.argv[4]]
         print >>sys.stderr, "time=%s, starting qubes_restore" % (str(time.time()))
-        retcode = subprocess.call(['/usr/lib/qubes/qubes_restore',
+        retcode = subprocess.call(['/usr/lib/qubes/qubes-restore',
             current_savefile,
             current_dvm_conf,
             '-u', str(vm.default_user),
@@ -80,9 +80,9 @@ class QfileDaemonDvm:
         qmemman_client.close()
         if retcode != 0:
             if os.path.exists('/usr/bin/kdialog'):
-                subprocess.call(['/usr/bin/kdialog', '--sorry', 'DisposableVM creation failed, see qubes_restore.log'])
+                subprocess.call(['/usr/bin/kdialog', '--sorry', 'DisposableVM creation failed, see qubes-restore.log'])
             else:
-                subprocess.call(['/usr/bin/zenity', '--warning', 'DisposableVM creation failed, see qubes_restore.log'])
+                subprocess.call(['/usr/bin/zenity', '--warning', 'DisposableVM creation failed, see qubes-restore.log'])
             qvm_collection.unlock_db()
             return None
         f = open('/var/run/qubes/dispVM_xid', 'r');
@@ -136,7 +136,7 @@ class QfileDaemonDvm:
 
     def get_dvm(self):
         if not self.dvm_setup_ok():
-            if os.system("/usr/lib/qubes/qubes_update_dispvm_savefile_with_progress.sh >/dev/null </dev/null" ) != 0:
+            if os.system("/usr/lib/qubes/qubes-update-dispvm-savefile-with-progress.sh >/dev/null </dev/null" ) != 0:
                 self.tray_notify_error("DVM savefile creation failed")
                 return None 
         return self.do_get_dvm()

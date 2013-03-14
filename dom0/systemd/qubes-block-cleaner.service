@@ -3,7 +3,7 @@ Description=Qubes block device cleaner (xen front/back)
 After=qubes-core.service
 
 [Service]
-ExecStart=/usr/lib/qubes/block_cleaner_daemon.py
+ExecStart=/usr/lib/qubes/block-cleaner-daemon.py
 StandardOutput=syslog
 
 [Install]

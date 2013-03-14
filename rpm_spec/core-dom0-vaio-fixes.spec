@@ -21,10 +21,10 @@ suspend/resume.
 
 %install
 mkdir -p $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d
-cp vaio_fixes/00sony-vaio-audio $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
-cp vaio_fixes/99sony-vaio-audio $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
+cp vaio-fixes/00sony-vaio-audio $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
+cp vaio-fixes/99sony-vaio-audio $RPM_BUILD_ROOT/usr/lib64/pm-utils/sleep.d/
 mkdir -p $RPM_BUILD_ROOT/etc/modprobe.d/
-cp vaio_fixes/snd-hda-intel-sony-vaio.conf $RPM_BUILD_ROOT/etc/modprobe.d/
+cp vaio-fixes/snd-hda-intel-sony-vaio.conf $RPM_BUILD_ROOT/etc/modprobe.d/
 
 %files
 /usr/lib64/pm-utils/sleep.d/00sony-vaio-audio

@@ -38,11 +38,11 @@ mkdir -p $APPSDIR
 if [ "$SRCDIR" != "none" ]; then
     echo "--> Converting Appmenu Templates..."
     if [ -r "$VMDIR/whitelisted-appmenus.list" ]; then
-        cat $VMDIR/whitelisted-appmenus.list | xargs -I{} /usr/lib/qubes/convert_apptemplate2vm.sh $SRCDIR/{} $APPSDIR $VMNAME $VMDIR
+        cat $VMDIR/whitelisted-appmenus.list | xargs -I{} /usr/lib/qubes/convert-apptemplate2vm.sh $SRCDIR/{} $APPSDIR $VMNAME $VMDIR
     else
-        find $SRCDIR -name "*.desktop" $CHECK_WHITELISTED -exec /usr/lib/qubes/convert_apptemplate2vm.sh {} $APPSDIR $VMNAME $VMDIR \;
+        find $SRCDIR -name "*.desktop" $CHECK_WHITELISTED -exec /usr/lib/qubes/convert-apptemplate2vm.sh {} $APPSDIR $VMNAME $VMDIR \;
     fi
-    /usr/lib/qubes/convert_apptemplate2vm.sh /usr/share/qubes/qubes-appmenu-select.desktop $APPSDIR $VMNAME $VMDIR
+    /usr/lib/qubes/convert-apptemplate2vm.sh /usr/share/qubes/qubes-appmenu-select.desktop $APPSDIR $VMNAME $VMDIR
 
     if [ "$VMTYPE" = "vm-templates" ]; then
         DIR_TEMPLATE=/usr/share/qubes/qubes-templatevm.directory.template
@@ -51,7 +51,7 @@ if [ "$SRCDIR" != "none" ]; then
     else
         DIR_TEMPLATE=/usr/share/qubes/qubes-vm.directory.template
     fi
-    /usr/lib/qubes/convert_dirtemplate2vm.sh $DIR_TEMPLATE $APPSDIR/$VMNAME-vm.directory $VMNAME $VMDIR
+    /usr/lib/qubes/convert-dirtemplate2vm.sh $DIR_TEMPLATE $APPSDIR/$VMNAME-vm.directory $VMNAME $VMDIR
 fi
 
 echo "--> Adding Apps to the Menu..."

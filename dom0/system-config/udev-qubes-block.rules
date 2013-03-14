@@ -10,11 +10,11 @@ ENV{MAJOR}=="202", GOTO="qubes_block_end"
 ENV{MAJOR}=="253", GOTO="qubes_block_end"
 
 IMPORT{db}="QUBES_EXPOSED"
-ACTION=="add", IMPORT{program}="/usr/lib/qubes/block_add_change"
-ACTION=="change", IMPORT{program}="/usr/lib/qubes/block_add_change"
-ACTION=="remove", RUN+="/usr/lib/qubes/block_remove"
+ACTION=="add", IMPORT{program}="/usr/lib/qubes/udev-block-add-change"
+ACTION=="change", IMPORT{program}="/usr/lib/qubes/udev-block-add-change"
+ACTION=="remove", RUN+="/usr/lib/qubes/udev-block-remove"
 
 LABEL="qubes_block_end"
 
 # Cleanup disconnected frontend from xenstore
-ACTION=="remove", SUBSYSTEM=="block", ENV{MAJOR}=="202", RUN+="/usr/lib/qubes/block_cleanup"
+ACTION=="remove", SUBSYSTEM=="block", ENV{MAJOR}=="202", RUN+="/usr/lib/qubes/udev-block-cleanup"

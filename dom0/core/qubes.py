@@ -102,10 +102,10 @@ dom0_min_memory = 700*1024*1024
 # must be able to ask Dom0 VM about how much memory it currently has...
 dom0_vm = None
 
-qubes_appmenu_create_cmd = "/usr/lib/qubes/create_apps_for_appvm.sh"
-qubes_appmenu_remove_cmd = "/usr/lib/qubes/remove_appvm_appmenus.sh"
-qubes_pciback_cmd = '/usr/lib/qubes/unbind_pci_device.sh'
-prepare_volatile_img_cmd = '/usr/lib/qubes/prepare_volatile_img.sh'
+qubes_appmenu_create_cmd = "/usr/lib/qubes/create-apps-for-appvm.sh"
+qubes_appmenu_remove_cmd = "/usr/lib/qubes/remove-appvm-appmenus.sh"
+qubes_pciback_cmd = '/usr/lib/qubes/unbind-pci-device.sh'
+prepare_volatile_img_cmd = '/usr/lib/qubes/prepare-volatile-img.sh'
 
 yum_proxy_ip = '10.137.255.254'
 yum_proxy_port = '8082'
@@ -717,7 +717,7 @@ class QubesVm(object):
         xid = self.get_xid()
         if xid < 0:
             return False
-        if not os.path.exists('/var/run/qubes/guid_running.%d' % xid):
+        if not os.path.exists('/var/run/qubes/guid-running.%d' % xid):
             return False
         return True
 
@@ -2600,7 +2600,7 @@ class QubesHVm(QubesVm):
             xid = self.stubdom_xid
             if xid < 0:
                 return False
-            if not os.path.exists('/var/run/qubes/guid_running.%d' % xid):
+            if not os.path.exists('/var/run/qubes/guid-running.%d' % xid):
                 return False
             return True
 
