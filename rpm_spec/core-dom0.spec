@@ -124,7 +124,6 @@ cp qmemman/qmemman.conf $RPM_BUILD_ROOT%{_sysconfdir}/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/unbind_pci_device.sh $RPM_BUILD_ROOT/usr/lib/qubes
-cp aux-tools/unbind_all_network_devices $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/convert_apptemplate2vm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/convert_dirtemplate2vm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/create_apps_for_appvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
@@ -364,7 +363,6 @@ fi
 %{python_sitearch}/qubes/__init__.pyo
 %{python_sitearch}/qubes/qmemman*.py*
 /usr/lib/qubes/unbind_pci_device.sh
-/usr/lib/qubes/unbind_all_network_devices
 /usr/lib/qubes/cleanup_dispvms
 /usr/lib/qubes/convert_apptemplate2vm.sh
 /usr/lib/qubes/convert_dirtemplate2vm.sh
