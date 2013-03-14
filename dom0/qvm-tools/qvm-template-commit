@@ -26,8 +26,6 @@ from optparse import OptionParser
 import subprocess
 import sys
 
-qubes_guid_path = "/usr/bin/qubes_guid"
-
 def main():
     usage = "usage: %prog [options] <vm-name>"
     parser = OptionParser (usage)

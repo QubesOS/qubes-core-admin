@@ -48,7 +48,7 @@ if not dry_run:
     import xen.lowlevel.xs
 
 
-qubes_guid_path = "/usr/bin/qubes_guid"
+qubes_guid_path = "/usr/bin/qubes-guid"
 qrexec_daemon_path = "/usr/lib/qubes/qrexec-daemon"
 qrexec_client_path = "/usr/lib/qubes/qrexec-client"
 
@@ -1505,7 +1505,7 @@ class QubesVm(object):
             guid_cmd += ['-v', '-v']
         retcode = subprocess.call (guid_cmd)
         if (retcode != 0) :
-            raise QubesException("Cannot start qubes_guid!")
+            raise QubesException("Cannot start qubes-guid!")
 
         if verbose:
             print >> sys.stderr, "--> Waiting for qubes-session..."
@@ -2566,7 +2566,7 @@ class QubesHVm(QubesVm):
 
             retcode = subprocess.call ([qubes_guid_path, "-d", str(self.stubdom_xid), "-c", self.label.color, "-i", self.label.icon_path, "-l", str(self.label.index)])
             if (retcode != 0) :
-                raise QubesException("Cannot start qubes_guid!")
+                raise QubesException("Cannot start qubes-guid!")
 
     def start_qrexec_daemon(self, **kwargs):
         if self.qrexec_installed:

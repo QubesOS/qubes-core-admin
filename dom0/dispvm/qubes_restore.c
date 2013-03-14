@@ -168,13 +168,13 @@ void start_guid(int domid, int argc, char **argv)
 	char dstr[40];
 	char *guid_args[argc + 1];
 	snprintf(dstr, sizeof(dstr), "%d", domid);
-	guid_args[0] = "qubes_guid";
+	guid_args[0] = "qubes-guid";
 	guid_args[1] = "-d";
 	guid_args[2] = dstr;
 	for (i = 0; i < argc; i++)
 		guid_args[i+3] = argv[i];
 	guid_args[argc+3] = NULL;
-	execv("/usr/bin/qubes_guid", guid_args);
+	execv("/usr/bin/qubes-guid", guid_args);
 	perror("execv");
 }
 
@@ -479,8 +479,8 @@ int main(int argc, char **argv)
 	rm_fast_flag();
 	fprintf(stderr, "time=%s, starting qrexec\n", gettime());
 	start_rexec(domid, default_user);
-	fprintf(stderr, "time=%s, starting qubes_guid\n", gettime());
+	fprintf(stderr, "time=%s, starting qubes-guid\n", gettime());
 	start_guid(domid, argc-guid_args_start, argv+guid_args_start);
-	fprintf(stderr, "time=%s, started qubes_guid\n", gettime());
+	fprintf(stderr, "time=%s, started qubes-guid\n", gettime());
 	return 0;
 }

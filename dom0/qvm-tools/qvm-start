@@ -28,8 +28,6 @@ import os
 import sys
 import dbus
 
-qubes_guid_path = "/usr/bin/qubes_guid"
-
 notify_object = None
 
 def tray_notify(str, label, timeout = 3000):
