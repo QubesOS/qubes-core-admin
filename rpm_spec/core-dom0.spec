@@ -75,8 +75,8 @@ ln -sf . %{name}-%{version}
 %setup -T -D
 
 %build
-python -m compileall dom0/qvm-core dom0/qmemman
-python -O -m compileall dom0/qvm-core dom0/qmemman
+python -m compileall dom0/core dom0/qmemman
+python -O -m compileall dom0/core dom0/qmemman
 for dir in dom0/dispvm dom0/qubes-rpc dom0/qmemman; do
   (cd $dir; make)
 done
@@ -108,14 +108,14 @@ cp system-config/qubes_block.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_blo
 cp system-config/qubes_usb.rules $RPM_BUILD_ROOT/etc/udev/rules.d/99-qubes_usb.rules
 
 mkdir -p $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp qvm-core/qubes.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp qvm-core/qubes.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp qvm-core/qubesutils.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp qvm-core/qubesutils.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp qvm-core/guihelpers.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp qvm-core/guihelpers.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp qvm-core/__init__.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp qvm-core/__init__.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
+cp core/qubes.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
+cp core/qubes.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
+cp core/qubesutils.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
+cp core/qubesutils.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
+cp core/guihelpers.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
+cp core/guihelpers.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
+cp core/__init__.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
+cp core/__init__.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qmemman/qmemman*py $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qmemman/qmemman*py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
 
