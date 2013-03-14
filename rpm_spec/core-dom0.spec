@@ -120,7 +120,7 @@ cp qmemman/qmemman*py $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qmemman/qmemman*py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
 
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/qubes
-cp misc/qmemman.conf $RPM_BUILD_ROOT%{_sysconfdir}/qubes/
+cp qmemman/qmemman.conf $RPM_BUILD_ROOT%{_sysconfdir}/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/unbind_pci_device.sh $RPM_BUILD_ROOT/usr/lib/qubes
