@@ -149,7 +149,7 @@ void start_rexec(int domid, char *default_user)
 		perror("fork");
 		exit(1);
 	case 0:
-		execl("/usr/lib/qubes/qrexec_daemon", "qrexec_daemon",
+		execl("/usr/lib/qubes/qrexec-daemon", "qrexec-daemon",
 		      dstr, default_user, NULL);
 		perror("execl");
 		exit(1);

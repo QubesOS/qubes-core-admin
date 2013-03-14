@@ -80,9 +80,9 @@ echo "Checking for dom0 updates" >&2
 # Start VM if not running already
 qvm-run $QVMRUN_OPTS -a $UPDATEVM true || exit 1
 
-/usr/lib/qubes/qrexec_client -d "$UPDATEVM" -l 'tar c /var/lib/rpm /etc/yum.repos.d /etc/yum.conf 2>/dev/null' 'user:tar x -C /var/lib/qubes/dom0-updates' 2> /dev/null
+/usr/lib/qubes/qrexec-client -d "$UPDATEVM" -l 'tar c /var/lib/rpm /etc/yum.repos.d /etc/yum.conf 2>/dev/null' 'user:tar x -C /var/lib/qubes/dom0-updates' 2> /dev/null
 
-qvm-run $QVMRUN_OPTS --pass-io $UPDATEVM "/usr/lib/qubes/qubes_download_dom0_updates.sh --doit --nogui $ALL_OPTS"
+qvm-run $QVMRUN_OPTS --pass-io $UPDATEVM "/usr/lib/qubes/qubes-download-dom0-updates.sh --doit --nogui $ALL_OPTS"
 RETCODE=$?
 if [ "$CHECK_ONLY" == "1" ]; then
     exit $RETCODE

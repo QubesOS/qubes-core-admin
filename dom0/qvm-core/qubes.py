@@ -49,8 +49,8 @@ if not dry_run:
 
 
 qubes_guid_path = "/usr/bin/qubes_guid"
-qrexec_daemon_path = "/usr/lib/qubes/qrexec_daemon"
-qrexec_client_path = "/usr/lib/qubes/qrexec_client"
+qrexec_daemon_path = "/usr/lib/qubes/qrexec-daemon"
+qrexec_client_path = "/usr/lib/qubes/qrexec-client"
 
 qubes_base_dir   = "/var/lib/qubes"
 
@@ -1521,7 +1521,7 @@ class QubesVm(object):
         retcode = subprocess.call ([qrexec_daemon_path, str(xid), self.default_user], env=qrexec_env)
         if (retcode != 0) :
             self.force_shutdown(xid=xid)
-            raise OSError ("ERROR: Cannot execute qrexec_daemon!")
+            raise OSError ("ERROR: Cannot execute qrexec-daemon!")
 
     def start(self, debug_console = False, verbose = False, preparing_dvm = False, start_guid = True, notify_function = None):
         if dry_run:

@@ -173,8 +173,8 @@ def main():
     lockf.close()
     if dispname is not None:
         print >>sys.stderr, "time=%s, starting VM process" % (str(time.time()))
-        subprocess.call(['/usr/lib/qubes/qrexec_client', '-d', dispname,
-            user+':exec /usr/lib/qubes/qubes_rpc_multiplexer ' + exec_index + " " + src_vmname])
+        subprocess.call(['/usr/lib/qubes/qrexec-client', '-d', dispname,
+            user+':exec /usr/lib/qubes/qubes-rpc-multiplexer ' + exec_index + " " + src_vmname])
         subprocess.call(['/usr/sbin/xl', 'destroy', dispname])
         qfile.remove_disposable_from_qdb(dispname)
 
