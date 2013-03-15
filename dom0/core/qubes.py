@@ -592,19 +592,19 @@ class QubesVm(object):
         self.create_appmenus(verbose=False)
 
     def is_template(self):
-        return isinstance(self, QubesTemplateVm)
+        return False
 
     def is_appvm(self):
-        return isinstance(self, QubesAppVm)
+        return False
 
     def is_netvm(self):
-        return isinstance(self, QubesNetVm)
+        return False
 
     def is_proxyvm(self):
-        return isinstance(self, QubesProxyVm)
+        return False
 
     def is_disposablevm(self):
-        return isinstance(self, QubesDisposableVm)
+        return False
 
     def get_xl_dominfo(self):
         if dry_run:
@@ -1729,6 +1729,9 @@ class QubesTemplateVm(QubesVm):
     def updateable(self):
         return True
 
+    def is_template(self):
+        return True
+
     def get_firewall_defaults(self):
         return { "rules": list(), "allow": False, "allowDns": False, "allowIcmp": False, "allowYumProxy": True }
 
@@ -1910,6 +1913,9 @@ class QubesNetVm(QubesVm):
     def type(self):
         return "NetVM"
 
+    def is_netvm(self):
+        return True
+
     @property
     def gateway(self):
         return self.__gateway
@@ -2058,6 +2064,9 @@ class QubesProxyVm(QubesNetVm):
     @property
     def type(self):
         return "ProxyVM"
+
+    def is_proxyvm(self):
+        return True
 
     def _set_netvm(self, new_netvm):
         old_netvm = self.netvm
@@ -2296,6 +2305,9 @@ class QubesDisposableVm(QubesVm):
     def type(self):
         return "DisposableVM"
 
+    def is_disposablevm(self):
+        return True
+
     @property
     def ip(self):
         if self.netvm is not None:
@@ -2332,6 +2344,9 @@ class QubesAppVm(QubesVm):
     @property
     def type(self):
         return "AppVM"
+
+    def is_appvm(self):
+        return True
 
     def create_on_disk(self, verbose, source_template = None):
         if dry_run:
