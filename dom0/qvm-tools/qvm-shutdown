@@ -21,7 +21,7 @@
 #
 
 from qubes.qubes import QubesVmCollection,QubesException
-from qubes.qubes import shutdown_counter_max
+from qubes.qubes import defaults
 from optparse import OptionParser;
 import sys
 import time
@@ -97,7 +97,7 @@ def main():
             for vm in vms_list:
                 if not vm.is_running():
                     vms_list.remove (vm)
-                if shutdown_counter > shutdown_counter_max:
+                if shutdown_counter > defaults["shutdown_counter_max"]:
                     # kill the VM
                     if options.verbose:
                         print >> sys.stderr, "Killing the (apparently hanging) VM '{0}'...".format(vm.name)

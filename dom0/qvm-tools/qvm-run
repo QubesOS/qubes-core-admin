@@ -38,7 +38,7 @@ notify_object = None
 
 # how long (in sec) to wait for VMs to shutdown
 # before killing them (when used with --wait option)
-from qubes.qubes import shutdown_counter_max
+from qubes.qubes import defaults
 
 def tray_notify(str, label, timeout = 3000):
     notify_object.Notify("Qubes", 0, label.icon, "Qubes", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
@@ -207,7 +207,7 @@ def main():
             for vm in vms_list:
                 if not vm.is_running():
                     vms_list.remove (vm)
-                if shutdown_counter > shutdown_counter_max:
+                if shutdown_counter > defaults["shutdown_counter_max"]:
                     # kill the VM
                     if options.verbose:
                         print >> sys.stderr, "Killing the (apparently hanging) VM '{0}'...".format(vm.name)

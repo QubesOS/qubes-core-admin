@@ -27,7 +27,7 @@ import shutil
 import grp
 from datetime import datetime
 from qubes.qubes import QubesVmCollection
-from qubes.qubes import updates_stat_file
+from qubes.qubes import vm_files
 
 def main():
 
@@ -58,10 +58,10 @@ def main():
     update_count = untrusted_update_count
     if source_vm.updateable:
         # Just trust information from VM itself
-        update_f = open(source_vm.dir_path + '/' + updates_stat_file, "w")
+        update_f = open(source_vm.dir_path + '/' + vm_files["updates_stat_file"], "w")
         update_f.write(update_count)
         update_f.close()
-        os.chown(source_vm.dir_path + '/' + updates_stat_file, -1, qubes_gid)
+        os.chown(source_vm.dir_path + '/' + vm_files["updates_stat_file"], -1, qubes_gid)
     elif source_vm.template is not None:
         # Hint about updates availability in template
         # If template is running - it will notify about updates itself
@@ -69,7 +69,7 @@ def main():
             return
         # Ignore no-updates info
         if int(update_count) > 0:
-            stat_file = source_vm.template.dir_path + '/' + updates_stat_file
+            stat_file = source_vm.template.dir_path + '/' + vm_files["updates_stat_file"]
             # If VM is started before last updates.stat - it means that updates
             # already was installed (but VM still hasn't been restarted), or other
             # VM has already notified about updates availability

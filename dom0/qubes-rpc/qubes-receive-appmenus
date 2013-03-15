@@ -28,7 +28,6 @@ import fnmatch
 import shutil
 from optparse import OptionParser
 from qubes.qubes import QubesVmCollection,QubesException
-from qubes.qubes import qrexec_client_path
 
 # fields required to be present (and verified) in retrieved desktop file
 required_fields = [ "Name", "Exec" ]

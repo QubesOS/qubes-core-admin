@@ -48,64 +48,72 @@ if not dry_run:
     import xen.lowlevel.xs
 
 
-qubes_guid_path = "/usr/bin/qubes-guid"
-qrexec_daemon_path = "/usr/lib/qubes/qrexec-daemon"
-qrexec_client_path = "/usr/lib/qubes/qrexec-client"
-
 qubes_base_dir   = "/var/lib/qubes"
+system_path = {
+    'qubes_guid_path': '/usr/bin/qubes-guid',
+    'qrexec_daemon_path': '/usr/lib/qubes/qrexec-daemon',
+    'qrexec_client_path': '/usr/lib/qubes/qrexec-client',
 
-qubes_appvms_dir = qubes_base_dir + "/appvms"
-qubes_templates_dir = qubes_base_dir + "/vm-templates"
-qubes_servicevms_dir = qubes_base_dir + "/servicevms"
-qubes_store_filename = qubes_base_dir + "/qubes.xml"
-qubes_kernels_base_dir = qubes_base_dir + "/vm-kernels"
+    'qubes_base_dir': qubes_base_dir,
+
+    'qubes_appvms_dir': qubes_base_dir + '/appvms',
+    'qubes_templates_dir': qubes_base_dir + '/vm-templates',
+    'qubes_servicevms_dir': qubes_base_dir + '/servicevms',
+    'qubes_store_filename': qubes_base_dir + '/qubes.xml',
+    'qubes_kernels_base_dir': qubes_base_dir + '/vm-kernels',
+
+    'qubes_icon_dir': '/usr/share/qubes/icons',
+
+    'config_template_pv': '/usr/share/qubes/vm-template.conf',
+    'config_template_hvm': '/usr/share/qubes/vm-template-hvm.conf',
+
+    'start_appmenu_template': '/usr/share/qubes/qubes-start.desktop',
+    'qubes_appmenu_create_cmd': '/usr/lib/qubes/create-apps-for-appvm.sh',
+    'qubes_appmenu_remove_cmd': '/usr/lib/qubes/remove-appvm-appmenus.sh',
+
+    'qubes_pciback_cmd': '/usr/lib/qubes/unbind-pci-device.sh',
+    'prepare_volatile_img_cmd': '/usr/lib/qubes/prepare-volatile-img.sh',
+}
+
+vm_files = {
+    'root_img': 'root.img',
+    'rootcow_img': 'root-cow.img',
+    'volatile_img': 'volatile.img',
+    'clean_volatile_img': 'clean-volatile.img.tar',
+    'private_img': 'private.img',
+    'appmenus_templates_subdir': 'apps.templates',
+    'appmenus_template_templates_subdir': 'apps-template.templates',
+    'kernels_subdir': 'kernels',
+    'firewall_conf': 'firewall.xml',
+    'whitelisted_appmenus': 'whitelisted-appmenus.list',
+    'updates_stat_file': 'updates.stat',
+}
+
+defaults = {
+    'memory': 400,
+    'kernelopts': "",
+    'kernelopts_pcidevs': "iommu=soft swiotlb=4096",
+
+    'hvm_disk_size': 20*1024*1024*1024,
+    'hvm_private_img_size': 2*1024*1024*1024,
+    'hvm_memory': 512,
+
+    'dom0_update_check_interval': 6*3600,
+
+    # how long (in sec) to wait for VMs to shutdown,
+    # before killing them (when used qvm-run with --wait option),
+    'shutdown_counter_max': 60,
+
+    'vm_default_netmask': "255.255.255.0",
+
+    # Set later
+    'appvm_label': None,
+    'template_label': None,
+    'servicevm_label': None,
+}
 
 qubes_max_qid = 254
 qubes_max_netid = 254
-vm_default_netmask = "255.255.255.0"
-
-default_root_img = "root.img"
-default_rootcow_img = "root-cow.img"
-default_volatile_img = "volatile.img"
-default_clean_volatile_img = "clean-volatile.img.tar"
-default_private_img = "private.img"
-default_appmenus_templates_subdir = "apps.templates"
-default_appmenus_template_templates_subdir = "apps-template.templates"
-default_kernels_subdir = "kernels"
-default_firewall_conf_file = "firewall.xml"
-default_memory = 400
-default_kernelopts = ""
-default_kernelopts_pcidevs = "iommu=soft swiotlb=4096"
-
-default_hvm_disk_size = 20*1024*1024*1024
-default_hvm_private_img_size = 2*1024*1024*1024
-default_hvm_memory = 512
-
-config_template_pv = '/usr/share/qubes/vm-template.conf'
-config_template_hvm = '/usr/share/qubes/vm-template-hvm.conf'
-
-start_appmenu_template = '/usr/share/qubes/qubes-start.desktop'
-
-qubes_whitelisted_appmenus = 'whitelisted-appmenus.list'
-
-dom0_update_check_interval = 6*3600
-updates_stat_file = 'updates.stat'
-
-# how long (in sec) to wait for VMs to shutdown
-# before killing them (when used qvm-run with --wait option)
-shutdown_counter_max = 60
-
-# do not allow to start a new AppVM if Dom0 mem was to be less than this
-dom0_min_memory = 700*1024*1024
-
-# We need this global reference, as each instance of QubesVm
-# must be able to ask Dom0 VM about how much memory it currently has...
-dom0_vm = None
-
-qubes_appmenu_create_cmd = "/usr/lib/qubes/create-apps-for-appvm.sh"
-qubes_appmenu_remove_cmd = "/usr/lib/qubes/remove-appvm-appmenus.sh"
-qubes_pciback_cmd = '/usr/lib/qubes/unbind-pci-device.sh'
-prepare_volatile_img_cmd = '/usr/lib/qubes/prepare-volatile-img.sh'
 
 yum_proxy_ip = '10.137.255.254'
 yum_proxy_port = '8082'
@@ -176,7 +184,7 @@ class QubesVmLabel(object):
         self.index = index
         self.color = color if color is not None else name
         self.icon = icon if icon is not None else name
-        self.icon_path = "/usr/share/qubes/icons/" + self.icon + ".png"
+        self.icon_path = os.path.join(system_path['qubes_icon_dir'], self.icon) + ".png"
 
 # Globally defined lables
 QubesVmLabels = {
@@ -201,9 +209,9 @@ QubesDispVmLabels = {
     "black" : QubesVmLabel ("black", 8, icon="dispvm-black"),
 }
 
-default_appvm_label = QubesVmLabels["red"]
-default_template_label = QubesVmLabels["black"]
-default_servicevm_label = QubesVmLabels["red"]
+defaults["appvm_label"] = QubesVmLabels["red"]
+defaults["template_label"] = QubesVmLabels["black"]
+defaults["servicevm_label"] = QubesVmLabels["red"]
 
 QubesVmClasses = {}
 def register_qubes_vm_class(class_name, vm_class):
@@ -242,10 +250,10 @@ class QubesVm(object):
             "dir_path": { "default": None, "order": 2 },
             "conf_file": { "eval": 'self.absolute_path(value, self.name + ".conf")', 'order': 3 },
             ### order >= 10: have base attrs set
-            "root_img": { "eval": 'self.absolute_path(value, default_root_img)', 'order': 10 },
-            "private_img": { "eval": 'self.absolute_path(value, default_private_img)', 'order': 10 },
-            "volatile_img": { "eval": 'self.absolute_path(value, default_volatile_img)', 'order': 10 },
-            "firewall_conf": { "eval": 'self.absolute_path(value, default_firewall_conf_file)', 'order': 10 },
+            "root_img": { "eval": 'self.absolute_path(value, vm_files["root_img"])', 'order': 10 },
+            "private_img": { "eval": 'self.absolute_path(value, vm_files["private_img"])', 'order': 10 },
+            "volatile_img": { "eval": 'self.absolute_path(value, vm_files["volatile_img"])', 'order': 10 },
+            "firewall_conf": { "eval": 'self.absolute_path(value, vm_files["firewall_conf"])', 'order': 10 },
             "installed_by_rpm": { "default": False, 'order': 10 },
             "template": { "default": None, 'order': 10 },
             ### order >= 20: have template set
@@ -253,7 +261,7 @@ class QubesVm(object):
             "netvm": { "default": None, "attr": "_netvm", 'order': 20 },
             "label": { "attr": "_label", "default": QubesVmLabels["red"], 'order': 20,
                 'xml_deserialize': lambda _x: QubesVmLabels[_x] },
-            "memory": { "default": default_memory, 'order': 20, "eval": "int(value)" },
+            "memory": { "default": defaults["memory"], 'order': 20, "eval": "int(value)" },
             "maxmem": { "default": None, 'order': 25, "eval": "int(value) if value else None" },
             "pcidevs": { "default": '[]', 'order': 25, "eval": \
                 '[] if value in ["none", None] else eval(value) if value.find("[") >= 0 else eval("[" + value + "]")'  },
@@ -265,7 +273,7 @@ class QubesVm(object):
             "kernel": { "default": None, 'order': 31,
                 'eval': 'collection.get_default_kernel() if self.uses_default_kernel else value' },
             "kernelopts": { "default": "", 'order': 31, "eval": \
-                'value if not self.uses_default_kernelopts else default_kernelopts_pcidevs if len(self.pcidevs) > 0 else default_kernelopts' },
+                'value if not self.uses_default_kernelopts else defaults["kernelopts_pcidevs"] if len(self.pcidevs) > 0 else defaults["kernelopts"]' },
             "mac": { "attr": "_mac", "default": None },
             "include_in_backups": { "default": True },
             "services": { "default": {}, "eval": "eval(str(value))" },
@@ -274,15 +282,15 @@ class QubesVm(object):
             "qrexec_timeout": { "default": 60, "eval": "int(value)" },
             ##### Internal attributes - will be overriden in __init__ regardless of args
             "appmenus_templates_dir": { "eval": \
-                'self.dir_path + "/" + default_appmenus_templates_subdir if self.updateable else ' + \
+                'os.path.join(self.dir_path, vm_files["appmenus_templates_subdir"]) if self.updateable else ' + \
                 'self.template.appmenus_templates_dir if self.template is not None else None' },
-            "config_file_template": { "eval": "config_template_pv" },
-            "icon_path": { "eval": 'self.dir_path + "/icon.png" if self.dir_path is not None else None' },
+            "config_file_template": { "eval": 'system_path["config_template_pv"]' },
+            "icon_path": { "eval": 'os.path.join(self.dir_path, "/icon.png") if self.dir_path is not None else None' },
             # used to suppress side effects of clone_attrs
             "_do_not_reset_firewall": { "eval": 'False' },
-            "kernels_dir": { 'eval': 'qubes_kernels_base_dir + "/" + self.kernel if self.kernel is not None else ' + \
+            "kernels_dir": { 'eval': 'os.path.join(system_path["qubes_kernels_base_dir"], self.kernel) if self.kernel is not None else ' + \
                 # for backward compatibility (or another rare case): kernel=None -> kernel in VM dir
-                'self.dir_path + "/" + default_kernels_subdir' },
+                'os.path.join(self.dir_path, vm_files["kernels_subdir"])' },
             "_start_guid_first": { 'eval': 'False' },
             }
 
@@ -410,7 +418,7 @@ class QubesVm(object):
         if arg is not None and os.path.isabs(arg):
             return arg
         else:
-            return self.dir_path + "/" + (arg if arg is not None else default)
+            return os.path.join(self.dir_path, (arg if arg is not None else default))
 
     def relative_path(self, arg):
         return arg.replace(self.dir_path + '/', '')
@@ -457,8 +465,9 @@ class QubesVm(object):
             if not self._do_not_reset_firewall:
                 # Set also firewall to block all traffic as discussed in #370
                 if os.path.exists(self.firewall_conf):
-                    shutil.copy(self.firewall_conf, "%s/backup/%s-firewall-%s.xml"
-                            % (qubes_base_dir, self.name, time.strftime('%Y-%m-%d-%H:%M:%S')))
+                    shutil.copy(self.firewall_conf, os.path.join(system_path["qubes_base_dir"],
+                                "backup", "%s-firewall-%s.xml" % (self.name,
+                                time.strftime('%Y-%m-%d-%H:%M:%S'))))
                 self.write_firewall_conf({'allow': False, 'allowDns': False,
                         'allowIcmp': False, 'allowYumProxy': False, 'rules': []})
         else:
@@ -553,11 +562,11 @@ class QubesVm(object):
 
         self.pre_rename(name)
 
-        new_conf = "%s/%s.conf" % (self.dir_path, name)
+        new_conf = os.path.join(self.dir_path, name)
         if os.path.exists(self.conf_file):
-            os.rename(self.conf_file, "%s/%s.conf" % (self.dir_path, name))
+            os.rename(self.conf_file, new_conf)
         old_dirpath = self.dir_path
-        new_dirpath = os.path.dirname(self.dir_path) + '/' + name
+        new_dirpath = os.path.join(os.path.dirname(self.dir_path), name)
         os.rename(old_dirpath, new_dirpath)
         self.dir_path = new_dirpath
         old_name = self.name
@@ -1056,12 +1065,12 @@ class QubesVm(object):
             raise IOError ("Error while copying {0} to {1}".\
                            format(template_priv, self.private_img))
 
-        if os.path.exists(source_template.dir_path + '/vm-' + qubes_whitelisted_appmenus):
+        if os.path.exists(os.path.join(source_template.dir_path, '/vm-' + vm_files["whitelisted_appmenus"])):
             if verbose:
                 print >> sys.stderr, "--> Creating default whitelisted apps list: {0}".\
-                    format(self.dir_path + '/' + qubes_whitelisted_appmenus)
-            shutil.copy(source_template.dir_path + '/vm-' + qubes_whitelisted_appmenus,
-                    self.dir_path + '/' + qubes_whitelisted_appmenus)
+                    format(self.dir_path + '/' + vm_files["whitelisted_appmenus"])
+            shutil.copy(os.path.join(source_template.dir_path, '/vm-' + vm_files["whitelisted_appmenus"]),
+                    os.path.join(self.dir_path, vm_files["whitelisted_appmenus"]))
 
         if self.updateable:
             template_root = source_template.root_img
@@ -1082,7 +1091,8 @@ class QubesVm(object):
 
             os.mkdir (self.dir_path + '/kernels')
             for f in ("vmlinuz", "initramfs", "modules.img"):
-                shutil.copy(kernels_dir + '/' + f, self.dir_path + '/kernels/' + f)
+                shutil.copy(os.path.join(kernels_dir, f),
+                        os.path.join(self.dir_path, vm_files["kernels_subdir"], f))
 
             if verbose:
                 print >> sys.stderr, "--> Copying the template's appmenus templates dir:\n{0} ==>\n{1}".\
@@ -1108,12 +1118,12 @@ class QubesVm(object):
 
         try:
             if source_template is not None:
-                subprocess.check_call ([qubes_appmenu_create_cmd, source_template.appmenus_templates_dir, self.name, vmtype])
+                subprocess.check_call ([system_path["qubes_appmenu_create_cmd"], source_template.appmenus_templates_dir, self.name, vmtype])
             elif self.appmenus_templates_dir is not None:
-                subprocess.check_call ([qubes_appmenu_create_cmd, self.appmenus_templates_dir, self.name, vmtype])
+                subprocess.check_call ([system_path["qubes_appmenu_create_cmd"], self.appmenus_templates_dir, self.name, vmtype])
             else:
                 # Only add apps to menu
-                subprocess.check_call ([qubes_appmenu_create_cmd, "none", self.name, vmtype])
+                subprocess.check_call ([system_path["qubes_appmenu_create_cmd"], "none", self.name, vmtype])
         except subprocess.CalledProcessError:
             print >> sys.stderr, "Ooops, there was a problem creating appmenus for {0} VM!".format (self.name)
 
@@ -1165,12 +1175,12 @@ class QubesVm(object):
                         format(src_vm.appmenus_templates_dir, self.appmenus_templates_dir)
             shutil.copytree (src_vm.appmenus_templates_dir, self.appmenus_templates_dir)
 
-        if os.path.exists(src_vm.dir_path + '/' + qubes_whitelisted_appmenus):
+        if os.path.exists(os.path.join(src_vm.dir_path, vm_files["whitelisted_appmenus"])):
             if verbose:
                 print >> sys.stderr, "--> Copying whitelisted apps list: {0}".\
-                    format(self.dir_path + '/' + qubes_whitelisted_appmenus)
-            shutil.copy(src_vm.dir_path + '/' + qubes_whitelisted_appmenus,
-                    self.dir_path + '/' + qubes_whitelisted_appmenus)
+                    format(os.path.join(self.dir_path, vm_files["whitelisted_appmenus"]))
+            shutil.copy(os.path.join(src_vm.dir_path, vm_files["whitelisted_appmenus"]),
+                    os.path.join(self.dir_path, vm_files["whitelisted_appmenus"]))
 
         if src_vm.icon_path is not None and self.icon_path is not None:
             if os.path.exists (src_vm.dir_path):
@@ -1193,7 +1203,7 @@ class QubesVm(object):
             vmtype = 'servicevms'
         else:
             vmtype = 'appvms'
-        subprocess.check_call ([qubes_appmenu_remove_cmd, self.name, vmtype])
+        subprocess.check_call ([system_path["qubes_appmenu_remove_cmd"], self.name, vmtype])
 
     def verify_files(self):
         if dry_run:
@@ -1214,20 +1224,20 @@ class QubesVm(object):
                 "VM private image file doesn't exist: {0}".\
                 format(self.private_img))
 
-        if not os.path.exists (self.kernels_dir + '/vmlinuz'):
+        if not os.path.exists (os.path.join(self.kernels_dir, 'vmlinuz')):
             raise QubesException (
                 "VM kernel does not exists: {0}".\
-                format(self.kernels_dir + '/vmlinuz'))
+                format(os.path.join(self.kernels_dir, 'vmlinuz')))
 
-        if not os.path.exists (self.kernels_dir + '/initramfs'):
+        if not os.path.exists (os.path.join(self.kernels_dir, 'initramfs')):
             raise QubesException (
                 "VM initramfs does not exists: {0}".\
-                format(self.kernels_dir + '/initramfs'))
+                format(os.path.join(self.kernels_dir, 'initramfs')))
 
-        if not os.path.exists (self.kernels_dir + '/modules.img'):
+        if not os.path.exists (os.path.join(self.kernels_dir, 'modules.img')):
             raise QubesException (
                 "VM kernel modules image does not exists: {0}".\
-                format(self.kernels_dir + '/modules.img'))
+                format(os.path.join(self.kernels_dir, 'modules.img')))
         return True
 
     def reset_volatile_storage(self, source_template = None, verbose = False):
@@ -1246,7 +1256,7 @@ class QubesVm(object):
                 f_root.seek(0, os.SEEK_END)
                 root_size = f_root.tell()
                 f_root.close()
-                subprocess.check_call([prepare_volatile_img_cmd, self.volatile_img, str(root_size / 1024 / 1024)])
+                subprocess.check_call([system_path["prepare_volatile_img_cmd"], self.volatile_img, str(root_size / 1024 / 1024)])
             return
 
         if verbose:
@@ -1420,11 +1430,11 @@ class QubesVm(object):
         if gui and os.getenv("DISPLAY") is not None and not self.is_guid_running():
             self.start_guid(verbose = verbose, notify_function = notify_function)
 
-        args = [qrexec_client_path, "-d", str(xid), "%s:%s" % (user, command)]
+        args = [system_path["qrexec_client_path"], "-d", str(xid), "%s:%s" % (user, command)]
         if localcmd is not None:
             args += [ "-l", localcmd]
         if passio:
-            os.execv(qrexec_client_path, args)
+            os.execv(system_path["qrexec_client_path"], args)
             exit(1)
 
         call_kwargs = {}
@@ -1500,7 +1510,7 @@ class QubesVm(object):
             print >> sys.stderr, "--> Starting Qubes GUId..."
         xid = self.get_xid()
 
-        guid_cmd = [qubes_guid_path, "-d", str(xid), "-c", self.label.color, "-i", self.label.icon_path, "-l", str(self.label.index)]
+        guid_cmd = [system_path["qubes_guid_path"], "-d", str(xid), "-c", self.label.color, "-i", self.label.icon_path, "-l", str(self.label.index)]
         if self.debug:
             guid_cmd += ['-v', '-v']
         retcode = subprocess.call (guid_cmd)
@@ -1518,7 +1528,7 @@ class QubesVm(object):
         xid = self.get_xid()
         qrexec_env = os.environ
         qrexec_env['QREXEC_STARTUP_TIMEOUT'] = str(self.qrexec_timeout)
-        retcode = subprocess.call ([qrexec_daemon_path, str(xid), self.default_user], env=qrexec_env)
+        retcode = subprocess.call ([system_path["qrexec_daemon_path"], str(xid), self.default_user], env=qrexec_env)
         if (retcode != 0) :
             self.force_shutdown(xid=xid)
             raise OSError ("ERROR: Cannot execute qrexec-daemon!")
@@ -1560,7 +1570,7 @@ class QubesVm(object):
         # Bind pci devices to pciback driver
         for pci in self.pcidevs:
             try:
-                subprocess.check_call(['sudo', qubes_pciback_cmd, pci])
+                subprocess.check_call(['sudo', system_path["qubes_pciback_cmd"], pci])
             except subprocess.CalledProcessError:
                 raise QubesException("Failed to prepare PCI device %s" % pci)
 
@@ -1692,17 +1702,17 @@ class QubesTemplateVm(QubesVm):
 
     def _get_attrs_config(self):
         attrs_config = super(QubesTemplateVm, self)._get_attrs_config()
-        attrs_config['dir_path']['eval'] = 'value if value is not None else qubes_templates_dir + "/" + self.name'
-        attrs_config['label']['default'] = default_template_label
+        attrs_config['dir_path']['eval'] = 'value if value is not None else os.path.join(system_path["qubes_templates_dir"], self.name)'
+        attrs_config['label']['default'] = defaults["template_label"]
 
         # New attributes
 
         # Image for template changes
-        attrs_config['rootcow_img'] = { 'eval': 'self.dir_path + "/" + default_rootcow_img' }
+        attrs_config['rootcow_img'] = { 'eval': 'os.path.join(self.dir_path, vm_files["rootcow_img"])' }
         # Clean image for root-cow and swap (AppVM side)
-        attrs_config['clean_volatile_img'] = { 'eval': 'self.dir_path + "/" + default_clean_volatile_img' }
+        attrs_config['clean_volatile_img'] = { 'eval': 'os.path.join(self.dir_path, vm_files["clean_volatile_img"])' }
 
-        attrs_config['appmenus_templates_dir'] = { 'eval': 'self.dir_path + "/" + default_appmenus_templates_subdir' }
+        attrs_config['appmenus_templates_dir'] = { 'eval': 'os.path.join(self.dir_path, vm_files["appmenus_templates_subdir"])' }
         return attrs_config
 
     def __init__(self, **kwargs):
@@ -1731,13 +1741,13 @@ class QubesTemplateVm(QubesVm):
 
         super(QubesTemplateVm, self).clone_disk_files(src_vm=src_vm, verbose=verbose)
 
-        for whitelist in ['/vm-' + qubes_whitelisted_appmenus, '/netvm-' + qubes_whitelisted_appmenus]:
-            if os.path.exists(src_vm.dir_path + whitelist):
+        for whitelist in ['vm-' + vm_files["whitelisted_appmenus"], 'netvm-' + vm_files["whitelisted_appmenus"]]:
+            if os.path.exists(os.path.join(src_vm.dir_path, whitelist)):
                 if verbose:
                     print >> sys.stderr, "--> Copying default whitelisted apps list: {0}".\
-                        format(self.dir_path + whitelist)
-                shutil.copy(src_vm.dir_path + whitelist,
-                        self.dir_path + whitelist)
+                        format(os.path.join(self.dir_path, whitelist))
+                shutil.copy(os.path.join(src_vm.dir_path, whitelist),
+                        os.path.join(self.dir_path, whitelist))
 
         if verbose:
             print >> sys.stderr, "--> Copying the template's clean volatile image:\n{0} ==>\n{1}".\
@@ -1764,12 +1774,12 @@ class QubesTemplateVm(QubesVm):
             source_template = self.template
 
         try:
-            subprocess.check_call ([qubes_appmenu_create_cmd, self.appmenus_templates_dir, self.name, "vm-templates"])
+            subprocess.check_call ([system_path["qubes_appmenu_create_cmd"], self.appmenus_templates_dir, self.name, "vm-templates"])
         except subprocess.CalledProcessError:
             print >> sys.stderr, "Ooops, there was a problem creating appmenus for {0} VM!".format (self.name)
 
     def remove_appmenus(self):
-        subprocess.check_call ([qubes_appmenu_remove_cmd, self.name, "vm-templates"])
+        subprocess.check_call ([system_path["qubes_appmenu_remove_cmd"], self.name, "vm-templates"])
 
     def pre_rename(self, new_name):
         self.remove_appmenus()
@@ -1777,7 +1787,7 @@ class QubesTemplateVm(QubesVm):
     def post_rename(self, old_name):
         self.create_appmenus(verbose=False)
 
-        old_dirpath = os.path.dirname(self.dir_path) + '/' + old_name
+        old_dirpath = os.path.join(os.path.dirname(self.dir_path), old_name)
         self.clean_volatile_img = self.clean_volatile_img.replace(old_dirpath, self.dir_path)
         self.rootcow_img = self.rootcow_img.replace(old_dirpath, self.dir_path)
 
@@ -1869,8 +1879,8 @@ class QubesNetVm(QubesVm):
 
     def _get_attrs_config(self):
         attrs_config = super(QubesNetVm, self)._get_attrs_config()
-        attrs_config['dir_path']['eval'] = 'value if value is not None else qubes_servicevms_dir + "/" + self.name'
-        attrs_config['label']['default'] = default_servicevm_label
+        attrs_config['dir_path']['eval'] = 'value if value is not None else os.path.join(system_path["qubes_servicevms_dir"], self.name)'
+        attrs_config['label']['default'] = defaults["servicevm_label"]
         attrs_config['memory']['default'] = 200
 
         # New attributes
@@ -1890,7 +1900,7 @@ class QubesNetVm(QubesVm):
         self.connected_vms = QubesVmCollection()
 
         self.__network = "10.137.{0}.0".format(self.netid)
-        self.__netmask = vm_default_netmask
+        self.__netmask = defaults["vm_default_netmask"]
         self.__gateway = self.netprefix + "1"
         self.__secondary_dns = self.netprefix + "254"
 
@@ -2010,12 +2020,12 @@ class QubesNetVm(QubesVm):
 
         super(QubesNetVm, self).create_on_disk(verbose, source_template=source_template)
 
-        if os.path.exists(source_template.dir_path + '/netvm-' + qubes_whitelisted_appmenus):
+        if os.path.exists(os.path.join(source_template.dir_path, 'netvm-' + vm_files["whitelisted_appmenus"])):
             if verbose:
                 print >> sys.stderr, "--> Creating default whitelisted apps list: {0}".\
-                    format(self.dir_path + '/' + qubes_whitelisted_appmenus)
-            shutil.copy(source_template.dir_path + '/netvm-' + qubes_whitelisted_appmenus,
-                    self.dir_path + '/' + qubes_whitelisted_appmenus)
+                    format(self.dir_path + '/' + vm_files["whitelisted_appmenus"])
+            shutil.copy(os.path.join(source_template.dir_path, 'netvm-' + vm_files["whitelisted_appmenus"]),
+                    os.path.join(self.dir_path, vm_files["whitelisted_appmenus"]))
 
         if not self.internal:
             self.create_appmenus (verbose=verbose, source_template=source_template)
@@ -2200,7 +2210,7 @@ class QubesDom0NetVm(QubesNetVm):
                                              dir_path=None,
                                              private_img = None,
                                              template = None,
-                                             label = default_template_label,
+                                             label = defaults["template_label"],
                                              **kwargs)
         self.xid = 0
 
@@ -2315,7 +2325,7 @@ class QubesAppVm(QubesVm):
     """
     def _get_attrs_config(self):
         attrs_config = super(QubesAppVm, self)._get_attrs_config()
-        attrs_config['dir_path']['eval'] = 'value if value is not None else qubes_appvms_dir + "/" + self.name'
+        attrs_config['dir_path']['eval'] = 'value if value is not None else os.path.join(system_path["qubes_appvms_dir"], self.name)'
 
         return attrs_config
 
@@ -2354,9 +2364,9 @@ class QubesHVm(QubesVm):
         attrs.pop('kernelopts')
         attrs.pop('uses_default_kernel')
         attrs.pop('uses_default_kernelopts')
-        attrs['dir_path']['eval'] = 'value if value is not None else qubes_appvms_dir + "/" + self.name'
+        attrs['dir_path']['eval'] = 'value if value is not None else os.path.join(system_path["qubes_appvms_dir"], self.name)'
         attrs['volatile_img']['eval'] = 'None'
-        attrs['config_file_template']['eval'] = 'config_template_hvm'
+        attrs['config_file_template']['eval'] = 'system_path["config_template_hvm"]'
         attrs['drive'] = { 'save': 'str(self.drive)' }
         attrs['maxmem'].pop('save')
         attrs['timezone'] = { 'default': 'localtime', 'save': 'str(self.timezone)' }
@@ -2367,7 +2377,7 @@ class QubesHVm(QubesVm):
 
         # only standalone HVM supported for now
         attrs['template']['eval'] = 'None'
-        attrs['memory']['default'] = default_hvm_memory
+        attrs['memory']['default'] = defaults["hvm_memory"]
 
         return attrs
 
@@ -2377,7 +2387,7 @@ class QubesHVm(QubesVm):
 
         # Default for meminfo-writer have changed to (correct) False in the
         # same version as introduction of guiagent_installed, so for older VMs
-        # with wrong setting, change it based on 'guiagent_installed' presence
+        # with wrong setting, change is based on 'guiagent_installed' presence
         if "guiagent_installed" not in kwargs and \
             (not 'xml_element' in kwargs or kwargs['xml_element'].get('guiagent_installed') is None):
             self.services['meminfo-writer'] = False
@@ -2423,7 +2433,7 @@ class QubesHVm(QubesVm):
         if verbose:
             print >> sys.stderr, "--> Creating appmenus directory: {0}".format(self.appmenus_templates_dir)
         os.mkdir (self.appmenus_templates_dir)
-        shutil.copy (start_appmenu_template, self.appmenus_templates_dir)
+        shutil.copy (system_path["start_appmenu_template"], self.appmenus_templates_dir)
 
         if not self.internal:
             self.create_appmenus (verbose, source_template=source_template)
@@ -2432,12 +2442,12 @@ class QubesHVm(QubesVm):
 
         # create empty disk
         f_root = open(self.root_img, "w")
-        f_root.truncate(default_hvm_disk_size)
+        f_root.truncate(defaults["hvm_disk_size"])
         f_root.close()
 
         # create empty private.img
         f_private = open(self.private_img, "w")
-        f_private.truncate(default_hvm_private_img_size)
+        f_private.truncate(defaults["hvm_private_img_size"])
         f_root.close()
 
     def remove_from_disk(self):
@@ -2521,7 +2531,7 @@ class QubesHVm(QubesVm):
             print >>sys.stderr, "WARNING: Creating empty VM private image file: {0}".\
                 format(self.private_img)
             f_private = open(self.private_img, "w")
-            f_private.truncate(default_hvm_private_img_size)
+            f_private.truncate(defaults["hvm_private_img_size"])
             f_private.close()
 
         return True
@@ -2564,7 +2574,7 @@ class QubesHVm(QubesVm):
             if verbose:
                 print >> sys.stderr, "--> Starting Qubes GUId..."
 
-            retcode = subprocess.call ([qubes_guid_path, "-d", str(self.stubdom_xid), "-c", self.label.color, "-i", self.label.icon_path, "-l", str(self.label.index)])
+            retcode = subprocess.call ([system_path["qubes_guid_path"], "-d", str(self.stubdom_xid), "-c", self.label.color, "-i", self.label.icon_path, "-l", str(self.label.index)])
             if (retcode != 0) :
                 raise QubesException("Cannot start qubes-guid!")
 
@@ -2616,7 +2626,7 @@ class QubesVmCollection(dict):
     A collection of Qubes VMs indexed by Qubes id (qid)
     """
 
-    def __init__(self, store_filename=qubes_store_filename):
+    def __init__(self, store_filename=system_path["qubes_store_filename"]):
         super(QubesVmCollection, self).__init__()
         self.default_netvm_qid = None
         self.default_fw_netvm_qid = None
@@ -2770,7 +2780,7 @@ class QubesVmCollection(dict):
             return self[self.default_netvm_qid]
 
     def set_default_kernel(self, kernel):
-        assert os.path.exists(qubes_kernels_base_dir + '/' + kernel), "Kerel {0} not installed!".format(kernel)
+        assert os.path.exists(os.path.join(system_path["qubes_kernels_base_dir"], kernel)), "Kerel {0} not installed!".format(kernel)
         self.default_kernel = kernel
 
     def get_default_kernel(self):
@@ -3128,6 +3138,5 @@ class QubesDaemonPidfile(object):
     def __exit__ (self, exc_type, exc_val, exc_tb):
         self.remove_pidfile()
         return False
-
 
 # vim:sw=4:et:

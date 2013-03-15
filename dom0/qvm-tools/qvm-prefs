@@ -23,7 +23,7 @@
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesVmLabels
 from qubes.qubes import QubesHost
-from qubes.qubes import qubes_kernels_base_dir
+from qubes.qubes import system_path
 from optparse import OptionParser
 import subprocess
 import os
@@ -210,7 +210,7 @@ def set_kernel(vms, vm, args):
         print >> sys.stderr, "1) default"
         print >> sys.stderr, "2) none (kernels subdir in VM)"
         print >> sys.stderr, "3) <kernel version>, one of:"
-        for k in os.listdir(qubes_kernels_base_dir):
+        for k in os.listdir(system_path["qubes_kernels_base_dir"]):
             print >> sys.stderr, "  -", k
         return
 
@@ -222,7 +222,7 @@ def set_kernel(vms, vm, args):
         kernel = None
         vm.uses_default_kernel = False
     else:
-        if not os.path.exists(qubes_kernels_base_dir + '/' + kernel):
+        if not os.path.join(os.path.exists(system_path["qubes_kernels_base_dir"], kernel)):
             print >> sys.stderr, "Kernel version {0} not installed.".format(kernel)
             exit(1)
         vm.uses_default_kernel = False

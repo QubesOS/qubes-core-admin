@@ -22,7 +22,7 @@
 
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesHost
-from qubes.qubes import qubes_kernels_base_dir
+from qubes.qubes import system_path
 from optparse import OptionParser
 import subprocess
 import os
@@ -57,10 +57,10 @@ def handle_vm(vms, label, new_value = None):
 
 def handle_kernel(vms, label, new_value = None):
     if new_value is not None:
-        if not os.path.exists(qubes_kernels_base_dir + '/' + new_value):
+        if not os.path.exists(os.path.join(system_path["qubes_kernels_base_dir"], new_value)):
             print >> sys.stderr, "Kernel version {0} not installed.".format(new_value)
             print >> sys.stderr, "Available versions:"
-            for k in os.listdir(qubes_kernels_base_dir):
+            for k in os.listdir(system_path["qubes_kernels_base_dir"]):
                 print >> sys.stderr, "  -", k
             exit(1)
         vms.set_default_kernel(new_value)

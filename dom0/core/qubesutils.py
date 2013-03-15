@@ -22,9 +22,8 @@
 
 from qubes import QubesVm,QubesException,QubesVmCollection
 from qubes import QubesVmClasses
-from qubes import xs, xl_ctx, qubes_guid_path, qrexec_client_path
-from qubes import qubes_store_filename, qubes_base_dir
-from qubes import qubes_servicevms_dir, qubes_templates_dir, qubes_appvms_dir
+from qubes import xs, xl_ctx
+from qubes import system_path
 import sys
 import os
 import subprocess
@@ -239,7 +238,7 @@ def block_list(vm = None, system_disks = False):
                 continue
 
             if not system_disks:
-                if xid == '0' and device_desc.startswith(qubes_base_dir):
+                if xid == '0' and device_desc.startswith(system_path["qubes_base_dir"]):
                     continue
 
             visible_name = "%s:%s" % (vm_name, device)
@@ -396,7 +395,7 @@ def block_detach_all(vm, vm_xid = None):
         be_path = xs.read(xs_trans, '/local/domain/%d/device/vbd/%s/backend' % (vm_xid, devid))
         assert be_path is not None
         be_params = xs.read(xs_trans, be_path + '/params')
-        if be_path.startswith('/local/domain/0/') and be_params is not None and be_params.startswith(qubes_base_dir):
+        if be_path.startswith('/local/domain/0/') and be_params is not None and be_params.startswith(system_path["qubes_base_dir"]):
             # system disk
             continue
         devices_to_detach.append(devid)
@@ -768,10 +767,10 @@ def get_disk_usage(file_or_dir):
 
 def file_to_backup (file_path, sz = None):
     if sz is None:
-        sz = os.path.getsize (qubes_store_filename)
+        sz = os.path.getsize (system_path["qubes_store_filename"])
 
     abs_file_path = os.path.abspath (file_path)
-    abs_base_dir = os.path.abspath (qubes_base_dir) + '/'
+    abs_base_dir = os.path.abspath (system_path["qubes_base_dir"]) + '/'
     abs_file_dir = os.path.dirname (abs_file_path) + '/'
     (nothing, dir, subdir) = abs_file_dir.partition (abs_base_dir)
     assert nothing == ""
@@ -784,7 +783,7 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
     if not os.path.exists (base_backup_dir):
         raise QubesException("The target directory doesn't exist!")
 
-    files_to_backup = file_to_backup (qubes_store_filename)
+    files_to_backup = file_to_backup (system_path["qubes_store_filename"])
 
     if exclude_list is None:
         exclude_list = []
@@ -1028,7 +1027,7 @@ def backup_restore_prepare(backup_dir, options = {}, host_collection = None):
             # Dom0 is not included, obviously
             return False
 
-        backup_vm_dir_path = vm.dir_path.replace (qubes_base_dir, backup_dir)
+        backup_vm_dir_path = vm.dir_path.replace (system_path["qubes_base_dir"], backup_dir)
 
         if os.path.exists (backup_vm_dir_path):
             return True
@@ -1258,7 +1257,7 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
     ### Private functions begin
     def restore_vm_dir (backup_dir, src_dir, dst_dir):
 
-        backup_src_dir = src_dir.replace (qubes_base_dir, backup_dir)
+        backup_src_dir = src_dir.replace (system_path["qubes_base_dir"], backup_dir)
 
         # We prefer to use Linux's cp, because it nicely handles sparse files
         retcode = subprocess.call (["cp", "-rp", backup_src_dir, dst_dir])
