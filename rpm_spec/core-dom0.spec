@@ -235,9 +235,6 @@ echo '[main]' > /etc/NetworkManager/NetworkManager.conf
 echo 'plugins = keyfile' >> /etc/NetworkManager/NetworkManager.conf
 echo '[keyfile]' >> /etc/NetworkManager/NetworkManager.conf
 fi
-/usr/lib/qubes/qubes-fix-nm-conf.sh
-
-sed 's/^net.ipv4.ip_forward.*/net.ipv4.ip_forward = 1/'  -i /etc/sysctl.conf
 
 sed '/^autoballoon=/d;/^lockfile=/d' -i /etc/xen/xl.conf
 echo 'autoballoon=0' >> /etc/xen/xl.conf
