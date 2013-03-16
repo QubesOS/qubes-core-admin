@@ -76,15 +76,13 @@ ln -sf . %{name}-%{version}
 %setup -T -D
 
 %build
-python -m compileall dom0/core dom0/core-modules dom0/qmemman
-python -O -m compileall dom0/core dom/core-modules dom0/qmemman
-for dir in dom0/dispvm dom0/qmemman; do
+python -m compileall core core-modules qmemman
+python -O -m compileall core dom/core-modules qmemman
+for dir in dispvm qmemman; do
   (cd $dir; make)
 done
 
 %install
-
-cd dom0
 
 mkdir -p $RPM_BUILD_ROOT/usr/lib/systemd/system
 cp linux/systemd/qubes-block-cleaner.service $RPM_BUILD_ROOT%{_unitdir}
