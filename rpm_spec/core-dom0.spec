@@ -182,10 +182,6 @@ mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/dvmdata
 
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/updates
 
-mkdir -p $RPM_BUILD_ROOT/usr/share/qubes/icons
-for icon in icons/*.png; do
-    convert -resize 48 $icon $RPM_BUILD_ROOT/usr/share/qubes/$icon
-done
 mkdir -p $RPM_BUILD_ROOT/usr/share/qubes
 cp misc/vm-template.conf $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/vm-template-hvm.conf $RPM_BUILD_ROOT/usr/share/qubes/
@@ -270,9 +266,6 @@ if ! [ -e /var/lib/qubes/qubes.xml ]; then
 #    echo "Initializing Qubes DB..."
     umask 007; sg qubes -c qvm-init-storage
 fi
-for i in /usr/share/qubes/icons/*.png ; do
-	xdg-icon-resource install --novendor --size 48 $i
-done
 
 # Because we now have an installer
 # this script is always executed during upgrade
@@ -387,7 +380,6 @@ fi
 %attr(0770,root,qubes) %dir /var/lib/qubes/dvmdata
 %attr(0770,root,qubes) %dir /var/lib/qubes/updates
 %attr(0770,root,qubes) %dir /var/lib/qubes/vm-kernels
-/usr/share/qubes/icons/*.png
 /usr/share/qubes/vm-template.conf
 /usr/share/qubes/vm-template-hvm.conf
 /etc/sysconfig/iptables
