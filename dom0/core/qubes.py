@@ -21,20 +21,13 @@
 #
 
 import sys
-import stat
 import os
 import os.path
-import subprocess
 import lxml.etree
 import xml.parsers.expat
 import fcntl
-import re
-import shutil
-import uuid
 import time
 import warnings
-from datetime import datetime
-from qmemman_client import QMemmanClient
 
 # Do not use XenAPI or create/read any VM files
 # This is for testing only!
@@ -110,7 +103,8 @@ defaults = {
 qubes_max_qid = 254
 qubes_max_netid = 254
 
-class QubesException (Exception) : pass
+class QubesException (Exception):
+    pass
 
 if not dry_run:
     xc = xen.lowlevel.xc.xc()
@@ -140,15 +134,17 @@ class QubesHost(object):
         ret = self.physinfo['free_memory']
         return long(ret)
 
-    # measure cpu usage for all domains at once
-    def measure_cpu_usage(self, previous=None, previous_time = None, wait_time=1):
+    def measure_cpu_usage(self, previous=None, previous_time = None,
+            wait_time=1):
+        """measure cpu usage for all domains at once"""
         if previous is None:
             previous_time = time.time()
             previous = {}
             info = xc.domain_getinfo(0, qubes_max_qid)
             for vm in info:
                 previous[vm['domid']] = {}
-                previous[vm['domid']]['cpu_time'] = vm['cpu_time']/vm['online_vcpus']
+                previous[vm['domid']]['cpu_time'] = (
+                        vm['cpu_time'] / vm['online_vcpus'])
                 previous[vm['domid']]['cpu_usage'] = 0
             time.sleep(wait_time)
 
@@ -157,11 +153,13 @@ class QubesHost(object):
         info = xc.domain_getinfo(0, qubes_max_qid)
         for vm in info:
             current[vm['domid']] = {}
-            current[vm['domid']]['cpu_time'] = vm['cpu_time']/max(vm['online_vcpus'],1)
+            current[vm['domid']]['cpu_time'] = (
+                    vm['cpu_time'] / max(vm['online_vcpus'], 1))
             if vm['domid'] in previous.keys():
-                current[vm['domid']]['cpu_usage'] = \
-                    float(current[vm['domid']]['cpu_time'] - previous[vm['domid']]['cpu_time']) \
-                    / long(1000**3) / (current_time-previous_time) * 100
+                current[vm['domid']]['cpu_usage'] = (
+                    float(current[vm['domid']]['cpu_time'] -
+                        previous[vm['domid']]['cpu_time']) /
+                    long(1000**3) / (current_time-previous_time) * 100)
                 if current[vm['domid']]['cpu_usage'] < 0:
                     # VM has been rebooted
                     current[vm['domid']]['cpu_usage'] = 0
@@ -176,7 +174,8 @@ class QubesVmLabel(object):
         self.index = index
         self.color = color if color is not None else name
         self.icon = icon if icon is not None else name
-        self.icon_path = os.path.join(system_path['qubes_icon_dir'], self.icon) + ".png"
+        self.icon_path = os.path.join(
+                system_path['qubes_icon_dir'], self.icon) + ".png"
 
 # Globally defined lables
 QubesVmLabels = {
@@ -207,7 +206,6 @@ defaults["servicevm_label"] = QubesVmLabels["red"]
 
 QubesVmClasses = {}
 def register_qubes_vm_class(vm_class):
-    global QubesVmClasses
     QubesVmClasses[vm_class.__name__] = vm_class
     # register class as local for this module - to make it easy to import from
     # other modules
@@ -227,6 +225,7 @@ class QubesVmCollection(dict):
         self.updatevm_qid = None
         self.qubes_store_filename = store_filename
         self.clockvm_qid = None
+        self.qubes_store_file = None
 
     def values(self):
         for qid in self.keys():
@@ -256,7 +255,7 @@ class QubesVmCollection(dict):
         vm = QubesVmClasses[vm_type](qid=qid, collection=self, **kwargs)
         if not self.verify_new_vm(vm):
             raise QubesException("Wrong VM description!")
-        self[vm.qid]=vm
+        self[vm.qid] = vm
 
         # make first created NetVM the default one
         if self.default_fw_netvm_qid is None and vm.is_netvm():
@@ -372,7 +371,9 @@ class QubesVmCollection(dict):
             return self[self.default_netvm_qid]
 
     def set_default_kernel(self, kernel):
-        assert os.path.exists(os.path.join(system_path["qubes_kernels_base_dir"], kernel)), "Kerel {0} not installed!".format(kernel)
+        assert os.path.exists(
+                os.path.join(system_path["qubes_kernels_base_dir"], kernel)), \
+            "Kerel {0} not installed!".format(kernel)
         self.default_kernel = kernel
 
     def get_default_kernel(self):
@@ -452,7 +453,8 @@ class QubesVmCollection(dict):
         # Verify that name is unique
         for vm in self.values():
             if vm.name == new_vm.name:
-                print >> sys.stderr, "ERROR: The name={0} is already used by other VM with qid='{1}'!".\
+                print >> sys.stderr, \
+                    "ERROR: The name={0} is already used by other VM with qid='{1}'!".\
                         format(vm.name, vm.qid)
                 return False
 
@@ -552,7 +554,8 @@ class QubesVmCollection(dict):
         if "uses_default_netvm" not in kwargs:
             vm.uses_default_netvm = True
         else:
-            vm.uses_default_netvm = True if kwargs["uses_default_netvm"] == "True" else False
+            vm.uses_default_netvm = (
+                    True if kwargs["uses_default_netvm"] == "True" else False)
         if vm.uses_default_netvm is True:
             if vm.is_proxyvm():
                 netvm = self.get_default_fw_netvm()
@@ -614,9 +617,6 @@ class QubesVmCollection(dict):
         self[dom0vm.qid] = dom0vm
         self.default_netvm_qid = 0
 
-        global dom0_vm
-        dom0_vm = dom0vm
-
         try:
             tree = lxml.etree.parse(self.qubes_store_file)
         except (EnvironmentError,
@@ -661,7 +661,8 @@ class QubesVmCollection(dict):
 
                 self.clockvm_qid = clockvm.qid
 
-        # Disable ntpd in ClockVM - to not conflict with ntpdate (both are using 123/udp port)
+        # Disable ntpd in ClockVM - to not conflict with ntpdate (both are
+        # using 123/udp port)
         if self.clockvm_qid is not None:
             self[self.clockvm_qid].services['ntpd'] = False
         return True
@@ -706,17 +707,10 @@ class QubesDaemonPidfile(object):
         # check if the pid file is valid...
         proc_path = "/proc/" + str(self.read_pid()) + "/cmdline"
         if not os.path.exists (proc_path):
-            print >> sys.stderr, "Path {0} doesn't exist, assuming stale pidfile.".format(proc_path)
+            print >> sys.stderr, \
+                "Path {0} doesn't exist, assuming stale pidfile.".\
+                    format(proc_path)
             return True
-
-        f = open (proc_path)
-        cmdline = f.read ()
-        f.close()
-
-#       The following doesn't work with python -- one would have to get argv[1] and compare it with self.name...
-#        if not cmdline.strip().endswith(self.name):
-#            print >> sys.stderr, "{0} = {1} doesn't seem to point to our process ({2}), assuming stale pidile.".format(proc_path, cmdline, self.name)
-#            return True
 
         return False # It's a good pidfile
 
