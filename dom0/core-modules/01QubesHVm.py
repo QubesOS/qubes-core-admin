@@ -80,9 +80,9 @@ class QubesHVm(QubesVm):
         if not ('meminfo-writer' in self.services and self.services['meminfo-writer']):
             self.maxmem = self.memory
 
-	# Disable qemu GUID if the user installed qubes gui agent
-	if self.guiagent_installed:
-		self._start_guid_first = False
+        # Disable qemu GUID if the user installed qubes gui agent
+        if self.guiagent_installed:
+            self._start_guid_first = False
 
     @property
     def type(self):

@@ -121,7 +121,7 @@ class QubesVm(object):
             "qrexec_timeout": { "default": 60, "eval": "int(value)" },
             ##### Internal attributes - will be overriden in __init__ regardless of args
             "config_file_template": { "eval": 'system_path["config_template_pv"]' },
-            "icon_path": { "eval": 'os.path.join(self.dir_path, "/icon.png") if self.dir_path is not None else None' },
+            "icon_path": { "eval": 'os.path.join(self.dir_path, "icon.png") if self.dir_path is not None else None' },
             # used to suppress side effects of clone_attrs
             "_do_not_reset_firewall": { "eval": 'False' },
             "kernels_dir": { 'eval': 'os.path.join(system_path["qubes_kernels_base_dir"], self.kernel) if self.kernel is not None else ' + \
