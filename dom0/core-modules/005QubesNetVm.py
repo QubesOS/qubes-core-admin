@@ -33,8 +33,8 @@ class QubesNetVm(QubesVm):
     # In which order load this VM type from qubes.xml
     load_order = 70
 
-    def _get_attrs_config(self):
-        attrs_config = super(QubesNetVm, self)._get_attrs_config()
+    def get_attrs_config(self):
+        attrs_config = super(QubesNetVm, self).get_attrs_config()
         attrs_config['dir_path']['eval'] = 'value if value is not None else os.path.join(system_path["qubes_servicevms_dir"], self.name)'
         attrs_config['label']['default'] = defaults["servicevm_label"]
         attrs_config['memory']['default'] = 200

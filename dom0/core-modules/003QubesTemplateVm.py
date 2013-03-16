@@ -37,8 +37,8 @@ class QubesTemplateVm(QubesVm):
     # In which order load this VM type from qubes.xml
     load_order = 50
 
-    def _get_attrs_config(self):
-        attrs_config = super(QubesTemplateVm, self)._get_attrs_config()
+    def get_attrs_config(self):
+        attrs_config = super(QubesTemplateVm, self).get_attrs_config()
         attrs_config['dir_path']['eval'] = 'value if value is not None else os.path.join(system_path["qubes_templates_dir"], self.name)'
         attrs_config['label']['default'] = defaults["template_label"]
 

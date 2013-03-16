@@ -51,7 +51,7 @@ class QubesVm(object):
     # In which order load this VM type from qubes.xml
     load_order = 100
 
-    def _get_attrs_config(self):
+    def get_attrs_config(self):
         """ Object attributes for serialization/deserialization
             inner dict keys:
              - order: initialization order (to keep dependency intact)
@@ -169,7 +169,7 @@ class QubesVm(object):
                     kwargs["template"] = collection[int(template_qid)]
                 else:
                     raise ValueError("Unknown template with QID %s" % template_qid)
-        attrs = self._get_attrs_config()
+        attrs = self.get_attrs_config()
         for attr_name in sorted(attrs, key=lambda _x: attrs[_x]['order'] if 'order' in attrs[_x] else 1000):
             attr_config = attrs[attr_name]
             attr = attr_name
@@ -1491,7 +1491,7 @@ class QubesVm(object):
 
     def get_xml_attrs(self):
         attrs = {}
-        attrs_config = self._get_attrs_config()
+        attrs_config = self.get_attrs_config()
         for attr in attrs_config:
             attr_config = attrs_config[attr]
             if 'save' in attr_config:

@@ -34,8 +34,8 @@ class QubesProxyVm(QubesNetVm):
     A class that represents a ProxyVM, ex FirewallVM. A child of QubesNetVM.
     """
 
-    def _get_attrs_config(self):
-        attrs_config = super(QubesProxyVm, self)._get_attrs_config()
+    def get_attrs_config(self):
+        attrs_config = super(QubesProxyVm, self).get_attrs_config()
         attrs_config['uses_default_netvm']['eval'] = 'False'
         # Save netvm prop again
         attrs_config['netvm']['save'] = 'str(self.netvm.qid) if self.netvm is not None else "none"'

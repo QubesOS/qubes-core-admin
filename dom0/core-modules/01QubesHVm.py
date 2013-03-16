@@ -41,8 +41,8 @@ class QubesHVm(QubesVm):
     # FIXME: logically should inherit after QubesAppVm, but none of its methods
     # are useful for HVM
 
-    def _get_attrs_config(self):
-        attrs = super(QubesHVm, self)._get_attrs_config()
+    def get_attrs_config(self):
+        attrs = super(QubesHVm, self).get_attrs_config()
         attrs.pop('kernel')
         attrs.pop('kernels_dir')
         attrs.pop('kernelopts')

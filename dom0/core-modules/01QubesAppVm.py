@@ -27,8 +27,8 @@ class QubesAppVm(QubesVm):
     """
     A class that represents an AppVM. A child of QubesVm.
     """
-    def _get_attrs_config(self):
-        attrs_config = super(QubesAppVm, self)._get_attrs_config()
+    def get_attrs_config(self):
+        attrs_config = super(QubesAppVm, self).get_attrs_config()
         attrs_config['dir_path']['eval'] = 'value if value is not None else os.path.join(system_path["qubes_appvms_dir"], self.name)'
 
         return attrs_config

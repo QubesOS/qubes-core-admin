@@ -43,8 +43,8 @@ class QubesDisposableVm(QubesVm):
     # In which order load this VM type from qubes.xml
     load_order = 120
 
-    def _get_attrs_config(self):
-        attrs_config = super(QubesDisposableVm, self)._get_attrs_config()
+    def get_attrs_config(self):
+        attrs_config = super(QubesDisposableVm, self).get_attrs_config()
 
         # New attributes
         attrs_config['dispid'] = { 'save': 'str(self.dispid)' }
