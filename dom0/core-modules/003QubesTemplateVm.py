@@ -109,21 +109,7 @@ class QubesTemplateVm(QubesVm):
         if dry_run:
             return
 
-
-        if not os.path.exists (self.dir_path):
-            raise QubesException (
-                "VM directory doesn't exist: {0}".\
-                format(self.dir_path))
-
-        if not os.path.exists (self.root_img):
-            raise QubesException (
-                "VM root image file doesn't exist: {0}".\
-                format(self.root_img))
-
-        if not os.path.exists (self.private_img):
-            raise QubesException (
-                "VM private image file doesn't exist: {0}".\
-                format(self.private_img))
+        super(QubesTemplateVm, self).verify_files()
 
         if not os.path.exists (self.volatile_img):
             raise QubesException (
@@ -134,11 +120,6 @@ class QubesTemplateVm(QubesVm):
             raise QubesException (
                 "Clean VM volatile image file doesn't exist: {0}".\
                 format(self.clean_volatile_img))
-
-        if not os.path.exists (self.kernels_dir):
-            raise QubesException (
-                "VM's kernels directory does not exist: {0}".\
-                format(self.kernels_dir))
 
         return True
 
