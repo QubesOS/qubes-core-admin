@@ -22,6 +22,9 @@
 #
 
 import os
+import os.path
+import subprocess
+import sys
 
 from qubes.qubes import QubesVm,register_qubes_vm_class,xs,dry_run
 from qubes.qubes import system_path,defaults
