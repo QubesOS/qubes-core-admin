@@ -1,8 +1,0 @@
-#!/bin/sh
-
-DEVID=$[ $MAJOR * 256 + $MINOR ]
-
-XS_PATH="device/vbd/$DEVID"
-
-# Double check that DEVID is not empty
-[ -n "$DEVID" ] && xenstore-rm $XS_PATH

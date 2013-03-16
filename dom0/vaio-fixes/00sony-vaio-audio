@@ -1,8 +1,0 @@
-#!/bin/sh
-
-. "${PM_FUNCTIONS}"
-
-case "$1" in
-        thaw|resume) amixer sset Master 100;;
-        *) exit 0 ;;
-esac

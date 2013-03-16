@@ -1,3 +1,0 @@
-#!/bin/bash
-modinfo -k $kernel pciback > /dev/null 2>&1 && instmods pciback
-modinfo -k $kernel xen-pciback > /dev/null 2>&1 && instmods xen-pciback

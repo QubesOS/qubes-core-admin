@@ -1,1 +1,0 @@
-*/6 * * * * root /usr/bin/qvm-sync-clock > /dev/null 2>&1 || true
