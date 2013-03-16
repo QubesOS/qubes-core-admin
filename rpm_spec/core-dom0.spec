@@ -50,6 +50,7 @@ Requires(postun): systemd-units
 Requires:	python, xen-runtime, pciutils, python-inotify, python-daemon, kernel-qubes-dom0
 Requires:       qubes-qrexec-dom0
 Requires:       python-lxml
+# TODO: R: qubes-gui-dom0 >= 2.1.11
 Conflicts:      qubes-gui-dom0 < 1.1.13
 Requires:       xen >= 4.1.0-2
 Requires:       xen-hvm
@@ -75,8 +76,8 @@ ln -sf . %{name}-%{version}
 %setup -T -D
 
 %build
-python -m compileall dom0/core dom0/qmemman
-python -O -m compileall dom0/core dom0/qmemman
+python -m compileall dom0/core dom0/core-modules dom0/qmemman
+python -O -m compileall dom0/core dom/core-modules dom0/qmemman
 for dir in dom0/dispvm dom0/qubes-rpc dom0/qmemman; do
   (cd $dir; make)
 done
@@ -118,6 +119,11 @@ cp core/__init__.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp core/__init__.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qmemman/qmemman*py $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qmemman/qmemman*py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
+mkdir -p $RPM_BUILD_ROOT%{python_sitearch}/qubes/modules
+cp core-modules/0*.py $RPM_BUILD_ROOT%{python_sitearch}/qubes/modules
+cp core-modules/0*.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes/modules
+cp core-modules/__init__.py $RPM_BUILD_ROOT%{python_sitearch}/qubes/modules
+cp core-modules/__init__.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes/modules
 
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/qubes
 cp qmemman/qmemman.conf $RPM_BUILD_ROOT%{_sysconfdir}/qubes/
@@ -359,6 +365,8 @@ fi
 %{python_sitearch}/qubes/__init__.pyc
 %{python_sitearch}/qubes/__init__.pyo
 %{python_sitearch}/qubes/qmemman*.py*
+%{python_sitearch}/qubes/modules/0*.py*
+%{python_sitearch}/qubes/modules/__init__.py*
 /usr/lib/qubes/unbind-pci-device.sh
 /usr/lib/qubes/cleanup-dispvms
 /usr/lib/qubes/convert-apptemplate2vm.sh
