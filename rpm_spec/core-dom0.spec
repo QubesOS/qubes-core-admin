@@ -130,10 +130,6 @@ cp qmemman/qmemman.conf $RPM_BUILD_ROOT%{_sysconfdir}/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/unbind-pci-device.sh $RPM_BUILD_ROOT/usr/lib/qubes
-cp aux-tools/convert-apptemplate2vm.sh $RPM_BUILD_ROOT/usr/lib/qubes
-cp aux-tools/convert-dirtemplate2vm.sh $RPM_BUILD_ROOT/usr/lib/qubes
-cp aux-tools/create-apps-for-appvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
-cp aux-tools/remove-appvm-appmenus.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/cleanup-dispvms $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/startup-dvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/startup-misc.sh $RPM_BUILD_ROOT/usr/lib/qubes
@@ -142,7 +138,6 @@ cp qmemman/server.py $RPM_BUILD_ROOT/usr/lib/qubes/qmemman_daemon.py
 cp qmemman/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
 cp qubes-rpc/qfile-dom0-unpacker $RPM_BUILD_ROOT/usr/lib/qubes/
 cp qubes-rpc/qubes-notify-updates $RPM_BUILD_ROOT/usr/lib/qubes/
-cp qubes-rpc/qubes-receive-appmenus $RPM_BUILD_ROOT/usr/lib/qubes/
 cp qubes-rpc/qubes-receive-updates $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/udev-block-add-change $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/udev-block-remove $RPM_BUILD_ROOT/usr/lib/qubes/
@@ -159,8 +154,6 @@ mkdir -p $RPM_BUILD_ROOT/etc/qubes-rpc/policy
 cp qubes-rpc-policy/qubes.Filecopy.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.Filecopy
 cp qubes-rpc-policy/qubes.OpenInVM.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.OpenInVM
 cp qubes-rpc-policy/qubes.VMShell.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.VMShell
-cp qubes-rpc-policy/qubes.SyncAppMenus.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.SyncAppMenus
-cp qubes-rpc/qubes.SyncAppMenus $RPM_BUILD_ROOT/etc/qubes-rpc/
 cp qubes-rpc-policy/qubes.NotifyUpdates.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.NotifyUpdates
 cp qubes-rpc/qubes.NotifyUpdates $RPM_BUILD_ROOT/etc/qubes-rpc/
 cp qubes-rpc-policy/qubes.ReceiveUpdates.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.ReceiveUpdates
@@ -193,13 +186,7 @@ mkdir -p $RPM_BUILD_ROOT/usr/share/qubes/icons
 for icon in icons/*.png; do
     convert -resize 48 $icon $RPM_BUILD_ROOT/usr/share/qubes/$icon
 done
-cp misc/qubes-vm.directory.template $RPM_BUILD_ROOT/usr/share/qubes/
-cp misc/qubes-templatevm.directory.template $RPM_BUILD_ROOT/usr/share/qubes/
-cp misc/qubes-servicevm.directory.template $RPM_BUILD_ROOT/usr/share/qubes/
-cp misc/qubes-dispvm.directory $RPM_BUILD_ROOT/usr/share/qubes/
-cp misc/qubes-dispvm-firefox.desktop $RPM_BUILD_ROOT/usr/share/qubes/
-cp misc/qubes-appmenu-select.desktop $RPM_BUILD_ROOT/usr/share/qubes/
-cp misc/qubes-start.desktop $RPM_BUILD_ROOT/usr/share/qubes/
+mkdir -p $RPM_BUILD_ROOT/usr/share/qubes
 cp misc/vm-template.conf $RPM_BUILD_ROOT/usr/share/qubes/
 cp misc/vm-template-hvm.conf $RPM_BUILD_ROOT/usr/share/qubes/
 
@@ -287,8 +274,6 @@ for i in /usr/share/qubes/icons/*.png ; do
 	xdg-icon-resource install --novendor --size 48 $i
 done
 
-xdg-desktop-menu install /usr/share/qubes/qubes-dispvm.directory /usr/share/qubes/qubes-dispvm-firefox.desktop
-
 # Because we now have an installer
 # this script is always executed during upgrade
 # and we decided not to restart core during upgrade
@@ -369,15 +354,10 @@ fi
 %{python_sitearch}/qubes/modules/__init__.py*
 /usr/lib/qubes/unbind-pci-device.sh
 /usr/lib/qubes/cleanup-dispvms
-/usr/lib/qubes/convert-apptemplate2vm.sh
-/usr/lib/qubes/convert-dirtemplate2vm.sh
-/usr/lib/qubes/create-apps-for-appvm.sh
-/usr/lib/qubes/remove-appvm-appmenus.sh
 /usr/lib/qubes/qmemman_daemon.py*
 /usr/lib/qubes/meminfo-writer
 /usr/lib/qubes/qfile-daemon-dvm*
 /usr/lib/qubes/qubes-notify-updates
-/usr/lib/qubes/qubes-receive-appmenus
 /usr/lib/qubes/qubes-receive-updates
 /usr/lib/qubes/udev-block-add-change
 /usr/lib/qubes/udev-block-remove
@@ -408,13 +388,6 @@ fi
 %attr(0770,root,qubes) %dir /var/lib/qubes/updates
 %attr(0770,root,qubes) %dir /var/lib/qubes/vm-kernels
 /usr/share/qubes/icons/*.png
-/usr/share/qubes/qubes-vm.directory.template
-/usr/share/qubes/qubes-templatevm.directory.template
-/usr/share/qubes/qubes-servicevm.directory.template
-/usr/share/qubes/qubes-dispvm.directory
-/usr/share/qubes/qubes-dispvm-firefox.desktop
-/usr/share/qubes/qubes-appmenu-select.desktop
-/usr/share/qubes/qubes-start.desktop
 /usr/share/qubes/vm-template.conf
 /usr/share/qubes/vm-template-hvm.conf
 /etc/sysconfig/iptables
@@ -434,11 +407,9 @@ fi
 /etc/xen/scripts/vif-route-qubes
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.Filecopy
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.OpenInVM
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.SyncAppMenus
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.NotifyUpdates
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.ReceiveUpdates
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.VMShell
-/etc/qubes-rpc/qubes.SyncAppMenus
 /etc/qubes-rpc/qubes.NotifyUpdates
 /etc/qubes-rpc/qubes.ReceiveUpdates
 %attr(2770,root,qubes) %dir /var/log/qubes

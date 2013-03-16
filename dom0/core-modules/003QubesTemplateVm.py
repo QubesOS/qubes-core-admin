@@ -49,7 +49,6 @@ class QubesTemplateVm(QubesVm):
         # Clean image for root-cow and swap (AppVM side)
         attrs_config['clean_volatile_img'] = { 'eval': 'os.path.join(self.dir_path, vm_files["clean_volatile_img"])' }
 
-        attrs_config['appmenus_templates_dir'] = { 'eval': 'os.path.join(self.dir_path, vm_files["appmenus_templates_subdir"])' }
         return attrs_config
 
     def __init__(self, **kwargs):
@@ -81,14 +80,6 @@ class QubesTemplateVm(QubesVm):
 
         super(QubesTemplateVm, self).clone_disk_files(src_vm=src_vm, verbose=verbose)
 
-        for whitelist in ['vm-' + vm_files["whitelisted_appmenus"], 'netvm-' + vm_files["whitelisted_appmenus"]]:
-            if os.path.exists(os.path.join(src_vm.dir_path, whitelist)):
-                if verbose:
-                    print >> sys.stderr, "--> Copying default whitelisted apps list: {0}".\
-                        format(os.path.join(self.dir_path, whitelist))
-                shutil.copy(os.path.join(src_vm.dir_path, whitelist),
-                        os.path.join(self.dir_path, whitelist))
-
         if verbose:
             print >> sys.stderr, "--> Copying the template's clean volatile image:\n{0} ==>\n{1}".\
                     format(src_vm.clean_volatile_img, self.clean_volatile_img)
@@ -109,34 +100,10 @@ class QubesTemplateVm(QubesVm):
         # Create root-cow.img
         self.commit_changes(verbose=verbose)
 
-    def create_appmenus(self, verbose=False, source_template = None):
-        if source_template is None:
-            source_template = self.template
-
-        try:
-            subprocess.check_call ([system_path["qubes_appmenu_create_cmd"], self.appmenus_templates_dir, self.name, "vm-templates"])
-        except subprocess.CalledProcessError:
-            print >> sys.stderr, "Ooops, there was a problem creating appmenus for {0} VM!".format (self.name)
-
-    def remove_appmenus(self):
-        subprocess.check_call ([system_path["qubes_appmenu_remove_cmd"], self.name, "vm-templates"])
-
-    def pre_rename(self, new_name):
-        self.remove_appmenus()
-
     def post_rename(self, old_name):
-        self.create_appmenus(verbose=False)
-
         old_dirpath = os.path.join(os.path.dirname(self.dir_path), old_name)
         self.clean_volatile_img = self.clean_volatile_img.replace(old_dirpath, self.dir_path)
         self.rootcow_img = self.rootcow_img.replace(old_dirpath, self.dir_path)
-
-    def remove_from_disk(self):
-        if dry_run:
-            return
-
-        self.remove_appmenus()
-        super(QubesTemplateVm, self).remove_from_disk()
 
     def verify_files(self):
         if dry_run:

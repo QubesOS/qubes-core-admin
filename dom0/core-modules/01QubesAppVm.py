@@ -40,20 +40,4 @@ class QubesAppVm(QubesVm):
     def is_appvm(self):
         return True
 
-    def create_on_disk(self, verbose, source_template = None):
-        if dry_run:
-            return
-
-        super(QubesAppVm, self).create_on_disk(verbose, source_template=source_template)
-
-        if not self.internal:
-            self.create_appmenus (verbose=verbose, source_template=source_template)
-
-    def remove_from_disk(self):
-        if dry_run:
-            return
-
-        self.remove_appmenus()
-        super(QubesAppVm, self).remove_from_disk()
-
 register_qubes_vm_class(QubesAppVm)

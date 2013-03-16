@@ -169,29 +169,4 @@ class QubesNetVm(QubesVm):
         self.__external_ip_allowed_xids.discard(int(xid))
         self.update_external_ip_permissions()
 
-    def create_on_disk(self, verbose, source_template = None):
-        if dry_run:
-            return
-
-        super(QubesNetVm, self).create_on_disk(verbose, source_template=source_template)
-
-        if os.path.exists(os.path.join(source_template.dir_path, 'netvm-' + vm_files["whitelisted_appmenus"])):
-            if verbose:
-                print >> sys.stderr, "--> Creating default whitelisted apps list: {0}".\
-                    format(self.dir_path + '/' + vm_files["whitelisted_appmenus"])
-            shutil.copy(os.path.join(source_template.dir_path, 'netvm-' + vm_files["whitelisted_appmenus"]),
-                    os.path.join(self.dir_path, vm_files["whitelisted_appmenus"]))
-
-        if not self.internal:
-            self.create_appmenus (verbose=verbose, source_template=source_template)
-
-    def remove_from_disk(self):
-        if dry_run:
-            return
-
-        if not self.internal:
-            self.remove_appmenus()
-        super(QubesNetVm, self).remove_from_disk()
-
-
 register_qubes_vm_class(QubesNetVm)

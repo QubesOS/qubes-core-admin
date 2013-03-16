@@ -120,9 +120,6 @@ class QubesVm(object):
             "default_user": { "default": "user" },
             "qrexec_timeout": { "default": 60, "eval": "int(value)" },
             ##### Internal attributes - will be overriden in __init__ regardless of args
-            "appmenus_templates_dir": { "eval": \
-                'os.path.join(self.dir_path, vm_files["appmenus_templates_subdir"]) if self.updateable else ' + \
-                'self.template.appmenus_templates_dir if self.template is not None else None' },
             "config_file_template": { "eval": 'system_path["config_template_pv"]' },
             "icon_path": { "eval": 'os.path.join(self.dir_path, "/icon.png") if self.dir_path is not None else None' },
             # used to suppress side effects of clone_attrs
@@ -404,8 +401,6 @@ class QubesVm(object):
         return re.match(r"^[a-zA-Z0-9_-]*$", name) is not None
 
     def pre_rename(self, new_name):
-        self.remove_appmenus()
-
         # fire hooks
         for hook in self.hooks_pre_rename:
             hook(self, new_name)
@@ -436,8 +431,6 @@ class QubesVm(object):
             self.volatile_img = self.volatile_img.replace(old_dirpath, new_dirpath)
         if self.conf_file is not None:
             self.conf_file = new_conf.replace(old_dirpath, new_dirpath)
-        if self.appmenus_templates_dir is not None:
-            self.appmenus_templates_dir = self.appmenus_templates_dir.replace(old_dirpath, new_dirpath)
         if self.icon_path is not None:
             self.icon_path = self.icon_path.replace(old_dirpath, new_dirpath)
         if hasattr(self, 'kernels_dir') and self.kernels_dir is not None:
@@ -446,8 +439,6 @@ class QubesVm(object):
         self.post_rename(old_name)
 
     def post_rename(self, old_name):
-        self.create_appmenus(verbose=False)
-
         # fire hooks
         for hook in self.hooks_post_rename:
             hook(self, old_name)
@@ -934,13 +925,6 @@ class QubesVm(object):
             raise IOError ("Error while copying {0} to {1}".\
                            format(template_priv, self.private_img))
 
-        if os.path.exists(os.path.join(source_template.dir_path, '/vm-' + vm_files["whitelisted_appmenus"])):
-            if verbose:
-                print >> sys.stderr, "--> Creating default whitelisted apps list: {0}".\
-                    format(self.dir_path + '/' + vm_files["whitelisted_appmenus"])
-            shutil.copy(os.path.join(source_template.dir_path, '/vm-' + vm_files["whitelisted_appmenus"]),
-                    os.path.join(self.dir_path, vm_files["whitelisted_appmenus"]))
-
         if self.updateable:
             template_root = source_template.root_img
             if verbose:
@@ -963,11 +947,6 @@ class QubesVm(object):
                 shutil.copy(os.path.join(kernels_dir, f),
                         os.path.join(self.dir_path, vm_files["kernels_subdir"], f))
 
-            if verbose:
-                print >> sys.stderr, "--> Copying the template's appmenus templates dir:\n{0} ==>\n{1}".\
-                        format(source_template.appmenus_templates_dir, self.appmenus_templates_dir)
-            shutil.copytree (source_template.appmenus_templates_dir, self.appmenus_templates_dir)
-
         # Create volatile.img
         self.reset_volatile_storage(source_template = source_template, verbose=verbose)
 
@@ -975,26 +954,6 @@ class QubesVm(object):
             print >> sys.stderr, "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
         os.symlink (self.label.icon_path, self.icon_path)
 
-    def create_appmenus(self, verbose=False, source_template = None):
-        if source_template is None:
-            source_template = self.template
-
-        vmtype = None
-        if self.is_netvm():
-            vmtype = 'servicevms'
-        else:
-            vmtype = 'appvms'
-
-        try:
-            if source_template is not None:
-                subprocess.check_call ([system_path["qubes_appmenu_create_cmd"], source_template.appmenus_templates_dir, self.name, vmtype])
-            elif self.appmenus_templates_dir is not None:
-                subprocess.check_call ([system_path["qubes_appmenu_create_cmd"], self.appmenus_templates_dir, self.name, vmtype])
-            else:
-                # Only add apps to menu
-                subprocess.check_call ([system_path["qubes_appmenu_create_cmd"], "none", self.name, vmtype])
-        except subprocess.CalledProcessError:
-            print >> sys.stderr, "Ooops, there was a problem creating appmenus for {0} VM!".format (self.name)
         # fire hooks
         for hook in self.hooks_create_on_disk:
             hook(self, verbose, source_template=source_template)
@@ -1045,19 +1004,6 @@ class QubesVm(object):
                 raise IOError ("Error while copying {0} to {1}".\
                            format(src_vm.root_img, self.root_img))
 
-        if src_vm.updateable and src_vm.appmenus_templates_dir is not None and self.appmenus_templates_dir is not None:
-            if verbose:
-                print >> sys.stderr, "--> Copying the template's appmenus templates dir:\n{0} ==>\n{1}".\
-                        format(src_vm.appmenus_templates_dir, self.appmenus_templates_dir)
-            shutil.copytree (src_vm.appmenus_templates_dir, self.appmenus_templates_dir)
-
-        if os.path.exists(os.path.join(src_vm.dir_path, vm_files["whitelisted_appmenus"])):
-            if verbose:
-                print >> sys.stderr, "--> Copying whitelisted apps list: {0}".\
-                    format(os.path.join(self.dir_path, vm_files["whitelisted_appmenus"]))
-            shutil.copy(os.path.join(src_vm.dir_path, vm_files["whitelisted_appmenus"]),
-                    os.path.join(self.dir_path, vm_files["whitelisted_appmenus"]))
-
         if src_vm.icon_path is not None and self.icon_path is not None:
             if os.path.exists (src_vm.dir_path):
                 if os.path.islink(src_vm.icon_path):
@@ -1070,20 +1016,9 @@ class QubesVm(object):
                         print >> sys.stderr, "--> Copying icon: {0} -> {1}".format(src_vm.icon_path, self.icon_path)
                     shutil.copy(src_vm.icon_path, self.icon_path)
 
-        # Create appmenus
-        self.create_appmenus(verbose=verbose)
-
         # fire hooks
         for hook in self.hooks_clone_disk_files:
             hook(self, verbose, src_vm)
-
-    def remove_appmenus(self):
-        vmtype = None
-        if self.is_netvm():
-            vmtype = 'servicevms'
-        else:
-            vmtype = 'appvms'
-        subprocess.check_call ([system_path["qubes_appmenu_remove_cmd"], self.name, vmtype])
 
     def verify_files(self):
         if dry_run:

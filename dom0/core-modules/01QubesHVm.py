@@ -114,14 +114,6 @@ class QubesHVm(QubesVm):
             print >> sys.stderr, "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
         os.symlink (self.label.icon_path, self.icon_path)
 
-        if verbose:
-            print >> sys.stderr, "--> Creating appmenus directory: {0}".format(self.appmenus_templates_dir)
-        os.mkdir (self.appmenus_templates_dir)
-        shutil.copy (system_path["start_appmenu_template"], self.appmenus_templates_dir)
-
-        if not self.internal:
-            self.create_appmenus (verbose, source_template=source_template)
-
         self.create_config_file()
 
         # create empty disk
@@ -137,13 +129,6 @@ class QubesHVm(QubesVm):
         # fire hooks
         for hook in self.hooks_create_on_disk:
             hook(self, verbose, source_template=source_template)
-
-    def remove_from_disk(self):
-        if dry_run:
-            return
-
-        self.remove_appmenus()
-        super(QubesHVm, self).remove_from_disk()
 
     def get_disk_utilization_private_img(self):
         return 0

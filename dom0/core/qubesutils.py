@@ -23,7 +23,7 @@
 from qubes import QubesVm,QubesException,QubesVmCollection
 from qubes import QubesVmClasses
 from qubes import xs, xl_ctx
-from qubes import system_path
+from qubes import system_path,vm_files
 import sys
 import os
 import subprocess
@@ -857,8 +857,9 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
                 files_to_backup += file_to_backup(vm.dir_path + "/kernels")
         if os.path.exists (vm.firewall_conf):
             files_to_backup += file_to_backup(vm.firewall_conf)
-        if os.path.exists(vm.dir_path + '/whitelisted-appmenus.list'):
-            files_to_backup += file_to_backup(vm.dir_path + '/whitelisted-appmenus.list')
+        if 'appmenus_whitelist' in vm_files and \
+                os.path.exists(vm.dir_path + vm_files['appmenus_whitelist']):
+            files_to_backup += file_to_backup(vm.dir_path + vm_files['appmenus_whitelist'])
 
         if vm.updateable:
             sz = vm.get_disk_usage(vm.root_img)
@@ -1321,7 +1322,7 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
                 error_callback("*** Some VM property will not be restored")
 
             try:
-                new_vm.create_appmenus(verbose=True)
+                new_vm.appmenus_create(verbose=True)
             except Exception as err:
                 error_callback("ERROR during appmenu restore: {0}".format(err))
                 error_callback("*** VM '{0}' will not have appmenus".format(vm.name))

@@ -59,10 +59,6 @@ system_path = {
 
     'config_template_pv': '/usr/share/qubes/vm-template.conf',
 
-    'start_appmenu_template': '/usr/share/qubes/qubes-start.desktop',
-    'qubes_appmenu_create_cmd': '/usr/lib/qubes/create-apps-for-appvm.sh',
-    'qubes_appmenu_remove_cmd': '/usr/lib/qubes/remove-appvm-appmenus.sh',
-
     'qubes_pciback_cmd': '/usr/lib/qubes/unbind-pci-device.sh',
     'prepare_volatile_img_cmd': '/usr/lib/qubes/prepare-volatile-img.sh',
 }
@@ -73,8 +69,6 @@ vm_files = {
     'volatile_img': 'volatile.img',
     'clean_volatile_img': 'clean-volatile.img.tar',
     'private_img': 'private.img',
-    'appmenus_templates_subdir': 'apps.templates',
-    'appmenus_template_templates_subdir': 'apps-template.templates',
     'kernels_subdir': 'kernels',
     'firewall_conf': 'firewall.xml',
     'whitelisted_appmenus': 'whitelisted-appmenus.list',
