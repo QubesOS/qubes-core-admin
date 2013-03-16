@@ -134,6 +134,10 @@ class QubesHVm(QubesVm):
         f_private.truncate(defaults["hvm_private_img_size"])
         f_root.close()
 
+        # fire hooks
+        for hook in self.hooks_create_on_disk:
+            hook(self, verbose, source_template=source_template)
+
     def remove_from_disk(self):
         if dry_run:
             return
@@ -217,6 +221,10 @@ class QubesHVm(QubesVm):
             f_private = open(self.private_img, "w")
             f_private.truncate(defaults["hvm_private_img_size"])
             f_private.close()
+
+        # fire hooks
+        for hook in self.hooks_verify_files:
+            hook(self)
 
         return True
 

@@ -51,6 +51,23 @@ class QubesVm(object):
     # In which order load this VM type from qubes.xml
     load_order = 100
 
+    # hooks for plugins (modules) which want to influence existing classes,
+    # without introducing new ones
+    hooks_clone_disk_files = []
+    hooks_create_on_disk = []
+    hooks_create_xenstore_entries = []
+    hooks_get_attrs_config = []
+    hooks_get_clone_attrs = []
+    hooks_get_config_params = []
+    hooks_init = []
+    hooks_label_setter = []
+    hooks_netvm_setter = []
+    hooks_post_rename = []
+    hooks_pre_rename = []
+    hooks_remove_from_disk = []
+    hooks_start = []
+    hooks_verify_files = []
+
     def get_attrs_config(self):
         """ Object attributes for serialization/deserialization
             inner dict keys:
@@ -138,6 +155,9 @@ class QubesVm(object):
         attrs['template']['save_attr'] = "template_qid"
         attrs['label']['save'] = 'self.label.name'
 
+        # fire hooks
+        for hook in self.hooks_get_attrs_config:
+            attrs = hook(self, attrs)
         return attrs
 
     def __basic_parse_xml_attr(self, value):
@@ -236,6 +256,10 @@ class QubesVm(object):
         self.xid = -1
         self.xid = self.get_xid()
 
+        # fire hooks
+        for hook in self.hooks_init:
+            hook(self)
+
     def absolute_path(self, arg, default):
         if arg is not None and os.path.isabs(arg):
             return arg
@@ -264,6 +288,10 @@ class QubesVm(object):
             os.symlink (new_label.icon_path, self.icon_path)
             subprocess.call(['sudo', 'xdg-icon-resource', 'forceupdate'])
 
+        # fire hooks
+        for hook in self.hooks_label_setter:
+            hook(self, new_label)
+
     @property
     def netvm(self):
         return self._netvm
@@ -272,6 +300,9 @@ class QubesVm(object):
     @netvm.setter
     def netvm(self, new_netvm):
         self._set_netvm(new_netvm)
+        # fire hooks
+        for hook in self.hooks_netvm_setter:
+            hook(self, new_netvm)
 
     def _set_netvm(self, new_netvm):
         if self.is_running() and new_netvm is not None and not new_netvm.is_running():
@@ -375,6 +406,10 @@ class QubesVm(object):
     def pre_rename(self, new_name):
         self.remove_appmenus()
 
+        # fire hooks
+        for hook in self.hooks_pre_rename:
+            hook(self, new_name)
+
     def set_name(self, name):
         if self.is_running():
             raise QubesException("Cannot change name of running VM!")
@@ -412,6 +447,10 @@ class QubesVm(object):
 
     def post_rename(self, old_name):
         self.create_appmenus(verbose=False)
+
+        # fire hooks
+        for hook in self.hooks_post_rename:
+            hook(self, old_name)
 
     def is_template(self):
         return False
@@ -775,6 +814,10 @@ class QubesVm(object):
         xs.set_permissions('', '{0}/qubes-usb-devices'.format(domain_path),
                 [{ 'dom': xid }])
 
+        # fire hooks
+        for hook in self.hooks_create_xenstore_entries:
+            hook(self, xid=xid)
+
     def get_rootdev(self, source_template=None):
         if self.template:
             return "'script:snapshot:{dir}/root.img:{dir}/root-cow.img,xvda,r',".format(dir=self.template.dir_path)
@@ -830,6 +873,10 @@ class QubesVm(object):
             if self.debug:
                 print >> sys.stderr, "--> Debug mode: adding 'earlyprintk=xen' to kernel opts"
                 args['kernelopts'] += ' earlyprintk=xen'
+
+        # fire hooks
+        for hook in self.hooks_get_config_params:
+            args = hook(self, args)
 
         return args
 
@@ -948,11 +995,18 @@ class QubesVm(object):
                 subprocess.check_call ([system_path["qubes_appmenu_create_cmd"], "none", self.name, vmtype])
         except subprocess.CalledProcessError:
             print >> sys.stderr, "Ooops, there was a problem creating appmenus for {0} VM!".format (self.name)
+        # fire hooks
+        for hook in self.hooks_create_on_disk:
+            hook(self, verbose, source_template=source_template)
 
     def get_clone_attrs(self):
-        return ['kernel', 'uses_default_kernel', 'netvm', 'uses_default_netvm', \
+        attrs = ['kernel', 'uses_default_kernel', 'netvm', 'uses_default_netvm', \
             'memory', 'maxmem', 'kernelopts', 'uses_default_kernelopts', 'services', 'vcpus', \
             '_mac', 'pcidevs', 'include_in_backups', '_label']
+
+        # fire hooks
+        for hook in self.hooks_get_clone_attrs:
+            attrs = hook(self, attrs)
 
     def clone_attrs(self, src_vm):
         self._do_not_reset_firewall = True
@@ -1019,6 +1073,10 @@ class QubesVm(object):
         # Create appmenus
         self.create_appmenus(verbose=verbose)
 
+        # fire hooks
+        for hook in self.hooks_clone_disk_files:
+            hook(self, verbose, src_vm)
+
     def remove_appmenus(self):
         vmtype = None
         if self.is_netvm():
@@ -1060,6 +1118,11 @@ class QubesVm(object):
             raise QubesException (
                 "VM kernel modules image does not exists: {0}".\
                 format(os.path.join(self.kernels_dir, 'modules.img')))
+
+        # fire hooks
+        for hook in self.hooks_verify_files:
+            hook(self)
+
         return True
 
     def reset_volatile_storage(self, source_template = None, verbose = False):
@@ -1096,6 +1159,10 @@ class QubesVm(object):
     def remove_from_disk(self):
         if dry_run:
             return
+
+        # fire hooks
+        for hook in self.hooks_remove_from_disk:
+            hook(self)
 
         shutil.rmtree (self.dir_path)
 
@@ -1422,6 +1489,11 @@ class QubesVm(object):
         for vm in qvm_collection.values():
             if vm.is_proxyvm() and vm.is_running():
                 vm.write_iptables_xenstore_entry()
+
+        # fire hooks
+        for hook in self.hooks_start:
+            hook(self, verbose = verbose, preparing_dvm =  preparing_dvm,
+                    start_guid = start_guid, notify_function = notify_function)
 
         if verbose:
             print >> sys.stderr, "--> Starting the VM..."
