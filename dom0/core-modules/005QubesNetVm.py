@@ -113,17 +113,13 @@ class QubesNetVm(QubesVm):
         if xid < 0:
             return
 
-        command = [
-                "/usr/bin/xenstore-chmod",
-                "/local/domain/{0}/qubes-netvm-external-ip".format(xid)
-            ]
+        perms = [ { 'dom': xid } ]
 
-        command.append("n{0}".format(xid))
+        for xid in self.__external_ip_allowed_xids:
+            perms.append({ 'dom': xid, 'read': True })
 
-        for id in self.__external_ip_allowed_xids:
-            command.append("r{0}".format(id))
-
-        return subprocess.check_call(command)
+        xs.set_permissions('', '/local/domain/{0}/qubes-netvm-external-ip'.format(xid),
+                perms)
 
     def start(self, **kwargs):
         if dry_run:
