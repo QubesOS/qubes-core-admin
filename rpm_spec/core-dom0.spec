@@ -78,7 +78,7 @@ ln -sf . %{name}-%{version}
 %build
 python -m compileall dom0/core dom0/core-modules dom0/qmemman
 python -O -m compileall dom0/core dom/core-modules dom0/qmemman
-for dir in dom0/dispvm dom0/qubes-rpc dom0/qmemman; do
+for dir in dom0/dispvm dom0/qmemman; do
   (cd $dir; make)
 done
 
@@ -136,9 +136,7 @@ cp aux-tools/startup-misc.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp aux-tools/prepare-volatile-img.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp qmemman/server.py $RPM_BUILD_ROOT/usr/lib/qubes/qmemman_daemon.py
 cp qmemman/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
-cp qubes-rpc/qfile-dom0-unpacker $RPM_BUILD_ROOT/usr/lib/qubes/
 cp qubes-rpc/qubes-notify-updates $RPM_BUILD_ROOT/usr/lib/qubes/
-cp qubes-rpc/qubes-receive-updates $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/udev-block-add-change $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/udev-block-remove $RPM_BUILD_ROOT/usr/lib/qubes/
 cp aux-tools/udev-block-cleanup $RPM_BUILD_ROOT/usr/lib/qubes/
@@ -159,7 +157,6 @@ cp qubes-rpc/qubes.NotifyUpdates $RPM_BUILD_ROOT/etc/qubes-rpc/
 cp qubes-rpc-policy/qubes.ReceiveUpdates.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.ReceiveUpdates
 cp qubes-rpc/qubes.ReceiveUpdates $RPM_BUILD_ROOT/etc/qubes-rpc/
 install -D aux-tools/qubes-dom0.modules $RPM_BUILD_ROOT/etc/sysconfig/modules/qubes-dom0.modules
-install -D aux-tools/qubes-dom0-updates.cron $RPM_BUILD_ROOT/etc/cron.daily/qubes-dom0-updates.cron
 install -D aux-tools/qubes-sync-clock.cron $RPM_BUILD_ROOT/etc/cron.d/qubes-sync-clock.cron
 
 cp dispvm/xenstore-watch $RPM_BUILD_ROOT/usr/bin/xenstore-watch-qubes
@@ -167,9 +164,6 @@ cp dispvm/qubes-restore $RPM_BUILD_ROOT/usr/lib/qubes
 cp dispvm/qubes-prepare-saved-domain.sh  $RPM_BUILD_ROOT/usr/lib/qubes
 cp dispvm/qubes-update-dispvm-savefile-with-progress.sh  $RPM_BUILD_ROOT/usr/lib/qubes
 cp dispvm/qfile-daemon-dvm $RPM_BUILD_ROOT/usr/lib/qubes
-
-mkdir -p $RPM_BUILD_ROOT/etc/yum.real.repos.d
-cp qubes-cached.repo $RPM_BUILD_ROOT/etc/yum.real.repos.d/
 
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/vm-templates
@@ -179,8 +173,6 @@ mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/vm-kernels
 
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/backup
 mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/dvmdata
-
-mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/updates
 
 mkdir -p $RPM_BUILD_ROOT/usr/share/qubes
 cp misc/vm-template.conf $RPM_BUILD_ROOT/usr/share/qubes/
@@ -228,12 +220,6 @@ fi
 sed '/^autoballoon=/d;/^lockfile=/d' -i /etc/xen/xl.conf
 echo 'autoballoon=0' >> /etc/xen/xl.conf
 echo 'lockfile="/var/run/qubes/xl-lock"' >> /etc/xen/xl.conf
-
-sed '/^reposdir\s*=/d' -i /etc/yum.conf
-echo reposdir=/etc/yum.real.repos.d >> /etc/yum.conf
-
-sed '/^installonlypkgs\s*=/d' -i /etc/yum.conf
-echo 'installonlypkgs = kernel, kernel-qubes-vm' >> /etc/yum.conf
 
 sed 's/^PRELINKING\s*=.*/PRELINKING=no/' -i /etc/sysconfig/prelink
 
@@ -298,10 +284,6 @@ sed -i 's/\/block /\/block.qubes /' /etc/udev/rules.d/xen-backend.rules
 %triggerin -- xorg-x11-drv-vmmouse
 mv -f /lib/udev/rules.d/69-xorg-vmmouse.rules /var/lib/qubes/removed-udev-scripts/ 2> /dev/null || :
 
-%triggerin -- PackageKit
-# dom0 have no network, but still can receive updates (qubes-dom0-update)
-sed -i 's/^UseNetworkHeuristic=.*/UseNetworkHeuristic=false/' /etc/PackageKit/PackageKit.conf
-
 %preun
 if [ "$1" = 0 ] ; then
 	# no more packages left
@@ -351,7 +333,6 @@ fi
 /usr/lib/qubes/meminfo-writer
 /usr/lib/qubes/qfile-daemon-dvm*
 /usr/lib/qubes/qubes-notify-updates
-/usr/lib/qubes/qubes-receive-updates
 /usr/lib/qubes/udev-block-add-change
 /usr/lib/qubes/udev-block-remove
 /usr/lib/qubes/udev-block-cleanup
@@ -378,7 +359,6 @@ fi
 %attr(0770,root,qubes) %dir /var/lib/qubes/servicevms
 %attr(0770,root,qubes) %dir /var/lib/qubes/backup
 %attr(0770,root,qubes) %dir /var/lib/qubes/dvmdata
-%attr(0770,root,qubes) %dir /var/lib/qubes/updates
 %attr(0770,root,qubes) %dir /var/lib/qubes/vm-kernels
 /usr/share/qubes/vm-template.conf
 /usr/share/qubes/vm-template-hvm.conf
@@ -400,20 +380,16 @@ fi
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.Filecopy
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.OpenInVM
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.NotifyUpdates
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.ReceiveUpdates
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.VMShell
 /etc/qubes-rpc/qubes.NotifyUpdates
-/etc/qubes-rpc/qubes.ReceiveUpdates
 %attr(2770,root,qubes) %dir /var/log/qubes
 %attr(0770,root,qubes) %dir /var/run/qubes
-/etc/yum.real.repos.d/qubes-cached.repo
 /etc/sudoers.d/qubes
 /etc/polkit-1/rules.d/00-qubes-allow-all.rules
 /etc/xdg/autostart/qubes-guid.desktop
 /etc/security/limits.d/99-qubes.conf
 /etc/udev/rules.d/99-qubes-block.rules
 /etc/udev/rules.d/99-qubes-usb.rules
-%attr(0644,root,root) /etc/cron.daily/qubes-dom0-updates.cron
 %attr(0644,root,root) /etc/cron.d/qubes-sync-clock.cron
 /etc/dracut.conf.d/*
 %dir %{_dracutmoddir}/90qubes-pciback

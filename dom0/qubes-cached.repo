@@ -1,6 +1,0 @@
-[qubes-dom0-cached]
-name = Qubes OS Repository for Dom0
-baseurl = file:///var/lib/qubes/updates
-gpgkey = file:///etc/pki/rpm-gpg/RPM-GPG-KEY-qubes-1-primary
-gpgcheck = 1
-metadata_expire = 0
