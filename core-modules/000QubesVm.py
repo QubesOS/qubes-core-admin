@@ -33,6 +33,7 @@ import sys
 import time
 import uuid
 import xml.parsers.expat
+import xen.lowlevel.xc
 
 from qubes.qubes import xs,dry_run,xc,xl_ctx
 from qubes.qubes import register_qubes_vm_class

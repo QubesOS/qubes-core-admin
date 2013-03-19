@@ -23,7 +23,7 @@
 
 from datetime import datetime
 
-from qubes.qubes import QubesNetVm,register_qubes_vm_class,xs
+from qubes.qubes import QubesNetVm,register_qubes_vm_class,xs,dry_run
 from qubes.qubes import QubesVmCollection,QubesException
 
 yum_proxy_ip = '10.137.255.254'
