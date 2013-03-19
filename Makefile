@@ -25,17 +25,5 @@ rpms-dom0:
 		$(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION)*.rpm \
 		$(RPMS_DIR)/noarch/qubes-core-dom0-doc-$(VERSION)*rpm
 
-update-repo-current:
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION)*$(DIST_DOM0)*.rpm ../yum/current-release/current/dom0/rpm/
-
-update-repo-current-testing:
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION)*$(DIST_DOM0)*.rpm ../yum/current-release/current-testing/dom0/rpm/
-
-update-repo-unstable:
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION)*$(DIST_DOM0)*.rpm ../yum/current-release/unstable/dom0/rpm/
-
-update-repo-installer:
-	ln -f $(RPMS_DIR)/x86_64/qubes-core-dom0-*$(VERSION)*$(DIST_DOM0)*.rpm ../installer/yum/qubes-dom0/rpm/
-
 clean:
 	make -C misc clean
