@@ -26,4 +26,5 @@ rpms-dom0:
 		$(RPMS_DIR)/noarch/qubes-core-dom0-doc-$(VERSION)*rpm
 
 clean:
-	make -C misc clean
+	make -C dispvm clean
+	make -C qmemman clean
