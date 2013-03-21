@@ -78,7 +78,7 @@ def netdown():
         sys.exit(1)
     resolv_conf = open('/etc/resolv.conf', "w")
     resolv_conf.close()
-    os.system('ifconfig eth0 down')
+    os.system('ip link set eth0 down')
     os.system('xl network-detach 0 0')
 
 def usage():
