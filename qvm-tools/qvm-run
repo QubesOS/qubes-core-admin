@@ -58,19 +58,19 @@ def vm_run_cmd(vm, cmd, options):
             if str(err).startswith("There are other VMs connected"):
                 print >> sys.stderr, "Shutdown them first or use --force switch"
             exit(1)
-        return
+        return 0
 
     if options.pause:
         if options.verbose:
             print >> sys.stderr, "Pausing VM: '{0}'...".format(vm.name)
         vm.pause()
-        return
+        return 0
 
     if options.unpause:
         if options.verbose:
             print >> sys.stderr, "UnPausing VM: '{0}'...".format(vm.name)
         vm.unpause()
-        return
+        return 0
 
     if options.verbose:
         print >> sys.stderr, "Running command on VM: '{0}'...".format(vm.name)
@@ -193,8 +193,10 @@ def main():
             exit(1)
         vms_list.append(vm)
 
+    retcode = 0
     for vm in vms_list:
-        vm_run_cmd(vm, cmdstr, options)
+        r = vm_run_cmd(vm, cmdstr, options)
+        retcode = max(r, retcode)
 
     if options.wait_for_shutdown:
         if options.verbose:
@@ -217,5 +219,6 @@ def main():
             shutdown_counter += 1
             time.sleep (1)
         exit (0) # there is no point in executing the other daemons in the case of --wait
+    exit(retcode)
 
 main()
