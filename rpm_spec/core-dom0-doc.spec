@@ -35,7 +35,8 @@ License:	GPL
 URL:		http://www.qubes-os.org
 BuildRequires: pandoc
 BuildArch: noarch
-Obsoletes:  qubes-doc-dom0 <= 2.0
+Obsoletes:	qubes-doc-dom0 <= 2.0
+Provides:	qubes-doc-dom0
 
 %define _builddir %(pwd)/doc
 
