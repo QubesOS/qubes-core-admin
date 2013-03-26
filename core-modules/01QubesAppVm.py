@@ -21,6 +21,8 @@
 #
 #
 
+import os.path
+
 from qubes.qubes import QubesVm,QubesVmLabel,register_qubes_vm_class
 
 class QubesAppVm(QubesVm):
