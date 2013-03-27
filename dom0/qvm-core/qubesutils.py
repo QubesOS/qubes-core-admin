@@ -1031,8 +1031,8 @@ def backup_do_copy(appvm, base_backup_dir, files_to_backup, progress_callback = 
                 raise QubesException("Cannot create directory: {0}?!".format(dest_dir))
 
         file["basename"] = os.path.basename(file["path"])
-        compressor = subprocess.Popen (["gzip", "-c", file["path"]], stdout=subprocess.PIPE)
-        subprocess.Popen (["qvm-run", "--pass-io", "-p", appvm, "cat > " + backup_dir + "/" + file["basename"]], stdin=compressor.stdout)
+        compressor = subprocess.Popen (["tar", "-PcOz", file["path"]], stdout=subprocess.PIPE)
+        subprocess.Popen (["qvm-run", "--pass-io", "-p", appvm, "cat > " + dest_dir + file["basename"] + ".tar.gz"], stdin=compressor.stdout)
 
         bytes_backedup += file["size"]
         progress = bytes_backedup * 100 / total_backup_sz
