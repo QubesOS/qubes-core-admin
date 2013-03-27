@@ -780,10 +780,10 @@ def file_to_backup (file_path, sz = None):
 
 def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_callback = print_stdout):
     """If vms = None, include all (sensible) VMs; exclude_list is always applied"""
-
+    '''
     if not os.path.exists (base_backup_dir):
         raise QubesException("The target directory doesn't exist!")
-
+    '''
     files_to_backup = file_to_backup (qubes_store_filename)
 
     if exclude_list is None:
@@ -955,7 +955,7 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
         fmt="{{0:-^{0}}}-+".format(f["width"] + 1)
         s += fmt.format('-')
     print_callback(s)
-
+    '''
     stat = os.statvfs(base_backup_dir)
     backup_fs_free_sz = stat.f_bsize * stat.f_bavail
     print_callback("")
@@ -966,7 +966,7 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
         raise QubesException("Please shutdown all VMs before proceeding.")
 
     print_callback("-> Available space: {0}".format(size_to_human(backup_fs_free_sz)))
-
+    '''	
     return files_to_backup
 
 def backup_do(base_backup_dir, files_to_backup, progress_callback = None):
@@ -1002,6 +1002,42 @@ def backup_do(base_backup_dir, files_to_backup, progress_callback = None):
         bytes_backedup += file["size"]
         progress = bytes_backedup * 100 / total_backup_sz
         progress_callback(progress)
+
+def backup_do_copy(appvm, base_backup_dir, files_to_backup, progress_callback = None):
+
+    total_backup_sz = 0
+    for file in files_to_backup:
+        total_backup_sz += file["size"]
+    
+    backup_dir = base_backup_dir + "/qubes-{0}".format (time.strftime("%Y-%m-%d-%H%M%S"))
+    '''
+    if os.path.exists (backup_dir):
+        raise QubesException("ERROR: the path {0} already exists?!".format(backup_dir))
+
+    os.mkdir (backup_dir)
+
+    if not os.path.exists (backup_dir):
+        raise QubesException("Strange: couldn't create backup dir: {0}?!".format(backup_dir))
+    '''
+    bytes_backedup = 0
+    for file in files_to_backup:
+        # We prefer to use Linux's cp, because it nicely handles sparse files
+        progress = bytes_backedup * 100 / total_backup_sz
+        progress_callback(progress)
+        dest_dir = backup_dir + '/' + file["subdir"]
+        if file["subdir"] != "":
+            retcode = subprocess.call (["qvm-run", "-p", appvm, "mkdir -p " + dest_dir])
+            if retcode != 0:
+                raise QubesException("Cannot create directory: {0}?!".format(dest_dir))
+
+        file["basename"] = os.path.basename(file["path"])
+        compressor = subprocess.Popen (["gzip", "-c", file["path"]], stdout=subprocess.PIPE)
+        subprocess.Popen (["qvm-run", "--pass-io", "-p", appvm, "cat > " + backup_dir + "/" + file["basename"]], stdin=compressor.stdout)
+
+        bytes_backedup += file["size"]
+        progress = bytes_backedup * 100 / total_backup_sz
+        progress_callback(progress)
+
 
 def backup_restore_set_defaults(options):
     if 'use-default-netvm' not in options:
