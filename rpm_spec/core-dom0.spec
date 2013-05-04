@@ -155,7 +155,6 @@ cp qubes-rpc-policy/qubes.NotifyUpdates.policy $RPM_BUILD_ROOT/etc/qubes-rpc/pol
 cp qubes-rpc/qubes.NotifyUpdates $RPM_BUILD_ROOT/etc/qubes-rpc/
 
 cp dispvm/xenstore-watch $RPM_BUILD_ROOT/usr/bin/xenstore-watch-qubes
-cp dispvm/qubes-restore $RPM_BUILD_ROOT/usr/lib/qubes
 cp dispvm/qubes-prepare-saved-domain.sh  $RPM_BUILD_ROOT/usr/lib/qubes
 cp dispvm/qubes-update-dispvm-savefile-with-progress.sh  $RPM_BUILD_ROOT/usr/lib/qubes
 cp dispvm/qfile-daemon-dvm $RPM_BUILD_ROOT/usr/lib/qubes
@@ -322,7 +321,6 @@ fi
 /usr/share/qubes/xen-vm-template.xml
 /usr/share/qubes/vm-template-hvm.xml
 /usr/bin/xenstore-watch-qubes
-/usr/lib/qubes/qubes-restore
 /usr/lib/qubes/qubes-prepare-saved-domain.sh
 /usr/lib/qubes/qubes-update-dispvm-savefile-with-progress.sh
 /etc/xen/scripts/block.qubes

@@ -29,7 +29,7 @@ if ! qvm-start $1 --no-guid --dvm ; then
 	exit 1
 fi
 
-ID=`xl domid $1`
+ID=`virsh -c xen:/// domid $1`
 if [ "$ID" = "" ] ; then 
 	echo "cannot get domain id" >&2
 	exit 1
@@ -43,22 +43,23 @@ xenstore-write /local/domain/$ID/qubes-save-request 1
 xenstore-watch-qubes /local/domain/$ID/device/qubes-used-mem
 xenstore-read /local/domain/$ID/qubes-gateway | \
 	cut -d . -f 3 | tr -d "\n" > $VMDIR/netvm-id.txt
-xl block-detach $1 xvdb
+# FIXME: get connection URI from core scripts
+virsh -c xen:/// detach-disk $1 xvdb
 MEM=$(xenstore-read /local/domain/$ID/device/qubes-used-mem)
 echo "DVM boot complete, memory used=$MEM. Saving image..." >&2
 QMEMMAN_STOP=/var/run/qubes/do-not-membalance
 touch $QMEMMAN_STOP
-xl mem-set $1 $(($MEM/1000))
+virsh -c xen:/// setmem $1 $MEM
+# Add some safety margin
+virsh -c xen:/// setmaxmem $1 $[ $MEM + 1024 ]
 sleep 1
 touch $2
-if ! xl save $1 $2 $VMDIR/$1.conf; then 
+if ! virsh -c xen:/// save $1 $2; then
 	rm -f $QMEMMAN_STOP
 	exit 1
 fi
 rm -f $QMEMMAN_STOP
+ln -s $VMDIR /var/lib/qubes/dvmdata/vmdir
 cd $VMDIR
-# Apparently baloon driver isn't effective enough on some kernels - xl
-# restore still needs initial memory amount
-#sed -i -e "s/^memory.*/memory = $((MEM/1000))/" dvm.conf
 tar -Scf saved-cows.tar volatile.img
-echo "DVM savefile created successfully." >&2
+echo "DVM savefile created successfully."

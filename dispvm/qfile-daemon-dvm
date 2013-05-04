@@ -30,68 +30,49 @@ from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
 from qubes.qubes import QubesDaemonPidfile
 from qubes.qubes import QubesDispVmLabels
-from qubes.qmemman_client import QMemmanClient
 from qubes.notify import tray_notify,tray_notify_error,tray_notify_init
 
 current_savefile = '/var/run/qubes/current-savefile'
 current_dvm_conf = '/var/run/qubes/current-dvm.conf'
+current_savefile_vmdir = '/var/lib/qubes/dvmdata/vmdir'
 
 class QfileDaemonDvm:
     def __init__(self, name):
         self.name = name
+
+    def get_disp_templ(self):
+        vmdir = os.readlink(current_savefile_vmdir)
+        return vmdir.split('/')[-1]
         
     def do_get_dvm(self):
-        qmemman_client = QMemmanClient()
-        if not qmemman_client.request_memory(400*1024*1024):
-            qmemman_client.close()
-            errmsg = 'Not enough memory to create DVM. '
-            errmsg +='Terminate some appVM and retry.'
-            tray_notify_error(errmsg)
-            return None
-
-        tray_notify("Starting new DispVM...", "red")
+        tray_notify("red", "Starting new DispVM...")
 
         qvm_collection = QubesVmCollection()
         qvm_collection.lock_db_for_writing()
+
+        tar_process = subprocess.Popen(['tar', '-C', current_savefile_vmdir,
+            '-xSUf', os.path.join(current_savefile_vmdir, 'saved-cows.tar')])
+
         qvm_collection.load()
+        print >>sys.stderr, "time=%s, collection loaded" % (str(time.time()))
 
         vm = qvm_collection.get_vm_by_name(self.name)
         if vm is None:
             sys.stderr.write( 'Domain ' + self.name + ' does not exist ?')
             qvm_collection.unlock_db()
-            qmemman_client.close()
             return None
         label = vm.label
         if len(sys.argv) > 4 and len(sys.argv[4]) > 0:
             assert sys.argv[4] in QubesDispVmLabels.keys(), "Invalid label"
             label = QubesDispVmLabels[sys.argv[4]]
-        print >>sys.stderr, "time=%s, starting qubes-restore" % (str(time.time()))
-        retcode = subprocess.call(['/usr/lib/qubes/qubes-restore',
-            '-s', current_savefile,
-            '-c', current_dvm_conf,
-            '-u', str(vm.default_user),
-            '--',
-            '-c', label.color,
-            '-i', label.icon_path,
-            '-l', str(label.index)])
-        qmemman_client.close()
-        if retcode != 0:
-            tray_notify_error('DisposableVM creation failed, see qubes-restore.log')
-            qvm_collection.unlock_db()
-            return None
-        f = open('/var/run/qubes/dispVM.xid', 'r');
-        disp_xid = f.readline().rstrip('\n')
-        disp_name = f.readline().rstrip('\n')
-        disptempl = f.readline().rstrip('\n')
-        f.close()
-        print >>sys.stderr, "time=%s, adding to qubes.xml" % (str(time.time()))
-        vm_disptempl = qvm_collection.get_vm_by_name(disptempl);
+        disp_templ = self.get_disp_templ()
+        vm_disptempl = qvm_collection.get_vm_by_name(disp_templ);
         if vm_disptempl is None:
             sys.stderr.write( 'Domain ' + disptempl + ' does not exist ?')
             qvm_collection.unlock_db()
             return None
-        dispid=int(disp_name[4:])
-        dispvm=qvm_collection.add_new_disposablevm(disp_name, vm_disptempl.template, label=label, dispid=dispid, netvm=vm_disptempl.netvm)
+        dispvm=qvm_collection.add_new_vm('QubesDisposableVm', disp_template=vm_disptempl, label=label)
+        print >>sys.stderr, "time=%s, VM created" % (str(time.time()))
         # By default inherit firewall rules from calling VM
         if os.path.exists(vm.firewall_conf):
             disp_firewall_conf = '/var/run/qubes/%s-firewall.xml' % disp_name
@@ -100,6 +81,14 @@ class QfileDaemonDvm:
         if len(sys.argv) > 5 and len(sys.argv[5]) > 0:
             assert os.path.exists(sys.argv[5]), "Invalid firewall.conf location"
             dispvm.firewall_conf = sys.argv[5]
+        # Wait for tar to finish
+        if tar_process.wait() != 0:
+            sys.stderr.write('Failed to unpack saved-cows.tar')
+            qvm_collection.unlock_db()
+            return None
+        print >>sys.stderr, "time=%s, VM starting" % (str(time.time()))
+        dispvm.start()
+        print >>sys.stderr, "time=%s, VM started" % (str(time.time()))
         qvm_collection.save()
         qvm_collection.unlock_db()
         # Reload firewall rules
@@ -108,7 +97,7 @@ class QfileDaemonDvm:
             if vm.is_proxyvm() and vm.is_running():
                 vm.write_iptables_xenstore_entry()
 
-        return disp_name
+        return dispvm
 
     def dvm_setup_ok(self):
         dvmdata_dir = '/var/lib/qubes/dvmdata/'
@@ -158,17 +147,13 @@ def main():
     tray_notify_init()
     print >>sys.stderr, "time=%s, creating DispVM" % (str(time.time()))
     qfile = QfileDaemonDvm(src_vmname)
-    lockf = open("/var/run/qubes/qfile-daemon-dvm.lock", 'a')
-    fcntl.fcntl(lockf, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
-    fcntl.flock(lockf, fcntl.LOCK_EX)
-    dispname = qfile.get_dvm()
-    lockf.close()
-    if dispname is not None:
+    dispvm = qfile.get_dvm()
+    if dispvm is not None:
         print >>sys.stderr, "time=%s, starting VM process" % (str(time.time()))
-        subprocess.call(['/usr/lib/qubes/qrexec-client', '-d', dispname,
+        subprocess.call(['/usr/lib/qubes/qrexec-client', '-d', dispvm.name,
             user+':exec /usr/lib/qubes/qubes-rpc-multiplexer ' + exec_index + " " + src_vmname])
-        subprocess.call(['/usr/sbin/xl', 'destroy', dispname])
-        qfile.remove_disposable_from_qdb(dispname)
+        dispvm.force_shutdown()
+        qfile.remove_disposable_from_qdb(dispvm.name)
 
 main()
  
