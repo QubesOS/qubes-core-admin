@@ -208,7 +208,7 @@ systemctl --no-reload enable qubes-setupdvm.service >/dev/null 2>&1
 # Conflicts with libxl stack, so disable it
 systemctl --no-reload disable xend.service >/dev/null 2>&1
 systemctl --no-reload disable xendomains.service >/dev/null 2>&1
-systemctl demon-reload >/dev/null 2>&1 || :
+systemctl daemon-reload >/dev/null 2>&1 || :
 
 HAD_SYSCONFIG_NETWORK=yes
 if ! [ -e /etc/sysconfig/network ]; then
