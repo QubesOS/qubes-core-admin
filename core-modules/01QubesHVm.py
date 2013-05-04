@@ -29,12 +29,12 @@ import subprocess
 import stat
 import sys
 import re
-
-from qubes.qubes import QubesVm,register_qubes_vm_class,xs,xc,dry_run
-from qubes.qubes import QubesException,QubesVmCollection
+import stat
+from qubes.qubes import QubesVm,register_qubes_vm_class,xs,dry_run
 from qubes.qubes import system_path,defaults
+from qubes.qubes import QubesException
 
-system_path["config_template_hvm"] = '/usr/share/qubes/vm-template-hvm.conf'
+system_path["config_template_hvm"] = '/usr/share/qubes/vm-template-hvm.xml'
 
 defaults["hvm_disk_size"] = 20*1024*1024*1024
 defaults["hvm_private_img_size"] = 2*1024*1024*1024
@@ -285,40 +285,26 @@ class QubesHVm(QubesVm):
 
         params['volatiledev'] = ''
         if self.drive:
-            type_mode = ":cdrom,r"
             (drive_type, drive_domain, drive_path) = self.drive.split(":")
-            if drive_type == "hd":
-                type_mode = ",w"
-            elif drive_type == "cdrom":
-                type_mode = ":cdrom,r"
-            # leave empty to use standard syntax in case of dom0
             if drive_domain.lower() == "dom0":
-                backend_domain = ""
-            else:
-                backend_domain = "," + drive_domain
+                drive_domain = None
 
-            # FIXME: os.stat will work only when backend in dom0...
-            stat_res = None
-            if backend_domain == "":
-                stat_res = os.stat(drive_path)
-            if stat_res and stat.S_ISBLK(stat_res.st_mode):
-                params['otherdevs'] = "'phy:%s,xvdc%s%s'," % (
-                    drive_path, type_mode, backend_domain)
-            else:
-                params['otherdevs'] = "'script:file:%s,xvdc%s%s'," % (
-                    drive_path, type_mode, backend_domain)
+            params['otherdevs'] = self._format_disk_dev(drive_path, None, "xvdc",
+                    rw=True if type == "disk" else False, type=type,
+                    domain=backend_domain)
+
         else:
              params['otherdevs'] = ''
 
         if self.timezone.lower() == 'localtime':
-             params['localtime'] = '1'
+             params['time_basis'] = 'localtime'
              params['timeoffset'] = '0'
         elif self.timezone.isdigit():
-            params['localtime'] = '0'
+            params['time_basis'] = 'UTC'
             params['timeoffset'] = self.timezone
         else:
             print >>sys.stderr, "WARNING: invalid 'timezone' value: %s" % self.timezone
-            params['localtime'] = '0'
+            params['time_basis'] = 'UTC'
             params['timeoffset'] = '0'
         return params
 
@@ -434,6 +420,7 @@ class QubesHVm(QubesVm):
     def start_stubdom_guid(self):
         cmdline = [system_path["qubes_guid_path"],
                 "-d", str(self.stubdom_xid),
+                "-t", str(self.xid),
                 "-c", self.label.color,
                 "-i", self.label.icon_path,
                 "-l", str(self.label.index)]
@@ -531,20 +518,6 @@ class QubesHVm(QubesVm):
             raise QubesException ("VM not running!")
 
         self.pause()
-
-    def pause(self):
-        if dry_run:
-            return
-
-        xc.domain_pause(self.stubdom_xid)
-        super(QubesHVm, self).pause()
-
-    def unpause(self):
-        if dry_run:
-            return
-
-        xc.domain_unpause(self.stubdom_xid)
-        super(QubesHVm, self).unpause()
 
     def is_guid_running(self):
         # If user force the guiagent, is_guid_running will mimic a standard QubesVM

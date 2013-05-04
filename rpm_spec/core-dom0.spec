@@ -171,7 +171,7 @@ mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/dvmdata
 
 mkdir -p $RPM_BUILD_ROOT/usr/share/qubes
 cp xen-vm-config/vm-template.xml $RPM_BUILD_ROOT/usr/share/qubes/xen-vm-template.xml
-cp xen-vm-config/vm-template-hvm.conf $RPM_BUILD_ROOT/usr/share/qubes/
+cp xen-vm-config/vm-template-hvm.xml $RPM_BUILD_ROOT/usr/share/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/usr/bin
 
@@ -320,7 +320,7 @@ fi
 %attr(0770,root,qubes) %dir /var/lib/qubes/dvmdata
 %attr(0770,root,qubes) %dir /var/lib/qubes/vm-kernels
 /usr/share/qubes/xen-vm-template.xml
-/usr/share/qubes/vm-template-hvm.conf
+/usr/share/qubes/vm-template-hvm.xml
 /usr/bin/xenstore-watch-qubes
 /usr/lib/qubes/qubes-restore
 /usr/lib/qubes/qubes-prepare-saved-domain.sh

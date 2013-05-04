@@ -1,0 +1,30 @@
+<domain type='xen'>
+    <name>{name}</name>
+    <memory unit='MiB'>{maxmem}</memory>
+    <currentMemory unit='MiB'>{mem}</currentMemory>
+    <vcpu placement='static'>{vcpus}</vcpu>
+  <os>
+    <type arch='x86_64' machine='xenfv'>hvm</type>
+    <loader>hvmloader</loader>
+    <boot dev='cdrom'/>
+    <boot dev='hd'/>
+    {disable_network1}<cmdline>-net lwip,client_ip={ip},server_ip={dns2},dns={dns1},gw={gateway},netmask={netmask}</cmdline>{disable_network2}
+  </os>
+  <features>
+    <viridian/>
+  </features>
+  <clock offset='variable' adjustment='{timeoffset}' basis='{time_basis}'/>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>destroy</on_reboot>
+  <on_crash>destroy</on_crash>
+  <devices>
+    <emulator>stubdom-dm</emulator>
+{rootdev}
+{privatedev}
+{otherdevs}
+{netdev}
+{pcidevs}
+    <input type='tablet' bus='usb'/>
+  </devices>
+</domain>
+
