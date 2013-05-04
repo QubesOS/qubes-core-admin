@@ -3,7 +3,7 @@ Description=Qubes memory management daemon
 After=qubes-core.service
 
 [Service]
-Type=forking
+Type=notify
 ExecStart=/usr/lib/qubes/qmemman_daemon.py
 StandardOutput=syslog
 

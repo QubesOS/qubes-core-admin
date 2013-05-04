@@ -26,6 +26,7 @@ import time
 import xen.lowlevel.xs
 import sys
 import os
+import socket
 from qmemman import SystemState
 import qmemman_algo
 from ConfigParser import SafeConfigParser
@@ -172,6 +173,15 @@ class QMemmanServer:
         os.umask(0)
         server = SocketServer.UnixStreamServer(SOCK_PATH, QMemmanReqHandler)
         os.umask(077)
-        if os.fork() == 0:
-            thread.start_new_thread(start_server, tuple([server]))
-            XS_Watcher().watch_loop()
+        # notify systemd
+        nofity_socket = os.getenv('NOTIFY_SOCKET')
+        if nofity_socket:
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+            if nofity_socket.startswith('@'):
+                nofity_socket = '\0%s' % nofity_socket[1:]
+            s.connect(nofity_socket)
+            s.sendall("READY=1")
+            s.close()
+
+        thread.start_new_thread(start_server, tuple([server]))
+        XS_Watcher().watch_loop()
