@@ -1650,7 +1650,7 @@ class QubesVm(object):
         xid = self.get_xid()
 
         guid_cmd = [system_path["qubes_guid_path"],
-            "-d", str(xid),
+            "-d", str(xid), "-N", self.name,
             "-c", self.label.color,
             "-i", self.label.icon_path,
             "-l", str(self.label.index)]

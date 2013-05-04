@@ -421,6 +421,7 @@ class QubesHVm(QubesVm):
         cmdline = [system_path["qubes_guid_path"],
                 "-d", str(self.stubdom_xid),
                 "-t", str(self.xid),
+                "-N", self.name,
                 "-c", self.label.color,
                 "-i", self.label.icon_path,
                 "-l", str(self.label.index)]
