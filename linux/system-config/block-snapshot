@@ -89,7 +89,8 @@ create_dm_snapshot_origin() {
   fi
 }
 
-t=$(xenstore_read_default "$XENBUS_PATH/type" 'MISSING')
+t=$(basename $0)
+t=${t#block-}
 
 case "$command" in
   add)
@@ -99,6 +100,8 @@ case "$command" in
         if [ "$p" == "MISSING" ]; then
           fatal "Missing device parameters ($t $XENBUS_PATH/params)"
         fi
+        echo $p > "$HOTPLUG_STORE-params"
+        echo $t > "$HOTPLUG_STORE-type"
         base=${p/:*/}
         cow=${p/*:/}
 

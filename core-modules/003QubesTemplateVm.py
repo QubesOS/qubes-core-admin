@@ -76,8 +76,12 @@ class QubesTemplateVm(QubesVm):
     def get_firewall_defaults(self):
         return { "rules": list(), "allow": False, "allowDns": False, "allowIcmp": False, "allowYumProxy": True }
 
+    # FIXME: source_template unused
     def get_rootdev(self, source_template=None):
-        return "'script:origin:{dir}/root.img:{dir}/root-cow.img,xvda,w',".format(dir=self.dir_path)
+        return self._format_disk_dev(
+                "{dir}/root.img:{dir}/root-cow.img".format(
+                    dir=self.dir_path),
+                "block-origin", "xvda", True)
 
     def clone_disk_files(self, src_vm, verbose):
         if dry_run:

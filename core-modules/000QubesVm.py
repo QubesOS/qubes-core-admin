@@ -34,11 +34,12 @@ import sys
 import time
 import uuid
 import xml.parsers.expat
-import xen.lowlevel.xc
 from qubes import qmemman
 from qubes import qmemman_algo
+import libvirt
+import warnings
 
-from qubes.qubes import xs,dry_run,xc,xl_ctx
+from qubes.qubes import xs,dry_run,libvirt_conn
 from qubes.qubes import register_qubes_vm_class
 from qubes.qubes import QubesVmCollection,QubesException,QubesHost,QubesVmLabels
 from qubes.qubes import defaults,system_path,vm_files,qubes_max_qid
@@ -283,6 +284,8 @@ class QubesVm(object):
         #Init private attrs
         self.__qid = self._qid
 
+        self._libvirt_domain = None
+
         assert self.__qid < qubes_max_qid, "VM id out of bounds!"
         assert self.name is not None
 
@@ -330,7 +333,6 @@ class QubesVm(object):
         else:
             assert self.root_img is not None, "Missing root_img for standalone VM!"
 
-        self.xid = -1
         self.xid = self.get_xid()
 
         # fire hooks
@@ -397,7 +399,8 @@ class QubesVm(object):
         if self.netvm is not None:
             self.netvm.connected_vms.pop(self.qid)
             if self.is_running():
-                subprocess.call(["xl", "network-detach", self.name, "0"], stderr=subprocess.PIPE)
+                self.detach_network()
+
                 if hasattr(self.netvm, 'post_vm_net_detach'):
                     self.netvm.post_vm_net_detach(self)
 
@@ -420,7 +423,7 @@ class QubesVm(object):
 
         if self.is_running():
             # refresh IP, DNS etc
-            self.create_xenstore_entries()
+            self.create_xenstore_entries(self.get_xid())
             self.attach_network()
             if hasattr(self.netvm, 'post_vm_net_attach'):
                 self.netvm.post_vm_net_attach(self)
@@ -630,102 +633,50 @@ class QubesVm(object):
     def is_disposablevm(self):
         return False
 
-    def _xid_to_name(self, xid):
-        if xid in xid_to_name_cache:
-            return xid_to_name_cache[xid]
-        else:
-            domname = xl_ctx.domid_to_name(xid)
-            if domname:
-                xid_to_name_cache[xid] = domname
-            return domname
-
-    def get_xl_dominfo(self):
-        if dry_run:
-            return
-
-        start_xid = self.xid
-
-        domains = xl_ctx.list_domains()
-        for dominfo in domains:
-            if dominfo.domid == start_xid:
-                return dominfo
-            elif dominfo.domid < start_xid:
-                # the current XID can't lower than one noticed earlier, if VM
-                # was restarted in the meantime, the next XID will greater
-                continue
-            domname = self._xid_to_name(dominfo.domid)
-            if domname == self.name:
-                self.xid = dominfo.domid
-                return dominfo
-        return None
-
-    def get_xc_dominfo(self, name = None):
-        if dry_run:
-            return
-
-        if name is None:
-            name = self.name
-
-        start_xid = self.xid
-        if start_xid < 0:
-            start_xid = 0
-        try:
-            domains = xc.domain_getinfo(start_xid, qubes_max_qid)
-        except xen.lowlevel.xc.Error:
-            return None
-
-        # If previous XID is still valid, this is the right domain - XID can't
-        # be reused for another domain until system reboot
-        if start_xid > 0 and domains[0]['domid'] == start_xid:
-            return domains[0]
-
-        for dominfo in domains:
-            domname = self._xid_to_name(dominfo['domid'])
-            if domname == name:
-                return dominfo
-        return None
-
     def get_xid(self):
-        if dry_run:
-            return 666
 
-        dominfo = self.get_xc_dominfo()
-        if dominfo:
-            self.xid = dominfo['domid']
-            return self.xid
-        else:
+        if self.libvirt_domain is None:
             return -1
+        return self.libvirt_domain.ID()
+
+    @property
+    def libvirt_domain(self):
+        if self._libvirt_domain is not None:
+            return self._libvirt_domain
+
+        try:
+            self._libvirt_domain = libvirt_conn.lookupByName(self.name)
+        except libvirt.libvirtError:
+            if libvirt.virGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
+                return None
+            raise
+        return self._libvirt_domain
 
     def get_uuid(self):
 
-        dominfo = self.get_xl_dominfo()
-        if dominfo:
-            vmuuid = uuid.UUID(''.join('%02x' % b for b in dominfo.uuid))
-            return vmuuid
-        else:
+        if self.libvirt_domain is None:
             return None
+        return uuid.UUID(self.libvirt_domain.UUIDString())
 
     def get_mem(self):
         if dry_run:
             return 666
 
-        dominfo = self.get_xc_dominfo()
-        if dominfo:
-            return dominfo['mem_kb']
-        else:
+        if self.libvirt_domain is None:
             return 0
+        return self.libvirt_domain.info()[3]/1024
 
     def get_mem_static_max(self):
         if dry_run:
             return 666
 
-        dominfo = self.get_xc_dominfo()
-        if dominfo:
-            return dominfo['maxmem_kb']
-        else:
+        if self.libvirt_domain is None:
             return 0
 
+        return self.libvirt_domain.maxMemory()
+
     def get_prefmem(self):
+        # TODO: qmemman is still xen specific
         untrusted_meminfo_key = xs.read('', '/local/domain/%s/memory/meminfo'
                                             % self.xid)
         if untrusted_meminfo_key is None or untrusted_meminfo_key == '':
@@ -740,9 +691,10 @@ class QubesVm(object):
             import random
             return random.random() * 100
 
-        dominfo = self.get_xc_dominfo()
-        if dominfo:
-            return dominfo['cpu_time']/dominfo['online_vcpus']
+        libvirt_domain = self.libvirt_domain
+        if libvirt_domain and libvirt_domain.isActive():
+            return libvirt_domain.getCPUStats(
+                    libvirt.VIR_NODE_CPU_STATS_ALL_CPUS, 0)[0]['cpu_time']/10**9
         else:
             return 0
 
@@ -759,19 +711,18 @@ class QubesVm(object):
         if dry_run:
             return "NA"
 
-        dominfo = self.get_xc_dominfo()
-        if dominfo:
-            if dominfo['paused']:
+        libvirt_domain = self.libvirt_domain
+        if libvirt_domain:
+            if libvirt_domain.state() == libvirt.VIR_DOMAIN_PAUSED:
                 return "Paused"
-            elif dominfo['crashed']:
+            elif libvirt_domain.state() == libvirt.VIR_DOMAIN_CRASHED:
                 return "Crashed"
-            elif dominfo['shutdown']:
-                if dominfo['shutdown_reason'] == 2:
-                    return "Suspended"
-                else:
-                    return "Halting"
-            elif dominfo['dying']:
+            elif libvirt_domain.state() == libvirt.VIR_DOMAIN_SHUTDOWN:
+                return "Halting"
+            elif libvirt_domain.state() == libvirt.VIR_DOMAIN_SHUTOFF:
                 return "Dying"
+            elif libvirt_domain.state() == libvirt.VIR_DOMAIN_PMSUSPENDED:
+                return "Suspended"
             else:
                 if not self.is_fully_usable():
                     return "Transient"
@@ -804,14 +755,13 @@ class QubesVm(object):
         return True
 
     def is_running(self):
-        # in terms of Xen and internal logic - starting VM is running
-        if self.get_power_state() in ["Running", "Transient", "Halting"]:
+        if self.libvirt_domain and self.libvirt_domain.isActive():
             return True
         else:
             return False
 
     def is_paused(self):
-        if self.get_power_state() == "Paused":
+        if self.libvirt_domain and self.libvirt_domain.state() == libvirt.VIR_DOMAIN_PAUSED:
             return True
         else:
             return False
@@ -820,8 +770,7 @@ class QubesVm(object):
         if not self.is_running():
             return None
 
-        dominfo = self.get_xl_dominfo()
-
+        # TODO
         uuid = self.get_uuid()
 
         start_time = xs.read('', "/vm/%s/start_time" % str(uuid))
@@ -853,6 +802,7 @@ class QubesVm(object):
                 rootimg_inode[2], rootimg_inode[1],
                 rootcow_inode[2], rootcow_inode[1])
 
+        # FIXME
         # 51712 (0xCA00) is xvda
         #  backend node name not available through xenapi :(
         used_dmdev = xs.read('', "/local/domain/0/backend/vbd/{0}/51712/node".format(self.get_xid()))
@@ -935,6 +885,7 @@ class QubesVm(object):
         manually
         """
 
+        # FIXME: remove this?
         if not self.is_running():
             return
 
@@ -942,7 +893,7 @@ class QubesVm(object):
         for dev in xs.ls('', dev_basepath):
             # check if backend domain is alive
             backend_xid = int(xs.read('', '%s/%s/backend-id' % (dev_basepath, dev)))
-            if xl_ctx.domid_to_name(backend_xid) is not None:
+            if backend_xid in libvirt_conn.listDomainsID():
                 # check if device is still active
                 if xs.read('', '%s/%s/state' % (dev_basepath, dev)) == '4':
                     continue
@@ -1025,19 +976,66 @@ class QubesVm(object):
         for hook in self.hooks_create_xenstore_entries:
             hook(self, xid=xid)
 
+    def _format_disk_dev(self, path, script, vdev, rw=True, type="disk", domain=None):
+        template = "    <disk type='block' device='{type}'>\n" \
+                   "      <driver name='phy'/>\n" \
+                   "      <source dev='{path}'/>\n" \
+                   "      <target dev='{vdev}' bus='xen'/>\n" \
+                   "{params}" \
+                   "    </disk>\n"
+        params = ""
+        if not rw:
+            params += "      <readonly/>\n"
+        if domain:
+            params += "      <domain name='%s'/>\n" % domain
+        if script:
+            params += "      <script path='%s'/>\n" % script
+        return template.format(path=path, vdev=vdev, type=type,
+            params=params)
+
+    def _format_net_dev(self, ip, mac, backend):
+        template = "    <interface type='ethernet'>\n" \
+                   "      <mac address='{mac}'/>\n" \
+                   "      <ip address='{ip}'/>\n" \
+                   "      <script path='vif-route-qubes'/>\n" \
+                   "      <domain name='{backend}'/>\n" \
+                   "    </interface>\n"
+        return template.format(ip=ip, mac=mac, backend=backend)
+
+    def _format_pci_dev(self, address):
+        template = "    <hostdev type='pci' managed='yes'>\n" \
+                   "      <source>\n" \
+                   "        <address bus='0x{bus}' slot='0x{slot}' function='0x{fun}'/>\n" \
+                   "      </source>\n" \
+                   "    </hostdev>\n"
+        dev_match = re.match('([0-9a-f]+):([0-9a-f]+)\.([0-9a-f]+)', address)
+        if not dev_match:
+            raise QubesException("Invalid PCI device address: %s" % address)
+        return template.format(
+                bus=dev_match.group(1),
+                slot=dev_match.group(2),
+                fun=dev_match.group(3))
+
+    # FIXME: source_template unused
     def get_rootdev(self, source_template=None):
         if self.template:
-            return "'script:snapshot:{dir}/root.img:{dir}/root-cow.img,xvda,r',".format(dir=self.template.dir_path)
+            return self._format_disk_dev(
+                    "{dir}/root.img:{dir}/root-cow.img".format(
+                        dir=self.template.dir_path),
+                    "block-snapshot", "xvda", False)
         else:
-            return "'script:file:{dir}/root.img,xvda,w',".format(dir=self.dir_path)
+            return self._format_disk_dev(
+                    "{dir}/root.img".format(dir=self.dir_path),
+                    None, "xvda", True)
 
+    # FIXME: source_template unused
     def get_config_params(self, source_template=None):
         args = {}
         args['name'] = self.name
         if hasattr(self, 'kernels_dir'):
             args['kerneldir'] = self.kernels_dir
         args['vmdir'] = self.dir_path
-        args['pcidev'] = str(self.pcidevs).strip('[]')
+        args['pcidevs'] = ''.join(map(self._format_pci_dev, self.pcidevs))
         args['mem'] = str(self.memory)
         if self.maxmem < self.memory:
             args['mem'] = str(self.maxmem)
@@ -1053,11 +1051,9 @@ class QubesVm(object):
             args['dns1'] = self.netvm.gateway
             args['dns2'] = self.secondary_dns
             args['netmask'] = self.netmask
-            args['netdev'] = "'mac={mac},script=/etc/xen/scripts/vif-route-qubes,ip={ip}".format(ip=self.ip, mac=self.mac)
-            if self.netvm.qid != 0:
-                args['netdev'] += ",backend={0}".format(self.netvm.name)
-            args['netdev'] += "'"
-            args['disable_network'] = '';
+            args['netdev'] = self._format_net_dev(self.ip, self.mac, self.netvm.name)
+            args['disable_network1'] = '';
+            args['disable_network2'] = '';
         else:
             args['ip'] = ''
             args['mac'] = ''
@@ -1066,15 +1062,19 @@ class QubesVm(object):
             args['dns2'] = ''
             args['netmask'] = ''
             args['netdev'] = ''
-            args['disable_network'] = '#';
-        args['rootdev'] = self.get_rootdev(source_template=source_template)
-        args['privatedev'] = "'script:file:{dir}/private.img,xvdb,w',".format(dir=self.dir_path)
-        args['volatiledev'] = "'script:file:{dir}/volatile.img,xvdc,w',".format(dir=self.dir_path)
+            args['disable_network1'] = '<!--';
+            args['disable_network2'] = '-->';
+        args['rootdev'] = self.get_rootdev()
+        args['privatedev'] = \
+                self._format_disk_dev("{dir}/private.img".format(dir=self.dir_path),
+                        None, "xvdb", True)
+        args['volatiledev'] = \
+                self._format_disk_dev("{dir}/volatile.img".format(dir=self.dir_path),
+                        None, "xvdc", True)
         if hasattr(self, 'kernel'):
-            modulesmode='r'
-            if self.kernel is None:
-                modulesmode='w'
-            args['otherdevs'] = "'script:file:{dir}/modules.img,xvdd,{mode}',".format(dir=self.kernels_dir, mode=modulesmode)
+            args['otherdevs'] = \
+                    self._format_disk_dev("{dir}/modules.img".format(dir=self.kernels_dir),
+                            None, "xvdd", self.kernel is None)
         if hasattr(self, 'kernelopts'):
             args['kernelopts'] = self.kernelopts
             if self.debug:
@@ -1091,11 +1091,15 @@ class QubesVm(object):
     def uses_custom_config(self):
         return self.conf_file != self.absolute_path(self.name + ".conf", None)
 
+    # FIXME: source_template unused
     def create_config_file(self, file_path = None, source_template = None, prepare_dvm = False):
         if file_path is None:
             file_path = self.conf_file
             if self.uses_custom_config:
-                return
+                conf_appvm = open(file_path, "r")
+                domain_config = conf_appvm.read()
+                conf_appvm.close()
+                return domain_config
         if source_template is None:
             source_template = self.template
 
@@ -1107,11 +1111,15 @@ class QubesVm(object):
         if prepare_dvm:
             template_params['name'] = '%NAME%'
             template_params['privatedev'] = ''
-            template_params['netdev'] = re.sub(r"ip=[0-9.]*", "ip=%IP%", template_params['netdev'])
-        conf_appvm = open(file_path, "w")
+            template_params['netdev'] = re.sub(r"address='[0-9.]*'", "address='%IP%'", template_params['netdev'])
+        domain_config = conf_template.format(**template_params)
 
-        conf_appvm.write(conf_template.format(**template_params))
+        # FIXME: This is only for debugging purposes
+        conf_appvm = open(file_path, "w")
+        conf_appvm.write(domain_config)
         conf_appvm.close()
+
+        return domain_config
 
     def create_on_disk(self, verbose=False, source_template = None):
         if source_template is None:
@@ -1127,8 +1135,6 @@ class QubesVm(object):
 
         if verbose:
             print >> sys.stderr, "--> Creating the VM config file: {0}".format(self.conf_file)
-
-        self.create_config_file(source_template = source_template)
 
         template_priv = source_template.private_img
         if verbose:
@@ -1611,24 +1617,24 @@ class QubesVm(object):
                     print >> sys.stderr, "--> Starting NetVM {0}...".format(netvm.name)
                 netvm.start()
 
-        xs_path = '/local/domain/%d/device/vif/0/state' % (self.xid)
-        if xs.read('', xs_path) is not None:
-            # TODO: check its state and backend state (this can be stale vif after NetVM restart)
-            if verbose:
-                print >> sys.stderr, "NOTICE: Network already attached"
-                return
+        self.libvirt_domain.attachDevice(
+                self._format_net_dev(self.ip, self.mac, self.netvm.name))
 
-        xm_cmdline = ["/usr/sbin/xl", "network-attach", str(self.xid), "script=/etc/xen/scripts/vif-route-qubes", "ip="+self.ip, "backend="+netvm.name ]
-        retcode = subprocess.call (xm_cmdline)
-        if retcode != 0:
-            print >> sys.stderr, ("WARNING: Cannot attach to network to '{0}'!".format(self.name))
-        if wait:
-            tries = 0
-            while xs.read('', xs_path) != '4':
-                tries += 1
-                if tries > 50:
-                    raise QubesException ("Network attach timed out!")
-                time.sleep(0.2)
+    def detach_network(self, verbose = False, netvm = None):
+        if dry_run:
+            return
+
+        if not self.is_running():
+            raise QubesException ("VM not running!")
+
+        if netvm is None:
+            netvm = self.netvm
+
+        if netvm is None:
+            raise QubesException ("NetVM not set!")
+
+        self.libvirt_domain.detachDevice( self._format_net_dev(self.ip,
+            self.mac, self.netvm.name))
 
     def wait_for_session(self, notify_function = None):
         #self.run('echo $$ >> /tmp/qubes-session-waiter; [ ! -f /tmp/qubes-session-env ] && exec sleep 365d', ignore_stderr=True, gui=False, wait=True)
@@ -1707,8 +1713,7 @@ class QubesVm(object):
         if verbose:
             print >> sys.stderr, "--> Loading the VM (type = {0})...".format(self.type)
 
-        # refresh config file
-        self.create_config_file()
+        domain_config = self.create_config_file()
 
         if mem_required is None:
             mem_required = int(self.memory) * 1024 * 1024
@@ -1723,21 +1728,10 @@ class QubesVm(object):
 
         # Bind pci devices to pciback driver
         for pci in self.pcidevs:
-            try:
-                subprocess.check_call(['sudo', system_path["qubes_pciback_cmd"], pci])
-            except subprocess.CalledProcessError:
-                raise QubesException("Failed to prepare PCI device %s" % pci)
+            nd = libvirt_conn.nodeDeviceLookupByName('pci_0000_' + pci.replace(':','_').replace('.','_'))
+            nd.dettach()
 
-        xl_cmdline = ['sudo', '/usr/sbin/xl', 'create', self.conf_file, '-q', '-p']
-
-        try:
-            subprocess.check_call(xl_cmdline)
-        except:
-            try:
-                self._cleanup_zombie_domains()
-            except:
-                pass
-            raise QubesException("Failed to load VM config")
+        self._libvirt_domain = libvirt_conn.createXML(domain_config, libvirt.VIR_DOMAIN_START_PAUSED)
 
         xid = self.get_xid()
         self.xid = xid
@@ -1766,7 +1760,7 @@ class QubesVm(object):
 
         if verbose:
             print >> sys.stderr, "--> Starting the VM..."
-        xc.domain_unpause(xid)
+        self.libvirt_domain.resume()
 
 # close() is not really needed, because the descriptor is close-on-exec
 # anyway, the reason to postpone close() is that possibly xl is not done
@@ -1783,11 +1777,6 @@ class QubesVm(object):
 
         if start_guid and not preparing_dvm and os.path.exists('/var/run/shm.id'):
             self.start_guid(verbose=verbose, notify_function=notify_function)
-
-        if preparing_dvm:
-            if verbose:
-                print >> sys.stderr, "--> Preparing config template for DispVM"
-            self.create_config_file(file_path = self.dir_path + '/dvm.conf', prepare_dvm = True)
 
         return xid
 
@@ -1816,8 +1805,7 @@ class QubesVm(object):
         if not self.is_running():
             raise QubesException ("VM already stopped!")
 
-        subprocess.call (['/usr/sbin/xl', 'shutdown', str(xid) if xid is not None else self.name])
-        #xc.domain_destroy(self.get_xid())
+        self.libvirt_domain.shutdown()
 
     def force_shutdown(self, xid = None):
         if dry_run:
@@ -1826,10 +1814,10 @@ class QubesVm(object):
         if not self.is_running() and not self.is_paused():
             raise QubesException ("VM already stopped!")
 
-        subprocess.call(['sudo', '/usr/sbin/xl', 'destroy',
-                         str(xid) if xid is not None else self.name])
+        self.libvirt_domain.destroy()
 
     def suspend(self):
+        # TODO!!!
         if dry_run:
             return
 
@@ -1837,32 +1825,17 @@ class QubesVm(object):
             raise QubesException ("VM already stopped!")
 
         if len (self.pcidevs) > 0:
-            xs_path = '/local/domain/%d/control/shutdown' % self.get_xid()
-            xs.write('', xs_path, 'suspend')
-            tries = 0
-            while self.get_power_state() != "Suspended":
-                tries += 1
-                if tries > 15:
-                    # fallback to pause
-                    print >>sys.stderr, "Failed to suspend domain %s, falling back to pause method" % self.name
-                    self.pause()
-                    break
-                time.sleep(0.2)
+            raise NotImplementedError
         else:
             self.pause()
 
     def resume(self):
+        # TODO!!!
         if dry_run:
             return
 
-        xc_info = self.get_xc_dominfo()
-        if not xc_info:
-            raise QubesException ("VM isn't started (cannot get xc_dominfo)!")
-
-        if xc_info['shutdown_reason'] == 2:
-            # suspended
-            xc.domain_resume(xc_info['domid'], 1)
-            xs.resume_domain(xc_info['domid'])
+        if self.get_power_state() == "Suspended":
+            raise NotImplementedError
         else:
             self.unpause()
 
@@ -1870,13 +1843,13 @@ class QubesVm(object):
         if dry_run:
             return
 
-        xc.domain_pause(self.get_xid())
+        self.libvirt_domain.suspend()
 
     def unpause(self):
         if dry_run:
             return
 
-        xc.domain_unpause(self.get_xid())
+        self.libvirt_domain.resume()
 
     def get_xml_attrs(self):
         attrs = {}
@@ -1901,12 +1874,11 @@ class QubesVm(object):
         return attrs
 
     def create_xml_element(self):
-        # Compatibility hack (Qubes*VM in type vs Qubes*Vm in XML)...
-        rx_type = re.compile (r"VM")
 
         attrs = self.get_xml_attrs()
         element = lxml.etree.Element(
-            "Qubes" + rx_type.sub("Vm", self.type),
+            # Compatibility hack (Qubes*VM in type vs Qubes*Vm in XML)...
+            "Qubes" + self.type.replace("VM", "Vm"),
             **attrs)
         return element
 

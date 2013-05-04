@@ -50,7 +50,8 @@ export PATH="/sbin:/bin:/usr/bin:/usr/sbin:$PATH"
 
 XENBUS_PATH="${XENBUS_PATH:?}"
 if ! [ "$1" = "add" ] || ! [ -f /var/run/qubes/fast-block-attach ] ; then
-	exec flock -o /var/run/qubes/hotplug-block /etc/xen/scripts/block "$@"
+	script=$(xenstore-read "$XENBUS_PATH/script")
+	exec flock /var/run/qubes/hotplug-block $script "$@"
 fi
 
 ORIG_ARGS="$@"

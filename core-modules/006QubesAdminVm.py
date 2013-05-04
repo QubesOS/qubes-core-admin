@@ -22,7 +22,7 @@
 #
 #
 
-from qubes.qubes import QubesNetVm,register_qubes_vm_class,xl_ctx,xc
+from qubes.qubes import QubesNetVm,register_qubes_vm_class
 from qubes.qubes import defaults
 from qubes.qubes import QubesException,dry_run
 
@@ -72,22 +72,8 @@ class QubesAdminVm(QubesNetVm):
     def suspend(self):
         return
 
-    def get_xl_dominfo(self):
-        if dry_run:
-            return
-
-        domains = xl_ctx.list_domains()
-        for dominfo in domains:
-            if dominfo.domid == 0:
-                return dominfo
+    def create_xml_element(self):
         return None
-
-    def get_xc_dominfo(self):
-        if dry_run:
-            return
-
-        domains = xc.domain_getinfo(0, 1)
-        return domains[0]
 
     def verify_files(self):
         return True
