@@ -1690,9 +1690,8 @@ class QubesVm(object):
         if (retcode != 0) :
             raise OSError ("Cannot execute qrexec-daemon!")
 
-    def start(self, debug_console = False, verbose = False,
-              preparing_dvm =  False, start_guid = True, notify_function = None,
-              mem_required = None):
+    def start(self, verbose = False, preparing_dvm = False, start_guid = True,
+            notify_function = None, mem_required = None):
         if dry_run:
             return
 
