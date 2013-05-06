@@ -664,7 +664,7 @@ class QubesVm(object):
 
         if self.libvirt_domain is None:
             return 0
-        return self.libvirt_domain.info()[3]/1024
+        return self.libvirt_domain.info()[1]
 
     def get_mem_static_max(self):
         if dry_run:
