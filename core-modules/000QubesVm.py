@@ -907,6 +907,8 @@ class QubesVm(object):
         if xid is None:
             xid = self.xid
 
+        assert xid >= 0, "Invalid XID value"
+
         domain_path = xs.get_domain_path(xid)
 
         # Set Xen Store entires with VM networking info:
