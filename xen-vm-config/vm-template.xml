@@ -1,5 +1,6 @@
 <domain type='xen'>
   <name>{name}</name>
+  {uuidnode}
   <memory unit='MiB'>{maxmem}</memory>
   <currentMemory unit='MiB'>{mem}</currentMemory>
   <vcpu placement='static'>{vcpus}</vcpu>

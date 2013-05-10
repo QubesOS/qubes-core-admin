@@ -98,6 +98,7 @@ class QubesVm(object):
             # __qid cannot be accessed by setattr, so must be set manually in __init__
             "qid": { "attr": "_qid", "order": 0 },
             "name": { "order": 1 },
+            "uuid": { "order": 0, "eval": 'uuid.UUID(value) if value else None' },
             "dir_path": { "default": None, "order": 2 },
             "conf_file": {
                 "func": lambda value: self.absolute_path(value, self.name +
@@ -186,7 +187,8 @@ class QubesVm(object):
 
         ### Mark attrs for XML inclusion
         # Simple string attrs
-        for prop in ['qid', 'name', 'dir_path', 'memory', 'maxmem', 'pcidevs', 'vcpus', 'internal',\
+        for prop in ['qid', 'uuid', 'name', 'dir_path', 'memory', 'maxmem',
+            'pcidevs', 'vcpus', 'internal',\
             'uses_default_kernel', 'kernel', 'uses_default_kernelopts',\
             'kernelopts', 'services', 'installed_by_rpm',\
             'uses_default_netvm', 'include_in_backups', 'debug',\
@@ -200,6 +202,7 @@ class QubesVm(object):
             attrs[prop]['save_skip'] = \
                 lambda prop=prop: getattr(self, prop) is None
 
+        attrs['uuid']['save_skip'] = lambda: self.uuid is None
         attrs['mac']['save'] = lambda: str(self._mac)
         attrs['mac']['save_skip'] = lambda: self._mac is None
 
@@ -333,8 +336,6 @@ class QubesVm(object):
         else:
             assert self.root_img is not None, "Missing root_img for standalone VM!"
 
-        self.xid = self.get_xid()
-
         # fire hooks
         for hook in self.hooks_init:
             hook(self)
@@ -423,7 +424,7 @@ class QubesVm(object):
 
         if self.is_running():
             # refresh IP, DNS etc
-            self.create_xenstore_entries(self.get_xid())
+            self.create_xenstore_entries(self.xid)
             self.attach_network()
             if hasattr(self.netvm, 'post_vm_net_attach'):
                 self.netvm.post_vm_net_attach(self)
@@ -542,6 +543,7 @@ class QubesVm(object):
             raise QubesException("Cannot rename VM installed by RPM -- first clone VM and then use yum to remove package.")
 
         self.pre_rename(name)
+        self.libvirt_domain.undefine()
 
         new_conf = os.path.join(self.dir_path, name + '.conf')
         if os.path.exists(self.conf_file):
@@ -565,6 +567,7 @@ class QubesVm(object):
         if hasattr(self, 'kernels_dir') and self.kernels_dir is not None:
             self.kernels_dir = self.kernels_dir.replace(old_dirpath, new_dirpath)
 
+        self._update_libvirt_domain()
         self.post_rename(old_name)
 
     def post_rename(self, old_name):
@@ -633,11 +636,20 @@ class QubesVm(object):
     def is_disposablevm(self):
         return False
 
-    def get_xid(self):
-
+    @property
+    def xid(self):
         if self.libvirt_domain is None:
             return -1
         return self.libvirt_domain.ID()
+
+    def get_xid(self):
+        # obsoleted
+        return self.xid
+
+    def _update_libvirt_domain(self):
+        domain_config = self.create_config_file()
+        self._libvirt_domain = libvirt_conn.defineXML(domain_config)
+        self.uuid = uuid.UUID(bytes=self._libvirt_domain.UUID())
 
     @property
     def libvirt_domain(self):
@@ -645,24 +657,27 @@ class QubesVm(object):
             return self._libvirt_domain
 
         try:
-            self._libvirt_domain = libvirt_conn.lookupByName(self.name)
+            if self.uuid is not None:
+                self._libvirt_domain = libvirt_conn.lookupByUUID(self.uuid.bytes)
+            else:
+                self._libvirt_domain = libvirt_conn.lookupByName(self.name)
+                self.uuid = uuid.UUID(bytes=self._libvirt_domain.UUID())
         except libvirt.libvirtError:
             if libvirt.virGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
-                return None
-            raise
+                self._update_libvirt_domain()
+            else:
+                raise
         return self._libvirt_domain
 
     def get_uuid(self):
-
-        if self.libvirt_domain is None:
-            return None
-        return uuid.UUID(self.libvirt_domain.UUIDString())
+        # obsoleted
+        return self.uuid
 
     def get_mem(self):
         if dry_run:
             return 666
 
-        if self.libvirt_domain is None:
+        if not self.libvirt_domain.isActive():
             return 0
         return self.libvirt_domain.info()[1]
 
@@ -712,16 +727,16 @@ class QubesVm(object):
             return "NA"
 
         libvirt_domain = self.libvirt_domain
-        if libvirt_domain:
-            if libvirt_domain.state() == libvirt.VIR_DOMAIN_PAUSED:
+        if libvirt_domain.isActive():
+            if libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PAUSED:
                 return "Paused"
-            elif libvirt_domain.state() == libvirt.VIR_DOMAIN_CRASHED:
+            elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_CRASHED:
                 return "Crashed"
-            elif libvirt_domain.state() == libvirt.VIR_DOMAIN_SHUTDOWN:
+            elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_SHUTDOWN:
                 return "Halting"
-            elif libvirt_domain.state() == libvirt.VIR_DOMAIN_SHUTOFF:
+            elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_SHUTOFF:
                 return "Dying"
-            elif libvirt_domain.state() == libvirt.VIR_DOMAIN_PMSUSPENDED:
+            elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PMSUSPENDED:
                 return "Suspended"
             else:
                 if not self.is_fully_usable():
@@ -734,7 +749,7 @@ class QubesVm(object):
         return "NA"
 
     def is_guid_running(self):
-        xid = self.get_xid()
+        xid = self.xid
         if xid < 0:
             return False
         if not os.path.exists('/var/run/qubes/guid-running.%d' % xid):
@@ -771,7 +786,7 @@ class QubesVm(object):
             return None
 
         # TODO
-        uuid = self.get_uuid()
+        uuid = self.uuid
 
         start_time = xs.read('', "/vm/%s/start_time" % str(uuid))
         if start_time != '':
@@ -805,7 +820,7 @@ class QubesVm(object):
         # FIXME
         # 51712 (0xCA00) is xvda
         #  backend node name not available through xenapi :(
-        used_dmdev = xs.read('', "/local/domain/0/backend/vbd/{0}/51712/node".format(self.get_xid()))
+        used_dmdev = xs.read('', "/local/domain/0/backend/vbd/{0}/51712/node".format(self.xid))
 
         return used_dmdev != current_dmdev
 
@@ -1036,6 +1051,7 @@ class QubesVm(object):
         args['name'] = self.name
         if hasattr(self, 'kernels_dir'):
             args['kerneldir'] = self.kernels_dir
+        args['uuidnode'] = "<uuid>%s</uuid>" % str(self.uuid) if self.uuid else ""
         args['vmdir'] = self.dir_path
         args['pcidevs'] = ''.join(map(self._format_pci_dev, self.pcidevs))
         args['mem'] = str(self.memory)
@@ -1536,7 +1552,8 @@ class QubesVm(object):
                     notify_function ("info", "Starting the '{0}' VM...".format(self.name))
                 elif verbose:
                     print >> sys.stderr, "Starting the VM '{0}'...".format(self.name)
-                xid = self.start(verbose=verbose, start_guid = gui, notify_function=notify_function)
+                self.start(verbose=verbose, start_guid = gui, notify_function=notify_function)
+
             except (IOError, OSError, QubesException) as err:
                 raise QubesException("Error while starting the '{0}' VM: {1}".format(self.name, err))
             except (MemoryError) as err:
@@ -1550,11 +1567,10 @@ class QubesVm(object):
             raise QubesException(
                 "Domain '{}': qrexec not connected.".format(self.name))
 
-        xid = self.get_xid()
         if gui and os.getenv("DISPLAY") is not None and not self.is_guid_running():
             self.start_guid(verbose = verbose, notify_function = notify_function)
 
-        args = [system_path["qrexec_client_path"], "-d", str(xid), "%s:%s" % (user, command)]
+        args = [system_path["qrexec_client_path"], "-d", str(self.xid), "%s:%s" % (user, command)]
         if localcmd is not None:
             args += [ "-l", localcmd]
         if filter_esc:
@@ -1649,7 +1665,6 @@ class QubesVm(object):
             extra_guid_args=[], before_qrexec=False):
         if verbose:
             print >> sys.stderr, "--> Starting Qubes GUId..."
-        xid = self.get_xid()
 
         guid_cmd = [system_path["qubes_guid_path"],
             "-d", str(xid), "-N", self.name,
@@ -1681,8 +1696,7 @@ class QubesVm(object):
     def start_qrexec_daemon(self, verbose = False, notify_function = None):
         if verbose:
             print >> sys.stderr, "--> Starting the qrexec daemon..."
-        xid = self.get_xid()
-        qrexec_args = [str(xid), self.name, self.default_user]
+        qrexec_args = [str(self.xid), self.name, self.default_user]
         if not verbose:
             qrexec_args.insert(0, "-q")
         qrexec_env = os.environ
@@ -1714,7 +1728,7 @@ class QubesVm(object):
         if verbose:
             print >> sys.stderr, "--> Loading the VM (type = {0})...".format(self.type)
 
-        domain_config = self.create_config_file()
+        self._update_libvirt_domain()
 
         if mem_required is None:
             mem_required = int(self.memory) * 1024 * 1024
@@ -1732,10 +1746,9 @@ class QubesVm(object):
             nd = libvirt_conn.nodeDeviceLookupByName('pci_0000_' + pci.replace(':','_').replace('.','_'))
             nd.dettach()
 
-        self._libvirt_domain = libvirt_conn.createXML(domain_config, libvirt.VIR_DOMAIN_START_PAUSED)
+        self.libvirt_domain.createWithFlags(libvirt.VIR_DOMAIN_START_PAUSED)
 
-        xid = self.get_xid()
-        self.xid = xid
+        xid = self.xid
 
         if preparing_dvm:
             self.services['qubes-dvm'] = True

@@ -38,7 +38,14 @@ class QubesAdminVm(QubesNetVm):
                                              template = None,
                                              label = defaults["template_label"],
                                              **kwargs)
-        self.xid = 0
+
+    @property
+    def xid(self):
+        return 0
+
+    @property
+    def libvirt_domain(self):
+        return None
 
     @property
     def type(self):
@@ -46,9 +53,6 @@ class QubesAdminVm(QubesNetVm):
 
     def is_running(self):
         return True
-
-    def get_xid(self):
-        return 0
 
     def get_power_state(self):
         return "Running"
