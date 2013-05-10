@@ -41,7 +41,6 @@ Group:		Qubes
 Vendor:		Invisible Things Lab
 License:	GPL
 URL:		http://www.qubes-os.org
-BuildRequires:  xen-devel
 BuildRequires:  ImageMagick
 BuildRequires:	systemd-units
 Requires(post): systemd-units
