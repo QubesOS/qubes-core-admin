@@ -52,8 +52,11 @@ Requires:       python-lxml
 Requires:       python-psutil
 # TODO: R: qubes-gui-dom0 >= 2.1.11
 Conflicts:      qubes-gui-dom0 < 1.1.13
-Requires:       xen >= 4.1.0-2
+Requires:       libvirt-python
+%if x%{?backend_vmm} == xxen
 Requires:       xen-hvm
+Requires:       libvirt-daemon-driver-libxl
+%endif
 Requires:       createrepo
 Requires:       gnome-packagekit
 Requires:       cronie
