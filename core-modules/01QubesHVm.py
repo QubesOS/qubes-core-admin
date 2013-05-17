@@ -30,7 +30,8 @@ import stat
 import sys
 import re
 import stat
-from qubes.qubes import QubesVm,register_qubes_vm_class,xs,dry_run
+
+from qubes.qubes import QubesVm,register_qubes_vm_class,vmm,dry_run
 from qubes.qubes import system_path,defaults
 from qubes.qubes import QubesException
 
@@ -397,7 +398,7 @@ class QubesHVm(QubesVm):
         if self.xid < 0:
             return -1
 
-        stubdom_xid_str = xs.read('', '/local/domain/%d/image/device-model-domid' % self.xid)
+        stubdom_xid_str = vmm.xs.read('', '/local/domain/%d/image/device-model-domid' % self.xid)
         if stubdom_xid_str is not None:
             return int(stubdom_xid_str)
         else:

@@ -39,7 +39,7 @@ from qubes import qmemman_algo
 import libvirt
 import warnings
 
-from qubes.qubes import xs,dry_run,libvirt_conn
+from qubes.qubes import dry_run,vmm
 from qubes.qubes import register_qubes_vm_class
 from qubes.qubes import QubesVmCollection,QubesException,QubesHost,QubesVmLabels
 from qubes.qubes import defaults,system_path,vm_files,qubes_max_qid
@@ -202,6 +202,10 @@ class QubesVm(object):
             attrs[prop]['save_skip'] = \
                 lambda prop=prop: getattr(self, prop) is None
 
+        # Can happen only if VM created in offline mode
+        attrs['maxmem']['save_skip'] = lambda: self.maxmem is None
+        attrs['vcpus']['save_skip'] = lambda: self.vcpus is None
+
         attrs['uuid']['save_skip'] = lambda: self.uuid is None
         attrs['mac']['save'] = lambda: str(self._mac)
         attrs['mac']['save_skip'] = lambda: self._mac is None
@@ -304,7 +308,7 @@ class QubesVm(object):
             self.netvm.connected_vms[self.qid] = self
 
         # Not in generic way to not create QubesHost() to frequently
-        if self.maxmem is None:
+        if self.maxmem is None and not vmm.offline_mode:
             qubes_host = QubesHost()
             total_mem_mb = qubes_host.memory_total/1024
             self.maxmem = total_mem_mb/2
@@ -314,7 +318,7 @@ class QubesVm(object):
             self.maxmem = self.memory * 10
 
         # By default allow use all VCPUs
-        if self.vcpus is None:
+        if self.vcpus is None and not vmm.offline_mode:
             qubes_host = QubesHost()
             self.vcpus = qubes_host.no_cpus
 
@@ -648,7 +652,7 @@ class QubesVm(object):
 
     def _update_libvirt_domain(self):
         domain_config = self.create_config_file()
-        self._libvirt_domain = libvirt_conn.defineXML(domain_config)
+        self._libvirt_domain = vmm.libvirt_conn.defineXML(domain_config)
         self.uuid = uuid.UUID(bytes=self._libvirt_domain.UUID())
 
     @property
@@ -658,9 +662,9 @@ class QubesVm(object):
 
         try:
             if self.uuid is not None:
-                self._libvirt_domain = libvirt_conn.lookupByUUID(self.uuid.bytes)
+                self._libvirt_domain = vmm.libvirt_conn.lookupByUUID(self.uuid.bytes)
             else:
-                self._libvirt_domain = libvirt_conn.lookupByName(self.name)
+                self._libvirt_domain = vmm.libvirt_conn.lookupByName(self.name)
                 self.uuid = uuid.UUID(bytes=self._libvirt_domain.UUID())
         except libvirt.libvirtError:
             if libvirt.virGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
@@ -788,7 +792,7 @@ class QubesVm(object):
         # TODO
         uuid = self.uuid
 
-        start_time = xs.read('', "/vm/%s/start_time" % str(uuid))
+        start_time = vmm.xs.read('', "/vm/%s/start_time" % str(uuid))
         if start_time != '':
             return datetime.datetime.fromtimestamp(float(start_time))
         else:
@@ -820,7 +824,7 @@ class QubesVm(object):
         # FIXME
         # 51712 (0xCA00) is xvda
         #  backend node name not available through xenapi :(
-        used_dmdev = xs.read('', "/local/domain/0/backend/vbd/{0}/51712/node".format(self.xid))
+        used_dmdev = vmm.xs.read('', "/local/domain/0/backend/vbd/{0}/51712/node".format(self.xid))
 
         return used_dmdev != current_dmdev
 
@@ -905,15 +909,15 @@ class QubesVm(object):
             return
 
         dev_basepath = '/local/domain/%d/device/vif' % self.xid
-        for dev in xs.ls('', dev_basepath):
+        for dev in vmm.xs.ls('', dev_basepath):
             # check if backend domain is alive
-            backend_xid = int(xs.read('', '%s/%s/backend-id' % (dev_basepath, dev)))
-            if backend_xid in libvirt_conn.listDomainsID():
+            backend_xid = int(vmm.xs.read('', '%s/%s/backend-id' % (dev_basepath, dev)))
+            if backend_xid in vmm.libvirt_conn.listDomainsID():
                 # check if device is still active
-                if xs.read('', '%s/%s/state' % (dev_basepath, dev)) == '4':
+                if vmm.xs.read('', '%s/%s/state' % (dev_basepath, dev)) == '4':
                     continue
             # remove dead device
-            xs.rm('', '%s/%s' % (dev_basepath, dev))
+            vmm.xs.rm('', '%s/%s' % (dev_basepath, dev))
 
     def create_xenstore_entries(self, xid = None):
         if dry_run:
@@ -924,69 +928,69 @@ class QubesVm(object):
 
         assert xid >= 0, "Invalid XID value"
 
-        domain_path = xs.get_domain_path(xid)
+        domain_path = vmm.xs.get_domain_path(xid)
 
         # Set Xen Store entires with VM networking info:
 
-        xs.write('', "{0}/qubes-vm-type".format(domain_path),
+        vmm.xs.write('', "{0}/qubes-vm-type".format(domain_path),
                 self.type)
-        xs.write('', "{0}/qubes-vm-updateable".format(domain_path),
+        vmm.xs.write('', "{0}/qubes-vm-updateable".format(domain_path),
                 str(self.updateable))
 
         if self.is_netvm():
-            xs.write('',
+            vmm.xs.write('',
                     "{0}/qubes-netvm-gateway".format(domain_path),
                     self.gateway)
-            xs.write('',
+            vmm.xs.write('',
                     "{0}/qubes-netvm-secondary-dns".format(domain_path),
                     self.secondary_dns)
-            xs.write('',
+            vmm.xs.write('',
                     "{0}/qubes-netvm-netmask".format(domain_path),
                     self.netmask)
-            xs.write('',
+            vmm.xs.write('',
                     "{0}/qubes-netvm-network".format(domain_path),
                     self.network)
 
         if self.netvm is not None:
-            xs.write('', "{0}/qubes-ip".format(domain_path), self.ip)
-            xs.write('', "{0}/qubes-netmask".format(domain_path),
+            vmm.xs.write('', "{0}/qubes-ip".format(domain_path), self.ip)
+            vmm.xs.write('', "{0}/qubes-netmask".format(domain_path),
                     self.netvm.netmask)
-            xs.write('', "{0}/qubes-gateway".format(domain_path),
+            vmm.xs.write('', "{0}/qubes-gateway".format(domain_path),
                     self.netvm.gateway)
-            xs.write('',
+            vmm.xs.write('',
                     "{0}/qubes-secondary-dns".format(domain_path),
                     self.netvm.secondary_dns)
 
         tzname = self.get_timezone()
         if tzname:
-             xs.write('',
+             vmm.xs.write('',
                      "{0}/qubes-timezone".format(domain_path),
                      tzname)
 
         for srv in self.services.keys():
             # convert True/False to "1"/"0"
-            xs.write('', "{0}/qubes-service/{1}".format(domain_path, srv),
+            vmm.xs.write('', "{0}/qubes-service/{1}".format(domain_path, srv),
                     str(int(self.services[srv])))
 
-        xs.write('',
+        vmm.xs.write('',
                 "{0}/qubes-block-devices".format(domain_path),
                 '')
 
-        xs.write('',
+        vmm.xs.write('',
                 "{0}/qubes-usb-devices".format(domain_path),
                 '')
 
-        xs.write('', "{0}/qubes-debug-mode".format(domain_path),
+        vmm.xs.write('', "{0}/qubes-debug-mode".format(domain_path),
                 str(int(self.debug)))
 
         # Fix permissions
-        xs.set_permissions('', '{0}/device'.format(domain_path),
+        vmm.xs.set_permissions('', '{0}/device'.format(domain_path),
                 [{ 'dom': xid }])
-        xs.set_permissions('', '{0}/memory'.format(domain_path),
+        vmm.xs.set_permissions('', '{0}/memory'.format(domain_path),
                 [{ 'dom': xid }])
-        xs.set_permissions('', '{0}/qubes-block-devices'.format(domain_path),
+        vmm.xs.set_permissions('', '{0}/qubes-block-devices'.format(domain_path),
                 [{ 'dom': xid }])
-        xs.set_permissions('', '{0}/qubes-usb-devices'.format(domain_path),
+        vmm.xs.set_permissions('', '{0}/qubes-usb-devices'.format(domain_path),
                 [{ 'dom': xid }])
 
         # fire hooks
@@ -1743,7 +1747,7 @@ class QubesVm(object):
 
         # Bind pci devices to pciback driver
         for pci in self.pcidevs:
-            nd = libvirt_conn.nodeDeviceLookupByName('pci_0000_' + pci.replace(':','_').replace('.','_'))
+            nd = vmm.libvirt_conn.nodeDeviceLookupByName('pci_0000_' + pci.replace(':','_').replace('.','_'))
             nd.dettach()
 
         self.libvirt_domain.createWithFlags(libvirt.VIR_DOMAIN_START_PAUSED)

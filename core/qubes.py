@@ -38,7 +38,6 @@ import atexit
 dry_run = False
 #dry_run = True
 
-
 if not dry_run:
     import libvirt
     import xen.lowlevel.xc
@@ -108,22 +107,76 @@ qubes_max_netid = 254
 class QubesException (Exception):
     pass
 
-def libvirt_error_handler(ctx, error):
-    pass
+class QubesVMMConnection(object):
+    def __init__(self):
+        self._libvirt_conn = None
+        self._xs = None
+        self._xc = None
+        self._offline_mode = False
+
+    @property
+    def offline_mode(self):
+        return self._offline_mode
+
+    @offline_mode.setter
+    def offline_mode(self, value):
+        if not value and self._libvirt_conn is not None:
+            raise QubesException("Cannot change offline mode while already connected")
+
+        self._offline_mode = value
+
+    def _libvirt_error_handler(self, ctx, error):
+        pass
+
+    def init_vmm_connection(self):
+        if self._libvirt_conn is not None:
+            # Already initialized
+            return
+        if self._offline_mode:
+            # Do not initialize in offline mode
+            return
+
+        self._xc = xen.lowlevel.xc.xc()
+        self._xs = xen.lowlevel.xs.xs()
+        self._libvirt_conn = libvirt.open(defaults['libvirt_uri'])
+        if self._libvirt_conn == None:
+            raise QubesException("Failed connect to libvirt driver")
+        libvirt.registerErrorHandler(self._libvirt_error_handler, None)
+        atexit.register(self._libvirt_conn.close)
+
+    def _common_getter(self, name):
+        if self._offline_mode:
+            # Do not initialize in offline mode
+            raise QubesException("VMM operations disabled in offline mode")
+
+        if self._libvirt_conn is None:
+            self.init_vmm_connection()
+        return getattr(self, name)
+
+    @property
+    def libvirt_conn(self):
+        return self._common_getter('_libvirt_conn')
+
+    @property
+    def xs(self):
+        return self._common_getter('_xs')
+
+    @property
+    def xc(self):
+        return self._common_getter('_xc')
+
+
+##### VMM global variable definition #####
 
 if not dry_run:
-    xc = xen.lowlevel.xc.xc()
-    xs = xen.lowlevel.xs.xs()
-    libvirt_conn = libvirt.open(defaults['libvirt_uri'])
-    if libvirt_conn == None:
-        raise QubesException("Failed connect to libvirt driver")
-    libvirt.registerErrorHandler(libvirt_error_handler, None)
-    atexit.register(libvirt_conn.close)
+    vmm = QubesVMMConnection()
+
+##########################################
 
 class QubesHost(object):
     def __init__(self):
-        (model, memory, cpus, mhz, nodes, socket, cores, threads) = libvirt_conn.getInfo()
-        self.physinfo = xc.physinfo()
+        (model, memory, cpus, mhz, nodes, socket, cores, threads) = vmm.libvirt_conn.getInfo()
+        self.physinfo = vmm.xc.physinfo()
 
         self._total_mem = long(memory)*1024
         self._no_cpus = cpus
@@ -152,7 +205,7 @@ class QubesHost(object):
         if previous is None:
             previous_time = time.time()
             previous = {}
-            info = xc.domain_getinfo(0, qubes_max_qid)
+            info = vmm.xc.domain_getinfo(0, qubes_max_qid)
             for vm in info:
                 previous[vm['domid']] = {}
                 previous[vm['domid']]['cpu_time'] = (
@@ -162,7 +215,7 @@ class QubesHost(object):
 
         current_time = time.time()
         current = {}
-        info = xc.domain_getinfo(0, qubes_max_qid)
+        info = vmm.xc.domain_getinfo(0, qubes_max_qid)
         for vm in info:
             current[vm['domid']] = {}
             current[vm['domid']]['cpu_time'] = (

@@ -21,10 +21,11 @@
 #
 #
 
-from qubes.qubes import QubesVmCollection
+from qubes.qubes import QubesVmCollection,vmm
 import sys
 
 def main():
+    vmm.offline_mode = True
     qvm_collection = QubesVmCollection()
     if qvm_collection.check_if_storage_exists():
         print >> sys.stderr, "Storage exists, not overwriting."

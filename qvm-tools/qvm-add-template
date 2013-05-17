@@ -21,7 +21,7 @@
 #
 #
 
-from qubes.qubes import QubesVmCollection
+from qubes.qubes import QubesVmCollection,vmm
 from qubes.qubes import QubesException
 from optparse import OptionParser;
 import sys
@@ -56,6 +56,7 @@ def main():
             print >> sys.stderr, "... or use --force-root to continue anyway."
             exit(1)
 
+    vmm.offline_mode = True
     qvm_collection = QubesVmCollection()
     qvm_collection.lock_db_for_writing()
     qvm_collection.load()
