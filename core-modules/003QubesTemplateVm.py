@@ -28,7 +28,7 @@ import sys
 
 from qubes.qubes import QubesVm,register_qubes_vm_class,dry_run
 from qubes.qubes import QubesVmCollection,QubesException,QubesVmLabels
-from qubes.qubes import defaults,system_path,vm_files
+from qubes.qubes import defaults,system_path,vm_files,vmm
 
 class QubesTemplateVm(QubesVm):
     """
@@ -151,7 +151,8 @@ class QubesTemplateVm(QubesVm):
 
     def commit_changes (self, verbose = False):
 
-        assert not self.is_running(), "Attempt to commit changes on running Template VM!"
+        if not vmm.offline_mode:
+            assert not self.is_running(), "Attempt to commit changes on running Template VM!"
 
         if verbose:
             print >> sys.stderr, "--> Commiting template updates... COW: {0}...".format (self.rootcow_img)

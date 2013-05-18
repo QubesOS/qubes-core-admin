@@ -21,7 +21,7 @@
 #
 #
 
-from qubes.qubes import QubesVmCollection
+from qubes.qubes import QubesVmCollection,vmm
 from qubes.qubes import QubesException
 from optparse import OptionParser
 import subprocess
@@ -39,6 +39,9 @@ def main():
         parser.error ("You must specify VM name!")
     vmname = args[0]
 
+    if options.offline_mode:
+        vmm.offline_mode = True
+
     qvm_collection = QubesVmCollection()
     qvm_collection.lock_db_for_reading()
     qvm_collection.load()
@@ -53,7 +56,7 @@ def main():
         print >> sys.stderr, "A VM '{0}' is not template.".format(vmname)
         exit(1)
 
-    if vm.is_running():
+    if not vmm.offline_mode and vm.is_running():
         print >> sys.stderr, "You must stop VM first."
         exit(1)
 
