@@ -101,8 +101,8 @@ class QubesVm(object):
             "netvm": { "default": None, "attr": "_netvm", 'order': 20 },
             "label": { "attr": "_label", "default": defaults["appvm_label"], 'order': 20,
                 'xml_deserialize': lambda _x: QubesVmLabels[_x] },
-            "memory": { "default": defaults["memory"], 'order': 20, "eval": "int(value)" },
-            "maxmem": { "default": None, 'order': 25, "eval": "int(value) if value else None" },
+            "memory": { "default": defaults["memory"], 'order': 20 },
+            "maxmem": { "default": None, 'order': 25 },
             "pcidevs": { "default": '[]', 'order': 25, "eval": \
                 '[] if value in ["none", None] else eval(value) if value.find("[") >= 0 else eval("[" + value + "]")'  },
             # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
@@ -119,7 +119,7 @@ class QubesVm(object):
             "services": { "default": {}, "eval": "eval(str(value))" },
             "debug": { "default": False },
             "default_user": { "default": "user" },
-            "qrexec_timeout": { "default": 60, "eval": "int(value)" },
+            "qrexec_timeout": { "default": 60 },
             ##### Internal attributes - will be overriden in __init__ regardless of args
             "config_file_template": { "eval": 'system_path["config_template_pv"]' },
             "icon_path": { "eval": 'os.path.join(self.dir_path, "icon.png") if self.dir_path is not None else None' },
