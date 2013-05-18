@@ -63,7 +63,9 @@ class QubesHVm(QubesVm):
             lambda x: system_path["config_template_hvm"]
         attrs['drive'] = { 'attr': '_drive',
                            'save': lambda: str(self.drive) }
+        # Remove this two lines when HVM will get qmemman support
         attrs['maxmem'].pop('save')
+        attrs['maxmem']['func'] = lambda x: self.memory
         attrs['timezone'] = { 'default': 'localtime',
                               'save': lambda: str(self.timezone) }
         attrs['qrexec_installed'] = { 'default': False,
@@ -93,11 +95,9 @@ class QubesHVm(QubesVm):
             (not 'xml_element' in kwargs or kwargs['xml_element'].get('guiagent_installed') is None):
             self.services['meminfo-writer'] = False
 
-        # HVM normally doesn't support dynamic memory management
-        if not ('meminfo-writer' in self.services and self.services['meminfo-writer']):
-            self.maxmem = self.memory
-
-        self._stubdom_guid_process = None
+        # Disable qemu GUID if the user installed qubes gui agent
+        if self.guiagent_installed:
+            self._start_guid_first = False
 
     @property
     def type(self):
