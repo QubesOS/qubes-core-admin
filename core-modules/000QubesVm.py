@@ -1117,11 +1117,11 @@ class QubesVm(object):
     def create_config_file(self, file_path = None, source_template = None, prepare_dvm = False):
         if file_path is None:
             file_path = self.conf_file
-            if self.uses_custom_config:
-                conf_appvm = open(file_path, "r")
-                domain_config = conf_appvm.read()
-                conf_appvm.close()
-                return domain_config
+        if self.uses_custom_config:
+            conf_appvm = open(file_path, "r")
+            domain_config = conf_appvm.read()
+            conf_appvm.close()
+            return domain_config
         if source_template is None:
             source_template = self.template
 
