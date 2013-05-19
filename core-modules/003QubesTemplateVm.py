@@ -162,11 +162,13 @@ class QubesTemplateVm(QubesVm):
         if os.path.exists (self.rootcow_img):
            os.rename (self.rootcow_img, self.rootcow_img + '.old')
 
+        old_umask = os.umask(002)
         f_cow = open (self.rootcow_img, "w")
         f_root = open (self.root_img, "r")
         f_root.seek(0, os.SEEK_END)
         f_cow.truncate (f_root.tell()) # make empty sparse file of the same size as root.img
         f_cow.close ()
         f_root.close()
+        os.umask(old_umask)
 
 register_qubes_vm_class(QubesTemplateVm)

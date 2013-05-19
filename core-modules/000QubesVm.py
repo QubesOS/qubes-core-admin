@@ -1137,9 +1137,11 @@ class QubesVm(object):
         domain_config = conf_template.format(**template_params)
 
         # FIXME: This is only for debugging purposes
+        old_umask = os.umask(002)
         conf_appvm = open(file_path, "w")
         conf_appvm.write(domain_config)
         conf_appvm.close()
+        os.umask(old_umask)
 
         return domain_config
 
@@ -1151,6 +1153,7 @@ class QubesVm(object):
         if dry_run:
             return
 
+        old_umask = os.umask(002)
         if verbose:
             print >> sys.stderr, "--> Creating directory: {0}".format(self.dir_path)
         os.mkdir (self.dir_path)
@@ -1197,6 +1200,8 @@ class QubesVm(object):
         if verbose:
             print >> sys.stderr, "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
         os.symlink (self.label.icon_path, self.icon_path)
+
+        os.umask(old_umask)
 
         # fire hooks
         for hook in self.hooks_create_on_disk:
@@ -1398,14 +1403,13 @@ class QubesVm(object):
         tree = lxml.etree.ElementTree(root)
 
         try:
-            f = open(self.firewall_conf, 'a') # create the file if not exist
-            f.close()
-
+            old_umask = os.umask(002)
             with open(self.firewall_conf, 'w') as f:
                 fcntl.lockf(f, fcntl.LOCK_EX)
                 tree.write(f, encoding="UTF-8", pretty_print=True)
                 fcntl.lockf(f, fcntl.LOCK_UN)
             f.close()
+            os.umask(old_umask)
         except EnvironmentError as err:
             print >> sys.stderr, "{0}: save error: {1}".format(
                     os.path.basename(sys.argv[0]), err)
