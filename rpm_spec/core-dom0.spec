@@ -55,7 +55,7 @@ Conflicts:      qubes-gui-dom0 < 1.1.13
 Requires:       libvirt-python
 %if x%{?backend_vmm} == xxen
 Requires:       xen-hvm
-Requires:       libvirt-daemon-driver-libxl
+Requires:       libvirt-daemon-xen
 %endif
 Requires:       createrepo
 Requires:       gnome-packagekit
