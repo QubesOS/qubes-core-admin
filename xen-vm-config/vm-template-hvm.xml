@@ -12,6 +12,9 @@
     {disable_network1}<cmdline>-net lwip,client_ip={ip},server_ip={dns2},dns={dns1},gw={gateway},netmask={netmask}</cmdline>{disable_network2}
   </os>
   <features>
+    <pae/>
+    <acpi/>
+    <apic/>
     <viridian/>
   </features>
   <clock offset='variable' adjustment='{timeoffset}' basis='{time_basis}'/>
