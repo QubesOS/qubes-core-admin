@@ -76,8 +76,7 @@ class QubesTemplateVm(QubesVm):
     def get_firewall_defaults(self):
         return { "rules": list(), "allow": False, "allowDns": False, "allowIcmp": False, "allowYumProxy": True }
 
-    # FIXME: source_template unused
-    def get_rootdev(self, source_template=None):
+    def get_rootdev(self):
         return self._format_disk_dev(
                 "{dir}/root.img:{dir}/root-cow.img".format(
                     dir=self.dir_path),

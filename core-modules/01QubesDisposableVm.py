@@ -107,8 +107,15 @@ class QubesDisposableVm(QubesVm):
     def verify_files(self):
         return True
 
-    # FIXME: source_template unused
-    def get_config_params(self, source_template=None):
+    def create_xenstore_entries(self, xid):
+        super(QubesDisposableVm, self).create_xenstore_entries(xid)
+
+        domain_path = vmm.xs.get_domain_path(xid)
+
+        vmm.xs.write('', "{0}/qubes-restore-complete".format(domain_path),
+                'True')
+
+    def get_config_params(self):
         attrs = super(QubesDisposableVm, self).get_config_params()
         attrs['privatedev'] = ''
         return attrs

@@ -280,9 +280,9 @@ class QubesHVm(QubesVm):
         else:
             return "'script:file:{root_img},xvda,w',".format(root_img=self.root_img)
 
-    def get_config_params(self, source_template=None):
+    def get_config_params(self):
 
-        params = super(QubesHVm, self).get_config_params(source_template=source_template)
+        params = super(QubesHVm, self).get_config_params()
 
         params['volatiledev'] = ''
         if self.drive:
