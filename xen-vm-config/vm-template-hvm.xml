@@ -1,8 +1,9 @@
 <domain type='xen'>
-    <name>{name}</name>
-    <memory unit='MiB'>{maxmem}</memory>
-    <currentMemory unit='MiB'>{mem}</currentMemory>
-    <vcpu placement='static'>{vcpus}</vcpu>
+  <name>{name}</name>
+  {uuidnode}
+  <memory unit='MiB'>{maxmem}</memory>
+  <currentMemory unit='MiB'>{mem}</currentMemory>
+  <vcpu placement='static'>{vcpus}</vcpu>
   <os>
     <type arch='x86_64' machine='xenfv'>hvm</type>
     <loader>hvmloader</loader>
