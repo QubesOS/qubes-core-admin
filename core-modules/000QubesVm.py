@@ -415,7 +415,7 @@ class QubesVm(object):
 
         self.pre_rename(name)
 
-        new_conf = os.path.join(self.dir_path, name)
+        new_conf = os.path.join(self.dir_path, name + '.conf')
         if os.path.exists(self.conf_file):
             os.rename(self.conf_file, new_conf)
         old_dirpath = self.dir_path
@@ -968,6 +968,8 @@ class QubesVm(object):
         for hook in self.hooks_get_clone_attrs:
             attrs = hook(self, attrs)
 
+        return attrs
+
     def clone_attrs(self, src_vm):
         self._do_not_reset_firewall = True
         for prop in self.get_clone_attrs():
@@ -1019,7 +1021,7 @@ class QubesVm(object):
 
         # fire hooks
         for hook in self.hooks_clone_disk_files:
-            hook(self, verbose, src_vm)
+            hook(self, src_vm, verbose)
 
     def verify_files(self):
         if dry_run:
