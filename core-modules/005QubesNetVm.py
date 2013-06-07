@@ -106,35 +106,10 @@ class QubesNetVm(QubesVm):
         assert lo >= 1 and lo <= 254, "Wrong IP address for VM"
         return self.dispnetprefix  + "{0}".format(lo)
 
-    def create_xenstore_entries(self, xid = None):
-        if dry_run:
-            return
-
-        if xid is None:
-            xid = self.xid
-
-
-        super(QubesNetVm, self).create_xenstore_entries(xid)
-        vmm.xs.write('', "/local/domain/{0}/qubes-netvm-external-ip".format(xid), '')
-        self.update_external_ip_permissions(xid)
-
     def update_external_ip_permissions(self, xid = -1):
-        if xid < 0:
-            xid = self.get_xid()
-        if xid < 0:
-            return
-
-        perms = [ { 'dom': xid } ]
-
-        for xid in self.__external_ip_allowed_xids:
-            perms.append({ 'dom': xid, 'read': True })
-
-        try:
-            vmm.xs.set_permissions('', '/local/domain/{0}/qubes-netvm-external-ip'.format(xid),
-                    perms)
-        except xen.lowlevel.xs.Error as e:
-            print >>sys.stderr, "WARNING: failed to update external IP " \
-                                "permissions: %s" % (str(e))
+        # TODO: VMs in __external_ip_allowed_xids should be notified via RPC
+        # service on exteran IP change
+        pass
 
     def start(self, **kwargs):
         if dry_run:

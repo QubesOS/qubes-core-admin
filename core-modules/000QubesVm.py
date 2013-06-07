@@ -39,6 +39,7 @@ from qubes import qmemman_algo
 import libvirt
 import warnings
 
+from qubes.qdb import QubesDB
 from qubes.qubes import dry_run,vmm
 from qubes.qubes import register_qubes_vm_class
 from qubes.qubes import QubesVmCollection,QubesException,QubesHost,QubesVmLabels
@@ -292,6 +293,7 @@ class QubesVm(object):
         self.__qid = self._qid
 
         self._libvirt_domain = None
+        self._qdb_connection = None
 
         assert self.__qid < qubes_max_qid, "VM id out of bounds!"
         assert self.name is not None
@@ -549,6 +551,8 @@ class QubesVm(object):
         self.pre_rename(name)
         self.libvirt_domain.undefine()
         self._libvirt_domain = None
+        self._qdb_connection.close()
+        self._qdb_connection = None
 
         new_conf = os.path.join(self.dir_path, name + '.conf')
         if os.path.exists(self.conf_file):
@@ -640,6 +644,13 @@ class QubesVm(object):
 
     def is_disposablevm(self):
         return False
+
+    @property
+    def qdb(self):
+        if self._qdb_connection is None:
+            if self.is_running():
+                self._qdb_connection = QubesDB(self.name)
+        return self._qdb_connection
 
     @property
     def xid(self):
@@ -926,74 +937,41 @@ class QubesVm(object):
         if dry_run:
             return
 
-        if xid is None:
-            xid = self.xid
-
-        assert xid >= 0, "Invalid XID value"
-
-        domain_path = vmm.xs.get_domain_path(xid)
-
-        # Set Xen Store entires with VM networking info:
-
-        vmm.xs.write('', "{0}/qubes-vm-type".format(domain_path),
-                self.type)
-        vmm.xs.write('', "{0}/qubes-vm-updateable".format(domain_path),
-                str(self.updateable))
+        self.qdb.write("/name", self.name)
+        self.qdb.write("/qubes-vm-type", self.type)
+        self.qdb.write("/qubes-vm-updateable", str(self.updateable))
 
         if self.is_netvm():
-            vmm.xs.write('',
-                    "{0}/qubes-netvm-gateway".format(domain_path),
-                    self.gateway)
-            vmm.xs.write('',
-                    "{0}/qubes-netvm-secondary-dns".format(domain_path),
-                    self.secondary_dns)
-            vmm.xs.write('',
-                    "{0}/qubes-netvm-netmask".format(domain_path),
-                    self.netmask)
-            vmm.xs.write('',
-                    "{0}/qubes-netvm-network".format(domain_path),
-                    self.network)
+            self.qdb.write("/qubes-netvm-gateway", self.gateway)
+            self.qdb.write("/qubes-netvm-secondary-dns", self.secondary_dns)
+            self.qdb.write("/qubes-netvm-netmask", self.netmask)
+            self.qdb.write("/qubes-netvm-network", self.network)
 
         if self.netvm is not None:
-            vmm.xs.write('', "{0}/qubes-ip".format(domain_path), self.ip)
-            vmm.xs.write('', "{0}/qubes-netmask".format(domain_path),
-                    self.netvm.netmask)
-            vmm.xs.write('', "{0}/qubes-gateway".format(domain_path),
-                    self.netvm.gateway)
-            vmm.xs.write('',
-                    "{0}/qubes-secondary-dns".format(domain_path),
-                    self.netvm.secondary_dns)
+            self.qdb.write("/qubes-ip", self.ip)
+            self.qdb.write("/qubes-netmask", self.netvm.netmask)
+            self.qdb.write("/qubes-gateway", self.netvm.gateway)
+            self.qdb.write("/qubes-secondary-dns", self.netvm.secondary_dns)
 
         tzname = self.get_timezone()
         if tzname:
-             vmm.xs.write('',
-                     "{0}/qubes-timezone".format(domain_path),
-                     tzname)
+             self.qdb.write("/qubes-timezone", tzname)
 
         for srv in self.services.keys():
             # convert True/False to "1"/"0"
-            vmm.xs.write('', "{0}/qubes-service/{1}".format(domain_path, srv),
+            self.qdb.write("/qubes-service/{0}".format(srv),
                     str(int(self.services[srv])))
 
-        vmm.xs.write('',
-                "{0}/qubes-block-devices".format(domain_path),
-                '')
+        self.qdb.write("/qubes-block-devices", '')
 
-        vmm.xs.write('',
-                "{0}/qubes-usb-devices".format(domain_path),
-                '')
+        self.qdb.write("/qubes-usb-devices", '')
 
-        vmm.xs.write('', "{0}/qubes-debug-mode".format(domain_path),
-                str(int(self.debug)))
+        self.qdb.write("/qubes-debug-mode", str(int(self.debug)))
 
         # Fix permissions
-        vmm.xs.set_permissions('', '{0}/device'.format(domain_path),
-                [{ 'dom': xid }])
-        vmm.xs.set_permissions('', '{0}/memory'.format(domain_path),
-                [{ 'dom': xid }])
-        vmm.xs.set_permissions('', '{0}/qubes-block-devices'.format(domain_path),
-                [{ 'dom': xid }])
-        vmm.xs.set_permissions('', '{0}/qubes-usb-devices'.format(domain_path),
+        # TODO: Currently whole qmemman is quite Xen-specific, so stay with
+        # xenstore for it until decided otherwise
+        vmm.xs.set_permissions('', '/local/domain/{0}/memory'.format(self.xid),
                 [{ 'dom': xid }])
 
         # fire hooks
@@ -1712,6 +1690,15 @@ class QubesVm(object):
         if (retcode != 0) :
             raise OSError ("Cannot execute qrexec-daemon!")
 
+    def start_qubesdb(self):
+        retcode = subprocess.call ([
+            system_path["qubesdb_daemon_path"],
+            str(self.xid),
+            self.name])
+        if retcode != 0:
+            self.force_shutdown()
+            raise OSError("ERROR: Cannot execute qubesdb-daemon!")
+
     def start(self, verbose = False, preparing_dvm = False, start_guid = True,
             notify_function = None, mem_required = None):
         if dry_run:
@@ -1754,12 +1741,16 @@ class QubesVm(object):
 
         self.libvirt_domain.createWithFlags(libvirt.VIR_DOMAIN_START_PAUSED)
 
+        if verbose:
+            print >> sys.stderr, "--> Starting Qubes DB..."
+        self.start_qubesdb()
+
         xid = self.xid
 
         if preparing_dvm:
             self.services['qubes-dvm'] = True
         if verbose:
-            print >> sys.stderr, "--> Setting Xen Store info for the VM..."
+            print >> sys.stderr, "--> Setting Qubes DB info for the VM..."
         self.create_xenstore_entries(xid)
 
         qvm_collection = QubesVmCollection()

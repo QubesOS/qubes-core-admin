@@ -49,6 +49,7 @@ system_path = {
     'qubes_guid_path': '/usr/bin/qubes-guid',
     'qrexec_daemon_path': '/usr/lib/qubes/qrexec-daemon',
     'qrexec_client_path': '/usr/lib/qubes/qrexec-client',
+    'qubesdb_daemon_path': '/usr/sbin/qubesdb-daemon',
 
     'qubes_base_dir': qubes_base_dir,
 

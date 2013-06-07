@@ -110,6 +110,7 @@ class QubesDisposableVm(QubesVm):
     def create_xenstore_entries(self, xid):
         super(QubesDisposableVm, self).create_xenstore_entries(xid)
 
+        # TODO!
         domain_path = vmm.xs.get_domain_path(xid)
 
         vmm.xs.write('', "{0}/qubes-restore-complete".format(domain_path),
