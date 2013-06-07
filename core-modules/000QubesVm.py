@@ -1114,10 +1114,15 @@ class QubesVm(object):
 
         # FIXME: This is only for debugging purposes
         old_umask = os.umask(002)
-        conf_appvm = open(file_path, "w")
-        conf_appvm.write(domain_config)
-        conf_appvm.close()
-        os.umask(old_umask)
+        try:
+            conf_appvm = open(file_path, "w")
+            conf_appvm.write(domain_config)
+            conf_appvm.close()
+        except:
+            # Ignore errors
+            pass
+        finally:
+            os.umask(old_umask)
 
         return domain_config
 
