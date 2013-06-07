@@ -46,7 +46,7 @@ BuildRequires:	systemd-units
 Requires(post): systemd-units
 Requires(preun): systemd-units
 Requires(postun): systemd-units
-Requires:	python, xen-runtime, pciutils, python-inotify, python-daemon
+Requires:	python, pciutils, python-inotify, python-daemon
 Requires:       qubes-core-dom0-linux >= 2.0.24
 Requires:       python-lxml
 Requires:       python-psutil
@@ -54,6 +54,7 @@ Requires:       python-psutil
 Conflicts:      qubes-gui-dom0 < 1.1.13
 Requires:       libvirt-python
 %if x%{?backend_vmm} == xxen
+Requires:       xen-runtime
 Requires:       xen-hvm
 Requires:       libvirt-daemon-xen
 %endif
