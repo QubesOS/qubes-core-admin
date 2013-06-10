@@ -107,15 +107,6 @@ class QubesDisposableVm(QubesVm):
     def verify_files(self):
         return True
 
-    def create_xenstore_entries(self, xid):
-        super(QubesDisposableVm, self).create_xenstore_entries(xid)
-
-        # TODO!
-        domain_path = vmm.xs.get_domain_path(xid)
-
-        vmm.xs.write('', "{0}/qubes-restore-complete".format(domain_path),
-                'True')
-
     def get_config_params(self):
         attrs = super(QubesDisposableVm, self).get_config_params()
         attrs['privatedev'] = ''
@@ -160,11 +151,15 @@ class QubesDisposableVm(QubesVm):
         print >>sys.stderr, "time=%s, done" % (str(time.time()))
         self._libvirt_domain = None
 
+        if verbose:
+            print >> sys.stderr, "--> Starting Qubes DB..."
+        self.start_qubesdb()
+
         self.services['qubes-dvm'] = True
         if verbose:
-            print >> sys.stderr, "--> Setting Xen Store info for the VM..."
+            print >> sys.stderr, "--> Setting Qubes DB info for the VM..."
         self.create_xenstore_entries(self.xid)
-        print >>sys.stderr, "time=%s, done xenstore" % (str(time.time()))
+        print >>sys.stderr, "time=%s, done qubesdb" % (str(time.time()))
 
         # fire hooks
         for hook in self.hooks_start:
