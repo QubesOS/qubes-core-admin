@@ -61,6 +61,7 @@ if [ -f /var/lib/qubes/dvmdata/dont-use-shm ] ; then
 else
 	mkdir -m 770 $SHMDIR 2>/dev/null
 	chgrp qubes $SHMDIR 2>/dev/null
+	rm -f $SHMCOPY
 	cp $DEFAULT $SHMCOPY || exit 1
 	chgrp qubes $SHMCOPY
 	chmod 660 $SHMCOPY
