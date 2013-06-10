@@ -56,7 +56,7 @@ if ! virsh -c xen:/// save $1 $2; then
 	exit 1
 fi
 rm -f $QMEMMAN_STOP
-ln -s $VMDIR /var/lib/qubes/dvmdata/vmdir
+ln -sf $VMDIR /var/lib/qubes/dvmdata/vmdir
 cd $VMDIR
 tar -Scf saved-cows.tar volatile.img
 echo "DVM savefile created successfully."
