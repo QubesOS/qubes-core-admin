@@ -232,7 +232,6 @@ fi
 %attr(2770,root,qubes) %dir /var/lib/qubes/vm-kernels
 /usr/share/qubes/xen-vm-template.xml
 /usr/share/qubes/vm-template-hvm.xml
-/usr/bin/xenstore-watch-qubes
 /usr/lib/qubes/qubes-prepare-saved-domain.sh
 /usr/lib/qubes/qubes-update-dispvm-savefile-with-progress.sh
 /etc/xen/scripts/block.qubes
