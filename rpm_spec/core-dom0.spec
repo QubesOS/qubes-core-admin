@@ -81,109 +81,16 @@ ln -sf . %{name}-%{version}
 %setup -T -D
 
 %build
-python -m compileall core core-modules qmemman tests
-python -O -m compileall core dom/core-modules qmemman tests
-for dir in dispvm qmemman; do
-  (cd $dir; make)
-done
+
+make all
 
 %install
 
-mkdir -p $RPM_BUILD_ROOT/usr/lib/systemd/system
-cp linux/systemd/qubes-block-cleaner.service $RPM_BUILD_ROOT%{_unitdir}
-cp linux/systemd/qubes-core.service $RPM_BUILD_ROOT%{_unitdir}
-cp linux/systemd/qubes-setupdvm.service $RPM_BUILD_ROOT%{_unitdir}
-cp linux/systemd/qubes-netvm.service $RPM_BUILD_ROOT%{_unitdir}
-cp linux/systemd/qubes-qmemman.service $RPM_BUILD_ROOT%{_unitdir}
-cp linux/systemd/qubes-vm@.service $RPM_BUILD_ROOT%{_unitdir}
-cp linux/systemd/qubes-reload-firewall@.service $RPM_BUILD_ROOT%{_unitdir}
-cp linux/systemd/qubes-reload-firewall@.timer $RPM_BUILD_ROOT%{_unitdir}
-
-mkdir -p $RPM_BUILD_ROOT/usr/bin/
-cp qvm-tools/qvm-* $RPM_BUILD_ROOT/usr/bin
-cp qvm-tools/qubes-* $RPM_BUILD_ROOT/usr/bin
-
-mkdir -p $RPM_BUILD_ROOT/etc/xen/scripts
-cp dispvm/block.qubes $RPM_BUILD_ROOT/etc/xen/scripts
-cp linux/system-config/vif-route-qubes $RPM_BUILD_ROOT/etc/xen/scripts
-cp linux/system-config/block-snapshot $RPM_BUILD_ROOT/etc/xen/scripts
-ln -s block-snapshot $RPM_BUILD_ROOT/etc/xen/scripts/block-origin
-
-mkdir -p $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp core/qubes.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp core/qubes.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp core/qubesutils.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp core/qubesutils.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp core/guihelpers.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp core/guihelpers.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp core/notify.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp core/notify.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp core/backup.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp core/backup.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp qmemman/qmemman*py $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp qmemman/qmemman*py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
-mkdir -p $RPM_BUILD_ROOT%{python_sitearch}/qubes/modules
-cp core-modules/0*.py $RPM_BUILD_ROOT%{python_sitearch}/qubes/modules
-cp core-modules/0*.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes/modules
-cp core-modules/__init__.py $RPM_BUILD_ROOT%{python_sitearch}/qubes/modules
-cp core-modules/__init__.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes/modules
-mkdir -p $RPM_BUILD_ROOT%{python_sitearch}/qubes/tests
-cp tests/*.py $RPM_BUILD_ROOT%{python_sitearch}/qubes/tests/
-cp tests/*.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes/tests/
-
-mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/qubes
-cp qmemman/qmemman.conf $RPM_BUILD_ROOT%{_sysconfdir}/qubes/
-
-mkdir -p $RPM_BUILD_ROOT/usr/lib/qubes
-cp linux/aux-tools/unbind-pci-device.sh $RPM_BUILD_ROOT/usr/lib/qubes
-cp linux/aux-tools/cleanup-dispvms $RPM_BUILD_ROOT/usr/lib/qubes
-cp linux/aux-tools/startup-dvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
-cp linux/aux-tools/startup-misc.sh $RPM_BUILD_ROOT/usr/lib/qubes
-cp linux/aux-tools/prepare-volatile-img.sh $RPM_BUILD_ROOT/usr/lib/qubes
-cp qmemman/server.py $RPM_BUILD_ROOT/usr/lib/qubes/qmemman_daemon.py
-cp qubes-rpc/qubes-notify-tools $RPM_BUILD_ROOT/usr/lib/qubes/
-cp qubes-rpc/qubes-notify-updates $RPM_BUILD_ROOT/usr/lib/qubes/
-cp linux/aux-tools/vusb-ctl.py $RPM_BUILD_ROOT/usr/lib/qubes/
-cp linux/aux-tools/xl-qvm-usb-attach.py $RPM_BUILD_ROOT/usr/lib/qubes/
-cp linux/aux-tools/xl-qvm-usb-detach.py $RPM_BUILD_ROOT/usr/lib/qubes/
-cp linux/aux-tools/block-cleaner-daemon.py $RPM_BUILD_ROOT/usr/lib/qubes/
-cp linux/aux-tools/fix-dir-perms.sh $RPM_BUILD_ROOT/usr/lib/qubes/
-
-mkdir -p $RPM_BUILD_ROOT/etc/qubes-rpc/policy
-cp qubes-rpc-policy/qubes.Filecopy.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.Filecopy
-cp qubes-rpc-policy/qubes.GetImageRGBA.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.GetImageRGBA
-cp qubes-rpc-policy/qubes.OpenInVM.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.OpenInVM
-cp qubes-rpc-policy/qubes.VMShell.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.VMShell
-cp qubes-rpc-policy/qubes.NotifyTools.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.NotifyTools
-cp qubes-rpc/qubes.NotifyTools $RPM_BUILD_ROOT/etc/qubes-rpc/
-cp qubes-rpc-policy/qubes.NotifyUpdates.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.NotifyUpdates
-cp qubes-rpc/qubes.NotifyUpdates $RPM_BUILD_ROOT/etc/qubes-rpc/
-
-cp dispvm/xenstore-watch $RPM_BUILD_ROOT/usr/bin/xenstore-watch-qubes
-cp dispvm/qubes-prepare-saved-domain.sh  $RPM_BUILD_ROOT/usr/lib/qubes
-cp dispvm/qubes-update-dispvm-savefile-with-progress.sh  $RPM_BUILD_ROOT/usr/lib/qubes
-cp dispvm/qfile-daemon-dvm $RPM_BUILD_ROOT/usr/lib/qubes
-
-mkdir -p $RPM_BUILD_ROOT/var/lib/qubes
-mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/vm-templates
-mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/appvms
-mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/servicevms
-mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/vm-kernels
-
-mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/backup
-mkdir -p $RPM_BUILD_ROOT/var/lib/qubes/dvmdata
-
-mkdir -p $RPM_BUILD_ROOT/usr/share/qubes
-cp xen-vm-config/vm-template.xml $RPM_BUILD_ROOT/usr/share/qubes/xen-vm-template.xml
-cp xen-vm-config/vm-template-hvm.xml $RPM_BUILD_ROOT/usr/share/qubes/
-
-mkdir -p $RPM_BUILD_ROOT/usr/bin
-
-mkdir -p $RPM_BUILD_ROOT/var/log/qubes
-mkdir -p $RPM_BUILD_ROOT/var/run/qubes
-
-install -d $RPM_BUILD_ROOT/etc/xdg/autostart
-install -m 0644 linux/system-config/qubes-guid.desktop $RPM_BUILD_ROOT/etc/xdg/autostart/
+make install \
+    DESTDIR=$RPM_BUILD_ROOT \
+    UNITDIR=%{_unitdir} \
+    PYTHON_SITEPATH=%{python_sitearch} \
+    SYSCONFDIR=%{_sysconfdir}
 
 %post
 
