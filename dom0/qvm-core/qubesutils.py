@@ -1003,7 +1003,7 @@ def backup_do(base_backup_dir, files_to_backup, progress_callback = None):
         progress = bytes_backedup * 100 / total_backup_sz
         progress_callback(progress)
 
-def backup_do_copy(appvm, base_backup_dir, files_to_backup, progress_callback = None):
+def backup_do_copy(appvm, base_backup_dir, files_to_backup, progress_callback = None, encrypt=False):
 
     # does the vm exist?
     qvm_collection = QubesVmCollection()
@@ -1013,6 +1013,8 @@ def backup_do_copy(appvm, base_backup_dir, files_to_backup, progress_callback = 
     vm = qvm_collection.get_vm_by_name(appvm)
     if vm is None or vm.qid not in qvm_collection:
         raise QubesException("VM {0} does not exist".format(appvm))
+
+    qvm_collection.unlock_db()
 
     total_backup_sz = 0
     for file in files_to_backup:
@@ -1040,8 +1042,13 @@ def backup_do_copy(appvm, base_backup_dir, files_to_backup, progress_callback = 
 
         file["basename"] = os.path.basename(file["path"])
         vm.run("mkdir -p {0}".format(dest_dir))
-        retcode = vm.run(command = "cat > {0}".format(dest_dir + file["basename"] + ".tar.gz"), passio_popen = True)
-        compressor = subprocess.Popen (["tar", "-PcOz", file["path"]], stdout=retcode.stdin)
+        if encrypt:
+            retcode = vm.run(command = "cat > {0}".format(dest_dir + file["basename"] + ".gpg"), passio_popen = True)
+            compressor = subprocess.Popen (["gpg", "-ac", "--force-mdc", "-o-", file["path"]], stdout=retcode.stdin)
+        else:
+            retcode = vm.run(command = "cat > {0}".format(dest_dir + file["basename"] + ".tar.gz"), passio_popen = True)
+            compressor = subprocess.Popen (["tar", "-PcOz", file["path"]], stdout=retcode.stdin)
+
         compressor.wait()
         retcode.terminate()
         if compressor.returncode != 0:
