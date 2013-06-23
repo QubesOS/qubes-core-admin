@@ -1,9 +1,43 @@
 #!/bin/bash
 
-if [[ -z $1 ]]
+# The Qubes OS Project, http://www.qubes-os.org
+#
+# Copyright (C) 2013  Laszlo Zrubecz <mail@zrubi.hu>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+if [[ -z "$1" ]] || [[ "$1" == "--help" ]] || [[ "$1" == "-q" ]]
  then
-	echo "ERROR: Required parameter missing: 'AppVM name'"
-	exit 1
+    echo ""
+    echo "This tool is used to gather hardware information for the Qubes HCL (Hardware Compatibility List)"
+    echo "and copy the Support Files to the given AppVM for the easy contribution..."
+    echo "If you do not want to copy them to any AppVM use 'dom0' as AppVM Name."
+    echo ""
+    echo -e "Usage:\tqubes-hcl-report <AppVM Name>"
+    echo ""
+    exit
+
+else
+    /usr/bin/qvm-check -q $1
+    if [[ $? -eq 0 ]]
+     then
+        COPY2VM="$1"
+    else
+        echo -e "ERROR:\tAppVM with the name '$1' does not exist in the system!"
+        exit 1
+    fi
 fi
 
 DATE=`date +%Y%m%d`
@@ -11,35 +45,41 @@ DATE=`date +%Y%m%d`
 BRAND=`sudo dmidecode |grep -A9 "System Information" |grep "Manufacturer:" |cut -d ' ' -f2- |tr -s '[:blank:]' _`
 PRODUCT=`sudo dmidecode |grep -A9 "System Information" |grep "Product Name:" |cut -d ' ' -f3- |tr -s '[:blank:]' _`
 
+if [[ $BRAND =~ "O.E.M" ]]
+ then
+    BRAND=`sudo dmidecode |grep -A9 "Base Board Information" |grep "Manufacturer:" |cut -d ' ' -f2- |tr -s '[:blank:]' _`
+    PRODUCT=`sudo dmidecode |grep -A9 "Base Board Information" |grep "Product Name:" |cut -d ' ' -f3- |tr -s '[:blank:]' _`
+fi
+
 CPU=`sudo cat /proc/cpuinfo |grep "model name" |sort -u |cut -d ' ' -f3-`
 CHIPSET=`sudo lspci -nn |grep "00:00.0.*Host bridge"`
-VGA=`sudo lspci -nn |grep "VGA"`
-BIOS=`sudo dmidecode |grep -A9 "BIOS Information" |grep Version |cut -d ' ' -f2-`
-XLINFO=`xl info |grep virt_caps`
+VGA=`sudo lspci -nn |grep "VGA\|Display" | sed -e "s/^/\t\t/"`
+BIOS=`sudo dmidecode |grep -A9 "BIOS Information" |grep "Version" |cut -d ' ' -f2-`
+XLINFO=`sudo xl info |grep "virt_caps"`
 
 FILENAME="Qubes-HCL-$BRAND-$PRODUCT-$DATE"
 
 if [[ "$XLINFO" =~ "hvm_directio" ]]
  then 
-	VTX="Active"
-	VTD="Active"
+    VTX="Active"
+    VTD="Active"
 
  elif [[ "$XLINFO" =~ "hvm" ]]
  then
-	VTX="Active"
-	VTD="Not Active"
+    VTX="Active"
+    VTD="Not Active"
 
  else
-	VTX="Not Active"
-	VTD="Not Active"
+    VTX="Not Active"
+    VTD="Not Active"
 fi
 
-cat /etc/qubes-release |tee ~/$FILENAME.txt
+sudo cat /etc/qubes-release |tee ~/$FILENAME.txt
 echo
 echo -e "Model Name:\t$BRAND $PRODUCT\n" |tee -a ~/$FILENAME.txt
-echo -e "Chipset:\t$CHIPSET" |tee -a ~/$FILENAME.txt
-echo -e "VGA:\t\t$VGA" |tee -a ~/$FILENAME.txt
 echo -e "CPU:\t\t$CPU" |tee -a  ~/$FILENAME.txt
+echo -e "Chipset:\t$CHIPSET" |tee -a ~/$FILENAME.txt
+echo -e "VGA:$VGA\n" |tee -a ~/$FILENAME.txt
 echo -e "BIOS:\t\t$BIOS" |tee -a ~/$FILENAME.txt
 echo -e "VT-x:\t\t$VTX" |tee -a ~/$FILENAME.txt
 echo -e "VT-d:\t\t$VTD" |tee -a ~/$FILENAME.txt
@@ -58,18 +98,24 @@ cd $TEMP_DIR
 find -print0 |cpio --quiet -o -H crc --null |gzip  >~/$FILENAME.cpio.gz
 cd
 
-# Copy to VM
-qvm-start -q $1 2>/dev/null
-cat ~/$FILENAME.cpio.gz | qvm-run -a -q --pass-io $1 "cat >/home/user/$FILENAME.cpio.gz"
-cat ~/$FILENAME.txt | qvm-run -a -q --pass-io $1 "cat >/home/user/$FILENAME.txt"
 
-echo -e "Qubes HCL Support files are copied to AppVM: $1"
+# VM check
+if [[ "$COPY2VM" != "dom0" ]]
+ then
+    # Copy to VM
+    qvm-start -q $COPY2VM 2>/dev/null
+    cat ~/$FILENAME.cpio.gz | qvm-run -a -q --pass-io $COPY2VM "cat >/home/user/$FILENAME.cpio.gz"
+    cat ~/$FILENAME.txt | qvm-run -a -q --pass-io $COPY2VM "cat >/home/user/$FILENAME.txt"
+fi
+
+echo -e "Qubes HCL Support files are copied to: '$COPY2VM'"
 echo -e "\t$FILENAME.txt\t\t- HCL Info"
 echo -e "\t$FILENAME.cpio.gz\t- HCL Support Files"
+
 
 # cleanup
 if [[ -d $TEMP_DIR ]]
  then
-	rm -rf $TEMP_DIR
+    rm -rf $TEMP_DIR
 fi
 

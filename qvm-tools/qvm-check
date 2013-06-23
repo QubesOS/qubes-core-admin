@@ -1,0 +1,55 @@
+#!/usr/bin/python2
+#
+# The Qubes OS Project, http://www.qubes-os.org
+#
+# Copyright (C) 2011  Marek Marczykowski <marmarek@invisiblethingslab.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+#
+
+from qubes.qubes import QubesVmCollection,QubesException
+from qubes.qubes import shutdown_counter_max
+from optparse import OptionParser;
+import sys
+import time
+
+def main():
+    usage = "usage: %prog [options] <vm-name>"
+    parser = OptionParser (usage)
+
+    parser.add_option ("-q", "--quiet", action="store_false", dest="verbose", default=True)
+    
+    (options, args) = parser.parse_args ()
+    if (len (args) != 1):
+        parser.error ("You must specify VM name!")
+
+    qvm_collection = QubesVmCollection()
+    qvm_collection.lock_db_for_reading()
+    qvm_collection.load()
+    qvm_collection.unlock_db()
+
+    vmname = args[0]
+    vm = qvm_collection.get_vm_by_name(vmname)
+    if vm is None:
+    if options.verbose: 
+        print >> sys.stdout, "A VM with the name '{0}' does not exist in the system!".format(vmname)
+    exit(1)
+    else:
+    if options.verbose: 
+        print >> sys.stdout, "A VM with the name '{0}' is exist.".format(vmname)
+        exit(0)
+
+main()
