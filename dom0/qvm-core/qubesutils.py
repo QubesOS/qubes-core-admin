@@ -1043,7 +1043,8 @@ def backup_do_copy(appvm, base_backup_dir, files_to_backup, progress_callback = 
         retcode = vm.run(command = "cat > {0}".format(dest_dir + file["basename"] + ".tar.gz"), passio_popen = True)
         compressor = subprocess.Popen (["tar", "-PcOz", file["path"]], stdout=retcode.stdin)
         compressor.wait()
-        if compressor.retcode != 0:
+        retcode.terminate()
+        if compressor.returncode != 0:
             raise QubesException("Failed to backup file {0} with error {1}".format(file["basename"]))
         
         bytes_backedup += file["size"]
