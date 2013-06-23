@@ -22,7 +22,7 @@
 
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
-from qubes.qubesutils import backup_prepare, backup_do
+from qubes.qubesutils import backup_prepare, backup_do_copy
 from optparse import OptionParser
 import os
 import sys
@@ -72,7 +72,7 @@ def main():
         exit (0)
 
     try:
-        backup_do(base_backup_dir, files_to_backup, progress_callback=print_progress)
+        backup_do_copy("storage", base_backup_dir, files_to_backup, progress_callback=print_progress)
     except QubesException as e:
         print >>sys.stderr, "ERROR: %s" % str(e)
         exit(1)

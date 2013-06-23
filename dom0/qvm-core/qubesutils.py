@@ -1005,6 +1005,15 @@ def backup_do(base_backup_dir, files_to_backup, progress_callback = None):
 
 def backup_do_copy(appvm, base_backup_dir, files_to_backup, progress_callback = None):
 
+    # does the vm exist?
+    qvm_collection = QubesVmCollection()
+    qvm_collection.lock_db_for_reading()
+    qvm_collection.load()
+    
+    vm = qvm_collection.get_vm_by_name(appvm)
+    if vm is None or vm.qid not in qvm_collection:
+        raise QubesException("VM {0} does not exist".format(appvm))
+
     total_backup_sz = 0
     for file in files_to_backup:
         total_backup_sz += file["size"]
@@ -1026,7 +1035,7 @@ def backup_do_copy(appvm, base_backup_dir, files_to_backup, progress_callback = 
         progress_callback(progress)
         dest_dir = backup_dir + '/' + file["subdir"]
         if file["subdir"] != "":
-            retcode = subprocess.call (["qvm-run", "-p", appvm, "mkdir -p " + dest_dir])
+            retcode = vm.run(["qvm-run", "-p", appvm, "mkdir -p " + dest_dir])
             if retcode != 0:
                 raise QubesException("Cannot create directory: {0}?!".format(dest_dir))
 
