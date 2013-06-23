@@ -1030,7 +1030,6 @@ def backup_do_copy(appvm, base_backup_dir, files_to_backup, progress_callback = 
     '''
     bytes_backedup = 0
     for file in files_to_backup:
-        # We prefer to use Linux's cp, because it nicely handles sparse files
         progress = bytes_backedup * 100 / total_backup_sz
         progress_callback(progress)
         dest_dir = backup_dir + '/' + file["subdir"]
@@ -1040,9 +1039,13 @@ def backup_do_copy(appvm, base_backup_dir, files_to_backup, progress_callback = 
                 raise QubesException("Cannot create directory: {0}?!".format(dest_dir))
 
         file["basename"] = os.path.basename(file["path"])
-        compressor = subprocess.Popen (["tar", "-PcOz", file["path"]], stdout=subprocess.PIPE)
-        subprocess.Popen (["qvm-run", "--pass-io", "-p", appvm, "cat > " + dest_dir + file["basename"] + ".tar.gz"], stdin=compressor.stdout)
-
+        vm.run("mkdir -p {0}".format(dest_dir))
+        retcode = vm.run(command = "cat > {0}".format(dest_dir + file["basename"] + ".tar.gz"), passio_popen = True)
+        compressor = subprocess.Popen (["tar", "-PcOz", file["path"]], stdout=retcode.stdin)
+        compressor.wait()
+        if compressor.retcode != 0:
+            raise QubesException("Failed to backup file {0} with error {1}".format(file["basename"]))
+        
         bytes_backedup += file["size"]
         progress = bytes_backedup * 100 / total_backup_sz
         progress_callback(progress)
