@@ -1036,7 +1036,7 @@ def backup_do_copy(appvm, base_backup_dir, files_to_backup, progress_callback = 
         progress_callback(progress)
         dest_dir = backup_dir + '/' + file["subdir"]
         if file["subdir"] != "":
-            retcode = vm.run("mkdir -p " + dest_dir)
+            retcode = vm.run("mkdir -p " + dest_dir, wait = True)
             if retcode != 0:
                 raise QubesException("Cannot create directory: {0}?!".format(dest_dir))
 
