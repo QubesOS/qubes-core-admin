@@ -48,6 +48,7 @@ install:
 	$(MAKE) install -C dispvm
 	$(MAKE) install -C tests
 	mkdir -p $(DESTDIR)/etc/qubes-rpc/policy
+	mkdir -p $(DESTDIR)/usr/libexec/qubes
 	cp qubes-rpc-policy/qubes.Filecopy.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.Filecopy
 	cp qubes-rpc-policy/qubes.OpenInVM.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.OpenInVM
 	cp qubes-rpc-policy/qubes.VMShell.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.VMShell
@@ -56,8 +57,8 @@ install:
 	cp qubes-rpc-policy/qubes.GetImageRGBA.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.GetImageRGBA
 	cp qubes-rpc/qubes.NotifyUpdates $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes.NotifyTools $(DESTDIR)/etc/qubes-rpc/
-	cp qubes-rpc/qubes-notify-updates $(DESTDIR)/usr/lib/qubes/
-	cp qubes-rpc/qubes-notify-tools $(DESTDIR)/usr/lib/qubes/
+	cp qubes-rpc/qubes-notify-updates $(DESTDIR)/usr/libexec/qubes/
+	cp qubes-rpc/qubes-notify-tools $(DESTDIR)/usr/libexec/qubes/
 	mkdir -p $(DESTDIR)/usr/share/qubes
 	cp xen-vm-config/vm-template.xml $(DESTDIR)/usr/share/qubes/xen-vm-template.xml
 	cp xen-vm-config/vm-template-hvm.xml $(DESTDIR)/usr/share/qubes/

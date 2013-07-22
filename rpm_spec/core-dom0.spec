@@ -205,8 +205,6 @@ fi
 /usr/lib/qubes/cleanup-dispvms
 /usr/lib/qubes/qmemman_daemon.py*
 /usr/lib/qubes/qfile-daemon-dvm*
-/usr/lib/qubes/qubes-notify-tools
-/usr/lib/qubes/qubes-notify-updates
 /usr/lib/qubes/block-cleaner-daemon.py*
 /usr/lib/qubes/vusb-ctl.py*
 /usr/lib/qubes/xl-qvm-usb-attach.py*
@@ -215,6 +213,8 @@ fi
 /usr/lib/qubes/startup-dvm.sh
 /usr/lib/qubes/startup-misc.sh
 /usr/lib/qubes/prepare-volatile-img.sh
+/usr/libexec/qubes/qubes-notify-tools
+/usr/libexec/qubes/qubes-notify-updates
 %{_unitdir}/qubes-block-cleaner.service
 %{_unitdir}/qubes-core.service
 %{_unitdir}/qubes-setupdvm.service
