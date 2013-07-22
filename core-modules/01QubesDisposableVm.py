@@ -29,7 +29,12 @@ import time
 from qubes.qubes import QubesVm,QubesVmLabel,register_qubes_vm_class
 from qubes.qubes import QubesDispVmLabels
 from qubes.qubes import dry_run,vmm
-from qubes.qmemman_client import QMemmanClient
+qmemman_present = False
+try:
+    from qubes.qmemman_client import QMemmanClient
+    qmemman_present = True
+except ImportError:
+    pass
 
 class QubesDisposableVm(QubesVm):
     """
@@ -130,16 +135,17 @@ class QubesDisposableVm(QubesVm):
         # refresh config file
         domain_config = self.create_config_file()
 
-        mem_required = int(self.memory) * 1024 * 1024
-        print >>sys.stderr, "time=%s, getting %d memory" % (str(time.time()), mem_required)
-        qmemman_client = QMemmanClient()
-        try:
-            got_memory = qmemman_client.request_memory(mem_required)
-        except IOError as e:
-            raise IOError("ERROR: Failed to connect to qmemman: %s" % str(e))
-        if not got_memory:
-            qmemman_client.close()
-            raise MemoryError ("ERROR: insufficient memory to start VM '%s'" % self.name)
+        if qmemman_present:
+            mem_required = int(self.memory) * 1024 * 1024
+            print >>sys.stderr, "time=%s, getting %d memory" % (str(time.time()), mem_required)
+            qmemman_client = QMemmanClient()
+            try:
+                got_memory = qmemman_client.request_memory(mem_required)
+            except IOError as e:
+                raise IOError("ERROR: Failed to connect to qmemman: %s" % str(e))
+            if not got_memory:
+                qmemman_client.close()
+                raise MemoryError ("ERROR: insufficient memory to start VM '%s'" % self.name)
 
         # dispvm cannot have PCI devices
         assert (len(self.pcidevs) == 0), "DispVM cannot have PCI devices"
@@ -175,7 +181,8 @@ class QubesDisposableVm(QubesVm):
 # constructing the domain after its main process exits
 # so we close() when we know the domain is up
 # the successful unpause is some indicator of it
-        qmemman_client.close()
+        if qmemman_present:
+            qmemman_client.close()
 
         if self._start_guid_first and kwargs.get('start_guid', True) and os.path.exists('/var/run/shm.id'):
             self.start_guid(verbose=verbose,

@@ -44,7 +44,12 @@ from qubes.qubes import dry_run,vmm
 from qubes.qubes import register_qubes_vm_class
 from qubes.qubes import QubesVmCollection,QubesException,QubesHost,QubesVmLabels
 from qubes.qubes import defaults,system_path,vm_files,qubes_max_qid
-from qubes.qmemman_client import QMemmanClient
+qmemman_present = False
+try:
+    from qubes.qmemman_client import QMemmanClient
+    qmemman_present = True
+except ImportError:
+    pass
 
 import qubes.qubesutils
 
@@ -968,11 +973,11 @@ class QubesVm(object):
 
         self.qdb.write("/qubes-debug-mode", str(int(self.debug)))
 
-        # Fix permissions
         # TODO: Currently whole qmemman is quite Xen-specific, so stay with
         # xenstore for it until decided otherwise
-        vmm.xs.set_permissions('', '/local/domain/{0}/memory'.format(self.xid),
-                [{ 'dom': xid }])
+        if qmemman_present:
+            vmm.xs.set_permissions('', '/local/domain/{0}/memory'.format(self.xid),
+                    [{ 'dom': xid }])
 
         # fire hooks
         for hook in self.hooks_create_xenstore_entries:
@@ -1730,14 +1735,15 @@ class QubesVm(object):
 
         if mem_required is None:
             mem_required = int(self.memory) * 1024 * 1024
-        qmemman_client = QMemmanClient()
-        try:
-            got_memory = qmemman_client.request_memory(mem_required)
-        except IOError as e:
-            raise IOError("ERROR: Failed to connect to qmemman: %s" % str(e))
-        if not got_memory:
-            qmemman_client.close()
-            raise MemoryError ("ERROR: insufficient memory to start VM '%s'" % self.name)
+        if qmemman_present:
+            qmemman_client = QMemmanClient()
+            try:
+                got_memory = qmemman_client.request_memory(mem_required)
+            except IOError as e:
+                raise IOError("ERROR: Failed to connect to qmemman: %s" % str(e))
+            if not got_memory:
+                qmemman_client.close()
+                raise MemoryError ("ERROR: insufficient memory to start VM '%s'" % self.name)
 
         # Bind pci devices to pciback driver
         for pci in self.pcidevs:
@@ -1783,7 +1789,8 @@ class QubesVm(object):
 # constructing the domain after its main process exits
 # so we close() when we know the domain is up
 # the successful unpause is some indicator of it
-        qmemman_client.close()
+        if qmemman_present:
+            qmemman_client.close()
 
         if self._start_guid_first and start_guid and not preparing_dvm and os.path.exists('/var/run/shm.id'):
             self.start_guid(verbose=verbose, notify_function=notify_function, before_qrexec=True)
