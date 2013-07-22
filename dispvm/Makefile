@@ -1,3 +1,5 @@
+UNITDIR ?= /usr/lib/systemd/system
+
 all:
 	true
 
@@ -11,5 +13,9 @@ install:
 	cp qubes-prepare-saved-domain.sh  $(DESTDIR)/usr/lib/qubes
 	cp qubes-update-dispvm-savefile-with-progress.sh  $(DESTDIR)/usr/lib/qubes
 	cp qfile-daemon-dvm $(DESTDIR)/usr/lib/qubes
+	mkdir -p $(DESTDIR)$(UNITDIR)
+	cp startup-dvm.sh $(DESTDIR)/usr/lib/qubes
+	cp qubes-setupdvm.service $(DESTDIR)$(UNITDIR)
+
 
 

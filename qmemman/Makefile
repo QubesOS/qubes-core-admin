@@ -1,5 +1,6 @@
 PYTHON_QUBESPATH = $(PYTHON_SITEPATH)/qubes
 SYSCONFDIR ?= /etc
+UNITDIR ?= /usr/lib/systemd/system
 all:
 	python -m compileall .
 	python -O -m compileall .
@@ -18,4 +19,6 @@ endif
 	cp qmemman.conf $(DESTDIR)$(SYSCONFDIR)/qubes/
 	mkdir -p $(DESTDIR)/usr/lib/qubes
 	cp server.py $(DESTDIR)/usr/lib/qubes/qmemman_daemon.py
+	mkdir -p $(DESTDIR)$(UNITDIR)
+	cp qubes-qmemman.service $(DESTDIR)$(UNITDIR)
 
