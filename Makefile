@@ -4,6 +4,8 @@ VERSION := $(shell cat version)
 
 DIST_DOM0 ?= fc18
 
+OS ?= Linux
+
 help:
 	@echo "make rpms                  -- generate binary rpm packages"
 	@echo "make rpms-dom0             -- generate binary rpm packages for Dom0"
@@ -30,23 +32,30 @@ clean:
 	make -C qmemman clean
 
 all:
-	# core core-modules qmemman
 	make all -C core
 	make all -C core-modules
+	make all -C tests
+	# Currently supported only on xen
+ifeq ($(BACKEND_VMM),xen)
 	make all -C qmemman
 	make all -C dispvm
-	make all -C tests
+endif
 
 install:
+ifeq ($(OS),Linux)
 	$(MAKE) install -C linux/systemd
 	$(MAKE) install -C linux/aux-tools
 	$(MAKE) install -C linux/system-config
+endif
 	$(MAKE) install -C qvm-tools
 	$(MAKE) install -C core
 	$(MAKE) install -C core-modules
+	$(MAKE) install -C tests
+ifeq ($(BACKEND_VMM),xen)
+	# Currently supported only on xen
 	$(MAKE) install -C qmemman
 	$(MAKE) install -C dispvm
-	$(MAKE) install -C tests
+endif
 	mkdir -p $(DESTDIR)/etc/qubes-rpc/policy
 	mkdir -p $(DESTDIR)/usr/libexec/qubes
 	cp qubes-rpc-policy/qubes.Filecopy.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.Filecopy
@@ -60,8 +69,10 @@ install:
 	cp qubes-rpc/qubes-notify-updates $(DESTDIR)/usr/libexec/qubes/
 	cp qubes-rpc/qubes-notify-tools $(DESTDIR)/usr/libexec/qubes/
 	mkdir -p $(DESTDIR)/usr/share/qubes
+ifeq ($(BACKEND_VMM),xen)
 	cp xen-vm-config/vm-template.xml $(DESTDIR)/usr/share/qubes/xen-vm-template.xml
 	cp xen-vm-config/vm-template-hvm.xml $(DESTDIR)/usr/share/qubes/
+endif
 	mkdir -p $(DESTDIR)/var/lib/qubes
 	mkdir -p $(DESTDIR)/var/lib/qubes/vm-templates
 	mkdir -p $(DESTDIR)/var/lib/qubes/appvms
