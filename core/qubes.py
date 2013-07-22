@@ -21,6 +21,8 @@
 #
 #
 
+from __future__ import absolute_import
+
 import sys
 import os
 import os.path
@@ -867,6 +869,13 @@ for module_file in sorted(os.listdir(modules_dir)):
     if not module_file.endswith(".py") or module_file == "__init__.py":
         continue
     __import__('qubes.modules.%s' % module_file[:-3])
+
+try:
+    import qubes.settings
+    qubes.settings.apply(system_path, vm_files, defaults)
+#except ImportError:
+finally:
+    pass
 
 for path_key in system_path.keys():
     system_path[path_key] = system_path[path_key].format(
