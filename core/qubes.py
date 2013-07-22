@@ -42,7 +42,10 @@ dry_run = False
 
 if not dry_run:
     import libvirt
-    import xen.lowlevel.xs
+    try:
+        import xen.lowlevel.xs
+    except ImportError:
+        pass
 
 
 qubes_base_dir   = "/var/lib/qubes"
@@ -138,7 +141,8 @@ class QubesVMMConnection(object):
             # Do not initialize in offline mode
             return
 
-        self._xs = xen.lowlevel.xs.xs()
+        if 'xen.lowlevel.xs' in sys.modules:
+            self._xs = xen.lowlevel.xs.xs()
         self._libvirt_conn = libvirt.open(defaults['libvirt_uri'])
         if self._libvirt_conn == None:
             raise QubesException("Failed connect to libvirt driver")
@@ -160,7 +164,10 @@ class QubesVMMConnection(object):
 
     @property
     def xs(self):
-        return self._common_getter('_xs')
+        if 'xen.lowlevel.xs' in sys.modules:
+            return self._common_getter('_xs')
+        else:
+            return None
 
 
 ##### VMM global variable definition #####
