@@ -197,6 +197,9 @@ fi
 %{python_sitearch}/qubes/backup.py
 %{python_sitearch}/qubes/backup.pyc
 %{python_sitearch}/qubes/backup.pyo
+%{python_sitearch}/qubes/storage/*.py
+%{python_sitearch}/qubes/storage/*.pyc
+%{python_sitearch}/qubes/storage/*.pyo
 %{python_sitearch}/qubes/qmemman*.py*
 %{python_sitearch}/qubes/modules/0*.py*
 %{python_sitearch}/qubes/modules/__init__.py*

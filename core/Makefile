@@ -6,6 +6,7 @@ SETTINGS_SUFFIX = $(BACKEND_VMM)-$(OS)
 all:
 	python -m compileall .
 	python -O -m compileall .
+	make -C storage all
 
 install:
 ifndef PYTHON_SITEPATH
@@ -30,3 +31,4 @@ ifneq ($(BACKEND_VMM),)
 	test -r settings-$(SETTINGS_SUFFIX).pyo && \
 		cp settings-$(SETTINGS_SUFFIX).pyo $(DESTDIR)$(PYTHON_QUBESPATH)/settings.pyo
 endif
+	make -C storage install

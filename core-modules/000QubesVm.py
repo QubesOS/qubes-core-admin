@@ -347,6 +347,12 @@ class QubesVm(object):
         else:
             assert self.root_img is not None, "Missing root_img for standalone VM!"
 
+        self.storage = defaults["storage_class"](self)
+        if hasattr(self, 'kernels_dir'):
+            self.storage.modules_img = os.path.join(self.kernels_dir,
+                    "modules.img")
+            self.storage.modules_img_rw = self.kernel is None
+
         # fire hooks
         for hook in self.hooks_init:
             hook(self)
@@ -854,33 +860,17 @@ class QubesVm(object):
         return qubes.qubesutils.get_disk_usage(self.private_img)
 
     def get_private_img_sz(self):
-        if not os.path.exists(self.private_img):
-            return 0
-
-        return os.path.getsize(self.private_img)
+        return self.storage.get_private_img_sz()
 
     def resize_private_img(self, size):
         assert size >= self.get_private_img_sz(), "Cannot shrink private.img"
 
-        f_private = open (self.private_img, "a+b")
-        f_private.truncate (size)
-        f_private.close ()
+        # resize the image
+        self.storage.resize_private_img(size)
 
+        # and then the filesystem
         retcode = 0
         if self.is_running():
-            # find loop device
-            p = subprocess.Popen (["sudo", "losetup", "--associated", self.private_img],
-                    stdout=subprocess.PIPE)
-            result = p.communicate()
-            m = re.match(r"^(/dev/loop\d+):\s", result[0])
-            if m is None:
-                raise QubesException("ERROR: Cannot find loop device!")
-
-            loop_dev = m.group(1)
-
-            # resize loop device
-            subprocess.check_call(["sudo", "losetup", "--set-capacity", loop_dev])
-
             retcode = self.run("while [ \"`blockdev --getsize64 /dev/xvdb`\" -lt {0} ]; do ".format(size) +
                 "head /dev/xvdb > /dev/null; sleep 0.2; done; resize2fs /dev/xvdb", user="root", wait=True)
         if retcode != 0:
@@ -983,23 +973,6 @@ class QubesVm(object):
         for hook in self.hooks_create_xenstore_entries:
             hook(self, xid=xid)
 
-    def _format_disk_dev(self, path, script, vdev, rw=True, type="disk", domain=None):
-        template = "    <disk type='block' device='{type}'>\n" \
-                   "      <driver name='phy'/>\n" \
-                   "      <source dev='{path}'/>\n" \
-                   "      <target dev='{vdev}' bus='xen'/>\n" \
-                   "{params}" \
-                   "    </disk>\n"
-        params = ""
-        if not rw:
-            params += "      <readonly/>\n"
-        if domain:
-            params += "      <domain name='%s'/>\n" % domain
-        if script:
-            params += "      <script path='%s'/>\n" % script
-        return template.format(path=path, vdev=vdev, type=type,
-            params=params)
-
     def _format_net_dev(self, ip, mac, backend):
         template = "    <interface type='ethernet'>\n" \
                    "      <mac address='{mac}'/>\n" \
@@ -1022,17 +995,6 @@ class QubesVm(object):
                 bus=dev_match.group(1),
                 slot=dev_match.group(2),
                 fun=dev_match.group(3))
-
-    def get_rootdev(self):
-        if self.template:
-            return self._format_disk_dev(
-                    "{dir}/root.img:{dir}/root-cow.img".format(
-                        dir=self.template.dir_path),
-                    "block-snapshot", "xvda", False)
-        else:
-            return self._format_disk_dev(
-                    "{dir}/root.img".format(dir=self.dir_path),
-                    None, "xvda", True)
 
     def get_config_params(self):
         args = {}
@@ -1070,17 +1032,7 @@ class QubesVm(object):
             args['netdev'] = ''
             args['disable_network1'] = '<!--';
             args['disable_network2'] = '-->';
-        args['rootdev'] = self.get_rootdev()
-        args['privatedev'] = \
-                self._format_disk_dev("{dir}/private.img".format(dir=self.dir_path),
-                        None, "xvdb", True)
-        args['volatiledev'] = \
-                self._format_disk_dev("{dir}/volatile.img".format(dir=self.dir_path),
-                        None, "xvdc", True)
-        if hasattr(self, 'kernel'):
-            args['otherdevs'] = \
-                    self._format_disk_dev("{dir}/modules.img".format(dir=self.kernels_dir),
-                            None, "xvdd", self.kernel is None)
+        args.update(self.storage.get_config_params())
         if hasattr(self, 'kernelopts'):
             args['kernelopts'] = self.kernelopts
             if self.debug:
@@ -1139,37 +1091,9 @@ class QubesVm(object):
         if dry_run:
             return
 
-        old_umask = os.umask(002)
-        if verbose:
-            print >> sys.stderr, "--> Creating directory: {0}".format(self.dir_path)
-        os.mkdir (self.dir_path)
-
-        if verbose:
-            print >> sys.stderr, "--> Creating the VM config file: {0}".format(self.conf_file)
-
-        template_priv = source_template.private_img
-        if verbose:
-            print >> sys.stderr, "--> Copying the template's private image: {0}".\
-                    format(template_priv)
-
-        # We prefer to use Linux's cp, because it nicely handles sparse files
-        retcode = subprocess.call (["cp", template_priv, self.private_img])
-        if retcode != 0:
-            raise IOError ("Error while copying {0} to {1}".\
-                           format(template_priv, self.private_img))
+        self.storage.create_on_disk(verbose, source_template)
 
         if self.updateable:
-            template_root = source_template.root_img
-            if verbose:
-                print >> sys.stderr, "--> Copying the template's root image: {0}".\
-                        format(template_root)
-
-            # We prefer to use Linux's cp, because it nicely handles sparse files
-            retcode = subprocess.call (["cp", template_root, self.root_img])
-            if retcode != 0:
-                raise IOError ("Error while copying {0} to {1}".\
-                               format(template_root, self.root_img))
-
             kernels_dir = source_template.kernels_dir
             if verbose:
                 print >> sys.stderr, "--> Copying the kernel (set kernel \"none\" to use it): {0}".\
@@ -1180,14 +1104,9 @@ class QubesVm(object):
                 shutil.copy(os.path.join(kernels_dir, f),
                         os.path.join(self.dir_path, vm_files["kernels_subdir"], f))
 
-        # Create volatile.img
-        self.reset_volatile_storage(source_template = source_template, verbose=verbose)
-
         if verbose:
             print >> sys.stderr, "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
         os.symlink (self.label.icon_path, self.icon_path)
-
-        os.umask(old_umask)
 
         # fire hooks
         for hook in self.hooks_create_on_disk:
@@ -1224,29 +1143,7 @@ class QubesVm(object):
         if src_vm.is_running():
             raise QubesException("Attempt to clone a running VM!")
 
-        if verbose:
-            print >> sys.stderr, "--> Creating directory: {0}".format(self.dir_path)
-        os.mkdir (self.dir_path)
-
-        if src_vm.private_img is not None and self.private_img is not None:
-            if verbose:
-                print >> sys.stderr, "--> Copying the private image:\n{0} ==>\n{1}".\
-                        format(src_vm.private_img, self.private_img)
-            # We prefer to use Linux's cp, because it nicely handles sparse files
-            retcode = subprocess.call (["cp", src_vm.private_img, self.private_img])
-            if retcode != 0:
-                raise IOError ("Error while copying {0} to {1}".\
-                               format(src_vm.private_img, self.private_img))
-
-        if src_vm.updateable and src_vm.root_img is not None and self.root_img is not None:
-            if verbose:
-                print >> sys.stderr, "--> Copying the root image:\n{0} ==>\n{1}".\
-                        format(src_vm.root_img, self.root_img)
-            # We prefer to use Linux's cp, because it nicely handles sparse files
-            retcode = subprocess.call (["cp", src_vm.root_img, self.root_img])
-            if retcode != 0:
-                raise IOError ("Error while copying {0} to {1}".\
-                           format(src_vm.root_img, self.root_img))
+        self.storage.clone_disk_files(src_vm, verbose)
 
         if src_vm.icon_path is not None and self.icon_path is not None:
             if os.path.exists (src_vm.dir_path):
@@ -1268,20 +1165,7 @@ class QubesVm(object):
         if dry_run:
             return
 
-        if not os.path.exists (self.dir_path):
-            raise QubesException (
-                "VM directory doesn't exist: {0}".\
-                format(self.dir_path))
-
-        if self.updateable and not os.path.exists (self.root_img):
-            raise QubesException (
-                "VM root image file doesn't exist: {0}".\
-                format(self.root_img))
-
-        if not os.path.exists (self.private_img):
-            raise QubesException (
-                "VM private image file doesn't exist: {0}".\
-                format(self.private_img))
+        self.storage.verify_files()
 
         if not os.path.exists (os.path.join(self.kernels_dir, 'vmlinuz')):
             raise QubesException (
@@ -1293,48 +1177,11 @@ class QubesVm(object):
                 "VM initramfs does not exists: {0}".\
                 format(os.path.join(self.kernels_dir, 'initramfs')))
 
-        if not os.path.exists (os.path.join(self.kernels_dir, 'modules.img')):
-            raise QubesException (
-                "VM kernel modules image does not exists: {0}".\
-                format(os.path.join(self.kernels_dir, 'modules.img')))
-
         # fire hooks
         for hook in self.hooks_verify_files:
             hook(self)
 
         return True
-
-    def reset_volatile_storage(self, source_template = None, verbose = False):
-        assert not self.is_running(), "Attempt to clean volatile image of running VM!"
-
-        if source_template is None:
-            source_template = self.template
-
-        # Only makes sense on template based VM
-        if source_template is None:
-            # For StandaloneVM create it only if not already exists (eg after backup-restore)
-            if not os.path.exists(self.volatile_img):
-                if verbose:
-                    print >> sys.stderr, "--> Creating volatile image: {0}...".format (self.volatile_img)
-                f_root = open (self.root_img, "r")
-                f_root.seek(0, os.SEEK_END)
-                root_size = f_root.tell()
-                f_root.close()
-                subprocess.check_call([system_path["prepare_volatile_img_cmd"], self.volatile_img, str(root_size / 1024 / 1024)])
-            return
-
-        if verbose:
-            print >> sys.stderr, "--> Cleaning volatile image: {0}...".format (self.volatile_img)
-        if dry_run:
-            return
-        if os.path.exists (self.volatile_img):
-           os.remove (self.volatile_img)
-
-        if hasattr(source_template, 'clean_volatile_img'):
-            retcode = subprocess.call (["tar", "xf", source_template.clean_volatile_img, "-C", self.dir_path])
-            if retcode != 0:
-                raise IOError ("Error while unpacking {0} to {1}".\
-                               format(source_template.clean_volatile_img, self.volatile_img))
 
     def remove_from_disk(self):
         if dry_run:
@@ -1344,7 +1191,7 @@ class QubesVm(object):
         for hook in self.hooks_remove_from_disk:
             hook(self)
 
-        shutil.rmtree (self.dir_path)
+        self.storage.remove_from_disk()
 
     def write_firewall_conf(self, conf):
         defaults = self.get_firewall_conf()
@@ -1727,7 +1574,7 @@ class QubesVm(object):
                         print >> sys.stderr, "--> Starting NetVM {0}...".format(self.netvm.name)
                     self.netvm.start(verbose = verbose, start_guid = start_guid, notify_function = notify_function)
 
-        self.reset_volatile_storage(verbose=verbose)
+        self.storage.prepare_for_vm_startup(verbose=verbose)
         if verbose:
             print >> sys.stderr, "--> Loading the VM (type = {0})...".format(self.type)
 
