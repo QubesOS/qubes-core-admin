@@ -877,8 +877,7 @@ for module_file in sorted(os.listdir(modules_dir)):
 try:
     import qubes.settings
     qubes.settings.apply(system_path, vm_files, defaults)
-#except ImportError:
-finally:
+except ImportError:
     pass
 
 for path_key in system_path.keys():
