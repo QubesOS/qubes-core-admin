@@ -963,7 +963,7 @@ class QubesVm(object):
 
         self.qdb.write("/qubes-debug-mode", str(int(self.debug)))
 
-        # TODO: Currently whole qmemman is quite Xen-specific, so stay with
+        # TODO: Currently the whole qmemman is quite Xen-specific, so stay with
         # xenstore for it until decided otherwise
         if qmemman_present:
             vmm.xs.set_permissions('', '/local/domain/{0}/memory'.format(self.xid),
