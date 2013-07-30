@@ -291,6 +291,10 @@ class QubesVmCollection(dict):
     def __repr__(self):
         return '<{} {!r}>'.format(self.__class__.__name__, list(sorted(self.keys())))
 
+    def __del__(self):
+        if self.qubes_store_file_lock.i_am_locking():
+            self.qubes_store_file_lock.release()
+
     def values(self):
         for qid in self.keys():
             yield self[qid]
