@@ -1176,12 +1176,12 @@ class QubesVm(object):
 
         if not os.path.exists (os.path.join(self.kernels_dir, 'vmlinuz')):
             raise QubesException (
-                "VM kernel does not exists: {0}".\
+                "VM kernel does not exist: {0}".\
                 format(os.path.join(self.kernels_dir, 'vmlinuz')))
 
         if not os.path.exists (os.path.join(self.kernels_dir, 'initramfs')):
             raise QubesException (
-                "VM initramfs does not exists: {0}".\
+                "VM initramfs does not exist: {0}".\
                 format(os.path.join(self.kernels_dir, 'initramfs')))
 
         # fire hooks
