@@ -392,8 +392,12 @@ class QubesVm(object):
                 os.remove(self.icon_path)
             except:
                 pass
-            os.symlink (new_label.icon_path, self.icon_path)
-            subprocess.call(['sudo', 'xdg-icon-resource', 'forceupdate'])
+            if hasattr(os, "symlink"):
+                os.symlink (new_label.icon_path, self.icon_path)
+                # FIXME: some os-independent wrapper?
+                subprocess.call(['sudo', 'xdg-icon-resource', 'forceupdate'])
+            else:
+                shutil.copy(new_label.icon_path, self.icon_path)
 
         # fire hooks
         for hook in self.hooks_label_setter:
@@ -1106,7 +1110,10 @@ class QubesVm(object):
 
         if verbose:
             print >> sys.stderr, "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
-        os.symlink (self.label.icon_path, self.icon_path)
+        if hasattr(os, "symlink"):
+            os.symlink (self.label.icon_path, self.icon_path)
+        else:
+            shutil.copy(self.label.icon_path, self.icon_path)
 
         # fire hooks
         for hook in self.hooks_create_on_disk:
