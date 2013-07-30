@@ -57,11 +57,12 @@ system_path = {
 
     'qubes_base_dir': qubes_base_dir,
 
-    'qubes_appvms_dir': '{base_dir}/appvms',
-    'qubes_templates_dir': '{base_dir}/vm-templates',
-    'qubes_servicevms_dir': '{base_dir}/servicevms',
-    'qubes_store_filename': '{base_dir}/qubes.xml',
-    'qubes_kernels_base_dir': '{base_dir}/vm-kernels',
+    # Relative to qubes_base_dir
+    'qubes_appvms_dir': 'appvms',
+    'qubes_templates_dir': 'vm-templates',
+    'qubes_servicevms_dir': 'servicevms',
+    'qubes_store_filename': 'qubes.xml',
+    'qubes_kernels_base_dir': 'vm-kernels',
 
     # qubes_icon_dir is obsolete
     # use QIcon.fromTheme() where applicable
@@ -881,8 +882,8 @@ except ImportError:
     pass
 
 for path_key in system_path.keys():
-    system_path[path_key] = system_path[path_key].format(
-            base_dir=system_path['qubes_base_dir']
-            )
+    if not os.path.isabs(system_path[path_key]):
+        system_path[path_key] = os.path.join(
+            system_path['qubes_base_dir'], system_path[path_key])
 
 # vim:sw=4:et:
