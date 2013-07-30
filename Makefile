@@ -6,6 +6,16 @@ DIST_DOM0 ?= fc18
 
 OS ?= Linux
 
+ifeq ($(OS),Linux)
+DATADIR ?= /var/lib/qubes
+STATEDIR ?= /var/run/qubes
+LOGDIR ?= /var/log/qubes
+else ifeq ($(OS),Windows_NT)
+DATADIR ?= c:/qubes
+STATEDIR ?= c:/qubes/state
+LOGDIR ?= c:/qubes/log
+endif
+
 help:
 	@echo "make rpms                  -- generate binary rpm packages"
 	@echo "make rpms-dom0             -- generate binary rpm packages for Dom0"
@@ -73,13 +83,13 @@ ifeq ($(BACKEND_VMM),xen)
 	cp xen-vm-config/vm-template.xml $(DESTDIR)/usr/share/qubes/xen-vm-template.xml
 	cp xen-vm-config/vm-template-hvm.xml $(DESTDIR)/usr/share/qubes/
 endif
-	mkdir -p $(DESTDIR)/var/lib/qubes
-	mkdir -p $(DESTDIR)/var/lib/qubes/vm-templates
-	mkdir -p $(DESTDIR)/var/lib/qubes/appvms
-	mkdir -p $(DESTDIR)/var/lib/qubes/servicevms
-	mkdir -p $(DESTDIR)/var/lib/qubes/vm-kernels
-	mkdir -p $(DESTDIR)/var/lib/qubes/backup
-	mkdir -p $(DESTDIR)/var/lib/qubes/dvmdata
-	mkdir -p $(DESTDIR)/var/log/qubes
-	mkdir -p $(DESTDIR)/var/run/qubes
+	mkdir -p $(DESTDIR)$(DATADIR)
+	mkdir -p $(DESTDIR)$(DATADIR)/vm-templates
+	mkdir -p $(DESTDIR)$(DATADIR)/appvms
+	mkdir -p $(DESTDIR)$(DATADIR)/servicevms
+	mkdir -p $(DESTDIR)$(DATADIR)/vm-kernels
+	mkdir -p $(DESTDIR)$(DATADIR)/backup
+	mkdir -p $(DESTDIR)$(DATADIR)/dvmdata
+	mkdir -p $(DESTDIR)$(STATEDIR)
+	mkdir -p $(DESTDIR)$(LOGDIR)
 
