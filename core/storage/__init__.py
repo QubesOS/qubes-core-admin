@@ -66,6 +66,9 @@ class QubesVmStorage(object):
         self.modules_img = modules_img
         self.modules_img_rw = modules_img_rw
 
+        # Additional drive (currently used only by HVM)
+        self.drive = None
+
     def get_config_params(self):
         raise NotImplementedError
 

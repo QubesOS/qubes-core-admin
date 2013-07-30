@@ -195,41 +195,11 @@ class QubesHVm(QubesVm):
         if dry_run:
             return
 
-        if verbose:
-            print >> sys.stderr, "--> Creating directory: {0}".format(self.dir_path)
-        os.mkdir (self.dir_path)
-
-        self.create_config_file()
-
         # create empty disk
-        if self.template is None:
-            if verbose:
-                print >> sys.stderr, "--> Creating root image: {0}".\
-                    format(self.root_img)
-            f_root = open(self.root_img, "w")
-            f_root.truncate(defaults["hvm_disk_size"])
-            f_root.close()
+        self.storage.private_img_size = defaults["hvm_private_img_size"]
+        self.storage.root_img_size = defaults["hvm_disk_size"]
+        self.storage.create_on_disk(verbose, source_template)
 
-        if self.template is None:
-            # create empty private.img
-            if verbose:
-                print >> sys.stderr, "--> Creating private image: {0}".\
-                    format(self.private_img)
-            f_private = open(self.private_img, "w")
-            f_private.truncate(defaults["hvm_private_img_size"])
-            f_private.close()
-        else:
-            # copy template private.img
-            template_priv = self.template.private_img
-            if verbose:
-                print >> sys.stderr, "--> Copying the template's private image: {0}".\
-                    format(template_priv)
-
-            # We prefer to use Linux's cp, because it nicely handles sparse files
-            retcode = subprocess.call (["cp", template_priv, self.private_img])
-            if retcode != 0:
-                raise IOError ("Error while copying {0} to {1}".\
-                           format(template_priv, self.private_img))
         if verbose:
             print >> sys.stderr, "--> Creating icon symlink: {0} -> {1}".format(self.icon_path, self.label.icon_path)
 
@@ -291,18 +261,9 @@ class QubesHVm(QubesVm):
 
         params = super(QubesHVm, self).get_config_params()
 
+        self.storage.drive = self.drive
+        params.update(self.storage.get_config_params())
         params['volatiledev'] = ''
-        if self.drive:
-            (drive_type, drive_domain, drive_path) = self.drive.split(":")
-            if drive_domain.lower() == "dom0":
-                drive_domain = None
-
-            params['otherdevs'] = self._format_disk_dev(drive_path, None, "xvdc",
-                    rw=True if type == "disk" else False, type=type,
-                    domain=backend_domain)
-
-        else:
-             params['otherdevs'] = ''
 
         if self.timezone.lower() == 'localtime':
              params['time_basis'] = 'localtime'
@@ -320,22 +281,11 @@ class QubesHVm(QubesVm):
         if dry_run:
             return
 
-        if not os.path.exists (self.dir_path):
-            raise QubesException (
-                    "VM directory doesn't exist: {0}".\
-                    format(self.dir_path))
-
-        if self.is_updateable() and not os.path.exists (self.root_img):
-            raise QubesException (
-                    "VM root image file doesn't exist: {0}".\
-                    format(self.root_img))
-
+        self.storage.verify_files()
         if not os.path.exists (self.private_img):
             print >>sys.stderr, "WARNING: Creating empty VM private image file: {0}".\
                 format(self.private_img)
-            f_private = open(self.private_img, "w")
-            f_private.truncate(defaults["hvm_private_img_size"])
-            f_private.close()
+            self.storage.create_on_disk_private_img(verbose=False)
 
         # fire hooks
         for hook in self.hooks_verify_files:

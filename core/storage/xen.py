@@ -89,6 +89,15 @@ class QubesXenVmStorage(QubesVmStorage):
             args['otherdevs'] = \
                     self._format_disk_dev(self.modules_img,
                             None, self.modules_dev, self.modules_img_rw)
+        elif self.drive is not None:
+            (drive_type, drive_domain, drive_path) = self.drive.split(":")
+            if drive_domain.lower() == "dom0":
+                drive_domain = None
+
+            args['otherdevs'] = self._format_disk_dev(drive_path, None,
+                    self.modules_dev,
+                    rw=True if drive_type == "disk" else False, type=drive_type,
+                    domain=drive_domain)
 
         return args
 
