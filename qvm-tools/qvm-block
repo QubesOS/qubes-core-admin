@@ -56,7 +56,7 @@ def main():
 
     (options, args) = parser.parse_args ()
 
-    if os.geteuid() == 0:
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
         if not options.force_root:
             print >> sys.stderr, "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
             print >> sys.stderr, "Retry as unprivileged user."

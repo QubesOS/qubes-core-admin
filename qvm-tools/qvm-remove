@@ -47,7 +47,7 @@ def main():
         print >> sys.stderr, "A VM with the name '{0}' does not exist in the system.".format(vmname)
         exit(1)
 
-    if os.geteuid() == 0:
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
         print >> sys.stderr, "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
         if options.force_root:
             print >> sys.stderr, "Continuing as commanded. You have been warned."

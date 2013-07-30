@@ -49,7 +49,7 @@ def main():
         parser.error ("You must specify at least the TemplateVM name!")
     vmname = args[0]
 
-    if os.geteuid() == 0:
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
         if not options.force_root and not options.installed_by_rpm:
             print >> sys.stderr, "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
             print >> sys.stderr, "Retry as unprivileged user."

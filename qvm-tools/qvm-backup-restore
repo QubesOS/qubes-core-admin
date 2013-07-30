@@ -175,7 +175,9 @@ def main():
         if 'username-mismatch' in vm_info.keys():
             dom0_username_mismatch = True
 
-    if os.geteuid() == 0:
+    print
+
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
         print >> sys.stderr, "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
         if options.force_root:
             print >> sys.stderr, "Continuing as commanded. You have been warned."

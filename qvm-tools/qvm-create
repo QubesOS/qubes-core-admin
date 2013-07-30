@@ -69,7 +69,7 @@ def main():
     if (options.netvm + options.proxyvm + options.hvm + options.hvm_template) > 1:
         parser.error ("You must specify at most one VM type switch")
         
-    if os.geteuid() == 0:
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
         print >> sys.stderr, "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
         if options.force_root:
             print >> sys.stderr, "Continuing as commanded. You have been warned."

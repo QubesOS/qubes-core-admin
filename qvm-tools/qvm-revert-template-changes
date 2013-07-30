@@ -41,7 +41,7 @@ def main():
         parser.error ("You must specify TemplateVM name!")
     vmname = args[0]
 
-    if os.geteuid() != 0:
+    if hasattr(os, "geteuid") and os.geteuid() != 0:
         print >> sys.stderr, "ERROR: This tool must be run as root!"
         exit(1)
 
