@@ -39,7 +39,6 @@ from qubes import qmemman_algo
 import libvirt
 import warnings
 
-from qubes.qdb import QubesDB
 from qubes.qubes import dry_run,vmm
 from qubes.qubes import register_qubes_vm_class
 from qubes.qubes import QubesVmCollection,QubesException,QubesHost,QubesVmLabels
@@ -664,6 +663,7 @@ class QubesVm(object):
     def qdb(self):
         if self._qdb_connection is None:
             if self.is_running():
+                from qubes.qdb import QubesDB
                 self._qdb_connection = QubesDB(self.name)
         return self._qdb_connection
 
