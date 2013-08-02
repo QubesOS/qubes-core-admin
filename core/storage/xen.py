@@ -44,6 +44,8 @@ class QubesXenVmStorage(QubesVmStorage):
         self.modules_dev = "xvdd"
 
     def _format_disk_dev(self, path, script, vdev, rw=True, type="disk", domain=None):
+        if path is None:
+            return ''
         template = "    <disk type='block' device='{type}'>\n" \
                    "      <driver name='phy'/>\n" \
                    "      <source dev='{path}'/>\n" \

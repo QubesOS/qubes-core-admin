@@ -145,12 +145,12 @@ class QubesVmStorage(object):
                 "VM directory doesn't exist: {0}".\
                 format(self.vmdir))
 
-        if self.vm.updateable and not os.path.exists (self.root_img):
+        if self.root_img and not os.path.exists (self.root_img):
             raise QubesException (
                 "VM root image file doesn't exist: {0}".\
                 format(self.root_img))
 
-        if not os.path.exists (self.private_img):
+        if self.private_img and not os.path.exists (self.private_img):
             raise QubesException (
                 "VM private image file doesn't exist: {0}".\
                 format(self.private_img))
@@ -168,12 +168,12 @@ class QubesVmStorage(object):
             source_template = self.vm.template
 
         # Re-create only for template based VMs
-        if source_template is not None:
+        if source_template is not None and self.volatile_img:
             if os.path.exists(self.volatile_img):
                 os.remove(self.volatile_img)
 
         # For StandaloneVM create it only if not already exists (eg after backup-restore)
-        if not os.path.exists(self.volatile_img):
+        if self.volatile_img and not os.path.exists(self.volatile_img):
             if verbose:
                 print >> sys.stderr, "--> Creating volatile image: {0}...".\
                         format(self.volatile_img)
