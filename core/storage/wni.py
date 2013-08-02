@@ -40,14 +40,20 @@ class QubesWniVmStorage(QubesVmStorage):
     def __init__(self, *args, **kwargs):
         super(QubesWniVmStorage, self).__init__(*args, **kwargs)
         # Use the user profile as "private.img"
-        self.private_img = os.path.join("c:\\Users", self.vm.name)
+        self.private_img = os.path.join("c:\\Users", self._get_username())
+
+    def _get_username(self, vmname = None):
+        if vmname is None:
+            vmname = self.vm.name
+        return "qubes-vm-%s" % vmname
 
     def get_config_params(self):
         return {}
 
     def create_on_disk_private_img(self, verbose, source_template = None):
         win32api.ShellExecute(None, "runas",
-                "net", "user %s %s /ADD" % (self.vm.name, "testpass"),
+                "net", "user %s %s /ADD"
+                % (self._get_username(), "testpass"),
                 None, 0)
 
     def create_on_disk_root_img(self, verbose, source_template = None):
@@ -55,7 +61,7 @@ class QubesWniVmStorage(QubesVmStorage):
 
     def remove_from_disk(self):
         win32api.ShellExecute(None, "runas",
-                "net", "user %s /DELETE" % (self.vm.name),
+                "net", "user %s /DELETE" % (self._get_username()),
                 None, 0)
         super(QubesWniVmStorage, self).remove_from_disk()
 
@@ -76,11 +82,11 @@ class QubesWniVmStorage(QubesVmStorage):
         try:
             # TemplateVm in WNI is quite virtual, so do not require the user
             if not self.vm.is_template():
-                win32net.NetUserGetInfo(None, self.vm.name, 0)
+                win32net.NetUserGetInfo(None, self._get_username(), 0)
         except pywintypes.error, details:
             if details[0] == 2221:
                 # "The user name cannot be found."
-                raise QubesException("User %s doesn't exist" % self.vm.name)
+                raise QubesException("User %s doesn't exist" % self._get_username())
             else:
                 raise
 
