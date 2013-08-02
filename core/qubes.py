@@ -68,7 +68,7 @@ system_path = {
     # use QIcon.fromTheme() where applicable
     'qubes_icon_dir': '/usr/share/icons/hicolor/128x128/devices',
 
-    'config_template_pv': '/usr/share/qubes/xen-vm-template.xml',
+    'config_template_pv': '/usr/share/qubes/vm-template.xml',
 
     'qubes_pciback_cmd': '/usr/lib/qubes/unbind-pci-device.sh',
     'prepare_volatile_img_cmd': '/usr/lib/qubes/prepare-volatile-img.sh',

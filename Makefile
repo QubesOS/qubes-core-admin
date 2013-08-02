@@ -10,10 +10,12 @@ ifeq ($(OS),Linux)
 DATADIR ?= /var/lib/qubes
 STATEDIR ?= /var/run/qubes
 LOGDIR ?= /var/log/qubes
+FILESDIR ?= /usr/share/qubes
 else ifeq ($(OS),Windows_NT)
 DATADIR ?= c:/qubes
 STATEDIR ?= c:/qubes/state
 LOGDIR ?= c:/qubes/log
+FILESDIR ?= c:/program files/Invisible Things Lab/Qubes
 endif
 
 help:
@@ -78,11 +80,9 @@ endif
 	cp qubes-rpc/qubes.NotifyTools $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes-notify-updates $(DESTDIR)/usr/libexec/qubes/
 	cp qubes-rpc/qubes-notify-tools $(DESTDIR)/usr/libexec/qubes/
-	mkdir -p $(DESTDIR)/usr/share/qubes
-ifeq ($(BACKEND_VMM),xen)
-	cp xen-vm-config/vm-template.xml $(DESTDIR)/usr/share/qubes/xen-vm-template.xml
-	cp xen-vm-config/vm-template-hvm.xml $(DESTDIR)/usr/share/qubes/
-endif
+	mkdir -p "$(DESTDIR)$(FILESDIR)"
+	cp vm-config/$(BACKEND_VMM)-vm-template.xml "$(DESTDIR)$(FILESDIR)/vm-template.xml"
+	cp vm-config/$(BACKEND_VMM)-vm-template-hvm.xml "$(DESTDIR)$(FILESDIR)/vm-template-hvm.xml"
 	mkdir -p $(DESTDIR)$(DATADIR)
 	mkdir -p $(DESTDIR)$(DATADIR)/vm-templates
 	mkdir -p $(DESTDIR)$(DATADIR)/appvms
