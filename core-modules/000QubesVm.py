@@ -110,15 +110,6 @@ class QubesVm(object):
                                                                  ".conf"),
                 "order": 3 },
             ### order >= 10: have base attrs set
-            "root_img": {
-                "func": self._absolute_path_gen(vm_files["root_img"]),
-                "order": 10 },
-            "private_img": {
-                "func": self._absolute_path_gen(vm_files["private_img"]),
-                "order": 10 },
-            "volatile_img": {
-                "func": self._absolute_path_gen(vm_files["volatile_img"]),
-                "order": 10 },
             "firewall_conf": {
                 "func": self._absolute_path_gen(vm_files["firewall_conf"]),
                 "order": 10 },
@@ -201,7 +192,7 @@ class QubesVm(object):
             'backup_content', 'backup_size', 'backup_path' ]:
             attrs[prop]['save'] = lambda prop=prop: str(getattr(self, prop))
         # Simple paths
-        for prop in ['conf_file', 'root_img', 'volatile_img', 'private_img']:
+        for prop in ['conf_file']:
             attrs[prop]['save'] = \
                 lambda prop=prop: self.relative_path(getattr(self, prop))
             attrs[prop]['save_skip'] = \
@@ -577,12 +568,6 @@ class QubesVm(object):
         self.dir_path = new_dirpath
         old_name = self.name
         self.name = name
-        if self.private_img is not None:
-            self.private_img = self.private_img.replace(old_dirpath, new_dirpath)
-        if self.root_img is not None:
-            self.root_img = self.root_img.replace(old_dirpath, new_dirpath)
-        if self.volatile_img is not None:
-            self.volatile_img = self.volatile_img.replace(old_dirpath, new_dirpath)
         if self.conf_file is not None:
             self.conf_file = new_conf.replace(old_dirpath, new_dirpath)
         if self.icon_path is not None:
@@ -856,6 +841,18 @@ class QubesVm(object):
         used_dmdev = vmm.xs.read('', "/local/domain/0/backend/vbd/{0}/51712/node".format(self.xid))
 
         return used_dmdev != current_dmdev
+
+    @property
+    def private_img(self):
+        return self.storage.private_img
+
+    @property
+    def root_img(self):
+        return self.storage.root_img
+
+    @property
+    def volatile_img(self):
+        return self.storage.volatile_img
 
     def get_disk_utilization(self):
         return qubes.qubesutils.get_disk_usage(self.dir_path)

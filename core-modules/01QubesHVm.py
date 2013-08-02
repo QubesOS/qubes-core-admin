@@ -100,6 +100,8 @@ class QubesHVm(QubesVm):
         if self.guiagent_installed:
             self._start_guid_first = False
 
+        self.storage.volatile_img = None
+
     @property
     def type(self):
         return "HVM"
