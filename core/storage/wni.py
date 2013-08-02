@@ -37,8 +37,8 @@ class QubesWniVmStorage(QubesVmStorage):
     Class for VM storage of WNI VMs.
     """
 
-    def __init__(self, vm, **kwargs):
-        super(QubesWniVmStorage, self).__init__(vm, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super(QubesWniVmStorage, self).__init__(*args, **kwargs)
         # Use the user profile as "private.img"
         self.private_img = os.path.join("c:\\Users", self.vm.name)
 
