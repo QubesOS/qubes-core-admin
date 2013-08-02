@@ -327,6 +327,13 @@ class QubesVm(object):
         if len(self.pcidevs) > 0:
             self.services['meminfo-writer'] = False
 
+        # Initialize VM image storage class
+        self.storage = defaults["storage_class"](self)
+        if hasattr(self, 'kernels_dir'):
+            self.storage.modules_img = os.path.join(self.kernels_dir,
+                    "modules.img")
+            self.storage.modules_img_rw = self.kernel is None
+
         # Some additional checks for template based VM
         if self.template is not None:
             if not self.template.is_template():
@@ -336,12 +343,6 @@ class QubesVm(object):
             self.template.appvms[self.qid] = self
         else:
             assert self.root_img is not None, "Missing root_img for standalone VM!"
-
-        self.storage = defaults["storage_class"](self)
-        if hasattr(self, 'kernels_dir'):
-            self.storage.modules_img = os.path.join(self.kernels_dir,
-                    "modules.img")
-            self.storage.modules_img_rw = self.kernel is None
 
         # fire hooks
         for hook in self.hooks_init:
