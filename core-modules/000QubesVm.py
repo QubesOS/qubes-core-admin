@@ -564,8 +564,8 @@ class QubesVm(object):
         if os.path.exists(self.conf_file):
             os.rename(self.conf_file, new_conf)
         old_dirpath = self.dir_path
-        new_dirpath = os.path.join(os.path.dirname(self.dir_path), name)
-        os.rename(old_dirpath, new_dirpath)
+        self.storage.rename(self.name, name)
+        new_dirpath = self.storage.vmdir
         self.dir_path = new_dirpath
         old_name = self.name
         self.name = name

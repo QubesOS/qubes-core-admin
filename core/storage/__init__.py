@@ -139,6 +139,18 @@ class QubesVmStorage(object):
 
             # TODO: modules?
 
+    def rename(self, old_name, new_name):
+        old_vmdir = self.vmdir
+        new_vmdir = os.path.join(os.path.dirname(self.vmdir), new_name)
+        os.rename(self.vmdir, new_dirpath)
+        self.vmdir = new_dirpath
+        if self.private_img:
+            self.private_img = self.private_img.replace(old_vmdir, new_vmdir)
+        if self.root_img:
+            self.root_img = self.root_img.replace(old_vmdir, new_vmdir)
+        if self.volatile_img:
+            self.volatile_img = self.volatile_img.replace(old_vmdir, new_vmdir)
+
     def verify_files(self):
         if not os.path.exists (self.vmdir):
             raise QubesException (

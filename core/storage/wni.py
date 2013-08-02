@@ -59,6 +59,14 @@ class QubesWniVmStorage(QubesVmStorage):
                 None, 0)
         super(QubesWniVmStorage, self).remove_from_disk()
 
+    def rename(self, old_name, new_name):
+        super(QubesWniVmStorage, self).rename(old_name, new_name)
+        win32api.ShellExecute(None, "runas",
+                "wmic", "useraccount where name='%s' rename '%s'"
+                % (self._get_username(old_name), self._get_username(new_name)),
+                None, 0)
+
+
     def verify_files(self):
         if not os.path.exists (self.vmdir):
             raise QubesException (
