@@ -284,10 +284,6 @@ class QubesHVm(QubesVm):
             return
 
         self.storage.verify_files()
-        if not os.path.exists (self.private_img):
-            print >>sys.stderr, "WARNING: Creating empty VM private image file: {0}".\
-                format(self.private_img)
-            self.storage.create_on_disk_private_img(verbose=False)
 
         # fire hooks
         for hook in self.hooks_verify_files:

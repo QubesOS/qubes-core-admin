@@ -194,4 +194,8 @@ class QubesVmStorage(object):
 
     def prepare_for_vm_startup(self, verbose):
         self.reset_volatile_storage(verbose=verbose)
-        pass
+
+        if self.private_img and not os.path.exists (self.private_img):
+            print >>sys.stderr, "WARNING: Creating empty VM private image file: {0}".\
+                format(self.private_img)
+            self.storage.create_on_disk_private_img(verbose=False)
