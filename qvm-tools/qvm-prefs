@@ -222,7 +222,7 @@ def set_kernel(vms, vm, args):
         kernel = None
         vm.uses_default_kernel = False
     else:
-        if not os.path.join(os.path.exists(system_path["qubes_kernels_base_dir"], kernel)):
+        if not os.path.exists(os.path.join(system_path["qubes_kernels_base_dir"], kernel)):
             print >> sys.stderr, "Kernel version {0} not installed.".format(kernel)
             exit(1)
         vm.uses_default_kernel = False
