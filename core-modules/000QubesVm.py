@@ -1345,6 +1345,14 @@ class QubesVm(object):
             raise QubesException("Cannot start qubes-guid!")
 
         if verbose:
+            print >> sys.stderr, "--> Sending monitor layout..."
+
+        try:
+            subprocess.call([system_path["monitor_layout_notify_cmd"], self.name])
+        except Exception as e:
+            print >>sys.stderr, "ERROR: %s" % e
+
+        if verbose:
             print >> sys.stderr, "--> Waiting for qubes-session..."
 
         self.wait_for_session(notify_function)
