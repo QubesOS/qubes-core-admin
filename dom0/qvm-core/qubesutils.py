@@ -1030,9 +1030,9 @@ def backup_do_copy(appvm, base_backup_dir, files_to_backup, progress_callback = 
     if not os.path.exists (backup_dir):
         raise QubesException("Strange: couldn't create backup dir: {0}?!".format(backup_dir))
     '''
-    bytes_backedup = 0
+    blocks_backedup = 0
 
-    progress = bytes_backedup * 100 / total_backup_sz
+    progress = blocks_backedup * 11 / total_backup_sz
     progress_callback(progress)
     dest_dir = backup_dir + '/' + file["subdir"]
     if file["subdir"] != "":
@@ -1043,7 +1043,7 @@ def backup_do_copy(appvm, base_backup_dir, files_to_backup, progress_callback = 
     file["basename"] = os.path.basename(file["path"])
     vm.run("mkdir -p {0}".format(dest_dir))
 
-    tar_cmdline = ["tar", "-PcO",'--sparse','-C','/var/lib/qubes','--checkpoint=10000']
+    tar_cmdline = ["tar", "-PczO",'--sparse','-C','/var/lib/qubes','--checkpoint=10000']
 
     for filename in files_to_backup:
         tar_cmdline.append(filename["path"].split("/var/lib/qubes/")[1])
@@ -1051,13 +1051,20 @@ def backup_do_copy(appvm, base_backup_dir, files_to_backup, progress_callback = 
 
     retcode = vm.run(command = "cat > {0}".format(dest_dir + file["basename"]), passio_popen = True)
 
+    import tempfile
+    feedback_file = tempfile.NamedTemporaryFile()
+    print feedback_file
     if encrypt:
-        compressor = subprocess.Popen (tar_cmdline,stdout=subprocess.PIPE)
+        compressor = subprocess.Popen (tar_cmdline,stdout=subprocess.PIPE,stderr=feedback_file)
         encryptor  = subprocess.Popen (["gpg2", "-c", "--force-mdc", "-o-"], stdin=compressor.stdout, stdout=retcode.stdin)
+        '''
+        print "Wait for encryptor"
         encryptor.wait()
+        print "End waiting"
 
         if encryptor.returncode != 0:
             raise QubesException("Failed to backup file {0} with error {1}".format(file["basename"]))
+        '''
     else:
         compressor = subprocess.Popen (tar_cmdline,stdout=retcode.stdin)
 
@@ -1071,15 +1078,34 @@ def backup_do_copy(appvm, base_backup_dir, files_to_backup, progress_callback = 
                 progress = int(match.group(1)) * 100 / total_backup_sz
                 progress_callback(progress)
         '''
+    '''
+    print "Wait for compressor"
     compressor.wait()
-    retcode.terminate()
+    print "End waiting"
+    '''
+    feedback_file_r = open(feedback_file.name,'r')
+    while compressor.poll()==None or (encryptor!=None and encryptor.poll()==None):
+        time.sleep(1)
+        #print "Polling:", compressor.poll(),encryptor.poll()
+        #print feedback_file_r.tell(),feedback_file_r.closed,feedback_file_r.name,feedback_file_r.readline()
 
+        match = re.search("tar: [^0-9]+([0-9]+)",feedback_file_r.readline())
+        print match
+        if match:
+            blocks_backedup = int(match.group(1))
+            progress = blocks_backedup * 11.024 * 1024 / total_backup_sz
+            #print blocks_backedup,total_backup_sz,progress
+            progress_callback(round(progress*100,2))
+
+    feedback_file_r.close()
+    feedback_file.close()
+
+    retcode.terminate()
+    '''
     if compressor.returncode != 0:
         raise QubesException("Failed to backup file {0} with error {1}".format(file["basename"]))
-        
-    bytes_backedup += file["size"]
-    progress = bytes_backedup * 100 / total_backup_sz
-    progress_callback(progress)
+    '''    
+
 
 
 def backup_restore_set_defaults(options):
