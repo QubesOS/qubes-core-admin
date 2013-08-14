@@ -1003,110 +1003,123 @@ def backup_do(base_backup_dir, files_to_backup, progress_callback = None):
         progress = bytes_backedup * 100 / total_backup_sz
         progress_callback(progress)
 
-def backup_do_copy(appvm, base_backup_dir, files_to_backup, progress_callback = None, encrypt=False):
-
-    # does the vm exist?
-    qvm_collection = QubesVmCollection()
-    qvm_collection.lock_db_for_reading()
-    qvm_collection.load()
-    
-    vm = qvm_collection.get_vm_by_name(appvm)
-    if vm is None or vm.qid not in qvm_collection:
-        raise QubesException("VM {0} does not exist".format(appvm))
-
-    qvm_collection.unlock_db()
-
+def backup_do_copy(base_backup_dir, files_to_backup, progress_callback = None, encrypt=False, appvm=None):
+    print appvm,base_backup_dir
     total_backup_sz = 0
     for file in files_to_backup:
         total_backup_sz += file["size"]
+
+    vmproc = None
+    if appvm != None:
+        # Prepare the backup target (Qubes service call)
+        backup_target = "QUBESRPC qubes.Backup none"
+
+        # does the vm exist?
+        qvm_collection = QubesVmCollection()
+        qvm_collection.lock_db_for_reading()
+        qvm_collection.load()
     
-    backup_dir = base_backup_dir + "/qubes-{0}".format (time.strftime("%Y-%m-%d-%H%M%S"))
-    '''
-    if os.path.exists (backup_dir):
-        raise QubesException("ERROR: the path {0} already exists?!".format(backup_dir))
+        vm = qvm_collection.get_vm_by_name(appvm)
+        if vm is None or vm.qid not in qvm_collection:
+            raise QubesException("VM {0} does not exist".format(appvm))
 
-    os.mkdir (backup_dir)
+        qvm_collection.unlock_db()
 
-    if not os.path.exists (backup_dir):
-        raise QubesException("Strange: couldn't create backup dir: {0}?!".format(backup_dir))
-    '''
+        # If APPVM, STDOUT is a PIPE
+        vmproc = vm.run(command = backup_target, passio_popen = True)
+        vmproc.stdin.write(base_backup_dir.replace("\r","").replace("\n","")+"\n")
+        backup_stdout = vmproc.stdin
+
+    else:
+        # Prepare the backup target (local file)
+        backup_target = base_backup_dir + "/qubes-{0}".format (time.strftime("%Y-%m-%d-%H%M%S"))
+
+        # Create the target directory
+        if not os.path.exists (base_backup_dir):
+            raise QubesException("ERROR: the backup directory {0} does not exists".format(base_backup_dir))
+
+        # If not APPVM, STDOUT is a local file
+        backup_stdout = open(backup_target,'wb')
+
+
     blocks_backedup = 0
-
     progress = blocks_backedup * 11 / total_backup_sz
     progress_callback(progress)
-    dest_dir = backup_dir + '/' + file["subdir"]
-    if file["subdir"] != "":
-        retcode = vm.run("mkdir -p " + dest_dir, wait = True)
-        if retcode != 0:
-            raise QubesException("Cannot create directory: {0}?!".format(dest_dir))
-
-    file["basename"] = os.path.basename(file["path"])
-    vm.run("mkdir -p {0}".format(dest_dir))
 
     tar_cmdline = ["tar", "-PczO",'--sparse','-C','/var/lib/qubes','--checkpoint=10000']
 
     for filename in files_to_backup:
         tar_cmdline.append(filename["path"].split("/var/lib/qubes/")[1])
-    print ("Will backup using command",tar_cmdline)
-
-    retcode = vm.run(command = "cat > {0}".format(dest_dir + file["basename"]), passio_popen = True)
+    #print ("Will backup using command",tar_cmdline)
 
     import tempfile
     feedback_file = tempfile.NamedTemporaryFile()
-    print feedback_file
+    #print feedback_file
     if encrypt:
         compressor = subprocess.Popen (tar_cmdline,stdout=subprocess.PIPE,stderr=feedback_file)
-        encryptor  = subprocess.Popen (["gpg2", "-c", "--force-mdc", "-o-"], stdin=compressor.stdout, stdout=retcode.stdin)
-        '''
-        print "Wait for encryptor"
-        encryptor.wait()
-        print "End waiting"
-
-        if encryptor.returncode != 0:
-            raise QubesException("Failed to backup file {0} with error {1}".format(file["basename"]))
-        '''
+        encryptor  = subprocess.Popen (["gpg2", "-c", "--force-mdc", "-o-"], stdin=compressor.stdout, stdout=backup_stdout)
     else:
-        compressor = subprocess.Popen (tar_cmdline,stdout=retcode.stdin)
+        compressor = subprocess.Popen (tar_cmdline,stdout=backup_stdout,stderr=feedback_file)
+        encryptor  = None
 
-        '''
-        for checkpoint in compressor.stderr:
-            print "Checkpoints:",len(checkpoints)
-
-            match = re.search('tar:.*(\d+)',checkpoints)
-            if match:
-                print bytes_backedup,total_backup_sz
-                progress = int(match.group(1)) * 100 / total_backup_sz
-                progress_callback(progress)
-        '''
-    '''
-    print "Wait for compressor"
-    compressor.wait()
-    print "End waiting"
-    '''
+    # Get tar backup feedback
     feedback_file_r = open(feedback_file.name,'r')
-    while compressor.poll()==None or (encryptor!=None and encryptor.poll()==None):
+    run_error = None
+    run_count = 1
+    while run_count > 0 and run_error == None:
         time.sleep(1)
-        #print "Polling:", compressor.poll(),encryptor.poll()
-        #print feedback_file_r.tell(),feedback_file_r.closed,feedback_file_r.name,feedback_file_r.readline()
 
         match = re.search("tar: [^0-9]+([0-9]+)",feedback_file_r.readline())
-        print match
         if match:
             blocks_backedup = int(match.group(1))
             progress = blocks_backedup * 11.024 * 1024 / total_backup_sz
             #print blocks_backedup,total_backup_sz,progress
             progress_callback(round(progress*100,2))
 
+        run_count = 0
+        if compressor:
+            retcode=compressor.poll()
+            if retcode != None:
+                if retcode != 0:
+                    run_error = "compressor"
+            else:
+                run_count += 1
+
+        if encryptor:
+            retcode=encryptor.poll()
+            if retcode != None:
+                if retcode != 0:
+                    run_error = "encryptor"
+            else:
+                run_count += 1
+
+        if vmproc:
+            retcode = vmproc.poll()
+            if retcode != None:
+                if retcode != 0:
+                    run_error = "VM "+appvm
+                    print vmproc.stdout.read()
+            else:
+                # VM should run until the end
+                pass
+
+    # Cleanup
     feedback_file_r.close()
     feedback_file.close()
+    backup_stdout.close()
 
-    retcode.terminate()
-    '''
-    if compressor.returncode != 0:
-        raise QubesException("Failed to backup file {0} with error {1}".format(file["basename"]))
-    '''    
-
-
+    # Check returns code of compressor and encryptor and qubes vm retcode
+    if run_error != None:
+        try:
+            if compressor != None:
+                compressor.terminate()
+            if encryptor != None:
+                encryptor.terminate()
+            if vmproc != None:
+                vmproc.terminate()
+        except OSError:
+            pass
+        raise QubesException("Failed to perform backup: error with "+run_error)
 
 def backup_restore_set_defaults(options):
     if 'use-default-netvm' not in options:

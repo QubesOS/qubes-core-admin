@@ -76,7 +76,7 @@ def main():
         exit (0)
 
     try:
-        backup_do_copy(options.appvm, base_backup_dir, files_to_backup, progress_callback=print_progress, encrypt=options.encrypt)
+        backup_do_copy(base_backup_dir, files_to_backup, progress_callback=print_progress, encrypt=options.encrypt,appvm=options.appvm)
     except QubesException as e:
         print >>sys.stderr, "ERROR: %s" % str(e)
         exit(1)

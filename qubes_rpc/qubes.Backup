@@ -1,0 +1,23 @@
+echo Starting Backupcopy
+read args
+echo Arguments: $args 
+if [ -d "$args" ] ; then
+  echo "Performing backup to directory $args"
+  TARGET="$args/qubes-backup-`date +'%Y-%d-%d-%H%M%S'`"
+  echo "Copying STDIN data to $TARGET"
+  cat > $TARGET
+else
+  echo "Checking if arguments is matching a command"
+  COMMAND=`echo $args | cut -d ' ' -f 1`
+  TYPE=`type -t $COMMAND`
+  if [ "$TYPE" == "file" ] ; then
+    echo "Redirecting STDIN to $args"
+    # Parsing args to handle quotes correctly
+    # Dangerous method if args are uncontrolled
+    eval "set -- $args"
+    $@
+  else
+    echo "Invalid command $COMMAND"
+    exit 1
+  fi
+fi
