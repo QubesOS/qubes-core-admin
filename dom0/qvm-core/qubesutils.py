@@ -1046,8 +1046,8 @@ def backup_do_copy(appvm, base_backup_dir, files_to_backup, progress_callback = 
         retcode = vm.run(command = "cat > {0}".format(dest_dir + file["basename"]), passio_popen = True)
 
         if encrypt:
-            compressor = subprocess.Popen (["tar", "-PcO",'--checkpoint=10000', file["path"]],stdout=subprocess.PIPE)
-            encryptor  = subprocess.Popen (["gpg2", "-ac", "--force-mdc", "-o-"], stdin=compressor.stdout, stdout=retcode.stdin)
+            compressor = subprocess.Popen (["tar", "-PcO",'--sparse','--checkpoint=10000', file["path"]],stdout=subprocess.PIPE)
+            encryptor  = subprocess.Popen (["gpg2", "-c", "--force-mdc", "-o-"], stdin=compressor.stdout, stdout=retcode.stdin)
             encryptor.wait()
 
             if encryptor.returncode != 0:
