@@ -1031,29 +1031,35 @@ def backup_do_copy(appvm, base_backup_dir, files_to_backup, progress_callback = 
         raise QubesException("Strange: couldn't create backup dir: {0}?!".format(backup_dir))
     '''
     bytes_backedup = 0
-    for file in files_to_backup:
-        progress = bytes_backedup * 100 / total_backup_sz
-        progress_callback(progress)
-        dest_dir = backup_dir + '/' + file["subdir"]
-        if file["subdir"] != "":
-            retcode = vm.run("mkdir -p " + dest_dir, wait = True)
-            if retcode != 0:
-                raise QubesException("Cannot create directory: {0}?!".format(dest_dir))
 
-        file["basename"] = os.path.basename(file["path"])
-        vm.run("mkdir -p {0}".format(dest_dir))
+    progress = bytes_backedup * 100 / total_backup_sz
+    progress_callback(progress)
+    dest_dir = backup_dir + '/' + file["subdir"]
+    if file["subdir"] != "":
+        retcode = vm.run("mkdir -p " + dest_dir, wait = True)
+        if retcode != 0:
+            raise QubesException("Cannot create directory: {0}?!".format(dest_dir))
 
-        retcode = vm.run(command = "cat > {0}".format(dest_dir + file["basename"]), passio_popen = True)
+    file["basename"] = os.path.basename(file["path"])
+    vm.run("mkdir -p {0}".format(dest_dir))
 
-        if encrypt:
-            compressor = subprocess.Popen (["tar", "-PcO",'--sparse','--checkpoint=10000', file["path"]],stdout=subprocess.PIPE)
-            encryptor  = subprocess.Popen (["gpg2", "-c", "--force-mdc", "-o-"], stdin=compressor.stdout, stdout=retcode.stdin)
-            encryptor.wait()
+    tar_cmdline = ["tar", "-PcO",'--sparse','-C','/var/lib/qubes','--checkpoint=10000']
 
-            if encryptor.returncode != 0:
-                raise QubesException("Failed to backup file {0} with error {1}".format(file["basename"]))
-        else:
-            compressor = subprocess.Popen (["tar", "-PcOz",'--checkpoint=10000', file["path"]],stdout=retcode.stdin)
+    for filename in files_to_backup:
+        tar_cmdline.append(filename["path"].split("/var/lib/qubes/")[1])
+    print ("Will backup using command",tar_cmdline)
+
+    retcode = vm.run(command = "cat > {0}".format(dest_dir + file["basename"]), passio_popen = True)
+
+    if encrypt:
+        compressor = subprocess.Popen (tar_cmdline,stdout=subprocess.PIPE)
+        encryptor  = subprocess.Popen (["gpg2", "-c", "--force-mdc", "-o-"], stdin=compressor.stdout, stdout=retcode.stdin)
+        encryptor.wait()
+
+        if encryptor.returncode != 0:
+            raise QubesException("Failed to backup file {0} with error {1}".format(file["basename"]))
+    else:
+        compressor = subprocess.Popen (tar_cmdline,stdout=retcode.stdin)
 
         '''
         for checkpoint in compressor.stderr:
@@ -1065,15 +1071,15 @@ def backup_do_copy(appvm, base_backup_dir, files_to_backup, progress_callback = 
                 progress = int(match.group(1)) * 100 / total_backup_sz
                 progress_callback(progress)
         '''
-        compressor.wait()
-        retcode.terminate()
+    compressor.wait()
+    retcode.terminate()
 
-        if compressor.returncode != 0:
-            raise QubesException("Failed to backup file {0} with error {1}".format(file["basename"]))
+    if compressor.returncode != 0:
+        raise QubesException("Failed to backup file {0} with error {1}".format(file["basename"]))
         
-        bytes_backedup += file["size"]
-        progress = bytes_backedup * 100 / total_backup_sz
-        progress_callback(progress)
+    bytes_backedup += file["size"]
+    progress = bytes_backedup * 100 / total_backup_sz
+    progress_callback(progress)
 
 
 def backup_restore_set_defaults(options):
