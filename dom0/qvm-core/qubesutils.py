@@ -1042,15 +1042,32 @@ def backup_do_copy(appvm, base_backup_dir, files_to_backup, progress_callback = 
 
         file["basename"] = os.path.basename(file["path"])
         vm.run("mkdir -p {0}".format(dest_dir))
-        if encrypt:
-            retcode = vm.run(command = "cat > {0}".format(dest_dir + file["basename"] + ".gpg"), passio_popen = True)
-            compressor = subprocess.Popen (["gpg", "-ac", "--force-mdc", "-o-", file["path"]], stdout=retcode.stdin)
-        else:
-            retcode = vm.run(command = "cat > {0}".format(dest_dir + file["basename"] + ".tar.gz"), passio_popen = True)
-            compressor = subprocess.Popen (["tar", "-PcOz", file["path"]], stdout=retcode.stdin)
 
+        retcode = vm.run(command = "cat > {0}".format(dest_dir + file["basename"]), passio_popen = True)
+
+        if encrypt:
+            compressor = subprocess.Popen (["tar", "-PcO",'--checkpoint=10000', file["path"]],stdout=subprocess.PIPE)
+            encryptor  = subprocess.Popen (["gpg2", "-ac", "--force-mdc", "-o-"], stdin=compressor.stdout, stdout=retcode.stdin)
+            encryptor.wait()
+
+            if encryptor.returncode != 0:
+                raise QubesException("Failed to backup file {0} with error {1}".format(file["basename"]))
+        else:
+            compressor = subprocess.Popen (["tar", "-PcOz",'--checkpoint=10000', file["path"]],stdout=retcode.stdin)
+
+        '''
+        for checkpoint in compressor.stderr:
+            print "Checkpoints:",len(checkpoints)
+
+            match = re.search('tar:.*(\d+)',checkpoints)
+            if match:
+                print bytes_backedup,total_backup_sz
+                progress = int(match.group(1)) * 100 / total_backup_sz
+                progress_callback(progress)
+        '''
         compressor.wait()
         retcode.terminate()
+
         if compressor.returncode != 0:
             raise QubesException("Failed to backup file {0} with error {1}".format(file["basename"]))
         
