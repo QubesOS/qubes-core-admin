@@ -1,0 +1,23 @@
+echo Starting Restorecopy >2
+read args
+echo Arguments: $args >2
+if [ -f "$args" ] ; then
+  echo "Performing restore from backup file $args" >2
+  TARGET="$args"
+  echo "Copying $TARGET to STDOUT" >2
+  cat $TARGET
+else
+  echo "Checking if arguments is matching a command" >2
+  COMMAND=`echo $args | cut -d ' ' -f 1`
+  TYPE=`type -t $COMMAND`
+  if [ "$TYPE" == "file" ] ; then
+    echo "Redirecting $args to STDOUT" >2
+    # Parsing args to handle quotes correctly
+    # Dangerous method if args are uncontrolled
+    eval "set -- $args"
+    $@
+  else
+    echo "Invalid command $COMMAND" >2
+    exit 1
+  fi
+fi
