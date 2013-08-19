@@ -22,7 +22,8 @@
 
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
-from qubes.qubesutils import backup_restore_prepare
+from qubes.qubesutils import backup_restore_header
+from qubes.qubesutils import backup_restore_prepare 
 from qubes.qubesutils import backup_restore_print_summary
 from qubes.qubesutils import backup_restore_do
 from optparse import OptionParser
@@ -58,6 +59,12 @@ def main():
     parser.add_option ("--ignore-username-mismatch", action="store_true", dest="ignore_username_mismatch", default=False,
                        help="Ignore dom0 username mismatch while restoring homedir")
 
+    parser.add_option ("-d", "--dest-vm", action="store", dest="appvm",
+                       help="The AppVM to send backups to")
+
+    parser.add_option ("-e", "--encrypted", action="store_true", dest="decrypt", default=False,
+                       help="The backup is encrypted")
+
     (options, args) = parser.parse_args ()
 
     if (len (args) != 1):
@@ -66,9 +73,9 @@ def main():
 
     backup_dir = args[0]
 
-    if not os.path.exists (backup_dir):
-        print >> sys.stderr, "The backup directory doesn't exist!"
-        exit(1)
+    #if not os.path.exists (backup_dir):
+    #    print >> sys.stderr, "The backup directory doesn't exist!"
+    #    exit(1)
 
     host_collection = QubesVmCollection()
     host_collection.lock_db_for_writing()
@@ -87,9 +94,13 @@ def main():
     if options.exclude:
         restore_options['exclude'] = options.exclude
 
+
+    print >> sys.stderr, "Checking backup content..."
+    encrypted, vms, qubes_xml = backup_restore_header(backup_dir, options.decrypt, appvm=options.appvm)
+
     restore_info = None
     try:
-        restore_info = backup_restore_prepare(backup_dir, options=restore_options, host_collection=host_collection)
+        restore_info = backup_restore_prepare(backup_dir, vms, qubes_xml, options=restore_options, host_collection=host_collection, encrypt=encrypted, appvm=options.appvm)
     except QubesException as e:
         print >> sys.stderr, "ERROR: %s" % str(e)
         exit(1)
@@ -112,8 +123,6 @@ def main():
             there_are_conflicting_vms = True
         if 'username-mismatch' in vm_info.keys():
             dom0_username_mismatch = True
-
-    print
 
     if os.geteuid() == 0:
         print >> sys.stderr, "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
@@ -179,7 +188,8 @@ def main():
     if not (prompt == "y" or prompt == "Y"):
         exit (0)
 
-    backup_restore_do(backup_dir, restore_info, host_collection=host_collection)
+
+    backup_restore_do(backup_dir, restore_info, vms, host_collection=host_collection, encrypted=encrypted, appvm=options.appvm)
 
     host_collection.unlock_db()
 

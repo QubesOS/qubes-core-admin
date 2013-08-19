@@ -906,11 +906,13 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
             s +=  " <-- The VM is running, please shut it down before proceeding with the backup!"
             there_are_running_vms = True
 
+        print_callback(s)
+
     # Build Backup VMs reference file
     # Format: vm_name:tarball_path\n
     backup_reference_file = open(os.path.join(qubes_base_dir,"backup_targets"),'w')
     for vm in vms_for_backup:
-        backup_reference_file.write(vm.name+":"+vm.dir_path.split(qubes_base_dir)[1]+"\n")
+        backup_reference_file.write(vm.name+":"+vm.dir_path.split(qubes_base_dir)[1]+":"+str(vm.get_disk_utilization())+"\n")
     backup_reference_file.flush()
     backup_reference_file.close()
     files_to_backup = file_to_backup(backup_reference_file.name,os.stat(backup_reference_file.name).st_size) + files_to_backup
@@ -1011,7 +1013,6 @@ def backup_do(base_backup_dir, files_to_backup, progress_callback = None):
         progress_callback(progress)
 
 def backup_do_copy(base_backup_dir, files_to_backup, progress_callback = None, encrypt=False, appvm=None):
-    print appvm,base_backup_dir
     total_backup_sz = 0
     for file in files_to_backup:
         total_backup_sz += file["size"]
@@ -1069,6 +1070,26 @@ def backup_do_copy(base_backup_dir, files_to_backup, progress_callback = None, e
         compressor = subprocess.Popen (tar_cmdline,stdout=backup_stdout,stderr=feedback_file)
         encryptor  = None
 
+    run_error = wait_backup_feedback(progress_callback, feedback_file, total_backup_sz, compressor, encryptor, vmproc)
+
+    feedback_file.close()
+    backup_stdout.close()
+
+    # Check returns code of compressor and encryptor and qubes vm retcode
+    if run_error != None:
+        try:
+            if compressor != None:
+                compressor.terminate()
+            if encryptor != None:
+                encryptor.terminate()
+            if vmproc != None:
+                vmproc.terminate()
+        except OSError:
+            pass
+        raise QubesException("Failed to perform backup: error with "+run_error)
+
+
+def wait_backup_feedback(progress_callback, feedback_file, total_backup_sz, compressor, encryptor, vmproc):
     # Get tar backup feedback
     feedback_file_r = open(feedback_file.name,'r')
     run_error = None
@@ -1104,7 +1125,7 @@ def backup_do_copy(base_backup_dir, files_to_backup, progress_callback = None, e
             retcode = vmproc.poll()
             if retcode != None:
                 if retcode != 0:
-                    run_error = "VM "+appvm
+                    run_error = "VM"
                     print vmproc.stdout.read()
             else:
                 # VM should run until the end
@@ -1112,8 +1133,56 @@ def backup_do_copy(base_backup_dir, files_to_backup, progress_callback = None, e
 
     # Cleanup
     feedback_file_r.close()
+
+    return run_error
+
+def restore_vm_dir (backup_dir, src_dir, dst_dir, vm_spec, print_callback=None, error_callback=None, encrypted=False, appvm=None):
+
+    #backup_src_dir = src_dir.replace (qubes_base_dir, backup_dir)
+
+    vmproc = None
+    if appvm != None:
+        # Prepare the backup target (Qubes service call)
+        backup_target = "QUBESRPC qubes.Restore none"
+
+        # does the vm exist?
+        qvm_collection = QubesVmCollection()
+        qvm_collection.lock_db_for_reading()
+        qvm_collection.load()
+    
+        vm = qvm_collection.get_vm_by_name(appvm)
+        if vm is None or vm.qid not in qvm_collection:
+            raise QubesException("VM {0} does not exist".format(appvm))
+
+        qvm_collection.unlock_db()
+
+        # If APPVM, STDOUT is a PIPE
+        vmproc = vm.run(command = backup_target, passio_popen = True)
+        vmproc.stdin.write(backup_dir.replace("\r","").replace("\n","")+"\n")
+        backup_stdin = vmproc.stdout
+    else:
+        backup_stdin = open(backup_dir,'rb')
+
+    tar_cmdline = ["tar", "-xzv",'--sparse','-C',qubes_base_dir,'--checkpoint=10000']
+
+    tar_cmdline.append(src_dir.split(os.path.normpath(qubes_base_dir)+"/")[1])
+
+    #print ("Will backup using command",tar_cmdline)
+
+    import tempfile
+    feedback_file = tempfile.NamedTemporaryFile()
+    if encrypted:
+        encryptor  = subprocess.Popen (["gpg2", "--decrypt"], stdin=backup_stdin, stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        compressor = subprocess.Popen (tar_cmdline,stdin=encryptor.stdout,stderr=feedback_file,stdout=subprocess.PIPE)
+    else:
+        compressor = subprocess.Popen (tar_cmdline,stdin=backup_stdin,stderr=feedback_file,stdout=subprocess.PIPE)
+        encryptor  = None
+
+    run_error = wait_backup_feedback(print_callback, feedback_file, vm_spec["size"], compressor, encryptor, vmproc)
+
+    # Cleanup
     feedback_file.close()
-    backup_stdout.close()
+    backup_stdin.close()
 
     # Check returns code of compressor and encryptor and qubes vm retcode
     if run_error != None:
@@ -1142,14 +1211,14 @@ def backup_restore_set_defaults(options):
 
     return options
 
-def backup_restore_header(restore_target, progress_callback = None, encrypt=False, appvm=None):
+def backup_restore_header(restore_target, encrypt=False, appvm=None):
     # Simulate dd if=backup_file count=10 | file -
     # Simulate dd if=backup_file count=10 | gpg2 -d | tar xzv -O
     # analysis  = subprocess.Popen()
     vmproc = None
     if appvm != None:
         # Prepare the backup target (Qubes service call)
-        backup_target = "QUBESRPC qubes.Backup none"
+        restore_command = "QUBESRPC qubes.Restore none"
 
         # does the vm exist?
         qvm_collection = QubesVmCollection()
@@ -1163,14 +1232,14 @@ def backup_restore_header(restore_target, progress_callback = None, encrypt=Fals
         qvm_collection.unlock_db()
 
         # If APPVM, STDOUT is a PIPE
-        vmproc = vm.run(command = restore_target, passio_popen = True)
+        vmproc = vm.run(command = restore_command, passio_popen = True)
         vmproc.stdin.write(restore_target.replace("\r","").replace("\n","")+"\n")
-        headers = vmproc.stdout.read(4096)
+
+        headers = vmproc.stdout.read(4096*4)
         vmproc.terminate()
 
         if len(headers) <= 0:
-            print vmproc.stderr.read()
-            raise QubesException("ERROR: the backup directory {0} does not exists".format(restore_target))
+            raise QubesException("ERROR: unable to read the backup target {0}".format(restore_target))
 
     else:
         # Create the target directory
@@ -1178,7 +1247,7 @@ def backup_restore_header(restore_target, progress_callback = None, encrypt=Fals
             raise QubesException("ERROR: the backup directory {0} does not exists".format(restore_target))
 
         fp = open(restore_target,'rb')
-        headers = fp.read(4096)
+        headers = fp.read(4096*4)
 
     is_encrypted = False
 
@@ -1194,25 +1263,31 @@ def backup_restore_header(restore_target, progress_callback = None, encrypt=Fals
             print stderr
             raise QubesException("ERROR: unable to decrypt the backup {0}. Is it really encrypted?".format(restore_target))
 
-    command = subprocess.Popen(['tar', 'xzv', '-O', 'backup_targets'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-    vm_list,stderr = command.communicate(headers)
-    if len(vm_list) <= 0:
+    command = subprocess.Popen(['tar', 'xzv', '-O', 'backup_targets','qubes.xml'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    headers,stderr = command.communicate(headers)
+    if len(headers) <= 0:
         print stderr
         raise QubesException("ERROR: unable to read the qubes backup file {0}. Is it really a backup?".format(restore_target))
 
-    vms_in_backup = []
-    for vm in vm_list.split("\n"):
-        vms_in_backup.append(vm.strip("\r\t\n ").split(":"))
+    vms_in_backup = {}
+    for vm in headers.split("\n"):
+        match = re.match("^(?P<name>[^:]+):(?P<path>[^:]+):(?P<size>[0-9]+)$",vm,re.MULTILINE)
+        if match:
+            item = match.groupdict()
+            item["size"] = int(item["size"])
+            vms_in_backup[item["name"]] = item
+            headers = headers.replace(vm,"")
+        else:
+            break
 
-    print vms_in_backup
-    return is_encrypted, vms_in_backup
+    return is_encrypted, vms_in_backup, headers
 
-def backup_restore_prepare(backup_dir, options = {}, host_collection = None):
-    backup_restore_header(backup_dir)
+def backup_restore_prepare(backup_dir, backup_content, qubes_xml, options = {}, host_collection = None, encrypt=False, appvm=None):
     # Defaults
     backup_restore_set_defaults(options)
 
     #### Private functions begin
+    '''
     def is_vm_included_in_backup (backup_dir, vm):
         if vm.qid == 0:
             # Dom0 is not included, obviously
@@ -1224,7 +1299,12 @@ def backup_restore_prepare(backup_dir, options = {}, host_collection = None):
             return True
         else:
             return False
-
+    '''
+    def is_vm_included_in_backup (backup_dir, vm):
+        for item in backup_content.keys():
+            if vm.name == item:
+                return True
+        return False
     def find_template_name(template, replaces):
         rx_replace = re.compile("(.*):(.*)")
         for r in replaces:
@@ -1235,14 +1315,19 @@ def backup_restore_prepare(backup_dir, options = {}, host_collection = None):
         return template
 
     #### Private functions end
-
+    '''
     if not os.path.exists (backup_dir):
         raise QubesException("The backup directory doesn't exist!")
+    '''
+    backup_collection = QubesVmCollection()
+    import StringIO
+    backup_collection.qubes_store_file=StringIO.StringIO(qubes_xml)
 
-    backup_collection = QubesVmCollection(store_filename = backup_dir + "/qubes.xml")
-    backup_collection.lock_db_for_reading()
+
+    #backup_collection.lock_db_for_reading()
+
     backup_collection.load()
-
+    
     if host_collection is None:
         host_collection = QubesVmCollection()
         host_collection.lock_db_for_reading()
@@ -1250,8 +1335,10 @@ def backup_restore_prepare(backup_dir, options = {}, host_collection = None):
         host_collection.unlock_db()
 
     backup_vms_list = [vm for vm in backup_collection.values()]
+
     host_vms_list = [vm for vm in host_collection.values()]
     vms_to_restore = {}
+
 
     there_are_conflicting_vms = False
     there_are_missing_templates = False
@@ -1325,6 +1412,7 @@ def backup_restore_prepare(backup_dir, options = {}, host_collection = None):
                 vms_to_restore[vm.name]['good-to-go'] = True
 
     # ...and dom0 home
+    # TODO, replace this part of code to handle the new backup format using tar
     if options['dom0-home'] and os.path.exists(backup_dir + '/dom0-home'):
         vms_to_restore['dom0'] = {}
         local_user = grp.getgrnam('qubes').gr_mem[0]
@@ -1443,10 +1531,11 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
 
         print_callback(s)
 
-def backup_restore_do(backup_dir, restore_info, host_collection = None, print_callback = print_stdout, error_callback = print_stderr):
+def backup_restore_do(backup_dir, restore_info, restore_vms, host_collection = None, print_callback = print_stdout, error_callback = print_stderr, encrypted=False, appvm = None ):
 
     ### Private functions begin
-    def restore_vm_dir (backup_dir, src_dir, dst_dir):
+    '''
+    def restore_vm_dir (backup_dir, src_dir, dst_dir, print_callback, error_callback, encrypted, appvm):
 
         backup_src_dir = src_dir.replace (qubes_base_dir, backup_dir)
 
@@ -1454,6 +1543,7 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
         retcode = subprocess.call (["cp", "-rp", backup_src_dir, dst_dir])
         if retcode != 0:
             raise QubesException("*** Error while copying file {0} to {1}".format(backup_src_dir, dest_dir))
+    '''
     ### Private functions end
 
     lock_obtained = False
@@ -1495,7 +1585,8 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
                                                    dir_path=vm.dir_path,
                                                    template=template,
                                                    installed_by_rpm=False)
-                restore_vm_dir (backup_dir, vm.dir_path, os.path.dirname(new_vm.dir_path));
+
+                restore_vm_dir (backup_dir, vm.dir_path, os.path.dirname(new_vm.dir_path), restore_vms[vm.name], print_callback, error_callback, encrypted, appvm)
 
                 new_vm.verify_files()
             except Exception as err:
