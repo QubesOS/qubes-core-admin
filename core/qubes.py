@@ -28,12 +28,19 @@ import os
 import os.path
 import lxml.etree
 import xml.parsers.expat
-import fcntl
 import time
 import warnings
 import tempfile
 import grp
 import atexit
+if os.name == 'posix':
+    import fcntl
+elif os.name == 'nt':
+    import win32con
+    import win32file
+    import pywintypes
+else:
+    raise RuntimeError, "Qubes works only on POSIX or WinNT systems"
 
 # Do not use XenAPI or create/read any VM files
 # This is for testing only!
@@ -579,7 +586,12 @@ class QubesVmCollection(dict):
         # still the right file
         while True:
             self.qubes_store_file = open (self.qubes_store_filename, 'r')
-            fcntl.lockf(self.qubes_store_file, fcntl.LOCK_SH)
+            if os.name == 'posix':
+                fcntl.lockf (self.qubes_store_file, fcntl.LOCK_SH)
+            elif os.name == 'nt':
+                overlapped = pywintypes.OVERLAPPED()
+                win32file.LockFileEx(win32file._get_osfhandle(self.qubes_store_file.fileno()),
+                        0, 0, -0x10000, overlapped)
             if os.fstat(self.qubes_store_file.fileno()) == os.stat(
                     self.qubes_store_filename):
                 break
@@ -591,7 +603,12 @@ class QubesVmCollection(dict):
         # still the right file
         while True:
             self.qubes_store_file = open (self.qubes_store_filename, 'r+')
-            fcntl.lockf(self.qubes_store_file, fcntl.LOCK_EX)
+            if os.name == 'posix':
+                fcntl.lockf (self.qubes_store_file, fcntl.LOCK_EX)
+            elif os.name == 'nt':
+                overlapped = pywintypes.OVERLAPPED()
+                win32file.LockFileEx(win32file._get_osfhandle(self.qubes_store_file.fileno()),
+                        win32con.LOCKFILE_EXCLUSIVE_LOCK, 0, -0x10000, overlapped)
             if os.fstat(self.qubes_store_file.fileno()) == os.stat(
                     self.qubes_store_filename):
                 break
