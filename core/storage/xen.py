@@ -71,7 +71,7 @@ class QubesXenVmStorage(QubesVmStorage):
         elif self.vm.template:
             return self._format_disk_dev(
                     "{dir}/root.img:{dir}/root-cow.img".format(
-                        dir=self.vm.template.vmdir),
+                        dir=self.vm.template.dir_path),
                     "block-snapshot", self.root_dev, False)
         else:
             return self._format_disk_dev(
