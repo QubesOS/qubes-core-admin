@@ -1597,7 +1597,14 @@ class QubesVm(object):
         # Bind pci devices to pciback driver
         for pci in self.pcidevs:
             nd = vmm.libvirt_conn.nodeDeviceLookupByName('pci_0000_' + pci.replace(':','_').replace('.','_'))
-            nd.dettach()
+            try:
+                nd.dettach()
+            except libvirt.libvirtError:
+                if libvirt.virGetLastError()[0] == libvirt.VIR_ERR_INTERNAL_ERROR:
+                    # allready detached
+                    pass
+                else:
+                    raise
 
         self.libvirt_domain.createWithFlags(libvirt.VIR_DOMAIN_START_PAUSED)
 
