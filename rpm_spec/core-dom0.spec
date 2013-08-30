@@ -236,7 +236,7 @@ fi
 %attr(2770,root,qubes) %dir /var/lib/qubes/backup
 %attr(2770,root,qubes) %dir /var/lib/qubes/dvmdata
 %attr(2770,root,qubes) %dir /var/lib/qubes/vm-kernels
-/usr/share/qubes/xen-vm-template.xml
+/usr/share/qubes/vm-template.xml
 /usr/share/qubes/vm-template-hvm.xml
 /usr/lib/qubes/qubes-prepare-saved-domain.sh
 /usr/lib/qubes/qubes-update-dispvm-savefile-with-progress.sh
