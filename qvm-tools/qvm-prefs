@@ -173,6 +173,9 @@ def set_pcidevs(vms, vm, args):
         print >> sys.stderr, "Missing pcidevs argument!"
         exit (1)
 
+    if vm.is_running():
+        print >>sys.stderr, "Cannot modify PCI devices of running VM, " \
+            "use qvm-pci instead"
     vm.pcidevs = list(eval(args[0]))
 
 def set_netvm(vms, vm, args):

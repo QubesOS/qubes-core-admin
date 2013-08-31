@@ -1227,6 +1227,43 @@ class QubesVm(object):
 
         return conf
 
+    def pci_add(self, pci):
+        if not os.path.exists('/sys/bus/pci/devices/0000:%s' % pci):
+            raise QubesException("Invalid PCI device: %s" % pci)
+        if self.pcidevs.count(pci):
+            # already added
+            return
+        self.pcidevs.append(pci)
+        if self.is_running():
+            try:
+                subprocess.check_call(['sudo', system_path["qubes_pciback_cmd"], pci])
+                subprocess.check_call(['sudo', 'xl', 'pci-attach', str(self.xid), pci])
+            except Exception as e:
+                print >>sys.stderr, "Failed to attach PCI device on the fly " \
+                    "(%s), changes will be seen after VM restart" % str(e)
+
+    def pci_remove(self, pci):
+        if not self.pcidevs.count(pci):
+            # not attached
+            return
+        self.pcidevs.remove(pci)
+        if self.is_running():
+            p = subprocess.Popen(['xl', 'pci-list', str(self.xid)],
+                    stdout=subprocess.PIPE)
+            result = p.communicate()
+            m = re.search(r"^(\d+.\d+)\s+0000:%s$" % pci, result[0], flags=re.MULTILINE)
+            if not m:
+                print >>sys.stderr, "Device %s already detached" % pci
+                return
+            vmdev = m.group(1)
+            try:
+                self.run("QUBESRPC qubes.DetachPciDevice dom0", user="root",
+                        localcmd="echo 00:%s" % vmdev, wait=True)
+                subprocess.check_call(['sudo', 'xl', 'pci-detach', str(self.xid), pci])
+            except Exception as e:
+                print >>sys.stderr, "Failed to detach PCI device on the fly " \
+                    "(%s), changes will be seen after VM restart" % str(e)
+
     def run(self, command, user = None, verbose = True, autostart = False, notify_function = None, passio = False, passio_popen = False, passio_stderr=False, ignore_stderr=False, localcmd = None, wait = False, gui = True):
         """command should be in form 'cmdline'
             When passio_popen=True, popen object with stdout connected to pipe.
