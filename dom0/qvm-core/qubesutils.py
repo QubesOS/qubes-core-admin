@@ -1054,72 +1054,138 @@ def backup_do_copy(base_backup_dir, files_to_backup, progress_callback = None, e
     progress = blocks_backedup * 11 / total_backup_sz
     progress_callback(progress)
 
-    tar_cmdline = ["tar", "-PczO",'--sparse','-C',qubes_base_dir,'--checkpoint=10000']
-
-    for filename in files_to_backup:
-        tar_cmdline.append(filename["path"].split(os.path.normpath(qubes_base_dir)+"/")[1])
-    #print ("Will backup using command",tar_cmdline)
-
     import tempfile
     feedback_file = tempfile.NamedTemporaryFile()
-    #print feedback_file
-    if encrypt:
-        compressor = subprocess.Popen (tar_cmdline,stdout=subprocess.PIPE,stderr=feedback_file)
-        encryptor  = subprocess.Popen (["gpg2", "-c", "--force-mdc", "-o-"], stdin=compressor.stdout, stdout=backup_stdout)
-    else:
-        compressor = subprocess.Popen (tar_cmdline,stdout=backup_stdout,stderr=feedback_file)
-        encryptor  = None
 
-    run_error = wait_backup_feedback(progress_callback, feedback_file, total_backup_sz, compressor, encryptor, vmproc)
+    for filename in files_to_backup:
+        print "Backing up",filename
+        tar_cmdline = ["tar", "-PcO",'--sparse','-C',qubes_base_dir,
+            filename["path"].split(os.path.normpath(qubes_base_dir)+"/")[1]
+            ]
 
-    feedback_file.close()
+        # Prepare all subprocesses with the right stdin, stdout
+        if encrypt:
+            # Tips: Popen(bufsize=0)
+            compressor = subprocess.Popen (tar_cmdline,stdout=subprocess.PIPE)
+
+            encryptor  = subprocess.Popen (["openssl", "enc", "-e", "-k", "azerty"], stdin=compressor.stdout, stdout=subprocess.PIPE)
+            hmac       = subprocess.Popen (["openssl", "dgst", "-hmac", "azerty"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+
+            streamproc = encryptor
+            addproc    = compressor
+        else:
+            compressor = subprocess.Popen (tar_cmdline,stdout=subprocess.PIPE)
+
+            encryptor  = None
+            hmac       = subprocess.Popen (["openssl", "dgst", "-hmac", "azerty"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+
+            streamproc = compressor
+            addproc    = None
+
+        # Wait for compressor (tar) process to finish or for any error of other subprocesses
+        run_error = wait_backup_feedback(progress_callback, streamproc, backup_stdout, total_backup_sz, hmac=hmac, vmproc=vmproc, addproc=addproc)
+        if len(run_error) > 0:
+            raise QubesException("Failed to perform backup: error with "+run_error)
+
+        # Wait for all remaining subprocess to finish
+        if addproc:
+            addproc.wait()
+            print "Addproc:",addproc.poll()
+
+        streamproc.wait()
+        print "Streamproc:",streamproc.poll()
+
+        hmac.stdin.close()
+        hmac.wait()
+        print "HMAC:",hmac.poll()
+
+        # Write HMAC data next to the original file
+        hmac_data = hmac.stdout.read()
+        print "Writing hmac to",filename['path']+".hmac"
+        hmac_file = open(filename['path']+".hmac",'w')
+        hmac_file.write(hmac_data)
+        hmac_file.flush()
+        hmac_file.close()
+
+        # Send the hmac file to the backup target
+        tar_cmdline[-1] += ".hmac"
+        print tar_cmdline
+        streamproc = subprocess.Popen(tar_cmdline,stdout=subprocess.PIPE)
+        run_error = wait_backup_feedback(progress_callback, streamproc, backup_stdout, total_backup_sz, vmproc=vmproc)
+        if len(run_error) > 0:
+            raise QubesException("Failed to perform backup: error with "+run_error)
+
+        streamproc.wait()
+        print "HMAC sent:",streamproc.poll()
+        
+    # Close the backup target and wait for it to finish
     backup_stdout.close()
-
-    # Check returns code of compressor and encryptor and qubes vm retcode
-    if run_error != None:
-        try:
-            if compressor != None:
-                compressor.terminate()
-            if encryptor != None:
-                encryptor.terminate()
-            if vmproc != None:
-                vmproc.terminate()
-        except OSError:
-            pass
-        raise QubesException("Failed to perform backup: error with "+run_error)
+    if vmproc:
+        print "VMProc1:",vmproc.poll()
+        vmproc.wait()
+        print "VMProc2:",vmproc.poll()
 
 
-def wait_backup_feedback(progress_callback, feedback_file, total_backup_sz, compressor, encryptor, vmproc):
-    # Get tar backup feedback
-    feedback_file_r = open(feedback_file.name,'r')
+def wait_backup_feedback(progress_callback, streamproc, backup_target, total_backup_sz, hmac=None, vmproc=None, addproc=None, remove_trailing_bytes=0):
+
+    buffer_size = 4096
+
     run_error = None
     run_count = 1
+    blocks_backedup = 0
     while run_count > 0 and run_error == None:
-        time.sleep(1)
 
-        match = re.search("tar: [^0-9]+([0-9]+)",feedback_file_r.readline())
-        if match:
-            blocks_backedup = int(match.group(1))
-            progress = blocks_backedup * 11.024 * 1024 / total_backup_sz
-            #print blocks_backedup,total_backup_sz,progress
-            progress_callback(round(progress*100,2))
+        buffer = streamproc.stdout.read(buffer_size)
+        #print "Read",len(buffer)
+
+        blocks_backedup += len(buffer)
+
+        progress = blocks_backedup / float(total_backup_sz)
+        progress_callback(round(progress*100,2))
 
         run_count = 0
-        if compressor:
-            retcode=compressor.poll()
+        if hmac:
+            retcode=hmac.poll()
             if retcode != None:
                 if retcode != 0:
-                    run_error = "compressor"
+                    run_error = "hmac"
             else:
                 run_count += 1
 
-        if encryptor:
-            retcode=encryptor.poll()
+        if addproc:
+            retcode=addproc.poll()
             if retcode != None:
                 if retcode != 0:
-                    run_error = "encryptor"
+                    run_error = "addproc"
             else:
                 run_count += 1
+
+        retcode=streamproc.poll()
+        if retcode != None:
+            if retcode != 0:
+                run_error = "streamproc"
+            elif retcode == 0 and len(buffer) <= 0:
+                return ""
+            else:
+                if remove_trailing_bytes > 0:
+                    print buffer.encode("hex")
+                    buffer = buffer[:-remove_trailing_bytes]
+                    print buffer.encode("hex")
+
+                backup_target.write(buffer)
+
+                if hmac:
+                    hmac.stdin.write(buffer)
+
+                run_count += 1
+        else:
+            # Process still running
+            backup_target.write(buffer)
+
+            if hmac:
+                hmac.stdin.write(buffer)
+
+            run_count += 1
 
         if vmproc:
             retcode = vmproc.poll()
@@ -1130,9 +1196,6 @@ def wait_backup_feedback(progress_callback, feedback_file, total_backup_sz, comp
             else:
                 # VM should run until the end
                 pass
-
-    # Cleanup
-    feedback_file_r.close()
 
     return run_error
 
