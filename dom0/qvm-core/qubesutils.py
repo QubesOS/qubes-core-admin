@@ -915,7 +915,7 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
         backup_reference_file.write(vm.name+":"+vm.dir_path.split(qubes_base_dir)[1]+":"+str(vm.get_disk_utilization())+"\n")
     backup_reference_file.flush()
     backup_reference_file.close()
-    files_to_backup = file_to_backup(backup_reference_file.name,os.stat(backup_reference_file.name).st_size) + files_to_backup
+    #files_to_backup = file_to_backup(backup_reference_file.name,os.stat(backup_reference_file.name).st_size) + files_to_backup
 
     # Dom0 user home
     if not 'dom0' in exclude_list:
@@ -1056,76 +1056,125 @@ def backup_do_copy(base_backup_dir, files_to_backup, progress_callback = None, e
 
     import tempfile
     feedback_file = tempfile.NamedTemporaryFile()
+    backup_tmpdir = tempfile.mkdtemp(prefix="/var/tmp/backup_")
+
+    # Tar with tapelength does not deals well with stdout (close stdout between two tapes)
+    # For this reason, we will use named pipes instead
+    print "Working in",backup_tmpdir
+
+    backup_pipe = os.path.join(backup_tmpdir,"backup_pipe")
+    print "Creating pipe in:",backup_pipe
+    print os.mkfifo(backup_pipe)
+
+    print "Will backup:",files_to_backup
 
     for filename in files_to_backup:
         print "Backing up",filename
-        tar_cmdline = ["tar", "-PcO",'--sparse','-C',qubes_base_dir,
+
+        backup_tempfile = os.path.join(backup_tmpdir,filename["path"].split(os.path.normpath(qubes_base_dir)+"/")[1])
+        print "Using temporary location:",backup_tempfile
+
+        # Ensure the temporary directory exists
+
+        if not os.path.isdir(os.path.dirname(backup_tempfile)):
+            os.makedirs(os.path.dirname(backup_tempfile))
+
+        tar_cmdline = ["tar", "-Pc", "-f", backup_pipe,'--sparse','--tape-length',str(1000000),'-C',qubes_base_dir,
             filename["path"].split(os.path.normpath(qubes_base_dir)+"/")[1]
             ]
 
-        # Prepare all subprocesses with the right stdin, stdout
-        if encrypt:
-            # Tips: Popen(bufsize=0)
-            compressor = subprocess.Popen (tar_cmdline,stdout=subprocess.PIPE)
+        print " ".join(tar_cmdline)
 
-            encryptor  = subprocess.Popen (["openssl", "enc", "-e", "-k", "azerty"], stdin=compressor.stdout, stdout=subprocess.PIPE)
-            hmac       = subprocess.Popen (["openssl", "dgst", "-hmac", "azerty"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-
-            streamproc = encryptor
-            addproc    = compressor
-        else:
-            compressor = subprocess.Popen (tar_cmdline,stdout=subprocess.PIPE)
-
-            encryptor  = None
-            hmac       = subprocess.Popen (["openssl", "dgst", "-hmac", "azerty"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-
-            streamproc = compressor
-            addproc    = None
+        # Tips: Popen(bufsize=0)
+        # Pipe: tar-sparse | encryptor [| hmac] | tar | backup_target
+        # Pipe: tar-sparse [| hmac] | tar | backup_target
+        tar_sparse = subprocess.Popen (tar_cmdline,stdin=subprocess.PIPE)
 
         # Wait for compressor (tar) process to finish or for any error of other subprocesses
-        run_error = wait_backup_feedback(progress_callback, streamproc, backup_stdout, total_backup_sz, hmac=hmac, vmproc=vmproc, addproc=addproc)
-        if len(run_error) > 0:
-            raise QubesException("Failed to perform backup: error with "+run_error)
+        i=0
+        run_error = "paused"
+        running = []
+        while run_error == "paused":
 
+            # Start encrypt
+            pipe = open(backup_pipe,'rb')
+            # If no cipher is provided, the data is forwarded unencrypted !!!
+            encryptor  = subprocess.Popen (["openssl", "enc", "-e", "-aes-256-cbc", "-pass", "pass:azerty"], stdin=pipe, stdout=subprocess.PIPE)
+
+            # Start HMAC
+            hmac       = subprocess.Popen (["openssl", "dgst", "-hmac", "azerty"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+
+            # Prepare a first chunk
+            chunkfile = backup_tempfile + "." + "%03d" % i
+            i += 1
+            chunkfile_p = open(chunkfile,'wb')
+            run_error = wait_backup_feedback(progress_callback, encryptor, chunkfile_p, total_backup_sz, hmac=hmac, vmproc=vmproc, addproc=tar_sparse)
+            chunkfile_p.close()
+
+            print "Wait_backup_feedback returned:",run_error
+
+            if len(run_error) > 0:
+                raise QubesException("Failed to perform backup: error with "+run_error)
+
+            # Send the chunk to the backup target
+            tar_final_cmd = ["tar", "-cO", "-C", backup_tmpdir, chunkfile.split(os.path.normpath(backup_tmpdir)+"/")[1]]
+            final_proc  = subprocess.Popen (tar_final_cmd, stdin=subprocess.PIPE, stdout=backup_stdout)
+            final_proc.wait()
+
+            # Close HMAC
+            hmac.stdin.close()
+            hmac.wait()
+            print "HMAC:",hmac.poll()
+
+            # Write HMAC data next to the chunk file
+            hmac_data = hmac.stdout.read()
+            print "Writing hmac to",chunkfile+".hmac"
+            hmac_file = open(chunkfile+".hmac",'w')
+            hmac_file.write(hmac_data)
+            hmac_file.flush()
+            hmac_file.close()
+
+            # Send the HMAC to the backup target
+            tar_final_cmd = ["tar", "-cO", "-C", backup_tmpdir, chunkfile.split(os.path.normpath(backup_tmpdir)+"/")[1]+".hmac"]
+            final_proc  = subprocess.Popen (tar_final_cmd, stdin=subprocess.PIPE, stdout=backup_stdout)
+            final_proc.wait()
+            
+            if tar_sparse.poll() == None:
+                # Release the next chunk
+                print "Release next chunk for process:",tar_sparse.poll()
+                #tar_sparse.stdout = subprocess.PIPE
+                tar_sparse.stdin.write("\n")
+                run_error="paused"
+            else:
+                print "Finished tar sparse with error",tar_sparse.poll()
+            
         # Wait for all remaining subprocess to finish
-        if addproc:
-            addproc.wait()
-            print "Addproc:",addproc.poll()
+        #if addproc:
+        #    addproc.wait()
+        #    print "Addproc:",addproc.poll()
 
-        streamproc.wait()
-        print "Streamproc:",streamproc.poll()
+        #streamproc.wait()
+        #print "Streamproc:",streamproc.poll()
 
-        hmac.stdin.close()
-        hmac.wait()
-        print "HMAC:",hmac.poll()
-
-        # Write HMAC data next to the original file
-        hmac_data = hmac.stdout.read()
-        print "Writing hmac to",filename['path']+".hmac"
-        hmac_file = open(filename['path']+".hmac",'w')
-        hmac_file.write(hmac_data)
-        hmac_file.flush()
-        hmac_file.close()
-
-        # Send the hmac file to the backup target
-        tar_cmdline[-1] += ".hmac"
-        print tar_cmdline
-        streamproc = subprocess.Popen(tar_cmdline,stdout=subprocess.PIPE)
-        run_error = wait_backup_feedback(progress_callback, streamproc, backup_stdout, total_backup_sz, vmproc=vmproc)
-        if len(run_error) > 0:
-            raise QubesException("Failed to perform backup: error with "+run_error)
-
-        streamproc.wait()
-        print "HMAC sent:",streamproc.poll()
+        #streamproc.wait()
         
     # Close the backup target and wait for it to finish
-    backup_stdout.close()
+    #backup_stdout.close()
     if vmproc:
         print "VMProc1:",vmproc.poll()
-        vmproc.wait()
-        print "VMProc2:",vmproc.poll()
+        print "Sparse1:",tar_sparse.poll()
+        vmproc.stdin.close()
 
-
+'''
+' Wait for backup chunk to finish
+' - Monitor all the processes (streamproc, hmac, vmproc, addproc) for errors
+' - Copy stdout of streamproc to backup_target and hmac stdin if available
+' - Compute progress based on total_backup_sz and send progress to progress_callback function
+' - Returns if
+' -     one of the monitored processes error out (streamproc, hmac, vmproc, addproc), along with the processe that failed
+' -     all of the monitored processes except vmproc finished successfully (vmproc termination is controlled by the python script)
+' -     streamproc does not delivers any data anymore (return with the error "paused")
+'''
 def wait_backup_feedback(progress_callback, streamproc, backup_target, total_backup_sz, hmac=None, vmproc=None, addproc=None, remove_trailing_bytes=0):
 
     buffer_size = 4096
@@ -1136,12 +1185,11 @@ def wait_backup_feedback(progress_callback, streamproc, backup_target, total_bac
     while run_count > 0 and run_error == None:
 
         buffer = streamproc.stdout.read(buffer_size)
-        #print "Read",len(buffer)
 
         blocks_backedup += len(buffer)
 
         progress = blocks_backedup / float(total_backup_sz)
-        progress_callback(round(progress*100,2))
+        #progress_callback(round(progress*100,2))
 
         run_count = 0
         if hmac:
@@ -1154,6 +1202,7 @@ def wait_backup_feedback(progress_callback, streamproc, backup_target, total_bac
 
         if addproc:
             retcode=addproc.poll()
+            print "Tar proc status:",retcode
             if retcode != None:
                 if retcode != 0:
                     run_error = "addproc"
@@ -1164,13 +1213,16 @@ def wait_backup_feedback(progress_callback, streamproc, backup_target, total_bac
         if retcode != None:
             if retcode != 0:
                 run_error = "streamproc"
+                print "INFO: run error"
             elif retcode == 0 and len(buffer) <= 0:
+                print "INFO: no data"
                 return ""
             else:
-                if remove_trailing_bytes > 0:
-                    print buffer.encode("hex")
-                    buffer = buffer[:-remove_trailing_bytes]
-                    print buffer.encode("hex")
+                print "INFO: last packet"
+                #if remove_trailing_bytes > 0:
+                #    print buffer.encode("hex")
+                #    buffer = buffer[:-remove_trailing_bytes]
+                #    print buffer.encode("hex")
 
                 backup_target.write(buffer)
 
@@ -1179,6 +1231,7 @@ def wait_backup_feedback(progress_callback, streamproc, backup_target, total_bac
 
                 run_count += 1
         else:
+            print "Process running:",len(buffer)
             # Process still running
             backup_target.write(buffer)
 
