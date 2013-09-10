@@ -1249,16 +1249,11 @@ def backup_restore_header(restore_target, encrypt=False, appvm=None):
         fp = open(restore_target,'rb')
         headers = fp.read(4096*4)
 
-    is_encrypted = False
-
-    command = subprocess.Popen(['file','-'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-    stdout,stderr = command.communicate(headers)
-    if not stdout.find('gzip compressed data') >= 0:
+    if encrypt:
         command = subprocess.Popen(['gpg2','--decrypt'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         stdout,stderr = command.communicate(headers)
         if len(stdout) > 0:
             headers = stdout
-            is_encrypted = True
         else:
             print stderr
             raise QubesException("ERROR: unable to decrypt the backup {0}. Is it really encrypted?".format(restore_target))
@@ -1280,26 +1275,13 @@ def backup_restore_header(restore_target, encrypt=False, appvm=None):
         else:
             break
 
-    return is_encrypted, vms_in_backup, headers
+    return vms_in_backup, headers
 
 def backup_restore_prepare(backup_dir, backup_content, qubes_xml, options = {}, host_collection = None, encrypt=False, appvm=None):
     # Defaults
     backup_restore_set_defaults(options)
 
     #### Private functions begin
-    '''
-    def is_vm_included_in_backup (backup_dir, vm):
-        if vm.qid == 0:
-            # Dom0 is not included, obviously
-            return False
-
-        backup_vm_dir_path = vm.dir_path.replace (qubes_base_dir, backup_dir)
-
-        if os.path.exists (backup_vm_dir_path):
-            return True
-        else:
-            return False
-    '''
     def is_vm_included_in_backup (backup_dir, vm):
         for item in backup_content.keys():
             if vm.name == item:
@@ -1313,12 +1295,8 @@ def backup_restore_prepare(backup_dir, backup_content, qubes_xml, options = {}, 
                 return m.group(2)
 
         return template
-
     #### Private functions end
-    '''
-    if not os.path.exists (backup_dir):
-        raise QubesException("The backup directory doesn't exist!")
-    '''
+
     backup_collection = QubesVmCollection()
     import StringIO
     backup_collection.qubes_store_file=StringIO.StringIO(qubes_xml)
