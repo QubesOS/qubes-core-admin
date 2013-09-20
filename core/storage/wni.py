@@ -28,6 +28,7 @@ import os.path
 import win32api
 import win32net
 import pywintypes
+import md5
 
 from qubes.storage import QubesVmStorage
 from qubes.qubes import QubesException,system_path
@@ -46,10 +47,19 @@ class QubesWniVmStorage(QubesVmStorage):
         os.putenv("WNI_DRIVER_QUBESDB_PATH", system_path['qubesdb_daemon_path'])
         os.putenv("WNI_DRIVER_QREXEC_PATH", system_path['qrexec_agent_path'])
 
+    def _get_secret(self):
+        # TODO: some machine-specific secret (accessible only to Administrator)
+        return ""
+
     def _get_username(self, vmname = None):
         if vmname is None:
             vmname = self.vm.name
         return "qubes-vm-%s" % vmname
+
+    def _get_password(self, vmname = None):
+        if vmname is None:
+            vmname = self.vm.name
+        return md5.md5("%s-%s" % (vmname, self._get_secret())).hexdigest()
 
     def get_config_params(self):
         return {}
@@ -57,7 +67,7 @@ class QubesWniVmStorage(QubesVmStorage):
     def create_on_disk_private_img(self, verbose, source_template = None):
         win32api.ShellExecute(None, "runas",
                 "net", "user %s %s /ADD"
-                % (self._get_username(), "testpass"),
+                % (self._get_username(), self._get_password()),
                 None, 0)
 
     def create_on_disk_root_img(self, verbose, source_template = None):
@@ -75,6 +85,7 @@ class QubesWniVmStorage(QubesVmStorage):
                 "wmic", "useraccount where name='%s' rename '%s'"
                 % (self._get_username(old_name), self._get_username(new_name)),
                 None, 0)
+        # TODO: update password
 
 
     def verify_files(self):
