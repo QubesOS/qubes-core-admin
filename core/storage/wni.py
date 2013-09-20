@@ -30,7 +30,7 @@ import win32net
 import pywintypes
 
 from qubes.storage import QubesVmStorage
-from qubes.qubes import QubesException
+from qubes.qubes import QubesException,system_path
 
 class QubesWniVmStorage(QubesVmStorage):
     """
@@ -41,6 +41,10 @@ class QubesWniVmStorage(QubesVmStorage):
         super(QubesWniVmStorage, self).__init__(*args, **kwargs)
         # Use the user profile as "private.img"
         self.private_img = os.path.join("c:\\Users", self._get_username())
+
+        # Pass paths for WNI libvirt driver
+        os.putenv("WNI_DRIVER_QUBESDB_PATH", system_path['qubesdb_daemon_path'])
+        os.putenv("WNI_DRIVER_QREXEC_PATH", system_path['qrexec_agent_path'])
 
     def _get_username(self, vmname = None):
         if vmname is None:
