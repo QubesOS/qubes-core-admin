@@ -20,7 +20,6 @@
 #
 #
 
-import dbus
 import sys
 
 system_bus = None
@@ -29,6 +28,7 @@ session_bus = None
 notify_object = None
 
 def tray_notify_init():
+    import dbus
     global notify_object
     try:
         notify_object = dbus.SessionBus().get_object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
@@ -51,6 +51,7 @@ def tray_notify_error(msg, timeout = 3000):
 def notify_error_qubes_manager(name, message):
     global system_bus
     if system_bus is None:
+        import dbus
         system_bus = dbus.SystemBus()
 
     try:
@@ -64,6 +65,7 @@ def notify_error_qubes_manager(name, message):
 def clear_error_qubes_manager(name, message):
     global system_bus
     if system_bus is None:
+        import dbus
         system_bus = dbus.SystemBus()
 
     try:
