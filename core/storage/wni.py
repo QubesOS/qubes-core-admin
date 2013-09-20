@@ -108,6 +108,6 @@ class QubesWniVmStorage(QubesVmStorage):
     def reset_volatile_storage(self, verbose = False, source_template = None):
         pass
 
-    def prepare_for_vm_startup(self):
+    def prepare_for_vm_startup(self, verbose = False):
         if self.vm.is_template():
             raise QubesException("Starting TemplateVM is not supported")
