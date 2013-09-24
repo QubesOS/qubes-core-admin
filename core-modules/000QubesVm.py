@@ -666,8 +666,16 @@ class QubesVm(object):
         domain_config = self.create_config_file()
         if self._libvirt_domain:
             self._libvirt_domain.undefine()
-        self._libvirt_domain = vmm.libvirt_conn.defineXML(domain_config)
-        self.uuid = uuid.UUID(bytes=self._libvirt_domain.UUID())
+        try:
+            self._libvirt_domain = vmm.libvirt_conn.defineXML(domain_config)
+            self.uuid = uuid.UUID(bytes=self._libvirt_domain.UUID())
+        except libvirt.libvirtError:
+            if libvirt.virGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
+                # accept the fact that libvirt doesn't know anything about this
+                # domain...
+                pass
+            else:
+                raise
 
     @property
     def libvirt_domain(self):
@@ -694,6 +702,9 @@ class QubesVm(object):
     def get_mem(self):
         if dry_run:
             return 666
+
+        if self.libvirt_domain is None:
+            return 0
 
         if not self.libvirt_domain.isActive():
             return 0
@@ -745,6 +756,9 @@ class QubesVm(object):
             return "NA"
 
         libvirt_domain = self.libvirt_domain
+        if libvirt_domain is None:
+            return "NA"
+
         if libvirt_domain.isActive():
             if libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PAUSED:
                 return "Paused"
@@ -1722,11 +1736,17 @@ class QubesVm(object):
         if dry_run:
             return
 
+        if not self.is_running():
+            raise QubesException ("VM not running!")
+
         self.libvirt_domain.suspend()
 
     def unpause(self):
         if dry_run:
             return
+
+        if not self.is_paused():
+            raise QubesException ("VM not paused!")
 
         self.libvirt_domain.resume()
 
