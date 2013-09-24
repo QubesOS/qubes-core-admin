@@ -353,6 +353,9 @@ class QubesHVm(QubesVm):
         if self.xid < 0:
             return -1
 
+        if vmm.xs is None:
+            return -1
+
         stubdom_xid_str = vmm.xs.read('', '/local/domain/%d/image/device-model-domid' % self.xid)
         if stubdom_xid_str is not None:
             return int(stubdom_xid_str)
