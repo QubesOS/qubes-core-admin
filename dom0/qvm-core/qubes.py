@@ -285,6 +285,9 @@ class QubesVm(object):
                 # for backward compatibility (or another rare case): kernel=None -> kernel in VM dir
                 'self.dir_path + "/" + default_kernels_subdir' },
             "_start_guid_first": { 'eval': 'False' },
+            "backup_content" : { 'default': False },
+            "backup_size" : { 'default': 0, "eval": "int(value)" },
+            "backup_path" : { 'default': "" },
             }
 
         ### Mark attrs for XML inclusion
@@ -293,7 +296,8 @@ class QubesVm(object):
             'uses_default_kernel', 'kernel', 'uses_default_kernelopts',\
             'kernelopts', 'services', 'installed_by_rpm',\
             'uses_default_netvm', 'include_in_backups', 'debug',\
-            'default_user', 'qrexec_timeout' ]:
+            'default_user', 'qrexec_timeout',
+            'backup_content', 'backup_size', 'backup_path' ]:
             attrs[prop]['save'] = 'str(self.%s)' % prop
         # Simple paths
         for prop in ['conf_file', 'root_img', 'volatile_img', 'private_img']:

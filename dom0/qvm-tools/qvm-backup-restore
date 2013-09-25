@@ -95,12 +95,15 @@ def main():
         restore_options['exclude'] = options.exclude
 
 
+    passphrase = raw_input("Please enter the pass phrase that will be used to decrypt/verify the backup:\n")
+    passphrase = passphrase.replace("\r","").replace("\n","")
+
     print >> sys.stderr, "Checking backup content..."
-    encrypted, vms, qubes_xml = backup_restore_header(backup_dir, options.decrypt, appvm=options.appvm)
+    qubes_xml = backup_restore_header(backup_dir, passphrase, options.decrypt, appvm=options.appvm)
 
     restore_info = None
     try:
-        restore_info = backup_restore_prepare(backup_dir, vms, qubes_xml, options=restore_options, host_collection=host_collection, encrypt=encrypted, appvm=options.appvm)
+        restore_info = backup_restore_prepare(backup_dir, qubes_xml, passphrase, options=restore_options, host_collection=host_collection, encrypt=options.decrypt, appvm=options.appvm)
     except QubesException as e:
         print >> sys.stderr, "ERROR: %s" % str(e)
         exit(1)
@@ -189,7 +192,7 @@ def main():
         exit (0)
 
 
-    backup_restore_do(backup_dir, restore_info, vms, host_collection=host_collection, encrypted=encrypted, appvm=options.appvm)
+    backup_restore_do(backup_dir, restore_info, host_collection=host_collection, encrypted=options.decrypt, appvm=options.appvm)
 
     host_collection.unlock_db()
 
