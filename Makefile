@@ -93,3 +93,21 @@ endif
 	mkdir -p $(DESTDIR)$(STATEDIR)
 	mkdir -p $(DESTDIR)$(LOGDIR)
 
+msi:
+	rm -rf destinstdir
+	mkdir -p destinstdir
+	$(MAKE) install \
+		DESTDIR=$(PWD)/destinstdir \
+		PYTHON_SITEPATH=/site-packages \
+		FILESDIR=/pfiles \
+		BINDIR=/bin \
+		DATADIR=/qubes \
+		STATEDIR=/qubes/state \
+		LOGDIR=/qubes/log
+	# icons placeholder
+	mkdir -p destinstdir/icons
+	for i in blue gray green yellow orange black purple red; do touch destinstdir/icons/$$i.png; done
+	candle -arch x64 -dversion=$(VERSION) installer.wxs
+	light -b destinstdir -o core-admin.msm installer.wixobj
+	rm -rf destinstdir
+
