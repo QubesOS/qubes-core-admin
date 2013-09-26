@@ -27,6 +27,7 @@ import os
 import os.path
 import win32api
 import win32net
+import win32netcon
 import pywintypes
 import md5
 
@@ -42,6 +43,8 @@ class QubesWniVmStorage(QubesVmStorage):
         super(QubesWniVmStorage, self).__init__(*args, **kwargs)
         # Use the user profile as "private.img"
         self.private_img = os.path.join("c:\\Users", self._get_username())
+
+        self.home_root = 'c:\\Users'
 
         # Pass paths for WNI libvirt driver
         os.putenv("WNI_DRIVER_QUBESDB_PATH", system_path['qubesdb_daemon_path'])
@@ -65,27 +68,49 @@ class QubesWniVmStorage(QubesVmStorage):
         return {}
 
     def create_on_disk_private_img(self, verbose, source_template = None):
-        win32api.ShellExecute(None, "runas",
-                "net", "user %s %s /ADD"
-                % (self._get_username(), self._get_password()),
-                None, 0)
+        home_dir = os.path.join(self.home_root, self._get_username())
+        # Create user data in information level 1 (PyUSER_INFO_1) format.
+        user_data = {}
+        user_data['name'] = self._get_username()
+        user_data['full_name'] = self._get_username()
+        user_data['password'] = self._get_password()
+        user_data['flags'] = (
+                win32netcon.UF_NORMAL_ACCOUNT |
+                win32netcon.UF_SCRIPT |
+                win32netcon.UF_DONT_EXPIRE_PASSWD
+                )
+        user_data['priv'] = win32netcon.USER_PRIV_USER
+        user_data['home_dir'] = home_dir
+        user_data['max_storage'] = win32netcon.USER_MAXSTORAGE_UNLIMITED
+        # TODO: catch possible exception
+        win32net.NetUserAdd(None, 1, user_data)
 
     def create_on_disk_root_img(self, verbose, source_template = None):
         pass
 
     def remove_from_disk(self):
-        win32api.ShellExecute(None, "runas",
-                "net", "user %s /DELETE" % (self._get_username()),
-                None, 0)
+        try:
+            win32net.NetUserDel(None, self._get_username())
+        except pywintypes.error, details:
+            if details[0] == 2221:
+                # "The user name cannot be found."
+                raise IOError("User %s doesn't exist" % self._get_username())
+            else:
+                raise
+
         super(QubesWniVmStorage, self).remove_from_disk()
 
     def rename(self, old_name, new_name):
         super(QubesWniVmStorage, self).rename(old_name, new_name)
-        win32api.ShellExecute(None, "runas",
-                "wmic", "useraccount where name='%s' rename '%s'"
-                % (self._get_username(old_name), self._get_username(new_name)),
-                None, 0)
-        # TODO: update password
+        user_data = {}
+        user_data['name'] = self._get_username(new_name)
+        win32net.NetUserSetInfo(None,
+                self._get_username(old_name), 0, user_data)
+        win32net.NetUserChangePassword(None,
+                self._get_username(new_name),
+                self._get_password(old_name),
+                self._get_password(new_name))
+        #TODO: rename user profile
 
 
     def verify_files(self):
