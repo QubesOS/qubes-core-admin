@@ -142,8 +142,8 @@ class QubesVmStorage(object):
     def rename(self, old_name, new_name):
         old_vmdir = self.vmdir
         new_vmdir = os.path.join(os.path.dirname(self.vmdir), new_name)
-        os.rename(self.vmdir, new_dirpath)
-        self.vmdir = new_dirpath
+        os.rename(self.vmdir, new_vmdir)
+        self.vmdir = new_vmdir
         if self.private_img:
             self.private_img = self.private_img.replace(old_vmdir, new_vmdir)
         if self.root_img:
