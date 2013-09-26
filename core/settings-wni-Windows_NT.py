@@ -12,6 +12,8 @@ def apply(system_path, vm_files, defaults):
             'c:/program files/Invisible Things Lab/Qubes/icons'
     system_path['qubesdb_daemon_path'] = \
             'c:/program files/Invisible Things Lab/Qubes/bin/qubesdb-daemon.exe'
+    system_path['qrexec_daemon_path'] = \
+            'c:/program files/Invisible Things Lab/Qubes/bin/qrexec-daemon.exe'
     # Specific to WNI - normally VM have this file
     system_path['qrexec_agent_path'] = \
             'c:/program files/Invisible Things Lab/Qubes/bin/qrexec-agent.exe'
