@@ -909,7 +909,7 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
 
         vm.backup_content = True
         vm.backup_size = vm.get_disk_utilization()
-        vm.backup_path = vm.dir_path.split(qubes_base_dir)[1]
+        vm.backup_path = vm.dir_path.split(os.path.normpath(qubes_base_dir)+"/")[1]
 
     qvm_collection.save()
     # FIXME: should be after backup completed
@@ -1164,6 +1164,7 @@ def backup_do_copy(base_backup_dir, files_to_backup, progress_callback = None, e
             print "Wait_backup_feedback returned:",run_error
 
             if len(run_error) > 0:
+                send_proc.terminate()
                 raise QubesException("Failed to perform backup: error with "+run_error)
 
             # Send the chunk to the backup target
@@ -1172,7 +1173,7 @@ def backup_do_copy(base_backup_dir, files_to_backup, progress_callback = None, e
             # Close HMAC
             hmac.stdin.close()
             hmac.wait()
-            print "HMAC:",hmac.poll()
+            print "HMAC proc return code:",hmac.poll()
 
             # Write HMAC data next to the chunk file
             hmac_data = hmac.stdout.read()
@@ -1203,8 +1204,8 @@ def backup_do_copy(base_backup_dir, files_to_backup, progress_callback = None, e
     send_proc.join()
 
     if vmproc:
-        print "VMProc1:",vmproc.poll()
-        print "Sparse1:",tar_sparse.poll()
+        print "VMProc1 proc return code:",vmproc.poll()
+        print "Sparse1 proc return code:",tar_sparse.poll()
         vmproc.stdin.close()
 
 '''
@@ -1227,7 +1228,6 @@ def wait_backup_feedback(progress_callback, in_stream, streamproc, backup_target
     while run_count > 0 and run_error == None:
 
         buffer = in_stream.read(buffer_size)
-
         progress_callback(len(buffer),total_backup_sz)
 
         run_count = 0
@@ -1301,11 +1301,84 @@ def wait_backup_feedback(progress_callback, in_stream, streamproc, backup_target
 
     return run_error
 
-def restore_vm_dir (backup_dir, src_dir, dst_dir, vm_spec, print_callback=None, error_callback=None, encrypted=False, appvm=None):
+def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_size, print_callback=None, error_callback=None, encrypted=False, appvm=None):
+
+    # Setup worker to extract encrypted data chunks to the restore dirs
+    from multiprocessing import Queue,Process
+    class Extract_Worker(Process):
+        def __init__(self,queue,base_dir,passphrase,encrypted,total_size):
+            super(Extract_Worker, self).__init__()
+            self.queue = queue
+            self.base_dir = base_dir
+            self.passphrase = passphrase
+            self.encrypted = encrypted
+            self.total_size = total_size
+            self.blocks_backedup = 0
+            self.tar2_command = None
+
+            self.restore_pipe = os.path.join(self.base_dir,"restore_pipe")
+            print "Creating pipe in:",self.restore_pipe
+            print os.mkfifo(self.restore_pipe)
+
+        def compute_progress(self, new_size, total_size):
+            self.blocks_backedup += new_size
+            progress = self.blocks_backedup / float(self.total_size)
+            print_callback(round(progress*100,2))
+
+        def run(self):
+            print "Started extracting thread"
+
+            print "Moving to temporary dir",self.base_dir
+            os.chdir(self.base_dir)
+
+            for filename in iter(self.queue.get,None):
+                if filename == "FINISHED":
+                    break
+
+                print "Extracting file",filename,"to",self.base_dir
+
+                if self.tar2_command == None:
+                    self.tar2_command = ['tar', '--tape-length','1000000', '-xvf', self.restore_pipe]
+                    self.tar2_command = subprocess.Popen(self.tar2_command,stdin=subprocess.PIPE)
+
+                pipe = open(self.restore_pipe,'r+b')
+	        if self.encrypted:
+	            # Start decrypt
+	            encryptor  = subprocess.Popen (["openssl", "enc", "-d", "-aes-256-cbc", "-pass", "pass:"+passphrase], stdin=open(filename,'rb'), stdout=pipe)
+
+                    # progress_callback, in_stream, streamproc, backup_target, total_backup_sz, hmac=None, vmproc=None, addproc=None, remove_trailing_bytes=0):
+	            run_error = wait_backup_feedback(self.compute_progress, pipe, encryptor, self.tar2_command.stdin, self.total_size, hmac=None, vmproc=None, addproc=self.tar2_command)
+	        else:
+	            run_error = wait_backup_feedback(self.compute_progress, open(filename,"rb"), None, pipe, self.total_size, hmac=None, vmproc=None, addproc=self.tar2_command)
+
+                print "Run error:",run_error
+		print self.tar2_command.poll(), 
+
+                # Close named pipe so that tar knowns the file has been entirely read
+                pipe.close()
+
+                if self.tar2_command.poll() != None:
+                    if self.tar2_command.poll() != 0:
+                        raise QubesException("ERROR: unable to extract files for {0}.".format(filename))
+                    else:
+                        # Finished extracting the tar file
+                        self.tar2_command = None
+                else:
+                    print "Releasing next chunck"
+                    self.tar2_command.stdin.write("\n")
+            
+                # Delete the file as we don't need it anymore
+                print "Removing file",filename
+                os.remove(filename)
+
+            print "Finished extracting thread"
+
+    to_extract    = Queue()
+    extract_proc = Extract_Worker(to_extract, backup_tmpdir, passphrase, encrypted, vms_size)
+    extract_proc.start()
 
     #backup_src_dir = src_dir.replace (qubes_base_dir, backup_dir)
-    print "Restore vm dir:",backup_dir, src_dir, dst_dir, vm_spec
-
+    print "Restore vm dirs:",backup_dir, vms_dirs, vms, vms_size
 
     vmproc = None
     if appvm != None:
@@ -1330,39 +1403,42 @@ def restore_vm_dir (backup_dir, src_dir, dst_dir, vm_spec, print_callback=None, 
     else:
         backup_stdin = open(backup_dir,'rb')
 
-    tar_cmdline = ["tar", "-xzv",'--sparse','-C',qubes_base_dir,'--checkpoint=10000']
+    # FIXME: Use a safer program such as cpio, modified uncompress.c, or try to extract it from the APPVM directly based on Joana recommendation.
+    tar1_command = ['tar', '-i', '-xv', '-C', backup_tmpdir]
+    tar1_command.extend(vms_dirs)
+    print "Running 'safe' command",tar1_command
+    command = subprocess.Popen(tar1_command, stdin=backup_stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    tar_cmdline.append(src_dir.split(os.path.normpath(qubes_base_dir)+"/")[1])
+    while command.poll() == None and vmproc.poll() == None:
+        filename = command.stdout.readline().strip(" \t\r\n")
+        print "Getting new file:",filename
+        hmacfile = command.stdout.readline().strip(" \t\r\n")
+        print "Getting hmac:",hmacfile
+        
+        print "Verifying file",filename
+        hmac_proc = subprocess.Popen (["openssl", "dgst", "-hmac", passphrase], stdin=open(os.path.join(backup_tmpdir,filename),'rb'), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout,stderr = hmac_proc.communicate()
+        if len(stderr) > 0:
+            raise QubesException("ERROR: verify file {0}: {1}".format((filename,stderr)))
+        else:
+            print "Loading hmac for file",filename
+            hmac = load_hmac(open(os.path.join(backup_tmpdir,filename+".hmac"),'r').read())
 
-    #print ("Will backup using command",tar_cmdline)
+            if len(hmac) > 0 and load_hmac(stdout) == hmac:
+                print "File verification OK. Sending",filename,"to extraction thread"
+                # Send the chunk to the backup target
+                to_extract.put(os.path.join(backup_tmpdir,filename))
 
-    import tempfile
-    feedback_file = tempfile.NamedTemporaryFile()
-    if encrypted:
-        encryptor  = subprocess.Popen (["gpg2", "--decrypt"], stdin=backup_stdin, stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-        compressor = subprocess.Popen (tar_cmdline,stdin=encryptor.stdout,stderr=feedback_file,stdout=subprocess.PIPE)
-    else:
-        compressor = subprocess.Popen (tar_cmdline,stdin=backup_stdin,stderr=feedback_file,stdout=subprocess.PIPE)
-        encryptor  = None
+            else:
+                raise QubesException("ERROR: invalid hmac for file {0}: {1}. Is the passphrase correct?".format(filename,load_hmac(stdout)))
 
-    run_error = wait_backup_feedback(print_callback, feedback_file, vm_spec["size"], compressor, encryptor, vmproc)
-
-    # Cleanup
-    feedback_file.close()
-    backup_stdin.close()
-
-    # Check returns code of compressor and encryptor and qubes vm retcode
-    if run_error != None:
-        try:
-            if compressor != None:
-                compressor.terminate()
-            if encryptor != None:
-                encryptor.terminate()
-            if vmproc != None:
-                vmproc.terminate()
-        except OSError:
-            pass
-        raise QubesException("Failed to perform backup: error with "+run_error)
+    if command.poll() != 0:
+        raise QubesException("ERROR: unable to read the qubes backup file {0}. Is it really a backup?".format(restore_target))
+    if vmproc.poll() != 0:
+        raise QubesException("ERROR: unable to read the qubes backup {0} because of a VM error: {1}".format(restore_target,vmproc.stderr.read()))
+    
+    to_extract.put("FINISHED")
+    to_extract.wait()
 
 def backup_restore_set_defaults(options):
     if 'use-default-netvm' not in options:
@@ -1434,7 +1510,6 @@ def backup_restore_header(restore_target, passphrase, encrypt=False, appvm=None)
         fp = open(restore_target,'rb')
         headers = fp.read(4096*16)
 
-    # FIXME: Use a safer program such as cpio, modified uncompress.c, or try to extract it from the APPVM directly
     command = subprocess.Popen(['tar', '-i', '-xv', '-C', backup_tmpdir, 'qubes.xml.*'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     headers,stderr = command.communicate(headers)
     if len(headers) <= 0:
@@ -1455,14 +1530,14 @@ def backup_restore_header(restore_target, passphrase, encrypt=False, appvm=None)
         else:
             if len(hmac) > 0 and load_hmac(stdout) == hmac:
                 print "File verification OK -> Extracting archive",filename
-                # FIXME: implement function for encrypted file
+                # FIXME: handle encrypted file
                 command = subprocess.Popen(['tar', '-xvf', os.path.join(backup_tmpdir,filename), '-C', backup_tmpdir],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
                 headers,stderr = command.communicate(headers)
                 if len(headers) <= 0:
                     print stderr
                     raise QubesException("ERROR: unable to read the qubes backup file {0}. Is it really a backup?".format(restore_target))
                 else:
-                    return os.path.join(backup_tmpdir,headers.strip(" \r\n\t"))
+                    return (backup_tmpdir,headers.strip(" \r\n\t"))
 
             else:
                 raise QubesException("ERROR: invalid hmac for file {0}: {1}. Is the passphrase correct?".format(filename,load_hmac(stdout)))
@@ -1581,7 +1656,7 @@ def backup_restore_prepare(backup_dir, qubes_xml, passphrase, options = {}, host
                 vms_to_restore[vm.name]['good-to-go'] = True
 
     # ...and dom0 home
-    # TODO, replace this part of code to handle the new backup format using tar
+    # FIXME, replace this part of code to handle the new backup format using tar
     if options['dom0-home'] and os.path.exists(backup_dir + '/dom0-home'):
         vms_to_restore['dom0'] = {}
         local_user = grp.getgrnam('qubes').gr_mem[0]
@@ -1700,7 +1775,7 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
 
         print_callback(s)
 
-def backup_restore_do(backup_dir, restore_info, host_collection = None, print_callback = print_stdout, error_callback = print_stderr, encrypted=False, appvm = None ):
+def backup_restore_do(backup_dir, restore_tmpdir, passphrase, restore_info, host_collection = None, print_callback = print_stdout, error_callback = print_stderr, encrypted=False, appvm = None ):
 
     lock_obtained = False
     if host_collection is None:
@@ -1708,6 +1783,23 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
         host_collection.lock_db_for_writing()
         host_collection.load()
         lock_obtained = True
+
+    # Perform VM restoration in backup order
+    vms_dirs = []
+    vms_size = 0
+    vms = {}
+    for vm_info in restore_info.values():
+        if not vm_info['good-to-go']:
+            continue
+        if 'vm' not in vm_info:
+            continue
+        vm = vm_info['vm']
+        vms_size += vm.backup_size
+        vms_dirs.append(vm.backup_path+"*")
+        vms[vm.name] = vm
+
+    restore_vm_dirs (backup_dir, restore_tmpdir, passphrase, vms_dirs, vms, vms_size, print_callback, error_callback, encrypted, appvm)
+
 
     # Add VM in right order
     for (vm_class_name, vm_class) in sorted(QubesVmClasses.items(),
@@ -1741,8 +1833,6 @@ def backup_restore_do(backup_dir, restore_info, host_collection = None, print_ca
                                                    dir_path=vm.dir_path,
                                                    template=template,
                                                    installed_by_rpm=False)
-
-                restore_vm_dir (backup_dir, vm.dir_path, os.path.dirname(new_vm.dir_path), vm, print_callback, error_callback, encrypted, appvm)
 
                 new_vm.verify_files()
             except Exception as err:
