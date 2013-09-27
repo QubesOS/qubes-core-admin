@@ -1105,7 +1105,7 @@ def backup_do_copy(base_backup_dir, files_to_backup, progress_callback = None, e
         global blocks_backedup
         blocks_backedup += new_size
         progress = blocks_backedup / float(total_backup_sz)
-        progress_callback(round(progress*100,2))
+        progress_callback(int(round(progress*100,2)))
 
     to_send    = Queue()
     send_proc = Send_Worker(to_send, backup_tmpdir, backup_stdout)
@@ -1298,15 +1298,14 @@ def wait_backup_feedback(progress_callback, in_stream, streamproc, backup_target
                     hmac.stdin.write(buffer)
 
 
-
     return run_error
 
-def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_size, print_callback=None, error_callback=None, encrypted=False, appvm=None):
+def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_size, print_callback=None, error_callback=None, progress_callback=None, encrypted=False, appvm=None):
 
     # Setup worker to extract encrypted data chunks to the restore dirs
     from multiprocessing import Queue,Process
     class Extract_Worker(Process):
-        def __init__(self,queue,base_dir,passphrase,encrypted,total_size):
+        def __init__(self,queue,base_dir,passphrase,encrypted,total_size,print_callback,error_callback,progress_callback):
             super(Extract_Worker, self).__init__()
             self.queue = queue
             self.base_dir = base_dir
@@ -1316,6 +1315,10 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_s
             self.blocks_backedup = 0
             self.tar2_command = None
 
+            self.print_callback = print_callback
+            self.error_callback = error_callback
+            self.progress_callback = progress_callback
+
             self.restore_pipe = os.path.join(self.base_dir,"restore_pipe")
             print "Creating pipe in:",self.restore_pipe
             print os.mkfifo(self.restore_pipe)
@@ -1323,22 +1326,24 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_s
         def compute_progress(self, new_size, total_size):
             self.blocks_backedup += new_size
             progress = self.blocks_backedup / float(self.total_size)
-            print_callback(round(progress*100,2))
+            progress = int(round(progress*100,2))
+            self.progress_callback(progress)
 
         def run(self):
-            print "Started extracting thread"
+            self.print_callback("Started sending thread")
 
-            print "Moving to temporary dir",self.base_dir
+            self.print_callback("Moving to temporary dir "+self.base_dir)
             os.chdir(self.base_dir)
 
             for filename in iter(self.queue.get,None):
                 if filename == "FINISHED":
                     break
 
-                print "Extracting file",filename,"to",self.base_dir
+                self.print_callback("Extracting file "+filename+" to "+self.base_dir)
 
                 if self.tar2_command == None:
                     self.tar2_command = ['tar', '--tape-length','1000000', '-xvf', self.restore_pipe]
+                    self.print_callback("Running command "+str(self.tar2_command))
                     self.tar2_command = subprocess.Popen(self.tar2_command,stdin=subprocess.PIPE)
 
                 pipe = open(self.restore_pipe,'r+b')
@@ -1351,11 +1356,8 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_s
 	        else:
 	            run_error = wait_backup_feedback(self.compute_progress, open(filename,"rb"), None, pipe, self.total_size, hmac=None, vmproc=None, addproc=self.tar2_command)
 
-                print "Run error:",run_error
-		print self.tar2_command.poll(), 
-
-                # Close named pipe so that tar knowns the file has been entirely read
-                pipe.close()
+                self.print_callback("Run error:"+run_error)
+		self.print_callback(str(self.tar2_command.poll()))
 
                 if self.tar2_command.poll() != None:
                     if self.tar2_command.poll() != 0:
@@ -1363,22 +1365,24 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_s
                     else:
                         # Finished extracting the tar file
                         self.tar2_command = None
+
                 else:
-                    print "Releasing next chunck"
+                    self.print_callback("Releasing next chunck")
+                    pipe.close()
                     self.tar2_command.stdin.write("\n")
             
                 # Delete the file as we don't need it anymore
-                print "Removing file",filename
+                self.print_callback("Removing file "+filename)
                 os.remove(filename)
 
-            print "Finished extracting thread"
+            self.print_callback("Finished extracting thread")
 
     to_extract    = Queue()
-    extract_proc = Extract_Worker(to_extract, backup_tmpdir, passphrase, encrypted, vms_size)
+    extract_proc = Extract_Worker(to_extract, backup_tmpdir, passphrase, encrypted, vms_size, print_callback, error_callback, progress_callback)
     extract_proc.start()
 
-    #backup_src_dir = src_dir.replace (qubes_base_dir, backup_dir)
-    print "Restore vm dirs:",backup_dir, vms_dirs, vms, vms_size
+    print_callback("Working in temporary dir:"+backup_tmpdir)
+    print_callback(str(vms_size)+" bytes to restore")
 
     vmproc = None
     if appvm != None:
@@ -1403,29 +1407,35 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_s
     else:
         backup_stdin = open(backup_dir,'rb')
 
-    # FIXME: Use a safer program such as cpio, modified uncompress.c, or try to extract it from the APPVM directly based on Joana recommendation.
+    # FIXME: Use a safer program such as cpio, modified uncompress.c, or try to extract it from
     tar1_command = ['tar', '-i', '-xv', '-C', backup_tmpdir]
     tar1_command.extend(vms_dirs)
-    print "Running 'safe' command",tar1_command
+    print_callback("Run command"+str(tar1_command))
     command = subprocess.Popen(tar1_command, stdin=backup_stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     while command.poll() == None and vmproc.poll() == None:
+
         filename = command.stdout.readline().strip(" \t\r\n")
-        print "Getting new file:",filename
+
+        print_callback("Getting new file:"+filename)
+
         hmacfile = command.stdout.readline().strip(" \t\r\n")
-        print "Getting hmac:",hmacfile
+
+        print_callback("Getting hmac:"+hmacfile)
         
-        print "Verifying file",filename
+        print_callback("Verifying file"+filename)
+
         hmac_proc = subprocess.Popen (["openssl", "dgst", "-hmac", passphrase], stdin=open(os.path.join(backup_tmpdir,filename),'rb'), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout,stderr = hmac_proc.communicate()
+
         if len(stderr) > 0:
             raise QubesException("ERROR: verify file {0}: {1}".format((filename,stderr)))
         else:
-            print "Loading hmac for file",filename
+            print_callback("Loading hmac for file"+filename)
             hmac = load_hmac(open(os.path.join(backup_tmpdir,filename+".hmac"),'r').read())
 
             if len(hmac) > 0 and load_hmac(stdout) == hmac:
-                print "File verification OK. Sending",filename,"to extraction thread"
+                print_callback("File verification OK -> Sending file "+filename+" for extraction")
                 # Send the chunk to the backup target
                 to_extract.put(os.path.join(backup_tmpdir,filename))
 
@@ -1438,7 +1448,7 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_s
         raise QubesException("ERROR: unable to read the qubes backup {0} because of a VM error: {1}".format(restore_target,vmproc.stderr.read()))
     
     to_extract.put("FINISHED")
-    to_extract.wait()
+    extract_proc.join()
 
 def backup_restore_set_defaults(options):
     if 'use-default-netvm' not in options:
@@ -1775,7 +1785,7 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
 
         print_callback(s)
 
-def backup_restore_do(backup_dir, restore_tmpdir, passphrase, restore_info, host_collection = None, print_callback = print_stdout, error_callback = print_stderr, encrypted=False, appvm = None ):
+def backup_restore_do(backup_dir, restore_tmpdir, passphrase, restore_info, host_collection = None, print_callback = print_stdout, error_callback = print_stderr, progress_callback = None, encrypted=False, appvm=None):
 
     lock_obtained = False
     if host_collection is None:
@@ -1798,7 +1808,7 @@ def backup_restore_do(backup_dir, restore_tmpdir, passphrase, restore_info, host
         vms_dirs.append(vm.backup_path+"*")
         vms[vm.name] = vm
 
-    restore_vm_dirs (backup_dir, restore_tmpdir, passphrase, vms_dirs, vms, vms_size, print_callback, error_callback, encrypted, appvm)
+    restore_vm_dirs (backup_dir, restore_tmpdir, passphrase, vms_dirs, vms, vms_size, print_callback, error_callback, progress_callback, encrypted, appvm)
 
 
     # Add VM in right order
