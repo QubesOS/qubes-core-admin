@@ -1377,6 +1377,10 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_s
 
             self.print_callback("Finished extracting thread")
 
+    if progress_callback == None:
+        def progress_callback(data):
+            pass
+
     to_extract    = Queue()
     extract_proc = Extract_Worker(to_extract, backup_tmpdir, passphrase, encrypted, vms_size, print_callback, error_callback, progress_callback)
     extract_proc.start()
