@@ -1010,7 +1010,7 @@ def backup_do(base_backup_dir, files_to_backup, progress_callback = None):
         progress = bytes_backedup * 100 / total_backup_sz
         progress_callback(progress)
 
-def backup_do_copy(base_backup_dir, files_to_backup, progress_callback = None, encrypt=False, appvm=None):
+def backup_do_copy(base_backup_dir, files_to_backup, passphrase, progress_callback = None, encrypt=False, appvm=None):
     total_backup_sz = 0
     for file in files_to_backup:
         total_backup_sz += file["size"]
@@ -1046,9 +1046,6 @@ def backup_do_copy(base_backup_dir, files_to_backup, progress_callback = None, e
 
         # If not APPVM, STDOUT is a local file
         backup_stdout = open(backup_target,'wb')
-
-    passphrase = raw_input("Please enter the pass phrase that will be used to encrypt/verify the backup:\n")
-    passphrase = passphrase.replace("\r","").replace("\n","")
 
     blocks_backedup = 0
     progress = blocks_backedup * 11 / total_backup_sz

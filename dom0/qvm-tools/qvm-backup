@@ -75,8 +75,11 @@ def main():
     if not (prompt == "y" or prompt == "Y"):
         exit (0)
 
+    passphrase = raw_input("Please enter the pass phrase that will be used to encrypt/verify the backup:\n")
+    passphrase = passphrase.replace("\r","").replace("\n","")
+
     try:
-        backup_do_copy(base_backup_dir, files_to_backup, progress_callback=print_progress, encrypt=options.encrypt,appvm=options.appvm)
+        backup_do_copy(base_backup_dir, files_to_backup, passphrase, progress_callback=print_progress, encrypt=options.encrypt,appvm=options.appvm)
     except QubesException as e:
         print >>sys.stderr, "ERROR: %s" % str(e)
         exit(1)
