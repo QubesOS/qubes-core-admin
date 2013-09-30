@@ -1199,6 +1199,9 @@ def backup_do_copy(base_backup_dir, files_to_backup, passphrase, progress_callba
 
     to_send.put("FINISHED")
     send_proc.join()
+    
+    if send_proc.exitcode != 0:
+        raise QubesException("Failed to send backup: error in the sending process")
 
     if vmproc:
         print "VMProc1 proc return code:",vmproc.poll()
@@ -1331,17 +1334,20 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_s
         def run(self):
             self.print_callback("Started sending thread")
 
-            self.print_callback("Moving to temporary dir "+self.base_dir)
+            self.print_callback("Moving to dir "+self.base_dir)
             os.chdir(self.base_dir)
 
             for filename in iter(self.queue.get,None):
                 if filename == "FINISHED":
                     break
 
-                self.print_callback("Extracting file "+filename+" to "+self.base_dir)
+                self.print_callback("Extracting file "+filename+" to "+qubes_base_dir)
 
                 if self.tar2_command == None:
-                    self.tar2_command = ['tar', '--tape-length','1000000', '-xvf', self.restore_pipe]
+                    # FIXME: Make the extraction safer by avoiding to erase other vms:
+                    # - extracting directly to the target directory (based on the vm name and by using the --strip=2).
+                    # - ensuring that the leading slashs are ignored when extracting (can also be obtained by running with --strip ?)
+                    self.tar2_command = ['tar', '--tape-length','1000000', '-C', qubes_base_dir, '-xvf', self.restore_pipe]
                     self.print_callback("Running command "+str(self.tar2_command))
                     self.tar2_command = subprocess.Popen(self.tar2_command,stdin=subprocess.PIPE)
 
@@ -1452,8 +1458,14 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_s
     if vmproc.poll() != 0:
         raise QubesException("ERROR: unable to read the qubes backup {0} because of a VM error: {1}".format(restore_target,vmproc.stderr.read()))
     
+    print "Extraction process status:",extract_proc.exitcode
+
     to_extract.put("FINISHED")
+    print_callback("Waiting for the extraction process to finish...")
     extract_proc.join()
+    print_callback("Extraction process finished with code:"+str(extract_proc.exitcode))
+    if extract_proc.exitcode != 0:
+        raise QubesException("ERROR: unable to extract the qubes backup. Check extracting process errors.")
 
 def backup_restore_set_defaults(options):
     if 'use-default-netvm' not in options:
@@ -1552,9 +1564,11 @@ def backup_restore_header(restore_target, passphrase, encrypt=False, appvm=None)
         if len(hmac) > 0 and load_hmac(stdout) == hmac:
             print "File verification OK -> Extracting archive",filename
             if encrypt:
+                print "Starting decryption process"
                 encryptor  = subprocess.Popen (["openssl", "enc", "-d", "-aes-256-cbc", "-pass", "pass:"+passphrase], stdin=open(os.path.join(backup_tmpdir,filename),'rb'), stdout=subprocess.PIPE)
                 tarhead_command = subprocess.Popen(['tar', '--tape-length','1000000', '-xv'],stdin=encryptor.stdout)
             else:
+                print "No decryption process required"
                 encryptor = None
                 tarhead_command = subprocess.Popen(['tar', '--tape-length','1000000', '-xvf', os.path.join(backup_tmpdir,filename)])
 
@@ -1669,8 +1683,7 @@ def backup_restore_prepare(backup_dir, qubes_xml, passphrase, options = {}, host
 
                     # Maybe the (custom) netvm is in the backup?
                     netvm_on_backup = backup_collection.get_vm_by_name (netvm_name)
-                    if not ((netvm_on_backup is not None) and netvm_on_backup.is_netvm() and is_vm_
-included_in_backup(backup_dir, netvm_on_backup)):
+                    if not ((netvm_on_backup is not None) and netvm_on_backup.is_netvm() and is_vm_included_in_backup(backup_dir, netvm_on_backup)):
                         if options['use-default-netvm']:
                             vms_to_restore[vm.name]['netvm'] = host_collection.get_default_netvm().name
                             vm.uses_default_netvm = True
