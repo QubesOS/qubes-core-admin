@@ -796,9 +796,10 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
         qvm_collection.unlock_db()
 
         all_vms = [vm for vm in qvm_collection.values()]
-        appvms_to_backup = [vm for vm in all_vms if vm.is_appvm() and not vm.internal]
-        netvms_to_backup = [vm for vm in all_vms if vm.is_netvm() and not vm.qid == 0]
-        template_vms_worth_backingup = [vm for vm in all_vms if (vm.is_template() and not vm.installed_by_rpm)]
+        selected_vms = [vm for vm in all_vms if vm.include_in_backups]
+        appvms_to_backup = [vm for vm in selected_vms if vm.is_appvm() and not vm.internal]
+        netvms_to_backup = [vm for vm in selected_vms if vm.is_netvm() and not vm.qid == 0]
+        template_vms_worth_backingup = [vm for vm in selected_vms if (vm.is_template() and not vm.installed_by_rpm)]
 
         vms_list = appvms_to_backup + netvms_to_backup + template_vms_worth_backingup
 
