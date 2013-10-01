@@ -1522,7 +1522,7 @@ def backup_restore_header(restore_target, passphrase, encrypt=False, appvm=None)
         qvm_collection.unlock_db()
 
         # If APPVM, STDOUT is a PIPE
-        vmproc = vm.run(command = restore_command, passio_popen = True)
+        vmproc = vm.run(command = restore_command, passio_popen = True, passio_stderr = True)
         vmproc.stdin.write(restore_target.replace("\r","").replace("\n","")+"\n")
 
     else:
@@ -1544,9 +1544,19 @@ def backup_restore_header(restore_target, passphrase, encrypt=False, appvm=None)
 
     while not os.path.exists(os.path.join(backup_tmpdir,hmacfile)):
         time.sleep(1000)
-    
+
     command.terminate()
     command.wait()
+
+    if vmproc.poll() != None and vmproc.poll() != 0:
+        error = vmproc.stderr.read()
+        print error,vmproc.poll(),command.poll()
+        raise QubesException("ERROR: retrieving backup headers:{0}".format(error))
+    elif command.poll() != None and command.poll() not in [0,-15]:
+        error = command.stderr.read()
+        print error,vmproc.poll(),command.poll()
+        raise QubesException("ERROR: retrieving backup headers:{0}".format(error))
+
     vmproc.terminate()
     vmproc.wait()
 
