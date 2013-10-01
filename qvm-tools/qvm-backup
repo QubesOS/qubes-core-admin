@@ -31,7 +31,7 @@ def print_progress(progress):
     print >> sys.stderr, "\r-> Backing up files: {0}%...".format (progress),
 
 def main():
-    usage = "usage: %prog [options] <backup-dir-path>"
+    usage = "usage: %prog [options] <backup-dir-path> [vmname ...]"
     parser = OptionParser (usage)
 
     parser.add_option ("-x", "--exclude", action="append", dest="exclude_list",
@@ -41,7 +41,7 @@ def main():
 
     (options, args) = parser.parse_args ()
 
-    if (len (args) != 1):
+    if (len (args) < 1):
         print >> sys.stderr, "You must specify the target backup directory (e.g. /mnt/backup)"
         print >> sys.stderr, "qvm-backup will create a subdirectory there for each individual backup."
         exit (0)
@@ -60,9 +60,13 @@ def main():
     qvm_collection.lock_db_for_reading()
     qvm_collection.load()
 
+    vms = None
+    if (len (args) > 1):
+        vms = [qvm_collection.get_vm_by_name(vmname) for vmname in args[1:]]
+
     files_to_backup = None
     try:
-        files_to_backup = backup_prepare(base_backup_dir, exclude_list=options.exclude_list)
+        files_to_backup = backup_prepare(base_backup_dir, vms_list=vms, exclude_list=options.exclude_list)
     except QubesException as e:
         print >>sys.stderr, "ERROR: %s" % str(e)
         exit(1)
