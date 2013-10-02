@@ -13,7 +13,7 @@
             Languages='1033'
             SummaryCodepage='1252'/>
         <Property Id='PYTHONDIR'>
-            <RegistrySearch Id='PythonDirRegistry' Type='raw' Root='HKLM' Key='Software\Python\PythonCode\2.7\InstallPath'/>
+            <RegistrySearch Id='PythonDirRegistry' Type='raw' Root='HKLM' Key='Software\Python\PythonCore\2.7\InstallPath'/>
         </Property>
         <Directory Id='TARGETDIR' Name='SourceDir'>
             <Directory Id='PYTHONDIR' Name='python27'>
