@@ -492,7 +492,8 @@ class QubesVmCollection(dict):
         fcntl.lockf (self.qubes_store_file, fcntl.LOCK_EX)
 
     def unlock_db(self):
-        fcntl.lockf (self.qubes_store_file, fcntl.LOCK_UN)
+        # intentionally do not call explicit unlock to not unlock the file
+        # before all buffers are flushed
         self.qubes_store_file.close()
 
     def save(self):
