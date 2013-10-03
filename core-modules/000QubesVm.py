@@ -1437,6 +1437,10 @@ class QubesVm(object):
         if os.isatty(sys.stderr.fileno()):
             args += ["-T"]
         if passio:
+            if os.name == 'nt':
+                # see here for the explanation (_exec doc):
+                #  http://msdn.microsoft.com/en-us/library/431x4c1w.aspx
+                args[0] = '"%"' % args[0]
             os.execv(system_path["qrexec_client_path"], args)
             exit(1)
 
