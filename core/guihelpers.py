@@ -23,13 +23,12 @@
 
 import sys
 from optparse import OptionParser
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
 
 app = None
 system_bus = None
 
 def prepare_app():
+    from PyQt4.QtGui import QApplication,QMessageBox
     global app
     app  = QApplication(sys.argv)
     app.setOrganizationName("The Qubes Project")
