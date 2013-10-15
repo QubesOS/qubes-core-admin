@@ -1429,7 +1429,7 @@ class QubesVm(object):
         if gui and os.getenv("DISPLAY") is not None and not self.is_guid_running():
             self.start_guid(verbose = verbose, notify_function = notify_function)
 
-        args = [system_path["qrexec_client_path"], "-d", str(self.xid), "%s:%s" % (user, command)]
+        args = [system_path["qrexec_client_path"], "-d", str(self.name), "%s:%s" % (user, command)]
         if localcmd is not None:
             args += [ "-l", localcmd]
         if filter_esc:
