@@ -12,6 +12,19 @@
             InstallerVersion='200'
             Languages='1033'
             SummaryCodepage='1252'/>
+        <Configuration Name="ProductFolder" Format="Key" Type="Identifier" DefaultValue="PFilesQubes"
+            Description="Installation directory" DisplayName="Installation directory"/>
+        <Substitution Table="Directory" Column="Directory_Parent"
+            Row="QubesBin" Value="[=ProductFolder]"/>
+        <Substitution Table="Directory" Column="Directory_Parent"
+            Row="QubesIcons" Value="[=ProductFolder]"/>
+        <Substitution Table="Directory" Column="Directory_Parent"
+            Row="QubesQubesRPC" Value="[=ProductFolder]"/>
+        <Substitution Table="Component" Column="Directory_"
+            Row="cmp57B019633F5721562AF090E83BF1351A" Value="[=ProductFolder]"/>
+        <Substitution Table="Component" Column="Directory_"
+            Row="cmp4D638691EDC960A6172B58F6E7D9A820" Value="[=ProductFolder]"/>
+
         <Property Id='PYTHONDIR'>
             <RegistrySearch Id='PythonDirRegistry' Type='raw' Root='HKLM' Key='Software\Python\PythonCore\2.7\InstallPath'/>
         </Property>
@@ -258,7 +271,7 @@
                                          have key path and environment element
                                          can't one; I don't like registry trick -->
                                     <Environment Id='UpdatePathExt' Name='PATHEXT' Action='set' System='yes' Part='last' Value='.py'/>
-                                    <Environment Id='UpdatePath' Name='PATH' Action='set' System='yes' Part='last' Value='[INSTALLDIR]\bin'/>
+                                    <Environment Id='UpdatePath' Name='PATH' Action='set' System='yes' Part='last' Value='[QubesBin]'/>
                                 </Component>
                                 <Component Id="cmp30EF38DB379FD132CC9A8D33EC487089" Guid="{C518B30C-D904-4D2D-BD2A-E2804A5423EF}">
                                     <File Id="fil743CE05FB032D3DF5649134F4E80CD49" KeyPath="yes" Source="SourceDir\bin\qvm-sync-clock.py" />
