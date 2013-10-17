@@ -75,6 +75,8 @@ system_path = {
     # use QIcon.fromTheme() where applicable
     'qubes_icon_dir': '/usr/share/icons/hicolor/128x128/devices',
 
+    'qrexec_policy_dir': '/etc/qubes-rpc/policy',
+
     'config_template_pv': '/usr/share/qubes/vm-template.xml',
 
     'qubes_pciback_cmd': '/usr/lib/qubes/unbind-pci-device.sh',
