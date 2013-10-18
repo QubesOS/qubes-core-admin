@@ -139,7 +139,7 @@ void preload_cache(int fd)
 	}
 }
 
-void start_rexec(int domid, char *default_user)
+void start_rexec(int domid, char *domain_name, char *default_user)
 {
 	int pid, status;
 	char dstr[40];
@@ -150,7 +150,7 @@ void start_rexec(int domid, char *default_user)
 		exit(1);
 	case 0:
 		execl("/usr/lib/qubes/qrexec-daemon", "qrexec-daemon",
-		      dstr, default_user, NULL);
+		      dstr, domain_name, default_user, NULL);
 		perror("execl");
 		exit(1);
 	default:;
@@ -478,7 +478,7 @@ int main(int argc, char **argv)
 	setup_xenstore(netvm_id, domid, dispid, name);
 	rm_fast_flag();
 	fprintf(stderr, "time=%s, starting qrexec\n", gettime());
-	start_rexec(domid, default_user);
+	start_rexec(domid, name, default_user);
 	fprintf(stderr, "time=%s, starting qubes-guid\n", gettime());
 	start_guid(domid, argc-guid_args_start, argv+guid_args_start);
 	fprintf(stderr, "time=%s, started qubes-guid\n", gettime());
