@@ -478,7 +478,7 @@ int main(int argc, char **argv)
 	setup_xenstore(netvm_id, domid, dispid, name);
 	rm_fast_flag();
 	fprintf(stderr, "time=%s, starting qrexec\n", gettime());
-	start_rexec(domid, name, default_user);
+	start_rexec(domid, dispname_by_dispid(dispid), default_user);
 	fprintf(stderr, "time=%s, starting qubes-guid\n", gettime());
 	start_guid(domid, argc-guid_args_start, argv+guid_args_start);
 	fprintf(stderr, "time=%s, started qubes-guid\n", gettime());
