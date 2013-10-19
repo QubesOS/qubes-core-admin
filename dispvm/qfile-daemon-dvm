@@ -50,7 +50,7 @@ class QfileDaemonDvm:
             if os.path.exists('/usr/bin/kdialog'):
                 subprocess.call(['/usr/bin/kdialog', '--sorry', errmsg])
             else:
-                subprocess.call(['/usr/bin/zenity', '--warning', errmsg])
+                subprocess.call(['/usr/bin/zenity', '--warning', '--text', errmsg])
             return None
 
         self.tray_notify("Starting new DispVM...")
