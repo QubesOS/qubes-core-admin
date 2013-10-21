@@ -5,7 +5,7 @@ if [ -f "$args" ] ; then
   echo "Performing restore from backup file $args" >2
   TARGET="$args"
   echo "Copying $TARGET to STDOUT" >2
-  cat $TARGET
+  cat $TARGET | /usr/lib/qubes/tar2qfile
 else
   echo "Checking if arguments is matching a command" >2
   COMMAND=`echo $args | cut -d ' ' -f 1`
