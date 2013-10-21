@@ -51,7 +51,9 @@ class SystemState:
             if self.domdict.has_key(id):
                 self.domdict[id].memory_actual = domain['mem_kb']*1024
                 self.domdict[id].memory_maximum = self.xs.read('', '/local/domain/%s/memory/static-max' % str(id))
-                if not self.domdict[id].memory_maximum:
+                if self.domdict[id].memory_maximum:
+                    self.domdict[id].memory_maximum = int(self.domdict[id].memory_maximum)*1024
+                else:
                     self.domdict[id].memory_maximum = self.ALL_PHYS_MEM
 # the previous line used to be
 #                    self.domdict[id].memory_maximum = domain['maxmem_kb']*1024
