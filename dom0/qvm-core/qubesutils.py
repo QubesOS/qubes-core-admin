@@ -907,9 +907,14 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
 
         print_callback(s)
 
-        vm.backup_content = True
-        vm.backup_size = vm.get_disk_utilization()
-        vm.backup_path = vm.dir_path.split(os.path.normpath(qubes_base_dir)+"/")[1]
+    # Initialize backup flag on all VMs
+    for vm in qvm_collection.values():
+        vm.backup_content = False
+
+        if vm in vms_for_backup:
+            vm.backup_content = True
+            vm.backup_size = vm.get_disk_utilization()
+            vm.backup_path = vm.dir_path.split(os.path.normpath(qubes_base_dir)+"/")[1]
 
     qvm_collection.save()
     # FIXME: should be after backup completed
