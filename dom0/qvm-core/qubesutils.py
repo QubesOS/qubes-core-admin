@@ -1495,6 +1495,20 @@ def load_hmac(hmac):
 
     return hmac
 
+import struct
+def get_qfile_error(buffer):
+    error = struct.unpack("I",buffer[0:4])[0]
+    error_msg = {   0: "COPY_FILE_OK",
+                    1: "COPY_FILE_READ_EOF",
+                    2: "COPY_FILE_READ_ERROR",
+                    3: "COPY_FILE_WRITE_ERROR",
+                    }
+
+    if error in error_msg.keys():
+        return error_msg[error]
+    else:
+        return "UNKNOWN_ERROR_"+str(error)
+
 def backup_restore_header(restore_target, passphrase, encrypt=False, appvm=None):
     # Simulate dd if=backup_file count=10 | file -
     # Simulate dd if=backup_file count=10 | gpg2 -d | tar xzv -O
@@ -1529,7 +1543,6 @@ def backup_restore_header(restore_target, passphrase, encrypt=False, appvm=None)
         # If APPVM, STDOUT is a PIPE
         vmproc = vm.run(command = restore_command, passio_popen = True, passio_stderr = True)
         vmproc.stdin.write(restore_target.replace("\r","").replace("\n","")+"\n")
-
     else:
         # Create the target directory
         if not os.path.exists (restore_target):
@@ -1538,32 +1551,44 @@ def backup_restore_header(restore_target, passphrase, encrypt=False, appvm=None)
         fp = open(restore_target,'rb')
         headers = fp.read(4096*16)
 
+    tar1_command = ['/usr/lib/qubes/qfile-dom0-unpacker', str(os.getuid()), backup_tmpdir]
+    command = subprocess.Popen(tar1_command,stdin=vmproc.stdout,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
 
-    command = subprocess.Popen(['tar', '-i', '-xv', '-C', backup_tmpdir, 'qubes.xml*'],stdin=vmproc.stdout,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    result_header = command.stdout.read()
 
-    filename = command.stdout.readline().strip(" \t\r\n")
-    print "Getting file",filename
+    if vmproc.poll() != None:
+        error = vmproc.stderr.read()
+        print error
+	print vmproc.poll(),command.poll()
+        raise QubesException("ERROR: Immediate VM error while retrieving backup headers:{0}".format(error))
 
-    hmacfile = command.stdout.readline().strip(" \t\r\n")
-    print "Getting hmac",hmacfile
+    filename = "qubes.xml.000"
 
-    while not os.path.exists(os.path.join(backup_tmpdir,hmacfile)):
-        time.sleep(1000)
+    print result_header.encode("hex")
+    error_msg = get_qfile_error(result_header)
+    if error_msg != "COPY_FILE_OK":
+        print vmproc.stdout.read()
+        raise QubesException("ERROR: unpacking backup headers: {0}".format(error_msg))
+    if not os.path.exists(os.path.join(backup_tmpdir,filename+".hmac")):
+        raise QubesException("ERROR: header not extracted correctly: {0}".format(os.path.join(backup_tmpdir,filename+".hmac")))
 
     command.terminate()
     command.wait()
 
     if vmproc.poll() != None and vmproc.poll() != 0:
         error = vmproc.stderr.read()
-        print error,vmproc.poll(),command.poll()
-        raise QubesException("ERROR: retrieving backup headers:{0}".format(error))
+        print error
+        print vmproc.poll(),command.poll()
+        raise QubesException("ERROR: VM error retrieving backup headers")
     elif command.poll() != None and command.poll() not in [0,-15]:
         error = command.stderr.read()
-        print error,vmproc.poll(),command.poll()
+        print error
+        print vmproc.poll(),command.poll()
         raise QubesException("ERROR: retrieving backup headers:{0}".format(error))
 
-    vmproc.terminate()
-    vmproc.wait()
+    if vmproc.poll() == None:
+        vmproc.terminate()
+        vmproc.wait()
 
     print "Loading hmac for file",filename
     hmac = load_hmac(open(os.path.join(backup_tmpdir,filename+".hmac"),'r').read())
