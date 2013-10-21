@@ -1438,9 +1438,10 @@ class QubesVm(object):
             args += ["-T"]
         if passio:
             if os.name == 'nt':
-                # see here for the explanation (_exec doc):
-                #  http://msdn.microsoft.com/en-us/library/431x4c1w.aspx
-                args[0] = '"%s"' % args[0]
+                # wait for qrexec-client to exit, otherwise client is not properly attached to console
+                # if qvm-run is executed from cmd.exe
+                ret = subprocess.call(args)
+                exit(ret)
             os.execv(system_path["qrexec_client_path"], args)
             exit(1)
 
