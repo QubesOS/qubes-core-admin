@@ -562,7 +562,10 @@ class QubesVm(object):
             elif dominfo['crashed']:
                 return "Crashed"
             elif dominfo['shutdown']:
-                return "Halting"
+                if dominfo['shutdown_reason'] == 2:
+                    return "Suspended"
+                else:
+                    return "Halting"
             elif dominfo['dying']:
                 return "Dying"
             else:
@@ -1531,6 +1534,39 @@ class QubesVm(object):
             raise QubesException ("VM already stopped!")
 
         subprocess.call (['/usr/sbin/xl', 'destroy', str(xid) if xid is not None else self.name])
+
+    def suspend(self):
+        if dry_run:
+            return
+
+        if not self.is_running() and not self.is_paused():
+            raise QubesException ("VM already stopped!")
+
+        xs_path = '/local/domain/%d/control/shutdown' % self.get_xid()
+        xs.write('', xs_path, 'suspend')
+        tries = 0
+        while self.get_power_state() != "Suspended":
+            tries += 1
+            if tries > 15:
+                # fallback to pause
+                print >>sys.stderr, "Failed to suspend domain %s, falling back to pause method" % self.name
+                self.pause()
+                break
+            time.sleep(0.2)
+
+    def resume(self):
+        if dry_run:
+            return
+
+        xc_info = self.get_xc_dominfo()
+        if not xc_info:
+            raise QubesException ("VM isn't started (cannot get xc_dominfo)!")
+
+        if xc_info['shutdown_reason'] == 2:
+            # suspended
+            xc.domain_resume(xc_info['domid'], 1)
+        else:
+            self.unpause()
 
     def pause(self):
         if dry_run:

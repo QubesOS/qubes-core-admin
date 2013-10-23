@@ -269,6 +269,15 @@ class QubesHVm(QubesVm):
 
                 self.wait_for_session(notify_function=kwargs.get('notify_function', None))
 
+    def suspend(self):
+        if dry_run:
+            return
+
+        if not self.is_running() and not self.is_paused():
+            raise QubesException ("VM not running!")
+
+        self.pause()
+
     def pause(self):
         if dry_run:
             return

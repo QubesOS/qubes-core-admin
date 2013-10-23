@@ -63,6 +63,9 @@ class QubesDom0NetVm(QubesNetVm):
     def start(self, **kwargs):
         raise QubesException ("Cannot start Dom0 fake domain!")
 
+    def suspend(self):
+        return
+
     def get_xl_dominfo(self):
         if dry_run:
             return
