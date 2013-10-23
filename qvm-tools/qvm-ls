@@ -154,6 +154,8 @@ def main():
 
     
     vms_list = [vm for vm in qvm_collection.values()]
+    if len(args) > 0:
+        vms_list = [vm for vm in vms_list if vm.name in args]
     no_vms = len (vms_list)
     vms_to_display = []
     # Frist, the NetVMs...
@@ -161,9 +163,10 @@ def main():
         if netvm.is_netvm():
             vms_to_display.append (netvm)
 
-    # Now, the AppVMs without template...
+    # Now, the AppVMs without template (or with template not included in the list)...
     for appvm in vms_list:
-        if appvm.is_appvm() and appvm.template is None:
+        if appvm.is_appvm() and (appvm.template is None or \
+            appvm.template not in vms_list):
             vms_to_display.append (appvm)
 
     # Now, the template, and all its AppVMs...
