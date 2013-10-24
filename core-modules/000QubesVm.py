@@ -1542,17 +1542,20 @@ class QubesVm(object):
         if not self.is_running() and not self.is_paused():
             raise QubesException ("VM already stopped!")
 
-        xs_path = '/local/domain/%d/control/shutdown' % self.get_xid()
-        xs.write('', xs_path, 'suspend')
-        tries = 0
-        while self.get_power_state() != "Suspended":
-            tries += 1
-            if tries > 15:
-                # fallback to pause
-                print >>sys.stderr, "Failed to suspend domain %s, falling back to pause method" % self.name
-                self.pause()
-                break
-            time.sleep(0.2)
+        if len (self.pcidevs) > 0:
+            xs_path = '/local/domain/%d/control/shutdown' % self.get_xid()
+            xs.write('', xs_path, 'suspend')
+            tries = 0
+            while self.get_power_state() != "Suspended":
+                tries += 1
+                if tries > 15:
+                    # fallback to pause
+                    print >>sys.stderr, "Failed to suspend domain %s, falling back to pause method" % self.name
+                    self.pause()
+                    break
+                time.sleep(0.2)
+        else:
+            self.pause()
 
     def resume(self):
         if dry_run:
