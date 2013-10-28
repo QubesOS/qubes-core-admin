@@ -261,7 +261,17 @@ class QubesHVm(QubesVm):
                 raise QubesException("Cannot start qubes-guid!")
 
     def start_qrexec_daemon(self, **kwargs):
-        if self.qrexec_installed:
+        if not self.qrexec_installed:
+            if kwargs.get('verbose', False):
+                print >> sys.stderr, "--> Starting the qrexec daemon..."
+            xid = self.get_xid()
+            qrexec_env = os.environ
+            qrexec_env['QREXEC_STARTUP_NOWAIT'] = '1'
+            retcode = subprocess.call ([system_path["qrexec_daemon_path"], str(xid), self.name, self.default_user], env=qrexec_env)
+            if (retcode != 0) :
+                self.force_shutdown(xid=xid)
+                raise OSError ("ERROR: Cannot execute qrexec-daemon!")
+        else:
             super(QubesHVm, self).start_qrexec_daemon(**kwargs)
 
             if self._start_guid_first:
