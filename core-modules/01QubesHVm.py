@@ -280,6 +280,26 @@ class QubesHVm(QubesVm):
 
                 self.wait_for_session(notify_function=kwargs.get('notify_function', None))
 
+    def create_xenstore_entries(self, xid = None):
+        if dry_run:
+            return
+
+        super(QubesHVm, self).create_xenstore_entries(xid)
+
+        if xid is None:
+            xid = self.xid
+
+        domain_path = xs.get_domain_path(xid)
+
+        # Prepare xenstore directory for tools advertise
+        xs.write('',
+                "{0}/qubes-tools".format(domain_path),
+                '')
+
+        # Allow VM writes there
+        xs.set_permissions('', '{0}/qubes-tools'.format(domain_path),
+                [{ 'dom': xid }])
+
     def suspend(self):
         if dry_run:
             return
