@@ -1,6 +1,7 @@
 #!/usr/bin/python2
 
 import os
+import re
 import sys
 from qubes.qubes import QubesVmCollection,QubesException,QubesHVm
 from qubes.qubes import xs
@@ -35,6 +36,8 @@ def main():
         untrusted_qrexec = xs.read('', '{0}/qrexec'.format(xs_path))
         # gui agent presence (0 or 1)
         untrusted_gui = xs.read('', '{0}/gui'.format(xs_path))
+        # default user for qvm-run etc
+        untrusted_user = xs.read('', '{0}/default-user'.format(xs_path))
 
         if untrusted_version is None:
             # tools didn't advertised its features; it's strange that this
@@ -55,10 +58,19 @@ def main():
             gui = 0
         else:
             gui = int(untrusted_gui)
-        
+
+        if untrusted_user is not None:
+            if re.match(r'^[a-zA-Z0-9-]+$', untrusted_user):
+                user = untrusted_user
+        else:
+            user = None
+
         # Let the tools to be able to enable *or disable* each particular component
         source_vm.qrexec_installed = qrexec > 0
         source_vm.guiagent_installed = gui > 0
+
+        if user:
+            source_vm.default_user = user
 
         qvm_collection.save()
     except Exception as e:
