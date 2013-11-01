@@ -24,6 +24,7 @@
 import os
 import os.path
 import subprocess
+import stat
 import sys
 import re
 
