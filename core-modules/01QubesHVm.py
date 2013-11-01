@@ -165,6 +165,8 @@ class QubesHVm(QubesVm):
             if backend_split:
                 backend_domain = "," + backend_split.group(1)
                 drive_path = backend_split.group(2)
+            if backend_domain.lower() == "dom0":
+                backend_domain = ""
 
             # FIXME: os.stat will work only when backend in dom0...
             stat_res = None
