@@ -130,6 +130,7 @@ cp linux/aux-tools/startup-misc.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp linux/aux-tools/prepare-volatile-img.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp qmemman/server.py $RPM_BUILD_ROOT/usr/lib/qubes/qmemman_daemon.py
 cp qmemman/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
+cp qubes-rpc/qubes-notify-tools $RPM_BUILD_ROOT/usr/lib/qubes/
 cp qubes-rpc/qubes-notify-updates $RPM_BUILD_ROOT/usr/lib/qubes/
 cp linux/aux-tools/vusb-ctl.py $RPM_BUILD_ROOT/usr/lib/qubes/
 cp linux/aux-tools/xl-qvm-usb-attach.py $RPM_BUILD_ROOT/usr/lib/qubes/
@@ -141,6 +142,8 @@ mkdir -p $RPM_BUILD_ROOT/etc/qubes-rpc/policy
 cp qubes-rpc-policy/qubes.Filecopy.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.Filecopy
 cp qubes-rpc-policy/qubes.OpenInVM.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.OpenInVM
 cp qubes-rpc-policy/qubes.VMShell.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.VMShell
+cp qubes-rpc-policy/qubes.NotifyTools.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.NotifyTools
+cp qubes-rpc/qubes.NotifyTools $RPM_BUILD_ROOT/etc/qubes-rpc/
 cp qubes-rpc-policy/qubes.NotifyUpdates.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.NotifyUpdates
 cp qubes-rpc/qubes.NotifyUpdates $RPM_BUILD_ROOT/etc/qubes-rpc/
 
@@ -280,6 +283,7 @@ fi
 /usr/lib/qubes/qmemman_daemon.py*
 /usr/lib/qubes/meminfo-writer
 /usr/lib/qubes/qfile-daemon-dvm*
+/usr/lib/qubes/qubes-notify-tools
 /usr/lib/qubes/qubes-notify-updates
 /usr/lib/qubes/block-cleaner-daemon.py*
 /usr/lib/qubes/vusb-ctl.py*
@@ -314,8 +318,10 @@ fi
 /etc/xen/scripts/vif-route-qubes
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.Filecopy
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.OpenInVM
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.NotifyTools
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.NotifyUpdates
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.VMShell
+/etc/qubes-rpc/qubes.NotifyTools
 /etc/qubes-rpc/qubes.NotifyUpdates
 %attr(2770,root,qubes) %dir /var/log/qubes
 %attr(0770,root,qubes) %dir /var/run/qubes

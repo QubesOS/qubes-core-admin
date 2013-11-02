@@ -56,6 +56,8 @@ def main():
                       help="Temporarily attach specified drive as hard disk")
     parser.add_option ("--cdrom", dest="drive_cdrom", default=None,
                       help="Temporarily attach specified drive as CD/DVD")
+    parser.add_option ("--install-windows-tools", action="store_true", dest="install_windows_tools", default=False,
+                      help="Attach Windows tools CDROM to the VM")
     parser.add_option ("--dvm", action="store_true", dest="preparing_dvm", default=False,
                       help="Do actions necessary when preparing DVM image")
     parser.add_option ("--custom-config", action="store", dest="custom_config", default=None,
@@ -82,9 +84,12 @@ def main():
         print >> sys.stderr, "A VM with the name '{0}' does not exist in the system.".format(vmname)
         exit(1)
 
-    if bool(options.drive_hd) + bool(options.drive_cdrom) + bool(options.drive) > 1:
-        print >> sys.stderr, "Only one of --drive, --cdrom, --hddisk can be specified"
+    if bool(options.drive_hd) + bool(options.drive_cdrom) + bool(options.drive) + bool(options.install_windows_tools) > 1:
+        print >> sys.stderr, "Only one of --drive, --cdrom, --hddisk, --install-windows-tools can be specified"
         exit(1)
+
+    if options.install_windows_tools:
+        options.drive = 'cdrom:dom0:/usr/lib/qubes/qubes-windows-tools.iso'
 
     if options.drive_hd:
         options.drive = 'hd:' + options.drive_hd

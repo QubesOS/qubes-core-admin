@@ -1,0 +1,82 @@
+#!/usr/bin/python2
+
+import os
+import re
+import sys
+from qubes.qubes import QubesVmCollection,QubesException,QubesHVm
+from qubes.qubes import xs
+
+def main():
+
+    source = os.getenv("QREXEC_REMOTE_DOMAIN")
+
+    if source is None:
+        print >> sys.stderr, 'This script must be called as qrexec service!'
+        exit(1)
+
+    qvm_collection = QubesVmCollection()
+    qvm_collection.lock_db_for_writing()
+    try:
+        qvm_collection.load()
+
+        source_vm = qvm_collection.get_vm_by_name(source)
+        if source_vm is None:
+            raise QubesException('Domain ' + source + ' does not exists (?!)')
+
+        if not isinstance(source_vm, QubesHVm):
+            raise QubesException('Service qubes.ToolsNotify is designed only for HVM domains')
+
+        xs_path = "/local/domain/{0}/qubes-tools".format(source_vm.get_xid())
+
+        # for now used only to check for the tools presence
+        untrusted_version = xs.read('', '{0}/version'.format(xs_path))
+        # reserved for future use
+        untrusted_os = xs.read('', '{0}/os'.format(xs_path))
+        # qrexec agent presence (0 or 1)
+        untrusted_qrexec = xs.read('', '{0}/qrexec'.format(xs_path))
+        # gui agent presence (0 or 1)
+        untrusted_gui = xs.read('', '{0}/gui'.format(xs_path))
+        # default user for qvm-run etc
+        untrusted_user = xs.read('', '{0}/default-user'.format(xs_path))
+
+        if untrusted_version is None:
+            # tools didn't advertised its features; it's strange that this
+            # service is called, but ignore it
+            return
+
+        # any suspicious string will raise exception here
+        version = int(untrusted_version)
+
+        # untrusted_os - ignore for now
+
+        if untrusted_qrexec is None:
+            qrexec = 0
+        else:
+            qrexec = int(untrusted_qrexec)
+
+        if untrusted_gui is None:
+            gui = 0
+        else:
+            gui = int(untrusted_gui)
+
+        if untrusted_user is not None:
+            if re.match(r'^[a-zA-Z0-9-]+$', untrusted_user):
+                user = untrusted_user
+        else:
+            user = None
+
+        # Let the tools to be able to enable *or disable* each particular component
+        source_vm.qrexec_installed = qrexec > 0
+        source_vm.guiagent_installed = gui > 0
+
+        if user:
+            source_vm.default_user = user
+
+        qvm_collection.save()
+    except Exception as e:
+        print >> sys.stderr, e.message
+        exit(1)
+    finally:
+        qvm_collection.unlock_db()
+
+main()

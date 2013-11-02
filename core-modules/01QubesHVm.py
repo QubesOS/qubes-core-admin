@@ -24,10 +24,12 @@
 import os
 import os.path
 import subprocess
+import stat
 import sys
 import re
 
 from qubes.qubes import QubesVm,register_qubes_vm_class,xs,xc,dry_run
+from qubes.qubes import QubesException
 from qubes.qubes import system_path,defaults
 
 system_path["config_template_hvm"] = '/usr/share/qubes/vm-template-hvm.conf'
@@ -163,6 +165,8 @@ class QubesHVm(QubesVm):
             if backend_split:
                 backend_domain = "," + backend_split.group(1)
                 drive_path = backend_split.group(2)
+            if backend_domain.lower() == "dom0":
+                backend_domain = ""
 
             # FIXME: os.stat will work only when backend in dom0...
             stat_res = None
@@ -260,7 +264,17 @@ class QubesHVm(QubesVm):
                 raise QubesException("Cannot start qubes-guid!")
 
     def start_qrexec_daemon(self, **kwargs):
-        if self.qrexec_installed:
+        if not self.qrexec_installed:
+            if kwargs.get('verbose', False):
+                print >> sys.stderr, "--> Starting the qrexec daemon..."
+            xid = self.get_xid()
+            qrexec_env = os.environ
+            qrexec_env['QREXEC_STARTUP_NOWAIT'] = '1'
+            retcode = subprocess.call ([system_path["qrexec_daemon_path"], str(xid), self.name, self.default_user], env=qrexec_env)
+            if (retcode != 0) :
+                self.force_shutdown(xid=xid)
+                raise OSError ("ERROR: Cannot execute qrexec-daemon!")
+        else:
             super(QubesHVm, self).start_qrexec_daemon(**kwargs)
 
             if self._start_guid_first:
@@ -268,6 +282,26 @@ class QubesHVm(QubesVm):
                     print >> sys.stderr, "--> Waiting for user '%s' login..." % self.default_user
 
                 self.wait_for_session(notify_function=kwargs.get('notify_function', None))
+
+    def create_xenstore_entries(self, xid = None):
+        if dry_run:
+            return
+
+        super(QubesHVm, self).create_xenstore_entries(xid)
+
+        if xid is None:
+            xid = self.xid
+
+        domain_path = xs.get_domain_path(xid)
+
+        # Prepare xenstore directory for tools advertise
+        xs.write('',
+                "{0}/qubes-tools".format(domain_path),
+                '')
+
+        # Allow VM writes there
+        xs.set_permissions('', '{0}/qubes-tools'.format(domain_path),
+                [{ 'dom': xid }])
 
     def suspend(self):
         if dry_run:
