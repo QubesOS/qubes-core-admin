@@ -120,6 +120,9 @@ class QubesVm(object):
             "debug": { "default": False },
             "default_user": { "default": "user" },
             "qrexec_timeout": { "default": 60 },
+            "backup_content" : { 'default': False },
+            "backup_size" : { 'default': 0, "eval": "int(value)" },
+            "backup_path" : { 'default': "" },
             ##### Internal attributes - will be overriden in __init__ regardless of args
             "config_file_template": { "eval": 'system_path["config_template_pv"]' },
             "icon_path": { "eval": 'os.path.join(self.dir_path, "icon.png") if self.dir_path is not None else None' },
@@ -137,7 +140,8 @@ class QubesVm(object):
             'uses_default_kernel', 'kernel', 'uses_default_kernelopts',\
             'kernelopts', 'services', 'installed_by_rpm',\
             'uses_default_netvm', 'include_in_backups', 'debug',\
-            'default_user', 'qrexec_timeout' ]:
+            'default_user', 'qrexec_timeout',
+            'backup_content', 'backup_size', 'backup_path' ]:
             attrs[prop]['save'] = 'str(self.%s)' % prop
         # Simple paths
         for prop in ['conf_file', 'root_img', 'volatile_img', 'private_img']:
