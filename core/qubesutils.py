@@ -1400,7 +1400,7 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_s
     vmproc = None
     if appvm != None:
         # Prepare the backup target (Qubes service call)
-        backup_target = "QUBESRPC qubes.Restore none"
+        backup_target = "QUBESRPC qubes.Restore dom0"
 
         # does the vm exist?
         qvm_collection = QubesVmCollection()
@@ -1524,7 +1524,7 @@ def backup_restore_header(restore_target, passphrase, encrypt=False, appvm=None)
 
     if appvm != None:
         # Prepare the backup target (Qubes service call)
-        restore_command = "QUBESRPC qubes.Restore none"
+        restore_command = "QUBESRPC qubes.Restore dom0"
 
         # does the vm exist?
         qvm_collection = QubesVmCollection()
