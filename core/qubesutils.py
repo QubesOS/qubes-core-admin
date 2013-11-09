@@ -779,12 +779,7 @@ def file_to_backup (file_path, sz = None):
 
 def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_callback = print_stdout):
     """If vms = None, include all (sensible) VMs; exclude_list is always applied"""
-    '''
-    if not os.path.exists (base_backup_dir):
-        raise QubesException("The target directory doesn't exist!")
-
     files_to_backup = file_to_backup (system_path["qubes_store_filename"])
-    '''
 
     if exclude_list is None:
         exclude_list = []
@@ -969,6 +964,7 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
         fmt="{{0:-^{0}}}-+".format(f["width"] + 1)
         s += fmt.format('-')
     print_callback(s)
+    # TODO: check at least if backing up to local drive
     '''
     stat = os.statvfs(base_backup_dir)
     backup_fs_free_sz = stat.f_bsize * stat.f_bavail
