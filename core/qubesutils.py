@@ -1460,6 +1460,13 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_s
         if hmacfile != filename + ".hmac":
             raise QubesException("ERROR: expected hmac for {}, but got {}".format(filename, hmacfile))
 
+        # skip qubes.xml after receiving its hmac to skip both of them
+        if filename == 'qubes.xml.000':
+            print_callback("Ignoring already processed qubes.xml")
+            continue
+
+        # FIXME: skip VMs not selected for restore
+
         print_callback("Verifying file "+filename)
 
         print os.path.join(backup_tmpdir,filename)
