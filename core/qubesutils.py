@@ -1342,6 +1342,7 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_s
 
                 self.print_callback("Extracting file "+filename+" to "+system_path["qubes_base_dir"])
 
+                pipe = open(self.restore_pipe,'r+b')
                 if self.tar2_command == None:
                     # FIXME: Make the extraction safer by avoiding to erase other vms:
                     # - extracting directly to the target directory (based on the vm name and by using the --strip=2).
@@ -1349,9 +1350,8 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_s
                     # marmarek: use other (local) variable for command line
                     self.tar2_command = ['tar', '--tape-length','1000000', '-C', system_path["qubes_base_dir"], '-xvf', self.restore_pipe]
                     self.print_callback("Running command "+str(self.tar2_command))
-                    self.tar2_command = subprocess.Popen(self.tar2_command,stdin=subprocess.PIPE)
+                    self.tar2_command = subprocess.Popen(self.tar2_command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
-                pipe = open(self.restore_pipe,'r+b')
                 if self.encrypted:
                     # Start decrypt
                     encryptor  = subprocess.Popen (["openssl", "enc", "-d", "-aes-256-cbc", "-pass", "pass:"+passphrase], stdin=open(filename,'rb'), stdout=subprocess.PIPE)
@@ -1364,11 +1364,13 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_s
 
                 pipe.close()
 
-                self.print_callback("Run error:"+run_error)
-		self.print_callback(str(self.tar2_command.poll()))
-
-                if self.tar2_command.poll() != None:
-                    if self.tar2_command.poll() != 0:
+                # tar2 input closed, wait for either it finishes, or prompt for the next
+                # file part; in both cases we can use read() on stderr - in the former case
+                # it will return "" (EOF)
+                tar2_stderr=self.tar2_command.stderr.readline()
+                if tar2_stderr == "":
+                    # EOF, so collect process exit status
+                    if self.tar2_command.wait() != 0:
                         raise QubesException("ERROR: unable to extract files for {0}.".format(filename))
                     else:
                         # Finished extracting the tar file
