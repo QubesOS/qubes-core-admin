@@ -1027,7 +1027,7 @@ def backup_do_copy(base_backup_dir, files_to_backup, passphrase, progress_callba
         qvm_collection = QubesVmCollection()
         qvm_collection.lock_db_for_reading()
         qvm_collection.load()
-    
+
         vm = qvm_collection.get_vm_by_name(appvm)
         if vm is None or vm.qid not in qvm_collection:
             raise QubesException("VM {0} does not exist".format(appvm))
@@ -1093,7 +1093,7 @@ def backup_do_copy(base_backup_dir, files_to_backup, passphrase, progress_callba
                 tar_final_cmd = ["tar", "-cO", "--posix", "-C", self.base_dir, filename]
                 final_proc  = subprocess.Popen (tar_final_cmd, stdin=subprocess.PIPE, stdout=self.backup_stdout)
                 final_proc.wait()
-            
+
                 # Delete the file as we don't need it anymore
                 print "Removing file",filename
                 os.remove(filename)
@@ -1148,7 +1148,7 @@ def backup_do_copy(base_backup_dir, files_to_backup, passphrase, progress_callba
             chunkfile = backup_tempfile + "." + "%03d" % i
             i += 1
             chunkfile_p = open(chunkfile,'wb')
-            
+
             if encrypt:
                 # Start encrypt
                 # If no cipher is provided, the data is forwarded unencrypted !!!
@@ -1193,15 +1193,12 @@ def backup_do_copy(base_backup_dir, files_to_backup, passphrase, progress_callba
                 run_error="paused"
             else:
                 print "Finished tar sparse with error",tar_sparse.poll()
-            
-            pipe.close()
 
-    # Close the backup target and wait for it to finish
-    #backup_stdout.close()
+            pipe.close()
 
     to_send.put("FINISHED")
     send_proc.join()
-    
+
     if send_proc.exitcode != 0:
         raise QubesException("Failed to send backup: error in the sending process")
 
@@ -1380,7 +1377,7 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_s
                 else:
                     self.print_callback("Releasing next chunck")
                     self.tar2_command.stdin.write("\n")
-            
+
                 # Delete the file as we don't need it anymore
                 self.print_callback("Removing file "+filename)
                 os.remove(filename)
@@ -1407,7 +1404,7 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_s
         qvm_collection = QubesVmCollection()
         qvm_collection.lock_db_for_reading()
         qvm_collection.load()
-    
+
         vm = qvm_collection.get_vm_by_name(appvm)
         if vm is None or vm.qid not in qvm_collection:
             raise QubesException("VM {0} does not exist".format(appvm))
@@ -1557,7 +1554,7 @@ def backup_restore_header(restore_target, passphrase, encrypt=False, appvm=None)
     if vmproc.poll() != None:
         error = vmproc.stderr.read()
         print error
-	print vmproc.poll(),command.poll()
+        print vmproc.poll(),command.poll()
         raise QubesException("ERROR: Immediate VM error while retrieving backup headers:{0}".format(error))
 
     filename = "qubes.xml.000"
@@ -1651,7 +1648,7 @@ def backup_restore_prepare(backup_dir, qubes_xml, passphrase, options = {}, host
     backup_collection = QubesVmCollection(store_filename = qubes_xml)
     backup_collection.lock_db_for_reading()
     backup_collection.load()
-    
+
     if host_collection is None:
         host_collection = QubesVmCollection()
         host_collection.lock_db_for_reading()
