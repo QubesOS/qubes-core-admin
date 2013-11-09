@@ -1445,18 +1445,24 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_s
     else:
         filelist_pipe = command.stdout
 
-    while command.poll() == None and vmproc.poll() == None:
+    while True:
 
         filename = filelist_pipe.readline().strip(" \t\r\n")
 
         print_callback("Getting new file:"+filename)
 
+        if not filename or filename=="EOF":
+            break
+
         hmacfile = filelist_pipe.readline().strip(" \t\r\n")
-
         print_callback("Getting hmac:"+hmacfile)
-        
-        print_callback("Verifying file"+filename)
 
+        if hmacfile != filename + ".hmac":
+            raise QubesException("ERROR: expected hmac for {}, but got {}".format(filename, hmacfile))
+
+        print_callback("Verifying file "+filename)
+
+        print os.path.join(backup_tmpdir,filename)
         hmac_proc = subprocess.Popen (["openssl", "dgst", "-hmac", passphrase], stdin=open(os.path.join(backup_tmpdir,filename),'rb'), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout,stderr = hmac_proc.communicate()
 
@@ -1474,11 +1480,11 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_s
             else:
                 raise QubesException("ERROR: invalid hmac for file {0}: {1}. Is the passphrase correct?".format(filename,load_hmac(stdout)))
 
-    if command.poll() != 0:
-        raise QubesException("ERROR: unable to read the qubes backup file {0}. Is it really a backup?".format(backup_dir))
-    if vmproc.poll() != 0:
-        raise QubesException("ERROR: unable to read the qubes backup {0} because of a VM error: {1}".format(backup_dir,vmproc.stderr.read()))
-    
+    if command.wait() != 0:
+        raise QubesException("ERROR: unable to read the qubes backup file {0} ({1}). Is it really a backup?".format(backup_dir, command.wait()))
+    if vmproc:
+        if vmproc.wait() != 0:
+            raise QubesException("ERROR: unable to read the qubes backup {0} because of a VM error: {1}".format(backup_dir,vmproc.stderr.read()))
     print "Extraction process status:",extract_proc.exitcode
 
     to_extract.put("FINISHED")
