@@ -789,12 +789,11 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
     if exclude_list is None:
         exclude_list = []
 
-    qvm_collection = None
-    if vms_list is None:
-        qvm_collection = QubesVmCollection()
-        qvm_collection.lock_db_for_writing()
-        qvm_collection.load()
+    qvm_collection = QubesVmCollection()
+    qvm_collection.lock_db_for_writing()
+    qvm_collection.load()
 
+    if vms_list is None:
         all_vms = [vm for vm in qvm_collection.values()]
         selected_vms = [vm for vm in all_vms if vm.include_in_backups]
         appvms_to_backup = [vm for vm in selected_vms if vm.is_appvm() and not vm.internal]
@@ -910,10 +909,11 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
         print_callback(s)
 
     # Initialize backup flag on all VMs
+    vms_for_backup_qid = [vm.qid for vm in vms_for_backup]
     for vm in qvm_collection.values():
         vm.backup_content = False
 
-        if vm in vms_for_backup:
+        if vm.qid in vms_for_backup_qid:
             vm.backup_content = True
             vm.backup_size = vm.get_disk_utilization()
             vm.backup_path = vm.dir_path.split(os.path.normpath(system_path["qubes_base_dir"])+"/")[1]
