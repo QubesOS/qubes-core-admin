@@ -1630,9 +1630,9 @@ def backup_restore_header(restore_target, passphrase, encrypt=False, appvm=None)
 
             tarhead_command.wait()
             if encryptor:
-                if encryptor.poll() != 0:
+                if encryptor.wait() != 0:
                     raise QubesException("ERROR: unable to decrypt file {0}".format(filename))
-            if tarhead_command.poll() != 0:
+            if tarhead_command.wait() != 0:
                     raise QubesException("ERROR: unable to extract the qubes.xml file. Is archive encrypted?")
 
             return (backup_tmpdir,"qubes.xml")
