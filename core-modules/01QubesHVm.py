@@ -251,6 +251,15 @@ class QubesHVm(QubesVm):
         else:
             return -1
 
+    def start(self, *args, **kwargs):
+        try:
+            super(QubesHVm, self).start(*args, **kwargs)
+        except QubesException as e:
+            if xc.physinfo()['virt_caps'].count('hvm') == 0:
+                raise QubesException("Cannot start HVM without VT-x/AMD-v enabled")
+            else:
+                raise
+
     def start_guid(self, verbose = True, notify_function = None):
         # If user force the guiagent, start_guid will mimic a standard QubesVM
         if self.guiagent_installed:
