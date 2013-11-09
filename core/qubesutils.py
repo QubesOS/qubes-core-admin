@@ -916,7 +916,7 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
         if vm in vms_for_backup:
             vm.backup_content = True
             vm.backup_size = vm.get_disk_utilization()
-            vm.backup_path = vm.dir_path.split(os.path.normpath(qubes_base_dir)+"/")[1]
+            vm.backup_path = vm.dir_path.split(os.path.normpath(system_path["qubes_base_dir"])+"/")[1]
 
     qvm_collection.save()
     # FIXME: should be after backup completed
@@ -1118,7 +1118,7 @@ def backup_do_copy(base_backup_dir, files_to_backup, passphrase, progress_callba
     for filename in files_to_backup:
         print "Backing up",filename
 
-        backup_tempfile = os.path.join(backup_tmpdir,filename["path"].split(os.path.normpath(qubes_base_dir)+"/")[1])
+        backup_tempfile = os.path.join(backup_tmpdir,filename["path"].split(os.path.normpath(system_path["qubes_base_dir"])+"/")[1])
         print "Using temporary location:",backup_tempfile
 
         # Ensure the temporary directory exists
@@ -1127,8 +1127,8 @@ def backup_do_copy(base_backup_dir, files_to_backup, passphrase, progress_callba
             os.makedirs(os.path.dirname(backup_tempfile))
 
         # The first tar cmd can use any complex feature as we want. Files will be verified before untaring this.
-        tar_cmdline = ["tar", "-Pc", "-f", backup_pipe,'--sparse','--tape-length',str(1000000),'-C',qubes_base_dir,
-            filename["path"].split(os.path.normpath(qubes_base_dir)+"/")[1]
+        tar_cmdline = ["tar", "-Pc", "-f", backup_pipe,'--sparse','--tape-length',str(1000000),'-C',system_path["qubes_base_dir"],
+            filename["path"].split(os.path.normpath(system_path["qubes_base_dir"])+"/")[1]
             ]
 
         print " ".join(tar_cmdline)
@@ -1348,13 +1348,14 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_s
                 if filename == "FINISHED":
                     break
 
-                self.print_callback("Extracting file "+filename+" to "+qubes_base_dir)
+                self.print_callback("Extracting file "+filename+" to "+system_path["qubes_base_dir"])
 
                 if self.tar2_command == None:
                     # FIXME: Make the extraction safer by avoiding to erase other vms:
                     # - extracting directly to the target directory (based on the vm name and by using the --strip=2).
                     # - ensuring that the leading slashs are ignored when extracting (can also be obtained by running with --strip ?)
-                    self.tar2_command = ['tar', '--tape-length','1000000', '-C', qubes_base_dir, '-xvf', self.restore_pipe]
+                    # marmarek: use other (local) variable for command line
+                    self.tar2_command = ['tar', '--tape-length','1000000', '-C', system_path["qubes_base_dir"], '-xvf', self.restore_pipe]
                     self.print_callback("Running command "+str(self.tar2_command))
                     self.tar2_command = subprocess.Popen(self.tar2_command,stdin=subprocess.PIPE)
 
