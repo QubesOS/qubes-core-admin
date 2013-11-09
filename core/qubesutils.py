@@ -1050,6 +1050,7 @@ def backup_do_copy(base_backup_dir, files_to_backup, passphrase, progress_callba
         # If not APPVM, STDOUT is a local file
         backup_stdout = open(backup_target,'wb')
 
+    global blocks_backedup
     blocks_backedup = 0
     progress = blocks_backedup * 11 / total_backup_sz
     progress_callback(progress)
@@ -1098,9 +1099,7 @@ def backup_do_copy(base_backup_dir, files_to_backup, passphrase, progress_callba
                 os.remove(filename)
 
             print "Finished sending thread"
- 
-    global blocks_backedup
-    blocks_backedup = 0
+
     def compute_progress(new_size, total_backup_sz):
         global blocks_backedup
         blocks_backedup += new_size
@@ -1458,9 +1457,9 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_s
                 raise QubesException("ERROR: invalid hmac for file {0}: {1}. Is the passphrase correct?".format(filename,load_hmac(stdout)))
 
     if command.poll() != 0:
-        raise QubesException("ERROR: unable to read the qubes backup file {0}. Is it really a backup?".format(restore_target))
+        raise QubesException("ERROR: unable to read the qubes backup file {0}. Is it really a backup?".format(backup_dir))
     if vmproc.poll() != 0:
-        raise QubesException("ERROR: unable to read the qubes backup {0} because of a VM error: {1}".format(restore_target,vmproc.stderr.read()))
+        raise QubesException("ERROR: unable to read the qubes backup {0} because of a VM error: {1}".format(backup_dir,vmproc.stderr.read()))
     
     print "Extraction process status:",extract_proc.exitcode
 
