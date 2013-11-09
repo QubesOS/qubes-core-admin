@@ -1215,7 +1215,7 @@ def backup_do_copy(base_backup_dir, files_to_backup, passphrase, progress_callba
 ' - Returns if
 ' -     one of the monitored processes error out (streamproc, hmac, vmproc, addproc), along with the processe that failed
 ' -     all of the monitored processes except vmproc finished successfully (vmproc termination is controlled by the python script)
-' -     streamproc does not delivers any data anymore (return with the error "paused")
+' -     streamproc does not delivers any data anymore (return with the error "")
 '''
 def wait_backup_feedback(progress_callback, in_stream, streamproc, backup_target, total_backup_sz, hmac=None, vmproc=None, addproc=None, remove_trailing_bytes=0):
 
