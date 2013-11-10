@@ -44,9 +44,10 @@ class QubesWniVmStorage(QubesVmStorage):
     def __init__(self, *args, **kwargs):
         super(QubesWniVmStorage, self).__init__(*args, **kwargs)
         # Use the user profile as "private.img"
-        self.private_img = os.path.join("c:\\Users", self._get_username())
-
-        self.home_root = 'c:\\Users'
+        self.home_root = win32profile.GetProfilesDirectory()
+        # FIXME: the assignment below may not always be correct,
+        # but GetUserProfileDirectory needs a user token...
+        self.private_img = os.path.join(self.home_root, self._get_username())
 
         # Pass paths for WNI libvirt driver
         os.putenv("WNI_DRIVER_QUBESDB_PATH", system_path['qubesdb_daemon_path'])
