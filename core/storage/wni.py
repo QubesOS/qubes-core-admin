@@ -28,6 +28,8 @@ import os.path
 import win32api
 import win32net
 import win32netcon
+import win32security
+import win32profile
 import pywintypes
 import md5
 
@@ -90,6 +92,9 @@ class QubesWniVmStorage(QubesVmStorage):
 
     def remove_from_disk(self):
         try:
+            sid = win32security.LookupAccountName(None, self._get_username())[0]
+            string_sid = win32security.ConvertSidToStringSid(sid)
+            win32profile.DeleteProfile(string_sid)
             win32net.NetUserDel(None, self._get_username())
         except pywintypes.error, details:
             if details[0] == 2221:
