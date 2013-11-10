@@ -79,7 +79,8 @@ class QubesWniVmStorage(QubesVmStorage):
         user_data['flags'] = (
                 win32netcon.UF_NORMAL_ACCOUNT |
                 win32netcon.UF_SCRIPT |
-                win32netcon.UF_DONT_EXPIRE_PASSWD
+                win32netcon.UF_DONT_EXPIRE_PASSWD |
+                win32netcon.UF_PASSWD_CANT_CHANGE
                 )
         user_data['priv'] = win32netcon.USER_PRIV_USER
         user_data['home_dir'] = home_dir
