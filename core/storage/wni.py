@@ -31,7 +31,7 @@ import win32netcon
 import win32security
 import win32profile
 import pywintypes
-import md5
+import random
 
 from qubes.storage import QubesVmStorage
 from qubes.qubes import QubesException,system_path
@@ -53,30 +53,28 @@ class QubesWniVmStorage(QubesVmStorage):
         os.putenv("WNI_DRIVER_QUBESDB_PATH", system_path['qubesdb_daemon_path'])
         os.putenv("WNI_DRIVER_QREXEC_PATH", system_path['qrexec_agent_path'])
 
-    def _get_secret(self):
-        # TODO: some machine-specific secret (accessible only to Administrator)
-        return ""
-
     def _get_username(self, vmname = None):
         if vmname is None:
             vmname = self.vm.name
         return "qubes-vm-%s" % vmname
 
-    def _get_password(self, vmname = None):
+    def _get_random_password(self, vmname = None):
         if vmname is None:
             vmname = self.vm.name
-        return md5.md5("%s-%s" % (vmname, self._get_secret())).hexdigest()
+        return '%x' % random.SystemRandom().getrandombits(256)
 
     def get_config_params(self):
         return {}
 
     def create_on_disk_private_img(self, verbose, source_template = None):
+        # FIXME: this may not always be correct
         home_dir = os.path.join(self.home_root, self._get_username())
         # Create user data in information level 1 (PyUSER_INFO_1) format.
         user_data = {}
         user_data['name'] = self._get_username()
         user_data['full_name'] = self._get_username()
-        user_data['password'] = self._get_password()
+        # libvirt driver doesn't need to know the password anymore
+        user_data['password'] = self._get_random_password()
         user_data['flags'] = (
                 win32netcon.UF_NORMAL_ACCOUNT |
                 win32netcon.UF_SCRIPT |
@@ -113,12 +111,7 @@ class QubesWniVmStorage(QubesVmStorage):
         user_data['name'] = self._get_username(new_name)
         win32net.NetUserSetInfo(None,
                 self._get_username(old_name), 0, user_data)
-        win32net.NetUserChangePassword(None,
-                self._get_username(new_name),
-                self._get_password(old_name),
-                self._get_password(new_name))
         #TODO: rename user profile
-
 
     def verify_files(self):
         if not os.path.exists (self.vmdir):
