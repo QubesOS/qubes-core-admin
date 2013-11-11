@@ -51,7 +51,7 @@ class QubesWniVmStorage(QubesVmStorage):
 
         # Pass paths for WNI libvirt driver
         os.putenv("WNI_DRIVER_QUBESDB_PATH", system_path['qubesdb_daemon_path'])
-        os.putenv("WNI_DRIVER_QREXEC_PATH", system_path['qrexec_agent_path'])
+        os.putenv("WNI_DRIVER_QREXEC_AGENT_PATH", system_path['qrexec_agent_path'])
 
     def _get_username(self, vmname = None):
         if vmname is None:
