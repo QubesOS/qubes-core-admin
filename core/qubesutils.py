@@ -1416,6 +1416,13 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_s
         # If APPVM, STDOUT is a PIPE
         vmproc = vm.run(command = backup_target, passio_popen = True)
         vmproc.stdin.write(backup_dir.replace("\r","").replace("\n","")+"\n")
+
+        # Send to tar2qfile the VMs that should be extracted
+        vmpaths = []
+        for vmobj in vms.values():
+            vmpaths.append(vmobj.backup_path)
+        vmproc.stdin.write(" ".join(vmpaths)+"\n")
+
         backup_stdin = vmproc.stdout
         tar1_command = ['/usr/libexec/qubes/qfile-dom0-unpacker', str(os.getuid()), backup_tmpdir, '-v']
     else:
@@ -1560,8 +1567,12 @@ def backup_restore_header(restore_target, passphrase, encrypt=False, appvm=None)
         # If APPVM, STDOUT is a PIPE
         vmproc = vm.run(command = restore_command, passio_popen = True, passio_stderr = True)
         vmproc.stdin.write(restore_target.replace("\r","").replace("\n","")+"\n")
+        
+        # Ask to tar2qfile to only extract qubes.xml.*
+        vmproc.stdin.write("qubes.xml\n")
+
         tar1_command = ['/usr/libexec/qubes/qfile-dom0-unpacker', str(os.getuid()), backup_tmpdir, '-v']
-        # extract only qubes.xml.000 and qubes.xml.000.hmac
+        # Ask qfile-dom0-unpacker to extract only qubes.xml.000 and qubes.xml.000.hmac
         tar1_env['UPDATES_MAX_FILES'] = '2'
     else:
         # Check source file
