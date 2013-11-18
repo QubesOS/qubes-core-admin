@@ -124,7 +124,7 @@ def main():
                       help="Do 'xl unpause' for the VM(s) (can be combined this with --all and --wait)")
 
     parser.add_option ("-p", "--pass-io", action="store_true", dest="passio", default=False,
-                      help="Pass stdin/stdout/stderr from remote program")
+                      help="Pass stdin/stdout/stderr from remote program (implies -q)")
 
     parser.add_option ("--localcmd", action="store", dest="localcmd", default=None,
                       help="With --pass-io, pass stdin/stdout/stderr to the given program")
@@ -137,6 +137,8 @@ def main():
 
     (options, args) = parser.parse_args ()
 
+    if options.passio and options.run_on_all_running:
+        parser.error ("Options --all and --pass-io cannot be used together")
 
     if options.passio:
         options.verbose = False
