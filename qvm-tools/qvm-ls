@@ -40,16 +40,16 @@ fields = {
              + ('>' if vm.is_disposablevm() else '')\
              + ('}' if vm.is_netvm() else '')"},
 
-    "type": {"func": "'Tpl' if vm.is_template() else \
-             ('Proxy' if vm.is_proxyvm() else \
-             (' Net' if vm.is_netvm() else \
-             ('HVM' if vm.type == 'HVM' else '')))"},
+    "type": {"func": "'HVM' if vm.type == 'HVM' else \
+             ('Tpl' if vm.is_template() else \
+             ('' if vm.type in ['AppVM', 'DisposableVM'] else \
+             vm.type.replace('VM','')))"},
 
     "updbl" : {"func": "'Yes' if vm.updateable else ''"},
 
     "template": {"func": "'n/a' if vm.is_template() else\
                  ('None' if vm.template is None else\
-                 qvm_collection[vm.template.qid].name)"},
+                 vm.template.name)"},
 
     "netvm": {"func": "'n/a' if vm.is_netvm() and not vm.is_proxyvm() else\
               ('*' if vm.uses_default_netvm else '') +\
@@ -165,8 +165,8 @@ def main():
 
     # Now, the AppVMs without template (or with template not included in the list)...
     for appvm in vms_list:
-        if appvm.is_appvm() and (appvm.template is None or \
-            appvm.template not in vms_list):
+        if appvm.is_appvm() and not appvm.is_template() and \
+            (appvm.template is None or appvm.template not in vms_list):
             vms_to_display.append (appvm)
 
     # Now, the template, and all its AppVMs...
