@@ -475,9 +475,12 @@ def main():
             exit (1)
 
         property = args[1]
-        do_set(qvm_collection, vm, property, args[2:])
-        qvm_collection.save()
-        qvm_collection.unlock_db()
+        if do_set(qvm_collection, vm, property, args[2:]):
+            qvm_collection.save()
+            qvm_collection.unlock_db()
+        else:
+            qvm_collection.unlock_db()
+            exit(1)
 
 
     else: 
