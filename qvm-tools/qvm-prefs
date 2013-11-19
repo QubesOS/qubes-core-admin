@@ -49,7 +49,7 @@ def do_list(vm):
     print fmt.format ("pcidevs", vm.pcidevs)
     if vm.template is None:
         print fmt.format ("root img", vm.root_img)
-    if vm.is_template():
+    if hasattr(vm, "rootcow_img") and vm.rootcow_img is not None:
         print fmt.format ("root COW img", vm.rootcow_img)
     if vm.template is not None:
         print fmt.format ("root img", vm.template.root_img)
