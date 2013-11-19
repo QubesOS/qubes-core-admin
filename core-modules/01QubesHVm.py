@@ -137,13 +137,23 @@ class QubesHVm(QubesVm):
             hook(self, verbose, source_template=source_template)
 
     def get_disk_utilization_private_img(self):
-        return 0
+        return self.get_disk_usage(self.private_img)
 
     def get_private_img_sz(self):
-        return 0
+        if not os.path.exists(self.private_img):
+            return 0
+
+        return os.path.getsize(self.private_img)
 
     def resize_private_img(self, size):
-        raise NotImplementedError("HVM has no private.img")
+        assert size >= self.get_private_img_sz(), "Cannot shrink private.img"
+
+        if self.is_running():
+            raise NotImplementedError("Online resize of HVM's private.img not implemented, shutdown the VM first")
+
+        f_private = open (self.private_img, "a+b")
+        f_private.truncate (size)
+        f_private.close ()
 
     def get_config_params(self, source_template=None):
 
@@ -178,9 +188,6 @@ class QubesHVm(QubesVm):
                 params['otherdevs'] = "'script:file:%s,xvdc%s%s'," % (drive_path, type_mode, backend_domain)
         else:
              params['otherdevs'] = ''
-
-        # Disable currently unused private.img - to be enabled when TemplateHVm done
-        params['privatedev'] = ''
 
         if self.timezone.lower() == 'localtime':
              params['localtime'] = '1'
