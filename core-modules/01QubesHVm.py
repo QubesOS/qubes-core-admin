@@ -130,7 +130,7 @@ class QubesHVm(QubesVm):
         # create empty private.img
         f_private = open(self.private_img, "w")
         f_private.truncate(defaults["hvm_private_img_size"])
-        f_root.close()
+        f_private.close()
 
         # fire hooks
         for hook in self.hooks_create_on_disk:
