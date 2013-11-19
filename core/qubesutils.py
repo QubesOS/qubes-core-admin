@@ -1599,19 +1599,22 @@ def backup_restore_header(restore_target, passphrase, encrypt=False, appvm=None)
 
     command.wait()
 
-    if not os.path.exists(os.path.join(backup_tmpdir,filename+".hmac")):
-        raise QubesException("ERROR: header not extracted correctly: {0}".format(os.path.join(backup_tmpdir,filename+".hmac")))
+    # Let the time to vmproc process to crash
+    time.sleep(2)
 
     if vmproc and vmproc.poll() != None and vmproc.poll() != 0:
         error = vmproc.stderr.read()
         print error
         print vmproc.poll(),command.poll()
-        raise QubesException("ERROR: VM error retrieving backup headers")
+        raise QubesException("ERROR: AppVM error retrieving backup headers: {0}".format(error))
     elif command.returncode not in [0,-15,122]:
         error = command.stderr.read()
         print error
         print vmproc.poll(),command.poll()
         raise QubesException("ERROR: retrieving backup headers:{0}".format(error))
+
+    if not os.path.exists(os.path.join(backup_tmpdir,filename+".hmac")):
+        raise QubesException("ERROR: header not extracted correctly: {0}".format(os.path.join(backup_tmpdir,filename+".hmac")))
 
     if vmproc and vmproc.poll() == None:
         vmproc.terminate()
@@ -1639,10 +1642,9 @@ def backup_restore_header(restore_target, passphrase, encrypt=False, appvm=None)
                 encryptor = None
                 tarhead_command = subprocess.Popen(['tar', '--tape-length','1000000', '-xvf', os.path.join(backup_tmpdir,filename)])
 
-            tarhead_command.wait()
             if encryptor:
                 if encryptor.wait() != 0:
-                    raise QubesException("ERROR: unable to decrypt file {0}".format(filename))
+                    raise QubesException("ERROR: unable to decrypt file {0}. Bad password or unencrypted archive?".format(filename))
             if tarhead_command.wait() != 0:
                     raise QubesException("ERROR: unable to extract the qubes.xml file. Is archive encrypted?")
 
