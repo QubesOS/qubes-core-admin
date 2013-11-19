@@ -29,7 +29,7 @@ import sys
 import re
 
 from qubes.qubes import QubesVm,register_qubes_vm_class,xs,xc,dry_run
-from qubes.qubes import QubesException
+from qubes.qubes import QubesException,QubesVmCollection
 from qubes.qubes import system_path,defaults
 
 system_path["config_template_hvm"] = '/usr/share/qubes/vm-template-hvm.conf'
@@ -55,7 +55,6 @@ class QubesHVm(QubesVm):
         attrs.pop('uses_default_kernel')
         attrs.pop('uses_default_kernelopts')
         attrs['dir_path']['eval'] = 'value if value is not None else os.path.join(system_path["qubes_appvms_dir"], self.name)'
-        attrs['volatile_img']['eval'] = 'None'
         attrs['config_file_template']['eval'] = 'system_path["config_template_hvm"]'
         attrs['drive'] = { 'save': 'str(self.drive)' }
         attrs['maxmem'].pop('save')
@@ -65,8 +64,6 @@ class QubesHVm(QubesVm):
         attrs['_start_guid_first']['eval'] = 'True'
         attrs['services']['default'] = "{'meminfo-writer': False}"
 
-        # only standalone HVM supported for now
-        attrs['template']['eval'] = 'None'
         attrs['memory']['default'] = defaults["hvm_memory"]
 
         return attrs
@@ -90,12 +87,29 @@ class QubesHVm(QubesVm):
         if self.guiagent_installed:
             self._start_guid_first = False
 
+        # The QubesHVM can be a template itself, so collect appvms based on it
+        self.appvms = QubesVmCollection()
+
     @property
     def type(self):
         return "HVM"
 
     def is_appvm(self):
         return True
+
+    def is_template(self):
+        # Any non-template based HVM can be a template itself
+        return self.template is None
+
+    @property
+    def template(self):
+        return self._template
+
+    @template.setter
+    def template(self, value):
+        if value and (not value.is_template() or value.type != "HVM"):
+            raise QubesException("Only HVM can be a template for the HVM")
+        self._template = value
 
     def get_clone_attrs(self):
         attrs = super(QubesHVm, self).get_clone_attrs()
@@ -123,11 +137,18 @@ class QubesHVm(QubesVm):
         self.create_config_file()
 
         # create empty disk
-        f_root = open(self.root_img, "w")
-        f_root.truncate(defaults["hvm_disk_size"])
-        f_root.close()
+        if self.template is None:
+            if verbose:
+                print >> sys.stderr, "--> Creating root image: {0}".\
+                    format(self.root_img)
+            f_root = open(self.root_img, "w")
+            f_root.truncate(defaults["hvm_disk_size"])
+            f_root.close()
 
         # create empty private.img
+        if verbose:
+            print >> sys.stderr, "--> Creating private image: {0}".\
+                format(self.private_img)
         f_private = open(self.private_img, "w")
         f_private.truncate(defaults["hvm_private_img_size"])
         f_private.close()
@@ -154,6 +175,14 @@ class QubesHVm(QubesVm):
         f_private = open (self.private_img, "a+b")
         f_private.truncate (size)
         f_private.close ()
+
+    def get_rootdev(self, source_template=None):
+        if self.template:
+            return "'script:snapshot:{template_root}:{volatile},xvda,w',".format(
+                    template_root=self.template.root_img,
+                    volatile=self.volatile_img)
+        else:
+            return "'script:file:{root_img},xvda,w',".format(root_img=self.root_img)
 
     def get_config_params(self, source_template=None):
 
@@ -229,7 +258,23 @@ class QubesHVm(QubesVm):
         return True
 
     def reset_volatile_storage(self, **kwargs):
-        pass
+        assert not self.is_running(), "Attempt to clean volatile image of running VM!"
+
+        source_template = kwargs.get("source_template", self.template)
+
+        if source_template is None:
+            # Nothing to do on non-template based VM
+            return
+
+        if os.path.exists (self.volatile_img):
+           os.remove (self.volatile_img)
+
+        f_volatile = open (self.volatile_img, "w")
+        f_root = open (self.template.root_img, "r")
+        f_root.seek(0, os.SEEK_END)
+        f_volatile.truncate (f_root.tell()) # make empty sparse file of the same size as root.img
+        f_volatile.close ()
+        f_root.close()
 
     @property
     def vif(self):
@@ -259,6 +304,11 @@ class QubesHVm(QubesVm):
             return -1
 
     def start(self, *args, **kwargs):
+        for vm in self.appvms.values():
+            if vm.is_running():
+                raise QubesException("Cannot start HVM template while VMs based on it are running")
+        if self.template and self.template.is_running():
+            raise QubesException("Cannot start the HVM while its template is running")
         try:
             super(QubesHVm, self).start(*args, **kwargs)
         except QubesException as e:

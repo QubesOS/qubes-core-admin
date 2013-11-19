@@ -87,10 +87,6 @@ def main():
         exit (1)
     label = QubesVmLabels[options.label]
 
-    if options.hvm:
-        # Only standalone HVMs are supported for now
-        options.standalone = True
-
     if not options.standalone and options.root is not None:
         print >> sys.stderr, "root.img can be specified only for standalone VMs"
         exit (1)

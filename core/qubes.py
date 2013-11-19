@@ -625,7 +625,11 @@ class QubesVmCollection(dict):
 
         for (vm_class_name, vm_class) in sorted(QubesVmClasses.items(),
                 key=lambda _x: _x[1].load_order):
-            for element in tree.findall(vm_class_name):
+            vms_of_class = tree.findall(vm_class_name)
+            # first non-template based, then template based
+            sorted_vms_of_class = sorted(vms_of_class, key= \
+                    lambda x: str(x.get('template_qid')).lower() != "none")
+            for element in sorted_vms_of_class:
                 try:
                     vm = vm_class(xml_element=element, collection=self)
                     self[vm.qid] = vm

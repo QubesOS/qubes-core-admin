@@ -444,6 +444,19 @@ class QubesVm(object):
         for hook in self.hooks_post_rename:
             hook(self, old_name)
 
+    @property
+    def template(self):
+        return self._template
+
+    @template.setter
+    def template(self, value):
+        # FIXME: check if the value is instance of QubesTemplateVM, not the VM
+        # type. The problem is while this file is loaded, QubesTemplateVM is
+        # not defined yet.
+        if value and (not value.is_template() or value.type != "TemplateVM"):
+            raise QubesException("Only PV template can be a template for the PV VM")
+        self._template = value
+
     def is_template(self):
         return False
 
