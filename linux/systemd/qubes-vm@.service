@@ -1,0 +1,12 @@
+[Unit]
+Description=Start Qubes VM %i
+After=qubes-netvm.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/qvm-start --no-guid %i
+Group=qubes
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

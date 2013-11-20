@@ -120,6 +120,7 @@ class QubesVm(object):
             "debug": { "default": False },
             "default_user": { "default": "user" },
             "qrexec_timeout": { "default": 60 },
+            "autostart": { "default": False, "attr": "_autostart" },
             ##### Internal attributes - will be overriden in __init__ regardless of args
             "config_file_template": { "eval": 'system_path["config_template_pv"]' },
             "icon_path": { "eval": 'os.path.join(self.dir_path, "icon.png") if self.dir_path is not None else None' },
@@ -137,7 +138,7 @@ class QubesVm(object):
             'uses_default_kernel', 'kernel', 'uses_default_kernelopts',\
             'kernelopts', 'services', 'installed_by_rpm',\
             'uses_default_netvm', 'include_in_backups', 'debug',\
-            'default_user', 'qrexec_timeout' ]:
+            'default_user', 'qrexec_timeout', 'autostart' ]:
             attrs[prop]['save'] = 'str(self.%s)' % prop
         # Simple paths
         for prop in ['conf_file', 'root_img', 'volatile_img', 'private_img']:
@@ -443,6 +444,20 @@ class QubesVm(object):
         # fire hooks
         for hook in self.hooks_post_rename:
             hook(self, old_name)
+
+    @property
+    def autostart(self):
+        return self._autostart
+
+    @autostart.setter
+    def autostart(self, value):
+        if value:
+            retcode = subprocess.call(["sudo", "systemctl", "enable", "qubes-vm@%s.service" % self.name])
+        else:
+            retcode = subprocess.call(["sudo", "systemctl", "disable", "qubes-vm@%s.service" % self.name])
+        if retcode != 0:
+            raise QubesException("Failed to set autostart for VM via systemctl")
+        self._autostart = bool(value)
 
     @property
     def template(self):

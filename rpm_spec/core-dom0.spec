@@ -91,6 +91,7 @@ cp linux/systemd/qubes-setupdvm.service $RPM_BUILD_ROOT%{_unitdir}
 cp linux/systemd/qubes-meminfo-writer.service $RPM_BUILD_ROOT%{_unitdir}
 cp linux/systemd/qubes-netvm.service $RPM_BUILD_ROOT%{_unitdir}
 cp linux/systemd/qubes-qmemman.service $RPM_BUILD_ROOT%{_unitdir}
+cp linux/systemd/qubes-vm@.service $RPM_BUILD_ROOT%{_unitdir}
 
 mkdir -p $RPM_BUILD_ROOT/usr/bin/
 cp qvm-tools/qvm-* $RPM_BUILD_ROOT/usr/bin
@@ -299,6 +300,7 @@ fi
 %{_unitdir}/qubes-meminfo-writer.service
 %{_unitdir}/qubes-netvm.service
 %{_unitdir}/qubes-qmemman.service
+%{_unitdir}/qubes-vm@.service
 %attr(0770,root,qubes) %dir /var/lib/qubes
 %attr(0770,root,qubes) %dir /var/lib/qubes/vm-templates
 %attr(0770,root,qubes) %dir /var/lib/qubes/appvms

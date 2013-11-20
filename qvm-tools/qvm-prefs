@@ -42,6 +42,7 @@ def do_list(vm):
     if vm.netvm is not None:
         print fmt.format ("netvm", vm.netvm.name)
     print fmt.format ("updateable?", vm.updateable)
+    print fmt.format ("autostart", vm.autostart)
     print fmt.format ("installed by RPM?", vm.installed_by_rpm)
     print fmt.format ("include in backups", vm.include_in_backups)
     print fmt.format ("dir", vm.dir_path)
@@ -360,6 +361,14 @@ def set_guiagent_installed(vms, vm, args):
     vm.guiagent_installed = bool(eval(args[0].capitalize()))
     return True
 
+def set_autostart(vms, vm, args):
+    if len (args) != 1:
+        print >> sys.stderr, "Missing value (True/False)!"
+        return False
+
+    vm.autostart = bool(eval(args[0].capitalize()))
+    return True
+
 def set_qrexec_timeout(vms, vm, args):
     if len (args) != 1:
         print >> sys.stderr, "Missing timeout value (seconds)!"
@@ -401,6 +410,7 @@ properties = {
     "qrexec_timeout": set_qrexec_timeout,
     "timezone": set_timezone,
     "internal": set_internal,
+    "autostart": set_autostart,
 }
 
 
