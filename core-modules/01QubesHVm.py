@@ -101,15 +101,11 @@ class QubesHVm(QubesVm):
         # Any non-template based HVM can be a template itself
         return self.template is None
 
-    @property
-    def template(self):
-        return self._template
-
-    @template.setter
-    def template(self, value):
-        if value and (not value.is_template() or value.type != "HVM"):
-            raise QubesException("Only HVM can be a template for the HVM")
-        self._template = value
+    @classmethod
+    def is_template_compatible(cls, template):
+        if template and (not template.is_template() or template.type != "HVM"):
+            return False
+        return True
 
     def get_clone_attrs(self):
         attrs = super(QubesHVm, self).get_clone_attrs()

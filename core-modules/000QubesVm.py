@@ -459,17 +459,24 @@ class QubesVm(object):
             raise QubesException("Failed to set autostart for VM via systemctl")
         self._autostart = bool(value)
 
+    @classmethod
+    def is_template_compatible(cls, template):
+        """Check if given VM can be a template for this VM"""
+        # FIXME: check if the value is instance of QubesTemplateVM, not the VM
+        # type. The problem is while this file is loaded, QubesTemplateVM is
+        # not defined yet.
+        if template and (not template.is_template() or template.type != "TemplateVM"):
+            return False
+        return True
+
     @property
     def template(self):
         return self._template
 
     @template.setter
     def template(self, value):
-        # FIXME: check if the value is instance of QubesTemplateVM, not the VM
-        # type. The problem is while this file is loaded, QubesTemplateVM is
-        # not defined yet.
-        if value and (not value.is_template() or value.type != "TemplateVM"):
-            raise QubesException("Only PV template can be a template for the PV VM")
+        if value and not self.is_template_compatible(value):
+            raise QubesException("Incompatible template type %s with VM of type %s" % (value.type, self.type))
         self._template = value
 
     def is_template(self):
