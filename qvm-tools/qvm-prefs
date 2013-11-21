@@ -31,7 +31,7 @@ import sys
 import re
 
 def do_list(vm):
-    label_width = 18
+    label_width = 19
     fmt="{{0:<{0}}}: {{1}}".format(label_width)
 
     print fmt.format ("name", vm.name)
@@ -41,24 +41,24 @@ def do_list(vm):
         print fmt.format ("template", vm.template.name)
     if vm.netvm is not None:
         print fmt.format ("netvm", vm.netvm.name)
-    print fmt.format ("updateable?", vm.updateable)
+    print fmt.format ("updateable", vm.updateable)
     print fmt.format ("autostart", vm.autostart)
-    print fmt.format ("installed by RPM?", vm.installed_by_rpm)
-    print fmt.format ("include in backups", vm.include_in_backups)
+    print fmt.format ("installed_by_rpm", vm.installed_by_rpm)
+    print fmt.format ("include_in_backups", vm.include_in_backups)
     print fmt.format ("dir", vm.dir_path)
     print fmt.format ("config", vm.conf_file)
     print fmt.format ("pcidevs", vm.pcidevs)
     if vm.template is None:
-        print fmt.format ("root img", vm.root_img)
+        print fmt.format ("root_img", vm.root_img)
     if hasattr(vm, "rootcow_img") and vm.rootcow_img is not None:
-        print fmt.format ("root COW img", vm.rootcow_img)
+        print fmt.format ("root_cow_img", vm.rootcow_img)
     if vm.template is not None:
-        print fmt.format ("root img", vm.template.root_img)
+        print fmt.format ("root_img", vm.template.root_img)
     if hasattr(vm, 'volatile_img') and vm.volatile_img is not None:
-        print fmt.format ("root volatile img", vm.volatile_img)
+        print fmt.format ("root_volatile_img", vm.volatile_img)
 
     if hasattr(vm, 'private_img') and vm.private_img is not None:
-        print fmt.format ("private img", vm.private_img)
+        print fmt.format ("private_img", vm.private_img)
     print fmt.format ("vcpus", str(vm.vcpus))
     print fmt.format ("memory", vm.memory)
     if hasattr(vm, 'maxmem'):
@@ -80,7 +80,7 @@ def do_list(vm):
         print fmt.format("debug", "on" if vm.debug else "off")
 
     if hasattr(vm, 'default_user'):
-        print fmt.format("default user", str(vm.default_user))
+        print fmt.format("default_user", str(vm.default_user))
 
     if hasattr(vm, 'qrexec_installed'):
         print fmt.format("qrexec_installed", str(vm.qrexec_installed))
@@ -89,7 +89,7 @@ def do_list(vm):
         print fmt.format("guiagent_installed", str(vm.guiagent_installed))
 
     if hasattr(vm, 'qrexec_timeout'):
-        print fmt.format("qrexec timeout", str(vm.qrexec_timeout))
+        print fmt.format("qrexec_timeout", str(vm.qrexec_timeout))
 
     if hasattr(vm, 'drive'):
         print fmt.format("drive", str(vm.drive))
