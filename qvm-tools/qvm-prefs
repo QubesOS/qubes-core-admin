@@ -102,21 +102,22 @@ def do_list(vm):
 def set_label(vms, vm, args):
     if len (args) != 1:
         print >> sys.stderr, "Missing label name argument!"
-        exit (1)
+        return False
 
     label = args[0]
     if label not in QubesVmLabels:
         print >> sys.stderr, "Wrong label name, supported values are the following:"
         for l in QubesVmLabels.values():
             print >> sys.stderr, "* {0}".format(l.name)
-        exit (1)
+        return False
 
     vm.label = QubesVmLabels[label]
+    return True
 
 def set_memory(vms, vm, args):
     if len (args) != 1:
         print >> sys.stderr, "Missing memory argument!"
-        exit (1)
+        return False
 
     new_memory = int(args[0])
 
@@ -130,6 +131,7 @@ def set_memory(vms, vm, args):
         return False
 
     vm.memory = new_memory
+    return True
 
 def set_maxmem(vms, vm, args):
     if len (args) != 1:
@@ -151,33 +153,37 @@ def set_maxmem(vms, vm, args):
         print >> sys.stderr, "WARNING: new maxmem smaller than memory property - VM will be able to use only 'maxmem' memory amount"
 
     vm.maxmem = new_maxmem
+    return True
 
 def set_mac(vms, vm, args):
     if len (args) != 1:
         print >> sys.stderr, "Missing MAC argument!"
-        exit (1)
+        return False
 
     if not re.match("[0-9a-fA-F:]{17}|auto", args[0]):
         print >> sys.stderr, "Invalid MAC argument!"
         print >> sys.stderr, "Possible values:"
         print >> sys.stderr, "1) auto"
         print >> sys.stderr, "2) MAC in format: XX:XX:XX:XX:XX:XX"
-        exit (1)
+        return False
 
     mac = args[0]
     if mac == "auto":
         mac = None
     vm.mac = mac
+    return True
 
 def set_pcidevs(vms, vm, args):
     if len (args) != 1:
         print >> sys.stderr, "Missing pcidevs argument!"
-        exit (1)
+        return False
 
     if vm.is_running():
         print >>sys.stderr, "Cannot modify PCI devices of running VM, " \
             "use qvm-pci instead"
+        return False
     vm.pcidevs = list(eval(args[0]))
+    return True
 
 def set_netvm(vms, vm, args):
     if len (args) != 1:
@@ -199,13 +205,14 @@ def set_netvm(vms, vm, args):
         netvm = vms.get_vm_by_name (netvm)
         if netvm is None:
             print >> sys.stderr, "A VM with the name '{0}' does not exist in the system.".format(netvm)
-            exit(1)
+            return False
         if not netvm.is_netvm():
             print >> sys.stderr, "VM '{0}' is not a NetVM".format(netvm)
-            exit (1)
+            return False
         vm.uses_default_netvm = False
 
     vm.netvm = netvm
+    return True
 
 def set_kernel(vms, vm, args):
     if len (args) != 1:
@@ -216,7 +223,7 @@ def set_kernel(vms, vm, args):
         print >> sys.stderr, "3) <kernel version>, one of:"
         for k in os.listdir(system_path["qubes_kernels_base_dir"]):
             print >> sys.stderr, "  -", k
-        return
+        return False
 
     kernel = args[0]
     if kernel == "default":
@@ -228,10 +235,11 @@ def set_kernel(vms, vm, args):
     else:
         if not os.path.exists(os.path.join(system_path["qubes_kernels_base_dir"], kernel)):
             print >> sys.stderr, "Kernel version {0} not installed.".format(kernel)
-            exit(1)
+            return False
         vm.uses_default_kernel = False
 
     vm.kernel = kernel
+    return True
 
 def set_template(vms, vm, args):
     if len (args) != 1:
