@@ -721,8 +721,6 @@ class QubesVm(object):
 
             retcode = self.run("while [ \"`blockdev --getsize64 /dev/xvdb`\" -lt {0} ]; do ".format(size) +
                 "head /dev/xvdb > /dev/null; sleep 0.2; done; resize2fs /dev/xvdb", user="root", wait=True)
-        else:
-            retcode = subprocess.check_call(["sudo", "resize2fs", "-f", self.private_img])
         if retcode != 0:
             raise QubesException("resize2fs failed")
 
