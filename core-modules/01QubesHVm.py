@@ -263,7 +263,16 @@ class QubesHVm(QubesVm):
             return
 
         if os.path.exists (self.volatile_img):
-           os.remove (self.volatile_img)
+            if self.debug:
+                if os.path.getmtime(self.template.root_img) > os.path.getmtime(self.volatile_img):
+                    if kwargs.get("verbose", False):
+                        print >>sys.stderr, "--> WARNING: template have changed, resetting root.img"
+                else:
+                    if kwargs.get("verbose", False):
+                        print >>sys.stderr, "--> Debug mode: not resetting root.img"
+                        print >>sys.stderr, "--> Debug mode: if you want to force root.img reset, either update template VM, or remove volatile.img file"
+                    return
+            os.remove (self.volatile_img)
 
         f_volatile = open (self.volatile_img, "w")
         f_root = open (self.template.root_img, "r")
