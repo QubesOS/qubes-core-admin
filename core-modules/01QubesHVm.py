@@ -289,6 +289,19 @@ class QubesHVm(QubesVm):
             return None
         return "vif{0}.+".format(self.stubdom_xid)
 
+    @property
+    def mac(self):
+        if self._mac is not None:
+            return self._mac
+        elif self.template is not None:
+            return self.template.mac
+        else:
+            return "00:16:3E:5E:6C:{qid:02X}".format(qid=self.qid)
+
+    @mac.setter
+    def mac(self, value):
+        self._mac = value
+
     def run(self, command, **kwargs):
         if self.qrexec_installed:
             if 'gui' in kwargs and kwargs['gui']==False:
