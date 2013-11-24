@@ -964,19 +964,10 @@ def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_ca
         fmt="{{0:-^{0}}}-+".format(f["width"] + 1)
         s += fmt.format('-')
     print_callback(s)
-    # TODO: check at least if backing up to local drive
-    '''
-    stat = os.statvfs(base_backup_dir)
-    backup_fs_free_sz = stat.f_bsize * stat.f_bavail
-    print_callback("")
-    if (total_backup_sz > backup_fs_free_sz):
-        raise QubesException("Not enough space available on the backup filesystem!")
 
     if (there_are_running_vms):
         raise QubesException("Please shutdown all VMs before proceeding.")
 
-    print_callback("-> Available space: {0}".format(size_to_human(backup_fs_free_sz)))
-    '''	
     return files_to_backup
 
 def backup_do(base_backup_dir, files_to_backup, progress_callback = None):

@@ -75,6 +75,19 @@ def main():
         print >>sys.stderr, "ERROR: %s" % str(e)
         exit(1)
 
+    total_backup_sz = reduce(lambda size, file: size+file["size"],
+            files_to_backup, 0)
+
+    if not options.appvm:
+        stat = os.statvfs(base_backup_dir)
+        backup_fs_free_sz = stat.f_bsize * stat.f_bavail
+        print
+        if (total_backup_sz > backup_fs_free_sz):
+            print >>sys.stderr, "ERROR: Not enough space available on the backup filesystem!"
+            exit(1)
+
+        print "-> Available space: {0}".format(size_to_human(backup_fs_free_sz))
+
     prompt = raw_input ("Do you want to proceed? [y/N] ")
     if not (prompt == "y" or prompt == "Y"):
         exit (0)
