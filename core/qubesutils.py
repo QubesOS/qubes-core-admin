@@ -1123,7 +1123,7 @@ def backup_do_copy(base_backup_dir, files_to_backup, passphrase,\
         progress = blocks_backedup / float(total_backup_sz)
         progress_callback(int(round(progress*100,2)))
 
-    to_send    = Queue()
+    to_send    = Queue(10)
     send_proc = Send_Worker(to_send, backup_tmpdir, backup_stdout)
     send_proc.start()
 
@@ -1147,7 +1147,7 @@ def backup_do_copy(base_backup_dir, files_to_backup, passphrase,\
         # Prefix the path in archive with filename["subdir"] to have it verified during untar
         tar_cmdline = ["tar", "-Pc", '--sparse',
             "-f", backup_pipe,
-            '--tape-length', str(1000000),
+            '--tape-length', str(100000),
             '-C', os.path.dirname(filename["path"]),
             '--xform', 's:^[a-z]:%s\\0:' % filename["subdir"],
             os.path.basename(filename["path"])
@@ -1487,7 +1487,7 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms,
         def progress_callback(data):
             pass
 
-    to_extract    = Queue()
+    to_extract   = Queue()
     extract_proc = Extract_Worker(queue=to_extract,
             base_dir=backup_tmpdir,
             passphrase=passphrase,
