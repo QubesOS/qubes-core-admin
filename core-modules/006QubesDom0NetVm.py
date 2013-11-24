@@ -26,6 +26,10 @@ from qubes.qubes import defaults
 from qubes.qubes import QubesException,dry_run
 
 class QubesDom0NetVm(QubesNetVm):
+
+    # In which order load this VM type from qubes.xml
+    load_order = 10
+
     def __init__(self, **kwargs):
         super(QubesDom0NetVm, self).__init__(qid=0, name="dom0", netid=0,
                                              dir_path=None,
@@ -34,6 +38,10 @@ class QubesDom0NetVm(QubesNetVm):
                                              label = defaults["template_label"],
                                              **kwargs)
         self.xid = 0
+
+    @property
+    def type(self):
+        return "Dom0NetVM"
 
     def is_running(self):
         return True
@@ -82,9 +90,6 @@ class QubesDom0NetVm(QubesNetVm):
 
         domains = xc.domain_getinfo(0, 1)
         return domains[0]
-
-    def create_xml_element(self):
-        return None
 
     def verify_files(self):
         return True

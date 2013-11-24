@@ -609,10 +609,6 @@ class QubesVmCollection(dict):
     def load(self):
         self.clear()
 
-        dom0vm = QubesDom0NetVm (collection=self)
-        self[dom0vm.qid] = dom0vm
-        self.default_netvm_qid = 0
-
         try:
             tree = lxml.etree.parse(self.qubes_store_file)
         except (EnvironmentError,
@@ -661,6 +657,12 @@ class QubesVmCollection(dict):
         # using 123/udp port)
         if self.clockvm_qid is not None:
             self[self.clockvm_qid].services['ntpd'] = False
+
+        # Add dom0 if wasn't present in qubes.xml
+        if not 0 in self.keys():
+            dom0vm = QubesDom0NetVm (collection=self)
+            self[dom0vm.qid] = dom0vm
+
         return True
 
     def pop(self, qid):
