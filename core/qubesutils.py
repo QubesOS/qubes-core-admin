@@ -1429,6 +1429,13 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms,
                     self.tar2_command = subprocess.Popen(tar2_cmdline,
                             stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
+                common_args = {
+                            'backup_target': pipe,
+                            'total_backup_sz': self.total_size,
+                            'hmac': None,
+                            'vmproc': self.vmproc,
+                            'addproc': self.tar2_command
+                }
                 if self.encrypted:
                     # Start decrypt
                     encryptor  = subprocess.Popen (["openssl", "enc",
@@ -1439,24 +1446,13 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms,
 
                     run_error = wait_backup_feedback(
                             progress_callback=self.compute_progress,
-                            in_stream=encryptor.stdout,
-                            streamproc=encryptor,
-                            backup_target=pipe,
-                            total_backup_sz=self.total_size,
-                            hmac=None,
-                            vmproc=self.vmproc,
-                            addproc=self.tar2_command)
+                            in_stream=encryptor.stdout, streamproc=encryptor,
+                            **common_args)
                 else:
                     run_error = wait_backup_feedback(
                             progress_callback=self.compute_progress,
-                            in_stream=open(filename,"rb"),
-                            streamproc=None,
-                            backup_target=pipe,
-                            total_backup_sz=self.total_size,
-                            hmac=None,
-                            vmproc=self.vmproc,
-                            addproc=self.tar2_command)
-
+                            in_stream=open(filename,"rb"), streamproc=None,
+                            **common_args)
 
                 pipe.close()
 
