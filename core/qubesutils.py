@@ -1963,8 +1963,17 @@ def backup_restore_do(backup_dir, restore_tmpdir, passphrase, restore_info, host
         vms_dirs.append(vm.backup_path+"*")
         vms[vm.name] = vm
 
-    restore_vm_dirs (backup_dir, restore_tmpdir, passphrase, vms_dirs, vms, vms_size, print_callback, error_callback, progress_callback, encrypted, appvm)
-
+    restore_vm_dirs (backup_dir,
+            restore_tmpdir,
+            passphrase=passphrase,
+            vms_dirs=vms_dirs,
+            vms=vms,
+            vms_size=vms_size,
+            print_callback=print_callback,
+            error_callback=error_callback,
+            progress_callback=progress_callback,
+            encrypted=encrypted,
+            appvm=appvm)
 
     # Add VM in right order
     for (vm_class_name, vm_class) in sorted(QubesVmClasses.items(),
