@@ -28,6 +28,7 @@ import sys
 import os
 import subprocess
 import re
+import shutil
 import time
 import grp,pwd
 from datetime import datetime
@@ -913,11 +914,7 @@ def backup_prepare(vms_list = None, exclude_list = [], print_callback = print_st
         if vm.qid in vms_for_backup_qid:
             vm.backup_content = True
             vm.backup_size = vm.get_disk_utilization()
-            vm.backup_path = vm.dir_path.split(os.path.normpath(system_path["qubes_base_dir"])+"/")[1]
-
-    qvm_collection.save()
-    # FIXME: should be after backup completed
-    qvm_collection.unlock_db()
+            vm.backup_path = os.path.relpath(vm.dir_path, system_path["qubes_base_dir"])
 
     # Dom0 user home
     if not 'dom0' in exclude_list:
@@ -929,8 +926,13 @@ def backup_prepare(vms_list = None, exclude_list = [], print_callback = print_st
         subprocess.check_call(['sudo', 'chown', '-R', local_user, home_dir])
 
         home_sz = get_disk_usage(home_dir)
-        home_to_backup = [ { "path" : home_dir, "size": home_sz, "subdir": 'dom0-home'} ]
+        home_to_backup = [ { "path" : home_dir, "size": home_sz, "subdir": 'dom0-home/'} ]
         files_to_backup += home_to_backup
+
+        vm = qvm_collection[0]
+        vm.backup_content = True
+        vm.backup_size = home_sz
+        vm.backup_path = os.path.join('dom0-home', os.path.basename(home_dir))
 
         s = ""
         fmt="{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
@@ -943,6 +945,10 @@ def backup_prepare(vms_list = None, exclude_list = [], print_callback = print_st
         s += fmt.format(size_to_human(home_sz))
 
         print_callback(s)
+
+    qvm_collection.save()
+    # FIXME: should be after backup completed
+    qvm_collection.unlock_db()
 
     total_backup_sz = 0
     for file in files_to_backup:
@@ -1138,10 +1144,12 @@ def backup_do_copy(base_backup_dir, files_to_backup, passphrase,\
 
         # The first tar cmd can use any complex feature as we want. Files will
         # be verified before untaring this.
-        tar_cmdline = ["tar", "-Pc", '--sparse'
+        # Prefix the path in archive with filename["subdir"] to have it verified during untar
+        tar_cmdline = ["tar", "-Pc", '--sparse',
             "-f", backup_pipe,
             '--tape-length', str(1000000),
             '-C', os.path.dirname(filename["path"]),
+            '--xform', 's:^[a-z]:%s\\0:' % filename["subdir"],
             os.path.basename(filename["path"])
             ]
 
@@ -1399,8 +1407,6 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms,
                 if filename == "FINISHED":
                     break
 
-                dirname = os.path.join(system_path["qubes_base_dir"],
-                        os.path.dirname(os.path.relpath(filename)))
                 if BACKUP_DEBUG:
                     self.print_callback("Extracting file "+filename+" to "+dirname)
                 if not os.path.exists(dirname):
@@ -1416,8 +1422,8 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms,
                     #   extracting (can also be obtained by running with --strip ?)
                     tar2_cmdline = ['tar',
                         '--tape-length','1000000',
-                        '-C', dirname,
-                        '-x%sf' % ("v" if BACKUP_DEBUG else ""), self.restore_pipe]
+                        '-xk%sf' % ("v" if BACKUP_DEBUG else ""), self.restore_pipe,
+                        os.path.relpath(filename.rstrip('.000'))]
                     if BACKUP_DEBUG:
                         self.print_callback("Running command "+str(tar2_cmdline))
                     self.tar2_command = subprocess.Popen(tar2_cmdline,
@@ -1521,10 +1527,7 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms,
         vmproc.stdin.write(backup_dir.replace("\r","").replace("\n","")+"\n")
 
         # Send to tar2qfile the VMs that should be extracted
-        vmpaths = []
-        for vmobj in vms.values():
-            vmpaths.append(vmobj.backup_path)
-        vmproc.stdin.write(" ".join(vmpaths)+"\n")
+        vmproc.stdin.write(" ".join(vms_dirs)+"\n")
 
         backup_stdin = vmproc.stdout
         tar1_command = ['/usr/libexec/qubes/qfile-dom0-unpacker',
@@ -1534,7 +1537,7 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms,
 
         tar1_command = ['tar',
             '-ix%sf' % ("v" if BACKUP_DEBUG else ""), backup_dir,
-            '-C', backup_tmpdir]
+            '-C', backup_tmpdir] + vms_dirs
 
     # Remove already processed qubes.xml.000, because qfile-dom0-unpacker will
     # refuse to override files
@@ -1584,7 +1587,12 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms,
                 print_callback("Ignoring already processed qubes.xml")
             continue
 
-        # FIXME: skip VMs not selected for restore
+        if not any(map(lambda x: filename.startswith(x), vms_dirs)):
+            if BACKUP_DEBUG:
+                print_callback("Ignoring VM not selected for restore")
+            os.unlink(filename)
+            os.unlink(hmacfile)
+            continue
 
         if BACKUP_DEBUG:
             print_callback("Verifying file "+filename)
@@ -1840,10 +1848,6 @@ def backup_restore_prepare(backup_dir, qubes_xml, passphrase, options = {},
 
     #### Private functions begin
     def is_vm_included_in_backup (backup_dir, vm):
-        if vm.qid == 0:
-            # Dom0 is not included, obviously
-            return False
-
         if vm.backup_content:
             return True
         else:
@@ -1881,6 +1885,9 @@ def backup_restore_prepare(backup_dir, qubes_xml, passphrase, options = {},
     restore_home = False
     # ... and the actual data
     for vm in backup_vms_list:
+        if vm.qid == 0:
+            # Handle dom0 as special case later
+            continue
         if is_vm_included_in_backup (backup_dir, vm):
             if BACKUP_DEBUG:
                 print vm.name,"is included in backup"
@@ -1950,17 +1957,18 @@ def backup_restore_prepare(backup_dir, qubes_xml, passphrase, options = {},
                 vms_to_restore[vm.name]['good-to-go'] = True
 
     # ...and dom0 home
-    # FIXME, replace this part of code to handle the new backup format using tar
-    if options['dom0-home'] and os.path.exists(backup_dir + '/dom0-home'):
+    if options['dom0-home'] and \
+            is_vm_included_in_backup(backup_dir, backup_collection[0]):
+        vm = backup_collection[0]
         vms_to_restore['dom0'] = {}
+        vms_to_restore['dom0']['subdir'] = vm.backup_path
+        vms_to_restore['dom0']['size'] = vm.backup_size
         local_user = grp.getgrnam('qubes').gr_mem[0]
 
-        dom0_homes = os.listdir(backup_dir + '/dom0-home')
-        if len(dom0_homes) > 1:
-            raise QubesException("More than one dom0 homedir in backup")
+        dom0_home = vm.backup_path
 
-        vms_to_restore['dom0']['username'] = dom0_homes[0]
-        if dom0_homes[0] != local_user:
+        vms_to_restore['dom0']['username'] = os.path.basename(dom0_home)
+        if vms_to_restore['dom0']['username'] != local_user:
             vms_to_restore['dom0']['username-mismatch'] = True
             if not options['ignore-dom0-username-mismatch']:
                 vms_to_restore['dom0']['good-to-go'] = False
@@ -2092,8 +2100,12 @@ def backup_restore_do(backup_dir, restore_tmpdir, passphrase, restore_info,
             continue
         vm = vm_info['vm']
         vms_size += vm.backup_size
-        vms_dirs.append(vm.backup_path+"*")
+        vms_dirs.append(vm.backup_path)
         vms[vm.name] = vm
+
+    if 'dom0' in restore_info.keys() and restore_info['dom0']['good-to-go']:
+        vms_dirs.append('dom0-home')
+        vms_size += restore_info['dom0']['size']
 
     restore_vm_dirs (backup_dir,
             restore_tmpdir,
@@ -2119,12 +2131,11 @@ def backup_restore_do(backup_dir, restore_tmpdir, passphrase, restore_info,
             if not vm.__class__ == vm_class:
                 continue
             print_callback("-> Restoring {type} {0}...".format(vm.name, type=vm_class_name))
-            retcode = subprocess.call (["mkdir", "-p", vm.dir_path])
+            retcode = subprocess.call (["mkdir", "-p", os.path.dirname(vm.dir_path)])
             if retcode != 0:
                 error_callback("*** Cannot create directory: {0}?!".format(dest_dir))
                 error_callback("Skipping...")
                 continue
-
 
             template = None
             if vm.template is not None:
@@ -2139,6 +2150,9 @@ def backup_restore_do(backup_dir, restore_tmpdir, passphrase, restore_info,
                                                    dir_path=vm.dir_path,
                                                    template=template,
                                                    installed_by_rpm=False)
+
+                shutil.move(os.path.join(restore_tmpdir, vm.backup_path),
+                        new_vm.dir_path)
 
                 new_vm.verify_files()
             except Exception as err:
@@ -2181,10 +2195,10 @@ def backup_restore_do(backup_dir, restore_tmpdir, passphrase, restore_info,
 
     # ... and dom0 home as last step
     if 'dom0' in restore_info.keys() and restore_info['dom0']['good-to-go']:
-        backup_info = restore_info['dom0']
+        backup_path = restore_info['dom0']['subdir']
         local_user = grp.getgrnam('qubes').gr_mem[0]
         home_dir = pwd.getpwnam(local_user).pw_dir
-        backup_dom0_home_dir = backup_dir + '/dom0-home/' + backup_info['username']
+        backup_dom0_home_dir = os.path.join(restore_tmpdir, backup_path)
         restore_home_backupdir = "home-pre-restore-{0}".format (time.strftime("%Y-%m-%d-%H%M%S"))
 
         print_callback("-> Restoring home of user '{0}'...".format(local_user))
