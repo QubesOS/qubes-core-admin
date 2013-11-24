@@ -1104,7 +1104,7 @@ def backup_do_copy(base_backup_dir, files_to_backup, passphrase, progress_callba
     for filename in files_to_backup:
         print "Backing up",filename
 
-        backup_tempfile = os.path.join(backup_tmpdir,filename["path"].split(os.path.normpath(system_path["qubes_base_dir"])+"/")[1])
+        backup_tempfile = os.path.join(backup_tmpdir, filename["subdir"], os.path.basename(filename["path"]))
         print "Using temporary location:",backup_tempfile
 
         # Ensure the temporary directory exists
@@ -1113,8 +1113,8 @@ def backup_do_copy(base_backup_dir, files_to_backup, passphrase, progress_callba
             os.makedirs(os.path.dirname(backup_tempfile))
 
         # The first tar cmd can use any complex feature as we want. Files will be verified before untaring this.
-        tar_cmdline = ["tar", "-Pc", "-f", backup_pipe,'--sparse','--tape-length',str(1000000),'-C',system_path["qubes_base_dir"],
-            filename["path"].split(os.path.normpath(system_path["qubes_base_dir"])+"/")[1]
+        tar_cmdline = ["tar", "-Pc", "-f", backup_pipe,'--sparse','--tape-length',str(1000000),'-C',os.path.dirname(filename["path"]),
+            os.path.basename(filename["path"])
             ]
 
         print " ".join(tar_cmdline)
@@ -1158,7 +1158,7 @@ def backup_do_copy(base_backup_dir, files_to_backup, passphrase, progress_callba
                 raise QubesException("Failed to perform backup: error with "+run_error)
 
             # Send the chunk to the backup target
-            to_send.put(chunkfile.split(os.path.normpath(backup_tmpdir)+"/")[1])
+            to_send.put(os.path.relpath(chunkfile, backup_tmpdir))
 
             # Close HMAC
             hmac.stdin.close()
@@ -1174,7 +1174,7 @@ def backup_do_copy(base_backup_dir, files_to_backup, passphrase, progress_callba
             hmac_file.close()
 
             # Send the HMAC to the backup target
-            to_send.put(chunkfile.split(os.path.normpath(backup_tmpdir)+"/")[1]+".hmac")
+            to_send.put(os.path.relpath(chunkfile, backup_tmpdir)+".hmac")
 
             if tar_sparse.poll() == None:
                 # Release the next chunk
@@ -1332,16 +1332,19 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms, vms_s
                     break
 
                 self.print_callback("Extracting file "+filename+" to "+system_path["qubes_base_dir"])
+                dirname = os.path.join(system_path["qubes_base_dir"],
+                        os.path.dirname(os.path.relpath(filename)))
+                if not os.path.exists(dirname):
+                    os.makedirs(dirname)
 
                 pipe = open(self.restore_pipe,'r+b')
                 if self.tar2_command == None:
                     # FIXME: Make the extraction safer by avoiding to erase other vms:
                     # - extracting directly to the target directory (based on the vm name and by using the --strip=2).
                     # - ensuring that the leading slashs are ignored when extracting (can also be obtained by running with --strip ?)
-                    # marmarek: use other (local) variable for command line
-                    self.tar2_command = ['tar', '--tape-length','1000000', '-C', system_path["qubes_base_dir"], '-xvf', self.restore_pipe]
-                    self.print_callback("Running command "+str(self.tar2_command))
-                    self.tar2_command = subprocess.Popen(self.tar2_command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+                    tar2_cmdline = ['tar', '--tape-length','1000000', '-C', dirname, '-xvf', self.restore_pipe]
+                    self.print_callback("Running command "+str(tar2_cmdline))
+                    self.tar2_command = subprocess.Popen(tar2_cmdline, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
                 if self.encrypted:
                     # Start decrypt
