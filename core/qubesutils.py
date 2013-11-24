@@ -1229,7 +1229,7 @@ def backup_do_copy(base_backup_dir, files_to_backup, passphrase, progress_callba
 '''
 def wait_backup_feedback(progress_callback, in_stream, streamproc, backup_target, total_backup_sz, hmac=None, vmproc=None, addproc=None, remove_trailing_bytes=0):
 
-    buffer_size = 4096
+    buffer_size = 409600
 
     run_error = None
     run_count = 1
