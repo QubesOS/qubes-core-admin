@@ -1173,6 +1173,8 @@ def backup_do_copy(base_backup_dir, files_to_backup, passphrase, progress_callba
             hmac_file.flush()
             hmac_file.close()
 
+            pipe.close()
+
             # Send the HMAC to the backup target
             to_send.put(os.path.relpath(chunkfile, backup_tmpdir)+".hmac")
 
@@ -1185,7 +1187,6 @@ def backup_do_copy(base_backup_dir, files_to_backup, passphrase, progress_callba
             else:
                 print "Finished tar sparse with error",tar_sparse.poll()
 
-            pipe.close()
 
     to_send.put("FINISHED")
     send_proc.join()
