@@ -30,6 +30,7 @@ from optparse import OptionParser
 
 import os
 import sys
+import getpass
 
 def main():
     usage = "usage: %prog [options] <backup-dir>"
@@ -95,8 +96,7 @@ def main():
         restore_options['exclude'] = options.exclude
 
 
-    passphrase = raw_input("Please enter the pass phrase that will be used to decrypt/verify the backup:\n")
-    passphrase = passphrase.replace("\r","").replace("\n","")
+    passphrase = getpass.getpass("Please enter the pass phrase that will be used to decrypt/verify the backup: ")
 
     print >> sys.stderr, "Checking backup content..."
     restore_tmpdir,qubes_xml = backup_restore_header(backup_dir, passphrase, options.decrypt, appvm=options.appvm)

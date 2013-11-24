@@ -26,6 +26,7 @@ from qubes.qubesutils import backup_prepare, backup_do_copy
 from optparse import OptionParser
 import os
 import sys
+import getpass
 
 def print_progress(progress):
     print >> sys.stderr, "\r-> Backing up files: {0}%...".format (progress),
@@ -92,8 +93,7 @@ def main():
     if not (prompt == "y" or prompt == "Y"):
         exit (0)
 
-    passphrase = raw_input("Please enter the pass phrase that will be used to encrypt/verify the backup:\n")
-    passphrase = passphrase.replace("\r","").replace("\n","")
+    passphrase = getpass.getpass("Please enter the pass phrase that will be used to encrypt/verify the backup: ")
 
     try:
         backup_do_copy(base_backup_dir, files_to_backup, passphrase, progress_callback=print_progress, encrypt=options.encrypt,appvm=options.appvm)
