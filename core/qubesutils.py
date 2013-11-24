@@ -1379,6 +1379,7 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms,
             self.total_size = total_size
             self.blocks_backedup = 0
             self.tar2_command = None
+            self.tar2_current_file = None
 
             self.print_callback = print_callback
             self.error_callback = error_callback
@@ -1408,27 +1409,36 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms,
                     break
 
                 if BACKUP_DEBUG:
-                    self.print_callback("Extracting file "+filename+" to "+dirname)
-                if not os.path.exists(dirname):
-                    os.makedirs(dirname)
+                    self.print_callback("Extracting file "+filename)
 
-                pipe = open(self.restore_pipe,'r+b')
-                if self.tar2_command == None:
-                    # FIXME: Make the extraction safer by avoiding to erase
-                    # other vms:
-                    # - extracting directly to the target directory (based on
-                    #   the vm name and by using the --strip=2).
-                    # - ensuring that the leading slashs are ignored when
-                    #   extracting (can also be obtained by running with --strip ?)
+                if filename.endswith('.000'):
+                    # next file
+                    if self.tar2_command != None:
+                        if self.tar2_command.wait() != 0:
+                            raise QubesException(
+                                    "ERROR: unable to extract files for {0}.".\
+                                    format(self.tar2_current_file))
+                        else:
+                            # Finished extracting the tar file
+                            self.tar2_command = None
+                            self.tar2_current_file = None
+
                     tar2_cmdline = ['tar',
-                        '--tape-length','1000000',
-                        '-xk%sf' % ("v" if BACKUP_DEBUG else ""), self.restore_pipe,
+                        '-xMk%sf' % ("v" if BACKUP_DEBUG else ""), self.restore_pipe,
                         os.path.relpath(filename.rstrip('.000'))]
                     if BACKUP_DEBUG:
                         self.print_callback("Running command "+str(tar2_cmdline))
                     self.tar2_command = subprocess.Popen(tar2_cmdline,
-                            stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+                            stdin=subprocess.PIPE,
+                            stderr=(None if BACKUP_DEBUG else open('/dev/null', 'w')))
+                else:
+                    if BACKUP_DEBUG:
+                        self.print_callback("Releasing next chunck")
+                    self.tar2_command.stdin.write("\n")
+                    self.tar2_command.stdin.flush()
+                self.tar2_current_file = filename
 
+                pipe = open(self.restore_pipe,'wb')
                 common_args = {
                             'backup_target': pipe,
                             'total_backup_sz': self.total_size,
@@ -1456,29 +1466,19 @@ def restore_vm_dirs (backup_dir, backup_tmpdir, passphrase, vms_dirs, vms,
 
                 pipe.close()
 
-                # tar2 input closed, wait for either it finishes, or prompt for
-                # the next file part; in both cases we can use read() on stderr
-                # - in the former case it will return "" (EOF)
-                tar2_stderr=self.tar2_command.stderr.readline()
-                if tar2_stderr == "":
-                    # EOF, so collect process exit status
-                    if self.tar2_command.wait() != 0:
-                        raise QubesException(
-                                "ERROR: unable to extract files for {0}.".\
-                                format(filename))
-                    else:
-                        # Finished extracting the tar file
-                        self.tar2_command = None
-
-                else:
-                    if BACKUP_DEBUG:
-                        self.print_callback("Releasing next chunck")
-                    self.tar2_command.stdin.write("\n")
-
                 # Delete the file as we don't need it anymore
                 if BACKUP_DEBUG:
                     self.print_callback("Removing file "+filename)
                 os.remove(filename)
+
+            if self.tar2_command != None:
+                if self.tar2_command.wait() != 0:
+                    raise QubesException(
+                            "ERROR: unable to extract files for {0}.".\
+                            format(self.tar2_current_file))
+                else:
+                    # Finished extracting the tar file
+                    self.tar2_command = None
 
             if BACKUP_DEBUG:
                 self.print_callback("Finished extracting thread")
@@ -1750,10 +1750,7 @@ def backup_restore_header(restore_target, passphrase,
 
     command.wait()
 
-    # Let the time to vmproc process to crash
-    time.sleep(2)
-
-    if vmproc and vmproc.poll() != None and vmproc.poll() != 0:
+    if vmproc and vmproc.wait() != 0:
         error = vmproc.stderr.read()
         if BACKUP_DEBUG:
             print error
@@ -1806,16 +1803,14 @@ def backup_restore_header(restore_target, passphrase,
                         stdin=open(os.path.join(backup_tmpdir, filename),'rb'),
                         stdout=subprocess.PIPE)
                 tarhead_command = subprocess.Popen(['tar',
-                        '--tape-length','1000000',
-                        '-x%s' % ("v" if BACKUP_DEBUG else "")],
+                        '-xM%s' % ("v" if BACKUP_DEBUG else "")],
                         stdin=encryptor.stdout)
             else:
                 if BACKUP_DEBUG:
                     print "No decryption process required"
                 encryptor = None
                 tarhead_command = subprocess.Popen(['tar',
-                        '--tape-length', '1000000',
-                        '-x%sf' % ("v" if BACKUP_DEBUG else ""),
+                        '-xM%sf' % ("v" if BACKUP_DEBUG else ""),
                         os.path.join(backup_tmpdir, filename)])
 
             if encryptor:
