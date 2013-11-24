@@ -777,7 +777,7 @@ def file_to_backup (file_path, sz = None):
     assert dir == abs_base_dir
     return [ { "path" : file_path, "size": sz, "subdir": subdir} ]
 
-def backup_prepare(base_backup_dir, vms_list = None, exclude_list = [], print_callback = print_stdout):
+def backup_prepare(vms_list = None, exclude_list = [], print_callback = print_stdout):
     """If vms = None, include all (sensible) VMs; exclude_list is always applied"""
     files_to_backup = file_to_backup (system_path["qubes_store_filename"])
 
