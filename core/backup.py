@@ -959,7 +959,8 @@ def backup_restore_prepare(backup_dir, qubes_xml, passphrase, options = {},
             vms_to_restore[vm.name]['vm'] = vm;
             if 'exclude' in options.keys():
                 vms_to_restore[vm.name]['excluded'] = vm.name in options['exclude']
-                vms_to_restore[vm.name]['good-to-go'] = False
+                if vms_to_restore[vm.name]['excluded']:
+                    vms_to_restore[vm.name]['good-to-go'] = False
 
             if host_collection.get_vm_by_name (vm.name) is not None:
                 vms_to_restore[vm.name]['already-exists'] = True
