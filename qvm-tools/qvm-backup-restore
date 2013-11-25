@@ -97,7 +97,7 @@ def main():
 
     appvm = None
     if options.appvm is not None:
-        appvm = qvm_collection.get_vm_by_name(options.appvm)
+        appvm = host_collection.get_vm_by_name(options.appvm)
         if appvm is None:
             print >>sys.stderr, "ERROR: VM {0} does not exist".format(options.appvm)
             exit(1)
@@ -105,7 +105,7 @@ def main():
     passphrase = getpass.getpass("Please enter the pass phrase that will be used to decrypt/verify the backup: ")
 
     print >> sys.stderr, "Checking backup content..."
-    restore_tmpdir,qubes_xml = backup_restore_header(backup_dir, passphrase, encrypted=options.decrypt, appvm=options.appvm)
+    restore_tmpdir,qubes_xml = backup_restore_header(backup_dir, passphrase, encrypted=options.decrypt, appvm=appvm)
 
     restore_info = None
     try:
