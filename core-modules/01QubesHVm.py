@@ -87,9 +87,6 @@ class QubesHVm(QubesVm):
         if self.guiagent_installed:
             self._start_guid_first = False
 
-        # The QubesHVM can be a template itself, so collect appvms based on it
-        self.appvms = QubesVmCollection()
-
     @property
     def type(self):
         return "HVM"
@@ -97,13 +94,9 @@ class QubesHVm(QubesVm):
     def is_appvm(self):
         return True
 
-    def is_template(self):
-        # Any non-template based HVM can be a template itself
-        return self.template is None
-
     @classmethod
     def is_template_compatible(cls, template):
-        if template and (not template.is_template() or template.type != "HVM"):
+        if template and (not template.is_template() or template.type != "TemplateHVM"):
             return False
         return True
 
@@ -322,9 +315,6 @@ class QubesHVm(QubesVm):
             return -1
 
     def start(self, *args, **kwargs):
-        for vm in self.appvms.values():
-            if vm.is_running():
-                raise QubesException("Cannot start HVM template while VMs based on it are running")
         if self.template and self.template.is_running():
             raise QubesException("Cannot start the HVM while its template is running")
         try:

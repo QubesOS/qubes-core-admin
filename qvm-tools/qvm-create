@@ -39,7 +39,9 @@ def main():
     parser.add_option ("-p", "--proxy", action="store_true", dest="proxyvm", default=False,
                         help="Create ProxyVM")
     parser.add_option ("-H", "--hvm", action="store_true", dest="hvm", default=False,
-                        help="Create HVM (implies --standalone)")
+                        help="Create HVM (standalone unless --template option used)")
+    parser.add_option ("--hvm-template", action="store_true", dest="hvm_template", default=False,
+                        help="Create HVM template")
     parser.add_option ("-n", "--net", action="store_true", dest="netvm", default=False,
                         help="Create NetVM")
     parser.add_option ("-s", "--standalone", action="store_true", dest="standalone", default=False,
@@ -61,8 +63,8 @@ def main():
         parser.error ("You must specify VM name!")
     vmname = args[0]
 
-    if options.netvm and options.proxyvm:
-        parser.error ("You must specify at most one of --proxy and --net")
+    if (options.netvm + options.proxyvm + options.hvm + options.hvm_template) > 1:
+        parser.error ("You must specify at most one VM type switch")
         
     if os.geteuid() == 0:
         print >> sys.stderr, "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
@@ -91,6 +93,13 @@ def main():
         print >> sys.stderr, "root.img can be specified only for standalone VMs"
         exit (1)
 
+    if options.hvm_template and options.template is not None:
+        print >> sys.stderr, "Template VM cannot be based on another template"
+        exit (1)
+
+    if options.hvm and not options.template:
+        options.standalone = True
+
     if options.root is not None and not os.path.exists(options.root):
         print >> sys.stderr, "File specified as root.img does not exists"
         exit (1)
@@ -115,7 +124,7 @@ def main():
         if (options.verbose):
             print "--> Using TemplateVM: {0}".format(template.name)
 
-    elif not options.hvm:
+    elif not options.hvm and not options.hvm_template:
         if qvm_collection.get_default_template() is None:
             print >> sys.stderr, "No default TemplateVM defined!"
             exit (1)
@@ -136,6 +145,8 @@ def main():
         vmtype = "QubesProxyVm"
     elif options.hvm:
         vmtype = "QubesHVm"
+    elif options.hvm_template:
+        vmtype = "QubesTemplateHVm"
     else:
         vmtype = "QubesAppVm"
 
