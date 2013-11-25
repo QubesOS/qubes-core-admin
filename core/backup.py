@@ -494,7 +494,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,\
             print "Sparse1 proc return code:", tar_sparse.poll()
         vmproc.stdin.close()
 
-    shutil.rmtree(restore_tmpdir)
+    shutil.rmtree(backup_tmpdir)
 
 '''
 ' Wait for backup chunk to finish
