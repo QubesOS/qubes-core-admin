@@ -64,6 +64,9 @@ class QubesTemplateHVm(QubesHVm):
     def is_template(self):
         return True
 
+    def is_appvm(self):
+        return False
+
     @classmethod
     def is_template_compatible(cls, template):
         return False
