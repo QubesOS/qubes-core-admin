@@ -102,6 +102,10 @@ def main():
         exit (0)
 
     passphrase = getpass.getpass("Please enter the pass phrase that will be used to encrypt/verify the backup: ")
+    passphrase2 = getpass.getpass("Enter again for verification: ")
+    if passphrase != passphrase2:
+        print >>sys.stderr, "ERROR: Password mismatch"
+        exit(1)
 
     try:
         backup_do(base_backup_dir, files_to_backup, passphrase,
