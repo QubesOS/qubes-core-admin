@@ -97,6 +97,14 @@ def main():
             print >>sys.stderr, "ERROR: VM {0} does not exist".format(options.appvm)
             exit(1)
 
+        stat = os.statvfs('/var/tmp')
+        backup_fs_free_sz = stat.f_bsize * stat.f_bavail
+        print
+        if (backup_fs_free_sz < 1000000000):
+            print >>sys.stderr, "ERROR: Not enough space available " \
+                "on the local filesystem (needs 1GB for temporary files)!"
+            exit(1)
+
     prompt = raw_input ("Do you want to proceed? [y/N] ")
     if not (prompt == "y" or prompt == "Y"):
         exit (0)
