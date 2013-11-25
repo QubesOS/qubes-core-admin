@@ -89,6 +89,12 @@ def main():
         exit (1)
     label = QubesVmLabels[options.label]
 
+    if options.hvm and not options.template:
+        options.standalone = True
+
+    if options.hvm_template:
+        options.standalone = True
+
     if not options.standalone and options.root is not None:
         print >> sys.stderr, "root.img can be specified only for standalone VMs"
         exit (1)
@@ -97,11 +103,7 @@ def main():
         print >> sys.stderr, "Template VM cannot be based on another template"
         exit (1)
 
-    if options.hvm and not options.template:
-        options.standalone = True
 
-    if options.hvm_template:
-        options.standalone = True
 
     if options.root is not None and not os.path.exists(options.root):
         print >> sys.stderr, "File specified as root.img does not exists"
