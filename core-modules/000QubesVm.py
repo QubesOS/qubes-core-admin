@@ -95,7 +95,7 @@ class QubesVm(object):
             "volatile_img": { "eval": 'self.absolute_path(value, vm_files["volatile_img"])', 'order': 10 },
             "firewall_conf": { "eval": 'self.absolute_path(value, vm_files["firewall_conf"])', 'order': 10 },
             "installed_by_rpm": { "default": False, 'order': 10 },
-            "template": { "default": None, 'order': 10 },
+            "template": { "default": None, "attr": '_template', 'order': 10 },
             ### order >= 20: have template set
             "uses_default_netvm": { "default": True, 'order': 20 },
             "netvm": { "default": None, "attr": "_netvm", 'order': 20 },
@@ -475,6 +475,8 @@ class QubesVm(object):
 
     @template.setter
     def template(self, value):
+        if self._template is None and value is not None:
+            raise QubesException("Cannot set template for standalone VM")
         if value and not self.is_template_compatible(value):
             raise QubesException("Incompatible template type %s with VM of type %s" % (value.type, self.type))
         self._template = value
