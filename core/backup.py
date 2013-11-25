@@ -769,13 +769,11 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
             '-ix%sf' % ("v" if BACKUP_DEBUG else ""), backup_source,
             '-C', restore_tmpdir] + vms_dirs
 
-    # Remove already processed qubes.xml.000, because qfile-dom0-unpacker will
-    # refuse to override files
     tar1_env = os.environ.copy()
     # TODO: add some safety margin?
     tar1_env['UPDATES_MAX_BYTES'] = str(vms_size)
     # Restoring only header
-    if len(vms_dirs) == 2 and vms_dirs[0] == 'qubes.xml.000':
+    if vms_dirs and vms_dirs[0] == 'qubes.xml.000':
         tar1_env['UPDATES_MAX_FILES'] = '2'
     else:
         tar1_env['UPDATES_MAX_FILES'] = '0'
@@ -886,10 +884,16 @@ def backup_restore_header(source, passphrase,
     if BACKUP_DEBUG:
         print "Working in", restore_tmpdir
 
+    # tar2qfile matches only beginnings, while tar full path
+    if appvm:
+        extract_filter = ['qubes.xml.000']
+    else:
+        extract_filter = ['qubes.xml.000', 'qubes.xml.000.hmac']
+
     restore_vm_dirs (source,
             restore_tmpdir,
             passphrase=passphrase,
-            vms_dirs=['qubes.xml.000', 'qubes.xml.000.hmac'],
+            vms_dirs=extract_filter,
             vms=None,
             vms_size=40000,
             print_callback=print_callback,
