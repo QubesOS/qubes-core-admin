@@ -2199,9 +2199,7 @@ def backup_restore_do(backup_dir, restore_tmpdir, passphrase, restore_info,
             home_file = home_dir + '/' + f
             if os.path.exists(home_file):
                 os.rename(home_file, home_dir + '/' + restore_home_backupdir + '/' + f)
-            retcode = subprocess.call (["cp", "-nrp", backup_dom0_home_dir + '/' + f, home_file])
-            if retcode != 0:
-                error_callback("*** Error while copying file {0} to {1}".format(backup_dom0_home_dir + '/' + f, home_file))
+            shutil.move(backup_dom0_home_dir + '/' + f, home_file)
         retcode = subprocess.call(['sudo', 'chown', '-R', local_user, home_dir])
         if retcode != 0:
             error_callback("*** Error while setting home directory owner")
