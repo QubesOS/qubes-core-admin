@@ -46,8 +46,10 @@ def main():
                         help="Create NetVM")
     parser.add_option ("-s", "--standalone", action="store_true", dest="standalone", default=False,
                         help="Create standalone VM - independent of template ")
-    parser.add_option ("-r", "--root", dest="root", default=None,
+    parser.add_option ("-R", "--root-move-from", dest="root_move", default=None,
                         help="Use provided root.img instead of default/empty one (file will be MOVED)")
+    parser.add_option ("-r", "--root-copy-from", dest="root_copy", default=None,
+                        help="Use provided root.img instead of default/empty one (file will be COPIED)")
     parser.add_option ("-m", "--mem", dest="mem", default=None,
                         help="Initial memory size (in MB)")
     parser.add_option ("-c", "--vcpus", dest="vcpus", default=None,
@@ -89,7 +91,13 @@ def main():
         exit (1)
     label = QubesVmLabels[options.label]
 
-    if not options.standalone and options.root is not None:
+    if options.hvm and not options.template:
+        options.standalone = True
+
+    if options.hvm_template:
+        options.standalone = True
+
+    if not options.standalone and any([options.root_copy, options.root_move]):
         print >> sys.stderr, "root.img can be specified only for standalone VMs"
         exit (1)
 
@@ -97,13 +105,15 @@ def main():
         print >> sys.stderr, "Template VM cannot be based on another template"
         exit (1)
 
-    if options.hvm and not options.template:
-        options.standalone = True
+    if options.root_copy and options.root_move:
+        print >> sys.stderr, "Only one of --root-move-from and --root-copy from can be specified"
+        exit(1)
 
-    if options.hvm_template:
-        options.standalone = True
+    if options.root_copy is not None and not os.path.exists(options.root_copy):
+        print >> sys.stderr, "File specified as root.img does not exists"
+        exit (1)
 
-    if options.root is not None and not os.path.exists(options.root):
+    if options.root_move is not None and not os.path.exists(options.root_move):
         print >> sys.stderr, "File specified as root.img does not exists"
         exit (1)
 
@@ -170,9 +180,13 @@ def main():
 
     try:
         vm.create_on_disk(verbose=options.verbose, source_template=template)
-        if options.root:
+        if options.root_move:
             os.unlink(vm.root_img)
-            os.rename(options.root, vm.root_img)
+            os.rename(options.root_move, vm.root_img)
+        elif options.root_copy:
+            os.unlink(vm.root_img)
+            # use "cp" to preserve sparse file
+            subprocess.check_call(["cp", options.root_copy, vm.root_img])
 
     except (IOError, OSError) as err:
         print >> sys.stderr, "ERROR: {0}".format(err)
