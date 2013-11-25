@@ -22,10 +22,10 @@
 
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
-from qubes.qubesutils import backup_restore_header
-from qubes.qubesutils import backup_restore_prepare 
-from qubes.qubesutils import backup_restore_print_summary
-from qubes.qubesutils import backup_restore_do
+from qubes.backup import backup_restore_header
+from qubes.backup import backup_restore_prepare
+from qubes.backup import backup_restore_print_summary
+from qubes.backup import backup_restore_do
 from optparse import OptionParser
 
 import os
@@ -95,15 +95,28 @@ def main():
     if options.exclude:
         restore_options['exclude'] = options.exclude
 
+    appvm = None
+    if options.appvm is not None:
+        appvm = qvm_collection.get_vm_by_name(options.appvm)
+        if appvm is None:
+            print >>sys.stderr, "ERROR: VM {0} does not exist".format(options.appvm)
+            exit(1)
 
     passphrase = getpass.getpass("Please enter the pass phrase that will be used to decrypt/verify the backup: ")
 
     print >> sys.stderr, "Checking backup content..."
-    restore_tmpdir,qubes_xml = backup_restore_header(backup_dir, passphrase, options.decrypt, appvm=options.appvm)
+    restore_tmpdir,qubes_xml = backup_restore_header(backup_dir, passphrase, encrypted=options.decrypt, appvm=options.appvm)
 
     restore_info = None
     try:
-        restore_info = backup_restore_prepare(backup_dir,os.path.join(restore_tmpdir, qubes_xml), passphrase, options=restore_options, host_collection=host_collection, encrypt=options.decrypt, appvm=options.appvm)
+        restore_info = backup_restore_prepare(
+                backup_dir,
+                os.path.join(restore_tmpdir, qubes_xml),
+                passphrase,
+                options=restore_options,
+                host_collection=host_collection,
+                encrypt=options.decrypt,
+                appvm=appvm)
     except QubesException as e:
         print >> sys.stderr, "ERROR: %s" % str(e)
         exit(1)
@@ -147,7 +160,7 @@ def main():
 
     print "The above VMs will be copied and added to your system."
     print "Exisiting VMs will not be removed."
- 
+
     if there_are_missing_templates:
         print >> sys.stderr, "*** One or more template VM is missing on the host! ***"
         if not (options.skip_broken or options.ignore_missing):
@@ -192,7 +205,13 @@ def main():
         exit (0)
 
 
-    backup_restore_do(backup_dir,restore_tmpdir, passphrase, restore_info, host_collection=host_collection, encrypted=options.decrypt, appvm=options.appvm)
+    backup_restore_do(backup_dir,
+            restore_tmpdir,
+            passphrase,
+            restore_info,
+            host_collection=host_collection,
+            encrypted=options.decrypt,
+            appvm=appvm)
 
     host_collection.unlock_db()
 

@@ -22,7 +22,8 @@
 
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
-from qubes.qubesutils import backup_prepare, backup_do_copy, size_to_human
+from qubes.backup import backup_prepare, backup_do
+from qubes.qubesutils import size_to_human
 from optparse import OptionParser
 import os
 import sys
@@ -80,6 +81,8 @@ def main():
             files_to_backup, 0)
 
     if not options.appvm:
+        appvm = None
+
         stat = os.statvfs(base_backup_dir)
         backup_fs_free_sz = stat.f_bsize * stat.f_bavail
         print
@@ -88,6 +91,11 @@ def main():
             exit(1)
 
         print "-> Available space: {0}".format(size_to_human(backup_fs_free_sz))
+    else:
+        appvm = qvm_collection.get_vm_by_name(options.appvm)
+        if appvm is None:
+            print >>sys.stderr, "ERROR: VM {0} does not exist".format(options.appvm)
+            exit(1)
 
     prompt = raw_input ("Do you want to proceed? [y/N] ")
     if not (prompt == "y" or prompt == "Y"):
@@ -96,10 +104,10 @@ def main():
     passphrase = getpass.getpass("Please enter the pass phrase that will be used to encrypt/verify the backup: ")
 
     try:
-        backup_do_copy(base_backup_dir, files_to_backup, passphrase,
+        backup_do(base_backup_dir, files_to_backup, passphrase,
                 progress_callback=print_progress,
                 encrypt=options.encrypt,
-                appvm=options.appvm)
+                appvm=appvm)
     except QubesException as e:
         print >>sys.stderr, "ERROR: %s" % str(e)
         exit(1)
