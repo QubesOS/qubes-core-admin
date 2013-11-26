@@ -170,7 +170,14 @@ def backup_prepare(vms_list = None, exclude_list = [], print_callback = print_st
             # already handled
             continue
         vm_sz = vm.get_disk_utilization()
-        files_to_backup += file_to_backup (vm.dir_path,  vm_sz)
+        template_subdir = os.path.relpath(
+                vm.dir_path,
+                system_path["qubes_base_dir"]) + '/'
+        template_to_backup = [ {
+                "path": vm.dir_path + '/.',
+                "size": vm_sz,
+                "subdir": template_subdir } ]
+        files_to_backup += template_to_backup
 
         s = ""
         fmt="{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
@@ -257,6 +264,10 @@ def backup_prepare(vms_list = None, exclude_list = [], print_callback = print_st
 
     if (there_are_running_vms):
         raise QubesException("Please shutdown all VMs before proceeding.")
+
+    for fileinfo in files_to_backup:
+        assert len(fileinfo["subdir"]) == 0 or fileinfo["subdir"][-1] == '/', \
+            "'subdir' must ends with a '/': %s" % str(fileinfo)
 
     return files_to_backup
 
@@ -383,7 +394,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,\
             "-f", backup_pipe,
             '--tape-length', str(100000),
             '-C', os.path.dirname(filename["path"]),
-            '--xform', 's:^[a-z]:%s\\0:' % filename["subdir"],
+            '--xform', 's:^[^/]:%s\\0:' % filename["subdir"],
             os.path.basename(filename["path"])
             ]
 
