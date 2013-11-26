@@ -31,6 +31,7 @@ import os
 import subprocess
 import re
 import shutil
+import tempfile
 import time
 import grp,pwd
 from multiprocessing import Queue,Process
@@ -332,7 +333,6 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,\
     progress = blocks_backedup * 11 / total_backup_sz
     progress_callback(progress)
 
-    import tempfile
     feedback_file = tempfile.NamedTemporaryFile()
     backup_tmpdir = tempfile.mkdtemp(prefix="/var/tmp/backup_")
 
