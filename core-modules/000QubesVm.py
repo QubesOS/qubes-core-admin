@@ -41,6 +41,8 @@ from qubes.qubes import QubesVmCollection,QubesException,QubesHost,QubesVmLabels
 from qubes.qubes import defaults,system_path,vm_files,qubes_max_qid
 from qubes.qmemman_client import QMemmanClient
 
+xid_to_name_cache = {}
+
 class QubesVm(object):
     """
     A representation of one Qubes VM
@@ -496,14 +498,32 @@ class QubesVm(object):
     def is_disposablevm(self):
         return False
 
+    def _xid_to_name(self, xid):
+        if xid in xid_to_name_cache:
+            return xid_to_name_cache[xid]
+        else:
+            domname = xl_ctx.domid_to_name(xid)
+            if domname:
+                xid_to_name_cache[xid] = domname
+            return domname
+
     def get_xl_dominfo(self):
         if dry_run:
             return
 
+        start_xid = self.xid
+
         domains = xl_ctx.list_domains()
         for dominfo in domains:
-            domname = xl_ctx.domid_to_name(dominfo.domid)
+            if dominfo.domid == start_xid:
+                return dominfo
+            elif dominfo.domid < start_xid:
+                # the current XID can't lower than one noticed earlier, if VM
+                # was restarted in the meantime, the next XID will greater
+                continue
+            domname = self._xid_to_name(dominfo.domid)
             if domname == self.name:
+                self.xid = dominfo.domid
                 return dominfo
         return None
 
@@ -519,8 +539,13 @@ class QubesVm(object):
         except xen.lowlevel.xc.Error:
             return None
 
+        # If previous XID is still valid, this is the right domain - XID can't
+        # be reused for another domain until system reboot
+        if start_xid > 0 and domains[0]['domid'] == start_xid:
+            return domains[0]
+
         for dominfo in domains:
-            domname = xl_ctx.domid_to_name(dominfo['domid'])
+            domname = self._xid_to_name(dominfo['domid'])
             if domname == self.name:
                 return dominfo
         return None
