@@ -52,7 +52,7 @@ def get_disk_usage(file_or_dir):
 
 def file_to_backup (file_path, sz = None):
     if sz is None:
-        sz = os.path.getsize (system_path["qubes_store_filename"])
+        sz = get_disk_usage (file_path)
 
     abs_file_path = os.path.abspath (file_path)
     abs_base_dir = os.path.abspath (system_path["qubes_base_dir"]) + '/'
