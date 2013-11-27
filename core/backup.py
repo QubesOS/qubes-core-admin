@@ -50,19 +50,23 @@ def get_disk_usage(file_or_dir):
     return sz
 
 
-def file_to_backup (file_path, sz = None):
-    if sz is None:
-        sz = get_disk_usage (file_path)
+def file_to_backup (file_path, subdir = None):
+    sz = get_disk_usage (file_path)
 
-    abs_file_path = os.path.abspath (file_path)
-    abs_base_dir = os.path.abspath (system_path["qubes_base_dir"]) + '/'
-    abs_file_dir = os.path.dirname (abs_file_path) + '/'
-    (nothing, dir, subdir) = abs_file_dir.partition (abs_base_dir)
-    assert nothing == ""
-    assert dir == abs_base_dir
+    if subdir is None:
+        abs_file_path = os.path.abspath (file_path)
+        abs_base_dir = os.path.abspath (system_path["qubes_base_dir"]) + '/'
+        abs_file_dir = os.path.dirname (abs_file_path) + '/'
+        (nothing, dir, subdir) = abs_file_dir.partition (abs_base_dir)
+        assert nothing == ""
+        assert dir == abs_base_dir
+    else:
+        if len(subdir) > 0 and not subdir.endswith('/'):
+            subdir += '/'
     return [ { "path" : file_path, "size": sz, "subdir": subdir} ]
 
-def backup_prepare(vms_list = None, exclude_list = [], print_callback = print_stdout):
+def backup_prepare(vms_list = None, exclude_list = [],
+        print_callback = print_stdout, hide_vm_names=True):
     """If vms = None, include all (sensible) VMs; exclude_list is always applied"""
     files_to_backup = file_to_backup (system_path["qubes_store_filename"])
 
@@ -119,33 +123,36 @@ def backup_prepare(vms_list = None, exclude_list = [], print_callback = print_st
             # handle templates later
             continue
 
+        if hide_vm_names:
+            subdir = 'vm%d' % vm.qid
+        else:
+            subdir = None
+
         if vm.private_img is not None:
-            vm_sz = vm.get_disk_usage (vm.private_img)
-            files_to_backup += file_to_backup(vm.private_img, vm_sz )
+            files_to_backup += file_to_backup(vm.private_img, subdir)
 
         if vm.is_appvm():
-            files_to_backup += file_to_backup(vm.icon_path)
+            files_to_backup += file_to_backup(vm.icon_path, subdir)
         if vm.updateable:
             if os.path.exists(vm.dir_path + "/apps.templates"):
                 # template
-                files_to_backup += file_to_backup(vm.dir_path + "/apps.templates")
+                files_to_backup += file_to_backup(vm.dir_path + "/apps.templates", subdir)
             else:
                 # standaloneVM
-                files_to_backup += file_to_backup(vm.dir_path + "/apps")
+                files_to_backup += file_to_backup(vm.dir_path + "/apps", subdir)
 
             if os.path.exists(vm.dir_path + "/kernels"):
-                files_to_backup += file_to_backup(vm.dir_path + "/kernels")
+                files_to_backup += file_to_backup(vm.dir_path + "/kernels", subdir)
         if os.path.exists (vm.firewall_conf):
-            files_to_backup += file_to_backup(vm.firewall_conf)
+            files_to_backup += file_to_backup(vm.firewall_conf, subdir)
         if 'appmenus_whitelist' in vm_files and \
                 os.path.exists(os.path.join(vm.dir_path, vm_files['appmenus_whitelist'])):
             files_to_backup += file_to_backup(
-                    os.path.join(vm.dir_path, vm_files['appmenus_whitelist']))
+                    os.path.join(vm.dir_path, vm_files['appmenus_whitelist']),
+                    subdir)
 
         if vm.updateable:
-            sz = vm.get_disk_usage(vm.root_img)
-            files_to_backup += file_to_backup(vm.root_img, sz)
-            vm_sz += sz
+            files_to_backup += file_to_backup(vm.root_img, subdir)
 
         s = ""
         fmt="{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
@@ -158,7 +165,7 @@ def backup_prepare(vms_list = None, exclude_list = [], print_callback = print_st
             s += fmt.format("AppVM" + (" + Sys" if vm.updateable else ""))
 
         fmt="{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
-        s += fmt.format(size_to_human(vm_sz))
+        s += fmt.format(size_to_human(vm.get_disk_utilization()))
 
         if vm.is_running():
             s +=  " <-- The VM is running, please shut it down before proceeding with the backup!"
@@ -171,9 +178,12 @@ def backup_prepare(vms_list = None, exclude_list = [], print_callback = print_st
             # already handled
             continue
         vm_sz = vm.get_disk_utilization()
-        template_subdir = os.path.relpath(
-                vm.dir_path,
-                system_path["qubes_base_dir"]) + '/'
+        if hide_vm_names:
+            template_subdir = 'vm%d' % vm.qid
+        else:
+            template_subdir = os.path.relpath(
+                    vm.dir_path,
+                    system_path["qubes_base_dir"]) + '/'
         template_to_backup = [ {
                 "path": vm.dir_path + '/.',
                 "size": vm_sz,
@@ -204,7 +214,10 @@ def backup_prepare(vms_list = None, exclude_list = [], print_callback = print_st
         if vm.qid in vms_for_backup_qid:
             vm.backup_content = True
             vm.backup_size = vm.get_disk_utilization()
-            vm.backup_path = os.path.relpath(vm.dir_path, system_path["qubes_base_dir"])
+            if hide_vm_names:
+                vm.backup_path = 'vm%d' % vm.qid
+            else:
+                vm.backup_path = os.path.relpath(vm.dir_path, system_path["qubes_base_dir"])
 
     # Dom0 user home
     if not 'dom0' in exclude_list:

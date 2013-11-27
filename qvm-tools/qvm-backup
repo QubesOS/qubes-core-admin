@@ -72,7 +72,10 @@ def main():
 
     files_to_backup = None
     try:
-        files_to_backup = backup_prepare(vms_list=vms, exclude_list=options.exclude_list)
+        files_to_backup = backup_prepare(
+                vms_list=vms,
+                exclude_list=options.exclude_list,
+                hide_vm_names=options.encrypt)
     except QubesException as e:
         print >>sys.stderr, "ERROR: %s" % str(e)
         exit(1)
