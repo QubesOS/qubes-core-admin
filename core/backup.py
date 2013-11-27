@@ -791,7 +791,7 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
         backup_stdin = open(backup_source,'rb')
 
         tar1_command = ['tar',
-            '-ix%sf' % ("v" if BACKUP_DEBUG else ""), backup_source,
+            '-ixvf', backup_source,
             '-C', restore_tmpdir] + vms_dirs
 
     tar1_env = os.environ.copy()
