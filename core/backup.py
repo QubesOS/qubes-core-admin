@@ -714,7 +714,7 @@ class Extract_Worker(Process):
                 # Start decrypt
                 encryptor  = subprocess.Popen (["openssl", "enc",
                         "-d", "-aes-256-cbc",
-                        "-pass", "pass:"+passphrase],
+                        "-pass", "pass:"+self.passphrase],
                         stdin=open(filename,'rb'),
                         stdout=subprocess.PIPE)
 
