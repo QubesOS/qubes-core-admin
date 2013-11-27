@@ -29,6 +29,7 @@ fi
 
 ret=0
 
+rm -f /var/run/qubes/qvm-create-default-dvm.stdout
 if ! qvm-create-default-dvm --used-template --default-script >/var/run/qubes/qvm-create-default-dvm.stdout </dev/null ; then
 	ret=1
 fi
