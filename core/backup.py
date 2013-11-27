@@ -138,8 +138,9 @@ def backup_prepare(vms_list = None, exclude_list = [], print_callback = print_st
         if os.path.exists (vm.firewall_conf):
             files_to_backup += file_to_backup(vm.firewall_conf)
         if 'appmenus_whitelist' in vm_files and \
-                os.path.exists(vm.dir_path + vm_files['appmenus_whitelist']):
-            files_to_backup += file_to_backup(vm.dir_path + vm_files['appmenus_whitelist'])
+                os.path.exists(os.path.join(vm.dir_path, vm_files['appmenus_whitelist'])):
+            files_to_backup += file_to_backup(
+                    os.path.join(vm.dir_path, vm_files['appmenus_whitelist']))
 
         if vm.updateable:
             sz = vm.get_disk_usage(vm.root_img)
