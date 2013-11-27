@@ -853,8 +853,6 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
                     "ERROR: unable to read the qubes backup {0} " \
                     "because of a VM error: {1}".format(
                         backup_source, vmproc.stderr.read()))
-    if BACKUP_DEBUG:
-        print "Extraction process status:", extract_proc.exitcode
 
     to_extract.put("FINISHED")
     if BACKUP_DEBUG:
@@ -895,12 +893,8 @@ def backup_restore_header(source, passphrase,
         print_callback = print_stdout, error_callback = print_stderr,
         encrypted=False, appvm=None):
 
-    # Simulate dd if=backup_file count=10 | file -
-    # Simulate dd if=backup_file count=10 | gpg2 -d | tar xzv -O
-    # analysis  = subprocess.Popen()
     vmproc = None
 
-    import tempfile
     feedback_file = tempfile.NamedTemporaryFile()
     restore_tmpdir = tempfile.mkdtemp(prefix="/var/tmp/restore_")
 
