@@ -660,7 +660,7 @@ class QubesVmCollection(dict):
 
         # Add dom0 if wasn't present in qubes.xml
         if not 0 in self.keys():
-            dom0vm = QubesDom0NetVm (collection=self)
+            dom0vm = QubesAdminVm (collection=self)
             self[dom0vm.qid] = dom0vm
 
         return True

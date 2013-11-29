@@ -25,13 +25,13 @@ from qubes.qubes import QubesNetVm,register_qubes_vm_class,xl_ctx,xc
 from qubes.qubes import defaults
 from qubes.qubes import QubesException,dry_run
 
-class QubesDom0NetVm(QubesNetVm):
+class QubesAdminVm(QubesNetVm):
 
     # In which order load this VM type from qubes.xml
     load_order = 10
 
     def __init__(self, **kwargs):
-        super(QubesDom0NetVm, self).__init__(qid=0, name="dom0", netid=0,
+        super(QubesAdminVm, self).__init__(qid=0, name="dom0", netid=0,
                                              dir_path=None,
                                              private_img = None,
                                              template = None,
@@ -41,7 +41,7 @@ class QubesDom0NetVm(QubesNetVm):
 
     @property
     def type(self):
-        return "Dom0NetVM"
+        return "AdminVM"
 
     def is_running(self):
         return True
@@ -94,4 +94,4 @@ class QubesDom0NetVm(QubesNetVm):
     def verify_files(self):
         return True
 
-register_qubes_vm_class(QubesDom0NetVm)
+register_qubes_vm_class(QubesAdminVm)
