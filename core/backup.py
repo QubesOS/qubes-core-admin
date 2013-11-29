@@ -770,7 +770,7 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
 
     if BACKUP_DEBUG:
         print_callback("Working in temporary dir:"+restore_tmpdir)
-    print_callback(str(vms_size)+" bytes to restore")
+    print_callback("Extracting data: " + size_to_human(vms_size)+" to restore")
 
     vmproc = None
     if appvm != None:
@@ -889,14 +889,26 @@ def load_hmac(hmac):
 
     return hmac
 
+def backup_detect_format_version(backup_location):
+    if os.path.exists(os.path.join(backup_location, 'qubes.xml')):
+        return 1
+    else:
+        return 2
+
 def backup_restore_header(source, passphrase,
         print_callback = print_stdout, error_callback = print_stderr,
-        encrypted=False, appvm=None):
+        encrypted=False, appvm=None, format_version = None):
 
     vmproc = None
 
     feedback_file = tempfile.NamedTemporaryFile()
     restore_tmpdir = tempfile.mkdtemp(prefix="/var/tmp/restore_")
+
+    if format_version == None:
+        format_version = backup_detect_format_version(source)
+
+    if format_version == 1:
+        return (restore_tmpdir, os.path.join(source, 'qubes.xml'))
 
     os.chdir(restore_tmpdir)
 
@@ -923,13 +935,23 @@ def backup_restore_header(source, passphrase,
 
     return (restore_tmpdir, "qubes.xml")
 
-def backup_restore_prepare(backup_dir, qubes_xml, passphrase, options = {},
-        host_collection = None, encrypt=False, appvm=None):
+def backup_restore_prepare(backup_location, qubes_xml, passphrase, options = {},
+        host_collection = None, encrypt=False, appvm=None, format_version=None):
     # Defaults
     backup_restore_set_defaults(options)
 
     #### Private functions begin
-    def is_vm_included_in_backup (backup_dir, vm):
+    def is_vm_included_in_backup_v1 (backup_dir, vm):
+        if vm.qid == 0:
+            return os.path.exists(os.path.join(backup_dir,'dom0-home'))
+
+        backup_vm_dir_path = vm.dir_path.replace (system_path["qubes_base_dir"], backup_dir)
+
+        if os.path.exists (backup_vm_dir_path):
+            return True
+        else:
+            return False
+    def is_vm_included_in_backup_v2 (backup_dir, vm):
         if vm.backup_content:
             return True
         else:
@@ -944,6 +966,21 @@ def backup_restore_prepare(backup_dir, qubes_xml, passphrase, options = {},
 
         return template
     #### Private functions end
+
+    # Format versions:
+    #  1 - Qubes R1, Qubes R2 beta1, beta2
+    #  2 - Qubes R2 beta3
+
+    if format_version is None:
+        format_version = backup_detect_format_version(backup_location)
+
+    if format_version == 1:
+        is_vm_included_in_backup = is_vm_included_in_backup_v1
+    elif format_version == 2:
+        is_vm_included_in_backup = is_vm_included_in_backup_v2
+    else:
+        raise QubesException("Unknown backup format version: %s" % str(format_version))
+
     if BACKUP_DEBUG:
         print "Loading file", qubes_xml
     backup_collection = QubesVmCollection(store_filename = qubes_xml)
@@ -970,7 +1007,7 @@ def backup_restore_prepare(backup_dir, qubes_xml, passphrase, options = {},
         if vm.qid == 0:
             # Handle dom0 as special case later
             continue
-        if is_vm_included_in_backup (backup_dir, vm):
+        if is_vm_included_in_backup (backup_location, vm):
             if BACKUP_DEBUG:
                 print vm.name,"is included in backup"
 
@@ -997,7 +1034,7 @@ def backup_restore_prepare(backup_dir, qubes_xml, passphrase, options = {},
                     # Maybe the (custom) template is in the backup?
                     template_vm_on_backup = backup_collection.get_vm_by_name (templatevm_name)
                     if template_vm_on_backup is None or not \
-                        (is_vm_included_in_backup(backup_dir, template_vm_on_backup) and \
+                        (is_vm_included_in_backup(backup_location, template_vm_on_backup) and \
                          template_vm_on_backup.is_template()):
                         if options['use-default-template']:
                             vms_to_restore[vm.name]['orig-template'] = templatevm_name
@@ -1026,7 +1063,7 @@ def backup_restore_prepare(backup_dir, qubes_xml, passphrase, options = {},
                     netvm_on_backup = backup_collection.get_vm_by_name (netvm_name)
                     if not ((netvm_on_backup is not None) and \
                             netvm_on_backup.is_netvm() and \
-                            is_vm_included_in_backup(backup_dir, netvm_on_backup)):
+                            is_vm_included_in_backup(backup_location, netvm_on_backup)):
                         if options['use-default-netvm']:
                             vms_to_restore[vm.name]['netvm'] = host_collection.get_default_netvm().name
                             vm.uses_default_netvm = True
@@ -1041,14 +1078,19 @@ def backup_restore_prepare(backup_dir, qubes_xml, passphrase, options = {},
 
     # ...and dom0 home
     if options['dom0-home'] and \
-            is_vm_included_in_backup(backup_dir, backup_collection[0]):
+            is_vm_included_in_backup(backup_location, backup_collection[0]):
         vm = backup_collection[0]
         vms_to_restore['dom0'] = {}
-        vms_to_restore['dom0']['subdir'] = vm.backup_path
-        vms_to_restore['dom0']['size'] = vm.backup_size
+        if format_version == 1:
+            vms_to_restore['dom0']['subdir'] = \
+                os.listdir(os.path.join(backup_location, 'dom0-home'))[0]
+            vms_to_restore['dom0']['size'] = 0 # unknown
+        else:
+            vms_to_restore['dom0']['subdir'] = vm.backup_path
+            vms_to_restore['dom0']['size'] = vm.backup_size
         local_user = grp.getgrnam('qubes').gr_mem[0]
 
-        dom0_home = vm.backup_path
+        dom0_home = vms_to_restore['dom0']['subdir']
 
         vms_to_restore['dom0']['username'] = os.path.basename(dom0_home)
         if vms_to_restore['dom0']['username'] != local_user:
@@ -1060,7 +1102,8 @@ def backup_restore_prepare(backup_dir, qubes_xml, passphrase, options = {},
             vms_to_restore['dom0']['good-to-go'] = True
 
     # Not needed - all the data stored in vms_to_restore
-    os.unlink(qubes_xml)
+    if format_version == 2:
+        os.unlink(qubes_xml)
     return vms_to_restore
 
 def backup_restore_print_summary(restore_info, print_callback = print_stdout):
@@ -1162,10 +1205,24 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
 
         print_callback(s)
 
-def backup_restore_do(backup_dir, restore_tmpdir, passphrase, restore_info,
+def backup_restore_do(backup_location, restore_tmpdir, passphrase, restore_info,
         host_collection = None, print_callback = print_stdout,
         error_callback = print_stderr, progress_callback = None,
-        encrypted=False, appvm=None):
+        encrypted=False, appvm=None, format_version = None):
+
+    ### Private functions begin
+    def restore_vm_dir_v1 (backup_dir, src_dir, dst_dir):
+
+        backup_src_dir = src_dir.replace (system_path["qubes_base_dir"], backup_dir)
+
+        # We prefer to use Linux's cp, because it nicely handles sparse files
+        retcode = subprocess.call (["cp", "-rp", backup_src_dir, dst_dir])
+        if retcode != 0:
+            raise QubesException("*** Error while copying file {0} to {1}".format(backup_src_dir, dest_dir))
+    ### Private functions end
+
+    if format_version is None:
+        format_version = backup_detect_format_version(backup_location)
 
     lock_obtained = False
     if host_collection is None:
@@ -1175,34 +1232,35 @@ def backup_restore_do(backup_dir, restore_tmpdir, passphrase, restore_info,
         lock_obtained = True
 
     # Perform VM restoration in backup order
-    vms_dirs = []
-    vms_size = 0
-    vms = {}
-    for vm_info in restore_info.values():
-        if not vm_info['good-to-go']:
-            continue
-        if 'vm' not in vm_info:
-            continue
-        vm = vm_info['vm']
-        vms_size += vm.backup_size
-        vms_dirs.append(vm.backup_path)
-        vms[vm.name] = vm
+    if format_version == 2:
+        vms_dirs = []
+        vms_size = 0
+        vms = {}
+        for vm_info in restore_info.values():
+            if not vm_info['good-to-go']:
+                continue
+            if 'vm' not in vm_info:
+                continue
+            vm = vm_info['vm']
+            vms_size += vm.backup_size
+            vms_dirs.append(vm.backup_path)
+            vms[vm.name] = vm
 
-    if 'dom0' in restore_info.keys() and restore_info['dom0']['good-to-go']:
-        vms_dirs.append('dom0-home')
-        vms_size += restore_info['dom0']['size']
+        if 'dom0' in restore_info.keys() and restore_info['dom0']['good-to-go']:
+            vms_dirs.append('dom0-home')
+            vms_size += restore_info['dom0']['size']
 
-    restore_vm_dirs (backup_dir,
-            restore_tmpdir,
-            passphrase=passphrase,
-            vms_dirs=vms_dirs,
-            vms=vms,
-            vms_size=vms_size,
-            print_callback=print_callback,
-            error_callback=error_callback,
-            progress_callback=progress_callback,
-            encrypted=encrypted,
-            appvm=appvm)
+        restore_vm_dirs (backup_location,
+                restore_tmpdir,
+                passphrase=passphrase,
+                vms_dirs=vms_dirs,
+                vms=vms,
+                vms_size=vms_size,
+                print_callback=print_callback,
+                error_callback=error_callback,
+                progress_callback=progress_callback,
+                encrypted=encrypted,
+                appvm=appvm)
 
     # Add VM in right order
     for (vm_class_name, vm_class) in sorted(QubesVmClasses.items(),
@@ -1236,8 +1294,13 @@ def backup_restore_do(backup_dir, restore_tmpdir, passphrase, restore_info,
                                                    template=template,
                                                    installed_by_rpm=False)
 
-                shutil.move(os.path.join(restore_tmpdir, vm.backup_path),
-                        new_vm.dir_path)
+                if format_version == 1:
+                    restore_vm_dir_v1(backup_location,
+                            vm.dir_path,
+                            os.path.dirname(new_vm.dir_path))
+                elif format_version == 2:
+                    shutil.move(os.path.join(restore_tmpdir, vm.backup_path),
+                            new_vm.dir_path)
 
                 new_vm.verify_files()
             except Exception as err:
@@ -1293,7 +1356,10 @@ def backup_restore_do(backup_dir, restore_tmpdir, passphrase, restore_info,
             home_file = home_dir + '/' + f
             if os.path.exists(home_file):
                 os.rename(home_file, home_dir + '/' + restore_home_backupdir + '/' + f)
-            shutil.move(backup_dom0_home_dir + '/' + f, home_file)
+            if format_version == 1:
+                retcode = subprocess.call (["cp", "-nrp", backup_dom0_home_dir + '/' + f, home_file])
+            elif format_version == 2:
+                shutil.move(backup_dom0_home_dir + '/' + f, home_file)
         retcode = subprocess.call(['sudo', 'chown', '-R', local_user, home_dir])
         if retcode != 0:
             error_callback("*** Error while setting home directory owner")
