@@ -36,7 +36,7 @@ import time
 import grp,pwd
 from multiprocessing import Queue,Process
 
-BACKUP_DEBUG = True
+BACKUP_DEBUG = False
 
 def get_disk_usage(file_or_dir):
     if not os.path.exists(file_or_dir):
