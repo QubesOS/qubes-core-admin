@@ -28,6 +28,8 @@ import xml.parsers.expat
 import fcntl
 import time
 import warnings
+import tempfile
+import grp
 
 # Do not use XenAPI or create/read any VM files
 # This is for testing only!
@@ -527,11 +529,16 @@ class QubesVmCollection(dict):
 
         try:
 
-            # We need to manually truncate the file, as we open the
-            # file as "r+" in the lock_db_for_writing() function
-            self.qubes_store_file.seek (0, os.SEEK_SET)
-            self.qubes_store_file.truncate()
-            tree.write(self.qubes_store_file, encoding="UTF-8", pretty_print=True)
+            new_store_file = tempfile.NamedTemporaryFile(prefix=self.qubes_store_filename, delete=False)
+            # XXX: do not get lock on the new file, as in all use cases
+            # unlock_db() is the next operation after save()
+            tree.write(new_store_file, encoding="UTF-8", pretty_print=True)
+            new_store_file.flush()
+            os.chmod(new_store_file.name, 0660)
+            os.chown(new_store_file.name, -1, grp.getgrnam('qubes').gr_gid)
+            os.rename(new_store_file.name, self.qubes_store_filename)
+            self.qubes_store_file.close()
+            self.qubes_store_file = new_store_file
         except EnvironmentError as err:
             print("{0}: export error: {1}".format(
                 os.path.basename(sys.argv[0]), err))
