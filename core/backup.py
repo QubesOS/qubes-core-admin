@@ -418,7 +418,8 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,\
         # Tips: Popen(bufsize=0)
         # Pipe: tar-sparse | encryptor [| hmac] | tar | backup_target
         # Pipe: tar-sparse [| hmac] | tar | backup_target
-        tar_sparse = subprocess.Popen (tar_cmdline, stdin=subprocess.PIPE)
+        tar_sparse = subprocess.Popen (tar_cmdline, stdin=subprocess.PIPE,
+                stderr=(open(os.devnull, 'w') if not BACKUP_DEBUG else None))
 
         # Wait for compressor (tar) process to finish or for any error of other
         # subprocesses
