@@ -326,8 +326,9 @@ class Send_Worker(Process):
         if BACKUP_DEBUG:
             print "Finished sending thread"
 
-def backup_do(base_backup_dir, files_to_backup, passphrase,\
-        progress_callback = None, encrypt=False, appvm=None):
+def backup_do(base_backup_dir, files_to_backup, passphrase,
+        progress_callback = None, encrypt=False, appvm=None,
+        compress = False):
     total_backup_sz = 0
     for file in files_to_backup:
         total_backup_sz += file["size"]
@@ -454,11 +455,19 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,\
                 # If no cipher is provided, the data is forwarded unencrypted !!!
                 encryptor  = subprocess.Popen (["openssl", "enc",
                         "-e", "-aes-256-cbc",
-                        "-pass", "pass:"+passphrase],
+                        "-pass", "pass:"+passphrase] +
+                        (["-z"] if compress else []),
                         stdin=pipe, stdout=subprocess.PIPE)
                 run_error = wait_backup_feedback(
                         progress_callback=compute_progress,
                         in_stream=encryptor.stdout, streamproc=encryptor,
+                        **common_args)
+            elif compress:
+                compressor  = subprocess.Popen (["gzip"],
+                        stdin=pipe, stdout=subprocess.PIPE)
+                run_error = wait_backup_feedback(
+                        progress_callback=compute_progress,
+                        in_stream=compressor.stdout, streamproc=compressor,
                         **common_args)
             else:
                 run_error = wait_backup_feedback(
@@ -638,12 +647,14 @@ def verify_hmac(filename, hmacfile, passphrase):
 
 class Extract_Worker(Process):
     def __init__(self, queue, base_dir, passphrase, encrypted, total_size,
-            print_callback, error_callback, progress_callback, vmproc=None):
+            print_callback, error_callback, progress_callback, vmproc=None,
+            compressed = False):
         super(Extract_Worker, self).__init__()
         self.queue = queue
         self.base_dir = base_dir
         self.passphrase = passphrase
         self.encrypted = encrypted
+        self.compressed = compressed
         self.total_size = total_size
         self.blocks_backedup = 0
         self.tar2_command = None
@@ -719,12 +730,22 @@ class Extract_Worker(Process):
                 encryptor  = subprocess.Popen (["openssl", "enc",
                         "-d", "-aes-256-cbc",
                         "-pass", "pass:"+self.passphrase],
+                        (["-z"] if compressed else []),
                         stdin=open(filename,'rb'),
                         stdout=subprocess.PIPE)
 
                 run_error = wait_backup_feedback(
                         progress_callback=self.compute_progress,
                         in_stream=encryptor.stdout, streamproc=encryptor,
+                        **common_args)
+            elif self.compressed:
+                compressor  = subprocess.Popen (["gzip", "-d"],
+                        stdin=open(filename,'rb'),
+                        stdout=subprocess.PIPE)
+
+                run_error = wait_backup_feedback(
+                        progress_callback=self.compute_progress,
+                        in_stream=compressor.stdout, streamproc=compressor,
                         **common_args)
             else:
                 run_error = wait_backup_feedback(
@@ -754,7 +775,8 @@ class Extract_Worker(Process):
 
 def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
         vms_size, print_callback=None, error_callback=None,
-        progress_callback=None, encrypted=False, appvm=None):
+        progress_callback=None, encrypted=False, appvm=None,
+        compressed = False):
 
     # Setup worker to extract encrypted data chunks to the restore dirs
     if progress_callback == None:
@@ -766,6 +788,7 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
             base_dir=restore_tmpdir,
             passphrase=passphrase,
             encrypted=encrypted,
+            compressed=compressed,
             total_size=vms_size,
             print_callback=print_callback,
             error_callback=error_callback,
@@ -901,7 +924,7 @@ def backup_detect_format_version(backup_location):
 
 def backup_restore_header(source, passphrase,
         print_callback = print_stdout, error_callback = print_stderr,
-        encrypted=False, appvm=None, format_version = None):
+        encrypted=False, appvm=None, compressed = False, format_version = None):
 
     vmproc = None
 
@@ -935,6 +958,7 @@ def backup_restore_header(source, passphrase,
             error_callback=error_callback,
             progress_callback=None,
             encrypted=encrypted,
+            compressed=compressed,
             appvm=appvm)
 
     return (restore_tmpdir, "qubes.xml")
@@ -1212,7 +1236,7 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
 def backup_restore_do(backup_location, restore_tmpdir, passphrase, restore_info,
         host_collection = None, print_callback = print_stdout,
         error_callback = print_stderr, progress_callback = None,
-        encrypted=False, appvm=None, format_version = None):
+        encrypted=False, appvm=None, compressed = False, format_version = None):
 
     ### Private functions begin
     def restore_vm_dir_v1 (backup_dir, src_dir, dst_dir):
@@ -1264,6 +1288,7 @@ def backup_restore_do(backup_location, restore_tmpdir, passphrase, restore_info,
                 error_callback=error_callback,
                 progress_callback=progress_callback,
                 encrypted=encrypted,
+                compressed=compressed,
                 appvm=appvm)
 
     # Add VM in right order

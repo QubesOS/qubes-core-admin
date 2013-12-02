@@ -66,6 +66,9 @@ def main():
     parser.add_option ("-e", "--encrypted", action="store_true", dest="decrypt", default=False,
                        help="The backup is encrypted")
 
+    parser.add_option ("-z", "--compressed", action="store_true", dest="compressed", default=False,
+                       help="The backup is compressed")
+
     (options, args) = parser.parse_args ()
 
     if (len (args) != 1):
@@ -105,7 +108,9 @@ def main():
     passphrase = getpass.getpass("Please enter the pass phrase that will be used to decrypt/verify the backup: ")
 
     print >> sys.stderr, "Checking backup content..."
-    restore_tmpdir,qubes_xml = backup_restore_header(backup_dir, passphrase, encrypted=options.decrypt, appvm=appvm)
+    restore_tmpdir,qubes_xml = backup_restore_header(backup_dir, passphrase,
+            encrypted=options.decrypt, compressed=options.compressed,
+            appvm=appvm)
 
     restore_info = None
     try:
@@ -211,6 +216,7 @@ def main():
             restore_info,
             host_collection=host_collection,
             encrypted=options.decrypt,
+            compressed=options.compressed,
             appvm=appvm)
 
     host_collection.unlock_db()

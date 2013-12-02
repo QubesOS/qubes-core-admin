@@ -44,6 +44,8 @@ def main():
                        help="The AppVM to send backups to")
     parser.add_option ("-e", "--encrypt", action="store_true", dest="encrypt", default=False,
                        help="Encrypts the backup")
+    parser.add_option ("-z", "--compress", action="store_true", dest="compress", default=False,
+                       help="Compress the backup")
 
     (options, args) = parser.parse_args ()
 
@@ -122,6 +124,7 @@ def main():
         backup_do(base_backup_dir, files_to_backup, passphrase,
                 progress_callback=print_progress,
                 encrypt=options.encrypt,
+                compress=options.compress,
                 appvm=appvm)
     except QubesException as e:
         print >>sys.stderr, "ERROR: %s" % str(e)
