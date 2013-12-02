@@ -1437,12 +1437,17 @@ class QubesVm(object):
         p = self.run('QUBESRPC qubes.WaitForSession none', user="root", passio_popen=True, gui=False, wait=True)
         p.communicate(input=self.default_user)
 
-    def start_guid(self, verbose = True, notify_function = None):
+    def start_guid(self, verbose = True, notify_function = None, extra_guid_args=[]):
         if verbose:
             print >> sys.stderr, "--> Starting Qubes GUId..."
         xid = self.get_xid()
 
-        guid_cmd = [system_path["qubes_guid_path"], "-d", str(xid), "-c", self.label.color, "-i", self.label.icon_path, "-l", str(self.label.index)]
+        guid_cmd = [system_path["qubes_guid_path"],
+            "-d", str(xid),
+            "-c", self.label.color,
+            "-i", self.label.icon_path,
+            "-l", str(self.label.index)]
+        guid_cmd += extra_guid_args
         if self.debug:
             guid_cmd += ['-v', '-v']
         retcode = subprocess.call (guid_cmd)

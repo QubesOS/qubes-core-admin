@@ -325,15 +325,19 @@ class QubesHVm(QubesVm):
             else:
                 raise
 
-    def start_guid(self, verbose = True, notify_function = None):
+    def start_guid(self, verbose = True, notify_function = None, **kwargs):
         # If user force the guiagent, start_guid will mimic a standard QubesVM
         if self.guiagent_installed:
-            super(QubesHVm, self).start_guid(verbose, notify_function)
+            super(QubesHVm, self).start_guid(verbose, notify_function, extra_guid_args=["-Q"], **kwargs)
         else:
             if verbose:
                 print >> sys.stderr, "--> Starting Qubes GUId..."
 
-            retcode = subprocess.call ([system_path["qubes_guid_path"], "-d", str(self.stubdom_xid), "-c", self.label.color, "-i", self.label.icon_path, "-l", str(self.label.index)])
+            retcode = subprocess.call ([system_path["qubes_guid_path"],
+                    "-d", str(self.stubdom_xid),
+                    "-c", self.label.color,
+                    "-i", self.label.icon_path,
+                    "-l", str(self.label.index)])
             if (retcode != 0) :
                 raise QubesException("Cannot start qubes-guid!")
 
