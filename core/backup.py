@@ -313,7 +313,10 @@ class Send_Worker(Process):
                 "-C", self.base_dir, filename]
             final_proc  = subprocess.Popen (tar_final_cmd,
                     stdin=subprocess.PIPE, stdout=self.backup_stdout)
-            final_proc.wait()
+            if final_proc.wait() >= 2:
+                # handle only exit code 2 (tar fatal error) or greater (call failed?)
+                raise QubesException("ERROR: Failed to write the backup, out of disk space? "
+                        "Check console output or ~/.xsession-errors for details.")
 
             # Delete the file as we don't need it anymore
             if BACKUP_DEBUG:
