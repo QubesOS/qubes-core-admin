@@ -23,6 +23,7 @@
 
 import os
 import os.path
+import signal
 import subprocess
 import stat
 import sys
@@ -83,9 +84,7 @@ class QubesHVm(QubesVm):
         if not ('meminfo-writer' in self.services and self.services['meminfo-writer']):
             self.maxmem = self.memory
 
-        # Disable qemu GUID if the user installed qubes gui agent
-        if self.guiagent_installed:
-            self._start_guid_first = False
+        self._stubdom_guid_process = None
 
     @property
     def type(self):
@@ -325,21 +324,32 @@ class QubesHVm(QubesVm):
             else:
                 raise
 
-    def start_guid(self, verbose = True, notify_function = None, **kwargs):
+    def start_stubdom_guid(self):
+        cmdline = [system_path["qubes_guid_path"],
+                "-d", str(self.stubdom_xid),
+                "-c", self.label.color,
+                "-i", self.label.icon_path,
+                "-l", str(self.label.index)]
+        retcode = subprocess.call (cmdline)
+        if (retcode != 0) :
+            raise QubesException("Cannot start qubes-guid!")
+
+    def start_guid(self, verbose = True, notify_function = None,
+            before_qrexec=False, **kwargs):
         # If user force the guiagent, start_guid will mimic a standard QubesVM
-        if self.guiagent_installed:
+        if self.guiagent_installed and not before_qrexec:
             super(QubesHVm, self).start_guid(verbose, notify_function, extra_guid_args=["-Q"], **kwargs)
+            stubdom_guid_pidfile = '/var/run/qubes/guid-running.%d' % self.stubdom_xid
+            if os.path.exists(stubdom_guid_pidfile):
+                try:
+                    stubdom_guid_pid = int(open(stubdom_guid_pidfile, 'r').read())
+                    os.kill(stubdom_guid_pid, signal.SIGTERM)
+                except Exception as ex:
+                    print >> sys.stderr, "WARNING: Failed to kill stubdom gui daemon: %s" % str(ex)
         else:
             if verbose:
-                print >> sys.stderr, "--> Starting Qubes GUId..."
-
-            retcode = subprocess.call ([system_path["qubes_guid_path"],
-                    "-d", str(self.stubdom_xid),
-                    "-c", self.label.color,
-                    "-i", self.label.icon_path,
-                    "-l", str(self.label.index)])
-            if (retcode != 0) :
-                raise QubesException("Cannot start qubes-guid!")
+                print >> sys.stderr, "--> Starting Qubes GUId (full screen)..."
+            self.start_stubdom_guid()
 
     def start_qrexec_daemon(self, **kwargs):
         if not self.qrexec_installed:

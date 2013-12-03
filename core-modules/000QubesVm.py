@@ -1437,7 +1437,8 @@ class QubesVm(object):
         p = self.run('QUBESRPC qubes.WaitForSession none', user="root", passio_popen=True, gui=False, wait=True)
         p.communicate(input=self.default_user)
 
-    def start_guid(self, verbose = True, notify_function = None, extra_guid_args=[]):
+    def start_guid(self, verbose = True, notify_function = None,
+            extra_guid_args=[], before_qrexec=False):
         if verbose:
             print >> sys.stderr, "--> Starting Qubes GUId..."
         xid = self.get_xid()
@@ -1563,13 +1564,13 @@ class QubesVm(object):
         qmemman_client.close()
 
         if self._start_guid_first and start_guid and not preparing_dvm and os.path.exists('/var/run/shm.id'):
-            self.start_guid(verbose=verbose,notify_function=notify_function)
+            self.start_guid(verbose=verbose, notify_function=notify_function, before_qrexec=True)
 
         if not preparing_dvm:
             self.start_qrexec_daemon(verbose=verbose,notify_function=notify_function)
 
-        if not self._start_guid_first and start_guid and not preparing_dvm and os.path.exists('/var/run/shm.id'):
-            self.start_guid(verbose=verbose,notify_function=notify_function)
+        if start_guid and not preparing_dvm and os.path.exists('/var/run/shm.id'):
+            self.start_guid(verbose=verbose, notify_function=notify_function)
 
         if preparing_dvm:
             if verbose:
