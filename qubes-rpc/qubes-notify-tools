@@ -3,6 +3,7 @@
 import os
 import re
 import sys
+import subprocess
 from qubes.qubes import QubesVmCollection,QubesException,QubesHVm
 from qubes.qubes import xs
 
@@ -73,6 +74,12 @@ def main():
             source_vm.default_user = user
 
         qvm_collection.save()
+
+        retcode = subprocess.call(['qvm-sync-appmenus', '--force-rpc'])
+        if retcode == 0 and hasattr(source_vm, 'appmenus_recreate'):
+            # TODO: call the same for child VMs? This isn't done for Linux VMs,
+            # so probably should be ignored for Windows also
+            source_vm.appmenus_recreate()
     except Exception as e:
         print >> sys.stderr, e.message
         exit(1)
