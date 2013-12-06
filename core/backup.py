@@ -1375,7 +1375,10 @@ def backup_restore_do(backup_location, restore_tmpdir, passphrase, restore_info,
         backup_path = restore_info['dom0']['subdir']
         local_user = grp.getgrnam('qubes').gr_mem[0]
         home_dir = pwd.getpwnam(local_user).pw_dir
-        backup_dom0_home_dir = os.path.join(restore_tmpdir, backup_path)
+        if format_version == 1:
+            backup_dom0_home_dir = os.path.join(backup_location, backup_path)
+        else:
+            backup_dom0_home_dir = os.path.join(restore_tmpdir, backup_path)
         restore_home_backupdir = "home-pre-restore-{0}".format (time.strftime("%Y-%m-%d-%H%M%S"))
 
         print_callback("-> Restoring home of user '{0}'...".format(local_user))
