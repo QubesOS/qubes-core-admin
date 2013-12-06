@@ -346,7 +346,7 @@ class QubesHVm(QubesVm):
                     os.kill(stubdom_guid_pid, signal.SIGTERM)
                 except Exception as ex:
                     print >> sys.stderr, "WARNING: Failed to kill stubdom gui daemon: %s" % str(ex)
-        else:
+        elif self.debug:
             if verbose:
                 print >> sys.stderr, "--> Starting Qubes GUId (full screen)..."
             self.start_stubdom_guid()
