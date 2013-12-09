@@ -337,7 +337,7 @@ class QubesHVm(QubesVm):
     def start_guid(self, verbose = True, notify_function = None,
             before_qrexec=False, **kwargs):
         # If user force the guiagent, start_guid will mimic a standard QubesVM
-        if self.guiagent_installed and not before_qrexec:
+        if not before_qrexec and self.guiagent_installed:
             super(QubesHVm, self).start_guid(verbose, notify_function, extra_guid_args=["-Q"], **kwargs)
             stubdom_guid_pidfile = '/var/run/qubes/guid-running.%d' % self.stubdom_xid
             if os.path.exists(stubdom_guid_pidfile):
@@ -346,7 +346,7 @@ class QubesHVm(QubesVm):
                     os.kill(stubdom_guid_pid, signal.SIGTERM)
                 except Exception as ex:
                     print >> sys.stderr, "WARNING: Failed to kill stubdom gui daemon: %s" % str(ex)
-        elif self.debug:
+        elif before_qrexec and (not self.guiagent_installed or self.debug):
             if verbose:
                 print >> sys.stderr, "--> Starting Qubes GUId (full screen)..."
             self.start_stubdom_guid()
