@@ -124,7 +124,7 @@ def backup_prepare(vms_list = None, exclude_list = [],
             continue
 
         if hide_vm_names:
-            subdir = 'vm%d' % vm.qid
+            subdir = 'vm%d/' % vm.qid
         else:
             subdir = None
 
@@ -179,7 +179,7 @@ def backup_prepare(vms_list = None, exclude_list = [],
             continue
         vm_sz = vm.get_disk_utilization()
         if hide_vm_names:
-            template_subdir = 'vm%d' % vm.qid
+            template_subdir = 'vm%d/' % vm.qid
         else:
             template_subdir = os.path.relpath(
                     vm.dir_path,
