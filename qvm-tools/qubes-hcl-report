@@ -51,6 +51,7 @@ if [[ $BRAND =~ "O.E.M" ]]
     PRODUCT=`sudo dmidecode |grep -A9 "Base Board Information" |grep "Product Name:" |cut -d ' ' -f3- |tr -s '[:blank:]' _`
 fi
 
+KERNEL=`uname -r`
 CPU=`sudo cat /proc/cpuinfo |grep "model name" |sort -u |cut -d ' ' -f3-`
 CHIPSET=`sudo lspci -nn |grep "00:00.0.*Host bridge"`
 VGA=`sudo lspci -nn |grep "VGA\|Display" | sed -e "s/^/\t\t/"`
@@ -76,7 +77,8 @@ fi
 
 sudo cat /etc/qubes-release |tee ~/$FILENAME.txt
 echo
-echo -e "Model Name:\t$BRAND $PRODUCT\n" |tee -a ~/$FILENAME.txt
+echo -e "Model Name:\t$BRAND $PRODUCT" |tee -a ~/$FILENAME.txt
+echo -e "Kernel:\t\t$KERNEL\n" |tee ~/$FILENAME.txt
 echo -e "CPU:\t\t$CPU" |tee -a  ~/$FILENAME.txt
 echo -e "Chipset:\t$CHIPSET" |tee -a ~/$FILENAME.txt
 echo -e "VGA:$VGA\n" |tee -a ~/$FILENAME.txt
