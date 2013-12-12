@@ -159,13 +159,26 @@ class QubesHVm(QubesVm):
             f_root.truncate(defaults["hvm_disk_size"])
             f_root.close()
 
-        # create empty private.img
-        if verbose:
-            print >> sys.stderr, "--> Creating private image: {0}".\
-                format(self.private_img)
-        f_private = open(self.private_img, "w")
-        f_private.truncate(defaults["hvm_private_img_size"])
-        f_private.close()
+        if self.template is None:
+            # create empty private.img
+            if verbose:
+                print >> sys.stderr, "--> Creating private image: {0}".\
+                    format(self.private_img)
+            f_private = open(self.private_img, "w")
+            f_private.truncate(defaults["hvm_private_img_size"])
+            f_private.close()
+        else:
+            # copy template private.img
+            template_priv = self.template.private_img
+            if verbose:
+                print >> sys.stderr, "--> Copying the template's private image: {0}".\
+                    format(template_priv)
+
+            # We prefer to use Linux's cp, because it nicely handles sparse files
+            retcode = subprocess.call (["cp", template_priv, self.private_img])
+            if retcode != 0:
+                raise IOError ("Error while copying {0} to {1}".\
+                           format(template_priv, self.private_img))
 
         # fire hooks
         for hook in self.hooks_create_on_disk:
