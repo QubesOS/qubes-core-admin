@@ -356,7 +356,7 @@ class QubesHVm(QubesVm):
         if self.template and self.template.is_running():
             raise QubesException("Cannot start the HVM while its template is running")
         try:
-            super(QubesHVm, self).start(*args, **kwargs)
+            return super(QubesHVm, self).start(*args, **kwargs)
         except QubesException as e:
             if xc.physinfo()['virt_caps'].count('hvm') == 0:
                 raise QubesException("Cannot start HVM without VT-x/AMD-v enabled")
