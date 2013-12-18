@@ -60,8 +60,12 @@ class QubesHVm(QubesVm):
         attrs['drive'] = { 'save': 'str(self.drive)' }
         attrs['maxmem'].pop('save')
         attrs['timezone'] = { 'default': 'localtime', 'save': 'str(self.timezone)' }
-        attrs['qrexec_installed'] = { 'default': False, 'save': 'str(self.qrexec_installed)' }
-        attrs['guiagent_installed'] = { 'default' : False, 'save': 'str(self.guiagent_installed)' }
+        attrs['qrexec_installed'] = { 'default': False,
+            'attr': '_qrexec_installed',
+            'save': 'str(self._qrexec_installed)' }
+        attrs['guiagent_installed'] = { 'default' : False,
+            'attr': '_guiagent_installed',
+            'save': 'str(self._guiagent_installed)' }
         attrs['_start_guid_first']['eval'] = 'True'
         attrs['services']['default'] = "{'meminfo-writer': False}"
 
@@ -110,6 +114,28 @@ class QubesHVm(QubesVm):
         attrs += [ 'guiagent_installed' ]
         return attrs
 
+    @property
+    def qrexec_installed(self):
+        return self._qrexec_installed or \
+            bool(self.template and self.template.qrexec_installed)
+
+    @qrexec_installed.setter
+    def qrexec_installed(self, value):
+        if self.template and self.template.qrexec_installed and not value:
+            print >>sys.stderr, "WARNING: When qrexec_installed set in template, it will be propagated to the VM"
+        self._qrexec_installed = value
+
+    @property
+    def guiagent_installed(self):
+        return self._guiagent_installed or \
+            bool(self.template and self.template.guiagent_installed)
+
+    @guiagent_installed.setter
+    def guiagent_installed(self, value):
+        if self.template and self.template.guiagent_installed and not value:
+            print >>sys.stderr, "WARNING: When guiagent_installed set in template, it will be propagated to the VM"
+        self._guiagent_installed = value
+
     def create_on_disk(self, verbose, source_template = None):
         if dry_run:
             return
@@ -133,13 +159,26 @@ class QubesHVm(QubesVm):
             f_root.truncate(defaults["hvm_disk_size"])
             f_root.close()
 
-        # create empty private.img
-        if verbose:
-            print >> sys.stderr, "--> Creating private image: {0}".\
-                format(self.private_img)
-        f_private = open(self.private_img, "w")
-        f_private.truncate(defaults["hvm_private_img_size"])
-        f_private.close()
+        if self.template is None:
+            # create empty private.img
+            if verbose:
+                print >> sys.stderr, "--> Creating private image: {0}".\
+                    format(self.private_img)
+            f_private = open(self.private_img, "w")
+            f_private.truncate(defaults["hvm_private_img_size"])
+            f_private.close()
+        else:
+            # copy template private.img
+            template_priv = self.template.private_img
+            if verbose:
+                print >> sys.stderr, "--> Copying the template's private image: {0}".\
+                    format(template_priv)
+
+            # We prefer to use Linux's cp, because it nicely handles sparse files
+            retcode = subprocess.call (["cp", template_priv, self.private_img])
+            if retcode != 0:
+                raise IOError ("Error while copying {0} to {1}".\
+                           format(template_priv, self.private_img))
 
         # fire hooks
         for hook in self.hooks_create_on_disk:

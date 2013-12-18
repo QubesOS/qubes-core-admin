@@ -21,8 +21,7 @@
 #
 
 from qubes.qubes import QubesVmCollection,QubesException
-from qubes.qubes import shutdown_counter_max
-from optparse import OptionParser;
+from optparse import OptionParser
 import sys
 import time
 
@@ -50,7 +49,7 @@ def main():
 
     else:
         if options.verbose: 
-            print >> sys.stdout, "A VM with the name '{0}' is exist.".format(vmname)
+            print >> sys.stdout, "A VM with the name '{0}' does exist.".format(vmname)
         exit(0)
 
 main()
