@@ -75,6 +75,6 @@ class QubesTemplateHVm(QubesHVm):
         for vm in self.appvms.values():
             if vm.is_running():
                 raise QubesException("Cannot start HVM template while VMs based on it are running")
-        super(QubesTemplateHVm, self).start(*args, **kwargs)
+        return super(QubesTemplateHVm, self).start(*args, **kwargs)
 
 register_qubes_vm_class(QubesTemplateHVm)
