@@ -805,7 +805,7 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
         backup_target = "QUBESRPC qubes.Restore dom0"
 
         # If APPVM, STDOUT is a PIPE
-        vmproc = appvm.run(command = backup_target, passio_popen = True)
+        vmproc = appvm.run(command = backup_target, passio_popen = True, passio_stderr=True)
         vmproc.stdin.write(backup_source.replace("\r","").replace("\n","")+"\n")
 
         # Send to tar2qfile the VMs that should be extracted
