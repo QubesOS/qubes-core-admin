@@ -170,7 +170,7 @@ void start_guid(int domid, int argc, char **argv)
 {
 	int i;
 	char dstr[40];
-	char *guid_args[argc + 1];
+	char *guid_args[argc + 4];
 	snprintf(dstr, sizeof(dstr), "%d", domid);
 	guid_args[0] = "qubes-guid";
 	guid_args[1] = "-d";
