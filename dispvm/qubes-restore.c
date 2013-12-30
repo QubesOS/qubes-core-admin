@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/wait.h>
+#include <sys/file.h>
 #include <syslog.h>
 #include <xs.h>
 
@@ -415,6 +416,10 @@ int get_next_disposable_id()
 		perror("open dispVM.seq");
 		exit(1);
 	}
+	if (flock(fd, LOCK_EX) < 0) {
+		perror("lock dispVM.seq");
+		exit(1);
+	}
 	if (read(fd, &seq, sizeof(seq)) != sizeof(seq)) {
 		perror("read dispVM.seq");
 		exit(1);
@@ -428,6 +433,7 @@ int get_next_disposable_id()
 		perror("write dispVM.seq");
 		exit(1);
 	}
+	flock(fd, LOCK_UN);
 	close(fd);
 	return seq;
 }
