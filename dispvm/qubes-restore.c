@@ -13,7 +13,7 @@
 #include <syslog.h>
 #include <xs.h>
 
-int restore_domain(char *restore_file, char *conf_file, char *name) {
+int restore_domain(const char *restore_file, const char *conf_file, const char *name) {
 	int pid, status, domid, ret;
 	int pipe_fd[2];
 	char buf[256];
@@ -85,7 +85,7 @@ int restore_domain(char *restore_file, char *conf_file, char *name) {
 }
 
 
-char *gettime()
+const char *gettime(void)
 {
 	static char retbuf[60];
 	struct timeval tv;
@@ -97,7 +97,7 @@ char *gettime()
 
 int actually_do_unlink = 1;
 #define FAST_FLAG_PATH "/var/run/qubes/fast-block-attach"
-void set_fast_flag()
+void set_fast_flag(void)
 {
 	int fd = open(FAST_FLAG_PATH, O_CREAT | O_RDONLY, 0600);
 	if (fd < 0) {
@@ -107,7 +107,7 @@ void set_fast_flag()
 	close(fd);
 }
 
-void rm_fast_flag()
+void rm_fast_flag(void)
 {
 	if (actually_do_unlink)
 		unlink(FAST_FLAG_PATH);
@@ -144,7 +144,7 @@ void preload_cache(int fd)
 	}
 }
 
-void start_rexec(int domid, char *domain_name, char *default_user)
+void start_rexec(int domid, const char *domain_name, const char *default_user)
 {
 	int pid, status;
 	char dstr[40];
@@ -183,14 +183,14 @@ void start_guid(int domid, int argc, char **argv)
 	perror("execv");
 }
 
-char *dispname_by_dispid(int dispid)
+const char *dispname_by_dispid(int dispid)
 {
 	static char retbuf[16];
 	snprintf(retbuf, sizeof(retbuf), "disp%d", dispid);
 	return retbuf;
 }
 
-char *build_dvm_ip(int netvm, int id)
+const char *build_dvm_ip(int netvm, int id)
 {
 	static char buf[256];
 	snprintf(buf, sizeof(buf), "10.138.%d.%d", netvm, (id % 254) + 1);
@@ -202,7 +202,7 @@ char *build_dvm_ip(int netvm, int id)
 // returns the name of VM the savefile was taken for 
 // by looking for /.../vmname/volatile.img
 // normally, it should be "templatename-dvm"
-char *get_vmname_from_savefile(int fd)
+const char *get_vmname_from_savefile(int fd)
 {
 	int buflen;
 	static char buf[4096];
@@ -235,7 +235,7 @@ char *get_vmname_from_savefile(int fd)
 	return slash + 1;
 }
 
-void fill_field(FILE *conf, char *field, int dispid, int netvm_id)
+void fill_field(FILE *conf, const char *field, int dispid, int netvm_id)
 {
 	if (!strcmp(field, "NAME")) {
 		fprintf(conf, "%s", dispname_by_dispid(dispid));
@@ -307,7 +307,7 @@ void fix_conffile(FILE *conf, int conf_templ, int dispid, int netvm_id)
 }
 
 
-void unpack_cows(char *name)
+void unpack_cows(const char *name)
 {
 	char vmdir[4096];
 	char tarfile[4096];
@@ -336,8 +336,8 @@ void unpack_cows(char *name)
 	}
 }
 
-void write_xs_single(struct xs_handle *xs, int domid, char *name,
-		     char *val)
+void write_xs_single(struct xs_handle *xs, int domid, const char *name,
+		     const char *val)
 {
 	char key[256];
 	snprintf(key, sizeof(key), "/local/domain/%d/%s", domid, name);
@@ -347,7 +347,7 @@ void write_xs_single(struct xs_handle *xs, int domid, char *name,
 	}
 }
 
-void perm_xs_single(struct xs_handle *xs, int domid, char *name,
+void perm_xs_single(struct xs_handle *xs, int domid, const char *name,
 		     struct xs_permissions *perms, int nperms)
 {
 	char key[256];
@@ -358,7 +358,7 @@ void perm_xs_single(struct xs_handle *xs, int domid, char *name,
 	}
 }
 
-int get_netvm_id_from_name(char *name)
+int get_netvm_id_from_name(const char *name)
 {
 	int fd, n;
 	char netvm_id[256];
@@ -385,7 +385,7 @@ int get_netvm_id_from_name(char *name)
 	return n;
 }
 
-void setup_xenstore(int netvm_id, int domid, int dvmid, char *name)
+void setup_xenstore(int netvm_id, int domid, int dvmid, const char *name)
 {
 	char val[256];
 	struct xs_handle *xs = xs_daemon_open();
@@ -414,7 +414,7 @@ void setup_xenstore(int netvm_id, int domid, int dvmid, char *name)
 
 }
 
-int get_next_disposable_id()
+int get_next_disposable_id(void)
 {
 	int seq = 0;
 	int fd = open("/var/run/qubes/dispVM.seq", O_RDWR);
@@ -444,7 +444,7 @@ int get_next_disposable_id()
 	return seq;
 }
 
-void write_varrun_domid(int domid, char *dispname, char *orig)
+void write_varrun_domid(int domid, const char *dispname, const char *orig)
 {
 	FILE *f = fopen("/var/run/qubes/dispVM.xid", "w");
 	if (!f) {
@@ -456,7 +456,7 @@ void write_varrun_domid(int domid, char *dispname, char *orig)
 }
 
 
-void redirect_stderr()
+void redirect_stderr(void)
 {
 	int fd = open("/var/log/qubes/qubes-restore.log",
 		      O_CREAT | O_TRUNC | O_WRONLY, 0600);
@@ -472,7 +472,7 @@ int main(int argc, char **argv)
 {
 	int conf_templ, domid, dispid, netvm_id;
 	FILE *conf;
-	char *name;
+	const char *name;
 	char confname[256];
 	char *default_user = NULL;
 	int guid_args_start = 3;
