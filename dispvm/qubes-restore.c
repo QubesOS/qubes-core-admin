@@ -13,7 +13,7 @@
 #include <xs.h>
 
 int restore_domain(char *restore_file, char *conf_file, char *name) {
-	int pid, status, domid;
+	int pid, status, domid, ret;
 	int pipe_fd[2];
 	char buf[256];
 	char *endptr;
@@ -61,8 +61,12 @@ int restore_domain(char *restore_file, char *conf_file, char *name) {
 		exit(1);
 	default:;
 	}
-	read(pipe_fd[0], buf, sizeof(buf)-1);
-	buf[sizeof(buf)-1] = 0;
+	ret = read(pipe_fd[0], buf, sizeof(buf)-1);
+	if (ret < 0) {
+		perror("read");
+		exit(1);
+	}
+	buf[ret] = 0;
 	domid = strtoul(buf, &endptr, 10);
 	if (domid <= 0 || *endptr != '\n') {
 		fprintf(stderr, "Cannot get DispVM xid\n");
