@@ -268,8 +268,14 @@ void fix_conffile(FILE *conf, int conf_templ, int dispid, int netvm_id)
 		perror("lseek vm conf");
 		exit(1);
 	}
-	while ((cur_len = read(conf_templ, buf+cur_len, sizeof(buf)-cur_len)) > 0) {
+	while ((cur_len = read(conf_templ, buf+buflen, sizeof(buf)-buflen)) > 0) {
 		buflen+=cur_len;
+		if (buflen >= sizeof(buf)) {
+			/* We'll false positive if the file is exactly sizeof(buf) bytes,
+                           as we don't know if there's any more stuff in the file */
+			fprintf(stderr, "vm conf too large\n");
+			exit(1);
+		}
 	}
 	if (cur_len < 0) {
 		perror("read vm conf");
