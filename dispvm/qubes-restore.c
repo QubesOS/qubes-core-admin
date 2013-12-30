@@ -89,7 +89,7 @@ char *gettime()
 	static char retbuf[60];
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
-	snprintf(retbuf, sizeof(retbuf), "%lld.%lld",
+	snprintf(retbuf, sizeof(retbuf), "%lld.%06lld",
 		 (long long) tv.tv_sec, (long long) tv.tv_usec);
 	return retbuf;
 }
