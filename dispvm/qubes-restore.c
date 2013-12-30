@@ -218,7 +218,7 @@ char *get_vmname_from_savefile(int fd)
 		exit(1);
 	}
 	buf[buflen] = 0;
-	name = strstr(buf + 20, NAME_PATTERN);
+	name = strstr(buf, NAME_PATTERN);
 	if (!name) {
 		fprintf(stderr,
 			"cannot find 'volatile.img' in savefile\n");
