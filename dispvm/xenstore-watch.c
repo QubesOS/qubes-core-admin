@@ -2,12 +2,12 @@
 #include <xs.h>
 #include <stdio.h>
 #include <stdlib.h>
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	struct xs_handle *xs;
 	unsigned int count;
 	char **vec;
-	char dummy;
+	char dummy = 0;
 	if (argc != 2) {
 		fprintf(stderr, "usage: %s xenstore_path\n", argv[0]);
 		exit(1);
@@ -25,4 +25,5 @@ main(int argc, char **argv)
 	free(vec);
 	vec = xs_read_watch(xs, &count);
 	free(vec);
+	return 0;
 }
