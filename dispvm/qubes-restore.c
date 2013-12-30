@@ -226,9 +226,9 @@ char *get_vmname_from_savefile(int fd)
 	}
 	*name = 0;
 	slash = name - 1;
-	while (slash[0] && slash[0] != '/')
+	while (slash >= buf && slash[0] && slash[0] != '/')
 		slash--;
-	if (!*slash) {
+	if (slash < buf || !*slash) {
 		fprintf(stderr, "cannot find / in savefile\n");
 		exit(1);
 	}
