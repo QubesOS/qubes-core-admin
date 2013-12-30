@@ -317,7 +317,7 @@ void unpack_cows(char *name)
 		 "/var/lib/qubes/appvms/%s/saved-cows.tar", name);
 	switch (fork()) {
 	case -1:
-		fprintf(stderr, "fork");
+		perror("fork");
 		exit(1);
 	case 0:
 		execl("/bin/tar", "tar", "-C", vmdir, "-Sxf",
@@ -342,7 +342,7 @@ void write_xs_single(struct xs_handle *xs, int domid, char *name,
 	char key[256];
 	snprintf(key, sizeof(key), "/local/domain/%d/%s", domid, name);
 	if (!xs_write(xs, XBT_NULL, key, val, strlen(val))) {
-		fprintf(stderr, "xs_write");
+		fprintf(stderr, "xs_write\n");
 		exit(1);
 	}
 }
@@ -353,7 +353,7 @@ void perm_xs_single(struct xs_handle *xs, int domid, char *name,
 	char key[256];
 	snprintf(key, sizeof(key), "/local/domain/%d/%s", domid, name);
 	if (!xs_set_permissions(xs, XBT_NULL, key, perms, nperms)) {
-		fprintf(stderr, "xs_set_permissions");
+		fprintf(stderr, "xs_set_permissions\n");
 		exit(1);
 	}
 }
