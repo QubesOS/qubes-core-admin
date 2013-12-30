@@ -207,7 +207,10 @@ char *get_vmname_from_savefile(int fd)
 	static char buf[4096];
 	char *name;
 	char *slash;
-	lseek(fd, 0, SEEK_SET);
+	if (lseek(fd, 0, SEEK_SET) == (off_t)-1) {
+		perror("lseek vm conf");
+		exit(1);
+	}
 	buflen = read(fd, buf, sizeof(buf) - 1);
 	if (buflen < 0) {
 		perror("read vm conf");
@@ -260,7 +263,10 @@ void fix_conffile(FILE *conf, int conf_templ, int dispid, int netvm_id)
 	char *pattern, *patternend;
 
 	/* read config template */
-	lseek(conf_templ, 0, SEEK_SET);
+	if (lseek(conf_templ, 0, SEEK_SET) == (off_t)-1) {
+		perror("lseek vm conf");
+		exit(1);
+	}
 	while ((cur_len = read(conf_templ, buf+cur_len, sizeof(buf)-cur_len)) > 0) {
 		buflen+=cur_len;
 	}
@@ -358,9 +364,18 @@ int get_netvm_id_from_name(char *name)
 		exit(1);
 	}
 	n = read(fd, netvm_id, sizeof(netvm_id) - 1);
+	if (n < 0) {
+		perror("read netvm_id");
+		exit(1);
+	}
 	close(fd);
 	netvm_id[n] = 0;
-	return atoi(netvm_id);
+	n = atoi(netvm_id);
+	if (n == 0) {
+		fprintf(stderr, "bad netvm id\n");
+		exit(1);
+	}
+	return n;
 }
 
 void setup_xenstore(int netvm_id, int domid, int dvmid, char *name)
@@ -400,10 +415,19 @@ int get_next_disposable_id()
 		perror("open dispVM.seq");
 		exit(1);
 	}
-	read(fd, &seq, sizeof(seq));
+	if (read(fd, &seq, sizeof(seq)) != sizeof(seq)) {
+		perror("read dispVM.seq");
+		exit(1);
+	}
 	seq++;
-	lseek(fd, 0, SEEK_SET);
-	write(fd, &seq, sizeof(seq));
+	if (lseek(fd, 0, SEEK_SET) == (off_t)-1) {
+		perror("seek dispVM.seq");
+		exit(1);
+	}
+	if (write(fd, &seq, sizeof(seq)) != sizeof(seq)) {
+		perror("write dispVM.seq");
+		exit(1);
+	}
 	close(fd);
 	return seq;
 }
