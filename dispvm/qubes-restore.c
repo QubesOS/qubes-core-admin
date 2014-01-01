@@ -378,7 +378,7 @@ int get_netvm_id_from_name(const char *name)
 	close(fd);
 	netvm_id[n] = 0;
 	n = atoi(netvm_id);
-	if (n == 0) {
+	if (n <= 0) {
 		fprintf(stderr, "bad netvm id\n");
 		exit(1);
 	}
@@ -431,6 +431,10 @@ int get_next_disposable_id(void)
 		exit(1);
 	}
 	seq++;
+	if (seq < 0) {
+		fprintf(stderr, "Invalid data in dispVM.seq");
+		exit(1);
+	}
 	if (lseek(fd, 0, SEEK_SET) == (off_t)-1) {
 		perror("seek dispVM.seq");
 		exit(1);
