@@ -88,7 +88,6 @@ mkdir -p $RPM_BUILD_ROOT/usr/lib/systemd/system
 cp linux/systemd/qubes-block-cleaner.service $RPM_BUILD_ROOT%{_unitdir}
 cp linux/systemd/qubes-core.service $RPM_BUILD_ROOT%{_unitdir}
 cp linux/systemd/qubes-setupdvm.service $RPM_BUILD_ROOT%{_unitdir}
-cp linux/systemd/qubes-meminfo-writer.service $RPM_BUILD_ROOT%{_unitdir}
 cp linux/systemd/qubes-netvm.service $RPM_BUILD_ROOT%{_unitdir}
 cp linux/systemd/qubes-qmemman.service $RPM_BUILD_ROOT%{_unitdir}
 cp linux/systemd/qubes-vm@.service $RPM_BUILD_ROOT%{_unitdir}
@@ -132,7 +131,6 @@ cp linux/aux-tools/startup-dvm.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp linux/aux-tools/startup-misc.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp linux/aux-tools/prepare-volatile-img.sh $RPM_BUILD_ROOT/usr/lib/qubes
 cp qmemman/server.py $RPM_BUILD_ROOT/usr/lib/qubes/qmemman_daemon.py
-cp qmemman/meminfo-writer $RPM_BUILD_ROOT/usr/lib/qubes/
 cp qubes-rpc/qubes-notify-tools $RPM_BUILD_ROOT/usr/lib/qubes/
 cp qubes-rpc/qubes-notify-updates $RPM_BUILD_ROOT/usr/lib/qubes/
 cp linux/aux-tools/vusb-ctl.py $RPM_BUILD_ROOT/usr/lib/qubes/
@@ -287,7 +285,6 @@ fi
 /usr/lib/qubes/unbind-pci-device.sh
 /usr/lib/qubes/cleanup-dispvms
 /usr/lib/qubes/qmemman_daemon.py*
-/usr/lib/qubes/meminfo-writer
 /usr/lib/qubes/qfile-daemon-dvm*
 /usr/lib/qubes/qubes-notify-tools
 /usr/lib/qubes/qubes-notify-updates
@@ -302,7 +299,6 @@ fi
 %{_unitdir}/qubes-block-cleaner.service
 %{_unitdir}/qubes-core.service
 %{_unitdir}/qubes-setupdvm.service
-%{_unitdir}/qubes-meminfo-writer.service
 %{_unitdir}/qubes-netvm.service
 %{_unitdir}/qubes-qmemman.service
 %{_unitdir}/qubes-vm@.service

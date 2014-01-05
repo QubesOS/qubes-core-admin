@@ -1,7 +1,4 @@
-all: meminfo-writer
-
-meminfo-writer: meminfo-writer.o
-	$(CC) -g -o meminfo-writer meminfo-writer.o -lxenstore
+all:
 
 clean:
 	rm -f *.pyo 
