@@ -138,7 +138,7 @@ def block_name_to_majorminor(name):
         disk = False
         major = 7
     elif name.startswith("md"):
-        disk = False
+        dXpY_style = True
         major = 9
     elif name.startswith("dm-"):
         disk = False
