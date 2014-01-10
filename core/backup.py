@@ -760,8 +760,8 @@ class Extract_Worker(Process):
                 # Start decrypt
                 self.decryptor_process = subprocess.Popen (["openssl", "enc",
                         "-d", "-aes-256-cbc",
-                        "-pass", "pass:"+self.passphrase],
-                        (["-z"] if compressed else []),
+                        "-pass", "pass:"+self.passphrase] +
+                        (["-z"] if self.compressed else []),
                         stdin=open(filename,'rb'),
                         stdout=subprocess.PIPE)
 
