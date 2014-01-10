@@ -984,11 +984,6 @@ def backup_restore_header(source, passphrase,
     if format_version == 1:
         return (restore_tmpdir, os.path.join(source, 'qubes.xml'))
 
-    os.chdir(restore_tmpdir)
-
-    if BACKUP_DEBUG:
-        print "Working in", restore_tmpdir
-
     # tar2qfile matches only beginnings, while tar full path
     if appvm:
         extract_filter = ['qubes.xml.000']
@@ -1008,7 +1003,7 @@ def backup_restore_header(source, passphrase,
             compressed=compressed,
             appvm=appvm)
 
-    return (restore_tmpdir, "qubes.xml")
+    return (restore_tmpdir, os.path.join(restore_tmpdir, "qubes.xml"))
 
 def backup_restore_prepare(backup_location, qubes_xml, passphrase, options = {},
         host_collection = None, encrypt=False, appvm=None, format_version=None):
