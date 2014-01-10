@@ -671,8 +671,10 @@ class Extract_Worker(Process):
         self.compressed = compressed
         self.total_size = total_size
         self.blocks_backedup = 0
-        self.tar2_command = None
+        self.tar2_process = None
         self.tar2_current_file = None
+        self.decompressor_process = None
+        self.decryptor_process = None
 
         self.print_callback = print_callback
         self.error_callback = error_callback
@@ -692,6 +694,21 @@ class Extract_Worker(Process):
         self.progress_callback(progress)
 
     def run(self):
+        try:
+            self.__run__()
+        except Exception as e:
+            # Cleanup children
+            for process in [self.decompressor_process,
+                    self.decryptor_process,
+                    self.tar2_process]:
+                if process:
+                    # FIXME: kill()?
+                    process.terminate()
+                    process.wait()
+            self.error_callback(str(e))
+            raise
+
+    def __run__(self):
         if BACKUP_DEBUG:
             self.print_callback("Started sending thread")
             self.print_callback("Moving to dir "+self.base_dir)
@@ -706,14 +723,14 @@ class Extract_Worker(Process):
 
             if filename.endswith('.000'):
                 # next file
-                if self.tar2_command != None:
-                    if self.tar2_command.wait() != 0:
+                if self.tar2_process != None:
+                    if self.tar2_process.wait() != 0:
                         raise QubesException(
                                 "ERROR: unable to extract files for {0}.".\
                                 format(self.tar2_current_file))
                     else:
                         # Finished extracting the tar file
-                        self.tar2_command = None
+                        self.tar2_process = None
                         self.tar2_current_file = None
 
                 tar2_cmdline = ['tar',
@@ -721,14 +738,14 @@ class Extract_Worker(Process):
                     os.path.relpath(filename.rstrip('.000'))]
                 if BACKUP_DEBUG:
                     self.print_callback("Running command "+str(tar2_cmdline))
-                self.tar2_command = subprocess.Popen(tar2_cmdline,
+                self.tar2_process = subprocess.Popen(tar2_cmdline,
                         stdin=subprocess.PIPE,
                         stderr=(None if BACKUP_DEBUG else open('/dev/null', 'w')))
             else:
                 if BACKUP_DEBUG:
                     self.print_callback("Releasing next chunck")
-                self.tar2_command.stdin.write("\n")
-                self.tar2_command.stdin.flush()
+                self.tar2_process.stdin.write("\n")
+                self.tar2_process.stdin.flush()
             self.tar2_current_file = filename
 
             pipe = open(self.restore_pipe,'wb')
@@ -737,11 +754,11 @@ class Extract_Worker(Process):
                         'total_backup_sz': self.total_size,
                         'hmac': None,
                         'vmproc': self.vmproc,
-                        'addproc': self.tar2_command
+                        'addproc': self.tar2_process
             }
             if self.encrypted:
                 # Start decrypt
-                encryptor  = subprocess.Popen (["openssl", "enc",
+                self.decryptor_process = subprocess.Popen (["openssl", "enc",
                         "-d", "-aes-256-cbc",
                         "-pass", "pass:"+self.passphrase],
                         (["-z"] if compressed else []),
@@ -750,16 +767,18 @@ class Extract_Worker(Process):
 
                 run_error = wait_backup_feedback(
                         progress_callback=self.compute_progress,
-                        in_stream=encryptor.stdout, streamproc=encryptor,
+                        in_stream=self.decryptor_process.stdout,
+                        streamproc=self.decryptor_process,
                         **common_args)
             elif self.compressed:
-                compressor  = subprocess.Popen (["gzip", "-d"],
+                self.decompressor_process = subprocess.Popen (["gzip", "-d"],
                         stdin=open(filename,'rb'),
                         stdout=subprocess.PIPE)
 
                 run_error = wait_backup_feedback(
                         progress_callback=self.compute_progress,
-                        in_stream=compressor.stdout, streamproc=compressor,
+                        in_stream=self.decompressor_process.stdout,
+                        streamproc=self.decompressor_process,
                         **common_args)
             else:
                 run_error = wait_backup_feedback(
@@ -774,14 +793,14 @@ class Extract_Worker(Process):
                 self.print_callback("Removing file "+filename)
             os.remove(filename)
 
-        if self.tar2_command != None:
-            if self.tar2_command.wait() != 0:
+        if self.tar2_process != None:
+            if self.tar2_process.wait() != 0:
                 raise QubesException(
                         "ERROR: unable to extract files for {0}.".\
                         format(self.tar2_current_file))
             else:
                 # Finished extracting the tar file
-                self.tar2_command = None
+                self.tar2_process = None
 
         os.unlink(self.restore_pipe)
         if BACKUP_DEBUG:
