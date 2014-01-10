@@ -714,8 +714,8 @@ class Extract_Worker(Process):
             self.print_callback("Moving to dir "+self.base_dir)
         os.chdir(self.base_dir)
 
-        for filename in iter(self.queue.get,None):
-            if filename == "FINISHED":
+        for filename in iter(self.queue.get, None):
+            if filename == "FINISHED" or filename == "ERROR":
                 break
 
             if BACKUP_DEBUG:
@@ -793,7 +793,11 @@ class Extract_Worker(Process):
                 self.print_callback("Removing file "+filename)
             os.remove(filename)
 
+        os.unlink(self.restore_pipe)
+
         if self.tar2_process != None:
+            if filename == "ERROR":
+                self.tar2_process.terminate()
             if self.tar2_process.wait() != 0:
                 raise QubesException(
                         "ERROR: unable to extract files for {0}.".\
@@ -802,7 +806,6 @@ class Extract_Worker(Process):
                 # Finished extracting the tar file
                 self.tar2_process = None
 
-        os.unlink(self.restore_pipe)
         if BACKUP_DEBUG:
             self.print_callback("Finished extracting thread")
 
@@ -877,44 +880,55 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
     else:
         filelist_pipe = command.stdout
 
-    while True:
+    try:
+        while True:
+            filename = filelist_pipe.readline().strip(" \t\r\n")
 
-        filename = filelist_pipe.readline().strip(" \t\r\n")
-
-        if BACKUP_DEBUG:
-            print_callback("Getting new file:"+filename)
-
-        if not filename or filename=="EOF":
-            break
-
-        hmacfile = filelist_pipe.readline().strip(" \t\r\n")
-        if BACKUP_DEBUG:
-            print_callback("Getting hmac:"+hmacfile)
-
-        if not any(map(lambda x: filename.startswith(x), vms_dirs)):
             if BACKUP_DEBUG:
-                print_callback("Ignoring VM not selected for restore")
-            os.unlink(os.path.join(restore_tmpdir, filename))
-            os.unlink(os.path.join(restore_tmpdir, hmacfile))
-            continue
+                print_callback("Getting new file:"+filename)
 
-        if verify_hmac(os.path.join(restore_tmpdir,filename),
-                os.path.join(restore_tmpdir,hmacfile),
-                passphrase):
-            to_extract.put(os.path.join(restore_tmpdir, filename))
+            if not filename or filename=="EOF":
+                break
 
-    if command.wait() != 0:
-        raise QubesException(
-                "ERROR: unable to read the qubes backup file {0} ({1}). " \
-                "Is it really a backup?".format(backup_source, command.wait()))
-    if vmproc:
-        if vmproc.wait() != 0:
+            hmacfile = filelist_pipe.readline().strip(" \t\r\n")
+            if BACKUP_DEBUG:
+                print_callback("Getting hmac:"+hmacfile)
+            if not hmacfile or hmacfile=="EOF":
+                # Premature end of archive, either of tar1_command or vmproc exited with error
+                break
+
+            if not any(map(lambda x: filename.startswith(x), vms_dirs)):
+                if BACKUP_DEBUG:
+                    print_callback("Ignoring VM not selected for restore")
+                os.unlink(os.path.join(restore_tmpdir, filename))
+                os.unlink(os.path.join(restore_tmpdir, hmacfile))
+                continue
+
+            if verify_hmac(os.path.join(restore_tmpdir,filename),
+                    os.path.join(restore_tmpdir,hmacfile),
+                    passphrase):
+                to_extract.put(os.path.join(restore_tmpdir, filename))
+
+        if command.wait() != 0:
             raise QubesException(
-                    "ERROR: unable to read the qubes backup {0} " \
-                    "because of a VM error: {1}".format(
-                        backup_source, vmproc.stderr.read()))
+                    "ERROR: unable to read the qubes backup file {0} ({1}). " \
+                    "Is it really a backup?".format(backup_source, command.wait()))
+        if vmproc:
+            if vmproc.wait() != 0:
+                raise QubesException(
+                        "ERROR: unable to read the qubes backup {0} " \
+                        "because of a VM error: {1}".format(
+                            backup_source, vmproc.stderr.read()))
 
-    to_extract.put("FINISHED")
+        if filename and filename!="EOF":
+            raise QubesException("Premature end of archive, the last file was %s" % filename)
+    except:
+        to_extract.put("ERROR")
+        extract_proc.join()
+        raise
+    else:
+        to_extract.put("FINISHED")
+
     if BACKUP_DEBUG:
         print_callback("Waiting for the extraction process to finish...")
     extract_proc.join()
