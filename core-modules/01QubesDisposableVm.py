@@ -23,17 +23,7 @@
 
 import sys
 from qubes.qubes import QubesVm,QubesVmLabel,register_qubes_vm_class
-
-QubesDispVmLabels = {
-    "red" : QubesVmLabel ("red", 1, icon="dispvm-red"),
-    "orange" : QubesVmLabel ("orange", 2, icon="dispvm-orange"),
-    "yellow" : QubesVmLabel ("yellow", 3, icon="dispvm-yellow"),
-    "green" : QubesVmLabel ("green", 4, color="0x5fa05e", icon="dispvm-green"),
-    "gray" : QubesVmLabel ("gray", 5, icon="dispvm-gray"),
-    "blue" : QubesVmLabel ("blue", 6, icon="dispvm-blue"),
-    "purple" : QubesVmLabel ("purple", 7, color="0xb83374", icon="dispvm-purple"),
-    "black" : QubesVmLabel ("black", 8, icon="dispvm-black"),
-}
+from qubes.qubes import QubesDispVmLabels
 
 class QubesDisposableVm(QubesVm):
     """
@@ -93,5 +83,4 @@ class QubesDisposableVm(QubesVm):
         return True
 
 # register classes
-sys.modules['qubes.qubes'].QubesDispVmLabels = QubesDispVmLabels
 register_qubes_vm_class(QubesDisposableVm)
