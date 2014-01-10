@@ -349,7 +349,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
         backup_target = "QUBESRPC qubes.Backup none"
 
         # If APPVM, STDOUT is a PIPE
-        vmproc = appvm.run(command = backup_target, passio_popen = True)
+        vmproc = appvm.run(command = backup_target, passio_popen = True, passio_stderr = True)
         vmproc.stdin.write(base_backup_dir.\
                 replace("\r","").replace("\n","")+"\n")
         backup_stdout = vmproc.stdin
@@ -492,8 +492,12 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
 
             if len(run_error) > 0:
                 send_proc.terminate()
-                raise QubesException("Failed to perform backup: error with "+ \
-                        run_error)
+                if run_error == "VM" and vmproc:
+                    raise QubesException("Failed to write the backup, the VM output:\n" +
+                            vmproc.stderr.read())
+                else:
+                    raise QubesException("Failed to perform backup: error in "+ \
+                            run_error)
 
             # Send the chunk to the backup target
             to_send.put(os.path.relpath(chunkfile, backup_tmpdir))
