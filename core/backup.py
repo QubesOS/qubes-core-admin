@@ -34,6 +34,7 @@ import shutil
 import tempfile
 import time
 import grp,pwd
+import errno
 from multiprocessing import Queue,Process
 
 BACKUP_DEBUG = False
@@ -786,7 +787,18 @@ class Extract_Worker(Process):
                         in_stream=open(filename,"rb"), streamproc=None,
                         **common_args)
 
-            pipe.close()
+            try:
+                pipe.close()
+            except IOError as e:
+                if e.errno == errno.EPIPE:
+                    if BACKUP_DEBUG:
+                        self.error_callback("Got EPIPE while closing pipe to the inner tar process")
+                    # ignore the error
+                else:
+                    raise
+            if len(run_error):
+                raise QubesException("Error while processing '%s': %s failed" % \
+                        (self.tar2_current_file, run_error))
 
             # Delete the file as we don't need it anymore
             if BACKUP_DEBUG:
