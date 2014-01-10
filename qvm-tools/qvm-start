@@ -128,7 +128,7 @@ def main():
     if options.debug:
         print >> sys.stderr, "--> Debug mode enabled. Useful logs: "
         print >> sys.stderr, "    /var/log/xen/console/guest-%s.log" % vmname
-        if vm.type.endwith("HVM"):
+        if vm.type.endswith("HVM"):
             print >> sys.stderr, "    /var/log/xen/console/guest-%s-dm.log" % vmname
         print >> sys.stderr, "    /var/log/qubes/guid.%s.log" % vmname
         print >> sys.stderr, "    /var/log/qubes/qrexec.%s.log" % vmname
