@@ -83,8 +83,9 @@ def backup_prepare(vms_list = None, exclude_list = [],
         appvms_to_backup = [vm for vm in selected_vms if vm.is_appvm() and not vm.internal]
         netvms_to_backup = [vm for vm in selected_vms if vm.is_netvm() and not vm.qid == 0]
         template_vms_worth_backingup = [vm for vm in selected_vms if (vm.is_template() and not vm.installed_by_rpm)]
+        dom0 = [ qvm_collection[0] ]
 
-        vms_list = appvms_to_backup + netvms_to_backup + template_vms_worth_backingup
+        vms_list = appvms_to_backup + netvms_to_backup + template_vms_worth_backingup + dom0
 
     vms_for_backup = vms_list
     # Apply exclude list
@@ -121,6 +122,9 @@ def backup_prepare(vms_list = None, exclude_list = [],
     for vm in vms_for_backup:
         if vm.is_template():
             # handle templates later
+            continue
+        if vm.qid == 0:
+            # handle dom0 later
             continue
 
         if hide_vm_names:
@@ -177,6 +181,9 @@ def backup_prepare(vms_list = None, exclude_list = [],
         if not vm.is_template():
             # already handled
             continue
+        if vm.qid == 0:
+            # handle dom0 later
+            continue
         vm_sz = vm.get_disk_utilization()
         if hide_vm_names:
             template_subdir = 'vm%d/' % vm.qid
@@ -209,6 +216,9 @@ def backup_prepare(vms_list = None, exclude_list = [],
     # Initialize backup flag on all VMs
     vms_for_backup_qid = [vm.qid for vm in vms_for_backup]
     for vm in qvm_collection.values():
+        if vm.qid == 0:
+            # handle dom0 later
+            continue
         vm.backup_content = False
 
         if vm.qid in vms_for_backup_qid:
@@ -220,7 +230,7 @@ def backup_prepare(vms_list = None, exclude_list = [],
                 vm.backup_path = os.path.relpath(vm.dir_path, system_path["qubes_base_dir"])
 
     # Dom0 user home
-    if not 'dom0' in exclude_list:
+    if 0 in vms_for_backup_qid:
         local_user = grp.getgrnam('qubes').gr_mem[0]
         home_dir = pwd.getpwnam(local_user).pw_dir
         # Home dir should have only user-owned files, so fix it now to prevent
