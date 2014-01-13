@@ -13,9 +13,4 @@ cp /var/lib/qubes/qubes.xml /var/lib/qubes/backup/qubes-$(date +%F-%T).xml
 /usr/lib/qubes/cleanup-dispvms
 
 # Hide mounted devices from qubes-block list (at first udev run, only / is mounted)
-for dev in `xenstore-list /local/domain/0/qubes-block-devices 2> /dev/null`; do
-    ( eval `udevadm info -q property -n $dev|sed -e 's/\([^=]*\)=\(.*\)/export \1="\2"/'`;
-    /usr/lib/qubes/udev-block-add-change > /dev/null
-    )
-done
-
+udevadm trigger --action=change --subsystem-match=block
