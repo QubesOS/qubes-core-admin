@@ -296,9 +296,9 @@ def backup_prepare(vms_list = None, exclude_list = [],
 
     return files_to_backup
 
-class Send_Worker(Process):
+class SendWorker(Process):
     def __init__(self, queue, base_dir, backup_stdout):
-        super(Send_Worker, self).__init__()
+        super(SendWorker, self).__init__()
         self.queue = queue
         self.base_dir = base_dir
         self.backup_stdout = backup_stdout
@@ -399,7 +399,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
         progress_callback(int(round(progress*100,2)))
 
     to_send    = Queue(10)
-    send_proc = Send_Worker(to_send, backup_tmpdir, backup_stdout)
+    send_proc = SendWorker(to_send, backup_tmpdir, backup_stdout)
     send_proc.start()
 
     for filename in files_to_backup:
@@ -660,11 +660,12 @@ def verify_hmac(filename, hmacfile, passphrase):
     # Not reachable
     return False
 
-class Extract_Worker(Process):
+
+class ExtractWorker(Process):
     def __init__(self, queue, base_dir, passphrase, encrypted, total_size,
             print_callback, error_callback, progress_callback, vmproc=None,
             compressed = False):
-        super(Extract_Worker, self).__init__()
+        super(ExtractWorker, self).__init__()
         self.queue = queue
         self.base_dir = base_dir
         self.passphrase = passphrase
@@ -832,7 +833,7 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
             pass
 
     to_extract   = Queue()
-    extract_proc = Extract_Worker(queue=to_extract,
+    extract_proc = ExtractWorker(queue=to_extract,
             base_dir=restore_tmpdir,
             passphrase=passphrase,
             encrypted=encrypted,
