@@ -116,11 +116,11 @@ def main():
     try:
         restore_info = backup_restore_prepare(
                 backup_dir,
-                os.path.join(restore_tmpdir, qubes_xml),
-                passphrase,
+                passphrase=passphrase,
                 options=restore_options,
                 host_collection=host_collection,
-                encrypt=options.decrypt,
+                encrypted=options.decrypt,
+                compressed=options.compressed,
                 appvm=appvm)
     except QubesException as e:
         print >> sys.stderr, "ERROR: %s" % str(e)
@@ -210,14 +210,8 @@ def main():
         exit (0)
 
 
-    backup_restore_do(backup_dir,
-            restore_tmpdir,
-            passphrase,
-            restore_info,
-            host_collection=host_collection,
-            encrypted=options.decrypt,
-            compressed=options.compressed,
-            appvm=appvm)
+    backup_restore_do(restore_info,
+            host_collection=host_collection)
 
     host_collection.unlock_db()
 

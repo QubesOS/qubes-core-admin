@@ -1020,8 +1020,74 @@ def backup_restore_header(source, passphrase,
 
     return (restore_tmpdir, os.path.join(restore_tmpdir, "qubes.xml"))
 
-def backup_restore_prepare(backup_location, qubes_xml, passphrase, options = {},
-        host_collection = None, encrypt=False, appvm=None, format_version=None):
+def restore_info_verify(restore_info, host_collection):
+    options = restore_info['$OPTIONS$']
+    for vm in restore_info.keys():
+        if vm in ['$OPTIONS$', 'dom0']:
+            continue
+
+        vm_info = restore_info[vm]
+
+        vm_info.pop('excluded', None)
+        if 'exclude' in options.keys():
+            if vm in options['exclude']:
+                vm_info['excluded'] = True
+
+        vm_info.pop('already-exists', None)
+        if host_collection.get_vm_by_name (vm) is not None:
+            vm_info['already-exists'] = True
+
+        # check template
+        vm_info.pop('missing-template', None)
+        if vm_info['template']:
+            template_name = vm_info['template']
+            host_template = host_collection.get_vm_by_name(template_name)
+            if not host_template or not host_template.is_template():
+                # Maybe the (custom) template is in the backup?
+                if not (template_name in restore_info.keys() and
+                            restore_info[template_name]['vm'].is_template()):
+                    if options['use-default-template']:
+                        if 'orig-template' not in vm_info.keys():
+                            vm_info['orig-template'] = template_name
+                        vm_info['template'] = host_collection\
+                            .get_default_template().name
+                    else:
+                        vm_info['missing-template'] = True
+
+        # check netvm
+        vm_info.pop('missing-netvm', None)
+        if vm_info['netvm']:
+            netvm_name = vm_info['netvm']
+
+            netvm_on_host = host_collection.get_vm_by_name (netvm_name)
+
+            # No netvm on the host?
+            if not ((netvm_on_host is not None) and netvm_on_host.is_netvm()):
+
+                # Maybe the (custom) netvm is in the backup?
+                if not (netvm_name in restore_info.keys() and \
+                        restore_info[netvm_name]['vm'].is_netvm()):
+                    if options['use-default-netvm']:
+                        vm_info['netvm'] = host_collection\
+                            .get_default_netvm().name
+                        vm_info['vm'].uses_default_netvm = True
+                    elif options['use-none-netvm']:
+                        vm_info['netvm'] = None
+                    else:
+                        vm_info['missing-netvm'] = True
+
+        vm_info['good-to-go'] = not any([(prop in vm_info.keys()) for
+                                         prop in ['missing-netvm',
+                                                  'missing-template',
+                                                  'already-exists',
+                                                  'excluded']])
+
+    return restore_info
+
+def backup_restore_prepare(backup_location, passphrase, options = {},
+        host_collection = None, encrypted=False, appvm=None,
+        compressed = False, print_callback = print_stdout, error_callback = print_stderr,
+        format_version=None):
     # Defaults
     backup_restore_set_defaults(options)
 
@@ -1066,6 +1132,15 @@ def backup_restore_prepare(backup_location, qubes_xml, passphrase, options = {},
     else:
         raise QubesException("Unknown backup format version: %s" % str(format_version))
 
+    (restore_tmpdir, qubes_xml) = backup_restore_header(backup_location,
+                                                        passphrase,
+                                                        encrypted=encrypted,
+                                                        appvm=appvm,
+                                                        compressed=compressed,
+                                                        print_callback=print_callback,
+                                                        error_callback=error_callback,
+                                                        format_version=format_version)
+
     if BACKUP_DEBUG:
         print "Loading file", qubes_xml
     backup_collection = QubesVmCollection(store_filename = qubes_xml)
@@ -1079,14 +1154,8 @@ def backup_restore_prepare(backup_location, qubes_xml, passphrase, options = {},
         host_collection.unlock_db()
 
     backup_vms_list = [vm for vm in backup_collection.values()]
-    host_vms_list = [vm for vm in host_collection.values()]
     vms_to_restore = {}
 
-    there_are_conflicting_vms = False
-    there_are_missing_templates = False
-    there_are_missing_netvms = False
-    dom0_username_mismatch = False
-    restore_home = False
     # ... and the actual data
     for vm in backup_vms_list:
         if vm.qid == 0:
@@ -1098,35 +1167,12 @@ def backup_restore_prepare(backup_location, qubes_xml, passphrase, options = {},
 
             vms_to_restore[vm.name] = {}
             vms_to_restore[vm.name]['vm'] = vm;
-            if 'exclude' in options.keys():
-                vms_to_restore[vm.name]['excluded'] = vm.name in options['exclude']
-                if vms_to_restore[vm.name]['excluded']:
-                    vms_to_restore[vm.name]['good-to-go'] = False
-
-            if host_collection.get_vm_by_name (vm.name) is not None:
-                vms_to_restore[vm.name]['already-exists'] = True
-                vms_to_restore[vm.name]['good-to-go'] = False
 
             if vm.template is None:
                 vms_to_restore[vm.name]['template'] = None
             else:
                 templatevm_name = find_template_name(vm.template.name, options['replace-template'])
                 vms_to_restore[vm.name]['template'] = templatevm_name
-                template_vm_on_host = host_collection.get_vm_by_name (templatevm_name)
-
-                # No template on the host?
-                if not ((template_vm_on_host is not None) and template_vm_on_host.is_template()):
-                    # Maybe the (custom) template is in the backup?
-                    template_vm_on_backup = backup_collection.get_vm_by_name (templatevm_name)
-                    if template_vm_on_backup is None or not \
-                        (is_vm_included_in_backup(backup_location, template_vm_on_backup) and \
-                         template_vm_on_backup.is_template()):
-                        if options['use-default-template']:
-                            vms_to_restore[vm.name]['orig-template'] = templatevm_name
-                            vms_to_restore[vm.name]['template'] = host_collection.get_default_template().name
-                        else:
-                            vms_to_restore[vm.name]['missing-template'] = True
-                            vms_to_restore[vm.name]['good-to-go'] = False
 
             if vm.netvm is None:
                 vms_to_restore[vm.name]['netvm'] = None
@@ -1139,27 +1185,17 @@ def backup_restore_prepare(backup_location, qubes_xml, passphrase, options = {},
                 # modifying firewall
                 vm._netvm = None
 
-                netvm_on_host = host_collection.get_vm_by_name (netvm_name)
+    # Store restore parameters
+    options['location'] = backup_location
+    options['restore_tmpdir'] = restore_tmpdir
+    options['passphrase'] = passphrase
+    options['encrypted'] = encrypted
+    options['compressed'] = compressed
+    options['appvm'] = appvm
+    options['format_version'] = format_version
+    vms_to_restore['$OPTIONS$'] = options
 
-                # No netvm on the host?
-                if not ((netvm_on_host is not None) and netvm_on_host.is_netvm()):
-
-                    # Maybe the (custom) netvm is in the backup?
-                    netvm_on_backup = backup_collection.get_vm_by_name (netvm_name)
-                    if not ((netvm_on_backup is not None) and \
-                            netvm_on_backup.is_netvm() and \
-                            is_vm_included_in_backup(backup_location, netvm_on_backup)):
-                        if options['use-default-netvm']:
-                            vms_to_restore[vm.name]['netvm'] = host_collection.get_default_netvm().name
-                            vm.uses_default_netvm = True
-                        elif options['use-none-netvm']:
-                            vms_to_restore[vm.name]['netvm'] = None
-                        else:
-                            vms_to_restore[vm.name]['missing-netvm'] = True
-                            vms_to_restore[vm.name]['good-to-go'] = False
-
-            if 'good-to-go' not in vms_to_restore[vm.name].keys():
-                vms_to_restore[vm.name]['good-to-go'] = True
+    vms_to_restore = restore_info_verify(vms_to_restore, host_collection)
 
     # ...and dom0 home
     if options['dom0-home'] and \
@@ -1290,10 +1326,10 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
 
         print_callback(s)
 
-def backup_restore_do(backup_location, restore_tmpdir, passphrase, restore_info,
+def backup_restore_do(restore_info,
         host_collection = None, print_callback = print_stdout,
         error_callback = print_stderr, progress_callback = None,
-        encrypted=False, appvm=None, compressed = False, format_version = None):
+        ):
 
     ### Private functions begin
     def restore_vm_dir_v1 (backup_dir, src_dir, dst_dir):
@@ -1307,6 +1343,15 @@ def backup_restore_do(backup_location, restore_tmpdir, passphrase, restore_info,
                 "*** Error while copying file {0} to {1}".format(backup_src_dir,
                                                                  dst_dir))
     ### Private functions end
+
+    options = restore_info['$OPTIONS$']
+    backup_location = options['location']
+    restore_tmpdir = options['restore_tmpdir']
+    passphrase = options['passphrase']
+    encrypted = options['encrypted']
+    compressed = options['compressed']
+    appvm = options['appvm']
+    format_version = options['format_version']
 
     if format_version is None:
         format_version = backup_detect_format_version(backup_location)
@@ -1324,9 +1369,9 @@ def backup_restore_do(backup_location, restore_tmpdir, passphrase, restore_info,
         vms_size = 0
         vms = {}
         for vm_info in restore_info.values():
-            if not vm_info['good-to-go']:
-                continue
             if 'vm' not in vm_info:
+                continue
+            if not vm_info['good-to-go']:
                 continue
             vm = vm_info['vm']
             vms_size += vm.backup_size
@@ -1354,9 +1399,9 @@ def backup_restore_do(backup_location, restore_tmpdir, passphrase, restore_info,
     for (vm_class_name, vm_class) in sorted(QubesVmClasses.items(),
             key=lambda _x: _x[1].load_order):
         for vm_info in restore_info.values():
-            if not vm_info['good-to-go']:
-                continue
             if 'vm' not in vm_info:
+                continue
+            if not vm_info['good-to-go']:
                 continue
             vm = vm_info['vm']
             if not vm.__class__ == vm_class:
@@ -1413,9 +1458,9 @@ def backup_restore_do(backup_location, restore_tmpdir, passphrase, restore_info,
 
     # Set network dependencies - only non-default netvm setting
     for vm_info in restore_info.values():
-        if not vm_info['good-to-go']:
-            continue
         if 'vm' not in vm_info:
+            continue
+        if not vm_info['good-to-go']:
             continue
         vm = vm_info['vm']
         host_vm = host_collection.get_vm_by_name(vm.name)
