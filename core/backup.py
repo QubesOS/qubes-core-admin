@@ -716,6 +716,8 @@ class ExtractWorker(Process):
             self.print_callback("Moving to dir "+self.base_dir)
         os.chdir(self.base_dir)
 
+        filename = None
+
         for filename in iter(self.queue.get, None):
             if filename == "FINISHED" or filename == "ERROR":
                 break
@@ -1218,7 +1220,7 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
     fields_to_display = ["name", "type", "template", "updbl", "netvm", "label" ]
 
     # First calculate the maximum width of each field we want to display
-    total_width = 0;
+    total_width = 0
     for f in fields_to_display:
         fields[f]["max_width"] = len(f)
         for vm_info in restore_info.values():
@@ -1301,7 +1303,9 @@ def backup_restore_do(backup_location, restore_tmpdir, passphrase, restore_info,
         # We prefer to use Linux's cp, because it nicely handles sparse files
         retcode = subprocess.call (["cp", "-rp", backup_src_dir, dst_dir])
         if retcode != 0:
-            raise QubesException("*** Error while copying file {0} to {1}".format(backup_src_dir, dest_dir))
+            raise QubesException(
+                "*** Error while copying file {0} to {1}".format(backup_src_dir,
+                                                                 dst_dir))
     ### Private functions end
 
     if format_version is None:
@@ -1360,7 +1364,8 @@ def backup_restore_do(backup_location, restore_tmpdir, passphrase, restore_info,
             print_callback("-> Restoring {type} {0}...".format(vm.name, type=vm_class_name))
             retcode = subprocess.call (["mkdir", "-p", os.path.dirname(vm.dir_path)])
             if retcode != 0:
-                error_callback("*** Cannot create directory: {0}?!".format(dest_dir))
+                error_callback("*** Cannot create directory: {0}?!".format(
+                    vm.dir_path))
                 error_callback("Skipping...")
                 continue
 
