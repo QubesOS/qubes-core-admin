@@ -39,6 +39,8 @@ from multiprocessing import Queue,Process
 
 BACKUP_DEBUG = False
 
+DEFAULT_CRYPTO_ALGORITHM = 'aes-256-cbc'
+DEFAULT_HMAC_ALGORITHM = 'SHA1'
 # Maximum size of error message get from process stderr (including VM process)
 MAX_STDERR_BYTES = 1024
 # header + qubes.xml max size
@@ -344,7 +346,8 @@ class SendWorker(Process):
 
 def backup_do(base_backup_dir, files_to_backup, passphrase,
         progress_callback = None, encrypted=False, appvm=None,
-        compressed=False):
+        compressed=False, hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
+        crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM):
     total_backup_sz = 0
     for file in files_to_backup:
         total_backup_sz += file["size"]
@@ -450,8 +453,9 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
             pipe = open(backup_pipe,'rb')
 
             # Start HMAC
-            hmac = subprocess.Popen (["openssl", "dgst", "-hmac", passphrase],
-                    stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+            hmac = subprocess.Popen (["openssl", "dgst",
+                                      "-" + hmac_algorithm, "-hmac", passphrase],
+                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
             # Prepare a first chunk
             chunkfile = backup_tempfile + "." + "%03d" % i
@@ -469,8 +473,8 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
             if encrypted:
                 # Start encrypt
                 # If no cipher is provided, the data is forwarded unencrypted !!!
-                encryptor  = subprocess.Popen (["openssl", "enc",
-                        "-e", "-aes-256-cbc",
+                encryptor = subprocess.Popen (["openssl", "enc",
+                        "-e", "-" + crypto_algorithm,
                         "-pass", "pass:"+passphrase] +
                         (["-z"] if compressed else []),
                         stdin=pipe, stdout=subprocess.PIPE)
@@ -628,7 +632,7 @@ def wait_backup_feedback(progress_callback, in_stream, streamproc,
 
     return run_error
 
-def verify_hmac(filename, hmacfile, passphrase):
+def verify_hmac(filename, hmacfile, passphrase, algorithm):
     if BACKUP_DEBUG:
         print "Verifying file "+filename
 
@@ -637,7 +641,8 @@ def verify_hmac(filename, hmacfile, passphrase):
             "ERROR: expected hmac for {}, but got {}".\
             format(filename, hmacfile))
 
-    hmac_proc = subprocess.Popen (["openssl", "dgst", "-hmac", passphrase],
+    hmac_proc = subprocess.Popen (["openssl", "dgst", "-" + algorithm,
+                                   "-hmac", passphrase],
             stdin=open(filename,'rb'),
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     hmac_stdout, hmac_stderr = hmac_proc.communicate()
@@ -666,13 +671,14 @@ def verify_hmac(filename, hmacfile, passphrase):
 class ExtractWorker(Process):
     def __init__(self, queue, base_dir, passphrase, encrypted, total_size,
             print_callback, error_callback, progress_callback, vmproc=None,
-            compressed = False):
+            compressed = False, crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM):
         super(ExtractWorker, self).__init__()
         self.queue = queue
         self.base_dir = base_dir
         self.passphrase = passphrase
         self.encrypted = encrypted
         self.compressed = compressed
+        self.crypto_algorithm = crypto_algorithm
         self.total_size = total_size
         self.blocks_backedup = 0
         self.tar2_process = None
@@ -766,7 +772,7 @@ class ExtractWorker(Process):
             if self.encrypted:
                 # Start decrypt
                 self.decryptor_process = subprocess.Popen (["openssl", "enc",
-                        "-d", "-aes-256-cbc",
+                        "-d", "-" + self.crypto_algorithm,
                         "-pass", "pass:"+self.passphrase] +
                         (["-z"] if self.compressed else []),
                         stdin=open(filename,'rb'),
@@ -832,7 +838,8 @@ class ExtractWorker(Process):
 def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
         vms_size, print_callback=None, error_callback=None,
         progress_callback=None, encrypted=False, appvm=None,
-        compressed = False):
+        compressed = False, hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
+        crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM):
 
     # Setup worker to extract encrypted data chunks to the restore dirs
     to_extract   = Queue()
@@ -841,6 +848,7 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
             passphrase=passphrase,
             encrypted=encrypted,
             compressed=compressed,
+            crypto_algorithm = crypto_algorithm,
             total_size=vms_size,
             print_callback=print_callback,
             error_callback=error_callback,
@@ -923,7 +931,7 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
 
             if verify_hmac(os.path.join(restore_tmpdir,filename),
                     os.path.join(restore_tmpdir,hmacfile),
-                    passphrase):
+                    passphrase, hmac_algorithm):
                 to_extract.put(os.path.join(restore_tmpdir, filename))
 
         if command.wait() != 0:
@@ -988,7 +996,9 @@ def backup_detect_format_version(backup_location):
 
 def backup_restore_header(source, passphrase,
         print_callback = print_stdout, error_callback = print_stderr,
-        encrypted=False, appvm=None, compressed = False, format_version = None):
+        encrypted=False, appvm=None, compressed = False, format_version = None,
+        hmac_algorithm = DEFAULT_HMAC_ALGORITHM,
+        crypto_algorithm = DEFAULT_CRYPTO_ALGORITHM):
 
     vmproc = None
 
@@ -1013,6 +1023,8 @@ def backup_restore_header(source, passphrase,
             vms_dirs=extract_filter,
             vms=None,
             vms_size=HEADER_QUBES_XML_MAX_SIZE,
+            hmac_algorithm=hmac_algorithm,
+            crypto_algorithm=crypto_algorithm,
             print_callback=print_callback,
             error_callback=error_callback,
             progress_callback=None,
@@ -1089,7 +1101,8 @@ def restore_info_verify(restore_info, host_collection):
 def backup_restore_prepare(backup_location, passphrase, options = {},
         host_collection = None, encrypted=False, appvm=None,
         compressed = False, print_callback = print_stdout, error_callback = print_stderr,
-        format_version=None):
+        format_version=None, hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
+        crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM):
     # Defaults
     backup_restore_set_defaults(options)
 
@@ -1134,14 +1147,17 @@ def backup_restore_prepare(backup_location, passphrase, options = {},
     else:
         raise QubesException("Unknown backup format version: %s" % str(format_version))
 
-    (restore_tmpdir, qubes_xml) = backup_restore_header(backup_location,
-                                                        passphrase,
-                                                        encrypted=encrypted,
-                                                        appvm=appvm,
-                                                        compressed=compressed,
-                                                        print_callback=print_callback,
-                                                        error_callback=error_callback,
-                                                        format_version=format_version)
+    (restore_tmpdir, qubes_xml) = backup_restore_header(
+        backup_location,
+        passphrase,
+        encrypted=encrypted,
+        appvm=appvm,
+        compressed=compressed,
+        hmac_algorithm=hmac_algorithm,
+        crypto_algorithm=crypto_algorithm,
+        print_callback=print_callback,
+        error_callback=error_callback,
+        format_version=format_version)
 
     if BACKUP_DEBUG:
         print "Loading file", qubes_xml
@@ -1193,6 +1209,8 @@ def backup_restore_prepare(backup_location, passphrase, options = {},
     options['passphrase'] = passphrase
     options['encrypted'] = encrypted
     options['compressed'] = compressed
+    options['hmac_algorithm'] = hmac_algorithm
+    options['crypto_algorithm'] = crypto_algorithm
     options['appvm'] = appvm
     options['format_version'] = format_version
     vms_to_restore['$OPTIONS$'] = options
@@ -1352,6 +1370,8 @@ def backup_restore_do(restore_info,
     passphrase = options['passphrase']
     encrypted = options['encrypted']
     compressed = options['compressed']
+    hmac_algorithm = options['hmac_algorithm']
+    crypto_algorithm = options['crypto_algorithm']
     appvm = options['appvm']
     format_version = options['format_version']
 
@@ -1391,6 +1411,8 @@ def backup_restore_do(restore_info,
                 vms_dirs=vms_dirs,
                 vms=vms,
                 vms_size=vms_size,
+                hmac_algorithm=hmac_algorithm,
+                crypto_algorithm=crypto_algorithm,
                 print_callback=print_callback,
                 error_callback=error_callback,
                 progress_callback=progress_callback,
