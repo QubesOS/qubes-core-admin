@@ -108,9 +108,6 @@ def main():
     passphrase = getpass.getpass("Please enter the pass phrase that will be used to decrypt/verify the backup: ")
 
     print >> sys.stderr, "Checking backup content..."
-    restore_tmpdir,qubes_xml = backup_restore_header(backup_dir, passphrase,
-            encrypted=options.decrypt, compressed=options.compressed,
-            appvm=appvm)
 
     restore_info = None
     try:
