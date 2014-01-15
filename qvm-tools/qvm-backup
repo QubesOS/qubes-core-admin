@@ -128,6 +128,9 @@ def main():
                 "on the local filesystem (needs 1GB for temporary files)!"
             exit(1)
 
+        if not appvm.is_running():
+            appvm.start(verbose=True)
+
     prompt = raw_input ("Do you want to proceed? [y/N] ")
     if not (prompt == "y" or prompt == "Y"):
         exit (0)
