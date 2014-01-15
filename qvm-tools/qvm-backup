@@ -44,6 +44,14 @@ def main():
                        help="The AppVM to send backups to (implies -e)")
     parser.add_option ("-e", "--encrypt", action="store_true", dest="encrypt", default=False,
                        help="Encrypts the backup")
+    parser.add_option ("-E", "--enc-algo", action="store",
+                       dest="crypto_algorithm", default=None,
+                       help="Specify non-default encryption algorithm. For list of supported algos execute 'openssl list-cipher-algorithms'")
+    parser.add_option ("-H", "--hmac-algo", action="store",
+                       dest="hmac_algorithm", default=None,
+                       help="Specify non-default hmac algorithm. For list of "
+                            "supported algos execute 'openssl "
+                            "list-message-digest-algorithms'")
     parser.add_option ("-z", "--compress", action="store_true", dest="compress", default=False,
                        help="Compress the backup")
 
@@ -121,12 +129,18 @@ def main():
         print >>sys.stderr, "ERROR: Password mismatch"
         exit(1)
 
+    kwargs = {}
+    if options.hmac_algorithm:
+        kwargs['hmac_algorithm'] = options.hmac_algorithm
+    if options.crypto_algorithm:
+        kwargs['crypto_algorithm'] = options.crypto_algorithm
+
     try:
         backup_do(base_backup_dir, files_to_backup, passphrase,
                 progress_callback=print_progress,
                 encrypted=options.encrypt,
                 compressed=options.compress,
-                appvm=appvm)
+                appvm=appvm, **kwargs)
     except QubesException as e:
         print >>sys.stderr, "ERROR: %s" % str(e)
         exit(1)
