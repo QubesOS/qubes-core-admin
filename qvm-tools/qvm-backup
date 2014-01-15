@@ -123,8 +123,8 @@ def main():
     try:
         backup_do(base_backup_dir, files_to_backup, passphrase,
                 progress_callback=print_progress,
-                encrypt=options.encrypt,
-                compress=options.compress,
+                encrypted=options.encrypt,
+                compressed=options.compress,
                 appvm=appvm)
     except QubesException as e:
         print >>sys.stderr, "ERROR: %s" % str(e)

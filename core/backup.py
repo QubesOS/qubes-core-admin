@@ -343,8 +343,8 @@ class SendWorker(Process):
             print "Finished sending thread"
 
 def backup_do(base_backup_dir, files_to_backup, passphrase,
-        progress_callback = None, encrypt=False, appvm=None,
-        compress = False):
+        progress_callback = None, encrypted=False, appvm=None,
+        compressed=False):
     total_backup_sz = 0
     for file in files_to_backup:
         total_backup_sz += file["size"]
@@ -466,19 +466,19 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
                         'addproc': tar_sparse,
                         'progress_callback': compute_progress,
             }
-            if encrypt:
+            if encrypted:
                 # Start encrypt
                 # If no cipher is provided, the data is forwarded unencrypted !!!
                 encryptor  = subprocess.Popen (["openssl", "enc",
                         "-e", "-aes-256-cbc",
                         "-pass", "pass:"+passphrase] +
-                        (["-z"] if compress else []),
+                        (["-z"] if compressed else []),
                         stdin=pipe, stdout=subprocess.PIPE)
                 run_error = wait_backup_feedback(
                         in_stream=encryptor.stdout, streamproc=encryptor,
                         **common_args)
-            elif compress:
-                compressor  = subprocess.Popen (["gzip"],
+            elif compressed:
+                compressor = subprocess.Popen (["gzip"],
                         stdin=pipe, stdout=subprocess.PIPE)
                 run_error = wait_backup_feedback(
                         in_stream=compressor.stdout, streamproc=compressor,
