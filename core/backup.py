@@ -39,6 +39,11 @@ from multiprocessing import Queue,Process
 
 BACKUP_DEBUG = False
 
+# Maximum size of error message get from process stderr (including VM process)
+MAX_STDERR_BYTES = 1024
+# header + qubes.xml max size
+HEADER_QUBES_XML_MAX_SIZE = 1024 * 1024
+
 def get_disk_usage(file_or_dir):
     if not os.path.exists(file_or_dir):
         return 0
@@ -492,7 +497,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
                 send_proc.terminate()
                 if run_error == "VM" and vmproc:
                     raise QubesException("Failed to write the backup, VM output:\n" +
-                            vmproc.stderr.read())
+                            vmproc.stderr.read(MAX_STDERR_BYTES))
                 else:
                     raise QubesException("Failed to perform backup: error in "+ \
                             run_error)
@@ -930,7 +935,7 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
                 raise QubesException(
                         "ERROR: unable to read the qubes backup {0} " \
                         "because of a VM error: {1}".format(
-                            backup_source, vmproc.stderr.read()))
+                            backup_source, vmproc.stderr.read(MAX_STDERR_BYTES)))
 
         if filename and filename!="EOF":
             raise QubesException("Premature end of archive, the last file was %s" % filename)
@@ -1007,7 +1012,7 @@ def backup_restore_header(source, passphrase,
             passphrase=passphrase,
             vms_dirs=extract_filter,
             vms=None,
-            vms_size=40000,
+            vms_size=HEADER_QUBES_XML_MAX_SIZE,
             print_callback=print_callback,
             error_callback=error_callback,
             progress_callback=None,
