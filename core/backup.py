@@ -393,7 +393,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
     else:
         # Prepare the backup target (local file)
         backup_target = base_backup_dir + "/qubes-{0}". \
-            format(time.strftime("%Y-%m-%d-%H%M%S"))
+            format(time.strftime("%Y-%m-%dT%H%M%S"))
 
         # Create the target directory
         if not os.path.exists (base_backup_dir):
