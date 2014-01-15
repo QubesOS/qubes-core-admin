@@ -36,7 +36,8 @@ def main():
     usage = "usage: %prog [options] <backup-dir-path> [vmname ...]"
     parser = OptionParser (usage)
 
-    parser.add_option ("-x", "--exclude", action="append", dest="exclude_list",
+    parser.add_option ("-x", "--exclude", action="append",
+                       dest="exclude_list", default=[],
                        help="Exclude the specified VM from backup (might be repeated)")
     parser.add_option ("--force-root", action="store_true", dest="force_root", default=False,
                        help="Force to run, even with root privileges")
@@ -79,6 +80,11 @@ def main():
     vms = None
     if (len (args) > 1):
         vms = [qvm_collection.get_vm_by_name(vmname) for vmname in args[1:]]
+
+    if options.appvm:
+        print >>sys.stderr, ("WARNING: VM {} excluded because it's used to "
+                            "store the backup.").format(options.appvm)
+        options.exclude_list.append(options.appvm)
 
     files_to_backup = None
     try:
