@@ -41,7 +41,7 @@ def main():
     parser.add_option ("--force-root", action="store_true", dest="force_root", default=False,
                        help="Force to run, even with root privileges")
     parser.add_option ("-d", "--dest-vm", action="store", dest="appvm",
-                       help="The AppVM to send backups to")
+                       help="The AppVM to send backups to (implies -e)")
     parser.add_option ("-e", "--encrypt", action="store_true", dest="encrypt", default=False,
                        help="Encrypts the backup")
     parser.add_option ("-z", "--compress", action="store_true", dest="compress", default=False,
@@ -97,6 +97,7 @@ def main():
 
         print "-> Available space: {0}".format(size_to_human(backup_fs_free_sz))
     else:
+        options.encrypt = True
         appvm = qvm_collection.get_vm_by_name(options.appvm)
         if appvm is None:
             print >>sys.stderr, "ERROR: VM {0} does not exist".format(options.appvm)
