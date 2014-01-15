@@ -347,23 +347,24 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
     vmproc = None
     if appvm != None:
         # Prepare the backup target (Qubes service call)
-        backup_target = "QUBESRPC qubes.Backup none"
+        backup_target = "QUBESRPC qubes.Backup dom0"
 
         # If APPVM, STDOUT is a PIPE
-        vmproc = appvm.run(command = backup_target, passio_popen = True, passio_stderr = True)
-        vmproc.stdin.write(base_backup_dir.\
-                replace("\r","").replace("\n","")+"\n")
+        vmproc = appvm.run(command=backup_target, passio_popen=True,
+                           passio_stderr=True)
+        vmproc.stdin.write(base_backup_dir.
+                           replace("\r", "").replace("\n", "")+"\n")
         backup_stdout = vmproc.stdin
     else:
         # Prepare the backup target (local file)
-        backup_target = base_backup_dir + "/qubes-{0}".\
-                        format (time.strftime("%Y-%m-%d-%H%M%S"))
+        backup_target = base_backup_dir + "/qubes-{0}". \
+            format(time.strftime("%Y-%m-%d-%H%M%S"))
 
         # Create the target directory
         if not os.path.exists (base_backup_dir):
             raise QubesException(
-                    "ERROR: the backup directory {0} does not exists".\
-                    format(base_backup_dir))
+                "ERROR: the backup directory {0} does not exists".
+                format(base_backup_dir))
 
         # If not APPVM, STDOUT is a local file
         backup_stdout = open(backup_target,'wb')
@@ -382,7 +383,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
     if BACKUP_DEBUG:
         print "Working in", backup_tmpdir
 
-    backup_pipe = os.path.join(backup_tmpdir,"backup_pipe")
+    backup_pipe = os.path.join(backup_tmpdir, "backup_pipe")
     if BACKUP_DEBUG:
         print "Creating pipe in:", backup_pipe
     os.mkfifo(backup_pipe)
@@ -398,7 +399,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
         progress = blocks_backedup / float(total_backup_sz)
         progress_callback(int(round(progress*100,2)))
 
-    to_send    = Queue(10)
+    to_send = Queue(10)
     send_proc = SendWorker(to_send, backup_tmpdir, backup_stdout)
     send_proc.start()
 
@@ -407,8 +408,8 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
             print "Backing up", filename
 
         backup_tempfile = os.path.join(backup_tmpdir,
-                filename["subdir"],
-                os.path.basename(filename["path"]))
+                                       filename["subdir"],
+                                       os.path.basename(filename["path"]))
         if BACKUP_DEBUG:
             print "Using temporary location:", backup_tempfile
 
@@ -420,12 +421,12 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
         # be verified before untaring this.
         # Prefix the path in archive with filename["subdir"] to have it verified during untar
         tar_cmdline = ["tar", "-Pc", '--sparse',
-            "-f", backup_pipe,
-            '--tape-length', str(100000),
-            '-C', os.path.dirname(filename["path"]),
-            '--xform', 's:^[^/]:%s\\0:' % filename["subdir"],
-            os.path.basename(filename["path"])
-            ]
+                       "-f", backup_pipe,
+                       '--tape-length', str(100000),
+                       '-C', os.path.dirname(filename["path"]),
+                       '--xform', 's:^[^/]:%s\\0:' % filename["subdir"],
+                       os.path.basename(filename["path"])
+                       ]
 
         if BACKUP_DEBUG:
             print " ".join(tar_cmdline)
@@ -440,9 +441,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
         # subprocesses
         i = 0
         run_error = "paused"
-        running = []
         while run_error == "paused":
-
             pipe = open(backup_pipe,'rb')
 
             # Start HMAC
@@ -459,7 +458,8 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
                         'total_backup_sz': total_backup_sz,
                         'hmac': hmac,
                         'vmproc': vmproc,
-                        'addproc': tar_sparse
+                        'addproc': tar_sparse,
+                        'progress_callback': compute_progress,
             }
             if encrypt:
                 # Start encrypt
@@ -470,19 +470,16 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
                         (["-z"] if compress else []),
                         stdin=pipe, stdout=subprocess.PIPE)
                 run_error = wait_backup_feedback(
-                        progress_callback=compute_progress,
                         in_stream=encryptor.stdout, streamproc=encryptor,
                         **common_args)
             elif compress:
                 compressor  = subprocess.Popen (["gzip"],
                         stdin=pipe, stdout=subprocess.PIPE)
                 run_error = wait_backup_feedback(
-                        progress_callback=compute_progress,
                         in_stream=compressor.stdout, streamproc=compressor,
                         **common_args)
             else:
                 run_error = wait_backup_feedback(
-                        progress_callback=compute_progress,
                         in_stream=pipe, streamproc=None,
                         **common_args)
 
@@ -494,7 +491,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
             if len(run_error) > 0:
                 send_proc.terminate()
                 if run_error == "VM" and vmproc:
-                    raise QubesException("Failed to write the backup, the VM output:\n" +
+                    raise QubesException("Failed to write the backup, VM output:\n" +
                             vmproc.stderr.read())
                 else:
                     raise QubesException("Failed to perform backup: error in "+ \
@@ -523,7 +520,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
             # Send the HMAC to the backup target
             to_send.put(os.path.relpath(chunkfile, backup_tmpdir)+".hmac")
 
-            if tar_sparse.poll() == None:
+            if tar_sparse.poll() is None:
                 # Release the next chunk
                 if BACKUP_DEBUG:
                     print "Release next chunk for process:", tar_sparse.poll()
@@ -641,7 +638,7 @@ def verify_hmac(filename, hmacfile, passphrase):
     hmac_stdout, hmac_stderr = hmac_proc.communicate()
 
     if len(hmac_stderr) > 0:
-        raise QubesException("ERROR: verify file {0}: {1}".format((filename, hmac_stderr)))
+        raise QubesException("ERROR: verify file {0}: {1}".format(filename, hmac_stderr))
     else:
         if BACKUP_DEBUG:
             print "Loading hmac for file " + filename
@@ -690,10 +687,11 @@ class ExtractWorker(Process):
         os.mkfifo(self.restore_pipe)
 
     def compute_progress(self, new_size, total_size):
-        self.blocks_backedup += new_size
-        progress = self.blocks_backedup / float(self.total_size)
-        progress = int(round(progress*100,2))
-        self.progress_callback(progress)
+        if self.progress_callback:
+            self.blocks_backedup += new_size
+            progress = self.blocks_backedup / float(self.total_size)
+            progress = int(round(progress*100,2))
+            self.progress_callback(progress)
 
     def run(self):
         try:
@@ -810,13 +808,15 @@ class ExtractWorker(Process):
 
         os.unlink(self.restore_pipe)
 
-        if self.tar2_process != None:
+        if self.tar2_process is not None:
             if filename == "ERROR":
                 self.tar2_process.terminate()
             if self.tar2_process.wait() != 0:
                 raise QubesException(
-                        "ERROR: unable to extract files for {0}.".\
-                        format(self.tar2_current_file))
+                    "ERROR: unable to extract files for {0}.{1}".
+                    format(self.tar2_current_file,
+                           (" Perhaps the backup is encrypted?"
+                            if not self.encrypted else "")))
             else:
                 # Finished extracting the tar file
                 self.tar2_process = None
@@ -830,10 +830,6 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
         compressed = False):
 
     # Setup worker to extract encrypted data chunks to the restore dirs
-    if progress_callback == None:
-        def progress_callback(data):
-            pass
-
     to_extract   = Queue()
     extract_proc = ExtractWorker(queue=to_extract,
             base_dir=restore_tmpdir,
@@ -896,6 +892,7 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
         filelist_pipe = command.stdout
 
     try:
+        filename = None
         while True:
             filename = filelist_pipe.readline().strip(" \t\r\n")
 
@@ -1120,7 +1117,7 @@ def backup_restore_prepare(backup_location, passphrase, options = {},
 
     # Format versions:
     #  1 - Qubes R1, Qubes R2 beta1, beta2
-    #  2 - Qubes R2 beta3
+    #  2 - Qubes R2 beta3+
 
     if format_version is None:
         format_version = backup_detect_format_version(backup_location)
@@ -1364,20 +1361,21 @@ def backup_restore_do(restore_info,
         lock_obtained = True
 
     # Perform VM restoration in backup order
-    if format_version == 2:
-        vms_dirs = []
-        vms_size = 0
-        vms = {}
-        for vm_info in restore_info.values():
-            if 'vm' not in vm_info:
-                continue
-            if not vm_info['good-to-go']:
-                continue
-            vm = vm_info['vm']
+    vms_dirs = []
+    vms_size = 0
+    vms = {}
+    for vm_info in restore_info.values():
+        if 'vm' not in vm_info:
+            continue
+        if not vm_info['good-to-go']:
+            continue
+        vm = vm_info['vm']
+        if format_version == 2:
             vms_size += vm.backup_size
             vms_dirs.append(vm.backup_path)
-            vms[vm.name] = vm
+        vms[vm.name] = vm
 
+    if format_version == 2:
         if 'dom0' in restore_info.keys() and restore_info['dom0']['good-to-go']:
             vms_dirs.append('dom0-home')
             vms_size += restore_info['dom0']['size']
@@ -1398,12 +1396,7 @@ def backup_restore_do(restore_info,
     # Add VM in right order
     for (vm_class_name, vm_class) in sorted(QubesVmClasses.items(),
             key=lambda _x: _x[1].load_order):
-        for vm_info in restore_info.values():
-            if 'vm' not in vm_info:
-                continue
-            if not vm_info['good-to-go']:
-                continue
-            vm = vm_info['vm']
+        for vm in vms.values():
             if not vm.__class__ == vm_class:
                 continue
             print_callback("-> Restoring {type} {0}...".format(vm.name, type=vm_class_name))
@@ -1416,7 +1409,7 @@ def backup_restore_do(restore_info,
 
             template = None
             if vm.template is not None:
-                template_name = vm_info['template']
+                template_name = restore_info[vm.name]['template']
                 template = host_collection.get_vm_by_name(template_name)
 
             new_vm = None
@@ -1457,19 +1450,18 @@ def backup_restore_do(restore_info,
                 error_callback("*** VM '{0}' will not have appmenus".format(vm.name))
 
     # Set network dependencies - only non-default netvm setting
-    for vm_info in restore_info.values():
-        if 'vm' not in vm_info:
-            continue
-        if not vm_info['good-to-go']:
-            continue
-        vm = vm_info['vm']
+    for vm in vms.values():
         host_vm = host_collection.get_vm_by_name(vm.name)
         if host_vm is None:
             # Failed/skipped VM
             continue
 
         if not vm.uses_default_netvm:
-            host_vm.netvm = host_collection.get_vm_by_name (vm_info['netvm']) if vm_info['netvm'] is not None else None
+            if restore_info[vm.name]['netvm'] is not None:
+                host_vm.netvm = host_collection.get_vm_by_name (
+                    restore_info[vm.name]['netvm'])
+            else:
+                host_vm.netvm = None
 
     host_collection.save()
     if lock_obtained:
