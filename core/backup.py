@@ -39,12 +39,20 @@ from multiprocessing import Queue,Process
 
 BACKUP_DEBUG = False
 
+HEADER_FILENAME = 'backup-header'
 DEFAULT_CRYPTO_ALGORITHM = 'aes-256-cbc'
 DEFAULT_HMAC_ALGORITHM = 'SHA1'
 # Maximum size of error message get from process stderr (including VM process)
 MAX_STDERR_BYTES = 1024
 # header + qubes.xml max size
 HEADER_QUBES_XML_MAX_SIZE = 1024 * 1024
+
+class BackupHeader:
+    encrypted = 'encrypted'
+    compressed = 'compressed'
+    crypto_algorithm = 'crypto-algorithm'
+    hmac_algorithm = 'hmac-algorithm'
+    bool_options = ['encrypted', 'compressed']
 
 def get_disk_usage(file_or_dir):
     if not os.path.exists(file_or_dir):
@@ -344,6 +352,25 @@ class SendWorker(Process):
         if BACKUP_DEBUG:
             print "Finished sending thread"
 
+def prepare_backup_header(target_directory, passphrase, compressed=False,
+                          encrypted=False,
+                          hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
+                          crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM):
+    header_file_path = os.path.join(target_directory, HEADER_FILENAME)
+    with open(header_file_path, "w") as f:
+        f.write("%s=%s\n" % (BackupHeader.hmac_algorithm, hmac_algorithm))
+        f.write("%s=%s\n" % (BackupHeader.crypto_algorithm, crypto_algorithm))
+        f.write("%s=%s\n" % (BackupHeader.encrypted, str(encrypted)))
+        f.write("%s=%s\n" % (BackupHeader.compressed, str(compressed)))
+
+    hmac = subprocess.Popen (["openssl", "dgst",
+                              "-" + hmac_algorithm, "-hmac", passphrase],
+                             stdin=open(header_file_path, "r"),
+                             stdout=open(header_file_path + ".hmac", "w"))
+    if hmac.wait() != 0:
+        raise QubesException("Failed to compute hmac of header file")
+    return (HEADER_FILENAME, HEADER_FILENAME+".hmac")
+
 def backup_do(base_backup_dir, files_to_backup, passphrase,
         progress_callback = None, encrypted=False, appvm=None,
         compressed=False, hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
@@ -399,8 +426,13 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
     if BACKUP_DEBUG:
         print "Will backup:", files_to_backup
 
-    # Setup worker to send encrypted data chunks to the backup_target
+    header_files = prepare_backup_header(backup_tmpdir, passphrase,
+                                         compressed=compressed,
+                                         encrypted=encrypted,
+                                         hmac_algorithm=hmac_algorithm,
+                                         crypto_algorithm=crypto_algorithm)
 
+    # Setup worker to send encrypted data chunks to the backup_target
     def compute_progress(new_size, total_backup_sz):
         global blocks_backedup
         blocks_backedup += new_size
@@ -410,6 +442,9 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
     to_send = Queue(10)
     send_proc = SendWorker(to_send, backup_tmpdir, backup_stdout)
     send_proc.start()
+
+    for f in header_files:
+        to_send.put(f)
 
     for filename in files_to_backup:
         if BACKUP_DEBUG:
@@ -835,30 +870,46 @@ class ExtractWorker(Process):
         if BACKUP_DEBUG:
             self.print_callback("Finished extracting thread")
 
+
+def get_supported_hmac_algo(hmac_algorithm):
+    # Start with provided default
+    if hmac_algorithm:
+        yield hmac_algorithm
+    proc = subprocess.Popen(['openssl', 'list-message-digest-algorithms'],
+                            stdout=subprocess.PIPE)
+    for algo in proc.stdout.readlines():
+        if '=>' in algo:
+            continue
+        yield algo.strip()
+    proc.wait()
+
+def parse_backup_header(filename):
+    header_data = {}
+    with open(filename, 'r') as f:
+        for line in f.readlines():
+            if line.count('=') != 1:
+                raise QubesException("Invalid backup header (line %s)" % line)
+            (key, value) = line.strip().split('=')
+            if not any([key == getattr(BackupHeader, attr) for attr in dir(
+                    BackupHeader)]):
+                # Ignoring unknown option
+                continue
+            if key in BackupHeader.bool_options:
+                value = value.lower() in ["1", "true", "yes"]
+            header_data[key] = value
+    return header_data
+
 def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
         vms_size, print_callback=None, error_callback=None,
         progress_callback=None, encrypted=False, appvm=None,
         compressed = False, hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
         crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM):
 
-    # Setup worker to extract encrypted data chunks to the restore dirs
-    to_extract   = Queue()
-    extract_proc = ExtractWorker(queue=to_extract,
-            base_dir=restore_tmpdir,
-            passphrase=passphrase,
-            encrypted=encrypted,
-            compressed=compressed,
-            crypto_algorithm = crypto_algorithm,
-            total_size=vms_size,
-            print_callback=print_callback,
-            error_callback=error_callback,
-            progress_callback=progress_callback)
-    extract_proc.start()
-
     if BACKUP_DEBUG:
         print_callback("Working in temporary dir:"+restore_tmpdir)
     print_callback("Extracting data: " + size_to_human(vms_size)+" to restore")
 
+    header_data = None
     vmproc = None
     if appvm != None:
         # Prepare the backup target (Qubes service call)
@@ -885,8 +936,9 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
     # TODO: add some safety margin?
     tar1_env['UPDATES_MAX_BYTES'] = str(vms_size)
     # Restoring only header
-    if vms_dirs and vms_dirs[0] == 'qubes.xml.000':
-        tar1_env['UPDATES_MAX_FILES'] = '2'
+    if vms_dirs and vms_dirs[0] == HEADER_FILENAME:
+        # backup-header, backup-header.hmac, qubes-xml.000, qubes-xml.000.hmac
+        tar1_env['UPDATES_MAX_FILES'] = '4'
     else:
         tar1_env['UPDATES_MAX_FILES'] = '0'
     if BACKUP_DEBUG:
@@ -903,6 +955,73 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
         filelist_pipe = command.stderr
     else:
         filelist_pipe = command.stdout
+
+    to_extract = Queue()
+
+    # If want to analyze backup header, do it now
+    if vms_dirs and vms_dirs[0] == HEADER_FILENAME:
+        filename = filelist_pipe.readline().strip(" \t\r\n")
+        hmacfile = filelist_pipe.readline().strip(" \t\r\n")
+
+        if BACKUP_DEBUG:
+            print_callback("Got backup header and hmac: %s, %s" % (filename,
+                                                                   hmacfile))
+
+        if not filename or filename=="EOF" or \
+                not hmacfile or hmacfile == "EOF":
+            if appvm:
+                vmproc.wait()
+                proc_error_msg = vmproc.stderr.read(MAX_STDERR_BYTES)
+            else:
+                command.wait()
+                proc_error_msg = command.stderr.read(MAX_STDERR_BYTES)
+            raise QubesException("Premature end of archive while receiving "
+                                 "backup header. Process output:\n" +
+                                 proc_error_msg)
+        filename = os.path.join(restore_tmpdir, filename)
+        hmacfile = os.path.join(restore_tmpdir, hmacfile)
+        file_ok = False
+        for hmac_algo in get_supported_hmac_algo(hmac_algorithm):
+            try:
+                if verify_hmac(filename, hmacfile, passphrase, hmac_algo):
+                    file_ok = True
+                    hmac_algorithm = hmac_algo
+                    break
+            except QubesException:
+                # Ignore exception here, try the next algo
+                pass
+        if not file_ok:
+            raise QubesException("Corrupted backup header (hmac verification "
+                                 "failed)")
+        if os.path.basename(filename) == HEADER_FILENAME:
+            header_data = parse_backup_header(filename)
+            if BackupHeader.crypto_algorithm in header_data:
+                crypto_algorithm = header_data[BackupHeader.crypto_algorithm]
+            if BackupHeader.hmac_algorithm in header_data:
+                hmac_algorithm = header_data[BackupHeader.hmac_algorithm]
+            if BackupHeader.compressed in header_data:
+                compressed = header_data[BackupHeader.compressed]
+            if BackupHeader.encrypted in header_data:
+                encrypted = header_data[BackupHeader.encrypted]
+            os.unlink(filename)
+        else:
+            # If this isn't backup header, pass it to ExtractWorker
+            to_extract.put(filename)
+
+    # Setup worker to extract encrypted data chunks to the restore dirs
+    # Create the process here to pass it options extracted from backup header
+    extract_proc = ExtractWorker(queue=to_extract,
+            base_dir=restore_tmpdir,
+            passphrase=passphrase,
+            encrypted=encrypted,
+            compressed=compressed,
+            crypto_algorithm = crypto_algorithm,
+            total_size=vms_size,
+            print_callback=print_callback,
+            error_callback=error_callback,
+            progress_callback=progress_callback)
+    extract_proc.start()
+
 
     try:
         filename = None
@@ -965,6 +1084,8 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
                 "ERROR: unable to extract the qubes backup. " \
                 "Check extracting process errors.")
 
+    return header_data
+
 def backup_restore_set_defaults(options):
     if 'use-default-netvm' not in options:
         options['use-default-netvm'] = False
@@ -1009,15 +1130,16 @@ def backup_restore_header(source, passphrase,
         format_version = backup_detect_format_version(source)
 
     if format_version == 1:
-        return (restore_tmpdir, os.path.join(source, 'qubes.xml'))
+        return (restore_tmpdir, os.path.join(source, 'qubes.xml'), None)
 
     # tar2qfile matches only beginnings, while tar full path
     if appvm:
-        extract_filter = ['qubes.xml.000']
+        extract_filter = [HEADER_FILENAME, 'qubes.xml.000']
     else:
-        extract_filter = ['qubes.xml.000', 'qubes.xml.000.hmac']
+        extract_filter = [HEADER_FILENAME, HEADER_FILENAME+'.hmac',
+                          'qubes.xml.000', 'qubes.xml.000.hmac']
 
-    restore_vm_dirs (source,
+    header_data = restore_vm_dirs (source,
             restore_tmpdir,
             passphrase=passphrase,
             vms_dirs=extract_filter,
@@ -1032,7 +1154,8 @@ def backup_restore_header(source, passphrase,
             compressed=compressed,
             appvm=appvm)
 
-    return (restore_tmpdir, os.path.join(restore_tmpdir, "qubes.xml"))
+    return (restore_tmpdir, os.path.join(restore_tmpdir, "qubes.xml"),
+            header_data)
 
 def restore_info_verify(restore_info, host_collection):
     options = restore_info['$OPTIONS$']
@@ -1147,7 +1270,7 @@ def backup_restore_prepare(backup_location, passphrase, options = {},
     else:
         raise QubesException("Unknown backup format version: %s" % str(format_version))
 
-    (restore_tmpdir, qubes_xml) = backup_restore_header(
+    (restore_tmpdir, qubes_xml, header_data) = backup_restore_header(
         backup_location,
         passphrase,
         encrypted=encrypted,
@@ -1158,6 +1281,16 @@ def backup_restore_prepare(backup_location, passphrase, options = {},
         print_callback=print_callback,
         error_callback=error_callback,
         format_version=format_version)
+
+    if header_data:
+        if BackupHeader.crypto_algorithm in header_data:
+            crypto_algorithm = header_data[BackupHeader.crypto_algorithm]
+        if BackupHeader.hmac_algorithm in header_data:
+            hmac_algorithm = header_data[BackupHeader.hmac_algorithm]
+        if BackupHeader.compressed in header_data:
+            compressed = header_data[BackupHeader.compressed]
+        if BackupHeader.encrypted in header_data:
+            encrypted = header_data[BackupHeader.encrypted]
 
     if BACKUP_DEBUG:
         print "Loading file", qubes_xml
