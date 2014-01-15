@@ -379,6 +379,10 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
     for file in files_to_backup:
         total_backup_sz += file["size"]
 
+    if compressed and encrypted:
+        raise QubesException("Compressed and encrypted backups are not "
+                             "supported (yet).")
+
     vmproc = None
     if appvm != None:
         # Prepare the backup target (Qubes service call)
