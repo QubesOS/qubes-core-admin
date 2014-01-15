@@ -749,10 +749,13 @@ class ExtractWorker(Process):
                     self.tar2_process]:
                 if process:
                     # FIXME: kill()?
-                    process.terminate()
+                    try:
+                        process.terminate()
+                    except OSError:
+                        pass
                     process.wait()
             self.error_callback(str(e))
-            raise
+            raise e
 
     def __run__(self):
         if BACKUP_DEBUG:
