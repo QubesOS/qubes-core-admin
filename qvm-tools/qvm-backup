@@ -47,7 +47,9 @@ def main():
                        help="Encrypts the backup")
     parser.add_option ("-E", "--enc-algo", action="store",
                        dest="crypto_algorithm", default=None,
-                       help="Specify non-default encryption algorithm. For list of supported algos execute 'openssl list-cipher-algorithms'")
+                       help="Specify non-default encryption algorithm. For "
+                            "list of supported algos execute 'openssl "
+                            "list-cipher-algorithms' (implies -e)")
     parser.add_option ("-H", "--hmac-algo", action="store",
                        dest="hmac_algorithm", default=None,
                        help="Specify non-default hmac algorithm. For list of "
@@ -86,6 +88,8 @@ def main():
                             "store the backup.").format(options.appvm)
         options.exclude_list.append(options.appvm)
 
+    if options.appvm or options.crypto_algorithm:
+        options.encrypt = True
     files_to_backup = None
     try:
         files_to_backup = backup_prepare(
@@ -111,7 +115,6 @@ def main():
 
         print "-> Available space: {0}".format(size_to_human(backup_fs_free_sz))
     else:
-        options.encrypt = True
         appvm = qvm_collection.get_vm_by_name(options.appvm)
         if appvm is None:
             print >>sys.stderr, "ERROR: VM {0} does not exist".format(options.appvm)
