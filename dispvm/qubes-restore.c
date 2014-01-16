@@ -378,10 +378,6 @@ int get_netvm_id_from_name(const char *name)
 	close(fd);
 	netvm_id[n] = 0;
 	n = atoi(netvm_id);
-	if (n <= 0) {
-		fprintf(stderr, "bad netvm id\n");
-		exit(1);
-	}
 	return n;
 }
 
