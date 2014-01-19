@@ -1282,6 +1282,12 @@ def backup_restore_prepare(backup_location, passphrase, options = {},
         is_vm_included_in_backup = is_vm_included_in_backup_v1
     elif format_version == 2:
         is_vm_included_in_backup = is_vm_included_in_backup_v2
+        if not appvm:
+            if not os.path.isfile(backup_location):
+                raise QubesException("Invalid backup location (not a file or "
+                                     "directory with qubes.xml)"
+                                     ": %s" % str(
+                    backup_location))
     else:
         raise QubesException("Unknown backup format version: %s" % str(format_version))
 
