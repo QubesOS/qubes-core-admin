@@ -33,7 +33,7 @@ import sys
 import getpass
 
 def main():
-    usage = "usage: %prog [options] <backup-dir>"
+    usage = "usage: %prog [options] <backup-dir> [vmname ...]"
     parser = OptionParser (usage)
 
     parser.add_option ("--skip-broken", action="store_true", dest="skip_broken", default=False,
@@ -71,11 +71,12 @@ def main():
 
     (options, args) = parser.parse_args ()
 
-    if (len (args) != 1):
+    if (len (args) < 1):
         print >> sys.stderr, "You must specify the backup directory (e.g. /mnt/backup/qubes-2010-12-01-235959)"
         exit (0)
 
     backup_dir = args[0]
+    vmlist = args[1:]
 
     #if not os.path.exists (backup_dir):
     #    print >> sys.stderr, "The backup directory doesn't exist!"
@@ -122,6 +123,13 @@ def main():
     except QubesException as e:
         print >> sys.stderr, "ERROR: %s" % str(e)
         exit(1)
+
+    if len(vmlist) > 0:
+        for vm in restore_info.keys():
+            if vm.startswith('$'):
+                continue
+            if not vm in vmlist:
+                restore_info.pop(vm)
 
     backup_restore_print_summary(restore_info)
 
