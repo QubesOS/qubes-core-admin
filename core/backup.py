@@ -81,7 +81,7 @@ def file_to_backup (file_path, subdir = None):
             subdir += '/'
     return [ { "path" : file_path, "size": sz, "subdir": subdir} ]
 
-def backup_prepare(vms_list = None, exclude_list = [],
+def backup_prepare(vms_list = None, exclude_list = None,
         print_callback = print_stdout, hide_vm_names=True):
     """If vms = None, include all (sensible) VMs; exclude_list is always applied"""
     files_to_backup = file_to_backup (system_path["qubes_store_filename"])
