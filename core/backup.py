@@ -963,6 +963,8 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
     else:
         filelist_pipe = command.stdout
 
+    expect_tar_error = False
+
     to_extract = Queue()
 
     # If want to analyze backup header, do it now
@@ -1014,6 +1016,12 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
         else:
             # If this isn't backup header, pass it to ExtractWorker
             to_extract.put(filename)
+            # when tar do not find expected file in archive, it exit with
+            # code 2. This will happen because we've requested backup-header
+            # file, but the archive do not contain it. Ignore this particular
+            # error.
+            if not appvm:
+                expect_tar_error = True
 
     # Setup worker to extract encrypted data chunks to the restore dirs
     # Create the process here to pass it options extracted from backup header
@@ -1060,7 +1068,7 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
                     passphrase, hmac_algorithm):
                 to_extract.put(os.path.join(restore_tmpdir, filename))
 
-        if command.wait() != 0:
+        if command.wait() != 0 and not expect_tar_error:
             raise QubesException(
                     "ERROR: unable to read the qubes backup file {0} ({1}). " \
                     "Is it really a backup?".format(backup_source, command.wait()))
