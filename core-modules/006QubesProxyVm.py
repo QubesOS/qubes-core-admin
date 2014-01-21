@@ -178,9 +178,16 @@ class QubesProxyVm(QubesNetVm):
                 iptables += " -j {0}\n".format(rules_action)
 
             if conf["allowDns"] and self.netvm is not None:
-                # PREROUTING does DNAT to NetVM DNSes, so we need self.netvm. properties
-                iptables += "-A FORWARD -s {0} -p udp -d {1} --dport 53 -j ACCEPT\n".format(ip,self.netvm.gateway)
-                iptables += "-A FORWARD -s {0} -p udp -d {1} --dport 53 -j ACCEPT\n".format(ip,self.netvm.secondary_dns)
+                # PREROUTING does DNAT to NetVM DNSes, so we need self.netvm.
+                # properties
+                iptables += "-A FORWARD -s {0} -p udp -d {1} --dport 53 -j " \
+                            "ACCEPT\n".format(ip,self.netvm.gateway)
+                iptables += "-A FORWARD -s {0} -p udp -d {1} --dport 53 -j " \
+                            "ACCEPT\n".format(ip,self.netvm.secondary_dns)
+                iptables += "-A FORWARD -s {0} -p tcp -d {1} --dport 53 -j " \
+                            "ACCEPT\n".format(ip,self.netvm.gateway)
+                iptables += "-A FORWARD -s {0} -p tcp -d {1} --dport 53 -j " \
+                            "ACCEPT\n".format(ip,self.netvm.secondary_dns)
             if conf["allowIcmp"]:
                 iptables += "-A FORWARD -s {0} -p icmp -j ACCEPT\n".format(ip)
             if conf["allowYumProxy"]:
