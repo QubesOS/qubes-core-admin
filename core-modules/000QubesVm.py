@@ -782,7 +782,18 @@ class QubesVm(object):
                 line_match = zone_re.match(line)
                 if line_match:
                     return line_match.group(1)
-
+        else:
+            # last resort way, some applications makes /etc/localtime
+            # hardlink instead of symlink...
+            tz_info = os.stat('/etc/localtime')
+            if not tz_info:
+                return None
+            if tz_info.st_nlink > 1:
+                p = subprocess.Popen(['find', '/usr/share/zoneinfo',
+                                       '-inum', str(tz_info.st_ino)],
+                                      stdout=subprocess.PIPE)
+                tz_path = p.communicate()[0].strip()
+                return tz_path.replace('/usr/share/zoneinfo/', '')
         return None
 
     def cleanup_vifs(self):
