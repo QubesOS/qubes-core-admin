@@ -49,10 +49,12 @@ def main():
                        help="Force to run, even with root privileges")
 
     parser.add_option ("--replace-template", action="append", dest="replace_template", default=[],
-                       help="Restore VMs using another template, syntax: old-template-name:new-template-name (might be repeated)")
+                       help="Restore VMs using another template, syntax: "
+                            "old-template-name:new-template-name (may be "
+                            "repeated)")
 
     parser.add_option ("-x", "--exclude", action="append", dest="exclude", default=[],
-                       help="Skip restore of specified VM (might be repeated)")
+                       help="Skip restore of specified VM (may be repeated)")
 
     parser.add_option ("--skip-dom0-home", action="store_false", dest="dom0_home", default=True,
                        help="Do not restore dom0 user home dir")

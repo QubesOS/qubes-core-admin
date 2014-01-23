@@ -38,7 +38,8 @@ def main():
     parser.add_option ("--all", action="store_true", dest="shutdown_all", default=False,
                       help="Shutdown all running VMs")
     parser.add_option ("--exclude", action="append", dest="exclude_list",
-                       help="When --all is used: exclude this VM name (might be repeated)")
+                       help="When --all is used: exclude this VM name (may be "
+                            "repeated)")
 
     (options, args) = parser.parse_args ()
     if not options.shutdown_all and (len (args) != 1):

@@ -111,7 +111,8 @@ def main():
                       help="Run command on all currently running VMs (or all paused, in case of --unpause)")
 
     parser.add_option ("--exclude", action="append", dest="exclude_list",
-                       help="When --all is used: exclude this VM name (might be repeated)")
+                       help="When --all is used: exclude this VM name (may be "
+                            "repeated)")
 
     parser.add_option ("--wait", action="store_true", dest="wait_for_shutdown", default=False,
                       help="Wait for the VM(s) to shutdown")

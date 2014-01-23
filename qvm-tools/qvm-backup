@@ -38,7 +38,8 @@ def main():
 
     parser.add_option ("-x", "--exclude", action="append",
                        dest="exclude_list", default=[],
-                       help="Exclude the specified VM from backup (might be repeated)")
+                       help="Exclude the specified VM from backup (may be "
+                            "repeated)")
     parser.add_option ("--force-root", action="store_true", dest="force_root", default=False,
                        help="Force to run, even with root privileges")
     parser.add_option ("-d", "--dest-vm", action="store", dest="appvm",
