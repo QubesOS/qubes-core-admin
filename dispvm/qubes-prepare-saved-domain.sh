@@ -25,7 +25,7 @@ if ! [ -d $VMDIR ] ; then
 	echo $VMDIR does not exist ?
 	exit 1
 fi
-if ! qvm-start $1 --no-guid --dvm ; then
+if ! qvm-start $1 --dvm ; then
 	exit 1
 fi
 
@@ -41,6 +41,7 @@ fi
 #set -x
 xenstore-write /local/domain/$ID/qubes-save-request 1 
 xenstore-watch-qubes /local/domain/$ID/device/qubes-used-mem
+kill `cat /var/run/qubes/guid-running.$ID`
 xenstore-read /local/domain/$ID/qubes-gateway | \
 	cut -d . -f 3 | tr -d "\n" > $VMDIR/netvm-id.txt
 xl block-detach $1 xvdb

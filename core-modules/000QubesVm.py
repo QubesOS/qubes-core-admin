@@ -1577,13 +1577,13 @@ class QubesVm(object):
 # the successful unpause is some indicator of it
         qmemman_client.close()
 
-        if self._start_guid_first and start_guid and not preparing_dvm and os.path.exists('/var/run/shm.id'):
+        if self._start_guid_first and start_guid and os.path.exists('/var/run/shm.id'):
             self.start_guid(verbose=verbose, notify_function=notify_function, before_qrexec=True)
 
         if not preparing_dvm:
             self.start_qrexec_daemon(verbose=verbose,notify_function=notify_function)
 
-        if start_guid and not preparing_dvm and os.path.exists('/var/run/shm.id'):
+        if start_guid and os.path.exists('/var/run/shm.id'):
             self.start_guid(verbose=verbose, notify_function=notify_function)
 
         if preparing_dvm:
