@@ -970,8 +970,8 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
 
     # If want to analyze backup header, do it now
     if vms_dirs and vms_dirs[0] == HEADER_FILENAME:
-        filename = filelist_pipe.readline().strip(" \t\r\n")
-        hmacfile = filelist_pipe.readline().strip(" \t\r\n")
+        filename = filelist_pipe.readline().strip()
+        hmacfile = filelist_pipe.readline().strip()
 
         if BACKUP_DEBUG:
             print_callback("Got backup header and hmac: %s, %s" % (filename,
@@ -1042,7 +1042,7 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
     try:
         filename = None
         while True:
-            filename = filelist_pipe.readline().strip(" \t\r\n")
+            filename = filelist_pipe.readline().strip()
 
             if BACKUP_DEBUG:
                 print_callback("Getting new file:"+filename)
@@ -1050,7 +1050,7 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
             if not filename or filename=="EOF":
                 break
 
-            hmacfile = filelist_pipe.readline().strip(" \t\r\n")
+            hmacfile = filelist_pipe.readline().strip()
             if BACKUP_DEBUG:
                 print_callback("Getting hmac:"+hmacfile)
             if not hmacfile or hmacfile=="EOF":
@@ -1117,7 +1117,7 @@ def backup_restore_set_defaults(options):
     return options
 
 def load_hmac(hmac):
-    hmac = hmac.strip(" \t\r\n").split("=")
+    hmac = hmac.strip().split("=")
     if len(hmac) > 1:
         hmac = hmac[1].strip()
     else:
