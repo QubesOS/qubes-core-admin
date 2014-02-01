@@ -747,6 +747,7 @@ class ExtractWorker(Process):
         try:
             self.__run__()
         except Exception as e:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
             # Cleanup children
             for process in [self.decompressor_process,
                     self.decryptor_process,
@@ -759,7 +760,7 @@ class ExtractWorker(Process):
                         pass
                     process.wait()
             self.error_callback(str(e))
-            raise e
+            raise e, None, exc_traceback
 
     def __run__(self):
         if BACKUP_DEBUG:
