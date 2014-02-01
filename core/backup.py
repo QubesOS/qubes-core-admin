@@ -967,11 +967,13 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
     expect_tar_error = False
 
     to_extract = Queue()
+    nextfile = None
 
     # If want to analyze backup header, do it now
     if vms_dirs and vms_dirs[0] == HEADER_FILENAME:
         filename = filelist_pipe.readline().strip()
         hmacfile = filelist_pipe.readline().strip()
+        nextfile = filelist_pipe.readline().strip()
 
         if BACKUP_DEBUG:
             print_callback("Got backup header and hmac: %s, %s" % (filename,
@@ -1042,7 +1044,10 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
     try:
         filename = None
         while True:
-            filename = filelist_pipe.readline().strip()
+            if nextfile is not None:
+                filename = nextfile
+            else:
+                filename = filelist_pipe.readline().strip()
 
             if BACKUP_DEBUG:
                 print_callback("Getting new file:"+filename)
@@ -1051,6 +1056,12 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
                 break
 
             hmacfile = filelist_pipe.readline().strip()
+            # if reading archive directly with tar, wait for next filename -
+            # tar prints filename before processing it, so wait for the next one to be
+            # sure that whole file was extracted
+            if not appvm:
+                nextfile = filelist_pipe.readline().strip()
+
             if BACKUP_DEBUG:
                 print_callback("Getting hmac:"+hmacfile)
             if not hmacfile or hmacfile=="EOF":
