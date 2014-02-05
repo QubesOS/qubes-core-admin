@@ -656,12 +656,17 @@ class QubesVm(object):
             return False
         return True
 
+    def is_qrexec_running(self):
+        if self.xid < 0:
+            return False
+        return os.path.exists('/var/run/qubes/qrexec.%s' % self.name)
+
     def is_fully_usable(self):
         # Running gui-daemon implies also VM running
         if not self.is_guid_running():
             return False
-        # currently qrexec daemon doesn't cleanup socket in /var/run/qubes, so
-        # it can be left from some other VM
+        if not self.is_qrexec_running():
+            return False
         return True
 
     def is_running(self):
@@ -1366,11 +1371,16 @@ class QubesVm(object):
                 elif verbose:
                     print >> sys.stderr, "Starting the VM '{0}'...".format(self.name)
                 xid = self.start(verbose=verbose, start_guid = gui, notify_function=notify_function)
-
             except (IOError, OSError, QubesException) as err:
                 raise QubesException("Error while starting the '{0}' VM: {1}".format(self.name, err))
             except (MemoryError) as err:
-                raise QubesException("Not enough memory to start '{0}' VM! Close one or more running VMs and try again.".format(self.name))
+                raise QubesException("Not enough memory to start '{0}' VM! "
+                                     "Close one or more running VMs and try "
+                                     "again.".format(self.name))
+
+        if not self.is_qrexec_running():
+            raise QubesException(
+                "Domain '{}': qrexec not connected.".format(self.name))
 
         xid = self.get_xid()
         if gui and os.getenv("DISPLAY") is not None and not self.is_guid_running():
@@ -1490,8 +1500,7 @@ class QubesVm(object):
         qrexec_env['QREXEC_STARTUP_TIMEOUT'] = str(self.qrexec_timeout)
         retcode = subprocess.call ([system_path["qrexec_daemon_path"], str(xid), self.name, self.default_user], env=qrexec_env)
         if (retcode != 0) :
-            self.force_shutdown(xid=xid)
-            raise OSError ("ERROR: Cannot execute qrexec-daemon!")
+            raise OSError ("Cannot execute qrexec-daemon!")
 
     def start(self, debug_console = False, verbose = False, preparing_dvm = False, start_guid = True, notify_function = None):
         if dry_run:
