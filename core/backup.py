@@ -135,6 +135,7 @@ def backup_prepare(vms_list = None, exclude_list = None,
         s += fmt.format('-')
     print_callback(s)
 
+    files_to_backup_index = 0
     for vm in vms_for_backup:
         if vm.is_template():
             # handle templates later
@@ -184,8 +185,13 @@ def backup_prepare(vms_list = None, exclude_list = None,
         else:
             s += fmt.format("AppVM" + (" + Sys" if vm.updateable else ""))
 
+        vm_size = reduce(lambda x, y: x + y["size"],
+                         files_to_backup[files_to_backup_index:],
+                         0)
+        files_to_backup_index = len(files_to_backup)
+
         fmt="{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
-        s += fmt.format(size_to_human(vm.get_disk_utilization()))
+        s += fmt.format(size_to_human(vm_size))
 
         if vm.is_running():
             s +=  " <-- The VM is running, please shut it down before proceeding with the backup!"
