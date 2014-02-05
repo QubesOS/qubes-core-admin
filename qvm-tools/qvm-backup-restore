@@ -26,6 +26,7 @@ from qubes.backup import backup_restore_header
 from qubes.backup import backup_restore_prepare
 from qubes.backup import backup_restore_print_summary
 from qubes.backup import backup_restore_do
+import sys
 from optparse import OptionParser
 
 import os
@@ -109,6 +110,7 @@ def main():
             exit(1)
 
     passphrase = getpass.getpass("Please enter the pass phrase that will be used to decrypt/verify the backup: ")
+    passphrase = passphrase.decode(sys.stdin.encoding)
 
     print >> sys.stderr, "Checking backup content..."
 

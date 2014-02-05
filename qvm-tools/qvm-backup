@@ -142,6 +142,8 @@ def main():
         print >>sys.stderr, "ERROR: Password mismatch"
         exit(1)
 
+    passphrase = passphrase.decode(sys.stdin.encoding)
+
     kwargs = {}
     if options.hmac_algorithm:
         kwargs['hmac_algorithm'] = options.hmac_algorithm
