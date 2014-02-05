@@ -1010,7 +1010,7 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
                 pass
         if not file_ok:
             raise QubesException("Corrupted backup header (hmac verification "
-                                 "failed)")
+                                 "failed). Is the password correct?")
         if os.path.basename(filename) == HEADER_FILENAME:
             header_data = parse_backup_header(filename)
             if BackupHeader.crypto_algorithm in header_data:
