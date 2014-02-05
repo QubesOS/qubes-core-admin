@@ -33,7 +33,7 @@ import sys
 import getpass
 
 def main():
-    usage = "usage: %prog [options] <backup-dir> [vmname ...]"
+    usage = "usage: %prog [options] <backup-dir> [vms-to-be-restored ...]"
     parser = OptionParser (usage)
 
     parser.add_option ("--skip-broken", action="store_true", dest="skip_broken", default=False,

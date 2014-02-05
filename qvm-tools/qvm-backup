@@ -33,7 +33,7 @@ def print_progress(progress):
     print >> sys.stderr, "\r-> Backing up files: {0}%...".format (progress),
 
 def main():
-    usage = "usage: %prog [options] <backup-dir-path> [vmname ...]"
+    usage = "usage: %prog [options] <backup-dir-path> [vms-to-be-included ...]"
     parser = OptionParser (usage)
 
     parser.add_option ("-x", "--exclude", action="append",
