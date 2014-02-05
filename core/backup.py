@@ -382,6 +382,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
         compressed=False, hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
         crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM):
     total_backup_sz = 0
+    passphrase = passphrase.encode('utf-8')
     for file in files_to_backup:
         total_backup_sz += file["size"]
 
@@ -923,6 +924,7 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
         print_callback("Working in temporary dir:"+restore_tmpdir)
     print_callback("Extracting data: " + size_to_human(vms_size)+" to restore")
 
+    passphrase = passphrase.encode('utf-8')
     header_data = None
     vmproc = None
     if appvm != None:
