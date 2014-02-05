@@ -948,7 +948,13 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
         # backup-header, backup-header.hmac, qubes-xml.000, qubes-xml.000.hmac
         tar1_env['UPDATES_MAX_FILES'] = '4'
     else:
-        tar1_env['UPDATES_MAX_FILES'] = '0'
+        # Currently each VM consists of at most 7 archives (count
+        # file_to_backup calls in backup_prepare()), but add some safety
+        # margin for further extensions. Each archive is divided into 100MB
+        # chunks. Additionally each file have own hmac file. So assume upper
+        # limit as 2*(10*COUNT_OF_VMS+TOTAL_SIZE/100MB)
+        tar1_env['UPDATES_MAX_FILES'] = str(2*(10*len(vms_dirs) +
+                                               int(vms_size/(100*1024*1024))))
     if BACKUP_DEBUG:
         print_callback("Run command"+str(tar1_command))
     command = subprocess.Popen(tar1_command,
