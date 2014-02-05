@@ -1591,14 +1591,6 @@ class QubesVm(object):
                 print >> sys.stderr, "--> Preparing config template for DispVM"
             self.create_config_file(file_path = self.dir_path + '/dvm.conf', prepare_dvm = True)
 
-        # perhaps we should move it before unpause and fork?
-        # FIXME: this uses obsolete xm api
-        if debug_console:
-            from xen.xm import console
-            if verbose:
-                print >> sys.stderr, "--> Starting debug console..."
-            console.execConsole (xid)
-
         return xid
 
     def shutdown(self, force=False, xid = None):
