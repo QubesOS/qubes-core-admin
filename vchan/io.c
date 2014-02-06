@@ -95,6 +95,8 @@ int libvchan_write(struct libvchan *ctrl, char *data, size_t size)
 	while ((avail = libvchan_buffer_space(ctrl)) == 0)
 		if (libvchan_wait(ctrl) < 0)
 			return -1;
+	if (avail < 0)
+		return -1;
 	if (avail > size)
 		avail = size;
 	real_idx = (*ctrl->wr_prod) & (ctrl->wr_ring_size - 1);
@@ -120,6 +122,8 @@ int libvchan_read(struct libvchan *ctrl, char *data, size_t size)
 	while ((avail = libvchan_data_ready(ctrl)) == 0)
 		if (libvchan_wait(ctrl) < 0)
 			return -1;
+	if (avail < 0)
+		return -1;
 	if (avail > size)
 		avail = size;
 	real_idx = (*ctrl->rd_cons) & (ctrl->rd_ring_size - 1);
