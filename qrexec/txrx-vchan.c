@@ -73,12 +73,22 @@ int read_all_vchan_ext(void *buf, int size)
 
 int read_ready_vchan_ext()
 {
-	return libvchan_data_ready(ctrl);
+	int ready = libvchan_data_ready(ctrl);
+	if (ready < 0) {
+		fprintf(stderr, "libvchan_data_ready returned invalid size\n");
+		exit(1);
+	}
+	return ready;
 }
 
 int buffer_space_vchan_ext()
 {
-	return libvchan_buffer_space(ctrl);
+	int space = libvchan_buffer_space(ctrl);
+	if (space < 0) {
+		fprintf(stderr, "libvchan_buffer_space returned invalid size\n");
+		exit(1);
+	}
+	return space;
 }
 
 // if the remote domain is destroyed, we get no notification
