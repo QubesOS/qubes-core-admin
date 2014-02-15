@@ -465,6 +465,8 @@ void redirect_stderr(void)
 		exit(1);
 	}
 	dup2(fd, 2);
+	if (fd != 2)
+		close(fd);
 }
 
 
