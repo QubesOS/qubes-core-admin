@@ -1619,7 +1619,8 @@ class QubesVm(object):
         if not self.is_running() and not self.is_paused():
             raise QubesException ("VM already stopped!")
 
-        subprocess.call (['/usr/sbin/xl', 'destroy', str(xid) if xid is not None else self.name])
+        subprocess.call(['sudo', '/usr/sbin/xl', 'destroy',
+                         str(xid) if xid is not None else self.name])
 
     def suspend(self):
         if dry_run:
