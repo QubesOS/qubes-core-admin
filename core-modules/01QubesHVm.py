@@ -57,7 +57,7 @@ class QubesHVm(QubesVm):
         attrs.pop('uses_default_kernelopts')
         attrs['dir_path']['eval'] = 'value if value is not None else os.path.join(system_path["qubes_appvms_dir"], self.name)'
         attrs['config_file_template']['eval'] = 'system_path["config_template_hvm"]'
-        attrs['drive'] = { 'save': 'str(self.drive)' }
+        attrs['drive'] = { 'attr': '_drive', 'save': 'str(self.drive)' }
         attrs['maxmem'].pop('save')
         attrs['timezone'] = { 'default': 'localtime', 'save': 'str(self.timezone)' }
         attrs['qrexec_installed'] = { 'default': False,
@@ -135,6 +135,34 @@ class QubesHVm(QubesVm):
         if self.template and self.template.guiagent_installed and not value:
             print >>sys.stderr, "WARNING: When guiagent_installed set in template, it will be propagated to the VM"
         self._guiagent_installed = value
+
+    @property
+    def drive(self):
+        return self._drive
+
+    @drive.setter
+    def drive(self, value):
+        if value is None:
+            self._drive = None
+            return
+
+        # strip type for a moment
+        drv_type = "cdrom"
+        if value.startswith("hd:") or value.startswith("cdrom:"):
+            (drv_type, unused, value) = value.partition(":")
+            drv_type = drv_type.lower()
+
+        # sanity check
+        if type not in ['hd', 'cdrom']:
+            raise QubesException("Unsupported drive type: %s" % type)
+
+        if value.count(":") == 0:
+            value = "dom0:" + value
+        if value.count(":/") == 0:
+            # FIXME: when Windows backend will be supported, improve this
+            raise QubesException("Drive path must be absolute")
+
+        self._drive = drv_type + ":" + value
 
     def create_on_disk(self, verbose, source_template = None):
         if dry_run:
@@ -218,30 +246,27 @@ class QubesHVm(QubesVm):
         params['volatiledev'] = ''
         if self.drive:
             type_mode = ":cdrom,r"
-            drive_path = self.drive
-            # leave empty to use standard syntax in case of dom0
-            backend_domain = ""
-            if drive_path.startswith("hd:"):
+            (drive_type, drive_domain, drive_path) = self.drive.split(":")
+            if drive_type == "hd":
                 type_mode = ",w"
-                drive_path = drive_path[3:]
-            elif drive_path.startswith("cdrom:"):
+            elif drive_type == "cdrom":
                 type_mode = ":cdrom,r"
-                drive_path = drive_path[6:]
-            backend_split = re.match(r"^([a-zA-Z0-9-]*):(.*)", drive_path)
-            if backend_split:
-                backend_domain = "," + backend_split.group(1)
-                drive_path = backend_split.group(2)
-            if backend_domain.lower() == "dom0":
+            # leave empty to use standard syntax in case of dom0
+            if drive_domain.lower() == "dom0":
                 backend_domain = ""
+            else:
+                backend_domain = "," + drive_domain
 
             # FIXME: os.stat will work only when backend in dom0...
             stat_res = None
             if backend_domain == "":
                 stat_res = os.stat(drive_path)
             if stat_res and stat.S_ISBLK(stat_res.st_mode):
-                params['otherdevs'] = "'phy:%s,xvdc%s%s'," % (drive_path, type_mode, backend_domain)
+                params['otherdevs'] = "'phy:%s,xvdc%s%s'," % (
+                    drive_path, type_mode, backend_domain)
             else:
-                params['otherdevs'] = "'script:file:%s,xvdc%s%s'," % (drive_path, type_mode, backend_domain)
+                params['otherdevs'] = "'script:file:%s,xvdc%s%s'," % (
+                    drive_path, type_mode, backend_domain)
         else:
              params['otherdevs'] = ''
 
