@@ -270,7 +270,7 @@ void fix_conffile(FILE *conf, int conf_templ, int dispid, int netvm_id)
 	}
 	while ((cur_len = read(conf_templ, buf+buflen, sizeof(buf)-buflen)) > 0) {
 		buflen+=cur_len;
-		if (buflen >= sizeof(buf)) {
+		if (buflen >= (int)sizeof(buf)) {
 			/* We'll false positive if the file is exactly sizeof(buf) bytes,
                            as we don't know if there's any more stuff in the file */
 			fprintf(stderr, "vm conf too large\n");
@@ -381,7 +381,7 @@ int get_netvm_id_from_name(const char *name)
 	return n;
 }
 
-void setup_xenstore(int netvm_id, int domid, int dvmid, const char *name)
+void setup_xenstore(int netvm_id, int domid, int dvmid)
 {
 	char val[256];
 	struct xs_handle *xs = xs_daemon_open();
@@ -515,7 +515,7 @@ int main(int argc, char **argv)
 	fprintf(stderr,
 		"time=%s, created domid=%d, creating xenstore entries\n",
 		gettime(), domid);
-	setup_xenstore(netvm_id, domid, dispid, name);
+	setup_xenstore(netvm_id, domid, dispid);
 	rm_fast_flag();
 	fprintf(stderr, "time=%s, starting qrexec\n", gettime());
 	start_rexec(domid, dispname_by_dispid(dispid), default_user);

@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall
+CFLAGS=-Wall -Wextra -Werror
 all: qubes-restore xenstore-watch
 qubes-restore: qubes-restore.o
 	$(CC) -o qubes-restore qubes-restore.o -lxenstore
