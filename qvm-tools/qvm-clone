@@ -78,6 +78,7 @@ def main():
     except (IOError, OSError) as err:
         print >> sys.stderr, "ERROR: {0}".format(err)
         qvm_collection.pop(dst_vm.qid)
+        dst_vm.remove_from_disk()
         exit (1)
 
     qvm_collection.save()
