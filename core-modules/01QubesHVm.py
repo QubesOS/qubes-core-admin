@@ -490,5 +490,12 @@ class QubesHVm(QubesVm):
                 return False
             return True
 
+    def is_fully_usable(self):
+        # Running gui-daemon implies also VM running
+        if not self.is_guid_running():
+            return False
+        if self.qrexec_installed and not self.is_qrexec_running():
+            return False
+        return True
 
 register_qubes_vm_class(QubesHVm)
