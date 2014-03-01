@@ -153,7 +153,7 @@ class QubesHVm(QubesVm):
             drv_type = drv_type.lower()
 
         # sanity check
-        if type not in ['hd', 'cdrom']:
+        if drv_type not in ['hd', 'cdrom']:
             raise QubesException("Unsupported drive type: %s" % type)
 
         if value.count(":") == 0:
