@@ -31,6 +31,7 @@ import re
 import shutil
 import time
 import grp,pwd
+import stat
 from datetime import datetime
 from qmemman_client import QMemmanClient
 
@@ -115,6 +116,11 @@ def block_name_to_majorminor(name):
         return (name / 256, name % 256)
     if name.isdigit():
         return (int(name) / 256, int(name) % 256)
+
+    if os.path.exists('/dev/%s' % name):
+        blk_info = os.stat(os.path.realpath('/dev/%s' % name))
+        if stat.S_ISBLK(blk_info.st_mode):
+            return (blk_info.st_rdev / 256, blk_info.st_rdev % 256)
 
     major = 0
     minor = 0
@@ -555,7 +561,7 @@ def usb_check_attached(xs_trans, backend_vm, device):
                     continue
                 dev = xs.read(xs_trans, '/local/domain/%d/backend/vusb/%s/%s/port/%s' % (backend_vm, vm, frontend_dev, port))
                 if dev == "":
-                    continue 
+                    continue
                 # Sanitize device id
                 if not usb_port_re.match(dev):
                     print >> sys.stderr, "Invalid device id in backend VM %d @ %s/%s/port/%s" % \
@@ -628,7 +634,7 @@ def usb_find_unused_frontend(xs_trans, backend_vm_xid, vm_xid, usb_ver):
     frontend_dev = last_frontend_dev + 1
     usb_setup(backend_vm_xid, vm_xid, frontend_dev, usb_ver)
     return '%d-%d' % (frontend_dev, 1)
-        
+
 def usb_attach(vm, backend_vm, device, frontend=None, auto_detach=False, wait=True):
     device_attach_check(vm, backend_vm, device, frontend)
 
