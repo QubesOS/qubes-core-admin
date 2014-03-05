@@ -1655,6 +1655,7 @@ class QubesVm(object):
         if xc_info['shutdown_reason'] == 2:
             # suspended
             xc.domain_resume(xc_info['domid'], 1)
+            xs.resume_domain(xc_info['domid'])
         else:
             self.unpause()
 
