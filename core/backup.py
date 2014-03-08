@@ -872,7 +872,8 @@ class ExtractWorker(Process):
         if self.tar2_process is not None:
             if filename == "ERROR":
                 self.tar2_process.terminate()
-            if self.tar2_process.wait() != 0:
+                self.tar2_process.wait()
+            elif self.tar2_process.wait() != 0:
                 raise QubesException(
                     "ERROR: unable to extract files for {0}.{1}".
                     format(self.tar2_current_file,
