@@ -988,7 +988,8 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
     if vms_dirs and vms_dirs[0] == HEADER_FILENAME:
         filename = filelist_pipe.readline().strip()
         hmacfile = filelist_pipe.readline().strip()
-        nextfile = filelist_pipe.readline().strip()
+        if not appvm:
+            nextfile = filelist_pipe.readline().strip()
 
         if BACKUP_DEBUG:
             print_callback("Got backup header and hmac: %s, %s" % (filename,
