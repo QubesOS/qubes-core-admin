@@ -420,7 +420,6 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
     progress = blocks_backedup * 11 / total_backup_sz
     progress_callback(progress)
 
-    feedback_file = tempfile.NamedTemporaryFile()
     backup_tmpdir = tempfile.mkdtemp(prefix="/var/tmp/backup_")
 
     # Tar with tapelength does not deals well with stdout (close stdout between
@@ -1166,7 +1165,6 @@ def backup_restore_header(source, passphrase,
 
     vmproc = None
 
-    feedback_file = tempfile.NamedTemporaryFile()
     restore_tmpdir = tempfile.mkdtemp(prefix="/var/tmp/restore_")
 
     if format_version == None:
