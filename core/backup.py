@@ -238,10 +238,10 @@ def backup_prepare(vms_list = None, exclude_list = None,
     # Initialize backup flag on all VMs
     vms_for_backup_qid = [vm.qid for vm in vms_for_backup]
     for vm in qvm_collection.values():
+        vm.backup_content = False
         if vm.qid == 0:
             # handle dom0 later
             continue
-        vm.backup_content = False
 
         if vm.qid in vms_for_backup_qid:
             vm.backup_content = True
