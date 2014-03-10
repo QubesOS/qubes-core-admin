@@ -38,6 +38,7 @@ class QubesDisposableVm(QubesVm):
 
         # New attributes
         attrs_config['dispid'] = { 'save': 'str(self.dispid)' }
+        attrs_config['include_in_backups']['eval'] = 'False'
 
         return attrs_config
 
