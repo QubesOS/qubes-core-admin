@@ -45,6 +45,7 @@ def do_list(vm):
     print fmt.format ("autostart", vm.autostart)
     print fmt.format ("installed_by_rpm", vm.installed_by_rpm)
     print fmt.format ("include_in_backups", vm.include_in_backups)
+    print fmt.format ("last_backup", vm.backup_timestamp)
     print fmt.format ("dir", vm.dir_path)
     print fmt.format ("config", vm.conf_file)
     print fmt.format ("pcidevs", vm.pcidevs)

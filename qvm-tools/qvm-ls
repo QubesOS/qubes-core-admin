@@ -80,7 +80,10 @@ fields = {
     "kernel" : {"func" : "('*' if vm.uses_default_kernel else '') + str(vm.kernel) if hasattr(vm, 'kernel') else 'n/a'"},
     "kernelopts" : {"func" : "('*' if vm.uses_default_kernelopts else '') + str(vm.kernelopts) if hasattr(vm, 'kernelopts') else 'n/a'"},
 
-    "on" : {"func" : "'*' if vm.is_running() else ''"}
+    "on" : {"func" : "'*' if vm.is_running() else ''"},
+
+    "last backup" : {"func": "str(vm.backup_timestamp.date()) if "
+                             "vm.backup_timestamp else '-'"},
 
 }
 
@@ -114,6 +117,10 @@ def main():
                        action="store_true", default=False,
                        help="Show Qubes and Xen id#s")
 
+    parser.add_option("-b", "--last-backup", dest="backup",
+                      action="store_true", default=False,
+                      help="Show date of last VM backup")
+
 
     (options, args) = parser.parse_args ()
 
@@ -136,6 +143,9 @@ def main():
 
     if (options.mem):
         fields_to_display += ["mem"]
+
+    if options.backup:
+        fields_to_display += ["last backup"]
 
     if (options.network):
         if 'template' in fields_to_display:
