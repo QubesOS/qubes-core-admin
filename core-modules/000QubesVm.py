@@ -126,6 +126,8 @@ class QubesVm(object):
             "backup_content" : { 'default': False },
             "backup_size" : { 'default': 0, "eval": "int(value)" },
             "backup_path" : { 'default': "" },
+            "backup_timestamp": { 'eval': 'datetime.datetime.fromtimestamp('
+                                          'int(value)) if value else None' },
             ##### Internal attributes - will be overriden in __init__ regardless of args
             "config_file_template": { "eval": 'system_path["config_template_pv"]' },
             "icon_path": { "eval": 'os.path.join(self.dir_path, "icon.png") if self.dir_path is not None else None' },
@@ -154,6 +156,10 @@ class QubesVm(object):
 
         attrs['mac']['save'] = 'str(self._mac)'
         attrs['mac']['save_skip'] = 'self._mac is None'
+
+        attrs['backup_timestamp']['save'] = 'self.backup_timestamp.strftime("%s")'
+        attrs['backup_timestamp']['save_skip'] = 'self.backup_timestamp is ' \
+                                                 'None'
 
         attrs['netvm']['save'] = 'str(self.netvm.qid) if self.netvm is not None else "none"'
         attrs['netvm']['save_attr'] = "netvm_qid"

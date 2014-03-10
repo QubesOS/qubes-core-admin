@@ -35,6 +35,7 @@ import tempfile
 import time
 import grp,pwd
 import errno
+import datetime
 from multiprocessing import Queue,Process
 
 BACKUP_DEBUG = False
@@ -660,6 +661,17 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
             print "Sparse1 proc return code:", tar_sparse.poll()
         vmproc.stdin.close()
 
+    # Save date of last backup
+    qvm_collection = QubesVmCollection()
+    qvm_collection.lock_db_for_writing()
+    qvm_collection.load()
+
+    for vm in qvm_collection.values():
+        if vm.backup_content:
+            vm.backup_timestamp = datetime.datetime.now()
+
+    qvm_collection.save()
+    qvm_collection.unlock_db()
 
 '''
 ' Wait for backup chunk to finish
