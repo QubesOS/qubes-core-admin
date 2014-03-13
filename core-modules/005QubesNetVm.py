@@ -22,6 +22,7 @@
 #
 import sys
 import os.path
+import xen.lowlevel.xs
 
 from qubes.qubes import QubesVm,register_qubes_vm_class,xs,dry_run
 from qubes.qubes import defaults,system_path,vm_files
@@ -120,8 +121,12 @@ class QubesNetVm(QubesVm):
         for xid in self.__external_ip_allowed_xids:
             perms.append({ 'dom': xid, 'read': True })
 
-        xs.set_permissions('', '/local/domain/{0}/qubes-netvm-external-ip'.format(xid),
-                perms)
+        try:
+            xs.set_permissions('', '/local/domain/{0}/qubes-netvm-external-ip'.format(xid),
+                    perms)
+        except xen.lowlevel.xs.Error as e:
+            print >>sys.stderr, "WARNING: failed to update external IP " \
+                                "permissions: %s" % (str(e))
 
     def start(self, **kwargs):
         if dry_run:
