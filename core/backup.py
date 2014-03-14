@@ -340,6 +340,11 @@ def backup_prepare(vms_list = None, exclude_list = None,
         s += fmt.format('-')
     print_callback(s)
 
+    vms_not_for_backup = [vm.name for vm in qvm_collection.values() if not vm
+        .backup_content]
+    print_callback("VMs not selected for backup: %s" % " ".join(
+        vms_not_for_backup))
+
     if (there_are_running_vms):
         raise QubesException("Please shutdown all VMs before proceeding.")
 
