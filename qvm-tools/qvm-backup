@@ -85,8 +85,6 @@ def main():
         vms = [qvm_collection.get_vm_by_name(vmname) for vmname in args[1:]]
 
     if options.appvm:
-        print >>sys.stderr, ("WARNING: VM {} excluded because it's used to "
-                            "store the backup.").format(options.appvm)
         options.exclude_list.append(options.appvm)
 
     if options.appvm or options.crypto_algorithm:
@@ -135,11 +133,26 @@ def main():
         if not appvm.is_running():
             appvm.start(verbose=True)
 
+    if options.appvm:
+        print >>sys.stderr, ("WARNING: VM {} excluded because it's used to "
+                            "store the backup.").format(options.appvm)
+        options.exclude_list.append(options.appvm)
+
+    if not options.encrypt:
+        print >>sys.stderr, "WARNING: encryption will not be used"
+
     prompt = raw_input ("Do you want to proceed? [y/N] ")
     if not (prompt == "y" or prompt == "Y"):
         exit (0)
 
-    passphrase = getpass.getpass("Please enter the pass phrase that will be used to encrypt/verify the backup: ")
+    if options.encrypt:
+        passphrase = getpass.getpass("Please enter the pass phrase that will "
+                                     "be used to encrypt and verify the "
+                                     "backup: ")
+    else:
+        passphrase = getpass.getpass("Please enter the pass phrase that will "
+                                     "be used to verify the backup: ")
+
     passphrase2 = getpass.getpass("Enter again for verification: ")
     if passphrase != passphrase2:
         print >>sys.stderr, "ERROR: Password mismatch"
