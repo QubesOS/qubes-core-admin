@@ -107,7 +107,10 @@ def main():
     if not options.appvm:
         appvm = None
 
-        stat = os.statvfs(base_backup_dir)
+        if os.path.isdir(base_backup_dir):
+            stat = os.statvfs(base_backup_dir)
+        else:
+            stat = os.statvfs(os.path.dirname(base_backup_dir))
         backup_fs_free_sz = stat.f_bsize * stat.f_bavail
         print
         if (total_backup_sz > backup_fs_free_sz):

@@ -444,14 +444,17 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
         running_backup_operation.processes_to_kill_on_cancel.append(vmproc)
     else:
         # Prepare the backup target (local file)
-        backup_target = base_backup_dir + "/qubes-{0}". \
-            format(time.strftime("%Y-%m-%dT%H%M%S"))
+        if os.path.isdir(base_backup_dir):
+            backup_target = base_backup_dir + "/qubes-{0}". \
+                format(time.strftime("%Y-%m-%dT%H%M%S"))
+        else:
+            backup_target = base_backup_dir
 
-        # Create the target directory
-        if not os.path.exists (base_backup_dir):
-            raise QubesException(
-                "ERROR: the backup directory {0} does not exists".
-                format(base_backup_dir))
+            # Create the target directory
+            if not os.path.exists (os.path.dirname(base_backup_dir)):
+                raise QubesException(
+                    "ERROR: the backup directory for {0} does not exists".
+                    format(base_backup_dir))
 
         # If not APPVM, STDOUT is a local file
         backup_stdout = open(backup_target,'wb')
