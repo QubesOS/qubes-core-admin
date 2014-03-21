@@ -71,6 +71,13 @@ class QubesTemplateHVm(QubesHVm):
     def is_template_compatible(cls, template):
         return False
 
+    def resize_root_img(self, size):
+        for vm in self.appvms.values():
+            if vm.is_running():
+                raise QubesException("Cannot resize root.img while any VM "
+                                     "based on this tempate is running")
+        return super(QubesTemplateHVm, self).resize_root_img()
+
     def start(self, *args, **kwargs):
         for vm in self.appvms.values():
             if vm.is_running():

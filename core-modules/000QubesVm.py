@@ -778,6 +778,7 @@ class QubesVm(object):
             raise QubesException("resize2fs failed")
 
 
+
     # FIXME: should be outside of QubesVM?
     def get_timezone(self):
         # fc18

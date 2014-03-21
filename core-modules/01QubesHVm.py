@@ -231,6 +231,24 @@ class QubesHVm(QubesVm):
         f_private.truncate (size)
         f_private.close ()
 
+    def resize_root_img(self, size):
+        if self.template:
+            raise QubesException("Cannot resize root.img of template-based VM"
+                                 ". Resize the root.img of the template "
+                                 "instead.")
+
+        if self.is_running():
+            raise QubesException("Cannot resize root.img of running HVM")
+
+        if size < self.get_root_img_sz():
+            raise QubesException(
+                "For your own safety shringing of root.img is disabled. If "
+                "you really know what you are doing, use 'truncate' manually.")
+
+        f_root = open (self.root_img, "a+b")
+        f_root.truncate (size)
+        f_root.close ()
+
     def get_rootdev(self, source_template=None):
         if self.template:
             return "'script:snapshot:{template_root}:{volatile},xvda,w',".format(
