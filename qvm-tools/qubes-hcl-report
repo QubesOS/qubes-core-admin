@@ -40,7 +40,7 @@ else
     fi
 fi
 
-DATE=`date +%Y%m%d`
+DATE=`date +%Y%m%d-%H%M%S`
 
 BRAND=`sudo dmidecode |grep -A9 "System Information" |grep "Manufacturer:" |cut -d ' ' -f2- |tr -s '[:blank:]' _`
 PRODUCT=`sudo dmidecode |grep -A9 "System Information" |grep "Product Name:" |cut -d ' ' -f3- |tr -s '[:blank:]' _`
@@ -57,6 +57,9 @@ CHIPSET=`sudo lspci -nn |grep "00:00.0.*Host bridge"`
 VGA=`sudo lspci -nn |grep "VGA\|Display" | sed -e "s/^/\t\t/"`
 BIOS=`sudo dmidecode |grep -A9 "BIOS Information" |grep "Version" |cut -d ' ' -f2-`
 XLINFO=`sudo xl info |grep "virt_caps"`
+XEN_MAJOR=`sudo xl info |grep xen_major |cut -d: -f2 |tr -d ' '`
+XEN_MINOR=`sudo xl info |grep xen_minor |cut -d: -f2 |tr -d ' '`
+XEN_EXTRA=`sudo xl info |grep xen_extra |cut -d: -f2 |tr -d ' '`
 
 FILENAME="Qubes-HCL-$BRAND-$PRODUCT-$DATE"
 
@@ -78,7 +81,8 @@ fi
 sudo cat /etc/qubes-release |tee ~/$FILENAME.txt
 echo
 echo -e "Model Name:\t$BRAND $PRODUCT" |tee -a ~/$FILENAME.txt
-echo -e "Kernel:\t\t$KERNEL\n" |tee ~/$FILENAME.txt
+echo -e "Kernel:\t\t$KERNEL" |tee -a ~/$FILENAME.txt
+echo -e "Xen:\t\t$XEN_MAJOR.$XEN_MINOR$XEN_EXTRA\n" |tee -a ~/$FILENAME.txt
 echo -e "CPU:\t\t$CPU" |tee -a  ~/$FILENAME.txt
 echo -e "Chipset:\t$CHIPSET" |tee -a ~/$FILENAME.txt
 echo -e "VGA:$VGA\n" |tee -a ~/$FILENAME.txt
