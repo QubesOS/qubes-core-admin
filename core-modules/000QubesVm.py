@@ -78,8 +78,10 @@ class QubesVm(object):
                       attrs without order will be evaluated at the end
              - default: default value used when attr not given to object constructor
              - attr: set value to this attribute instead of parameter name
-             - eval: assign result of this expression instead of value directly;
-                     local variable 'value' contains attribute value (or default if it was not given)
+             - eval: (DEPRECATED) assign result of this expression instead of
+                      value directly; local variable 'value' contains
+                      attribute value (or default if it was not given)
+             - func: callable used to parse the value retrieved from XML
              - save: use evaluation result as value for XML serialization; only attrs with 'save' key will be saved in XML
              - save_skip: if present and evaluates to true, attr will be omitted in XML
              - save_attr: save to this XML attribute instead of parameter name
@@ -218,7 +220,9 @@ class QubesVm(object):
             else:
                 if 'default' in attr_config:
                     value = attr_config['default']
-            if 'eval' in attr_config:
+            if 'func' in attr_config:
+                setattr(self, attr, attr_config['func'](value))
+            elif 'eval' in attr_config:
                 setattr(self, attr, eval(attr_config['eval']))
             else:
                 #print "setting %s to %s" % (attr, value)
@@ -1684,12 +1688,20 @@ class QubesVm(object):
         for attr in attrs_config:
             attr_config = attrs_config[attr]
             if 'save' in attr_config:
-                if 'save_skip' in attr_config and eval(attr_config['save_skip']):
-                    continue
-                if 'save_attr' in attr_config:
-                    attrs[attr_config['save_attr']] = eval(attr_config['save'])
+                if 'save_skip' in attr_config:
+                    if callable(attr_config['save_skip']):
+                        if attr_config['save_skip']():
+                            continue
+                    elif eval(attr_config['save_skip']):
+                        continue
+                if callable(attr_config['save']):
+                    value = attr_config['save']()
                 else:
-                    attrs[attr] = eval(attr_config['save'])
+                    value = eval(attr_config['save'])
+                if 'save_attr' in attr_config:
+                    attrs[attr_config['save_attr']] = value
+                else:
+                    attrs[attr] = value
         return attrs
 
     def create_xml_element(self):
