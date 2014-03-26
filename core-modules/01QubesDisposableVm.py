@@ -37,8 +37,8 @@ class QubesDisposableVm(QubesVm):
         attrs_config = super(QubesDisposableVm, self).get_attrs_config()
 
         # New attributes
-        attrs_config['dispid'] = { 'save': 'str(self.dispid)' }
-        attrs_config['include_in_backups']['eval'] = 'False'
+        attrs_config['dispid'] = { 'save': lambda: str(self.dispid) }
+        attrs_config['include_in_backups']['func'] = lambda x: False
 
         return attrs_config
 

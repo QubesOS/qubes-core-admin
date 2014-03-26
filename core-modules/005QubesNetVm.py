@@ -38,15 +38,20 @@ class QubesNetVm(QubesVm):
 
     def get_attrs_config(self):
         attrs_config = super(QubesNetVm, self).get_attrs_config()
-        attrs_config['dir_path']['eval'] = 'value if value is not None else os.path.join(system_path["qubes_servicevms_dir"], self.name)'
+        attrs_config['dir_path']['func'] = \
+            lambda value: value if value is not None else \
+                os.path.join(system_path["qubes_servicevms_dir"], self.name)
         attrs_config['label']['default'] = defaults["servicevm_label"]
         attrs_config['memory']['default'] = 200
 
         # New attributes
         attrs_config['netid'] = { 'save': 'str(self.netid)', 'order': 30,
-            'eval': 'value if value is not None else collection.get_new_unused_netid()' }
-        attrs_config['netprefix'] = { 'eval': '"10.137.{0}.".format(self.netid)' }
-        attrs_config['dispnetprefix'] = { 'eval': '"10.138.{0}.".format(self.netid)' }
+            'func': lambda value: value if value is not None else
+            self._collection.get_new_unused_netid() }
+        attrs_config['netprefix'] = {
+            'func': lambda x: "10.137.{0}.".format(self.netid) }
+        attrs_config['dispnetprefix'] = {
+            'func': lambda x: "10.138.{0}.".format(self.netid) }
 
         # Dont save netvm prop
         attrs_config['netvm'].pop('save')

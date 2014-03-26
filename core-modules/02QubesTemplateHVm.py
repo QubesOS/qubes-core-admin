@@ -42,7 +42,9 @@ class QubesTemplateHVm(QubesHVm):
 
     def get_attrs_config(self):
         attrs_config = super(QubesTemplateHVm, self).get_attrs_config()
-        attrs_config['dir_path']['eval'] = 'value if value is not None else os.path.join(system_path["qubes_templates_dir"], self.name)'
+        attrs_config['dir_path']['func'] = \
+            lambda value: value if value is not None else \
+                os.path.join(system_path["qubes_templates_dir"], self.name)
         attrs_config['label']['default'] = defaults["template_label"]
         return attrs_config
 

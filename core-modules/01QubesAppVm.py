@@ -23,7 +23,7 @@
 
 import os.path
 
-from qubes.qubes import QubesVm,QubesVmLabel,register_qubes_vm_class
+from qubes.qubes import QubesVm,QubesVmLabel,register_qubes_vm_class,system_path
 
 class QubesAppVm(QubesVm):
     """
@@ -31,7 +31,9 @@ class QubesAppVm(QubesVm):
     """
     def get_attrs_config(self):
         attrs_config = super(QubesAppVm, self).get_attrs_config()
-        attrs_config['dir_path']['eval'] = 'value if value is not None else os.path.join(system_path["qubes_appvms_dir"], self.name)'
+        attrs_config['dir_path']['func'] = \
+            lambda value: value if value is not None else \
+                os.path.join(system_path["qubes_appvms_dir"], self.name)
 
         return attrs_config
 

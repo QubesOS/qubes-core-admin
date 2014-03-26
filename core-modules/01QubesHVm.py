@@ -55,18 +55,22 @@ class QubesHVm(QubesVm):
         attrs.pop('kernelopts')
         attrs.pop('uses_default_kernel')
         attrs.pop('uses_default_kernelopts')
-        attrs['dir_path']['eval'] = 'value if value is not None else os.path.join(system_path["qubes_appvms_dir"], self.name)'
-        attrs['config_file_template']['eval'] = 'system_path["config_template_hvm"]'
-        attrs['drive'] = { 'attr': '_drive', 'save': 'str(self.drive)' }
+        attrs['dir_path']['func'] = lambda value: value if value is not None \
+                else os.path.join(system_path["qubes_appvms_dir"], self.name)
+        attrs['config_file_template']['func'] = \
+            lambda x: system_path["config_template_hvm"]
+        attrs['drive'] = { 'attr': '_drive',
+                           'save': lambda: str(self.drive) }
         attrs['maxmem'].pop('save')
-        attrs['timezone'] = { 'default': 'localtime', 'save': 'str(self.timezone)' }
+        attrs['timezone'] = { 'default': 'localtime',
+                              'save': lambda: str(self.timezone) }
         attrs['qrexec_installed'] = { 'default': False,
             'attr': '_qrexec_installed',
-            'save': 'str(self._qrexec_installed)' }
+            'save': lambda: str(self._qrexec_installed) }
         attrs['guiagent_installed'] = { 'default' : False,
             'attr': '_guiagent_installed',
-            'save': 'str(self._guiagent_installed)' }
-        attrs['_start_guid_first']['eval'] = 'True'
+            'save': lambda: str(self._guiagent_installed) }
+        attrs['_start_guid_first']['func'] = lambda x: True
         attrs['services']['default'] = "{'meminfo-writer': False}"
 
         attrs['memory']['default'] = defaults["hvm_memory"]

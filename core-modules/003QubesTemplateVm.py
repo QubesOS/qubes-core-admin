@@ -39,15 +39,19 @@ class QubesTemplateVm(QubesVm):
 
     def get_attrs_config(self):
         attrs_config = super(QubesTemplateVm, self).get_attrs_config()
-        attrs_config['dir_path']['eval'] = 'value if value is not None else os.path.join(system_path["qubes_templates_dir"], self.name)'
+        attrs_config['dir_path']['func'] = \
+            lambda value: value if value is not None else \
+                os.path.join(system_path["qubes_templates_dir"], self.name)
         attrs_config['label']['default'] = defaults["template_label"]
 
         # New attributes
 
         # Image for template changes
-        attrs_config['rootcow_img'] = { 'eval': 'os.path.join(self.dir_path, vm_files["rootcow_img"])' }
+        attrs_config['rootcow_img'] = {
+            'func': lambda x: os.path.join(self.dir_path, vm_files["rootcow_img"]) }
         # Clean image for root-cow and swap (AppVM side)
-        attrs_config['clean_volatile_img'] = { 'eval': 'os.path.join(self.dir_path, vm_files["clean_volatile_img"])' }
+        attrs_config['clean_volatile_img'] = {
+            'func': lambda x: os.path.join(self.dir_path, vm_files["clean_volatile_img"]) }
 
         return attrs_config
 

@@ -92,12 +92,23 @@ class QubesVm(object):
             "qid": { "attr": "_qid", "order": 0 },
             "name": { "order": 1 },
             "dir_path": { "default": None, "order": 2 },
-            "conf_file": { "eval": 'self.absolute_path(value, self.name + ".conf")', 'order': 3 },
+            "conf_file": {
+                "func": lambda value: self.absolute_path(value, self.name +
+                                                                 ".conf"),
+                "order": 3 },
             ### order >= 10: have base attrs set
-            "root_img": { "eval": 'self.absolute_path(value, vm_files["root_img"])', 'order': 10 },
-            "private_img": { "eval": 'self.absolute_path(value, vm_files["private_img"])', 'order': 10 },
-            "volatile_img": { "eval": 'self.absolute_path(value, vm_files["volatile_img"])', 'order': 10 },
-            "firewall_conf": { "eval": 'self.absolute_path(value, vm_files["firewall_conf"])', 'order': 10 },
+            "root_img": {
+                "func": self._absolute_path_gen(vm_files["root_img"]),
+                "order": 10 },
+            "private_img": {
+                "func": self._absolute_path_gen(vm_files["private_img"]),
+                "order": 10 },
+            "volatile_img": {
+                "func": self._absolute_path_gen(vm_files["volatile_img"]),
+                "order": 10 },
+            "firewall_conf": {
+                "func": self._absolute_path_gen(vm_files["firewall_conf"]),
+                "order": 10 },
             "installed_by_rpm": { "default": False, 'order': 10 },
             "template": { "default": None, "attr": '_template', 'order': 10 },
             ### order >= 20: have template set
@@ -107,38 +118,62 @@ class QubesVm(object):
                 'xml_deserialize': lambda _x: QubesVmLabels[_x] },
             "memory": { "default": defaults["memory"], 'order': 20 },
             "maxmem": { "default": None, 'order': 25 },
-            "pcidevs": { "default": '[]', 'order': 25, "eval": \
-                '[] if value in ["none", None] else eval(value) if value.find("[") >= 0 else eval("[" + value + "]")'  },
+            "pcidevs": {
+                "default": '[]',
+                "order": 25,
+                "func": lambda value: [] if value in ["none", None]  else
+                    eval(value) if value.find("[") >= 0 else
+                    eval("[" + value + "]") },
             # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
             "internal": { "default": False },
             "vcpus": { "default": None },
             "uses_default_kernel": { "default": True, 'order': 30 },
             "uses_default_kernelopts": { "default": True, 'order': 30 },
-            "kernel": { "default": None, 'order': 31,
-                'eval': 'collection.get_default_kernel() if self.uses_default_kernel else value' },
-            "kernelopts": { "default": "", 'order': 31, "eval": \
-                'value if not self.uses_default_kernelopts else defaults["kernelopts_pcidevs"] if len(self.pcidevs) > 0 else defaults["kernelopts"]' },
+            "kernel": {
+                "default": None,
+                "order": 31,
+                "func": lambda value: self._collection.get_default_kernel() if
+                  self.uses_default_kernel else value },
+            "kernelopts": {
+                "default": "",
+                "order": 31,
+                "func": lambda value: value if not self.uses_default_kernelopts\
+                    else defaults["kernelopts_pcidevs"] if len(self.pcidevs)>0 \
+                    else defaults["kernelopts"] },
             "mac": { "attr": "_mac", "default": None },
             "include_in_backups": { "default": True },
-            "services": { "default": {}, "eval": "eval(str(value))" },
+            "services": {
+                "default": {},
+                "func": lambda value: eval(str(value)) },
             "debug": { "default": False },
             "default_user": { "default": "user" },
             "qrexec_timeout": { "default": 60 },
             "autostart": { "default": False, "attr": "_autostart" },
             "backup_content" : { 'default': False },
-            "backup_size" : { 'default': 0, "eval": "int(value)" },
+            "backup_size" : {
+                "default": 0,
+                "func": int },
             "backup_path" : { 'default': "" },
-            "backup_timestamp": { 'eval': 'datetime.datetime.fromtimestamp('
-                                          'int(value)) if value else None' },
+            "backup_timestamp": {
+                "func": lambda value:
+                    datetime.datetime.fromtimestamp(int(value)) if value
+                    else None },
             ##### Internal attributes - will be overriden in __init__ regardless of args
-            "config_file_template": { "eval": 'system_path["config_template_pv"]' },
-            "icon_path": { "eval": 'os.path.join(self.dir_path, "icon.png") if self.dir_path is not None else None' },
+            "config_file_template": {
+                "func": lambda x: system_path["config_template_pv"] },
+            "icon_path": {
+                "func": lambda x: os.path.join(self.dir_path, "icon.png") if
+                               self.dir_path is not None else None },
             # used to suppress side effects of clone_attrs
-            "_do_not_reset_firewall": { "eval": 'False' },
-            "kernels_dir": { 'eval': 'os.path.join(system_path["qubes_kernels_base_dir"], self.kernel) if self.kernel is not None else ' + \
+            "_do_not_reset_firewall": { "func": lambda x: False },
+            "kernels_dir": {
                 # for backward compatibility (or another rare case): kernel=None -> kernel in VM dir
-                'os.path.join(self.dir_path, vm_files["kernels_subdir"])' },
-            "_start_guid_first": { 'eval': 'False' },
+                "func": lambda x: \
+                    os.path.join(system_path["qubes_kernels_base_dir"],
+                                 self.kernel) if self.kernel is not None \
+                        else os.path.join(self.dir_path,
+                                          vm_files["kernels_subdir"]) },
+            "_start_guid_first": { "func": lambda x: False },
             }
 
         ### Mark attrs for XML inclusion
@@ -189,9 +224,9 @@ class QubesVm(object):
 
     def __init__(self, **kwargs):
 
-        collection = None
+        self._collection = None
         if 'collection' in kwargs:
-            collection = kwargs['collection']
+            self._collection = kwargs['collection']
         else:
             raise ValueError("No collection given to QubesVM constructor")
 
@@ -199,8 +234,8 @@ class QubesVm(object):
         if "xml_element" in kwargs and kwargs["xml_element"].get("template_qid"):
             template_qid = kwargs["xml_element"].get("template_qid")
             if template_qid.lower() != "none":
-                if int(template_qid) in collection:
-                    kwargs["template"] = collection[int(template_qid)]
+                if int(template_qid) in self._collection:
+                    kwargs["template"] = self._collection[int(template_qid)]
                 else:
                     raise ValueError("Unknown template with QID %s" % template_qid)
         attrs = self.get_attrs_config()
@@ -282,6 +317,9 @@ class QubesVm(object):
             return arg
         else:
             return os.path.join(self.dir_path, (arg if arg is not None else default))
+
+    def _absolute_path_gen(self, default):
+        return lambda value: self.absolute_path(value, default)
 
     def relative_path(self, arg):
         return arg.replace(self.dir_path + '/', '')
