@@ -91,6 +91,8 @@ cp linux/systemd/qubes-setupdvm.service $RPM_BUILD_ROOT%{_unitdir}
 cp linux/systemd/qubes-netvm.service $RPM_BUILD_ROOT%{_unitdir}
 cp linux/systemd/qubes-qmemman.service $RPM_BUILD_ROOT%{_unitdir}
 cp linux/systemd/qubes-vm@.service $RPM_BUILD_ROOT%{_unitdir}
+cp linux/systemd/qubes-reload-firewall@.service $RPM_BUILD_ROOT%{_unitdir}
+cp linux/systemd/qubes-reload-firewall@.timer $RPM_BUILD_ROOT%{_unitdir}
 
 mkdir -p $RPM_BUILD_ROOT/usr/bin/
 cp qvm-tools/qvm-* $RPM_BUILD_ROOT/usr/bin
@@ -302,6 +304,8 @@ fi
 %{_unitdir}/qubes-netvm.service
 %{_unitdir}/qubes-qmemman.service
 %{_unitdir}/qubes-vm@.service
+%{_unitdir}/qubes-reload-firewall@.service
+%{_unitdir}/qubes-reload-firewall@.timer
 %attr(0770,root,qubes) %dir /var/lib/qubes
 %attr(0770,root,qubes) %dir /var/lib/qubes/vm-templates
 %attr(0770,root,qubes) %dir /var/lib/qubes/appvms

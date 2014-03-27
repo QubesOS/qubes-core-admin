@@ -19,6 +19,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 #
+import datetime
 
 from qubes.qubes import QubesVmCollection
 from optparse import OptionParser;
@@ -149,6 +150,10 @@ def list_rules(rules):
             if rule['portBegin'] is not None and rule['portEnd'] is None:
                 parsed_rule['port(s)'] = get_service_name(rule['portBegin'])
 
+        if 'expire' in rule:
+            parsed_rule['expire'] = str(datetime.datetime.fromtimestamp(rule[
+                'expire']))
+
         rules_to_display.append(parsed_rule)
         counter += 1
 
@@ -184,6 +189,8 @@ def list_rules(rules):
         for f in fields:
             fmt=" {{0:<{0}}} |".format(fields_width[f])
             s += fmt.format(r[f])
+        if 'expire' in r:
+            s += " <-- expires at %s" % r['expire']
         print s
 
 def display_firewall(conf):
@@ -255,6 +262,9 @@ def main():
             help="Set DNS access (allow/deny)")
     parser.add_option ("-Y", "--yum-proxy", dest="set_yum_proxy", action="store", default=None,
             help="Set access to Qubes yum proxy (allow/deny)")
+    parser.add_option ("-r", "--reload", dest="reload", action="store_true",
+                       default=False, help="Reload firewall (implied by any "
+                                           "change action")
 
     parser.add_option ("-n", "--numeric", dest="numeric", action="store_true", default=False,
             help="Display port numbers instead of services (makes sense only with --list)")
@@ -312,7 +322,7 @@ def main():
     elif options.do_del:
         load_services()
         changed = del_rule(conf, args)
-    elif options.do_list:
+    elif options.do_list and not options.reload:
         if not options.numeric:
             load_services()
         if not vm.has_firewall():
@@ -321,6 +331,7 @@ def main():
 
     if changed:
         vm.write_firewall_conf(conf)
+    if changed or options.reload:
         if vm.is_running():
             if vm.netvm is not None and vm.netvm.is_proxyvm():
                 vm.netvm.write_iptables_xenstore_entry()

@@ -1,0 +1,12 @@
+[Unit]
+Description=Reload firewall for VM %i
+After=qubes-netvm.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/qvm-firewall --force-root -r %i
+ExecStartPost=/bin/sh -c '/usr/bin/qvm-firewall --force-root %i | grep -q "expires at" || systemctl stop %p@%i.timer'
+Group=qubes
+
+[Install]
+WantedBy=multi-user.target

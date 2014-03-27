@@ -1247,6 +1247,7 @@ class QubesVm(object):
 
     def write_firewall_conf(self, conf):
         defaults = self.get_firewall_conf()
+        expiring_rules_present = False
         for item in defaults.keys():
             if item not in conf:
                 conf[item] = defaults[item]
@@ -1277,6 +1278,9 @@ class QubesVm(object):
                 element.set("port", str(rule["portBegin"]))
             if rule["portEnd"] is not None and rule["portEnd"] > 0:
                 element.set("toport", str(rule["portEnd"]))
+            if "expire" in rule:
+                element.set("expire", str(rule["expire"]))
+                expiring_rules_present = True
 
             root.append(element)
 
@@ -1303,6 +1307,10 @@ class QubesVm(object):
             if self.services.has_key('yum-proxy-setup'):
                 self.services.pop('yum-proxy-setup')
 
+        if expiring_rules_present:
+            subprocess.call(["sudo", "systemctl", "start",
+                             "qubes-reload-firewall@%s.timer" % self.name])
+
         return True
 
     def has_firewall(self):
@@ -1325,7 +1333,8 @@ class QubesVm(object):
 
             for element in root:
                 rule = {}
-                attr_list = ("address", "netmask", "proto", "port", "toport")
+                attr_list = ("address", "netmask", "proto", "port", "toport",
+                             "expire")
 
                 for attribute in attr_list:
                     rule[attribute] = element.get(attribute)
@@ -1352,6 +1361,14 @@ class QubesVm(object):
                     rule["portEnd"] = int(rule["toport"])
                 else:
                     rule["portEnd"] = None
+
+                if rule["expire"] is not None:
+                    rule["expire"] = int(rule["expire"])
+                    if rule["expire"] <= int(datetime.datetime.now().strftime(
+                            "%s")):
+                        continue
+                else:
+                    del(rule["expire"])
 
                 del(rule["port"])
                 del(rule["toport"])
