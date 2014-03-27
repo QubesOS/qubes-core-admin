@@ -39,7 +39,7 @@ class QubesProxyVm(QubesNetVm):
         attrs_config['uses_default_netvm']['func'] = lambda x: False
         # Save netvm prop again
         attrs_config['netvm']['save'] = \
-            lambda x: str(self.netvm.qid) if self.netvm is not None else "none"
+            lambda: str(self.netvm.qid) if self.netvm is not None else "none"
 
         return attrs_config
 

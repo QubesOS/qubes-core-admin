@@ -185,24 +185,29 @@ class QubesVm(object):
             'default_user', 'qrexec_timeout', 'autostart',
             'default_user', 'qrexec_timeout',
             'backup_content', 'backup_size', 'backup_path' ]:
-            attrs[prop]['save'] = 'str(self.%s)' % prop
+            attrs[prop]['save'] = lambda prop=prop: str(getattr(self, prop))
         # Simple paths
         for prop in ['conf_file', 'root_img', 'volatile_img', 'private_img']:
-            attrs[prop]['save'] = 'self.relative_path(self.%s)' % prop
-            attrs[prop]['save_skip'] = 'self.%s is None' % prop
+            attrs[prop]['save'] = \
+                lambda prop=prop: self.relative_path(getattr(self, prop))
+            attrs[prop]['save_skip'] = \
+                lambda prop=prop: getattr(self, prop) is None
 
-        attrs['mac']['save'] = 'str(self._mac)'
-        attrs['mac']['save_skip'] = 'self._mac is None'
+        attrs['mac']['save'] = lambda: str(self._mac)
+        attrs['mac']['save_skip'] = lambda: self._mac is None
 
-        attrs['backup_timestamp']['save'] = 'self.backup_timestamp.strftime("%s")'
-        attrs['backup_timestamp']['save_skip'] = 'self.backup_timestamp is ' \
-                                                 'None'
+        attrs['backup_timestamp']['save'] = \
+            lambda: self.backup_timestamp.strftime("%s")
+        attrs['backup_timestamp']['save_skip'] = \
+            lambda: self.backup_timestamp is None
 
-        attrs['netvm']['save'] = 'str(self.netvm.qid) if self.netvm is not None else "none"'
+        attrs['netvm']['save'] = \
+            lambda: str(self.netvm.qid) if self.netvm is not None else "none"
         attrs['netvm']['save_attr'] = "netvm_qid"
-        attrs['template']['save'] = 'str(self.template.qid) if self.template else "none"'
+        attrs['template']['save'] = \
+            lambda: str(self.template.qid) if self.template else "none"
         attrs['template']['save_attr'] = "template_qid"
-        attrs['label']['save'] = 'self.label.name'
+        attrs['label']['save'] = lambda: self.label.name
 
         # fire hooks
         for hook in self.hooks_get_attrs_config:

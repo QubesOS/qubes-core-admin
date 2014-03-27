@@ -45,7 +45,9 @@ class QubesNetVm(QubesVm):
         attrs_config['memory']['default'] = 200
 
         # New attributes
-        attrs_config['netid'] = { 'save': 'str(self.netid)', 'order': 30,
+        attrs_config['netid'] = {
+            'save': lambda: str(self.netid),
+            'order': 30,
             'func': lambda value: value if value is not None else
             self._collection.get_new_unused_netid() }
         attrs_config['netprefix'] = {
