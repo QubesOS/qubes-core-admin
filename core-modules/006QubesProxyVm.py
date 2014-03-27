@@ -126,12 +126,14 @@ class QubesProxyVm(QubesNetVm):
 
         # Strict INPUT rules
         iptables += "-A INPUT -i vif+ -p udp -m udp --dport 68 -j DROP\n"
-        iptables += "-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT\n"
+        iptables += "-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED " \
+                    "-j ACCEPT\n"
         iptables += "-A INPUT -p icmp -j ACCEPT\n"
         iptables += "-A INPUT -i lo -j ACCEPT\n"
         iptables += "-A INPUT -j REJECT --reject-with icmp-host-prohibited\n"
 
-        iptables += "-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n"
+        iptables += "-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED " \
+                    "-j ACCEPT\n"
         # Allow dom0 networking
         iptables += "-A FORWARD -i vif0.0 -j ACCEPT\n"
         # Deny inter-VMs networking
