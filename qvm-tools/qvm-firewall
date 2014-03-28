@@ -284,7 +284,8 @@ def main():
             print >> sys.stderr, "... or use --force-root to continue anyway."
             exit(1)
 
-    if options.do_add or options.do_del or options.set_policy or options.set_icmp or options.set_dns or options.set_yum_proxy:
+    if options.do_add or options.do_del or options.set_policy or \
+            options.set_icmp or options.set_dns or options.set_yum_proxy:
         options.do_list = False
     qvm_collection = QubesVmCollection()
     if options.do_list:

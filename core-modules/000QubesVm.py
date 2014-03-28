@@ -1274,9 +1274,10 @@ class QubesVm(object):
             )
             if rule["netmask"] is not None and rule["netmask"] != 32:
                 element.set("netmask", str(rule["netmask"]))
-            if rule["portBegin"] is not None and rule["portBegin"] > 0:
+            if rule.get("portBegin", None) is not None and \
+                            rule["portBegin"] > 0:
                 element.set("port", str(rule["portBegin"]))
-            if rule["portEnd"] is not None and rule["portEnd"] > 0:
+            if rule.get("portEnd", None) is not None and rule["portEnd"] > 0:
                 element.set("toport", str(rule["portEnd"]))
             if "expire" in rule:
                 element.set("expire", str(rule["expire"]))
