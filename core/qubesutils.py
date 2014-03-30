@@ -705,7 +705,6 @@ class QubesWatch(object):
         self.block_callback = callback
         if old_block_callback is not None and callback is None:
             # remove watches
-            self.update_watches_vbd([])
             self.update_watches_block([])
         else:
             # possibly add watches
@@ -720,27 +719,23 @@ class QubesWatch(object):
     def get_vbd_key(self, xid):
         return '/local/domain/%s/device/vbd' % xid
 
-    def update_watches_block(self, xid_list):
-        for i in only_in_first_list(xid_list, self.watch_tokens_block.keys()):
-            #new domain has been created
-            watch = QubesWatch.WatchType(self.block_callback, i)
-            self.watch_tokens_block[i] = watch
-            self.xs.watch(self.get_block_key(i), watch)
-        for i in only_in_first_list(self.watch_tokens_block.keys(), xid_list):
-            #domain destroyed
-            self.xs.unwatch(self.get_block_key(i), self.watch_tokens_block[i])
-            self.watch_tokens_block.pop(i)
 
-    def update_watches_vbd(self, xid_list):
-        for i in only_in_first_list(xid_list, self.watch_tokens_vbd.keys()):
+    def update_watches(self, xid_list, watch_tokens, xs_key_func, callback):
+        for i in only_in_first_list(xid_list, watch_tokens.keys()):
             #new domain has been created
-            watch = QubesWatch.WatchType(self.block_callback, i)
-            self.watch_tokens_vbd[i] = watch
-            self.xs.watch(self.get_vbd_key(i), watch)
-        for i in only_in_first_list(self.watch_tokens_vbd.keys(), xid_list):
+            watch = QubesWatch.WatchType(callback, i)
+            watch_tokens[i] = watch
+            self.xs.watch(xs_key_func(i), watch)
+        for i in only_in_first_list(watch_tokens.keys(), xid_list):
             #domain destroyed
-            self.xs.unwatch(self.get_vbd_key(i), self.watch_tokens_vbd[i])
-            self.watch_tokens_vbd.pop(i)
+            self.xs.unwatch(xs_key_func(i), watch_tokens[i])
+            watch_tokens.pop(i)
+
+    def update_watches_block(self, xid_list):
+        self.update_watches(xid_list, self.watch_tokens_block,
+                            self.get_block_key, self.block_callback)
+        self.update_watches(xid_list, self.watch_tokens_vbd,
+                            self.get_vbd_key, self.block_callback)
 
     def domain_list_changed(self, param):
         curr = self.xs.ls('', '/local/domain')
@@ -750,7 +745,6 @@ class QubesWatch(object):
             self.domain_callback()
         if self.block_callback:
             self.update_watches_block(curr)
-            self.update_watches_vbd(curr)
 
     def watch_single(self):
         result = self.xs.read_watch()
