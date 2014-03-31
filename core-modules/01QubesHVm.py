@@ -442,7 +442,7 @@ class QubesHVm(QubesVm):
             if kwargs.get('verbose', False):
                 print >> sys.stderr, "--> Starting the qrexec daemon..."
             xid = self.get_xid()
-            qrexec_env = os.environ
+            qrexec_env = os.environ.copy()
             qrexec_env['QREXEC_STARTUP_NOWAIT'] = '1'
             retcode = subprocess.call ([system_path["qrexec_daemon_path"], str(xid), self.name, self.default_user], env=qrexec_env)
             if (retcode != 0) :
