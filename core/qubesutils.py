@@ -695,7 +695,9 @@ class QubesWatch(object):
         self.xs = xen.lowlevel.xs.xs()
         self.watch_tokens_block = {}
         self.watch_tokens_vbd = {}
+        self.watch_tokens_meminfo = {}
         self.block_callback = None
+        self.meminfo_callback = None
         self.domain_callback = None
         self.xs.watch('@introduceDomain', QubesWatch.WatchType(self.domain_list_changed, None))
         self.xs.watch('@releaseDomain', QubesWatch.WatchType(self.domain_list_changed, None))
@@ -710,6 +712,16 @@ class QubesWatch(object):
             # possibly add watches
             self.domain_list_changed(None)
 
+    def setup_meminfo_watch(self, callback):
+        old_meminfo_callback = self.meminfo_callback
+        self.meminfo_callback = callback
+        if old_meminfo_callback is not None and callback is None:
+            # remove watches
+            self.update_watches_meminfo([])
+        else:
+            # possibly add watches
+            self.domain_list_changed(None)
+
     def setup_domain_watch(self, callback):
         self.domain_callback = callback
 
@@ -719,6 +731,8 @@ class QubesWatch(object):
     def get_vbd_key(self, xid):
         return '/local/domain/%s/device/vbd' % xid
 
+    def get_meminfo_key(self, xid):
+        return '/local/domain/%s/memory/meminfo' % xid
 
     def update_watches(self, xid_list, watch_tokens, xs_key_func, callback):
         for i in only_in_first_list(xid_list, watch_tokens.keys()):
@@ -737,6 +751,10 @@ class QubesWatch(object):
         self.update_watches(xid_list, self.watch_tokens_vbd,
                             self.get_vbd_key, self.block_callback)
 
+    def update_watches_meminfo(self, xid_list):
+        self.update_watches(xid_list, self.watch_tokens_meminfo,
+                            self.get_meminfo_key, self.meminfo_callback)
+
     def domain_list_changed(self, param):
         curr = self.xs.ls('', '/local/domain')
         if curr == None:
@@ -745,6 +763,8 @@ class QubesWatch(object):
             self.domain_callback()
         if self.block_callback:
             self.update_watches_block(curr)
+        if self.meminfo_callback:
+            self.update_watches_meminfo(curr)
 
     def watch_single(self):
         result = self.xs.read_watch()
