@@ -1428,8 +1428,8 @@ class QubesVm(object):
                 return
             vmdev = m.group(1)
             try:
-                self.run("QUBESRPC qubes.DetachPciDevice dom0", user="root",
-                        localcmd="echo 00:%s" % vmdev, wait=True)
+                self.run_service("qubes.DetachPciDevice",
+                                 user="root", input="00:%s" % vmdev)
                 subprocess.check_call(['sudo', 'xl', 'pci-detach', str(self.xid), pci])
             except Exception as e:
                 print >>sys.stderr, "Failed to detach PCI device on the fly " \
@@ -1499,6 +1499,18 @@ class QubesVm(object):
         if null:
             null.close()
         return retcode
+
+    def run_service(self, service, source="dom0", user=None,
+                    passio_popen =  False, input=None):
+        if input and passio_popen:
+            raise ValueError("'input' and 'passio_popen' cannot be used "
+                             "together")
+        if input:
+            return self.run("QUBESRPC %s %s" % (service, source),
+                        localcmd="echo %s" % input, user=user, wait=True)
+        else:
+            return self.run("QUBESRPC %s %s" % (service, source),
+                        passio_popen=passio_popen, user=user, wait=True)
 
     def attach_network(self, verbose = False, wait = True, netvm = None):
         if dry_run:
