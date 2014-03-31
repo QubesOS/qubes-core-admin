@@ -34,6 +34,8 @@ import time
 import uuid
 import xml.parsers.expat
 import xen.lowlevel.xc
+from qubes import qmemman
+from qubes import qmemman_algo
 
 from qubes.qubes import xs,dry_run,xc,xl_ctx
 from qubes.qubes import register_qubes_vm_class
@@ -650,6 +652,16 @@ class QubesVm(object):
             return dominfo['maxmem_kb']
         else:
             return 0
+
+    def get_prefmem(self):
+        untrusted_meminfo_key = xs.read('', '/local/domain/%s/memory/meminfo'
+                                            % self.xid)
+        if untrusted_meminfo_key is None or untrusted_meminfo_key == '':
+            return 0
+        domain = qmemman.DomainState(self.xid)
+        qmemman_algo.refresh_meminfo_for_domain(domain, untrusted_meminfo_key)
+        domain.memory_maximum = self.get_mem_static_max()*1024
+        return qmemman_algo.prefmem(domain)/1024
 
     def get_per_cpu_time(self):
         if dry_run:
