@@ -86,11 +86,14 @@ def do_list(vm):
     if hasattr(vm, 'qrexec_installed'):
         print fmt.format("qrexec_installed", str(vm.qrexec_installed))
 
+    if hasattr(vm, 'qrexec_timeout'):
+        print fmt.format("qrexec_timeout", str(vm.qrexec_timeout))
+
     if hasattr(vm, 'guiagent_installed'):
         print fmt.format("guiagent_installed", str(vm.guiagent_installed))
 
-    if hasattr(vm, 'qrexec_timeout'):
-        print fmt.format("qrexec_timeout", str(vm.qrexec_timeout))
+    if hasattr(vm, 'seamless_gui_mode'):
+        print fmt.format("seamless_gui_mode", str(vm.seamless_gui_mode))
 
     if hasattr(vm, 'drive'):
         print fmt.format("drive", str(vm.drive))
@@ -370,6 +373,21 @@ def set_guiagent_installed(vms, vm, args):
     vm.guiagent_installed = bool(eval(args[0].capitalize()))
     return True
 
+def set_seamless_gui_mode(vms, vm, args):
+    if len(args) != 1:
+        print >> sys.stderr, "Missing value (true/false)!"
+        return False
+
+    if not args[0].lower() in ['true', 'false']:
+        print >> sys.stderr, "Invalid value, expected 'true' or 'false'"
+        return False
+
+    if args[0].lower() == 'true':
+        vm.seamless_gui_mode = True
+    else:
+        vm.seamless_gui_mode = False
+    return True
+
 def set_autostart(vms, vm, args):
     if len (args) != 1:
         print >> sys.stderr, "Missing value (True/False)!"
@@ -416,6 +434,7 @@ properties = {
     "default_user": set_default_user,
     "qrexec_installed": set_qrexec_installed,
     "guiagent_installed": set_guiagent_installed,
+    "seamless_gui_mode": set_seamless_gui_mode,
     "qrexec_timeout": set_qrexec_timeout,
     "timezone": set_timezone,
     "internal": set_internal,

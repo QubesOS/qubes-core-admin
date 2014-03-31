@@ -70,6 +70,9 @@ class QubesHVm(QubesVm):
         attrs['guiagent_installed'] = { 'default' : False,
             'attr': '_guiagent_installed',
             'save': lambda: str(self._guiagent_installed) }
+        attrs['seamless_gui_mode'] = { 'default': False,
+                              'attr': '_seamless_gui_mode',
+                              'save': lambda: str(self._seamless_gui_mode) }
         attrs['_start_guid_first']['func'] = lambda x: True
         attrs['services']['default'] = "{'meminfo-writer': False}"
 
@@ -139,6 +142,23 @@ class QubesHVm(QubesVm):
         if self.template and self.template.guiagent_installed and not value:
             print >>sys.stderr, "WARNING: When guiagent_installed set in template, it will be propagated to the VM"
         self._guiagent_installed = value
+
+    @property
+    def seamless_gui_mode(self):
+        if not self.guiagent_installed:
+            return False
+        return self._seamless_gui_mode
+
+    @seamless_gui_mode.setter
+    def seamless_gui_mode(self, value):
+        if self._seamless_gui_mode == value:
+            return
+        if not self.guiagent_installed and value:
+            raise ValueError("Seamless GUI mode requires GUI agent installed")
+
+        self._seamless_gui_mode = value
+        if self.is_running():
+            self.send_gui_mode()
 
     @property
     def drive(self):
@@ -456,6 +476,15 @@ class QubesHVm(QubesVm):
                     print >> sys.stderr, "--> Waiting for user '%s' login..." % self.default_user
 
                 self.wait_for_session(notify_function=kwargs.get('notify_function', None))
+                self.send_gui_mode()
+
+    def send_gui_mode(self):
+        if self.seamless_gui_mode:
+            service_input = "SEAMLESS"
+        else:
+            service_input = "FULLSCREEN"
+
+        self.run_service("qubes.SetGuiMode", input=service_input)
 
     def create_xenstore_entries(self, xid = None):
         if dry_run:
