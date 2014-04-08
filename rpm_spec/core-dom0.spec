@@ -220,6 +220,7 @@ service xenstored start
 if ! [ -e /var/lib/qubes/qubes.xml ]; then
 #    echo "Initializing Qubes DB..."
     umask 007; sg qubes -c qvm-init-storage
+    qubes-prefs -s default-kernel `ls /var/lib/qubes/vm-kernels|head -n 1` 2> /dev/null
 fi
 
 # Because we now have an installer
