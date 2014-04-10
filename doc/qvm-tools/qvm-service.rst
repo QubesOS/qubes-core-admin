@@ -71,9 +71,7 @@ network-manager
     Default: enabled in NetVM
 
     Enable NetworkManager. Only VM with direct access to network device needs
-    this service. Note that enabling this in a VM which is connected to
-    NetVM/ProxyVM can cause network connectivity problems (namely: loss of IP
-    address and default route).
+    this service, but can be useful in ProxyVM to ease VPN setup.
 
 qubes-yum-proxy
     Default: enabled in NetVM
