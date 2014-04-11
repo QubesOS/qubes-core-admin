@@ -121,6 +121,10 @@ def main():
                       action="store_true", default=False,
                       help="Show date of last VM backup")
 
+    parser.add_option("--raw-list", dest="raw_list",
+                      action="store_true", default=False,
+                      help="List only VM names one per line")
+
 
     (options, args) = parser.parse_args ()
 
@@ -128,6 +132,11 @@ def main():
     qvm_collection.lock_db_for_reading()
     qvm_collection.load()
     qvm_collection.unlock_db()
+
+    if options.raw_list:
+        for vm in qvm_collection.values():
+            print vm.name
+        return
 
     fields_to_display = ["name", "on", "state", "updbl", "type", "template", "netvm", "label" ]
 
