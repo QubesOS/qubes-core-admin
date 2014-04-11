@@ -1,0 +1,47 @@
+#!/usr/bin/python2
+
+import os
+import sys
+from qubes.qubes import QubesVmCollection
+from qubes.qubesutils import updates_vms_toggle,updates_dom0_toggle,\
+    updates_dom0_status
+
+def usage():
+    print "Usage: qubes-set-updates enable|disable|status"
+    print "  Enable or disable globally checking for updates (both dom0 and VM)"
+    print "  Status option checks only dom0 updates status"
+
+def main():
+    if len(sys.argv) < 2:
+        usage()
+        return 1
+    
+    action = sys.argv[1]
+    if action not in ['enable', 'disable', 'status']:
+        usage()
+        return 1
+
+    qvm_collection = QubesVmCollection()
+    if action == 'status':
+        qvm_collection.lock_db_for_reading()
+    else:
+        qvm_collection.lock_db_for_writing()
+    qvm_collection.load()
+    if action == 'enable':
+        updates_dom0_toggle(qvm_collection, True)
+        updates_vms_toggle(qvm_collection, True)
+    elif action == 'disable':
+        updates_dom0_toggle(qvm_collection, False)
+        updates_vms_toggle(qvm_collection, False)
+    else:
+        if updates_dom0_status(qvm_collection):
+            print "enabled"
+        else:
+            print "disabled"
+
+    if action != 'status':
+        qvm_collection.save()
+    qvm_collection.unlock_db()
+
+if __name__ == "__main__":
+    main()

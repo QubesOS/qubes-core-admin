@@ -775,4 +775,39 @@ class QubesWatch(object):
         while True:
             self.watch_single()
 
+##### updates check #####
+
+UPDATES_DOM0_DISABLE_FLAG='/var/lib/qubes/updates/disable-updates'
+
+def updates_vms_toggle(qvm_collection, value):
+    for vm in qvm_collection.values():
+        if vm.qid == 0:
+            continue
+        if value:
+            vm.services.pop('qubes-update-check', None)
+            if vm.is_running():
+                try:
+                    vm.run("systemctl start qubes-update-check.timer",
+                           user="root")
+                except:
+                    pass
+        else:
+            vm.services['qubes-update-check'] = False
+            if vm.is_running():
+                try:
+                    vm.run("systemctl stop qubes-update-check.timer",
+                           user="root")
+                except:
+                    pass
+def updates_dom0_toggle(qvm_collection, value):
+    if value:
+        if os.path.exists(UPDATES_DOM0_DISABLE_FLAG):
+            os.unlink(UPDATES_DOM0_DISABLE_FLAG)
+    else:
+        open(UPDATES_DOM0_DISABLE_FLAG, "w").close()
+
+def updates_dom0_status(qvm_collection):
+    return not os.path.exists(UPDATES_DOM0_DISABLE_FLAG)
+
+
 # vim:sw=4:et:
