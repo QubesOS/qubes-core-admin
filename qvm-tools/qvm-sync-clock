@@ -76,7 +76,7 @@ def main():
     date_out = p.stdout.read(100)
     date_out = date_out.strip()
     if not re.match(r'^[A-Za-z]+[,] [0-9][0-9] [A-Za-z]+ [0-9][0-9][0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9] [+]0000$', date_out):
-        print >> sys.stderr, date_out, 'Invalid date output, aborting!'
+        print >> sys.stderr, 'Invalid date output, aborting!'
         sys.exit(1)
 
     # Sync dom0 time
