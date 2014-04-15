@@ -76,6 +76,8 @@ def vm_run_cmd(vm, cmd, options):
 
     if options.verbose:
         print >> sys.stderr, "Running command on VM: '{0}'...".format(vm.name)
+    if options.passio and options.color_output:
+        print "\033[0;31m",
 
     try:
         def tray_notify_generic(level, str):
@@ -88,13 +90,19 @@ def vm_run_cmd(vm, cmd, options):
             verbose = options.verbose,
             user = options.user,
             notify_function = tray_notify_generic if options.tray else None,
-            passio = options.passio, localcmd = options.localcmd, gui = options.gui)
+            wait = options.passio, localcmd = options.localcmd,
+            gui = options.gui, filter_esc = options.filter_esc)
     except QubesException as err:
+        if options.passio and options.color_output:
+            print "\033[0m",
         if options.tray:
             tray_notify_error(str(err))
             notify_error_qubes_manager(vm.name, str(err))
         print >> sys.stderr, "ERROR(%s): %s" % (str(vm.name), str(err))
         return 1
+    finally:
+        if options.passio and options.color_output:
+            print "\033[0m",
 
 def main():
     usage = "usage: %prog [options] [<vm-name>] [<cmd>]"
@@ -106,7 +114,7 @@ def main():
                        help="Run command in a VM as a specified user")
     parser.add_option ("--tray", action="store_true", dest="tray", default=False,
                        help="Use tray notifications instead of stdout" )
- 
+
     parser.add_option ("--all", action="store_true", dest="run_on_all_running", default=False,
                       help="Run command on all currently running VMs (or all paused, in case of --unpause)")
 
@@ -138,6 +146,21 @@ def main():
     parser.add_option ("--nogui", action="store_false", dest="gui", default=True,
                       help="Run command without gui")
 
+    parser.add_option ("--filter-escape-chars", action="store_true",
+                       dest="filter_esc",
+                       default=os.isatty(sys.stdout.fileno()),
+                       help="Filter terminal escape sequences (default if "
+                            "output is terminal)")
+    parser.add_option("--no-filter-escape-chars", action="store_false",
+                      dest="filter_esc",
+                      help="Do not filter terminal escape sequences - "
+                           "overrides --filter-escape-chars, DANGEROUS when "
+                           "output is terminal")
+
+    parser.add_option("--no-color-output", action="store_false",
+                      dest="color_output", default=None,
+                      help="Disable marking VM output with red color")
+
     (options, args) = parser.parse_args ()
 
     if options.passio and options.run_on_all_running:
@@ -145,6 +168,9 @@ def main():
 
     if options.passio:
         options.verbose = False
+
+    if options.color_output is None:
+        options.color_output = os.isatty(sys.stdout.fileno())
 
     if options.shutdown:
         print >>sys.stderr, "WARNING: --shutdown is deprecated. Use qvm-shutdown instead."
@@ -213,7 +239,7 @@ def main():
 
         while len (vms_list):
             if options.verbose:
-                print >> sys.stderr, "Waiting for VMs: ", [vm.name for vm in vms_list] 
+                print >> sys.stderr, "Waiting for VMs: ", [vm.name for vm in vms_list]
             for vm in vms_list:
                 if not vm.is_running():
                     vms_list.remove (vm)

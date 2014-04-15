@@ -1435,7 +1435,11 @@ class QubesVm(object):
                 print >>sys.stderr, "Failed to detach PCI device on the fly " \
                     "(%s), changes will be seen after VM restart" % str(e)
 
-    def run(self, command, user = None, verbose = True, autostart = False, notify_function = None, passio = False, passio_popen = False, passio_stderr=False, ignore_stderr=False, localcmd = None, wait = False, gui = True):
+    def run(self, command, user = None, verbose = True, autostart = False,
+            notify_function = None,
+            passio = False, passio_popen = False, passio_stderr=False,
+            ignore_stderr=False, localcmd = None, wait = False, gui = True,
+            filter_esc = False):
         """command should be in form 'cmdline'
             When passio_popen=True, popen object with stdout connected to pipe.
             When additionally passio_stderr=True, stderr also is connected to pipe.
@@ -1473,6 +1477,10 @@ class QubesVm(object):
         args = [system_path["qrexec_client_path"], "-d", str(xid), "%s:%s" % (user, command)]
         if localcmd is not None:
             args += [ "-l", localcmd]
+        if filter_esc:
+            args += ["-t"]
+        if os.isatty(sys.stderr.fileno()):
+            args += ["-T"]
         if passio:
             os.execv(system_path["qrexec_client_path"], args)
             exit(1)
