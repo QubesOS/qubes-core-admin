@@ -80,8 +80,8 @@ vm_files = {
 
 defaults = {
     'memory': 400,
-    'kernelopts': "",
-    'kernelopts_pcidevs': "iommu=soft swiotlb=4096",
+    'kernelopts': "nopat",
+    'kernelopts_pcidevs': "nopat iommu=soft swiotlb=4096",
 
     'dom0_update_check_interval': 6*3600,
 
