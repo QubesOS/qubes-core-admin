@@ -1466,6 +1466,8 @@ class QubesVm(object):
                                      "Close one or more running VMs and try "
                                      "again.".format(self.name))
 
+        if self.is_paused():
+            raise QubesException("VM is paused")
         if not self.is_qrexec_running():
             raise QubesException(
                 "Domain '{}': qrexec not connected.".format(self.name))
