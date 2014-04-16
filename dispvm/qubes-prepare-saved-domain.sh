@@ -57,7 +57,8 @@ if ! xl save $1 $2 $VMDIR/$1.conf; then
 fi
 rm -f $QMEMMAN_STOP
 cd $VMDIR
-# Fix start memory
-sed -i -e "s/^memory.*/memory = $((MEM/1000))/" dvm.conf
+# Apparently baloon driver isn't effective enough on some kernels - xl
+# restore still needs initial memory amount
+#sed -i -e "s/^memory.*/memory = $((MEM/1000))/" dvm.conf
 tar -Scvf saved-cows.tar volatile.img
 echo "DVM savefile created successfully."
