@@ -42,7 +42,7 @@ class QubesNetVm(QubesVm):
             lambda value: value if value is not None else \
                 os.path.join(system_path["qubes_servicevms_dir"], self.name)
         attrs_config['label']['default'] = defaults["servicevm_label"]
-        attrs_config['memory']['default'] = 200
+        attrs_config['memory']['default'] = 300
 
         # New attributes
         attrs_config['netid'] = {
