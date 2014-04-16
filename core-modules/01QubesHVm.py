@@ -446,7 +446,7 @@ class QubesHVm(QubesVm):
         if not before_qrexec and self.guiagent_installed:
             super(QubesHVm, self).start_guid(verbose, notify_function, extra_guid_args=["-Q"], **kwargs)
             stubdom_guid_pidfile = '/var/run/qubes/guid-running.%d' % self.stubdom_xid
-            if os.path.exists(stubdom_guid_pidfile):
+            if os.path.exists(stubdom_guid_pidfile) and not self.debug:
                 try:
                     stubdom_guid_pid = int(open(stubdom_guid_pidfile, 'r').read())
                     os.kill(stubdom_guid_pid, signal.SIGTERM)
