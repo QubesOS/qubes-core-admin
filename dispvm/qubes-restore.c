@@ -28,7 +28,7 @@ int restore_domain(const char *restore_file, const char *conf_file, const char *
 			perror("dup2 or open");
 			exit(1);
 		}
-		execl("/usr/sbin/xl", "xl", "restore", conf_file, restore_file, NULL);
+		execl("/usr/sbin/xl", "xl", "-v", "restore", "-d", conf_file, restore_file, NULL);
 		perror("execl");
 		exit(1);
 	default:;
