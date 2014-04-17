@@ -769,6 +769,9 @@ class QubesVm(object):
         if not self.is_running():
             return False
 
+        if not hasattr(self.template, 'rootcow_img'):
+            return False
+
         rootimg_inode = os.stat(self.template.root_img)
         try:
             rootcow_inode = os.stat(self.template.rootcow_img)
