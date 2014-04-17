@@ -1242,10 +1242,11 @@ class QubesVm(object):
         if os.path.exists (self.volatile_img):
            os.remove (self.volatile_img)
 
-        retcode = subprocess.call (["tar", "xf", source_template.clean_volatile_img, "-C", self.dir_path])
-        if retcode != 0:
-            raise IOError ("Error while unpacking {0} to {1}".\
-                           format(source_template.clean_volatile_img, self.volatile_img))
+        if hasattr(source_template, 'clean_volatile_img'):
+            retcode = subprocess.call (["tar", "xf", source_template.clean_volatile_img, "-C", self.dir_path])
+            if retcode != 0:
+                raise IOError ("Error while unpacking {0} to {1}".\
+                               format(source_template.clean_volatile_img, self.volatile_img))
 
     def remove_from_disk(self):
         if dry_run:
