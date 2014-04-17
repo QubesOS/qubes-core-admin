@@ -249,7 +249,13 @@ class QubesVmCollection(dict):
             raise ValueError("Unknown VM type: %s" % vm_type)
 
         qid = self.get_new_unused_qid()
-        vm = QubesVmClasses[vm_type](qid=qid, collection=self, **kwargs)
+        vm_cls = QubesVmClasses[vm_type]
+        if 'template' in kwargs:
+            if not vm_cls.is_template_compatible(kwargs['template']):
+                raise QubesException("Template not compatible with selected "
+                                     "VM type")
+
+        vm = vm_cls(qid=qid, collection=self, **kwargs)
         if not self.verify_new_vm(vm):
             raise QubesException("Wrong VM description!")
         self[vm.qid] = vm
