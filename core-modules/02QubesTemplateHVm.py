@@ -71,6 +71,8 @@ class QubesTemplateHVm(QubesHVm):
 
     @classmethod
     def is_template_compatible(cls, template):
+        if template is None:
+            return True
         return False
 
     def resize_root_img(self, size):
