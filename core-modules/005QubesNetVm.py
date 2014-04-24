@@ -154,7 +154,10 @@ class QubesNetVm(QubesVm):
 
             # force frontend to forget about this device
             #  module actually will be loaded back by udev, as soon as network is attached
-            vm.run("modprobe -r xen-netfront xennet", user="root")
+            try:
+                vm.run("modprobe -r xen-netfront xennet", user="root")
+            except:
+                pass
 
             try:
                 vm.attach_network(wait=False)
