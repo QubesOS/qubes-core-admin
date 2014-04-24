@@ -25,7 +25,7 @@
 from qubes import QubesException,QubesVmCollection
 from qubes import QubesVmClasses
 from qubes import system_path,vm_files
-from qubesutils import size_to_human, print_stdout, print_stderr
+from qubesutils import size_to_human, print_stdout, print_stderr, get_disk_usage
 import sys
 import os
 import subprocess
@@ -68,17 +68,6 @@ class BackupHeader:
     crypto_algorithm = 'crypto-algorithm'
     hmac_algorithm = 'hmac-algorithm'
     bool_options = ['encrypted', 'compressed']
-
-def get_disk_usage(file_or_dir):
-    if not os.path.exists(file_or_dir):
-        return 0
-
-    p = subprocess.Popen (["du", "-s", "--block-size=1", file_or_dir],
-            stdout=subprocess.PIPE)
-    result = p.communicate()
-    m = re.match(r"^(\d+)\s.*", result[0])
-    sz = int(m.group(1)) if m is not None else 0
-    return sz
 
 
 def file_to_backup (file_path, subdir = None):

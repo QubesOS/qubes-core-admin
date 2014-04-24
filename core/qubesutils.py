@@ -3,6 +3,7 @@
 # The Qubes OS Project, http://www.qubes-os.org
 #
 # Copyright (C) 2011  Marek Marczykowski <marmarek@invisiblethingslab.com>
+# Copyright (C) 2014  Wojciech Porczyk <wojciech@porczyk.eu>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -84,6 +85,27 @@ def parse_size(size):
             return int(size)*multiplier
 
     raise QubesException("Invalid size: {0}.".format(size))
+
+def get_disk_usage_one(st):
+    try:
+        return st.st_blocks * BLKSIZE
+    except:
+        return st.st_size
+
+def get_disk_usage(path):
+    try:
+        st = os.stat(path)
+    except os.error:
+        return 0
+
+    ret = get_disk_usage_one(st)
+
+    # if path is not a directory, this is skipped
+    for dirpath, dirnames, filenames in os.walk(path):
+        for name in dirnames + filenames:
+            ret += get_disk_usage_one(os.stat(os.path.join(dirpath, name)))
+
+    return ret
 
 def print_stdout(text):
     print (text)
