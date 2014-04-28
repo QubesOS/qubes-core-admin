@@ -21,8 +21,7 @@
 #
 #
 
-from qubes import QubesVm,QubesException,QubesVmCollection
-from qubes import QubesVmClasses
+from qubes import QubesException
 from qubes import xs, xl_ctx
 from qubes import system_path,vm_files
 import sys
