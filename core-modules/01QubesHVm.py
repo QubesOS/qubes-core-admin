@@ -236,9 +236,6 @@ class QubesHVm(QubesVm):
         for hook in self.hooks_create_on_disk:
             hook(self, verbose, source_template=source_template)
 
-    def get_disk_utilization_private_img(self):
-        return self.get_disk_usage(self.private_img)
-
     def get_private_img_sz(self):
         if not os.path.exists(self.private_img):
             return 0
