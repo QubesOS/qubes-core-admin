@@ -43,6 +43,8 @@ from qubes.qubes import QubesVmCollection,QubesException,QubesHost,QubesVmLabels
 from qubes.qubes import defaults,system_path,vm_files,qubes_max_qid
 from qubes.qmemman_client import QMemmanClient
 
+import qubes.qubesutils
+
 xid_to_name_cache = {}
 
 class QubesVm(object):
@@ -675,10 +677,7 @@ class QubesVm(object):
             return 0
 
     def get_disk_utilization_root_img(self):
-        if not os.path.exists(self.root_img):
-            return 0
-
-        return self.get_disk_usage(self.root_img)
+        return qubes.qubesutils.get_disk_usage(self.root_img)
 
     def get_root_img_sz(self):
         if not os.path.exists(self.root_img):
@@ -790,21 +789,11 @@ class QubesVm(object):
 
         return used_dmdev != current_dmdev
 
-    def get_disk_usage(self, file_or_dir):
-        if not os.path.exists(file_or_dir):
-            return 0
-        p = subprocess.Popen (["du", "-s", "--block-size=1", file_or_dir],
-                              stdout=subprocess.PIPE)
-        result = p.communicate()
-        m = re.match(r"^(\d+)\s.*", result[0])
-        sz = int(m.group(1)) if m is not None else 0
-        return sz
-
     def get_disk_utilization(self):
-        return self.get_disk_usage(self.dir_path)
+        return qubes.qubesutils.get_disk_usage(self.dir_path)
 
     def get_disk_utilization_private_img(self):
-        return self.get_disk_usage(self.private_img)
+        return qubes.qubesutils.get_disk_usage(self.private_img)
 
     def get_private_img_sz(self):
         if not os.path.exists(self.private_img):

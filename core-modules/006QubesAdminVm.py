@@ -52,9 +52,6 @@ class QubesAdminVm(QubesNetVm):
     def get_power_state(self):
         return "Running"
 
-    def get_disk_usage(self, file_or_dir):
-        return 0
-
     def get_disk_utilization(self):
         return 0
 
