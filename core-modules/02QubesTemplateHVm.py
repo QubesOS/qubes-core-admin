@@ -80,7 +80,7 @@ class QubesTemplateHVm(QubesHVm):
             if vm.is_running():
                 raise QubesException("Cannot resize root.img while any VM "
                                      "based on this tempate is running")
-        return super(QubesTemplateHVm, self).resize_root_img()
+        return super(QubesTemplateHVm, self).resize_root_img(size)
 
     def start(self, *args, **kwargs):
         for vm in self.appvms.values():
