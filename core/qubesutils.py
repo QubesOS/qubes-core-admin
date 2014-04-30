@@ -39,6 +39,8 @@ import xen.lowlevel.xc
 import xen.lowlevel.xl
 import xen.lowlevel.xs
 
+BLKSIZE = 512
+
 def mbytes_to_kmg(size):
     if size > 1024:
         return "%d GiB" % (size/1024)
@@ -88,7 +90,7 @@ def parse_size(size):
 def get_disk_usage_one(st):
     try:
         return st.st_blocks * BLKSIZE
-    except:
+    except AttributeError:
         return st.st_size
 
 def get_disk_usage(path):
