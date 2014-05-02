@@ -95,8 +95,8 @@ def get_disk_usage_one(st):
 
 def get_disk_usage(path):
     try:
-        st = os.stat(path)
-    except os.error:
+        st = os.lstat(path)
+    except OSError:
         return 0
 
     ret = get_disk_usage_one(st)
@@ -104,7 +104,7 @@ def get_disk_usage(path):
     # if path is not a directory, this is skipped
     for dirpath, dirnames, filenames in os.walk(path):
         for name in dirnames + filenames:
-            ret += get_disk_usage_one(os.stat(os.path.join(dirpath, name)))
+            ret += get_disk_usage_one(os.lstat(os.path.join(dirpath, name)))
 
     return ret
 
