@@ -219,9 +219,9 @@ class QubesVm(object):
             attrs = hook(self, attrs)
         return attrs
 
-    def post_set_attr(self, attr, value):
+    def post_set_attr(self, attr, newvalue, oldvalue):
         for hook in self.hooks_set_attr:
-            hook(self, attr, value)
+            hook(self, attr, newvalue, oldvalue)
 
     def __basic_parse_xml_attr(self, value):
         if value is None:
@@ -523,8 +523,9 @@ class QubesVm(object):
 
     @internal.setter
     def internal(self, value):
+        oldvalue = self._internal
         self._internal = value
-        self.post_set_attr('internal', value)
+        self.post_set_attr('internal', value, oldvalue)
 
     @property
     def autostart(self):
