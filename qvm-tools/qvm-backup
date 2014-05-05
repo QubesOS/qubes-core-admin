@@ -46,6 +46,9 @@ def main():
                        help="The AppVM to send backups to (implies -e)")
     parser.add_option ("-e", "--encrypt", action="store_true", dest="encrypt", default=False,
                        help="Encrypts the backup")
+    parser.add_option ("--no-encrypt", action="store_true",
+                       dest="no_encrypt", default=False,
+                       help="Skip encryption even if sending the backup to VM")
     parser.add_option ("-E", "--enc-algo", action="store",
                        dest="crypto_algorithm", default=None,
                        help="Specify non-default encryption algorithm. For "
@@ -89,6 +92,8 @@ def main():
 
     if options.appvm or options.crypto_algorithm:
         options.encrypt = True
+    if options.no_encrypt:
+        options.encrypt = False
     files_to_backup = None
     try:
         files_to_backup = backup_prepare(
