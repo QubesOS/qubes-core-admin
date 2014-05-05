@@ -1258,7 +1258,7 @@ class QubesVm(object):
                 conf[item] = defaults[item]
 
         root = lxml.etree.Element(
-                "QubesFirwallRules",
+                "QubesFirewallRules",
                 policy = "allow" if conf["allow"] else "deny",
                 dns = "allow" if conf["allowDns"] else "deny",
                 icmp = "allow" if conf["allowIcmp"] else "deny",
