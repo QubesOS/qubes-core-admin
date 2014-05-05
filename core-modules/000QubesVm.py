@@ -74,6 +74,7 @@ class QubesVm(object):
     hooks_remove_from_disk = []
     hooks_start = []
     hooks_verify_files = []
+    hooks_set_attr = []
 
     def get_attrs_config(self):
         """ Object attributes for serialization/deserialization
@@ -129,7 +130,7 @@ class QubesVm(object):
                     eval(value) if value.find("[") >= 0 else
                     eval("[" + value + "]") },
             # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
-            "internal": { "default": False },
+            "internal": { "default": False, 'attr': '_internal' },
             "vcpus": { "default": None },
             "uses_default_kernel": { "default": True, 'order': 30 },
             "uses_default_kernelopts": { "default": True, 'order': 30 },
@@ -217,6 +218,10 @@ class QubesVm(object):
         for hook in self.hooks_get_attrs_config:
             attrs = hook(self, attrs)
         return attrs
+
+    def post_set_attr(self, attr, value):
+        for hook in self.hooks_set_attr:
+            hook(self, attr, value)
 
     def __basic_parse_xml_attr(self, value):
         if value is None:
@@ -511,6 +516,15 @@ class QubesVm(object):
         # fire hooks
         for hook in self.hooks_post_rename:
             hook(self, old_name)
+
+    @property
+    def internal(self):
+        return self._internal
+
+    @internal.setter
+    def internal(self, value):
+        self._internal = value
+        self.post_set_attr('internal', value)
 
     @property
     def autostart(self):
