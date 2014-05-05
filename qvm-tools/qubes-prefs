@@ -39,15 +39,22 @@ def handle_vm(vms, label, new_value = None):
     assert label in functions.keys()
 
     if new_value:
-        vm = vms.get_vm_by_name (new_value)
-        if vm is None:
-            print >> sys.stderr, "A VM with the name '{0}' does not exist in the system.".format(new_value)
-            exit(1)
-        try:
-            vms.__getattribute__(functions[label][1])(vm)
-        except Exception as e:
-            print >> sys.stderr, "ERROR: {0}".format(str(e))
-            exit(1)
+        if new_value == "none":
+            try:
+                vms.__getattribute__(functions[label][1])(None)
+            except Exception as e:
+                print >> sys.stderr, "ERROR: {0}".format(str(e))
+                exit(1)
+        else:
+            vm = vms.get_vm_by_name (new_value)
+            if vm is None:
+                print >> sys.stderr, "A VM with the name '{0}' does not exist in the system.".format(new_value)
+                exit(1)
+            try:
+                vms.__getattribute__(functions[label][1])(vm)
+            except Exception as e:
+                print >> sys.stderr, "ERROR: {0}".format(str(e))
+                exit(1)
     else:
         vm = vms.__getattribute__(functions[label][0])()
         if vm is not None:

@@ -354,8 +354,11 @@ class QubesVmCollection(dict):
                               netvm = self.get_default_fw_netvm())
 
     def set_default_template(self, vm):
-        assert vm.is_template(), "VM {0} is not a TemplateVM!".format(vm.name)
-        self.default_template_qid = vm.qid
+        if vm is None:
+            self.default_template_qid = None
+        else:
+            assert vm.is_template(), "VM {0} is not a TemplateVM!".format(vm.name)
+            self.default_template_qid = vm.qid
 
     def get_default_template(self):
         if self.default_template_qid is None:
@@ -364,8 +367,11 @@ class QubesVmCollection(dict):
             return self[self.default_template_qid]
 
     def set_default_netvm(self, vm):
-        assert vm.is_netvm(), "VM {0} does not provide network!".format(vm.name)
-        self.default_netvm_qid = vm.qid
+        if vm is None:
+            self.default_netvm_qid = None
+        else:
+            assert vm.is_netvm(), "VM {0} does not provide network!".format(vm.name)
+            self.default_netvm_qid = vm.qid
 
     def get_default_netvm(self):
         if self.default_netvm_qid is None:
@@ -383,8 +389,11 @@ class QubesVmCollection(dict):
         return self.default_kernel
 
     def set_default_fw_netvm(self, vm):
-        assert vm.is_netvm(), "VM {0} does not provide network!".format(vm.name)
-        self.default_fw_netvm_qid = vm.qid
+        if vm is None:
+            self.default_fw_netvm_qid = None
+        else:
+            assert vm.is_netvm(), "VM {0} does not provide network!".format(vm.name)
+            self.default_fw_netvm_qid = vm.qid
 
     def get_default_fw_netvm(self):
         if self.default_fw_netvm_qid is None:
@@ -393,7 +402,10 @@ class QubesVmCollection(dict):
             return self[self.default_fw_netvm_qid]
 
     def set_updatevm_vm(self, vm):
-        self.updatevm_qid = vm.qid
+        if vm is None:
+            self.updatevm_qid = None
+        else:
+            self.updatevm_qid = vm.qid
 
     def get_updatevm_vm(self):
         if self.updatevm_qid is None:
@@ -402,7 +414,10 @@ class QubesVmCollection(dict):
             return self[self.updatevm_qid]
 
     def set_clockvm_vm(self, vm):
-        self.clockvm_qid = vm.qid
+        if vm is None:
+            self.clockvm_qid = None
+        else:
+            self.clockvm_qid = vm.qid
 
     def get_clockvm_vm(self):
         if self.clockvm_qid is None:
