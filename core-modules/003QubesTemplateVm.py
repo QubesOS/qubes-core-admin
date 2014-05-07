@@ -105,6 +105,8 @@ class QubesTemplateVm(QubesVm):
         self.commit_changes(verbose=verbose)
 
     def post_rename(self, old_name):
+        super(QubesTemplateVm, self).post_rename(old_name)
+
         old_dirpath = os.path.join(os.path.dirname(self.dir_path), old_name)
         self.clean_volatile_img = self.clean_volatile_img.replace(old_dirpath, self.dir_path)
         self.rootcow_img = self.rootcow_img.replace(old_dirpath, self.dir_path)
