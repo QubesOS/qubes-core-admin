@@ -51,7 +51,7 @@ if [[ $BRAND =~ "O.E.M" ]]
     PRODUCT=`sudo dmidecode |grep -A9 "Base Board Information" |grep "Product Name:" |cut -d ' ' -f3- |tr -s '[:blank:]' _`
 fi
 
-KERNEL=`uname -r`
+KERNEL=`uname -r |cut -d '.' -f-3`
 CPU=`sudo cat /proc/cpuinfo |grep "model name" |sort -u |cut -d ' ' -f3-`
 CHIPSET=`sudo lspci -nn |grep "00:00.0.*Host bridge"`
 VGA=`sudo lspci -nn |grep "VGA\|Display" | sed -e "s/^/\t\t/"`
@@ -66,16 +66,25 @@ FILENAME="Qubes-HCL-$BRAND-$PRODUCT-$DATE"
 if [[ "$XLINFO" =~ "hvm_directio" ]]
  then 
     VTX="Active"
+    HVM="good"
+
     VTD="Active"
+    IOMMU="good"
 
  elif [[ "$XLINFO" =~ "hvm" ]]
  then
     VTX="Active"
+    HVM="good"
+
     VTD="Not Active"
+    IOMMU="bad"
 
  else
     VTX="Not Active"
+    HVM="bad"
+
     VTD="Not Active"
+    IOMMU="bad"
 fi
 
 sudo cat /etc/qubes-release |tee ~/$FILENAME.txt
@@ -90,6 +99,56 @@ echo -e "BIOS:\t\t$BIOS" |tee -a ~/$FILENAME.txt
 echo -e "VT-x:\t\t$VTX" |tee -a ~/$FILENAME.txt
 echo -e "VT-d:\t\t$VTD" |tee -a ~/$FILENAME.txt
 echo
+
+echo -e "
+>-->-->-->-->--> HCL Wiki format begins >-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->
+
+<!--
+Insert devices in alphabetical order.
+Change hcl-FIXME to appropriate class (see legend):
+hcl-good, hcl-bad, hcl-partial, hcl-unknown
+
+Go to https://groups.google.com/forum/#!forum/qubes-users and search
+the message containing the HCL report.
+Then click on "more message options" besides reply button and then on
+link and insert it into FIXLINK.
+-->
+
+<tr align='center'>
+ <td rowspan='1'>
+    $BRAND $PRODUCT<br>
+   (CPU, Chipset, embedded VGA)
+ </td>
+ <td rowspan='1'>${BIOS}</td>\t\t\t\t<!-- BIOS version\t\t# reported BIOS version -->
+ <td rowspan='1' class='hcl-${HVM}'></td>\t\t\t<!-- HVM\t\t\t# HVM can be created? -->
+ <td rowspan='1' class='hcl-${IOMMU}'></td>\t\t\t<!-- IOMMU\t\t\t# PCI-Devices can be assigned to a HVM? -->
+ <td rowspan='1' class='hcl-unknown'></td>\t\t<!-- TPM\t\t\t# Anti Evil Made works? -->
+ <td rowspan='1'></td>\t\t\t\t\t<!-- spacing (QSL) -->\t\t# best achievable QSL - (Qubes Security Level) -->
+
+ <td rowspan='1' class='hcl-FIXME'>R2</td>\t\t<!-- Qubes version\t\t# first reported Qubes version -->
+ <td rowspan='1' class='hcl-FIXME'>${KERNEL}</td>\t<!-- dom0 kernel\t\t# Boots with this kernel version (refer to exact kernel version). -->
+ <td rowspan='1' class='hcl-FIXME'>\n     \n </td>\t\t\t\t\t\t\t<!-- Remarks -->
+ <td rowspan='1' class='hcl-reportedby'>
+    <a class='ext-link' href='FIXLINK'><span class='icon'></span>insert name</a>
+ </td>\t\t\t\t\t\t\t<!-- Reported by -->
+</tr>
+
+
+<!--
+If you add a report to an existing device increment the rowspan of
+first entry for Device, BIOS, HVM, IOMMU, TPM, spacing(QSL)
+and append the following with the new report data filled in:
+-->
+
+<tr align='center'>
+ <td rowspan='1' class='hcl-FIXME'>R2</td>\t\t<!-- Qubes version\t\t# latest reported Qubes version -->
+ <td rowspan='1' class='hcl-FIXME'>${KERNEL}</td>\t<!-- dom0 kernel\t\t# Boots with this kernel version (refer to exact kernel version). -->
+ <td rowspan='1' class='hcl-FIXME'>\n     \n </td>\t\t\t\t\t\t\t<!-- Remarks -->
+ <td rowspan='1' class='hcl-reportedby'>
+    <a class='ext-link' href='FIXLINK'><span class='icon'></span>insert name</a>
+ </td>\t\t\t\t\t\t\t<!-- Reported by -->
+</tr>
+" >> ~/$FILENAME.txt
 
 TEMP_DIR=`mktemp -d`
 sudo cat /etc/qubes-release > $TEMP_DIR/qubes-release
