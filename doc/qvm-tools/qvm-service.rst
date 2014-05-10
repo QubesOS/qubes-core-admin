@@ -4,7 +4,7 @@ qvm-service
 
 NAME
 ====
-qvm-service - manage (Qubes-specific) services stared in VM
+qvm-service - manage (Qubes-specific) services started in VM
 
 :Date:   2012-05-30
 
