@@ -607,9 +607,12 @@ class QubesVm(object):
                 return dominfo
         return None
 
-    def get_xc_dominfo(self):
+    def get_xc_dominfo(self, name = None):
         if dry_run:
             return
+
+        if name is None:
+            name = self.name
 
         start_xid = self.xid
         if start_xid < 0:
@@ -626,7 +629,7 @@ class QubesVm(object):
 
         for dominfo in domains:
             domname = self._xid_to_name(dominfo['domid'])
-            if domname == self.name:
+            if domname == name:
                 return dominfo
         return None
 
@@ -1662,6 +1665,10 @@ class QubesVm(object):
         try:
             subprocess.check_call(xl_cmdline)
         except:
+            try:
+                self._cleanup_zombie_domains()
+            except:
+                pass
             raise QubesException("Failed to load VM config")
 
         xid = self.get_xid()
@@ -1715,6 +1722,24 @@ class QubesVm(object):
             self.create_config_file(file_path = self.dir_path + '/dvm.conf', prepare_dvm = True)
 
         return xid
+
+    def _cleanup_zombie_domains(self):
+        """
+        This function is workaround broken libxl (which leaves not fully
+        created domain on failure) and vchan on domain crash behaviour
+        @return: None
+        """
+        xc = self.get_xc_dominfo()
+        if xc and xc['dying'] == 1:
+            # GUID still running?
+            guid_pidfile = '/var/run/qubes/guid-running.%d' % xc['domid']
+            if os.path.exists(guid_pidfile):
+                guid_pid = open(guid_pidfile).read().strip()
+                os.kill(int(guid_pid), 15)
+            # qrexec still running?
+            if self.is_qrexec_running():
+                #TODO: kill qrexec daemon
+                pass
 
     def shutdown(self, force=False, xid = None):
         if dry_run:

@@ -503,6 +503,22 @@ class QubesHVm(QubesVm):
         xs.set_permissions('', '{0}/qubes-tools'.format(domain_path),
                 [{ 'dom': xid }])
 
+    def _cleanup_zombie_domains(self):
+        super(QubesHVm, self)._cleanup_zombie_domains()
+        if not self.is_running():
+            xc_stubdom = self.get_xc_dominfo(name=self.name+'-dm')
+            if xc_stubdom is not None:
+                if xc_stubdom['paused'] == 1:
+                    subprocess.call(['xl', 'destroy', str(xc_stubdom['domid'])])
+                if xc_stubdom['dying'] == 1:
+                    # GUID still running?
+                    guid_pidfile = \
+                        '/var/run/qubes/guid-running.%d' % xc_stubdom['domid']
+                    if os.path.exists(guid_pidfile):
+                        guid_pid = open(guid_pidfile).read().strip()
+                        os.kill(int(guid_pid), 15)
+
+
     def suspend(self):
         if dry_run:
             return
