@@ -1152,10 +1152,17 @@ class QubesVm(object):
 
         return attrs
 
-    def clone_attrs(self, src_vm):
+    def clone_attrs(self, src_vm, fail_on_error=True):
         self._do_not_reset_firewall = True
         for prop in self.get_clone_attrs():
-            setattr(self, prop, getattr(src_vm, prop))
+            try:
+                setattr(self, prop, getattr(src_vm, prop))
+            except Exception as e:
+                if fail_on_error:
+                    self._do_not_reset_firewall = False
+                    raise
+                else:
+                    print >>sys.stderr, "WARNING: %s" % str(e)
         self._do_not_reset_firewall = False
 
     def clone_disk_files(self, src_vm, verbose):
