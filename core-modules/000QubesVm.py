@@ -135,6 +135,7 @@ class QubesVm(object):
             "uses_default_kernel": { "default": True, 'order': 30 },
             "uses_default_kernelopts": { "default": True, 'order': 30 },
             "kernel": {
+                "attr": "_kernel",
                 "default": None,
                 "order": 31,
                 "func": lambda value: self._collection.get_default_kernel() if
@@ -451,6 +452,24 @@ class QubesVm(object):
     @mac.setter
     def mac(self, new_mac):
         self._mac = new_mac
+
+    @property
+    def kernel(self):
+        return self._kernel
+
+    @kernel.setter
+    def kernel(self, new_value):
+        if new_value is not None:
+            if not os.path.exists(os.path.join(system_path[
+                'qubes_kernels_base_dir'], new_value)):
+                raise QubesException("Kernel '%s' not installed" % new_value)
+            for f in ('vmlinuz', 'modules.img'):
+                if not os.path.exists(os.path.join(
+                        system_path['qubes_kernels_base_dir'], new_value, f)):
+                    raise QubesException(
+                        "Kernel '%s' not properly installed: missing %s "
+                        "file" % (new_value, f))
+        self._kernel = new_value
 
     @property
     def updateable(self):
