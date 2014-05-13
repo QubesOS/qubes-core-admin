@@ -511,7 +511,9 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
                        "-f", backup_pipe,
                        '--tape-length', str(100000),
                        '-C', os.path.dirname(filename["path"]),
-                       '--xform', 's:^[^/]:%s\\0:' % filename["subdir"],
+                       '--xform', 's:^%s:%s\\0:' % (
+                            os.path.basename(filename["path"]),
+                            filename["subdir"]),
                        os.path.basename(filename["path"])
                        ]
 
@@ -1674,7 +1676,7 @@ def backup_restore_do(restore_info,
 
     if format_version == 2:
         if 'dom0' in restore_info.keys() and restore_info['dom0']['good-to-go']:
-            vms_dirs.append('dom0-home')
+            vms_dirs.append(os.path.dirname(restore_info['dom0']['subdir']))
             vms_size += restore_info['dom0']['size']
 
         restore_vm_dirs (backup_location,
