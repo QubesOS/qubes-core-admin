@@ -132,10 +132,12 @@ class QfileDaemonDvm:
         return True
 
     def tray_notify(self, str, timeout = 3000):
-        notify_object.Notify("Qubes", 0, "red", "Qubes", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
+        if notify_object:
+            notify_object.Notify("Qubes", 0, "red", "Qubes", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
 
     def tray_notify_error(self, str, timeout = 3000):
-        notify_object.Notify("Qubes", 0, "dialog-error", "Qubes", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
+        if notify_object:
+            notify_object.Notify("Qubes", 0, "dialog-error", "Qubes", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
 
     def get_dvm(self):
         if not self.dvm_setup_ok():
@@ -166,7 +168,11 @@ def main():
     # sys.argv[5] - override firewall
 
     print >>sys.stderr, "time=%s, qfile-daemon-dvm init" % (str(time.time()))
-    notify_object = dbus.SessionBus().get_object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
+    try:
+        notify_object = dbus.SessionBus().get_object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
+    except dbus.DBusException as e:
+        print >>sys.stderr, "Warning: notification service not available: %s" % str(e)
+        notify_object = None
     print >>sys.stderr, "time=%s, creating DispVM" % (str(time.time()))
     qfile = QfileDaemonDvm(src_vmname)
     lockf = open("/var/run/qubes/qfile-daemon-dvm.lock", 'a')
