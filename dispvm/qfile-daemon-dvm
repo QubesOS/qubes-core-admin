@@ -79,10 +79,7 @@ class QfileDaemonDvm:
             '-l', str(label.index)])
         qmemman_client.close()
         if retcode != 0:
-            if os.path.exists('/usr/bin/kdialog'):
-                subprocess.call(['/usr/bin/kdialog', '--sorry', 'DisposableVM creation failed, see qubes-restore.log'])
-            else:
-                subprocess.call(['/usr/bin/zenity', '--warning', '--text', 'DisposableVM creation failed, see qubes-restore.log'])
+            tray_notify_error('DisposableVM creation failed, see qubes-restore.log')
             qvm_collection.unlock_db()
             return None
         f = open('/var/run/qubes/dispVM.xid', 'r');
