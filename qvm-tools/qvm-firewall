@@ -27,32 +27,7 @@ import subprocess
 import sys
 import re
 import os
-
-services = list()
-
-def load_services():
-    global services
-    services = list()
-    pattern = re.compile("(?P<name>[a-z][a-z0-9-]+)\s+(?P<port>[0-9]+)/(?P<protocol>[a-z]+)", re.IGNORECASE)
-    f = open('/etc/services', 'r')
-    for line in f:
-        match = pattern.match(line)
-        if match is not None:
-            service = match.groupdict()
-            services.append( (service["name"], int(service["port"]), service["protocol"]) )
-    f.close()
-
-def get_service_name(port):
-    for service in services:
-        if service[1] == port:
-            return service[0]
-    return str(port)
-
-def get_service_port(name):
-    for service in services:
-        if service[0] == name:
-            return int(service[1])
-    return None
+import socket
 
 def parse_rule(args):
     if len(args) < 2:
@@ -109,13 +84,14 @@ def parse_rule(args):
             port = port_range[0]
             port_end = port_range[1]
 
-        if get_service_port(port):
-            port = get_service_port(port)
-        elif not port.isdigit():
-            print >>sys.stderr, "ERROR: Invalid port/service name '%s'" % port
-            return None
-        else:
+        if port.isdigit():
             port = int(port)
+        else:
+            try:
+                port = socket.getservbyname(port)
+            except socket.error:
+                print >>sys.stderr, "ERROR: Invalid port/service name '%s'" % port
+                return None
 
         if port_end is not None and not port_end.isdigit():
             print >>sys.stderr, "ERROR: Invalid port '%s'" % port_end
@@ -132,7 +108,7 @@ def parse_rule(args):
     rule['portEnd'] = port_end
     return rule
 
-def list_rules(rules):
+def list_rules(rules, numeric=False):
     fields = [ "num", "address", "proto", "port(s)" ]
 
     rules_to_display = list()
@@ -147,8 +123,11 @@ def list_rules(rules):
         if rule['proto'] in ['tcp', 'udp']:
             parsed_rule['port(s)'] = str(rule['portBegin']) + \
                 ('-' + str(rule['portEnd']) if rule['portEnd'] is not None else '')
-            if rule['portBegin'] is not None and rule['portEnd'] is None:
-                parsed_rule['port(s)'] = get_service_name(rule['portBegin'])
+            if not numeric and rule['portBegin'] is not None and rule['portEnd'] is None:
+                try:
+                    parsed_rule['port(s)'] = str(socket.getservbyport(rule['portBegin']))
+                except socket.error:
+                    pass
 
         if 'expire' in rule:
             parsed_rule['expire'] = str(datetime.datetime.fromtimestamp(rule[
@@ -193,13 +172,13 @@ def list_rules(rules):
             s += " <-- expires at %s" % r['expire']
         print s
 
-def display_firewall(conf):
+def display_firewall(conf, numeric=False):
     print "Firewall policy: %s" % (
             "ALLOW all traffic except" if conf['allow'] else "DENY all traffic except")
     print "ICMP: %s" % ("ALLOW" if conf['allowIcmp'] else 'DENY')
     print "DNS: %s" % ("ALLOW" if conf['allowDns'] else 'DENY')
     print "Qubes yum proxy: %s" % ("ALLOW" if conf['allowYumProxy'] else 'DENY')
-    list_rules(conf['rules'])
+    list_rules(conf['rules'], numeric)
 
 def add_rule(conf, args):
     rule = parse_rule(args)
@@ -318,17 +297,13 @@ def main():
         changed = True
 
     if options.do_add:
-        load_services()
         changed = add_rule(conf, args)
     elif options.do_del:
-        load_services()
         changed = del_rule(conf, args)
     elif options.do_list and not options.reload:
-        if not options.numeric:
-            load_services()
         if not vm.has_firewall():
             print "INFO: This VM has no firewall rules set, below defaults are listed"
-        display_firewall(conf)
+        display_firewall(conf, options.numeric)
 
     if changed:
         vm.write_firewall_conf(conf)
