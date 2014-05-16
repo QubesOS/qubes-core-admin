@@ -72,10 +72,10 @@ def main():
         sys.exit(1)
 
     # Use the date format based on RFC2822 to avoid localisation issues
-    p = clock_vm.run('date -u -R', verbose=verbose, passio_popen=True, ignore_stderr=True)
+    p = clock_vm.run('date -u -Iseconds', verbose=verbose, passio_popen=True, ignore_stderr=True)
     date_out = p.stdout.read(100)
     date_out = date_out.strip()
-    if not re.match(r'^[A-Za-z]+[,] [0-9][0-9] [A-Za-z]+ [0-9][0-9][0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9] [+]0000$', date_out):
+    if not re.match(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+0000$', date_out):
         print >> sys.stderr, 'Invalid date output, aborting!'
         sys.exit(1)
 
@@ -83,7 +83,7 @@ def main():
     if verbose:
         print >> sys.stderr, '--> Syncing dom0 clock.'
 
-    subprocess.check_call(['sudo', 'date', '-u', '-R', '-s', date_out])
+    subprocess.check_call(['sudo', 'date', '-u', '-Iseconds', '-s', date_out])
     subprocess.check_call(['sudo', 'hwclock', '--systohc'])
 
     # Sync other VMs clock

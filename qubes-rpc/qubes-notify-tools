@@ -60,9 +60,11 @@ def main():
         else:
             gui = int(untrusted_gui)
 
-        if untrusted_user is not None:
-            if re.match(r'^[a-zA-Z0-9-]+$', untrusted_user):
-                user = untrusted_user
+        if untrusted_user is not None and re.match(r'^[a-zA-Z0-9-]{1,255}$', untrusted_user):
+            assert '@' not in untrusted_user
+            assert '/' not in untrusted_user
+
+            user = untrusted_user
         else:
             user = None
 
@@ -70,7 +72,7 @@ def main():
         source_vm.qrexec_installed = qrexec > 0
         source_vm.guiagent_installed = gui > 0
 
-        if user:
+        if user is not None:
             source_vm.default_user = user
 
         qvm_collection.save()
