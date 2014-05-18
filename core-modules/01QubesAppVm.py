@@ -1,4 +1,5 @@
 #!/usr/bin/python2
+# -*- coding: utf-8 -*-
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
