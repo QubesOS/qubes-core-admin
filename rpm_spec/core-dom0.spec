@@ -113,8 +113,6 @@ cp core/guihelpers.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp core/guihelpers.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp core/backup.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp core/backup.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp core/__init__.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp core/__init__.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qmemman/qmemman*py $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qmemman/qmemman*py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
 mkdir -p $RPM_BUILD_ROOT%{python_sitearch}/qubes/modules
@@ -279,9 +277,6 @@ fi
 %{python_sitearch}/qubes/backup.py
 %{python_sitearch}/qubes/backup.pyc
 %{python_sitearch}/qubes/backup.pyo
-%{python_sitearch}/qubes/__init__.py
-%{python_sitearch}/qubes/__init__.pyc
-%{python_sitearch}/qubes/__init__.pyo
 %{python_sitearch}/qubes/qmemman*.py*
 %{python_sitearch}/qubes/modules/0*.py*
 %{python_sitearch}/qubes/modules/__init__.py*
