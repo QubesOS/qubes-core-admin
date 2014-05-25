@@ -77,8 +77,8 @@ def vm_run_cmd(vm, cmd, options):
 
     if options.verbose:
         print >> sys.stderr, "Running command on VM: '{0}'...".format(vm.name)
-    if options.passio and options.color_output:
-        print "\033[0;31m",
+    if options.passio and options.color_output is not None:
+        print "\033[0;%dm" % options.color_output,
 
     try:
         def tray_notify_generic(level, str):
@@ -94,7 +94,7 @@ def vm_run_cmd(vm, cmd, options):
             wait = options.passio, localcmd = options.localcmd,
             gui = options.gui, filter_esc = options.filter_esc)
     except QubesException as err:
-        if options.passio and options.color_output:
+        if options.passio and options.color_output is not None:
             print "\033[0m",
         if options.tray:
             tray_notify_error(str(err))
@@ -102,7 +102,7 @@ def vm_run_cmd(vm, cmd, options):
         print >> sys.stderr, "ERROR(%s): %s" % (str(vm.name), str(err))
         return 1
     finally:
-        if options.passio and options.color_output:
+        if options.passio and options.color_output is not None:
             print "\033[0m",
 
 def main():
@@ -162,6 +162,11 @@ def main():
                       dest="color_output", default=None,
                       help="Disable marking VM output with red color")
 
+    parser.add_option("--color-output", action="store", type="int",
+                      dest="color_output",
+                      help="Force marking VM output with given ANSI style ("
+                           "use 31 for red)")
+
     (options, args) = parser.parse_args ()
 
     if options.passio and options.run_on_all_running:
@@ -171,7 +176,10 @@ def main():
         options.verbose = False
 
     if options.color_output is None:
-        options.color_output = os.isatty(sys.stdout.fileno())
+        if os.isatty(sys.stdout.fileno()):
+            options.color_output = 31
+    elif options.color_output is False:
+        options.color_output = None
 
     if options.shutdown:
         print >>sys.stderr, "WARNING: --shutdown is deprecated. Use qvm-shutdown instead."
