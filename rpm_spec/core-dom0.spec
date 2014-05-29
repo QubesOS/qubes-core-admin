@@ -113,8 +113,6 @@ cp core/guihelpers.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp core/guihelpers.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp core/backup.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp core/backup.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp core/__init__.py $RPM_BUILD_ROOT%{python_sitearch}/qubes
-cp core/__init__.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qmemman/qmemman*py $RPM_BUILD_ROOT%{python_sitearch}/qubes
 cp qmemman/qmemman*py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes
 mkdir -p $RPM_BUILD_ROOT%{python_sitearch}/qubes/modules
@@ -143,6 +141,7 @@ cp linux/aux-tools/fix-dir-perms.sh $RPM_BUILD_ROOT/usr/lib/qubes/
 
 mkdir -p $RPM_BUILD_ROOT/etc/qubes-rpc/policy
 cp qubes-rpc-policy/qubes.Filecopy.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.Filecopy
+cp qubes-rpc-policy/qubes.GetImageRGBA.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.GetImageRGBA
 cp qubes-rpc-policy/qubes.OpenInVM.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.OpenInVM
 cp qubes-rpc-policy/qubes.VMShell.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.VMShell
 cp qubes-rpc-policy/qubes.NotifyTools.policy $RPM_BUILD_ROOT/etc/qubes-rpc/policy/qubes.NotifyTools
@@ -279,9 +278,6 @@ fi
 %{python_sitearch}/qubes/backup.py
 %{python_sitearch}/qubes/backup.pyc
 %{python_sitearch}/qubes/backup.pyo
-%{python_sitearch}/qubes/__init__.py
-%{python_sitearch}/qubes/__init__.pyc
-%{python_sitearch}/qubes/__init__.pyo
 %{python_sitearch}/qubes/qmemman*.py*
 %{python_sitearch}/qubes/modules/0*.py*
 %{python_sitearch}/qubes/modules/__init__.py*
@@ -325,6 +321,7 @@ fi
 /etc/xen/scripts/block-origin
 /etc/xen/scripts/vif-route-qubes
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.Filecopy
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.GetImageRGBA
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.OpenInVM
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.NotifyTools
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.NotifyUpdates
