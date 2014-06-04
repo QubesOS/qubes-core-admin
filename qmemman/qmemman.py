@@ -27,7 +27,7 @@ import string
 import time
 import qmemman_algo
 import os
-from guihelpers import notify_error_qubes_manager, clear_error_qubes_manager
+from notify import notify_error_qubes_manager, clear_error_qubes_manager
 
 no_progress_msg="VM refused to give back requested memory"
 slow_memset_react_msg="VM didn't give back all requested memory"

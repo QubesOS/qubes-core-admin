@@ -20,7 +20,6 @@
 #
 #
 import os
-import dbus
 import subprocess
 import sys
 import fcntl
@@ -32,10 +31,10 @@ from qubes.qubes import QubesException
 from qubes.qubes import QubesDaemonPidfile
 from qubes.qubes import QubesDispVmLabels
 from qubes.qmemman_client import QMemmanClient
+from qubes.notify import tray_notify,tray_notify_error,tray_notify_init
 
 current_savefile = '/var/run/qubes/current-savefile'
 current_dvm_conf = '/var/run/qubes/current-dvm.conf'
-notify_object = None
 
 class QfileDaemonDvm:
     def __init__(self, name):
@@ -53,7 +52,7 @@ class QfileDaemonDvm:
                 subprocess.call(['/usr/bin/zenity', '--warning', '--text', errmsg])
             return None
 
-        self.tray_notify("Starting new DispVM...")
+        tray_notify("red", "Starting new DispVM...")
 
         qvm_collection = QubesVmCollection()
         qvm_collection.lock_db_for_writing()
@@ -124,22 +123,15 @@ class QfileDaemonDvm:
         if dvm_mtime < root_mtime:
             template_name = os.path.basename(os.path.dirname(os.readlink(dvmdata_dir+'savefile-root')))
             if subprocess.call(["xl", "domid", template_name]) == 0:
-                self.tray_notify("For optimum performance, you should not start DispVM when its template is running.")
+                tray_notify("red", "For optimum performance, you should not "
+                                  "start DispVM when its template is running.")
             return False       
         return True
-
-    def tray_notify(self, str, timeout = 3000):
-        if notify_object:
-            notify_object.Notify("Qubes", 0, "red", "Qubes", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
-
-    def tray_notify_error(self, str, timeout = 3000):
-        if notify_object:
-            notify_object.Notify("Qubes", 0, "dialog-error", "Qubes", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
 
     def get_dvm(self):
         if not self.dvm_setup_ok():
             if os.system("/usr/lib/qubes/qubes-update-dispvm-savefile-with-progress.sh >/dev/null </dev/null" ) != 0:
-                self.tray_notify_error("DVM savefile creation failed")
+                tray_notify_error("DVM savefile creation failed")
                 return None 
         return self.do_get_dvm()
 
@@ -165,11 +157,7 @@ def main():
     # sys.argv[5] - override firewall
 
     print >>sys.stderr, "time=%s, qfile-daemon-dvm init" % (str(time.time()))
-    try:
-        notify_object = dbus.SessionBus().get_object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
-    except dbus.DBusException as e:
-        print >>sys.stderr, "Warning: notification service not available: %s" % str(e)
-        notify_object = None
+    tray_notify_init()
     print >>sys.stderr, "time=%s, creating DispVM" % (str(time.time()))
     qfile = QfileDaemonDvm(src_vmname)
     lockf = open("/var/run/qubes/qfile-daemon-dvm.lock", 'a')

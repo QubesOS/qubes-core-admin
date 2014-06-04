@@ -24,30 +24,20 @@
 
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
-from qubes.guihelpers import notify_error_qubes_manager
+from qubes.notify import notify_error_qubes_manager
+from qubes.notify import tray_notify,tray_notify_error,tray_notify_init
 from optparse import OptionParser
 import subprocess
 import socket
 import errno
-import dbus
 import time
 import sys
 import os
 import os.path
 
-notify_object = None
-
 # how long (in sec) to wait for VMs to shutdown
 # before killing them (when used with --wait option)
 from qubes.qubes import defaults
-
-def tray_notify(str, label, timeout = 3000):
-    if notify_object:
-        notify_object.Notify("Qubes", 0, label.icon, "Qubes", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
-
-def tray_notify_error(str, timeout = 3000):
-    if notify_object:
-        notify_object.Notify("Qubes", 0, "dialog-error", "Qubes", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
 
 def vm_run_cmd(vm, cmd, options):
     if options.shutdown:
@@ -206,11 +196,7 @@ def main():
         cmdstr = args[1] if takes_cmd_argument else None
 
     if options.tray:
-        global notify_object
-        try:
-            notify_object = dbus.SessionBus().get_object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
-        except dbus.DBusException as ex:
-            print >>sys.stderr, "WARNING: failed connect to tray notification service: %s" % str(ex)
+        tray_notify_init()
 
     qvm_collection = QubesVmCollection()
     qvm_collection.lock_db_for_reading()

@@ -29,12 +29,8 @@ import sys
 import os
 import subprocess
 import re
-import shutil
 import time
-import grp,pwd
 import stat
-from datetime import datetime
-from qmemman_client import QMemmanClient
 
 import xen.lowlevel.xc
 import xen.lowlevel.xl

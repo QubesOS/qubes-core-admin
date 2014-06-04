@@ -24,20 +24,12 @@
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
 from optparse import OptionParser
+from qubes.notify import tray_notify,tray_notify_error,tray_notify_init
 import subprocess
 import os
 import sys
-import dbus
 
 notify_object = None
-
-def tray_notify(str, label, timeout = 3000):
-    if notify_object:
-        notify_object.Notify("Qubes", 0, label.icon, "Qubes", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
-
-def tray_notify_error(str, timeout = 3000):
-    if notify_object:
-        notify_object.Notify("Qubes", 0, "dialog-error", "Qubes", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
 
 def tray_notify_generic(level, str):
     if level == "info":
@@ -74,11 +66,7 @@ def main():
     vmname = args[0]
 
     if options.tray:
-        global notify_object
-        try:
-            notify_object = dbus.SessionBus().get_object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
-        except dbus.DBusException as ex:
-            print >>sys.stderr, "WARNING: failed connect to tray notification service: %s" % str(ex)
+        tray_notify_init()
 
     qvm_collection = QubesVmCollection()
     qvm_collection.lock_db_for_reading()
