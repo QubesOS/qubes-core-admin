@@ -115,19 +115,6 @@ class SystemState:
             pass
         self.xs.write('', '/local/domain/' + id + '/memory/target', str(int(val/1024)))
 
-    def mem_set_obsolete(self, id, val):
-        uuid = self.domdict[id].uuid
-        if val >= 2**31:
-            print 'limiting memory from ', val, 'to maxint because of xml-rpc lameness'
-            val = 2**31 - 1
-        print 'mem-set domain', id, 'to', val
-        try:
-            self.xend_session.session.xenapi.VM.set_memory_dynamic_max_live(uuid, val)
-            self.xend_session.session.xenapi.VM.set_memory_dynamic_min_live(uuid, val)
-#can happen in the middle of domain shutdown
-        except XenAPI.Failure:
-            pass
-
 # this is called at the end of ballooning, when we have Xen free mem already
 # make sure that past mem_set will not decrease Xen free mem
     def inhibit_balloon_up(self):
