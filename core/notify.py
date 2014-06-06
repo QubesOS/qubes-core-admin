@@ -34,16 +34,18 @@ def tray_notify_init():
     except dbus.DBusException as ex:
         print >>sys.stderr, "WARNING: failed connect to tray notification service: %s" % str(ex)
 
-def tray_notify(str, label, timeout = 3000):
+def tray_notify(msg, label, timeout = 3000):
     if notify_object:
         if label:
             if not isinstance(label, str):
                 label = label.icon
-        notify_object.Notify("Qubes", 0, label, "Qubes", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
+        notify_object.Notify("Qubes", 0, label, "Qubes", msg, [], [], timeout,
+                             dbus_interface="org.freedesktop.Notifications")
 
-def tray_notify_error(str, timeout = 3000):
+def tray_notify_error(msg, timeout = 3000):
     if notify_object:
-        notify_object.Notify("Qubes", 0, "dialog-error", "Qubes", str, [], [], timeout, dbus_interface="org.freedesktop.Notifications")
+        notify_object.Notify("Qubes", 0, "dialog-error", "Qubes", msg, [], [],
+                             timeout, dbus_interface="org.freedesktop.Notifications")
 
 def notify_error_qubes_manager(name, message):
     global system_bus
