@@ -174,7 +174,7 @@ def block_name_to_majorminor(name):
         return (0, 0)
 
     if not dXpY_style:
-        name_match = re.match(r"^([a-z]+)([a-z])([0-9]*)$", name)
+        name_match = re.match(r"^([a-z]+)([a-z-])([0-9]*)$", name)
     else:
         name_match = re.match(r"^([a-z]+)([0-9]*)(?:p([0-9]+))?$", name)
     if not name_match:
@@ -217,7 +217,7 @@ def block_find_unused_frontend(vm = None):
     return None
 
 def block_list(vm = None, system_disks = False):
-    device_re = re.compile(r"^[a-z0-9]{1,12}$")
+    device_re = re.compile(r"^[a-z0-9-]{1,12}$")
     # FIXME: any better idea of desc_re?
     desc_re = re.compile(r"^.{1,255}$")
     mode_re = re.compile(r"^[rw]$")
