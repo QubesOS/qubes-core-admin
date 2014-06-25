@@ -1227,6 +1227,8 @@ def backup_restore_set_defaults(options):
         options['dom0-home'] = True
     if 'replace-template' not in options:
         options['replace-template'] = []
+    if 'ignore-username-mismatch' not in options:
+        options['ignore-username-mismatch'] = False
 
     return options
 
@@ -1506,7 +1508,9 @@ def backup_restore_prepare(backup_location, passphrase, options = {},
         vms_to_restore['dom0']['username'] = os.path.basename(dom0_home)
         if vms_to_restore['dom0']['username'] != local_user:
             vms_to_restore['dom0']['username-mismatch'] = True
-            if not options['ignore-dom0-username-mismatch']:
+            if options['ignore-username-mismatch']:
+                vms_to_restore['dom0']['ignore-username-mismatch'] = True
+            else:
                 vms_to_restore['dom0']['good-to-go'] = False
 
         if 'good-to-go' not in vms_to_restore['dom0']:
@@ -1613,6 +1617,8 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
                 s += fmt.format("")
         if 'username-mismatch' in restore_info['dom0']:
             s += " <-- username in backup and dom0 mismatch"
+        if 'ignore-username-mismatch' in restore_info['dom0']:
+            s += " (ignored)"
 
         print_callback(s)
 
