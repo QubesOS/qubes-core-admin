@@ -49,9 +49,9 @@ def tray_notify_error(msg, timeout = 3000):
                              timeout, dbus_interface="org.freedesktop.Notifications")
 
 def notify_error_qubes_manager(name, message):
+    import dbus
     global system_bus
     if system_bus is None:
-        import dbus
         system_bus = dbus.SystemBus()
 
     try:
@@ -63,9 +63,9 @@ def notify_error_qubes_manager(name, message):
         pass
 
 def clear_error_qubes_manager(name, message):
+    import dbus
     global system_bus
     if system_bus is None:
-        import dbus
         system_bus = dbus.SystemBus()
 
     try:

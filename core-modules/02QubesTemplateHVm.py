@@ -29,7 +29,7 @@ import stat
 import sys
 import re
 
-from qubes.qubes import QubesHVm,register_qubes_vm_class,xs,xc,dry_run
+from qubes.qubes import QubesHVm,register_qubes_vm_class,dry_run
 from qubes.qubes import QubesException,QubesVmCollection
 from qubes.qubes import system_path,defaults
 
