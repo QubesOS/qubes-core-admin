@@ -672,7 +672,7 @@ class QubesVm(object):
             self._libvirt_domain = vmm.libvirt_conn.defineXML(domain_config)
             self.uuid = uuid.UUID(bytes=self._libvirt_domain.UUID())
         except libvirt.libvirtError:
-            if libvirt.virGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
+            if vmm.libvirt_conn.virConnGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
                 # accept the fact that libvirt doesn't know anything about this
                 # domain...
                 pass
@@ -691,7 +691,7 @@ class QubesVm(object):
                 self._libvirt_domain = vmm.libvirt_conn.lookupByName(self.name)
                 self.uuid = uuid.UUID(bytes=self._libvirt_domain.UUID())
         except libvirt.libvirtError:
-            if libvirt.virGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
+            if vmm.libvirt_conn.virConnGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
                 self._update_libvirt_domain()
             else:
                 raise
@@ -1621,7 +1621,7 @@ class QubesVm(object):
             try:
                 nd.dettach()
             except libvirt.libvirtError:
-                if libvirt.virGetLastError()[0] == libvirt.VIR_ERR_INTERNAL_ERROR:
+                if vmm.libvirt_conn.virConnGetLastError()[0] == libvirt.VIR_ERR_INTERNAL_ERROR:
                     # allready detached
                     pass
                 else:
