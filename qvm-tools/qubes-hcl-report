@@ -55,6 +55,8 @@ KERNEL=`uname -r |cut -d '.' -f-3`
 CPU=`sudo cat /proc/cpuinfo |grep "model name" |sort -u |cut -d ' ' -f3-`
 CHIPSET=`sudo lspci -nn |grep "00:00.0.*Host bridge"`
 VGA=`sudo lspci -nn |grep "VGA\|Display" | sed -e "s/^/\t\t/"`
+HDD=`cat /proc/scsi/scsi |grep Model |cut -d ':' -f3- | sed -e "s/^[[:space:]]*/\t\t/"`
+RAM=`xl info |grep total_memory |cut -d ':' -f2 |tr -d ' '`
 BIOS=`sudo dmidecode |grep -A9 "BIOS Information" |grep "Version" |cut -d ' ' -f2-`
 XLINFO=`sudo xl info |grep "virt_caps"`
 XEN_MAJOR=`sudo xl info |grep xen_major |cut -d: -f2 |tr -d ' '`
@@ -92,9 +94,11 @@ echo
 echo -e "Model Name:\t$BRAND $PRODUCT" |tee -a ~/$FILENAME.txt
 echo -e "Kernel:\t\t$KERNEL" |tee -a ~/$FILENAME.txt
 echo -e "Xen:\t\t$XEN_MAJOR.$XEN_MINOR$XEN_EXTRA\n" |tee -a ~/$FILENAME.txt
+echo -e "RAM:\t\t$RAM Mb\n" |tee -a  ~/$FILENAME.txt
 echo -e "CPU:\t\t$CPU" |tee -a  ~/$FILENAME.txt
 echo -e "Chipset:\t$CHIPSET" |tee -a ~/$FILENAME.txt
 echo -e "VGA:$VGA\n" |tee -a ~/$FILENAME.txt
+echo -e "HDD:$HDD\n" |tee -a ~/$FILENAME.txt
 echo -e "BIOS:\t\t$BIOS" |tee -a ~/$FILENAME.txt
 echo -e "VT-x:\t\t$VTX" |tee -a ~/$FILENAME.txt
 echo -e "VT-d:\t\t$VTD" |tee -a ~/$FILENAME.txt
