@@ -506,6 +506,9 @@ class QubesVm(object):
         if not self.verify_name(name):
             raise QubesException("Invalid characters in VM name")
 
+        if self.installed_by_rpm:
+            raise QubesException("Cannot rename VM installed by RPM -- first clone VM and then use yum to remove package.")
+
         self.pre_rename(name)
 
         new_conf = os.path.join(self.dir_path, name + '.conf')
