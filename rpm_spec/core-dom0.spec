@@ -107,11 +107,6 @@ echo 'lockfile="/var/run/qubes/xl-lock"' >> /etc/xen/xl.conf
 
 sed 's/^PRELINKING\s*=.*/PRELINKING=no/' -i /etc/sysconfig/prelink
 
-sed '/^\s*XENCONSOLED_LOG_\(HYPERVISOR\|GUESTS\)\s*=.*/d' -i /etc/sysconfig/xenconsoled
-echo XENCONSOLED_LOG_HYPERVISOR=yes >> /etc/sysconfig/xenconsoled
-echo XENCONSOLED_LOG_GUESTS=yes >> /etc/sysconfig/xenconsoled
-
-
 systemctl --no-reload enable qubes-core.service >/dev/null 2>&1
 systemctl --no-reload enable qubes-netvm.service >/dev/null 2>&1
 systemctl --no-reload enable qubes-setupdvm.service >/dev/null 2>&1
