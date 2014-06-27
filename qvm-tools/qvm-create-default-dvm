@@ -40,6 +40,11 @@ if ! [ -d "$DVMTMPLDIR" ] ; then
 	if [ "$MAXMEM" -ge 4000 ]; then
 		qvm-prefs --force-root -s $DVMTMPL maxmem 4000
 	fi
+    # balloon driver do not work with save/restore in 3.12+ kernels, so if possible, use older one
+    kver=`ls /var/lib/qubes/vm-kernels | sort -t. -k 2 -nr | awk -F. '$2 < 12 { print; exit; }'`
+    if [ -n "$kver" ]; then
+        qvm-prefs --force-root -s $DVMTMPL kernel $kver
+    fi
 fi
 if ! /usr/lib/qubes/qubes-prepare-saved-domain.sh \
 	"$DVMTMPL" "/var/lib/qubes/appvms/$DVMTMPL/dvm-savefile" $SCRIPTNAME ; then
