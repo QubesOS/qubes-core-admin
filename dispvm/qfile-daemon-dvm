@@ -45,7 +45,7 @@ class QfileDaemonDvm:
         return vmdir.split('/')[-1]
         
     def do_get_dvm(self):
-        tray_notify("red", "Starting new DispVM...")
+        tray_notify("Starting new DispVM...", "red")
 
         qvm_collection = QubesVmCollection()
         qvm_collection.lock_db_for_writing()
