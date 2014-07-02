@@ -20,7 +20,7 @@ if [ "$TEMPLATENAME" = --default-template ] ; then
 	fi
 fi
 
-if [ "X""$2" = "X""--default-script" ] ; then
+if [ -z "$2" -o "X""$2" = "X""--default-script" ] ; then
 	SCRIPTNAME="vm-default"
 else
 	SCRIPTNAME=$2
