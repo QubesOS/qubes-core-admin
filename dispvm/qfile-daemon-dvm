@@ -52,7 +52,7 @@ class QfileDaemonDvm:
                 subprocess.call(['/usr/bin/zenity', '--warning', '--text', errmsg])
             return None
 
-        tray_notify("red", "Starting new DispVM...")
+        tray_notify("Starting new DispVM...", "red")
 
         qvm_collection = QubesVmCollection()
         qvm_collection.lock_db_for_writing()
@@ -123,8 +123,8 @@ class QfileDaemonDvm:
         if dvm_mtime < root_mtime:
             template_name = os.path.basename(os.path.dirname(os.readlink(dvmdata_dir+'savefile-root')))
             if subprocess.call(["xl", "domid", template_name]) == 0:
-                tray_notify("red", "For optimum performance, you should not "
-                                  "start DispVM when its template is running.")
+                tray_notify("For optimum performance, you should not "
+                                  "start DispVM when its template is running.", "red")
             return False       
         return True
 
