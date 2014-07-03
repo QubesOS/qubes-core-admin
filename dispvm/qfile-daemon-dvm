@@ -46,10 +46,7 @@ class QfileDaemonDvm:
             qmemman_client.close()
             errmsg = 'Not enough memory to create DVM. '
             errmsg +='Terminate some appVM and retry.'
-            if os.path.exists('/usr/bin/kdialog'):
-                subprocess.call(['/usr/bin/kdialog', '--sorry', errmsg])
-            else:
-                subprocess.call(['/usr/bin/zenity', '--warning', '--text', errmsg])
+            tray_notify_error(errmsg)
             return None
 
         tray_notify("Starting new DispVM...", "red")
