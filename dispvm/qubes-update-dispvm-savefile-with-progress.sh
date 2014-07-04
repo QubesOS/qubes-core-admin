@@ -4,28 +4,14 @@ line1="<b>Please wait (up to 120s) while the DispVM savefile is being updated.</
 line2="<i><small>This only happens when you have updated the template.</small></i>"
 line3="<i><small>Next time will be much faster.</small></i>"
 
-if type kdialog &> /dev/null; then
-    ref=`kdialog --title="Updating default DispVM savefile" \
-        --progressbar \
-"<center>
-    <font>
-        $line1<br>
-        $line2<br>
-        $line3
-    </font>
-</center>" 0`;
-
-    trap "qdbus $ref close" EXIT
+if [ -n "$KDE_FULL_SESSION" ]; then
+    br="<br/>"
 else
-    pipe=/tmp/qvm-create-default-dvm-$$.progress
-    mkfifo $pipe
-    zenity --progress --pulsate --auto-close --text "$line1\n$line2\n$line3" < $pipe &
-    exec 5>$pipe
-    echo 0 >&5
-    trap "echo 100 >&5" EXIT
+    br="
+"
 fi
-
-#qdbus $ref showCancelButton true;
+notify-send --icon=/usr/share/qubes/icons/qubes.png --expire-time=120000 \
+                   "Updating default DispVM savefile" "$line1$br$line2$br$line3"
 
 ret=0
 
