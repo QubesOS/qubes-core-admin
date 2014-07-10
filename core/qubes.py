@@ -58,7 +58,9 @@ system_path = {
     'qubes_store_filename': qubes_base_dir + '/qubes.xml',
     'qubes_kernels_base_dir': qubes_base_dir + '/vm-kernels',
 
-    'qubes_icon_dir': '/usr/share/qubes/icons',
+    # qubes_icon_dir is obsolete
+    # use QIcon.fromTheme() where applicable
+    'qubes_icon_dir': '/usr/share/icons/hicolor/256x256/devices',
 
     'config_template_pv': '/usr/share/qubes/vm-template.conf',
 
@@ -167,11 +169,14 @@ class QubesHost(object):
         return (current_time, current)
 
 class QubesVmLabel(object):
-    def __init__(self, index, color, name, icon = None):
+    def __init__(self, index, color, name, dispvm=False):
         self.name = name
         self.index = index
         self.color = color
-        self.icon = icon if icon is not None else name
+        self.icon = '{}-{}'.format(('dispvm' if dispvm else 'appvm'), name)
+
+        # self.icon_path is obsolete
+        # use QIcon.fromTheme(label.icon) where applicable
         self.icon_path = os.path.join(
                 system_path['qubes_icon_dir'], self.icon) + ".png"
 
@@ -188,14 +193,14 @@ QubesVmLabels = {
 }
 
 QubesDispVmLabels = {
-    "red":      QubesVmLabel(1, "0xcc0000", "red",      icon="dispvm-red"   ),
-    "orange":   QubesVmLabel(2, "0xf57900", "orange",   icon="dispvm-orange"),
-    "yellow":   QubesVmLabel(3, "0xedd400", "yellow",   icon="dispvm-yellow"),
-    "green":    QubesVmLabel(4, "0x73d216", "green",    icon="dispvm-green" ),
-    "gray":     QubesVmLabel(5, "0x555753", "gray",     icon="dispvm-gray"  ),
-    "blue":     QubesVmLabel(6, "0x3465a4", "blue",     icon="dispvm-blue"  ),
-    "purple":   QubesVmLabel(7, "0x75507b", "purple",   icon="dispvm-purple"),
-    "black":    QubesVmLabel(8, "0x000000", "black",    icon="dispvm-black" ),
+    "red":      QubesVmLabel(1, "0xcc0000", "red",      dispvm=True),
+    "orange":   QubesVmLabel(2, "0xf57900", "orange",   dispvm=True),
+    "yellow":   QubesVmLabel(3, "0xedd400", "yellow",   dispvm=True),
+    "green":    QubesVmLabel(4, "0x73d216", "green",    dispvm=True),
+    "gray":     QubesVmLabel(5, "0x555753", "gray",     dispvm=True),
+    "blue":     QubesVmLabel(6, "0x3465a4", "blue",     dispvm=True),
+    "purple":   QubesVmLabel(7, "0x75507b", "purple",   dispvm=True),
+    "black":    QubesVmLabel(8, "0x000000", "black",    dispvm=True),
 }
 
 defaults["appvm_label"] = QubesVmLabels["red"]
