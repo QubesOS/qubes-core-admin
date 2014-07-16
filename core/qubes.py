@@ -60,7 +60,7 @@ system_path = {
 
     # qubes_icon_dir is obsolete
     # use QIcon.fromTheme() where applicable
-    'qubes_icon_dir': '/usr/share/icons/hicolor/256x256/devices',
+    'qubes_icon_dir': '/usr/share/icons/hicolor/128x128/devices',
 
     'config_template_pv': '/usr/share/qubes/vm-template.conf',
 
