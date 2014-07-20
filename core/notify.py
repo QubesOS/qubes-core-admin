@@ -21,6 +21,7 @@
 #
 
 import dbus
+import sys
 
 system_bus = None
 session_bus = None
