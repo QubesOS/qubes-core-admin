@@ -286,9 +286,12 @@ class QubesVm(object):
         assert self.name is not None
 
         if not self.verify_name(self.name):
-            raise QubesException("Invalid VM name (invalid characters, "
-                                 "over 31 chars long, or one of 'none', "
-                                 "'true', 'false')")
+            msg = ("'%s' is invalid VM name (invalid characters, over 31 chars long, "
+                   "or one of 'none', 'true', 'false')") % self.name
+            if 'xml_element' in kwargs:
+                print >>sys.stderr, "WARNING: %s" % msg
+            else:
+                raise QubesException(msg)
 
         if self.netvm is not None:
             self.netvm.connected_vms[self.qid] = self
