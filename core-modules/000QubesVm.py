@@ -287,7 +287,8 @@ class QubesVm(object):
 
         if not self.verify_name(self.name):
             raise QubesException("Invalid VM name (invalid characters, "
-                                 "or one of 'none', 'true', 'false')")
+                                 "over 31 chars long, or one of 'none', "
+                                 "'true', 'false')")
 
         if self.netvm is not None:
             self.netvm.connected_vms[self.qid] = self
@@ -491,6 +492,8 @@ class QubesVm(object):
 
     def verify_name(self, name):
         if not isinstance(self.__basic_parse_xml_attr(name), str):
+            return False
+        if len(name) > 31:
             return False
         return re.match(r"^[a-zA-Z][a-zA-Z0-9_-]*$", name) is not None
 
