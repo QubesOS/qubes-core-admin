@@ -14,6 +14,8 @@ SYNOPSIS
 
 OPTIONS
 =======
+-h, --help
+    Show help message and exit
 -n, --network
     Show network addresses assigned to VMs
 -c, --cpu
@@ -24,6 +26,12 @@ OPTIONS
     Show VM disk utilization statistics
 -i, --ids
     Show Qubes and Xen id
+-k, --kernel
+    Show VM kernel options
+-b, --last-backup
+    Show date of last VM backup
+--raw-list
+    List only VM names one per line
 
 AUTHORS
 =======
