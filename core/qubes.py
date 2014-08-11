@@ -170,15 +170,25 @@ class QubesHost(object):
 
 class QubesVmLabel(object):
     def __init__(self, index, color, name, dispvm=False):
-        self.name = name
         self.index = index
         self.color = color
+        self.name = name
+        self.dispvm = dispvm
+
         self.icon = '{}-{}'.format(('dispvm' if dispvm else 'appvm'), name)
 
         # self.icon_path is obsolete
         # use QIcon.fromTheme(label.icon) where applicable
         self.icon_path = os.path.join(
                 system_path['qubes_icon_dir'], self.icon) + ".png"
+
+    def __repr__(self):
+        return '{}({!r}, {!r}, {!r}, dispvm={!r})'.format(
+            self.__class__.__name__,
+            self.index,
+            self.color,
+            self.name,
+            self.dispvm)
 
 # Globally defined lables
 QubesVmLabels = {
@@ -229,6 +239,9 @@ class QubesVmCollection(dict):
         self.qubes_store_filename = store_filename
         self.clockvm_qid = None
         self.qubes_store_file = None
+
+    def __repr__(self):
+        return '<{} {!r}>'.format(self.__class__.__name__, list(sorted(self.keys())))
 
     def values(self):
         for qid in self.keys():
