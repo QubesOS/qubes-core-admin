@@ -24,6 +24,16 @@ OPTIONS
     Create ProxyVM
 -n, --net
     Create NetVM
+-H, --hvm
+    Create HVM (standalone, unless --template option used)
+--hvm-template
+    Create HVM template
+-R ROOT_MOVE, --root-move-from=ROOT_MOVE
+    Use provided root.img instead of default/empty one
+    (file will be MOVED)
+-r ROOT_COPY, --root-copy-from=ROOT_COPY
+    Use provided root.img instead of default/empty one
+    (file will be COPIED)
 -s, --standalone
     Create standalone VM - independent of template
 -m MEM, --mem=MEM
