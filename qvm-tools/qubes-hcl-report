@@ -127,7 +127,7 @@ link and insert it into FIXLINK.
  <td rowspan='1' class='hcl-${HVM}'></td>\t\t\t<!-- HVM\t\t\t# HVM can be created? -->
  <td rowspan='1' class='hcl-${IOMMU}'></td>\t\t\t<!-- IOMMU\t\t\t# PCI-Devices can be assigned to a HVM? -->
  <td rowspan='1' class='hcl-unknown'></td>\t\t<!-- TPM\t\t\t# Anti Evil Made works? -->
- <td rowspan='1'></td>\t\t\t\t\t<!-- spacing (QSL) -->\t\t# best achievable QSL - (Qubes Security Level) -->
+ <td rowspan='1'></td>\t\t\t\t\t<!-- spacing (QSL)\t\t# best achievable QSL - (Qubes Security Level) -->
 
  <td rowspan='1' class='hcl-FIXME'>R2</td>\t\t<!-- Qubes version\t\t# first reported Qubes version -->
  <td rowspan='1' class='hcl-FIXME'>${KERNEL}</td>\t<!-- dom0 kernel\t\t# Boots with this kernel version (refer to exact kernel version). -->
