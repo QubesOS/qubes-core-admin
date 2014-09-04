@@ -61,7 +61,7 @@ def handle_vm(vms, label, new_value = None):
         if vm is not None:
             return vm.name
         else:
-            return "none"
+            return ""
 
 def handle_kernel(vms, label, new_value = None):
     if new_value is not None:
