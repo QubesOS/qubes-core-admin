@@ -332,6 +332,13 @@ class QubesVm(object):
         for hook in self.hooks_init:
             hook(self)
 
+    def __repr__(self):
+        return '<{} at {:#0x} qid={!r} name={!r}>'.format(
+            self.__class__.__name__,
+            id(self),
+            self.qid,
+            self.name)
+
     def absolute_path(self, arg, default):
         if arg is not None and os.path.isabs(arg):
             return arg
