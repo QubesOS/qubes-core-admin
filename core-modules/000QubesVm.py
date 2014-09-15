@@ -190,7 +190,6 @@ class QubesVm(object):
             'kernelopts', 'services', 'installed_by_rpm',\
             'uses_default_netvm', 'include_in_backups', 'debug',\
             'default_user', 'qrexec_timeout', 'autostart',
-            'default_user', 'qrexec_timeout',
             'backup_content', 'backup_size', 'backup_path' ]:
             attrs[prop]['save'] = lambda prop=prop: str(getattr(self, prop))
         # Simple paths
