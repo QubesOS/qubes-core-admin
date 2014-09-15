@@ -153,7 +153,7 @@ class QubesVm(object):
                 "default": {},
                 "func": lambda value: eval(str(value)) },
             "debug": { "default": False },
-            "default_user": { "default": "user" },
+            "default_user": { "default": "user", "attr": "_default_user" },
             "qrexec_timeout": { "default": 60 },
             "autostart": { "default": False, "attr": "_autostart" },
             "backup_content" : { 'default': False },
@@ -189,7 +189,7 @@ class QubesVm(object):
             'uses_default_kernel', 'kernel', 'uses_default_kernelopts',\
             'kernelopts', 'services', 'installed_by_rpm',\
             'uses_default_netvm', 'include_in_backups', 'debug',\
-            'default_user', 'qrexec_timeout', 'autostart',
+            'qrexec_timeout', 'autostart',
             'backup_content', 'backup_size', 'backup_path' ]:
             attrs[prop]['save'] = lambda prop=prop: str(getattr(self, prop))
         # Simple paths
@@ -201,6 +201,8 @@ class QubesVm(object):
 
         attrs['mac']['save'] = lambda: str(self._mac)
         attrs['mac']['save_skip'] = lambda: self._mac is None
+
+        attrs['default_user']['save'] = lambda: str(self._default_user)
 
         attrs['backup_timestamp']['save'] = \
             lambda: self.backup_timestamp.strftime("%s")
@@ -489,6 +491,17 @@ class QubesVm(object):
     # Leaved for compatibility
     def is_updateable(self):
         return self.updateable
+
+    @property
+    def default_user(self):
+        if self.template is not None:
+            return self.template.default_user
+        else:
+            return self._default_user
+
+    @default_user.setter
+    def default_user(self, value):
+        self._default_user = value
 
     def is_networked(self):
         if self.is_netvm():
