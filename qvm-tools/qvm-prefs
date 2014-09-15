@@ -277,7 +277,8 @@ def set_vcpus(vms, vm, args):
 
     qubes_host = QubesHost()
     if vcpus > qubes_host.no_cpus:
-        print >> sys.stderr, "This host has only {0} cpus".format(ubes_host.no_cpus)
+        print >> sys.stderr, "This host has only {0} cpus".format(
+            qubes_host.no_cpus)
         return False
 
     print >> sys.stderr, "Setting vcpus count for VM '{0}' to '{1}'...".format (vm.name, vcpus)
