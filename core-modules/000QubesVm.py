@@ -1662,7 +1662,9 @@ class QubesVm(object):
         if (retcode != 0) :
             raise OSError ("Cannot execute qrexec-daemon!")
 
-    def start(self, debug_console = False, verbose = False, preparing_dvm = False, start_guid = True, notify_function = None):
+    def start(self, debug_console = False, verbose = False,
+              preparing_dvm =  False, start_guid = True, notify_function = None,
+              mem_required = None):
         if dry_run:
             return
 
@@ -1686,7 +1688,8 @@ class QubesVm(object):
         # refresh config file
         self.create_config_file()
 
-        mem_required = int(self.memory) * 1024 * 1024
+        if mem_required is None:
+            mem_required = int(self.memory) * 1024 * 1024
         qmemman_client = QMemmanClient()
         try:
             got_memory = qmemman_client.request_memory(mem_required)

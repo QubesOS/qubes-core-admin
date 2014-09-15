@@ -421,6 +421,9 @@ class QubesHVm(QubesVm):
         if self.template and self.template.is_running():
             raise QubesException("Cannot start the HVM while its template is running")
         try:
+            if 'mem_required' not in kwargs:
+                # Reserve 32MB for stubdomain
+                kwargs['mem_required'] = (self.memory + 32) * 1024 * 1024
             return super(QubesHVm, self).start(*args, **kwargs)
         except QubesException as e:
             if xc.physinfo()['virt_caps'].count('hvm') == 0:
