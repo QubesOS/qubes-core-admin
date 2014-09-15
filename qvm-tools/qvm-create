@@ -182,9 +182,13 @@ def main():
     try:
         vm.create_on_disk(verbose=options.verbose, source_template=template)
         if options.root_move:
+            if (options.verbose):
+                print "--> Replacing root.img with provided file"
             os.unlink(vm.root_img)
             os.rename(options.root_move, vm.root_img)
         elif options.root_copy:
+            if (options.verbose):
+                print "--> Replacing root.img with provided file"
             os.unlink(vm.root_img)
             # use "cp" to preserve sparse file
             subprocess.check_call(["cp", options.root_copy, vm.root_img])
