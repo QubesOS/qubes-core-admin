@@ -20,6 +20,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 #
+from multiprocessing import Event
 
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesException
@@ -27,6 +28,7 @@ from qubes.backup import backup_restore_header
 from qubes.backup import backup_restore_prepare
 from qubes.backup import backup_restore_print_summary
 from qubes.backup import backup_restore_do
+import qubes.backup
 import sys
 from optparse import OptionParser
 
@@ -122,6 +124,11 @@ def main():
 
     print >> sys.stderr, "Checking backup content..."
 
+    error_detected = Event()
+    def error_callback(message):
+        error_detected.set()
+        print >> sys.stderr, message
+
     restore_info = None
     try:
         restore_info = backup_restore_prepare(
@@ -131,7 +138,8 @@ def main():
                 host_collection=host_collection,
                 encrypted=options.decrypt,
                 compressed=options.compressed,
-                appvm=appvm)
+                appvm=appvm,
+                error_callback=error_callback)
     except QubesException as e:
         print >> sys.stderr, "ERROR: %s" % str(e)
         exit(1)
@@ -229,11 +237,16 @@ def main():
 
     try:
         backup_restore_do(restore_info,
-                host_collection=host_collection)
+                host_collection=host_collection,
+                error_callback=error_callback)
     except QubesException as e:
         print >> sys.stderr, "ERROR: %s" % str(e)
 
     host_collection.unlock_db()
 
-    print "-> Done."
+    if error_detected.is_set():
+        print "-> Completed with errors!"
+        exit(1)
+    else:
+        print "-> Done."
 main()

@@ -889,7 +889,7 @@ class ExtractWorker(Process):
                 if self.tar2_process != None:
                     if self.tar2_process.wait() != 0:
                         self.collect_tar_output()
-                        raise QubesException(
+                        self.error_callback(
                                 "ERROR: unable to extract files for {0}, tar "
                                 "output:\n  {1}".\
                                 format(self.tar2_current_file,
@@ -914,6 +914,12 @@ class ExtractWorker(Process):
                             fcntl.fcntl(self.tar2_process.stderr.fileno(),
                                         fcntl.F_GETFL) | os.O_NONBLOCK)
                 self.tar2_stderr = []
+            elif not self.tar2_process:
+                # Extracting of the current archive failed, skip to the next
+                # archive
+                if not BACKUP_DEBUG:
+                    os.remove(filename)
+                continue
             else:
                 self.collect_tar_output()
                 if BACKUP_DEBUG:
@@ -975,7 +981,10 @@ class ExtractWorker(Process):
                     details = "\n".join(self.tar2_stderr)
                 else:
                     details = "%s failed" % run_error
-                raise QubesException("Error while processing '%s': %s " % \
+                self.tar2_process.terminate()
+                self.tar2_process.wait()
+                self.tar2_process = None
+                self.error_callback("Error while processing '%s': %s " % \
                         (self.tar2_current_file, details))
 
             # Delete the file as we don't need it anymore
@@ -1747,21 +1756,29 @@ def backup_restore_do(restore_info,
             vms_dirs.append(os.path.dirname(restore_info['dom0']['subdir']))
             vms_size += restore_info['dom0']['size']
 
-        restore_vm_dirs (backup_location,
-                restore_tmpdir,
-                passphrase=passphrase,
-                vms_dirs=vms_dirs,
-                vms=vms,
-                vms_size=vms_size,
-                hmac_algorithm=hmac_algorithm,
-                crypto_algorithm=crypto_algorithm,
-                verify_only=verify_only,
-                print_callback=print_callback,
-                error_callback=error_callback,
-                progress_callback=progress_callback,
-                encrypted=encrypted,
-                compressed=compressed,
-                appvm=appvm)
+        try:
+            restore_vm_dirs (backup_location,
+                    restore_tmpdir,
+                    passphrase=passphrase,
+                    vms_dirs=vms_dirs,
+                    vms=vms,
+                    vms_size=vms_size,
+                    hmac_algorithm=hmac_algorithm,
+                    crypto_algorithm=crypto_algorithm,
+                    verify_only=verify_only,
+                    print_callback=print_callback,
+                    error_callback=error_callback,
+                    progress_callback=progress_callback,
+                    encrypted=encrypted,
+                    compressed=compressed,
+                    appvm=appvm)
+        except QubesException as e:
+            if verify_only:
+                raise
+            else:
+                print_callback("Some errors occurred during data extraction, "
+                               "continuing anyway to restore at least some "
+                               "VMs")
     else:
         if verify_only:
             print_callback("WARNING: Backup verification not supported for "
