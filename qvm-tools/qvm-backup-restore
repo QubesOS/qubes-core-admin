@@ -80,6 +80,9 @@ def main():
     parser.add_option ("-z", "--compressed", action="store_true", dest="compressed", default=False,
                        help="The backup is compressed")
 
+    parser.add_option ("--debug", action="store_true", dest="debug",
+                       default=False, help="Enable (a lot of) debug output")
+
     (options, args) = parser.parse_args ()
 
     if (len (args) < 1):
@@ -111,6 +114,8 @@ def main():
         restore_options['exclude'] = options.exclude
     if options.verify_only:
         restore_options['verify-only'] = True
+    if options.debug:
+        qubes.backup.BACKUP_DEBUG = True
 
     appvm = None
     if options.appvm is not None:
