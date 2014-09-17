@@ -787,8 +787,9 @@ def verify_hmac(filename, hmacfile, passphrase, algorithm):
 
 class ExtractWorker(Process):
     def __init__(self, queue, base_dir, passphrase, encrypted, total_size,
-            print_callback, error_callback, progress_callback, vmproc=None,
-            compressed = False, crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM):
+                 print_callback, error_callback, progress_callback, vmproc=None,
+                 compressed = False, crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM,
+                 verify_only=False):
         super(ExtractWorker, self).__init__()
         self.queue = queue
         self.base_dir = base_dir
@@ -796,6 +797,7 @@ class ExtractWorker(Process):
         self.encrypted = encrypted
         self.compressed = compressed
         self.crypto_algorithm = crypto_algorithm
+        self.verify_only = verify_only
         self.total_size = total_size
         self.blocks_backedup = 0
         self.tar2_process = None
@@ -868,7 +870,9 @@ class ExtractWorker(Process):
                         self.tar2_current_file = None
 
                 tar2_cmdline = ['tar',
-                    '-xMk%sf' % ("v" if BACKUP_DEBUG else ""), self.restore_pipe,
+                    '-%sMk%sf' % ("t" if self.verify_only else "x",
+                                  "v" if BACKUP_DEBUG else ""),
+                    self.restore_pipe,
                     os.path.relpath(filename.rstrip('.000'))]
                 if BACKUP_DEBUG:
                     self.print_callback("Running command "+str(tar2_cmdline))
@@ -990,7 +994,8 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
         vms_size, print_callback=None, error_callback=None,
         progress_callback=None, encrypted=False, appvm=None,
         compressed = False, hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
-        crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM):
+        crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM,
+        verify_only=False):
 
     global running_backup_operation
 
@@ -1127,6 +1132,7 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
             encrypted=encrypted,
             compressed=compressed,
             crypto_algorithm = crypto_algorithm,
+            verify_only=verify_only,
             total_size=vms_size,
             print_callback=print_callback,
             error_callback=error_callback,
@@ -1229,6 +1235,8 @@ def backup_restore_set_defaults(options):
         options['replace-template'] = []
     if 'ignore-username-mismatch' not in options:
         options['ignore-username-mismatch'] = False
+    if 'verify-only' not in options:
+        options['verify-only'] = False
 
     return options
 
@@ -1304,7 +1312,8 @@ def restore_info_verify(restore_info, host_collection):
                 vm_info['excluded'] = True
 
         vm_info.pop('already-exists', None)
-        if host_collection.get_vm_by_name (vm) is not None:
+        if not options['verify-only'] and \
+                        host_collection.get_vm_by_name (vm) is not None:
             vm_info['already-exists'] = True
 
         # check template
@@ -1650,6 +1659,7 @@ def backup_restore_do(restore_info,
     compressed = options['compressed']
     hmac_algorithm = options['hmac_algorithm']
     crypto_algorithm = options['crypto_algorithm']
+    verify_only = options['verify-only']
     appvm = options['appvm']
     format_version = options['format_version']
 
@@ -1693,12 +1703,21 @@ def backup_restore_do(restore_info,
                 vms_size=vms_size,
                 hmac_algorithm=hmac_algorithm,
                 crypto_algorithm=crypto_algorithm,
+                verify_only=verify_only,
                 print_callback=print_callback,
                 error_callback=error_callback,
                 progress_callback=progress_callback,
                 encrypted=encrypted,
                 compressed=compressed,
                 appvm=appvm)
+    else:
+        if verify_only:
+            print_callback("WARNING: Backup verification not supported for "
+                           "this backup format.")
+
+    if verify_only:
+        shutil.rmtree(restore_tmpdir)
+        return
 
     # Add VM in right order
     for (vm_class_name, vm_class) in sorted(QubesVmClasses.items(),

@@ -38,6 +38,11 @@ def main():
     usage = "usage: %prog [options] <backup-dir> [vms-to-be-restored ...]"
     parser = OptionParser (usage)
 
+    parser.add_option ("--verify-only", action="store_true",
+                       dest="verify_only", default=False,
+                       help="Do not restore the data, only verify backup "
+                            "integrify.")
+
     parser.add_option ("--skip-broken", action="store_true", dest="skip_broken", default=False,
                        help="Do not restore VMs that have missing templates or netvms")
 
@@ -102,6 +107,8 @@ def main():
         restore_options['ignore-username-mismatch'] = True
     if options.exclude:
         restore_options['exclude'] = options.exclude
+    if options.verify_only:
+        restore_options['verify-only'] = True
 
     appvm = None
     if options.appvm is not None:
