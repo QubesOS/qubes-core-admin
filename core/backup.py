@@ -28,6 +28,7 @@ from qubes import system_path,vm_files
 from qubesutils import size_to_human, print_stdout, print_stderr, get_disk_usage
 import sys
 import os
+import fcntl
 import subprocess
 import re
 import shutil
@@ -822,12 +823,32 @@ class ExtractWorker(Process):
             print "Creating pipe in:", self.restore_pipe
         os.mkfifo(self.restore_pipe)
 
+        self.stderr_encoding = sys.stderr.encoding or 'utf-8'
+
     def compute_progress(self, new_size, total_size):
         if self.progress_callback:
             self.blocks_backedup += new_size
             progress = self.blocks_backedup / float(self.total_size)
             progress = int(round(progress*100,2))
             self.progress_callback(progress)
+
+    def collect_tar_output(self):
+        if not self.tar2_process.stderr:
+            return
+
+        if self.tar2_process.poll() is None:
+            new_lines = self.tar2_process.stderr\
+                                .read(MAX_STDERR_BYTES).splitlines()
+        else:
+            new_lines = self.tar2_process.stderr.readlines()
+
+        new_lines = map(lambda x: x.decode(self.stderr_encoding), new_lines)
+
+        if not BACKUP_DEBUG:
+            msg_re = re.compile(r".*#[0-9].*restore_pipe")
+            new_lines = filter(lambda x: not msg_re.match(x), new_lines)
+
+        self.tar2_stderr += new_lines
 
     def run(self):
         try:
@@ -867,9 +888,12 @@ class ExtractWorker(Process):
                 # next file
                 if self.tar2_process != None:
                     if self.tar2_process.wait() != 0:
+                        self.collect_tar_output()
                         raise QubesException(
-                                "ERROR: unable to extract files for {0}.".\
-                                format(self.tar2_current_file))
+                                "ERROR: unable to extract files for {0}, tar "
+                                "output:\n  {1}".\
+                                format(self.tar2_current_file,
+                                       "\n  ".join(self.tar2_stderr)))
                     else:
                         # Finished extracting the tar file
                         self.tar2_process = None
@@ -885,8 +909,13 @@ class ExtractWorker(Process):
                                         unicode(tar2_cmdline))
                 self.tar2_process = subprocess.Popen(tar2_cmdline,
                         stdin=subprocess.PIPE,
-                        stderr=(None if BACKUP_DEBUG else open('/dev/null', 'w')))
+                        stderr=subprocess.PIPE)
+                fcntl.fcntl(self.tar2_process.stderr.fileno(), fcntl.F_SETFL,
+                            fcntl.fcntl(self.tar2_process.stderr.fileno(),
+                                        fcntl.F_GETFL) | os.O_NONBLOCK)
+                self.tar2_stderr = []
             else:
+                self.collect_tar_output()
                 if BACKUP_DEBUG:
                     self.print_callback("Releasing next chunck")
                 self.tar2_process.stdin.write("\n")
@@ -941,8 +970,13 @@ class ExtractWorker(Process):
                 else:
                     raise
             if len(run_error):
-                raise QubesException("Error while processing '%s': %s failed" % \
-                        (self.tar2_current_file, run_error))
+                if run_error == "target":
+                    self.collect_tar_output()
+                    details = "\n".join(self.tar2_stderr)
+                else:
+                    details = "%s failed" % run_error
+                raise QubesException("Error while processing '%s': %s " % \
+                        (self.tar2_current_file, details))
 
             # Delete the file as we don't need it anymore
             if BACKUP_DEBUG:
@@ -956,11 +990,14 @@ class ExtractWorker(Process):
                 self.tar2_process.terminate()
                 self.tar2_process.wait()
             elif self.tar2_process.wait() != 0:
+                self.collect_tar_output()
                 raise QubesException(
-                    "ERROR: unable to extract files for {0}.{1}".
+                    "unable to extract files for {0}.{1} Tar command "
+                    "output: %s".
                     format(self.tar2_current_file,
                            (" Perhaps the backup is encrypted?"
-                            if not self.encrypted else "")))
+                            if not self.encrypted else "",
+                           "\n".join(self.tar2_stderr))))
             else:
                 # Finished extracting the tar file
                 self.tar2_process = None
