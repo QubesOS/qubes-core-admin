@@ -302,6 +302,10 @@ class QubesVm(object):
             qubes_host = QubesHost()
             total_mem_mb = qubes_host.memory_total/1024
             self.maxmem = total_mem_mb/2
+        
+        # Linux specific cap: max memory can't scale beyond 10.79*init_mem
+        if self.maxmem > self.memory * 10:
+            self.maxmem = self.memory * 10
 
         # By default allow use all VCPUs
         if self.vcpus is None:
