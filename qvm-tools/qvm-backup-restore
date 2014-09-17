@@ -227,8 +227,11 @@ def main():
         exit (0)
 
 
-    backup_restore_do(restore_info,
-            host_collection=host_collection)
+    try:
+        backup_restore_do(restore_info,
+                host_collection=host_collection)
+    except QubesException as e:
+        print >> sys.stderr, "ERROR: %s" % str(e)
 
     host_collection.unlock_db()
 

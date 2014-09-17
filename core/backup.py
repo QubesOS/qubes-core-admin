@@ -742,7 +742,13 @@ def wait_backup_feedback(progress_callback, in_stream, streamproc,
             if len(buffer) <= 0:
                 return ""
 
-        backup_target.write(buffer)
+        try:
+            backup_target.write(buffer)
+        except IOError as e:
+            if e.errno == errno.EPIPE:
+                run_error = "target"
+            else:
+                raise
 
         if hmac:
             hmac.stdin.write(buffer)
@@ -1144,6 +1150,15 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
         filename = None
         while True:
             if running_backup_operation and running_backup_operation.canceled:
+                break
+            if not extract_proc.is_alive():
+                command.terminate()
+                command.wait()
+                expect_tar_error = True
+                if vmproc:
+                    vmproc.terminate()
+                    vmproc.wait()
+                    vmproc = None
                 break
             if nextfile is not None:
                 filename = nextfile
