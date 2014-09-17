@@ -21,7 +21,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 #
-
+from __future__ import unicode_literals
 from qubes import QubesException,QubesVmCollection
 from qubes import QubesVmClasses
 from qubes import system_path,vm_files
@@ -339,7 +339,7 @@ def backup_prepare(vms_list = None, exclude_list = None,
 
     for fileinfo in files_to_backup:
         assert len(fileinfo["subdir"]) == 0 or fileinfo["subdir"][-1] == '/', \
-            "'subdir' must ends with a '/': %s" % str(fileinfo)
+            "'subdir' must ends with a '/': %s" % unicode(fileinfo)
 
     return files_to_backup
 
@@ -845,7 +845,7 @@ class ExtractWorker(Process):
                     except OSError:
                         pass
                     process.wait()
-            self.error_callback(str(e))
+            self.error_callback("ERROR: " + unicode(e))
             raise e, None, exc_traceback
 
     def __run__(self):
@@ -881,7 +881,8 @@ class ExtractWorker(Process):
                     self.restore_pipe,
                     os.path.relpath(filename.rstrip('.000'))]
                 if BACKUP_DEBUG:
-                    self.print_callback("Running command "+str(tar2_cmdline))
+                    self.print_callback("Running command "+
+                                        unicode(tar2_cmdline))
                 self.tar2_process = subprocess.Popen(tar2_cmdline,
                         stdin=subprocess.PIPE,
                         stderr=(None if BACKUP_DEBUG else open('/dev/null', 'w')))
@@ -1051,7 +1052,7 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
         tar1_env['UPDATES_MAX_FILES'] = str(2*(10*len(vms_dirs) +
                                                int(vms_size/(100*1024*1024))))
     if BACKUP_DEBUG:
-        print_callback("Run command"+str(tar1_command))
+        print_callback("Run command"+unicode(tar1_command))
     command = subprocess.Popen(tar1_command,
             stdin=backup_stdin,
             stdout=vmproc.stdin if vmproc else subprocess.PIPE,
@@ -1145,7 +1146,6 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
             progress_callback=progress_callback)
     extract_proc.start()
 
-
     try:
         filename = None
         while True:
@@ -1205,12 +1205,12 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
 
         if command.wait() != 0 and not expect_tar_error:
             raise QubesException(
-                    "ERROR: unable to read the qubes backup file {0} ({1}). " \
+                    "unable to read the qubes backup file {0} ({1}). " \
                     "Is it really a backup?".format(backup_source, command.wait()))
         if vmproc:
             if vmproc.wait() != 0:
                 raise QubesException(
-                        "ERROR: unable to read the qubes backup {0} " \
+                        "unable to read the qubes backup {0} " \
                         "because of a VM error: {1}".format(
                             backup_source, vmproc.stderr.read(MAX_STDERR_BYTES)))
 
@@ -1232,7 +1232,7 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
                 str(extract_proc.exitcode))
     if extract_proc.exitcode != 0:
         raise QubesException(
-                "ERROR: unable to extract the qubes backup. " \
+                "unable to extract the qubes backup. " \
                 "Check extracting process errors.")
 
     return header_data
@@ -1428,7 +1428,7 @@ def backup_restore_prepare(backup_location, passphrase, options = {},
             if not os.path.isfile(backup_location):
                 raise QubesException("Invalid backup location (not a file or "
                                      "directory with qubes.xml)"
-                                     ": %s" % str(
+                                     ": %s" % unicode(
                     backup_location))
     else:
         raise QubesException("Unknown backup format version: %s" % str(format_version))
@@ -1580,7 +1580,7 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
         for vm_info in restore_info.values():
             if 'vm' in vm_info.keys():
                 vm = vm_info['vm']
-                l = len(str(eval(fields[f]["func"])))
+                l = len(unicode(eval(fields[f]["func"])))
                 if l > fields[f]["max_width"]:
                     fields[f]["max_width"] = l
         total_width += fields[f]["max_width"]
