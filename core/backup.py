@@ -837,8 +837,14 @@ class ExtractWorker(Process):
             return
 
         if self.tar2_process.poll() is None:
-            new_lines = self.tar2_process.stderr\
+            try:
+                new_lines = self.tar2_process.stderr\
                                 .read(MAX_STDERR_BYTES).splitlines()
+            except IOError as e:
+                if e.errno == errno.EAGAIN:
+                    return
+                else:
+                    raise
         else:
             new_lines = self.tar2_process.stderr.readlines()
 
