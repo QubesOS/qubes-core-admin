@@ -161,6 +161,7 @@ def block_name_to_majorminor(name):
         disk = False
         major = 11
     elif name.startswith("loop"):
+        dXpY_style = True
         disk = False
         major = 7
     elif name.startswith("md"):
