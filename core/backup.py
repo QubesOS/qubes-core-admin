@@ -451,8 +451,9 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
 
     global blocks_backedup
     blocks_backedup = 0
-    progress = blocks_backedup * 11 / total_backup_sz
-    progress_callback(progress)
+    if callable(progress_callback):
+        progress = blocks_backedup * 11 / total_backup_sz
+        progress_callback(progress)
 
     backup_tmpdir = tempfile.mkdtemp(prefix="/var/tmp/backup_")
     running_backup_operation.tmpdir_to_remove = backup_tmpdir
@@ -481,8 +482,9 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
     def compute_progress(new_size, total_backup_sz):
         global blocks_backedup
         blocks_backedup += new_size
-        progress = blocks_backedup / float(total_backup_sz)
-        progress_callback(int(round(progress*100,2)))
+        if callable(progress_callback):
+            progress = blocks_backedup / float(total_backup_sz)
+            progress_callback(int(round(progress*100,2)))
 
     to_send = Queue(10)
     send_proc = SendWorker(to_send, backup_tmpdir, backup_stdout)
@@ -876,7 +878,7 @@ class ExtractWorker(Process):
             raise e, None, exc_traceback
 
     def __run__(self):
-        if BACKUP_DEBUG:
+        if BACKUP_DEBUG and callable(self.print_callback):
             self.print_callback("Started sending thread")
             self.print_callback("Moving to dir "+self.base_dir)
         os.chdir(self.base_dir)
@@ -887,7 +889,7 @@ class ExtractWorker(Process):
             if filename == "FINISHED" or filename == "ERROR":
                 break
 
-            if BACKUP_DEBUG:
+            if BACKUP_DEBUG and callable(self.print_callback):
                 self.print_callback("Extracting file "+filename)
 
             if filename.endswith('.000'):
@@ -910,7 +912,7 @@ class ExtractWorker(Process):
                                   "v" if BACKUP_DEBUG else ""),
                     self.restore_pipe,
                     os.path.relpath(filename.rstrip('.000'))]
-                if BACKUP_DEBUG:
+                if BACKUP_DEBUG and callable(self.print_callback):
                     self.print_callback("Running command "+
                                         unicode(tar2_cmdline))
                 self.tar2_process = subprocess.Popen(tar2_cmdline,
@@ -928,7 +930,7 @@ class ExtractWorker(Process):
                 continue
             else:
                 self.collect_tar_output()
-                if BACKUP_DEBUG:
+                if BACKUP_DEBUG and callable(self.print_callback):
                     self.print_callback("Releasing next chunck")
                 self.tar2_process.stdin.write("\n")
                 self.tar2_process.stdin.flush()
@@ -994,7 +996,7 @@ class ExtractWorker(Process):
                         (self.tar2_current_file, details))
 
             # Delete the file as we don't need it anymore
-            if BACKUP_DEBUG:
+            if BACKUP_DEBUG and callable(self.print_callback):
                 self.print_callback("Removing file "+filename)
             os.remove(filename)
 
@@ -1017,7 +1019,7 @@ class ExtractWorker(Process):
                 # Finished extracting the tar file
                 self.tar2_process = None
 
-        if BACKUP_DEBUG:
+        if BACKUP_DEBUG and callable(self.print_callback):
             self.print_callback("Finished extracting thread")
 
 
@@ -1058,9 +1060,10 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
 
     global running_backup_operation
 
-    if BACKUP_DEBUG:
-        print_callback("Working in temporary dir:"+restore_tmpdir)
-    print_callback("Extracting data: " + size_to_human(vms_size)+" to restore")
+    if callable(print_callback):
+        if BACKUP_DEBUG:
+            print_callback("Working in temporary dir:"+restore_tmpdir)
+        print_callback("Extracting data: " + size_to_human(vms_size)+" to restore")
 
     passphrase = passphrase.encode('utf-8')
     header_data = None
@@ -1103,7 +1106,7 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
         # limit as 2*(10*COUNT_OF_VMS+TOTAL_SIZE/100MB)
         tar1_env['UPDATES_MAX_FILES'] = str(2*(10*len(vms_dirs) +
                                                int(vms_size/(100*1024*1024))))
-    if BACKUP_DEBUG:
+    if BACKUP_DEBUG and callable(print_callback):
         print_callback("Run command"+unicode(tar1_command))
     command = subprocess.Popen(tar1_command,
             stdin=backup_stdin,
@@ -1132,7 +1135,7 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
         if not appvm:
             nextfile = filelist_pipe.readline().strip()
 
-        if BACKUP_DEBUG:
+        if BACKUP_DEBUG and callable(print_callback):
             print_callback("Got backup header and hmac: %s, %s" % (filename,
                                                                    hmacfile))
 
@@ -1219,7 +1222,7 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
             else:
                 filename = filelist_pipe.readline().strip()
 
-            if BACKUP_DEBUG:
+            if BACKUP_DEBUG and callable(print_callback):
                 print_callback("Getting new file:"+filename)
 
             if not filename or filename=="EOF":
@@ -1235,14 +1238,14 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
             if not appvm:
                 nextfile = filelist_pipe.readline().strip()
 
-            if BACKUP_DEBUG:
+            if BACKUP_DEBUG and callable(print_callback):
                 print_callback("Getting hmac:"+hmacfile)
             if not hmacfile or hmacfile=="EOF":
                 # Premature end of archive, either of tar1_command or vmproc exited with error
                 break
 
             if not any(map(lambda x: filename.startswith(x), vms_dirs)):
-                if BACKUP_DEBUG:
+                if BACKUP_DEBUG and callable(print_callback):
                     print_callback("Ignoring VM not selected for restore")
                 os.unlink(os.path.join(restore_tmpdir, filename))
                 os.unlink(os.path.join(restore_tmpdir, hmacfile))
@@ -1278,10 +1281,10 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
     else:
         to_extract.put("FINISHED")
 
-    if BACKUP_DEBUG:
+    if BACKUP_DEBUG and callable(print_callback):
         print_callback("Waiting for the extraction process to finish...")
     extract_proc.join()
-    if BACKUP_DEBUG:
+    if BACKUP_DEBUG and callable(print_callback):
         print_callback("Extraction process finished with code:" + \
                 str(extract_proc.exitcode))
     if extract_proc.exitcode != 0:
@@ -1784,12 +1787,14 @@ def backup_restore_do(restore_info,
             if verify_only:
                 raise
             else:
-                print_callback("Some errors occurred during data extraction, "
+                if callable(print_callback):
+                    print_callback("Some errors occurred during data extraction, "
                                "continuing anyway to restore at least some "
                                "VMs")
     else:
         if verify_only:
-            print_callback("WARNING: Backup verification not supported for "
+            if callable(print_callback):
+                print_callback("WARNING: Backup verification not supported for "
                            "this backup format.")
 
     if verify_only:
@@ -1808,7 +1813,8 @@ def backup_restore_do(restore_info,
                 break
             if not vm.__class__ == vm_class:
                 continue
-            print_callback("-> Restoring {type} {0}...".format(vm.name, type=vm_class_name))
+            if callable(print_callback):
+                print_callback("-> Restoring {type} {0}...".format(vm.name, type=vm_class_name))
             retcode = subprocess.call (["mkdir", "-p", os.path.dirname(vm.dir_path)])
             if retcode != 0:
                 error_callback("*** Cannot create directory: {0}?!".format(
@@ -1853,7 +1859,7 @@ def backup_restore_do(restore_info,
                 error_callback("*** Some VM property will not be restored")
 
             try:
-                new_vm.appmenus_create(verbose=True)
+                new_vm.appmenus_create(verbose=callable(print_callback))
             except Exception as err:
                 error_callback("ERROR during appmenu restore: {0}".format(err))
                 error_callback("*** VM '{0}' will not have appmenus".format(vm.name))
@@ -1895,8 +1901,9 @@ def backup_restore_do(restore_info,
             backup_dom0_home_dir = os.path.join(restore_tmpdir, backup_path)
         restore_home_backupdir = "home-pre-restore-{0}".format (time.strftime("%Y-%m-%d-%H%M%S"))
 
-        print_callback("-> Restoring home of user '{0}'...".format(local_user))
-        print_callback("--> Existing files/dirs backed up in '{0}' dir".format(restore_home_backupdir))
+        if callable(print_callback):
+            print_callback("-> Restoring home of user '{0}'...".format(local_user))
+            print_callback("--> Existing files/dirs backed up in '{0}' dir".format(restore_home_backupdir))
         os.mkdir(home_dir + '/' + restore_home_backupdir)
         for f in os.listdir(backup_dom0_home_dir):
             home_file = home_dir + '/' + f
