@@ -43,7 +43,7 @@ BACKUP_DEBUG = False
 
 HEADER_FILENAME = 'backup-header'
 DEFAULT_CRYPTO_ALGORITHM = 'aes-256-cbc'
-DEFAULT_HMAC_ALGORITHM = 'SHA1'
+DEFAULT_HMAC_ALGORITHM = 'SHA512'
 # Maximum size of error message get from process stderr (including VM process)
 MAX_STDERR_BYTES = 1024
 # header + qubes.xml max size
@@ -1174,6 +1174,8 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
                 encrypted = header_data[BackupHeader.encrypted]
             os.unlink(filename)
         else:
+            # if no header found, create one with guessed HMAC algo
+            header_data = { BackupHeader.hmac_algorithm: hmac_algorithm }
             # If this isn't backup header, pass it to ExtractWorker
             to_extract.put(filename)
             # when tar do not find expected file in archive, it exit with
