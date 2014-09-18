@@ -76,8 +76,8 @@ ln -sf . %{name}-%{version}
 %setup -T -D
 
 %build
-python -m compileall core core-modules qmemman
-python -O -m compileall core dom/core-modules qmemman
+python -m compileall core core-modules qmemman tests
+python -O -m compileall core dom/core-modules qmemman tests
 for dir in dispvm qmemman; do
   (cd $dir; make)
 done
@@ -122,6 +122,9 @@ cp core-modules/0*.py $RPM_BUILD_ROOT%{python_sitearch}/qubes/modules
 cp core-modules/0*.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes/modules
 cp core-modules/__init__.py $RPM_BUILD_ROOT%{python_sitearch}/qubes/modules
 cp core-modules/__init__.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes/modules
+mkdir -p $RPM_BUILD_ROOT%{python_sitearch}/qubes/tests
+cp tests/*.py $RPM_BUILD_ROOT%{python_sitearch}/qubes/tests/
+cp tests/*.py[co] $RPM_BUILD_ROOT%{python_sitearch}/qubes/tests/
 
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/qubes
 cp qmemman/qmemman.conf $RPM_BUILD_ROOT%{_sysconfdir}/qubes/
@@ -286,6 +289,7 @@ fi
 %{python_sitearch}/qubes/qmemman*.py*
 %{python_sitearch}/qubes/modules/0*.py*
 %{python_sitearch}/qubes/modules/__init__.py*
+%{python_sitearch}/qubes/tests
 /usr/lib/qubes/unbind-pci-device.sh
 /usr/lib/qubes/cleanup-dispvms
 /usr/lib/qubes/qmemman_daemon.py*
