@@ -137,6 +137,10 @@ class BackupTests(unittest.TestCase):
         self.qc.save()
         self.qc.unlock_db()
 
+    def print_callback(self, msg):
+        if self.verbose:
+            print msg
+
     def make_backup(self, vms):
         try:
             files_to_backup = backup.backup_prepare(vms,
