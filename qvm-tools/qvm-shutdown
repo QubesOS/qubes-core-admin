@@ -99,6 +99,7 @@ def main():
             for vm in vms_list:
                 if not vm.is_running():
                     vms_list.remove (vm)
+                    continue
                 if shutdown_counter > defaults["shutdown_counter_max"]:
                     # kill the VM
                     if options.verbose:
