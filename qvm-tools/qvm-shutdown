@@ -93,6 +93,7 @@ def main():
             print >> sys.stderr, "Waiting for the VM(s) to shutdown..."
         shutdown_counter = 0
 
+        halting_vms = []
         while len (vms_list):
             if options.verbose:
                 print >> sys.stderr, "Waiting for VMs: ", [vm.name for vm in vms_list]
@@ -100,6 +101,12 @@ def main():
                 if not vm.is_running():
                     vms_list.remove (vm)
                     continue
+                if vm.get_power_state() == "Halting":
+                    if vm in halting_vms:
+                        vm.force_shutdown()
+                        continue
+                    else:
+                        halting_vms.append(vm)
                 if shutdown_counter > defaults["shutdown_counter_max"]:
                     # kill the VM
                     if options.verbose:
