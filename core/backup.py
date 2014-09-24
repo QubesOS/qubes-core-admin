@@ -391,10 +391,11 @@ def prepare_backup_header(target_directory, passphrase, compressed=False,
                           crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM):
     header_file_path = os.path.join(target_directory, HEADER_FILENAME)
     with open(header_file_path, "w") as f:
-        f.write("%s=%s\n" % (BackupHeader.hmac_algorithm, hmac_algorithm))
-        f.write("%s=%s\n" % (BackupHeader.crypto_algorithm, crypto_algorithm))
-        f.write("%s=%s\n" % (BackupHeader.encrypted, str(encrypted)))
-        f.write("%s=%s\n" % (BackupHeader.compressed, str(compressed)))
+        f.write(str("%s=%s\n" % (BackupHeader.hmac_algorithm, hmac_algorithm)))
+        f.write(str("%s=%s\n" % (BackupHeader.crypto_algorithm,
+                                 crypto_algorithm)))
+        f.write(str("%s=%s\n" % (BackupHeader.encrypted, str(encrypted))))
+        f.write(str("%s=%s\n" % (BackupHeader.compressed, str(compressed))))
 
     hmac = subprocess.Popen (["openssl", "dgst",
                               "-" + hmac_algorithm, "-hmac", passphrase],
