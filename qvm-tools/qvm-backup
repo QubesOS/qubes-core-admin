@@ -26,6 +26,7 @@ from qubes.qubes import QubesException
 from qubes.backup import backup_prepare, backup_do
 from qubes.qubesutils import size_to_human
 from optparse import OptionParser
+import qubes.backup
 import os
 import sys
 import getpass
@@ -62,6 +63,8 @@ def main():
                             "list-message-digest-algorithms'")
     parser.add_option ("-z", "--compress", action="store_true", dest="compress", default=False,
                        help="Compress the backup")
+    parser.add_option ("--debug", action="store_true", dest="debug",
+                       default=False, help="Enable (a lot of) debug output")
 
     (options, args) = parser.parse_args ()
 
@@ -95,6 +98,8 @@ def main():
         options.encrypt = True
     if options.no_encrypt:
         options.encrypt = False
+    if options.debug:
+        qubes.backup.BACKUP_DEBUG = True
     files_to_backup = None
     try:
         files_to_backup = backup_prepare(
