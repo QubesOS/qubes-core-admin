@@ -1538,7 +1538,7 @@ def backup_restore_prepare(backup_location, passphrase, options = {},
                 print vm.name,"is included in backup"
 
             vms_to_restore[vm.name] = {}
-            vms_to_restore[vm.name]['vm'] = vm;
+            vms_to_restore[vm.name]['vm'] = vm
 
             if vm.template is None:
                 vms_to_restore[vm.name]['template'] = None
