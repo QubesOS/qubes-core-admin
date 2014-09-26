@@ -44,6 +44,7 @@ BACKUP_DEBUG = False
 HEADER_FILENAME = 'backup-header'
 DEFAULT_CRYPTO_ALGORITHM = 'aes-256-cbc'
 DEFAULT_HMAC_ALGORITHM = 'SHA512'
+DEFAULT_COMPRESSION_FILTER = 'gzip'
 CURRENT_BACKUP_FORMAT_VERSION = '3'
 # Maximum size of error message get from process stderr (including VM process)
 MAX_STDERR_BYTES = 1024
@@ -68,6 +69,7 @@ class BackupHeader:
     version = 'version'
     encrypted = 'encrypted'
     compressed = 'compressed'
+    compression_filter = 'compression-filter'
     crypto_algorithm = 'crypto-algorithm'
     hmac_algorithm = 'hmac-algorithm'
     bool_options = ['encrypted', 'compressed']
@@ -391,7 +393,8 @@ class SendWorker(Process):
 def prepare_backup_header(target_directory, passphrase, compressed=False,
                           encrypted=False,
                           hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
-                          crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM):
+                          crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM,
+                          compression_filter=None):
     header_file_path = os.path.join(target_directory, HEADER_FILENAME)
     with open(header_file_path, "w") as f:
         f.write(str("%s=%s\n" % (BackupHeader.version,
@@ -401,6 +404,9 @@ def prepare_backup_header(target_directory, passphrase, compressed=False,
                                  crypto_algorithm)))
         f.write(str("%s=%s\n" % (BackupHeader.encrypted, str(encrypted))))
         f.write(str("%s=%s\n" % (BackupHeader.compressed, str(compressed))))
+        if compressed:
+            f.write(str("%s=%s\n" % (BackupHeader.compression_filter,
+                                     str(compression_filter))))
 
     hmac = subprocess.Popen (["openssl", "dgst",
                               "-" + hmac_algorithm, "-hmac", passphrase],
@@ -421,9 +427,10 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
     for file in files_to_backup:
         total_backup_sz += file["size"]
 
-    if compressed and encrypted:
-        raise QubesException("Compressed and encrypted backups are not "
-                             "supported (yet).")
+    if isinstance(compressed, str):
+        compression_filter = compressed
+    else:
+        compression_filter = DEFAULT_COMPRESSION_FILTER
 
     running_backup_operation = BackupOperationInfo()
     vmproc = None
@@ -479,10 +486,11 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
         print "Will backup:", files_to_backup
 
     header_files = prepare_backup_header(backup_tmpdir, passphrase,
-                                         compressed=compressed,
+                                         compressed=bool(compressed),
                                          encrypted=encrypted,
                                          hmac_algorithm=hmac_algorithm,
-                                         crypto_algorithm=crypto_algorithm)
+                                         crypto_algorithm=crypto_algorithm,
+                                         compression_filter=compression_filter)
 
     # Setup worker to send encrypted data chunks to the backup_target
     def compute_progress(new_size, total_backup_sz):
@@ -524,6 +532,8 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
                             filename["subdir"]),
                        os.path.basename(filename["path"])
                        ]
+        if compressed:
+            tar_cmdline.insert(-1, "--use-compress-program=%s" % compression_filter)
 
         if BACKUP_DEBUG:
             print " ".join(tar_cmdline)
@@ -1024,13 +1034,14 @@ class ExtractWorker3(ExtractWorker2):
     def __init__(self, queue, base_dir, passphrase, encrypted, total_size,
                  print_callback, error_callback, progress_callback, vmproc=None,
                  compressed=False, crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM,
-                 verify_only=False):
+                 compression_filter = None, verify_only=False):
         super(ExtractWorker3, self).__init__(queue, base_dir, passphrase,
                                              encrypted, total_size,
                                              print_callback, error_callback,
                                              progress_callback, vmproc,
                                              compressed, crypto_algorithm,
                                              verify_only)
+        self.compression_filter = compression_filter
         os.unlink(self.restore_pipe)
 
     def __run__(self):
@@ -1069,6 +1080,14 @@ class ExtractWorker3(ExtractWorker2):
                     '-%sk%s' % ("t" if self.verify_only else "x",
                                   "v" if BACKUP_DEBUG else ""),
                     os.path.relpath(filename.rstrip('.000'))]
+                if self.compressed:
+                    if self.compression_filter:
+                        tar2_cmdline.insert(-1,
+                                            "--use-compress-program=%s" %
+                                            self.compression_filter)
+                    else:
+                        tar2_cmdline.insert(-1, "--use-compress-program=%s" %
+                                                DEFAULT_COMPRESSION_FILTER)
 
                 if BACKUP_DEBUG and callable(self.print_callback):
                     self.print_callback("Running command "+
@@ -1201,7 +1220,8 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
         progress_callback=None, encrypted=False, appvm=None,
         compressed = False, hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
         crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM,
-        verify_only=False, format_version = CURRENT_BACKUP_FORMAT_VERSION):
+        verify_only=False, format_version = CURRENT_BACKUP_FORMAT_VERSION,
+        compression_filter = None):
 
     global running_backup_operation
 
@@ -1322,6 +1342,8 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
                 compressed = header_data[BackupHeader.compressed]
             if BackupHeader.encrypted in header_data:
                 encrypted = header_data[BackupHeader.encrypted]
+            if BackupHeader.compression_filter in header_data:
+                compression_filter = header_data[BackupHeader.compression_filter]
             os.unlink(filename)
         else:
             # if no header found, create one with guessed HMAC algo
@@ -1353,6 +1375,7 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
     if format_version == 2:
         extract_proc = ExtractWorker2(**extractor_params)
     elif format_version == 3:
+        extractor_params['compression_filter'] = compression_filter
         extract_proc = ExtractWorker3(**extractor_params)
     else:
         raise NotImplemented("Backup format version %d not supported" % format_version)
@@ -1600,6 +1623,9 @@ def backup_restore_prepare(backup_location, passphrase, options = {},
         crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM):
     # Defaults
     backup_restore_set_defaults(options)
+    # Options introduced in backup format 3+, which always have a header,
+    # so no need for fallback in function parameter
+    compression_filter = DEFAULT_COMPRESSION_FILTER
 
     #### Private functions begin
     def is_vm_included_in_backup_v1 (backup_dir, vm):
@@ -1671,6 +1697,8 @@ def backup_restore_prepare(backup_location, passphrase, options = {},
             compressed = header_data[BackupHeader.compressed]
         if BackupHeader.encrypted in header_data:
             encrypted = header_data[BackupHeader.encrypted]
+        if BackupHeader.compression_filter in header_data:
+            compression_filter = header_data[BackupHeader.compression_filter]
 
     if BACKUP_DEBUG:
         print "Loading file", qubes_xml
@@ -1722,6 +1750,7 @@ def backup_restore_prepare(backup_location, passphrase, options = {},
     options['passphrase'] = passphrase
     options['encrypted'] = encrypted
     options['compressed'] = compressed
+    options['compression_filter'] = compression_filter
     options['hmac_algorithm'] = hmac_algorithm
     options['crypto_algorithm'] = crypto_algorithm
     options['appvm'] = appvm
@@ -1889,6 +1918,7 @@ def backup_restore_do(restore_info,
     passphrase = options['passphrase']
     encrypted = options['encrypted']
     compressed = options['compressed']
+    compression_filter = options['compression_filter']
     hmac_algorithm = options['hmac_algorithm']
     crypto_algorithm = options['crypto_algorithm']
     verify_only = options['verify-only']
@@ -1943,6 +1973,7 @@ def backup_restore_do(restore_info,
                     progress_callback=progress_callback,
                     encrypted=encrypted,
                     compressed=compressed,
+                    compression_filter=compression_filter,
                     appvm=appvm)
         except QubesException as e:
             if verify_only:
