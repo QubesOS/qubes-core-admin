@@ -20,7 +20,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 #
-from multiprocessing import Event
+from multiprocessing import Event, Queue
 
 import os
 import shutil
@@ -34,7 +34,7 @@ VM_PREFIX = "test-"
 
 class BackupTests(unittest.TestCase):
     def setUp(self):
-        self.error_detected = Event()
+        self.error_detected = Queue()
         self.verbose = False
         self.qc = QubesVmCollection()
         self.qc.lock_db_for_writing()
@@ -64,7 +64,7 @@ class BackupTests(unittest.TestCase):
             print >> sys.stderr, "\r-> Backing up files: {0}%...".format(progress)
 
     def error_callback(self, message):
-        self.error_detected.set()
+        self.error_detected.put(message)
         if self.verbose:
             print >> sys.stderr, "ERROR: {0}".format(message)
 
@@ -137,10 +137,6 @@ class BackupTests(unittest.TestCase):
         self.qc.save()
         self.qc.unlock_db()
 
-    def print_callback(self, msg):
-        if self.verbose:
-            print msg
-
     def make_backup(self, vms, prepare_kwargs=dict(), do_kwargs=dict()):
         try:
             files_to_backup = \
@@ -177,8 +173,12 @@ class BackupTests(unittest.TestCase):
                 # TODO: print_callback=self.print_callback if self.verbose else None,
         except QubesException as e:
             self.fail("QubesException during backup_restore_do: %s" % str(e))
-        self.assertFalse(self.error_detected.is_set(),
-                         "Error detected during backup_restore_do")
+        errors = []
+        while not self.error_detected.empty():
+            errors.append(self.error_detected.get())
+        self.assertTrue(len(errors) == 0,
+                         "Error(s) detected during backup_restore_do: %s" %
+                         '\n'.join(errors))
         os.unlink(backupfile)
 
     def test_basic_backup(self):
