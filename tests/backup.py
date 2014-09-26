@@ -168,9 +168,8 @@ class BackupTests(unittest.TestCase):
         try:
             backup.backup_restore_do(
                 backup_info,
-                print_callback=self.print_callback,
+                print_callback=self.print_callback if self.verbose else None,
                 error_callback=self.error_callback)
-                # TODO: print_callback=self.print_callback if self.verbose else None,
         except QubesException as e:
             self.fail("QubesException during backup_restore_do: %s" % str(e))
         errors = []
