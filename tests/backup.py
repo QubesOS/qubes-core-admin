@@ -141,16 +141,19 @@ class BackupTests(unittest.TestCase):
         if self.verbose:
             print msg
 
-    def make_backup(self, vms):
+    def make_backup(self, vms, prepare_kwargs=dict(), do_kwargs=dict()):
         try:
-            files_to_backup = backup.backup_prepare(vms,
-                                                    print_callback=self.print_callback)
+            files_to_backup = \
+                backup.backup_prepare(vms,
+                                      print_callback=self.print_callback,
+                                      **prepare_kwargs)
         except QubesException as e:
             self.fail("QubesException during backup_prepare: %s" % str(e))
 
         try:
             backup.backup_do(self.backupdir, files_to_backup, "qubes",
-                             progress_callback=self.print_progress)
+                             progress_callback=self.print_progress,
+                             **do_kwargs)
         except QubesException as e:
             self.fail("QubesException during backup_do: %s" % str(e))
 
@@ -185,7 +188,31 @@ class BackupTests(unittest.TestCase):
         self.restore_backup()
         self.remove_vms(vms)
 
+    def test_compressed_backup(self):
+        vms = self.create_basic_vms()
+        self.make_backup(vms, do_kwargs={'compressed': True})
+        self.remove_vms(vms)
+        self.restore_backup()
+        self.remove_vms(vms)
+
+    def test_encrypted_backup(self):
+        vms = self.create_basic_vms()
+        self.make_backup(vms, do_kwargs={'encrypted': True})
+        self.remove_vms(vms)
+        self.restore_backup()
+        self.remove_vms(vms)
+
     @unittest.expectedFailure
+    def test_compressed_encrypted_backup(self):
+        vms = self.create_basic_vms()
+        self.make_backup(vms,
+                         do_kwargs={
+                             'compressed': True,
+                             'encrypted': True})
+        self.remove_vms(vms)
+        self.restore_backup()
+        self.remove_vms(vms)
+
     def test_sparse_multipart(self):
         vms = []
         self.qc.lock_db_for_writing()
