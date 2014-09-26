@@ -201,7 +201,6 @@ class BackupTests(unittest.TestCase):
         self.restore_backup()
         self.remove_vms(vms)
 
-    @unittest.expectedFailure
     def test_compressed_encrypted_backup(self):
         vms = self.create_basic_vms()
         self.make_backup(vms,
