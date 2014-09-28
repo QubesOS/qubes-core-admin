@@ -1615,11 +1615,13 @@ def restore_info_verify(restore_info, host_collection):
 
     return restore_info
 
-def backup_restore_prepare(backup_location, passphrase, options = {},
+def backup_restore_prepare(backup_location, passphrase, options = None,
         host_collection = None, encrypted=False, appvm=None,
         compressed = False, print_callback = print_stdout, error_callback = print_stderr,
         format_version=None, hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
         crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM):
+    if options is None:
+        options = {}
     # Defaults
     backup_restore_set_defaults(options)
     # Options introduced in backup format 3+, which always have a header,
