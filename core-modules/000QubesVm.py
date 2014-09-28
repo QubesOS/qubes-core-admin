@@ -1109,7 +1109,7 @@ class QubesVm(object):
         conf_appvm.write(conf_template.format(**template_params))
         conf_appvm.close()
 
-    def create_on_disk(self, verbose, source_template = None):
+    def create_on_disk(self, verbose=False, source_template = None):
         if source_template is None:
             source_template = self.template
         assert source_template is not None
