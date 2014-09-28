@@ -1454,7 +1454,6 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
     except:
         to_extract.put("ERROR")
         extract_proc.join()
-        running_backup_operation = None
         raise
     else:
         to_extract.put("FINISHED")
