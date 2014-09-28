@@ -42,10 +42,10 @@ class BackupTests(unittest.TestCase):
 
         if self.verbose:
             print >>sys.stderr, "-> Creating backupvm"
-        backupvm = self.qc.add_new_vm("QubesAppVm",
+        self.backupvm = self.qc.add_new_vm("QubesAppVm",
                            name="%sbackupvm" % VM_PREFIX,
                            template=self.qc.get_default_template())
-        backupvm.create_on_disk(verbose=self.verbose)
+        self.backupvm.create_on_disk(verbose=self.verbose)
         self.qc.save()
         self.qc.unlock_db()
 
@@ -54,6 +54,8 @@ class BackupTests(unittest.TestCase):
 
 
     def tearDown(self):
+        if self.backupvm.is_running():
+            self.backupvm.force_shutdown()
         vmlist = [vm for vm in self.qc.values() if vm.name.startswith(
             VM_PREFIX)]
         self.remove_vms(vmlist)
@@ -137,7 +139,10 @@ class BackupTests(unittest.TestCase):
         self.qc.save()
         self.qc.unlock_db()
 
-    def make_backup(self, vms, prepare_kwargs=dict(), do_kwargs=dict()):
+    def make_backup(self, vms, prepare_kwargs=dict(), do_kwargs=dict(),
+                    target=None):
+        if target is None:
+            target = self.backupdir
         try:
             files_to_backup = \
                 backup.backup_prepare(vms,
@@ -147,19 +152,22 @@ class BackupTests(unittest.TestCase):
             self.fail("QubesException during backup_prepare: %s" % str(e))
 
         try:
-            backup.backup_do(self.backupdir, files_to_backup, "qubes",
+            backup.backup_do(target, files_to_backup, "qubes",
                              progress_callback=self.print_progress,
                              **do_kwargs)
         except QubesException as e:
             self.fail("QubesException during backup_do: %s" % str(e))
 
-    def restore_backup(self):
-        backupfile = os.path.join(self.backupdir,
-                                  sorted(os.listdir(self.backupdir))[-1])
-
+    def restore_backup(self, source=None, appvm=None):
+        if source is None:
+            backupfile = os.path.join(self.backupdir,
+                                      sorted(os.listdir(self.backupdir))[-1])
+        else:
+            backupfile = source
         try:
             backup_info = backup.backup_restore_prepare(
-                backupfile, "qubes", print_callback=self.print_callback)
+                backupfile, "qubes", print_callback=self.print_callback,
+                appvm=appvm)
         except QubesException as e: self.fail(
                 "QubesException during backup_restore_prepare: %s" % str(e))
         if self.verbose:
@@ -178,7 +186,8 @@ class BackupTests(unittest.TestCase):
         self.assertTrue(len(errors) == 0,
                          "Error(s) detected during backup_restore_do: %s" %
                          '\n'.join(errors))
-        os.unlink(backupfile)
+        if not appvm:
+            os.unlink(backupfile)
 
     def test_basic_backup(self):
         vms = self.create_basic_vms()
@@ -209,6 +218,20 @@ class BackupTests(unittest.TestCase):
                              'encrypted': True})
         self.remove_vms(vms)
         self.restore_backup()
+        self.remove_vms(vms)
+
+    def test_send_to_vm(self):
+        vms = self.create_basic_vms()
+        self.backupvm.start()
+        self.make_backup(vms,
+                         do_kwargs={
+                             'appvm': self.backupvm,
+                             'compressed': True,
+                             'encrypted': True},
+                         target='dd of=/var/tmp/backup-test')
+        self.remove_vms(vms)
+        self.restore_backup(source='dd if=/var/tmp/backup-test',
+                            appvm=self.backupvm)
         self.remove_vms(vms)
 
     def test_sparse_multipart(self):
