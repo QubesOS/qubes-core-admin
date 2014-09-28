@@ -2045,6 +2045,17 @@ def backup_restore_do(restore_info,
                     host_collection.pop(new_vm.qid)
                 continue
 
+            # FIXME: cannot check for 'kernel' property, because it is always
+            #  defined - accessing it touches non-existent '_kernel'
+            if not isinstance(vm, QubesVmClasses['QubesHVm']):
+                # TODO: add a setting for this?
+                if vm.kernel and vm.kernel not in os.listdir(system_path[
+                    'qubes_kernels_base_dir']):
+                    if callable(print_callback):
+                        print_callback("WARNING: Kernel %s not installed, "
+                                       "using default one" % vm.kernel)
+                    vm.uses_default_kernel = True
+                    vm.kernel = host_collection.get_default_kernel()
             try:
                 new_vm.clone_attrs(vm)
             except Exception as err:
