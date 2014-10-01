@@ -280,6 +280,10 @@ class BackupCompatibilityTests(unittest.TestCase):
                                            ".templates"),
                              APPTEMPLATE_R2B2,
                              appmenus_list)
+        os.mkdir(self.fullpath("appvms/test-standalonevm/kernels"))
+        for k_file in ["initramfs", "vmlinuz", "modules.img"]:
+            self.fill_image(self.fullpath("appvms/test-standalonevm/kernels/"
+            + k_file), 10*1024*1024)
 
         # VM based on custom template
         subprocess.check_call(
@@ -346,6 +350,7 @@ class BackupCompatibilityTests(unittest.TestCase):
         self.assertIsNotNone(self.qc.get_vm_by_name("test-template-clone"))
         self.assertIsNotNone(self.qc.get_vm_by_name("test-testproxy"))
         self.assertIsNotNone(self.qc.get_vm_by_name("test-work"))
+        self.assertIsNotNone(self.qc.get_vm_by_name("test-testhvm"))
         self.assertIsNotNone(self.qc.get_vm_by_name("test-standalonevm"))
         self.assertIsNotNone(self.qc.get_vm_by_name(
             "test-custom-template-appvm"))
