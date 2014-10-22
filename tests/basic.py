@@ -19,10 +19,12 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
+import multiprocessing
 import os
 import shutil
 
 import unittest
+import time
 from qubes.qubes import QubesVmCollection, QubesException, system_path
 
 VM_PREFIX = "test-"
@@ -73,6 +75,27 @@ class BasicTests(unittest.TestCase):
             vm.verify_files()
         except QubesException:
             self.fail("verify_files() failed")
+
+    # Bug: #906
+    def test_db_locking(self):
+        def create_vm(name):
+            qc = QubesVmCollection()
+            qc.lock_db_for_writing()
+            qc.load()
+            time.sleep(1)
+            vmname = VM_PREFIX + name
+            qc.add_new_vm("QubesAppVm", name=vmname, template=qc.get_default_template())
+            qc.save()
+            qc.unlock_db()
+        t = multiprocessing.Process(target=create_vm, args=("test1",))
+        t.start()
+        create_vm("test2")
+        t.join()
+        self.qc.lock_db_for_reading()
+        self.qc.load()
+        self.qc.unlock_db()
+        self.assertIsNotNone(self.qc.get_vm_by_name(VM_PREFIX + "test1"))
+        self.assertIsNotNone(self.qc.get_vm_by_name(VM_PREFIX + "test2"))
 
 class VmPropTests(unittest.TestCase):
     def setUp(self):
