@@ -526,12 +526,28 @@ class QubesVmCollection(dict):
         self.save()
 
     def lock_db_for_reading(self):
-        self.qubes_store_file = open (self.qubes_store_filename, 'r')
-        fcntl.lockf (self.qubes_store_file, fcntl.LOCK_SH)
+        # save() would rename the file over qubes.xml, _then_ release lock,
+        # so we need to ensure that the file for which we've got the lock is
+        # still the right file
+        while True:
+            self.qubes_store_file = open (self.qubes_store_filename, 'r')
+            fcntl.lockf(self.qubes_store_file, fcntl.LOCK_SH)
+            if os.fstat(self.qubes_store_file.fileno()) == os.stat(
+                    self.qubes_store_filename):
+                break
+            self.qubes_store_file.close()
 
     def lock_db_for_writing(self):
-        self.qubes_store_file = open (self.qubes_store_filename, 'r+')
-        fcntl.lockf (self.qubes_store_file, fcntl.LOCK_EX)
+        # save() would rename the file over qubes.xml, _then_ release lock,
+        # so we need to ensure that the file for which we've got the lock is
+        # still the right file
+        while True:
+            self.qubes_store_file = open (self.qubes_store_filename, 'r+')
+            fcntl.lockf(self.qubes_store_file, fcntl.LOCK_EX)
+            if os.fstat(self.qubes_store_file.fileno()) == os.stat(
+                    self.qubes_store_filename):
+                break
+            self.qubes_store_file.close()
 
     def unlock_db(self):
         # intentionally do not call explicit unlock to not unlock the file
