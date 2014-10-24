@@ -1651,6 +1651,8 @@ class QubesVm(object):
         guid_cmd += extra_guid_args
         if self.debug:
             guid_cmd += ['-v', '-v']
+        elif not verbose:
+            guid_cmd += ['-q']
         retcode = subprocess.call (guid_cmd)
         if (retcode != 0) :
             raise QubesException("Cannot start qubes-guid!")
@@ -1672,9 +1674,13 @@ class QubesVm(object):
         if verbose:
             print >> sys.stderr, "--> Starting the qrexec daemon..."
         xid = self.get_xid()
+        qrexec_args = [str(xid), self.name, self.default_user]
+        if not verbose:
+            qrexec_args.insert(0, "-q")
         qrexec_env = os.environ
         qrexec_env['QREXEC_STARTUP_TIMEOUT'] = str(self.qrexec_timeout)
-        retcode = subprocess.call ([system_path["qrexec_daemon_path"], str(xid), self.name, self.default_user], env=qrexec_env)
+        retcode = subprocess.call ([system_path["qrexec_daemon_path"]] +
+                                   qrexec_args, env=qrexec_env)
         if (retcode != 0) :
             raise OSError ("Cannot execute qrexec-daemon!")
 
