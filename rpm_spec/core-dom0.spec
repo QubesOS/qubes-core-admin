@@ -48,7 +48,7 @@ Requires(post): systemd-units
 Requires(preun): systemd-units
 Requires(postun): systemd-units
 Requires:	python, xen-runtime, pciutils, python-inotify, python-daemon
-Requires:       qubes-core-dom0-linux >= 2.0.12
+Requires:       qubes-core-dom0-linux >= 2.0.24
 Requires:       python-lxml
 # TODO: R: qubes-gui-dom0 >= 2.1.11
 Conflicts:      qubes-gui-dom0 < 1.1.13
