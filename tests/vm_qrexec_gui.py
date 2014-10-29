@@ -19,13 +19,18 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
+import multiprocessing
 import os
 import subprocess
 import unittest
 import time
+
 from qubes.qubes import QubesVmCollection, defaults
 
+
 VM_PREFIX = "test-"
+
+TEST_DATA = "0123456789" * 1024
 
 class VmRunningTests(unittest.TestCase):
     def setUp(self):
@@ -110,6 +115,67 @@ class VmRunningTests(unittest.TestCase):
                 self.fail("Timeout while waiting for gnome-terminal "
                           "termination")
             time.sleep(0.1)
+
+    def test_050_qrexec_simple_eof(self):
+        """Test for data and EOF transmission dom0->VM"""
+        result = multiprocessing.Value('i', 0)
+        def run(self, result):
+            p = self.testvm1.run("cat", passio_popen=True,
+                            passio_stderr=True)
+
+            (stdout, stderr) = p.communicate(TEST_DATA)
+            if stdout != TEST_DATA:
+                result.value = 1
+            if len(stderr) > 0:
+                result.value = 2
+
+        self.testvm1.start()
+
+        t = multiprocessing.Process(target=run, args=(self, result))
+        t.start()
+        t.join(timeout=10)
+        if t.is_alive():
+            t.terminate()
+            self.fail("Timeout, probably EOF wasn't transferred to the VM "
+                      "process")
+        if result.value == 1:
+            self.fail("Received data differs from what was sent")
+        elif result.value == 2:
+            self.fail("Some data was printed to stderr")
+
+    def test_055_qrexec_simple_eof_reverse(self):
+        """Test for EOF transmission VM->dom0"""
+        result = multiprocessing.Value('i', 0)
+        def run(self, result):
+            p = self.testvm1.run("echo test; exec >&-; cat > /dev/null",
+                                 passio_popen=True, passio_stderr=True)
+            # this will hang on test failure
+            stdout = p.stdout.read()
+            p.stdin.write(TEST_DATA)
+            p.stdin.close()
+            if stdout.strip() != "test":
+                result.value = 1
+            # this may hang in some buggy cases
+            elif len(p.stderr.read()) > 0:
+                result.value = 2
+            elif p.pull() is None:
+                result.value = 3
+
+        self.testvm1.start()
+
+        t = multiprocessing.Process(target=run, args=(self, result))
+        t.start()
+        t.join(timeout=10)
+        if t.is_alive():
+            t.terminate()
+            self.fail("Timeout, probably EOF wasn't transferred from the VM "
+                      "process")
+        if result.value == 1:
+            self.fail("Received data differs from what was expected")
+        elif result.value == 2:
+            self.fail("Some data was printed to stderr")
+        elif result.value == 3:
+            self.fail("VM proceess didn't terminated on EOF")
 
     def test_100_qrexec_filecopy(self):
         self.testvm1.start()
