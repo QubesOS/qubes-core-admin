@@ -32,10 +32,14 @@ class VmRunningTests(unittest.TestCase):
         self.qc = QubesVmCollection()
         self.qc.lock_db_for_writing()
         self.qc.load()
-        self.testvm = self.qc.add_new_vm("QubesAppVm",
-                                         name="%stestvm" % VM_PREFIX,
+        self.testvm1 = self.qc.add_new_vm("QubesAppVm",
+                                         name="%svm1" % VM_PREFIX,
                                          template=self.qc.get_default_template())
-        self.testvm.create_on_disk(verbose=False)
+        self.testvm1.create_on_disk(verbose=False)
+        self.testvm2 = self.qc.add_new_vm("QubesAppVm",
+                                         name="%svm2" % VM_PREFIX,
+                                         template=self.qc.get_default_template())
+        self.testvm2.create_on_disk(verbose=False)
         self.qc.save()
         self.qc.unlock_db()
 
@@ -67,37 +71,39 @@ class VmRunningTests(unittest.TestCase):
         self.remove_vms(vmlist)
 
     def test_000_start_shutdown(self):
-        self.testvm.start()
-        self.assertEquals(self.testvm.get_power_state(), "Running")
-        self.testvm.shutdown()
+        self.testvm1.start()
+        self.assertEquals(self.testvm1.get_power_state(), "Running")
+        self.testvm1.shutdown()
 
         shutdown_counter = 0
-        while self.testvm.is_running():
+        while self.testvm1.is_running():
             if shutdown_counter > defaults["shutdown_counter_max"]:
                 self.fail("VM hanged during shutdown")
             shutdown_counter += 1
             time.sleep(1)
         time.sleep(1)
-        self.assertEquals(self.testvm.get_power_state(), "Halted")
+        self.assertEquals(self.testvm1.get_power_state(), "Halted")
 
     def test_010_run_gui_app(self):
-        self.testvm.start()
-        self.assertEquals(self.testvm.get_power_state(), "Running")
-        self.testvm.run("gnome-terminal")
+        self.testvm1.start()
+        self.assertEquals(self.testvm1.get_power_state(), "Running")
+        self.testvm1.run("gnome-terminal")
         wait_count = 0
         while subprocess.call(['xdotool', 'search', '--name', 'user@%s' %
-                self.testvm.name]) > 0:
+                self.testvm1.name], stdout=open(os.path.devnull, 'w'),
+                              stderr=subprocess.STDOUT) > 0:
             wait_count += 1
             if wait_count > 100:
                 self.fail("Timeout while waiting for gnome-terminal window")
             time.sleep(0.1)
 
+        time.sleep(0.5)
         subprocess.check_call(['xdotool', 'search', '--name', 'user@%s' %
-                self.testvm.name, 'windowactivate', 'type', 'exit\n'])
+                self.testvm1.name, 'windowactivate', 'type', 'exit\n'])
 
         wait_count = 0
         while subprocess.call(['xdotool', 'search', '--name', 'user@%s' %
-                self.testvm.name], stdout=open(os.path.devnull, 'w'),
+                self.testvm1.name], stdout=open(os.path.devnull, 'w'),
                               stderr=subprocess.STDOUT) == 0:
             wait_count += 1
             if wait_count > 100:
@@ -106,9 +112,10 @@ class VmRunningTests(unittest.TestCase):
             time.sleep(0.1)
 
     def test_100_qrexec_filecopy(self):
-        self.testvm.start()
-        p = self.testvm.run("qvm-copy-to-vm %s /etc/passwd" %
-                            self.testvm.name, passio_popen=True,
+        self.testvm1.start()
+        self.testvm2.start()
+        p = self.testvm1.run("qvm-copy-to-vm %s /etc/passwd" %
+                            self.testvm2.name, passio_popen=True,
                             passio_stderr=True)
         # Confirm transfer
         subprocess.check_call(['xdotool', 'search', '--sync', '--name', 'Question',
@@ -116,22 +123,39 @@ class VmRunningTests(unittest.TestCase):
         p.wait()
         self.assertEqual(p.returncode, 0, "qvm-copy-to-vm failed: %s" %
                          p.stderr.read())
-        retcode = self.testvm.run("diff /etc/passwd "
-                         "/home/user/QubesIncoming/%s/passwd" % self.testvm.name, wait=True)
+        retcode = self.testvm2.run("diff /etc/passwd "
+                         "/home/user/QubesIncoming/%s/passwd" % self.testvm1.name, wait=True)
         self.assertEqual(retcode, 0, "file differs")
 
     def test_110_qrexec_filecopy_deny(self):
-        self.testvm.start()
-        p = self.testvm.run("qvm-copy-to-vm %s /etc/passwd" %
-                            self.testvm.name, passio_popen=True)
+        self.testvm1.start()
+        self.testvm2.start()
+        p = self.testvm1.run("qvm-copy-to-vm %s /etc/passwd" %
+                            self.testvm2.name, passio_popen=True)
         # Deny transfer
         subprocess.check_call(['xdotool', 'search', '--sync', '--name', 'Question',
                              'key', 'n'])
         p.wait()
         self.assertEqual(p.returncode, 1, "qvm-copy-to-vm unexpectedly "
                                           "succeeded")
-        retcode = self.testvm.run("ls /home/user/QubesIncoming/%s" %
-                                  self.testvm.name, wait=True,
+        retcode = self.testvm1.run("ls /home/user/QubesIncoming/%s" %
+                                  self.testvm1.name, wait=True,
                                   ignore_stderr=True)
         self.assertEqual(retcode, 2, "QubesIncoming exists although file copy was "
                                      "denied")
+
+    def test_120_qrexec_filecopy_self(self):
+        self.testvm1.start()
+        p = self.testvm1.run("qvm-copy-to-vm %s /etc/passwd" %
+                            self.testvm1.name, passio_popen=True,
+                            passio_stderr=True)
+        # Confirm transfer
+        subprocess.check_call(['xdotool', 'search', '--sync', '--name', 'Question',
+                             'key', 'y'])
+        p.wait()
+        self.assertEqual(p.returncode, 0, "qvm-copy-to-vm failed: %s" %
+                         p.stderr.read())
+        retcode = self.testvm1.run("diff /etc/passwd "
+                         "/home/user/QubesIncoming/%s/passwd" % self.testvm1.name, wait=True)
+        self.assertEqual(retcode, 0, "file differs")
+
