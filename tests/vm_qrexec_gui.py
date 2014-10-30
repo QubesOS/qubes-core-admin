@@ -143,7 +143,7 @@ class VmRunningTests(unittest.TestCase):
         elif result.value == 2:
             self.fail("Some data was printed to stderr")
 
-    def test_055_qrexec_simple_eof_reverse(self):
+    def test_051_qrexec_simple_eof_reverse(self):
         """Test for EOF transmission VM->dom0"""
         result = multiprocessing.Value('i', 0)
         def run(self, result):
@@ -176,6 +176,72 @@ class VmRunningTests(unittest.TestCase):
             self.fail("Some data was printed to stderr")
         elif result.value == 3:
             self.fail("VM proceess didn't terminated on EOF")
+
+    def test_052_qrexec_vm_service_eof(self):
+        """Test for EOF transmission VM(src)->VM(dst)"""
+        result = multiprocessing.Value('i', 0)
+        def run(self, result):
+            p = self.testvm1.run("/usr/lib/qubes/qrexec-client-vm %s test.EOF "
+                                 "/bin/sh -c 'echo test; exec >&-; cat "
+                                 ">&$SAVED_FD_1'" % self.testvm2.name,
+                                 passio_popen=True)
+            (stdout, stderr) = p.communicate()
+            if stdout != "test\n":
+                result.value = 1
+
+        self.testvm1.start()
+        self.testvm2.start()
+        p = self.testvm2.run("cat > /etc/qubes-rpc/test.EOF", user="root",
+                             passio_popen=True)
+        p.stdin.write("/bin/cat")
+        p.stdin.close()
+        p.wait()
+        policy = open("/etc/qubes-rpc/policy/test.EOF", "w")
+        policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
+        policy.close()
+        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.EOF")
+
+        t = multiprocessing.Process(target=run, args=(self, result))
+        t.start()
+        t.join(timeout=10)
+        if t.is_alive():
+            t.terminate()
+            self.fail("Timeout, probably EOF wasn't transferred")
+        if result.value == 1:
+            self.fail("Received data differs from what was expected")
+
+    def test_053_qrexec_vm_service_eof_reverse(self):
+        """Test for EOF transmission VM(src)<-VM(dst)"""
+        result = multiprocessing.Value('i', 0)
+        def run(self, result):
+            p = self.testvm1.run("/usr/lib/qubes/qrexec-client-vm %s test.EOF "
+                                 "/bin/sh -c 'cat >&$SAVED_FD_1'"
+                                 % self.testvm1.name,
+                                 passio_popen=True)
+            (stdout, stderr) = p.communicate()
+            if stdout != "test\n":
+                result.value = 1
+
+        self.testvm1.start()
+        self.testvm2.start()
+        p = self.testvm2.run("cat > /etc/qubes-rpc/test.EOF", user="root",
+                             passio_popen=True)
+        p.stdin.write("echo test; exec >&-; cat >/dev/null")
+        p.stdin.close()
+        p.wait()
+        policy = open("/etc/qubes-rpc/policy/test.EOF", "w")
+        policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
+        policy.close()
+        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.EOF")
+
+        t = multiprocessing.Process(target=run, args=(self, result))
+        t.start()
+        t.join(timeout=10)
+        if t.is_alive():
+            t.terminate()
+            self.fail("Timeout, probably EOF wasn't transferred")
+        if result.value == 1:
+            self.fail("Received data differs from what was expected")
 
     def test_100_qrexec_filecopy(self):
         self.testvm1.start()
