@@ -469,35 +469,56 @@ void redirect_stderr(void)
 		close(fd);
 }
 
+void usage(char *argv0) {
+	fprintf(stderr,
+			"usage: %s -s savefile -c conf_templ [-u default_user] -- [guid args] \n", argv0);
+}
 
 int main(int argc, char **argv)
 {
-	int conf_templ, domid, dispid, netvm_id;
+	int conf_templ_fd, domid, dispid, netvm_id;
 	FILE *conf;
+	int opt;
 	const char *name;
 	char confname[256];
 	char *default_user = NULL;
+	char *savefile = NULL;
+	char *conf_templ = NULL;
 	int guid_args_start = 3;
-	if (argc < 3) {
-		fprintf(stderr,
-			"usage: %s savefile conf_templ [-u default_user] [guid args] \n", argv[0]);
+
+	while ((opt = getopt(argc, argv, "u:c:s:")) != -1) {
+		switch (opt) {
+			case 'u':
+				default_user = optarg;
+				break;
+			case 'c':
+				conf_templ = optarg;
+				break;
+			case 's':
+				savefile = optarg;
+				break;
+			default:
+				usage(argv[0]);
+				break;
+		}
+	}
+	guid_args_start = optind;
+
+	if (!conf_templ || !savefile) {
+		usage(argv[0]);
 		exit(1);
 	}
 	redirect_stderr();
 	fprintf(stderr, "time=%s, starting\n", gettime());
 	set_fast_flag();
 	atexit(rm_fast_flag);
-	conf_templ = open(argv[2], O_RDONLY);
-	if (conf_templ < 0) {
+	conf_templ_fd = open(conf_templ, O_RDONLY);
+	if (conf_templ_fd < 0) {
 		perror("fopen vm conf");
 		exit(1);
 	}
-	if (argc > 4 && strcmp(argv[3], "-u")==0) {
-		default_user = argv[4];
-		guid_args_start += 2;
-	}
 	dispid = get_next_disposable_id();
-	name = get_vmname_from_savefile(conf_templ);
+	name = get_vmname_from_savefile(conf_templ_fd);
 	netvm_id = get_netvm_id_from_name(name);
 	snprintf(confname, sizeof(confname), "/tmp/qubes-dvm-%d.xl", dispid);
 	conf = fopen(confname, "w");
@@ -505,14 +526,14 @@ int main(int argc, char **argv)
 		perror("fopen new vm conf");
 		exit(1);
 	}
-	fix_conffile(conf, conf_templ, dispid, netvm_id);
-	close(conf_templ);
+	fix_conffile(conf, conf_templ_fd, dispid, netvm_id);
+	close(conf_templ_fd);
 	fclose(conf);
 //      printf("name=%s\n", name);
 	unpack_cows(name);
 //      no preloading for now, assume savefile in shm
 //      preload_cache(fd);
-	domid=restore_domain(argv[1], confname, dispname_by_dispid(dispid));
+	domid=restore_domain(savefile, confname, dispname_by_dispid(dispid));
 	write_varrun_domid(domid, dispname_by_dispid(dispid), name);
 	fprintf(stderr,
 		"time=%s, created domid=%d, creating xenstore entries\n",

@@ -67,9 +67,10 @@ class QfileDaemonDvm:
             label = QubesDispVmLabels[sys.argv[4]]
         print >>sys.stderr, "time=%s, starting qubes-restore" % (str(time.time()))
         retcode = subprocess.call(['/usr/lib/qubes/qubes-restore',
-            current_savefile,
-            current_dvm_conf,
+            '-s', current_savefile,
+            '-c', current_dvm_conf,
             '-u', str(vm.default_user),
+            '--',
             '-c', label.color,
             '-i', label.icon_path,
             '-l', str(label.index)])
