@@ -100,6 +100,8 @@ class QubesXenVmStorage(QubesVmStorage):
                     self.modules_dev,
                     rw=True if drive_type == "disk" else False, type=drive_type,
                     domain=drive_domain)
+        else:
+            args['otherdevs'] = ''
 
         return args
 
