@@ -143,6 +143,7 @@ class VmRunningTests(unittest.TestCase):
         elif result.value == 2:
             self.fail("Some data was printed to stderr")
 
+    @unittest.expectedFailure
     def test_051_qrexec_simple_eof_reverse(self):
         """Test for EOF transmission VM->dom0"""
         result = multiprocessing.Value('i', 0)
@@ -210,6 +211,7 @@ class VmRunningTests(unittest.TestCase):
         if result.value == 1:
             self.fail("Received data differs from what was expected")
 
+    @unittest.expectedFailure
     def test_053_qrexec_vm_service_eof_reverse(self):
         """Test for EOF transmission VM(src)<-VM(dst)"""
         result = multiprocessing.Value('i', 0)
