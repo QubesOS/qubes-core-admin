@@ -27,10 +27,6 @@ from qubes.qubes import QubesException
 from qubes.notify import notify_error_qubes_manager
 from qubes.notify import tray_notify,tray_notify_error,tray_notify_init
 from optparse import OptionParser
-import subprocess
-import socket
-import errno
-import time
 import sys
 import os
 import os.path
@@ -68,7 +64,7 @@ def vm_run_cmd(vm, cmd, options):
             gui = options.gui, filter_esc = options.filter_esc)
     except QubesException as err:
         if options.passio and options.color_output is not None:
-            print "\033[0m",
+            sys.stdout.write("\033[0m")
         if options.tray:
             tray_notify_error(str(err))
             notify_error_qubes_manager(vm.name, str(err))
@@ -76,7 +72,7 @@ def vm_run_cmd(vm, cmd, options):
         return 1
     finally:
         if options.passio and options.color_output is not None:
-            print "\033[0m",
+            sys.stdout.write("\033[0m")
 
 def main():
     usage = "usage: %prog [options] [<vm-name>] [<cmd>]"
