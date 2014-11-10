@@ -13,7 +13,7 @@ get_encoded_script()
 }
 
 if [ $# != 2 -a $# != 3 ] ; then
-	echo usage: $0 domainname savefile_to_be_created [preload script]
+	echo "usage: $0 domainname savefile_to_be_created [preload script]" >&2
 	exit 1
 fi
 export PATH=$PATH:/sbin:/usr/sbin
@@ -22,7 +22,7 @@ if [ $# = 3 ] ; then
 fi
 VMDIR=/var/lib/qubes/appvms/$1
 if ! [ -d $VMDIR ] ; then
-	echo $VMDIR does not exist ?
+	echo "$VMDIR does not exist ?" >&2
 	exit 1
 fi
 if ! qvm-start $1 --no-guid --dvm ; then
@@ -31,10 +31,10 @@ fi
 
 ID=`xl domid $1`
 if [ "$ID" = "" ] ; then 
-	echo cannot get domain id
+	echo "cannot get domain id" >&2
 	exit 1
 fi
-echo "Waiting for DVM domainid=$ID ..."
+echo "Waiting for DVM domainid=$ID ..." >&2
 if [ -n "$ENCODED_SCRIPT" ] ; then
 	xenstore-write /local/domain/$ID/qubes-save-script "$ENCODED_SCRIPT"
 fi
@@ -45,7 +45,7 @@ xenstore-read /local/domain/$ID/qubes-gateway | \
 	cut -d . -f 3 | tr -d "\n" > $VMDIR/netvm-id.txt
 xl block-detach $1 xvdb
 MEM=$(xenstore-read /local/domain/$ID/device/qubes-used-mem)
-echo "DVM boot complete, memory used=$MEM. Saving image..."
+echo "DVM boot complete, memory used=$MEM. Saving image..." >&2
 QMEMMAN_STOP=/var/run/qubes/do-not-membalance
 touch $QMEMMAN_STOP
 xl mem-set $1 $(($MEM/1000))
@@ -60,5 +60,5 @@ cd $VMDIR
 # Apparently baloon driver isn't effective enough on some kernels - xl
 # restore still needs initial memory amount
 #sed -i -e "s/^memory.*/memory = $((MEM/1000))/" dvm.conf
-tar -Scvf saved-cows.tar volatile.img
-echo "DVM savefile created successfully."
+tar -Scf saved-cows.tar volatile.img
+echo "DVM savefile created successfully." >&2
