@@ -35,24 +35,7 @@ import sys
 import os
 import os.path
 
-# how long (in sec) to wait for VMs to shutdown
-# before killing them (when used with --wait option)
-from qubes.qubes import defaults
-
 def vm_run_cmd(vm, cmd, options):
-    if options.shutdown:
-        if options.verbose:
-            print >> sys.stderr, "Shutting down VM: '{0}'...".format(vm.name)
-        try:
-            vm.shutdown(force=options.force)
-        except (QubesException) as err:
-            # "There are other VMs connected to this VM:"
-            print >> sys.stderr, "ERROR: {0}".format(err)
-            if str(err).startswith("There are other VMs connected"):
-                print >> sys.stderr, "Shutdown them first or use --force switch"
-            exit(1)
-        return 0
-
     if options.pause:
         if options.verbose:
             print >> sys.stderr, "Pausing VM: '{0}'...".format(vm.name)
@@ -113,26 +96,17 @@ def main():
                        help="When --all is used: exclude this VM name (may be "
                             "repeated)")
 
-    parser.add_option ("--wait", action="store_true", dest="wait_for_shutdown", default=False,
-                      help="Wait for the VM(s) to shutdown")
-
-    parser.add_option ("--shutdown", action="store_true", dest="shutdown", default=False,
-                      help="(deprecated) Do 'xl shutdown' for the VM(s) (can be combined this with --all and --wait)")
-
     parser.add_option ("--pause", action="store_true", dest="pause", default=False,
-                      help="Do 'xl pause' for the VM(s) (can be combined this with --all and --wait)")
+                      help="Do 'xl pause' for the VM(s) (can be combined this with --all)")
 
     parser.add_option ("--unpause", action="store_true", dest="unpause", default=False,
-                      help="Do 'xl unpause' for the VM(s) (can be combined this with --all and --wait)")
+                      help="Do 'xl unpause' for the VM(s) (can be combined this with --all)")
 
     parser.add_option ("-p", "--pass-io", action="store_true", dest="passio", default=False,
                       help="Pass stdin/stdout/stderr from remote program (implies -q)")
 
     parser.add_option ("--localcmd", action="store", dest="localcmd", default=None,
                       help="With --pass-io, pass stdin/stdout/stderr to the given program")
-
-    parser.add_option ("--force", action="store_true", dest="force", default=False,
-                      help="Force operation, even if may damage other VMs (eg shutdown of NetVM)")
 
     parser.add_option ("--nogui", action="store_false", dest="gui", default=True,
                       help="Run command without gui")
@@ -171,10 +145,7 @@ def main():
     elif options.color_output is False:
         options.color_output = None
 
-    if options.shutdown:
-        print >>sys.stderr, "WARNING: --shutdown is deprecated. Use qvm-shutdown instead."
-
-    if (options.shutdown or options.pause or options.unpause):
+    if (options.pause or options.unpause):
         takes_cmd_argument = False
     else:
         takes_cmd_argument = True
@@ -187,7 +158,7 @@ def main():
         cmdstr = args[0] if takes_cmd_argument else None
     else:
         if len (args) < 1 and not takes_cmd_argument:
-            parser.error ("You must specify the VM name to shutdown/pause/unpause.")
+            parser.error ("You must specify the VM name to pause/unpause.")
         if len (args) < 2 and takes_cmd_argument:
             parser.error ("You must specify the VM name and the command to execute in the VM.")
         if len (args) > 2 or ((not takes_cmd_argument) and len(args) > 1):
@@ -227,27 +198,6 @@ def main():
         r = vm_run_cmd(vm, cmdstr, options)
         retcode = max(r, retcode)
 
-    if options.wait_for_shutdown:
-        if options.verbose:
-            print >> sys.stderr, "Waiting for the VM(s) to shutdown..."
-        shutdown_counter = 0
-
-        while len (vms_list):
-            if options.verbose:
-                print >> sys.stderr, "Waiting for VMs: ", [vm.name for vm in vms_list]
-            for vm in vms_list:
-                if not vm.is_running():
-                    vms_list.remove (vm)
-                if shutdown_counter > defaults["shutdown_counter_max"]:
-                    # kill the VM
-                    if options.verbose:
-                        print >> sys.stderr, "Killing the (apparently hanging) VM '{0}'...".format(vm.name)
-                    vm.force_shutdown()
-                    #vms_list.remove(vm)
-
-            shutdown_counter += 1
-            time.sleep (1)
-        exit (0) # there is no point in executing the other daemons in the case of --wait
     exit(retcode)
 
 main()
