@@ -1,11 +1,28 @@
 #!/usr/bin/python2 -O
 
+'''Qubes extensions
+
+Extensions provide additional features (like application menus) found only on
+some systems. They may be OS- or architecture-dependent or custom-developed for
+particular customer.
+
+.. autoclass:: Extension
+   :members:
+   :show-inheritance:
+
+.. autoclass:: ExtensionPlugin
+   :members:
+   :show-inheritance:
+
+'''
+
 import inspect
 
 import qubes.events
 import qubes.plugins
 
 class ExtensionPlugin(qubes.plugins.Plugin):
+    '''Metaclass for :py:class:`Extension`'''
     def __init__(cls, name, bases, dict_):
         super(ExtensionPlugin, cls).__init__(name, bases, dict_)
         cls._instance = None
@@ -16,6 +33,7 @@ class ExtensionPlugin(qubes.plugins.Plugin):
         return cls._instance
 
 class Extension(object):
+    '''Base class for all extensions'''
     __metaclass__ = ExtensionPlugin
     def __init__(self):
         for name in dir(self):

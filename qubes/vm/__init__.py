@@ -1,5 +1,56 @@
 #!/usr/bin/python2 -O
 
+'''Qubes Virtual Machines
+
+Main public classes
+-------------------
+
+.. autoclass:: BaseVM
+   :members:
+   :show-inheritance:
+.. autoclass:: property
+   :members:
+   :show-inheritance:
+
+Helper classes and functions
+----------------------------
+
+.. autoclass:: VMPlugin
+   :members:
+   :show-inheritance:
+
+Particular VM classes
+---------------------
+
+Main types:
+
+.. toctree::
+   :maxdepth: 1
+
+   qubesvm
+   appvm
+   templatevm
+
+Special VM types:
+
+.. toctree::
+   :maxdepth: 1
+
+   netvm
+   proxyvm
+   dispvm
+   adminvm
+
+HVMs:
+
+.. toctree::
+   :maxdepth: 1
+
+   hvm
+   templatehvm
+
+'''
+
 import collections
 import functools
 import sys
@@ -9,6 +60,18 @@ import dateutil.parser
 import qubes.plugins
 
 class property(object):
+    '''Qubes VM property.
+
+    This class holds one property that can be saved and loaded from qubes.xml
+
+    :param str name: name of the property
+    :param object default: default value
+    :param type type: if not :py:obj:`None`, this is used to initialise value
+    :param int order: order of evaluation (bigger order values are later)
+    :param str doc: docstring
+
+    '''
+
     def __init__(self, name, default=None, type=None, order=0, doc=None):
         self.__name__ = name
         self._default = default
@@ -46,6 +109,7 @@ class property(object):
         return self.__name__ == other.__name__
 
 class VMPlugin(qubes.plugins.Plugin):
+    '''Metaclass for :py:class:`.BaseVM`'''
     def __init__(cls, name, bases, dict_):
         super(VMPlugin, cls).__init__(name, bases, dict_)
         cls.__hooks__ = collections.defaultdict(list)
@@ -54,6 +118,7 @@ class BaseVM(object):
     __metaclass__ = VMPlugin
 
     def get_props_list(self):
+        '''List all properties attached to this VM'''
         props = set()
         for class_ in self.__class__.__mro__:
             props.update(prop for prop in class_.__dict__.values()
@@ -73,9 +138,25 @@ class BaseVM(object):
 
     @classmethod
     def add_hook(cls, event, f):
+        '''Add hook to entire VM class and all subclasses
+
+        :param str event: event type
+        :param callable f: function to fire on event
+
+        Prototype of the function depends on the exact type of event. Classes
+        which inherit from this class will also inherit the hook.
+        '''
+
         cls.__hooks__[event].append(f)
 
     def fire_hooks(self, event, *args, **kwargs):
+        '''Fire hooks associated with an event.
+
+        :param str event: event type
+
+        *args* and *kwargs* are passed to each function
+        '''
+
         for cls in self.__class__.__mro__:
             if not hasattr(cls, '__hooks__'): continue
             for hook in cls.__hooks__[event]:
