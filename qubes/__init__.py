@@ -10,3 +10,7 @@ __version__ = 'R3'
 
 import qubes._pluginloader
 
+class QubesException(Exception):
+    '''Exception that can be shown to the user'''
+    pass
+

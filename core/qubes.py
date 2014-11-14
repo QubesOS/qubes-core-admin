@@ -125,9 +125,6 @@ defaults = {
 qubes_max_qid = 254
 qubes_max_netid = 254
 
-class QubesException (Exception):
-    pass
-
 class QubesVMMConnection(object):
     def __init__(self):
         self._libvirt_conn = None
