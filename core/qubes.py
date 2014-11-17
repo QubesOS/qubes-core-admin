@@ -127,62 +127,6 @@ qubes_max_netid = 254
 
 ##########################################
 
-class QubesHost(object):
-    def __init__(self):
-        (model, memory, cpus, mhz, nodes, socket, cores, threads) = vmm.libvirt_conn.getInfo()
-        self._total_mem = long(memory)*1024
-        self._no_cpus = cpus
-
-#        print "QubesHost: total_mem  = {0}B".format (self.xen_total_mem)
-#        print "QubesHost: free_mem   = {0}".format (self.get_free_xen_memory())
-#        print "QubesHost: total_cpus = {0}".format (self.xen_no_cpus)
-
-    @property
-    def memory_total(self):
-        return self._total_mem
-
-    @property
-    def no_cpus(self):
-        return self._no_cpus
-
-    # TODO
-    def measure_cpu_usage(self, qvmc, previous=None, previous_time = None,
-            wait_time=1):
-        """measure cpu usage for all domains at once"""
-        if previous is None:
-            previous_time = time.time()
-            previous = {}
-            for vm in qvmc.values():
-                if not vm.is_running():
-                    continue
-                cputime = vm.get_cputime()
-                previous[vm.xid] = {}
-                previous[vm.xid]['cpu_time'] = (
-                        cputime / vm.vcpus)
-                previous[vm.xid]['cpu_usage'] = 0
-            time.sleep(wait_time)
-
-        current_time = time.time()
-        current = {}
-        for vm in qvmc.values():
-            if not vm.is_running():
-                continue
-            cputime = vm.get_cputime()
-            current[vm.xid] = {}
-            current[vm.xid]['cpu_time'] = (
-                    cputime / max(vm.vcpus, 1))
-            if vm.xid in previous.keys():
-                current[vm.xid]['cpu_usage'] = (
-                    float(current[vm.xid]['cpu_time'] -
-                        previous[vm.xid]['cpu_time']) /
-                    long(1000**3) / (current_time-previous_time) * 100)
-                if current[vm.xid]['cpu_usage'] < 0:
-                    # VM has been rebooted
-                    current[vm.xid]['cpu_usage'] = 0
-            else:
-                current[vm.xid]['cpu_usage'] = 0
-
-        return (current_time, current)
 
 class QubesVmLabel(object):
     def __init__(self, index, color, name, dispvm=False):
