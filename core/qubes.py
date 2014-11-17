@@ -128,29 +128,6 @@ qubes_max_netid = 254
 ##########################################
 
 
-class QubesVmLabel(object):
-    def __init__(self, index, color, name, dispvm=False):
-        self.index = index
-        self.color = color
-        self.name = name
-        self.dispvm = dispvm
-
-        self.icon = '{}-{}'.format(('dispvm' if dispvm else 'appvm'), name)
-
-    def __repr__(self):
-        return '{}({!r}, {!r}, {!r}, dispvm={!r})'.format(
-            self.__class__.__name__,
-            self.index,
-            self.color,
-            self.name,
-            self.dispvm)
-
-    # self.icon_path is obsolete
-    # use QIcon.fromTheme(label.icon) where applicable
-    @property
-    def icon_path(self):
-        return os.path.join(system_path['qubes_icon_dir'], self.icon) + ".png"
-
 def register_qubes_vm_class(vm_class):
     QubesVmClasses[vm_class.__name__] = vm_class
     # register class as local for this module - to make it easy to import from
@@ -792,29 +769,6 @@ class QubesDaemonPidfile(object):
         return False
 
 ### Initialization code
-
-# Globally defined lables
-QubesVmLabels = {
-    "red":      QubesVmLabel(1, "0xcc0000", "red"     ),
-    "orange":   QubesVmLabel(2, "0xf57900", "orange"  ),
-    "yellow":   QubesVmLabel(3, "0xedd400", "yellow"  ),
-    "green":    QubesVmLabel(4, "0x73d216", "green"   ),
-    "gray":     QubesVmLabel(5, "0x555753", "gray"    ),
-    "blue":     QubesVmLabel(6, "0x3465a4", "blue"    ),
-    "purple":   QubesVmLabel(7, "0x75507b", "purple"  ),
-    "black":    QubesVmLabel(8, "0x000000", "black"   ),
-}
-
-QubesDispVmLabels = {
-    "red":      QubesVmLabel(1, "0xcc0000", "red",      dispvm=True),
-    "orange":   QubesVmLabel(2, "0xf57900", "orange",   dispvm=True),
-    "yellow":   QubesVmLabel(3, "0xedd400", "yellow",   dispvm=True),
-    "green":    QubesVmLabel(4, "0x73d216", "green",    dispvm=True),
-    "gray":     QubesVmLabel(5, "0x555753", "gray",     dispvm=True),
-    "blue":     QubesVmLabel(6, "0x3465a4", "blue",     dispvm=True),
-    "purple":   QubesVmLabel(7, "0x75507b", "purple",   dispvm=True),
-    "black":    QubesVmLabel(8, "0x000000", "black",    dispvm=True),
-}
 
 defaults["appvm_label"] = QubesVmLabels["red"]
 defaults["template_label"] = QubesVmLabels["black"]

@@ -137,3 +137,75 @@ class QubesHost(object):
                 current[vm['domid']]['cpu_usage'] = 0
 
         return (current_time, current)
+
+
+class QubesVmLabel(object):
+    '''Label definition for virtual machines
+
+    Label specifies colour of the padlock displayed next to VM's name.
+    When this is a :py:class:`qubes.vm.dispvm.DispVM`, padlock is overlayed
+    with recycling pictogram.
+
+    :param int index: numeric identificator of label
+    :param str color: colour specification as in HTML (``#abcdef``)
+    :param str name: label's name like "red" or "green"
+    :param bool dispvm: :py:obj:`True` if this is :py:class:`qubes.vm.dispvm.DispVM` label
+
+    '''
+    def __init__(self, index, color, name, dispvm=False):
+        #: numeric identificator of label
+        self.index = index
+
+        #: colour specification as in HTML (``#abcdef``)
+        self.color = color
+
+        #: label's name like "red" or "green"
+        self.name = name
+
+        #: :py:obj:`True` if this is :py:class:`qubes.vm.dispvm.DispVM` label
+        self.dispvm = dispvm
+
+        #: freedesktop icon name, suitable for use in :py:meth:`PyQt4.QtGui.QIcon.fromTheme`
+        self.icon = '{}-{}'.format(('dispvm' if dispvm else 'appvm'), name)
+
+    def __repr__(self):
+        return '{}({!r}, {!r}, {!r}, dispvm={!r})'.format(
+            self.__class__.__name__,
+            self.index,
+            self.color,
+            self.name,
+            self.dispvm)
+
+    # self.icon_path is obsolete
+    # use QIcon.fromTheme(label.icon) where applicable
+    @property
+    def icon_path(self):
+        '''Icon path
+
+        DEPRECATED --- use :py:meth:`PyQt4.QtGui.QIcon.fromTheme` and :py:attr:`QubesVmLabel.icon`'''
+        return os.path.join(system_path['qubes_icon_dir'], self.icon) + ".png"
+
+#: Globally defined labels
+QubesVmLabels = {
+    "red":      QubesVmLabel(1, "0xcc0000", "red"     ),
+    "orange":   QubesVmLabel(2, "0xf57900", "orange"  ),
+    "yellow":   QubesVmLabel(3, "0xedd400", "yellow"  ),
+    "green":    QubesVmLabel(4, "0x73d216", "green"   ),
+    "gray":     QubesVmLabel(5, "0x555753", "gray"    ),
+    "blue":     QubesVmLabel(6, "0x3465a4", "blue"    ),
+    "purple":   QubesVmLabel(7, "0x75507b", "purple"  ),
+    "black":    QubesVmLabel(8, "0x000000", "black"   ),
+}
+
+#: Globally defined labels for :py:class:`qubes.vm.dispvm.DispVM` s
+QubesDispVmLabels = {
+    "red":      QubesVmLabel(1, "0xcc0000", "red",      dispvm=True),
+    "orange":   QubesVmLabel(2, "0xf57900", "orange",   dispvm=True),
+    "yellow":   QubesVmLabel(3, "0xedd400", "yellow",   dispvm=True),
+    "green":    QubesVmLabel(4, "0x73d216", "green",    dispvm=True),
+    "gray":     QubesVmLabel(5, "0x555753", "gray",     dispvm=True),
+    "blue":     QubesVmLabel(6, "0x3465a4", "blue",     dispvm=True),
+    "purple":   QubesVmLabel(7, "0x75507b", "purple",   dispvm=True),
+    "black":    QubesVmLabel(8, "0x000000", "black",    dispvm=True),
+}
+
