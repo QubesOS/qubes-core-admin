@@ -16,6 +16,7 @@ Contents:
    qubes-events
    qubes-plugins
    qubes-ext
+   qubes-log
 
 Indices and tables
 ==================
