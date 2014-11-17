@@ -29,7 +29,7 @@ class QubesVMMConnection(object):
 
     @offline_mode.setter
     def offline_mode(self, value):
-        if not value and self._libvirt_conn is not None:
+        if value and self._libvirt_conn is not None:
             raise QubesException("Cannot change offline mode while already connected")
 
         self._offline_mode = value
@@ -46,7 +46,7 @@ class QubesVMMConnection(object):
             return
         if self._offline_mode:
             # Do not initialize in offline mode
-            return
+            raise QubesException("VMM operations disabled in offline mode")
 
         if 'xen.lowlevel.xs' in sys.modules:
             self._xs = xen.lowlevel.xs.xs()
@@ -56,19 +56,11 @@ class QubesVMMConnection(object):
         libvirt.registerErrorHandler(self._libvirt_error_handler, None)
         atexit.register(self._libvirt_conn.close)
 
-    def _common_getter(self, name):
-        if self._offline_mode:
-            # Do not initialize in offline mode
-            raise QubesException("VMM operations disabled in offline mode")
-
-        if self._libvirt_conn is None:
-            self.init_vmm_connection()
-        return getattr(self, name)
-
     @property
     def libvirt_conn(self):
         '''Connection to libvirt'''
-        return self._common_getter('_libvirt_conn')
+        self.init_vmm_connection()
+        return self._libvirt_conn
 
     @property
     def xs(self):
@@ -76,10 +68,11 @@ class QubesVMMConnection(object):
 
         This property in available only when running on Xen.'''
 
-        if 'xen.lowlevel.xs' in sys.modules:
-            return self._common_getter('_xs')
-        else:
+        if 'xen.lowlevel.xs' not in sys.modules:
             return None
+
+        self.init_vmm_connection()
+        return self._xs
 
 if not dry_run:
     vmm = QubesVMMConnection()
