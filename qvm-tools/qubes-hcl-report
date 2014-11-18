@@ -18,90 +18,126 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-if [[ -z "$1" ]] || [[ "$1" == "--help" ]] || [[ "$1" == "-q" ]]
- then
-    echo ""
-    echo "This tool is used to gather hardware information for the Qubes HCL (Hardware Compatibility List)"
-    echo "and copy the Support Files to the given AppVM for the easy contribution..."
-    echo "If you do not want to copy them to any AppVM use 'dom0' as AppVM Name."
-    echo ""
-    echo -e "Usage:\tqubes-hcl-report <AppVM Name>"
-    echo ""
-    exit
+VERSION=2.1
+COPY2VM="dom0"
+SUPPORT_FILES=0
 
-else
-    /usr/bin/qvm-check -q $1
-    if [[ $? -eq 0 ]]
-     then
-        COPY2VM="$1"
-    else
-        echo -e "ERROR:\tAppVM with the name '$1' does not exist in the system!"
-        exit 1
-    fi
-fi
+while [ $# -gt 0 ]; do
+  case "$1" in
+
+    -s |--support)
+      SUPPORT_FILES=1
+      ;;
+
+    -* | -h | --help)
+      echo -e "qubes-hcl-report v$VERSION"
+      echo ""
+      echo "This tool is used to gather basic hardware information for the Qubes HCL (Hardware Compatibility List)"
+      echo "and copy the results to the given AppVM for the easy contribution."
+      echo ""
+      echo -e "Usage:\tqubes-hcl-report [OPTIONS] [<AppVM Name>]"
+      echo -e "Options are:"
+      echo -e "\t-h, --help\tDisplay this help text and exit."
+      echo -e "\t-s, --support\tGenerate more detailed HCL Support Files"
+      echo -e "\t\t\tWARNING: The HCL Support Files may contain numerous hardware details, including serial numbers." 
+      echo -e "\t\t\tIf, for privacy or security reasons, you do not wish to make this information public, "
+      echo -e "\t\t\tplease do not send the .cpio.gz file to the public mailing list."
+      echo ""
+      echo -e "\t<AppVM Name>\tCopy the results to the given AppVM. The default is to keep it in dom0"
+      echo ""
+      exit
+      ;;
+
+    *)
+      /usr/bin/qvm-check -q $1
+      if [[ $? -eq 0 ]]
+        then
+          COPY2VM="$1"
+        else
+          echo -e "ERROR:\tAppVM with the name '$1' does not exist in the system!"
+          exit 1
+      fi
+      ;;
+
+  esac
+  shift
+done
+
 
 DATE=`date +%Y%m%d-%H%M%S`
 
-BRAND=`sudo dmidecode |grep -A9 "System Information" |grep "Manufacturer:" |cut -d ' ' -f2- |tr -s '[:blank:]' _`
-PRODUCT=`sudo dmidecode |grep -A9 "System Information" |grep "Product Name:" |cut -d ' ' -f3- |tr -s '[:blank:]' _`
+
+TEMP_DIR=`mktemp --tmpdir -d HCL.XXXXXXXXXX`
+cat /etc/qubes-release > $TEMP_DIR/qubes-release
+cat /proc/cpuinfo > $TEMP_DIR/cpuinfo
+lspci -nnvk > $TEMP_DIR/lspci
+cat /proc/scsi/scsi > $TEMP_DIR/scsi
+sudo dmidecode > $TEMP_DIR/dmidecode
+xl info > $TEMP_DIR/xl-info
+xl dmesg > $TEMP_DIR/xl-dmesg
+
+
+BRAND=`cat $TEMP_DIR/dmidecode |grep -A9 "System Information" |grep "Manufacturer:" |cut -d ' ' -f2- |tr -s '[:blank:]' _`
+PRODUCT=`cat $TEMP_DIR/dmidecode |grep -A9 "System Information" |grep "Product Name:" |cut -d ' ' -f3- |tr -s '[:blank:]' _`
 
 if [[ $BRAND =~ "O.E.M" ]]
  then
-    BRAND=`sudo dmidecode |grep -A9 "Base Board Information" |grep "Manufacturer:" |cut -d ' ' -f2- |tr -s '[:blank:]' _`
-    PRODUCT=`sudo dmidecode |grep -A9 "Base Board Information" |grep "Product Name:" |cut -d ' ' -f3- |tr -s '[:blank:]' _`
+    BRAND=`cat $TEMP_DIR/dmidecode |grep -A9 "Base Board Information" |grep "Manufacturer:" |cut -d ' ' -f2- |tr -s '[:blank:]' _`
+    PRODUCT=`cat $TEMP_DIR/dmidecode |grep -A9 "Base Board Information" |grep "Product Name:" |cut -d ' ' -f3- |tr -s '[:blank:]' _`
 fi
 
 KERNEL=`uname -r |cut -d '.' -f-3`
-CPU=`sudo cat /proc/cpuinfo |grep "model name" |sort -u |cut -d ' ' -f3-`
-CHIPSET=`sudo lspci -nn |grep "00:00.0.*Host bridge"`
-VGA=`sudo lspci -nn |grep "VGA\|Display" | sed -e "s/^/\t\t/"`
-HDD=`cat /proc/scsi/scsi |grep Model |cut -d ':' -f3- | sed -e "s/^[[:space:]]*/\t\t/"`
-RAM=`xl info |grep total_memory |cut -d ':' -f2 |tr -d ' '`
-BIOS=`sudo dmidecode |grep -A9 "BIOS Information" |grep "Version" |cut -d ' ' -f2-`
-XLINFO=`sudo xl info |grep "virt_caps"`
-XEN_MAJOR=`sudo xl info |grep xen_major |cut -d: -f2 |tr -d ' '`
-XEN_MINOR=`sudo xl info |grep xen_minor |cut -d: -f2 |tr -d ' '`
-XEN_EXTRA=`sudo xl info |grep xen_extra |cut -d: -f2 |tr -d ' '`
+CPU=`cat $TEMP_DIR/cpuinfo |grep "model name" |sort -u |cut -d ' ' -f3-`
+CHIPSET=`cat $TEMP_DIR/lspci |grep "00:00.0.*Host bridge"`
+VGA=`cat $TEMP_DIR/lspci |grep "VGA\|Display" | sed -e "s/^/\t\t/"`
+SCSI=`cat $TEMP_DIR/scsi |grep Model |cut -d ':' -f3- | sed -e "s/^[[:space:]]*/\t\t/"`
+RAM=`cat $TEMP_DIR/xl-info |grep total_memory |cut -d ':' -f2 |tr -d ' '`
+BIOS=`cat $TEMP_DIR/dmidecode |grep -A9 "BIOS Information" |grep "Version" |cut -d ' ' -f2-`
+XEN_MAJOR=`cat $TEMP_DIR/xl-info |grep xen_major |cut -d: -f2 |tr -d ' '`
+XEN_MINOR=`cat $TEMP_DIR/xl-info |grep xen_minor |cut -d: -f2 |tr -d ' '`
+XEN_EXTRA=`cat $TEMP_DIR/xl-info |grep xen_extra |cut -d: -f2 |tr -d ' '`
+
+XL_VTX=`cat $TEMP_DIR/xl-info |grep xen_caps | grep hvm`
+XL_VTD=`cat $TEMP_DIR/xl-info |grep virt_caps |grep hvm_directio`
+
 
 FILENAME="Qubes-HCL-$BRAND-$PRODUCT-$DATE"
 
-if [[ "$XLINFO" =~ "hvm_directio" ]]
+if [[ $XL_VTX ]]
  then 
     VTX="Active"
     HVM="good"
-
-    VTD="Active"
-    IOMMU="good"
-
- elif [[ "$XLINFO" =~ "hvm" ]]
- then
-    VTX="Active"
-    HVM="good"
-
-    VTD="Not Active"
-    IOMMU="bad"
 
  else
     VTX="Not Active"
     HVM="bad"
 
-    VTD="Not Active"
-    IOMMU="bad"
 fi
 
-sudo cat /etc/qubes-release |tee ~/$FILENAME.txt
+if [[ $XL_VTD ]]
+ then
+    VTD="Active"
+    IOMMU="good"
+
+ else
+    VTD="Not Active"
+    IOMMU="bad"
+
+fi
+
+cat /etc/qubes-release |tee $HOME/$FILENAME.txt
 echo
-echo -e "Model Name:\t$BRAND $PRODUCT" |tee -a ~/$FILENAME.txt
-echo -e "Kernel:\t\t$KERNEL" |tee -a ~/$FILENAME.txt
-echo -e "Xen:\t\t$XEN_MAJOR.$XEN_MINOR$XEN_EXTRA\n" |tee -a ~/$FILENAME.txt
-echo -e "RAM:\t\t$RAM Mb\n" |tee -a  ~/$FILENAME.txt
-echo -e "CPU:\t\t$CPU" |tee -a  ~/$FILENAME.txt
-echo -e "Chipset:\t$CHIPSET" |tee -a ~/$FILENAME.txt
-echo -e "VGA:$VGA\n" |tee -a ~/$FILENAME.txt
-echo -e "HDD:$HDD\n" |tee -a ~/$FILENAME.txt
-echo -e "BIOS:\t\t$BIOS" |tee -a ~/$FILENAME.txt
-echo -e "VT-x:\t\t$VTX" |tee -a ~/$FILENAME.txt
-echo -e "VT-d:\t\t$VTD" |tee -a ~/$FILENAME.txt
+echo -e "Model Name:\t$BRAND $PRODUCT" |tee -a $HOME/$FILENAME.txt
+echo -e "Kernel:\t\t$KERNEL" |tee -a $HOME/$FILENAME.txt
+echo -e "Xen:\t\t$XEN_MAJOR.$XEN_MINOR$XEN_EXTRA\n" |tee -a $HOME/$FILENAME.txt
+echo -e "RAM:\t\t$RAM Mb\n" |tee -a  $HOME/$FILENAME.txt
+echo -e "CPU:\t\t$CPU" |tee -a  $HOME/$FILENAME.txt
+echo -e "Chipset:\t$CHIPSET" |tee -a $HOME/$FILENAME.txt
+echo -e "VGA:$VGA\n" |tee -a $HOME/$FILENAME.txt
+echo -e "SCSI:$SCSI\n" |tee -a $HOME/$FILENAME.txt
+echo -e "BIOS:\t\t$BIOS" |tee -a $HOME/$FILENAME.txt
+echo -e "VT-x:\t\t$VTX" |tee -a $HOME/$FILENAME.txt
+echo -e "VT-d:\t\t$VTD" |tee -a $HOME/$FILENAME.txt
 echo
 
 echo -e "
@@ -152,39 +188,50 @@ and append the following with the new report data filled in:
     <a class='ext-link' href='FIXLINK'><span class='icon'></span>insert name</a>
  </td>\t\t\t\t\t\t\t<!-- Reported by -->
 </tr>
-" >> ~/$FILENAME.txt
-
-TEMP_DIR=`mktemp -d`
-sudo cat /etc/qubes-release > $TEMP_DIR/qubes-release
-sudo cat /proc/cpuinfo > $TEMP_DIR/cpuinfo
-sudo lspci -nnvk > $TEMP_DIR/lspci
-sudo dmidecode > $TEMP_DIR/dmidecode
-sudo xl info > $TEMP_DIR/xl
+" >> $HOME/$FILENAME.txt
 
 
-# cpio
-cd $TEMP_DIR
-find -print0 |cpio --quiet -o -H crc --null |gzip  >~/$FILENAME.cpio.gz
-cd
+if [[ "$SUPPORT_FILES" == 1 ]]
+  then
 
+    # cpio
+    cd $TEMP_DIR
+    find -print0 |cpio --quiet -o -H crc --null |gzip  >$HOME/$FILENAME.cpio.gz
+    cd
+fi
 
-# VM check
+# Destination VM check
 if [[ "$COPY2VM" != "dom0" ]]
  then
     # Copy to VM
     qvm-start -q $COPY2VM 2>/dev/null
-    cat ~/$FILENAME.cpio.gz | qvm-run -a -q --pass-io $COPY2VM "cat >/home/user/$FILENAME.cpio.gz"
-    cat ~/$FILENAME.txt | qvm-run -a -q --pass-io $COPY2VM "cat >/home/user/$FILENAME.txt"
+
+    if [[ -f "$HOME/$FILENAME.cpio.gz" ]]
+      then
+        cat $HOME/$FILENAME.cpio.gz | qvm-run -a -q --pass-io $COPY2VM "cat >/home/user/$FILENAME.cpio.gz"
+    fi
+
+    if [[ -f "$HOME/$FILENAME.txt" ]]
+      then
+        cat $HOME/$FILENAME.txt | qvm-run -a -q --pass-io $COPY2VM "cat >/home/user/$FILENAME.txt"
+    fi
+
 fi
 
-echo -e "Qubes HCL Support files are copied to: '$COPY2VM'"
+echo -e "Qubes HCL Files are copied to: '$COPY2VM'"
 echo -e "\t$FILENAME.txt\t\t- HCL Info"
-echo -e "\t$FILENAME.cpio.gz\t- HCL Support Files"
+
+if [[ "$SUPPORT_FILES" == 1 ]]
+  then
+    echo -e "\t$FILENAME.cpio.gz\t- HCL Support Files"
+fi
+
+echo
 
 
 # cleanup
 if [[ -d $TEMP_DIR ]]
  then
-    rm -rf $TEMP_DIR
+   rm -rf $TEMP_DIR
 fi
 
