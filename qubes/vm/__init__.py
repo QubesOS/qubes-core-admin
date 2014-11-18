@@ -51,6 +51,7 @@ HVMs:
 
 '''
 
+import ast
 import collections
 import functools
 import sys
@@ -115,6 +116,16 @@ class VMPlugin(qubes.plugins.Plugin):
         cls.__hooks__ = collections.defaultdict(list)
 
 class BaseVM(object):
+    '''Base class for all VMs
+
+    :param xml: xml node from which to deserialise
+    :type xml: :py:class:`lxml.etree._Element` or :py:obj:`None`
+
+    This class is responsible for serialising and deserialising machines and
+    provides basic framework. It contains no management logic. For that, see
+    :py:class:`qubes.vm.qubesvm.QubesVM`.
+    '''
+
     __metaclass__ = VMPlugin
 
     def get_props_list(self):
@@ -125,10 +136,45 @@ class BaseVM(object):
                 if isinstance(prop, property))
         return sorted(props, key=lambda prop: (prop.order, prop.__name__))
 
-    def __init__(self, D):
-        for prop in self.get_props_list():
-            if prop.__name__ in D:
-                setattr(self, prop.__name__, D[prop.__name__])
+    def __init__(self, xml):
+        self._xml = xml
+
+        self.services = {}
+        self.devices = collections.defaultdict(list)
+        self.tags = {}
+
+        if self._xml is None:
+            return
+
+        # properties
+        all_names = set(prop.__name__ for prop in self.get_props_list())
+        for node in self._xml.xpath('.//property'):
+            name = node.get('name')
+            value = node.get('ref') or node.text
+
+            if not name in all_names:
+                raise AttributeError(
+                    'No property {!r} found in {!r}'.format(
+                        name, self.__class__))
+
+            setattr(self, name, value)
+
+        # tags
+        for node in self._xml.xpath('.//tag'):
+            self.tags[node.get('name')] = node.text
+
+        # services
+        for node in self._xml.xpath('.//service'):
+            self.services[node.text] = bool(ast.literal_eval(node.get('enabled', 'True')))
+
+        # devices (pci, usb, ...)
+        for parent in self._xml.xpath('.//devices'):
+            devclass = parent.get('class')
+            for node in parent.xpath('./device'):
+                self.devices[devclass].append(node.text)
+
+        # firewall
+        #TODO
 
     def __repr__(self):
         return '<{} object at {:#x} {}>'.format(
@@ -150,7 +196,7 @@ class BaseVM(object):
         cls.__hooks__[event].append(f)
 
     def fire_hooks(self, event, *args, **kwargs):
-        '''Fire hooks associated with an event.
+        '''Fire hooks associated with an event
 
         :param str event: event type
 
