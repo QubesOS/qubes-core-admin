@@ -17,6 +17,7 @@ Contents:
    qubes-plugins
    qubes-ext
    qubes-log
+   qubes-dochelpers
 
 Indices and tables
 ==================
