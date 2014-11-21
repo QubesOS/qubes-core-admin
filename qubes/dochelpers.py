@@ -14,7 +14,11 @@ import sys
 import urllib2
 
 import docutils
+import docutils.nodes
+import docutils.parsers.rst
 import docutils.parsers.rst.roles
+import docutils.statemachine
+import sphinx.locale
 
 def fetch_ticket_info(uri):
     '''Fetch info about particular trac ticket given
@@ -69,8 +73,56 @@ def ticket(name, rawtext, text, lineno, inliner, options={}, content=[]):
     return [node], []
 
 
+class versioncheck(docutils.nodes.warning): pass
+
+def visit(self, node):
+    self.visit_admonition(node, 'version')
+
+def depart(self, node):
+    self.depart_admonition(node)
+
+sphinx.locale.admonitionlabels['version'] = 'Version mismatch'
+
+
+class VersionCheck(docutils.parsers.rst.Directive):
+    '''Directive versioncheck
+
+    Check if current version (from ``conf.py``) equals version specified as
+    argument. If not, generate warning.'''
+
+    has_content = True
+    required_arguments = 1
+    optional_arguments = 0
+    final_argument_whitespace = True
+    option_spec = {}
+
+    def run(self):
+        current = self.state.document.settings.env.app.config.version
+        version = self.arguments[0]
+
+        if current == version:
+            return []
+
+        text = ' '.join('''This manual page was written for version **{}**, but
+            current version at the time when this page was generated is **{}**.
+            This may or may not mean that page is outdated or has
+            inconsistencies.'''.format(version, current).split())
+
+        node = versioncheck(text)
+        node['classes'] = ['admonition', 'warning']
+
+        self.state.nested_parse(docutils.statemachine.StringList([text]),
+            self.content_offset, node)
+        return [node]
+
+
 def setup(app):
     app.add_role('ticket', ticket)
     app.add_config_value('ticket_base_uri', 'https://wiki.qubes-os.org/ticket/', 'env')
+    app.add_node(versioncheck,
+        html=(visit, depart),
+        man=(visit, depart))
+    app.add_directive('versioncheck', VersionCheck)
+
 
 # vim: ts=4 sw=4 et
