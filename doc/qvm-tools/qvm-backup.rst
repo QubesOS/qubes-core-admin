@@ -1,25 +1,25 @@
-==========
-qvm-backup
-==========
+.. program:: qvm-backup
 
-NAME
-====
-qvm-backup
+=======================================================
+:program:`qvm-backup` -- Create backup of specified VMs
+=======================================================
 
-:Date:   2012-04-10
-
-SYNOPSIS
+Synopsis
 ========
 | qvm-backup [options] <backup-dir-path>
 
-OPTIONS
+Options
 =======
--h, --help
+
+.. option:: --help, -h
+
     Show this help message and exit
--x EXCLUDE_LIST, --exclude=EXCLUDE_LIST
+
+.. option:: --exclude=EXCLUDE_LIST, -x EXCLUDE_LIST
+
     Exclude the specified VM from backup (might be repeated)
 
-AUTHORS
+Authors
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>

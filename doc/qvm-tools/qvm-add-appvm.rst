@@ -1,29 +1,32 @@
-=============
-qvm-add-appvm
-=============
+.. program:: qvm-add-appvm
 
-NAME
-====
-qvm-add-appvm - add an already installed appvm to the Qubes DB
+==========================================================================
+:program:`qvm-add-appvm` -- Add an already installed appvm to the Qubes DB
+==========================================================================
 
-WARNING: Noramlly you would not need this command, and you would use qvm-create instead!
+.. warning::
+   Normally you would not need this command, and you would use qvm-create instead!
 
-:Date:   2012-04-10
-
-SYNOPSIS
+Synopsis
 ========
 | qvm-add-appvm [options] <appvm-name> <vm-template-name>
 
-OPTIONS
+Options
 =======
--h, --help
-    Show this help message and exit
--p DIR_PATH, --path=DIR_PATH
-    Specify path to the template directory
--c CONF_FILE, --conf=CONF_FILE
-    Specify the Xen VM .conf file to use(relative to the template dir path)
 
-AUTHORS
+.. option:: --help, -h
+
+    Show this help message and exit
+
+.. option:: --path=DIR_PATH, -p DIR_PATH
+
+    Specify path to the template directory
+
+.. option:: --conf=CONF_FILE, -c CONF_FILE
+
+    Specify the Xen VM .conf file to use (relative to the template dir path)
+
+Authors
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>

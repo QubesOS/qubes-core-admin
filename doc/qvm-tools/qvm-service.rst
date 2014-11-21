@@ -1,33 +1,44 @@
-===========
-qvm-service
-===========
+.. program:: qvm-service
+
+========================================================================
+:program:`qvm-service` -- Manage (Qubes-specific) services started in VM
+========================================================================
 
 NAME
 ====
-qvm-service - manage (Qubes-specific) services started in VM
+qvm-service - 
 
 :Date:   2012-05-30
 
-SYNOPSIS
+Synopsis
 ========
 | qvm-service [-l] <vmname>
 | qvm-service [-e|-d|-D] <vmname> <service>
 
-OPTIONS
+Options
 =======
--h, --help
+.. option:: --help, -h
+
     Show this help message and exit
--l, --list
+
+.. option:: --list, -l
+
     List services (default action)
--e, --enable
+
+.. option:: --enable, -e
+
     Enable service
--d, --disable
+
+.. option:: --disable, -d
+
     Disable service
--D, --default
+
+.. option:: --default, -D
+
     Reset service to its default state (remove from the list). Default state
     means "lets VM choose" and can depend on VM type (NetVM, AppVM etc).
 
-SUPPORTED SERVICES
+Supported services
 ==================
 
 This list can be incomplete as VM can implement any additional service without knowlege of qubes-core code.
@@ -109,9 +120,11 @@ updates-proxy-setup
 
     Setup yum at startup to use qubes-yum-proxy service.
 
-    *Note:* this service is automatically enabled when you allow VM to access
-    yum proxy (in firewall settings) and disabled when you deny access to yum
-    proxy.
+    .. note::
+
+       this service is automatically enabled when you allow VM to access yum
+       proxy (in firewall settings) and disabled when you deny access to yum
+       proxy.
 
 disable-default-route
     Default: disabled
@@ -128,7 +141,7 @@ disable-dns-server
     The functionality is implemented in /usr/lib/qubes/setup-ip.
 
 
-AUTHORS
+Authors
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>

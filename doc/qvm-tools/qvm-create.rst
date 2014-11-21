@@ -1,53 +1,79 @@
-==========
-qvm-create
-==========
+.. program:: qvm-create
 
-NAME
-====
-qvm-create - creates a new VM
+=========================================
+:program:`qvm-create` -- Creates a new VM
+=========================================
 
-:Date:   2012-04-10
-
-SYNOPSIS
+Synopsis
 ========
 | qvm-create [options] <vm-name>
 
-OPTIONS
+Options
 =======
--h, --help
+
+.. option:: --help, -h
+
     Show this help message and exit
--t TEMPLATE, --template=TEMPLATE
+
+.. option:: --template=TEMPLATE, -t TEMPLATE
+
     Specify the TemplateVM to use
--l LABEL, --label=LABEL
+
+.. option:: --label=LABEL, -l LABEL
+
     Specify the label to use for the new VM (e.g. red, yellow, green, ...)
--p, --proxy
+
+.. option:: --proxy, -p
+
     Create ProxyVM
--n, --net
+
+.. option:: --net, -n
+
     Create NetVM
--H, --hvm
-    Create HVM (standalone, unless --template option used)
---hvm-template
+
+.. option:: --hvm, -H
+
+    Create HVM (standalone, unless :option:`--template` option used)
+
+.. option:: --hvm-template
+
     Create HVM template
--R ROOT_MOVE, --root-move-from=ROOT_MOVE
+
+.. option:: --root-move-from=ROOT_MOVE, -R ROOT_MOVE
+
     Use provided root.img instead of default/empty one
-    (file will be MOVED)
--r ROOT_COPY, --root-copy-from=ROOT_COPY
+    (file will be *moved*)
+
+.. option:: --root-copy-from=ROOT_COPY, -r ROOT_COPY
+
     Use provided root.img instead of default/empty one
-    (file will be COPIED)
--s, --standalone
-    Create standalone VM - independent of template
--m MEM, --mem=MEM
+    (file will be *copied*)
+
+.. option:: --standalone, -s
+
+    Create standalone VM --- independent of template
+
+.. option:: --mem=MEM, -m MEM
+
     Initial memory size (in MB)
--c VCPUS, --vcpus=VCPUS
+
+.. option:: --vcpus=VCPUS, -c VCPUS
+
     VCPUs count
--i, --internal
+
+.. option:: --internal, -i
+
     Create VM for internal use only (hidden in qubes-manager, no appmenus)
---force-root
+
+.. option:: --force-root
+
     Force to run, even with root privileges
--q, --quiet
+
+.. option:: --quiet, -q
+
     Be quiet
            
-AUTHORS
+Authors
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>

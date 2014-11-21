@@ -1,49 +1,79 @@
-=======
-qvm-run
-=======
+.. program:: qvm-run
 
-NAME
-====
-qvm-run - run a command on a specified VM
+=====================================================
+:program:`qvm-run` -- Run a command on a specified VM
+=====================================================
 
-:Date:   2012-04-11
-
-SYNOPSIS
+Synopsis
 ========
 | qvm-run [options] [<vm-name>] [<cmd>]
 
-OPTIONS
+Options
 =======
--h, --help
+
+.. option:: --help, -h
+
     Show this help message and exit
--q, --quiet
+
+.. option:: --quiet, -q
+
     Be quiet           
--a, --auto
+
+.. option:: --auto, -a
+
     Auto start the VM if not running
--u USER, --user=USER
+
+.. option:: --user=USER, -u USER
+
     Run command in a VM as a specified user
---tray
+
+.. option:: --tray
+
     Use tray notifications instead of stdout
---all
-    Run command on all currently running VMs (or all paused, in case of --unpause)
---exclude=EXCLUDE_LIST
-    When --all is used: exclude this VM name (might be repeated)
---wait
+
+.. option:: --all
+
+    Run command on all currently running VMs (or all paused, in case of :option:`--unpause`)
+
+.. option:: --exclude=EXCLUDE_LIST
+
+    When :option:`--all` is used: exclude this VM name (might be repeated)
+
+.. option:: --wait
+
     Wait for the VM(s) to shutdown
---shutdown
-    (deprecated) Do 'xl shutdown' for the VM(s) (can be combined this with --all and --wait)
---pause
-    Do 'xl pause' for the VM(s) (can be combined this with --all and --wait)
---unpause
-    Do 'xl unpause' for the VM(s) (can be combined this with --all and --wait)
--p, --pass-io
+
+.. option:: --shutdown
+
+    Do 'xl shutdown' for the VM(s) (can be combined with :option:`--all` and
+    :option:`--wait`)
+
+    .. deprecated:: R2
+       Use :manpage:`qvm-shutdown(1)` instead.
+
+.. option:: --pause
+
+    Do 'xl pause' for the VM(s) (can be combined with :option:`--all` and
+    :option:`--wait`)
+
+.. option:: --unpause
+
+    Do 'xl unpause' for the VM(s) (can be combined with :option:`--all` and
+    :option:`--wait`)
+
+.. option:: --pass-io, -p
+
     Pass stdin/stdout/stderr from remote program
---localcmd=LOCALCMD
-    With --pass-io, pass stdin/stdout/stderr to the given program
---force
+
+.. option:: --localcmd=LOCALCMD
+
+    With :option:`--pass-io`, pass stdin/stdout/stderr to the given program
+
+.. option:: --force
+
     Force operation, even if may damage other VMs (eg. shutdown of NetVM)
 
-AUTHORS
+Authors
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>

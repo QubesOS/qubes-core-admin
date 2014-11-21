@@ -1,32 +1,36 @@
-=========
-qvm-prefs
-=========
+.. program:: qvm-prefs
 
-NAME
-====
-qvm-prefs - list/set various per-VM properties
+==========================================================
+:program:`qvm-prefs` -- List/set various per-VM properties
+==========================================================
 
-:Date:   2012-04-11
-
-SYNOPSIS
+Synopsis
 ========
 | qvm-prefs -l [options] <vm-name>
 | qvm-prefs -g [options] <vm-name> <property>
 | qvm-prefs -s [options] <vm-name> <property> [...]
 
 
-OPTIONS
+Options
 =======
--h, --help
+
+.. option:: --help, -h
+
     Show this help message and exit
--l, --list
+
+.. option:: --list, -l
+
     List properties of a specified VM
--g, --get
+
+.. option:: --get, -g
+
     Get a single property of a specified VM
--s, --set
+
+.. option:: --set, -s
+
     Set properties of a specified VM
 
-PROPERTIES
+Properties
 ==========
 
 include_in_backups
@@ -141,7 +145,7 @@ timezone
 
     Set emulated HVM clock timezone. Use ``localtime`` (the default) to use the same time as dom0 have. Note that HVM will get only clock value, not the timezone itself, so if you use ``localtime`` setting, OS inside of HVM should also be configured to treat hardware clock as local time (and have proper timezone set).
 
-AUTHORS
+Authors
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>

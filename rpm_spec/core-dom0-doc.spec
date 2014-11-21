@@ -44,7 +44,7 @@ Provides:	qubes-doc-dom0
 The Qubes docs for dom0 tools
 
 %build
-make manpages
+make man
 
 %install
 

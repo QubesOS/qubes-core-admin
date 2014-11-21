@@ -1,29 +1,33 @@
-==========
-qvm-remove
-==========
+.. program:: qvm-remove
 
-NAME
-====
-qvm-remove - remove a VM
+====================================
+:program:`qvm-remove` -- Remove a VM
+====================================
 
-:Date:   2012-04-11
-
-SYNOPSIS
+Synopsis
 ========
 | qvm-remove [options] <vm-name>
 
-OPTIONS
+Options
 =======
--h, --help
+
+.. option:: --help, -h
+
     Show this help message and exit
--q, --quiet
+
+.. option:: --quiet, -q
+
     Be quiet   
---just-db
+
+.. option:: --just-db
+
     Remove only from the Qubes Xen DB, do not remove any files
---force-root
+
+.. option:: --force-root
+
     Force to run, even with root privileges
 
-AUTHORS
+Authors
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>

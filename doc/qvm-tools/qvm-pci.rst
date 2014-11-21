@@ -1,32 +1,35 @@
-=======
-qvm-pci
-=======
+.. program:: qvm-pci
 
-NAME
-====
-qvm-pci - list/set VM PCI devices
+=============================================
+:program:`qvm-pci` -- List/set VM PCI devices
+=============================================
 
-
-:Date:   2012-04-11
-
-SYNOPSIS
+Synopsis
 ========
 | qvm-pci -l [options] <vm-name>
 | qvm-pci -a [options] <vm-name> <device>
 | qvm-pci -d [options] <vm-name> <device>
  
-OPTIONS
+Options
 =======
--h, --help
+
+.. option:: --help, -h
+
     Show this help message and exit
--l, --list
+
+.. option:: --list, -l
+
     List VM PCI devices    
--a, --add
+
+.. option:: --add, -a
+
     Add a PCI device to specified VM
--d, --delete
+
+.. option:: --delete, -d
+
     Remove a PCI device from specified VM
 
-AUTHORS
+Authors
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>

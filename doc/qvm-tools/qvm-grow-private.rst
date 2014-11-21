@@ -1,23 +1,21 @@
-================
-qvm-grow-private
-================
+.. program:: qvm-grow-private
 
-NAME
-====
-qvm-grow-private - increase private storage capacity of a specified VM
+==================================================================================
+:program:`qvm-grow-private` -- Increase private storage capacity of a specified VM
+==================================================================================
 
-:Date:   2012-04-10
-
-SYNOPSIS
+Synopsis
 ========
 | qvm-grow-private <vm-name> <size>
 
-OPTIONS
+Options
 =======
--h, --help
+
+.. option:: --help, -h
+
     Show this help message and exit
 
-AUTHORS
+Authors
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>

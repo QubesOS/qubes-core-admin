@@ -1,33 +1,41 @@
-=========
-qvm-start
-=========
+.. program:: qvm-start
 
-NAME
-====
-qvm-start - start a specified VM
+============================================
+:program:`qvm-start` -- Start a specified VM
+============================================
 
-:Date:   2012-04-11
-
-SYNOPSIS
+Synopsis
 ========
 | qvm-start [options] <vm-name>
 
-OPTIONS
+Options
 =======
--h, --help
+
+.. option:: --help, -h
+
     Show this help message and exit
--q, --quiet
+
+.. option:: --quiet, -q
+
     Be quiet           
---no-guid
+
+.. option:: --no-guid
+
     Do not start the GUId (ignored)
---console
+
+.. option:: --console
+
     Attach debugging console to the newly started VM
---dvm
+
+.. option:: --dvm
+
     Do actions necessary when preparing DVM image
---custom-config=CUSTOM_CONFIG
+
+.. option:: --custom-config=CUSTOM_CONFIG
+
     Use custom Xen config instead of Qubes-generated one
 
-AUTHORS
+Authors
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>

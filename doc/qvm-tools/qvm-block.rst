@@ -1,15 +1,10 @@
-=========
-qvm-block
-=========
+.. program:: qvm-block
 
-NAME
-====
-qvm-block - list/set VM PCI devices.
+===============================================
+:program:`qvm-block` -- List/set VM PCI devices
+===============================================
 
-
-:Date:   2012-04-10
-
-SYNOPSIS
+Synopsis
 ========
 | qvm-block -l [options]
 | qvm-block -a [options] <device> <vm-name>
@@ -17,24 +12,38 @@ SYNOPSIS
 | qvm-block -d [options] <vm-name>
 
 
-OPTIONS
+Options
 =======
--h, --help
+
+.. option:: --help, -h
+
     Show this help message and exit
--l, --list
+
+.. option:: --list, -l
+
     List block devices            
--a, --attach
+
+.. option:: --attach, -a
+
     Attach block device to specified VM
--d, --detach          
+
+.. option:: --detach, -d
+
     Detach block device
--f FRONTEND, --frontend=FRONTEND
+
+.. option:: --frontend=FRONTEND, -f FRONTEND
+
     Specify device name at destination VM [default: xvdi]
---ro
+
+.. option:: --ro
+
     Force read-only mode
---no-auto-detach
+
+.. option:: --no-auto-detach
+
     Fail when device already connected to other VM
 
-AUTHORS
+Authors
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>

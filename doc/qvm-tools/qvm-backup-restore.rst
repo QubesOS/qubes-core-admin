@@ -1,39 +1,54 @@
-==================
-qvm-backup-restore
-==================
+.. program:: qvm-backup-restore
 
-NAME
-====
-qvm-backup-restore - restores Qubes VMs from backup
+===============================================================
+:program:`qvm-backup-restore` -- Restores Qubes VMs from backup
+===============================================================
 
-:Date:   2012-04-10
-
-SYNOPSIS
+Synopsis
 ========
 | qvm-backup-restore [options] <backup-dir>
 
-OPTIONS
+Options
 =======
--h, --help
+
+.. option:: --help, -h
+
     Show this help message and exit
---skip-broken
+
+.. option:: --skip-broken
+
     Do not restore VMs that have missing templates or netvms
---ignore-missing
+
+.. option:: --ignore-missing
+
     Ignore missing templates or netvms, restore VMs anyway
---skip-conflicting
+
+.. option:: --skip-conflicting
+
     Do not restore VMs that are already present on the host
---force-root
+
+.. option:: --force-root
+
     Force to run, even with root privileges
---replace-template=REPLACE_TEMPLATE
-    Restore VMs using another template, syntax: old-template-name:new-template-name (might be repeated)
--x EXCLUDE, --exclude=EXCLUDE
+
+.. option:: --replace-template=REPLACE_TEMPLATE
+
+    Restore VMs using another template, syntax:
+    ``old-template-name:new-template-name`` (might be repeated)
+
+.. option:: --exclude=EXCLUDE, -x EXCLUDE
+
     Skip restore of specified VM (might be repeated)
---skip-dom0-home
+
+.. option:: --skip-dom0-home
+
     Do not restore dom0 user home dir
---ignore-username-mismatch
+
+.. option:: --ignore-username-mismatch
+
     Ignore dom0 username mismatch while restoring homedir
 
-AUTHORS
+Authors
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>

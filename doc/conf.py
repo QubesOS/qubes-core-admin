@@ -19,7 +19,7 @@ import time
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-sys.path.insert(0, os.path.abspath('../../'))
+sys.path.insert(0, os.path.abspath('../'))
 
 # -- General configuration -----------------------------------------------------
 
@@ -51,7 +51,7 @@ copyright = u'2010-{}, Invisible Things Lab'.format(time.strftime('%Y'))
 # built documents.
 #
 # The short X.Y version.
-version = open('../../version').read()
+version = open('../version').read().strip()
 # The full version, including alpha/beta/rc tags.
 release = subprocess.check_output(['git', 'describe', '--long', '--dirty']).strip()
 
@@ -219,9 +219,62 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
+
+# authors should be empty and authors should be specified in each man page,
+# because html builder will omit them
+_man_pages_author = []
+
 man_pages = [
-    ('index', 'core-admin', u'core-admin Documentation',
-     [u'Invisible Things Lab'], 1)
+    ('qvm-tools/qvm-add-appvm', 'qvm-add-appvm',
+        u'Add an already installed appvm to the Qubes DB', _man_pages_author, 1),
+    ('qvm-tools/qvm-add-template', 'qvm-add-template',
+        u'Adds an already installed template to the Qubes DB', _man_pages_author, 1),
+    ('qvm-tools/qvm-backup-restore', 'qvm-backup-restore',
+        u'Restores Qubes VMs from backup', _man_pages_author, 1),
+    ('qvm-tools/qvm-backup', 'qvm-backup',
+        u'Create backup of specified VMs', _man_pages_author, 1),
+    ('qvm-tools/qvm-block', 'qvm-block',
+        u'List/set VM block devices.', _man_pages_author, 1),
+    ('qvm-tools/qvm-clone-template', 'qvm-clone-template',
+        u'Clones an existing template by copying all its disk files', _man_pages_author, 1),
+    ('qvm-tools/qvm-clone', 'qvm-clone',
+        u'Clones an existing VM by copying all its disk files', _man_pages_author, 1),
+    ('qvm-tools/qvm-create-default-dvm', 'qvm-create-default-dvm',
+        u'Creates a default disposable VM', _man_pages_author, 1),
+    ('qvm-tools/qvm-create', 'qvm-create',
+        u'Creates a new VM', _man_pages_author, 1),
+    ('qvm-tools/qvm-firewall', 'qvm-firewall',
+        u'Qubes firewall configuration', _man_pages_author, 1),
+    ('qvm-tools/qvm-grow-private', 'qvm-grow-private',
+        u'Increase private storage capacity of a specified VM', _man_pages_author, 1),
+    ('qvm-tools/qvm-kill', 'qvm-kill',
+        u'Kill the specified VM', _man_pages_author, 1),
+    ('qvm-tools/qvm-ls', 'qvm-ls',
+        u'List VMs and various information about them', _man_pages_author, 1),
+    ('qvm-tools/qvm-pci', 'qvm-pci',
+        u'List/set VM PCI devices', _man_pages_author, 1),
+    ('qvm-tools/qvm-prefs', 'qvm-prefs',
+        u'List/set various per-VM properties', _man_pages_author, 1),
+    ('qvm-tools/qvm-remove', 'qvm-remove',
+        u'Remove a VM', _man_pages_author, 1),
+    ('qvm-tools/qvm-revert-template-changes', 'qvm-revert-template-changes',
+        u'Revert changes to a template', _man_pages_author, 1),
+    ('qvm-tools/qvm-run', 'qvm-run',
+        u'Run a command on a specified VM', _man_pages_author, 1),
+    ('qvm-tools/qvm-service', 'qvm-service',
+        u'Manage (Qubes-specific) services started in VM', _man_pages_author, 1),
+    ('qvm-tools/qvm-shutdown', 'qvm-shutdown',
+        u'Gracefully shut down a VM', _man_pages_author, 1),
+    ('qvm-tools/qvm-start', 'qvm-start',
+        u'Start a specified VM', _man_pages_author, 1),
+    ('qvm-tools/qvm-template-commit', 'qvm-template-commit',
+        u'Commit changes to a template', _man_pages_author, 1),
+
+
+    ('qubes-tools/qubes-guid', 'qubes-guid',
+        u'Daemon for Qubes GUI isolation protocol', _man_pages_author, 1),
+    ('qubes-tools/qubes-prefs', 'qubes-prefs',
+        u'Display system-wide Qubes settings', _man_pages_author, 1),
 ]
 
 # If true, show URL addresses after external links.

@@ -1,14 +1,10 @@
-======================
-qvm-create-default-dvm
-======================
+.. program:: qvm-create-default-dvm
 
-NAME
-====
-qvm-create-default-dvm - creates a default disposable VM
+====================================================================
+:program:`qvm-create-default-dvm` -- Creates a default Disposable VM
+====================================================================
 
-:Date:   2012-04-10
-
-SYNOPSIS
+Synopsis
 ========
 | qvm-create-default-dvm templatename|--default-template|--used-template [script-name|--default-script]
 
@@ -29,8 +25,7 @@ templatename
 --default-script
     Use default script for seeding DispVM home.
 
-
-AUTHORS
+Authors
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>

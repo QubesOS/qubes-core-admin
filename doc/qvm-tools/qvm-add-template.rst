@@ -1,29 +1,33 @@
-================
-qvm-add-template
-================
+.. program:: qvm-add-template
 
-NAME
-====
-qvm-add-template - adds an already installed template to the Qubes DB
+=================================================================================
+:program:`qvm-add-template` -- Adds an already installed template to the Qubes DB
+=================================================================================
 
-:Date:   2012-04-10
-
-SYNOPSIS
+Synopsis
 ========
 | qvm-add-template [options] <vm-template-name>
 
-OPTIONS
+Options
 =======
--h, --help
+
+.. option:: --help, -h
+
     Show this help message and exit
--p DIR_PATH, --path=DIR_PATH
+
+.. option:: --path=DIR_PATH, -p DIR_PATH
+
     Specify path to the template directory
--c CONF_FILE, --conf=CONF_FILE
+
+.. option:: --conf=CONF_FILE, -c CONF_FILE
+
     Specify the Xen VM .conf file to use(relative to the template dir path)
---rpm
+
+.. option:: --rpm
+
     Template files have been installed by RPM
 
-AUTHORS
+Authors
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>

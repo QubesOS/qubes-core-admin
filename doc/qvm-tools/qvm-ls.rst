@@ -1,39 +1,53 @@
-======
-qvm-ls
-======
+.. program:: qvm-ls
 
-NAME
-====
-qvm-ls - list VMs and various information about their state
+================================================================
+:program:`qvm-ls` -- List VMs and various information about them
+================================================================
 
-:Date:   2012-04-03
-
-SYNOPSIS
+Synopsis
 ========
 | qvm-ls [options] <vm-name>
 
-OPTIONS
+Options
 =======
--h, --help
+
+.. option:: --help, -h
+
     Show help message and exit
--n, --network
+
+.. option:: --network, -n
+
     Show network addresses assigned to VMs
--c, --cpu
+
+.. option:: --cpu, -c
+
     Show CPU load
--m, --mem
+
+.. option:: --mem, -m
+
     Show memory usage
--d, --disk
+
+.. option:: --disk, -d
+
     Show VM disk utilization statistics
--i, --ids
+
+.. option:: --ids, -i
+
     Show Qubes and Xen id
--k, --kernel
+
+.. option:: --kernel, -k
+
     Show VM kernel options
--b, --last-backup
+
+.. option:: --last-backup, -b
+
     Show date of last VM backup
---raw-list
+
+.. option:: --raw-list
+
     List only VM names one per line
 
-AUTHORS
+Authors
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>

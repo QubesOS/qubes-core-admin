@@ -1,23 +1,21 @@
-===================
-qvm-template-commit
-===================
+.. program:: qvm-template-commit
 
-NAME
-====
-qvm-template-commit
+==============================================================
+:program:`qvm-template-commit` -- Commit changes to a template
+==============================================================
 
-:Date:   2012-04-11
-
-SYNOPSIS
+Synopsis
 ========
 | qvm-template-commit [options] <vm-name>
 
-OPTIONS
+Options
 =======
--h, --help
+
+.. option:: --help, -h
+
     Show this help message and exit
 
-AUTHORS
+Authors
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>

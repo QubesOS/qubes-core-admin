@@ -1,27 +1,29 @@
-=========
-qvm-clone
-=========
+.. program:: qvm-clone
 
-NAME
-====
-qvm-clone - clones an existing VM by copying all its disk files
+===========================================================================
+:program:`qvm-clone` -- Clones an existing VM by copying all its disk files
+===========================================================================
 
-:Date:   2012-04-10
-
-SYNOPSIS
+Synopsis
 ========
 | qvm-clone [options] <src-name> <new-name>
 
-OPTIONS
+Options
 =======
--h, --help
+
+.. option:: --help, -h
+
     Show this help message and exit
--q, --quiet
+
+.. option:: --quiet, -q
+
     Be quiet           
--p DIR_PATH, --path=DIR_PATH
+
+.. option:: --path=DIR_PATH, -p DIR_PATH
+
     Specify path to the template directory
 
-AUTHORS
+Authors
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>

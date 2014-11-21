@@ -1,25 +1,25 @@
-===========================
-qvm-revert-template-changes
-===========================
+.. program:: qvm-revert-template-changes
 
-NAME
-====
-qvm-revert-template-changes
+======================================================================
+:program:`qvm-revert-template-changes` -- Revert changes to a template
+======================================================================
 
-:Date:   2012-04-11
-
-SYNOPSIS
+Synopsis
 ========
 | qvm-revert-template-changes [options] <template-name>
 
-OPTIONS
+Options
 =======
--h, --help
+
+.. option:: --help, -h
+
     Show this help message and exit
---force
+
+.. option:: --force
+
     Do not prompt for comfirmation
 
-AUTHORS
+Authors
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>

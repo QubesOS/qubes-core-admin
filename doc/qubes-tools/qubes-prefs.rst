@@ -1,10 +1,8 @@
-===========
-qubes-prefs
-===========
+.. program:: qubes-prefs
 
-NAME
-====
-qubes-prefs - display system-wide Qubes settings, such as:
+============================================================
+:program:`qubes-prefs` -- Display system-wide Qubes settings
+============================================================
 
 - clock VM
 - update VM
@@ -13,13 +11,11 @@ qubes-prefs - display system-wide Qubes settings, such as:
 - default kernel
 - default netVM
 
-:Date:   2012-04-13
-
-SYNOPSIS
+Synopsis
 ========
 | qubes-prefs
 
-AUTHORS
+Authors
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>
