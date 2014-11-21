@@ -1,5 +1,5 @@
-:py:mod:`qubes.vm` Different Virtual Machine types
-==================================================
+:py:mod:`qubes.vm` -- Different Virtual Machine types
+=====================================================
 
 .. automodule:: qubes.vm
 

@@ -1,5 +1,5 @@
-:py:mod:`qubes.dochelpers` Helpers for Sphinx documentation
-===========================================================
+:py:mod:`qubes.dochelpers` -- Helpers for Sphinx documentation
+==============================================================
 
 .. automodule:: qubes.dochelpers
    :members:

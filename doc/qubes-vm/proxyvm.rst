@@ -1,5 +1,5 @@
-:py:mod:`qubes.vm.proxyvm` Proxy (firewall/VPN) VM
-==================================================
+:py:mod:`qubes.vm.proxyvm` -- Proxy (firewall/VPN) VM
+=====================================================
 
 .. automodule:: qubes.vm.proxyvm
    :members:

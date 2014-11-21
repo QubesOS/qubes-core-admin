@@ -1,5 +1,5 @@
-:py:mod:`qubes.vm.netvm` Network interface VM
-=============================================
+:py:mod:`qubes.vm.netvm` -- Network interface VM
+================================================
 
 .. automodule:: qubes.vm.netvm
    :members:

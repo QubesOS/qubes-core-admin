@@ -1,5 +1,5 @@
-:py:mod:`qubes.vm.hvm` HVM
-==========================
+:py:mod:`qubes.vm.hvm` -- HVM
+=============================
 
 .. automodule:: qubes.vm.hvm
    :members:

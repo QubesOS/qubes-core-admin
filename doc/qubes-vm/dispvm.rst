@@ -1,5 +1,5 @@
-:py:mod:`qubes.vm.dispvm` Disposable VM
-=======================================
+:py:mod:`qubes.vm.dispvm` -- Disposable VM
+==========================================
 
 .. automodule:: qubes.vm.dispvm
    :members:

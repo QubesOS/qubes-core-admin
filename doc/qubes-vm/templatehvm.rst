@@ -1,5 +1,5 @@
-:py:mod:`qubes.vm.templatehvm` Template for HVM
-===============================================
+:py:mod:`qubes.vm.templatehvm` -- Template for HVM
+==================================================
 
 .. automodule:: qubes.vm.templatehvm
    :members:

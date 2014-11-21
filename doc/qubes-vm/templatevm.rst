@@ -1,5 +1,5 @@
-:py:mod:`qubes.vm.templatevm` Template for AppVM
-================================================
+:py:mod:`qubes.vm.templatevm` -- Template for AppVM
+===================================================
 
 .. automodule:: qubes.vm.templatevm
    :members:

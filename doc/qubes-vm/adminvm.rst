@@ -1,5 +1,5 @@
-:py:mod:`qubes.vm.adminvm` Dom0
-===============================
+:py:mod:`qubes.vm.adminvm` -- Dom0
+==================================
 
 .. automodule:: qubes.vm.adminvm
    :members:

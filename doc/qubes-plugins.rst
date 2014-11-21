@@ -1,5 +1,5 @@
-:py:mod:`qubes.plugins` Plugin helpers
-======================================
+:py:mod:`qubes.plugins` -- Plugin helpers
+=========================================
 
 .. automodule:: qubes.plugins
    :members:

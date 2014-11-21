@@ -1,5 +1,5 @@
-:py:mod:`qubes.events` Qubes events
-===================================
+:py:mod:`qubes.events` -- Qubes events
+======================================
 
 .. automodule:: qubes.events
    :members:

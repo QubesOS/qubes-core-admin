@@ -1,5 +1,5 @@
-:py:mod:`qubes` Common concepts
-===============================
+:py:mod:`qubes` -- Common concepts
+==================================
 
 .. automodule:: qubes
    :members:

@@ -1,5 +1,5 @@
-:py:mod:`qubes.log` Logging routines
-====================================
+:py:mod:`qubes.log` -- Logging routines
+=======================================
 
 .. automodule:: qubes.log
    :members:

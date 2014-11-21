@@ -1,5 +1,5 @@
-:py:mod:`qubes.vm.qubesvm` Shared functionality
-===============================================
+:py:mod:`qubes.vm.qubesvm` -- Shared functionality
+==================================================
 
 .. automodule:: qubes.vm.qubesvm
    :members:

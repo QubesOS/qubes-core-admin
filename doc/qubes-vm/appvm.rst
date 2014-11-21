@@ -1,5 +1,5 @@
-:py:mod:`qubes.vm.appvm` Application VM
-=======================================
+:py:mod:`qubes.vm.appvm` -- Application VM
+==========================================
 
 .. automodule:: qubes.vm.appvm
    :members:
