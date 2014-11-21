@@ -277,6 +277,10 @@ man_pages = [
         u'Display system-wide Qubes settings', _man_pages_author, 1),
 ]
 
+if os.path.exists('sandbox.rst'):
+    man_pages.append(('sandbox', 'sandbox',
+        u'Sandbox manpage', 'Sandbox Author', 1))
+
 # If true, show URL addresses after external links.
 #man_show_urls = False
 
