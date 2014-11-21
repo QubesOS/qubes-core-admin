@@ -8,6 +8,8 @@ __author__ = 'Invisible Things Lab'
 __license__ = 'GPLv2 or later'
 __version__ = 'R3'
 
+import ast
+
 import qubes._pluginloader
 
 class QubesException(Exception):
@@ -167,6 +169,21 @@ class QubesVmLabel(object):
 
         #: freedesktop icon name, suitable for use in :py:meth:`PyQt4.QtGui.QIcon.fromTheme`
         self.icon = '{}-{}'.format(('dispvm' if dispvm else 'appvm'), name)
+
+    @classmethod
+    def fromxml(cls, xml):
+        '''Create label definition from XML node
+
+        :param :py:class:`lxml.etree._Element` xml: XML node reference
+        :rtype: :py:class:`qubes.QubesVmLabel`
+        '''
+
+        index = int(xml.get('id').split('-', 1)[1])
+        color = xml.get('color')
+        name = xml.text
+        dispvm = ast.literal_eval(xml.get('dispvm', 'False'))
+
+        return cls(index, color, name, dispvm)
 
     def __repr__(self):
         return '{}({!r}, {!r}, {!r}, dispvm={!r})'.format(
