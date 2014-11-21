@@ -64,6 +64,7 @@ Requires:       gnome-packagekit
 Requires:       cronie
 # for qubes-hcl-report
 Requires:       dmidecode
+Requires:       PyQt4
 
 # Prevent preupgrade from installation (it pretend to provide distribution upgrade)
 Obsoletes:	preupgrade < 2.0
