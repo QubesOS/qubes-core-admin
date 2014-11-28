@@ -6,7 +6,7 @@
 
 Synopsis
 ========
-| qvm-add-template [options] <vm-template-name>
+:command:`qvm-add-template` [*options*] <*vm-template-name*>
 
 Options
 =======

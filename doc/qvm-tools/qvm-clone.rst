@@ -6,7 +6,7 @@
 
 Synopsis
 ========
-| qvm-clone [options] <src-name> <new-name>
+:command:`qvm-clone` [*options*] <*src-name*> <*new-name*>
 
 Options
 =======

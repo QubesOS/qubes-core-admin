@@ -6,7 +6,7 @@
 
 Synopsis
 ========
-| qubes-guid -d domain_id [-c color] [-l label_index] [-i icon name, no suffix] [-v] [-q]
+:command:`qubes-guid` -d *domain_id* [-c *color*] [-l *label_index*] [-i *icon name*, no suffix] [-v] [-q]
 
 Options
 =======

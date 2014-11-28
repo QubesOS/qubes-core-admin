@@ -9,7 +9,7 @@
 
 Synopsis
 ========
-| qvm-add-appvm [options] <appvm-name> <vm-template-name>
+:command:`qvm-add-appvm` [*options*] <*appvm-name*> <*vm-template-name*>
 
 Options
 =======

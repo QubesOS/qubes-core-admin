@@ -4,16 +4,10 @@
 :program:`qvm-service` -- Manage (Qubes-specific) services started in VM
 ========================================================================
 
-NAME
-====
-qvm-service - 
-
-:Date:   2012-05-30
-
 Synopsis
 ========
-| qvm-service [-l] <vmname>
-| qvm-service [-e|-d|-D] <vmname> <service>
+| :command:`qvm-service` [-l] <*vmname*>
+| :command:`qvm-service` [-e|-d|-D] <*vmname*> <*service*>
 
 Options
 =======
@@ -41,16 +35,20 @@ Options
 Supported services
 ==================
 
-This list can be incomplete as VM can implement any additional service without knowlege of qubes-core code.
+This list can be incomplete as VM can implement any additional service without
+knowlege of qubes-core code.
 
 meminfo-writer
     Default: enabled everywhere excluding NetVM
 
-    This service reports VM memory usage to dom0, which effectively enables dynamic memory management for the VM.
+    This service reports VM memory usage to dom0, which effectively enables
+    dynamic memory management for the VM.
 
-    *Note:* this service is enforced to be set by dom0 code. If you try to
-    remove it (reset to defult state), will be recreated with the rule: enabled
-    if VM have no PCI devices assigned, otherwise disabled.
+    .. note::
+
+        This service is enforced to be set by dom0 code. If you try to
+        remove it (reset to defult state), will be recreated with the rule: enabled
+        if VM have no PCI devices assigned, otherwise disabled.
 
 qubes-dvm
     Default: disabled
@@ -68,21 +66,31 @@ qubes-network
 
     Expose network for other VMs. This includes enabling network forwarding, MASQUERADE, DNS redirection and basic firewall.
 
+qubes-network
+    Default: enabled only in NetVM and ProxyVM
+
+    Expose network for other VMs. This includes enabling network forwarding,
+    MASQUERADE, DNS redirection and basic firewall.
+
 qubes-netwatcher
     Default: enabled only in ProxyVM
 
-    Monitor IP change notification from NetVM. When received, reload qubes-firewall service (to force DNS resolution).
+    Monitor IP change notification from NetVM. When received, reload
+    qubes-firewall service (to force DNS resolution).
+
     This service makes sense only with qubes-firewall enabled.
 
 qubes-update-check
     Default: enabled
 
-    Notify dom0 about updates available for this VM. This is shown in qubes-manager as 'update-pending' flag.
+    Notify dom0 about updates available for this VM. This is shown in
+    qubes-manager as 'update-pending' flag.
 
 cups
     Default: enabled only in AppVM
 
-    Enable CUPS service. The user can disable cups in VM which do not need printing to speed up booting.
+    Enable CUPS service. The user can disable cups in VM which do not need
+    printing to speed up booting.
 
 cron
     Default: disabled

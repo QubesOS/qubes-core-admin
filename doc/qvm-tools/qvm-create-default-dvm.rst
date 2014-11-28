@@ -6,7 +6,7 @@
 
 Synopsis
 ========
-| qvm-create-default-dvm templatename|--default-template|--used-template [script-name|--default-script]
+| :command:`qvm-create-default-dvm` templatename|--default-template|--used-template [script-name|--default-script]
 
 OPTIONS
 =======

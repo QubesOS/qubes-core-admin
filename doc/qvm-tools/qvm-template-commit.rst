@@ -6,7 +6,7 @@
 
 Synopsis
 ========
-| qvm-template-commit [options] <vm-name>
+:command:`qvm-template-commit` [*options*] <*vm-name*>
 
 Options
 =======

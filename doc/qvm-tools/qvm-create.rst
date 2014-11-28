@@ -6,7 +6,7 @@
 
 Synopsis
 ========
-| qvm-create [options] <vm-name>
+:command:`qvm-create` [*options*] <*vm-name*>
 
 Options
 =======

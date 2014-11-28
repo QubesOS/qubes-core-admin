@@ -6,7 +6,7 @@
 
 Synopsis
 ========
-| qvm-shutdown [options] <vm-name>
+:command:`qvm-shutdown` [*options*] <*vm-name*>
 
 Options
 =======

@@ -13,7 +13,7 @@
 
 Synopsis
 ========
-| qubes-prefs
+:command:`qubes-prefs`
 
 Authors
 =======

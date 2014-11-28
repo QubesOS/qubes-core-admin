@@ -6,7 +6,7 @@
 
 Synopsis
 ========
-| qvm-run [options] [<vm-name>] [<cmd>]
+:command:`qvm-run` [*options*] [<*vm-name*>] [<*cmd*>]
 
 Options
 =======

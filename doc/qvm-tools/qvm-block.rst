@@ -6,10 +6,10 @@
 
 Synopsis
 ========
-| qvm-block -l [options]
-| qvm-block -a [options] <device> <vm-name>
-| qvm-block -d [options] <device>
-| qvm-block -d [options] <vm-name>
+| :command:`qvm-block` [*options*] -l
+| :command:`qvm-block` [*options*] -a <*device*> <*vm-name*>
+| :command:`qvm-block` [*options*] -d <*device*>
+| :command:`qvm-block` [*options*] -d <*vm-name*>
 
 
 Options

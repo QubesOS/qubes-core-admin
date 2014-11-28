@@ -6,7 +6,7 @@
 
 Synopsis
 ========
-| qvm-kill [options] <vm-name>
+:command:`qvm-kill` [*options*] <*vm-name*>
 
 
 Options

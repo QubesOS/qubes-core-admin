@@ -6,12 +6,12 @@
 
 Synopsis
 ========
-| qvm-firewall [-n] <vm-name> [action] [rule spec]
+:command:`qvm-firewall` [-n] <*vm-name*> [*action*] [*rule spec*]
 
 Rule specification can be one of:
-    1. address|hostname[/netmask] tcp|udp port[-port]
-    2. address|hostname[/netmask] tcp|udp service_name
-    3. address|hostname[/netmask] any
+    1. *address*\ |\ *hostname*\ [/*netmask*] tcp|udp *port*\ [-*port*]
+    2. *address*\ |\ *hostname*\ [/*netmask*] tcp|udp *service_name*
+    3. *address*\ |\ *hostname*\ [/*netmask*] any
 
 Options
 =======

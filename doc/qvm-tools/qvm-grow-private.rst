@@ -6,7 +6,7 @@
 
 Synopsis
 ========
-| qvm-grow-private <vm-name> <size>
+:command:`qvm-grow-private` <*vm-name*> <*size*>
 
 Options
 =======

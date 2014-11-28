@@ -6,7 +6,7 @@
 
 Synopsis
 ========
-| qvm-backup-restore [options] <backup-dir>
+:command:`qvm-backup-restore` [*options*] <*backup-dir*>
 
 Options
 =======

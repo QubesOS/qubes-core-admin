@@ -6,7 +6,7 @@
 
 Synopsis
 ========
-| qvm-revert-template-changes [options] <template-name>
+:command:`qvm-revert-template-changes` [*options*] <*template-name*>
 
 Options
 =======

@@ -6,9 +6,9 @@
 
 Synopsis
 ========
-| qvm-pci -l [options] <vm-name>
-| qvm-pci -a [options] <vm-name> <device>
-| qvm-pci -d [options] <vm-name> <device>
+| :command:`qvm-pci` [*options*] -l <*vm-name*>
+| :command:`qvm-pci` [*options*] -a <*vm-name*> <*device*>
+| :command:`qvm-pci` [*options*] -d <*vm-name*> <*device*>
  
 Options
 =======

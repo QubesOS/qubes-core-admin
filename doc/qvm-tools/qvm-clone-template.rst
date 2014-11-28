@@ -6,7 +6,7 @@
 
 Synopsis
 ========
-| qvm-clone-template [options] <src-template-name> <new-template-name>
+:command:`qvm-clone-template` [*options*] <*src-template-name*> <*new-template-name*>
 
 Options
 =======

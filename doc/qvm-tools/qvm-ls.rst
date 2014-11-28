@@ -6,7 +6,7 @@
 
 Synopsis
 ========
-| qvm-ls [options] <vm-name>
+:command:`qvm-ls` [*options*] <*vm-name*>
 
 Options
 =======

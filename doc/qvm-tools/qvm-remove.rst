@@ -6,7 +6,7 @@
 
 Synopsis
 ========
-| qvm-remove [options] <vm-name>
+:command:`qvm-remove` [*options*] <*vm-name*>
 
 Options
 =======
