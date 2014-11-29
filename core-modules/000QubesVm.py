@@ -810,7 +810,8 @@ class QubesVm(object):
             return False
 
     def is_paused(self):
-        if self.libvirt_domain and self.libvirt_domain.state() == libvirt.VIR_DOMAIN_PAUSED:
+        if self.libvirt_domain and self.libvirt_domain.state()[0] == \
+                libvirt.VIR_DOMAIN_PAUSED:
             return True
         else:
             return False
