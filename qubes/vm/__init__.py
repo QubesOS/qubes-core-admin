@@ -8,9 +8,6 @@ Main public classes
 .. autoclass:: BaseVM
    :members:
    :show-inheritance:
-.. autoclass:: property
-   :members:
-   :show-inheritance:
 
 Helper classes and functions
 ----------------------------
@@ -57,57 +54,11 @@ import functools
 import sys
 
 import dateutil.parser
+import lxml.etree
 
+import qubes
 import qubes.plugins
 
-class property(object):
-    '''Qubes VM property.
-
-    This class holds one property that can be saved and loaded from qubes.xml
-
-    :param str name: name of the property
-    :param object default: default value
-    :param type type: if not :py:obj:`None`, this is used to initialise value
-    :param int order: order of evaluation (bigger order values are later)
-    :param str doc: docstring
-
-    '''
-
-    def __init__(self, name, default=None, type=None, order=0, doc=None):
-        self.__name__ = name
-        self._default = default
-        self._type = type
-        self.order = order
-        self.__doc__ = doc
-
-        self._attr_name = '_qubesprop_' + self.__name__
-
-    def __get__(self, instance, owner):
-        if instance is None:
-            return self
-
-        try:
-            return getattr(instance, self._attr_name)
-
-        except AttributeError:
-            if self._default is None:
-                raise AttributeError('property not set')
-            else:
-                return self._default
-
-    def __set__(self, instance, value):
-        setattr(instance, self._attr_name,
-            (self._type(value) if self._type is not None else value))
-
-    def __repr__(self):
-        return '<{} object at {:#x} name={!r} default={!r}>'.format(
-            self.__class__.__name__, id(self), self.__name__, self._default)
-
-    def __hash__(self):
-        return hash(self.__name__)
-
-    def __eq__(self, other):
-        return self.__name__ == other.__name__
 
 class VMPlugin(qubes.plugins.Plugin):
     '''Metaclass for :py:class:`.BaseVM`'''
@@ -115,7 +66,8 @@ class VMPlugin(qubes.plugins.Plugin):
         super(VMPlugin, cls).__init__(name, bases, dict_)
         cls.__hooks__ = collections.defaultdict(list)
 
-class BaseVM(object):
+
+class BaseVM(qubes.PropertyHolder):
     '''Base class for all VMs
 
     :param xml: xml node from which to deserialise
@@ -128,59 +80,139 @@ class BaseVM(object):
 
     __metaclass__ = VMPlugin
 
-    def get_props_list(self):
-        '''List all properties attached to this VM'''
-        props = set()
-        for class_ in self.__class__.__mro__:
-            props.update(prop for prop in class_.__dict__.values()
-                if isinstance(prop, property))
-        return sorted(props, key=lambda prop: (prop.order, prop.__name__))
+    def __init__(self, app, xml=None, load_stage=2, services={}, devices=None, tags={}, **kwargs):
+        self.app = app
+        self.xml = xml
+        self.services = services
+        self.devices = collections.defaultdict(list) if devices is None else devices
+        self.tags = tags
 
-    def __init__(self, xml):
-        self._xml = xml
-
-        self.services = {}
-        self.devices = collections.defaultdict(list)
-        self.tags = {}
-
-        if self._xml is None:
-            return
-
-        # properties
-        all_names = set(prop.__name__ for prop in self.get_props_list())
-        for node in self._xml.xpath('.//property'):
-            name = node.get('name')
-            value = node.get('ref') or node.text
-
-            if not name in all_names:
+        all_names = set(prop.__name__ for prop in self.get_props_list(load_stage=2))
+        for key in kwargs:
+            if not key in all_names:
                 raise AttributeError(
                     'No property {!r} found in {!r}'.format(
-                        name, self.__class__))
+                        key, self.__class__))
+            setattr(self, key, kwargs[key])
 
-            setattr(self, name, value)
 
-        # tags
-        for node in self._xml.xpath('.//tag'):
-            self.tags[node.get('name')] = node.text
+    def add_new_vm(self, vm):
+        '''Add new Virtual Machine to colletion
+
+        '''
+
+        vm_cls = QubesVmClasses[vm_type]
+        if 'template' in kwargs:
+            if not vm_cls.is_template_compatible(kwargs['template']):
+                raise QubesException("Template not compatible with selected "
+                                     "VM type")
+
+        vm = vm_cls(qid=qid, collection=self, **kwargs)
+        if not self.verify_new_vm(vm):
+            raise QubesException("Wrong VM description!")
+        self[vm.qid] = vm
+
+        # make first created NetVM the default one
+        if self.default_fw_netvm_qid is None and vm.is_netvm():
+            self.set_default_fw_netvm(vm)
+
+        if self.default_netvm_qid is None and vm.is_proxyvm():
+            self.set_default_netvm(vm)
+
+        # make first created TemplateVM the default one
+        if self.default_template_qid is None and vm.is_template():
+            self.set_default_template(vm)
+
+        # make first created ProxyVM the UpdateVM
+        if self.updatevm_qid is None and vm.is_proxyvm():
+            self.set_updatevm_vm(vm)
+
+        # by default ClockVM is the first NetVM
+        if self.clockvm_qid is None and vm.is_netvm():
+            self.set_clockvm_vm(vm)
+
+        return vm
+
+    @classmethod
+    def fromxml(cls, app, xml, load_stage=2):
+        '''Create VM from XML node
+
+        :param qubes.Qubes app: :py:class:`qubes.Qubes` application instance
+        :param lxml.etree._Element xml: XML node reference
+        :param int load_stage: do not change the default (2) unless you know, what you are doing
+        '''
+
+#       sys.stderr.write('{}.fromxml(app={!r}, xml={!r}, load_stage={})\n'.format(
+#           cls.__name__, app, xml, load_stage))
+        if xml is None:
+            return cls(app)
+
+        services = {}
+        devices = collections.defaultdict(list)
+        tags = {}
 
         # services
-        for node in self._xml.xpath('.//service'):
-            self.services[node.text] = bool(ast.literal_eval(node.get('enabled', 'True')))
+        for node in xml.xpath('./services/service'):
+            services[node.text] = bool(ast.literal_eval(node.get('enabled', 'True')))
 
         # devices (pci, usb, ...)
-        for parent in self._xml.xpath('.//devices'):
+        for parent in xml.xpath('./devices'):
             devclass = parent.get('class')
             for node in parent.xpath('./device'):
-                self.devices[devclass].append(node.text)
+                devices[devclass].append(node.text)
 
-        # firewall
-        #TODO
+        # tags
+        for node in xml.xpath('./tags/tag'):
+            tags[node.get('name')] = node.text
+
+        # properties
+        self = cls(app, xml=xml, services=services, devices=devices, tags=tags)
+        self.load_properties(load_stage=load_stage)
+
+        # TODO: firewall, policy
+
+#       sys.stderr.write('{}.fromxml return\n'.format(cls.__name__))
+        return self
+
+
+    def __xml__(self):
+        element = lxml.etree.Element('domain', id='domain-' + str(self.qid))
+
+        element.append(self.save_properties())
+
+        services = lxml.etree.Element('services')
+        for service in self.services:
+            node = lxml.etree.Element('service')
+            node.text = service
+            if not self.services[service]:
+                node.set('enabled', 'False')
+            services.append(node)
+        element.append(services)
+
+        for devclass in self.devices:
+            devices = lxml.etree.Element('devices')
+            devices.set('class', devclass)
+            for device in self.devices[devclass]:
+                node = lxml.etree.Element('device')
+                node.text = device
+                devices.append(node)
+            element.append(devices)
+
+        tags = lxml.etree.Element('tags')
+        for tag in self.tags:
+            node = lxml.etree.Element('tag', name=tag)
+            node.text = self.tags[tag]
+            tags.append(node)
+        element.append(tags)
+
+        return element
 
     def __repr__(self):
         return '<{} object at {:#x} {}>'.format(
             self.__class__.__name__, id(self),
             ' '.join('{}={}'.format(prop.__name__, getattr(self, prop.__name__))
                 for prop in self.get_props_list()))
+
 
     @classmethod
     def add_hook(cls, event, f):
@@ -194,6 +226,7 @@ class BaseVM(object):
         '''
 
         cls.__hooks__[event].append(f)
+
 
     def fire_hooks(self, event, *args, **kwargs):
         '''Fire hooks associated with an event

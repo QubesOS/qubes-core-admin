@@ -8,10 +8,13 @@ import lxml.etree
 sys.path.insert(0, '../')
 import qubes.vm
 
+
 class TestVM(qubes.vm.BaseVM):
-    testprop = qubes.vm.property('testprop')
-    testlabel = qubes.vm.property('testlabel')
-    defaultprop = qubes.vm.property('defaultprop', default='defaultvalue')
+    qid = qubes.property('qid', type=int)
+    name = qubes.property('name')
+    testprop = qubes.property('testprop')
+    testlabel = qubes.property('testlabel')
+    defaultprop = qubes.property('defaultprop', default='defaultvalue')
 
 class TC_BaseVM(unittest.TestCase):
     def setUp(self):
@@ -24,6 +27,8 @@ class TC_BaseVM(unittest.TestCase):
     <domains>
         <domain id="domain-1" class="TestVM">
             <properties>
+                <property name="qid">1</property>
+                <property name="name">domain1</property>
                 <property name="testprop">testvalue</property>
                 <property name="testlabel" ref="label-1" />
             </properties>
@@ -54,8 +59,10 @@ class TC_BaseVM(unittest.TestCase):
 
     def test_000_BaseVM_load(self):
         node = self.xml.xpath('//domain')[0]
-        vm = TestVM(node)
+        vm = TestVM.fromxml(None, node)
 
+        self.assertEqual(vm.qid, 1)
+        self.assertEqual(vm.testprop, 'testvalue')
         self.assertEqual(vm.testprop, 'testvalue')
         self.assertEqual(vm.testlabel, 'label-1')
         self.assertEqual(vm.defaultprop, 'defaultvalue')
@@ -66,6 +73,8 @@ class TC_BaseVM(unittest.TestCase):
             'enabledservice': True,
             'disabledservice': False,
         })
+
+        lxml.etree.ElementTree(vm.__xml__()).write(sys.stderr, encoding='utf-8', pretty_print=True)
 
     def test_001_BaseVM_nxproperty(self):
         xml = lxml.etree.XML('''
@@ -82,7 +91,5 @@ class TC_BaseVM(unittest.TestCase):
 
         node = xml.xpath('//domain')[0]
 
-        def f():
-            vm = TestVM(node)
-
-        self.assertRaises(AttributeError, f)
+        with self.assertRaises(AttributeError):
+            TestVM.fromxml(None, node)
