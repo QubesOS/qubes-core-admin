@@ -68,7 +68,7 @@ class BaseVMMeta(qubes.plugins.Plugin, qubes.events.EmitterMeta):
         cls.__hooks__ = collections.defaultdict(list)
 
 
-class BaseVM(qubes.PropertyHolder, qubes.events.Emitter):
+class BaseVM(qubes.PropertyHolder):
     '''Base class for all VMs
 
     :param app: Qubes application context
@@ -90,6 +90,7 @@ class BaseVM(qubes.PropertyHolder, qubes.events.Emitter):
         self.devices = collections.defaultdict(list) if devices is None else devices
         self.tags = tags
 
+        self.events_enabled = False
         all_names = set(prop.__name__ for prop in self.get_props_list(load_stage=2))
         for key in list(kwargs.keys()):
             if not key in all_names:
@@ -100,6 +101,10 @@ class BaseVM(qubes.PropertyHolder, qubes.events.Emitter):
             del kwargs[key]
 
         super(BaseVM, self).__init__(xml, *args, **kwargs)
+
+        self.events_enabled = True
+        self.fire_event('property-load')
+
 
     def add_new_vm(self, vm):
         '''Add new Virtual Machine to colletion

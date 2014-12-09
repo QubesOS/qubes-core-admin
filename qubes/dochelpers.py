@@ -10,6 +10,7 @@ particulary our custom Sphinx extension.
 
 import csv
 import posixpath
+import re
 import sys
 import urllib2
 
@@ -18,7 +19,9 @@ import docutils.nodes
 import docutils.parsers.rst
 import docutils.parsers.rst.roles
 import docutils.statemachine
+import sphinx
 import sphinx.locale
+import sphinx.util.docfields
 
 def fetch_ticket_info(uri):
     '''Fetch info about particular trac ticket given
@@ -116,6 +119,30 @@ class VersionCheck(docutils.parsers.rst.Directive):
         return [node]
 
 
+#
+# this is lifted from sphinx' own conf.py
+#
+
+event_sig_re = re.compile(r'([a-zA-Z-]+)\s*\((.*)\)')
+
+def parse_event(env, sig, signode):
+    m = event_sig_re.match(sig)
+    if not m:
+        signode += sphinx.addnodes.desc_name(sig, sig)
+        return sig
+    name, args = m.groups()
+    signode += sphinx.addnodes.desc_name(name, name)
+    plist = sphinx.addnodes.desc_parameterlist()
+    for arg in args.split(','):
+        arg = arg.strip()
+        plist += sphinx.addnodes.desc_parameter(arg, arg)
+    signode += plist
+    return name
+
+#
+# end of codelifting
+#
+
 def setup(app):
     app.add_role('ticket', ticket)
     app.add_config_value('ticket_base_uri', 'https://wiki.qubes-os.org/ticket/', 'env')
@@ -123,6 +150,11 @@ def setup(app):
         html=(visit, depart),
         man=(visit, depart))
     app.add_directive('versioncheck', VersionCheck)
+
+    fdesc = sphinx.util.docfields.GroupedField('parameter', label='Parameters',
+                         names=['param'], can_collapse=True)
+    app.add_object_type('event', 'event', 'pair: %s; event', parse_event,
+                        doc_field_types=[fdesc])
 
 
 # vim: ts=4 sw=4 et

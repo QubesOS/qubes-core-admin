@@ -57,6 +57,8 @@ class Emitter(object):
 
     def __init__(self, *args, **kwargs):
         super(Emitter, self).__init__(*args, **kwargs)
+        self.events_enabled = True
+
         try:
             propnames = set(prop.__name__ for prop in self.get_props_list())
         except AttributeError:
@@ -94,6 +96,9 @@ class Emitter(object):
         All *args* and *kwargs* are passed verbatim. They are different for
         different events.
         '''
+
+        if not self.events_enabled:
+            return
 
         for handler in self.__handlers__[event]:
             if hasattr(handler, 'ha_bound'):

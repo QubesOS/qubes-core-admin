@@ -330,6 +330,9 @@ class VMCollection(object):
         if not isinstance(value, qubes.vm.BaseVM):
             raise TypeError('{} holds only BaseVM instances'.format(self.__class__.__name__))
 
+        if not hasattr(value, 'qid'):
+            value.qid = self.domains.get_new_unused_qid()
+
         if value.qid in self:
             raise ValueError('This collection already holds VM that has qid={!r} (!r)'.format(
                 value.qid, self[value.qid]))
@@ -338,6 +341,7 @@ class VMCollection(object):
                 value.name, self[value.name]))
 
         self._dict[value.qid] = value
+        self.app.fire_event('domain-added', value)
 
 
     def __getitem__(self, key):
@@ -359,7 +363,9 @@ class VMCollection(object):
 
 
     def __delitem__(self, key):
-        del self._dict[self[key].qid]
+        vm = self[key]
+        del self._dict[vm.qid]
+        self.app.fire_event('domain-deleted', vm)
 
 
     def __contains__(self, key):
@@ -467,11 +473,27 @@ class property(object):
 
 
     def __set__(self, instance, value):
+        try:
+            oldvalue = getattr(instance, self.__name__)
+            has_oldvalue = True
+        except AttributeError:
+            has_oldvalue = False
+
         if self._setter is not None:
             value = self._setter(instance, self, value)
         if self._type is not None:
             value = self._type(value)
+
         instance._init_property(self, value)
+
+        if has_oldvalue:
+            instance.fire_event('property-set:' + self.__name__, value, oldvalue)
+        else:
+            instance.fire_event('property-set:' + self.__name__, value)
+
+
+    def __delete__(self, instance):
+        delattr(instance, self._attr_name)
 
 
     def __repr__(self):
@@ -505,8 +527,27 @@ class property(object):
             prop.__name__, self.__class__.__name__))
 
 
-class PropertyHolder(object):
-    '''Abstract class for holding :py:class:`qubes.property`'''
+class PropertyHolder(qubes.events.Emitter):
+    '''Abstract class for holding :py:class:`qubes.property`
+
+    Events fired by instances of this class:
+
+        .. event:: property-load (subject, event)
+
+            Fired once after all properties are loaded from XML. Individual
+            ``property-set`` events are not fired.
+
+        .. event:: property-set:<propname> (subject, event, name, newvalue[, oldvalue])
+
+            Fired when property changes state. Signature is variable, *oldvalue* is
+            present only if there was an old value.
+
+            :param name: Property name
+            :param newvalue: New value of the property
+            :param oldvalue: Old value of the property
+
+    Members:
+    '''
 
     def __init__(self, xml, *args, **kwargs):
         super(PropertyHolder, self).__init__(*args, **kwargs)
@@ -545,11 +586,14 @@ class PropertyHolder(object):
     def load_properties(self, load_stage=None):
         '''Load properties from immediate children of XML node.
 
+        ``property-set`` events are not fired for each individual property.
+
         :param lxml.etree._Element xml: XML node reference
         '''
 
 #       sys.stderr.write('<{}>.load_properties(load_stage={}) xml={!r}\n'.format(hex(id(self)), load_stage, self.xml))
 
+        self.events_enabled = False
         all_names = set(prop.__name__ for prop in self.get_props_list(load_stage))
 #       sys.stderr.write('  all_names={!r}\n'.format(all_names))
         for node in self.xml.xpath('./properties/property'):
@@ -563,6 +607,9 @@ class PropertyHolder(object):
                         name, self.__class__))
 
             setattr(self, name, value)
+
+        self.events_enabled = True
+        self.fire_event('property-loaded')
 #       sys.stderr.write('  load_properties return\n')
 
 
@@ -630,22 +677,45 @@ class Qubes(PropertyHolder):
 
     :param str store: path to ``qubes.xml``
 
-    The store is loaded in stages.
+    The store is loaded in stages:
 
-    In the first stage there are loaded some basic features from store
-    (currently labels).
+    1.  In the first stage there are loaded some basic features from store
+        (currently labels).
 
-    In the second stage stubs for all VMs are loaded. They are filled with
-    their basic properties, like ``qid`` and ``name``.
+    2.  In the second stage stubs for all VMs are loaded. They are filled
+        with their basic properties, like ``qid`` and ``name``.
 
-    In the third stage all global properties are loaded. They often reference
-    VMs, like default netvm, so they should be filled after loading VMs.
+    3.  In the third stage all global properties are loaded. They often
+        reference VMs, like default netvm, so they should be filled after
+        loading VMs.
 
-    In the fourth stage all remaining VM properties are loaded. They also need
-    all VMs loaded, because they represent dependencies between VMs like
-    aforementioned netvm.
+    4.  In the fourth stage all remaining VM properties are loaded. They
+        also need all VMs loaded, because they represent dependencies
+        between VMs like aforementioned netvm.
 
-    In the fifth stage there are some fixups to ensure sane system operation.
+    5.  In the fifth stage there are some fixups to ensure sane system
+        operation.
+
+    This class emits following events:
+
+        .. event:: domain-added (subject, event, vm)
+
+            When domain is added.
+
+            :param subject: Event emitter
+            :param event: Event name (``'domain-added'``)
+            :param vm: Domain object
+
+        .. event:: domain-deleted (subject, event, vm)
+
+            When domain is deleted. VM still has reference to ``app`` object,
+            but is not contained within VMCollection.
+
+            :param subject: Event emitter
+            :param event: Event name (``'domain-deleted'``)
+            :param vm: Domain object
+
+    Methods and attributes:
     '''
 
     default_netvm = VMProperty('default_netvm', load_stage=3,
@@ -822,22 +892,16 @@ class Qubes(PropertyHolder):
         return labels
 
 
+
     def add_new_vm(self, vm):
         '''Add new Virtual Machine to colletion
 
         '''
 
-        if not hasattr(vm, 'qid'):
-            vm.qid = self.domains.get_new_unused_qid()
-
         self.domains.add(vm)
 
-        #
-        # XXX
-        # all this will be moved to an event handler
-        # and deduplicated with self.load()
-        #
-
+    @qubes.events.handler('domain-added')
+    def on_domain_addedd(self, event, vm):
         # make first created NetVM the default one
         if not hasattr(self, 'default_fw_netvm') \
                 and vm.provides_network \
@@ -866,23 +930,21 @@ class Qubes(PropertyHolder):
                 and hasattr(vm, 'netvm'):
             self.default_clockvm = vm
 
-        # XXX don't know if it should return self
-        return vm
 
-    # XXX This was in QubesVmCollection, will be in an event
-#   def pop(self, qid):
-#       if self.default_netvm_qid == qid:
-#           self.default_netvm_qid = None
-#       if self.default_fw_netvm_qid == qid:
-#           self.default_fw_netvm_qid = None
-#       if self.clockvm_qid == qid:
-#           self.clockvm_qid = None
-#       if self.updatevm_qid == qid:
-#           self.updatevm_qid = None
-#       if self.default_template_qid == qid:
-#           self.default_template_qid = None
-#
-#       return super(QubesVmCollection, self).pop(qid)
+    @qubes.events.handler('domain-deleted')
+    def on_domain_deleted(self, event, vm):
+        if self.default_netvm == vm:
+            del self.default_netvm
+        if self.default_fw_netvm == vm:
+            del self.default_fw_netvm
+        if self.clockvm == vm:
+            del self.clockvm
+        if self.updatevm == vm:
+            del self.updatevm
+        if self.default_template == vm:
+            del self.default_template
+
+        return super(QubesVmCollection, self).pop(qid)
 
 
 # load plugins
