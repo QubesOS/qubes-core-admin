@@ -9,37 +9,28 @@ etc.
 
 import collections
 
-import qubes.vm
 
-#: collection of system-wide hooks
-system_hooks = collections.defaultdict(list)
-
-def hook(event, vm=None, system=False):
-    '''Decorator factory.
+def handler(event):
+    '''Event handler decorator factory.
 
     To hook an event, decorate a method in your plugin class with this
     decorator.
 
+    .. note::
+        For hooking events from extensions, see :py:func:`qubes.ext.handler`.
+
     :param str event: event type
-    :param type vm: VM to hook (leave as None to hook all VMs)
-    :param bool system: when :py:obj:`True`, hook is system-wide (not attached to any VM)
     '''
 
     def decorator(f):
-        f.ho_event = event
-
-        if system:
-            f.ho_vm = None
-        elif vm is None:
-            f.ho_vm = qubes.vm.BaseVM
-        else:
-            f.ho_vm = vm
-
+        f.ha_event = event
+        f.ha_bound = True
         return f
 
     return decorator
 
-def ishook(o):
+
+def ishandler(o):
     '''Test if a method is hooked to an event.
 
     :param object o: suspected hook
@@ -48,24 +39,67 @@ def ishook(o):
     '''
 
     return callable(o) \
-        and hasattr(o, 'ho_event') \
-        and hasattr(o, 'ho_vm')
+        and hasattr(o, 'ha_event')
 
-def add_system_hook(event, f):
-    '''Add system-wide hook.
 
-    :param callable f: function to call
+class EmitterMeta(type):
+    '''Metaclass for :py:class:`Emitter`'''
+    def __init__(cls, name, bases, dict_):
+        super(type, cls).__init__(name, bases, dict_)
+        cls.__handlers__ = collections.defaultdict(set)
+
+
+class Emitter(object):
+    '''Subject that can emit events
     '''
 
-    global_hooks[event].append(f)
+    __metaclass__ = EmitterMeta
 
-def fire_system_hooks(event, *args, **kwargs):
-    '''Fire system-wide hooks.
+    def __init__(self, *args, **kwargs):
+        super(Emitter, self).__init__(*args, **kwargs)
+        try:
+            propnames = set(prop.__name__ for prop in self.get_props_list())
+        except AttributeError:
+            propnames = set()
 
-    :param str event: event type
+        for attr in dir(self):
+            if attr in propnames:
+                # we have to be careful, not to getattr() on properties which
+                # may be unset
+                continue
 
-    *args* and *kwargs* are passed to all hooks.
-    '''
+            attr = getattr(self, attr)
+            if not ishandler(attr):
+                continue
 
-    for hook in system_hooks[event]:
-        hook(self, *args, **kwargs)
+            self.add_handler(attr.ha_event, attr)
+
+
+    @classmethod
+    def add_handler(cls, event, handler):
+        '''Add event handler to subject's class
+
+        :param str event: event identificator
+        :param collections.Callable handler: handler callable
+        '''
+
+        cls.__handlers__[event].add(handler)
+
+
+    def fire_event(self, event, *args, **kwargs):
+        '''Call all handlers for an event
+
+        :param str event: event identificator
+
+        All *args* and *kwargs* are passed verbatim. They are different for
+        different events.
+        '''
+
+        for handler in self.__handlers__[event]:
+            if hasattr(handler, 'ha_bound'):
+                # this is our (bound) method, self is implicit
+                handler(event, *args, **kwargs)
+            else:
+                # this is from extension or hand-added, so we see method as
+                # unbound, therefore we need to pass self
+                handler(self, event, *args, **kwargs)

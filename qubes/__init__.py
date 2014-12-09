@@ -29,6 +29,9 @@ import __builtin__
 import lxml.etree
 import xml.parsers.expat
 
+import qubes.ext
+
+
 if os.name == 'posix':
     import fcntl
 elif os.name == 'nt':
@@ -661,6 +664,8 @@ class Qubes(PropertyHolder):
 
 
     def __init__(self, store='/var/lib/qubes/qubes.xml'):
+        self._extensions = set(ext(self) for ext in qubes.ext.Extension.register.values())
+
         #: collection of all VMs managed by this Qubes instance
         self.domains = VMCollection()
 

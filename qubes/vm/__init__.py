@@ -12,7 +12,7 @@ Main public classes
 Helper classes and functions
 ----------------------------
 
-.. autoclass:: VMPlugin
+.. autoclass:: BaseVMMeta
    :members:
    :show-inheritance:
 
@@ -57,19 +57,22 @@ import dateutil.parser
 import lxml.etree
 
 import qubes
+import qubes.events
 import qubes.plugins
 
 
-class VMPlugin(qubes.plugins.Plugin):
+class BaseVMMeta(qubes.plugins.Plugin, qubes.events.EmitterMeta):
     '''Metaclass for :py:class:`.BaseVM`'''
     def __init__(cls, name, bases, dict_):
-        super(VMPlugin, cls).__init__(name, bases, dict_)
+        super(BaseVMMeta, cls).__init__(name, bases, dict_)
         cls.__hooks__ = collections.defaultdict(list)
 
 
-class BaseVM(qubes.PropertyHolder):
+class BaseVM(qubes.PropertyHolder, qubes.events.Emitter):
     '''Base class for all VMs
 
+    :param app: Qubes application context
+    :type app: :py:class:`qubes.Qubes`
     :param xml: xml node from which to deserialise
     :type xml: :py:class:`lxml.etree._Element` or :py:obj:`None`
 
@@ -78,23 +81,25 @@ class BaseVM(qubes.PropertyHolder):
     :py:class:`qubes.vm.qubesvm.QubesVM`.
     '''
 
-    __metaclass__ = VMPlugin
+    __metaclass__ = BaseVMMeta
 
-    def __init__(self, app, xml=None, load_stage=2, services={}, devices=None, tags={}, **kwargs):
+    def __init__(self, app, xml, load_stage=2, services={}, devices=None,
+            tags={}, *args, **kwargs):
         self.app = app
-        self.xml = xml
         self.services = services
         self.devices = collections.defaultdict(list) if devices is None else devices
         self.tags = tags
 
         all_names = set(prop.__name__ for prop in self.get_props_list(load_stage=2))
-        for key in kwargs:
+        for key in list(kwargs.keys()):
             if not key in all_names:
                 raise AttributeError(
                     'No property {!r} found in {!r}'.format(
                         key, self.__class__))
             setattr(self, key, kwargs[key])
+            del kwargs[key]
 
+        super(BaseVM, self).__init__(xml, *args, **kwargs)
 
     def add_new_vm(self, vm):
         '''Add new Virtual Machine to colletion

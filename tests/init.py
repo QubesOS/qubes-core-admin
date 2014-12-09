@@ -104,8 +104,8 @@ class TC_11_VMCollection(unittest.TestCase):
         # XXX passing None may be wrong in the future
         self.vms = qubes.VMCollection(None)
 
-        self.testvm1 = TestVM(None, qid=1, name='testvm1')
-        self.testvm2 = TestVM(None, qid=2, name='testvm2')
+        self.testvm1 = TestVM(None, None, qid=1, name='testvm1')
+        self.testvm2 = TestVM(None, None, qid=2, name='testvm2')
 
     def test_000_contains(self):
         self.vms._dict = {1: self.testvm1}
@@ -132,8 +132,8 @@ class TC_11_VMCollection(unittest.TestCase):
         with self.assertRaises(TypeError):
             self.vms.add(object())
 
-        testvm_qid_collision = TestVM(None, name='testvm2', qid=1)
-        testvm_name_collision = TestVM(None, name='testvm1', qid=2)
+        testvm_qid_collision = TestVM(None, None, name='testvm2', qid=1)
+        testvm_name_collision = TestVM(None, None, name='testvm1', qid=2)
 
         with self.assertRaises(ValueError):
             self.vms.add(testvm_qid_collision)
