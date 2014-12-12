@@ -21,6 +21,9 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 #
+import string
+from lxml import etree
+from lxml.etree import ElementTree, SubElement, Element
 
 from qubes import QubesException
 from qubes import vmm
@@ -36,6 +39,11 @@ import xen.lowlevel.xc
 import xen.lowlevel.xs
 
 BLKSIZE = 512
+
+# all frontends, prefer xvdi
+# TODO: get this from libvirt driver?
+AVAILABLE_FRONTENDS = ['xvd'+c for c in
+                       string.lowercase[8:]+string.lowercase[:8]]
 
 def mbytes_to_kmg(size):
     if size > 1024:
@@ -207,127 +215,144 @@ def block_find_unused_frontend(vm = None):
     assert vm is not None
     assert vm.is_running()
 
-    vbd_list = vmm.xs.ls('', '/local/domain/%d/device/vbd' % vm.xid)
-    # xvd* devices
-    major = 202
-    # prefer xvdi
-    for minor in range(8*16,254,16)+range(0,8*16,16):
-        if vbd_list is None or str(major << 8 | minor) not in vbd_list:
-            return block_devid_to_name(major << 8 | minor)
+    xml = vm.libvirt_domain.XMLDesc()
+    parsed_xml = etree.fromstring(xml)
+    used = [target.get('dev', None)  for target in
+            parsed_xml.xpath("//domain/devices/disk/target")]
+    for dev in AVAILABLE_FRONTENDS:
+        if dev not in used:
+            return dev
     return None
 
-def block_list(vm = None, system_disks = False):
-    device_re = re.compile(r"^[a-z0-9-]{1,12}$")
+def block_list_vm(vm, system_disks = False):
+    name_re = re.compile(r"^[a-z0-9-]{1,12}$")
+    device_re = re.compile(r"^[a-z0-9/-]{1,64}$")
     # FIXME: any better idea of desc_re?
     desc_re = re.compile(r"^.{1,255}$")
     mode_re = re.compile(r"^[rw]$")
 
-    xs_trans = vmm.xs.transaction_start()
+    assert vm is not None
 
-    vm_list = []
-    if vm is not None:
-        if not vm.is_running():
-            vmm.xs.transaction_end(xs_trans)
-            return []
-        else:
-            vm_list = [ str(vm.xid) ]
-    else:
-         vm_list = vmm.xs.ls(xs_trans, '/local/domain')
+    if not vm.is_running():
+        return []
 
     devices_list = {}
-    for xid in vm_list:
-        vm_name = vmm.xs.read(xs_trans, '/local/domain/%s/name' % xid)
-        vm_devices = vmm.xs.ls(xs_trans, '/local/domain/%s/qubes-block-devices' % xid)
-        if vm_devices is None:
-            continue
-        for device in vm_devices:
-            # Sanitize device name
-            if not device_re.match(device):
-                print >> sys.stderr, "Invalid device name in VM '%s'" % vm_name
-                continue
 
-            device_size = vmm.xs.read(xs_trans, '/local/domain/%s/qubes-block-devices/%s/size' % (xid, device))
-            device_desc = vmm.xs.read(xs_trans, '/local/domain/%s/qubes-block-devices/%s/desc' % (xid, device))
-            device_mode = vmm.xs.read(xs_trans, '/local/domain/%s/qubes-block-devices/%s/mode' % (xid, device))
+    untrusted_devices = vm.qdb.multiread('/qubes-block-devices/')
 
-            if device_size is None or device_desc is None or device_mode is None:
-                print >> sys.stderr, "Missing field in %s device parameters" % device
+    def get_dev_item(dev, item):
+        return untrusted_devices.get(
+            '/qubes-block-devices/%s/%s' % (dev, item),
+            None)
+
+    untrusted_devices_names = list(set(map(lambda x: x.split("/")[2],
+        untrusted_devices.keys())))
+    for untrusted_dev_name in untrusted_devices_names:
+        if name_re.match(untrusted_dev_name):
+            dev_name = untrusted_dev_name
+            untrusted_device_size = get_dev_item(dev_name, 'size')
+            untrusted_device_desc = get_dev_item(dev_name, 'desc')
+            untrusted_device_mode = get_dev_item(dev_name, 'mode')
+            untrusted_device_device = get_dev_item(dev_name, 'device')
+            if untrusted_device_desc is None or untrusted_device_mode is None\
+                    or untrusted_device_size is None:
+                print >>sys.stderr, "Missing field in %s device parameters" %\
+                                    dev_name
                 continue
-            if not device_size.isdigit():
-                print >> sys.stderr, "Invalid %s device size in VM '%s'" % (device, vm_name)
+            if untrusted_device_device is None:
+                untrusted_device_device = '/dev/' + dev_name
+            if not device_re.match(untrusted_device_device):
+                print >> sys.stderr, "Invalid %s device path in VM '%s'" % (
+                    dev_name, vm.name)
                 continue
-            if not desc_re.match(device_desc):
-                print >> sys.stderr, "Invalid %s device desc in VM '%s'" % (device, vm_name)
+            device_device = untrusted_device_device
+            if not untrusted_device_size.isdigit():
+                print >> sys.stderr, "Invalid %s device size in VM '%s'" % (
+                    dev_name, vm.name)
                 continue
-            if not mode_re.match(device_mode):
-                print >> sys.stderr, "Invalid %s device mode in VM '%s'" % (device, vm_name)
+            device_size = int(untrusted_device_size)
+            if not desc_re.match(untrusted_device_desc):
+                print >> sys.stderr, "Invalid %s device desc in VM '%s'" % (
+                    dev_name, vm.name)
                 continue
-            # Check if we know major number for this device; attach will work without this, but detach and check_attached don't
-            if block_name_to_majorminor(device) == (0, 0):
-                print >> sys.stderr, "Unsupported device %s:%s" % (vm_name, device)
+            device_desc = untrusted_device_desc
+            if not mode_re.match(untrusted_device_mode):
+                print >> sys.stderr, "Invalid %s device mode in VM '%s'" % (
+                    dev_name, vm.name)
                 continue
+            device_mode = untrusted_device_mode
 
             if not system_disks:
-                if xid == '0' and device_desc.startswith(system_path["qubes_base_dir"]):
+                if vm.qid == 0 and device_desc.startswith(system_path[
+                    "qubes_base_dir"]):
                     continue
 
-            visible_name = "%s:%s" % (vm_name, device)
-            devices_list[visible_name] = {"name": visible_name, "xid":int(xid),
-                "vm": vm_name, "device":device, "size":int(device_size),
-                "desc":device_desc, "mode":device_mode}
+            visible_name = "%s:%s" % (vm.name, dev_name)
+            devices_list[visible_name] = {
+                "name":   visible_name,
+                "vm":     vm.name,
+                "device": device_device,
+                "size":   device_size,
+                "desc":   device_desc,
+                "mode":   device_mode
+            }
 
-    vmm.xs.transaction_end(xs_trans)
     return devices_list
 
-def block_check_attached(backend_vm, device, backend_xid = None):
-    if backend_xid is None:
-        backend_xid = backend_vm.xid
-    xs_trans = vmm.xs.transaction_start()
-    vm_list = vmm.xs.ls(xs_trans, '/local/domain/%d/backend/vbd' % backend_xid)
-    if vm_list is None:
-        vmm.xs.transaction_end(xs_trans)
-        return None
-    device_majorminor = None
-    try:
-        device_majorminor = block_name_to_majorminor(device)
-    except:
-        # Unknown devices will be compared directly - perhaps it is a filename?
-        pass
-    for vm_xid in vm_list:
-        for devid in vmm.xs.ls(xs_trans, '/local/domain/%d/backend/vbd/%s' % (backend_xid, vm_xid)):
-            (tmp_major, tmp_minor) = (0, 0)
-            phys_device = vmm.xs.read(xs_trans, '/local/domain/%d/backend/vbd/%s/%s/physical-device' % (backend_xid, vm_xid, devid))
-            dev_params = vmm.xs.read(xs_trans, '/local/domain/%d/backend/vbd/%s/%s/params' % (backend_xid, vm_xid, devid))
-            if phys_device and phys_device.find(':'):
-                (tmp_major, tmp_minor) = phys_device.split(":")
-                tmp_major = int(tmp_major, 16)
-                tmp_minor = int(tmp_minor, 16)
-            else:
-                # perhaps not ready yet - check params
-                if not dev_params:
-                    # Skip not-phy devices
-                    continue
-                elif not dev_params.startswith('/dev/'):
-                    # will compare params directly
-                    pass
-                else:
-                    (tmp_major, tmp_minor) = block_name_to_majorminor(dev_params.lstrip('/dev/'))
+def block_list(qvmc = None, vm = None, system_disks = False):
+    if vm is not None:
+        if not vm.is_running():
+            return []
+        else:
+            vm_list = [ vm ]
+    else:
+        if qvmc is None:
+            raise QubesException("You must pass either qvm or vm argument")
+        vm_list = qvmc.values()
 
-            if (device_majorminor and (tmp_major, tmp_minor) == device_majorminor) or \
-               (device_majorminor is None and dev_params == device):
-                   #TODO
-                vm_name = xl_ctx.domid_to_name(int(vm_xid))
-                frontend = block_devid_to_name(int(devid))
-                vmm.xs.transaction_end(xs_trans)
-                return {"xid":int(vm_xid), "frontend": frontend, "devid": int(devid), "vm": vm_name}
-    vmm.xs.transaction_end(xs_trans)
+    devices_list = {}
+    for vm in vm_list:
+        devices_list.update(block_list_vm(vm, system_disks))
+    return devices_list
+
+def block_check_attached(qvmc, device):
+    """
+
+    @type qvmc: QubesVmCollection
+    """
+    if qvmc is None:
+        # TODO: ValueError
+        raise QubesException("You need to pass qvmc argument")
+
+    for vm in qvmc.values():
+        libvirt_domain = vm.libvirt_domain
+        if libvirt_domain:
+            xml = vm.libvirt_domain.XMLDesc()
+            parsed_xml = etree.fromstring(xml)
+            disks = parsed_xml.xpath("//domain/devices/disk")
+            for disk in disks:
+                backend_name = 'dom0'
+                # FIXME: move <domain/> into <source/>
+                if disk.find('domain') is not None:
+                    backend_name = disk.find('domain').get('name')
+                source = disk.find('source')
+                if disk.get('type') == 'file':
+                    path = source.get('file')
+                elif disk.get('type') == 'block':
+                    path = source.get('dev')
+                else:
+                    # TODO: logger
+                    print >>sys.stderr, "Unknown disk type '%s' attached to " \
+                                        "VM '%s'" % (source.get('type'),
+                                                     vm.name)
+                    continue
+                if backend_name == device['vm'] and path == device['device']:
+                    return {
+                        "frontend": disk.find('target').get('dev'),
+                        "vm": vm}
     return None
 
-def block_attach(vm, backend_vm, device, frontend=None, mode="w", auto_detach=False, wait=True):
-    device_attach_check(vm, backend_vm, device, frontend)
-    do_block_attach(vm, backend_vm, device, frontend, mode, auto_detach, wait)
-
-def device_attach_check(vm, backend_vm, device, frontend):
+def device_attach_check(vm, backend_vm, device, frontend, mode):
     """ Checks all the parameters, dies on errors """
     if not vm.is_running():
         raise QubesException("VM %s not running" % vm.name)
@@ -335,105 +360,67 @@ def device_attach_check(vm, backend_vm, device, frontend):
     if not backend_vm.is_running():
         raise QubesException("VM %s not running" % backend_vm.name)
 
-def do_block_attach(vm, backend_vm, device, frontend, mode, auto_detach, wait):
+    if device['mode'] == 'r' and mode == 'w':
+        raise QubesException("Cannot attach read-only device in read-write "
+                             "mode")
+
+def block_attach(qvmc, vm, device, frontend=None, mode="w", auto_detach=False, wait=True):
+    backend_vm = qvmc.get_vm_by_name(device['vm'])
+    device_attach_check(vm, backend_vm, device, frontend, mode)
     if frontend is None:
         frontend = block_find_unused_frontend(vm)
         if frontend is None:
             raise QubesException("No unused frontend found")
     else:
         # Check if any device attached at this frontend
-        if vmm.xs.read('', '/local/domain/%d/device/vbd/%d/state' % (vm.xid, block_name_to_devid(frontend))) == '4':
+        xml = vm.libvirt_domain.XMLDesc()
+        parsed_xml = etree.fromstring(xml)
+        disks = parsed_xml.xpath("//domain/devices/disk/target[@dev='%s']" %
+                                 frontend)
+        if len(disks):
             raise QubesException("Frontend %s busy in VM %s, detach it first" % (frontend, vm.name))
 
     # Check if this device is attached to some domain
-    attached_vm = block_check_attached(backend_vm, device)
+    attached_vm = block_check_attached(qvmc, device)
     if attached_vm:
         if auto_detach:
-            block_detach(None, attached_vm['devid'], vm_xid=attached_vm['xid'])
+            block_detach(attached_vm['vm'], attached_vm['frontend'])
         else:
-            raise QubesException("Device %s from %s already connected to VM %s as %s" % (device, backend_vm.name, attached_vm['vm'], attached_vm['frontend']))
+            raise QubesException("Device %s from %s already connected to VM "
+                                 "%s as %s" % (device['device'],
+                                               backend_vm.name, attached_vm['vm'], attached_vm['frontend']))
 
-    if device.startswith('/'):
-        backend_dev = 'script:file:' + device
-    else:
-        backend_dev = 'phy:/dev/' + device
+    disk = Element("disk")
+    disk.set('type', 'block')
+    disk.set('device', 'disk')
+    SubElement(disk, 'driver').set('name', 'phy')
+    SubElement(disk, 'source').set('dev', device['device'])
+    SubElement(disk, 'target').set('dev', frontend)
+    if backend_vm.qid != 0:
+        SubElement(disk, 'domain').set('name', device['vm'])
+    vm.libvirt_domain.attachDevice(etree.tostring(disk,  encoding='utf-8'))
 
-    xl_cmd = [ '/usr/sbin/xl', 'block-attach', vm.name, backend_dev, frontend, mode, str(backend_vm.xid) ]
-    subprocess.check_call(xl_cmd)
-    if wait:
-        be_path = '/local/domain/%d/backend/vbd/%d/%d' % (backend_vm.xid, vm.xid, block_name_to_devid(frontend))
-        # There is no way to use xenstore watch with a timeout, so must check in a loop
-        interval = 0.100
-        # 5sec timeout
-        timeout = 5/interval
-        while timeout > 0:
-            be_state = vmm.xs.read('', be_path + '/state')
-            hotplug_state = vmm.xs.read('', be_path + '/hotplug-status')
-            if be_state is None:
-                raise QubesException("Backend device disappeared, something weird happened")
-            elif int(be_state) == 4:
-                # Ok
-                return
-            elif int(be_state) > 4:
-                # Error
-                error = vmm.xs.read('', '/local/domain/%d/error/backend/vbd/%d/%d/error' % (backend_vm.xid, vm.xid, block_name_to_devid(frontend)))
-                if error is not None:
-                    raise QubesException("Error while connecting block device: " + error)
-                else:
-                    raise QubesException("Unknown error while connecting block device")
-            elif hotplug_state == 'error':
-                hotplug_error = vmm.xs.read('', be_path + '/hotplug-error')
-                if hotplug_error:
-                    raise QubesException("Error while connecting block device: " + hotplug_error)
-                else:
-                    raise QubesException("Unknown hotplug error while connecting block device")
-            time.sleep(interval)
-            timeout -= interval
-        raise QubesException("Timeout while waiting for block defice connection")
+def block_detach(vm, frontend = "xvdi"):
 
-def block_detach(vm, frontend = "xvdi", vm_xid = None):
-    # Get XID if not provided already
-    if vm_xid is None:
-        if not vm.is_running():
-            raise QubesException("VM %s not running" % vm.name)
-        # FIXME: potential race
-        vm_xid = vm.xid
-
-    # Check if this device is really connected
-    if not vmm.xs.read('', '/local/domain/%d/device/vbd/%d/state' % (vm_xid, block_name_to_devid(frontend))) == '4':
-        # Do nothing - device already detached
-        return
-
-    xl_cmd = [ '/usr/sbin/xl', 'block-detach', str(vm_xid), str(frontend)]
-    subprocess.check_call(xl_cmd)
-
-def block_detach_all(vm, vm_xid = None):
-    """ Detach all non-system devices"""
-    # Get XID if not provided already
-    if vm_xid is None:
-        if not vm.is_running():
-            raise QubesException("VM %s not running" % vm.name)
-        # FIXME: potential race
-        vm_xid = vm.xid
-
-    xs_trans = vmm.xs.transaction_start()
-    devices = vmm.xs.ls(xs_trans, '/local/domain/%d/device/vbd' % vm_xid)
-    if devices is None:
-        return
-    devices_to_detach = []
-    for devid in devices:
-        # check if this is system disk
-        be_path = vmm.xs.read(xs_trans, '/local/domain/%d/device/vbd/%s/backend' % (vm_xid, devid))
-        assert be_path is not None
-        be_params = vmm.xs.read(xs_trans, be_path + '/params')
-        if be_path.startswith('/local/domain/0/') and be_params is not None and be_params.startswith(system_path["qubes_base_dir"]):
-            # system disk
+    xml = vm.libvirt_domain.XMLDesc()
+    parsed_xml = etree.fromstring(xml)
+    attached = parsed_xml.xpath("//domain/devices/disk")
+    for disk in attached:
+        if frontend is not None and disk.find('target').get('dev') != frontend:
+            # Not the device we are looking for
             continue
-        devices_to_detach.append(devid)
-    vmm.xs.transaction_end(xs_trans)
-    for devid in devices_to_detach:
-        xl_cmd = [ '/usr/sbin/xl', 'block-detach', str(vm_xid), devid]
-        subprocess.check_call(xl_cmd)
+        if frontend is None:
+            # ignore system disks
+            if disk.find('domain') == None and \
+                    disk.find('source').get('dev').startswith(system_path[
+                        "qubes_base_dir"]):
+                continue
+        vm.libvirt_domain.detachDevice(etree.tostring(disk, encoding='utf-8'))
+
+def block_detach_all(vm):
+    """ Detach all non-system devices"""
+
+    block_detach(vm, None)
 
 ####### USB devices ######
 
