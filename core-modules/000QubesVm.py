@@ -1553,14 +1553,14 @@ class QubesVm(object):
             args += ["-t"]
         if os.isatty(sys.stderr.fileno()):
             args += ["-T"]
-        if passio:
-            os.execv(system_path["qrexec_client_path"], args)
-            exit(1)
 
         call_kwargs = {}
-        if ignore_stderr:
-            null = open("/dev/null", "w")
+        if ignore_stderr or not passio:
+            null = open("/dev/null", "rw")
             call_kwargs['stderr'] = null
+        if not passio:
+            call_kwargs['stdin'] = null
+            call_kwargs['stdout'] = null
 
         if passio_popen:
             popen_kwargs={'stdout': subprocess.PIPE}
@@ -1573,7 +1573,7 @@ class QubesVm(object):
             if null:
                 null.close()
             return p
-        if not wait:
+        if not wait and not passio:
             args += ["-e"]
         retcode = subprocess.call(args, **call_kwargs)
         if null:
