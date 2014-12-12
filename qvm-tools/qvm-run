@@ -60,7 +60,7 @@ def vm_run_cmd(vm, cmd, options):
             verbose = options.verbose,
             user = options.user,
             notify_function = tray_notify_generic if options.tray else None,
-            wait = options.passio, localcmd = options.localcmd,
+            passio = options.passio, localcmd = options.localcmd,
             gui = options.gui, filter_esc = options.filter_esc)
     except QubesException as err:
         if options.passio and options.color_output is not None:
