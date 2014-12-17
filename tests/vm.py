@@ -6,7 +6,90 @@ import unittest
 import lxml.etree
 
 sys.path.insert(0, '../')
+import qubes
+import qubes.events
 import qubes.vm
+
+
+class TestEmitter(qubes.events.Emitter):
+    def __init__(self):
+        super(TestEmitter, self).__init__()
+        self.device_pre_attached_fired = False
+        self.device_attached_fired = False
+        self.device_pre_detached_fired = False
+        self.device_detached_fired = False
+
+    @qubes.events.handler('device-pre-attached:testclass')
+    def on_device_pre_attached(self, event, dev):
+        self.device_pre_attached_fired = True
+
+    @qubes.events.handler('device-attached:testclass')
+    def on_device_attached(self, event, dev):
+        if self.device_pre_attached_fired:
+            self.device_attached_fired = True
+
+    @qubes.events.handler('device-pre-detached:testclass')
+    def on_device_pre_detached(self, event, dev):
+        if self.device_attached_fired:
+            self.device_pre_detached_fired = True
+
+    @qubes.events.handler('device-detached:testclass')
+    def on_device_detached(self, event, dev):
+        if self.device_pre_detached_fired:
+            self.device_detached_fired = True
+
+class TC_00_DeviceCollection(unittest.TestCase):
+    def setUp(self):
+        self.emitter = TestEmitter()
+        self.collection = qubes.vm.DeviceCollection(self.emitter, 'testclass')
+
+    def test_000_init(self):
+        self.assertFalse(self.collection._set)
+
+    def test_001_attach(self):
+        self.collection.attach('testdev')
+        self.assertTrue(self.emitter.device_pre_attached_fired)
+        self.assertTrue(self.emitter.device_attached_fired)
+        self.assertFalse(self.emitter.device_pre_detached_fired)
+        self.assertFalse(self.emitter.device_detached_fired)
+
+    def test_002_detach(self):
+        self.collection.attach('testdev')
+        self.collection.detach('testdev')
+        self.assertTrue(self.emitter.device_pre_attached_fired)
+        self.assertTrue(self.emitter.device_attached_fired)
+        self.assertTrue(self.emitter.device_pre_detached_fired)
+        self.assertTrue(self.emitter.device_detached_fired)
+
+    def test_010_empty_detach(self):
+        with self.assertRaises(LookupError):
+            self.collection.detach('testdev')
+
+    def test_011_double_attach(self):
+        self.collection.attach('testdev')
+
+        with self.assertRaises(LookupError):
+            self.collection.attach('testdev')
+
+    def test_012_double_detach(self):
+        self.collection.attach('testdev')
+        self.collection.detach('testdev')
+
+        with self.assertRaises(LookupError):
+            self.collection.detach('testdev')
+
+
+class TC_01_DeviceManager(unittest.TestCase):
+    def setUp(self):
+        self.emitter = TestEmitter()
+        self.manager = qubes.vm.DeviceManager(self.emitter)
+
+    def test_000_init(self):
+        self.assertEqual(self.manager, {})
+
+    def test_001_missing(self):
+        self.manager['testclass'].attach('testdev')
+        self.assertTrue(self.emitter.device_attached_fired)
 
 
 class TestVM(qubes.vm.BaseVM):
@@ -16,7 +99,7 @@ class TestVM(qubes.vm.BaseVM):
     testlabel = qubes.property('testlabel')
     defaultprop = qubes.property('defaultprop', default='defaultvalue')
 
-class TC_BaseVM(unittest.TestCase):
+class TC_10_BaseVM(unittest.TestCase):
     def setUp(self):
         self.xml = lxml.etree.XML('''
 <qubes version="3"> <!-- xmlns="https://qubes-os.org/QubesXML/1" -->

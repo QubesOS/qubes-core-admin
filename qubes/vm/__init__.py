@@ -68,6 +68,73 @@ class BaseVMMeta(qubes.plugins.Plugin, qubes.events.EmitterMeta):
         cls.__hooks__ = collections.defaultdict(list)
 
 
+class DeviceCollection(object):
+    '''Bag for devices.
+
+    Used as default value for :py:meth:`DeviceManager.__missing__` factory.
+
+    :param vm: VM for which we manage devices
+    :param class_: device class
+    '''
+
+    def __init__(self, vm, class_):
+        self._vm = vm
+        self._class = class_
+        self._set = set()
+
+
+    def attach(self, device):
+        '''Attach (add) device to domain.
+
+        :param str device: device identifier (format is class-dependent)
+        '''
+
+        if device in self:
+            raise KeyError(
+                'device {!r} of class {} already attached to {!r}'.format(
+                    device, self._class, self._vm))
+        self._vm.fire_event('device-pre-attached:{}'.format(self._class), device)
+        self._set.add(device)
+        self._vm.fire_event('device-attached:{}'.format(self._class), device)
+
+
+    def detach(self, device):
+        '''Detach (remove) device from domain.
+
+        :param str device: device identifier (format is class-dependent)
+        '''
+
+        if device not in self:
+            raise KeyError(
+                'device {!r} of class {} not attached to {!r}'.format(
+                    device, self._class, self._vm))
+        self._vm.fire_event('device-pre-detached:{}'.format(self._class), device)
+        self._set.remove(device)
+        self._vm.fire_event('device-detached:{}'.format(self._class), device)
+
+
+    def __iter__(self):
+        return iter(self._set)
+
+
+    def __contains__(self, item):
+        return item in self._set
+
+
+class DeviceManager(dict):
+    '''Device manager that hold all devices by their classess.
+
+    :param vm: VM for which we manage devices
+    '''
+
+    def __init__(self, vm):
+        super(DeviceManager, self).__init__()
+        self._vm = vm
+
+    def __missing__(self, key):
+        return DeviceCollection(self._vm, key)
+
+
 class BaseVM(qubes.PropertyHolder):
     '''Base class for all VMs
 
@@ -87,7 +154,7 @@ class BaseVM(qubes.PropertyHolder):
             tags={}, *args, **kwargs):
         self.app = app
         self.services = services
-        self.devices = collections.defaultdict(list) if devices is None else devices
+        self.devices = DeviceManager(self) if devices is None else devices
         self.tags = tags
 
         self.events_enabled = False
