@@ -16,6 +16,10 @@ def handler(event):
     To hook an event, decorate a method in your plugin class with this
     decorator.
 
+    It probably makes no sense to specify more than one handler for specific
+    event in one class, because handlers are not run concurrently and there is
+    no guarantee of the order of execution.
+
     .. note::
         For hooking events from extensions, see :py:func:`qubes.ext.handler`.
 
@@ -89,7 +93,12 @@ class Emitter(object):
 
 
     def fire_event(self, event, *args, **kwargs):
-        '''Call all handlers for an event
+        '''Call all handlers for an event.
+
+        Handlers are called for class and all parent classess, in method
+        resolution order. For each class first are called bound handlers
+        (specified in class definition), then handlers from extensions. Aside
+        from above, remaining order is undefined.
 
         :param str event: event identificator
 
@@ -100,11 +109,16 @@ class Emitter(object):
         if not self.events_enabled:
             return
 
-        for handler in self.__handlers__[event]:
-            if hasattr(handler, 'ha_bound'):
-                # this is our (bound) method, self is implicit
-                handler(event, *args, **kwargs)
-            else:
-                # this is from extension or hand-added, so we see method as
-                # unbound, therefore we need to pass self
-                handler(self, event, *args, **kwargs)
+        for cls in self.__class__.__mro__:
+            # first fire bound (= our own) handlers, then handlers from extensions
+            if not hasattr(cls, '__handlers__'):
+                continue
+            for handler in sorted(cls.__handlers__[event],
+                    key=(lambda handler: hasattr(handler, 'ha_bound')), reverse=True):
+                if hasattr(handler, 'ha_bound'):
+                    # this is our (bound) method, self is implicit
+                    handler(event, *args, **kwargs)
+                else:
+                    # this is from extension or hand-added, so we see method as
+                    # unbound, therefore we need to pass self
+                    handler(self, event, *args, **kwargs)
