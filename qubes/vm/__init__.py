@@ -296,32 +296,6 @@ class BaseVM(qubes.PropertyHolder):
         return '<{} object at {:#x} {}>'.format(
             self.__class__.__name__, id(self), ' '.join(proprepr))
 
-    @classmethod
-    def add_hook(cls, event, f):
-        '''Add hook to entire VM class and all subclasses
-
-        :param str event: event type
-        :param callable f: function to fire on event
-
-        Prototype of the function depends on the exact type of event. Classes
-        which inherit from this class will also inherit the hook.
-        '''
-
-        cls.__hooks__[event].append(f)
-
-
-    def fire_hooks(self, event, *args, **kwargs):
-        '''Fire hooks associated with an event
-
-        :param str event: event type
-
-        *args* and *kwargs* are passed to each function
-        '''
-
-        for cls in self.__class__.__mro__:
-            if not hasattr(cls, '__hooks__'): continue
-            for hook in cls.__hooks__[event]:
-                hook(self, *args, **kwargs)
 
 
 def load(class_, D):
