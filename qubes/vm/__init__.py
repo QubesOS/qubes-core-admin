@@ -285,11 +285,16 @@ class BaseVM(qubes.PropertyHolder):
         return element
 
     def __repr__(self):
-        return '<{} object at {:#x} {}>'.format(
-            self.__class__.__name__, id(self),
-            ' '.join('{}={}'.format(prop.__name__, getattr(self, prop.__name__))
-                for prop in self.get_props_list()))
+        proprepr = []
+        for prop in self.get_props_list():
+            try:
+                proprepr.append('{}={!r}'.format(
+                    prop.__name__, getattr(self, prop.__name__)))
+            except AttributeError:
+                continue
 
+        return '<{} object at {:#x} {}>'.format(
+            self.__class__.__name__, id(self), ' '.join(proprepr))
 
     @classmethod
     def add_hook(cls, event, f):
