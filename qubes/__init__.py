@@ -100,7 +100,7 @@ class VMMConnection(object):
         if 'xen.lowlevel.cs' in sys.modules:
             self._xc = xen.lowlevel.xc.xc()
         self._libvirt_conn = libvirt.open(defaults['libvirt_uri'])
-        if self._libvirt_conn == None:
+        if self._libvirt_conn is None:
             raise QubesException("Failed connect to libvirt driver")
         libvirt.registerErrorHandler(self._libvirt_error_handler, None)
         atexit.register(self._libvirt_conn.close)
