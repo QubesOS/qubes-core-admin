@@ -181,7 +181,7 @@ guiagent_installed
     Accepted values: ``True``, ``False``
 
     This HVM have gui agent installed. This option disables full screen GUI
-    virtualization and enables per-window seemless GUI mode. This option will
+    virtualization and enables per-window seamless GUI mode. This option will
     be automatically turned on during Qubes Windows Tools installation, but if
     you install qubes gui agent in some other OS, you need to turn this option
     on manually. You can turn this option off to troubleshoot some early HVM OS

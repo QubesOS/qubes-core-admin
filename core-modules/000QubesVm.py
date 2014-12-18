@@ -168,7 +168,7 @@ class QubesVm(object):
                 "func": lambda value:
                     datetime.datetime.fromtimestamp(int(value)) if value
                     else None },
-            ##### Internal attributes - will be overriden in __init__ regardless of args
+            ##### Internal attributes - will be overridden in __init__ regardless of args
             "config_file_template": {
                 "func": lambda x: system_path["config_template_pv"] },
             "icon_path": {
@@ -316,7 +316,7 @@ class QubesVm(object):
             qubes_host = QubesHost()
             total_mem_mb = qubes_host.memory_total/1024
             self.maxmem = total_mem_mb/2
-        
+
         # Linux specific cap: max memory can't scale beyond 10.79*init_mem
         if self.maxmem > self.memory * 10:
             self.maxmem = self.memory * 10

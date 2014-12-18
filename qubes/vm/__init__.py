@@ -142,7 +142,7 @@ class BaseVM(qubes.PropertyHolder):
     :param xml: xml node from which to deserialise
     :type xml: :py:class:`lxml.etree._Element` or :py:obj:`None`
 
-    This class is responsible for serialising and deserialising machines and
+    This class is responsible for serializing and deserialising machines and
     provides basic framework. It contains no management logic. For that, see
     :py:class:`qubes.vm.qubesvm.QubesVM`.
     '''

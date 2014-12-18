@@ -17,7 +17,7 @@ Options
 
 .. option:: --force
 
-    Do not prompt for comfirmation
+    Do not prompt for confirmation
 
 Authors
 =======

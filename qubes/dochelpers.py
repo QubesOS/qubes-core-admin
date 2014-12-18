@@ -3,8 +3,8 @@
 
 '''Documentation helpers
 
-This module contains classes and functions which help to mainain documentation,
-particulary our custom Sphinx extension.
+This module contains classes and functions which help to maintain documentation,
+particularly our custom Sphinx extension.
 
 '''
 
@@ -44,7 +44,7 @@ def ticket(name, rawtext, text, lineno, inliner, options={}, content=[]):
     :param str name: The role name used in the document
     :param str rawtext: The entire markup snippet, with role
     :param str text: The text marked with the role
-    :param int lineno: The line noumber where rawtext appearn in the input
+    :param int lineno: The line number where rawtext appears in the input
     :param docutils.parsers.rst.states.Inliner inliner: The inliner instance that called this function
     :param options: Directive options for customisation
     :param content: The directive content for customisation

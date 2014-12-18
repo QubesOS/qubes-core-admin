@@ -36,7 +36,7 @@ Supported services
 ==================
 
 This list can be incomplete as VM can implement any additional service without
-knowlege of qubes-core code.
+knowledge of qubes-core code.
 
 meminfo-writer
     Default: enabled everywhere excluding NetVM
@@ -47,7 +47,7 @@ meminfo-writer
     .. note::
 
         This service is enforced to be set by dom0 code. If you try to
-        remove it (reset to defult state), will be recreated with the rule: enabled
+        remove it (reset to default state), will be recreated with the rule: enabled
         if VM have no PCI devices assigned, otherwise disabled.
 
 qubes-dvm

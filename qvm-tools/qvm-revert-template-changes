@@ -34,7 +34,7 @@ def main():
     usage = "usage: %prog [options] <template-name>"
     parser = OptionParser (usage)
     parser.add_option ("--force", action="store_true", dest="force", default=False,
-            help="Do not prompt for comfirmation")
+            help="Do not prompt for confirmation")
 
     (options, args) = parser.parse_args ()
     if (len (args) != 1):
@@ -98,7 +98,7 @@ def main():
         prompt = raw_input ("Do you want to proceed? [y/N] ")
         if not (prompt == "y" or prompt == "Y"):
             exit (0)
-    
+
     p = subprocess.Popen(["/sbin/dmsetup", "table", old_dmdev], stdout=subprocess.PIPE)
     result = p.communicate()
     dm_table = result[0]
