@@ -93,7 +93,7 @@ class DeviceCollection(object):
             raise KeyError(
                 'device {!r} of class {} already attached to {!r}'.format(
                     device, self._class, self._vm))
-        self._vm.fire_event('device-pre-attached:{}'.format(self._class), device)
+        self._vm.fire_event_pre('device-pre-attached:{}'.format(self._class), device)
         self._set.add(device)
         self._vm.fire_event('device-attached:{}'.format(self._class), device)
 
@@ -108,7 +108,7 @@ class DeviceCollection(object):
             raise KeyError(
                 'device {!r} of class {} not attached to {!r}'.format(
                     device, self._class, self._vm))
-        self._vm.fire_event('device-pre-detached:{}'.format(self._class), device)
+        self._vm.fire_event_pre('device-pre-detached:{}'.format(self._class), device)
         self._set.remove(device)
         self._vm.fire_event('device-detached:{}'.format(self._class), device)
 

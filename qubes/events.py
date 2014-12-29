@@ -92,24 +92,17 @@ class Emitter(object):
         cls.__handlers__[event].add(handler)
 
 
-    def fire_event(self, event, *args, **kwargs):
-        '''Call all handlers for an event.
+    def _fire_event_in_order(self, order, event, *args, **kwargs):
+        '''Fire event for classes in given order.
 
-        Handlers are called for class and all parent classess, in method
-        resolution order. For each class first are called bound handlers
-        (specified in class definition), then handlers from extensions. Aside
-        from above, remaining order is undefined.
-
-        :param str event: event identificator
-
-        All *args* and *kwargs* are passed verbatim. They are different for
-        different events.
+        Do not use this method. Use :py:meth:`fire_event` or
+        :py:meth:`fire_event_pre`.
         '''
 
         if not self.events_enabled:
             return
 
-        for cls in self.__class__.__mro__:
+        for cls in order:
             # first fire bound (= our own) handlers, then handlers from extensions
             if not hasattr(cls, '__handlers__'):
                 continue
@@ -122,3 +115,42 @@ class Emitter(object):
                     # this is from extension or hand-added, so we see method as
                     # unbound, therefore we need to pass self
                     handler(self, event, *args, **kwargs)
+
+
+    def fire_event(self, event, *args, **kwargs):
+        '''Call all handlers for an event.
+
+        Handlers are called for class and all parent classess, in **reversed**
+        method resolution order. For each class first are called bound handlers
+        (specified in class definition), then handlers from extensions. Aside
+        from above, remaining order is undefined.
+
+        .. seealso::
+            :py:meth:`fire_event_pre`
+
+        :param str event: event identificator
+
+        All *args* and *kwargs* are passed verbatim. They are different for
+        different events.
+        '''
+
+        self._fire_event_in_order(reversed(self.__class__.__mro__), event, *args, **kwargs)
+
+
+    def fire_event_pre(self, event, *args, **kwargs):
+        '''Call all handlers for an event.
+
+        Handlers are called for class and all parent classess, in **true**
+        method resolution order. This is intended for ``-pre-`` events, where
+        order of invocation should be reversed.
+
+        .. seealso::
+            :py:meth:`fire_event`
+
+        :param str event: event identificator
+
+        All *args* and *kwargs* are passed verbatim. They are different for
+        different events.
+        '''
+
+        self._fire_event_in_order(self.__class__.__mro__, event, *args, **kwargs)

@@ -510,9 +510,9 @@ class property(object):
             value = self._type(value)
 
         if has_oldvalue:
-            instance.fire_event('property-pre-set:' + self.__name__, value, oldvalue)
+            instance.fire_event_pre('property-pre-set:' + self.__name__, value, oldvalue)
         else:
-            instance.fire_event('property-pre-set:' + self.__name__, value)
+            instance.fire_event_pre('property-pre-set:' + self.__name__, value)
 
 
         instance._init_property(self, value)
