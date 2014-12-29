@@ -7,6 +7,7 @@ import lxml.etree
 
 sys.path.insert(0, '../')
 import qubes
+import qubes.events
 import qubes.vm
 
 class TC_10_Label(unittest.TestCase):
@@ -99,10 +100,13 @@ class TestVM(qubes.vm.BaseVM):
     name = qubes.property('name')
     netid = qid
 
+class TestApp(qubes.events.Emitter):
+    pass
+
 class TC_11_VMCollection(unittest.TestCase):
     def setUp(self):
         # XXX passing None may be wrong in the future
-        self.vms = qubes.VMCollection(None)
+        self.vms = qubes.VMCollection(TestApp())
 
         self.testvm1 = TestVM(None, None, qid=1, name='testvm1')
         self.testvm2 = TestVM(None, None, qid=2, name='testvm2')
