@@ -58,7 +58,7 @@ class QubesException(Exception):
     '''Exception that can be shown to the user'''
     pass
 
-class QubesVMMConnection(object):
+class VMMConnection(object):
     '''Connection to Virtual Machine Manager (libvirt)'''
     def __init__(self):
         self._libvirt_conn = None
@@ -118,13 +118,18 @@ class QubesVMMConnection(object):
         self.init_vmm_connection()
         return self._xs
 
-vmm = QubesVMMConnection()
-
 
 class QubesHost(object):
-    '''Basic information about host machine'''
-    def __init__(self):
-        (model, memory, cpus, mhz, nodes, socket, cores, threads) = vmm.libvirt_conn.getInfo()
+    '''Basic information about host machine
+
+    :param Qubes app: Qubes application context (must have :py:attr:`Qubes.vmm` attribute defined)
+    '''
+
+    def __init__(self, app):
+        self._app = app
+
+        (model, memory, cpus, mhz, nodes, socket, cores, threads) = \
+            self._app.vmm.libvirt_conn.getInfo()
         self._total_mem = long(memory)*1024
         self._no_cpus = cpus
 
@@ -154,7 +159,7 @@ class QubesHost(object):
         if previous is None:
             previous_time = time.time()
             previous = {}
-            info = vmm.xc.domain_getinfo(0, qubes_max_qid)
+            info = self._app.vmm.xc.domain_getinfo(0, qubes_max_qid)
             for vm in info:
                 previous[vm['domid']] = {}
                 previous[vm['domid']]['cpu_time'] = (
@@ -164,7 +169,7 @@ class QubesHost(object):
 
         current_time = time.time()
         current = {}
-        info = vmm.xc.domain_getinfo(0, qubes_max_qid)
+        info = self._app.vmm.xc.domain_getinfo(0, qubes_max_qid)
         for vm in info:
             current[vm['domid']] = {}
             current[vm['domid']]['cpu_time'] = (
@@ -427,18 +432,38 @@ class property(object):
 
     :param str name: name of the property
     :param collections.Callable setter: if not :py:obj:`None`, this is used to initialise value; first parameter to the function is holder instance and the second is value; this is called before ``type``
+    :param collections.Callable saver: function to coerce value to something readable by setter
     :param type type: if not :py:obj:`None`, value is coerced to this type
-    :param object default: default value
+    :param object default: default value; if callable, will be called with holder as first argument
     :param int load_stage: stage when property should be loaded (see :py:class:`Qubes` for description of stages)
     :param int order: order of evaluation (bigger order values are later)
     :param str doc: docstring; you may use RST markup
 
+    Setters and savers have following signatures:
+
+        .. :py:function:: setter(self, prop, value)
+            :noindex:
+
+            :param self: instance of object that is holding property
+            :param prop: property object
+            :param value: value being assigned
+
+        .. :py:function:: saver(self, prop, value)
+            :noindex:
+
+            :param self: instance of object that is holding property
+            :param prop: property object
+            :param value: value being saved
+            :rtype: str
+            :raises property.DontSave: when property should not be saved at all
+
     '''
 
-    def __init__(self, name, setter=None, type=None, default=None,
+    def __init__(self, name, setter=None, saver=None, type=None, default=None,
             load_stage=2, order=0, save_via_ref=False, doc=None):
         self.__name__ = name
         self._setter = setter
+        self._saver = saver if saver is not None else (lambda self, prop, value: str(value))
         self._type = type
         self._default = default
         self.order = order
@@ -484,6 +509,12 @@ class property(object):
         if self._type is not None:
             value = self._type(value)
 
+        if has_oldvalue:
+            instance.fire_event('property-pre-set:' + self.__name__, value, oldvalue)
+        else:
+            instance.fire_event('property-pre-set:' + self.__name__, value)
+
+
         instance._init_property(self, value)
 
         if has_oldvalue:
@@ -510,12 +541,27 @@ class property(object):
 
 
     #
+    # exceptions
+    #
+
+    class DontSave(Exception):
+        '''This exception may be raised from saver to sing that property should
+        not be saved.
+        '''
+        pass
+
+    @staticmethod
+    def dontsave(self, prop, value):
+        '''Dummy saver that never saves anything.'''
+        raise DontSave()
+
+    #
     # some setters provided
     #
 
     @staticmethod
     def forbidden(self, prop, value):
-        '''Property setter that forbids loading a property
+        '''Property setter that forbids loading a property.
 
         This is used to effectively disable property in classes which inherit
         unwanted property. When someone attempts to load such a property, it
@@ -525,6 +571,22 @@ class property(object):
 
         raise AttributeError('setting {} property on {} instance is forbidden'.format(
             prop.__name__, self.__class__.__name__))
+
+
+    @staticmethod
+    def bool(self, prop, value):
+        '''Property setter for boolean properties.
+
+        It accepts (case-insensitive) ``'0'``, ``'no'`` and ``false`` as
+        :py:obj:`False` and ``'1'``, ``'yes'`` and ``'true'`` as
+        :py:obj:`True`.
+        '''
+
+        lcvalue = value.lower()
+        if lcvalue in ('0', 'no', 'false'): return False
+        if lcvalue in ('1', 'yes', 'true'): return True
+        raise ValueError('Invalid literal for boolean property: {!r}'.format(value))
+
 
 
 class PropertyHolder(qubes.events.Emitter):
@@ -539,8 +601,17 @@ class PropertyHolder(qubes.events.Emitter):
 
         .. event:: property-set:<propname> (subject, event, name, newvalue[, oldvalue])
 
-            Fired when property changes state. Signature is variable, *oldvalue* is
-            present only if there was an old value.
+            Fired when property changes state. Signature is variable,
+            *oldvalue* is present only if there was an old value.
+
+            :param name: Property name
+            :param newvalue: New value of the property
+            :param oldvalue: Old value of the property
+
+        .. event:: property-pre-set:<propname> (subject, event, name, newvalue[, oldvalue])
+
+            Fired before property changes state. Signature is variable,
+            *oldvalue* is present only if there was an old value.
 
             :param name: Property name
             :param newvalue: New value of the property
@@ -625,9 +696,14 @@ class PropertyHolder(qubes.events.Emitter):
 
         for prop in self.get_props_list():
             try:
-                value = str(getattr(self, (prop.__name__ if with_defaults else prop._attr_name)))
+                value = getattr(self, (prop.__name__ if with_defaults else prop._attr_name))
             except AttributeError, e:
 #               sys.stderr.write('AttributeError: {!s}\n'.format(e))
+                continue
+
+            try:
+                value = prop._saver(self, prop, value)
+            except property.DontSave:
                 continue
 
             element = lxml.etree.Element('property', name=prop.__name__)
@@ -640,8 +716,30 @@ class PropertyHolder(qubes.events.Emitter):
         return properties
 
 
-import qubes.vm.qubesvm
-import qubes.vm.templatevm
+    # this was clone_attrs
+    def clone_properties(self, src, proplist=None):
+        '''Clone properties from other object.
+
+        :param PropertyHolder src: source object
+        :param list proplist: list of properties (:py:obj:`None` for all properties)
+        '''
+
+        if proplist is None:
+            proplist = self.get_props_list()
+        else:
+            proplist = [prop for prop in self.get_props_list()
+                if prop.__name__ in proplist or prop in proplist]
+
+        for prop in self.proplist():
+            try:
+                self._init_property(self, prop, getattr(src, prop._attr_name))
+            except AttributeError:
+                continue
+
+        self.fire_event('cloned-properties', src, proplist)
+
+
+import qubes.vm
 
 
 class VMProperty(property):
@@ -670,6 +768,10 @@ class VMProperty(property):
                 value, vm.__class__.__name__, self.vmclass.__name__))
 
         super(VMProperty, self).__set__(self, instance, vm)
+
+
+import qubes.vm.qubesvm
+import qubes.vm.templatevm
 
 
 class Qubes(PropertyHolder):
@@ -742,6 +844,12 @@ class Qubes(PropertyHolder):
         #: collection of all available labels for VMs
         self.labels = {}
 
+        #: Connection to VMM
+        self.vmm = VMMConnection()
+
+        #: Information about host system
+        self.host = QubesHost(self)
+
         self._store = store
 
         try:
@@ -749,7 +857,7 @@ class Qubes(PropertyHolder):
         except IOError:
             self._init()
 
-        super(PropertyHolder, self).__init__(xml=lxml.etree.parse(self.qubes_store_file))
+        super(Qubes, self).__init__(xml=lxml.etree.parse(self.qubes_store_file))
 
 
     def _open_store(self):

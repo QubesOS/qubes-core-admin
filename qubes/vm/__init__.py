@@ -297,6 +297,302 @@ class BaseVM(qubes.PropertyHolder):
             self.__class__.__name__, id(self), ' '.join(proprepr))
 
 
+    #
+    # xml serialising methods
+    #
+
+    @staticmethod
+    def xml_net_dev(ip, mac, backend):
+        '''Return ``<interface>`` node for libvirt xml.
+
+        This was previously _format_net_dev
+
+        :param str ip: IP address of the frontend
+        :param str mac: MAC (Ethernet) address of the frontend
+        :param qubes.vm.QubesVM backend: Backend domain
+        :rtype: lxml.etree._Element
+        '''
+
+        interface = lxml.etree.Element('interface', type='ethernet')
+        interface.append(lxml.etree.Element('mac', address=mac))
+        interface.append(lxml.etree.Element('ip', address=ip))
+        interface.append(lxml.etree.Element('domain', name=backend.name))
+
+        return interface
+
+
+    @staticmethod
+    def xml_pci_dev(address):
+        '''Return ``<hostdev>`` node for libvirt xml.
+
+        This was previously _format_pci_dev
+
+        :param str ip: IP address of the frontend
+        :param str mac: MAC (Ethernet) address of the frontend
+        :param qubes.vm.QubesVM backend: Backend domain
+        :rtype: lxml.etree._Element
+        '''
+
+        dev_match = re.match('([0-9a-f]+):([0-9a-f]+)\.([0-9a-f]+)', address)
+        if not dev_match:
+            raise QubesException("Invalid PCI device address: %s" % address)
+
+        hostdev = lxml.etree.Element('hostdev', type='pci', managed='yes')
+        source = lxml.etree.Element('source')
+        source.append(lxml.etree.Element('address',
+            bus='0x' + dev_match.group(1),
+            slot='0x' + dev_match.group(2),
+            function='0x' + dev_match.group(3)))
+        hostdev.append(source)
+        return hostdev
+
+    #
+    # old libvirt XML
+    # TODO rewrite it to do proper XML synthesis via lxml.etree
+    #
+
+    def get_config_params(self):
+        '''Return parameters for libvirt's XML domain config
+
+        .. deprecated:: 3.0-alpha This will go away.
+        '''
+
+        args = {}
+        args['name'] = self.name
+        if hasattr(self, 'kernels_dir'):
+            args['kerneldir'] = self.kernels_dir
+        args['uuidnode'] = '<uuid>{!r}</uuid>'.format(self.uuid) \
+            if hasattr(self, 'uuid') else ''
+        args['vmdir'] = self.dir_path
+        args['pcidevs'] = ''.join(lxml.etree.tostring(self.xml_pci_dev(dev))
+            for dev in self.devices['pci'])
+        args['maxmem'] = str(self.maxmem)
+        args['vcpus'] = str(self.vcpus)
+        args['mem'] = str(max(self.memory, self.maxmem))
+
+        if 'meminfo-writer' in self.services and not self.services['meminfo-writer']:
+            # If dynamic memory management disabled, set maxmem=mem
+            args['maxmem'] = args['mem']
+
+        if self.netvm is not None:
+            args['ip'] = self.ip
+            args['mac'] = self.mac
+            args['gateway'] = self.netvm.gateway
+            args['dns1'] = self.netvm.gateway
+            args['dns2'] = self.secondary_dns
+            args['netmask'] = self.netmask
+            args['netdev'] = lxml.etree.tostring(self.xml_net_dev(self.ip, self.mac, self.netvm))
+            args['disable_network1'] = '';
+            args['disable_network2'] = '';
+        else:
+            args['ip'] = ''
+            args['mac'] = ''
+            args['gateway'] = ''
+            args['dns1'] = ''
+            args['dns2'] = ''
+            args['netmask'] = ''
+            args['netdev'] = ''
+            args['disable_network1'] = '<!--';
+            args['disable_network2'] = '-->';
+
+        args.update(self.storage.get_config_params())
+
+        if hasattr(self, 'kernelopts'):
+            args['kernelopts'] = self.kernelopts
+            if self.debug:
+                self.log.info("Debug mode: adding 'earlyprintk=xen' to kernel opts")
+                args['kernelopts'] += ' earlyprintk=xen'
+
+
+    def create_config_file(self, file_path=None, prepare_dvm=False):
+        '''Create libvirt's XML domain config file
+
+        If :py:attr:`qubes.vm.qubesvm.QubesVM.uses_custom_config` is true, this
+        does nothing.
+
+        :param str file_path: Path to file to create (default: :py:attr:`qubes.vm.qubesvm.QubesVM.conf_file`)
+        :param bool prepare_dvm: If we are in the process of preparing DisposableVM
+        '''
+
+        if file_path is None:
+            file_path = self.conf_file
+        if self.uses_custom_config:
+            conf_appvm = open(file_path, "r")
+            domain_config = conf_appvm.read()
+            conf_appvm.close()
+            return domain_config
+
+        f_conf_template = open(self.config_file_template, 'r')
+        conf_template = f_conf_template.read()
+        f_conf_template.close()
+
+        template_params = self.get_config_params()
+        if prepare_dvm:
+            template_params['name'] = '%NAME%'
+            template_params['privatedev'] = ''
+            template_params['netdev'] = re.sub(r"address='[0-9.]*'", "address='%IP%'", template_params['netdev'])
+        domain_config = conf_template.format(**template_params)
+
+        # FIXME: This is only for debugging purposes
+        old_umask = os.umask(002)
+        try:
+            conf_appvm = open(file_path, "w")
+            conf_appvm.write(domain_config)
+            conf_appvm.close()
+        except:
+            # Ignore errors
+            pass
+        finally:
+            os.umask(old_umask)
+
+        return domain_config
+
+
+    #
+    # firewall
+    # TODO rewrite it, have <firewall/> node under <domain/>
+    # and possibly integrate with generic policy framework
+    #
+
+    def write_firewall_conf(self, conf):
+        '''Write firewall config file.
+        '''
+        defaults = self.get_firewall_conf()
+        expiring_rules_present = False
+        for item in defaults.keys():
+            if item not in conf:
+                conf[item] = defaults[item]
+
+        root = lxml.etree.Element(
+                "QubesFirewallRules",
+                policy = "allow" if conf["allow"] else "deny",
+                dns = "allow" if conf["allowDns"] else "deny",
+                icmp = "allow" if conf["allowIcmp"] else "deny",
+                yumProxy = "allow" if conf["allowYumProxy"] else "deny"
+        )
+
+        for rule in conf["rules"]:
+            # For backward compatibility
+            if "proto" not in rule:
+                if rule["portBegin"] is not None and rule["portBegin"] > 0:
+                    rule["proto"] = "tcp"
+                else:
+                    rule["proto"] = "any"
+            element = lxml.etree.Element(
+                    "rule",
+                    address=rule["address"],
+                    proto=str(rule["proto"]),
+            )
+            if rule["netmask"] is not None and rule["netmask"] != 32:
+                element.set("netmask", str(rule["netmask"]))
+            if rule.get("portBegin", None) is not None and \
+                            rule["portBegin"] > 0:
+                element.set("port", str(rule["portBegin"]))
+            if rule.get("portEnd", None) is not None and rule["portEnd"] > 0:
+                element.set("toport", str(rule["portEnd"]))
+            if "expire" in rule:
+                element.set("expire", str(rule["expire"]))
+                expiring_rules_present = True
+
+            root.append(element)
+
+        tree = lxml.etree.ElementTree(root)
+
+        try:
+            old_umask = os.umask(002)
+            with open(self.firewall_conf, 'w') as f:
+                tree.write(f, encoding="UTF-8", pretty_print=True)
+            f.close()
+            os.umask(old_umask)
+        except EnvironmentError as err:
+            print >> sys.stderr, "{0}: save error: {1}".format(
+                    os.path.basename(sys.argv[0]), err)
+            return False
+
+        # Automatically enable/disable 'yum-proxy-setup' service based on allowYumProxy
+        if conf['allowYumProxy']:
+            self.services['yum-proxy-setup'] = True
+        else:
+            if self.services.has_key('yum-proxy-setup'):
+                self.services.pop('yum-proxy-setup')
+
+        if expiring_rules_present:
+            subprocess.call(["sudo", "systemctl", "start",
+                             "qubes-reload-firewall@%s.timer" % self.name])
+
+        return True
+
+    def has_firewall(self):
+        return os.path.exists (self.firewall_conf)
+
+    def get_firewall_defaults(self):
+        return { "rules": list(), "allow": True, "allowDns": True, "allowIcmp": True, "allowYumProxy": False }
+
+    def get_firewall_conf(self):
+        conf = self.get_firewall_defaults()
+
+        try:
+            tree = lxml.etree.parse(self.firewall_conf)
+            root = tree.getroot()
+
+            conf["allow"] = (root.get("policy") == "allow")
+            conf["allowDns"] = (root.get("dns") == "allow")
+            conf["allowIcmp"] = (root.get("icmp") == "allow")
+            conf["allowYumProxy"] = (root.get("yumProxy") == "allow")
+
+            for element in root:
+                rule = {}
+                attr_list = ("address", "netmask", "proto", "port", "toport",
+                             "expire")
+
+                for attribute in attr_list:
+                    rule[attribute] = element.get(attribute)
+
+                if rule["netmask"] is not None:
+                    rule["netmask"] = int(rule["netmask"])
+                else:
+                    rule["netmask"] = 32
+
+                if rule["port"] is not None:
+                    rule["portBegin"] = int(rule["port"])
+                else:
+                    # backward compatibility
+                    rule["portBegin"] = 0
+
+                # For backward compatibility
+                if rule["proto"] is None:
+                    if rule["portBegin"] > 0:
+                        rule["proto"] = "tcp"
+                    else:
+                        rule["proto"] = "any"
+
+                if rule["toport"] is not None:
+                    rule["portEnd"] = int(rule["toport"])
+                else:
+                    rule["portEnd"] = None
+
+                if rule["expire"] is not None:
+                    rule["expire"] = int(rule["expire"])
+                    if rule["expire"] <= int(datetime.datetime.now().strftime(
+                            "%s")):
+                        continue
+                else:
+                    del(rule["expire"])
+
+                del(rule["port"])
+                del(rule["toport"])
+
+                conf["rules"].append(rule)
+
+        except EnvironmentError as err:
+            return conf
+        except (xml.parsers.expat.ExpatError,
+                ValueError, LookupError) as err:
+            print("{0}: load error: {1}".format(
+                os.path.basename(sys.argv[0]), err))
+            return None
+
+        return conf
 
 def load(class_, D):
     cls = BaseVM[class_]
