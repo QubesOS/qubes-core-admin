@@ -32,6 +32,7 @@ Developer documentation
    qubes-plugins
    qubes-ext
    qubes-log
+   qubes-tests
    qubes-dochelpers
 
 Indices and tables

@@ -25,6 +25,7 @@ def skipUnlessDom0(test_item):
     Some tests (especially integration tests) have to be run in more or less
     working dom0. This is checked by connecting to libvirt.
     '''
+
     return unittest.skipUnless(in_dom0, 'outside dom0')(test_item)
 
 
@@ -44,6 +45,7 @@ class TestEmitter(qubes.events.Emitter):
     >>> emitter.fired_events
     Counter({('event', (1, 2, 3), (('foo', 'bar'), ('spam', 'eggs'))): 1})
     '''
+
     def __init__(self, *args, **kwargs):
         super(TestEmitter, self).__init__(*args, **kwargs)
 
@@ -61,8 +63,8 @@ class TestEmitter(qubes.events.Emitter):
 
 class QubesTestCase(unittest.TestCase):
     '''Base class for Qubes unit tests.
-
     '''
+
     def __str__(self):
         return '{}/{}/{}'.format(
             '.'.join(self.__class__.__module__.split('.')[2:]),
@@ -74,7 +76,8 @@ class QubesTestCase(unittest.TestCase):
         '''Check whether event was fired on given emitter and fail if it did
         not.
 
-        :param TestEmitter emitter: emitter which is being checked
+        :param emitter: emitter which is being checked
+        :type emitter: :py:class:`TestEmitter`
         :param str event: event identifier
         :param list args: when given, all items must appear in args passed to event
         :param list kwargs: when given, all items must appear in kwargs passed to event
@@ -96,7 +99,8 @@ class QubesTestCase(unittest.TestCase):
     def assertEventNotFired(self, emitter, event, args=[], kwargs=[]):
         '''Check whether event was fired on given emitter. Fail if it did.
 
-        :param TestEmitter emitter: emitter which is being checked
+        :param emitter: emitter which is being checked
+        :type emitter: :py:class:`TestEmitter`
         :param str event: event identifier
         :param list args: when given, all items must appear in args passed to event
         :param list kwargs: when given, all items must appear in kwargs passed to event
