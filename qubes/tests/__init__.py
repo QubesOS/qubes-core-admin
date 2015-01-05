@@ -3,7 +3,30 @@
 import collections
 import unittest
 
+import qubes.config
 import qubes.events
+
+
+#: :py:obj:`True` if running in dom0, :py:obj:`False` otherwise
+in_dom0 = False
+
+try:
+    import libvirt
+    libvirt.openReadOnly(qubes.config.defaults['libvirt_uri']).close()
+    in_dom0 = True
+    del libvirt
+except libvirt.libvirtError:
+    pass
+
+
+def skipUnlessDom0(test_item):
+    '''Decorator that skips test outside dom0.
+
+    Some tests (especially integration tests) have to be run in more or less
+    working dom0. This is checked by connecting to libvirt.
+    '''
+    return unittest.skipUnless(in_dom0, 'outside dom0')(test_item)
+
 
 class TestEmitter(qubes.events.Emitter):
     '''Dummy event emitter which records events fired on it.
