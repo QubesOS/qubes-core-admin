@@ -5,12 +5,13 @@ import unittest
 
 import lxml.etree
 
-sys.path.insert(0, '../')
 import qubes
 import qubes.events
 import qubes.vm
 
-class TC_10_Label(unittest.TestCase):
+import qubes.tests
+
+class TC_10_Label(qubes.tests.QubesTestCase):
     def test_000_constructor(self):
         label = qubes.Label(1, '#cc0000', 'red')
 
@@ -45,7 +46,7 @@ class TestHolder(qubes.PropertyHolder):
     testprop3 = qubes.property('testprop3', order=2, default='testdefault')
     testprop4 = qubes.property('testprop4', order=3)
 
-class TC_00_PropertyHolder(unittest.TestCase):
+class TC_00_PropertyHolder(qubes.tests.QubesTestCase):
     def assertXMLEqual(self, xml1, xml2):
         self.assertEqual(xml1.tag, xml2.tag)
         self.assertEqual(xml1.text, xml2.text)
@@ -103,7 +104,7 @@ class TestVM(qubes.vm.BaseVM):
 class TestApp(qubes.events.Emitter):
     pass
 
-class TC_11_VMCollection(unittest.TestCase):
+class TC_11_VMCollection(qubes.tests.QubesTestCase):
     def setUp(self):
         # XXX passing None may be wrong in the future
         self.vms = qubes.VMCollection(TestApp())
@@ -203,5 +204,5 @@ class TC_11_VMCollection(unittest.TestCase):
 #       pass
 
 
-class TC_20_Qubes(unittest.TestCase):
+class TC_20_Qubes(qubes.tests.QubesTestCase):
     pass

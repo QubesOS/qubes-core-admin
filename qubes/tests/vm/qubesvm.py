@@ -2,10 +2,11 @@
 
 import sys
 import unittest
-sys.path.insert(0, '../../')
 
 import qubes
 import qubes.vm.qubesvm
+
+import qubes.tests
 
 
 class TestProp(object):
@@ -21,7 +22,7 @@ class TestVM(object):
         return self.running
 
 
-class TC_00_setters(unittest.TestCase):
+class TC_00_setters(qubes.tests.QubesTestCase):
     def setUp(self):
         self.vm = TestVM()
         self.prop = TestProp()
@@ -73,7 +74,7 @@ class TC_00_setters(unittest.TestCase):
         pass
 
 
-class TC_90_QubesVM(unittest.TestCase):
+class TC_90_QubesVM(qubes.tests.QubesTestCase):
     @unittest.skip('test not implemented')
     def test_000_init(self):    
         pass

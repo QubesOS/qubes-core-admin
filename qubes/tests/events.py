@@ -3,10 +3,11 @@
 import sys
 import unittest
 
-sys.path.insert(0, '..')
 import qubes.events
 
-class TC_Emitter(unittest.TestCase):
+import qubes.tests
+
+class TC_00_Emitter(qubes.tests.QubesTestCase):
     def test_000_add_handler(self):
         # need something mutable
         testevent_fired = [False]

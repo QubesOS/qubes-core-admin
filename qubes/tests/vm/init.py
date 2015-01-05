@@ -5,10 +5,11 @@ import unittest
 
 import lxml.etree
 
-sys.path.insert(0, '../')
 import qubes
 import qubes.events
 import qubes.vm
+
+import qubes.tests
 
 
 class TestEmitter(qubes.events.Emitter):
@@ -38,7 +39,7 @@ class TestEmitter(qubes.events.Emitter):
         if self.device_pre_detached_fired:
             self.device_detached_fired = True
 
-class TC_00_DeviceCollection(unittest.TestCase):
+class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
     def setUp(self):
         self.emitter = TestEmitter()
         self.collection = qubes.vm.DeviceCollection(self.emitter, 'testclass')
@@ -79,7 +80,7 @@ class TC_00_DeviceCollection(unittest.TestCase):
             self.collection.detach('testdev')
 
 
-class TC_01_DeviceManager(unittest.TestCase):
+class TC_01_DeviceManager(qubes.tests.QubesTestCase):
     def setUp(self):
         self.emitter = TestEmitter()
         self.manager = qubes.vm.DeviceManager(self.emitter)
@@ -99,7 +100,7 @@ class TestVM(qubes.vm.BaseVM):
     testlabel = qubes.property('testlabel')
     defaultprop = qubes.property('defaultprop', default='defaultvalue')
 
-class TC_10_BaseVM(unittest.TestCase):
+class TC_10_BaseVM(qubes.tests.QubesTestCase):
     def setUp(self):
         self.xml = lxml.etree.XML('''
 <qubes version="3"> <!-- xmlns="https://qubes-os.org/QubesXML/1" -->
