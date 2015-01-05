@@ -12,36 +12,9 @@ import qubes.vm
 import qubes.tests
 
 
-class TestEmitter(qubes.events.Emitter):
-    def __init__(self):
-        super(TestEmitter, self).__init__()
-        self.device_pre_attached_fired = False
-        self.device_attached_fired = False
-        self.device_pre_detached_fired = False
-        self.device_detached_fired = False
-
-    @qubes.events.handler('device-pre-attached:testclass')
-    def on_device_pre_attached(self, event, dev):
-        self.device_pre_attached_fired = True
-
-    @qubes.events.handler('device-attached:testclass')
-    def on_device_attached(self, event, dev):
-        if self.device_pre_attached_fired:
-            self.device_attached_fired = True
-
-    @qubes.events.handler('device-pre-detached:testclass')
-    def on_device_pre_detached(self, event, dev):
-        if self.device_attached_fired:
-            self.device_pre_detached_fired = True
-
-    @qubes.events.handler('device-detached:testclass')
-    def on_device_detached(self, event, dev):
-        if self.device_pre_detached_fired:
-            self.device_detached_fired = True
-
 class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
     def setUp(self):
-        self.emitter = TestEmitter()
+        self.emitter = qubes.tests.TestEmitter()
         self.collection = qubes.vm.DeviceCollection(self.emitter, 'testclass')
 
     def test_000_init(self):
@@ -49,18 +22,18 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
 
     def test_001_attach(self):
         self.collection.attach('testdev')
-        self.assertTrue(self.emitter.device_pre_attached_fired)
-        self.assertTrue(self.emitter.device_attached_fired)
-        self.assertFalse(self.emitter.device_pre_detached_fired)
-        self.assertFalse(self.emitter.device_detached_fired)
+        self.assertEventFired(self.emitter, 'device-pre-attached:testclass')
+        self.assertEventFired(self.emitter, 'device-attached:testclass')
+        self.assertEventNotFired(self.emitter, 'device-pre-detached:testclass')
+        self.assertEventNotFired(self.emitter, 'device-detached:testclass')
 
     def test_002_detach(self):
         self.collection.attach('testdev')
         self.collection.detach('testdev')
-        self.assertTrue(self.emitter.device_pre_attached_fired)
-        self.assertTrue(self.emitter.device_attached_fired)
-        self.assertTrue(self.emitter.device_pre_detached_fired)
-        self.assertTrue(self.emitter.device_detached_fired)
+        self.assertEventFired(self.emitter, 'device-pre-attached:testclass')
+        self.assertEventFired(self.emitter, 'device-attached:testclass')
+        self.assertEventFired(self.emitter, 'device-pre-detached:testclass')
+        self.assertEventFired(self.emitter, 'device-detached:testclass')
 
     def test_010_empty_detach(self):
         with self.assertRaises(LookupError):
@@ -82,7 +55,7 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
 
 class TC_01_DeviceManager(qubes.tests.QubesTestCase):
     def setUp(self):
-        self.emitter = TestEmitter()
+        self.emitter = qubes.tests.TestEmitter()
         self.manager = qubes.vm.DeviceManager(self.emitter)
 
     def test_000_init(self):
@@ -90,7 +63,7 @@ class TC_01_DeviceManager(qubes.tests.QubesTestCase):
 
     def test_001_missing(self):
         self.manager['testclass'].attach('testdev')
-        self.assertTrue(self.emitter.device_attached_fired)
+        self.assertEventFired(self.emitter, 'device-attached:testclass')
 
 
 class TestVM(qubes.vm.BaseVM):
