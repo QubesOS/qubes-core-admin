@@ -53,7 +53,6 @@ import collections
 import functools
 import sys
 
-import dateutil.parser
 import lxml.etree
 
 import qubes
