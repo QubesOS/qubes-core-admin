@@ -42,14 +42,30 @@ First of all, testing is art, not science. Testing is not panaceum and won't
 solve all of your problems. Rules given in this guide and elsewhere should be
 followed, but shouldn't be worshipped.
 
-When writing test, you should think about order of execution. Tests should be
-written bottom-to-top, that is, tests that are ran later may depend on features
+Test can be divided into three phases. The first part is setup phase. In this
+part you should arrange for a test condition to occur. You intentionally put
+system under test in some specific state. Phase two is executing test condition
+-- for example you check some variable for equality or expect that some
+exception is raised. Phase three is responsible for returning a verdict. This is
+largely done by the framework.
+
+When writing test, you should think about order of execution. This is the reason
+of numbers in names of the classes and test methods. Tests should be written
+bottom-to-top, that is, test setups that are ran later may depend on features
 that are tested after but not the other way around. This is important, because
 when encountering failure we expect the reason happen *before*, and not after
 failure occured. Therefore, when encountering multiple errors, we may instantly
 focus on fixing the first one and not wondering if any later problems may be
-relevant or not. This is the reason of numbers in names of the classes and test
-methods.
+relevant or not. Some people also like to enable
+:py:attr:`unittest.TestResult.failfast` feature, which stops on the first failed
+test -- with wrong order this messes up their workflow.
+
+Test should fail for one reason only and test one specific issue. This does not
+mean that you can use one ``.assert*`` method per ``test_`` function: for
+example when testing one regular expression you are welcome to test many valid
+and/or invalid inputs, especcialy when test setup is complicated. However, if
+you encounter problems during setup phase, you should *skip* the test, and not
+fail it. This also aids interpretation of results.
 
 You may, when it makes sense, manipulate private members of classes under tests.
 This violates one of the founding principles of object-oriented programming, but
@@ -86,7 +102,7 @@ class which uses :py:class:`qubes.tests.TestEmitter` as mix-in::
    import qubes.tests
 
    class TestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
-      pass
+       pass
 
    class TC_20_PropertyHolder(qubes.tests.QubesTestCase):
        def test_000_event(self):
