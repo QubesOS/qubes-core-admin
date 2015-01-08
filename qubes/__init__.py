@@ -430,6 +430,11 @@ class property(object):
     This class holds one property that can be saved to and loaded from
     :file:`qubes.xml`. It is used for both global and per-VM properties.
 
+    Property can be unset by ordinary ``del`` statement or assigning
+    :py:attr:`DEFAULT` special value to it. After deletion (or before first
+    assignment/load) attempting to read a property will get its default value
+    or, when no default, py:class:`exceptions.AttributeError`.
+
     :param str name: name of the property
     :param collections.Callable setter: if not :py:obj:`None`, this is used to initialise value; first parameter to the function is holder instance and the second is value; this is called before ``type``
     :param collections.Callable saver: function to coerce value to something readable by setter
@@ -458,6 +463,10 @@ class property(object):
             :raises property.DontSave: when property should not be saved at all
 
     '''
+
+    #: Assigning this value to property means setting it to its default value.
+    #: If property has no default value, this will unset it.
+    DEFAULT = object()
 
     def __init__(self, name, setter=None, saver=None, type=None, default=None,
             load_stage=2, order=0, save_via_ref=False, doc=None):
@@ -498,6 +507,10 @@ class property(object):
 
 
     def __set__(self, instance, value):
+        if value is self.__class__.DEFAULT:
+            self.__delete__(instance)
+            return
+
         try:
             oldvalue = getattr(instance, self.__name__)
             has_oldvalue = True

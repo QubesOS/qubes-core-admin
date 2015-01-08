@@ -123,7 +123,20 @@ class TC_10_property(qubes.tests.QubesTestCase):
         with self.assertRaises(AttributeError):
             self.holder.testprop
 
-    def test_091_delete_default(self):
+    def test_090_delete_by_assign(self):
+        self.holder.testprop1 = 'testvalue'
+        try:
+            if self.holder.testprop1 != 'testvalue':
+                self.skipTest('testprop1 value is wrong')
+        except AttributeError:
+            self.skipTest('testprop1 value is wrong')
+
+        self.holder.testprop1 = qubes.property.DEFAULT
+
+        with self.assertRaises(AttributeError):
+            self.holder.testprop
+
+    def test_092_delete_default(self):
         class TestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
             testprop1 = qubes.property('testprop1', default='defaultvalue')
         holder = TestHolder(None)
