@@ -389,7 +389,8 @@ class VMCollection(object):
         :raises ValueError: when there is already VM which has equal ``qid``
         '''
 
-        # XXX this violates duck typing, should we do it?
+        # this violates duck typing, but is needed
+        # for VMProperty to function correctly
         if not isinstance(value, qubes.vm.BaseVM):
             raise TypeError('{} holds only BaseVM instances'.format(self.__class__.__name__))
 
@@ -526,7 +527,10 @@ class property(object):
     #: If property has no default value, this will unset it.
     DEFAULT = object()
 
-    def __init__(self, name, setter=None, saver=None, type=None, default=None,
+    # internal use only
+    _NO_DEFAULT = object()
+
+    def __init__(self, name, setter=None, saver=None, type=None, default=_NO_DEFAULT,
             load_stage=2, order=0, save_via_ref=False, doc=None):
         self.__name__ = name
         self._setter = setter
@@ -556,7 +560,7 @@ class property(object):
 
         except AttributeError:
 #           sys.stderr.write('  __get__ except\n')
-            if self._default is None:
+            if self._default is self._NO_DEFAULT:
                 raise AttributeError('property {!r} not set'.format(self.__name__))
             elif isinstance(self._default, collections.Callable):
                 return self._default(instance)
@@ -753,7 +757,44 @@ class PropertyHolder(qubes.events.Emitter):
         :param value: value
         '''
 
-        setattr(self, prop._attr_name, value)
+        setattr(self, self.get_property_def(prop)._attr_name, value)
+
+
+    def property_is_default(self, prop):
+        '''Check whether property is in it's default value.
+
+        Properties when unset may return some default value, so
+        ``hasattr(vm, prop.__name__)`` is wrong in some circumstances. This
+        method allows for checking if the value returned is in fact it's
+        default value.
+
+        :param qubes.property prop: property object of particular interest
+        :rtype: bool
+        '''
+
+        return hasattr(self, self.get_property_def(prop)._attr_name)
+
+
+    def get_property_def(self, prop):
+        '''Return property definition object.
+
+        If prop is already :py:class:`qubes.property` instance, return the same
+        object.
+
+        :param prop: property object or name
+        :type prop: qubes.property or str
+        :rtype: qubes.property
+        '''
+
+        if isinstance(prop, qubes.property):
+            return prop
+
+        for p in self.get_props_list():
+            if p.__name__ == prop:
+                return p
+
+        raise AttributeError('No property {!r} found in {!r}'.format(
+            prop, self.__class__))
 
 
     def load_properties(self, load_stage=None):
@@ -841,6 +882,30 @@ class PropertyHolder(qubes.events.Emitter):
         self.fire_event('cloned-properties', src, proplist)
 
 
+    def require_property(self, prop, allow_none=False, hard=False):
+        '''Complain badly when property is not set.
+
+        :param prop: property name or object
+        :type prop: qubes.property or str
+        :param bool allow_none: if :py:obj:`True`, don't complain if :py:obj:`None` is found
+        :param bool hard: if :py:obj:`True`, raise :py:class:`AssertionError`; if :py:obj:`False`, log warning instead
+        '''
+
+        if isinstance(qubes.property, prop):
+            prop = prop.__name__
+
+        try:
+            value = getattr(self, prop)
+            if value is None and not allow_none:
+                raise AttributeError()
+        except AttributeError:
+            msg = 'Required property {!r} not set on {!r}'.format(prop, self)
+            if hard:
+                raise AssertionError(msg)
+            else:
+                self.log(msg)
+
+
 import qubes.vm
 
 
@@ -852,19 +917,34 @@ class VMProperty(property):
     and all supported by :py:class:`property` with the exception of ``type`` and ``setter``
     '''
 
-    def __init__(self, name, vmclass=qubes.vm.BaseVM, **kwargs):
+    def __init__(self, name, vmclass=qubes.vm.BaseVM, allow_none=False, **kwargs):
         if 'type' in kwargs:
             raise TypeError("'type' keyword parameter is unsupported in {}".format(
                 self.__class__.__name__))
         if 'setter' in kwargs:
             raise TypeError("'setter' keyword parameter is unsupported in {}".format(
                 self.__class__.__name__))
+        if not issubclass(vmclass, qubes.vm.BaseVM):
+            raise TypeError("'vmclass' should specify a subclass of qubes.vm.BaseVM")
+
         super(VMProperty, self).__init__(name, **kwargs)
         self.vmclass = vmclass
-
+        self.allow_none = allow_none
 
     def __set__(self, instance, value):
+        if value is None:
+            if self.allow_none:
+                super(VMProperty, self).__set__(self, instance, vm)
+                return
+            else:
+                raise ValueError(
+                    'Property {!r} does not allow setting to {!r}'.format(
+                        self.__name__, value))
+
+        # XXX this may throw LookupError; that's good until introduction
+        # of QubesNoSuchVMException or whatever
         vm = instance.app.domains[value]
+
         if not isinstance(vm, self.vmclass):
             raise TypeError('wrong VM class: domains[{!r}] if of type {!s} and not {!s}'.format(
                 value, vm.__class__.__name__, self.vmclass.__name__))
@@ -874,7 +954,6 @@ class VMProperty(property):
 
 import qubes.vm.qubesvm
 import qubes.vm.templatevm
-
 
 class Qubes(PropertyHolder):
     '''Main Qubes application
@@ -922,10 +1001,13 @@ class Qubes(PropertyHolder):
     Methods and attributes:
     '''
 
-    default_netvm = VMProperty('default_netvm', load_stage=3,
-        doc='Default NetVM for new AppVMs')
-    default_fw_netvm = VMProperty('default_fw_netvm', load_stage=3,
-        doc='Default NetVM for new ProxyVMs')
+    default_netvm = VMProperty('default_netvm', load_stage=3, default=None,
+        doc='''Default NetVM for AppVMs. Initial state is :py:obj:`None`, which
+            means that AppVMs are not connected to the Internet.''')
+    default_fw_netvm = VMProperty('default_fw_netvm', load_stage=3, default=None,
+        doc='''Default NetVM for ProxyVMs. Initial state is :py:obj:`None`, which
+            means that ProxyVMs (including FirewallVM) are not connected to the
+            Internet.''')
     default_template = VMProperty('default_template', load_stage=3,
         vmclass=qubes.vm.templatevm.TemplateVM,
         doc='Default template for new AppVMs')
@@ -1006,40 +1088,22 @@ class Qubes(PropertyHolder):
 
         # stage 5: misc fixups
 
-        # if we have no default netvm, make first one the default
-        if not hasattr(self, 'default_netvm'):
-            for vm in self.domains:
-                if hasattr(vm, 'provides_network') and hasattr(vm, 'netvm'):
-                    self.default_netvm = vm
-                    break
-
-        if not hasattr(self, 'default_fw_netvm'):
-            for vm in self.domains:
-                if hasattr(vm, 'provides_network') and not hasattr(vm, 'netvm'):
-                    self.default_netvm = vm
-                    break
-
-        # first found template vm is the default
-        if not hasattr(self, 'default_template'):
-            for vm in self.domains:
-                if isinstance(vm, qubes.vm.templatevm.TemplateVM):
-                    self.default_template = vm
-                    break
-
-        # if there was no clockvm entry in qubes.xml, try to determine default:
-        # root of default NetVM chain
-        if not hasattr(self, 'clockvm') and hasattr(self, 'default_netvm'):
-            clockvm = self.default_netvm
-            # Find root of netvm chain
-            while clockvm.netvm is not None:
-                clockvm = clockvm.netvm
-
-            self.clockvm = clockvm
+        self.require_property('default_fw_netvm', allow_none=True)
+        self.require_property('default_netvm', allow_none=True)
+        self.require_property('default_template')
+        self.require_property('clockvm')
+        self.require_property('updatevm')
 
         # Disable ntpd in ClockVM - to not conflict with ntpdate (both are
         # using 123/udp port)
         if hasattr(self, 'clockvm'):
-            self.clockvm.services['ntpd'] = False
+            if 'ntpd' in self.clockvm.services:
+                if self.clockvm.services['ntpd']:
+                    self.log.warning("VM set as clockvm ({!r}) has enabled "
+                        "'ntpd' service! Expect failure when syncing time in "
+                        "dom0.".format(self.clockvm))
+            else:
+                self.clockvm.services['ntpd'] = False
 
 
     def _init(self):
@@ -1102,7 +1166,6 @@ class Qubes(PropertyHolder):
         return labels
 
 
-
     def add_new_vm(self, vm):
         '''Add new Virtual Machine to colletion
 
@@ -1110,35 +1173,16 @@ class Qubes(PropertyHolder):
 
         self.domains.add(vm)
 
-    @qubes.events.handler('domain-added')
-    def on_domain_addedd(self, event, vm):
-        # make first created NetVM the default one
-        if not hasattr(self, 'default_fw_netvm') \
-                and vm.provides_network \
-                and not hasattr(vm, 'netvm'):
-            self.default_fw_netvm = vm
 
-        if not hasattr(self, 'default_netvm') \
-                and vm.provides_network \
-                and hasattr(vm, 'netvm'):
-            self.default_netvm = vm
-
-        # make first created TemplateVM the default one
-        if not hasattr(self, 'default_template') \
-                and not hasattr(vm, 'template'):
-            self.default_template = vm
-
-        # make first created ProxyVM the UpdateVM
-        if not hasattr(self, 'default_netvm') \
-                and vm.provides_network \
-                and hasattr(vm, 'netvm'):
-            self.updatevm = vm
-
-        # by default ClockVM is the first NetVM
-        if not hasattr(self, 'clockvm') \
-                and vm.provides_network \
-                and hasattr(vm, 'netvm'):
-            self.default_clockvm = vm
+    @qubes.events.handler('domain-pre-deleted')
+    def on_domain_pre_deleted(self, event, vm):
+        if isinstance(vm, qubes.vm.templatevm.TemplateVM):
+            appvms = self.get_vms_based_on(vm)
+            if appvms:
+                raise QubesException(
+                    'Cannot remove template that has dependent AppVMs. '
+                    'Affected are: {}'.format(', '.join(
+                        vm.name for name in sorted(appvms))))
 
 
     @qubes.events.handler('domain-deleted')
@@ -1155,6 +1199,45 @@ class Qubes(PropertyHolder):
             del self.default_template
 
         return super(QubesVmCollection, self).pop(qid)
+
+
+    @qubes.events.handler('property-pre-set:clockvm')
+    def on_property_pre_set_clockvm(self, event, name, newvalue, oldvalue=None):
+        if 'ntpd' in newvalue.services:
+            if newvalue.services['ntpd']:
+                raise QubesException(
+                    'Cannot set {!r} as {!r} property since it has ntpd enabled.'.format(
+                        newvalue, name))
+        else:
+            newvalue.services['ntpd'] = False
+
+
+    @qubes.events.handler('property-pre-set:default_netvm')
+    def on_property_pre_set_default_netvm(self, event, name, newvalue, oldvalue=None):
+        if newvalue is not None and oldvalue is not None \
+                and oldvalue.is_running() and not newvalue.is_running() \
+                and self.domains.get_vms_connected_to(oldvalue):
+            raise QubesException(
+                'Cannot change default_netvm to domain that is not running ({!r}).'.format(
+                    newvalue))
+
+
+    @qubes.events.handler('property-set:default_fw_netvm')
+    def on_property_set_default_netvm(self, event, name, newvalue, oldvalue=None):
+        for vm in self.domains:
+            if not vm.provides_network and vm.property_is_default('netvm'):
+                # fire property-del:netvm as it is responsible for resetting
+                # netvm to it's default value
+                vm.fire_event('property-del:netvm', 'netvm', newvalue, oldvalue)
+
+
+    @qubes.events.handler('property-set:default_netvm')
+    def on_property_set_default_netvm(self, event, name, newvalue, oldvalue=None):
+        for vm in self.domains:
+            if vm.provides_network and vm.property_is_default('netvm'):
+                # fire property-del:netvm as it is responsible for resetting
+                # netvm to it's default value
+                vm.fire_event('property-del:netvm', 'netvm', newvalue, oldvalue)
 
 
 # load plugins

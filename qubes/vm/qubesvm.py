@@ -111,12 +111,12 @@ class QubesVM(qubes.vm.BaseVM):
             'of the padlock.')
 
     # XXX swallowed uses_default_netvm
-    netvm = qubes.property('netvm', load_stage=4,
+    netvm = qubes.VMProperty('netvm', load_stage=4, allow_none=True,
         default=(lambda self: self.app.default_fw_netvm if self.provides_network
             else self.app.default_netvm),
         doc='VM that provides network connection to this domain. '
-            'When :py:obj:`False`, machine is disconnected. '
-            'When :py:obj:`None` (or absent), domain uses default NetVM.')
+            'When :py:obj:`None`, machine is disconnected. '
+            'When absent, domain uses default NetVM.')
 
     provides_network = qubes.property('provides_network', type=bool,
         doc=':py:obj:`True` if it is NetVM or ProxyVM, false otherwise')
@@ -465,7 +465,7 @@ class QubesVM(qubes.vm.BaseVM):
         # we are changing to default netvm
         new_netvm = self.netvm
         if new_netvm == old_netvm: return
-        self.on_property_set_netvm(self, event, name, new_netvm, old_netvm)
+        self.fire_event('property-set:netvm', 'netvm', new_netvm, old_netvm)
 
 
     @qubes.events.handler('property-set:netvm')
