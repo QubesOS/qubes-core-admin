@@ -72,6 +72,21 @@ class QubesTestCase(unittest.TestCase):
             self._testMethodName)
 
 
+    def assertXMLEqual(self, xml1, xml2):
+        '''Check for equality of two XML objects.
+
+        :param xml1: first element
+        :param xml2: second element
+        :type xml1: :py:class:`lxml.etree._Element`
+        :type xml2: :py:class:`lxml.etree._Element`
+        '''
+        self.assertEqual(xml1.tag, xml2.tag)
+        self.assertEqual(xml1.text, xml2.text)
+        self.assertItemsEqual(xml1.keys(), xml2.keys())
+        for key in xml1.keys():
+            self.assertEqual(xml1.get(key), xml2.get(key))
+
+
     def assertEventFired(self, emitter, event, args=[], kwargs=[]):
         '''Check whether event was fired on given emitter and fail if it did
         not.

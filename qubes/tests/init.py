@@ -140,20 +140,14 @@ class TC_10_property(qubes.tests.QubesTestCase):
         self.assertEqual(holder.testprop1, 'defaultvalue')
 
 
-class TestHolder(qubes.PropertyHolder):
+class TestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
     testprop1 = qubes.property('testprop1', order=0)
     testprop2 = qubes.property('testprop2', order=1, save_via_ref=True)
     testprop3 = qubes.property('testprop3', order=2, default='testdefault')
     testprop4 = qubes.property('testprop4', order=3)
 
-class TC_20_PropertyHolder(qubes.tests.QubesTestCase):
-    def assertXMLEqual(self, xml1, xml2):
-        self.assertEqual(xml1.tag, xml2.tag)
-        self.assertEqual(xml1.text, xml2.text)
-        self.assertEqual(sorted(xml1.keys()), sorted(xml2.keys()))
-        for key in xml1.keys():
-            self.assertEqual(xml1.get(key), xml2.get(key))
 
+class TC_20_PropertyHolder(qubes.tests.QubesTestCase):
     def setUp(self):
         xml = lxml.etree.XML('''
 <qubes version="3">
@@ -166,8 +160,13 @@ class TC_20_PropertyHolder(qubes.tests.QubesTestCase):
 
         self.holder = TestHolder(xml)
 
+
     def test_000_load_properties(self):
         self.holder.load_properties()
+
+        self.assertEventFired(self.holder, 'property-loaded')
+        self.assertEventNotFired(self.holder, 'property-set:testprop1')
+
         self.assertEquals(self.holder.testprop1, 'testvalue1')
         self.assertEquals(self.holder.testprop2, 'testref2')
         self.assertEquals(self.holder.testprop3, 'testdefault')
@@ -201,13 +200,13 @@ class TestVM(qubes.vm.BaseVM):
     name = qubes.property('name')
     netid = qid
 
-class TestApp(qubes.events.Emitter):
+class TestApp(qubes.tests.TestEmitter):
     pass
 
 class TC_30_VMCollection(qubes.tests.QubesTestCase):
     def setUp(self):
-        # XXX passing None may be wrong in the future
-        self.vms = qubes.VMCollection(TestApp())
+        self.app = TestApp()
+        self.vms = qubes.VMCollection(self.app)
 
         self.testvm1 = TestVM(None, None, qid=1, name='testvm1')
         self.testvm2 = TestVM(None, None, qid=2, name='testvm2')
@@ -233,6 +232,8 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
     def test_002_add(self):
         self.vms.add(self.testvm1)
         self.assertIn(1, self.vms)
+
+        self.assertEventFired(self.app, 'domain-added', args=[self.testvm1])
 
         with self.assertRaises(TypeError):
             self.vms.add(object())
@@ -284,6 +285,7 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
         del self.vms['testvm2']
 
         self.assertItemsEqual(self.vms.vms(), [self.testvm1])
+        self.assertEventFired(self.app, 'domain-deleted', args=[self.testvm2])
 
     def test_100_get_new_unused_qid(self):
         self.vms.add(self.testvm1)
