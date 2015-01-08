@@ -509,6 +509,9 @@ class QubesVM(qubes.vm.BaseVM):
 
     @qubes.events.handler('property-set:name')
     def on_property_set_name(self, event, name, new_name, old_name=None):
+        # TODO not self.is_stopped() would be more appropriate
+        if self.is_running():
+            raise QubesException('Cannot change name of running domain')
         if self.libvirt_domain:
             self.libvirt_domain.undefine()
         self._libvirt_domain = None
