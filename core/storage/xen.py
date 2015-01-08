@@ -26,6 +26,7 @@ import os
 import os.path
 import subprocess
 import sys
+import re
 
 from qubes.storage import QubesVmStorage
 from qubes.qubes import QubesException
