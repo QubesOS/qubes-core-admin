@@ -527,7 +527,6 @@ class property(object):
         else:
             instance.fire_event_pre('property-pre-set:' + self.__name__, value)
 
-
         instance._init_property(self, value)
 
         if has_oldvalue:
@@ -537,7 +536,23 @@ class property(object):
 
 
     def __delete__(self, instance):
+        try:
+            oldvalue = getattr(instance, self.__name__)
+            has_oldvalue = True
+        except AttributeError:
+            has_oldvalue = False
+
+        if has_oldvalue:
+            instance.fire_event_pre('property-pre-deleted:' + self.__name__, oldvalue)
+        else:
+            instance.fire_event_pre('property-pre-deleted:' + self.__name__)
+
         delattr(instance, self._attr_name)
+
+        if has_oldvalue:
+            instance.fire_event('property-deleted:' + self.__name__, oldvalue)
+        else:
+            instance.fire_event('property-deleted:' + self.__name__)
 
 
     def __repr__(self):
@@ -628,6 +643,22 @@ class PropertyHolder(qubes.events.Emitter):
 
             :param name: Property name
             :param newvalue: New value of the property
+            :param oldvalue: Old value of the property
+
+        .. event:: property-del:<propname> (subject, event, name[, oldvalue])
+
+            Fired when property gets deleted (is set to default). Signature is
+            variable, *oldvalue* is present only if there was an old value.
+
+            :param name: Property name
+            :param oldvalue: Old value of the property
+
+        .. event:: property-pre-del:<propname> (subject, event, name[, oldvalue])
+
+            Fired before property gets deleted (is set to default). Signature
+            is variable, *oldvalue* is present only if there was an old value.
+
+            :param name: Property name
             :param oldvalue: Old value of the property
 
     Members:
