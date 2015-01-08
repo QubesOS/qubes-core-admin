@@ -44,6 +44,7 @@ else:
 import libvirt
 try:
     import xen.lowlevel.xs
+    import xen.lowlevel.xc
 except ImportError:
     pass
 
@@ -94,6 +95,8 @@ class VMMConnection(object):
 
         if 'xen.lowlevel.xs' in sys.modules:
             self._xs = xen.lowlevel.xs.xs()
+        if 'xen.lowlevel.cs' in sys.modules:
+            self._xc = xen.lowlevel.xc.xc()
         self._libvirt_conn = libvirt.open(defaults['libvirt_uri'])
         if self._libvirt_conn == None:
             raise QubesException("Failed connect to libvirt driver")
@@ -110,10 +113,26 @@ class VMMConnection(object):
     def xs(self):
         '''Connection to Xen Store
 
-        This property in available only when running on Xen.'''
+        This property in available only when running on Xen.
+        '''
 
+        # XXX what about the case when we run under KVM, but xen modules are importable?
         if 'xen.lowlevel.xs' not in sys.modules:
-            return None
+            raise AttributeError('xs object is available under Xen hypervisor only')
+
+        self.init_vmm_connection()
+        return self._xs
+
+    @__builtin__.property
+    def xc(self):
+        '''Connection to Xen
+
+        This property in available only when running on Xen.
+        '''
+
+        # XXX what about the case when we run under KVM, but xen modules are importable?
+        if 'xen.lowlevel.xc' not in sys.modules:
+            raise AttributeError('xc object is available under Xen hypervisor only')
 
         self.init_vmm_connection()
         return self._xs
@@ -122,44 +141,79 @@ class VMMConnection(object):
 class QubesHost(object):
     '''Basic information about host machine
 
-    :param Qubes app: Qubes application context (must have :py:attr:`Qubes.vmm` attribute defined)
+    :param qubes.Qubes app: Qubes application context (must have :py:attr:`Qubes.vmm` attribute defined)
     '''
 
     def __init__(self, app):
         self._app = app
+        self._no_cpus = None
+
+
+    def _fetch(self):
+        if self._no_cpus is not None:
+            return
 
         (model, memory, cpus, mhz, nodes, socket, cores, threads) = \
             self._app.vmm.libvirt_conn.getInfo()
         self._total_mem = long(memory)*1024
         self._no_cpus = cpus
 
-#        print "QubesHost: total_mem  = {0}B".format (self.xen_total_mem)
-#        print "QubesHost: free_mem   = {0}".format (self.get_free_xen_memory())
-#        print "QubesHost: total_cpus = {0}".format (self.xen_no_cpus)
+        self.app.log.debug('QubesHost: no_cpus={} memory_total={}'.format(self.no_cpus, self.memory_total))
+        try:
+            self.app.log.debug('QubesHost: xen_free_memory={}'.format(self.get_free_xen_memory()))
+        except NotImplementedError:
+            pass
+
 
     @__builtin__.property
     def memory_total(self):
         '''Total memory, in bytes'''
+
+        self._fetch()
         return self._total_mem
+
 
     @__builtin__.property
     def no_cpus(self):
-        '''Noumber of CPUs'''
+        '''Number of CPUs'''
+
+        self._fetch()
         return self._no_cpus
 
-    # TODO
-    def get_free_xen_memory(self):
-        ret = self.physinfo['free_memory']
-        return long(ret)
 
-    # TODO
-    def measure_cpu_usage(self, previous=None, previous_time = None,
+    def get_free_xen_memory(self):
+        '''Get free memory from Xen's physinfo.
+
+        :raises NotImplementedError: when not under Xen
+        '''
+        try:
+            self._physinfo = self.app.xc.physinfo()
+        except AttributeError:
+            raise NotImplementedError('This function requires Xen hypervisor')
+        return long(self._physinfo['free_memory'])
+
+
+    def measure_cpu_usage(self, previous_time=None, previous=None,
             wait_time=1):
-        """measure cpu usage for all domains at once"""
+        '''Measure cpu usage for all domains at once.
+
+        This function requires Xen hypervisor.
+
+        .. versionchanged:: 3.0
+            argument order to match return tuple
+
+        :raises NotImplementedError: when not under Xen
+        '''
+
         if previous is None:
             previous_time = time.time()
             previous = {}
-            info = self._app.vmm.xc.domain_getinfo(0, qubes_max_qid)
+            try:
+                info = self._app.vmm.xc.domain_getinfo(0, qubes_max_qid)
+            except AttributeError:
+                raise NotImplementedError(
+                    'This function requires Xen hypervisor')
+
             for vm in info:
                 previous[vm['domid']] = {}
                 previous[vm['domid']]['cpu_time'] = (
@@ -169,7 +223,11 @@ class QubesHost(object):
 
         current_time = time.time()
         current = {}
-        info = self._app.vmm.xc.domain_getinfo(0, qubes_max_qid)
+        try:
+            info = self._app.vmm.xc.domain_getinfo(0, qubes_max_qid)
+        except AttributeError:
+            raise NotImplementedError(
+                'This function requires Xen hypervisor')
         for vm in info:
             current[vm['domid']] = {}
             current[vm['domid']]['cpu_time'] = (
