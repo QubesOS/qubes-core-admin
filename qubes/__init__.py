@@ -731,8 +731,9 @@ class PropertyHolder(qubes.events.Emitter):
         self.xml = xml
 
 
-    def get_props_list(self, load_stage=None):
-        '''List all properties attached to this VM
+    @classmethod
+    def get_props_list(cls, load_stage=None):
+        '''List all properties attached to this VM's class
 
         :param load_stage: Filter by load stage
         :type load_stage: :py:func:`int` or :py:obj:`None`
@@ -740,7 +741,7 @@ class PropertyHolder(qubes.events.Emitter):
 
 #       sys.stderr.write('{!r}.get_props_list(load_stage={})\n'.format('self', load_stage))
         props = set()
-        for class_ in self.__class__.__mro__:
+        for class_ in cls.__mro__:
             props.update(prop for prop in class_.__dict__.values()
                 if isinstance(prop, property))
         if load_stage is not None:
@@ -775,7 +776,8 @@ class PropertyHolder(qubes.events.Emitter):
         return hasattr(self, self.get_property_def(prop)._attr_name)
 
 
-    def get_property_def(self, prop):
+    @classmethod
+    def get_property_def(cls, prop):
         '''Return property definition object.
 
         If prop is already :py:class:`qubes.property` instance, return the same
@@ -789,12 +791,12 @@ class PropertyHolder(qubes.events.Emitter):
         if isinstance(prop, qubes.property):
             return prop
 
-        for p in self.get_props_list():
+        for p in cls.get_props_list():
             if p.__name__ == prop:
                 return p
 
         raise AttributeError('No property {!r} found in {!r}'.format(
-            prop, self.__class__))
+            prop, cls))
 
 
     def load_properties(self, load_stage=None):
