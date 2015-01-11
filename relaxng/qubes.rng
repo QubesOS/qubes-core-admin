@@ -1,0 +1,308 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+
+The Qubes OS Project, http://www.qubes-os.org
+
+Copyright (C) 2015  Wojtek Porczyk <woju@invisiblethingslab.com>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+-->
+
+
+<!--
+
+This is main specification of qubes.xml in RelaxNG. It should not <include> any
+other file. If you need to extract some part of specification, just put the part
+in question in separate <define> and create small boilerplate schema like this:
+
+    <?xml version="1.0" encoding="utf-8" ?>
+    <grammar xmlns="http://relaxng.org/ns/structure/1.0">
+        <include href="qubes.rng">
+            <start>
+                <ref name="domain" />
+            </start>
+        </include>
+    </grammar>
+
+Don't forget to put <start> *inside* the <include>. If you'd put it outside,
+the parser will complain about missing combine= attribute on the second <start>.
+
+-->
+
+<grammar xmlns="http://relaxng.org/ns/structure/1.0"
+        xmlns:q="http://qubes-os.org/qubes/3"
+        xmlns:doc="http://qubes-os.org/qubes-doc/1"
+        datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
+    <start>
+        <element name="qubes">
+            <doc:description>
+                This is root element of whole qubes tree.
+            </doc:description>
+
+            <attribute name="version">
+                <doc:description>
+                    Specifies minimal Qubes OS version.
+                </doc:description>
+
+                <value>3.0</value>
+                <!--
+                <data type="decimal">
+                    <param name="fractionDigits">1</param>
+                    <param name="minInclusive">0</param>
+                </data>
+                -->
+            </attribute>
+
+            <ref name="properties" />
+
+            <element name="labels">
+                <doc:description>
+                    Container for labels.
+                </doc:description>
+
+                <oneOrMore>
+                    <element name="label">
+                        <doc:description>
+                            Label which can be used by domain. One choice of
+                            colour for padlock icon.
+                        </doc:description>
+
+                        <attribute name="id">
+                            <doc:description>
+                                XML id attribute used for cross-referencing in
+                                properties' ``ref`` attribute.
+                            </doc:description>
+
+                            <!-- TODO this should be "label-" + name -->
+                            <data type="string">
+                                <param name="pattern">label-[0-9]+</param>
+                            </data>
+                        </attribute>
+
+                        <optional>
+                            <attribute name="color">
+                                <doc:description>
+                                    Label's colour, HTML-like.
+                                </doc:description>
+
+                                <data type="string">
+                                    <param name="pattern">#[0-9a-f]{6}</param>
+                                </data>
+                            </attribute>
+                        </optional>
+
+                        <data type="string">
+                            <param name="pattern">[a-z0-9_-]+</param>
+                        </data>
+                    </element>
+                </oneOrMore>
+            </element>
+
+            <element name="domains">
+                <doc:description>
+                    Container for domains.
+                </doc:description>
+
+                <zeroOrMore>
+                    <ref name="domain" />
+                </zeroOrMore>
+            </element>
+        </element>
+    </start>
+
+    <define name="domain">
+        <element name="domain">
+            <doc:description>
+                One Qubes domain.
+            </doc:description>
+
+            <attribute name="class">
+                <doc:description>
+                    Type of the domain. This specifies Python's class that is
+                    used for instantiation of this VM.
+                </doc:description>
+
+                <data type="string" />
+            </attribute>
+            <attribute name="id">
+                <doc:description>
+                    XML id attribute used for cross-referencing in properties'
+                    ``ref`` attribute.
+                    <!-- TODO this should be "domain-" + domain's name -->
+                </doc:description>
+
+                <data type="string">
+                    <param name="pattern">domain-[0-9]+</param>
+                </data>
+            </attribute>
+
+            <ref name="properties" />
+
+            <optional>
+                <element name="services">
+                    <doc:description>
+                        Container for services.
+                    </doc:description>
+
+                    <oneOrMore>
+                        <element name="service">
+                            <doc:description>
+                                One service that is either enabled or disabled.
+                            </doc:description>
+
+                            <optional>
+                                <attribute name="enabled">
+                                    <doc:description>
+                                        Whether service is enabled or disabled.
+                                        Default is ``true``.
+                                    </doc:description>
+                                    <doc:metavar>
+                                        true|false
+                                    </doc:metavar>
+
+                                    <data type="boolean" />
+                                </attribute>
+                            </optional>
+
+                            <data type="string">
+                                <param name="pattern">[a-z0-9_-]+</param>
+                            </data>
+                        </element>
+                    </oneOrMore>
+                </element>
+            </optional>
+
+            <zeroOrMore>
+                <element name="devices">
+                    <doc:description>
+                        Container for devices of particular class.
+                    </doc:description>
+
+                    <attribute name="class">
+                        <doc:description>
+                            Class of devices in this container. Currently the
+                            only supported is ``pci``.
+                        </doc:description>
+
+                        <!-- TODO: class can be specified only once -->
+
+                        <value>pci</value>
+                        <!--
+                        <data type="string">
+                            <param name="pattern">[a-z0-9]+</param>
+                        </data>
+                        -->
+                    </attribute>
+                    <oneOrMore>
+                        <element name="device">
+                            <doc:description>
+                                One device. This tag should contain some
+                                identifier, format of which depends on
+                                particular device class.
+                            </doc:description>
+                            <!-- TODO: pattern dependent on class! -->
+                            <data type="string">
+                                <param name="pattern">[0-9a-f]{2}:[0-9a-f]{2}.[0-9a-f]{2}</param>
+                            </data>
+                        </element>
+                    </oneOrMore>
+                </element>
+            </zeroOrMore>
+
+            <optional>
+                <element name="tags">
+                    <doc:description>
+                        Container for user-defined tags.
+                    </doc:description>
+
+                    <oneOrMore>
+                        <element name="tag">
+                            <doc:description>
+                                Tag value.
+
+                                Tags are not used anywhere by qubes core, they
+                                are for users reference. In the future they
+                                will be available for use in policies.
+                            </doc:description>
+
+                            <attribute name="name">
+                                <doc:description>
+                                    Name of the tag.
+                                </doc:description>
+
+                                <data type="string">
+                                    <param name="pattern">[a-z0-9_-]+</param>
+                                </data>
+                            </attribute>
+
+                            <data type="string" />
+                        </element>
+                    </oneOrMore>
+                </element>
+            </optional>
+
+            <!-- TODO: policy, incl. firewall -->
+        </element>
+    </define>
+
+    <define name="properties">
+        <element name="properties">
+            <doc:description>
+                Container for properties.
+            </doc:description>
+
+            <zeroOrMore>
+                <element name="property">
+                    <doc:description>
+                        One property and its value specified either directly
+                        (as text contained in this tag) or as reference to
+                        another XML element in the tree (by ``ref=``
+                        attribute). How it is saved, it depends on particular
+                        property.
+                    </doc:description>
+
+                    <attribute name="name">
+                        <doc:description>
+                            Property name.
+                        </doc:description>
+
+                        <data type="string">
+                            <param name="pattern">[a-z0-9_]+</param>
+                        </data>
+                    </attribute>
+
+                    <choice>
+                        <attribute name="ref">
+                            <doc:description>
+                                Alternative property value, by reference to another XML element.
+                            </doc:description>
+
+                            <!-- TODO: IDREF (Schematron?) -->
+                            <data type="string" />
+                        </attribute>
+
+                        <data type="string" />
+                    </choice>
+                </element>
+            </zeroOrMore>
+        </element>
+    </define>
+</grammar>
+
+<!--
+vim: ts=4 sw=4 et
+-->

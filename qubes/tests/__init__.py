@@ -3,6 +3,8 @@
 import collections
 import unittest
 
+import lxml.etree
+
 import qubes.config
 import qubes.events
 
@@ -132,3 +134,44 @@ class QubesTestCase(unittest.TestCase):
             self.fail('event {!r} did fire on {!r}'.format(event, emitter))
 
         return
+
+
+    def assertXMLIsValid(self, xml, file=None, schema=None):
+        '''Check whether given XML fulfills Relax NG schema.
+
+        Schema can be given in a couple of ways:
+
+        - As separate file. This is most common, and also the only way to
+          handle file inclusion. Call with file name as second argument. 
+
+        - As string containing actual schema. Put that string in *schema*
+          keyword argument.
+
+        :param lxml.etree._Element xml: XML element instance to check
+        :param str file: filename of Relax NG schema
+        :param str schema: optional explicit schema string
+        '''
+
+        if schema is not None and file is None:
+            relaxng = schema
+            if isinstance(relaxng, str):
+                relaxng = lxml.etree.XML(relaxng)
+            if isinstance(relaxng, lxml.etree._Element):
+                relaxng = lxml.etree.RelaxNG(relaxng)
+
+        elif file is not None and schema is None:
+            relaxng = lxml.etree.RelaxNG(file=file)
+
+        else:
+            raise TypeError("There should be excactly one of 'file' and "
+                "'schema' arguments specified.")
+
+        # We have to be extra careful here in case someone messed up with
+        # self.failureException. It should by default be AssertionError, just
+        # what is spewed by RelaxNG(), but who knows what might happen.
+        try:
+            relaxng.assert_(xml)
+        except self.failureException:
+            raise
+        except AssertionError as e:
+            self.fail(str(e))
