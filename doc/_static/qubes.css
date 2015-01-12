@@ -1,0 +1,9 @@
+/* http://stackoverflow.com/questions/21027105/how-can-i-have-sphinx-tables-fit-to-width */
+
+table.docutils col {
+    width: auto;
+}
+
+/*
+vim: ts=4 sw=4 et
+*/
