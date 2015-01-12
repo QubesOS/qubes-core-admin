@@ -123,7 +123,7 @@ class VersionCheck(docutils.parsers.rst.Directive):
 # this is lifted from sphinx' own conf.py
 #
 
-event_sig_re = re.compile(r'([a-zA-Z-]+)\s*\((.*)\)')
+event_sig_re = re.compile(r'([a-zA-Z-:<>]+)\s*\((.*)\)')
 
 def parse_event(env, sig, signode):
     m = event_sig_re.match(sig)
