@@ -252,7 +252,9 @@ class BaseVM(qubes.PropertyHolder):
 
 
     def __xml__(self):
-        element = lxml.etree.Element('domain', id='domain-' + str(self.qid))
+        element = lxml.etree.Element('domain')
+        element.set('id', 'domain-' + str(self.qid))
+        element.set('class', self.__class__.__name__)
 
         element.append(self.save_properties())
 
@@ -261,7 +263,7 @@ class BaseVM(qubes.PropertyHolder):
             node = lxml.etree.Element('service')
             node.text = service
             if not self.services[service]:
-                node.set('enabled', 'False')
+                node.set('enabled', 'false')
             services.append(node)
         element.append(services)
 
