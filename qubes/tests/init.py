@@ -320,4 +320,7 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
 
 
 class TC_90_Qubes(qubes.tests.QubesTestCase):
-    pass
+    def test_900_example_xml_in_doc(self):
+        self.assertXMLIsValid(
+            lxml.etree.parse(open('../../doc/example.xml', 'rb')),
+            '../../relaxng/qubes.rng')

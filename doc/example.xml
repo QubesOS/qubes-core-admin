@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<qubes version="3.0">
+    <properties>
+        <property name="default_netvm" ref="domain-1" />
+    </properties>
+
+    <labels>
+        <label id="label-1" color="#cc0000">red</label>
+    </labels>
+
+    <domains>
+        <domain class="QubesVM" id="domain-1">
+            <properties>
+                <property name="qid">1</property>
+                <property name="name">netvm</property>
+                <property name="label" ref="label-1" />
+            </properties>
+
+            <services>
+                <service enabled="false">meminfo-writer</service>
+                <service>qubes-firewall</service>
+            </services>
+
+            <devices class="pci">
+                <device>01:23.45</device>
+            </devices>
+        </domain>
+
+        <domain class="QubesVM" id="domain-2">
+            <properties>
+                <property name="qid">2</property>
+                <property name="name">appvm</property>
+                <property name="label" ref="label-1" />
+            </properties>
+
+            <tags>
+                <tag name="userdef">qwe123</tag>
+            </tags>
+        </domain>
+    </domains>
+</qubes>
+
+<!--
+vim: ts=4 sw=4 et
+-->

@@ -170,9 +170,6 @@ the parser will complain about missing combine= attribute on the second <start>.
                                         Whether service is enabled or disabled.
                                         Default is ``true``.
                                     </doc:description>
-                                    <doc:metavar>
-                                        true|false
-                                    </doc:metavar>
 
                                     <data type="boolean" />
                                 </attribute>

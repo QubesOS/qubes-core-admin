@@ -35,6 +35,11 @@ Developer documentation
    qubes-tests
    qubes-dochelpers
 
+.. toctree::
+   :maxdepth: 1
+
+   autoxml
+
 Indices and tables
 ==================
 
