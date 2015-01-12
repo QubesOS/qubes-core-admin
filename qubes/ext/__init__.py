@@ -55,7 +55,7 @@ class Extension(object):
                 self.app.add_hook(attr.ha_event, attr)
 
 
-def handler(event, vm=None, system=False):
+def handler(*events, **kwargs):
     '''Event handler decorator factory.
 
     To hook an event, decorate a method in your plugin class with this
@@ -71,14 +71,14 @@ def handler(event, vm=None, system=False):
     '''
 
     def decorator(f):
-        f.ho_event = event
+        f.ha_events = events
 
-        if system:
+        if kwargs.get('system', False):
             f.ha_vm = None
-        elif vm is None:
-            f.ha_vm = qubes.vm.BaseVM
+        elif 'vm' in kwargs:
+            f.ha_vm = kwargs['vm']
         else:
-            f.ha_vm = vm
+            f.ha_vm = qubes.vm.BaseVM
 
         return f
 

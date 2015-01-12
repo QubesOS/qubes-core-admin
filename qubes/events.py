@@ -10,7 +10,7 @@ etc.
 import collections
 
 
-def handler(event):
+def handler(*events):
     '''Event handler decorator factory.
 
     To hook an event, decorate a method in your plugin class with this
@@ -27,8 +27,7 @@ def handler(event):
     '''
 
     def decorator(f):
-        f.ha_event = event
-        f.ha_bound = True
+        f.ha_events = events
         return f
 
     return decorator
@@ -43,7 +42,7 @@ def ishandler(o):
     '''
 
     return callable(o) \
-        and hasattr(o, 'ha_event')
+        and hasattr(o, 'ha_events')
 
 
 class EmitterMeta(type):
@@ -51,6 +50,24 @@ class EmitterMeta(type):
     def __init__(cls, name, bases, dict_):
         super(type, cls).__init__(name, bases, dict_)
         cls.__handlers__ = collections.defaultdict(set)
+
+        try:
+            propnames = set(prop.__name__ for prop in cls.get_props_list())
+        except AttributeError:
+            propnames = set()
+
+        for attr in dict_:
+            if attr in propnames:
+                # we have to be careful, not to getattr() on properties which
+                # may be unset
+                continue
+
+            attr = dict_[attr]
+            if not ishandler(attr):
+                continue
+
+            for event in attr.ha_events:
+                cls.add_handler(event, attr)
 
 
 class Emitter(object):
@@ -62,23 +79,6 @@ class Emitter(object):
     def __init__(self, *args, **kwargs):
         super(Emitter, self).__init__(*args, **kwargs)
         self.events_enabled = True
-
-        try:
-            propnames = set(prop.__name__ for prop in self.get_props_list())
-        except AttributeError:
-            propnames = set()
-
-        for attr in dir(self):
-            if attr in propnames:
-                # we have to be careful, not to getattr() on properties which
-                # may be unset
-                continue
-
-            attr = getattr(self, attr)
-            if not ishandler(attr):
-                continue
-
-            self.add_handler(attr.ha_event, attr)
 
 
     @classmethod
@@ -103,18 +103,11 @@ class Emitter(object):
             return
 
         for cls in order:
-            # first fire bound (= our own) handlers, then handlers from extensions
             if not hasattr(cls, '__handlers__'):
                 continue
             for handler in sorted(cls.__handlers__[event],
                     key=(lambda handler: hasattr(handler, 'ha_bound')), reverse=True):
-                if hasattr(handler, 'ha_bound'):
-                    # this is our (bound) method, self is implicit
-                    handler(event, *args, **kwargs)
-                else:
-                    # this is from extension or hand-added, so we see method as
-                    # unbound, therefore we need to pass self
-                    handler(self, event, *args, **kwargs)
+                handler(self, event, *args, **kwargs)
 
 
     def fire_event(self, event, *args, **kwargs):
