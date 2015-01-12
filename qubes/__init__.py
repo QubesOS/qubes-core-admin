@@ -26,6 +26,8 @@ import warnings
 
 import __builtin__
 
+import docutils.core
+import docutils.io
 import lxml.etree
 import xml.parsers.expat
 
@@ -501,7 +503,7 @@ class property(object):
     :param object default: default value; if callable, will be called with holder as first argument
     :param int load_stage: stage when property should be loaded (see :py:class:`Qubes` for description of stages)
     :param int order: order of evaluation (bigger order values are later)
-    :param str doc: docstring; you may use RST markup
+    :param str doc: docstring; this should be one paragraph of plain RST, no sphinx-specific features
 
     Setters and savers have following signatures:
 
@@ -628,6 +630,26 @@ class property(object):
 
     def __eq__(self, other):
         return self.__name__ == other.__name__
+
+
+    def format_doc(self):
+        '''Return parsed documentation string, stripping RST markup.
+        '''
+
+        if not self.__doc__: return ''
+
+        output, pub = docutils.core.publish_programmatically(
+            source_class=docutils.io.StringInput,
+            source=' '.join(self.__doc__.strip().split()),
+            source_path=None,
+            destination_class=docutils.io.NullOutput, destination=None,
+            destination_path=None,
+            reader=None, reader_name='standalone',
+            parser=None, parser_name='restructuredtext',
+            writer=None, writer_name='null',
+            settings=None, settings_spec=None, settings_overrides=None,
+            config_section=None, enable_exit_status=None)
+        return pub.writer.document.astext()
 
 
     #
@@ -1004,17 +1026,18 @@ class Qubes(PropertyHolder):
     '''
 
     default_netvm = VMProperty('default_netvm', load_stage=3, default=None,
-        doc='''Default NetVM for AppVMs. Initial state is :py:obj:`None`, which
-            means that AppVMs are not connected to the Internet.''')
+        doc='''Default NetVM for AppVMs. Initial state is `None`, which means
+            that AppVMs are not connected to the Internet.''')
     default_fw_netvm = VMProperty('default_fw_netvm', load_stage=3, default=None,
-        doc='''Default NetVM for ProxyVMs. Initial state is :py:obj:`None`, which
-            means that ProxyVMs (including FirewallVM) are not connected to the
+        doc='''Default NetVM for ProxyVMs. Initial state is `None`, which means
+            that ProxyVMs (including FirewallVM) are not connected to the
             Internet.''')
     default_template = VMProperty('default_template', load_stage=3,
         vmclass=qubes.vm.templatevm.TemplateVM,
         doc='Default template for new AppVMs')
     updatevm = VMProperty('updatevm', load_stage=3,
-        doc='Which VM to use as ``yum`` proxy for updating AdminVM and TemplateVMs')
+        doc='''Which VM to use as `yum` proxy for updating AdminVM and
+            TemplateVMs''')
     clockvm = VMProperty('clockvm', load_stage=3,
         doc='Which VM to use as NTP proxy for updating AdminVM')
     default_kernel = property('default_kernel', load_stage=3,

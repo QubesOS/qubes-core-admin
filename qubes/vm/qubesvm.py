@@ -114,17 +114,17 @@ class QubesVM(qubes.vm.BaseVM):
     netvm = qubes.VMProperty('netvm', load_stage=4, allow_none=True,
         default=(lambda self: self.app.default_fw_netvm if self.provides_network
             else self.app.default_netvm),
-        doc='VM that provides network connection to this domain. '
-            'When :py:obj:`None`, machine is disconnected. '
-            'When absent, domain uses default NetVM.')
+        doc='''VM that provides network connection to this domain. When
+            `None`, machine is disconnected. When absent, domain uses default
+            NetVM.''')
 
     provides_network = qubes.property('provides_network', type=bool,
-        doc=':py:obj:`True` if it is NetVM or ProxyVM, false otherwise')
+        doc='`True` if it is NetVM or ProxyVM, false otherwise.')
 
     qid = qubes.property('qid', type=int,
         setter=_setter_qid,
-        doc='Internal, persistent identificator of particular domain. '
-            'Note this is different from Xen domid.')
+        doc='''Internal, persistent identificator of particular domain. Note
+            this is different from Xen domid.''')
 
     name = qubes.property('name', type=str,
         doc='User-specified name of the domain.')
@@ -146,19 +146,20 @@ class QubesVM(qubes.vm.BaseVM):
 
     installed_by_rpm = qubes.property('installed_by_rpm', type=bool, default=False,
         setter=qubes.property.bool,
-        doc="If this domain's image was installed from package tracked by "
-            "package manager.")
+        doc='''If this domain's image was installed from package tracked by
+            package manager.''')
 
     memory = qubes.property('memory', type=int, default=qubes.config.defaults['memory'],
         doc='Memory currently available for this VM.')
 
     maxmem = qubes.property('maxmem', type=int, default=None,
-        doc='Maximum amount of memory available for this VM '
-            '(for the purpose of memory balancer).')
+        doc='''Maximum amount of memory available for this VM (for the purpose
+            of the memory balancer).''')
 
     internal = qubes.property('internal', type=bool, default=False,
         setter=qubes.property.bool,
-        doc="Internal VM (not shown in qubes-manager, doesn't create appmenus entries.")
+        doc='''Internal VM (not shown in qubes-manager, don't create appmenus
+            entries.''')
 
     # XXX what is that
     vcpus = qubes.property('vcpus', default=None,
@@ -201,12 +202,14 @@ class QubesVM(qubes.vm.BaseVM):
 #           return self._default_user
 
     qrexec_timeout = qubes.property('qrexec_timeout', type=int, default=60,
-        doc='Time in seconds after which qrexec connection attempt is deemed failed. '
-            'Operating system inside VM should be able to boot in this time.')
+        doc='''Time in seconds after which qrexec connection attempt is deemed
+            failed. Operating system inside VM should be able to boot in this
+            time.''')
 
     autostart = qubes.property('autostart', type=bool, default=False,
         setter=qubes.property.bool,
-        doc='Setting this to :py:obj:`True` means that VM should be autostarted on dom0 boot.')
+        doc='''Setting this to `True` means that VM should be autostarted on dom0
+            boot.''')
 
     # XXX I don't understand backups
     include_in_backups = qubes.property('include_in_backups', type=bool, default=True,
