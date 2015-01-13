@@ -174,6 +174,7 @@ class TC_20_PropertyHolder(qubes.tests.QubesTestCase):
         self.holder = TestHolder(xml)
 
 
+    @unittest.expectedFailure
     def test_000_load_properties(self):
         self.holder.load_properties()
 
