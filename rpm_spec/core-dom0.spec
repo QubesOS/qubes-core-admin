@@ -41,8 +41,14 @@ Group:		Qubes
 Vendor:		Invisible Things Lab
 License:	GPL
 URL:		http://www.qubes-os.org
+
 BuildRequires:  ImageMagick
 BuildRequires:	systemd-units
+
+# for building documentation
+BuildRequires:	python-sphinx
+BuildRequires:	libvirt-python
+
 Requires(post): systemd-units
 Requires(preun): systemd-units
 Requires(postun): systemd-units
@@ -66,6 +72,9 @@ Requires:       bsdtar
 # for qubes-hcl-report
 Requires:       dmidecode
 Requires:       PyQt4
+
+# for property's docstrings
+Requires:	python-docutils
 
 # Prevent preupgrade from installation (it pretend to provide distribution upgrade)
 Obsoletes:	preupgrade < 2.0
@@ -178,32 +187,51 @@ fi
 %config(noreplace) %attr(0664,root,qubes) %{_sysconfdir}/qubes/qmemman.conf
 /usr/bin/qvm-*
 /usr/bin/qubes-*
+
 %dir %{python_sitearch}/qubes
-%{python_sitearch}/qubes/qubes.py
-%{python_sitearch}/qubes/qubes.pyc
-%{python_sitearch}/qubes/qubes.pyo
-%{python_sitearch}/qubes/qubesutils.py
-%{python_sitearch}/qubes/qubesutils.pyc
-%{python_sitearch}/qubes/qubesutils.pyo
-%{python_sitearch}/qubes/guihelpers.py
-%{python_sitearch}/qubes/guihelpers.pyc
-%{python_sitearch}/qubes/guihelpers.pyo
-%{python_sitearch}/qubes/notify.py
-%{python_sitearch}/qubes/notify.pyc
-%{python_sitearch}/qubes/notify.pyo
-%{python_sitearch}/qubes/backup.py
-%{python_sitearch}/qubes/backup.pyc
-%{python_sitearch}/qubes/backup.pyo
-%{python_sitearch}/qubes/storage/*.py
-%{python_sitearch}/qubes/storage/*.pyc
-%{python_sitearch}/qubes/storage/*.pyo
-%{python_sitearch}/qubes/settings.py
-%{python_sitearch}/qubes/settings.pyc
-%{python_sitearch}/qubes/settings.pyo
-%{python_sitearch}/qubes/qmemman*.py*
-%{python_sitearch}/qubes/modules/0*.py*
-%{python_sitearch}/qubes/modules/__init__.py*
-%{python_sitearch}/qubes/tests
+%{python_sitearch}/qubes/__init__.py*
+%{python_sitearch}/qubes/_pluginloader.py*
+%{python_sitearch}/qubes/config.py*
+%{python_sitearch}/qubes/dochelpers.py*
+%{python_sitearch}/qubes/events.py*
+%{python_sitearch}/qubes/log.py*
+%{python_sitearch}/qubes/plugins.py*
+%{python_sitearch}/qubes/rngdoc.py*
+%{python_sitearch}/qubes/utils.py*
+
+%dir %{python_sitearch}/qubes/vm
+%{python_sitearch}/qubes/vm/__init__.py*
+%{python_sitearch}/qubes/vm/adminvm.py*
+%{python_sitearch}/qubes/vm/appvm.py*
+%{python_sitearch}/qubes/vm/dispvm.py*
+%{python_sitearch}/qubes/vm/hvm.py*
+%{python_sitearch}/qubes/vm/netvm.py*
+%{python_sitearch}/qubes/vm/proxyvm.py*
+%{python_sitearch}/qubes/vm/qubesvm.py*
+%{python_sitearch}/qubes/vm/templatehvm.py*
+%{python_sitearch}/qubes/vm/templatevm.py*
+
+%dir %{python_sitearch}/qubes/ext
+%{python_sitearch}/qubes/ext/__init__.py*
+
+%dir %{python_sitearch}/qubes/tests
+%{python_sitearch}/qubes/tests/__init__.py*
+%{python_sitearch}/qubes/tests/run.py*
+
+%{python_sitearch}/qubes/tests/events.py*
+%{python_sitearch}/qubes/tests/init.py*
+
+%dir %{python_sitearch}/qubes/tests/vm
+%{python_sitearch}/qubes/tests/vm/__init__.py*
+%{python_sitearch}/qubes/tests/vm/init.py*
+%{python_sitearch}/qubes/tests/vm/qubesvm.py*
+
+# qmemman
+%{python_sitearch}/qubes/qmemman.py*
+%{python_sitearch}/qubes/qmemman_algo.py*
+%{python_sitearch}/qubes/qmemman_client.py*
+%{python_sitearch}/qubes/qmemman_server.py*
+
 /usr/lib/qubes/unbind-pci-device.sh
 /usr/lib/qubes/cleanup-dispvms
 /usr/lib/qubes/qmemman_daemon.py*

@@ -44,9 +44,8 @@ clean:
 	make -C qmemman clean
 
 all:
-	make all -C core
-	make all -C core-modules
-	make all -C tests
+	make all -C qubes
+#	make all -C tests
 	# Currently supported only on xen
 ifeq ($(BACKEND_VMM),xen)
 	make all -C qmemman
@@ -60,9 +59,8 @@ ifeq ($(OS),Linux)
 	$(MAKE) install -C linux/system-config
 endif
 	$(MAKE) install -C qvm-tools
-	$(MAKE) install -C core
-	$(MAKE) install -C core-modules
-	$(MAKE) install -C tests
+	$(MAKE) install -C qubes
+#	$(MAKE) install -C tests
 ifeq ($(BACKEND_VMM),xen)
 	# Currently supported only on xen
 	$(MAKE) install -C qmemman
