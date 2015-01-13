@@ -1,5 +1,6 @@
 #!/usr/bin/python2 -O
 
+import os
 import sys
 import unittest
 
@@ -321,7 +322,9 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
 
 
 class TC_90_Qubes(qubes.tests.QubesTestCase):
+    @qubes.tests.skipUnlessGit
     def test_900_example_xml_in_doc(self):
         self.assertXMLIsValid(
-            lxml.etree.parse(open('../../doc/example.xml', 'rb')),
-            '../../relaxng/qubes.rng')
+            lxml.etree.parse(open(
+                os.path.join(qubes.tests.in_git, 'doc/example.xml'), 'rb')),
+            'qubes.rng')

@@ -1,6 +1,8 @@
 #!/usr/bin/python -O
 
 import collections
+import os
+import subprocess
 import unittest
 
 import lxml.etree
@@ -12,12 +14,24 @@ import qubes.events
 #: :py:obj:`True` if running in dom0, :py:obj:`False` otherwise
 in_dom0 = False
 
+#: :py:obj:`False` if outside of git repo, path to root of the directory otherwise
+in_git = False
+
 try:
     import libvirt
     libvirt.openReadOnly(qubes.config.defaults['libvirt_uri']).close()
     in_dom0 = True
     del libvirt
 except libvirt.libvirtError:
+    pass
+
+try:
+    in_git = subprocess.check_output(['git', 'rev-parse', '--show-toplevel']).strip()
+except subprocess.CalledProcessError:
+    # git returned nonzero, we are outside git repo
+    pass
+except OSError:
+    # command not found; let's assume we're outside
     pass
 
 
@@ -29,6 +43,16 @@ def skipUnlessDom0(test_item):
     '''
 
     return unittest.skipUnless(in_dom0, 'outside dom0')(test_item)
+
+
+def skipUnlessGit(test_item):
+    '''Decorator that skips test outside git repo.
+
+    There are very few tests that an be run only in git. One example is
+    correctness of example code that won't get included in RPM.
+    '''
+
+    return unittest.skipUnless(in_git, 'outside git tree')(test_item)
 
 
 class TestEmitter(qubes.events.Emitter):
@@ -160,6 +184,15 @@ class QubesTestCase(unittest.TestCase):
                 relaxng = lxml.etree.RelaxNG(relaxng)
 
         elif file is not None and schema is None:
+            if not os.path.isabs(file):
+                basedirs = ['/usr/share/doc/qubes/relaxng']
+                if in_git:
+                    basedirs.insert(0, os.path.join(in_git, 'relaxng'))
+                for basedir in basedirs:
+                    abspath = os.path.join(basedir, file)
+                    if os.path.exists(abspath):
+                        file = abspath
+                        break
             relaxng = lxml.etree.RelaxNG(file=file)
 
         else:

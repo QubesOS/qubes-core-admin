@@ -131,7 +131,7 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
             'disabledservice': False,
         })
 
-        self.assertXMLIsValid(vm.__xml__(), '../../relaxng/domain.rng')
+        self.assertXMLIsValid(vm.__xml__(), 'domain.rng')
 
     def test_001_BaseVM_nxproperty(self):
         xml = lxml.etree.XML('''

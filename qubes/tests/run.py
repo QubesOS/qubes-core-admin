@@ -12,7 +12,7 @@ test_order = [
     'qubes.tests.init'
 ]
 
-sys.path.insert(0, '../../')
+sys.path.insert(1, '../../')
 
 class ANSIColor(dict):
     def __init__(self):
