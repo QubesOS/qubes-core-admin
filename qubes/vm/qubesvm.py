@@ -914,7 +914,7 @@ class QubesVM(qubes.vm.BaseVM):
         qrexec_args = [str(self.xid), self.name, self.default_user]
         if not self.debug:
             qrexec_args.insert(0, "-q")
-        qrexec_env = os.environ
+        qrexec_env = os.environ.copy()
         qrexec_env['QREXEC_STARTUP_TIMEOUT'] = str(self.qrexec_timeout)
         retcode = subprocess.call([system_path["qrexec_daemon_path"]] +
                                    qrexec_args, env=qrexec_env)
