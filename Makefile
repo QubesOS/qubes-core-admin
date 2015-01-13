@@ -61,6 +61,7 @@ endif
 	$(MAKE) install -C qvm-tools
 	$(MAKE) install -C qubes
 #	$(MAKE) install -C tests
+	$(MAKE) install -C relaxng
 ifeq ($(BACKEND_VMM),xen)
 	# Currently supported only on xen
 	$(MAKE) install -C qmemman

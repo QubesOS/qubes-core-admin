@@ -281,3 +281,5 @@ fi
 %attr(2770,root,qubes) %dir /var/log/qubes
 %attr(0770,root,qubes) %dir /var/run/qubes
 /etc/xdg/autostart/qubes-guid.desktop
+
+/usr/share/doc/qubes/relaxng/*.rng
