@@ -547,7 +547,6 @@ class property(object):
 
 
     def __get__(self, instance, owner):
-#       sys.stderr.write('{!r}.__get__({}, {!r})\n'.format(self.__name__, hex(id(instance)), owner))
         if instance is None:
             return self
 
@@ -556,12 +555,10 @@ class property(object):
             raise AttributeError(
                 'qubes.property should be used on qubes.PropertyHolder instances only')
 
-#       sys.stderr.write('  __get__ try\n')
         try:
             return getattr(instance, self._attr_name)
 
         except AttributeError:
-#           sys.stderr.write('  __get__ except\n')
             if self._default is self._NO_DEFAULT:
                 raise AttributeError('property {!r} not set'.format(self.__name__))
             elif isinstance(self._default, collections.Callable):
@@ -761,7 +758,6 @@ class PropertyHolder(qubes.events.Emitter):
         :type load_stage: :py:func:`int` or :py:obj:`None`
         '''
 
-#       sys.stderr.write('{!r}.get_props_list(load_stage={})\n'.format('self', load_stage))
         props = set()
         for class_ in cls.__mro__:
             props.update(prop for prop in class_.__dict__.values()
@@ -769,7 +765,6 @@ class PropertyHolder(qubes.events.Emitter):
         if load_stage is not None:
             props = set(prop for prop in props
                 if prop.load_stage == load_stage)
-#       sys.stderr.write('  props={!r}\n'.format(props))
         return sorted(props, key=lambda prop: (prop.load_stage, prop.order, prop.__name__))
 
 
@@ -829,16 +824,12 @@ class PropertyHolder(qubes.events.Emitter):
         :param lxml.etree._Element xml: XML node reference
         '''
 
-#       sys.stderr.write('<{}>.load_properties(load_stage={}) xml={!r}\n'.format(hex(id(self)), load_stage, self.xml))
-
         self.events_enabled = False
         all_names = set(prop.__name__ for prop in self.get_props_list(load_stage))
-#       sys.stderr.write('  all_names={!r}\n'.format(all_names))
         for node in self.xml.xpath('./properties/property'):
             name = node.get('name')
             value = node.get('ref') or node.text
 
-#           sys.stderr.write('  load_properties name={!r} value={!r}\n'.format(name, value))
             if not name in all_names:
                 raise AttributeError(
                     'No property {!r} found in {!r}'.format(
@@ -848,7 +839,6 @@ class PropertyHolder(qubes.events.Emitter):
 
         self.events_enabled = True
         self.fire_event('property-loaded')
-#       sys.stderr.write('  load_properties return\n')
 
 
     def save_properties(self, with_defaults=False):
@@ -857,7 +847,6 @@ class PropertyHolder(qubes.events.Emitter):
         :param bool with_defaults: If :py:obj:`True`, then it also includes properties which were not set explicite, but have default values filled.
         '''
 
-#       sys.stderr.write('{!r}.save_properties(with_defaults={})\n'.format(self, with_defaults))
 
         properties = lxml.etree.Element('properties')
 
@@ -865,7 +854,6 @@ class PropertyHolder(qubes.events.Emitter):
             try:
                 value = getattr(self, (prop.__name__ if with_defaults else prop._attr_name))
             except AttributeError, e:
-#               sys.stderr.write('AttributeError: {!s}\n'.format(e))
                 continue
 
             try:

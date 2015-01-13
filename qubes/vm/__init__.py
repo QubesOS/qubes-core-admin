@@ -586,9 +586,13 @@ class BaseVM(qubes.PropertyHolder):
                 conf["rules"].append(rule)
 
         except EnvironmentError as err:
+            # problem accessing file, like ENOTFOUND, EPERM or sth
+            # return default config
             return conf
+
         except (xml.parsers.expat.ExpatError,
                 ValueError, LookupError) as err:
+            # config is invalid
             print("{0}: load error: {1}".format(
                 os.path.basename(sys.argv[0]), err))
             return None

@@ -416,7 +416,7 @@ class QubesVM(qubes.vm.BaseVM):
             self.maxmem = total_mem_mb/2
 
         # Linux specific cap: max memory can't scale beyond 10.79*init_mem
-        # XXX what?! -woju
+        # see https://groups.google.com/forum/#!topic/qubes-devel/VRqkFj1IOtA
         if self.maxmem > self.memory * 10:
             self.maxmem = self.memory * 10
 
@@ -446,7 +446,6 @@ class QubesVM(qubes.vm.BaseVM):
     #
     # event handlers
     #
-
 
     @qubes.events.handler('property-set:label')
     def on_property_set_label(self, event, name, new_label, old_label=None):
@@ -557,6 +556,7 @@ class QubesVM(qubes.vm.BaseVM):
             return
 
         try:
+            # TODO: libvirt-ise
             subprocess.check_call(['sudo', system_path["qubes_pciback_cmd"], pci])
             subprocess.check_call(['sudo', 'xl', 'pci-attach', str(self.xid), pci])
         except Exception as e:
@@ -569,6 +569,7 @@ class QubesVM(qubes.vm.BaseVM):
         if not self.is_running():
             return
 
+        # TODO: libvirt-ise
         p = subprocess.Popen(['xl', 'pci-list', str(self.xid)],
                 stdout=subprocess.PIPE)
         result = p.communicate()
@@ -802,6 +803,8 @@ class QubesVM(qubes.vm.BaseVM):
             args += ["-t"]
         if os.isatty(sys.stderr.fileno()):
             args += ["-T"]
+
+        # TODO: QSB#13
         if passio:
             if os.name == 'nt':
                 # wait for qrexec-client to exit, otherwise client is not properly attached to console
@@ -854,6 +857,7 @@ class QubesVM(qubes.vm.BaseVM):
 
         source = 'dom0' if source is None else self.app.domains[source].name
 
+        # XXX TODO FIXME this looks bad...
         if input:
             return self.run("QUBESRPC %s %s" % (service, source),
                         localcmd="echo %s" % input, user=user, wait=True)

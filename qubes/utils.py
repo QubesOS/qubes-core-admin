@@ -23,8 +23,7 @@
 #
 
 
-# FIXME: should be outside of QubesVM?
-def get_timezone(self):
+def get_timezone():
     # fc18
     if os.path.islink('/etc/localtime'):
         return '/'.join(os.readlink('/etc/localtime').split('/')[-2:])
