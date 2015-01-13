@@ -59,20 +59,22 @@ class ANSITestResult(unittest.TestResult):
     def _fmtexc(self, err):
         s = str(err[1])
         if s:
-            return '{bold}{}:{normal} {!s}'.format(
-                err[0].__name__, err[1], **self.color)
+            return '{color[bold]}{}:{color[normal]} {!s}'.format(
+                err[0].__name__, err[1], color=self.color)
         else:
-            return '{bold}{}{normal}'.format(err[0].__name__, **self.color)
+            return '{color[bold]}{}{color[normal]}'.format(
+                err[0].__name__, color=self.color)
 
     def getDescription(self, test):
         teststr = str(test).split('/')
-        teststr[-1] = '{bold}{}{normal}'.format(teststr[-1], **self.color)
+        teststr[-1] = '{color[bold]}{}{color[normal]}'.format(
+            teststr[-1], color=self.color)
         teststr = '/'.join(teststr)
 
         doc_first_line = test.shortDescription()
         if self.descriptions and doc_first_line:
             return '\n'.join((teststr, '  {}'.format(
-                doc_first_line, **self.color)))
+                doc_first_line, color=self.color)))
         else:
             return teststr
 
@@ -86,7 +88,8 @@ class ANSITestResult(unittest.TestResult):
     def addSuccess(self, test):
         super(ANSITestResult, self).addSuccess(test)
         if self.showAll:
-            self.stream.writeln('{green}ok{normal}'.format(**self.color))
+            self.stream.writeln('{color[green]}ok{color[normal]}'.format(
+                color=self.color))
         elif self.dots:
             self.stream.write('.')
             self.stream.flush()
@@ -94,54 +97,69 @@ class ANSITestResult(unittest.TestResult):
     def addError(self, test, err):
         super(ANSITestResult, self).addError(test, err)
         if self.showAll:
-            self.stream.writeln('{red}{bold}ERROR{normal} ({})'.format(
-                self._fmtexc(err), **self.color))
+            self.stream.writeln(
+                '{color[red]}{color[bold]}ERROR{color[normal]} ({})'.format(
+                    self._fmtexc(err), color=self.color))
         elif self.dots:
-            self.stream.write('{red}{bold}E{normal}'.format(**self.color))
+            self.stream.write(
+                '{color[red]}{color[bold]}E{color[normal]}'.format(
+                    color=self.color))
             self.stream.flush()
 
     def addFailure(self, test, err):
         super(ANSITestResult, self).addFailure(test, err)
         if self.showAll:
-            self.stream.writeln('{red}FAIL{normal}'.format(**self.color))
+            self.stream.writeln('{color[red]}FAIL{color[normal]}'.format(
+                color=self.color))
         elif self.dots:
-            self.stream.write('{red}F{normal}'.format(**self.color))
+            self.stream.write('{color[red]}F{color[normal]}'.format(
+                color=self.color))
             self.stream.flush()
 
     def addSkip(self, test, reason):
         super(ANSITestResult, self).addSkip(test, reason)
         if self.showAll:
-            self.stream.writeln('{cyan}skipped{normal} ({})'.format(
-                reason, **self.color))
+            self.stream.writeln(
+                '{color[cyan]}skipped{color[normal]} ({})'.format(
+                    reason, color=self.color))
         elif self.dots:
-            self.stream.write('{cyan}s{normal}'.format(**self.color))
+            self.stream.write('{color[cyan]}s{color[normal]}'.format(
+                color=self.color))
             self.stream.flush()
 
     def addExpectedFailure(self, test, err):
         super(ANSITestResult, self).addExpectedFailure(test, err)
         if self.showAll:
-            self.stream.writeln('{yellow}expected failure{normal}'.format(
-                **self.color))
+            self.stream.writeln(
+                '{color[yellow]}expected failure{color[normal]}'.format(
+                    color=self.color))
         elif self.dots:
-            self.stream.write('{yellow}x{normal}'.format(**self.color))
+            self.stream.write('{color[yellow]}x{color[normal]}'.format(
+                color=self.color))
             self.stream.flush()
 
     def addUnexpectedSuccess(self, test):
         super(ANSITestResult, self).addUnexpectedSuccess(test)
         if self.showAll:
             self.stream.writeln(
-                '{yellow}{bold}unexpected success{normal}'.format(**self.color))
+                '{color[yellow]}{color[bold]}unexpected success{color[normal]}'.format(
+                    color=self.color))
         elif self.dots:
-            self.stream.write('{yellow}{bold}u{normal}'.format(**self.color))
+            self.stream.write(
+                '{color[yellow]}{color[bold]}u{color[normal]}'.format(
+                    color=self.color))
             self.stream.flush()
 
     def printErrors(self):
         if self.dots or self.showAll:
             self.stream.writeln()
         self.printErrorList(
-            '{red}{bold}ERROR{normal}'.format(**self.color), self.errors)
+            '{color[red]}{color[bold]}ERROR{color[normal]}'.format(
+                color=self.color),
+            self.errors)
         self.printErrorList(
-            '{red}FAIL{normal}'.format(**self.color), self.failures)
+            '{color[red]}FAIL{color[normal]}'.format(color=self.color),
+            self.failures)
 
     def printErrorList(self, flavour, errors):
         for test, err in errors:
