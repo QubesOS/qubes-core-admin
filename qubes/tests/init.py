@@ -190,8 +190,8 @@ class TC_20_PropertyHolder(qubes.tests.QubesTestCase):
     def test_001_save_properties(self):
         self.holder.load_properties()
 
-        elements = self.holder.save_properties()
-        elements_with_defaults = self.holder.save_properties(with_defaults=True)
+        elements = self.holder.xml_properties()
+        elements_with_defaults = self.holder.xml_properties(with_defaults=True)
 
         self.assertEqual(len(elements), 2)
         self.assertEqual(len(elements_with_defaults), 3)

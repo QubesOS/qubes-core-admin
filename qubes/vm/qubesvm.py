@@ -1058,7 +1058,7 @@ class QubesVM(qubes.vm.BaseVM):
             netvm.start()
 
         self.libvirt_domain.attachDevice(lxml.etree.ElementTree(
-            self.xml_net_dev(self.ip, self.mac, self.netvm)).tostring())
+            self.lvxml_net_dev(self.ip, self.mac, self.netvm)).tostring())
 
 
     def detach_network(self):
@@ -1072,7 +1072,7 @@ class QubesVM(qubes.vm.BaseVM):
 
 
         self.libvirt_domain.detachDevice(lxml.etree.ElementTree(
-            self.xml_net_dev(self.ip, self.mac, self.netvm)).tostring())
+            self.lvxml_net_dev(self.ip, self.mac, self.netvm)).tostring())
 
 
     #

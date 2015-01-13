@@ -841,7 +841,7 @@ class PropertyHolder(qubes.events.Emitter):
         self.fire_event('property-loaded')
 
 
-    def save_properties(self, with_defaults=False):
+    def xml_properties(self, with_defaults=False):
         '''Iterator that yields XML nodes representing set properties.
 
         :param bool with_defaults: If :py:obj:`True`, then it also includes properties which were not set explicite, but have default values filled.
@@ -1144,8 +1144,8 @@ class Qubes(PropertyHolder):
     def __xml__(self):
         element = lxml.etree.Element('qubes')
 
-        element.append(self.save_labels())
-        element.append(self.save_properties())
+        element.append(self.xml_labels())
+        element.append(self.xml_properties())
 
         domains = lxml.etree.Element('domains')
         for vm in self.domains:
@@ -1167,7 +1167,7 @@ class Qubes(PropertyHolder):
         os.chown(self._store, -1, grp.getgrnam('qubes').gr_gid)
 
 
-    def save_labels(self):
+    def xml_labels(self):
         '''Serialise labels
 
         :rtype: lxml.etree._Element
