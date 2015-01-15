@@ -1748,16 +1748,13 @@ class QubesVm(object):
             print >> sys.stderr, "--> Setting Xen Store info for the VM..."
         self.create_xenstore_entries(xid)
 
-        qvm_collection = QubesVmCollection()
-        qvm_collection.lock_db_for_reading()
-        qvm_collection.load()
-        qvm_collection.unlock_db()
-
         if verbose:
             print >> sys.stderr, "--> Updating firewall rules..."
-        for vm in qvm_collection.values():
-            if vm.is_proxyvm() and vm.is_running():
-                vm.write_iptables_xenstore_entry()
+        netvm = self.netvm
+        while netvm is not None:
+            if netvm.is_proxyvm() and netvm.is_running():
+                netvm.write_iptables_xenstore_entry()
+            netvm = netvm.netvm
 
         # fire hooks
         for hook in self.hooks_start:
