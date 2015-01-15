@@ -16,7 +16,9 @@ __version__ = 'R3'
 import ast
 import atexit
 import collections
+import errno
 import grp
+import logging
 import os
 import os.path
 import sys
@@ -102,7 +104,7 @@ class VMMConnection(object):
             self._xs = xen.lowlevel.xs.xs()
         if 'xen.lowlevel.cs' in sys.modules:
             self._xc = xen.lowlevel.xc.xc()
-        self._libvirt_conn = libvirt.open(defaults['libvirt_uri'])
+        self._libvirt_conn = libvirt.open(qubes.config.defaults['libvirt_uri'])
         if self._libvirt_conn is None:
             raise QubesException("Failed connect to libvirt driver")
         libvirt.registerErrorHandler(self._libvirt_error_handler, None)
@@ -150,7 +152,7 @@ class QubesHost(object):
     '''
 
     def __init__(self, app):
-        self._app = app
+        self.app = app
         self._no_cpus = None
 
 
@@ -159,7 +161,7 @@ class QubesHost(object):
             return
 
         (model, memory, cpus, mhz, nodes, socket, cores, threads) = \
-            self._app.vmm.libvirt_conn.getInfo()
+            self.app.vmm.libvirt_conn.getInfo()
         self._total_mem = long(memory) * 1024
         self._no_cpus = cpus
 
@@ -214,7 +216,7 @@ class QubesHost(object):
             previous_time = time.time()
             previous = {}
             try:
-                info = self._app.vmm.xc.domain_getinfo(0, qubes_max_qid)
+                info = self.app.vmm.xc.domain_getinfo(0, qubes_max_qid)
             except AttributeError:
                 raise NotImplementedError(
                     'This function requires Xen hypervisor')
@@ -761,8 +763,11 @@ class PropertyHolder(qubes.events.Emitter):
     '''
 
     def __init__(self, xml, *args, **kwargs):
-        super(PropertyHolder, self).__init__(*args, **kwargs)
+        super(PropertyHolder, self).__init__(*args)
         self.xml = xml
+
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
 
     @classmethod
@@ -1051,11 +1056,15 @@ class Qubes(PropertyHolder):
 
 
     def __init__(self, store='/var/lib/qubes/qubes.xml'):
+        super(Qubes, self).__init__(xml=None)
+
+        self.log = logging.getLogger('app')
+
         self._extensions = set(ext(self)
                                for ext in qubes.ext.Extension.register.values())
 
         #: collection of all VMs managed by this Qubes instance
-        self.domains = VMCollection()
+        self.domains = VMCollection(self)
 
         #: collection of all available labels for VMs
         self.labels = {}
@@ -1067,28 +1076,46 @@ class Qubes(PropertyHolder):
         self.host = QubesHost(self)
 
         self._store = store
-
-        try:
-            self.load()
-        except IOError:
-            self._init()
-
-        super(Qubes, self).__init__(
-            xml=lxml.etree.parse(self.qubes_store_file))
+        self.load()
 
 
     def _open_store(self):
+        '''Open qubes.xml
+
+        This method takes care of creation of the store when it does not exist.
+
+        :raises OSError: on failure
+        :raises lxml.etree.XMLSyntaxError: on syntax error in qubes.xml
+        '''
         if hasattr(self, '_storefd'):
             return
 
-        self._storefd = open(self._store, 'r+')
+        try:
+            fd = os.open(self._store,
+                os.O_RDWR | os.O_CREAT | os.O_EXCL | 0o660)
+            parsexml = False
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+
+            # file does exist
+            fd = os.open(self._store, os.O_RDWR)
+            parsexml = True
+
+        self._storefd = os.fdopen(fd, 'r+b')
 
         if os.name == 'posix':
-            fcntl.lockf(self.qubes_store_file, fcntl.LOCK_EX)
+            fcntl.lockf(self._storefd, fcntl.LOCK_EX)
         elif os.name == 'nt':
-            overlapped = pywintypes.OVERLAPPED()
-            win32file.LockFileEx(win32file._get_osfhandle(self.qubes_store_file.fileno()),
-                    win32con.LOCKFILE_EXCLUSIVE_LOCK, 0, -0x10000, overlapped)
+            win32file.LockFileEx(
+                win32file._get_osfhandle(self._storefd.fileno()),
+                win32con.LOCKFILE_EXCLUSIVE_LOCK,
+                0, -0x10000,
+                pywintypes.OVERLAPPED())
+
+        if parsexml:
+            self.xml = lxml.etree.parse(self._storefd)
+        # else: it will remain None, as set by PropertyHolder
 
 
     def load(self):
@@ -1097,6 +1124,10 @@ class Qubes(PropertyHolder):
         :throws xml.parsers.expat.ExpatError: failure on parsing store
         '''
         self._open_store()
+
+        if self.xml is None:
+            self._init()
+            return
 
         # stage 1: load labels
         for node in self._xml.xpath('./labels/label'):
@@ -1110,7 +1141,8 @@ class Qubes(PropertyHolder):
             self.domains.add(vm)
 
         if not 0 in self.domains:
-            self.domains.add(qubes.vm.adminvm.AdminVM(self))
+            self.domains.add(qubes.vm.adminvm.AdminVM(
+                self, None, qid=0, name='dom0'))
 
         # stage 3: load global properties
         self.load_properties(self.xml, load_stage=3)
@@ -1153,12 +1185,16 @@ class Qubes(PropertyHolder):
             8: Label(8, '0x000000', 'black'),
         }
 
+        self.domains.add(qubes.vm.adminvm.AdminVM(
+            self, None, qid=0, name='dom0'))
+
 
     def __del__(self):
         # intentionally do not call explicit unlock to not unlock the file
         # before all buffers are flushed
-        self._storefd.close()
-        del self._storefd
+        if hasattr(self, '_storefd'):
+            self._storefd.close()
+            del self._storefd
 
 
     def __xml__(self):

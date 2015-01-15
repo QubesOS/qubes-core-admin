@@ -54,9 +54,9 @@ except ImportError:
 
 
 def _setter_qid(self, prop, value):
-    if not 0 <= value <= qubes.MAX_QID:
+    if not 0 <= value <= qubes.config.max_qid:
         raise ValueError(
-            '{} value must be between 0 and qubes.MAX_QID'.format(
+            '{} value must be between 0 and qubes.config.max_qid'.format(
                 prop.__name__))
     return value
 
@@ -182,7 +182,8 @@ class QubesVM(qubes.vm.BaseVM):
     # XXX not applicable to HVM?
     kernelopts = qubes.property('kernelopts', type=str, load_stage=4,
         default=(lambda self: defaults['kernelopts_pcidevs'] \
-            if len(self.devices['pci']) > 0 else defaults['kernelopts']),
+            if len(self.devices['pci']) > 0 \
+            else qubes.config.defaults['kernelopts']),
         doc='Kernel command line passed to domain.')
 
     mac = qubes.property('mac', type=str,
@@ -398,24 +399,16 @@ class QubesVM(qubes.vm.BaseVM):
     # constructor
     #
 
-    def __init__(self, app, xml):
-        super(QubesVM, self).__init__(app, xml)
+    def __init__(self, app, xml, **kwargs):
+        super(QubesVM, self).__init__(app, xml, **kwargs)
 
         #Init private attrs
 
         self._libvirt_domain = None
         self._qdb_connection = None
 
-        assert self.__qid < qubes_max_qid, "VM id out of bounds!"
+        assert self.qid < qubes.config.max_qid, "VM id out of bounds!"
         assert self.name is not None
-
-        if not self.verify_name(self.name):
-            msg = ("'%s' is invalid VM name (invalid characters, over 31 chars long, "
-                   "or one of 'none', 'true', 'false')") % self.name
-            if xml is not None:
-                print >>sys.stderr, "WARNING: %s" % msg
-            else:
-                raise QubesException(msg)
 
         # Not in generic way to not create QubesHost() to frequently
         # XXX this doesn't apply, host is instantiated once

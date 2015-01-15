@@ -120,6 +120,10 @@ class DeviceCollection(object):
         return item in self._set
 
 
+    def __len__(self):
+        return len(self._set)
+
+
 class DeviceManager(dict):
     '''Device manager that hold all devices by their classess.
 
