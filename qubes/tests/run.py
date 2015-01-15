@@ -9,6 +9,7 @@ test_order = [
     'qubes.tests.events',
     'qubes.tests.vm.init',
     'qubes.tests.vm.qubesvm',
+    'qubes.tests.vm.adminvm',
     'qubes.tests.init'
 ]
 

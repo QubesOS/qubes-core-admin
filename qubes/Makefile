@@ -61,5 +61,6 @@ endif
 	cp \
 		tests/vm/__init__.py* \
 		tests/vm/init.py* \
+		tests/vm/adminvm.py* \
 		tests/vm/qubesvm.py* \
 		$(DESTDIR)$(PYTHON_QUBESPATH)/tests/vm

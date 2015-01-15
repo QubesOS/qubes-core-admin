@@ -56,7 +56,6 @@ Requires:	python, pciutils, python-inotify, python-daemon
 Requires:       qubes-core-dom0-linux >= 2.0.24
 Requires:       qubes-db-dom0
 Requires:       python-lxml
-Requires:       python-psutil
 # TODO: R: qubes-gui-dom0 >= 2.1.11
 Conflicts:      qubes-gui-dom0 < 1.1.13
 Requires:       libvirt-python
@@ -228,6 +227,7 @@ fi
 %dir %{python_sitearch}/qubes/tests/vm
 %{python_sitearch}/qubes/tests/vm/__init__.py*
 %{python_sitearch}/qubes/tests/vm/init.py*
+%{python_sitearch}/qubes/tests/vm/adminvm.py*
 %{python_sitearch}/qubes/tests/vm/qubesvm.py*
 
 # qmemman
