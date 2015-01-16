@@ -1090,6 +1090,8 @@ class QubesVm(object):
         # FIXME: This is only for debugging purposes
         old_umask = os.umask(002)
         try:
+            if os.path.exists(file_path):
+                os.unlink(file_path)
             conf_appvm = open(file_path, "w")
             conf_appvm.write(domain_config)
             conf_appvm.close()
