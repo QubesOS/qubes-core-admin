@@ -96,6 +96,9 @@ def _setter_kernel(self, prop, value):
     return value
 
 
+def _default_conf_file(self, name=None):
+    return (name or self.name) + '.conf'
+
 
 class QubesVM(qubes.vm.BaseVM):
     '''Base functionality of Qubes VM shared between all VMs.'''
@@ -132,13 +135,15 @@ class QubesVM(qubes.vm.BaseVM):
     uuid = qubes.property('uuid', type=uuid.UUID, default=None,
         doc='UUID from libvirt.')
 
+    # TODO meaningful default
+    # TODO setter to ensure absolute/relative path?
     dir_path = qubes.property('dir_path', type=str, default=None,
         doc='FIXME')
 
     conf_file = qubes.property('conf_file', type=str,
-        default=(lambda self: self.name + '.conf'),
+        default=_default_conf_file,
         saver=(lambda self, prop, value: self.relative_path(value)),
-        doc='libvirt config file?')
+        doc='XXX libvirt config file?')
 
     # XXX this should be part of qubes.xml
     firewall_conf = qubes.property('firewall_conf', type=str,
@@ -269,6 +274,7 @@ class QubesVM(qubes.vm.BaseVM):
         if self._libvirt_domain is not None:
             return self._libvirt_domain
 
+        # XXX _update_libvirt_domain?
         try:
             if self.uuid is not None:
                 self._libvirt_domain = vmm.libvirt_conn.lookupByUUID(self.uuid.bytes)
@@ -323,7 +329,8 @@ class QubesVM(qubes.vm.BaseVM):
     @property
     def uses_custom_config(self):
         '''True if this machine has config in non-standard place.'''
-        return self.conf_file != self.absolute_path(self.name + ".conf", None)
+        return not self.property_is_default(self, 'conf_file')
+#       return self.conf_file != self.storage.abspath(self.name + '.conf')
 
     @property
     def icon_path(self):
@@ -509,35 +516,52 @@ class QubesVM(qubes.vm.BaseVM):
 #               self.netvm.post_vm_net_attach(self)
 
 
-    @qubes.events.handler('property-set:name')
-    def on_property_set_name(self, event, name, new_name, old_name=None):
+    @qubes.events.handler('property-pre-set:name')
+    def on_property_pre_set_name(self, event, name, newvalue, oldvalue=None):
         # TODO not self.is_stopped() would be more appropriate
         if self.is_running():
             raise QubesException('Cannot change name of running domain')
-        if self.libvirt_domain:
+
+
+    @qubes.events.handler('property-pre-set:dir_path')
+    def on_property_pre_set_name(self, event, name, newvalue, oldvalue=None):
+        # TODO not self.is_stopped() would be more appropriate
+        if self.is_running():
+            raise QubesException('Cannot change dir_path of running domain')
+
+
+    @qubes.events.handler('property-set:dir_path')
+    def on_property_set_dir_path(self, event, name, newvalue, oldvalue=None):
+        self.storage.rename(newvalue, oldvalue)
+
+
+    @qubes.events.handler('property-set:name')
+    def on_property_set_name(self, event, name, new_name, old_name=None):
+        if self._libvirt_domain is not None:
             self.libvirt_domain.undefine()
-        self._libvirt_domain = None
-        if self._qdb_connection:
+            self._libvirt_domain = None
+        if self._qdb_connection is not None:
             self._qdb_connection.close()
             self._qdb_connection = None
 
-        new_conf = os.path.join(self.dir_path, new_name + '.conf')
-        if os.path.exists(self.conf_file):
-            os.rename(self.conf_file, new_conf)
+        # move: dir_path, conf_file
+        self.dir_path = self.dir_path.replace(
+            '/{}/', '/{}/'.format(old_name, new_name))
 
-        old_dirpath = self.dir_path
+        if self.property_is_default(self, 'conf_file'):
+            new_conf = os.path.join(
+                self.dir_path, _default_conf_file(self, old_name))
+            old_conf = os.path.join(
+                self.dir_path, _default_conf_file(self, old_name))
+            self.storage.rename(old_conf, new_conf)
 
-        self.storage.rename(self.name, name)
-        new_dirpath = self.storage.vmdir
-        self.dir_path = new_dirpath
+            self.fire_event('property-set:conf_file', 'conf_file',
+                new_conf, old_conf)
 
-        if self.conf_file is not None:
-            self.conf_file = new_conf.replace(old_dirpath, new_dirpath)
         if hasattr(self, 'kernels_dir') and self.kernels_dir is not None:
             self.kernels_dir = self.kernels_dir.replace(old_dirpath, new_dirpath)
 
         self._update_libvirt_domain()
-        self.post_rename(old_name)
 
 
     @qubes.events.handler('property-pre-set:autostart')
@@ -999,6 +1023,7 @@ class QubesVM(qubes.vm.BaseVM):
         self.storage.resize_private_img(size)
 
         # and then the filesystem
+        # FIXME move this to qubes.storage.xen.XenVMStorage
         retcode = 0
         if self.is_running():
             retcode = self.run("while [ \"`blockdev --getsize64 /dev/xvdb`\" -lt {0} ]; do ".format(size) +
@@ -1487,22 +1512,6 @@ class QubesVM(qubes.vm.BaseVM):
     # helper methods
     #
 
-    # TODO deprecate `default`
-    def absolute_path(self, path, default):
-        '''Return specified path as absolute path.
-
-        Relative paths are relative to :py:attr:`dir_path`. Absolute path are left unchanged.
-
-        :param str path: Path in question (possibly relatve).
-        :param default: What to return if ``arg`` is :py:obj:`None`.
-        :returns: Absolute path.
-        '''
-
-        if arg is not None and os.path.isabs(arg):
-            return arg
-        else:
-            return os.path.join(self.dir_path, (arg if arg is not None else default))
-
     def relative_path(self, path):
         '''Return path relative to py:attr:`dir_path`.
 
@@ -1560,7 +1569,7 @@ class QubesVM(qubes.vm.BaseVM):
     def _update_libvirt_domain(self):
         '''Re-initialise :py:attr:`libvirt_domain`.'''
         domain_config = self.create_config_file()
-        if self._libvirt_domain:
+        if self._libvirt_domain is not None:
             self._libvirt_domain.undefine()
         try:
             self._libvirt_domain = vmm.libvirt_conn.defineXML(domain_config)

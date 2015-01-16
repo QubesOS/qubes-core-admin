@@ -211,6 +211,10 @@ fi
 %{python_sitearch}/qubes/vm/templatehvm.py*
 %{python_sitearch}/qubes/vm/templatevm.py*
 
+%dir %{python_sitearch}/qubes/storage
+%{python_sitearch}/qubes/storage/__init__.py*
+%{python_sitearch}/qubes/storage/xen.py*
+
 %dir %{python_sitearch}/qubes/ext
 %{python_sitearch}/qubes/ext/__init__.py*
 

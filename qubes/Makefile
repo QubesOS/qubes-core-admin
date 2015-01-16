@@ -14,6 +14,7 @@ endif
 	mkdir -p $(DESTDIR)$(PYTHON_QUBESPATH)
 	mkdir \
 		$(DESTDIR)$(PYTHON_QUBESPATH)/vm \
+		$(DESTDIR)$(PYTHON_QUBESPATH)/storage \
 		$(DESTDIR)$(PYTHON_QUBESPATH)/ext \
 		$(DESTDIR)$(PYTHON_QUBESPATH)/tests \
 		$(DESTDIR)$(PYTHON_QUBESPATH)/tests/vm
@@ -42,6 +43,11 @@ endif
 		vm/templatehvm.py* \
 		vm/templatevm.py* \
 		$(DESTDIR)$(PYTHON_QUBESPATH)/vm
+
+	cp \
+		storage/__init__.py* \
+		storage/xen.py* \
+		$(DESTDIR)$(PYTHON_QUBESPATH)/storage
 
 	cp ext/__init__.py* $(DESTDIR)$(PYTHON_QUBESPATH)/ext
 
