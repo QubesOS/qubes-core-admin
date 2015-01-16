@@ -1108,6 +1108,8 @@ class QubesVm(object):
             template_params['name'] = '%NAME%'
             template_params['privatedev'] = ''
             template_params['netdev'] = re.sub(r"ip=[0-9.]*", "ip=%IP%", template_params['netdev'])
+        if os.path.exists(file_path):
+            os.unlink(file_path)
         conf_appvm = open(file_path, "w")
 
         conf_appvm.write(conf_template.format(**template_params))
