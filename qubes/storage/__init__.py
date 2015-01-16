@@ -22,6 +22,7 @@
 
 from __future__ import absolute_import
 
+import importlib
 import os
 import os.path
 import re
@@ -31,7 +32,6 @@ import sys
 
 import qubes
 import qubes.utils
-
 
 class VMStorage(object):
     '''Class for handling VM virtual disks.

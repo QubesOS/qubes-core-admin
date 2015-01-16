@@ -22,7 +22,6 @@
 #
 #
 
-
 qubes_base_dir   = "/var/lib/qubes"
 system_path = {
     'qubes_guid_path': '/usr/bin/qubes-guid',
@@ -75,7 +74,7 @@ defaults = {
     'private_img_size': 2*1024*1024*1024,
     'root_img_size': 10*1024*1024*1024,
 
-    'storage_class': None,
+    'storage_class': 'qubes.storage.xen.XenVMStorage',
 
     # how long (in sec) to wait for VMs to shutdown,
     # before killing them (when used qvm-run with --wait option),

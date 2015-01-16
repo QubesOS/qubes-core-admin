@@ -41,6 +41,7 @@ import qubes.config
 #import qubes.qdb
 #import qubes.qmemman
 #import qubes.qmemman_algo
+import qubes.storage
 import qubes.utils
 import qubes.vm
 
@@ -440,7 +441,8 @@ class QubesVM(qubes.vm.BaseVM):
             self.services['meminfo-writer'] = False
 
         # Initialize VM image storage class
-        self.storage = qubes.config.defaults["storage_class"](self)
+        self.storage = qubes.storage.get_storage(self)
+
         if hasattr(self, 'kernels_dir'):
             self.storage.modules_img = os.path.join(self.kernels_dir,
                     "modules.img")

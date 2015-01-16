@@ -322,6 +322,12 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
 
 
 class TC_90_Qubes(qubes.tests.QubesTestCase):
+    @qubes.tests.skipUnlessDom0
+    def test_000_init_empty(self):
+        try: os.unlink('/tmp/qubestest.xml')
+        except: pass
+        app = qubes.Qubes('/tmp/qubestest.xml')
+
     @qubes.tests.skipUnlessGit
     def test_900_example_xml_in_doc(self):
         self.assertXMLIsValid(
