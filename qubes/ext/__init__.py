@@ -50,7 +50,7 @@ class Extension(object):
     '''Base class for all extensions
 
     :param qubes.Qubes app: application object
-    '''
+    ''' # pylint: disable=too-few-public-methods
 
     __metaclass__ = ExtensionPlugin
 

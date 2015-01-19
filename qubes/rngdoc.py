@@ -161,6 +161,7 @@ class Element(object):
 
 
 class Schema(object):
+    # pylint: disable=too-few-public-methods
     nsmap = {
         'rng': 'http://relaxng.org/ns/structure/1.0',
         'q': 'http://qubes-os.org/qubes/3',

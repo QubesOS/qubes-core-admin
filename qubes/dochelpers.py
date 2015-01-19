@@ -69,7 +69,7 @@ def ticket(name, rawtext, text, lineno, inliner, options={}, content=[]):
         that called this function
     :param options: Directive options for customisation
     :param content: The directive content for customisation
-    '''
+    ''' # pylint: disable=unused-argument
 
     ticket = text.lstrip('#')
     if not ticket.isdigit():
@@ -100,6 +100,7 @@ def ticket(name, rawtext, text, lineno, inliner, options={}, content=[]):
 
 
 class versioncheck(docutils.nodes.warning):
+    # pylint: disable=invalid-name
     pass
 
 def visit(self, node):
@@ -150,6 +151,7 @@ class VersionCheck(docutils.parsers.rst.Directive):
 event_sig_re = re.compile(r'([a-zA-Z-:<>]+)\s*\((.*)\)')
 
 def parse_event(env, sig, signode):
+    # pylint: disable=unused-argument
     m = event_sig_re.match(sig)
     if not m:
         signode += sphinx.addnodes.desc_name(sig, sig)

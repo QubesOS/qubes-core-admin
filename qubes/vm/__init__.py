@@ -137,11 +137,13 @@ class BaseVM(qubes.PropertyHolder):
     provides basic framework. It contains no management logic. For that, see
     :py:class:`qubes.vm.qubesvm.QubesVM`.
     '''
+    # pylint: disable=no-member
 
     __metaclass__ = BaseVMMeta
 
     def __init__(self, app, xml, load_stage=2, services={}, devices=None,
             tags={}, *args, **kwargs):
+        # pylint: disable=redefined-outer-name
         #: mother :py:class:`qubes.Qubes` object
         self.app = app
 
@@ -217,7 +219,7 @@ class BaseVM(qubes.PropertyHolder):
         :param lxml.etree._Element xml: XML node reference
         :param int load_stage: do not change the default (2) unless you know, \
             what you are doing
-        '''
+        ''' # pylint: disable=redefined-outer-name
 
         if xml is None:
             return cls(app)

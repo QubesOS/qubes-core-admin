@@ -45,6 +45,7 @@ class ANSIColor(dict):
         except curses.error:
             return
 
+        # pylint: disable=bad-whitespace
         self['black']   = curses.tparm(curses.tigetstr('setaf'), 0)
         self['red']     = curses.tparm(curses.tigetstr('setaf'), 1)
         self['green']   = curses.tparm(curses.tigetstr('setaf'), 2)
@@ -58,6 +59,7 @@ class ANSIColor(dict):
         self['normal']  = curses.tigetstr('sgr0')
 
     def __missing__(self, key):
+        # pylint: disable=unused-argument,no-self-use
         return ''
 
 
@@ -73,7 +75,7 @@ class ANSITestResult(unittest.TestResult):
     def __init__(self, stream, descriptions, verbosity):
         super(ANSITestResult, self).__init__(stream, descriptions, verbosity)
         self.stream = stream
-        self.showAll = verbosity > 1
+        self.showAll = verbosity > 1 # pylint: disable=invalid-name
         self.dots = verbosity == 1
         self.descriptions = descriptions
 
@@ -88,7 +90,7 @@ class ANSITestResult(unittest.TestResult):
             return '{color[bold]}{}{color[normal]}'.format(
                 err[0].__name__, color=self.color)
 
-    def getDescription(self, test):
+    def getDescription(self, test): # pylint: disable=invalid-name
         teststr = str(test).split('/')
         teststr[-1] = '{color[bold]}{}{color[normal]}'.format(
             teststr[-1], color=self.color)
@@ -101,14 +103,14 @@ class ANSITestResult(unittest.TestResult):
         else:
             return teststr
 
-    def startTest(self, test):
+    def startTest(self, test): # pylint: disable=invalid-name
         super(ANSITestResult, self).startTest(test)
         if self.showAll:
             self.stream.write(self.getDescription(test))
             self.stream.write(' ... ')
             self.stream.flush()
 
-    def addSuccess(self, test):
+    def addSuccess(self, test): # pylint: disable=invalid-name
         super(ANSITestResult, self).addSuccess(test)
         if self.showAll:
             self.stream.writeln('{color[green]}ok{color[normal]}'.format(
@@ -117,7 +119,7 @@ class ANSITestResult(unittest.TestResult):
             self.stream.write('.')
             self.stream.flush()
 
-    def addError(self, test, err):
+    def addError(self, test, err): # pylint: disable=invalid-name
         super(ANSITestResult, self).addError(test, err)
         if self.showAll:
             self.stream.writeln(
@@ -129,7 +131,7 @@ class ANSITestResult(unittest.TestResult):
                     color=self.color))
             self.stream.flush()
 
-    def addFailure(self, test, err):
+    def addFailure(self, test, err): # pylint: disable=invalid-name
         super(ANSITestResult, self).addFailure(test, err)
         if self.showAll:
             self.stream.writeln('{color[red]}FAIL{color[normal]}'.format(
@@ -139,7 +141,7 @@ class ANSITestResult(unittest.TestResult):
                 color=self.color))
             self.stream.flush()
 
-    def addSkip(self, test, reason):
+    def addSkip(self, test, reason): # pylint: disable=invalid-name
         super(ANSITestResult, self).addSkip(test, reason)
         if self.showAll:
             self.stream.writeln(
@@ -150,7 +152,7 @@ class ANSITestResult(unittest.TestResult):
                 color=self.color))
             self.stream.flush()
 
-    def addExpectedFailure(self, test, err):
+    def addExpectedFailure(self, test, err): # pylint: disable=invalid-name
         super(ANSITestResult, self).addExpectedFailure(test, err)
         if self.showAll:
             self.stream.writeln(
@@ -161,7 +163,7 @@ class ANSITestResult(unittest.TestResult):
                 color=self.color))
             self.stream.flush()
 
-    def addUnexpectedSuccess(self, test):
+    def addUnexpectedSuccess(self, test): # pylint: disable=invalid-name
         super(ANSITestResult, self).addUnexpectedSuccess(test)
         if self.showAll:
             self.stream.writeln(
@@ -173,7 +175,7 @@ class ANSITestResult(unittest.TestResult):
                     color=self.color))
             self.stream.flush()
 
-    def printErrors(self):
+    def printErrors(self): # pylint: disable=invalid-name
         if self.dots or self.showAll:
             self.stream.writeln()
         self.printErrorList(
@@ -184,7 +186,7 @@ class ANSITestResult(unittest.TestResult):
             '{color[red]}FAIL{color[normal]}'.format(color=self.color),
             self.failures)
 
-    def printErrorList(self, flavour, errors):
+    def printErrorList(self, flavour, errors): # pylint: disable=invalid-name
         for test, err in errors:
             self.stream.writeln(self.separator1)
             self.stream.writeln('%s: %s' % (flavour, self.getDescription(test)))
@@ -196,6 +198,7 @@ def demo(verbosity=2):
     import qubes.tests
     class TC_Demo(qubes.tests.QubesTestCase):
         '''Demo class'''
+        # pylint: disable=no-self-use
         def test_0_success(self):
             '''Demo test (success)'''
             pass

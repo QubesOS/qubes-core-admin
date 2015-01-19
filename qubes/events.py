@@ -110,6 +110,7 @@ class Emitter(object):
         :param collections.Callable handler: handler callable
         '''
 
+        # pylint: disable=no-member
         cls.__handlers__[event].add(handler)
 
 

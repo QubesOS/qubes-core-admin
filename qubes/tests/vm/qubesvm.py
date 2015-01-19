@@ -1,5 +1,6 @@
 #!/usr/bin/python2 -O
 # vim: fileencoding=utf-8
+# pylint: disable=protected-access
 
 #
 # The Qubes OS Project, https://www.qubes-os.org/
@@ -31,10 +32,12 @@ import qubes.tests
 
 
 class TestProp(object):
+    # pylint: disable=too-few-public-methods
     __name__ = 'testprop'
 
 
 class TestVM(object):
+    # pylint: disable=too-few-public-methods
     def __init__(self):
         self.running = False
         self.installed_by_rpm = False
@@ -68,14 +71,17 @@ class TC_00_setters(qubes.tests.QubesTestCase):
             'test_name-1')
 
     def test_011_setter_name_longer_than_31(self):
+        # pylint: disable=invalid-name
         with self.assertRaises(ValueError):
             qubes.vm.qubesvm._setter_name(self.vm, self.prop, 't' * 32)
 
     def test_012_setter_name_illegal_character(self):
+        # pylint: disable=invalid-name
         with self.assertRaises(ValueError):
             qubes.vm.qubesvm._setter_name(self.vm, self.prop, 'test#')
 
     def test_013_setter_name_first_not_letter(self):
+        # pylint: disable=invalid-name
         with self.assertRaises(ValueError):
             qubes.vm.qubesvm._setter_name(self.vm, self.prop, '1test')
 
@@ -85,6 +91,7 @@ class TC_00_setters(qubes.tests.QubesTestCase):
             qubes.vm.qubesvm._setter_name(self.vm, self.prop, 'testname')
 
     def test_015_setter_name_installed_by_rpm(self):
+        # pylint: disable=invalid-name
         self.vm.installed_by_rpm = True
         with self.assertRaises(qubes.QubesException):
             qubes.vm.qubesvm._setter_name(self.vm, self.prop, 'testname')

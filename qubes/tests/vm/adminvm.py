@@ -30,10 +30,12 @@ import qubes.vm.adminvm
 import qubes.tests
 
 class TestVMM(object):
+    # pylint: disable=too-few-public-methods
     def __init__(self, offline_mode=False):
         self.offline_mode = offline_mode
 
 class TestHost(object):
+    # pylint: disable=too-few-public-methods
     def __init__(self, offline_mode=False):
         self.memory_total = 1000
 
@@ -51,7 +53,7 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
             self.app = TestApp()
             self.vm = qubes.vm.adminvm.AdminVM(self.app,
                 xml=None, qid=0, name='dom0')
-        except:
+        except: # pylint: disable=bare-except
             if self.id().endswith('.test_000_init'):
                 raise
             self.skipTest('setup failed')
@@ -85,6 +87,7 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
         self.assertEqual(self.vm.get_disk_utilization(), 0)
 
     def test_305_get_disk_utilization_private_img(self):
+        # pylint: disable=invalid-name
         self.assertEqual(self.vm.get_disk_utilization_private_img(), 0)
 
     def test_306_get_private_img_sz(self):

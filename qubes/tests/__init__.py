@@ -64,7 +64,7 @@ def skipUnlessDom0(test_item):
 
     Some tests (especially integration tests) have to be run in more or less
     working dom0. This is checked by connecting to libvirt.
-    '''
+    ''' # pylint: disable=invalid-name
 
     return unittest.skipUnless(in_dom0, 'outside dom0')(test_item)
 
@@ -74,7 +74,7 @@ def skipUnlessGit(test_item):
 
     There are very few tests that an be run only in git. One example is
     correctness of example code that won't get included in RPM.
-    '''
+    ''' # pylint: disable=invalid-name
 
     return unittest.skipUnless(in_git, 'outside git tree')(test_item)
 
@@ -129,7 +129,8 @@ class QubesTestCase(unittest.TestCase):
         :param xml2: second element
         :type xml1: :py:class:`lxml.etree._Element`
         :type xml2: :py:class:`lxml.etree._Element`
-        '''
+        ''' # pylint: disable=invalid-name
+
         self.assertEqual(xml1.tag, xml2.tag)
         self.assertEqual(xml1.text, xml2.text)
         self.assertItemsEqual(xml1.keys(), xml2.keys())
@@ -148,7 +149,7 @@ class QubesTestCase(unittest.TestCase):
             an event
         :param list kwargs: when given, all items must appear in kwargs passed \
             to an event
-        '''
+        ''' # pylint: disable=invalid-name
 
         for ev, ev_args, ev_kwargs in emitter.fired_events:
             if ev != event:
@@ -173,7 +174,7 @@ class QubesTestCase(unittest.TestCase):
             an event
         :param list kwargs: when given, all items must appear in kwargs passed \
             to an event
-        '''
+        ''' # pylint: disable=invalid-name
 
         for ev, ev_args, ev_kwargs in emitter.fired_events:
             if ev != event:
@@ -202,12 +203,13 @@ class QubesTestCase(unittest.TestCase):
         :param lxml.etree._Element xml: XML element instance to check
         :param str file: filename of Relax NG schema
         :param str schema: optional explicit schema string
-        '''
+        ''' # pylint: disable=invalid-name,redefined-builtin
 
         if schema is not None and file is None:
             relaxng = schema
             if isinstance(relaxng, str):
                 relaxng = lxml.etree.XML(relaxng)
+            # pylint: disable=protected-access
             if isinstance(relaxng, lxml.etree._Element):
                 relaxng = lxml.etree.RelaxNG(relaxng)
 

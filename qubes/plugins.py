@@ -33,6 +33,7 @@ import os
 class Plugin(type):
     '''Base metaclass for plugins'''
     def __init__(cls, name, bases, dict_):
+        # pylint: disable=unused-argument
         if hasattr(cls, 'register'):
             cls.register[cls.__name__] = cls
         else:
@@ -49,13 +50,18 @@ def load(modfile):
 
     >>> __all__ = qubes.plugins.load(__file__) # doctest: +SKIP
     '''
+
     path = os.path.dirname(modfile)
     listdir = os.listdir(path)
     ret = set()
+
+    # pylint: disable=unused-variable
     for suffix, mode, type_ in imp.get_suffixes():
         for filename in listdir:
             if filename.endswith(suffix):
                 ret.add(filename[:-len(suffix)])
+
     if '__init__' in ret:
         ret.remove('__init__')
+
     return list(sorted(ret))

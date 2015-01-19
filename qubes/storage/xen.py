@@ -49,6 +49,7 @@ class XenVMStorage(qubes.storage.VMStorage):
     modules_dev = 'xvdd'
 
 
+    # pylint: disable=redefined-builtin
     @staticmethod
     def _format_disk_dev(path, vdev, script=None, rw=True, type='disk',
             domain=None):

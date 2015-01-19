@@ -42,7 +42,7 @@ class VMStorage(object):
 
     This is base class for all other implementations, mostly with Xen on Linux
     in mind.
-    '''
+    ''' # pylint: disable=abstract-class-little-used
 
     def __init__(self, vm, private_img_size=None, root_img_size=None,
             modules_img=None, modules_img_rw=False):
@@ -116,6 +116,7 @@ class VMStorage(object):
         return qubes.utils.get_disk_usage(self.vmdir)
 
     def get_disk_utilization_private_img(self):
+        # pylint: disable=invalid-name
         return qubes.utils.get_disk_usage(self.private_img)
 
     def get_private_img_sz(self):

@@ -31,6 +31,7 @@ class TC_00_Emitter(qubes.tests.QubesTestCase):
         testevent_fired = [False]
 
         def on_testevent(subject, event):
+            # pylint: disable=unused-argument
             if event == 'testevent':
                 testevent_fired[0] = True
 

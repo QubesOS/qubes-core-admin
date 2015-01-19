@@ -47,6 +47,7 @@ import qubes.vm
 
 qmemman_present = False
 try:
+    # pylint: disable=import-error
     import qubes.qmemman_client
     qmemman_present = True
 except ImportError:
@@ -54,6 +55,7 @@ except ImportError:
 
 
 def _setter_qid(self, prop, value):
+    # pylint: disable=unused-argument
     if not 0 <= value <= qubes.config.max_qid:
         raise ValueError(
             '{} value must be between 0 and qubes.config.max_qid'.format(
@@ -85,6 +87,7 @@ def _setter_name(self, prop, value):
 
 
 def _setter_kernel(self, prop, value):
+    # pylint: disable=unused-argument
     if not os.path.exists(os.path.join(system_path[
         'qubes_kernels_base_dir'], value)):
         raise qubes.QubesException('Kernel {!r} not installed'.format(value))
@@ -381,6 +384,8 @@ class QubesVM(qubes.vm.BaseVM):
     @property
     def gateway(self):
         '''Gateway for other domains that use this domain as netvm.'''
+        # pylint: disable=no-self-use
+
         # This is gateway IP for _other_ VMs, so make sense only in NetVMs
         return None
 
@@ -458,6 +463,7 @@ class QubesVM(qubes.vm.BaseVM):
 
     @qubes.events.handler('property-set:label')
     def on_property_set_label(self, event, name, new_label, old_label=None):
+        # pylint: disable=unused-argument
         if self.icon_path:
             try:
                 os.remove(self.icon_path)
@@ -473,6 +479,7 @@ class QubesVM(qubes.vm.BaseVM):
 
     @qubes.events.handler('property-del:netvm')
     def on_property_del_netvm(self, event, name, old_netvm):
+        # pylint: disable=unused-argument
         # we are changing to default netvm
         new_netvm = self.netvm
         if new_netvm == old_netvm:
@@ -482,6 +489,7 @@ class QubesVM(qubes.vm.BaseVM):
 
     @qubes.events.handler('property-set:netvm')
     def on_property_set_netvm(self, event, name, new_netvm, old_netvm=None):
+        # pylint: disable=unused-argument
         if self.is_running() and new_netvm is not None \
                 and not new_netvm.is_running():
             raise QubesException("Cannot dynamically attach to stopped NetVM")
@@ -524,6 +532,7 @@ class QubesVM(qubes.vm.BaseVM):
 
     @qubes.events.handler('property-pre-set:name')
     def on_property_pre_set_name(self, event, name, newvalue, oldvalue=None):
+        # pylint: disable=unused-argument
         # TODO not self.is_stopped() would be more appropriate
         if self.is_running():
             raise QubesException('Cannot change name of running domain')
@@ -531,6 +540,7 @@ class QubesVM(qubes.vm.BaseVM):
 
     @qubes.events.handler('property-pre-set:dir_path')
     def on_property_pre_set_name(self, event, name, newvalue, oldvalue=None):
+        # pylint: disable=unused-argument
         # TODO not self.is_stopped() would be more appropriate
         if self.is_running():
             raise QubesException('Cannot change dir_path of running domain')
@@ -538,11 +548,13 @@ class QubesVM(qubes.vm.BaseVM):
 
     @qubes.events.handler('property-set:dir_path')
     def on_property_set_dir_path(self, event, name, newvalue, oldvalue=None):
+        # pylint: disable=unused-argument
         self.storage.rename(newvalue, oldvalue)
 
 
     @qubes.events.handler('property-set:name')
     def on_property_set_name(self, event, name, new_name, old_name=None):
+        # pylint: disable=unused-argument
         if self._libvirt_domain is not None:
             self.libvirt_domain.undefine()
             self._libvirt_domain = None
@@ -574,6 +586,7 @@ class QubesVM(qubes.vm.BaseVM):
     @qubes.events.handler('property-pre-set:autostart')
     def on_property_pre_set_autostart(self, event, prop, name, value,
             oldvalue=None):
+        # pylint: disable=unused-argument
         if subprocess.call(['sudo', 'systemctl',
                 ('enable' if value else 'disable'),
                 'qubes-vm@{}.service'.format(self.name)]):
@@ -582,6 +595,7 @@ class QubesVM(qubes.vm.BaseVM):
 
     @qubes.events.handler('device-pre-attached:pci')
     def on_device_pre_attached_pci(self, event, pci):
+        # pylint: disable=unused-argument
         if not os.path.exists('/sys/bus/pci/devices/0000:%s' % pci):
             raise QubesException("Invalid PCI device: %s" % pci)
         if not self.is_running():
@@ -600,6 +614,7 @@ class QubesVM(qubes.vm.BaseVM):
 
     @qubes.events.handler('device-pre-detached:pci')
     def on_device_pre_detached_pci(self, event, pci):
+        # pylint: disable=unused-argument
         if not self.is_running():
             return
 
@@ -836,7 +851,7 @@ class QubesVM(qubes.vm.BaseVM):
                 raise QubesException(
                     'Error while starting the {!r} VM: {!s}'.format(
                         self.name, e))
-            except (MemoryError) as err:
+            except MemoryError:
                 raise QubesException('Not enough memory to start {!r} VM! '
                     'Close one or more running VMs and try again.'.format(
                         self.name))
@@ -907,7 +922,7 @@ class QubesVM(qubes.vm.BaseVM):
         :param str user: username to run service as
         :param bool passio_popen: passed verbatim to :py:meth:`run`
         :param str input: string passed as input to service
-        '''
+        ''' # pylint: disable=redefined-builtin
 
         if input is not None and passio_popen is not None:
             raise ValueError("'input' and 'passio_popen' cannot be used "
@@ -1021,6 +1036,7 @@ class QubesVM(qubes.vm.BaseVM):
         '''
 
         if source_template is None:
+            # pylint: disable=no-member
             source_template = self.template
         assert source_template is not None
 
@@ -1247,8 +1263,7 @@ class QubesVM(qubes.vm.BaseVM):
 
             https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainState
                 Libvirt API for changing state of a domain.
-
-        '''
+        ''' # pylint: disable=too-many-return-statements
 
         libvirt_domain = self.libvirt_domain
         if libvirt_domain is None:
@@ -1435,7 +1450,7 @@ class QubesVM(qubes.vm.BaseVM):
         :rtype: FIXME
 
         .. seealso:: :py:meth:`get_private_img_sz`
-        '''
+        ''' # pylint: disable=invalid-name
 
         return qubes.utils.get_disk_usage(self.private_img)
 
@@ -1520,6 +1535,7 @@ class QubesVM(qubes.vm.BaseVM):
         # Makes sense only on VM based on template
         if self.template is None:
             return False
+        # pylint: disable=no-member
 
         if not self.is_running():
             return False

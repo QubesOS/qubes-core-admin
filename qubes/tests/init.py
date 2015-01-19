@@ -1,5 +1,6 @@
 #!/usr/bin/python2 -O
 # vim: fileencoding=utf-8
+# pylint: disable=protected-access,pointless-statement
 
 #
 # The Qubes OS Project, https://www.qubes-os.org/
@@ -67,7 +68,7 @@ class TC_10_property(qubes.tests.QubesTestCase):
         try:
             class TestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
                 testprop1 = qubes.property('testprop1')
-        except:
+        except: # pylint: disable=bare-except
             self.skipTest('TestHolder class definition failed')
         self.holder = TestHolder(None)
 
@@ -348,6 +349,7 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
 class TC_90_Qubes(qubes.tests.QubesTestCase):
     @qubes.tests.skipUnlessDom0
     def test_000_init_empty(self):
+        # pylint: disable=no-self-use,unused-variable,bare-except
         try:
             os.unlink('/tmp/qubestest.xml')
         except:

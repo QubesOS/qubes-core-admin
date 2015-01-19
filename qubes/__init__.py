@@ -61,6 +61,7 @@ import qubes.ext
 if os.name == 'posix':
     import fcntl
 elif os.name == 'nt':
+    # pylint: disable=import-error
     import win32con
     import win32file
     import pywintypes
@@ -187,6 +188,7 @@ class QubesHost(object):
         if self._no_cpus is not None:
             return
 
+        # pylint: disable=unused-variable
         (model, memory, cpus, mhz, nodes, socket, cores, threads) = \
             self.app.vmm.libvirt_conn.getInfo()
         self._total_mem = long(memory) * 1024
@@ -525,7 +527,7 @@ class VMCollection(object):
         raise LookupError("Cannot find unused netid!")
 
 
-class property(object):
+class property(object): # pylint: disable=redefined-builtin,invalid-name
     '''Qubes property.
 
     This class holds one property that can be saved to and loaded from
@@ -581,6 +583,7 @@ class property(object):
     def __init__(self, name, setter=None, saver=None, type=None,
             default=_NO_DEFAULT, load_stage=2, order=0, save_via_ref=False,
             doc=None):
+        # pylint: disable=redefined-builtin
         self.__name__ = name
         self._setter = setter
         self._saver = saver if saver is not None else (
@@ -638,7 +641,7 @@ class property(object):
         else:
             instance.fire_event_pre('property-pre-set:' + self.__name__, value)
 
-        instance._init_property(self, value)
+        instance._init_property(self, value) # pylint: disable=protected-access
 
         if has_oldvalue:
             instance.fire_event(
@@ -689,6 +692,7 @@ class property(object):
         if not self.__doc__:
             return ''
 
+        # pylint: disable=unused-variable
         output, pub = docutils.core.publish_programmatically(
             source_class=docutils.io.StringInput,
             source=' '.join(self.__doc__.strip().split()),
@@ -716,6 +720,7 @@ class property(object):
     @staticmethod
     def dontsave(self, prop, value):
         '''Dummy saver that never saves anything.'''
+        # pylint: disable=bad-staticmethod-argument,unused-argument
         raise DontSave()
 
     #
@@ -730,7 +735,7 @@ class property(object):
         unwanted property. When someone attempts to load such a property, it
 
         :throws AttributeError: always
-        '''
+        ''' # pylint: disable=bad-staticmethod-argument,unused-argument
 
         raise AttributeError(
             'setting {} property on {} instance is forbidden'.format(
@@ -744,7 +749,7 @@ class property(object):
         It accepts (case-insensitive) ``'0'``, ``'no'`` and ``false`` as
         :py:obj:`False` and ``'1'``, ``'yes'`` and ``'true'`` as
         :py:obj:`True`.
-        '''
+        ''' # pylint: disable=bad-staticmethod-argument,unused-argument
 
         lcvalue = value.lower()
         if lcvalue in ('0', 'no', 'false'):
@@ -841,6 +846,7 @@ class PropertyHolder(qubes.events.Emitter):
         :param value: value
         '''
 
+        # pylint: disable=protected-access
         setattr(self, self.get_property_def(prop)._attr_name, value)
 
 
@@ -856,6 +862,7 @@ class PropertyHolder(qubes.events.Emitter):
         :rtype: bool
         '''
 
+        # pylint: disable=protected-access
         return hasattr(self, self.get_property_def(prop)._attr_name)
 
 
@@ -920,6 +927,7 @@ class PropertyHolder(qubes.events.Emitter):
         properties = lxml.etree.Element('properties')
 
         for prop in self.get_props_list():
+            # pylint: disable=protected-access
             try:
                 value = getattr(
                     self, (prop.__name__ if with_defaults else prop._attr_name))
@@ -958,6 +966,7 @@ class PropertyHolder(qubes.events.Emitter):
 
         for prop in self.proplist():
             try:
+                # pylint: disable=protected-access
                 self._init_property(self, prop, getattr(src, prop._attr_name))
             except AttributeError:
                 continue
@@ -984,6 +993,7 @@ class PropertyHolder(qubes.events.Emitter):
             if value is None and not allow_none:
                 raise AttributeError()
         except AttributeError:
+            # pylint: disable=no-member
             msg = 'Required property {!r} not set on {!r}'.format(prop, self)
             if hard:
                 raise AssertionError(msg)
@@ -1119,8 +1129,9 @@ class Qubes(PropertyHolder):
 
         self.log = logging.getLogger('app')
 
-        self._extensions = set(ext(self)
-                               for ext in qubes.ext.Extension.register.values())
+        # pylint: disable=no-member
+        self._extensions = set(
+            ext(self) for ext in qubes.ext.Extension.register.values())
 
         #: collection of all VMs managed by this Qubes instance
         self.domains = VMCollection(self)
@@ -1166,6 +1177,7 @@ class Qubes(PropertyHolder):
         if os.name == 'posix':
             fcntl.lockf(self._storefd, fcntl.LOCK_EX)
         elif os.name == 'nt':
+            # pylint: disable=protected-access
             win32file.LockFileEx(
                 win32file._get_osfhandle(self._storefd.fileno()),
                 win32con.LOCKFILE_EXCLUSIVE_LOCK,
@@ -1304,6 +1316,7 @@ class Qubes(PropertyHolder):
 
     @qubes.events.handler('domain-pre-deleted')
     def on_domain_pre_deleted(self, event, vm):
+        # pylint: disable=unused-argument
         if isinstance(vm, qubes.vm.templatevm.TemplateVM):
             appvms = self.get_vms_based_on(vm)
             if appvms:
@@ -1315,6 +1328,7 @@ class Qubes(PropertyHolder):
 
     @qubes.events.handler('domain-deleted')
     def on_domain_deleted(self, event, vm):
+        # pylint: disable=unused-argument
         if self.default_netvm == vm:
             del self.default_netvm
         if self.default_fw_netvm == vm:
@@ -1331,6 +1345,7 @@ class Qubes(PropertyHolder):
 
     @qubes.events.handler('property-pre-set:clockvm')
     def on_property_pre_set_clockvm(self, event, name, newvalue, oldvalue=None):
+        # pylint: disable=unused-argument,no-self-use
         if 'ntpd' in newvalue.services:
             if newvalue.services['ntpd']:
                 raise QubesException('Cannot set {!r} as {!r} property since '
@@ -1342,6 +1357,7 @@ class Qubes(PropertyHolder):
     @qubes.events.handler('property-pre-set:default_netvm')
     def on_property_pre_set_default_netvm(self, event, name, newvalue,
             oldvalue=None):
+        # pylint: disable=unused-argument,invalid-name
         if newvalue is not None and oldvalue is not None \
                 and oldvalue.is_running() and not newvalue.is_running() \
                 and self.domains.get_vms_connected_to(oldvalue):
@@ -1352,6 +1368,7 @@ class Qubes(PropertyHolder):
     @qubes.events.handler('property-set:default_fw_netvm')
     def on_property_set_default_netvm(self, event, name, newvalue,
             oldvalue=None):
+        # pylint: disable=unused-argument,invalid-name
         for vm in self.domains:
             if not vm.provides_network and vm.property_is_default('netvm'):
                 # fire property-del:netvm as it is responsible for resetting
@@ -1362,6 +1379,7 @@ class Qubes(PropertyHolder):
     @qubes.events.handler('property-set:default_netvm')
     def on_property_set_default_netvm(self, event, name, newvalue,
             oldvalue=None):
+        # pylint: disable=unused-argument
         for vm in self.domains:
             if vm.provides_network and vm.property_is_default('netvm'):
                 # fire property-del:netvm as it is responsible for resetting
