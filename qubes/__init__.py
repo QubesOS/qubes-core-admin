@@ -123,9 +123,11 @@ class VMMConnection(object):
         This property in available only when running on Xen.
         '''
 
-        # XXX what about the case when we run under KVM, but xen modules are importable?
+        # XXX what about the case when we run under KVM,
+        # but xen modules are importable?
         if 'xen.lowlevel.xs' not in sys.modules:
-            raise AttributeError('xs object is available under Xen hypervisor only')
+            raise AttributeError(
+                'xs object is available under Xen hypervisor only')
 
         self.init_vmm_connection()
         return self._xs
@@ -137,9 +139,11 @@ class VMMConnection(object):
         This property in available only when running on Xen.
         '''
 
-        # XXX what about the case when we run under KVM, but xen modules are importable?
+        # XXX what about the case when we run under KVM,
+        # but xen modules are importable?
         if 'xen.lowlevel.xc' not in sys.modules:
-            raise AttributeError('xc object is available under Xen hypervisor only')
+            raise AttributeError(
+                'xc object is available under Xen hypervisor only')
 
         self.init_vmm_connection()
         return self._xs
@@ -148,7 +152,8 @@ class VMMConnection(object):
 class QubesHost(object):
     '''Basic information about host machine
 
-    :param qubes.Qubes app: Qubes application context (must have :py:attr:`Qubes.vmm` attribute defined)
+    :param qubes.Qubes app: Qubes application context (must have \
+        :py:attr:`Qubes.vmm` attribute defined)
     '''
 
     def __init__(self, app):
@@ -165,9 +170,11 @@ class QubesHost(object):
         self._total_mem = long(memory) * 1024
         self._no_cpus = cpus
 
-        self.app.log.debug('QubesHost: no_cpus={} memory_total={}'.format(self.no_cpus, self.memory_total))
+        self.app.log.debug('QubesHost: no_cpus={} memory_total={}'.format(
+            self.no_cpus, self.memory_total))
         try:
-            self.app.log.debug('QubesHost: xen_free_memory={}'.format(self.get_free_xen_memory()))
+            self.app.log.debug('QubesHost: xen_free_memory={}'.format(
+                self.get_free_xen_memory()))
         except NotImplementedError:
             pass
 
@@ -275,11 +282,12 @@ class Label(object):
         #: label's name like "red" or "green"
         self.name = name
 
-        #: freedesktop icon name, suitable for use in :py:meth:`PyQt4.QtGui.QIcon.fromTheme`
+        #: freedesktop icon name, suitable for use in
+        #: :py:meth:`PyQt4.QtGui.QIcon.fromTheme`
         self.icon = 'appvm-' + name
 
-        #: freedesktop icon name, suitable for use in :py:meth:`PyQt4.QtGui.QIcon.fromTheme`
-        #: on DispVMs
+        #: freedesktop icon name, suitable for use in
+        #: :py:meth:`PyQt4.QtGui.QIcon.fromTheme` on DispVMs
         self.icon_dispvm = 'dispvm-' + name
 
 
@@ -402,18 +410,18 @@ class VMCollection(object):
         # this violates duck typing, but is needed
         # for VMProperty to function correctly
         if not isinstance(value, qubes.vm.BaseVM):
-            raise TypeError(
-                '{} holds only BaseVM instances'.format(self.__class__.__name__))
+            raise TypeError('{} holds only BaseVM instances'.format(
+                self.__class__.__name__))
 
         if not hasattr(value, 'qid'):
             value.qid = self.domains.get_new_unused_qid()
 
         if value.qid in self:
-            raise ValueError('This collection already holds VM that has qid={!r} (!r)'.format(
-                value.qid, self[value.qid]))
+            raise ValueError('This collection already holds VM that has '
+                'qid={!r} ({!r})'.format(value.qid, self[value.qid]))
         if value.name in self:
-            raise ValueError('This collection already holds VM that has name={!r} (!r)'.format(
-                value.name, self[value.name]))
+            raise ValueError('This collection already holds VM that has '
+                'name={!r} ({!r})'.format(value.name, self[value.name]))
 
         self._dict[value.qid] = value
         self.app.fire_event('domain-added', value)
@@ -425,7 +433,7 @@ class VMCollection(object):
 
         if isinstance(key, basestring):
             for vm in self:
-                if (vm.name == key):
+                if vm.name == key:
                     return vm
             raise KeyError(key)
 
@@ -507,13 +515,19 @@ class property(object):
     or, when no default, py:class:`exceptions.AttributeError`.
 
     :param str name: name of the property
-    :param collections.Callable setter: if not :py:obj:`None`, this is used to initialise value; first parameter to the function is holder instance and the second is value; this is called before ``type``
-    :param collections.Callable saver: function to coerce value to something readable by setter
+    :param collections.Callable setter: if not :py:obj:`None`, this is used to \
+        initialise value; first parameter to the function is holder instance \
+        and the second is value; this is called before ``type``
+    :param collections.Callable saver: function to coerce value to something \
+        readable by setter
     :param type type: if not :py:obj:`None`, value is coerced to this type
-    :param object default: default value; if callable, will be called with holder as first argument
-    :param int load_stage: stage when property should be loaded (see :py:class:`Qubes` for description of stages)
+    :param object default: default value; if callable, will be called with \
+        holder as first argument
+    :param int load_stage: stage when property should be loaded (see \
+        :py:class:`Qubes` for description of stages)
     :param int order: order of evaluation (bigger order values are later)
-    :param str doc: docstring; this should be one paragraph of plain RST, no sphinx-specific features
+    :param str doc: docstring; this should be one paragraph of plain RST, no \
+        sphinx-specific features
 
     Setters and savers have following signatures:
 
@@ -542,8 +556,9 @@ class property(object):
     # internal use only
     _NO_DEFAULT = object()
 
-    def __init__(self, name, setter=None, saver=None, type=None, default=_NO_DEFAULT,
-            load_stage=2, order=0, save_via_ref=False, doc=None):
+    def __init__(self, name, setter=None, saver=None, type=None,
+            default=_NO_DEFAULT, load_stage=2, order=0, save_via_ref=False,
+            doc=None):
         self.__name__ = name
         self._setter = setter
         self._saver = saver if saver is not None else (
@@ -563,8 +578,8 @@ class property(object):
 
         # XXX this violates duck typing, shall we keep it?
         if not isinstance(instance, PropertyHolder):
-            raise AttributeError(
-                'qubes.property should be used on qubes.PropertyHolder instances only')
+            raise AttributeError('qubes.property should be used on '
+                'qubes.PropertyHolder instances only')
 
         try:
             return getattr(instance, self._attr_name)
@@ -618,14 +633,16 @@ class property(object):
             has_oldvalue = False
 
         if has_oldvalue:
-            instance.fire_event_pre('property-pre-deleted:' + self.__name__, oldvalue)
+            instance.fire_event_pre('property-pre-deleted:' + self.__name__,
+                oldvalue)
         else:
             instance.fire_event_pre('property-pre-deleted:' + self.__name__)
 
         delattr(instance, self._attr_name)
 
         if has_oldvalue:
-            instance.fire_event('property-deleted:' + self.__name__, oldvalue)
+            instance.fire_event('property-deleted:' + self.__name__,
+                oldvalue)
         else:
             instance.fire_event('property-deleted:' + self.__name__)
 
@@ -647,7 +664,8 @@ class property(object):
         '''Return parsed documentation string, stripping RST markup.
         '''
 
-        if not self.__doc__: return ''
+        if not self.__doc__:
+            return ''
 
         output, pub = docutils.core.publish_programmatically(
             source_class=docutils.io.StringInput,
@@ -692,8 +710,9 @@ class property(object):
         :throws AttributeError: always
         '''
 
-        raise AttributeError('setting {} property on {} instance is forbidden'.format(
-            prop.__name__, self.__class__.__name__))
+        raise AttributeError(
+            'setting {} property on {} instance is forbidden'.format(
+                prop.__name__, self.__class__.__name__))
 
 
     @staticmethod
@@ -725,7 +744,8 @@ class PropertyHolder(qubes.events.Emitter):
             Fired once after all properties are loaded from XML. Individual
             ``property-set`` events are not fired.
 
-        .. event:: property-set:<propname> (subject, event, name, newvalue[, oldvalue])
+        .. event:: property-set:<propname> \
+                (subject, event, name, newvalue[, oldvalue])
 
             Fired when property changes state. Signature is variable,
             *oldvalue* is present only if there was an old value.
@@ -734,7 +754,8 @@ class PropertyHolder(qubes.events.Emitter):
             :param newvalue: New value of the property
             :param oldvalue: Old value of the property
 
-        .. event:: property-pre-set:<propname> (subject, event, name, newvalue[, oldvalue])
+        .. event:: property-pre-set:<propname> \
+                (subject, event, name, newvalue[, oldvalue])
 
             Fired before property changes state. Signature is variable,
             *oldvalue* is present only if there was an old value.
@@ -743,7 +764,8 @@ class PropertyHolder(qubes.events.Emitter):
             :param newvalue: New value of the property
             :param oldvalue: Old value of the property
 
-        .. event:: property-del:<propname> (subject, event, name[, oldvalue])
+        .. event:: property-del:<propname> \
+                (subject, event, name[, oldvalue])
 
             Fired when property gets deleted (is set to default). Signature is
             variable, *oldvalue* is present only if there was an old value.
@@ -751,7 +773,8 @@ class PropertyHolder(qubes.events.Emitter):
             :param name: Property name
             :param oldvalue: Old value of the property
 
-        .. event:: property-pre-del:<propname> (subject, event, name[, oldvalue])
+        .. event:: property-pre-del:<propname> \
+                (subject, event, name[, oldvalue])
 
             Fired before property gets deleted (is set to default). Signature
             is variable, *oldvalue* is present only if there was an old value.
@@ -866,7 +889,9 @@ class PropertyHolder(qubes.events.Emitter):
     def xml_properties(self, with_defaults=False):
         '''Iterator that yields XML nodes representing set properties.
 
-        :param bool with_defaults: If :py:obj:`True`, then it also includes properties which were not set explicite, but have default values filled.
+        :param bool with_defaults: If :py:obj:`True`, then it also includes \
+            properties which were not set explicite, but have default values \
+            filled.
         '''
 
 
@@ -899,7 +924,8 @@ class PropertyHolder(qubes.events.Emitter):
         '''Clone properties from other object.
 
         :param PropertyHolder src: source object
-        :param list proplist: list of properties (:py:obj:`None` for all properties)
+        :param list proplist: list of properties \
+            (:py:obj:`None` for all properties)
         '''
 
         if proplist is None:
@@ -922,8 +948,10 @@ class PropertyHolder(qubes.events.Emitter):
 
         :param prop: property name or object
         :type prop: qubes.property or str
-        :param bool allow_none: if :py:obj:`True`, don't complain if :py:obj:`None` is found
-        :param bool hard: if :py:obj:`True`, raise :py:class:`AssertionError`; if :py:obj:`False`, log warning instead
+        :param bool allow_none: if :py:obj:`True`, don't complain if \
+            :py:obj:`None` is found
+        :param bool hard: if :py:obj:`True`, raise :py:class:`AssertionError`; \
+            if :py:obj:`False`, log warning instead
         '''
 
         if isinstance(qubes.property, prop):
@@ -949,18 +977,23 @@ class VMProperty(property):
 
     :param type vmclass: class that returned VM is supposed to be instance of
 
-    and all supported by :py:class:`property` with the exception of ``type`` and ``setter``
+    and all supported by :py:class:`property` with the exception of ``type`` \
+        and ``setter``
     '''
 
-    def __init__(self, name, vmclass=qubes.vm.BaseVM, allow_none=False, **kwargs):
+    def __init__(self, name, vmclass=qubes.vm.BaseVM, allow_none=False,
+            **kwargs):
         if 'type' in kwargs:
-            raise TypeError("'type' keyword parameter is unsupported in {}".format(
-                self.__class__.__name__))
+            raise TypeError(
+                "'type' keyword parameter is unsupported in {}".format(
+                    self.__class__.__name__))
         if 'setter' in kwargs:
-            raise TypeError("'setter' keyword parameter is unsupported in {}".format(
-                self.__class__.__name__))
+            raise TypeError(
+                "'setter' keyword parameter is unsupported in {}".format(
+                    self.__class__.__name__))
         if not issubclass(vmclass, qubes.vm.BaseVM):
-            raise TypeError("'vmclass' should specify a subclass of qubes.vm.BaseVM")
+            raise TypeError(
+                "'vmclass' should specify a subclass of qubes.vm.BaseVM")
 
         super(VMProperty, self).__init__(name, **kwargs)
         self.vmclass = vmclass
@@ -981,8 +1014,10 @@ class VMProperty(property):
         vm = instance.app.domains[value]
 
         if not isinstance(vm, self.vmclass):
-            raise TypeError('wrong VM class: domains[{!r}] if of type {!s} and not {!s}'.format(
-                value, vm.__class__.__name__, self.vmclass.__name__))
+            raise TypeError('wrong VM class: domains[{!r}] if of type {!s} '
+                'and not {!s}'.format(value,
+                    vm.__class__.__name__,
+                    self.vmclass.__name__))
 
         super(VMProperty, self).__set__(self, instance, vm)
 
@@ -1036,10 +1071,12 @@ class Qubes(PropertyHolder):
     Methods and attributes:
     '''
 
-    default_netvm = VMProperty('default_netvm', load_stage=3, default=None,
+    default_netvm = VMProperty('default_netvm', load_stage=3,
+        default=None,
         doc='''Default NetVM for AppVMs. Initial state is `None`, which means
             that AppVMs are not connected to the Internet.''')
-    default_fw_netvm = VMProperty('default_fw_netvm', load_stage=3, default=None,
+    default_fw_netvm = VMProperty('default_fw_netvm', load_stage=3,
+        default=None,
         doc='''Default NetVM for ProxyVMs. Initial state is `None`, which means
             that ProxyVMs (including FirewallVM) are not connected to the
             Internet.''')
@@ -1274,25 +1311,25 @@ class Qubes(PropertyHolder):
     def on_property_pre_set_clockvm(self, event, name, newvalue, oldvalue=None):
         if 'ntpd' in newvalue.services:
             if newvalue.services['ntpd']:
-                raise QubesException(
-                    'Cannot set {!r} as {!r} property since it has ntpd enabled.'.format(
-                        newvalue, name))
+                raise QubesException('Cannot set {!r} as {!r} property since '
+                    'it has ntpd enabled.'.format(newvalue, name))
         else:
             newvalue.services['ntpd'] = False
 
 
     @qubes.events.handler('property-pre-set:default_netvm')
-    def on_property_pre_set_default_netvm(self, event, name, newvalue, oldvalue=None):
+    def on_property_pre_set_default_netvm(self, event, name, newvalue,
+            oldvalue=None):
         if newvalue is not None and oldvalue is not None \
                 and oldvalue.is_running() and not newvalue.is_running() \
                 and self.domains.get_vms_connected_to(oldvalue):
-            raise QubesException(
-                'Cannot change default_netvm to domain that is not running ({!r}).'.format(
-                    newvalue))
+            raise QubesException('Cannot change default_netvm to domain that '
+                'is not running ({!r}).'.format(newvalue))
 
 
     @qubes.events.handler('property-set:default_fw_netvm')
-    def on_property_set_default_netvm(self, event, name, newvalue, oldvalue=None):
+    def on_property_set_default_netvm(self, event, name, newvalue,
+            oldvalue=None):
         for vm in self.domains:
             if not vm.provides_network and vm.property_is_default('netvm'):
                 # fire property-del:netvm as it is responsible for resetting
@@ -1301,7 +1338,8 @@ class Qubes(PropertyHolder):
 
 
     @qubes.events.handler('property-set:default_netvm')
-    def on_property_set_default_netvm(self, event, name, newvalue, oldvalue=None):
+    def on_property_set_default_netvm(self, event, name, newvalue,
+            oldvalue=None):
         for vm in self.domains:
             if vm.provides_network and vm.property_is_default('netvm'):
                 # fire property-del:netvm as it is responsible for resetting

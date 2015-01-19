@@ -14,7 +14,8 @@ import qubes.events
 #: :py:obj:`True` if running in dom0, :py:obj:`False` otherwise
 in_dom0 = False
 
-#: :py:obj:`False` if outside of git repo, path to root of the directory otherwise
+#: :py:obj:`False` if outside of git repo,
+#: path to root of the directory otherwise
 in_git = False
 
 try:
@@ -26,7 +27,8 @@ except libvirt.libvirtError:
     pass
 
 try:
-    in_git = subprocess.check_output(['git', 'rev-parse', '--show-toplevel']).strip()
+    in_git = subprocess.check_output(
+        ['git', 'rev-parse', '--show-toplevel']).strip()
 except subprocess.CalledProcessError:
     # git returned nonzero, we are outside git repo
     pass
@@ -120,8 +122,10 @@ class QubesTestCase(unittest.TestCase):
         :param emitter: emitter which is being checked
         :type emitter: :py:class:`TestEmitter`
         :param str event: event identifier
-        :param list args: when given, all items must appear in args passed to event
-        :param list kwargs: when given, all items must appear in kwargs passed to event
+        :param list args: when given, all items must appear in args passed to \
+            an event
+        :param list kwargs: when given, all items must appear in kwargs passed \
+            to an event
         '''
 
         for ev, ev_args, ev_kwargs in emitter.fired_events:
@@ -143,8 +147,10 @@ class QubesTestCase(unittest.TestCase):
         :param emitter: emitter which is being checked
         :type emitter: :py:class:`TestEmitter`
         :param str event: event identifier
-        :param list args: when given, all items must appear in args passed to event
-        :param list kwargs: when given, all items must appear in kwargs passed to event
+        :param list args: when given, all items must appear in args passed to \
+            an event
+        :param list kwargs: when given, all items must appear in kwargs passed \
+            to an event
         '''
 
         for ev, ev_args, ev_kwargs in emitter.fired_events:
@@ -166,7 +172,7 @@ class QubesTestCase(unittest.TestCase):
         Schema can be given in a couple of ways:
 
         - As separate file. This is most common, and also the only way to
-          handle file inclusion. Call with file name as second argument. 
+          handle file inclusion. Call with file name as second argument.
 
         - As string containing actual schema. Put that string in *schema*
           keyword argument.

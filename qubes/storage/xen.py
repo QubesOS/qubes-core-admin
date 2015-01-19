@@ -47,7 +47,8 @@ class XenVMStorage(qubes.storage.VMStorage):
 
 
     @staticmethod
-    def _format_disk_dev(path, vdev, script=None, rw=True, type='disk', domain=None):
+    def _format_disk_dev(path, vdev, script=None, rw=True, type='disk',
+            domain=None):
         if path is None:
             return ''
 
@@ -130,9 +131,9 @@ class XenVMStorage(qubes.storage.VMStorage):
 
     def create_on_disk_root_img(self, source_template=None):
         if source_template is None:
-            f_root = open (self.root_img, "a+b")
-            f_root.truncate (self.root_img_size)
-            f_root.close ()
+            fd = open(self.root_img, 'a+b')
+            fd.truncate(self.root_img_size)
+            fd.close()
 
         elif self.vm.updateable:
             # if not updateable, just use template's disk
@@ -142,9 +143,9 @@ class XenVMStorage(qubes.storage.VMStorage):
 
 
     def resize_private_img(self, size):
-        f_private = open(self.private_img, "a+b")
-        f_private.truncate(size)
-        f_private.close()
+        fd = open(self.private_img, 'a+b')
+        fd.truncate(size)
+        fd.close()
 
         # find loop device if any
         p = subprocess.Popen(
@@ -166,7 +167,7 @@ class XenVMStorage(qubes.storage.VMStorage):
 
         # TODO: move rootcow_img to this class; the same for vm.is_outdated()
         if os.path.exists(self.vm.rootcow_img):
-           os.rename(self.vm.rootcow_img, self.vm.rootcow_img + '.old')
+            os.rename(self.vm.rootcow_img, self.vm.rootcow_img + '.old')
 
         old_umask = os.umask(002)
         f_cow = open(self.vm.rootcow_img, 'w')

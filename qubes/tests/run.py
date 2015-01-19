@@ -143,8 +143,8 @@ class ANSITestResult(unittest.TestResult):
         super(ANSITestResult, self).addUnexpectedSuccess(test)
         if self.showAll:
             self.stream.writeln(
-                '{color[yellow]}{color[bold]}unexpected success{color[normal]}'.format(
-                    color=self.color))
+                '{color[yellow]}{color[bold]}unexpected success'
+                    '{color[normal]}'.format(color=self.color))
         elif self.dots:
             self.stream.write(
                 '{color[yellow]}{color[bold]}u{color[normal]}'.format(
@@ -165,7 +165,7 @@ class ANSITestResult(unittest.TestResult):
     def printErrorList(self, flavour, errors):
         for test, err in errors:
             self.stream.writeln(self.separator1)
-            self.stream.writeln('%s: %s' % (flavour,self.getDescription(test)))
+            self.stream.writeln('%s: %s' % (flavour, self.getDescription(test)))
             self.stream.writeln(self.separator2)
             self.stream.writeln('%s' % err)
 

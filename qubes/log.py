@@ -12,7 +12,8 @@ import sys
 
 FORMAT_CONSOLE = '%(message)s'
 FORMAT_LOG = '%(asctime)s %(message)s'
-FORMAT_DEBUG = '%(asctime)s [%(processName)s %(module)s.%(funcName)s:%(lineno)d] %(name)s: %(message)s'
+FORMAT_DEBUG = '%(asctime)s ' \
+    '[%(processName)s %(module)s.%(funcName)s:%(lineno)d] %(name)s: %(message)s'
 LOGPATH = '/var/log/qubes'
 LOGFILE = os.path.join(LOGPATH, 'qubes.log')
 

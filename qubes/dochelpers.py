@@ -35,7 +35,8 @@ def fetch_ticket_info(uri):
     reader = csv.reader((line + '\n' for line in data.split('\r\n')),
         quoting=csv.QUOTE_MINIMAL, quotechar='"')
 
-    return dict(zip(*((cell.decode('utf-8') for cell in row) for row in list(reader)[:2])))
+    return dict(zip(*((cell.decode('utf-8') for cell in row)
+        for row in list(reader)[:2])))
 
 
 def ticket(name, rawtext, text, lineno, inliner, options={}, content=[]):
@@ -45,14 +46,16 @@ def ticket(name, rawtext, text, lineno, inliner, options={}, content=[]):
     :param str rawtext: The entire markup snippet, with role
     :param str text: The text marked with the role
     :param int lineno: The line number where rawtext appears in the input
-    :param docutils.parsers.rst.states.Inliner inliner: The inliner instance that called this function
+    :param docutils.parsers.rst.states.Inliner inliner: The inliner instance \
+        that called this function
     :param options: Directive options for customisation
     :param content: The directive content for customisation
     '''
 
     ticket = text.lstrip('#')
     if not ticket.isdigit():
-        msg = inliner.reporter.error('Invalid ticket identificator: {!r}'.format(text), line=lineno)
+        msg = inliner.reporter.error(
+            'Invalid ticket identificator: {!r}'.format(text), line=lineno)
         prb = inliner.problematic(rawtext, rawtext, msg)
         return [prb], [msg]
 
@@ -61,7 +64,8 @@ def ticket(name, rawtext, text, lineno, inliner, options={}, content=[]):
     try:
         info = fetch_ticket_info(uri)
     except urllib2.HTTPError, e:
-        msg = inliner.reporter.error('Error while fetching ticket info: {!s}'.format(e), line=lineno)
+        msg = inliner.reporter.error(
+            'Error while fetching ticket info: {!s}'.format(e), line=lineno)
         prb = inliner.problematic(rawtext, rawtext, msg)
         return [prb], [msg]
 
@@ -76,7 +80,8 @@ def ticket(name, rawtext, text, lineno, inliner, options={}, content=[]):
     return [node], []
 
 
-class versioncheck(docutils.nodes.warning): pass
+class versioncheck(docutils.nodes.warning):
+    pass
 
 def visit(self, node):
     self.visit_admonition(node, 'version')
@@ -145,7 +150,8 @@ def parse_event(env, sig, signode):
 
 def setup(app):
     app.add_role('ticket', ticket)
-    app.add_config_value('ticket_base_uri', 'https://wiki.qubes-os.org/ticket/', 'env')
+    app.add_config_value('ticket_base_uri',
+        'https://wiki.qubes-os.org/ticket/', 'env')
     app.add_node(versioncheck,
         html=(visit, depart),
         man=(visit, depart))

@@ -76,5 +76,5 @@ class TC_00_setters(qubes.tests.QubesTestCase):
 
 class TC_90_QubesVM(qubes.tests.QubesTestCase):
     @unittest.skip('test not implemented')
-    def test_000_init(self):    
+    def test_000_init(self):
         pass

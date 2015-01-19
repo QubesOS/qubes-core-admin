@@ -82,7 +82,8 @@ class TC_10_property(qubes.tests.QubesTestCase):
 
     def test_023_get_default_func(self):
         class TestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
-            testprop1 = qubes.property('testprop1', default=(lambda self: 'defaultvalue'))
+            testprop1 = qubes.property('testprop1',
+                default=(lambda self: 'defaultvalue'))
         holder = TestHolder(None)
 
         self.assertEqual(holder.testprop1, 'defaultvalue')
@@ -202,7 +203,8 @@ class TC_20_PropertyHolder(qubes.tests.QubesTestCase):
         expected_prop1.text = 'testvalue1'
         self.assertXMLEqual(elements_with_defaults[0], expected_prop1)
 
-        expected_prop2 = lxml.etree.Element('property', name='testprop2', ref='testref2')
+        expected_prop2 = lxml.etree.Element('property',
+            name='testprop2', ref='testref2')
         self.assertXMLEqual(elements_with_defaults[1], expected_prop2)
 
         expected_prop3 = lxml.etree.Element('property', name='testprop3')
@@ -285,7 +287,8 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
         self.vms.add(self.testvm1)
         self.vms.add(self.testvm2)
 
-        self.assertItemsEqual(self.vms.items(), [(1, self.testvm1), (2, self.testvm2)])
+        self.assertItemsEqual(self.vms.items(),
+            [(1, self.testvm1), (2, self.testvm2)])
 
     def test_007_len(self):
         self.vms.add(self.testvm1)
@@ -324,8 +327,10 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
 class TC_90_Qubes(qubes.tests.QubesTestCase):
     @qubes.tests.skipUnlessDom0
     def test_000_init_empty(self):
-        try: os.unlink('/tmp/qubestest.xml')
-        except: pass
+        try:
+            os.unlink('/tmp/qubestest.xml')
+        except:
+            pass
         app = qubes.Qubes('/tmp/qubestest.xml')
 
     @qubes.tests.skipUnlessGit

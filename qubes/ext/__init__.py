@@ -29,7 +29,8 @@ class ExtensionPlugin(qubes.plugins.Plugin):
 
     def __call__(cls, *args, **kwargs):
         if cls._instance is None:
-            cls._instance = super(ExtensionPlugin, cls).__call__(*args, **kwargs)
+            cls._instance = super(ExtensionPlugin, cls).__call__(
+                *args, **kwargs)
         return cls._instance
 
 class Extension(object):
@@ -67,7 +68,8 @@ def handler(*events, **kwargs):
 
     :param str event: event type
     :param type vm: VM to hook (leave as None to hook all VMs)
-    :param bool system: when :py:obj:`True`, hook is system-wide (not attached to any VM)
+    :param bool system: when :py:obj:`True`, hook is system-wide (not attached \
+        to any VM)
     '''
 
     def decorator(f):

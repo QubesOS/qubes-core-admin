@@ -106,7 +106,8 @@ class Emitter(object):
             if not hasattr(cls, '__handlers__'):
                 continue
             for handler in sorted(cls.__handlers__[event],
-                    key=(lambda handler: hasattr(handler, 'ha_bound')), reverse=True):
+                    key=(lambda handler: hasattr(handler, 'ha_bound')),
+                    reverse=True):
                 handler(self, event, *args, **kwargs)
 
 
@@ -127,7 +128,8 @@ class Emitter(object):
         different events.
         '''
 
-        self._fire_event_in_order(reversed(self.__class__.__mro__), event, *args, **kwargs)
+        self._fire_event_in_order(reversed(self.__class__.__mro__), event,
+            *args, **kwargs)
 
 
     def fire_event_pre(self, event, *args, **kwargs):
@@ -146,4 +148,5 @@ class Emitter(object):
         different events.
         '''
 
-        self._fire_event_in_order(self.__class__.__mro__, event, *args, **kwargs)
+        self._fire_event_in_order(self.__class__.__mro__, event,
+            *args, **kwargs)

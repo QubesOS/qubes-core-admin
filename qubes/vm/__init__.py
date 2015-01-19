@@ -1,4 +1,28 @@
 #!/usr/bin/python2 -O
+# vim: fileencoding=utf-8
+
+#
+# The Qubes OS Project, https://www.qubes-os.org/
+#
+# Copyright (C) 2010-2015  Joanna Rutkowska <joanna@invisiblethingslab.com>
+# Copyright (C) 2011-2015  Marek Marczykowski-Górecki
+#                              <marmarek@invisiblethingslab.com>
+# Copyright (C) 2014-2015  Wojtek Porczyk <woju@invisiblethingslab.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
 
 '''Qubes Virtual Machines
 
@@ -92,7 +116,8 @@ class DeviceCollection(object):
             raise KeyError(
                 'device {!r} of class {} already attached to {!r}'.format(
                     device, self._class, self._vm))
-        self._vm.fire_event_pre('device-pre-attached:{}'.format(self._class), device)
+        self._vm.fire_event_pre('device-pre-attached:{}'.format(self._class),
+            device)
         self._set.add(device)
         self._vm.fire_event('device-attached:{}'.format(self._class), device)
 
@@ -107,7 +132,8 @@ class DeviceCollection(object):
             raise KeyError(
                 'device {!r} of class {} not attached to {!r}'.format(
                     device, self._class, self._vm))
-        self._vm.fire_event_pre('device-pre-detached:{}'.format(self._class), device)
+        self._vm.fire_event_pre('device-pre-detached:{}'.format(self._class),
+            device)
         self._set.remove(device)
         self._vm.fire_event('device-detached:{}'.format(self._class), device)
 
@@ -161,7 +187,8 @@ class BaseVM(qubes.PropertyHolder):
         self.tags = tags
 
         self.events_enabled = False
-        all_names = set(prop.__name__ for prop in self.get_props_list(load_stage=2))
+        all_names = set(prop.__name__
+            for prop in self.get_props_list(load_stage=2))
         for key in list(kwargs.keys()):
             if not key in all_names:
                 raise AttributeError(
@@ -184,8 +211,8 @@ class BaseVM(qubes.PropertyHolder):
         vm_cls = QubesVmClasses[vm_type]
         if 'template' in kwargs:
             if not vm_cls.is_template_compatible(kwargs['template']):
-                raise QubesException("Template not compatible with selected "
-                                     "VM type")
+                raise QubesException(
+                    'Template not compatible with selected VM type')
 
         vm = vm_cls(qid=qid, collection=self, **kwargs)
         if not self.verify_new_vm(vm):
@@ -219,11 +246,10 @@ class BaseVM(qubes.PropertyHolder):
 
         :param qubes.Qubes app: :py:class:`qubes.Qubes` application instance
         :param lxml.etree._Element xml: XML node reference
-        :param int load_stage: do not change the default (2) unless you know, what you are doing
+        :param int load_stage: do not change the default (2) unless you know, \
+            what you are doing
         '''
 
-#       sys.stderr.write('{}.fromxml(app={!r}, xml={!r}, load_stage={})\n'.format(
-#           cls.__name__, app, xml, load_stage))
         if xml is None:
             return cls(app)
 
@@ -233,7 +259,8 @@ class BaseVM(qubes.PropertyHolder):
 
         # services
         for node in xml.xpath('./services/service'):
-            services[node.text] = bool(ast.literal_eval(node.get('enabled', 'True')))
+            services[node.text] = bool(
+                ast.literal_eval(node.get('enabled', 'True')))
 
         # devices (pci, usb, ...)
         for parent in xml.xpath('./devices'):
@@ -375,7 +402,8 @@ class BaseVM(qubes.PropertyHolder):
         args['vcpus'] = str(self.vcpus)
         args['mem'] = str(max(self.memory, self.maxmem))
 
-        if 'meminfo-writer' in self.services and not self.services['meminfo-writer']:
+        if 'meminfo-writer' in self.services \
+                and not self.services['meminfo-writer']:
             # If dynamic memory management disabled, set maxmem=mem
             args['maxmem'] = args['mem']
 
@@ -386,9 +414,10 @@ class BaseVM(qubes.PropertyHolder):
             args['dns1'] = self.netvm.gateway
             args['dns2'] = self.secondary_dns
             args['netmask'] = self.netmask
-            args['netdev'] = lxml.etree.tostring(self.lvxml_net_dev(self.ip, self.mac, self.netvm))
-            args['disable_network1'] = '';
-            args['disable_network2'] = '';
+            args['netdev'] = lxml.etree.tostring(
+                self.lvxml_net_dev(self.ip, self.mac, self.netvm))
+            args['disable_network1'] = ''
+            args['disable_network2'] = ''
         else:
             args['ip'] = ''
             args['mac'] = ''
@@ -397,15 +426,16 @@ class BaseVM(qubes.PropertyHolder):
             args['dns2'] = ''
             args['netmask'] = ''
             args['netdev'] = ''
-            args['disable_network1'] = '<!--';
-            args['disable_network2'] = '-->';
+            args['disable_network1'] = '<!--'
+            args['disable_network2'] = '-->'
 
         args.update(self.storage.get_config_params())
 
         if hasattr(self, 'kernelopts'):
             args['kernelopts'] = self.kernelopts
             if self.debug:
-                self.log.info("Debug mode: adding 'earlyprintk=xen' to kernel opts")
+                self.log.info(
+                    "Debug mode: adding 'earlyprintk=xen' to kernel opts")
                 args['kernelopts'] += ' earlyprintk=xen'
 
 
@@ -415,8 +445,10 @@ class BaseVM(qubes.PropertyHolder):
         If :py:attr:`qubes.vm.qubesvm.QubesVM.uses_custom_config` is true, this
         does nothing.
 
-        :param str file_path: Path to file to create (default: :py:attr:`qubes.vm.qubesvm.QubesVM.conf_file`)
-        :param bool prepare_dvm: If we are in the process of preparing DisposableVM
+        :param str file_path: Path to file to create \
+            (default: :py:attr:`qubes.vm.qubesvm.QubesVM.conf_file`)
+        :param bool prepare_dvm: If we are in the process of preparing \
+            DisposableVM
         '''
 
         if file_path is None:
@@ -435,7 +467,8 @@ class BaseVM(qubes.PropertyHolder):
         if prepare_dvm:
             template_params['name'] = '%NAME%'
             template_params['privatedev'] = ''
-            template_params['netdev'] = re.sub(r"address='[0-9.]*'", "address='%IP%'", template_params['netdev'])
+            template_params['netdev'] = re.sub(r"address='[0-9.]*'",
+                "address='%IP%'", template_params['netdev'])
         domain_config = conf_template.format(**template_params)
 
         # FIXME: This is only for debugging purposes
@@ -470,11 +503,10 @@ class BaseVM(qubes.PropertyHolder):
 
         root = lxml.etree.Element(
                 "QubesFirewallRules",
-                policy = "allow" if conf["allow"] else "deny",
-                dns = "allow" if conf["allowDns"] else "deny",
-                icmp = "allow" if conf["allowIcmp"] else "deny",
-                yumProxy = "allow" if conf["allowYumProxy"] else "deny"
-        )
+                policy=("allow" if conf["allow"] else "deny"),
+                dns=("allow" if conf["allowDns"] else "deny"),
+                icmp=("allow" if conf["allowIcmp"] else "deny"),
+                yumProxy=("allow" if conf["allowYumProxy"] else "deny"))
 
         for rule in conf["rules"]:
             # For backward compatibility
@@ -514,7 +546,8 @@ class BaseVM(qubes.PropertyHolder):
                     os.path.basename(sys.argv[0]), err)
             return False
 
-        # Automatically enable/disable 'yum-proxy-setup' service based on allowYumProxy
+        # Automatically enable/disable 'yum-proxy-setup' service based on
+        # allowYumProxy
         if conf['allowYumProxy']:
             self.services['yum-proxy-setup'] = True
         else:
@@ -528,10 +561,15 @@ class BaseVM(qubes.PropertyHolder):
         return True
 
     def has_firewall(self):
-        return os.path.exists (self.firewall_conf)
+        return os.path.exists(self.firewall_conf)
 
     def get_firewall_defaults(self):
-        return { "rules": list(), "allow": True, "allowDns": True, "allowIcmp": True, "allowYumProxy": False }
+        return {
+            'rules': list(),
+            'allow': True,
+            'allowDns': True,
+            'allowIcmp': True,
+            'allowYumProxy': False}
 
     def get_firewall_conf(self):
         conf = self.get_firewall_defaults()
@@ -582,10 +620,10 @@ class BaseVM(qubes.PropertyHolder):
                             "%s")):
                         continue
                 else:
-                    del(rule["expire"])
+                    del rule["expire"]
 
-                del(rule["port"])
-                del(rule["toport"])
+                del rule["port"]
+                del rule["toport"]
 
                 conf["rules"].append(rule)
 

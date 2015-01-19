@@ -22,7 +22,7 @@
 #
 #
 
-qubes_base_dir   = "/var/lib/qubes"
+qubes_base_dir = "/var/lib/qubes"
 system_path = {
     'qubes_guid_path': '/usr/bin/qubes-guid',
     'qrexec_daemon_path': '/usr/lib/qubes/qrexec-daemon',
