@@ -15,7 +15,7 @@ profile=no
 ignore=CVS
 
 # Pickle collected data for later comparisons.
-persistent=yes
+persistent=no
 
 # List of plugins (as comma separated values of python modules names) to load,
 # usually to register additional checkers.
@@ -33,27 +33,15 @@ persistent=yes
 # can either give multiple identifier separated by comma (,) or put this option
 # multiple time (only on the command line, not in the configuration file where
 # it should appear only once).
-disable=W0142,
-  C0330,
-  I0011,
-  I0012
-#  E8121,
-#  E8122,
-#  E8123,
-#  E8124,
-#  E8125,
-#  E8126,
-#  E8127,
-#  E8128
 
-# Disabled Checks
-#
-# W0142 (star-args)
-# E812* All PEP8 E12*
-# E8501 PEP8 line too long
-# C0330 (bad-continuation)
-# I0011 (locally-disabling)
-# I0012 (locally-enabling)
+# abstract-class-little-used: see http://www.logilab.org/ticket/111138
+disable=
+  locally-disabled,
+  locally-enabled,
+  duplicate-code,
+  star-args,
+  cyclic-import,
+  abstract-class-little-used
 
 
 [REPORTS]
@@ -79,7 +67,7 @@ evaluation=10.0 - ((float(5 * error + warning + refactor + convention) / stateme
 
 # Add a comment according to your evaluation note. This is used by the global
 # evaluation report (RP0004).
-comment=no
+comment=yes
 
 
 [TYPECHECK]
@@ -114,10 +102,10 @@ bad-functions=map,filter,apply,input
 module-rgx=(([a-z_][a-z0-9_]*)|([A-Z][a-zA-Z0-9]+))$
 
 # Regular expression which should only match correct module level names
-const-rgx=(([A-Z_][A-Z0-9_]*)|(__.*__))$
+const-rgx=(([A-Za-z_][A-Za-z0-9_]*)|(__.*__))$
 
 # Regular expression which should only match correct class names
-class-rgx=[A-Z_][a-zA-Z0-9]+$
+class-rgx=([A-Z_][a-zA-Z0-9]+|TC_\d\d_[a-zA-Z0-9]+)$
 
 # Regular expression which should only match correct function names
 function-rgx=[a-z_][a-z0-9_]{2,30}$
@@ -139,7 +127,7 @@ variable-rgx=[a-z_][a-z0-9_]{2,30}$
 inlinevar-rgx=[A-Za-z_][A-Za-z0-9_]*$
 
 # Good variable names which should always be accepted, separated by a comma
-good-names=i,j,k,ex,Run,_,log,vm
+good-names=e,i,j,k,m,p,ex,Run,_,log,vm,xc,xs,ip,fd,rw
 
 # Bad variable names which should always be refused, separated by a comma
 bad-names=foo,bar,baz,toto,tutu,tata
@@ -243,7 +231,7 @@ max-returns=6
 
 # Maximum number of branch for function / method body
 # 4x the default value
-max-branchs=48
+max-branches=48
 
 # Maximum number of statements in function / method body
 # Double default
@@ -253,18 +241,18 @@ max-statements=100
 max-parents=7
 
 # Maximum number of attributes for a class (see R0902).
-max-attributes=7
+max-attributes=15
 
 # Minimum number of public methods for a class (see R0903).
 min-public-methods=2
 
 # Maximum number of public methods for a class (see R0904).
-max-public-methods=20
+max-public-methods=100
 
 
 [EXCEPTIONS]
 
 # Exceptions that will emit a warning when being caught. Defaults to
 # "Exception"
-overgeneral-exceptions=Exception
+overgeneral-exceptions=Exception,EnvironmentError
 
