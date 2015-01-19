@@ -26,50 +26,6 @@
 
 '''Qubes Virtual Machines
 
-Main public classes
--------------------
-
-.. autoclass:: BaseVM
-   :members:
-   :show-inheritance:
-
-Helper classes and functions
-----------------------------
-
-.. autoclass:: BaseVMMeta
-   :members:
-   :show-inheritance:
-
-Particular VM classes
----------------------
-
-Main types:
-
-.. toctree::
-   :maxdepth: 1
-
-   qubesvm
-   appvm
-   templatevm
-
-Special VM types:
-
-.. toctree::
-   :maxdepth: 1
-
-   netvm
-   proxyvm
-   dispvm
-   adminvm
-
-HVMs:
-
-.. toctree::
-   :maxdepth: 1
-
-   hvm
-   templatehvm
-
 '''
 
 import ast
@@ -181,9 +137,17 @@ class BaseVM(qubes.PropertyHolder):
 
     def __init__(self, app, xml, load_stage=2, services={}, devices=None,
             tags={}, *args, **kwargs):
+        #: mother :py:class:`qubes.Qubes` object
         self.app = app
+
+        #: dictionary of services that are run on this domain
         self.services = services
+
+        #: :py:class`DeviceManager` object keeping devices that are attached to
+        #: this domain
         self.devices = DeviceManager(self) if devices is None else devices
+
+        #: user-specified tags
         self.tags = tags
 
         self.events_enabled = False
@@ -645,4 +609,5 @@ def load(class_, D):
     cls = BaseVM[class_]
     return cls(D)
 
-__all__ = qubes.plugins.load(__file__)
+__all__ = ['BaseVMMeta', 'DeviceCollection', 'DeviceManager', 'BaseVM'] \
+    + qubes.plugins.load(__file__)

@@ -1,19 +1,32 @@
 #!/usr/bin/python2 -O
+# vim: fileencoding=utf-8
 
-'''Qubes extensions
+#
+# The Qubes OS Project, https://www.qubes-os.org/
+#
+# Copyright (C) 2014-2015  Joanna Rutkowska <joanna@invisiblethingslab.com>
+# Copyright (C) 2014-2015  Wojtek Porczyk <woju@invisiblethingslab.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+'''Qubes extensions.
 
 Extensions provide additional features (like application menus) found only on
 some systems. They may be OS- or architecture-dependent or custom-developed for
 particular customer.
-
-.. autoclass:: Extension
-   :members:
-   :show-inheritance:
-
-.. autoclass:: ExtensionPlugin
-   :members:
-   :show-inheritance:
-
 '''
 
 import inspect
@@ -64,7 +77,7 @@ def handler(*events, **kwargs):
 
     .. note::
         This decorator is intended only for extensions! For regular use in the
-        core, see py:func:`qubes.events.handler`.
+        core, see :py:func:`qubes.events.handler`.
 
     :param str event: event type
     :param type vm: VM to hook (leave as None to hook all VMs)
@@ -87,4 +100,5 @@ def handler(*events, **kwargs):
     return decorator
 
 
-__all__ = qubes.plugins.load(__file__)
+__all__ = ['Extension', 'ExtensionPlugin', 'handler'] \
+    + qubes.plugins.load(__file__)
