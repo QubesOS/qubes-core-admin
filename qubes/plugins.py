@@ -28,9 +28,7 @@ Qubes uses two types of plugins: virtual machines and extensions.
 '''
 
 import imp
-import inspect
 import os
-import sys
 
 class Plugin(type):
     '''Base metaclass for plugins'''

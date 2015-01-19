@@ -31,7 +31,6 @@ particularly our custom Sphinx extension.
 import csv
 import posixpath
 import re
-import sys
 import urllib2
 
 import docutils

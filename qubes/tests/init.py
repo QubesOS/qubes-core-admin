@@ -23,7 +23,6 @@
 #
 
 import os
-import sys
 import unittest
 
 import lxml.etree

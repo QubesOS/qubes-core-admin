@@ -34,9 +34,7 @@ import subprocess
 import sys
 import time
 import uuid
-import xml.parsers.expat
 import libvirt
-import warnings
 
 import qubes
 import qubes.config

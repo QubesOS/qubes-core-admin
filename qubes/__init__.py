@@ -54,7 +54,6 @@ import __builtin__
 import docutils.core
 import docutils.io
 import lxml.etree
-import xml.parsers.expat
 
 import qubes.ext
 

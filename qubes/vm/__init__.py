@@ -30,8 +30,13 @@
 
 import ast
 import collections
+import datetime
 import functools
+import os
+import re
+import subprocess
 import sys
+import xml.parsers.expat
 
 import lxml.etree
 
