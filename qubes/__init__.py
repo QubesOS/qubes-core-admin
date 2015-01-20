@@ -75,12 +75,6 @@ try:
 except ImportError:
     pass
 
-#: FIXME documentation
-MAX_QID = 253
-
-#: FIXME documentation
-MAX_NETID = 253
-
 
 class QubesException(Exception):
     '''Exception that can be shown to the user'''
@@ -247,7 +241,7 @@ class QubesHost(object):
             previous_time = time.time()
             previous = {}
             try:
-                info = self.app.vmm.xc.domain_getinfo(0, qubes_max_qid)
+                info = self.app.vmm.xc.domain_getinfo(0, qubes.config.max_qid)
             except AttributeError:
                 raise NotImplementedError(
                     'This function requires Xen hypervisor')
@@ -262,7 +256,7 @@ class QubesHost(object):
         current_time = time.time()
         current = {}
         try:
-            info = self._app.vmm.xc.domain_getinfo(0, qubes_max_qid)
+            info = self._app.vmm.xc.domain_getinfo(0, qubes.config.max_qid)
         except AttributeError:
             raise NotImplementedError(
                 'This function requires Xen hypervisor')
@@ -352,7 +346,8 @@ class Label(object):
         .. deprecated:: 2.0
            use :py:meth:`PyQt4.QtGui.QIcon.fromTheme` and :py:attr:`icon`
         '''
-        return os.path.join(system_path['qubes_icon_dir'], self.icon) + ".png"
+        return os.path.join(qubes.config.system_path['qubes_icon_dir'],
+            self.icon) + ".png"
 
 
     @__builtin__.property
@@ -362,8 +357,8 @@ class Label(object):
         .. deprecated:: 2.0
            use :py:meth:`PyQt4.QtGui.QIcon.fromTheme` and :py:attr:`icon_dispvm`
         '''
-        return os.path.join(
-            system_path['qubes_icon_dir'], self.icon_dispvm) + ".png"
+        return os.path.join(qubes.config.system_path['qubes_icon_dir'],
+            self.icon_dispvm) + ".png"
 
 
 class VMCollection(object):
@@ -513,7 +508,7 @@ class VMCollection(object):
     # whole process of creating and adding should be synchronised
     def get_new_unused_qid(self):
         used_ids = set(self.qids())
-        for i in range(1, MAX_QID):
+        for i in range(1, qubes.config.max_qid):
             if i not in used_ids:
                 return i
         raise LookupError("Cannot find unused qid!")
@@ -521,7 +516,7 @@ class VMCollection(object):
 
     def get_new_unused_netid(self):
         used_ids = set([vm.netid for vm in self])  # if vm.is_netvm()])
-        for i in range(1, MAX_NETID):
+        for i in range(1, qubes.config.max_netid):
             if i not in used_ids:
                 return i
         raise LookupError("Cannot find unused netid!")
@@ -721,7 +716,7 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
     def dontsave(self, prop, value):
         '''Dummy saver that never saves anything.'''
         # pylint: disable=bad-staticmethod-argument,unused-argument
-        raise DontSave()
+        raise property.DontSave()
 
     #
     # some setters provided

@@ -224,8 +224,10 @@ class VMStorage(object):
                 and not os.path.exists(self.vm.volatile_img):
             self.vm.log.info(
                 'Creating volatile image: {0}'.format(self.volatile_img))
-            subprocess.check_call([system_path["prepare_volatile_img_cmd"],
-                self.volatile_img, str(self.root_img_size / 1024 / 1024)])
+            subprocess.check_call(
+                [qubes.config.system_path["prepare_volatile_img_cmd"],
+                    self.volatile_img,
+                    str(self.root_img_size / 1024 / 1024)])
 
 
     def prepare_for_vm_startup(self):

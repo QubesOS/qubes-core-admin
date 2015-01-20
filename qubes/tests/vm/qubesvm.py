@@ -26,6 +26,7 @@
 import unittest
 
 import qubes
+import qubes.config
 import qubes.vm.qubesvm
 
 import qubes.tests
@@ -62,7 +63,8 @@ class TC_00_setters(qubes.tests.QubesTestCase):
 
     def test_002_setter_qid_gt_max(self):
         with self.assertRaises(ValueError):
-            qubes.vm.qubesvm._setter_qid(self.vm, self.prop, qubes.MAX_QID + 5)
+            qubes.vm.qubesvm._setter_qid(self.vm,
+                self.prop, qubes.config.max_qid + 5)
 
 
     def test_010_setter_name(self):
