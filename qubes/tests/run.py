@@ -24,6 +24,7 @@
 
 import curses
 import importlib
+import socket
 import sys
 import unittest
 
@@ -36,6 +37,8 @@ test_order = [
 ]
 
 sys.path.insert(1, '../../')
+
+import qubes.tests
 
 class ANSIColor(dict):
     def __init__(self):
@@ -80,6 +83,7 @@ class ANSITestResult(unittest.TestResult):
         self.descriptions = descriptions
 
         self.color = ANSIColor()
+        self.hostname = socket.gethostname()
 
     def _fmtexc(self, err):
         if str(err[1]):
@@ -91,8 +95,11 @@ class ANSITestResult(unittest.TestResult):
 
     def getDescription(self, test): # pylint: disable=invalid-name
         teststr = str(test).split('/')
-        teststr[-1] = '{color[bold]}{}{color[normal]}'.format(
-            teststr[-1], color=self.color)
+        for i in range(-2, 0):
+            fullname = teststr[i].split('_', 2)
+            fullname[-1] = '{color[bold]}{}{color[normal]}'.format(
+                fullname[-1], color=self.color)
+            teststr[i] = '_'.join(fullname)
         teststr = '/'.join(teststr)
 
         doc_first_line = test.shortDescription()
@@ -105,6 +112,8 @@ class ANSITestResult(unittest.TestResult):
     def startTest(self, test): # pylint: disable=invalid-name
         super(ANSITestResult, self).startTest(test)
         if self.showAll:
+            if not qubes.tests.in_git:
+                self.stream.write('{}: '.format(self.hostname))
             self.stream.write(self.getDescription(test))
             self.stream.write(' ... ')
             self.stream.flush()
@@ -194,7 +203,6 @@ class ANSITestResult(unittest.TestResult):
 
 
 def demo(verbosity=2):
-    import qubes.tests
     class TC_00_Demo(qubes.tests.QubesTestCase):
         '''Demo class'''
         # pylint: disable=no-self-use
