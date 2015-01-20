@@ -333,6 +333,20 @@ class QubesVM(qubes.vm.BaseVM):
         return self.storage.volatile_img
 
 
+    @property
+    def kernels_dir(self):
+        '''Directory where kernel resides.
+
+        If :py:attr:`self.kernel` is :py:obj:`None`, the this points inside
+        :py:attr:`self.dir_path`
+        '''
+        return os.path.join(
+            qubes.config.system_path['qubes_kernels_base_dir'], self.kernel) \
+            if self.kernel is not None \
+        else os.path.join(self.dir_path,
+            qubes.config.vm_files['kernels_subdir'])
+
+
     # XXX shouldn't this go elsewhere?
     @property
     def updateable(self):
@@ -450,9 +464,9 @@ class QubesVM(qubes.vm.BaseVM):
         # Initialize VM image storage class
         self.storage = qubes.storage.get_storage(self)
 
-        if hasattr(self, 'kernels_dir'):
+        if self.kernels_dir is not None: # it is None for AdminVM
             self.storage.modules_img = os.path.join(self.kernels_dir,
-                    "modules.img")
+                'modules.img')
             self.storage.modules_img_rw = self.kernel is None
 
         # fire hooks
@@ -580,10 +594,6 @@ class QubesVM(qubes.vm.BaseVM):
 
             self.fire_event('property-set:conf_file', 'conf_file',
                 new_conf, old_conf)
-
-        if hasattr(self, 'kernels_dir') and self.kernels_dir is not None:
-            self.kernels_dir = self.kernels_dir.replace(
-                old_dirpath, new_dirpath)
 
         self._update_libvirt_domain()
 
@@ -1726,15 +1736,6 @@ class QubesVM(qubes.vm.BaseVM):
     # XXX probably will be obsoleted by .events_enabled
 #   "_do_not_reset_firewall": { "func": lambda x: False },
 
-    # XXX WTF?
-#   "kernels_dir": {
-#       # for backward compatibility (or another rare case): kernel=None ->
-#       # kernel in VM dir
-#       "func": lambda x: \
-#           os.path.join(system_path["qubes_kernels_base_dir"],
-#                        self.kernel) if self.kernel is not None \
-#               else os.path.join(self.dir_path,
-#                                 vm_files["kernels_subdir"]) },
 #   "_start_guid_first": { "func": lambda x: False },
 #   }
 
