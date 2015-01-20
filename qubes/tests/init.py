@@ -66,11 +66,11 @@ class TC_00_Label(qubes.tests.QubesTestCase):
 class TC_10_property(qubes.tests.QubesTestCase):
     def setUp(self):
         try:
-            class TestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
+            class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
                 testprop1 = qubes.property('testprop1')
         except: # pylint: disable=bare-except
-            self.skipTest('TestHolder class definition failed')
-        self.holder = TestHolder(None)
+            self.skipTest('MyTestHolder class definition failed')
+        self.holder = MyTestHolder(None)
 
     def test_000_init(self):
         pass
@@ -96,17 +96,17 @@ class TC_10_property(qubes.tests.QubesTestCase):
             self.holder.testprop1
 
     def test_022_get_default(self):
-        class TestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
+        class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
             testprop1 = qubes.property('testprop1', default='defaultvalue')
-        holder = TestHolder(None)
+        holder = MyTestHolder(None)
 
         self.assertEqual(holder.testprop1, 'defaultvalue')
 
     def test_023_get_default_func(self):
-        class TestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
+        class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
             testprop1 = qubes.property('testprop1',
                 default=(lambda self: 'defaultvalue'))
-        holder = TestHolder(None)
+        holder = MyTestHolder(None)
 
         self.assertEqual(holder.testprop1, 'defaultvalue')
         holder.testprop1 = 'testvalue'
@@ -115,20 +115,20 @@ class TC_10_property(qubes.tests.QubesTestCase):
     def test_030_set_setter(self):
         def setter(self2, prop, value):
             self.assertIs(self2, holder)
-            self.assertIs(prop, TestHolder.testprop1)
+            self.assertIs(prop, MyTestHolder.testprop1)
             self.assertEquals(value, 'testvalue')
             return 'settervalue'
-        class TestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
+        class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
             testprop1 = qubes.property('testprop1', setter=setter)
-        holder = TestHolder(None)
+        holder = MyTestHolder(None)
 
         holder.testprop1 = 'testvalue'
         self.assertEqual(holder.testprop1, 'settervalue')
 
     def test_031_set_type(self):
-        class TestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
+        class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
             testprop1 = qubes.property('testprop1', type=int)
-        holder = TestHolder(None)
+        holder = MyTestHolder(None)
 
         holder.testprop1 = '5'
         self.assertEqual(holder.testprop1, 5)
@@ -161,9 +161,9 @@ class TC_10_property(qubes.tests.QubesTestCase):
             self.holder.testprop
 
     def test_092_delete_default(self):
-        class TestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
+        class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
             testprop1 = qubes.property('testprop1', default='defaultvalue')
-        holder = TestHolder(None)
+        holder = MyTestHolder(None)
         holder.testprop1 = 'testvalue'
 
         try:

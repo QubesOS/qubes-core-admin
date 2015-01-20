@@ -486,7 +486,7 @@ class VMCollection(object):
 
     def get_vms_connected_to(self, netvm):
         new_vms = set([netvm])
-        dependend_vms = set()
+        dependent_vms = set()
 
         # Dependency resolving only makes sense on NetVM (or derivative)
 #       if not self[netvm_qid].is_netvm():
@@ -495,9 +495,9 @@ class VMCollection(object):
         while len(new_vms) > 0:
             cur_vm = new_vms.pop()
             for vm in cur_vm.connected_vms.values():
-                if vm in dependend_vms:
+                if vm in dependent_vms:
                     continue
-                dependend_vms.add(vm.qid)
+                dependent_vms.add(vm.qid)
 #               if vm.is_netvm():
                 new_vms.append(vm.qid)
 
@@ -926,7 +926,7 @@ class PropertyHolder(qubes.events.Emitter):
             try:
                 value = getattr(
                     self, (prop.__name__ if with_defaults else prop._attr_name))
-            except AttributeError as e:
+            except AttributeError:
                 continue
 
             try:
@@ -1361,7 +1361,7 @@ class Qubes(PropertyHolder):
 
 
     @qubes.events.handler('property-set:default_fw_netvm')
-    def on_property_set_default_netvm(self, event, name, newvalue,
+    def on_property_set_default_fw_netvm(self, event, name, newvalue,
             oldvalue=None):
         # pylint: disable=unused-argument,invalid-name
         for vm in self.domains:

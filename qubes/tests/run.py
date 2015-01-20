@@ -82,8 +82,7 @@ class ANSITestResult(unittest.TestResult):
         self.color = ANSIColor()
 
     def _fmtexc(self, err):
-        s = str(err[1])
-        if s:
+        if str(err[1]):
             return '{color[bold]}{}:{color[normal]} {!s}'.format(
                 err[0].__name__, err[1], color=self.color)
         else:
@@ -196,7 +195,7 @@ class ANSITestResult(unittest.TestResult):
 
 def demo(verbosity=2):
     import qubes.tests
-    class TC_Demo(qubes.tests.QubesTestCase):
+    class TC_00_Demo(qubes.tests.QubesTestCase):
         '''Demo class'''
         # pylint: disable=no-self-use
         def test_0_success(self):
@@ -224,7 +223,7 @@ def demo(verbosity=2):
             '''Demo test (unexpected success)'''
             pass
 
-    suite = unittest.TestLoader().loadTestsFromTestCase(TC_Demo)
+    suite = unittest.TestLoader().loadTestsFromTestCase(TC_00_Demo)
     runner = unittest.TextTestRunner(stream=sys.stdout, verbosity=verbosity)
     runner.resultclass = ANSITestResult
     return runner.run(suite).wasSuccessful()

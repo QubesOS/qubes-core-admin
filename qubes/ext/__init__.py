@@ -85,17 +85,17 @@ def handler(*events, **kwargs):
         to any VM)
     '''
 
-    def decorator(f):
-        f.ha_events = events
+    def decorator(func):
+        func.ha_events = events
 
         if kwargs.get('system', False):
-            f.ha_vm = None
+            func.ha_vm = None
         elif 'vm' in kwargs:
-            f.ha_vm = kwargs['vm']
+            func.ha_vm = kwargs['vm']
         else:
-            f.ha_vm = qubes.vm.BaseVM
+            func.ha_vm = qubes.vm.BaseVM
 
-        return f
+        return func
 
     return decorator
 

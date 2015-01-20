@@ -91,12 +91,13 @@ def _setter_kernel(self, prop, value):
     if not os.path.exists(os.path.join(
             qubes.config.system_path['qubes_kernels_base_dir'], value)):
         raise qubes.QubesException('Kernel {!r} not installed'.format(value))
-    for f in ('vmlinuz', 'modules.img'):
+    for filename in ('vmlinuz', 'modules.img'):
         if not os.path.exists(os.path.join(
-                qubes.config.system_path['qubes_kernels_base_dir'], value, f)):
+                qubes.config.system_path['qubes_kernels_base_dir'],
+                    value, filename)):
             raise qubes.QubesException(
                 'Kernel {!r} not properly installed: missing {!r} file'.format(
-                    value, f))
+                    value, filename))
     return value
 
 
@@ -541,7 +542,8 @@ class QubesVM(qubes.vm.BaseVM):
 
 
     @qubes.events.handler('property-pre-set:dir_path')
-    def on_property_pre_set_name(self, event, name, newvalue, oldvalue=None):
+    def on_property_pre_set_dir_path(self, event, name, newvalue,
+            oldvalue=None):
         # pylint: disable=unused-argument
         # TODO not self.is_stopped() would be more appropriate
         if self.is_running():
@@ -690,10 +692,10 @@ class QubesVM(qubes.vm.BaseVM):
 
         # Bind pci devices to pciback driver
         for pci in self.devices['pci']:
-            nd = self.app.vmm.libvirt_conn.nodeDeviceLookupByName(
+            node = self.app.vmm.libvirt_conn.nodeDeviceLookupByName(
                 'pci_0000_' + pci.replace(':', '_').replace('.', '_'))
             try:
-                nd.dettach()
+                node.dettach()
             except libvirt.libvirtError:
                 if self.app.vmm.libvirt_conn.virConnGetLastError()[0] == \
                         libvirt.VIR_ERR_INTERNAL_ERROR:
@@ -1056,10 +1058,10 @@ class QubesVM(qubes.vm.BaseVM):
                     kernels_dir))
 
             os.mkdir(self.dir_path + '/kernels')
-            for f in ("vmlinuz", "initramfs", "modules.img"):
-                shutil.copy(os.path.join(kernels_dir, f),
+            for filename in ("vmlinuz", "initramfs", "modules.img"):
+                shutil.copy(os.path.join(kernels_dir, filename),
                     os.path.join(self.dir_path,
-                        qubes.config.vm_files["kernels_subdir"], f))
+                        qubes.config.vm_files["kernels_subdir"], filename))
 
         self.log.info('Creating icon symlink: {} -> {}'.format(
             self.icon_path, self.label.icon_path))
@@ -1107,12 +1109,12 @@ class QubesVM(qubes.vm.BaseVM):
         :param qubes.vm.QubesVM src: source VM
         '''
 
-        if src_vm.is_running():
+        if src.is_running():
             raise qubes.QubesException('Attempt to clone a running VM!')
 
         self.storage.clone_disk_files(src, verbose=False)
 
-        if srv.icon_path is not None \
+        if src.icon_path is not None \
                 and os.path.exists(src.dir_path) \
                 and self.icon_path is not None:
             if os.path.islink(src.icon_path):

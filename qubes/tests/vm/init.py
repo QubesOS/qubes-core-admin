@@ -134,7 +134,7 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
 </qubes>
         ''')
 
-    def test_000_BaseVM_load(self):
+    def test_000_load(self):
         node = self.xml.xpath('//domain')[0]
         vm = TestVM.fromxml(None, node)
 
@@ -153,7 +153,7 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
 
         self.assertXMLIsValid(vm.__xml__(), 'domain.rng')
 
-    def test_001_BaseVM_nxproperty(self):
+    def test_001_nxproperty(self):
         xml = lxml.etree.XML('''
 <qubes version="3">
     <domains>

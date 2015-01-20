@@ -47,14 +47,14 @@ def handler(*events):
     :param str event: event type
     '''
 
-    def decorator(f):
-        f.ha_events = events
-        return f
+    def decorator(func):
+        func.ha_events = events
+        return func
 
     return decorator
 
 
-def ishandler(o):
+def ishandler(obj):
     '''Test if a method is hooked to an event.
 
     :param object o: suspected hook
@@ -62,8 +62,8 @@ def ishandler(o):
     :rtype: bool
     '''
 
-    return callable(o) \
-        and hasattr(o, 'ha_events')
+    return callable(obj) \
+        and hasattr(obj, 'ha_events')
 
 
 class EmitterMeta(type):
@@ -103,7 +103,7 @@ class Emitter(object):
 
 
     @classmethod
-    def add_handler(cls, event, handler):
+    def add_handler(cls, event, func):
         '''Add event handler to subject's class.
 
         :param str event: event identificator
@@ -111,7 +111,7 @@ class Emitter(object):
         '''
 
         # pylint: disable=no-member
-        cls.__handlers__[event].add(handler)
+        cls.__handlers__[event].add(func)
 
 
     def _fire_event_in_order(self, order, event, *args, **kwargs):
@@ -127,10 +127,10 @@ class Emitter(object):
         for cls in order:
             if not hasattr(cls, '__handlers__'):
                 continue
-            for handler in sorted(cls.__handlers__[event],
+            for func in sorted(cls.__handlers__[event],
                     key=(lambda handler: hasattr(handler, 'ha_bound')),
                     reverse=True):
-                handler(self, event, *args, **kwargs)
+                func(self, event, *args, **kwargs)
 
 
     def fire_event(self, event, *args, **kwargs):

@@ -71,7 +71,7 @@ def ticket(name, rawtext, text, lineno, inliner, options={}, content=[]):
     :param content: The directive content for customisation
     ''' # pylint: disable=unused-argument
 
-    ticket = text.lstrip('#')
+    ticketno = text.lstrip('#')
     if not ticket.isdigit():
         msg = inliner.reporter.error(
             'Invalid ticket identificator: {!r}'.format(text), line=lineno)
@@ -79,7 +79,7 @@ def ticket(name, rawtext, text, lineno, inliner, options={}, content=[]):
         return [prb], [msg]
 
     app = inliner.document.settings.env.app
-    uri = posixpath.join(app.config.ticket_base_uri, ticket)
+    uri = posixpath.join(app.config.ticket_base_uri, ticketno)
     try:
         info = fetch_ticket_info(uri)
     except urllib2.HTTPError, e:
@@ -92,7 +92,7 @@ def ticket(name, rawtext, text, lineno, inliner, options={}, content=[]):
 
     node = docutils.nodes.reference(
         rawtext,
-        '#{} ({})'.format(ticket, info['summary']),
+        '#{} ({})'.format(ticketno, info['summary']),
         refuri=uri,
         **options)
 

@@ -336,7 +336,7 @@ class BaseVM(qubes.PropertyHolder):
         :rtype: lxml.etree._Element
         '''
 
-        dev_match = re.match('([0-9a-f]+):([0-9a-f]+)\.([0-9a-f]+)', address)
+        dev_match = re.match(r'([0-9a-f]+):([0-9a-f]+)\.([0-9a-f]+)', address)
         if not dev_match:
             raise qubes.QubesException(
                 'Invalid PCI device address: {}'.format(address))
@@ -509,9 +509,9 @@ class BaseVM(qubes.PropertyHolder):
 
         try:
             old_umask = os.umask(002)
-            with open(self.firewall_conf, 'w') as f:
-                tree.write(f, encoding="UTF-8", pretty_print=True)
-            f.close()
+            with open(self.firewall_conf, 'w') as fd:
+                tree.write(fd, encoding="UTF-8", pretty_print=True)
+            fd.close()
             os.umask(old_umask)
         except EnvironmentError as err:
             print >> sys.stderr, "{0}: save error: {1}".format(

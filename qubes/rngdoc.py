@@ -114,13 +114,13 @@ class Element(object):
             parent = xml.getparent()
             qname = lxml.etree.QName(parent)
             if parent == self.xml:
-                n = '1'
+                number = '1'
             elif qname.localname == 'optional':
-                n = '?'
+                number = '?'
             elif qname.localname == 'zeroOrMore':
-                n = '\\*'
+                number = '\\*'
             elif qname.localname == 'oneOrMore':
-                n = '\\+'
+                number = '\\+'
             else:
                 print(parent.tag)
 
@@ -129,7 +129,7 @@ class Element(object):
                 if xml is None:
                     continue
 
-            yield (self.schema.elements[xml.get('name')], n)
+            yield (self.schema.elements[xml.get('name')], number)
 
 
     def write_rst(self, stream):
@@ -157,7 +157,7 @@ class Element(object):
             for child, n in self.get_child_elements()]
         if childtable:
             stream.write(make_rst_section('Child elements', '^'))
-            write_rst_table(stream, childtable, ('element', 'n'))
+            write_rst_table(stream, childtable, ('element', 'number'))
 
 
 class Schema(object):
@@ -174,23 +174,23 @@ class Schema(object):
             break_long_words=False, break_on_hyphens=False)
 
         self.elements = {}
-        for x in self.xml.xpath('//rng:element', namespaces=self.nsmap):
-            element = Element(self, x)
+        for node in self.xml.xpath('//rng:element', namespaces=self.nsmap):
+            element = Element(self, node)
             self.elements[element.name] = element
 
 
-def make_rst_section(heading, c):
-    return '{}\n{}\n\n'.format(heading, c[0] * len(heading))
+def make_rst_section(heading, char):
+    return '{}\n{}\n\n'.format(heading, char[0] * len(heading))
 
 
-def write_rst_table(stream, it, heads):
+def write_rst_table(stream, itr, heads):
     stream.write('.. csv-table::\n')
     stream.write('   :header: {}\n'.format(', '.join('"{}"'.format(c)
         for c in heads)))
     stream.write('   :widths: {}\n\n'.format(', '.join('1'
         for c in heads)))
 
-    for row in it:
+    for row in itr:
         stream.write('   {}\n'.format(', '.join('"{}"'.format(i) for i in row)))
 
     stream.write('\n')
