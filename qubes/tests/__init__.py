@@ -138,7 +138,7 @@ class QubesTestCase(unittest.TestCase):
             self.assertEqual(xml1.get(key), xml2.get(key))
 
 
-    def assertEventFired(self, emitter, event, args=[], kwargs=[]):
+    def assertEventFired(self, emitter, event, args=None, kwargs=None):
         '''Check whether event was fired on given emitter and fail if it did
         not.
 
@@ -154,9 +154,9 @@ class QubesTestCase(unittest.TestCase):
         for ev, ev_args, ev_kwargs in emitter.fired_events:
             if ev != event:
                 continue
-            if any(i not in ev_args for i in args):
+            if args is not None and any(i not in ev_args for i in args):
                 continue
-            if any(i not in ev_kwargs for i in kwargs):
+            if kwargs is not None and any(i not in ev_kwargs for i in kwargs):
                 continue
 
             return
@@ -164,7 +164,7 @@ class QubesTestCase(unittest.TestCase):
         self.fail('event {!r} did not fire on {!r}'.format(event, emitter))
 
 
-    def assertEventNotFired(self, emitter, event, args=[], kwargs=[]):
+    def assertEventNotFired(self, emitter, event, args=None, kwargs=None):
         '''Check whether event was fired on given emitter. Fail if it did.
 
         :param emitter: emitter which is being checked
@@ -179,9 +179,9 @@ class QubesTestCase(unittest.TestCase):
         for ev, ev_args, ev_kwargs in emitter.fired_events:
             if ev != event:
                 continue
-            if any(i not in ev_args for i in args):
+            if args is not None and any(i not in ev_args for i in args):
                 continue
-            if any(i not in ev_kwargs for i in kwargs):
+            if kwargs is not None and any(i not in ev_kwargs for i in kwargs):
                 continue
 
             self.fail('event {!r} did fire on {!r}'.format(event, emitter))

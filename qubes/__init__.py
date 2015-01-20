@@ -485,7 +485,7 @@ class VMCollection(object):
 
 
     def get_vms_connected_to(self, netvm):
-        new_vms = set([netvm])
+        new_vms = set([self[netvm]])
         dependent_vms = set()
 
         # Dependency resolving only makes sense on NetVM (or derivative)
@@ -962,7 +962,7 @@ class PropertyHolder(qubes.events.Emitter):
         for prop in self.proplist():
             try:
                 # pylint: disable=protected-access
-                self._init_property(self, prop, getattr(src, prop._attr_name))
+                self._init_property(prop, getattr(src, prop._attr_name))
             except AttributeError:
                 continue
 
@@ -1211,11 +1211,11 @@ class Qubes(PropertyHolder):
                 self, None, qid=0, name='dom0'))
 
         # stage 3: load global properties
-        self.load_properties(self.xml, load_stage=3)
+        self.load_properties(load_stage=3)
 
         # stage 4: fill all remaining VM properties
         for vm in self.domains:
-            vm.load_properties(None, load_stage=4)
+            vm.load_properties(load_stage=4)
 
         # stage 5: misc fixups
 
@@ -1335,8 +1335,6 @@ class Qubes(PropertyHolder):
         if self.default_template == vm:
             del self.default_template
 
-        return super(QubesVmCollection, self).pop(qid)
-
 
     @qubes.events.handler('property-pre-set:clockvm')
     def on_property_pre_set_clockvm(self, event, name, newvalue, oldvalue=None):
@@ -1349,7 +1347,9 @@ class Qubes(PropertyHolder):
             newvalue.services['ntpd'] = False
 
 
-    @qubes.events.handler('property-pre-set:default_netvm')
+    @qubes.events.handler(
+        'property-pre-set:default_netvm',
+        'property-pre-set:default_fw_netvm')
     def on_property_pre_set_default_netvm(self, event, name, newvalue,
             oldvalue=None):
         # pylint: disable=unused-argument,invalid-name

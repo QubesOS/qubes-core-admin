@@ -36,12 +36,13 @@ class TestVMM(object):
 
 class TestHost(object):
     # pylint: disable=too-few-public-methods
-    def __init__(self, offline_mode=False):
+    def __init__(self):
         self.memory_total = 1000
 
 # this probably can be shared and not as dummy as is
 class TestApp(qubes.tests.TestEmitter):
     def __init__(self):
+        super(TestApp, self).__init__()
         self.vmm = TestVMM()
         self.host = TestHost()
 

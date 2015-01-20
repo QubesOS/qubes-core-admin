@@ -69,7 +69,7 @@ def ishandler(obj):
 class EmitterMeta(type):
     '''Metaclass for :py:class:`Emitter`'''
     def __init__(cls, name, bases, dict_):
-        super(type, cls).__init__(name, bases, dict_)
+        super(EmitterMeta, cls).__init__(name, bases, dict_)
         cls.__handlers__ = collections.defaultdict(set)
 
         try:

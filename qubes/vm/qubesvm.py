@@ -357,7 +357,7 @@ class QubesVM(qubes.vm.BaseVM):
     @property
     def uses_custom_config(self):
         '''True if this machine has config in non-standard place.'''
-        return not self.property_is_default(self, 'conf_file')
+        return not self.property_is_default('conf_file')
 #       return self.conf_file != self.storage.abspath(self.name + '.conf')
 
     @property
@@ -585,7 +585,7 @@ class QubesVM(qubes.vm.BaseVM):
         self.dir_path = self.dir_path.replace(
             '/{}/', '/{}/'.format(old_name, new_name))
 
-        if self.property_is_default(self, 'conf_file'):
+        if self.property_is_default('conf_file'):
             new_conf = os.path.join(
                 self.dir_path, _default_conf_file(self, old_name))
             old_conf = os.path.join(
@@ -746,14 +746,14 @@ class QubesVM(qubes.vm.BaseVM):
 
         if self._start_guid_first and start_guid and not preparing_dvm \
                 and os.path.exists('/var/run/shm.id'):
-            self.start_guid(notify_function=notify_function)
+            self.start_guid()
 
         if not preparing_dvm:
-            self.start_qrexec_daemon(notify_function=notify_function)
+            self.start_qrexec_daemon()
 
         if start_guid and not preparing_dvm \
                 and os.path.exists('/var/run/shm.id'):
-            self.start_guid(notify_function=notify_function)
+            self.start_guid()
 
 
     def shutdown(self):
@@ -881,7 +881,7 @@ class QubesVM(qubes.vm.BaseVM):
 
         if gui and os.getenv("DISPLAY") is not None \
                 and not self.is_guid_running():
-            self.start_guid(verbose=verbose, notify_function=notify_function)
+            self.start_guid()
 
         args = [qubes.config.system_path['qrexec_client_path'],
             '-d', str(self.name),
@@ -957,7 +957,7 @@ class QubesVM(qubes.vm.BaseVM):
 
 
 
-    def start_guid(self, extra_guid_args=[]):
+    def start_guid(self, extra_guid_args=None):
         '''Launch gui daemon.
 
         GUI daemon securely displays windows from domain.
@@ -972,7 +972,8 @@ class QubesVM(qubes.vm.BaseVM):
             '-c', self.label.color,
             '-i', self.label.icon_path,
             '-l', str(self.label.index)]
-        guid_cmd += extra_guid_args
+        if extra_guid_args is not None:
+            guid_cmd += extra_guid_args
 
         if self.debug:
             guid_cmd += ['-v', '-v']
@@ -1059,7 +1060,7 @@ class QubesVM(qubes.vm.BaseVM):
             source_template = self.template
         assert source_template is not None
 
-        self.storage.create_on_disk(verbose, source_template)
+        self.storage.create_on_disk(source_template)
 
         if self.updateable:
             kernels_dir = source_template.kernels_dir

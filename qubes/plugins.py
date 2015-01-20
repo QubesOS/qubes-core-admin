@@ -33,6 +33,7 @@ import os
 class Plugin(type):
     '''Base metaclass for plugins'''
     def __init__(cls, name, bases, dict_):
+        super(Plugin, cls).__init__(name, bases, dict_)
         # pylint: disable=unused-argument
         if hasattr(cls, 'register'):
             cls.register[cls.__name__] = cls

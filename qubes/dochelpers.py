@@ -58,7 +58,7 @@ def fetch_ticket_info(uri):
         for row in list(reader)[:2])))
 
 
-def ticket(name, rawtext, text, lineno, inliner, options={}, content=[]):
+def ticket(name, rawtext, text, lineno, inliner, options=None, content=None):
     '''Link to qubes ticket
 
     :param str name: The role name used in the document
@@ -70,6 +70,9 @@ def ticket(name, rawtext, text, lineno, inliner, options={}, content=[]):
     :param options: Directive options for customisation
     :param content: The directive content for customisation
     ''' # pylint: disable=unused-argument
+
+    if options is None:
+        options = {}
 
     ticketno = text.lstrip('#')
     if not ticket.isdigit():

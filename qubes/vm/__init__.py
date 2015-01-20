@@ -141,21 +141,21 @@ class BaseVM(qubes.PropertyHolder):
 
     __metaclass__ = BaseVMMeta
 
-    def __init__(self, app, xml, load_stage=2, services={}, devices=None,
-            tags={}, *args, **kwargs):
+    def __init__(self, app, xml, services=None, devices=None, tags=None,
+            *args, **kwargs):
         # pylint: disable=redefined-outer-name
         #: mother :py:class:`qubes.Qubes` object
         self.app = app
 
         #: dictionary of services that are run on this domain
-        self.services = services
+        self.services = services or {}
 
         #: :py:class`DeviceManager` object keeping devices that are attached to
         #: this domain
         self.devices = DeviceManager(self) if devices is None else devices
 
         #: user-specified tags
-        self.tags = tags
+        self.tags = tags or {}
 
         self.events_enabled = False
         all_names = set(prop.__name__
@@ -535,7 +535,8 @@ class BaseVM(qubes.PropertyHolder):
     def has_firewall(self):
         return os.path.exists(self.firewall_conf)
 
-    def get_firewall_defaults(self):
+    @staticmethod
+    def get_firewall_defaults():
         return {
             'rules': list(),
             'allow': True,

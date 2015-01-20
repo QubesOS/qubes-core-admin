@@ -100,7 +100,8 @@ class VMStorage(object):
     def get_config_params(self):
         raise NotImplementedError()
 
-    def _copy_file(self, source, destination):
+    @staticmethod
+    def _copy_file(source, destination):
         '''Effective file copy, preserving sparse files etc.
         '''
         # TODO: Windows support
@@ -142,9 +143,9 @@ class VMStorage(object):
 
         self.vm.log.info('Creating directory: {0}'.format(self.vm.dir_path))
         os.mkdir(self.vmdir)
-        self.create_on_disk_private_img(verbose, source_template)
-        self.create_on_disk_root_img(verbose, source_template)
-        self.reset_volatile_storage(verbose, source_template)
+        self.create_on_disk_private_img(source_template)
+        self.create_on_disk_root_img(source_template)
+        self.reset_volatile_storage(source_template)
 
         os.umask(old_umask)
 
@@ -166,7 +167,8 @@ class VMStorage(object):
             # XXX which modules? -woju
 
 
-    def rename(self, newpath, oldpath):
+    @staticmethod
+    def rename(newpath, oldpath):
         '''Move storage directory, most likely during domain's rename.
 
         .. note::
