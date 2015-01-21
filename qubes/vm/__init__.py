@@ -47,9 +47,6 @@ import qubes.plugins
 
 class BaseVMMeta(qubes.plugins.Plugin, qubes.events.EmitterMeta):
     '''Metaclass for :py:class:`.BaseVM`'''
-    def __init__(cls, name, bases, dict_):
-        super(BaseVMMeta, cls).__init__(name, bases, dict_)
-        cls.__hooks__ = collections.defaultdict(list)
 
 
 class DeviceCollection(object):
@@ -122,7 +119,8 @@ class DeviceManager(dict):
         self._vm = vm
 
     def __missing__(self, key):
-        return DeviceCollection(self._vm, key)
+        self[key] = DeviceCollection(self._vm, key)
+        return self[key]
 
 
 class BaseVM(qubes.PropertyHolder):
@@ -142,8 +140,12 @@ class BaseVM(qubes.PropertyHolder):
     __metaclass__ = BaseVMMeta
 
     def __init__(self, app, xml, services=None, devices=None, tags=None,
-            *args, **kwargs):
+            **kwargs):
         # pylint: disable=redefined-outer-name
+
+        self.events_enabled = False
+        super(BaseVM, self).__init__(xml, **kwargs)
+
         #: mother :py:class:`qubes.Qubes` object
         self.app = app
 
@@ -157,21 +159,35 @@ class BaseVM(qubes.PropertyHolder):
         #: user-specified tags
         self.tags = tags or {}
 
-        self.events_enabled = False
-        all_names = set(prop.__name__
-            for prop in self.property_list(load_stage=2))
-        for key in list(kwargs.keys()):
-            if not key in all_names:
-                raise AttributeError(
-                    'No property {!r} found in {!r}'.format(
-                        key, self.__class__))
-            setattr(self, key, kwargs[key])
-            del kwargs[key]
+        if self.xml is not None:
+            # services
+            for node in xml.xpath('./services/service'):
+                self.services[node.text] = bool(
+                    ast.literal_eval(node.get('enabled', 'True').capitalize()))
 
-        super(BaseVM, self).__init__(xml, *args, **kwargs)
+            # devices (pci, usb, ...)
+            for parent in xml.xpath('./devices'):
+                devclass = parent.get('class')
+                for node in parent.xpath('./device'):
+                    self.devices[devclass].attach(node.text)
 
-        self.events_enabled = True
-        self.fire_event('property-load')
+            # tags
+            for node in xml.xpath('./tags/tag'):
+                self.tags[node.get('name')] = node.text
+
+            # TODO: firewall, policy
+
+            # check if properties are appropriate
+            all_names = set(prop.__name__ for prop in self.property_list())
+
+            sys.stderr.write('all_names={!r}\n'.format(all_names))
+
+            for node in self.xml.xpath('./properties/property'):
+                name = node.get('name')
+                if not name in all_names:
+                    raise TypeError(
+                        'property {!r} not applicable to {!r}'.format(
+                            name, self.__class__.__name__))
 
 
     def add_new_vm(self, vm):
@@ -210,47 +226,6 @@ class BaseVM(qubes.PropertyHolder):
             self.set_clockvm_vm(vm)
 
         return vm
-
-    @classmethod
-    def fromxml(cls, app, xml, load_stage=2):
-        '''Create VM from XML node
-
-        :param qubes.Qubes app: :py:class:`qubes.Qubes` application instance
-        :param lxml.etree._Element xml: XML node reference
-        :param int load_stage: do not change the default (2) unless you know, \
-            what you are doing
-        ''' # pylint: disable=redefined-outer-name
-
-        if xml is None:
-            return cls(app)
-
-        services = {}
-        devices = collections.defaultdict(list)
-        tags = {}
-
-        # services
-        for node in xml.xpath('./services/service'):
-            services[node.text] = bool(
-                ast.literal_eval(node.get('enabled', 'True')))
-
-        # devices (pci, usb, ...)
-        for parent in xml.xpath('./devices'):
-            devclass = parent.get('class')
-            for node in parent.xpath('./device'):
-                devices[devclass].append(node.text)
-
-        # tags
-        for node in xml.xpath('./tags/tag'):
-            tags[node.get('name')] = node.text
-
-        # properties
-        self = cls(app, xml=xml, services=services, devices=devices, tags=tags)
-        self.load_properties(load_stage=load_stage)
-
-        # TODO: firewall, policy
-
-#       sys.stderr.write('{}.fromxml return\n'.format(cls.__name__))
-        return self
 
 
     def __xml__(self):
@@ -614,9 +589,6 @@ class BaseVM(qubes.PropertyHolder):
 
         return conf
 
-def load(class_, D):
-    cls = BaseVM[class_]
-    return cls(D)
 
 __all__ = ['BaseVMMeta', 'DeviceCollection', 'DeviceManager', 'BaseVM'] \
     + qubes.plugins.load(__file__)

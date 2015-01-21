@@ -136,7 +136,8 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
 
     def test_000_load(self):
         node = self.xml.xpath('//domain')[0]
-        vm = TestVM.fromxml(None, node)
+        vm = TestVM(None, node)
+        vm.load_properties(load_stage=None)
 
         self.assertEqual(vm.qid, 1)
         self.assertEqual(vm.testprop, 'testvalue')
@@ -144,12 +145,14 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
         self.assertEqual(vm.testlabel, 'label-1')
         self.assertEqual(vm.defaultprop, 'defaultvalue')
         self.assertEqual(vm.tags, {'testtag': 'tagvalue'})
-        self.assertEqual(vm.devices, {'pci': ['00:11.22']})
         self.assertEqual(vm.services, {
             'testservice': True,
             'enabledservice': True,
             'disabledservice': False,
         })
+
+        self.assertItemsEqual(vm.devices.keys(), ('pci',))
+        self.assertItemsEqual(vm.devices['pci'], ('00:11.22',))
 
         self.assertXMLIsValid(vm.__xml__(), 'domain.rng')
 
@@ -159,6 +162,8 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
     <domains>
         <domain id="domain-1" class="TestVM">
             <properties>
+                <property name="qid">1</property>
+                <property name="name">domain1</property>
                 <property name="nxproperty">nxvalue</property>
             </properties>
         </domain>
@@ -168,5 +173,5 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
 
         node = xml.xpath('//domain')[0]
 
-        with self.assertRaises(AttributeError):
-            TestVM.fromxml(None, node)
+        with self.assertRaises(TypeError):
+            TestVM(None, node)

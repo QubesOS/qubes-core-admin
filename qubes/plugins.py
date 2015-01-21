@@ -41,8 +41,6 @@ class Plugin(type):
             # we've got root class
             cls.register = {}
 
-    def __getitem__(cls, name):
-        return cls.register[name]
 
 def load(modfile):
     '''Load (import) all plugins from subpackage.
