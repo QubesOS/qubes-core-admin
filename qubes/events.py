@@ -73,7 +73,7 @@ class EmitterMeta(type):
         cls.__handlers__ = collections.defaultdict(set)
 
         try:
-            propnames = set(prop.__name__ for prop in cls.get_props_list())
+            propnames = set(prop.__name__ for prop in cls.property_list())
         except AttributeError:
             propnames = set()
 

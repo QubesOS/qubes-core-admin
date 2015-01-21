@@ -636,7 +636,7 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
         else:
             instance.fire_event_pre('property-pre-set:' + self.__name__, value)
 
-        instance._init_property(self, value) # pylint: disable=protected-access
+        instance._property_init(self, value) # pylint: disable=protected-access
 
         if has_oldvalue:
             instance.fire_event(
@@ -816,7 +816,7 @@ class PropertyHolder(qubes.events.Emitter):
 
 
     @classmethod
-    def get_props_list(cls, load_stage=None):
+    def property_list(cls, load_stage=None):
         '''List all properties attached to this VM's class
 
         :param load_stage: Filter by load stage
@@ -834,7 +834,7 @@ class PropertyHolder(qubes.events.Emitter):
             key=lambda prop: (prop.load_stage, prop.order, prop.__name__))
 
 
-    def _init_property(self, prop, value):
+    def _property_init(self, prop, value):
         '''Initialise property to a given value, without side effects.
 
         :param qubes.property prop: property object of particular interest
@@ -842,7 +842,7 @@ class PropertyHolder(qubes.events.Emitter):
         '''
 
         # pylint: disable=protected-access
-        setattr(self, self.get_property_def(prop)._attr_name, value)
+        setattr(self, self.property_get_def(prop)._attr_name, value)
 
 
     def property_is_default(self, prop):
@@ -858,11 +858,11 @@ class PropertyHolder(qubes.events.Emitter):
         '''
 
         # pylint: disable=protected-access
-        return hasattr(self, self.get_property_def(prop)._attr_name)
+        return hasattr(self, self.property_get_def(prop)._attr_name)
 
 
     @classmethod
-    def get_property_def(cls, prop):
+    def property_get_def(cls, prop):
         '''Return property definition object.
 
         If prop is already :py:class:`qubes.property` instance, return the same
@@ -876,7 +876,7 @@ class PropertyHolder(qubes.events.Emitter):
         if isinstance(prop, qubes.property):
             return prop
 
-        for p in cls.get_props_list():
+        for p in cls.property_list():
             if p.__name__ == prop:
                 return p
 
@@ -894,7 +894,7 @@ class PropertyHolder(qubes.events.Emitter):
 
         self.events_enabled = False
         all_names = set(
-            prop.__name__ for prop in self.get_props_list(load_stage))
+            prop.__name__ for prop in self.property_list(load_stage))
         for node in self.xml.xpath('./properties/property'):
             name = node.get('name')
             value = node.get('ref') or node.text
@@ -921,7 +921,7 @@ class PropertyHolder(qubes.events.Emitter):
 
         properties = lxml.etree.Element('properties')
 
-        for prop in self.get_props_list():
+        for prop in self.property_list():
             # pylint: disable=protected-access
             try:
                 value = getattr(
@@ -954,22 +954,22 @@ class PropertyHolder(qubes.events.Emitter):
         '''
 
         if proplist is None:
-            proplist = self.get_props_list()
+            proplist = self.property_list()
         else:
-            proplist = [prop for prop in self.get_props_list()
+            proplist = [prop for prop in self.property_list()
                 if prop.__name__ in proplist or prop in proplist]
 
-        for prop in self.proplist():
+        for prop in self.property_list():
             try:
                 # pylint: disable=protected-access
-                self._init_property(prop, getattr(src, prop._attr_name))
+                self._property_init(prop, getattr(src, prop._attr_name))
             except AttributeError:
                 continue
 
         self.fire_event('cloned-properties', src, proplist)
 
 
-    def require_property(self, prop, allow_none=False, hard=False):
+    def property_require(self, prop, allow_none=False, hard=False):
         '''Complain badly when property is not set.
 
         :param prop: property name or object
@@ -1219,11 +1219,11 @@ class Qubes(PropertyHolder):
 
         # stage 5: misc fixups
 
-        self.require_property('default_fw_netvm', allow_none=True)
-        self.require_property('default_netvm', allow_none=True)
-        self.require_property('default_template')
-        self.require_property('clockvm')
-        self.require_property('updatevm')
+        self.property_require('default_fw_netvm', allow_none=True)
+        self.property_require('default_netvm', allow_none=True)
+        self.property_require('default_template')
+        self.property_require('clockvm')
+        self.property_require('updatevm')
 
         # Disable ntpd in ClockVM - to not conflict with ntpdate (both are
         # using 123/udp port)

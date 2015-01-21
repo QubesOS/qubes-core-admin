@@ -159,7 +159,7 @@ class BaseVM(qubes.PropertyHolder):
 
         self.events_enabled = False
         all_names = set(prop.__name__
-            for prop in self.get_props_list(load_stage=2))
+            for prop in self.property_list(load_stage=2))
         for key in list(kwargs.keys()):
             if not key in all_names:
                 raise AttributeError(
@@ -289,7 +289,7 @@ class BaseVM(qubes.PropertyHolder):
 
     def __repr__(self):
         proprepr = []
-        for prop in self.get_props_list():
+        for prop in self.property_list():
             try:
                 proprepr.append('{}={!r}'.format(
                     prop.__name__, getattr(self, prop.__name__)))
