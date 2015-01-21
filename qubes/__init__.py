@@ -1123,6 +1123,7 @@ class Qubes(PropertyHolder):
     def __init__(self, store='/var/lib/qubes/qubes.xml'):
         super(Qubes, self).__init__(xml=None)
 
+        #: logger instance for logging global messages
         self.log = logging.getLogger('app')
 
         # pylint: disable=no-member

@@ -41,6 +41,7 @@ import xml.parsers.expat
 import lxml.etree
 
 import qubes
+import qubes.log
 import qubes.events
 import qubes.plugins
 
@@ -180,14 +181,20 @@ class BaseVM(qubes.PropertyHolder):
             # check if properties are appropriate
             all_names = set(prop.__name__ for prop in self.property_list())
 
-            sys.stderr.write('all_names={!r}\n'.format(all_names))
-
             for node in self.xml.xpath('./properties/property'):
                 name = node.get('name')
                 if not name in all_names:
                     raise TypeError(
                         'property {!r} not applicable to {!r}'.format(
                             name, self.__class__.__name__))
+
+        #: logger instance for logging messages related to this VM
+        self.log = None
+
+
+    def init_log(self):
+        '''Initialise logger for this domain.'''
+        self.log = qubes.log.get_vm_logger(self.name)
 
 
     def add_new_vm(self, vm):
