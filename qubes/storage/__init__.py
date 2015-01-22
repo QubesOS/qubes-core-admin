@@ -114,7 +114,7 @@ class VMStorage(object):
                 source, destination))
 
     def get_disk_utilization(self):
-        return qubes.utils.get_disk_usage(self.vmdir)
+        return qubes.utils.get_disk_usage(self.vm.dir_path)
 
     def get_disk_utilization_private_img(self):
         # pylint: disable=invalid-name
@@ -142,7 +142,7 @@ class VMStorage(object):
         old_umask = os.umask(002)
 
         self.vm.log.info('Creating directory: {0}'.format(self.vm.dir_path))
-        os.mkdir(self.vmdir)
+        os.mkdir(self.vm.dir_path)
         self.create_on_disk_private_img(source_template)
         self.create_on_disk_root_img(source_template)
         self.reset_volatile_storage(source_template)
@@ -188,7 +188,7 @@ class VMStorage(object):
     def verify_files(self):
         if not os.path.exists(self.vm.dir_path):
             raise qubes.QubesException(
-                'VM directory does not exist: {}'.format(self.vmdir))
+                'VM directory does not exist: {}'.format(self.vm.dir_path))
 
         if hasattr(self.vm, 'root_img') and not os.path.exists(self.root_img):
             raise qubes.QubesException(
@@ -239,7 +239,7 @@ class VMStorage(object):
                 and not os.path.exists(self.private_img):
             self.vm.log.info('Creating empty VM private image file: {0}'.format(
                 self.private_img))
-            self.storage.create_on_disk_private_img()
+            self.create_on_disk_private_img()
 
 
 def get_storage(vm):

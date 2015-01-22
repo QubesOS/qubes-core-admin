@@ -351,7 +351,7 @@ class QubesVM(qubes.vm.BaseVM):
     @property
     def updateable(self):
         '''True if this machine may be updated on its own.'''
-        return hasattr(self, 'template')
+        return not hasattr(self, 'template')
 
 
     @property
@@ -521,16 +521,16 @@ class QubesVM(qubes.vm.BaseVM):
 #                   self.netvm.post_vm_net_detach(self)
 
         if new_netvm is None:
-            if not self._do_not_reset_firewall:
-                # Set also firewall to block all traffic as discussed in #370
-                if os.path.exists(self.firewall_conf):
-                    shutil.copy(self.firewall_conf,
-                        os.path.join(qubes.config.system_path['qubes_base_dir'],
-                            'backup',
-                            '%s-firewall-%s.xml' % (self.name,
-                                time.strftime('%Y-%m-%d-%H:%M:%S'))))
-                self.write_firewall_conf({'allow': False, 'allowDns': False,
-                    'allowIcmp': False, 'allowYumProxy': False, 'rules': []})
+#           if not self._do_not_reset_firewall:
+            # Set also firewall to block all traffic as discussed in #370
+            if os.path.exists(self.firewall_conf):
+                shutil.copy(self.firewall_conf,
+                    os.path.join(qubes.config.system_path['qubes_base_dir'],
+                        'backup',
+                        '%s-firewall-%s.xml' % (self.name,
+                            time.strftime('%Y-%m-%d-%H:%M:%S'))))
+            self.write_firewall_conf({'allow': False, 'allowDns': False,
+                'allowIcmp': False, 'allowYumProxy': False, 'rules': []})
         else:
             new_netvm.connected_vms.add(self)
 
@@ -744,9 +744,9 @@ class QubesVM(qubes.vm.BaseVM):
         if qmemman_present:
             qmemman_client.close()
 
-        if self._start_guid_first and start_guid and not preparing_dvm \
-                and os.path.exists('/var/run/shm.id'):
-            self.start_guid()
+#       if self._start_guid_first and start_guid and not preparing_dvm \
+#               and os.path.exists('/var/run/shm.id'):
+#           self.start_guid()
 
         if not preparing_dvm:
             self.start_qrexec_daemon()

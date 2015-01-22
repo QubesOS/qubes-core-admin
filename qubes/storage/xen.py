@@ -79,7 +79,7 @@ class XenVMStorage(qubes.storage.VMStorage):
     def _get_rootdev(self):
         if isinstance(self.vm, qubes.vm.templatevm.TemplateVM):
             return self._format_disk_dev(
-                '{}:{}'.format(self.root_img, self.rootcow_img),
+                '{}:{}'.format(self.root_img, self.vm.rootcow_img),
                 self.root_dev,
                 script='block-origin')
 

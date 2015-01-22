@@ -145,7 +145,7 @@ class TC_10_property(qubes.tests.QubesTestCase):
         del self.holder.testprop1
 
         with self.assertRaises(AttributeError):
-            self.holder.testprop
+            self.holder.testprop1
 
     def test_090_delete_by_assign(self):
         self.holder.testprop1 = 'testvalue'
@@ -158,7 +158,7 @@ class TC_10_property(qubes.tests.QubesTestCase):
         self.holder.testprop1 = qubes.property.DEFAULT
 
         with self.assertRaises(AttributeError):
-            self.holder.testprop
+            self.holder.testprop1
 
     def test_092_delete_default(self):
         class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
