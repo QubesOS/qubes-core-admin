@@ -153,7 +153,7 @@ class BaseVM(qubes.PropertyHolder):
         #: dictionary of services that are run on this domain
         self.services = services or {}
 
-        #: :py:class`DeviceManager` object keeping devices that are attached to
+        #: :py:class:`DeviceManager` object keeping devices that are attached to
         #: this domain
         self.devices = DeviceManager(self) if devices is None else devices
 
@@ -294,7 +294,7 @@ class BaseVM(qubes.PropertyHolder):
 
         :param str ip: IP address of the frontend
         :param str mac: MAC (Ethernet) address of the frontend
-        :param qubes.vm.QubesVM backend: Backend domain
+        :param qubes.vm.qubesvm.QubesVM backend: Backend domain
         :rtype: lxml.etree._Element
         '''
 
@@ -314,7 +314,7 @@ class BaseVM(qubes.PropertyHolder):
 
         :param str ip: IP address of the frontend
         :param str mac: MAC (Ethernet) address of the frontend
-        :param qubes.vm.QubesVM backend: Backend domain
+        :param qubes.vm.qubesvm.QubesVM backend: Backend domain
         :rtype: lxml.etree._Element
         '''
 

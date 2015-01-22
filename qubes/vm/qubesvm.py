@@ -935,7 +935,7 @@ class QubesVM(qubes.vm.BaseVM):
         **passio_popen** and **input** are mutually exclusive.
 
         :param str service: service name
-        :param qubes.vm.QubesVM: source domain as presented to this VM
+        :param qubes.vm.qubesvm.QubesVM: source domain as presented to this VM
         :param str user: username to run service as
         :param bool passio_popen: passed verbatim to :py:meth:`run`
         :param str input: string passed as input to service
@@ -1117,7 +1117,7 @@ class QubesVM(qubes.vm.BaseVM):
     def clone_disk_files(self, src):
         '''Clone files from other vm.
 
-        :param qubes.vm.QubesVM src: source VM
+        :param qubes.vm.qubesvm.QubesVM src: source VM
         '''
 
         if src.is_running():
@@ -1278,11 +1278,12 @@ class QubesVM(qubes.vm.BaseVM):
             }
 
         .. seealso::
+
             http://wiki.libvirt.org/page/VM_lifecycle
                 Description of VM life cycle from the point of view of libvirt.
 
             https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainState
-                Libvirt API for changing state of a domain.
+                Libvirt's enum describing precise state of a domain.
         ''' # pylint: disable=too-many-return-statements
 
         libvirt_domain = self.libvirt_domain
