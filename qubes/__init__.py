@@ -547,6 +547,8 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
     :param int load_stage: stage when property should be loaded (see \
         :py:class:`Qubes` for description of stages)
     :param int order: order of evaluation (bigger order values are later)
+    :param str ls_head: column head for :program:`qvm-ls`
+    :param int ls_width: column width in :program:`qvm-ls`
     :param str doc: docstring; this should be one paragraph of plain RST, no \
         sphinx-specific features
 
@@ -579,7 +581,7 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
 
     def __init__(self, name, setter=None, saver=None, type=None,
             default=_NO_DEFAULT, load_stage=2, order=0, save_via_ref=False,
-            doc=None):
+            ls_head=None, ls_width=None, doc=None):
         # pylint: disable=redefined-builtin
         self.__name__ = name
         self._setter = setter
@@ -592,6 +594,10 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
         self.save_via_ref = save_via_ref
         self.__doc__ = doc
         self._attr_name = '_qubesprop_' + name
+
+        if ls_head is not None or ls_width is not None:
+            self.ls_head = ls_head or self.__name__.replace('_', '-').upper()
+            self.ls_width = max(ls_width or 0, len(self.ls_head) + 1)
 
 
     def __get__(self, instance, owner):
@@ -680,28 +686,6 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
 
     def __eq__(self, other):
         return self.__name__ == other.__name__
-
-
-    def format_doc(self):
-        '''Return parsed documentation string, stripping RST markup.
-        '''
-
-        if not self.__doc__:
-            return ''
-
-        # pylint: disable=unused-variable
-        output, pub = docutils.core.publish_programmatically(
-            source_class=docutils.io.StringInput,
-            source=' '.join(self.__doc__.strip().split()),
-            source_path=None,
-            destination_class=docutils.io.NullOutput, destination=None,
-            destination_path=None,
-            reader=None, reader_name='standalone',
-            parser=None, parser_name='restructuredtext',
-            writer=None, writer_name='null',
-            settings=None, settings_spec=None, settings_overrides=None,
-            config_section=None, enable_exit_status=None)
-        return pub.writer.document.astext()
 
 
     #

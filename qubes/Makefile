@@ -15,9 +15,11 @@ endif
 	mkdir \
 		$(DESTDIR)$(PYTHON_QUBESPATH)/vm \
 		$(DESTDIR)$(PYTHON_QUBESPATH)/storage \
+		$(DESTDIR)$(PYTHON_QUBESPATH)/tools \
 		$(DESTDIR)$(PYTHON_QUBESPATH)/ext \
 		$(DESTDIR)$(PYTHON_QUBESPATH)/tests \
-		$(DESTDIR)$(PYTHON_QUBESPATH)/tests/vm
+		$(DESTDIR)$(PYTHON_QUBESPATH)/tests/vm \
+		$(DESTDIR)$(PYTHON_QUBESPATH)/tests/tools
 
 	cp \
 		__init__.py* \
@@ -49,6 +51,11 @@ endif
 		storage/xen.py* \
 		$(DESTDIR)$(PYTHON_QUBESPATH)/storage
 
+	cp \
+		tools/__init__.py* \
+		tools/qvm_ls.py* \
+		$(DESTDIR)$(PYTHON_QUBESPATH)/tools
+
 	cp ext/__init__.py* $(DESTDIR)$(PYTHON_QUBESPATH)/ext
 
 	cp \
@@ -64,3 +71,8 @@ endif
 		tests/vm/adminvm.py* \
 		tests/vm/qubesvm.py* \
 		$(DESTDIR)$(PYTHON_QUBESPATH)/tests/vm
+
+	cp \
+		tests/tools/__init__.py* \
+		tests/tools/qvm_ls.py* \
+		$(DESTDIR)$(PYTHON_QUBESPATH)/tests/tools

@@ -214,6 +214,10 @@ fi
 %{python_sitearch}/qubes/storage/__init__.py*
 %{python_sitearch}/qubes/storage/xen.py*
 
+%dir %{python_sitearch}/qubes/tools
+%{python_sitearch}/qubes/tools/__init__.py*
+%{python_sitearch}/qubes/tools/qvm_ls.py*
+
 %dir %{python_sitearch}/qubes/ext
 %{python_sitearch}/qubes/ext/__init__.py*
 
@@ -229,6 +233,10 @@ fi
 %{python_sitearch}/qubes/tests/vm/init.py*
 %{python_sitearch}/qubes/tests/vm/adminvm.py*
 %{python_sitearch}/qubes/tests/vm/qubesvm.py*
+
+%dir %{python_sitearch}/qubes/tests/tools
+%{python_sitearch}/qubes/tests/tools/__init__.py*
+%{python_sitearch}/qubes/tests/tools/qvm_ls.py*
 
 # qmemman
 %{python_sitearch}/qubes/qmemman.py*

@@ -28,6 +28,8 @@ import os
 import re
 import subprocess
 
+import docutils
+
 
 def get_timezone():
     # fc18
@@ -57,3 +59,24 @@ def get_timezone():
             return tz_path.replace('/usr/share/zoneinfo/', '')
     return None
 
+
+def format_doc(docstring):
+    '''Return parsed documentation string, stripping RST markup.
+    '''
+
+    if not docstring:
+        return ''
+
+    # pylint: disable=unused-variable
+    output, pub = docutils.core.publish_programmatically(
+        source_class=docutils.io.StringInput,
+        source=' '.join(docstring.strip().split()),
+        source_path=None,
+        destination_class=docutils.io.NullOutput, destination=None,
+        destination_path=None,
+        reader=None, reader_name='standalone',
+        parser=None, parser_name='restructuredtext',
+        writer=None, writer_name='null',
+        settings=None, settings_spec=None, settings_overrides=None,
+        config_section=None, enable_exit_status=None)
+    return pub.writer.document.astext()

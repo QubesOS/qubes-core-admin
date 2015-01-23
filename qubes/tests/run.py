@@ -33,7 +33,9 @@ test_order = [
     'qubes.tests.vm.init',
     'qubes.tests.vm.qubesvm',
     'qubes.tests.vm.adminvm',
-    'qubes.tests.init'
+    'qubes.tests.init',
+
+    'qubes.tests.tools',
 ]
 
 sys.path.insert(1, '../../')
@@ -96,7 +98,10 @@ class ANSITestResult(unittest.TestResult):
     def getDescription(self, test): # pylint: disable=invalid-name
         teststr = str(test).split('/')
         for i in range(-2, 0):
-            fullname = teststr[i].split('_', 2)
+            try:
+                fullname = teststr[i].split('_', 2)
+            except IndexError:
+                continue
             fullname[-1] = '{color[bold]}{}{color[normal]}'.format(
                 fullname[-1], color=self.color)
             teststr[i] = '_'.join(fullname)
@@ -241,8 +246,7 @@ def main():
     suite = unittest.TestSuite()
     loader = unittest.TestLoader()
     for modname in test_order:
-        module = importlib.import_module(modname)
-        suite.addTests(loader.loadTestsFromModule(module))
+        suite.addTests(loader.loadTestsFromName(modname))
 
     runner = unittest.TextTestRunner(stream=sys.stdout, verbosity=2)
     runner.resultclass = ANSITestResult

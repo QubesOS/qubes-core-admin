@@ -8,6 +8,7 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
 
     template = qubes.VMProperty('template', load_stage=4,
         vmclass=qubes.vm.templatevm.TemplateVM,
+        ls_width=31,
         doc='Template, on which this AppVM is based.')
 
     def __init__(self, D):

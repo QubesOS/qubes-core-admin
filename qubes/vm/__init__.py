@@ -44,10 +44,15 @@ import qubes
 import qubes.log
 import qubes.events
 import qubes.plugins
+import qubes.tools.qvm_ls
 
 
 class BaseVMMeta(qubes.plugins.Plugin, qubes.events.EmitterMeta):
     '''Metaclass for :py:class:`.BaseVM`'''
+    def __init__(cls, name, bases, dict_):
+        super(BaseVMMeta, cls).__init__(name, bases, dict_)
+        qubes.tools.qvm_ls.process_class(cls)
+
 
 
 class DeviceCollection(object):

@@ -38,6 +38,7 @@ persistent=no
 disable=
   locally-disabled,
   locally-enabled,
+  file-ignored,
   duplicate-code,
   star-args,
   cyclic-import,

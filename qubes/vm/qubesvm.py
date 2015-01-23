@@ -44,6 +44,7 @@ import qubes.config
 import qubes.storage
 import qubes.utils
 import qubes.vm
+import qubes.tools.qvm_ls
 
 qmemman_present = False
 try:
@@ -115,13 +116,15 @@ class QubesVM(qubes.vm.BaseVM):
     label = qubes.property('label',
         setter=(lambda self, prop, value: self.app.labels[
             int(value.rsplit('-', 1)[1])]),
-        doc='Colourful label assigned to VM. This is where you set the colour '
-            'of the padlock.')
+        ls_width=14,
+        doc='''Colourful label assigned to VM. This is where the colour of the
+            padlock is set.''')
 
     # XXX swallowed uses_default_netvm
     netvm = qubes.VMProperty('netvm', load_stage=4, allow_none=True,
         default=(lambda self: self.app.default_fw_netvm if self.provides_network
             else self.app.default_netvm),
+        ls_width=31,
         doc='''VM that provides network connection to this domain. When
             `None`, machine is disconnected. When absent, domain uses default
             NetVM.''')
@@ -132,13 +135,16 @@ class QubesVM(qubes.vm.BaseVM):
 
     qid = qubes.property('qid', type=int,
         setter=_setter_qid,
+        ls_width=3,
         doc='''Internal, persistent identificator of particular domain. Note
             this is different from Xen domid.''')
 
     name = qubes.property('name', type=str,
+        ls_width=31,
         doc='User-specified name of the domain.')
 
     uuid = qubes.property('uuid', type=uuid.UUID, default=None,
+        ls_width=36,
         doc='UUID from libvirt.')
 
     # TODO meaningful default
@@ -176,6 +182,7 @@ class QubesVM(qubes.vm.BaseVM):
 
     # XXX what is that
     vcpus = qubes.property('vcpus', default=None,
+        ls_width=2,
         doc='FIXME')
 
     # XXX swallowed uses_default_kernel
@@ -183,6 +190,7 @@ class QubesVM(qubes.vm.BaseVM):
     kernel = qubes.property('kernel', type=str,
         setter=_setter_kernel,
         default=(lambda self: self.app.default_kernel),
+        ls_width=12,
         doc='Kernel used by this domain.')
 
     # XXX swallowed uses_default_kernelopts
@@ -191,10 +199,12 @@ class QubesVM(qubes.vm.BaseVM):
         default=(lambda self: qubes.config.defaults['kernelopts_pcidevs'] \
             if len(self.devices['pci']) > 0 \
             else qubes.config.defaults['kernelopts']),
+        ls_width=30,
         doc='Kernel command line passed to domain.')
 
     mac = qubes.property('mac', type=str,
         default=(lambda self: '00:16:3E:5E:6C:{:02X}'.format(self.qid)),
+        ls_width=17,
         doc='MAC address of the NIC emulated inside VM')
 
     debug = qubes.property('debug', type=bool, default=False,
@@ -206,6 +216,7 @@ class QubesVM(qubes.vm.BaseVM):
     #     only plain property?
     default_user = qubes.property('default_user', type=str,
         default=(lambda self: self.template.default_user),
+        ls_width=12,
         doc='FIXME')
 
 #   @property
@@ -216,6 +227,7 @@ class QubesVM(qubes.vm.BaseVM):
 #           return self._default_user
 
     qrexec_timeout = qubes.property('qrexec_timeout', type=int, default=60,
+        ls_width=3,
         doc='''Time in seconds after which qrexec connection attempt is deemed
             failed. Operating system inside VM should be able to boot in this
             time.''')
@@ -262,6 +274,7 @@ class QubesVM(qubes.vm.BaseVM):
 
     # VMM-related
 
+    @qubes.tools.qvm_ls.column(width=3)
     @property
     def xid(self):
         '''Xen ID.
@@ -381,6 +394,7 @@ class QubesVM(qubes.vm.BaseVM):
 
     # network-related
 
+    @qubes.tools.qvm_ls.column(width=15)
     @property
     def ip(self):
         '''IP address of this domain.'''
@@ -389,6 +403,7 @@ class QubesVM(qubes.vm.BaseVM):
         else:
             return None
 
+    @qubes.tools.qvm_ls.column(width=15)
     @property
     def netmask(self):
         '''Netmask for this domain's IP address.'''
@@ -397,6 +412,7 @@ class QubesVM(qubes.vm.BaseVM):
         else:
             return None
 
+    @qubes.tools.qvm_ls.column(head='IPBACK', width=15)
     @property
     def gateway(self):
         '''Gateway for other domains that use this domain as netvm.'''
@@ -405,6 +421,7 @@ class QubesVM(qubes.vm.BaseVM):
         # This is gateway IP for _other_ VMs, so make sense only in NetVMs
         return None
 
+    @qubes.tools.qvm_ls.column(width=15)
     @property
     def secondary_dns(self):
         '''Secondary DNS server set up for this domain.'''
@@ -413,6 +430,7 @@ class QubesVM(qubes.vm.BaseVM):
         else:
             return None
 
+    @qubes.tools.qvm_ls.column(width=7)
     @property
     def vif(self):
         '''Name of the network interface backend in netvm that is connected to
