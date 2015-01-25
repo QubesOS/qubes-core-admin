@@ -41,6 +41,11 @@ meminfo-writer
     remove it (reset to defult state), will be recreated with the rule: enabled
     if VM have no PCI devices assigned, otherwise disabled.
 
+qubes-dvm
+    Default: disabled
+
+    Used internally when creating DispVM savefile.
+
 qubes-firewall
     Default: enabled only in ProxyVM
 
@@ -67,13 +72,28 @@ cups
 
     Enable CUPS service. The user can disable cups in VM which do not need printing to speed up booting.
 
+cron
+    Default: disabled
+
+    Enable CRON service.
+
 network-manager
     Default: enabled in NetVM
 
     Enable NetworkManager. Only VM with direct access to network device needs
     this service, but can be useful in ProxyVM to ease VPN setup.
 
+ntpd
+    Default: disabled
+
+    Enable NTPD service. By default Qubes calls ntpdate every 6 minutes in
+    selected VM (aka ClockVM), then propagate the result using qrexec calls.
+    Enabling ntpd *do not* disable this behaviour.
+
 qubes-yum-proxy
+    Deprecated name for qubes-updates-proxy.
+
+qubes-updates-proxy
     Default: enabled in NetVM
 
     Provide proxy service, which allow access only to yum repos. Filtering is
@@ -81,6 +101,9 @@ qubes-yum-proxy
     bypass), but is enough to prevent some erroneous user actions.
 
 yum-proxy-setup
+    Deprecated name for updates-proxy-setup.
+
+updates-proxy-setup
     Default: enabled in AppVM (also in templates)
 
     Setup yum at startup to use qubes-yum-proxy service.
