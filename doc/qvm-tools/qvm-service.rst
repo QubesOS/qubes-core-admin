@@ -89,6 +89,21 @@ yum-proxy-setup
     yum proxy (in firewall settings) and disabled when you deny access to yum
     proxy.
 
+set-default-route
+    Default: enabled
+
+    Sets the default route for networking.  Disabling  this  service
+    will  prevent the creation of the default route, but the VM will
+    still be able to reach it's direct neighbors.  The functionality
+    is implemented in /usr/lib/qubes/setup-ip.
+
+set-dns-server
+    Default: enabled
+
+    Creates the appropriate nameserver entries in /etc/resolv.conf.
+    Disabling this service will result in an empty /etc/resolv.conf.
+    The functionality is implemented in /usr/lib/qubes/setup-ip.
+
 
 AUTHORS
 =======
