@@ -9,7 +9,7 @@ Synopsis
 | :command:`qvm-pci` [*options*] -l <*vm-name*>
 | :command:`qvm-pci` [*options*] -a <*vm-name*> <*device*>
 | :command:`qvm-pci` [*options*] -d <*vm-name*> <*device*>
- 
+
 Options
 =======
 
@@ -19,7 +19,7 @@ Options
 
 .. option:: --list, -l
 
-    List VM PCI devices    
+    List VM PCI devices
 
 .. option:: --add, -a
 

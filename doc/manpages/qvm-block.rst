@@ -21,7 +21,7 @@ Options
 
 .. option:: --list, -l
 
-    List block devices            
+    List block devices
 
 .. option:: --attach, -a
 

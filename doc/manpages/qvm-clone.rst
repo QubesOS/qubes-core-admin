@@ -17,7 +17,7 @@ Options
 
 .. option:: --quiet, -q
 
-    Be quiet           
+    Be quiet
 
 .. option:: --path=DIR_PATH, -p DIR_PATH
 
@@ -28,4 +28,3 @@ Authors
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>
 | Marek Marczykowski <marmarek at invisiblethingslab dot com>
-

@@ -17,7 +17,7 @@ Options
 
 .. option:: --quiet, -q
 
-    Be quiet           
+    Be quiet
 
 .. option:: --auto, -a
 
