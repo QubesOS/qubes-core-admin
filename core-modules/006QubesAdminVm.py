@@ -32,6 +32,15 @@ class QubesAdminVm(QubesNetVm):
     # In which order load this VM type from qubes.xml
     load_order = 10
 
+    def get_attrs_config(self):
+        attrs = super(QubesAdminVm, self).get_attrs_config()
+        attrs.pop('kernel')
+        attrs.pop('kernels_dir')
+        attrs.pop('kernelopts')
+        attrs.pop('uses_default_kernel')
+        attrs.pop('uses_default_kernelopts')
+        return attrs
+
     def __init__(self, **kwargs):
         super(QubesAdminVm, self).__init__(qid=0, name="dom0", netid=0,
                                              dir_path=None,
