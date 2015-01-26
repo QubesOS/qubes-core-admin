@@ -81,6 +81,9 @@ class QubesException(Exception):
     pass
 
 
+import qubes.events
+
+
 class VMMConnection(object):
     '''Connection to Virtual Machine Manager (libvirt)'''
 
