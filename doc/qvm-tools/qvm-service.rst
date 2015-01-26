@@ -54,7 +54,7 @@ qubes-firewall
 qubes-network
     Default: enabled only in NetVM and ProxyVM
 
-    Expose network for other VMs. This includes enabling network forwardnig, MASQUERADE, DNS redirection and basic firewall.
+    Expose network for other VMs. This includes enabling network forwarding, MASQUERADE, DNS redirection and basic firewall.
 
 qubes-netwatcher
     Default: enabled only in ProxyVM
