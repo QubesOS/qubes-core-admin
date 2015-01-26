@@ -37,6 +37,12 @@ class QubesDisposableVm(QubesVm):
     def get_attrs_config(self):
         attrs_config = super(QubesDisposableVm, self).get_attrs_config()
 
+        attrs_config.pop('kernel')
+        attrs_config.pop('kernels_dir')
+        attrs_config.pop('kernelopts')
+        attrs_config.pop('uses_default_kernel')
+        attrs_config.pop('uses_default_kernelopts')
+
         # New attributes
         attrs_config['dispid'] = { 'save': lambda: str(self.dispid) }
         attrs_config['include_in_backups']['func'] = lambda x: False
