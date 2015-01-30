@@ -69,8 +69,7 @@ else
 fi 
 
 if [ $(whoami) = "root" ] ; then
-	chgrp qubes "$DVMTMPLDIR" "$DVMTMPLDIR"/*
-	chmod 660 "$DVMTMPLDIR"/*
-	chmod 770 "$DVMTMPLDIR"
+	chgrp -R qubes "$DVMTMPLDIR"
+	chmod -R ug+rwX,o-rwx "$DVMTMPLDIR"
 fi
 
