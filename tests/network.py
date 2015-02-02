@@ -161,7 +161,7 @@ class VmNetworkingTests(unittest.TestCase):
                          user="user"),
             0, "Failed to disconnect eth0 using nmcli")
 
-        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 1,
+        self.assertNotEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
                          "Network should be disabled, but apparently it isn't")
         self.assertEqual(
             self.run_cmd(self.proxy, "nmcli connection up \"VM uplink eth0\" "
@@ -208,10 +208,10 @@ class VmNetworkingTests(unittest.TestCase):
                          "Ping by IP from ProxyVM failed")
         self.assertEqual(self.run_cmd(self.proxy, self.ping_name), 0,
                          "Ping by name from ProxyVM failed")
-        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 1,
+        self.assertNotEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
                          "Ping by IP should be blocked")
         nc_cmd = "nc -w 1 --recv-only 192.168.123.45 1234"
-        self.assertEqual(self.run_cmd(self.testvm1, nc_cmd), 1,
+        self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
                          "TCP connection should be blocked")
 
         # block all except ICMP
@@ -226,7 +226,7 @@ class VmNetworkingTests(unittest.TestCase):
         time.sleep(1)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
                          "Ping by IP failed (should be allowed now)")
-        self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 2,
+        self.assertNotEqual(self.run_cmd(self.testvm1, self.ping_name), 0,
                          "Ping by name should be blocked")
 
         # all TCP still blocked
@@ -241,7 +241,7 @@ class VmNetworkingTests(unittest.TestCase):
         time.sleep(1)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0,
                          "Ping by name failed (should be allowed now)")
-        self.assertEqual(self.run_cmd(self.testvm1, nc_cmd), 1,
+        self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
                          "TCP connection should be blocked")
 
         # block all except target
@@ -276,7 +276,7 @@ class VmNetworkingTests(unittest.TestCase):
         self.proxy.write_iptables_xenstore_entry()
         # Ugly hack b/c there is no feedback when the rules are actually applied
         time.sleep(1)
-        self.assertEqual(self.run_cmd(self.testvm1, nc_cmd), 1,
+        self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
                          "TCP connection should be blocked")
 
 
@@ -301,19 +301,19 @@ class VmNetworkingTests(unittest.TestCase):
         self.testvm1.start()
         self.testvm2.start()
 
-        self.assertEqual(self.run_cmd(self.testvm1,
-                     "ping -W 1 -n -c 1 {}".format(self.testvm2.ip)), 1)
+        self.assertNotEqual(self.run_cmd(self.testvm1,
+                     "ping -W 1 -n -c 1 {}".format(self.testvm2.ip)), 0)
 
         self.testvm2.netvm = self.testnetvm
 
-        self.assertEqual(self.run_cmd(self.testvm1,
-             "ping -W 1 -n -c 1 {}".format(self.testvm2.ip)), 1)
-        self.assertEqual(self.run_cmd(self.testvm2,
-             "ping -W 1 -n -c 1 {}".format(self.testvm1.ip)), 1)
+        self.assertNotEqual(self.run_cmd(self.testvm1,
+             "ping -W 1 -n -c 1 {}".format(self.testvm2.ip)), 0)
+        self.assertNotEqual(self.run_cmd(self.testvm2,
+             "ping -W 1 -n -c 1 {}".format(self.testvm1.ip)), 0)
 
         self.testvm1.netvm = self.testnetvm
 
-        self.assertEqual(self.run_cmd(self.testvm1,
-             "ping -W 1 -n -c 1 {}".format(self.testvm2.ip)), 1)
-        self.assertEqual(self.run_cmd(self.testvm2,
-             "ping -W 1 -n -c 1 {}".format(self.testvm1.ip)), 1)
+        self.assertNotEqual(self.run_cmd(self.testvm1,
+             "ping -W 1 -n -c 1 {}".format(self.testvm2.ip)), 0)
+        self.assertNotEqual(self.run_cmd(self.testvm2,
+             "ping -W 1 -n -c 1 {}".format(self.testvm1.ip)), 0)
