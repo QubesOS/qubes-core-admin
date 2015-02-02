@@ -17,5 +17,7 @@ endif
 	cp backupcompatibility.py[co] $(DESTDIR)$(PYTHON_TESTSPATH)
 	cp basic.py $(DESTDIR)$(PYTHON_TESTSPATH)
 	cp basic.py[co] $(DESTDIR)$(PYTHON_TESTSPATH)
+	cp network.py $(DESTDIR)$(PYTHON_TESTSPATH)
+	cp network.py[co] $(DESTDIR)$(PYTHON_TESTSPATH)
 	cp vm_qrexec_gui.py $(DESTDIR)$(PYTHON_TESTSPATH)
 	cp vm_qrexec_gui.py[co] $(DESTDIR)$(PYTHON_TESTSPATH)
