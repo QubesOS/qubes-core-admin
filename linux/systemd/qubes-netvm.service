@@ -1,6 +1,6 @@
 [Unit]
 Description=Qubes NetVM startup
-After=qubes-core.service qubes-qmemman.service
+After=qubes-core.service qubes-qmemman.service libvirtd.service
 
 [Service]
 Type=oneshot
