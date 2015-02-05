@@ -376,4 +376,19 @@ class BackupTestsMixin(SystemTestsMixin):
         f.truncate(size)
         f.close()
 
+
+def load_tests(loader, tests, pattern):
+    for modname in (
+            'qubes.tests.basic',
+            'qubes.tests.network',
+            'qubes.tests.vm_qrexec_gui',
+            'qubes.tests.backup',
+            'qubes.tests.backupcompatibility',
+            'qubes.tests.regressions',
+            ):
+        tests.addTests(loader.loadTestsFromName(modname))
+
+    return tests
+
+
 # vim: ts=4 sw=4 et
