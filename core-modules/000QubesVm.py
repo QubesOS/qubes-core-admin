@@ -996,7 +996,7 @@ class QubesVm(object):
                    "      <mac address='{mac}'/>\n" \
                    "      <ip address='{ip}'/>\n" \
                    "      <script path='vif-route-qubes'/>\n" \
-                   "      <domain name='{backend}'/>\n" \
+                   "      <source domain='{backend}'/>\n" \
                    "    </interface>\n"
         return template.format(ip=ip, mac=mac, backend=backend)
 

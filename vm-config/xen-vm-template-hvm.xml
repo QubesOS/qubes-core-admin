@@ -22,7 +22,7 @@
   <on_reboot>destroy</on_reboot>
   <on_crash>destroy</on_crash>
   <devices>
-    <emulator>stubdom-dm</emulator>
+    <emulator type='stubdom'/>
 {rootdev}
 {privatedev}
 {otherdevs}
