@@ -23,3 +23,5 @@ endif
 	cp network.py[co] $(DESTDIR)$(PYTHON_TESTSPATH)
 	cp vm_qrexec_gui.py $(DESTDIR)$(PYTHON_TESTSPATH)
 	cp vm_qrexec_gui.py[co] $(DESTDIR)$(PYTHON_TESTSPATH)
+	cp regressions.py $(DESTDIR)$(PYTHON_TESTSPATH)
+	cp regressions.py[co] $(DESTDIR)$(PYTHON_TESTSPATH)

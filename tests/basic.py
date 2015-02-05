@@ -1,24 +1,28 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
+# vim: fileencoding=utf-8
+
 #
-# The Qubes OS Project, http://www.qubes-os.org
+# The Qubes OS Project, https://www.qubes-os.org/
 #
-# Copyright (C) 2014 Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+# Copyright (C) 2014-2015
+#                   Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+# Copyright (C) 2015  Wojtek Porczyk <woju@invisiblethingslab.com>
 #
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-#
+
 import multiprocessing
 import os
 import shutil
@@ -27,115 +31,44 @@ import unittest
 import time
 from qubes.qubes import QubesVmCollection, QubesException, system_path
 
-VM_PREFIX = "test-"
+import qubes.qubes
+import qubes.tests
 
-class BasicTests(unittest.TestCase):
-    def setUp(self):
-        self.qc = QubesVmCollection()
-        self.qc.lock_db_for_reading()
-        self.qc.load()
-        self.qc.unlock_db()
+class TC_00_Basic(qubes.tests.SystemTestsMixin, unittest.TestCase):
+    def test_000_create(self):
+        vmname = self.make_vm_name('appvm')
+        vm = self.qc.add_new_vm('QubesAppVm',
+            name=vmname, template=self.qc.get_default_template())
 
-    def remove_vms(self, vms):
-        self.qc.lock_db_for_writing()
-        self.qc.load()
-
-        for vm in vms:
-            if isinstance(vm, str):
-                vm = self.qc.get_vm_by_name(vm)
-            else:
-                vm = self.qc[vm.qid]
-            try:
-                vm.remove_from_disk()
-            except OSError:
-                pass
-            self.qc.pop(vm.qid)
-        self.qc.save()
-        self.qc.unlock_db()
-
-    def tearDown(self):
-        vmlist = [vm for vm in self.qc.values() if vm.name.startswith(
-            VM_PREFIX)]
-        self.remove_vms(vmlist)
-
-    def test_create(self):
-        self.qc.lock_db_for_writing()
-        self.qc.load()
-
-        vmname = VM_PREFIX + "appvm"
-        vm = self.qc.add_new_vm("QubesAppVm", name=vmname,
-                                template=self.qc.get_default_template())
-        self.qc.save()
-        self.qc.unlock_db()
         self.assertIsNotNone(vm)
         self.assertEqual(vm.name, vmname)
         self.assertEqual(vm.template, self.qc.get_default_template())
         vm.create_on_disk(verbose=False)
-        try:
+
+        with self.assertNotRaises(qubes.qubes.QubesException):
             vm.verify_files()
-        except QubesException:
-            self.fail("verify_files() failed")
 
-    # Bug: #906
-    def test_db_locking(self):
-        def create_vm(name):
-            qc = QubesVmCollection()
-            qc.lock_db_for_writing()
-            qc.load()
-            time.sleep(1)
-            vmname = VM_PREFIX + name
-            qc.add_new_vm("QubesAppVm", name=vmname, template=qc.get_default_template())
-            qc.save()
-            qc.unlock_db()
-        t = multiprocessing.Process(target=create_vm, args=("test1",))
-        t.start()
-        create_vm("test2")
-        t.join()
-        self.qc.lock_db_for_reading()
-        self.qc.load()
-        self.qc.unlock_db()
-        self.assertIsNotNone(self.qc.get_vm_by_name(VM_PREFIX + "test1"))
-        self.assertIsNotNone(self.qc.get_vm_by_name(VM_PREFIX + "test2"))
 
-class VmPropTests(unittest.TestCase):
+class TC_01_Properties(qubes.tests.SystemTestsMixin, unittest.TestCase):
     def setUp(self):
-        self.qc = QubesVmCollection()
-        self.qc.lock_db_for_writing()
-        self.qc.load()
-        self.vmname = VM_PREFIX + "appvm"
-        self.vm = self.qc.add_new_vm("QubesAppVm", name=self.vmname,
-                                     template=self.qc.get_default_template())
-        self.qc.save()
+        super(TC_01_Properties, self).setUp()
+        self.vmname = self.make_vm_name('appvm')
+        self.vm = self.qc.add_new_vm('QubesAppVm',
+            name=self.vmname, template=self.qc.get_default_template())
         self.vm.create_on_disk(verbose=False)
-        # WARNING: lock remains taken
 
-    def remove_vms(self, vms):
-        for vm in vms:
-            if isinstance(vm, str):
-                vm = self.qc.get_vm_by_name(vm)
-            else:
-                vm = self.qc[vm.qid]
-            vm.remove_from_disk()
-            self.qc.pop(vm.qid)
+    def test_000_rename(self):
+        newname = self.make_vm_name('newname')
 
-    def tearDown(self):
-        # WARNING: lock still taken in setUp()
-        vmlist = [vm for vm in self.qc.values() if vm.name.startswith(
-            VM_PREFIX)]
-        self.remove_vms(vmlist)
-        self.qc.save()
-        self.qc.unlock_db()
-
-    def test_rename(self):
         self.assertEqual(self.vm.name, self.vmname)
-        newname = VM_PREFIX + "newname"
+
         #TODO: change to setting property when implemented
         self.vm.set_name(newname)
         self.assertEqual(self.vm.name, newname)
         self.assertEqual(self.vm.dir_path,
-                         os.path.join(system_path['qubes_appvms_dir'], newname))
+            os.path.join(system_path['qubes_appvms_dir'], newname))
         self.assertEqual(self.vm.conf_file,
-                         os.path.join(self.vm.dir_path, newname + '.conf'))
+            os.path.join(self.vm.dir_path, newname + '.conf'))
         self.assertTrue(os.path.exists(
             os.path.join(self.vm.dir_path, "apps", newname + "-vm.directory")))
         # FIXME: set whitelisted-appmenus.list first
@@ -143,13 +76,15 @@ class VmPropTests(unittest.TestCase):
             os.path.join(self.vm.dir_path, "apps", newname + "-firefox.desktop")))
         self.assertTrue(os.path.exists(
             os.path.join(os.getenv("HOME"), ".local/share/desktop-directories",
-                         newname + "-vm.directory")))
+                newname + "-vm.directory")))
         self.assertTrue(os.path.exists(
             os.path.join(os.getenv("HOME"), ".local/share/applications",
-                         newname + "-firefox.desktop")))
+                newname + "-firefox.desktop")))
         self.assertFalse(os.path.exists(
             os.path.join(os.getenv("HOME"), ".local/share/desktop-directories",
-                         self.vmname + "-vm.directory")))
+                self.vmname + "-vm.directory")))
         self.assertFalse(os.path.exists(
             os.path.join(os.getenv("HOME"), ".local/share/applications",
-                         self.vmname + "-firefox.desktop")))
+                self.vmname + "-firefox.desktop")))
+
+# vim: ts=4 sw=4 et
