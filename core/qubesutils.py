@@ -737,7 +737,7 @@ class QubesWatch(object):
         self.block_callback = callback
 
     def setup_meminfo_watch(self, callback):
-        raise NotImplemented
+        raise NotImplementedError
 
     def setup_domain_watch(self, callback):
         self.domain_callback = callback
