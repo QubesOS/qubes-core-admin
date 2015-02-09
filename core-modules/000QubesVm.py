@@ -1644,7 +1644,7 @@ class QubesVm(object):
         p.communicate(input=self.default_user)
 
     def start_guid(self, verbose = True, notify_function = None,
-            extra_guid_args=[], before_qrexec=False):
+            extra_guid_args=None, before_qrexec=False):
         if verbose:
             print >> sys.stderr, "--> Starting Qubes GUId..."
         xid = self.get_xid()
@@ -1654,7 +1654,8 @@ class QubesVm(object):
             "-c", self.label.color,
             "-i", self.label.icon_path,
             "-l", str(self.label.index)]
-        guid_cmd += extra_guid_args
+        if extra_guid_args is not None:
+            guid_cmd += extra_guid_args
         if self.debug:
             guid_cmd += ['-v', '-v']
         elif not verbose:
