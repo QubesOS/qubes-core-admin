@@ -211,42 +211,41 @@ class QubesHost(object):
         return self._no_cpus
 
     # TODO
-    def get_free_xen_memory(self):
-        ret = self.physinfo['free_memory']
-        return long(ret)
-
-    # TODO
-    def measure_cpu_usage(self, previous=None, previous_time = None,
+    def measure_cpu_usage(self, qvmc, previous=None, previous_time = None,
             wait_time=1):
         """measure cpu usage for all domains at once"""
         if previous is None:
             previous_time = time.time()
             previous = {}
-            info = vmm.xc.domain_getinfo(0, qubes_max_qid)
-            for vm in info:
-                previous[vm['domid']] = {}
-                previous[vm['domid']]['cpu_time'] = (
-                        vm['cpu_time'] / vm['online_vcpus'])
-                previous[vm['domid']]['cpu_usage'] = 0
+            for vm in qvmc.values():
+                if not vm.is_running():
+                    continue
+                cputime = vm.get_cputime()
+                previous[vm.xid] = {}
+                previous[vm.xid]['cpu_time'] = (
+                        cputime / vm.vcpus)
+                previous[vm.xid]['cpu_usage'] = 0
             time.sleep(wait_time)
 
         current_time = time.time()
         current = {}
-        info = vmm.xc.domain_getinfo(0, qubes_max_qid)
-        for vm in info:
-            current[vm['domid']] = {}
-            current[vm['domid']]['cpu_time'] = (
-                    vm['cpu_time'] / max(vm['online_vcpus'], 1))
-            if vm['domid'] in previous.keys():
-                current[vm['domid']]['cpu_usage'] = (
-                    float(current[vm['domid']]['cpu_time'] -
-                        previous[vm['domid']]['cpu_time']) /
+        for vm in qvmc.values():
+            if not vm.is_running():
+                continue
+            cputime = vm.get_cputime()
+            current[vm.xid] = {}
+            current[vm.xid]['cpu_time'] = (
+                    cputime / max(vm.vcpus, 1))
+            if vm.xid in previous.keys():
+                current[vm.xid]['cpu_usage'] = (
+                    float(current[vm.xid]['cpu_time'] -
+                        previous[vm.xid]['cpu_time']) /
                     long(1000**3) / (current_time-previous_time) * 100)
-                if current[vm['domid']]['cpu_usage'] < 0:
+                if current[vm.xid]['cpu_usage'] < 0:
                     # VM has been rebooted
-                    current[vm['domid']]['cpu_usage'] = 0
+                    current[vm.xid]['cpu_usage'] = 0
             else:
-                current[vm['domid']]['cpu_usage'] = 0
+                current[vm.xid]['cpu_usage'] = 0
 
         return (current_time, current)
 

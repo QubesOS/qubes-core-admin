@@ -712,6 +712,18 @@ class QubesVm(object):
             return 0
         return self.libvirt_domain.info()[1]
 
+    def get_cputime(self):
+        if dry_run:
+            return 666
+
+        if self.libvirt_domain is None:
+            return 0
+
+        if not self.libvirt_domain.isActive():
+            return 0
+        return self.libvirt_domain.info()[4]
+
+
     def get_mem_static_max(self):
         if dry_run:
             return 666
@@ -723,7 +735,8 @@ class QubesVm(object):
 
     def get_prefmem(self):
         # TODO: qmemman is still xen specific
-        untrusted_meminfo_key = xs.read('', '/local/domain/%s/memory/meminfo'
+        untrusted_meminfo_key = vmm.xs.read('',
+                                            '/local/domain/%s/memory/meminfo'
                                             % self.xid)
         if untrusted_meminfo_key is None or untrusted_meminfo_key == '':
             return 0
