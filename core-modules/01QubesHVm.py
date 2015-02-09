@@ -380,15 +380,20 @@ class QubesHVm(QubesVm):
             else:
                 raise
 
-    def start_stubdom_guid(self):
-        cmdline = [system_path["qubes_guid_path"],
-                "-d", str(self.stubdom_xid),
-                "-t", str(self.xid),
-                "-N", self.name,
-                "-c", self.label.color,
-                "-i", self.label.icon_path,
-                "-l", str(self.label.index)]
-        retcode = subprocess.call (cmdline)
+    def start_stubdom_guid(self, verbose=True):
+
+        guid_cmd = [system_path["qubes_guid_path"],
+                    "-d", str(self.stubdom_xid),
+                    "-t", str(self.xid),
+                    "-N", self.name,
+                    "-c", self.label.color,
+                    "-i", self.label.icon_path,
+                    "-l", str(self.label.index)]
+        if self.debug:
+            guid_cmd += ['-v', '-v']
+        elif not verbose:
+            guid_cmd += ['-q']
+        retcode = subprocess.call (guid_cmd)
         if (retcode != 0) :
             raise QubesException("Cannot start qubes-guid!")
 
@@ -407,7 +412,7 @@ class QubesHVm(QubesVm):
         elif before_qrexec and (not self.guiagent_installed or self.debug):
             if verbose:
                 print >> sys.stderr, "--> Starting Qubes GUId (full screen)..."
-            self.start_stubdom_guid()
+            self.start_stubdom_guid(verbose=verbose)
 
     def start_qrexec_daemon(self, **kwargs):
         if not self.qrexec_installed:
