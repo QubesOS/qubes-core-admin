@@ -48,11 +48,6 @@ class QubesDisposableVm(QubesVm):
         attrs_config = super(QubesDisposableVm, self).get_attrs_config()
 
         attrs_config['name']['eval'] = '"disp%d" % self._qid if value is None else value'
-        attrs_config.pop('kernel')
-        attrs_config.pop('kernels_dir')
-        attrs_config.pop('kernelopts')
-        attrs_config.pop('uses_default_kernel')
-        attrs_config.pop('uses_default_kernelopts')
 
         # New attributes
         attrs_config['dispid'] = { 'func': lambda x: self._qid if x is None else int(x),
