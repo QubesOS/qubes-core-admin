@@ -326,6 +326,8 @@ class VmRunningTests(unittest.TestCase):
                                       "copy was "
                                      "denied")
 
+    @unittest.skip("Xen gntalloc driver crashes when page is mapped in the "
+                   "same domain")
     def test_120_qrexec_filecopy_self(self):
         self.testvm1.start()
         p = self.testvm1.run("qvm-copy-to-vm %s /etc/passwd" %
