@@ -31,6 +31,7 @@ import sys
 import re
 import shutil
 import stat
+from xml.etree import ElementTree
 
 from qubes.qubes import QubesVm,register_qubes_vm_class,vmm,dry_run
 from qubes.qubes import system_path,defaults
@@ -371,7 +372,10 @@ class QubesHVm(QubesVm):
                 kwargs['mem_required'] = (self.memory + 32) * 1024 * 1024
             return super(QubesHVm, self).start(*args, **kwargs)
         except QubesException as e:
-            if xc.physinfo()['virt_caps'].count('hvm') == 0:
+            capabilities = vmm.libvirt_conn.getCapabilities()
+            tree = ElementTree.fromstring(capabilities)
+            os_types = tree.findall('./guest/os_type')
+            if 'hvm' not in map(lambda x: x.text, os_types):
                 raise QubesException("Cannot start HVM without VT-x/AMD-v enabled")
             else:
                 raise
