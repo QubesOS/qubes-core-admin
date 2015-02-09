@@ -29,7 +29,8 @@ import sys
 import re
 
 from qubes.storage import QubesVmStorage
-from qubes.qubes import QubesException
+from qubes.qubes import QubesException, vm_files
+
 
 class QubesXenVmStorage(QubesVmStorage):
     """
@@ -43,6 +44,11 @@ class QubesXenVmStorage(QubesVmStorage):
         self.private_dev = "xvdb"
         self.volatile_dev = "xvdc"
         self.modules_dev = "xvdd"
+
+        if self.vm.is_template():
+            self.rootcow_img = os.path.join(self.vmdir, vm_files["rootcow_img"])
+        else:
+            self.rootcow_img = None
 
     def _format_disk_dev(self, path, script, vdev, rw=True, type="disk", domain=None):
         if path is None:
@@ -134,6 +140,16 @@ class QubesXenVmStorage(QubesVmStorage):
             f_root = open (self.root_img, "a+b")
             f_root.truncate (self.root_img_size)
             f_root.close ()
+        if self.vm.is_template():
+            self.commit_template_changes()
+
+    def rename(self, old_name, new_name):
+        super(QubesXenVmStorage, self).rename(old_name, new_name)
+
+        old_dirpath = os.path.join(os.path.dirname(self.vmdir), old_name)
+        if self.rootcow_img:
+            self.rootcow_img = self.rootcow_img.replace(old_dirpath,
+                                                        self.vmdir)
 
     def resize_private_img(self, size):
         f_private = open (self.private_img, "a+b")
@@ -154,11 +170,11 @@ class QubesXenVmStorage(QubesVmStorage):
     def commit_template_changes(self):
         assert self.vm.is_template()
         # TODO: move rootcow_img to this class; the same for vm.is_outdated()
-        if os.path.exists (self.vm.rootcow_img):
-           os.rename (self.vm.rootcow_img, self.vm.rootcow_img + '.old')
+        if os.path.exists (self.rootcow_img):
+           os.rename (self.rootcow_img, self.rootcow_img + '.old')
 
         old_umask = os.umask(002)
-        f_cow = open (self.vm.rootcow_img, "w")
+        f_cow = open (self.rootcow_img, "w")
         f_root = open (self.root_img, "r")
         f_root.seek(0, os.SEEK_END)
         f_cow.truncate (f_root.tell()) # make empty sparse file of the same size as root.img

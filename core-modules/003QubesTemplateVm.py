@@ -45,16 +45,6 @@ class QubesTemplateVm(QubesVm):
                 os.path.join(system_path["qubes_templates_dir"], self.name)
         attrs_config['label']['default'] = defaults["template_label"]
 
-        # New attributes
-
-        # Image for template changes
-        attrs_config['rootcow_img'] = {
-            'func': lambda x: os.path.join(self.dir_path, vm_files["rootcow_img"]) }
-        # Clean image for root-cow and swap (AppVM side)
-        # TODO: not used anymore - clean up when all references removed
-        attrs_config['clean_volatile_img'] = {
-            'func': lambda x: os.path.join(self.dir_path, vm_files["clean_volatile_img"]) }
-
         return attrs_config
 
     def __init__(self, **kwargs):
@@ -77,6 +67,9 @@ class QubesTemplateVm(QubesVm):
     def get_firewall_defaults(self):
         return { "rules": list(), "allow": False, "allowDns": False, "allowIcmp": False, "allowYumProxy": True }
 
+    def rootcow_img(self):
+        return self.storage.rootcow_img
+
     def clone_disk_files(self, src_vm, verbose):
         if dry_run:
             return
@@ -85,14 +78,6 @@ class QubesTemplateVm(QubesVm):
 
         # Create root-cow.img
         self.commit_changes(verbose=verbose)
-
-    def post_rename(self, old_name):
-        super(QubesTemplateVm, self).post_rename(old_name)
-
-        old_dirpath = os.path.join(os.path.dirname(self.dir_path), old_name)
-        # TODO: clean_volatile_img not used anymore
-        self.clean_volatile_img = self.clean_volatile_img.replace(old_dirpath, self.dir_path)
-        self.rootcow_img = self.rootcow_img.replace(old_dirpath, self.dir_path)
 
     def commit_changes (self, verbose = False):
 

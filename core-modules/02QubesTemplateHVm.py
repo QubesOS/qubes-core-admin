@@ -70,6 +70,9 @@ class QubesTemplateHVm(QubesHVm):
     def is_appvm(self):
         return False
 
+    def rootcow_img(self):
+        return self.storage.rootcow_img
+
     @classmethod
     def is_template_compatible(cls, template):
         if template is None:

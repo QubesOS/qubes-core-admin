@@ -87,7 +87,6 @@ vm_files = {
     'root_img': 'root.img',
     'rootcow_img': 'root-cow.img',
     'volatile_img': 'volatile.img',
-    'clean_volatile_img': 'clean-volatile.img.tar',
     'private_img': 'private.img',
     'kernels_subdir': 'kernels',
     'firewall_conf': 'firewall.xml',

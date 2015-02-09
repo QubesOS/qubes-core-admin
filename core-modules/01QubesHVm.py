@@ -198,6 +198,9 @@ class QubesHVm(QubesVm):
         if dry_run:
             return
 
+        if source_template is None:
+            source_template = self.template
+
         # create empty disk
         self.storage.private_img_size = defaults["hvm_private_img_size"]
         self.storage.root_img_size = defaults["hvm_disk_size"]
