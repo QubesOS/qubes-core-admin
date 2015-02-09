@@ -245,6 +245,53 @@ class VmRunningTests(unittest.TestCase):
         if result.value == 1:
             self.fail("Received data differs from what was expected")
 
+    def test_060_qrexec_exit_code_dom0(self):
+        self.testvm1.start()
+
+        p = self.testvm1.run("exit 0", passio_popen=True)
+        p.wait()
+        self.assertEqual(0, p.returncode)
+
+        p = self.testvm1.run("exit 3", passio_popen=True)
+        p.wait()
+        self.assertEqual(3, p.returncode)
+
+    @unittest.expectedFailure
+    def test_065_qrexec_exit_code_vm(self):
+        self.testvm1.start()
+        self.testvm2.start()
+
+        policy = open("/etc/qubes-rpc/policy/test.Retcode", "w")
+        policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
+        policy.close()
+        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.Retcode")
+
+        p = self.testvm2.run("cat > /etc/qubes-rpc/test.Retcode", user="root",
+                             passio_popen=True)
+        p.stdin.write("exit 0")
+        p.stdin.close()
+        p.wait()
+
+        p = self.testvm1.run("/usr/lib/qubes/qrexec-client-vm %s test.Retcode "
+                             "/bin/sh -c 'cat >/dev/null'; echo $?"
+                             % self.testvm1.name,
+                             passio_popen=True)
+        (stdout, stderr) = p.communicate()
+        self.assertEqual(stdout, "0\n")
+
+        p = self.testvm2.run("cat > /etc/qubes-rpc/test.Retcode", user="root",
+                             passio_popen=True)
+        p.stdin.write("exit 3")
+        p.stdin.close()
+        p.wait()
+
+        p = self.testvm1.run("/usr/lib/qubes/qrexec-client-vm %s test.Retcode "
+                             "/bin/sh -c 'cat >/dev/null'; echo $?"
+                             % self.testvm1.name,
+                             passio_popen=True)
+        (stdout, stderr) = p.communicate()
+        self.assertEqual(stdout, "3\n")
+
     def test_100_qrexec_filecopy(self):
         self.testvm1.start()
         self.testvm2.start()
@@ -270,12 +317,13 @@ class VmRunningTests(unittest.TestCase):
         subprocess.check_call(['xdotool', 'search', '--sync', '--name', 'Question',
                              'key', 'n'])
         p.wait()
-        self.assertEqual(p.returncode, 1, "qvm-copy-to-vm unexpectedly "
+        self.assertNotEqual(p.returncode, 0, "qvm-copy-to-vm unexpectedly "
                                           "succeeded")
         retcode = self.testvm1.run("ls /home/user/QubesIncoming/%s" %
                                   self.testvm1.name, wait=True,
                                   ignore_stderr=True)
-        self.assertEqual(retcode, 2, "QubesIncoming exists although file copy was "
+        self.assertNotEqual(retcode, 0, "QubesIncoming exists although file "
+                                      "copy was "
                                      "denied")
 
     def test_120_qrexec_filecopy_self(self):
