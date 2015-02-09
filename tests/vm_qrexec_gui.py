@@ -25,7 +25,7 @@ import subprocess
 import unittest
 import time
 
-from qubes.qubes import QubesVmCollection, defaults
+from qubes.qubes import QubesVmCollection, defaults, QubesException
 
 
 VM_PREFIX = "test-"
@@ -340,6 +340,109 @@ class VmRunningTests(unittest.TestCase):
         retcode = self.testvm1.run("diff /etc/passwd "
                          "/home/user/QubesIncoming/%s/passwd" % self.testvm1.name, wait=True)
         self.assertEqual(retcode, 0, "file differs")
+
+class HVMTests(unittest.TestCase):
+    # TODO: test with some OS inside
+    # TODO: windows tools tests
+
+    def setUp(self):
+        self.qc = QubesVmCollection()
+
+    def remove_vms(self, vms):
+        self.qc.lock_db_for_writing()
+        self.qc.load()
+
+        for vm in vms:
+            if isinstance(vm, str):
+                vm = self.qc.get_vm_by_name(vm)
+            else:
+                vm = self.qc[vm.qid]
+            if vm.is_running():
+                try:
+                    vm.force_shutdown()
+                except:
+                    pass
+            try:
+                vm.remove_from_disk()
+            except OSError:
+                pass
+            self.qc.pop(vm.qid)
+        self.qc.save()
+        self.qc.unlock_db()
+
+    def tearDown(self):
+        vmlist = [vm for vm in self.qc.values() if vm.name.startswith(
+            VM_PREFIX)]
+        self.remove_vms(vmlist)
+
+    def test_000_create_start(self):
+        self.qc.lock_db_for_writing()
+        try:
+            self.qc.load()
+            self.testvm1 = self.qc.add_new_vm("QubesHVm",
+                                             name="%svm1" % VM_PREFIX)
+            self.testvm1.create_on_disk(verbose=False)
+            self.qc.save()
+        finally:
+            self.qc.unlock_db()
+        self.testvm1.start()
+        self.assertEquals(self.testvm1.get_power_state(), "Running")
+
+    def test_010_create_start_template(self):
+        self.qc.lock_db_for_writing()
+        try:
+            self.qc.load()
+            self.templatevm = self.qc.add_new_vm("QubesTemplateHVm",
+                                             name="%stemplate" % VM_PREFIX)
+            self.templatevm.create_on_disk(verbose=False)
+            self.qc.save()
+        finally:
+            self.qc.unlock_db()
+
+        self.templatevm.start()
+        self.assertEquals(self.templatevm.get_power_state(), "Running")
+
+    def test_020_create_start_template_vm(self):
+        self.qc.lock_db_for_writing()
+        try:
+            self.qc.load()
+            self.templatevm = self.qc.add_new_vm("QubesTemplateHVm",
+                                             name="%stemplate" % VM_PREFIX)
+            self.templatevm.create_on_disk(verbose=False)
+            self.testvm2 = self.qc.add_new_vm("QubesHVm",
+                                             name="%svm2" % VM_PREFIX,
+                                             template=self.templatevm)
+            self.testvm2.create_on_disk(verbose=False)
+            self.qc.save()
+        finally:
+            self.qc.unlock_db()
+
+        self.testvm2.start()
+        self.assertEquals(self.testvm2.get_power_state(), "Running")
+
+    def test_030_prevent_simultaneus_start(self):
+        self.qc.lock_db_for_writing()
+        try:
+            self.qc.load()
+            self.templatevm = self.qc.add_new_vm("QubesTemplateHVm",
+                                             name="%stemplate" % VM_PREFIX)
+            self.templatevm.create_on_disk(verbose=False)
+            self.testvm2 = self.qc.add_new_vm("QubesHVm",
+                                             name="%svm2" % VM_PREFIX,
+                                             template=self.templatevm)
+            self.testvm2.create_on_disk(verbose=False)
+            self.qc.save()
+        finally:
+            self.qc.unlock_db()
+
+        self.templatevm.start()
+        self.assertEquals(self.templatevm.get_power_state(), "Running")
+        self.assertRaises(QubesException, self.testvm2.start)
+        self.templatevm.force_shutdown()
+        self.testvm2.start()
+        self.assertEquals(self.testvm2.get_power_state(), "Running")
+        self.assertRaises(QubesException, self.templatevm.start)
+
 
 class DispVmTests(unittest.TestCase):
     def setUp(self):
