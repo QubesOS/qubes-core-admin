@@ -498,12 +498,12 @@ class DispVmTests(unittest.TestCase):
 
         time.sleep(0.5)
         subprocess.check_call(['xdotool', 'search', '--name', window_title,
-                               'windowactivate', 'type', 'test line 2\n'])
+                               'windowactivate', 'type', 'test test 2\n'])
         subprocess.check_call(['xdotool', 'search', '--name', window_title,
                                'key', 'ctrl+s', 'ctrl+q'])
         p.wait()
         p = self.testvm1.run("cat /home/user/test.txt",
                          passio_popen=True)
         (test_txt_content, _) = p.communicate()
-        self.assertEqual(test_txt_content, "test line 2\ntest1\n")
+        self.assertEqual(test_txt_content, "test test 2\ntest1\n")
 
