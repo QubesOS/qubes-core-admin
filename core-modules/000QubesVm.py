@@ -1727,25 +1727,25 @@ class QubesVm(object):
         self.libvirt_domain.destroy()
 
     def suspend(self):
-        # TODO!!!
         if dry_run:
             return
 
-        if not self.is_running() and not self.is_paused():
-            raise QubesException ("VM already stopped!")
+        if not self.is_running() and not self.is_paused() or \
+                self.get_power_state() == "Suspended":
+            raise QubesException ("VM not running!")
 
         if len (self.pcidevs) > 0:
-            raise NotImplementedError
+            self.libvirt_domain.pMSuspendForDuration(
+                libvirt.VIR_NODE_SUSPEND_TARGET_MEM, 0, 0)
         else:
             self.pause()
 
     def resume(self):
-        # TODO!!!
         if dry_run:
             return
 
         if self.get_power_state() == "Suspended":
-            raise NotImplementedError
+            self.libvirt_domain.pMWakeup()
         else:
             self.unpause()
 
