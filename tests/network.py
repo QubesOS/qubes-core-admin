@@ -34,7 +34,7 @@ from qubes.qubes import QubesVmCollection, defaults
 import qubes.tests
 
 
-class VmNetworkingTests(qubes.tests.SystemTestsMixin, unittest.TestCase):
+class VmNetworkingTests(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     test_ip = '192.168.123.45'
     test_name = 'test.example.com'
 

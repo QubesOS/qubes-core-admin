@@ -35,7 +35,7 @@ import qubes.tests
 
 TEST_DATA = "0123456789" * 1024
 
-class TC_00_AppVM(qubes.tests.SystemTestsMixin, unittest.TestCase):
+class TC_00_AppVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     def setUp(self):
         super(TC_00_AppVM, self).setUp()
         self.testvm1 = self.qc.add_new_vm("QubesAppVm",
@@ -327,7 +327,7 @@ class TC_00_AppVM(qubes.tests.SystemTestsMixin, unittest.TestCase):
         self.assertEqual(retcode, 0, "file differs")
 
 
-class TC_10_HVM(qubes.tests.SystemTestsMixin, unittest.TestCase):
+class TC_10_HVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     # TODO: test with some OS inside
     # TODO: windows tools tests
 
@@ -379,7 +379,7 @@ class TC_10_HVM(qubes.tests.SystemTestsMixin, unittest.TestCase):
         self.assertRaises(QubesException, self.templatevm.start)
 
 
-class TC_20_DispVM(qubes.tests.SystemTestsMixin, unittest.TestCase):
+class TC_20_DispVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     def test_000_prepare_dvm(self):
         self.qc.unlock_db()
         retcode = subprocess.call(['/usr/bin/qvm-create-default-dvm',

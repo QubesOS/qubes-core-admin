@@ -24,16 +24,64 @@
 #
 
 import multiprocessing
+import logging
 import os
 import shutil
+import subprocess
 import unittest
 
-import libvirt
+import lxml.etree
 
 import qubes.backup
 import qubes.qubes
 
 VMPREFIX = 'test-'
+
+
+#: :py:obj:`True` if running in dom0, :py:obj:`False` otherwise
+in_dom0 = False
+
+#: :py:obj:`False` if outside of git repo,
+#: path to root of the directory otherwise
+in_git = False
+
+try:
+    import libvirt
+    libvirt.openReadOnly(qubes.qubes.defaults['libvirt_uri']).close()
+    in_dom0 = True
+except libvirt.libvirtError:
+    pass
+
+try:
+    in_git = subprocess.check_output(
+        ['git', 'rev-parse', '--show-toplevel']).strip()
+except subprocess.CalledProcessError:
+    # git returned nonzero, we are outside git repo
+    pass
+except OSError:
+    # command not found; let's assume we're outside
+    pass
+
+
+def skipUnlessDom0(test_item):
+    '''Decorator that skips test outside dom0.
+
+    Some tests (especially integration tests) have to be run in more or less
+    working dom0. This is checked by connecting to libvirt.
+    ''' # pylint: disable=invalid-name
+
+    return unittest.skipUnless(in_dom0, 'outside dom0')(test_item)
+
+
+def skipUnlessGit(test_item):
+    '''Decorator that skips test outside git repo.
+
+    There are very few tests that an be run only in git. One example is
+    correctness of example code that won't get included in RPM.
+    ''' # pylint: disable=invalid-name
+
+    return unittest.skipUnless(in_git, 'outside git tree')(test_item)
+
 
 class _AssertNotRaisesContext(object):
     """A context manager used to implement TestCase.assertNotRaises methods.
@@ -67,6 +115,70 @@ class _AssertNotRaisesContext(object):
         self.exception = exc_value # store for later retrieval
 
 
+class QubesTestCase(unittest.TestCase):
+    '''Base class for Qubes unit tests.
+    '''
+
+    def __init__(self, *args, **kwargs):
+        super(QubesTestCase, self).__init__(*args, **kwargs)
+        self.log = logging.getLogger('{}.{}.{}'.format(
+            self.__class__.__module__,
+            self.__class__.__name__,
+            self._testMethodName))
+
+
+    def __str__(self):
+        return '{}/{}/{}'.format(
+            '.'.join(self.__class__.__module__.split('.')[2:]),
+            self.__class__.__name__,
+            self._testMethodName)
+
+
+    def assertNotRaises(self, excClass, callableObj=None, *args, **kwargs):
+        """Fail if an exception of class excClass is raised
+           by callableObj when invoked with arguments args and keyword
+           arguments kwargs. If a different type of exception is
+           raised, it will not be caught, and the test case will be
+           deemed to have suffered an error, exactly as for an
+           unexpected exception.
+
+           If called with callableObj omitted or None, will return a
+           context object used like this::
+
+                with self.assertRaises(SomeException):
+                    do_something()
+
+           The context manager keeps a reference to the exception as
+           the 'exception' attribute. This allows you to inspect the
+           exception after the assertion::
+
+               with self.assertRaises(SomeException) as cm:
+                   do_something()
+               the_exception = cm.exception
+               self.assertEqual(the_exception.error_code, 3)
+        """
+        context = _AssertNotRaisesContext(excClass, self)
+        if callableObj is None:
+            return context
+        with context:
+            callableObj(*args, **kwargs)
+
+
+    def assertXMLEqual(self, xml1, xml2):
+        '''Check for equality of two XML objects.
+
+        :param xml1: first element
+        :param xml2: second element
+        :type xml1: :py:class:`lxml.etree._Element`
+        :type xml2: :py:class:`lxml.etree._Element`
+        ''' # pylint: disable=invalid-name
+
+        self.assertEqual(xml1.tag, xml2.tag)
+        self.assertEqual(xml1.text, xml2.text)
+        self.assertItemsEqual(xml1.keys(), xml2.keys())
+        for key in xml1.keys():
+            self.assertEqual(xml1.get(key), xml2.get(key))
+
 
 class SystemTestsMixin(object):
     def setUp(self):
@@ -99,36 +211,6 @@ class SystemTestsMixin(object):
         del self.qc
 
         self.conn.close()
-
-
-    def assertNotRaises(self, excClass, callableObj=None, *args, **kwargs):
-        """Fail if an exception of class excClass is raised
-           by callableObj when invoked with arguments args and keyword
-           arguments kwargs. If a different type of exception is
-           raised, it will not be caught, and the test case will be
-           deemed to have suffered an error, exactly as for an
-           unexpected exception.
-
-           If called with callableObj omitted or None, will return a
-           context object used like this::
-
-                with self.assertRaises(SomeException):
-                    do_something()
-
-           The context manager keeps a reference to the exception as
-           the 'exception' attribute. This allows you to inspect the
-           exception after the assertion::
-
-               with self.assertRaises(SomeException) as cm:
-                   do_something()
-               the_exception = cm.exception
-               self.assertEqual(the_exception.error_code, 3)
-        """
-        context = _AssertNotRaisesContext(excClass, self)
-        if callableObj is None:
-            return context
-        with context:
-            callableObj(*args, **kwargs)
 
 
     def make_vm_name(self, name):
@@ -382,6 +464,9 @@ class BackupTestsMixin(SystemTestsMixin):
 
 
 def load_tests(loader, tests, pattern):
+    # discard any tests from this module, because it hosts base classes
+    tests = unittest.TestSuite()
+
     for modname in (
             'qubes.tests.basic',
             'qubes.tests.network',

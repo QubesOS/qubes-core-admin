@@ -31,7 +31,7 @@ import sys
 
 import qubes.tests
 
-class TC_00_Backup(qubes.tests.BackupTestsMixin, unittest.TestCase):
+class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
     def test_000_basic_backup(self):
         vms = self.create_backup_vms()
         self.make_backup(vms)

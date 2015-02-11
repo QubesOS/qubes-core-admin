@@ -29,7 +29,7 @@ import unittest
 import qubes.qubes
 import qubes.tests
 
-class TC_00_Regressions(qubes.tests.SystemTestsMixin, unittest.TestCase):
+class TC_00_Regressions(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     # Bug: #906
     def test_000_bug_906_db_locking(self):
         def create_vm(vmname):

@@ -24,7 +24,11 @@
 
 import curses
 import importlib
+import logging
+import logging.handlers
+import os
 import socket
+import subprocess
 import sys
 import unittest
 import unittest.signals
@@ -57,7 +61,7 @@ class CursesColor(dict):
         return ''
 
 
-class CursesTestResult(unittest.TestResult):
+class QubesTestResult(unittest.TestResult):
     '''A test result class that can print colourful text results to a stream.
 
     Used by TextTestRunner. This is a lightly rewritten unittest.TextTestResult.
@@ -67,7 +71,7 @@ class CursesTestResult(unittest.TestResult):
     separator2 = unittest.TextTestResult.separator2
 
     def __init__(self, stream, descriptions, verbosity):
-        super(CursesTestResult, self).__init__(stream, descriptions, verbosity)
+        super(QubesTestResult, self).__init__(stream, descriptions, verbosity)
         self.stream = stream
         self.showAll = verbosity > 1 # pylint: disable=invalid-name
         self.dots = verbosity == 1
@@ -75,6 +79,9 @@ class CursesTestResult(unittest.TestResult):
 
         self.color = CursesColor()
         self.hostname = socket.gethostname()
+
+        self.log = logging.getLogger('qubes.tests')
+
 
     def _fmtexc(self, err):
         if str(err[1]):
@@ -104,7 +111,8 @@ class CursesTestResult(unittest.TestResult):
             return teststr
 
     def startTest(self, test): # pylint: disable=invalid-name
-        super(CursesTestResult, self).startTest(test)
+        super(QubesTestResult, self).startTest(test)
+        test.log.critical('started')
         if self.showAll:
 #           if not qubes.tests.in_git:
             self.stream.write('{}: '.format(self.hostname))
@@ -113,7 +121,8 @@ class CursesTestResult(unittest.TestResult):
             self.stream.flush()
 
     def addSuccess(self, test): # pylint: disable=invalid-name
-        super(CursesTestResult, self).addSuccess(test)
+        super(QubesTestResult, self).addSuccess(test)
+        test.log.warning('ok')
         if self.showAll:
             self.stream.writeln('{color[green]}ok{color[normal]}'.format(
                 color=self.color))
@@ -122,7 +131,8 @@ class CursesTestResult(unittest.TestResult):
             self.stream.flush()
 
     def addError(self, test, err): # pylint: disable=invalid-name
-        super(CursesTestResult, self).addError(test, err)
+        super(QubesTestResult, self).addError(test, err)
+        test.log.critical('ERROR ({err[0].__name__}: {err[1]!r})'.format(err=err))
         if self.showAll:
             self.stream.writeln(
                 '{color[red]}{color[bold]}ERROR{color[normal]} ({})'.format(
@@ -134,7 +144,8 @@ class CursesTestResult(unittest.TestResult):
             self.stream.flush()
 
     def addFailure(self, test, err): # pylint: disable=invalid-name
-        super(CursesTestResult, self).addFailure(test, err)
+        super(QubesTestResult, self).addFailure(test, err)
+        test.log.error('FAIL ({err[0]!s}: {err[1]!r})'.format(err=err))
         if self.showAll:
             self.stream.writeln('{color[red]}FAIL{color[normal]}'.format(
                 color=self.color))
@@ -144,7 +155,8 @@ class CursesTestResult(unittest.TestResult):
             self.stream.flush()
 
     def addSkip(self, test, reason): # pylint: disable=invalid-name
-        super(CursesTestResult, self).addSkip(test, reason)
+        super(QubesTestResult, self).addSkip(test, reason)
+        test.log.warning('skipped ({})'.format(reason))
         if self.showAll:
             self.stream.writeln(
                 '{color[cyan]}skipped{color[normal]} ({})'.format(
@@ -155,7 +167,8 @@ class CursesTestResult(unittest.TestResult):
             self.stream.flush()
 
     def addExpectedFailure(self, test, err): # pylint: disable=invalid-name
-        super(CursesTestResult, self).addExpectedFailure(test, err)
+        super(QubesTestResult, self).addExpectedFailure(test, err)
+        test.log.warning('expected failure')
         if self.showAll:
             self.stream.writeln(
                 '{color[yellow]}expected failure{color[normal]}'.format(
@@ -166,7 +179,8 @@ class CursesTestResult(unittest.TestResult):
             self.stream.flush()
 
     def addUnexpectedSuccess(self, test): # pylint: disable=invalid-name
-        super(CursesTestResult, self).addUnexpectedSuccess(test)
+        super(QubesTestResult, self).addUnexpectedSuccess(test)
+        test.log.error('unexpected success')
         if self.showAll:
             self.stream.writeln(
                 '{color[yellow]}{color[bold]}unexpected success'
@@ -197,14 +211,36 @@ class CursesTestResult(unittest.TestResult):
 
 
 def main():
+    ha_file = logging.FileHandler(
+        os.path.join(os.environ['HOME'], 'qubes-tests.log'))
+    ha_file.setFormatter(
+        logging.Formatter('%(asctime)s %(name)s[%(process)d]: %(message)s'))
+    logging.root.addHandler(ha_file)
+
+    ha_syslog = logging.handlers.SysLogHandler('/dev/log')
+    ha_syslog.setFormatter(
+        logging.Formatter('%(name)s[%(process)d]: %(message)s'))
+
+    try:
+        subprocess.check_call(('sudo', 'chmod', '666', '/dev/kmsg'))
+    except subprocess.CalledProcessError:
+        pass
+    else:
+        ha_kmsg = logging.FileHandler('/dev/kmsg', 'w')
+        ha_kmsg.setFormatter(
+            logging.Formatter('%(name)s[%(process)d]: %(message)s'))
+        ha_kmsg.setLevel(logging.CRITICAL)
+        logging.root.addHandler(ha_kmsg)
+
     suite = unittest.TestSuite()
     loader = unittest.TestLoader()
     suite.addTests(loader.loadTestsFromName('qubes.tests'))
 
     runner = unittest.TextTestRunner(stream=sys.stdout, verbosity=2)
     unittest.signals.installHandler()
-    runner.resultclass = CursesTestResult
+    runner.resultclass = QubesTestResult
     return runner.run(suite).wasSuccessful()
+
 
 if __name__ == '__main__':
     sys.exit(not main())

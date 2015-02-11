@@ -34,7 +34,7 @@ from qubes.qubes import QubesVmCollection, QubesException, system_path
 import qubes.qubes
 import qubes.tests
 
-class TC_00_Basic(qubes.tests.SystemTestsMixin, unittest.TestCase):
+class TC_00_Basic(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     def test_000_create(self):
         vmname = self.make_vm_name('appvm')
         vm = self.qc.add_new_vm('QubesAppVm',
@@ -49,7 +49,7 @@ class TC_00_Basic(qubes.tests.SystemTestsMixin, unittest.TestCase):
             vm.verify_files()
 
 
-class TC_01_Properties(qubes.tests.SystemTestsMixin, unittest.TestCase):
+class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     def setUp(self):
         super(TC_01_Properties, self).setUp()
         self.vmname = self.make_vm_name('appvm')

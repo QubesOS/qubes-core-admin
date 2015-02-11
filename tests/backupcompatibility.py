@@ -107,7 +107,7 @@ QUBESXML_R1 = '''<?xml version='1.0' encoding='UTF-8'?>
 '''
 
 
-class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, unittest.TestCase):
+class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
     def create_whitelisted_appmenus(self, filename):
         f = open(filename, "w")
         f.write("gnome-terminal.desktop\n")
