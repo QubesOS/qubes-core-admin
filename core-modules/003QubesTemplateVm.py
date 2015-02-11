@@ -67,6 +67,7 @@ class QubesTemplateVm(QubesVm):
     def get_firewall_defaults(self):
         return { "rules": list(), "allow": False, "allowDns": False, "allowIcmp": False, "allowYumProxy": True }
 
+    @property
     def rootcow_img(self):
         return self.storage.rootcow_img
 
