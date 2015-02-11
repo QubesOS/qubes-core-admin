@@ -147,8 +147,8 @@ class SystemTestsMixin(object):
         try: vm.remove_from_disk()
         except: pass
 
-        try: vm.libvirtDomain.undefine()
-        except (AttributeError, libvirt.libvirtError): pass
+        try: vm.libvirt_domain.undefine()
+        except libvirt.libvirtError: pass
 
         self.qc.pop(vm.qid)
         self.qc.save()
@@ -337,7 +337,7 @@ class BackupTestsMixin(SystemTestsMixin):
         self.qc.load()
 
 
-    def restore_backup(self, source=None, appvm=None):
+    def restore_backup(self, source=None, appvm=None, options=None):
         if source is None:
             backupfile = os.path.join(self.backupdir,
                                       sorted(os.listdir(self.backupdir))[-1])
@@ -349,7 +349,8 @@ class BackupTestsMixin(SystemTestsMixin):
                 backupfile, "qubes",
                 host_collection=self.qc,
                 print_callback=self.print_callback,
-                appvm=appvm)
+                appvm=appvm,
+                options=options or {})
 
         if self.verbose:
             qubes.backup.backup_restore_print_summary(backup_info)
@@ -360,6 +361,9 @@ class BackupTestsMixin(SystemTestsMixin):
                 host_collection=self.qc,
                 print_callback=self.print_callback if self.verbose else None,
                 error_callback=self.error_callback)
+
+        # maybe someone forgot to call .save()
+        self.qc.load()
 
         errors = []
         while not self.error_detected.empty():

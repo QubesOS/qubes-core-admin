@@ -34,150 +34,21 @@ from qubes import backup
 import qubes.tests
 
 QUBESXML_R2B2 = '''
-<QubesVmCollection
-        updatevm="3" default_kernel="3.7.6-2" default_netvm="3"
-        default_fw_netvm="2" default_template="1" clockvm="2">
-    <QubesTemplateVm
-        installed_by_rpm="True" kernel="3.7.6-2" uses_default_kernelopts="True"
-        qid="1" include_in_backups="True" uses_default_kernel="True"
-        qrexec_timeout="60" internal="False" conf_file="fedora-18-x64.conf"
-        label="black" template_qid="none" kernelopts="" memory="400"
-        default_user="user" netvm_qid="3" uses_default_netvm="True"
-        volatile_img="volatile.img" services="{'meminfo-writer': True}"
-        maxmem="1535" pcidevs="[]" name="fedora-18-x64"
-        private_img="private.img" vcpus="2" root_img="root.img" debug="False"
-        dir_path="/var/lib/qubes/vm-templates/fedora-18-x64"/>
-    <QubesNetVm
-        installed_by_rpm="False" kernel="3.7.6-2"
-        uses_default_kernelopts="True" qid="2" include_in_backups="True"
-        uses_default_kernel="True" qrexec_timeout="60" internal="False"
-        conf_file="netvm.conf" label="red" template_qid="1"
-        kernelopts="iommu=soft swiotlb=4096" memory="200" default_user="user"
-        volatile_img="volatile.img" services="{'ntpd': False, 'meminfo-writer':
-        False}" maxmem="1535" pcidevs="['02:00.0', '03:00.0']" name="netvm"
-        netid="1" private_img="private.img" vcpus="2" root_img="root.img"
-        debug="False" dir_path="/var/lib/qubes/servicevms/netvm"/>
-    <QubesProxyVm
-        installed_by_rpm="False" kernel="3.7.6-2"
-        uses_default_kernelopts="True" qid="3" include_in_backups="True"
-        uses_default_kernel="True" qrexec_timeout="60" internal="False"
-        conf_file="firewallvm.conf" label="green" template_qid="1"
-        kernelopts="" memory="200" default_user="user" netvm_qid="2"
-        volatile_img="volatile.img" services="{'meminfo-writer': True}"
-        maxmem="1535" pcidevs="[]" name="firewallvm" netid="2"
-        private_img="private.img" vcpus="2" root_img="root.img" debug="False"
-        dir_path="/var/lib/qubes/servicevms/firewallvm"/>
-    <QubesAppVm installed_by_rpm="False"
-        kernel="3.7.6-2" uses_default_kernelopts="True" qid="4"
-        include_in_backups="True" uses_default_kernel="True"
-        qrexec_timeout="60" internal="True" conf_file="fedora-18-x64-dvm.conf"
-        label="gray" template_qid="1" kernelopts="" memory="400"
-        default_user="user" netvm_qid="3" uses_default_netvm="True"
-        volatile_img="volatile.img" services="{'meminfo-writer': True}"
-        maxmem="1535" pcidevs="[]" name="fedora-18-x64-dvm"
-        private_img="private.img" vcpus="1" root_img="root.img" debug="False"
-        dir_path="/var/lib/qubes/appvms/fedora-18-x64-dvm"/>
-    <QubesAppVm installed_by_rpm="False"
-        kernel="3.7.6-2" uses_default_kernelopts="True" qid="5"
-        include_in_backups="True" uses_default_kernel="True"
-        qrexec_timeout="60" internal="False" conf_file="test-work.conf"
-        label="green" template_qid="1" kernelopts="" memory="400"
-        default_user="user" netvm_qid="3" uses_default_netvm="True"
-        volatile_img="volatile.img" services="{'meminfo-writer': True}"
-        maxmem="1535" pcidevs="[]" name="test-work" private_img="private.img"
-        vcpus="2" root_img="root.img" debug="False"
-        dir_path="/var/lib/qubes/appvms/test-work"/>
-    <QubesAppVm installed_by_rpm="False"
-        kernel="3.7.6-2" uses_default_kernelopts="True" qid="6"
-        include_in_backups="True" uses_default_kernel="True"
-        qrexec_timeout="60" internal="False" conf_file="banking.conf"
-        label="green" template_qid="1" kernelopts="" memory="400"
-        default_user="user" netvm_qid="3" uses_default_netvm="True"
-        volatile_img="volatile.img" services="{'meminfo-writer': True}"
-        maxmem="1535" pcidevs="[]" name="banking" private_img="private.img"
-        vcpus="2" root_img="root.img" debug="False"
-        dir_path="/var/lib/qubes/appvms/banking"/>
-    <QubesAppVm installed_by_rpm="False"
-        kernel="3.7.6-2" uses_default_kernelopts="True" qid="7"
-        include_in_backups="True" uses_default_kernel="True"
-        qrexec_timeout="60" internal="False" conf_file="personal.conf"
-        label="yellow" template_qid="1" kernelopts="" memory="400"
-        default_user="user" netvm_qid="3" uses_default_netvm="True"
-        volatile_img="volatile.img" services="{'meminfo-writer': True}"
-        maxmem="1535" pcidevs="[]" name="personal" private_img="private.img"
-        vcpus="2" root_img="root.img" debug="False"
-        dir_path="/var/lib/qubes/appvms/personal"/>
-    <QubesAppVm installed_by_rpm="False"
-        kernel="3.7.6-2" uses_default_kernelopts="True" qid="8"
-        include_in_backups="True" uses_default_kernel="True"
-        qrexec_timeout="60" internal="False" conf_file="untrusted.conf"
-        label="red" template_qid="1" kernelopts="" memory="400"
-        default_user="user" netvm_qid="12" uses_default_netvm="False"
-        volatile_img="volatile.img" services="{'meminfo-writer': True}"
-        maxmem="1535" pcidevs="[]" name="untrusted" private_img="private.img"
-        vcpus="2" root_img="root.img" debug="False"
-        dir_path="/var/lib/qubes/appvms/untrusted"/>
-    <QubesTemplateVm installed_by_rpm="False"
-        kernel="3.7.6-2" uses_default_kernelopts="True" qid="9"
-        include_in_backups="True" uses_default_kernel="True"
-        qrexec_timeout="60" internal="False"
-        conf_file="test-template-clone.conf" label="green" template_qid="none"
-        kernelopts="" memory="400" default_user="user" netvm_qid="3"
-        uses_default_netvm="True" volatile_img="volatile.img"
-        services="{'meminfo-writer': True}" maxmem="1535" pcidevs="[]"
-        name="test-template-clone" private_img="private.img" vcpus="2"
-        root_img="root.img" debug="False"
-        dir_path="/var/lib/qubes/vm-templates/test-template-clone"/>
-    <QubesAppVm installed_by_rpm="False"
-        kernel="3.7.6-2" uses_default_kernelopts="True" qid="10"
-        include_in_backups="True" uses_default_kernel="True"
-        qrexec_timeout="60" internal="False"
-        conf_file="test-custom-template-appvm.conf" label="yellow"
-        template_qid="9" kernelopts="" memory="400" default_user="user"
-        netvm_qid="3" uses_default_netvm="True" volatile_img="volatile.img"
-        services="{'meminfo-writer': True}" maxmem="1535" pcidevs="[]"
-        name="test-custom-template-appvm" private_img="private.img" vcpus="2"
-        root_img="root.img" debug="False"
-        dir_path="/var/lib/qubes/appvms/test-custom-template-appvm"/>
-    <QubesAppVm installed_by_rpm="False"
-        kernel="3.7.6-2" uses_default_kernelopts="True" qid="11"
-        include_in_backups="True" uses_default_kernel="True"
-        qrexec_timeout="60" internal="False" conf_file="test-standalonevm.conf"
-        label="blue" template_qid="none" kernelopts="" memory="400"
-        default_user="user" netvm_qid="3" uses_default_netvm="True"
-        volatile_img="volatile.img" services="{'meminfo-writer': True}"
-        maxmem="1535" pcidevs="[]" name="test-standalonevm"
-        private_img="private.img" vcpus="2" root_img="root.img" debug="False"
-        dir_path="/var/lib/qubes/appvms/test-standalonevm"/>
-    <QubesProxyVm installed_by_rpm="False"
-        kernel="3.7.6-2" uses_default_kernelopts="True" qid="12"
-        include_in_backups="True" uses_default_kernel="True"
-        qrexec_timeout="60" internal="False" conf_file="test-testproxy.conf"
-        label="red" template_qid="1" kernelopts="" memory="200"
-        default_user="user" netvm_qid="3" volatile_img="volatile.img"
-        services="{'meminfo-writer': True}" maxmem="1535" pcidevs="[]"
-        name="test-testproxy" netid="3" private_img="private.img" vcpus="2"
-        root_img="root.img" debug="False"
-        dir_path="/var/lib/qubes/servicevms/test-testproxy"/>
-    <QubesProxyVm installed_by_rpm="False"
-        kernel="3.7.6-2" uses_default_kernelopts="True" qid="13"
-        include_in_backups="True" uses_default_kernel="True"
-        qrexec_timeout="60" internal="False" conf_file="testproxy2.conf"
-        label="red" template_qid="9" kernelopts="" memory="200"
-        default_user="user" netvm_qid="2" volatile_img="volatile.img"
-        services="{'meminfo-writer': True}" maxmem="1535" pcidevs="[]"
-        name="testproxy2" netid="4" private_img="private.img" vcpus="2"
-        root_img="root.img" debug="False"
-        dir_path="/var/lib/qubes/servicevms/testproxy2"/>
-    <QubesHVm installed_by_rpm="False"
-        netvm_qid="none" qid="14" include_in_backups="True"
-        timezone="localtime" qrexec_timeout="60" conf_file="test-testhvm.conf"
-        label="purple" template_qid="none" internal="False" memory="512"
-        uses_default_netvm="True" services="{'meminfo-writer': False}"
-        default_user="user" pcidevs="[]" name="test-testhvm"
-        qrexec_installed="False" private_img="private.img" drive="None"
-        vcpus="2" root_img="root.img" guiagent_installed="False" debug="False"
-        dir_path="/var/lib/qubes/appvms/test-testhvm"/>
+<QubesVmCollection updatevm="3" default_kernel="3.7.6-2" default_netvm="3" default_fw_netvm="2" default_template="1" clockvm="2">
+  <QubesTemplateVm installed_by_rpm="True" kernel="3.7.6-2" uses_default_kernelopts="True" qid="1" include_in_backups="True" uses_default_kernel="True" qrexec_timeout="60" internal="False" conf_file="fedora-18-x64.conf" label="black" template_qid="none" kernelopts="" memory="400" default_user="user" netvm_qid="3" uses_default_netvm="True" volatile_img="volatile.img" services="{'meminfo-writer': True}" maxmem="1535" pcidevs="[]" name="fedora-18-x64" private_img="private.img" vcpus="2" root_img="root.img" debug="False" dir_path="/var/lib/qubes/vm-templates/fedora-18-x64"/>
+  <QubesNetVm installed_by_rpm="False" kernel="3.7.6-2" uses_default_kernelopts="True" qid="2" include_in_backups="True" uses_default_kernel="True" qrexec_timeout="60" internal="False" conf_file="netvm.conf" label="red" template_qid="1" kernelopts="iommu=soft swiotlb=4096" memory="200" default_user="user" volatile_img="volatile.img" services="{'ntpd': False, 'meminfo-writer': False}" maxmem="1535" pcidevs="['02:00.0', '03:00.0']" name="netvm" netid="1" private_img="private.img" vcpus="2" root_img="root.img" debug="False" dir_path="/var/lib/qubes/servicevms/netvm"/>
+  <QubesProxyVm installed_by_rpm="False" kernel="3.7.6-2" uses_default_kernelopts="True" qid="3" include_in_backups="True" uses_default_kernel="True" qrexec_timeout="60" internal="False" conf_file="firewallvm.conf" label="green" template_qid="1" kernelopts="" memory="200" default_user="user" netvm_qid="2" volatile_img="volatile.img" services="{'meminfo-writer': True}" maxmem="1535" pcidevs="[]" name="firewallvm" netid="2" private_img="private.img" vcpus="2" root_img="root.img" debug="False" dir_path="/var/lib/qubes/servicevms/firewallvm"/>
+  <QubesAppVm installed_by_rpm="False" kernel="3.7.6-2" uses_default_kernelopts="True" qid="4" include_in_backups="True" uses_default_kernel="True" qrexec_timeout="60" internal="True" conf_file="fedora-18-x64-dvm.conf" label="gray" template_qid="1" kernelopts="" memory="400" default_user="user" netvm_qid="3" uses_default_netvm="True" volatile_img="volatile.img" services="{'meminfo-writer': True}" maxmem="1535" pcidevs="[]" name="fedora-18-x64-dvm" private_img="private.img" vcpus="1" root_img="root.img" debug="False" dir_path="/var/lib/qubes/appvms/fedora-18-x64-dvm"/>
+  <QubesAppVm installed_by_rpm="False" kernel="3.7.6-2" uses_default_kernelopts="True" qid="5" include_in_backups="True" uses_default_kernel="True" qrexec_timeout="60" internal="False" conf_file="test-work.conf" label="green" template_qid="1" kernelopts="" memory="400" default_user="user" netvm_qid="3" uses_default_netvm="True" volatile_img="volatile.img" services="{'meminfo-writer': True}" maxmem="1535" pcidevs="[]" name="test-work" private_img="private.img" vcpus="2" root_img="root.img" debug="False" dir_path="/var/lib/qubes/appvms/test-work"/>
+  <QubesAppVm installed_by_rpm="False" kernel="3.7.6-2" uses_default_kernelopts="True" qid="6" include_in_backups="True" uses_default_kernel="True" qrexec_timeout="60" internal="False" conf_file="banking.conf" label="green" template_qid="1" kernelopts="" memory="400" default_user="user" netvm_qid="3" uses_default_netvm="True" volatile_img="volatile.img" services="{'meminfo-writer': True}" maxmem="1535" pcidevs="[]" name="banking" private_img="private.img" vcpus="2" root_img="root.img" debug="False" dir_path="/var/lib/qubes/appvms/banking"/>
+  <QubesAppVm installed_by_rpm="False" kernel="3.7.6-2" uses_default_kernelopts="True" qid="7" include_in_backups="True" uses_default_kernel="True" qrexec_timeout="60" internal="False" conf_file="personal.conf" label="yellow" template_qid="1" kernelopts="" memory="400" default_user="user" netvm_qid="3" uses_default_netvm="True" volatile_img="volatile.img" services="{'meminfo-writer': True}" maxmem="1535" pcidevs="[]" name="personal" private_img="private.img" vcpus="2" root_img="root.img" debug="False" dir_path="/var/lib/qubes/appvms/personal"/>
+  <QubesAppVm installed_by_rpm="False" kernel="3.7.6-2" uses_default_kernelopts="True" qid="8" include_in_backups="True" uses_default_kernel="True" qrexec_timeout="60" internal="False" conf_file="untrusted.conf" label="red" template_qid="1" kernelopts="" memory="400" default_user="user" netvm_qid="12" uses_default_netvm="False" volatile_img="volatile.img" services="{'meminfo-writer': True}" maxmem="1535" pcidevs="[]" name="untrusted" private_img="private.img" vcpus="2" root_img="root.img" debug="False" dir_path="/var/lib/qubes/appvms/untrusted"/>
+  <QubesTemplateVm installed_by_rpm="False" kernel="3.7.6-2" uses_default_kernelopts="True" qid="9" include_in_backups="True" uses_default_kernel="True" qrexec_timeout="60" internal="False" conf_file="test-template-clone.conf" label="green" template_qid="none" kernelopts="" memory="400" default_user="user" netvm_qid="3" uses_default_netvm="True" volatile_img="volatile.img" services="{'meminfo-writer': True}" maxmem="1535" pcidevs="[]" name="test-template-clone" private_img="private.img" vcpus="2" root_img="root.img" debug="False" dir_path="/var/lib/qubes/vm-templates/test-template-clone"/>
+  <QubesAppVm installed_by_rpm="False" kernel="3.7.6-2" uses_default_kernelopts="True" qid="10" include_in_backups="True" uses_default_kernel="True" qrexec_timeout="60" internal="False" conf_file="test-custom-template-appvm.conf" label="yellow" template_qid="9" kernelopts="" memory="400" default_user="user" netvm_qid="3" uses_default_netvm="True" volatile_img="volatile.img" services="{'meminfo-writer': True}" maxmem="1535" pcidevs="[]" name="test-custom-template-appvm" private_img="private.img" vcpus="2" root_img="root.img" debug="False" dir_path="/var/lib/qubes/appvms/test-custom-template-appvm"/>
+  <QubesAppVm installed_by_rpm="False" kernel="3.7.6-2" uses_default_kernelopts="True" qid="11" include_in_backups="True" uses_default_kernel="True" qrexec_timeout="60" internal="False" conf_file="test-standalonevm.conf" label="blue" template_qid="none" kernelopts="" memory="400" default_user="user" netvm_qid="3" uses_default_netvm="True" volatile_img="volatile.img" services="{'meminfo-writer': True}" maxmem="1535" pcidevs="[]" name="test-standalonevm" private_img="private.img" vcpus="2" root_img="root.img" debug="False" dir_path="/var/lib/qubes/appvms/test-standalonevm"/>
+  <QubesProxyVm installed_by_rpm="False" kernel="3.7.6-2" uses_default_kernelopts="True" qid="12" include_in_backups="True" uses_default_kernel="True" qrexec_timeout="60" internal="False" conf_file="test-testproxy.conf" label="red" template_qid="1" kernelopts="" memory="200" default_user="user" netvm_qid="3" volatile_img="volatile.img" services="{'meminfo-writer': True}" maxmem="1535" pcidevs="[]" name="test-testproxy" netid="3" private_img="private.img" vcpus="2" root_img="root.img" debug="False" dir_path="/var/lib/qubes/servicevms/test-testproxy"/>
+  <QubesProxyVm installed_by_rpm="False" kernel="3.7.6-2" uses_default_kernelopts="True" qid="13" include_in_backups="True" uses_default_kernel="True" qrexec_timeout="60" internal="False" conf_file="testproxy2.conf" label="red" template_qid="9" kernelopts="" memory="200" default_user="user" netvm_qid="2" volatile_img="volatile.img" services="{'meminfo-writer': True}" maxmem="1535" pcidevs="[]" name="testproxy2" netid="4" private_img="private.img" vcpus="2" root_img="root.img" debug="False" dir_path="/var/lib/qubes/servicevms/testproxy2"/>
+  <QubesHVm installed_by_rpm="False" netvm_qid="none" qid="14" include_in_backups="True" timezone="localtime" qrexec_timeout="60" conf_file="test-testhvm.conf" label="purple" template_qid="none" internal="False" memory="512" uses_default_netvm="True" services="{'meminfo-writer': False}" default_user="user" pcidevs="[]" name="test-testhvm" qrexec_installed="False" private_img="private.img" drive="None" vcpus="2" root_img="root.img" guiagent_installed="False" debug="False" dir_path="/var/lib/qubes/appvms/test-testhvm"/>
 </QubesVmCollection>
 '''
 
@@ -232,142 +103,9 @@ Icon=%VMDIR%/icon.png
 '''
 
 QUBESXML_R1 = '''<?xml version='1.0' encoding='UTF-8'?>
-<QubesVmCollection
-        clockvm="2" default_fw_netvm="2" default_kernel="3.2.7-10"
-        default_netvm="3" default_template="1" updatevm="3"><QubesTemplateVm
-        conf_file="fedora-17-x64.conf" debug="False" default_user="user"
-        dir_path="/var/lib/qubes/vm-templates/fedora-17-x64"
-        include_in_backups="True" installed_by_rpm="True" internal="False"
-        kernel="3.2.7-10" kernelopts="" label="gray" maxmem="4063" memory="400"
-        name="fedora-17-x64" netvm_qid="3" pcidevs="[]"
-        private_img="private.img" qid="1" root_img="root.img"
-        services="{&apos;meminfo-writer&apos;: True}" template_qid="none"
-        uses_default_kernel="True" uses_default_kernelopts="True"
-        uses_default_netvm="True" vcpus="2" volatile_img="volatile.img"/>
-    <QubesNetVm
-        conf_file="netvm.conf" debug="False" default_user="user"
-        dir_path="/var/lib/qubes/servicevms/netvm" include_in_backups="True"
-        installed_by_rpm="False" internal="False" kernel="3.2.7-10"
-        kernelopts="iommu=soft swiotlb=2048" label="red" maxmem="4063"
-        memory="200" name="netvm" netid="1" pcidevs="[&apos;00:19.0&apos;,
-        &apos;03:00.0&apos;]" private_img="private.img" qid="2"
-        root_img="root.img" services="{&apos;ntpd&apos;: False,
-        &apos;meminfo-writer&apos;: False}" template_qid="1"
-        uses_default_kernel="True" uses_default_kernelopts="True" vcpus="2"
-        volatile_img="volatile.img"/>
-    <QubesProxyVm
-        conf_file="firewallvm.conf" debug="False" default_user="user"
-        dir_path="/var/lib/qubes/servicevms/firewallvm"
-        include_in_backups="True" installed_by_rpm="False" internal="False"
-        kernel="3.2.7-10" kernelopts="" label="green" maxmem="4063"
-        memory="200" name="firewallvm" netid="2" netvm_qid="2" pcidevs="[]"
-        private_img="private.img" qid="3" root_img="root.img"
-        services="{&apos;meminfo-writer&apos;: True}" template_qid="1"
-        uses_default_kernel="True" uses_default_kernelopts="True" vcpus="2"
-        volatile_img="volatile.img"/>
-    <QubesAppVm
-        conf_file="fedora-17-x64-dvm.conf" debug="False" default_user="user"
-        dir_path="/var/lib/qubes/appvms/fedora-17-x64-dvm"
-        include_in_backups="True" installed_by_rpm="False" internal="True"
-        kernel="3.2.7-10" kernelopts="" label="gray" maxmem="4063" memory="400"
-        name="fedora-17-x64-dvm" netvm_qid="3" pcidevs="[]"
-        private_img="private.img" qid="4" root_img="root.img"
-        services="{&apos;meminfo-writer&apos;: True}" template_qid="1"
-        uses_default_kernel="True" uses_default_kernelopts="True"
-        uses_default_netvm="True" vcpus="1" volatile_img="volatile.img"/>
-    <QubesAppVm
-        conf_file="test-work.conf" debug="False" default_user="user"
-        dir_path="/var/lib/qubes/appvms/test-work" include_in_backups="True"
-        installed_by_rpm="False" internal="False" kernel="3.2.7-10"
-        kernelopts="" label="green" maxmem="4063" memory="400" name="test-work"
-        netvm_qid="3" pcidevs="[]" private_img="private.img" qid="5"
-        root_img="root.img" services="{&apos;meminfo-writer&apos;: True}"
-        template_qid="1" uses_default_kernel="True"
-        uses_default_kernelopts="True" uses_default_netvm="True" vcpus="2"
-        volatile_img="volatile.img"/>
-    <QubesAppVm
-        conf_file="personal.conf" debug="False" default_user="user"
-        dir_path="/var/lib/qubes/appvms/personal" include_in_backups="True"
-        installed_by_rpm="False" internal="False" kernel="3.2.7-10"
-        kernelopts="" label="yellow" maxmem="4063" memory="400" name="personal"
-        netvm_qid="3" pcidevs="[]" private_img="private.img" qid="6"
-        root_img="root.img" services="{&apos;meminfo-writer&apos;: True}"
-        template_qid="1" uses_default_kernel="True"
-        uses_default_kernelopts="True" uses_default_netvm="True" vcpus="2"
-        volatile_img="volatile.img"/>
-    <QubesAppVm
-        conf_file="banking.conf" debug="False" default_user="user"
-        dir_path="/var/lib/qubes/appvms/banking" include_in_backups="True"
-        installed_by_rpm="False" internal="False" kernel="3.2.7-10"
-        kernelopts="" label="green" maxmem="4063" memory="400" name="banking"
-        netvm_qid="3" pcidevs="[]" private_img="private.img" qid="7"
-        root_img="root.img" services="{&apos;meminfo-writer&apos;: True}"
-        template_qid="1" uses_default_kernel="True"
-        uses_default_kernelopts="True" uses_default_netvm="True" vcpus="2"
-        volatile_img="volatile.img"/>
-    <QubesAppVm
-        conf_file="untrusted.conf" debug="False" default_user="user"
-        dir_path="/var/lib/qubes/appvms/untrusted" include_in_backups="True"
-        installed_by_rpm="False" internal="False" kernel="3.2.7-10"
-        kernelopts="" label="red" maxmem="4063" memory="400" name="untrusted"
-        netvm_qid="3" pcidevs="[]" private_img="private.img" qid="8"
-        root_img="root.img" services="{&apos;meminfo-writer&apos;: True}"
-        template_qid="1" uses_default_kernel="True"
-        uses_default_kernelopts="True" uses_default_netvm="True" vcpus="2"
-        volatile_img="volatile.img"/>
-    <QubesAppVm
-        conf_file="test-standalonevm.conf" debug="False" default_user="user"
-        dir_path="/var/lib/qubes/appvms/test-standalonevm"
-        include_in_backups="True" installed_by_rpm="False" internal="False"
-        kernel="None" kernelopts="" label="red" maxmem="4063" memory="400"
-        name="test-standalonevm" netvm_qid="3" pcidevs="[]"
-        private_img="private.img" qid="9" root_img="root.img"
-        services="{&apos;meminfo-writer&apos;: True}" template_qid="none"
-        uses_default_kernel="False" uses_default_kernelopts="True"
-        uses_default_netvm="True" vcpus="2" volatile_img="volatile.img"/>
-    <QubesAppVm
-        conf_file="test-testvm.conf" debug="False" default_user="user"
-        dir_path="/var/lib/qubes/appvms/test-testvm" include_in_backups="True"
-        installed_by_rpm="False" internal="False" kernel="3.2.7-10"
-        kernelopts="" label="red" mac="00:16:3E:5E:6C:55" maxmem="4063"
-        memory="400" name="test-testvm" netvm_qid="3" pcidevs="[]"
-        private_img="private.img" qid="10" root_img="root.img"
-        services="{&apos;meminfo-writer&apos;: True}" template_qid="1"
-        uses_default_kernel="True" uses_default_kernelopts="True"
-        uses_default_netvm="True" vcpus="2" volatile_img="volatile.img"/>
-    <QubesTemplateVm
-        conf_file="test-template-clone.conf" debug="False" default_user="user"
-        dir_path="/var/lib/qubes/vm-templates/test-template-clone"
-        include_in_backups="True" installed_by_rpm="False" internal="False"
-        kernel="3.2.7-10" kernelopts="" label="gray" maxmem="4063" memory="400"
-        name="test-template-clone" netvm_qid="3" pcidevs="[]"
-        private_img="private.img" qid="11" root_img="root.img"
-        services="{&apos;meminfo-writer&apos;: True}" template_qid="none"
-        uses_default_kernel="True" uses_default_kernelopts="True"
-        uses_default_netvm="True" vcpus="2" volatile_img="volatile.img"/>
-    <QubesAppVm
-        conf_file="test-custom-template-appvm.conf" debug="False"
-        default_user="user"
-        dir_path="/var/lib/qubes/appvms/test-custom-template-appvm"
-        include_in_backups="True" installed_by_rpm="False" internal="False"
-        kernel="3.2.7-10" kernelopts="" label="yellow" maxmem="4063"
-        memory="400" name="test-custom-template-appvm" netvm_qid="3"
-        pcidevs="[]" private_img="private.img" qid="12" root_img="root.img"
-        services="{&apos;meminfo-writer&apos;: True}" template_qid="11"
-        uses_default_kernel="True" uses_default_kernelopts="True"
-        uses_default_netvm="True" vcpus="2" volatile_img="volatile.img"/>
-    <QubesProxyVm
-        conf_file="test-testproxy.conf" debug="False" default_user="user"
-        dir_path="/var/lib/qubes/servicevms/test-testproxy"
-        include_in_backups="True" installed_by_rpm="False" internal="False"
-        kernel="3.2.7-10" kernelopts="" label="yellow" maxmem="4063"
-        memory="200" name="test-testproxy" netid="3" netvm_qid="2" pcidevs="[]"
-        private_img="private.img" qid="13" root_img="root.img"
-        services="{&apos;meminfo-writer&apos;: True}" template_qid="1"
-        uses_default_kernel="True" uses_default_kernelopts="True" vcpus="2"
-        volatile_img="volatile.img"/>
-</QubesVmCollection>
+<QubesVmCollection clockvm="2" default_fw_netvm="2" default_kernel="3.2.7-10" default_netvm="3" default_template="1" updatevm="3"><QubesTemplateVm conf_file="fedora-17-x64.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/vm-templates/fedora-17-x64" include_in_backups="True" installed_by_rpm="True" internal="False" kernel="3.2.7-10" kernelopts="" label="gray" maxmem="4063" memory="400" name="fedora-17-x64" netvm_qid="3" pcidevs="[]" private_img="private.img" qid="1" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="none" uses_default_kernel="True" uses_default_kernelopts="True" uses_default_netvm="True" vcpus="2" volatile_img="volatile.img" /><QubesNetVm conf_file="netvm.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/servicevms/netvm" include_in_backups="True" installed_by_rpm="False" internal="False" kernel="3.2.7-10" kernelopts="iommu=soft swiotlb=2048" label="red" maxmem="4063" memory="200" name="netvm" netid="1" pcidevs="[&apos;00:19.0&apos;, &apos;03:00.0&apos;]" private_img="private.img" qid="2" root_img="root.img" services="{&apos;ntpd&apos;: False, &apos;meminfo-writer&apos;: False}" template_qid="1" uses_default_kernel="True" uses_default_kernelopts="True" vcpus="2" volatile_img="volatile.img" /><QubesProxyVm conf_file="firewallvm.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/servicevms/firewallvm" include_in_backups="True" installed_by_rpm="False" internal="False" kernel="3.2.7-10" kernelopts="" label="green" maxmem="4063" memory="200" name="firewallvm" netid="2" netvm_qid="2" pcidevs="[]" private_img="private.img" qid="3" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="1" uses_default_kernel="True" uses_default_kernelopts="True" vcpus="2" volatile_img="volatile.img" /><QubesAppVm conf_file="fedora-17-x64-dvm.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/appvms/fedora-17-x64-dvm" include_in_backups="True" installed_by_rpm="False" internal="True" kernel="3.2.7-10" kernelopts="" label="gray" maxmem="4063" memory="400" name="fedora-17-x64-dvm" netvm_qid="3" pcidevs="[]" private_img="private.img" qid="4" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="1" uses_default_kernel="True" uses_default_kernelopts="True" uses_default_netvm="True" vcpus="1" volatile_img="volatile.img" /><QubesAppVm conf_file="test-work.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/appvms/test-work" include_in_backups="True" installed_by_rpm="False" internal="False" kernel="3.2.7-10" kernelopts="" label="green" maxmem="4063" memory="400" name="test-work" netvm_qid="3" pcidevs="[]" private_img="private.img" qid="5" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="1" uses_default_kernel="True" uses_default_kernelopts="True" uses_default_netvm="True" vcpus="2" volatile_img="volatile.img" /><QubesAppVm conf_file="personal.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/appvms/personal" include_in_backups="True" installed_by_rpm="False" internal="False" kernel="3.2.7-10" kernelopts="" label="yellow" maxmem="4063" memory="400" name="personal" netvm_qid="3" pcidevs="[]" private_img="private.img" qid="6" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="1" uses_default_kernel="True" uses_default_kernelopts="True" uses_default_netvm="True" vcpus="2" volatile_img="volatile.img" /><QubesAppVm conf_file="banking.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/appvms/banking" include_in_backups="True" installed_by_rpm="False" internal="False" kernel="3.2.7-10" kernelopts="" label="green" maxmem="4063" memory="400" name="banking" netvm_qid="3" pcidevs="[]" private_img="private.img" qid="7" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="1" uses_default_kernel="True" uses_default_kernelopts="True" uses_default_netvm="True" vcpus="2" volatile_img="volatile.img" /><QubesAppVm conf_file="untrusted.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/appvms/untrusted" include_in_backups="True" installed_by_rpm="False" internal="False" kernel="3.2.7-10" kernelopts="" label="red" maxmem="4063" memory="400" name="untrusted" netvm_qid="3" pcidevs="[]" private_img="private.img" qid="8" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="1" uses_default_kernel="True" uses_default_kernelopts="True" uses_default_netvm="True" vcpus="2" volatile_img="volatile.img" /><QubesAppVm conf_file="test-standalonevm.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/appvms/test-standalonevm" include_in_backups="True" installed_by_rpm="False" internal="False" kernel="None" kernelopts="" label="red" maxmem="4063" memory="400" name="test-standalonevm" netvm_qid="3" pcidevs="[]" private_img="private.img" qid="9" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="none" uses_default_kernel="False" uses_default_kernelopts="True" uses_default_netvm="True" vcpus="2" volatile_img="volatile.img" /><QubesAppVm conf_file="test-testvm.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/appvms/test-testvm" include_in_backups="True" installed_by_rpm="False" internal="False" kernel="3.2.7-10" kernelopts="" label="red" mac="00:16:3E:5E:6C:55" maxmem="4063" memory="400" name="test-testvm" netvm_qid="3" pcidevs="[]" private_img="private.img" qid="10" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="1" uses_default_kernel="True" uses_default_kernelopts="True" uses_default_netvm="True" vcpus="2" volatile_img="volatile.img" /><QubesTemplateVm conf_file="test-template-clone.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/vm-templates/test-template-clone" include_in_backups="True" installed_by_rpm="False" internal="False" kernel="3.2.7-10" kernelopts="" label="gray" maxmem="4063" memory="400" name="test-template-clone" netvm_qid="3" pcidevs="[]" private_img="private.img" qid="11" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="none" uses_default_kernel="True" uses_default_kernelopts="True" uses_default_netvm="True" vcpus="2" volatile_img="volatile.img" /><QubesAppVm conf_file="test-custom-template-appvm.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/appvms/test-custom-template-appvm" include_in_backups="True" installed_by_rpm="False" internal="False" kernel="3.2.7-10" kernelopts="" label="yellow" maxmem="4063" memory="400" name="test-custom-template-appvm" netvm_qid="3" pcidevs="[]" private_img="private.img" qid="12" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="11" uses_default_kernel="True" uses_default_kernelopts="True" uses_default_netvm="True" vcpus="2" volatile_img="volatile.img" /><QubesProxyVm conf_file="test-testproxy.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/servicevms/test-testproxy" include_in_backups="True" installed_by_rpm="False" internal="False" kernel="3.2.7-10" kernelopts="" label="yellow" maxmem="4063" memory="200" name="test-testproxy" netid="3" netvm_qid="2" pcidevs="[]" private_img="private.img" qid="13" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="1" uses_default_kernel="True" uses_default_kernelopts="True" vcpus="2" volatile_img="volatile.img" /></QubesVmCollection>
 '''
+
 
 class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, unittest.TestCase):
     def create_whitelisted_appmenus(self, filename):
@@ -546,4 +284,3 @@ class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, unittest.TestCase)
         self.assertEqual(self.qc.get_vm_by_name("test-custom-template-appvm")
                          .template,
                          self.qc.get_vm_by_name("test-template-clone"))
-
