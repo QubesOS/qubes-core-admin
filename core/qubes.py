@@ -734,6 +734,25 @@ class QubesVmCollection(dict):
         self.default_kernel = element.get("default_kernel")
 
 
+    def _check_global(self, attr, default):
+        qid = getattr(self, attr)
+        if qid is None:
+            return
+        try:
+            self[qid]
+        except KeyError:
+            setattr(self, attr, default)
+
+
+    def check_globals(self):
+        '''Ensure that all referenced qids are present in the collection'''
+        self._check_global('default_template_qid', None)
+        self._check_global('default_fw_netvm_qid', None)
+        self._check_global('default_netvm_qid', self.default_fw_netvm_qid)
+        self._check_global('updatevm_qid', self.default_netvm_qid)
+        self._check_global('clockvm_qid', self.default_netvm_qid)
+
+
     def load(self):
         self.clear()
 
@@ -773,6 +792,8 @@ class QubesVmCollection(dict):
                     print("{0}: import error2 ({}): {}".format(
                         os.path.basename(sys.argv[0]), vm_class_name, err))
                     return False
+
+        self.check_globals()
 
         # if there was no clockvm entry in qubes.xml, try to determine default:
         # root of default NetVM chain
