@@ -81,6 +81,7 @@ class QubesTemplateVm(QubesVm):
         self.commit_changes(verbose=verbose)
 
     def commit_changes (self, verbose = False):
+        self.log.debug('commit_changes()')
 
         if not vmm.offline_mode:
             assert not self.is_running(), "Attempt to commit changes on running Template VM!"

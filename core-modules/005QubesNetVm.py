@@ -73,6 +73,9 @@ class QubesNetVm(QubesVm):
 
         self.__external_ip_allowed_xids = set()
 
+        self.log.debug('network={} netmask={} gateway={} secondary_dns={}'.format(
+            self.network, self.netmask, self.gateway, self.secondary_dns))
+
     @property
     def type(self):
         return "NetVM"

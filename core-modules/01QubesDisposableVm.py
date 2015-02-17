@@ -118,6 +118,7 @@ class QubesDisposableVm(QubesVm):
         return attrs
 
     def start(self, verbose = False, **kwargs):
+        self.log.debug('start()')
         if dry_run:
             return
 

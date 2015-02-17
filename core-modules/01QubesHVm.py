@@ -195,6 +195,8 @@ class QubesHVm(QubesVm):
         self._drive = drv_type + ":" + value
 
     def create_on_disk(self, verbose, source_template = None):
+        self.log.debug('create_on_disk(source_template={!r})'.format(
+            source_template))
         if dry_run:
             return
 

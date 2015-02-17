@@ -23,6 +23,7 @@
 #
 
 import datetime
+import logging
 import lxml.etree
 import os
 import os.path
@@ -243,7 +244,6 @@ class QubesVm(object):
         return value
 
     def __init__(self, **kwargs):
-
         self._collection = None
         if 'collection' in kwargs:
             self._collection = kwargs['collection']
@@ -343,6 +343,10 @@ class QubesVm(object):
         else:
             assert self.root_img is not None, "Missing root_img for standalone VM!"
 
+        self.log = logging.getLogger('qubes.vm.{}'.format(self.qid))
+        self.log.debug('instantiated name={!r} class={}'.format(
+            self.name, self.__class__.__name__))
+
         # fire hooks
         for hook in self.hooks_init:
             hook(self)
@@ -406,6 +410,7 @@ class QubesVm(object):
             hook(self, new_netvm)
 
     def _set_netvm(self, new_netvm):
+        self.log.debug('netvm = {!r}'.format(new_netvm))
         if self.is_running() and new_netvm is not None and not new_netvm.is_running():
             raise QubesException("Cannot dynamically attach to stopped NetVM")
         if self.netvm is not None:
@@ -544,6 +549,7 @@ class QubesVm(object):
             hook(self, new_name)
 
     def set_name(self, name):
+        self.log.debug('name = {!r}'.format(name))
         if self.is_running():
             raise QubesException("Cannot change name of running VM!")
 
@@ -695,6 +701,7 @@ class QubesVm(object):
                 self._update_libvirt_domain()
             else:
                 raise
+
         return self._libvirt_domain
 
     def get_uuid(self):
@@ -1117,6 +1124,8 @@ class QubesVm(object):
         return domain_config
 
     def create_on_disk(self, verbose=False, source_template = None):
+        self.log.debug('create_on_disk(source_template={!r})'.format(
+            source_template))
         if source_template is None:
             source_template = self.template
         assert source_template is not None
@@ -1220,6 +1229,7 @@ class QubesVm(object):
         return True
 
     def remove_from_disk(self):
+        self.log.debug('remove_from_disk()')
         if dry_run:
             return
 
@@ -1368,6 +1378,7 @@ class QubesVm(object):
         return conf
 
     def pci_add(self, pci):
+        self.log.debug('pci_add(pci={!r})'.format(pci))
         if not os.path.exists('/sys/bus/pci/devices/0000:%s' % pci):
             raise QubesException("Invalid PCI device: %s" % pci)
         if self.pcidevs.count(pci):
@@ -1383,6 +1394,7 @@ class QubesVm(object):
                     "(%s), changes will be seen after VM restart" % str(e)
 
     def pci_remove(self, pci):
+        self.log.debug('pci_remove(pci={!r})'.format(pci))
         if not self.pcidevs.count(pci):
             # not attached
             return
@@ -1414,6 +1426,10 @@ class QubesVm(object):
             When additionally passio_stderr=True, stderr also is connected to pipe.
             When ignore_stderr=True, stderr is connected to /dev/null.
             """
+
+        self.log.debug(
+            'run(command={!r}, user={!r}, passio={!r}, wait={!r})'.format(
+                command, user, passio, wait))
 
         if user is None:
             user = self.default_user
@@ -1492,6 +1508,7 @@ class QubesVm(object):
                         passio_popen=passio_popen, user=user, wait=True)
 
     def attach_network(self, verbose = False, wait = True, netvm = None):
+        self.log.debug('attach_network(netvm={!r})'.format(netvm))
         if dry_run:
             return
 
@@ -1514,6 +1531,7 @@ class QubesVm(object):
                 self._format_net_dev(self.ip, self.mac, self.netvm.name))
 
     def detach_network(self, verbose = False, netvm = None):
+        self.log.debug('detach_network(netvm={!r})'.format(netvm))
         if dry_run:
             return
 
@@ -1530,6 +1548,7 @@ class QubesVm(object):
             self.mac, self.netvm.name))
 
     def wait_for_session(self, notify_function = None):
+        self.log.debug('wait_for_session()')
         #self.run('echo $$ >> /tmp/qubes-session-waiter; [ ! -f /tmp/qubes-session-env ] && exec sleep 365d', ignore_stderr=True, gui=False, wait=True)
 
         # Note : User root is redefined to SYSTEM in the Windows agent code
@@ -1538,6 +1557,9 @@ class QubesVm(object):
 
     def start_guid(self, verbose = True, notify_function = None,
             extra_guid_args=None, before_qrexec=False):
+        self.log.debug(
+            'start_guid(extra_guid_args={!r}, before_qrexec={!r})'.format(
+                extra_guid_args, before_qrexec))
         if verbose:
             print >> sys.stderr, "--> Starting Qubes GUId..."
 
@@ -1571,6 +1593,7 @@ class QubesVm(object):
         self.wait_for_session(notify_function)
 
     def start_qrexec_daemon(self, verbose = False, notify_function = None):
+        self.log.debug('start_qrexec_daemon()')
         if verbose:
             print >> sys.stderr, "--> Starting the qrexec daemon..."
         qrexec_args = [str(self.xid), self.name, self.default_user]
@@ -1584,6 +1607,7 @@ class QubesVm(object):
             raise OSError ("Cannot execute qrexec-daemon!")
 
     def start_qubesdb(self):
+        self.log.debug('start_qubesdb()')
         retcode = subprocess.call ([
             system_path["qubesdb_daemon_path"],
             str(self.xid),
@@ -1594,6 +1618,9 @@ class QubesVm(object):
 
     def start(self, verbose = False, preparing_dvm = False, start_guid = True,
             notify_function = None, mem_required = None):
+        self.log.debug('start('
+            'preparing_dvm={!r}, start_guid={!r}, mem_required={!r})'.format(
+                preparing_dvm, start_guid, mem_required))
         if dry_run:
             return
 
@@ -1647,6 +1674,7 @@ class QubesVm(object):
         self.start_qubesdb()
 
         xid = self.xid
+        self.log.debug('xid={}'.format(xid))
 
         if preparing_dvm:
             self.services['qubes-dvm'] = True
@@ -1709,6 +1737,7 @@ class QubesVm(object):
                 pass
 
     def shutdown(self, force=False, xid = None):
+        self.log.debug('shutdown()')
         if dry_run:
             return
 
@@ -1718,6 +1747,7 @@ class QubesVm(object):
         self.libvirt_domain.shutdown()
 
     def force_shutdown(self, xid = None):
+        self.log.debug('force_shutdown()')
         if dry_run:
             return
 
@@ -1727,6 +1757,7 @@ class QubesVm(object):
         self.libvirt_domain.destroy()
 
     def suspend(self):
+        self.log.debug('suspend()')
         if dry_run:
             return
 
@@ -1741,6 +1772,7 @@ class QubesVm(object):
             self.pause()
 
     def resume(self):
+        self.log.debug('resume()')
         if dry_run:
             return
 
@@ -1750,6 +1782,7 @@ class QubesVm(object):
             self.unpause()
 
     def pause(self):
+        self.log.debug('pause()')
         if dry_run:
             return
 
@@ -1759,6 +1792,7 @@ class QubesVm(object):
         self.libvirt_domain.suspend()
 
     def unpause(self):
+        self.log.debug('unpause()')
         if dry_run:
             return
 
