@@ -31,6 +31,7 @@ import subprocess
 import unittest
 
 import lxml.etree
+import sys
 
 import qubes.backup
 import qubes.qubes
@@ -405,14 +406,14 @@ class BackupTestsMixin(SystemTestsMixin):
                 qubes.backup.backup_prepare(vms,
                                       print_callback=self.print_callback,
                                       **prepare_kwargs)
-        except QubesException as e:
+        except qubes.qubes.QubesException as e:
             self.fail("QubesException during backup_prepare: %s" % str(e))
 
         try:
             qubes.backup.backup_do(target, files_to_backup, "qubes",
                              progress_callback=self.print_progress,
                              **do_kwargs)
-        except QubesException as e:
+        except qubes.qubes.QubesException as e:
             self.fail("QubesException during backup_do: %s" % str(e))
 
         self.qc.lock_db_for_writing()
