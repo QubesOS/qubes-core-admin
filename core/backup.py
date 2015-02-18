@@ -1285,6 +1285,10 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
     # to the VM), while tar output filelist on stdout
     if appvm:
         filelist_pipe = command.stderr
+        # let qfile-dom0-unpacker hold the only open FD to the write end of
+        # pipe, otherwise qrexec-client will not receive EOF when
+        # qfile-dom0-unpacker terminates
+        vmproc.stdin.close()
     else:
         filelist_pipe = command.stdout
 
