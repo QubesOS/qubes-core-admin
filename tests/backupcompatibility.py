@@ -31,9 +31,9 @@ import sys
 from qubes.qubes import QubesVmCollection, QubesException
 from qubes import backup
 
-VM_PREFIX = "test-"
+import qubes.tests
 
-QUBESXML_R2B2 = """
+QUBESXML_R2B2 = '''
 <QubesVmCollection updatevm="3" default_kernel="3.7.6-2" default_netvm="3" default_fw_netvm="2" default_template="1" clockvm="2">
   <QubesTemplateVm installed_by_rpm="True" kernel="3.7.6-2" uses_default_kernelopts="True" qid="1" include_in_backups="True" uses_default_kernel="True" qrexec_timeout="60" internal="False" conf_file="fedora-18-x64.conf" label="black" template_qid="none" kernelopts="" memory="400" default_user="user" netvm_qid="3" uses_default_netvm="True" volatile_img="volatile.img" services="{'meminfo-writer': True}" maxmem="1535" pcidevs="[]" name="fedora-18-x64" private_img="private.img" vcpus="2" root_img="root.img" debug="False" dir_path="/var/lib/qubes/vm-templates/fedora-18-x64"/>
   <QubesNetVm installed_by_rpm="False" kernel="3.7.6-2" uses_default_kernelopts="True" qid="2" include_in_backups="True" uses_default_kernel="True" qrexec_timeout="60" internal="False" conf_file="netvm.conf" label="red" template_qid="1" kernelopts="iommu=soft swiotlb=4096" memory="200" default_user="user" volatile_img="volatile.img" services="{'ntpd': False, 'meminfo-writer': False}" maxmem="1535" pcidevs="['02:00.0', '03:00.0']" name="netvm" netid="1" private_img="private.img" vcpus="2" root_img="root.img" debug="False" dir_path="/var/lib/qubes/servicevms/netvm"/>
@@ -50,9 +50,9 @@ QUBESXML_R2B2 = """
   <QubesProxyVm installed_by_rpm="False" kernel="3.7.6-2" uses_default_kernelopts="True" qid="13" include_in_backups="True" uses_default_kernel="True" qrexec_timeout="60" internal="False" conf_file="testproxy2.conf" label="red" template_qid="9" kernelopts="" memory="200" default_user="user" netvm_qid="2" volatile_img="volatile.img" services="{'meminfo-writer': True}" maxmem="1535" pcidevs="[]" name="testproxy2" netid="4" private_img="private.img" vcpus="2" root_img="root.img" debug="False" dir_path="/var/lib/qubes/servicevms/testproxy2"/>
   <QubesHVm installed_by_rpm="False" netvm_qid="none" qid="14" include_in_backups="True" timezone="localtime" qrexec_timeout="60" conf_file="test-testhvm.conf" label="purple" template_qid="none" internal="False" memory="512" uses_default_netvm="True" services="{'meminfo-writer': False}" default_user="user" pcidevs="[]" name="test-testhvm" qrexec_installed="False" private_img="private.img" drive="None" vcpus="2" root_img="root.img" guiagent_installed="False" debug="False" dir_path="/var/lib/qubes/appvms/test-testhvm"/>
 </QubesVmCollection>
-"""
+'''
 
-APPTEMPLATE_R2B2 = """
+APPTEMPLATE_R2B2 = '''
 [Desktop Entry]
 Name=%VMNAME%: {name}
 GenericName=%VMNAME%: {name}
@@ -100,116 +100,14 @@ Exec=qvm-run -q --tray -a %VMNAME% '{command} %u'
 Categories=Network;WebBrowser;
 X-Qubes-VmName=%VMNAME%
 Icon=%VMDIR%/icon.png
-"""
+'''
 
-QUBESXML_R1 = """<?xml version='1.0' encoding='UTF-8'?>
+QUBESXML_R1 = '''<?xml version='1.0' encoding='UTF-8'?>
 <QubesVmCollection clockvm="2" default_fw_netvm="2" default_kernel="3.2.7-10" default_netvm="3" default_template="1" updatevm="3"><QubesTemplateVm conf_file="fedora-17-x64.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/vm-templates/fedora-17-x64" include_in_backups="True" installed_by_rpm="True" internal="False" kernel="3.2.7-10" kernelopts="" label="gray" maxmem="4063" memory="400" name="fedora-17-x64" netvm_qid="3" pcidevs="[]" private_img="private.img" qid="1" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="none" uses_default_kernel="True" uses_default_kernelopts="True" uses_default_netvm="True" vcpus="2" volatile_img="volatile.img" /><QubesNetVm conf_file="netvm.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/servicevms/netvm" include_in_backups="True" installed_by_rpm="False" internal="False" kernel="3.2.7-10" kernelopts="iommu=soft swiotlb=2048" label="red" maxmem="4063" memory="200" name="netvm" netid="1" pcidevs="[&apos;00:19.0&apos;, &apos;03:00.0&apos;]" private_img="private.img" qid="2" root_img="root.img" services="{&apos;ntpd&apos;: False, &apos;meminfo-writer&apos;: False}" template_qid="1" uses_default_kernel="True" uses_default_kernelopts="True" vcpus="2" volatile_img="volatile.img" /><QubesProxyVm conf_file="firewallvm.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/servicevms/firewallvm" include_in_backups="True" installed_by_rpm="False" internal="False" kernel="3.2.7-10" kernelopts="" label="green" maxmem="4063" memory="200" name="firewallvm" netid="2" netvm_qid="2" pcidevs="[]" private_img="private.img" qid="3" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="1" uses_default_kernel="True" uses_default_kernelopts="True" vcpus="2" volatile_img="volatile.img" /><QubesAppVm conf_file="fedora-17-x64-dvm.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/appvms/fedora-17-x64-dvm" include_in_backups="True" installed_by_rpm="False" internal="True" kernel="3.2.7-10" kernelopts="" label="gray" maxmem="4063" memory="400" name="fedora-17-x64-dvm" netvm_qid="3" pcidevs="[]" private_img="private.img" qid="4" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="1" uses_default_kernel="True" uses_default_kernelopts="True" uses_default_netvm="True" vcpus="1" volatile_img="volatile.img" /><QubesAppVm conf_file="test-work.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/appvms/test-work" include_in_backups="True" installed_by_rpm="False" internal="False" kernel="3.2.7-10" kernelopts="" label="green" maxmem="4063" memory="400" name="test-work" netvm_qid="3" pcidevs="[]" private_img="private.img" qid="5" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="1" uses_default_kernel="True" uses_default_kernelopts="True" uses_default_netvm="True" vcpus="2" volatile_img="volatile.img" /><QubesAppVm conf_file="personal.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/appvms/personal" include_in_backups="True" installed_by_rpm="False" internal="False" kernel="3.2.7-10" kernelopts="" label="yellow" maxmem="4063" memory="400" name="personal" netvm_qid="3" pcidevs="[]" private_img="private.img" qid="6" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="1" uses_default_kernel="True" uses_default_kernelopts="True" uses_default_netvm="True" vcpus="2" volatile_img="volatile.img" /><QubesAppVm conf_file="banking.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/appvms/banking" include_in_backups="True" installed_by_rpm="False" internal="False" kernel="3.2.7-10" kernelopts="" label="green" maxmem="4063" memory="400" name="banking" netvm_qid="3" pcidevs="[]" private_img="private.img" qid="7" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="1" uses_default_kernel="True" uses_default_kernelopts="True" uses_default_netvm="True" vcpus="2" volatile_img="volatile.img" /><QubesAppVm conf_file="untrusted.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/appvms/untrusted" include_in_backups="True" installed_by_rpm="False" internal="False" kernel="3.2.7-10" kernelopts="" label="red" maxmem="4063" memory="400" name="untrusted" netvm_qid="3" pcidevs="[]" private_img="private.img" qid="8" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="1" uses_default_kernel="True" uses_default_kernelopts="True" uses_default_netvm="True" vcpus="2" volatile_img="volatile.img" /><QubesAppVm conf_file="test-standalonevm.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/appvms/test-standalonevm" include_in_backups="True" installed_by_rpm="False" internal="False" kernel="None" kernelopts="" label="red" maxmem="4063" memory="400" name="test-standalonevm" netvm_qid="3" pcidevs="[]" private_img="private.img" qid="9" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="none" uses_default_kernel="False" uses_default_kernelopts="True" uses_default_netvm="True" vcpus="2" volatile_img="volatile.img" /><QubesAppVm conf_file="test-testvm.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/appvms/test-testvm" include_in_backups="True" installed_by_rpm="False" internal="False" kernel="3.2.7-10" kernelopts="" label="red" mac="00:16:3E:5E:6C:55" maxmem="4063" memory="400" name="test-testvm" netvm_qid="3" pcidevs="[]" private_img="private.img" qid="10" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="1" uses_default_kernel="True" uses_default_kernelopts="True" uses_default_netvm="True" vcpus="2" volatile_img="volatile.img" /><QubesTemplateVm conf_file="test-template-clone.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/vm-templates/test-template-clone" include_in_backups="True" installed_by_rpm="False" internal="False" kernel="3.2.7-10" kernelopts="" label="gray" maxmem="4063" memory="400" name="test-template-clone" netvm_qid="3" pcidevs="[]" private_img="private.img" qid="11" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="none" uses_default_kernel="True" uses_default_kernelopts="True" uses_default_netvm="True" vcpus="2" volatile_img="volatile.img" /><QubesAppVm conf_file="test-custom-template-appvm.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/appvms/test-custom-template-appvm" include_in_backups="True" installed_by_rpm="False" internal="False" kernel="3.2.7-10" kernelopts="" label="yellow" maxmem="4063" memory="400" name="test-custom-template-appvm" netvm_qid="3" pcidevs="[]" private_img="private.img" qid="12" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="11" uses_default_kernel="True" uses_default_kernelopts="True" uses_default_netvm="True" vcpus="2" volatile_img="volatile.img" /><QubesProxyVm conf_file="test-testproxy.conf" debug="False" default_user="user" dir_path="/var/lib/qubes/servicevms/test-testproxy" include_in_backups="True" installed_by_rpm="False" internal="False" kernel="3.2.7-10" kernelopts="" label="yellow" maxmem="4063" memory="200" name="test-testproxy" netid="3" netvm_qid="2" pcidevs="[]" private_img="private.img" qid="13" root_img="root.img" services="{&apos;meminfo-writer&apos;: True}" template_qid="1" uses_default_kernel="True" uses_default_kernelopts="True" vcpus="2" volatile_img="volatile.img" /></QubesVmCollection>
-"""
+'''
 
-class BackupCompatibilityTests(unittest.TestCase):
-    def setUp(self):
-        self.error_detected = Queue()
-        self.verbose = False
-        self.qc = QubesVmCollection()
-        self.reload_qc()
 
-        self.backupdir = os.path.join(os.environ["HOME"], "test-backup")
-        os.mkdir(self.backupdir)
-
-    def tearDown(self):
-        vmlist = [vm for vm in self.qc.values() if vm.name.startswith(
-            VM_PREFIX)]
-        self.remove_vms(vmlist)
-        shutil.rmtree(self.backupdir)
-
-    def reload_qc(self):
-        self.qc.lock_db_for_reading()
-        self.qc.load()
-        self.qc.unlock_db()
-
-    def print_progress(self, progress):
-        if self.verbose:
-            print >> sys.stderr, "\r-> Backing up files: {0}%...".format(progress)
-
-    def error_callback(self, message):
-        self.error_detected.put(message)
-        if self.verbose:
-            print >> sys.stderr, "ERROR: {0}".format(message)
-
-    def print_callback(self, msg):
-        if self.verbose:
-            print msg
-
-    def fill_image(self, path, size=None, sparse=False):
-        block_size = 4096
-
-        if self.verbose:
-            print >>sys.stderr, "-> Filling %s" % path
-        f = open(path, 'w+')
-        if size is None:
-            f.seek(0, 2)
-            size = f.tell()
-        f.seek(0)
-
-        for block_num in xrange(size/block_size):
-            f.write('a' * block_size)
-            if sparse:
-                f.seek(block_size, 1)
-
-        f.close()
-
-    def create_sparse(self, path, size):
-        f = open(path, "w")
-        f.truncate(size)
-        f.close()
-
-    def remove_vms(self, vms):
-        self.qc.lock_db_for_writing()
-        self.qc.load()
-
-        for vm in vms:
-            if isinstance(vm, str):
-                vm = self.qc.get_vm_by_name(vm)
-            else:
-                vm = self.qc[vm.qid]
-            if self.verbose:
-                print >>sys.stderr, "-> Removing %s" % vm.name
-            vm.remove_from_disk()
-            self.qc.pop(vm.qid)
-        self.qc.save()
-        self.qc.unlock_db()
-
-    def restore_backup(self, source=None, appvm=None, options=None):
-        if source is None:
-            backupfile = os.path.join(self.backupdir,
-                                      sorted(os.listdir(self.backupdir))[-1])
-        else:
-            backupfile = source
-        try:
-            backup_info = backup.backup_restore_prepare(
-                backupfile, "qubes", print_callback=self.print_callback,
-                appvm=appvm, options=options)
-        except QubesException as e: self.fail(
-            "QubesException during backup_restore_prepare: %s" % str(e))
-        if self.verbose:
-            backup.backup_restore_print_summary(backup_info)
-
-        try:
-            backup.backup_restore_do(
-                backup_info,
-                print_callback=self.print_callback if self.verbose else None,
-                error_callback=self.error_callback)
-        except QubesException as e:
-            self.fail("QubesException during backup_restore_do: %s" % str(e))
-        errors = []
-        while not self.error_detected.empty():
-            errors.append(self.error_detected.get())
-        self.assertTrue(len(errors) == 0,
-                        "Error(s) detected during backup_restore_do: %s" %
-                        '\n'.join(errors))
-        if os.path.isfile(backupfile):
-            os.unlink(backupfile)
-
+class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
     def create_whitelisted_appmenus(self, filename):
         f = open(filename, "w")
         f.write("gnome-terminal.desktop\n")
@@ -346,29 +244,7 @@ class BackupCompatibilityTests(unittest.TestCase):
             appmenus_list)
 
 
-    def test_r2b2(self):
-        self.create_v1_files(r2b2=True)
-
-        f = open(self.fullpath("qubes.xml"), "w")
-        f.write(QUBESXML_R2B2)
-        f.close()
-
-        self.restore_backup(self.backupdir, options={
-            'use-default-template': True,
-        })
-        self.reload_qc()
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-template-clone"))
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-testproxy"))
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-work"))
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-testhvm"))
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-standalonevm"))
-        self.assertIsNotNone(self.qc.get_vm_by_name(
-            "test-custom-template-appvm"))
-        self.assertEqual(self.qc.get_vm_by_name("test-custom-template-appvm")
-                         .template,
-                         self.qc.get_vm_by_name("test-template-clone"))
-
-    def test_r1(self):
+    def test_100_r1(self):
         self.create_v1_files(r2b2=False)
 
         f = open(self.fullpath("qubes.xml"), "w")
@@ -378,10 +254,30 @@ class BackupCompatibilityTests(unittest.TestCase):
         self.restore_backup(self.backupdir, options={
             'use-default-template': True,
         })
-        self.reload_qc()
         self.assertIsNotNone(self.qc.get_vm_by_name("test-template-clone"))
         self.assertIsNotNone(self.qc.get_vm_by_name("test-testproxy"))
         self.assertIsNotNone(self.qc.get_vm_by_name("test-work"))
+        self.assertIsNotNone(self.qc.get_vm_by_name("test-standalonevm"))
+        self.assertIsNotNone(self.qc.get_vm_by_name(
+            "test-custom-template-appvm"))
+        self.assertEqual(self.qc.get_vm_by_name("test-custom-template-appvm")
+                         .template,
+                         self.qc.get_vm_by_name("test-template-clone"))
+
+    def test_200_r2b2(self):
+        self.create_v1_files(r2b2=True)
+
+        f = open(self.fullpath("qubes.xml"), "w")
+        f.write(QUBESXML_R2B2)
+        f.close()
+
+        self.restore_backup(self.backupdir, options={
+            'use-default-template': True,
+        })
+        self.assertIsNotNone(self.qc.get_vm_by_name("test-template-clone"))
+        self.assertIsNotNone(self.qc.get_vm_by_name("test-testproxy"))
+        self.assertIsNotNone(self.qc.get_vm_by_name("test-work"))
+        self.assertIsNotNone(self.qc.get_vm_by_name("test-testhvm"))
         self.assertIsNotNone(self.qc.get_vm_by_name("test-standalonevm"))
         self.assertIsNotNone(self.qc.get_vm_by_name(
             "test-custom-template-appvm"))

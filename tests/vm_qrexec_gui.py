@@ -1,24 +1,28 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
+# vim: fileencoding=utf-8
+
 #
-# The Qubes OS Project, http://www.qubes-os.org
+# The Qubes OS Project, https://www.qubes-os.org/
 #
-# Copyright (C) 2014 Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+# Copyright (C) 2014-2015
+#                   Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+# Copyright (C) 2015  Wojtek Porczyk <woju@invisiblethingslab.com>
 #
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+
 import multiprocessing
 import os
 import subprocess
@@ -27,53 +31,23 @@ import time
 
 from qubes.qubes import QubesVmCollection, defaults, QubesException
 
-
-VM_PREFIX = "test-"
+import qubes.tests
 
 TEST_DATA = "0123456789" * 1024
 
-class VmRunningTests(unittest.TestCase):
+class TC_00_AppVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     def setUp(self):
-        self.qc = QubesVmCollection()
-        self.qc.lock_db_for_writing()
-        self.qc.load()
+        super(TC_00_AppVM, self).setUp()
         self.testvm1 = self.qc.add_new_vm("QubesAppVm",
-                                         name="%svm1" % VM_PREFIX,
-                                         template=self.qc.get_default_template())
+            name=self.make_vm_name('vm1'),
+            template=self.qc.get_default_template())
         self.testvm1.create_on_disk(verbose=False)
         self.testvm2 = self.qc.add_new_vm("QubesAppVm",
-                                         name="%svm2" % VM_PREFIX,
-                                         template=self.qc.get_default_template())
+            name=self.make_vm_name('vm2'),
+            template=self.qc.get_default_template())
         self.testvm2.create_on_disk(verbose=False)
         self.qc.save()
-        self.qc.unlock_db()
 
-    def remove_vms(self, vms):
-        self.qc.lock_db_for_writing()
-        self.qc.load()
-
-        for vm in vms:
-            if isinstance(vm, str):
-                vm = self.qc.get_vm_by_name(vm)
-            else:
-                vm = self.qc[vm.qid]
-            if vm.is_running():
-                try:
-                    vm.force_shutdown()
-                except:
-                    pass
-            try:
-                vm.remove_from_disk()
-            except OSError:
-                pass
-            self.qc.pop(vm.qid)
-        self.qc.save()
-        self.qc.unlock_db()
-
-    def tearDown(self):
-        vmlist = [vm for vm in self.qc.values() if vm.name.startswith(
-            VM_PREFIX)]
-        self.remove_vms(vmlist)
 
     def test_000_start_shutdown(self):
         self.testvm1.start()
@@ -88,6 +62,7 @@ class VmRunningTests(unittest.TestCase):
             time.sleep(1)
         time.sleep(1)
         self.assertEquals(self.testvm1.get_power_state(), "Halted")
+
 
     def test_010_run_gui_app(self):
         self.testvm1.start()
@@ -116,6 +91,7 @@ class VmRunningTests(unittest.TestCase):
                           "termination")
             time.sleep(0.1)
 
+
     def test_050_qrexec_simple_eof(self):
         """Test for data and EOF transmission dom0->VM"""
         result = multiprocessing.Value('i', 0)
@@ -142,6 +118,7 @@ class VmRunningTests(unittest.TestCase):
             self.fail("Received data differs from what was sent")
         elif result.value == 2:
             self.fail("Some data was printed to stderr")
+
 
     @unittest.expectedFailure
     def test_051_qrexec_simple_eof_reverse(self):
@@ -178,6 +155,7 @@ class VmRunningTests(unittest.TestCase):
         elif result.value == 3:
             self.fail("VM proceess didn't terminated on EOF")
 
+
     def test_052_qrexec_vm_service_eof(self):
         """Test for EOF transmission VM(src)->VM(dst)"""
         result = multiprocessing.Value('i', 0)
@@ -210,6 +188,7 @@ class VmRunningTests(unittest.TestCase):
             self.fail("Timeout, probably EOF wasn't transferred")
         if result.value == 1:
             self.fail("Received data differs from what was expected")
+
 
     @unittest.expectedFailure
     def test_053_qrexec_vm_service_eof_reverse(self):
@@ -245,6 +224,7 @@ class VmRunningTests(unittest.TestCase):
         if result.value == 1:
             self.fail("Received data differs from what was expected")
 
+
     def test_060_qrexec_exit_code_dom0(self):
         self.testvm1.start()
 
@@ -255,6 +235,7 @@ class VmRunningTests(unittest.TestCase):
         p = self.testvm1.run("exit 3", passio_popen=True)
         p.wait()
         self.assertEqual(3, p.returncode)
+
 
     @unittest.expectedFailure
     def test_065_qrexec_exit_code_vm(self):
@@ -292,6 +273,7 @@ class VmRunningTests(unittest.TestCase):
         (stdout, stderr) = p.communicate()
         self.assertEqual(stdout, "3\n")
 
+
     def test_100_qrexec_filecopy(self):
         self.testvm1.start()
         self.testvm2.start()
@@ -307,6 +289,7 @@ class VmRunningTests(unittest.TestCase):
         retcode = self.testvm2.run("diff /etc/passwd "
                          "/home/user/QubesIncoming/%s/passwd" % self.testvm1.name, wait=True)
         self.assertEqual(retcode, 0, "file differs")
+
 
     def test_110_qrexec_filecopy_deny(self):
         self.testvm1.start()
@@ -343,99 +326,49 @@ class VmRunningTests(unittest.TestCase):
                          "/home/user/QubesIncoming/%s/passwd" % self.testvm1.name, wait=True)
         self.assertEqual(retcode, 0, "file differs")
 
-class HVMTests(unittest.TestCase):
+
+class TC_10_HVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     # TODO: test with some OS inside
     # TODO: windows tools tests
 
-    def setUp(self):
-        self.qc = QubesVmCollection()
-
-    def remove_vms(self, vms):
-        self.qc.lock_db_for_writing()
-        self.qc.load()
-
-        for vm in vms:
-            if isinstance(vm, str):
-                vm = self.qc.get_vm_by_name(vm)
-            else:
-                vm = self.qc[vm.qid]
-            if vm.is_running():
-                try:
-                    vm.force_shutdown()
-                except:
-                    pass
-            try:
-                vm.remove_from_disk()
-            except OSError:
-                pass
-            self.qc.pop(vm.qid)
-        self.qc.save()
-        self.qc.unlock_db()
-
-    def tearDown(self):
-        vmlist = [vm for vm in self.qc.values() if vm.name.startswith(
-            VM_PREFIX)]
-        self.remove_vms(vmlist)
-
     def test_000_create_start(self):
-        self.qc.lock_db_for_writing()
-        try:
-            self.qc.load()
-            self.testvm1 = self.qc.add_new_vm("QubesHVm",
-                                             name="%svm1" % VM_PREFIX)
-            self.testvm1.create_on_disk(verbose=False)
-            self.qc.save()
-        finally:
-            self.qc.unlock_db()
+        self.testvm1 = self.qc.add_new_vm("QubesHVm",
+            name=self.make_vm_name('vm1'))
+        self.testvm1.create_on_disk(verbose=False)
+        self.qc.save()
         self.testvm1.start()
         self.assertEquals(self.testvm1.get_power_state(), "Running")
 
     def test_010_create_start_template(self):
-        self.qc.lock_db_for_writing()
-        try:
-            self.qc.load()
-            self.templatevm = self.qc.add_new_vm("QubesTemplateHVm",
-                                             name="%stemplate" % VM_PREFIX)
-            self.templatevm.create_on_disk(verbose=False)
-            self.qc.save()
-        finally:
-            self.qc.unlock_db()
+        self.templatevm = self.qc.add_new_vm("QubesTemplateHVm",
+            name=self.make_vm_name('template'))
+        self.templatevm.create_on_disk(verbose=False)
 
         self.templatevm.start()
         self.assertEquals(self.templatevm.get_power_state(), "Running")
 
     def test_020_create_start_template_vm(self):
-        self.qc.lock_db_for_writing()
-        try:
-            self.qc.load()
-            self.templatevm = self.qc.add_new_vm("QubesTemplateHVm",
-                                             name="%stemplate" % VM_PREFIX)
-            self.templatevm.create_on_disk(verbose=False)
-            self.testvm2 = self.qc.add_new_vm("QubesHVm",
-                                             name="%svm2" % VM_PREFIX,
-                                             template=self.templatevm)
-            self.testvm2.create_on_disk(verbose=False)
-            self.qc.save()
-        finally:
-            self.qc.unlock_db()
+        self.templatevm = self.qc.add_new_vm("QubesTemplateHVm",
+            name=self.make_vm_name('template'))
+        self.templatevm.create_on_disk(verbose=False)
+        self.testvm2 = self.qc.add_new_vm("QubesHVm",
+            name=self.make_vm_name('vm2'),
+            template=self.templatevm)
+        self.testvm2.create_on_disk(verbose=False)
+        self.qc.save()
 
         self.testvm2.start()
         self.assertEquals(self.testvm2.get_power_state(), "Running")
 
     def test_030_prevent_simultaneus_start(self):
-        self.qc.lock_db_for_writing()
-        try:
-            self.qc.load()
-            self.templatevm = self.qc.add_new_vm("QubesTemplateHVm",
-                                             name="%stemplate" % VM_PREFIX)
-            self.templatevm.create_on_disk(verbose=False)
-            self.testvm2 = self.qc.add_new_vm("QubesHVm",
-                                             name="%svm2" % VM_PREFIX,
-                                             template=self.templatevm)
-            self.testvm2.create_on_disk(verbose=False)
-            self.qc.save()
-        finally:
-            self.qc.unlock_db()
+        self.templatevm = self.qc.add_new_vm("QubesTemplateHVm",
+            name=self.make_vm_name('template'))
+        self.templatevm.create_on_disk(verbose=False)
+        self.testvm2 = self.qc.add_new_vm("QubesHVm",
+            name=self.make_vm_name('vm2'),
+            template=self.templatevm)
+        self.testvm2.create_on_disk(verbose=False)
+        self.qc.save()
 
         self.templatevm.start()
         self.assertEquals(self.templatevm.get_power_state(), "Running")
@@ -446,53 +379,21 @@ class HVMTests(unittest.TestCase):
         self.assertRaises(QubesException, self.templatevm.start)
 
 
-class DispVmTests(unittest.TestCase):
-    def setUp(self):
-        self.qc = QubesVmCollection()
-        self.qc.lock_db_for_reading()
-        self.qc.load()
-        self.qc.unlock_db()
-
-    def remove_vms(self, vms):
-        self.qc.lock_db_for_writing()
-        self.qc.load()
-
-        for vm in vms:
-            if isinstance(vm, str):
-                vm = self.qc.get_vm_by_name(vm)
-            else:
-                vm = self.qc[vm.qid]
-            if vm.is_running():
-                try:
-                    vm.force_shutdown()
-                except:
-                    pass
-            try:
-                vm.remove_from_disk()
-            except OSError:
-                pass
-            self.qc.pop(vm.qid)
-        self.qc.save()
-        self.qc.unlock_db()
-
-    def tearDown(self):
-        vmlist = [vm for vm in self.qc.values() if vm.name.startswith(
-            VM_PREFIX)]
-        self.remove_vms(vmlist)
-
+class TC_20_DispVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     def test_000_prepare_dvm(self):
+        self.qc.unlock_db()
         retcode = subprocess.call(['/usr/bin/qvm-create-default-dvm',
                                    '--default-template'],
                                   stderr=open(os.devnull, 'w'))
         self.assertEqual(retcode, 0)
-        self.qc.lock_db_for_reading()
+        self.qc.lock_db_for_writing()
         self.qc.load()
-        self.qc.unlock_db()
         self.assertIsNotNone(self.qc.get_vm_by_name(
             self.qc.get_default_template().name + "-dvm"))
         # TODO: check mtime of snapshot file
 
     def test_010_simple_dvm_run(self):
+        self.qc.unlock_db()
         p = subprocess.Popen(['/usr/lib/qubes/qfile-daemon-dvm',
                               'qubes.VMShell', 'dom0', 'DEFAULT'],
                              stdin=subprocess.PIPE,
@@ -502,22 +403,27 @@ class DispVmTests(unittest.TestCase):
         self.assertEqual(stdout, "test\n")
         # TODO: check if DispVM is destroyed
 
+
     def test_020_gui_app(self):
+        self.qc.unlock_db()
         p = subprocess.Popen(['/usr/lib/qubes/qfile-daemon-dvm',
                               'qubes.VMShell', 'dom0', 'DEFAULT'],
                              stdin=subprocess.PIPE,
                              stdout=subprocess.PIPE,
                              stderr=open(os.devnull, 'w'))
+
         # wait for DispVM startup:
         p.stdin.write("echo test\n")
         p.stdin.flush()
         l = p.stdout.readline()
         self.assertEqual(l, "test\n")
+
         # potential race condition, but our tests are supposed to be
         # running on dedicated machine, so should not be a problem
         self.qc.lock_db_for_reading()
         self.qc.load()
         self.qc.unlock_db()
+
         max_qid = 0
         for vm in self.qc.values():
             if not vm.is_disposablevm():
@@ -527,6 +433,7 @@ class DispVmTests(unittest.TestCase):
         dispvm = self.qc[max_qid]
         self.assertNotEqual(dispvm.qid, 0, "DispVM not found in qubes.xml")
         self.assertTrue(dispvm.is_running())
+
         p.stdin.write("gnome-terminal\n")
         wait_count = 0
         window_title = 'user@%s' % (dispvm.template.name + "-dvm")
@@ -576,17 +483,16 @@ class DispVmTests(unittest.TestCase):
                           "DispVM not removed from qubes.xml")
 
     def test_030_edit_file(self):
-        self.qc.lock_db_for_writing()
-        self.qc.load()
         self.testvm1 = self.qc.add_new_vm("QubesAppVm",
-                                         name="%svm1" % VM_PREFIX,
-                                         template=self.qc.get_default_template())
+            name=self.make_vm_name('vm1'),
+            template=self.qc.get_default_template())
         self.testvm1.create_on_disk(verbose=False)
         self.qc.save()
-        self.qc.unlock_db()
 
         self.testvm1.start()
         self.testvm1.run("echo test1 > /home/user/test.txt", wait=True)
+
+        self.qc.unlock_db()
         p = self.testvm1.run("qvm-open-in-dvm /home/user/test.txt",
                          passio_popen=True)
 

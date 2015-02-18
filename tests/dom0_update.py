@@ -27,12 +27,14 @@ import tempfile
 import unittest
 from qubes.qubes import QubesVmCollection
 
+import qubes.qubes
+
 VM_PREFIX = "test-"
 
 @unittest.skipUnless(os.path.exists('/usr/bin/rpmsign') and
                      os.path.exists('/usr/bin/rpmbuild'),
                      'rpm-sign and/or rpm-buid not installed')
-class TC_00_Dom0Upgrade(unittest.TestCase):
+class TC_00_Dom0Upgrade(qubes.tests.QubesTestCase):
     cleanup_paths = []
     pkg_name = 'qubes-test-pkg'
     dom0_update_common_opts = ['--disablerepo=*', '--enablerepo=test',
