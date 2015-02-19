@@ -146,7 +146,7 @@ class QubesTestResult(unittest.TestResult):
 
     def addFailure(self, test, err): # pylint: disable=invalid-name
         super(QubesTestResult, self).addFailure(test, err)
-        test.log.error('FAIL ({err[0]!s}: {err[1]!r})'.format(err=err))
+        test.log.error('FAIL ({err[0].__name__}: {err[1]!r})'.format(err=err))
         if self.showAll:
             self.stream.writeln('{color[red]}FAIL{color[normal]}'.format(
                 color=self.color))
