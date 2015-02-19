@@ -22,6 +22,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
+import argparse
 import curses
 import importlib
 import logging
@@ -210,33 +211,108 @@ class QubesTestResult(unittest.TestResult):
             self.stream.writeln('%s' % err)
 
 
+parser = argparse.ArgumentParser(
+    epilog='''When running only specific tests, write their names like in log,
+        in format: MODULE+"/"+CLASS+"/"+FUNCTION. MODULE should omit initial
+        "qubes.tests.". Example: basic/TC_00_Basic/test_000_create''')
+
+parser.add_argument('--failfast', '-f',
+    action='store_true', dest='failfast',
+    help='stop on the first fail, error or unexpected success')
+parser.add_argument('--no-failfast',
+    action='store_false', dest='failfast',
+    help='disable --failfast')
+
+parser.add_argument('--verbose', '-v',
+    action='count',
+    help='increase console verbosity level')
+parser.add_argument('--quiet', '-q',
+    action='count',
+    help='decrease console verbosity level')
+
+parser.add_argument('--loglevel', '-L', metavar='LEVEL',
+    action='store', choices=tuple(k
+        for k in sorted(logging._levelNames.keys(),
+            key=lambda x: logging._levelNames[x])
+        if isinstance(k, basestring)),
+    help='logging level for file and syslog forwarding '
+        '(one of: %(choices)s; default: %(default)s)')
+
+parser.add_argument('--logfile', '-o', metavar='FILE',
+    action='store',
+    help='if set, test run will be also logged to file')
+
+parser.add_argument('--syslog',
+    action='store_true', dest='syslog',
+    help='reenable logging to syslog')
+parser.add_argument('--no-syslog',
+    action='store_false', dest='syslog',
+    help='disable logging to syslog')
+
+parser.add_argument('--kmsg', '--very-brave-or-very-stupid',
+    action='store_true', dest='kmsg',
+    help='log most important things to kernel ring-buffer')
+parser.add_argument('--no-kmsg', '--i-am-smarter-than-kay-sievers',
+    action='store_false', dest='kmsg',
+    help='do not abuse kernel ring-buffer')
+
+parser.add_argument('names', metavar='TESTNAME',
+    action='store', nargs='*',
+    help='list of tests to run named like in description '
+        '(default: run all tests)')
+
+parser.set_defaults(
+    failfast=False,
+    loglevel='DEBUG',
+    logfile=None,
+    syslog=True,
+    kmsg=False,
+    verbose=2,
+    quiet=0)
+
+
 def main():
-    ha_file = logging.FileHandler(
-        os.path.join(os.environ['HOME'], 'qubes-tests.log'))
-    ha_file.setFormatter(
-        logging.Formatter('%(asctime)s %(name)s[%(process)d]: %(message)s'))
-    logging.root.addHandler(ha_file)
+    args = parser.parse_args()
 
-    ha_syslog = logging.handlers.SysLogHandler('/dev/log')
-    ha_syslog.setFormatter(
-        logging.Formatter('%(name)s[%(process)d]: %(message)s'))
+    logging.root.setLevel(args.loglevel)
 
-    try:
-        subprocess.check_call(('sudo', 'chmod', '666', '/dev/kmsg'))
-    except subprocess.CalledProcessError:
-        pass
-    else:
-        ha_kmsg = logging.FileHandler('/dev/kmsg', 'w')
-        ha_kmsg.setFormatter(
+    if args.logfile is not None:
+        ha_file = logging.FileHandler(
+            os.path.join(os.environ['HOME'], args.logfile))
+        ha_file.setFormatter(
+            logging.Formatter('%(asctime)s %(name)s[%(process)d]: %(message)s'))
+        logging.root.addHandler(ha_file)
+
+    if args.syslog:
+        ha_syslog = logging.handlers.SysLogHandler('/dev/log')
+        ha_syslog.setFormatter(
             logging.Formatter('%(name)s[%(process)d]: %(message)s'))
-        ha_kmsg.setLevel(logging.CRITICAL)
-        logging.root.addHandler(ha_kmsg)
+        logging.root.addHandler(ha_syslog)
+
+    if args.kmsg:
+        try:
+            subprocess.check_call(('sudo', 'chmod', '666', '/dev/kmsg'))
+        except subprocess.CalledProcessError:
+            parser.error('could not chmod /dev/kmsg')
+        else:
+            ha_kmsg = logging.FileHandler('/dev/kmsg', 'w')
+            ha_kmsg.setFormatter(
+                logging.Formatter('%(name)s[%(process)d]: %(message)s'))
+            ha_kmsg.setLevel(logging.CRITICAL)
+            logging.root.addHandler(ha_kmsg)
 
     suite = unittest.TestSuite()
     loader = unittest.TestLoader()
-    suite.addTests(loader.loadTestsFromName('qubes.tests'))
 
-    runner = unittest.TextTestRunner(stream=sys.stdout, verbosity=2)
+    if args.names:
+        suite.addTests(loader.loadTestsFromNames(
+            ('qubes.tests.' + name.replace('/', '.') for name in args.names)))
+    else:
+        suite.addTests(loader.loadTestsFromName('qubes.tests'))
+
+    runner = unittest.TextTestRunner(stream=sys.stdout,
+        verbosity=(args.verbose-args.quiet),
+        failfast=args.failfast)
     unittest.signals.installHandler()
     runner.resultclass = QubesTestResult
     return runner.run(suite).wasSuccessful()
