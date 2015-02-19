@@ -136,8 +136,10 @@ class TC_00_AppVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             # this may hang in some buggy cases
             elif len(p.stderr.read()) > 0:
                 result.value = 2
-            elif p.pull() is None:
-                result.value = 3
+            elif p.poll() is None:
+                time.sleep(1)
+                if p.poll() is None:
+                    result.value = 3
 
         self.testvm1.start()
 
