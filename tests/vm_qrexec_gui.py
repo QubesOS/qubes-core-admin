@@ -120,7 +120,6 @@ class TC_00_AppVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             self.fail("Some data was printed to stderr")
 
 
-    @unittest.expectedFailure
     def test_051_qrexec_simple_eof_reverse(self):
         """Test for EOF transmission VM->dom0"""
         result = multiprocessing.Value('i', 0)
