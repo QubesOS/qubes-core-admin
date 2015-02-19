@@ -217,6 +217,11 @@ class SystemTestsMixin(object):
     def make_vm_name(self, name):
         return VMPREFIX + name
 
+    def save_and_reload_db(self):
+        self.qc.save()
+        self.qc.unlock_db()
+        self.qc.lock_db_for_writing()
+        self.qc.load()
 
     def _remove_vm_qubes(self, vm):
         vmname = vm.name
@@ -234,7 +239,6 @@ class SystemTestsMixin(object):
         except libvirt.libvirtError: pass
 
         self.qc.pop(vm.qid)
-        self.qc.save()
         del vm
 
         # Now ensure it really went away. This may not have happened,
@@ -272,6 +276,7 @@ class SystemTestsMixin(object):
 
     def remove_vms(self, vms):
         for vm in vms: self._remove_vm_qubes(vm)
+        self.save_and_reload_db()
 
 
     def remove_test_vms(self):
@@ -285,9 +290,13 @@ class SystemTestsMixin(object):
         '''
 
         # first, remove them Qubes-way
+        something_removed = False
         for vm in self.qc.values():
             if vm.name.startswith(VMPREFIX):
                 self._remove_vm_qubes(vm)
+                something_removed = True
+        if something_removed:
+            self.save_and_reload_db()
 
         # now remove what was only in libvirt
         for dom in self.conn.listAllDomains():
@@ -391,6 +400,8 @@ class BackupTestsMixin(SystemTestsMixin):
         testvm2.create_on_disk(verbose=self.verbose)
         self.fill_image(testvm2.root_img, 1024*1024*1024, True)
         vms.append(testvm2)
+
+        self.save_and_reload_db()
 
         return vms
 
