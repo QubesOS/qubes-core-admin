@@ -102,7 +102,7 @@ class QubesTestResult(unittest.TestResult):
             fullname[-1] = '{color[bold]}{}{color[normal]}'.format(
                 fullname[-1], color=self.color)
             teststr[i] = '_'.join(fullname)
-        teststr = '.'.join(teststr)
+        teststr = '/'.join(teststr)
 
         doc_first_line = test.shortDescription()
         if self.descriptions and doc_first_line:
