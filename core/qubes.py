@@ -651,8 +651,12 @@ class QubesVmCollection(dict):
         try:
 
             new_store_file = tempfile.NamedTemporaryFile(prefix=self.qubes_store_filename, delete=False)
-            # XXX: do not get lock on the new file, as in all use cases
-            # unlock_db() is the next operation after save()
+            if os.name == 'posix':
+                fcntl.lockf (new_store_file, fcntl.LOCK_EX)
+            elif os.name == 'nt':
+                overlapped = pywintypes.OVERLAPPED()
+                win32file.LockFileEx(win32file._get_osfhandle(new_store_file.fileno()),
+                        win32con.LOCKFILE_EXCLUSIVE_LOCK, 0, -0x10000, overlapped)
             tree.write(new_store_file, encoding="UTF-8", pretty_print=True)
             new_store_file.flush()
             os.chmod(new_store_file.name, 0660)
@@ -738,6 +742,7 @@ class QubesVmCollection(dict):
         self.clear()
 
         try:
+            self.qubes_store_file.seek(0)
             tree = lxml.etree.parse(self.qubes_store_file)
         except (EnvironmentError,
                 xml.parsers.expat.ExpatError) as err:

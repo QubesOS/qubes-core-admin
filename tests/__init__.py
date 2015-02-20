@@ -401,7 +401,7 @@ class BackupTestsMixin(SystemTestsMixin):
         self.fill_image(testvm2.root_img, 1024*1024*1024, True)
         vms.append(testvm2)
 
-        self.save_and_reload_db()
+        self.qc.save()
 
         return vms
 
