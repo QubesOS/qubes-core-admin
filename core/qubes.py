@@ -23,16 +23,19 @@
 
 from __future__ import absolute_import
 
-import sys
+import atexit
+import grp
+import logging
 import os
 import os.path
-import lxml.etree
-import xml.parsers.expat
+import sys
+import tempfile
 import time
 import warnings
-import tempfile
-import grp
-import atexit
+import xml.parsers.expat
+
+import lxml.etree
+
 if os.name == 'posix':
     import fcntl
 elif os.name == 'nt':
@@ -295,8 +298,16 @@ class QubesVmCollection(dict):
         self.clockvm_qid = None
         self.qubes_store_file = None
 
+        self.log = logging.getLogger('qubes.qvmc.{:x}'.format(id(self)))
+        self.log.debug('instantiated store_filename={!r}'.format(
+            self.qubes_store_filename))
+
     def __repr__(self):
         return '<{} {!r}>'.format(self.__class__.__name__, list(sorted(self.keys())))
+
+    def clear(self):
+        self.log.debug('clear()')
+        super(QubesVmCollection, self).clear()
 
     def values(self):
         for qid in self.keys():
@@ -313,12 +324,15 @@ class QubesVmCollection(dict):
     keys = __iter__
 
     def __setitem__(self, key, value):
+        self.log.debug('[{!r}] = {!r}'.format(key, value))
         if key not in self:
             return super(QubesVmCollection, self).__setitem__(key, value)
         else:
             assert False, "Attempt to add VM with qid that already exists in the collection!"
 
     def add_new_vm(self, vm_type, **kwargs):
+        self.log.debug('add_new_vm(vm_type={}, **kwargs={!r})'.format(
+            vm_type, kwargs))
         if vm_type not in QubesVmClasses.keys():
             raise ValueError("Unknown VM type: %s" % vm_type)
 
@@ -428,6 +442,7 @@ class QubesVmCollection(dict):
                               netvm = self.get_default_fw_netvm())
 
     def set_default_template(self, vm):
+        self.log.debug('set_default_template({!r})'.format(vm))
         if vm is None:
             self.default_template_qid = None
         else:
@@ -441,6 +456,7 @@ class QubesVmCollection(dict):
             return self[self.default_template_qid]
 
     def set_default_netvm(self, vm):
+        self.log.debug('set_default_netvm({!r})'.format(vm))
         if vm is None:
             self.default_netvm_qid = None
         else:
@@ -454,6 +470,7 @@ class QubesVmCollection(dict):
             return self[self.default_netvm_qid]
 
     def set_default_kernel(self, kernel):
+        self.log.debug('set_default_kernel({!r})'.format(kernel))
         assert os.path.exists(
                 os.path.join(system_path["qubes_kernels_base_dir"], kernel)), \
             "Kerel {0} not installed!".format(kernel)
@@ -463,6 +480,7 @@ class QubesVmCollection(dict):
         return self.default_kernel
 
     def set_default_fw_netvm(self, vm):
+        self.log.debug('set_default_fw_netvm({!r})'.format(vm))
         if vm is None:
             self.default_fw_netvm_qid = None
         else:
@@ -476,6 +494,7 @@ class QubesVmCollection(dict):
             return self[self.default_fw_netvm_qid]
 
     def set_updatevm_vm(self, vm):
+        self.log.debug('set_updatevm_vm({!r})'.format(vm))
         if vm is None:
             self.updatevm_qid = None
         else:
@@ -488,6 +507,7 @@ class QubesVmCollection(dict):
             return self[self.updatevm_qid]
 
     def set_clockvm_vm(self, vm):
+        self.log.debug('set_clockvm({!r})'.format(vm))
         if vm is None:
             self.clockvm_qid = None
         else:
@@ -576,6 +596,7 @@ class QubesVmCollection(dict):
         return True
 
     def create_empty_storage(self):
+        self.log.debug('create_empty_storage()')
         self.qubes_store_file = open (self.qubes_store_filename, 'w')
         self.clear()
         self.save()
@@ -584,6 +605,7 @@ class QubesVmCollection(dict):
         # save() would rename the file over qubes.xml, _then_ release lock,
         # so we need to ensure that the file for which we've got the lock is
         # still the right file
+        self.log.debug('lock_db_for_reading()')
         while True:
             self.qubes_store_file = open (self.qubes_store_filename, 'r')
             if os.name == 'posix':
@@ -601,6 +623,7 @@ class QubesVmCollection(dict):
         # save() would rename the file over qubes.xml, _then_ release lock,
         # so we need to ensure that the file for which we've got the lock is
         # still the right file
+        self.log.debug('lock_db_for_writing()')
         while True:
             self.qubes_store_file = open (self.qubes_store_filename, 'r+')
             if os.name == 'posix':
@@ -617,9 +640,11 @@ class QubesVmCollection(dict):
     def unlock_db(self):
         # intentionally do not call explicit unlock to not unlock the file
         # before all buffers are flushed
+        self.log.debug('unlock_db()')
         self.qubes_store_file.close()
 
     def save(self):
+        self.log.debug('save()')
         root = lxml.etree.Element(
             "QubesVmCollection",
 
@@ -738,7 +763,27 @@ class QubesVmCollection(dict):
         self.default_kernel = element.get("default_kernel")
 
 
+    def _check_global(self, attr, default):
+        qid = getattr(self, attr)
+        if qid is None:
+            return
+        try:
+            self[qid]
+        except KeyError:
+            setattr(self, attr, default)
+
+
+    def check_globals(self):
+        '''Ensure that all referenced qids are present in the collection'''
+        self._check_global('default_template_qid', None)
+        self._check_global('default_fw_netvm_qid', None)
+        self._check_global('default_netvm_qid', self.default_fw_netvm_qid)
+        self._check_global('updatevm_qid', self.default_netvm_qid)
+        self._check_global('clockvm_qid', self.default_netvm_qid)
+
+
     def load(self):
+        self.log.debug('load()')
         self.clear()
 
         try:
@@ -779,6 +824,8 @@ class QubesVmCollection(dict):
                         os.path.basename(sys.argv[0]), vm_class_name, err))
                     return False
 
+        self.check_globals()
+
         # if there was no clockvm entry in qubes.xml, try to determine default:
         # root of default NetVM chain
         if tree.getroot().get("clockvm") is None:
@@ -803,6 +850,8 @@ class QubesVmCollection(dict):
         return True
 
     def pop(self, qid):
+        self.log.debug('pop({})'.format(qid))
+
         if self.default_netvm_qid == qid:
             self.default_netvm_qid = None
         if self.default_fw_netvm_qid == qid:
