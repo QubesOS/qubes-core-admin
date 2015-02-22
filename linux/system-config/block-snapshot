@@ -245,7 +245,7 @@ case "$command" in
             domain=$(cat "$HOTPLUG_STORE-domain")
             if [ "$domain" ]; then
               # Dont stop on errors
-              /usr/bin/qvm-template-commit "$domain" || true
+              /usr/bin/qvm-template-commit --offline-mode "$domain" || true
             fi
           fi
         fi
