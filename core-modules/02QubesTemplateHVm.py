@@ -89,4 +89,10 @@ class QubesTemplateHVm(QubesHVm):
                 raise QubesException("Cannot start HVM template while VMs based on it are running")
         return super(QubesTemplateHVm, self).start(*args, **kwargs)
 
+    def commit_changes (self, verbose = False):
+        self.log.debug('commit_changes()')
+
+        # nothing to do as long as root-cow.img is unused
+        pass
+
 register_qubes_vm_class(QubesTemplateHVm)
