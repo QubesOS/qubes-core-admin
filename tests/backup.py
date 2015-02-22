@@ -78,6 +78,7 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
         self.fill_image(hvmtemplate.private_img, 195*1024*1024-4096*3)
         self.fill_image(hvmtemplate.root_img, 1024*1024*1024, sparse=True)
         vms.append(hvmtemplate)
+        self.qc.save()
 
         self.make_backup(vms)
         self.remove_vms(vms)
