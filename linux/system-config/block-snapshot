@@ -132,11 +132,10 @@ case "$command" in
           write_dev /dev/mapper/$dm_devname
         fi
         # Save domain name for template commit on device remove
-        domain=$(xenstore_read_default "$XENBUS_PATH/domain" '')
-        if [ -z "$domain" ]; then
-          domid=$(xenstore_read "$XENBUS_PATH/frontend-id")
-          domain=$(xl domname $domid)
-        fi
+        domid=$(xenstore_read "$XENBUS_PATH/frontend-id")
+        # Store name of target domain in case of stubdom
+        domid=$(xenstore_read_default "/local/domain/$domid/target" "$domid")
+        domain=$(xl domname $domid)
         echo $domain > "$HOTPLUG_STORE-domain"
 
         release_lock "block"
@@ -209,7 +208,13 @@ case "$command" in
 
         claim_lock "block"
 
-        use_count=$(dmsetup info $node|grep Open|awk '{print $3}')
+        use_count=$(dmsetup info $node 2>/dev/null|grep Open|awk '{print $3}')
+
+        if [ -z "$use_count" ]; then
+            log info "Device $node already removed"
+            release_lock "block"
+            exit 0
+        fi
 
         # do not remove snapshot if snapshot origin is still present
         if [ "${node/snapshot/}" != "$node" -a -e "/dev/mapper/origin-$(echo $node|cut -d- -f2)" ]; then
