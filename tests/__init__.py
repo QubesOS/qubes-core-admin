@@ -187,8 +187,8 @@ class SystemTestsMixin(object):
 
         .. warning::
             This method instantiates QubesVmCollection acquires write lock for
-            it. You can use is as :py:attr:`qc`. Do not release the lock
-            yourself.
+            it. You can use is as :py:attr:`qc`. You can (and probably
+            should) release the lock at the end of setUp in subclass
         '''
 
         super(SystemTestsMixin, self).setUp()
@@ -204,6 +204,10 @@ class SystemTestsMixin(object):
 
     def tearDown(self):
         super(SystemTestsMixin, self).tearDown()
+
+        try: self.qc.lock_db_for_writing()
+        except qubes.qubes.QubesException: pass
+        self.qc.load()
 
         self.remove_test_vms()
 

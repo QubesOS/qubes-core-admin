@@ -47,6 +47,7 @@ class TC_00_AppVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             template=self.qc.get_default_template())
         self.testvm2.create_on_disk(verbose=False)
         self.qc.save()
+        self.qc.unlock_db()
 
 
     def test_000_start_shutdown(self):
