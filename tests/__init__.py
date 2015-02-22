@@ -469,7 +469,7 @@ class BackupTestsMixin(SystemTestsMixin):
         self.assertTrue(len(errors) == 0,
                          "Error(s) detected during backup_restore_do: %s" %
                          '\n'.join(errors))
-        if not appvm:
+        if not appvm and not os.path.isdir(backupfile):
             os.unlink(backupfile)
 
 
