@@ -602,6 +602,8 @@ class QubesVmCollection(dict):
         self.save()
 
     def lock_db_for_reading(self):
+        if self.qubes_store_file is not None:
+            raise QubesException("lock already taken")
         # save() would rename the file over qubes.xml, _then_ release lock,
         # so we need to ensure that the file for which we've got the lock is
         # still the right file
@@ -620,6 +622,8 @@ class QubesVmCollection(dict):
             self.qubes_store_file.close()
 
     def lock_db_for_writing(self):
+        if self.qubes_store_file is not None:
+            raise QubesException("lock already taken")
         # save() would rename the file over qubes.xml, _then_ release lock,
         # so we need to ensure that the file for which we've got the lock is
         # still the right file
@@ -642,6 +646,7 @@ class QubesVmCollection(dict):
         # before all buffers are flushed
         self.log.debug('unlock_db()')
         self.qubes_store_file.close()
+        self.qubes_store_file = None
 
     def save(self):
         self.log.debug('save()')
