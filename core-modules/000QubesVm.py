@@ -1578,6 +1578,9 @@ class QubesVm(object):
         if (retcode != 0) :
             raise QubesException("Cannot start qubes-guid!")
 
+        if not self.is_qrexec_running():
+            return
+
         try:
             import qubes.monitorlayoutnotify
             if verbose:
