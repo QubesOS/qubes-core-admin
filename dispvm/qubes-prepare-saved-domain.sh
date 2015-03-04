@@ -25,10 +25,11 @@ if ! [ -d $VMDIR ] ; then
 	echo "$VMDIR does not exist ?" >&2
 	exit 1
 fi
-if ! qvm-start $1 --no-guid --dvm ; then
+if ! qvm-start $1 --dvm ; then
 	exit 1
 fi
 
+ID=`virsh -c xen:/// domid $1`
 echo "Waiting for DVM $1 ..." >&2
 if [ -n "$ENCODED_SCRIPT" ] ; then
 	qubesdb-write -d $1 /qubes-save-script "$ENCODED_SCRIPT"
@@ -38,6 +39,7 @@ qubesdb-write -d $1 /qubes-save-request 1
 qubesdb-watch -d $1 /qubes-used-mem
 qubesdb-read -d $1 /qubes-gateway | \
 	cut -d . -f 3 | tr -d "\n" > $VMDIR/netvm-id.txt
+kill `cat /var/run/qubes/guid-running.$ID`
 # FIXME: get connection URI from core scripts
 virsh -c xen:/// detach-disk $1 xvdb
 MEM=$(qubesdb-read -d $1 /qubes-used-mem)

@@ -117,6 +117,12 @@ class QubesDisposableVm(QubesVm):
         attrs['privatedev'] = ''
         return attrs
 
+
+    def create_xenstore_entries(self, xid):
+        super(QubesDisposableVm, self).create_xenstore_entries(xid)
+
+        self.qdb.write('/qubes-restore-complete', '1')
+
     def start(self, verbose = False, **kwargs):
         self.log.debug('start()')
         if dry_run:
