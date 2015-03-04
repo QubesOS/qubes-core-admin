@@ -1710,14 +1710,22 @@ class QubesVm(object):
         if qmemman_present:
             qmemman_client.close()
 
+        extra_guid_args = None
+        if preparing_dvm:
+            # Run GUI daemon in "invisible" mode, so applications started by
+            # prerun script will not disturb the user
+            extra_guid_args = ['-I']
+
         if self._start_guid_first and start_guid and os.path.exists('/var/run/shm.id'):
-            self.start_guid(verbose=verbose, notify_function=notify_function, before_qrexec=True)
+            self.start_guid(verbose=verbose, notify_function=notify_function,
+                            before_qrexec=True, extra_guid_args=extra_guid_args)
 
         if not preparing_dvm:
             self.start_qrexec_daemon(verbose=verbose,notify_function=notify_function)
 
         if start_guid and os.path.exists('/var/run/shm.id'):
-            self.start_guid(verbose=verbose, notify_function=notify_function)
+            self.start_guid(verbose=verbose, notify_function=notify_function,
+                            extra_guid_args=extra_guid_args)
 
         return xid
 
