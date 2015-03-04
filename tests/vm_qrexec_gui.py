@@ -512,6 +512,7 @@ class TC_20_DispVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         time.sleep(0.5)
         subprocess.check_call(['xdotool', 'search', '--name', window_title,
                                'windowactivate', 'type', 'test test 2\n'])
+        time.sleep(0.5)
         subprocess.check_call(['xdotool', 'search', '--name', window_title,
                                'key', 'ctrl+s', 'ctrl+q'])
         p.wait()
