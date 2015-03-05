@@ -116,6 +116,9 @@ class _AssertNotRaisesContext(object):
         self.exception = exc_value # store for later retrieval
 
 
+class BeforeCleanExit(BaseException):
+    pass
+
 class QubesTestCase(unittest.TestCase):
     '''Base class for Qubes unit tests.
     '''
@@ -133,6 +136,19 @@ class QubesTestCase(unittest.TestCase):
             '.'.join(self.__class__.__module__.split('.')[2:]),
             self.__class__.__name__,
             self._testMethodName)
+
+
+    def tearDown(self):
+        super(QubesTestCase, self).tearDown()
+
+        result = self._resultForDoCleanups
+        l = result.failures \
+            + result.errors \
+            + [(tc, None) for tc in result.unexpectedSuccesses]
+
+        if getattr(result, 'do_not_clean', False) \
+                and filter((lambda (tc, exc): tc is self), l):
+            raise BeforeCleanExit()
 
 
     def assertNotRaises(self, excClass, callableObj=None, *args, **kwargs):

@@ -211,6 +211,10 @@ class QubesTestResult(unittest.TestResult):
             self.stream.writeln('%s' % err)
 
 
+class QubesDNCTestResult(QubesTestResult):
+    do_not_clean = True
+
+
 parser = argparse.ArgumentParser(
     epilog='''When running only specific tests, write their names like in log,
         in format: MODULE+"/"+CLASS+"/"+FUNCTION. MODULE should omit initial
@@ -222,6 +226,13 @@ parser.add_argument('--failfast', '-f',
 parser.add_argument('--no-failfast',
     action='store_false', dest='failfast',
     help='disable --failfast')
+
+parser.add_argument('--do-not-clean', '--dnc', '-D',
+    action='store_true', dest='do_not_clean',
+    help='do not execute tearDown on failed tests. Implies --failfast.')
+parser.add_argument('--do-clean', '-C',
+    action='store_false', dest='do_not_clean',
+    help='do execute tearDown even on failed tests.')
 
 parser.add_argument('--verbose', '-v',
     action='count',
@@ -274,6 +285,9 @@ parser.set_defaults(
 def main():
     args = parser.parse_args()
 
+    if args.do_not_clean:
+        args.failfast = True
+
     logging.root.setLevel(args.loglevel)
 
     if args.logfile is not None:
@@ -314,7 +328,10 @@ def main():
         verbosity=(args.verbose-args.quiet),
         failfast=args.failfast)
     unittest.signals.installHandler()
-    runner.resultclass = QubesTestResult
+
+    runner.resultclass = QubesDNCTestResult \
+        if args.do_not_clean else QubesTestResult
+
     return runner.run(suite).wasSuccessful()
 
 
