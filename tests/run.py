@@ -220,6 +220,17 @@ parser = argparse.ArgumentParser(
         in format: MODULE+"/"+CLASS+"/"+FUNCTION. MODULE should omit initial
         "qubes.tests.". Example: basic/TC_00_Basic/test_000_create''')
 
+parser.add_argument('--verbose', '-v',
+    action='count',
+    help='increase console verbosity level')
+parser.add_argument('--quiet', '-q',
+    action='count',
+    help='decrease console verbosity level')
+
+parser.add_argument('--list', '-l',
+    action='store_true', dest='list',
+    help='list all available tests and exit')
+
 parser.add_argument('--failfast', '-f',
     action='store_true', dest='failfast',
     help='stop on the first fail, error or unexpected success')
@@ -233,13 +244,6 @@ parser.add_argument('--do-not-clean', '--dnc', '-D',
 parser.add_argument('--do-clean', '-C',
     action='store_false', dest='do_not_clean',
     help='do execute tearDown even on failed tests.')
-
-parser.add_argument('--verbose', '-v',
-    action='count',
-    help='increase console verbosity level')
-parser.add_argument('--quiet', '-q',
-    action='count',
-    help='decrease console verbosity level')
 
 parser.add_argument('--loglevel', '-L', metavar='LEVEL',
     action='store', choices=tuple(k
@@ -282,8 +286,32 @@ parser.set_defaults(
     quiet=0)
 
 
+def list_test_cases(suite):
+    for test in suite:
+        if isinstance(test, unittest.TestSuite):
+            #yield from
+            for i in list_test_cases(test):
+                yield i
+        else:
+            yield test
+
+
 def main():
     args = parser.parse_args()
+
+    suite = unittest.TestSuite()
+    loader = unittest.TestLoader()
+
+    if args.names:
+        suite.addTests(loader.loadTestsFromNames(
+            ('qubes.tests.' + name.replace('/', '.') for name in args.names)))
+    else:
+        suite.addTests(loader.loadTestsFromName('qubes.tests'))
+
+    if args.list:
+        for test in list_test_cases(suite):
+            print(str(test))
+        return True
 
     if args.do_not_clean:
         args.failfast = True
@@ -314,15 +342,6 @@ def main():
                 logging.Formatter('%(name)s[%(process)d]: %(message)s'))
             ha_kmsg.setLevel(logging.CRITICAL)
             logging.root.addHandler(ha_kmsg)
-
-    suite = unittest.TestSuite()
-    loader = unittest.TestLoader()
-
-    if args.names:
-        suite.addTests(loader.loadTestsFromNames(
-            ('qubes.tests.' + name.replace('/', '.') for name in args.names)))
-    else:
-        suite.addTests(loader.loadTestsFromName('qubes.tests'))
 
     runner = unittest.TextTestRunner(stream=sys.stdout,
         verbosity=(args.verbose-args.quiet),
