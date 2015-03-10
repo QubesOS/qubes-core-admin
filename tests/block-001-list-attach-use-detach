@@ -7,7 +7,7 @@ echo 'qvm-block -l'
 qvm-block -l > $tmpf
 
 cat <<'END' | diff -u - $tmpf
-netvm:sda	STORAGE_DEVICE () 0 B
+sys-net:sda	STORAGE_DEVICE () 0 B
 dom0:sdb1	Cruzer () 3 GiB
 dom0:sdb	Cruzer () 3 GiB
 END
@@ -21,7 +21,7 @@ echo 'qvm-block -l'
 qvm-block -l > $tmpf
 
 cat <<'END' | diff -u - $tmpf
-netvm:sda	STORAGE_DEVICE () 0 B
+sys-net:sda	STORAGE_DEVICE () 0 B
 dom0:sdb1	Cruzer () 3 GiB
 dom0:sdb	Cruzer () 3 GiB (attached to 'work' as 'xvdi')
 END
