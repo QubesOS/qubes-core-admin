@@ -543,7 +543,7 @@ class QubesVm(object):
             return False
         if len(name) > 31:
             return False
-        return re.match(r"^[a-zA-Z][a-zA-Z0-9_-]*$", name) is not None
+        return re.match(r"^[a-zA-Z][a-zA-Z0-9_.-]*$", name) is not None
 
     def pre_rename(self, new_name):
         # fire hooks
