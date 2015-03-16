@@ -49,8 +49,9 @@ qubes-dvm
 qubes-firewall
     Default: enabled only in ProxyVM
 
-    Dynamic firewall manager, based on settings in dom0 (qvm-firewall, firewall tab in qubes-manager)
-
+    Dynamic firewall manager, based on settings in dom0 (qvm-firewall, firewall tab in qubes-manager).
+    This service is not supported in netvms.
+    
 qubes-network
     Default: enabled only in NetVM and ProxyVM
 
