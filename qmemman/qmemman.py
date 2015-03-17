@@ -29,6 +29,8 @@ import qmemman_algo
 import os
 from notify import notify_error_qubes_manager, clear_error_qubes_manager
 
+import logging
+
 no_progress_msg="VM refused to give back requested memory"
 slow_memset_react_msg="VM didn't give back all requested memory"
 
@@ -43,8 +45,11 @@ class DomainState:
         self.no_progress = False    #no react to memset
         self.slow_memset_react = False #slow react to memset (after few tries still above target)
 
-class SystemState:
+class SystemState(object):
     def __init__(self):
+        self.log = logging.getLogger('qmemman.systemstate')
+        self.log.debug('SystemState()')
+
         self.domdict = {}
         self.xc = xen.lowlevel.xc.xc()
         self.xs = xen.lowlevel.xs.xs()
@@ -54,9 +59,11 @@ class SystemState:
         self.ALL_PHYS_MEM = self.xc.physinfo()['total_memory']*1024
 
     def add_domain(self, id):
+        self.log.debug('add_domain(id={!r})'.format(id))
         self.domdict[id] = DomainState(id)
 
     def del_domain(self, id):
+        self.log.debug('del_domain(id={!r})'.format(id))
         self.domdict.pop(id)
 
     def get_free_xen_memory(self):
@@ -104,7 +111,7 @@ class SystemState:
 
 #the below works (and is fast), but then 'xm list' shows unchanged memory value
     def mem_set(self, id, val):
-        print 'mem-set domain', id, 'to', val
+        self.log.info('mem-set domain {} to {}'.format(id, val))
         self.domdict[id].last_target = val
 #can happen in the middle of domain shutdown
 #apparently xc.lowlevel throws exceptions too
@@ -118,24 +125,29 @@ class SystemState:
 # this is called at the end of ballooning, when we have Xen free mem already
 # make sure that past mem_set will not decrease Xen free mem
     def inhibit_balloon_up(self):
+        self.log.debug('inhibit_balloon_up()')
         for i in self.domdict.keys():
             dom = self.domdict[i]
             if dom.memory_actual is not None and dom.memory_actual + 200*1024 < dom.last_target:
-                print "Preventing balloon up to", dom.last_target
+                self.log.info(
+                    'Preventing balloon up to {}'.format(dom.last_target))
                 self.mem_set(i, dom.memory_actual)
 
 #perform memory ballooning, across all domains, to add "memsize" to Xen free memory
     def do_balloon(self, memsize):
+        self.log.info('do_balloon(memsize={!r})'.format(memsize))
         MAX_TRIES = 20
         niter = 0
         prev_memory_actual = None
+
         for i in self.domdict.keys():
             self.domdict[i].no_progress = False
-        print "do_balloon start"
+
         while True:
+            self.log.debug('niter={:2d}/{:2d}'.format(niter, MAX_TRIES))
             self.refresh_memactual()
             xenfree = self.get_free_xen_memory()
-            print 'got xenfree=', xenfree
+            self.log.info('xenfree={!r}'.format(xenfree))
             if xenfree >= memsize + self.XEN_FREE_MEM_MIN:
                 self.inhibit_balloon_up()
                 return True
@@ -144,9 +156,9 @@ class SystemState:
                     if prev_memory_actual[i] == self.domdict[i].memory_actual:
                         #domain not responding to memset requests, remove it from donors
                         self.domdict[i].no_progress = True
-                        print 'domain', i, 'stuck at', self.domdict[i].memory_actual
+                        self.log.info('domain {} stuck at {}'.format(i, self.domdict[i].memory_actual))
             memset_reqs = qmemman_algo.balloon(memsize + self.XEN_FREE_MEM_LEFT - xenfree, self.domdict)
-            print 'requests:', memset_reqs
+            self.log.info('memset_reqs={!r}'.format(memset_reqs))
             if niter > MAX_TRIES or len(memset_reqs) == 0:
                 return False
             prev_memory_actual = {}
@@ -154,42 +166,68 @@ class SystemState:
                 dom, mem = i
                 self.mem_set(dom, mem)
                 prev_memory_actual[dom] = self.domdict[dom].memory_actual
+            self.log.debug('sleeping for {} s'.format(self.BALOON_DELAY))
             time.sleep(self.BALOON_DELAY)
             niter = niter + 1
 
     def refresh_meminfo(self, domid, untrusted_meminfo_key):
-        qmemman_algo.refresh_meminfo_for_domain(self.domdict[domid], untrusted_meminfo_key)
+        self.log.debug(
+            'refresh_meminfo(domid={}, untrusted_meminfo_key={!r})'.format(
+                domid, untrusted_meminfo_key))
+
+        qmemman_algo.refresh_meminfo_for_domain(
+            self.domdict[domid], untrusted_meminfo_key)
         self.do_balance()
 
 #is the computed balance request big enough ?
 #so that we do not trash with small adjustments
     def is_balance_req_significant(self, memset_reqs, xenfree):
+        self.log.debug(
+            'is_balance_req_significant(memset_reqs={}, xenfree={})'.format(
+                memset_reqs, xenfree))
+
         total_memory_transfer = 0
         MIN_TOTAL_MEMORY_TRANSFER = 150*1024*1024
         MIN_MEM_CHANGE_WHEN_UNDER_PREF = 15*1024*1024
+
         # If xenfree to low, return immediately
         if self.XEN_FREE_MEM_LEFT - xenfree > MIN_MEM_CHANGE_WHEN_UNDER_PREF:
+            self.log.debug('xenfree is too low, returning')
             return True
+
         for rq in memset_reqs:
             dom, mem = rq
             last_target = self.domdict[dom].last_target
             memory_change = mem - last_target
             total_memory_transfer += abs(memory_change)
             pref = qmemman_algo.prefmem(self.domdict[dom])
+
             if last_target > 0 and last_target < pref and memory_change > MIN_MEM_CHANGE_WHEN_UNDER_PREF:
-                print 'dom', dom, 'is below pref, allowing balance'
+                self.log.info(
+                    'dom {} is below pref, allowing balance'.format(dom))
                 return True
-        return total_memory_transfer + abs(xenfree - self.XEN_FREE_MEM_LEFT) > MIN_TOTAL_MEMORY_TRANSFER
+
+        ret = total_memory_transfer + abs(xenfree - self.XEN_FREE_MEM_LEFT) > MIN_TOTAL_MEMORY_TRANSFER
+        self.log.debug('is_balance_req_significant return {}'.format(ret))
+        return ret
+
 
     def print_stats(self, xenfree, memset_reqs):
         for i in self.domdict.keys():
             if self.domdict[i].meminfo is not None:
-                print 'dom' , i, 'act/pref', self.domdict[i].memory_actual, qmemman_algo.prefmem(self.domdict[i])
-        print 'xenfree=', xenfree, 'balance req:', memset_reqs
+                self.log.info('stat: dom {!r} act={} pref={}'.format(i,
+                    self.domdict[i].memory_actual,
+                    qmemman_algo.prefmem(self.domdict[i])))
+
+        self.log.info('stat: xenfree={} memset_reqs={}'.format(xenfree, memset_reqs))
+
 
     def do_balance(self):
+        self.log.debug('do_balance()')
         if os.path.isfile('/var/run/qubes/do-not-membalance'):
+            self.log.debug('do-not-membalance file preset, returning')
             return
+
         self.refresh_memactual()
         self.clear_outdated_error_markers()
         xenfree = self.get_free_xen_memory()
@@ -210,6 +248,8 @@ class SystemState:
             # If not - wait a little.
             ntries = 5
             while self.get_free_xen_memory() - (mem - self.domdict[dom].memory_actual) < 0.9*self.XEN_FREE_MEM_LEFT:
+                self.log.debug('do_balance dom={!r} sleeping ntries={}'.format(
+                    dom, ntries))
                 time.sleep(self.BALOON_DELAY)
                 ntries -= 1
                 if ntries <= 0:
@@ -225,13 +265,22 @@ class SystemState:
                         if self.domdict[dom2].memory_actual > self.domdict[dom2].last_target + self.XEN_FREE_MEM_LEFT/4:
                             # VM didn't react to memory request at all, remove from donors
                             if prev_memactual[dom2] == self.domdict[dom2].memory_actual:
-                                print 'dom %s didnt react to memory request (holds %d, requested balloon down to %d)' % (dom2, self.domdict[dom2].memory_actual, mem2)
+                                self.log.warning(
+                                    'dom {!r} didnt react to memory request'
+                                    ' (holds {}, requested balloon down to {})'
+                                        .format(dom2,
+                                            self.domdict[dom2].memory_actual,
+                                            mem2))
                                 self.domdict[dom2].no_progress = True
                                 dom_name = self.xs.read('', '/local/domain/%s/name' % str(dom2))
                                 if dom_name is not None:
                                     notify_error_qubes_manager(str(dom_name), no_progress_msg)
                             else:
-                                print 'dom %s still hold more memory than have assigned (%d > %d)' % (dom2, self.domdict[dom2].memory_actual, mem2)
+                                self.log.warning('dom {!r} still hold more'
+                                    ' memory than have assigned ({} > {})'
+                                        .format(dom2,
+                                            self.domdict[dom2].memory_actual,
+                                            mem2))
                                 self.domdict[dom2].slow_memset_react = True
                                 dom_name = self.xs.read('', '/local/domain/%s/name' % str(dom2))
                                 if dom_name is not None:
