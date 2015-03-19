@@ -338,6 +338,7 @@ class TC_10_HVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             name=self.make_vm_name('vm1'))
         self.testvm1.create_on_disk(verbose=False)
         self.qc.save()
+        self.qc.unlock_db()
         self.testvm1.start()
         self.assertEquals(self.testvm1.get_power_state(), "Running")
 
@@ -345,6 +346,8 @@ class TC_10_HVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.templatevm = self.qc.add_new_vm("QubesTemplateHVm",
             name=self.make_vm_name('template'))
         self.templatevm.create_on_disk(verbose=False)
+        self.qc.save()
+        self.qc.unlock_db()
 
         self.templatevm.start()
         self.assertEquals(self.templatevm.get_power_state(), "Running")
@@ -358,6 +361,7 @@ class TC_10_HVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             template=self.templatevm)
         self.testvm2.create_on_disk(verbose=False)
         self.qc.save()
+        self.qc.unlock_db()
 
         self.testvm2.start()
         self.assertEquals(self.testvm2.get_power_state(), "Running")
@@ -371,6 +375,7 @@ class TC_10_HVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             template=self.templatevm)
         self.testvm2.create_on_disk(verbose=False)
         self.qc.save()
+        self.qc.unlock_db()
 
         self.templatevm.start()
         self.assertEquals(self.templatevm.get_power_state(), "Running")
