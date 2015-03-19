@@ -22,6 +22,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+from distutils import spawn
 
 import multiprocessing
 import os
@@ -65,6 +66,8 @@ class TC_00_AppVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.assertEquals(self.testvm1.get_power_state(), "Halted")
 
 
+    @unittest.skipUnless(spawn.find_executable('xdotool'),
+                         "xdotool not installed")
     def test_010_run_gui_app(self):
         self.testvm1.start()
         self.assertEquals(self.testvm1.get_power_state(), "Running")
@@ -276,6 +279,8 @@ class TC_00_AppVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.assertEqual(stdout, "3\n")
 
 
+    @unittest.skipUnless(spawn.find_executable('xdotool'),
+                         "xdotool not installed")
     def test_100_qrexec_filecopy(self):
         self.testvm1.start()
         self.testvm2.start()
@@ -293,6 +298,8 @@ class TC_00_AppVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.assertEqual(retcode, 0, "file differs")
 
 
+    @unittest.skipUnless(spawn.find_executable('xdotool'),
+                         "xdotool not installed")
     def test_110_qrexec_filecopy_deny(self):
         self.testvm1.start()
         self.testvm2.start()
@@ -313,6 +320,8 @@ class TC_00_AppVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
 
     @unittest.skip("Xen gntalloc driver crashes when page is mapped in the "
                    "same domain")
+    @unittest.skipUnless(spawn.find_executable('xdotool'),
+                         "xdotool not installed")
     def test_120_qrexec_filecopy_self(self):
         self.testvm1.start()
         p = self.testvm1.run("qvm-copy-to-vm %s /etc/passwd" %
@@ -411,6 +420,8 @@ class TC_20_DispVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         # TODO: check if DispVM is destroyed
 
 
+    @unittest.skipUnless(spawn.find_executable('xdotool'),
+                         "xdotool not installed")
     def test_020_gui_app(self):
         self.qc.unlock_db()
         p = subprocess.Popen(['/usr/lib/qubes/qfile-daemon-dvm',
@@ -489,6 +500,8 @@ class TC_20_DispVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.assertIsNone(self.qc.get_vm_by_name(dispvm.name),
                           "DispVM not removed from qubes.xml")
 
+    @unittest.skipUnless(spawn.find_executable('xdotool'),
+                         "xdotool not installed")
     def test_030_edit_file(self):
         self.testvm1 = self.qc.add_new_vm("QubesAppVm",
             name=self.make_vm_name('vm1'),
