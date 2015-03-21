@@ -63,7 +63,7 @@ class QubesXenVmStorage(QubesVmStorage):
         if not rw:
             params += "      <readonly/>\n"
         if domain:
-            params += "      <domain name='%s'/>\n" % domain
+            params += "      <backenddomain name='%s'/>\n" % domain
         if script:
             params += "      <script path='%s'/>\n" % script
         return template.format(path=path, vdev=vdev, type=type,
