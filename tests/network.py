@@ -35,7 +35,7 @@ from qubes.qubes import QubesVmCollection, defaults
 import qubes.tests
 
 
-class VmNetworkingTests(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
+class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
     test_ip = '192.168.123.45'
     test_name = 'test.example.com'
 
@@ -50,14 +50,14 @@ class VmNetworkingTests(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase)
         return p.wait()
 
     def setUp(self):
-        super(VmNetworkingTests, self).setUp()
+        super(VmNetworkingMixin, self).setUp()
         self.testnetvm = self.qc.add_new_vm("QubesNetVm",
             name=self.make_vm_name('netvm1'),
-            template=self.qc.get_default_template())
+            template=self.qc.get_vm_by_name(self.template))
         self.testnetvm.create_on_disk(verbose=False)
         self.testvm1 = self.qc.add_new_vm("QubesAppVm",
             name=self.make_vm_name('vm2'),
-            template=self.qc.get_default_template())
+            template=self.qc.get_vm_by_name(self.template))
         self.testvm1.create_on_disk(verbose=False)
         self.testvm1.netvm = self.testnetvm
         self.qc.save()
@@ -98,7 +98,7 @@ class VmNetworkingTests(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase)
     def test_010_simple_proxyvm(self):
         self.proxy = self.qc.add_new_vm("QubesProxyVm",
             name=self.make_vm_name('proxy'),
-            template=self.qc.get_default_template())
+            template=self.qc.get_vm_by_name(self.template))
         self.proxy.create_on_disk(verbose=False)
         self.proxy.netvm = self.testnetvm
         self.testvm1.netvm = self.proxy
@@ -121,7 +121,7 @@ class VmNetworkingTests(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase)
     def test_020_simple_proxyvm_nm(self):
         self.proxy = self.qc.add_new_vm("QubesProxyVm",
             name=self.make_vm_name('proxy'),
-            template=self.qc.get_default_template())
+            template=self.qc.get_vm_by_name(self.template))
         self.proxy.create_on_disk(verbose=False)
         self.proxy.netvm = self.testnetvm
         self.proxy.services['network-manager'] = True
@@ -165,7 +165,7 @@ class VmNetworkingTests(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase)
     def test_030_firewallvm_firewall(self):
         self.proxy = self.qc.add_new_vm("QubesProxyVm",
             name=self.make_vm_name('proxy'),
-            template=self.qc.get_default_template())
+            template=self.qc.get_vm_by_name(self.template))
         self.proxy.create_on_disk(verbose=False)
         self.proxy.netvm = self.testnetvm
         self.testvm1.netvm = self.proxy
@@ -262,14 +262,14 @@ class VmNetworkingTests(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase)
     def test_040_inter_vm(self):
         self.proxy = self.qc.add_new_vm("QubesProxyVm",
             name=self.make_vm_name('proxy'),
-            template=self.qc.get_default_template())
+            template=self.qc.get_vm_by_name(self.template))
         self.proxy.create_on_disk(verbose=False)
         self.proxy.netvm = self.testnetvm
         self.testvm1.netvm = self.proxy
 
         self.testvm2 = self.qc.add_new_vm("QubesAppVm",
             name=self.make_vm_name('vm3'),
-            template=self.qc.get_default_template())
+            template=self.qc.get_vm_by_name(self.template))
         self.testvm2.create_on_disk(verbose=False)
         self.testvm2.netvm = self.proxy
         self.qc.save()
@@ -293,3 +293,23 @@ class VmNetworkingTests(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase)
             self.ping_cmd.format(target=self.testvm2.ip)), 0)
         self.assertNotEqual(self.run_cmd(self.testvm2,
             self.ping_cmd.format(target=self.testvm1.ip)), 0)
+
+
+
+def load_tests(loader, tests, pattern):
+    try:
+        qc = qubes.qubes.QubesVmCollection()
+        qc.lock_db_for_reading()
+        qc.load()
+        qc.unlock_db()
+        templates = [vm.name for vm in qc.values() if
+                     isinstance(vm, qubes.qubes.QubesTemplateVm)]
+    except OSError:
+        templates = []
+    for template in templates:
+        tests.addTests(loader.loadTestsFromTestCase(
+            type(
+                'VmNetworking_' + template,
+                (VmNetworkingMixin, qubes.tests.QubesTestCase),
+                {'template': template})))
+    return tests

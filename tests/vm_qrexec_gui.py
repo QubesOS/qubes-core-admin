@@ -36,16 +36,16 @@ import qubes.tests
 
 TEST_DATA = "0123456789" * 1024
 
-class TC_00_AppVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
+class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
     def setUp(self):
-        super(TC_00_AppVM, self).setUp()
+        super(TC_00_AppVMMixin, self).setUp()
         self.testvm1 = self.qc.add_new_vm("QubesAppVm",
             name=self.make_vm_name('vm1'),
-            template=self.qc.get_default_template())
+            template=self.qc.get_vm_by_name(self.template))
         self.testvm1.create_on_disk(verbose=False)
         self.testvm2 = self.qc.add_new_vm("QubesAppVm",
             name=self.make_vm_name('vm2'),
-            template=self.qc.get_default_template())
+            template=self.qc.get_vm_by_name(self.template))
         self.testvm2.create_on_disk(verbose=False)
         self.qc.save()
         self.qc.unlock_db()
@@ -395,17 +395,17 @@ class TC_10_HVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.assertRaises(QubesException, self.templatevm.start)
 
 
-class TC_20_DispVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
+class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
     def test_000_prepare_dvm(self):
         self.qc.unlock_db()
         retcode = subprocess.call(['/usr/bin/qvm-create-default-dvm',
-                                   '--default-template'],
+                                   self.template],
                                   stderr=open(os.devnull, 'w'))
         self.assertEqual(retcode, 0)
         self.qc.lock_db_for_writing()
         self.qc.load()
         self.assertIsNotNone(self.qc.get_vm_by_name(
-            self.qc.get_default_template().name + "-dvm"))
+            self.template + "-dvm"))
         # TODO: check mtime of snapshot file
 
     def test_010_simple_dvm_run(self):
@@ -505,7 +505,7 @@ class TC_20_DispVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     def test_030_edit_file(self):
         self.testvm1 = self.qc.add_new_vm("QubesAppVm",
             name=self.make_vm_name('vm1'),
-            template=self.qc.get_default_template())
+            template=self.qc.get_vm_by_name(self.template))
         self.testvm1.create_on_disk(verbose=False)
         self.qc.save()
 
@@ -539,3 +539,30 @@ class TC_20_DispVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         (test_txt_content, _) = p.communicate()
         self.assertEqual(test_txt_content, "test test 2\ntest1\n")
 
+
+
+def load_tests(loader, tests, pattern):
+    try:
+        qc = qubes.qubes.QubesVmCollection()
+        qc.lock_db_for_reading()
+        qc.load()
+        qc.unlock_db()
+        templates = [vm.name for vm in qc.values() if
+                     isinstance(vm, qubes.qubes.QubesTemplateVm)]
+    except OSError:
+        templates = []
+    for template in templates:
+        tests.addTests(loader.loadTestsFromTestCase(
+            type(
+                'TC_00_AppVM_' + template,
+                (TC_00_AppVMMixin, qubes.tests.QubesTestCase),
+                {'template': template})))
+
+        tests.addTests(loader.loadTestsFromTestCase(
+            type(
+                'TC_20_DispVM_' + template,
+                (TC_20_DispVMMixin, qubes.tests.QubesTestCase),
+                {'template': template})))
+
+    tests.addTests(loader.loadTestsFromTestCase(TC_10_HVM))
+    return tests

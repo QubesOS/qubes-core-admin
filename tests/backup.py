@@ -86,6 +86,7 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
         self.remove_vms(vms)
 
 
+    # TODO: iterate over templates
     def test_100_send_to_vm(self):
         vms = self.create_backup_vms()
         self.backupvm.start()

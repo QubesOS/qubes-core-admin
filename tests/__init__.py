@@ -348,6 +348,7 @@ class BackupTestsMixin(SystemTestsMixin):
         if self.verbose:
             print >>sys.stderr, "-> Creating backupvm"
 
+        # TODO: allow non-default template
         self.backupvm = self.qc.add_new_vm("QubesAppVm",
             name=self.make_vm_name('backupvm'),
             template=self.qc.get_default_template())
