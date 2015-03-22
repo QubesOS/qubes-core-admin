@@ -22,6 +22,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+from distutils import spawn
 
 import multiprocessing
 import os
@@ -115,6 +116,8 @@ class VmNetworkingTests(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase)
                          "Ping by IP from AppVM failed")
 
 
+    @unittest.skipUnless(spawn.find_executable('xdotool'),
+                         "xdotool not installed")
     def test_020_simple_proxyvm_nm(self):
         self.proxy = self.qc.add_new_vm("QubesProxyVm",
             name=self.make_vm_name('proxy'),
