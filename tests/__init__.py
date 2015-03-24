@@ -502,6 +502,7 @@ def load_tests(loader, tests, pattern):
 
     for modname in (
             'qubes.tests.basic',
+            'qubes.tests.dom0_update',
             'qubes.tests.network',
             'qubes.tests.vm_qrexec_gui',
             'qubes.tests.backup',
