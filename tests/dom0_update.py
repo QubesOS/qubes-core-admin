@@ -33,7 +33,7 @@ VM_PREFIX = "test-"
 
 @unittest.skipUnless(os.path.exists('/usr/bin/rpmsign') and
                      os.path.exists('/usr/bin/rpmbuild'),
-                     'rpm-sign and/or rpm-buid not installed')
+                     'rpm-sign and/or rpm-build not installed')
 class TC_00_Dom0Upgrade(qubes.tests.QubesTestCase):
     cleanup_paths = []
     pkg_name = 'qubes-test-pkg'
