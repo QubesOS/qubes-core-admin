@@ -241,7 +241,12 @@ def block_list_vm(vm, system_disks = False):
 
     devices_list = {}
 
-    untrusted_devices = vm.qdb.multiread('/qubes-block-devices/')
+    try:
+        untrusted_devices = vm.qdb.multiread('/qubes-block-devices/')
+    except DisconnectedError:
+        # FIXME: find some better way to do that
+        vm._qdb_connection = None
+        return {}
 
     def get_dev_item(dev, item):
         return untrusted_devices.get(
