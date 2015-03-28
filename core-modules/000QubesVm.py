@@ -69,7 +69,7 @@ class QubesVm(object):
     # without introducing new ones
     hooks_clone_disk_files = []
     hooks_create_on_disk = []
-    hooks_create_xenstore_entries = []
+    hooks_create_qubesdb_entries = []
     hooks_get_attrs_config = []
     hooks_get_clone_attrs = []
     hooks_get_config_params = []
@@ -440,7 +440,7 @@ class QubesVm(object):
 
         if self.is_running():
             # refresh IP, DNS etc
-            self.create_xenstore_entries(self.xid)
+            self.create_qubesdb_entries()
             self.attach_network()
             if hasattr(self.netvm, 'post_vm_net_attach'):
                 self.netvm.post_vm_net_attach(self)
@@ -966,7 +966,7 @@ class QubesVm(object):
             # remove dead device
             vmm.xs.rm('', '%s/%s' % (dev_basepath, dev))
 
-    def create_xenstore_entries(self, xid = None):
+    def create_qubesdb_entries(self):
         if dry_run:
             return
 
@@ -1005,11 +1005,11 @@ class QubesVm(object):
         # xenstore for it until decided otherwise
         if qmemman_present:
             vmm.xs.set_permissions('', '/local/domain/{0}/memory'.format(self.xid),
-                    [{ 'dom': xid }])
+                    [{ 'dom': self.xid }])
 
         # fire hooks
-        for hook in self.hooks_create_xenstore_entries:
-            hook(self, xid=xid)
+        for hook in self.hooks_create_qubesdb_entries:
+            hook(self)
 
     def _format_net_dev(self, ip, mac, backend):
         template = "    <interface type='ethernet'>\n" \
@@ -1683,14 +1683,14 @@ class QubesVm(object):
             self.services['qubes-dvm'] = True
         if verbose:
             print >> sys.stderr, "--> Setting Qubes DB info for the VM..."
-        self.create_xenstore_entries(xid)
+        self.create_qubesdb_entries()
 
         if verbose:
             print >> sys.stderr, "--> Updating firewall rules..."
         netvm = self.netvm
         while netvm is not None:
             if netvm.is_proxyvm() and netvm.is_running():
-                netvm.write_iptables_xenstore_entry()
+                netvm.write_iptables_qubesdb_entry()
             netvm = netvm.netvm
 
         # fire hooks

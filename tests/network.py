@@ -200,7 +200,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             'allowDns': False,
             'allowIcmp': True,
         })
-        self.proxy.write_iptables_xenstore_entry()
+        self.proxy.write_iptables_qubesdb_entry()
         # Ugly hack b/c there is no feedback when the rules are actually applied
         time.sleep(1)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
@@ -215,7 +215,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             'allowDns': True,
             'allowIcmp': True,
         })
-        self.proxy.write_iptables_xenstore_entry()
+        self.proxy.write_iptables_qubesdb_entry()
         # Ugly hack b/c there is no feedback when the rules are actually applied
         time.sleep(1)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0,
@@ -234,7 +234,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
                        'proto': 'tcp',
                        'portBegin': 1234
                       }] })
-        self.proxy.write_iptables_xenstore_entry()
+        self.proxy.write_iptables_qubesdb_entry()
         # Ugly hack b/c there is no feedback when the rules are actually applied
         time.sleep(1)
         self.assertEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
@@ -252,7 +252,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
                        'portBegin': 1234
                       }]
         })
-        self.proxy.write_iptables_xenstore_entry()
+        self.proxy.write_iptables_qubesdb_entry()
         # Ugly hack b/c there is no feedback when the rules are actually applied
         time.sleep(1)
         self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,

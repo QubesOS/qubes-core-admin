@@ -95,7 +95,7 @@ class QfileDaemonDvm:
         print >>sys.stderr, "time=%s, reloading firewall" % (str(time.time()))
         for vm in qvm_collection.values():
             if vm.is_proxyvm() and vm.is_running():
-                vm.write_iptables_xenstore_entry()
+                vm.write_iptables_qubesdb_entry()
 
         return dispvm
 

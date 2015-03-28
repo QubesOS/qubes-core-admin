@@ -117,9 +117,8 @@ class QubesDisposableVm(QubesVm):
         attrs['privatedev'] = ''
         return attrs
 
-
-    def create_xenstore_entries(self, xid):
-        super(QubesDisposableVm, self).create_xenstore_entries(xid)
+    def create_qubesdb_entries(self):
+        super(QubesDisposableVm, self).create_qubesdb_entries()
 
         self.qdb.write('/qubes-restore-complete', '1')
 
@@ -171,7 +170,7 @@ class QubesDisposableVm(QubesVm):
         self.services['qubes-dvm'] = True
         if verbose:
             print >> sys.stderr, "--> Setting Qubes DB info for the VM..."
-        self.create_xenstore_entries(self.xid)
+        self.create_qubesdb_entries()
         print >>sys.stderr, "time=%s, done qubesdb" % (str(time.time()))
 
         # fire hooks
