@@ -334,9 +334,18 @@ def block_check_attached(qvmc, device):
         raise QubesException("You need to pass qvmc argument")
 
     for vm in qvmc.values():
-        libvirt_domain = vm.libvirt_domain
-        if libvirt_domain:
-            xml = vm.libvirt_domain.XMLDesc()
+        try:
+            libvirt_domain = vm.libvirt_domain
+            if libvirt_domain:
+                xml = libvirt_domain.XMLDesc()
+            else:
+                xml = None
+        except libvirt.libvirtError:
+            if vmm.libvirt_conn.virConnGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
+                libvirt_domain = None
+            else:
+                raise
+        if xml:
             parsed_xml = etree.fromstring(xml)
             disks = parsed_xml.xpath("//domain/devices/disk")
             for disk in disks:
@@ -720,8 +729,15 @@ class QubesWatch(object):
             self._device_removed, None)
         # TODO: device attach libvirt event
         for vm in vmm.libvirt_conn.listAllDomains():
-            if vm.isActive():
-                self._register_watches(vm)
+            try:
+                if vm.isActive():
+                    self._register_watches(vm)
+            except libvirt.libvirtError:
+                # this will happen if we loose a race with another tool,
+                # which can just remove the domain
+                if vmm.libvirt_conn.virConnGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
+                    pass
+                raise
         # and for dom0
         self._register_watches(None)
 

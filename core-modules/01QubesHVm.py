@@ -219,6 +219,9 @@ class QubesHVm(QubesVm):
         except Exception as e:
             print >> sys.stderr, "WARNING: Failed to set VM icon: %s" % str(e)
 
+        # Make sure that we have UUID allocated
+        self._update_libvirt_domain()
+
         # fire hooks
         for hook in self.hooks_create_on_disk:
             hook(self, verbose, source_template=source_template)

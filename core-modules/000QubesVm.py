@@ -660,9 +660,14 @@ class QubesVm(object):
 
     @property
     def xid(self):
-        if self.libvirt_domain is None:
-            return -1
-        return self.libvirt_domain.ID()
+        try:
+            return self.libvirt_domain.ID()
+        except libvirt.libvirtError:
+            if vmm.libvirt_conn.virConnGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
+                return -1
+            else:
+                raise
+
 
     def get_xid(self):
         # obsoleted
@@ -670,34 +675,17 @@ class QubesVm(object):
 
     def _update_libvirt_domain(self):
         domain_config = self.create_config_file()
-        try:
-            self._libvirt_domain = vmm.libvirt_conn.defineXML(domain_config)
-            self.uuid = uuid.UUID(bytes=self._libvirt_domain.UUID())
-        except libvirt.libvirtError:
-            if vmm.libvirt_conn.virConnGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
-                # accept the fact that libvirt doesn't know anything about this
-                # domain...
-                pass
-            else:
-                raise
+        self._libvirt_domain = vmm.libvirt_conn.defineXML(domain_config)
+        self.uuid = uuid.UUID(bytes=self._libvirt_domain.UUID())
 
     @property
     def libvirt_domain(self):
-        if self._libvirt_domain is not None:
-            return self._libvirt_domain
-
-        try:
+        if self._libvirt_domain is None:
             if self.uuid is not None:
                 self._libvirt_domain = vmm.libvirt_conn.lookupByUUID(self.uuid.bytes)
             else:
                 self._libvirt_domain = vmm.libvirt_conn.lookupByName(self.name)
                 self.uuid = uuid.UUID(bytes=self._libvirt_domain.UUID())
-        except libvirt.libvirtError:
-            if vmm.libvirt_conn.virConnGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
-                self._update_libvirt_domain()
-            else:
-                raise
-
         return self._libvirt_domain
 
     def get_uuid(self):
@@ -712,33 +700,41 @@ class QubesVm(object):
         if dry_run:
             return 666
 
-        if self.libvirt_domain is None:
-            return 0
-
-        if not self.libvirt_domain.isActive():
-            return 0
-        return self.libvirt_domain.info()[1]
+        try:
+            if not self.libvirt_domain.isActive():
+                return 0
+            return self.libvirt_domain.info()[1]
+        except libvirt.libvirtError:
+            if vmm.libvirt_conn.virConnGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
+                return 0
+            else:
+                raise
 
     def get_cputime(self):
         if dry_run:
             return 666
 
-        if self.libvirt_domain is None:
-            return 0
-
-        if not self.libvirt_domain.isActive():
-            return 0
-        return self.libvirt_domain.info()[4]
-
+        try:
+            if not self.libvirt_domain.isActive():
+                return 0
+            return self.libvirt_domain.info()[4]
+        except libvirt.libvirtError:
+            if vmm.libvirt_conn.virConnGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
+                return 0
+            else:
+                raise
 
     def get_mem_static_max(self):
         if dry_run:
             return 666
 
-        if self.libvirt_domain is None:
-            return 0
-
-        return self.libvirt_domain.maxMemory()
+        try:
+            return self.libvirt_domain.maxMemory()
+        except libvirt.libvirtError:
+            if vmm.libvirt_conn.virConnGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
+                return 0
+            else:
+                raise
 
     def get_prefmem(self):
         # TODO: qmemman is still xen specific
@@ -757,12 +753,17 @@ class QubesVm(object):
             import random
             return random.random() * 100
 
-        libvirt_domain = self.libvirt_domain
-        if libvirt_domain and libvirt_domain.isActive():
-            return libvirt_domain.getCPUStats(
-                    libvirt.VIR_NODE_CPU_STATS_ALL_CPUS, 0)[0]['cpu_time']/10**9
-        else:
-            return 0
+        try:
+            if self.libvirt_domain.isActive():
+                return self.libvirt_domain.getCPUStats(
+                        libvirt.VIR_NODE_CPU_STATS_ALL_CPUS, 0)[0]['cpu_time']/10**9
+            else:
+                return 0
+        except libvirt.libvirtError:
+            if vmm.libvirt_conn.virConnGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
+                return 0
+            else:
+                raise
 
     def get_disk_utilization_root_img(self):
         return qubes.qubesutils.get_disk_usage(self.root_img)
@@ -777,30 +778,32 @@ class QubesVm(object):
         if dry_run:
             return "NA"
 
-        libvirt_domain = self.libvirt_domain
-        if libvirt_domain is None:
-            return "NA"
-
-        if libvirt_domain.isActive():
-            if libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PAUSED:
-                return "Paused"
-            elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_CRASHED:
-                return "Crashed"
-            elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_SHUTDOWN:
-                return "Halting"
-            elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_SHUTOFF:
-                return "Dying"
-            elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PMSUSPENDED:
-                return "Suspended"
-            else:
-                if not self.is_fully_usable():
-                    return "Transient"
+        try:
+            libvirt_domain = self.libvirt_domain
+            if libvirt_domain.isActive():
+                if libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PAUSED:
+                    return "Paused"
+                elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_CRASHED:
+                    return "Crashed"
+                elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_SHUTDOWN:
+                    return "Halting"
+                elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_SHUTOFF:
+                    return "Dying"
+                elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PMSUSPENDED:
+                    return "Suspended"
                 else:
-                    return "Running"
-        else:
-            return 'Halted'
+                    if not self.is_fully_usable():
+                        return "Transient"
+                    else:
+                        return "Running"
+            else:
+                return 'Halted'
+        except libvirt.libvirtError:
+            if vmm.libvirt_conn.virConnGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
+                return "NA"
+            else:
+                raise
 
-        return "NA"
 
     def is_guid_running(self):
         xid = self.xid
@@ -824,17 +827,28 @@ class QubesVm(object):
         return True
 
     def is_running(self):
-        if self.libvirt_domain and self.libvirt_domain.isActive():
-            return True
-        else:
-            return False
+        try:
+            if self.libvirt_domain.isActive():
+                return True
+            else:
+                return False
+        except libvirt.libvirtError:
+            if vmm.libvirt_conn.virConnGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
+                return False
+            else:
+                raise
 
     def is_paused(self):
-        if self.libvirt_domain and self.libvirt_domain.state()[0] == \
-                libvirt.VIR_DOMAIN_PAUSED:
-            return True
-        else:
-            return False
+        try:
+            if self.libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PAUSED:
+                return True
+            else:
+                return False
+        except libvirt.libvirtError:
+            if vmm.libvirt_conn.virConnGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
+                return False
+            else:
+                raise
 
     def get_start_time(self):
         if not self.is_running():
@@ -1153,6 +1167,9 @@ class QubesVm(object):
         else:
             shutil.copy(self.label.icon_path, self.icon_path)
 
+        # Make sure that we have UUID allocated
+        self._update_libvirt_domain()
+
         # fire hooks
         for hook in self.hooks_create_on_disk:
             hook(self, verbose, source_template=source_template)
@@ -1202,6 +1219,9 @@ class QubesVm(object):
                         print >> sys.stderr, "--> Copying icon: {0} -> {1}".format(src_vm.icon_path, self.icon_path)
                     shutil.copy(src_vm.icon_path, self.icon_path)
 
+        # Make sure that we have UUID allocated
+        self._update_libvirt_domain()
+
         # fire hooks
         for hook in self.hooks_clone_disk_files:
             hook(self, src_vm, verbose)
@@ -1236,6 +1256,8 @@ class QubesVm(object):
         # fire hooks
         for hook in self.hooks_remove_from_disk:
             hook(self)
+
+        self.libvirt_domain.undefine()
 
         self.storage.remove_from_disk()
 
@@ -1771,6 +1793,7 @@ class QubesVm(object):
             raise QubesException ("VM already stopped!")
 
         self.libvirt_domain.destroy()
+        self.refresh()
 
     def suspend(self):
         self.log.debug('suspend()')

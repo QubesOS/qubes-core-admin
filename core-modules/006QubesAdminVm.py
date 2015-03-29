@@ -75,6 +75,10 @@ class QubesAdminVm(QubesNetVm):
     def get_mem_static_max(self):
         return vmm.libvirt_conn.getInfo()[1]
 
+    def get_cputime(self):
+        # TODO: measure it somehow
+        return 0
+
     def get_disk_usage(self, file_or_dir):
         return 0
 
