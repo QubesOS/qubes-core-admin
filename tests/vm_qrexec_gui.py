@@ -564,5 +564,4 @@ def load_tests(loader, tests, pattern):
                 (TC_20_DispVMMixin, qubes.tests.QubesTestCase),
                 {'template': template})))
 
-    tests.addTests(loader.loadTestsFromTestCase(TC_10_HVM))
     return tests

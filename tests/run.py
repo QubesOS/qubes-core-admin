@@ -303,8 +303,11 @@ def main():
     loader = unittest.TestLoader()
 
     if args.names:
-        suite.addTests(loader.loadTestsFromNames(
-            ('qubes.tests.' + name.replace('/', '.') for name in args.names)))
+        alltests = loader.loadTestsFromName('qubes.tests')
+        for name in args.names:
+            suite.addTests(
+                [test for test in list_test_cases(alltests)
+                 if (str(test)+'/').startswith(name.replace('.', '/')+'/')])
     else:
         suite.addTests(loader.loadTestsFromName('qubes.tests'))
 
