@@ -654,9 +654,8 @@ class QubesVm(object):
     @property
     def qdb(self):
         if self._qdb_connection is None:
-            if self.is_running():
-                from qubes.qdb import QubesDB
-                self._qdb_connection = QubesDB(self.name)
+            from qubes.qdb import QubesDB
+            self._qdb_connection = QubesDB(self.name)
         return self._qdb_connection
 
     @property
@@ -704,6 +703,10 @@ class QubesVm(object):
     def get_uuid(self):
         # obsoleted
         return self.uuid
+
+    def refresh(self):
+        self._libvirt_domain = None
+        self._qdb_connection = None
 
     def get_mem(self):
         if dry_run:
