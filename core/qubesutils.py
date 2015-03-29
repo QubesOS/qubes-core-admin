@@ -245,7 +245,7 @@ def block_list_vm(vm, system_disks = False):
 
     try:
         untrusted_devices = vm.qdb.multiread('/qubes-block-devices/')
-    except DisconnectedError:
+    except Error:
         vm.refresh()
         return {}
 
