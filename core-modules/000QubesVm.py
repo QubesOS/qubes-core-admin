@@ -607,7 +607,9 @@ class QubesVm(object):
     @autostart.setter
     def autostart(self, value):
         if value:
-            retcode = subprocess.call(["sudo", "systemctl", "enable", "qubes-vm@%s.service" % self.name])
+            retcode = subprocess.call(["sudo", "ln", "-sf",
+                                       "/usr/lib/systemd/system/qubes-vm@.service",
+                                       "/etc/systemd/system/multi-user.target.wants/qubes-vm@%s.service" % self.name])
         else:
             retcode = subprocess.call(["sudo", "systemctl", "disable", "qubes-vm@%s.service" % self.name])
         if retcode != 0:
