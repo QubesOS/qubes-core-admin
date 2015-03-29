@@ -26,7 +26,8 @@ import os
 import sys
 import libvirt
 import time
-from qubes.qubes import QubesVm,QubesVmLabel,register_qubes_vm_class
+from qubes.qubes import QubesVm,QubesVmLabel,register_qubes_vm_class, \
+    QubesException
 from qubes.qubes import QubesDispVmLabels
 from qubes.qubes import dry_run,vmm
 qmemman_present = False
