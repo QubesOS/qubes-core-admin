@@ -562,7 +562,6 @@ class QubesVm(object):
         self.pre_rename(name)
         if self.libvirt_domain:
             self.libvirt_domain.undefine()
-        self._libvirt_domain = None
         if self._qdb_connection:
             self._qdb_connection.close()
             self._qdb_connection = None
@@ -672,8 +671,6 @@ class QubesVm(object):
 
     def _update_libvirt_domain(self):
         domain_config = self.create_config_file()
-        if self._libvirt_domain:
-            self._libvirt_domain.undefine()
         try:
             self._libvirt_domain = vmm.libvirt_conn.defineXML(domain_config)
             self.uuid = uuid.UUID(bytes=self._libvirt_domain.UUID())
