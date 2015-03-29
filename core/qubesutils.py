@@ -810,7 +810,7 @@ class QubesWatch(object):
             # ignore other events for now
             return None
         if self.domain_callback:
-            self.domain_callback(name=domain.name())
+            self.domain_callback(name=domain.name(), uuid=domain.UUID())
 
     def _device_removed(self, conn, domain, device, param):
         if self.block_callback is not None:
