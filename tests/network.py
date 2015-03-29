@@ -90,6 +90,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
 
 
     def test_000_simple_networking(self):
+        self.qc.unlock_db()
         self.testvm1.start()
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
@@ -103,6 +104,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.proxy.netvm = self.testnetvm
         self.testvm1.netvm = self.proxy
         self.qc.save()
+        self.qc.unlock_db()
 
         self.testvm1.start()
         self.assertTrue(self.proxy.is_running())
@@ -127,6 +129,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.proxy.services['network-manager'] = True
         self.testvm1.netvm = self.proxy
         self.qc.save()
+        self.qc.unlock_db()
 
         self.testvm1.start()
         self.assertTrue(self.proxy.is_running())
@@ -170,6 +173,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.proxy.netvm = self.testnetvm
         self.testvm1.netvm = self.proxy
         self.qc.save()
+        self.qc.unlock_db()
 
         # block all for first
 
@@ -273,6 +277,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.testvm2.create_on_disk(verbose=False)
         self.testvm2.netvm = self.proxy
         self.qc.save()
+        self.qc.unlock_db()
 
         self.testvm1.start()
         self.testvm2.start()
