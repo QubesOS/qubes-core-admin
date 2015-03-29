@@ -22,13 +22,15 @@
 #
 #
 
+from __future__ import absolute_import
+
 import string
 from lxml import etree
 from lxml.etree import ElementTree, SubElement, Element
 
-from qubes import QubesException
-from qubes import vmm
-from qubes import system_path,vm_files
+from qubes.qubes import QubesException
+from qubes.qubes import vmm
+from qubes.qubes import system_path,vm_files
 import sys
 import os
 import subprocess
@@ -36,7 +38,7 @@ import re
 import time
 import stat
 import libvirt
-from qdb import QubesDB,Error,DisconnectedError
+from qubes.qdb import QubesDB,Error,DisconnectedError
 
 import xen.lowlevel.xc
 import xen.lowlevel.xs
