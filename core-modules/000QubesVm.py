@@ -327,7 +327,7 @@ class QubesVm(object):
             if not self.template.is_template():
                 print >> sys.stderr, "ERROR: template_qid={0} doesn't point to a valid TemplateVM".\
                     format(self.template.qid)
-                return False
+                return
             self.template.appvms[self.qid] = self
         else:
             assert self.root_img is not None, "Missing root_img for standalone VM!"
