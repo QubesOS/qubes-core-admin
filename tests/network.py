@@ -206,7 +206,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         })
         self.proxy.write_iptables_qubesdb_entry()
         # Ugly hack b/c there is no feedback when the rules are actually applied
-        time.sleep(1)
+        time.sleep(3)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
                          "Ping by IP failed (should be allowed now)")
         self.assertNotEqual(self.run_cmd(self.testvm1, self.ping_name), 0,
@@ -221,7 +221,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         })
         self.proxy.write_iptables_qubesdb_entry()
         # Ugly hack b/c there is no feedback when the rules are actually applied
-        time.sleep(1)
+        time.sleep(3)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0,
                          "Ping by name failed (should be allowed now)")
         self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
@@ -240,7 +240,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
                       }] })
         self.proxy.write_iptables_qubesdb_entry()
         # Ugly hack b/c there is no feedback when the rules are actually applied
-        time.sleep(1)
+        time.sleep(3)
         self.assertEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
                          "TCP connection failed (should be allowed now)")
 
@@ -258,7 +258,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         })
         self.proxy.write_iptables_qubesdb_entry()
         # Ugly hack b/c there is no feedback when the rules are actually applied
-        time.sleep(1)
+        time.sleep(3)
         self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
                          "TCP connection should be blocked")
 
