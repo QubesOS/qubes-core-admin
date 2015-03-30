@@ -66,16 +66,16 @@ class QfileDaemonDvm:
             assert sys.argv[4] in QubesDispVmLabels.keys(), "Invalid label"
             label = QubesDispVmLabels[sys.argv[4]]
         disp_templ = self.get_disp_templ()
-        vm_disptempl = qvm_collection.get_vm_by_name(disp_templ);
+        vm_disptempl = qvm_collection.get_vm_by_name(disp_templ)
         if vm_disptempl is None:
-            sys.stderr.write( 'Domain ' + disptempl + ' does not exist ?')
+            sys.stderr.write( 'Domain ' + disp_templ + ' does not exist ?')
             qvm_collection.unlock_db()
             return None
         dispvm=qvm_collection.add_new_vm('QubesDisposableVm', disp_template=vm_disptempl, label=label)
         print >>sys.stderr, "time=%s, VM created" % (str(time.time()))
         # By default inherit firewall rules from calling VM
         if os.path.exists(vm.firewall_conf):
-            disp_firewall_conf = '/var/run/qubes/%s-firewall.xml' % disp_name
+            disp_firewall_conf = '/var/run/qubes/%s-firewall.xml' % dispvm.name
             shutil.copy(vm.firewall_conf, disp_firewall_conf)
             dispvm.firewall_conf = disp_firewall_conf
         if len(sys.argv) > 5 and len(sys.argv[5]) > 0:
