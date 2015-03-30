@@ -193,7 +193,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
                          "Ping by name from ProxyVM failed")
         self.assertNotEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
                          "Ping by IP should be blocked")
-        nc_cmd = "nc -w 1 --recv-only 192.168.123.45 1234"
+        nc_cmd = "nc -w 1 --recv-only {} 1234".format(self.test_ip)
         self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
                          "TCP connection should be blocked")
 
@@ -233,7 +233,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             'allow': False,
             'allowDns': True,
             'allowIcmp': True,
-            'rules': [{'address': self.ping_ip,
+            'rules': [{'address': self.test_ip,
                        'netmask': 32,
                        'proto': 'tcp',
                        'portBegin': 1234
@@ -250,7 +250,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             'allow': True,
             'allowDns': True,
             'allowIcmp': True,
-            'rules': [{'address': self.ping_ip,
+            'rules': [{'address': self.test_ip,
                        'netmask': 32,
                        'proto': 'tcp',
                        'portBegin': 1234
