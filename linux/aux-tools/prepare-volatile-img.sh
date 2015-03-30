@@ -40,7 +40,7 @@ kpartx -s -a "$FILENAME"
 loopdev=`losetup -j "$FILENAME"|tail -n 1 |cut -d: -f1`
 looppart=`echo $loopdev|sed 's:dev:dev/mapper:'`
 mkswap -f ${looppart}p1 > /dev/null
-sync
+udevadm settle
 kpartx -s -d ${loopdev}
 losetup -d ${loopdev} || :
 chown --reference `dirname "$FILENAME"` "$FILENAME"
