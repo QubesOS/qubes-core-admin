@@ -500,6 +500,37 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
         self.assertIsNone(self.qc.get_vm_by_name(dispvm.name),
                           "DispVM not removed from qubes.xml")
 
+    def _handle_editor(self, winid):
+        (window_title, _) = subprocess.Popen(
+            ['xdotool', 'getwindowname', winid], stdout=subprocess.PIPE).\
+            communicate()
+        window_title = window_title.strip().\
+            replace('(', '\(').replace(')', '\)')
+        time.sleep(1)
+        if "gedit" in window_title:
+            subprocess.check_call(['xdotool', 'search', '--name', window_title,
+                                   'windowactivate', 'type', 'test test 2\n'])
+            time.sleep(0.5)
+            subprocess.check_call(['xdotool', 'search', '--name', window_title,
+                                   'key', 'ctrl+s', 'ctrl+q'])
+        elif "emacs" in window_title:
+            subprocess.check_call(['xdotool', 'search', '--name', window_title,
+                                   'windowactivate', 'type', 'test test 2\n'])
+            time.sleep(0.5)
+            subprocess.check_call(['xdotool', 'search', '--name', window_title,
+                                   'key', 'ctrl+x', 'ctrl+s'])
+            subprocess.check_call(['xdotool', 'search', '--name', window_title,
+                                   'key', 'ctrl+x', 'ctrl+c'])
+        elif "vim" in window_title:
+            subprocess.check_call(['xdotool', 'search', '--name', window_title,
+                                   'windowactivate', 'key', 'i',
+                                   'type', 'test test 2\n'])
+            subprocess.check_call(
+                ['xdotool', 'search', '--name', window_title,
+                 'key', 'Escape', 'colon', 'w', 'q', 'Return'])
+        else:
+            self.fail("Unknown editor window: {}".format(window_title))
+
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
     def test_030_edit_file(self):
@@ -517,29 +548,27 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
                          passio_popen=True)
 
         wait_count = 0
-        # TODO: ensure that gedit is default editor?
-        window_title = '(/tmp/%s)' % self.testvm1.name
-        while subprocess.call(['xdotool', 'search', '--name', window_title],
-                              stdout=open(os.path.devnull, 'w'),
-                              stderr=subprocess.STDOUT) > 0:
+        winid = None
+        while True:
+            search = subprocess.Popen(['xdotool', 'search',
+                                       '--onlyvisible', '--class', 'disp*'],
+                              stdout=subprocess.PIPE,
+                              stderr=open(os.path.devnull, 'w'))
+            retcode = search.wait()
+            if retcode == 0:
+                winid = search.stdout.read().strip()
+                break
             wait_count += 1
             if wait_count > 100:
                 self.fail("Timeout while waiting for editor window")
             time.sleep(0.3)
 
-        time.sleep(0.5)
-        subprocess.check_call(['xdotool', 'search', '--name', window_title,
-                               'windowactivate', 'type', 'test test 2\n'])
-        time.sleep(0.5)
-        subprocess.check_call(['xdotool', 'search', '--name', window_title,
-                               'key', 'ctrl+s', 'ctrl+q'])
+        self._handle_editor(winid)
         p.wait()
         p = self.testvm1.run("cat /home/user/test.txt",
                          passio_popen=True)
         (test_txt_content, _) = p.communicate()
         self.assertEqual(test_txt_content, "test test 2\ntest1\n")
-
-
 
 def load_tests(loader, tests, pattern):
     try:
