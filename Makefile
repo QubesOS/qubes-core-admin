@@ -66,8 +66,8 @@ endif
 ifeq ($(BACKEND_VMM),xen)
 	# Currently supported only on xen
 	$(MAKE) install -C qmemman
-	$(MAKE) install -C dispvm
 endif
+	$(MAKE) install -C dispvm
 	mkdir -p $(DESTDIR)/etc/qubes-rpc/policy
 	mkdir -p $(DESTDIR)/usr/libexec/qubes
 	cp qubes-rpc-policy/qubes.Filecopy.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.Filecopy
