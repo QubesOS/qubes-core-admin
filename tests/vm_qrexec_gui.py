@@ -452,9 +452,11 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
         self.assertNotEqual(dispvm.qid, 0, "DispVM not found in qubes.xml")
         self.assertTrue(dispvm.is_running())
 
-        p.stdin.write("gnome-terminal\n")
-        wait_count = 0
         window_title = 'user@%s' % (dispvm.template.name + "-dvm")
+        p.stdin.write("gnome-terminal -e "
+                      "\"sh -s -c 'echo \\\"\033]0;{}\007\\\"'\"\n".
+                      format(window_title))
+        wait_count = 0
         while subprocess.call(['xdotool', 'search', '--name', window_title],
                               stdout=open(os.path.devnull, 'w'),
                               stderr=subprocess.STDOUT) > 0:
