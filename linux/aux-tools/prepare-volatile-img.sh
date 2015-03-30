@@ -20,6 +20,15 @@ if [ -e "$FILENAME" ]; then
 	exit 1
 fi
 
+# Cleanup lefovers from possible previous run
+loopdev=`losetup -a | grep "$FILENAME" | cut -f 1 -d :`
+if [ -n "$loopdev" ]; then
+    dmsetup remove `basename $loopdev`p1 2>/dev/null
+    dmsetup remove `basename $loopdev`p2 2>/dev/null
+    losetup -d $loopdev
+    udevadm settle
+fi
+
 TOTAL_SIZE=$[ $ROOT_SIZE + $SWAP_SIZE + 512 ]
 truncate -s ${TOTAL_SIZE}M "$FILENAME"
 sfdisk --no-reread -u M "$FILENAME" > /dev/null 2> /dev/null <<EOF
