@@ -50,7 +50,7 @@ class QfileDaemonDvm:
         qvm_collection = QubesVmCollection()
         qvm_collection.lock_db_for_writing()
 
-        tar_process = subprocess.Popen(['tar', '-C', current_savefile_vmdir,
+        tar_process = subprocess.Popen(['bsdtar', '-C', current_savefile_vmdir,
             '-xSUf', os.path.join(current_savefile_vmdir, 'saved-cows.tar')])
 
         qvm_collection.load()

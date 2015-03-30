@@ -62,6 +62,7 @@ Requires:       libvirt-daemon-xen
 Requires:       createrepo
 Requires:       gnome-packagekit
 Requires:       cronie
+Requires:       bsdtar
 # for qubes-hcl-report
 Requires:       dmidecode
 Requires:       PyQt4

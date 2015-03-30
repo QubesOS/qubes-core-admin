@@ -60,5 +60,5 @@ fi
 rm -f $QMEMMAN_STOP
 ln -snf $VMDIR /var/lib/qubes/dvmdata/vmdir
 cd $VMDIR
-tar -Scf saved-cows.tar volatile.img
+bsdtar -cSf saved-cows.tar volatile.img
 echo "DVM savefile created successfully."
