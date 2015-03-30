@@ -802,7 +802,7 @@ class QubesVm(object):
                 return 'Halted'
         except libvirt.libvirtError:
             if vmm.libvirt_conn.virConnGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
-                return "NA"
+                return "Halted"
             else:
                 raise
 
