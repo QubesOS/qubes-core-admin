@@ -60,5 +60,5 @@ cd $VMDIR
 # Apparently baloon driver isn't effective enough on some kernels - xl
 # restore still needs initial memory amount
 #sed -i -e "s/^memory.*/memory = $((MEM/1000))/" dvm.conf
-tar -Scf saved-cows.tar volatile.img
+bsdtar -cSf saved-cows.tar volatile.img
 echo "DVM savefile created successfully." >&2

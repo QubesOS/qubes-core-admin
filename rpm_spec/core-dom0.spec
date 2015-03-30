@@ -57,6 +57,7 @@ Requires:       xen-hvm
 Requires:       createrepo
 Requires:       gnome-packagekit
 Requires:       cronie
+Requires:       bsdtar
 # for qubes-hcl-report
 Requires:       dmidecode
 

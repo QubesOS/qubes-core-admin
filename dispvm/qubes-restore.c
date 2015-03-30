@@ -320,14 +320,14 @@ void unpack_cows(const char *name)
 		perror("fork");
 		exit(1);
 	case 0:
-		execl("/bin/tar", "tar", "-C", vmdir, "-Sxf",
+		execl("/bin/bsdtar", "bsdtar", "-C", vmdir, "-xSUf",
 		      tarfile, NULL);
 		perror("execl");
 		exit(1);
 	default:
 		wait(&status);
 		if (WEXITSTATUS(status)) {
-			fprintf(stderr, "tar exited with status=0x%x\n",
+			fprintf(stderr, "bsdtar exited with status=0x%x\n",
 				status);
 			exit(1);
 		}
