@@ -125,6 +125,7 @@ class QubesTestCase(unittest.TestCase):
 
     def __init__(self, *args, **kwargs):
         super(QubesTestCase, self).__init__(*args, **kwargs)
+        self.longMessage = True
         self.log = logging.getLogger('{}.{}.{}'.format(
             self.__class__.__module__,
             self.__class__.__name__,
