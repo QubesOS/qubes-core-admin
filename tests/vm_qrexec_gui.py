@@ -572,6 +572,99 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
         (test_txt_content, _) = p.communicate()
         self.assertEqual(test_txt_content, "test test 2\ntest1\n")
 
+class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
+    @unittest.skipUnless(spawn.find_executable('xdotool'),
+                         "xdotool not installed")
+    def test_000_clipboard(self):
+        self.testvm1 = self.qc.add_new_vm("QubesAppVm",
+            name=self.make_vm_name('vm1'),
+            template=self.qc.get_default_template())
+        self.testvm1.create_on_disk(verbose=False)
+        self.testvm2 = self.qc.add_new_vm("QubesAppVm",
+            name=self.make_vm_name('vm2'),
+            template=self.qc.get_default_template())
+        self.testvm2.create_on_disk(verbose=False)
+        self.qc.save()
+        self.qc.unlock_db()
+
+        self.testvm1.start()
+        self.testvm2.start()
+
+        window_title = 'user@{}'.format(self.testvm1.name)
+        self.testvm1.run('zenity --text-info --editable --title={}'.format(
+            window_title))
+
+        wait_count = 0
+        while subprocess.call(['xdotool', 'search', '--name', window_title],
+                              stdout=open(os.path.devnull, 'w'),
+                              stderr=subprocess.STDOUT) > 0:
+            wait_count += 1
+            if wait_count > 100:
+                self.fail("Timeout while waiting for gnome-terminal window")
+            time.sleep(0.1)
+
+        time.sleep(0.5)
+        test_string = "test{}".format(self.testvm1.xid)
+
+        # Type and copy some text
+        subprocess.check_call(['xdotool', 'search', '--name', window_title,
+                              'windowactivate',
+                              'type', '{}'.format(test_string)])
+        # second xdotool call because type --terminator do not work (SEGV)
+        # additionally do not use search here, so window stack will be empty
+        # and xdotool will use XTEST instead of generating events manually -
+        # this will be much better - at least because events will have
+        # correct timestamp (so gui-daemon would not drop the copy request)
+        subprocess.check_call(['xdotool',
+                              'key', 'ctrl+a', 'ctrl+c', 'ctrl+shift+c',
+                              'Escape'])
+
+        clipboard_content = \
+            open('/var/run/qubes/qubes-clipboard.bin', 'r').read().strip()
+        self.assertEquals(clipboard_content, test_string,
+                          "Clipboard copy operation failed - content")
+        clipboard_source = \
+            open('/var/run/qubes/qubes-clipboard.bin.source', 'r').read().strip()
+        self.assertEquals(clipboard_source, self.testvm1.name,
+                          "Clipboard copy operation failed - owner")
+
+        # Then paste it to the other window
+        self.testvm2.run('gnome-terminal')
+        window_title = 'user@{}'.format(self.testvm2.name)
+        wait_count = 0
+        while subprocess.call(['xdotool', 'search', '--name', window_title],
+                              stdout=open(os.path.devnull, 'w'),
+                              stderr=subprocess.STDOUT) > 0:
+            wait_count += 1
+            if wait_count > 100:
+                self.fail("Timeout while waiting for gnome-terminal window")
+            time.sleep(0.1)
+
+        time.sleep(0.5)
+        subprocess.check_call(['xdotool', 'search', '--name', window_title,
+                              'windowactivate', 'type', 'cat > test.txt\n'])
+        subprocess.check_call(['xdotool', 'key', '--delay', '100',
+                               'ctrl+shift+v', 'shift+Insert', 'Return',
+                               'ctrl+d',
+                              'type', 'exit\n'])
+
+        # And compare the result
+        (test_output, _) = self.testvm2.run('cat test.txt',
+                                            passio_popen=True).communicate()
+        self.assertEquals(test_string, test_output.strip())
+
+        clipboard_content = \
+            open('/var/run/qubes/qubes-clipboard.bin', 'r').read().strip()
+        self.assertEquals(clipboard_content, "",
+                          "Clipboard not wiped after paste - content")
+        clipboard_source = \
+            open('/var/run/qubes/qubes-clipboard.bin.source', 'r').read(
+
+            ).strip()
+        self.assertEquals(clipboard_source, "",
+                          "Clipboard not wiped after paste - owner")
+
+
 def load_tests(loader, tests, pattern):
     try:
         qc = qubes.qubes.QubesVmCollection()
