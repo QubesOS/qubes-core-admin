@@ -125,7 +125,8 @@ def backup_prepare(vms_list = None, exclude_list = None,
         selected_vms = [vm for vm in all_vms if vm.include_in_backups]
         appvms_to_backup = [vm for vm in selected_vms if vm.is_appvm() and not vm.internal]
         netvms_to_backup = [vm for vm in selected_vms if vm.is_netvm() and not vm.qid == 0]
-        template_vms_worth_backingup = [vm for vm in selected_vms if (vm.is_template() and not vm.installed_by_rpm)]
+        template_vms_worth_backingup = [vm for vm in selected_vms if (
+            vm.is_template() and vm.include_in_backups)]
         dom0 = [ qvm_collection[0] ]
 
         vms_list = appvms_to_backup + netvms_to_backup + template_vms_worth_backingup + dom0
