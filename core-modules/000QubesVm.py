@@ -146,7 +146,9 @@ class QubesVm(object):
                     else defaults["kernelopts_pcidevs"] if len(self.pcidevs)>0 \
                     else defaults["kernelopts"] },
             "mac": { "attr": "_mac", "default": None },
-            "include_in_backups": { "default": True },
+            "include_in_backups": {
+                "func": lambda x: x if x is not None
+                else not self.installed_by_rpm },
             "services": {
                 "default": {},
                 "func": lambda value: eval(str(value)) },
