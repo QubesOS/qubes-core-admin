@@ -600,7 +600,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
                               stderr=subprocess.STDOUT) > 0:
             wait_count += 1
             if wait_count > 100:
-                self.fail("Timeout while waiting for gnome-terminal window")
+                self.fail("Timeout while waiting for text-info window")
             time.sleep(0.1)
 
         time.sleep(0.5)
@@ -629,24 +629,21 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
                           "Clipboard copy operation failed - owner")
 
         # Then paste it to the other window
-        self.testvm2.run('gnome-terminal')
         window_title = 'user@{}'.format(self.testvm2.name)
+        self.testvm1.run('zenity --entry --title={} > test.txt'.format(
+            window_title))
         wait_count = 0
         while subprocess.call(['xdotool', 'search', '--name', window_title],
                               stdout=open(os.path.devnull, 'w'),
                               stderr=subprocess.STDOUT) > 0:
             wait_count += 1
             if wait_count > 100:
-                self.fail("Timeout while waiting for gnome-terminal window")
+                self.fail("Timeout while waiting for input window")
             time.sleep(0.1)
 
-        time.sleep(0.5)
-        subprocess.check_call(['xdotool', 'search', '--name', window_title,
-                              'windowactivate', 'type', 'cat > test.txt\n'])
         subprocess.check_call(['xdotool', 'key', '--delay', '100',
-                               'ctrl+shift+v', 'shift+Insert', 'Return',
-                               'ctrl+d',
-                              'type', 'exit\n'])
+                               'ctrl+shift+v', 'ctrl+v', 'Return'])
+        time.sleep(0.5)
 
         # And compare the result
         (test_output, _) = self.testvm2.run('cat test.txt',
