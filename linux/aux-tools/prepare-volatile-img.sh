@@ -20,15 +20,6 @@ if [ -e "$FILENAME" ]; then
 	exit 1
 fi
 
-# Cleanup lefovers from possible previous run
-loopdev=`losetup -a | grep "$FILENAME" | cut -f 1 -d :`
-if [ -n "$loopdev" ]; then
-    dmsetup remove `basename $loopdev`p1 2>/dev/null
-    dmsetup remove `basename $loopdev`p2 2>/dev/null
-    losetup -d $loopdev
-    udevadm settle
-fi
-
 TOTAL_SIZE=$[ $ROOT_SIZE + $SWAP_SIZE + 512 ]
 truncate -s ${TOTAL_SIZE}M "$FILENAME"
 sfdisk --no-reread -u M "$FILENAME" > /dev/null 2> /dev/null <<EOF
@@ -36,11 +27,8 @@ sfdisk --no-reread -u M "$FILENAME" > /dev/null 2> /dev/null <<EOF
 ,${ROOT_SIZE},L
 EOF
 
-kpartx -s -a "$FILENAME"
-loopdev=`losetup -j "$FILENAME"|tail -n 1 |cut -d: -f1`
-looppart=`echo $loopdev|sed 's:dev:dev/mapper:'`
-mkswap -f ${looppart}p1 > /dev/null
+loopdev=`losetup -f --show --partscan "$FILENAME"`
+mkswap -f ${loopdev}p1 > /dev/null
 udevadm settle
-kpartx -s -d ${loopdev}
 losetup -d ${loopdev} || :
 chown --reference `dirname "$FILENAME"` "$FILENAME"
