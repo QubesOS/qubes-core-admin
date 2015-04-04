@@ -44,8 +44,6 @@ netvm
 
     To which NetVM connect. Setting to ``default`` will follow system-global default NetVM (managed by qubes-prefs). Setting to ``none`` will disable networking in this VM.
 
-    *Notice:* when setting to ``none``, firewall will be set to block all traffic - it will be used by DispVM started from this VM. Setting back to some NetVM will _NOT_ restore previous firewall settings.
-
 dispvm_netvm
     Accepted values: netvm name, ``default``, ``none``
 
