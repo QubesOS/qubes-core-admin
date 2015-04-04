@@ -81,6 +81,8 @@ class QfileDaemonDvm:
         if len(sys.argv) > 5 and len(sys.argv[5]) > 0:
             assert os.path.exists(sys.argv[5]), "Invalid firewall.conf location"
             dispvm.firewall_conf = sys.argv[5]
+        if vm.qid != 0:
+            dispvm.netvm = vm.dispvm_netvm
         # Wait for tar to finish
         if tar_process.wait() != 0:
             sys.stderr.write('Failed to unpack saved-cows.tar')

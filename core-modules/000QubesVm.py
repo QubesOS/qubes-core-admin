@@ -156,6 +156,8 @@ class QubesVm(object):
             "default_user": { "default": "user", "attr": "_default_user" },
             "qrexec_timeout": { "default": 60 },
             "autostart": { "default": False, "attr": "_autostart" },
+            "uses_default_dispvm_netvm": {"default": True, "order": 30},
+            "dispvm_netvm": {"attr": "_dispvm_netvm", "default": None},
             "backup_content" : { 'default': False },
             "backup_size" : {
                 "default": 0,
@@ -218,6 +220,11 @@ class QubesVm(object):
         attrs['netvm']['save'] = \
             lambda: str(self.netvm.qid) if self.netvm is not None else "none"
         attrs['netvm']['save_attr'] = "netvm_qid"
+        attrs['dispvm_netvm']['save'] = \
+            lambda: str(self.dispvm_netvm.qid) \
+                if self.dispvm_netvm is not None \
+                else "none"
+        attrs['dispvm_netvm']['save_attr'] = "dispvm_netvm_qid"
         attrs['template']['save'] = \
             lambda: str(self.template.qid) if self.template else "none"
         attrs['template']['save_attr'] = "template_qid"
@@ -601,6 +608,20 @@ class QubesVm(object):
         oldvalue = self._internal
         self._internal = value
         self.post_set_attr('internal', value, oldvalue)
+
+    @property
+    def dispvm_netvm(self):
+        if self.uses_default_dispvm_netvm:
+            return self.netvm
+        else:
+            if isinstance(self._dispvm_netvm, int):
+                return self._collection[self._dispvm_netvm]
+            else:
+                return self._dispvm_netvm
+
+    @dispvm_netvm.setter
+    def dispvm_netvm(self, value):
+        self._dispvm_netvm = value
 
     @property
     def autostart(self):

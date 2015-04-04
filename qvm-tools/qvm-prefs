@@ -42,6 +42,11 @@ def do_list(vm):
         print fmt.format ("template", vm.template.name)
     if vm.netvm is not None:
         print fmt.format ("netvm", vm.netvm.name)
+    if vm.qid != 0:
+        print fmt.format("dispvm_netvm", "%s%s" % (
+                         vm.dispvm_netvm.name if vm.dispvm_netvm
+                         else "none",
+                         " (default)" if vm.uses_default_dispvm_netvm else ""))
     print fmt.format ("updateable", vm.updateable)
     print fmt.format ("autostart", vm.autostart)
     print fmt.format ("installed_by_rpm", vm.installed_by_rpm)
@@ -217,6 +222,33 @@ def set_netvm(vms, vm, args):
         vm.uses_default_netvm = False
 
     vm.netvm = netvm
+    return True
+
+def set_dispvm_netvm(vms, vm, args):
+    if len (args) != 1:
+        print >> sys.stderr, "Missing netvm name argument!"
+        print >> sys.stderr, "Possible values:"
+        print >> sys.stderr, "1) default (the same as VM own netvm)"
+        print >> sys.stderr, "2) none"
+        print >> sys.stderr, "3) <vmaname>"
+        return
+
+    netvm = args[0]
+    if netvm == "none":
+        vm.netvm = None
+        vm.uses_default_dispvm_netvm = False
+    elif netvm == "default":
+        vm.uses_default_dispvm_netvm = True
+    else:
+        netvm = vms.get_vm_by_name (netvm)
+        if netvm is None:
+            print >> sys.stderr, "A VM with the name '{0}' does not exist in the system.".format(netvm)
+            return False
+        if not netvm.is_netvm():
+            print >> sys.stderr, "VM '{0}' is not a NetVM".format(netvm)
+            return False
+        vm.dispvm_netvm = netvm
+        vm.uses_default_dispvm_netvm = False
     return True
 
 def set_kernel(vms, vm, args):
@@ -423,6 +455,7 @@ properties = {
     "pcidevs": set_pcidevs,
     "label" : set_label,
     "netvm" : set_netvm,
+    "dispvm_netvm" : set_dispvm_netvm,
     "maxmem" : set_maxmem,
     "memory" : set_memory,
     "kernel" : set_kernel,

@@ -46,6 +46,11 @@ netvm
 
     *Notice:* when setting to ``none``, firewall will be set to block all traffic - it will be used by DispVM started from this VM. Setting back to some NetVM will _NOT_ restore previous firewall settings.
 
+dispvm_netvm
+    Accepted values: netvm name, ``default``, ``none``
+
+    Which NetVM should be used for Disposable VMs started by this one. ``default`` is to use the same NetVM as the VM itself.
+
 maxmem
     Accepted values: memory size in MB
 
