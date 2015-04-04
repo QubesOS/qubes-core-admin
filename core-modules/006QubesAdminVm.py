@@ -57,7 +57,7 @@ class QubesAdminVm(QubesNetVm):
 
     @property
     def libvirt_domain(self):
-        return None
+        raise ValueError("Dom0 do not have libvirt object")
 
     @property
     def type(self):
