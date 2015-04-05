@@ -192,7 +192,7 @@ class QubesVm(object):
             'uses_default_kernel', 'kernel', 'uses_default_kernelopts',\
             'kernelopts', 'services', 'installed_by_rpm',\
             'uses_default_netvm', 'include_in_backups', 'debug',\
-            'qrexec_timeout', 'autostart',
+            'qrexec_timeout', 'autostart', 'uses_default_dispvm_netvm',
             'backup_content', 'backup_size', 'backup_path' ]:
             attrs[prop]['save'] = lambda prop=prop: str(getattr(self, prop))
         # Simple paths
@@ -224,7 +224,6 @@ class QubesVm(object):
             lambda: str(self.dispvm_netvm.qid) \
                 if self.dispvm_netvm is not None \
                 else "none"
-        attrs['dispvm_netvm']['save_attr'] = "dispvm_netvm_qid"
         attrs['template']['save'] = \
             lambda: str(self.template.qid) if self.template else "none"
         attrs['template']['save_attr'] = "template_qid"
