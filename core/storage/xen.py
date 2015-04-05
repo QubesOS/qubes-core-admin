@@ -70,7 +70,8 @@ class QubesXenVmStorage(QubesVmStorage):
             params=params)
 
     def _get_rootdev(self):
-        if self.vm.is_template():
+        if self.vm.is_template() and \
+                os.path.exists(os.path.join(self.vmdir, "root-cow.img")):
             return self._format_disk_dev(
                     "{dir}/root.img:{dir}/root-cow.img".format(
                         dir=self.vmdir),
