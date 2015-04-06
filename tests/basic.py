@@ -57,6 +57,13 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             name=self.vmname, template=self.qc.get_default_template())
         self.vm.create_on_disk(verbose=False)
 
+    def save_and_reload_db(self):
+        super(TC_01_Properties, self).save_and_reload_db()
+        if hasattr(self, 'vm'):
+            self.vm = self.qc.get(self.vm.qid, None)
+        if hasattr(self, 'netvm'):
+            self.netvm = self.qc.get(self.netvm.qid, None)
+
     def test_000_rename(self):
         newname = self.make_vm_name('newname')
 
@@ -86,5 +93,66 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.assertFalse(os.path.exists(
             os.path.join(os.getenv("HOME"), ".local/share/applications",
                 self.vmname + "-firefox.desktop")))
+
+    def test_010_netvm(self):
+        if self.qc.get_default_netvm() is None:
+            self.skip("Set default NetVM before running this test")
+        self.netvm = self.qc.add_new_vm("QubesNetVm",
+            name=self.make_vm_name('netvm'),
+            template=self.qc.get_default_template())
+        self.netvm.create_on_disk(verbose=False)
+        # TODO: remove this line after switching to core3
+        self.save_and_reload_db()
+
+        self.assertEquals(self.vm.netvm, self.qc.get_default_netvm())
+        self.vm.uses_default_netvm = False
+        self.vm.netvm = None
+        self.assertIsNone(self.vm.netvm)
+        self.save_and_reload_db()
+        self.assertIsNone(self.vm.netvm)
+
+        self.vm.netvm = self.qc[self.netvm.qid]
+        self.assertEquals(self.vm.netvm.qid, self.netvm.qid)
+        self.save_and_reload_db()
+        self.assertEquals(self.vm.netvm.qid, self.netvm.qid)
+
+        self.vm.uses_default_netvm = True
+        # TODO: uncomment when properly implemented
+        # self.assertEquals(self.vm.netvm.qid, self.qc.get_default_netvm().qid)
+        self.save_and_reload_db()
+        self.assertEquals(self.vm.netvm.qid, self.qc.get_default_netvm().qid)
+
+        with self.assertRaises(ValueError):
+            self.vm.netvm = self.vm
+
+    def test_020_dispvm_netvm(self):
+        if self.qc.get_default_netvm() is None:
+            self.skip("Set default NetVM before running this test")
+        self.netvm = self.qc.add_new_vm("QubesNetVm",
+            name=self.make_vm_name('netvm'),
+            template=self.qc.get_default_template())
+        self.netvm.create_on_disk(verbose=False)
+
+        self.assertEquals(self.vm.netvm, self.vm.dispvm_netvm)
+        self.vm.uses_default_dispvm_netvm = False
+        self.vm.dispvm_netvm = None
+        self.assertIsNone(self.vm.dispvm_netvm)
+        self.save_and_reload_db()
+        self.assertIsNone(self.vm.dispvm_netvm)
+
+        self.vm.dispvm_netvm = self.netvm
+        self.assertEquals(self.vm.dispvm_netvm, self.netvm)
+        self.save_and_reload_db()
+        self.assertEquals(self.vm.dispvm_netvm, self.netvm)
+
+        self.vm.uses_default_dispvm_netvm = True
+        self.assertEquals(self.vm.dispvm_netvm, self.vm.netvm)
+        self.save_and_reload_db()
+        self.assertEquals(self.vm.dispvm_netvm, self.vm.netvm)
+
+        with self.assertRaises(ValueError):
+            self.vm.dispvm_netvm = self.vm
+
+
 
 # vim: ts=4 sw=4 et
