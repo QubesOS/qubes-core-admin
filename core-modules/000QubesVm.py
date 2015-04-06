@@ -419,6 +419,9 @@ class QubesVm(object):
 
     def _set_netvm(self, new_netvm):
         self.log.debug('netvm = {!r}'.format(new_netvm))
+        if new_netvm and not new_netvm.is_netvm():
+            raise ValueError("Vm {!r} does not provide network".format(
+                new_netvm))
         if self.is_running() and new_netvm is not None and not new_netvm.is_running():
             raise QubesException("Cannot dynamically attach to stopped NetVM")
         if self.netvm is not None:
@@ -611,6 +614,9 @@ class QubesVm(object):
 
     @dispvm_netvm.setter
     def dispvm_netvm(self, value):
+        if value and not value.is_netvm():
+            raise ValueError("Vm {!r} does not provide network".format(
+                value))
         self._dispvm_netvm = value
 
     @property
