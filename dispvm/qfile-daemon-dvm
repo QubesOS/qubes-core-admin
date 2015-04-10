@@ -111,7 +111,8 @@ class QfileDaemonDvm:
         root_mtime = os.stat(dvmdata_dir+'savefile-root').st_mtime
         if dvm_mtime < root_mtime:
             template_name = os.path.basename(os.path.dirname(os.readlink(dvmdata_dir+'savefile-root')))
-            if subprocess.call(["xl", "domid", template_name]) == 0:
+            if subprocess.call(["xl", "domid", template_name],
+                               stdout=open(os.devnull, "w")) == 0:
                 tray_notify("For optimum performance, you should not "
                                   "start DispVM when its template is running.", "red")
             return False       
