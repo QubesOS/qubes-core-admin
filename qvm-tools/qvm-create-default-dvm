@@ -57,7 +57,7 @@ ln -s "/var/lib/qubes/vm-templates/$TEMPLATENAME/root.img" $ROOT
 ln -s $DVMTMPLDIR/dvm.conf $DEFAULTCONF
 ln -s $DVMTMPLDIR/dvm.conf $CURRENTCONF
 if [ -f /var/lib/qubes/dvmdata/dont-use-shm ] ; then
-            ln -s $DEFAULT $CURRENT
+	ln -s $DEFAULT $CURRENT
 else
 	mkdir -m 770 $SHMDIR 2>/dev/null
 	chgrp qubes $SHMDIR 2>/dev/null
