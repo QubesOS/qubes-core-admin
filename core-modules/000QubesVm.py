@@ -1210,7 +1210,10 @@ class QubesVm(object):
         self._do_not_reset_firewall = True
         for prop in self.get_clone_attrs():
             try:
-                setattr(self, prop, getattr(src_vm, prop))
+                val = getattr(src_vm, prop)
+                if isinstance(val, dict):
+                    val = val.copy()
+                setattr(self, prop, val)
             except Exception as e:
                 if fail_on_error:
                     self._do_not_reset_firewall = False
