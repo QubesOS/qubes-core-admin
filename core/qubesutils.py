@@ -420,6 +420,13 @@ def block_attach(qvmc, vm, device, frontend=None, mode="w", auto_detach=False, w
     if backend_vm.qid != 0:
         SubElement(disk, 'backenddomain').set('name', device['vm'])
     vm.libvirt_domain.attachDevice(etree.tostring(disk,  encoding='utf-8'))
+    try:
+        # trigger watches to update device status
+        # FIXME: this should be removed once libvirt will report such
+        # events itself
+        vm.qdb.write('/qubes-block-devices', '')
+    except Error:
+        pass
 
 def block_detach(vm, frontend = "xvdi"):
 
@@ -437,6 +444,13 @@ def block_detach(vm, frontend = "xvdi"):
                         "qubes_base_dir"]):
                 continue
         vm.libvirt_domain.detachDevice(etree.tostring(disk, encoding='utf-8'))
+        try:
+            # trigger watches to update device status
+            # FIXME: this should be removed once libvirt will report such
+            # events itself
+            vm.qdb.write('/qubes-block-devices', '')
+        except Error:
+            pass
 
 def block_detach_all(vm):
     """ Detach all non-system devices"""
