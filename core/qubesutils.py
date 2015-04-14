@@ -334,6 +334,9 @@ def block_check_attached(qvmc, device):
         raise QubesException("You need to pass qvmc argument")
 
     for vm in qvmc.values():
+        if vm.qid == 0:
+            # Connecting devices to dom0 not supported
+            continue
         try:
             libvirt_domain = vm.libvirt_domain
             if libvirt_domain:
@@ -342,7 +345,7 @@ def block_check_attached(qvmc, device):
                 xml = None
         except libvirt.libvirtError:
             if vmm.libvirt_conn.virConnGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
-                libvirt_domain = None
+                xml = None
             else:
                 raise
         if xml:
@@ -783,6 +786,9 @@ class QubesWatch(object):
                     if e.args[0] != 2:
                         raise
                 time.sleep(0.5)
+            if name not in self._qdb:
+                # domain no longer active
+                return
         else:
             name = "dom0"
             self._qdb[name] = QubesDB(name)
