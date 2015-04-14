@@ -253,6 +253,7 @@ class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, qubes.tests.QubesT
 
         self.restore_backup(self.backupdir, options={
             'use-default-template': True,
+            'use-default-netvm': True,
         })
         self.assertIsNotNone(self.qc.get_vm_by_name("test-template-clone"))
         self.assertIsNotNone(self.qc.get_vm_by_name("test-testproxy"))
