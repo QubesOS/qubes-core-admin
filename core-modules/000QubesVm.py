@@ -991,7 +991,7 @@ class QubesVm(object):
             return
 
         dev_basepath = '/local/domain/%d/device/vif' % self.xid
-        for dev in vmm.xs.ls('', dev_basepath):
+        for dev in (vmm.xs.ls('', dev_basepath) or []):
             # check if backend domain is alive
             backend_xid = int(vmm.xs.read('', '%s/%s/backend-id' % (dev_basepath, dev)))
             if backend_xid in vmm.libvirt_conn.listDomainsID():
