@@ -20,6 +20,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 #
+import fcntl
 
 from qubes.qubes import QubesVmCollection
 import os.path
@@ -43,6 +44,19 @@ def main():
     verbose = False
     if len(sys.argv) > 1 and sys.argv[1] in [ '--verbose', '-v' ]:
         verbose = True
+
+    lockfile_name = "/var/run/qubes/qvm-sync-clock.lock"
+    if os.path.exists(lockfile_name):
+        lockfile = open(lockfile_name, "r")
+    else:
+        lockfile = open(lockfile_name, "w")
+
+    fcntl.fcntl(lockfile.fileno(), fcntl.F_SETFD, fcntl.FD_CLOEXEC)
+    try:
+        fcntl.flock(lockfile.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except IOError:
+        print >>sys.stderr, "qvm-sync-clock already running, aborting"
+        sys.exit(1)
     
     qvm_collection = QubesVmCollection()
     qvm_collection.lock_db_for_reading()
@@ -97,6 +111,10 @@ def main():
             except Exception as e:
                 print >> sys.stderr, "ERROR syncing time in VM '%s': %s" % (vm.name, str(e))
                 pass
+
+    # order is important!
+    os.unlink(lockfile_name)
+    lockfile.close()
 
 main()
 
