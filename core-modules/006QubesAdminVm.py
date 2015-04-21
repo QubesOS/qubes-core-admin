@@ -101,9 +101,6 @@ class QubesAdminVm(QubesNetVm):
     def suspend(self):
         return
 
-    def create_xml_element(self):
-        return None
-
     def verify_files(self):
         return True
 
