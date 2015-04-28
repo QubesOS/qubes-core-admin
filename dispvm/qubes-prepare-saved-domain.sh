@@ -42,7 +42,7 @@ qubesdb-read -d $1 /qubes-gateway | \
 kill `cat /var/run/qubes/guid-running.$ID`
 # FIXME: get connection URI from core scripts
 virsh -c xen:/// detach-disk $1 xvdb
-MEM=$(qubesdb-read -d $1 /qubes-used-mem)
+MEM=$(qubesdb-read -d $1 /qubes-used-mem | grep -q '^[0-9]\+$' | head -n 1)
 echo "DVM boot complete, memory used=$MEM. Saving image..." >&2
 QMEMMAN_STOP=/var/run/qubes/do-not-membalance
 touch $QMEMMAN_STOP
