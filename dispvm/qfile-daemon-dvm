@@ -88,7 +88,11 @@ class QfileDaemonDvm:
             assert os.path.exists(sys.argv[5]), "Invalid firewall.conf location"
             dispvm.firewall_conf = sys.argv[5]
         if vm.qid != 0:
-            dispvm.netvm = vm.dispvm_netvm
+            dispvm.uses_default_netvm = False
+            # netvm can be changed before restore,
+            # but cannot be enabled/disabled
+            if (dispvm.netvm is None) == (vm.dispvm_netvm is None):
+                dispvm.netvm = vm.dispvm_netvm
         # Wait for tar to finish
         if tar_process.wait() != 0:
             sys.stderr.write('Failed to unpack saved-cows.tar')
@@ -96,6 +100,10 @@ class QfileDaemonDvm:
             return None
         print >>sys.stderr, "time=%s, VM starting" % (str(time.time()))
         dispvm.start()
+        if vm.qid != 0:
+            # if need to enable/disable netvm, do it while DispVM is alive
+            if (dispvm.netvm is None) != (vm.dispvm_netvm is None):
+                dispvm.netvm = vm.dispvm_netvm
         print >>sys.stderr, "time=%s, VM started" % (str(time.time()))
         qvm_collection.save()
         qvm_collection.unlock_db()
