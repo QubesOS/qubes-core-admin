@@ -88,9 +88,9 @@ def file_to_backup(file_path, subdir=None):
         abs_file_path = os.path.abspath(file_path)
         abs_base_dir = os.path.abspath(system_path["qubes_base_dir"]) + '/'
         abs_file_dir = os.path.dirname(abs_file_path) + '/'
-        (nothing, dir, subdir) = abs_file_dir.partition(abs_base_dir)
+        (nothing, directory, subdir) = abs_file_dir.partition(abs_base_dir)
         assert nothing == ""
-        assert dir == abs_base_dir
+        assert directory == abs_base_dir
     else:
         if len(subdir) > 0 and not subdir.endswith('/'):
             subdir += '/'
@@ -148,8 +148,6 @@ def backup_prepare(vms_list=None, exclude_list=None,
     # Apply exclude list
     if exclude_list:
         vms_for_backup = [vm for vm in vms_list if vm.name not in exclude_list]
-
-    no_vms = len(vms_for_backup)
 
     there_are_running_vms = False
 
@@ -462,6 +460,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
 
     running_backup_operation = BackupOperationInfo()
     vmproc = None
+    tar_sparse = None
     if appvm is not None:
         # Prepare the backup target (Qubes service call)
         backup_target = "QUBESRPC qubes.Backup dom0"
@@ -521,12 +520,12 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
                                          compression_filter=compression_filter)
 
     # Setup worker to send encrypted data chunks to the backup_target
-    def compute_progress(new_size, total_backup_sz):
+    def compute_progress(new_size, total_backup_size):
         global blocks_backedup
         blocks_backedup += new_size
         if callable(progress_callback):
-            progress = blocks_backedup / float(total_backup_sz)
-            progress_callback(int(round(progress*100,2)))
+            this_progress = blocks_backedup / float(total_backup_size)
+            progress_callback(int(round(this_progress * 100, 2)))
 
     to_send = Queue(10)
     send_proc = SendWorker(to_send, backup_tmpdir, backup_stdout)
@@ -697,7 +696,8 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
     if vmproc:
         if BACKUP_DEBUG:
             print "VMProc1 proc return code:", vmproc.poll()
-            print "Sparse1 proc return code:", tar_sparse.poll()
+            if tar_sparse is not None:
+                print "Sparse1 proc return code:", tar_sparse.poll()
         vmproc.stdin.close()
 
     # Save date of last backup
@@ -733,7 +733,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
 def wait_backup_feedback(progress_callback, in_stream, streamproc,
                          backup_target, total_backup_sz, hmac=None, vmproc=None,
                          addproc=None,
-                         remove_trailing_bytes=0, size_limit=None):
+                         size_limit=None):
     buffer_size = 409600
 
     run_error = None
@@ -743,9 +743,9 @@ def wait_backup_feedback(progress_callback, in_stream, streamproc,
 
         if size_limit and bytes_copied + buffer_size > size_limit:
             return "size_limit"
-        buffer = in_stream.read(buffer_size)
-        progress_callback(len(buffer), total_backup_sz)
-        bytes_copied += len(buffer)
+        buf = in_stream.read(buffer_size)
+        progress_callback(len(buf), total_backup_sz)
+        bytes_copied += len(buf)
 
         run_count = 0
         if hmac:
@@ -781,16 +781,16 @@ def wait_backup_feedback(progress_callback, in_stream, streamproc,
                 if retcode != 0:
                     run_error = "streamproc"
                     break
-                elif retcode == 0 and len(buffer) <= 0:
+                elif retcode == 0 and len(buf) <= 0:
                     return ""
             run_count += 1
 
         else:
-            if len(buffer) <= 0:
+            if len(buf) <= 0:
                 return ""
 
         try:
-            backup_target.write(buffer)
+            backup_target.write(buf)
         except IOError as e:
             if e.errno == errno.EPIPE:
                 run_error = "target"
@@ -798,7 +798,7 @@ def wait_backup_feedback(progress_callback, in_stream, streamproc,
                 raise
 
         if hmac:
-            hmac.stdin.write(buffer)
+            hmac.stdin.write(buf)
 
     return run_error
 
@@ -873,7 +873,7 @@ class ExtractWorker2(Process):
 
         self.stderr_encoding = sys.stderr.encoding or 'utf-8'
 
-    def compute_progress(self, new_size, total_size):
+    def compute_progress(self, new_size, _):
         if self.progress_callback:
             self.blocks_backedup += new_size
             progress = self.blocks_backedup / float(self.total_size)
@@ -1583,7 +1583,6 @@ def backup_restore_header(source, passphrase,
                           hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
                           crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM):
     global running_backup_operation
-    vmproc = None
     running_backup_operation = None
 
     restore_tmpdir = tempfile.mkdtemp(prefix="/var/tmp/restore_")
@@ -1703,20 +1702,20 @@ def backup_restore_prepare(backup_location, passphrase, options=None,
     compression_filter = DEFAULT_COMPRESSION_FILTER
 
     # Private functions begin
-    def is_vm_included_in_backup_v1(backup_dir, vm):
-        if vm.qid == 0:
+    def is_vm_included_in_backup_v1(backup_dir, check_vm):
+        if check_vm.qid == 0:
             return os.path.exists(os.path.join(backup_dir, 'dom0-home'))
 
-        backup_vm_dir_path = vm.dir_path.replace(system_path["qubes_base_dir"],
-                                                 backup_dir)
+        backup_vm_dir_path = check_vm.dir_path.replace(
+            system_path["qubes_base_dir"], backup_dir)
 
         if os.path.exists(backup_vm_dir_path):
             return True
         else:
             return False
 
-    def is_vm_included_in_backup_v2(backup_dir, vm):
-        if vm.backup_content:
+    def is_vm_included_in_backup_v2(_, check_vm):
+        if check_vm.backup_content:
             return True
         else:
             return False
@@ -1905,7 +1904,6 @@ def backup_restore_print_summary(restore_info, print_callback=print_stdout):
         fields[f]["max_width"] = len(f)
         for vm_info in restore_info.values():
             if 'vm' in vm_info.keys():
-                vm = vm_info['vm']
                 l = len(unicode(eval(fields[f]["func"])))
                 if l > fields[f]["max_width"]:
                     fields[f]["max_width"] = l
@@ -1936,7 +1934,6 @@ def backup_restore_print_summary(restore_info, print_callback=print_stdout):
         # Skip non-VM here
         if 'vm' not in vm_info:
             continue
-        vm = vm_info['vm']
         s = ""
         for f in fields_to_display:
             fmt = "{{0:>{0}}} |".format(fields[f]["max_width"] + 1)
@@ -1986,8 +1983,8 @@ def backup_restore_do(restore_info,
                                          backup_dir)
 
         # We prefer to use Linux's cp, because it nicely handles sparse files
-        retcode = subprocess.call(["cp", "-rp", backup_src_dir, dst_dir])
-        if retcode != 0:
+        cp_retcode = subprocess.call(["cp", "-rp", backup_src_dir, dst_dir])
+        if cp_retcode != 0:
             raise QubesException(
                 "*** Error while copying file {0} to {1}".format(backup_src_dir,
                                                                  dst_dir))
@@ -2057,7 +2054,7 @@ def backup_restore_do(restore_info,
                             compressed=compressed,
                             compression_filter=compression_filter,
                             appvm=appvm)
-        except QubesException as e:
+        except QubesException:
             if verify_only:
                 raise
             else:
@@ -2203,7 +2200,7 @@ def backup_restore_do(restore_info,
                 os.rename(home_file,
                           home_dir + '/' + restore_home_backupdir + '/' + f)
             if format_version == 1:
-                retcode = subprocess.call(
+                subprocess.call(
                     ["cp", "-nrp", backup_dom0_home_dir + '/' + f, home_file])
             elif format_version >= 2:
                 shutil.move(backup_dom0_home_dir + '/' + f, home_file)
