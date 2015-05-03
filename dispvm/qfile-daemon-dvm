@@ -25,13 +25,10 @@
 import os
 import subprocess
 import sys
-import fcntl
 import shutil
 import time
 
 from qubes.qubes import QubesVmCollection
-from qubes.qubes import QubesException
-from qubes.qubes import QubesDaemonPidfile
 from qubes.qubes import QubesDispVmLabels
 from qubes.notify import tray_notify, tray_notify_error, tray_notify_init
 
@@ -45,7 +42,8 @@ class QfileDaemonDvm:
     def __init__(self, name):
         self.name = name
 
-    def get_disp_templ(self):
+    @staticmethod
+    def get_disp_templ():
         vmdir = os.readlink(current_savefile_vmdir)
         return vmdir.split('/')[-1]
         
@@ -109,7 +107,8 @@ class QfileDaemonDvm:
 
         return dispvm
 
-    def dvm_setup_ok(self):
+    @staticmethod
+    def dvm_setup_ok():
         dvmdata_dir = '/var/lib/qubes/dvmdata/'
         if not os.path.isfile(current_savefile):
             return False
@@ -137,7 +136,8 @@ class QfileDaemonDvm:
                 return None 
         return self.do_get_dvm()
 
-    def remove_disposable_from_qdb(self, name):
+    @staticmethod
+    def remove_disposable_from_qdb(name):
         qvm_collection = QubesVmCollection()
         qvm_collection.lock_db_for_writing()
         qvm_collection.load()
@@ -151,7 +151,6 @@ class QfileDaemonDvm:
 
 
 def main():
-    global notify_object
     exec_index = sys.argv[1]
     src_vmname = sys.argv[2]
     user = sys.argv[3]
