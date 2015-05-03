@@ -3,7 +3,8 @@
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
-# Copyright (C) 2013  Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+# Copyright (C) 2013-2015  Marek Marczykowski-Górecki
+#                                   <marmarek@invisiblethingslab.com>
 # Copyright (C) 2013  Olivier Médoc <o_medoc@yahoo.fr>
 #
 # This program is free software; you can redistribute it and/or
@@ -22,9 +23,9 @@
 #
 #
 from __future__ import unicode_literals
-from qubes import QubesException,QubesVmCollection
+from qubes import QubesException, QubesVmCollection
 from qubes import QubesVmClasses
-from qubes import system_path,vm_files
+from qubes import system_path, vm_files
 from qubesutils import size_to_human, print_stdout, print_stderr, get_disk_usage
 import sys
 import os
@@ -34,10 +35,11 @@ import re
 import shutil
 import tempfile
 import time
-import grp,pwd
+import grp
+import pwd
 import errno
 import datetime
-from multiprocessing import Queue,Process
+from multiprocessing import Queue, Process
 
 BACKUP_DEBUG = False
 
@@ -54,16 +56,19 @@ HEADER_QUBES_XML_MAX_SIZE = 1024 * 1024
 # global state for backup_cancel()
 running_backup_operation = None
 
+
 class BackupOperationInfo:
     def __init__(self):
         self.canceled = False
         self.processes_to_kill_on_cancel = []
         self.tmpdir_to_remove = None
 
+
 class BackupCanceledError(QubesException):
     def __init__(self, msg, tmpdir=None):
         super(BackupCanceledError, self).__init__(msg)
         self.tmpdir = tmpdir
+
 
 class BackupHeader:
     version = 'version'
@@ -76,20 +81,21 @@ class BackupHeader:
     int_options = ['version']
 
 
-def file_to_backup (file_path, subdir = None):
-    sz = get_disk_usage (file_path)
+def file_to_backup(file_path, subdir=None):
+    sz = get_disk_usage(file_path)
 
     if subdir is None:
-        abs_file_path = os.path.abspath (file_path)
-        abs_base_dir = os.path.abspath (system_path["qubes_base_dir"]) + '/'
-        abs_file_dir = os.path.dirname (abs_file_path) + '/'
-        (nothing, dir, subdir) = abs_file_dir.partition (abs_base_dir)
+        abs_file_path = os.path.abspath(file_path)
+        abs_base_dir = os.path.abspath(system_path["qubes_base_dir"]) + '/'
+        abs_file_dir = os.path.dirname(abs_file_path) + '/'
+        (nothing, dir, subdir) = abs_file_dir.partition(abs_base_dir)
         assert nothing == ""
         assert dir == abs_base_dir
     else:
         if len(subdir) > 0 and not subdir.endswith('/'):
             subdir += '/'
-    return [ { "path" : file_path, "size": sz, "subdir": subdir} ]
+    return [{"path": file_path, "size": sz, "subdir": subdir}]
+
 
 def backup_cancel():
     """
@@ -108,10 +114,14 @@ def backup_cancel():
             pass
     return True
 
-def backup_prepare(vms_list = None, exclude_list = None,
-        print_callback = print_stdout, hide_vm_names=True):
-    """If vms = None, include all (sensible) VMs; exclude_list is always applied"""
-    files_to_backup = file_to_backup (system_path["qubes_store_filename"])
+
+def backup_prepare(vms_list=None, exclude_list=None,
+                   print_callback=print_stdout, hide_vm_names=True):
+    """
+    If vms = None, include all (sensible) VMs;
+    exclude_list is always applied
+    """
+    files_to_backup = file_to_backup(system_path["qubes_store_filename"])
 
     if exclude_list is None:
         exclude_list = []
@@ -123,43 +133,46 @@ def backup_prepare(vms_list = None, exclude_list = None,
     if vms_list is None:
         all_vms = [vm for vm in qvm_collection.values()]
         selected_vms = [vm for vm in all_vms if vm.include_in_backups]
-        appvms_to_backup = [vm for vm in selected_vms if vm.is_appvm() and not vm.internal]
-        netvms_to_backup = [vm for vm in selected_vms if vm.is_netvm() and not vm.qid == 0]
+        appvms_to_backup = [vm for vm in selected_vms if
+                            vm.is_appvm() and not vm.internal]
+        netvms_to_backup = [vm for vm in selected_vms if
+                            vm.is_netvm() and not vm.qid == 0]
         template_vms_worth_backingup = [vm for vm in selected_vms if (
             vm.is_template() and vm.include_in_backups)]
-        dom0 = [ qvm_collection[0] ]
+        dom0 = [qvm_collection[0]]
 
-        vms_list = appvms_to_backup + netvms_to_backup + template_vms_worth_backingup + dom0
+        vms_list = appvms_to_backup + netvms_to_backup + \
+            template_vms_worth_backingup + dom0
 
     vms_for_backup = vms_list
     # Apply exclude list
     if exclude_list:
         vms_for_backup = [vm for vm in vms_list if vm.name not in exclude_list]
 
-    no_vms = len (vms_for_backup)
+    no_vms = len(vms_for_backup)
 
     there_are_running_vms = False
 
     fields_to_display = [
-        { "name": "VM", "width": 16},
-        { "name": "type","width": 12 },
-        { "name": "size", "width": 12}
+        {"name": "VM", "width": 16},
+        {"name": "type", "width": 12},
+        {"name": "size", "width": 12}
     ]
 
     # Display the header
     s = ""
     for f in fields_to_display:
-        fmt="{{0:-^{0}}}-+".format(f["width"] + 1)
+        fmt = "{{0:-^{0}}}-+".format(f["width"] + 1)
         s += fmt.format('-')
     print_callback(s)
     s = ""
     for f in fields_to_display:
-        fmt="{{0:>{0}}} |".format(f["width"] + 1)
+        fmt = "{{0:>{0}}} |".format(f["width"] + 1)
         s += fmt.format(f["name"])
     print_callback(s)
     s = ""
     for f in fields_to_display:
-        fmt="{{0:-^{0}}}-+".format(f["width"] + 1)
+        fmt = "{{0:-^{0}}}-+".format(f["width"] + 1)
         s += fmt.format('-')
     print_callback(s)
 
@@ -185,29 +198,32 @@ def backup_prepare(vms_list = None, exclude_list = None,
         if vm.updateable:
             if os.path.exists(vm.dir_path + "/apps.templates"):
                 # template
-                files_to_backup += file_to_backup(vm.dir_path + "/apps.templates", subdir)
+                files_to_backup += file_to_backup(
+                    vm.dir_path + "/apps.templates", subdir)
             else:
                 # standaloneVM
                 files_to_backup += file_to_backup(vm.dir_path + "/apps", subdir)
 
             if os.path.exists(vm.dir_path + "/kernels"):
-                files_to_backup += file_to_backup(vm.dir_path + "/kernels", subdir)
-        if os.path.exists (vm.firewall_conf):
+                files_to_backup += file_to_backup(vm.dir_path + "/kernels",
+                                                  subdir)
+        if os.path.exists(vm.firewall_conf):
             files_to_backup += file_to_backup(vm.firewall_conf, subdir)
         if 'appmenus_whitelist' in vm_files and \
-                os.path.exists(os.path.join(vm.dir_path, vm_files['appmenus_whitelist'])):
+                os.path.exists(os.path.join(vm.dir_path,
+                                            vm_files['appmenus_whitelist'])):
             files_to_backup += file_to_backup(
-                    os.path.join(vm.dir_path, vm_files['appmenus_whitelist']),
-                    subdir)
+                os.path.join(vm.dir_path, vm_files['appmenus_whitelist']),
+                subdir)
 
         if vm.updateable:
             files_to_backup += file_to_backup(vm.root_img, subdir)
 
         s = ""
-        fmt="{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
+        fmt = "{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
         s += fmt.format(vm.name)
 
-        fmt="{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
+        fmt = "{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
         if vm.is_netvm():
             s += fmt.format("NetVM" + (" + Sys" if vm.updateable else ""))
         else:
@@ -218,11 +234,12 @@ def backup_prepare(vms_list = None, exclude_list = None,
                          0)
         files_to_backup_index = len(files_to_backup)
 
-        fmt="{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
+        fmt = "{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
         s += fmt.format(size_to_human(vm_size))
 
         if vm.is_running():
-            s +=  " <-- The VM is running, please shut it down before proceeding with the backup!"
+            s += " <-- The VM is running, please shut it down before proceeding " \
+                 "with the backup!"
             there_are_running_vms = True
 
         print_callback(s)
@@ -239,26 +256,26 @@ def backup_prepare(vms_list = None, exclude_list = None,
             template_subdir = 'vm%d/' % vm.qid
         else:
             template_subdir = os.path.relpath(
-                    vm.dir_path,
-                    system_path["qubes_base_dir"]) + '/'
-        template_to_backup = [ {
-                "path": vm.dir_path + '/.',
-                "size": vm_sz,
-                "subdir": template_subdir } ]
+                vm.dir_path,
+                system_path["qubes_base_dir"]) + '/'
+        template_to_backup = [{"path": vm.dir_path + '/.',
+                               "size": vm_sz,
+                               "subdir": template_subdir}]
         files_to_backup += template_to_backup
 
         s = ""
-        fmt="{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
+        fmt = "{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
         s += fmt.format(vm.name)
 
-        fmt="{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
+        fmt = "{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
         s += fmt.format("Template VM")
 
-        fmt="{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
+        fmt = "{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
         s += fmt.format(size_to_human(vm_sz))
 
         if vm.is_running():
-            s +=  " <-- The VM is running, please shut it down before proceeding with the backup!"
+            s += " <-- The VM is running, please shut it down before proceeding " \
+                 "with the backup!"
             there_are_running_vms = True
 
         print_callback(s)
@@ -277,7 +294,8 @@ def backup_prepare(vms_list = None, exclude_list = None,
             if hide_vm_names:
                 vm.backup_path = 'vm%d' % vm.qid
             else:
-                vm.backup_path = os.path.relpath(vm.dir_path, system_path["qubes_base_dir"])
+                vm.backup_path = os.path.relpath(vm.dir_path,
+                                                 system_path["qubes_base_dir"])
 
     # Dom0 user home
     if 0 in vms_for_backup_qid:
@@ -289,7 +307,8 @@ def backup_prepare(vms_list = None, exclude_list = None,
         subprocess.check_call(['sudo', 'chown', '-R', local_user, home_dir])
 
         home_sz = get_disk_usage(home_dir)
-        home_to_backup = [ { "path" : home_dir, "size": home_sz, "subdir": 'dom0-home/'} ]
+        home_to_backup = [
+            {"path": home_dir, "size": home_sz, "subdir": 'dom0-home/'}]
         files_to_backup += home_to_backup
 
         vm = qvm_collection[0]
@@ -298,13 +317,13 @@ def backup_prepare(vms_list = None, exclude_list = None,
         vm.backup_path = os.path.join('dom0-home', os.path.basename(home_dir))
 
         s = ""
-        fmt="{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
+        fmt = "{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
         s += fmt.format('Dom0')
 
-        fmt="{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
+        fmt = "{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
         s += fmt.format("User home")
 
-        fmt="{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
+        fmt = "{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
         s += fmt.format(size_to_human(home_sz))
 
         print_callback(s)
@@ -314,34 +333,36 @@ def backup_prepare(vms_list = None, exclude_list = None,
     qvm_collection.unlock_db()
 
     total_backup_sz = 0
-    for file in files_to_backup:
-        total_backup_sz += file["size"]
+    for f in files_to_backup:
+        total_backup_sz += f["size"]
 
     s = ""
     for f in fields_to_display:
-        fmt="{{0:-^{0}}}-+".format(f["width"] + 1)
+        fmt = "{{0:-^{0}}}-+".format(f["width"] + 1)
         s += fmt.format('-')
     print_callback(s)
 
     s = ""
-    fmt="{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
+    fmt = "{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
     s += fmt.format("Total size:")
-    fmt="{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1 + 2 + fields_to_display[2]["width"] + 1)
+    fmt = "{{0:>{0}}} |".format(
+        fields_to_display[1]["width"] + 1 + 2 + fields_to_display[2][
+            "width"] + 1)
     s += fmt.format(size_to_human(total_backup_sz))
     print_callback(s)
 
     s = ""
     for f in fields_to_display:
-        fmt="{{0:-^{0}}}-+".format(f["width"] + 1)
+        fmt = "{{0:-^{0}}}-+".format(f["width"] + 1)
         s += fmt.format('-')
     print_callback(s)
 
-    vms_not_for_backup = [vm.name for vm in qvm_collection.values() if not vm
-        .backup_content]
+    vms_not_for_backup = [vm.name for vm in qvm_collection.values()
+                          if not vm.backup_content]
     print_callback("VMs not selected for backup: %s" % " ".join(
         vms_not_for_backup))
 
-    if (there_are_running_vms):
+    if there_are_running_vms:
         raise QubesException("Please shutdown all VMs before proceeding.")
 
     for fileinfo in files_to_backup:
@@ -349,6 +370,7 @@ def backup_prepare(vms_list = None, exclude_list = None,
             "'subdir' must ends with a '/': %s" % unicode(fileinfo)
 
     return files_to_backup
+
 
 class SendWorker(Process):
     def __init__(self, queue, base_dir, backup_stdout):
@@ -365,7 +387,7 @@ class SendWorker(Process):
             print "Moving to temporary dir", self.base_dir
         os.chdir(self.base_dir)
 
-        for filename in iter(self.queue.get,None):
+        for filename in iter(self.queue.get, None):
             if filename == "FINISHED" or filename == "ERROR":
                 break
 
@@ -375,13 +397,16 @@ class SendWorker(Process):
             # simple, as featureless as possible. It will not be
             # verified before untaring.
             tar_final_cmd = ["tar", "-cO", "--posix",
-                "-C", self.base_dir, filename]
-            final_proc  = subprocess.Popen (tar_final_cmd,
-                    stdin=subprocess.PIPE, stdout=self.backup_stdout)
+                             "-C", self.base_dir, filename]
+            final_proc = subprocess.Popen(tar_final_cmd,
+                                          stdin=subprocess.PIPE,
+                                          stdout=self.backup_stdout)
             if final_proc.wait() >= 2:
-                # handle only exit code 2 (tar fatal error) or greater (call failed?)
-                raise QubesException("ERROR: Failed to write the backup, out of disk space? "
-                        "Check console output or ~/.xsession-errors for details.")
+                # handle only exit code 2 (tar fatal error) or
+                # greater (call failed?)
+                raise QubesException(
+                    "ERROR: Failed to write the backup, out of disk space? "
+                    "Check console output or ~/.xsession-errors for details.")
 
             # Delete the file as we don't need it anymore
             if BACKUP_DEBUG:
@@ -390,6 +415,7 @@ class SendWorker(Process):
 
         if BACKUP_DEBUG:
             print "Finished sending thread"
+
 
 def prepare_backup_header(target_directory, passphrase, compressed=False,
                           encrypted=False,
@@ -409,24 +435,25 @@ def prepare_backup_header(target_directory, passphrase, compressed=False,
             f.write(str("%s=%s\n" % (BackupHeader.compression_filter,
                                      str(compression_filter))))
 
-    hmac = subprocess.Popen (["openssl", "dgst",
-                              "-" + hmac_algorithm, "-hmac", passphrase],
-                             stdin=open(header_file_path, "r"),
-                             stdout=open(header_file_path + ".hmac", "w"))
+    hmac = subprocess.Popen(["openssl", "dgst",
+                             "-" + hmac_algorithm, "-hmac", passphrase],
+                            stdin=open(header_file_path, "r"),
+                            stdout=open(header_file_path + ".hmac", "w"))
     if hmac.wait() != 0:
         raise QubesException("Failed to compute hmac of header file")
-    return (HEADER_FILENAME, HEADER_FILENAME+".hmac")
+    return HEADER_FILENAME, HEADER_FILENAME + ".hmac"
+
 
 def backup_do(base_backup_dir, files_to_backup, passphrase,
-        progress_callback = None, encrypted=False, appvm=None,
-        compressed=False, hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
-        crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM):
+              progress_callback=None, encrypted=False, appvm=None,
+              compressed=False, hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
+              crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM):
     global running_backup_operation
 
     total_backup_sz = 0
     passphrase = passphrase.encode('utf-8')
-    for file in files_to_backup:
-        total_backup_sz += file["size"]
+    for f in files_to_backup:
+        total_backup_sz += f["size"]
 
     if isinstance(compressed, str):
         compression_filter = compressed
@@ -435,7 +462,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
 
     running_backup_operation = BackupOperationInfo()
     vmproc = None
-    if appvm != None:
+    if appvm is not None:
         # Prepare the backup target (Qubes service call)
         backup_target = "QUBESRPC qubes.Backup dom0"
 
@@ -443,7 +470,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
         vmproc = appvm.run(command=backup_target, passio_popen=True,
                            passio_stderr=True)
         vmproc.stdin.write(base_backup_dir.
-                           replace("\r", "").replace("\n", "")+"\n")
+                           replace("\r", "").replace("\n", "") + "\n")
         backup_stdout = vmproc.stdin
         running_backup_operation.processes_to_kill_on_cancel.append(vmproc)
     else:
@@ -455,13 +482,13 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
             backup_target = base_backup_dir
 
             # Create the target directory
-            if not os.path.exists (os.path.dirname(base_backup_dir)):
+            if not os.path.exists(os.path.dirname(base_backup_dir)):
                 raise QubesException(
                     "ERROR: the backup directory for {0} does not exists".
                     format(base_backup_dir))
 
         # If not APPVM, STDOUT is a local file
-        backup_stdout = open(backup_target,'wb')
+        backup_stdout = open(backup_target, 'wb')
 
     global blocks_backedup
     blocks_backedup = 0
@@ -472,7 +499,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
     backup_tmpdir = tempfile.mkdtemp(prefix="/var/tmp/backup_")
     running_backup_operation.tmpdir_to_remove = backup_tmpdir
 
-    # Tar with tapelength does not deals well with stdout (close stdout between
+    # Tar with tape length does not deals well with stdout (close stdout between
     # two tapes)
     # For this reason, we will use named pipes instead
     if BACKUP_DEBUG:
@@ -524,17 +551,19 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
 
         # The first tar cmd can use any complex feature as we want. Files will
         # be verified before untaring this.
-        # Prefix the path in archive with filename["subdir"] to have it verified during untar
+        # Prefix the path in archive with filename["subdir"] to have it
+        # verified during untar
         tar_cmdline = ["tar", "-Pc", '--sparse',
                        "-f", backup_pipe,
                        '-C', os.path.dirname(filename["path"]),
                        '--xform', 's:^%s:%s\\0:' % (
-                            os.path.basename(filename["path"]),
-                            filename["subdir"]),
+                           os.path.basename(filename["path"]),
+                           filename["subdir"]),
                        os.path.basename(filename["path"])
                        ]
         if compressed:
-            tar_cmdline.insert(-1, "--use-compress-program=%s" % compression_filter)
+            tar_cmdline.insert(-1,
+                               "--use-compress-program=%s" % compression_filter)
 
         if BACKUP_DEBUG:
             print " ".join(tar_cmdline)
@@ -542,8 +571,10 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
         # Tips: Popen(bufsize=0)
         # Pipe: tar-sparse | encryptor [| hmac] | tar | backup_target
         # Pipe: tar-sparse [| hmac] | tar | backup_target
-        tar_sparse = subprocess.Popen (tar_cmdline, stdin=subprocess.PIPE,
-                stderr=(open(os.devnull, 'w') if not BACKUP_DEBUG else None))
+        tar_sparse = subprocess.Popen(tar_cmdline, stdin=subprocess.PIPE,
+                                      stderr=(open(os.devnull, 'w')
+                                              if not BACKUP_DEBUG
+                                              else None))
         running_backup_operation.processes_to_kill_on_cancel.append(tar_sparse)
 
         # Wait for compressor (tar) process to finish or for any error of other
@@ -554,37 +585,39 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
         if encrypted:
             # Start encrypt
             # If no cipher is provided, the data is forwarded unencrypted !!!
-            encryptor = subprocess.Popen (["openssl", "enc",
-                    "-e", "-" + crypto_algorithm,
-                    "-pass", "pass:"+passphrase],
-                    stdin=open(backup_pipe,'rb'), stdout=subprocess.PIPE)
+            encryptor = subprocess.Popen(["openssl", "enc",
+                                          "-e", "-" + crypto_algorithm,
+                                          "-pass", "pass:" + passphrase],
+                                         stdin=open(backup_pipe, 'rb'),
+                                         stdout=subprocess.PIPE)
             pipe = encryptor.stdout
         else:
-            pipe = open(backup_pipe,'rb')
+            pipe = open(backup_pipe, 'rb')
         while run_error == "paused":
 
             # Start HMAC
-            hmac = subprocess.Popen (["openssl", "dgst",
-                                      "-" + hmac_algorithm, "-hmac", passphrase],
-                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+            hmac = subprocess.Popen(["openssl", "dgst",
+                                     "-" + hmac_algorithm, "-hmac", passphrase],
+                                    stdin=subprocess.PIPE,
+                                    stdout=subprocess.PIPE)
 
             # Prepare a first chunk
             chunkfile = backup_tempfile + "." + "%03d" % i
             i += 1
-            chunkfile_p = open(chunkfile,'wb')
+            chunkfile_p = open(chunkfile, 'wb')
 
             common_args = {
-                        'backup_target': chunkfile_p,
-                        'total_backup_sz': total_backup_sz,
-                        'hmac': hmac,
-                        'vmproc': vmproc,
-                        'addproc': tar_sparse,
-                        'progress_callback': compute_progress,
-                        'size_limit': 100 * 1024 * 1024,
+                'backup_target': chunkfile_p,
+                'total_backup_sz': total_backup_sz,
+                'hmac': hmac,
+                'vmproc': vmproc,
+                'addproc': tar_sparse,
+                'progress_callback': compute_progress,
+                'size_limit': 100 * 1024 * 1024,
             }
             run_error = wait_backup_feedback(
-                    in_stream=pipe, streamproc=encryptor,
-                    **common_args)
+                in_stream=pipe, streamproc=encryptor,
+                **common_args)
             chunkfile_p.close()
 
             if BACKUP_DEBUG:
@@ -609,11 +642,12 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
             if run_error and run_error != "size_limit":
                 send_proc.terminate()
                 if run_error == "VM" and vmproc:
-                    raise QubesException("Failed to write the backup, VM output:\n" +
-                            vmproc.stderr.read(MAX_STDERR_BYTES))
+                    raise QubesException(
+                        "Failed to write the backup, VM output:\n" +
+                        vmproc.stderr.read(MAX_STDERR_BYTES))
                 else:
-                    raise QubesException("Failed to perform backup: error in "+ \
-                            run_error)
+                    raise QubesException("Failed to perform backup: error in " +
+                                         run_error)
 
             # Send the chunk to the backup target
             to_send.put(os.path.relpath(chunkfile, backup_tmpdir))
@@ -627,25 +661,24 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
             # Write HMAC data next to the chunk file
             hmac_data = hmac.stdout.read()
             if BACKUP_DEBUG:
-                print "Writing hmac to", chunkfile+".hmac"
-            hmac_file = open(chunkfile+".hmac",'w')
+                print "Writing hmac to", chunkfile + ".hmac"
+            hmac_file = open(chunkfile + ".hmac", 'w')
             hmac_file.write(hmac_data)
             hmac_file.flush()
             hmac_file.close()
 
             # Send the HMAC to the backup target
-            to_send.put(os.path.relpath(chunkfile, backup_tmpdir)+".hmac")
+            to_send.put(os.path.relpath(chunkfile, backup_tmpdir) + ".hmac")
 
             if tar_sparse.poll() is None or run_error == "size_limit":
-                run_error="paused"
+                run_error = "paused"
             else:
                 running_backup_operation.processes_to_kill_on_cancel.remove(
                     tar_sparse)
                 if BACKUP_DEBUG:
-                    print "Finished tar sparse with exit code", tar_sparse\
+                    print "Finished tar sparse with exit code", tar_sparse \
                         .poll()
         pipe.close()
-
 
     to_send.put("FINISHED")
     send_proc.join()
@@ -658,7 +691,8 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
     running_backup_operation = None
 
     if send_proc.exitcode != 0:
-        raise QubesException("Failed to send backup: error in the sending process")
+        raise QubesException(
+            "Failed to send backup: error in the sending process")
 
     if vmproc:
         if BACKUP_DEBUG:
@@ -678,6 +712,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
     qvm_collection.save()
     qvm_collection.unlock_db()
 
+
 '''
 ' Wait for backup chunk to finish
 ' - Monitor all the processes (streamproc, hmac, vmproc, addproc) for errors
@@ -693,16 +728,18 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
 '       "")
 ' -     size_limit is provided and is about to be exceeded
 '''
-def wait_backup_feedback(progress_callback, in_stream, streamproc,
-        backup_target, total_backup_sz, hmac=None, vmproc=None, addproc=None,
-        remove_trailing_bytes=0, size_limit=None):
 
+
+def wait_backup_feedback(progress_callback, in_stream, streamproc,
+                         backup_target, total_backup_sz, hmac=None, vmproc=None,
+                         addproc=None,
+                         remove_trailing_bytes=0, size_limit=None):
     buffer_size = 409600
 
     run_error = None
     run_count = 1
     bytes_copied = 0
-    while run_count > 0 and run_error == None:
+    while run_count > 0 and run_error is None:
 
         if size_limit and bytes_copied + buffer_size > size_limit:
             return "size_limit"
@@ -712,16 +749,16 @@ def wait_backup_feedback(progress_callback, in_stream, streamproc,
 
         run_count = 0
         if hmac:
-            retcode=hmac.poll()
-            if retcode != None:
+            retcode = hmac.poll()
+            if retcode is not None:
                 if retcode != 0:
                     run_error = "hmac"
             else:
                 run_count += 1
 
         if addproc:
-            retcode=addproc.poll()
-            if retcode != None:
+            retcode = addproc.poll()
+            if retcode is not None:
                 if retcode != 0:
                     run_error = "addproc"
             else:
@@ -729,7 +766,7 @@ def wait_backup_feedback(progress_callback, in_stream, streamproc,
 
         if vmproc:
             retcode = vmproc.poll()
-            if retcode != None:
+            if retcode is not None:
                 if retcode != 0:
                     run_error = "VM"
                     if BACKUP_DEBUG:
@@ -739,8 +776,8 @@ def wait_backup_feedback(progress_callback, in_stream, streamproc,
                 pass
 
         if streamproc:
-            retcode=streamproc.poll()
-            if retcode != None:
+            retcode = streamproc.poll()
+            if retcode is not None:
                 if retcode != 0:
                     run_error = "streamproc"
                     break
@@ -765,27 +802,29 @@ def wait_backup_feedback(progress_callback, in_stream, streamproc,
 
     return run_error
 
+
 def verify_hmac(filename, hmacfile, passphrase, algorithm):
     if BACKUP_DEBUG:
-        print "Verifying file "+filename
+        print "Verifying file " + filename
 
     if hmacfile != filename + ".hmac":
         raise QubesException(
-            "ERROR: expected hmac for {}, but got {}".\
+            "ERROR: expected hmac for {}, but got {}".
             format(filename, hmacfile))
 
-    hmac_proc = subprocess.Popen (["openssl", "dgst", "-" + algorithm,
-                                   "-hmac", passphrase],
-            stdin=open(filename,'rb'),
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    hmac_proc = subprocess.Popen(["openssl", "dgst", "-" + algorithm,
+                                  "-hmac", passphrase],
+                                 stdin=open(filename, 'rb'),
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     hmac_stdout, hmac_stderr = hmac_proc.communicate()
 
     if len(hmac_stderr) > 0:
-        raise QubesException("ERROR: verify file {0}: {1}".format(filename, hmac_stderr))
+        raise QubesException(
+            "ERROR: verify file {0}: {1}".format(filename, hmac_stderr))
     else:
         if BACKUP_DEBUG:
             print "Loading hmac for file " + filename
-        hmac = load_hmac(open(hmacfile,'r').read())
+        hmac = load_hmac(open(hmacfile, 'r').read())
 
         if len(hmac) > 0 and load_hmac(hmac_stdout) == hmac:
             os.unlink(hmacfile)
@@ -794,9 +833,9 @@ def verify_hmac(filename, hmacfile, passphrase, algorithm):
             return True
         else:
             raise QubesException(
-                    "ERROR: invalid hmac for file {0}: {1}. " \
-                    "Is the passphrase correct?".\
-                    format(filename, load_hmac(hmac_stdout)))
+                "ERROR: invalid hmac for file {0}: {1}. "
+                "Is the passphrase correct?".
+                format(filename, load_hmac(hmac_stdout)))
     # Not reachable
     return False
 
@@ -804,7 +843,7 @@ def verify_hmac(filename, hmacfile, passphrase, algorithm):
 class ExtractWorker2(Process):
     def __init__(self, queue, base_dir, passphrase, encrypted, total_size,
                  print_callback, error_callback, progress_callback, vmproc=None,
-                 compressed = False, crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM,
+                 compressed=False, crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM,
                  verify_only=False):
         super(ExtractWorker2, self).__init__()
         self.queue = queue
@@ -827,7 +866,7 @@ class ExtractWorker2(Process):
 
         self.vmproc = vmproc
 
-        self.restore_pipe = os.path.join(self.base_dir,"restore_pipe")
+        self.restore_pipe = os.path.join(self.base_dir, "restore_pipe")
         if BACKUP_DEBUG:
             print "Creating pipe in:", self.restore_pipe
         os.mkfifo(self.restore_pipe)
@@ -838,7 +877,7 @@ class ExtractWorker2(Process):
         if self.progress_callback:
             self.blocks_backedup += new_size
             progress = self.blocks_backedup / float(self.total_size)
-            progress = int(round(progress*100,2))
+            progress = int(round(progress * 100, 2))
             self.progress_callback(progress)
 
     def collect_tar_output(self):
@@ -847,8 +886,8 @@ class ExtractWorker2(Process):
 
         if self.tar2_process.poll() is None:
             try:
-                new_lines = self.tar2_process.stderr\
-                                .read(MAX_STDERR_BYTES).splitlines()
+                new_lines = self.tar2_process.stderr \
+                    .read(MAX_STDERR_BYTES).splitlines()
             except IOError as e:
                 if e.errno == errno.EAGAIN:
                     return
@@ -872,8 +911,8 @@ class ExtractWorker2(Process):
             exc_type, exc_value, exc_traceback = sys.exc_info()
             # Cleanup children
             for process in [self.decompressor_process,
-                    self.decryptor_process,
-                    self.tar2_process]:
+                            self.decryptor_process,
+                            self.tar2_process]:
                 if process:
                     # FIXME: kill()?
                     try:
@@ -887,7 +926,7 @@ class ExtractWorker2(Process):
     def __run__(self):
         if BACKUP_DEBUG and callable(self.print_callback):
             self.print_callback("Started sending thread")
-            self.print_callback("Moving to dir "+self.base_dir)
+            self.print_callback("Moving to dir " + self.base_dir)
         os.chdir(self.base_dir)
 
         filename = None
@@ -897,34 +936,34 @@ class ExtractWorker2(Process):
                 break
 
             if BACKUP_DEBUG and callable(self.print_callback):
-                self.print_callback("Extracting file "+filename)
+                self.print_callback("Extracting file " + filename)
 
             if filename.endswith('.000'):
                 # next file
-                if self.tar2_process != None:
+                if self.tar2_process is not None:
                     if self.tar2_process.wait() != 0:
                         self.collect_tar_output()
                         self.error_callback(
-                                "ERROR: unable to extract files for {0}, tar "
-                                "output:\n  {1}".\
-                                format(self.tar2_current_file,
-                                       "\n  ".join(self.tar2_stderr)))
+                            "ERROR: unable to extract files for {0}, tar "
+                            "output:\n  {1}".
+                            format(self.tar2_current_file,
+                                   "\n  ".join(self.tar2_stderr)))
                     else:
                         # Finished extracting the tar file
                         self.tar2_process = None
                         self.tar2_current_file = None
 
                 tar2_cmdline = ['tar',
-                    '-%sMk%sf' % ("t" if self.verify_only else "x",
-                                  "v" if BACKUP_DEBUG else ""),
-                    self.restore_pipe,
-                    os.path.relpath(filename.rstrip('.000'))]
+                                '-%sMk%sf' % ("t" if self.verify_only else "x",
+                                              "v" if BACKUP_DEBUG else ""),
+                                self.restore_pipe,
+                                os.path.relpath(filename.rstrip('.000'))]
                 if BACKUP_DEBUG and callable(self.print_callback):
-                    self.print_callback("Running command "+
+                    self.print_callback("Running command " +
                                         unicode(tar2_cmdline))
                 self.tar2_process = subprocess.Popen(tar2_cmdline,
-                        stdin=subprocess.PIPE,
-                        stderr=subprocess.PIPE)
+                                                     stdin=subprocess.PIPE,
+                                                     stderr=subprocess.PIPE)
                 fcntl.fcntl(self.tar2_process.stderr.fileno(), fcntl.F_SETFL,
                             fcntl.fcntl(self.tar2_process.stderr.fileno(),
                                         fcntl.F_GETFL) | os.O_NONBLOCK)
@@ -943,51 +982,57 @@ class ExtractWorker2(Process):
                 self.tar2_process.stdin.flush()
             self.tar2_current_file = filename
 
-            pipe = open(self.restore_pipe,'wb')
+            pipe = open(self.restore_pipe, 'wb')
             common_args = {
-                        'backup_target': pipe,
-                        'total_backup_sz': self.total_size,
-                        'hmac': None,
-                        'vmproc': self.vmproc,
-                        'addproc': self.tar2_process
+                'backup_target': pipe,
+                'total_backup_sz': self.total_size,
+                'hmac': None,
+                'vmproc': self.vmproc,
+                'addproc': self.tar2_process
             }
             if self.encrypted:
                 # Start decrypt
-                self.decryptor_process = subprocess.Popen (["openssl", "enc",
-                        "-d", "-" + self.crypto_algorithm,
-                        "-pass", "pass:"+self.passphrase] +
-                        (["-z"] if self.compressed else []),
-                        stdin=open(filename,'rb'),
-                        stdout=subprocess.PIPE)
+                self.decryptor_process = subprocess.Popen(
+                    ["openssl", "enc",
+                     "-d",
+                     "-" + self.crypto_algorithm,
+                     "-pass",
+                     "pass:" + self.passphrase] +
+                    (["-z"] if self.compressed else []),
+                    stdin=open(filename, 'rb'),
+                    stdout=subprocess.PIPE)
 
                 run_error = wait_backup_feedback(
-                        progress_callback=self.compute_progress,
-                        in_stream=self.decryptor_process.stdout,
-                        streamproc=self.decryptor_process,
-                        **common_args)
+                    progress_callback=self.compute_progress,
+                    in_stream=self.decryptor_process.stdout,
+                    streamproc=self.decryptor_process,
+                    **common_args)
             elif self.compressed:
-                self.decompressor_process = subprocess.Popen (["gzip", "-d"],
-                        stdin=open(filename,'rb'),
-                        stdout=subprocess.PIPE)
+                self.decompressor_process = subprocess.Popen(
+                    ["gzip", "-d"],
+                    stdin=open(filename, 'rb'),
+                    stdout=subprocess.PIPE)
 
                 run_error = wait_backup_feedback(
-                        progress_callback=self.compute_progress,
-                        in_stream=self.decompressor_process.stdout,
-                        streamproc=self.decompressor_process,
-                        **common_args)
+                    progress_callback=self.compute_progress,
+                    in_stream=self.decompressor_process.stdout,
+                    streamproc=self.decompressor_process,
+                    **common_args)
             else:
                 run_error = wait_backup_feedback(
-                        progress_callback=self.compute_progress,
-                        in_stream=open(filename,"rb"), streamproc=None,
-                        **common_args)
+                    progress_callback=self.compute_progress,
+                    in_stream=open(filename, "rb"), streamproc=None,
+                    **common_args)
 
             try:
                 pipe.close()
             except IOError as e:
                 if e.errno == errno.EPIPE:
                     if BACKUP_DEBUG:
-                        self.error_callback("Got EPIPE while closing pipe to the inner tar process")
-                    # ignore the error
+                        self.error_callback(
+                            "Got EPIPE while closing pipe to "
+                            "the inner tar process")
+                        # ignore the error
                 else:
                     raise
             if len(run_error):
@@ -999,12 +1044,12 @@ class ExtractWorker2(Process):
                 self.tar2_process.terminate()
                 self.tar2_process.wait()
                 self.tar2_process = None
-                self.error_callback("Error while processing '%s': %s " % \
-                        (self.tar2_current_file, details))
+                self.error_callback("Error while processing '%s': %s " %
+                                    (self.tar2_current_file, details))
 
             # Delete the file as we don't need it anymore
             if BACKUP_DEBUG and callable(self.print_callback):
-                self.print_callback("Removing file "+filename)
+                self.print_callback("Removing file " + filename)
             os.remove(filename)
 
         os.unlink(self.restore_pipe)
@@ -1021,7 +1066,7 @@ class ExtractWorker2(Process):
                     format(self.tar2_current_file,
                            (" Perhaps the backup is encrypted?"
                             if not self.encrypted else "",
-                           "\n".join(self.tar2_stderr))))
+                            "\n".join(self.tar2_stderr))))
             else:
                 # Finished extracting the tar file
                 self.tar2_process = None
@@ -1029,13 +1074,12 @@ class ExtractWorker2(Process):
         if BACKUP_DEBUG and callable(self.print_callback):
             self.print_callback("Finished extracting thread")
 
+
 class ExtractWorker3(ExtractWorker2):
-
-
     def __init__(self, queue, base_dir, passphrase, encrypted, total_size,
                  print_callback, error_callback, progress_callback, vmproc=None,
                  compressed=False, crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM,
-                 compression_filter = None, verify_only=False):
+                 compression_filter=None, verify_only=False):
         super(ExtractWorker3, self).__init__(queue, base_dir, passphrase,
                                              encrypted, total_size,
                                              print_callback, error_callback,
@@ -1048,7 +1092,7 @@ class ExtractWorker3(ExtractWorker2):
     def __run__(self):
         if BACKUP_DEBUG and callable(self.print_callback):
             self.print_callback("Started sending thread")
-            self.print_callback("Moving to dir "+self.base_dir)
+            self.print_callback("Moving to dir " + self.base_dir)
         os.chdir(self.base_dir)
 
         filename = None
@@ -1059,28 +1103,28 @@ class ExtractWorker3(ExtractWorker2):
                 break
 
             if BACKUP_DEBUG and callable(self.print_callback):
-                self.print_callback("Extracting file "+filename)
+                self.print_callback("Extracting file " + filename)
 
             if filename.endswith('.000'):
                 # next file
-                if self.tar2_process != None:
+                if self.tar2_process is not None:
                     input_pipe.close()
                     if self.tar2_process.wait() != 0:
                         self.collect_tar_output()
                         self.error_callback(
-                                "ERROR: unable to extract files for {0}, tar "
-                                "output:\n  {1}".\
-                                format(self.tar2_current_file,
-                                       "\n  ".join(self.tar2_stderr)))
+                            "ERROR: unable to extract files for {0}, tar "
+                            "output:\n  {1}".
+                            format(self.tar2_current_file,
+                                   "\n  ".join(self.tar2_stderr)))
                     else:
                         # Finished extracting the tar file
                         self.tar2_process = None
                         self.tar2_current_file = None
 
                 tar2_cmdline = ['tar',
-                    '-%sk%s' % ("t" if self.verify_only else "x",
-                                  "v" if BACKUP_DEBUG else ""),
-                    os.path.relpath(filename.rstrip('.000'))]
+                                '-%sk%s' % ("t" if self.verify_only else "x",
+                                            "v" if BACKUP_DEBUG else ""),
+                                os.path.relpath(filename.rstrip('.000'))]
                 if self.compressed:
                     if self.compression_filter:
                         tar2_cmdline.insert(-1,
@@ -1088,27 +1132,32 @@ class ExtractWorker3(ExtractWorker2):
                                             self.compression_filter)
                     else:
                         tar2_cmdline.insert(-1, "--use-compress-program=%s" %
-                                                DEFAULT_COMPRESSION_FILTER)
+                                            DEFAULT_COMPRESSION_FILTER)
 
                 if BACKUP_DEBUG and callable(self.print_callback):
-                    self.print_callback("Running command "+
+                    self.print_callback("Running command " +
                                         unicode(tar2_cmdline))
                 if self.encrypted:
                     # Start decrypt
-                    self.decryptor_process = subprocess.Popen (["openssl", "enc",
-                            "-d", "-" + self.crypto_algorithm,
-                            "-pass", "pass:"+self.passphrase],
-                            stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE)
+                    self.decryptor_process = subprocess.Popen(
+                        ["openssl", "enc",
+                         "-d",
+                         "-" + self.crypto_algorithm,
+                         "-pass",
+                         "pass:" + self.passphrase],
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE)
 
-                    self.tar2_process = subprocess.Popen(tar2_cmdline,
-                            stdin=self.decryptor_process.stdout,
-                            stderr=subprocess.PIPE)
+                    self.tar2_process = subprocess.Popen(
+                        tar2_cmdline,
+                        stdin=self.decryptor_process.stdout,
+                        stderr=subprocess.PIPE)
                     input_pipe = self.decryptor_process.stdin
                 else:
-                    self.tar2_process = subprocess.Popen(tar2_cmdline,
-                            stdin=subprocess.PIPE,
-                            stderr=subprocess.PIPE)
+                    self.tar2_process = subprocess.Popen(
+                        tar2_cmdline,
+                        stdin=subprocess.PIPE,
+                        stderr=subprocess.PIPE)
                     input_pipe = self.tar2_process.stdin
 
                 fcntl.fcntl(self.tar2_process.stderr.fileno(), fcntl.F_SETFL,
@@ -1127,17 +1176,17 @@ class ExtractWorker3(ExtractWorker2):
             self.tar2_current_file = filename
 
             common_args = {
-                        'backup_target': input_pipe,
-                        'total_backup_sz': self.total_size,
-                        'hmac': None,
-                        'vmproc': self.vmproc,
-                        'addproc': self.tar2_process
+                'backup_target': input_pipe,
+                'total_backup_sz': self.total_size,
+                'hmac': None,
+                'vmproc': self.vmproc,
+                'addproc': self.tar2_process
             }
 
             run_error = wait_backup_feedback(
-                    progress_callback=self.compute_progress,
-                    in_stream=open(filename,"rb"), streamproc=None,
-                    **common_args)
+                progress_callback=self.compute_progress,
+                in_stream=open(filename, "rb"), streamproc=None,
+                **common_args)
 
             if len(run_error):
                 if run_error == "target":
@@ -1152,12 +1201,12 @@ class ExtractWorker3(ExtractWorker2):
                 self.tar2_process.terminate()
                 self.tar2_process.wait()
                 self.tar2_process = None
-                self.error_callback("Error while processing '%s': %s " % \
-                        (self.tar2_current_file, details))
+                self.error_callback("Error while processing '%s': %s " %
+                                    (self.tar2_current_file, details))
 
             # Delete the file as we don't need it anymore
             if BACKUP_DEBUG and callable(self.print_callback):
-                self.print_callback("Removing file "+filename)
+                self.print_callback("Removing file " + filename)
             os.remove(filename)
 
         if self.tar2_process is not None:
@@ -1177,7 +1226,7 @@ class ExtractWorker3(ExtractWorker2):
                     format(self.tar2_current_file,
                            (" Perhaps the backup is encrypted?"
                             if not self.encrypted else "",
-                           "\n".join(self.tar2_stderr))))
+                            "\n".join(self.tar2_stderr))))
             else:
                 # Finished extracting the tar file
                 self.tar2_process = None
@@ -1198,6 +1247,7 @@ def get_supported_hmac_algo(hmac_algorithm):
         yield algo.strip()
     proc.wait()
 
+
 def parse_backup_header(filename):
     header_data = {}
     with open(filename, 'r') as f:
@@ -1216,46 +1266,50 @@ def parse_backup_header(filename):
             header_data[key] = value
     return header_data
 
-def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
-        vms_size, print_callback=None, error_callback=None,
-        progress_callback=None, encrypted=False, appvm=None,
-        compressed = False, hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
-        crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM,
-        verify_only=False, format_version = CURRENT_BACKUP_FORMAT_VERSION,
-        compression_filter = None):
 
+def restore_vm_dirs(backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
+                    vms_size, print_callback=None, error_callback=None,
+                    progress_callback=None, encrypted=False, appvm=None,
+                    compressed=False, hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
+                    crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM,
+                    verify_only=False,
+                    format_version=CURRENT_BACKUP_FORMAT_VERSION,
+                    compression_filter=None):
     global running_backup_operation
 
     if callable(print_callback):
         if BACKUP_DEBUG:
-            print_callback("Working in temporary dir:"+restore_tmpdir)
-        print_callback("Extracting data: " + size_to_human(vms_size)+" to restore")
+            print_callback("Working in temporary dir:" + restore_tmpdir)
+        print_callback(
+            "Extracting data: " + size_to_human(vms_size) + " to restore")
 
     passphrase = passphrase.encode('utf-8')
     header_data = None
     vmproc = None
-    if appvm != None:
+    if appvm is not None:
         # Prepare the backup target (Qubes service call)
         backup_target = "QUBESRPC qubes.Restore dom0"
 
         # If APPVM, STDOUT is a PIPE
-        vmproc = appvm.run(command = backup_target, passio_popen = True, passio_stderr=True)
-        vmproc.stdin.write(backup_source.replace("\r","").replace("\n","")+"\n")
+        vmproc = appvm.run(command=backup_target, passio_popen=True,
+                           passio_stderr=True)
+        vmproc.stdin.write(
+            backup_source.replace("\r", "").replace("\n", "") + "\n")
 
         # Send to tar2qfile the VMs that should be extracted
-        vmproc.stdin.write(" ".join(vms_dirs)+"\n")
+        vmproc.stdin.write(" ".join(vms_dirs) + "\n")
         if running_backup_operation:
             running_backup_operation.processes_to_kill_on_cancel.append(vmproc)
 
         backup_stdin = vmproc.stdout
         tar1_command = ['/usr/libexec/qubes/qfile-dom0-unpacker',
-            str(os.getuid()), restore_tmpdir, '-v']
+                        str(os.getuid()), restore_tmpdir, '-v']
     else:
-        backup_stdin = open(backup_source,'rb')
+        backup_stdin = open(backup_source, 'rb')
 
         tar1_command = ['tar',
-            '-ixvf', backup_source,
-            '-C', restore_tmpdir] + vms_dirs
+                        '-ixvf', backup_source,
+                        '-C', restore_tmpdir] + vms_dirs
 
     tar1_env = os.environ.copy()
     # TODO: add some safety margin?
@@ -1270,15 +1324,17 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
         # margin for further extensions. Each archive is divided into 100MB
         # chunks. Additionally each file have own hmac file. So assume upper
         # limit as 2*(10*COUNT_OF_VMS+TOTAL_SIZE/100MB)
-        tar1_env['UPDATES_MAX_FILES'] = str(2*(10*len(vms_dirs) +
-                                               int(vms_size/(100*1024*1024))))
+        tar1_env['UPDATES_MAX_FILES'] = str(2 * (10 * len(vms_dirs) +
+                                                 int(vms_size /
+                                                     (100 * 1024 * 1024))))
     if BACKUP_DEBUG and callable(print_callback):
-        print_callback("Run command"+unicode(tar1_command))
-    command = subprocess.Popen(tar1_command,
-            stdin=backup_stdin,
-            stdout=vmproc.stdin if vmproc else subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=tar1_env)
+        print_callback("Run command" + unicode(tar1_command))
+    command = subprocess.Popen(
+        tar1_command,
+        stdin=backup_stdin,
+        stdout=vmproc.stdin if vmproc else subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=tar1_env)
     if running_backup_operation:
         running_backup_operation.processes_to_kill_on_cancel.append(command)
 
@@ -1309,7 +1365,7 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
             print_callback("Got backup header and hmac: %s, %s" % (filename,
                                                                    hmacfile))
 
-        if not filename or filename=="EOF" or \
+        if not filename or filename == "EOF" or \
                 not hmacfile or hmacfile == "EOF":
             if appvm:
                 vmproc.wait()
@@ -1348,11 +1404,12 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
             if BackupHeader.encrypted in header_data:
                 encrypted = header_data[BackupHeader.encrypted]
             if BackupHeader.compression_filter in header_data:
-                compression_filter = header_data[BackupHeader.compression_filter]
+                compression_filter = header_data[
+                    BackupHeader.compression_filter]
             os.unlink(filename)
         else:
             # if no header found, create one with guessed HMAC algo
-            header_data = { BackupHeader.hmac_algorithm: hmac_algorithm }
+            header_data = {BackupHeader.hmac_algorithm: hmac_algorithm}
             # If this isn't backup header, pass it to ExtractWorker
             to_extract.put(filename)
             # when tar do not find expected file in archive, it exit with
@@ -1376,14 +1433,15 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
         'print_callback': print_callback,
         'error_callback': error_callback,
         'progress_callback': progress_callback,
-        }
+    }
     if format_version == 2:
         extract_proc = ExtractWorker2(**extractor_params)
     elif format_version == 3:
         extractor_params['compression_filter'] = compression_filter
         extract_proc = ExtractWorker3(**extractor_params)
     else:
-        raise NotImplemented("Backup format version %d not supported" % format_version)
+        raise NotImplemented(
+            "Backup format version %d not supported" % format_version)
     extract_proc.start()
 
     try:
@@ -1406,9 +1464,9 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
                 filename = filelist_pipe.readline().strip()
 
             if BACKUP_DEBUG and callable(print_callback):
-                print_callback("Getting new file:"+filename)
+                print_callback("Getting new file:" + filename)
 
-            if not filename or filename=="EOF":
+            if not filename or filename == "EOF":
                 break
 
             hmacfile = filelist_pipe.readline().strip()
@@ -1416,15 +1474,16 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
             if running_backup_operation and running_backup_operation.canceled:
                 break
             # if reading archive directly with tar, wait for next filename -
-            # tar prints filename before processing it, so wait for the next one to be
-            # sure that whole file was extracted
+            # tar prints filename before processing it, so wait for
+            # the next one to be sure that whole file was extracted
             if not appvm:
                 nextfile = filelist_pipe.readline().strip()
 
             if BACKUP_DEBUG and callable(print_callback):
-                print_callback("Getting hmac:"+hmacfile)
-            if not hmacfile or hmacfile=="EOF":
-                # Premature end of archive, either of tar1_command or vmproc exited with error
+                print_callback("Getting hmac:" + hmacfile)
+            if not hmacfile or hmacfile == "EOF":
+                # Premature end of archive, either of tar1_command or
+                # vmproc exited with error
                 break
 
             if not any(map(lambda x: filename.startswith(x), vms_dirs)):
@@ -1434,9 +1493,9 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
                 os.unlink(os.path.join(restore_tmpdir, hmacfile))
                 continue
 
-            if verify_hmac(os.path.join(restore_tmpdir,filename),
-                    os.path.join(restore_tmpdir,hmacfile),
-                    passphrase, hmac_algorithm):
+            if verify_hmac(os.path.join(restore_tmpdir, filename),
+                           os.path.join(restore_tmpdir, hmacfile),
+                           passphrase, hmac_algorithm):
                 to_extract.put(os.path.join(restore_tmpdir, filename))
 
         if running_backup_operation and running_backup_operation.canceled:
@@ -1445,17 +1504,18 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
 
         if command.wait() != 0 and not expect_tar_error:
             raise QubesException(
-                    "unable to read the qubes backup file {0} ({1}). " \
-                    "Is it really a backup?".format(backup_source, command.wait()))
+                "unable to read the qubes backup file {0} ({1}). "
+                "Is it really a backup?".format(backup_source, command.wait()))
         if vmproc:
             if vmproc.wait() != 0:
                 raise QubesException(
-                        "unable to read the qubes backup {0} " \
-                        "because of a VM error: {1}".format(
-                            backup_source, vmproc.stderr.read(MAX_STDERR_BYTES)))
+                    "unable to read the qubes backup {0} "
+                    "because of a VM error: {1}".format(
+                        backup_source, vmproc.stderr.read(MAX_STDERR_BYTES)))
 
-        if filename and filename!="EOF":
-            raise QubesException("Premature end of archive, the last file was %s" % filename)
+        if filename and filename != "EOF":
+            raise QubesException(
+                "Premature end of archive, the last file was %s" % filename)
     except:
         to_extract.put("ERROR")
         extract_proc.join()
@@ -1467,14 +1527,15 @@ def restore_vm_dirs (backup_source, restore_tmpdir, passphrase, vms_dirs, vms,
         print_callback("Waiting for the extraction process to finish...")
     extract_proc.join()
     if BACKUP_DEBUG and callable(print_callback):
-        print_callback("Extraction process finished with code:" + \
-                str(extract_proc.exitcode))
+        print_callback("Extraction process finished with code:" +
+                       str(extract_proc.exitcode))
     if extract_proc.exitcode != 0:
         raise QubesException(
-                "unable to extract the qubes backup. " \
-                "Check extracting process errors.")
+            "unable to extract the qubes backup. "
+            "Check extracting process errors.")
 
     return header_data
+
 
 def backup_restore_set_defaults(options):
     if 'use-default-netvm' not in options:
@@ -1494,6 +1555,7 @@ def backup_restore_set_defaults(options):
 
     return options
 
+
 def load_hmac(hmac):
     hmac = hmac.strip().split("=")
     if len(hmac) > 1:
@@ -1503,6 +1565,7 @@ def load_hmac(hmac):
 
     return hmac
 
+
 def backup_detect_format_version(backup_location):
     if os.path.exists(os.path.join(backup_location, 'qubes.xml')):
         return 1
@@ -1511,49 +1574,52 @@ def backup_detect_format_version(backup_location):
         # is read
         return 2
 
-def backup_restore_header(source, passphrase,
-        print_callback = print_stdout, error_callback = print_stderr,
-        encrypted=False, appvm=None, compressed = False, format_version = None,
-        hmac_algorithm = DEFAULT_HMAC_ALGORITHM,
-        crypto_algorithm = DEFAULT_CRYPTO_ALGORITHM):
 
+def backup_restore_header(source, passphrase,
+                          print_callback=print_stdout,
+                          error_callback=print_stderr,
+                          encrypted=False, appvm=None, compressed=False,
+                          format_version=None,
+                          hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
+                          crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM):
     global running_backup_operation
     vmproc = None
     running_backup_operation = None
 
     restore_tmpdir = tempfile.mkdtemp(prefix="/var/tmp/restore_")
 
-    if format_version == None:
+    if format_version is None:
         format_version = backup_detect_format_version(source)
 
     if format_version == 1:
-        return (restore_tmpdir, os.path.join(source, 'qubes.xml'), None)
+        return restore_tmpdir, os.path.join(source, 'qubes.xml'), None
 
     # tar2qfile matches only beginnings, while tar full path
     if appvm:
         extract_filter = [HEADER_FILENAME, 'qubes.xml.000']
     else:
-        extract_filter = [HEADER_FILENAME, HEADER_FILENAME+'.hmac',
+        extract_filter = [HEADER_FILENAME, HEADER_FILENAME + '.hmac',
                           'qubes.xml.000', 'qubes.xml.000.hmac']
 
-    header_data = restore_vm_dirs (source,
-            restore_tmpdir,
-            passphrase=passphrase,
-            vms_dirs=extract_filter,
-            vms=None,
-            vms_size=HEADER_QUBES_XML_MAX_SIZE,
-            format_version=format_version,
-            hmac_algorithm=hmac_algorithm,
-            crypto_algorithm=crypto_algorithm,
-            print_callback=print_callback,
-            error_callback=error_callback,
-            progress_callback=None,
-            encrypted=encrypted,
-            compressed=compressed,
-            appvm=appvm)
+    header_data = restore_vm_dirs(source,
+                                  restore_tmpdir,
+                                  passphrase=passphrase,
+                                  vms_dirs=extract_filter,
+                                  vms=None,
+                                  vms_size=HEADER_QUBES_XML_MAX_SIZE,
+                                  format_version=format_version,
+                                  hmac_algorithm=hmac_algorithm,
+                                  crypto_algorithm=crypto_algorithm,
+                                  print_callback=print_callback,
+                                  error_callback=error_callback,
+                                  progress_callback=None,
+                                  encrypted=encrypted,
+                                  compressed=compressed,
+                                  appvm=appvm)
 
     return (restore_tmpdir, os.path.join(restore_tmpdir, "qubes.xml"),
             header_data)
+
 
 def restore_info_verify(restore_info, host_collection):
     options = restore_info['$OPTIONS$']
@@ -1570,7 +1636,7 @@ def restore_info_verify(restore_info, host_collection):
 
         vm_info.pop('already-exists', None)
         if not options['verify-only'] and \
-                        host_collection.get_vm_by_name (vm) is not None:
+                host_collection.get_vm_by_name(vm) is not None:
             vm_info['already-exists'] = True
 
         # check template
@@ -1581,11 +1647,11 @@ def restore_info_verify(restore_info, host_collection):
             if not host_template or not host_template.is_template():
                 # Maybe the (custom) template is in the backup?
                 if not (template_name in restore_info.keys() and
-                            restore_info[template_name]['vm'].is_template()):
+                        restore_info[template_name]['vm'].is_template()):
                     if options['use-default-template']:
                         if 'orig-template' not in vm_info.keys():
                             vm_info['orig-template'] = template_name
-                        vm_info['template'] = host_collection\
+                        vm_info['template'] = host_collection \
                             .get_default_template().name
                     else:
                         vm_info['missing-template'] = True
@@ -1595,16 +1661,16 @@ def restore_info_verify(restore_info, host_collection):
         if vm_info['netvm']:
             netvm_name = vm_info['netvm']
 
-            netvm_on_host = host_collection.get_vm_by_name (netvm_name)
+            netvm_on_host = host_collection.get_vm_by_name(netvm_name)
 
             # No netvm on the host?
             if not ((netvm_on_host is not None) and netvm_on_host.is_netvm()):
 
                 # Maybe the (custom) netvm is in the backup?
-                if not (netvm_name in restore_info.keys() and \
+                if not (netvm_name in restore_info.keys() and
                         restore_info[netvm_name]['vm'].is_netvm()):
                     if options['use-default-netvm']:
-                        vm_info['netvm'] = host_collection\
+                        vm_info['netvm'] = host_collection \
                             .get_default_netvm().name
                         vm_info['vm'].uses_default_netvm = True
                     elif options['use-none-netvm']:
@@ -1620,11 +1686,14 @@ def restore_info_verify(restore_info, host_collection):
 
     return restore_info
 
-def backup_restore_prepare(backup_location, passphrase, options = None,
-        host_collection = None, encrypted=False, appvm=None,
-        compressed = False, print_callback = print_stdout, error_callback = print_stderr,
-        format_version=None, hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
-        crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM):
+
+def backup_restore_prepare(backup_location, passphrase, options=None,
+                           host_collection=None, encrypted=False, appvm=None,
+                           compressed=False, print_callback=print_stdout,
+                           error_callback=print_stderr,
+                           format_version=None,
+                           hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
+                           crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM):
     if options is None:
         options = {}
     # Defaults
@@ -1633,18 +1702,20 @@ def backup_restore_prepare(backup_location, passphrase, options = None,
     # so no need for fallback in function parameter
     compression_filter = DEFAULT_COMPRESSION_FILTER
 
-    #### Private functions begin
-    def is_vm_included_in_backup_v1 (backup_dir, vm):
+    # Private functions begin
+    def is_vm_included_in_backup_v1(backup_dir, vm):
         if vm.qid == 0:
-            return os.path.exists(os.path.join(backup_dir,'dom0-home'))
+            return os.path.exists(os.path.join(backup_dir, 'dom0-home'))
 
-        backup_vm_dir_path = vm.dir_path.replace (system_path["qubes_base_dir"], backup_dir)
+        backup_vm_dir_path = vm.dir_path.replace(system_path["qubes_base_dir"],
+                                                 backup_dir)
 
-        if os.path.exists (backup_vm_dir_path):
+        if os.path.exists(backup_vm_dir_path):
             return True
         else:
             return False
-    def is_vm_included_in_backup_v2 (backup_dir, vm):
+
+    def is_vm_included_in_backup_v2(backup_dir, vm):
         if vm.backup_content:
             return True
         else:
@@ -1658,10 +1729,11 @@ def backup_restore_prepare(backup_location, passphrase, options = None,
                 return m.group(2)
 
         return template
-    #### Private functions end
+
+    # Private functions end
 
     # Format versions:
-    #  1 - Qubes R1, Qubes R2 beta1, beta2
+    # 1 - Qubes R1, Qubes R2 beta1, beta2
     #  2 - Qubes R2 beta3+
 
     if format_version is None:
@@ -1675,10 +1747,10 @@ def backup_restore_prepare(backup_location, passphrase, options = None,
             if not os.path.isfile(backup_location):
                 raise QubesException("Invalid backup location (not a file or "
                                      "directory with qubes.xml)"
-                                     ": %s" % unicode(
-                    backup_location))
+                                     ": %s" % unicode(backup_location))
     else:
-        raise QubesException("Unknown backup format version: %s" % str(format_version))
+        raise QubesException(
+            "Unknown backup format version: %s" % str(format_version))
 
     (restore_tmpdir, qubes_xml, header_data) = backup_restore_header(
         backup_location,
@@ -1708,7 +1780,7 @@ def backup_restore_prepare(backup_location, passphrase, options = None,
 
     if BACKUP_DEBUG:
         print "Loading file", qubes_xml
-    backup_collection = QubesVmCollection(store_filename = qubes_xml)
+    backup_collection = QubesVmCollection(store_filename=qubes_xml)
     backup_collection.lock_db_for_reading()
     backup_collection.load()
 
@@ -1726,9 +1798,9 @@ def backup_restore_prepare(backup_location, passphrase, options = None,
         if vm.qid == 0:
             # Handle dom0 as special case later
             continue
-        if is_vm_included_in_backup (backup_location, vm):
+        if is_vm_included_in_backup(backup_location, vm):
             if BACKUP_DEBUG:
-                print vm.name,"is included in backup"
+                print vm.name, "is included in backup"
 
             vms_to_restore[vm.name] = {}
             vms_to_restore[vm.name]['vm'] = vm
@@ -1736,7 +1808,8 @@ def backup_restore_prepare(backup_location, passphrase, options = None,
             if vm.template is None:
                 vms_to_restore[vm.name]['template'] = None
             else:
-                templatevm_name = find_template_name(vm.template.name, options['replace-template'])
+                templatevm_name = find_template_name(vm.template.name, options[
+                    'replace-template'])
                 vms_to_restore[vm.name]['template'] = templatevm_name
 
             if vm.netvm is None:
@@ -1773,7 +1846,7 @@ def backup_restore_prepare(backup_location, passphrase, options = None,
         if format_version == 1:
             vms_to_restore['dom0']['subdir'] = \
                 os.listdir(os.path.join(backup_location, 'dom0-home'))[0]
-            vms_to_restore['dom0']['size'] = 0 # unknown
+            vms_to_restore['dom0']['size'] = 0  # unknown
         else:
             vms_to_restore['dom0']['subdir'] = vm.backup_path
             vms_to_restore['dom0']['size'] = vm.backup_size
@@ -1797,7 +1870,8 @@ def backup_restore_prepare(backup_location, passphrase, options = None,
         os.unlink(qubes_xml)
     return vms_to_restore
 
-def backup_restore_print_summary(restore_info, print_callback = print_stdout):
+
+def backup_restore_print_summary(restore_info, print_callback=print_stdout):
     fields = {
         "qid": {"func": "vm.qid"},
 
@@ -1811,7 +1885,7 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
                  'HVM' if vm.type == 'HVM' else \
                  vm.type.replace('VM','')"},
 
-        "updbl" : {"func": "'Yes' if vm.updateable else ''"},
+        "updbl": {"func": "'Yes' if vm.updateable else ''"},
 
         "template": {"func": "'n/a' if vm.is_template() or vm.template is None else\
                      vm_info['template']"},
@@ -1820,10 +1894,10 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
                   ('*' if vm.uses_default_netvm else '') +\
                     vm_info['netvm'] if vm_info['netvm'] is not None else '-'"},
 
-        "label" : {"func" : "vm.label.name"},
+        "label": {"func": "vm.label.name"},
     }
 
-    fields_to_display = ["name", "type", "template", "updbl", "netvm", "label" ]
+    fields_to_display = ["name", "type", "template", "updbl", "netvm", "label"]
 
     # First calculate the maximum width of each field we want to display
     total_width = 0
@@ -1844,34 +1918,34 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
     # Display the header
     s = ""
     for f in fields_to_display:
-        fmt="{{0:-^{0}}}-+".format(fields[f]["max_width"] + 1)
+        fmt = "{{0:-^{0}}}-+".format(fields[f]["max_width"] + 1)
         s += fmt.format('-')
     print_callback(s)
     s = ""
     for f in fields_to_display:
-        fmt="{{0:>{0}}} |".format(fields[f]["max_width"] + 1)
+        fmt = "{{0:>{0}}} |".format(fields[f]["max_width"] + 1)
         s += fmt.format(f)
     print_callback(s)
     s = ""
     for f in fields_to_display:
-        fmt="{{0:-^{0}}}-+".format(fields[f]["max_width"] + 1)
+        fmt = "{{0:-^{0}}}-+".format(fields[f]["max_width"] + 1)
         s += fmt.format('-')
     print_callback(s)
 
     for vm_info in restore_info.values():
         # Skip non-VM here
-        if not 'vm' in vm_info:
+        if 'vm' not in vm_info:
             continue
         vm = vm_info['vm']
         s = ""
         for f in fields_to_display:
-            fmt="{{0:>{0}}} |".format(fields[f]["max_width"] + 1)
+            fmt = "{{0:>{0}}} |".format(fields[f]["max_width"] + 1)
             s += fmt.format(eval(fields[f]["func"]))
 
         if 'excluded' in vm_info and vm_info['excluded']:
             s += " <-- Excluded from restore"
         elif 'already-exists' in vm_info:
-            s +=  " <-- A VM with the same name already exists on the host!"
+            s += " <-- A VM with the same name already exists on the host!"
         elif 'missing-template' in vm_info:
             s += " <-- No matching template on the host or in the backup found!"
         elif 'missing-netvm' in vm_info:
@@ -1884,7 +1958,7 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
     if 'dom0' in restore_info.keys():
         s = ""
         for f in fields_to_display:
-            fmt="{{0:>{0}}} |".format(fields[f]["max_width"] + 1)
+            fmt = "{{0:>{0}}} |".format(fields[f]["max_width"] + 1)
             if f == "name":
                 s += fmt.format("Dom0")
             elif f == "type":
@@ -1898,25 +1972,27 @@ def backup_restore_print_summary(restore_info, print_callback = print_stdout):
 
         print_callback(s)
 
-def backup_restore_do(restore_info,
-        host_collection = None, print_callback = print_stdout,
-        error_callback = print_stderr, progress_callback = None,
-        ):
 
+def backup_restore_do(restore_info,
+                      host_collection=None, print_callback=print_stdout,
+                      error_callback=print_stderr, progress_callback=None,
+                      ):
     global running_backup_operation
 
-    ### Private functions begin
-    def restore_vm_dir_v1 (backup_dir, src_dir, dst_dir):
+    # Private functions begin
+    def restore_vm_dir_v1(backup_dir, src_dir, dst_dir):
 
-        backup_src_dir = src_dir.replace (system_path["qubes_base_dir"], backup_dir)
+        backup_src_dir = src_dir.replace(system_path["qubes_base_dir"],
+                                         backup_dir)
 
         # We prefer to use Linux's cp, because it nicely handles sparse files
-        retcode = subprocess.call (["cp", "-rp", backup_src_dir, dst_dir])
+        retcode = subprocess.call(["cp", "-rp", backup_src_dir, dst_dir])
         if retcode != 0:
             raise QubesException(
                 "*** Error while copying file {0} to {1}".format(backup_src_dir,
                                                                  dst_dir))
-    ### Private functions end
+
+    # Private functions end
 
     options = restore_info['$OPTIONS$']
     backup_location = options['location']
@@ -1964,36 +2040,37 @@ def backup_restore_do(restore_info,
             vms_size += restore_info['dom0']['size']
 
         try:
-            restore_vm_dirs (backup_location,
-                    restore_tmpdir,
-                    passphrase=passphrase,
-                    vms_dirs=vms_dirs,
-                    vms=vms,
-                    vms_size=vms_size,
-                    format_version=format_version,
-                    hmac_algorithm=hmac_algorithm,
-                    crypto_algorithm=crypto_algorithm,
-                    verify_only=verify_only,
-                    print_callback=print_callback,
-                    error_callback=error_callback,
-                    progress_callback=progress_callback,
-                    encrypted=encrypted,
-                    compressed=compressed,
-                    compression_filter=compression_filter,
-                    appvm=appvm)
+            restore_vm_dirs(backup_location,
+                            restore_tmpdir,
+                            passphrase=passphrase,
+                            vms_dirs=vms_dirs,
+                            vms=vms,
+                            vms_size=vms_size,
+                            format_version=format_version,
+                            hmac_algorithm=hmac_algorithm,
+                            crypto_algorithm=crypto_algorithm,
+                            verify_only=verify_only,
+                            print_callback=print_callback,
+                            error_callback=error_callback,
+                            progress_callback=progress_callback,
+                            encrypted=encrypted,
+                            compressed=compressed,
+                            compression_filter=compression_filter,
+                            appvm=appvm)
         except QubesException as e:
             if verify_only:
                 raise
             else:
                 if callable(print_callback):
-                    print_callback("Some errors occurred during data extraction, "
-                               "continuing anyway to restore at least some "
-                               "VMs")
+                    print_callback(
+                        "Some errors occurred during data extraction, "
+                        "continuing anyway to restore at least some "
+                        "VMs")
     else:
         if verify_only:
             if callable(print_callback):
                 print_callback("WARNING: Backup verification not supported for "
-                           "this backup format.")
+                               "this backup format.")
 
     if verify_only:
         shutil.rmtree(restore_tmpdir)
@@ -2001,19 +2078,21 @@ def backup_restore_do(restore_info,
 
     # Add VM in right order
     for (vm_class_name, vm_class) in sorted(QubesVmClasses.items(),
-            key=lambda _x: _x[1].load_order):
+                                            key=lambda _x: _x[1].load_order):
         if running_backup_operation.canceled:
             break
         for vm in vms.values():
             if running_backup_operation.canceled:
                 # only break the loop to save qubes.xml with already restored
-                #  VMs
+                # VMs
                 break
             if not vm.__class__ == vm_class:
                 continue
             if callable(print_callback):
-                print_callback("-> Restoring {type} {0}...".format(vm.name, type=vm_class_name))
-            retcode = subprocess.call (["mkdir", "-p", os.path.dirname(vm.dir_path)])
+                print_callback("-> Restoring {type} {0}...".
+                               format(vm.name, type=vm_class_name))
+            retcode = subprocess.call(
+                ["mkdir", "-p", os.path.dirname(vm.dir_path)])
             if retcode != 0:
                 error_callback("*** Cannot create directory: {0}?!".format(
                     vm.dir_path))
@@ -2029,18 +2108,18 @@ def backup_restore_do(restore_info,
 
             try:
                 new_vm = host_collection.add_new_vm(vm_class_name, name=vm.name,
-                                                   conf_file=vm.conf_file,
-                                                   dir_path=vm.dir_path,
-                                                   template=template,
-                                                   installed_by_rpm=False)
+                                                    conf_file=vm.conf_file,
+                                                    dir_path=vm.dir_path,
+                                                    template=template,
+                                                    installed_by_rpm=False)
 
                 if format_version == 1:
                     restore_vm_dir_v1(backup_location,
-                            vm.dir_path,
-                            os.path.dirname(new_vm.dir_path))
+                                      vm.dir_path,
+                                      os.path.dirname(new_vm.dir_path))
                 elif format_version >= 2:
                     shutil.move(os.path.join(restore_tmpdir, vm.backup_path),
-                            new_vm.dir_path)
+                                new_vm.dir_path)
 
                 new_vm.verify_files()
             except Exception as err:
@@ -2051,11 +2130,11 @@ def backup_restore_do(restore_info,
                 continue
 
             # FIXME: cannot check for 'kernel' property, because it is always
-            #  defined - accessing it touches non-existent '_kernel'
+            # defined - accessing it touches non-existent '_kernel'
             if not isinstance(vm, QubesVmClasses['QubesHVm']):
                 # TODO: add a setting for this?
-                if vm.kernel and vm.kernel not in os.listdir(system_path[
-                    'qubes_kernels_base_dir']):
+                if vm.kernel and vm.kernel not in \
+                        os.listdir(system_path['qubes_kernels_base_dir']):
                     if callable(print_callback):
                         print_callback("WARNING: Kernel %s not installed, "
                                        "using default one" % vm.kernel)
@@ -2071,7 +2150,8 @@ def backup_restore_do(restore_info,
                 new_vm.appmenus_create(verbose=callable(print_callback))
             except Exception as err:
                 error_callback("ERROR during appmenu restore: {0}".format(err))
-                error_callback("*** VM '{0}' will not have appmenus".format(vm.name))
+                error_callback(
+                    "*** VM '{0}' will not have appmenus".format(vm.name))
 
     # Set network dependencies - only non-default netvm setting
     for vm in vms.values():
@@ -2082,7 +2162,7 @@ def backup_restore_do(restore_info,
 
         if not vm.uses_default_netvm:
             if restore_info[vm.name]['netvm'] is not None:
-                host_vm.netvm = host_collection.get_vm_by_name (
+                host_vm.netvm = host_collection.get_vm_by_name(
                     restore_info[vm.name]['netvm'])
             else:
                 host_vm.netvm = None
@@ -2098,7 +2178,6 @@ def backup_restore_do(restore_info,
         else:
             raise BackupCanceledError("Restore canceled")
 
-
     # ... and dom0 home as last step
     if 'dom0' in restore_info.keys() and restore_info['dom0']['good-to-go']:
         backup_path = restore_info['dom0']['subdir']
@@ -2108,18 +2187,24 @@ def backup_restore_do(restore_info,
             backup_dom0_home_dir = os.path.join(backup_location, backup_path)
         else:
             backup_dom0_home_dir = os.path.join(restore_tmpdir, backup_path)
-        restore_home_backupdir = "home-pre-restore-{0}".format (time.strftime("%Y-%m-%d-%H%M%S"))
+        restore_home_backupdir = "home-pre-restore-{0}".format(
+            time.strftime("%Y-%m-%d-%H%M%S"))
 
         if callable(print_callback):
-            print_callback("-> Restoring home of user '{0}'...".format(local_user))
-            print_callback("--> Existing files/dirs backed up in '{0}' dir".format(restore_home_backupdir))
+            print_callback(
+                "-> Restoring home of user '{0}'...".format(local_user))
+            print_callback(
+                "--> Existing files/dirs backed up in '{0}' dir".format(
+                    restore_home_backupdir))
         os.mkdir(home_dir + '/' + restore_home_backupdir)
         for f in os.listdir(backup_dom0_home_dir):
             home_file = home_dir + '/' + f
             if os.path.exists(home_file):
-                os.rename(home_file, home_dir + '/' + restore_home_backupdir + '/' + f)
+                os.rename(home_file,
+                          home_dir + '/' + restore_home_backupdir + '/' + f)
             if format_version == 1:
-                retcode = subprocess.call (["cp", "-nrp", backup_dom0_home_dir + '/' + f, home_file])
+                retcode = subprocess.call(
+                    ["cp", "-nrp", backup_dom0_home_dir + '/' + f, home_file])
             elif format_version >= 2:
                 shutil.move(backup_dom0_home_dir + '/' + f, home_file)
         retcode = subprocess.call(['sudo', 'chown', '-R', local_user, home_dir])
