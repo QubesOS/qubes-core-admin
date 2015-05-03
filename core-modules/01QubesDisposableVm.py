@@ -30,12 +30,16 @@ from qubes.qubes import QubesVm,QubesVmLabel,register_qubes_vm_class, \
     QubesException
 from qubes.qubes import QubesDispVmLabels
 from qubes.qubes import dry_run,vmm
+import grp
+
 qmemman_present = False
 try:
     from qubes.qmemman_client import QMemmanClient
     qmemman_present = True
 except ImportError:
     pass
+
+DISPID_STATE_FILE = '/var/run/qubes/dispid'
 
 class QubesDisposableVm(QubesVm):
     """
@@ -45,14 +49,40 @@ class QubesDisposableVm(QubesVm):
     # In which order load this VM type from qubes.xml
     load_order = 120
 
+
+    def _assign_new_dispid(self):
+        # This method in called while lock on qubes.xml is held, so no need for
+        # additional lock
+        if os.path.exists(DISPID_STATE_FILE):
+            f = open(DISPID_STATE_FILE, 'r+')
+            dispid = int(f.read())
+            f.seek(0)
+            f.truncate(0)
+            f.write(str(dispid+1))
+            f.close()
+        else:
+            dispid = 1
+            f = open(DISPID_STATE_FILE, 'w')
+            f.write(str(dispid+1))
+            f.close()
+            os.chown(DISPID_STATE_FILE, -1, grp.getgrnam('qubes').gr_gid)
+            os.chmod(DISPID_STATE_FILE, 0664)
+        return dispid
+
     def get_attrs_config(self):
         attrs_config = super(QubesDisposableVm, self).get_attrs_config()
 
-        attrs_config['name']['eval'] = '"disp%d" % self._qid if value is None else value'
+        attrs_config['name']['func'] = \
+            lambda x: "disp%d" % self.dispid if x is None else x
 
         # New attributes
-        attrs_config['dispid'] = { 'func': lambda x: self._qid if x is None else int(x),
-            'save': lambda: str(self.dispid) }
+        attrs_config['dispid'] = {
+            'func': lambda x: (self._assign_new_dispid() if x is None
+                               else int(x)),
+            'save': lambda: str(self.dispid),
+            # needs to be set before name
+            'order': 0
+        }
         attrs_config['include_in_backups']['func'] = lambda x: False
         attrs_config['disp_savefile'] = {
                 'default': '/var/run/qubes/current-savefile',
