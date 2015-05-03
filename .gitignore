@@ -1,4 +1,5 @@
 rpm/
+pkgs/
 *.pyc
 *.pyo
 *~
