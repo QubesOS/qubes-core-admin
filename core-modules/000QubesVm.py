@@ -1281,7 +1281,14 @@ class QubesVm(object):
         for hook in self.hooks_remove_from_disk:
             hook(self)
 
-        self.libvirt_domain.undefine()
+        try:
+            self.libvirt_domain.undefine()
+        except libvirt.libvirtError as e:
+            if e.err[0] == libvirt.VIR_ERR_NO_DOMAIN:
+                # already undefined
+                pass
+            else:
+                raise
 
         self.storage.remove_from_disk()
 
