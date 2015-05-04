@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-VERSION=2.2
+VERSION=2.3
 COPY2VM="dom0"
 SUPPORT_FILES=0
 
@@ -77,120 +77,123 @@ xl info > $TEMP_DIR/xl-info
 xl dmesg > $TEMP_DIR/xl-dmesg
 
 
-BRAND=`cat $TEMP_DIR/dmidecode |grep -A9 "System Information" |grep "Manufacturer:" |cut -d ' ' -f2- |tr -s '[:blank:]' _`
-PRODUCT=`cat $TEMP_DIR/dmidecode |grep -A9 "System Information" |grep "Product Name:" |cut -d ' ' -f3- |tr -s '[:blank:]' _`
+BRAND=`cat $TEMP_DIR/dmidecode |grep -A9 "System Information" |grep "Manufacturer:" |cut -d ' ' -f2-`
+PRODUCT=`cat $TEMP_DIR/dmidecode |grep -A9 "System Information" |grep "Product Name:" |cut -d ' ' -f3-`
+TYPE=`cat $TEMP_DIR/dmidecode |grep -A9 "Chassis Information" |grep Type |cut -d ' ' -f2-`
 
 if [[ $BRAND =~ "O.E.M" ]]
  then
-    BRAND=`cat $TEMP_DIR/dmidecode |grep -A9 "Base Board Information" |grep "Manufacturer:" |cut -d ' ' -f2- |tr -s '[:blank:]' _`
-    PRODUCT=`cat $TEMP_DIR/dmidecode |grep -A9 "Base Board Information" |grep "Product Name:" |cut -d ' ' -f3- |tr -s '[:blank:]' _`
+    BRAND=`cat $TEMP_DIR/dmidecode |grep -A9 "Base Board Information" |grep "Manufacturer:" |cut -d ' ' -f2-`
+    PRODUCT=`cat $TEMP_DIR/dmidecode |grep -A9 "Base Board Information" |grep "Product Name:" |cut -d ' ' -f3-`
 fi
 
 KERNEL=`uname -r |cut -d '.' -f-3`
-CPU=`cat $TEMP_DIR/cpuinfo |grep "model name" |sort -u |cut -d ' ' -f3-`
-CHIPSET=`cat $TEMP_DIR/lspci |grep "00:00.0.*Host bridge"`
-VGA=`cat $TEMP_DIR/lspci |grep "VGA\|Display" | sed -e "s/^/\t\t/"`
-NET=`cat $TEMP_DIR/lspci |lspci |grep "Network\|Ethernet" |sed -e "s/^/\t\t/"`
-SCSI=`cat $TEMP_DIR/scsi |grep Model |cut -d ':' -f3- | sed -e "s/^[[:space:]]*/\t\t/"`
+CPU=`cat $TEMP_DIR/cpuinfo |grep "model name" |sort -u |cut -d ' ' -f3- |sed -e "s/[[:space:]]*/\  /"`
+CHIPSET=`cat $TEMP_DIR/lspci |grep "00:00.0.*Host bridge" |cut -d ':' -f3- |sed -e "s/[[:space:]]*/\  /"`
+VGA=`cat $TEMP_DIR/lspci |grep "VGA\|Display" |cut -d ':' -f3- |sed -e "s/^[[:space:]]*/\  /"`
+NET=`cat $TEMP_DIR/lspci |lspci |grep "Network\|Ethernet" |cut -d ':' -f3- |sed -e "s/^[[:space:]]*/\  /"`
+SCSI=`cat $TEMP_DIR/scsi |grep Model |cut -d ':' -f3-|sed -e "s/^[[:space:]]*/\  /"`
 RAM=`cat $TEMP_DIR/xl-info |grep total_memory |cut -d ':' -f2 |tr -d ' '`
 BIOS=`cat $TEMP_DIR/dmidecode |grep -A9 "BIOS Information" |grep "Version" |cut -d ' ' -f2-`
 XEN_MAJOR=`cat $TEMP_DIR/xl-info |grep xen_major |cut -d: -f2 |tr -d ' '`
 XEN_MINOR=`cat $TEMP_DIR/xl-info |grep xen_minor |cut -d: -f2 |tr -d ' '`
 XEN_EXTRA=`cat $TEMP_DIR/xl-info |grep xen_extra |cut -d: -f2 |tr -d ' '`
-
+QUBES=`cat $TEMP_DIR/qubes-release |cut -d '(' -f2 |cut -d ')' -f1`
 XL_VTX=`cat $TEMP_DIR/xl-info |grep xen_caps | grep hvm`
 XL_VTD=`cat $TEMP_DIR/xl-info |grep virt_caps |grep hvm_directio`
+PCRS=`find /sys/devices/ -name pcrs`
 
-
-FILENAME="Qubes-HCL-$BRAND-$PRODUCT-$DATE"
+FILENAME="Qubes-HCL-${BRAND// /_}-${PRODUCT// /_}-$DATE"
 
 if [[ $XL_VTX ]]
  then 
     VTX="Active"
-    HVM="good"
+    HVM="yes"
 
  else
-    VTX="Not Active"
-    HVM="bad"
+    VTX="Not active"
+    HVM="no"
 
 fi
 
 if [[ $XL_VTD ]]
  then
     VTD="Active"
-    IOMMU="good"
+    IOMMU="yes"
 
  else
-    VTD="Not Active"
-    IOMMU="bad"
+    VTD="Not active"
+    IOMMU="no"
 
 fi
 
-cat /etc/qubes-release |tee $HOME/$FILENAME.txt
+if [[ $PCRS ]]
+  then
+    # try tu run tcsd and: grep the logs, try get version info.
+    TPM="Device present"
+  else
+    TPM="Device not found"
+    TPM_s="unknown"
+fi
+    
+
+cat /etc/qubes-release
 echo
-echo -e "Model Name:\t$BRAND $PRODUCT" |tee -a $HOME/$FILENAME.txt
-echo -e "Kernel:\t\t$KERNEL" |tee -a $HOME/$FILENAME.txt
-echo -e "Xen:\t\t$XEN_MAJOR.$XEN_MINOR$XEN_EXTRA\n" |tee -a $HOME/$FILENAME.txt
-echo -e "RAM:\t\t$RAM Mb\n" |tee -a  $HOME/$FILENAME.txt
-echo -e "CPU:\t\t$CPU" |tee -a  $HOME/$FILENAME.txt
-echo -e "Chipset:\t$CHIPSET" |tee -a $HOME/$FILENAME.txt
-echo -e "VGA:$VGA\n" |tee -a $HOME/$FILENAME.txt
-echo -e "Net:$NET\n" |tee -a $HOME/$FILENAME.txt
-echo -e "SCSI:$SCSI\n" |tee -a $HOME/$FILENAME.txt
-echo -e "BIOS:\t\t$BIOS" |tee -a $HOME/$FILENAME.txt
-echo -e "VT-x:\t\t$VTX" |tee -a $HOME/$FILENAME.txt
-echo -e "VT-d:\t\t$VTD" |tee -a $HOME/$FILENAME.txt
+echo -e "Brand:\t\t$BRAND"
+echo -e "Model:\t\t$PRODUCT"
+echo -e "BIOS:\t\t$BIOS\n"
+echo -e "Xen:\t\t$XEN_MAJOR.$XEN_MINOR$XEN_EXTRA"
+echo -e "Kernel:\t\t$KERNEL\n"
+echo -e "RAM:\t\t$RAM Mb\n"
+echo -e "CPU:\n$CPU"
+echo -e "Chipset:\n$CHIPSET"
+echo -e "VGA:\n${VGA}\n"
+echo -e "Net:\n$NET\n"
+echo -e "SCSI:\n$SCSI\n"
+echo -e "HVM:\t\t$VTX"
+echo -e "I/O MMU:\t$VTD"
+echo -e "TPM:\t\t$TPM"
 echo
 
 echo -e "
->-->-->-->-->--> HCL Wiki format begins >-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->-->
+---
+layout:	'hcl'
+brand:  '$BRAND'
+model:  '$PRODUCT'
+type:  '$TYPE'
+bios:  '$BIOS'
+ram:  '$RAM'
+hvm:  '$HVM'
+iommu:  '$IOMMU'
+tpm:  '$TPM_s'
+cpu-short:  'FIXME'
+cpu:  |
+$CPU
+chipset-sort:  'FIXME'
+chipset:  |
+$CHIPSET
+gpu-short:  'FIXME'
+gpu:  |
+$VGA
+network:  |
+$NET
+scsi:  |
+$SCSI
 
-<!--
-Insert devices in alphabetical order.
-Change hcl-FIXME to appropriate class (see legend):
-hcl-good, hcl-bad, hcl-partial, hcl-unknown
+versions:
 
-Go to https://groups.google.com/forum/#!forum/qubes-users and search
-the message containing the HCL report.
-Then click on "more message options" besides reply button and then on
-link and insert it into FIXLINK.
--->
+- qubes:  '$QUBES'
+  xen:  '$XEN_MAJOR.$XEN_MINOR$XEN_EXTRA'
+  kernel:  '$KERNEL'
+  works:  'FIXME'
 
-<tr align='center'>
- <td rowspan='1'>
-    $BRAND $PRODUCT<br>
-   (CPU, Chipset, embedded VGA)
- </td>
- <td rowspan='1'>${BIOS}</td>\t\t\t\t<!-- BIOS version\t\t# reported BIOS version -->
- <td rowspan='1' class='hcl-${HVM}'></td>\t\t\t<!-- HVM\t\t\t# HVM can be created? -->
- <td rowspan='1' class='hcl-${IOMMU}'></td>\t\t\t<!-- IOMMU\t\t\t# PCI-Devices can be assigned to a HVM? -->
- <td rowspan='1' class='hcl-unknown'></td>\t\t<!-- TPM\t\t\t# Anti Evil Made works? -->
- <td rowspan='1'></td>\t\t\t\t\t<!-- spacing (QSL)\t\t# best achievable QSL - (Qubes Security Level) -->
-
- <td rowspan='1' class='hcl-FIXME'>R2</td>\t\t<!-- Qubes version\t\t# first reported Qubes version -->
- <td rowspan='1' class='hcl-FIXME'>${KERNEL}</td>\t<!-- dom0 kernel\t\t# Boots with this kernel version (refer to exact kernel version). -->
- <td rowspan='1' class='hcl-FIXME'>\n     \n </td>\t\t\t\t\t\t\t<!-- Remarks -->
- <td rowspan='1' class='hcl-reportedby'>
-    <a class='ext-link' href='FIXLINK'><span class='icon'></span>insert name</a>
- </td>\t\t\t\t\t\t\t<!-- Reported by -->
-</tr>
-
-
-<!--
-If you add a report to an existing device increment the rowspan of
-first entry for Device, BIOS, HVM, IOMMU, TPM, spacing(QSL)
-and append the following with the new report data filled in:
--->
-
-<tr align='center'>
- <td rowspan='1' class='hcl-FIXME'>R2</td>\t\t<!-- Qubes version\t\t# latest reported Qubes version -->
- <td rowspan='1' class='hcl-FIXME'>${KERNEL}</td>\t<!-- dom0 kernel\t\t# Boots with this kernel version (refer to exact kernel version). -->
- <td rowspan='1' class='hcl-FIXME'>\n     \n </td>\t\t\t\t\t\t\t<!-- Remarks -->
- <td rowspan='1' class='hcl-reportedby'>
-    <a class='ext-link' href='FIXLINK'><span class='icon'></span>insert name</a>
- </td>\t\t\t\t\t\t\t<!-- Reported by -->
-</tr>
-" >> $HOME/$FILENAME.txt
+  remark:  |
+    FIXME
+  credit:  |
+    FIXME
+---
+# vim: ts=2 sw=2 et nowrap
+" >> $HOME/$FILENAME.yml
 
 
 if [[ "$SUPPORT_FILES" == 1 ]]
@@ -213,15 +216,15 @@ if [[ "$COPY2VM" != "dom0" ]]
         cat $HOME/$FILENAME.cpio.gz | qvm-run -a -q --pass-io $COPY2VM "cat >/home/user/$FILENAME.cpio.gz"
     fi
 
-    if [[ -f "$HOME/$FILENAME.txt" ]]
+    if [[ -f "$HOME/$FILENAME.yml" ]]
       then
-        cat $HOME/$FILENAME.txt | qvm-run -a -q --pass-io $COPY2VM "cat >/home/user/$FILENAME.txt"
+        cat $HOME/$FILENAME.yml | qvm-run -a -q --pass-io $COPY2VM "cat >/home/user/$FILENAME.yml"
     fi
 
 fi
 
 echo -e "Qubes HCL Files are copied to: '$COPY2VM'"
-echo -e "\t$FILENAME.txt\t\t- HCL Info"
+echo -e "\t$FILENAME.yml\t\t- HCL Info"
 
 if [[ "$SUPPORT_FILES" == 1 ]]
   then
