@@ -1904,6 +1904,8 @@ def backup_restore_print_summary(restore_info, print_callback=print_stdout):
         fields[f]["max_width"] = len(f)
         for vm_info in restore_info.values():
             if 'vm' in vm_info.keys():
+                # noinspection PyUnusedLocal
+                vm = vm_info['vm']
                 l = len(unicode(eval(fields[f]["func"])))
                 if l > fields[f]["max_width"]:
                     fields[f]["max_width"] = l
@@ -1934,6 +1936,8 @@ def backup_restore_print_summary(restore_info, print_callback=print_stdout):
         # Skip non-VM here
         if 'vm' not in vm_info:
             continue
+        # noinspection PyUnusedLocal
+        vm = vm_info['vm']
         s = ""
         for f in fields_to_display:
             fmt = "{{0:>{0}}} |".format(fields[f]["max_width"] + 1)
