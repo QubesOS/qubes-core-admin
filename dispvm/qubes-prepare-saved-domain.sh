@@ -44,7 +44,7 @@ xenstore-watch-qubes /local/domain/$ID/device/qubes-used-mem
 xenstore-read /local/domain/$ID/qubes-gateway | \
 	cut -d . -f 3 | tr -d "\n" > $VMDIR/netvm-id.txt
 xl block-detach $1 xvdb
-MEM=$(xenstore-read /local/domain/$ID/device/qubes-used-mem | grep -q '^[0-9]\+$' | head -n 1)
+MEM=$(xenstore-read /local/domain/$ID/device/qubes-used-mem | grep '^[0-9]\+$' | head -n 1)
 echo "DVM boot complete, memory used=$MEM. Saving image..." >&2
 QMEMMAN_STOP=/var/run/qubes/do-not-membalance
 touch $QMEMMAN_STOP
