@@ -28,7 +28,7 @@ sfdisk --no-reread -u M "$FILENAME" > /dev/null 2> /dev/null <<EOF
 EOF
 
 loopdev=`losetup -f --show --partscan "$FILENAME"`
-mkswap -f ${loopdev}p1 > /dev/null
 udevadm settle
+mkswap -f ${loopdev}p1 > /dev/null
 losetup -d ${loopdev} || :
 chown --reference `dirname "$FILENAME"` "$FILENAME"
