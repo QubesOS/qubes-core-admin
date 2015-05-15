@@ -55,6 +55,7 @@ sleep 1
 touch $2
 if ! virsh -c xen:/// save $1 $2; then
 	rm -f $QMEMMAN_STOP
+	qvm-kill $1
 	exit 1
 fi
 rm -f $QMEMMAN_STOP
