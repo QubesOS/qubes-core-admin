@@ -109,6 +109,28 @@ def do_list(vm):
 
     print fmt.format ("internal", vm.internal)
 
+
+def do_get(vms, vm, prop):
+
+    if prop == 'config':
+        prop = 'conf_file'
+    elif prop == 'dir':
+        prop = 'dir_path'
+    elif prop == 'last_backup':
+        prop = 'backup_timestamp'
+    if not hasattr(vm, prop):
+        print >>sys.stderr, "VM '{}' has no attribute '{}'".format(vm.name,
+                                                                   prop)
+        return
+    if getattr(vm, prop, None) is None:
+        # not set or set to None
+        return
+    if prop in ['template', 'netvm', 'dispvm_netvm']:
+        print getattr(vm, prop).name
+    else:
+        print str(getattr(vm, prop))
+
+
 def set_label(vms, vm, args):
     if len (args) != 1:
         print >> sys.stderr, "Missing label name argument!"
@@ -495,14 +517,20 @@ def do_set(vms, vm, property, args):
 
 def main():
     usage = "usage: %prog -l [options] <vm-name>\n"\
+            "usage: %prog -g [options] <vm-name> <property>\n"\
             "usage: %prog -s [options] <vm-name> <property> [...]\n"\
             "List/set various per-VM properties."
 
     parser = OptionParser (usage)
-    parser.add_option ("-l", "--list", action="store_true", dest="do_list", default=False)
-    parser.add_option ("-s", "--set", action="store_true", dest="do_set", default=False)
-    parser.add_option ("--force-root", action="store_true", dest="force_root", default=False,
-                       help="Force to run, even with root privileges")
+    parser.add_option("-l", "--list", action="store_true", dest="do_list",
+                      default=False)
+    parser.add_option("-s", "--set", action="store_true", dest="do_set",
+                      default=False)
+    parser.add_option ("-g", "--gry", action="store_true", dest="do_get",
+                       default=False)
+    parser.add_option("--force-root", action="store_true", dest="force_root",
+                      default=False,
+                      help="Force to run, even with root privileges")
 
     (options, args) = parser.parse_args ()
     if (len (args) < 1):
@@ -517,11 +545,10 @@ def main():
             print >> sys.stderr, "... or use --force-root to continue anyway."
             exit(1)
 
-    if options.do_list and options.do_set:
-        print >> sys.stderr, "You cannot provide -l and -s at the same time!"
-        exit (1)
-
-
+    if options.do_list + options.do_set + options.do_get > 1:
+        print >> sys.stderr, "You can provide at most one of -l, -g and -s at " \
+                             "the same time!"
+        exit(1)
 
     if options.do_set:
         qvm_collection = QubesVmCollection()
@@ -555,8 +582,9 @@ def main():
             qvm_collection.unlock_db()
             exit(1)
 
-
-    else: 
+    elif options.do_get or len(args) == 2:
+        do_get(qvm_collection, vm, args[1])
+    else:
         # do_list
         do_list(vm)
 

@@ -11,6 +11,7 @@ qvm-prefs - list/set various per-VM properties
 SYNOPSIS
 ========
 | qvm-prefs -l [options] <vm-name>
+| qvm-prefs -g [options] <vm-name> <property>
 | qvm-prefs -s [options] <vm-name> <property> [...]
 
 
@@ -20,6 +21,8 @@ OPTIONS
     Show this help message and exit
 -l, --list
     List properties of a specified VM
+-g, --get
+    Get a single property of a specified VM
 -s, --set
     Set properties of a specified VM
 
