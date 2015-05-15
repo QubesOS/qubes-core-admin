@@ -58,6 +58,15 @@ if ! virsh -c xen:/// save $1 $2; then
 	exit 1
 fi
 rm -f $QMEMMAN_STOP
+# Do not allow smaller allocation than 400MB. If that small number comes from
+# an error, it would prevent further savefile regeneration (because VM would
+# not start with too little memory). Also 'maxmem' depends on 'memory', so
+# 400MB is sane compromise.
+if [ "$MEM" -lt 409600 ]; then
+    qvm-prefs -s $1 memory 400
+else
+    qvm-prefs -s $1 memory $[ $MEM / 1024 ]
+fi
 ln -snf $VMDIR /var/lib/qubes/dvmdata/vmdir
 cd $VMDIR
 bsdtar -cSf saved-cows.tar volatile.img
