@@ -47,14 +47,11 @@ def main():
         print >> sys.stderr, "A VM with the name '{0}' does not exist in the system.".format(vmname)
         exit(1)
 
-    if os.geteuid() == 0:
+    if os.geteuid() == 0 and not options.force_root:
         print >> sys.stderr, "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
-        if options.force_root:
-            print >> sys.stderr, "Continuing as commanded. You have been warned."
-        else:
-            print >> sys.stderr, "Retry as unprivileged user."
-            print >> sys.stderr, "... or use --force-root to continue anyway."
-            exit(1)
+        print >> sys.stderr, "Retry as unprivileged user."
+        print >> sys.stderr, "... or use --force-root to continue anyway."
+        exit(1)
 
     if vm.is_template():
         dependent_vms = qvm_collection.get_vms_based_on(vm.qid)
