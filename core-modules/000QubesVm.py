@@ -128,6 +128,7 @@ class QubesVm(object):
                 "func": lambda value: [] if value in ["none", None]  else
                     eval(value) if value.find("[") >= 0 else
                     eval("[" + value + "]") },
+            "pci_strictreset": {"default": True},
             # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
             "internal": { "default": False, 'attr': '_internal' },
             "vcpus": { "default": None },
@@ -188,7 +189,7 @@ class QubesVm(object):
         ### Mark attrs for XML inclusion
         # Simple string attrs
         for prop in ['qid', 'uuid', 'name', 'dir_path', 'memory', 'maxmem',
-            'pcidevs', 'vcpus', 'internal',\
+            'pcidevs', 'pci_strictreset', 'vcpus', 'internal',\
             'uses_default_kernel', 'kernel', 'uses_default_kernelopts',\
             'kernelopts', 'services', 'installed_by_rpm',\
             'uses_default_netvm', 'include_in_backups', 'debug',\
@@ -1056,7 +1057,7 @@ class QubesVm(object):
         return template.format(ip=ip, mac=mac, backend=backend)
 
     def _format_pci_dev(self, address):
-        template = "    <hostdev type='pci' managed='yes'>\n" \
+        template = "    <hostdev type='pci' managed='yes'{strictreset}>\n" \
                    "      <source>\n" \
                    "        <address bus='0x{bus}' slot='0x{slot}' function='0x{fun}'/>\n" \
                    "      </source>\n" \
@@ -1067,7 +1068,10 @@ class QubesVm(object):
         return template.format(
                 bus=dev_match.group(1),
                 slot=dev_match.group(2),
-                fun=dev_match.group(3))
+                fun=dev_match.group(3),
+                strictreset=("" if self.pci_strictreset else
+                             " nostrictreset='yes'"),
+        )
 
     def get_config_params(self):
         args = {}

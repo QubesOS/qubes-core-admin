@@ -55,6 +55,7 @@ def do_list(vm):
     print fmt.format ("dir", vm.dir_path)
     print fmt.format ("config", vm.conf_file)
     print fmt.format ("pcidevs", vm.pcidevs)
+    print fmt.format ("pci_strictreset", vm.pci_strictreset)
     if vm.template is None:
         print fmt.format ("root_img", vm.root_img)
     if hasattr(vm, "rootcow_img") and vm.rootcow_img is not None:
@@ -215,6 +216,14 @@ def set_pcidevs(vms, vm, args):
             "use qvm-pci instead"
         return False
     vm.pcidevs = list(eval(args[0]))
+    return True
+
+def set_pci_strictreset(vms, vm, args):
+    if len (args) != 1:
+        print >> sys.stderr, "Missing value (True/False)!"
+        return False
+
+    vm.pci_strictreset = bool(eval(args[0].capitalize()))
     return True
 
 def set_netvm(vms, vm, args):
@@ -475,6 +484,7 @@ def set_timezone(vms, vm, args):
 properties = {
     "include_in_backups": set_include_in_backups,
     "pcidevs": set_pcidevs,
+    "pci_strictreset": set_pci_strictreset,
     "label" : set_label,
     "netvm" : set_netvm,
     "dispvm_netvm" : set_dispvm_netvm,

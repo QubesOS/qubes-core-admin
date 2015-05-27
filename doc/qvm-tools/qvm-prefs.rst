@@ -37,6 +37,16 @@ include_in_backups
 pcidevs
     PCI devices assigned to the VM. Should be edited using qvm-pci tool.
 
+pci_strictreset
+    Accepted values: ``True``, ``False``
+
+    Control whether prevent assigning to VM a device which does not support any
+    reset method. Generally such devices should not be assigned to any VM,
+    because there will be no way to reset device state after VM shutdown, so
+    the device could attack next VM to which it will be assigned. But in some
+    cases it could make sense - for example when the VM to which it is assigned
+    is trusted one, or is running all the time.
+
 label
     Accepted values: ``red``, ``orange``, ``yellow``, ``green``, ``gray``, ``blue``, ``purple``, ``black``
 
