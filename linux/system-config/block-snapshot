@@ -48,6 +48,7 @@ get_dev() {
   else
     test -e "$dev" || fatal "$dev does not exist."
     test -b "$dev" || fatal "$dev is not a block device nor file."
+    echo "$dev"
   fi
 }
 
