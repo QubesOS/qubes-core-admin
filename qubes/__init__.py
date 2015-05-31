@@ -337,7 +337,7 @@ class Label(object):
 
 
     def __repr__(self):
-        return '{}({!r}, {!r}, {!r}, dispvm={!r})'.format(
+        return '{}({!r}, {!r}, {!r})'.format(
             self.__class__.__name__,
             self.index,
             self.color,
