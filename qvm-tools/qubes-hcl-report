@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-VERSION=2.3
+VERSION=2.4
 COPY2VM="dom0"
 SUPPORT_FILES=0
 
@@ -156,43 +156,61 @@ echo -e "TPM:\t\t$TPM"
 echo
 
 echo -e "
+
 ---
-layout:	'hcl'
-brand:  '$BRAND'
-model:  '$PRODUCT'
-type:  '$TYPE'
-bios:  '$BIOS'
-ram:  '$RAM'
-hvm:  '$HVM'
-iommu:  '$IOMMU'
-tpm:  '$TPM_s'
-cpu-short:  'FIXME'
-cpu:  |
+layout:
+  'hcl'
+type:
+  '$TYPE'
+hvm:
+  '$HVM'
+iommu:
+  '$IOMMU'
+tpm:
+  '$TPM_s'
+brand: |
+  $BRAND
+model: |
+  $PRODUCT
+bios: |
+  $BIOS
+cpu: |
 $CPU
-chipset-sort:  'FIXME'
-chipset:  |
+cpu-short: |
+  FIXME
+chipset: |
 $CHIPSET
-gpu-short:  'FIXME'
-gpu:  |
+chipset-short: |
+  FIXME
+gpu: |
 $VGA
-network:  |
+gpu-short: |
+  FIXME
+network: |
 $NET
-scsi:  |
+memory: |
+  $RAM
+scsi: |
 $SCSI
 
 versions:
 
-- qubes:  '$QUBES'
-  xen:  '$XEN_MAJOR.$XEN_MINOR$XEN_EXTRA'
-  kernel:  '$KERNEL'
-  works:  'FIXME'
+- works:
+    'FIXME:yes|no|partial'
+  qubes: |
+    $QUBES
+  xen: |
+    $XEN_MAJOR.$XEN_MINOR$XEN_EXTRA
+  kernel: |
+    $KERNEL
+  remark: |
+    FIXME
+  credit: |
+    FIXAUTHOR
+  link: |
+    FIXLINK
 
-  remark:  |
-    FIXME
-  credit:  |
-    FIXME
 ---
-# vim: ts=2 sw=2 et nowrap
 " >> $HOME/$FILENAME.yml
 
 
