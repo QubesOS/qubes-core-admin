@@ -79,7 +79,7 @@ xl dmesg > $TEMP_DIR/xl-dmesg
 
 BRAND=`cat $TEMP_DIR/dmidecode |grep -A9 "System Information" |grep "Manufacturer:" |cut -d ' ' -f2-`
 PRODUCT=`cat $TEMP_DIR/dmidecode |grep -A9 "System Information" |grep "Product Name:" |cut -d ' ' -f3-`
-TYPE=`cat $TEMP_DIR/dmidecode |grep -A9 "Chassis Information" |grep Type |cut -d ' ' -f2-`
+TYPE=`cat $TEMP_DIR/dmidecode |grep -A9 "Chassis Information" |grep Type |cut -d ' ' -f2- |tr '[:upper:]' '[:lower:]'`
 
 if [[ $BRAND =~ "O.E.M" ]]
  then
@@ -155,9 +155,7 @@ echo -e "I/O MMU:\t$VTD"
 echo -e "TPM:\t\t$TPM"
 echo
 
-echo -e "
-
----
+echo -e "---
 layout:
   'hcl'
 type:
