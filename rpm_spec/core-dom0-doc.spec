@@ -33,7 +33,8 @@ Group:		Qubes
 Vendor:		Invisible Things Lab
 License:	GPL
 URL:		http://www.qubes-os.org
-BuildRequires: pandoc
+BuildRequires: python-sphinx
+BuildRequires: python-lxml
 BuildArch: noarch
 Obsoletes:	qubes-doc-dom0 <= 2.0
 Provides:	qubes-doc-dom0
