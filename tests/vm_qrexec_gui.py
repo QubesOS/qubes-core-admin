@@ -630,7 +630,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
 
         # Then paste it to the other window
         window_title = 'user@{}'.format(self.testvm2.name)
-        self.testvm1.run('zenity --entry --title={} > test.txt'.format(
+        self.testvm2.run('zenity --entry --title={} > test.txt'.format(
             window_title))
         wait_count = 0
         while subprocess.call(['xdotool', 'search', '--name', window_title],
