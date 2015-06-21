@@ -34,6 +34,9 @@ from qubes.qubes import QubesVmCollection, defaults
 
 import qubes.tests
 
+class NcVersion:
+    Trad = 1
+    Nmap = 2
 
 class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
     test_ip = '192.168.123.45'
@@ -175,6 +178,11 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.qc.save()
         self.qc.unlock_db()
 
+        if self.run_cmd(self.testnetvm, 'nc -h 2>&1|grep -q nmap.org') == 0:
+            nc_version = NcVersion.Nmap
+        else:
+            nc_version = NcVersion.Trad
+
         # block all for first
 
         self.testvm1.write_firewall_conf({
@@ -185,7 +193,11 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.testvm1.start()
         self.assertTrue(self.proxy.is_running())
 
-        self.testnetvm.run("nc -l --send-only -e /bin/hostname -k 1234")
+        if nc_version == NcVersion.Nmap:
+            self.testnetvm.run("nc -l --send-only -e /bin/hostname -k 1234")
+        else:
+            self.testnetvm.run("while nc -l -e /bin/hostname -p 1234; do "
+                               "true; done")
 
         self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0,
                          "Ping by IP from ProxyVM failed")
@@ -193,7 +205,10 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
                          "Ping by name from ProxyVM failed")
         self.assertNotEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
                          "Ping by IP should be blocked")
-        nc_cmd = "nc -w 1 --recv-only {} 1234".format(self.test_ip)
+        if nc_version == NcVersion.Nmap:
+            nc_cmd = "nc -w 1 --recv-only {} 1234".format(self.test_ip)
+        else:
+            nc_cmd = "nc -w 1 {} 1234".format(self.test_ip)
         self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
                          "TCP connection should be blocked")
 
