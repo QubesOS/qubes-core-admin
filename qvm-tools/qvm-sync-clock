@@ -79,15 +79,19 @@ def main():
 
     # Ignore retcode, try even if nm-online failed - user can setup network manually
     #  on-online has timeout 30sec by default
-    net_vm.run('nm-online -x', verbose=verbose, wait=True, ignore_stderr=True)
+    net_vm.run('nm-online -x', verbose=verbose, gui=False, wait=True,
+               ignore_stderr=True)
 
     # Sync clock
-    if clock_vm.run('QUBESRPC qubes.SyncNtpClock dom0', user="root", verbose=verbose, wait=True, ignore_stderr=True) != 0:
+    if clock_vm.run('QUBESRPC qubes.SyncNtpClock dom0', user="root",
+                    verbose=verbose, gui=False, wait=True, ignore_stderr=True) \
+            != 0:
         print >> sys.stderr, 'Time sync failed, aborting!'
         sys.exit(1)
 
     # Use the date format based on RFC2822 to avoid localisation issues
-    p = clock_vm.run('date -u -Iseconds', verbose=verbose, passio_popen=True, ignore_stderr=True)
+    p = clock_vm.run('date -u -Iseconds', verbose=verbose,
+                     gui=False, passio_popen=True, ignore_stderr=True)
     date_out = p.stdout.read(100)
     date_out = date_out.strip()
     if not re.match(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+0000$', date_out):
@@ -107,7 +111,8 @@ def main():
             if verbose:
                 print >> sys.stderr, '--> Syncing \'%s\' clock.' % vm.name
             try:
-                vm.run('date -u -R -s "%s"' % date_out, user="root", verbose=verbose)
+                vm.run('date -u -R -s "%s"' % date_out, user="root",
+                       gui=False, verbose=verbose)
             except Exception as e:
                 print >> sys.stderr, "ERROR syncing time in VM '%s': %s" % (vm.name, str(e))
                 pass
