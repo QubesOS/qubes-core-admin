@@ -27,18 +27,16 @@ def main():
         if not isinstance(source_vm, QubesHVm):
             raise QubesException('Service qubes.ToolsNotify is designed only for HVM domains')
 
-        xs_path = "/local/domain/{0}/qubes-tools".format(source_vm.get_xid())
-
         # for now used only to check for the tools presence
-        untrusted_version = xs.read('', '{0}/version'.format(xs_path))
+        untrusted_version = source_vm.qdb.read('/qubes-tools/version')
         # reserved for future use
-        untrusted_os = xs.read('', '{0}/os'.format(xs_path))
+        untrusted_os = source_vm.qdb.read('/qubes-tools/os')
         # qrexec agent presence (0 or 1)
-        untrusted_qrexec = xs.read('', '{0}/qrexec'.format(xs_path))
+        untrusted_qrexec = source_vm.qdb.read('/qubes-tools/qrexec')
         # gui agent presence (0 or 1)
-        untrusted_gui = xs.read('', '{0}/gui'.format(xs_path))
+        untrusted_gui = source_vm.qdb.read('/qubes-tools/gui')
         # default user for qvm-run etc
-        untrusted_user = xs.read('', '{0}/default-user'.format(xs_path))
+        untrusted_user = source_vm.qdb.read('/qubes-tools/default-user')
 
         if untrusted_version is None:
             # tools didn't advertised its features; it's strange that this
