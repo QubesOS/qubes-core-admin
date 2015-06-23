@@ -29,6 +29,8 @@ import re
 import subprocess
 
 import docutils
+import docutils.core
+import docutils.io
 
 
 def get_timezone():
