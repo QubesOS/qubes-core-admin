@@ -333,7 +333,7 @@ class Label(object):
 
     def __xml__(self):
         element = lxml.etree.Element(
-            'label', id='label-' + self.index, color=self.color)
+            'label', id='label-{}'.format(self.index), color=self.color)
         element.text = self.name
         return element
 
@@ -1285,7 +1285,7 @@ class Qubes(PropertyHolder):
         '''
 
         labels = lxml.etree.Element('labels')
-        for label in self.labels:
+        for label in sorted(self.labels.values(), key=lambda labl: labl.index):
             labels.append(label.__xml__())
         return labels
 
