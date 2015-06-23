@@ -216,6 +216,7 @@ fi
 
 %dir %{python_sitearch}/qubes/tools
 %{python_sitearch}/qubes/tools/__init__.py*
+%{python_sitearch}/qubes/tools/qubes_create.py*
 %{python_sitearch}/qubes/tools/qvm_ls.py*
 
 %dir %{python_sitearch}/qubes/ext

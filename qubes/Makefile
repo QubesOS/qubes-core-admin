@@ -53,6 +53,7 @@ endif
 
 	cp \
 		tools/__init__.py* \
+		tools/qubes_create.py* \
 		tools/qvm_ls.py* \
 		$(DESTDIR)$(PYTHON_QUBESPATH)/tools
 
