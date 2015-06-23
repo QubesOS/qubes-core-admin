@@ -354,7 +354,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             os.unlink('/tmp/qubestest.xml')
         except:
             pass
-        app = qubes.Qubes('/tmp/qubestest.xml')
+        app = qubes.Qubes.create_empty_store('/tmp/qubestest.xml')
 
     @qubes.tests.skipUnlessGit
     def test_900_example_xml_in_doc(self):

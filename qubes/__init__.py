@@ -55,6 +55,8 @@ import docutils.core
 import docutils.io
 import lxml.etree
 
+
+import qubes.config
 import qubes.ext
 
 
@@ -1110,7 +1112,7 @@ class Qubes(PropertyHolder):
         doc='Which kernel to use when not overriden in VM')
 
 
-    def __init__(self, store='/var/lib/qubes/qubes.xml'):
+    def __init__(self, store=None, load=True):
         super(Qubes, self).__init__(xml=None)
 
         #: logger instance for logging global messages
@@ -1132,61 +1134,36 @@ class Qubes(PropertyHolder):
         #: Information about host system
         self.host = QubesHost(self)
 
-        self._store = store
-        self._storefd = None
-        self.load()
+        self._store = store if store is not None else os.path.join(
+            qubes.config.system_path['qubes_base_dir'],
+            qubes.config.system_path['qubes_store_filename'])
+
+        if load:
+            self.load()
 
 
-    def _open_store(self):
+    def load(self):
         '''Open qubes.xml
 
-        This method takes care of creation of the store when it does not exist.
-
-        :raises OSError: on failure
+        :throws EnvironmentError: failure on parsing store
+        :throws xml.parsers.expat.ExpatError: failure on parsing store
         :raises lxml.etree.XMLSyntaxError: on syntax error in qubes.xml
         '''
-        if self._storefd is not None:
-            return
 
-        try:
-            fd = os.open(self._store,
-                os.O_RDWR | os.O_CREAT | os.O_EXCL | 0o660)
-            parsexml = False
-        except OSError as e:
-            if e.errno != errno.EEXIST:
-                raise
-
-            # file does exist
-            fd = os.open(self._store, os.O_RDWR)
-            parsexml = True
-
-        self._storefd = os.fdopen(fd, 'r+b')
+        fd = os.open(self._store, os.O_RDWR) # no O_CREAT
+        fh = os.fdopen(fd, 'rb')
 
         if os.name == 'posix':
-            fcntl.lockf(self._storefd, fcntl.LOCK_EX)
+            fcntl.lockf(fh, fcntl.LOCK_EX)
         elif os.name == 'nt':
             # pylint: disable=protected-access
             win32file.LockFileEx(
-                win32file._get_osfhandle(self._storefd.fileno()),
+                win32file._get_osfhandle(fh.fileno()),
                 win32con.LOCKFILE_EXCLUSIVE_LOCK,
                 0, -0x10000,
                 pywintypes.OVERLAPPED())
 
-        if parsexml:
-            self.xml = lxml.etree.parse(self._storefd)
-        # else: it will remain None, as set by PropertyHolder
-
-
-    def load(self):
-        '''
-        :throws EnvironmentError: failure on parsing store
-        :throws xml.parsers.expat.ExpatError: failure on parsing store
-        '''
-        self._open_store()
-
-        if self.xml is None:
-            self._init()
-            return
+        self.xml = lxml.etree.parse(fh)
 
         # stage 1: load labels
         for node in self.xml.xpath('./labels/label'):
@@ -1235,31 +1212,9 @@ class Qubes(PropertyHolder):
             vm.events_enabled = True
             vm.fire_event('domain-loaded')
 
-
-    def _init(self):
-        self._open_store()
-
-        self.labels = {
-            1: Label(1, '0xcc0000', 'red'),
-            2: Label(2, '0xf57900', 'orange'),
-            3: Label(3, '0xedd400', 'yellow'),
-            4: Label(4, '0x73d216', 'green'),
-            5: Label(5, '0x555753', 'gray'),
-            6: Label(6, '0x3465a4', 'blue'),
-            7: Label(7, '0x75507b', 'purple'),
-            8: Label(8, '0x000000', 'black'),
-        }
-
-        self.domains.add(qubes.vm.adminvm.AdminVM(
-            self, None, qid=0, name='dom0'))
-
-
-    def __del__(self):
-        # intentionally do not call explicit unlock to not unlock the file
-        # before all buffers are flushed
-        if self._storefd is not None:
-            self._storefd.close()
-            self._storefd = None
+        # intentionally do not call explicit unlock
+        fh.close()
+        del fh
 
 
     def __xml__(self):
@@ -1278,14 +1233,49 @@ class Qubes(PropertyHolder):
 
     def save(self):
         '''Save all data to qubes.xml
+
+        :throws EnvironmentError: failure on saving
         '''
-        self._storefd.seek(0)
-        self._storefd.truncate()
+
+        fh = tempfile.NamedTemporaryFile(prefix=self._store, delete=False)
+        if os.name == 'posix':
+            fcntl.lockf(fh, fcntl.LOCK_EX)
+        elif os.name == 'nt':
+            overlapped = pywintypes.OVERLAPPED()
+            win32file.LockFileEx(
+                win32file._get_osfhandle(fh.fileno()),
+                win32con.LOCKFILE_EXCLUSIVE_LOCK, 0, -0x10000, overlapped)
         lxml.etree.ElementTree(self.__xml__()).write(
-            self._storefd, encoding='utf-8', pretty_print=True)
-        self._storefd.sync()
-        os.chmod(self._store, 0o660)
-        os.chown(self._store, -1, grp.getgrnam('qubes').gr_gid)
+            fh, encoding='utf-8', pretty_print=True)
+        fh.flush()
+        os.chmod(fh.name, 0660)
+        os.chown(fh.name, -1, grp.getgrnam('qubes').gr_gid)
+        os.rename(fh.name, self._store)
+
+        # intentionally do not call explicit unlock to not unlock the file
+        # before all buffers are flushed
+        fh.close()
+        del fh
+
+
+    @classmethod
+    def create_empty_store(cls, *args, **kwargs):
+        self = cls(*args, load=False, **kwargs)
+        self.labels = {
+            1: Label(1, '0xcc0000', 'red'),
+            2: Label(2, '0xf57900', 'orange'),
+            3: Label(3, '0xedd400', 'yellow'),
+            4: Label(4, '0x73d216', 'green'),
+            5: Label(5, '0x555753', 'gray'),
+            6: Label(6, '0x3465a4', 'blue'),
+            7: Label(7, '0x75507b', 'purple'),
+            8: Label(8, '0x000000', 'black'),
+        }
+        self.domains.add(
+            qubes.vm.adminvm.AdminVM(self, None, qid=0, name='dom0'))
+        self.save()
+
+        return self
 
 
     def xml_labels(self):
