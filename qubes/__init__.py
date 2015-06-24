@@ -450,6 +450,7 @@ class VMCollection(object):
                 'name={!r} ({!r})'.format(value.name, self[value.name]))
 
         self._dict[value.qid] = value
+        value.events_enabled = True
         self.app.fire_event('domain-added', value)
 
 
@@ -799,6 +800,7 @@ class PropertyHolder(qubes.events.Emitter):
     '''
 
     def __init__(self, xml, **kwargs):
+        super(PropertyHolder, self).__init__()
         self.xml = xml
 
         for key, value in kwargs.items():
@@ -809,8 +811,6 @@ class PropertyHolder(qubes.events.Emitter):
             if not key in all_names:
                 continue
             setattr(self, key, kwargs.pop(key))
-
-        super(PropertyHolder, self).__init__(**kwargs)
 
 
     @classmethod
@@ -1140,6 +1140,8 @@ class Qubes(PropertyHolder):
 
         if load:
             self.load()
+
+        self.events_enabled = True
 
 
     def load(self):

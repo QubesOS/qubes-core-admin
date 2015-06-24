@@ -148,8 +148,6 @@ class BaseVM(qubes.PropertyHolder):
     def __init__(self, app, xml, services=None, devices=None, tags=None,
             **kwargs):
         # pylint: disable=redefined-outer-name
-
-        self.events_enabled = False
         super(BaseVM, self).__init__(xml, **kwargs)
 
         #: mother :py:class:`qubes.Qubes` object

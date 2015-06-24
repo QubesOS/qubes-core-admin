@@ -37,6 +37,7 @@ class TC_00_Emitter(qubes.tests.QubesTestCase):
 
         emitter = qubes.events.Emitter()
         emitter.add_handler('testevent', on_testevent)
+        emitter.events_enabled = True
         emitter.fire_event('testevent')
         self.assertTrue(testevent_fired[0])
 
@@ -53,5 +54,6 @@ class TC_00_Emitter(qubes.tests.QubesTestCase):
                     self.testevent_fired = True
 
         emitter = TestEmitter()
+        emitter.events_enabled = True
         emitter.fire_event('testevent')
         self.assertTrue(emitter.testevent_fired)
