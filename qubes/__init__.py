@@ -645,18 +645,20 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
             value = self._type(value)
 
         if has_oldvalue:
-            instance.fire_event_pre(
-                'property-pre-set:' + self.__name__, value, oldvalue)
+            instance.fire_event_pre('property-pre-set:' + self.__name__,
+                self.__name__, value, oldvalue)
         else:
-            instance.fire_event_pre('property-pre-set:' + self.__name__, value)
+            instance.fire_event_pre('property-pre-set:' + self.__name__,
+                self.__name__, value)
 
         instance._property_init(self, value) # pylint: disable=protected-access
 
         if has_oldvalue:
-            instance.fire_event(
-                'property-set:' + self.__name__, value, oldvalue)
+            instance.fire_event('property-set:' + self.__name__, self.__name__,
+                value, oldvalue)
         else:
-            instance.fire_event('property-set:' + self.__name__, value)
+            instance.fire_event('property-set:' + self.__name__, self.__name__,
+                value)
 
 
     def __delete__(self, instance):
@@ -668,17 +670,19 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
 
         if has_oldvalue:
             instance.fire_event_pre('property-pre-deleted:' + self.__name__,
-                oldvalue)
+                self.__name__, oldvalue)
         else:
-            instance.fire_event_pre('property-pre-deleted:' + self.__name__)
+            instance.fire_event_pre('property-pre-deleted:' + self.__name__,
+                self.__name__)
 
         delattr(instance, self._attr_name)
 
         if has_oldvalue:
             instance.fire_event('property-deleted:' + self.__name__,
-                oldvalue)
+                self.__name__, oldvalue)
         else:
-            instance.fire_event('property-deleted:' + self.__name__)
+            instance.fire_event('property-deleted:' + self.__name__,
+                self.__name__)
 
 
     def __repr__(self):
