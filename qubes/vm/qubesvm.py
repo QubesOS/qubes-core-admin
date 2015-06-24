@@ -57,6 +57,7 @@ except ImportError:
 
 def _setter_qid(self, prop, value):
     # pylint: disable=unused-argument
+    value = int(value)
     if not 0 <= value <= qubes.config.max_qid:
         raise ValueError(
             '{} value must be between 0 and qubes.config.max_qid'.format(
