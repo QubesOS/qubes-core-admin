@@ -976,7 +976,7 @@ class PropertyHolder(qubes.events.Emitter):
             if :py:obj:`False`, log warning instead
         '''
 
-        if isinstance(qubes.property, prop):
+        if isinstance(prop, qubes.property):
             prop = prop.__name__
 
         try:
