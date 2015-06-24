@@ -448,11 +448,17 @@ class QubesVM(qubes.vm.BaseVM):
     def __init__(self, app, xml, **kwargs):
         super(QubesVM, self).__init__(app, xml, **kwargs)
 
+        import qubes.vm.adminvm
+
         #Init private attrs
 
         self._libvirt_domain = None
         self._qdb_connection = None
 
+        if xml is not None:
+            return
+
+        # else: we are creating new VM and attributes came through kwargs
         assert self.qid < qubes.config.max_qid, "VM id out of bounds!"
         assert self.name is not None
 
@@ -471,13 +477,13 @@ class QubesVM(qubes.vm.BaseVM):
         if not hasattr(self, 'vcpus') and not self.app.vmm.offline_mode:
             self.vcpus = self.app.host.no_cpus
 
-        # Always set if meminfo-writer should be active or not
-        if 'meminfo-writer' not in self.services:
-            self.services['meminfo-writer'] = not len(self.devices['pci']) > 0
-
-        # Additionally force meminfo-writer disabled when VM have PCI devices
         if len(self.devices['pci']) > 0:
+            # Force meminfo-writer disabled when VM have PCI devices
             self.services['meminfo-writer'] = False
+        elif not isinstance(self, qubes.vm.adminvm.AdminVM) \
+                and 'meminfo-writer' not in self.services:
+            # Always set if meminfo-writer should be active or not
+            self.services['meminfo-writer'] = True
 
         # Initialize VM image storage class
         self.storage = qubes.storage.get_storage(self)
