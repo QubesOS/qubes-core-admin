@@ -37,6 +37,7 @@ import textwrap
 
 import qubes
 import qubes.config
+import qubes.tools
 import qubes.utils
 
 
@@ -567,7 +568,7 @@ def get_parser():
     wrapper = textwrap.TextWrapper(width=80, break_on_hyphens=False,
         initial_indent='  ', subsequent_indent='  ')
 
-    parser = argparse.ArgumentParser(
+    parser = qubes.tools.get_parser_base(
         formatter_class=argparse.RawTextHelpFormatter,
         description='List Qubes domains and their parametres.',
         epilog='available formats (see --help-formats):\n{}\n\n'
@@ -582,7 +583,7 @@ def get_parser():
     parser_formats = parser.add_mutually_exclusive_group()
 
     parser_formats.add_argument('--format', '-o', metavar='FORMAT',
-        action='store', choices=formats.keys(),
+        action='store', choices=formats.keys(), default='simple',
         help='preset format')
 
     parser_formats.add_argument('--fields', '-O', metavar='FIELD,...',
@@ -593,15 +594,6 @@ def get_parser():
 #   parser.add_argument('--conf', '-c',
 #       action='store', metavar='CFGFILE',
 #       help='Qubes config file')
-
-    parser.add_argument('--xml', metavar='XMLFILE',
-        action='store',
-        help='Qubes store file')
-
-    parser.set_defaults(
-        qubesxml=os.path.join(qubes.config.system_path['qubes_base_dir'],
-            qubes.config.system_path['qubes_store_filename']),
-        format='simple')
 
     return parser
 

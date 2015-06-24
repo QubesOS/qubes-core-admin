@@ -28,11 +28,9 @@
 
 import argparse
 import qubes
+import qubes.tools
 
-parser = argparse.ArgumentParser(description='Create new Qubes OS store.')
-parser.add_argument('--xml', metavar='XMLFILE',
-    action='store',
-    help='Qubes OS store file')
+parser = qubes.tools.get_parser_base(description='Create new Qubes OS store.')
 
 def main(args=None):
     '''Main routine of :program:`qubes-create`.

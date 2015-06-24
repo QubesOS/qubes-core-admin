@@ -25,7 +25,26 @@
 '''Qubes' command line tools
 '''
 
+import argparse
 import importlib
+
+
+# TODO --verbose, logger setup
+def get_parser_base(*args, **kwargs):
+    '''Get base parser with options common to all Qubes OS tools.
+
+    Currently supported options: ``--xml``.
+
+    *args* and *kwargs* are passed to :py:class:`argparser.ArgumentParser`.
+    '''
+    parser = argparse.ArgumentParser(*args, **kwargs)
+
+    parser.add_argument('--xml', metavar='XMLFILE',
+        action='store',
+        help='Qubes OS store file')
+
+    return parser
+
 
 def get_parser_for_command(command):
     '''Get parser for given qvm-tool.
