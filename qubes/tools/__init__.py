@@ -27,21 +27,28 @@
 
 import argparse
 import importlib
+import os
 
 
 # TODO --verbose, logger setup
-def get_parser_base(*args, **kwargs):
+def get_parser_base(want_force_root=False, **kwargs):
     '''Get base parser with options common to all Qubes OS tools.
 
-    Currently supported options: ``--xml``.
+    :param bool want_force_root: add ``--force-root`` option
+    *kwargs* are passed to :py:class:`argparser.ArgumentParser`.
 
-    *args* and *kwargs* are passed to :py:class:`argparser.ArgumentParser`.
+    Currently supported options: ``--force-root`` (optional), ``--xml``.
     '''
-    parser = argparse.ArgumentParser(*args, **kwargs)
+    parser = argparse.ArgumentParser(**kwargs)
 
     parser.add_argument('--xml', metavar='XMLFILE',
         action='store',
         help='Qubes OS store file')
+
+    if want_force_root:
+        parser.add_argument('--force-root',
+            action='store_true', default=False,
+            help='Force to run as root.')
 
     return parser
 
@@ -67,3 +74,21 @@ def get_parser_for_command(command):
             raise AttributeError('cannot find parser in module')
 
     return parser
+
+
+def dont_run_as_root(parser, args):
+    '''Prevent running as root.
+
+    :param argparse.ArgumentParser parser: parser on which we invoke error
+    :param argparse.Namespace args: if there is ``.force_root`` attribute set \
+        to true, run anyway
+    :return: If we should back off
+    :rtype bool:
+    '''
+    try:
+        euid = os.geteuid()
+    except AttributeError: # no geteuid(), probably NT
+        return
+
+    if euid == 0 and not args.force_root:
+        parser.error('refusing to run as root; add --force-root to override')
