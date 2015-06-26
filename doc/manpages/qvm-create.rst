@@ -1,80 +1,62 @@
 .. program:: qvm-create
 
-=========================================
-:program:`qvm-create` -- Creates a new VM
-=========================================
+:program:`qvm-create` -- create new domain
+==========================================
 
 Synopsis
-========
-:command:`qvm-create` [*options*] <*vm-name*>
+--------
+
+:command:`qvm-create` skel-manpage.py [-h] [--xml *XMLFILE*] [--force-root] [--class *CLS*] [--property *NAME*=*VALUE*] [--template *VALUE*] [--label *VALUE*] [--root-copy-from *FILENAME* | --root-move-from *FILENAME*] *VMNAME*
 
 Options
-=======
+-------
 
 .. option:: --help, -h
 
-    Show this help message and exit
+   show help message and exit
 
-.. option:: --template=TEMPLATE, -t TEMPLATE
+.. option:: --xml=XMLFILE
 
-    Specify the TemplateVM to use
-
-.. option:: --label=LABEL, -l LABEL
-
-    Specify the label to use for the new VM (e.g. red, yellow, green, ...)
-
-.. option:: --proxy, -p
-
-    Create ProxyVM
-
-.. option:: --net, -n
-
-    Create NetVM
-
-.. option:: --hvm, -H
-
-    Create HVM (standalone, unless :option:`--template` option used)
-
-.. option:: --hvm-template
-
-    Create HVM template
-
-.. option:: --root-move-from=ROOT_MOVE, -R ROOT_MOVE
-
-    Use provided root.img instead of default/empty one
-    (file will be *moved*)
-
-.. option:: --root-copy-from=ROOT_COPY, -r ROOT_COPY
-
-    Use provided root.img instead of default/empty one
-    (file will be *copied*)
-
-.. option:: --standalone, -s
-
-    Create standalone VM --- independent of template
-
-.. option:: --mem=MEM, -m MEM
-
-    Initial memory size (in MB)
-
-.. option:: --vcpus=VCPUS, -c VCPUS
-
-    VCPUs count
-
-.. option:: --internal, -i
-
-    Create VM for internal use only (hidden in qubes-manager, no appmenus)
+   Qubes OS store file
 
 .. option:: --force-root
 
-    Force to run, even with root privileges
+   Force to run as root.
 
-.. option:: --quiet, -q
+.. option:: --class, -C
 
-    Be quiet
+   The class of the new domain (default: AppVM).
+
+.. option:: --prop=NAME=VALUE, --property=NAME=VALUE, -p NAME=VALUE
+
+   Set domain's property, like "internal", "memory" or "vcpus". Any property may
+   be set this way, even "qid".
+
+.. option:: --template=VALUE, -t VALUE
+
+   Specify the TemplateVM to use, when applicable. This is an alias for
+   ``--property template=VALUE``.
+
+.. option:: --label=VALUE, -l VALUE
+
+   Specify the label to use for the new domain (e.g. red, yellow, green, ...).
+   This in an alias for ``--property label=VALUE``.
+
+.. option:: --root-copy-from=FILENAME, -r FILENAME
+
+   Use provided root.img instead of default/empty one (file will be *copied*).
+
+.. option:: --root-move-from=FILENAME, -R FILENAME
+
+   use provided root.img instead of default/empty one (file will be *moved*).
+
 
 Authors
-=======
+-------
+
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>
 | Marek Marczykowski <marmarek at invisiblethingslab dot com>
+| Wojtek Porczyk <woju at invisiblethingslab dot com>
+
+.. vim: ts=3 sw=3 et tw=80

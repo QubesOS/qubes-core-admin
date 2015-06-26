@@ -439,9 +439,6 @@ class VMCollection(object):
             raise TypeError('{} holds only BaseVM instances'.format(
                 self.__class__.__name__))
 
-        if not hasattr(value, 'qid'):
-            value.qid = self.get_new_unused_qid()
-
         if value.qid in self:
             raise ValueError('This collection already holds VM that has '
                 'qid={!r} ({!r})'.format(value.qid, self[value.qid]))
@@ -452,6 +449,8 @@ class VMCollection(object):
         self._dict[value.qid] = value
         value.events_enabled = True
         self.app.fire_event('domain-added', value)
+
+        return value
 
 
     def __getitem__(self, key):
@@ -1296,12 +1295,41 @@ class Qubes(PropertyHolder):
         return labels
 
 
-    def add_new_vm(self, vm):
+    def add_new_vm(self, cls, qid=None, **kwargs):
         '''Add new Virtual Machine to colletion
 
         '''
 
-        self.domains.add(vm)
+        if qid is None:
+            qid = self.get_new_unused_qid()
+
+        return self.domains.add(cls(self, None, qid=qid, **kwargs))
+
+
+    def get_label(self, label):
+        '''Get label as identified by index or name
+
+        :throws KeyError: when label is not found
+        '''
+
+        # first search for index, verbatim
+        try:
+            return self.labels[label]
+        except KeyError:
+            pass
+
+        # then search for name
+        for l in self.labels.values():
+            if l.name == label:
+                return label
+
+        # last call, if label is a number represented as str, search in indices
+        try:
+            return self.labels[int(label)]
+        except (KeyError, ValueError):
+            pass
+
+        raise KeyError(label)
 
 
     @qubes.events.handler('domain-pre-deleted')
