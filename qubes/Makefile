@@ -75,5 +75,6 @@ endif
 
 	cp \
 		tests/tools/__init__.py* \
+		tests/tools/init.py* \
 		tests/tools/qvm_ls.py* \
 		$(DESTDIR)$(PYTHON_QUBESPATH)/tests/tools

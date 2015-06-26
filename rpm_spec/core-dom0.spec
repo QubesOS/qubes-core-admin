@@ -237,6 +237,7 @@ fi
 
 %dir %{python_sitearch}/qubes/tests/tools
 %{python_sitearch}/qubes/tests/tools/__init__.py*
+%{python_sitearch}/qubes/tests/tools/init.py*
 %{python_sitearch}/qubes/tests/tools/qvm_ls.py*
 
 # qmemman

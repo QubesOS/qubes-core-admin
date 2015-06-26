@@ -30,6 +30,59 @@ import importlib
 import os
 
 
+class PropertyAction(argparse.Action):
+    '''Action for argument parser that stores a property.'''
+    # pylint: disable=redefined-builtin
+    def __init__(self,
+            option_strings,
+            dest,
+            metavar='NAME=VALUE',
+            required=False,
+            help='set property to a value'):
+        super(PropertyAction, self).__init__(option_strings, 'properties',
+            metavar=metavar, default={}, help=help)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        try:
+            prop, value = values.split('=', 1)
+        except ValueError:
+            parser.error('invalid property token: {!r}'.format(token))
+
+        getattr(namespace, self.dest)[prop] = value
+
+
+class SinglePropertyAction(argparse.Action):
+    '''Action for argument parser that stores a property.'''
+
+    # pylint: disable=redefined-builtin
+    def __init__(self,
+            option_strings,
+            dest,
+            metavar='VALUE',
+            const=None,
+            nargs=None,
+            required=False,
+            help=None):
+        if help is None:
+            help = 'set {!r} property to a value'.format(dest)
+            if const is not None:
+                help += ' {!r}'.format(const)
+
+        if const is not None:
+            nargs = 0
+
+        super(SinglePropertyAction, self).__init__(option_strings, 'properties',
+            metavar=metavar, help=help, default={}, const=const,
+            nargs=nargs)
+
+        self.name = dest
+
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        getattr(namespace, self.dest)[self.name] = values \
+            if self.const is None else self.const
+
+
 # TODO --verbose, logger setup
 def get_parser_base(want_force_root=False, **kwargs):
     '''Get base parser with options common to all Qubes OS tools.
