@@ -1720,7 +1720,15 @@ class QubesVm(object):
 
         # Bind pci devices to pciback driver
         for pci in self.pcidevs:
-            nd = vmm.libvirt_conn.nodeDeviceLookupByName('pci_0000_' + pci.replace(':','_').replace('.','_'))
+            try:
+                nd = vmm.libvirt_conn.nodeDeviceLookupByName('pci_0000_' + pci.replace(':','_').replace('.','_'))
+            except libvirt.libvirtError as e:
+                if e.err[0] == libvirt.VIR_ERR_NO_NODE_DEVICE:
+                    raise QubesException(
+                        "PCI device {} does not exist (domain {})".
+                        format(pci, self.name))
+                else:
+                    raise
             try:
                 nd.dettach()
             except libvirt.libvirtError as e:
