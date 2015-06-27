@@ -55,7 +55,8 @@ except libvirt.libvirtError:
 
 try:
     in_git = subprocess.check_output(
-        ['git', 'rev-parse', '--show-toplevel']).strip()
+        ['git', 'rev-parse', '--show-toplevel'],
+        stderr=open(os.devnull, 'w')).strip()
 except subprocess.CalledProcessError:
     # git returned nonzero, we are outside git repo
     pass
