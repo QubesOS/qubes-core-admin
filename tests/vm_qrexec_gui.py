@@ -337,6 +337,23 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                          "/home/user/QubesIncoming/%s/passwd" % self.testvm1.name, wait=True)
         self.assertEqual(retcode, 0, "file differs")
 
+    def test_200_timezone(self):
+        """Test whether timezone setting is properly propagated to the VM"""
+        if "whonix" in self.template:
+            self.skip("Timezone propagation disabled on Whonix templates")
+
+        self.testvm1.start()
+        (vm_tz, _) = self.testvm1.run("date +%Z",
+                                      passio_popen=True).communicate()
+        (dom0_tz, _) = subprocess.Popen(["date", "+%Z"],
+                                        stdout=subprocess.PIPE).communicate()
+        self.assertEqual(vm_tz.strip(), dom0_tz.strip())
+
+        # Check if reverting back to UTC works
+        (vm_tz, _) = self.testvm1.run("TZ=UTC date +%Z",
+                                      passio_popen=True).communicate()
+        self.assertEqual(vm_tz.strip(), "UTC")
+
 
 class TC_10_HVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     # TODO: test with some OS inside
