@@ -314,6 +314,17 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.assertNotEqual(self.run_cmd(self.testvm2,
             self.ping_cmd.format(target=self.testvm1.ip)), 0)
 
+    def test_050_spoof_ip(self):
+        """Test if VM IP spoofing is blocked"""
+        self.qc.unlock_db()
+        self.testvm1.start()
+
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
+        self.testvm1.run("ip addr flush dev eth0", user="root")
+        self.testvm1.run("ip addr add 10.137.1.128/24 dev eth0", user="root")
+        self.testvm1.run("ip route add dev eth0", user="root")
+        self.assertNotEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
+                         "Spoofed ping should be blocked")
 
 
 def load_tests(loader, tests, pattern):
