@@ -340,7 +340,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
     def test_200_timezone(self):
         """Test whether timezone setting is properly propagated to the VM"""
         if "whonix" in self.template:
-            self.skip("Timezone propagation disabled on Whonix templates")
+            self.skipTest("Timezone propagation disabled on Whonix templates")
 
         self.testvm1.start()
         (vm_tz, _) = self.testvm1.run("date +%Z",
