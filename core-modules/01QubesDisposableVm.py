@@ -221,15 +221,15 @@ class QubesDisposableVm(QubesVm):
         if qmemman_present:
             qmemman_client.close()
 
-        if self._start_guid_first and kwargs.get('start_guid', True) and os.path.exists('/var/run/shm.id'):
-            self.start_guid(verbose=verbose,
+        if kwargs.get('start_guid', True) and os.path.exists('/var/run/shm.id'):
+            self.start_guid(verbose=verbose, before_qrexec=True,
                     notify_function=kwargs.get('notify_function', None))
 
         self.start_qrexec_daemon(verbose=verbose,
                 notify_function=kwargs.get('notify_function', None))
         print >>sys.stderr, "time=%s, qrexec done" % (str(time.time()))
 
-        if not self._start_guid_first and kwargs.get('start_guid', True) and os.path.exists('/var/run/shm.id'):
+        if kwargs.get('start_guid', True) and os.path.exists('/var/run/shm.id'):
             self.start_guid(verbose=verbose,
                     notify_function=kwargs.get('notify_function', None))
         print >>sys.stderr, "time=%s, guid done" % (str(time.time()))

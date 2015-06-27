@@ -79,7 +79,6 @@ class QubesHVm(QubesVm):
         attrs['seamless_gui_mode'] = { 'default': False,
                               'attr': '_seamless_gui_mode',
                               'save': lambda: str(self._seamless_gui_mode) }
-        attrs['_start_guid_first']['func'] = lambda x: True
         attrs['services']['default'] = "{'meminfo-writer': False}"
 
         attrs['memory']['default'] = defaults["hvm_memory"]
@@ -96,10 +95,6 @@ class QubesHVm(QubesVm):
         if "guiagent_installed" not in kwargs and \
             (not 'xml_element' in kwargs or kwargs['xml_element'].get('guiagent_installed') is None):
             self.services['meminfo-writer'] = False
-
-        # Disable qemu GUID if the user installed qubes gui agent
-        if self.guiagent_installed:
-            self._start_guid_first = False
 
         self.storage.volatile_img = None
 
@@ -409,7 +404,9 @@ class QubesHVm(QubesVm):
             before_qrexec=False, **kwargs):
         # If user force the guiagent, start_guid will mimic a standard QubesVM
         if not before_qrexec and self.guiagent_installed:
-            super(QubesHVm, self).start_guid(verbose, notify_function, extra_guid_args=["-Q"], **kwargs)
+            kwargs['extra_guid_args'] = kwargs.get('extra_guid_args', []) + \
+                                        ['-Q']
+            super(QubesHVm, self).start_guid(verbose, notify_function, **kwargs)
             stubdom_guid_pidfile = '/var/run/qubes/guid-running.%d' % self.stubdom_xid
             if os.path.exists(stubdom_guid_pidfile) and not self.debug:
                 try:
@@ -436,7 +433,7 @@ class QubesHVm(QubesVm):
         else:
             super(QubesHVm, self).start_qrexec_daemon(**kwargs)
 
-            if self._start_guid_first:
+            if self.guiagent_installed:
                 if kwargs.get('verbose'):
                     print >> sys.stderr, "--> Waiting for user '%s' login..." % self.default_user
 

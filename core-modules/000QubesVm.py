@@ -183,7 +183,6 @@ class QubesVm(object):
                                  self.kernel) if self.kernel is not None \
                         else os.path.join(self.dir_path,
                                           vm_files["kernels_subdir"]) },
-            "_start_guid_first": { "func": lambda x: False },
             }
 
         ### Mark attrs for XML inclusion
@@ -1617,6 +1616,10 @@ class QubesVm(object):
         self.log.debug(
             'start_guid(extra_guid_args={!r}, before_qrexec={!r})'.format(
                 extra_guid_args, before_qrexec))
+        if before_qrexec:
+            # On PV start GUId only after qrexec-daemon
+            return
+
         if verbose:
             print >> sys.stderr, "--> Starting Qubes GUId..."
 
@@ -1767,7 +1770,7 @@ class QubesVm(object):
         if qmemman_present:
             qmemman_client.close()
 
-        extra_guid_args = None
+        extra_guid_args = []
         if preparing_dvm:
             # Run GUI daemon in "invisible" mode, so applications started by
             # prerun script will not disturb the user
@@ -1778,7 +1781,7 @@ class QubesVm(object):
             # mode
             start_guid = False
 
-        if self._start_guid_first and start_guid:
+        if start_guid:
             self.start_guid(verbose=verbose, notify_function=notify_function,
                             before_qrexec=True, extra_guid_args=extra_guid_args)
 
