@@ -198,4 +198,4 @@ class QubesVmStorage(object):
         if self.private_img and not os.path.exists (self.private_img):
             print >>sys.stderr, "WARNING: Creating empty VM private image file: {0}".\
                 format(self.private_img)
-            self.storage.create_on_disk_private_img(verbose=False)
+            self.create_on_disk_private_img(verbose=False)
