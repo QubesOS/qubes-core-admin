@@ -148,10 +148,13 @@ class BaseVM(qubes.PropertyHolder):
     def __init__(self, app, xml, services=None, devices=None, tags=None,
             **kwargs):
         # pylint: disable=redefined-outer-name
-        super(BaseVM, self).__init__(xml, **kwargs)
 
+        # self.app must be set before super().__init__, because some property
+        # setters need working .app attribute
         #: mother :py:class:`qubes.Qubes` object
         self.app = app
+
+        super(BaseVM, self).__init__(xml, **kwargs)
 
         #: dictionary of services that are run on this domain
         self.services = services or {}
