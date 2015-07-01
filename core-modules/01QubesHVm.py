@@ -262,8 +262,8 @@ class QubesHVm(QubesVm):
         params['volatiledev'] = ''
 
         if self.timezone.lower() == 'localtime':
-             params['time_basis'] = 'localtime'
-             params['timeoffset'] = '0'
+            params['time_basis'] = 'localtime'
+            params['timeoffset'] = '0'
         elif self.timezone.isdigit():
             params['time_basis'] = 'UTC'
             params['timeoffset'] = self.timezone
