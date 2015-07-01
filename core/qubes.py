@@ -101,7 +101,7 @@ defaults = {
     'libvirt_uri': 'xen:///',
     'memory': 400,
     'kernelopts': "nopat",
-    'kernelopts_pcidevs': "nopat iommu=soft swiotlb=4096",
+    'kernelopts_pcidevs': "nopat iommu=soft swiotlb=8192",
 
     'dom0_update_check_interval': 6*3600,
 
