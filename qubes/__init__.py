@@ -1301,7 +1301,7 @@ class Qubes(PropertyHolder):
         '''
 
         if qid is None:
-            qid = self.get_new_unused_qid()
+            qid = self.domains.get_new_unused_qid()
 
         return self.domains.add(cls(self, None, qid=qid, **kwargs))
 
