@@ -29,7 +29,9 @@
 {netdev}
 {pcidevs}
     <input type='tablet' bus='usb'/>
-    <video type='vga'/>
+    <video type='vga'>
+      <model type='xen' vram='16384'/>
+    </video>
   </devices>
 </domain>
 
