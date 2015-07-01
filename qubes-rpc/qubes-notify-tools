@@ -15,6 +15,7 @@ def main():
         print >> sys.stderr, 'This script must be called as qrexec service!'
         exit(1)
 
+    source_vm = None
     qvm_collection = QubesVmCollection()
     qvm_collection.lock_db_for_writing()
     try:
@@ -77,15 +78,17 @@ def main():
 
         qvm_collection.save()
 
-        retcode = subprocess.call(['qvm-sync-appmenus', '--force-rpc'])
-        if retcode == 0 and hasattr(source_vm, 'appmenus_recreate'):
-            # TODO: call the same for child VMs? This isn't done for Linux VMs,
-            # so probably should be ignored for Windows also
-            source_vm.appmenus_recreate()
     except Exception as e:
         print >> sys.stderr, e.message
         exit(1)
     finally:
         qvm_collection.unlock_db()
+
+    retcode = subprocess.call(['qvm-sync-appmenus', '--force-rpc'])
+    if retcode == 0 and hasattr(source_vm, 'appmenus_recreate'):
+        # TODO: call the same for child VMs? This isn't done for Linux VMs,
+        # so probably should be ignored for Windows also
+        source_vm.appmenus_recreate()
+
 
 main()
