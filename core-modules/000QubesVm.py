@@ -1527,7 +1527,7 @@ class QubesVm(object):
 
         call_kwargs = {}
         if ignore_stderr or not passio:
-            null = open("/dev/null", "rw")
+            null = open("/dev/null", "w+")
             call_kwargs['stderr'] = null
         if not passio:
             call_kwargs['stdin'] = null
