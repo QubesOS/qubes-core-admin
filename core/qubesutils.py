@@ -337,6 +337,8 @@ def block_check_attached(qvmc, device):
         if vm.qid == 0:
             # Connecting devices to dom0 not supported
             continue
+        if not vm.is_running():
+            continue
         try:
             libvirt_domain = vm.libvirt_domain
             if libvirt_domain:
