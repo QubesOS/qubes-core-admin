@@ -29,6 +29,8 @@ import argparse
 import importlib
 import os
 
+import qubes.log
+
 
 class PropertyAction(argparse.Action):
     '''Action for argument parser that stores a property.'''
@@ -98,10 +100,20 @@ def get_parser_base(want_force_root=False, **kwargs):
         action='store',
         help='Qubes OS store file')
 
+    parser.add_argument('--verbose', '-v',
+        action='count',
+        help='increase verbosity')
+
+    parser.add_argument('--quiet', '-q',
+        action='count',
+        help='decrease verbosity')
+
     if want_force_root:
         parser.add_argument('--force-root',
             action='store_true', default=False,
             help='Force to run as root.')
+
+    parser.set_defaults(verbose=1, quiet=0)
 
     return parser
 
@@ -145,3 +157,19 @@ def dont_run_as_root(parser, args):
 
     if euid == 0 and not args.force_root:
         parser.error('refusing to run as root; add --force-root to override')
+
+
+def set_verbosity(parser, args):
+    '''Apply a verbosity setting.
+
+    This is done by configuring global logging.
+    :param argparse.ArgumentParser parser: command parser
+    :param argparse.Namespace args: args as parsed by parser
+    '''
+
+    verbose = args.verbose - args.quiet
+
+    if verbose >= 2:
+        qubes.log.enable_debug()
+    elif verbose >= 1:
+        qubes.log.enable()

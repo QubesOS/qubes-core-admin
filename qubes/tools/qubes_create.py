@@ -40,6 +40,7 @@ def main(args=None):
     '''
 
     args = parser.parse_args(args)
+    qubes.tools.set_verbosity(parser, args)
     app = qubes.Qubes.create_empty_store(args.xml)
     return True
 

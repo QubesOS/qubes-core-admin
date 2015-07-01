@@ -72,6 +72,7 @@ parser.add_argument('name', metavar='VMNAME',
 
 def main():
     args = parser.parse_args()
+    qubes.tools.set_verbosity(parser, args)
     qubes.tools.dont_run_as_root(parser, args)
 
     if 'label' not in args.properties:
