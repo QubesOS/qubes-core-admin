@@ -76,7 +76,18 @@ class QubesXenVmStorage(QubesVmStorage):
                     "{dir}/root.img:{dir}/root-cow.img".format(
                         dir=self.vmdir),
                     "block-origin", self.root_dev, True)
+        elif self.vm.template and not self.vm.template.storage.rootcow_img:
+            # HVM template-based VM - template doesn't have own
+            # root-cow.img, only one device-mapper layer
+            return self._format_disk_dev(
+                    "{tpldir}/root.img:{vmdir}/volatile.img".format(
+                        tpldir=self.vm.template.dir_path,
+                        vmdir=self.vmdir),
+                    "block-snapshot", self.root_dev, True)
         elif self.vm.template:
+            # any other template-based VM - two device-mapper layers: one
+            # in dom0 (here) from root+root-cow, and another one from
+            # this+volatile.img
             return self._format_disk_dev(
                     "{dir}/root.img:{dir}/root-cow.img".format(
                         dir=self.vm.template.dir_path),
@@ -170,7 +181,8 @@ class QubesXenVmStorage(QubesVmStorage):
 
     def commit_template_changes(self):
         assert self.vm.is_template()
-        # TODO: move rootcow_img to this class; the same for vm.is_outdated()
+        if not self.rootcow_img:
+            return
         if os.path.exists (self.rootcow_img):
            os.rename (self.rootcow_img, self.rootcow_img + '.old')
 
@@ -183,3 +195,34 @@ class QubesXenVmStorage(QubesVmStorage):
         f_root.close()
         os.umask(old_umask)
 
+    def reset_volatile_storage(self, verbose = False, source_template = None):
+        if source_template is None:
+            source_template = self.vm.template
+
+        if source_template is not None:
+            # template-based VM with only one device-mapper layer -
+            # volatile.img used as upper layer on root.img, no root-cow.img
+            # intermediate layer
+            if not source_template.storage.rootcow_img:
+                if os.path.exists(self.volatile_img):
+                    if self.vm.debug:
+                        if os.path.getmtime(source_template.storage.root_img)\
+                                > os.path.getmtime(self.volatile_img):
+                            if verbose:
+                                print >>sys.stderr, "--> WARNING: template have changed, resetting root.img"
+                        else:
+                            if verbose:
+                                print >>sys.stderr, "--> Debug mode: not resetting root.img"
+                                print >>sys.stderr, "--> Debug mode: if you want to force root.img reset, either update template VM, or remove volatile.img file"
+                            return
+                    os.remove(self.volatile_img)
+
+                f_volatile = open(self.volatile_img, "w")
+                f_root = open(source_template.storage.root_img, "r")
+                f_root.seek(0, os.SEEK_END)
+                f_volatile.truncate(f_root.tell()) # make empty sparse file of the same size as root.img
+                f_volatile.close()
+                f_root.close()
+                return
+        super(QubesXenVmStorage, self).reset_volatile_storage(
+            verbose=verbose, source_template=source_template)

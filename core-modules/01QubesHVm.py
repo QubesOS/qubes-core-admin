@@ -96,7 +96,7 @@ class QubesHVm(QubesVm):
             (not 'xml_element' in kwargs or kwargs['xml_element'].get('guiagent_installed') is None):
             self.services['meminfo-writer'] = False
 
-        self.storage.volatile_img = None
+        self.storage.rootcow_img = None
 
     @property
     def type(self):
@@ -233,9 +233,7 @@ class QubesHVm(QubesVm):
         if self.is_running():
             raise NotImplementedError("Online resize of HVM's private.img not implemented, shutdown the VM first")
 
-        f_private = open (self.private_img, "a+b")
-        f_private.truncate (size)
-        f_private.close ()
+        self.storage.resize_private_img(size)
 
     def resize_root_img(self, size):
         if self.template:
@@ -254,14 +252,6 @@ class QubesHVm(QubesVm):
         f_root = open (self.root_img, "a+b")
         f_root.truncate (size)
         f_root.close ()
-
-    def get_rootdev(self, source_template=None):
-        if self.template:
-            return "'script:snapshot:{template_root}:{volatile},xvda,w',".format(
-                    template_root=self.template.root_img,
-                    volatile=self.volatile_img)
-        else:
-            return "'script:file:{root_img},xvda,w',".format(root_img=self.root_img)
 
     def get_config_params(self):
 
@@ -294,34 +284,6 @@ class QubesHVm(QubesVm):
             hook(self)
 
         return True
-
-    def reset_volatile_storage(self, **kwargs):
-        assert not self.is_running(), "Attempt to clean volatile image of running VM!"
-
-        source_template = kwargs.get("source_template", self.template)
-
-        if source_template is None:
-            # Nothing to do on non-template based VM
-            return
-
-        if os.path.exists (self.volatile_img):
-            if self.debug:
-                if os.path.getmtime(self.template.root_img) > os.path.getmtime(self.volatile_img):
-                    if kwargs.get("verbose", False):
-                        print >>sys.stderr, "--> WARNING: template have changed, resetting root.img"
-                else:
-                    if kwargs.get("verbose", False):
-                        print >>sys.stderr, "--> Debug mode: not resetting root.img"
-                        print >>sys.stderr, "--> Debug mode: if you want to force root.img reset, either update template VM, or remove volatile.img file"
-                    return
-            os.remove (self.volatile_img)
-
-        f_volatile = open (self.volatile_img, "w")
-        f_root = open (self.template.root_img, "r")
-        f_root.seek(0, os.SEEK_END)
-        f_volatile.truncate (f_root.tell()) # make empty sparse file of the same size as root.img
-        f_volatile.close ()
-        f_root.close()
 
     @property
     def vif(self):
@@ -462,7 +424,6 @@ class QubesHVm(QubesVm):
                     if os.path.exists(guid_pidfile):
                         guid_pid = open(guid_pidfile).read().strip()
                         os.kill(int(guid_pid), 15)
-
 
     def suspend(self):
         if dry_run:
