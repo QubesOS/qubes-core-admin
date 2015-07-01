@@ -23,6 +23,8 @@
 #
 
 import datetime
+import base64
+import hashlib
 import logging
 import lxml.etree
 import os
@@ -1072,6 +1074,8 @@ class QubesVm(object):
 
         self.qdb.write("/qubes-debug-mode", str(int(self.debug)))
 
+        self.provide_random_seed_to_vm()
+
         # TODO: Currently the whole qmemman is quite Xen-specific, so stay with
         # xenstore for it until decided otherwise
         if qmemman_present:
@@ -1081,6 +1085,14 @@ class QubesVm(object):
         # fire hooks
         for hook in self.hooks_create_qubesdb_entries:
             hook(self)
+
+    def provide_random_seed_to_vm(self):
+        f = open('/dev/urandom', 'r')
+        s = f.read(64)
+        if len(s) != 64:
+            raise IOError("failed to read seed from /dev/urandom")
+        f.close()
+        self.qdb.write("/qubes-random-seed", base64.b64encode(hashlib.sha512(s).digest()))
 
     def _format_net_dev(self, ip, mac, backend):
         template = "    <interface type='ethernet'>\n" \
