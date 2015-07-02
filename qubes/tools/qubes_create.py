@@ -32,6 +32,11 @@ import qubes.tools
 
 parser = qubes.tools.get_parser_base(description='Create new Qubes OS store.')
 
+parser.add_argument('--property', '--prop', '-p',
+    action=qubes.tools.PropertyAction,
+    help='set global property')
+
+
 def main(args=None):
     '''Main routine of :program:`qubes-create`.
 
@@ -41,7 +46,7 @@ def main(args=None):
 
     args = parser.parse_args(args)
     qubes.tools.set_verbosity(parser, args)
-    app = qubes.Qubes.create_empty_store(args.xml)
+    app = qubes.Qubes.create_empty_store(args.xml, **args.properties)
     return True
 
 

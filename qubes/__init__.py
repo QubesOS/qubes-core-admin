@@ -1115,9 +1115,7 @@ class Qubes(PropertyHolder):
         doc='Which kernel to use when not overriden in VM')
 
 
-    def __init__(self, store=None, load=True):
-        super(Qubes, self).__init__(xml=None)
-
+    def __init__(self, store=None, load=True, **kwargs):
         #: logger instance for logging global messages
         self.log = logging.getLogger('app')
 
@@ -1140,6 +1138,8 @@ class Qubes(PropertyHolder):
         self._store = store if store is not None else os.path.join(
             qubes.config.system_path['qubes_base_dir'],
             qubes.config.system_path['qubes_store_filename'])
+
+        super(Qubes, self).__init__(xml=None, **kwargs)
 
         if load:
             self.load()
