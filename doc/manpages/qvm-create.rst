@@ -6,7 +6,7 @@
 Synopsis
 --------
 
-:command:`qvm-create` skel-manpage.py [-h] [--xml *XMLFILE*] [--force-root] [--class *CLS*] [--property *NAME*=*VALUE*] [--template *VALUE*] [--label *VALUE*] [--root-copy-from *FILENAME* | --root-move-from *FILENAME*] *VMNAME*
+:command:`qvm-create` [-h] [--xml *XMLFILE*] [--force-root] [--class *CLS*] [--property *NAME*=*VALUE*] [--template *VALUE*] [--label *VALUE*] [--root-copy-from *FILENAME* | --root-move-from *FILENAME*] *VMNAME*
 
 Options
 -------
@@ -25,7 +25,8 @@ Options
 
 .. option:: --class, -C
 
-   The class of the new domain (default: AppVM).
+   The new domain class name (default: **AppVM** for
+   :py:class:`qubes.vm.appvm.AppVM`).
 
 .. option:: --prop=NAME=VALUE, --property=NAME=VALUE, -p NAME=VALUE
 
@@ -44,11 +45,23 @@ Options
 
 .. option:: --root-copy-from=FILENAME, -r FILENAME
 
-   Use provided root.img instead of default/empty one (file will be *copied*).
+   Use provided :file:`root.img` instead of default/empty one (file will be
+   *copied*). This option is mutually exclusive with :option:`--root-move-from`.
 
 .. option:: --root-move-from=FILENAME, -R FILENAME
 
-   use provided root.img instead of default/empty one (file will be *moved*).
+   Use provided :file:`root.img` instead of default/empty one (file will be
+   *moved*). This option is mutually exclusive with :option:`--root-copy-from`.
+
+Options for internal use
+------------------------
+
+Do not use if you don't know, what you are doing.
+
+.. option:: --no-root
+
+   Do not create :file:`root.img`. This option is mutually exclusive with
+   :option:`--root-copy-from` and :option:`--root-move-from`.
 
 
 Authors

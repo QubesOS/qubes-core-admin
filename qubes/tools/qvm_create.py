@@ -62,6 +62,9 @@ parser_root.add_argument('--root-copy-from', '-r', metavar='FILENAME',
 parser_root.add_argument('--root-move-from', '-R', metavar='FILENAME',
     help='use provided root.img instead of default/empty one'
         ' (file will be MOVED)')
+parser_root.add_argument('--no-root',
+    action='store_true', default=False,
+    help=argparse.SUPPRESS)
 
 parser.add_argument('name', metavar='VMNAME',
     action=qubes.tools.SinglePropertyAction,
@@ -124,23 +127,24 @@ def main():
 #           if (options.verbose):
 #               print('--> Using default TemplateVM: {0}'.format(template.name))
 
-    try:
-        vm.create_on_disk()
+    if not args.no_root:
+        try:
+            vm.create_on_disk()
 
-        if args.root_move_from is not None:
-#           if (options.verbose):
-#               print "--> Replacing root.img with provided file"
-            os.unlink(vm.root_img)
-            os.rename(options.root_move_from, vm.root_img)
-        elif args.root_copy_from is not None:
-#           if (options.verbose):
-#               print "--> Replacing root.img with provided file"
-            os.unlink(vm.root_img)
-            # use 'cp' to preserve sparse file
-            subprocess.check_call(['cp', options.root_copy_from, vm.root_img])
+            if args.root_move_from is not None:
+#               if (options.verbose):
+#                   print "--> Replacing root.img with provided file"
+                os.unlink(vm.root_img)
+                os.rename(options.root_move_from, vm.root_img)
+            elif args.root_copy_from is not None:
+#               if (options.verbose):
+#                   print "--> Replacing root.img with provided file"
+                os.unlink(vm.root_img)
+                # use 'cp' to preserve sparse file
+                subprocess.check_call(['cp', options.root_copy_from, vm.root_img])
 
-    except (IOError, OSError) as err:
-        parser.error(str(err))
+        except (IOError, OSError) as err:
+            parser.error(str(err))
 
     app.save()
 
