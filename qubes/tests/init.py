@@ -198,8 +198,18 @@ class TC_20_PropertyHolder(qubes.tests.QubesTestCase):
         self.holder = TestHolder(xml)
 
 
+    def test_000_property_list(self):
+        self.assertListEqual([p.__name__ for p in self.holder.property_list()],
+            ['testprop1', 'testprop2', 'testprop3', 'testprop4'])
+
+    def test_001_property_get_def(self):
+        self.assertIs(
+            self.holder.property_get_def('testprop1'), TestHolder.testprop1)
+        self.assertIs(self.holder.property_get_def(TestHolder.testprop1),
+            TestHolder.testprop1)
+
     @unittest.expectedFailure
-    def test_000_load_properties(self):
+    def test_002_load_properties(self):
         self.holder.load_properties()
 
         self.assertEventFired(self.holder, 'property-loaded')
@@ -212,7 +222,24 @@ class TC_20_PropertyHolder(qubes.tests.QubesTestCase):
         with self.assertRaises(AttributeError):
             self.holder.testprop4
 
-    def test_001_save_properties(self):
+    def test_003_property_is_default(self):
+        self.holder.load_properties()
+        self.assertFalse(self.holder.property_is_default('testprop1'))
+        self.assertFalse(self.holder.property_is_default('testprop2'))
+        self.assertTrue(self.holder.property_is_default('testprop3'))
+        self.assertTrue(self.holder.property_is_default('testprop4'))
+        with self.assertRaises(AttributeError):
+            self.holder.property_is_default('testprop5')
+
+    @unittest.skip('test not implemented')
+    def test_004_property_init(self):
+        pass
+
+    @unittest.skip('test not implemented')
+    def test_005_clone_properties(self):
+        pass
+
+    def test_006_xml_properties(self):
         self.holder.load_properties()
 
         elements = self.holder.xml_properties()
@@ -232,6 +259,10 @@ class TC_20_PropertyHolder(qubes.tests.QubesTestCase):
         expected_prop3 = lxml.etree.Element('property', name='testprop3')
         expected_prop3.text = 'testdefault'
         self.assertXMLEqual(elements_with_defaults[2], expected_prop3)
+
+    @unittest.skip('test not implemented')
+    def test_010_property_require(self):
+        pass
 
 
 class TestVM(qubes.vm.BaseVM):

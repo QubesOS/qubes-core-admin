@@ -685,8 +685,11 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
 
 
     def __repr__(self):
-        return '<{} object at {:#x} name={!r} default={!r}>'.format(
-            self.__class__.__name__, id(self), self.__name__, self._default)
+        default = ' default={!r}'.format(self._default) \
+            if self._default is not self._NO_DEFAULT \
+            else ''
+        return '<{} object at {:#x} name={!r}{}>'.format(
+            self.__class__.__name__, id(self), self.__name__, default) \
 
 
     def __hash__(self):
@@ -856,10 +859,12 @@ class PropertyHolder(qubes.events.Emitter):
 
         :param qubes.property prop: property object of particular interest
         :rtype: bool
-        '''
+        ''' # pylint: disable=protected-access
 
-        # pylint: disable=protected-access
-        return hasattr(self, self.property_get_def(prop)._attr_name)
+        # both property_get_def() and ._attr_name may throw AttributeError,
+        # which we don't want to catch
+        attrname = self.property_get_def(prop)._attr_name
+        return not hasattr(self, attrname)
 
 
     @classmethod
