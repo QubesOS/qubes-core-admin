@@ -111,8 +111,8 @@ def main():
             if verbose:
                 print >> sys.stderr, '--> Syncing \'%s\' clock.' % vm.name
             try:
-                vm.run('date -u -R -s "%s"' % date_out, user="root",
-                       gui=False, verbose=verbose)
+                vm.run_service("qubes.SetDateTime", user="root",
+                               localcmd="date -u -Iseconds")
             except Exception as e:
                 print >> sys.stderr, "ERROR syncing time in VM '%s': %s" % (vm.name, str(e))
                 pass
