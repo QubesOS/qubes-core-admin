@@ -39,17 +39,18 @@ TEST_DATA = "0123456789" * 1024
 class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
     def setUp(self):
         super(TC_00_AppVMMixin, self).setUp()
-        self.testvm1 = self.qc.add_new_vm("QubesAppVm",
+        self.testvm1 = self.qc.add_new_vm(
+            "QubesAppVm",
             name=self.make_vm_name('vm1'),
             template=self.qc.get_vm_by_name(self.template))
         self.testvm1.create_on_disk(verbose=False)
-        self.testvm2 = self.qc.add_new_vm("QubesAppVm",
+        self.testvm2 = self.qc.add_new_vm(
+            "QubesAppVm",
             name=self.make_vm_name('vm2'),
             template=self.qc.get_vm_by_name(self.template))
         self.testvm2.create_on_disk(verbose=False)
         self.qc.save()
         self.qc.unlock_db()
-
 
     def test_000_start_shutdown(self):
         self.testvm1.start()
@@ -65,7 +66,6 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         time.sleep(1)
         self.assertEquals(self.testvm1.get_power_state(), "Halted")
 
-
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
     def test_010_run_gui_app(self):
@@ -73,21 +73,25 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         self.assertEquals(self.testvm1.get_power_state(), "Running")
         self.testvm1.run("gnome-terminal")
         wait_count = 0
-        while subprocess.call(['xdotool', 'search', '--name', 'user@%s' %
-                self.testvm1.name], stdout=open(os.path.devnull, 'w'),
-                              stderr=subprocess.STDOUT) > 0:
+        while subprocess.call(
+                ['xdotool', 'search', '--name', 'user@{}'.
+                    format(self.testvm1.name)],
+                stdout=open(os.path.devnull, 'w'),
+                stderr=subprocess.STDOUT) > 0:
             wait_count += 1
             if wait_count > 100:
                 self.fail("Timeout while waiting for gnome-terminal window")
             time.sleep(0.1)
 
         time.sleep(0.5)
-        subprocess.check_call(['xdotool', 'search', '--name', 'user@%s' %
-                self.testvm1.name, 'windowactivate', 'type', 'exit\n'])
+        subprocess.check_call(
+            ['xdotool', 'search', '--name', 'user@{}'.format(self.testvm1.name),
+             'windowactivate', 'type', 'exit\n'])
 
         wait_count = 0
-        while subprocess.call(['xdotool', 'search', '--name', 'user@%s' %
-                self.testvm1.name], stdout=open(os.path.devnull, 'w'),
+        while subprocess.call(['xdotool', 'search', '--name',
+                               'user@{}'.format(self.testvm1.name)],
+                              stdout=open(os.path.devnull, 'w'),
                               stderr=subprocess.STDOUT) == 0:
             wait_count += 1
             if wait_count > 100:
@@ -95,13 +99,13 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                           "termination")
             time.sleep(0.1)
 
-
     def test_050_qrexec_simple_eof(self):
         """Test for data and EOF transmission dom0->VM"""
         result = multiprocessing.Value('i', 0)
+
         def run(self, result):
             p = self.testvm1.run("cat", passio_popen=True,
-                            passio_stderr=True)
+                                 passio_stderr=True)
 
             (stdout, stderr) = p.communicate(TEST_DATA)
             if stdout != TEST_DATA:
@@ -123,10 +127,10 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         elif result.value == 2:
             self.fail("Some data was printed to stderr")
 
-
     def test_051_qrexec_simple_eof_reverse(self):
         """Test for EOF transmission VM->dom0"""
         result = multiprocessing.Value('i', 0)
+
         def run(self, result):
             p = self.testvm1.run("echo test; exec >&-; cat > /dev/null",
                                  passio_popen=True, passio_stderr=True)
@@ -160,10 +164,10 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         elif result.value == 3:
             self.fail("VM proceess didn't terminated on EOF")
 
-
     def test_052_qrexec_vm_service_eof(self):
         """Test for EOF transmission VM(src)->VM(dst)"""
         result = multiprocessing.Value('i', 0)
+
         def run(self, result):
             p = self.testvm1.run("/usr/lib/qubes/qrexec-client-vm %s test.EOF "
                                  "/bin/sh -c 'echo test; exec >&-; cat "
@@ -194,11 +198,11 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         if result.value == 1:
             self.fail("Received data differs from what was expected")
 
-
     @unittest.expectedFailure
     def test_053_qrexec_vm_service_eof_reverse(self):
         """Test for EOF transmission VM(src)<-VM(dst)"""
         result = multiprocessing.Value('i', 0)
+
         def run(self, result):
             p = self.testvm1.run("/usr/lib/qubes/qrexec-client-vm %s test.EOF "
                                  "/bin/sh -c 'cat >&$SAVED_FD_1'"
@@ -229,7 +233,6 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         if result.value == 1:
             self.fail("Received data differs from what was expected")
 
-
     def test_060_qrexec_exit_code_dom0(self):
         self.testvm1.start()
 
@@ -240,7 +243,6 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         p = self.testvm1.run("exit 3", passio_popen=True)
         p.wait()
         self.assertEqual(3, p.returncode)
-
 
     @unittest.expectedFailure
     def test_065_qrexec_exit_code_vm(self):
@@ -278,25 +280,25 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         (stdout, stderr) = p.communicate()
         self.assertEqual(stdout, "3\n")
 
-
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
     def test_100_qrexec_filecopy(self):
         self.testvm1.start()
         self.testvm2.start()
         p = self.testvm1.run("qvm-copy-to-vm %s /etc/passwd" %
-                            self.testvm2.name, passio_popen=True,
-                            passio_stderr=True)
+                             self.testvm2.name, passio_popen=True,
+                             passio_stderr=True)
         # Confirm transfer
-        subprocess.check_call(['xdotool', 'search', '--sync', '--name', 'Question',
-                             'key', 'y'])
+        subprocess.check_call(
+            ['xdotool', 'search', '--sync', '--name', 'Question', 'key', 'y'])
         p.wait()
         self.assertEqual(p.returncode, 0, "qvm-copy-to-vm failed: %s" %
                          p.stderr.read())
         retcode = self.testvm2.run("diff /etc/passwd "
-                         "/home/user/QubesIncoming/%s/passwd" % self.testvm1.name, wait=True)
+                                   "/home/user/QubesIncoming/{}/passwd".format(
+                                       self.testvm1.name),
+                                   wait=True)
         self.assertEqual(retcode, 0, "file differs")
-
 
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
@@ -304,19 +306,18 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         self.testvm1.start()
         self.testvm2.start()
         p = self.testvm1.run("qvm-copy-to-vm %s /etc/passwd" %
-                            self.testvm2.name, passio_popen=True)
+                             self.testvm2.name, passio_popen=True)
         # Deny transfer
         subprocess.check_call(['xdotool', 'search', '--sync', '--name', 'Question',
-                             'key', 'n'])
+                              'key', 'n'])
         p.wait()
         self.assertNotEqual(p.returncode, 0, "qvm-copy-to-vm unexpectedly "
-                                          "succeeded")
+                            "succeeded")
         retcode = self.testvm1.run("ls /home/user/QubesIncoming/%s" %
-                                  self.testvm1.name, wait=True,
-                                  ignore_stderr=True)
+                                   self.testvm1.name, wait=True,
+                                   ignore_stderr=True)
         self.assertNotEqual(retcode, 0, "QubesIncoming exists although file "
-                                      "copy was "
-                                     "denied")
+                            "copy was denied")
 
     @unittest.skip("Xen gntalloc driver crashes when page is mapped in the "
                    "same domain")
@@ -325,16 +326,18 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
     def test_120_qrexec_filecopy_self(self):
         self.testvm1.start()
         p = self.testvm1.run("qvm-copy-to-vm %s /etc/passwd" %
-                            self.testvm1.name, passio_popen=True,
-                            passio_stderr=True)
+                             self.testvm1.name, passio_popen=True,
+                             passio_stderr=True)
         # Confirm transfer
         subprocess.check_call(['xdotool', 'search', '--sync', '--name', 'Question',
-                             'key', 'y'])
+                              'key', 'y'])
         p.wait()
         self.assertEqual(p.returncode, 0, "qvm-copy-to-vm failed: %s" %
                          p.stderr.read())
-        retcode = self.testvm1.run("diff /etc/passwd "
-                         "/home/user/QubesIncoming/%s/passwd" % self.testvm1.name, wait=True)
+        retcode = self.testvm1.run(
+            "diff /etc/passwd /home/user/QubesIncoming/{}/passwd".format(
+                self.testvm1.name),
+            wait=True)
         self.assertEqual(retcode, 0, "file differs")
 
     def test_200_timezone(self):
@@ -360,56 +363,56 @@ class TC_10_HVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     # TODO: windows tools tests
 
     def test_000_create_start(self):
-        self.testvm1 = self.qc.add_new_vm("QubesHVm",
-            name=self.make_vm_name('vm1'))
-        self.testvm1.create_on_disk(verbose=False)
+        testvm1 = self.qc.add_new_vm("QubesHVm",
+                                     name=self.make_vm_name('vm1'))
+        testvm1.create_on_disk(verbose=False)
         self.qc.save()
         self.qc.unlock_db()
-        self.testvm1.start()
-        self.assertEquals(self.testvm1.get_power_state(), "Running")
+        testvm1.start()
+        self.assertEquals(testvm1.get_power_state(), "Running")
 
     def test_010_create_start_template(self):
-        self.templatevm = self.qc.add_new_vm("QubesTemplateHVm",
-            name=self.make_vm_name('template'))
-        self.templatevm.create_on_disk(verbose=False)
+        templatevm = self.qc.add_new_vm("QubesTemplateHVm",
+                                        name=self.make_vm_name('template'))
+        templatevm.create_on_disk(verbose=False)
         self.qc.save()
         self.qc.unlock_db()
 
-        self.templatevm.start()
-        self.assertEquals(self.templatevm.get_power_state(), "Running")
+        templatevm.start()
+        self.assertEquals(templatevm.get_power_state(), "Running")
 
     def test_020_create_start_template_vm(self):
-        self.templatevm = self.qc.add_new_vm("QubesTemplateHVm",
-            name=self.make_vm_name('template'))
-        self.templatevm.create_on_disk(verbose=False)
-        self.testvm2 = self.qc.add_new_vm("QubesHVm",
-            name=self.make_vm_name('vm2'),
-            template=self.templatevm)
-        self.testvm2.create_on_disk(verbose=False)
+        templatevm = self.qc.add_new_vm("QubesTemplateHVm",
+                                        name=self.make_vm_name('template'))
+        templatevm.create_on_disk(verbose=False)
+        testvm2 = self.qc.add_new_vm("QubesHVm",
+                                     name=self.make_vm_name('vm2'),
+                                     template=templatevm)
+        testvm2.create_on_disk(verbose=False)
         self.qc.save()
         self.qc.unlock_db()
 
-        self.testvm2.start()
-        self.assertEquals(self.testvm2.get_power_state(), "Running")
+        testvm2.start()
+        self.assertEquals(testvm2.get_power_state(), "Running")
 
     def test_030_prevent_simultaneus_start(self):
-        self.templatevm = self.qc.add_new_vm("QubesTemplateHVm",
-            name=self.make_vm_name('template'))
-        self.templatevm.create_on_disk(verbose=False)
-        self.testvm2 = self.qc.add_new_vm("QubesHVm",
-            name=self.make_vm_name('vm2'),
-            template=self.templatevm)
-        self.testvm2.create_on_disk(verbose=False)
+        templatevm = self.qc.add_new_vm("QubesTemplateHVm",
+                                        name=self.make_vm_name('template'))
+        templatevm.create_on_disk(verbose=False)
+        testvm2 = self.qc.add_new_vm("QubesHVm",
+                                     name=self.make_vm_name('vm2'),
+                                     template=templatevm)
+        testvm2.create_on_disk(verbose=False)
         self.qc.save()
         self.qc.unlock_db()
 
-        self.templatevm.start()
-        self.assertEquals(self.templatevm.get_power_state(), "Running")
-        self.assertRaises(QubesException, self.testvm2.start)
-        self.templatevm.force_shutdown()
-        self.testvm2.start()
-        self.assertEquals(self.testvm2.get_power_state(), "Running")
-        self.assertRaises(QubesException, self.templatevm.start)
+        templatevm.start()
+        self.assertEquals(templatevm.get_power_state(), "Running")
+        self.assertRaises(QubesException, testvm2.start)
+        templatevm.force_shutdown()
+        testvm2.start()
+        self.assertEquals(testvm2.get_power_state(), "Running")
+        self.assertRaises(QubesException, templatevm.start)
 
 
 class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
@@ -435,7 +438,6 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
         (stdout, _) = p.communicate(input="echo test")
         self.assertEqual(stdout, "test\n")
         # TODO: check if DispVM is destroyed
-
 
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
@@ -553,26 +555,27 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
     def test_030_edit_file(self):
-        self.testvm1 = self.qc.add_new_vm("QubesAppVm",
-            name=self.make_vm_name('vm1'),
-            template=self.qc.get_vm_by_name(self.template))
-        self.testvm1.create_on_disk(verbose=False)
+        testvm1 = self.qc.add_new_vm("QubesAppVm",
+                                     name=self.make_vm_name('vm1'),
+                                     template=self.qc.get_vm_by_name(
+                                         self.template))
+        testvm1.create_on_disk(verbose=False)
         self.qc.save()
 
-        self.testvm1.start()
-        self.testvm1.run("echo test1 > /home/user/test.txt", wait=True)
+        testvm1.start()
+        testvm1.run("echo test1 > /home/user/test.txt", wait=True)
 
         self.qc.unlock_db()
-        p = self.testvm1.run("qvm-open-in-dvm /home/user/test.txt",
-                         passio_popen=True)
+        p = testvm1.run("qvm-open-in-dvm /home/user/test.txt",
+                        passio_popen=True)
 
         wait_count = 0
         winid = None
         while True:
             search = subprocess.Popen(['xdotool', 'search',
                                        '--onlyvisible', '--class', 'disp*'],
-                              stdout=subprocess.PIPE,
-                              stderr=open(os.path.devnull, 'w'))
+                                      stdout=subprocess.PIPE,
+                                      stderr=open(os.path.devnull, 'w'))
             retcode = search.wait()
             if retcode == 0:
                 winid = search.stdout.read().strip()
@@ -584,31 +587,32 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
 
         self._handle_editor(winid)
         p.wait()
-        p = self.testvm1.run("cat /home/user/test.txt",
-                         passio_popen=True)
+        p = testvm1.run("cat /home/user/test.txt",
+                        passio_popen=True)
         (test_txt_content, _) = p.communicate()
         self.assertEqual(test_txt_content, "test test 2\ntest1\n")
+
 
 class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
     def test_000_clipboard(self):
-        self.testvm1 = self.qc.add_new_vm("QubesAppVm",
-            name=self.make_vm_name('vm1'),
-            template=self.qc.get_default_template())
-        self.testvm1.create_on_disk(verbose=False)
-        self.testvm2 = self.qc.add_new_vm("QubesAppVm",
-            name=self.make_vm_name('vm2'),
-            template=self.qc.get_default_template())
-        self.testvm2.create_on_disk(verbose=False)
+        testvm1 = self.qc.add_new_vm("QubesAppVm",
+                                     name=self.make_vm_name('vm1'),
+                                     template=self.qc.get_default_template())
+        testvm1.create_on_disk(verbose=False)
+        testvm2 = self.qc.add_new_vm("QubesAppVm",
+                                     name=self.make_vm_name('vm2'),
+                                     template=self.qc.get_default_template())
+        testvm2.create_on_disk(verbose=False)
         self.qc.save()
         self.qc.unlock_db()
 
-        self.testvm1.start()
-        self.testvm2.start()
+        testvm1.start()
+        testvm2.start()
 
-        window_title = 'user@{}'.format(self.testvm1.name)
-        self.testvm1.run('zenity --text-info --editable --title={}'.format(
+        window_title = 'user@{}'.format(testvm1.name)
+        testvm1.run('zenity --text-info --editable --title={}'.format(
             window_title))
 
         wait_count = 0
@@ -621,33 +625,34 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             time.sleep(0.1)
 
         time.sleep(0.5)
-        test_string = "test{}".format(self.testvm1.xid)
+        test_string = "test{}".format(testvm1.xid)
 
         # Type and copy some text
         subprocess.check_call(['xdotool', 'search', '--name', window_title,
-                              'windowactivate',
-                              'type', '{}'.format(test_string)])
+                               'windowactivate',
+                               'type', '{}'.format(test_string)])
         # second xdotool call because type --terminator do not work (SEGV)
         # additionally do not use search here, so window stack will be empty
         # and xdotool will use XTEST instead of generating events manually -
         # this will be much better - at least because events will have
         # correct timestamp (so gui-daemon would not drop the copy request)
         subprocess.check_call(['xdotool',
-                              'key', 'ctrl+a', 'ctrl+c', 'ctrl+shift+c',
-                              'Escape'])
+                               'key', 'ctrl+a', 'ctrl+c', 'ctrl+shift+c',
+                               'Escape'])
 
         clipboard_content = \
             open('/var/run/qubes/qubes-clipboard.bin', 'r').read().strip()
         self.assertEquals(clipboard_content, test_string,
                           "Clipboard copy operation failed - content")
         clipboard_source = \
-            open('/var/run/qubes/qubes-clipboard.bin.source', 'r').read().strip()
-        self.assertEquals(clipboard_source, self.testvm1.name,
+            open('/var/run/qubes/qubes-clipboard.bin.source',
+                 'r').read().strip()
+        self.assertEquals(clipboard_source, testvm1.name,
                           "Clipboard copy operation failed - owner")
 
         # Then paste it to the other window
-        window_title = 'user@{}'.format(self.testvm2.name)
-        self.testvm2.run('zenity --entry --title={} > test.txt'.format(
+        window_title = 'user@{}'.format(testvm2.name)
+        testvm2.run('zenity --entry --title={} > test.txt'.format(
             window_title))
         wait_count = 0
         while subprocess.call(['xdotool', 'search', '--name', window_title],
@@ -663,8 +668,8 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         time.sleep(0.5)
 
         # And compare the result
-        (test_output, _) = self.testvm2.run('cat test.txt',
-                                            passio_popen=True).communicate()
+        (test_output, _) = testvm2.run('cat test.txt',
+                                       passio_popen=True).communicate()
         self.assertEquals(test_string, test_output.strip())
 
         clipboard_content = \
