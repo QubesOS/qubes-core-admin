@@ -359,6 +359,50 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                                       passio_popen=True).communicate()
         self.assertEqual(vm_tz.strip(), "UTC")
 
+    def test_210_time_sync(self):
+        """Test time synchronization mechanism"""
+        self.testvm1.start()
+        self.testvm2.start()
+        (start_time, _) = subprocess.Popen(["date", "-u", "+%s"],
+                                           stdout=subprocess.PIPE).communicate()
+        original_clockvm_name = self.qc.get_clockvm_vm().name
+        try:
+            # use qubes-prefs to not hassle with qubes.xml locking
+            subprocess.check_call(["qubes-prefs", "-s", "clockvm",
+                                   self.testvm1.name])
+            # break vm and dom0 time, to check if qvm-sync-clock would fix it
+            subprocess.check_call(["sudo", "date", "-s",
+                                   "2001-01-01T12:34:56"],
+                                  stdout=open(os.devnull, 'w'))
+            retcode = self.testvm1.run("date -s 2001-01-01T12:34:56",
+                                       user="root", wait=True)
+            self.assertEquals(retcode, 0, "Failed to break the VM(1) time")
+            retcode = self.testvm2.run("date -s 2001-01-01T12:34:56",
+                                       user="root", wait=True)
+            self.assertEquals(retcode, 0, "Failed to break the VM(2) time")
+            retcode = subprocess.call(["qvm-sync-clock"])
+            self.assertEquals(retcode, 0,
+                              "qvm-sync-clock failed with code {}".
+                              format(retcode))
+            (vm_time, _) = self.testvm1.run("date -u +%s",
+                                            passio_popen=True).communicate()
+            self.assertAlmostEquals(int(vm_time), int(start_time), delta=10)
+            (vm_time, _) = self.testvm2.run("date -u +%s",
+                                            passio_popen=True).communicate()
+            self.assertAlmostEquals(int(vm_time), int(start_time), delta=10)
+            (dom0_time, _) = subprocess.Popen(["date", "-u", "+%s"],
+                                              stdout=subprocess.PIPE
+                                              ).communicate()
+            self.assertAlmostEquals(int(dom0_time), int(start_time), delta=10)
+
+        except:
+            # reset time to some approximation of the real time
+            subprocess.Popen(["sudo", "date", "-u", "-s", "@" + start_time])
+            raise
+        finally:
+            subprocess.call(["qubes-prefs", "-s", "clockvm",
+                             original_clockvm_name])
+
 
 class TC_10_HVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     # TODO: test with some OS inside
