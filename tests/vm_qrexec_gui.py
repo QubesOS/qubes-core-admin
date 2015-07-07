@@ -49,8 +49,10 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             name=self.make_vm_name('vm2'),
             template=self.qc.get_vm_by_name(self.template))
         self.testvm2.create_on_disk(verbose=False)
-        self.qc.save()
+        self.save_and_reload_db()
         self.qc.unlock_db()
+        self.testvm1 = self.qc[self.testvm1.qid]
+        self.testvm2 = self.qc[self.testvm2.qid]
 
     def test_000_start_shutdown(self):
         self.testvm1.start()
