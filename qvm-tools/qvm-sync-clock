@@ -102,8 +102,10 @@ def main():
     if verbose:
         print >> sys.stderr, '--> Syncing dom0 clock.'
 
-    subprocess.check_call(['sudo', 'date', '-u', '-Iseconds', '-s', date_out])
-    subprocess.check_call(['sudo', 'hwclock', '--systohc'])
+    subprocess.check_call(['sudo', 'date', '-u', '-Iseconds', '-s', date_out],
+                          stdout=None if verbose else open(os.devnull, 'w'))
+    subprocess.check_call(['sudo', 'hwclock', '--systohc'],
+                          stdout=None if verbose else open(os.devnull, 'w'))
 
     # Sync other VMs clock
     for vm in qvm_collection.values():
