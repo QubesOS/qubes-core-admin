@@ -32,7 +32,7 @@ def main():
     parser = OptionParser (usage)
     parser.add_option ("--offline-mode", dest="offline_mode",
                        action="store_true", default=False,
-                       help="Offline mode (ignored in this version)")
+                       help="Offline mode")
 
     (options, args) = parser.parse_args ()
     if (len (args) != 1):
