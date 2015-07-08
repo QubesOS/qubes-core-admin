@@ -455,12 +455,10 @@ class QubesVM(qubes.vm.BaseVM):
         self._libvirt_domain = None
         self._qdb_connection = None
 
-        if xml is not None:
-            return
-
-        # else: we are creating new VM and attributes came through kwargs
-        assert self.qid < qubes.config.max_qid, "VM id out of bounds!"
-        assert self.name is not None
+        if xml is None:
+            # we are creating new VM and attributes came through kwargs
+            assert self.qid < qubes.config.max_qid, "VM id out of bounds!"
+            assert self.name is not None
 
         # Not in generic way to not create QubesHost() to frequently
         # XXX this doesn't apply, host is instantiated once
