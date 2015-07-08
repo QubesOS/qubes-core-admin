@@ -195,7 +195,7 @@ class QubesVm(object):
             'backup_content', 'backup_size', 'backup_path' ]:
             attrs[prop]['save'] = lambda prop=prop: str(getattr(self, prop))
         # Simple paths
-        for prop in ['conf_file', 'root_img', 'volatile_img', 'private_img']:
+        for prop in ['conf_file', 'firewall_conf', 'root_img', 'volatile_img', 'private_img']:
             attrs[prop]['save'] = \
                 lambda prop=prop: self.relative_path(getattr(self, prop))
             attrs[prop]['save_skip'] = \
@@ -1246,6 +1246,9 @@ class QubesVm(object):
                     if verbose:
                         print >> sys.stderr, "--> Copying icon: {0} -> {1}".format(src_vm.icon_path, self.icon_path)
                     shutil.copy(src_vm.icon_path, self.icon_path)
+
+        if src_vm.has_firewall():
+            self.write_firewall_conf(src_vm.get_firewall_conf())
 
         # fire hooks
         for hook in self.hooks_clone_disk_files:
