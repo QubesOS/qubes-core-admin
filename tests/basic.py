@@ -33,6 +33,8 @@ from qubes.qubes import QubesVmCollection, QubesException, system_path
 
 import qubes.qubes
 import qubes.tests
+from qubes.qubes import QubesVmLabels
+
 
 class TC_00_Basic(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     def test_000_create(self):
@@ -153,6 +155,90 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         with self.assertRaises(ValueError):
             self.vm.dispvm_netvm = self.vm
 
+    def test_030_clone(self):
+        testvm1 = self.qc.add_new_vm(
+            "QubesAppVm",
+            name=self.make_vm_name("vm"),
+            template=self.qc.get_default_template())
+        testvm1.create_on_disk(verbose=False)
+        testvm2 = self.qc.add_new_vm(testvm1.__class__.__name__,
+                                     name=self.make_vm_name("clone"),
+                                     template=testvm1.template,
+                                     )
+        testvm2.clone_attrs(src_vm=testvm1)
+        testvm2.clone_disk_files(src_vm=testvm1, verbose=False)
 
+        # qubes.xml reload
+        self.save_and_reload_db()
+        testvm1 = self.qc[testvm1.qid]
+        testvm2 = self.qc[testvm2.qid]
+
+        self.assertEquals(testvm1.label, testvm2.label)
+        self.assertEquals(testvm1.netvm, testvm2.netvm)
+        self.assertEquals(testvm1.uses_default_netvm,
+                          testvm2.uses_default_netvm)
+        self.assertEquals(testvm1.kernel, testvm2.kernel)
+        self.assertEquals(testvm1.kernelopts, testvm2.kernelopts)
+        self.assertEquals(testvm1.uses_default_kernel,
+                          testvm2.uses_default_kernel)
+        self.assertEquals(testvm1.uses_default_kernelopts,
+                          testvm2.uses_default_kernelopts)
+        self.assertEquals(testvm1.memory, testvm2.memory)
+        self.assertEquals(testvm1.maxmem, testvm2.maxmem)
+        self.assertEquals(testvm1.pcidevs, testvm2.pcidevs)
+        self.assertEquals(testvm1.include_in_backups,
+                          testvm2.include_in_backups)
+        self.assertEquals(testvm1.default_user, testvm2.default_user)
+        self.assertEquals(testvm1.services, testvm2.services)
+        self.assertEquals(testvm1.get_firewall_conf(),
+                          testvm2.get_firewall_conf())
+
+        # now some non-default values
+        testvm1.netvm = None
+        testvm1.uses_default_netvm = False
+        testvm1.label = QubesVmLabels['orange']
+        testvm1.memory = 512
+        firewall = testvm1.get_firewall_conf()
+        firewall['allowDns'] = False
+        firewall['allowYumProxy'] = False
+        firewall['rules'] = [{'address': '1.2.3.4',
+                              'netmask': 24,
+                              'proto': 'tcp',
+                              'portBegin': 22,
+                              'portEnd': 22,
+                              }]
+        testvm1.write_firewall_conf(firewall)
+
+        testvm3 = self.qc.add_new_vm(testvm1.__class__.__name__,
+                                     name=self.make_vm_name("clone2"),
+                                     template=testvm1.template,
+                                     )
+        testvm3.clone_attrs(src_vm=testvm1)
+        testvm3.clone_disk_files(src_vm=testvm1, verbose=False)
+
+        # qubes.xml reload
+        self.save_and_reload_db()
+        testvm1 = self.qc[testvm1.qid]
+        testvm3 = self.qc[testvm3.qid]
+
+        self.assertEquals(testvm1.label, testvm3.label)
+        self.assertEquals(testvm1.netvm, testvm3.netvm)
+        self.assertEquals(testvm1.uses_default_netvm,
+                          testvm3.uses_default_netvm)
+        self.assertEquals(testvm1.kernel, testvm3.kernel)
+        self.assertEquals(testvm1.kernelopts, testvm3.kernelopts)
+        self.assertEquals(testvm1.uses_default_kernel,
+                          testvm3.uses_default_kernel)
+        self.assertEquals(testvm1.uses_default_kernelopts,
+                          testvm3.uses_default_kernelopts)
+        self.assertEquals(testvm1.memory, testvm3.memory)
+        self.assertEquals(testvm1.maxmem, testvm3.maxmem)
+        self.assertEquals(testvm1.pcidevs, testvm3.pcidevs)
+        self.assertEquals(testvm1.include_in_backups,
+                          testvm3.include_in_backups)
+        self.assertEquals(testvm1.default_user, testvm3.default_user)
+        self.assertEquals(testvm1.services, testvm3.services)
+        self.assertEquals(testvm1.get_firewall_conf(),
+                          testvm3.get_firewall_conf())
 
 # vim: ts=4 sw=4 et
