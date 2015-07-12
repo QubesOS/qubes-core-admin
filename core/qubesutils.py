@@ -355,9 +355,8 @@ def block_check_attached(qvmc, device):
             disks = parsed_xml.xpath("//domain/devices/disk")
             for disk in disks:
                 backend_name = 'dom0'
-                # FIXME: move <domain/> into <source/>
-                if disk.find('domain') is not None:
-                    backend_name = disk.find('domain').get('name')
+                if disk.find('backenddomain') is not None:
+                    backend_name = disk.find('backenddomain').get('name')
                 source = disk.find('source')
                 if disk.get('type') == 'file':
                     path = source.get('file')
