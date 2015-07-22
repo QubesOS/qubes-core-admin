@@ -118,7 +118,12 @@ def main():
     ''')
     fstrim_process.stdin.close()
 
-    qubesutils.block_attach(fstrim_vm, qvm_collection[0], tvm.root_img,
+    qubesutils.block_attach(qvm_collection, fstrim_vm,
+                            {
+                                'vm': 'dom0',
+                                'device': tvm.root_img,
+                                'mode': 'w',
+                            },
                             mode='w',
                             frontend='xvdi')
 
