@@ -329,6 +329,10 @@ class QubesHVm(QubesVm):
             return -1
 
     def start(self, *args, **kwargs):
+        # make it available to storage.prepare_for_vm_startup, which is
+        # called before actually building VM libvirt configuration
+        self.storage.drive = self.drive
+
         if self.template and self.template.is_running():
             raise QubesException("Cannot start the HVM while its template is running")
         try:

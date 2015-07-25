@@ -226,3 +226,24 @@ class QubesXenVmStorage(QubesVmStorage):
                 return
         super(QubesXenVmStorage, self).reset_volatile_storage(
             verbose=verbose, source_template=source_template)
+
+    def prepare_for_vm_startup(self, verbose):
+        super(QubesXenVmStorage, self).prepare_for_vm_startup(verbose=verbose)
+
+        if self.drive is not None:
+            (drive_type, drive_domain, drive_path) = self.drive.split(":")
+            if drive_domain.lower() != "dom0":
+                try:
+                    # FIXME: find a better way to access QubesVmCollection
+                    drive_vm = self.vm._collection.get_vm_by_name(drive_domain)
+                    # prepare for improved QubesVmCollection
+                    if drive_vm is None:
+                        raise KeyError
+                    if not drive_vm.is_running():
+                        raise QubesException(
+                            "VM '{}' holding '{}' isn't running".format(
+                                drive_domain, drive_path))
+                except KeyError:
+                    raise QubesException(
+                        "VM '{}' holding '{}' does not exists".format(
+                            drive_domain, drive_path))
