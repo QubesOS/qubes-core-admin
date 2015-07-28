@@ -27,8 +27,20 @@ sfdisk --no-reread -u M "$FILENAME" > /dev/null 2> /dev/null <<EOF
 ,${ROOT_SIZE},L
 EOF
 
-loopdev=`losetup -f --show --partscan "$FILENAME"`
-udevadm settle
-mkswap -f ${loopdev}p1 > /dev/null
-losetup -d ${loopdev} || :
-chown --reference `dirname "$FILENAME"` "$FILENAME"
+# Loop until we can obtain a lock
+counter=1
+while [ $counter -le 10 ]; do
+  exec 200< $0
+  if flock -n 200; then
+    loopdev=`losetup -f --show --partscan "$FILENAME"`
+    udevadm settle
+    mkswap -f ${loopdev}p1 > /dev/null
+    losetup -d ${loopdev} || :
+    chown --reference `dirname "$FILENAME"` "$FILENAME"
+    break
+  else
+    counter=$((counter++))
+    echo "Lock is already obtained.. waiting 5 seconds til we try again (attempt #${counter})"
+    sleep 5
+  fi
+done
