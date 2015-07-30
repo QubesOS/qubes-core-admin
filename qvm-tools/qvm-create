@@ -74,14 +74,11 @@ def main():
     if (options.netvm + options.proxyvm + options.hvm + options.hvm_template) > 1:
         parser.error ("You must specify at most one VM type switch")
         
-    if hasattr(os, "geteuid") and os.geteuid() == 0:
+    if not options.force_root and hasattr(os, "geteuid") and os.geteuid() == 0:
         print >> sys.stderr, "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
-        if options.force_root:
-            print >> sys.stderr, "Continuing as commanded. You have been warned."
-        else:
-            print >> sys.stderr, "Retry as unprivileged user."
-            print >> sys.stderr, "... or use --force-root to continue anyway."
-            exit(1)
+        print >> sys.stderr, "Retry as unprivileged user."
+        print >> sys.stderr, "... or use --force-root to continue anyway."
+        exit(1)
 
     if options.label is None:
         print >> sys.stderr, "You must choose a label for the new VM by passing the --label option."
