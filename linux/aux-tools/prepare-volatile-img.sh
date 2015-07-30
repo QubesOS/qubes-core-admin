@@ -6,6 +6,10 @@ fi
 
 set -e
 
+if ! echo $PATH | grep -q sbin; then
+	PATH=$PATH:/sbin:/usr/sbin
+fi
+
 FILENAME=$1
 ROOT_SIZE=$2
 SWAP_SIZE=$[ 1024 ]
