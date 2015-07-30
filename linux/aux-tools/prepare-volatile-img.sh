@@ -27,8 +27,11 @@ sfdisk --no-reread -u M "$FILENAME" > /dev/null 2> /dev/null <<EOF
 ,${ROOT_SIZE},L
 EOF
 
-loopdev=`losetup -f --show --partscan "$FILENAME"`
-udevadm settle
-mkswap -f ${loopdev}p1 > /dev/null
-losetup -d ${loopdev} || :
-chown --reference `dirname "$FILENAME"` "$FILENAME"
+(
+	flock 200
+	loopdev=`losetup -f --show --partscan "$FILENAME"`
+	udevadm settle
+	mkswap -f ${loopdev}p1 > /dev/null
+	losetup -d ${loopdev} || :
+	chown --reference `dirname "$FILENAME"` "$FILENAME"
+) 200>"/var/run/qubes/prepare-volatile-img.lock"
