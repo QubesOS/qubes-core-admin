@@ -848,6 +848,8 @@ class QubesVm(object):
         return True
 
     def is_running(self):
+        if vmm.offline_mode:
+            return False
         try:
             if self.libvirt_domain.isActive():
                 return True
@@ -1192,7 +1194,10 @@ class QubesVm(object):
             shutil.copy(self.label.icon_path, self.icon_path)
 
         # Make sure that we have UUID allocated
-        self._update_libvirt_domain()
+        if not vmm.offline_mode:
+            self._update_libvirt_domain()
+        else:
+            self.uuid = uuid.uuid4()
 
         # fire hooks
         for hook in self.hooks_create_on_disk:

@@ -29,6 +29,18 @@ EOF
 
 loopdev=`losetup -f --show --partscan "$FILENAME"`
 udevadm settle
+created=
+if [ ! -e ${loopdev}p1 ]; then
+	# device wasn't created automatically, probably udev isn't running;
+	# create devs manually
+	for partdev in /sys/block/$(basename ${loopdev})/loop*p*; do
+		mknod /dev/$(basename ${partdev}) b $(cat ${partdev}/dev | tr : ' ')
+	done
+	created=yes
+fi
 mkswap -f ${loopdev}p1 > /dev/null
+if [ "$created" = "yes" ]; then
+	rm -f ${loopdev}p*
+fi
 losetup -d ${loopdev} || :
 chown --reference `dirname "$FILENAME"` "$FILENAME"

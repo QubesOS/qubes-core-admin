@@ -30,6 +30,8 @@ import subprocess
 import os
 import sys
 import re
+from qubes.qubes import vmm
+
 
 def do_list(vm):
     label_width = 19
@@ -541,6 +543,9 @@ def main():
     parser.add_option("--force-root", action="store_true", dest="force_root",
                       default=False,
                       help="Force to run, even with root privileges")
+    parser.add_option ("--offline-mode", dest="offline_mode",
+                       action="store_true", default=False,
+                       help="Offline mode")
 
     (options, args) = parser.parse_args ()
     if (len (args) < 1):
@@ -559,6 +564,9 @@ def main():
         print >> sys.stderr, "You can provide at most one of -l, -g and -s at " \
                              "the same time!"
         exit(1)
+
+    if options.offline_mode:
+        vmm.offline_mode = True
 
     if options.do_set:
         qvm_collection = QubesVmCollection()
