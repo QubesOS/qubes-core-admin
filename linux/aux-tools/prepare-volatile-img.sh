@@ -27,11 +27,14 @@ sfdisk --no-reread -u M "$FILENAME" > /dev/null 2> /dev/null <<EOF
 ,${ROOT_SIZE},L
 EOF
 
-kpartx -s -a "$FILENAME"
-loopdev=`losetup -j "$FILENAME"|tail -n 1 |cut -d: -f1`
-looppart=`echo $loopdev|sed 's:dev:dev/mapper:'`
-mkswap -f ${looppart}p1 > /dev/null
-udevadm settle
-kpartx -s -d ${loopdev}
-losetup -d ${loopdev} || :
-chown --reference `dirname "$FILENAME"` "$FILENAME"
+(
+	flock 200
+	kpartx -s -a "$FILENAME"
+	loopdev=`losetup -j "$FILENAME"|tail -n 1 |cut -d: -f1`
+	looppart=`echo $loopdev|sed 's:dev:dev/mapper:'`
+	mkswap -f ${looppart}p1 > /dev/null
+	udevadm settle
+	kpartx -s -d ${loopdev}
+	losetup -d ${loopdev} || :
+	chown --reference `dirname "$FILENAME"` "$FILENAME"
+) 200>"/var/run/qubes/prepare-volatile-img.lock"
