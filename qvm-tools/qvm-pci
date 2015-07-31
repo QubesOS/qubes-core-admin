@@ -26,6 +26,8 @@ from optparse import OptionParser
 import subprocess
 import os
 import sys
+from qubes.qubes import vmm
+
 
 def main():
     usage = "usage: %prog -l [options] <vm-name>\n"\
@@ -37,6 +39,9 @@ def main():
     parser.add_option ("-l", "--list", action="store_true", dest="do_list", default=False)
     parser.add_option ("-a", "--add", action="store_true", dest="do_add", default=False)
     parser.add_option ("-d", "--delete", action="store_true", dest="do_delete", default=False)
+    parser.add_option ("--offline-mode", dest="offline_mode",
+                       action="store_true", default=False,
+                       help="Offline mode")
 
     (options, args) = parser.parse_args ()
     if (len (args) < 1):
@@ -47,6 +52,9 @@ def main():
     if options.do_list + options.do_add + options.do_delete > 1:
         print >> sys.stderr, "Only one of -l -a -d is allowed!"
         exit (1)
+
+    if options.offline_mode:
+        vmm.offline_mode = True
 
     if options.do_add or options.do_delete:
         qvm_collection = QubesVmCollection()
