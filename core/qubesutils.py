@@ -844,8 +844,18 @@ class QubesWatch(object):
 ##### updates check #####
 
 UPDATES_DOM0_DISABLE_FLAG='/var/lib/qubes/updates/disable-updates'
+UPDATES_DEFAULT_VM_DISABLE_FLAG=\
+    '/var/lib/qubes/updates/vm-default-disable-updates'
 
 def updates_vms_toggle(qvm_collection, value):
+    # Flag for new VMs
+    if value:
+        if os.path.exists(UPDATES_DEFAULT_VM_DISABLE_FLAG):
+            os.unlink(UPDATES_DEFAULT_VM_DISABLE_FLAG)
+    else:
+        open(UPDATES_DEFAULT_VM_DISABLE_FLAG, "w").close()
+
+    # Change for existing VMs
     for vm in qvm_collection.values():
         if vm.qid == 0:
             continue
@@ -875,5 +885,16 @@ def updates_dom0_toggle(qvm_collection, value):
 def updates_dom0_status(qvm_collection):
     return not os.path.exists(UPDATES_DOM0_DISABLE_FLAG)
 
+def updates_vms_status(qvm_collection):
+    # default value:
+    status = not os.path.exists(UPDATES_DEFAULT_VM_DISABLE_FLAG)
+    # check if all the VMs uses the default value
+    for vm in qvm_collection.values():
+        if vm.qid == 0:
+            continue
+        if vm.services.get('qubes-update-check', True) != status:
+            # "mixed"
+            return None
+    return status
 
 # vim:sw=4:et:

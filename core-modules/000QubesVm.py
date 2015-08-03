@@ -43,6 +43,7 @@ from qubes.qubes import dry_run,vmm
 from qubes.qubes import register_qubes_vm_class
 from qubes.qubes import QubesVmCollection,QubesException,QubesHost,QubesVmLabels
 from qubes.qubes import defaults,system_path,vm_files,qubes_max_qid
+
 qmemman_present = False
 try:
     from qubes.qmemman_client import QMemmanClient
@@ -333,6 +334,11 @@ class QubesVm(object):
         # Additionally force meminfo-writer disabled when VM have PCI devices
         if len(self.pcidevs) > 0:
             self.services['meminfo-writer'] = False
+
+        if 'xml_element' not in kwargs:
+            # New VM, disable updates check if requested for new VMs
+            if os.path.exists(qubes.qubesutils.UPDATES_DEFAULT_VM_DISABLE_FLAG):
+                self.services['qubes-update-check'] = False
 
         # Initialize VM image storage class
         self.storage = defaults["storage_class"](self)

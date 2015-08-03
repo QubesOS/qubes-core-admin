@@ -27,15 +27,14 @@ import os
 import sys
 from qubes.qubes import QubesVmCollection
 from qubes.qubesutils import updates_vms_toggle,updates_dom0_toggle,\
-    updates_dom0_status
+    updates_dom0_status,updates_vms_status
 from qubes.qubes import vmm
 
 
 def main():
 
     usage = "%prog enable|disable|status\n"\
-            "  Enable or disable globally checking for updates (both dom0 and VM)"\
-            "  Status option checks only dom0 updates status"
+            "  Enable or disable globally checking for updates (both dom0 and VM)"
     parser = OptionParser (usage)
     parser.add_option("--offline-mode", dest="offline_mode",
                       action="store_true", default=False,
@@ -67,9 +66,16 @@ def main():
         updates_vms_toggle(qvm_collection, False)
     else:
         if updates_dom0_status(qvm_collection):
-            print "enabled"
+            print "dom0: enabled"
         else:
-            print "disabled"
+            print "dom0: disabled"
+        status_vms = updates_vms_status(qvm_collection)
+        if status_vms is None:
+            print "vms: mixed"
+        elif status_vms:
+            print "vms: enabled"
+        else:
+            print "vms: disabled"
 
     if action != 'status':
         qvm_collection.save()
