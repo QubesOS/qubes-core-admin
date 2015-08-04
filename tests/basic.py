@@ -70,6 +70,8 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         newname = self.make_vm_name('newname')
 
         self.assertEqual(self.vm.name, self.vmname)
+        self.vm.write_firewall_conf({'allow': False, 'allowDns': False})
+        pre_rename_firewall = self.vm.get_firewall_conf()
 
         #TODO: change to setting property when implemented
         self.vm.set_name(newname)
@@ -95,6 +97,9 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.assertFalse(os.path.exists(
             os.path.join(os.getenv("HOME"), ".local/share/applications",
                 self.vmname + "-firefox.desktop")))
+        self.assertEquals(pre_rename_firewall, self.vm.get_firewall_conf())
+        with self.assertNotRaises(QubesException, OSError):
+            self.vm.write_firewall_conf({'allow': False})
 
     def test_010_netvm(self):
         if self.qc.get_default_netvm() is None:
