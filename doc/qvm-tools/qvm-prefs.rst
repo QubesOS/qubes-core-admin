@@ -111,8 +111,10 @@ kernelopts
     VM kernel parameters (available only for PV VMs). This can be used to
     workaround some hardware specific problems (eg for NetVM). Setting to
     ``default`` will use some reasonable defaults (currently different for VMs
-    with PCI devices and without). Some helpful options (for debugging
-    purposes): ``earlyprintk=xen``, ``init=/bin/bash``
+    with PCI devices and without). For VM without PCI devices
+    ``default`` option means inherit this value from the VM template (if any).
+    Some helpful options (for debugging purposes): ``earlyprintk=xen``,
+    ``init=/bin/bash``
 
 name
     Accepted values: alphanumerical name

@@ -146,6 +146,7 @@ class QubesVm(object):
                 "order": 31,
                 "func": lambda value: value if not self.uses_default_kernelopts\
                     else defaults["kernelopts_pcidevs"] if len(self.pcidevs)>0 \
+                    else self.template.kernelopts if self.template
                     else defaults["kernelopts"] },
             "mac": { "attr": "_mac", "default": None },
             "include_in_backups": {
