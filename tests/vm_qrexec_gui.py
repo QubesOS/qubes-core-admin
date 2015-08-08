@@ -235,6 +235,42 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         if result.value == 1:
             self.fail("Received data differs from what was expected")
 
+    def test_055_qrexec_dom0_service_abort(self):
+        """
+        Test if service abort (by dom0) is properly handled by source VM.
+
+        If "remote" part of the service terminates, the source part should
+        properly be notified. This includes closing its stdin (which is
+        already checked by test_053_qrexec_vm_service_eof_reverse), but also
+        its stdout - otherwise such service might hang on write(2) call.
+        """
+
+        def run (src):
+            p = src.run("/usr/lib/qubes/qrexec-client-vm dom0 "
+                                 "test.Abort /bin/cat /dev/zero",
+                                 passio_popen=True)
+
+            p.communicate()
+            p.wait()
+
+        self.testvm1.start()
+        service = open("/etc/qubes-rpc/test.Abort", "w")
+        service.write("sleep 1")
+        service.close()
+        self.addCleanup(os.unlink, "/etc/qubes-rpc/test.Abort")
+        policy = open("/etc/qubes-rpc/policy/test.Abort", "w")
+        policy.write("%s dom0 allow" % (self.testvm1.name))
+        policy.close()
+        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.Abort")
+
+        t = multiprocessing.Process(target=run, args=(self.testvm1,))
+        t.start()
+        t.join(timeout=10)
+        if t.is_alive():
+            t.terminate()
+            self.fail("Timeout, probably stdout wasn't closed")
+
+
     def test_060_qrexec_exit_code_dom0(self):
         self.testvm1.start()
 
