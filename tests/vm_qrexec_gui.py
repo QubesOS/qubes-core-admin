@@ -208,7 +208,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         def run(self, result):
             p = self.testvm1.run("/usr/lib/qubes/qrexec-client-vm %s test.EOF "
                                  "/bin/sh -c 'cat >&$SAVED_FD_1'"
-                                 % self.testvm1.name,
+                                 % self.testvm2.name,
                                  passio_popen=True)
             (stdout, stderr) = p.communicate()
             if stdout != "test\n":
