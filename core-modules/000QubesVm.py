@@ -694,7 +694,7 @@ class QubesVm(object):
         try:
             return self.libvirt_domain.ID()
         except libvirt.libvirtError as e:
-            if e.err[0] == libvirt.VIR_ERR_NO_DOMAIN:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return -1
             else:
                 raise
@@ -736,7 +736,7 @@ class QubesVm(object):
                 return 0
             return self.libvirt_domain.info()[1]
         except libvirt.libvirtError as e:
-            if e.err[0] == libvirt.VIR_ERR_NO_DOMAIN:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return 0
             else:
                 raise
@@ -750,7 +750,7 @@ class QubesVm(object):
                 return 0
             return self.libvirt_domain.info()[4]
         except libvirt.libvirtError as e:
-            if e.err[0] == libvirt.VIR_ERR_NO_DOMAIN:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return 0
             else:
                 raise
@@ -762,7 +762,7 @@ class QubesVm(object):
         try:
             return self.libvirt_domain.maxMemory()
         except libvirt.libvirtError as e:
-            if e.err[0] == libvirt.VIR_ERR_NO_DOMAIN:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return 0
             else:
                 raise
@@ -791,7 +791,7 @@ class QubesVm(object):
             else:
                 return 0
         except libvirt.libvirtError as e:
-            if e.err[0] == libvirt.VIR_ERR_NO_DOMAIN:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return 0
             else:
                 raise
@@ -830,7 +830,7 @@ class QubesVm(object):
             else:
                 return 'Halted'
         except libvirt.libvirtError as e:
-            if e.err[0] == libvirt.VIR_ERR_NO_DOMAIN:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return "Halted"
             else:
                 raise
@@ -866,7 +866,7 @@ class QubesVm(object):
             else:
                 return False
         except libvirt.libvirtError as e:
-            if e.err[0] == libvirt.VIR_ERR_NO_DOMAIN:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return False
             else:
                 raise
@@ -878,7 +878,7 @@ class QubesVm(object):
             else:
                 return False
         except libvirt.libvirtError as e:
-            if e.err[0] == libvirt.VIR_ERR_NO_DOMAIN:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return False
             else:
                 raise
@@ -1305,7 +1305,7 @@ class QubesVm(object):
         try:
             self.libvirt_domain.undefine()
         except libvirt.libvirtError as e:
-            if e.err[0] == libvirt.VIR_ERR_NO_DOMAIN:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 # already undefined
                 pass
             else:
@@ -1746,7 +1746,7 @@ class QubesVm(object):
             try:
                 nd = vmm.libvirt_conn.nodeDeviceLookupByName('pci_0000_' + pci.replace(':','_').replace('.','_'))
             except libvirt.libvirtError as e:
-                if e.err[0] == libvirt.VIR_ERR_NO_NODE_DEVICE:
+                if e.get_error_code() == libvirt.VIR_ERR_NO_NODE_DEVICE:
                     raise QubesException(
                         "PCI device {} does not exist (domain {})".
                         format(pci, self.name))
@@ -1755,8 +1755,8 @@ class QubesVm(object):
             try:
                 nd.dettach()
             except libvirt.libvirtError as e:
-                if e.err[0] == libvirt.VIR_ERR_INTERNAL_ERROR:
-                    # allready detached
+                if e.get_error_code() == libvirt.VIR_ERR_INTERNAL_ERROR:
+                    # already detached
                     pass
                 else:
                     raise
