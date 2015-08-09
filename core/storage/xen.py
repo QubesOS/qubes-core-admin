@@ -112,6 +112,8 @@ class QubesXenVmStorage(QubesVmStorage):
                             None, self.modules_dev, self.modules_img_rw)
         elif self.drive is not None:
             (drive_type, drive_domain, drive_path) = self.drive.split(":")
+            if drive_type == "hd":
+                drive_type = "disk"
             if drive_domain.lower() == "dom0":
                 drive_domain = None
 
