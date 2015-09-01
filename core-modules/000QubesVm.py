@@ -1020,6 +1020,10 @@ class QubesVm(object):
         self.qdb.write("/name", self.name)
         self.qdb.write("/qubes-vm-type", self.type)
         self.qdb.write("/qubes-vm-updateable", str(self.updateable))
+        self.qdb.write("/qubes-vm-persistence",
+                       "full" if self.updateable else "rw-only")
+        self.qdb.write("/qubes-base-template",
+                       self.template.name if self.template else '')
 
         if self.is_netvm():
             self.qdb.write("/qubes-netvm-gateway", self.gateway)
