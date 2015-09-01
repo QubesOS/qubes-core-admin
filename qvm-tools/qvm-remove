@@ -75,7 +75,7 @@ def main():
 
     if vm.installed_by_rpm and not options.remove_from_db_only:
         if options.verbose:
-            print >> sys.stderr, "This VM has been installed by RPM, use rpm -e <pkg name> to remove it!"
+            print >> sys.stderr, "This VM has been installed by RPM, use yum remove <pkg name> to remove it!"
             exit (1)
 
     try:
