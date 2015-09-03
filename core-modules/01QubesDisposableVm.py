@@ -151,6 +151,7 @@ class QubesDisposableVm(QubesVm):
     def create_qubesdb_entries(self):
         super(QubesDisposableVm, self).create_qubesdb_entries()
 
+        self.qdb.write("/qubes-vm-persistence", "none")
         self.qdb.write('/qubes-restore-complete', '1')
 
     def start(self, verbose = False, **kwargs):
