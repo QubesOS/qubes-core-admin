@@ -376,8 +376,13 @@ class QubesVm(object):
     def absolute_path(self, arg, default):
         if arg is not None and os.path.isabs(arg):
             return arg
-        else:
+        elif self.dir_path is not None:
             return os.path.join(self.dir_path, (arg if arg is not None else default))
+        else:
+            # cannot provide any meaningful value without dir_path; this is
+            # only to import some older format of `qubes.xml` (for example
+            # during migration from older release)
+            return None
 
     def _absolute_path_gen(self, default):
         return lambda value: self.absolute_path(value, default)
