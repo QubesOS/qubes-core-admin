@@ -1706,6 +1706,10 @@ def backup_restore_prepare(backup_location, passphrase, options=None,
         if check_vm.qid == 0:
             return os.path.exists(os.path.join(backup_dir, 'dom0-home'))
 
+        # DisposableVM
+        if check_vm.dir_path is None:
+            return False
+
         backup_vm_dir_path = check_vm.dir_path.replace(
             system_path["qubes_base_dir"], backup_dir)
 
