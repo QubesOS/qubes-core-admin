@@ -1,6 +1,8 @@
 #!/usr/bin/python2 -O
 # vim: fileencoding=utf-8
 
+import os.path
+
 import qubes
 import qubes.vm.qubesvm
 
@@ -38,3 +40,8 @@ class TemplateVM(qubes.vm.qubesvm.QubesVM):
         self.log.info(
             'Commiting template update; COW: {}'.format(self.rootcow_img))
         self.storage.commit_template_changes()
+
+
+    @property
+    def rootcow_img(self):
+        return os.path.join(self.dir_path, qubes.config.vm_files['rootcow_img'])

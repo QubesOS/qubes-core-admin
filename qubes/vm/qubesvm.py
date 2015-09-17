@@ -24,6 +24,8 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
+from __future__ import absolute_import
+
 import datetime
 import lxml.etree
 import os
@@ -34,11 +36,13 @@ import subprocess
 import sys
 import time
 import uuid
+import warnings
+
 import libvirt
 
 import qubes
 import qubes.config
-#import qubes.qdb
+import qubes.qdb
 #import qubes.qmemman
 #import qubes.qmemman_algo
 import qubes.storage
@@ -90,17 +94,27 @@ def _setter_name(self, prop, value):
 
 def _setter_kernel(self, prop, value):
     # pylint: disable=unused-argument
-    if not os.path.exists(os.path.join(
-            qubes.config.system_path['qubes_kernels_base_dir'], value)):
+    dirname = os.path.join(
+        qubes.config.system_path['qubes_base_dir'],
+        qubes.config.system_path['qubes_kernels_base_dir'],
+        value)
+    if not os.path.exists(dirname):
         raise qubes.QubesException('Kernel {!r} not installed'.format(value))
     for filename in ('vmlinuz', 'modules.img'):
-        if not os.path.exists(os.path.join(
-                qubes.config.system_path['qubes_kernels_base_dir'],
-                    value, filename)):
+        if not os.path.exists(os.path.join(dirname, filename)):
             raise qubes.QubesException(
                 'Kernel {!r} not properly installed: missing {!r} file'.format(
                     value, filename))
     return value
+
+
+def _setter_label(self, prop, value):
+    if isinstance(value, qubes.Label):
+        return value
+    if value.startswith('label-'):
+        return self.app.labels[int(value.split('-', 1)[1])]
+
+    return self.app.get_label(value)
 
 
 def _default_conf_file(self, name=None):
@@ -115,7 +129,8 @@ class QubesVM(qubes.vm.BaseVM):
     #
 
     label = qubes.property('label',
-        setter=(lambda self, prop, value: self.app.get_label(value)),
+        setter=_setter_label,
+        saver=(lambda self, prop, value: 'label-{}'.format(value.index)),
         ls_width=14,
         doc='''Colourful label assigned to VM. This is where the colour of the
             padlock is set.''')
@@ -129,9 +144,9 @@ class QubesVM(qubes.vm.BaseVM):
             `None`, machine is disconnected. When absent, domain uses default
             NetVM.''')
 
-    provides_network = qubes.property('provides_network',
-        type=bool, setter=qubes.property.bool,
-        doc='`True` if it is NetVM or ProxyVM, false otherwise.')
+#   provides_network = qubes.property('provides_network',
+#       type=bool, setter=qubes.property.bool,
+#       doc='`True` if it is NetVM or ProxyVM, false otherwise.')
 
     qid = qubes.property('qid', type=int,
         setter=_setter_qid,
@@ -180,8 +195,9 @@ class QubesVM(qubes.vm.BaseVM):
         doc='''Internal VM (not shown in qubes-manager, don't create appmenus
             entries.''')
 
-    # XXX what is that
-    vcpus = qubes.property('vcpus', default=None,
+    # FIXME self.app.host could not exist - only self.app.vm required by API
+    vcpus = qubes.property('vcpus',
+        default=(lambda self: self.app.host.no_cpus),
         ls_width=2,
         doc='FIXME')
 
@@ -215,7 +231,8 @@ class QubesVM(qubes.vm.BaseVM):
     # XXX shouldn't this go to standalone VM and TemplateVM, and leave here
     #     only plain property?
     default_user = qubes.property('default_user', type=str,
-        default=(lambda self: self.template.default_user),
+        default=(lambda self: self.template.default_user
+            if hasattr(self, 'template') else 'user'),
         ls_width=12,
         doc='FIXME')
 
@@ -353,7 +370,7 @@ class QubesVM(qubes.vm.BaseVM):
         If :py:attr:`self.kernel` is :py:obj:`None`, the this points inside
         :py:attr:`self.dir_path`
         '''
-        return os.path.join(
+        return os.path.join(qubes.config.system_path['qubes_base_dir'],
             qubes.config.system_path['qubes_kernels_base_dir'], self.kernel) \
             if self.kernel is not None \
         else os.path.join(self.dir_path,
@@ -379,17 +396,25 @@ class QubesVM(qubes.vm.BaseVM):
 
 
     # XXX I don't know what to do with these; probably should be isinstance(...)
-#   def is_template(self):
-#       return False
-#
-#   def is_appvm(self):
-#       return False
-#
-#   def is_proxyvm(self):
-#       return False
-#
-#   def is_disposablevm(self):
-#       return False
+    def is_template(self):
+        warnings.warn('vm.is_template() is deprecated, use isinstance()',
+            DeprecationWarning)
+        return isinstance(self, qubes.vm.templatevm.TemplateVM)
+
+    def is_appvm(self):
+        warnings.warn('vm.is_appvm() is deprecated, use isinstance()',
+            DeprecationWarning)
+        return isinstance(self, qubes.vm.appvm.AppVM)
+
+    def is_proxyvm(self):
+        warnings.warn('vm.is_proxyvm() is deprecated, use isinstance()',
+            DeprecationWarning)
+        return isinstance(self, qubes.vm.proxyvm.ProxyVM)
+
+    def is_disposablevm(self):
+        warnings.warn('vm.is_disposable() is deprecated, use isinstance()',
+            DeprecationWarning)
+        return isinstance(self, qubes.vm.dispvm.DispVM)
 
 
     # network-related
@@ -399,7 +424,7 @@ class QubesVM(qubes.vm.BaseVM):
     def ip(self):
         '''IP address of this domain.'''
         if self.netvm is not None:
-            return self.netvm.get_ip_for_vm(self.qid)
+            return self.netvm.get_ip_for_vm(self)
         else:
             return None
 
@@ -441,6 +466,13 @@ class QubesVM(qubes.vm.BaseVM):
             return None
         return "vif{0}.+".format(self.xid)
 
+    @property
+    def provides_network(self):
+        ''':py:obj:`True` if it is :py:class:`qubes.vm.netvm.NetVM` or
+        :py:class:`qubes.vm.proxyvm.ProxyVM`, :py:obj:`False` otherwise'''
+        return isinstance(self,
+            (qubes.vm.netvm.NetVM, qubes.vm.proxyvm.ProxyVM))
+
     #
     # constructor
     #
@@ -472,8 +504,8 @@ class QubesVM(qubes.vm.BaseVM):
             self.maxmem = self.memory * 10
 
         # By default allow use all VCPUs
-        if not hasattr(self, 'vcpus') and not self.app.vmm.offline_mode:
-            self.vcpus = self.app.host.no_cpus
+#       if not hasattr(self, 'vcpus') and not self.app.vmm.offline_mode:
+#           self.vcpus = self.app.host.no_cpus
 
         if len(self.devices['pci']) > 0:
             # Force meminfo-writer disabled when VM have PCI devices
@@ -486,10 +518,11 @@ class QubesVM(qubes.vm.BaseVM):
         # Initialize VM image storage class
         self.storage = qubes.storage.get_storage(self)
 
-        if self.kernels_dir is not None: # it is None for AdminVM
-            self.storage.modules_img = os.path.join(self.kernels_dir,
-                'modules.img')
-            self.storage.modules_img_rw = self.kernel is None
+        # XXX should be moved to defaults in storage class
+#       if self.kernels_dir is not None: # it is None for AdminVM
+#           self.storage.modules_img = os.path.join(self.kernels_dir,
+#               'modules.img')
+#           self.storage.modules_img_rw = self.kernel is None
 
         # fire hooks
         self.fire_event('domain-init')

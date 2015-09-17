@@ -353,7 +353,7 @@ class BaseVM(qubes.PropertyHolder):
         args['name'] = self.name
         if hasattr(self, 'kernels_dir'):
             args['kerneldir'] = self.kernels_dir
-        args['uuidnode'] = '<uuid>{!r}</uuid>'.format(self.uuid) \
+        args['uuidnode'] = '<uuid>{!s}</uuid>'.format(self.uuid) \
             if hasattr(self, 'uuid') else ''
         args['vmdir'] = self.dir_path
         args['pcidevs'] = ''.join(lxml.etree.tostring(self.lvxml_pci_dev(dev))
@@ -397,6 +397,8 @@ class BaseVM(qubes.PropertyHolder):
                 self.log.info(
                     "Debug mode: adding 'earlyprintk=xen' to kernel opts")
                 args['kernelopts'] += ' earlyprintk=xen'
+
+        return args
 
 
     def create_config_file(self, file_path=None, prepare_dvm=False):

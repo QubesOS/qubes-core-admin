@@ -102,7 +102,8 @@ class Emitter(object):
 
     def __init__(self, *args, **kwargs):
         super(Emitter, self).__init__(*args, **kwargs)
-        self.events_enabled = False
+        if not hasattr(self, 'events_enabled'):
+            self.events_enabled = False
 
 
     @classmethod

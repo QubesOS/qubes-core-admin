@@ -640,7 +640,7 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
 
         if self._setter is not None:
             value = self._setter(instance, self, value)
-        if self._type is not None:
+        if self._type is not None: # XXX what about QubesVM and other types?
             value = self._type(value)
 
         if has_oldvalue:
@@ -705,7 +705,7 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
     #
 
     class DontSave(Exception):
-        '''This exception may be raised from saver to sing that property should
+        '''This exception may be raised from saver to sign that property should
         not be saved.
         '''
         pass
@@ -1023,23 +1023,28 @@ class VMProperty(property):
             raise TypeError(
                 "'vmclass' should specify a subclass of qubes.vm.BaseVM")
 
-        super(VMProperty, self).__init__(name, **kwargs)
+        super(VMProperty, self).__init__(name,
+            saver=(lambda self, prop, value: value.name if value else 'None'),
+            **kwargs)
         self.vmclass = vmclass
         self.allow_none = allow_none
+
 
     def __set__(self, instance, value):
         if value is None:
             if self.allow_none:
-                super(VMProperty, self).__set__(self, instance, value)
+                super(VMProperty, self).__set__(instance, value)
                 return
             else:
                 raise ValueError(
                     'Property {!r} does not allow setting to {!r}'.format(
                         self.__name__, value))
 
+        app = instance if isinstance(instance, Qubes) else instance.app
+
         # XXX this may throw LookupError; that's good until introduction
         # of QubesNoSuchVMException or whatever
-        vm = instance.app.domains[value]
+        vm = app.domains[value]
 
         if not isinstance(vm, self.vmclass):
             raise TypeError('wrong VM class: domains[{!r}] if of type {!s} '
@@ -1047,7 +1052,7 @@ class VMProperty(property):
                     vm.__class__.__name__,
                     self.vmclass.__name__))
 
-        super(VMProperty, self).__set__(self, instance, vm)
+        super(VMProperty, self).__set__(instance, vm)
 
 
 import qubes.vm.qubesvm
@@ -1100,11 +1105,11 @@ class Qubes(PropertyHolder):
     '''
 
     default_netvm = VMProperty('default_netvm', load_stage=3,
-        default=None,
+        default=None, allow_none=True,
         doc='''Default NetVM for AppVMs. Initial state is `None`, which means
             that AppVMs are not connected to the Internet.''')
     default_fw_netvm = VMProperty('default_fw_netvm', load_stage=3,
-        default=None,
+        default=None, allow_none=True,
         doc='''Default NetVM for ProxyVMs. Initial state is `None`, which means
             that ProxyVMs (including FirewallVM) are not connected to the
             Internet.''')
@@ -1112,9 +1117,11 @@ class Qubes(PropertyHolder):
         vmclass=qubes.vm.templatevm.TemplateVM,
         doc='Default template for new AppVMs')
     updatevm = VMProperty('updatevm', load_stage=3,
+        allow_none=True,
         doc='''Which VM to use as `yum` proxy for updating AdminVM and
             TemplateVMs''')
     clockvm = VMProperty('clockvm', load_stage=3,
+        allow_none=True,
         doc='Which VM to use as NTP proxy for updating AdminVM')
     default_kernel = property('default_kernel', load_stage=3,
         doc='Which kernel to use when not overriden in VM')
@@ -1209,7 +1216,7 @@ class Qubes(PropertyHolder):
 
         # Disable ntpd in ClockVM - to not conflict with ntpdate (both are
         # using 123/udp port)
-        if hasattr(self, 'clockvm'):
+        if hasattr(self, 'clockvm') and self.clockvm is not None:
             if 'ntpd' in self.clockvm.services:
                 if self.clockvm.services['ntpd']:
                     self.log.warning("VM set as clockvm ({!r}) has enabled "
@@ -1367,6 +1374,8 @@ class Qubes(PropertyHolder):
     @qubes.events.handler('property-pre-set:clockvm')
     def on_property_pre_set_clockvm(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument,no-self-use
+        if newvalue is None:
+            return
         if 'ntpd' in newvalue.services:
             if newvalue.services['ntpd']:
                 raise QubesException('Cannot set {!r} as {!r} property since '
