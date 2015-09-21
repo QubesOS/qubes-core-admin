@@ -158,7 +158,7 @@ class QubesVM(qubes.vm.BaseVM):
         ls_width=31,
         doc='User-specified name of the domain.')
 
-    uuid = qubes.property('uuid', type=uuid.UUID, default=None,
+    uuid = qubes.property('uuid', type=uuid.UUID,
         ls_width=36,
         doc='UUID from libvirt.')
 
@@ -316,7 +316,7 @@ class QubesVM(qubes.vm.BaseVM):
 
         # XXX _update_libvirt_domain?
         try:
-            if self.uuid is not None:
+            if hasattr(self, 'uuid'):
                 self._libvirt_domain = self.app.vmm.libvirt_conn.lookupByUUID(
                     self.uuid.bytes)
             else:

@@ -640,7 +640,7 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
 
         if self._setter is not None:
             value = self._setter(instance, self, value)
-        if self._type is not None: # XXX what about QubesVM and other types?
+        if self._type not in (None, type(value)):
             value = self._type(value)
 
         if has_oldvalue:
@@ -1333,7 +1333,7 @@ class Qubes(PropertyHolder):
         # then search for name
         for l in self.labels.values():
             if l.name == label:
-                return label
+                return l
 
         # last call, if label is a number represented as str, search in indices
         try:

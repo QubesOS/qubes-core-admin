@@ -19,7 +19,8 @@ class TemplateVM(qubes.vm.qubesvm.QubesVM):
         super(TemplateVM, self).__init__(*args, **kwargs)
 
         # Some additional checks for template based VM
-        assert self.root_img is not None, "Missing root_img for standalone VM!"
+        # TODO find better way
+#       assert self.root_img is not None, "Missing root_img for standalone VM!"
 
 
     def clone_disk_files(self, src):
