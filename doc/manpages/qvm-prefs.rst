@@ -1,37 +1,51 @@
 .. program:: qvm-prefs
 
-==========================================================
 :program:`qvm-prefs` -- List/set various per-VM properties
 ==========================================================
 
 Synopsis
-========
-| :command:`qvm-prefs` [*options*] -l <*vm-name*>
-| :command:`qvm-prefs` [*options*] -g <*vm-name*> <*property*>
-| :command:`qvm-prefs` [*options*] -s <*vm-name*> <*property*> [*...*]
+--------
 
+:command:`qvm-prefs` qvm-prefs [-h] [--xml *XMLFILE*] [--verbose] [--quiet] [--force-root] [--help-properties] *VMNAME* [*PROPERTY* [*VALUE*]]
 
 Options
-=======
+-------
 
 .. option:: --help, -h
 
-    Show this help message and exit
+   Show help message and exit.
 
-.. option:: --list, -l
+.. option:: --help-properties
 
-    List properties of a specified VM
+   List available properties with short descriptions and exit.
 
-.. option:: --get, -g
+.. option:: --xml=XMLFILE
 
-    Get a single property of a specified VM
+   Qubes OS store file.
 
-.. option:: --set, -s
+.. option:: --verbose, -v
 
-    Set properties of a specified VM
+   Increase verbosity.
 
-Properties
-==========
+.. option:: --quiet, -q
+
+   Decrease verbosity.
+
+.. option:: --force-root
+
+   Force to run as root.
+
+
+Common properties
+=================
+
+This list is non-exhaustive. For authoritative listing, see
+:option:`--help-properties` and documentation of the source code.
+
+.. warning::
+
+   This list is from the core2. It is wrong in many cases, some of them obvious,
+   some of them not.
 
 include_in_backups
     Accepted values: ``True``, ``False``
@@ -40,11 +54,11 @@ include_in_backups
     works only in qubes-manager). You can always manually select or deselect
     any VM for backup.
 
-pcidevs
+   pcidevs
     PCI devices assigned to the VM. Should be edited using
     :manpage:`qvm-pci(1)` tool.
 
-pci_strictreset
+   pci_strictreset
     Accepted values: ``True``, ``False``
 
     Control whether prevent assigning to VM a device which does not support any
@@ -212,7 +226,11 @@ timezone
     proper timezone set).
 
 Authors
-=======
+-------
+
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>
 | Marek Marczykowski <marmarek at invisiblethingslab dot com>
+| Wojtek Porczyk <woju at invisiblethingslab dot com>
+
+.. vim: ts=3 sw=3 et tw=80

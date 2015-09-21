@@ -56,6 +56,7 @@ endif
 		tools/qubes_create.py* \
 		tools/qvm_create.py* \
 		tools/qvm_ls.py* \
+		tools/qvm_prefs.py* \
 		$(DESTDIR)$(PYTHON_QUBESPATH)/tools
 
 	cp ext/__init__.py* $(DESTDIR)$(PYTHON_QUBESPATH)/ext
