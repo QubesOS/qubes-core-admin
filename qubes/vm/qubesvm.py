@@ -131,7 +131,6 @@ class QubesVM(qubes.vm.BaseVM):
     label = qubes.property('label',
         setter=_setter_label,
         saver=(lambda self, prop, value: 'label-{}'.format(value.index)),
-        ls_width=14,
         doc='''Colourful label assigned to VM. This is where the colour of the
             padlock is set.''')
 

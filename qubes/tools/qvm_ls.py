@@ -409,6 +409,10 @@ class StatusColumn(Column):
 
 # todo maxmem
 
+Column('LABEL', width=14,
+    attr='label.name',
+    doc='Colour of the label.')
+
 Column('GATEWAY', width=15,
     attr='netvm.gateway',
     doc='Network gateway.')
