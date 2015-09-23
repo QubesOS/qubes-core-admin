@@ -628,6 +628,8 @@ class QubesVM(qubes.vm.BaseVM):
     @qubes.events.handler('property-set:name')
     def on_property_set_name(self, event, name, new_name, old_name=None):
         # pylint: disable=unused-argument
+        self.init_log()
+
         if self._libvirt_domain is not None:
             self.libvirt_domain.undefine()
             self._libvirt_domain = None

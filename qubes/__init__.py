@@ -1193,6 +1193,7 @@ class Qubes(PropertyHolder):
             cls = qubes.vm.BaseVM.register[node.get('class')]
             vm = cls(self, node)
             vm.load_properties(load_stage=2)
+            vm.init_log()
             self.domains.add(vm)
 
         if not 0 in self.domains:

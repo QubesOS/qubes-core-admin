@@ -197,6 +197,9 @@ class BaseVM(qubes.PropertyHolder):
         #: logger instance for logging messages related to this VM
         self.log = None
 
+        if hasattr(self, 'name'):
+            self.init_log()
+
 
     def init_log(self):
         '''Initialise logger for this domain.'''
