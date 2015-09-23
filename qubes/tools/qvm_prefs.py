@@ -22,7 +22,7 @@
 #
 
 # TODO list properties for all classes
-# TODO indicate default values
+# TODO list only non-default properties
 
 from __future__ import print_function
 
@@ -72,9 +72,7 @@ class _HelpPropertiesAction(argparse.Action):
 
 parser = qubes.tools.get_parser_base(want_force_root=True)
 
-#parser.add_argument('--property', '--prop', '-p',
-#    action=qubes.tools.PropertyAction,
-#    help='set domain\'s property (may be given multiple times)')
+parser.add_argument('--help-properties', action=_HelpPropertiesAction)
 
 parser.add_argument('name', metavar='VMNAME',
     help='name of the domain to change')
@@ -83,11 +81,17 @@ parser.add_argument('property', metavar='PROPERTY',
     nargs='?',
     help='name of the property to show or change')
 
-parser.add_argument('value', metavar='VALUE',
+parser_value = parser.add_mutually_exclusive_group()
+
+parser_value.add_argument('value', metavar='VALUE',
     nargs='?',
     help='new value of the property')
 
-parser.add_argument('--help-properties', action=_HelpPropertiesAction)
+parser.add_argument('--unset', '--default', '--delete', '-D',
+    dest='delete',
+    action='store_true',
+    help='unset the property; if property has default value, it will be used'
+        ' instead')
 
 
 def main():
@@ -123,12 +127,18 @@ def main():
         return True
 
 
-    if args.value is None:
-        print(str(getattr(domain, args.property)))
+    if args.value is not None:
+        setattr(domain, args.property, args.value)
+        app.save()
         return True
 
-    setattr(domain, args.property, args.value)
-    app.save()
+    if args.delete:
+        delattr(domain, args.property)
+        app.save()
+        return True
+
+
+    print(str(getattr(domain, args.property)))
 
     return True
 

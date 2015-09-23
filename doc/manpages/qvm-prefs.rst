@@ -6,7 +6,7 @@
 Synopsis
 --------
 
-:command:`qvm-prefs` qvm-prefs [-h] [--xml *XMLFILE*] [--verbose] [--quiet] [--force-root] [--help-properties] *VMNAME* [*PROPERTY* [*VALUE*]]
+:command:`qvm-prefs` qvm-prefs [-h] [--xml *XMLFILE*] [--verbose] [--quiet] [--force-root] [--help-properties] *VMNAME* [*PROPERTY* [*VALUE*\|--delete]]
 
 Options
 -------
@@ -35,6 +35,10 @@ Options
 
    Force to run as root.
 
+.. option:: --unset, --default, --delete, -D
+
+   Unset the property. If is has default value, it will be used instead.
+
 
 Common properties
 =================
@@ -54,11 +58,11 @@ include_in_backups
     works only in qubes-manager). You can always manually select or deselect
     any VM for backup.
 
-   pcidevs
+pcidevs
     PCI devices assigned to the VM. Should be edited using
     :manpage:`qvm-pci(1)` tool.
 
-   pci_strictreset
+pci_strictreset
     Accepted values: ``True``, ``False``
 
     Control whether prevent assigning to VM a device which does not support any
