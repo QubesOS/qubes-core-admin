@@ -98,7 +98,7 @@ def get_parser_base(want_force_root=False, **kwargs):
 
     parser.add_argument('--xml', metavar='XMLFILE',
         action='store',
-        help='Qubes OS store file')
+        help=argparse.SUPPRESS)
 
     parser.add_argument('--verbose', '-v',
         action='count',
