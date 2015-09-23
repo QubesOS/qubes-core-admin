@@ -96,8 +96,8 @@ def main():
     except KeyError:
         parser.error('no such domain class: {!r}'.format(args.cls))
 
-    if 'template' in args.properties \
-            and 'template' not in cls.list_properties():
+    if 'template' in args.properties and \
+            'template' not in (prop.__name__ for prop in cls.property_list()):
         parser.error('this domain class does not support template')
 
     vm = app.add_new_vm(cls, **args.properties)
