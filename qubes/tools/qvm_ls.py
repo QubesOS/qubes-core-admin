@@ -99,7 +99,7 @@ class Column(object):
         Return value to put in a table cell.
 
         :param qubes.vm.qubesvm.QubesVM: Domain to get a value from.
-        :returns: Value to put, or :py:obj:`None` if no value .
+        :returns: Value to put, or :py:obj:`None` if no value.
         :rtype: str or None
         '''
 
@@ -185,22 +185,10 @@ class PropertyColumn(Column):
         super(PropertyColumn, self).__init__(
             head=holder.ls_head,
             width=holder.ls_width,
+            attr=holder.__name__,
+            fmt=getattr(holder, 'ls_fmt', None),
             doc=holder.__doc__)
         self.holder = holder
-
-    def format(self, vm):
-        try:
-            value = getattr(vm, self.holder.__name__)
-        except AttributeError:
-            return None
-
-        if not hasattr(self.holder, 'ls_fmt') or self.holder.ls_fmt is None:
-            return value
-
-        return self.holder.ls_fmt.format(
-            getattr(vm, self.holder.__name__)).ljust(
-            self.ls_width)
-
 
     def __repr__(self):
         return '{}(head={!r}, width={!r} holder={!r})'.format(
@@ -408,10 +396,6 @@ class StatusColumn(Column):
 
 
 # todo maxmem
-
-Column('LABEL', width=14,
-    attr='label.name',
-    doc='Colour of the label.')
 
 Column('GATEWAY', width=15,
     attr='netvm.gateway',
