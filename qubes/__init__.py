@@ -585,7 +585,8 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
     _NO_DEFAULT = object()
 
     def __init__(self, name, setter=None, saver=None, type=None,
-            default=_NO_DEFAULT, load_stage=2, order=0, save_via_ref=False,
+            default=_NO_DEFAULT, write_once=False, load_stage=2, order=0,
+            save_via_ref=False,
             ls_head=None, ls_width=None, doc=None):
         # pylint: disable=redefined-builtin
         self.__name__ = name
@@ -594,6 +595,7 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
             lambda self, prop, value: str(value))
         self._type = type
         self._default = default
+        self._write_once = write_once
         self.order = order
         self.load_stage = load_stage
         self.save_via_ref = save_via_ref
@@ -628,6 +630,8 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
 
 
     def __set__(self, instance, value):
+        self._enforce_write_once(instance)
+
         if value is self.__class__.DEFAULT:
             self.__delete__(instance)
             return
@@ -661,6 +665,8 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
 
 
     def __delete__(self, instance):
+        self._enforce_write_once(instance)
+
         try:
             oldvalue = getattr(instance, self.__name__)
             has_oldvalue = True
@@ -698,6 +704,13 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
 
     def __eq__(self, other):
         return self.__name__ == other.__name__
+
+
+    def _enforce_write_once(self, instance):
+        if self._write_once and not instance.property_is_default(self):
+            raise AttributeError(
+                'property {!r} is write-once and already set'.format(
+                    self.__name__))
 
 
     #
@@ -806,17 +819,20 @@ class PropertyHolder(qubes.events.Emitter):
     '''
 
     def __init__(self, xml, **kwargs):
-        super(PropertyHolder, self).__init__()
         self.xml = xml
 
-        for key, value in kwargs.items():
-            setattr(self, key, value)
+        propvalues = {}
 
         all_names = set(prop.__name__ for prop in self.property_list())
         for key in list(kwargs.keys()):
             if not key in all_names:
                 continue
-            setattr(self, key, kwargs.pop(key))
+            propvalues[key] = kwargs.pop(key)
+
+        super(PropertyHolder, self).__init__(**kwargs)
+
+        for key, value in propvalues.items():
+            setattr(self, key, value)
 
 
     @classmethod

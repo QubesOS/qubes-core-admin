@@ -154,7 +154,7 @@ class QubesVM(qubes.vm.BaseVM):
 #       type=bool, setter=qubes.property.bool,
 #       doc='`True` if it is NetVM or ProxyVM, false otherwise.')
 
-    qid = qubes.property('qid', type=int,
+    qid = qubes.property('qid', type=int, write_once=True,
         setter=_setter_qid,
         ls_width=3,
         doc='''Internal, persistent identificator of particular domain. Note
@@ -164,7 +164,7 @@ class QubesVM(qubes.vm.BaseVM):
         ls_width=31,
         doc='User-specified name of the domain.')
 
-    uuid = qubes.property('uuid', type=uuid.UUID,
+    uuid = qubes.property('uuid', type=uuid.UUID, write_once=True,
         ls_width=36,
         doc='UUID from libvirt.')
 

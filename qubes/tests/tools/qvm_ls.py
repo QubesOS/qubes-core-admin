@@ -59,15 +59,16 @@ class TC_00_Column(qubes.tests.QubesTestCase):
 class TC_90_globals(qubes.tests.QubesTestCase):
 #   @qubes.tests.skipUnlessDom0
     def test_100_simple_flag(self):
-        flag = qubes.tools.qvm_ls.simple_flag(1, 'T', 'qid')
+        flag = qubes.tools.qvm_ls.simple_flag(1, 'T', 'internal')
 
         # TODO after serious testing of QubesVM and Qubes app, this should be
         #      using normal components
         app = qubes.tests.vm.adminvm.TestApp()
-        vm = qubes.vm.adminvm.AdminVM(app, None, qid=0, name='dom0')
+        vm = qubes.vm.adminvm.AdminVM(app, None,
+            qid=0, name='dom0', internal='False')
 
         self.assertFalse(flag(None, vm))
-        vm.qid = 1
+        vm.internal = 'True'
         self.assertTrue(flag(None, vm))
 
 

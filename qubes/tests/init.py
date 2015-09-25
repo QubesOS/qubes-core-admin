@@ -134,7 +134,7 @@ class TC_10_property(qubes.tests.QubesTestCase):
         self.assertEqual(holder.testprop1, 5)
         self.assertNotEqual(holder.testprop1, '5')
 
-    def test_090_delete(self):
+    def test_080_delete(self):
         self.holder.testprop1 = 'testvalue'
         try:
             if self.holder.testprop1 != 'testvalue':
@@ -147,7 +147,7 @@ class TC_10_property(qubes.tests.QubesTestCase):
         with self.assertRaises(AttributeError):
             self.holder.testprop1
 
-    def test_090_delete_by_assign(self):
+    def test_081_delete_by_assign(self):
         self.holder.testprop1 = 'testvalue'
         try:
             if self.holder.testprop1 != 'testvalue':
@@ -160,7 +160,7 @@ class TC_10_property(qubes.tests.QubesTestCase):
         with self.assertRaises(AttributeError):
             self.holder.testprop1
 
-    def test_092_delete_default(self):
+    def test_082_delete_default(self):
         class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
             testprop1 = qubes.property('testprop1', default='defaultvalue')
         holder = MyTestHolder(None)
@@ -175,6 +175,26 @@ class TC_10_property(qubes.tests.QubesTestCase):
         del holder.testprop1
 
         self.assertEqual(holder.testprop1, 'defaultvalue')
+
+    def test_090_write_once_set(self):
+        class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
+            testprop1 = qubes.property('testprop1', write_once=True)
+        holder = MyTestHolder(None)
+
+        holder.testprop1 = 'testvalue'
+
+        with self.assertRaises(AttributeError):
+            holder.testprop1 = 'testvalue2'
+
+    def test_091_write_once_delete(self):
+        class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
+            testprop1 = qubes.property('testprop1', write_once=True)
+        holder = MyTestHolder(None)
+
+        holder.testprop1 = 'testvalue'
+
+        with self.assertRaises(AttributeError):
+            del holder.testprop1
 
 
 class TestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
