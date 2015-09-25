@@ -712,7 +712,15 @@ class QubesVm(object):
 
     def _update_libvirt_domain(self):
         domain_config = self.create_config_file()
-        self._libvirt_domain = vmm.libvirt_conn.defineXML(domain_config)
+        try:
+            self._libvirt_domain = vmm.libvirt_conn.defineXML(domain_config)
+        except libvirt.libvirtError as e:
+            # shouldn't this be in QubesHVm implementation?
+            if e.get_error_code() == libvirt.VIR_ERR_OS_TYPE and \
+                    e.get_str2() == 'hvm':
+                raise QubesException("HVM domains not supported on this "
+                                     "machine. Check BIOS settings for "
+                                     "VT-x/AMD-V extensions.")
         self.uuid = uuid.UUID(bytes=self._libvirt_domain.UUID())
 
     @property
