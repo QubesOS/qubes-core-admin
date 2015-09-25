@@ -220,6 +220,7 @@ fi
 %{python_sitearch}/qubes/tools/qvm_create.py*
 %{python_sitearch}/qubes/tools/qvm_ls.py*
 %{python_sitearch}/qubes/tools/qvm_prefs.py*
+%{python_sitearch}/qubes/tools/qvm_start.py*
 
 %dir %{python_sitearch}/qubes/ext
 %{python_sitearch}/qubes/ext/__init__.py*
