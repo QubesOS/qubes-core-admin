@@ -4,10 +4,13 @@
 import os.path
 
 import qubes
+import qubes.config
 import qubes.vm.qubesvm
 
 class TemplateVM(qubes.vm.qubesvm.QubesVM):
     '''Template for AppVM'''
+
+    dir_path_prefix = qubes.config.system_path['qubes_templates_dir']
 
     @property
     def rootcow_img(self):

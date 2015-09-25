@@ -125,6 +125,13 @@ class QubesVM(qubes.vm.BaseVM):
     '''Base functionality of Qubes VM shared between all VMs.'''
 
     #
+    # per-class properties
+    #
+
+    #: directory in which domains of this class will reside
+    dir_path_prefix = qubes.config.system_path['qubes_appvms_dir']
+
+    #
     # properties loaded from XML
     #
 
@@ -160,11 +167,6 @@ class QubesVM(qubes.vm.BaseVM):
     uuid = qubes.property('uuid', type=uuid.UUID,
         ls_width=36,
         doc='UUID from libvirt.')
-
-    # TODO meaningful default
-    # TODO setter to ensure absolute/relative path?
-    dir_path = qubes.property('dir_path', type=str, default=None,
-        doc='FIXME')
 
     conf_file = qubes.property('conf_file', type=str,
         default=_default_conf_file,
@@ -340,6 +342,16 @@ class QubesVM(qubes.vm.BaseVM):
         return self._qdb_connection
 
 
+    def _get_dir_path(self, name=None):
+        return os.path.join(
+            qubes.config.system_path['qubes_base_dir'],
+            self.dir_path_prefix,
+            name if name is not None else self.name)
+
+    dir_path = property(_get_dir_path,
+        doc='Root directory for files related to this domain')
+
+
     # XXX this should go to to AppVM?
     @property
     def private_img(self):
@@ -391,7 +403,7 @@ class QubesVM(qubes.vm.BaseVM):
 
     @property
     def icon_path(self):
-        return self.dir_path and os.path.join(self.dir_path, "icon.png")
+        return os.path.join(self.dir_path, "icon.png")
 
 
     # XXX I don't know what to do with these; probably should be isinstance(...)
@@ -609,22 +621,6 @@ class QubesVM(qubes.vm.BaseVM):
             raise qubes.QubesException('Cannot change name of running domain')
 
 
-    @qubes.events.handler('property-pre-set:dir_path')
-    def on_property_pre_set_dir_path(self, event, name, newvalue,
-            oldvalue=None):
-        # pylint: disable=unused-argument
-        # TODO not self.is_stopped() would be more appropriate
-        if self.is_running():
-            raise qubes.QubesException(
-                'Cannot change dir_path of running domain')
-
-
-    @qubes.events.handler('property-set:dir_path')
-    def on_property_set_dir_path(self, event, name, newvalue, oldvalue=None):
-        # pylint: disable=unused-argument
-        self.storage.rename(newvalue, oldvalue)
-
-
     @qubes.events.handler('property-set:name')
     def on_property_set_name(self, event, name, new_name, old_name=None):
         # pylint: disable=unused-argument
@@ -637,9 +633,9 @@ class QubesVM(qubes.vm.BaseVM):
             self._qdb_connection.close()
             self._qdb_connection = None
 
-        # move: dir_path, conf_file
-        self.dir_path = self.dir_path.replace(
-            '/{}/', '/{}/'.format(old_name, new_name))
+        self.storage.rename(
+            self._get_dir_path(new_name),
+            self._get_dir_path(old_name))
 
         if self.property_is_default('conf_file'):
             new_conf = os.path.join(
@@ -1666,7 +1662,6 @@ class QubesVM(qubes.vm.BaseVM):
         '''
 
         return os.path.relpath(path, self.dir_path)
-#       return arg.replace(self.dir_path + '/', '')
 
 
     def create_qdb_entries(self):

@@ -30,6 +30,8 @@ import qubes.vm.qubesvm
 class AdminVM(qubes.vm.qubesvm.QubesVM):
     '''Dom0'''
 
+    dir_path = None
+
     netvm = qubes.property('netvm', setter=qubes.property.forbidden,
         default=None,
         doc='Dom0 cannot have netvm')
