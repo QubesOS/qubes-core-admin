@@ -68,7 +68,7 @@ class TC_90_globals(qubes.tests.QubesTestCase):
             qid=0, name='dom0', internal='False')
 
         self.assertFalse(flag(None, vm))
-        vm.internal = 'True'
+        vm.internal = True
         self.assertTrue(flag(None, vm))
 
 

@@ -757,13 +757,16 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
         :py:obj:`True`.
         ''' # pylint: disable=bad-staticmethod-argument,unused-argument
 
-        lcvalue = value.lower()
-        if lcvalue in ('0', 'no', 'false'):
-            return False
-        if lcvalue in ('1', 'yes', 'true'):
-            return True
-        raise ValueError(
-            'Invalid literal for boolean property: {!r}'.format(value))
+        if isinstance(value, basestring):
+            lcvalue = value.lower()
+            if lcvalue in ('0', 'no', 'false', 'off'):
+                return False
+            if lcvalue in ('1', 'yes', 'true', 'on'):
+                return True
+            raise ValueError(
+                'Invalid literal for boolean property: {!r}'.format(value))
+
+        return bool(value)
 
 
 
