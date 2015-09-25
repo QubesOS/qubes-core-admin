@@ -835,7 +835,9 @@ class QubesWatch(object):
             del(self._qdb[name])
 
     def _domain_list_changed(self, conn, domain, event, reason, param):
-        if event == libvirt.VIR_DOMAIN_EVENT_STARTED:
+        # use VIR_DOMAIN_EVENT_RESUMED instead of VIR_DOMAIN_EVENT_STARTED to
+        #  make sure that qubesdb daemon is already running
+        if event == libvirt.VIR_DOMAIN_EVENT_RESUMED:
             self._register_watches(domain)
         elif event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
             self._unregister_watches(domain)
