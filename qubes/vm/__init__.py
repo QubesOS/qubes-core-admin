@@ -356,8 +356,7 @@ class BaseVM(qubes.PropertyHolder):
         args['name'] = self.name
         if hasattr(self, 'kernels_dir'):
             args['kerneldir'] = self.kernels_dir
-        args['uuidnode'] = '<uuid>{!s}</uuid>'.format(self.uuid) \
-            if hasattr(self, 'uuid') else ''
+        args['uuid'] = str(self.uuid)
         args['vmdir'] = self.dir_path
         args['pcidevs'] = ''.join(lxml.etree.tostring(self.lvxml_pci_dev(dev))
             for dev in self.devices['pci'])

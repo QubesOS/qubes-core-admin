@@ -317,13 +317,8 @@ class QubesVM(qubes.vm.BaseVM):
 
         # XXX _update_libvirt_domain?
         try:
-            if hasattr(self, 'uuid'):
-                self._libvirt_domain = self.app.vmm.libvirt_conn.lookupByUUID(
-                    self.uuid.bytes)
-            else:
-                self._libvirt_domain = self.app.vmm.libvirt_conn.lookupByName(
-                    self.name)
-                self.uuid = uuid.UUID(bytes=self._libvirt_domain.UUID())
+            self._libvirt_domain = self.app.vmm.libvirt_conn.lookupByUUID(
+                self.uuid.bytes)
         except libvirt.libvirtError:
             if self.app.vmm.libvirt_conn.virConnGetLastError()[0] == \
                     libvirt.VIR_ERR_NO_DOMAIN:
@@ -543,6 +538,12 @@ class QubesVM(qubes.vm.BaseVM):
     #
     # event handlers
     #
+
+    @qubes.events.handler('domain-init', 'domain-loaded')
+    def on_domain_init_loaded(self, event):
+        if not hasattr(self, 'uuid'):
+            self.uuid = uuid.uuid4()
+
 
     @qubes.events.handler('property-set:label')
     def on_property_set_label(self, event, name, new_label, old_label=None):
@@ -1717,7 +1718,6 @@ class QubesVM(qubes.vm.BaseVM):
         try:
             self._libvirt_domain = self.app.vmm.libvirt_conn.defineXML(
                 domain_config)
-            self.uuid = uuid.UUID(bytes=self._libvirt_domain.UUID())
         except libvirt.libvirtError:
             if self.app.vmm.libvirt_conn.virConnGetLastError()[0] == \
                     libvirt.VIR_ERR_NO_DOMAIN:

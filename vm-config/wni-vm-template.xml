@@ -1,6 +1,6 @@
 <domain type='test'>
   <name>{name}</name>
-  {uuidnode}
+  <uuid>{uuid}</uuid>
   <memory unit='MiB'>{maxmem}</memory>
   <os>
     <type>pv</type>
