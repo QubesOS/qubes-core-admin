@@ -1,7 +1,0 @@
-#!/usr/bin/python2
-# vim: fileencoding=utf-8
-
-import sys
-import qubes.tools.qvm_ls
-
-sys.exit(not qubes.tools.qvm_ls.main())
