@@ -23,7 +23,7 @@
 #
 #
 
-%{!?python_sitearch: %define python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1)")}
+#%{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(False)")}
 
 %{!?version: %define version %(cat version)}
 
@@ -53,6 +53,7 @@ Requires(post): systemd-units
 Requires(preun): systemd-units
 Requires(postun): systemd-units
 Requires:	python, pciutils, python-inotify, python-daemon
+Requires:	python-setuptools
 Requires:       qubes-core-dom0-linux >= 2.0.24
 Requires:       qubes-db-dom0
 Requires:       python-lxml
@@ -74,6 +75,7 @@ Requires:       PyQt4
 
 # for property's docstrings
 Requires:	python-docutils
+
 
 # Prevent preupgrade from installation (it pretend to provide distribution upgrade)
 Obsoletes:	preupgrade < 2.0
@@ -99,7 +101,7 @@ make all
 make install \
     DESTDIR=$RPM_BUILD_ROOT \
     UNITDIR=%{_unitdir} \
-    PYTHON_SITEPATH=%{python_sitearch} \
+    PYTHON_SITEPATH=%{python_sitelib} \
     SYSCONFDIR=%{_sysconfdir}
 
 %post
@@ -187,67 +189,70 @@ fi
 /usr/bin/qvm-*
 /usr/bin/qubes-*
 
-%dir %{python_sitearch}/qubes
-%{python_sitearch}/qubes/__init__.py*
-%{python_sitearch}/qubes/_pluginloader.py*
-%{python_sitearch}/qubes/config.py*
-%{python_sitearch}/qubes/dochelpers.py*
-%{python_sitearch}/qubes/events.py*
-%{python_sitearch}/qubes/log.py*
-%{python_sitearch}/qubes/plugins.py*
-%{python_sitearch}/qubes/rngdoc.py*
-%{python_sitearch}/qubes/utils.py*
+%dir %{python_sitelib}/qubes-*.egg-info
+%{python_sitelib}/qubes-*.egg-info/*
 
-%dir %{python_sitearch}/qubes/vm
-%{python_sitearch}/qubes/vm/__init__.py*
-%{python_sitearch}/qubes/vm/adminvm.py*
-%{python_sitearch}/qubes/vm/appvm.py*
-%{python_sitearch}/qubes/vm/dispvm.py*
-%{python_sitearch}/qubes/vm/hvm.py*
-%{python_sitearch}/qubes/vm/netvm.py*
-%{python_sitearch}/qubes/vm/proxyvm.py*
-%{python_sitearch}/qubes/vm/qubesvm.py*
-%{python_sitearch}/qubes/vm/templatehvm.py*
-%{python_sitearch}/qubes/vm/templatevm.py*
+%dir %{python_sitelib}/qubes
+%{python_sitelib}/qubes/__init__.py*
+%{python_sitelib}/qubes/_pluginloader.py*
+%{python_sitelib}/qubes/config.py*
+%{python_sitelib}/qubes/dochelpers.py*
+%{python_sitelib}/qubes/events.py*
+%{python_sitelib}/qubes/log.py*
+%{python_sitelib}/qubes/plugins.py*
+%{python_sitelib}/qubes/rngdoc.py*
+%{python_sitelib}/qubes/utils.py*
 
-%dir %{python_sitearch}/qubes/storage
-%{python_sitearch}/qubes/storage/__init__.py*
-%{python_sitearch}/qubes/storage/xen.py*
+%dir %{python_sitelib}/qubes/vm
+%{python_sitelib}/qubes/vm/__init__.py*
+%{python_sitelib}/qubes/vm/adminvm.py*
+%{python_sitelib}/qubes/vm/appvm.py*
+%{python_sitelib}/qubes/vm/dispvm.py*
+%{python_sitelib}/qubes/vm/hvm.py*
+%{python_sitelib}/qubes/vm/netvm.py*
+%{python_sitelib}/qubes/vm/proxyvm.py*
+%{python_sitelib}/qubes/vm/qubesvm.py*
+%{python_sitelib}/qubes/vm/templatehvm.py*
+%{python_sitelib}/qubes/vm/templatevm.py*
 
-%dir %{python_sitearch}/qubes/tools
-%{python_sitearch}/qubes/tools/__init__.py*
-%{python_sitearch}/qubes/tools/qubes_create.py*
-%{python_sitearch}/qubes/tools/qvm_create.py*
-%{python_sitearch}/qubes/tools/qvm_ls.py*
-%{python_sitearch}/qubes/tools/qvm_prefs.py*
-%{python_sitearch}/qubes/tools/qvm_start.py*
+%dir %{python_sitelib}/qubes/storage
+%{python_sitelib}/qubes/storage/__init__.py*
+%{python_sitelib}/qubes/storage/xen.py*
 
-%dir %{python_sitearch}/qubes/ext
-%{python_sitearch}/qubes/ext/__init__.py*
+%dir %{python_sitelib}/qubes/tools
+%{python_sitelib}/qubes/tools/__init__.py*
+%{python_sitelib}/qubes/tools/qubes_create.py*
+%{python_sitelib}/qubes/tools/qvm_create.py*
+%{python_sitelib}/qubes/tools/qvm_ls.py*
+%{python_sitelib}/qubes/tools/qvm_prefs.py*
+%{python_sitelib}/qubes/tools/qvm_start.py*
 
-%dir %{python_sitearch}/qubes/tests
-%{python_sitearch}/qubes/tests/__init__.py*
-%{python_sitearch}/qubes/tests/run.py*
+%dir %{python_sitelib}/qubes/ext
+%{python_sitelib}/qubes/ext/__init__.py*
 
-%{python_sitearch}/qubes/tests/events.py*
-%{python_sitearch}/qubes/tests/init.py*
+%dir %{python_sitelib}/qubes/tests
+%{python_sitelib}/qubes/tests/__init__.py*
+%{python_sitelib}/qubes/tests/run.py*
 
-%dir %{python_sitearch}/qubes/tests/vm
-%{python_sitearch}/qubes/tests/vm/__init__.py*
-%{python_sitearch}/qubes/tests/vm/init.py*
-%{python_sitearch}/qubes/tests/vm/adminvm.py*
-%{python_sitearch}/qubes/tests/vm/qubesvm.py*
+%{python_sitelib}/qubes/tests/events.py*
+%{python_sitelib}/qubes/tests/init.py*
 
-%dir %{python_sitearch}/qubes/tests/tools
-%{python_sitearch}/qubes/tests/tools/__init__.py*
-%{python_sitearch}/qubes/tests/tools/init.py*
-%{python_sitearch}/qubes/tests/tools/qvm_ls.py*
+%dir %{python_sitelib}/qubes/tests/vm
+%{python_sitelib}/qubes/tests/vm/__init__.py*
+%{python_sitelib}/qubes/tests/vm/init.py*
+%{python_sitelib}/qubes/tests/vm/adminvm.py*
+%{python_sitelib}/qubes/tests/vm/qubesvm.py*
+
+%dir %{python_sitelib}/qubes/tests/tools
+%{python_sitelib}/qubes/tests/tools/__init__.py*
+%{python_sitelib}/qubes/tests/tools/init.py*
+%{python_sitelib}/qubes/tests/tools/qvm_ls.py*
 
 # qmemman
-%{python_sitearch}/qubes/qmemman.py*
-%{python_sitearch}/qubes/qmemman_algo.py*
-%{python_sitearch}/qubes/qmemman_client.py*
-%{python_sitearch}/qubes/qmemman_server.py*
+%{python_sitelib}/qubes/qmemman.py*
+%{python_sitelib}/qubes/qmemman_algo.py*
+%{python_sitelib}/qubes/qmemman_client.py*
+%{python_sitelib}/qubes/qmemman_server.py*
 
 /usr/lib/qubes/unbind-pci-device.sh
 /usr/lib/qubes/cleanup-dispvms

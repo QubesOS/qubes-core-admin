@@ -44,7 +44,7 @@ clean:
 	make -C qmemman clean
 
 all:
-	make all -C qubes
+	python setup.py build
 #	make all -C tests
 	# Currently supported only on xen
 ifeq ($(BACKEND_VMM),xen)
@@ -58,8 +58,7 @@ ifeq ($(OS),Linux)
 	$(MAKE) install -C linux/aux-tools
 	$(MAKE) install -C linux/system-config
 endif
-	$(MAKE) install -C qvm-tools
-	$(MAKE) install -C qubes
+	python setup.py install -O1 --skip-build --root $(DESTDIR)
 #	$(MAKE) install -C tests
 	$(MAKE) install -C relaxng
 ifeq ($(BACKEND_VMM),xen)
