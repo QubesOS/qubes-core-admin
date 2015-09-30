@@ -98,7 +98,7 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             os.path.join(os.getenv("HOME"), ".local/share/applications",
                 self.vmname + "-firefox.desktop")))
         self.assertEquals(pre_rename_firewall, self.vm.get_firewall_conf())
-        with self.assertNotRaises(QubesException, OSError):
+        with self.assertNotRaises((QubesException, OSError)):
             self.vm.write_firewall_conf({'allow': False})
 
     def test_010_netvm(self):
