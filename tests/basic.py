@@ -71,6 +71,10 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
 
         self.assertEqual(self.vm.name, self.vmname)
         self.vm.write_firewall_conf({'allow': False, 'allowDns': False})
+        self.vm.autostart = True
+        self.addCleanup(os.system,
+                        'sudo systemctl -q disable qubes-vm@{}.service || :'.
+                        format(self.vmname))
         pre_rename_firewall = self.vm.get_firewall_conf()
 
         #TODO: change to setting property when implemented
@@ -100,6 +104,13 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.assertEquals(pre_rename_firewall, self.vm.get_firewall_conf())
         with self.assertNotRaises((QubesException, OSError)):
             self.vm.write_firewall_conf({'allow': False})
+        self.assertTrue(self.vm.autostart)
+        self.assertTrue(os.path.exists(
+            '/etc/systemd/system/multi-user.target.wants/'
+            'qubes-vm@{}.service'.format(newname)))
+        self.assertFalse(os.path.exists(
+            '/etc/systemd/system/multi-user.target.wants/'
+            'qubes-vm@{}.service'.format(self.vmname)))
 
     def test_010_netvm(self):
         if self.qc.get_default_netvm() is None:
