@@ -559,6 +559,9 @@ class QubesVm(object):
         return re.match(r"^[a-zA-Z][a-zA-Z0-9_.-]*$", name) is not None
 
     def pre_rename(self, new_name):
+        if self.autostart:
+            subprocess.check_call(['sudo', 'systemctl', '-q', 'disable',
+                                   'qubes-vm@{}.service'.format(self.name)])
         # fire hooks
         for hook in self.hooks_pre_rename:
             hook(self, new_name)
@@ -604,6 +607,9 @@ class QubesVm(object):
         self.post_rename(old_name)
 
     def post_rename(self, old_name):
+        if self.autostart:
+            # force setter to be called again
+            self.autostart = self.autostart
         # fire hooks
         for hook in self.hooks_post_rename:
             hook(self, old_name)
