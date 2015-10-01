@@ -21,15 +21,18 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 #
-import xen.lowlevel.xc
-import xen.lowlevel.xs
-import string
-import time
-import qmemman_algo
-import os
-from notify import notify_error_qubes_manager, clear_error_qubes_manager
 
 import logging
+import os
+import string
+import time
+
+import xen.lowlevel.xc
+import xen.lowlevel.xs
+
+import qubes
+import qubes.qmemman_algo
+
 
 no_progress_msg="VM refused to give back requested memory"
 slow_memset_react_msg="VM didn't give back all requested memory"
@@ -274,7 +277,12 @@ class SystemState(object):
                                 self.domdict[dom2].no_progress = True
                                 dom_name = self.xs.read('', '/local/domain/%s/name' % str(dom2))
                                 if dom_name is not None:
-                                    notify_error_qubes_manager(str(dom_name), no_progress_msg)
+                                    try:
+                                        qubes.Qubes()[str(dom_name)].fire_event(
+                                            'status:error', 'error',
+                                            no_progress_msg)
+                                    except LookupError:
+                                        pass
                             else:
                                 self.log.warning('dom {!r} still hold more'
                                     ' memory than have assigned ({} > {})'
@@ -284,7 +292,12 @@ class SystemState(object):
                                 self.domdict[dom2].slow_memset_react = True
                                 dom_name = self.xs.read('', '/local/domain/%s/name' % str(dom2))
                                 if dom_name is not None:
-                                    notify_error_qubes_manager(str(dom_name), slow_memset_react_msg)
+                                    try:
+                                        qubes.Qubes()[str(dom_name)].fire_event(
+                                            'status:error', 'error',
+                                            slow_memset_react_msg)
+                                    except LookupError:
+                                        pass
                     self.mem_set(dom, self.get_free_xen_memory() + self.domdict[dom].memory_actual - self.XEN_FREE_MEM_LEFT)
                     return
 

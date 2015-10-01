@@ -63,10 +63,12 @@ class Extension(object):
                 continue
 
             if attr.ha_vm is not None:
-                attr.ha_vm.add_hook(attr.ha_event, attr)
+                for event in attr.ha_events:
+                    attr.ha_vm.add_handler(event, attr)
             else:
                 # global hook
-                self.app.add_hook(attr.ha_event, attr)
+                for event in attr.ha_events:
+                    self.app.add_handler(event, attr)
 
 
 def handler(*events, **kwargs):

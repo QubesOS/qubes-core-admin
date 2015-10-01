@@ -19,8 +19,6 @@ endif
 	cp qubesutils.py[co] $(DESTDIR)$(PYTHON_QUBESPATH)
 	cp guihelpers.py $(DESTDIR)$(PYTHON_QUBESPATH)
 	cp guihelpers.py[co] $(DESTDIR)$(PYTHON_QUBESPATH)
-	cp notify.py $(DESTDIR)$(PYTHON_QUBESPATH)
-	cp notify.py[co] $(DESTDIR)$(PYTHON_QUBESPATH)
 	cp backup.py $(DESTDIR)$(PYTHON_QUBESPATH)
 	cp backup.py[co] $(DESTDIR)$(PYTHON_QUBESPATH)
 ifneq ($(BACKEND_VMM),)
