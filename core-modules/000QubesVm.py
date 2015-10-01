@@ -34,6 +34,7 @@ import sys
 import time
 import uuid
 import xml.parsers.expat
+import signal
 from qubes import qmemman
 from qubes import qmemman_algo
 import libvirt
@@ -1717,6 +1718,18 @@ class QubesVm(object):
 
     def start_qubesdb(self):
         self.log.debug('start_qubesdb()')
+        pidfile = '/var/run/qubes/qubesdb.{}.pid'.format(self.name)
+        try:
+            if os.path.exists(pidfile):
+                old_qubesdb_pid = open(pidfile, 'r').read()
+                os.kill(int(old_qubesdb_pid), signal.SIGTERM)
+                timeout = 25
+                while os.path.exists(pidfile) and timeout:
+                    time.sleep(0.2)
+                    timeout -= 1
+        except IOError:  # ENOENT (pidfile)
+            pass
+
         retcode = subprocess.call ([
             system_path["qubesdb_daemon_path"],
             str(self.xid),
