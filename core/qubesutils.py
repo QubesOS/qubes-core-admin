@@ -790,28 +790,40 @@ class QubesWatch(object):
             name = libvirt_domain.name()
             if name in self._qdb:
                 return
+            if not libvirt_domain.isActive():
+                return
             # open separate connection to Qubes DB:
             # 1. to not confuse pull() with responses to real commands sent from
             # other threads (like read, write etc) with watch events
             # 2. to not think whether QubesDB is thread-safe (it isn't)
-            while libvirt_domain.isActive() and name not in self._qdb:
-                try:
-                    self._qdb[name] = QubesDB(name)
-                except Error as e:
-                    if e.args[0] != 2:
-                        raise
-                time.sleep(0.5)
-            if name not in self._qdb:
-                # domain no longer active
+            try:
+                self._qdb[name] = QubesDB(name)
+            except Error as e:
+                if e.args[0] != 2:
+                    raise
+                libvirt.virEventAddTimeout(500, self._retry_register_watches,
+                                           libvirt_domain)
                 return
         else:
             name = "dom0"
             self._qdb[name] = QubesDB(name)
-        self._qdb[name].watch('/qubes-block-devices')
+        try:
+            self._qdb[name].watch('/qubes-block-devices')
+        except Error as e:
+            if e.args[0] == 102: # Connection reset by peer
+                # QubesDB daemon not running - most likely we've connected to
+                #  stale daemon which just exited; retry later
+                libvirt.virEventAddTimeout(500, self._retry_register_watches,
+                                           libvirt_domain)
+                return
         self._qdb_events[name] = libvirt.virEventAddHandle(
             self._qdb[name].watch_fd(),
             libvirt.VIR_EVENT_HANDLE_READABLE,
             self._qdb_handler, name)
+
+    def _retry_register_watches(self, timer, libvirt_domain):
+        libvirt.virRemoveTimeout(timer)
+        self._register_watches(libvirt_domain)
 
     def _unregister_watches(self, libvirt_domain):
         name = libvirt_domain.name()
@@ -823,7 +835,9 @@ class QubesWatch(object):
             del(self._qdb[name])
 
     def _domain_list_changed(self, conn, domain, event, reason, param):
-        if event == libvirt.VIR_DOMAIN_EVENT_STARTED:
+        # use VIR_DOMAIN_EVENT_RESUMED instead of VIR_DOMAIN_EVENT_STARTED to
+        #  make sure that qubesdb daemon is already running
+        if event == libvirt.VIR_DOMAIN_EVENT_RESUMED:
             self._register_watches(domain)
         elif event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
             self._unregister_watches(domain)
