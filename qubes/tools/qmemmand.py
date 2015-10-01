@@ -20,31 +20,29 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 #
+import ConfigParser
 import SocketServer
-import thread
-import time
-import xen.lowlevel.xs
-import sys
-import os
-import socket
-from qmemman import SystemState
-import qmemman_algo
-from ConfigParser import SafeConfigParser
-from optparse import OptionParser
-from qubesutils import parse_size
-
 import logging
 import logging.handlers
+import os
+import socket
+import sys
+import thread
 
-config_path = '/etc/qubes/qmemman.conf'
-SOCK_PATH='/var/run/qubes/qmemman.sock'
-LOG_PATH='/var/log/qubes/qmemman.log'
+import xen.lowlevel.xs
 
-system_state = SystemState()
+import qubes.qmemman
+import qubes.qmemman.algo
+import qubes.utils
+
+SOCK_PATH = '/var/run/qubes/qmemman.sock'
+LOG_PATH = '/var/log/qubes/qmemman.log'
+
+system_state = qubes.qmemman.SystemState()
 global_lock = thread.allocate_lock()
 
 def only_in_first_list(l1, l2):
-    ret=[]
+    ret = []
     for i in l1:
         if not i in l2:
             ret.append(i)
@@ -53,13 +51,13 @@ def only_in_first_list(l1, l2):
 def get_domain_meminfo_key(domain_id):
     return '/local/domain/'+domain_id+'/memory/meminfo'
 
-                    
-class WatchType:
+
+class WatchType(object):
     def __init__(self, fn, param):
         self.fn = fn
         self.param = param
 
-class XS_Watcher:
+class XS_Watcher(object):
     def __init__(self):
         self.log = logging.getLogger('qmemman.daemon.xswatcher')
         self.log.debug('XS_Watcher()')
@@ -104,7 +102,8 @@ class XS_Watcher:
 
     def meminfo_changed(self, domain_id):
         self.log.debug('meminfo_changed(domain_id={!r})'.format(domain_id))
-        untrusted_meminfo_key = self.handle.read('', get_domain_meminfo_key(domain_id))
+        untrusted_meminfo_key = self.handle.read(
+            '', get_domain_meminfo_key(domain_id))
         if untrusted_meminfo_key == None or untrusted_meminfo_key == '':
             return
 
@@ -171,72 +170,88 @@ class QMemmanReqHandler(SocketServer.BaseRequestHandler):
             # XXX no release of lock?
 
 
-def start_server(server):
-    server.serve_forever()
+parser = qubes.tools.get_parser_base()
 
-class QMemmanServer:
-    @staticmethod          
-    def main():
-        # setup logging
-        ha_syslog = logging.handlers.SysLogHandler('/dev/log')
-        ha_syslog.setFormatter(
-            logging.Formatter('%(name)s[%(process)d]: %(message)s'))
-        logging.root.addHandler(ha_syslog)
+parser.add_argument('--config', '-c', metavar='FILE',
+    action='store', default='/etc/qubes/qmemman.conf',
+    help='qmemman config file')
 
-        # leave log for backwards compatibility
-        ha_file = logging.FileHandler(LOG_PATH)
+parser.add_argument('--foreground',
+    action='store_true', default=False,
+    help='do not close stdio')
+
+
+def main():
+    args = parser.parse_args()
+
+    # setup logging
+    ha_syslog = logging.handlers.SysLogHandler('/dev/log')
+    ha_syslog.setFormatter(
+        logging.Formatter('%(name)s[%(process)d]: %(message)s'))
+    logging.root.addHandler(ha_syslog)
+
+    # leave log for backwards compatibility
+    ha_file = logging.FileHandler(LOG_PATH)
+    ha_file.setFormatter(
+        logging.Formatter('%(asctime)s %(name)s[%(process)d]: %(message)s'))
+    logging.root.addHandler(ha_file)
+
+    if args.foreground:
+        ha_stderr = logging.StreamHandler(sys.stderr)
         ha_file.setFormatter(
             logging.Formatter('%(asctime)s %(name)s[%(process)d]: %(message)s'))
-        logging.root.addHandler(ha_file)
-
-        log = logging.getLogger('qmemman.daemon')
-
-        usage = "usage: %prog [options]"
-        parser = OptionParser(usage)
-        parser.add_option("-c", "--config", action="store", dest="config", default=config_path)
-        (options, args) = parser.parse_args()
-
+        logging.root.addHandler(ha_stderr)
+    else:
         # close io
-        sys.stdin.close()
         sys.stdout.close()
         sys.stderr.close()
 
-        config = SafeConfigParser({
-                'vm-min-mem': str(qmemman_algo.MIN_PREFMEM),
-                'dom0-mem-boost': str(qmemman_algo.DOM0_MEM_BOOST),
-                'cache-margin-factor': str(qmemman_algo.CACHE_FACTOR)
-                })
-        config.read(options.config)
-        if config.has_section('global'):
-            qmemman_algo.MIN_PREFMEM = parse_size(config.get('global', 'vm-min-mem'))
-            qmemman_algo.DOM0_MEM_BOOST = parse_size(config.get('global', 'dom0-mem-boost'))
-            qmemman_algo.CACHE_FACTOR = config.getfloat('global', 'cache-margin-factor')
+    sys.stdin.close()
 
-        log.info('MIN_PREFMEM={qmemman_algo.MIN_PREFMEM}'
-            ' DOM0_MEM_BOOST={qmemman_algo.DOM0_MEM_BOOST}'
-            ' CACHE_FACTOR={qmemman_algo.CACHE_FACTOR}'.format(
-                qmemman_algo=qmemman_algo))
+    logging.root.setLevel((args.quiet - args.verbose) * 10 + logging.WARNING)
 
-        try:
-            os.unlink(SOCK_PATH)
-        except:
-            pass
+    log = logging.getLogger('qmemman.daemon')
 
-        log.debug('instantiating server')
-        os.umask(0)
-        server = SocketServer.UnixStreamServer(SOCK_PATH, QMemmanReqHandler)
-        os.umask(077)
+    config = ConfigParser.SafeConfigParser({
+            'vm-min-mem': str(qubes.qmemman.algo.MIN_PREFMEM),
+            'dom0-mem-boost': str(qubes.qmemman.algo.DOM0_MEM_BOOST),
+            'cache-margin-factor': str(qubes.qmemman.algo.CACHE_FACTOR)
+            })
+    config.read(args.config)
 
-        # notify systemd
-        nofity_socket = os.getenv('NOTIFY_SOCKET')
-        if nofity_socket:
-            log.debug('notifying systemd')
-            s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
-            if nofity_socket.startswith('@'):
-                nofity_socket = '\0%s' % nofity_socket[1:]
-            s.connect(nofity_socket)
-            s.sendall("READY=1")
-            s.close()
+    if config.has_section('global'):
+        qubes.qmemman.algo.MIN_PREFMEM = \
+            qubes.utils.parse_size(config.get('global', 'vm-min-mem'))
+        qubes.qmemman.algo.DOM0_MEM_BOOST = \
+            qubes.utils.parse_size(config.get('global', 'dom0-mem-boost'))
+        qubes.qmemman.algo.CACHE_FACTOR = \
+            config.getfloat('global', 'cache-margin-factor')
 
-        thread.start_new_thread(start_server, tuple([server]))
-        XS_Watcher().watch_loop()
+    log.info('MIN_PREFMEM={algo.MIN_PREFMEM}'
+        ' DOM0_MEM_BOOST={algo.DOM0_MEM_BOOST}'
+        ' CACHE_FACTOR={algo.CACHE_FACTOR}'.format(
+            algo=qubes.qmemman.algo))
+
+    try:
+        os.unlink(SOCK_PATH)
+    except:
+        pass
+
+    log.debug('instantiating server')
+    os.umask(0)
+    server = SocketServer.UnixStreamServer(SOCK_PATH, QMemmanReqHandler)
+    os.umask(077)
+
+    # notify systemd
+    nofity_socket = os.getenv('NOTIFY_SOCKET')
+    if nofity_socket:
+        log.debug('notifying systemd')
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        if nofity_socket.startswith('@'):
+            nofity_socket = '\0%s' % nofity_socket[1:]
+        s.connect(nofity_socket)
+        s.sendall("READY=1")
+        s.close()
+
+    thread.start_new_thread(server.serve_forever, ())
+    XS_Watcher().watch_loop()

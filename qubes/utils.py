@@ -82,3 +82,22 @@ def format_doc(docstring):
         settings=None, settings_spec=None, settings_overrides=None,
         config_section=None, enable_exit_status=None)
     return pub.writer.document.astext()
+
+# FIXME those are wrong, k/M/G are SI prefixes and means 10**3
+# maybe adapt https://code.activestate.com/recipes/578019
+def parse_size(size):
+    units = [ ('K', 1024), ('KB', 1024),
+        ('M', 1024*1024), ('MB', 1024*1024),
+        ('G', 1024*1024*1024), ('GB', 1024*1024*1024),
+    ]
+
+    size = size.strip().upper()
+    if size.isdigit():
+        return int(size)
+
+    for unit, multiplier in units:
+        if size.endswith(unit):
+            size = size[:-len(unit)].strip()
+            return int(size)*multiplier
+
+    raise QubesException("Invalid size: {0}.".format(size))

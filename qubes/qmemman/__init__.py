@@ -31,7 +31,7 @@ import xen.lowlevel.xc
 import xen.lowlevel.xs
 
 import qubes
-import qubes.qmemman_algo
+import qubes.qmemman.algo
 
 
 no_progress_msg="VM refused to give back requested memory"
@@ -102,14 +102,24 @@ class SystemState(object):
                     self.domdict[i].memory_actual <= self.domdict[i].last_target + self.XEN_FREE_MEM_LEFT/4:
                 dom_name = self.xs.read('', '/local/domain/%s/name' % str(i))
                 if dom_name is not None:
-                    clear_error_qubes_manager(dom_name, slow_memset_react_msg)
+                    try:
+                        qubes.Qubes()[str(dom_name)].fire_event(
+                            'status:no-error', 'no-error',
+                            slow_memset_react_msg)
+                    except LookupError:
+                        pass
                 self.domdict[i].slow_memset_react = False
 
             if self.domdict[i].no_progress and \
                     self.domdict[i].memory_actual <= self.domdict[i].last_target + self.XEN_FREE_MEM_LEFT/4:
                 dom_name = self.xs.read('', '/local/domain/%s/name' % str(i))
                 if dom_name is not None:
-                    clear_error_qubes_manager(dom_name, no_progress_msg)
+                    try:
+                        qubes.Qubes()[str(dom_name)].fire_event(
+                            'status:no-error', 'no-error',
+                            no_progress_msg)
+                    except LookupError:
+                        pass
                 self.domdict[i].no_progress = False
 
 #the below works (and is fast), but then 'xm list' shows unchanged memory value
@@ -160,7 +170,7 @@ class SystemState(object):
                         #domain not responding to memset requests, remove it from donors
                         self.domdict[i].no_progress = True
                         self.log.info('domain {} stuck at {}'.format(i, self.domdict[i].memory_actual))
-            memset_reqs = qmemman_algo.balloon(memsize + self.XEN_FREE_MEM_LEFT - xenfree, self.domdict)
+            memset_reqs = qubes.qmemman.algo.balloon(memsize + self.XEN_FREE_MEM_LEFT - xenfree, self.domdict)
             self.log.info('memset_reqs={!r}'.format(memset_reqs))
             if niter > MAX_TRIES or len(memset_reqs) == 0:
                 return False
@@ -178,7 +188,7 @@ class SystemState(object):
             'refresh_meminfo(domid={}, untrusted_meminfo_key={!r})'.format(
                 domid, untrusted_meminfo_key))
 
-        qmemman_algo.refresh_meminfo_for_domain(
+        qubes.qmemman.algo.refresh_meminfo_for_domain(
             self.domdict[domid], untrusted_meminfo_key)
         self.do_balance()
 
@@ -203,7 +213,7 @@ class SystemState(object):
             last_target = self.domdict[dom].last_target
             memory_change = mem - last_target
             total_memory_transfer += abs(memory_change)
-            pref = qmemman_algo.prefmem(self.domdict[dom])
+            pref = qubes.qmemman.algo.prefmem(self.domdict[dom])
 
             if last_target > 0 and last_target < pref and memory_change > MIN_MEM_CHANGE_WHEN_UNDER_PREF:
                 self.log.info(
@@ -220,7 +230,7 @@ class SystemState(object):
             if self.domdict[i].meminfo is not None:
                 self.log.info('stat: dom {!r} act={} pref={}'.format(i,
                     self.domdict[i].memory_actual,
-                    qmemman_algo.prefmem(self.domdict[i])))
+                    qubes.qmemman.algo.prefmem(self.domdict[i])))
 
         self.log.info('stat: xenfree={} memset_reqs={}'.format(xenfree, memset_reqs))
 
@@ -234,7 +244,7 @@ class SystemState(object):
         self.refresh_memactual()
         self.clear_outdated_error_markers()
         xenfree = self.get_free_xen_memory()
-        memset_reqs = qmemman_algo.balance(xenfree - self.XEN_FREE_MEM_LEFT, self.domdict)
+        memset_reqs = qubes.qmemman.algo.balance(xenfree - self.XEN_FREE_MEM_LEFT, self.domdict)
         if not self.is_balance_req_significant(memset_reqs, xenfree):
             return
 

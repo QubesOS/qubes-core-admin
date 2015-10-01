@@ -4,7 +4,7 @@ After=qubes-core.service
 
 [Service]
 Type=notify
-ExecStart=/usr/lib/qubes/qmemman_daemon.py
+ExecStart=/usr/bin/qmemmand
 StandardOutput=syslog
 
 [Install]

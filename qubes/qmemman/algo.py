@@ -126,7 +126,7 @@ def balloon(memsize, domain_dictionary):
             log.info('balloon: dom {} has actual memory {}'.format(i,
                 domain_dictionary[i].memory_actual))
             donors.append((i,-need))
-            available-=need   
+            available-=need
 
     log.info('req={} avail={} donors={!r}'.format(memsize, available, donors))
 

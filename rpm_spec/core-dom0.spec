@@ -188,6 +188,7 @@ fi
 %config(noreplace) %attr(0664,root,qubes) %{_sysconfdir}/qubes/qmemman.conf
 /usr/bin/qvm-*
 /usr/bin/qubes-*
+/usr/bin/qmemmand
 
 %dir %{python_sitelib}/qubes-*.egg-info
 %{python_sitelib}/qubes-*.egg-info/*
@@ -221,6 +222,7 @@ fi
 
 %dir %{python_sitelib}/qubes/tools
 %{python_sitelib}/qubes/tools/__init__.py*
+%{python_sitelib}/qubes/tools/qmemmand.py*
 %{python_sitelib}/qubes/tools/qubes_create.py*
 %{python_sitelib}/qubes/tools/qvm_create.py*
 %{python_sitelib}/qubes/tools/qvm_ls.py*
@@ -249,15 +251,13 @@ fi
 %{python_sitelib}/qubes/tests/tools/init.py*
 %{python_sitelib}/qubes/tests/tools/qvm_ls.py*
 
-# qmemman
-%{python_sitelib}/qubes/qmemman.py*
-%{python_sitelib}/qubes/qmemman_algo.py*
-%{python_sitelib}/qubes/qmemman_client.py*
-%{python_sitelib}/qubes/qmemman_server.py*
+%dir %{python_sitelib}/qubes/qmemman
+%{python_sitelib}/qubes/qmemman/__init__.py*
+%{python_sitelib}/qubes/qmemman/algo.py*
+%{python_sitelib}/qubes/qmemman/client.py*
 
 /usr/lib/qubes/unbind-pci-device.sh
 /usr/lib/qubes/cleanup-dispvms
-/usr/lib/qubes/qmemman_daemon.py*
 /usr/lib/qubes/qfile-daemon-dvm*
 /usr/lib/qubes/block-cleaner-daemon.py*
 /usr/lib/qubes/vusb-ctl.py*

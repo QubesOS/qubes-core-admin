@@ -41,14 +41,12 @@ rpms-dom0:
 
 clean:
 	make -C dispvm clean
-	make -C qmemman clean
 
 all:
 	python setup.py build
 #	make all -C tests
 	# Currently supported only on xen
 ifeq ($(BACKEND_VMM),xen)
-	make all -C qmemman
 	make all -C dispvm
 endif
 
@@ -63,7 +61,8 @@ endif
 	$(MAKE) install -C relaxng
 ifeq ($(BACKEND_VMM),xen)
 	# Currently supported only on xen
-	$(MAKE) install -C qmemman
+	mkdir -p $(DESTDIR)/etc/qubes
+	cp etc/qmemman.conf $(DESTDIR)/etc/qubes/
 endif
 	$(MAKE) install -C dispvm
 	mkdir -p $(DESTDIR)/etc/qubes-rpc/policy
@@ -78,9 +77,11 @@ endif
 	cp qubes-rpc/qubes.NotifyTools $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes-notify-updates $(DESTDIR)/usr/libexec/qubes/
 	cp qubes-rpc/qubes-notify-tools $(DESTDIR)/usr/libexec/qubes/
+
 	mkdir -p "$(DESTDIR)$(FILESDIR)"
 	cp vm-config/$(BACKEND_VMM)-vm-template.xml "$(DESTDIR)$(FILESDIR)/vm-template.xml"
 	cp vm-config/$(BACKEND_VMM)-vm-template-hvm.xml "$(DESTDIR)$(FILESDIR)/vm-template-hvm.xml"
+
 	mkdir -p $(DESTDIR)$(DATADIR)
 	mkdir -p $(DESTDIR)$(DATADIR)/vm-templates
 	mkdir -p $(DESTDIR)$(DATADIR)/appvms
