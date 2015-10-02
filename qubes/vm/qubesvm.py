@@ -1670,7 +1670,7 @@ class QubesVM(qubes.vm.BaseVM):
         '''Create entries in Qubes DB.
         '''
         self.qdb.write("/name", self.name)
-        self.qdb.write("/qubes-vm-type", self.type)
+        self.qdb.write("/qubes-vm-type", self.__class__.__name__)
         self.qdb.write("/qubes-vm-updateable", str(self.updateable))
 
         if self.provides_network:
