@@ -87,7 +87,8 @@ class XenVMStorage(qubes.storage.VMStorage):
             return self._format_disk_dev(
                 '{}:{}'.format(self.root_img, self.vm.template.rootcow_img),
                 self.root_dev,
-                script='block-snapshot')
+                script='block-snapshot',
+                rw=False)
 
         else:
             return self._format_disk_dev(self.root_img, self.root_dev)
