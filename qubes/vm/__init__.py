@@ -362,7 +362,7 @@ class BaseVM(qubes.PropertyHolder):
             for dev in self.devices['pci'])
         args['maxmem'] = str(self.maxmem)
         args['vcpus'] = str(self.vcpus)
-        args['mem'] = str(max(self.memory, self.maxmem))
+        args['mem'] = str(min(self.memory, self.maxmem))
 
         if 'meminfo-writer' in self.services \
                 and not self.services['meminfo-writer']:
