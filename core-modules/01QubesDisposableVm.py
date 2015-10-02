@@ -97,6 +97,11 @@ class QubesDisposableVm(QubesVm):
             disp_template = kwargs['disp_template']
             kwargs['template'] = disp_template.template
             kwargs['dir_path'] = disp_template.dir_path
+            kwargs['kernel'] = disp_template.kernel
+            kwargs['uses_default_kernel'] = disp_template.uses_default_kernel
+            kwargs['kernelopts'] = disp_template.kernelopts
+            kwargs['uses_default_kernelopts'] = \
+                disp_template.uses_default_kernelopts
         super(QubesDisposableVm, self).__init__(**kwargs)
 
         assert self.template is not None, "Missing template for DisposableVM!"
