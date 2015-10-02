@@ -370,20 +370,6 @@ class QubesVM(qubes.vm.BaseVM):
         return self.storage.volatile_img
 
 
-    @property
-    def kernels_dir(self):
-        '''Directory where kernel resides.
-
-        If :py:attr:`self.kernel` is :py:obj:`None`, the this points inside
-        :py:attr:`self.dir_path`
-        '''
-        return os.path.join(qubes.config.system_path['qubes_base_dir'],
-            qubes.config.system_path['qubes_kernels_base_dir'], self.kernel) \
-            if self.kernel is not None \
-        else os.path.join(self.dir_path,
-            qubes.config.vm_files['kernels_subdir'])
-
-
     # XXX shouldn't this go elsewhere?
     @property
     def updateable(self):
@@ -524,12 +510,6 @@ class QubesVM(qubes.vm.BaseVM):
 
         # Initialize VM image storage class
         self.storage = qubes.storage.get_storage(self)
-
-        # XXX should be moved to defaults in storage class
-#       if self.kernels_dir is not None: # it is None for AdminVM
-#           self.storage.modules_img = os.path.join(self.kernels_dir,
-#               'modules.img')
-#           self.storage.modules_img_rw = self.kernel is None
 
         # fire hooks
         self.fire_event('domain-init')
@@ -1102,6 +1082,7 @@ class QubesVM(qubes.vm.BaseVM):
         p.communicate(input=self.default_user)
 
 
+    # TODO move to storage
     def create_on_disk(self, source_template=None):
         '''Create files needed for VM.
 
@@ -1117,7 +1098,7 @@ class QubesVM(qubes.vm.BaseVM):
         self.storage.create_on_disk(source_template)
 
         if self.updateable:
-            kernels_dir = source_template.kernels_dir
+            kernels_dir = source_template.storage.kernels_dir
             self.log.info(
                 'Copying the kernel (unset kernel to use it): {0}'.format(
                     kernels_dir))
@@ -1125,8 +1106,7 @@ class QubesVM(qubes.vm.BaseVM):
             os.mkdir(self.dir_path + '/kernels')
             for filename in ("vmlinuz", "initramfs", "modules.img"):
                 shutil.copy(os.path.join(kernels_dir, filename),
-                    os.path.join(self.dir_path,
-                        qubes.config.vm_files["kernels_subdir"], filename))
+                    os.path.join(self.storage.kernels_dir, filename))
 
         self.log.info('Creating icon symlink: {} -> {}'.format(
             self.icon_path, self.label.icon_path))
@@ -1556,6 +1536,7 @@ class QubesVM(qubes.vm.BaseVM):
         return qubes.utils.get_disk_usage(self.dir_path)
 
 
+    # TODO move to storage
     def verify_files(self):
         '''Verify that files accessed by this machine are sane.
 
@@ -1564,14 +1545,16 @@ class QubesVM(qubes.vm.BaseVM):
 
         self.storage.verify_files()
 
-        if not os.path.exists(os.path.join(self.kernels_dir, 'vmlinuz')):
+        if not os.path.exists(
+                os.path.join(self.storage.kernels_dir, 'vmlinuz')):
             raise qubes.QubesException('VM kernel does not exist: {0}'.format(
-                os.path.join(self.kernels_dir, 'vmlinuz')))
+                os.path.join(self.storage.kernels_dir, 'vmlinuz')))
 
-        if not os.path.exists(os.path.join(self.kernels_dir, 'initramfs')):
+        if not os.path.exists(
+                os.path.join(self.storage.kernels_dir, 'initramfs')):
             raise qubes.QubesException(
                 'VM initramfs does not exist: {0}'.format(
-                    os.path.join(self.kernels_dir, 'initramfs')))
+                    os.path.join(self.storage.kernels_dir, 'initramfs')))
 
         self.fire_event('verify-files')
 

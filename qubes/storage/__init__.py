@@ -44,8 +44,7 @@ class VMStorage(object):
     in mind.
     ''' # pylint: disable=abstract-class-little-used
 
-    def __init__(self, vm, private_img_size=None, root_img_size=None,
-            modules_img=None, modules_img_rw=False):
+    def __init__(self, vm, private_img_size=None, root_img_size=None):
 
         #: Domain for which we manage storage
         self.vm = vm
@@ -59,10 +58,6 @@ class VMStorage(object):
         self.root_img_size = root_img_size \
             if root_img_size is not None \
             else qubes.config.defaults['root_img_size']
-
-        # For now compute this path still in QubesVm
-        self.modules_img = modules_img
-        self.modules_img_rw = modules_img_rw
 
         #: Additional drive (currently used only by HVM)
         self.drive = None
@@ -85,6 +80,36 @@ class VMStorage(object):
     def volatile_img(self):
         '''Path to the volatile image'''
         return self.abspath(qubes.config.vm_files['volatile_img'])
+
+
+    @property
+    def kernels_dir(self):
+        '''Directory where kernel resides.
+
+        If :py:attr:`self.vm.kernel` is :py:obj:`None`, the this points inside
+        :py:attr:`self.vm.dir_path`
+        '''
+        return os.path.join(qubes.config.system_path['qubes_base_dir'],
+            qubes.config.system_path['qubes_kernels_base_dir'], self.vm.kernel) \
+            if self.vm.kernel is not None \
+        else os.path.join(self.vm.dir_path,
+            qubes.config.vm_files['kernels_subdir'])
+
+
+    @property
+    def modules_img(self):
+        '''Path to image with modules.
+
+        Depending on domain, this may be global or inside domain's dir.
+        '''
+        return os.path.join(self.kernels_dir, 'modules.img')
+
+
+    @property
+    def modules_img_rw(self):
+        ''':py:obj:`True` if module image should be mounted RW, :py:obj:`False`
+        otherwise.'''
+        return self.vm.kernel is None
 
 
     def abspath(self, path, rel=None):

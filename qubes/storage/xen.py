@@ -102,6 +102,8 @@ class XenVMStorage(qubes.storage.VMStorage):
         args['volatiledev'] = self._format_disk_dev(self.volatile_img,
             self.volatile_dev)
 
+        args['kerneldir'] = self.kernels_dir
+
         if self.modules_img is not None:
             args['otherdevs'] = self._format_disk_dev(self.modules_img,
                 self.modules_dev, rw=self.modules_img_rw)
