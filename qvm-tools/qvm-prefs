@@ -128,7 +128,7 @@ def do_get(vms, vm, prop):
     if getattr(vm, prop, None) is None:
         # not set or set to None
         return
-    if prop in ['template', 'netvm', 'dispvm_netvm']:
+    if prop in ['template', 'netvm', 'dispvm_netvm', 'label']:
         print getattr(vm, prop).name
     else:
         print str(getattr(vm, prop))
