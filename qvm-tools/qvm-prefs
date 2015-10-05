@@ -268,7 +268,7 @@ def set_dispvm_netvm(vms, vm, args):
 
     netvm = args[0]
     if netvm == "none":
-        vm.netvm = None
+        vm.dispvm_netvm = None
         vm.uses_default_dispvm_netvm = False
     elif netvm == "default":
         vm.uses_default_dispvm_netvm = True
