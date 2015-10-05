@@ -48,7 +48,7 @@ class DriveAction(argparse.Action):
 
 
 parser = qubes.tools.QubesArgumentParser(
-    want_vmname=True,
+    want_vm=True,
     description='start a domain')
 
 
@@ -102,16 +102,11 @@ def main(args=None):
     '''
 
     args = parser.parse_args(args)
-    parser.set_qubes_verbosity(parser, args)
-    app = qubes.Qubes(args.xml)
 
 #   if options.tray:
 #       tray_notify_init()
 
-    try:
-        vm = app.domains[args.name]
-    except KeyError:
-        parser.error('no such domain: {!r}'.format(args.name))
+    vm = args.vm
 
     if args.drive is not None:
         if 'drive' not in (prop.__name__ for prop in vm.property_list()):

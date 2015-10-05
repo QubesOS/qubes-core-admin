@@ -72,7 +72,7 @@ class _HelpPropertiesAction(argparse.Action):
 
 parser = qubes.tools.QubesArgumentParser(
     want_force_root=True,
-    want_vmname=True)
+    want_vm=True)
 
 parser.add_argument('--help-properties', action=_HelpPropertiesAction)
 
@@ -95,28 +95,20 @@ parser.add_argument('--unset', '--default', '--delete', '-D',
 
 def main():
     args = parser.parse_args()
-    parser.set_verbosity(args)
-    parser.dont_run_as_root(args)
-
-    app = qubes.Qubes(args.xml)
-    try:
-        vm = app.domains[args.vmname]
-    except KeyError:
-        parser.error('no such domain: {!r}'.format(args.vmname))
 
     if args.property is None:
-        properties = vm.property_list()
+        properties = args.vm.property_list()
         width = max(len(prop.__name__) for prop in properties)
 
         for prop in sorted(properties):
             try:
-                value = getattr(vm, prop.__name__)
+                value = getattr(args.vm, prop.__name__)
             except AttributeError:
                 print('{name:{width}s}  U'.format(
                     name=prop.__name__, width=width))
                 continue
 
-            if vm.property_is_default(prop):
+            if args.vm.property_is_default(prop):
                 print('{name:{width}s}  D  {value!r}'.format(
                     name=prop.__name__, width=width, value=value))
             else:
@@ -127,17 +119,17 @@ def main():
 
 
     if args.value is not None:
-        setattr(vm, args.property, args.value)
-        app.save()
+        setattr(args.vm, args.property, args.value)
+        args.app.save()
         return True
 
     if args.delete:
-        delattr(vm, args.property)
-        app.save()
+        delattr(args.vm, args.property)
+        args.app.save()
         return True
 
 
-    print(str(getattr(vm, args.property)))
+    print(str(getattr(args.vm, args.property)))
 
     return True
 

@@ -73,10 +73,8 @@ parser.add_argument('name', metavar='VMNAME',
 
 #parser.add_option ("-q", "--quiet", action="store_false", dest="verbose", default=True)
 
-def main():
-    args = parser.parse_args()
-    parser.set_verbosity(args)
-    parser.dont_run_as_root(args)
+def main(args=None):
+    args = parser.parse_args(args)
 
     if 'label' not in args.properties:
         parser.error('--label option is mandatory')
@@ -84,12 +82,11 @@ def main():
     if 'name' not in args.properties:
         parser.error('VMNAME is mandatory')
 
-    app = qubes.Qubes(args.xml)
     try:
-        label = app.get_label(args.properties['label'])
+        label = args.app.get_label(args.properties['label'])
     except KeyError:
         parser.error('no such label: {!r}; available: {}'.format(args.label,
-            ', '.join(repr(l.name) for l in app.labels)))
+            ', '.join(repr(l.name) for l in args.app.labels)))
 
     try:
         cls = qubes.vm.BaseVM.register[args.cls]
@@ -100,7 +97,7 @@ def main():
             'template' not in (prop.__name__ for prop in cls.property_list()):
         parser.error('this domain class does not support template')
 
-    vm = app.add_new_vm(cls, **args.properties)
+    vm = args.app.add_new_vm(cls, **args.properties)
 
 #   if not options.standalone and any([options.root_copy_from, options.root_move_from]):
 #       print >> sys.stderr, "root.img can be specified only for standalone VMs"
@@ -146,7 +143,7 @@ def main():
         except (IOError, OSError) as err:
             parser.error(str(err))
 
-    app.save()
+    args.app.save()
 
     return True
 

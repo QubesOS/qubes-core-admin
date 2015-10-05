@@ -89,23 +89,37 @@ class SinglePropertyAction(argparse.Action):
 class QubesArgumentParser(argparse.ArgumentParser):
     '''Parser preconfigured for use in most of the Qubes command-line tools.
 
+    :param bool want_app: instantiate :py:class:`qubes.Qubes` object
+    :param bool want_app_no_instance: don't actually instantiate \
+        :py:class:`qubes.Qubes` object, just add argument for custom xml file
     :param bool want_force_root: add ``--force-root`` option
-    :param bool want_vmname: add ``VMNAME`` as first positional argument
+    :param bool want_vm: add ``VMNAME`` as first positional argument
     *kwargs* are passed to :py:class:`argparser.ArgumentParser`.
 
     Currenty supported options:
         ``--force-root`` (optional)
-        ``--xml`` location of :file:`qubes.xml` (help is suppressed)
+        ``--qubesxml`` location of :file:`qubes.xml` (help is suppressed)
         ``--verbose`` and ``--quiet``
     '''
 
     def __init__(self,
+            want_app=True,
+            want_app_no_instance=False,
             want_force_root=False,
-            want_vmname=False,
+            want_vm=False,
             **kwargs):
-        self.add_argument('--xml', metavar='XMLFILE',
-            action='store',
-            help=argparse.SUPPRESS)
+
+        super(QubesArgumentParser, self).__init__(**kwargs)
+
+        self._want_app = want_app
+        self._want_app_no_instance = want_app_no_instance
+        self._want_force_root = want_force_root
+        self._want_vm = want_vm
+
+        if self._want_app:
+            self.add_argument('--qubesxml', metavar='FILE',
+                action='store', dest='app',
+                help=argparse.SUPPRESS)
 
         self.add_argument('--verbose', '-v',
             action='count',
@@ -115,20 +129,39 @@ class QubesArgumentParser(argparse.ArgumentParser):
             action='count',
             help='decrease verbosity')
 
-        if want_force_root:
+        if self._want_force_root:
             self.add_argument('--force-root',
                 action='store_true', default=False,
                 help='force to run as root')
 
-        if want_vmname:
-            self.add_argument('vmname', metavar='VMNAME',
+        if self._want_vm:
+            self.add_argument('vm', metavar='VMNAME',
                 action='store',
                 help='name of the domain')
 
         self.set_defaults(verbose=1, quiet=0)
 
 
-    def dont_run_as_root(self, args):
+    def parse_args(self, *args, **kwargs):
+        namespace = super(QubesArgumentParser, self).parse_args(*args, **kwargs)
+
+        if self._want_app and not self._want_app_no_instance:
+            self.set_qubes_verbosity(namespace)
+            namespace.app = qubes.Qubes(namespace.app)
+
+            if self._want_vm:
+                try:
+                    namespace.vm = namespace.app.domains[namespace.vm]
+                except KeyError:
+                    self.error('no such domain: {!r}'.format(namespace.vm))
+
+        if self._want_force_root:
+            self.dont_run_as_root(namespace)
+
+        return namespace
+
+
+    def dont_run_as_root(self, namespace):
         '''Prevent running as root.
 
         :param argparse.Namespace args: if there is ``.force_root`` attribute \
@@ -139,24 +172,24 @@ class QubesArgumentParser(argparse.ArgumentParser):
         except AttributeError: # no geteuid(), probably NT
             return
 
-        if euid == 0 and not args.force_root:
+        if euid == 0 and not namespace.force_root:
             self.error('refusing to run as root; add --force-root to override')
 
 
     @staticmethod
-    def get_loglevel_from_verbosity(args):
-        return (args.quiet - args.verbose) * 10 + logging.WARNING
+    def get_loglevel_from_verbosity(namespace):
+        return (namespace.quiet - namespace.verbose) * 10 + logging.WARNING
 
 
     @staticmethod
-    def set_qubes_verbosity(args):
+    def set_qubes_verbosity(namespace):
         '''Apply a verbosity setting.
 
         This is done by configuring global logging.
         :param argparse.Namespace args: args as parsed by parser
         '''
 
-        verbose = args.verbose - args.quiet
+        verbose = namespace.verbose - namespace.quiet
 
         if verbose >= 2:
             qubes.log.enable_debug()

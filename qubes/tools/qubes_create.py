@@ -31,7 +31,9 @@ import qubes
 import qubes.tools
 
 parser = qubes.tools.QubesArgumentParser(
-    description='Create new Qubes OS store.')
+    description='Create new Qubes OS store.',
+    want_app=True,
+    want_app_no_instance=True)
 
 parser.add_argument('--property', '--prop', '-p',
     action=qubes.tools.PropertyAction,
@@ -46,8 +48,7 @@ def main(args=None):
     '''
 
     args = parser.parse_args(args)
-    parser.set_qubes_verbosity(args)
-    app = qubes.Qubes.create_empty_store(args.xml, **args.properties)
+    app = qubes.Qubes.create_empty_store(args.app, **args.properties)
     return True
 
 

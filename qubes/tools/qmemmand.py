@@ -170,7 +170,7 @@ class QMemmanReqHandler(SocketServer.BaseRequestHandler):
             # XXX no release of lock?
 
 
-parser = qubes.tools.QubesArgumentParser()
+parser = qubes.tools.QubesArgumentParser(want_app=False)
 
 parser.add_argument('--config', '-c', metavar='FILE',
     action='store', default='/etc/qubes/qmemman.conf',

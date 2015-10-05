@@ -595,8 +595,6 @@ def main(args=None):
 
     parser = get_parser()
     args = parser.parse_args(args)
-    parser.set_qubes_verbosity(args)
-    app = qubes.Qubes(args.xml)
 
     if args.fields:
         columns = [col.strip() for col in args.fields.split(',')]
@@ -606,7 +604,7 @@ def main(args=None):
     else:
         columns = formats[args.format]
 
-    table = Table(app, columns)
+    table = Table(args.app, columns)
     table.write_table(sys.stdout)
 
     return True
