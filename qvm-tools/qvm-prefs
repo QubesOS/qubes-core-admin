@@ -445,14 +445,7 @@ def set_seamless_gui_mode(vms, vm, args):
         print >> sys.stderr, "Missing value (true/false)!"
         return False
 
-    if not args[0].lower() in ['true', 'false']:
-        print >> sys.stderr, "Invalid value, expected 'true' or 'false'"
-        return False
-
-    if args[0].lower() == 'true':
-        vm.seamless_gui_mode = True
-    else:
-        vm.seamless_gui_mode = False
+    vm.seamless_gui_mode = bool(eval(args[0].capitalize()))
     return True
 
 def set_autostart(vms, vm, args):
