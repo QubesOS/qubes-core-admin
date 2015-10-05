@@ -480,9 +480,12 @@ def set_timezone(vms, vm, args):
         print >> sys.stderr, "Missing value ('localtime' or timeoffset in seconds)!"
         return False
 
-    if not args[0].isdigit() and args[0].lower() == 'localtime':
-        print >> sys.stderr, "Invalid timezone value!"
-        return False
+    try:
+        int(args[0])
+    except ValueError:
+        if args[0].lower() != 'localtime':
+            print >> sys.stderr, "Invalid timezone value!"
+            return False
 
     vm.timezone = args[0]
     return True
