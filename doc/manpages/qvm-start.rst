@@ -24,9 +24,9 @@ Options
 
    Show help message and exit.
 
-.. option:: --xml=XMLFILE
+.. option:: --qubesxml=XMLFILE
 
-   Use another qubes.xml file.
+   Use another :file:`qubes.xml` file.
 
 .. option:: --verbose, -v
 

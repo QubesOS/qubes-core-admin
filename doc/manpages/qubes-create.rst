@@ -9,7 +9,7 @@ to be readable though, so you can probably create it manually if you like.
 Synopsis
 --------
 
-:command:`qubes-create` [-h] [--xml *XMLFILE*]
+:command:`qubes-create` [-h] [--qubesxml *XMLFILE*] [--property *NAME*=*VALUE*]
 
 Options
 -------
@@ -18,9 +18,13 @@ Options
 
    show help message and exit
 
-.. option:: --xml=XMLFILE
+.. option:: --qubesxml=XMLFILE
 
    Where to put this new file in question.
+
+.. option:: --property=NAME=VALUE, --prop=NAME=VALUE, -p NAME=VALUE
+
+   On creation, set global property *NAME* to *VALUE*.
 
 Authors
 -------

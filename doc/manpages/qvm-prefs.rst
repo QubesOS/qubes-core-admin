@@ -19,7 +19,7 @@ Options
 
    List available properties with short descriptions and exit.
 
-.. option:: --xml=XMLFILE
+.. option:: --qubesxml=XMLFILE
 
    Qubes OS store file.
 

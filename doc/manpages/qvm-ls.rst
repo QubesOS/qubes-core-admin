@@ -35,7 +35,7 @@ Options
    :option:`--format`. All columns along with short descriptions can be listed
    with :option:`--help-columns`.
 
-.. option:: --xml=XMLFILE
+.. option:: --qubesxml=XMLFILE
 
    Qubes store file
 
