@@ -70,12 +70,11 @@ class _HelpPropertiesAction(argparse.Action):
             + '\n\nThere may be more properties in specific domain classes.\n')
 
 
-parser = qubes.tools.get_parser_base(want_force_root=True)
+parser = qubes.tools.QubesArgumentParser(
+    want_force_root=True,
+    want_vmname=True)
 
 parser.add_argument('--help-properties', action=_HelpPropertiesAction)
-
-parser.add_argument('name', metavar='VMNAME',
-    help='name of the domain to change')
 
 parser.add_argument('property', metavar='PROPERTY',
     nargs='?',
@@ -96,28 +95,28 @@ parser.add_argument('--unset', '--default', '--delete', '-D',
 
 def main():
     args = parser.parse_args()
-    qubes.tools.set_verbosity(parser, args)
-    qubes.tools.dont_run_as_root(parser, args)
+    parser.set_verbosity(args)
+    parser.dont_run_as_root(args)
 
     app = qubes.Qubes(args.xml)
     try:
-        domain = app.domains[args.name]
+        vm = app.domains[args.vmname]
     except KeyError:
-        parser.error('no such domain: {!r}'.format(args.name))
+        parser.error('no such domain: {!r}'.format(args.vmname))
 
     if args.property is None:
-        properties = domain.property_list()
+        properties = vm.property_list()
         width = max(len(prop.__name__) for prop in properties)
 
         for prop in sorted(properties):
             try:
-                value = getattr(domain, prop.__name__)
+                value = getattr(vm, prop.__name__)
             except AttributeError:
                 print('{name:{width}s}  U'.format(
                     name=prop.__name__, width=width))
                 continue
 
-            if domain.property_is_default(prop):
+            if vm.property_is_default(prop):
                 print('{name:{width}s}  D  {value!r}'.format(
                     name=prop.__name__, width=width, value=value))
             else:
@@ -128,17 +127,17 @@ def main():
 
 
     if args.value is not None:
-        setattr(domain, args.property, args.value)
+        setattr(vm, args.property, args.value)
         app.save()
         return True
 
     if args.delete:
-        delattr(domain, args.property)
+        delattr(vm, args.property)
         app.save()
         return True
 
 
-    print(str(getattr(domain, args.property)))
+    print(str(getattr(vm, args.property)))
 
     return True
 

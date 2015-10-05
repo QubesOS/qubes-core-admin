@@ -595,7 +595,7 @@ def main(args=None):
 
     parser = get_parser()
     args = parser.parse_args(args)
-    qubes.tools.set_verbosity(parser, args)
+    parser.set_qubes_verbosity(args)
     app = qubes.Qubes(args.xml)
 
     if args.fields:

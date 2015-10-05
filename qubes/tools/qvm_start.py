@@ -47,7 +47,9 @@ class DriveAction(argparse.Action):
         setattr(namespace, self.dest, prefix + value)
 
 
-parser = qubes.tools.get_parser_base(description='start a domain')
+parser = qubes.tools.QubesArgumentParser(
+    want_vmname=True,
+    description='start a domain')
 
 
 parser_drive = parser.add_mutually_exclusive_group()
@@ -90,9 +92,6 @@ parser.add_argument('--no-start-guid',
 #parser.add_option ("--tray", action="store_true", dest="tray", default=False,
 #                   help="Use tray notifications instead of stdout" )
 
-parser.add_argument('name', metavar='VMNAME',
-    help='domain to start')
-
 parser.set_defaults(drive=None)
 
 def main(args=None):
@@ -103,7 +102,7 @@ def main(args=None):
     '''
 
     args = parser.parse_args(args)
-    qubes.tools.set_verbosity(parser, args)
+    parser.set_qubes_verbosity(parser, args)
     app = qubes.Qubes(args.xml)
 
 #   if options.tray:

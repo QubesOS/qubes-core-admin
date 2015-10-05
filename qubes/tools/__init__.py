@@ -27,6 +27,7 @@
 
 import argparse
 import importlib
+import logging
 import os
 
 import qubes.log
@@ -85,37 +86,82 @@ class SinglePropertyAction(argparse.Action):
             if self.const is None else self.const
 
 
-# TODO --verbose, logger setup
-def get_parser_base(want_force_root=False, **kwargs):
-    '''Get base parser with options common to all Qubes OS tools.
+class QubesArgumentParser(argparse.ArgumentParser):
+    '''Parser preconfigured for use in most of the Qubes command-line tools.
 
     :param bool want_force_root: add ``--force-root`` option
+    :param bool want_vmname: add ``VMNAME`` as first positional argument
     *kwargs* are passed to :py:class:`argparser.ArgumentParser`.
 
-    Currently supported options: ``--force-root`` (optional), ``--xml``.
+    Currenty supported options:
+        ``--force-root`` (optional)
+        ``--xml`` location of :file:`qubes.xml` (help is suppressed)
+        ``--verbose`` and ``--quiet``
     '''
-    parser = argparse.ArgumentParser(**kwargs)
 
-    parser.add_argument('--xml', metavar='XMLFILE',
-        action='store',
-        help=argparse.SUPPRESS)
+    def __init__(self,
+            want_force_root=False,
+            want_vmname=False,
+            **kwargs):
+        self.add_argument('--xml', metavar='XMLFILE',
+            action='store',
+            help=argparse.SUPPRESS)
 
-    parser.add_argument('--verbose', '-v',
-        action='count',
-        help='increase verbosity')
+        self.add_argument('--verbose', '-v',
+            action='count',
+            help='increase verbosity')
 
-    parser.add_argument('--quiet', '-q',
-        action='count',
-        help='decrease verbosity')
+        self.add_argument('--quiet', '-q',
+            action='count',
+            help='decrease verbosity')
 
-    if want_force_root:
-        parser.add_argument('--force-root',
-            action='store_true', default=False,
-            help='Force to run as root.')
+        if want_force_root:
+            self.add_argument('--force-root',
+                action='store_true', default=False,
+                help='force to run as root')
 
-    parser.set_defaults(verbose=1, quiet=0)
+        if want_vmname:
+            self.add_argument('vmname', metavar='VMNAME',
+                action='store',
+                help='name of the domain')
 
-    return parser
+        self.set_defaults(verbose=1, quiet=0)
+
+
+    def dont_run_as_root(self, args):
+        '''Prevent running as root.
+
+        :param argparse.Namespace args: if there is ``.force_root`` attribute \
+            set to true, run anyway
+        '''
+        try:
+            euid = os.geteuid()
+        except AttributeError: # no geteuid(), probably NT
+            return
+
+        if euid == 0 and not args.force_root:
+            self.error('refusing to run as root; add --force-root to override')
+
+
+    @staticmethod
+    def get_loglevel_from_verbosity(args):
+        return (args.quiet - args.verbose) * 10 + logging.WARNING
+
+
+    @staticmethod
+    def set_qubes_verbosity(args):
+        '''Apply a verbosity setting.
+
+        This is done by configuring global logging.
+        :param argparse.Namespace args: args as parsed by parser
+        '''
+
+        verbose = args.verbose - args.quiet
+
+        if verbose >= 2:
+            qubes.log.enable_debug()
+        elif verbose >= 1:
+            qubes.log.enable()
 
 
 def get_parser_for_command(command):
@@ -139,37 +185,3 @@ def get_parser_for_command(command):
             raise AttributeError('cannot find parser in module')
 
     return parser
-
-
-def dont_run_as_root(parser, args):
-    '''Prevent running as root.
-
-    :param argparse.ArgumentParser parser: parser on which we invoke error
-    :param argparse.Namespace args: if there is ``.force_root`` attribute set \
-        to true, run anyway
-    :return: If we should back off
-    :rtype bool:
-    '''
-    try:
-        euid = os.geteuid()
-    except AttributeError: # no geteuid(), probably NT
-        return
-
-    if euid == 0 and not args.force_root:
-        parser.error('refusing to run as root; add --force-root to override')
-
-
-def set_verbosity(parser, args):
-    '''Apply a verbosity setting.
-
-    This is done by configuring global logging.
-    :param argparse.ArgumentParser parser: command parser
-    :param argparse.Namespace args: args as parsed by parser
-    '''
-
-    verbose = args.verbose - args.quiet
-
-    if verbose >= 2:
-        qubes.log.enable_debug()
-    elif verbose >= 1:
-        qubes.log.enable()

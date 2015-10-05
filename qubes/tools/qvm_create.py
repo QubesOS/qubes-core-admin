@@ -36,7 +36,7 @@ import qubes
 import qubes.tools
 
 
-parser = qubes.tools.get_parser_base(want_force_root=True)
+parser = qubes.tools.QubesArgumentParser(want_force_root=True)
 
 parser.add_argument('--class', '-C', dest='cls',
     default='AppVM',
@@ -75,8 +75,8 @@ parser.add_argument('name', metavar='VMNAME',
 
 def main():
     args = parser.parse_args()
-    qubes.tools.set_verbosity(parser, args)
-    qubes.tools.dont_run_as_root(parser, args)
+    parser.set_verbosity(args)
+    parser.dont_run_as_root(args)
 
     if 'label' not in args.properties:
         parser.error('--label option is mandatory')

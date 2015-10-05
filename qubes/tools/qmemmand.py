@@ -170,7 +170,7 @@ class QMemmanReqHandler(SocketServer.BaseRequestHandler):
             # XXX no release of lock?
 
 
-parser = qubes.tools.get_parser_base()
+parser = qubes.tools.QubesArgumentParser()
 
 parser.add_argument('--config', '-c', metavar='FILE',
     action='store', default='/etc/qubes/qmemman.conf',
@@ -208,7 +208,7 @@ def main():
 
     sys.stdin.close()
 
-    logging.root.setLevel((args.quiet - args.verbose) * 10 + logging.WARNING)
+    logging.root.setLevel(parser.get_loglevel_from_verbosity(args))
 
     log = logging.getLogger('qmemman.daemon')
 

@@ -30,7 +30,8 @@ import argparse
 import qubes
 import qubes.tools
 
-parser = qubes.tools.get_parser_base(description='Create new Qubes OS store.')
+parser = qubes.tools.QubesArgumentParser(
+    description='Create new Qubes OS store.')
 
 parser.add_argument('--property', '--prop', '-p',
     action=qubes.tools.PropertyAction,
@@ -45,7 +46,7 @@ def main(args=None):
     '''
 
     args = parser.parse_args(args)
-    qubes.tools.set_verbosity(parser, args)
+    parser.set_qubes_verbosity(args)
     app = qubes.Qubes.create_empty_store(args.xml, **args.properties)
     return True
 
