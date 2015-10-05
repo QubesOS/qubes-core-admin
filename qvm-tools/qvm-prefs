@@ -461,6 +461,10 @@ def set_qrexec_timeout(vms, vm, args):
         print >> sys.stderr, "Missing timeout value (seconds)!"
         return False
 
+    if int(args[0]) < 0:
+        print >> sys.stderr, "Negative timeout value not allowed!"
+        return False
+
     vm.qrexec_timeout = int(args[0])
     return True
 
