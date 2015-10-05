@@ -37,6 +37,8 @@ import sys
 import qubes
 import qubes.utils
 
+BLKSIZE = 512
+
 class VMStorage(object):
     '''Class for handling VM virtual disks.
 
@@ -90,7 +92,7 @@ class VMStorage(object):
         :py:attr:`self.vm.dir_path`
         '''
         return os.path.join(qubes.config.system_path['qubes_base_dir'],
-            qubes.config.system_path['qubes_kernels_base_dir'], self.vm.kernel) \
+            qubes.config.system_path['qubes_kernels_base_dir'], self.vm.kernel)\
             if self.vm.kernel is not None \
         else os.path.join(self.vm.dir_path,
             qubes.config.vm_files['kernels_subdir'])
@@ -139,11 +141,11 @@ class VMStorage(object):
                 source, destination))
 
     def get_disk_utilization(self):
-        return qubes.utils.get_disk_usage(self.vm.dir_path)
+        return get_disk_usage(self.vm.dir_path)
 
     def get_disk_utilization_private_img(self):
         # pylint: disable=invalid-name
-        return qubes.utils.get_disk_usage(self.private_img)
+        return get_disk_usage(self.private_img)
 
     def get_private_img_sz(self):
         if not os.path.exists(self.private_img):
@@ -265,6 +267,47 @@ class VMStorage(object):
             self.vm.log.info('Creating empty VM private image file: {0}'.format(
                 self.private_img))
             self.create_on_disk_private_img()
+
+
+def get_disk_usage_one(st):
+    '''Extract disk usage of one inode from its stat_result struct.
+
+    If known, get real disk usage, as written to device by filesystem, not
+    logical file size. Those values may be different for sparse files.
+
+    :param os.stat_result st: stat result
+    :returns: disk usage
+    '''
+    try:
+        return st.st_blocks * BLKSIZE
+    except AttributeError:
+        return st.st_size
+
+
+def get_disk_usage(path):
+    '''Get real disk usage of given path (file or directory).
+
+    When *path* points to directory, then it is evaluated recursively.
+
+    This function tries estiate real disk usage. See documentation of
+    :py:func:`get_disk_usage_one`.
+
+    :param str path: path to evaluate
+    :returns: disk usage
+    '''
+    try:
+        st = os.lstat(path)
+    except OSError:
+        return 0
+
+    ret = get_disk_usage_one(st)
+
+    # if path is not a directory, this is skipped
+    for dirpath, dirnames, filenames in os.walk(path):
+        for name in dirnames + filenames:
+            ret += get_disk_usage_one(os.lstat(os.path.join(dirpath, name)))
+
+    return ret
 
 
 def get_storage(vm):

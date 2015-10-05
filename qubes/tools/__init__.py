@@ -35,7 +35,7 @@ import qubes.log
 
 class PropertyAction(argparse.Action):
     '''Action for argument parser that stores a property.'''
-    # pylint: disable=redefined-builtin
+    # pylint: disable=redefined-builtin,too-few-public-methods
     def __init__(self,
             option_strings,
             dest,
@@ -49,7 +49,7 @@ class PropertyAction(argparse.Action):
         try:
             prop, value = values.split('=', 1)
         except ValueError:
-            parser.error('invalid property token: {!r}'.format(token))
+            parser.error('invalid property token: {!r}'.format(values))
 
         getattr(namespace, self.dest)[prop] = value
 
@@ -57,7 +57,7 @@ class PropertyAction(argparse.Action):
 class SinglePropertyAction(argparse.Action):
     '''Action for argument parser that stores a property.'''
 
-    # pylint: disable=redefined-builtin
+    # pylint: disable=redefined-builtin,too-few-public-methods
     def __init__(self,
             option_strings,
             dest,

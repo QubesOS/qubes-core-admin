@@ -26,7 +26,7 @@
 
 # TODO allow to set properties and create domains
 
-import argparse
+import sys
 import qubes
 import qubes.tools
 
@@ -48,7 +48,7 @@ def main(args=None):
     '''
 
     args = parser.parse_args(args)
-    app = qubes.Qubes.create_empty_store(args.app, **args.properties)
+    qubes.Qubes.create_empty_store(args.app, **args.properties)
     return True
 
 

@@ -32,6 +32,8 @@ import docutils
 import docutils.core
 import docutils.io
 
+import qubes
+
 
 def get_timezone():
     # fc18
@@ -86,7 +88,8 @@ def format_doc(docstring):
 # FIXME those are wrong, k/M/G are SI prefixes and means 10**3
 # maybe adapt https://code.activestate.com/recipes/578019
 def parse_size(size):
-    units = [ ('K', 1024), ('KB', 1024),
+    units = [
+        ('K', 1024), ('KB', 1024),
         ('M', 1024*1024), ('MB', 1024*1024),
         ('G', 1024*1024*1024), ('GB', 1024*1024*1024),
     ]
@@ -100,4 +103,4 @@ def parse_size(size):
             size = size[:-len(unit)].strip()
             return int(size)*multiplier
 
-    raise QubesException("Invalid size: {0}.".format(size))
+    raise qubes.QubesException("Invalid size: {0}.".format(size))

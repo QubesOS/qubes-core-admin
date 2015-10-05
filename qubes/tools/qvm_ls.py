@@ -31,7 +31,6 @@ from __future__ import print_function
 import __builtin__
 import argparse
 import collections
-import os
 import sys
 import textwrap
 
@@ -556,7 +555,7 @@ def get_parser():
     wrapper = textwrap.TextWrapper(width=80, break_on_hyphens=False,
         initial_indent='  ', subsequent_indent='  ')
 
-    parser = qubes.tools.get_parser_base(
+    parser = qubes.tools.QubesArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,
         description='List Qubes domains and their parametres.',
         epilog='available formats (see --help-formats):\n{}\n\n'

@@ -17,6 +17,7 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
 
     @qubes.events.handler('domain-loaded')
     def on_domain_loaded(self, event):
+        # pylint: disable=unused-argument
         # Some additional checks for template based VM
         assert self.template
         #self.template.appvms.add(self) # XXX

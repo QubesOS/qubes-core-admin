@@ -1278,6 +1278,7 @@ class Qubes(PropertyHolder):
         if os.name == 'posix':
             fcntl.lockf(fh, fcntl.LOCK_EX)
         elif os.name == 'nt':
+            # pylint: disable=protected-access
             overlapped = pywintypes.OVERLAPPED()
             win32file.LockFileEx(
                 win32file._get_osfhandle(fh.fileno()),
@@ -1351,9 +1352,9 @@ class Qubes(PropertyHolder):
             pass
 
         # then search for name
-        for l in self.labels.values():
-            if l.name == label:
-                return l
+        for i in self.labels.values():
+            if i.name == label:
+                return i
 
         # last call, if label is a number represented as str, search in indices
         try:

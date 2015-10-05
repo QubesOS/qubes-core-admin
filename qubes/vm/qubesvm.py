@@ -51,8 +51,7 @@ import qubes.tools.qvm_ls
 
 qmemman_present = False
 try:
-    # pylint: disable=import-error
-    import qubes.qmemman_client
+    import qubes.qmemman.client
     qmemman_present = True
 except ImportError:
     pass
@@ -108,6 +107,7 @@ def _setter_kernel(self, prop, value):
 
 
 def _setter_label(self, prop, value):
+    # pylint: disable=unused-argument
     if isinstance(value, qubes.Label):
         return value
     if value.startswith('label-'):
@@ -473,7 +473,7 @@ class QubesVM(qubes.vm.BaseVM):
     def __init__(self, app, xml, **kwargs):
         super(QubesVM, self).__init__(app, xml, **kwargs)
 
-        import qubes.vm.adminvm
+        import qubes.vm.adminvm # pylint: disable=redefined-outer-name
 
         #Init private attrs
 
@@ -521,6 +521,7 @@ class QubesVM(qubes.vm.BaseVM):
 
     @qubes.events.handler('domain-init', 'domain-loaded')
     def on_domain_init_loaded(self, event):
+        # pylint: disable=unused-argument
         if not hasattr(self, 'uuid'):
             self.uuid = uuid.uuid4()
 
@@ -531,7 +532,7 @@ class QubesVM(qubes.vm.BaseVM):
         if self.icon_path:
             try:
                 os.remove(self.icon_path)
-            except:
+            except OSError:
                 pass
             if hasattr(os, "symlink"):
                 os.symlink(new_label.icon_path, self.icon_path)
@@ -724,7 +725,7 @@ class QubesVM(qubes.vm.BaseVM):
         if mem_required is None:
             mem_required = int(self.memory) * 1024 * 1024
         if qmemman_present:
-            qmemman_client = qubes.qmemman_client.QMemmanClient()
+            qmemman_client = qubes.qmemman.client.QMemmanClient()
             try:
                 got_memory = qmemman_client.request_memory(mem_required)
             except IOError as e:
@@ -1025,8 +1026,8 @@ class QubesVM(qubes.vm.BaseVM):
             subprocess.call(
                 [qubes.config.system_path['monitor_layout_notify_cmd'],
                     self.name])
-        except Exception as e:
-            self.log.error('ERROR: {!s}'.format(e))
+        except Exception as e: # pylint: disable=broad-except
+            self.log.error('error starting gui-daemon: {!s}'.format(e))
 
         self.wait_for_session()
 
@@ -1473,7 +1474,7 @@ class QubesVM(qubes.vm.BaseVM):
         .. seealso:: :py:meth:`get_root_img_sz`
         '''
 
-        return qubes.utils.get_disk_usage(self.root_img)
+        return qubes.storage.get_disk_usage(self.root_img)
 
 
     # XXX shouldn't this go only to vms that have root image?
@@ -1507,7 +1508,7 @@ class QubesVM(qubes.vm.BaseVM):
         .. seealso:: :py:meth:`get_private_img_sz`
         ''' # pylint: disable=invalid-name
 
-        return qubes.utils.get_disk_usage(self.private_img)
+        return qubes.storage.get_disk_usage(self.private_img)
 
 
     def get_private_img_sz(self):
@@ -1533,7 +1534,7 @@ class QubesVM(qubes.vm.BaseVM):
         :rtype: FIXME
         '''
 
-        return qubes.utils.get_disk_usage(self.dir_path)
+        return qubes.storage.get_disk_usage(self.dir_path)
 
 
     # TODO move to storage
@@ -1588,11 +1589,11 @@ class QubesVM(qubes.vm.BaseVM):
         :returns: :py:obj:`True` if is outdated, :py:obj:`False` otherwise.
         :rtype: bool
         '''
+        # pylint: disable=no-member
 
         # Makes sense only on VM based on template
         if self.template is None:
             return False
-        # pylint: disable=no-member
 
         if not self.is_running():
             return False
@@ -1652,6 +1653,8 @@ class QubesVM(qubes.vm.BaseVM):
     def create_qdb_entries(self):
         '''Create entries in Qubes DB.
         '''
+        # pylint: disable=no-member
+
         self.qdb.write("/name", self.name)
         self.qdb.write("/qubes-vm-type", self.__class__.__name__)
         self.qdb.write("/qubes-vm-updateable", str(self.updateable))
@@ -1753,12 +1756,16 @@ class QubesVM(qubes.vm.BaseVM):
         # TODO: qmemman is still xen specific
         untrusted_meminfo_key = self.app.vmm.xs.read('',
             '/local/domain/{}/memory/meminfo'.format(self.xid))
+
         if untrusted_meminfo_key is None or untrusted_meminfo_key == '':
             return 0
-        domain = qmemman.DomainState(self.xid)
-        qmemman_algo.refresh_meminfo_for_domain(domain, untrusted_meminfo_key)
-        domain.memory_maximum = self.get_mem_static_max()*1024
-        return qmemman_algo.prefmem(domain)/1024
+
+        domain = qubes.qmemman.DomainState(self.xid)
+        qubes.qmemman.algo.refresh_meminfo_for_domain(
+            domain, untrusted_meminfo_key)
+        domain.memory_maximum = self.get_mem_static_max() * 1024
+
+        return qubes.qmemman.algo.prefmem(domain) / 1024
 
 
 

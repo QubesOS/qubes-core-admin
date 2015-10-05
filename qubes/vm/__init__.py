@@ -206,44 +206,6 @@ class BaseVM(qubes.PropertyHolder):
         self.log = qubes.log.get_vm_logger(self.name)
 
 
-    def add_new_vm(self, vm):
-        '''Add new Virtual Machine to colletion
-
-        '''
-
-        vm_cls = QubesVmClasses[vm_type]
-        if 'template' in kwargs:
-            if not vm_cls.is_template_compatible(kwargs['template']):
-                raise QubesException(
-                    'Template not compatible with selected VM type')
-
-        vm = vm_cls(qid=qid, collection=self, **kwargs)
-        if not self.verify_new_vm(vm):
-            raise QubesException("Wrong VM description!")
-        self[vm.qid] = vm
-
-        # make first created NetVM the default one
-        if self.default_fw_netvm_qid is None and vm.is_netvm():
-            self.set_default_fw_netvm(vm)
-
-        if self.default_netvm_qid is None and vm.is_proxyvm():
-            self.set_default_netvm(vm)
-
-        # make first created TemplateVM the default one
-        if self.default_template_qid is None and vm.is_template():
-            self.set_default_template(vm)
-
-        # make first created ProxyVM the UpdateVM
-        if self.updatevm_qid is None and vm.is_proxyvm():
-            self.set_updatevm_vm(vm)
-
-        # by default ClockVM is the first NetVM
-        if self.clockvm_qid is None and vm.is_netvm():
-            self.set_clockvm_vm(vm)
-
-        return vm
-
-
     def __xml__(self):
         element = lxml.etree.Element('domain')
         element.set('id', 'domain-' + str(self.qid))
@@ -439,7 +401,7 @@ class BaseVM(qubes.PropertyHolder):
             conf_appvm = open(file_path, "w")
             conf_appvm.write(domain_config)
             conf_appvm.close()
-        except:
+        except: # pylint: disable=bare-except
             # Ignore errors
             pass
         finally:
@@ -503,7 +465,7 @@ class BaseVM(qubes.PropertyHolder):
                 tree.write(fd, encoding="UTF-8", pretty_print=True)
             fd.close()
             os.umask(old_umask)
-        except EnvironmentError as err:
+        except EnvironmentError as err: # pylint: disable=broad-except
             print >> sys.stderr, "{0}: save error: {1}".format(
                     os.path.basename(sys.argv[0]), err)
             return False
@@ -590,7 +552,7 @@ class BaseVM(qubes.PropertyHolder):
 
                 conf["rules"].append(rule)
 
-        except EnvironmentError as err:
+        except EnvironmentError as err: # pylint: disable=broad-except
             # problem accessing file, like ENOTFOUND, EPERM or sth
             # return default config
             return conf

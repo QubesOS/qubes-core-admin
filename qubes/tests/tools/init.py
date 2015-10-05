@@ -73,6 +73,7 @@ class TC_00_PropertyAction(qubes.tests.QubesTestCase):
             args.properties)
 
     def test_003_set_prop_override_default(self):
+        # pylint: disable=invalid-name
         parser = argparse.ArgumentParser()
         parser.add_argument('--property', '-p',
             action=qubes.tools.PropertyAction)

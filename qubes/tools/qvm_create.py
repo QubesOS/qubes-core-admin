@@ -71,7 +71,6 @@ parser.add_argument('name', metavar='VMNAME',
     nargs='?',
     help='name of the domain to create')
 
-#parser.add_option ("-q", "--quiet", action="store_false", dest="verbose", default=True)
 
 def main(args=None):
     args = parser.parse_args(args)
@@ -83,13 +82,14 @@ def main(args=None):
         parser.error('VMNAME is mandatory')
 
     try:
-        label = args.app.get_label(args.properties['label'])
+        args.app.get_label(args.properties['label'])
     except KeyError:
-        parser.error('no such label: {!r}; available: {}'.format(args.label,
+        parser.error('no such label: {!r}; available: {}'.format(
+            args.properties['label'],
             ', '.join(repr(l.name) for l in args.app.labels)))
 
     try:
-        cls = qubes.vm.BaseVM.register[args.cls]
+        cls = qubes.vm.BaseVM.register[args.cls] # pylint: disable=no-member
     except KeyError:
         parser.error('no such domain class: {!r}'.format(args.cls))
 
@@ -98,6 +98,8 @@ def main(args=None):
         parser.error('this domain class does not support template')
 
     vm = args.app.add_new_vm(cls, **args.properties)
+
+    # pylint: disable=line-too-long
 
 #   if not options.standalone and any([options.root_copy_from, options.root_move_from]):
 #       print >> sys.stderr, "root.img can be specified only for standalone VMs"
@@ -132,13 +134,13 @@ def main(args=None):
 #               if (options.verbose):
 #                   print "--> Replacing root.img with provided file"
                 os.unlink(vm.root_img)
-                os.rename(options.root_move_from, vm.root_img)
+                os.rename(args.root_move_from, vm.root_img)
             elif args.root_copy_from is not None:
 #               if (options.verbose):
 #                   print "--> Replacing root.img with provided file"
                 os.unlink(vm.root_img)
                 # use 'cp' to preserve sparse file
-                subprocess.check_call(['cp', options.root_copy_from, vm.root_img])
+                subprocess.check_call(['cp', args.root_copy_from, vm.root_img])
 
         except (IOError, OSError) as err:
             parser.error(str(err))

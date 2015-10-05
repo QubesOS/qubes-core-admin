@@ -27,8 +27,6 @@
 from __future__ import print_function
 
 import argparse
-import os
-import subprocess
 import sys
 import textwrap
 
@@ -40,7 +38,7 @@ import qubes.vm
 
 class _HelpPropertiesAction(argparse.Action):
     '''Action for argument parser that displays all properties and exits.'''
-    # pylint: disable=redefined-builtin
+    # pylint: disable=redefined-builtin,too-few-public-methods
     def __init__(self,
             option_strings,
             dest=argparse.SUPPRESS,
@@ -55,6 +53,7 @@ class _HelpPropertiesAction(argparse.Action):
             help=help)
 
     def __call__(self, parser, namespace, values, option_string=None):
+        # pylint: disable=redefined-outer-name
         properties = qubes.vm.qubesvm.QubesVM.property_list()
         width = max(len(prop.__name__) for prop in properties)
         wrapper = textwrap.TextWrapper(width=80,

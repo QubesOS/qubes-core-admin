@@ -43,8 +43,6 @@ from qubes.qdb import QubesDB,Error,DisconnectedError
 import xen.lowlevel.xc
 import xen.lowlevel.xs
 
-BLKSIZE = 512
-
 # all frontends, prefer xvdi
 # TODO: get this from libvirt driver?
 AVAILABLE_FRONTENDS = ['xvd'+c for c in
@@ -78,27 +76,6 @@ def size_to_human (size):
         return str(round(size/(1024.0*1024),1)) + ' MiB'
     else:
         return str(round(size/(1024.0*1024*1024),1)) + ' GiB'
-
-def get_disk_usage_one(st):
-    try:
-        return st.st_blocks * BLKSIZE
-    except AttributeError:
-        return st.st_size
-
-def get_disk_usage(path):
-    try:
-        st = os.lstat(path)
-    except OSError:
-        return 0
-
-    ret = get_disk_usage_one(st)
-
-    # if path is not a directory, this is skipped
-    for dirpath, dirnames, filenames in os.walk(path):
-        for name in dirnames + filenames:
-            ret += get_disk_usage_one(os.lstat(os.path.join(dirpath, name)))
-
-    return ret
 
 def print_stdout(text):
     print (text)

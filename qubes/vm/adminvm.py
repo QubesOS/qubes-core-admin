@@ -40,6 +40,7 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
         default=None,
         doc='There are other ways to set kernel for Dom0.')
 
+
     @property
     def xid(self):
         '''Always ``0``.
@@ -49,22 +50,13 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
         '''
         return 0
 
+
     @property
     def libvirt_domain(self):
         '''Always :py:obj:`None`.
 
         .. seealso:
            :py:attr:`qubes.vm.qubesvm.QubesVM.libvirt_domain`
-        '''
-        return None
-
-
-    @property
-    def kernels_dir(self):
-        '''Always :py:obj:`None`.
-
-        .. seealso:
-           :py:attr:`qubes.vm.qubesvm.QubesVM.kernels_dir`
         '''
         return None
 

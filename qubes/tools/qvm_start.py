@@ -27,11 +27,12 @@
 # TODO notification in tray
 
 import argparse
+import sys
 import qubes
 
 class DriveAction(argparse.Action):
     '''Action for argument parser that stores drive image path.'''
-    # pylint: disable=redefined-builtin
+    # pylint: disable=redefined-builtin,too-few-public-methods
     def __init__(self,
             option_strings,
             dest='drive',
@@ -44,7 +45,8 @@ class DriveAction(argparse.Action):
         self.prefix = prefix
 
     def __call__(self, parser, namespace, values, option_string=None):
-        setattr(namespace, self.dest, prefix + value)
+        # pylint: disable=redefined-outer-name
+        setattr(namespace, self.dest, self.prefix + values)
 
 
 parser = qubes.tools.QubesArgumentParser(
@@ -85,10 +87,8 @@ parser.add_argument('--preparing-dvm',
 
 parser.add_argument('--no-start-guid',
     action='store_false', dest='start_guid', default=True,
-    help='do actions necessary when preparing DVM image')
+    help='do not start the gui daemon (ignored)')
 
-#parser.add_option ("--no-guid", action="store_true", dest="noguid", default=False,
-#            help="Do not start the GUId (ignored)")
 #parser.add_option ("--tray", action="store_true", dest="tray", default=False,
 #                   help="Use tray notifications instead of stdout" )
 
@@ -126,7 +126,8 @@ def main(args=None):
             'error verifying files for domain {!r}: {!r}'.format(vm.name, e))
 
     try:
-        xid = vm.start(
+        #xid =
+        vm.start(
             preparing_dvm=args.preparing_dvm,
             start_guid=args.start_guid)
             # notify_function=

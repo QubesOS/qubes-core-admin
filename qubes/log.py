@@ -61,7 +61,7 @@ class DBusHandler(logging.Handler):
             'org.freedesktop.Notifications', '/org/freedesktop/Notifications')
 
 
-    def handle(self, record):
+    def emit(self, record):
         app_icon = self.app_icons[
             max(level for level in self.app_icons if level <= record.levelno)]
 

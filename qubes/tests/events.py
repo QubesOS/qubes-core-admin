@@ -45,6 +45,7 @@ class TC_00_Emitter(qubes.tests.QubesTestCase):
     def test_001_decorator(self):
         class TestEmitter(qubes.events.Emitter):
             def __init__(self):
+                # pylint: disable=bad-super-call
                 super(TestEmitter, self).__init__()
                 self.testevent_fired = False
 

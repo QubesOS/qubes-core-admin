@@ -22,6 +22,8 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
+'''Constants which can be configured in one place'''
+
 qubes_base_dir = "/var/lib/qubes"
 system_path = {
     'qubes_guid_path': '/usr/bin/qubes-guid',

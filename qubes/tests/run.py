@@ -23,7 +23,6 @@
 #
 
 import curses
-import importlib
 import socket
 import sys
 import unittest

@@ -48,6 +48,7 @@ def handler(*events):
     '''
 
     def decorator(func):
+        # pylint: disable=missing-docstring
         func.ha_events = events
         return func
 
