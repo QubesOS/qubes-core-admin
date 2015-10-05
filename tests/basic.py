@@ -26,6 +26,7 @@
 import multiprocessing
 import os
 import shutil
+import subprocess
 
 import unittest
 import time
@@ -256,5 +257,319 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.assertEquals(testvm1.services, testvm3.services)
         self.assertEquals(testvm1.get_firewall_conf(),
                           testvm3.get_firewall_conf())
+
+class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
+    def setup_appvm(self):
+        self.testvm = self.qc.add_new_vm(
+            "QubesAppVm",
+            name=self.make_vm_name("vm"),
+            template=self.qc.get_default_template())
+        self.testvm.create_on_disk(verbose=False)
+        self.save_and_reload_db()
+        self.qc.unlock_db()
+
+    def setup_hvm(self):
+        self.testvm = self.qc.add_new_vm(
+            "QubesHVm",
+            name=self.make_vm_name("hvm"))
+        self.testvm.create_on_disk(verbose=False)
+        self.save_and_reload_db()
+        self.qc.unlock_db()
+
+    def pref_set(self, name, value, valid=True):
+        p = subprocess.Popen(
+            ['qvm-prefs', '-s', '--', self.testvm.name, name, value],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        (stdout, stderr) = p.communicate()
+        if valid:
+            self.assertEquals(p.returncode, 0,
+                              "qvm-prefs -s .. '{}' '{}' failed: {}{}".format(
+                                  name, value, stdout, stderr
+                              ))
+        else:
+            self.assertNotEquals(p.returncode, 0,
+                                 "qvm-prefs should reject value '{}' for "
+                                 "property '{}'".format(value, name))
+
+    def pref_get(self, name):
+        p = subprocess.Popen(['qvm-prefs', '-g', self.testvm.name, name],
+                             stdout=subprocess.PIPE)
+        (stdout, _) = p.communicate()
+        self.assertEquals(p.returncode, 0)
+        return stdout.strip()
+
+    bool_test_values = [
+        ('true', 'True', True),
+        ('False', 'False', True),
+        ('0', 'False', True),
+        ('1', 'True', True),
+        ('invalid', '', False)
+    ]
+
+    def execute_tests(self, name, values):
+        """
+        Helper function, which executes tests for given property.
+        :param values: list of tuples (value, expected, valid),
+        where 'value' is what should be set and 'expected' is what should
+        qvm-prefs returns as a property value and 'valid' marks valid and
+        invalid values - if it's False, qvm-prefs should reject the value
+        :return: None
+        """
+        for (value, expected, valid) in values:
+            self.pref_set(name, value, valid)
+            if valid:
+                self.assertEquals(self.pref_get(name), expected)
+
+    def test_000_kernel(self):
+        self.setup_appvm()
+
+        default_kernel = self.qc.get_default_kernel()
+        self.execute_tests('kernel', [
+            ('default', default_kernel, True),
+            (default_kernel, default_kernel, True),
+            ('invalid', '', False),
+        ])
+
+    def test_001_include_in_backups(self):
+        self.setup_appvm()
+        self.execute_tests('include_in_backups', self.bool_test_values)
+
+    def test_002_qrexec_timeout(self):
+        self.setup_appvm()
+        self.execute_tests('qrexec_timeout', [
+            ('60', '60', True),
+            ('0', '0', True),
+            ('-10', '', False),
+            ('invalid', '', False)
+        ])
+
+    def test_003_internal(self):
+        self.setup_appvm()
+        self.execute_tests('include_in_backups', self.bool_test_values)
+
+    def test_004_label(self):
+        self.setup_appvm()
+        self.execute_tests('label', [
+            ('red', 'red', True),
+            ('blue', 'blue', True),
+            ('amber', '', False),
+        ])
+
+    def test_005_kernelopts(self):
+        self.setup_appvm()
+        self.execute_tests('kernelopts', [
+            ('option', 'option', True),
+            ('default', 'nopat', True),
+            ('', '', True),
+        ])
+
+    def test_006_template(self):
+        templates = [tpl for tpl in self.qc.values() if tpl.is_template()]
+        if not templates:
+            self.skip("No templates installed")
+        some_template = templates[0].name
+        self.setup_appvm()
+        self.execute_tests('template', [
+            (some_template, some_template, True),
+            ('invalid', '', False),
+        ])
+
+    def test_007_memory(self):
+        self.setup_appvm()
+        qh = qubes.qubes.QubesHost()
+        memory_total = qh.memory_total
+
+        self.execute_tests('memory', [
+            ('300', '300', True),
+            ('1500', '1500', True),
+            # TODO:
+            #('500M', '500', True),
+            #(str(self.testvm.maxmem+500), '', False),
+            (str(2*memory_total), '', False),
+        ])
+
+    def test_008_maxmem(self):
+        self.setup_appvm()
+        qh = qubes.qubes.QubesHost()
+        memory_total = qh.memory_total
+
+        self.execute_tests('memory', [
+            ('300', '300', True),
+            ('1500', '1500', True),
+            # TODO:
+            #('500M', '500', True),
+            #(str(self.testvm.memory-50), '', False),
+            (str(2*memory_total), '', False),
+        ])
+
+    def test_009_autostart(self):
+        self.setup_appvm()
+        self.execute_tests('autostart', self.bool_test_values)
+
+    def test_010_pci_strictreset(self):
+        self.setup_appvm()
+        self.execute_tests('pci_strictreset', self.bool_test_values)
+
+    def test_011_dispvm_netvm(self):
+        self.setup_appvm()
+
+        default_netvm = self.qc.get_default_netvm().name
+        netvms = [tpl for tpl in self.qc.values() if tpl.is_netvm()]
+        if not netvms:
+            self.skip("No netvms installed")
+        some_netvm = netvms[0].name
+        if some_netvm == default_netvm:
+            if len(netvms) <= 1:
+                self.skip("At least two NetVM/ProxyVM required")
+            some_netvm = netvms[1].name
+
+        self.execute_tests('dispvm_netvm', [
+            (some_netvm, some_netvm, True),
+            (default_netvm, default_netvm, True),
+            ('default', default_netvm, True),
+            ('none', '', True),
+            (self.testvm.name, '', False),
+            ('invalid', '', False)
+        ])
+
+    def test_012_mac(self):
+        self.setup_appvm()
+        default_mac = self.testvm.mac
+
+        self.execute_tests('mac', [
+            ('00:11:22:33:44:55', '00:11:22:33:44:55', True),
+            ('auto', default_mac, True),
+            # TODO:
+            #('00:11:22:33:44:55:66', '', False),
+            ('invalid', '', False),
+        ])
+
+    def test_013_default_user(self):
+        self.setup_appvm()
+        self.execute_tests('default_user', [
+            ('someuser', self.testvm.template.default_user, True)
+            # TODO: tests for standalone VMs
+        ])
+
+    def test_014_pcidevs(self):
+        self.setup_appvm()
+        self.execute_tests('pcidevs', [
+            ('[]', '[]', True),
+            ('[ "00:00.0" ]', "['00:00.0']", True),
+            ('invalid', '', False),
+            ('[invalid]', '', False),
+            # TODO:
+            #('["12:12.0"]', '', False)
+        ])
+
+    def test_015_name(self):
+        self.setup_appvm()
+        self.execute_tests('name', [
+            ('invalid!@#name', '', False),
+            # TODO: duplicate name test - would fail for now...
+        ])
+        newname = self.make_vm_name('newname')
+        self.pref_set('name', newname, True)
+        self.qc.lock_db_for_reading()
+        self.qc.load()
+        self.qc.unlock_db()
+        self.testvm = self.qc.get_vm_by_name(newname)
+        self.assertEquals(self.pref_get('name'), newname)
+
+    def test_016_vcpus(self):
+        self.setup_appvm()
+        self.execute_tests('vcpus', [
+            ('1', '1', True),
+            ('100', '', False),
+            ('-1', '', False),
+            ('invalid', '', False),
+        ])
+
+    def test_017_debug(self):
+        self.setup_appvm()
+        self.execute_tests('debug', [
+            ('on', 'True', True),
+            ('off', 'False', True),
+            ('true', 'True', True),
+            ('0', 'False', True),
+            ('invalid', '', False)
+        ])
+
+    def test_018_netvm(self):
+        self.setup_appvm()
+
+        default_netvm = self.qc.get_default_netvm().name
+        netvms = [tpl for tpl in self.qc.values() if tpl.is_netvm()]
+        if not netvms:
+            self.skip("No netvms installed")
+        some_netvm = netvms[0].name
+        if some_netvm == default_netvm:
+            if len(netvms) <= 1:
+                self.skip("At least two NetVM/ProxyVM required")
+            some_netvm = netvms[1].name
+
+        self.execute_tests('netvm', [
+            (some_netvm, some_netvm, True),
+            (default_netvm, default_netvm, True),
+            ('default', default_netvm, True),
+            ('none', '', True),
+            (self.testvm.name, '', False),
+            ('invalid', '', False)
+        ])
+
+    def test_019_guiagent_installed(self):
+        self.setup_hvm()
+        self.execute_tests('guiagent_installed', self.bool_test_values)
+
+    def test_020_qrexec_installed(self):
+        self.setup_hvm()
+        self.execute_tests('qrexec_installed', self.bool_test_values)
+
+    def test_021_seamless_gui_mode(self):
+        self.setup_hvm()
+        # should reject seamless mode without gui agent
+        self.execute_tests('seamless_gui_mode', [
+            ('True', '', False),
+            ('False', 'False', True),
+        ])
+        self.execute_tests('guiagent_installed', [('True', 'True', True)])
+        self.execute_tests('seamless_gui_mode', self.bool_test_values)
+
+    def test_022_drive(self):
+        self.setup_hvm()
+        self.execute_tests('drive', [
+            ('hd:dom0:/tmp/drive.img', 'hd:dom0:/tmp/drive.img', True),
+            ('hd:/tmp/drive.img', 'hd:dom0:/tmp/drive.img', True),
+            ('cdrom:dom0:/tmp/drive.img', 'cdrom:dom0:/tmp/drive.img', True),
+            ('cdrom:/tmp/drive.img', 'cdrom:dom0:/tmp/drive.img', True),
+            ('/tmp/drive.img', 'cdrom:dom0:/tmp/drive.img', True),
+            ('hd:drive.img', '', False),
+            ('drive.img', '', False),
+        ])
+
+    def test_023_timezone(self):
+        self.setup_hvm()
+        self.execute_tests('timezone', [
+            ('localtime', 'localtime', True),
+            ('0', '0', True),
+            ('3600', '3600', True),
+            ('-7200', '-7200', True),
+            ('invalid', '', False),
+        ])
+
+    def test_024_pv_reject_hvm_props(self):
+        self.setup_appvm()
+        self.execute_tests('guiagent_installed', [('False', '', False)])
+        self.execute_tests('qrexec_installed', [('False', '', False)])
+        self.execute_tests('drive', [('/tmp/drive.img', '', False)])
+        self.execute_tests('timezone', [('localtime', '', False)])
+
+    def test_025_hvm_reject_pv_props(self):
+        self.setup_hvm()
+        self.execute_tests('kernel', [('default', '', False)])
+        self.execute_tests('kernelopts', [('default', '', False)])
+
 
 # vim: ts=4 sw=4 et
