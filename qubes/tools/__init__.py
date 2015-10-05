@@ -161,6 +161,14 @@ class QubesArgumentParser(argparse.ArgumentParser):
         return namespace
 
 
+    def error_runtime(self, message):
+        '''Runtime error, without showing usage.
+
+        :param str message: message to show
+        '''
+        self.exit(1, '{}: error: {}\n'.format(self.prog, message))
+
+
     def dont_run_as_root(self, namespace):
         '''Prevent running as root.
 
@@ -173,7 +181,8 @@ class QubesArgumentParser(argparse.ArgumentParser):
             return
 
         if euid == 0 and not namespace.force_root:
-            self.error('refusing to run as root; add --force-root to override')
+            self.error_runtime(
+                'refusing to run as root; add --force-root to override')
 
 
     @staticmethod
