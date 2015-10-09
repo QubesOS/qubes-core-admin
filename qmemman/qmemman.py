@@ -136,21 +136,31 @@ class SystemState(object):
 #perform memory ballooning, across all domains, to add "memsize" to Xen free memory
     def do_balloon(self, memsize):
         self.log.info('do_balloon(memsize={!r})'.format(memsize))
-        MAX_TRIES = 20
+        CHECK_PERIOD_S = 3
+        CHECK_MB_S = 100
+
         niter = 0
         prev_memory_actual = None
 
         for i in self.domdict.keys():
             self.domdict[i].no_progress = False
 
+        check_period = max(1, int((CHECK_PERIOD_S + 0.0) / self.BALOON_DELAY))
+        check_delta = CHECK_PERIOD_S * CHECK_MB_S * 1024 * 1024
+        xenfree_ring = [0] * check_period
+
         while True:
-            self.log.debug('niter={:2d}/{:2d}'.format(niter, MAX_TRIES))
+            self.log.debug('niter={:2d}'.format(niter))
             self.refresh_memactual()
             xenfree = self.get_free_xen_memory()
             self.log.info('xenfree={!r}'.format(xenfree))
             if xenfree >= memsize + self.XEN_FREE_MEM_MIN:
                 self.inhibit_balloon_up()
                 return True
+            ring_slot = niter % check_period
+            if niter >= check_period and xenfree < xenfree_ring[ring_slot] + check_delta:
+                return False
+            xenfree_ring[ring_slot] = xenfree
             if prev_memory_actual is not None:
                 for i in prev_memory_actual.keys():
                     if prev_memory_actual[i] == self.domdict[i].memory_actual:
@@ -159,7 +169,7 @@ class SystemState(object):
                         self.log.info('domain {} stuck at {}'.format(i, self.domdict[i].memory_actual))
             memset_reqs = qmemman_algo.balloon(memsize + self.XEN_FREE_MEM_LEFT - xenfree, self.domdict)
             self.log.info('memset_reqs={!r}'.format(memset_reqs))
-            if niter > MAX_TRIES or len(memset_reqs) == 0:
+            if len(memset_reqs) == 0:
                 return False
             prev_memory_actual = {}
             for i in memset_reqs:
