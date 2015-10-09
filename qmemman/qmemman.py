@@ -145,8 +145,13 @@ class SystemState(object):
         for i in self.domdict.keys():
             self.domdict[i].no_progress = False
 
+        #: number of loop iterations for CHECK_PERIOD_S seconds
         check_period = max(1, int((CHECK_PERIOD_S + 0.0) / self.BALOON_DELAY))
+        #: number of free memory bytes expected to get during CHECK_PERIOD_S
+        #: seconds
         check_delta = CHECK_PERIOD_S * CHECK_MB_S * 1024 * 1024
+        #: helper array for holding free memory size, CHECK_PERIOD_S seconds
+        #: ago, at every loop iteration
         xenfree_ring = [0] * check_period
 
         while True:
@@ -157,6 +162,8 @@ class SystemState(object):
             if xenfree >= memsize + self.XEN_FREE_MEM_MIN:
                 self.inhibit_balloon_up()
                 return True
+            # fail the request if over past CHECK_PERIOD_S seconds,
+            # we got less than CHECK_MB_S MB/s on average
             ring_slot = niter % check_period
             if niter >= check_period and xenfree < xenfree_ring[ring_slot] + check_delta:
                 return False
