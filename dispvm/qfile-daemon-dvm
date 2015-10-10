@@ -34,7 +34,6 @@ from qubes.notify import tray_notify, tray_notify_error, tray_notify_init
 
 
 current_savefile = '/var/run/qubes/current-savefile'
-current_dvm_conf = '/var/run/qubes/current-dvm.conf'
 current_savefile_vmdir = '/var/lib/qubes/dvmdata/vmdir'
 
 
