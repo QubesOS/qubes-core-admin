@@ -56,7 +56,11 @@ class SystemState(object):
         self.BALOON_DELAY = 0.1
         self.XEN_FREE_MEM_LEFT = 50*1024*1024
         self.XEN_FREE_MEM_MIN = 25*1024*1024
-        self.ALL_PHYS_MEM = self.xc.physinfo()['total_memory']*1024
+        # Overhead of per-page Xen structures, taken from OpenStack nova/virt/xenapi/driver.py
+        # see https://wiki.openstack.org/wiki/XenServer/Overhead
+        # we divide total and free physical memory by this to get "assignable" memory
+        self.MEM_OVERHEAD_FACTOR = 1.0 / 1.00781
+        self.ALL_PHYS_MEM = int(self.xc.physinfo()['total_memory']*1024 * self.MEM_OVERHEAD_FACTOR)
 
     def add_domain(self, id):
         self.log.debug('add_domain(id={!r})'.format(id))
@@ -67,7 +71,7 @@ class SystemState(object):
         self.domdict.pop(id)
 
     def get_free_xen_memory(self):
-        return self.xc.physinfo()['free_memory']*1024
+        return int(self.xc.physinfo()['free_memory']*1024 * self.MEM_OVERHEAD_FACTOR)
 #        hosts = self.xend_session.session.xenapi.host.get_all()
 #        host_record = self.xend_session.session.xenapi.host.get_record(hosts[0])
 #        host_metrics_record = self.xend_session.session.xenapi.host_metrics.get_record(host_record["metrics"])

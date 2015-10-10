@@ -178,17 +178,7 @@ class QubesDisposableVm(QubesVm):
         # refresh config file
         domain_config = self.create_config_file()
 
-        if qmemman_present:
-            mem_required = int(self.memory) * 1024 * 1024
-            print >>sys.stderr, "time=%s, getting %d memory" % (str(time.time()), mem_required)
-            qmemman_client = QMemmanClient()
-            try:
-                got_memory = qmemman_client.request_memory(mem_required)
-            except IOError as e:
-                raise IOError("ERROR: Failed to connect to qmemman: %s" % str(e))
-            if not got_memory:
-                qmemman_client.close()
-                raise MemoryError ("ERROR: insufficient memory to start VM '%s'" % self.name)
+        qmemman_client = self.request_memory()
 
         # dispvm cannot have PCI devices
         assert (len(self.pcidevs) == 0), "DispVM cannot have PCI devices"

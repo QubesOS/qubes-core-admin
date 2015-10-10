@@ -1738,6 +1738,26 @@ class QubesVm(object):
             self.force_shutdown()
             raise OSError("ERROR: Cannot execute qubesdb-daemon!")
 
+    def request_memory(self, mem_required = None):
+        # Overhead of per-VM/per-vcpu Xen structures, taken from OpenStack nova/virt/xenapi/driver.py
+        # see https://wiki.openstack.org/wiki/XenServer/Overhead
+        # add an extra MB because Nova rounds up to MBs
+        MEM_OVERHEAD_BASE = (3 + 1) * 1024 * 1024
+        MEM_OVERHEAD_PER_VCPU = 3 * 1024 * 1024 / 2
+        if mem_required is None:
+            mem_required = int(self.memory) * 1024 * 1024
+        if qmemman_present:
+            qmemman_client = QMemmanClient()
+            try:
+                mem_required_with_overhead = mem_required + MEM_OVERHEAD_BASE + self.vcpus * MEM_OVERHEAD_PER_VCPU
+                got_memory = qmemman_client.request_memory(mem_required_with_overhead)
+            except IOError as e:
+                raise IOError("ERROR: Failed to connect to qmemman: %s" % str(e))
+            if not got_memory:
+                qmemman_client.close()
+                raise MemoryError ("ERROR: insufficient memory to start VM '%s'" % self.name)
+            return qmemman_client
+
     def start(self, verbose = False, preparing_dvm = False, start_guid = True,
             notify_function = None, mem_required = None):
         self.log.debug('start('
@@ -1765,17 +1785,7 @@ class QubesVm(object):
 
         self._update_libvirt_domain()
 
-        if mem_required is None:
-            mem_required = int(self.memory) * 1024 * 1024
-        if qmemman_present:
-            qmemman_client = QMemmanClient()
-            try:
-                got_memory = qmemman_client.request_memory(mem_required)
-            except IOError as e:
-                raise IOError("ERROR: Failed to connect to qmemman: %s" % str(e))
-            if not got_memory:
-                qmemman_client.close()
-                raise MemoryError ("ERROR: insufficient memory to start VM '%s'" % self.name)
+        qmemman_client = self.request_memory(mem_required)
 
         # Bind pci devices to pciback driver
         for pci in self.pcidevs:
