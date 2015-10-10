@@ -337,8 +337,8 @@ class QubesHVm(QubesVm):
             raise QubesException("Cannot start the HVM while its template is running")
         try:
             if 'mem_required' not in kwargs:
-                # Reserve 32MB for stubdomain
-                kwargs['mem_required'] = (self.memory + 32) * 1024 * 1024
+                # Reserve 44MB for stubdomain
+                kwargs['mem_required'] = (self.memory + 44) * 1024 * 1024
             return super(QubesHVm, self).start(*args, **kwargs)
         except QubesException as e:
             capabilities = vmm.libvirt_conn.getCapabilities()
