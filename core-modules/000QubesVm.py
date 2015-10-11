@@ -1706,7 +1706,10 @@ class QubesVm(object):
             if verbose:
                 print >> sys.stderr, "--> Sending monitor layout..."
             monitor_layout = qubes.monitorlayoutnotify.get_monitor_layout()
-            qubes.monitorlayoutnotify.notify_vm(self, monitor_layout)
+            # Notify VM only if we've got a monitor_layout which is not empty
+            # or else we break proper VM resolution set by gui-agent
+            if len(monitor_layout) > 0:
+                qubes.monitorlayoutnotify.notify_vm(self, monitor_layout)
         except ImportError as e:
             print >>sys.stderr, "ERROR: %s" % e
 
