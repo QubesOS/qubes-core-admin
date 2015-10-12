@@ -1,5 +1,8 @@
 rpm/
 pkgs/
+.coverage
+.coverage.*
+htmlcov/
 *.pyc
 *.pyo
 *~
