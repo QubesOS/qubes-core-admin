@@ -1759,7 +1759,6 @@ class QubesVm(object):
             str(self.xid),
             self.name])
         if retcode != 0:
-            self.force_shutdown()
             raise OSError("ERROR: Cannot execute qubesdb-daemon!")
 
     def request_memory(self, mem_required = None):
@@ -1833,31 +1832,35 @@ class QubesVm(object):
 
         self.libvirt_domain.createWithFlags(libvirt.VIR_DOMAIN_START_PAUSED)
 
-        if verbose:
-            print >> sys.stderr, "--> Starting Qubes DB..."
-        self.start_qubesdb()
+        try:
+            if verbose:
+                print >> sys.stderr, "--> Starting Qubes DB..."
+            self.start_qubesdb()
 
-        xid = self.xid
-        self.log.debug('xid={}'.format(xid))
+            xid = self.xid
+            self.log.debug('xid={}'.format(xid))
 
-        if preparing_dvm:
-            self.services['qubes-dvm'] = True
-        if verbose:
-            print >> sys.stderr, "--> Setting Qubes DB info for the VM..."
-        self.create_qubesdb_entries()
+            if preparing_dvm:
+                self.services['qubes-dvm'] = True
+            if verbose:
+                print >> sys.stderr, "--> Setting Qubes DB info for the VM..."
+            self.create_qubesdb_entries()
 
-        if verbose:
-            print >> sys.stderr, "--> Updating firewall rules..."
-        netvm = self.netvm
-        while netvm is not None:
-            if netvm.is_proxyvm() and netvm.is_running():
-                netvm.write_iptables_qubesdb_entry()
-            netvm = netvm.netvm
+            if verbose:
+                print >> sys.stderr, "--> Updating firewall rules..."
+            netvm = self.netvm
+            while netvm is not None:
+                if netvm.is_proxyvm() and netvm.is_running():
+                    netvm.write_iptables_qubesdb_entry()
+                netvm = netvm.netvm
 
-        # fire hooks
-        for hook in self.hooks_start:
-            hook(self, verbose = verbose, preparing_dvm =  preparing_dvm,
-                    start_guid = start_guid, notify_function = notify_function)
+            # fire hooks
+            for hook in self.hooks_start:
+                hook(self, verbose = verbose, preparing_dvm =  preparing_dvm,
+                     start_guid = start_guid, notify_function = notify_function)
+        except:
+            self.force_shutdown()
+            raise
 
         if verbose:
             print >> sys.stderr, "--> Starting the VM..."
