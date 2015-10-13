@@ -1744,7 +1744,15 @@ class QubesVm(object):
         try:
             if os.path.exists(pidfile):
                 old_qubesdb_pid = open(pidfile, 'r').read()
-                os.kill(int(old_qubesdb_pid), signal.SIGTERM)
+                try:
+                    os.kill(int(old_qubesdb_pid), signal.SIGTERM)
+                except OSError:
+                    raise QubesException(
+                        "Failed to kill old QubesDB instance (PID {}). "
+                        "Terminate it manually and retry. "
+                        "If that isn't QubesDB process, "
+                        "remove the pidfile: {}".format(old_qubesdb_pid,
+                                                        pidfile))
                 timeout = 25
                 while os.path.exists(pidfile) and timeout:
                     time.sleep(0.2)
