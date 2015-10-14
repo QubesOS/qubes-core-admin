@@ -42,8 +42,7 @@ import libvirt
 
 import qubes
 import qubes.config
-#import qubes.qmemman
-#import qubes.qmemman_algo
+import qubes.exc
 import qubes.storage
 import qubes.utils
 import qubes.vm
@@ -78,12 +77,13 @@ def _setter_name(self, prop, value):
         raise ValueError('{} value contains illegal characters'.format(
             prop.__name__))
     if self.is_running():
-        raise qubes.QubesException('Cannot change name of running VM')
+        raise qubes.exc.QubesVMNotHaltedError(
+            self, 'Cannot change name of running VM')
 
     try:
         if self.installed_by_rpm:
-            raise qubes.QubesException('Cannot rename VM installed by RPM -- '
-                'first clone VM and then use yum to remove package.')
+            raise qubes.exc.QubesException('Cannot rename VM installed by RPM '
+                '-- first clone VM and then use yum to remove package.')
     except AttributeError:
         pass
 
@@ -97,10 +97,11 @@ def _setter_kernel(self, prop, value):
         qubes.config.system_path['qubes_kernels_base_dir'],
         value)
     if not os.path.exists(dirname):
-        raise qubes.QubesException('Kernel {!r} not installed'.format(value))
+        raise qubes.exc.QubesPropertyValueError(self, prop, value,
+            'Kernel {!r} not installed'.format(value))
     for filename in ('vmlinuz', 'modules.img'):
         if not os.path.exists(os.path.join(dirname, filename)):
-            raise qubes.QubesException(
+            raise qubes.exc.QubesPropertyValueError(
                 'Kernel {!r} not properly installed: missing {!r} file'.format(
                     value, filename))
     return value
@@ -557,8 +558,9 @@ class QubesVM(qubes.vm.BaseVM):
         # pylint: disable=unused-argument
         if self.is_running() and new_netvm is not None \
                 and not new_netvm.is_running():
-            raise qubes.QubesException(
-                'Cannot dynamically attach to stopped NetVM')
+            raise qubes.exc.QubesVMNotStartedError(new_netvm,
+                'Cannot dynamically attach to stopped NetVM: {!r}'.format(
+                    new_netvm))
 
         if self.netvm is not None:
             del self.netvm.connected_vms[self]
@@ -601,7 +603,8 @@ class QubesVM(qubes.vm.BaseVM):
         # pylint: disable=unused-argument
         # TODO not self.is_stopped() would be more appropriate
         if self.is_running():
-            raise qubes.QubesException('Cannot change name of running domain')
+            raise qubes.exc.QubesVMNotHaltedError(
+                'Cannot change name of running domain {!r}'.format(oldvalue))
 
 
     @qubes.events.handler('property-set:name')
@@ -640,7 +643,7 @@ class QubesVM(qubes.vm.BaseVM):
         if subprocess.call(['sudo', 'systemctl',
                 ('enable' if value else 'disable'),
                 'qubes-vm@{}.service'.format(self.name)]):
-            raise qubes.QubesException(
+            raise qubes.exc.QubesException(
                 'Failed to set autostart for VM via systemctl')
 
 
@@ -648,7 +651,7 @@ class QubesVM(qubes.vm.BaseVM):
     def on_device_pre_attached_pci(self, event, pci):
         # pylint: disable=unused-argument
         if not os.path.exists('/sys/bus/pci/devices/0000:{}'.format(pci)):
-            raise qubes.QubesException('Invalid PCI device: {}'.format(pci))
+            raise qubes.exc.QubesException('Invalid PCI device: {}'.format(pci))
 
         if not self.is_running():
             return
@@ -707,7 +710,7 @@ class QubesVM(qubes.vm.BaseVM):
         # Intentionally not used is_running(): eliminate also "Paused",
         # "Crashed", "Halting"
         if self.get_power_state() != 'Halted':
-            raise qubes.QubesException('VM is already running!')
+            raise qubes.exc.QubesVMNotHaltedError(self)
 
         self.log.info('Starting {}'.format(self.name))
 
@@ -732,8 +735,7 @@ class QubesVM(qubes.vm.BaseVM):
                 raise IOError('Failed to connect to qmemman: {!s}'.format(e))
             if not got_memory:
                 qmemman_client.close()
-                raise MemoryError(
-                    'Insufficient memory to start VM {!r}'.format(self.name))
+                raise qubes.exc.QubesMemoryError(self)
 
         # Bind pci devices to pciback driver
         for pci in self.devices['pci']:
@@ -794,11 +796,12 @@ class QubesVM(qubes.vm.BaseVM):
     def shutdown(self):
         '''Shutdown domain.
 
-        :raises QubesException: when domain is already shut down.
+        :raises qubes.exc.QubesVMNotStartedError: \
+            when domain is already shut down.
         '''
 
-        if not self.is_running():
-            raise qubes.QubesException("VM already stopped!")
+        if not self.is_running(): # TODO not self.is_halted()
+            raise qubes.exc.QubesVMNotStartedError(self)
 
         self.libvirt_domain.shutdown()
 
@@ -806,11 +809,12 @@ class QubesVM(qubes.vm.BaseVM):
     def force_shutdown(self):
         '''Forcefuly shutdown (destroy) domain.
 
-        :raises QubesException: when domain is already shut down.
+        :raises qubes.exc.QubesVMNotStartedError: \
+            when domain is already shut down.
         '''
 
         if not self.is_running() and not self.is_paused():
-            raise qubes.QubesException('VM already stopped!')
+            raise qubes.exc.QubesVMNotStartedError(self)
 
         self.libvirt_domain.destroy()
 
@@ -818,15 +822,19 @@ class QubesVM(qubes.vm.BaseVM):
     def suspend(self):
         '''Suspend (pause) domain.
 
-        :raises qubes.QubesException: when domain is already shut down.
-        :raises NotImplemetedError: when domain has PCI devices attached.
+        :raises qubes.exc.QubesVMNotRunnignError: \
+            when domain is already shut down.
+        :raises qubes.exc.QubesNotImplemetedError: \
+            when domain has PCI devices attached.
         '''
 
         if not self.is_running() and not self.is_paused():
-            raise qubes.QubesException('VM already stopped!')
+            raise qubes.exc.QubesVMNotRunningError(self)
 
         if len(self.devices['pci']) > 0:
-            raise NotImplementedError()
+            raise qubes.exc.QubesNotImplementedError(
+                'Cannot suspend domain {!r} which has PCI devices attached' \
+                    .format(self.name))
         else:
             self.libvirt_domain.suspend()
 
@@ -836,7 +844,7 @@ class QubesVM(qubes.vm.BaseVM):
         :py:meth:`suspend`.'''
 
         if not self.is_running():
-            raise qubes.QubesException('VM not running!')
+            raise qubes.exc.QubesVMNotRunningError(self)
 
         self.suspend()
 
@@ -844,18 +852,21 @@ class QubesVM(qubes.vm.BaseVM):
     def resume(self):
         '''Resume suspended domain.
 
-        :raises NotImplemetedError: when machine is alread suspended.
+        :raises qubes.exc.QubesVMNotSuspendedError: when machine is not paused
+        :raises qubes.exc.QubesVMError: when machine is suspended
         '''
 
         if self.get_power_state() == "Suspended":
-            raise NotImplementedError()
+            raise qubes.exc.QubesVMError(self,
+                'Cannot resume suspended domain {!r}'.format(self.name))
         else:
             self.unpause()
+
 
     def unpause(self):
         '''Resume (unpause) a domain'''
         if not self.is_paused():
-            raise qubes.QubesException('VM not paused!')
+            raise qubes.exc.QubesVMNotPausedError(self)
 
         self.libvirt_domain.resume()
 
@@ -891,28 +902,21 @@ class QubesVM(qubes.vm.BaseVM):
         null = None
         if not self.is_running() and not self.is_paused():
             if not autostart:
-                raise qubes.QubesException('VM not running')
+                raise qubes.exc.QubesVMNotRunningError(self)
 
-            try:
-                if notify_function is not None:
-                    notify_function('info',
-                        'Starting the {!r} VM...'.format(self.name))
-                self.start(start_guid=gui, notify_function=notify_function)
-
-            except (IOError, OSError, qubes.QubesException) as e:
-                raise qubes.QubesException(
-                    'Error while starting the {!r} VM: {!s}'.format(
-                        self.name, e))
-            except MemoryError:
-                raise qubes.QubesException('Not enough memory to start {!r} VM!'
-                    ' Close one or more running VMs and try again.'.format(
-                        self.name))
+            if notify_function is not None:
+                notify_function('info',
+                    'Starting the {!r} VM...'.format(self.name))
+            self.start(start_guid=gui, notify_function=notify_function)
 
         if self.is_paused():
-            raise qubes.QubesException('VM is paused')
+            # XXX what about autostart?
+            raise qubes.exc.QubesVMNotRunningError(
+                self, 'Domain {!r} is paused'.format(self.name))
+
         if not self.is_qrexec_running():
-            raise qubes.QubesException(
-                "Domain '{}': qrexec not connected.".format(self.name))
+            raise qubes.exc.QubesVMError(
+                self, 'Domain {!r}: qrexec not connected'.format(self.name))
 
         if gui and os.getenv("DISPLAY") is not None \
                 and not self.is_guid_running():
@@ -1018,7 +1022,8 @@ class QubesVM(qubes.vm.BaseVM):
 
         retcode = subprocess.call(guid_cmd)
         if retcode != 0:
-            raise qubes.QubesException('Cannot start qubes-guid!')
+            raise qubes.exc.QubesVMError(self,
+                'Cannot start qubes-guid for domain {!r}'.format(self.name))
 
         self.log.info('Sending monitor layout')
 
@@ -1123,8 +1128,8 @@ class QubesVM(qubes.vm.BaseVM):
     def resize_private_img(self, size):
         '''Resize private image.'''
 
-        # TODO QubesValueError, not assert
-        assert size >= self.get_private_img_sz(), "Cannot shrink private.img"
+        if size >= self.get_private_img_sz():
+            raise qubes.exc.QubesValueError('Cannot shrink private.img')
 
         # resize the image
         self.storage.resize_private_img(size)
@@ -1139,8 +1144,9 @@ class QubesVM(qubes.vm.BaseVM):
                     sleep 0.2;
                 done;
                 resize2fs /dev/xvdb'''.format(size), user="root", wait=True)
+
         if retcode != 0:
-            raise qubes.QubesException('resize2fs failed')
+            raise qubes.exc.QubesException('resize2fs failed')
 
 
     def remove_from_disk(self):
@@ -1155,8 +1161,9 @@ class QubesVM(qubes.vm.BaseVM):
         :param qubes.vm.qubesvm.QubesVM src: source VM
         '''
 
-        if src.is_running():
-            raise qubes.QubesException('Attempt to clone a running VM!')
+        if src.is_running(): # XXX what about paused?
+            raise qubes.exc.QubesVMNotHaltedError(
+                self, 'Cannot clone a running domain {!r}'.format(self.name))
 
         self.storage.clone_disk_files(src, verbose=False)
 
@@ -1184,10 +1191,8 @@ class QubesVM(qubes.vm.BaseVM):
         '''Attach network in this machine to it's netvm.'''
 
         if not self.is_running():
-            raise qubes.QubesException('VM not running!')
-
-        if self.netvm is None:
-            raise qubes.QubesException('NetVM not set!')
+            raise qubes.exc.QubesVMNotRunningError(self)
+        assert self.netvm is not None
 
         if not self.netvm.is_running():
             self.log.info('Starting NetVM ({0})'.format(self.netvm.name))
@@ -1201,11 +1206,8 @@ class QubesVM(qubes.vm.BaseVM):
         '''Detach machine from it's netvm'''
 
         if not self.is_running():
-            raise qubes.QubesException('VM not running!')
-
-        if self.netvm is None:
-            raise qubes.QubesException('NetVM not set!')
-
+            raise qubes.exc.QubesVMNotRunningError(self)
+        assert self.netvm is not None
 
         self.libvirt_domain.detachDevice(lxml.etree.ElementTree(
             self.lvxml_net_dev(self.ip, self.mac, self.netvm)).tostring())
@@ -1548,12 +1550,13 @@ class QubesVM(qubes.vm.BaseVM):
 
         if not os.path.exists(
                 os.path.join(self.storage.kernels_dir, 'vmlinuz')):
-            raise qubes.QubesException('VM kernel does not exist: {0}'.format(
-                os.path.join(self.storage.kernels_dir, 'vmlinuz')))
+            raise qubes.exc.QubesException(
+                'VM kernel does not exist: {0}'.format(
+                    os.path.join(self.storage.kernels_dir, 'vmlinuz')))
 
         if not os.path.exists(
                 os.path.join(self.storage.kernels_dir, 'initramfs')):
-            raise qubes.QubesException(
+            raise qubes.exc.QubesException(
                 'VM initramfs does not exist: {0}'.format(
                     os.path.join(self.storage.kernels_dir, 'initramfs')))
 

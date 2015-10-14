@@ -199,6 +199,7 @@ fi
 %{python_sitelib}/qubes/config.py*
 %{python_sitelib}/qubes/dochelpers.py*
 %{python_sitelib}/qubes/events.py*
+%{python_sitelib}/qubes/exc.py*
 %{python_sitelib}/qubes/log.py*
 %{python_sitelib}/qubes/plugins.py*
 %{python_sitelib}/qubes/rngdoc.py*

@@ -57,6 +57,8 @@ import lxml.etree
 
 
 import qubes.config
+import qubes.events
+import qubes.exc
 import qubes.ext
 
 
@@ -78,14 +80,6 @@ except ImportError:
     pass
 
 
-class QubesException(Exception):
-    '''Exception that can be shown to the user'''
-    pass
-
-
-import qubes.events
-
-
 class VMMConnection(object):
     '''Connection to Virtual Machine Manager (libvirt)'''
 
@@ -103,8 +97,8 @@ class VMMConnection(object):
     @offline_mode.setter
     def offline_mode(self, value):
         if value and self._libvirt_conn is not None:
-            raise QubesException(
-                "Cannot change offline mode while already connected")
+            raise qubes.exc.QubesException(
+                'Cannot change offline mode while already connected')
 
         self._offline_mode = value
 
@@ -120,7 +114,8 @@ class VMMConnection(object):
             return
         if self._offline_mode:
             # Do not initialize in offline mode
-            raise QubesException("VMM operations disabled in offline mode")
+            raise qubes.exc.QubesException(
+                'VMM operations disabled in offline mode')
 
         if 'xen.lowlevel.xs' in sys.modules:
             self._xs = xen.lowlevel.xs.xs()
@@ -128,7 +123,7 @@ class VMMConnection(object):
             self._xc = xen.lowlevel.xc.xc()
         self._libvirt_conn = libvirt.open(qubes.config.defaults['libvirt_uri'])
         if self._libvirt_conn is None:
-            raise QubesException("Failed connect to libvirt driver")
+            raise qubes.exc.QubesException('Failed connect to libvirt driver')
         libvirt.registerErrorHandler(self._libvirt_error_handler, None)
         atexit.register(self._libvirt_conn.close)
 
@@ -1371,7 +1366,7 @@ class Qubes(PropertyHolder):
         if isinstance(vm, qubes.vm.templatevm.TemplateVM):
             appvms = self.domains.get_vms_based_on(vm)
             if appvms:
-                raise QubesException(
+                raise qubes.exc.QubesException(
                     'Cannot remove template that has dependent AppVMs. '
                     'Affected are: {}'.format(', '.join(
                         vm.name for name in sorted(appvms))))
@@ -1399,8 +1394,9 @@ class Qubes(PropertyHolder):
             return
         if 'ntpd' in newvalue.services:
             if newvalue.services['ntpd']:
-                raise QubesException('Cannot set {!r} as {!r} property since '
-                    'it has ntpd enabled.'.format(newvalue, name))
+                raise qubes.exc.QubesVMError(newvalue,
+                    'Cannot set {!r} as {!r} since it has ntpd enabled.'.format(
+                        newvalue.name, name))
         else:
             newvalue.services['ntpd'] = False
 
@@ -1414,8 +1410,9 @@ class Qubes(PropertyHolder):
         if newvalue is not None and oldvalue is not None \
                 and oldvalue.is_running() and not newvalue.is_running() \
                 and self.domains.get_vms_connected_to(oldvalue):
-            raise QubesException('Cannot change default_netvm to domain that '
-                'is not running ({!r}).'.format(newvalue))
+            raise qubes.exc.QubesVMNotRunningError(newvalue,
+                'Cannot change {!r} to domain that '
+                'is not running ({!r}).'.format(name, newvalue.name))
 
 
     @qubes.events.handler('property-set:default_fw_netvm')

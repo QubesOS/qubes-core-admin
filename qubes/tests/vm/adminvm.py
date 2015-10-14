@@ -25,6 +25,7 @@
 import unittest
 
 import qubes
+import qubes.exc
 import qubes.vm.adminvm
 
 import qubes.tests
@@ -98,10 +99,10 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
         self.assertEqual(self.vm.get_private_img_sz(), 0)
 
     def test_310_start(self):
-        with self.assertRaises(qubes.QubesException):
+        with self.assertRaises(qubes.exc.QubesException):
             self.vm.start()
 
     @unittest.skip('this functionality is undecided')
     def test_311_suspend(self):
-        with self.assertRaises(qubes.QubesException):
+        with self.assertRaises(qubes.exc.QubesException):
             self.vm.suspend()

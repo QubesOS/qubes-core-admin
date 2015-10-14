@@ -291,8 +291,7 @@ class BaseVM(qubes.PropertyHolder):
 
         dev_match = re.match(r'([0-9a-f]+):([0-9a-f]+)\.([0-9a-f]+)', address)
         if not dev_match:
-            raise qubes.QubesException(
-                'Invalid PCI device address: {}'.format(address))
+            raise ValueError('Invalid PCI device address: {!r}'.format(address))
 
         hostdev = lxml.etree.Element('hostdev', type='pci', managed='yes')
         source = lxml.etree.Element('source')

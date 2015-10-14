@@ -35,6 +35,7 @@ import subprocess
 import sys
 
 import qubes
+import qubes.exc
 import qubes.utils
 
 BLKSIZE = 512
@@ -214,22 +215,22 @@ class VMStorage(object):
 
     def verify_files(self):
         if not os.path.exists(self.vm.dir_path):
-            raise qubes.QubesException(
+            raise qubes.exc.QubesVMError(self.vm,
                 'VM directory does not exist: {}'.format(self.vm.dir_path))
 
         if hasattr(self.vm, 'root_img') and not os.path.exists(self.root_img):
-            raise qubes.QubesException(
+            raise qubes.exc.QubesVMError(self.vm,
                 'VM root image file does not exist: {}'.format(self.root_img))
 
         if hasattr(self.vm, 'private_img') \
                 and not os.path.exists(self.private_img):
-            raise qubes.QubesException(
+            raise qubes.exc.QubesVMError(self.vm,
                 'VM private image file does not exist: {}'.format(
                     self.private_img))
 
         if self.modules_img is not None \
                 and not os.path.exists(self.modules_img):
-            raise qubes.QubesException(
+            raise qubes.exc.QubesVMError(self.vm,
                 'VM kernel modules image does not exists: {}'.format(
                     self.modules_img))
 

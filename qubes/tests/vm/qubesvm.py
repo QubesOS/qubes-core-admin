@@ -26,6 +26,7 @@
 import unittest
 
 import qubes
+import qubes.exc
 import qubes.config
 import qubes.vm.qubesvm
 
@@ -89,13 +90,13 @@ class TC_00_setters(qubes.tests.QubesTestCase):
 
     def test_014_setter_name_running(self):
         self.vm.running = True
-        with self.assertRaises(qubes.QubesException):
+        with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
             qubes.vm.qubesvm._setter_name(self.vm, self.prop, 'testname')
 
     def test_015_setter_name_installed_by_rpm(self):
         # pylint: disable=invalid-name
         self.vm.installed_by_rpm = True
-        with self.assertRaises(qubes.QubesException):
+        with self.assertRaises(qubes.exc.QubesException):
             qubes.vm.qubesvm._setter_name(self.vm, self.prop, 'testname')
 
 

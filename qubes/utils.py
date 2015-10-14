@@ -32,7 +32,7 @@ import docutils
 import docutils.core
 import docutils.io
 
-import qubes
+import qubes.exc
 
 
 def get_timezone():
@@ -103,4 +103,4 @@ def parse_size(size):
             size = size[:-len(unit)].strip()
             return int(size)*multiplier
 
-    raise qubes.QubesException("Invalid size: {0}.".format(size))
+    raise qubes.exc.QubesException("Invalid size: {0}.".format(size))

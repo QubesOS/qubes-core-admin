@@ -26,7 +26,7 @@
 
 
 import sys
-import qubes
+import qubes.exc
 import qubes.tools
 
 parser = qubes.tools.QubesArgumentParser(
@@ -45,7 +45,7 @@ def main(args=None):
 
     try:
         args.vm.force_shutdown()
-    except (IOError, OSError, qubes.QubesException) as e:
+    except (IOError, OSError, qubes.exc.QubesException) as e:
         parser.error_runtime(str(e))
 
     return True

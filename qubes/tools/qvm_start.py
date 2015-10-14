@@ -131,11 +131,7 @@ def main(args=None):
             preparing_dvm=args.preparing_dvm,
             start_guid=args.start_guid)
             # notify_function=
-    except MemoryError:
-        # TODO tray
-        parser.error_runtime(
-            'not enough memory to start domain {!r}'.format(vm.name))
-    except qubes.QubesException as e:
+    except qubes.exc.QubesException as e:
         parser.error_runtime('Qubes error: {!r}'.format(e))
 
     return True
