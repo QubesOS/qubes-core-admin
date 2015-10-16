@@ -1,10 +1,13 @@
 #!/usr/bin/python2 -O
 # vim: fileencoding=utf-8
+# pylint: disable=invalid-name
 
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
 # Copyright (C) 2014-2015  Joanna Rutkowska <joanna@invisiblethingslab.com>
+# Copyright (C) 2014-2015
+#                   Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
 # Copyright (C) 2014-2015  Wojtek Porczyk <woju@invisiblethingslab.com>
 #
 # This program is free software; you can redistribute it and/or modify
@@ -23,14 +26,20 @@
 #
 
 import collections
+import multiprocessing
+import logging
 import os
+import shutil
 import subprocess
+import sys
 import unittest
 
 import lxml.etree
 
 import qubes.config
 import qubes.events
+
+VMPREFIX = 'test-'
 
 
 #: :py:obj:`True` if running in dom0, :py:obj:`False` otherwise
@@ -44,7 +53,6 @@ try:
     import libvirt
     libvirt.openReadOnly(qubes.config.defaults['libvirt_uri']).close()
     in_dom0 = True
-    del libvirt
 except libvirt.libvirtError:
     pass
 
@@ -66,7 +74,7 @@ def skipUnlessDom0(test_item):
 
     Some tests (especially integration tests) have to be run in more or less
     working dom0. This is checked by connecting to libvirt.
-    ''' # pylint: disable=invalid-name
+    '''
 
     return unittest.skipUnless(in_dom0, 'outside dom0')(test_item)
 
@@ -76,7 +84,7 @@ def skipUnlessGit(test_item):
 
     There are very few tests that an be run only in git. One example is
     correctness of example code that won't get included in RPM.
-    ''' # pylint: disable=invalid-name
+    '''
 
     return unittest.skipUnless(in_git, 'outside git tree')(test_item)
 
@@ -113,15 +121,112 @@ class TestEmitter(qubes.events.Emitter):
         self.fired_events[(event, args, tuple(sorted(kwargs.items())))] += 1
 
 
+class _AssertNotRaisesContext(object):
+    """A context manager used to implement TestCase.assertNotRaises methods.
+
+    Stolen from unittest and hacked. Regexp support stripped.
+    """ # pylint: disable=too-few-public-methods
+
+    def __init__(self, expected, test_case, expected_regexp=None):
+        if expected_regexp is not None:
+            raise NotImplementedError('expected_regexp is unsupported')
+
+        self.expected = expected
+        self.exception = None
+
+        self.failureException = test_case.failureException
+
+
+    def __enter__(self):
+        return self
+
+
+    def __exit__(self, exc_type, exc_value, tb):
+        if exc_type is None:
+            return True
+
+        try:
+            exc_name = self.expected.__name__
+        except AttributeError:
+            exc_name = str(self.expected)
+
+        if issubclass(exc_type, self.expected):
+            raise self.failureException(
+                "{0} raised".format(exc_name))
+        else:
+            # pass through
+            return False
+
+        self.exception = exc_value # store for later retrieval
+
+
+class BeforeCleanExit(BaseException):
+    '''Raised from :py:meth:`QubesTestCase.tearDown` when
+    :py:attr:`qubes.tests.run.QubesDNCTestResult.do_not_clean` is set.'''
+    pass
+
+
 class QubesTestCase(unittest.TestCase):
     '''Base class for Qubes unit tests.
     '''
+
+    def __init__(self, *args, **kwargs):
+        super(QubesTestCase, self).__init__(*args, **kwargs)
+        self.longMessage = True
+        self.log = logging.getLogger('{}.{}.{}'.format(
+            self.__class__.__module__,
+            self.__class__.__name__,
+            self._testMethodName))
+
 
     def __str__(self):
         return '{}/{}/{}'.format(
             '.'.join(self.__class__.__module__.split('.')[2:]),
             self.__class__.__name__,
             self._testMethodName)
+
+
+    def tearDown(self):
+        super(QubesTestCase, self).tearDown()
+
+        result = self._resultForDoCleanups
+        failed_test_cases = result.failures \
+            + result.errors \
+            + [(tc, None) for tc in result.unexpectedSuccesses]
+
+        if getattr(result, 'do_not_clean', False) \
+                and any(tc is self for tc, exc in failed_test_cases):
+            raise BeforeCleanExit()
+
+
+    def assertNotRaises(self, excClass, callableObj=None, *args, **kwargs):
+        """Fail if an exception of class excClass is raised
+           by callableObj when invoked with arguments args and keyword
+           arguments kwargs. If a different type of exception is
+           raised, it will not be caught, and the test case will be
+           deemed to have suffered an error, exactly as for an
+           unexpected exception.
+
+           If called with callableObj omitted or None, will return a
+           context object used like this::
+
+                with self.assertRaises(SomeException):
+                    do_something()
+
+           The context manager keeps a reference to the exception as
+           the 'exception' attribute. This allows you to inspect the
+           exception after the assertion::
+
+               with self.assertRaises(SomeException) as cm:
+                   do_something()
+               the_exception = cm.exception
+               self.assertEqual(the_exception.error_code, 3)
+        """
+        context = _AssertNotRaisesContext(excClass, self)
+        if callableObj is None:
+            return context
+        with context:
+            callableObj(*args, **kwargs)
 
 
     def assertXMLEqual(self, xml1, xml2):
@@ -131,7 +236,7 @@ class QubesTestCase(unittest.TestCase):
         :param xml2: second element
         :type xml1: :py:class:`lxml.etree._Element`
         :type xml2: :py:class:`lxml.etree._Element`
-        ''' # pylint: disable=invalid-name
+        '''
 
         self.assertEqual(xml1.tag, xml2.tag)
         self.assertEqual(xml1.text, xml2.text)
@@ -151,7 +256,7 @@ class QubesTestCase(unittest.TestCase):
             an event
         :param list kwargs: when given, all items must appear in kwargs passed \
             to an event
-        ''' # pylint: disable=invalid-name
+        '''
 
         for ev, ev_args, ev_kwargs in emitter.fired_events:
             if ev != event:
@@ -176,7 +281,7 @@ class QubesTestCase(unittest.TestCase):
             an event
         :param list kwargs: when given, all items must appear in kwargs passed \
             to an event
-        ''' # pylint: disable=invalid-name
+        '''
 
         for ev, ev_args, ev_kwargs in emitter.fired_events:
             if ev != event:
@@ -205,7 +310,7 @@ class QubesTestCase(unittest.TestCase):
         :param lxml.etree._Element xml: XML element instance to check
         :param str file: filename of Relax NG schema
         :param str schema: optional explicit schema string
-        ''' # pylint: disable=invalid-name,redefined-builtin
+        ''' # pylint: disable=redefined-builtin
 
         if schema is not None and file is None:
             relaxng = schema
@@ -240,3 +345,147 @@ class QubesTestCase(unittest.TestCase):
             raise
         except AssertionError as e:
             self.fail(str(e))
+
+
+class SystemTestsMixin(object):
+    def setUp(self):
+        super(SystemTestsMixin, self).setUp()
+        self.remove_test_vms()
+
+    tearDown = setUp
+
+
+    @staticmethod
+    def make_vm_name(name):
+        return VMPREFIX + name
+
+
+    def _remove_vm_qubes(self, vm):
+        vmname = vm.name
+
+        try:
+            # XXX .is_running() may throw libvirtError if undefined
+            if vm.is_running():
+                vm.force_shutdown()
+        except: # pylint: disable=bare-except
+            pass
+
+        try:
+            vm.remove_from_disk()
+        except: # pylint: disable=bare-except
+            pass
+
+        try:
+            vm.libvirt_domain.undefine()
+        except libvirt.libvirtError:
+            pass
+
+        del self.app.domains[vm]
+        del vm
+
+        # Now ensure it really went away. This may not have happened,
+        # for example if vm.libvirt_domain malfunctioned.
+        try:
+            dom = self.conn.lookupByName(vmname)
+        except: # pylint: disable=bare-except
+            pass
+        else:
+            self._remove_vm_libvirt(dom)
+
+        self._remove_vm_disk(vmname)
+
+
+    @staticmethod
+    def _remove_vm_libvirt(dom):
+        try:
+            dom.destroy()
+        except libvirt.libvirtError: # not running
+            pass
+        dom.undefine()
+
+
+    @staticmethod
+    def _remove_vm_disk(vmname):
+        for dirspec in (
+                'qubes_appvms_dir',
+                'qubes_servicevms_dir',
+                'qubes_templates_dir'):
+            dirpath = os.path.join(qubes.config.system_path['qubes_base_dir'],
+                qubes.config.system_path[dirspec], vmname)
+            if os.path.exists(dirpath):
+                if os.path.isdir(dirpath):
+                    shutil.rmtree(dirpath)
+                else:
+                    os.unlink(dirpath)
+
+
+    def remove_vms(self, vms):
+        for vm in vms:
+            self._remove_vm_qubes(vm)
+        self.save_and_reload_db()
+
+
+    def remove_test_vms(self):
+        '''Aggresively remove any domain that has name in testing namespace.
+
+        .. warning::
+            The test suite hereby claims any domain whose name starts with
+            :py:data:`VMPREFIX` as fair game. This is needed to enforce sane
+            test executing environment. If you have domains named ``test-*``,
+            don't run the tests.
+        '''
+
+        # first, remove them Qubes-way
+        something_removed = False
+        for vm in self.app.domains:
+            if vm.name.startswith(VMPREFIX):
+                self._remove_vm_qubes(vm)
+                something_removed = True
+        if something_removed:
+            self.save_and_reload_db()
+
+        # now remove what was only in libvirt
+        for dom in self.conn.listAllDomains():
+            if dom.name().startswith(VMPREFIX):
+                self._remove_vm_libvirt(dom)
+
+        # finally remove anything that is left on disk
+        vmnames = set()
+        for dirspec in (
+                'qubes_appvms_dir',
+                'qubes_servicevms_dir',
+                'qubes_templates_dir'):
+            dirpath = os.path.join(qubes.config.system_path['qubes_base_dir'],
+                qubes.config.system_path[dirspec])
+            for name in os.listdir(dirpath):
+                if name.startswith(VMPREFIX):
+                    vmnames.add(name)
+        for vmname in vmnames:
+            self._remove_vm_disk(vmname)
+
+
+def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
+    # discard any tests from this module, because it hosts base classes
+    tests = unittest.TestSuite()
+
+    for modname in (
+            # unit tests
+            'qubes.tests.events',
+            'qubes.tests.vm.init',
+            'qubes.tests.vm.qubesvm',
+            'qubes.tests.vm.adminvm',
+            'qubes.tests.init',
+            'qubes.tests.tools',
+
+            # integration tests
+#           'qubes.tests.init.basic',
+#           'qubes.tests.dom0_update',
+#           'qubes.tests.network',
+#           'qubes.tests.vm_qrexec_gui',
+#           'qubes.tests.backup',
+#           'qubes.tests.backupcompatibility',
+#           'qubes.tests.regressions',
+            ):
+        tests.addTests(loader.loadTestsFromName(modname))
+
+    return tests
