@@ -318,6 +318,138 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         (stdout, stderr) = p.communicate()
         self.assertEqual(stdout, "3\n")
 
+    def test_070_qrexec_vm_simultaneous_write(self):
+        """Test for simultaneous write in VM(src)->VM(dst) connection
+
+            This is regression test for #1347
+
+            Check for deadlock when initially both sides writes a lot of data
+            (and not read anything). When one side starts reading, it should
+            get the data and the remote side should be possible to write then more.
+            There was a bug where remote side was waiting on write(2) and not
+            handling anything else.
+        """
+        result = multiprocessing.Value('i', -1)
+
+        def run(self):
+            p = self.testvm1.run(
+                "/usr/lib/qubes/qrexec-client-vm %s test.write "
+                "/bin/sh -c '"
+                # first write a lot of data to fill all the buffers
+                "dd if=/dev/zero bs=993 count=10000 iflag=fullblock & "
+                # then after some time start reading
+                "sleep 1; "
+                "dd of=/dev/null bs=993 count=10000 iflag=fullblock; "
+                "wait"
+                "'" % self.testvm2.name, passio_popen=True)
+            p.communicate()
+            result.value = p.returncode
+
+        self.testvm1.start()
+        self.testvm2.start()
+        p = self.testvm2.run("cat > /etc/qubes-rpc/test.write", user="root",
+                             passio_popen=True)
+        # first write a lot of data
+        p.stdin.write("dd if=/dev/zero bs=993 count=10000 iflag=fullblock\n")
+        # and only then read something
+        p.stdin.write("dd of=/dev/null bs=993 count=10000 iflag=fullblock\n")
+        p.stdin.close()
+        p.wait()
+        policy = open("/etc/qubes-rpc/policy/test.write", "w")
+        policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
+        policy.close()
+        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.write")
+
+        t = multiprocessing.Process(target=run, args=(self,))
+        t.start()
+        t.join(timeout=10)
+        if t.is_alive():
+            t.terminate()
+            self.fail("Timeout, probably deadlock")
+        self.assertEqual(result.value, 0, "Service call failed")
+
+    def test_071_qrexec_dom0_simultaneous_write(self):
+        """Test for simultaneous write in dom0(src)->VM(dst) connection
+
+            Similar to test_070_qrexec_vm_simultaneous_write, but with dom0
+            as a source.
+        """
+        result = multiprocessing.Value('i', -1)
+
+        def run(self):
+            result.value = self.testvm2.run_service(
+                "test.write", localcmd="/bin/sh -c '"
+                # first write a lot of data to fill all the buffers
+                "dd if=/dev/zero bs=993 count=10000 iflag=fullblock & "
+                # then after some time start reading
+                "sleep 1; "
+                "dd of=/dev/null bs=993 count=10000 iflag=fullblock; "
+                "wait"
+                "'")
+
+        self.testvm2.start()
+        p = self.testvm2.run("cat > /etc/qubes-rpc/test.write", user="root",
+                             passio_popen=True)
+        # first write a lot of data
+        p.stdin.write("dd if=/dev/zero bs=993 count=10000 iflag=fullblock\n")
+        # and only then read something
+        p.stdin.write("dd of=/dev/null bs=993 count=10000 iflag=fullblock\n")
+        p.stdin.close()
+        p.wait()
+        policy = open("/etc/qubes-rpc/policy/test.write", "w")
+        policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
+        policy.close()
+        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.write")
+
+        t = multiprocessing.Process(target=run, args=(self,))
+        t.start()
+        t.join(timeout=10)
+        if t.is_alive():
+            t.terminate()
+            self.fail("Timeout, probably deadlock")
+        self.assertEqual(result.value, 0, "Service call failed")
+
+    def test_072_qrexec_to_dom0_simultaneous_write(self):
+        """Test for simultaneous write in dom0(src)<-VM(dst) connection
+
+            Similar to test_071_qrexec_dom0_simultaneous_write, but with dom0
+            as a "hanging" side.
+        """
+        result = multiprocessing.Value('i', -1)
+
+        def run(self):
+            result.value = self.testvm2.run_service(
+                "test.write", localcmd="/bin/sh -c '"
+                # first write a lot of data to fill all the buffers
+                "dd if=/dev/zero bs=993 count=10000 iflag=fullblock "
+                # then, only when all written, read something
+                "dd of=/dev/null bs=993 count=10000 iflag=fullblock; "
+                "'")
+
+        self.testvm2.start()
+        p = self.testvm2.run("cat > /etc/qubes-rpc/test.write", user="root",
+                             passio_popen=True)
+        # first write a lot of data
+        p.stdin.write("dd if=/dev/zero bs=993 count=10000 iflag=fullblock &\n")
+        # and only then read something
+        p.stdin.write("dd of=/dev/null bs=993 count=10000 iflag=fullblock\n")
+        p.stdin.write("sleep 1; \n")
+        p.stdin.write("wait\n")
+        p.stdin.close()
+        p.wait()
+        policy = open("/etc/qubes-rpc/policy/test.write", "w")
+        policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
+        policy.close()
+        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.write")
+
+        t = multiprocessing.Process(target=run, args=(self,))
+        t.start()
+        t.join(timeout=10)
+        if t.is_alive():
+            t.terminate()
+            self.fail("Timeout, probably deadlock")
+        self.assertEqual(result.value, 0, "Service call failed")
+
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
     def test_100_qrexec_filecopy(self):
