@@ -822,7 +822,7 @@ class QubesWatch(object):
             self._qdb_handler, name)
 
     def _retry_register_watches(self, timer, libvirt_domain):
-        libvirt.virRemoveTimeout(timer)
+        libvirt.virEventRemoveTimeout(timer)
         self._register_watches(libvirt_domain)
 
     def _unregister_watches(self, libvirt_domain):
