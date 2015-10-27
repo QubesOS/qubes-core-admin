@@ -253,6 +253,14 @@ fi
 %{python_sitelib}/qubes/tests/tools/init.py*
 %{python_sitelib}/qubes/tests/tools/qvm_ls.py*
 
+%dir %{python_sitelib}/qubes/tests/int
+%{python_sitelib}/qubes/tests/int/__init__.py*
+%{python_sitelib}/qubes/tests/int/basic.py*
+
+%dir %{python_sitelib}/qubes/tests/int/tools
+%{python_sitelib}/qubes/tests/int/tools/__init__.py*
+%{python_sitelib}/qubes/tests/int/tools/qubes_create.py*
+
 %dir %{python_sitelib}/qubes/qmemman
 %{python_sitelib}/qubes/qmemman/__init__.py*
 %{python_sitelib}/qubes/qmemman/algo.py*

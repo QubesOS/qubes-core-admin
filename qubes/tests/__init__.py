@@ -39,6 +39,8 @@ import lxml.etree
 import qubes.config
 import qubes.events
 
+XMLPATH = '/var/lib/qubes/qubes-test.xml'
+TEMPLATE = 'fedora-21'
 VMPREFIX = 'test-'
 
 
@@ -360,8 +362,10 @@ class SystemTestsMixin(object):
         return VMPREFIX + name
 
 
-    def _remove_vm_qubes(self, vm):
+    @staticmethod
+    def _remove_vm_qubes(vm):
         vmname = vm.name
+        app = vm.app
 
         try:
             # XXX .is_running() may throw libvirtError if undefined
@@ -377,16 +381,20 @@ class SystemTestsMixin(object):
 
         try:
             vm.libvirt_domain.undefine()
-        except libvirt.libvirtError:
+        except (AttributeError, libvirt.libvirtError):
             pass
 
-        del self.app.domains[vm]
+        del app.domains[vm]
         del vm
+
+        app.save()
+        del app
 
         # Now ensure it really went away. This may not have happened,
         # for example if vm.libvirt_domain malfunctioned.
         try:
-            dom = self.conn.lookupByName(vmname)
+            conn = libvirt.open(qubes.config.defaults['libvirt_uri'])
+            dom = conn.lookupByName(vmname)
         except: # pylint: disable=bare-except
             pass
         else:
@@ -422,7 +430,6 @@ class SystemTestsMixin(object):
     def remove_vms(self, vms):
         for vm in vms:
             self._remove_vm_qubes(vm)
-        self.save_and_reload_db()
 
 
     def remove_test_vms(self):
@@ -436,16 +443,14 @@ class SystemTestsMixin(object):
         '''
 
         # first, remove them Qubes-way
-        something_removed = False
-        for vm in self.app.domains:
-            if vm.name.startswith(VMPREFIX):
-                self._remove_vm_qubes(vm)
-                something_removed = True
-        if something_removed:
-            self.save_and_reload_db()
+        if os.path.exists(XMLPATH):
+            self.remove_vms(vm for vm in qubes.Qubes(XMLPATH).domains
+                if vm.name != TEMPLATE)
+            os.unlink(XMLPATH)
 
         # now remove what was only in libvirt
-        for dom in self.conn.listAllDomains():
+        conn = libvirt.open(qubes.config.defaults['libvirt_uri'])
+        for dom in conn.listAllDomains():
             if dom.name().startswith(VMPREFIX):
                 self._remove_vm_libvirt(dom)
 
@@ -478,13 +483,16 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
             'qubes.tests.tools',
 
             # integration tests
-#           'qubes.tests.init.basic',
+#           'qubes.tests.int.basic',
 #           'qubes.tests.dom0_update',
 #           'qubes.tests.network',
 #           'qubes.tests.vm_qrexec_gui',
 #           'qubes.tests.backup',
 #           'qubes.tests.backupcompatibility',
 #           'qubes.tests.regressions',
+
+            # tool tests
+            'qubes.tests.int.tools.qubes_create',
             ):
         tests.addTests(loader.loadTestsFromName(modname))
 

@@ -12,12 +12,12 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
@@ -31,13 +31,26 @@ import unittest
 import time
 from qubes.qubes import QubesVmCollection, QubesException, system_path
 
-import qubes.qubes
+import qubes
+import qubes.vm.qubesvm
 import qubes.tests
 
 class TC_00_Basic(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
-    def test_000_create(self):
+    def setUp(self):
+        self.app = qubes.Qubes.create_empty_store(qubes.tests.XMLPATH)
+
+    def test_000_qubes_create(self):
+        self.assertIsInstance(self.app, qubes.Qubes)
+
+    def test_001_qvm_create_default_template(self):
+        self.app.add_new_vm
+
+
+    def test_100_qvm_create(self):
+        app = qubes.Qubes(qubes.tests.XMLPATH)
         vmname = self.make_vm_name('appvm')
-        vm = self.qc.add_new_vm('QubesAppVm',
+
+        vm = app.add_new_vm(qubes.vm.appvm.AppVM,
             name=vmname, template=self.qc.get_default_template())
 
         self.assertIsNotNone(vm)
