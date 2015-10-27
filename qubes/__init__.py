@@ -1266,28 +1266,48 @@ class Qubes(PropertyHolder):
     def save(self):
         '''Save all data to qubes.xml
 
+        There are several problems with saving :file:`qubes.xml` which must be
+        mitigated:
+
+        - Running out of disk space. No space left should not result in empty
+          file. This is done by writing to temporary file and the renaming.
+        - Attempts to write two or more files concurrently. This is done by
+          sophisticated locking.
+
         :throws EnvironmentError: failure on saving
         '''
 
-        fh = tempfile.NamedTemporaryFile(prefix=self._store, delete=False)
-        if os.name == 'posix':
-            fcntl.lockf(fh, fcntl.LOCK_EX)
-        elif os.name == 'nt':
-            # pylint: disable=protected-access
-            overlapped = pywintypes.OVERLAPPED()
-            win32file.LockFileEx(
-                win32file._get_osfhandle(fh.fileno()),
-                win32con.LOCKFILE_EXCLUSIVE_LOCK, 0, -0x10000, overlapped)
+        while True:
+            fd_old = os.open(self._store, os.O_RDWR) # no O_CREAT
+            if os.name == 'posix':
+                fcntl.lockf(fd_old, fcntl.LOCK_EX)
+            elif os.name == 'nt':
+                # pylint: disable=protected-access
+                overlapped = pywintypes.OVERLAPPED()
+                win32file.LockFileEx(
+                    win32file._get_osfhandle(fd_old),
+                    win32con.LOCKFILE_EXCLUSIVE_LOCK, 0, -0x10000, overlapped)
+
+            # While we were waiting for lock, someone could have unlink()ed (or
+            # rename()d) our file out of the filesystem. We have to ensure we
+            # got lock on something linked to filesystem. If not, try again.
+            if os.fstat(fd_old) == os.stat(self._store):
+                break
+            else:
+                os.close(fd_old)
+
+        fh_new = tempfile.NamedTemporaryFile(prefix=self._store, delete=False)
         lxml.etree.ElementTree(self.__xml__()).write(
-            fh, encoding='utf-8', pretty_print=True)
-        fh.flush()
-        os.chmod(fh.name, 0660)
-        os.chown(fh.name, -1, grp.getgrnam('qubes').gr_gid)
-        os.rename(fh.name, self._store)
+            fh_new, encoding='utf-8', pretty_print=True)
+        fh_new.flush()
+        os.chmod(fh_new.name, 0660)
+        os.chown(fh_new.name, -1, grp.getgrnam('qubes').gr_gid)
+        os.rename(fh_new.name, self._store)
 
         # intentionally do not call explicit unlock to not unlock the file
         # before all buffers are flushed
-        fh.close()
+        fh_new.close()
+        os.close(fd_old)
         del fh
 
 
