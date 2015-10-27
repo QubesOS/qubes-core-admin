@@ -70,10 +70,85 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
 
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
-    def test_010_run_gui_app(self):
+    def test_010_run_xterm(self):
+        self.testvm1.start()
+        self.assertEquals(self.testvm1.get_power_state(), "Running")
+        self.testvm1.run("xterm")
+        wait_count = 0
+        while subprocess.call(
+                ['xdotool', 'search', '--name', 'user@{}'.
+                    format(self.testvm1.name)],
+                stdout=open(os.path.devnull, 'w'),
+                stderr=subprocess.STDOUT) > 0:
+            wait_count += 1
+            if wait_count > 100:
+                self.fail("Timeout while waiting for gnome-terminal window")
+            time.sleep(0.1)
+
+        time.sleep(0.5)
+        subprocess.check_call(
+            ['xdotool', 'search', '--name', 'user@{}'.format(self.testvm1.name),
+             'windowactivate', 'type', 'exit\n'])
+
+        wait_count = 0
+        while subprocess.call(['xdotool', 'search', '--name',
+                               'user@{}'.format(self.testvm1.name)],
+                              stdout=open(os.path.devnull, 'w'),
+                              stderr=subprocess.STDOUT) == 0:
+            wait_count += 1
+            if wait_count > 100:
+                self.fail("Timeout while waiting for gnome-terminal "
+                          "termination")
+            time.sleep(0.1)
+
+    @unittest.skipUnless(spawn.find_executable('xdotool'),
+                         "xdotool not installed")
+    def test_011_run_gnome_terminal(self):
+        if "minimal" in self.template:
+            self.skipTest("Minimal template doesn't have 'gnome-terminal'")
         self.testvm1.start()
         self.assertEquals(self.testvm1.get_power_state(), "Running")
         self.testvm1.run("gnome-terminal")
+        wait_count = 0
+        while subprocess.call(
+                ['xdotool', 'search', '--name', 'user@{}'.
+                    format(self.testvm1.name)],
+                stdout=open(os.path.devnull, 'w'),
+                stderr=subprocess.STDOUT) > 0:
+            wait_count += 1
+            if wait_count > 100:
+                self.fail("Timeout while waiting for gnome-terminal window")
+            time.sleep(0.1)
+
+        time.sleep(0.5)
+        subprocess.check_call(
+            ['xdotool', 'search', '--name', 'user@{}'.format(self.testvm1.name),
+             'windowactivate', 'type', 'exit\n'])
+
+        wait_count = 0
+        while subprocess.call(['xdotool', 'search', '--name',
+                               'user@{}'.format(self.testvm1.name)],
+                              stdout=open(os.path.devnull, 'w'),
+                              stderr=subprocess.STDOUT) == 0:
+            wait_count += 1
+            if wait_count > 100:
+                self.fail("Timeout while waiting for gnome-terminal "
+                          "termination")
+            time.sleep(0.1)
+
+    @unittest.skipUnless(spawn.find_executable('xdotool'),
+                         "xdotool not installed")
+    def test_012_qubes_desktop_run(self):
+        self.testvm1.start()
+        self.assertEquals(self.testvm1.get_power_state(), "Running")
+        xterm_desktop_path = "/usr/share/applications/xterm.desktop"
+        # Debian has it different...
+        xterm_desktop_path_debian = \
+            "/usr/share/applications/debian-xterm.desktop"
+        if self.testvm1.run("test -r {}".format(xterm_desktop_path_debian),
+                            wait=True) == 0:
+            xterm_desktop_path = xterm_desktop_path_debian
+        self.testvm1.run("qubes-desktop-run {}".format(xterm_desktop_path))
         wait_count = 0
         while subprocess.call(
                 ['xdotool', 'search', '--name', 'user@{}'.
