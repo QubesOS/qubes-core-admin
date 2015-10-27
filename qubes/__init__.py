@@ -1375,16 +1375,18 @@ class Qubes(PropertyHolder):
     @qubes.events.handler('domain-deleted')
     def on_domain_deleted(self, event, vm):
         # pylint: disable=unused-argument
-        if self.default_netvm == vm:
-            del self.default_netvm
-        if self.default_fw_netvm == vm:
-            del self.default_fw_netvm
-        if self.clockvm == vm:
-            del self.clockvm
-        if self.updatevm == vm:
-            del self.updatevm
-        if self.default_template == vm:
-            del self.default_template
+        for propname in (
+                'default_netvm',
+                'default_fw_netvm',
+                'clockvm',
+                'updatevm',
+                'default_template',
+                ):
+            try:
+                if getattr(self, propname) == vm:
+                    delattr(self, propname)
+            except AttributeError:
+                pass
 
 
     @qubes.events.handler('property-pre-set:clockvm')
