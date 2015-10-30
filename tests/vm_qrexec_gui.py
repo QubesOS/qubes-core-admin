@@ -75,29 +75,30 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         self.assertEquals(self.testvm1.get_power_state(), "Running")
         self.testvm1.run("xterm")
         wait_count = 0
+        title = 'user@{}'.format(self.testvm1.name)
+        if self.template.count("whonix"):
+            title = 'user@host'
         while subprocess.call(
-                ['xdotool', 'search', '--name', 'user@{}'.
-                    format(self.testvm1.name)],
+                ['xdotool', 'search', '--name', title],
                 stdout=open(os.path.devnull, 'w'),
                 stderr=subprocess.STDOUT) > 0:
             wait_count += 1
             if wait_count > 100:
-                self.fail("Timeout while waiting for gnome-terminal window")
+                self.fail("Timeout while waiting for xterm window")
             time.sleep(0.1)
 
         time.sleep(0.5)
         subprocess.check_call(
-            ['xdotool', 'search', '--name', 'user@{}'.format(self.testvm1.name),
+            ['xdotool', 'search', '--name', title,
              'windowactivate', 'type', 'exit\n'])
 
         wait_count = 0
-        while subprocess.call(['xdotool', 'search', '--name',
-                               'user@{}'.format(self.testvm1.name)],
+        while subprocess.call(['xdotool', 'search', '--name', title],
                               stdout=open(os.path.devnull, 'w'),
                               stderr=subprocess.STDOUT) == 0:
             wait_count += 1
             if wait_count > 100:
-                self.fail("Timeout while waiting for gnome-terminal "
+                self.fail("Timeout while waiting for xterm "
                           "termination")
             time.sleep(0.1)
 
@@ -109,10 +110,12 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         self.testvm1.start()
         self.assertEquals(self.testvm1.get_power_state(), "Running")
         self.testvm1.run("gnome-terminal")
+        title = 'user@{}'.format(self.testvm1.name)
+        if self.template.count("whonix"):
+            title = 'user@host'
         wait_count = 0
         while subprocess.call(
-                ['xdotool', 'search', '--name', 'user@{}'.
-                    format(self.testvm1.name)],
+                ['xdotool', 'search', '--name', title],
                 stdout=open(os.path.devnull, 'w'),
                 stderr=subprocess.STDOUT) > 0:
             wait_count += 1
@@ -122,12 +125,11 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
 
         time.sleep(0.5)
         subprocess.check_call(
-            ['xdotool', 'search', '--name', 'user@{}'.format(self.testvm1.name),
+            ['xdotool', 'search', '--name', title,
              'windowactivate', 'type', 'exit\n'])
 
         wait_count = 0
-        while subprocess.call(['xdotool', 'search', '--name',
-                               'user@{}'.format(self.testvm1.name)],
+        while subprocess.call(['xdotool', 'search', '--name', title],
                               stdout=open(os.path.devnull, 'w'),
                               stderr=subprocess.STDOUT) == 0:
             wait_count += 1
@@ -149,30 +151,31 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                             wait=True) == 0:
             xterm_desktop_path = xterm_desktop_path_debian
         self.testvm1.run("qubes-desktop-run {}".format(xterm_desktop_path))
+        title = 'user@{}'.format(self.testvm1.name)
+        if self.template.count("whonix"):
+            title = 'user@host'
         wait_count = 0
         while subprocess.call(
-                ['xdotool', 'search', '--name', 'user@{}'.
-                    format(self.testvm1.name)],
+                ['xdotool', 'search', '--name', title],
                 stdout=open(os.path.devnull, 'w'),
                 stderr=subprocess.STDOUT) > 0:
             wait_count += 1
             if wait_count > 100:
-                self.fail("Timeout while waiting for gnome-terminal window")
+                self.fail("Timeout while waiting for xterm window")
             time.sleep(0.1)
 
         time.sleep(0.5)
         subprocess.check_call(
-            ['xdotool', 'search', '--name', 'user@{}'.format(self.testvm1.name),
+            ['xdotool', 'search', '--name', title,
              'windowactivate', 'type', 'exit\n'])
 
         wait_count = 0
-        while subprocess.call(['xdotool', 'search', '--name',
-                               'user@{}'.format(self.testvm1.name)],
+        while subprocess.call(['xdotool', 'search', '--name', title],
                               stdout=open(os.path.devnull, 'w'),
                               stderr=subprocess.STDOUT) == 0:
             wait_count += 1
             if wait_count > 100:
-                self.fail("Timeout while waiting for gnome-terminal "
+                self.fail("Timeout while waiting for xterm "
                           "termination")
             time.sleep(0.1)
 
