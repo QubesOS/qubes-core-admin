@@ -34,7 +34,10 @@ VM_PREFIX = "test-"
 @unittest.skipUnless(os.path.exists('/usr/bin/rpmsign') and
                      os.path.exists('/usr/bin/rpmbuild'),
                      'rpm-sign and/or rpm-build not installed')
-class TC_00_Dom0Upgrade(qubes.tests.QubesTestCase):
+class TC_00_Dom0UpgradeMixin(qubes.tests.SystemTestsMixin):
+    """
+    Tests for downloading dom0 updates using VMs based on different templates
+    """
     cleanup_paths = []
     pkg_name = 'qubes-test-pkg'
     dom0_update_common_opts = ['--disablerepo=*', '--enablerepo=test',
@@ -70,7 +73,7 @@ Expire-Date: 0
 
     @classmethod
     def setUpClass(cls):
-        super(TC_00_Dom0Upgrade, cls).setUpClass()
+        super(TC_00_Dom0UpgradeMixin, cls).setUpClass()
 
         cls.tmpdir = tempfile.mkdtemp()
         cls.cleanup_paths += [cls.tmpdir]
@@ -100,12 +103,11 @@ enabled = 1
         cls.cleanup_paths = []
 
     def setUp(self):
-        self.qc = QubesVmCollection()
-        self.qc.lock_db_for_writing()
-        self.qc.load()
-        self.updatevm = self.qc.add_new_vm("QubesProxyVm",
-                                           name="%supdatevm" % VM_PREFIX,
-                                           template=self.qc.get_default_template())
+        super(TC_00_Dom0UpgradeMixin, self).setUp()
+        self.updatevm = self.qc.add_new_vm(
+            "QubesProxyVm",
+            name=self.make_vm_name("updatevm"),
+            template=self.qc.get_vm_by_name(self.template))
         self.updatevm.create_on_disk(verbose=False)
         self.saved_updatevm = self.qc.get_updatevm_vm()
         self.qc.set_updatevm_vm(self.updatevm)
@@ -117,35 +119,13 @@ enabled = 1
                                os.path.join(self.tmpdir, 'pubkey.asc')])
         self.updatevm.start()
 
-
-    def remove_vms(self, vms):
+    def tearDown(self):
         self.qc.lock_db_for_writing()
         self.qc.load()
 
         self.qc.set_updatevm_vm(self.qc[self.saved_updatevm.qid])
-
-        for vm in vms:
-            if isinstance(vm, str):
-                vm = self.qc.get_vm_by_name(vm)
-            else:
-                vm = self.qc[vm.qid]
-            if vm.is_running():
-                try:
-                    vm.force_shutdown()
-                except:
-                    pass
-            try:
-                vm.remove_from_disk()
-            except OSError:
-                pass
-            self.qc.pop(vm.qid)
         self.qc.save()
-        self.qc.unlock_db()
-
-    def tearDown(self):
-        vmlist = [vm for vm in self.qc.values() if vm.name.startswith(
-            VM_PREFIX)]
-        self.remove_vms(vmlist)
+        super(TC_00_Dom0UpgradeMixin, self).tearDown()
 
         subprocess.call(['sudo', 'rpm', '-e', self.pkg_name], stderr=open(
             os.devnull, 'w'))
@@ -202,7 +182,9 @@ Test package
         p.stdin.write(open(filename).read())
         p.stdin.close()
         p.wait()
-        self.updatevm.run('cd /tmp/repo; createrepo .', wait=True)
+        retcode = self.updatevm.run('cd /tmp/repo; createrepo .', wait=True)
+        if retcode != 0:
+            raise RuntimeError("createrepo failed, cannot perform test")
 
     def test_000_update(self):
         filename = self.create_pkg(self.tmpdir, self.pkg_name, '1.0')
@@ -297,3 +279,23 @@ Test package
             self.pkg_name)], stdout=open('/dev/null', 'w'))
         self.assertEqual(retcode, 1,
                          'UNSIGNED package {}-1.0 installed'.format(self.pkg_name))
+
+
+def load_tests(loader, tests, pattern):
+    try:
+        qc = qubes.qubes.QubesVmCollection()
+        qc.lock_db_for_reading()
+        qc.load()
+        qc.unlock_db()
+        templates = [vm.name for vm in qc.values() if
+                     isinstance(vm, qubes.qubes.QubesTemplateVm)]
+    except OSError:
+        templates = []
+    for template in templates:
+        tests.addTests(loader.loadTestsFromTestCase(
+            type(
+                'TC_00_Dom0Upgrade_' + template,
+                (TC_00_Dom0UpgradeMixin, qubes.tests.QubesTestCase),
+                {'template': template})))
+
+    return tests
