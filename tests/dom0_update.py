@@ -179,8 +179,12 @@ Test package
         p.stdin.close()
         p.wait()
         retcode = self.updatevm.run('cd /tmp/repo; createrepo .', wait=True)
-        if retcode != 0:
-            raise RuntimeError("createrepo failed, cannot perform test")
+        if retcode == 127:
+            self.skipTest("createrepo not installed in template {}".format(
+                self.template))
+        elif retcode != 0:
+            self.skipTest("createrepo failed with code {}, cannot perform the "
+                      "test".format(retcode))
 
     def test_000_update(self):
         filename = self.create_pkg(self.tmpdir, self.pkg_name, '1.0')
