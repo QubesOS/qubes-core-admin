@@ -35,6 +35,7 @@ import sys
 
 import qubes.backup
 import qubes.qubes
+import time
 
 VMPREFIX = 'test-'
 
@@ -339,6 +340,28 @@ class SystemTestsMixin(object):
         for vmname in vmnames:
             self._remove_vm_disk(vmname)
 
+    def wait_for_window(self, title, timeout=30, show=True):
+        """
+        Wait for a window with a given title. Depending on show parameter,
+        it will wait for either window to show or to disappear.
+
+        :param title: title of the window to wait for
+        :param timeout: timeout of the operation, in seconds
+        :param show: if True - wait for the window to be visible,
+            otherwise - to not be visible
+        :return: None
+        """
+
+        wait_count = 0
+        while subprocess.call(['xdotool', 'search', '--name', title],
+                              stdout=open(os.path.devnull, 'w'),
+                              stderr=subprocess.STDOUT) == 0:
+            wait_count += 1
+            if wait_count > timeout*10:
+                self.fail("Timeout while waiting for {} window to {}".format(
+                    title, "show" if show else "hide")
+                )
+            time.sleep(0.1)
 
 
 class BackupTestsMixin(SystemTestsMixin):
