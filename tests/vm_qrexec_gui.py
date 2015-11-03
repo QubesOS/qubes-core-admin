@@ -940,13 +940,13 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
 
         # Then paste it to the other window
         window_title = 'user@{}'.format(testvm2.name)
-        testvm2.run('zenity --entry --title={} > test.txt'.format(
-            window_title))
+        p = testvm2.run('zenity --entry --title={} > test.txt'.format(
+                        window_title), passio_popen=True)
         self.wait_for_window(window_title)
 
         subprocess.check_call(['xdotool', 'key', '--delay', '100',
                                'ctrl+shift+v', 'ctrl+v', 'Return'])
-        time.sleep(0.5)
+        p.wait()
 
         # And compare the result
         (test_output, _) = testvm2.run('cat test.txt',
