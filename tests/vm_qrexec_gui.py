@@ -907,15 +907,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         testvm1.run('zenity --text-info --editable --title={}'.format(
             window_title))
 
-        wait_count = 0
-        while subprocess.call(['xdotool', 'search', '--name', window_title],
-                              stdout=open(os.path.devnull, 'w'),
-                              stderr=subprocess.STDOUT) > 0:
-            wait_count += 1
-            if wait_count > 100:
-                self.fail("Timeout while waiting for text-info window")
-            time.sleep(0.1)
-
+        self.wait_for_window(window_title)
         time.sleep(0.5)
         test_string = "test{}".format(testvm1.xid)
 
@@ -946,14 +938,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         window_title = 'user@{}'.format(testvm2.name)
         testvm2.run('zenity --entry --title={} > test.txt'.format(
             window_title))
-        wait_count = 0
-        while subprocess.call(['xdotool', 'search', '--name', window_title],
-                              stdout=open(os.path.devnull, 'w'),
-                              stderr=subprocess.STDOUT) > 0:
-            wait_count += 1
-            if wait_count > 100:
-                self.fail("Timeout while waiting for input window")
-            time.sleep(0.1)
+        self.wait_for_window(window_title)
 
         subprocess.check_call(['xdotool', 'key', '--delay', '100',
                                'ctrl+shift+v', 'ctrl+v', 'Return'])
