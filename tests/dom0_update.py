@@ -38,7 +38,6 @@ class TC_00_Dom0UpgradeMixin(qubes.tests.SystemTestsMixin):
     """
     Tests for downloading dom0 updates using VMs based on different templates
     """
-    cleanup_paths = []
     pkg_name = 'qubes-test-pkg'
     dom0_update_common_opts = ['--disablerepo=*', '--enablerepo=test',
                                '--setopt=test.copy_local=1']
@@ -76,7 +75,6 @@ Expire-Date: 0
         super(TC_00_Dom0UpgradeMixin, cls).setUpClass()
 
         cls.tmpdir = tempfile.mkdtemp()
-        cls.cleanup_paths += [cls.tmpdir]
 
         cls.keyid = cls.generate_key(cls.tmpdir)
 
@@ -98,9 +96,7 @@ enabled = 1
         subprocess.check_call(['sudo', 'rm', '-f',
                                '/etc/yum.repos.d/test.repo'])
 
-        for dir in cls.cleanup_paths:
-            shutil.rmtree(dir)
-        cls.cleanup_paths = []
+        shutil.rmtree(cls.tmpdir)
 
     def setUp(self):
         super(TC_00_Dom0UpgradeMixin, self).setUp()
