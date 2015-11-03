@@ -611,7 +611,11 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         self.testvm2.start()
         (start_time, _) = subprocess.Popen(["date", "-u", "+%s"],
                                            stdout=subprocess.PIPE).communicate()
-        original_clockvm_name = self.qc.get_clockvm_vm().name
+        original_clockvm = self.qc.get_clockvm_vm()
+        if original_clockvm:
+            original_clockvm_name = original_clockvm.name
+        else:
+            original_clockvm_name = "none"
         try:
             # use qubes-prefs to not hassle with qubes.xml locking
             subprocess.check_call(["qubes-prefs", "-s", "clockvm",
@@ -639,7 +643,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             (dom0_time, _) = subprocess.Popen(["date", "-u", "+%s"],
                                               stdout=subprocess.PIPE
                                               ).communicate()
-            self.assertAlmostEquals(int(dom0_time), int(start_time), delta=10)
+            self.assertAlmostEquals(int(dom0_time), int(start_time), delta=30)
 
         except:
             # reset time to some approximation of the real time
