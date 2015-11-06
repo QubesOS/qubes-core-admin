@@ -29,7 +29,7 @@ from lxml import etree
 from lxml.etree import ElementTree, SubElement, Element
 
 from qubes.qubes import QubesException
-from qubes.qubes import vmm
+from qubes.qubes import vmm,defaults
 from qubes.qubes import system_path,vm_files
 import sys
 import os
@@ -737,11 +737,16 @@ class QubesWatch(object):
         self.block_callback = None
         self.meminfo_callback = None
         self.domain_callback = None
-        vmm.libvirt_conn.domainEventRegisterAny(
+        libvirt.virEventRegisterDefaultImpl()
+        # open new libvirt connection because above
+        # virEventRegisterDefaultImpl is in practice effective only for new
+        # connections
+        self.libvirt_conn = libvirt.open(defaults['libvirt_uri'])
+        self.libvirt_conn.domainEventRegisterAny(
             None,
             libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE,
             self._domain_list_changed, None)
-        vmm.libvirt_conn.domainEventRegisterAny(
+        self.libvirt_conn.domainEventRegisterAny(
             None,
             libvirt.VIR_DOMAIN_EVENT_ID_DEVICE_REMOVED,
             self._device_removed, None)

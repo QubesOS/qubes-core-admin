@@ -159,7 +159,6 @@ class QubesVMMConnection(object):
 
         if 'xen.lowlevel.xs' in sys.modules:
             self._xs = xen.lowlevel.xs.xs()
-        libvirt.virEventRegisterDefaultImpl()
         self._libvirt_conn = libvirt.open(defaults['libvirt_uri'])
         if self._libvirt_conn == None:
             raise QubesException("Failed connect to libvirt driver")
