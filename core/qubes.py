@@ -307,6 +307,16 @@ class QubesVmCollection(dict):
 
     def clear(self):
         self.log.debug('clear()')
+        # Hack for releasing FDs, which otherwise would be leaked because of
+        # circular dependencies on QubesVMs objects (so garbage collector
+        # doesn't handle them). See #1380 for details
+        for vm in self.values():
+            try:
+                if vm._qdb_connection:
+                    vm._qdb_connection.close()
+                    vm._qdb_connection = None
+            except AttributeError:
+                pass
         super(QubesVmCollection, self).clear()
 
     def values(self):
