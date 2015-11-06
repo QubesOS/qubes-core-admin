@@ -750,10 +750,10 @@ class QubesWatch(object):
             try:
                 if vm.isActive():
                     self._register_watches(vm)
-            except libvirt.libvirtError:
+            except libvirt.libvirtError as e:
                 # this will happen if we loose a race with another tool,
                 # which can just remove the domain
-                if vmm.libvirt_conn.virConnGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
+                if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                     pass
                 raise
         # and for dom0
