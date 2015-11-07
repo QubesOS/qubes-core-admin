@@ -21,7 +21,7 @@ from qubes.tests import QubesTestCase, SystemTestsMixin
 from qubes.qubes import defaults
 
 import qubes.storage
-from qubes.storage.xen import QubesXenVmStorage, XenPool
+from qubes.storage.xen import XenStorage, XenPool
 
 
 class TC_00_Storage(SystemTestsMixin, QubesTestCase):
@@ -33,13 +33,13 @@ class TC_00_Storage(SystemTestsMixin, QubesTestCase):
         storage = self.qc.add_new_vm('QubesAppVm', name=vmname, pool='default',
                                      template=template).storage
         result = qubes.storage.dump(storage)
-        expected = 'qubes.storage.xen.QubesXenVmStorage'
+        expected = 'qubes.storage.xen.XenStorage'
         self.assertEquals(result, expected)
 
     def test_001_load(self):
         """ Loads storage type from a storage string  """
-        result = qubes.storage.load('qubes.storage.xen.QubesXenVmStorage')
-        self.assertTrue(result is QubesXenVmStorage)
+        result = qubes.storage.load('qubes.storage.xen.XenStorage')
+        self.assertTrue(result is XenStorage)
 
     def test_002_default_pool_types(self):
         """ The only predifined pool type is xen """
@@ -60,4 +60,4 @@ class TC_01_Storage(SystemTestsMixin, QubesTestCase):
         template = self.qc.get_default_template()
         vm = self.qc.add_new_vm('QubesAppVm', name=vmname, template=template,
                                 pool='default')
-        self.assertIsInstance(vm.storage, QubesXenVmStorage)
+        self.assertIsInstance(vm.storage, XenStorage)

@@ -32,13 +32,13 @@ from qubes.qubes import QubesException, vm_files
 from qubes.storage import Pool, QubesVmStorage
 
 
-class QubesXenVmStorage(QubesVmStorage):
+class XenStorage(QubesVmStorage):
     """
     Class for VM storage of Xen VMs.
     """
 
     def __init__(self, vm, **kwargs):
-        super(QubesXenVmStorage, self).__init__(vm, **kwargs)
+        super(XenStorage, self).__init__(vm, **kwargs)
 
         self.root_dev = "xvda"
         self.private_dev = "xvdb"
@@ -158,7 +158,7 @@ class QubesXenVmStorage(QubesVmStorage):
             self.commit_template_changes()
 
     def rename(self, old_name, new_name):
-        super(QubesXenVmStorage, self).rename(old_name, new_name)
+        super(XenStorage, self).rename(old_name, new_name)
 
         old_dirpath = os.path.join(os.path.dirname(self.vmdir), old_name)
         if self.rootcow_img:
@@ -226,11 +226,11 @@ class QubesXenVmStorage(QubesVmStorage):
                 f_volatile.close()
                 f_root.close()
                 return
-        super(QubesXenVmStorage, self).reset_volatile_storage(
+        super(XenStorage, self).reset_volatile_storage(
             verbose=verbose, source_template=source_template)
 
     def prepare_for_vm_startup(self, verbose):
-        super(QubesXenVmStorage, self).prepare_for_vm_startup(verbose=verbose)
+        super(XenStorage, self).prepare_for_vm_startup(verbose=verbose)
 
         if self.drive is not None:
             (drive_type, drive_domain, drive_path) = self.drive.split(":")
