@@ -41,6 +41,8 @@ def main():
                        help="Specify the label to use for the new VM (e.g. red, yellow, green, ...)")
     parser.add_option ("-p", "--proxy", action="store_true", dest="proxyvm", default=False,
                         help="Create ProxyVM")
+    parser.add_option ("-P", "--pool", dest="pool_name",
+                        help="Specify which storage pool to use")
     parser.add_option ("-H", "--hvm", action="store_true", dest="hvm", default=False,
                         help="Create HVM (standalone unless --template option used)")
     parser.add_option ("--hvm-template", action="store_true", dest="hvm_template", default=False,
@@ -70,6 +72,11 @@ def main():
     if (len (args) != 1):
         parser.error ("You must specify VM name!")
     vmname = args[0]
+
+    if options.pool_name is None:
+        pool_name = "default"
+    else :
+        pool_name = options.pool_name
 
     if (options.netvm + options.proxyvm + options.hvm + options.hvm_template) > 1:
         parser.error ("You must specify at most one VM type switch")
@@ -170,7 +177,9 @@ def main():
         vmtype = "QubesAppVm"
 
     try:
-        vm = qvm_collection.add_new_vm(vmtype, name=vmname, template=new_vm_template, label = label)
+        vm=qvm_collection.add_new_vm(vmtype, name=vmname,
+                                       template=new_vm_template, label=label,
+                                       pool_name=pool_name)
     except QubesException as err:
         print >> sys.stderr, "ERROR: {0}".format(err)
         exit (1)
