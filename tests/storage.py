@@ -17,11 +17,13 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
+import os
+import shutil
+
 import qubes.storage
 from qubes.qubes import defaults
-from qubes.tests import QubesTestCase, SystemTestsMixin
-
 from qubes.storage.xen import XenPool, XenStorage
+from qubes.tests import QubesTestCase, SystemTestsMixin
 
 
 class TC_00_Storage(SystemTestsMixin, QubesTestCase):
@@ -103,3 +105,118 @@ class TC_00_Pool(SystemTestsMixin, QubesTestCase):
         template = self.qc.get_default_template()
         return self.qc.add_new_vm('QubesAppVm', name=vmname, template=template,
                                   pool_name='default')
+
+
+class TC_01_Pool(SystemTestsMixin, QubesTestCase):
+
+    """ Test the paths for the default Xen file based storage
+        (``QubesXenVmStorage``).
+    """
+
+    POOL_DIR = '/var/lib/qubes/test-pool'
+    APPVMS_DIR = '/var/lib/qubes/test-pool/appvms'
+    TEMPLATES_DIR = '/var/lib/qubes/test-pool/vm-templates'
+    SERVICE_DIR = '/var/lib/qubes/test-pool/servicevms'
+
+    def setUp(self):
+        """ Add a test file based storage pool """
+        super(TC_01_Pool, self).setUp()
+        qubes.storage.add_pool('test-pool', type='xen', dir=self.POOL_DIR)
+
+    def tearDown(self):
+        """ Remove the file based storage pool after testing """
+        super(TC_01_Pool, self).tearDown()
+        qubes.storage.remove_pool("test-pool")
+        shutil.rmtree(self.POOL_DIR, ignore_errors=True)
+
+    def test_001_pool_exists(self):
+        """ Check if the storage pool was added to the storage pool config """
+        self.assertTrue(qubes.storage.pool_exists('test-pool'))
+
+    def test_002_pool_dir_create(self):
+        """ Check if the storage pool dir was created """
+
+        # The dir should not exists before
+        self.assertFalse(os.path.exists(self.POOL_DIR))
+
+        vmname = self.make_vm_name('appvm')
+        template = self.qc.get_default_template()
+        self.qc.add_new_vm('QubesAppVm', name=vmname, template=template,
+                           pool_name='test-pool')
+
+        self.assertTrue(os.path.exists(self.POOL_DIR))
+
+    def test_003_pool_dir(self):
+        """ Check if the vm storage pool_dir is the same as specified """
+        vmname = self.make_vm_name('appvm')
+        template = self.qc.get_default_template()
+        vm = self.qc.add_new_vm('QubesAppVm', name=vmname, template=template,
+                                pool_name='test-pool')
+        result = qubes.storage.get_pool('test-pool', vm).dir
+        self.assertEquals(self.POOL_DIR, result)
+
+    def test_004_app_vmdir(self):
+        """ Check the vm storage dir for an AppVm"""
+        vmname = self.make_vm_name('appvm')
+        template = self.qc.get_default_template()
+        vm = self.qc.add_new_vm('QubesAppVm', name=vmname, template=template,
+                                pool_name='test-pool')
+
+        expected = os.path.join(self.APPVMS_DIR, vm.name)
+        result = vm.storage.vmdir
+        self.assertEquals(expected, result)
+
+    def test_005_hvm_vmdir(self):
+        """ Check the vm storage dir for a HVM"""
+        vmname = self.make_vm_name('hvm')
+        vm = self.qc.add_new_vm('QubesHVm', name=vmname,
+                                pool_name='test-pool')
+
+        expected = os.path.join(self.APPVMS_DIR, vm.name)
+        result = vm.storage.vmdir
+        self.assertEquals(expected, result)
+
+    def test_006_net_vmdir(self):
+        """ Check the vm storage dir for a Netvm"""
+        vmname = self.make_vm_name('hvm')
+        vm = self.qc.add_new_vm('QubesNetVm', name=vmname,
+                                pool_name='test-pool')
+
+        expected = os.path.join(self.SERVICE_DIR, vm.name)
+        result = vm.storage.vmdir
+        self.assertEquals(expected, result)
+
+    def test_007_proxy_vmdir(self):
+        """ Check the vm storage dir for a ProxyVm"""
+        vmname = self.make_vm_name('proxyvm')
+        vm = self.qc.add_new_vm('QubesProxyVm', name=vmname,
+                                pool_name='test-pool')
+
+        expected = os.path.join(self.SERVICE_DIR, vm.name)
+        result = vm.storage.vmdir
+        self.assertEquals(expected, result)
+
+    def test_008_admin_vmdir(self):
+        """ Check the vm storage dir for a AdminVm"""
+        # TODO How to test AdminVm?
+        pass
+
+    def test_009_template_vmdir(self):
+        """ Check the vm storage dir for a TemplateVm"""
+        vmname = self.make_vm_name('templatevm')
+        vm = self.qc.add_new_vm('QubesTemplateVm', name=vmname,
+                                pool_name='test-pool')
+
+        expected = os.path.join(self.TEMPLATES_DIR, vm.name)
+        result = vm.storage.vmdir
+        self.assertEquals(expected, result)
+
+    def test_010_template_hvm_vmdir(self):
+        """ Check the vm storage dir for a TemplateHVm"""
+        vmname = self.make_vm_name('templatehvm')
+        vm = self.qc.add_new_vm('QubesTemplateHVm', name=vmname,
+                                pool_name='test-pool')
+
+        expected = os.path.join(self.TEMPLATES_DIR, vm.name)
+        result = vm.storage.vmdir
+        self.assertEquals(expected, result)

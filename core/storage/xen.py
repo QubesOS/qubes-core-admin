@@ -28,7 +28,9 @@ import re
 import subprocess
 import sys
 
-from qubes.qubes import QubesException, defaults, vm_files
+from qubes.qubes import (QubesAdminVm, QubesAppVm, QubesException, QubesHVm,
+                         QubesNetVm, QubesProxyVm, QubesTemplateHVm,
+                         QubesTemplateVm, defaults, vm_files)
 from qubes.storage import Pool, QubesVmStorage
 
 
@@ -37,7 +39,16 @@ class XenStorage(QubesVmStorage):
     Class for VM storage of Xen VMs.
     """
 
-    def __init__(self, vm, **kwargs):
+    def __init__(self, vm, vmdir, **kwargs):
+        """ Instantiate the storage.
+
+            Args:
+                vm: a QubesVM
+                vmdir: the root directory of the pool
+        """
+        assert vm is not None
+        assert vmdir is not None
+
         super(XenStorage, self).__init__(vm, **kwargs)
 
         self.root_dev = "xvda"
@@ -45,8 +56,11 @@ class XenStorage(QubesVmStorage):
         self.volatile_dev = "xvdc"
         self.modules_dev = "xvdd"
 
+        self.vmdir = vmdir
+
         if self.vm.is_template():
-            self.rootcow_img = os.path.join(self.vmdir, vm_files["rootcow_img"])
+            self.rootcow_img = os.path.join(self.vmdir,
+                                            vm_files["rootcow_img"])
         else:
             self.rootcow_img = None
 
@@ -252,12 +266,51 @@ class XenStorage(QubesVmStorage):
 
 
 class XenPool(Pool):
+
     def __init__(self, vm, dir):
         assert vm is not None
         assert dir is not None
 
+        if not os.path.exists(dir):
+            os.mkdir(dir)
+
+        self.vmdir = self._vmdir_path(vm, dir)
         self.vm = vm
         self.dir = dir
 
     def getStorage(self):
-        return defaults['storage_class'](self.vm)
+        """ Returns an instantiated ``XenStorage``. """
+        return defaults['storage_class'](self.vm, vmdir=self.vmdir)
+
+    def _vmdir_path(self, vm, pool_dir):
+        """ Get the vm dir depending on the type of the VM.
+
+            The default QubesOS file storage saves the vm images in three
+            different directories depending on the ``QubesVM`` type:
+
+            * ``appvms`` for ``QubesAppVm`` or ``QubesHvm``
+            * ``vm-templates`` for ``QubesTemplateVm`` or ``QubesTemplateHvm``
+            * ``servicevms`` for ``QubesProxyVm``, ``QubesNetVm`` or
+                ``QubesAdminVm``
+
+            Args:
+                vm: a QubesVM
+                pool_dir: the root directory of the pool
+
+            Returns:
+                string (str) absolute path to the directory where the vm files
+                             are stored
+        """
+        vm_type = type(vm)
+
+        if vm_type in [QubesAppVm, QubesHVm]:
+            subdir = 'appvms'
+        elif vm_type in [QubesTemplateVm, QubesTemplateHVm]:
+            subdir = 'vm-templates'
+        elif vm_type in [QubesAdminVm, QubesNetVm, QubesProxyVm]:
+            subdir = 'servicevms'
+        else:
+            raise QubesException(str(vm_type) + ' unknown vm type')
+
+        return os.path.join(pool_dir, subdir, vm.name)
+
