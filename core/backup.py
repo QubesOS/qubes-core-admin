@@ -2104,6 +2104,20 @@ def backup_restore_do(restore_info,
                 error_callback("Skipping...")
                 continue
 
+            if os.path.exists(vm.dir_path):
+                move_to_path = tempfile.mkdtemp('', os.path.basename(
+                    vm.dir_path), os.path.dirname(vm.dir_path))
+                try:
+                    os.rename(vm.dir_path, move_to_path)
+                    error_callback("*** Directory {} already exists! It has "
+                                   "been moved to {}".format(vm.dir_path,
+                                                             move_to_path))
+                except OSError:
+                    error_callback("*** Directory {} already exists and "
+                                   "cannot be moved!".format(vm.dir_path))
+                    error_callback("Skipping...")
+                    continue
+
             template = None
             if vm.template is not None:
                 template_name = restore_info[vm.name]['template']
