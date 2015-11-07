@@ -291,6 +291,15 @@ def _get_pool_klass(name, config=None):
     return klass
 
 
+def pool_exists(name):
+    """ Check if the specified pool exists """
+    try:
+        _get_pool_klass(name)
+        return True
+    except StoragePoolException:
+        return False
+
+
 class StoragePoolException(QubesException):
     pass
 

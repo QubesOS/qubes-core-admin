@@ -52,6 +52,15 @@ class TC_00_Storage(SystemTestsMixin, QubesTestCase):
         result = qubes.storage._get_pool_klass('default')
         self.assertTrue(result is XenPool)
 
+    def test_004_pool_exists_default(self):
+        """ Expect the default pool to exists """
+        self.assertTrue(qubes.storage.pool_exists('default'))
+
+    def test_005_pool_exists_random(self):
+        """ Expect this pool to not a exist """
+        self.assertFalse(
+            qubes.storage.pool_exists('asdh312096r832598213iudhas'))
+
 
 class TC_01_Storage(SystemTestsMixin, QubesTestCase):
 
