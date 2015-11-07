@@ -100,3 +100,22 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
         self.restore_backup(source='dd if=/var/tmp/backup-test',
                             appvm=self.backupvm)
         self.remove_vms(vms)
+
+    def test_200_restore_over_existing_directory(self):
+        """
+        Regression test for #1386
+        :return:
+        """
+        vms = self.create_backup_vms()
+        self.make_backup(vms)
+        self.remove_vms(vms)
+        test_dir = vms[0].dir_path
+        os.mkdir(test_dir)
+        with open(os.path.join(test_dir, 'some-file.txt'), 'w') as f:
+            f.write('test file\n')
+        self.restore_backup(
+            expect_errors=[
+                '*** Directory {} already exists! It has been moved'.format(
+                    test_dir)
+            ])
+        self.remove_vms(vms)
