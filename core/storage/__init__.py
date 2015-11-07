@@ -239,11 +239,10 @@ def load(string):
     return getattr(module, klass)
 
 
-def get_pool(vm):
+def get_pool(name, vm):
     """ Instantiates the storage for the specified vm """
     config = _get_storage_config_parser()
 
-    name = vm.storage_pool
     klass = _get_pool_klass(name, config)
 
     keys = [k for k in config.options(name) if k != 'type' and k != 'class']

@@ -28,7 +28,7 @@ import re
 import subprocess
 import sys
 
-from qubes.qubes import QubesException, vm_files
+from qubes.qubes import QubesException, defaults, vm_files
 from qubes.storage import Pool, QubesVmStorage
 
 
@@ -252,4 +252,8 @@ class XenStorage(QubesVmStorage):
 
 
 class XenPool(Pool):
-    pass
+    def __init__(self, vm):
+        self.vm = vm
+
+    def getStorage(self):
+        return defaults['storage_class'](self.vm)

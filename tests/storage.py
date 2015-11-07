@@ -30,7 +30,7 @@ class TC_00_Storage(SystemTestsMixin, QubesTestCase):
         """ Dumps storage instance to a storage string  """
         vmname = self.make_vm_name('appvm')
         template = self.qc.get_default_template()
-        storage = self.qc.add_new_vm('QubesAppVm', name=vmname, pool='default',
+        storage = self.qc.add_new_vm('QubesAppVm', name=vmname, pool_name='default',
                                      template=template).storage
         result = qubes.storage.dump(storage)
         expected = 'qubes.storage.xen.XenStorage'
@@ -68,5 +68,5 @@ class TC_01_Storage(SystemTestsMixin, QubesTestCase):
         vmname = self.make_vm_name('appvm')
         template = self.qc.get_default_template()
         vm = self.qc.add_new_vm('QubesAppVm', name=vmname, template=template,
-                                pool='default')
+                                pool_name='default')
         self.assertIsInstance(vm.storage, XenStorage)
