@@ -16,22 +16,21 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-#
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+# USA.
 #
 
 from __future__ import absolute_import
 
 import os
 import os.path
-import re
 import shutil
 import subprocess
 import sys
 
-from qubes.qubes import vm_files,system_path,defaults
-from qubes.qubes import QubesException
 import qubes.qubesutils
+from qubes.qubes import QubesException, defaults, system_path, vm_files
+
 
 class QubesVmStorage(object):
     """
@@ -199,3 +198,7 @@ class QubesVmStorage(object):
             print >>sys.stderr, "WARNING: Creating empty VM private image file: {0}".\
                 format(self.private_img)
             self.create_on_disk_private_img(verbose=False)
+
+
+class Pool(object):
+    pass

@@ -16,20 +16,20 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-#
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+# USA.
 #
 
 from __future__ import absolute_import
 
 import os
 import os.path
+import re
 import subprocess
 import sys
-import re
 
-from qubes.storage import QubesVmStorage
 from qubes.qubes import QubesException, vm_files
+from qubes.storage import Pool, QubesVmStorage
 
 
 class QubesXenVmStorage(QubesVmStorage):
@@ -249,3 +249,7 @@ class QubesXenVmStorage(QubesVmStorage):
                     raise QubesException(
                         "VM '{}' holding '{}' does not exists".format(
                             drive_domain, drive_path))
+
+
+class XenPool(Pool):
+    pass
