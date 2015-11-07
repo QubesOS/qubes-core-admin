@@ -58,8 +58,9 @@ class QubesResizableVmWithResize2fs(QubesResizableVm):
 
     def resize_root_img(self, size):
         super(QubesResizableVmWithResize2fs, self).resize_root_img(size)
-        self.start()
-        self.run("sudo resize2fs /dev/mapper/dmroot")
+        self.start(start_guid=False)
+        self.run("resize2fs /dev/mapper/dmroot", user="root", wait=True,
+                 gui=False)
         self.shutdown()
 
 
