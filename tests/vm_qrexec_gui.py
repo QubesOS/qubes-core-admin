@@ -653,6 +653,66 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             subprocess.call(["qubes-prefs", "-s", "clockvm",
                              original_clockvm_name])
 
+    def test_250_resize_private_img(self):
+        """
+        Test private.img resize, both offline and online
+        :return:
+        """
+        # First offline test
+        self.testvm1.resize_private_img(4*1024**3)
+        self.testvm1.start()
+        p = self.testvm1.run('df --output=size /rw|tail -n 1',
+                             passio_popen=True)
+        # new_size in 1k-blocks
+        (new_size, _) = p.communicate()
+        # some safety margin for FS metadata
+        self.assertGreater(int(new_size.strip()), 3.8*1024**2)
+        # Then online test
+        self.testvm1.resize_private_img(6*1024**3)
+        p = self.testvm1.run('df --output=size /rw|tail -n 1',
+                             passio_popen=True)
+        # new_size in 1k-blocks
+        (new_size, _) = p.communicate()
+        # some safety margin for FS metadata
+        self.assertGreater(int(new_size.strip()), 5.8*1024**2)
+
+
+class TC_05_StandaloneVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
+    def test_000_create_start(self):
+        testvm1 = self.qc.add_new_vm("QubesAppVm",
+                                     template=None,
+                                     name=self.make_vm_name('vm1'))
+        testvm1.create_on_disk(verbose=False,
+                               source_template=self.qc.get_default_template())
+        self.qc.save()
+        self.qc.unlock_db()
+        testvm1.start()
+        self.assertEquals(testvm1.get_power_state(), "Running")
+
+    def test_100_resize_root_img(self):
+        testvm1 = self.qc.add_new_vm("QubesAppVm",
+                                     template=None,
+                                     name=self.make_vm_name('vm1'))
+        testvm1.create_on_disk(verbose=False,
+                               source_template=self.qc.get_default_template())
+        self.qc.save()
+        self.qc.unlock_db()
+        testvm1.resize_root_img(20*1024**3)
+        timeout = 60
+        while testvm1.is_running():
+            time.sleep(1)
+            timeout -= 1
+            if timeout == 0:
+                self.fail("Timeout while waiting for VM shutdown")
+        self.assertEquals(testvm1.get_root_img_sz(), 20*1024**3)
+        testvm1.start()
+        p = testvm1.run('df --output=size /|tail -n 1',
+                        passio_popen=True)
+        # new_size in 1k-blocks
+        (new_size, _) = p.communicate()
+        # some safety margin for FS metadata
+        self.assertGreater(int(new_size.strip()), 19*1024**2)
+
 
 class TC_10_HVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     # TODO: test with some OS inside
@@ -710,6 +770,17 @@ class TC_10_HVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.assertEquals(testvm2.get_power_state(), "Running")
         self.assertRaises(QubesException, templatevm.start)
 
+    def test_100_resize_root_img(self):
+        testvm1 = self.qc.add_new_vm("QubesHVm",
+                                     name=self.make_vm_name('vm1'))
+        testvm1.create_on_disk(verbose=False)
+        self.qc.save()
+        self.qc.unlock_db()
+        testvm1.resize_root_img(30*1024**3)
+        self.assertEquals(testvm1.get_root_img_sz(), 30*1024**3)
+        testvm1.start()
+        self.assertEquals(testvm1.get_power_state(), "Running")
+        # TODO: launch some OS there and check the size
 
 class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
     def test_000_prepare_dvm(self):
