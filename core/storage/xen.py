@@ -271,8 +271,14 @@ class XenPool(Pool):
         assert vm is not None
         assert dir is not None
 
-        if not os.path.exists(dir):
-            os.mkdir(dir)
+        appvms_path = os.path.join(dir, 'appvms')
+        servicevms_path = os.path.join(dir, 'servicevms')
+        vm_templates_path = os.path.join(dir, 'vm-templates')
+
+        self._create_dir_if_not_exists(dir)
+        self._create_dir_if_not_exists(appvms_path)
+        self._create_dir_if_not_exists(servicevms_path)
+        self._create_dir_if_not_exists(vm_templates_path)
 
         self.vmdir = self._vmdir_path(vm, dir)
         self.vm = vm
@@ -314,3 +320,10 @@ class XenPool(Pool):
 
         return os.path.join(pool_dir, subdir, vm.name)
 
+    def _create_dir_if_not_exists(self, path):
+        """ Check if a directory exists in if not it is created.
+
+            This method does not create any parent directories.
+        """
+        if not os.path.exists(path):
+            os.mkdir(path)

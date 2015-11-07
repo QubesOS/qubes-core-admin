@@ -134,7 +134,7 @@ class TC_01_Pool(SystemTestsMixin, QubesTestCase):
         self.assertTrue(qubes.storage.pool_exists('test-pool'))
 
     def test_002_pool_dir_create(self):
-        """ Check if the storage pool dir was created """
+        """ Check if the storage pool dir and subdirs were created """
 
         # The dir should not exists before
         self.assertFalse(os.path.exists(self.POOL_DIR))
@@ -145,6 +145,9 @@ class TC_01_Pool(SystemTestsMixin, QubesTestCase):
                            pool_name='test-pool')
 
         self.assertTrue(os.path.exists(self.POOL_DIR))
+        self.assertTrue(os.path.exists(self.APPVMS_DIR))
+        self.assertTrue(os.path.exists(self.SERVICE_DIR))
+        self.assertTrue(os.path.exists(self.TEMPLATES_DIR))
 
     def test_003_pool_dir(self):
         """ Check if the vm storage pool_dir is the same as specified """
