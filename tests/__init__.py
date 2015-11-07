@@ -477,7 +477,8 @@ class BackupTestsMixin(SystemTestsMixin):
         self.qc.load()
 
 
-    def restore_backup(self, source=None, appvm=None, options=None):
+    def restore_backup(self, source=None, appvm=None, options=None,
+                       expect_errors=None):
         if source is None:
             backupfile = os.path.join(self.backupdir,
                                       sorted(os.listdir(self.backupdir))[-1])
@@ -506,8 +507,13 @@ class BackupTestsMixin(SystemTestsMixin):
         self.qc.load()
 
         errors = []
+        if expect_errors is None:
+            expect_errors = []
         while not self.error_detected.empty():
-            errors.append(self.error_detected.get())
+            current_error = self.error_detected.get()
+            if any(map(current_error.startswith, expect_errors)):
+                continue
+            errors.append(current_error)
         self.assertTrue(len(errors) == 0,
                          "Error(s) detected during backup_restore_do: %s" %
                          '\n'.join(errors))
