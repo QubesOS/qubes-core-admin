@@ -23,14 +23,20 @@
 #
 
 import os
-import subprocess
 import sys
 
-from qubes.qubes import QubesVm,register_qubes_vm_class,dry_run
-from qubes.qubes import QubesVmCollection,QubesException,QubesVmLabels
-from qubes.qubes import defaults,system_path,vm_files,vmm
+from qubes.qubes import (
+    defaults,
+    dry_run,
+    register_qubes_vm_class,
+    system_path,
+    vmm,
+    QubesResizableVmWithResize2fs,
+    QubesVmCollection,
+)
 
-class QubesTemplateVm(QubesVm):
+
+class QubesTemplateVm(QubesResizableVmWithResize2fs):
     """
     A class that represents an TemplateVM. A child of QubesVm.
     """

@@ -26,16 +26,20 @@ import os
 import os.path
 import signal
 import subprocess
-import stat
 import sys
-import re
 import shutil
-import stat
 from xml.etree import ElementTree
 
-from qubes.qubes import QubesVm,register_qubes_vm_class,vmm,dry_run
-from qubes.qubes import system_path,defaults
-from qubes.qubes import QubesException
+from qubes.qubes import (
+    dry_run,
+    defaults,
+    register_qubes_vm_class,
+    system_path,
+    vmm,
+    QubesException,
+    QubesResizableVm,
+)
+
 
 system_path["config_template_hvm"] = '/usr/share/qubes/vm-template-hvm.xml'
 
@@ -44,7 +48,7 @@ defaults["hvm_private_img_size"] = 2*1024*1024*1024
 defaults["hvm_memory"] = 512
 
 
-class QubesHVm(QubesVm):
+class QubesHVm(QubesResizableVm):
     """
     A class that represents an HVM. A child of QubesVm.
     """
@@ -234,24 +238,6 @@ class QubesHVm(QubesVm):
             raise NotImplementedError("Online resize of HVM's private.img not implemented, shutdown the VM first")
 
         self.storage.resize_private_img(size)
-
-    def resize_root_img(self, size):
-        if self.template:
-            raise QubesException("Cannot resize root.img of template-based VM"
-                                 ". Resize the root.img of the template "
-                                 "instead.")
-
-        if self.is_running():
-            raise QubesException("Cannot resize root.img of running HVM")
-
-        if size < self.get_root_img_sz():
-            raise QubesException(
-                "For your own safety shringing of root.img is disabled. If "
-                "you really know what you are doing, use 'truncate' manually.")
-
-        f_root = open (self.root_img, "a+b")
-        f_root.truncate (size)
-        f_root.close ()
 
     def get_config_params(self):
 
