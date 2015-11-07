@@ -766,35 +766,35 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
         dispvm = self.qc[max_qid]
         self.assertNotEqual(dispvm.qid, 0, "DispVM not found in qubes.xml")
         self.assertTrue(dispvm.is_running())
+        try:
+            window_title = 'user@%s' % (dispvm.template.name + "-dvm")
+            p.stdin.write("gnome-terminal -e "
+                          "\"sh -s -c 'echo \\\"\033]0;{}\007\\\"'\"\n".
+                          format(window_title))
+            wait_count = 0
+            while subprocess.call(['xdotool', 'search', '--name', window_title],
+                                  stdout=open(os.path.devnull, 'w'),
+                                  stderr=subprocess.STDOUT) > 0:
+                wait_count += 1
+                if wait_count > 100:
+                    self.fail("Timeout while waiting for gnome-terminal window")
+                time.sleep(0.1)
 
-        window_title = 'user@%s' % (dispvm.template.name + "-dvm")
-        p.stdin.write("gnome-terminal -e "
-                      "\"sh -s -c 'echo \\\"\033]0;{}\007\\\"'\"\n".
-                      format(window_title))
-        wait_count = 0
-        while subprocess.call(['xdotool', 'search', '--name', window_title],
-                              stdout=open(os.path.devnull, 'w'),
-                              stderr=subprocess.STDOUT) > 0:
-            wait_count += 1
-            if wait_count > 100:
-                self.fail("Timeout while waiting for gnome-terminal window")
-            time.sleep(0.1)
+            time.sleep(0.5)
+            subprocess.check_call(['xdotool', 'search', '--name', window_title,
+                                  'windowactivate', 'type', 'exit\n'])
 
-        time.sleep(0.5)
-        subprocess.check_call(['xdotool', 'search', '--name', window_title,
-                              'windowactivate', 'type', 'exit\n'])
-
-        wait_count = 0
-        while subprocess.call(['xdotool', 'search', '--name', window_title],
-                              stdout=open(os.path.devnull, 'w'),
-                              stderr=subprocess.STDOUT) == 0:
-            wait_count += 1
-            if wait_count > 100:
-                self.fail("Timeout while waiting for gnome-terminal "
-                          "termination")
-            time.sleep(0.1)
-
-        p.stdin.close()
+            wait_count = 0
+            while subprocess.call(['xdotool', 'search', '--name', window_title],
+                                  stdout=open(os.path.devnull, 'w'),
+                                  stderr=subprocess.STDOUT) == 0:
+                wait_count += 1
+                if wait_count > 100:
+                    self.fail("Timeout while waiting for gnome-terminal "
+                              "termination")
+                time.sleep(0.1)
+        finally:
+            p.stdin.close()
 
         wait_count = 0
         while dispvm.is_running():
