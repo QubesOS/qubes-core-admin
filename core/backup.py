@@ -555,6 +555,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
         tar_cmdline = ["tar", "-Pc", '--sparse',
                        "-f", backup_pipe,
                        '-C', os.path.dirname(filename["path"]),
+                       '--dereference',
                        '--xform', 's:^%s:%s\\0:' % (
                            os.path.basename(filename["path"]),
                            filename["subdir"]),
