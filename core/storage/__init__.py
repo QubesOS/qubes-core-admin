@@ -22,6 +22,7 @@
 
 from __future__ import absolute_import
 
+import ConfigParser
 import os
 import os.path
 import shutil
@@ -30,6 +31,8 @@ import sys
 
 import qubes.qubesutils
 from qubes.qubes import QubesException, defaults, system_path, vm_files
+
+CONFIG_FILE = '/etc/qubes/storage.conf'
 
 
 class QubesVmStorage(object):
@@ -200,5 +203,97 @@ class QubesVmStorage(object):
             self.create_on_disk_private_img(verbose=False)
 
 
+def dump(o):
+    """ Returns a string represention of the given object
+
+        Args:
+            o (object): anything that response to `__module__` and `__class__`
+
+        Given the class :class:`qubes.storage.QubesVmStorage` it returns
+        'qubes.storage.QubesVmStorage' as string
+    """
+    return o.__module__ + '.' + o.__class__.__name__
+
+
+def load(string):
+    """ Given a dotted full module string representation of a class it loads it
+
+        Args:
+            string (str) i.e. 'qubes.storage.xen.QubesXenVmStorage'
+
+        Returns:
+            type
+
+        See also:
+            :func:`qubes.storage.dump`
+    """
+    if not type(string) is str:
+        # This is a hack which allows giving a real class to a vm instead of a
+        # string as string_class parameter.
+        return string
+
+    components = string.split(".")
+    module_path = ".".join(components[:-1])
+    klass = components[-1:][0]
+    module = __import__(module_path, fromlist=[klass])
+    return getattr(module, klass)
+
+
+def get_pool(vm):
+    """ Instantiates the storage for the specified vm """
+    config = _get_storage_config_parser()
+
+    name = vm.storage_pool
+    klass = _get_pool_klass(name, config)
+
+    keys = [k for k in config.options(name) if k != 'type' and k != 'class']
+    values = [config.get(name, o) for o in keys]
+    kwargs = dict(zip(keys, values))
+    return klass(vm, **kwargs)
+
+
+def _get_storage_config_parser():
+    """ Instantiates a `ConfigParaser` for specified storage config file.
+
+        Returns:
+            RawConfigParser
+    """
+    config = ConfigParser.RawConfigParser()
+    config.read(CONFIG_FILE)
+    return config
+
+
+def _get_pool_klass(name, config=None):
+    """ Returns the storage klass for the specified pool.
+
+        Args:
+            name: The pool name.
+            config: If ``config`` is not specified
+                    `_get_storage_config_parser()` is called.
+
+        Returns:
+            type: A class inheriting from `QubesVmStorage`
+    """
+    if config is None:
+        config = _get_storage_config_parser()
+
+    if not config.has_section(name):
+        raise StoragePoolException('Uknown storage pool ' + name)
+
+    if config.has_option(name, 'class'):
+        klass = load(config.get(name, 'class'))
+    elif config.has_option(name, 'type'):
+        pool_type = config.get(name, 'type')
+        klass = defaults['pool_types'][pool_type]
+
+    if klass is None:
+        raise StoragePoolException('Uknown storage pool type ' + name)
+    return klass
+
+
+class StoragePoolException(QubesException):
+    pass
+
 class Pool(object):
     pass
+
