@@ -1760,6 +1760,9 @@ class QubesVm(object):
         except IOError:  # ENOENT (pidfile)
             pass
 
+        # force connection to a new daemon
+        self._qdb_connection = None
+
         retcode = subprocess.call ([
             system_path["qubesdb_daemon_path"],
             str(self.xid),
