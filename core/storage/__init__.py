@@ -258,6 +258,32 @@ def get_pool(name, vm):
     return klass(vm, **kwargs)
 
 
+def pool_exists(name):
+    """ Check if the specified pool exists """
+    try:
+        _get_pool_klass(name)
+        return True
+    except StoragePoolException:
+        return False
+
+def add_pool(name, **kwargs):
+    """ Add a storage pool to config."""
+    config = _get_storage_config_parser()
+    config.add_section(name)
+    for key, value in kwargs.iteritems():
+        config.set(name, key, value)
+    _write_config(config)
+
+def remove_pool(name):
+    """ Remove a storage pool from config file.  """
+    config = _get_storage_config_parser()
+    config.remove_section(name)
+    _write_config(config)
+
+def _write_config(config):
+    with open(CONFIG_FILE, 'w') as configfile:
+        config.write(configfile)
+
 def _get_storage_config_parser():
     """ Instantiates a `ConfigParaser` for specified storage config file.
 
@@ -296,14 +322,6 @@ def _get_pool_klass(name, config=None):
         raise StoragePoolException('Uknown storage pool type ' + name)
     return klass
 
-
-def pool_exists(name):
-    """ Check if the specified pool exists """
-    try:
-        _get_pool_klass(name)
-        return True
-    except StoragePoolException:
-        return False
 
 
 class StoragePoolException(QubesException):

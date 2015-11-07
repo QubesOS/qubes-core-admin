@@ -17,11 +17,11 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
-from qubes.tests import QubesTestCase, SystemTestsMixin
-from qubes.qubes import defaults
-
 import qubes.storage
-from qubes.storage.xen import XenStorage, XenPool
+from qubes.qubes import defaults
+from qubes.tests import QubesTestCase, SystemTestsMixin
+
+from qubes.storage.xen import XenPool, XenStorage
 
 
 class TC_00_Storage(SystemTestsMixin, QubesTestCase):
@@ -61,6 +61,19 @@ class TC_00_Storage(SystemTestsMixin, QubesTestCase):
         """ Expect this pool to not a exist """
         self.assertFalse(
             qubes.storage.pool_exists('asdh312096r832598213iudhas'))
+
+    def test_006_add_remove_pool(self):
+        """ Tries to adding and removing a pool. """
+        pool_name = 'asdjhrp89132'
+
+        # make sure it's really does not exist
+        qubes.storage.remove_pool(pool_name)
+
+        qubes.storage.add_pool(pool_name, type='xen')
+        self.assertTrue(qubes.storage.pool_exists(pool_name))
+
+        qubes.storage.remove_pool(pool_name)
+        self.assertFalse(qubes.storage.pool_exists(pool_name))
 
 
 class TC_00_Pool(SystemTestsMixin, QubesTestCase):
