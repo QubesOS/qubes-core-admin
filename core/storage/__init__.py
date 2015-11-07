@@ -247,7 +247,14 @@ def get_pool(name, vm):
 
     keys = [k for k in config.options(name) if k != 'type' and k != 'class']
     values = [config.get(name, o) for o in keys]
-    kwargs = dict(zip(keys, values))
+    config_kwargs = dict(zip(keys, values))
+
+    if name == 'default':
+        kwargs = defaults['pool_config'].copy()
+        kwargs.update(keys)
+    else:
+        kwargs = config_kwargs
+
     return klass(vm, **kwargs)
 
 

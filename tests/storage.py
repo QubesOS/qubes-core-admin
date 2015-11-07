@@ -30,8 +30,9 @@ class TC_00_Storage(SystemTestsMixin, QubesTestCase):
         """ Dumps storage instance to a storage string  """
         vmname = self.make_vm_name('appvm')
         template = self.qc.get_default_template()
-        storage = self.qc.add_new_vm('QubesAppVm', name=vmname, pool_name='default',
-                                     template=template).storage
+        vm = self.qc.add_new_vm('QubesAppVm', name=vmname,
+                                pool_name='default', template=template)
+        storage = vm.storage
         result = qubes.storage.dump(storage)
         expected = 'qubes.storage.xen.XenStorage'
         self.assertEquals(result, expected)
@@ -62,11 +63,30 @@ class TC_00_Storage(SystemTestsMixin, QubesTestCase):
             qubes.storage.pool_exists('asdh312096r832598213iudhas'))
 
 
-class TC_01_Storage(SystemTestsMixin, QubesTestCase):
+class TC_00_Pool(SystemTestsMixin, QubesTestCase):
 
-    def test_000_vm_use_default_pool(self):
+    def test000_no_pool_dir(self):
+        """ If no pool dir ist configured for a ``XenPool`` assume the default
+            `/var/lib/qubes/`.
+        """
+        vm = self._init_app_vm()
+        result = qubes.storage.get_pool("default", vm).dir
+        expected = '/var/lib/qubes/'
+        self.assertEquals(result, expected)
+
+    def test001_default_storage_class(self):
+        """ Check if when using default pool the Storage is ``XenStorage``. """
+        result = self._init_app_vm().storage
+        self.assertIsInstance(result, XenStorage)
+
+    def test_002_pool_name(self):
+        """ Default pool_name is 'default'. """
+        vm = self._init_app_vm()
+        self.assertEquals(vm.pool_name, "default")
+
+    def _init_app_vm(self):
+        """ Return initalised, but not created, AppVm. """
         vmname = self.make_vm_name('appvm')
         template = self.qc.get_default_template()
-        vm = self.qc.add_new_vm('QubesAppVm', name=vmname, template=template,
-                                pool_name='default')
-        self.assertIsInstance(vm.storage, XenStorage)
+        return self.qc.add_new_vm('QubesAppVm', name=vmname, template=template,
+                                  pool_name='default')

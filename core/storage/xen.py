@@ -252,8 +252,12 @@ class XenStorage(QubesVmStorage):
 
 
 class XenPool(Pool):
-    def __init__(self, vm):
+    def __init__(self, vm, dir):
+        assert vm is not None
+        assert dir is not None
+
         self.vm = vm
+        self.dir = dir
 
     def getStorage(self):
         return defaults['storage_class'](self.vm)
