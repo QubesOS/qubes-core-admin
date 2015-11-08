@@ -64,6 +64,13 @@ class XenStorage(QubesVmStorage):
         else:
             self.rootcow_img = None
 
+        self.private_img = os.path.join(vmdir, 'private.img')
+        if self.vm.template:
+            self.root_img = self.vm.template.root_img
+        else:
+            self.root_img = os.path.join(vmdir, 'root.img')
+        self.volatile_img = os.path.join(vmdir, 'volatile.img')
+
     def _format_disk_dev(self, path, script, vdev, rw=True, type="disk", domain=None):
         if path is None:
             return ''

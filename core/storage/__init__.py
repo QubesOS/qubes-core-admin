@@ -57,12 +57,6 @@ class QubesVmStorage(object):
         else:
             self.root_img_size = defaults['root_img_size']
 
-        self.private_img = vm.absolute_path(vm_files["private_img"], None)
-        if self.vm.template:
-            self.root_img = self.vm.template.root_img
-        else:
-            self.root_img = vm.absolute_path(vm_files["root_img"], None)
-        self.volatile_img = vm.absolute_path(vm_files["volatile_img"], None)
 
         # For now compute this path still in QubesVm
         self.modules_img = modules_img
