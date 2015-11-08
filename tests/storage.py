@@ -228,3 +228,57 @@ class TC_01_Pool(SystemTestsMixin, QubesTestCase):
         expected = os.path.join(self.TEMPLATES_DIR, vm.name)
         result = vm.storage.vmdir
         self.assertEquals(expected, result)
+
+    def test_011_appvm_file_images(self):
+        """ Check if all the needed image files are created for an AppVm"""
+
+        vmname = self.make_vm_name('appvm')
+        template = self.qc.get_default_template()
+        vm = self.qc.add_new_vm('QubesAppVm', name=vmname, template=template,
+                                pool_name='test-pool')
+        vm.create_on_disk(verbose=False)
+
+        expected_vmdir = os.path.join(self.APPVMS_DIR, vm.name)
+        self.assertEqualsAndExists(vm.storage.vmdir, expected_vmdir)
+
+        expected_private_path = os.path.join(expected_vmdir, 'private.img')
+        self.assertEqualsAndExists(vm.storage.private_img,
+                                   expected_private_path)
+
+        expected_volatile_path = os.path.join(expected_vmdir, 'volatile.img')
+        self.assertEqualsAndExists(vm.storage.volatile_img,
+                                   expected_volatile_path)
+
+    def test_012_hvm_file_images(self):
+        """ Check if all the needed image files are created for a HVm"""
+
+        vmname = self.make_vm_name('hvm')
+        vm = self.qc.add_new_vm('QubesHVm', name=vmname,
+                                pool_name='test-pool')
+        vm.create_on_disk(verbose=False)
+
+        expected_vmdir = os.path.join(self.APPVMS_DIR, vm.name)
+        self.assertEqualsAndExists(vm.storage.vmdir, expected_vmdir)
+
+        expected_private_path = os.path.join(expected_vmdir, 'private.img')
+        self.assertEqualsAndExists(vm.storage.private_img,
+                                   expected_private_path)
+
+        expected_root_path = os.path.join(expected_vmdir, 'root.img')
+        self.assertEqualsAndExists(vm.storage.root_img, expected_root_path)
+
+        expected_volatile_path = os.path.join(expected_vmdir, 'volatile.img')
+        self.assertEqualsAndExists(vm.storage.volatile_img,
+                                   expected_volatile_path)
+
+    def assertEqualsAndExists(self, result_path, expected_path):
+        """ Check if the ``result_path``, matches ``expected_path`` and exists.
+
+            See also: :meth:``assertExist``
+        """
+        self.assertEquals(result_path, expected_path)
+        self.assertExist(result_path)
+
+    def assertExist(self, path):
+        """ Assert that the given path exists. """
+        self.assertTrue(os.path.exists(path))
