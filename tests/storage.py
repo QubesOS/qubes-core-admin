@@ -28,6 +28,8 @@ from qubes.tests import QubesTestCase, SystemTestsMixin
 
 class TC_00_Storage(SystemTestsMixin, QubesTestCase):
 
+    """ This class tests the utility methods from :mod:``qubes.storage`` """
+
     def test_000_dump(self):
         """ Dumps storage instance to a storage string  """
         vmname = self.make_vm_name('appvm')
@@ -80,9 +82,13 @@ class TC_00_Storage(SystemTestsMixin, QubesTestCase):
 
 class TC_00_Pool(SystemTestsMixin, QubesTestCase):
 
-    def test000_no_pool_dir(self):
-        """ If no pool dir ist configured for a ``XenPool`` assume the default
-            `/var/lib/qubes/`.
+    """ This class tests some properties of the 'default' pool. """
+
+    def test000_default_pool_dir(self):
+        """ The predefined dir for the default pool should be ``/var/lib/qubes``
+
+            .. sealso::
+               Data :data:``qubes.qubes.defaults['pool_config']``.
         """
         vm = self._init_app_vm()
         result = qubes.storage.get_pool("default", vm).dir
@@ -90,11 +96,11 @@ class TC_00_Pool(SystemTestsMixin, QubesTestCase):
         self.assertEquals(result, expected)
 
     def test001_default_storage_class(self):
-        """ Check if when using default pool the Storage is ``XenStorage``. """
+        """ Check when using default pool the Storage is ``XenStorage``. """
         result = self._init_app_vm().storage
         self.assertIsInstance(result, XenStorage)
 
-    def test_002_pool_name(self):
+    def test_002_default_pool_name(self):
         """ Default pool_name is 'default'. """
         vm = self._init_app_vm()
         self.assertEquals(vm.pool_name, "default")
@@ -109,8 +115,7 @@ class TC_00_Pool(SystemTestsMixin, QubesTestCase):
 
 class TC_01_Pool(SystemTestsMixin, QubesTestCase):
 
-    """ Test the paths for the default Xen file based storage
-        (``QubesXenVmStorage``).
+    """ Test the paths for the default Xen file based storage (``XenStorage``).
     """
 
     POOL_DIR = '/var/lib/qubes/test-pool'
