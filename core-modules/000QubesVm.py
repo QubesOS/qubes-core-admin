@@ -347,9 +347,11 @@ class QubesVm(object):
         # Initialize VM image storage class
         self.storage = defaults["storage_class"](self)
         if hasattr(self, 'kernels_dir'):
-            self.storage.modules_img = os.path.join(self.kernels_dir,
+            modules_path = os.path.join(self.kernels_dir,
                     "modules.img")
-            self.storage.modules_img_rw = self.kernel is None
+            if os.path.exists(modules_path):
+                self.storage.modules_img = modules_path
+                self.storage.modules_img_rw = self.kernel is None
 
         # Some additional checks for template based VM
         if self.template is not None:
@@ -517,7 +519,7 @@ class QubesVm(object):
             if not os.path.exists(os.path.join(system_path[
                 'qubes_kernels_base_dir'], new_value)):
                 raise QubesException("Kernel '%s' not installed" % new_value)
-            for f in ('vmlinuz', 'modules.img'):
+            for f in ('vmlinuz', 'initramfs'):
                 if not os.path.exists(os.path.join(
                         system_path['qubes_kernels_base_dir'], new_value, f)):
                     raise QubesException(
