@@ -285,7 +285,7 @@ def set_dispvm_netvm(vms, vm, args):
     return True
 
 def set_kernel(vms, vm, args):
-    if len (args) != 1:
+    if len(args) != 1:
         print >> sys.stderr, "Missing kernel version argument!"
         print >> sys.stderr, "Possible values:"
         print >> sys.stderr, "1) default"
@@ -297,18 +297,16 @@ def set_kernel(vms, vm, args):
 
     kernel = args[0]
     if kernel == "default":
-        kernel = vms.get_default_kernel()
+        vm.kernel = vms.get_default_kernel()
         vm.uses_default_kernel = True
     elif kernel == "none":
-        kernel = None
-        vm.uses_default_kernel = False
+        vm.kernel = None
     else:
         if not os.path.exists(os.path.join(system_path["qubes_kernels_base_dir"], kernel)):
             print >> sys.stderr, "Kernel version {0} not installed.".format(kernel)
             return False
-        vm.uses_default_kernel = False
+        vm.kernel = kernel
 
-    vm.kernel = kernel
     return True
 
 def set_template(vms, vm, args):

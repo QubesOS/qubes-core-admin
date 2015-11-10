@@ -526,6 +526,7 @@ class QubesVm(object):
                         "Kernel '%s' not properly installed: missing %s "
                         "file" % (new_value, f))
         self._kernel = new_value
+        self.uses_default_kernel = False
 
     @property
     def updateable(self):
