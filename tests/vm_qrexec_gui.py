@@ -636,10 +636,10 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                               format(retcode))
             (vm_time, _) = self.testvm1.run("date -u +%s",
                                             passio_popen=True).communicate()
-            self.assertAlmostEquals(int(vm_time), int(start_time), delta=10)
+            self.assertAlmostEquals(int(vm_time), int(start_time), delta=30)
             (vm_time, _) = self.testvm2.run("date -u +%s",
                                             passio_popen=True).communicate()
-            self.assertAlmostEquals(int(vm_time), int(start_time), delta=10)
+            self.assertAlmostEquals(int(vm_time), int(start_time), delta=30)
             (dom0_time, _) = subprocess.Popen(["date", "-u", "+%s"],
                                               stdout=subprocess.PIPE
                                               ).communicate()
