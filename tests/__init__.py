@@ -363,6 +363,14 @@ class SystemTestsMixin(object):
                 )
             time.sleep(0.1)
 
+    def shutdown_and_wait(self, vm, timeout=60):
+        vm.shutdown()
+        while timeout > 0:
+            if not vm.is_running():
+                return
+            time.sleep(1)
+            timeout -= 1
+        self.fail("Timeout while waiting for VM {} shutdown".format(vm.name))
 
 class BackupTestsMixin(SystemTestsMixin):
     def setUp(self):

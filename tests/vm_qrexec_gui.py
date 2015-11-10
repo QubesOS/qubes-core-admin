@@ -1036,6 +1036,131 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
                           "Clipboard not wiped after paste - owner")
 
 
+@unittest.skipUnless(os.path.exists('/var/lib/qubes/vm-kernels/pvgrub2'),
+                     'grub-xen package not installed')
+class TC_40_PVGrub(qubes.tests.SystemTestsMixin):
+    def setUp(self):
+        super(TC_40_PVGrub, self).setUp()
+        supported = False
+        if self.template.startswith('fedora-'):
+            supported = True
+        elif self.template.startswith('debian-'):
+            supported = True
+        if not supported:
+            self.skipTest("Template {} not supported by this test".format(
+                self.template))
+
+    def install_packages(self, vm):
+        if self.template.startswith('fedora-'):
+            cmd_install1 = 'yum install -y qubes-kernel-vm-support grub2-tools'
+            cmd_install2 = 'yum install -y kernel kernel-devel'
+            cmd_update_grub = 'grub2-mkconfig -o /boot/grub2/grub.cfg'
+        elif self.template.startswith('debian-'):
+            cmd_install1 = 'apt-get update && apt-get install -y ' \
+                           'qubes-kernel-vm-support grub2-common'
+            cmd_install2 = 'apt-get install -y linux-image-amd64'
+            cmd_update_grub = 'mkdir /boot/grub && update-grub2'
+        else:
+            assert False, "Unsupported template?!"
+
+        for cmd in [cmd_install1, cmd_install2, cmd_update_grub]:
+            p = vm.run(cmd, user="root", passio_popen=True, passio_stderr=True)
+            (stdout, stderr) = p.communicate()
+            self.assertEquals(p.returncode, 0,
+                              "Failed command: {}\nSTDOUT: {}\nSTDERR: {}"
+                              .format(cmd, stdout, stderr))
+
+    def get_kernel_version(self, vm):
+        if self.template.startswith('fedora-'):
+            cmd_get_kernel_version = 'rpm -q kernel|sort -n|tail -1|' \
+                                     'cut -d - -f 2-'
+        elif self.template.startswith('debian-'):
+            cmd_get_kernel_version = \
+                'dpkg-query --showformat=\'${Package}\\n\' --show ' \
+                '\'linux-image-*-amd64\'|sort -n|tail -1|cut -d - -f 3-'
+        else:
+            raise RuntimeError("Unsupported template?!")
+
+        p = vm.run(cmd_get_kernel_version, user="root", passio_popen=True)
+        (kver, _) = p.communicate()
+        self.assertEquals(p.returncode, 0,
+                          "Failed command: {}".format(cmd_get_kernel_version))
+        return kver.strip()
+
+    def test_000_standalone_vm(self):
+        testvm1 = self.qc.add_new_vm("QubesAppVm",
+                                     template=None,
+                                     name=self.make_vm_name('vm1'))
+        testvm1.create_on_disk(verbose=False,
+                               source_template=self.qc.get_vm_by_name(
+                                   self.template))
+        self.save_and_reload_db()
+        self.qc.unlock_db()
+        testvm1 = self.qc[testvm1.qid]
+        testvm1.start()
+        self.install_packages(testvm1)
+        kver = self.get_kernel_version(testvm1)
+        self.shutdown_and_wait(testvm1)
+
+        self.qc.lock_db_for_writing()
+        self.qc.load()
+        testvm1 = self.qc[testvm1.qid]
+        testvm1.kernel = 'pvgrub2'
+        self.save_and_reload_db()
+        self.qc.unlock_db()
+        testvm1 = self.qc[testvm1.qid]
+        testvm1.start()
+        p = testvm1.run('uname -r', passio_popen=True)
+        (actual_kver, _) = p.communicate()
+        self.assertEquals(actual_kver.strip(), kver)
+
+    def test_010_template_based_vm(self):
+        test_template = self.qc.add_new_vm("QubesTemplateVm",
+                                           template=None,
+                                           name=self.make_vm_name('template'))
+        test_template.clone_attrs(self.qc.get_vm_by_name(self.template))
+        test_template.clone_disk_files(
+            src_vm=self.qc.get_vm_by_name(self.template),
+            verbose=False)
+
+        testvm1 = self.qc.add_new_vm("QubesAppVm",
+                                     template=test_template,
+                                     name=self.make_vm_name('vm1'))
+        testvm1.create_on_disk(verbose=False,
+                               source_template=test_template)
+        self.save_and_reload_db()
+        self.qc.unlock_db()
+        test_template = self.qc[test_template.qid]
+        testvm1 = self.qc[testvm1.qid]
+        test_template.start()
+        self.install_packages(test_template)
+        kver = self.get_kernel_version(test_template)
+        self.shutdown_and_wait(test_template)
+
+        self.qc.lock_db_for_writing()
+        self.qc.load()
+        test_template = self.qc[test_template.qid]
+        test_template.kernel = 'pvgrub2'
+        testvm1 = self.qc[testvm1.qid]
+        testvm1.kernel = 'pvgrub2'
+        self.save_and_reload_db()
+        self.qc.unlock_db()
+
+        # Check if TemplateBasedVM boots and has the right kernel
+        testvm1 = self.qc[testvm1.qid]
+        testvm1.start()
+        p = testvm1.run('uname -r', passio_popen=True)
+        (actual_kver, _) = p.communicate()
+        self.assertEquals(actual_kver.strip(), kver)
+
+        # And the same for the TemplateVM itself
+        test_template = self.qc[test_template.qid]
+        test_template.start()
+        p = test_template.run('uname -r', passio_popen=True)
+        (actual_kver, _) = p.communicate()
+        self.assertEquals(actual_kver.strip(), kver)
+
+
 def load_tests(loader, tests, pattern):
     try:
         qc = qubes.qubes.QubesVmCollection()
@@ -1057,6 +1182,11 @@ def load_tests(loader, tests, pattern):
             type(
                 'TC_20_DispVM_' + template,
                 (TC_20_DispVMMixin, qubes.tests.QubesTestCase),
+                {'template': template})))
+        tests.addTests(loader.loadTestsFromTestCase(
+            type(
+                'TC_40_PVGrub_' + template,
+                (TC_40_PVGrub, qubes.tests.QubesTestCase),
                 {'template': template})))
 
     return tests
