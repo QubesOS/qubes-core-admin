@@ -1992,7 +1992,7 @@ def backup_restore_do(restore_info,
                                          backup_dir)
 
         # We prefer to use Linux's cp, because it nicely handles sparse files
-        cp_retcode = subprocess.call(["cp", "-rp", backup_src_dir, dst_dir])
+        cp_retcode = subprocess.call(["cp", "-rp", "--reflink=auto", backup_src_dir, dst_dir])
         if cp_retcode != 0:
             raise QubesException(
                 "*** Error while copying file {0} to {1}".format(backup_src_dir,
@@ -2224,7 +2224,7 @@ def backup_restore_do(restore_info,
                           home_dir + '/' + restore_home_backupdir + '/' + f)
             if format_version == 1:
                 subprocess.call(
-                    ["cp", "-nrp", backup_dom0_home_dir + '/' + f, home_file])
+                    ["cp", "-nrp", "--reflink=auto", backup_dom0_home_dir + '/' + f, home_file])
             elif format_version >= 2:
                 shutil.move(backup_dom0_home_dir + '/' + f, home_file)
         retcode = subprocess.call(['sudo', 'chown', '-R', local_user, home_dir])
