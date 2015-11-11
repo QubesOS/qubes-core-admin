@@ -79,7 +79,7 @@ class QubesVmStorage(object):
         # TODO: Windows support
 
         # We prefer to use Linux's cp, because it nicely handles sparse files
-        retcode = subprocess.call (["cp", source, destination])
+        retcode = subprocess.call (["cp", "--reflink=auto", source, destination])
         if retcode != 0:
             raise IOError ("Error while copying {0} to {1}".\
                            format(source, destination))
