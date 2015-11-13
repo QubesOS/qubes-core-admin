@@ -54,6 +54,24 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         self.testvm1 = self.qc[self.testvm1.qid]
         self.testvm2 = self.qc[self.testvm2.qid]
 
+    def enter_keys_in_window(self, title, keys):
+        """
+        Search for window with given title, then enter listed keys there.
+        The function will wait for said window to appear.
+
+        :param title: title of window
+        :param keys: list of keys to enter, as for `xdotool key`
+        :return: None
+        """
+
+        # 'xdotool search --sync' sometimes crashes on some race when
+        # accessing window properties
+        self.wait_for_window(title)
+        command = ['xdotool', 'search', '--name', title,
+                   'windowactivate',
+                   'key'] + keys
+        subprocess.check_call(command)
+
     def test_000_start_shutdown(self):
         self.testvm1.start()
         self.assertEquals(self.testvm1.get_power_state(), "Running")
@@ -556,8 +574,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         p = self.testvm1.run("qvm-copy-to-vm %s /etc/passwd" %
                              self.testvm2.name, passio_popen=True)
         # Deny transfer
-        subprocess.check_call(['xdotool', 'search', '--sync', '--name', 'Question',
-                              'key', 'n'])
+        self.enter_keys_in_window('Question', ['n'])
         p.wait()
         self.assertNotEqual(p.returncode, 0, "qvm-copy-to-vm unexpectedly "
                             "succeeded")
@@ -577,8 +594,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                              self.testvm1.name, passio_popen=True,
                              passio_stderr=True)
         # Confirm transfer
-        subprocess.check_call(['xdotool', 'search', '--sync', '--name', 'Question',
-                              'key', 'y'])
+        self.enter_keys_in_window('Question', ['y'])
         p.wait()
         self.assertEqual(p.returncode, 0, "qvm-copy-to-vm failed: %s" %
                          p.stderr.read())
