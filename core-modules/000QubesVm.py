@@ -1616,20 +1616,21 @@ class QubesVm(object):
         return retcode
 
     def run_service(self, service, source="dom0", user=None,
-                    passio_popen=False, input=None, localcmd=None, gui=False):
+                    passio_popen=False, input=None, localcmd=None, gui=False,
+                    wait=True):
         if bool(input) + bool(passio_popen) + bool(localcmd) > 1:
             raise ValueError("'input', 'passio_popen', 'localcmd' cannot be "
                              "used together")
         if localcmd:
             return self.run("QUBESRPC %s %s" % (service, source),
-                            localcmd=localcmd, user=user, wait=True, gui=gui)
+                            localcmd=localcmd, user=user, wait=wait, gui=gui)
         elif input:
             return self.run("QUBESRPC %s %s" % (service, source),
-                            localcmd="echo %s" % input, user=user, wait=True,
+                            localcmd="echo %s" % input, user=user, wait=wait,
                             gui=gui)
         else:
             return self.run("QUBESRPC %s %s" % (service, source),
-                            passio_popen=passio_popen, user=user, wait=True,
+                            passio_popen=passio_popen, user=user, wait=wait,
                             gui=gui)
 
     def attach_network(self, verbose = False, wait = True, netvm = None):
