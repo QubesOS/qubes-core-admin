@@ -23,7 +23,7 @@
 #
 import sys
 import os.path
-import xen.lowlevel.xs
+import libvirt
 
 from qubes.qubes import QubesVm,register_qubes_vm_class,vmm,dry_run
 from qubes.qubes import defaults,system_path,vm_files
@@ -152,6 +152,18 @@ class QubesNetVm(QubesVm):
         connected_vms =  [vm for vm in self.connected_vms.values() if vm.is_running()]
         if connected_vms and not force:
             raise QubesException("There are other VMs connected to this VM: " + str([vm.name for vm in connected_vms]))
+
+        # detach network interfaces of connected VMs before shutting down,
+        # otherwise libvirt will not notice it and will try to detach them
+        # again (which would fail, obviously).
+        # This code can be removed when #1426 got implemented
+        for vm in self.connected_vms.values():
+            if vm.is_running():
+                try:
+                    vm.detach_network()
+                except (QubesException, libvirt.libvirtError):
+                    # ignore errors
+                    pass
 
         super(QubesNetVm, self).shutdown(force=force)
 
