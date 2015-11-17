@@ -28,9 +28,9 @@ import re
 import subprocess
 import sys
 
-from qubes.qubes import (QubesAdminVm, QubesAppVm, QubesDisposableVm,
-                         QubesException, QubesHVm, QubesNetVm, QubesProxyVm,
-                         QubesTemplateHVm, QubesTemplateVm, defaults, vm_files)
+from qubes.qubes import (QubesAppVm, QubesDisposableVm, QubesException,
+                         QubesHVm, QubesNetVm, QubesTemplateHVm,
+                         QubesTemplateVm, defaults, vm_files)
 from qubes.storage import Pool, QubesVmStorage
 
 
@@ -303,8 +303,7 @@ class XenPool(Pool):
 
             * ``appvms`` for ``QubesAppVm`` or ``QubesHvm``
             * ``vm-templates`` for ``QubesTemplateVm`` or ``QubesTemplateHvm``
-            * ``servicevms`` for ``QubesProxyVm``, ``QubesNetVm`` or
-                ``QubesAdminVm``
+            * ``servicevms`` for any subclass of  ``QubesNetVm``
 
             Args:
                 vm: a QubesVM
@@ -320,7 +319,7 @@ class XenPool(Pool):
             subdir = 'appvms'
         elif vm_type in [QubesTemplateVm, QubesTemplateHVm]:
             subdir = 'vm-templates'
-        elif vm_type in [QubesAdminVm, QubesNetVm, QubesProxyVm]:
+        elif issubclass(vm_type, QubesNetVm):
             subdir = 'servicevms'
         elif vm_type is QubesDisposableVm:
             subdir = 'appvms'
