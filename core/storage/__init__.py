@@ -30,7 +30,7 @@ import subprocess
 import sys
 
 import qubes.qubesutils
-from qubes.qubes import QubesException, defaults, system_path, vm_files
+from qubes.qubes import QubesException, defaults, system_path
 
 CONFIG_FILE = '/etc/qubes/storage.conf'
 
@@ -321,4 +321,67 @@ class StoragePoolException(QubesException):
 
 
 class Pool(object):
-    pass
+    def __init__(self, vm, dir_path):
+        assert vm is not None
+        assert dir_path is not None
+
+        self.vm = vm
+        self.dir_path = dir_path
+
+        self.create_dir_if_not_exists(self.dir_path)
+
+        self.vmdir = self.vmdir_path(vm, self.dir_path)
+
+        appvms_path = os.path.join(self.dir_path, 'appvms')
+        self.create_dir_if_not_exists(appvms_path)
+
+        servicevms_path = os.path.join(self.dir_path, 'servicevms')
+        self.create_dir_if_not_exists(servicevms_path)
+
+        vm_templates_path = os.path.join(self.dir_path, 'vm-templates')
+        self.create_dir_if_not_exists(vm_templates_path)
+
+    def vmdir_path(self, vm, pool_dir):
+        """ Returns the path to vmdir depending on the type of the VM.
+
+            The default QubesOS file storage saves the vm images in three
+            different directories depending on the ``QubesVM`` type:
+
+            * ``appvms`` for ``QubesAppVm`` or ``QubesHvm``
+            * ``vm-templates`` for ``QubesTemplateVm`` or ``QubesTemplateHvm``
+            * ``servicevms`` for any subclass of  ``QubesNetVm``
+
+            Args:
+                vm: a QubesVM
+                pool_dir: the root directory of the pool
+
+            Returns:
+                string (str) absolute path to the directory where the vm files
+                             are stored
+        """
+        # TODO: This is a hack, circular dependencies problem?
+        from qubes.qubes import (QubesAppVm, QubesDisposableVm, QubesHVm, 
+                                 QubesNetVm, QubesTemplateHVm, QubesTemplateVm)
+        vm_type = type(vm)
+
+        if vm_type in [QubesAppVm, QubesHVm]:
+            subdir = 'appvms'
+        elif vm_type in [QubesTemplateVm, QubesTemplateHVm]:
+            subdir = 'vm-templates'
+        elif issubclass(vm_type, QubesNetVm):
+            subdir = 'servicevms'
+        elif vm_type is QubesDisposableVm:
+            subdir = 'appvms'
+            return os.path.join(pool_dir, subdir, vm.template.name + '-dvm')
+        else:
+            raise QubesException(str(vm_type) + ' unknown vm type')
+
+        return os.path.join(pool_dir, subdir, vm.name)
+
+    def create_dir_if_not_exists(self, path):
+        """ Check if a directory exists in if not create it.
+
+            This method does not create any parent directories.
+        """
+        if not os.path.exists(path):
+            os.mkdir(path)
