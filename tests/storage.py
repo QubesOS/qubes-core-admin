@@ -42,13 +42,13 @@ class TC_00_Storage(SystemTestsMixin, QubesTestCase):
         self.assertEquals(result, expected)
 
     def test_001_load(self):
-        """ Loads storage type from a storage string  """
+        """ Loads storage driver from a storage string  """
         result = qubes.storage.load('qubes.storage.xen.XenStorage')
         self.assertTrue(result is XenStorage)
 
-    def test_002_default_pool_types(self):
-        """ The only predifined pool type is xen """
-        result = defaults['pool_types'].keys()
+    def test_002_default_pool_drivers(self):
+        """ The only predifined pool driver is xen """
+        result = defaults['pool_drivers'].keys()
         expected = ["xen"]
         self.assertEquals(result, expected)
 
@@ -73,7 +73,7 @@ class TC_00_Storage(SystemTestsMixin, QubesTestCase):
         # make sure it's really does not exist
         qubes.storage.remove_pool(pool_name)
 
-        qubes.storage.add_pool(pool_name, type='xen')
+        qubes.storage.add_pool(pool_name, driver='xen')
         self.assertTrue(qubes.storage.pool_exists(pool_name))
 
         qubes.storage.remove_pool(pool_name)
@@ -91,7 +91,7 @@ class TC_00_Pool(SystemTestsMixin, QubesTestCase):
                Data :data:``qubes.qubes.defaults['pool_config']``.
         """
         vm = self._init_app_vm()
-        result = qubes.storage.get_pool("default", vm).dir
+        result = qubes.storage.get_pool("default", vm).dir_path
         expected = '/var/lib/qubes/'
         self.assertEquals(result, expected)
 
@@ -126,7 +126,8 @@ class TC_01_Pool(SystemTestsMixin, QubesTestCase):
     def setUp(self):
         """ Add a test file based storage pool """
         super(TC_01_Pool, self).setUp()
-        qubes.storage.add_pool('test-pool', type='xen', dir=self.POOL_DIR)
+        qubes.storage.add_pool('test-pool', driver='xen',
+                               dir_path=self.POOL_DIR)
 
     def tearDown(self):
         """ Remove the file based storage pool after testing """
@@ -160,7 +161,7 @@ class TC_01_Pool(SystemTestsMixin, QubesTestCase):
         template = self.qc.get_default_template()
         vm = self.qc.add_new_vm('QubesAppVm', name=vmname, template=template,
                                 pool_name='test-pool')
-        result = qubes.storage.get_pool('test-pool', vm).dir
+        result = qubes.storage.get_pool('test-pool', vm).dir_path
         self.assertEquals(self.POOL_DIR, result)
 
     def test_004_app_vmdir(self):

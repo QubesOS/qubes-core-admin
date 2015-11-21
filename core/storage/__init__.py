@@ -239,7 +239,7 @@ def get_pool(name, vm):
 
     klass = _get_pool_klass(name, config)
 
-    keys = [k for k in config.options(name) if k != 'type' and k != 'class']
+    keys = [k for k in config.options(name) if k != 'driver' and k != 'class']
     values = [config.get(name, o) for o in keys]
     config_kwargs = dict(zip(keys, values))
 
@@ -308,19 +308,17 @@ def _get_pool_klass(name, config=None):
 
     if config.has_option(name, 'class'):
         klass = load(config.get(name, 'class'))
-    elif config.has_option(name, 'type'):
-        pool_type = config.get(name, 'type')
-        klass = defaults['pool_types'][pool_type]
-
-    if klass is None:
-        raise StoragePoolException('Uknown storage pool type ' + name)
+    elif config.has_option(name, 'driver'):
+        pool_driver = config.get(name, 'driver')
+        klass = defaults['pool_drivers'][pool_driver]
+    else:
+        raise StoragePoolException('Uknown storage pool driver ' + name)
     return klass
-
 
 
 class StoragePoolException(QubesException):
     pass
 
+
 class Pool(object):
     pass
-

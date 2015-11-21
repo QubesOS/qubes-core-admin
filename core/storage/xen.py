@@ -274,22 +274,22 @@ class XenStorage(QubesVmStorage):
 
 class XenPool(Pool):
 
-    def __init__(self, vm, dir):
+    def __init__(self, vm, dir_path):
         assert vm is not None
-        assert dir is not None
+        assert dir_path is not None
 
-        appvms_path = os.path.join(dir, 'appvms')
-        servicevms_path = os.path.join(dir, 'servicevms')
-        vm_templates_path = os.path.join(dir, 'vm-templates')
+        appvms_path = os.path.join(dir_path, 'appvms')
+        servicevms_path = os.path.join(dir_path, 'servicevms')
+        vm_templates_path = os.path.join(dir_path, 'vm-templates')
 
-        self._create_dir_if_not_exists(dir)
+        self._create_dir_if_not_exists(dir_path)
         self._create_dir_if_not_exists(appvms_path)
         self._create_dir_if_not_exists(servicevms_path)
         self._create_dir_if_not_exists(vm_templates_path)
 
-        self.vmdir = self._vmdir_path(vm, dir)
+        self.vmdir = self._vmdir_path(vm, dir_path)
         self.vm = vm
-        self.dir = dir
+        self.dir_path = dir_path
 
     def getStorage(self):
         """ Returns an instantiated ``XenStorage``. """
