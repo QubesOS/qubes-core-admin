@@ -57,6 +57,10 @@ class QubesVmStorage(object):
         else:
             self.root_img_size = defaults['root_img_size']
 
+        self.root_dev = "xvda"
+        self.private_dev = "xvdb"
+        self.volatile_dev = "xvdc"
+        self.modules_dev = "xvdd"
 
         # For now compute this path still in QubesVm
         self.modules_img = modules_img

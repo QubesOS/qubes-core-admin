@@ -49,11 +49,6 @@ class XenStorage(QubesVmStorage):
 
         super(XenStorage, self).__init__(vm, **kwargs)
 
-        self.root_dev = "xvda"
-        self.private_dev = "xvdb"
-        self.volatile_dev = "xvdc"
-        self.modules_dev = "xvdd"
-
         self.vmdir = vmdir
 
         if self.vm.is_template():
