@@ -65,6 +65,25 @@ class QubesVmStorage(object):
         # Additional drive (currently used only by HVM)
         self.drive = None
 
+    def format_disk_dev(self, path, script, vdev, rw=True, type="disk",
+                        domain=None):
+        if path is None:
+            return ''
+        template = "    <disk type='block' device='{type}'>\n" \
+                   "      <driver name='phy'/>\n" \
+                   "      <source dev='{path}'/>\n" \
+                   "      <target dev='{vdev}' bus='xen'/>\n" \
+                   "{params}" \
+                   "    </disk>\n"
+        params = ""
+        if not rw:
+            params += "      <readonly/>\n"
+        if domain:
+            params += "      <backenddomain name='%s'/>\n" % domain
+        if script:
+            params += "      <script path='%s'/>\n" % script
+        return template.format(path=path, vdev=vdev, type=type, params=params)
+
     def get_config_params(self):
         raise NotImplementedError
 

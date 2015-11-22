@@ -69,36 +69,17 @@ class XenStorage(QubesVmStorage):
             self.root_img = os.path.join(vmdir, 'root.img')
         self.volatile_img = os.path.join(vmdir, 'volatile.img')
 
-    def _format_disk_dev(self, path, script, vdev, rw=True, type="disk", domain=None):
-        if path is None:
-            return ''
-        template = "    <disk type='block' device='{type}'>\n" \
-                   "      <driver name='phy'/>\n" \
-                   "      <source dev='{path}'/>\n" \
-                   "      <target dev='{vdev}' bus='xen'/>\n" \
-                   "{params}" \
-                   "    </disk>\n"
-        params = ""
-        if not rw:
-            params += "      <readonly/>\n"
-        if domain:
-            params += "      <backenddomain name='%s'/>\n" % domain
-        if script:
-            params += "      <script path='%s'/>\n" % script
-        return template.format(path=path, vdev=vdev, type=type,
-            params=params)
-
     def _get_rootdev(self):
         if self.vm.is_template() and \
                 os.path.exists(os.path.join(self.vmdir, "root-cow.img")):
-            return self._format_disk_dev(
+            return self.format_disk_dev(
                     "{dir}/root.img:{dir}/root-cow.img".format(
                         dir=self.vmdir),
                     "block-origin", self.root_dev, True)
         elif self.vm.template and not self.vm.template.storage.rootcow_img:
             # HVM template-based VM - template doesn't have own
             # root-cow.img, only one device-mapper layer
-            return self._format_disk_dev(
+            return self.format_disk_dev(
                     "{tpldir}/root.img:{vmdir}/volatile.img".format(
                         tpldir=self.vm.template.dir_path,
                         vmdir=self.vmdir),
@@ -107,12 +88,12 @@ class XenStorage(QubesVmStorage):
             # any other template-based VM - two device-mapper layers: one
             # in dom0 (here) from root+root-cow, and another one from
             # this+volatile.img
-            return self._format_disk_dev(
+            return self.format_disk_dev(
                     "{dir}/root.img:{dir}/root-cow.img".format(
                         dir=self.vm.template.dir_path),
                     "block-snapshot", self.root_dev, False)
         else:
-            return self._format_disk_dev(
+            return self.format_disk_dev(
                     "{dir}/root.img".format(dir=self.vmdir),
                     None, self.root_dev, True)
 
@@ -120,14 +101,14 @@ class XenStorage(QubesVmStorage):
         args = {}
         args['rootdev'] = self._get_rootdev()
         args['privatedev'] = \
-                self._format_disk_dev(self.private_img,
+                self.format_disk_dev(self.private_img,
                         None, self.private_dev, True)
         args['volatiledev'] = \
-                self._format_disk_dev(self.volatile_img,
+                self.format_disk_dev(self.volatile_img,
                         None, self.volatile_dev, True)
         if self.modules_img is not None:
             args['otherdevs'] = \
-                    self._format_disk_dev(self.modules_img,
+                    self.format_disk_dev(self.modules_img,
                             None, self.modules_dev, self.modules_img_rw)
         elif self.drive is not None:
             (drive_type, drive_domain, drive_path) = self.drive.split(":")
@@ -136,7 +117,7 @@ class XenStorage(QubesVmStorage):
             if drive_domain.lower() == "dom0":
                 drive_domain = None
 
-            args['otherdevs'] = self._format_disk_dev(drive_path, None,
+            args['otherdevs'] = self.format_disk_dev(drive_path, None,
                     self.modules_dev,
                     rw=True if drive_type == "disk" else False, type=drive_type,
                     domain=drive_domain)
