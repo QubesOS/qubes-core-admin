@@ -64,7 +64,7 @@ class XenStorage(QubesVmStorage):
             self.root_img = os.path.join(vmdir, 'root.img')
         self.volatile_img = os.path.join(vmdir, 'volatile.img')
 
-    def _get_rootdev(self):
+    def root_dev_config(self):
         if self.vm.is_template() and \
                 os.path.exists(os.path.join(self.vmdir, "root-cow.img")):
             return self.format_disk_dev(
@@ -92,34 +92,13 @@ class XenStorage(QubesVmStorage):
                     "{dir}/root.img".format(dir=self.vmdir),
                     None, self.root_dev, True)
 
-    def get_config_params(self):
-        args = {}
-        args['rootdev'] = self._get_rootdev()
-        args['privatedev'] = \
-                self.format_disk_dev(self.private_img,
-                        None, self.private_dev, True)
-        args['volatiledev'] = \
-                self.format_disk_dev(self.volatile_img,
-                        None, self.volatile_dev, True)
-        if self.modules_img is not None:
-            args['otherdevs'] = \
-                    self.format_disk_dev(self.modules_img,
-                            None, self.modules_dev, self.modules_img_rw)
-        elif self.drive is not None:
-            (drive_type, drive_domain, drive_path) = self.drive.split(":")
-            if drive_type == "hd":
-                drive_type = "disk"
-            if drive_domain.lower() == "dom0":
-                drive_domain = None
+    def private_dev_config(self):
+        return self.format_disk_dev(self.private_img, None,
+                                    self.private_dev, True)
 
-            args['otherdevs'] = self.format_disk_dev(drive_path, None,
-                    self.modules_dev,
-                    rw=True if drive_type == "disk" else False, type=drive_type,
-                    domain=drive_domain)
-        else:
-            args['otherdevs'] = ''
-
-        return args
+    def volatile_dev_config(self):
+        return self.format_disk_dev(self.volatile_img, None,
+                                    self.volatile_dev, True)
 
     def create_on_disk_private_img(self, verbose, source_template = None):
         if source_template:

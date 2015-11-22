@@ -89,7 +89,48 @@ class QubesVmStorage(object):
         return template.format(path=path, vdev=vdev, type=type, params=params)
 
     def get_config_params(self):
+        args = {}
+        args['rootdev'] = self.root_dev_config()
+        args['privatedev'] = self.private_dev_config()
+        args['volatiledev'] = self.volatile_dev_config()
+        args['otherdevs'] = self.other_dev_config()
+
+        return args
+
+    def root_dev_config(self):
         raise NotImplementedError
+
+    def private_dev_config(self):
+        raise NotImplementedError
+
+    def volatile_dev_config(self):
+        raise NotImplementedError
+
+    def other_dev_config(self):
+        if self.modules_img is not None:
+            return self.format_disk_dev(self.modules_img,
+                                        None,
+                                        self.modules_dev,
+                                        self.modules_img_rw)
+        elif self.drive is not None:
+            (drive_type, drive_domain, drive_path) = self.drive.split(":")
+            if drive_type == "hd":
+                drive_type = "disk"
+
+            writable = False
+            if drive_type == "disk":
+                writable = True
+
+            if drive_domain.lower() == "dom0":
+                drive_domain = None
+
+            return self.format_disk_dev(drive_path, None,
+                                        self.modules_dev,
+                                        rw=writable,
+                                        type=drive_type,
+                                        domain=drive_domain)
+        else:
+            return ''
 
     def _copy_file(self, source, destination):
         """
