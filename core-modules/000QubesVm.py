@@ -350,9 +350,6 @@ class QubesVm(object):
         self.dir_path = self.storage.vmdir
         self.icon_path = os.path.join(self.storage.vmdir, 'icon.png')
         self.conf_file = os.path.join(self.storage.vmdir, self.name + '.conf')
-        self.appmenus_templates_dir = os.path.join(self.storage.vmdir, 'apps.templates')
-        self.appmenus_icons_dir = os.path.join(self.storage.vmdir, 'apps.icons')
-
 
         if hasattr(self, 'kernels_dir'):
             modules_path = os.path.join(self.kernels_dir,
