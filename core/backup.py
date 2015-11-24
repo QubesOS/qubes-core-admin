@@ -400,6 +400,10 @@ class SendWorker(Process):
                                           stdin=subprocess.PIPE,
                                           stdout=self.backup_stdout)
             if final_proc.wait() >= 2:
+                if self.queue.full():
+                    # if queue is already full, remove some entry to wake up
+                    # main thread, so it will be able to notice error
+                    self.queue.get()
                 # handle only exit code 2 (tar fatal error) or
                 # greater (call failed?)
                 raise QubesException(
@@ -447,6 +451,17 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
               compressed=False, hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
               crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM):
     global running_backup_operation
+
+    def queue_put_with_check(proc, vmproc, queue, element):
+        if queue.full():
+            if not proc.is_alive():
+                if vmproc:
+                    message = ("Failed to write the backup, VM output:\n" +
+                               vmproc.stderr.read())
+                else:
+                    message = "Failed to write the backup. Out of disk space?"
+                raise QubesException(message)
+        queue.put(element)
 
     total_backup_sz = 0
     passphrase = passphrase.encode('utf-8')
@@ -649,7 +664,9 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
                                          run_error)
 
             # Send the chunk to the backup target
-            to_send.put(os.path.relpath(chunkfile, backup_tmpdir))
+            queue_put_with_check(
+                send_proc, vmproc, to_send,
+                os.path.relpath(chunkfile, backup_tmpdir))
 
             # Close HMAC
             hmac.stdin.close()
@@ -667,7 +684,9 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
             hmac_file.close()
 
             # Send the HMAC to the backup target
-            to_send.put(os.path.relpath(chunkfile, backup_tmpdir) + ".hmac")
+            queue_put_with_check(
+                send_proc, vmproc, to_send,
+                os.path.relpath(chunkfile, backup_tmpdir) + ".hmac")
 
             if tar_sparse.poll() is None or run_error == "size_limit":
                 run_error = "paused"
@@ -679,7 +698,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
                         .poll()
         pipe.close()
 
-    to_send.put("FINISHED")
+    queue_put_with_check(send_proc, vmproc, to_send, "FINISHED")
     send_proc.join()
     shutil.rmtree(backup_tmpdir)
 
