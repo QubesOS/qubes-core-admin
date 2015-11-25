@@ -1070,7 +1070,8 @@ class TC_40_PVGrub(qubes.tests.SystemTestsMixin):
 
     def install_packages(self, vm):
         if self.template.startswith('fedora-'):
-            cmd_install1 = 'yum install -y qubes-kernel-vm-support grub2-tools'
+            cmd_install1 = 'yum clean expire-cache && ' \
+                           'yum install -y qubes-kernel-vm-support grub2-tools'
             cmd_install2 = 'yum install -y kernel kernel-devel'
             cmd_update_grub = 'grub2-mkconfig -o /boot/grub2/grub.cfg'
         elif self.template.startswith('debian-'):
