@@ -176,6 +176,7 @@ fi
 %files
 %defattr(-,root,root,-)
 %config(noreplace) %attr(0664,root,qubes) %{_sysconfdir}/qubes/qmemman.conf
+%config(noreplace) %attr(0664,root,qubes) %{_sysconfdir}/qubes/storage.conf
 /usr/bin/qvm-*
 /usr/bin/qubes-*
 %dir %{python_sitearch}/qubes

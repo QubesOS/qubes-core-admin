@@ -547,6 +547,7 @@ def load_tests(loader, tests, pattern):
             'qubes.tests.backup',
             'qubes.tests.backupcompatibility',
             'qubes.tests.regressions',
+            'qubes.tests.storage',
             ):
         tests.addTests(loader.loadTestsFromName(modname))
 

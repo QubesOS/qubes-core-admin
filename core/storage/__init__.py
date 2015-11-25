@@ -16,22 +16,24 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-#
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+# USA.
 #
 
 from __future__ import absolute_import
 
+import ConfigParser
 import os
 import os.path
-import re
 import shutil
 import subprocess
 import sys
 
-from qubes.qubes import vm_files,system_path,defaults
-from qubes.qubes import QubesException
 import qubes.qubesutils
+from qubes.qubes import QubesException, defaults, system_path, vm_files
+
+CONFIG_FILE = '/etc/qubes/storage.conf'
+
 
 class QubesVmStorage(object):
     """
@@ -55,12 +57,6 @@ class QubesVmStorage(object):
         else:
             self.root_img_size = defaults['root_img_size']
 
-        self.private_img = vm.absolute_path(vm_files["private_img"], None)
-        if self.vm.template:
-            self.root_img = self.vm.template.root_img
-        else:
-            self.root_img = vm.absolute_path(vm_files["root_img"], None)
-        self.volatile_img = vm.absolute_path(vm_files["volatile_img"], None)
 
         # For now compute this path still in QubesVm
         self.modules_img = modules_img
@@ -199,3 +195,130 @@ class QubesVmStorage(object):
             print >>sys.stderr, "WARNING: Creating empty VM private image file: {0}".\
                 format(self.private_img)
             self.create_on_disk_private_img(verbose=False)
+
+
+def dump(o):
+    """ Returns a string represention of the given object
+
+        Args:
+            o (object): anything that response to `__module__` and `__class__`
+
+        Given the class :class:`qubes.storage.QubesVmStorage` it returns
+        'qubes.storage.QubesVmStorage' as string
+    """
+    return o.__module__ + '.' + o.__class__.__name__
+
+
+def load(string):
+    """ Given a dotted full module string representation of a class it loads it
+
+        Args:
+            string (str) i.e. 'qubes.storage.xen.QubesXenVmStorage'
+
+        Returns:
+            type
+
+        See also:
+            :func:`qubes.storage.dump`
+    """
+    if not type(string) is str:
+        # This is a hack which allows giving a real class to a vm instead of a
+        # string as string_class parameter.
+        return string
+
+    components = string.split(".")
+    module_path = ".".join(components[:-1])
+    klass = components[-1:][0]
+    module = __import__(module_path, fromlist=[klass])
+    return getattr(module, klass)
+
+
+def get_pool(name, vm):
+    """ Instantiates the storage for the specified vm """
+    config = _get_storage_config_parser()
+
+    klass = _get_pool_klass(name, config)
+
+    keys = [k for k in config.options(name) if k != 'driver' and k != 'class']
+    values = [config.get(name, o) for o in keys]
+    config_kwargs = dict(zip(keys, values))
+
+    if name == 'default':
+        kwargs = defaults['pool_config'].copy()
+        kwargs.update(keys)
+    else:
+        kwargs = config_kwargs
+
+    return klass(vm, **kwargs)
+
+
+def pool_exists(name):
+    """ Check if the specified pool exists """
+    try:
+        _get_pool_klass(name)
+        return True
+    except StoragePoolException:
+        return False
+
+def add_pool(name, **kwargs):
+    """ Add a storage pool to config."""
+    config = _get_storage_config_parser()
+    config.add_section(name)
+    for key, value in kwargs.iteritems():
+        config.set(name, key, value)
+    _write_config(config)
+
+def remove_pool(name):
+    """ Remove a storage pool from config file.  """
+    config = _get_storage_config_parser()
+    config.remove_section(name)
+    _write_config(config)
+
+def _write_config(config):
+    with open(CONFIG_FILE, 'w') as configfile:
+        config.write(configfile)
+
+def _get_storage_config_parser():
+    """ Instantiates a `ConfigParaser` for specified storage config file.
+
+        Returns:
+            RawConfigParser
+    """
+    config = ConfigParser.RawConfigParser()
+    config.read(CONFIG_FILE)
+    return config
+
+
+def _get_pool_klass(name, config=None):
+    """ Returns the storage klass for the specified pool.
+
+        Args:
+            name: The pool name.
+            config: If ``config`` is not specified
+                    `_get_storage_config_parser()` is called.
+
+        Returns:
+            type: A class inheriting from `QubesVmStorage`
+    """
+    if config is None:
+        config = _get_storage_config_parser()
+
+    if not config.has_section(name):
+        raise StoragePoolException('Uknown storage pool ' + name)
+
+    if config.has_option(name, 'class'):
+        klass = load(config.get(name, 'class'))
+    elif config.has_option(name, 'driver'):
+        pool_driver = config.get(name, 'driver')
+        klass = defaults['pool_drivers'][pool_driver]
+    else:
+        raise StoragePoolException('Uknown storage pool driver ' + name)
+    return klass
+
+
+class StoragePoolException(QubesException):
+    pass
+
+
+class Pool(object):
+    pass

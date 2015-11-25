@@ -40,12 +40,12 @@ import signal
 from qubes import qmemman
 from qubes import qmemman_algo
 import libvirt
-import warnings
 
 from qubes.qubes import dry_run,vmm
 from qubes.qubes import register_qubes_vm_class
 from qubes.qubes import QubesVmCollection,QubesException,QubesHost,QubesVmLabels
 from qubes.qubes import defaults,system_path,vm_files,qubes_max_qid
+from qubes.storage import get_pool
 
 qmemman_present = False
 try:
@@ -109,6 +109,7 @@ class QubesVm(object):
             "name": { "order": 1 },
             "uuid": { "order": 0, "eval": 'uuid.UUID(value) if value else None' },
             "dir_path": { "default": None, "order": 2 },
+            "pool_name": { "default":"default" },
             "conf_file": {
                 "func": lambda value: self.absolute_path(value, self.name +
                                                                  ".conf"),
@@ -198,7 +199,7 @@ class QubesVm(object):
             'kernelopts', 'services', 'installed_by_rpm',\
             'uses_default_netvm', 'include_in_backups', 'debug',\
             'qrexec_timeout', 'autostart', 'uses_default_dispvm_netvm',
-            'backup_content', 'backup_size', 'backup_path' ]:
+            'backup_content', 'backup_size', 'backup_path', 'pool_name' ]:
             attrs[prop]['save'] = lambda prop=prop: str(getattr(self, prop))
         # Simple paths
         for prop in ['conf_file', 'firewall_conf']:
@@ -345,7 +346,11 @@ class QubesVm(object):
                 self.services['qubes-update-check'] = False
 
         # Initialize VM image storage class
-        self.storage = defaults["storage_class"](self)
+        self.storage = get_pool(self.pool_name, self).getStorage()
+        self.dir_path = self.storage.vmdir
+        self.icon_path = os.path.join(self.storage.vmdir, 'icon.png')
+        self.conf_file = os.path.join(self.storage.vmdir, self.name + '.conf')
+
         if hasattr(self, 'kernels_dir'):
             modules_path = os.path.join(self.kernels_dir,
                     "modules.img")

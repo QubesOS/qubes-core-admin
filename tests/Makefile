@@ -27,3 +27,5 @@ endif
 	cp regressions.py[co] $(DESTDIR)$(PYTHON_TESTSPATH)
 	cp run.py $(DESTDIR)$(PYTHON_TESTSPATH)
 	cp run.py[co] $(DESTDIR)$(PYTHON_TESTSPATH)
+	cp storage.py $(DESTDIR)$(PYTHON_TESTSPATH)
+	cp storage.py[co] $(DESTDIR)$(PYTHON_TESTSPATH)
