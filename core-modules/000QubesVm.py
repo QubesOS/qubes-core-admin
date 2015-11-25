@@ -737,6 +737,8 @@ class QubesVm(object):
                 raise QubesException("HVM domains not supported on this "
                                      "machine. Check BIOS settings for "
                                      "VT-x/AMD-V extensions.")
+            else:
+                raise e
         self.uuid = uuid.UUID(bytes=self._libvirt_domain.UUID())
 
     @property
