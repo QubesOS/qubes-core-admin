@@ -28,7 +28,7 @@ import os
 
 import unittest
 import sys
-
+from qubes.qubes import QubesException, QubesTemplateVm
 import qubes.tests
 
 class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
@@ -85,22 +85,6 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
         self.restore_backup()
         self.remove_vms(vms)
 
-
-    # TODO: iterate over templates
-    def test_100_send_to_vm(self):
-        vms = self.create_backup_vms()
-        self.backupvm.start()
-        self.make_backup(vms,
-                         do_kwargs={
-                             'appvm': self.backupvm,
-                             'compressed': True,
-                             'encrypted': True},
-                         target='dd of=/var/tmp/backup-test')
-        self.remove_vms(vms)
-        self.restore_backup(source='dd if=/var/tmp/backup-test',
-                            appvm=self.backupvm)
-        self.remove_vms(vms)
-
     def test_200_restore_over_existing_directory(self):
         """
         Regression test for #1386
@@ -119,3 +103,95 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
                     test_dir)
             ])
         self.remove_vms(vms)
+
+class TC_10_BackupVMMixin(qubes.tests.BackupTestsMixin):
+    def setUp(self):
+        super(TC_10_BackupVMMixin, self).setUp()
+        self.backupvm = self.qc.add_new_vm(
+            "QubesAppVm",
+            name=self.make_vm_name('backupvm'),
+            template=self.qc.get_vm_by_name(self.template)
+        )
+        self.backupvm.create_on_disk(verbose=self.verbose)
+
+    def test_100_send_to_vm_file_with_spaces(self):
+        vms = self.create_backup_vms()
+        self.backupvm.start()
+        self.backupvm.run("mkdir '/var/tmp/backup directory'", wait=True)
+        self.make_backup(vms,
+                         do_kwargs={
+                             'appvm': self.backupvm,
+                             'compressed': True,
+                             'encrypted': True},
+                         target='/var/tmp/backup directory')
+        self.remove_vms(vms)
+        p = self.backupvm.run("ls /var/tmp/backup*/qubes-backup*",
+                              passio_popen=True)
+        (backup_path, _) = p.communicate()
+        backup_path = backup_path.strip()
+        self.restore_backup(source=backup_path,
+                            appvm=self.backupvm)
+        self.remove_vms(vms)
+
+    def test_110_send_to_vm_command(self):
+        vms = self.create_backup_vms()
+        self.backupvm.start()
+        self.make_backup(vms,
+                         do_kwargs={
+                             'appvm': self.backupvm,
+                             'compressed': True,
+                             'encrypted': True},
+                         target='dd of=/var/tmp/backup-test')
+        self.remove_vms(vms)
+        self.restore_backup(source='dd if=/var/tmp/backup-test',
+                            appvm=self.backupvm)
+        self.remove_vms(vms)
+
+    def test_110_send_to_vm_no_space(self):
+        """
+        Check whether backup properly report failure when no enough space is
+        available
+        :return:
+        """
+        vms = self.create_backup_vms()
+        self.backupvm.start()
+        retcode = self.backupvm.run(
+            "truncate -s 50M /home/user/backup.img && "
+            "mkfs.ext4 -F /home/user/backup.img && "
+            "mkdir /home/user/backup && "
+            "mount /home/user/backup.img /home/user/backup -o loop &&"
+            "chmod 777 /home/user/backup",
+            user="root", wait=True)
+        if retcode != 0:
+            raise RuntimeError("Failed to prepare backup directory")
+        with self.assertRaises(QubesException):
+            self.make_backup(vms,
+                             do_kwargs={
+                                 'appvm': self.backupvm,
+                                 'compressed': False,
+                                 'encrypted': True},
+                             target='/home/user/backup',
+                             expect_failure=True)
+        self.qc.lock_db_for_writing()
+        self.qc.load()
+        self.remove_vms(vms)
+
+
+def load_tests(loader, tests, pattern):
+    try:
+        qc = qubes.qubes.QubesVmCollection()
+        qc.lock_db_for_reading()
+        qc.load()
+        qc.unlock_db()
+        templates = [vm.name for vm in qc.values() if
+                     isinstance(vm, QubesTemplateVm)]
+    except OSError:
+        templates = []
+    for template in templates:
+        tests.addTests(loader.loadTestsFromTestCase(
+            type(
+                'TC_10_BackupVM_' + template,
+                (TC_10_BackupVMMixin, qubes.tests.QubesTestCase),
+                {'template': template})))
+
+    return tests

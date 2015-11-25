@@ -379,12 +379,6 @@ class BackupTestsMixin(SystemTestsMixin):
         if self.verbose:
             print >>sys.stderr, "-> Creating backupvm"
 
-        # TODO: allow non-default template
-        self.backupvm = self.qc.add_new_vm("QubesAppVm",
-            name=self.make_vm_name('backupvm'),
-            template=self.qc.get_default_template())
-        self.backupvm.create_on_disk(verbose=self.verbose)
-
         self.backupdir = os.path.join(os.environ["HOME"], "test-backup")
         if os.path.exists(self.backupdir):
             shutil.rmtree(self.backupdir)
@@ -452,7 +446,7 @@ class BackupTestsMixin(SystemTestsMixin):
         return vms
 
     def make_backup(self, vms, prepare_kwargs=dict(), do_kwargs=dict(),
-            target=None):
+                    target=None, expect_failure=False):
         # XXX: bakup_prepare and backup_do don't support host_collection
         self.qc.unlock_db()
         if target is None:
