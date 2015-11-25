@@ -26,28 +26,3 @@ fi
 
 TOTAL_SIZE=$[ $ROOT_SIZE + $SWAP_SIZE + 512 ]
 truncate -s ${TOTAL_SIZE}M "$FILENAME"
-sfdisk --no-reread -u M "$FILENAME" > /dev/null 2> /dev/null <<EOF
-0,${SWAP_SIZE},S
-,${ROOT_SIZE},L
-EOF
-
-(
-	flock 200
-	loopdev=`losetup -f --show --partscan "$FILENAME"`
-	udevadm settle
-	created=
-	if [ ! -e ${loopdev}p1 ]; then
-		# device wasn't created automatically, probably udev isn't running;
-		# create devs manually
-		for partdev in /sys/block/$(basename ${loopdev})/loop*p*; do
-			mknod /dev/$(basename ${partdev}) b $(cat ${partdev}/dev | tr : ' ')
-		done
-		created=yes
-	fi
-	mkswap -f ${loopdev}p1 > /dev/null
-	if [ "$created" = "yes" ]; then
-		rm -f ${loopdev}p*
-	fi
-	losetup -d ${loopdev} || :
-	chown --reference `dirname "$FILENAME"` "$FILENAME"
-) 200>"/var/run/qubes/prepare-volatile-img.lock"
