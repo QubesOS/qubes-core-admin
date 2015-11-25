@@ -361,6 +361,32 @@ class SystemTestsMixin(object):
                 )
             time.sleep(0.1)
 
+    def enter_keys_in_window(self, title, keys):
+        """
+        Search for window with given title, then enter listed keys there.
+        The function will wait for said window to appear.
+
+        :param title: title of window
+        :param keys: list of keys to enter, as for `xdotool key`
+        :return: None
+        """
+
+        # 'xdotool search --sync' sometimes crashes on some race when
+        # accessing window properties
+        self.wait_for_window(title)
+        command = ['xdotool', 'search', '--name', title,
+                   'windowactivate',
+                   'key'] + keys
+        subprocess.check_call(command)
+
+    def shutdown_and_wait(self, vm, timeout=60):
+        vm.shutdown()
+        while timeout > 0:
+            if not vm.is_running():
+                return
+            time.sleep(1)
+            timeout -= 1
+        self.fail("Timeout while waiting for VM {} shutdown".format(vm.name))
 
 class BackupTestsMixin(SystemTestsMixin):
     def setUp(self):

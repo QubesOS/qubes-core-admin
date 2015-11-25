@@ -54,24 +54,6 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         self.testvm1 = self.qc[self.testvm1.qid]
         self.testvm2 = self.qc[self.testvm2.qid]
 
-    def enter_keys_in_window(self, title, keys):
-        """
-        Search for window with given title, then enter listed keys there.
-        The function will wait for said window to appear.
-
-        :param title: title of window
-        :param keys: list of keys to enter, as for `xdotool key`
-        :return: None
-        """
-
-        # 'xdotool search --sync' sometimes crashes on some race when
-        # accessing window properties
-        self.wait_for_window(title)
-        command = ['xdotool', 'search', '--name', title,
-                   'windowactivate',
-                   'key'] + keys
-        subprocess.check_call(command)
-
     def test_000_start_shutdown(self):
         self.testvm1.start()
         self.assertEquals(self.testvm1.get_power_state(), "Running")
