@@ -133,13 +133,11 @@ class QubesTestCase(unittest.TestCase):
             self.__class__.__name__,
             self._testMethodName))
 
-
     def __str__(self):
         return '{}/{}/{}'.format(
             '.'.join(self.__class__.__module__.split('.')[2:]),
             self.__class__.__name__,
             self._testMethodName)
-
 
     def tearDown(self):
         super(QubesTestCase, self).tearDown()
@@ -152,7 +150,6 @@ class QubesTestCase(unittest.TestCase):
         if getattr(result, 'do_not_clean', False) \
                 and filter((lambda (tc, exc): tc is self), l):
             raise BeforeCleanExit()
-
 
     def assertNotRaises(self, excClass, callableObj=None, *args, **kwargs):
         """Fail if an exception of class excClass is raised
@@ -183,15 +180,14 @@ class QubesTestCase(unittest.TestCase):
         with context:
             callableObj(*args, **kwargs)
 
-
     def assertXMLEqual(self, xml1, xml2):
-        '''Check for equality of two XML objects.
+        """Check for equality of two XML objects.
 
         :param xml1: first element
         :param xml2: second element
         :type xml1: :py:class:`lxml.etree._Element`
         :type xml2: :py:class:`lxml.etree._Element`
-        ''' # pylint: disable=invalid-name
+        """  # pylint: disable=invalid-name
 
         self.assertEqual(xml1.tag, xml2.tag)
         self.assertEqual(xml1.text, xml2.text)
@@ -202,13 +198,13 @@ class QubesTestCase(unittest.TestCase):
 
 class SystemTestsMixin(object):
     def setUp(self):
-        '''Set up the test.
+        """Set up the test.
 
         .. warning::
             This method instantiates QubesVmCollection acquires write lock for
             it. You can use is as :py:attr:`qc`. You can (and probably
             should) release the lock at the end of setUp in subclass
-        '''
+        """
 
         super(SystemTestsMixin, self).setUp()
 
@@ -220,12 +216,13 @@ class SystemTestsMixin(object):
 
         self.remove_test_vms()
 
-
     def tearDown(self):
         super(SystemTestsMixin, self).tearDown()
 
-        try: self.qc.lock_db_for_writing()
-        except qubes.qubes.QubesException: pass
+        try:
+            self.qc.lock_db_for_writing()
+        except qubes.qubes.QubesException:
+            pass
         self.qc.load()
 
         self.remove_test_vms()
@@ -235,7 +232,6 @@ class SystemTestsMixin(object):
         del self.qc
 
         self.conn.close()
-
 
     def make_vm_name(self, name):
         return VMPREFIX + name
@@ -253,13 +249,18 @@ class SystemTestsMixin(object):
             # XXX .is_running() may throw libvirtError if undefined
             if vm.is_running():
                 vm.force_shutdown()
-        except: pass
+        except:
+            pass
 
-        try: vm.remove_from_disk()
-        except: pass
+        try:
+            vm.remove_from_disk()
+        except:
+            pass
 
-        try: vm.libvirt_domain.undefine()
-        except libvirt.libvirtError: pass
+        try:
+            vm.libvirt_domain.undefine()
+        except libvirt.libvirtError:
+            pass
 
         self.qc.pop(vm.qid)
         del vm
@@ -268,12 +269,12 @@ class SystemTestsMixin(object):
         # for example if vm.libvirtDomain malfunctioned.
         try:
             dom = self.conn.lookupByName(vmname)
-        except: pass
+        except:
+            pass
         else:
             self._remove_vm_libvirt(dom)
 
         self._remove_vm_disk(vmname)
-
 
     def _remove_vm_libvirt(self, dom):
         try:
@@ -281,7 +282,6 @@ class SystemTestsMixin(object):
         except libvirt.libvirtError: # not running
             pass
         dom.undefine()
-
 
     def _remove_vm_disk(self, vmname):
         for dirspec in (
@@ -296,21 +296,19 @@ class SystemTestsMixin(object):
                 else:
                     os.unlink(dirpath)
 
-
     def remove_vms(self, vms):
         for vm in vms: self._remove_vm_qubes(vm)
         self.save_and_reload_db()
 
-
     def remove_test_vms(self):
-        '''Aggresively remove any domain that has name in testing namespace.
+        """Aggresively remove any domain that has name in testing namespace.
 
         .. warning::
             The test suite hereby claims any domain whose name starts with
             :py:data:`VMPREFIX` as fair game. This is needed to enforce sane
             test executing environment. If you have domains named ``test-*``,
             don't run the tests.
-        '''
+        """
 
         # first, remove them Qubes-way
         something_removed = False
@@ -392,27 +390,22 @@ class BackupTestsMixin(SystemTestsMixin):
             shutil.rmtree(self.backupdir)
         os.mkdir(self.backupdir)
 
-
     def tearDown(self):
         super(BackupTestsMixin, self).tearDown()
         shutil.rmtree(self.backupdir)
 
-
     def print_progress(self, progress):
         if self.verbose:
             print >> sys.stderr, "\r-> Backing up files: {0}%...".format(progress)
-
 
     def error_callback(self, message):
         self.error_detected.put(message)
         if self.verbose:
             print >> sys.stderr, "ERROR: {0}".format(message)
 
-
     def print_callback(self, msg):
         if self.verbose:
             print msg
-
 
     def fill_image(self, path, size=None, sparse=False):
         block_size = 4096
@@ -431,7 +424,6 @@ class BackupTestsMixin(SystemTestsMixin):
                 f.seek(block_size, 1)
 
         f.close()
-
 
     # NOTE: this was create_basic_vms
     def create_backup_vms(self):
@@ -459,7 +451,6 @@ class BackupTestsMixin(SystemTestsMixin):
 
         return vms
 
-
     def make_backup(self, vms, prepare_kwargs=dict(), do_kwargs=dict(),
             target=None):
         # XXX: bakup_prepare and backup_do don't support host_collection
@@ -472,18 +463,23 @@ class BackupTestsMixin(SystemTestsMixin):
                                       print_callback=self.print_callback,
                                       **prepare_kwargs)
         except qubes.qubes.QubesException as e:
-            self.fail("QubesException during backup_prepare: %s" % str(e))
+            if not expect_failure:
+                self.fail("QubesException during backup_prepare: %s" % str(e))
+            else:
+                raise
 
         try:
             qubes.backup.backup_do(target, files_to_backup, "qubes",
                              progress_callback=self.print_progress,
                              **do_kwargs)
         except qubes.qubes.QubesException as e:
-            self.fail("QubesException during backup_do: %s" % str(e))
+            if not expect_failure:
+                self.fail("QubesException during backup_do: %s" % str(e))
+            else:
+                raise
 
         self.qc.lock_db_for_writing()
         self.qc.load()
-
 
     def restore_backup(self, source=None, appvm=None, options=None,
                        expect_errors=None):
@@ -527,7 +523,6 @@ class BackupTestsMixin(SystemTestsMixin):
                          '\n'.join(errors))
         if not appvm and not os.path.isdir(backupfile):
             os.unlink(backupfile)
-
 
     def create_sparse(self, path, size):
         f = open(path, "w")
