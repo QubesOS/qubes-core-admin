@@ -555,8 +555,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                              self.testvm2.name, passio_popen=True,
                              passio_stderr=True)
         # Confirm transfer
-        subprocess.check_call(
-            ['xdotool', 'search', '--sync', '--name', 'Question', 'key', 'y'])
+        self.enter_keys_in_window('Question', ['y'])
         p.wait()
         self.assertEqual(p.returncode, 0, "qvm-copy-to-vm failed: %s" %
                          p.stderr.read())
@@ -785,23 +784,14 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
         try:
             window_title = 'user@%s' % (dispvm.template.name + "-dvm")
             p.stdin.write("xterm -e "
-                          "\"sh -s -c 'echo \\\"\033]0;{}\007\\\";read;'\"\n".
+                          "\"sh -s -c 'echo \\\"\033]0;{}\007\\\";read x;'\"\n".
                           format(window_title))
             self.wait_for_window(window_title)
 
             time.sleep(0.5)
-            subprocess.check_call(['xdotool', 'search', '--name', window_title,
-                                  'windowactivate', 'key', 'Return'])
-
-            wait_count = 0
-            while subprocess.call(['xdotool', 'search', '--name', window_title],
-                                  stdout=open(os.path.devnull, 'w'),
-                                  stderr=subprocess.STDOUT) == 0:
-                wait_count += 1
-                if wait_count > 100:
-                    self.fail("Timeout while waiting for gnome-terminal "
-                              "termination")
-                time.sleep(0.1)
+            self.enter_keys_in_window(window_title, ['Return'])
+            # Wait for window to close
+            self.wait_for_window(window_title, show=False)
         finally:
             p.stdin.close()
 
