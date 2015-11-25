@@ -382,22 +382,17 @@ class Pool(object):
                 string (str) absolute path to the directory where the vm files
                              are stored
         """
-        # TODO: This is a hack, circular dependencies problem?
-        from qubes.qubes import (QubesAppVm, QubesDisposableVm, QubesHVm, 
-                                 QubesNetVm, QubesTemplateHVm, QubesTemplateVm)
-        vm_type = type(vm)
-
-        if vm_type in [QubesAppVm, QubesHVm]:
+        if vm.is_appvm():
             subdir = 'appvms'
-        elif vm_type in [QubesTemplateVm, QubesTemplateHVm]:
+        elif vm.is_template():
             subdir = 'vm-templates'
-        elif issubclass(vm_type, QubesNetVm):
+        elif vm.is_netvm():
             subdir = 'servicevms'
-        elif vm_type is QubesDisposableVm:
+        elif vm.is_disposablevm():
             subdir = 'appvms'
             return os.path.join(pool_dir, subdir, vm.template.name + '-dvm')
         else:
-            raise QubesException(str(vm_type) + ' unknown vm type')
+            raise QubesException(vm.type() + ' unknown vm type')
 
         return os.path.join(pool_dir, subdir, vm.name)
 
