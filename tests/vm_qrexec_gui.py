@@ -693,7 +693,9 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         # First offline test
         self.testvm1.resize_private_img(4*1024**3)
         self.testvm1.start()
-        p = self.testvm1.run('df --output=size /rw|tail -n 1',
+        df_cmd = '( df --output=size /rw || df /rw | awk \'{print $2}\' )|' \
+                 'tail -n 1'
+        p = self.testvm1.run(df_cmd,
                              passio_popen=True)
         # new_size in 1k-blocks
         (new_size, _) = p.communicate()
@@ -701,7 +703,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         self.assertGreater(int(new_size.strip()), 3.8*1024**2)
         # Then online test
         self.testvm1.resize_private_img(6*1024**3)
-        p = self.testvm1.run('df --output=size /rw|tail -n 1',
+        p = self.testvm1.run(df_cmd,
                              passio_popen=True)
         # new_size in 1k-blocks
         (new_size, _) = p.communicate()
