@@ -603,6 +603,41 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             wait=True)
         self.assertEqual(retcode, 0, "file differs")
 
+    @unittest.skipUnless(spawn.find_executable('xdotool'),
+                         "xdotool not installed")
+    def test_130_qrexec_filemove_disk_full(self):
+        self.testvm1.start()
+        self.testvm2.start()
+        # Prepare test file
+        prepare_cmd = ("yes teststring | dd of=testfile bs=1M "
+                       "count=50 iflag=fullblock")
+        retcode = self.testvm1.run(prepare_cmd, wait=True)
+        if retcode != 0:
+            raise RuntimeError("Failed '{}' in {}".format(prepare_cmd,
+                                                          self.testvm1.name))
+        # Prepare target directory with limited size
+        prepare_cmd = (
+            "mkdir -p /home/user/QubesIncoming && "
+            "chown user /home/user/QubesIncoming && "
+            "mount -t tmpfs none /home/user/QubesIncoming -o size=48M"
+        )
+        retcode = self.testvm2.run(prepare_cmd, user="root", wait=True)
+        if retcode != 0:
+            raise RuntimeError("Failed '{}' in {}".format(prepare_cmd,
+                                                          self.testvm2.name))
+        p = self.testvm1.run("qvm-move-to-vm %s testfile" %
+                             self.testvm2.name, passio_popen=True,
+                             passio_stderr=True)
+        # Confirm transfer
+        self.enter_keys_in_window('Question', ['y'])
+        # Close GUI error message
+        self.enter_keys_in_window('Error', ['Return'])
+        p.wait()
+        self.assertEqual(p.returncode, 255, "qvm-move-to-vm should fail")
+        retcode = self.testvm1.run("test -f testfile", wait=True)
+        self.assertEqual(retcode, 0, "testfile should not be deleted in "
+                                     "source VM")
+
     def test_200_timezone(self):
         """Test whether timezone setting is properly propagated to the VM"""
         if "whonix" in self.template:
