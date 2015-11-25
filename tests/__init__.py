@@ -353,7 +353,7 @@ class SystemTestsMixin(object):
         wait_count = 0
         while subprocess.call(['xdotool', 'search', '--name', title],
                               stdout=open(os.path.devnull, 'w'),
-                              stderr=subprocess.STDOUT) == 0:
+                              stderr=subprocess.STDOUT) == int(show):
             wait_count += 1
             if wait_count > timeout*10:
                 self.fail("Timeout while waiting for {} window to {}".format(
