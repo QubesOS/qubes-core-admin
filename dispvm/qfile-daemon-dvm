@@ -28,7 +28,7 @@ import sys
 import shutil
 import time
 
-from qubes.qubes import QubesVmCollection
+from qubes.qubes import QubesVmCollection, QubesException
 from qubes.qubes import QubesDispVmLabels
 from qubes.notify import tray_notify, tray_notify_error, tray_notify_init
 
@@ -98,7 +98,11 @@ class QfileDaemonDvm:
             qvm_collection.unlock_db()
             return None
         print >>sys.stderr, "time=%s, VM starting" % (str(time.time()))
-        dispvm.start()
+        try:
+            dispvm.start()
+        except (MemoryError, QubesException) as e:
+            tray_notify_error(e)
+            raise
         if vm.qid != 0:
             # if need to enable/disable netvm, do it while DispVM is alive
             if (dispvm.netvm is None) != (vm.dispvm_netvm is None):
