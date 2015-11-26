@@ -219,10 +219,16 @@ class SystemTestsMixin(object):
     def tearDown(self):
         super(SystemTestsMixin, self).tearDown()
 
+        # release the lock, because we have no way to check whether it was
+        # read or write lock
         try:
-            self.qc.lock_db_for_writing()
+            self.qc.unlock_db()
         except qubes.qubes.QubesException:
             pass
+
+        self.kill_test_vms()
+
+        self.qc.lock_db_for_writing()
         self.qc.load()
 
         self.remove_test_vms()
@@ -241,6 +247,18 @@ class SystemTestsMixin(object):
         self.qc.unlock_db()
         self.qc.lock_db_for_writing()
         self.qc.load()
+
+    def kill_test_vms(self):
+        # do not keep write lock while killing VMs, because that may cause a
+        # deadlock with disk hotplug scripts (namely qvm-template-commit
+        # called when shutting down TemplateVm)
+        self.qc.lock_db_for_reading()
+        self.qc.load()
+        self.qc.unlock_db()
+        for vm in self.qc.values():
+            if vm.name.startswith(VMPREFIX):
+                if vm.is_running():
+                    vm.force_shutdown()
 
     def _remove_vm_qubes(self, vm):
         vmname = vm.name
