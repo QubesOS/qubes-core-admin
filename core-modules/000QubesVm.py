@@ -1161,8 +1161,10 @@ class QubesVm(object):
             args['dns2'] = self.secondary_dns
             args['netmask'] = self.netmask
             args['netdev'] = self._format_net_dev(self.ip, self.mac, self.netvm.name)
-            args['disable_network1'] = '';
-            args['disable_network2'] = '';
+            args['network_begin'] = ''
+            args['network_end'] = ''
+            args['no_network_begin'] = '<!--'
+            args['no_network_end'] = '-->'
         else:
             args['ip'] = ''
             args['mac'] = ''
@@ -1171,8 +1173,10 @@ class QubesVm(object):
             args['dns2'] = ''
             args['netmask'] = ''
             args['netdev'] = ''
-            args['disable_network1'] = '<!--';
-            args['disable_network2'] = '-->';
+            args['network_begin'] = '<!--'
+            args['network_end'] = '-->'
+            args['no_network_begin'] = ''
+            args['no_network_end'] = ''
         args.update(self.storage.get_config_params())
         if hasattr(self, 'kernelopts'):
             args['kernelopts'] = self.kernelopts
