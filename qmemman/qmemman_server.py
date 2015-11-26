@@ -74,6 +74,16 @@ class XS_Watcher:
         self.log.debug('domain_list_changed(param={!r})'.format(param))
 
         curr = self.handle.ls('', '/local/domain')
+        # check if domain is really there, it may happen that some empty
+        # directories are left in xenstore
+        curr = filter(
+            lambda x:
+            self.handle.read('',
+                             '/local/domain/{}/domid'.format(x)
+                             ) is not None,
+            curr
+        )
+
         self.log.debug('curr={!r}'.format(curr))
 
         if curr == None:
