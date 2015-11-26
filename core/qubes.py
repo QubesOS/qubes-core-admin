@@ -651,6 +651,8 @@ class QubesVmCollection(dict):
             self.qubes_store_file.close()
 
     def unlock_db(self):
+        if self.qubes_store_file is None:
+            return
         # intentionally do not call explicit unlock to not unlock the file
         # before all buffers are flushed
         self.log.debug('unlock_db()')
