@@ -1572,6 +1572,8 @@ def backup_restore_set_defaults(options):
         options['ignore-username-mismatch'] = False
     if 'verify-only' not in options:
         options['verify-only'] = False
+    if 'rename-conflicting' not in options:
+        options['rename-conflicting'] = False
 
     return options
 
@@ -1639,6 +1641,22 @@ def backup_restore_header(source, passphrase,
     return (restore_tmpdir, os.path.join(restore_tmpdir, "qubes.xml"),
             header_data)
 
+def generate_new_name_for_conflicting_vm(orig_name, host_collection,
+                                         restore_info):
+    number = 1
+    if len(orig_name) > 29:
+        orig_name = orig_name[0:29]
+    new_name = orig_name
+    while (new_name in restore_info.keys() or
+           new_name in map(lambda x: x.get('rename_to', None),
+                           restore_info.values()) or
+           host_collection.get_vm_by_name(new_name)):
+        new_name = str('{}{}'.format(orig_name, number))
+        number += 1
+        if number == 100:
+            # give up
+            return None
+    return new_name
 
 def restore_info_verify(restore_info, host_collection):
     options = restore_info['$OPTIONS$']
@@ -1656,7 +1674,16 @@ def restore_info_verify(restore_info, host_collection):
         vm_info.pop('already-exists', None)
         if not options['verify-only'] and \
                 host_collection.get_vm_by_name(vm) is not None:
-            vm_info['already-exists'] = True
+            if options['rename-conflicting']:
+                new_name = generate_new_name_for_conflicting_vm(
+                    vm, host_collection, restore_info
+                )
+                if new_name is not None:
+                    vm_info['rename-to'] = new_name
+                else:
+                    vm_info['already-exists'] = True
+            else:
+                vm_info['already-exists'] = True
 
         # check template
         vm_info.pop('missing-template', None)
@@ -1702,6 +1729,22 @@ def restore_info_verify(restore_info, host_collection):
                                                   'missing-template',
                                                   'already-exists',
                                                   'excluded']])
+
+    # update references to renamed VMs:
+    for vm in restore_info.keys():
+        if vm in ['$OPTIONS$', 'dom0']:
+            continue
+        vm_info = restore_info[vm]
+        template_name = vm_info['template']
+        if (template_name in restore_info and
+                restore_info[template_name]['good-to-go'] and
+                'rename-to' in restore_info[template_name]):
+            vm_info['template'] = restore_info[template_name]['rename-to']
+        netvm_name = vm_info['netvm']
+        if (netvm_name in restore_info and
+                restore_info[netvm_name]['good-to-go'] and
+                'rename-to' in restore_info[netvm_name]):
+            vm_info['netvm'] = restore_info[netvm_name]['rename-to']
 
     return restore_info
 
@@ -1975,8 +2018,11 @@ def backup_restore_print_summary(restore_info, print_callback=print_stdout):
             s += " <-- No matching template on the host or in the backup found!"
         elif 'missing-netvm' in vm_info:
             s += " <-- No matching netvm on the host or in the backup found!"
-        elif 'orig-template' in vm_info:
-            s += " <-- Original template was '%s'" % (vm_info['orig-template'])
+        else:
+            if 'orig-template' in vm_info:
+                s += " <-- Original template was '%s'" % (vm_info['orig-template'])
+            if 'rename-to' in vm_info:
+                s += " <-- Will be renamed to '%s'" % vm_info['rename-to']
 
         print_callback(s)
 
@@ -2124,33 +2170,35 @@ def backup_restore_do(restore_info,
                 error_callback("Skipping...")
                 continue
 
-            if os.path.exists(vm.dir_path):
-                move_to_path = tempfile.mkdtemp('', os.path.basename(
-                    vm.dir_path), os.path.dirname(vm.dir_path))
-                try:
-                    os.rename(vm.dir_path, move_to_path)
-                    error_callback("*** Directory {} already exists! It has "
-                                   "been moved to {}".format(vm.dir_path,
-                                                             move_to_path))
-                except OSError:
-                    error_callback("*** Directory {} already exists and "
-                                   "cannot be moved!".format(vm.dir_path))
-                    error_callback("Skipping...")
-                    continue
-
             template = None
             if vm.template is not None:
                 template_name = restore_info[vm.name]['template']
                 template = host_collection.get_vm_by_name(template_name)
 
             new_vm = None
+            vm_name = vm.name
+            if 'rename-to' in restore_info[vm.name]:
+                vm_name = restore_info[vm.name]['rename-to']
 
             try:
-                new_vm = host_collection.add_new_vm(vm_class_name, name=vm.name,
-                                                    conf_file=vm.conf_file,
-                                                    dir_path=vm.dir_path,
+                new_vm = host_collection.add_new_vm(vm_class_name, name=vm_name,
                                                     template=template,
                                                     installed_by_rpm=False)
+                if os.path.exists(new_vm.dir_path):
+                    move_to_path = tempfile.mkdtemp('', os.path.basename(
+                        new_vm.dir_path), os.path.dirname(new_vm.dir_path))
+                    try:
+                        os.rename(new_vm.dir_path, move_to_path)
+                        error_callback(
+                            "*** Directory {} already exists! It has "
+                            "been moved to {}".format(new_vm.dir_path,
+                                                      move_to_path))
+                    except OSError:
+                        error_callback(
+                            "*** Directory {} already exists and "
+                            "cannot be moved!".format(new_vm.dir_path))
+                        error_callback("Skipping...")
+                        continue
 
                 if format_version == 1:
                     restore_vm_dir_v1(backup_location,
@@ -2194,7 +2242,11 @@ def backup_restore_do(restore_info,
 
     # Set network dependencies - only non-default netvm setting
     for vm in vms.values():
-        host_vm = host_collection.get_vm_by_name(vm.name)
+        vm_name = vm.name
+        if 'rename-to' in restore_info[vm.name]:
+            vm_name = restore_info[vm.name]['rename-to']
+        host_vm = host_collection.get_vm_by_name(vm_name)
+
         if host_vm is None:
             # Failed/skipped VM
             continue
