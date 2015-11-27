@@ -85,6 +85,13 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
         self.restore_backup()
         self.remove_vms(vms)
 
+    def test_005_compressed_custom(self):
+        vms = self.create_backup_vms()
+        self.make_backup(vms, do_kwargs={'compressed': "bzip2"})
+        self.remove_vms(vms)
+        self.restore_backup()
+        self.remove_vms(vms)
+
     def test_200_restore_over_existing_directory(self):
         """
         Regression test for #1386
