@@ -54,6 +54,10 @@ def main():
     parser.add_option ("--skip-conflicting", action="store_true", dest="skip_conflicting", default=False,
                        help="Do not restore VMs that are already present on the host")
 
+    parser.add_option ("--rename-conflicting", action="store_true",
+                       dest="rename_conflicting", default=False,
+                       help="Restore VMs that are already present on the host under different name")
+
     parser.add_option ("--force-root", action="store_true", dest="force_root", default=False,
                        help="Force to run, even with root privileges")
 
@@ -193,6 +197,9 @@ def main():
         else:
             print >> sys.stderr, "Remove VMs with conflicting names from the host before proceeding."
             print >> sys.stderr, "... or use --skip-conflicting to restore only those VMs that do not exist on the host."
+            print >> sys.stderr, "... or use --rename-conflicting to " \
+                                 "restore those VMs under modified " \
+                                 "name (with number at the end)"
             exit (1)
 
     print "The above VMs will be copied and added to your system."
