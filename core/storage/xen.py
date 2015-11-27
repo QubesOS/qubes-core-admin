@@ -28,9 +28,7 @@ import re
 import subprocess
 import sys
 
-from qubes.qubes import (QubesAppVm, QubesDisposableVm, QubesException,
-                         QubesHVm, QubesNetVm, QubesTemplateHVm,
-                         QubesTemplateVm, defaults, vm_files)
+from qubes.qubes import QubesException, vm_files
 from qubes.storage import Pool, QubesVmStorage
 
 
@@ -51,11 +49,6 @@ class XenStorage(QubesVmStorage):
 
         super(XenStorage, self).__init__(vm, **kwargs)
 
-        self.root_dev = "xvda"
-        self.private_dev = "xvdb"
-        self.volatile_dev = "xvdc"
-        self.modules_dev = "xvdd"
-
         self.vmdir = vmdir
 
         if self.vm.is_template():
@@ -71,36 +64,17 @@ class XenStorage(QubesVmStorage):
             self.root_img = os.path.join(vmdir, 'root.img')
         self.volatile_img = os.path.join(vmdir, 'volatile.img')
 
-    def _format_disk_dev(self, path, script, vdev, rw=True, type="disk", domain=None):
-        if path is None:
-            return ''
-        template = "    <disk type='block' device='{type}'>\n" \
-                   "      <driver name='phy'/>\n" \
-                   "      <source dev='{path}'/>\n" \
-                   "      <target dev='{vdev}' bus='xen'/>\n" \
-                   "{params}" \
-                   "    </disk>\n"
-        params = ""
-        if not rw:
-            params += "      <readonly/>\n"
-        if domain:
-            params += "      <backenddomain name='%s'/>\n" % domain
-        if script:
-            params += "      <script path='%s'/>\n" % script
-        return template.format(path=path, vdev=vdev, type=type,
-            params=params)
-
     def _get_rootdev(self):
         if self.vm.is_template() and \
                 os.path.exists(os.path.join(self.vmdir, "root-cow.img")):
-            return self._format_disk_dev(
+            return self.format_disk_dev(
                     "{dir}/root.img:{dir}/root-cow.img".format(
                         dir=self.vmdir),
                     "block-origin", self.root_dev, True)
         elif self.vm.template and not self.vm.template.storage.rootcow_img:
             # HVM template-based VM - template doesn't have own
             # root-cow.img, only one device-mapper layer
-            return self._format_disk_dev(
+            return self.format_disk_dev(
                     "{tpldir}/root.img:{vmdir}/volatile.img".format(
                         tpldir=self.vm.template.dir_path,
                         vmdir=self.vmdir),
@@ -109,12 +83,12 @@ class XenStorage(QubesVmStorage):
             # any other template-based VM - two device-mapper layers: one
             # in dom0 (here) from root+root-cow, and another one from
             # this+volatile.img
-            return self._format_disk_dev(
+            return self.format_disk_dev(
                     "{dir}/root.img:{dir}/root-cow.img".format(
                         dir=self.vm.template.dir_path),
                     "block-snapshot", self.root_dev, False)
         else:
-            return self._format_disk_dev(
+            return self.format_disk_dev(
                     "{dir}/root.img".format(dir=self.vmdir),
                     None, self.root_dev, True)
 
@@ -122,14 +96,14 @@ class XenStorage(QubesVmStorage):
         args = {}
         args['rootdev'] = self._get_rootdev()
         args['privatedev'] = \
-                self._format_disk_dev(self.private_img,
+                self.format_disk_dev(self.private_img,
                         None, self.private_dev, True)
         args['volatiledev'] = \
-                self._format_disk_dev(self.volatile_img,
+                self.format_disk_dev(self.volatile_img,
                         None, self.volatile_dev, True)
         if self.modules_img is not None:
             args['otherdevs'] = \
-                    self._format_disk_dev(self.modules_img,
+                    self.format_disk_dev(self.modules_img,
                             None, self.modules_dev, self.modules_img_rw)
         elif self.drive is not None:
             (drive_type, drive_domain, drive_path) = self.drive.split(":")
@@ -138,7 +112,7 @@ class XenStorage(QubesVmStorage):
             if drive_domain.lower() == "dom0":
                 drive_domain = None
 
-            args['otherdevs'] = self._format_disk_dev(drive_path, None,
+            args['otherdevs'] = self.format_disk_dev(drive_path, None,
                     self.modules_dev,
                     rw=True if drive_type == "disk" else False, type=drive_type,
                     domain=drive_domain)
@@ -275,64 +249,8 @@ class XenStorage(QubesVmStorage):
 class XenPool(Pool):
 
     def __init__(self, vm, dir_path):
-        assert vm is not None
-        assert dir_path is not None
-
-        appvms_path = os.path.join(dir_path, 'appvms')
-        servicevms_path = os.path.join(dir_path, 'servicevms')
-        vm_templates_path = os.path.join(dir_path, 'vm-templates')
-
-        self._create_dir_if_not_exists(dir_path)
-        self._create_dir_if_not_exists(appvms_path)
-        self._create_dir_if_not_exists(servicevms_path)
-        self._create_dir_if_not_exists(vm_templates_path)
-
-        self.vmdir = self._vmdir_path(vm, dir_path)
-        self.vm = vm
-        self.dir_path = dir_path
+        super(XenPool, self).__init__(vm, dir_path)
 
     def getStorage(self):
         """ Returns an instantiated ``XenStorage``. """
-        return defaults['storage_class'](self.vm, vmdir=self.vmdir)
-
-    def _vmdir_path(self, vm, pool_dir):
-        """ Get the vm dir depending on the type of the VM.
-
-            The default QubesOS file storage saves the vm images in three
-            different directories depending on the ``QubesVM`` type:
-
-            * ``appvms`` for ``QubesAppVm`` or ``QubesHvm``
-            * ``vm-templates`` for ``QubesTemplateVm`` or ``QubesTemplateHvm``
-            * ``servicevms`` for any subclass of  ``QubesNetVm``
-
-            Args:
-                vm: a QubesVM
-                pool_dir: the root directory of the pool
-
-            Returns:
-                string (str) absolute path to the directory where the vm files
-                             are stored
-        """
-        vm_type = type(vm)
-
-        if vm_type in [QubesAppVm, QubesHVm]:
-            subdir = 'appvms'
-        elif vm_type in [QubesTemplateVm, QubesTemplateHVm]:
-            subdir = 'vm-templates'
-        elif issubclass(vm_type, QubesNetVm):
-            subdir = 'servicevms'
-        elif vm_type is QubesDisposableVm:
-            subdir = 'appvms'
-            return os.path.join(pool_dir, subdir, vm.template.name + '-dvm')
-        else:
-            raise QubesException(str(vm_type) + ' unknown vm type')
-
-        return os.path.join(pool_dir, subdir, vm.name)
-
-    def _create_dir_if_not_exists(self, path):
-        """ Check if a directory exists in if not it is created.
-
-            This method does not create any parent directories.
-        """
-        if not os.path.exists(path):
-            os.mkdir(path)
+        return XenStorage(self.vm, vmdir=self.vmdir)
