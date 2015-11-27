@@ -104,6 +104,24 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
             ])
         self.remove_vms(vms)
 
+    def test_210_auto_rename(self):
+        """
+        Test for #869
+        :return:
+        """
+        vms = self.create_backup_vms()
+        self.make_backup(vms)
+        self.restore_backup(options={
+            'rename-conflicting': True
+        })
+        for vm in vms:
+            self.assertIsNotNone(self.qc.get_vm_by_name(vm.name+'1'))
+            restored_vm = self.qc.get_vm_by_name(vm.name+'1')
+            if vm.netvm and not vm.uses_default_netvm:
+                self.assertEqual(restored_vm.netvm.name, vm.netvm.name+'1')
+
+        self.remove_vms(vms)
+
 class TC_10_BackupVMMixin(qubes.tests.BackupTestsMixin):
     def setUp(self):
         super(TC_10_BackupVMMixin, self).setUp()
