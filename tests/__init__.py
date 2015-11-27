@@ -460,11 +460,22 @@ class BackupTestsMixin(SystemTestsMixin):
         template=self.qc.get_default_template()
 
         vms = []
+        vmname = self.make_vm_name('test-net')
+        if self.verbose:
+            print >>sys.stderr, "-> Creating %s" % vmname
+        testnet = self.qc.add_new_vm('QubesNetVm',
+            name=vmname, template=template)
+        testnet.create_on_disk(verbose=self.verbose)
+        vms.append(testnet)
+        self.fill_image(testnet.private_img, 20*1024*1024)
+
         vmname = self.make_vm_name('test1')
         if self.verbose:
             print >>sys.stderr, "-> Creating %s" % vmname
         testvm1 = self.qc.add_new_vm('QubesAppVm',
             name=vmname, template=template)
+        testvm1.uses_default_netvm = False
+        testvm1.netvm = testnet
         testvm1.create_on_disk(verbose=self.verbose)
         vms.append(testvm1)
         self.fill_image(testvm1.private_img, 100*1024*1024)
