@@ -154,7 +154,6 @@ if ! grep -q ^qubes: /etc/group ; then
 fi
 
 %triggerin -- xen-runtime
-sed -i 's/\/block /\/block.qubes /' /etc/udev/rules.d/xen-backend.rules
 /usr/lib/qubes/fix-dir-perms.sh
 
 %preun
@@ -170,7 +169,6 @@ if [ "$1" = 0 ] ; then
     chgrp root /etc/xen
     chmod 700 /etc/xen
     groupdel qubes
-    sed -i 's/\/block.qubes /\/block /' /etc/udev/rules.d/xen-backend.rules
 fi
 
 %files
