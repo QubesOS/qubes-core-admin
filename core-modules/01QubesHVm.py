@@ -352,24 +352,27 @@ class QubesHVm(QubesResizableVm):
         if (retcode != 0) :
             raise QubesException("Cannot start qubes-guid!")
 
-    def start_guid(self, verbose = True, notify_function = None,
-            before_qrexec=False, **kwargs):
-        # If user force the guiagent, start_guid will mimic a standard QubesVM
-        if not before_qrexec and self.guiagent_installed:
-            kwargs['extra_guid_args'] = kwargs.get('extra_guid_args', []) + \
-                                        ['-Q']
-            super(QubesHVm, self).start_guid(verbose, notify_function, **kwargs)
-            stubdom_guid_pidfile = '/var/run/qubes/guid-running.%d' % self.stubdom_xid
-            if os.path.exists(stubdom_guid_pidfile) and not self.debug:
-                try:
-                    stubdom_guid_pid = int(open(stubdom_guid_pidfile, 'r').read())
-                    os.kill(stubdom_guid_pid, signal.SIGTERM)
-                except Exception as ex:
-                    print >> sys.stderr, "WARNING: Failed to kill stubdom gui daemon: %s" % str(ex)
-        elif before_qrexec and (not self.guiagent_installed or self.debug):
+    def start_guid(self, verbose=True, notify_function=None,
+                   before_qrexec=False, **kwargs):
+        if not before_qrexec:
+            return
+
+        if not self.guiagent_installed or self.debug:
             if verbose:
                 print >> sys.stderr, "--> Starting Qubes GUId (full screen)..."
             self.start_stubdom_guid(verbose=verbose)
+
+        kwargs['extra_guid_args'] = kwargs.get('extra_guid_args', []) + \
+            ['-Q', '-n']
+
+        stubdom_guid_pidfile = \
+            '/var/run/qubes/guid-running.%d' % self.stubdom_xid
+        if not self.debug and os.path.exists(stubdom_guid_pidfile):
+            # Terminate stubdom guid once "real" gui agent connects
+            stubdom_guid_pid = int(open(stubdom_guid_pidfile, 'r').read())
+            kwargs['extra_guid_args'] += ['-K', str(stubdom_guid_pid)]
+
+        super(QubesHVm, self).start_guid(verbose, notify_function, **kwargs)
 
     def start_qrexec_daemon(self, **kwargs):
         if not self.qrexec_installed:
