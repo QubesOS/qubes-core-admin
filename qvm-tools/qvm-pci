@@ -79,7 +79,7 @@ def main():
     if options.offline_mode:
         vmm.offline_mode = True
 
-    if options.do_add or options.do_delete or options.add_class:
+    if options.do_add or options.do_delete or options.do_add_class:
         qvm_collection = QubesVmCollection()
         qvm_collection.lock_db_for_writing()
         qvm_collection.load()
@@ -121,6 +121,8 @@ def main():
 
         for dev in devs:
             vm.pci_add(dev)
+        qvm_collection.save()
+        qvm_collection.unlock_db()
 
     elif options.do_delete:
         if len (args) < 2:
