@@ -1948,6 +1948,14 @@ class QubesVm(object):
         if not self.is_running():
             raise QubesException ("VM already stopped!")
 
+        # try to gracefully detach PCI devices before shutdown, to mitigate
+        # timeouts on forcible detach at domain destroy; if that fails, too bad
+        try:
+            for pcidev in self.pcidevs:
+                self.libvirt_domain.detachDevice(self._format_pci_dev(pcidev))
+        except libvirt.libvirtError:
+            pass
+
         self.libvirt_domain.shutdown()
 
     def force_shutdown(self, xid = None):
