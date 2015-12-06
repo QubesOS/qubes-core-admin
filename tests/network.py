@@ -320,9 +320,11 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.testvm1.start()
 
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
-        self.testvm1.run("ip addr flush dev eth0", user="root")
-        self.testvm1.run("ip addr add 10.137.1.128/24 dev eth0", user="root")
-        self.testvm1.run("ip route add dev eth0", user="root")
+        self.testvm1.run("ip addr flush dev eth0", user="root", wait=True)
+        self.testvm1.run("ip addr add 10.137.1.128/24 dev eth0", user="root",
+                         wait=True)
+        self.testvm1.run("ip route add default dev eth0", user="root",
+                         wait=True)
         self.assertNotEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
                          "Spoofed ping should be blocked")
 
