@@ -763,7 +763,7 @@ class QubesVm(object):
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return 0
                 # libxl_domain_info failed - domain no longer exists
-            elif e.get_error_code() == libvirt.VIR_INTERNAL_ERROR:
+            elif e.get_error_code() == libvirt.VIR_ERR_INTERNAL_ERROR:
                 return 0
             else:
                 raise
