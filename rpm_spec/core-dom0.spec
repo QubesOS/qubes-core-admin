@@ -48,6 +48,7 @@ BuildRequires:	systemd-units
 # for building documentation
 BuildRequires:	python-sphinx
 BuildRequires:	libvirt-python
+BuildRequires:	dbus-python
 
 Requires(post): systemd-units
 Requires(preun): systemd-units
