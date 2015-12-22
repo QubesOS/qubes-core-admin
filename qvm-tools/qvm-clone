@@ -17,37 +17,43 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-#
-#
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+# USA.
+
+import os
+import sys
+from optparse import OptionParser
 
 from qubes.qubes import QubesVmCollection
-from qubes.qubes import QubesAppVm, QubesTemplateVm, QubesHVm
-from qubes.qubes import QubesException
-from optparse import OptionParser;
-import sys
-import os
+
 
 def main():
     usage = "usage: %prog [options] <src-name> <new-name>\n"\
             "Clones an existing VM by copying all its disk files"
-          
-    parser = OptionParser (usage)
-    parser.add_option ("-q", "--quiet", action="store_false", dest="verbose", default=True)
-    parser.add_option ("-p", "--path", dest="dir_path",
-                       help="Specify path to the template directory")
-    parser.add_option ("--force-root", action="store_true", dest="force_root", default=False,
-                       help="Force to run, even with root privileges")
 
-    (options, args) = parser.parse_args ()
-    if (len (args) != 2):
-        parser.error ("You must specify at least the src and dst TemplateVM names!")
+    parser = OptionParser(usage)
+    parser.add_option("-q", "--quiet", action="store_false", dest="verbose",
+                      default=True)
+    parser.add_option("-p", "--path", dest="dir_path",
+                      help="Specify path to the template directory")
+    parser.add_option("--force-root", action="store_true", dest="force_root",
+                      default=False,
+                      help="Force to run, even with root privileges")
+    parser.add_option("-P", "--pool", dest="pool_name",
+                      help="Specify in to which storage pool to clone")
+
+    (options, args) = parser.parse_args()
+    if (len(args) != 2):
+        parser.error(
+            "You must specify at least the src and dst TemplateVM names!")
     srcname = args[0]
     dstname = args[1]
 
     if hasattr(os, "geteuid") and os.geteuid() == 0:
         if not options.force_root:
-            print >> sys.stderr, "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
+            print >> sys.stderr, "*** Running this tool as root is" + \
+                " strongly discouraged, this will lead you in permissions" + \
+                "problems."
             print >> sys.stderr, "Retry as unprivileged user."
             print >> sys.stderr, "... or use --force-root to continue anyway."
             exit(1)
@@ -57,12 +63,21 @@ def main():
     qvm_collection.load()
 
     src_vm = qvm_collection.get_vm_by_name(srcname)
-    if src_vm is  None:
-        print >> sys.stderr, "ERROR: A VM with the name '{0}' does not exist in the system.".format(srcname)
+    if src_vm is None:
+        print >> sys.stderr, \
+            "ERROR: A VM with the name '{0}' does not exist in the system." \
+            .format(srcname)
         exit(1)
 
+    if options.pool_name is None:
+        pool_name = src_vm.pool_name
+    else:
+        pool_name = options.pool_name
+
     if qvm_collection.get_vm_by_name(dstname) is not None:
-        print >> sys.stderr, "ERROR: A VM with the name '{0}' already exists in the system.".format(dstname)
+        print >> sys.stderr, \
+            "ERROR: A VM with the name '{0}' already exists in the system." \
+            .format(dstname)
         exit(1)
 
     if src_vm.is_disposablevm():
@@ -70,19 +85,21 @@ def main():
         exit(1)
 
     dst_vm = qvm_collection.add_new_vm(src_vm.__class__.__name__,
-            name=dstname, template=src_vm.template,
-            dir_path=options.dir_path, installed_by_rpm=False)
+                                       name=dstname, template=src_vm.template,
+                                       pool_name=pool_name,
+                                       dir_path=options.dir_path,
+                                       installed_by_rpm=False)
 
     try:
         dst_vm.clone_attrs(src_vm)
-        dst_vm.clone_disk_files (src_vm=src_vm, verbose=options.verbose)
+        dst_vm.clone_disk_files(src_vm=src_vm, verbose=options.verbose)
     except (IOError, OSError) as err:
         print >> sys.stderr, "ERROR: {0}".format(err)
         qvm_collection.pop(dst_vm.qid)
         dst_vm.remove_from_disk()
-        exit (1)
+        exit(1)
 
     qvm_collection.save()
     qvm_collection.unlock_db()
-    
+
 main()
