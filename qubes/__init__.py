@@ -1278,7 +1278,7 @@ class Qubes(PropertyHolder):
         '''
 
         while True:
-            fd_old = os.open(self._store, os.O_RDWR) # no O_CREAT
+            fd_old = os.open(self._store, os.O_RDWR | os.O_CREAT)
             if os.name == 'posix':
                 fcntl.lockf(fd_old, fcntl.LOCK_EX)
             elif os.name == 'nt':
@@ -1308,7 +1308,6 @@ class Qubes(PropertyHolder):
         # before all buffers are flushed
         fh_new.close()
         os.close(fd_old)
-        del fh
 
 
     @classmethod
