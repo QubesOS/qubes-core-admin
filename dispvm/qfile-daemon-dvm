@@ -101,7 +101,7 @@ class QfileDaemonDvm:
         try:
             dispvm.start()
         except (MemoryError, QubesException) as e:
-            tray_notify_error(e)
+            tray_notify_error(str(e))
             raise
         if vm.qid != 0:
             # if need to enable/disable netvm, do it while DispVM is alive
