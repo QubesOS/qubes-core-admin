@@ -42,6 +42,12 @@ Vendor:		Invisible Things Lab
 License:	GPL
 URL:		http://www.qubes-os.org
 
+# because we have "#!/usr/bin/env python" shebangs, RPM puts
+# "Requires: $(which # python)" dependency, which, depending on $PATH order,
+# may point to /usr/bin/python or /bin/python (because Fedora has this stupid
+# /bin -> usr/bin symlink). python*.rpm provides only /usr/bin/python.
+AutoReq:	no
+
 BuildRequires:  ImageMagick
 BuildRequires:	systemd-units
 
