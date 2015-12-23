@@ -86,6 +86,47 @@ class SinglePropertyAction(argparse.Action):
             if self.const is None else self.const
 
 
+class HelpPropertiesAction(argparse.Action):
+    '''Action for argument parser that displays all properties and exits.'''
+    # pylint: disable=redefined-builtin,too-few-public-methods
+    def __init__(self,
+            option_strings,
+            klass=None,
+            dest=argparse.SUPPRESS,
+            default=argparse.SUPPRESS,
+            help='list all available properties with short descriptions'
+                ' and exit'):
+        super(HelpPropertiesAction, self).__init__(
+            option_strings=option_strings,
+            dest=dest,
+            default=default,
+            nargs=0,
+            help=help)
+
+        # late import because of circular dependency
+        import qubes
+        self._klass = klass if klass is not None else qubes.Qubes
+
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        # pylint: disable=redefined-outer-name
+        properties = self._klass.property_list()
+        width = max(len(prop.__name__) for prop in properties)
+        wrapper = textwrap.TextWrapper(width=80,
+            initial_indent='  ', subsequent_indent=' ' * (width + 6))
+
+        text = 'Common properties:\n' + '\n'.join(
+            wrapper.fill('{name:{width}s}  {doc}'.format(
+                name=prop.__name__,
+                doc=qubes.utils.format_doc(prop.__doc__) if prop.__doc__ else'',
+                width=width))
+            for prop in sorted(properties))
+        if self._klass is not qubes.Qubes:
+            text += '\n\n' \
+                'There may be more properties in specific domain classes.\n'
+        parser.exit(message=text)
+
+
 class QubesArgumentParser(argparse.ArgumentParser):
     '''Parser preconfigured for use in most of the Qubes command-line tools.
 

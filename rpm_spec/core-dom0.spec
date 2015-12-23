@@ -232,6 +232,7 @@ fi
 %{python_sitelib}/qubes/tools/__init__.py*
 %{python_sitelib}/qubes/tools/qmemmand.py*
 %{python_sitelib}/qubes/tools/qubes_create.py*
+%{python_sitelib}/qubes/tools/qubes_prefs.py*
 %{python_sitelib}/qubes/tools/qvm_create.py*
 %{python_sitelib}/qubes/tools/qvm_kill.py*
 %{python_sitelib}/qubes/tools/qvm_ls.py*

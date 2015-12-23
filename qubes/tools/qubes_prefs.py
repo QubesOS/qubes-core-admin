@@ -21,7 +21,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
-# TODO list properties for all classes
+# TODO merge printing with qvm-prefs
 # TODO list only non-default properties
 
 from __future__ import print_function
@@ -33,16 +33,13 @@ import textwrap
 import qubes
 import qubes.tools
 import qubes.utils
-import qubes.vm
 
 
 parser = qubes.tools.QubesArgumentParser(
-    want_force_root=True,
-    want_vm=True)
+    want_force_root=True)
 
 parser.add_argument('--help-properties',
-    action=qubes.tools.HelpPropertiesAction,
-    klass=qubes.vm.qubesvm.QubesVM)
+    action=qubes.tools.HelpPropertiesAction)
 
 parser.add_argument('property', metavar='PROPERTY',
     nargs='?',
@@ -65,18 +62,18 @@ def main():
     args = parser.parse_args()
 
     if args.property is None:
-        properties = args.vm.property_list()
+        properties = args.app.property_list()
         width = max(len(prop.__name__) for prop in properties)
 
         for prop in sorted(properties):
             try:
-                value = getattr(args.vm, prop.__name__)
+                value = getattr(args.app, prop.__name__)
             except AttributeError:
                 print('{name:{width}s}  U'.format(
                     name=prop.__name__, width=width))
                 continue
 
-            if args.vm.property_is_default(prop):
+            if args.app.property_is_default(prop):
                 print('{name:{width}s}  D  {value!r}'.format(
                     name=prop.__name__, width=width, value=value))
             else:
@@ -87,17 +84,17 @@ def main():
 
 
     if args.value is not None:
-        setattr(args.vm, args.property, args.value)
+        setattr(args.app, args.property, args.value)
         args.app.save()
         return True
 
     if args.delete:
-        delattr(args.vm, args.property)
+        delattr(args.app, args.property)
         args.app.save()
         return True
 
 
-    print(str(getattr(args.vm, args.property)))
+    print(str(getattr(args.app, args.property)))
 
     return True
 
