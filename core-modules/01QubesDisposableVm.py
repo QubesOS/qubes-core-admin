@@ -168,8 +168,13 @@ class QubesDisposableVm(QubesVm):
         if self.get_power_state() != "Halted":
             raise QubesException ("VM is already running!")
 
-        # skip netvm state checking - calling VM have the same netvm, so it
-        # must be already running
+        if self.netvm is not None:
+            if self.netvm.qid != 0:
+                if not self.netvm.is_running():
+                    if verbose:
+                        print >> sys.stderr, "--> Starting NetVM {0}...".\
+                            format(self.netvm.name)
+                    self.netvm.start(verbose=verbose, **kwargs)
 
         if verbose:
             print >> sys.stderr, "--> Loading the VM (type = {0})...".format(self.type)
