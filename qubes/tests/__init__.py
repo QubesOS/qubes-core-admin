@@ -362,8 +362,7 @@ class SystemTestsMixin(object):
         return VMPREFIX + name
 
 
-    @staticmethod
-    def _remove_vm_qubes(vm):
+    def _remove_vm_qubes(self, vm):
         vmname = vm.name
         app = vm.app
 
