@@ -80,6 +80,12 @@ class VMStorage(object):
 
 
     @property
+    def rootcow_img(self):
+        '''Path to the root COW image'''
+        return self.abspath(qubes.config.vm_files['rootcow_img'])
+
+
+    @property
     def volatile_img(self):
         '''Path to the volatile image'''
         return self.abspath(qubes.config.vm_files['volatile_img'])
