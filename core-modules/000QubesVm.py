@@ -1271,9 +1271,10 @@ class QubesVm(object):
             hook(self, verbose, source_template=source_template)
 
     def get_clone_attrs(self):
-        attrs = ['kernel', 'uses_default_kernel', 'netvm', 'uses_default_netvm', \
-            'memory', 'maxmem', 'kernelopts', 'uses_default_kernelopts', 'services', 'vcpus', \
-            '_mac', 'pcidevs', 'include_in_backups', '_label', 'default_user']
+        attrs = ['kernel', 'uses_default_kernel', 'netvm', 'uses_default_netvm',
+                 'memory', 'maxmem', 'kernelopts', 'uses_default_kernelopts',
+                 'services', 'vcpus', '_mac', 'pcidevs', 'include_in_backups',
+                 '_label', 'default_user', 'qrexec_timeout']
 
         # fire hooks
         for hook in self.hooks_get_clone_attrs:
