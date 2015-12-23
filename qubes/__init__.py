@@ -912,6 +912,8 @@ class PropertyHolder(qubes.events.Emitter):
         :param int load_stage: Stage of loading.
         '''
 
+        if self.xml is None:
+            return
         all_names = set(
             prop.__name__ for prop in self.property_list(load_stage))
         for node in self.xml.xpath('./properties/property'):
