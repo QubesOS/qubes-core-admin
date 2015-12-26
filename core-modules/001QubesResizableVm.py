@@ -36,7 +36,7 @@ from time import sleep
 
 class QubesResizableVm(QubesVm):
 
-    def resize_root_img(self, size):
+    def resize_root_img(self, size, allow_start=False):
         if self.template:
             raise QubesException("Cannot resize root.img of template-based VM"
                                  ". Resize the root.img of the template "
@@ -57,8 +57,14 @@ class QubesResizableVm(QubesVm):
 
 class QubesResizableVmWithResize2fs(QubesResizableVm):
 
-    def resize_root_img(self, size):
-        super(QubesResizableVmWithResize2fs, self).resize_root_img(size)
+    def resize_root_img(self, size, allow_start=False):
+        super(QubesResizableVmWithResize2fs, self).\
+            resize_root_img(size, allow_start=allow_start)
+        if not allow_start:
+            raise QubesException("VM start required to complete the "
+                                 "operation, but not allowed. Either run the "
+                                 "operation again allowing VM start this "
+                                 "time, or run resize2fs in the VM manually.")
         self.start(start_guid=False)
         self.run("resize2fs /dev/mapper/dmroot", user="root", wait=True,
                  gui=False)

@@ -731,7 +731,9 @@ class TC_05_StandaloneVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase
                                source_template=self.qc.get_default_template())
         self.qc.save()
         self.qc.unlock_db()
-        testvm1.resize_root_img(20*1024**3)
+        with self.assertRaises(QubesException):
+            testvm1.resize_root_img(20*1024**3)
+        testvm1.resize_root_img(20*1024**3, allow_start=True)
         timeout = 60
         while testvm1.is_running():
             time.sleep(1)
