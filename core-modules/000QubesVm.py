@@ -1938,8 +1938,9 @@ class QubesVm(object):
         try:
             for pcidev in self.pcidevs:
                 self.libvirt_domain.detachDevice(self._format_pci_dev(pcidev))
-        except libvirt.libvirtError:
-            pass
+        except libvirt.libvirtError as e:
+            print >>sys.stderr, "WARNING: {}, continuing VM shutdown " \
+                                "anyway".format(str(e))
 
         self.libvirt_domain.shutdown()
 
