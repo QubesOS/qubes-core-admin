@@ -31,6 +31,7 @@ from qubes.qubes import (
     QubesException,
     QubesVm,
 )
+from time import sleep
 
 
 class QubesResizableVm(QubesVm):
@@ -62,6 +63,8 @@ class QubesResizableVmWithResize2fs(QubesResizableVm):
         self.run("resize2fs /dev/mapper/dmroot", user="root", wait=True,
                  gui=False)
         self.shutdown()
+        while self.is_running():
+            sleep(1)
 
 
 register_qubes_vm_class(QubesResizableVm)
