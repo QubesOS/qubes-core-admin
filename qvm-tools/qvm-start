@@ -57,6 +57,9 @@ def main():
                       help="Do actions necessary when preparing DVM image")
     parser.add_option ("--custom-config", action="store", dest="custom_config", default=None,
                       help="Use custom Xen config instead of Qubes-generated one")
+    parser.add_option("--skip-if-running", action="store_true",
+                      dest="skip_if_running", default=False,
+                      help="Do not fail if the VM is already running")
     parser.add_option ("--debug", action="store_true", dest="debug", default=False,
                       help="Enable debug mode for this VM (until its shutdown)")
 
@@ -103,6 +106,9 @@ def main():
 
     if options.debug:
         vm.debug = True
+
+    if options.skip_if_running and vm.is_running():
+        return
 
     try:
         vm.verify_files()
