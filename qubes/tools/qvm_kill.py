@@ -48,8 +48,8 @@ def main(args=None):
     except (IOError, OSError, qubes.exc.QubesException) as e:
         parser.error_runtime(str(e))
 
-    return True
+    return 0
 
 
 if __name__ == '__main__':
-    sys.exit(not main())
+    sys.exit(main())

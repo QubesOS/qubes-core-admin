@@ -147,8 +147,8 @@ def main(args=None):
 
     args.app.save()
 
-    return True
+    return 0
 
 
 if __name__ == '__main__':
-    sys.exit(not main())
+    sys.exit(main())

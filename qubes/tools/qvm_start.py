@@ -134,8 +134,8 @@ def main(args=None):
     except qubes.exc.QubesException as e:
         parser.error_runtime('Qubes error: {!r}'.format(e))
 
-    return True
+    return 0
 
 
 if __name__ == '__main__':
-    sys.exit(not main())
+    sys.exit(main())

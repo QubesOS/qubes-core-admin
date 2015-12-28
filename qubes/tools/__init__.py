@@ -32,6 +32,9 @@ import os
 
 import qubes.log
 
+#: constant returned when some action should be performed on all qubes
+VM_ALL = object()
+
 
 class PropertyAction(argparse.Action):
     '''Action for argument parser that stores a property.'''
@@ -148,6 +151,7 @@ class QubesArgumentParser(argparse.ArgumentParser):
             want_app_no_instance=False,
             want_force_root=False,
             want_vm=False,
+            want_vm_all=False,
             **kwargs):
 
         super(QubesArgumentParser, self).__init__(**kwargs)
@@ -156,6 +160,7 @@ class QubesArgumentParser(argparse.ArgumentParser):
         self._want_app_no_instance = want_app_no_instance
         self._want_force_root = want_force_root
         self._want_vm = want_vm
+        self._want_vm_all = want_vm_all
 
         if self._want_app:
             self.add_argument('--qubesxml', metavar='FILE',
@@ -176,8 +181,21 @@ class QubesArgumentParser(argparse.ArgumentParser):
                 help='force to run as root')
 
         if self._want_vm:
-            self.add_argument('vm', metavar='VMNAME',
-                action='store',
+            if self._want_vm_all:
+                vmchoice = self.add_mutually_exclusive_group()
+                vmchoice.add_argument('--all',
+                    action='store_const', const=VM_ALL, dest='vm',
+                    help='perform the action on all qubes')
+                vmchoice.add_argument('--exclude',
+                    action='append', default=[],
+                    help='exclude the qube from --all')
+                nargs = '?'
+            else:
+                vmchoice = self
+                nargs = None
+
+            vmchoice.add_argument('vm', metavar='VMNAME',
+                action='store', nargs=nargs,
                 help='name of the domain')
 
         self.set_defaults(verbose=1, quiet=0)
@@ -191,10 +209,25 @@ class QubesArgumentParser(argparse.ArgumentParser):
             namespace.app = qubes.Qubes(namespace.app)
 
             if self._want_vm:
-                try:
-                    namespace.vm = namespace.app.domains[namespace.vm]
-                except KeyError:
-                    self.error('no such domain: {!r}'.format(namespace.vm))
+                if self._want_vm_all:
+                    if namespace.vm is VM_ALL:
+                        namespace.vm = [vm for vm in namespace.app.domains
+                            if vm.qid != 0 and vm.name not in namespace.exclude]
+                    else:
+                        if namespace.exclude:
+                            self.error('--exclude can only be used with --all')
+                        try:
+                            namespace.vm = \
+                                (namespace.app.domains[namespace.vm],)
+                        except KeyError:
+                            self.error(
+                                'no such domain: {!r}'.format(namespace.vm))
+
+                else:
+                    try:
+                        namespace.vm = namespace.app.domains[namespace.vm]
+                    except KeyError:
+                        self.error('no such domain: {!r}'.format(namespace.vm))
 
         if self._want_force_root:
             self.dont_run_as_root(namespace)

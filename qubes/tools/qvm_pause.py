@@ -4,8 +4,8 @@
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
-# Copyright (C) 2015  Joanna Rutkowska <joanna@invisiblethingslab.com>
-# Copyright (C) 2015  Wojtek Porczyk <woju@invisiblethingslab.com>
+# Copyright (C) 2010-2015  Joanna Rutkowska <joanna@invisiblethingslab.com>
+# Copyright (C) 2015       Wojtek Porczyk <woju@invisiblethingslab.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,33 +22,27 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
-'''qvm-create - Create new Qubes OS store'''
-
-# TODO allow to set properties and create domains
+'''qvm-pause - Pause a domain'''
 
 import sys
 import qubes
-import qubes.tools
+
 
 parser = qubes.tools.QubesArgumentParser(
-    description='Create new Qubes OS store.',
-    want_app=True,
-    want_app_no_instance=True)
-
-parser.add_argument('--property', '--prop', '-p',
-    action=qubes.tools.PropertyAction,
-    help='set global property')
+    want_vm=True,
+    description='pause a domain')
 
 
 def main(args=None):
-    '''Main routine of :program:`qubes-create`.
+    '''Main routine of :program:`qvm-pause`.
 
     :param list args: Optional arguments to override those delivered from \
         command line.
     '''
 
     args = parser.parse_args(args)
-    qubes.Qubes.create_empty_store(args.app, **args.properties)
+    args.vm.pause()
+
     return 0
 
 

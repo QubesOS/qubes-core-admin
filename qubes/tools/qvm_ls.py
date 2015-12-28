@@ -606,8 +606,8 @@ def main(args=None):
     table = Table(args.app, columns)
     table.write_table(sys.stdout)
 
-    return True
+    return 0
 
 
 if __name__ == '__main__':
-    sys.exit(not main())
+    sys.exit(main())

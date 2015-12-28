@@ -58,8 +58,8 @@ parser.add_argument('--unset', '--default', '--delete', '-D',
         ' instead')
 
 
-def main():
-    args = parser.parse_args()
+def main(args=None):
+    args = parser.parse_args(args)
 
     if args.property is None:
         properties = args.app.property_list()
@@ -80,24 +80,24 @@ def main():
                 print('{name:{width}s}  -  {value!r}'.format(
                     name=prop.__name__, width=width, value=value))
 
-        return True
+        return 0
 
 
     if args.value is not None:
         setattr(args.app, args.property, args.value)
         args.app.save()
-        return True
+        return 0
 
     if args.delete:
         delattr(args.app, args.property)
         args.app.save()
-        return True
+        return 0
 
 
     print(str(getattr(args.app, args.property)))
 
-    return True
+    return 0
 
 
 if __name__ == '__main__':
-    sys.exit(not main())
+    sys.exit(main())

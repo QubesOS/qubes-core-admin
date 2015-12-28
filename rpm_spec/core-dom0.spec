@@ -236,8 +236,11 @@ fi
 %{python_sitelib}/qubes/tools/qvm_create.py*
 %{python_sitelib}/qubes/tools/qvm_kill.py*
 %{python_sitelib}/qubes/tools/qvm_ls.py*
+%{python_sitelib}/qubes/tools/qvm_pause.py*
 %{python_sitelib}/qubes/tools/qvm_prefs.py*
+%{python_sitelib}/qubes/tools/qvm_run.py*
 %{python_sitelib}/qubes/tools/qvm_start.py*
+%{python_sitelib}/qubes/tools/qvm_unpause.py*
 
 %dir %{python_sitelib}/qubes/ext
 %{python_sitelib}/qubes/ext/__init__.py*
