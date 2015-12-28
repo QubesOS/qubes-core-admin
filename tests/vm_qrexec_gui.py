@@ -549,6 +549,25 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
 
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
+    def test_101_qrexec_filecopy_with_autostart(self):
+        self.testvm1.start()
+        p = self.testvm1.run("qvm-copy-to-vm %s /etc/passwd" %
+                             self.testvm2.name, passio_popen=True,
+                             passio_stderr=True)
+        # Confirm transfer
+        self.enter_keys_in_window('Question', ['y'])
+        p.wait()
+        self.assertEqual(p.returncode, 0, "qvm-copy-to-vm failed: %s" %
+                         p.stderr.read())
+        self.assertTrue(self.testvm2.is_running())
+        retcode = self.testvm2.run("diff /etc/passwd "
+                                   "/home/user/QubesIncoming/{}/passwd".format(
+                                       self.testvm1.name),
+                                   wait=True)
+        self.assertEqual(retcode, 0, "file differs")
+
+    @unittest.skipUnless(spawn.find_executable('xdotool'),
+                         "xdotool not installed")
     def test_110_qrexec_filecopy_deny(self):
         self.testvm1.start()
         self.testvm2.start()
