@@ -513,6 +513,8 @@ class QubesVM(qubes.vm.BaseVM):
         self.storage = qubes.storage.get_storage(self)
 
         # fire hooks
+        if xml is None:
+            self.events_enabled = True
         self.fire_event('domain-init')
 
 
