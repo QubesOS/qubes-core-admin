@@ -483,8 +483,8 @@ class QubesVM(qubes.vm.BaseVM):
 
         if xml is None:
             # we are creating new VM and attributes came through kwargs
-            assert self.qid < qubes.config.max_qid, "VM id out of bounds!"
-            assert self.name is not None
+            assert hasattr(self, 'qid')
+            assert hasattr(self, 'name')
 
         # Not in generic way to not create QubesHost() to frequently
         # XXX this doesn't apply, host is instantiated once

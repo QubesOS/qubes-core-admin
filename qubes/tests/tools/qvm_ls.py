@@ -28,7 +28,7 @@ import qubes.vm.adminvm
 import qubes.tools.qvm_ls
 
 import qubes.tests
-import qubes.tests.vm.adminvm
+import qubes.tests.vm
 
 class TC_00_Column(qubes.tests.QubesTestCase):
     def test_000_collected(self):
@@ -63,7 +63,7 @@ class TC_90_globals(qubes.tests.QubesTestCase):
 
         # TODO after serious testing of QubesVM and Qubes app, this should be
         #      using normal components
-        app = qubes.tests.vm.adminvm.TestApp()
+        app = qubes.tests.vm.TestApp()
         vm = qubes.vm.adminvm.AdminVM(app, None,
             qid=0, name='dom0', internal='False')
 

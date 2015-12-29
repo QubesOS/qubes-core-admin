@@ -26,33 +26,16 @@ import unittest
 
 import qubes
 import qubes.exc
+import qubes.vm
 import qubes.vm.adminvm
 
 import qubes.tests
-
-class TestVMM(object):
-    # pylint: disable=too-few-public-methods
-    def __init__(self, offline_mode=False):
-        self.offline_mode = offline_mode
-
-class TestHost(object):
-    # pylint: disable=too-few-public-methods
-    def __init__(self):
-        self.memory_total = 1000
-
-# this probably can be shared and not as dummy as is
-class TestApp(qubes.tests.TestEmitter):
-    def __init__(self):
-        super(TestApp, self).__init__()
-        self.vmm = TestVMM()
-        self.host = TestHost()
-
 
 @qubes.tests.skipUnlessDom0
 class TC_00_AdminVM(qubes.tests.QubesTestCase):
     def setUp(self):
         try:
-            self.app = TestApp()
+            self.app = qubes.tests.vm.TestApp()
             self.vm = qubes.vm.adminvm.AdminVM(self.app,
                 xml=None, qid=0, name='dom0')
         except: # pylint: disable=bare-except

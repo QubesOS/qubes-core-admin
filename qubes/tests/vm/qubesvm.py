@@ -73,27 +73,32 @@ class TC_00_setters(qubes.tests.QubesTestCase):
             qubes.vm.qubesvm._setter_name(self.vm, self.prop, 'test_name-1'),
             'test_name-1')
 
-    def test_011_setter_name_longer_than_31(self):
+    def test_011_setter_name_not_a_string(self):
+        # pylint: disable=invalid-name
+        with self.assertRaises(TypeError):
+            qubes.vm.qubesvm._setter_name(self.vm, self.prop, False)
+
+    def test_012_setter_name_longer_than_31(self):
         # pylint: disable=invalid-name
         with self.assertRaises(ValueError):
             qubes.vm.qubesvm._setter_name(self.vm, self.prop, 't' * 32)
 
-    def test_012_setter_name_illegal_character(self):
+    def test_013_setter_name_illegal_character(self):
         # pylint: disable=invalid-name
         with self.assertRaises(ValueError):
             qubes.vm.qubesvm._setter_name(self.vm, self.prop, 'test#')
 
-    def test_013_setter_name_first_not_letter(self):
+    def test_014_setter_name_first_not_letter(self):
         # pylint: disable=invalid-name
         with self.assertRaises(ValueError):
             qubes.vm.qubesvm._setter_name(self.vm, self.prop, '1test')
 
-    def test_014_setter_name_running(self):
+    def test_015_setter_name_running(self):
         self.vm.running = True
         with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
             qubes.vm.qubesvm._setter_name(self.vm, self.prop, 'testname')
 
-    def test_015_setter_name_installed_by_rpm(self):
+    def test_016_setter_name_installed_by_rpm(self):
         # pylint: disable=invalid-name
         self.vm.installed_by_rpm = True
         with self.assertRaises(qubes.exc.QubesException):
@@ -106,6 +111,28 @@ class TC_00_setters(qubes.tests.QubesTestCase):
 
 
 class TC_90_QubesVM(qubes.tests.QubesTestCase):
-    @unittest.skip('test not implemented')
+    def setUp(self):
+        super(TC_90_QubesVM, self).setUp()
+        self.app = qubes.tests.vm.TestApp()
+
     def test_000_init(self):
-        pass
+        vm = qubes.vm.qubesvm.QubesVM(self.app, None,
+            qid=1, name=qubes.tests.VMPREFIX + 'test')
+
+    def test_001_init_no_qid_or_name(self):
+        with self.assertRaises(AssertionError):
+            qubes.vm.qubesvm.QubesVM(self.app, None,
+                name=qubes.tests.VMPREFIX + 'test')
+        with self.assertRaises(AssertionError):
+            qubes.vm.qubesvm.QubesVM(self.app, None,
+                qid=1)
+
+    def test_003_init_fire_domain_init(self):
+        class TestVM2(qubes.vm.qubesvm.QubesVM):
+            event_fired = False
+            @qubes.events.handler('domain-init')
+            def on_domain_init(self, event):
+                self.__class__.event_fired = True
+
+        vm = TestVM2(self.app, None, qid=1, name=qubes.tests.VMPREFIX + 'test')
+        self.assertTrue(TestVM2.event_fired)
