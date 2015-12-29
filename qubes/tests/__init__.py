@@ -354,7 +354,9 @@ class SystemTestsMixin(object):
         super(SystemTestsMixin, self).setUp()
         self.remove_test_vms()
 
-    tearDown = setUp
+    def tearDown(self):
+        super(SystemTestsMixin, self).tearDown()
+        self.remove_test_vms()
 
 
     @staticmethod
