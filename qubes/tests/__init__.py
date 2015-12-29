@@ -40,7 +40,7 @@ import qubes.config
 import qubes.events
 
 XMLPATH = '/var/lib/qubes/qubes-test.xml'
-TEMPLATE = 'fedora-21'
+TEMPLATE = 'fedora-23'
 VMPREFIX = 'test-'
 
 
@@ -492,6 +492,7 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
 
             # tool tests
             'qubes.tests.int.tools.qubes_create',
+            'qubes.tests.int.tools.qvm_run',
             ):
         tests.addTests(loader.loadTestsFromName(modname))
 
