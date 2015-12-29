@@ -102,13 +102,16 @@ def main(args=None):
 
     retcode = 0
     for vm in args.vm:
+        if args.autostart and not vm.is_running():
+            vm.start()
+
         if args.color_output:
             sys.stdout.write('\033[0;{}m'.format(args.color_output))
             sys.stdout.flush()
+
         try:
             retcode = max(retcode, vm.run(args.cmd,
                 user=args.user,
-                autostart=args.autostart,
                 passio=args.passio,
                 localcmd=args.localcmd,
                 gui=args.gui,
