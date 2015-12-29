@@ -78,17 +78,6 @@ parser.add_argument('--no-filter-escape-chars',
 parser.add_argument('cmd', metavar='COMMAND',
     help='command to run')
 
-#
-#   parser.add_option ("-q", "--quiet", action="store_false", dest="verbose", default=True)
-#   parser.add_option ("--tray", action="store_true", dest="tray", default=False,
-#                      help="Use tray notifications instead of stdout" )
-#   parser.add_option ("--pause", action="store_true", dest="pause", default=False,
-#                     help="Do 'xl pause' for the VM(s) (can be combined this with --all)")
-#   parser.add_option ("--unpause", action="store_true", dest="unpause", default=False,
-#                     help="Do 'xl unpause' for the VM(s) (can be combined this with --all)")
-#   parser.add_option ("--nogui", action="store_false", dest="gui", default=True,
-#                     help="Run command without gui")
-##
 
 def main(args=None):
     args = parser.parse_args(args)

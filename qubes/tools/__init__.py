@@ -29,6 +29,7 @@ import argparse
 import importlib
 import logging
 import os
+import textwrap
 
 import qubes.log
 
@@ -107,7 +108,7 @@ class HelpPropertiesAction(argparse.Action):
             help=help)
 
         # late import because of circular dependency
-        import qubes
+        import qubes # pylint: disable=redefined-outer-name
         self._klass = klass if klass is not None else qubes.Qubes
 
 

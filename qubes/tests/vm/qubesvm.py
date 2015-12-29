@@ -116,7 +116,7 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
         self.app = qubes.tests.vm.TestApp()
 
     def test_000_init(self):
-        vm = qubes.vm.qubesvm.QubesVM(self.app, None,
+        qubes.vm.qubesvm.QubesVM(self.app, None,
             qid=1, name=qubes.tests.VMPREFIX + 'test')
 
     def test_001_init_no_qid_or_name(self):
@@ -131,8 +131,8 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
         class TestVM2(qubes.vm.qubesvm.QubesVM):
             event_fired = False
             @qubes.events.handler('domain-init')
-            def on_domain_init(self, event):
+            def on_domain_init(self, event): # pylint: disable=unused-argument
                 self.__class__.event_fired = True
 
-        vm = TestVM2(self.app, None, qid=1, name=qubes.tests.VMPREFIX + 'test')
+        TestVM2(self.app, None, qid=1, name=qubes.tests.VMPREFIX + 'test')
         self.assertTrue(TestVM2.event_fired)

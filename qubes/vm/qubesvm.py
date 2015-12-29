@@ -664,9 +664,9 @@ class QubesVM(qubes.vm.BaseVM):
                 ['sudo', qubes.config.system_path['qubes_pciback_cmd'], pci])
             subprocess.check_call(
                 ['sudo', 'xl', 'pci-attach', str(self.xid), pci])
-        except Exception as e:
-            print >>sys.stderr, "Failed to attach PCI device on the fly " \
-                "(%s), changes will be seen after VM restart" % str(e)
+        except subprocess.CalledProcessError as e:
+            self.log.exception('Failed to attach PCI device {!r} on the fly,'
+                ' changes will be seen after VM restart.'.format(pci), e)
 
 
     @qubes.events.handler('device-pre-detached:pci')
@@ -690,9 +690,9 @@ class QubesVM(qubes.vm.BaseVM):
                 user="root", input="00:%s" % vmdev)
             subprocess.check_call(
                 ['sudo', 'xl', 'pci-detach', str(self.xid), pci])
-        except Exception as e:
-            print >>sys.stderr, "Failed to detach PCI device on the fly " \
-                "(%s), changes will be seen after VM restart" % str(e)
+        except subprocess.CalledProcessError as e:
+            self.log.exception('Failed to detach PCI device {!r} on the fly,'
+                ' changes will be seen after VM restart.'.format(pci), e)
 
 
     #
@@ -936,7 +936,7 @@ class QubesVM(qubes.vm.BaseVM):
 
         call_kwargs = {}
         if ignore_stderr or not passio:
-            null = open("/dev/null", "rw")
+            null = open("/dev/null", "r+")
             call_kwargs['stderr'] = null
         if not passio:
             call_kwargs['stdin'] = null

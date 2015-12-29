@@ -132,9 +132,10 @@ class TC_00_qvm_run(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             self.sharedopts + ['--filter-escape-chars', self.vm1.name,
                 r'printf \\033']))
 
-    @unittest.skip('test not implemented')
-    def test_007_gui(self):
-        raise NotImplementedError()
+
+    def test_007_gui(self): # pylint: disable=no-self-use
+        raise unittest.SkipTest('test not implemented')
+
 
 #parser.add_argument('--gui',
 #parser.add_argument('--no-gui', '--nogui',
