@@ -91,6 +91,12 @@ class QubesTestResult(unittest.TestResult):
             return '{color[bold]}{}{color[normal]}'.format(
                 err[0].__name__, color=self.color)
 
+    def get_log(self, test):
+        try:
+            return test.log
+        except AttributeError:
+            return self.log
+
     def getDescription(self, test): # pylint: disable=invalid-name
         teststr = str(test).split('/')
         for i in range(-2, 0):
@@ -112,7 +118,7 @@ class QubesTestResult(unittest.TestResult):
 
     def startTest(self, test): # pylint: disable=invalid-name
         super(QubesTestResult, self).startTest(test)
-        test.log.critical('started')
+        self.get_log(test).critical('started')
         if self.showAll:
             if not qubes.tests.in_git:
                 self.stream.write('{}: '.format(self.hostname))
@@ -122,7 +128,7 @@ class QubesTestResult(unittest.TestResult):
 
     def addSuccess(self, test): # pylint: disable=invalid-name
         super(QubesTestResult, self).addSuccess(test)
-        test.log.warning('ok')
+        self.get_log(test).warning('ok')
         if self.showAll:
             self.stream.writeln('{color[green]}ok{color[normal]}'.format(
                 color=self.color))
@@ -132,8 +138,8 @@ class QubesTestResult(unittest.TestResult):
 
     def addError(self, test, err): # pylint: disable=invalid-name
         super(QubesTestResult, self).addError(test, err)
-        test.log.critical('ERROR ({err[0].__name__}: {err[1]!r})'.format(
-            err=err))
+        self.get_log(test).critical(
+            'ERROR ({err[0].__name__}: {err[1]!r})'.format(err=err))
         if self.showAll:
             self.stream.writeln(
                 '{color[red]}{color[bold]}ERROR{color[normal]} ({})'.format(
@@ -146,7 +152,8 @@ class QubesTestResult(unittest.TestResult):
 
     def addFailure(self, test, err): # pylint: disable=invalid-name
         super(QubesTestResult, self).addFailure(test, err)
-        test.log.error('FAIL ({err[0].__name__}: {err[1]!r})'.format(err=err))
+        self.get_log(test).error(
+            'FAIL ({err[0].__name__}: {err[1]!r})'.format(err=err))
         if self.showAll:
             self.stream.writeln('{color[red]}FAIL{color[normal]}'.format(
                 color=self.color))
@@ -157,7 +164,7 @@ class QubesTestResult(unittest.TestResult):
 
     def addSkip(self, test, reason): # pylint: disable=invalid-name
         super(QubesTestResult, self).addSkip(test, reason)
-        test.log.warning('skipped ({})'.format(reason))
+        self.get_log(test).warning('skipped ({})'.format(reason))
         if self.showAll:
             self.stream.writeln(
                 '{color[cyan]}skipped{color[normal]} ({})'.format(
@@ -169,7 +176,7 @@ class QubesTestResult(unittest.TestResult):
 
     def addExpectedFailure(self, test, err): # pylint: disable=invalid-name
         super(QubesTestResult, self).addExpectedFailure(test, err)
-        test.log.warning('expected failure')
+        self.get_log(test).warning('expected failure')
         if self.showAll:
             self.stream.writeln(
                 '{color[yellow]}expected failure{color[normal]}'.format(
@@ -181,7 +188,7 @@ class QubesTestResult(unittest.TestResult):
 
     def addUnexpectedSuccess(self, test): # pylint: disable=invalid-name
         super(QubesTestResult, self).addUnexpectedSuccess(test)
-        test.log.error('unexpected success')
+        self.get_log(test).error('unexpected success')
         if self.showAll:
             self.stream.writeln(
                 '{color[yellow]}{color[bold]}unexpected success'
