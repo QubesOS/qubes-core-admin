@@ -24,6 +24,7 @@
 #
 
 import unittest
+import uuid
 
 import qubes
 import qubes.exc
@@ -32,14 +33,17 @@ import qubes.vm.qubesvm
 
 import qubes.tests
 
+class TestApp(object):
+    labels = {1: qubes.Label(1, '0xcc0000', 'red')}
 
 class TestProp(object):
     # pylint: disable=too-few-public-methods
     __name__ = 'testprop'
 
-
 class TestVM(object):
     # pylint: disable=too-few-public-methods
+    app = TestApp()
+
     def __init__(self):
         self.running = False
         self.installed_by_rpm = False
@@ -110,14 +114,31 @@ class TC_00_setters(qubes.tests.QubesTestCase):
         pass
 
 
+    def test_030_setter_label_object(self):
+        label = TestApp.labels[1]
+        self.assertIs(label,
+            qubes.vm.qubesvm._setter_label(self.vm, self.prop, label))
+
+    def test_031_setter_label_getitem(self):
+        label = TestApp.labels[1]
+        self.assertIs(label,
+            qubes.vm.qubesvm._setter_label(self.vm, self.prop, 'label-1'))
+
+    # there is no check for self.app.get_label()
+
+
 class TC_90_QubesVM(qubes.tests.QubesTestCase):
     def setUp(self):
         super(TC_90_QubesVM, self).setUp()
         self.app = qubes.tests.vm.TestApp()
 
+    def get_vm(self, **kwargs):
+        return qubes.vm.qubesvm.QubesVM(self.app, None,
+            qid=1, name=qubes.tests.VMPREFIX + 'test',
+            **kwargs)
+
     def test_000_init(self):
-        qubes.vm.qubesvm.QubesVM(self.app, None,
-            qid=1, name=qubes.tests.VMPREFIX + 'test')
+        self.get_vm()
 
     def test_001_init_no_qid_or_name(self):
         with self.assertRaises(AssertionError):
@@ -136,3 +157,56 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
 
         TestVM2(self.app, None, qid=1, name=qubes.tests.VMPREFIX + 'test')
         self.assertTrue(TestVM2.event_fired)
+
+    def test_004_uuid_autogen(self):
+        vm = self.get_vm()
+        self.assertTrue(hasattr(vm, 'uuid'))
+
+    def test_100_qid(self):
+        vm = self.get_vm()
+        self.assertIsInstance(vm.qid, int)
+        with self.assertRaises(AttributeError):
+            vm.qid = 2
+
+    def test_110_name(self):
+        vm = self.get_vm()
+        self.assertIsInstance(vm.name, basestring)
+
+    def test_120_uuid(self):
+        my_uuid = uuid.uuid4()
+        vm = self.get_vm(uuid=my_uuid)
+        self.assertIsInstance(vm.uuid, uuid.UUID)
+        self.assertIs(vm.uuid, my_uuid)
+        with self.assertRaises(AttributeError):
+            vm.uuid = uuid.uuid4()
+
+#   label = qubes.property('label',
+#   netvm = qubes.VMProperty('netvm', load_stage=4, allow_none=True,
+#   conf_file = qubes.property('conf_file', type=str,
+#   firewall_conf = qubes.property('firewall_conf', type=str,
+#   installed_by_rpm = qubes.property('installed_by_rpm',
+#   memory = qubes.property('memory', type=int,
+#   maxmem = qubes.property('maxmem', type=int, default=None,
+#   internal = qubes.property('internal', default=False,
+#   vcpus = qubes.property('vcpus',
+#   kernel = qubes.property('kernel', type=str,
+#   kernelopts = qubes.property('kernelopts', type=str, load_stage=4,
+#   mac = qubes.property('mac', type=str,
+#   debug = qubes.property('debug', type=bool, default=False,
+#   default_user = qubes.property('default_user', type=str,
+#   qrexec_timeout = qubes.property('qrexec_timeout', type=int, default=60,
+#   autostart = qubes.property('autostart', default=False,
+#   include_in_backups = qubes.property('include_in_backups', default=True,
+#   backup_content = qubes.property('backup_content', default=False,
+#   backup_size = qubes.property('backup_size', type=int, default=0,
+#   backup_path = qubes.property('backup_path', type=str, default='',
+#   backup_timestamp = qubes.property('backup_timestamp', default=None,
+
+    @qubes.tests.skipUnlessDom0
+    def test_200_create_on_disk(self):
+        vm = self.get_vm()
+        vm.create_on_disk()
+
+    @unittest.skip('test not implemented')
+    def test_300_rename(self):
+        pass
