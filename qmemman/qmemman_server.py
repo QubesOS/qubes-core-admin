@@ -157,6 +157,14 @@ class QMemmanReqHandler(SocketServer.BaseRequestHandler):
             self.log.debug('data={!r}'.format(self.data))
             if len(self.data) == 0:
                 self.log.info('EOF')
+                # FIXME: there is a race condition here: if XS_Watcher will
+                # handle meminfo event before @introduceDomain, it will use
+                # incomplete domain list for that and may redistribute memory
+                # allocated to some VM, but not yet used (see #1389).
+                # To fix that, system_state should be updated (refresh domain
+                #  list) before releasing the lock, but in the current code
+                # layout XS_Watcher instance isn't available here,
+                # so xenstore watches would not be registered
                 if got_lock:
                     global_lock.release()
                     self.log.debug('global_lock released')
