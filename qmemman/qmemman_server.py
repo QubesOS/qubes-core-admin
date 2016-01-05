@@ -205,7 +205,12 @@ class QMemmanServer:
         usage = "usage: %prog [options]"
         parser = OptionParser(usage)
         parser.add_option("-c", "--config", action="store", dest="config", default=config_path)
+        parser.add_option("-d", "--debug", action="store_true", dest="debug",
+                          default=False, help="Enable debugging")
         (options, args) = parser.parse_args()
+
+        if options.debug:
+            logging.root.setLevel(logging.DEBUG)
 
         # close io
         sys.stdin.close()
