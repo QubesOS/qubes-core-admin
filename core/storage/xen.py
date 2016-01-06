@@ -70,9 +70,12 @@ class XenStorage(QubesVmStorage):
                     "{root}:{rootcow}".format(
                         root=self.root_img, rootcow=self.rootcow_img),
                     "block-origin", self.root_dev, True)
-        elif self.vm.template and not self.vm.template.storage.rootcow_img:
-            # HVM template-based VM - template doesn't have own
-            # root-cow.img, only one device-mapper layer
+        elif self.vm.template and not hasattr(self.vm, 'kernel'):
+            # HVM template-based VM - only one device-mapper layer, in dom0 (
+            # root+volatile)
+            # HVM detection based on 'kernel' property is massive hack,
+            # but taken from assumption that VM needs Qubes-specific kernel (
+            # actually initramfs) to assemble the second layer of device-mapper
             return self.format_disk_dev(
                     "{root}:{volatile}".format(
                         root=self.vm.template.storage.root_img,

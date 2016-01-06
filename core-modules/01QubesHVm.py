@@ -100,8 +100,6 @@ class QubesHVm(QubesResizableVm):
             (not 'xml_element' in kwargs or kwargs['xml_element'].get('guiagent_installed') is None):
             self.services['meminfo-writer'] = False
 
-        self.storage.rootcow_img = None
-
     @property
     def type(self):
         return "HVM"
