@@ -70,6 +70,7 @@ class QubesTemplateHVm(QubesHVm):
     def is_appvm(self):
         return False
 
+    @property
     def rootcow_img(self):
         return self.storage.rootcow_img
 
