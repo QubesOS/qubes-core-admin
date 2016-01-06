@@ -723,6 +723,8 @@ class QubesVm(object):
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return -1
             else:
+                print >>sys.stderr, "libvirt error code: {!r}".format(
+                    e.get_error_code())
                 raise
 
 
@@ -778,6 +780,8 @@ class QubesVm(object):
             elif e.get_error_code() == libvirt.VIR_ERR_INTERNAL_ERROR:
                 return 0
             else:
+                print >>sys.stderr, "libvirt error code: {!r}".format(
+                    e.get_error_code())
                 raise
 
     def get_cputime(self):
@@ -795,6 +799,8 @@ class QubesVm(object):
             elif e.get_error_code() == libvirt.VIR_INTERNAL_ERROR:
                 return 0
             else:
+                print >>sys.stderr, "libvirt error code: {!r}".format(
+                    e.get_error_code())
                 raise
 
     def get_mem_static_max(self):
@@ -836,6 +842,8 @@ class QubesVm(object):
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return 0
             else:
+                print >>sys.stderr, "libvirt error code: {!r}".format(
+                    e.get_error_code())
                 raise
 
     def get_disk_utilization_root_img(self):
@@ -911,6 +919,8 @@ class QubesVm(object):
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return False
             else:
+                print >>sys.stderr, "libvirt error code: {!r}".format(
+                    e.get_error_code())
                 raise
 
     def is_paused(self):
@@ -923,6 +933,8 @@ class QubesVm(object):
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return False
             else:
+                print >>sys.stderr, "libvirt error code: {!r}".format(
+                    e.get_error_code())
                 raise
 
     def get_start_time(self):
@@ -1371,6 +1383,8 @@ class QubesVm(object):
                 # already undefined
                 pass
             else:
+                print >>sys.stderr, "libvirt error code: {!r}".format(
+                    e.get_error_code())
                 raise
 
         self.storage.remove_from_disk()
