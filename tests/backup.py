@@ -63,7 +63,6 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
         self.restore_backup()
         self.remove_vms(vms)
 
-
     def test_004_sparse_multipart(self):
         vms = []
 
@@ -91,6 +90,10 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
         self.remove_vms(vms)
         self.restore_backup()
         self.remove_vms(vms)
+
+    def test_100_backup_dom0_no_restore(self):
+        self.make_backup([self.qc[0]])
+        # TODO: think of some safe way to test restore...
 
     def test_200_restore_over_existing_directory(self):
         """
