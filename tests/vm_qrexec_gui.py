@@ -559,6 +559,10 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         p.wait()
         self.assertEqual(p.returncode, 0, "qvm-copy-to-vm failed: %s" %
                          p.stderr.read())
+        # workaround for libvirt bug (domain ID isn't updated when is started
+        #  from other application) - details in
+        # QubesOS/qubes-core-libvirt@63ede4dfb4485c4161dd6a2cc809e8fb45ca664f
+        self.testvm2._libvirt_domain = None
         self.assertTrue(self.testvm2.is_running())
         retcode = self.testvm2.run("diff /etc/passwd "
                                    "/home/user/QubesIncoming/{}/passwd".format(
