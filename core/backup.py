@@ -567,15 +567,16 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
         # be verified before untaring this.
         # Prefix the path in archive with filename["subdir"] to have it
         # verified during untar
-        tar_cmdline = ["tar", "-Pc", '--sparse',
+        tar_cmdline = (["tar", "-Pc", '--sparse',
                        "-f", backup_pipe,
-                       '-C', os.path.dirname(filename["path"]),
-                       '--dereference',
-                       '--xform', 's:^%s:%s\\0:' % (
+                       '-C', os.path.dirname(filename["path"])] +
+                       (['--dereference'] if filename["subdir"] != "dom0-home/"
+                       else []) +
+                       ['--xform', 's:^%s:%s\\0:' % (
                            os.path.basename(filename["path"]),
                            filename["subdir"]),
                        os.path.basename(filename["path"])
-                       ]
+                       ])
         if compressed:
             tar_cmdline.insert(-1,
                                "--use-compress-program=%s" % compression_filter)
