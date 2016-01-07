@@ -634,7 +634,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         # Close GUI error message
         self.enter_keys_in_window('Error', ['Return'])
         p.wait()
-        self.assertEqual(p.returncode, 255, "qvm-move-to-vm should fail")
+        self.assertNotEqual(p.returncode, 0, "qvm-move-to-vm should fail")
         retcode = self.testvm1.run("test -f testfile", wait=True)
         self.assertEqual(retcode, 0, "testfile should not be deleted in "
                                      "source VM")
