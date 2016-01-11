@@ -226,6 +226,8 @@ class XenStorage(QubesVmStorage):
                     raise QubesException(
                         "VM '{}' holding '{}' does not exists".format(
                             drive_domain, drive_path))
+        if self.rootcow_img and not os.path.exists(self.rootcow_img):
+            self.commit_template_changes()
 
 
 class XenPool(Pool):
