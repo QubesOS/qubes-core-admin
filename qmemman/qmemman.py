@@ -37,7 +37,7 @@ slow_memset_react_msg="VM didn't give back all requested memory"
 class DomainState:
     def __init__(self, id):
         self.meminfo = None		#dictionary of memory info read from client
-        self.memory_current = None	#the current memory size
+        self.memory_current = 0     # the current memory size
         self.memory_actual = None   # the current memory allocation (what VM
                                     #  is using or can use at any time)
         self.memory_maximum = None	#the maximum memory size
