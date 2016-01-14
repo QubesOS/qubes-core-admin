@@ -73,36 +73,34 @@ class XS_Watcher:
     def domain_list_changed(self, param):
         self.log.debug('domain_list_changed(param={!r})'.format(param))
 
-        curr = self.handle.ls('', '/local/domain')
-
-        if curr == None:
-            return
-
-        # check if domain is really there, it may happen that some empty
-        # directories are left in xenstore
-        curr = filter(
-            lambda x:
-            self.handle.read('',
-                             '/local/domain/{}/domid'.format(x)
-                             ) is not None,
-            curr
-        )
-
-        self.log.debug('curr={!r}'.format(curr))
-
         self.log.debug('acquiring global_lock')
         global_lock.acquire()
         self.log.debug('global_lock acquired')
         try:
+            curr = self.handle.ls('', '/local/domain')
+            if curr is None:
+                return
+
+            # check if domain is really there, it may happen that some empty
+            # directories are left in xenstore
+            curr = filter(
+                lambda x:
+                self.handle.read('',
+                                 '/local/domain/{}/domid'.format(x)
+                                 ) is not None,
+                curr
+            )
+            self.log.debug('curr={!r}'.format(curr))
+
             for i in only_in_first_list(curr, self.watch_token_dict.keys()):
-                #new domain has been created
+                # new domain has been created
                 watch = WatchType(XS_Watcher.meminfo_changed, i)
                 self.watch_token_dict[i] = watch
                 self.handle.watch(get_domain_meminfo_key(i), watch)
                 system_state.add_domain(i)
 
             for i in only_in_first_list(self.watch_token_dict.keys(), curr):
-                #domain destroyed
+                # domain destroyed
                 self.handle.unwatch(get_domain_meminfo_key(i), self.watch_token_dict[i])
                 self.watch_token_dict.pop(i)
                 system_state.del_domain(i)
