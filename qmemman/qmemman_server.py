@@ -93,22 +93,22 @@ class XS_Watcher:
         self.log.debug('acquiring global_lock')
         global_lock.acquire()
         self.log.debug('global_lock acquired')
+        try:
+            for i in only_in_first_list(curr, self.watch_token_dict.keys()):
+                #new domain has been created
+                watch = WatchType(XS_Watcher.meminfo_changed, i)
+                self.watch_token_dict[i] = watch
+                self.handle.watch(get_domain_meminfo_key(i), watch)
+                system_state.add_domain(i)
 
-        for i in only_in_first_list(curr, self.watch_token_dict.keys()):
-#new domain has been created
-            watch = WatchType(XS_Watcher.meminfo_changed, i)
-            self.watch_token_dict[i] = watch
-            self.handle.watch(get_domain_meminfo_key(i), watch)
-            system_state.add_domain(i)
-
-        for i in only_in_first_list(self.watch_token_dict.keys(), curr):
-#domain destroyed
-            self.handle.unwatch(get_domain_meminfo_key(i), self.watch_token_dict[i])
-            self.watch_token_dict.pop(i)
-            system_state.del_domain(i)
-
-        global_lock.release()
-        self.log.debug('global_lock released')
+            for i in only_in_first_list(self.watch_token_dict.keys(), curr):
+                #domain destroyed
+                self.handle.unwatch(get_domain_meminfo_key(i), self.watch_token_dict[i])
+                self.watch_token_dict.pop(i)
+                system_state.del_domain(i)
+        finally:
+            global_lock.release()
+            self.log.debug('global_lock released')
 
         system_state.do_balance()
 
