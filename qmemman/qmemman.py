@@ -47,6 +47,9 @@ class DomainState:
         self.no_progress = False    #no react to memset
         self.slow_memset_react = False #slow react to memset (after few tries still above target)
 
+    def __repr__(self):
+        return self.__dict__.__repr__()
+
 class SystemState(object):
     def __init__(self):
         self.log = logging.getLogger('qmemman.systemstate')
@@ -89,6 +92,17 @@ class SystemState(object):
             self.domdict.values(),
             0
         )
+        # If, at any time, Xen have less memory than XEN_FREE_MEM_MIN,
+        # it is a failure of qmemman. Collect as much data as possible to
+        # debug it
+        if xen_free < self.XEN_FREE_MEM_MIN:
+            self.log.error("Xen free = {!r} below acceptable value! "
+                           "assigned_but_unused={!r}, domdict={!r}".format(
+                xen_free, assigned_but_unused, self.domdict))
+        elif xen_free < assigned_but_unused+self.XEN_FREE_MEM_MIN:
+            self.log.error("Xen free = {!r} too small for satisfy assignments! "
+                           "assigned_but_unused={!r}, domdict={!r}".format(
+                xen_free, assigned_but_unused, self.domdict))
         return xen_free - assigned_but_unused
 
 #refresh information on memory assigned to all domains
