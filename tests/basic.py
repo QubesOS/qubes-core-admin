@@ -571,5 +571,46 @@ class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.execute_tests('kernel', [('default', '', False)])
         self.execute_tests('kernelopts', [('default', '', False)])
 
+class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestsMixin,
+                                     qubes.tests.QubesTestCase):
+
+    def setup_pv_template(self):
+        self.test_template = self.qc.add_new_vm(
+            "QubesTemplateVm",
+            name=self.make_vm_name("pv-clone"),
+        )
+        self.test_template.clone_attrs(src_vm=self.qc.get_default_template())
+        self.test_template.clone_disk_files(
+            src_vm=self.qc.get_default_template(),
+            verbose=False)
+        self.save_and_reload_db()
+        self.qc.unlock_db()
+
+    def get_rootimg_checksum(self):
+        p = subprocess.Popen(['sha1sum', self.test_template.root_img],
+                             stdout=subprocess.PIPE)
+        return p.communicate()[0]
+
+    def _do_test(self):
+        checksum_before = self.get_rootimg_checksum()
+        self.test_template.start(verbose=False)
+        self.shutdown_and_wait(self.test_template)
+        checksum_changed = self.get_rootimg_checksum()
+        if checksum_before == checksum_changed:
+            self.log.warning("template not modified, test result will be "
+                             "unreliable")
+        with self.assertNotRaises(subprocess.CalledProcessError):
+            subprocess.check_call(['sudo', 'qvm-revert-template-changes',
+                                   '--force', self.test_template.name])
+
+        checksum_after = self.get_rootimg_checksum()
+        self.assertEquals(checksum_before, checksum_after)
+
+    def test_000_revert_pv(self):
+        """
+        Test qvm-revert-template-changes for PV template
+        """
+        self.setup_pv_template()
+        self._do_test()
 
 # vim: ts=4 sw=4 et
