@@ -79,10 +79,13 @@ class QfileDaemonDvm:
                                            label=label)
         print >>sys.stderr, "time=%s, VM created" % (str(time.time()))
         # By default inherit firewall rules from calling VM
+        disp_firewall_conf = '/var/run/qubes/%s-firewall.xml' % dispvm.name
+        dispvm.firewall_conf = disp_firewall_conf
         if os.path.exists(vm.firewall_conf):
-            disp_firewall_conf = '/var/run/qubes/%s-firewall.xml' % dispvm.name
             shutil.copy(vm.firewall_conf, disp_firewall_conf)
-            dispvm.firewall_conf = disp_firewall_conf
+        elif vm.qid == 0 and os.path.exists(vm_disptempl.firewall_conf):
+            # for DispVM called from dom0, copy use rules from DispVM template
+            shutil.copy(vm_disptempl.firewall_conf, disp_firewall_conf)
         if len(sys.argv) > 5 and len(sys.argv[5]) > 0:
             assert os.path.exists(sys.argv[5]), "Invalid firewall.conf location"
             dispvm.firewall_conf = sys.argv[5]
