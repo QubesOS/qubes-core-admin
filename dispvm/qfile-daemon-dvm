@@ -182,7 +182,11 @@ def main():
         subprocess.call(['/usr/lib/qubes/qrexec-client', '-d', dispvm.name,
                          user+':exec /usr/lib/qubes/qubes-rpc-multiplexer ' +
                          exec_index + " " + src_vmname])
-        dispvm.force_shutdown()
+        try:
+            dispvm.force_shutdown()
+        except QubesException:
+            # VM already destroyed
+            pass
         qfile.remove_disposable_from_qdb(dispvm.name)
 
 main()
