@@ -821,5 +821,60 @@ class TC_04_DispVM(qubes.tests.SystemTestsMixin,
             else:
                 os.unlink(dispvm_template.firewall_conf)
 
+    def test_002_cleanup(self):
+        self.qc.unlock_db()
+        p = subprocess.Popen(['/usr/lib/qubes/qfile-daemon-dvm',
+                              'qubes.VMShell', 'dom0', 'DEFAULT'],
+                             stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE,
+                             stderr=open(os.devnull, 'w'))
+        (stdout, _) = p.communicate(input="echo test; qubesdb-read /name; "
+                                          "echo ERROR\n")
+        self.assertEquals(p.returncode, 0)
+        lines = stdout.splitlines()
+        self.assertEqual(lines[0], "test")
+        dispvm_name = lines[1]
+        self.qc.lock_db_for_reading()
+        self.qc.load()
+        self.qc.unlock_db()
+        dispvm = self.qc.get_vm_by_name(dispvm_name)
+        self.assertIsNone(dispvm, "DispVM {} still exists in qubes.xml".format(
+            dispvm_name))
+
+    def test_003_cleanup_destroyed(self):
+        """
+        Check if DispVM is properly removed even if it terminated itself (#1660)
+        :return:
+        """
+        self.qc.unlock_db()
+        p = subprocess.Popen(['/usr/lib/qubes/qfile-daemon-dvm',
+                              'qubes.VMShell', 'dom0', 'DEFAULT'],
+                             stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE,
+                             stderr=open(os.devnull, 'w'))
+        p.stdin.write("qubesdb-read /name\n")
+        p.stdin.write("echo ERROR\n")
+        p.stdin.write("poweroff\n")
+        # do not close p.stdin on purpose - wait to automatic disconnect when
+        #  domain is destroyed
+        timeout = 30
+        while timeout > 0:
+            if p.poll():
+                break
+            time.sleep(1)
+            timeout -= 1
+        # includes check for None - timeout
+        self.assertEquals(p.returncode, 0)
+        lines = p.stdout.read().splitlines()
+        dispvm_name = lines[0]
+        self.assertNotEquals(dispvm_name, "ERROR")
+        self.qc.lock_db_for_reading()
+        self.qc.load()
+        self.qc.unlock_db()
+        dispvm = self.qc.get_vm_by_name(dispvm_name)
+        self.assertIsNone(dispvm, "DispVM {} still exists in qubes.xml".format(
+            dispvm_name))
+
+
 
 # vim: ts=4 sw=4 et
