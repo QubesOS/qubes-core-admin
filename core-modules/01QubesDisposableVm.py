@@ -237,5 +237,9 @@ class QubesDisposableVm(QubesVm):
 
         return self.xid
 
+    def remove_from_disk(self):
+        # nothing to remove
+        pass
+
 # register classes
 register_qubes_vm_class(QubesDisposableVm)
