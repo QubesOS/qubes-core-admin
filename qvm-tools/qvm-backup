@@ -67,6 +67,10 @@ def main():
                        dest="compress_filter", default=False,
                        help="Compress the backup using specified filter "
                             "program (default: gzip)")
+    parser.add_option("--tmpdir", action="store", dest="tmpdir", default=None,
+                      help="Custom temporary directory (if you have at least "
+                           "1GB free RAM in dom0, use of /tmp is advised) ("
+                           "default: /var/tmp)")
     parser.add_option ("--debug", action="store_true", dest="debug",
                        default=False, help="Enable (a lot of) debug output")
 
@@ -180,6 +184,8 @@ def main():
         kwargs['hmac_algorithm'] = options.hmac_algorithm
     if options.crypto_algorithm:
         kwargs['crypto_algorithm'] = options.crypto_algorithm
+    if options.tmpdir:
+        kwargs['tmpdir'] = options.tmpdir
 
     try:
         backup_do(base_backup_dir, files_to_backup, passphrase,
