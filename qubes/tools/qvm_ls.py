@@ -31,6 +31,7 @@ from __future__ import print_function
 import __builtin__
 import argparse
 import collections
+import math
 import sys
 import textwrap
 
@@ -52,18 +53,15 @@ class Column(object):
     :param int width: Column width.
     :param str attr: Attribute, possibly complex (containing ``.``). This may \
         also be a callable that gets as its only argument the domain.
-    :param str fmt: if specified, used as base for :py:meth:`str.format` for \
-        column's value
     :param str doc: Description of column (will be visible in --help-columns).
     '''
 
     #: collection of all columns
     columns = {}
 
-    def __init__(self, head, width=0, attr=None, fmt=None, doc=None):
+    def __init__(self, head, width=0, attr=None, doc=None):
         self.ls_head = head
         self.ls_width = max(width, len(self.ls_head) + 1)
-        self._fmt = fmt
         self.__doc__ = doc if doc is None else qubes.utils.format_doc(doc)
 
         # intentionally not always do set self._attr,
@@ -118,9 +116,6 @@ class Column(object):
         if ret is None:
             return None
 
-        if self._fmt is not None:
-            return self._fmt.format(ret)
-
         # late import to avoid circular import
         # pylint: disable=redefined-outer-name
         import qubes.vm
@@ -143,7 +138,7 @@ class Column(object):
         return self.ls_head < other.ls_head
 
 
-def column(width=0, head=None, fmt=None):
+def column(width=0, head=None):
     '''Mark function or plain property as valid column in :program:`qvm-ls`.
 
     By default all instances of :py:class:`qubes.property` are valid.
@@ -164,7 +159,6 @@ def column(width=0, head=None, fmt=None):
                 'for a strange object {!r}'.format(obj))
 
         holder.ls_width = max(width, len(holder.ls_head) + 1)
-        holder.ls_fmt = fmt
 
         return obj
 
@@ -185,7 +179,6 @@ class PropertyColumn(Column):
             head=holder.ls_head,
             width=holder.ls_width,
             attr=holder.__name__,
-            fmt=getattr(holder, 'ls_fmt', None),
             doc=holder.__doc__)
         self.holder = holder
 
@@ -410,36 +403,36 @@ Column('DISK', width=5,
 
 
 Column('PRIV-CURR', width=5,
-    attr=(lambda vm: vm.get_disk_utilization_private_img()/1024/1024),
-    fmt='{:.0f}',
+    attr=(lambda vm:
+        int(math.floor(vm.get_disk_utilization_private_img()/1024/1024))),
     doc='Disk utilisation by private image (/home, /usr/local).')
 
 Column('PRIV-MAX', width=5,
-    attr=(lambda vm: vm.get_private_img_sz()/1024/1024),
-    fmt='{:.0f}',
+    attr=(lambda vm:
+        int(math.floor(vm.get_private_img_sz()/1024/1024))),
     doc='Maximum available space for private image.')
 
 Column('PRIV-USED', width=5,
-    attr=(lambda vm: vm.get_disk_utilization_private_img() * 100
-        / vm.get_private_img_sz()),
-    fmt='{:.0f}',
+    attr=(lambda vm:
+        int(math.floor(vm.get_disk_utilization_private_img() * 100
+            / vm.get_private_img_sz()))),
     doc='Disk utilisation by private image as a percentage of available space.')
 
 
 Column('ROOT-CURR', width=5,
-    attr=(lambda vm: vm.get_disk_utilization_private_img()/1024/1024),
-    fmt='{:.0f}',
+    attr=(lambda vm:
+        int(math.floor(vm.get_disk_utilization_private_img()/1024/1024))),
     doc='Disk utilisation by root image (/usr, /lib, /etc, ...).')
 
 Column('ROOT-MAX', width=5,
-    attr=(lambda vm: vm.get_private_img_sz()/1024/1024),
-    fmt='{:.0f}',
+    attr=(lambda vm:
+        int(math.floor(vm.get_private_img_sz()/1024/1024))),
     doc='Maximum available space for root image.')
 
 Column('ROOT-USED', width=5,
-    attr=(lambda vm: vm.get_disk_utilization_private_img() * 100
-        / vm.get_private_img_sz()),
-    fmt='{:.0f}',
+    attr=(lambda vm:
+        int(math.floor(vm.get_disk_utilization_private_img() * 100
+            / vm.get_private_img_sz()))),
     doc='Disk utilisation by root image as a percentage of available space.')
 
 
