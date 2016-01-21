@@ -198,29 +198,32 @@ def process_class(cls):
     :param qubes.vm.BaseVMMeta cls: Class to round up.
     '''
 
-    for prop in cls.__dict__.values():
-        holder = prop.fget if isinstance(prop, __builtin__.property) else prop
-        if not hasattr(holder, 'ls_head') or holder.ls_head is None:
-            continue
-
-        for col in Column.columns.values():
-            if not isinstance(col, PropertyColumn):
+    for klass in cls.__mro__:
+        for prop in klass.__dict__.values():
+            holder = prop.fget \
+                if isinstance(prop, __builtin__.property) \
+                else prop
+            if not hasattr(holder, 'ls_head') or holder.ls_head is None:
                 continue
 
-            if col.holder.__name__ != holder.__name__:
-                continue
+            for col in Column.columns.values():
+                if not isinstance(col, PropertyColumn):
+                    continue
 
-            if col.ls_head != holder.ls_head:
-                raise TypeError('Found column head mismatch in class {!r} '
-                    '({!r} != {!r})'.format(cls.__name__,
-                        holder.ls_head, col.ls_head))
+                if col.holder.__name__ != holder.__name__:
+                    continue
 
-            if col.ls_width != holder.ls_width:
-                raise TypeError('Found column width mismatch in class {!r} '
-                    '({!r} != {!r})'.format(cls.__name__,
-                        holder.ls_width, col.ls_width))
+                if col.ls_head != holder.ls_head:
+                    raise TypeError('Found column head mismatch in class {!r} '
+                        '({!r} != {!r})'.format(cls.__name__,
+                            holder.ls_head, col.ls_head))
 
-        PropertyColumn(holder)
+                if col.ls_width != holder.ls_width:
+                    raise TypeError('Found column width mismatch in class {!r} '
+                        '({!r} != {!r})'.format(cls.__name__,
+                            holder.ls_width, col.ls_width))
+
+            PropertyColumn(holder)
 
 
 def flag(field):
