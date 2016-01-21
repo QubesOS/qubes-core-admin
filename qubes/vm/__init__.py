@@ -273,7 +273,8 @@ class BaseVM(qubes.PropertyHolder):
         interface = lxml.etree.Element('interface', type='ethernet')
         interface.append(lxml.etree.Element('mac', address=mac))
         interface.append(lxml.etree.Element('ip', address=ip))
-        interface.append(lxml.etree.Element('domain', name=backend.name))
+        interface.append(lxml.etree.Element('backenddomain', name=backend.name))
+        interface.append(lxml.etree.Element('script', path="vif-route-qubes"))
 
         return interface
 
