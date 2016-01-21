@@ -27,7 +27,7 @@
 from __future__ import absolute_import
 
 import datetime
-import lxml.etree
+import itertools
 import os
 import os.path
 import re
@@ -39,6 +39,7 @@ import uuid
 import warnings
 
 import libvirt
+import lxml.etree
 
 import qubes
 import qubes.config
@@ -46,6 +47,7 @@ import qubes.exc
 import qubes.storage
 import qubes.utils
 import qubes.vm
+import qubes.vm.mix.net
 import qubes.tools.qvm_ls
 
 qmemman_present = False
@@ -121,7 +123,7 @@ def _default_conf_file(self, name=None):
     return (name or self.name) + '.conf'
 
 
-class QubesVM(qubes.vm.BaseVM):
+class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     '''Base functionality of Qubes VM shared between all VMs.'''
 
     #
@@ -141,15 +143,6 @@ class QubesVM(qubes.vm.BaseVM):
         ls_width=14,
         doc='''Colourful label assigned to VM. This is where the colour of the
             padlock is set.''')
-
-    # XXX swallowed uses_default_netvm
-    netvm = qubes.VMProperty('netvm', load_stage=4, allow_none=True,
-        default=(lambda self: self.app.default_fw_netvm if self.provides_network
-            else self.app.default_netvm),
-        ls_width=31,
-        doc='''VM that provides network connection to this domain. When
-            `None`, machine is disconnected. When absent, domain uses default
-            NetVM.''')
 
 #   provides_network = qubes.property('provides_network',
 #       type=bool, setter=qubes.property.bool,
@@ -219,11 +212,6 @@ class QubesVM(qubes.vm.BaseVM):
             else qubes.config.defaults['kernelopts']),
         ls_width=30,
         doc='Kernel command line passed to domain.')
-
-    mac = qubes.property('mac', type=str,
-        default=(lambda self: '00:16:3E:5E:6C:{:02X}'.format(self.qid)),
-        ls_width=17,
-        doc='MAC address of the NIC emulated inside VM')
 
     debug = qubes.property('debug', type=bool, default=False,
         setter=qubes.property.bool,
@@ -413,59 +401,6 @@ class QubesVM(qubes.vm.BaseVM):
 
     # network-related
 
-    @qubes.tools.qvm_ls.column(width=15)
-    @property
-    def ip(self):
-        '''IP address of this domain.'''
-        if self.netvm is not None:
-            return self.netvm.get_ip_for_vm(self)
-        else:
-            return None
-
-    @qubes.tools.qvm_ls.column(width=15)
-    @property
-    def netmask(self):
-        '''Netmask for this domain's IP address.'''
-        if self.netvm is not None:
-            return self.netvm.netmask
-        else:
-            return None
-
-    @qubes.tools.qvm_ls.column(head='IPBACK', width=15)
-    @property
-    def gateway(self):
-        '''Gateway for other domains that use this domain as netvm.'''
-        # pylint: disable=no-self-use
-
-        # This is gateway IP for _other_ VMs, so make sense only in NetVMs
-        return None
-
-    @qubes.tools.qvm_ls.column(width=15)
-    @property
-    def secondary_dns(self):
-        '''Secondary DNS server set up for this domain.'''
-        if self.netvm is not None:
-            return self.netvm.secondary_dns
-        else:
-            return None
-
-    @qubes.tools.qvm_ls.column(width=7)
-    @property
-    def vif(self):
-        '''Name of the network interface backend in netvm that is connected to
-        NIC inside this domain.'''
-        if self.xid < 0:
-            return None
-        if self.netvm is None:
-            return None
-        return "vif{0}.+".format(self.xid)
-
-    @property
-    def provides_network(self):
-        ''':py:obj:`True` if it is :py:class:`qubes.vm.netvm.NetVM` or
-        :py:class:`qubes.vm.proxyvm.ProxyVM`, :py:obj:`False` otherwise'''
-        return isinstance(self,
-            (qubes.vm.netvm.NetVM, qubes.vm.proxyvm.ProxyVM))
 
     #
     # constructor
@@ -543,61 +478,6 @@ class QubesVM(qubes.vm.BaseVM):
                 subprocess.call(['sudo', 'xdg-icon-resource', 'forceupdate'])
             else:
                 shutil.copy(new_label.icon_path, self.icon_path)
-
-
-    @qubes.events.handler('property-del:netvm')
-    def on_property_del_netvm(self, event, name, old_netvm):
-        # pylint: disable=unused-argument
-        # we are changing to default netvm
-        new_netvm = self.netvm
-        if new_netvm == old_netvm:
-            return
-        self.fire_event('property-set:netvm', 'netvm', new_netvm, old_netvm)
-
-
-    @qubes.events.handler('property-set:netvm')
-    def on_property_set_netvm(self, event, name, new_netvm, old_netvm=None):
-        # pylint: disable=unused-argument
-        if self.is_running() and new_netvm is not None \
-                and not new_netvm.is_running():
-            raise qubes.exc.QubesVMNotStartedError(new_netvm,
-                'Cannot dynamically attach to stopped NetVM: {!r}'.format(
-                    new_netvm))
-
-        if self.netvm is not None:
-            del self.netvm.connected_vms[self]
-            if self.is_running():
-                self.detach_network()
-
-                # TODO change to domain-removed event handler in netvm
-#               if hasattr(self.netvm, 'post_vm_net_detach'):
-#                   self.netvm.post_vm_net_detach(self)
-
-        if new_netvm is None:
-#           if not self._do_not_reset_firewall:
-            # Set also firewall to block all traffic as discussed in #370
-            if os.path.exists(self.firewall_conf):
-                shutil.copy(self.firewall_conf,
-                    os.path.join(qubes.config.system_path['qubes_base_dir'],
-                        'backup',
-                        '%s-firewall-%s.xml' % (self.name,
-                            time.strftime('%Y-%m-%d-%H:%M:%S'))))
-            self.write_firewall_conf({'allow': False, 'allowDns': False,
-                'allowIcmp': False, 'allowYumProxy': False, 'rules': []})
-        else:
-            new_netvm.connected_vms.add(self)
-
-        if new_netvm is None:
-            return
-
-        if self.is_running():
-            # refresh IP, DNS etc
-            self.create_qdb_entries()
-            self.attach_network()
-
-            # TODO domain-added event handler in netvm
-#           if hasattr(self.netvm, 'post_vm_net_attach'):
-#               self.netvm.post_vm_net_attach(self)
 
 
     @qubes.events.handler('property-pre-set:name')
@@ -768,10 +648,6 @@ class QubesVM(qubes.vm.BaseVM):
             if vm.is_proxyvm() and vm.is_running():
                 vm.write_iptables_xenstore_entry()
 
-        self.fire_event('domain-started',
-            preparing_dvm=preparing_dvm, start_guid=start_guid)
-
-
         self.log.warning('Activating the {} VM'.format(self.name))
         self.libvirt_domain.resume()
 
@@ -794,8 +670,11 @@ class QubesVM(qubes.vm.BaseVM):
                 and os.path.exists('/var/run/shm.id'):
             self.start_guid()
 
+        self.fire_event('domain-started',
+            preparing_dvm=preparing_dvm, start_guid=start_guid)
 
-    def shutdown(self):
+
+    def shutdown(self, force=False):
         '''Shutdown domain.
 
         :raises qubes.exc.QubesVMNotStartedError: \
@@ -805,10 +684,11 @@ class QubesVM(qubes.vm.BaseVM):
         if not self.is_running(): # TODO not self.is_halted()
             raise qubes.exc.QubesVMNotStartedError(self)
 
+        self.fire_event_pre('pre-domain-shutdown', force=force)
         self.libvirt_domain.shutdown()
 
 
-    def force_shutdown(self):
+    def kill(self):
         '''Forcefuly shutdown (destroy) domain.
 
         :raises qubes.exc.QubesVMNotStartedError: \
@@ -819,6 +699,14 @@ class QubesVM(qubes.vm.BaseVM):
             raise qubes.exc.QubesVMNotStartedError(self)
 
         self.libvirt_domain.destroy()
+
+
+    def force_shutdown(self, *args, **kwargs):
+        '''Deprecated alias for :py:meth:`kill`'''
+        warnings.warn(
+            'Call to deprecated function force_shutdown(), use kill() instead',
+            DeprecationWarning, stacklevel=2)
+        self.kill(*args, **kwargs)
 
 
     def suspend(self):
@@ -1178,33 +1066,6 @@ class QubesVM(qubes.vm.BaseVM):
 
         # fire hooks
         self.fire_event('cloned-files', src)
-
-
-    # TODO maybe this should be other way: backend.devices['net'].attach(self)
-    def attach_network(self):
-        '''Attach network in this machine to it's netvm.'''
-
-        if not self.is_running():
-            raise qubes.exc.QubesVMNotRunningError(self)
-        assert self.netvm is not None
-
-        if not self.netvm.is_running():
-            self.log.info('Starting NetVM ({0})'.format(self.netvm.name))
-            self.netvm.start()
-
-        self.libvirt_domain.attachDevice(lxml.etree.ElementTree(
-            self.lvxml_net_dev(self.ip, self.mac, self.netvm)).tostring())
-
-
-    def detach_network(self):
-        '''Detach machine from it's netvm'''
-
-        if not self.is_running():
-            raise qubes.exc.QubesVMNotRunningError(self)
-        assert self.netvm is not None
-
-        self.libvirt_domain.detachDevice(lxml.etree.ElementTree(
-            self.lvxml_net_dev(self.ip, self.mac, self.netvm)).tostring())
 
 
     #
@@ -1619,20 +1480,6 @@ class QubesVM(qubes.vm.BaseVM):
         return used_dmdev != current_dmdev
 
 
-    def is_networked(self):
-        '''Check whether this VM can reach network (firewall notwithstanding).
-
-        :returns: :py:obj:`True` if is machine can reach network, \
-            :py:obj:`False` otherwise.
-        :rtype: bool
-        '''
-
-        if self.provides_network:
-            return True
-
-        return self.netvm is not None
-
-
     #
     # helper methods
     #
@@ -1652,36 +1499,40 @@ class QubesVM(qubes.vm.BaseVM):
         '''
         # pylint: disable=no-member
 
-        self.qdb.write("/name", self.name)
-        self.qdb.write("/qubes-vm-type", self.__class__.__name__)
-        self.qdb.write("/qubes-vm-updateable", str(self.updateable))
+        self.qdb.write('/name', self.name)
+        self.qdb.write('/qubes-vm-type', self.__class__.__name__)
+        self.qdb.write('/qubes-vm-updateable', str(self.updateable))
 
         if self.provides_network:
-            self.qdb.write("/qubes-netvm-gateway", self.gateway)
-            self.qdb.write("/qubes-netvm-secondary-dns", self.secondary_dns)
-            self.qdb.write("/qubes-netvm-netmask", self.netmask)
-            self.qdb.write("/qubes-netvm-network", self.network)
+            self.qdb.write('/network-provider/gateway', self.gateway)
+            self.qdb.write('/network-provider/netmask', self.netmask)
+
+            for i, addr in zip(itertools.count(start=1), self.dns):
+                self.qdb.write('/network-provider/dns-{}'.format(i), addr)
 
         if self.netvm is not None:
-            self.qdb.write("/qubes-ip", self.ip)
-            self.qdb.write("/qubes-netmask", self.netvm.netmask)
-            self.qdb.write("/qubes-gateway", self.netvm.gateway)
-            self.qdb.write("/qubes-secondary-dns", self.netvm.secondary_dns)
+            self.qdb.write('/network/ip', self.ip)
+            self.qdb.write('/network/netmask', self.netvm.netmask)
+            self.qdb.write('/network/gateway', self.netvm.gateway)
+
+            for i, addr in zip(itertools.count(start=1), self.dns):
+                self.qdb.write('/network/dns-{}'.format(i), addr)
+
 
         tzname = qubes.utils.get_timezone()
         if tzname:
-            self.qdb.write("/qubes-timezone", tzname)
+            self.qdb.write('/qubes-timezone', tzname)
 
         for srv in self.services.keys():
             # convert True/False to "1"/"0"
-            self.qdb.write("/qubes-service/{0}".format(srv),
+            self.qdb.write('/qubes-service/{0}'.format(srv),
                     str(int(self.services[srv])))
 
-        self.qdb.write("/qubes-block-devices", '')
+        self.qdb.write('/qubes-block-devices', '')
 
-        self.qdb.write("/qubes-usb-devices", '')
+        self.qdb.write('/qubes-usb-devices', '')
 
-        self.qdb.write("/qubes-debug-mode", str(int(self.debug)))
+        self.qdb.write('/qubes-debug-mode', str(int(self.debug)))
 
         # TODO: Currently the whole qmemman is quite Xen-specific, so stay with
         # xenstore for it until decided otherwise
@@ -1709,40 +1560,6 @@ class QubesVM(qubes.vm.BaseVM):
                 pass
             else:
                 raise
-
-
-    def cleanup_vifs(self):
-        '''Remove stale network device backends.
-
-        Xend does not remove vif when backend domain is down, so we must do it
-        manually.
-        '''
-
-        # FIXME: remove this?
-        if not self.is_running():
-            return
-
-        dev_basepath = '/local/domain/%d/device/vif' % self.xid
-        for dev in self.app.vmm.xs.ls('', dev_basepath):
-            # check if backend domain is alive
-            backend_xid = int(self.app.vmm.xs.read('',
-                '{}/{}/backend-id'.format(dev_basepath, dev)))
-            if backend_xid in self.app.vmm.libvirt_conn.listDomainsID():
-                # check if device is still active
-                if self.app.vmm.xs.read('',
-                        '{}/{}/state'.format(dev_basepath, dev)) == '4':
-                    continue
-            # remove dead device
-            self.app.vmm.xs.rm('', '{}/{}'.format(dev_basepath, dev))
-
-
-
-
-
-
-
-
-
 
 
     #

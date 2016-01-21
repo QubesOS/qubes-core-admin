@@ -84,8 +84,6 @@ Special VM types:
 .. toctree::
    :maxdepth: 1
 
-   netvm
-   proxyvm
    dispvm
    adminvm
 

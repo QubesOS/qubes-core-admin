@@ -218,11 +218,13 @@ fi
 %{python_sitelib}/qubes/vm/appvm.py*
 %{python_sitelib}/qubes/vm/dispvm.py*
 %{python_sitelib}/qubes/vm/hvm.py*
-%{python_sitelib}/qubes/vm/netvm.py*
-%{python_sitelib}/qubes/vm/proxyvm.py*
 %{python_sitelib}/qubes/vm/qubesvm.py*
 %{python_sitelib}/qubes/vm/templatehvm.py*
 %{python_sitelib}/qubes/vm/templatevm.py*
+
+%dir %{python_sitelib}/qubes/vm/mix
+%{python_sitelib}/qubes/vm/mix/__init__.py*
+%{python_sitelib}/qubes/vm/mix/net.py*
 
 %dir %{python_sitelib}/qubes/storage
 %{python_sitelib}/qubes/storage/__init__.py*

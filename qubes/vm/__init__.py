@@ -32,6 +32,7 @@ import ast
 import collections
 import datetime
 import functools
+import itertools
 import os
 import re
 import subprocess
@@ -332,8 +333,10 @@ class BaseVM(qubes.PropertyHolder):
             args['ip'] = self.ip
             args['mac'] = self.mac
             args['gateway'] = self.netvm.gateway
-            args['dns1'] = self.netvm.gateway
-            args['dns2'] = self.secondary_dns
+
+            for i, addr in zip(itertools.count(start=1), self.dns):
+                args['dns{}'.format(i)] = addr
+
             args['netmask'] = self.netmask
             args['netdev'] = lxml.etree.tostring(
                 self.lvxml_net_dev(self.ip, self.mac, self.netvm))
