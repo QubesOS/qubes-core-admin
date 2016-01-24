@@ -1500,8 +1500,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # pylint: disable=no-member
 
         self.qdb.write('/name', self.name)
-        self.qdb.write('/qubes-vm-type', self.__class__.__name__)
-        self.qdb.write('/qubes-vm-updateable', str(self.updateable))
+        self.qdb.write('/type', self.__class__.__name__)
+        self.qdb.write('/updateable', str(self.updateable))
+        self.qdb.write('/debug', str(int(self.debug)))
 
         if self.provides_network:
             self.qdb.write('/network-provider/gateway', self.gateway)
@@ -1518,21 +1519,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             for i, addr in zip(itertools.count(start=1), self.dns):
                 self.qdb.write('/network/dns-{}'.format(i), addr)
 
-
         tzname = qubes.utils.get_timezone()
         if tzname:
-            self.qdb.write('/qubes-timezone', tzname)
+            self.qdb.write('/timezone', tzname)
 
         for srv in self.services.keys():
             # convert True/False to "1"/"0"
             self.qdb.write('/qubes-service/{0}'.format(srv),
                     str(int(self.services[srv])))
 
-        self.qdb.write('/qubes-block-devices', '')
-
-        self.qdb.write('/qubes-usb-devices', '')
-
-        self.qdb.write('/qubes-debug-mode', str(int(self.debug)))
+        self.qdb.write('/devices/block', '')
+        self.qdb.write('/devices/usb', '')
 
         # TODO: Currently the whole qmemman is quite Xen-specific, so stay with
         # xenstore for it until decided otherwise
