@@ -37,7 +37,8 @@ import qubes.backup
 import qubes.qubes
 import time
 
-VMPREFIX = 'test-'
+VMPREFIX = 'test-inst-'
+CLSVMPREFIX = 'test-cls-'
 
 
 #: :py:obj:`True` if running in dom0, :py:obj:`False` otherwise
@@ -214,7 +215,7 @@ class SystemTestsMixin(object):
 
         self.conn = libvirt.open(qubes.qubes.defaults['libvirt_uri'])
 
-        self.remove_test_vms()
+        self.remove_test_vms(self.qc, self.conn)
 
     def tearDown(self):
         super(SystemTestsMixin, self).tearDown()
@@ -226,12 +227,12 @@ class SystemTestsMixin(object):
         except qubes.qubes.QubesException:
             pass
 
-        self.kill_test_vms()
+        self.kill_test_vms(self.qc)
 
         self.qc.lock_db_for_writing()
         self.qc.load()
 
-        self.remove_test_vms()
+        self.remove_test_vms(self.qc, self.conn)
 
         self.qc.save()
         self.qc.unlock_db()
@@ -239,8 +240,36 @@ class SystemTestsMixin(object):
 
         self.conn.close()
 
-    def make_vm_name(self, name):
-        return VMPREFIX + name
+    @classmethod
+    def tearDownClass(cls):
+        super(SystemTestsMixin, cls).tearDownClass()
+
+        qc = qubes.qubes.QubesVmCollection()
+        qc.lock_db_for_reading()
+        qc.load()
+        qc.unlock_db()
+
+        conn = libvirt.open(qubes.qubes.defaults['libvirt_uri'])
+
+        cls.kill_test_vms(qc, prefix=CLSVMPREFIX)
+
+        qc.lock_db_for_writing()
+        qc.load()
+
+        cls.remove_test_vms(qc, conn, prefix=CLSVMPREFIX)
+
+        qc.save()
+        qc.unlock_db()
+        del qc
+
+        conn.close()
+
+    @staticmethod
+    def make_vm_name(name, class_teardown=False):
+        if class_teardown:
+            return CLSVMPREFIX + name
+        else:
+            return VMPREFIX + name
 
     def save_and_reload_db(self):
         self.qc.save()
@@ -248,19 +277,21 @@ class SystemTestsMixin(object):
         self.qc.lock_db_for_writing()
         self.qc.load()
 
-    def kill_test_vms(self):
+    @staticmethod
+    def kill_test_vms(qc, prefix=VMPREFIX):
         # do not keep write lock while killing VMs, because that may cause a
         # deadlock with disk hotplug scripts (namely qvm-template-commit
         # called when shutting down TemplateVm)
-        self.qc.lock_db_for_reading()
-        self.qc.load()
-        self.qc.unlock_db()
-        for vm in self.qc.values():
-            if vm.name.startswith(VMPREFIX):
+        qc.lock_db_for_reading()
+        qc.load()
+        qc.unlock_db()
+        for vm in qc.values():
+            if vm.name.startswith(prefix):
                 if vm.is_running():
                     vm.force_shutdown()
 
-    def _remove_vm_qubes(self, vm):
+    @classmethod
+    def _remove_vm_qubes(cls, qc, conn, vm):
         vmname = vm.name
 
         try:
@@ -280,28 +311,30 @@ class SystemTestsMixin(object):
         except libvirt.libvirtError:
             pass
 
-        self.qc.pop(vm.qid)
+        qc.pop(vm.qid)
         del vm
 
         # Now ensure it really went away. This may not have happened,
         # for example if vm.libvirtDomain malfunctioned.
         try:
-            dom = self.conn.lookupByName(vmname)
+            dom = conn.lookupByName(vmname)
         except:
             pass
         else:
-            self._remove_vm_libvirt(dom)
+            cls._remove_vm_libvirt(dom)
 
-        self._remove_vm_disk(vmname)
+        cls._remove_vm_disk(vmname)
 
-    def _remove_vm_libvirt(self, dom):
+    @staticmethod
+    def _remove_vm_libvirt(dom):
         try:
             dom.destroy()
         except libvirt.libvirtError: # not running
             pass
         dom.undefine()
 
-    def _remove_vm_disk(self, vmname):
+    @staticmethod
+    def _remove_vm_disk(vmname):
         for dirspec in (
                 'qubes_appvms_dir',
                 'qubes_servicevms_dir',
@@ -315,10 +348,12 @@ class SystemTestsMixin(object):
                     os.unlink(dirpath)
 
     def remove_vms(self, vms):
-        for vm in vms: self._remove_vm_qubes(vm)
+        for vm in vms:
+            self._remove_vm_qubes(self.qc, self.conn, vm)
         self.save_and_reload_db()
 
-    def remove_test_vms(self):
+    @classmethod
+    def remove_test_vms(cls, qc, conn, prefix=VMPREFIX):
         """Aggresively remove any domain that has name in testing namespace.
 
         .. warning::
@@ -330,17 +365,20 @@ class SystemTestsMixin(object):
 
         # first, remove them Qubes-way
         something_removed = False
-        for vm in self.qc.values():
-            if vm.name.startswith(VMPREFIX):
-                self._remove_vm_qubes(vm)
+        for vm in qc.values():
+            if vm.name.startswith(prefix):
+                cls._remove_vm_qubes(qc, conn, vm)
                 something_removed = True
         if something_removed:
-            self.save_and_reload_db()
+            qc.save()
+            qc.unlock_db()
+            qc.lock_db_for_writing()
+            qc.load()
 
         # now remove what was only in libvirt
-        for dom in self.conn.listAllDomains():
-            if dom.name().startswith(VMPREFIX):
-                self._remove_vm_libvirt(dom)
+        for dom in conn.listAllDomains():
+            if dom.name().startswith(prefix):
+                cls._remove_vm_libvirt(dom)
 
         # finally remove anything that is left on disk
         vmnames = set()
@@ -351,10 +389,10 @@ class SystemTestsMixin(object):
             dirpath = os.path.join(qubes.qubes.system_path['qubes_base_dir'],
                 qubes.qubes.system_path[dirspec])
             for name in os.listdir(dirpath):
-                if name.startswith(VMPREFIX):
+                if name.startswith(prefix):
                     vmnames.add(name)
         for vmname in vmnames:
-            self._remove_vm_disk(vmname)
+            cls._remove_vm_disk(vmname)
 
     def wait_for_window(self, title, timeout=30, show=True):
         """
