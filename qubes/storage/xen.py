@@ -92,9 +92,7 @@ class XenStorage(qubes.storage.Storage):
         return self.abspath(qubes.config.vm_files['volatile_img'])
 
 
-    # pylint: disable=redefined-builtin
-    @staticmethod
-    def format_disk_dev(path, vdev, script=None, rw=True, type='disk',
+    def format_disk_dev(self, path, vdev, script=None, rw=True, devtype='disk',
             domain=None):
         if path is None:
             return ''
@@ -261,8 +259,9 @@ class XenStorage(qubes.storage.Storage):
                 # FIXME stat on f_root; with open() ...
                 f_volatile = open(self.volatile_img, "w")
                 f_root = open(source_template.storage.root_img, "r")
+                # make empty sparse file of the same size as root.img
                 f_root.seek(0, os.SEEK_END)
-                f_volatile.truncate(f_root.tell()) # make empty sparse file of the same size as root.img
+                f_volatile.truncate(f_root.tell())
                 f_volatile.close()
                 f_root.close()
                 return # XXX why is that? super() does not run
@@ -275,6 +274,7 @@ class XenStorage(qubes.storage.Storage):
         super(XenStorage, self).prepare_for_vm_startup()
 
         if self.drive is not None:
+            # pylint: disable=unused-variable
             (drive_type, drive_domain, drive_path) = self.drive.split(":")
 
             if drive_domain.lower() != "dom0":

@@ -24,9 +24,16 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
+import os
+import shutil
+import time
 import weakref
 
+import libvirt
+import lxml.etree
+
 import qubes
+import qubes.exc
 
 class NetVMMixin(object):
     mac = qubes.property('mac', type=str,
@@ -70,10 +77,11 @@ class NetVMMixin(object):
     # those properties and methods are most likely accessed as vm.netvm.<prop>
     #
 
-    def get_ip_for_vm(self, vm):
+    @staticmethod
+    def get_ip_for_vm(vm):
         '''Get IP address for (appvm) domain connected to this (netvm) domain.
         '''
-        import qubes.vm.dispvm
+        import qubes.vm.dispvm # pylint: disable=redefined-outer-name
         if isinstance(vm, qubes.vm.dispvm.DispVM):
             return '10.138.{}.{}'.format((vm.dispid >> 8) & 7, vm.dispid & 7)
 
@@ -150,13 +158,13 @@ class NetVMMixin(object):
 
             try:
                 vm.attach_network(wait=False)
-            except QubesException as e:
+            except qubes.exc.QubesException:
                 vm.log.warning('Cannot attach network', exc_info=1)
 
 
     @qubes.events.handler('pre-domain-shutdown')
     def shutdown_net(self, force=False):
-        connected_vms = [vm for vm in self.connected_vms.values() if vm.is_running()]
+        connected_vms = [vm for vm in self.connected_vms if vm.is_running()]
         if connected_vms and not force:
             raise qubes.exc.QubesVMError(
                 'There are other VMs connected to this VM: {}'.format(
@@ -170,7 +178,7 @@ class NetVMMixin(object):
             if vm.is_running():
                 try:
                     vm.detach_network()
-                except (QubesException, libvirt.libvirtError):
+                except (qubes.exc.QubesException, libvirt.libvirtError):
                     # ignore errors
                     pass
 

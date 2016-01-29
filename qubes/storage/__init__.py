@@ -26,6 +26,7 @@
 
 from __future__ import absolute_import
 
+import ConfigParser
 import importlib
 import os
 import os.path
@@ -41,16 +42,23 @@ import qubes.utils
 BLKSIZE = 512
 CONFIG_FILE = '/etc/qubes/storage.conf'
 
+
+class StoragePoolException(qubes.exc.QubesException):
+    pass
+
+
 class Storage(object):
     '''Class for handling VM virtual disks.
 
     This is base class for all other implementations, mostly with Xen on Linux
     in mind.
-    ''' # pylint: disable=abstract-class-little-used
+    '''
 
     root_img = None
     private_img = None
     volatile_img = None
+
+    modules_dev = None
 
     def __init__(self, vm, private_img_size=None, root_img_size=None):
 
@@ -92,10 +100,10 @@ class Storage(object):
     def volatile_dev_config(self):
         raise NotImplementedError()
 
-    def other_dev_config(self)
+    def other_dev_config(self):
         if self.modules_img is not None:
-            return self.format_disk_dev(self.modules_img, None,
-                self.modules_dev, rw=self.modules_img_rw)
+            return self.format_disk_dev(self.modules_img, self.modules_dev,
+                rw=self.modules_img_rw)
         elif self.drive is not None:
             (drive_type, drive_domain, drive_path) = self.drive.split(":")
             if drive_type == 'hd':
@@ -107,16 +115,15 @@ class Storage(object):
                 drive_domain = None
 
             return self.format_disk_dev(drive_path,
-                None,
                 self.modules_dev,
                 rw=rw,
-                type=drive_type,
+                devtype=drive_type,
                 domain=drive_domain)
 
         else:
             return ''
 
-    def format_disk_dev(self, path, script, vdev, rw=True, type='disk',
+    def format_disk_dev(self, path, vdev, script=None, rw=True, devtype='disk',
             domain=None):
         raise NotImplementedError()
 
@@ -166,9 +173,6 @@ class Storage(object):
         return path if os.path.isabs(path) \
             else os.path.join(rel or self.vm.dir_path, path)
 
-
-    def get_config_params(self):
-        raise NotImplementedError()
 
     @staticmethod
     def _copy_file(source, destination):
@@ -353,16 +357,28 @@ def get_disk_usage(path):
     return ret
 
 
-#def get_storage(vm):
-#    '''Factory yielding storage class instances for domains.
-#
-#    :raises ImportError: when storage class specified in config cannot be found
-#    :raises KeyError: when storage class specified in config cannot be found
-#    '''
-#    pkg, cls = qubes.config.defaults['storage_class'].strip().rsplit('.', 1)
-#
-#    # this may raise ImportError or KeyError, that's okay
-#    return importlib.import_module(pkg).__dict__[cls](vm)
+def load(clsname):
+    '''Given a dotted full module string representation of a class it loads it
+
+        Args:
+            string (str) i.e. 'qubes.storage.xen.QubesXenVmStorage'
+
+        Returns:
+            type
+
+        See also:
+            :func:`qubes.storage.dump`
+
+    :raises ImportError: when storage class specified in config cannot be found
+    :raises KeyError: when storage class specified in config cannot be found
+    '''
+
+    if not isinstance(clsname, basestring):
+        return clsname
+    pkg, cls = clsname.strip().rsplit('.', 1)
+
+    # this may raise ImportError or KeyError, that's okay
+    return importlib.import_module(pkg).__dict__[cls]
 
 
 def dump(o):
@@ -377,30 +393,6 @@ def dump(o):
     return o.__module__ + '.' + o.__class__.__name__
 
 
-def load(string):
-    """ Given a dotted full module string representation of a class it loads it
-
-        Args:
-            string (str) i.e. 'qubes.storage.xen.QubesXenVmStorage'
-
-        Returns:
-            type
-
-        See also:
-            :func:`qubes.storage.dump`
-    """
-    if not type(string) is str:
-        # This is a hack which allows giving a real class to a vm instead of a
-        # string as string_class parameter.
-        return string
-
-    components = string.split(".")
-    module_path = ".".join(components[:-1])
-    klass = components[-1:][0]
-    module = __import__(module_path, fromlist=[klass])
-    return getattr(module, klass)
-
-
 def get_pool(name, vm):
     """ Instantiates the storage for the specified vm """
     config = _get_storage_config_parser()
@@ -412,7 +404,7 @@ def get_pool(name, vm):
     config_kwargs = dict(zip(keys, values))
 
     if name == 'default':
-        kwargs = defaults['pool_config'].copy()
+        kwargs = qubes.config.defaults['pool_config'].copy()
         kwargs.update(keys)
     else:
         kwargs = config_kwargs
@@ -478,14 +470,10 @@ def _get_pool_klass(name, config=None):
         klass = load(config.get(name, 'class'))
     elif config.has_option(name, 'driver'):
         pool_driver = config.get(name, 'driver')
-        klass = defaults['pool_drivers'][pool_driver]
+        klass = qubes.config.defaults['pool_drivers'][pool_driver]
     else:
         raise StoragePoolException('Uknown storage pool driver ' + name)
     return klass
-
-
-class StoragePoolException(QubesException):
-    pass
 
 
 class Pool(object):
@@ -509,6 +497,8 @@ class Pool(object):
         vm_templates_path = os.path.join(self.dir_path, 'vm-templates')
         self.create_dir_if_not_exists(vm_templates_path)
 
+    # XXX there is also a class attribute on the domain classes which does
+    # exactly that -- which one should prevail?
     def vmdir_path(self, vm, pool_dir):
         """ Returns the path to vmdir depending on the type of the VM.
 
@@ -537,7 +527,8 @@ class Pool(object):
             subdir = 'appvms'
             return os.path.join(pool_dir, subdir, vm.template.name + '-dvm')
         else:
-            raise QubesException(vm.type() + ' unknown vm type')
+            raise qubes.exc.QubesException(
+                'unknown vm type: {!r}'.format(vm.type()))
 
         return os.path.join(pool_dir, subdir, vm.name)
 

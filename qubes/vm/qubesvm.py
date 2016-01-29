@@ -26,10 +26,12 @@
 
 from __future__ import absolute_import
 
+import base64
 import datetime
 import itertools
 import os
 import os.path
+import pipes
 import re
 import shutil
 import subprocess
@@ -39,7 +41,6 @@ import uuid
 import warnings
 
 import libvirt
-import lxml.etree
 
 import qubes
 import qubes.config
@@ -388,9 +389,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         return isinstance(self, qubes.vm.appvm.AppVM)
 
     def is_proxyvm(self):
-        warnings.warn('vm.is_proxyvm() is deprecated, use isinstance()',
+        warnings.warn('vm.is_proxyvm() is deprecated',
             DeprecationWarning)
-        return isinstance(self, qubes.vm.proxyvm.ProxyVM)
+        return self.netvm is not None and self.provides_network
 
     def is_disposablevm(self):
         warnings.warn('vm.is_disposable() is deprecated, use isinstance()',
@@ -513,18 +514,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self._qdb_connection = None
 
         self.storage.rename(
-            self._get_dir_path(new_name),
-            self._get_dir_path(old_name))
+            os.path.join(qubes.config.system_path['qubes_base_dir'],
+                self.dir_path_prefix, new_name),
+            os.path.join(qubes.config.system_path['qubes_base_dir'],
+                self.dir_path_prefix, old_name))
 
-        if self.property_is_default('conf_file'):
-            new_conf = os.path.join(
-                self.dir_path, _default_conf_file(self, old_name))
-            old_conf = os.path.join(
-                self.dir_path, _default_conf_file(self, old_name))
-            self.storage.rename(old_conf, new_conf)
-
-            self.fire_event('property-set:conf_file', 'conf_file',
-                new_conf, old_conf)
+        self.storage.rename(
+            os.path.join(self.dir_path, new_name + '.conf'),
+            os.path.join(self.dir_path, old_name + '.conf'))
 
         self._update_libvirt_domain()
 
@@ -662,11 +659,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self.log.warning('Activating the {} VM'.format(self.name))
             self.libvirt_domain.resume()
 
-            # close() is not really needed, because the descriptor is close-on-exec
-            # anyway, the reason to postpone close() is that possibly xl is not done
-            # constructing the domain after its main process exits
-            # so we close() when we know the domain is up
-            # the successful unpause is some indicator of it
+            # close() is not really needed, because the descriptor is
+            # close-on-exec anyway, the reason to postpone close() is that
+            # possibly xl is not done constructing the domain after its main
+            # process exits so we close() when we know the domain is up the
+            # successful unpause is some indicator of it
             if qmemman_client:
                 qmemman_client.close()
 
@@ -915,7 +912,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             return
 
         MEM_OVERHEAD_BASE = (3 + 1) * 1024 * 1024
-        MEM_OVERHEAD_PER_CPU = 3 * 1024 * 1024 / 2
+        MEM_OVERHEAD_PER_VCPU = 3 * 1024 * 1024 / 2
 
         if mem_required is None:
             mem_required = int(self.memory) * 1024 * 1024
@@ -1123,9 +1120,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if not allow_start:
             raise qubes.exc.QubesException(
                 'The qube has to be started to complete the operation, but is'
-                ' required not to start. Either run the operation again allowing'
-                ' starting of the qube this time, or run resize2fs in the qube'
-                ' manually.')
+                ' required not to start. Either run the operation again'
+                ' allowing  starting of the qube this time, or run resize2fs'
+                ' in the qube manually.')
 
         self.start(start_guid=False)
 
@@ -1291,6 +1288,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         try:
             if libvirt_domain.isActive():
+                # pylint: disable=line-too-long
                 if libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PAUSED:
                     return "Paused"
                 elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_CRASHED:

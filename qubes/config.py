@@ -83,8 +83,8 @@ defaults = {
     'root_img_size': 10*1024*1024*1024,
 
     'storage_class': 'qubes.storage.xen.XenStorage',
-    'pool_drivers': {'xen': 'qubes.storage.xen.XenPool'}
-    'pool_config': {'dir_path': '/var/lib/qubes'}
+    'pool_drivers': {'xen': 'qubes.storage.xen.XenPool'},
+    'pool_config': {'dir_path': '/var/lib/qubes'},
 
     # how long (in sec) to wait for VMs to shutdown,
     # before killing them (when used qvm-run with --wait option),
