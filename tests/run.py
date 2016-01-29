@@ -133,7 +133,11 @@ class QubesTestResult(unittest.TestResult):
 
     def addError(self, test, err): # pylint: disable=invalid-name
         super(QubesTestResult, self).addError(test, err)
-        test.log.critical('ERROR ({err[0].__name__}: {err[1]!r})'.format(err=err))
+        try:
+            test.log.critical(
+                'ERROR ({err[0].__name__}: {err[1]!r})'.format(err=err))
+        except AttributeError:
+            pass
         if self.showAll:
             self.stream.writeln(
                 '{color[red]}{color[bold]}ERROR{color[normal]} ({})'.format(
@@ -157,7 +161,10 @@ class QubesTestResult(unittest.TestResult):
 
     def addSkip(self, test, reason): # pylint: disable=invalid-name
         super(QubesTestResult, self).addSkip(test, reason)
-        test.log.warning('skipped ({})'.format(reason))
+        try:
+            test.log.warning('skipped ({})'.format(reason))
+        except AttributeError:
+            pass
         if self.showAll:
             self.stream.writeln(
                 '{color[cyan]}skipped{color[normal]} ({})'.format(
