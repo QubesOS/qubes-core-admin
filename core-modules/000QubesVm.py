@@ -767,6 +767,8 @@ class QubesVm(object):
                 # libxl_domain_info failed - domain no longer exists
             elif e.get_error_code() == libvirt.VIR_ERR_INTERNAL_ERROR:
                 return 0
+            elif e.get_error_code() is None:  # unknown...
+                return 0
             else:
                 print >>sys.stderr, "libvirt error code: {!r}".format(
                     e.get_error_code())
@@ -785,6 +787,8 @@ class QubesVm(object):
                 return 0
                 # libxl_domain_info failed - domain no longer exists
             elif e.get_error_code() == libvirt.VIR_INTERNAL_ERROR:
+                return 0
+            elif e.get_error_code() is None:  # unknown...
                 return 0
             else:
                 print >>sys.stderr, "libvirt error code: {!r}".format(
@@ -906,6 +910,11 @@ class QubesVm(object):
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return False
+                # libxl_domain_info failed - domain no longer exists
+            elif e.get_error_code() == libvirt.VIR_INTERNAL_ERROR:
+                return False
+            elif e.get_error_code() is None:  # unknown...
+                return False
             else:
                 print >>sys.stderr, "libvirt error code: {!r}".format(
                     e.get_error_code())
@@ -919,6 +928,11 @@ class QubesVm(object):
                 return False
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
+                return False
+                # libxl_domain_info failed - domain no longer exists
+            elif e.get_error_code() == libvirt.VIR_INTERNAL_ERROR:
+                return False
+            elif e.get_error_code() is None:  # unknown...
                 return False
             else:
                 print >>sys.stderr, "libvirt error code: {!r}".format(
