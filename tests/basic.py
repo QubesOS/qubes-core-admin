@@ -268,6 +268,45 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.assertEquals(testvm1.get_firewall_conf(),
                           testvm3.get_firewall_conf())
 
+    def test_020_name_conflict_app(self):
+        with self.assertRaises(QubesException):
+            self.vm2 = self.qc.add_new_vm('QubesAppVm',
+                name=self.vmname, template=self.qc.get_default_template())
+            self.vm2.create_on_disk(verbose=False)
+
+    def test_021_name_conflict_hvm(self):
+        with self.assertRaises(QubesException):
+            self.vm2 = self.qc.add_new_vm('QubesHVm',
+                name=self.vmname, template=self.qc.get_default_template())
+            self.vm2.create_on_disk(verbose=False)
+
+    def test_022_name_conflict_net(self):
+        with self.assertRaises(QubesException):
+            self.vm2 = self.qc.add_new_vm('QubesNetVm',
+                name=self.vmname, template=self.qc.get_default_template())
+            self.vm2.create_on_disk(verbose=False)
+
+    def test_030_rename_conflict_app(self):
+        vm2name = self.make_vm_name('newname')
+
+        self.vm2 = self.qc.add_new_vm('QubesAppVm',
+            name=vm2name, template=self.qc.get_default_template())
+        self.vm2.create_on_disk(verbose=False)
+
+        with self.assertRaises(QubesException):
+            self.vm2.set_name(self.vmname)
+
+    def test_031_rename_conflict_net(self):
+        vm3name = self.make_vm_name('newname')
+
+        self.vm3 = self.qc.add_new_vm('QubesNetVm',
+            name=vm3name, template=self.qc.get_default_template())
+        self.vm3.create_on_disk(verbose=False)
+
+        with self.assertRaises(QubesException):
+            self.vm3.set_name(self.vmname)
+
+
 class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     def setup_appvm(self):
         self.testvm = self.qc.add_new_vm(
