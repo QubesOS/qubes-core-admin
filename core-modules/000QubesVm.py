@@ -592,8 +592,13 @@ class QubesVm(object):
             raise QubesException("Cannot rename VM installed by RPM -- first clone VM and then use yum to remove package.")
 
         self.pre_rename(name)
-        if self.libvirt_domain:
+        try:
             self.libvirt_domain.undefine()
+        except libvirt.libvirtError as e:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
+                pass
+            else:
+                raise
         if self._qdb_connection:
             self._qdb_connection.close()
             self._qdb_connection = None
