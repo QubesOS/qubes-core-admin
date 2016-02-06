@@ -32,6 +32,7 @@ import tempfile
 import unittest
 import time
 from qubes.qubes import QubesVmCollection, QubesException, system_path
+import libvirt
 
 import qubes.qubes
 import qubes.tests
@@ -113,6 +114,14 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.assertFalse(os.path.exists(
             '/etc/systemd/system/multi-user.target.wants/'
             'qubes-vm@{}.service'.format(self.vmname)))
+
+    def test_001_rename_libvirt_undefined(self):
+        self.vm.libvirt_domain.undefine()
+        self.vm._libvirt_domain = None
+
+        newname = self.make_vm_name('newname')
+        with self.assertNotRaises(libvirt.libvirtError):
+            self.vm.set_name(newname)
 
     def test_010_netvm(self):
         if self.qc.get_default_netvm() is None:
