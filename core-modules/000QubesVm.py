@@ -579,6 +579,10 @@ class QubesVm(object):
         if self.installed_by_rpm:
             raise QubesException("Cannot rename VM installed by RPM -- first clone VM and then use yum to remove package.")
 
+        assert self._collection is not None
+        if self._collection.get_vm_by_name(name):
+            raise QubesException("VM with this name already exists")
+
         self.pre_rename(name)
         try:
             self.libvirt_domain.undefine()
