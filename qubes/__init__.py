@@ -1145,6 +1145,7 @@ class Qubes(PropertyHolder):
     # TODO #1637 #892
     check_updates_vm = property('check_updates_vm',
         type=bool, setter=property.bool,
+        default=True,
         doc='check for updates inside qubes')
 
 

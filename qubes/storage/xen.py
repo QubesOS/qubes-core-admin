@@ -99,7 +99,7 @@ class XenStorage(qubes.storage.Storage):
 
         element = lxml.etree.Element('disk')
         element.set('type', 'block')
-        element.set('device', type)
+        element.set('device', devtype)
 
         element.append(lxml.etree.Element('driver', name='phy'))
         element.append(lxml.etree.Element('source', dev=path))
@@ -157,10 +157,10 @@ class XenStorage(qubes.storage.Storage):
 
 
     def private_dev_config(self):
-        self.format_disk_dev(self.private_img, self.private_dev)
+        return self.format_disk_dev(self.private_img, self.private_dev)
 
     def volatile_dev_config(self):
-        self.format_disk_dev(self.volatile_img, self.volatile_dev)
+        return self.format_disk_dev(self.volatile_img, self.volatile_dev)
 
 
     def create_on_disk_private_img(self, source_template=None):
