@@ -526,9 +526,11 @@ class Pool(object):
         elif vm.is_disposablevm():
             subdir = 'appvms'
             return os.path.join(pool_dir, subdir, vm.template.name + '-dvm')
+        elif isinstance(vm, qubes.vm.adminvm.AdminVM):
+            subdir = 'servicevms'
         else:
             raise qubes.exc.QubesException(
-                'unknown vm type: {!r}'.format(vm.type()))
+                'unknown vm type: {!r}'.format(str(vm.__class__)))
 
         return os.path.join(pool_dir, subdir, vm.name)
 

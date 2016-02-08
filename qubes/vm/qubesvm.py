@@ -398,6 +398,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             DeprecationWarning)
         return isinstance(self, qubes.vm.dispvm.DispVM)
 
+    def is_netvm(self):
+        warnings.warn('vm.is_netvm() is deprecated, use isinstance()',
+            DeprecationWarning)
+        return isinstance(self, qubes.vm.mix.net.NetVMMixin) \
+               and self.provides_network
+
 
     # network-related
 
