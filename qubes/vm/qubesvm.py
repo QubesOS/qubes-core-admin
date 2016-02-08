@@ -456,9 +456,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             if not self.app.check_updates_vm:
                 self.services['qubes-update-check'] = False
 
-        # Initialize VM image storage class
-        self.storage = qubes.storage.get_pool(
-            self.pool_name, self).get_storage(self)
+        # will be initialized after loading all the properties
+        self.storage = None
 
         # fire hooks
         if xml is None:
@@ -475,6 +474,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # pylint: disable=unused-argument
         if not hasattr(self, 'uuid'):
             self.uuid = uuid.uuid4()
+
+        # Initialize VM image storage class
+        self.storage = qubes.storage.get_pool(
+            self.pool_name, self).get_storage()
 
 
     @qubes.events.handler('property-set:label')
