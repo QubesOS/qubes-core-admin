@@ -132,6 +132,10 @@ def main():
     if (options.passio and not options.localcmd) and options.run_on_all_running:
         parser.error ("Options --all and --pass-io cannot be used together")
 
+    if options.localcmd and not options.passio:
+        print >> sys.stderr, "WARNING: option --localcmd have no effect " \
+                             "without --pass-io"
+
     if options.passio:
         options.verbose = False
 
