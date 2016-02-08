@@ -470,7 +470,7 @@ def _get_pool_klass(name, config=None):
         klass = load(config.get(name, 'class'))
     elif config.has_option(name, 'driver'):
         pool_driver = config.get(name, 'driver')
-        klass = qubes.config.defaults['pool_drivers'][pool_driver]
+        klass = load(qubes.config.defaults['pool_drivers'][pool_driver])
     else:
         raise StoragePoolException('Uknown storage pool driver ' + name)
     return klass
