@@ -1030,15 +1030,19 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     # TODO event, extension
     def notify_monitor_layout(self):
-        monitor_layout = qubes.monitor_layout.get_monitor_layout()
+        try:
+            import qubes.monitorlayoutnotify
+            monitor_layout = qubes.monitorlayoutnotify.get_monitor_layout()
 
-        # notify qube only if we've got a non-empty monitor_layout or else we
-        # break proper qube resolution set by gui-agent
-        if not monitor_layout:
-            return
+            # notify qube only if we've got a non-empty monitor_layout or else we
+            # break proper qube resolution set by gui-agent
+            if not monitor_layout:
+                return
 
-        self.log.info('Sending monitor layout')
-        qubes.monitor_layout.notify_vm(self, monitor_layout)
+            self.log.info('Sending monitor layout')
+            qubes.monitorlayoutnotify.notify_vm(self, monitor_layout)
+        except ImportError:
+            self.log.warning('Monitor layout notify module not installed')
 
 
     # TODO move to storage
