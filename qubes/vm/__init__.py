@@ -384,11 +384,12 @@ class BaseVM(qubes.PropertyHolder):
 
         if file_path is None:
             file_path = self.conf_file
-        if self.uses_custom_config:
-            conf_appvm = open(file_path, "r")
-            domain_config = conf_appvm.read()
-            conf_appvm.close()
-            return domain_config
+        # TODO
+        # if self.uses_custom_config:
+        #     conf_appvm = open(file_path, "r")
+        #     domain_config = conf_appvm.read()
+        #     conf_appvm.close()
+        #     return domain_config
 
         f_conf_template = open(self.config_file_template, 'r')
         conf_template = f_conf_template.read()
