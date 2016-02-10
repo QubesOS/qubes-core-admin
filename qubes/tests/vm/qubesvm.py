@@ -281,6 +281,9 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
             self.app.labels[1], 'label-1')
         self.assertPropertyValue(vm, 'label', 'label-1',
             self.app.labels[1], 'label-1')
+
+    def test_131_label_invalid(self):
+        vm = self.get_vm()
         self.assertPropertyInvalidValue(vm, 'label', 'invalid')
         self.assertPropertyInvalidValue(vm, 'label', 123)
 
@@ -296,15 +299,19 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
             self.netvm2.name)
         # XXX FIXME xml value
         self.assertPropertyValue(vm, 'netvm', None, None, 'None')
+
+    def test_141_netvm_invalid(self):
+        vm = self.get_vm()
+        self.setup_netvms(vm)
         self.assertPropertyInvalidValue(vm, 'netvm', 'invalid')
         self.assertPropertyInvalidValue(vm, 'netvm', 123)
 
-    def test_141_netvm_netvm(self):
+    def test_142_netvm_netvm(self):
         vm = self.get_vm()
         self.setup_netvms(vm)
         self.assertPropertyInvalidValue(vm, 'netvm', self.nonetvm)
 
-    def test_142_netvm_loopback(self):
+    def test_143_netvm_loopback(self):
         vm = self.get_vm()
         self.app.domains = {1: vm, vm: vm}
         self.assertPropertyInvalidValue(vm, 'netvm', vm)
@@ -320,9 +327,15 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
         del vm.memory
         self.assertPropertyDefaultValue(vm, 'memory', 400)
         self.assertPropertyValue(vm, 'memory', '500', 500, '500')
+
+    def test_161_memory_invalid(self):
+        vm = self.get_vm()
         self.assertPropertyInvalidValue(vm, 'memory', -100)
         self.assertPropertyInvalidValue(vm, 'memory', '-100')
         self.assertPropertyInvalidValue(vm, 'memory', '')
+
+    def test_162_memory_more_than_host(self):
+        vm = self.get_vm()
         self.assertPropertyInvalidValue(vm, 'memory',
             2 * self.app.host.memory_total)
         # TODO: higher than maxmem
@@ -337,9 +350,15 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
         self.assertPropertyDefaultValue(vm, 'maxmem',
             self.app.host.memory_total / 1024 / 2)
         self.assertPropertyValue(vm, 'maxmem', '500', 500, '500')
+
+    def test_171_maxmem_invalid(self):
+        vm = self.get_vm()
         self.assertPropertyInvalidValue(vm, 'maxmem', -100)
         self.assertPropertyInvalidValue(vm, 'maxmem', '-100')
         self.assertPropertyInvalidValue(vm, 'maxmem', '')
+
+    def test_172_maxmem_more_than_host(self):
+        vm = self.get_vm()
         self.assertPropertyInvalidValue(vm, 'maxmem',
             2 * self.app.host.memory_total)
         # TODO: lower than memory
@@ -356,6 +375,9 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
         del vm.vcpus
         self.assertPropertyDefaultValue(vm, 'vcpus', self.app.host.no_cpus)
         self.assertPropertyValue(vm, 'vcpus', '3', 3, '3')
+
+    def test_191_vcpus_invalid(self):
+        vm = self.get_vm()
         self.assertPropertyInvalidValue(vm, 'vcpus', 0)
         self.assertPropertyInvalidValue(vm, 'vcpus', -2)
         self.assertPropertyInvalidValue(vm, 'vcpus', '-2')
@@ -387,6 +409,9 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
         del vm.firewall_conf
         self.assertPropertyDefaultValue(vm, 'firewall_conf',
             'firewall.xml')
+
+    def test_241_firewall_conf_invalid(self):
+        vm = self.get_vm()
         self.assertPropertyInvalidValue(vm, 'firewall_conf', None)
 
     @qubes.tests.skipUnlessDom0
@@ -403,6 +428,10 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
             kernels[-1])
         del vm.kernel
         self.assertPropertyDefaultValue(vm, 'kernel', kernels[0])
+
+    @qubes.tests.skipUnlessDom0
+    def test_251_kernel_invalid(self):
+        vm = self.get_vm()
         self.assertPropertyInvalidValue(vm, 'kernel', 123)
         self.assertPropertyInvalidValue(vm, 'kernel', 'invalid')
 
@@ -436,6 +465,9 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
         del vm.qrexec_timeout
         self.assertPropertyDefaultValue(vm, 'qrexec_timeout', 60)
         self.assertPropertyValue(vm, 'qrexec_timeout', '3', 3, '3')
+
+    def test_271_qrexec_timeout_invalid(self):
+        vm = self.get_vm()
         self.assertPropertyInvalidValue(vm, 'qrexec_timeout', -2)
         self.assertPropertyInvalidValue(vm, 'qrexec_timeout', '-2')
         self.assertPropertyInvalidValue(vm, 'qrexec_timeout', '')
@@ -484,6 +516,10 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
             self.netvm2, self.netvm2.name)
         # XXX FIXME xml value
         self.assertPropertyValue(vm, 'dispvm_netvm', None, None, 'None')
+
+    def test_291_dispvm_netvm_invalid(self):
+        vm = self.get_vm()
+        self.setup_netvms(vm)
         self.assertPropertyInvalidValue(vm, 'dispvm_netvm', 'invalid')
         self.assertPropertyInvalidValue(vm, 'dispvm_netvm', 123)
 
@@ -552,6 +588,9 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
             '00:11:22:33:44:55', '00:11:22:33:44:55')
         del vm.mac
         self.assertPropertyDefaultValue(vm, 'mac', default_mac)
+
+    def test_331_mac_invalid(self):
+        vm = self.get_vm()
         self.assertPropertyInvalidValue(vm, 'mac', 123)
         self.assertPropertyInvalidValue(vm, 'mac', 'invalid')
         self.assertPropertyInvalidValue(vm, 'mac', '00:11:22:33:44:55:66')
@@ -576,6 +615,11 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
         self.assertPropertyValue(vm, 'timezone', '0', 0, '0')
         self.assertPropertyValue(vm, 'timezone', -3600, -3600, '-3600')
         self.assertPropertyValue(vm, 'timezone', 7200, 7200, '7200')
+
+    @unittest.skip('TODO')
+    def test_350_timezone_invalid(self):
+        vm = self.get_vm()
+        self.assertPropertyInvalidValue(vm, 'timezone', 'xxx')
 
     @unittest.skip('TODO')
     def test_360_drive(self):
@@ -623,5 +667,8 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
         self.assertPropertyDefaultValue(vm, 'backup_timestamp', None)
         self.assertPropertyValue(vm, 'backup_timestamp', timestamp_str,
             timestamp)
+
+    def test_401_backup_timestamp_invalid(self):
+        vm = self.get_vm()
         self.assertPropertyInvalidValue(vm, 'backup_timestamp', 'xxx')
         self.assertPropertyInvalidValue(vm, 'backup_timestamp', None)
