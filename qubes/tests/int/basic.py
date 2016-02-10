@@ -252,8 +252,9 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             name=vm2name, template=self.app.default_template, label='red')
         self.vm2.create_on_disk()
 
-        with self.assertRaises(qubes.exc.QubesException):
-            self.vm2.name = self.vmname
+        with self.assertNotRaises(OSError):
+            with self.assertRaises(qubes.exc.QubesException):
+                self.vm2.name = self.vmname
 
 class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
 
