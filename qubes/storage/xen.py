@@ -226,23 +226,19 @@ class XenStorage(qubes.storage.Storage):
         os.umask(old_umask)
 
 
-    def reset_volatile_storage(self, source_template=None):
-        if source_template is None:
-            source_template = self.vm.template
+    def reset_volatile_storage(self):
+        try:
+            # no template set, in any way (Standalone VM, Template VM)
+            if self.vm.template is None:
+                raise AttributeError
 
-        if source_template is not None:
-            # template-based VM with only one device-mapper layer -
+            # template-based HVM with only one device-mapper layer -
             # volatile.img used as upper layer on root.img, no root-cow.img
             # intermediate layer
-
-            # XXX marmarek says this is either always true or always false;
-            # rootcow_img got smashed in 35cb82 (#1573)
-            # this may have remain after HVM check
-            # this probably should have happen anyway
-            if not source_template.storage.rootcow_img:
+            if self.vm.hvm:
                 if os.path.exists(self.volatile_img):
                     if self.vm.debug:
-                        if os.path.getmtime(source_template.storage.root_img) \
+                        if os.path.getmtime(self.vm.template.storage.root_img) \
                                 > os.path.getmtime(self.volatile_img):
                             self.vm.log.warning(
                                 'Template have changed, resetting root.img')
@@ -258,16 +254,17 @@ class XenStorage(qubes.storage.Storage):
 
                 # FIXME stat on f_root; with open() ...
                 f_volatile = open(self.volatile_img, "w")
-                f_root = open(source_template.storage.root_img, "r")
+                f_root = open(self.vm.template.storage.root_img, "r")
                 # make empty sparse file of the same size as root.img
                 f_root.seek(0, os.SEEK_END)
                 f_volatile.truncate(f_root.tell())
                 f_volatile.close()
                 f_root.close()
                 return # XXX why is that? super() does not run
+        except AttributeError: # self.vm.template
+            pass
 
-        super(XenStorage, self).reset_volatile_storage(
-            source_template=source_template)
+        super(XenStorage, self).reset_volatile_storage()
 
 
     def prepare_for_vm_startup(self):

@@ -219,7 +219,7 @@ class Storage(object):
         os.mkdir(self.vm.dir_path)
         self.create_on_disk_private_img(source_template)
         self.create_on_disk_root_img(source_template)
-        self.reset_volatile_storage(source_template)
+        self.reset_volatile_storage()
 
         os.umask(old_umask)
 
@@ -285,14 +285,14 @@ class Storage(object):
         shutil.rmtree(self.vm.dir_path)
 
 
-    def reset_volatile_storage(self, source_template=None):
-        if source_template is None:
-            source_template = self.vm.template
-
+    def reset_volatile_storage(self):
         # Re-create only for template based VMs
-        if source_template is not None and self.volatile_img:
-            if os.path.exists(self.volatile_img):
-                os.remove(self.volatile_img)
+        try:
+            if self.vm.template is not None and self.volatile_img:
+                if os.path.exists(self.volatile_img):
+                    os.remove(self.volatile_img)
+        except AttributeError: # self.vm.template
+            pass
 
         # For StandaloneVM create it only if not already exists
         # (eg after backup-restore)
