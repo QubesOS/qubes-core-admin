@@ -98,6 +98,7 @@ def _setter_name(self, prop, value):
 
 def _setter_kernel(self, prop, value):
     # pylint: disable=unused-argument
+    value = str(value)
     dirname = os.path.join(
         qubes.config.system_path['qubes_base_dir'],
         qubes.config.system_path['qubes_kernels_base_dir'],
@@ -107,7 +108,7 @@ def _setter_kernel(self, prop, value):
             'Kernel {!r} not installed'.format(value))
     for filename in ('vmlinuz', 'initramfs'):
         if not os.path.exists(os.path.join(dirname, filename)):
-            raise qubes.exc.QubesPropertyValueError(
+            raise qubes.exc.QubesPropertyValueError(self, prop, value,
                 'Kernel {!r} not properly installed: missing {!r} file'.format(
                     value, filename))
     return value
@@ -187,6 +188,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     # FIXME self.app.host could not exist - only self.app.vm required by API
     vcpus = qubes.property('vcpus',
+        type=int,
         default=(lambda self: self.app.host.no_cpus),
         ls_width=2,
         doc='FIXME')
@@ -259,13 +261,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     backup_size = qubes.property('backup_size', type=int, default=0,
         doc='FIXME')
 
+    # TODO default=None?
     backup_path = qubes.property('backup_path', type=str, default='',
         doc='FIXME')
 
     # format got changed from %s to str(datetime.datetime)
     backup_timestamp = qubes.property('backup_timestamp', default=None,
         setter=(lambda self, prop, value:
-            datetime.datetime.fromtimestamp(value)),
+            value if isinstance(value, datetime.datetime) else
+            datetime.datetime.fromtimestamp(int(value))),
         saver=(lambda self, prop, value: value.strftime('%s')),
         doc='FIXME')
 
@@ -897,7 +901,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         :param str input: string passed as input to service
         ''' # pylint: disable=redefined-builtin
 
-        if len(i for i in (input, passio_popen, localcmd) if i) > 1:
+        if len([i for i in (input, passio_popen, localcmd) if i]) > 1:
             raise ValueError(
                 'input, passio_popen and localcmd cannot be used together')
 
