@@ -147,14 +147,9 @@ class _AssertNotRaisesContext(object):
         if exc_type is None:
             return True
 
-        try:
-            exc_name = self.expected.__name__
-        except AttributeError:
-            exc_name = str(self.expected)
-
         if issubclass(exc_type, self.expected):
             raise self.failureException(
-                "{0} raised".format(exc_name))
+                "{!r} raised".format(exc_value))
         else:
             # pass through
             return False
