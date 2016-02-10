@@ -35,6 +35,7 @@ import sys
 import unittest
 
 import lxml.etree
+import time
 
 import qubes.config
 import qubes.events
@@ -535,6 +536,224 @@ class SystemTestsMixin(object):
                     vmnames.add(name)
         for vmname in vmnames:
             cls._remove_vm_disk(vmname)
+
+    def wait_for_window(self, title, timeout=30, show=True):
+        """
+        Wait for a window with a given title. Depending on show parameter,
+        it will wait for either window to show or to disappear.
+
+        :param title: title of the window to wait for
+        :param timeout: timeout of the operation, in seconds
+        :param show: if True - wait for the window to be visible,
+            otherwise - to not be visible
+        :return: None
+        """
+
+        wait_count = 0
+        while subprocess.call(['xdotool', 'search', '--name', title],
+                              stdout=open(os.path.devnull, 'w'),
+                              stderr=subprocess.STDOUT) == int(show):
+            wait_count += 1
+            if wait_count > timeout*10:
+                self.fail("Timeout while waiting for {} window to {}".format(
+                    title, "show" if show else "hide")
+                )
+            time.sleep(0.1)
+
+    def enter_keys_in_window(self, title, keys):
+        """
+        Search for window with given title, then enter listed keys there.
+        The function will wait for said window to appear.
+
+        :param title: title of window
+        :param keys: list of keys to enter, as for `xdotool key`
+        :return: None
+        """
+
+        # 'xdotool search --sync' sometimes crashes on some race when
+        # accessing window properties
+        self.wait_for_window(title)
+        command = ['xdotool', 'search', '--name', title,
+                   'windowactivate',
+                   'key'] + keys
+        subprocess.check_call(command)
+
+    def shutdown_and_wait(self, vm, timeout=60):
+        vm.shutdown()
+        while timeout > 0:
+            if not vm.is_running():
+                return
+            time.sleep(1)
+            timeout -= 1
+        self.fail("Timeout while waiting for VM {} shutdown".format(vm.name))
+
+
+# noinspection PyAttributeOutsideInit
+class BackupTestsMixin(SystemTestsMixin):
+    def setUp(self):
+        super(BackupTestsMixin, self).setUp()
+        self.init_default_template()
+        self.error_detected = multiprocessing.Queue()
+        self.verbose = False
+
+        if self.verbose:
+            print >>sys.stderr, "-> Creating backupvm"
+
+        self.backupdir = os.path.join(os.environ["HOME"], "test-backup")
+        if os.path.exists(self.backupdir):
+            shutil.rmtree(self.backupdir)
+        os.mkdir(self.backupdir)
+
+    def tearDown(self):
+        super(BackupTestsMixin, self).tearDown()
+        shutil.rmtree(self.backupdir)
+
+    def print_progress(self, progress):
+        if self.verbose:
+            print >> sys.stderr, "\r-> Backing up files: {0}%...".format(progress)
+
+    def error_callback(self, message):
+        self.error_detected.put(message)
+        if self.verbose:
+            print >> sys.stderr, "ERROR: {0}".format(message)
+
+    def print_callback(self, msg):
+        if self.verbose:
+            print msg
+
+    def fill_image(self, path, size=None, sparse=False):
+        block_size = 4096
+
+        if self.verbose:
+            print >>sys.stderr, "-> Filling %s" % path
+        f = open(path, 'w+')
+        if size is None:
+            f.seek(0, 2)
+            size = f.tell()
+        f.seek(0)
+
+        for block_num in xrange(size/block_size):
+            f.write('a' * block_size)
+            if sparse:
+                f.seek(block_size, 1)
+
+        f.close()
+
+    # NOTE: this was create_basic_vms
+    def create_backup_vms(self):
+        template = self.app.default_template
+
+        vms = []
+        vmname = self.make_vm_name('test-net')
+        if self.verbose:
+            print >>sys.stderr, "-> Creating %s" % vmname
+        testnet = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=vmname, template=template, provides_network=True)
+        testnet.create_on_disk(verbose=self.verbose)
+        vms.append(testnet)
+        self.fill_image(testnet.private_img, 20*1024*1024)
+
+        vmname = self.make_vm_name('test1')
+        if self.verbose:
+            print >>sys.stderr, "-> Creating %s" % vmname
+        testvm1 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=vmname, template=template)
+        testvm1.uses_default_netvm = False
+        testvm1.netvm = testnet
+        testvm1.create_on_disk(verbose=self.verbose)
+        vms.append(testvm1)
+        self.fill_image(testvm1.private_img, 100*1024*1024)
+
+        vmname = self.make_vm_name('testhvm1')
+        if self.verbose:
+            print >>sys.stderr, "-> Creating %s" % vmname
+        testvm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM, name=vmname,
+            hvm=True)
+        testvm2.create_on_disk(verbose=self.verbose)
+        self.fill_image(testvm2.root_img, 1024*1024*1024, True)
+        vms.append(testvm2)
+
+        self.app.save()
+
+        return vms
+
+    def make_backup(self, vms, prepare_kwargs=dict(), do_kwargs=dict(),
+                    target=None, expect_failure=False):
+        # XXX: bakup_prepare and backup_do don't support host_collection
+        # self.qc.unlock_db()
+        if target is None:
+            target = self.backupdir
+        try:
+            files_to_backup = \
+                qubes.backup.backup_prepare(vms,
+                                      print_callback=self.print_callback,
+                                      **prepare_kwargs)
+        except qubes.qubes.QubesException as e:
+            if not expect_failure:
+                self.fail("QubesException during backup_prepare: %s" % str(e))
+            else:
+                raise
+
+        try:
+            qubes.backup.backup_do(target, files_to_backup, "qubes",
+                             progress_callback=self.print_progress,
+                             **do_kwargs)
+        except qubes.qubes.QubesException as e:
+            if not expect_failure:
+                self.fail("QubesException during backup_do: %s" % str(e))
+            else:
+                raise
+
+        # FIXME why?
+        self.reload_db()
+
+    def restore_backup(self, source=None, appvm=None, options=None,
+                       expect_errors=None):
+        if source is None:
+            backupfile = os.path.join(self.backupdir,
+                                      sorted(os.listdir(self.backupdir))[-1])
+        else:
+            backupfile = source
+
+        with self.assertNotRaises(qubes.qubes.QubesException):
+            backup_info = qubes.backup.backup_restore_prepare(
+                backupfile, "qubes",
+                host_collection=self.app,
+                print_callback=self.print_callback,
+                appvm=appvm,
+                options=options or {})
+
+        if self.verbose:
+            qubes.backup.backup_restore_print_summary(backup_info)
+
+        with self.assertNotRaises(qubes.qubes.QubesException):
+            qubes.backup.backup_restore_do(
+                backup_info,
+                host_collection=self.app,
+                print_callback=self.print_callback if self.verbose else None,
+                error_callback=self.error_callback)
+
+        # maybe someone forgot to call .save()
+        self.reload_db()
+
+        errors = []
+        if expect_errors is None:
+            expect_errors = []
+        while not self.error_detected.empty():
+            current_error = self.error_detected.get()
+            if any(map(current_error.startswith, expect_errors)):
+                continue
+            errors.append(current_error)
+        self.assertTrue(len(errors) == 0,
+                         "Error(s) detected during backup_restore_do: %s" %
+                         '\n'.join(errors))
+        if not appvm and not os.path.isdir(backupfile):
+            os.unlink(backupfile)
+
+    def create_sparse(self, path, size):
+        f = open(path, "w")
+        f.truncate(size)
+        f.close()
 
 
 def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
