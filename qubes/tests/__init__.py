@@ -378,7 +378,15 @@ class SystemTestsMixin(object):
     def tearDown(self):
         super(SystemTestsMixin, self).tearDown()
         self.remove_test_vms()
-
+        # remove all references to VM objects, to release resources - most
+        # importantly file descriptors; this object will live
+        # during the whole test run, but all the file descriptors would be
+        # depleted earlier
+        del self.app
+        del self.host_app
+        for attr in dir(self):
+            if isinstance(getattr(self, attr), qubes.vm.BaseVM):
+                delattr(self, attr)
 
     @staticmethod
     def make_vm_name(name):
@@ -475,6 +483,7 @@ class SystemTestsMixin(object):
         for dom in conn.listAllDomains():
             if dom.name().startswith(VMPREFIX):
                 self._remove_vm_libvirt(dom)
+        conn.close()
 
         # finally remove anything that is left on disk
         vmnames = set()
