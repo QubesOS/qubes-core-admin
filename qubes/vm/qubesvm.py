@@ -177,7 +177,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         default=qubes.config.defaults['memory'],
         doc='Memory currently available for this VM.')
 
-    maxmem = qubes.property('maxmem', type=int, default=None,
+    maxmem = qubes.property('maxmem', type=int,
+        default=(lambda self: self.app.host.memory_total / 1024 / 1024 / 2),
         doc='''Maximum amount of memory available for this VM (for the purpose
             of the memory balancer).''')
 
@@ -430,12 +431,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             # we are creating new VM and attributes came through kwargs
             assert hasattr(self, 'qid')
             assert hasattr(self, 'name')
-
-        # Not in generic way to not create QubesHost() to frequently
-        # XXX this doesn't apply, host is instantiated once
-        if self.maxmem is None and not self.app.vmm.offline_mode:
-            total_mem_mb = self.app.host.memory_total/1024
-            self.maxmem = total_mem_mb/2
 
         # Linux specific cap: max memory can't scale beyond 10.79*init_mem
         # see https://groups.google.com/forum/#!topic/qubes-devel/VRqkFj1IOtA
