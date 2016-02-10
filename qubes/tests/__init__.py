@@ -32,6 +32,7 @@ import os
 import shutil
 import subprocess
 import sys
+import traceback
 import unittest
 
 import lxml.etree
@@ -152,7 +153,8 @@ class _AssertNotRaisesContext(object):
 
         if issubclass(exc_type, self.expected):
             raise self.failureException(
-                "{!r} raised".format(exc_value))
+                "{!r} raised, traceback:\n{!s}".format(
+                    exc_value, ''.join(traceback.format_tb(tb))))
         else:
             # pass through
             return False
