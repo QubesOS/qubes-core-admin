@@ -118,7 +118,7 @@ def _setter_label(self, prop, value):
     # pylint: disable=unused-argument
     if isinstance(value, qubes.Label):
         return value
-    if value.startswith('label-'):
+    if isinstance(value, basestring) and value.startswith('label-'):
         return self.app.labels[int(value.split('-', 1)[1])]
 
     return self.app.get_label(value)
