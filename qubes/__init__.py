@@ -204,7 +204,7 @@ class QubesHost(object):
 
     @__builtin__.property
     def memory_total(self):
-        '''Total memory, in bytes'''
+        '''Total memory, in kbytes'''
 
         self._fetch()
         return self._total_mem

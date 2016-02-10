@@ -331,11 +331,11 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
     def test_170_maxmem(self):
         vm = self.get_vm()
         self.assertPropertyDefaultValue(vm, 'maxmem',
-            self.app.host.memory_total / 1024 / 1024 / 2)
+            self.app.host.memory_total / 1024 / 2)
         self.assertPropertyValue(vm, 'maxmem', 500, 500, '500')
         del vm.maxmem
         self.assertPropertyDefaultValue(vm, 'maxmem',
-            self.app.host.memory_total / 1024 / 1024 / 2)
+            self.app.host.memory_total / 1024 / 2)
         self.assertPropertyValue(vm, 'maxmem', '500', 500, '500')
         self.assertPropertyInvalidValue(vm, 'maxmem', -100)
         self.assertPropertyInvalidValue(vm, 'maxmem', '-100')
