@@ -978,7 +978,7 @@ class PropertyHolder(qubes.events.Emitter):
             proplist = [prop for prop in self.property_list()
                 if prop.__name__ in proplist or prop in proplist]
 
-        for prop in self.property_list():
+        for prop in proplist:
             try:
                 # pylint: disable=protected-access
                 self._property_init(prop, getattr(src, prop._attr_name))
