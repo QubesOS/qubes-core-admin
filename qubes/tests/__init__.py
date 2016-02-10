@@ -40,8 +40,10 @@ import qubes.config
 import qubes.events
 
 XMLPATH = '/var/lib/qubes/qubes-test.xml'
+CLASS_XMLPATH = '/var/lib/qubes/qubes-class-test.xml'
 TEMPLATE = 'fedora-23'
-VMPREFIX = 'test-'
+VMPREFIX = 'test-inst-'
+CLSVMPREFIX = 'test-cls-'
 
 
 #: :py:obj:`True` if running in dom0, :py:obj:`False` otherwise
@@ -345,6 +347,26 @@ class QubesTestCase(unittest.TestCase):
 
 
 class SystemTestsMixin(object):
+    """
+    Mixin for integration tests. All the tests here should use self.app
+    object and when need qubes.xml path - should use :py:data:`XMLPATH`
+    defined in this file.
+    Every VM created by test, must use :py:meth:`SystemTestsMixin.make_vm_name`
+    for VM name.
+    By default self.app represents empty collection, if anything is needed
+    there from the real collection it can be imported from self.host_app in
+    :py:meth:`SystemTestsMixin.setUp`. But *can not be modified* in any way -
+    this include both changing attributes in
+    :py:attr:`SystemTestsMixin.host_app` and modifying files of such imported
+    VM. If test need to make some modification, it must clone the VM first.
+
+    If some group of tests needs class-wide initialization, first of all the
+    author should consider if it is really needed. But if so, setUpClass can
+    be used to create Qubes(CLASS_XMLPATH) object and create/import required
+    stuff there. VMs created in :py:meth:`TestCase.setUpClass` should
+    use self.make_vm_name('...', class_teardown=True) for name creation.
+    """
+    # noinspection PyAttributeOutsideInit
     def setUp(self):
         super(SystemTestsMixin, self).setUp()
         self.remove_test_vms()
@@ -352,11 +374,15 @@ class SystemTestsMixin(object):
         # need some information from the real qubes.xml - at least installed
         # templates; should not be used for testing, only to initialize self.app
         self.host_app = qubes.Qubes()
-        self.app = qubes.Qubes.create_empty_store(qubes.tests.XMLPATH,
-            default_kernel=self.host_app.default_kernel,
-            clockvm=None,
-            updatevm=None
-        )
+        if os.path.exists(CLASS_XMLPATH):
+            shutil.copy(CLASS_XMLPATH, XMLPATH)
+            self.app = qubes.Qubes(XMLPATH)
+        else:
+            self.app = qubes.Qubes.create_empty_store(qubes.tests.XMLPATH,
+                default_kernel=self.host_app.default_kernel,
+                clockvm=None,
+                updatevm=None
+            )
 
     def init_default_template(self, template=None):
         if template is None:
@@ -388,12 +414,21 @@ class SystemTestsMixin(object):
             if isinstance(getattr(self, attr), qubes.vm.BaseVM):
                 delattr(self, attr)
 
+    @classmethod
+    def tearDownClass(cls):
+        super(SystemTestsMixin, cls).tearDownClass()
+        cls.remove_test_vms(xmlpath=CLASS_XMLPATH, prefix=CLSVMPREFIX)
+
     @staticmethod
-    def make_vm_name(name):
-        return VMPREFIX + name
+    def make_vm_name(name, class_teardown=False):
+        if class_teardown:
+            return CLSVMPREFIX + name
+        else:
+            return VMPREFIX + name
 
 
-    def _remove_vm_qubes(self, vm):
+    @classmethod
+    def _remove_vm_qubes(cls, vm):
         vmname = vm.name
         app = vm.app
 
@@ -428,9 +463,9 @@ class SystemTestsMixin(object):
         except: # pylint: disable=bare-except
             pass
         else:
-            self._remove_vm_libvirt(dom)
+            cls._remove_vm_libvirt(dom)
 
-        self._remove_vm_disk(vmname)
+        cls._remove_vm_disk(vmname)
 
 
     @staticmethod
@@ -457,12 +492,14 @@ class SystemTestsMixin(object):
                     os.unlink(dirpath)
 
 
-    def remove_vms(self, vms):
+    @classmethod
+    def remove_vms(cls, vms):
         for vm in vms:
-            self._remove_vm_qubes(vm)
+            cls._remove_vm_qubes(vm)
 
 
-    def remove_test_vms(self):
+    @classmethod
+    def remove_test_vms(cls, xmlpath=XMLPATH, prefix=VMPREFIX):
         '''Aggresively remove any domain that has name in testing namespace.
 
         .. warning::
@@ -473,16 +510,16 @@ class SystemTestsMixin(object):
         '''
 
         # first, remove them Qubes-way
-        if os.path.exists(XMLPATH):
-            self.remove_vms(vm for vm in qubes.Qubes(XMLPATH).domains
-                if vm.name != TEMPLATE)
-            os.unlink(XMLPATH)
+        if os.path.exists(xmlpath):
+            cls.remove_vms(vm for vm in qubes.Qubes(xmlpath).domains
+                if vm.name.startswith(prefix))
+            os.unlink(xmlpath)
 
         # now remove what was only in libvirt
         conn = libvirt.open(qubes.config.defaults['libvirt_uri'])
         for dom in conn.listAllDomains():
-            if dom.name().startswith(VMPREFIX):
-                self._remove_vm_libvirt(dom)
+            if dom.name().startswith(prefix):
+                cls._remove_vm_libvirt(dom)
         conn.close()
 
         # finally remove anything that is left on disk
@@ -494,10 +531,10 @@ class SystemTestsMixin(object):
             dirpath = os.path.join(qubes.config.system_path['qubes_base_dir'],
                 qubes.config.system_path[dirspec])
             for name in os.listdir(dirpath):
-                if name.startswith(VMPREFIX):
+                if name.startswith(prefix):
                     vmnames.add(name)
         for vmname in vmnames:
-            self._remove_vm_disk(vmname)
+            cls._remove_vm_disk(vmname)
 
 
 def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
