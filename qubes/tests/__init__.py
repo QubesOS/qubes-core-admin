@@ -512,8 +512,14 @@ class SystemTestsMixin(object):
 
         # first, remove them Qubes-way
         if os.path.exists(xmlpath):
-            cls.remove_vms(vm for vm in qubes.Qubes(xmlpath).domains
-                if vm.name.startswith(prefix))
+            try:
+                cls.remove_vms(vm for vm in qubes.Qubes(xmlpath).domains
+                    if vm.name.startswith(prefix))
+            except qubes.exc.QubesException:
+                # If qubes-test.xml is broken that much it doesn't even load,
+                #  simply remove it. VMs will be cleaned up the hard way.
+                # TODO logging?
+                pass
             os.unlink(xmlpath)
 
         # now remove what was only in libvirt
