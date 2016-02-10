@@ -1184,6 +1184,8 @@ class Qubes(PropertyHolder):
 
         super(Qubes, self).__init__(xml=None, **kwargs)
 
+        self.__load_timestamp = None
+
         if load:
             self.load()
 
@@ -1261,6 +1263,9 @@ class Qubes(PropertyHolder):
             vm.events_enabled = True
             vm.fire_event('domain-loaded')
 
+        # get a file timestamp (before closing it - still holding the lock!),
+        #  to detect whether anyone else have modified it in the meantime
+        self.__load_timestamp = os.path.getmtime(self._store)
         # intentionally do not call explicit unlock
         fh.close()
         del fh
@@ -1287,7 +1292,7 @@ class Qubes(PropertyHolder):
         mitigated:
 
         - Running out of disk space. No space left should not result in empty
-          file. This is done by writing to temporary file and the renaming.
+          file. This is done by writing to temporary file and then renaming.
         - Attempts to write two or more files concurrently. This is done by
           sophisticated locking.
 
@@ -1313,6 +1318,13 @@ class Qubes(PropertyHolder):
             else:
                 os.close(fd_old)
 
+        if self.__load_timestamp:
+            current_file_timestamp = os.path.getmtime(self._store)
+            if current_file_timestamp != self.__load_timestamp:
+                os.close(fd_old)
+                raise qubes.exc.QubesException(
+                    "Someone else modified qubes.xml in the meantime")
+
         fh_new = tempfile.NamedTemporaryFile(prefix=self._store, delete=False)
         lxml.etree.ElementTree(self.__xml__()).write(
             fh_new, encoding='utf-8', pretty_print=True)
@@ -1324,6 +1336,9 @@ class Qubes(PropertyHolder):
         # intentionally do not call explicit unlock to not unlock the file
         # before all buffers are flushed
         fh_new.close()
+        # update stored mtime, in case of multiple save() calls without
+        # loading qubes.xml again
+        self.__load_timestamp = os.path.getmtime(self._store)
         os.close(fd_old)
 
 
