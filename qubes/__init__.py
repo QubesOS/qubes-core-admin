@@ -1382,6 +1382,11 @@ class Qubes(PropertyHolder):
         if qid is None:
             qid = self.domains.get_new_unused_qid()
 
+        # handle default template; specifically allow template=None (do not
+        # override it with default template)
+        if 'template' not in kwargs and hasattr(cls, 'template'):
+            kwargs['template'] = self.default_template
+
         return self.domains.add(cls(self, None, qid=qid, **kwargs))
 
 
