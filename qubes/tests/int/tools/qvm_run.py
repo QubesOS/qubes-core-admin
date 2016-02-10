@@ -40,17 +40,11 @@ import qubes.tests
 class TC_00_qvm_run(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     def setUp(self):
         super(TC_00_qvm_run, self).setUp()
-        self.app = qubes.Qubes.create_empty_store(qubes.tests.XMLPATH,
-            default_kernel=os.listdir(os.path.join(
-                qubes.config.system_path['qubes_base_dir'],
-                qubes.config.system_path['qubes_kernels_base_dir']))[0])
-        self.app.add_new_vm(qubes.vm.templatevm.TemplateVM,
-            name=qubes.tests.TEMPLATE,
-            label='black')
+        self.init_default_template()
 
         self.vm1 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('vm1'),
-            template=qubes.tests.TEMPLATE,
+            template=self.app.default_template,
             label='red')
         self.vm1.create_on_disk()
 

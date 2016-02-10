@@ -32,13 +32,13 @@ import qubes.tests
 class TC_00_qubes_create(
         qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     def test_000_basic(self):
-        self.assertEqual(0, qubes.tools.qubes_create.main((
-            '--qubesxml', qubes.tests.XMLPATH)))
+        self.assertEqual(0, qubes.tools.qubes_create.main([
+            '--qubesxml', qubes.tests.XMLPATH]))
 
     def test_001_property(self):
-        self.assertEqual(0, qubes.tools.qubes_create.main((
+        self.assertEqual(0, qubes.tools.qubes_create.main([
             '--qubesxml', qubes.tests.XMLPATH,
-            '--property', 'default_kernel=testkernel')))
+            '--property', 'default_kernel=testkernel']))
 
         self.assertEqual('testkernel',
             qubes.Qubes(qubes.tests.XMLPATH).default_kernel)
