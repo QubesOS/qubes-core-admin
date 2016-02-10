@@ -701,7 +701,7 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
 
 
     def __eq__(self, other):
-        return self.__name__ == other.__name__
+        return isinstance(other, property) and self.__name__ == other.__name__
 
 
     def _enforce_write_once(self, instance):
