@@ -1058,17 +1058,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.storage.create_on_disk(source_template)
 
-        if self.updateable:
-            kernels_dir = source_template.storage.kernels_dir
-            self.log.info(
-                'Copying the kernel (unset kernel to use it): {0}'.format(
-                    kernels_dir))
-
-            os.mkdir(self.dir_path + '/kernels')
-            for filename in ("vmlinuz", "initramfs", "modules.img"):
-                shutil.copy(os.path.join(kernels_dir, filename),
-                    os.path.join(self.storage.kernels_dir, filename))
-
         self.log.info('Creating icon symlink: {} -> {}'.format(
             self.icon_path, self.label.icon_path))
         if hasattr(os, "symlink"):
