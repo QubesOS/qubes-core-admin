@@ -510,17 +510,34 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
     @unittest.skip('TODO')
     def test_300_qrexec_installed(self):
         vm = self.get_vm()
-        self._test_generic_bool_property(vm, 'qrexec_installed')
+        self._test_generic_bool_property(vm, 'qrexec_installed', True)
+
+    @unittest.skip('TODO')
+    def test_301_qrexec_installed_default(self):
+        vm = self.get_vm()
+        vm.hvm = False
+        self.assertPropertyDefaultValue(vm, 'qrexec_installed', True)
+        vm.hvm = True
+        self.assertPropertyDefaultValue(vm, 'qrexec_installed', False)
         # TODO: check inheritance from a template - in appvm copy of this test
 
     @unittest.skip('TODO')
     def test_310_guiagent_installed(self):
         vm = self.get_vm()
-        self._test_generic_bool_property(vm, 'guiagent_installed')
+        self._test_generic_bool_property(vm, 'guiagent_installed', True)
         # TODO: check inheritance from a template - in appvm copy of this test
 
     @unittest.skip('TODO')
-    def test_320_seamless_gui_mod(self):
+    def test_311_guiagent_installed_default(self):
+        vm = self.get_vm()
+        vm.hvm = False
+        self.assertPropertyDefaultValue(vm, 'guiagent_installed', True)
+        vm.hvm = True
+        self.assertPropertyDefaultValue(vm, 'guiagent_installed', False)
+        # TODO: check inheritance from a template - in appvm copy of this test
+
+    @unittest.skip('TODO')
+    def test_320_seamless_gui_mode(self):
         vm = self.get_vm()
         self._test_generic_bool_property(vm, 'seamless_gui_mode')
         # TODO: reject setting to True when guiagent_installed is false
