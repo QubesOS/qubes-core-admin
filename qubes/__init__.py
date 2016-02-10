@@ -1061,9 +1061,10 @@ class VMProperty(property):
 
         app = instance if isinstance(instance, Qubes) else instance.app
 
-        # XXX this may throw LookupError; that's good until introduction
-        # of QubesNoSuchVMException or whatever
-        vm = app.domains[value]
+        try:
+            vm = app.domains[value]
+        except KeyError:
+            raise qubes.exc.QubesVMNotFoundError(value)
 
         if not isinstance(vm, self.vmclass):
             raise TypeError('wrong VM class: domains[{!r}] if of type {!s} '
