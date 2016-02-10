@@ -349,6 +349,32 @@ class SystemTestsMixin(object):
         super(SystemTestsMixin, self).setUp()
         self.remove_test_vms()
 
+        # need some information from the real qubes.xml - at least installed
+        # templates; should not be used for testing, only to initialize self.app
+        self.host_app = qubes.Qubes()
+        self.app = qubes.Qubes.create_empty_store(qubes.tests.XMLPATH,
+            default_kernel=self.host_app.default_kernel,
+            clockvm=None,
+            updatevm=None
+        )
+
+    def init_default_template(self, template=None):
+        if template is None:
+            template = self.host_app.default_template
+
+        template_vm = self.app.add_new_vm(qubes.vm.templatevm.TemplateVM,
+            name=template.name,
+            uuid=template.uuid,
+            label='black')
+        self.app.default_template = template_vm
+
+    def reload_db(self):
+        self.app = qubes.Qubes(qubes.tests.XMLPATH)
+
+    def save_and_reload_db(self):
+        self.app.save()
+        self.reload_db()
+
     def tearDown(self):
         super(SystemTestsMixin, self).tearDown()
         self.remove_test_vms()
