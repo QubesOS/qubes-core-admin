@@ -125,6 +125,8 @@ def get_vm_logger(vmname):
     '''
 
     logger = logging.getLogger('vm.' + vmname)
+    if logger.handlers:
+        return logger
     handler = logging.FileHandler(
         os.path.join(LOGPATH, 'vm-{}.log'.format(vmname)))
     handler.setFormatter(formatter_log)
