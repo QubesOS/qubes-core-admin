@@ -1245,8 +1245,8 @@ class Qubes(PropertyHolder):
         self.property_require('default_fw_netvm', allow_none=True)
         self.property_require('default_netvm', allow_none=True)
         self.property_require('default_template')
-        self.property_require('clockvm')
-        self.property_require('updatevm')
+        self.property_require('clockvm', allow_none=True)
+        self.property_require('updatevm', allow_none=True)
 
         # Disable ntpd in ClockVM - to not conflict with ntpdate (both are
         # using 123/udp port)
