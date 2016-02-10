@@ -133,64 +133,14 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             '/etc/systemd/system/multi-user.target.wants/'
             'qubes-vm@{}.service'.format(self.vmname)))
 
-    def test_010_netvm(self):
-        if self.qc.get_default_netvm() is None:
-            self.skip("Set default NetVM before running this test")
-        self.netvm = self.qc.add_new_vm("QubesNetVm",
-            name=self.make_vm_name('netvm'),
-            template=self.qc.get_default_template())
-        self.netvm.create_on_disk(verbose=False)
-        # TODO: remove this line after switching to core3
-        self.save_and_reload_db()
+    def test_001_rename_libvirt_undefined(self):
+        self.vm.libvirt_domain.undefine()
+        self.vm._libvirt_domain = None
 
-        self.assertEquals(self.vm.netvm, self.qc.get_default_netvm())
-        self.vm.uses_default_netvm = False
-        self.vm.netvm = None
-        self.assertIsNone(self.vm.netvm)
-        self.save_and_reload_db()
-        self.assertIsNone(self.vm.netvm)
-
-        self.vm.netvm = self.qc[self.netvm.qid]
-        self.assertEquals(self.vm.netvm.qid, self.netvm.qid)
-        self.save_and_reload_db()
-        self.assertEquals(self.vm.netvm.qid, self.netvm.qid)
-
-        self.vm.uses_default_netvm = True
-        # TODO: uncomment when properly implemented
-        # self.assertEquals(self.vm.netvm.qid, self.qc.get_default_netvm().qid)
-        self.save_and_reload_db()
-        self.assertEquals(self.vm.netvm.qid, self.qc.get_default_netvm().qid)
-
-        with self.assertRaises(ValueError):
-            self.vm.netvm = self.vm
-
-    def test_020_dispvm_netvm(self):
-        if self.qc.get_default_netvm() is None:
-            self.skip("Set default NetVM before running this test")
-        self.netvm = self.qc.add_new_vm("QubesNetVm",
-            name=self.make_vm_name('netvm'),
-            template=self.qc.get_default_template())
-        self.netvm.create_on_disk(verbose=False)
-
-        self.assertEquals(self.vm.netvm, self.vm.dispvm_netvm)
-        self.vm.uses_default_dispvm_netvm = False
-        self.vm.dispvm_netvm = None
-        self.assertIsNone(self.vm.dispvm_netvm)
-        self.save_and_reload_db()
-        self.assertIsNone(self.vm.dispvm_netvm)
-
-        self.vm.dispvm_netvm = self.netvm
-        self.assertEquals(self.vm.dispvm_netvm, self.netvm)
-        self.save_and_reload_db()
-        self.assertEquals(self.vm.dispvm_netvm, self.netvm)
-
-        self.vm.uses_default_dispvm_netvm = True
-        self.assertEquals(self.vm.dispvm_netvm, self.vm.netvm)
-        self.save_and_reload_db()
-        self.assertEquals(self.vm.dispvm_netvm, self.vm.netvm)
-
-        with self.assertRaises(ValueError):
-            self.vm.dispvm_netvm = self.vm
+        newname = self.make_vm_name('newname')
+        with self.assertNotRaises(
+                (OSError, libvirt.libvirtError, qubes.exc.QubesException)):
+            self.vm.name = newname
 
     def test_030_clone(self):
         testvm1 = self.app.add_new_vm(
@@ -281,6 +231,30 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.assertEquals(testvm1.get_firewall_conf(),
                           testvm3.get_firewall_conf())
 
+    def test_020_name_conflict_app(self):
+        # TODO decide what exception should be here
+        with self.assertRaises((qubes.exc.QubesException, ValueError)):
+            self.vm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+                name=self.vmname, template=self.app.default_template)
+            self.vm2.create_on_disk()
+
+    def test_021_name_conflict_template(self):
+        # TODO decide what exception should be here
+        with self.assertRaises((qubes.exc.QubesException, ValueError)):
+            self.vm2 = self.app.add_new_vm(qubes.vm.templatevm.TemplateVM,
+                name=self.vmname)
+            self.vm2.create_on_disk()
+
+    def test_030_rename_conflict_app(self):
+        vm2name = self.make_vm_name('newname')
+
+        self.vm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=vm2name, template=self.app.default_template, label='red')
+        self.vm2.create_on_disk()
+
+        with self.assertRaises(qubes.exc.QubesException):
+            self.vm2.name = self.vmname
+
 class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
 
     def setUp(self):
@@ -352,49 +326,6 @@ class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             if valid:
                 self.assertEquals(self.pref_get(name), expected)
 
-    def test_000_kernel(self):
-        self.setup_appvm()
-
-        default_kernel = self.qc.get_default_kernel()
-        self.execute_tests('kernel', [
-            ('default', default_kernel, True),
-            (default_kernel, default_kernel, True),
-            ('invalid', '', False),
-        ])
-
-    def test_001_include_in_backups(self):
-        self.setup_appvm()
-        self.execute_tests('include_in_backups', self.bool_test_values)
-
-    def test_002_qrexec_timeout(self):
-        self.setup_appvm()
-        self.execute_tests('qrexec_timeout', [
-            ('60', '60', True),
-            ('0', '0', True),
-            ('-10', '', False),
-            ('invalid', '', False)
-        ])
-
-    def test_003_internal(self):
-        self.setup_appvm()
-        self.execute_tests('include_in_backups', self.bool_test_values)
-
-    def test_004_label(self):
-        self.setup_appvm()
-        self.execute_tests('label', [
-            ('red', 'red', True),
-            ('blue', 'blue', True),
-            ('amber', '', False),
-        ])
-
-    def test_005_kernelopts(self):
-        self.setup_appvm()
-        self.execute_tests('kernelopts', [
-            ('option', 'option', True),
-            ('default', 'nopat', True),
-            ('', '', True),
-        ])
-
     @unittest.skip('test not converted to core3 API')
     def test_006_template(self):
         templates = [tpl for tpl in self.app.domains.values() if
@@ -408,83 +339,6 @@ class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             ('invalid', '', False),
         ])
 
-    def test_007_memory(self):
-        self.setup_appvm()
-        qh = qubes.qubes.QubesHost()
-        memory_total = qh.memory_total
-
-        self.execute_tests('memory', [
-            ('300', '300', True),
-            ('1500', '1500', True),
-            # TODO:
-            #('500M', '500', True),
-            #(str(self.testvm.maxmem+500), '', False),
-            (str(2*memory_total), '', False),
-        ])
-
-    def test_008_maxmem(self):
-        self.setup_appvm()
-        qh = qubes.qubes.QubesHost()
-        memory_total = qh.memory_total
-
-        self.execute_tests('memory', [
-            ('300', '300', True),
-            ('1500', '1500', True),
-            # TODO:
-            #('500M', '500', True),
-            #(str(self.testvm.memory-50), '', False),
-            (str(2*memory_total), '', False),
-        ])
-
-    def test_009_autostart(self):
-        self.setup_appvm()
-        self.execute_tests('autostart', self.bool_test_values)
-
-    def test_010_pci_strictreset(self):
-        self.setup_appvm()
-        self.execute_tests('pci_strictreset', self.bool_test_values)
-
-    def test_011_dispvm_netvm(self):
-        self.setup_appvm()
-
-        default_netvm = self.qc.get_default_netvm().name
-        netvms = [tpl for tpl in self.qc.values() if tpl.is_netvm()]
-        if not netvms:
-            self.skip("No netvms installed")
-        some_netvm = netvms[0].name
-        if some_netvm == default_netvm:
-            if len(netvms) <= 1:
-                self.skip("At least two NetVM/ProxyVM required")
-            some_netvm = netvms[1].name
-
-        self.execute_tests('dispvm_netvm', [
-            (some_netvm, some_netvm, True),
-            (default_netvm, default_netvm, True),
-            ('default', default_netvm, True),
-            ('none', '', True),
-            (self.testvm.name, '', False),
-            ('invalid', '', False)
-        ])
-
-    def test_012_mac(self):
-        self.setup_appvm()
-        default_mac = self.testvm.mac
-
-        self.execute_tests('mac', [
-            ('00:11:22:33:44:55', '00:11:22:33:44:55', True),
-            ('auto', default_mac, True),
-            # TODO:
-            #('00:11:22:33:44:55:66', '', False),
-            ('invalid', '', False),
-        ])
-
-    def test_013_default_user(self):
-        self.setup_appvm()
-        self.execute_tests('default_user', [
-            ('someuser', self.testvm.template.default_user, True)
-            # TODO: tests for standalone VMs
-        ])
-
     @unittest.skip('test not converted to core3 API')
     def test_014_pcidevs(self):
         self.setup_appvm()
@@ -495,101 +349,6 @@ class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             ('[invalid]', '', False),
             # TODO:
             #('["12:12.0"]', '', False)
-        ])
-
-    def test_015_name(self):
-        self.setup_appvm()
-        self.execute_tests('name', [
-            ('invalid!@#name', '', False),
-            # TODO: duplicate name test - would fail for now...
-        ])
-        newname = self.make_vm_name('newname')
-        self.pref_set('name', newname, True)
-        self.qc.lock_db_for_reading()
-        self.qc.load()
-        self.qc.unlock_db()
-        self.testvm = self.qc.get_vm_by_name(newname)
-        self.assertEquals(self.pref_get('name'), newname)
-
-    def test_016_vcpus(self):
-        self.setup_appvm()
-        self.execute_tests('vcpus', [
-            ('1', '1', True),
-            ('100', '', False),
-            ('-1', '', False),
-            ('invalid', '', False),
-        ])
-
-    def test_017_debug(self):
-        self.setup_appvm()
-        self.execute_tests('debug', [
-            ('on', 'True', True),
-            ('off', 'False', True),
-            ('true', 'True', True),
-            ('0', 'False', True),
-            ('invalid', '', False)
-        ])
-
-    def test_018_netvm(self):
-        self.setup_appvm()
-
-        default_netvm = self.qc.get_default_netvm().name
-        netvms = [tpl for tpl in self.qc.values() if tpl.is_netvm()]
-        if not netvms:
-            self.skip("No netvms installed")
-        some_netvm = netvms[0].name
-        if some_netvm == default_netvm:
-            if len(netvms) <= 1:
-                self.skip("At least two NetVM/ProxyVM required")
-            some_netvm = netvms[1].name
-
-        self.execute_tests('netvm', [
-            (some_netvm, some_netvm, True),
-            (default_netvm, default_netvm, True),
-            ('default', default_netvm, True),
-            ('none', '', True),
-            (self.testvm.name, '', False),
-            ('invalid', '', False)
-        ])
-
-    def test_019_guiagent_installed(self):
-        self.setup_hvm()
-        self.execute_tests('guiagent_installed', self.bool_test_values)
-
-    def test_020_qrexec_installed(self):
-        self.setup_hvm()
-        self.execute_tests('qrexec_installed', self.bool_test_values)
-
-    def test_021_seamless_gui_mode(self):
-        self.setup_hvm()
-        # should reject seamless mode without gui agent
-        self.execute_tests('seamless_gui_mode', [
-            ('True', '', False),
-            ('False', 'False', True),
-        ])
-        self.execute_tests('guiagent_installed', [('True', 'True', True)])
-        self.execute_tests('seamless_gui_mode', self.bool_test_values)
-
-    def test_022_drive(self):
-        self.setup_hvm()
-        self.execute_tests('drive', [
-            ('hd:dom0:/tmp/drive.img', 'hd:dom0:/tmp/drive.img', True),
-            ('hd:/tmp/drive.img', 'hd:dom0:/tmp/drive.img', True),
-            ('cdrom:dom0:/tmp/drive.img', 'cdrom:dom0:/tmp/drive.img', True),
-            ('cdrom:/tmp/drive.img', 'cdrom:dom0:/tmp/drive.img', True),
-            ('/tmp/drive.img', 'cdrom:dom0:/tmp/drive.img', True),
-            ('hd:drive.img', '', False),
-            ('drive.img', '', False),
-        ])
-
-    def test_023_timezone(self):
-        self.setup_hvm()
-        self.execute_tests('timezone', [
-            ('localtime', 'localtime', True),
-            ('0', '0', True),
-            ('3600', '3600', True),
-            ('-7200', '-7200', True),
-            ('invalid', '', False),
         ])
 
     @unittest.skip('test not converted to core3 API')
@@ -660,6 +419,7 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestsMixin,
         self.setup_pv_template()
         self._do_test()
 
+    @unittest.skip('HVM not yet implemented')
     def test_000_revert_hvm(self):
         """
         Test qvm-revert-template-changes for HVM template

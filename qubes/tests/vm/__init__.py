@@ -33,9 +33,14 @@ class TestVMM(object):
 class TestHost(object):
     # pylint: disable=too-few-public-methods
     def __init__(self):
-        self.memory_total = 1000
+        self.memory_total = 1000 * 1024 * 1024
+        self.no_cpus = 4
 
 class TestApp(qubes.tests.TestEmitter):
+    labels = {1: qubes.Label(1, '0xcc0000', 'red')}
+    get_label = qubes.Qubes.get_label
+    check_updates_vm = False
+
     def __init__(self):
         super(TestApp, self).__init__()
         self.vmm = TestVMM()
