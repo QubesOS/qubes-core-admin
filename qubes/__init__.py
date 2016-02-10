@@ -125,7 +125,6 @@ class VMMConnection(object):
         if self._libvirt_conn is None:
             raise qubes.exc.QubesException('Failed connect to libvirt driver')
         libvirt.registerErrorHandler(self._libvirt_error_handler, None)
-        atexit.register(self._libvirt_conn.close)
 
     @__builtin__.property
     def libvirt_conn(self):
@@ -164,6 +163,10 @@ class VMMConnection(object):
 
         self.init_vmm_connection()
         return self._xs
+
+    def __del__(self):
+        if self._libvirt_conn:
+            self._libvirt_conn.close()
 
 
 class QubesHost(object):
