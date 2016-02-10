@@ -210,7 +210,7 @@ class Storage(object):
         raise NotImplementedError()
 
     def create_on_disk(self, source_template=None):
-        if source_template is None:
+        if source_template is None and hasattr(self.vm, 'template'):
             source_template = self.vm.template
 
         old_umask = os.umask(002)
