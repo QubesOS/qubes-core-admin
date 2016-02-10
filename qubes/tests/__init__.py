@@ -371,6 +371,8 @@ class SystemTestsMixin(object):
     """
     # noinspection PyAttributeOutsideInit
     def setUp(self):
+        if not in_dom0:
+            self.skipTest('outside dom0')
         super(SystemTestsMixin, self).setUp()
         self.remove_test_vms()
 
@@ -423,6 +425,8 @@ class SystemTestsMixin(object):
     @classmethod
     def tearDownClass(cls):
         super(SystemTestsMixin, cls).tearDownClass()
+        if not in_dom0:
+            return
         cls.remove_test_vms(xmlpath=CLASS_XMLPATH, prefix=CLSVMPREFIX)
 
     @staticmethod
