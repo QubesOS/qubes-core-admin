@@ -72,7 +72,7 @@ class XenStorage(qubes.storage.Storage):
     @property
     def root_img(self):
         '''Path to the root image'''
-        return self.vm.template.root_img if hasattr(self.vm, 'template') \
+        return self.vm.template.storage.root_img if hasattr(self.vm, 'template') \
             else self.abspath(qubes.config.vm_files['root_img'])
 
 
@@ -171,8 +171,9 @@ class XenStorage(qubes.storage.Storage):
 
         else:
             self.vm.log.info("Copying the template's private image: {}".format(
-                source_template.private_img))
-            self._copy_file(source_template.private_img, self.private_img)
+                source_template.storage.private_img))
+            self._copy_file(source_template.storage.private_img,
+                self.private_img)
 
 
     def create_on_disk_root_img(self, source_template=None):
@@ -184,8 +185,8 @@ class XenStorage(qubes.storage.Storage):
         elif self.vm.updateable:
             # if not updateable, just use template's disk
             self.vm.log.info("--> Copying the template's root image: {}".format(
-                source_template.root_img))
-            self._copy_file(source_template.root_img, self.root_img)
+                source_template.storage.root_img))
+            self._copy_file(source_template.storage.root_img, self.root_img)
 
 
     def resize_private_img(self, size):

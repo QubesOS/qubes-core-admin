@@ -297,7 +297,7 @@ class Storage(object):
         # For StandaloneVM create it only if not already exists
         # (eg after backup-restore)
         if hasattr(self, 'volatile_img') \
-                and not os.path.exists(self.vm.volatile_img):
+                and not os.path.exists(self.volatile_img):
             self.vm.log.info(
                 'Creating volatile image: {0}'.format(self.volatile_img))
             subprocess.check_call(
