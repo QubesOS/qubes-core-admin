@@ -18,21 +18,61 @@
 
 
 import qubes.storage
-from qubes.qubes import defaults
+import qubes.log
+from qubes.config import defaults
 from qubes.storage.xen import XenPool, XenStorage
 from qubes.tests import QubesTestCase, SystemTestsMixin
 
+class TestApp(qubes.tests.TestEmitter):
+    pass
 
-class TC_00_Storage(SystemTestsMixin, QubesTestCase):
+class TestVM(object):
+    def __init__(self, app, qid, name, pool_name, template=None):
+        super(TestVM, self).__init__()
+        self.app = app
+        self.qid = qid
+        self.name = name
+        self.pool_name = pool_name
+        self.template = template
+        self.hvm = False
+        self.storage = qubes.storage.get_pool(
+            self.pool_name, self).get_storage()
+        self.log = qubes.log.get_vm_logger(self.name)
+
+    def is_template(self):
+        return False
+
+    def is_disposablevm(self):
+        return False
+
+    @property
+    def dir_path(self):
+        return self.storage.vmdir
+
+
+class TestTemplateVM(TestVM):
+    def is_template(self):
+        return True
+
+class TestDisposableVM(TestVM):
+    def is_disposablevm(self):
+        return True
+
+class TC_00_Storage(QubesTestCase):
 
     """ This class tests the utility methods from :mod:``qubes.storage`` """
+
+    def setUp(self):
+        super(TC_00_Storage, self).setUp()
+        self.app = TestApp()
 
     def test_000_dump(self):
         """ Dumps storage instance to a storage string  """
         vmname = self.make_vm_name('appvm')
-        template = self.qc.get_default_template()
-        vm = self.qc.add_new_vm('QubesAppVm', name=vmname,
-                                pool_name='default', template=template)
+        template = TestTemplateVM(self.app, 1,
+            qubes.tests.VMPREFIX + 'template', pool_name='default')
+        vm = TestVM(self.app, qid=2, name=vmname, pool_name='default',
+            template=template)
         storage = vm.storage
         result = qubes.storage.dump(storage)
         expected = 'qubes.storage.xen.XenStorage'

@@ -18,12 +18,13 @@
 
 import os
 import shutil
+import unittest
 import qubes.storage
+import qubes.tests.storage
 from qubes.tests import QubesTestCase, SystemTestsMixin
 from qubes.storage.xen import XenStorage
 
-
-class TC_00_XenPool(SystemTestsMixin, QubesTestCase):
+class TC_00_XenPool(QubesTestCase):
 
     """ This class tests some properties of the 'default' pool. """
 
@@ -35,7 +36,7 @@ class TC_00_XenPool(SystemTestsMixin, QubesTestCase):
         """
         vm = self._init_app_vm()
         result = qubes.storage.get_pool("default", vm).dir_path
-        expected = '/var/lib/qubes/'
+        expected = '/var/lib/qubes'
         self.assertEquals(result, expected)
 
     def test001_default_storage_class(self):
@@ -50,13 +51,15 @@ class TC_00_XenPool(SystemTestsMixin, QubesTestCase):
 
     def _init_app_vm(self):
         """ Return initalised, but not created, AppVm. """
+        app = qubes.tests.storage.TestApp()
         vmname = self.make_vm_name('appvm')
-        template = self.qc.get_default_template()
-        return self.qc.add_new_vm('QubesAppVm', name=vmname, template=template,
-                                  pool_name='default')
+        template = qubes.tests.storage.TestTemplateVM(app, 1,
+            self.make_vm_name('template'), 'default')
+        return qubes.tests.storage.TestVM(app, qid=2, name=vmname,
+            template=template, pool_name='default')
 
-
-class TC_01_XenPool(SystemTestsMixin, QubesTestCase):
+@qubes.tests.skipUnlessDom0
+class TC_01_XenPool(QubesTestCase):
 
     """ Test the paths for the default Xen file based storage (``XenStorage``).
     """
@@ -71,6 +74,10 @@ class TC_01_XenPool(SystemTestsMixin, QubesTestCase):
         super(TC_01_XenPool, self).setUp()
         qubes.storage.add_pool('test-pool', driver='xen',
                                dir_path=self.POOL_DIR)
+        self.app = qubes.tests.storage.TestApp()
+        self.template = qubes.tests.storage.TestTemplateVM(self.app, 1,
+            self.make_vm_name('template'), 'default')
+
 
     def tearDown(self):
         """ Remove the file based storage pool after testing """
@@ -89,9 +96,8 @@ class TC_01_XenPool(SystemTestsMixin, QubesTestCase):
         self.assertFalse(os.path.exists(self.POOL_DIR))
 
         vmname = self.make_vm_name('appvm')
-        template = self.qc.get_default_template()
-        self.qc.add_new_vm('QubesAppVm', name=vmname, template=template,
-                           pool_name='test-pool')
+        qubes.tests.storage.TestVM(self.app, qid=2, name=vmname,
+            template=self.template, pool_name='test-pool')
 
         self.assertTrue(os.path.exists(self.POOL_DIR))
         self.assertTrue(os.path.exists(self.APPVMS_DIR))
@@ -101,18 +107,16 @@ class TC_01_XenPool(SystemTestsMixin, QubesTestCase):
     def test_003_pool_dir(self):
         """ Check if the vm storage pool_dir is the same as specified """
         vmname = self.make_vm_name('appvm')
-        template = self.qc.get_default_template()
-        vm = self.qc.add_new_vm('QubesAppVm', name=vmname, template=template,
-                                pool_name='test-pool')
+        vm = qubes.tests.storage.TestVM(self.app, qid=2, name=vmname,
+            template=self.template, pool_name='test-pool')
         result = qubes.storage.get_pool('test-pool', vm).dir_path
         self.assertEquals(self.POOL_DIR, result)
 
     def test_004_app_vmdir(self):
         """ Check the vm storage dir for an AppVm"""
         vmname = self.make_vm_name('appvm')
-        template = self.qc.get_default_template()
-        vm = self.qc.add_new_vm('QubesAppVm', name=vmname, template=template,
-                                pool_name='test-pool')
+        vm = qubes.tests.storage.TestVM(self.app, qid=2, name=vmname,
+            template=self.template, pool_name='test-pool')
 
         expected = os.path.join(self.APPVMS_DIR, vm.name)
         result = vm.storage.vmdir
@@ -121,28 +125,31 @@ class TC_01_XenPool(SystemTestsMixin, QubesTestCase):
     def test_005_hvm_vmdir(self):
         """ Check the vm storage dir for a HVM"""
         vmname = self.make_vm_name('hvm')
-        vm = self.qc.add_new_vm('QubesHVm', name=vmname,
-                                pool_name='test-pool')
+        vm = qubes.tests.storage.TestVM(self.app, qid=2, name=vmname,
+            template=self.template, pool_name='test-pool')
+        vm.hvm = True
 
         expected = os.path.join(self.APPVMS_DIR, vm.name)
         result = vm.storage.vmdir
         self.assertEquals(expected, result)
 
+    @unittest.skip('TODO - servicevms dir?')
     def test_006_net_vmdir(self):
         """ Check the vm storage dir for a Netvm"""
         vmname = self.make_vm_name('hvm')
-        vm = self.qc.add_new_vm('QubesNetVm', name=vmname,
-                                pool_name='test-pool')
+        vm = qubes.tests.storage.TestVM(self.app, qid=2, name=vmname,
+            template=self.template, pool_name='test-pool')
 
         expected = os.path.join(self.SERVICE_DIR, vm.name)
         result = vm.storage.vmdir
         self.assertEquals(expected, result)
 
+    @unittest.skip('TODO - servicevms dir?')
     def test_007_proxy_vmdir(self):
         """ Check the vm storage dir for a ProxyVm"""
         vmname = self.make_vm_name('proxyvm')
-        vm = self.qc.add_new_vm('QubesProxyVm', name=vmname,
-                                pool_name='test-pool')
+        vm = qubes.tests.storage.TestVM(self.app, qid=2, name=vmname,
+            template=self.template, pool_name='test-pool')
 
         expected = os.path.join(self.SERVICE_DIR, vm.name)
         result = vm.storage.vmdir
@@ -156,8 +163,8 @@ class TC_01_XenPool(SystemTestsMixin, QubesTestCase):
     def test_009_template_vmdir(self):
         """ Check the vm storage dir for a TemplateVm"""
         vmname = self.make_vm_name('templatevm')
-        vm = self.qc.add_new_vm('QubesTemplateVm', name=vmname,
-                                pool_name='test-pool')
+        vm = qubes.tests.storage.TestTemplateVM(self.app, qid=2, name=vmname,
+            pool_name='test-pool')
 
         expected = os.path.join(self.TEMPLATES_DIR, vm.name)
         result = vm.storage.vmdir
@@ -166,8 +173,8 @@ class TC_01_XenPool(SystemTestsMixin, QubesTestCase):
     def test_010_template_hvm_vmdir(self):
         """ Check the vm storage dir for a TemplateHVm"""
         vmname = self.make_vm_name('templatehvm')
-        vm = self.qc.add_new_vm('QubesTemplateHVm', name=vmname,
-                                pool_name='test-pool')
+        vm = qubes.tests.storage.TestTemplateVM(self.app, qid=2, name=vmname,
+            pool_name='test-pool')
 
         expected = os.path.join(self.TEMPLATES_DIR, vm.name)
         result = vm.storage.vmdir
@@ -177,10 +184,9 @@ class TC_01_XenPool(SystemTestsMixin, QubesTestCase):
         """ Check if all the needed image files are created for an AppVm"""
 
         vmname = self.make_vm_name('appvm')
-        template = self.qc.get_default_template()
-        vm = self.qc.add_new_vm('QubesAppVm', name=vmname, template=template,
-                                pool_name='test-pool')
-        vm.create_on_disk(verbose=False)
+        vm = qubes.tests.storage.TestVM(self.app, qid=2, name=vmname,
+            pool_name='test-pool')
+        vm.storage.create_on_disk()
 
         expected_vmdir = os.path.join(self.APPVMS_DIR, vm.name)
         self.assertEqualsAndExists(vm.storage.vmdir, expected_vmdir)
@@ -197,9 +203,10 @@ class TC_01_XenPool(SystemTestsMixin, QubesTestCase):
         """ Check if all the needed image files are created for a HVm"""
 
         vmname = self.make_vm_name('hvm')
-        vm = self.qc.add_new_vm('QubesHVm', name=vmname,
-                                pool_name='test-pool')
-        vm.create_on_disk(verbose=False)
+        vm = qubes.tests.storage.TestVM(self.app, qid=2, name=vmname,
+            pool_name='test-pool')
+        vm.hvm = True
+        vm.storage.create_on_disk()
 
         expected_vmdir = os.path.join(self.APPVMS_DIR, vm.name)
         self.assertEqualsAndExists(vm.storage.vmdir, expected_vmdir)
@@ -214,6 +221,10 @@ class TC_01_XenPool(SystemTestsMixin, QubesTestCase):
         expected_volatile_path = os.path.join(expected_vmdir, 'volatile.img')
         self.assertEqualsAndExists(vm.storage.volatile_img,
                                    expected_volatile_path)
+
+    @unittest.skip('test not implemented') # TODO
+    def test_013_template_based_file_images(self):
+        pass
 
     def assertEqualsAndExists(self, result_path, expected_path):
         """ Check if the ``result_path``, matches ``expected_path`` and exists.

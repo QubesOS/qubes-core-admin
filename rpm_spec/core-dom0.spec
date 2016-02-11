@@ -254,6 +254,8 @@ fi
 %{python_sitelib}/qubes/tests/events.py*
 %{python_sitelib}/qubes/tests/init1.py*
 %{python_sitelib}/qubes/tests/init2.py*
+%{python_sitelib}/qubes/tests/storage.py*
+%{python_sitelib}/qubes/tests/storage_xen.py*
 
 %dir %{python_sitelib}/qubes/tests/vm
 %{python_sitelib}/qubes/tests/vm/__init__.py*
