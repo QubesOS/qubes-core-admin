@@ -269,6 +269,7 @@ fi
 %dir %{python_sitelib}/qubes/tests/int
 %{python_sitelib}/qubes/tests/int/__init__.py*
 %{python_sitelib}/qubes/tests/int/basic.py*
+%{python_sitelib}/qubes/tests/int/dom0_update.py*
 
 %dir %{python_sitelib}/qubes/tests/int/tools
 %{python_sitelib}/qubes/tests/int/tools/__init__.py*

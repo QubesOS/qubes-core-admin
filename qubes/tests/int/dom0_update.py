@@ -25,9 +25,8 @@ import shutil
 import subprocess
 import tempfile
 import unittest
-from qubes.qubes import QubesVmCollection
 
-import qubes.qubes
+import qubes
 
 VM_PREFIX = "test-"
 
@@ -100,15 +99,15 @@ enabled = 1
 
     def setUp(self):
         super(TC_00_Dom0UpgradeMixin, self).setUp()
-        self.updatevm = self.qc.add_new_vm(
-            "QubesProxyVm",
+        self.init_default_template(self.template)
+        self.updatevm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
             name=self.make_vm_name("updatevm"),
-            template=self.qc.get_vm_by_name(self.template))
-        self.updatevm.create_on_disk(verbose=False)
-        self.saved_updatevm = self.qc.get_updatevm_vm()
-        self.qc.set_updatevm_vm(self.updatevm)
-        self.qc.save()
-        self.qc.unlock_db()
+            label='red'
+        )
+        self.updatevm.create_on_disk()
+        self.app.updatevm = self.updatevm
+        self.app.save()
         subprocess.call(['sudo', 'rpm', '-e', self.pkg_name],
                         stderr=open(os.devnull, 'w'))
         subprocess.check_call(['sudo', 'rpm', '--import',
@@ -116,11 +115,6 @@ enabled = 1
         self.updatevm.start()
 
     def tearDown(self):
-        self.qc.lock_db_for_writing()
-        self.qc.load()
-
-        self.qc.set_updatevm_vm(self.qc[self.saved_updatevm.qid])
-        self.qc.save()
         super(TC_00_Dom0UpgradeMixin, self).tearDown()
 
         subprocess.call(['sudo', 'rpm', '-e', self.pkg_name], stderr=open(
@@ -194,7 +188,7 @@ Test package
 
         logpath = os.path.join(self.tmpdir, 'dom0-update-output.txt')
         try:
-            subprocess.check_call(['sudo', 'qubes-dom0-update', '-y'] +
+            subprocess.check_call(['sudo', '-E', 'qubes-dom0-update', '-y'] +
                                   self.dom0_update_common_opts,
                                   stdout=open(logpath, 'w'),
                                   stderr=subprocess.STDOUT)
@@ -217,7 +211,7 @@ Test package
 
         logpath = os.path.join(self.tmpdir, 'dom0-update-output.txt')
         try:
-            subprocess.check_call(['sudo', 'qubes-dom0-update', '-y'] +
+            subprocess.check_call(['sudo', '-E', 'qubes-dom0-update', '-y'] +
                                   self.dom0_update_common_opts + [
                 self.pkg_name],
                                   stdout=open(logpath, 'w'),
@@ -239,7 +233,7 @@ Test package
 
         logpath = os.path.join(self.tmpdir, 'dom0-update-output.txt')
         try:
-            subprocess.check_call(['sudo', 'qubes-dom0-update', '-y'] +
+            subprocess.check_call(['sudo', '-E', 'qubes-dom0-update', '-y'] +
                                   self.dom0_update_common_opts + [
                 self.pkg_name],
                                   stdout=open(logpath, 'w'),
@@ -264,7 +258,7 @@ Test package
 
         logpath = os.path.join(self.tmpdir, 'dom0-update-output.txt')
         try:
-            subprocess.check_call(['sudo', 'qubes-dom0-update', '-y'] +
+            subprocess.check_call(['sudo', '-E', 'qubes-dom0-update', '-y'] +
                                   self.dom0_update_common_opts +
                                   [self.pkg_name],
                                   stdout=open(logpath, 'w'),
@@ -283,12 +277,9 @@ Test package
 
 def load_tests(loader, tests, pattern):
     try:
-        qc = qubes.qubes.QubesVmCollection()
-        qc.lock_db_for_reading()
-        qc.load()
-        qc.unlock_db()
-        templates = [vm.name for vm in qc.values() if
-                     isinstance(vm, qubes.qubes.QubesTemplateVm)]
+        app = qubes.Qubes()
+        templates = [vm.name for vm in app.domains if
+                     isinstance(vm, qubes.vm.templatevm.TemplateVM)]
     except OSError:
         templates = []
     for template in templates:
