@@ -348,6 +348,13 @@ class QubesTestCase(unittest.TestCase):
         except AssertionError as e:
             self.fail(str(e))
 
+    @staticmethod
+    def make_vm_name(name, class_teardown=False):
+        if class_teardown:
+            return CLSVMPREFIX + name
+        else:
+            return VMPREFIX + name
+
 
 class SystemTestsMixin(object):
     """
@@ -430,14 +437,6 @@ class SystemTestsMixin(object):
         if not in_dom0:
             return
         cls.remove_test_vms(xmlpath=CLASS_XMLPATH, prefix=CLSVMPREFIX)
-
-    @staticmethod
-    def make_vm_name(name, class_teardown=False):
-        if class_teardown:
-            return CLSVMPREFIX + name
-        else:
-            return VMPREFIX + name
-
 
     @classmethod
     def _remove_vm_qubes(cls, vm):
