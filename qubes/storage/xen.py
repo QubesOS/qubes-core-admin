@@ -72,7 +72,8 @@ class XenStorage(qubes.storage.Storage):
     @property
     def root_img(self):
         '''Path to the root image'''
-        return self.vm.template.storage.root_img if hasattr(self.vm, 'template') \
+        return self.vm.template.storage.root_img \
+            if hasattr(self.vm, 'template') and self.vm.template \
             else self.abspath(qubes.config.vm_files['root_img'])
 
 
