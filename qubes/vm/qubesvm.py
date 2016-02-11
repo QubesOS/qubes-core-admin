@@ -290,6 +290,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     # properties not loaded from XML, calculated at run-time
     #
 
+    def __str__(self):
+        return self.name
+
     # VMM-related
 
     @qubes.tools.qvm_ls.column(width=3)

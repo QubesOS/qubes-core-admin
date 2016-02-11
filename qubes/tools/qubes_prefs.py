@@ -72,10 +72,10 @@ def main(args=None):
                 continue
 
             if args.app.property_is_default(prop):
-                print('{name:{width}s}  D  {value!r}'.format(
+                print('{name:{width}s}  D  {value!s}'.format(
                     name=prop.__name__, width=width, value=value))
             else:
-                print('{name:{width}s}  -  {value!r}'.format(
+                print('{name:{width}s}  -  {value!s}'.format(
                     name=prop.__name__, width=width, value=value))
 
         return 0

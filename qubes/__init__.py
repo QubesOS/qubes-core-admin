@@ -335,6 +335,8 @@ class Label(object):
         element.text = self.name
         return element
 
+    def __str__(self):
+        return self.name
 
     def __repr__(self):
         return '{}({!r}, {!r}, {!r})'.format(
