@@ -395,6 +395,8 @@ class SystemTestsMixin(object):
     def init_default_template(self, template=None):
         if template is None:
             template = self.host_app.default_template
+        elif isinstance(template, basestring):
+            template = self.host_app.domains[template]
 
         template_vm = self.app.add_new_vm(qubes.vm.templatevm.TemplateVM,
             name=template.name,
