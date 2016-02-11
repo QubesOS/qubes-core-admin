@@ -781,6 +781,8 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
             'qubes.tests.events',
             'qubes.tests.init1',
             'qubes.tests.vm.init',
+            'qubes.tests.storage',
+            'qubes.tests.storage_xen',
             'qubes.tests.vm.qubesvm',
             'qubes.tests.vm.adminvm',
             'qubes.tests.init2',
