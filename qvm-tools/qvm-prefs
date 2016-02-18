@@ -545,7 +545,7 @@ def main():
                       default=False)
     parser.add_option("-s", "--set", action="store_true", dest="do_set",
                       default=False)
-    parser.add_option ("-g", "--gry", action="store_true", dest="do_get",
+    parser.add_option ("-g", "--get", action="store_true", dest="do_get",
                        default=False)
     parser.add_option("--force-root", action="store_true", dest="force_root",
                       default=False,
