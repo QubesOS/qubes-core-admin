@@ -175,37 +175,41 @@ class QMemmanReqHandler(SocketServer.BaseRequestHandler):
         self.log = logging.getLogger('qmemman.daemon.reqhandler')
 
         got_lock = False
-        # self.request is the TCP socket connected to the client
-        while True:
-            self.data = self.request.recv(1024).strip()
-            self.log.debug('data={!r}'.format(self.data))
-            if len(self.data) == 0:
-                self.log.info('EOF')
+        try:
+            # self.request is the TCP socket connected to the client
+            while True:
+                self.data = self.request.recv(1024).strip()
+                self.log.debug('data={!r}'.format(self.data))
+                if len(self.data) == 0:
+                    self.log.info('EOF')
+                    if got_lock:
+                        global force_refresh_domain_list
+                        force_refresh_domain_list = True
+                    return
+
+                # XXX something is wrong here: return without release?
                 if got_lock:
-                    global force_refresh_domain_list
-                    force_refresh_domain_list = True
-                    global_lock.release()
-                    self.log.debug('global_lock released')
-                return
+                    self.log.warning('Second request over qmemman.sock?')
+                    return
 
-            # XXX something is wrong here: return without release?
+                self.log.debug('acquiring global_lock')
+                global_lock.acquire()
+                self.log.debug('global_lock acquired')
+
+                got_lock = True
+                if system_state.do_balloon(int(self.data)):
+                    resp = "OK\n"
+                else:
+                    resp = "FAIL\n"
+                self.log.debug('resp={!r}'.format(resp))
+                self.request.send(resp)
+        except BaseException as e:
+            self.log.exception(
+                "exception while handling request: {!r}".format(e))
+        finally:
             if got_lock:
-                self.log.warning('Second request over qmemman.sock?')
-                return
-
-            self.log.debug('acquiring global_lock')
-            global_lock.acquire()
-            self.log.debug('global_lock acquired')
-
-            got_lock = True
-            if system_state.do_balloon(int(self.data)):
-                resp = "OK\n"
-            else:
-                resp = "FAIL\n"
-            self.log.debug('resp={!r}'.format(resp))
-            self.request.send(resp)
-
-            # XXX no release of lock?
+                global_lock.release()
+                self.log.debug('global_lock released')
 
 
 def start_server(server):
