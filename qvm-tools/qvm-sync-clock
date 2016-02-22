@@ -94,24 +94,24 @@ def main():
         else:
             print >> sys.stderr, 'Time sync failed! - Exiting'
             sys.exit(1)
+    else:
+        # Use the date format based on RFC2822 to avoid localisation issues
+        p = clock_vm.run('date -u -Iseconds', verbose=options.verbose,
+                         gui=False, passio_popen=True, ignore_stderr=True)
+        date_out = p.stdout.read(100)
+        date_out = date_out.strip()
+        if not re.match(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+0000$', date_out):
+            print >> sys.stderr, 'Invalid date output, aborting!'
+            sys.exit(1)
 
-    # Use the date format based on RFC2822 to avoid localisation issues
-    p = clock_vm.run('date -u -Iseconds', verbose=options.verbose,
-                     gui=False, passio_popen=True, ignore_stderr=True)
-    date_out = p.stdout.read(100)
-    date_out = date_out.strip()
-    if not re.match(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+0000$', date_out):
-        print >> sys.stderr, 'Invalid date output, aborting!'
-        sys.exit(1)
+        # Sync dom0 time
+        if options.verbose:
+            print >> sys.stderr, '--> Syncing dom0 clock.'
 
-    # Sync dom0 time
-    if options.verbose:
-        print >> sys.stderr, '--> Syncing dom0 clock.'
-
-    subprocess.check_call(['sudo', 'date', '-u', '-Iseconds', '-s', date_out],
-                          stdout=None if options.verbose else open(os.devnull, 'w'))
-    subprocess.check_call(['sudo', 'hwclock', '--systohc'],
-                          stdout=None if options.verbose else open(os.devnull, 'w'))
+        subprocess.check_call(['sudo', 'date', '-u', '-Iseconds', '-s', date_out],
+                              stdout=None if options.verbose else open(os.devnull, 'w'))
+        subprocess.check_call(['sudo', 'hwclock', '--systohc'],
+                              stdout=None if options.verbose else open(os.devnull, 'w'))
 
     # Sync other VMs clock
     for vm in qvm_collection.values():
