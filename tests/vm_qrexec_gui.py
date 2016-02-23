@@ -690,6 +690,10 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             self.assertEquals(retcode, 0,
                               "qvm-sync-clock failed with code {}".
                               format(retcode))
+            # qvm-sync-clock is asynchronous - it spawns qubes.SetDateTime
+            # service, send it timestamp value and exists without waiting for
+            # actual time set
+            time.sleep(1)
             (vm_time, _) = self.testvm1.run("date -u +%s",
                                             passio_popen=True).communicate()
             self.assertAlmostEquals(int(vm_time), int(start_time), delta=30)
