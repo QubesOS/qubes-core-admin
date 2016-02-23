@@ -47,7 +47,7 @@ Requires(post): systemd-units
 Requires(preun): systemd-units
 Requires(postun): systemd-units
 Requires:	python, pciutils, python-inotify, python-daemon
-Requires:       qubes-core-dom0-linux >= 2.0.24
+Requires:       qubes-core-dom0-linux >= 3.1.8
 Requires:       qubes-db-dom0
 Requires:       python-lxml
 Requires:       python-psutil
