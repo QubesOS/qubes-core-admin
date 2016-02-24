@@ -1028,6 +1028,8 @@ class VMProperty(property):
         and ``setter``
     '''
 
+    _none_value = ''
+
     def __init__(self, name, vmclass=qubes.vm.BaseVM, allow_none=False,
             **kwargs):
         if 'type' in kwargs:
@@ -1043,13 +1045,16 @@ class VMProperty(property):
                 "'vmclass' should specify a subclass of qubes.vm.BaseVM")
 
         super(VMProperty, self).__init__(name,
-            saver=(lambda self, prop, value: value.name if value else 'None'),
+            saver=(lambda self_, prop, value:
+                self._none_value if value is None else value.name),
             **kwargs)
         self.vmclass = vmclass
         self.allow_none = allow_none
 
 
     def __set__(self, instance, value):
+        if value == self._none_value:
+            value = None
         if value is None:
             if self.allow_none:
                 super(VMProperty, self).__set__(instance, value)
