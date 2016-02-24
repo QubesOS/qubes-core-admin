@@ -151,15 +151,18 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     qid = qubes.property('qid', type=int, write_once=True,
         setter=_setter_qid,
+        clone=False,
         ls_width=3,
         doc='''Internal, persistent identificator of particular domain. Note
             this is different from Xen domid.''')
 
     name = qubes.property('name', type=str,
+        clone=False,
         ls_width=31,
         doc='User-specified name of the domain.')
 
     uuid = qubes.property('uuid', type=uuid.UUID, write_once=True,
+        clone=False,
         ls_width=36,
         doc='UUID from libvirt.')
 

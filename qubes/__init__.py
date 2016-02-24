@@ -550,6 +550,8 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
     :param int load_stage: stage when property should be loaded (see \
         :py:class:`Qubes` for description of stages)
     :param int order: order of evaluation (bigger order values are later)
+    :param bool clone: :py:meth:`PropertyHolder.clone_properties` will not \
+        include this property by default if :py:obj:`False`
     :param str ls_head: column head for :program:`qvm-ls`
     :param int ls_width: column width in :program:`qvm-ls`
     :param str doc: docstring; this should be one paragraph of plain RST, no \
@@ -584,7 +586,7 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
 
     def __init__(self, name, setter=None, saver=None, type=None,
             default=_NO_DEFAULT, write_once=False, load_stage=2, order=0,
-            save_via_ref=False,
+            save_via_ref=False, clone=True,
             ls_head=None, ls_width=None, doc=None):
         # pylint: disable=redefined-builtin
         self.__name__ = name
@@ -597,6 +599,7 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
         self.order = order
         self.load_stage = load_stage
         self.save_via_ref = save_via_ref
+        self.clone = clone
         self.__doc__ = doc
         self._attr_name = '_qubesprop_' + name
 
@@ -969,11 +972,13 @@ class PropertyHolder(qubes.events.Emitter):
 
         :param PropertyHolder src: source object
         :param list proplist: list of properties \
-            (:py:obj:`None` for all properties)
+            (:py:obj:`None` or omit for all properties except those with \
+            :py:attr:`property.clone` set to :py:obj:`False`)
         '''
 
         if proplist is None:
-            proplist = self.property_list()
+            proplist = [prop for prop in self.property_list()
+                if prop.clone]
         else:
             proplist = [prop for prop in self.property_list()
                 if prop.__name__ in proplist or prop in proplist]
