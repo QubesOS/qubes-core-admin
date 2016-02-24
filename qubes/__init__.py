@@ -1183,9 +1183,13 @@ class Qubes(PropertyHolder):
         #: Information about host system
         self.host = QubesHost(self)
 
-        self._store = store if store is not None else os.path.join(
-            qubes.config.system_path['qubes_base_dir'],
-            qubes.config.system_path['qubes_store_filename'])
+        if store is not None:
+            self._store = store
+        else:
+            self._store = os.environ.get('QUBES_XML_PATH',
+                os.path.join(
+                    qubes.config.system_path['qubes_base_dir'],
+                    qubes.config.system_path['qubes_store_filename']))
 
         super(Qubes, self).__init__(xml=None, **kwargs)
 
