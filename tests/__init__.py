@@ -22,12 +22,14 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+from distutils import spawn
 
 import multiprocessing
 import logging
 import os
 import shutil
 import subprocess
+import tempfile
 import unittest
 
 import lxml.etree
@@ -443,6 +445,77 @@ class SystemTestsMixin(object):
             time.sleep(1)
             timeout -= 1
         self.fail("Timeout while waiting for VM {} shutdown".format(vm.name))
+
+    def prepare_hvm_system_linux(self, vm, init_script, extra_files=None):
+        if not os.path.exists('/usr/lib/grub/i386-pc'):
+            self.skipTest('grub2 not installed')
+        if not spawn.find_executable('grub2-install'):
+            self.skipTest('grub2-tools not installed')
+        if not spawn.find_executable('dracut'):
+            self.skipTest('dracut not installed')
+        # create a single partition
+        p = subprocess.Popen(['sfdisk', '-q', '-L', vm.storage.root_img],
+            stdin=subprocess.PIPE,
+            stdout=open(os.devnull, 'w'),
+            stderr=subprocess.STDOUT)
+        p.communicate('2048,\n')
+        assert p.returncode == 0, 'sfdisk failed'
+        # TODO: check if root_img is really file, not already block device
+        p = subprocess.Popen(['sudo', 'losetup', '-f', '-P', '--show',
+            vm.storage.root_img], stdout=subprocess.PIPE)
+        (loopdev, _) = p.communicate()
+        loopdev = loopdev.strip()
+        looppart = loopdev + 'p1'
+        assert p.returncode == 0, 'losetup failed'
+        subprocess.check_call(['sudo', 'mkfs.ext2', '-q', '-F', looppart])
+        mountpoint = tempfile.mkdtemp()
+        subprocess.check_call(['sudo', 'mount', looppart, mountpoint])
+        try:
+            subprocess.check_call(['sudo', 'grub2-install',
+                '--target', 'i386-pc',
+                '--modules', 'part_msdos ext2',
+                '--boot-directory', mountpoint, loopdev],
+                stderr=open(os.devnull, 'w')
+            )
+            grub_cfg = '{}/grub2/grub.cfg'.format(mountpoint)
+            subprocess.check_call(
+                ['sudo', 'chown', '-R', os.getlogin(), mountpoint])
+            with open(grub_cfg, 'w') as f:
+                f.write(
+                    "set timeout=1\n"
+                    "menuentry 'Default' {\n"
+                    "  linux /vmlinuz root=/dev/xvda1 "
+                    "rd.driver.blacklist=bochs_drm "
+                    "rd.driver.blacklist=uhci_hcd\n"
+                    "  initrd /initrd\n"
+                    "}"
+                )
+            p = subprocess.Popen(['uname', '-r'], stdout=subprocess.PIPE)
+            (kernel_version, _) = p.communicate()
+            kernel_version = kernel_version.strip()
+            kernel = '/boot/vmlinuz-{}'.format(kernel_version)
+            shutil.copy(kernel, os.path.join(mountpoint, 'vmlinuz'))
+            init_path = os.path.join(mountpoint, 'init')
+            with open(init_path, 'w') as f:
+                f.write(init_script)
+            os.chmod(init_path, 0755)
+            dracut_args = [
+                '--kver', kernel_version,
+                '--include', init_path,
+                '/usr/lib/dracut/hooks/pre-pivot/initscript.sh',
+                '--no-hostonly', '--nolvmconf', '--nomdadmconf',
+            ]
+            if extra_files:
+                dracut_args += ['--install', ' '.join(extra_files)]
+            subprocess.check_call(
+                ['dracut'] + dracut_args + [os.path.join(mountpoint,
+                    'initrd')],
+                stderr=open(os.devnull, 'w')
+            )
+        finally:
+            subprocess.check_call(['sudo', 'umount', mountpoint])
+            shutil.rmtree(mountpoint)
+            subprocess.check_call(['sudo', 'losetup', '-d', loopdev])
 
 class BackupTestsMixin(SystemTestsMixin):
     def setUp(self):
