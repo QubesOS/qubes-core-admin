@@ -23,6 +23,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 from distutils import spawn
+import functools
 
 import multiprocessing
 import logging
@@ -31,6 +32,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest.case import _ExpectedFailure, _UnexpectedSuccess
 
 import lxml.etree
 import sys
@@ -88,6 +90,32 @@ def skipUnlessGit(test_item):
 
     return unittest.skipUnless(in_git, 'outside git tree')(test_item)
 
+def expectedFailureIfTemplate(templates):
+    """
+    Decorator for marking specific test as expected to fail only for some
+    templates. Template name is compared as substring, so 'whonix' will
+    handle both 'whonix-ws' and 'whonix-gw'.
+     templates can be either a single string, or an iterable
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            template = args[0].template
+            if isinstance(templates, basestring):
+                should_expect_fail = template in templates
+            else:
+                should_expect_fail = any([template in x for x in templates])
+            if should_expect_fail:
+                try:
+                    func(*args, **kwargs)
+                except Exception:
+                    raise _ExpectedFailure(sys.exc_info())
+                raise _UnexpectedSuccess
+            else:
+                # Call directly:
+                func(*args, **kwargs)
+        return wrapper
+    return decorator
 
 class _AssertNotRaisesContext(object):
     """A context manager used to implement TestCase.assertNotRaises methods.
