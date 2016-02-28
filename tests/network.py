@@ -121,6 +121,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
                          "Ping by IP from AppVM failed")
 
 
+    @qubes.tests.expectedFailureIfTemplate('debian-7')
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
     def test_020_simple_proxyvm_nm(self):
