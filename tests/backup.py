@@ -184,6 +184,8 @@ class TC_10_BackupVMMixin(qubes.tests.BackupTestsMixin):
         vms = self.create_backup_vms()
         self.backupvm.start()
         retcode = self.backupvm.run(
+            # Debian 7 has too old losetup to handle loop-control device
+            "mknod /dev/loop0 b 7 0;"
             "truncate -s 50M /home/user/backup.img && "
             "mkfs.ext4 -F /home/user/backup.img && "
             "mkdir /home/user/backup && "
