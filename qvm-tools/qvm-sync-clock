@@ -90,7 +90,8 @@ def main():
                     verbose=options.verbose, gui=False, wait=True, ignore_stderr=True) \
             != 0:
         if options.force:
-            print >> sys.stderr, 'Time sync failed! - Sync forced'
+            print >> sys.stderr, 'Time sync failed! - Syncing with dom0 ' \
+                                 'anyway as requested'
         else:
             print >> sys.stderr, 'Time sync failed! - Exiting'
             sys.exit(1)
