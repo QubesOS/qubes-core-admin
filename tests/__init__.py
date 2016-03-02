@@ -32,7 +32,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
-from unittest.case import _ExpectedFailure, _UnexpectedSuccess
+import unittest.case
 
 import lxml.etree
 import sys
@@ -99,21 +99,21 @@ def expectedFailureIfTemplate(templates):
     """
     def decorator(func):
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            template = args[0].template
+        def wrapper(self, *args, **kwargs):
+            template = self.template
             if isinstance(templates, basestring):
                 should_expect_fail = template in templates
             else:
                 should_expect_fail = any([template in x for x in templates])
             if should_expect_fail:
                 try:
-                    func(*args, **kwargs)
+                    func(self, *args, **kwargs)
                 except Exception:
-                    raise _ExpectedFailure(sys.exc_info())
-                raise _UnexpectedSuccess
+                    raise unittest.case._ExpectedFailure(sys.exc_info())
+                raise unittest.case._UnexpectedSuccess()
             else:
                 # Call directly:
-                func(*args, **kwargs)
+                func(self, *args, **kwargs)
         return wrapper
     return decorator
 
