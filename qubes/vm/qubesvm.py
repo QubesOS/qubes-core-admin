@@ -344,8 +344,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         '''QubesDB handle for this domain.'''
         if self._qdb_connection is None:
             if self.is_running():
-                import qubes.qdb
-                self._qdb_connection = qubes.qdb.QubesDB(self.name)
+                import qubesdb
+                self._qdb_connection = qubesdb.QubesDB(self.name)
         return self._qdb_connection
 
 
