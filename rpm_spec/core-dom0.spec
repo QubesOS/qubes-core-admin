@@ -202,6 +202,7 @@ fi
 %dir %{python_sitelib}/qubes
 %{python_sitelib}/qubes/__init__.py*
 %{python_sitelib}/qubes/config.py*
+%{python_sitelib}/qubes/devices.py*
 %{python_sitelib}/qubes/dochelpers.py*
 %{python_sitelib}/qubes/events.py*
 %{python_sitelib}/qubes/exc.py*
@@ -214,9 +215,7 @@ fi
 %{python_sitelib}/qubes/vm/adminvm.py*
 %{python_sitelib}/qubes/vm/appvm.py*
 %{python_sitelib}/qubes/vm/dispvm.py*
-%{python_sitelib}/qubes/vm/hvm.py*
 %{python_sitelib}/qubes/vm/qubesvm.py*
-%{python_sitelib}/qubes/vm/templatehvm.py*
 %{python_sitelib}/qubes/vm/templatevm.py*
 
 %dir %{python_sitelib}/qubes/vm/mix
@@ -314,8 +313,7 @@ fi
 %attr(2770,root,qubes) %dir /var/lib/qubes/backup
 %attr(2770,root,qubes) %dir /var/lib/qubes/dvmdata
 %attr(2770,root,qubes) %dir /var/lib/qubes/vm-kernels
-/usr/share/qubes/vm-template.xml
-/usr/share/qubes/vm-template-hvm.xml
+/usr/share/qubes/templates/libvirt/xen.xml
 /usr/lib/tmpfiles.d/qubes.conf
 /usr/lib/qubes/qubes-prepare-saved-domain.sh
 /usr/lib/qubes/qubes-update-dispvm-savefile-with-progress.sh

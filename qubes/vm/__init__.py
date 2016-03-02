@@ -43,6 +43,7 @@ import lxml.etree
 
 import qubes
 import qubes.log
+import qubes.devices
 import qubes.events
 import qubes.tools.qvm_ls
 
@@ -145,80 +146,6 @@ class BaseVMMeta(qubes.events.EmitterMeta):
         qubes.tools.qvm_ls.process_class(cls)
 
 
-class DeviceCollection(object):
-    '''Bag for devices.
-
-    Used as default value for :py:meth:`DeviceManager.__missing__` factory.
-
-    :param vm: VM for which we manage devices
-    :param class_: device class
-    '''
-
-    def __init__(self, vm, class_):
-        self._vm = vm
-        self._class = class_
-        self._set = set()
-
-
-    def attach(self, device):
-        '''Attach (add) device to domain.
-
-        :param str device: device identifier (format is class-dependent)
-        '''
-
-        if device in self:
-            raise KeyError(
-                'device {!r} of class {} already attached to {!r}'.format(
-                    device, self._class, self._vm))
-        self._vm.fire_event_pre('device-pre-attached:{}'.format(self._class),
-            device)
-        self._set.add(device)
-        self._vm.fire_event('device-attached:{}'.format(self._class), device)
-
-
-    def detach(self, device):
-        '''Detach (remove) device from domain.
-
-        :param str device: device identifier (format is class-dependent)
-        '''
-
-        if device not in self:
-            raise KeyError(
-                'device {!r} of class {} not attached to {!r}'.format(
-                    device, self._class, self._vm))
-        self._vm.fire_event_pre('device-pre-detached:{}'.format(self._class),
-            device)
-        self._set.remove(device)
-        self._vm.fire_event('device-detached:{}'.format(self._class), device)
-
-
-    def __iter__(self):
-        return iter(self._set)
-
-
-    def __contains__(self, item):
-        return item in self._set
-
-
-    def __len__(self):
-        return len(self._set)
-
-
-class DeviceManager(dict):
-    '''Device manager that hold all devices by their classess.
-
-    :param vm: VM for which we manage devices
-    '''
-
-    def __init__(self, vm):
-        super(DeviceManager, self).__init__()
-        self._vm = vm
-
-    def __missing__(self, key):
-        self[key] = DeviceCollection(self._vm, key)
-        return self[key]
-
-
 class BaseVM(qubes.PropertyHolder):
     '''Base class for all VMs
 
@@ -251,7 +178,7 @@ class BaseVM(qubes.PropertyHolder):
 
         #: :py:class:`DeviceManager` object keeping devices that are attached to
         #: this domain
-        self.devices = DeviceManager(self) if devices is None else devices
+        self.devices = devices or qubes.devices.DeviceManager(self)
 
         #: user-specified tags
         self.tags = tags or {}
@@ -480,13 +407,8 @@ class BaseVM(qubes.PropertyHolder):
         conf_template = f_conf_template.read()
         f_conf_template.close()
 
-        template_params = self.get_config_params()
-        if prepare_dvm:
-            template_params['name'] = '%NAME%'
-            template_params['privatedev'] = ''
-            template_params['netdev'] = re.sub(r"address='[0-9.]*'",
-                "address='%IP%'", template_params['netdev'])
-        domain_config = conf_template.format(**template_params)
+        domain_config = self.app.env.get_template('libvirt/xen.xml').render(
+            vm=self, prepare_dvm=prepare_dvm)
 
         # FIXME: This is only for debugging purposes
         old_umask = os.umask(002)

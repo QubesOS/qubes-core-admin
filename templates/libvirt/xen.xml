@@ -1,0 +1,121 @@
+<domain type="xen">
+<name>{% if prepare_dvm %}%NAME%{% else %}{{ vm.name }}{% endif %}</name>
+	<uuid>{{ vm.uuid }}</uuid>
+	<memory unit="MiB">{{ vm.maxmem }}</memory>
+	<currentMemory unit="MiB">{{ vm.memory }}</currentMemory>
+	<vcpu placement="static">{{ vm.vcpus }}</vcpu>
+	<os>
+	{% if vm.hvm %}
+		<type arch="x86_64" machine="xenfv">hvm</type>
+		<loader>hvmloader</loader>
+		<boot dev="cdrom" />
+		<boot dev="hd" />
+<!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
+	{% else %}
+		<type arch="x86_64" machine="xenpv">linux</type>
+		<kernel>{{ vm.storage.kernels_dir }}/vmlinuz</kernel>
+		<initrd>{{ vm.storage.kernels_dir }}/initramfs</initrd>
+		<cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH 3 {{ vm.kernelopts }}</cmdline>
+	{% endif %}
+	</os>
+
+	{% if vm.hvm %}
+		<features>
+			<pae/>
+			<acpi/>
+			<apic/>
+			<viridian/>
+		</features>
+
+        {# TODO
+        <clock offset="variable"
+            adjustment='{timeoffset}' basis='{time_basis}'/>
+        #}
+	{% else %}
+		<clock offset='utc' adjustment='reset'>
+			<timer name="tsc" mode="native"/>
+		</clock>
+	{% endif %}
+
+	<on_poweroff>destroy</on_poweroff>
+	<on_reboot>destroy</on_reboot>
+	<on_crash>destroy</on_crash>
+	<devices>
+        {#
+		{% for device in vm.storage %}
+            <disk type="block" device="{{ device.type }}">
+                <driver name="phy" />
+                <source dev="{{ device.path }}" />
+                <target dev="{{ device.vdev }}" />
+
+                {% if not device.rw %}
+                    <readonly />
+                {% endif %}
+
+                {% if device.domain %}
+                    <domain name="{{ domain }}" />
+                {% endif %}
+
+                {% if device.script %}
+                    <script path="{{ device.script }}"></script>
+                {% endif %}
+            </disk>
+		{% endfor %}
+        #}
+
+        {{ vm.storage.root_dev_config() }}
+        {% if not prepare_dvm %}{{ vm.storage.private_dev_config() }}{% endif %}
+        {{ vm.storage.other_dev_config() }}
+
+		{% if not vm.hvm %}
+            {{ vm.storage.volatile_dev_config() }}
+		{% endif %}
+
+		{% if vm.netvm %}
+			<interface type="ethernet">
+				<mac address="{{ vm.mac }}" />
+                <ip address="
+                    {%- if prepare_dvm -%}
+                        %IP%
+                    {%- else -%}
+                        {{ vm.ip }}
+                    {%- endif %}" />
+				<backenddomain name="{{ vm.netvm.name }}" />
+                <script path="vif-route-qubes"></script>
+			</interface>
+		{% endif %}
+
+		{% for device in vm.devices.pci %}
+            <hostdev type="pci" managed="yes">
+                <source>
+                    <address
+                        bus="0x{{ device.bus }}"
+                        slot="0x{{ device.device }}"
+                        function="0x{{ device.function }}" />
+                </source>
+            </hostdev>
+		{% endfor %}
+
+		{% if vm.hvm %}
+            <emulator
+                type="stubdom"
+                {% if vm.netvm %}
+                    cmdline="-net lwip,client_ip={{ vm.ip -}}
+                        ,server_ip={{ vm.secondary_dns -}}
+                        ,dns={{ vm.netvm.gateway -}}
+                        ,gw={{ self.netvm.gateway -}}
+                        ,netmask={{ vm.netmask }}"
+                {% endif %}
+                />
+			<input type="tablet" bus="usb"/>
+			<video type="vga"/>
+		{% else %}
+			<console type="pty">
+				<target type="xen" port="0"/>
+			</console>
+		{% endif %}
+
+	</devices>
+</domain>
+ 
+<!-- vim: set ft=jinja ts=4 sts=4 sw=4 et tw=80 : -->

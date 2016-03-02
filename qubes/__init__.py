@@ -53,6 +53,7 @@ import __builtin__
 
 import docutils.core
 import docutils.io
+import jinja2
 import lxml.etree
 import pkg_resources
 
@@ -1198,6 +1199,11 @@ class Qubes(PropertyHolder):
         super(Qubes, self).__init__(xml=None, **kwargs)
 
         self.__load_timestamp = None
+
+        #: jinja2 environment for libvirt XML templates
+        self.env = jinja2.Environment(
+            loader=jinja2.FileSystemLoader('/usr/share/qubes/templates'),
+            undefined=jinja2.StrictUndefined)
 
         if load:
             self.load()

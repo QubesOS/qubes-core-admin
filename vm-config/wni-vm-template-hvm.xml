@@ -1,9 +1,0 @@
-<domain type='test'>
-  <name>{name}</name>
-  <uuid>{uuid}</uuid>
-  <memory unit='MiB'>{maxmem}</memory>
-  <os>
-    <type>hvm</type>
-  </os>
-</domain>
-

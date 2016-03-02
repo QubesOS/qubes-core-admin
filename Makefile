@@ -80,8 +80,8 @@ endif
 	cp qubes-rpc/qubes-notify-tools $(DESTDIR)/usr/libexec/qubes/
 
 	mkdir -p "$(DESTDIR)$(FILESDIR)"
-	cp vm-config/$(BACKEND_VMM)-vm-template.xml "$(DESTDIR)$(FILESDIR)/vm-template.xml"
-	cp vm-config/$(BACKEND_VMM)-vm-template-hvm.xml "$(DESTDIR)$(FILESDIR)/vm-template-hvm.xml"
+	cp -r templates "$(DESTDIR)$(FILESDIR)/templates"
+	rm -f "$(DESTDIR)$(FILESDIR)/templates/README"
 
 	mkdir -p $(DESTDIR)$(DATADIR)
 	mkdir -p $(DESTDIR)$(DATADIR)/vm-templates

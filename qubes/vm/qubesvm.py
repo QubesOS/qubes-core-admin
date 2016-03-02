@@ -166,6 +166,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         ls_width=36,
         doc='UUID from libvirt.')
 
+    hvm = qubes.property('hvm',
+        type=bool, setter=qubes.property.bool,
+        default=False,
+        doc='''Use full virtualisation (HVM) for this qube,
+            instead of paravirtualisation (PV)''')
+
     # XXX this should be part of qubes.xml
     firewall_conf = qubes.property('firewall_conf', type=str,
         default='firewall.xml')
