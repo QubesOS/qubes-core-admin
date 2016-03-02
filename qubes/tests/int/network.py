@@ -30,9 +30,8 @@ import subprocess
 import unittest
 import time
 
-from qubes.qubes import QubesVmCollection, defaults
-
 import qubes.tests
+import qubes.vm.appvm
 
 class NcVersion:
     Trad = 1
@@ -54,16 +53,18 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
 
     def setUp(self):
         super(VmNetworkingMixin, self).setUp()
-        self.testnetvm = self.qc.add_new_vm("QubesNetVm",
+        self.init_default_template(self.template)
+        self.testnetvm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('netvm1'),
-            template=self.qc.get_vm_by_name(self.template))
-        self.testnetvm.create_on_disk(verbose=False)
-        self.testvm1 = self.qc.add_new_vm("QubesAppVm",
+            label='red')
+        self.testnetvm.create_on_disk()
+        self.testnetvm.provides_network = True
+        self.testvm1 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('vm2'),
-            template=self.qc.get_vm_by_name(self.template))
-        self.testvm1.create_on_disk(verbose=False)
+            label='red')
+        self.testvm1.create_on_disk()
         self.testvm1.netvm = self.testnetvm
-        self.qc.save()
+        self.app.save()
 
         self.configure_netvm()
 
@@ -93,21 +94,19 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
 
 
     def test_000_simple_networking(self):
-        self.qc.unlock_db()
         self.testvm1.start()
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
 
 
     def test_010_simple_proxyvm(self):
-        self.proxy = self.qc.add_new_vm("QubesProxyVm",
+        self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('proxy'),
-            template=self.qc.get_vm_by_name(self.template))
-        self.proxy.create_on_disk(verbose=False)
+            label='red')
+        self.proxy.provides_network = True
         self.proxy.netvm = self.testnetvm
+        self.proxy.create_on_disk()
         self.testvm1.netvm = self.proxy
-        self.qc.save()
-        self.qc.unlock_db()
 
         self.testvm1.start()
         self.assertTrue(self.proxy.is_running())
@@ -124,15 +123,15 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
     def test_020_simple_proxyvm_nm(self):
-        self.proxy = self.qc.add_new_vm("QubesProxyVm",
+        self.proxy = self.app.add_new_vm("QubesProxyVm",
             name=self.make_vm_name('proxy'),
-            template=self.qc.get_vm_by_name(self.template))
-        self.proxy.create_on_disk(verbose=False)
+            label='red')
+        self.proxy.provides_network = True
+        self.proxy.create_on_disk()
         self.proxy.netvm = self.testnetvm
         self.proxy.services['network-manager'] = True
         self.testvm1.netvm = self.proxy
-        self.qc.save()
-        self.qc.unlock_db()
+        self.app.save()
 
         self.testvm1.start()
         self.assertTrue(self.proxy.is_running())
@@ -169,14 +168,14 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
 
 
     def test_030_firewallvm_firewall(self):
-        self.proxy = self.qc.add_new_vm("QubesProxyVm",
+        self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('proxy'),
-            template=self.qc.get_vm_by_name(self.template))
-        self.proxy.create_on_disk(verbose=False)
+            label='red')
+        self.proxy.provides_network = True
+        self.proxy.create_on_disk()
         self.proxy.netvm = self.testnetvm
         self.testvm1.netvm = self.proxy
-        self.qc.save()
-        self.qc.unlock_db()
+        self.app.save()
 
         if self.run_cmd(self.testnetvm, 'nc -h 2>&1|grep -q nmap.org') == 0:
             nc_version = NcVersion.Nmap
@@ -279,20 +278,19 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
 
 
     def test_040_inter_vm(self):
-        self.proxy = self.qc.add_new_vm("QubesProxyVm",
+        self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('proxy'),
-            template=self.qc.get_vm_by_name(self.template))
-        self.proxy.create_on_disk(verbose=False)
+            label='red')
+        self.proxy.create_on_disk()
         self.proxy.netvm = self.testnetvm
         self.testvm1.netvm = self.proxy
 
-        self.testvm2 = self.qc.add_new_vm("QubesAppVm",
+        self.testvm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('vm3'),
-            template=self.qc.get_vm_by_name(self.template))
-        self.testvm2.create_on_disk(verbose=False)
+            label='red')
+        self.testvm2.create_on_disk()
         self.testvm2.netvm = self.proxy
-        self.qc.save()
-        self.qc.unlock_db()
+        self.app.save()
 
         self.testvm1.start()
         self.testvm2.start()
@@ -316,7 +314,6 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
 
     def test_050_spoof_ip(self):
         """Test if VM IP spoofing is blocked"""
-        self.qc.unlock_db()
         self.testvm1.start()
 
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
@@ -433,18 +430,18 @@ class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
             self.skipTest("Template {} not supported by this test".format(
                 self.template))
 
-        self.testvm1 = self.qc.add_new_vm(
-            "QubesAppVm",
+        self.init_default_template(self.template)
+        self.testvm1 = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
             name=self.make_vm_name('vm1'),
-            template=self.qc.get_vm_by_name(self.template))
-        self.testvm1.create_on_disk(verbose=False)
+            label='red')
+        self.testvm1.create_on_disk()
 
     def test_000_simple_update(self):
         self.save_and_reload_db()
-        self.qc.unlock_db()
         # reload the VM to have all the properties properly set (especially
         # default netvm)
-        self.testvm1 = self.qc[self.testvm1.qid]
+        self.testvm1 = self.app.domains[self.testvm1.qid]
         self.testvm1.start()
         p = self.testvm1.run(self.update_cmd, wait=True, user="root",
                              passio_popen=True, passio_stderr=True)
@@ -591,18 +588,18 @@ class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
             self.skipTest("Template {} not supported by this test".format(
                 self.template))
 
-        self.netvm_repo = self.qc.add_new_vm(
-            "QubesNetVm",
+        self.netvm_repo = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
             name=self.make_vm_name('net'),
-            template=self.qc.get_vm_by_name(self.template))
-        self.netvm_repo.create_on_disk(verbose=False)
+            label='red')
+        self.netvm_repo.provides_network = True
+        self.netvm_repo.create_on_disk()
         self.testvm1.netvm = self.netvm_repo
         # NetVM should have qubes-updates-proxy enabled by default
         #self.netvm_repo.services['qubes-updates-proxy'] = True
         # TODO: consider also adding a test for the template itself
         self.testvm1.services['updates-proxy-setup'] = True
-        self.qc.save()
-        self.qc.unlock_db()
+        self.app.save()
 
         # Setup test repo
         self.netvm_repo.start()
@@ -640,12 +637,9 @@ class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
 
 def load_tests(loader, tests, pattern):
     try:
-        qc = qubes.qubes.QubesVmCollection()
-        qc.lock_db_for_reading()
-        qc.load()
-        qc.unlock_db()
-        templates = [vm.name for vm in qc.values() if
-                     isinstance(vm, qubes.qubes.QubesTemplateVm)]
+        app = qubes.Qubes()
+        templates = [vm.name for vm in app.domains if
+                     isinstance(vm, qubes.vm.templatevm.TemplateVM)]
     except OSError:
         templates = []
     for template in templates:
