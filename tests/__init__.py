@@ -245,7 +245,7 @@ class SystemTestsMixin(object):
 
         self.conn = libvirt.open(qubes.qubes.defaults['libvirt_uri'])
 
-        self.remove_test_vms(self.qc, self.conn)
+        self._remove_test_vms(self.qc, self.conn)
 
     def tearDown(self):
         super(SystemTestsMixin, self).tearDown()
@@ -257,12 +257,12 @@ class SystemTestsMixin(object):
         except qubes.qubes.QubesException:
             pass
 
-        self.kill_test_vms(self.qc)
+        self._kill_test_vms(self.qc)
 
         self.qc.lock_db_for_writing()
         self.qc.load()
 
-        self.remove_test_vms(self.qc, self.conn)
+        self._remove_test_vms(self.qc, self.conn)
 
         self.qc.save()
         self.qc.unlock_db()
@@ -281,12 +281,12 @@ class SystemTestsMixin(object):
 
         conn = libvirt.open(qubes.qubes.defaults['libvirt_uri'])
 
-        cls.kill_test_vms(qc, prefix=CLSVMPREFIX)
+        cls._kill_test_vms(qc, prefix=CLSVMPREFIX)
 
         qc.lock_db_for_writing()
         qc.load()
 
-        cls.remove_test_vms(qc, conn, prefix=CLSVMPREFIX)
+        cls._remove_test_vms(qc, conn, prefix=CLSVMPREFIX)
 
         qc.save()
         qc.unlock_db()
@@ -308,7 +308,7 @@ class SystemTestsMixin(object):
         self.qc.load()
 
     @staticmethod
-    def kill_test_vms(qc, prefix=VMPREFIX):
+    def _kill_test_vms(qc, prefix=VMPREFIX):
         # do not keep write lock while killing VMs, because that may cause a
         # deadlock with disk hotplug scripts (namely qvm-template-commit
         # called when shutting down TemplateVm)
@@ -383,7 +383,7 @@ class SystemTestsMixin(object):
         self.save_and_reload_db()
 
     @classmethod
-    def remove_test_vms(cls, qc, conn, prefix=VMPREFIX):
+    def _remove_test_vms(cls, qc, conn, prefix=VMPREFIX):
         """Aggresively remove any domain that has name in testing namespace.
 
         .. warning::
