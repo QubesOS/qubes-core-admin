@@ -1262,13 +1262,12 @@ class Qubes(PropertyHolder):
         # Disable ntpd in ClockVM - to not conflict with ntpdate (both are
         # using 123/udp port)
         if hasattr(self, 'clockvm') and self.clockvm is not None:
-            if 'ntpd' in self.clockvm.services:
-                if self.clockvm.services['ntpd']:
-                    self.log.warning("VM set as clockvm ({!r}) has enabled "
-                        "'ntpd' service! Expect failure when syncing time in "
-                        "dom0.".format(self.clockvm))
+            if self.clockvm.features.get('services/ntpd', False):
+                self.log.warning("VM set as clockvm ({!r}) has enabled 'ntpd' "
+                    "service! Expect failure when syncing time in dom0.".format(
+                        self.clockvm))
             else:
-                self.clockvm.services['ntpd'] = False
+                self.clockvm.features['services/ntpd'] = ''
 
         for vm in self.domains:
             vm.events_enabled = True
@@ -1461,13 +1460,12 @@ class Qubes(PropertyHolder):
         # pylint: disable=unused-argument,no-self-use
         if newvalue is None:
             return
-        if 'ntpd' in newvalue.services:
-            if newvalue.services['ntpd']:
-                raise qubes.exc.QubesVMError(newvalue,
-                    'Cannot set {!r} as {!r} since it has ntpd enabled.'.format(
-                        newvalue.name, name))
+        if newvalue.features.get('services/ntpd', False):
+            raise qubes.exc.QubesVMError(newvalue,
+                'Cannot set {!r} as {!r} since it has ntpd enabled.'.format(
+                    newvalue.name, name))
         else:
-            newvalue.services['ntpd'] = False
+            newvalue.features['services/ntpd'] = ''
 
 
     @qubes.events.handler(

@@ -114,11 +114,11 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
                 <tag name="testtag">tagvalue</tag>
             </tags>
 
-            <services>
-                <service>testservice</service>
-                <service enabled="True">enabledservice</service>
-                <service enabled="False">disabledservice</service>
-            </services>
+            <features>
+                <feature name="testfeature_none"/>
+                <feature name="testfeature_empty"></feature>
+                <feature name="testfeature_aqq">aqq</feature>
+            </features>
 
             <devices class="pci">
                 <device>00:11.22</device>
@@ -145,10 +145,10 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
         self.assertEqual(vm.testlabel, 'label-1')
         self.assertEqual(vm.defaultprop, 'defaultvalue')
         self.assertEqual(vm.tags, {'testtag': 'tagvalue'})
-        self.assertEqual(vm.services, {
-            'testservice': True,
-            'enabledservice': True,
-            'disabledservice': False,
+        self.assertEqual(vm.features, {
+            'testfeature_none': None,
+            'testfeature_empty': '',
+            'testfeature_aqq': 'aqq',
         })
 
         self.assertItemsEqual(vm.devices.keys(), ('pci',))

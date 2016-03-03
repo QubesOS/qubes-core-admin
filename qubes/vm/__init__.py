@@ -48,12 +48,90 @@ import qubes.plugins
 import qubes.tools.qvm_ls
 
 
+class Features(dict):
+    '''Manager of the features.
+
+    This class inherits from dict, but has most of the methods that manipulate
+    the item disarmed (they raise NotImplementedError). The ones that are left
+    fire appropriate events on the qube that owns an instance of this class.
+    '''
+
+    #
+    # Those are the methods that affect contents. Either disarm them or make
+    # them report appropriate events. Good approach is to rewrite them carefully
+    # using official documentation, but use only our (overloaded) methods.
+    #
+    def __init__(self, vm, other=None, **kwargs):
+        super(Features, self).__init__()
+        self.vm = vm
+        self.update(other, **kwargs)
+
+    def __delitem__(self, key):
+        super(Features, self).__delitem__(key)
+        self.vm.fire_event('domain-feature-delete', key)
+
+    def __setitem__(self, key, value):
+        self.vm.fire_event('domain-feature-set', key, value)
+        super(Features, self).__setitem__(key, value)
+
+    def clear(self):
+        for key in self:
+            del self[key]
+
+    def pop(self):
+        '''Not implemented
+        :raises: NotImplementedError
+        '''
+        raise NotImplementedError()
+
+    def popitem(self):
+        '''Not implemented
+        :raises: NotImplementedError
+        '''
+        raise NotImplementedError()
+
+    def setdefault(self):
+        '''Not implemented
+        :raises: NotImplementedError
+        '''
+        raise NotImplementedError()
+
+    def update(self, other=None, **kwargs):
+        if other is not None:
+            if hasattr(other, 'keys'):
+                for key in other:
+                    self[key] = other[key]
+            else:
+                for key, value in other:
+                    self[key] = value
+
+        for key in kwargs:
+            self[key] = kwargs[key]
+
+    #
+    # end of overriding
+    #
+
+    _NO_DEFAULT = object()
+    def check_with_template(self, feature, default=_NO_DEFAULT):
+        if feature in self:
+            return self[feature]
+
+        if hasattr(self.vm, 'template') and self.vm.template is not None \
+                and feature in self.vm.template.features:
+            return self.vm.template.features[feature]
+
+        if default is self._NO_DEFAULT:
+            raise KeyError(feature)
+
+        return default
+
+
 class BaseVMMeta(qubes.plugins.Plugin, qubes.events.EmitterMeta):
     '''Metaclass for :py:class:`.BaseVM`'''
     def __init__(cls, name, bases, dict_):
         super(BaseVMMeta, cls).__init__(name, bases, dict_)
         qubes.tools.qvm_ls.process_class(cls)
-
 
 
 class DeviceCollection(object):
@@ -146,7 +224,7 @@ class BaseVM(qubes.PropertyHolder):
 
     __metaclass__ = BaseVMMeta
 
-    def __init__(self, app, xml, services=None, devices=None, tags=None,
+    def __init__(self, app, xml, features=None, devices=None, tags=None,
             **kwargs):
         # pylint: disable=redefined-outer-name
 
@@ -157,8 +235,8 @@ class BaseVM(qubes.PropertyHolder):
 
         super(BaseVM, self).__init__(xml, **kwargs)
 
-        #: dictionary of services that are run on this domain
-        self.services = services or {}
+        #: dictionary of features of this qube
+        self.features = Features(self, features)
 
         #: :py:class:`DeviceManager` object keeping devices that are attached to
         #: this domain
@@ -168,10 +246,9 @@ class BaseVM(qubes.PropertyHolder):
         self.tags = tags or {}
 
         if self.xml is not None:
-            # services
-            for node in xml.xpath('./services/service'):
-                self.services[node.text] = bool(
-                    ast.literal_eval(node.get('enabled', 'True').capitalize()))
+            # features
+            for node in xml.xpath('./features/service'):
+                self.features[node.get('name')] = node.text
 
             # devices (pci, usb, ...)
             for parent in xml.xpath('./devices'):
@@ -214,14 +291,12 @@ class BaseVM(qubes.PropertyHolder):
 
         element.append(self.xml_properties())
 
-        services = lxml.etree.Element('services')
-        for service in self.services:
-            node = lxml.etree.Element('service')
-            node.text = service
-            if not self.services[service]:
-                node.set('enabled', 'false')
-            services.append(node)
-        element.append(services)
+        features = lxml.etree.Element('features')
+        for feature in self.features:
+            node = lxml.etree.Element('service', name=feature)
+            node.text = self.features[feature] if feature else None
+            features.append(node)
+        element.append(features)
 
         for devclass in self.devices:
             devices = lxml.etree.Element('devices')
@@ -325,9 +400,8 @@ class BaseVM(qubes.PropertyHolder):
         args['vcpus'] = str(self.vcpus)
         args['mem'] = str(min(self.memory, self.maxmem))
 
-        if 'meminfo-writer' in self.services \
-                and not self.services['meminfo-writer']:
-            # If dynamic memory management disabled, set maxmem=mem
+        # If dynamic memory management disabled, set maxmem=mem
+        if not self.features.get('meminfo-writer', True):
             args['maxmem'] = args['mem']
 
         if self.netvm is not None:
@@ -481,10 +555,12 @@ class BaseVM(qubes.PropertyHolder):
         # Automatically enable/disable 'yum-proxy-setup' service based on
         # allowYumProxy
         if conf['allowYumProxy']:
-            self.services['yum-proxy-setup'] = True
+            self.features['yum-proxy-setup'] = '1'
         else:
-            if self.services.has_key('yum-proxy-setup'):
-                self.services.pop('yum-proxy-setup')
+            try:
+                del self.features['yum-proxy-setup']
+            except KeyError:
+                pass
 
         if expiring_rules_present:
             subprocess.call(["sudo", "systemctl", "start",

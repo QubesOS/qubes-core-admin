@@ -449,17 +449,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         if len(self.devices['pci']) > 0:
             # Force meminfo-writer disabled when VM have PCI devices
-            self.services['meminfo-writer'] = False
+            self.features['meminfo-writer'] = None
         elif not isinstance(self, qubes.vm.adminvm.AdminVM) \
-                and 'meminfo-writer' not in self.services:
+                and 'meminfo-writer' not in self.features:
             # Always set if meminfo-writer should be active or not
-            self.services['meminfo-writer'] = True
+            self.features['meminfo-writer'] = '1'
 
         if xml is None:
             # new qube, disable updates check if requested for new qubes
             # TODO: when features (#1637) are done, migrate to plugin
             if not self.app.check_updates_vm:
-                self.services['qubes-update-check'] = False
+                self.features['check-updates'] = None
 
         # will be initialized after loading all the properties
         self.storage = None
@@ -658,7 +658,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         try:
             if preparing_dvm:
-                self.services['qubes-dvm'] = True
+                self.features['dvm'] = True
 
             self.log.info('Setting Qubes DB info for the VM')
             self.start_qubesdb()
@@ -1707,10 +1707,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if tzname:
             self.qdb.write('/timezone', tzname)
 
-        for srv in self.services.keys():
-            # convert True/False to "1"/"0"
-            self.qdb.write('/qubes-service/{0}'.format(srv),
-                    str(int(self.services[srv])))
+        for feature, value in self.features.items():
+            self.qdb.write('/features/{0}'.format(feature),
+                    str(value) if value else '')
 
         self.qdb.write('/devices/block', '')
         self.qdb.write('/devices/usb', '')

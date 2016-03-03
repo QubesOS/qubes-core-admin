@@ -16,10 +16,10 @@
                 <property name="label" ref="label-1" />
             </properties>
 
-            <services>
-                <service enabled="false">meminfo-writer</service>
-                <service>qubes-firewall</service>
-            </services>
+            <features>
+                <feature name="meminfo-writer"></feature>
+                <feature name="qubes-firewall">1</feature>
+            </features>
 
             <devices class="pci">
                 <device>01:23.45</device>

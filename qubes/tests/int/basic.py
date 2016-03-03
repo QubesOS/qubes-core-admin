@@ -178,7 +178,7 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.assertEquals(testvm1.include_in_backups,
                           testvm2.include_in_backups)
         self.assertEquals(testvm1.default_user, testvm2.default_user)
-        self.assertEquals(testvm1.services, testvm2.services)
+        self.assertEquals(testvm1.features, testvm2.features)
         self.assertEquals(testvm1.get_firewall_conf(),
                           testvm2.get_firewall_conf())
 
@@ -227,7 +227,7 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.assertEquals(testvm1.include_in_backups,
                           testvm3.include_in_backups)
         self.assertEquals(testvm1.default_user, testvm3.default_user)
-        self.assertEquals(testvm1.services, testvm3.services)
+        self.assertEquals(testvm1.features, testvm3.features)
         self.assertEquals(testvm1.get_firewall_conf(),
                           testvm3.get_firewall_conf())
 

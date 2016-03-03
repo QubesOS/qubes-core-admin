@@ -23,7 +23,7 @@
 
 # TODO list available classes
 # TODO list labels (maybe in qvm-prefs)
-# TODO services, devices, tags
+# TODO features, devices, tags
 
 from __future__ import print_function
 

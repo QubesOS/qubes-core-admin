@@ -153,27 +153,26 @@ the parser will complain about missing combine= attribute on the second <start>.
             <ref name="properties" />
 
             <optional>
-                <element name="services">
+                <element name="features">
                     <doc:description>
-                        Container for services.
+                        Container for features.
                     </doc:description>
 
                     <oneOrMore>
-                        <element name="service">
+                        <element name="feature">
                             <doc:description>
-                                One service that is either enabled or disabled.
+                                One feature of this domain.
                             </doc:description>
 
-                            <optional>
-                                <attribute name="enabled">
-                                    <doc:description>
-                                        Whether service is enabled or disabled.
-                                        Default is ``true``.
-                                    </doc:description>
+                            <attribute name="name">
+                                <doc:description>
+                                    Name of the feature.
+                                </doc:description>
 
-                                    <data type="boolean" />
-                                </attribute>
-                            </optional>
+                                <data type="string">
+                                    <param name="pattern">[a-z0-9_-]+</param>
+                                </data>
+                            </attribute>
 
                             <data type="string">
                                 <param name="pattern">[a-z0-9_-]+</param>
