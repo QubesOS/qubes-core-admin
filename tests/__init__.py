@@ -424,6 +424,30 @@ class SystemTestsMixin(object):
         for vmname in vmnames:
             cls._remove_vm_disk(vmname)
 
+    def qrexec_policy(self, service, source, destination, allow=True):
+        """
+        Allow qrexec calls for duration of the test
+        :param service: service name
+        :param source: source VM name
+        :param destination: destination VM name
+        :return:
+        """
+
+        def add_remove_rule(add=True):
+            with open('/etc/qubes-rpc/policy/{}'.format(service), 'r+') as policy:
+                policy_rules = policy.readlines()
+                rule = "{} {} {}\n".format(source, destination,
+                                              'allow' if allow else 'deny')
+                if add:
+                    policy_rules.insert(0, rule)
+                else:
+                    policy_rules.remove(rule)
+                policy.truncate(0)
+                policy.seek(0)
+                policy.write(''.join(policy_rules))
+        add_remove_rule(add=True)
+        self.addCleanup(add_remove_rule, add=False)
+
     def wait_for_window(self, title, timeout=30, show=True):
         """
         Wait for a window with a given title. Depending on show parameter,
