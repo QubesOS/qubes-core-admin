@@ -740,48 +740,6 @@ class BackupTestsMixin(SystemTestsMixin):
         f.truncate(size)
         f.close()
 
-class ExtraTestMixin(SystemTestsMixin):
-
-    template = None
-
-    def setUp(self):
-        super(ExtraTestMixin, self).setUp()
-        self.qc.unlock_db()
-
-    def create_vms(self, names):
-        """
-        Create AppVMs for the duration of the test. Will be automatically
-        removed after completing the test.
-        :param names: list of VM names to create (each of them will be
-        prefixed with some test specific string)
-        :return: list of created VM objects
-        """
-        self.qc.lock_db_for_writing()
-        self.qc.load()
-        if self.template:
-            template = self.qc.get_vm_by_name(self.template)
-        else:
-            template = self.qc.get_default_template()
-        for vmname in names:
-            vm = self.qc.add_new_vm("QubesAppVm",
-                                    name=self.make_vm_name(vmname),
-                                    template=template)
-            vm.create_on_disk(verbose=False)
-        self.save_and_reload_db()
-
-        # get objects after reload
-        vms = []
-        for vmname in names:
-            vms.append(self.qc.get_vm_by_name(self.make_vm_name(vmname)))
-        return vms
-
-    def enable_network(self):
-        """
-        Enable access to the network. Must be called before creating VMs.
-        """
-        # nothing to do in core2
-        pass
-
 
 def load_tests(loader, tests, pattern):
     # discard any tests from this module, because it hosts base classes
@@ -798,43 +756,9 @@ def load_tests(loader, tests, pattern):
             'qubes.tests.storage',
             'qubes.tests.storage_xen',
             'qubes.tests.hardware',
+            'qubes.tests.extra',
             ):
         tests.addTests(loader.loadTestsFromName(modname))
-
-    for entry in pkg_resources.iter_entry_points('qubes.tests.extra'):
-        for test_case in entry():
-            tests.addTests(loader.loadTestsFromTestCase(
-                type(
-                    entry.name + '_' + test_case.__name__,
-                    (test_case, ExtraTestMixin, QubesTestCase),
-                    {}
-                )
-            ))
-
-
-    try:
-        qc = qubes.qubes.QubesVmCollection()
-        qc.lock_db_for_reading()
-        qc.load()
-        qc.unlock_db()
-        templates = [vm.name for vm in qc.values() if
-                     isinstance(vm, qubes.qubes.QubesTemplateVm)]
-    except OSError:
-        templates = []
-
-    for entry in pkg_resources.iter_entry_points(
-            'qubes.tests.extra.for_template'):
-        for test_case in entry():
-            for template in templates:
-                tests.addTests(loader.loadTestsFromTestCase(
-                    type(
-                        entry.name + '_' + test_case.__name__,
-                        (test_case, ExtraTestMixin,
-                         QubesTestCase),
-                        {'template': template}
-                    )
-                ))
-
     return tests
 
 
