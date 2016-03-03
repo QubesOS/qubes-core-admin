@@ -63,6 +63,10 @@ def main():
                             "list-message-digest-algorithms'")
     parser.add_option ("-z", "--compress", action="store_true", dest="compress", default=False,
                        help="Compress the backup")
+    parser.add_option ("-Z", "--compress-filter", action="store",
+                       dest="compress_filter", default=False,
+                       help="Compress the backup using specified filter "
+                            "program (default: gzip)")
     parser.add_option ("--debug", action="store_true", dest="debug",
                        default=False, help="Enable (a lot of) debug output")
 
@@ -181,7 +185,7 @@ def main():
         backup_do(base_backup_dir, files_to_backup, passphrase,
                 progress_callback=print_progress,
                 encrypted=options.encrypt,
-                compressed=options.compress,
+                compressed=options.compress_filter or options.compress,
                 appvm=appvm, **kwargs)
     except QubesException as e:
         print >>sys.stderr, "ERROR: %s" % str(e)

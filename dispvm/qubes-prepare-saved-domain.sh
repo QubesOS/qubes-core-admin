@@ -70,5 +70,12 @@ else
 fi
 ln -snf $VMDIR /var/lib/qubes/dvmdata/vmdir
 cd $VMDIR
-bsdtar -cSf saved-cows.tar volatile.img
+fstype=`df --output=fstype $VMDIR | tail -n 1`
+if [ "$fstype" = "tmpfs" ]; then
+    # bsdtar doesn't work on tmpfs because FS_IOC_FIEMAP ioctl isn't supported
+    # there
+    tar -cSf saved-cows.tar volatile.img
+else
+    bsdtar -cSf saved-cows.tar volatile.img
+fi
 echo "DVM savefile created successfully."

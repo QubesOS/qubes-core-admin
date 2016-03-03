@@ -5,7 +5,6 @@ import re
 import sys
 import subprocess
 from qubes.qubes import QubesVmCollection,QubesException,QubesHVm
-from qubes.qubes import xs
 
 def main():
 
@@ -15,6 +14,8 @@ def main():
         print >> sys.stderr, 'This script must be called as qrexec service!'
         exit(1)
 
+    prev_qrexec_installed = False
+    source_vm = None
     qvm_collection = QubesVmCollection()
     qvm_collection.lock_db_for_writing()
     try:
@@ -66,6 +67,7 @@ def main():
         else:
             user = None
 
+        prev_qrexec_installed = source_vm.qrexec_installed
         # Let the tools to be able to enable *or disable* each particular component
         source_vm.qrexec_installed = qrexec > 0
         source_vm.guiagent_installed = gui > 0
@@ -75,15 +77,18 @@ def main():
 
         qvm_collection.save()
 
-        retcode = subprocess.call(['qvm-sync-appmenus', '--force-rpc'])
-        if retcode == 0 and hasattr(source_vm, 'appmenus_recreate'):
-            # TODO: call the same for child VMs? This isn't done for Linux VMs,
-            # so probably should be ignored for Windows also
-            source_vm.appmenus_recreate()
     except Exception as e:
         print >> sys.stderr, e.message
         exit(1)
     finally:
         qvm_collection.unlock_db()
+
+    if not prev_qrexec_installed and source_vm.qrexec_installed:
+        retcode = subprocess.call(['qvm-sync-appmenus', '--force-rpc'])
+        if retcode == 0 and hasattr(source_vm, 'appmenus_recreate'):
+            # TODO: call the same for child VMs? This isn't done for Linux VMs,
+            # so probably should be ignored for Windows also
+            source_vm.appmenus_recreate()
+
 
 main()

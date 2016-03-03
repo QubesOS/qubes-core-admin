@@ -341,8 +341,10 @@ class BaseVM(qubes.PropertyHolder):
             args['netmask'] = self.netmask
             args['netdev'] = lxml.etree.tostring(
                 self.lvxml_net_dev(self.ip, self.mac, self.netvm))
-            args['disable_network1'] = ''
-            args['disable_network2'] = ''
+            args['network_begin'] = ''
+            args['network_end'] = ''
+            args['no_network_begin'] = '<!--'
+            args['no_network_end'] = '-->'
         else:
             args['ip'] = ''
             args['mac'] = ''
@@ -351,8 +353,10 @@ class BaseVM(qubes.PropertyHolder):
             args['dns2'] = ''
             args['netmask'] = ''
             args['netdev'] = ''
-            args['disable_network1'] = '<!--'
-            args['disable_network2'] = '-->'
+            args['network_begin'] = '<!--'
+            args['network_end'] = '-->'
+            args['no_network_begin'] = ''
+            args['no_network_end'] = ''
 
         args.update(self.storage.get_config_params())
 

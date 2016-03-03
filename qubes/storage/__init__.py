@@ -39,13 +39,18 @@ import qubes.exc
 import qubes.utils
 
 BLKSIZE = 512
+CONFIG_FILE = '/etc/qubes/storage.conf'
 
-class VMStorage(object):
+class Storage(object):
     '''Class for handling VM virtual disks.
 
     This is base class for all other implementations, mostly with Xen on Linux
     in mind.
     ''' # pylint: disable=abstract-class-little-used
+
+    root_img = None
+    private_img = None
+    volatile_img = None
 
     def __init__(self, vm, private_img_size=None, root_img_size=None):
 
@@ -66,29 +71,54 @@ class VMStorage(object):
         self.drive = None
 
 
-    @property
-    def private_img(self):
-        '''Path to the private image'''
-        return self.abspath(qubes.config.vm_files['private_img'])
+    def get_config_params(self):
+        args = {}
+        args['rootdev'] = self.root_dev_config()
+        args['privatedev'] = self.private_dev_config()
+        args['volatiledev'] = self.volatile_dev_config()
+        args['otherdevs'] = self.other_dev_config()
+
+        args['kerneldir'] = self.kernels_dir
+
+        return args
 
 
-    @property
-    def root_img(self):
-        '''Path to the root image'''
-        return self.vm.template.root_img if hasattr(self.vm, 'template') \
-            else self.abspath(qubes.config.vm_files['root_img'])
+    def root_dev_config(self):
+        raise NotImplementedError()
 
+    def private_dev_config(self):
+        raise NotImplementedError()
 
-    @property
-    def rootcow_img(self):
-        '''Path to the root COW image'''
-        return self.abspath(qubes.config.vm_files['rootcow_img'])
+    def volatile_dev_config(self):
+        raise NotImplementedError()
 
+    def other_dev_config(self)
+        if self.modules_img is not None:
+            return self.format_disk_dev(self.modules_img, None,
+                self.modules_dev, rw=self.modules_img_rw)
+        elif self.drive is not None:
+            (drive_type, drive_domain, drive_path) = self.drive.split(":")
+            if drive_type == 'hd':
+                drive_type = 'disk'
 
-    @property
-    def volatile_img(self):
-        '''Path to the volatile image'''
-        return self.abspath(qubes.config.vm_files['volatile_img'])
+            rw = (drive_type == 'disk')
+
+            if drive_domain.lower() == "dom0":
+                drive_domain = None
+
+            return self.format_disk_dev(drive_path,
+                None,
+                self.modules_dev,
+                rw=rw,
+                type=drive_type,
+                domain=drive_domain)
+
+        else:
+            return ''
+
+    def format_disk_dev(self, path, script, vdev, rw=True, type='disk',
+            domain=None):
+        raise NotImplementedError()
 
 
     @property
@@ -111,7 +141,13 @@ class VMStorage(object):
 
         Depending on domain, this may be global or inside domain's dir.
         '''
-        return os.path.join(self.kernels_dir, 'modules.img')
+
+        modules_path = os.path.join(self.kernels_dir, 'modules.img')
+
+        if os.path.exists(modules_path):
+            return modules_path
+        else:
+            return None
 
 
     @property
@@ -142,7 +178,7 @@ class VMStorage(object):
 
         # We prefer to use Linux's cp, because it nicely handles sparse files
         try:
-            subprocess.check_call(['cp', source, destination])
+            subprocess.check_call(['cp', '--reflink=auto', source, destination])
         except subprocess.CalledProcessError:
             raise IOError('Error while copying {!r} to {!r}'.format(
                 source, destination))
@@ -208,7 +244,7 @@ class VMStorage(object):
         .. note::
             The arguments are in different order than in :program:`cp` utility.
 
-        .. versionchange:: 3.0
+        .. versionchange:: 4.0
             This is now dummy method that just passes everything to
             :py:func:`os.rename`.
 
@@ -256,7 +292,7 @@ class VMStorage(object):
 
         # For StandaloneVM create it only if not already exists
         # (eg after backup-restore)
-        if hasattr(self.vm, 'volatile_img') \
+        if hasattr(self, 'volatile_img') \
                 and not os.path.exists(self.vm.volatile_img):
             self.vm.log.info(
                 'Creating volatile image: {0}'.format(self.volatile_img))
@@ -317,13 +353,198 @@ def get_disk_usage(path):
     return ret
 
 
-def get_storage(vm):
-    '''Factory yielding storage class instances for domains.
+#def get_storage(vm):
+#    '''Factory yielding storage class instances for domains.
+#
+#    :raises ImportError: when storage class specified in config cannot be found
+#    :raises KeyError: when storage class specified in config cannot be found
+#    '''
+#    pkg, cls = qubes.config.defaults['storage_class'].strip().rsplit('.', 1)
+#
+#    # this may raise ImportError or KeyError, that's okay
+#    return importlib.import_module(pkg).__dict__[cls](vm)
 
-    :raises ImportError: when storage class specified in config cannot be found
-    :raises KeyError: when storage class specified in config cannot be found
-    '''
-    pkg, cls = qubes.config.defaults['storage_class'].strip().rsplit('.', 1)
 
-    # this may raise ImportError or KeyError, that's okay
-    return importlib.import_module(pkg).__dict__[cls](vm)
+def dump(o):
+    """ Returns a string represention of the given object
+
+        Args:
+            o (object): anything that response to `__module__` and `__class__`
+
+        Given the class :class:`qubes.storage.QubesVmStorage` it returns
+        'qubes.storage.QubesVmStorage' as string
+    """
+    return o.__module__ + '.' + o.__class__.__name__
+
+
+def load(string):
+    """ Given a dotted full module string representation of a class it loads it
+
+        Args:
+            string (str) i.e. 'qubes.storage.xen.QubesXenVmStorage'
+
+        Returns:
+            type
+
+        See also:
+            :func:`qubes.storage.dump`
+    """
+    if not type(string) is str:
+        # This is a hack which allows giving a real class to a vm instead of a
+        # string as string_class parameter.
+        return string
+
+    components = string.split(".")
+    module_path = ".".join(components[:-1])
+    klass = components[-1:][0]
+    module = __import__(module_path, fromlist=[klass])
+    return getattr(module, klass)
+
+
+def get_pool(name, vm):
+    """ Instantiates the storage for the specified vm """
+    config = _get_storage_config_parser()
+
+    klass = _get_pool_klass(name, config)
+
+    keys = [k for k in config.options(name) if k != 'driver' and k != 'class']
+    values = [config.get(name, o) for o in keys]
+    config_kwargs = dict(zip(keys, values))
+
+    if name == 'default':
+        kwargs = defaults['pool_config'].copy()
+        kwargs.update(keys)
+    else:
+        kwargs = config_kwargs
+
+    return klass(vm, **kwargs)
+
+
+def pool_exists(name):
+    """ Check if the specified pool exists """
+    try:
+        _get_pool_klass(name)
+        return True
+    except StoragePoolException:
+        return False
+
+def add_pool(name, **kwargs):
+    """ Add a storage pool to config."""
+    config = _get_storage_config_parser()
+    config.add_section(name)
+    for key, value in kwargs.iteritems():
+        config.set(name, key, value)
+    _write_config(config)
+
+def remove_pool(name):
+    """ Remove a storage pool from config file.  """
+    config = _get_storage_config_parser()
+    config.remove_section(name)
+    _write_config(config)
+
+def _write_config(config):
+    with open(CONFIG_FILE, 'w') as configfile:
+        config.write(configfile)
+
+def _get_storage_config_parser():
+    """ Instantiates a `ConfigParaser` for specified storage config file.
+
+        Returns:
+            RawConfigParser
+    """
+    config = ConfigParser.RawConfigParser()
+    config.read(CONFIG_FILE)
+    return config
+
+
+def _get_pool_klass(name, config=None):
+    """ Returns the storage klass for the specified pool.
+
+        Args:
+            name: The pool name.
+            config: If ``config`` is not specified
+                    `_get_storage_config_parser()` is called.
+
+        Returns:
+            type: A class inheriting from `QubesVmStorage`
+    """
+    if config is None:
+        config = _get_storage_config_parser()
+
+    if not config.has_section(name):
+        raise StoragePoolException('Uknown storage pool ' + name)
+
+    if config.has_option(name, 'class'):
+        klass = load(config.get(name, 'class'))
+    elif config.has_option(name, 'driver'):
+        pool_driver = config.get(name, 'driver')
+        klass = defaults['pool_drivers'][pool_driver]
+    else:
+        raise StoragePoolException('Uknown storage pool driver ' + name)
+    return klass
+
+
+class StoragePoolException(QubesException):
+    pass
+
+
+class Pool(object):
+    def __init__(self, vm, dir_path):
+        assert vm is not None
+        assert dir_path is not None
+
+        self.vm = vm
+        self.dir_path = dir_path
+
+        self.create_dir_if_not_exists(self.dir_path)
+
+        self.vmdir = self.vmdir_path(vm, self.dir_path)
+
+        appvms_path = os.path.join(self.dir_path, 'appvms')
+        self.create_dir_if_not_exists(appvms_path)
+
+        servicevms_path = os.path.join(self.dir_path, 'servicevms')
+        self.create_dir_if_not_exists(servicevms_path)
+
+        vm_templates_path = os.path.join(self.dir_path, 'vm-templates')
+        self.create_dir_if_not_exists(vm_templates_path)
+
+    def vmdir_path(self, vm, pool_dir):
+        """ Returns the path to vmdir depending on the type of the VM.
+
+            The default QubesOS file storage saves the vm images in three
+            different directories depending on the ``QubesVM`` type:
+
+            * ``appvms`` for ``QubesAppVm`` or ``QubesHvm``
+            * ``vm-templates`` for ``QubesTemplateVm`` or ``QubesTemplateHvm``
+            * ``servicevms`` for any subclass of  ``QubesNetVm``
+
+            Args:
+                vm: a QubesVM
+                pool_dir: the root directory of the pool
+
+            Returns:
+                string (str) absolute path to the directory where the vm files
+                             are stored
+        """
+        if vm.is_appvm():
+            subdir = 'appvms'
+        elif vm.is_template():
+            subdir = 'vm-templates'
+        elif vm.is_netvm():
+            subdir = 'servicevms'
+        elif vm.is_disposablevm():
+            subdir = 'appvms'
+            return os.path.join(pool_dir, subdir, vm.template.name + '-dvm')
+        else:
+            raise QubesException(vm.type() + ' unknown vm type')
+
+        return os.path.join(pool_dir, subdir, vm.name)
+
+    def create_dir_if_not_exists(self, path):
+        """ Check if a directory exists in if not create it.
+
+            This method does not create any parent directories.
+        """
+        if not os.path.exists(path):
+            os.mkdir(path)

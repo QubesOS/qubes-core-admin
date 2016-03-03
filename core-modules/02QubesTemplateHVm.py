@@ -29,7 +29,7 @@ import stat
 import sys
 import re
 
-from qubes.qubes import QubesHVm,register_qubes_vm_class,dry_run
+from qubes.qubes import QubesHVm,register_qubes_vm_class,dry_run,vmm
 from qubes.qubes import QubesException,QubesVmCollection
 from qubes.qubes import system_path,defaults
 
@@ -70,6 +70,7 @@ class QubesTemplateHVm(QubesHVm):
     def is_appvm(self):
         return False
 
+    @property
     def rootcow_img(self):
         return self.storage.rootcow_img
 
@@ -95,7 +96,15 @@ class QubesTemplateHVm(QubesHVm):
     def commit_changes (self, verbose = False):
         self.log.debug('commit_changes()')
 
-        # nothing to do as long as root-cow.img is unused
-        pass
+        if not vmm.offline_mode:
+            assert not self.is_running(), "Attempt to commit changes on running Template VM!"
+
+        if verbose:
+            print >> sys.stderr, "--> Commiting template updates... COW: {0}...".format (self.rootcow_img)
+
+        if dry_run:
+            return
+
+        self.storage.commit_template_changes()
 
 register_qubes_vm_class(QubesTemplateHVm)

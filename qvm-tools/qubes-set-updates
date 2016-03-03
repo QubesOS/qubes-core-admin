@@ -20,27 +20,37 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 #
+from optparse import OptionParser
+import optparse
 
 import os
 import sys
 from qubes.qubes import QubesVmCollection
 from qubes.qubesutils import updates_vms_toggle,updates_dom0_toggle,\
-    updates_dom0_status
+    updates_dom0_status,updates_vms_status
+from qubes.qubes import vmm
 
-def usage():
-    print "Usage: qubes-set-updates enable|disable|status"
-    print "  Enable or disable globally checking for updates (both dom0 and VM)"
-    print "  Status option checks only dom0 updates status"
 
 def main():
-    if len(sys.argv) < 2:
-        usage()
-        return 1
-    
-    action = sys.argv[1]
+
+    usage = "%prog enable|disable|status\n"\
+            "  Enable or disable globally checking for updates (both dom0 and VM)"
+    parser = OptionParser (usage)
+    parser.add_option("--offline-mode", dest="offline_mode",
+                      action="store_true", default=False,
+                      help=optparse.SUPPRESS_HELP)
+
+    (options, args) = parser.parse_args()
+
+    if len(args) < 1:
+        parser.error("You must provide an action")
+
+    action = args[0]
     if action not in ['enable', 'disable', 'status']:
-        usage()
-        return 1
+        parser.error("Invalid action")
+
+    if options.offline_mode:
+        vmm.offline_mode = True
 
     qvm_collection = QubesVmCollection()
     if action == 'status':
@@ -56,9 +66,16 @@ def main():
         updates_vms_toggle(qvm_collection, False)
     else:
         if updates_dom0_status(qvm_collection):
-            print "enabled"
+            print "dom0: enabled"
         else:
-            print "disabled"
+            print "dom0: disabled"
+        status_vms = updates_vms_status(qvm_collection)
+        if status_vms is None:
+            print "vms: mixed"
+        elif status_vms:
+            print "vms: enabled"
+        else:
+            print "vms: disabled"
 
     if action != 'status':
         qvm_collection.save()

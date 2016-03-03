@@ -26,16 +26,20 @@ import os
 import os.path
 import signal
 import subprocess
-import stat
 import sys
-import re
 import shutil
-import stat
 from xml.etree import ElementTree
 
-from qubes.qubes import QubesVm,register_qubes_vm_class,vmm,dry_run
-from qubes.qubes import system_path,defaults
-from qubes.qubes import QubesException
+from qubes.qubes import (
+    dry_run,
+    defaults,
+    register_qubes_vm_class,
+    system_path,
+    vmm,
+    QubesException,
+    QubesResizableVm,
+)
+
 
 system_path["config_template_hvm"] = '/usr/share/qubes/vm-template-hvm.xml'
 
@@ -44,7 +48,7 @@ defaults["hvm_private_img_size"] = 2*1024*1024*1024
 defaults["hvm_memory"] = 512
 
 
-class QubesHVm(QubesVm):
+class QubesHVm(QubesResizableVm):
     """
     A class that represents an HVM. A child of QubesVm.
     """
@@ -95,8 +99,6 @@ class QubesHVm(QubesVm):
         if "guiagent_installed" not in kwargs and \
             (not 'xml_element' in kwargs or kwargs['xml_element'].get('guiagent_installed') is None):
             self.services['meminfo-writer'] = False
-
-        self.storage.volatile_img = None
 
     @property
     def type(self):
@@ -233,35 +235,7 @@ class QubesHVm(QubesVm):
         if self.is_running():
             raise NotImplementedError("Online resize of HVM's private.img not implemented, shutdown the VM first")
 
-        f_private = open (self.private_img, "a+b")
-        f_private.truncate (size)
-        f_private.close ()
-
-    def resize_root_img(self, size):
-        if self.template:
-            raise QubesException("Cannot resize root.img of template-based VM"
-                                 ". Resize the root.img of the template "
-                                 "instead.")
-
-        if self.is_running():
-            raise QubesException("Cannot resize root.img of running HVM")
-
-        if size < self.get_root_img_sz():
-            raise QubesException(
-                "For your own safety shringing of root.img is disabled. If "
-                "you really know what you are doing, use 'truncate' manually.")
-
-        f_root = open (self.root_img, "a+b")
-        f_root.truncate (size)
-        f_root.close ()
-
-    def get_rootdev(self, source_template=None):
-        if self.template:
-            return "'script:snapshot:{template_root}:{volatile},xvda,w',".format(
-                    template_root=self.template.root_img,
-                    volatile=self.volatile_img)
-        else:
-            return "'script:file:{root_img},xvda,w',".format(root_img=self.root_img)
+        self.storage.resize_private_img(size)
 
     def get_config_params(self):
 
@@ -272,8 +246,8 @@ class QubesHVm(QubesVm):
         params['volatiledev'] = ''
 
         if self.timezone.lower() == 'localtime':
-             params['time_basis'] = 'localtime'
-             params['timeoffset'] = '0'
+            params['time_basis'] = 'localtime'
+            params['timeoffset'] = '0'
         elif self.timezone.isdigit():
             params['time_basis'] = 'UTC'
             params['timeoffset'] = self.timezone
@@ -294,34 +268,6 @@ class QubesHVm(QubesVm):
             hook(self)
 
         return True
-
-    def reset_volatile_storage(self, **kwargs):
-        assert not self.is_running(), "Attempt to clean volatile image of running VM!"
-
-        source_template = kwargs.get("source_template", self.template)
-
-        if source_template is None:
-            # Nothing to do on non-template based VM
-            return
-
-        if os.path.exists (self.volatile_img):
-            if self.debug:
-                if os.path.getmtime(self.template.root_img) > os.path.getmtime(self.volatile_img):
-                    if kwargs.get("verbose", False):
-                        print >>sys.stderr, "--> WARNING: template have changed, resetting root.img"
-                else:
-                    if kwargs.get("verbose", False):
-                        print >>sys.stderr, "--> Debug mode: not resetting root.img"
-                        print >>sys.stderr, "--> Debug mode: if you want to force root.img reset, either update template VM, or remove volatile.img file"
-                    return
-            os.remove (self.volatile_img)
-
-        f_volatile = open (self.volatile_img, "w")
-        f_root = open (self.template.root_img, "r")
-        f_root.seek(0, os.SEEK_END)
-        f_volatile.truncate (f_root.tell()) # make empty sparse file of the same size as root.img
-        f_volatile.close ()
-        f_root.close()
 
     @property
     def vif(self):
@@ -367,12 +313,16 @@ class QubesHVm(QubesVm):
             return -1
 
     def start(self, *args, **kwargs):
+        # make it available to storage.prepare_for_vm_startup, which is
+        # called before actually building VM libvirt configuration
+        self.storage.drive = self.drive
+
         if self.template and self.template.is_running():
             raise QubesException("Cannot start the HVM while its template is running")
         try:
             if 'mem_required' not in kwargs:
-                # Reserve 32MB for stubdomain
-                kwargs['mem_required'] = (self.memory + 32) * 1024 * 1024
+                # Reserve 44MB for stubdomain
+                kwargs['mem_required'] = (self.memory + 44) * 1024 * 1024
             return super(QubesHVm, self).start(*args, **kwargs)
         except QubesException as e:
             capabilities = vmm.libvirt_conn.getCapabilities()
@@ -400,24 +350,27 @@ class QubesHVm(QubesVm):
         if (retcode != 0) :
             raise QubesException("Cannot start qubes-guid!")
 
-    def start_guid(self, verbose = True, notify_function = None,
-            before_qrexec=False, **kwargs):
-        # If user force the guiagent, start_guid will mimic a standard QubesVM
-        if not before_qrexec and self.guiagent_installed:
-            kwargs['extra_guid_args'] = kwargs.get('extra_guid_args', []) + \
-                                        ['-Q']
-            super(QubesHVm, self).start_guid(verbose, notify_function, **kwargs)
-            stubdom_guid_pidfile = '/var/run/qubes/guid-running.%d' % self.stubdom_xid
-            if os.path.exists(stubdom_guid_pidfile) and not self.debug:
-                try:
-                    stubdom_guid_pid = int(open(stubdom_guid_pidfile, 'r').read())
-                    os.kill(stubdom_guid_pid, signal.SIGTERM)
-                except Exception as ex:
-                    print >> sys.stderr, "WARNING: Failed to kill stubdom gui daemon: %s" % str(ex)
-        elif before_qrexec and (not self.guiagent_installed or self.debug):
+    def start_guid(self, verbose=True, notify_function=None,
+                   before_qrexec=False, **kwargs):
+        if not before_qrexec:
+            return
+
+        if not self.guiagent_installed or self.debug:
             if verbose:
                 print >> sys.stderr, "--> Starting Qubes GUId (full screen)..."
             self.start_stubdom_guid(verbose=verbose)
+
+        kwargs['extra_guid_args'] = kwargs.get('extra_guid_args', []) + \
+            ['-Q', '-n']
+
+        stubdom_guid_pidfile = \
+            '/var/run/qubes/guid-running.%d' % self.stubdom_xid
+        if not self.debug and os.path.exists(stubdom_guid_pidfile):
+            # Terminate stubdom guid once "real" gui agent connects
+            stubdom_guid_pid = int(open(stubdom_guid_pidfile, 'r').read())
+            kwargs['extra_guid_args'] += ['-K', str(stubdom_guid_pid)]
+
+        super(QubesHVm, self).start_guid(verbose, notify_function, **kwargs)
 
     def start_qrexec_daemon(self, **kwargs):
         if not self.qrexec_installed:
@@ -462,7 +415,6 @@ class QubesHVm(QubesVm):
                     if os.path.exists(guid_pidfile):
                         guid_pid = open(guid_pidfile).read().strip()
                         os.kill(int(guid_pid), 15)
-
 
     def suspend(self):
         if dry_run:

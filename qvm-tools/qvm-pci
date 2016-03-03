@@ -26,6 +26,27 @@ from optparse import OptionParser
 import subprocess
 import os
 import sys
+from qubes.qubes import vmm
+import re
+
+
+def find_devices_of_class(klass):
+    p = subprocess.Popen(["/sbin/lspci", "-mm", "-n"], stdout=subprocess.PIPE)
+    result = p.communicate()
+    retcode = p.returncode
+    if retcode != 0:
+        print "ERROR when executing lspci!"
+        raise IOError
+
+    rx_netdev = re.compile(r"^([0-9a-f]{2}:[0-9a-f]{2}.[0-9a-f]) \"" +
+                           klass)
+    for dev in str(result[0]).splitlines():
+        match = rx_netdev.match(dev)
+        if match is not None:
+            dev_bdf = match.group(1)
+            assert dev_bdf is not None
+            yield dev_bdf
+
 
 def main():
     usage = "usage: %prog -l [options] <vm-name>\n"\
@@ -37,6 +58,12 @@ def main():
     parser.add_option ("-l", "--list", action="store_true", dest="do_list", default=False)
     parser.add_option ("-a", "--add", action="store_true", dest="do_add", default=False)
     parser.add_option ("-d", "--delete", action="store_true", dest="do_delete", default=False)
+    parser.add_option("-C", "--add-class", action="store_true",
+                      dest="do_add_class", default=False,
+                      help="Add all devices of given class (net, usb)")
+    parser.add_option ("--offline-mode", dest="offline_mode",
+                       action="store_true", default=False,
+                       help="Offline mode")
 
     (options, args) = parser.parse_args ()
     if (len (args) < 1):
@@ -44,11 +71,15 @@ def main():
 
     vmname = args[0]
 
-    if options.do_list + options.do_add + options.do_delete > 1:
-        print >> sys.stderr, "Only one of -l -a -d is allowed!"
-        exit (1)
+    if options.do_list + options.do_add + options.do_delete + \
+            options.do_add_class > 1:
+        print >> sys.stderr, "Only one of -l -a -d -C is allowed!"
+        exit(1)
 
-    if options.do_add or options.do_delete:
+    if options.offline_mode:
+        vmm.offline_mode = True
+
+    if options.do_add or options.do_delete or options.do_add_class:
         qvm_collection = QubesVmCollection()
         qvm_collection.lock_db_for_writing()
         qvm_collection.load()
@@ -70,6 +101,26 @@ def main():
 
         pci = args[1]
         vm.pci_add(pci)
+        qvm_collection.save()
+        qvm_collection.unlock_db()
+
+    elif options.do_add_class:
+        if len(args) < 2:
+            print >> sys.stderr, "You must specify the PCI device class to add"
+            exit(1)
+
+        klass = args[1]
+
+        if klass == 'net':
+            devs = find_devices_of_class("02")
+        elif klass == 'usb':
+            devs = find_devices_of_class("0c03")
+        else:
+            print >> sys.stderr, "Supported classes: net, usb"
+            exit(1)
+
+        for dev in devs:
+            vm.pci_add(dev)
         qvm_collection.save()
         qvm_collection.unlock_db()
 

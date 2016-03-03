@@ -29,7 +29,7 @@ from lxml import etree
 from lxml.etree import ElementTree, SubElement, Element
 
 from qubes.qubes import QubesException
-from qubes.qubes import vmm
+from qubes.qubes import vmm,defaults
 from qubes.qubes import system_path,vm_files
 import sys
 import os
@@ -297,6 +297,8 @@ def block_check_attached(qvmc, device):
         if vm.qid == 0:
             # Connecting devices to dom0 not supported
             continue
+        if not vm.is_running():
+            continue
         try:
             libvirt_domain = vm.libvirt_domain
             if libvirt_domain:
@@ -313,9 +315,8 @@ def block_check_attached(qvmc, device):
             disks = parsed_xml.xpath("//domain/devices/disk")
             for disk in disks:
                 backend_name = 'dom0'
-                # FIXME: move <domain/> into <source/>
-                if disk.find('domain') is not None:
-                    backend_name = disk.find('domain').get('name')
+                if disk.find('backenddomain') is not None:
+                    backend_name = disk.find('backenddomain').get('name')
                 source = disk.find('source')
                 if disk.get('type') == 'file':
                     path = source.get('file')
@@ -696,11 +697,16 @@ class QubesWatch(object):
         self.block_callback = None
         self.meminfo_callback = None
         self.domain_callback = None
-        vmm.libvirt_conn.domainEventRegisterAny(
+        libvirt.virEventRegisterDefaultImpl()
+        # open new libvirt connection because above
+        # virEventRegisterDefaultImpl is in practice effective only for new
+        # connections
+        self.libvirt_conn = libvirt.open(defaults['libvirt_uri'])
+        self.libvirt_conn.domainEventRegisterAny(
             None,
             libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE,
             self._domain_list_changed, None)
-        vmm.libvirt_conn.domainEventRegisterAny(
+        self.libvirt_conn.domainEventRegisterAny(
             None,
             libvirt.VIR_DOMAIN_EVENT_ID_DEVICE_REMOVED,
             self._device_removed, None)
@@ -709,10 +715,10 @@ class QubesWatch(object):
             try:
                 if vm.isActive():
                     self._register_watches(vm)
-            except libvirt.libvirtError:
+            except libvirt.libvirtError as e:
                 # this will happen if we loose a race with another tool,
                 # which can just remove the domain
-                if vmm.libvirt_conn.virConnGetLastError()[0] == libvirt.VIR_ERR_NO_DOMAIN:
+                if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                     pass
                 raise
         # and for dom0
@@ -749,28 +755,40 @@ class QubesWatch(object):
             name = libvirt_domain.name()
             if name in self._qdb:
                 return
+            if not libvirt_domain.isActive():
+                return
             # open separate connection to Qubes DB:
             # 1. to not confuse pull() with responses to real commands sent from
             # other threads (like read, write etc) with watch events
             # 2. to not think whether QubesDB is thread-safe (it isn't)
-            while libvirt_domain.isActive() and name not in self._qdb:
-                try:
-                    self._qdb[name] = QubesDB(name)
-                except Error as e:
-                    if e.args[0] != 2:
-                        raise
-                time.sleep(0.5)
-            if name not in self._qdb:
-                # domain no longer active
+            try:
+                self._qdb[name] = QubesDB(name)
+            except Error as e:
+                if e.args[0] != 2:
+                    raise
+                libvirt.virEventAddTimeout(500, self._retry_register_watches,
+                                           libvirt_domain)
                 return
         else:
             name = "dom0"
             self._qdb[name] = QubesDB(name)
-        self._qdb[name].watch('/qubes-block-devices')
+        try:
+            self._qdb[name].watch('/qubes-block-devices')
+        except Error as e:
+            if e.args[0] == 102: # Connection reset by peer
+                # QubesDB daemon not running - most likely we've connected to
+                #  stale daemon which just exited; retry later
+                libvirt.virEventAddTimeout(500, self._retry_register_watches,
+                                           libvirt_domain)
+                return
         self._qdb_events[name] = libvirt.virEventAddHandle(
             self._qdb[name].watch_fd(),
             libvirt.VIR_EVENT_HANDLE_READABLE,
             self._qdb_handler, name)
+
+    def _retry_register_watches(self, timer, libvirt_domain):
+        libvirt.virEventRemoveTimeout(timer)
+        self._register_watches(libvirt_domain)
 
     def _unregister_watches(self, libvirt_domain):
         name = libvirt_domain.name()
@@ -782,7 +800,9 @@ class QubesWatch(object):
             del(self._qdb[name])
 
     def _domain_list_changed(self, conn, domain, event, reason, param):
-        if event == libvirt.VIR_DOMAIN_EVENT_STARTED:
+        # use VIR_DOMAIN_EVENT_RESUMED instead of VIR_DOMAIN_EVENT_STARTED to
+        #  make sure that qubesdb daemon is already running
+        if event == libvirt.VIR_DOMAIN_EVENT_RESUMED:
             self._register_watches(domain)
         elif event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
             self._unregister_watches(domain)
@@ -802,9 +822,24 @@ class QubesWatch(object):
 
 ##### updates check #####
 
+#
+# XXX this whole section is a new global property
+# TODO make event handlers
+#
+
 UPDATES_DOM0_DISABLE_FLAG='/var/lib/qubes/updates/disable-updates'
+UPDATES_DEFAULT_VM_DISABLE_FLAG=\
+    '/var/lib/qubes/updates/vm-default-disable-updates'
 
 def updates_vms_toggle(qvm_collection, value):
+    # Flag for new VMs
+    if value:
+        if os.path.exists(UPDATES_DEFAULT_VM_DISABLE_FLAG):
+            os.unlink(UPDATES_DEFAULT_VM_DISABLE_FLAG)
+    else:
+        open(UPDATES_DEFAULT_VM_DISABLE_FLAG, "w").close()
+
+    # Change for existing VMs
     for vm in qvm_collection.values():
         if vm.qid == 0:
             continue
@@ -834,5 +869,16 @@ def updates_dom0_toggle(qvm_collection, value):
 def updates_dom0_status(qvm_collection):
     return not os.path.exists(UPDATES_DOM0_DISABLE_FLAG)
 
+def updates_vms_status(qvm_collection):
+    # default value:
+    status = not os.path.exists(UPDATES_DEFAULT_VM_DISABLE_FLAG)
+    # check if all the VMs uses the default value
+    for vm in qvm_collection.values():
+        if vm.qid == 0:
+            continue
+        if vm.services.get('qubes-update-check', True) != status:
+            # "mixed"
+            return None
+    return status
 
 # vim:sw=4:et:

@@ -46,6 +46,10 @@ parser.add_argument('--property', '--prop', '-p',
     action=qubes.tools.PropertyAction,
     help='set domain\'s property, like "internal", "memory" or "vcpus"')
 
+parser.add_argument('--pool-name', '--pool', '-P',
+    action=qubes.tools.SinglePropertyAction,
+    help='specify the storage pool to use')
+
 parser.add_argument('--template', '-t',
     action=qubes.tools.SinglePropertyAction,
     help='specify the TemplateVM to use')

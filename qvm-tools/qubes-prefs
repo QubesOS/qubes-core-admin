@@ -28,6 +28,8 @@ from optparse import OptionParser
 import subprocess
 import os
 import sys
+from qubes.qubes import vmm
+
 
 def handle_vm(vms, label, new_value = None):
     functions = { # label: [ getter, setter ],
@@ -115,6 +117,8 @@ def main():
             options.do_get = True
         else:
             options.do_set = True
+
+    vmm.offline_mode = True
 
     if options.do_set:
         qvm_collection = QubesVmCollection()

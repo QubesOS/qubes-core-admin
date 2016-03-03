@@ -36,6 +36,10 @@ def main():
                       help="Force operation, even if may damage other VMs (eg shutdown of NetVM)")
     parser.add_option ("--wait", action="store_true", dest="wait_for_shutdown", default=False,
                       help="Wait for the VM(s) to shutdown")
+    parser.add_option("--wait-time", action="store", dest="wait_time",
+                      default=defaults["shutdown_counter_max"],
+                      help="Timout after which VM will be killed when --wait "
+                           "is used")
     parser.add_option ("--all", action="store_true", dest="shutdown_all", default=False,
                       help="Shutdown all running VMs")
     parser.add_option ("--exclude", action="append", dest="exclude_list",
@@ -107,7 +111,7 @@ def main():
                         continue
                     else:
                         halting_vms.append(vm)
-                if shutdown_counter > defaults["shutdown_counter_max"]:
+                if shutdown_counter > int(options.wait_time):
                     # kill the VM
                     if options.verbose:
                         print >> sys.stderr, "Killing the (apparently hanging) VM '{0}'...".format(vm.name)

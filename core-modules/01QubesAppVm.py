@@ -24,9 +24,15 @@
 
 import os.path
 
-from qubes.qubes import QubesVm,QubesVmLabel,register_qubes_vm_class,system_path
+from qubes.qubes import (
+    register_qubes_vm_class,
+    system_path,
+    QubesResizableVmWithResize2fs,
+    QubesVmLabel,
+)
 
-class QubesAppVm(QubesVm):
+
+class QubesAppVm(QubesResizableVmWithResize2fs):
     """
     A class that represents an AppVM. A child of QubesVm.
     """

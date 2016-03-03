@@ -92,7 +92,7 @@ cups
     Enable CUPS service. The user can disable cups in VM which do not need
     printing to speed up booting.
 
-cron
+crond
     Default: disabled
 
     Enable CRON service.

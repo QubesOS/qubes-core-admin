@@ -238,7 +238,7 @@ class QubesTestCase(unittest.TestCase):
         :param xml2: second element
         :type xml1: :py:class:`lxml.etree._Element`
         :type xml2: :py:class:`lxml.etree._Element`
-        '''
+        '''  # pylint: disable=invalid-name
 
         self.assertEqual(xml1.tag, xml2.tag)
         self.assertEqual(xml1.text, xml2.text)

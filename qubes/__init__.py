@@ -1142,6 +1142,11 @@ class Qubes(PropertyHolder):
     default_kernel = property('default_kernel', load_stage=3,
         doc='Which kernel to use when not overriden in VM')
 
+    # TODO #1637 #892
+    check_updates_vm = property('check_updates_vm',
+        type=bool, setter=property.bool,
+        doc='check for updates inside qubes')
+
 
     def __init__(self, store=None, load=True, **kwargs):
         #: logger instance for logging global messages

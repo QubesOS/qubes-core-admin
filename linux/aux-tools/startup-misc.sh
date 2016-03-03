@@ -8,7 +8,7 @@ xenstore-write domid 0
 DOM0_MAXMEM=`/usr/sbin/xl info | grep total_memory | awk '{ print $3 }'`
 xenstore-write /local/domain/0/memory/static-max $[ $DOM0_MAXMEM * 1024 ]
 
-xl sched-credit -d 0 -w 512
+xl sched-credit -d 0 -w 2000
 cp /var/lib/qubes/qubes.xml /var/lib/qubes/backup/qubes-$(date +%F-%T).xml
 
 /usr/lib/qubes/cleanup-dispvms

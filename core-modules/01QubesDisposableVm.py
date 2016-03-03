@@ -97,6 +97,11 @@ class QubesDisposableVm(QubesVm):
             disp_template = kwargs['disp_template']
             kwargs['template'] = disp_template.template
             kwargs['dir_path'] = disp_template.dir_path
+            kwargs['kernel'] = disp_template.kernel
+            kwargs['uses_default_kernel'] = disp_template.uses_default_kernel
+            kwargs['kernelopts'] = disp_template.kernelopts
+            kwargs['uses_default_kernelopts'] = \
+                disp_template.uses_default_kernelopts
         super(QubesDisposableVm, self).__init__(**kwargs)
 
         assert self.template is not None, "Missing template for DisposableVM!"
@@ -151,6 +156,7 @@ class QubesDisposableVm(QubesVm):
     def create_qubesdb_entries(self):
         super(QubesDisposableVm, self).create_qubesdb_entries()
 
+        self.qdb.write("/qubes-vm-persistence", "none")
         self.qdb.write('/qubes-restore-complete', '1')
 
     def start(self, verbose = False, **kwargs):
@@ -162,8 +168,13 @@ class QubesDisposableVm(QubesVm):
         if self.get_power_state() != "Halted":
             raise QubesException ("VM is already running!")
 
-        # skip netvm state checking - calling VM have the same netvm, so it
-        # must be already running
+        if self.netvm is not None:
+            if self.netvm.qid != 0:
+                if not self.netvm.is_running():
+                    if verbose:
+                        print >> sys.stderr, "--> Starting NetVM {0}...".\
+                            format(self.netvm.name)
+                    self.netvm.start(verbose=verbose, **kwargs)
 
         if verbose:
             print >> sys.stderr, "--> Loading the VM (type = {0})...".format(self.type)
@@ -172,17 +183,7 @@ class QubesDisposableVm(QubesVm):
         # refresh config file
         domain_config = self.create_config_file()
 
-        if qmemman_present:
-            mem_required = int(self.memory) * 1024 * 1024
-            print >>sys.stderr, "time=%s, getting %d memory" % (str(time.time()), mem_required)
-            qmemman_client = QMemmanClient()
-            try:
-                got_memory = qmemman_client.request_memory(mem_required)
-            except IOError as e:
-                raise IOError("ERROR: Failed to connect to qmemman: %s" % str(e))
-            if not got_memory:
-                qmemman_client.close()
-                raise MemoryError ("ERROR: insufficient memory to start VM '%s'" % self.name)
+        qmemman_client = self.request_memory()
 
         # dispvm cannot have PCI devices
         assert (len(self.pcidevs) == 0), "DispVM cannot have PCI devices"
@@ -235,6 +236,10 @@ class QubesDisposableVm(QubesVm):
         print >>sys.stderr, "time=%s, guid done" % (str(time.time()))
 
         return self.xid
+
+    def remove_from_disk(self):
+        # nothing to remove
+        pass
 
 # register classes
 register_qubes_vm_class(QubesDisposableVm)

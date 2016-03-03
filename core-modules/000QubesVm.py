@@ -23,6 +23,8 @@
 #
 
 import datetime
+import base64
+import hashlib
 import logging
 import lxml.etree
 import os
@@ -34,15 +36,17 @@ import sys
 import time
 import uuid
 import xml.parsers.expat
+import signal
 from qubes import qmemman
 from qubes import qmemman_algo
 import libvirt
-import warnings
 
 from qubes.qubes import dry_run,vmm
 from qubes.qubes import register_qubes_vm_class
 from qubes.qubes import QubesVmCollection,QubesException,QubesHost,QubesVmLabels
 from qubes.qubes import defaults,system_path,vm_files,qubes_max_qid
+from qubes.storage import get_pool
+
 qmemman_present = False
 try:
     from qubes.qmemman_client import QMemmanClient
@@ -105,6 +109,7 @@ class QubesVm(object):
             "name": { "order": 1 },
             "uuid": { "order": 0, "eval": 'uuid.UUID(value) if value else None' },
             "dir_path": { "default": None, "order": 2 },
+            "pool_name": { "default":"default" },
             "conf_file": {
                 "func": lambda value: self.absolute_path(value, self.name +
                                                                  ".conf"),
@@ -145,6 +150,7 @@ class QubesVm(object):
                 "order": 31,
                 "func": lambda value: value if not self.uses_default_kernelopts\
                     else defaults["kernelopts_pcidevs"] if len(self.pcidevs)>0 \
+                    else self.template.kernelopts if self.template
                     else defaults["kernelopts"] },
             "mac": { "attr": "_mac", "default": None },
             "include_in_backups": {
@@ -193,10 +199,10 @@ class QubesVm(object):
             'kernelopts', 'services', 'installed_by_rpm',\
             'uses_default_netvm', 'include_in_backups', 'debug',\
             'qrexec_timeout', 'autostart', 'uses_default_dispvm_netvm',
-            'backup_content', 'backup_size', 'backup_path' ]:
+            'backup_content', 'backup_size', 'backup_path', 'pool_name' ]:
             attrs[prop]['save'] = lambda prop=prop: str(getattr(self, prop))
         # Simple paths
-        for prop in ['conf_file']:
+        for prop in ['conf_file', 'firewall_conf']:
             attrs[prop]['save'] = \
                 lambda prop=prop: self.relative_path(getattr(self, prop))
             attrs[prop]['save_skip'] = \
@@ -334,12 +340,23 @@ class QubesVm(object):
         if len(self.pcidevs) > 0:
             self.services['meminfo-writer'] = False
 
+        if 'xml_element' not in kwargs:
+            # New VM, disable updates check if requested for new VMs
+            if os.path.exists(qubes.qubesutils.UPDATES_DEFAULT_VM_DISABLE_FLAG):
+                self.services['qubes-update-check'] = False
+
         # Initialize VM image storage class
-        self.storage = defaults["storage_class"](self)
+        self.storage = get_pool(self.pool_name, self).getStorage()
+        self.dir_path = self.storage.vmdir
+        self.icon_path = os.path.join(self.storage.vmdir, 'icon.png')
+        self.conf_file = os.path.join(self.storage.vmdir, self.name + '.conf')
+
         if hasattr(self, 'kernels_dir'):
-            self.storage.modules_img = os.path.join(self.kernels_dir,
+            modules_path = os.path.join(self.kernels_dir,
                     "modules.img")
-            self.storage.modules_img_rw = self.kernel is None
+            if os.path.exists(modules_path):
+                self.storage.modules_img = modules_path
+                self.storage.modules_img_rw = self.kernel is None
 
         # Some additional checks for template based VM
         if self.template is not None:
@@ -369,8 +386,13 @@ class QubesVm(object):
     def absolute_path(self, arg, default):
         if arg is not None and os.path.isabs(arg):
             return arg
-        else:
+        elif self.dir_path is not None:
             return os.path.join(self.dir_path, (arg if arg is not None else default))
+        else:
+            # cannot provide any meaningful value without dir_path; this is
+            # only to import some older format of `qubes.xml` (for example
+            # during migration from older release)
+            return None
 
     def _absolute_path_gen(self, default):
         return lambda value: self.absolute_path(value, default)
@@ -502,13 +524,14 @@ class QubesVm(object):
             if not os.path.exists(os.path.join(system_path[
                 'qubes_kernels_base_dir'], new_value)):
                 raise QubesException("Kernel '%s' not installed" % new_value)
-            for f in ('vmlinuz', 'modules.img'):
+            for f in ('vmlinuz', 'initramfs'):
                 if not os.path.exists(os.path.join(
                         system_path['qubes_kernels_base_dir'], new_value, f)):
                     raise QubesException(
                         "Kernel '%s' not properly installed: missing %s "
                         "file" % (new_value, f))
         self._kernel = new_value
+        self.uses_default_kernel = False
 
     @property
     def updateable(self):
@@ -543,9 +566,16 @@ class QubesVm(object):
             return False
         if len(name) > 31:
             return False
+        if name == 'lost+found':
+            # avoid conflict when /var/lib/qubes/appvms is mounted on
+            # separate partition
+            return False
         return re.match(r"^[a-zA-Z][a-zA-Z0-9_.-]*$", name) is not None
 
     def pre_rename(self, new_name):
+        if self.autostart:
+            subprocess.check_call(['sudo', 'systemctl', '-q', 'disable',
+                                   'qubes-vm@{}.service'.format(self.name)])
         # fire hooks
         for hook in self.hooks_pre_rename:
             hook(self, new_name)
@@ -583,11 +613,17 @@ class QubesVm(object):
             self.icon_path = self.icon_path.replace(old_dirpath, new_dirpath)
         if hasattr(self, 'kernels_dir') and self.kernels_dir is not None:
             self.kernels_dir = self.kernels_dir.replace(old_dirpath, new_dirpath)
+        if self.firewall_conf is not None:
+            self.firewall_conf = self.firewall_conf.replace(old_dirpath,
+                                                            new_dirpath)
 
         self._update_libvirt_domain()
         self.post_rename(old_name)
 
     def post_rename(self, old_name):
+        if self.autostart:
+            # force setter to be called again
+            self.autostart = self.autostart
         # fire hooks
         for hook in self.hooks_post_rename:
             hook(self, old_name)
@@ -684,9 +720,11 @@ class QubesVm(object):
         try:
             return self.libvirt_domain.ID()
         except libvirt.libvirtError as e:
-            if e.err[0] == libvirt.VIR_ERR_NO_DOMAIN:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return -1
             else:
+                print >>sys.stderr, "libvirt error code: {!r}".format(
+                    e.get_error_code())
                 raise
 
 
@@ -696,7 +734,17 @@ class QubesVm(object):
 
     def _update_libvirt_domain(self):
         domain_config = self.create_config_file()
-        self._libvirt_domain = vmm.libvirt_conn.defineXML(domain_config)
+        try:
+            self._libvirt_domain = vmm.libvirt_conn.defineXML(domain_config)
+        except libvirt.libvirtError as e:
+            # shouldn't this be in QubesHVm implementation?
+            if e.get_error_code() == libvirt.VIR_ERR_OS_TYPE and \
+                    e.get_str2() == 'hvm':
+                raise QubesException("HVM domains not supported on this "
+                                     "machine. Check BIOS settings for "
+                                     "VT-x/AMD-V extensions.")
+            else:
+                raise e
         self.uuid = uuid.UUID(bytes=self._libvirt_domain.UUID())
 
     @property
@@ -726,9 +774,14 @@ class QubesVm(object):
                 return 0
             return self.libvirt_domain.info()[1]
         except libvirt.libvirtError as e:
-            if e.err[0] == libvirt.VIR_ERR_NO_DOMAIN:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
+                return 0
+                # libxl_domain_info failed - domain no longer exists
+            elif e.get_error_code() == libvirt.VIR_ERR_INTERNAL_ERROR:
                 return 0
             else:
+                print >>sys.stderr, "libvirt error code: {!r}".format(
+                    e.get_error_code())
                 raise
 
     def get_cputime(self):
@@ -740,9 +793,14 @@ class QubesVm(object):
                 return 0
             return self.libvirt_domain.info()[4]
         except libvirt.libvirtError as e:
-            if e.err[0] == libvirt.VIR_ERR_NO_DOMAIN:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
+                return 0
+                # libxl_domain_info failed - domain no longer exists
+            elif e.get_error_code() == libvirt.VIR_INTERNAL_ERROR:
                 return 0
             else:
+                print >>sys.stderr, "libvirt error code: {!r}".format(
+                    e.get_error_code())
                 raise
 
     def get_mem_static_max(self):
@@ -752,7 +810,7 @@ class QubesVm(object):
         try:
             return self.libvirt_domain.maxMemory()
         except libvirt.libvirtError as e:
-            if e.err[0] == libvirt.VIR_ERR_NO_DOMAIN:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return 0
             else:
                 raise
@@ -781,9 +839,11 @@ class QubesVm(object):
             else:
                 return 0
         except libvirt.libvirtError as e:
-            if e.err[0] == libvirt.VIR_ERR_NO_DOMAIN:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return 0
             else:
+                print >>sys.stderr, "libvirt error code: {!r}".format(
+                    e.get_error_code())
                 raise
 
     def get_disk_utilization_root_img(self):
@@ -820,7 +880,7 @@ class QubesVm(object):
             else:
                 return 'Halted'
         except libvirt.libvirtError as e:
-            if e.err[0] == libvirt.VIR_ERR_NO_DOMAIN:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return "Halted"
             else:
                 raise
@@ -848,15 +908,19 @@ class QubesVm(object):
         return True
 
     def is_running(self):
+        if vmm.offline_mode:
+            return False
         try:
             if self.libvirt_domain.isActive():
                 return True
             else:
                 return False
         except libvirt.libvirtError as e:
-            if e.err[0] == libvirt.VIR_ERR_NO_DOMAIN:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return False
             else:
+                print >>sys.stderr, "libvirt error code: {!r}".format(
+                    e.get_error_code())
                 raise
 
     def is_paused(self):
@@ -866,9 +930,11 @@ class QubesVm(object):
             else:
                 return False
         except libvirt.libvirtError as e:
-            if e.err[0] == libvirt.VIR_ERR_NO_DOMAIN:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return False
             else:
+                print >>sys.stderr, "libvirt error code: {!r}".format(
+                    e.get_error_code())
                 raise
 
     def get_start_time(self):
@@ -974,8 +1040,9 @@ class QubesVm(object):
                 return None
             if tz_info.st_nlink > 1:
                 p = subprocess.Popen(['find', '/usr/share/zoneinfo',
-                                       '-inum', str(tz_info.st_ino)],
-                                      stdout=subprocess.PIPE)
+                                      '-inum', str(tz_info.st_ino),
+                                      '-print', '-quit'],
+                                     stdout=subprocess.PIPE)
                 tz_path = p.communicate()[0].strip()
                 return tz_path.replace('/usr/share/zoneinfo/', '')
         return None
@@ -1008,6 +1075,10 @@ class QubesVm(object):
         self.qdb.write("/name", self.name)
         self.qdb.write("/qubes-vm-type", self.type)
         self.qdb.write("/qubes-vm-updateable", str(self.updateable))
+        self.qdb.write("/qubes-vm-persistence",
+                       "full" if self.updateable else "rw-only")
+        self.qdb.write("/qubes-base-template",
+                       self.template.name if self.template else '')
 
         if self.is_netvm():
             self.qdb.write("/qubes-netvm-gateway", self.gateway)
@@ -1036,6 +1107,8 @@ class QubesVm(object):
 
         self.qdb.write("/qubes-debug-mode", str(int(self.debug)))
 
+        self.provide_random_seed_to_vm()
+
         # TODO: Currently the whole qmemman is quite Xen-specific, so stay with
         # xenstore for it until decided otherwise
         if qmemman_present:
@@ -1045,6 +1118,14 @@ class QubesVm(object):
         # fire hooks
         for hook in self.hooks_create_qubesdb_entries:
             hook(self)
+
+    def provide_random_seed_to_vm(self):
+        f = open('/dev/urandom', 'r')
+        s = f.read(64)
+        if len(s) != 64:
+            raise IOError("failed to read seed from /dev/urandom")
+        f.close()
+        self.qdb.write("/qubes-random-seed", base64.b64encode(hashlib.sha512(s).digest()))
 
     def _format_net_dev(self, ip, mac, backend):
         template = "    <interface type='ethernet'>\n" \
@@ -1096,8 +1177,10 @@ class QubesVm(object):
             args['dns2'] = self.secondary_dns
             args['netmask'] = self.netmask
             args['netdev'] = self._format_net_dev(self.ip, self.mac, self.netvm.name)
-            args['disable_network1'] = '';
-            args['disable_network2'] = '';
+            args['network_begin'] = ''
+            args['network_end'] = ''
+            args['no_network_begin'] = '<!--'
+            args['no_network_end'] = '-->'
         else:
             args['ip'] = ''
             args['mac'] = ''
@@ -1106,8 +1189,10 @@ class QubesVm(object):
             args['dns2'] = ''
             args['netmask'] = ''
             args['netdev'] = ''
-            args['disable_network1'] = '<!--';
-            args['disable_network2'] = '-->';
+            args['network_begin'] = '<!--'
+            args['network_end'] = '-->'
+            args['no_network_begin'] = ''
+            args['no_network_end'] = ''
         args.update(self.storage.get_config_params())
         if hasattr(self, 'kernelopts'):
             args['kernelopts'] = self.kernelopts
@@ -1192,16 +1277,20 @@ class QubesVm(object):
             shutil.copy(self.label.icon_path, self.icon_path)
 
         # Make sure that we have UUID allocated
-        self._update_libvirt_domain()
+        if not vmm.offline_mode:
+            self._update_libvirt_domain()
+        else:
+            self.uuid = uuid.uuid4()
 
         # fire hooks
         for hook in self.hooks_create_on_disk:
             hook(self, verbose, source_template=source_template)
 
     def get_clone_attrs(self):
-        attrs = ['kernel', 'uses_default_kernel', 'netvm', 'uses_default_netvm', \
-            'memory', 'maxmem', 'kernelopts', 'uses_default_kernelopts', 'services', 'vcpus', \
-            '_mac', 'pcidevs', 'include_in_backups', '_label', 'default_user']
+        attrs = ['kernel', 'uses_default_kernel', 'netvm', 'uses_default_netvm',
+                 'memory', 'maxmem', 'kernelopts', 'uses_default_kernelopts',
+                 'services', 'vcpus', '_mac', 'pcidevs', 'include_in_backups',
+                 '_label', 'default_user', 'qrexec_timeout']
 
         # fire hooks
         for hook in self.hooks_get_clone_attrs:
@@ -1246,6 +1335,9 @@ class QubesVm(object):
                         print >> sys.stderr, "--> Copying icon: {0} -> {1}".format(src_vm.icon_path, self.icon_path)
                     shutil.copy(src_vm.icon_path, self.icon_path)
 
+        if src_vm.has_firewall():
+            self.write_firewall_conf(src_vm.get_firewall_conf())
+
         # Make sure that we have UUID allocated
         self._update_libvirt_domain()
 
@@ -1287,10 +1379,12 @@ class QubesVm(object):
         try:
             self.libvirt_domain.undefine()
         except libvirt.libvirtError as e:
-            if e.err[0] == libvirt.VIR_ERR_NO_DOMAIN:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 # already undefined
                 pass
             else:
+                print >>sys.stderr, "libvirt error code: {!r}".format(
+                    e.get_error_code())
                 raise
 
         self.storage.remove_from_disk()
@@ -1527,7 +1621,7 @@ class QubesVm(object):
 
         call_kwargs = {}
         if ignore_stderr or not passio:
-            null = open("/dev/null", "rw")
+            null = open("/dev/null", "w+")
             call_kwargs['stderr'] = null
         if not passio:
             call_kwargs['stdin'] = null
@@ -1552,16 +1646,22 @@ class QubesVm(object):
         return retcode
 
     def run_service(self, service, source="dom0", user=None,
-                    passio_popen =  False, input=None):
-        if input and passio_popen:
-            raise ValueError("'input' and 'passio_popen' cannot be used "
-                             "together")
-        if input:
+                    passio_popen=False, input=None, localcmd=None, gui=False,
+                    wait=True):
+        if bool(input) + bool(passio_popen) + bool(localcmd) > 1:
+            raise ValueError("'input', 'passio_popen', 'localcmd' cannot be "
+                             "used together")
+        if localcmd:
             return self.run("QUBESRPC %s %s" % (service, source),
-                        localcmd="echo %s" % input, user=user, wait=True)
+                            localcmd=localcmd, user=user, wait=wait, gui=gui)
+        elif input:
+            return self.run("QUBESRPC %s %s" % (service, source),
+                            localcmd="echo %s" % input, user=user, wait=wait,
+                            gui=gui)
         else:
             return self.run("QUBESRPC %s %s" % (service, source),
-                        passio_popen=passio_popen, user=user, wait=True)
+                            passio_popen=passio_popen, user=user, wait=wait,
+                            gui=gui)
 
     def attach_network(self, verbose = False, wait = True, netvm = None):
         self.log.debug('attach_network(netvm={!r})'.format(netvm))
@@ -1646,7 +1746,10 @@ class QubesVm(object):
             if verbose:
                 print >> sys.stderr, "--> Sending monitor layout..."
             monitor_layout = qubes.monitorlayoutnotify.get_monitor_layout()
-            qubes.monitorlayoutnotify.notify_vm(self, monitor_layout)
+            # Notify VM only if we've got a monitor_layout which is not empty
+            # or else we break proper VM resolution set by gui-agent
+            if len(monitor_layout) > 0:
+                qubes.monitorlayoutnotify.notify_vm(self, monitor_layout)
         except ImportError as e:
             print >>sys.stderr, "ERROR: %s" % e
 
@@ -1671,13 +1774,55 @@ class QubesVm(object):
 
     def start_qubesdb(self):
         self.log.debug('start_qubesdb()')
+        pidfile = '/var/run/qubes/qubesdb.{}.pid'.format(self.name)
+        try:
+            if os.path.exists(pidfile):
+                old_qubesdb_pid = open(pidfile, 'r').read()
+                try:
+                    os.kill(int(old_qubesdb_pid), signal.SIGTERM)
+                except OSError:
+                    raise QubesException(
+                        "Failed to kill old QubesDB instance (PID {}). "
+                        "Terminate it manually and retry. "
+                        "If that isn't QubesDB process, "
+                        "remove the pidfile: {}".format(old_qubesdb_pid,
+                                                        pidfile))
+                timeout = 25
+                while os.path.exists(pidfile) and timeout:
+                    time.sleep(0.2)
+                    timeout -= 1
+        except IOError:  # ENOENT (pidfile)
+            pass
+
+        # force connection to a new daemon
+        self._qdb_connection = None
+
         retcode = subprocess.call ([
             system_path["qubesdb_daemon_path"],
             str(self.xid),
             self.name])
         if retcode != 0:
-            self.force_shutdown()
             raise OSError("ERROR: Cannot execute qubesdb-daemon!")
+
+    def request_memory(self, mem_required = None):
+        # Overhead of per-VM/per-vcpu Xen structures, taken from OpenStack nova/virt/xenapi/driver.py
+        # see https://wiki.openstack.org/wiki/XenServer/Overhead
+        # add an extra MB because Nova rounds up to MBs
+        MEM_OVERHEAD_BASE = (3 + 1) * 1024 * 1024
+        MEM_OVERHEAD_PER_VCPU = 3 * 1024 * 1024 / 2
+        if mem_required is None:
+            mem_required = int(self.memory) * 1024 * 1024
+        if qmemman_present:
+            qmemman_client = QMemmanClient()
+            try:
+                mem_required_with_overhead = mem_required + MEM_OVERHEAD_BASE + self.vcpus * MEM_OVERHEAD_PER_VCPU
+                got_memory = qmemman_client.request_memory(mem_required_with_overhead)
+            except IOError as e:
+                raise IOError("ERROR: Failed to connect to qmemman: %s" % str(e))
+            if not got_memory:
+                qmemman_client.close()
+                raise MemoryError ("ERROR: insufficient memory to start VM '%s'" % self.name)
+            return qmemman_client
 
     def start(self, verbose = False, preparing_dvm = False, start_guid = True,
             notify_function = None, mem_required = None):
@@ -1706,24 +1851,14 @@ class QubesVm(object):
 
         self._update_libvirt_domain()
 
-        if mem_required is None:
-            mem_required = int(self.memory) * 1024 * 1024
-        if qmemman_present:
-            qmemman_client = QMemmanClient()
-            try:
-                got_memory = qmemman_client.request_memory(mem_required)
-            except IOError as e:
-                raise IOError("ERROR: Failed to connect to qmemman: %s" % str(e))
-            if not got_memory:
-                qmemman_client.close()
-                raise MemoryError ("ERROR: insufficient memory to start VM '%s'" % self.name)
+        qmemman_client = self.request_memory(mem_required)
 
         # Bind pci devices to pciback driver
         for pci in self.pcidevs:
             try:
                 nd = vmm.libvirt_conn.nodeDeviceLookupByName('pci_0000_' + pci.replace(':','_').replace('.','_'))
             except libvirt.libvirtError as e:
-                if e.err[0] == libvirt.VIR_ERR_NO_NODE_DEVICE:
+                if e.get_error_code() == libvirt.VIR_ERR_NO_NODE_DEVICE:
                     raise QubesException(
                         "PCI device {} does not exist (domain {})".
                         format(pci, self.name))
@@ -1732,39 +1867,43 @@ class QubesVm(object):
             try:
                 nd.dettach()
             except libvirt.libvirtError as e:
-                if e.err[0] == libvirt.VIR_ERR_INTERNAL_ERROR:
-                    # allready detached
+                if e.get_error_code() == libvirt.VIR_ERR_INTERNAL_ERROR:
+                    # already detached
                     pass
                 else:
                     raise
 
         self.libvirt_domain.createWithFlags(libvirt.VIR_DOMAIN_START_PAUSED)
 
-        if verbose:
-            print >> sys.stderr, "--> Starting Qubes DB..."
-        self.start_qubesdb()
+        try:
+            if verbose:
+                print >> sys.stderr, "--> Starting Qubes DB..."
+            self.start_qubesdb()
 
-        xid = self.xid
-        self.log.debug('xid={}'.format(xid))
+            xid = self.xid
+            self.log.debug('xid={}'.format(xid))
 
-        if preparing_dvm:
-            self.services['qubes-dvm'] = True
-        if verbose:
-            print >> sys.stderr, "--> Setting Qubes DB info for the VM..."
-        self.create_qubesdb_entries()
+            if preparing_dvm:
+                self.services['qubes-dvm'] = True
+            if verbose:
+                print >> sys.stderr, "--> Setting Qubes DB info for the VM..."
+            self.create_qubesdb_entries()
 
-        if verbose:
-            print >> sys.stderr, "--> Updating firewall rules..."
-        netvm = self.netvm
-        while netvm is not None:
-            if netvm.is_proxyvm() and netvm.is_running():
-                netvm.write_iptables_qubesdb_entry()
-            netvm = netvm.netvm
+            if verbose:
+                print >> sys.stderr, "--> Updating firewall rules..."
+            netvm = self.netvm
+            while netvm is not None:
+                if netvm.is_proxyvm() and netvm.is_running():
+                    netvm.write_iptables_qubesdb_entry()
+                netvm = netvm.netvm
 
-        # fire hooks
-        for hook in self.hooks_start:
-            hook(self, verbose = verbose, preparing_dvm =  preparing_dvm,
-                    start_guid = start_guid, notify_function = notify_function)
+            # fire hooks
+            for hook in self.hooks_start:
+                hook(self, verbose = verbose, preparing_dvm =  preparing_dvm,
+                     start_guid = start_guid, notify_function = notify_function)
+        except:
+            self.force_shutdown()
+            raise
 
         if verbose:
             print >> sys.stderr, "--> Starting the VM..."
@@ -1827,6 +1966,15 @@ class QubesVm(object):
 
         if not self.is_running():
             raise QubesException ("VM already stopped!")
+
+        # try to gracefully detach PCI devices before shutdown, to mitigate
+        # timeouts on forcible detach at domain destroy; if that fails, too bad
+        try:
+            for pcidev in self.pcidevs:
+                self.libvirt_domain.detachDevice(self._format_pci_dev(pcidev))
+        except libvirt.libvirtError as e:
+            print >>sys.stderr, "WARNING: {}, continuing VM shutdown " \
+                                "anyway".format(str(e))
 
         self.libvirt_domain.shutdown()
 

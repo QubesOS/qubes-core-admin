@@ -70,7 +70,7 @@ Requires:       libvirt-python
 %if x%{?backend_vmm} == xxen
 Requires:       xen-runtime
 Requires:       xen-hvm
-Requires:       libvirt-daemon-xen >= 1.2.12-3
+Requires:       libvirt-daemon-xen >= 1.2.20-4
 %endif
 Requires:       createrepo
 Requires:       gnome-packagekit
@@ -171,7 +171,6 @@ if ! grep -q ^qubes: /etc/group ; then
 fi
 
 %triggerin -- xen-runtime
-sed -i 's/\/block /\/block.qubes /' /etc/udev/rules.d/xen-backend.rules
 /usr/lib/qubes/fix-dir-perms.sh
 
 %preun
@@ -187,12 +186,12 @@ if [ "$1" = 0 ] ; then
     chgrp root /etc/xen
     chmod 700 /etc/xen
     groupdel qubes
-    sed -i 's/\/block.qubes /\/block /' /etc/udev/rules.d/xen-backend.rules
 fi
 
 %files
 %defattr(-,root,root,-)
 %config(noreplace) %attr(0664,root,qubes) %{_sysconfdir}/qubes/qmemman.conf
+%config(noreplace) %attr(0664,root,qubes) %{_sysconfdir}/qubes/storage.conf
 /usr/bin/qvm-*
 /usr/bin/qubes-*
 /usr/bin/qmemmand

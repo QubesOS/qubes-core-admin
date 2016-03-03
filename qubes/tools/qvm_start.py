@@ -89,6 +89,10 @@ parser.add_argument('--no-start-guid',
     action='store_false', dest='start_guid', default=True,
     help='do not start the gui daemon (ignored)')
 
+parser.add_argument('--skip-if-running',
+    action='store_true', default=False,
+    help='Do not fail if the qube is already runnning')
+
 #parser.add_option ("--tray", action="store_true", dest="tray", default=False,
 #                   help="Use tray notifications instead of stdout" )
 
@@ -107,6 +111,9 @@ def main(args=None):
 #       tray_notify_init()
 
     vm = args.vm
+
+    if args.skip_if_running and vm.is_running():
+        return
 
     if args.drive is not None:
         if 'drive' not in (prop.__name__ for prop in vm.property_list()):

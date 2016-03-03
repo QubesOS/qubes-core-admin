@@ -254,6 +254,7 @@ class NetVMMixin(object):
     @qubes.events.handler('property-set:netvm')
     def on_property_set_netvm(self, event, name, new_netvm, old_netvm=None):
         # pylint: disable=unused-argument
+        # TODO offline_mode
         if self.is_running() and new_netvm is not None \
                 and not new_netvm.is_running():
             raise qubes.exc.QubesVMNotStartedError(new_netvm,

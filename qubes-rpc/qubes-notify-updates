@@ -44,7 +44,7 @@ def main():
 
     source_vm = qvm_collection.get_vm_by_name(source)
     if source_vm is None:
-        print >> sys.stderr, 'Domain ' + source + ' does not exists (?!)'
+        print >> sys.stderr, 'Domain ' + source + ' does not exist (?!)'
         exit(1)
 
     os.umask(0002)
@@ -61,7 +61,10 @@ def main():
         update_f = open(source_vm.dir_path + '/' + vm_files["updates_stat_file"], "w")
         update_f.write(update_count)
         update_f.close()
-        os.chown(source_vm.dir_path + '/' + vm_files["updates_stat_file"], -1, qubes_gid)
+        try:
+            os.chown(source_vm.dir_path + '/' + vm_files["updates_stat_file"], -1, qubes_gid)
+        except OSError:
+            pass
     elif source_vm.template is not None:
         # Hint about updates availability in template
         # If template is running - it will notify about updates itself
@@ -79,7 +82,10 @@ def main():
             update_f = open(stat_file, "w")
             update_f.write(update_count)
             update_f.close()
-            os.chown(stat_file, -1, qubes_gid)
+            try:
+                os.chown(stat_file, -1, qubes_gid)
+            except OSError:
+                pass
         else:
             print >> sys.stderr, 'Ignoring notification of no updates'
 

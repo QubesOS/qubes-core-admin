@@ -57,8 +57,8 @@ def get_timezone():
             return None
         if tz_info.st_nlink > 1:
             p = subprocess.Popen(['find', '/usr/share/zoneinfo',
-                                   '-inum', str(tz_info.st_ino)],
-                                  stdout=subprocess.PIPE)
+                '-inum', str(tz_info.st_ino), '-print', '-quit'],
+                stdout=subprocess.PIPE)
             tz_path = p.communicate()[0].strip()
             return tz_path.replace('/usr/share/zoneinfo/', '')
     return None
@@ -104,3 +104,9 @@ def parse_size(size):
             return int(size)*multiplier
 
     raise qubes.exc.QubesException("Invalid size: {0}.".format(size))
+
+def urandom(size):
+    rand = os.urandom(size)
+    if rand is None:
+        raise IOError('failed to read urandom')
+    return hashlib.sha512(rand).digest()

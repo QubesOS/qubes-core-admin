@@ -22,6 +22,12 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
+#
+# THIS FILE SHOULD BE CONFIGURED PER PRODUCT
+# or better, once first custom product arrives,
+# make a real /etc/qubes/master.conf or whatever
+#
+
 '''Constants which can be configured in one place'''
 
 qubes_base_dir = "/var/lib/qubes"
@@ -69,14 +75,16 @@ defaults = {
     'libvirt_uri': 'xen:///',
     'memory': 400,
     'kernelopts': "nopat",
-    'kernelopts_pcidevs': "nopat iommu=soft swiotlb=4096",
+    'kernelopts_pcidevs': "nopat iommu=soft swiotlb=8192",
 
     'dom0_update_check_interval': 6*3600,
 
     'private_img_size': 2*1024*1024*1024,
     'root_img_size': 10*1024*1024*1024,
 
-    'storage_class': 'qubes.storage.xen.XenVMStorage',
+    'storage_class': 'qubes.storage.xen.XenStorage',
+    'pool_drivers': {'xen': 'qubes.storage.xen.XenPool'}
+    'pool_config': {'dir_path': '/var/lib/qubes'}
 
     # how long (in sec) to wait for VMs to shutdown,
     # before killing them (when used qvm-run with --wait option),

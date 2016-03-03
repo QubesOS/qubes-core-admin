@@ -1,4 +1,5 @@
 #!/usr/bin/python2 -O
+# coding=utf-8
 
 #
 # The Qubes OS Project, https://www.qubes-os.org/
@@ -23,11 +24,14 @@
 #
 
 import multiprocessing
+import os
 import time
 import unittest
 
 import qubes.qubes
 import qubes.tests
+import subprocess
+
 
 class TC_00_Regressions(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     # Bug: #906
@@ -55,4 +59,23 @@ class TC_00_Regressions(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase)
 
         self.assertIsNotNone(qc.get_vm_by_name(vmname1))
         self.assertIsNotNone(qc.get_vm_by_name(vmname2))
+
+    def test_bug_1389_dispvm_qubesdb_crash(self):
+        """
+        Sometimes QubesDB instance in DispVM crashes at startup.
+        Unfortunately we don't have reliable way to reproduce it, so try twice
+        :return:
+        """
+        self.qc.unlock_db()
+        for try_no in xrange(2):
+            p = subprocess.Popen(['/usr/lib/qubes/qfile-daemon-dvm',
+                                  'qubes.VMShell', 'dom0', 'DEFAULT'],
+                                 stdin=subprocess.PIPE,
+                                 stdout=subprocess.PIPE,
+                                 stderr=open(os.devnull, 'w'))
+            p.stdin.write("qubesdb-read /name || echo ERROR\n")
+            dispvm_name = p.stdout.readline()
+            p.stdin.close()
+            self.assertTrue(dispvm_name.startswith("disp"),
+                                 "Try {} failed".format(try_no))
 

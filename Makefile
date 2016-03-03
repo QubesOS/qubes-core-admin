@@ -59,9 +59,10 @@ endif
 	python setup.py install -O1 --skip-build --root $(DESTDIR)
 #	$(MAKE) install -C tests
 	$(MAKE) install -C relaxng
+	mkdir -p $(DESTDIR)/etc/qubes
+	cp etc/storage.conf $(DESTDIR)/etc/qubes/
 ifeq ($(BACKEND_VMM),xen)
 	# Currently supported only on xen
-	mkdir -p $(DESTDIR)/etc/qubes
 	cp etc/qmemman.conf $(DESTDIR)/etc/qubes/
 endif
 	$(MAKE) install -C dispvm

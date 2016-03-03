@@ -42,13 +42,18 @@ slow_memset_react_msg="VM didn't give back all requested memory"
 class DomainState:
     def __init__(self, id):
         self.meminfo = None		#dictionary of memory info read from client
-        self.memory_actual = None	#the current memory size
+        self.memory_current = 0     # the current memory size
+        self.memory_actual = None   # the current memory allocation (what VM
+                                    #  is using or can use at any time)
         self.memory_maximum = None	#the maximum memory size
         self.mem_used = None		#used memory, computed based on meminfo
         self.id = id			#domain id
         self.last_target = 0		#the last memset target
         self.no_progress = False    #no react to memset
         self.slow_memset_react = False #slow react to memset (after few tries still above target)
+
+    def __repr__(self):
+        return self.__dict__.__repr__()
 
 class SystemState(object):
     def __init__(self):
@@ -61,30 +66,62 @@ class SystemState(object):
         self.BALOON_DELAY = 0.1
         self.XEN_FREE_MEM_LEFT = 50*1024*1024
         self.XEN_FREE_MEM_MIN = 25*1024*1024
-        self.ALL_PHYS_MEM = self.xc.physinfo()['total_memory']*1024
+        # Overhead of per-page Xen structures, taken from OpenStack nova/virt/xenapi/driver.py
+        # see https://wiki.openstack.org/wiki/XenServer/Overhead
+        # we divide total and free physical memory by this to get "assignable" memory
+        self.MEM_OVERHEAD_FACTOR = 1.0 / 1.00781
+        self.ALL_PHYS_MEM = int(self.xc.physinfo()['total_memory']*1024 * self.MEM_OVERHEAD_FACTOR)
 
     def add_domain(self, id):
         self.log.debug('add_domain(id={!r})'.format(id))
         self.domdict[id] = DomainState(id)
+        # TODO: move to DomainState.__init__
+        target_str = self.xs.read('', '/local/domain/' + id + '/memory/target')
+        if target_str:
+            self.domdict[id].last_target = int(target_str) * 1024
 
     def del_domain(self, id):
         self.log.debug('del_domain(id={!r})'.format(id))
         self.domdict.pop(id)
 
     def get_free_xen_memory(self):
-        return self.xc.physinfo()['free_memory']*1024
-#        hosts = self.xend_session.session.xenapi.host.get_all()
-#        host_record = self.xend_session.session.xenapi.host.get_record(hosts[0])
-#        host_metrics_record = self.xend_session.session.xenapi.host_metrics.get_record(host_record["metrics"])
-#        ret = host_metrics_record["memory_free"]
-#        return long(ret)
+        xen_free = int(self.xc.physinfo()['free_memory']*1024 *
+                       self.MEM_OVERHEAD_FACTOR)
+        # now check for domains which have assigned more memory than really
+        # used - do not count it as "free", because domain is free to use it
+        # at any time
+        # assumption: self.refresh_memactual was called before
+        # (so domdict[id].memory_actual is up to date)
+        assigned_but_unused = reduce(
+            lambda acc, dom: acc + max(0, dom.last_target-dom.memory_current),
+            self.domdict.values(),
+            0
+        )
+        # If, at any time, Xen have less memory than XEN_FREE_MEM_MIN,
+        # it is a failure of qmemman. Collect as much data as possible to
+        # debug it
+        if xen_free < self.XEN_FREE_MEM_MIN:
+            self.log.error("Xen free = {!r} below acceptable value! "
+                           "assigned_but_unused={!r}, domdict={!r}".format(
+                xen_free, assigned_but_unused, self.domdict))
+        elif xen_free < assigned_but_unused+self.XEN_FREE_MEM_MIN:
+            self.log.error("Xen free = {!r} too small for satisfy assignments! "
+                           "assigned_but_unused={!r}, domdict={!r}".format(
+                xen_free, assigned_but_unused, self.domdict))
+        return xen_free - assigned_but_unused
 
 #refresh information on memory assigned to all domains
     def refresh_memactual(self):
         for domain in self.xc.domain_getinfo():
             id = str(domain['domid'])
             if self.domdict.has_key(id):
-                self.domdict[id].memory_actual = domain['mem_kb']*1024
+                # real memory usage
+                self.domdict[id].memory_current = domain['mem_kb']*1024
+                # what VM is using or can use
+                self.domdict[id].memory_actual = max(
+                    self.domdict[id].memory_current,
+                    self.domdict[id].last_target
+                )
                 self.domdict[id].memory_maximum = self.xs.read('', '/local/domain/%s/memory/static-max' % str(id))
                 if self.domdict[id].memory_maximum:
                     self.domdict[id].memory_maximum = int(self.domdict[id].memory_maximum)*1024
@@ -151,21 +188,38 @@ class SystemState(object):
 #perform memory ballooning, across all domains, to add "memsize" to Xen free memory
     def do_balloon(self, memsize):
         self.log.info('do_balloon(memsize={!r})'.format(memsize))
-        MAX_TRIES = 20
+        CHECK_PERIOD_S = 3
+        CHECK_MB_S = 100
+
         niter = 0
         prev_memory_actual = None
 
         for i in self.domdict.keys():
             self.domdict[i].no_progress = False
 
+        #: number of loop iterations for CHECK_PERIOD_S seconds
+        check_period = max(1, int((CHECK_PERIOD_S + 0.0) / self.BALOON_DELAY))
+        #: number of free memory bytes expected to get during CHECK_PERIOD_S
+        #: seconds
+        check_delta = CHECK_PERIOD_S * CHECK_MB_S * 1024 * 1024
+        #: helper array for holding free memory size, CHECK_PERIOD_S seconds
+        #: ago, at every loop iteration
+        xenfree_ring = [0] * check_period
+
         while True:
-            self.log.debug('niter={:2d}/{:2d}'.format(niter, MAX_TRIES))
+            self.log.debug('niter={:2d}'.format(niter))
             self.refresh_memactual()
             xenfree = self.get_free_xen_memory()
             self.log.info('xenfree={!r}'.format(xenfree))
             if xenfree >= memsize + self.XEN_FREE_MEM_MIN:
                 self.inhibit_balloon_up()
                 return True
+            # fail the request if over past CHECK_PERIOD_S seconds,
+            # we got less than CHECK_MB_S MB/s on average
+            ring_slot = niter % check_period
+            if niter >= check_period and xenfree < xenfree_ring[ring_slot] + check_delta:
+                return False
+            xenfree_ring[ring_slot] = xenfree
             if prev_memory_actual is not None:
                 for i in prev_memory_actual.keys():
                     if prev_memory_actual[i] == self.domdict[i].memory_actual:
@@ -174,7 +228,7 @@ class SystemState(object):
                         self.log.info('domain {} stuck at {}'.format(i, self.domdict[i].memory_actual))
             memset_reqs = qubes.qmemman.algo.balloon(memsize + self.XEN_FREE_MEM_LEFT - xenfree, self.domdict)
             self.log.info('memset_reqs={!r}'.format(memset_reqs))
-            if niter > MAX_TRIES or len(memset_reqs) == 0:
+            if len(memset_reqs) == 0:
                 return False
             prev_memory_actual = {}
             for i in memset_reqs:
@@ -266,11 +320,11 @@ class SystemState(object):
                 self.log.debug('do_balance dom={!r} sleeping ntries={}'.format(
                     dom, ntries))
                 time.sleep(self.BALOON_DELAY)
+                self.refresh_memactual()
                 ntries -= 1
                 if ntries <= 0:
                     # Waiting haven't helped; Find which domain get stuck and
                     # abort balance (after distributing what we have)
-                    self.refresh_memactual()
                     for rq2 in memset_reqs:
                         dom2, mem2 = rq2
                         if dom2 == dom:

@@ -55,12 +55,11 @@ include_in_backups
     Accepted values: ``True``, ``False``
 
     Control whenever this VM will be included in backups by default (for now
-    works only in qubes-manager). You can always manually select or deselect
-    any VM for backup.
+    works only in qubes-manager). You can always manually select or
+    deselect any VM for backup.
 
 pcidevs
-    PCI devices assigned to the VM. Should be edited using
-    :manpage:`qvm-pci(1)` tool.
+    PCI devices assigned to the VM. Should be edited using qvm-pci tool.
 
 pci_strictreset
     Accepted values: ``True``, ``False``
@@ -86,23 +85,19 @@ netvm
     default NetVM (managed by qubes-prefs). Setting to ``none`` will disable
     networking in this VM.
 
-    .. note::
-
-        When setting to ``none``, firewall will be set to block all traffic -
-        it will be used by DispVM started from this VM. Setting back to some
-        NetVM will *NOT* restore previous firewall settings.
-
 dispvm_netvm
     Accepted values: netvm name, ``default``, ``none``
 
-    Which NetVM should be used for Disposable VMs started by this one. ``default`` is to use the same NetVM as the VM itself.
+    Which NetVM should be used for Disposable VMs started by this one.
+    ``default`` is to use the same NetVM as the VM itself.
 
 maxmem
     Accepted values: memory size in MB
 
     Maximum memory size available for this VM. Dynamic memory management (aka
-    qmemman) will not be able to balloon over this limit. For VMs with qmemman
-    disabled, this will be overridden by *memory* property (at VM startup).
+    qmemman) will not be able to balloon over this limit. For VMs with
+    qmemman disabled, this will be overridden by *memory* property (at VM
+    startup).
 
 memory
     Accepted values: memory size in MB
@@ -115,12 +110,11 @@ kernel
     Accepted values: kernel version, ``default``, ``none``
 
     Kernel version to use (only for PV VMs). Available kernel versions will be
-    listed when no value given (there are in
-    :file:`/var/lib/qubes/vm-kernels`). Setting to ``default`` will follow
-    system-global default kernel (managed via qubes-prefs). Setting to ``none``
-    will use "kernels" subdir in VM directory - this allows having VM-specific
-    kernel; also this the only case when :file:`/lib/modules` is writable from
-    within VM.
+    listed when no value given (there are in /var/lib/qubes/vm-kernels).
+    Setting to ``default`` will follow system-global default kernel (managed
+    via qubes-prefs). Setting to ``none`` will use "kernels" subdir in
+    VM directory - this allows having VM-specific kernel; also this the only
+    case when /lib/modules is writable from within VM.
 
 template
     Accepted values: TemplateVM name
@@ -139,8 +133,10 @@ kernelopts
     VM kernel parameters (available only for PV VMs). This can be used to
     workaround some hardware specific problems (eg for NetVM). Setting to
     ``default`` will use some reasonable defaults (currently different for VMs
-    with PCI devices and without). Some helpful options (for debugging
-    purposes): ``earlyprintk=xen``, ``init=/bin/bash``
+    with PCI devices and without). For VM without PCI devices
+    ``default`` option means inherit this value from the VM template (if any).
+    Some helpful options (for debugging purposes): ``earlyprintk=xen``,
+    ``init=/bin/bash``
 
 name
     Accepted values: alphanumerical name
@@ -148,12 +144,12 @@ name
     Name of the VM. Can be only changed when VM isn't running.
 
 drive
-    Accepted values: [hd:\|cdrom:][backend-vm:]\ *path*
+    Accepted values: [hd:\|cdrom:][backend-vm:]path
 
     Additional drive for the VM (available only for HVMs). This can be used to
     attach installation image. ``path`` can be file or physical device (eg.
-    :file:`/dev/sr0`). The same syntax can be used in :option:`qvm-start
-    --drive` - to attach drive only temporarily.
+    :file:`/dev/sr0`). The same syntax can be used in
+    :option:`qvm-start --drive` - to attach drive only temporarily.
 
 mac
     Accepted values: MAC address, ``auto``
@@ -161,7 +157,6 @@ mac
     Can be used to force specific of virtual ethernet card in the VM. Setting
     to ``auto`` will use automatic-generated MAC - based on VM id. Especially
     useful when some licencing depending on static MAC address.
-
     For template-based HVM ``auto`` mode means to clone template MAC.
 
 default_user
@@ -181,8 +176,8 @@ debug
     :file:`root.img` (actually :file:`volatile.img`) before each VM startup, so
     changes made to root filesystem stays intact. To force reset
     :file:`root.img` when debug mode enabled, either change something in the
-    template (simple start+stop will do, even touch its root.img is enough), or
-    remove VM's :file:`volatile.img` (check the path with
+    template (simple start+stop will do, even touch its :file:`root.img` is
+    enough), or remove VM's :file:`volatile.img` (check the path with
     :manpage:`qvm-prefs(1)`).
 
 qrexec_installed
@@ -199,7 +194,7 @@ guiagent_installed
     Accepted values: ``True``, ``False``
 
     This HVM have gui agent installed. This option disables full screen GUI
-    virtualization and enables per-window seamless GUI mode. This option will
+    virtualization and enables per-window seemless GUI mode. This option will
     be automatically turned on during Qubes Windows Tools installation, but if
     you install qubes gui agent in some other OS, you need to turn this option
     on manually. You can turn this option off to troubleshoot some early HVM OS
@@ -208,7 +203,7 @@ guiagent_installed
     startup).
 
     .. note::
-
+    
         when Windows GUI agent is installed in the VM, SVGA device (used to
         full screen video) is disabled, so even if you disable this option, you
         will not get functional full desktop access (on normal VM startup). Use

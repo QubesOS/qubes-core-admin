@@ -28,13 +28,12 @@ import sys
 import shutil
 import time
 
-from qubes.qubes import QubesVmCollection
+from qubes.qubes import QubesVmCollection, QubesException
 from qubes.qubes import QubesDispVmLabels
 from qubes.notify import tray_notify, tray_notify_error, tray_notify_init
 
 
 current_savefile = '/var/run/qubes/current-savefile'
-current_dvm_conf = '/var/run/qubes/current-dvm.conf'
 current_savefile_vmdir = '/var/lib/qubes/dvmdata/vmdir'
 
 
@@ -80,10 +79,13 @@ class QfileDaemonDvm:
                                            label=label)
         print >>sys.stderr, "time=%s, VM created" % (str(time.time()))
         # By default inherit firewall rules from calling VM
+        disp_firewall_conf = '/var/run/qubes/%s-firewall.xml' % dispvm.name
+        dispvm.firewall_conf = disp_firewall_conf
         if os.path.exists(vm.firewall_conf):
-            disp_firewall_conf = '/var/run/qubes/%s-firewall.xml' % dispvm.name
             shutil.copy(vm.firewall_conf, disp_firewall_conf)
-            dispvm.firewall_conf = disp_firewall_conf
+        elif vm.qid == 0 and os.path.exists(vm_disptempl.firewall_conf):
+            # for DispVM called from dom0, copy use rules from DispVM template
+            shutil.copy(vm_disptempl.firewall_conf, disp_firewall_conf)
         if len(sys.argv) > 5 and len(sys.argv[5]) > 0:
             assert os.path.exists(sys.argv[5]), "Invalid firewall.conf location"
             dispvm.firewall_conf = sys.argv[5]
@@ -99,7 +101,11 @@ class QfileDaemonDvm:
             qvm_collection.unlock_db()
             return None
         print >>sys.stderr, "time=%s, VM starting" % (str(time.time()))
-        dispvm.start()
+        try:
+            dispvm.start()
+        except (MemoryError, QubesException) as e:
+            tray_notify_error(str(e))
+            raise
         if vm.qid != 0:
             # if need to enable/disable netvm, do it while DispVM is alive
             if (dispvm.netvm is None) != (vm.dispvm_netvm is None):
@@ -176,7 +182,11 @@ def main():
         subprocess.call(['/usr/lib/qubes/qrexec-client', '-d', dispvm.name,
                          user+':exec /usr/lib/qubes/qubes-rpc-multiplexer ' +
                          exec_index + " " + src_vmname])
-        dispvm.force_shutdown()
+        try:
+            dispvm.force_shutdown()
+        except QubesException:
+            # VM already destroyed
+            pass
         qfile.remove_disposable_from_qdb(dispvm.name)
 
 main()

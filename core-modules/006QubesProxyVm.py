@@ -58,6 +58,8 @@ class QubesProxyVm(QubesNetVm):
     def _set_netvm(self, new_netvm):
         old_netvm = self.netvm
         super(QubesProxyVm, self)._set_netvm(new_netvm)
+        if vmm.offline_mode:
+            return
         if self.netvm is not None:
             self.netvm.add_external_ip_permission(self.get_xid())
         self.write_netvm_domid_entry()
