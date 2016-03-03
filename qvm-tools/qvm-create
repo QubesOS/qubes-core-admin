@@ -123,6 +123,10 @@ def main():
     if options.offline_mode:
         vmm.offline_mode = True
 
+    if re.match('^disp\d+$', vmname):
+        print >> sys.stderr, 'The name "{0}" is reserved for internal use.'.format(vmname)
+        exit(1)
+
     qvm_collection = QubesVmCollection()
     qvm_collection.lock_db_for_writing()
     qvm_collection.load()
