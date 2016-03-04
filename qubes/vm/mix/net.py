@@ -301,6 +301,4 @@ class NetVMMixin(object):
             self.attach_network()
 
             # TODO documentation
-            new_netvm.fire_event('net-domain-connected', self)
-
-
+            new_netvm.fire_event('net-domain-connect', self)

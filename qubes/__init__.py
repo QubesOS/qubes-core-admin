@@ -448,7 +448,7 @@ class VMCollection(object):
 
         self._dict[value.qid] = value
         value.events_enabled = True
-        self.app.fire_event('domain-added', value)
+        self.app.fire_event('domain-add', value)
 
         return value
 
@@ -474,7 +474,7 @@ class VMCollection(object):
     def __delitem__(self, key):
         vm = self[key]
         del self._dict[vm.qid]
-        self.app.fire_event('domain-deleted', vm)
+        self.app.fire_event('domain-delete', vm)
 
 
     def __contains__(self, key):
@@ -677,19 +677,19 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
             has_oldvalue = False
 
         if has_oldvalue:
-            instance.fire_event_pre('property-pre-deleted:' + self.__name__,
+            instance.fire_event_pre('property-pre-del:' + self.__name__,
                 self.__name__, oldvalue)
         else:
-            instance.fire_event_pre('property-pre-deleted:' + self.__name__,
+            instance.fire_event_pre('property-pre-del:' + self.__name__,
                 self.__name__)
 
         delattr(instance, self._attr_name)
 
         if has_oldvalue:
-            instance.fire_event('property-deleted:' + self.__name__,
+            instance.fire_event('property-del:' + self.__name__,
                 self.__name__, oldvalue)
         else:
-            instance.fire_event('property-deleted:' + self.__name__,
+            instance.fire_event('property-del:' + self.__name__,
                 self.__name__)
 
 
@@ -992,7 +992,7 @@ class PropertyHolder(qubes.events.Emitter):
             except AttributeError:
                 continue
 
-        self.fire_event('cloned-properties', src, proplist)
+        self.fire_event('clone-properties', src, proplist)
 
 
     def property_require(self, prop, allow_none=False, hard=False):
@@ -1271,7 +1271,7 @@ class Qubes(PropertyHolder):
 
         for vm in self.domains:
             vm.events_enabled = True
-            vm.fire_event('domain-loaded')
+            vm.fire_event('domain-load')
 
         # get a file timestamp (before closing it - still holding the lock!),
         #  to detect whether anyone else have modified it in the meantime

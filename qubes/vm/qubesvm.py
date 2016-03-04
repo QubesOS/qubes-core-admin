@@ -695,7 +695,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     and os.path.exists('/var/run/shm.id'):
                 self.start_guid()
 
-            self.fire_event('domain-started',
+            self.fire_event('domain-start',
                 preparing_dvm=preparing_dvm, start_guid=start_guid)
 
         except: # pylint: disable=bare-except
@@ -713,7 +713,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if not self.is_running(): # TODO not self.is_halted()
             raise qubes.exc.QubesVMNotStartedError(self)
 
-        self.fire_event_pre('pre-domain-shutdown', force=force)
+        self.fire_event_pre('domain-pre-shutdown', force=force)
 
         # try to gracefully detach PCI devices before shutdown, to mitigate
         # timeouts on forcible detach at domain destroy; if that fails, too bad
@@ -1075,7 +1075,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             shutil.copy(self.label.icon_path, self.icon_path)
 
         # fire hooks
-        self.fire_event('domain-created-on-disk', source_template)
+        self.fire_event('domain-create-on-disk', source_template)
 
 
     # TODO move to storage
@@ -1146,7 +1146,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     def remove_from_disk(self):
         '''Remove domain remnants from disk.'''
-        self.fire_event('domain-removed-from-disk')
+        self.fire_event('domain-remove-from-disk')
         self.storage.remove_from_disk()
 
 
@@ -1178,7 +1178,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 shutil.copy(src.icon_path, self.icon_path)
 
         # fire hooks
-        self.fire_event('cloned-files', src)
+        self.fire_event('domain-clone-files', src)
 
 
     #
@@ -1594,7 +1594,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 'VM initramfs does not exist: {0}'.format(
                     os.path.join(self.storage.kernels_dir, 'initramfs')))
 
-        self.fire_event('verify-files')
+        self.fire_event('domain-verify-files')
 
         return True
 
@@ -1724,7 +1724,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 '/local/domain/{}/memory'.format(self.xid),
                 [{'dom': self.xid}])
 
-        self.fire_event('qdb-created')
+        self.fire_event('domain-qdb-create')
 
 
     def _update_libvirt_domain(self):
