@@ -786,8 +786,13 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
             'qubes.tests.vm.qubesvm',
             'qubes.tests.vm.adminvm',
             'qubes.tests.init2',
-            'qubes.tests.tools',
+            ):
+        tests.addTests(loader.loadTestsFromName(modname))
 
+    tests.addTests(loader.discover(
+        os.path.join(os.path.dirname(__file__), 'tools')))
+
+    for modname in (
             # integration tests
             'qubes.tests.int.basic',
             'qubes.tests.int.dom0_update',

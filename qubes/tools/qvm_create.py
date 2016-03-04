@@ -93,7 +93,7 @@ def main(args=None):
             ', '.join(repr(l.name) for l in args.app.labels)))
 
     try:
-        cls = qubes.vm.BaseVM.register[args.cls] # pylint: disable=no-member
+        cls = args.app.get_vm_class(args.cls)
     except KeyError:
         parser.error('no such domain class: {!r}'.format(args.cls))
 

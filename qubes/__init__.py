@@ -54,7 +54,7 @@ import __builtin__
 import docutils.core
 import docutils.io
 import lxml.etree
-
+import pkg_resources
 
 import qubes.config
 import qubes.events
@@ -1170,8 +1170,8 @@ class Qubes(PropertyHolder):
         self.log = logging.getLogger('app')
 
         # pylint: disable=no-member
-        self._extensions = set(
-            ext(self) for ext in qubes.ext.Extension.register.values())
+        self.extensions = set(ext.load()(self)
+            for ext in pkg_resources.iter_entry_points('qubes.ext'))
 
         #: collection of all VMs managed by this Qubes instance
         self.domains = VMCollection(self)
@@ -1234,7 +1234,7 @@ class Qubes(PropertyHolder):
         # stage 2: load VMs
         for node in self.xml.xpath('./domains/domain'):
             # pylint: disable=no-member
-            cls = qubes.vm.BaseVM.register[node.get('class')]
+            cls = self.get_vm_class(node.get('class'))
             vm = cls(self, node)
             vm.load_properties(load_stage=2)
             vm.init_log()
@@ -1384,6 +1384,29 @@ class Qubes(PropertyHolder):
         return labels
 
 
+    def get_vm_class(self, clsname):
+        '''Find the class for a domain.
+
+        Classess are registered as setuptools' entry points in ``qubes.vm``
+        group. Any package may supply their own classess.
+
+        :param str clsname: name of the class
+        :return type: class
+        '''
+        epoints = tuple(pkg_resources.iter_entry_points('qubes.vm', clsname))
+        if not epoints:
+            raise qubes.exc.QubesException(
+                'no such VM class: {!r}'.format(clsname))
+        elif len(epoints) > 1:
+            raise qubes.exc.QubesException(
+                'more than 1 implementation of {!r} found: {}'.format(
+                    clsname,
+                    ', '.join(
+                        '{}.{}'.format(ep.module_name, '.'.join(ep.attrs))
+                        for ep in epoints)))
+        return epoints[0].load()
+
+
     def add_new_vm(self, cls, qid=None, **kwargs):
         '''Add new Virtual Machine to colletion
 
@@ -1502,7 +1525,3 @@ class Qubes(PropertyHolder):
                 # fire property-del:netvm as it is responsible for resetting
                 # netvm to it's default value
                 vm.fire_event('property-del:netvm', 'netvm', newvalue, oldvalue)
-
-
-# load plugins
-import qubes._pluginloader

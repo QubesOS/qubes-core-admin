@@ -29,30 +29,14 @@ some systems. They may be OS- or architecture-dependent or custom-developed for
 particular customer.
 '''
 
-import inspect
-
 import qubes.events
-import qubes.plugins
 
-class ExtensionPlugin(qubes.plugins.Plugin):
-    '''Metaclass for :py:class:`Extension`'''
-    def __init__(cls, name, bases, dict_):
-        super(ExtensionPlugin, cls).__init__(name, bases, dict_)
-        cls._instance = None
-
-    def __call__(cls, *args, **kwargs):
-        if cls._instance is None:
-            cls._instance = super(ExtensionPlugin, cls).__call__(
-                *args, **kwargs)
-        return cls._instance
 
 class Extension(object):
     '''Base class for all extensions
 
     :param qubes.Qubes app: application object
     ''' # pylint: disable=too-few-public-methods
-
-    __metaclass__ = ExtensionPlugin
 
     def __init__(self, app):
         self.app = app
@@ -100,7 +84,3 @@ def handler(*events, **kwargs):
         return func
 
     return decorator
-
-
-__all__ = ['Extension', 'ExtensionPlugin', 'handler'] \
-    + qubes.plugins.load(__file__)

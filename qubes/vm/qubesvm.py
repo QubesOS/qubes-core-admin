@@ -392,11 +392,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     def is_template(self):
         warnings.warn('vm.is_template() is deprecated, use isinstance()',
             DeprecationWarning)
+        import qubes.vm.templatevm
         return isinstance(self, qubes.vm.templatevm.TemplateVM)
 
     def is_appvm(self):
         warnings.warn('vm.is_appvm() is deprecated, use isinstance()',
             DeprecationWarning)
+        import qubes.vm.appvm
         return isinstance(self, qubes.vm.appvm.AppVM)
 
     def is_proxyvm(self):
@@ -407,6 +409,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     def is_disposablevm(self):
         warnings.warn('vm.is_disposable() is deprecated, use isinstance()',
             DeprecationWarning)
+        import qubes.vm.dispvm
         return isinstance(self, qubes.vm.dispvm.DispVM)
 
     def is_netvm(self):

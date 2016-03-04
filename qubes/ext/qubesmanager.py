@@ -33,9 +33,9 @@ import qubes.ext
 import dbus
 
 
-class QubesManagerExtension(qubes.ext.Extension):
+class QubesManager(qubes.ext.Extension):
     def __init__(self, *args, **kwargs):
-        super(QubesManagerExtension, self).__init__(*args, **kwargs)
+        super(QubesManager, self).__init__(*args, **kwargs)
         self._system_bus = dbus.SystemBus()
 
     # pylint: disable=no-self-use,unused-argument,too-few-public-methods

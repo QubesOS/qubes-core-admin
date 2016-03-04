@@ -201,13 +201,11 @@ fi
 
 %dir %{python_sitelib}/qubes
 %{python_sitelib}/qubes/__init__.py*
-%{python_sitelib}/qubes/_pluginloader.py*
 %{python_sitelib}/qubes/config.py*
 %{python_sitelib}/qubes/dochelpers.py*
 %{python_sitelib}/qubes/events.py*
 %{python_sitelib}/qubes/exc.py*
 %{python_sitelib}/qubes/log.py*
-%{python_sitelib}/qubes/plugins.py*
 %{python_sitelib}/qubes/rngdoc.py*
 %{python_sitelib}/qubes/utils.py*
 
