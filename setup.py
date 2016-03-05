@@ -36,6 +36,7 @@ if __name__ == '__main__':
             ],
             'qubes.ext': [
                 'qubes.ext.qubesmanager = qubes.ext.qubesmanager:QubesManager',
+                'qubes.ext.gui = qubes.ext.gui:GUI',
             ],
         }
     )

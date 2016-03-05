@@ -624,6 +624,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.log.info('Starting {}'.format(self.name))
 
+        self.fire_event_pre('domain-pre-start', preparing_dvm=preparing_dvm,
+            start_guid=start_guid, mem_required=mem_required)
+
         self.verify_files()
 
         if self.netvm is not None:
@@ -660,12 +663,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.libvirt_domain.createWithFlags(libvirt.VIR_DOMAIN_START_PAUSED)
 
         try:
-            if preparing_dvm:
-                self.features['dvm'] = True
+            self.fire_event('domain-spawn',
+                preparing_dvm=preparing_dvm, start_guid=start_guid)
 
             self.log.info('Setting Qubes DB info for the VM')
             self.start_qubesdb()
             self.create_qdb_entries()
+
+            if preparing_dvm:
+                self.qdb.write('/dvm', '1')
 
             self.log.info('Updating firewall rules')
 
@@ -690,10 +696,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             if not preparing_dvm:
                 self.start_qrexec_daemon()
-
-            if start_guid and not preparing_dvm \
-                    and os.path.exists('/var/run/shm.id'):
-                self.start_guid()
 
             self.fire_event('domain-start',
                 preparing_dvm=preparing_dvm, start_guid=start_guid)
@@ -850,9 +852,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesVMError(
                 self, 'Domain {!r}: qrexec not connected'.format(self.name))
 
-        if gui and os.getenv("DISPLAY") is not None \
-                and not self.is_guid_running():
-            self.start_guid()
+        self.fire_event_pre('domain-cmd-pre-run', start_guid=gui)
 
         args = [qubes.config.system_path['qrexec_client_path'],
             '-d', str(self.name),
@@ -951,45 +951,16 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         return qmemman_client
 
 
-    def start_guid(self, extra_guid_args=None):
-        '''Launch gui daemon.
-
-        GUI daemon securely displays windows from domain.
-
-        :param list extra_guid_args: Extra argv to pass to :program:`guid`.
-        '''
-
-        self.log.info('Starting gui daemon')
-
-        guid_cmd = [qubes.config.system_path['qubes_guid_path'],
-            '-d', str(self.xid), "-N", self.name,
-            '-c', self.label.color,
-            '-i', self.label.icon_path,
-            '-l', str(self.label.index)]
-        if extra_guid_args is not None:
-            guid_cmd += extra_guid_args
-
-        if self.debug:
-            guid_cmd += ['-v', '-v']
-
-#       elif not verbose:
-        else:
-            guid_cmd += ['-q']
-
-        retcode = subprocess.call(guid_cmd)
-        if retcode != 0:
-            raise qubes.exc.QubesVMError(self,
-                'Cannot start qubes-guid for domain {!r}'.format(self.name))
-
-        self.notify_monitor_layout()
-        self.wait_for_session()
-
-
     def start_qrexec_daemon(self):
         '''Start qrexec daemon.
 
         :raises OSError: when starting fails.
         '''
+
+        if not self.features.check_with_template('qrexec', not self.hvm):
+            self.log.debug(
+                'Not starting the qrexec daemon, disabled by features')
+            return
 
         self.log.debug('Starting the qrexec daemon')
         qrexec_args = [str(self.xid), self.name, self.default_user]
@@ -1034,23 +1005,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         p = self.run('QUBESRPC qubes.WaitForSession none',
             user="root", passio_popen=True, gui=False, wait=True)
         p.communicate(input=self.default_user)
-
-
-    # TODO event, extension
-    def notify_monitor_layout(self):
-        try:
-            import qubes.monitorlayoutnotify
-            monitor_layout = qubes.monitorlayoutnotify.get_monitor_layout()
-
-            # notify qube only if we've got a non-empty monitor_layout or else we
-            # break proper qube resolution set by gui-agent
-            if not monitor_layout:
-                return
-
-            self.log.info('Sending monitor layout')
-            qubes.monitorlayoutnotify.notify_vm(self, monitor_layout)
-        except ImportError:
-            self.log.warning('Monitor layout notify module not installed')
 
 
     # TODO move to storage

@@ -152,6 +152,7 @@ class QubesArgumentParser(argparse.ArgumentParser):
             want_app_no_instance=False,
             want_force_root=False,
             want_vm=False,
+            want_vm_optional=False,
             want_vm_all=False,
             **kwargs):
 
@@ -161,6 +162,7 @@ class QubesArgumentParser(argparse.ArgumentParser):
         self._want_app_no_instance = want_app_no_instance
         self._want_force_root = want_force_root
         self._want_vm = want_vm
+        self._want_vm_optional = want_vm_optional
         self._want_vm_all = want_vm_all
 
         if self._want_app:
@@ -193,7 +195,7 @@ class QubesArgumentParser(argparse.ArgumentParser):
                 nargs = '?'
             else:
                 vmchoice = self
-                nargs = None
+                nargs = '?' if self._want_vm_optional else None
 
             vmchoice.add_argument('vm', metavar='VMNAME',
                 action='store', nargs=nargs,
