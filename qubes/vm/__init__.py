@@ -542,7 +542,8 @@ class BaseVM(qubes.PropertyHolder):
 
         try:
             old_umask = os.umask(002)
-            with open(self.firewall_conf, 'w') as fd:
+            with open(os.path.join(self.dir_path,
+                    self.firewall_conf), 'w') as fd:
                 tree.write(fd, encoding="UTF-8", pretty_print=True)
             fd.close()
             os.umask(old_umask)
@@ -568,7 +569,7 @@ class BaseVM(qubes.PropertyHolder):
         return True
 
     def has_firewall(self):
-        return os.path.exists(self.firewall_conf)
+        return os.path.exists(os.path.join(self.dir_path, self.firewall_conf))
 
     @staticmethod
     def get_firewall_defaults():
@@ -583,7 +584,8 @@ class BaseVM(qubes.PropertyHolder):
         conf = self.get_firewall_defaults()
 
         try:
-            tree = lxml.etree.parse(self.firewall_conf)
+            tree = lxml.etree.parse(os.path.join(self.dir_path,
+                self.firewall_conf))
             root = tree.getroot()
 
             conf["allow"] = (root.get("policy") == "allow")
