@@ -564,13 +564,13 @@ class BaseVM(qubes.PropertyHolder):
                     os.path.basename(sys.argv[0]), err)
             return False
 
-        # Automatically enable/disable 'yum-proxy-setup' service based on
+        # Automatically enable/disable 'updates-proxy-setup' service based on
         # allowYumProxy
         if conf['allowYumProxy']:
-            self.features['yum-proxy-setup'] = '1'
+            self.features['updates-proxy-setup'] = '1'
         else:
             try:
-                del self.features['yum-proxy-setup']
+                del self.features['updates-proxy-setup']
             except KeyError:
                 pass
 

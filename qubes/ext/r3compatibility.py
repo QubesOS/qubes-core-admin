@@ -229,3 +229,6 @@ class R3Compatibility(qubes.ext.Extension):
             # forcefully convert to '0' or '1'
             vm.qdb.write('/qubes-service/{}'.format(service),
                 str(int(bool(value))))
+        if 'updates-proxy-setup' in vm.features.keys():
+            vm.qdb.write('/qubes-service/{}'.format('yum-proxy-setup'),
+                str(int(bool(vm.features['updates-proxy-setup']))))
