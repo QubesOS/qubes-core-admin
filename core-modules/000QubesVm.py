@@ -1093,6 +1093,7 @@ class QubesVm(object):
 
         if self.is_netvm():
             self.qdb.write("/qubes-netvm-gateway", self.gateway)
+            self.qdb.write("/qubes-netvm-primary-dns", self.gateway)
             self.qdb.write("/qubes-netvm-secondary-dns", self.secondary_dns)
             self.qdb.write("/qubes-netvm-netmask", self.netmask)
             self.qdb.write("/qubes-netvm-network", self.network)
@@ -1101,6 +1102,7 @@ class QubesVm(object):
             self.qdb.write("/qubes-ip", self.ip)
             self.qdb.write("/qubes-netmask", self.netvm.netmask)
             self.qdb.write("/qubes-gateway", self.netvm.gateway)
+            self.qdb.write("/qubes-primary-dns", self.netvm.gateway)
             self.qdb.write("/qubes-secondary-dns", self.netvm.secondary_dns)
 
         tzname = self.get_timezone()
