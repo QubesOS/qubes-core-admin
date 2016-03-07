@@ -319,7 +319,7 @@ class BaseVM(qubes.PropertyHolder):
         proprepr = []
         for prop in self.property_list():
             try:
-                proprepr.append('{}={!r}'.format(
+                proprepr.append('{}={!s}'.format(
                     prop.__name__, getattr(self, prop.__name__)))
             except AttributeError:
                 continue
