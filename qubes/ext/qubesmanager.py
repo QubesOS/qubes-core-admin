@@ -41,7 +41,7 @@ class QubesManager(qubes.ext.Extension):
     # pylint: disable=no-self-use,unused-argument,too-few-public-methods
 
     @qubes.ext.handler('status:error')
-    def on_status_error(self, vm, status, message):
+    def on_status_error(self, vm, event, status, message):
         try:
             qubes_manager = self._system_bus.get_object(
                 'org.qubesos.QubesManager',
@@ -53,7 +53,7 @@ class QubesManager(qubes.ext.Extension):
             pass
 
     @qubes.ext.handler('status:no-error')
-    def on_status_no_error(self, vm, status, message):
+    def on_status_no_error(self, vm, event, status, message):
         try:
             qubes_manager = self._system_bus.get_object(
                 'org.qubesos.QubesManager',
