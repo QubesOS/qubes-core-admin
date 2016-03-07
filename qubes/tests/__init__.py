@@ -411,6 +411,28 @@ class SystemTestsMixin(object):
             label='black')
         self.app.default_template = template_vm
 
+    def init_networking(self):
+        if not self.app.default_template:
+            self.skipTest('Default template required for testing networking')
+        default_netvm = self.host_app.default_netvm
+        if default_netvm is None:
+            self.skipTest('Default netvm required')
+        if not default_netvm.is_running():
+            self.skipTest('Default netvm required to be running')
+        # Add NetVM stub to qubes-test.xml matching the one on host.
+        # Keeping 'qid' the same is critical because IP addresses are
+        # calculated from it.
+        # Intentionally don't copy template (use default), as it may be based
+        #  on a different one than actually testing.
+        netvm_clone = self.app.add_new_vm(default_netvm.__class__,
+            qid=default_netvm.qid,
+            name=default_netvm.name,
+            uuid=default_netvm.uuid,
+            label=default_netvm.label,
+            provides_network=True
+        )
+        self.app.default_netvm = netvm_clone
+
     def reload_db(self):
         self.app = qubes.Qubes(qubes.tests.XMLPATH)
 
