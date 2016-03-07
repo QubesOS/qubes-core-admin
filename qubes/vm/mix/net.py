@@ -278,18 +278,7 @@ class NetVMMixin(object):
 #               if hasattr(self.netvm, 'post_vm_net_detach'):
 #                   self.netvm.post_vm_net_detach(self)
 
-        if new_netvm is None:
-#           if not self._do_not_reset_firewall:
-            # Set also firewall to block all traffic as discussed in #370
-            if os.path.exists(self.firewall_conf):
-                shutil.copy(self.firewall_conf,
-                    os.path.join(qubes.config.system_path['qubes_base_dir'],
-                        'backup',
-                        '%s-firewall-%s.xml' % (self.name,
-                            time.strftime('%Y-%m-%d-%H:%M:%S'))))
-            self.write_firewall_conf({'allow': False, 'allowDns': False,
-                'allowIcmp': False, 'allowYumProxy': False, 'rules': []})
-        else:
+        if new_netvm is not None:
             new_netvm.connected_vms.add(self)
 
         if new_netvm is None:
