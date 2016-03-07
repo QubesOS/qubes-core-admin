@@ -27,7 +27,6 @@
 import os
 import shutil
 import time
-import weakref
 
 import libvirt
 import lxml.etree
@@ -112,6 +111,11 @@ class NetVMMixin(object):
             return None
         return "vif{0}.+".format(self.xid)
 
+    @property
+    def connected_vms(self):
+        for vm in self.app.domains:
+            if vm.netvm is self:
+                yield vm
 
     #
     # used in both
@@ -132,7 +136,6 @@ class NetVMMixin(object):
 
     def __init__(self, *args, **kwargs):
         super(NetVMMixin, self).__init__(*args, **kwargs)
-        self.connected_vms = weakref.WeakSet()
 
 
     @qubes.events.handler('domain-started')
@@ -270,16 +273,12 @@ class NetVMMixin(object):
                     new_netvm))
 
         if self.netvm is not None:
-            self.netvm.connected_vms.remove(self)
             if self.is_running():
                 self.detach_network()
 
                 # TODO change to domain-removed event handler in netvm
 #               if hasattr(self.netvm, 'post_vm_net_detach'):
 #                   self.netvm.post_vm_net_detach(self)
-
-        if new_netvm is not None:
-            new_netvm.connected_vms.add(self)
 
         if new_netvm is None:
             return
