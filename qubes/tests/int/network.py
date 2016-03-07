@@ -37,6 +37,8 @@ class NcVersion:
     Trad = 1
     Nmap = 2
 
+
+# noinspection PyAttributeOutsideInit
 class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
     test_ip = '192.168.123.45'
     test_name = 'test.example.com'
@@ -44,6 +46,9 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
     ping_cmd = 'ping -W 1 -n -c 1 {target}'
     ping_ip = ping_cmd.format(target=test_ip)
     ping_name = ping_cmd.format(target=test_name)
+
+    # filled by load_tests
+    template = None
 
     def run_cmd(self, vm, cmd, user="root"):
         p = vm.run(cmd, user=user, passio_popen=True, ignore_stderr=True)
@@ -107,6 +112,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.proxy.netvm = self.testnetvm
         self.proxy.create_on_disk()
         self.testvm1.netvm = self.proxy
+        self.app.save()
 
         self.testvm1.start()
         self.assertTrue(self.proxy.is_running())
@@ -123,13 +129,13 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
     def test_020_simple_proxyvm_nm(self):
-        self.proxy = self.app.add_new_vm("QubesProxyVm",
+        self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('proxy'),
             label='red')
         self.proxy.provides_network = True
         self.proxy.create_on_disk()
         self.proxy.netvm = self.testnetvm
-        self.proxy.services['network-manager'] = True
+        self.proxy.features['network-manager'] = True
         self.testvm1.netvm = self.proxy
         self.app.save()
 
@@ -218,7 +224,6 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             'allowDns': False,
             'allowIcmp': True,
         })
-        self.proxy.write_iptables_qubesdb_entry()
         # Ugly hack b/c there is no feedback when the rules are actually applied
         time.sleep(3)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
@@ -233,7 +238,6 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             'allowDns': True,
             'allowIcmp': True,
         })
-        self.proxy.write_iptables_qubesdb_entry()
         # Ugly hack b/c there is no feedback when the rules are actually applied
         time.sleep(3)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0,
@@ -252,7 +256,6 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
                        'proto': 'tcp',
                        'portBegin': 1234
                       }] })
-        self.proxy.write_iptables_qubesdb_entry()
         # Ugly hack b/c there is no feedback when the rules are actually applied
         time.sleep(3)
         self.assertEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
@@ -270,7 +273,6 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
                        'portBegin': 1234
                       }]
         })
-        self.proxy.write_iptables_qubesdb_entry()
         # Ugly hack b/c there is no feedback when the rules are actually applied
         time.sleep(3)
         self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
@@ -282,6 +284,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             name=self.make_vm_name('proxy'),
             label='red')
         self.proxy.create_on_disk()
+        self.proxy.provides_network = True
         self.proxy.netvm = self.testnetvm
         self.testvm1.netvm = self.proxy
 
@@ -325,10 +328,15 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.assertNotEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
                          "Spoofed ping should be blocked")
 
+
+# noinspection PyAttributeOutsideInit
 class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
     """
     Tests for VM updates
     """
+
+    # filled by load_tests
+    template = None
 
     # made this way to work also when no package build tools are installed
     """
@@ -431,6 +439,7 @@ class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
                 self.template))
 
         self.init_default_template(self.template)
+        self.init_networking()
         self.testvm1 = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,
             name=self.make_vm_name('vm1'),
@@ -596,9 +605,9 @@ class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
         self.netvm_repo.create_on_disk()
         self.testvm1.netvm = self.netvm_repo
         # NetVM should have qubes-updates-proxy enabled by default
-        #self.netvm_repo.services['qubes-updates-proxy'] = True
+        #self.netvm_repo.features['qubes-updates-proxy'] = True
         # TODO: consider also adding a test for the template itself
-        self.testvm1.services['updates-proxy-setup'] = True
+        self.testvm1.features['updates-proxy-setup'] = True
         self.app.save()
 
         # Setup test repo
