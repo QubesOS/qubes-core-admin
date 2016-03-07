@@ -251,6 +251,9 @@ class NetVMMixin(object):
             # remove dead device
             self.app.vmm.xs.rm('', '{}/{}'.format(dev_basepath, dev))
 
+    def reload_firewall_for_vm(self, vm):
+        # TODO QubesOS/qubes-issues#1815
+        pass
 
     @qubes.events.handler('property-del:netvm')
     def on_property_del_netvm(self, event, name, old_netvm):
@@ -290,3 +293,21 @@ class NetVMMixin(object):
 
             # TODO documentation
             new_netvm.fire_event('net-domain-connect', self)
+            # FIXME handle in the above event?
+            new_netvm.reload_firewall_for_vm(self)
+
+    @qubes.events.handler('qdb-created')
+    def on_qdb_created(self, event):
+        # TODO: fill firewall QubesDB entries (QubesOS/qubes-issues#1815)
+        pass
+
+    # FIXME use event after creating Xen domain object, but before "resume"
+    @qubes.events.handler('domain-started')
+    def on_domain_started(self, event, **kwargs):
+        if self.netvm:
+            self.netvm.reload_firewall_for_vm(self)
+
+    @qubes.events.handler('firewall-changed')
+    def on_firewall_changed(self, event):
+        if self.is_running() and self.netvm:
+            self.netvm.reload_firewall_for_vm(self)
