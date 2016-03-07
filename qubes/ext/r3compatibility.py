@@ -37,6 +37,14 @@ class R3Compatibility(qubes.ext.Extension):
     '''Maintain VM interface compatibility with R3.0 and R3.1.
     At lease where possible.
     '''
+
+    features_to_services = {
+        'services/ntpd': 'ntpd',
+        'check-updates': 'qubes-update-check',
+        'dvm': 'qubes-dvm',
+
+    }
+
     # noinspection PyUnusedLocal
     @qubes.ext.handler('qdb-created')
     def on_qdb_created(self, vm, event):
@@ -106,6 +114,8 @@ class R3Compatibility(qubes.ext.Extension):
 
         vm.qdb.write("/qubes-iptables-error", '')
         self.write_iptables_qubesdb_entry(vm)
+
+        self.write_services(vm)
 
     # FIXME use event after creating Xen domain object, but before "resume"
     @qubes.ext.handler('domain-started')
@@ -212,3 +222,10 @@ class R3Compatibility(qubes.ext.Extension):
         # no need for ending -A FORWARD -j DROP, cause default action is DROP
 
         firewallvm.qdb.write("/qubes-iptables", 'reload')
+
+    def write_services(self, vm):
+        for feature, value in vm.features.items():
+            service = self.features_to_services.get(feature, feature)
+            # forcefully convert to '0' or '1'
+            vm.qdb.write('/qubes-service/{}'.format(service),
+                str(int(bool(value))))
