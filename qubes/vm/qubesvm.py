@@ -288,10 +288,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     # static, class-wide properties
     #
 
-    # config file should go away to storage/backend class
-    #: template for libvirt config file (XML)
-    config_file_template = qubes.config.system_path["config_template_pv"]
-
     #
     # properties not loaded from XML, calculated at run-time
     #

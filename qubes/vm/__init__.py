@@ -403,10 +403,6 @@ class BaseVM(qubes.PropertyHolder):
         #     conf_appvm.close()
         #     return domain_config
 
-        f_conf_template = open(self.config_file_template, 'r')
-        conf_template = f_conf_template.read()
-        f_conf_template.close()
-
         domain_config = self.app.env.get_template('libvirt/xen.xml').render(
             vm=self, prepare_dvm=prepare_dvm)
 
