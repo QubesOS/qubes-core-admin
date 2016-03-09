@@ -251,6 +251,7 @@ fi
 %{python_sitelib}/qubes/tests/__init__.py*
 %{python_sitelib}/qubes/tests/run.py*
 
+%{python_sitelib}/qubes/tests/devices.py*
 %{python_sitelib}/qubes/tests/events.py*
 %{python_sitelib}/qubes/tests/init1.py*
 %{python_sitelib}/qubes/tests/init2.py*

@@ -32,60 +32,6 @@ import qubes.vm
 import qubes.tests
 
 
-class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
-    def setUp(self):
-        self.emitter = qubes.tests.TestEmitter()
-        self.collection = qubes.vm.DeviceCollection(self.emitter, 'testclass')
-
-    def test_000_init(self):
-        self.assertFalse(self.collection._set)
-
-    def test_001_attach(self):
-        self.collection.attach('testdev')
-        self.assertEventFired(self.emitter, 'device-pre-attached:testclass')
-        self.assertEventFired(self.emitter, 'device-attached:testclass')
-        self.assertEventNotFired(self.emitter, 'device-pre-detached:testclass')
-        self.assertEventNotFired(self.emitter, 'device-detached:testclass')
-
-    def test_002_detach(self):
-        self.collection.attach('testdev')
-        self.collection.detach('testdev')
-        self.assertEventFired(self.emitter, 'device-pre-attached:testclass')
-        self.assertEventFired(self.emitter, 'device-attached:testclass')
-        self.assertEventFired(self.emitter, 'device-pre-detached:testclass')
-        self.assertEventFired(self.emitter, 'device-detached:testclass')
-
-    def test_010_empty_detach(self):
-        with self.assertRaises(LookupError):
-            self.collection.detach('testdev')
-
-    def test_011_double_attach(self):
-        self.collection.attach('testdev')
-
-        with self.assertRaises(LookupError):
-            self.collection.attach('testdev')
-
-    def test_012_double_detach(self):
-        self.collection.attach('testdev')
-        self.collection.detach('testdev')
-
-        with self.assertRaises(LookupError):
-            self.collection.detach('testdev')
-
-
-class TC_01_DeviceManager(qubes.tests.QubesTestCase):
-    def setUp(self):
-        self.emitter = qubes.tests.TestEmitter()
-        self.manager = qubes.vm.DeviceManager(self.emitter)
-
-    def test_000_init(self):
-        self.assertEqual(self.manager, {})
-
-    def test_001_missing(self):
-        self.manager['testclass'].attach('testdev')
-        self.assertEventFired(self.emitter, 'device-attached:testclass')
-
-
 class TestVM(qubes.vm.BaseVM):
     qid = qubes.property('qid', type=int)
     name = qubes.property('name')
