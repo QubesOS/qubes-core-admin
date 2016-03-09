@@ -50,6 +50,14 @@ import qubes.tools.qvm_ls
 class Features(dict):
     '''Manager of the features.
 
+    Features can have three distinct values: no value (not present in mapping,
+    which is closest thing to :py:obj:`None`), empty string (which is
+    interpreted as :py:obj:`False`) and non-empty string, which is
+    :py:obj:`True`. Anything assigned to the mapping is coerced to strings,
+    however if you assign instances of :py:class:`bool`, they are converted as
+    described above. Be aware that assigning the number `0` (which is considered
+    false in Python) will result in string `'0'`, which is considered true.
+
     This class inherits from dict, but has most of the methods that manipulate
     the item disarmed (they raise NotImplementedError). The ones that are left
     fire appropriate events on the qube that owns an instance of this class.
@@ -70,6 +78,10 @@ class Features(dict):
         self.vm.fire_event('domain-feature-delete', key)
 
     def __setitem__(self, key, value):
+        if isinstance(value, bool):
+            value = '1' if value else ''
+        else:
+            value = str(value)
         self.vm.fire_event('domain-feature-set', key, value)
         super(Features, self).__setitem__(key, value)
 
@@ -293,7 +305,7 @@ class BaseVM(qubes.PropertyHolder):
         features = lxml.etree.Element('features')
         for feature in self.features:
             node = lxml.etree.Element('service', name=feature)
-            node.text = self.features[feature] if feature else None
+            node.text = self.features[feature]
             features.append(node)
         element.append(features)
 
