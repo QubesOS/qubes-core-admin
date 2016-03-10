@@ -90,9 +90,12 @@ def format_doc(docstring):
 # maybe adapt https://code.activestate.com/recipes/578019
 def parse_size(size):
     units = [
-        ('K', 1024), ('KB', 1024),
-        ('M', 1024*1024), ('MB', 1024*1024),
-        ('G', 1024*1024*1024), ('GB', 1024*1024*1024),
+        ('K', 1000), ('KB', 1000),
+        ('M', 1000 * 1000), ('MB', 1000 * 1000),
+        ('G', 1000 * 1000 * 1000), ('GB', 1000 * 1000 * 1000),
+        ('Ki', 1024), ('KiB', 1024),
+        ('Mi', 1024 * 1024), ('MiB', 1024 * 1024),
+        ('Gi', 1024 * 1024 * 1024), ('GiB', 1024 * 1024 * 1024),
     ]
 
     size = size.strip().upper()
@@ -102,9 +105,42 @@ def parse_size(size):
     for unit, multiplier in units:
         if size.endswith(unit):
             size = size[:-len(unit)].strip()
-            return int(size)*multiplier
+            return int(size) * multiplier
 
     raise qubes.exc.QubesException("Invalid size: {0}.".format(size))
+
+def mbytes_to_kmg(size):
+    if size > 1024:
+        return "%d GiB" % (size / 1024)
+    else:
+        return "%d MiB" % size
+
+
+def kbytes_to_kmg(size):
+    if size > 1024:
+        return mbytes_to_kmg(size / 1024)
+    else:
+        return "%d KiB" % size
+
+
+def bytes_to_kmg(size):
+    if size > 1024:
+        return kbytes_to_kmg(size / 1024)
+    else:
+        return "%d B" % size
+
+
+def size_to_human(size):
+    """Humane readable size, with 1/10 precision"""
+    if size < 1024:
+        return str(size)
+    elif size < 1024 * 1024:
+        return str(round(size / 1024.0, 1)) + ' KiB'
+    elif size < 1024 * 1024 * 1024:
+        return str(round(size / (1024.0 * 1024), 1)) + ' MiB'
+    else:
+        return str(round(size / (1024.0 * 1024 * 1024), 1)) + ' GiB'
+
 
 def urandom(size):
     rand = os.urandom(size)
