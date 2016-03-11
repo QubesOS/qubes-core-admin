@@ -27,6 +27,9 @@
 
 %{!?version: %define version %(cat version)}
 
+# debug_package hack should be removed when BuildArch:noarch is enabled below
+%define debug_package %{nil}
+
 %define _dracutmoddir	/usr/lib/dracut/modules.d
 %if %{fedora} < 17
 %define _dracutmoddir   /usr/share/dracut/modules.d
@@ -43,6 +46,8 @@ License:	GPL
 URL:		http://www.qubes-os.org
 BuildRequires:  ImageMagick
 BuildRequires:	systemd-units
+# FIXME: Enable this and disable debug_package
+#BuildArch: noarch
 Requires(post): systemd-units
 Requires(preun): systemd-units
 Requires(postun): systemd-units
