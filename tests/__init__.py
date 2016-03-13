@@ -22,6 +22,14 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+
+"""
+.. warning::
+    The test suite hereby claims any domain whose name starts with
+    :py:data:`VMPREFIX` as fair game. This is needed to enforce sane
+    test executing environment. If you have domains named ``test-*``,
+    don't run the tests.
+"""
 from distutils import spawn
 import functools
 
@@ -387,11 +395,6 @@ class SystemTestsMixin(object):
     def _remove_test_vms(cls, qc, conn, prefix=VMPREFIX):
         """Aggresively remove any domain that has name in testing namespace.
 
-        .. warning::
-            The test suite hereby claims any domain whose name starts with
-            :py:data:`VMPREFIX` as fair game. This is needed to enforce sane
-            test executing environment. If you have domains named ``test-*``,
-            don't run the tests.
         """
 
         # first, remove them Qubes-way
