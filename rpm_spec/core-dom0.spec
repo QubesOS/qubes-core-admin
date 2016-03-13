@@ -216,6 +216,7 @@ fi
 %{python_sitelib}/qubes/vm/appvm.py*
 %{python_sitelib}/qubes/vm/dispvm.py*
 %{python_sitelib}/qubes/vm/qubesvm.py*
+%{python_sitelib}/qubes/vm/standalonevm.py*
 %{python_sitelib}/qubes/vm/templatevm.py*
 
 %dir %{python_sitelib}/qubes/vm/mix
