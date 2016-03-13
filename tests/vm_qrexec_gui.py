@@ -1227,12 +1227,12 @@ class TC_50_MimeHandlers(qubes.tests.SystemTestsMixin):
 
         qc = QubesVmCollection()
 
-        cls.kill_test_vms(qc, prefix=qubes.tests.CLSVMPREFIX)
+        cls._kill_test_vms(qc, prefix=qubes.tests.CLSVMPREFIX)
 
         qc.lock_db_for_writing()
         qc.load()
 
-        cls.remove_test_vms(qc, qubes.qubes.vmm.libvirt_conn,
+        cls._remove_test_vms(qc, qubes.qubes.vmm.libvirt_conn,
                             prefix=qubes.tests.CLSVMPREFIX)
 
         cls.source_vmname = cls.make_vm_name('source', True)
