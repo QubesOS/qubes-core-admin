@@ -42,6 +42,7 @@ import qubes.config
 import qubes.events
 import qubes.backup
 import qubes.exc
+import qubes.vm.standalonevm
 
 XMLPATH = '/var/lib/qubes/qubes-test.xml'
 CLASS_XMLPATH = '/var/lib/qubes/qubes-class-test.xml'
@@ -707,7 +708,8 @@ class BackupTestsMixin(SystemTestsMixin):
         vmname = self.make_vm_name('testhvm1')
         if self.verbose:
             print >>sys.stderr, "-> Creating %s" % vmname
-        testvm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM, name=vmname,
+        testvm2 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
+            name=vmname,
             hvm=True, label='red')
         testvm2.create_on_disk()
         self.fill_image(testvm2.root_img, 1024*1024*1024, True)
