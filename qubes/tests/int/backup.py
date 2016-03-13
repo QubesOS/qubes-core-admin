@@ -45,7 +45,7 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
 
     def test_001_compressed_backup(self):
         vms = self.create_backup_vms()
-        self.make_backup(vms, do_kwargs={'compressed': True})
+        self.make_backup(vms, compressed=True)
         self.remove_vms(vms)
         self.restore_backup()
         for vm in vms:
@@ -53,7 +53,7 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
 
     def test_002_encrypted_backup(self):
         vms = self.create_backup_vms()
-        self.make_backup(vms, do_kwargs={'encrypted': True})
+        self.make_backup(vms, encrypted=True)
         self.remove_vms(vms)
         self.restore_backup()
         for vm in vms:
@@ -61,10 +61,7 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
 
     def test_003_compressed_encrypted_backup(self):
         vms = self.create_backup_vms()
-        self.make_backup(vms,
-                         do_kwargs={
-                             'compressed': True,
-                             'encrypted': True})
+        self.make_backup(vms, compressed=True, encrypted=True)
         self.remove_vms(vms)
         self.restore_backup()
         for vm in vms:
@@ -96,7 +93,7 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
 
     def test_005_compressed_custom(self):
         vms = self.create_backup_vms()
-        self.make_backup(vms, do_kwargs={'compressed': "bzip2"})
+        self.make_backup(vms, compressed="bzip2")
         self.remove_vms(vms)
         self.restore_backup()
         for vm in vms:
@@ -135,14 +132,14 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
         vms = self.create_backup_vms()
         self.make_backup(vms)
         self.restore_backup(options={
-            'rename-conflicting': True
+            'rename_conflicting': True
         })
         for vm in vms:
-            with self.assertNotRaises(qubes.exc.QubesVMNotFoundError):
+            with self.assertNotRaises(
+                    (qubes.exc.QubesVMNotFoundError, KeyError)):
                 restored_vm = self.app.domains[vm.name + '1']
             if vm.netvm and not vm.property_is_default('netvm'):
                 self.assertEqual(restored_vm.netvm.name, vm.netvm.name + '1')
-
 
 
 class TC_10_BackupVMMixin(qubes.tests.BackupTestsMixin):
@@ -160,12 +157,9 @@ class TC_10_BackupVMMixin(qubes.tests.BackupTestsMixin):
         vms = self.create_backup_vms()
         self.backupvm.start()
         self.backupvm.run("mkdir '/var/tmp/backup directory'", wait=True)
-        self.make_backup(vms,
-                         do_kwargs={
-                             'appvm': self.backupvm,
-                             'compressed': True,
-                             'encrypted': True},
-                         target='/var/tmp/backup directory')
+        self.make_backup(vms, target_vm=self.backupvm,
+            compressed=True, encrypted=True,
+            target='/var/tmp/backup directory')
         self.remove_vms(vms)
         p = self.backupvm.run("ls /var/tmp/backup*/qubes-backup*",
                               passio_popen=True)
@@ -177,12 +171,9 @@ class TC_10_BackupVMMixin(qubes.tests.BackupTestsMixin):
     def test_110_send_to_vm_command(self):
         vms = self.create_backup_vms()
         self.backupvm.start()
-        self.make_backup(vms,
-                         do_kwargs={
-                             'appvm': self.backupvm,
-                             'compressed': True,
-                             'encrypted': True},
-                         target='dd of=/var/tmp/backup-test')
+        self.make_backup(vms, target_vm=self.backupvm,
+            compressed=True, encrypted=True,
+            target='dd of=/var/tmp/backup-test')
         self.remove_vms(vms)
         self.restore_backup(source='dd if=/var/tmp/backup-test',
                             appvm=self.backupvm)
@@ -205,13 +196,10 @@ class TC_10_BackupVMMixin(qubes.tests.BackupTestsMixin):
         if retcode != 0:
             raise RuntimeError("Failed to prepare backup directory")
         with self.assertRaises(qubes.exc.QubesException):
-            self.make_backup(vms,
-                             do_kwargs={
-                                 'appvm': self.backupvm,
-                                 'compressed': False,
-                                 'encrypted': True},
-                             target='/home/user/backup',
-                             expect_failure=True)
+            self.make_backup(vms, target_vm=self.backupvm,
+                compressed=False, encrypted=True,
+                target='/home/user/backup',
+                expect_failure=True)
 
 
 def load_tests(loader, tests, pattern):

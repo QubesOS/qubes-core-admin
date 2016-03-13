@@ -717,25 +717,22 @@ class BackupTestsMixin(SystemTestsMixin):
 
         return vms
 
-    def make_backup(self, vms, prepare_kwargs=dict(), do_kwargs=dict(),
-                    target=None, expect_failure=False):
+    def make_backup(self, vms, target=None, expect_failure=False, **kwargs):
         if target is None:
             target = self.backupdir
         try:
-            files_to_backup = \
-                qubes.backup.backup_prepare(self.app, vms,
-                                      print_callback=self.print_callback,
-                                      **prepare_kwargs)
+            backup = qubes.backup.Backup(self.app, vms, **kwargs)
         except qubes.exc.QubesException as e:
             if not expect_failure:
                 self.fail("QubesException during backup_prepare: %s" % str(e))
             else:
                 raise
 
+        backup.passphrase = 'qubes'
+        backup.target_dir = target
+
         try:
-            qubes.backup.backup_do(self.app, target, files_to_backup, "qubes",
-                             progress_callback=self.print_progress,
-                             **do_kwargs)
+            backup.backup_do()
         except qubes.exc.QubesException as e:
             if not expect_failure:
                 self.fail("QubesException during backup_do: %s" % str(e))
@@ -754,22 +751,17 @@ class BackupTestsMixin(SystemTestsMixin):
             backupfile = source
 
         with self.assertNotRaises(qubes.exc.QubesException):
-            backup_info = qubes.backup.backup_restore_prepare(
-                backupfile, "qubes",
-                host_collection=self.app,
-                print_callback=self.print_callback,
-                appvm=appvm,
-                options=options or {})
-
+            restore_op = qubes.backup.BackupRestore(
+                self.app, backupfile, appvm, "qubes")
+            if options:
+                for key, value in options.iteritems():
+                    setattr(restore_op.options, key, value)
+            restore_info = restore_op.get_restore_info()
         if self.verbose:
-            qubes.backup.backup_restore_print_summary(backup_info)
+            print restore_op.get_restore_summary(restore_info)
 
         with self.assertNotRaises(qubes.exc.QubesException):
-            qubes.backup.backup_restore_do(
-                backup_info,
-                host_collection=self.app,
-                print_callback=self.print_callback if self.verbose else None,
-                error_callback=self.error_callback)
+            restore_op.restore_do(restore_info)
 
         # maybe someone forgot to call .save()
         self.reload_db()
