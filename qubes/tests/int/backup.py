@@ -92,6 +92,7 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
         self.restore_backup()
         for vm in vms:
             self.assertIn(vm.name, self.app.domains)
+        # TODO check vm.backup_timestamp
 
     def test_005_compressed_custom(self):
         vms = self.create_backup_vms()
@@ -102,6 +103,9 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
             self.assertIn(vm.name, self.app.domains)
 
     def test_100_backup_dom0_no_restore(self):
+        # do not write it into dom0 home itself...
+        os.mkdir('/var/tmp/test-backup')
+        self.backupdir = '/var/tmp/test-backup'
         self.make_backup([self.app.domains[0]])
         # TODO: think of some safe way to test restore...
 
