@@ -25,13 +25,10 @@ set -e
 
 ## Get a random 0 or 1.
 ## Will use this to decide to use plus or minus.
-##
-## Thanks to
-## http://linux.byexamples.com/archives/128/generating-random-numbers/
-ZERO_OR_ONE="$(( 0+($(od -An -N2 -i /dev/random) )%(0+2) ))"
+ZERO_OR_ONE="$(shuf -i0-1 -n1 --random-source=/dev/random)"
 
 ## Create a random number between 0 and 180.
-DELAY="$(( $(od -An -N2 -i /dev/random)%(180-0+1) ))"
+DELAY="$(shuf -i0-180 -n1 --random-source=/dev/random)"
 
 ## Create a random number between 0 and 999999999.
 ##
