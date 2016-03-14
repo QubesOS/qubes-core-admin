@@ -477,7 +477,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     # event handlers
     #
 
-    @qubes.events.handler('domain-init', 'domain-loaded')
+    @qubes.events.handler('domain-init', 'domain-load')
     def on_domain_init_loaded(self, event):
         # pylint: disable=unused-argument
         if not hasattr(self, 'uuid'):
@@ -557,7 +557,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 'Failed to set autostart for VM via systemctl')
 
 
-    @qubes.events.handler('device-pre-attached:pci')
+    @qubes.events.handler('device-pre-attach:pci')
     def on_device_pre_attached_pci(self, event, pci):
         # pylint: disable=unused-argument
         if not os.path.exists('/sys/bus/pci/devices/0000:{}'.format(pci)):
@@ -577,7 +577,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 ' changes will be seen after VM restart.'.format(pci), e)
 
 
-    @qubes.events.handler('device-pre-detached:pci')
+    @qubes.events.handler('device-pre-detach:pci')
     def on_device_pre_detached_pci(self, event, pci):
         # pylint: disable=unused-argument
         if not self.is_running():

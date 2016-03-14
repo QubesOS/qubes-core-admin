@@ -138,12 +138,16 @@ class NetVMMixin(object):
         super(NetVMMixin, self).__init__(*args, **kwargs)
 
 
-    @qubes.events.handler('domain-started')
-    def start_net(self):
-        '''Connect this domain to its downstream domains.
+    @qubes.events.handler('domain-start')
+    def on_domain_started(self, event, **kwargs):
+        '''Connect this domain to its downstream domains. Also reload firewall
+        in its netvm.
 
         This is needed when starting netvm *after* its connected domains.
         '''
+
+        if self.netvm:
+            self.netvm.reload_firewall_for_vm(self)
 
         for vm in self.connected_vms:
             if not vm.is_running():
@@ -165,7 +169,7 @@ class NetVMMixin(object):
                 vm.log.warning('Cannot attach network', exc_info=1)
 
 
-    @qubes.events.handler('pre-domain-shutdown')
+    @qubes.events.handler('domain-pre-shutdown')
     def shutdown_net(self, force=False):
         connected_vms = [vm for vm in self.connected_vms if vm.is_running()]
         if connected_vms and not force:
@@ -296,17 +300,12 @@ class NetVMMixin(object):
             # FIXME handle in the above event?
             new_netvm.reload_firewall_for_vm(self)
 
-    @qubes.events.handler('qdb-created')
-    def on_qdb_created(self, event):
+    @qubes.events.handler('domain-qdb-create')
+    def on_domain_qdb_create(self, event):
         # TODO: fill firewall QubesDB entries (QubesOS/qubes-issues#1815)
         pass
 
     # FIXME use event after creating Xen domain object, but before "resume"
-    @qubes.events.handler('domain-started')
-    def on_domain_started(self, event, **kwargs):
-        if self.netvm:
-            self.netvm.reload_firewall_for_vm(self)
-
     @qubes.events.handler('firewall-changed')
     def on_firewall_changed(self, event):
         if self.is_running() and self.netvm:

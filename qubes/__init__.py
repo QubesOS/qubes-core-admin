@@ -473,6 +473,7 @@ class VMCollection(object):
 
     def __delitem__(self, key):
         vm = self[key]
+        self.app.fire_event_pre('domain-pre-delete', vm)
         del self._dict[vm.qid]
         self.app.fire_event('domain-delete', vm)
 
@@ -1449,7 +1450,7 @@ class Qubes(PropertyHolder):
         raise KeyError(label)
 
 
-    @qubes.events.handler('domain-pre-deleted')
+    @qubes.events.handler('domain-pre-delete')
     def on_domain_pre_deleted(self, event, vm):
         # pylint: disable=unused-argument
         if isinstance(vm, qubes.vm.templatevm.TemplateVM):
@@ -1461,7 +1462,7 @@ class Qubes(PropertyHolder):
                         vm.name for name in sorted(appvms))))
 
 
-    @qubes.events.handler('domain-deleted')
+    @qubes.events.handler('domain-delete')
     def on_domain_deleted(self, event, vm):
         # pylint: disable=unused-argument
         for propname in (

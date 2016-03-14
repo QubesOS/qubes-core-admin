@@ -46,8 +46,8 @@ class R3Compatibility(qubes.ext.Extension):
     }
 
     # noinspection PyUnusedLocal
-    @qubes.ext.handler('qdb-created')
-    def on_qdb_created(self, vm, event):
+    @qubes.ext.handler('domain-qdb-create')
+    def on_domain_qdb_create(self, vm, event):
         """
         :param vm: VM on which QubesDB entries were just created
         :type vm: qubes.vm.qubesvm.QubesVM
@@ -118,7 +118,7 @@ class R3Compatibility(qubes.ext.Extension):
         self.write_services(vm)
 
     # FIXME use event after creating Xen domain object, but before "resume"
-    @qubes.ext.handler('domain-started')
+    @qubes.ext.handler('domain-start')
     def on_domain_started(self, vm, event, **kwargs):
         if vm.netvm:
             self.write_iptables_qubesdb_entry(vm.netvm)

@@ -31,8 +31,8 @@ import qubes.config
 import qubes.ext
 
 class GUI(qubes.ext.Extension):
-    @qubes.ext.handler('domain-start', 'domain-cmd-pre-start')
-    def start_guid(self, vm, start_guid, preparing_dvm=False,
+    @qubes.ext.handler('domain-start', 'domain-cmd-pre-run')
+    def start_guid(self, vm, event, preparing_dvm=False, start_guid=True,
             extra_guid_args=None, **kwargs):
         '''Launch gui daemon.
 
@@ -78,7 +78,7 @@ class GUI(qubes.ext.Extension):
 
 
     @qubes.ext.handler('monitor-layout-change')
-    def on_monitor_layout_change(self, vm, monitor_layout):
+    def on_monitor_layout_change(self, vm, event, monitor_layout):
         # pylint: disable=no-self-use
         if vm.features.check_with_template('no-monitor-layout', False) \
                 or not vm.is_running():
