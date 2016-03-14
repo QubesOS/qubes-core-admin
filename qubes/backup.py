@@ -1990,8 +1990,8 @@ class BackupRestore(object):
 
             "updbl": {"func": "'Yes' if vm.updateable else ''"},
 
-            "template": {"func": "'n/a' if vm.is_template() or vm.template is None else\
-                         vm_info['template']"},
+            "template": {"func": "'n/a' if not hasattr(vm, 'template') is None "
+                                 "else vm_info['template']"},
 
             "netvm": {"func": "'n/a' if vm.is_netvm() and not vm.is_proxyvm() else\
                       ('*' if vm.property_is_default('netvm') else '') +\
