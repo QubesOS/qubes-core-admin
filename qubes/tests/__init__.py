@@ -774,6 +774,9 @@ class BackupTestsMixin(SystemTestsMixin):
         errors = []
         if expect_errors is None:
             expect_errors = []
+        else:
+            self.assertFalse(self.error_detected.empty(),
+                "Restore errors expected, but none detected")
         while not self.error_detected.empty():
             current_error = self.error_detected.get()
             if any(map(current_error.startswith, expect_errors)):
