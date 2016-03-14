@@ -1,0 +1,77 @@
+#!/bin/bash
+
+# The Qubes OS Project, http://www.qubes-os.org
+#
+# Copyright (C) 2016 Patrick Schleizer <adrelanos@riseup.net>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+## Similar code as Boot Clock Randomization.
+## https://www.whonix.org/wiki/Boot_Clock_Randomization
+
+set -e
+
+## Get a random 0 or 1.
+## Will use this to decide to use plus or minus.
+ZERO_OR_ONE="$(shuf -i0-1 -n1 --random-source=/dev/random)"
+
+## Create a random number between 0 and 180.
+DELAY="$(shuf -i0-180 -n1 --random-source=/dev/random)"
+
+## Create a random number between 0 and 999999999.
+##
+## Thanks to
+## https://stackoverflow.com/questions/22887891/how-can-i-get-a-random-dev-random-number-between-0-and-999999999-in-bash
+NANOSECONDS="$(shuf -i0-999999999 -n1 --random-source=/dev/random)"
+
+## Examples NANOSECONDS:
+## 117752805
+## 38653957
+
+## Add leading zeros, because `date` expects 9 digits.
+NANOSECONDS="$(printf '%0*d\n' 9 "$NANOSECONDS")"
+
+## Using
+## printf '%0*d\n' 9 "38653957"
+##  38653957
+## becomes
+## 038653957
+
+## Examples NANOSECONDS:
+## 117752805
+## 038653957
+
+if [ "$ZERO_OR_ONE" = "0" ]; then
+  PLUS_OR_MINUS="-"
+elif [ "$ZERO_OR_ONE" = "1" ]; then
+  PLUS_OR_MINUS="+"
+else
+  exit 2
+fi
+
+#OLD_TIME="$(date)"
+#OLD_TIME_NANOSECONDS="$(date +%s.%N)"
+
+OLD_UNIXTIME="$(date +%s)"
+
+NEW_TIME="$(( $OLD_UNIXTIME $PLUS_OR_MINUS $DELAY ))"
+
+NEW_TIME_NANOSECONDS="$NEW_TIME.$NANOSECONDS"
+
+echo "$NEW_TIME_NANOSECONDS"
+
+## Testing the `date` syntax:
+## date --date @1396733199.112834496
+## date --date "@$NEW_TIME_NANOSECONDS"
