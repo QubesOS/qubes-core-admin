@@ -126,9 +126,13 @@ class BackupHeader(object):
             if untrusted_line.count('=') != 1:
                 raise qubes.exc.QubesException("Invalid backup header")
             (key, value) = untrusted_line.strip().split('=')
+            if not re.match(r"^[a-zA-Z0-9-]*$", key):
+                raise qubes.exc.QubesException("Invalid backup header (key)")
             if key not in self.header_keys.keys():
                 # Ignoring unknown option
                 continue
+            if not re.match(r"^[a-zA-Z0-9-]*$", value):
+                raise qubes.exc.QubesException("Invalid backup header (value)")
             if getattr(self, self.header_keys[key]) is not None:
                 raise qubes.exc.QubesException(
                     "Duplicated header line: {}".format(key))
