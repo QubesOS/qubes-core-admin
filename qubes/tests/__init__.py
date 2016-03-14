@@ -631,6 +631,14 @@ class SystemTestsMixin(object):
 
 # noinspection PyAttributeOutsideInit
 class BackupTestsMixin(SystemTestsMixin):
+    class BackupErrorHandler(logging.Handler):
+        def __init__(self, errors_queue, level=logging.NOTSET):
+            super(BackupTestsMixin.BackupErrorHandler, self).__init__(level)
+            self.errors_queue = errors_queue
+
+        def emit(self, record):
+            self.errors_queue.put(record.getMessage())
+
     def setUp(self):
         super(BackupTestsMixin, self).setUp()
         self.init_default_template()
@@ -645,22 +653,17 @@ class BackupTestsMixin(SystemTestsMixin):
             shutil.rmtree(self.backupdir)
         os.mkdir(self.backupdir)
 
+        self.error_handler = self.BackupErrorHandler(self.error_detected,
+            level=logging.WARNING)
+        backup_log = logging.getLogger('qubes.backup')
+        backup_log.addHandler(self.error_handler)
+
     def tearDown(self):
         super(BackupTestsMixin, self).tearDown()
         shutil.rmtree(self.backupdir)
 
-    def print_progress(self, progress):
-        if self.verbose:
-            print >> sys.stderr, "\r-> Backing up files: {0}%...".format(progress)
-
-    def error_callback(self, message):
-        self.error_detected.put(message)
-        if self.verbose:
-            print >> sys.stderr, "ERROR: {0}".format(message)
-
-    def print_callback(self, msg):
-        if self.verbose:
-            print msg
+        backup_log = logging.getLogger('qubes.backup')
+        backup_log.removeHandler(self.error_handler)
 
     def fill_image(self, path, size=None, sparse=False):
         block_size = 4096

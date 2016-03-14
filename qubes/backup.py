@@ -24,6 +24,7 @@
 #
 from __future__ import unicode_literals
 import itertools
+import logging
 from qubes.utils import size_to_human
 import sys
 import os
@@ -40,8 +41,6 @@ import datetime
 from multiprocessing import Queue, Process
 import qubes
 
-BACKUP_DEBUG = False
-
 HEADER_FILENAME = 'backup-header'
 DEFAULT_CRYPTO_ALGORITHM = 'aes-256-cbc'
 DEFAULT_HMAC_ALGORITHM = 'SHA512'
@@ -55,11 +54,6 @@ HEADER_QUBES_XML_MAX_SIZE = 1024 * 1024
 
 BLKSIZE = 512
 
-def print_stdout(text):
-    print (text)
-
-def print_stderr(text):
-    print >> sys.stderr, (text)
 
 def get_disk_usage_one(st):
     try:
@@ -182,21 +176,19 @@ class SendWorker(Process):
         self.queue = queue
         self.base_dir = base_dir
         self.backup_stdout = backup_stdout
+        self.log = logging.getLogger('qubes.backup')
 
     def run(self):
-        if BACKUP_DEBUG:
-            print "Started sending thread"
+        self.log.debug("Started sending thread")
 
-        if BACKUP_DEBUG:
-            print "Moving to temporary dir", self.base_dir
+        self.log.debug("Moving to temporary dir".format(self.base_dir))
         os.chdir(self.base_dir)
 
         for filename in iter(self.queue.get, None):
             if filename == "FINISHED" or filename == "ERROR":
                 break
 
-            if BACKUP_DEBUG:
-                print "Sending file", filename
+            self.log.debug("Sending file {}".format(filename))
             # This tar used for sending data out need to be as simple, as
             # simple, as featureless as possible. It will not be
             # verified before untaring.
@@ -217,12 +209,10 @@ class SendWorker(Process):
                     "Check console output or ~/.xsession-errors for details.")
 
             # Delete the file as we don't need it anymore
-            if BACKUP_DEBUG:
-                print "Removing file", filename
+            self.log.debug("Removing file {}".format(filename))
             os.remove(filename)
 
-        if BACKUP_DEBUG:
-            print "Finished sending thread"
+        self.log.debug("Finished sending thread")
 
 
 class Backup(object):
@@ -277,6 +267,8 @@ class Backup(object):
 
         #: whether backup was canceled
         self.canceled = False
+
+        self.log = logging.getLogger('qubes.backup')
 
         # FIXME: drop this legacy feature?
         if isinstance(self.compressed, basestring):
@@ -631,16 +623,13 @@ class Backup(object):
         # Tar with tape length does not deals well with stdout (close stdout between
         # two tapes)
         # For this reason, we will use named pipes instead
-        if BACKUP_DEBUG:
-            print "Working in", self.tmpdir
+        self.log.debug("Working in {}".format(self.tmpdir))
 
         backup_pipe = os.path.join(self.tmpdir, "backup_pipe")
-        if BACKUP_DEBUG:
-            print "Creating pipe in:", backup_pipe
+        self.log.debug("Creating pipe in: {}".format(backup_pipe))
         os.mkfifo(backup_pipe)
 
-        if BACKUP_DEBUG:
-            print "Will backup:", files_to_backup
+        self.log.debug("Will backup: {}".format(files_to_backup))
 
         header_files = self.prepare_backup_header()
 
@@ -663,14 +652,13 @@ class Backup(object):
                 vm_files_to_backup.itervalues()):
             for file_info in vm_info['files']:
 
-                if BACKUP_DEBUG:
-                    print "Backing up", file_info
+                self.log.debug("Backing up {}".format(file_info))
 
                 backup_tempfile = os.path.join(self.tmpdir,
                                                file_info["subdir"],
                                                os.path.basename(file_info["path"]))
-                if BACKUP_DEBUG:
-                    print "Using temporary location:", backup_tempfile
+                self.log.debug("Using temporary location: {}".format(
+                    backup_tempfile))
 
                 # Ensure the temporary directory exists
                 if not os.path.isdir(os.path.dirname(backup_tempfile)):
@@ -694,16 +682,14 @@ class Backup(object):
                     tar_cmdline.insert(-1,
                         "--use-compress-program=%s" % self.compression_filter)
 
-                if BACKUP_DEBUG:
-                    print " ".join(tar_cmdline)
+                self.log.debug(" ".join(tar_cmdline))
 
                 # Tips: Popen(bufsize=0)
                 # Pipe: tar-sparse | encryptor [| hmac] | tar | backup_target
                 # Pipe: tar-sparse [| hmac] | tar | backup_target
-                tar_sparse = subprocess.Popen(tar_cmdline, stdin=subprocess.PIPE,
-                                              stderr=(open(os.devnull, 'w')
-                                                      if not BACKUP_DEBUG
-                                                      else None))
+                # TODO: log handle stderr
+                tar_sparse = subprocess.Popen(
+                    tar_cmdline, stdin=subprocess.PIPE)
                 self.processes_to_kill_on_cancel.append(tar_sparse)
 
                 # Wait for compressor (tar) process to finish or for any error of other
@@ -750,8 +736,8 @@ class Backup(object):
                         **common_args)
                     chunkfile_p.close()
 
-                    if BACKUP_DEBUG:
-                        print "Wait_backup_feedback returned:", run_error
+                    self.log.debug(
+                        "Wait_backup_feedback returned: {}".format(run_error))
 
                     if self.canceled:
                         try:
@@ -786,13 +772,13 @@ class Backup(object):
                     # Close HMAC
                     hmac.stdin.close()
                     hmac.wait()
-                    if BACKUP_DEBUG:
-                        print "HMAC proc return code:", hmac.poll()
+                    self.log.debug("HMAC proc return code: {}".format(
+                        hmac.poll()))
 
                     # Write HMAC data next to the chunk file
                     hmac_data = hmac.stdout.read()
-                    if BACKUP_DEBUG:
-                        print "Writing hmac to", chunkfile + ".hmac"
+                    self.log.debug(
+                        "Writing hmac to {}.hmac".format(chunkfile))
                     hmac_file = open(chunkfile + ".hmac", 'w')
                     hmac_file.write(hmac_data)
                     hmac_file.flush()
@@ -807,9 +793,9 @@ class Backup(object):
                         run_error = "paused"
                     else:
                         self.processes_to_kill_on_cancel.remove(tar_sparse)
-                        if BACKUP_DEBUG:
-                            print "Finished tar sparse with exit code", tar_sparse \
-                                .poll()
+                        self.log.debug(
+                            "Finished tar sparse with exit code {}".format(
+                                tar_sparse.poll()))
                 pipe.close()
 
             # This VM done, update progress
@@ -829,10 +815,10 @@ class Backup(object):
                 "Failed to send backup: error in the sending process")
 
         if vmproc:
-            if BACKUP_DEBUG:
-                print "VMProc1 proc return code:", vmproc.poll()
-                if tar_sparse is not None:
-                    print "Sparse1 proc return code:", tar_sparse.poll()
+            self.log.debug("VMProc1 proc return code: {}".format(vmproc.poll()))
+            if tar_sparse is not None:
+                self.log.debug("Sparse1 proc return code: {}".format(
+                    tar_sparse.poll()))
             vmproc.stdin.close()
 
         # Save date of last backup
@@ -869,6 +855,7 @@ def wait_backup_feedback(progress_callback, in_stream, streamproc,
     run_error = None
     run_count = 1
     bytes_copied = 0
+    log = logging.getLogger('qubes.backup')
     while run_count > 0 and run_error is None:
 
         if size_limit and bytes_copied + buffer_size > size_limit:
@@ -900,8 +887,7 @@ def wait_backup_feedback(progress_callback, in_stream, streamproc,
             if retcode is not None:
                 if retcode != 0:
                     run_error = "VM"
-                    if BACKUP_DEBUG:
-                        print vmproc.stdout.read()
+                    log.debug(vmproc.stdout.read())
             else:
                 # VM should run until the end
                 pass
@@ -935,7 +921,7 @@ def wait_backup_feedback(progress_callback, in_stream, streamproc,
 
 class ExtractWorker2(Process):
     def __init__(self, queue, base_dir, passphrase, encrypted,
-                 print_callback, error_callback, progress_callback, vmproc=None,
+                 progress_callback, vmproc=None,
                  compressed=False, crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM,
                  verify_only=False):
         super(ExtractWorker2, self).__init__()
@@ -952,15 +938,14 @@ class ExtractWorker2(Process):
         self.decompressor_process = None
         self.decryptor_process = None
 
-        self.print_callback = print_callback
-        self.error_callback = error_callback
         self.progress_callback = progress_callback
 
         self.vmproc = vmproc
 
         self.restore_pipe = os.path.join(self.base_dir, "restore_pipe")
-        if BACKUP_DEBUG:
-            print "Creating pipe in:", self.restore_pipe
+
+        self.log = logging.getLogger('qubes.backup.extract')
+        self.log.debug("Creating pipe in: {}".format(self.restore_pipe))
         os.mkfifo(self.restore_pipe)
 
         self.stderr_encoding = sys.stderr.encoding or 'utf-8'
@@ -983,9 +968,10 @@ class ExtractWorker2(Process):
 
         new_lines = map(lambda x: x.decode(self.stderr_encoding), new_lines)
 
-        if not BACKUP_DEBUG:
-            msg_re = re.compile(r".*#[0-9].*restore_pipe")
-            new_lines = filter(lambda x: not msg_re.match(x), new_lines)
+        msg_re = re.compile(r".*#[0-9].*restore_pipe")
+        debug_msg = filter(msg_re.match, new_lines)
+        self.log.debug('tar2_stderr: {}'.format('\n'.join(debug_msg)))
+        new_lines = filter(lambda x: not msg_re.match(x), new_lines)
 
         self.tar2_stderr += new_lines
 
@@ -1005,13 +991,12 @@ class ExtractWorker2(Process):
                     except OSError:
                         pass
                     process.wait()
-            self.error_callback("ERROR: " + unicode(e))
+            self.log.error("ERROR: " + unicode(e))
             raise e, None, exc_traceback
 
     def __run__(self):
-        if BACKUP_DEBUG and callable(self.print_callback):
-            self.print_callback("Started sending thread")
-            self.print_callback("Moving to dir " + self.base_dir)
+        self.log.debug("Started sending thread")
+        self.log.debug("Moving to dir " + self.base_dir)
         os.chdir(self.base_dir)
 
         filename = None
@@ -1020,15 +1005,14 @@ class ExtractWorker2(Process):
             if filename == "FINISHED" or filename == "ERROR":
                 break
 
-            if BACKUP_DEBUG and callable(self.print_callback):
-                self.print_callback("Extracting file " + filename)
+            self.log.debug("Extracting file " + filename)
 
             if filename.endswith('.000'):
                 # next file
                 if self.tar2_process is not None:
                     if self.tar2_process.wait() != 0:
                         self.collect_tar_output()
-                        self.error_callback(
+                        self.log.error(
                             "ERROR: unable to extract files for {0}, tar "
                             "output:\n  {1}".
                             format(self.tar2_current_file,
@@ -1039,13 +1023,10 @@ class ExtractWorker2(Process):
                         self.tar2_current_file = None
 
                 tar2_cmdline = ['tar',
-                                '-%sMk%sf' % ("t" if self.verify_only else "x",
-                                              "v" if BACKUP_DEBUG else ""),
+                                '-%sMkvf' % ("t" if self.verify_only else "x"),
                                 self.restore_pipe,
                                 os.path.relpath(filename.rstrip('.000'))]
-                if BACKUP_DEBUG and callable(self.print_callback):
-                    self.print_callback("Running command " +
-                                        unicode(tar2_cmdline))
+                self.log.debug("Running command " + unicode(tar2_cmdline))
                 self.tar2_process = subprocess.Popen(tar2_cmdline,
                                                      stdin=subprocess.PIPE,
                                                      stderr=subprocess.PIPE)
@@ -1056,13 +1037,12 @@ class ExtractWorker2(Process):
             elif not self.tar2_process:
                 # Extracting of the current archive failed, skip to the next
                 # archive
-                if not BACKUP_DEBUG:
-                    os.remove(filename)
+                # TODO: some debug option to preserve it?
+                os.remove(filename)
                 continue
             else:
                 self.collect_tar_output()
-                if BACKUP_DEBUG and callable(self.print_callback):
-                    self.print_callback("Releasing next chunck")
+                self.log.debug("Releasing next chunck")
                 self.tar2_process.stdin.write("\n")
                 self.tar2_process.stdin.flush()
             self.tar2_current_file = filename
@@ -1112,11 +1092,10 @@ class ExtractWorker2(Process):
                 pipe.close()
             except IOError as e:
                 if e.errno == errno.EPIPE:
-                    if BACKUP_DEBUG:
-                        self.error_callback(
-                            "Got EPIPE while closing pipe to "
-                            "the inner tar process")
-                        # ignore the error
+                    self.log.debug(
+                        "Got EPIPE while closing pipe to "
+                        "the inner tar process")
+                    # ignore the error
                 else:
                     raise
             if len(run_error):
@@ -1128,12 +1107,11 @@ class ExtractWorker2(Process):
                 self.tar2_process.terminate()
                 self.tar2_process.wait()
                 self.tar2_process = None
-                self.error_callback("Error while processing '%s': %s " %
+                self.log.error("Error while processing '%s': %s " %
                                     (self.tar2_current_file, details))
 
             # Delete the file as we don't need it anymore
-            if BACKUP_DEBUG and callable(self.print_callback):
-                self.print_callback("Removing file " + filename)
+            self.log.debug("Removing file " + filename)
             os.remove(filename)
 
         os.unlink(self.restore_pipe)
@@ -1155,18 +1133,16 @@ class ExtractWorker2(Process):
                 # Finished extracting the tar file
                 self.tar2_process = None
 
-        if BACKUP_DEBUG and callable(self.print_callback):
-            self.print_callback("Finished extracting thread")
+        self.log.debug("Finished extracting thread")
 
 
 class ExtractWorker3(ExtractWorker2):
     def __init__(self, queue, base_dir, passphrase, encrypted,
-                 print_callback, error_callback, progress_callback, vmproc=None,
+                 progress_callback, vmproc=None,
                  compressed=False, crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM,
                  compression_filter=None, verify_only=False):
         super(ExtractWorker3, self).__init__(queue, base_dir, passphrase,
                                              encrypted,
-                                             print_callback, error_callback,
                                              progress_callback, vmproc,
                                              compressed, crypto_algorithm,
                                              verify_only)
@@ -1174,9 +1150,8 @@ class ExtractWorker3(ExtractWorker2):
         os.unlink(self.restore_pipe)
 
     def __run__(self):
-        if BACKUP_DEBUG and callable(self.print_callback):
-            self.print_callback("Started sending thread")
-            self.print_callback("Moving to dir " + self.base_dir)
+        self.log.debug("Started sending thread")
+        self.log.debug("Moving to dir " + self.base_dir)
         os.chdir(self.base_dir)
 
         filename = None
@@ -1186,8 +1161,7 @@ class ExtractWorker3(ExtractWorker2):
             if filename == "FINISHED" or filename == "ERROR":
                 break
 
-            if BACKUP_DEBUG and callable(self.print_callback):
-                self.print_callback("Extracting file " + filename)
+            self.log.debug("Extracting file " + filename)
 
             if filename.endswith('.000'):
                 # next file
@@ -1195,7 +1169,7 @@ class ExtractWorker3(ExtractWorker2):
                     input_pipe.close()
                     if self.tar2_process.wait() != 0:
                         self.collect_tar_output()
-                        self.error_callback(
+                        self.log.error(
                             "ERROR: unable to extract files for {0}, tar "
                             "output:\n  {1}".
                             format(self.tar2_current_file,
@@ -1206,8 +1180,7 @@ class ExtractWorker3(ExtractWorker2):
                         self.tar2_current_file = None
 
                 tar2_cmdline = ['tar',
-                                '-%sk%s' % ("t" if self.verify_only else "x",
-                                            "v" if BACKUP_DEBUG else ""),
+                                '-%sk' % ("t" if self.verify_only else "x"),
                                 os.path.relpath(filename.rstrip('.000'))]
                 if self.compressed:
                     if self.compression_filter:
@@ -1218,9 +1191,7 @@ class ExtractWorker3(ExtractWorker2):
                         tar2_cmdline.insert(-1, "--use-compress-program=%s" %
                                             DEFAULT_COMPRESSION_FILTER)
 
-                if BACKUP_DEBUG and callable(self.print_callback):
-                    self.print_callback("Running command " +
-                                        unicode(tar2_cmdline))
+                self.log.debug("Running command " + unicode(tar2_cmdline))
                 if self.encrypted:
                     # Start decrypt
                     self.decryptor_process = subprocess.Popen(
@@ -1251,12 +1222,11 @@ class ExtractWorker3(ExtractWorker2):
             elif not self.tar2_process:
                 # Extracting of the current archive failed, skip to the next
                 # archive
-                if not BACKUP_DEBUG:
-                    os.remove(filename)
+                # TODO: some debug option to preserve it?
+                os.remove(filename)
                 continue
             else:
-                if BACKUP_DEBUG and callable(self.print_callback):
-                    self.print_callback("Releasing next chunck")
+                self.log.debug("Releasing next chunck")
             self.tar2_current_file = filename
 
             common_args = {
@@ -1284,12 +1254,11 @@ class ExtractWorker3(ExtractWorker2):
                 self.tar2_process.terminate()
                 self.tar2_process.wait()
                 self.tar2_process = None
-                self.error_callback("Error while processing '%s': %s " %
+                self.log.error("Error while processing '%s': %s " %
                                     (self.tar2_current_file, details))
 
             # Delete the file as we don't need it anymore
-            if BACKUP_DEBUG and callable(self.print_callback):
-                self.print_callback("Removing file " + filename)
+            self.log.debug("Removing file " + filename)
             os.remove(filename)
 
         if self.tar2_process is not None:
@@ -1314,8 +1283,7 @@ class ExtractWorker3(ExtractWorker2):
                 # Finished extracting the tar file
                 self.tar2_process = None
 
-        if BACKUP_DEBUG and callable(self.print_callback):
-            self.print_callback("Finished extracting thread")
+        self.log.debug("Finished extracting thread")
 
 
 def get_supported_hmac_algo(hmac_algorithm=None):
@@ -1396,14 +1364,12 @@ class BackupRestore(object):
         #: is the backup operation canceled
         self.canceled = False
 
-        # TODO: convert to python logging API
-        self.print_callback = print_stdout
-        self.error_callback = print_stderr
-
         #: report restore progress, called with one argument - percents of
         # data restored
         # FIXME: convert to float [0,1]
         self.progress_callback = None
+
+        self.log = logging.getLogger('qubes.backup')
 
         #: basic information about the backup
         self.header_data = self._retrieve_backup_header()
@@ -1462,8 +1428,7 @@ class BackupRestore(object):
         tar1_env = os.environ.copy()
         tar1_env['UPDATES_MAX_BYTES'] = str(limit_bytes)
         tar1_env['UPDATES_MAX_FILES'] = str(limit_count)
-        if BACKUP_DEBUG and callable(self.print_callback):
-            self.print_callback("Run command" + unicode(tar1_command))
+        self.log.debug("Run command" + unicode(tar1_command))
         command = subprocess.Popen(
             tar1_command,
             stdin=backup_stdin,
@@ -1501,8 +1466,7 @@ class BackupRestore(object):
         if algorithm is None:
             algorithm = self.header_data.hmac_algorithm
         passphrase = self.passphrase.encode('utf-8')
-        if BACKUP_DEBUG:
-            print "Verifying file " + filename
+        self.log.debug("Verifying file {}".format(filename))
 
         if hmacfile != filename + ".hmac":
             raise qubes.exc.QubesException(
@@ -1519,15 +1483,14 @@ class BackupRestore(object):
             raise qubes.exc.QubesException(
                 "ERROR: verify file {0}: {1}".format(filename, hmac_stderr))
         else:
-            if BACKUP_DEBUG:
-                print "Loading hmac for file " + filename
+            self.log.debug("Loading hmac for file {}".format(filename))
             hmac = load_hmac(open(os.path.join(self.tmpdir, hmacfile),
                 'r').read())
 
             if len(hmac) > 0 and load_hmac(hmac_stdout) == hmac:
                 os.unlink(os.path.join(self.tmpdir, hmacfile))
-                if BACKUP_DEBUG:
-                    print "File verification OK -> Sending file " + filename
+                self.log.debug(
+                    "File verification OK -> Sending file {}".format(filename))
                 return True
             else:
                 raise qubes.exc.QubesException(
@@ -1566,9 +1529,8 @@ class BackupRestore(object):
         if not self.backup_vm:
             nextfile = filelist_pipe.readline().strip()
 
-        if BACKUP_DEBUG and callable(self.print_callback):
-            self.print_callback("Got backup header and hmac: %s, %s" % (
-                filename, hmacfile))
+        self.log.debug("Got backup header and hmac: {}, {}".format(
+            filename, hmacfile))
 
         if not filename or filename == "EOF" or \
                 not hmacfile or hmacfile == "EOF":
@@ -1648,8 +1610,6 @@ class BackupRestore(object):
             'compressed': self.header_data.compressed,
             'crypto_algorithm': self.header_data.crypto_algorithm,
             'verify_only': self.options.verify_only,
-            'print_callback': self.print_callback,
-            'error_callback': print_stderr,
             'progress_callback': self.progress_callback,
         }
         format_version = self.header_data.version
@@ -1702,12 +1662,9 @@ class BackupRestore(object):
         limit_count = str(2 * (10 * len(vms_dirs) +
                                int(vms_size / (100 * 1024 * 1024))))
 
-        if callable(self.print_callback):
-            if BACKUP_DEBUG:
-                self.print_callback("Working in temporary dir:" +
-                                    self.tmpdir)
-            self.print_callback(
-                "Extracting data: " + size_to_human(vms_size) + " to restore")
+        self.log.debug("Working in temporary dir:" + self.tmpdir)
+        self.log.info(
+            "Extracting data: " + size_to_human(vms_size) + " to restore")
 
         # retrieve backup from the backup stream (either VM, or dom0 file)
         # TODO: add some safety margin in vms_size?
@@ -1740,8 +1697,7 @@ class BackupRestore(object):
                 else:
                     filename = filelist_pipe.readline().strip()
 
-                if BACKUP_DEBUG and callable(self.print_callback):
-                    self.print_callback("Getting new file:" + filename)
+                self.log.debug("Getting new file:" + filename)
 
                 if not filename or filename == "EOF":
                     break
@@ -1756,17 +1712,14 @@ class BackupRestore(object):
                 if not self.backup_vm:
                     nextfile = filelist_pipe.readline().strip()
 
-                if BACKUP_DEBUG and callable(self.print_callback):
-                    self.print_callback("Getting hmac:" + hmacfile)
+                self.log.debug("Getting hmac:" + hmacfile)
                 if not hmacfile or hmacfile == "EOF":
                     # Premature end of archive, either of tar1_command or
                     # vmproc exited with error
                     break
 
                 if not any(map(lambda x: filename.startswith(x), vms_dirs)):
-                    if BACKUP_DEBUG and callable(self.print_callback):
-                        self.print_callback("Ignoring VM not selected for "
-                                          "restore")
+                    self.log.debug("Ignoring VM not selected for restore")
                     os.unlink(os.path.join(self.tmpdir, filename))
                     os.unlink(os.path.join(self.tmpdir, hmacfile))
                     continue
@@ -1798,13 +1751,10 @@ class BackupRestore(object):
         else:
             to_extract.put("FINISHED")
 
-        if BACKUP_DEBUG and callable(self.print_callback):
-            self.print_callback("Waiting for the extraction process to "
-                               "finish...")
+        self.log.debug("Waiting for the extraction process to finish...")
         extract_proc.join()
-        if BACKUP_DEBUG and callable(self.print_callback):
-            self.print_callback("Extraction process finished with code:" +
-                           str(extract_proc.exitcode))
+        self.log.debug("Extraction process finished with code: {}".format(
+            extract_proc.exitcode))
         if extract_proc.exitcode != 0:
             raise qubes.exc.QubesException(
                 "unable to extract the qubes backup. "
@@ -1967,8 +1917,7 @@ class BackupRestore(object):
                 # Handle dom0 as special case later
                 continue
             if self._is_vm_included_in_backup(vm):
-                if BACKUP_DEBUG:
-                    print vm.name, "is included in backup"
+                self.log.debug("{} is included in backup".format(vm.name))
 
                 vms_to_restore[vm.name] = {}
                 vms_to_restore[vm.name]['vm'] = vm
@@ -2169,17 +2118,14 @@ class BackupRestore(object):
                 if self.options.verify_only:
                     raise
                 else:
-                    if callable(self.print_callback):
-                        self.print_callback(
-                            "Some errors occurred during data extraction, "
-                            "continuing anyway to restore at least some "
-                            "VMs")
+                    self.log.warning(
+                        "Some errors occurred during data extraction, "
+                        "continuing anyway to restore at least some "
+                        "VMs")
         else:
             if self.options.verify_only:
-                if callable(self.print_callback):
-                    self.print_callback("WARNING: Backup verification not "
-                                    "supported for "
-                                   "this backup format.")
+                self.log.warning(
+                    "Backup verification not supported for this backup format.")
 
         if self.options.verify_only:
             shutil.rmtree(self.tmpdir)
@@ -2196,15 +2142,13 @@ class BackupRestore(object):
                     break
                 if vm.is_template() != do_templates:
                     continue
-                if callable(self.print_callback):
-                    self.print_callback("-> Restoring {0}...".format(vm.name))
+                self.log.info("-> Restoring {0}...".format(vm.name))
                 retcode = subprocess.call(
                     ["mkdir", "-p", os.path.dirname(vm.dir_path)])
                 if retcode != 0:
-                    self.error_callback("*** Cannot create directory: {"
-                                     "0}?!".format(
+                    self.log.error("*** Cannot create directory: {0}?!".format(
                         vm.dir_path))
-                    self.error_callback("Skipping...")
+                    self.log.warning("Skipping VM {}...".format(vm.name))
                     continue
 
                 kwargs = {}
@@ -2232,15 +2176,16 @@ class BackupRestore(object):
                             new_vm.dir_path), os.path.dirname(new_vm.dir_path))
                         try:
                             os.rename(new_vm.dir_path, move_to_path)
-                            self.error_callback(
+                            self.log.warning(
                                 "*** Directory {} already exists! It has "
                                 "been moved to {}".format(new_vm.dir_path,
                                                           move_to_path))
                         except OSError:
-                            self.error_callback(
+                            self.log.error(
                                 "*** Directory {} already exists and "
                                 "cannot be moved!".format(new_vm.dir_path))
-                            self.error_callback("Skipping...")
+                            self.log.warning("Skipping VM {}...".format(
+                                vm.name))
                             continue
 
                     if self.header_data.version == 1:
@@ -2252,8 +2197,8 @@ class BackupRestore(object):
 
                     new_vm.verify_files()
                 except Exception as err:
-                    self.error_callback("ERROR: {0}".format(err))
-                    self.error_callback("*** Skipping VM: {0}".format(vm.name))
+                    self.log.error("ERROR: {0}".format(err))
+                    self.log.warning("*** Skipping VM: {0}".format(vm.name))
                     if new_vm:
                         del self.app.domains[new_vm.qid]
                     continue
@@ -2264,24 +2209,22 @@ class BackupRestore(object):
                             vm.kernel not in \
                             os.listdir(qubes.config.system_path[
                                 'qubes_kernels_base_dir']):
-                        if callable(self.print_callback):
-                            self.print_callback("WARNING: Kernel %s not "
-                                             "installed, "
+                        self.log.warning("WARNING: Kernel %s not installed, "
                                            "using default one" % vm.kernel)
                         vm.kernel = qubes.property.DEFAULT
                 try:
                     new_vm.clone_properties(vm)
                 except Exception as err:
-                    self.error_callback("ERROR: {0}".format(err))
-                    self.error_callback("*** Some VM property will not be "
+                    self.log.error("ERROR: {0}".format(err))
+                    self.log.warning("*** Some VM property will not be "
                                      "restored")
 
                 try:
                     new_vm.fire_event('domain-restore')
                 except Exception as err:
-                    self.error_callback("ERROR during appmenu restore: {"
+                    self.log.error("ERROR during appmenu restore: {"
                                     "0}".format(err))
-                    self.error_callback(
+                    self.log.warning(
                         "*** VM '{0}' will not have appmenus".format(vm.name))
 
         # Set network dependencies - only non-default netvm setting
@@ -2323,12 +2266,11 @@ class BackupRestore(object):
             restore_home_backupdir = "home-pre-restore-{0}".format(
                 time.strftime("%Y-%m-%d-%H%M%S"))
 
-            if callable(self.print_callback):
-                self.print_callback(
-                    "-> Restoring home of user '{0}'...".format(local_user))
-                self.print_callback(
-                    "--> Existing files/dirs backed up in '{0}' dir".format(
-                        restore_home_backupdir))
+            self.log.info(
+                "Restoring home of user '{0}'...".format(local_user))
+            self.log.info(
+                "Existing files/dirs backed up in '{0}' dir".format(
+                    restore_home_backupdir))
             os.mkdir(home_dir + '/' + restore_home_backupdir)
             for f in os.listdir(backup_dom0_home_dir):
                 home_file = home_dir + '/' + f
@@ -2342,8 +2284,7 @@ class BackupRestore(object):
                     shutil.move(backup_dom0_home_dir + '/' + f, home_file)
             retcode = subprocess.call(['sudo', 'chown', '-R', local_user, home_dir])
             if retcode != 0:
-                self.error_callback("*** Error while setting home directory "
-                                  "owner")
+                self.log.error("*** Error while setting home directory owner")
 
         shutil.rmtree(self.tmpdir)
 
