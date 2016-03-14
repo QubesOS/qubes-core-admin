@@ -60,6 +60,7 @@ def get_disk_usage_one(st):
     except AttributeError:
         return st.st_size
 
+
 def get_disk_usage(path):
     try:
         st = os.lstat(path)
@@ -74,6 +75,7 @@ def get_disk_usage(path):
             ret += get_disk_usage_one(os.lstat(os.path.join(dirpath, name)))
 
     return ret
+
 
 class BackupCanceledError(qubes.exc.QubesException):
     def __init__(self, msg, tmpdir=None):
@@ -93,7 +95,7 @@ class BackupHeader(object):
     bool_options = ['encrypted', 'compressed']
     int_options = ['version']
 
-    def __init__(self, header_data = None):
+    def __init__(self, header_data=None):
         # repeat the list to help code completion...
         self.version = None
         self.encrypted = None
@@ -172,6 +174,7 @@ class BackupHeader(object):
                 if getattr(self, attr) is None:
                     continue
                 f.write("{!s}={!s}\n".format(key, getattr(self, attr)))
+
 
 class SendWorker(Process):
     def __init__(self, queue, base_dir, backup_stdout):
@@ -298,8 +301,8 @@ class Backup(object):
         self.vms_for_backup = vms_list
         # Apply exclude list
         if exclude_list:
-            self.vms_for_backup = [vm for vm in vms_list if vm.name not in
-                                                        exclude_list]
+            self.vms_for_backup = [vm for vm in vms_list
+                if vm.name not in exclude_list]
 
     def __del__(self):
         if self.tmpdir and os.path.exists(self.tmpdir):
@@ -321,7 +324,8 @@ class Backup(object):
 
         if subdir is None:
             abs_file_path = os.path.abspath(file_path)
-            abs_base_dir = os.path.abspath(qubes.config.system_path["qubes_base_dir"]) + '/'
+            abs_base_dir = os.path.abspath(
+                qubes.config.system_path["qubes_base_dir"]) + '/'
             abs_file_dir = os.path.dirname(abs_file_path) + '/'
             (nothing, directory, subdir) = abs_file_dir.partition(abs_base_dir)
             assert nothing == ""
@@ -425,9 +429,9 @@ class Backup(object):
         if 0 in [vm.qid for vm in self.vms_for_backup]:
             local_user = grp.getgrnam('qubes').gr_mem[0]
             home_dir = pwd.getpwnam(local_user).pw_dir
-            # Home dir should have only user-owned files, so fix it now to prevent
-            # permissions problems - some root-owned files can left after
-            # 'sudo bash' and similar commands
+            # Home dir should have only user-owned files, so fix it now
+            # to prevent permissions problems - some root-owned files can
+            # left after 'sudo bash' and similar commands
             subprocess.check_call(['sudo', 'chown', '-R', local_user, home_dir])
 
             home_sz = get_disk_usage(home_dir)
@@ -483,7 +487,8 @@ class Backup(object):
             elif vm_info['vm'].is_template():
                 s += fmt.format("Template VM")
             else:
-                s += fmt.format("VM" + (" + Sys" if vm_info['vm'].updateable else ""))
+                s += fmt.format("VM" + (" + Sys" if vm_info['vm'].updateable
+                    else ""))
 
             vm_size = vm_info['size']
 
@@ -623,8 +628,8 @@ class Backup(object):
             # If not APPVM, STDOUT is a local file
             backup_stdout = open(backup_target, 'wb')
 
-        # Tar with tape length does not deals well with stdout (close stdout between
-        # two tapes)
+        # Tar with tape length does not deals well with stdout
+        # (close stdout between two tapes)
         # For this reason, we will use named pipes instead
         self.log.debug("Working in {}".format(self.tmpdir))
 
@@ -657,9 +662,9 @@ class Backup(object):
 
                 self.log.debug("Backing up {}".format(file_info))
 
-                backup_tempfile = os.path.join(self.tmpdir,
-                                               file_info["subdir"],
-                                               os.path.basename(file_info["path"]))
+                backup_tempfile = os.path.join(
+                    self.tmpdir, file_info["subdir"],
+                    os.path.basename(file_info["path"]))
                 self.log.debug("Using temporary location: {}".format(
                     backup_tempfile))
 
@@ -667,20 +672,20 @@ class Backup(object):
                 if not os.path.isdir(os.path.dirname(backup_tempfile)):
                     os.makedirs(os.path.dirname(backup_tempfile))
 
-                # The first tar cmd can use any complex feature as we want. Files will
-                # be verified before untaring this.
+                # The first tar cmd can use any complex feature as we want.
+                # Files will be verified before untaring this.
                 # Prefix the path in archive with filename["subdir"] to have it
                 # verified during untar
                 tar_cmdline = (["tar", "-Pc", '--sparse',
                                "-f", backup_pipe,
                                '-C', os.path.dirname(file_info["path"])] +
-                               (['--dereference'] if file_info["subdir"] != "dom0-home/"
-                               else []) +
+                               (['--dereference'] if
+                                file_info["subdir"] != "dom0-home/" else []) +
                                ['--xform', 's:^%s:%s\\0:' % (
                                    os.path.basename(file_info["path"]),
                                    file_info["subdir"]),
-                               os.path.basename(file_info["path"])
-                               ])
+                                os.path.basename(file_info["path"])
+                                ])
                 if self.compressed:
                     tar_cmdline.insert(-1,
                         "--use-compress-program=%s" % self.compression_filter)
@@ -695,14 +700,15 @@ class Backup(object):
                     tar_cmdline, stdin=subprocess.PIPE)
                 self.processes_to_kill_on_cancel.append(tar_sparse)
 
-                # Wait for compressor (tar) process to finish or for any error of other
-                # subprocesses
+                # Wait for compressor (tar) process to finish or for any
+                # error of other subprocesses
                 i = 0
                 run_error = "paused"
                 encryptor = None
                 if self.encrypted:
                     # Start encrypt
-                    # If no cipher is provided, the data is forwarded unencrypted !!!
+                    # If no cipher is provided,
+                    # the data is forwarded unencrypted !!!
                     encryptor = subprocess.Popen([
                         "openssl", "enc",
                         "-e", "-" + self.crypto_algorithm,
@@ -764,8 +770,9 @@ class Backup(object):
                                 "Failed to write the backup, VM output:\n" +
                                 vmproc.stderr.read(MAX_STDERR_BYTES))
                         else:
-                            raise qubes.exc.QubesException("Failed to perform backup: error in " +
-                                                 run_error)
+                            raise qubes.exc.QubesException(
+                                "Failed to perform backup: error in " +
+                                run_error)
 
                     # Send the chunk to the backup target
                     self._queue_put_with_check(
@@ -921,6 +928,7 @@ def wait_backup_feedback(progress_callback, in_stream, streamproc,
             hmac.stdin.write(buf)
 
     return run_error
+
 
 class ExtractWorker2(Process):
     def __init__(self, queue, base_dir, passphrase, encrypted,
@@ -1301,6 +1309,7 @@ def get_supported_hmac_algo(hmac_algorithm=None):
         yield algo.strip()
     proc.wait()
 
+
 class BackupRestoreOptions(object):
     def __init__(self):
         #: use default NetVM if the one referenced in backup do not exists on
@@ -1440,8 +1449,9 @@ class BackupRestore(object):
             env=tar1_env)
         self.processes_to_kill_on_cancel.append(command)
 
-        # qfile-dom0-unpacker output filelist on stderr (and have stdout connected
-        # to the VM), while tar output filelist on stdout
+        # qfile-dom0-unpacker output filelist on stderr
+        # and have stdout connected to the VM), while tar output filelist
+        # on stdout
         if self.backup_vm:
             filelist_pipe = command.stderr
             # let qfile-dom0-unpacker hold the only open FD to the write end of
@@ -1604,7 +1614,8 @@ class BackupRestore(object):
         """
 
         # Setup worker to extract encrypted data chunks to the restore dirs
-        # Create the process here to pass it options extracted from backup header
+        # Create the process here to pass it options extracted from
+        # backup header
         extractor_params = {
             'queue': queue,
             'base_dir': self.tmpdir,
@@ -1832,7 +1843,8 @@ class BackupRestore(object):
                 except KeyError:
                     netvm_on_host = None
                 # No netvm on the host?
-                if not ((netvm_on_host is not None) and netvm_on_host.is_netvm()):
+                if not ((netvm_on_host is not None)
+                        and netvm_on_host.is_netvm()):
 
                     # Maybe the (custom) netvm is in the backup?
                     if not (netvm_name in restore_info.keys() and
@@ -1995,12 +2007,14 @@ class BackupRestore(object):
 
             "netvm": {"func": "'n/a' if vm.is_netvm() and not vm.is_proxyvm() else\
                       ('*' if vm.property_is_default('netvm') else '') +\
-                        vm_info['netvm'] if vm_info['netvm'] is not None else '-'"},
+                        vm_info['netvm'] if vm_info['netvm'] is not None "
+                              "else '-'"},
 
             "label": {"func": "vm.label.name"},
         }
 
-        fields_to_display = ["name", "type", "template", "updbl", "netvm", "label"]
+        fields_to_display = ["name", "type", "template", "updbl",
+            "netvm", "label"]
 
         # First calculate the maximum width of each field we want to display
         total_width = 0
@@ -2141,8 +2155,8 @@ class BackupRestore(object):
                 break
             for vm in vms.values():
                 if self.canceled:
-                    # only break the loop to save qubes.xml with already restored
-                    # VMs
+                    # only break the loop to save qubes.xml
+                    # with already restored VMs
                     break
                 if vm.is_template() != do_templates:
                     continue
@@ -2168,7 +2182,8 @@ class BackupRestore(object):
                     vm_name = restore_info[vm.name]['rename-to']
 
                 try:
-                    # first only minimal set, later clone_properties will be called
+                    # first only minimal set, later clone_properties
+                    # will be called
                     new_vm = self.app.add_new_vm(
                         vm.__class__,
                         name=vm_name,
@@ -2214,7 +2229,7 @@ class BackupRestore(object):
                             os.listdir(qubes.config.system_path[
                                 'qubes_kernels_base_dir']):
                         self.log.warning("WARNING: Kernel %s not installed, "
-                                           "using default one" % vm.kernel)
+                        "using default one" % vm.kernel)
                         vm.kernel = qubes.property.DEFAULT
                 try:
                     new_vm.clone_properties(vm)
@@ -2226,8 +2241,8 @@ class BackupRestore(object):
                 try:
                     new_vm.fire_event('domain-restore')
                 except Exception as err:
-                    self.log.error("ERROR during appmenu restore: {"
-                                    "0}".format(err))
+                    self.log.error("ERROR during appmenu restore: "
+                       "{0}".format(err))
                     self.log.warning(
                         "*** VM '{0}' will not have appmenus".format(vm.name))
 
@@ -2283,10 +2298,12 @@ class BackupRestore(object):
                               home_dir + '/' + restore_home_backupdir + '/' + f)
                 if self.header_data.version == 1:
                     subprocess.call(
-                        ["cp", "-nrp", "--reflink=auto", backup_dom0_home_dir + '/' + f, home_file])
+                        ["cp", "-nrp", "--reflink=auto",
+                            backup_dom0_home_dir + '/' + f, home_file])
                 elif self.header_data.version >= 2:
                     shutil.move(backup_dom0_home_dir + '/' + f, home_file)
-            retcode = subprocess.call(['sudo', 'chown', '-R', local_user, home_dir])
+            retcode = subprocess.call(['sudo', 'chown', '-R',
+                local_user, home_dir])
             if retcode != 0:
                 self.log.error("*** Error while setting home directory owner")
 
