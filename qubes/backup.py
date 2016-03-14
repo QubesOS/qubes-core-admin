@@ -575,6 +575,7 @@ class Backup(object):
     def backup_do(self):
         if self.passphrase is None:
             raise qubes.exc.QubesException("No passphrase set")
+        # noinspection PyProtectedMember
         qubes_xml = self.app._store
         self.tmpdir = tempfile.mkdtemp()
         shutil.copy(qubes_xml, os.path.join(self.tmpdir, 'qubes.xml'))
@@ -2035,14 +2036,17 @@ class BackupRestore(object):
 
         # Display the header
         for f in fields_to_display:
+            # noinspection PyTypeChecker
             fmt = "{{0:-^{0}}}-+".format(fields[f]["max_width"] + 1)
             summary += fmt.format('-')
         summary += "\n"
         for f in fields_to_display:
+            # noinspection PyTypeChecker
             fmt = "{{0:>{0}}} |".format(fields[f]["max_width"] + 1)
             summary += fmt.format(f)
         summary += "\n"
         for f in fields_to_display:
+            # noinspection PyTypeChecker
             fmt = "{{0:-^{0}}}-+".format(fields[f]["max_width"] + 1)
             summary += fmt.format('-')
         summary += "\n"
@@ -2055,6 +2059,7 @@ class BackupRestore(object):
             vm = vm_info['vm']
             s = ""
             for f in fields_to_display:
+                # noinspection PyTypeChecker
                 fmt = "{{0:>{0}}} |".format(fields[f]["max_width"] + 1)
                 s += fmt.format(eval(fields[f]["func"]))
 
@@ -2063,20 +2068,25 @@ class BackupRestore(object):
             elif 'already-exists' in vm_info:
                 s += " <-- A VM with the same name already exists on the host!"
             elif 'missing-template' in vm_info:
-                s += " <-- No matching template on the host or in the backup found!"
+                s += " <-- No matching template on the host " \
+                     "or in the backup found!"
             elif 'missing-netvm' in vm_info:
-                s += " <-- No matching netvm on the host or in the backup found!"
+                s += " <-- No matching netvm on the host " \
+                     "or in the backup found!"
             else:
                 if 'orig-template' in vm_info:
-                    s += " <-- Original template was '%s'" % (vm_info['orig-template'])
+                    s += " <-- Original template was '{}'".format(
+                        vm_info['orig-template'])
                 if 'rename-to' in vm_info:
-                    s += " <-- Will be renamed to '%s'" % vm_info['rename-to']
+                    s += " <-- Will be renamed to '{}'".format(
+                        vm_info['rename-to'])
 
             summary += s + "\n"
 
         if 'dom0' in restore_info.keys():
             s = ""
             for f in fields_to_display:
+                # noinspection PyTypeChecker
                 fmt = "{{0:>{0}}} |".format(fields[f]["max_width"] + 1)
                 if f == "name":
                     s += fmt.format("Dom0")
