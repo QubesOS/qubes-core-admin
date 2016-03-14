@@ -142,7 +142,7 @@ class SystemState(object):
                 dom_name = self.xs.read('', '/local/domain/%s/name' % str(i))
                 if dom_name is not None:
                     try:
-                        qubes.Qubes()[str(dom_name)].fire_event(
+                        qubes.Qubes().domains[str(dom_name)].fire_event(
                             'status:no-error', 'no-error',
                             slow_memset_react_msg)
                     except LookupError:
@@ -154,7 +154,7 @@ class SystemState(object):
                 dom_name = self.xs.read('', '/local/domain/%s/name' % str(i))
                 if dom_name is not None:
                     try:
-                        qubes.Qubes()[str(dom_name)].fire_event(
+                        qubes.Qubes().domains[str(dom_name)].fire_event(
                             'status:no-error', 'no-error',
                             no_progress_msg)
                     except LookupError:
@@ -344,7 +344,8 @@ class SystemState(object):
                                 dom_name = self.xs.read('', '/local/domain/%s/name' % str(dom2))
                                 if dom_name is not None:
                                     try:
-                                        qubes.Qubes()[str(dom_name)].fire_event(
+                                        qubes.Qubes().domains[str(
+                                            dom_name)].fire_event(
                                             'status:error', 'error',
                                             no_progress_msg)
                                     except LookupError:
@@ -359,7 +360,8 @@ class SystemState(object):
                                 dom_name = self.xs.read('', '/local/domain/%s/name' % str(dom2))
                                 if dom_name is not None:
                                     try:
-                                        qubes.Qubes()[str(dom_name)].fire_event(
+                                        qubes.Qubes().domains[str(
+                                            dom_name)].fire_event(
                                             'status:error', 'error',
                                             slow_memset_react_msg)
                                     except LookupError:
