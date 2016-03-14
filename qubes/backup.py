@@ -313,7 +313,7 @@ class Backup(object):
         for proc in self.processes_to_kill_on_cancel:
             try:
                 proc.terminate()
-            except:
+            except OSError:
                 pass
 
     @staticmethod
@@ -746,11 +746,11 @@ class Backup(object):
                     if self.canceled:
                         try:
                             tar_sparse.terminate()
-                        except:
+                        except OSError:
                             pass
                         try:
                             hmac.terminate()
-                        except:
+                        except OSError:
                             pass
                         tar_sparse.wait()
                         hmac.wait()
@@ -1111,8 +1111,8 @@ class ExtractWorker2(Process):
                 self.tar2_process.terminate()
                 self.tar2_process.wait()
                 self.tar2_process = None
-                self.log.error("Error while processing '%s': %s " %
-                                    (self.tar2_current_file, details))
+                self.log.error("Error while processing '{}': {}".format(
+                    self.tar2_current_file, details))
 
             # Delete the file as we don't need it anymore
             self.log.debug("Removing file " + filename)
@@ -1258,8 +1258,8 @@ class ExtractWorker3(ExtractWorker2):
                 self.tar2_process.terminate()
                 self.tar2_process.wait()
                 self.tar2_process = None
-                self.log.error("Error while processing '%s': %s " %
-                                    (self.tar2_current_file, details))
+                self.log.error("Error while processing '{}': {}".format(
+                    self.tar2_current_file, details))
 
             # Delete the file as we don't need it anymore
             self.log.debug("Removing file " + filename)
@@ -1388,7 +1388,7 @@ class BackupRestore(object):
         for proc in self.processes_to_kill_on_cancel:
             try:
                 proc.terminate()
-            except:
+            except OSError:
                 pass
 
     def _start_retrieval_process(self, filelist, limit_count, limit_bytes):
@@ -1459,14 +1459,15 @@ class BackupRestore(object):
         return command, filelist_pipe, error_pipe
 
     def _verify_hmac(self, filename, hmacfile, algorithm=None):
-        def load_hmac(hmac):
-            hmac = hmac.strip().split("=")
-            if len(hmac) > 1:
-                hmac = hmac[1].strip()
+        def load_hmac(hmac_text):
+            hmac_text = hmac_text.strip().split("=")
+            if len(hmac_text) > 1:
+                hmac_text = hmac_text[1].strip()
             else:
-                raise qubes.exc.QubesException("ERROR: invalid hmac file content")
+                raise qubes.exc.QubesException(
+                    "ERROR: invalid hmac file content")
 
-            return hmac
+            return hmac_text
         if algorithm is None:
             algorithm = self.header_data.hmac_algorithm
         passphrase = self.passphrase.encode('utf-8')
@@ -1523,7 +1524,6 @@ class BackupRestore(object):
                 ['backup-header', 'backup-header.hmac',
                 'qubes.xml.000', 'qubes.xml.000.hmac'], 4, 1024 * 1024)
 
-        nextfile = None
         expect_tar_error = False
 
         filename = filelist_pipe.readline().strip()
@@ -1531,7 +1531,7 @@ class BackupRestore(object):
         # tar output filename before actually extracting it, so wait for the
         # next one before trying to access it
         if not self.backup_vm:
-            nextfile = filelist_pipe.readline().strip()
+            filelist_pipe.readline().strip()
 
         self.log.debug("Got backup header and hmac: {}, {}".format(
             filename, hmacfile))
@@ -1689,7 +1689,6 @@ class BackupRestore(object):
                 if not extract_proc.is_alive():
                     retrieve_proc.terminate()
                     retrieve_proc.wait()
-                    expect_tar_error = True
                     if retrieve_proc in self.processes_to_kill_on_cancel:
                         self.processes_to_kill_on_cancel.remove(retrieve_proc)
                     # wait for other processes (if any)
@@ -1888,7 +1887,8 @@ class BackupRestore(object):
         else:
             return False
 
-    def _is_vm_included_in_backup_v2(self, check_vm):
+    @staticmethod
+    def _is_vm_included_in_backup_v2(check_vm):
         if check_vm.backup_content:
             return True
         else:
@@ -1974,7 +1974,8 @@ class BackupRestore(object):
 
         return vms_to_restore
 
-    def get_restore_summary(self, restore_info):
+    @staticmethod
+    def get_restore_summary(restore_info):
         fields = {
             "qid": {"func": "vm.qid"},
 
