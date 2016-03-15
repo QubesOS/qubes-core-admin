@@ -1851,8 +1851,11 @@ class BackupRestore(object):
                     if not (netvm_name in restore_info.keys() and
                             restore_info[netvm_name]['vm'].is_netvm()):
                         if self.options.use_default_netvm:
-                            vm_info['netvm'] = self.app.default_netvm.name
-                            vm_info['vm'].uses_default_netvm = True
+                            if self.app.default_netvm:
+                                vm_info['netvm'] = self.app.default_netvm.name
+                            else:
+                                vm_info['netvm'] = None
+                            vm_info['vm'].netvm = qubes.property.DEFAULT
                         elif self.options.use_none_netvm:
                             vm_info['netvm'] = None
                         else:
@@ -2236,13 +2239,19 @@ class BackupRestore(object):
                     # TODO: add a setting for this?
                     if not vm.property_is_default('kernel') and \
                             vm.kernel not in \
-                            os.listdir(qubes.config.system_path[
-                                'qubes_kernels_base_dir']):
-                        self.log.warning("WARNING: Kernel %s not installed, "
+                            os.listdir(os.path.join(qubes.config.qubes_base_dir,
+                                qubes.config.system_path[
+                                'qubes_kernels_base_dir'])):
+                        self.log.warning("Kernel %s not installed, "
                         "using default one" % vm.kernel)
                         vm.kernel = qubes.property.DEFAULT
                 try:
-                    new_vm.clone_properties(vm)
+                    # exclude VM references - handled manually according to
+                    # restore options
+                    proplist = [prop for prop in new_vm.property_list()
+                        if prop.clone and prop.__name__ not in
+                              ['template', 'netvm', 'dispvm_netvm']]
+                    new_vm.clone_properties(vm, proplist=proplist)
                 except Exception as err:
                     self.log.error("ERROR: {0}".format(err))
                     self.log.warning("*** Some VM property will not be "
