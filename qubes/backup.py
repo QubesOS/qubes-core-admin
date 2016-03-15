@@ -2237,7 +2237,7 @@ class BackupRestore(object):
 
                 if hasattr(vm, 'kernel'):
                     # TODO: add a setting for this?
-                    if not vm.property_is_default('kernel') and \
+                    if not vm.property_is_default('kernel') and vm.kernel and \
                             vm.kernel not in \
                             os.listdir(os.path.join(qubes.config.qubes_base_dir,
                                 qubes.config.system_path[
