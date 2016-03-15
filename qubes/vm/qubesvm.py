@@ -98,6 +98,8 @@ def _setter_name(self, prop, value):
 
 def _setter_kernel(self, prop, value):
     # pylint: disable=unused-argument
+    if value is None:
+        return value
     value = str(value)
     dirname = os.path.join(
         qubes.config.system_path['qubes_base_dir'],
