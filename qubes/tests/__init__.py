@@ -822,7 +822,7 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
             'qubes.tests.int.network',
 #           'qubes.tests.vm_qrexec_gui',
             'qubes.tests.int.backup',
-#           'qubes.tests.backupcompatibility',
+            'qubes.tests.int.backupcompatibility',
 #           'qubes.tests.regressions',
 
             # tool tests

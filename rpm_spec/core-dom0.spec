@@ -275,6 +275,7 @@ fi
 %dir %{python_sitelib}/qubes/tests/int
 %{python_sitelib}/qubes/tests/int/__init__.py*
 %{python_sitelib}/qubes/tests/int/backup.py*
+%{python_sitelib}/qubes/tests/int/backupcompatibility.py*
 %{python_sitelib}/qubes/tests/int/basic.py*
 %{python_sitelib}/qubes/tests/int/dom0_update.py*
 %{python_sitelib}/qubes/tests/int/network.py*
