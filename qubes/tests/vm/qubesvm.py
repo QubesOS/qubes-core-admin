@@ -297,8 +297,7 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
         self.assertPropertyDefaultValue(vm, 'netvm', self.app.default_netvm)
         self.assertPropertyValue(vm, 'netvm', self.netvm2.name, self.netvm2,
             self.netvm2.name)
-        # XXX FIXME xml value
-        self.assertPropertyValue(vm, 'netvm', None, None, 'None')
+        self.assertPropertyValue(vm, 'netvm', None, None, '')
 
     def test_141_netvm_invalid(self):
         vm = self.get_vm()
