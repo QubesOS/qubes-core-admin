@@ -203,6 +203,7 @@ fi
 %{python_sitelib}/qubes/__init__.py*
 %{python_sitelib}/qubes/backup.py*
 %{python_sitelib}/qubes/config.py*
+%{python_sitelib}/qubes/core2migration.py*
 %{python_sitelib}/qubes/devices.py*
 %{python_sitelib}/qubes/dochelpers.py*
 %{python_sitelib}/qubes/events.py*
