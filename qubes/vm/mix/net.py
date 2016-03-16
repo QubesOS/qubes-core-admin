@@ -36,7 +36,11 @@ import qubes.exc
 
 class NetVMMixin(object):
     mac = qubes.property('mac', type=str,
-        default=(lambda self: '00:16:3E:5E:6C:{:02X}'.format(self.qid)),
+        default=(lambda self:
+            self.template.mac if self.hvm
+                and hasattr(self, 'template')
+                and self.template is not None
+            else '00:16:3E:5E:6C:{:02X}'.format(self.qid)),
         ls_width=17,
         doc='MAC address of the NIC emulated inside VM')
 
@@ -109,7 +113,10 @@ class NetVMMixin(object):
             return None
         if self.netvm is None:
             return None
-        return "vif{0}.+".format(self.xid)
+
+        # XXX ugly hack ahead
+        # stubdom_xid is one more than self.xid
+        return 'vif{0}.+'.format(self.xid + int(self.hvm))
 
     @property
     def connected_vms(self):

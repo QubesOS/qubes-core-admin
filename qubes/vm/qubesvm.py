@@ -183,7 +183,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             package manager.''')
 
     memory = qubes.property('memory', type=int,
-        default=qubes.config.defaults['memory'],
+        default=(lambda self:
+            qubes.config.defaults['hvm_memory' if self.hvm else 'memory']),
         doc='Memory currently available for this VM.')
 
     maxmem = qubes.property('maxmem', type=int,
@@ -766,7 +767,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 'Cannot suspend domain {!r} which has PCI devices attached' \
                     .format(self.name))
         else:
-            self.libvirt_domain.suspend()
+            if self.hvm:
+                self.libvirt_domain.pause()
+            else:
+                self.libvirt_domain.suspend()
 
 
     def pause(self):
@@ -953,22 +957,25 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         :raises OSError: when starting fails.
         '''
 
-        if not self.features.check_with_template('qrexec', not self.hvm):
-            self.log.debug(
-                'Not starting the qrexec daemon, disabled by features')
-            return
-
         self.log.debug('Starting the qrexec daemon')
         qrexec_args = [str(self.xid), self.name, self.default_user]
         if not self.debug:
             qrexec_args.insert(0, "-q")
+
         qrexec_env = os.environ.copy()
-        qrexec_env['QREXEC_STARTUP_TIMEOUT'] = str(self.qrexec_timeout)
-        retcode = subprocess.call(
-            [qubes.config.system_path["qrexec_daemon_path"]] + qrexec_args,
-            env=qrexec_env)
-        if retcode != 0:
-            raise OSError('Cannot execute qrexec-daemon!')
+        if not self.features.check_with_template('qrexec', not self.hvm):
+            self.log.debug(
+                'Starting the qrexec daemon in background, because of features')
+            qrexec_env['QREXEC_STARTUP_NOWAIT'] = '1'
+        else:
+            qrexec_env['QREXEC_STARTUP_TIMEOUT'] = str(self.qrexec_timeout)
+
+        try:
+            subprocess.check_call(
+                [qubes.config.system_path["qrexec_daemon_path"]] + qrexec_args,
+                env=qrexec_env)
+        except subprocess.CalledProcessError:
+            raise qubes.exc.QubesVMError(self, 'Cannot execute qrexec-daemon!')
 
 
     def start_qubesdb(self):

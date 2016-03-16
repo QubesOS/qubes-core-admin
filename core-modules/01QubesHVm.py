@@ -85,27 +85,7 @@ class QubesHVm(QubesResizableVm):
                               'save': lambda: str(self._seamless_gui_mode) }
         attrs['services']['default'] = "{'meminfo-writer': False}"
 
-        attrs['memory']['default'] = defaults["hvm_memory"]
-
         return attrs
-
-    def __init__(self, **kwargs):
-
-        super(QubesHVm, self).__init__(**kwargs)
-
-        # Default for meminfo-writer have changed to (correct) False in the
-        # same version as introduction of guiagent_installed, so for older VMs
-        # with wrong setting, change is based on 'guiagent_installed' presence
-        if "guiagent_installed" not in kwargs and \
-            (not 'xml_element' in kwargs or kwargs['xml_element'].get('guiagent_installed') is None):
-            self.services['meminfo-writer'] = False
-
-    @property
-    def type(self):
-        return "HVM"
-
-    def is_appvm(self):
-        return True
 
     @classmethod
     def is_template_compatible(cls, template):
@@ -123,28 +103,6 @@ class QubesHVm(QubesResizableVm):
         attrs += [ 'qrexec_installed' ]
         attrs += [ 'guiagent_installed' ]
         return attrs
-
-    @property
-    def qrexec_installed(self):
-        return self._qrexec_installed or \
-            bool(self.template and self.template.qrexec_installed)
-
-    @qrexec_installed.setter
-    def qrexec_installed(self, value):
-        if self.template and self.template.qrexec_installed and not value:
-            print >>sys.stderr, "WARNING: When qrexec_installed set in template, it will be propagated to the VM"
-        self._qrexec_installed = value
-
-    @property
-    def guiagent_installed(self):
-        return self._guiagent_installed or \
-            bool(self.template and self.template.guiagent_installed)
-
-    @guiagent_installed.setter
-    def guiagent_installed(self, value):
-        if self.template and self.template.guiagent_installed and not value:
-            print >>sys.stderr, "WARNING: When guiagent_installed set in template, it will be propagated to the VM"
-        self._guiagent_installed = value
 
     @property
     def seamless_gui_mode(self):
@@ -237,59 +195,6 @@ class QubesHVm(QubesResizableVm):
 
         self.storage.resize_private_img(size)
 
-    def get_config_params(self):
-
-        params = super(QubesHVm, self).get_config_params()
-
-        self.storage.drive = self.drive
-        params.update(self.storage.get_config_params())
-        params['volatiledev'] = ''
-
-        if self.timezone.lower() == 'localtime':
-            params['time_basis'] = 'localtime'
-            params['timeoffset'] = '0'
-        elif self.timezone.isdigit():
-            params['time_basis'] = 'UTC'
-            params['timeoffset'] = self.timezone
-        else:
-            print >>sys.stderr, "WARNING: invalid 'timezone' value: %s" % self.timezone
-            params['time_basis'] = 'UTC'
-            params['timeoffset'] = '0'
-        return params
-
-    def verify_files(self):
-        if dry_run:
-            return
-
-        self.storage.verify_files()
-
-        # fire hooks
-        for hook in self.hooks_verify_files:
-            hook(self)
-
-        return True
-
-    @property
-    def vif(self):
-        if self.xid < 0:
-            return None
-        if self.netvm is None:
-            return None
-        return "vif{0}.+".format(self.stubdom_xid)
-
-    @property
-    def mac(self):
-        if self._mac is not None:
-            return self._mac
-        elif self.template is not None:
-            return self.template.mac
-        else:
-            return "00:16:3E:5E:6C:{qid:02X}".format(qid=self.qid)
-
-    @mac.setter
-    def mac(self, value):
-        self._mac = value
-
     def run(self, command, **kwargs):
         if self.qrexec_installed:
             if 'gui' in kwargs and kwargs['gui']==False:
@@ -297,20 +202,6 @@ class QubesHVm(QubesResizableVm):
             return super(QubesHVm, self).run(command, **kwargs)
         else:
             raise QubesException("Needs qrexec agent installed in VM to use this function. See also qvm-prefs.")
-
-    @property
-    def stubdom_xid(self):
-        if self.xid < 0:
-            return -1
-
-        if vmm.xs is None:
-            return -1
-
-        stubdom_xid_str = vmm.xs.read('', '/local/domain/%d/image/device-model-domid' % self.xid)
-        if stubdom_xid_str is not None:
-            return int(stubdom_xid_str)
-        else:
-            return -1
 
     def start(self, *args, **kwargs):
         # make it available to storage.prepare_for_vm_startup, which is
@@ -333,74 +224,6 @@ class QubesHVm(QubesResizableVm):
             else:
                 raise
 
-    def start_stubdom_guid(self, verbose=True):
-
-        guid_cmd = [system_path["qubes_guid_path"],
-                    "-d", str(self.stubdom_xid),
-                    "-t", str(self.xid),
-                    "-N", self.name,
-                    "-c", self.label.color,
-                    "-i", self.label.icon_path,
-                    "-l", str(self.label.index)]
-        if self.debug:
-            guid_cmd += ['-v', '-v']
-        elif not verbose:
-            guid_cmd += ['-q']
-        retcode = subprocess.call (guid_cmd)
-        if (retcode != 0) :
-            raise QubesException("Cannot start qubes-guid!")
-
-    def start_guid(self, verbose=True, notify_function=None,
-                   before_qrexec=False, **kwargs):
-        if not before_qrexec:
-            return
-
-        if not self.guiagent_installed or self.debug:
-            if verbose:
-                print >> sys.stderr, "--> Starting Qubes GUId (full screen)..."
-            self.start_stubdom_guid(verbose=verbose)
-
-        kwargs['extra_guid_args'] = kwargs.get('extra_guid_args', []) + \
-            ['-Q', '-n']
-
-        stubdom_guid_pidfile = \
-            '/var/run/qubes/guid-running.%d' % self.stubdom_xid
-        if not self.debug and os.path.exists(stubdom_guid_pidfile):
-            # Terminate stubdom guid once "real" gui agent connects
-            stubdom_guid_pid = int(open(stubdom_guid_pidfile, 'r').read())
-            kwargs['extra_guid_args'] += ['-K', str(stubdom_guid_pid)]
-
-        super(QubesHVm, self).start_guid(verbose, notify_function, **kwargs)
-
-    def start_qrexec_daemon(self, **kwargs):
-        if not self.qrexec_installed:
-            if kwargs.get('verbose', False):
-                print >> sys.stderr, "--> Starting the qrexec daemon..."
-            xid = self.get_xid()
-            qrexec_env = os.environ.copy()
-            qrexec_env['QREXEC_STARTUP_NOWAIT'] = '1'
-            retcode = subprocess.call ([system_path["qrexec_daemon_path"], str(xid), self.name, self.default_user], env=qrexec_env)
-            if (retcode != 0) :
-                self.force_shutdown(xid=xid)
-                raise OSError ("ERROR: Cannot execute qrexec-daemon!")
-        else:
-            super(QubesHVm, self).start_qrexec_daemon(**kwargs)
-
-            if self.guiagent_installed:
-                if kwargs.get('verbose'):
-                    print >> sys.stderr, "--> Waiting for user '%s' login..." % self.default_user
-
-                self.wait_for_session(notify_function=kwargs.get('notify_function', None))
-                self.send_gui_mode()
-
-    def send_gui_mode(self):
-        if self.seamless_gui_mode:
-            service_input = "SEAMLESS"
-        else:
-            service_input = "FULLSCREEN"
-
-        self.run_service("qubes.SetGuiMode", input=service_input)
-
     def _cleanup_zombie_domains(self):
         super(QubesHVm, self)._cleanup_zombie_domains()
         if not self.is_running():
@@ -415,15 +238,6 @@ class QubesHVm(QubesResizableVm):
                     if os.path.exists(guid_pidfile):
                         guid_pid = open(guid_pidfile).read().strip()
                         os.kill(int(guid_pid), 15)
-
-    def suspend(self):
-        if dry_run:
-            return
-
-        if not self.is_running() and not self.is_paused():
-            raise QubesException ("VM not running!")
-
-        self.pause()
 
     def is_guid_running(self):
         # If user force the guiagent, is_guid_running will mimic a standard QubesVM
@@ -444,5 +258,3 @@ class QubesHVm(QubesResizableVm):
         if self.qrexec_installed and not self.is_qrexec_running():
             return False
         return True
-
-register_qubes_vm_class(QubesHVm)

@@ -58,6 +58,7 @@ class GUI(qubes.ext.Extension):
             '-c', vm.label.color,
             '-i', vm.label.icon_path,
             '-l', str(vm.label.index)]
+
         if extra_guid_args is not None:
             guid_cmd += extra_guid_args
 
@@ -68,13 +69,80 @@ class GUI(qubes.ext.Extension):
         else:
             guid_cmd += ['-q']
 
-        retcode = subprocess.call(guid_cmd)
-        if retcode != 0:
+        if vm.hvm:
+            guid_cmd += ['-Q', '-n']
+
+            stubdom_guid_pidfile = \
+                '/var/run/qubes/guid-running.{}'.format(self.get_stubdom_xid(vm))
+            if not vm.debug and os.path.exists(stubdom_guid_pidfile):
+                # Terminate stubdom guid once "real" gui agent connects
+                stubdom_guid_pid = open(stubdom_guid_pidfile, 'r').read().strip()
+                guid_cmd += ['-K', stubdom_guid_pid]
+
+        try:
+            subprocess.check_call(guid_cmd)
+        except subprocess.CalledProcessError:
             raise qubes.exc.QubesVMError(vm,
                 'Cannot start qubes-guid for domain {!r}'.format(vm.name))
 
         vm.notify_monitor_layout()
         vm.wait_for_session()
+
+
+    @staticmethod
+    def get_stubdom_xid(vm):
+        if vm.xid < 0:
+            return -1
+
+        if vm.app.vmm.xs is None:
+            return -1
+
+        stubdom_xid_str = vm.app.vmm.xs.read('',
+            '/local/domain/{}/image/device-model-domid'.format(vm.xid))
+        if stubdom_xid_str is None or not stubdom_xid_str.isdigit():
+            return -1
+
+        return int(stubdom_xid_str)
+
+
+    @staticmethod
+    def send_gui_mode(vm):
+        vm.run_service('qubes.SetGuiMode',
+            input=('SEAMLESS'
+            if vm.features.get('gui-seamless', False)
+            else 'FULLSCREEN'))
+
+
+    @qubes.ext.handler('domain-spawn')
+    def on_domain_spawn(self, vm, event, start_guid=True, **kwargs):
+        if not start_guid:
+            return
+
+        if not vm.hvm:
+            return
+
+        if not os.getenv('DISPLAY'):
+            vm.log.error('Not starting gui daemon, no DISPLAY set')
+            return
+
+        guid_cmd = [qubes.config.system_path['qubes_guid_path'],
+            '-d', str(self.get_stubdom_xid(vm)),
+            '-t', str(vm.xid),
+            '-N', vm.name,
+            '-c', vm.label.color,
+            '-i', vm.label.icon_path,
+            '-l', str(vm.label.index),
+            ]
+
+        if vm.debug:
+            guid_cmd += ['-v', '-v']
+        else:
+            guid_cmd += ['-q']
+
+        try:
+            subprocess.check_call(guid_cmd)
+        except subprocess.CalledProcesException:
+            raise qubes.exc.QubesVMError(vm, 'Cannot start gui daemon')
 
 
     @qubes.ext.handler('monitor-layout-change')

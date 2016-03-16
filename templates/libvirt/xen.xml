@@ -27,10 +27,14 @@
 			<viridian/>
 		</features>
 
-        {# TODO
-        <clock offset="variable"
-            adjustment='{timeoffset}' basis='{time_basis}'/>
-        #}
+        {% set timezone = vm.features.check_with_template('timezone', 'localtime').lower() %}
+        {% if timezone == 'localtime' %}
+            <clock offset="variable" adjustment="0" basis="localtime" />
+        {% elif timezone.isdigit() %}
+            <clock offset="variable" adjustment="{{ timezone }}" basis="UTC" />
+        {% else %}
+            <clock offset="variable" adjustment="0" basis="UTC" />
+        {% endif %}
 	{% else %}
 		<clock offset='utc' adjustment='reset'>
 			<timer name="tsc" mode="native"/>
