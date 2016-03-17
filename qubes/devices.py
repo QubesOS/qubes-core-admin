@@ -24,6 +24,8 @@
 
 import re
 
+import qubes
+
 class DeviceCollection(object):
     '''Bag for devices.
 
@@ -44,6 +46,14 @@ class DeviceCollection(object):
 
         :param str device: device identifier (format is class-dependent)
         '''
+
+        try:
+            devclass = qubes.get_entry_point_one('qubes.devices', self._class)
+        except KeyError:
+            devclass = str
+
+        if not isinstance(device, devclass):
+            device = devclass(device)
 
         if device in self:
             raise KeyError(

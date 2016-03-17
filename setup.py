@@ -39,5 +39,8 @@ if __name__ == '__main__':
                 'qubes.ext.gui = qubes.ext.gui:GUI',
                 'qubes.ext.r3compatibility = qubes.ext.r3compatibility:R3Compatibility',
             ],
+            'qubes.devices': [
+                'pci = qubes.devices:PCIDevice',
+            ],
         }
     )

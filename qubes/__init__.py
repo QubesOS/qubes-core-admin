@@ -81,6 +81,18 @@ except ImportError:
     pass
 
 
+def get_entry_point_one(group, name):
+    epoints = tuple(pkg_resources.iter_entry_points(group, name))
+    if not epoints:
+        raise KeyError(name)
+    elif len(epoints) > 1:
+        raise TypeError(
+            'more than 1 implementation of {!r} found: {}'.format(name,
+                ', '.join('{}.{}'.format(ep.module_name, '.'.join(ep.attrs))
+                    for ep in epoints)))
+    return epoints[0].load()
+
+
 class VMMConnection(object):
     '''Connection to Virtual Machine Manager (libvirt)'''
 
@@ -1401,18 +1413,13 @@ class Qubes(PropertyHolder):
         :param str clsname: name of the class
         :return type: class
         '''
-        epoints = tuple(pkg_resources.iter_entry_points('qubes.vm', clsname))
-        if not epoints:
+
+        try:
+            get_entry_point_one('qubes.vm', clsname)
+        except KeyError:
             raise qubes.exc.QubesException(
                 'no such VM class: {!r}'.format(clsname))
-        elif len(epoints) > 1:
-            raise qubes.exc.QubesException(
-                'more than 1 implementation of {!r} found: {}'.format(
-                    clsname,
-                    ', '.join(
-                        '{}.{}'.format(ep.module_name, '.'.join(ep.attrs))
-                        for ep in epoints)))
-        return epoints[0].load()
+        # don't catch TypeError
 
 
     def add_new_vm(self, cls, qid=None, **kwargs):
