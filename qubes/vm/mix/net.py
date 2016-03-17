@@ -36,11 +36,7 @@ import qubes.exc
 
 class NetVMMixin(object):
     mac = qubes.property('mac', type=str,
-        default=(lambda self:
-            self.template.mac if self.hvm
-                and hasattr(self, 'template')
-                and self.template is not None
-            else '00:16:3E:5E:6C:{:02X}'.format(self.qid)),
+        default='00:16:3E:5E:6C:00',
         ls_width=17,
         doc='MAC address of the NIC emulated inside VM')
 
