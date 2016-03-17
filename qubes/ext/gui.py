@@ -25,10 +25,45 @@
 #
 
 import os
+import re
 import subprocess
 
 import qubes.config
 import qubes.ext
+
+
+# "LVDS connected 1024x768+0+0 (normal left inverted right) 304mm x 228mm"
+REGEX_OUTPUT = re.compile(r'''
+        (?x)                           # ignore whitespace
+        ^                              # start of string
+        (?P<output>[A-Za-z0-9\-]*)[ ]  # LVDS VGA etc
+        (?P<connect>(dis)?connected)[ ]# dis/connected
+        (?P<primary>(primary)?)[ ]?
+        ((                             # a group
+           (?P<width>\d+)x             # either 1024x768+0+0
+           (?P<height>\d+)[+]
+           (?P<x>\d+)[+]
+           (?P<y>\d+)
+         )|[\D])                       # or not a digit
+        .*                             # ignore rest of line
+        ''')
+
+
+def get_monitor_layout():
+    outputs = []
+
+    for line in subprocess.Popen(
+            ['xrandr', '-q'], stdout=subprocess.PIPE).stdout:
+        if not line.startswith("Screen") and not line.startswith(" "):
+            output_params = REGEX_OUTPUT.match(line).groupdict()
+            if output_params['width']:
+                outputs.append("%s %s %s %s\n" % (
+                            output_params['width'],
+                            output_params['height'],
+                            output_params['x'],
+                            output_params['y']))
+    return outputs
+
 
 class GUI(qubes.ext.Extension):
     @qubes.ext.handler('domain-start', 'domain-cmd-pre-run')
@@ -41,6 +76,10 @@ class GUI(qubes.ext.Extension):
 
         if not start_guid or preparing_dvm \
                 or not os.path.exists('/var/run/shm.id'):
+            return
+
+        # FIXME move this method to this extension, plugged to event
+        if vm.is_guid_running():
             return
 
         if not vm.features.check_with_template('gui', not vm.hvm):
@@ -85,7 +124,7 @@ class GUI(qubes.ext.Extension):
             raise qubes.exc.QubesVMError(vm,
                 'Cannot start qubes-guid for domain {!r}'.format(vm.name))
 
-        vm.notify_monitor_layout()
+        vm.fire_event('monitor-layout-change')
         vm.wait_for_session()
 
 
@@ -146,11 +185,16 @@ class GUI(qubes.ext.Extension):
 
 
     @qubes.ext.handler('monitor-layout-change')
-    def on_monitor_layout_change(self, vm, event, monitor_layout):
+    def on_monitor_layout_change(self, vm, event, monitor_layout=None):
         # pylint: disable=no-self-use
         if vm.features.check_with_template('no-monitor-layout', False) \
                 or not vm.is_running():
             return
+
+        if monitor_layout is None:
+            monitor_layout = get_monitor_layout()
+            if not monitor_layout:
+                return
 
         pipe = vm.run('QUBESRPC qubes.SetMonitorLayout dom0',
             passio_popen=True, wait=True)

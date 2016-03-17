@@ -26,43 +26,10 @@
 
 # TODO allow to set properties and create domains
 
-import re
-import subprocess
 import threading
 
+import qubes.ext.gui
 import qubes.tools
-
-# "LVDS connected 1024x768+0+0 (normal left inverted right) 304mm x 228mm"
-REGEX_OUTPUT = re.compile(r'''
-        (?x)                           # ignore whitespace
-        ^                              # start of string
-        (?P<output>[A-Za-z0-9\-]*)[ ]  # LVDS VGA etc
-        (?P<connect>(dis)?connected)[ ]# dis/connected
-        (?P<primary>(primary)?)[ ]?
-        ((                             # a group
-           (?P<width>\d+)x             # either 1024x768+0+0
-           (?P<height>\d+)[+]
-           (?P<x>\d+)[+]
-           (?P<y>\d+)
-         )|[\D])                       # or not a digit
-        .*                             # ignore rest of line
-        ''')
-
-
-def get_monitor_layout():
-    outputs = []
-
-    for line in subprocess.Popen(
-            ['xrandr', '-q'], stdout=subprocess.PIPE).stdout:
-        if not line.startswith("Screen") and not line.startswith(" "):
-            output_params = REGEX_OUTPUT.match(line).groupdict()
-            if output_params['width']:
-                outputs.append("%s %s %s %s\n" % (
-                            output_params['width'],
-                            output_params['height'],
-                            output_params['x'],
-                            output_params['y']))
-    return outputs
 
 
 parser = qubes.tools.QubesArgumentParser(
@@ -80,7 +47,7 @@ def main(args=None):
     '''
 
     args = parser.parse_args(args)
-    monitor_layout = get_monitor_layout()
+    monitor_layout = qubes.ext.gui.get_monitor_layout()
 
     # notify only if we've got a non-empty monitor_layout or else we
     # break proper qube resolution set by gui-agent
@@ -88,10 +55,10 @@ def main(args=None):
         args.app.log.error('cannot get monitor layout')
         return 1
 
+    subprocess.check_call(['killall', '-HUP', 'qubes-guid'])
     if args.vm:
         args.vm.fire_event('monitor-layout-change', monitor_layout)
     else:
-        subprocess.check_call(['killall', '-HUP', 'qubes-guid'])
         threads = []
 
         for vm in args.app.domains:
