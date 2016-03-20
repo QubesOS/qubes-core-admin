@@ -24,23 +24,24 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
+""" Qubes storage system"""
+
 from __future__ import absolute_import
 
 import ConfigParser
-import importlib
 import os
 import os.path
-import re
 import shutil
 import subprocess
-import sys
 
+import pkg_resources
 import qubes
 import qubes.exc
 import qubes.utils
 
 BLKSIZE = 512
 CONFIG_FILE = '/etc/qubes/storage.conf'
+STORAGE_ENTRY_POINT = 'qubes.storage'
 
 
 class StoragePoolException(qubes.exc.QubesException):
@@ -78,7 +79,6 @@ class Storage(object):
         #: Additional drive (currently used only by HVM)
         self.drive = None
 
-
     def get_config_params(self):
         args = {}
         args['rootdev'] = self.root_dev_config()
@@ -89,7 +89,6 @@ class Storage(object):
         args['kerneldir'] = self.kernels_dir
 
         return args
-
 
     def root_dev_config(self):
         raise NotImplementedError()
@@ -357,42 +356,6 @@ def get_disk_usage(path):
     return ret
 
 
-def load(clsname):
-    '''Given a dotted full module string representation of a class it loads it
-
-        Args:
-            string (str) i.e. 'qubes.storage.xen.QubesXenVmStorage'
-
-        Returns:
-            type
-
-        See also:
-            :func:`qubes.storage.dump`
-
-    :raises ImportError: when storage class specified in config cannot be found
-    :raises KeyError: when storage class specified in config cannot be found
-    '''
-
-    if not isinstance(clsname, basestring):
-        return clsname
-    pkg, cls = clsname.strip().rsplit('.', 1)
-
-    # this may raise ImportError or KeyError, that's okay
-    return importlib.import_module(pkg).__dict__[cls]
-
-
-def dump(o):
-    """ Returns a string represention of the given object
-
-        Args:
-            o (object): anything that response to `__module__` and `__class__`
-
-        Given the class :class:`qubes.storage.QubesVmStorage` it returns
-        'qubes.storage.QubesVmStorage' as string
-    """
-    return o.__module__ + '.' + o.__class__.__name__
-
-
 def get_pool(name, vm):
     """ Instantiates the storage for the specified vm """
     config = _get_storage_config_parser()
@@ -465,16 +428,15 @@ def _get_pool_klass(name, config=None):
 
     if not config.has_section(name):
         raise StoragePoolException('Uknown storage pool ' + name)
+    elif not config.has_option(name, 'driver'):
+        raise StoragePoolException('No driver specified for pool ' + name)
 
-    if config.has_option(name, 'class'):
-        klass = load(config.get(name, 'class'))
-    elif config.has_option(name, 'driver'):
-        pool_driver = config.get(name, 'driver')
-        klass = load(qubes.config.defaults['pool_drivers'][pool_driver])
-    else:
-        raise StoragePoolException('Uknown storage pool driver ' + name)
-    return klass
 
+    driver = config.get(name, 'driver')
+    try:
+        return qubes.get_entry_point_one(STORAGE_ENTRY_POINT, driver)
+    except KeyError:
+        raise StoragePoolException('Driver %s for pool %s' % (driver, name))
 
 class Pool(object):
     def __init__(self, vm, dir_path):
@@ -533,3 +495,9 @@ class Pool(object):
         """
         if not os.path.exists(path):
             os.mkdir(path)
+
+
+def pool_drivers():
+    """ Return a list of EntryPoints names """
+    return [ep.name
+        for ep in pkg_resources.iter_entry_points(STORAGE_ENTRY_POINT)]
