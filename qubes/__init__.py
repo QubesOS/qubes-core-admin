@@ -48,8 +48,6 @@ import time
 
 import __builtin__
 
-import docutils.core
-import docutils.io
 import jinja2
 import lxml.etree
 import pkg_resources
@@ -1190,8 +1188,8 @@ class Qubes(PropertyHolder):
         #: collection of all available labels for VMs
         self.labels = {}
 
-        #: collection of all available pool configurations
-        self.pool_configs = {}
+        #: collection of all pools
+        self.pools = {}
 
         #: Connection to VMM
         self.vmm = VMMConnection()
@@ -1262,9 +1260,11 @@ class Qubes(PropertyHolder):
 
         for node in self.xml.xpath('./pools/pool'):
             name = node.get('name')
-            config_data = node.attrib
-            del(config_data['name'])
-            self.pool_configs[name] = config_data
+            assert name, "Pool name '%s' is invalid " % name
+            try:
+                self.pools[name] = self._get_pool(**node.attrib)
+            except qubes.exc.QubesException as e:
+                self.log.error(e.message)
 
         # stage 2: load VMs
         for node in self.xml.xpath('./domains/domain'):
@@ -1400,7 +1400,9 @@ class Qubes(PropertyHolder):
             7: Label(7, '0x75507b', 'purple'),
             8: Label(8, '0x000000', 'black'),
         }
-        self.pool_configs['default'] = qubes.config.defaults['pool_config']
+        for name, config in qubes.config.defaults['pool_configs'].items():
+            self.pools[name] = self._get_pool(**config)
+
         self.domains.add(
             qubes.vm.adminvm.AdminVM(self, None, qid=0, name='dom0'))
         self.save()
@@ -1421,12 +1423,12 @@ class Qubes(PropertyHolder):
 
     def xml_pool_configs(self):
         """ Helper for converting pools config to xml """
-        pools = lxml.etree.Element('pools')
-        for config_data in self.pool_configs.values():
-            p = lxml.etree.Element('pool',  **config_data)
-            pools.append(p)
+        pools_xml = lxml.etree.Element('pools')
+        for pool in self.pools.values():
+            p = lxml.etree.Element('pool', **pool.config)
+            pools_xml.append(p)
 
-        return pools
+        return pools_xml
 
     def get_vm_class(self, clsname):
         '''Find the class for a domain.
@@ -1487,6 +1489,48 @@ class Qubes(PropertyHolder):
 
         raise KeyError(label)
 
+    def add_pool(self, **kwargs):
+        """ Add a storage pool to config."""
+        name = kwargs['name']
+        self.pools[name] = self._get_pool(**kwargs)
+        self.save()
+
+    def remove_pool(self, name):
+        """ Remove a storage pool from config file.  """
+        try:
+            del self.pools[name]
+        except KeyError:
+            return
+
+        self.save()
+
+    def get_pool(self, name):
+        '''  Returns a :py:class:`qubes.storage.Pool` instance '''
+        try:
+            return self.pools[name]
+        except KeyError:
+            raise qubes.exc.QubesException('Unknown storage pool ' + name)
+
+    def _get_pool(self, **kwargs):
+        try:
+            name = kwargs['name']
+            assert name, 'Name needs to be an non empty string'
+        except KeyError:
+            raise qubes.exc.QubesException('No pool name for pool')
+
+        try:
+            driver = kwargs['driver']
+        except KeyError:
+            raise qubes.exc.QubesException('No driver specified for pool ' +
+                                           name)
+        try:
+            klass = qubes.get_entry_point_one(
+                qubes.storage.STORAGE_ENTRY_POINT, driver)
+            del kwargs['driver']
+            return klass(**kwargs)
+        except KeyError:
+            raise qubes.exc.QubesException('Driver %s for pool %s' %
+                                           (driver, name))
 
     @qubes.events.handler('domain-pre-delete')
     def on_domain_pre_deleted(self, event, vm):

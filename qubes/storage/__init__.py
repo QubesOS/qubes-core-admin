@@ -28,7 +28,6 @@
 
 from __future__ import absolute_import
 
-import ConfigParser
 import os
 import os.path
 import shutil
@@ -40,7 +39,6 @@ import qubes.exc
 import qubes.utils
 
 BLKSIZE = 512
-CONFIG_FILE = '/etc/qubes/storage.conf'
 STORAGE_ENTRY_POINT = 'qubes.storage'
 
 
@@ -352,89 +350,6 @@ def get_disk_usage(path):
             ret += get_disk_usage_one(os.lstat(os.path.join(dirpath, name)))
 
     return ret
-
-
-def get_pool(name, vm):
-    """ Instantiates the storage for the specified vm """
-    config = _get_storage_config_parser()
-
-    klass = _get_pool_klass(name, config)
-
-    keys = [k for k in config.options(name) if k != 'driver' and k != 'class']
-    values = [config.get(name, o) for o in keys]
-    config_kwargs = dict(zip(keys, values))
-
-    if name == 'default':
-        kwargs = qubes.config.defaults['pool_config'].copy()
-        kwargs.update(keys)
-    else:
-        kwargs = config_kwargs
-
-    return klass(vm, **kwargs)
-
-
-def pool_exists(name):
-    """ Check if the specified pool exists """
-    try:
-        _get_pool_klass(name)
-        return True
-    except StoragePoolException:
-        return False
-
-def add_pool(name, **kwargs):
-    """ Add a storage pool to config."""
-    config = _get_storage_config_parser()
-    config.add_section(name)
-    for key, value in kwargs.iteritems():
-        config.set(name, key, value)
-    _write_config(config)
-
-def remove_pool(name):
-    """ Remove a storage pool from config file.  """
-    config = _get_storage_config_parser()
-    config.remove_section(name)
-    _write_config(config)
-
-def _write_config(config):
-    with open(CONFIG_FILE, 'w') as configfile:
-        config.write(configfile)
-
-def _get_storage_config_parser():
-    """ Instantiates a `ConfigParaser` for specified storage config file.
-
-        Returns:
-            RawConfigParser
-    """
-    config = ConfigParser.RawConfigParser()
-    config.read(CONFIG_FILE)
-    return config
-
-
-def _get_pool_klass(name, config=None):
-    """ Returns the storage klass for the specified pool.
-
-        Args:
-            name: The pool name.
-            config: If ``config`` is not specified
-                    `_get_storage_config_parser()` is called.
-
-        Returns:
-            type: A class inheriting from `QubesVmStorage`
-    """
-    if config is None:
-        config = _get_storage_config_parser()
-
-    if not config.has_section(name):
-        raise StoragePoolException('Uknown storage pool ' + name)
-    elif not config.has_option(name, 'driver'):
-        raise StoragePoolException('No driver specified for pool ' + name)
-
-
-    driver = config.get(name, 'driver')
-    try:
-        return qubes.get_entry_point_one(STORAGE_ENTRY_POINT, driver)
-    except KeyError:
-        raise StoragePoolException('Driver %s for pool %s' % (driver, name))
 
 class Pool(object):
     def __init__(self, vm, dir_path):
