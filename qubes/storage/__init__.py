@@ -357,7 +357,7 @@ class Pool(object):
         assert dir_path is not None
 
         self.vm = vm
-        self.dir_path = dir_path
+        self.dir_path = os.path.normpath(dir_path)
 
         self.create_dir_if_not_exists(self.dir_path)
 
