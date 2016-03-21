@@ -36,8 +36,6 @@ __author__ = 'Invisible Things Lab'
 __license__ = 'GPLv2 or later'
 __version__ = 'R3'
 
-import ast
-import atexit
 import collections
 import errno
 import grp
@@ -47,7 +45,6 @@ import os.path
 import sys
 import tempfile
 import time
-import warnings
 
 import __builtin__
 
@@ -1181,7 +1178,6 @@ class Qubes(PropertyHolder):
         default=True,
         doc='check for updates inside qubes')
 
-
     def __init__(self, store=None, load=True, **kwargs):
         #: logger instance for logging global messages
         self.log = logging.getLogger('app')
@@ -1193,6 +1189,9 @@ class Qubes(PropertyHolder):
 
         #: collection of all available labels for VMs
         self.labels = {}
+
+        #: collection of all available pool configurations
+        self.pool_configs = {}
 
         #: Connection to VMM
         self.vmm = VMMConnection()
@@ -1235,7 +1234,7 @@ class Qubes(PropertyHolder):
         '''
 
         try:
-            fd = os.open(self._store, os.O_RDWR) # no O_CREAT
+            fd = os.open(self._store, os.O_RDWR)  # no O_CREAT
         except OSError as e:
             if e.errno != errno.ENOENT:
                 raise
@@ -1256,10 +1255,16 @@ class Qubes(PropertyHolder):
 
         self.xml = lxml.etree.parse(fh)
 
-        # stage 1: load labels
+        # stage 1: load labels and pools
         for node in self.xml.xpath('./labels/label'):
             label = Label.fromxml(node)
             self.labels[label.index] = label
+
+        for node in self.xml.xpath('./pools/pool'):
+            name = node.get('name')
+            config_data = node.attrib
+            del(config_data['name'])
+            self.pool_configs[name] = config_data
 
         # stage 2: load VMs
         for node in self.xml.xpath('./domains/domain'):
@@ -1270,7 +1275,7 @@ class Qubes(PropertyHolder):
             vm.init_log()
             self.domains.add(vm)
 
-        if not 0 in self.domains:
+        if 0 not in self.domains:
             self.domains.add(qubes.vm.adminvm.AdminVM(
                 self, None, qid=0, name='dom0'))
 
@@ -1310,11 +1315,11 @@ class Qubes(PropertyHolder):
         fh.close()
         del fh
 
-
     def __xml__(self):
         element = lxml.etree.Element('qubes')
 
         element.append(self.xml_labels())
+        element.append(self.xml_pool_configs())
         element.append(self.xml_properties())
 
         domains = lxml.etree.Element('domains')
@@ -1395,6 +1400,7 @@ class Qubes(PropertyHolder):
             7: Label(7, '0x75507b', 'purple'),
             8: Label(8, '0x000000', 'black'),
         }
+        self.pool_configs['default'] = qubes.config.defaults['pool_config']
         self.domains.add(
             qubes.vm.adminvm.AdminVM(self, None, qid=0, name='dom0'))
         self.save()
@@ -1413,6 +1419,14 @@ class Qubes(PropertyHolder):
             labels.append(label.__xml__())
         return labels
 
+    def xml_pool_configs(self):
+        """ Helper for converting pools config to xml """
+        pools = lxml.etree.Element('pools')
+        for config_data in self.pool_configs.values():
+            p = lxml.etree.Element('pool',  **config_data)
+            pools.append(p)
+
+        return pools
 
     def get_vm_class(self, clsname):
         '''Find the class for a domain.
