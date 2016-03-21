@@ -189,9 +189,34 @@ class TC_01_XenPool(QubesTestCase):
         self.assertEqualsAndExists(vm.storage.volatile_img,
                                    expected_volatile_path)
 
-    @unittest.skip('test not implemented') # TODO
-    def test_013_template_based_file_images(self):
-        pass
+    def test_013_template_file_images(self):
+        """ Check if root.img, private.img, volatile.img and root-cow.img are
+            created propertly by the storage system
+        """
+        vmname = self.make_vm_name('tmvm')
+        vm = self.app.add_new_vm(qubes.vm.templatevm.TemplateVM, name=vmname,
+                                 pool_name='test-pool', label='red')
+        vm.storage.create_on_disk()
+
+        expected_vmdir = os.path.join(self.TEMPLATES_DIR, vm.name)
+        self.assertEqualsAndExists(vm.storage.vmdir, expected_vmdir)
+
+        expected_root_path = os.path.join(expected_vmdir, 'root.img')
+        self.assertEqualsAndExists(vm.storage.root_img, expected_root_path)
+
+        expected_private_path = os.path.join(expected_vmdir, 'private.img')
+        self.assertEqualsAndExists(vm.storage.private_img,
+                                   expected_private_path)
+
+        expected_volatile_path = os.path.join(expected_vmdir, 'volatile.img')
+        self.assertEqualsAndExists(vm.storage.volatile_img,
+                                   expected_volatile_path)
+
+        vm.storage.commit_template_changes()
+        expected_rootcow_path = os.path.join(expected_vmdir, 'root-cow.img')
+        self.assertEqualsAndExists(vm.storage.rootcow_img,
+                                   expected_rootcow_path)
+
 
     def assertEqualsAndExists(self, result_path, expected_path):
         """ Check if the ``result_path``, matches ``expected_path`` and exists.
