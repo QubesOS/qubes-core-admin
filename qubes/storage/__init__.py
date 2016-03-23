@@ -352,11 +352,13 @@ def get_disk_usage(path):
     return ret
 
 class Pool(object):
-    def __init__(self, vm, dir_path):
+    def __init__(self, vm, dir_path, name):
         assert vm is not None
         assert dir_path is not None
+        assert name
 
         self.vm = vm
+        self.name = name
         self.dir_path = os.path.normpath(dir_path)
 
         self.create_dir_if_not_exists(self.dir_path)
