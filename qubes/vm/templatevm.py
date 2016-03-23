@@ -22,6 +22,7 @@ class TemplateVM(qubes.vm.qubesvm.QubesVM):
                 yield vm
 
     def __init__(self, *args, **kwargs):
+        assert 'template' not in kwargs, "A TemplateVM can not have a template"
         super(TemplateVM, self).__init__(*args, **kwargs)
 
         # Some additional checks for template based VM
