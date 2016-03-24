@@ -6,6 +6,7 @@
 #
 # Copyright (C) 2010-2016  Joanna Rutkowska <joanna@invisiblethingslab.com>
 # Copyright (C) 2015-2016  Wojtek Porczyk <woju@invisiblethingslab.com>
+# Copyright (C) 2016       Bahtiar `kalkin-` Gadimov <bahtiar@gadimov.de>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -25,6 +26,7 @@
 import re
 
 import qubes
+
 
 class DeviceCollection(object):
     '''Bag for devices.
@@ -121,3 +123,16 @@ class RegexDevice(str):
 class PCIDevice(RegexDevice):
     regex = re.compile(
         r'^(?P<bus>[0-9a-f]+):(?P<device>[0-9a-f]+)\.(?P<function>[0-9a-f]+)$')
+
+
+class BlockDevice(object):
+    def __init__(self, path, name, script=None, rw=True, domain=None,
+                 devtype='disk'):
+        assert name, 'Missing device name'
+        assert path, 'Missing device path'
+        self.path = path
+        self.name = name
+        self.rw = rw
+        self.script = script
+        self.domain = domain
+        self.devtype = devtype
