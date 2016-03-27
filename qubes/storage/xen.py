@@ -31,12 +31,11 @@ import os.path
 import re
 import subprocess
 
-import lxml.etree
-
 import qubes
 import qubes.config
 import qubes.storage
 import qubes.vm.templatevm
+from qubes.devices import BlockDevice
 
 
 class XenStorage(qubes.storage.Storage):
@@ -92,39 +91,19 @@ class XenStorage(qubes.storage.Storage):
         '''Path to the volatile image'''
         return self.abspath(qubes.config.vm_files['volatile_img'])
 
+    def format_disk_dev(self, path, name, script=None, rw=True, devtype='disk',
+                        domain=None):
 
-    def format_disk_dev(self, path, vdev, script=None, rw=True, devtype='disk',
-            domain=None):
-        if path is None:
-            return ''
-
-        element = lxml.etree.Element('disk')
-        element.set('type', 'block')
-        element.set('device', devtype)
-
-        element.append(lxml.etree.Element('driver', name='phy'))
-        element.append(lxml.etree.Element('source', dev=path))
-        element.append(lxml.etree.Element('target', dev=vdev))
-
-        if not rw:
-            element.append(lxml.etree.Element('readonly'))
-        if domain is not None:
-            # XXX vm.name?
-            element.append(lxml.etree.Element('domain', name=domain))
-        if script:
-            element.append(lxml.etree.Element('script', path=script))
-
-        # TODO return element
-        return lxml.etree.tostring(element)
-
+        return BlockDevice(path, name, script, rw, domain, devtype)
 
     def root_dev_config(self):
+        dev_name = 'root'
         if isinstance(self.vm, qubes.vm.templatevm.TemplateVM):
             return self.format_disk_dev(
                 '{root}:{rootcow}'.format(
                     root=self.root_img,
                     rootcow=self.rootcow_img),
-                self.root_dev,
+                dev_name,
                 script='block-origin')
 
         elif self.vm.hvm and hasattr(self.vm, 'template'):
@@ -137,7 +116,7 @@ class XenStorage(qubes.storage.Storage):
                 '{root}:{volatile}'.format(
                     root=self.vm.template.storage.root_img,
                     volatile=self.volatile_img),
-                self.root_dev,
+                dev_name,
                 script='block-snapshot')
 
         elif hasattr(self.vm, 'template'):
@@ -154,14 +133,14 @@ class XenStorage(qubes.storage.Storage):
 
         else:
             # standalone qube
-            return self.format_disk_dev(self.root_img, self.root_dev)
+            return self.format_disk_dev(self.root_img, dev_name)
 
 
     def private_dev_config(self):
-        return self.format_disk_dev(self.private_img, self.private_dev)
+        return self.format_disk_dev(self.private_img, 'private')
 
     def volatile_dev_config(self):
-        return self.format_disk_dev(self.volatile_img, self.volatile_dev)
+        return self.format_disk_dev(self.volatile_img, 'volatile')
 
 
     def create_on_disk_private_img(self, source_template=None):

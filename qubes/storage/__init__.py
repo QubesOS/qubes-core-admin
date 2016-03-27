@@ -101,8 +101,7 @@ class Storage(object):
 
     def other_dev_config(self):
         if self.modules_img is not None:
-            return self.format_disk_dev(self.modules_img, self.modules_dev,
-                rw=self.modules_img_rw)
+            return BlockDevice(self.modules_img, 'kernel', rw=False)
         elif self.drive is not None:
             (drive_type, drive_domain, drive_path) = self.drive.split(":")
             if drive_type == 'hd':
@@ -114,18 +113,17 @@ class Storage(object):
                 drive_domain = None
 
             return self.format_disk_dev(drive_path,
-                self.modules_dev,
-                rw=rw,
-                devtype=drive_type,
-                domain=drive_domain)
+                                        'other',
+                                        rw=rw,
+                                        devtype=drive_type,
+                                        domain=drive_domain)
 
         else:
             return ''
 
-    def format_disk_dev(self, path, vdev, script=None, rw=True, devtype='disk',
-            domain=None):
+    def format_disk_dev(self, path, name, script=None, rw=True, devtype='disk',
+                        domain=None):
         raise NotImplementedError()
-
 
     @property
     def kernels_dir(self):
