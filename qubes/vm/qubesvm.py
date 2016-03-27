@@ -331,6 +331,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 raise
         return self._libvirt_domain
 
+    @property
+    def block_devices(self):
+        return [self.storage.root_dev_config(),
+                self.storage.private_dev_config(),
+                self.storage.volatile_dev_config(),
+                self.storage.other_dev_config()]
 
     @property
     def qdb(self):
