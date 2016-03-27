@@ -546,6 +546,27 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                                    wait=True)
         self.assertEqual(retcode, 0, "file differs")
 
+    def test_105_qrexec_filemove(self):
+        self.testvm1.start()
+        self.testvm2.start()
+        self.qrexec_policy('qubes.Filecopy', self.testvm1.name,
+            self.testvm2.name)
+        retcode = self.testvm1.run("cp /etc/passwd passwd", wait=True)
+        assert retcode == 0, "Failed to prepare source file"
+        p = self.testvm1.run("qvm-move-to-vm %s passwd" %
+                             self.testvm2.name, passio_popen=True,
+                             passio_stderr=True)
+        p.wait()
+        self.assertEqual(p.returncode, 0, "qvm-move-to-vm failed: %s" %
+                         p.stderr.read())
+        retcode = self.testvm2.run("diff /etc/passwd "
+                                   "/home/user/QubesIncoming/{}/passwd".format(
+                                       self.testvm1.name),
+                                   wait=True)
+        self.assertEqual(retcode, 0, "file differs")
+        retcode = self.testvm1.run("test -f passwd", wait=True)
+        self.assertEqual(retcode, 1, "source file not removed")
+
     def test_101_qrexec_filecopy_with_autostart(self):
         self.testvm1.start()
         self.qrexec_policy('qubes.Filecopy', self.testvm1.name,
