@@ -1415,7 +1415,7 @@ class Qubes(PropertyHolder):
         '''
 
         try:
-            get_entry_point_one('qubes.vm', clsname)
+            return get_entry_point_one('qubes.vm', clsname)
         except KeyError:
             raise qubes.exc.QubesException(
                 'no such VM class: {!r}'.format(clsname))
