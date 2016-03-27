@@ -529,16 +529,14 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             self.fail("Timeout, probably deadlock")
         self.assertEqual(result.value, 0, "Service call failed")
 
-    @unittest.skipUnless(spawn.find_executable('xdotool'),
-                         "xdotool not installed")
     def test_100_qrexec_filecopy(self):
         self.testvm1.start()
         self.testvm2.start()
+        self.qrexec_policy('qubes.Filecopy', self.testvm1.name,
+            self.testvm2.name)
         p = self.testvm1.run("qvm-copy-to-vm %s /etc/passwd" %
                              self.testvm2.name, passio_popen=True,
                              passio_stderr=True)
-        # Confirm transfer
-        self.enter_keys_in_window('Question', ['y'])
         p.wait()
         self.assertEqual(p.returncode, 0, "qvm-copy-to-vm failed: %s" %
                          p.stderr.read())
@@ -548,15 +546,13 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                                    wait=True)
         self.assertEqual(retcode, 0, "file differs")
 
-    @unittest.skipUnless(spawn.find_executable('xdotool'),
-                         "xdotool not installed")
     def test_101_qrexec_filecopy_with_autostart(self):
         self.testvm1.start()
+        self.qrexec_policy('qubes.Filecopy', self.testvm1.name,
+            self.testvm2.name)
         p = self.testvm1.run("qvm-copy-to-vm %s /etc/passwd" %
                              self.testvm2.name, passio_popen=True,
                              passio_stderr=True)
-        # Confirm transfer
-        self.enter_keys_in_window('Question', ['y'])
         p.wait()
         self.assertEqual(p.returncode, 0, "qvm-copy-to-vm failed: %s" %
                          p.stderr.read())
@@ -571,15 +567,13 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                                    wait=True)
         self.assertEqual(retcode, 0, "file differs")
 
-    @unittest.skipUnless(spawn.find_executable('xdotool'),
-                         "xdotool not installed")
     def test_110_qrexec_filecopy_deny(self):
         self.testvm1.start()
         self.testvm2.start()
+        self.qrexec_policy('qubes.Filecopy', self.testvm1.name,
+            self.testvm2.name, allow=False)
         p = self.testvm1.run("qvm-copy-to-vm %s /etc/passwd" %
                              self.testvm2.name, passio_popen=True)
-        # Deny transfer
-        self.enter_keys_in_window('Question', ['n'])
         p.wait()
         self.assertNotEqual(p.returncode, 0, "qvm-copy-to-vm unexpectedly "
                             "succeeded")
@@ -591,15 +585,13 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
 
     @unittest.skip("Xen gntalloc driver crashes when page is mapped in the "
                    "same domain")
-    @unittest.skipUnless(spawn.find_executable('xdotool'),
-                         "xdotool not installed")
     def test_120_qrexec_filecopy_self(self):
         self.testvm1.start()
+        self.qrexec_policy('qubes.Filecopy', self.testvm1.name,
+            self.testvm1.name)
         p = self.testvm1.run("qvm-copy-to-vm %s /etc/passwd" %
                              self.testvm1.name, passio_popen=True,
                              passio_stderr=True)
-        # Confirm transfer
-        self.enter_keys_in_window('Question', ['y'])
         p.wait()
         self.assertEqual(p.returncode, 0, "qvm-copy-to-vm failed: %s" %
                          p.stderr.read())
@@ -614,6 +606,8 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
     def test_130_qrexec_filemove_disk_full(self):
         self.testvm1.start()
         self.testvm2.start()
+        self.qrexec_policy('qubes.Filecopy', self.testvm1.name,
+            self.testvm2.name)
         # Prepare test file
         prepare_cmd = ("yes teststring | dd of=testfile bs=1M "
                        "count=50 iflag=fullblock")
@@ -634,8 +628,6 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         p = self.testvm1.run("qvm-move-to-vm %s testfile" %
                              self.testvm2.name, passio_popen=True,
                              passio_stderr=True)
-        # Confirm transfer
-        self.enter_keys_in_window('Question', ['y'])
         # Close GUI error message
         self.enter_keys_in_window('Error', ['Return'])
         p.wait()
@@ -1319,12 +1311,11 @@ class TC_50_MimeHandlers(qubes.tests.SystemTestsMixin):
                                    passio_popen=True)
             vmpattern = "disp*"
         else:
+            self.qrexec_policy('qubes.Filecopy', self.source_vm.name,
+                self.target_vmname)
             p = self.source_vm.run("qvm-open-in-vm {} {}".format(
                 self.target_vmname, filename), passio_popen=True)
             vmpattern = self.target_vmname
-        if not dispvm:
-            # For opening a file in DispVM default policy is set to "allow"
-            self.enter_keys_in_window('Question', ['y'])
         wait_count = 0
         winid = None
         window_title = None
