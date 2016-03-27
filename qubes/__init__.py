@@ -1104,6 +1104,7 @@ class VMProperty(property):
 
 import qubes.vm.qubesvm
 import qubes.vm.templatevm
+import qubes.vm.adminvm
 
 class Qubes(PropertyHolder):
     '''Main Qubes application
