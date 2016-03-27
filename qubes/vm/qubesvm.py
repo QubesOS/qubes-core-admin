@@ -209,7 +209,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         default='default',
         doc='storage pool for this qube devices')
 
-    dir_path = property((lambda self: self.storage.vmdir),
+    dir_path = property( (lambda self: os.path.join(qubes.config.system_path['qubes_base_dir'], self.dir_path_prefix, self.name)),
         doc='Root directory for files related to this domain')
 
     # XXX swallowed uses_default_kernel
