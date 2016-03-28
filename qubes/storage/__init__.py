@@ -46,8 +46,47 @@ class StoragePoolException(qubes.exc.QubesException):
     pass
 
 
+class Volume(object):
+    ''' Encapsulates all data about a volume for serialization to qubes.xml and
+        libvirt config.
+    '''
+
+    devtype = 'disk'
+    domain = None
+    path = None
+    rw = True
+    script = None
+    usage = 0
+
+    def __init__(self, name=None, pool=None, volume_type=None, vid=None,
+                 size=0):
+        assert name and pool and volume_type
+        self.name = str(name)
+        self.pool = str(pool)
+        self.vid = vid
+        self.size = size
+        self.volume_type = volume_type
+
+    @property
+    def config(self):
+        ''' return config data for serialization to qubes.xml '''
+        return {'name': self.name,
+                'pool': self.pool,
+                'volume_type': self.volume_type}
+
+    def __str__(self):
+        return str({'name': self.name, 'pool': self.pool, 'vid': self.vid})
+
+    def block_device(self):
+        ''' Return :py:class:`qubes.devices.BlockDevice` for serialization in
+            the libvirt XML template as <disk>.
+        '''
+        return BlockDevice(self.path, self.name, self.script, self.rw,
+                           self.domain, self.devtype)
+
+
 class Storage(object):
-    '''Class for handling VM virtual disks.
+    ''' Class for handling VM virtual disks.
 
     This is base class for all other implementations, mostly with Xen on Linux
     in mind.
