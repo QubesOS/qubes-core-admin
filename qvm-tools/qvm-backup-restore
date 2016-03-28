@@ -115,6 +115,8 @@ def main():
         restore_options['use-default-netvm'] = True
     if options.replace_template:
         restore_options['replace-template'] = options.replace_template
+    if options.rename_conflicting:
+        restore_options['rename-conflicting'] = True
     if not options.dom0_home:
         restore_options['dom0-home'] = False
     if options.ignore_username_mismatch:
