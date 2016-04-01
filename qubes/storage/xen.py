@@ -188,6 +188,26 @@ class XenPool(Pool):
         f_cow.close()
         f_root.close()
         os.umask(old_umask)
+        return volume
+
+    def start(self, volume):
+        if volume.volume_type == 'volatile':
+            self._reset_volume(volume)
+        return volume
+
+    def _reset_volume(self, volume):
+        ''' Remove and recreate a volatile volume '''
+        assert volume.volume_type == 'volatile', "Not a volatile volume"
+
+        size = self.vm.volume_config[volume.name]['size']
+        assert size
+
+        if os.path.exists(volume.path):
+            os.remove(volume.path)
+
+        with open(volume.path, "w") as f_volatile:
+            f_volatile.truncate(volume.size)
+        return volume
 
     def reset_volatile_storage(self):
         try:
