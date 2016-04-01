@@ -23,7 +23,6 @@
 #
 import os
 
-from qubes.exc import QubesVMError
 from qubes.storage import Pool, StoragePoolException, Volume
 
 
@@ -35,6 +34,8 @@ class LinuxModules(Volume):
         self.kernels_dir = os.path.join(target_dir, kernel_version)
         self.path = os.path.join(self.kernels_dir, 'modules.img')
         self.vid = self.path
+        self.vmlinuz = os.path.join(self.kernels_dir, 'vmlinuz')
+        self.initramfs = os.path.join(self.kernels_dir, 'initramfs')
 
 
 class LinuxKernel(Pool):
@@ -45,14 +46,20 @@ class LinuxKernel(Pool):
         super(LinuxKernel, self).__init__(name=name)
         self.dir_path = dir_path
 
-    def init_volume(self, volume_config):
+    def init_volume(self, vm, volume_config):
         assert 'volume_type' in volume_config, "Volume type missing " \
             + str(volume_config)
         volume_type = volume_config['volume_type']
         if volume_type != 'read-only':
             raise StoragePoolException("Unknown volume type " + volume_type)
 
-        return LinuxModules(self.dir_path, self.vm.kernel, **volume_config)
+        volume = LinuxModules(self.dir_path, vm.kernel, **volume_config)
+
+        _check_path(volume.path)
+        _check_path(volume.vmlinuz)
+        _check_path(volume.initramfs)
+
+        return volume
 
     def clone(self, source, target):
         return target
@@ -86,9 +93,17 @@ class LinuxKernel(Pool):
     def start(self, volume):
         path = volume.path
         if not os.path.exists(path):
-            msg = 'VM %s is missing modules: %s' % (self.vm.name, path)
-            raise QubesVMError(self.vm, msg)
+            raise StoragePoolException('Missing kernel modules: %s' % path)
+
         return volume
 
     def stop(self, volume):
         pass
+
+
+def _check_path(path):
+    ''' Raise an :py:class:`qubes.storage.StoragePoolException` if ``path`` does
+        not exist.
+    '''
+    if not os.path.exists(path):
+        raise StoragePoolException('Missing file: %s' % path)

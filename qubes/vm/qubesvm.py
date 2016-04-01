@@ -1532,18 +1532,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.storage.verify_files()
 
-        if not os.path.exists(
-                os.path.join(self.storage.kernels_dir, 'vmlinuz')):
-            raise qubes.exc.QubesException(
-                'VM kernel does not exist: {0}'.format(
-                    os.path.join(self.storage.kernels_dir, 'vmlinuz')))
-
-        if not os.path.exists(
-                os.path.join(self.storage.kernels_dir, 'initramfs')):
-            raise qubes.exc.QubesException(
-                'VM initramfs does not exist: {0}'.format(
-                    os.path.join(self.storage.kernels_dir, 'initramfs')))
-
         self.fire_event('domain-verify-files')
 
         return True
