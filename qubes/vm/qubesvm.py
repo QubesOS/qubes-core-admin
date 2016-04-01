@@ -29,6 +29,7 @@ from __future__ import absolute_import
 import base64
 import datetime
 import itertools
+import lxml
 import os
 import os.path
 import re
@@ -434,7 +435,16 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     def __init__(self, app, xml, volume_config={}, **kwargs):
         super(QubesVM, self).__init__(app, xml, **kwargs)
         if hasattr(self, 'volume_config'):
-            dict_merge(self.volume_config, volume_config)
+            if xml is not None:
+                for node in xml.xpath('volume-config/volume'):
+                    name = node.get('name')
+                    assert name
+                    for k, v in node.items():
+                        self.volume_config[name][k] = v
+
+            for name, conf in volume_config.items():
+                for k, v in conf.items():
+                    self.volume_config[name][k] = v
 
         import qubes.vm.adminvm # pylint: disable=redefined-outer-name
 
@@ -478,6 +488,18 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self.events_enabled = True
         self.fire_event('domain-init')
 
+    def __xml__(self):
+        element = super(QubesVM, self).__xml__()
+        if hasattr(self, 'volumes'):
+            volume_config_node = lxml.etree.Element('volume-config')
+            for volume in self.volumes.values():
+                volume_node = lxml.etree.Element('volume', **volume.config)
+                volume_config_node.append(volume_node)
+
+            element.append(volume_config_node)
+
+                
+        return element
 
     #
     # event handlers
@@ -1734,20 +1756,3 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 #           if self.is_qrexec_running():
 #               #TODO: kill qrexec daemon
 #               pass
-
-
-def dict_merge(dct, merge_dct):
-    """ Recursive dict merge. Inspired by :meth:``dict.update()``, instead of
-    updating only top-level keys, dict_merge recurses down into dicts nested
-    to an arbitrary depth, updating keys. The ``merge_dct`` is merged into
-    ``dct``. (Source https://gist.github.com/angstwad/bf22d1822c38a92ec0a9)
-    :param dct: dict onto which the merge is executed
-    :param merge_dct: dct merged into dct
-    :return: None
-    """
-    for k, v in merge_dct.iteritems():
-        if (k in dct and isinstance(dct[k], dict)
-                and isinstance(merge_dct[k], dict)):
-            dict_merge(dct[k], merge_dct[k])
-        else:
-            dct[k] = merge_dct[k]
