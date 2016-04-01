@@ -1676,13 +1676,17 @@ class QubesVm(object):
         if bool(input) + bool(passio_popen) + bool(localcmd) > 1:
             raise ValueError("'input', 'passio_popen', 'localcmd' cannot be "
                              "used together")
+        if not wait and (localcmd or input):
+            raise ValueError("Cannot use wait=False with input or "
+                             "localcmd specified")
         if localcmd:
             return self.run("QUBESRPC %s %s" % (service, source),
                             localcmd=localcmd, user=user, wait=wait, gui=gui)
         elif input:
-            return self.run("QUBESRPC %s %s" % (service, source),
-                            localcmd="echo %s" % input, user=user, wait=wait,
-                            gui=gui)
+            p = self.run("QUBESRPC %s %s" % (service, source),
+                user=user, wait=wait, gui=gui, passio_popen=True)
+            p.communicate(input)
+            return p.returncode
         else:
             return self.run("QUBESRPC %s %s" % (service, source),
                             passio_popen=passio_popen, user=user, wait=wait,
