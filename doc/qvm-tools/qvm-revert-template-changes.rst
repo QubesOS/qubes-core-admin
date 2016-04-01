@@ -17,7 +17,7 @@ OPTIONS
 -h, --help
     Show this help message and exit
 --force
-    Do not prompt for comfirmation
+    Do not prompt for confirmation
 
 AUTHORS
 =======
