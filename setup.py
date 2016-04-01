@@ -45,5 +45,6 @@ if __name__ == '__main__':
             ],
             'qubes.storage': [
                 'xen = qubes.storage.xen:XenPool',
+                'linux-kernel = qubes.storage.kernels:LinuxKernel',
             ]
         })

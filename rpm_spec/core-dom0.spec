@@ -233,6 +233,7 @@ fi
 %dir %{python_sitelib}/qubes/storage
 %{python_sitelib}/qubes/storage/__init__.py*
 %{python_sitelib}/qubes/storage/xen.py*
+%{python_sitelib}/qubes/storage/kernels.py*
 
 %dir %{python_sitelib}/qubes/tools
 %{python_sitelib}/qubes/tools/__init__.py*
