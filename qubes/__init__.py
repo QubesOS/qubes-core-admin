@@ -1400,6 +1400,7 @@ class Qubes(PropertyHolder):
             7: Label(7, '0x75507b', 'purple'),
             8: Label(8, '0x000000', 'black'),
         }
+
         for name, config in qubes.config.defaults['pool_configs'].items():
             self.pools[name] = self._get_pool(**config)
 

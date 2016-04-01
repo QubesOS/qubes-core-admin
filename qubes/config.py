@@ -28,6 +28,8 @@
 # make a real /etc/qubes/master.conf or whatever
 #
 
+import os.path
+
 '''Constants which can be configured in one place'''
 
 qubes_base_dir = "/var/lib/qubes"
@@ -83,9 +85,17 @@ defaults = {
     'private_img_size': 2*1024*1024*1024,
     'root_img_size': 10*1024*1024*1024,
 
-    'pool_config': {'dir_path': '/var/lib/qubes/',
+    'pool_configs': {
+        'default': {'dir_path': qubes_base_dir,
                     'driver': 'xen',
                     'name': 'default'},
+        'linux-kernel': {
+            'dir_path': os.path.join(qubes_base_dir,
+                                     system_path['qubes_kernels_base_dir']),
+            'driver': 'linux-kernel',
+            'name': 'linux-kernel'
+        }
+    },
 
     # how long (in sec) to wait for VMs to shutdown,
     # before killing them (when used qvm-run with --wait option),
