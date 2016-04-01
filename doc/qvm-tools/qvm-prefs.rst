@@ -134,7 +134,7 @@ mac
 
     Can be used to force specific of virtual ethernet card in the VM. Setting
     to ``auto`` will use automatic-generated MAC - based on VM id. Especially
-    useful when some licencing depending on static MAC address.
+    useful when licensing requires a static MAC address.
     For template-based HVM ``auto`` mode means to clone template MAC.
 
 default_user
@@ -147,7 +147,7 @@ debug
     Accepted values: ``on``, ``off``
 
     Enables debug mode for VM. This can be used to turn on/off verbose logging
-    in many qubes components at once (gui virtualization, VM kernel, some other
+    in many Qubes components at once (gui virtualization, VM kernel, some other
     services).
     For template-based HVM, enabling debug mode also disables automatic reset
     root.img (actually volatile.img) before each VM startup, so changes made to
@@ -172,7 +172,7 @@ guiagent_installed
     This HVM have gui agent installed. This option disables full screen GUI
     virtualization and enables per-window seemless GUI mode. This option will
     be automatically turned on during Qubes Windows Tools installation, but if
-    you install qubes gui agent in some other OS, you need to turn this option
+    you install Qubes gui agent in some other OS, you need to turn this option
     on manually. You can turn this option off to troubleshoot some early HVM OS
     boot problems (enter safe mode etc), but the option will be automatically
     enabled at first VM normal startup (and will take effect from the next
