@@ -78,16 +78,23 @@ class BackupHeader(object):
     bool_options = ['encrypted', 'compressed']
     int_options = ['version']
 
-    def __init__(self, header_data=None):
+    def __init__(self,
+            header_data=None,
+            version=None,
+            encrypted=None,
+            compressed=None,
+            compression_filter=None,
+            hmac_algorithm=None,
+            crypto_algorithm=None):
         # repeat the list to help code completion...
-        self.version = None
-        self.encrypted = None
-        self.compressed = None
+        self.version = version
+        self.encrypted = encrypted
+        self.compressed = compressed
         # Options introduced in backup format 3+, which always have a header,
         # so no need for fallback in function parameter
-        self.compression_filter = None
-        self.hmac_algorithm = None
-        self.crypto_algorithm = None
+        self.compression_filter = compression_filter
+        self.hmac_algorithm = hmac_algorithm
+        self.crypto_algorithm = crypto_algorithm
 
         if header_data is not None:
             self.load(header_data)
@@ -109,7 +116,7 @@ class BackupHeader(object):
         for untrusted_line in untrusted_header_text.splitlines():
             if untrusted_line.count('=') != 1:
                 raise qubes.exc.QubesException("Invalid backup header")
-            (key, value) = untrusted_line.strip().split('=')
+            key, value = untrusted_line.strip().split('=', 1)
             if not _re_alphanum.match(key):
                 raise qubes.exc.QubesException("Invalid backup header (key)")
             if key not in self.header_keys.keys():
@@ -283,9 +290,8 @@ class Backup(object):
 
         self.vms_for_backup = vms_list
         # Apply exclude list
-        if exclude_list:
-            self.vms_for_backup = [vm for vm in vms_list
-                if vm.name not in exclude_list]
+        self.vms_for_backup = [vm for vm in vms_list
+            if vm.name not in exclude_list]
 
     def __del__(self):
         if self.tmpdir and os.path.exists(self.tmpdir):
@@ -511,14 +517,14 @@ class Backup(object):
 
     def prepare_backup_header(self):
         header_file_path = os.path.join(self.tmpdir, HEADER_FILENAME)
-        backup_header = BackupHeader()
-        backup_header.version = CURRENT_BACKUP_FORMAT_VERSION
-        backup_header.hmac_algorithm = self.hmac_algorithm
-        backup_header.crypto_algorithm = self.crypto_algorithm
-        backup_header.encrypted = self.encrypted
-        backup_header.compressed = self.compressed
-        if self.compressed:
-            backup_header.compression_filter = self.compression_filter
+        backup_header = BackupHeader(
+            version=CURRENT_BACKUP_FORMAT_VERSION,
+            hmac_algorithm=self.hmac_algorithm,
+            crypto_algorithm=self.crypto_algorithm,
+            encrypted=self.encrypted,
+            compressed=self.compressed,
+            compression_filter=self.compression_filter,
+        )
         backup_header.save(header_file_path)
 
         hmac = subprocess.Popen(
@@ -772,10 +778,8 @@ class Backup(object):
                     hmac_data = hmac.stdout.read()
                     self.log.debug(
                         "Writing hmac to {}.hmac".format(chunkfile))
-                    hmac_file = open(chunkfile + ".hmac", 'w')
-                    hmac_file.write(hmac_data)
-                    hmac_file.flush()
-                    hmac_file.close()
+                    with open(chunkfile + ".hmac", 'w') as hmac_file:
+                        hmac_file.write(hmac_data)
 
                     # Send the HMAC to the backup target
                     self._queue_put_with_check(
@@ -1556,13 +1560,14 @@ class BackupRestore(object):
             os.unlink(filename)
         else:
             # if no header found, create one with guessed HMAC algo
-            header_data = BackupHeader()
-            header_data.version = 2
-            header_data.hmac_algorithm = hmac_algorithm
-            # place explicitly this value, because it is what format_version
-            # 2 have
-            header_data.crypto_algorithm = 'aes-256-cbc'
-            # TODO: set header_data.encrypted to something...
+            header_data = BackupHeader(
+                version=2,
+                hmac_algorithm=hmac_algorithm,
+                # place explicitly this value, because it is what format_version
+                # 2 have
+                crypto_algorithm='aes-256-cbc',
+                # TODO: set encrypted to something...
+            )
             # when tar do not find expected file in archive, it exit with
             # code 2. This will happen because we've requested backup-header
             # file, but the archive do not contain it. Ignore this particular
@@ -1649,7 +1654,7 @@ class BackupRestore(object):
                 os.path.join(self.tmpdir, 'qubes.xml'))
         else:
             backup_app = qubes.Qubes(os.path.join(self.tmpdir, 'qubes.xml'))
-            # Not needed anymore - all the data stored in backup_app
+        # Not needed anymore - all the data stored in backup_app
         os.unlink(os.path.join(self.tmpdir, 'qubes.xml'))
         return backup_app
 
