@@ -40,6 +40,7 @@ import datetime
 from multiprocessing import Queue, Process
 import qubes
 import qubes.core2migration
+import qubes.storage
 
 QUEUE_ERROR = "ERROR"
 
@@ -56,29 +57,6 @@ MAX_STDERR_BYTES = 1024
 HEADER_QUBES_XML_MAX_SIZE = 1024 * 1024
 
 BLKSIZE = 512
-
-
-def get_disk_usage_one(st):
-    try:
-        return st.st_blocks * BLKSIZE
-    except AttributeError:
-        return st.st_size
-
-
-def get_disk_usage(path):
-    try:
-        st = os.lstat(path)
-    except OSError:
-        return 0
-
-    ret = get_disk_usage_one(st)
-
-    # if path is not a directory, this is skipped
-    for dirpath, dirnames, filenames in os.walk(path):
-        for name in dirnames + filenames:
-            ret += get_disk_usage_one(os.lstat(os.path.join(dirpath, name)))
-
-    return ret
 
 
 class BackupCanceledError(qubes.exc.QubesException):
@@ -324,7 +302,7 @@ class Backup(object):
 
     @staticmethod
     def _file_to_backup(file_path, subdir=None):
-        sz = get_disk_usage(file_path)
+        sz = qubes.storage.get_disk_usage(file_path)
 
         if subdir is None:
             abs_file_path = os.path.abspath(file_path)
@@ -438,7 +416,7 @@ class Backup(object):
             # left after 'sudo bash' and similar commands
             subprocess.check_call(['sudo', 'chown', '-R', local_user, home_dir])
 
-            home_sz = get_disk_usage(home_dir)
+            home_sz = qubes.storage.get_disk_usage(home_dir)
             home_to_backup = [
                 {"path": home_dir, "size": home_sz, "subdir": 'dom0-home/'}]
             vm_files = home_to_backup
