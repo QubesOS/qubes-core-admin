@@ -575,8 +575,7 @@ class Backup(object):
     def backup_do(self):
         if self.passphrase is None:
             raise qubes.exc.QubesException("No passphrase set")
-        # noinspection PyProtectedMember
-        qubes_xml = self.app._store
+        qubes_xml = self.app.store
         self.tmpdir = tempfile.mkdtemp()
         shutil.copy(qubes_xml, os.path.join(self.tmpdir, 'qubes.xml'))
         qubes_xml = os.path.join(self.tmpdir, 'qubes.xml')
