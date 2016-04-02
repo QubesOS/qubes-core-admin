@@ -329,9 +329,6 @@ class Backup(object):
         files_to_backup = {}
         total_backup_sz = 0
         for vm in self.vms_for_backup:
-            if vm.is_template():
-                # handle templates later
-                continue
             if vm.qid == 0:
                 # handle dom0 later
                 continue
@@ -345,10 +342,7 @@ class Backup(object):
             if vm.private_img is not None:
                 vm_files += self._file_to_backup(vm.private_img, subdir)
 
-            # TODO: don't backup the icon
-            if vm.is_appvm():
-                vm_files += self._file_to_backup(
-                    vm.icon_path, subdir)
+            vm_files += self._file_to_backup(vm.icon_path, subdir)
             if vm.updateable:
                 if os.path.exists(vm.dir_path + "/apps.templates"):
                     # template
@@ -359,9 +353,6 @@ class Backup(object):
                     vm_files += self._file_to_backup(
                         vm.dir_path + "/apps", subdir)
 
-                if os.path.exists(vm.dir_path + "/kernels"):
-                    vm_files += self._file_to_backup(
-                        vm.dir_path + "/kernels", subdir)
             # TODO: drop after merging firewall.xml into qubes.xml
             firewall_conf = os.path.join(vm.dir_path, vm.firewall_conf)
             if os.path.exists(firewall_conf):
@@ -383,33 +374,6 @@ class Backup(object):
                 'vm': vm,
                 'files': vm_files,
                 'subdir': subdir,
-                'size': vm_size,
-            }
-            total_backup_sz += vm_size
-
-        for vm in self.vms_for_backup:
-            if not vm.is_template():
-                # already handled
-                continue
-            if vm.qid == 0:
-                # handle dom0 later
-                continue
-            vm_sz = vm.get_disk_utilization()
-            if self.encrypted:
-                template_subdir = 'vm%d/' % vm.qid
-            else:
-                template_subdir = os.path.relpath(
-                    vm.dir_path,
-                    qubes.config.system_path["qubes_base_dir"]) + '/'
-            template_to_backup = [{"path": vm.dir_path + '/.',
-                                   "size": vm_sz,
-                                   "subdir": template_subdir}]
-            vm_files = template_to_backup
-            vm_size = reduce(lambda x, y: x + y['size'], vm_files, 0)
-            files_to_backup[vm.qid] = {
-                'vm': vm,
-                'files': vm_files,
-                'subdir': template_subdir,
                 'size': vm_size,
             }
             total_backup_sz += vm_size
