@@ -26,6 +26,9 @@ fires events in reverse order. It is suitable for events fired before some
 action is performed. You may at your own responsibility raise exceptions from
 such events to try to prevent such action.
 
+Event handlers may return a value. Those values are aggregated and returned
+to the caller as a list of those values. The order of this list is undefined.
+:py:obj:`None` values are omitted.
 
 Handling events
 ---------------

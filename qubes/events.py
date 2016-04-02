@@ -129,13 +129,17 @@ class Emitter(object):
         if not self.events_enabled:
             return
 
+        effects = []
         for cls in order:
             if not hasattr(cls, '__handlers__'):
                 continue
             for func in sorted(cls.__handlers__[event],
                     key=(lambda handler: hasattr(handler, 'ha_bound')),
                     reverse=True):
-                func(self, event, *args, **kwargs)
+                effect = func(self, event, *args, **kwargs)
+                if effect is not None:
+                    effects.append(effect)
+        return effects
 
 
     def fire_event(self, event, *args, **kwargs):
@@ -150,13 +154,14 @@ class Emitter(object):
             :py:meth:`fire_event_pre`
 
         :param str event: event identificator
+        :returns: list of effects
 
         All *args* and *kwargs* are passed verbatim. They are different for
         different events.
         '''
 
-        self._fire_event_in_order(reversed(self.__class__.__mro__), event,
-            *args, **kwargs)
+        return self._fire_event_in_order(reversed(self.__class__.__mro__),
+            event, *args, **kwargs)
 
 
     def fire_event_pre(self, event, *args, **kwargs):
@@ -170,10 +175,11 @@ class Emitter(object):
             :py:meth:`fire_event`
 
         :param str event: event identificator
+        :returns: list of effects
 
         All *args* and *kwargs* are passed verbatim. They are different for
         different events.
         '''
 
-        self._fire_event_in_order(self.__class__.__mro__, event,
-            *args, **kwargs)
+        return self._fire_event_in_order(self.__class__.__mro__,
+            event, *args, **kwargs)
