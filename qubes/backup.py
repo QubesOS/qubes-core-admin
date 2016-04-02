@@ -58,6 +58,7 @@ HEADER_QUBES_XML_MAX_SIZE = 1024 * 1024
 
 BLKSIZE = 512
 
+_re_alphanum = re.compile(r'^[A-Za-z0-9-]*$')
 
 class BackupCanceledError(qubes.exc.QubesException):
     def __init__(self, msg, tmpdir=None):
@@ -109,12 +110,12 @@ class BackupHeader(object):
             if untrusted_line.count('=') != 1:
                 raise qubes.exc.QubesException("Invalid backup header")
             (key, value) = untrusted_line.strip().split('=')
-            if not re.match(r"^[a-zA-Z0-9-]*$", key):
+            if not _re_alphanum.match(key):
                 raise qubes.exc.QubesException("Invalid backup header (key)")
             if key not in self.header_keys.keys():
                 # Ignoring unknown option
                 continue
-            if not re.match(r"^[a-zA-Z0-9-]*$", value):
+            if not _re_alphanum.match(value):
                 raise qubes.exc.QubesException("Invalid backup header (value)")
             if getattr(self, self.header_keys[key]) is not None:
                 raise qubes.exc.QubesException(
