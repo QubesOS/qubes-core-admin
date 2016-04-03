@@ -119,3 +119,9 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
 
         with self.assertRaises(TypeError):
             TestVM(None, node)
+
+    def test_002_save_nxproperty(self):
+        vm = TestVM(None, None, qid=1, name='testvm')
+        vm.nxproperty = 'value'
+        xml = vm.__xml__()
+        self.assertNotIn('nxproperty', xml)
