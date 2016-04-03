@@ -212,6 +212,36 @@ class SendWorker(Process):
 
 
 class Backup(object):
+    class FileToBackup(object):
+        def __init__(self, file_path, subdir=None):
+            sz = qubes.storage.get_disk_usage(file_path)
+
+            if subdir is None:
+                abs_file_path = os.path.abspath(file_path)
+                abs_base_dir = os.path.abspath(
+                    qubes.config.system_path["qubes_base_dir"]) + '/'
+                abs_file_dir = os.path.dirname(abs_file_path) + '/'
+                (nothing, directory, subdir) = abs_file_dir.partition(abs_base_dir)
+                assert nothing == ""
+                assert directory == abs_base_dir
+            else:
+                if len(subdir) > 0 and not subdir.endswith('/'):
+                    subdir += '/'
+
+            self.path = file_path
+            self.size = sz
+            self.subdir = subdir
+
+    class VMToBackup(object):
+        def __init__(self, vm, files, subdir):
+            self.vm = vm
+            self.files = files
+            self.subdir = subdir
+
+        @property
+        def size(self):
+            return reduce(lambda x, y: x + y.size, self.files, 0)
+
     def __init__(self, app, vms_list=None, exclude_list=None, **kwargs):
         """
         If vms = None, include all (sensible) VMs;
@@ -307,27 +337,9 @@ class Backup(object):
             except OSError:
                 pass
 
-    @staticmethod
-    def _file_to_backup(file_path, subdir=None):
-        sz = qubes.storage.get_disk_usage(file_path)
-
-        if subdir is None:
-            abs_file_path = os.path.abspath(file_path)
-            abs_base_dir = os.path.abspath(
-                qubes.config.system_path["qubes_base_dir"]) + '/'
-            abs_file_dir = os.path.dirname(abs_file_path) + '/'
-            (nothing, directory, subdir) = abs_file_dir.partition(abs_base_dir)
-            assert nothing == ""
-            assert directory == abs_base_dir
-        else:
-            if len(subdir) > 0 and not subdir.endswith('/'):
-                subdir += '/'
-        return [{"path": file_path, "size": sz, "subdir": subdir}]
-
 
     def get_files_to_backup(self):
         files_to_backup = {}
-        total_backup_sz = 0
         for vm in self.vms_for_backup:
             if vm.qid == 0:
                 # handle dom0 later
@@ -340,43 +352,20 @@ class Backup(object):
 
             vm_files = []
             if vm.private_img is not None:
-                vm_files += self._file_to_backup(vm.private_img, subdir)
+                vm_files.append(self.FileToBackup(vm.private_img, subdir))
 
-            vm_files += self._file_to_backup(vm.icon_path, subdir)
-            if vm.updateable:
-                if os.path.exists(vm.dir_path + "/apps.templates"):
-                    # template
-                    vm_files += self._file_to_backup(
-                        vm.dir_path + "/apps.templates", subdir)
-                else:
-                    # standaloneVM
-                    vm_files += self._file_to_backup(
-                        vm.dir_path + "/apps", subdir)
+            vm_files.append(self.FileToBackup(vm.icon_path, subdir))
+            vm_files.extend(self.FileToBackup(i, subdir)
+                for i in vm.fire_event('backup-get-files'))
 
             # TODO: drop after merging firewall.xml into qubes.xml
             firewall_conf = os.path.join(vm.dir_path, vm.firewall_conf)
             if os.path.exists(firewall_conf):
-                vm_files += self._file_to_backup(
-                    firewall_conf, subdir)
-            if 'appmenus_whitelist' in qubes.config.vm_files and \
-                    os.path.exists(os.path.join(vm.dir_path,
-                                                qubes.config.vm_files[
-                                                    'appmenus_whitelist'])):
-                vm_files += self._file_to_backup(
-                    os.path.join(vm.dir_path, qubes.config.vm_files[
-                        'appmenus_whitelist']),
-                    subdir)
+                vm_files.append(self.FileToBackup(firewall_conf, subdir))
 
             if vm.updateable:
-                vm_files += self._file_to_backup(vm.root_img, subdir)
-            vm_size = reduce(lambda x, y: x + y['size'], vm_files, 0)
-            files_to_backup[vm.qid] = {
-                'vm': vm,
-                'files': vm_files,
-                'subdir': subdir,
-                'size': vm_size,
-            }
-            total_backup_sz += vm_size
+                vm_files.append(self.FileToBackup(vm.root_img, subdir))
+            files_to_backup[vm.qid] = self.VMToBackup(vm, vm_files, subdir)
 
         # Dom0 user home
         if 0 in [vm.qid for vm in self.vms_for_backup]:
@@ -387,20 +376,16 @@ class Backup(object):
             # left after 'sudo bash' and similar commands
             subprocess.check_call(['sudo', 'chown', '-R', local_user, home_dir])
 
-            home_sz = qubes.storage.get_disk_usage(home_dir)
             home_to_backup = [
-                {"path": home_dir, "size": home_sz, "subdir": 'dom0-home/'}]
+                self.FileToBackup(home_dir, 'dom0-home/')]
             vm_files = home_to_backup
 
-            files_to_backup[0] = {
-                'vm': self.app.domains[0],
-                'files': vm_files,
-                'subdir': os.path.join('dom0-home', os.path.basename(home_dir)),
-                'size': home_sz,
-            }
-            total_backup_sz += home_sz
+            files_to_backup[0] = self.VMToBackup(self.app.domains[0],
+                vm_files,
+                os.path.join('dom0-home', os.path.basename(home_dir)))
 
-        self.total_backup_bytes = total_backup_sz
+        self.total_backup_bytes = reduce(
+            lambda x, y: x + y.size, files_to_backup.values(), 0)
         return files_to_backup
 
 
@@ -541,12 +526,12 @@ class Backup(object):
             vm.backup_content = qubes.property.DEFAULT
 
         for qid, vm_info in files_to_backup.iteritems():
-            if qid != 0 and vm_info['vm'].is_running():
-                raise qubes.exc.QubesVMNotHaltedError(vm_info['vm'])
+            if qid != 0 and vm_info.vm.is_running():
+                raise qubes.exc.QubesVMNotHaltedError(vm_info.vm)
             # VM is included in the backup
-            backup_app.domains[qid].backup_content = True
-            backup_app.domains[qid].backup_path = vm_info['subdir']
-            backup_app.domains[qid].backup_size = vm_info['size']
+            backup_app.domains[qid].backup-content = True
+            backup_app.domains[qid].backup-path = vm_info.subdir
+            backup_app.domains[qid].backup-size = vm_info.size
         backup_app.save()
 
         passphrase = self.passphrase.encode('utf-8')
@@ -603,21 +588,20 @@ class Backup(object):
             to_send.put(f)
 
         vm_files_to_backup = self.get_files_to_backup()
-        qubes_xml_info = {
-            'files': self._file_to_backup(qubes_xml, ''),
-            'vm': None,
-            'size': 0,
-            'subdir': '',
-        }
+        qubes_xml_info = self.VMToBackup(
+            None,
+            [self.FileToBackup(qubes_xml, '')],
+            ''
+        )
         for vm_info in itertools.chain([qubes_xml_info],
                 vm_files_to_backup.itervalues()):
-            for file_info in vm_info['files']:
+            for file_info in vm_info.files:
 
                 self.log.debug("Backing up {}".format(file_info))
 
                 backup_tempfile = os.path.join(
-                    self.tmpdir, file_info["subdir"],
-                    os.path.basename(file_info["path"]))
+                    self.tmpdir, file_info.subdir,
+                    os.path.basename(file_info.path))
                 self.log.debug("Using temporary location: {}".format(
                     backup_tempfile))
 
@@ -631,13 +615,13 @@ class Backup(object):
                 # verified during untar
                 tar_cmdline = (["tar", "-Pc", '--sparse',
                                "-f", backup_pipe,
-                               '-C', os.path.dirname(file_info["path"])] +
+                               '-C', os.path.dirname(file_info.path)] +
                                (['--dereference'] if
-                                file_info["subdir"] != "dom0-home/" else []) +
+                                file_info.subdir != "dom0-home/" else []) +
                                ['--xform', 's:^%s:%s\\0:' % (
-                                   os.path.basename(file_info["path"]),
-                                   file_info["subdir"]),
-                                os.path.basename(file_info["path"])
+                                   os.path.basename(file_info.path),
+                                   file_info.subdir),
+                                os.path.basename(file_info.path)
                                 ])
                 if self.compressed:
                     tar_cmdline.insert(-1,
@@ -760,7 +744,7 @@ class Backup(object):
                 pipe.close()
 
             # This VM done, update progress
-            self._done_vms_bytes += vm_info['size']
+            self._done_vms_bytes += vm_info.size
             self._current_vm_bytes = 0
             self._send_progress_update()
 
