@@ -895,7 +895,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     def run_service(self, service, source=None, user=None,
                     passio_popen=False, input=None, localcmd=None, gui=False,
-                    wait=True):
+                    wait=True, passio_stderr=False):
         '''Run service on this VM
 
         **passio_popen** and **input** are mutually exclusive.
@@ -908,8 +908,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         ''' # pylint: disable=redefined-builtin
 
         if len([i for i in (input, passio_popen, localcmd) if i]) > 1:
-            raise ValueError(
+            raise TypeError(
                 'input, passio_popen and localcmd cannot be used together')
+
+        if passio_stderr and not passio_popen:
+            raise TypeError('passio_stderr can be used only with passio_popen')
 
         if input:
             localcmd = 'printf %s {}'.format(pipes.quote(input))
@@ -918,7 +921,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self.run('QUBESRPC {} {}'.format(service, source),
             localcmd=localcmd, passio_popen=passio_popen, user=user, wait=wait,
-            gui=gui)
+            gui=gui, passio_stderr=passio_stderr)
 
 
     def request_memory(self, mem_required=None):
