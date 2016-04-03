@@ -390,7 +390,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     @property
     def conf_file(self):
-        return os.path.join(self.dir_path, self.name + '.conf')
+        return os.path.join(self.dir_path, 'libvirt.xml')
 
 
     # XXX I don't know what to do with these; probably should be isinstance(...)
@@ -540,10 +540,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self.dir_path_prefix, new_name),
             os.path.join(qubes.config.system_path['qubes_base_dir'],
                 self.dir_path_prefix, old_name))
-
-        self.storage.rename(
-            os.path.join(self.dir_path, new_name + '.conf'),
-            os.path.join(self.dir_path, old_name + '.conf'))
 
         self._update_libvirt_domain()
 
