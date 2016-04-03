@@ -83,6 +83,8 @@ def main(args=None):
 
         return 0
 
+    if args.property not in [prop.__name__ for prop in args.vm.property_list()]:
+        parser.error('no such property: {!r}'.format(args.property))
 
     if args.value is not None:
         setattr(args.vm, args.property, args.value)
