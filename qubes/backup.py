@@ -256,8 +256,7 @@ class Backup(object):
         self._done_vms_bytes = 0
         #: total backup size (set by :py:meth:`get_files_to_backup`)
         self.total_backup_bytes = 0
-        #: list of PIDs to kill on backup cancel
-        self.processes_to_kill_on_cancel = []
+        #: application object
         self.app = app
         #: directory for temporary files - set after creating the directory
         self.tmpdir = None
@@ -268,7 +267,7 @@ class Backup(object):
         #: should the backup be compressed?
         self.compressed = True
         #: what passphrase should be used to intergrity protect (and encrypt)
-        #  the backup; required
+        #: the backup; required
         self.passphrase = None
         #: custom hmac algorithm
         self.hmac_algorithm = DEFAULT_HMAC_ALGORITHM
@@ -279,10 +278,10 @@ class Backup(object):
         #: VM to which backup should be sent (if any)
         self.target_vm = None
         #: directory to save backup in (either in dom0 or target VM,
-        # depending on :py:attr:`target_vm`
+        #: depending on :py:attr:`target_vm`
         self.target_dir = None
         #: callback for progress reporting. Will be called with one argument
-        # - progress in percents
+        #: - progress in percents
         self.progress_callback = None
 
         for key, value in kwargs.iteritems():
@@ -293,6 +292,8 @@ class Backup(object):
 
         #: whether backup was canceled
         self.canceled = False
+        #: list of PIDs to kill on backup cancel
+        self.processes_to_kill_on_cancel = []
 
         self.log = logging.getLogger('qubes.backup')
 
