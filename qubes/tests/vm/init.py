@@ -61,7 +61,6 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
             </tags>
 
             <features>
-                <feature name="testfeature_none"/>
                 <feature name="testfeature_empty"></feature>
                 <feature name="testfeature_aqq">aqq</feature>
             </features>
@@ -92,7 +91,6 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
         self.assertEqual(vm.defaultprop, 'defaultvalue')
         self.assertEqual(vm.tags, {'testtag': 'tagvalue'})
         self.assertEqual(vm.features, {
-            'testfeature_none': None,
             'testfeature_empty': '',
             'testfeature_aqq': 'aqq',
         })

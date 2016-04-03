@@ -79,7 +79,7 @@ class Features(dict):
         self.vm.fire_event('domain-feature-delete', key)
 
     def __setitem__(self, key, value):
-        if isinstance(value, bool):
+        if value is None or isinstance(value, bool):
             value = '1' if value else ''
         else:
             value = str(value)
@@ -185,7 +185,7 @@ class BaseVM(qubes.PropertyHolder):
 
         if self.xml is not None:
             # features
-            for node in xml.xpath('./features/service'):
+            for node in xml.xpath('./features/feature'):
                 self.features[node.get('name')] = node.text
 
             # devices (pci, usb, ...)
@@ -231,7 +231,7 @@ class BaseVM(qubes.PropertyHolder):
 
         features = lxml.etree.Element('features')
         for feature in self.features:
-            node = lxml.etree.Element('service', name=feature)
+            node = lxml.etree.Element('feature', name=feature)
             node.text = self.features[feature]
             features.append(node)
         element.append(features)
