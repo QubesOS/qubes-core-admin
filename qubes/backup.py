@@ -531,11 +531,9 @@ class Backup(object):
         tar_sparse = None
         if self.target_vm is not None:
             # Prepare the backup target (Qubes service call)
-            backup_target = "QUBESRPC qubes.Backup dom0"
-
             # If APPVM, STDOUT is a PIPE
-            vmproc = self.target_vm.run(
-                command=backup_target, passio_popen=True, passio_stderr=True)
+            vmproc = self.target_vm.run_service('qubes.Backup',
+                passio_popen=True, passio_stderr=True)
             vmproc.stdin.write(self.target_dir.
                                replace("\r", "").replace("\n", "") + "\n")
             backup_stdout = vmproc.stdin
@@ -1340,12 +1338,9 @@ class BackupRestore(object):
 
         vmproc = None
         if self.backup_vm is not None:
-            # Prepare the backup target (Qubes service call)
-            backup_target = "QUBESRPC qubes.Restore dom0"
-
             # If APPVM, STDOUT is a PIPE
-            vmproc = self.backup_vm.run(
-                command=backup_target, passio_popen=True, passio_stderr=True)
+            vmproc = self.backup_vm.run_service('qubes.Restore',
+                passio_popen=True, passio_stderr=True)
             vmproc.stdin.write(
                 self.backup_location.replace("\r", "").replace("\n", "") + "\n")
 
