@@ -351,7 +351,7 @@ def main():
         for name in args.names:
             suite.addTests(
                 [test for test in list_test_cases(alltests)
-                 if (str(test)+'/').startswith(name+'/')])
+                 if (str(test)).startswith(name)])
     else:
         suite.addTests(loader.loadTestsFromName('qubes.tests'))
 
