@@ -308,18 +308,8 @@ class Backup(object):
             exclude_list = []
 
         if vms_list is None:
-            all_vms = [vm for vm in app.domains]
-            selected_vms = [vm for vm in all_vms if vm.include_in_backups]
-            appvms_to_backup = [vm for vm in selected_vms if
-                                vm.is_appvm() and not vm.internal]
-            template_vms_worth_backingup = [vm for vm in selected_vms if (
-                vm.is_template() and vm.include_in_backups)]
-            dom0 = [app.domains[0]]
+            vms_list = [vm for vm in app.domains if vm.include_in_backups]
 
-            vms_list = appvms_to_backup + \
-                template_vms_worth_backingup + dom0
-
-        self.vms_for_backup = vms_list
         # Apply exclude list
         self.vms_for_backup = [vm for vm in vms_list
             if vm.name not in exclude_list]

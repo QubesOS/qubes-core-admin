@@ -262,8 +262,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         doc='''Setting this to `True` means that VM should be autostarted on
             dom0 boot.''')
 
-    # XXX I don't understand backups
-    include_in_backups = qubes.property('include_in_backups', default=True,
+    include_in_backups = qubes.property('include_in_backups',
+        default=(lambda self: not self.internal),
         type=bool, setter=qubes.property.bool,
         doc='If this domain is to be included in default backup.')
 
