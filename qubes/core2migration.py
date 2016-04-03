@@ -159,8 +159,7 @@ class Core2Qubes(qubes.Qubes):
                     for attr in ['installed_by_rpm', 'include_in_backups',
                             'qrexec_timeout', 'internal', 'label', 'name',
                             'vcpus', 'memory', 'maxmem', 'default_user',
-                            'debug', 'pci_strictreset', 'mac', 'autostart',
-                            'backup_content', 'backup_path', 'backup_size']:
+                            'debug', 'pci_strictreset', 'mac', 'autostart']:
                         value = element.get(attr)
                         if value:
                             kwargs[attr] = value
@@ -191,6 +190,10 @@ class Core2Qubes(qubes.Qubes):
                             if repl_service == service:
                                 feature = repl_feature
                         vm.features[feature] = value
+                    for attr in ['backup_content', 'backup_path',
+                        'backup_size']:
+                        value = element.get(attr)
+                        vm.features[attr.replace('_', '-')] = value
                     pcidevs = element.get('pcidevs')
                     if pcidevs:
                         pcidevs = eval(pcidevs)

@@ -639,22 +639,6 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
         vm = self.get_vm()
         self._test_generic_bool_property(vm, 'pci_strictreset')
 
-    def test_380_backup_size(self):
-        vm = self.get_vm()
-        self.assertPropertyDefaultValue(vm, 'backup_size', 0)
-        self.assertPropertyValue(vm, 'backup_size', 0, 0, '0')
-        del vm.backup_size
-        self.assertPropertyDefaultValue(vm, 'backup_size', 0)
-        self.assertPropertyValue(vm, 'backup_size', '0', 0, '0')
-        self.assertPropertyValue(vm, 'backup_size', 300, 300, '300')
-
-    def test_390_backup_path(self):
-        vm = self.get_vm()
-        self.assertPropertyDefaultValue(vm, 'backup_path', '')
-        self.assertPropertyValue(vm, 'backup_path', 'some/dir', 'some/dir')
-        del vm.backup_path
-        self.assertPropertyDefaultValue(vm, 'backup_path', '')
-
     def test_400_backup_timestamp(self):
         vm = self.get_vm()
         timestamp = datetime.datetime(2016, 1, 1, 12, 14, 2)

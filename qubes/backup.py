@@ -514,15 +514,15 @@ class Backup(object):
         files_to_backup = self.get_files_to_backup()
         # make sure backup_content isn't set initially
         for vm in backup_app.domains:
-            vm.backup_content = qubes.property.DEFAULT
+            vm.features['backup-content'] = False
 
         for qid, vm_info in files_to_backup.iteritems():
             if qid != 0 and vm_info.vm.is_running():
                 raise qubes.exc.QubesVMNotHaltedError(vm_info.vm)
             # VM is included in the backup
-            backup_app.domains[qid].backup-content = True
-            backup_app.domains[qid].backup-path = vm_info.subdir
-            backup_app.domains[qid].backup-size = vm_info.size
+            backup_app.domains[qid].features['backup-content'] = True
+            backup_app.domains[qid].features['backup-path'] = vm_info.subdir
+            backup_app.domains[qid].features['backup-size'] = vm_info.size
         backup_app.save()
 
         passphrase = self.passphrase.encode('utf-8')
@@ -736,6 +736,9 @@ class Backup(object):
             self._done_vms_bytes += vm_info.size
             self._current_vm_bytes = 0
             self._send_progress_update()
+            # Save date of last backup
+            if vm_info.vm:
+                vm_info.vm.backup_timestamp = datetime.datetime.now()
 
         self._queue_put_with_check(send_proc, vmproc, to_send, QUEUE_FINISHED)
         send_proc.join()
@@ -754,11 +757,6 @@ class Backup(object):
                 self.log.debug("Sparse1 proc return code: {}".format(
                     tar_sparse.poll()))
             vmproc.stdin.close()
-
-        # Save date of last backup
-        for vm in self.app.domains:
-            if vm.backup_content:
-                vm.backup_timestamp = datetime.datetime.now()
 
         self.app.save()
 
@@ -1828,8 +1826,8 @@ class BackupRestore(object):
 
     @staticmethod
     def _is_vm_included_in_backup_v2(check_vm):
-        if check_vm.backup_content:
-            return True
+        if 'backup-content' in check_vm.features:
+            return check_vm.features['backup-content']
         else:
             return False
 
@@ -1894,8 +1892,8 @@ class BackupRestore(object):
                         self.backup_location, 'dom0-home'))[0]
                 vms_to_restore['dom0']['size'] = 0  # unknown
             else:
-                vms_to_restore['dom0']['subdir'] = vm.backup_path
-                vms_to_restore['dom0']['size'] = vm.backup_size
+                vms_to_restore['dom0']['subdir'] = vm.features['backup-path']
+                vms_to_restore['dom0']['size'] = int(vm.features['backup-size'])
             local_user = grp.getgrnam('qubes').gr_mem[0]
 
             dom0_home = vms_to_restore['dom0']['subdir']
@@ -2057,8 +2055,9 @@ class BackupRestore(object):
                 continue
             vm = vm_info['vm']
             if self.header_data.version >= 2:
-                vms_size += vm.backup_size
-                vms_dirs.append(vm.backup_path)
+                if vm.features['backup-size']:
+                    vms_size += int(vm.features['backup-size'])
+                vms_dirs.append(vm.features['backup-path'])
             vms[vm.name] = vm
 
         if self.header_data.version >= 2:
@@ -2148,8 +2147,9 @@ class BackupRestore(object):
                         self._restore_vm_dir_v1(vm.dir_path,
                             os.path.dirname(new_vm.dir_path))
                     else:
-                        shutil.move(os.path.join(self.tmpdir, vm.backup_path),
-                                    new_vm.dir_path)
+                        shutil.move(os.path.join(self.tmpdir,
+                            vm.features['backup-path']),
+                            new_vm.dir_path)
 
                     new_vm.verify_files()
                 except Exception as err:
@@ -2169,6 +2169,11 @@ class BackupRestore(object):
                         self.log.warning("Kernel %s not installed, "
                         "using default one" % vm.kernel)
                         vm.kernel = qubes.property.DEFAULT
+                # remove no longer needed backup metadata
+                if 'backup-content' in vm.features:
+                    del vm.features['backup-content']
+                    del vm.features['backup-size']
+                    del vm.features['backup-path']
                 try:
                     # exclude VM references - handled manually according to
                     # restore options
