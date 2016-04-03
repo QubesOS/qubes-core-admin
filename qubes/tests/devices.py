@@ -78,5 +78,5 @@ class TC_01_DeviceManager(qubes.tests.QubesTestCase):
 
     def test_001_missing(self):
         self.manager['testclass'].attach('testdev')
-        self.assertEventFired(self.emitter, 'device-attached:testclass')
+        self.assertEventFired(self.emitter, 'device-attach:testclass')
 

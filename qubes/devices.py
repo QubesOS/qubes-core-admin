@@ -59,9 +59,9 @@ class DeviceCollection(object):
             raise KeyError(
                 'device {!r} of class {} already attached to {!r}'.format(
                     device, self._class, self._vm))
-        self._vm.fire_event_pre('device-pre-attach' + self._class, device)
+        self._vm.fire_event_pre('device-pre-attach:' + self._class, device)
         self._set.add(device)
-        self._vm.fire_event('device-attach' + self._class, device)
+        self._vm.fire_event('device-attach:' + self._class, device)
 
 
     def detach(self, device):
@@ -74,9 +74,9 @@ class DeviceCollection(object):
             raise KeyError(
                 'device {!r} of class {} not attached to {!r}'.format(
                     device, self._class, self._vm))
-        self._vm.fire_event_pre('device-pre-detach:{}' + self._class, device)
+        self._vm.fire_event_pre('device-pre-detach:' + self._class, device)
         self._set.remove(device)
-        self._vm.fire_event('device-detach' + self._class, device)
+        self._vm.fire_event('device-detach:' + self._class, device)
 
 
     def __iter__(self):
