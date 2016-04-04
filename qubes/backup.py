@@ -1268,6 +1268,52 @@ class BackupRestore(object):
     >>> restore_op.restore_do(restore_info)
     """
 
+    class VMToRestore(object):
+        #: VM excluded from restore by user
+        EXCLUDED = object()
+        #: VM with such name already exists on the host
+        ALREADY_EXISTS = object()
+        #: NetVM used by the VM does not exists on the host
+        MISSING_NETVM = object()
+        #: TemplateVM used by the VM does not exists on the host
+        MISSING_TEMPLATE = object()
+
+        def __init__(self, vm):
+            self.vm = vm
+            if 'backup-path' in vm.features:
+                self.subdir = vm.features['backup-path']
+            else:
+                self.subdir = None
+            if 'backup-size' in vm.features and vm.features['backup-size']:
+                self.size = int(vm.features['backup-size'])
+            else:
+                self.size = 0
+            self.problems = set()
+            if hasattr(vm, 'template') and vm.template:
+                self.template = vm.template.name
+            else:
+                self.template = None
+            if vm.netvm:
+                self.netvm = vm.netvm.name
+            else:
+                self.netvm = None
+            self.rename_to = None
+            self.orig_template = None
+
+        @property
+        def good_to_go(self):
+            return len(self.problems) == 0
+
+    class Dom0ToRestore(VMToRestore):
+        #: backup was performed on system with different dom0 username
+        USERNAME_MISMATCH = object()
+
+        def __init__(self, vm, subdir=None):
+            super(BackupRestore.Dom0ToRestore, self).__init__(vm)
+            if subdir:
+                self.subdir = subdir
+            self.username = os.path.basename(subdir)
+
     def __init__(self, app, backup_location, backup_vm, passphrase):
         super(BackupRestore, self).__init__()
 
@@ -1702,7 +1748,7 @@ class BackupRestore(object):
             orig_name = orig_name[0:29]
         new_name = orig_name
         while (new_name in restore_info.keys() or
-               new_name in map(lambda x: x.get('rename_to', None),
+               new_name in map(lambda x: x.rename_to,
                                restore_info.values()) or
                new_name in self.app.domains):
             new_name = str('{}{}'.format(orig_name, number))
@@ -1718,12 +1764,12 @@ class BackupRestore(object):
                 continue
 
             vm_info = restore_info[vm]
+            assert isinstance(vm_info, self.VMToRestore)
 
-            vm_info.pop('excluded', None)
+            vm_info.problems.clear()
             if vm in self.options.exclude:
-                vm_info['excluded'] = True
+                vm_info.problems.add(self.VMToRestore.EXCLUDED)
 
-            vm_info.pop('already-exists', None)
             if not self.options.verify_only and \
                     vm in self.app.domains:
                 if self.options.rename_conflicting:
@@ -1731,16 +1777,15 @@ class BackupRestore(object):
                         vm, restore_info
                     )
                     if new_name is not None:
-                        vm_info['rename-to'] = new_name
+                        vm_info.rename_to = new_name
                     else:
-                        vm_info['already-exists'] = True
+                        vm_info.problems.add(self.VMToRestore.ALREADY_EXISTS)
                 else:
-                    vm_info['already-exists'] = True
+                    vm_info.problems.add(self.VMToRestore.ALREADY_EXISTS)
 
             # check template
-            vm_info.pop('missing-template', None)
-            if vm_info['template']:
-                template_name = vm_info['template']
+            if vm_info.template:
+                template_name = vm_info.template
                 try:
                     host_template = self.app.domains[template_name]
                 except KeyError:
@@ -1748,18 +1793,18 @@ class BackupRestore(object):
                 if not host_template or not host_template.is_template():
                     # Maybe the (custom) template is in the backup?
                     if not (template_name in restore_info.keys() and
-                            restore_info[template_name]['vm'].is_template()):
+                            restore_info[template_name].vm.is_template()):
                         if self.options.use_default_template:
-                            if 'orig-template' not in vm_info.keys():
-                                vm_info['orig-template'] = template_name
-                            vm_info['template'] = self.app.default_template.name
+                            if vm_info.orig_template is None:
+                                vm_info.orig_template = template_name
+                            vm_info.template = self.app.default_template.name
                         else:
-                            vm_info['missing-template'] = True
+                            vm_info.problems.add(
+                                self.VMToRestore.MISSING_TEMPLATE)
 
             # check netvm
-            vm_info.pop('missing-netvm', None)
-            if vm_info['netvm']:
-                netvm_name = vm_info['netvm']
+            if vm_info.netvm:
+                netvm_name = vm_info.netvm
 
                 try:
                     netvm_on_host = self.app.domains[netvm_name]
@@ -1771,39 +1816,34 @@ class BackupRestore(object):
 
                     # Maybe the (custom) netvm is in the backup?
                     if not (netvm_name in restore_info.keys() and
-                            restore_info[netvm_name]['vm'].is_netvm()):
+                            restore_info[netvm_name].vm.is_netvm()):
                         if self.options.use_default_netvm:
                             if self.app.default_netvm:
-                                vm_info['netvm'] = self.app.default_netvm.name
+                                vm_info.netvm = self.app.default_netvm.name
                             else:
-                                vm_info['netvm'] = None
-                            vm_info['vm'].netvm = qubes.property.DEFAULT
+                                vm_info.netvm = None
+                            vm_info.vm.netvm = qubes.property.DEFAULT
                         elif self.options.use_none_netvm:
-                            vm_info['netvm'] = None
+                            vm_info.netvm = None
                         else:
-                            vm_info['missing-netvm'] = True
-
-            vm_info['good-to-go'] = not any([(prop in vm_info.keys()) for
-                                             prop in ['missing-netvm',
-                                                      'missing-template',
-                                                      'already-exists',
-                                                      'excluded']])
+                            vm_info.problems.add(self.VMToRestore.MISSING_NETVM)
 
         # update references to renamed VMs:
         for vm in restore_info.keys():
             if vm in ['dom0']:
                 continue
             vm_info = restore_info[vm]
-            template_name = vm_info['template']
+            assert isinstance(vm_info, self.VMToRestore)
+            template_name = vm_info.template
             if (template_name in restore_info and
-                    restore_info[template_name]['good-to-go'] and
-                    'rename-to' in restore_info[template_name]):
-                vm_info['template'] = restore_info[template_name]['rename-to']
-            netvm_name = vm_info['netvm']
+                    restore_info[template_name].good_to_go and
+                    restore_info[template_name].rename_to):
+                vm_info.template = restore_info[template_name].rename_to
+            netvm_name = vm_info.netvm
             if (netvm_name in restore_info and
-                    restore_info[netvm_name]['good-to-go'] and
-                    'rename-to' in restore_info[netvm_name]):
-                vm_info['netvm'] = restore_info[netvm_name]['rename-to']
+                    restore_info[netvm_name].good_to_go and
+                    restore_info[netvm_name].rename_to):
+                vm_info.netvm = restore_info[netvm_name].rename_to
 
         return restore_info
 
@@ -1860,24 +1900,16 @@ class BackupRestore(object):
             if self._is_vm_included_in_backup(vm):
                 self.log.debug("{} is included in backup".format(vm.name))
 
-                vms_to_restore[vm.name] = {}
-                vms_to_restore[vm.name]['vm'] = vm
+                vms_to_restore[vm.name] = self.VMToRestore(vm)
 
-                if not hasattr(vm, 'template'):
-                    vms_to_restore[vm.name]['template'] = None
-                else:
+                if hasattr(vm, 'template'):
                     templatevm_name = self._find_template_name(
                         vm.template.name)
-                    vms_to_restore[vm.name]['template'] = templatevm_name
+                    vms_to_restore[vm.name].template = templatevm_name
 
-                if vm.netvm is None:
-                    vms_to_restore[vm.name]['netvm'] = None
-                else:
-                    netvm_name = vm.netvm.name
-                    vms_to_restore[vm.name]['netvm'] = netvm_name
-                    # Set to None to not confuse QubesVm object from backup
-                    # collection with host collection (further in clone_attrs).
-                    vm.netvm = None
+                # Set to None to not confuse QubesVm object from backup
+                # collection with host collection (further in clone_attrs).
+                vm.netvm = None
 
         vms_to_restore = self.restore_info_verify(vms_to_restore)
 
@@ -1885,29 +1917,18 @@ class BackupRestore(object):
         if self.options.dom0_home and \
                 self._is_vm_included_in_backup(self.backup_app.domains[0]):
             vm = self.backup_app.domains[0]
-            vms_to_restore['dom0'] = {}
             if self.header_data.version == 1:
-                vms_to_restore['dom0']['subdir'] = \
-                    os.listdir(os.path.join(
-                        self.backup_location, 'dom0-home'))[0]
-                vms_to_restore['dom0']['size'] = 0  # unknown
+                subdir = os.listdir(os.path.join(self.backup_location,
+                    'dom0-home'))[0]
             else:
-                vms_to_restore['dom0']['subdir'] = vm.features['backup-path']
-                vms_to_restore['dom0']['size'] = int(vm.features['backup-size'])
+                subdir = None
+            vms_to_restore['dom0'] = self.Dom0ToRestore(vm, subdir)
             local_user = grp.getgrnam('qubes').gr_mem[0]
 
-            dom0_home = vms_to_restore['dom0']['subdir']
-
-            vms_to_restore['dom0']['username'] = os.path.basename(dom0_home)
-            if vms_to_restore['dom0']['username'] != local_user:
-                vms_to_restore['dom0']['username-mismatch'] = True
-                if self.options.ignore_username_mismatch:
-                    vms_to_restore['dom0']['ignore-username-mismatch'] = True
-                else:
-                    vms_to_restore['dom0']['good-to-go'] = False
-
-            if 'good-to-go' not in vms_to_restore['dom0']:
-                vms_to_restore['dom0']['good-to-go'] = True
+            if vms_to_restore['dom0'].username != local_user:
+                if not self.options.ignore_username_mismatch:
+                    vms_to_restore['dom0'].problems.add(
+                        self.Dom0ToRestore.USERNAME_MISMATCH)
 
         return vms_to_restore
 
@@ -1929,11 +1950,11 @@ class BackupRestore(object):
             "updbl": {"func": "'Yes' if vm.updateable else ''"},
 
             "template": {"func": "'n/a' if not hasattr(vm, 'template') is None "
-                                 "else vm_info['template']"},
+                                 "else vm_info.template"},
 
             "netvm": {"func": "'n/a' if vm.is_netvm() and not vm.is_proxyvm() else\
                       ('*' if vm.property_is_default('netvm') else '') +\
-                        vm_info['netvm'] if vm_info['netvm'] is not None "
+                        vm_info.netvm if vm_info.netvm is not None "
                               "else '-'"},
 
             "label": {"func": "vm.label.name"},
@@ -1947,9 +1968,9 @@ class BackupRestore(object):
         for f in fields_to_display:
             fields[f]["max_width"] = len(f)
             for vm_info in restore_info.values():
-                if 'vm' in vm_info.keys():
+                if vm_info.vm:
                     # noinspection PyUnusedLocal
-                    vm = vm_info['vm']
+                    vm = vm_info.vm
                     l = len(unicode(eval(fields[f]["func"])))
                     if l > fields[f]["max_width"]:
                         fields[f]["max_width"] = l
@@ -1977,34 +1998,37 @@ class BackupRestore(object):
         summary += "\n"
 
         for vm_info in restore_info.values():
+            assert isinstance(vm_info, BackupRestore.VMToRestore)
             # Skip non-VM here
-            if 'vm' not in vm_info:
+            if not vm_info.vm:
                 continue
             # noinspection PyUnusedLocal
-            vm = vm_info['vm']
+            vm = vm_info.vm
             s = ""
             for f in fields_to_display:
                 # noinspection PyTypeChecker
                 fmt = "{{0:>{0}}} |".format(fields[f]["max_width"] + 1)
                 s += fmt.format(eval(fields[f]["func"]))
 
-            if 'excluded' in vm_info and vm_info['excluded']:
+            if BackupRestore.VMToRestore.EXCLUDED in vm_info.problems:
                 s += " <-- Excluded from restore"
-            elif 'already-exists' in vm_info:
+            elif BackupRestore.VMToRestore.ALREADY_EXISTS in vm_info.problems:
                 s += " <-- A VM with the same name already exists on the host!"
-            elif 'missing-template' in vm_info:
+            elif BackupRestore.VMToRestore.MISSING_TEMPLATE in \
+                    vm_info.problems:
                 s += " <-- No matching template on the host " \
                      "or in the backup found!"
-            elif 'missing-netvm' in vm_info:
+            elif BackupRestore.VMToRestore.MISSING_NETVM in \
+                    vm_info.problems:
                 s += " <-- No matching netvm on the host " \
                      "or in the backup found!"
             else:
-                if 'orig-template' in vm_info:
+                if vm_info.orig_template:
                     s += " <-- Original template was '{}'".format(
-                        vm_info['orig-template'])
-                if 'rename-to' in vm_info:
+                        vm_info.orig_template)
+                if vm_info.rename_to:
                     s += " <-- Will be renamed to '{}'".format(
-                        vm_info['rename-to'])
+                        vm_info.rename_to)
 
             summary += s + "\n"
 
@@ -2019,10 +2043,9 @@ class BackupRestore(object):
                     s += fmt.format("Home")
                 else:
                     s += fmt.format("")
-            if 'username-mismatch' in restore_info['dom0']:
+            if BackupRestore.Dom0ToRestore.USERNAME_MISMATCH in \
+                    restore_info['dom0'].problems:
                 s += " <-- username in backup and dom0 mismatch"
-            if 'ignore-username-mismatch' in restore_info['dom0']:
-                s += " (ignored)"
 
             summary += s + "\n"
 
@@ -2049,11 +2072,12 @@ class BackupRestore(object):
         vms_size = 0
         vms = {}
         for vm_info in restore_info.values():
-            if 'vm' not in vm_info:
+            assert isinstance(vm_info, self.VMToRestore)
+            if not vm_info.vm:
                 continue
-            if not vm_info['good-to-go']:
+            if not vm_info.good_to_go:
                 continue
-            vm = vm_info['vm']
+            vm = vm_info.vm
             if self.header_data.version >= 2:
                 if vm.features['backup-size']:
                     vms_size += int(vm.features['backup-size'])
@@ -2062,9 +2086,9 @@ class BackupRestore(object):
 
         if self.header_data.version >= 2:
             if 'dom0' in restore_info.keys() and \
-                    restore_info['dom0']['good-to-go']:
-                vms_dirs.append(os.path.dirname(restore_info['dom0']['subdir']))
-                vms_size += restore_info['dom0']['size']
+                    restore_info['dom0'].good_to_go:
+                vms_dirs.append(os.path.dirname(restore_info['dom0'].subdir))
+                vms_size += restore_info['dom0'].size
 
             try:
                 self._restore_vm_dirs(vms_dirs=vms_dirs, vms_size=vms_size)
@@ -2108,14 +2132,14 @@ class BackupRestore(object):
                 kwargs = {}
                 if hasattr(vm, 'template'):
                     if vm.template is not None:
-                        kwargs['template'] = restore_info[vm.name]['template']
+                        kwargs['template'] = restore_info[vm.name].template
                     else:
                         kwargs['template'] = None
 
                 new_vm = None
                 vm_name = vm.name
-                if 'rename-to' in restore_info[vm.name]:
-                    vm_name = restore_info[vm.name]['rename-to']
+                if restore_info[vm.name].rename_to:
+                    vm_name = restore_info[vm.name].rename_to
 
                 try:
                     # first only minimal set, later clone_properties
@@ -2197,8 +2221,8 @@ class BackupRestore(object):
         # Set network dependencies - only non-default netvm setting
         for vm in vms.values():
             vm_name = vm.name
-            if 'rename-to' in restore_info[vm.name]:
-                vm_name = restore_info[vm.name]['rename-to']
+            if restore_info[vm.name].rename_to:
+                vm_name = restore_info[vm.name].rename_to
             try:
                 host_vm = self.app.domains[vm_name]
             except KeyError:
@@ -2206,8 +2230,8 @@ class BackupRestore(object):
                 continue
 
             if not vm.property_is_default('netvm'):
-                if restore_info[vm.name]['netvm'] is not None:
-                    host_vm.netvm = restore_info[vm.name]['netvm']
+                if restore_info[vm.name].netvm is not None:
+                    host_vm.netvm = restore_info[vm.name].netvm
                 else:
                     host_vm.netvm = None
 
@@ -2221,8 +2245,8 @@ class BackupRestore(object):
                 raise BackupCanceledError("Restore canceled")
 
         # ... and dom0 home as last step
-        if 'dom0' in restore_info.keys() and restore_info['dom0']['good-to-go']:
-            backup_path = restore_info['dom0']['subdir']
+        if 'dom0' in restore_info.keys() and restore_info['dom0'].good_to_go:
+            backup_path = restore_info['dom0'].subdir
             local_user = grp.getgrnam('qubes').gr_mem[0]
             home_dir = pwd.getpwnam(local_user).pw_dir
             if self.header_data.version == 1:
