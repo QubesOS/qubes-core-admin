@@ -148,7 +148,7 @@ def main():
 
     if (options.cpu):
         qhost = QubesHost()
-        (measure_time, cpu_usages) = qhost.measure_cpu_usage()
+        (measure_time, cpu_usages) = qhost.measure_cpu_usage(qvm_collection)
         fields_to_display += ["cpu"]
 
     if (options.mem):
