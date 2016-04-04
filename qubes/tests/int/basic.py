@@ -23,21 +23,19 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
-import multiprocessing
 import os
-import shutil
 import subprocess
 import tempfile
-
-import unittest
 import time
-import libvirt
+import unittest
 
 import qubes
-import qubes.vm.qubesvm
-import qubes.vm.appvm
-import qubes.vm.templatevm
 import qubes.tests
+import qubes.vm.appvm
+import qubes.vm.qubesvm
+import qubes.vm.templatevm
+
+import libvirt
 
 
 class TC_00_Basic(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
