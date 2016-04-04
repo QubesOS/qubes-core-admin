@@ -1297,7 +1297,7 @@ class BackupRestore(object):
                 self.netvm = vm.netvm.name
             else:
                 self.netvm = None
-            self.rename_to = None
+            self.name = vm.name
             self.orig_template = None
 
         @property
@@ -1748,7 +1748,7 @@ class BackupRestore(object):
             orig_name = orig_name[0:29]
         new_name = orig_name
         while (new_name in restore_info.keys() or
-               new_name in map(lambda x: x.rename_to,
+               new_name in map(lambda x: x.name,
                                restore_info.values()) or
                new_name in self.app.domains):
             new_name = str('{}{}'.format(orig_name, number))
@@ -1777,7 +1777,7 @@ class BackupRestore(object):
                         vm, restore_info
                     )
                     if new_name is not None:
-                        vm_info.rename_to = new_name
+                        vm_info.name = new_name
                     else:
                         vm_info.problems.add(self.VMToRestore.ALREADY_EXISTS)
                 else:
@@ -1793,6 +1793,7 @@ class BackupRestore(object):
                 if not host_template or not host_template.is_template():
                     # Maybe the (custom) template is in the backup?
                     if not (template_name in restore_info.keys() and
+                            restore_info[template_name].good_to_go and
                             restore_info[template_name].vm.is_template()):
                         if self.options.use_default_template:
                             if vm_info.orig_template is None:
@@ -1803,7 +1804,7 @@ class BackupRestore(object):
                                 self.VMToRestore.MISSING_TEMPLATE)
 
             # check netvm
-            if vm_info.netvm:
+            if not vm_info.vm.property_is_default('netvm') and vm_info.netvm:
                 netvm_name = vm_info.netvm
 
                 try:
@@ -1816,34 +1817,14 @@ class BackupRestore(object):
 
                     # Maybe the (custom) netvm is in the backup?
                     if not (netvm_name in restore_info.keys() and
+                            restore_info[netvm_name].good_to_go and
                             restore_info[netvm_name].vm.is_netvm()):
                         if self.options.use_default_netvm:
-                            if self.app.default_netvm:
-                                vm_info.netvm = self.app.default_netvm.name
-                            else:
-                                vm_info.netvm = None
                             vm_info.vm.netvm = qubes.property.DEFAULT
                         elif self.options.use_none_netvm:
                             vm_info.netvm = None
                         else:
                             vm_info.problems.add(self.VMToRestore.MISSING_NETVM)
-
-        # update references to renamed VMs:
-        for vm in restore_info.keys():
-            if vm in ['dom0']:
-                continue
-            vm_info = restore_info[vm]
-            assert isinstance(vm_info, self.VMToRestore)
-            template_name = vm_info.template
-            if (template_name in restore_info and
-                    restore_info[template_name].good_to_go and
-                    restore_info[template_name].rename_to):
-                vm_info.template = restore_info[template_name].rename_to
-            netvm_name = vm_info.netvm
-            if (netvm_name in restore_info and
-                    restore_info[netvm_name].good_to_go and
-                    restore_info[netvm_name].rename_to):
-                vm_info.netvm = restore_info[netvm_name].rename_to
 
         return restore_info
 
@@ -2026,9 +2007,9 @@ class BackupRestore(object):
                 if vm_info.orig_template:
                     s += " <-- Original template was '{}'".format(
                         vm_info.orig_template)
-                if vm_info.rename_to:
+                if vm_info.name != vm_info.vm.name:
                     s += " <-- Will be renamed to '{}'".format(
-                        vm_info.rename_to)
+                        vm_info.name)
 
             summary += s + "\n"
 
@@ -2127,15 +2108,15 @@ class BackupRestore(object):
 
             kwargs = {}
             if hasattr(vm, 'template'):
-                if vm.template is not None:
-                    kwargs['template'] = restore_info[vm.name].template
-                else:
-                    kwargs['template'] = None
+                template = restore_info[vm.name].template
+                # handle potentially renamed template
+                if template in restore_info \
+                        and restore_info[template].good_to_go:
+                    template = restore_info[template].name
+                kwargs['template'] = template
 
             new_vm = None
-            vm_name = vm.name
-            if restore_info[vm.name].rename_to:
-                vm_name = restore_info[vm.name].rename_to
+            vm_name = restore_info[vm.name].name
 
             try:
                 # first only minimal set, later clone_properties
@@ -2216,9 +2197,8 @@ class BackupRestore(object):
 
         # Set network dependencies - only non-default netvm setting
         for vm in vms.values():
-            vm_name = vm.name
-            if restore_info[vm.name].rename_to:
-                vm_name = restore_info[vm.name].rename_to
+            vm_info = restore_info[vm.name]
+            vm_name = vm_info.name
             try:
                 host_vm = self.app.domains[vm_name]
             except KeyError:
@@ -2226,10 +2206,10 @@ class BackupRestore(object):
                 continue
 
             if not vm.property_is_default('netvm'):
-                if restore_info[vm.name].netvm is not None:
-                    host_vm.netvm = restore_info[vm.name].netvm
+                if vm_info.netvm in restore_info:
+                    host_vm.netvm = restore_info[vm_info.netvm].name
                 else:
-                    host_vm.netvm = None
+                    host_vm.netvm = vm_info.netvm
 
         self.app.save()
 
