@@ -2110,113 +2110,109 @@ class BackupRestore(object):
             return
 
         # First load templates, then other VMs
-        for do_templates in (True, False):
+        for vm in sorted(vms.values(), key=lambda x: x.is_template(),
+                reverse=True):
             if self.canceled:
+                # only break the loop to save qubes.xml
+                # with already restored VMs
                 break
-            for vm in vms.values():
-                if self.canceled:
-                    # only break the loop to save qubes.xml
-                    # with already restored VMs
-                    break
-                if vm.is_template() != do_templates:
-                    continue
-                self.log.info("-> Restoring {0}...".format(vm.name))
-                retcode = subprocess.call(
-                    ["mkdir", "-p", os.path.dirname(vm.dir_path)])
-                if retcode != 0:
-                    self.log.error("*** Cannot create directory: {0}?!".format(
-                        vm.dir_path))
-                    self.log.warning("Skipping VM {}...".format(vm.name))
-                    continue
+            self.log.info("-> Restoring {0}...".format(vm.name))
+            retcode = subprocess.call(
+                ["mkdir", "-p", os.path.dirname(vm.dir_path)])
+            if retcode != 0:
+                self.log.error("*** Cannot create directory: {0}?!".format(
+                    vm.dir_path))
+                self.log.warning("Skipping VM {}...".format(vm.name))
+                continue
 
-                kwargs = {}
-                if hasattr(vm, 'template'):
-                    if vm.template is not None:
-                        kwargs['template'] = restore_info[vm.name].template
-                    else:
-                        kwargs['template'] = None
+            kwargs = {}
+            if hasattr(vm, 'template'):
+                if vm.template is not None:
+                    kwargs['template'] = restore_info[vm.name].template
+                else:
+                    kwargs['template'] = None
 
-                new_vm = None
-                vm_name = vm.name
-                if restore_info[vm.name].rename_to:
-                    vm_name = restore_info[vm.name].rename_to
+            new_vm = None
+            vm_name = vm.name
+            if restore_info[vm.name].rename_to:
+                vm_name = restore_info[vm.name].rename_to
 
-                try:
-                    # first only minimal set, later clone_properties
-                    # will be called
-                    new_vm = self.app.add_new_vm(
-                        vm.__class__,
-                        name=vm_name,
-                        label=vm.label,
-                        installed_by_rpm=False,
-                        **kwargs)
-                    if os.path.exists(new_vm.dir_path):
-                        move_to_path = tempfile.mkdtemp('', os.path.basename(
-                            new_vm.dir_path), os.path.dirname(new_vm.dir_path))
-                        try:
-                            os.rename(new_vm.dir_path, move_to_path)
-                            self.log.warning(
-                                "*** Directory {} already exists! It has "
-                                "been moved to {}".format(new_vm.dir_path,
-                                                          move_to_path))
-                        except OSError:
-                            self.log.error(
-                                "*** Directory {} already exists and "
-                                "cannot be moved!".format(new_vm.dir_path))
-                            self.log.warning("Skipping VM {}...".format(
-                                vm.name))
-                            continue
+            try:
+                # first only minimal set, later clone_properties
+                # will be called
+                new_vm = self.app.add_new_vm(
+                    vm.__class__,
+                    name=vm_name,
+                    label=vm.label,
+                    installed_by_rpm=False,
+                    **kwargs)
+                if os.path.exists(new_vm.dir_path):
+                    move_to_path = tempfile.mkdtemp('', os.path.basename(
+                        new_vm.dir_path), os.path.dirname(new_vm.dir_path))
+                    try:
+                        os.rename(new_vm.dir_path, move_to_path)
+                        self.log.warning(
+                            "*** Directory {} already exists! It has "
+                            "been moved to {}".format(new_vm.dir_path,
+                                                      move_to_path))
+                    except OSError:
+                        self.log.error(
+                            "*** Directory {} already exists and "
+                            "cannot be moved!".format(new_vm.dir_path))
+                        self.log.warning("Skipping VM {}...".format(
+                            vm.name))
+                        continue
 
-                    if self.header_data.version == 1:
-                        self._restore_vm_dir_v1(vm.dir_path,
-                            os.path.dirname(new_vm.dir_path))
-                    else:
-                        shutil.move(os.path.join(self.tmpdir,
-                            vm.features['backup-path']),
-                            new_vm.dir_path)
+                if self.header_data.version == 1:
+                    self._restore_vm_dir_v1(vm.dir_path,
+                        os.path.dirname(new_vm.dir_path))
+                else:
+                    shutil.move(os.path.join(self.tmpdir,
+                        vm.features['backup-path']),
+                        new_vm.dir_path)
 
-                    new_vm.verify_files()
-                except Exception as err:
-                    self.log.error("ERROR: {0}".format(err))
-                    self.log.warning("*** Skipping VM: {0}".format(vm.name))
-                    if new_vm:
-                        del self.app.domains[new_vm.qid]
-                    continue
+                new_vm.verify_files()
+            except Exception as err:
+                self.log.error("ERROR: {0}".format(err))
+                self.log.warning("*** Skipping VM: {0}".format(vm.name))
+                if new_vm:
+                    del self.app.domains[new_vm.qid]
+                continue
 
-                if hasattr(vm, 'kernel'):
-                    # TODO: add a setting for this?
-                    if not vm.property_is_default('kernel') and vm.kernel and \
-                            vm.kernel not in \
-                            os.listdir(os.path.join(qubes.config.qubes_base_dir,
-                                qubes.config.system_path[
-                                'qubes_kernels_base_dir'])):
-                        self.log.warning("Kernel %s not installed, "
-                        "using default one" % vm.kernel)
-                        vm.kernel = qubes.property.DEFAULT
-                # remove no longer needed backup metadata
-                if 'backup-content' in vm.features:
-                    del vm.features['backup-content']
-                    del vm.features['backup-size']
-                    del vm.features['backup-path']
-                try:
-                    # exclude VM references - handled manually according to
-                    # restore options
-                    proplist = [prop for prop in new_vm.property_list()
-                        if prop.clone and prop.__name__ not in
-                              ['template', 'netvm', 'dispvm_netvm']]
-                    new_vm.clone_properties(vm, proplist=proplist)
-                except Exception as err:
-                    self.log.error("ERROR: {0}".format(err))
-                    self.log.warning("*** Some VM property will not be "
-                                     "restored")
+            if hasattr(vm, 'kernel'):
+                # TODO: add a setting for this?
+                if not vm.property_is_default('kernel') and vm.kernel and \
+                        vm.kernel not in \
+                        os.listdir(os.path.join(qubes.config.qubes_base_dir,
+                            qubes.config.system_path[
+                            'qubes_kernels_base_dir'])):
+                    self.log.warning("Kernel %s not installed, "
+                    "using default one" % vm.kernel)
+                    vm.kernel = qubes.property.DEFAULT
+            # remove no longer needed backup metadata
+            if 'backup-content' in vm.features:
+                del vm.features['backup-content']
+                del vm.features['backup-size']
+                del vm.features['backup-path']
+            try:
+                # exclude VM references - handled manually according to
+                # restore options
+                proplist = [prop for prop in new_vm.property_list()
+                    if prop.clone and prop.__name__ not in
+                          ['template', 'netvm', 'dispvm_netvm']]
+                new_vm.clone_properties(vm, proplist=proplist)
+            except Exception as err:
+                self.log.error("ERROR: {0}".format(err))
+                self.log.warning("*** Some VM property will not be "
+                                 "restored")
 
-                try:
-                    new_vm.fire_event('domain-restore')
-                except Exception as err:
-                    self.log.error("ERROR during appmenu restore: "
-                       "{0}".format(err))
-                    self.log.warning(
-                        "*** VM '{0}' will not have appmenus".format(vm.name))
+            try:
+                new_vm.fire_event('domain-restore')
+            except Exception as err:
+                self.log.error("ERROR during appmenu restore: "
+                   "{0}".format(err))
+                self.log.warning(
+                    "*** VM '{0}' will not have appmenus".format(vm.name))
 
         # Set network dependencies - only non-default netvm setting
         for vm in vms.values():
