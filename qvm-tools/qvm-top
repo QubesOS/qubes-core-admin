@@ -35,9 +35,7 @@ def main():
                       action="store_true", default=False,
                       help="n m : One line summary of top n vms with more than m cpu_time %")
 
-
     (options, args) = parser.parse_args ()
-
 
     qvm_collection = QubesVmCollection()
     qvm_collection.lock_db_for_reading()
@@ -47,9 +45,7 @@ def main():
     fields_to_display = ["name", "cpu", "mem"]
 
     cpu_usages = None
-
     qhost = QubesHost()
-
     (measure_time, cpu_usages) = qhost.measure_cpu_usage(qvm_collection)
 
     vms_list = [vm for vm in qvm_collection.values() if vm.is_running()]
@@ -62,33 +58,33 @@ def main():
         any_shown = False
         ndisp = 3
         cputh = 0
-    	if len(args) > 0:
-          ndisp = int(args[0])
-    	if len(args) > 1:
-          cputh = int(args[1])
+        if len(args) > 0:
+            ndisp = int(args[0])
+        if len(args) > 1:
+            cputh = int(args[1])
 
         for vm in vms_to_display[:ndisp]:
             cpu = cpu_usages[vm.get_xid()]['cpu_usage']
             if cpu > cputh:
                 any_shown = True
-            	sys.stdout.write("%d %s, " % (cpu, vm.name))
+                sys.stdout.write("%d %s, " % (cpu, vm.name))
 
-	if any_shown:
+        if any_shown:
             sys.stdout.write(" ... | ")
 
         totalMem = 0
         dom0mem = 0
-	for vm in vms_to_display:
+        for vm in vms_to_display:
             if not vm.name == "dom0":
-	        totalMem += vm.get_mem() 
+                totalMem += vm.get_mem()
             else:
                 dom0mem = vm.get_mem()
         totalMem /= 1024.0 * 1024.0
         dom0mem /= 1024.0 * 1024.0
         sys.stdout.write("%.1f G + %.1f G" % (totalMem, dom0mem))
-        return	
+        return
 
-    max_width = { 'name': 0, 'cpu': 0, 'mem': 0 } 
+    max_width = { 'name': 0, 'cpu': 0, 'mem': 0 }
     data_to_display = []
     for vm in vms_to_display:
         data_row = {}
@@ -99,7 +95,7 @@ def main():
         data_row['mem'] = "%d" % (vm.get_mem() / (1024.0))
         max_width['mem'] = max(max_width['mem'], len(data_row['mem']))
         data_to_display.append(data_row)
-                
+
     # Display the header
     s = ""
     for f in fields_to_display:
@@ -109,7 +105,7 @@ def main():
     s = ""
     for f in fields_to_display:
         fmt="{{0:>{0}}} |".format(max_width[f] + 1)
-        s += fmt.format(f) 
+        s += fmt.format(f)
     print s
     s = ""
     for f in fields_to_display:
@@ -122,7 +118,7 @@ def main():
         s = ""
         for f in fields_to_display:
             fmt="{{0:>{0}}} |".format(max_width[f] + 1)
-            s += fmt.format(row[f]) 
+            s += fmt.format(row[f])
         print s
 
 main()
