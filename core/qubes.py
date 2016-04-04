@@ -224,7 +224,7 @@ class QubesHost(object):
                 cputime = vm.get_cputime()
                 previous[vm.xid] = {}
                 previous[vm.xid]['cpu_time'] = (
-                        cputime / vm.vcpus)
+                        cputime / max(vm.vcpus, 1))
                 previous[vm.xid]['cpu_usage'] = 0
             time.sleep(wait_time)
 
