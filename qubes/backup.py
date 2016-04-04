@@ -1795,7 +1795,8 @@ class BackupRestore(object):
                     if not (template_name in restore_info.keys() and
                             restore_info[template_name].good_to_go and
                             restore_info[template_name].vm.is_template()):
-                        if self.options.use_default_template:
+                        if self.options.use_default_template and \
+                                self.app.default_template:
                             if vm_info.orig_template is None:
                                 vm_info.orig_template = template_name
                             vm_info.template = self.app.default_template.name
@@ -1813,12 +1814,12 @@ class BackupRestore(object):
                     netvm_on_host = None
                 # No netvm on the host?
                 if not ((netvm_on_host is not None)
-                        and netvm_on_host.is_netvm()):
+                        and netvm_on_host.provides_network):
 
                     # Maybe the (custom) netvm is in the backup?
                     if not (netvm_name in restore_info.keys() and
                             restore_info[netvm_name].good_to_go and
-                            restore_info[netvm_name].vm.is_netvm()):
+                            restore_info[netvm_name].vm.provides_network):
                         if self.options.use_default_netvm:
                             vm_info.vm.netvm = qubes.property.DEFAULT
                         elif self.options.use_none_netvm:
