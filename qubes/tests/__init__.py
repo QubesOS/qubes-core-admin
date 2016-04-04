@@ -718,6 +718,23 @@ class BackupTestsMixin(SystemTestsMixin):
         self.fill_image(testvm2.root_img, 1024*1024*1024, True)
         vms.append(testvm2)
 
+        vmname = self.make_vm_name('template')
+        if self.verbose:
+            print >>sys.stderr, "-> Creating %s" % vmname
+        testvm3 = self.app.add_new_vm(qubes.vm.templatevm.TemplateVM,
+            name=vmname, label='red')
+        testvm3.create_on_disk()
+        self.fill_image(testvm3.root_img, 100*1024*1024, True)
+        vms.append(testvm3)
+
+        vmname = self.make_vm_name('custom')
+        if self.verbose:
+            print >>sys.stderr, "-> Creating %s" % vmname
+        testvm4 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=vmname, template=testvm3, label='red')
+        testvm4.create_on_disk()
+        vms.append(testvm4)
+
         self.app.save()
 
         return vms

@@ -38,7 +38,7 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
     def test_000_basic_backup(self):
         vms = self.create_backup_vms()
         self.make_backup(vms)
-        self.remove_vms(vms)
+        self.remove_vms(reversed(vms))
         self.restore_backup()
         for vm in vms:
             self.assertIn(vm.name, self.app.domains)
@@ -46,7 +46,7 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
     def test_001_compressed_backup(self):
         vms = self.create_backup_vms()
         self.make_backup(vms, compressed=True)
-        self.remove_vms(vms)
+        self.remove_vms(reversed(vms))
         self.restore_backup()
         for vm in vms:
             self.assertIn(vm.name, self.app.domains)
@@ -54,7 +54,7 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
     def test_002_encrypted_backup(self):
         vms = self.create_backup_vms()
         self.make_backup(vms, encrypted=True)
-        self.remove_vms(vms)
+        self.remove_vms(reversed(vms))
         self.restore_backup()
         for vm in vms:
             self.assertIn(vm.name, self.app.domains)
@@ -62,7 +62,7 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
     def test_003_compressed_encrypted_backup(self):
         vms = self.create_backup_vms()
         self.make_backup(vms, compressed=True, encrypted=True)
-        self.remove_vms(vms)
+        self.remove_vms(reversed(vms))
         self.restore_backup()
         for vm in vms:
             self.assertIn(vm.name, self.app.domains)
@@ -85,7 +85,7 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
         self.app.save()
 
         self.make_backup(vms)
-        self.remove_vms(vms)
+        self.remove_vms(reversed(vms))
         self.restore_backup()
         for vm in vms:
             self.assertIn(vm.name, self.app.domains)
@@ -94,7 +94,7 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
     def test_005_compressed_custom(self):
         vms = self.create_backup_vms()
         self.make_backup(vms, compressed="bzip2")
-        self.remove_vms(vms)
+        self.remove_vms(reversed(vms))
         self.restore_backup()
         for vm in vms:
             self.assertIn(vm.name, self.app.domains)
@@ -113,7 +113,7 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
         """
         vms = self.create_backup_vms()
         self.make_backup(vms)
-        self.remove_vms(vms)
+        self.remove_vms(reversed(vms))
         test_dir = vms[0].dir_path
         os.mkdir(test_dir)
         with open(os.path.join(test_dir, 'some-file.txt'), 'w') as f:
@@ -160,7 +160,7 @@ class TC_10_BackupVMMixin(qubes.tests.BackupTestsMixin):
         self.make_backup(vms, target_vm=self.backupvm,
             compressed=True, encrypted=True,
             target='/var/tmp/backup directory')
-        self.remove_vms(vms)
+        self.remove_vms(reversed(vms))
         p = self.backupvm.run("ls /var/tmp/backup*/qubes-backup*",
                               passio_popen=True)
         (backup_path, _) = p.communicate()
@@ -174,7 +174,7 @@ class TC_10_BackupVMMixin(qubes.tests.BackupTestsMixin):
         self.make_backup(vms, target_vm=self.backupvm,
             compressed=True, encrypted=True,
             target='dd of=/var/tmp/backup-test')
-        self.remove_vms(vms)
+        self.remove_vms(reversed(vms))
         self.restore_backup(source='dd if=/var/tmp/backup-test',
                             appvm=self.backupvm)
 
