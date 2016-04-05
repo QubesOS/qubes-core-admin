@@ -1232,7 +1232,14 @@ class Qubes(PropertyHolder):
         :raises lxml.etree.XMLSyntaxError: on syntax error in qubes.xml
         '''
 
-        fd = os.open(self._store, os.O_RDWR) # no O_CREAT
+        try:
+            fd = os.open(self._store, os.O_RDWR) # no O_CREAT
+        except OSError as e:
+            if e.errno != errno.ENOENT:
+                raise
+            raise qubes.exc.QubesException(
+                'Qubes XML store {!r} is missing; use qubes-create tool'.format(
+                    self._store))
         fh = os.fdopen(fd, 'rb')
 
         if os.name == 'posix':
