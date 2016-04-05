@@ -691,8 +691,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self.fire_event('domain-start',
                 preparing_dvm=preparing_dvm, start_guid=start_guid)
 
-        except: # pylint: disable=bare-except
-            self.force_shutdown()
+        except:  # pylint: disable=bare-except
+            if self.is_running() or self.is_paused():
+                # This avoids losing the exception if an exception is raised in
+                # self.force_shutdown(), because the vm is not running or paused
+                self.force_shutdown()
             raise
 
 
