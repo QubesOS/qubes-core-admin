@@ -1064,11 +1064,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     def resize_private_img(self, size):
         '''Resize private image.'''
 
-        if size >= self.get_private_img_sz():
-            raise qubes.exc.QubesValueError('Cannot shrink private.img')
+        warnings.warn(
+            "resize_private_img is deprecated, use volumes[name].resize()",
+            DeprecationWarning)
 
-        # resize the image
-        self.storage.resize_private_img(size)
+        self.volumes['private'].resize(size)
 
         # and then the filesystem
         # FIXME move this to qubes.storage.xen.XenVMStorage
@@ -1084,29 +1084,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if retcode != 0:
             raise qubes.exc.QubesException('resize2fs failed')
 
-
-    # TODO move to storage
     def resize_root_img(self, size, allow_start=False):
-        if hasattr(self, 'template'):
-            raise qubes.exc.QubesVMError(self,
-                'Cannot resize root.img of template based qube. Resize the'
-                ' root.img of the template instead.')
+        warnings.warn(
+            "resize_root_img is deprecated, use volumes[name].resize()",
+            DeprecationWarning)
 
-        # TODO self.is_halted
-        if self.is_running():
-            raise qubes.exc.QubesVMNotHaltedError(self,
-                'Cannot resize root.img of a running qube')
-
-        if size < self.get_root_img_sz():
-            raise qubes.exc.QubesValueError(
-                'For your own safety, shrinking of root.img is disabled. If you'
-                ' really know what you are doing, use `truncate` manually.')
-
-        with open(self.root_img, 'a+b') as fd:
-            fd.truncate(size)
-
-        if False: #self.hvm:
-            return
+        self.volumes['root'].resize(size)
 
         if not allow_start:
             raise qubes.exc.QubesException(

@@ -85,16 +85,16 @@ class XenPool(Pool):
         elif _type in ['read-write', 'volatile']:
             path = volume.path
 
-        if size <= volume.size:
-            raise StoragePoolException('Can not shring volume %s' %
-                                       volume.name)
-
         with open(path, 'a+b') as fd:
             fd.truncate(size)
 
+        self._resize_loop_device(path)
+
+    def _resize_loop_device(self, path):
         # find loop device if any
-        p = subprocess.Popen(['sudo', 'losetup', '--associated', path],
-                             stdout=subprocess.PIPE)
+        p = subprocess.Popen(
+            ['sudo', 'losetup', '--associated', path],
+            stdout=subprocess.PIPE)
         result = p.communicate()
 
         m = re.match(r'^(/dev/loop\d+):\s', result[0])
