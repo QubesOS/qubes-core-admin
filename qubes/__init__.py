@@ -694,16 +694,13 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
         if has_oldvalue:
             instance.fire_event_pre('property-pre-del:' + self.__name__,
                 self.__name__, oldvalue)
+            delattr(instance, self._attr_name)
+            instance.fire_event('property-del:' + self.__name__,
+                self.__name__, oldvalue)
+
         else:
             instance.fire_event_pre('property-pre-del:' + self.__name__,
                 self.__name__)
-
-        delattr(instance, self._attr_name)
-
-        if has_oldvalue:
-            instance.fire_event('property-del:' + self.__name__,
-                self.__name__, oldvalue)
-        else:
             instance.fire_event('property-del:' + self.__name__,
                 self.__name__)
 
