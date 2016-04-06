@@ -31,7 +31,6 @@ import datetime
 import itertools
 import os
 import os.path
-import pipes
 import re
 import shutil
 import subprocess
@@ -497,10 +496,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             else:
                 shutil.copy(new_label.icon_path, self.icon_path)
 
-
     @qubes.events.handler('property-pre-set:name')
     def on_property_pre_set_name(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
+        if newvalue in [d.name for d in self.app.domains.values()]:
+            raise qubes.exc.QubesValueError(
+                "A domain with name %s already exists", newvalue)
 
         # TODO not self.is_stopped() would be more appropriate
         if self.is_running():
@@ -509,7 +510,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         if self.autostart:
             subprocess.check_call(['sudo', 'systemctl', '-q', 'disable',
-                'qubes-vm@{}.service'.format(oldvalue)])
+                                   'qubes-vm@{}.service'.format(oldvalue)])
 
         try:
             self.app.domains[newvalue]
