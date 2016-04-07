@@ -761,37 +761,38 @@ class Backup(object):
         self.app.save()
 
 
-'''
-' Wait for backup chunk to finish
-' - Monitor all the processes (streamproc, hmac, vmproc, addproc) for errors
-' - Copy stdout of streamproc to backup_target and hmac stdin if available
-' - Compute progress based on total_backup_sz and send progress to
-'   progress_callback function
-' - Returns if
-' -     one of the monitored processes error out (streamproc, hmac, vmproc,
-'       addproc), along with the processe that failed
-' -     all of the monitored processes except vmproc finished successfully
-'       (vmproc termination is controlled by the python script)
-' -     streamproc does not delivers any data anymore (return with the error
-'       "")
-' -     size_limit is provided and is about to be exceeded
-'''
 
 
 def wait_backup_feedback(progress_callback, in_stream, streamproc,
                          backup_target, hmac=None, vmproc=None,
                          addproc=None,
                          size_limit=None):
-    buffer_size = 409600
+    '''
+    Wait for backup chunk to finish
+    - Monitor all the processes (streamproc, hmac, vmproc, addproc) for errors
+    - Copy stdout of streamproc to backup_target and hmac stdin if available
+    - Compute progress based on total_backup_sz and send progress to
+      progress_callback function
+    - Returns if
+    -     one of the monitored processes error out (streamproc, hmac, vmproc,
+          addproc), along with the processe that failed
+    -     all of the monitored processes except vmproc finished successfully
+          (vmproc termination is controlled by the python script)
+    -     streamproc does not delivers any data anymore (return with the error
+          "")
+    -     size_limit is provided and is about to be exceeded
+    '''
 
+    buffer_size = 409600
     run_error = None
     run_count = 1
     bytes_copied = 0
     log = logging.getLogger('qubes.backup')
-    while run_count > 0 and run_error is None:
 
+    while run_count > 0 and run_error is None:
         if size_limit and bytes_copied + buffer_size > size_limit:
             return "size_limit"
+
         buf = in_stream.read(buffer_size)
         if callable(progress_callback):
             progress_callback(len(buf))
