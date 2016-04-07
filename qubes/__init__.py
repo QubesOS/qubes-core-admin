@@ -1072,6 +1072,10 @@ class VMProperty(property):
 
 
     def __set__(self, instance, value):
+        if value is self.__class__.DEFAULT:
+            self.__delete__(instance)
+            return
+
         if value == self._none_value:
             value = None
         if value is None:
