@@ -29,8 +29,6 @@ import subprocess
 import unittest
 import sys
 import re
-from qubes.qubes import QubesVmCollection, QubesException
-from qubes import backup
 
 import qubes.tests
 
@@ -146,6 +144,11 @@ compression-filter=gzip
 '''
 
 class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
+
+    def tearDown(self):
+        self.remove_test_vms(prefix="test-")
+        super(TC_00_BackupCompatibility, self).tearDown()
+
     def create_whitelisted_appmenus(self, filename):
         f = open(filename, "w")
         f.write("gnome-terminal.desktop\n")
@@ -401,19 +404,22 @@ class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, qubes.tests.QubesT
         f.write(QUBESXML_R1)
         f.close()
 
-        self.restore_backup(self.backupdir, options={
-            'use-default-template': True,
-            'use-default-netvm': True,
-        })
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-template-clone"))
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-testproxy"))
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-work"))
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-standalonevm"))
-        self.assertIsNotNone(self.qc.get_vm_by_name(
-            "test-custom-template-appvm"))
-        self.assertEqual(self.qc.get_vm_by_name("test-custom-template-appvm")
+        self.restore_backup(self.backupdir,
+            options={
+                'use-default-template': True,
+                'use-default-netvm': True,
+            },
+            expect_errors=['Kernel None not installed, using default one']
+        )
+        with self.assertNotRaises(KeyError):
+            vm = self.app.domains["test-template-clone"]
+            vm = self.app.domains["test-testproxy"]
+            vm = self.app.domains["test-work"]
+            vm = self.app.domains["test-standalonevm"]
+            vm = self.app.domains["test-custom-template-appvm"]
+        self.assertEqual(self.app.domains["test-custom-template-appvm"]
                          .template,
-                         self.qc.get_vm_by_name("test-template-clone"))
+                         self.app.domains["test-template-clone"])
 
     def test_200_r2b2(self):
         self.create_v1_files(r2b2=True)
@@ -425,16 +431,16 @@ class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, qubes.tests.QubesT
         self.restore_backup(self.backupdir, options={
             'use-default-template': True,
         })
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-template-clone"))
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-testproxy"))
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-work"))
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-testhvm"))
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-standalonevm"))
-        self.assertIsNotNone(self.qc.get_vm_by_name(
-            "test-custom-template-appvm"))
-        self.assertEqual(self.qc.get_vm_by_name("test-custom-template-appvm")
+        with self.assertNotRaises(KeyError):
+            vm = self.app.domains["test-template-clone"]
+            vm = self.app.domains["test-testproxy"]
+            vm = self.app.domains["test-work"]
+            vm = self.app.domains["test-testhvm"]
+            vm = self.app.domains["test-standalonevm"]
+            vm = self.app.domains["test-custom-template-appvm"]
+        self.assertEqual(self.app.domains["test-custom-template-appvm"]
                          .template,
-                         self.qc.get_vm_by_name("test-template-clone"))
+                         self.app.domains["test-template-clone"])
 
     def test_210_r2(self):
         self.create_v3_backup(False)
@@ -443,16 +449,16 @@ class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, qubes.tests.QubesT
             'use-default-template': True,
             'use-default-netvm': True,
         })
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-template-clone"))
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-testproxy"))
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-work"))
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-testhvm"))
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-standalonevm"))
-        self.assertIsNotNone(self.qc.get_vm_by_name(
-            "test-custom-template-appvm"))
-        self.assertEqual(self.qc.get_vm_by_name("test-custom-template-appvm")
+        with self.assertNotRaises(KeyError):
+            vm = self.app.domains["test-template-clone"]
+            vm = self.app.domains["test-testproxy"]
+            vm = self.app.domains["test-work"]
+            vm = self.app.domains["test-testhvm"]
+            vm = self.app.domains["test-standalonevm"]
+            vm = self.app.domains["test-custom-template-appvm"]
+        self.assertEqual(self.app.domains["test-custom-template-appvm"]
                          .template,
-                         self.qc.get_vm_by_name("test-template-clone"))
+                         self.app.domains["test-template-clone"])
 
     def test_220_r2_encrypted(self):
         self.create_v3_backup(True)
@@ -461,13 +467,13 @@ class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, qubes.tests.QubesT
             'use-default-template': True,
             'use-default-netvm': True,
         })
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-template-clone"))
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-testproxy"))
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-work"))
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-testhvm"))
-        self.assertIsNotNone(self.qc.get_vm_by_name("test-standalonevm"))
-        self.assertIsNotNone(self.qc.get_vm_by_name(
-            "test-custom-template-appvm"))
-        self.assertEqual(self.qc.get_vm_by_name("test-custom-template-appvm")
+        with self.assertNotRaises(KeyError):
+            vm = self.app.domains["test-template-clone"]
+            vm = self.app.domains["test-testproxy"]
+            vm = self.app.domains["test-work"]
+            vm = self.app.domains["test-testhvm"]
+            vm = self.app.domains["test-standalonevm"]
+            vm = self.app.domains["test-custom-template-appvm"]
+        self.assertEqual(self.app.domains["test-custom-template-appvm"]
                          .template,
-                         self.qc.get_vm_by_name("test-template-clone"))
+                         self.app.domains["test-template-clone"])

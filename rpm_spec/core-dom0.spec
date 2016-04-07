@@ -201,7 +201,9 @@ fi
 
 %dir %{python_sitelib}/qubes
 %{python_sitelib}/qubes/__init__.py*
+%{python_sitelib}/qubes/backup.py*
 %{python_sitelib}/qubes/config.py*
+%{python_sitelib}/qubes/core2migration.py*
 %{python_sitelib}/qubes/devices.py*
 %{python_sitelib}/qubes/dochelpers.py*
 %{python_sitelib}/qubes/events.py*
@@ -272,6 +274,8 @@ fi
 
 %dir %{python_sitelib}/qubes/tests/int
 %{python_sitelib}/qubes/tests/int/__init__.py*
+%{python_sitelib}/qubes/tests/int/backup.py*
+%{python_sitelib}/qubes/tests/int/backupcompatibility.py*
 %{python_sitelib}/qubes/tests/int/basic.py*
 %{python_sitelib}/qubes/tests/int/dom0_update.py*
 %{python_sitelib}/qubes/tests/int/network.py*

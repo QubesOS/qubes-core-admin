@@ -40,6 +40,9 @@ import time
 
 import qubes.config
 import qubes.events
+import qubes.backup
+import qubes.exc
+import qubes.vm.standalonevm
 
 XMLPATH = '/var/lib/qubes/qubes-test.xml'
 CLASS_XMLPATH = '/var/lib/qubes/qubes-class-test.xml'
@@ -482,7 +485,7 @@ class SystemTestsMixin(object):
         except (AttributeError, libvirt.libvirtError):
             pass
 
-        del app.domains[vm]
+        del app.domains[vm.qid]
         del vm
 
         app.save()
@@ -628,6 +631,14 @@ class SystemTestsMixin(object):
 
 # noinspection PyAttributeOutsideInit
 class BackupTestsMixin(SystemTestsMixin):
+    class BackupErrorHandler(logging.Handler):
+        def __init__(self, errors_queue, level=logging.NOTSET):
+            super(BackupTestsMixin.BackupErrorHandler, self).__init__(level)
+            self.errors_queue = errors_queue
+
+        def emit(self, record):
+            self.errors_queue.put(record.getMessage())
+
     def setUp(self):
         super(BackupTestsMixin, self).setUp()
         self.init_default_template()
@@ -642,22 +653,17 @@ class BackupTestsMixin(SystemTestsMixin):
             shutil.rmtree(self.backupdir)
         os.mkdir(self.backupdir)
 
+        self.error_handler = self.BackupErrorHandler(self.error_detected,
+            level=logging.WARNING)
+        backup_log = logging.getLogger('qubes.backup')
+        backup_log.addHandler(self.error_handler)
+
     def tearDown(self):
         super(BackupTestsMixin, self).tearDown()
         shutil.rmtree(self.backupdir)
 
-    def print_progress(self, progress):
-        if self.verbose:
-            print >> sys.stderr, "\r-> Backing up files: {0}%...".format(progress)
-
-    def error_callback(self, message):
-        self.error_detected.put(message)
-        if self.verbose:
-            print >> sys.stderr, "ERROR: {0}".format(message)
-
-    def print_callback(self, msg):
-        if self.verbose:
-            print msg
+        backup_log = logging.getLogger('qubes.backup')
+        backup_log.removeHandler(self.error_handler)
 
     def fill_image(self, path, size=None, sparse=False):
         block_size = 4096
@@ -686,8 +692,8 @@ class BackupTestsMixin(SystemTestsMixin):
         if self.verbose:
             print >>sys.stderr, "-> Creating %s" % vmname
         testnet = self.app.add_new_vm(qubes.vm.appvm.AppVM,
-            name=vmname, template=template, provides_network=True)
-        testnet.create_on_disk(verbose=self.verbose)
+            name=vmname, template=template, provides_network=True, label='red')
+        testnet.create_on_disk()
         vms.append(testnet)
         self.fill_image(testnet.private_img, 20*1024*1024)
 
@@ -695,55 +701,68 @@ class BackupTestsMixin(SystemTestsMixin):
         if self.verbose:
             print >>sys.stderr, "-> Creating %s" % vmname
         testvm1 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
-            name=vmname, template=template)
+            name=vmname, template=template, label='red')
         testvm1.uses_default_netvm = False
         testvm1.netvm = testnet
-        testvm1.create_on_disk(verbose=self.verbose)
+        testvm1.create_on_disk()
         vms.append(testvm1)
         self.fill_image(testvm1.private_img, 100*1024*1024)
 
         vmname = self.make_vm_name('testhvm1')
         if self.verbose:
             print >>sys.stderr, "-> Creating %s" % vmname
-        testvm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM, name=vmname,
-            hvm=True)
-        testvm2.create_on_disk(verbose=self.verbose)
+        testvm2 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
+            name=vmname,
+            hvm=True, label='red')
+        testvm2.create_on_disk()
         self.fill_image(testvm2.root_img, 1024*1024*1024, True)
         vms.append(testvm2)
+
+        vmname = self.make_vm_name('template')
+        if self.verbose:
+            print >>sys.stderr, "-> Creating %s" % vmname
+        testvm3 = self.app.add_new_vm(qubes.vm.templatevm.TemplateVM,
+            name=vmname, label='red')
+        testvm3.create_on_disk()
+        self.fill_image(testvm3.root_img, 100*1024*1024, True)
+        vms.append(testvm3)
+
+        vmname = self.make_vm_name('custom')
+        if self.verbose:
+            print >>sys.stderr, "-> Creating %s" % vmname
+        testvm4 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=vmname, template=testvm3, label='red')
+        testvm4.create_on_disk()
+        vms.append(testvm4)
 
         self.app.save()
 
         return vms
 
-    def make_backup(self, vms, prepare_kwargs=dict(), do_kwargs=dict(),
-                    target=None, expect_failure=False):
-        # XXX: bakup_prepare and backup_do don't support host_collection
-        # self.qc.unlock_db()
+    def make_backup(self, vms, target=None, expect_failure=False, **kwargs):
         if target is None:
             target = self.backupdir
         try:
-            files_to_backup = \
-                qubes.backup.backup_prepare(vms,
-                                      print_callback=self.print_callback,
-                                      **prepare_kwargs)
-        except qubes.qubes.QubesException as e:
+            backup = qubes.backup.Backup(self.app, vms, **kwargs)
+        except qubes.exc.QubesException as e:
             if not expect_failure:
                 self.fail("QubesException during backup_prepare: %s" % str(e))
             else:
                 raise
 
+        backup.passphrase = 'qubes'
+        backup.target_dir = target
+
         try:
-            qubes.backup.backup_do(target, files_to_backup, "qubes",
-                             progress_callback=self.print_progress,
-                             **do_kwargs)
-        except qubes.qubes.QubesException as e:
+            backup.backup_do()
+        except qubes.exc.QubesException as e:
             if not expect_failure:
                 self.fail("QubesException during backup_do: %s" % str(e))
             else:
                 raise
 
         # FIXME why?
-        self.reload_db()
+        #self.reload_db()
 
     def restore_backup(self, source=None, appvm=None, options=None,
                        expect_errors=None):
@@ -753,23 +772,18 @@ class BackupTestsMixin(SystemTestsMixin):
         else:
             backupfile = source
 
-        with self.assertNotRaises(qubes.qubes.QubesException):
-            backup_info = qubes.backup.backup_restore_prepare(
-                backupfile, "qubes",
-                host_collection=self.app,
-                print_callback=self.print_callback,
-                appvm=appvm,
-                options=options or {})
-
+        with self.assertNotRaises(qubes.exc.QubesException):
+            restore_op = qubes.backup.BackupRestore(
+                self.app, backupfile, appvm, "qubes")
+            if options:
+                for key, value in options.iteritems():
+                    setattr(restore_op.options, key, value)
+            restore_info = restore_op.get_restore_info()
         if self.verbose:
-            qubes.backup.backup_restore_print_summary(backup_info)
+            print restore_op.get_restore_summary(restore_info)
 
-        with self.assertNotRaises(qubes.qubes.QubesException):
-            qubes.backup.backup_restore_do(
-                backup_info,
-                host_collection=self.app,
-                print_callback=self.print_callback if self.verbose else None,
-                error_callback=self.error_callback)
+        with self.assertNotRaises(qubes.exc.QubesException):
+            restore_op.restore_do(restore_info)
 
         # maybe someone forgot to call .save()
         self.reload_db()
@@ -777,6 +791,9 @@ class BackupTestsMixin(SystemTestsMixin):
         errors = []
         if expect_errors is None:
             expect_errors = []
+        else:
+            self.assertFalse(self.error_detected.empty(),
+                "Restore errors expected, but none detected")
         while not self.error_detected.empty():
             current_error = self.error_detected.get()
             if any(map(current_error.startswith, expect_errors)):
@@ -821,8 +838,8 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
             'qubes.tests.int.dom0_update',
             'qubes.tests.int.network',
 #           'qubes.tests.vm_qrexec_gui',
-#           'qubes.tests.backup',
-#           'qubes.tests.backupcompatibility',
+            'qubes.tests.int.backup',
+            'qubes.tests.int.backupcompatibility',
 #           'qubes.tests.regressions',
 
             # tool tests
