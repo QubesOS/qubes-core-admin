@@ -58,3 +58,27 @@ class TC_00_Emitter(qubes.tests.QubesTestCase):
         emitter.events_enabled = True
         emitter.fire_event('testevent')
         self.assertTrue(emitter.testevent_fired)
+
+    def test_002_fire_for_effect(self):
+        class TestEmitter(qubes.events.Emitter):
+            @qubes.events.handler('testevent')
+            def on_testevent_1(self, event):
+                pass
+
+            @qubes.events.handler('testevent')
+            def on_testevent_2(self, event):
+                yield 'testvalue1'
+                yield 'testvalue2'
+
+            @qubes.events.handler('testevent')
+            def on_testevent_3(self, event):
+                return ('testvalue3', 'testvalue4')
+
+        emitter = TestEmitter()
+        emitter.events_enabled = True
+        emitter.fire_event('testevent')
+
+        effect = emitter.fire_event('testevent')
+
+        self.assertItemsEqual(effect,
+            ('testvalue1', 'testvalue2', 'testvalue3', 'testvalue4'))

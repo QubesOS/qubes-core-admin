@@ -138,7 +138,7 @@ class Emitter(object):
                     reverse=True):
                 effect = func(self, event, *args, **kwargs)
                 if effect is not None:
-                    effects.append(effect)
+                    effects.extend(effect)
         return effects
 
 

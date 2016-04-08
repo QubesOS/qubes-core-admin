@@ -26,9 +26,8 @@ fires events in reverse order. It is suitable for events fired before some
 action is performed. You may at your own responsibility raise exceptions from
 such events to try to prevent such action.
 
-Event handlers may return a value. Those values are aggregated and returned
-to the caller as a list of those values. The order of this list is undefined.
-:py:obj:`None` values are omitted.
+Events handlers may yield values. Those values are aggregated and returned
+to the caller as a list of those values. See below for details.
 
 Handling events
 ---------------
@@ -123,6 +122,41 @@ There is no possible way of collision other than intentionally passing this very
 object (not even passing similar featureless ``object()``), because ``is``
 python syntax checks object's :py:meth:`id`\ entity, which will be different for
 each :py:class:`object` instance.
+
+
+Returning values from events
+----------------------------
+
+Some events may be called to collect values from the handlers. For example the
+event ``is-fully-usable`` allows plugins to report a domain as not fully usable.
+Such handlers, instead of returning :py:obj:`None` (which is the default when
+the function does not include ``return`` statement), should return an iterable
+or itself be a generator. Those values are aggregated from all handlers and
+returned to the caller as list. The order of this list is undefined.
+
+.. code-block:: python
+
+   import qubes.events
+
+   class MyClass(qubes.events.Emitter):
+       @qubes.events.handler('event1')
+       def event1_handler1(self, event):
+           # do not return anything, equivalent to "return" and "return None"
+           pass
+
+       @qubes.events.handler('event1')
+       def event1_handler2(self, event):
+           yield 'aqq'
+           yield 'zxc'
+
+       @qubes.events.handler('event1')
+       def event1_handler3(self, event):
+           return ('123', '456')
+
+   o = MyClass()
+
+   # returns ['aqq', 'zxc', '123', '456'], possibly not in order
+   effect = o.fire_event('event1')
 
 
 Module contents
