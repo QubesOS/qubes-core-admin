@@ -1133,21 +1133,21 @@ class Qubes(PropertyHolder):
 
     This class emits following events:
 
-        .. event:: domain-added (subject, event, vm)
+        .. event:: domain-add (subject, event, vm)
 
             When domain is added.
 
             :param subject: Event emitter
-            :param event: Event name (``'domain-added'``)
+            :param event: Event name (``'domain-add'``)
             :param vm: Domain object
 
-        .. event:: domain-deleted (subject, event, vm)
+        .. event:: domain-delete (subject, event, vm)
 
             When domain is deleted. VM still has reference to ``app`` object,
             but is not contained within VMCollection.
 
             :param subject: Event emitter
-            :param event: Event name (``'domain-deleted'``)
+            :param event: Event name (``'domain-delete'``)
             :param vm: Domain object
 
     Methods and attributes:
