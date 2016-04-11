@@ -591,9 +591,18 @@ class QubesVm(object):
         if self.installed_by_rpm:
             raise QubesException("Cannot rename VM installed by RPM -- first clone VM and then use yum to remove package.")
 
+        assert self._collection is not None
+        if self._collection.get_vm_by_name(name):
+            raise QubesException("VM with this name already exists")
+
         self.pre_rename(name)
-        if self.libvirt_domain:
+        try:
             self.libvirt_domain.undefine()
+        except libvirt.libvirtError as e:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
+                pass
+            else:
+                raise
         if self._qdb_connection:
             self._qdb_connection.close()
             self._qdb_connection = None
@@ -779,6 +788,8 @@ class QubesVm(object):
                 # libxl_domain_info failed - domain no longer exists
             elif e.get_error_code() == libvirt.VIR_ERR_INTERNAL_ERROR:
                 return 0
+            elif e.get_error_code() is None:  # unknown...
+                return 0
             else:
                 print >>sys.stderr, "libvirt error code: {!r}".format(
                     e.get_error_code())
@@ -796,7 +807,9 @@ class QubesVm(object):
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return 0
                 # libxl_domain_info failed - domain no longer exists
-            elif e.get_error_code() == libvirt.VIR_INTERNAL_ERROR:
+            elif e.get_error_code() == libvirt.VIR_ERR_INTERNAL_ERROR:
+                return 0
+            elif e.get_error_code() is None:  # unknown...
                 return 0
             else:
                 print >>sys.stderr, "libvirt error code: {!r}".format(
@@ -918,6 +931,11 @@ class QubesVm(object):
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return False
+                # libxl_domain_info failed - domain no longer exists
+            elif e.get_error_code() == libvirt.VIR_ERR_INTERNAL_ERROR:
+                return False
+            elif e.get_error_code() is None:  # unknown...
+                return False
             else:
                 print >>sys.stderr, "libvirt error code: {!r}".format(
                     e.get_error_code())
@@ -931,6 +949,11 @@ class QubesVm(object):
                 return False
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
+                return False
+                # libxl_domain_info failed - domain no longer exists
+            elif e.get_error_code() == libvirt.VIR_ERR_INTERNAL_ERROR:
+                return False
+            elif e.get_error_code() is None:  # unknown...
                 return False
             else:
                 print >>sys.stderr, "libvirt error code: {!r}".format(
@@ -1082,6 +1105,7 @@ class QubesVm(object):
 
         if self.is_netvm():
             self.qdb.write("/qubes-netvm-gateway", self.gateway)
+            self.qdb.write("/qubes-netvm-primary-dns", self.gateway)
             self.qdb.write("/qubes-netvm-secondary-dns", self.secondary_dns)
             self.qdb.write("/qubes-netvm-netmask", self.netmask)
             self.qdb.write("/qubes-netvm-network", self.network)
@@ -1090,6 +1114,7 @@ class QubesVm(object):
             self.qdb.write("/qubes-ip", self.ip)
             self.qdb.write("/qubes-netmask", self.netvm.netmask)
             self.qdb.write("/qubes-gateway", self.netvm.gateway)
+            self.qdb.write("/qubes-primary-dns", self.netvm.gateway)
             self.qdb.write("/qubes-secondary-dns", self.netvm.secondary_dns)
 
         tzname = self.get_timezone()
@@ -1651,13 +1676,17 @@ class QubesVm(object):
         if bool(input) + bool(passio_popen) + bool(localcmd) > 1:
             raise ValueError("'input', 'passio_popen', 'localcmd' cannot be "
                              "used together")
+        if not wait and (localcmd or input):
+            raise ValueError("Cannot use wait=False with input or "
+                             "localcmd specified")
         if localcmd:
             return self.run("QUBESRPC %s %s" % (service, source),
                             localcmd=localcmd, user=user, wait=wait, gui=gui)
         elif input:
-            return self.run("QUBESRPC %s %s" % (service, source),
-                            localcmd="echo %s" % input, user=user, wait=wait,
-                            gui=gui)
+            p = self.run("QUBESRPC %s %s" % (service, source),
+                user=user, wait=wait, gui=gui, passio_popen=True)
+            p.communicate(input)
+            return p.returncode
         else:
             return self.run("QUBESRPC %s %s" % (service, source),
                             passio_popen=passio_popen, user=user, wait=wait,

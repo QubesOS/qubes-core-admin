@@ -31,6 +31,7 @@ from qubes.backup import backup_restore_do
 import qubes.backup
 import sys
 from optparse import OptionParser
+from locale import getpreferredencoding
 
 import os
 import sys
@@ -81,6 +82,10 @@ def main():
     parser.add_option ("-e", "--encrypted", action="store_true", dest="decrypt", default=False,
                        help="The backup is encrypted")
 
+    parser.add_option ("-p", "--passphrase-file", action="store",
+                       dest="pass_file", default=None,
+                       help="File containing the pass phrase to use, or '-' to read it from stdin")
+
     parser.add_option ("-z", "--compressed", action="store_true", dest="compressed", default=False,
                        help="The backup is compressed")
 
@@ -110,6 +115,8 @@ def main():
         restore_options['use-default-netvm'] = True
     if options.replace_template:
         restore_options['replace-template'] = options.replace_template
+    if options.rename_conflicting:
+        restore_options['rename-conflicting'] = True
     if not options.dom0_home:
         restore_options['dom0-home'] = False
     if options.ignore_username_mismatch:
@@ -128,8 +135,16 @@ def main():
             print >>sys.stderr, "ERROR: VM {0} does not exist".format(options.appvm)
             exit(1)
 
-    passphrase = getpass.getpass("Please enter the pass phrase that will be used to decrypt/verify the backup: ")
-    passphrase = passphrase.decode(sys.stdin.encoding)
+    if options.pass_file is not None:
+        f = open(options.pass_file) if options.pass_file != "-" else sys.stdin
+        passphrase = f.readline().rstrip()
+        if f is not sys.stdin:
+            f.close()
+    else:
+        passphrase = getpass.getpass("Please enter the pass phrase to decrypt/verify the backup: ")
+
+    encoding = sys.stdin.encoding or getpreferredencoding()
+    passphrase = passphrase.decode(encoding)
 
     print >> sys.stderr, "Checking backup content..."
 
@@ -244,10 +259,9 @@ def main():
                 print >> sys.stderr, "Continuing as directed"
         print >> sys.stderr, "While restoring user homedir, existing files/dirs will be backed up in 'home-pre-restore-<current-time>' dir"
 
-    prompt = raw_input ("Do you want to proceed? [y/N] ")
-    if not (prompt == "y" or prompt == "Y"):
-        exit (0)
-
+    if options.pass_file is None:
+        if raw_input("Do you want to proceed? [y/N] ").upper() != "Y":
+            exit(0)
 
     try:
         backup_restore_do(restore_info,

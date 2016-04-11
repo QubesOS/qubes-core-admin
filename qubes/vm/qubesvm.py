@@ -511,6 +511,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             subprocess.check_call(['sudo', 'systemctl', '-q', 'disable',
                 'qubes-vm@{}.service'.format(oldvalue)])
 
+        try:
+            self.app.domains[newvalue]
+        except KeyError:
+            pass
+        else:
+            raise qubes.exc.QubesValueError(
+                'VM named {!r} already exists'.format(newvalue))
 
     @qubes.events.handler('property-set:name')
     def on_property_set_name(self, event, name, new_name, old_name=None):
@@ -896,18 +903,28 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise TypeError(
                 'input, passio_popen and localcmd cannot be used together')
 
+        if not wait and (localcmd or input):
+            raise ValueError("Cannot use wait=False with input or "
+                             "localcmd specified")
+
         if passio_stderr and not passio_popen:
             raise TypeError('passio_stderr can be used only with passio_popen')
 
         if input:
-            localcmd = 'printf %s {}'.format(pipes.quote(input))
+            # Internally use passio_popen, but do not return POpen object to
+            # the user - use internally for p.communicate()
+            passio_popen = True
 
         source = 'dom0' if source is None else self.app.domains[source].name
 
-        return self.run('QUBESRPC {} {}'.format(service, source),
+        p = self.run('QUBESRPC {} {}'.format(service, source),
             localcmd=localcmd, passio_popen=passio_popen, user=user, wait=wait,
             gui=gui, passio_stderr=passio_stderr)
-
+        if input:
+            p.communicate(input)
+            return p.returncode
+        else:
+            return p
 
     def request_memory(self, mem_required=None):
         # overhead of per-qube/per-vcpu Xen structures,

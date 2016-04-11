@@ -25,13 +25,24 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
+"""
+.. warning::
+    The test suite hereby claims any domain whose name starts with
+    :py:data:`VMPREFIX` as fair game. This is needed to enforce sane
+    test executing environment. If you have domains named ``test-*``,
+    don't run the tests.
+"""
+
 import collections
+from distutils import spawn
+import functools
 import multiprocessing
 import logging
 import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import traceback
 import unittest
 
@@ -129,6 +140,32 @@ class TestEmitter(qubes.events.Emitter):
         super(TestEmitter, self).fire_event_pre(event, *args, **kwargs)
         self.fired_events[(event, args, tuple(sorted(kwargs.items())))] += 1
 
+def expectedFailureIfTemplate(templates):
+    """
+    Decorator for marking specific test as expected to fail only for some
+    templates. Template name is compared as substring, so 'whonix' will
+    handle both 'whonix-ws' and 'whonix-gw'.
+     templates can be either a single string, or an iterable
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            template = self.template
+            if isinstance(templates, basestring):
+                should_expect_fail = template in templates
+            else:
+                should_expect_fail = any([template in x for x in templates])
+            if should_expect_fail:
+                try:
+                    func(self, *args, **kwargs)
+                except Exception:
+                    raise unittest.case._ExpectedFailure(sys.exc_info())
+                raise unittest.case._UnexpectedSuccess()
+            else:
+                # Call directly:
+                func(self, *args, **kwargs)
+        return wrapper
+    return decorator
 
 class _AssertNotRaisesContext(object):
     """A context manager used to implement TestCase.assertNotRaises methods.
@@ -537,12 +574,6 @@ class SystemTestsMixin(object):
     @classmethod
     def remove_test_vms(cls, xmlpath=XMLPATH, prefix=VMPREFIX):
         '''Aggresively remove any domain that has name in testing namespace.
-
-        .. warning::
-            The test suite hereby claims any domain whose name starts with
-            :py:data:`VMPREFIX` as fair game. This is needed to enforce sane
-            test executing environment. If you have domains named ``test-*``,
-            don't run the tests.
         '''
 
         # first, remove them Qubes-way
@@ -577,6 +608,30 @@ class SystemTestsMixin(object):
                     vmnames.add(name)
         for vmname in vmnames:
             cls._remove_vm_disk(vmname)
+
+    def qrexec_policy(self, service, source, destination, allow=True):
+        """
+        Allow qrexec calls for duration of the test
+        :param service: service name
+        :param source: source VM name
+        :param destination: destination VM name
+        :return:
+        """
+
+        def add_remove_rule(add=True):
+            with open('/etc/qubes-rpc/policy/{}'.format(service), 'r+') as policy:
+                policy_rules = policy.readlines()
+                rule = "{} {} {}\n".format(source, destination,
+                                              'allow' if allow else 'deny')
+                if add:
+                    policy_rules.insert(0, rule)
+                else:
+                    policy_rules.remove(rule)
+                policy.truncate(0)
+                policy.seek(0)
+                policy.write(''.join(policy_rules))
+        add_remove_rule(add=True)
+        self.addCleanup(add_remove_rule, add=False)
 
     def wait_for_window(self, title, timeout=30, show=True):
         """
@@ -628,6 +683,76 @@ class SystemTestsMixin(object):
             timeout -= 1
         self.fail("Timeout while waiting for VM {} shutdown".format(vm.name))
 
+    def prepare_hvm_system_linux(self, vm, init_script, extra_files=None):
+        if not os.path.exists('/usr/lib/grub/i386-pc'):
+            self.skipTest('grub2 not installed')
+        if not spawn.find_executable('grub2-install'):
+            self.skipTest('grub2-tools not installed')
+        if not spawn.find_executable('dracut'):
+            self.skipTest('dracut not installed')
+        # create a single partition
+        p = subprocess.Popen(['sfdisk', '-q', '-L', vm.storage.root_img],
+            stdin=subprocess.PIPE,
+            stdout=open(os.devnull, 'w'),
+            stderr=subprocess.STDOUT)
+        p.communicate('2048,\n')
+        assert p.returncode == 0, 'sfdisk failed'
+        # TODO: check if root_img is really file, not already block device
+        p = subprocess.Popen(['sudo', 'losetup', '-f', '-P', '--show',
+            vm.storage.root_img], stdout=subprocess.PIPE)
+        (loopdev, _) = p.communicate()
+        loopdev = loopdev.strip()
+        looppart = loopdev + 'p1'
+        assert p.returncode == 0, 'losetup failed'
+        subprocess.check_call(['sudo', 'mkfs.ext2', '-q', '-F', looppart])
+        mountpoint = tempfile.mkdtemp()
+        subprocess.check_call(['sudo', 'mount', looppart, mountpoint])
+        try:
+            subprocess.check_call(['sudo', 'grub2-install',
+                '--target', 'i386-pc',
+                '--modules', 'part_msdos ext2',
+                '--boot-directory', mountpoint, loopdev],
+                stderr=open(os.devnull, 'w')
+            )
+            grub_cfg = '{}/grub2/grub.cfg'.format(mountpoint)
+            subprocess.check_call(
+                ['sudo', 'chown', '-R', os.getlogin(), mountpoint])
+            with open(grub_cfg, 'w') as f:
+                f.write(
+                    "set timeout=1\n"
+                    "menuentry 'Default' {\n"
+                    "  linux /vmlinuz root=/dev/xvda1 "
+                    "rd.driver.blacklist=bochs_drm "
+                    "rd.driver.blacklist=uhci_hcd\n"
+                    "  initrd /initrd\n"
+                    "}"
+                )
+            p = subprocess.Popen(['uname', '-r'], stdout=subprocess.PIPE)
+            (kernel_version, _) = p.communicate()
+            kernel_version = kernel_version.strip()
+            kernel = '/boot/vmlinuz-{}'.format(kernel_version)
+            shutil.copy(kernel, os.path.join(mountpoint, 'vmlinuz'))
+            init_path = os.path.join(mountpoint, 'init')
+            with open(init_path, 'w') as f:
+                f.write(init_script)
+            os.chmod(init_path, 0755)
+            dracut_args = [
+                '--kver', kernel_version,
+                '--include', init_path,
+                '/usr/lib/dracut/hooks/pre-pivot/initscript.sh',
+                '--no-hostonly', '--nolvmconf', '--nomdadmconf',
+            ]
+            if extra_files:
+                dracut_args += ['--install', ' '.join(extra_files)]
+            subprocess.check_call(
+                ['dracut'] + dracut_args + [os.path.join(mountpoint,
+                    'initrd')],
+                stderr=open(os.devnull, 'w')
+            )
+        finally:
+            subprocess.check_call(['sudo', 'umount', mountpoint])
+            shutil.rmtree(mountpoint)
+            subprocess.check_call(['sudo', 'losetup', '-d', loopdev])
 
 # noinspection PyAttributeOutsideInit
 class BackupTestsMixin(SystemTestsMixin):

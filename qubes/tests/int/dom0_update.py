@@ -40,6 +40,7 @@ class TC_00_Dom0UpgradeMixin(qubes.tests.SystemTestsMixin):
     pkg_name = 'qubes-test-pkg'
     dom0_update_common_opts = ['--disablerepo=*', '--enablerepo=test',
                                '--setopt=test.copy_local=1']
+    update_flag_path = '/var/lib/qubes/updates/dom0-updates-available'
 
     @classmethod
     def generate_key(cls, keydir):
@@ -181,10 +182,18 @@ Test package
                       "test".format(retcode))
 
     def test_000_update(self):
+        """Dom0 update tests
+
+        Check if package update is:
+         - detected
+         - installed
+         - "updates pending" flag is cleared
+        """
         filename = self.create_pkg(self.tmpdir, self.pkg_name, '1.0')
         subprocess.check_call(['sudo', 'rpm', '-i', filename])
         filename = self.create_pkg(self.tmpdir, self.pkg_name, '2.0')
         self.send_pkg(filename)
+        open(self.update_flag_path, 'a').close()
 
         logpath = os.path.join(self.tmpdir, 'dom0-update-output.txt')
         try:
@@ -204,6 +213,67 @@ Test package
             self.pkg_name)], stdout=open(os.devnull, 'w'))
         self.assertEqual(retcode, 0, 'Package {}-2.0 not installed after '
                                      'update'.format(self.pkg_name))
+        self.assertFalse(os.path.exists(self.update_flag_path),
+                         "'updates pending' flag not cleared")
+
+    def test_005_update_flag_clear(self):
+        """Check if 'updates pending' flag is creared"""
+
+        # create any pkg (but not install it) to initialize repo in the VM
+        filename = self.create_pkg(self.tmpdir, self.pkg_name, '1.0')
+        self.send_pkg(filename)
+        open(self.update_flag_path, 'a').close()
+
+        logpath = os.path.join(self.tmpdir, 'dom0-update-output.txt')
+        try:
+            subprocess.check_call(['sudo', 'qubes-dom0-update', '-y'] +
+                                  self.dom0_update_common_opts,
+                                  stdout=open(logpath, 'w'),
+                                  stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError:
+            self.fail("qubes-dom0-update failed: " + open(
+                logpath).read())
+
+        with open(logpath) as f:
+            dom0_update_output = f.read()
+            self.assertFalse('Errno' in dom0_update_output or
+                             'Couldn\'t' in dom0_update_output,
+                             "qubes-dom0-update reported an error: {}".
+                             format(dom0_update_output))
+
+        self.assertFalse(os.path.exists(self.update_flag_path),
+                         "'updates pending' flag not cleared")
+
+    def test_006_update_flag_clear(self):
+        """Check if 'updates pending' flag is creared, using --clean"""
+
+        # create any pkg (but not install it) to initialize repo in the VM
+        filename = self.create_pkg(self.tmpdir, self.pkg_name, '1.0')
+        self.send_pkg(filename)
+        open(self.update_flag_path, 'a').close()
+
+        # remove also repodata to test #1685
+        shutil.rmtree('/var/lib/qubes/updates/repodata')
+        logpath = os.path.join(self.tmpdir, 'dom0-update-output.txt')
+        try:
+            subprocess.check_call(['sudo', 'qubes-dom0-update', '-y',
+                                   '--clean'] +
+                                  self.dom0_update_common_opts,
+                                  stdout=open(logpath, 'w'),
+                                  stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError:
+            self.fail("qubes-dom0-update failed: " + open(
+                logpath).read())
+
+        with open(logpath) as f:
+            dom0_update_output = f.read()
+            self.assertFalse('Errno' in dom0_update_output or
+                             'Couldn\'t' in dom0_update_output,
+                             "qubes-dom0-update reported an error: {}".
+                             format(dom0_update_output))
+
+        self.assertFalse(os.path.exists(self.update_flag_path),
+                         "'updates pending' flag not cleared")
 
     def test_010_instal(self):
         filename = self.create_pkg(self.tmpdir, self.pkg_name, '1.0')

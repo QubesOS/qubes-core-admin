@@ -451,7 +451,7 @@ class Backup(object):
         vms_not_for_backup = [vm.name for vm in self.app.domains
                               if vm not in self.vms_for_backup]
         summary += "VMs not selected for backup:\n - " + "\n - ".join(
-            vms_not_for_backup)
+            sorted(vms_not_for_backup))
 
         return summary
 

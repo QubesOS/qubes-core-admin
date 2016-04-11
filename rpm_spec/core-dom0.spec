@@ -27,6 +27,9 @@
 
 %{!?version: %define version %(cat version)}
 
+# debug_package hack should be removed when BuildArch:noarch is enabled below
+%define debug_package %{nil}
+
 %define _dracutmoddir	/usr/lib/dracut/modules.d
 %if %{fedora} < 17
 %define _dracutmoddir   /usr/share/dracut/modules.d
@@ -48,6 +51,9 @@ URL:		http://www.qubes-os.org
 # /bin -> usr/bin symlink). python*.rpm provides only /usr/bin/python.
 AutoReq:	no
 
+# FIXME: Enable this and disable debug_package
+#BuildArch: noarch
+
 BuildRequires:  ImageMagick
 BuildRequires:	systemd-units
 
@@ -61,7 +67,7 @@ Requires(preun): systemd-units
 Requires(postun): systemd-units
 Requires:	python, pciutils, python-inotify, python-daemon
 Requires:	python-setuptools
-Requires:       qubes-core-dom0-linux >= 2.0.24
+Requires:       qubes-core-dom0-linux >= 3.1.8
 Requires:       qubes-db-dom0
 Requires:       python-lxml
 # TODO: R: qubes-gui-dom0 >= 2.1.11
@@ -333,8 +339,10 @@ fi
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.NotifyTools
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.NotifyUpdates
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.VMShell
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.GetRandomizedTime
 /etc/qubes-rpc/qubes.NotifyTools
 /etc/qubes-rpc/qubes.NotifyUpdates
+/etc/qubes-rpc/qubes.GetRandomizedTime
 %attr(2770,root,qubes) %dir /var/log/qubes
 %attr(0770,root,qubes) %dir /var/run/qubes
 /etc/xdg/autostart/qubes-guid.desktop

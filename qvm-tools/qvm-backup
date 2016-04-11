@@ -30,6 +30,7 @@ import qubes.backup
 import os
 import sys
 import getpass
+from locale import getpreferredencoding
 
 def print_progress(progress):
     print >> sys.stderr, "\r-> Backing up files: {0}%...".format (progress),
@@ -51,6 +52,10 @@ def main():
     parser.add_option ("--no-encrypt", action="store_true",
                        dest="no_encrypt", default=False,
                        help="Skip encryption even if sending the backup to VM")
+    parser.add_option ("-p", "--passphrase-file", action="store",
+                       dest="pass_file", default=None,
+                       help="File containing the pass phrase to use, or '-' "
+                            "to read it from stdin")
     parser.add_option ("-E", "--enc-algo", action="store",
                        dest="crypto_algorithm", default=None,
                        help="Specify non-default encryption algorithm. For "
@@ -156,24 +161,26 @@ def main():
     if not options.encrypt:
         print >>sys.stderr, "WARNING: encryption will not be used"
 
-    prompt = raw_input ("Do you want to proceed? [y/N] ")
-    if not (prompt == "y" or prompt == "Y"):
-        exit (0)
+    if options.pass_file is not None:
+        f = open(options.pass_file) if options.pass_file != "-" else sys.stdin
+        passphrase = f.readline().rstrip()
+        if f is not sys.stdin:
+            f.close()
 
-    if options.encrypt:
-        passphrase = getpass.getpass("Please enter the pass phrase that will "
-                                     "be used to encrypt and verify the "
-                                     "backup: ")
     else:
-        passphrase = getpass.getpass("Please enter the pass phrase that will "
-                                     "be used to verify the backup: ")
+        if raw_input("Do you want to proceed? [y/N] ").upper() != "Y":
+            exit(0)
 
-    passphrase2 = getpass.getpass("Enter again for verification: ")
-    if passphrase != passphrase2:
-        print >>sys.stderr, "ERROR: Password mismatch"
-        exit(1)
+        s = ("Please enter the pass phrase that will be used to {}verify "
+             "the backup: ").format('encrypt and ' if options.encrypt else '')
+        passphrase = getpass.getpass(s)
 
-    passphrase = passphrase.decode(sys.stdin.encoding)
+        if getpass.getpass("Enter again for verification: ") != passphrase:
+            print >>sys.stderr, "ERROR: Password mismatch"
+            exit(1)
+
+    encoding = sys.stdin.encoding or getpreferredencoding()
+    passphrase = passphrase.decode(encoding)
 
     kwargs = {}
     if options.hmac_algorithm:

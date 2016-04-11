@@ -15,6 +15,10 @@ Options
 
     Show this help message and exit
 
+.. option:: --verify-only
+
+    Do not restore the data, only verify backup integrity
+
 .. option:: --skip-broken
 
     Do not restore VMs that have missing templates or netvms
@@ -47,6 +51,22 @@ Options
 .. option:: --ignore-username-mismatch
 
     Ignore dom0 username mismatch while restoring homedir
+
+.. option:: --dest-vm=APPVM, -d APPVM
+
+    Restore from a backup located in a specific AppVM
+
+.. option:: --encrypted, -e
+
+    The backup is encrypted
+
+.. option:: --compressed. -z
+
+    The backup is compressed
+
+.. option:: --debug
+
+    Enable (a lot of) debug output
 
 Authors
 =======
