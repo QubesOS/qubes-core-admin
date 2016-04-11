@@ -24,16 +24,13 @@
 
 import pkg_resources
 import qubes.tests
-import qubes.qubes
+import qubes.vm.appvm
+import qubes.vm.templatevm
 
 
-class ExtraTestMixin(qubes.tests.SystemTestsMixin):
+class ExtraTestCase(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
 
     template = None
-
-    def setUp(self):
-        super(ExtraTestMixin, self).setUp()
-        self.qc.unlock_db()
 
     def create_vms(self, names):
         """
@@ -43,52 +40,39 @@ class ExtraTestMixin(qubes.tests.SystemTestsMixin):
         prefixed with some test specific string)
         :return: list of created VM objects
         """
-        self.qc.lock_db_for_writing()
-        self.qc.load()
         if self.template:
-            template = self.qc.get_vm_by_name(self.template)
+            template = self.app.domains[self.template]
         else:
-            template = self.qc.get_default_template()
+            template = self.app.default_template
         for vmname in names:
-            vm = self.qc.add_new_vm("QubesAppVm",
+            vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
                                     name=self.make_vm_name(vmname),
                                     template=template)
             vm.create_on_disk(verbose=False)
         self.save_and_reload_db()
-        self.qc.unlock_db()
 
         # get objects after reload
         vms = []
         for vmname in names:
-            vms.append(self.qc.get_vm_by_name(self.make_vm_name(vmname)))
+            vms.append(self.app.domains[self.make_vm_name])
         return vms
 
     def enable_network(self):
         """
         Enable access to the network. Must be called before creating VMs.
         """
-        # nothing to do in core2
-        pass
+        self.init_networking()
 
 
 def load_tests(loader, tests, pattern):
     for entry in pkg_resources.iter_entry_points('qubes.tests.extra'):
         for test_case in entry():
-            tests.addTests(loader.loadTestsFromTestCase(
-                type(
-                    entry.name + '_' + test_case.__name__,
-                    (test_case, ExtraTestMixin, qubes.tests.QubesTestCase),
-                    {}
-                )
-            ))
+            tests.addTests(loader.loadTestsFromTestCase(test_case))
 
     try:
-        qc = qubes.qubes.QubesVmCollection()
-        qc.lock_db_for_reading()
-        qc.load()
-        qc.unlock_db()
-        templates = [vm.name for vm in qc.values() if
-                     isinstance(vm, qubes.qubes.QubesTemplateVm)]
+        app = qubes.Qubes()
+        templates = [vm.name for vm in app.domains if
+                     isinstance(vm, qubes.vm.templatevm.TemplateVM)]
     except OSError:
         templates = []
 
@@ -100,8 +84,7 @@ def load_tests(loader, tests, pattern):
                     type(
                         '{}_{}_{}'.format(
                             entry.name, test_case.__name__, template),
-                        (test_case, ExtraTestMixin,
-                         qubes.tests.QubesTestCase),
+                        (test_case,),
                         {'template': template}
                     )
                 ))
