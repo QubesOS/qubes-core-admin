@@ -1186,9 +1186,7 @@ class Qubes(PropertyHolder):
         #: logger instance for logging global messages
         self.log = logging.getLogger('app')
 
-        # pylint: disable=no-member
-        self.extensions = set(ext.load()(self)
-            for ext in pkg_resources.iter_entry_points('qubes.ext'))
+        self._extensions = qubes.ext.get_extensions()
 
         #: collection of all VMs managed by this Qubes instance
         self.domains = VMCollection(self)

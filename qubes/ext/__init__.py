@@ -29,30 +29,37 @@ some systems. They may be OS- or architecture-dependent or custom-developed for
 particular customer.
 '''
 
+import pkg_resources
 import qubes.events
 
 
 class Extension(object):
     '''Base class for all extensions
+    '''  # pylint: disable=too-few-public-methods
 
-    :param qubes.Qubes app: application object
-    ''' # pylint: disable=too-few-public-methods
+    def __new__(cls):
+        if '_instance' not in cls.__dict__:
+            cls._instance = super(Extension, cls).__new__(cls)
 
-    def __init__(self, app):
-        self.app = app
+            for name in cls.__dict__:
+                attr = getattr(cls._instance, name)
+                if not qubes.events.ishandler(attr):
+                    continue
 
-        for name in dir(self):
-            attr = getattr(self, name)
-            if not qubes.events.ishandler(attr):
-                continue
+                if attr.ha_vm is not None:
+                    for event in attr.ha_events:
+                        attr.ha_vm.add_handler(event, attr)
+                else:
+                    # global hook
+                    for event in attr.ha_events:
+                        qubes.Qubes.add_handler(event, attr)
 
-            if attr.ha_vm is not None:
-                for event in attr.ha_events:
-                    attr.ha_vm.add_handler(event, attr)
-            else:
-                # global hook
-                for event in attr.ha_events:
-                    self.app.add_handler(event, attr)
+        return cls._instance
+
+
+def get_extensions():
+    return set(ext.load()()
+        for ext in pkg_resources.iter_entry_points('qubes.ext'))
 
 
 def handler(*events, **kwargs):
