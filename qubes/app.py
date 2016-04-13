@@ -876,8 +876,9 @@ class Qubes(qubes.PropertyHolder):
     def add_pool(self, **kwargs):
         """ Add a storage pool to config."""
         name = kwargs['name']
-        assert name not in self.pools.keys(), \
-            "Pool named %s already exists" % name
+        if 'name' not in kwargs:
+            raise qubes.exc.QubesException('No pool name specified')
+
         pool = self._get_pool(**kwargs)
         pool.setup()
         self.pools[name] = pool

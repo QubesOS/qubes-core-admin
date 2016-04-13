@@ -247,6 +247,7 @@ fi
 %{python_sitelib}/qubes/tools/qvm_kill.py*
 %{python_sitelib}/qubes/tools/qvm_ls.py*
 %{python_sitelib}/qubes/tools/qvm_pause.py*
+%{python_sitelib}/qubes/tools/qvm_pool.py*
 %{python_sitelib}/qubes/tools/qvm_prefs.py*
 %{python_sitelib}/qubes/tools/qvm_remove.py*
 %{python_sitelib}/qubes/tools/qvm_run.py*

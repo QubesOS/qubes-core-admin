@@ -269,6 +269,8 @@ man_pages = [
         u'List VMs and various information about them', _man_pages_author, 1),
     ('manpages/qvm-pci', 'qvm-pci',
         u'List/set VM PCI devices', _man_pages_author, 1),
+    ('manpages/qvm-pool', 'qvm-pool',
+        u'Manages Qubes pools and their options', _man_pages_author, 1),
     ('manpages/qvm-prefs', 'qvm-prefs',
         u'List/set various per-VM properties', _man_pages_author, 1),
     ('manpages/qvm-remove', 'qvm-remove',
