@@ -282,3 +282,22 @@ class XenPool(Pool):
 
     def abspath(self, file_name):
         return os.path.join(self.target_dir, file_name)
+
+    def init_volume(self, volume_config):
+        assert 'volume_type' in volume_config, "Volume type missing " \
+            + str(volume_config)
+        target_dir = self.target_dir
+        assert target_dir, "Pool target_dir not set"
+        volume_type = volume_config['volume_type']
+        volume_config['target_dir'] = target_dir
+        known_types = {
+            'read-write': ReadWriteFile,
+            'read-only': ReadOnlyFile,
+            'origin': OriginFile,
+            'snapshot': SnapshotFile,
+            'volatile': VolatileFile,
+        }
+        if volume_type not in known_types:
+            raise StoragePoolException("Unknown volume type " + volume_type)
+        return known_types[volume_type](**volume_config)
+
