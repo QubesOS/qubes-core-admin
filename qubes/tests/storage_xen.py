@@ -122,39 +122,6 @@ class TC_01_XenPool(QubesTestCase):
         result = vm.storage.vmdir
         self.assertEquals(expected, result)
 
-    def test_005_hvm_vmdir(self):
-        """ Check the vm storage dir for a HVM"""
-        vmname = self.make_vm_name('hvm')
-        vm = qubes.tests.storage.TestVM(self.app, qid=2, name=vmname,
-            template=self.template, pool_name='test-pool')
-        vm.hvm = True
-
-        expected = os.path.join(self.APPVMS_DIR, vm.name)
-        result = vm.storage.vmdir
-        self.assertEquals(expected, result)
-
-    @unittest.skip('TODO - servicevms dir?')
-    def test_006_net_vmdir(self):
-        """ Check the vm storage dir for a Netvm"""
-        vmname = self.make_vm_name('hvm')
-        vm = qubes.tests.storage.TestVM(self.app, qid=2, name=vmname,
-            template=self.template, pool_name='test-pool')
-
-        expected = os.path.join(self.SERVICE_DIR, vm.name)
-        result = vm.storage.vmdir
-        self.assertEquals(expected, result)
-
-    @unittest.skip('TODO - servicevms dir?')
-    def test_007_proxy_vmdir(self):
-        """ Check the vm storage dir for a ProxyVm"""
-        vmname = self.make_vm_name('proxyvm')
-        vm = qubes.tests.storage.TestVM(self.app, qid=2, name=vmname,
-            template=self.template, pool_name='test-pool')
-
-        expected = os.path.join(self.SERVICE_DIR, vm.name)
-        result = vm.storage.vmdir
-        self.assertEquals(expected, result)
-
     def test_008_admin_vmdir(self):
         """ Check the vm storage dir for a AdminVm"""
         # TODO How to test AdminVm?
