@@ -31,137 +31,70 @@ import os.path
 import re
 import subprocess
 
-import qubes
-import qubes.config
-import qubes.vm.templatevm
 from qubes.storage import Pool, StoragePoolException, Volume
+
+BLKSIZE = 512
 
 
 class XenPool(Pool):
+    ''' File based 'original' disk implementation '''
 
-    root_dev = 'xvda'
-    private_dev = 'xvdb'
-    volatile_dev = 'xvdc'
-
-    def __init__(self, vm=None, name=None, dir_path=None):
-        super(XenPool, self).__init__(vm=vm, name=name)
+    def __init__(self, name=None, dir_path=None):
+        super(XenPool, self).__init__(name=name)
         assert dir_path, "No pool dir_path specified"
         self.dir_path = os.path.normpath(dir_path)
 
-        self.create_dir_if_not_exists(self.dir_path)
+        create_dir_if_not_exists(self.dir_path)
         appvms_path = os.path.join(self.dir_path, 'appvms')
-        self.create_dir_if_not_exists(appvms_path)
+        create_dir_if_not_exists(appvms_path)
         vm_templates_path = os.path.join(self.dir_path, 'vm-templates')
-        self.create_dir_if_not_exists(vm_templates_path)
+        create_dir_if_not_exists(vm_templates_path)
 
-    @property
-    def private_img(self):
-        '''Path to the private image'''
-        return self.abspath(qubes.config.vm_files['private_img'])
+    def create(self, volume, source_volume=None):
+        _type = volume.volume_type
+        size = volume.size
+        if _type == 'origin':
+            create_sparse_file(volume.path_origin, size)
+            create_sparse_file(volume.path_cow, size)
+        elif _type in ['read-write'] and source_volume:
+            copy_file(source_volume.path, volume.path)
+        elif _type in ['read-write', 'volatile']:
+            create_sparse_file(volume.path, size)
 
-    @property
-    def root_img(self):
-        '''Path to the root image'''
-        return self.vm.template.storage.root_img \
-            if hasattr(self.vm, 'template') and self.vm.template \
-            else self.abspath(qubes.config.vm_files['root_img'])
+        return volume
 
-    @property
-    def rootcow_img(self):
-        '''Path to the root COW image'''
+    def resize(self, volume, size):
+        ''' Expands volume, throws
+            :py:class:`qubst.storage.StoragePoolException` if given size is
+            less than current_size
+        '''
+        _type = volume.volume_type
+        if _type not in ['origin', 'read-write', 'volatile']:
+            raise StoragePoolException('Can not resize a %s volume %s' %
+                                       (_type, volume.vid))
 
-        if isinstance(self.vm, qubes.vm.templatevm.TemplateVM):
-            return self.abspath(qubes.config.vm_files['rootcow_img'])
+        if size <= volume.size:
+            raise StoragePoolException(
+                'For your own safety, shrinking of %s is'
+                ' disabled. If you really know what you'
+                ' are doing, use `truncate` on %s manually.' %
+                (volume.name, volume.vid))
 
-        return None
+        if _type == 'origin':
+            path = volume.path_origin
+        elif _type in ['read-write', 'volatile']:
+            path = volume.path
 
-    @property
-    def volatile_img(self):
-        '''Path to the volatile image'''
-        return self.abspath(qubes.config.vm_files['volatile_img'])
+        if size <= volume.size:
+            raise StoragePoolException('Can not shring volume %s' %
+                                       volume.name)
 
-    def root_dev_config(self):
-        dev_name = 'root'
-        if isinstance(self.vm, qubes.vm.templatevm.TemplateVM):
-            return self.format_disk_dev(
-                '{root}:{rootcow}'.format(
-                    root=self.root_img,
-                    rootcow=self.rootcow_img),
-                dev_name,
-                script='block-origin')
-
-        elif self.vm.hvm and hasattr(self.vm, 'template'):
-            # HVM template-based VM - only one device-mapper layer, in dom0
-            # (root+volatile)
-            # HVM detection based on 'kernel' property is massive hack,
-            # but taken from assumption that VM needs Qubes-specific kernel
-            # (actually initramfs) to assemble the second layer of device-mapper
-            return self.format_disk_dev(
-                '{root}:{volatile}'.format(
-                    root=self.vm.template.storage.root_img,
-                    volatile=self.volatile_img),
-                dev_name,
-                script='block-snapshot')
-
-        elif hasattr(self.vm, 'template'):
-            # any other template-based VM - two device-mapper layers: one
-            # in dom0 (here) from root+root-cow, and another one from
-            # this+volatile.img
-            path = '{root}:{template_rootcow}'.format(
-                root=self.root_img,
-                template_rootcow=self.vm.template.storage.rootcow_img)
-            return self.format_disk_dev(path=path,
-                                        vdev=self.root_dev,
-                                        script='block-snapshot',
-                                        rw=False)
-
-        else:
-            # standalone qube
-            return self.format_disk_dev(self.root_img, dev_name)
-
-    def private_dev_config(self):
-        return self.format_disk_dev(self.private_img, 'private')
-
-    def volatile_dev_config(self):
-        return self.format_disk_dev(self.volatile_img, 'volatile')
-
-    def create_on_disk_private_img(self, source_template=None):
-        if not os.path.exists(self.target_dir):
-            os.makedirs(self.target_dir)
-        if source_template is None:
-            f_private = open(self.private_img, 'a+b')
-            f_private.truncate(self.private_img_size)
-            f_private.close()
-
-        else:
-            self.vm.log.info("Copying the template's private image: {}".format(
-                source_template.storage.private_img))
-            self._copy_file(source_template.storage.private_img, self.private_img)
-
-    def create_on_disk_root_img(self, source_template=None):
-        if not os.path.exists(self.target_dir):
-            os.makedirs(self.target_dir)
-        if source_template is None:
-            fd = open(self.root_img, 'a+b')
-            fd.truncate(self.root_img_size)
-            fd.close()
-
-        elif self.vm.updateable:
-            # if not updateable, just use template's disk
-            self.vm.log.info(
-                "--> Copying the template's root image: {}".format(
-                    source_template.storage.root_img))
-            self._copy_file(source_template.storage.root_img, self.root_img)
-
-    def resize_private_img(self, size):
-        fd = open(self.private_img, 'a+b')
-        fd.truncate(size)
-        fd.close()
+        with open(path, 'a+b') as fd:
+            fd.truncate(size)
 
         # find loop device if any
-        p = subprocess.Popen(
-            ['sudo', 'losetup', '--associated', self.private_img],
-            stdout=subprocess.PIPE)
+        p = subprocess.Popen(['sudo', 'losetup', '--associated', path],
+                             stdout=subprocess.PIPE)
         result = p.communicate()
 
         m = re.match(r'^(/dev/loop\d+):\s', result[0])
@@ -172,106 +105,46 @@ class XenPool(Pool):
             subprocess.check_call(['sudo', 'losetup', '--set-capacity',
                                    loop_dev])
 
-    def commit_template_changes(self):
-        assert isinstance(self.vm, qubes.vm.templatevm.TemplateVM)
+    def commit_template_changes(self, volume):
+        if volume.volume_type != 'origin':
+            return volume
 
-        # TODO: move rootcow_img to this class; the same for vm.is_outdated()
-        if os.path.exists(self.vm.rootcow_img):
-            os.rename(self.vm.rootcow_img, self.vm.rootcow_img + '.old')
+        if os.path.exists(volume.path_cow):
+            os.rename(volume.path_cow, volume.path_cow + '.old')
 
         old_umask = os.umask(002)
-        f_cow = open(self.vm.rootcow_img, 'w')
-        f_root = open(self.root_img, 'r')
-        f_root.seek(0, os.SEEK_END)
-        # make empty sparse file of the same size as root.img
-        f_cow.truncate(f_root.tell())
-        f_cow.close()
-        f_root.close()
+        with open(volume.path_cow, 'w') as f_cow:
+            f_cow.truncate(volume.size)
         os.umask(old_umask)
         return volume
 
     def start(self, volume):
         if volume.volume_type == 'volatile':
             self._reset_volume(volume)
+        if volume.volume_type in ['origin', 'snapshot']:
+            _check_path(volume.path_origin)
+            _check_path(volume.path_cow)
+        else:
+            _check_path(volume.path)
+
         return volume
+
+    def stop(self, volume):
+        pass
 
     def _reset_volume(self, volume):
         ''' Remove and recreate a volatile volume '''
         assert volume.volume_type == 'volatile', "Not a volatile volume"
 
-        size = self.vm.volume_config[volume.name]['size']
-        assert size
+        assert volume.size
 
-        if os.path.exists(volume.path):
-            os.remove(volume.path)
+        _remove_if_exists(volume)
 
         with open(volume.path, "w") as f_volatile:
             f_volatile.truncate(volume.size)
         return volume
 
-    def reset_volatile_storage(self):
-        try:
-            # no template set, in any way (Standalone VM, Template VM)
-            if self.vm.template is None:
-                raise AttributeError
-
-            # template-based HVM with only one device-mapper layer -
-            # volatile.img used as upper layer on root.img, no root-cow.img
-            # intermediate layer
-            if self.vm.hvm:
-                if os.path.exists(self.volatile_img):
-                    if self.vm.debug:
-                        if os.path.getmtime(self.vm.template.storage.root_img) \
-                                > os.path.getmtime(self.volatile_img):
-                            self.vm.log.warning(
-                                'Template have changed, resetting root.img')
-                        else:
-                            self.vm.log.warning(
-                                'Debug mode: not resetting root.img; if you'
-                                ' want to force root.img reset, either'
-                                ' update template VM, or remove volatile.img'
-                                ' file.')
-                            return
-
-                    os.remove(self.volatile_img)
-
-                # FIXME stat on f_root; with open() ...
-                f_volatile = open(self.volatile_img, "w")
-                f_root = open(self.vm.template.storage.root_img, "r")
-                # make empty sparse file of the same size as root.img
-                f_root.seek(0, os.SEEK_END)
-                f_volatile.truncate(f_root.tell())
-                f_volatile.close()
-                f_root.close()
-                return  # XXX why is that? super() does not run
-        except AttributeError:  # self.vm.template
-            pass
-
-        super(XenPool, self).reset_volatile_storage()
-
-    def prepare_for_vm_startup(self):
-        super(XenPool, self).prepare_for_vm_startup()
-
-        if self.drive is not None:
-            # pylint: disable=unused-variable
-            (drive_type, drive_domain, drive_path) = self.drive.split(":")
-
-            if drive_domain.lower() != "dom0":
-                # XXX "VM '{}' holding '{}' does not exists".format(
-                drive_vm = self.vm.app.domains[drive_domain]
-
-                if not drive_vm.is_running():
-                    raise qubes.exc.QubesVMNotRunningError(
-                        drive_vm, 'VM {!r} holding {!r} isn\'t running'.format(
-                            drive_domain, drive_path))
-
-        if self.rootcow_img and not os.path.exists(self.rootcow_img):
-            self.commit_template_changes()
-
-    # XXX there is also a class attribute on the domain classes which does
-    # exactly that -- which one should prevail?
-    @property
-    def target_dir(self):
+    def target_dir(self, vm):
         """ Returns the path to vmdir depending on the type of the VM.
 
             The default QubesOS file storage saves the vm images in three
@@ -288,7 +161,6 @@ class XenPool(Pool):
                 string (str) absolute path to the directory where the vm files
                              are stored
         """
-        vm = self.vm
         if vm.is_template():
             subdir = 'vm-templates'
         elif vm.is_disposablevm():
@@ -300,16 +172,10 @@ class XenPool(Pool):
 
         return os.path.join(self.dir_path, subdir, vm.name)
 
-    def abspath(self, file_name):
-        return os.path.join(self.target_dir, file_name)
-
-    def init_volume(self, volume_config):
+    def init_volume(self, vm, volume_config):
         assert 'volume_type' in volume_config, "Volume type missing " \
             + str(volume_config)
-        target_dir = self.target_dir
-        assert target_dir, "Pool target_dir not set"
         volume_type = volume_config['volume_type']
-        volume_config['target_dir'] = target_dir
         known_types = {
             'read-write': ReadWriteFile,
             'read-only': ReadOnlyFile,
@@ -320,125 +186,124 @@ class XenPool(Pool):
         if volume_type not in known_types:
             raise StoragePoolException("Unknown volume type " + volume_type)
 
-        if volume_type == 'snapshot':
-            path = qubes.storage.get_pool(volume_config['pool'], self.vm.template).target_dir
-            volume_config['vid'] = os.path.join(path, volume_config['name'] + '.img')
+        if volume_type in ['snapshot', 'read-only']:
+            origin_pool = vm.app.get_pool(volume_config['pool'])
+            assert isinstance(origin_pool,
+                              XenPool), 'Origin volume not a xen volume'
+            volume_config['target_dir'] = origin_pool.target_dir(vm.template)
+            name = volume_config['name']
+            volume_config['size'] = vm.template.volume_config[name]['size']
+        else:
+            volume_config['target_dir'] = self.target_dir(vm)
 
         return known_types[volume_type](**volume_config)
 
 
-class SizeMixIn(Volume):
+class XenVolume(Volume):
+    ''' Parent class for the xen volumes implementation '''
 
+    def __init__(self, target_dir, **kwargs):
+        self.target_dir = target_dir
+        assert self.target_dir, "target_dir not specified"
+        super(XenVolume, self).__init__(**kwargs)
+
+
+class SizeMixIn(XenVolume):
+    ''' A mix in which expects a `size` param to be > 0 on initialization and
+        provides a usage property wrapper.
+    '''
     def __init__(self, name=None, pool=None, vid=None, target_dir=None, size=0,
                  **kwargs):
         assert size > 0, 'Size for volume ' + name + ' is <=0'
         super(SizeMixIn, self).__init__(name=name,
                                         pool=pool,
                                         vid=vid,
+                                        size=size,
                                         **kwargs)
-        self._size = size
         self.target_dir = target_dir
 
     @property
-    def size(self):
-        if self.vid and os.path.exists(self.vid):
-            return qubes.storage.get_disk_usage(self.vid)
-        else:
-            return self._size
+    def usage(self):
+        ''' Returns the actualy used space '''
+        return get_disk_usage(self.vid)
+
 
 
 class ReadWriteFile(SizeMixIn):
-    # :pylint: disable=too-few-public-methods
+    # :pylint: disable=missing-docstring
     def __init__(self, **kwargs):
         super(ReadWriteFile, self).__init__(**kwargs)
         self.path = os.path.join(self.target_dir, self.name + '.img')
         self.vid = self.path
 
-    @property
-    def size(self):
-        if self.vid and os.path.exists(self.vid):
-            return qubes.storage.get_disk_usage(self.vid)
-        else:
-            return self._size
-
-    def create(self):
-        create_file(self.path, self.size)
-
-    @property
-    def created(self):
-        return os.path.exists(self.path)
-
 
 class ReadOnlyFile(Volume):
+    # :pylint: disable=missing-docstring
+    usage = 0
 
     def __init__(self, name=None, pool=None, vid=None, target_dir=None,
-                 **kwargs):
+                 size=0, **kwargs):
+        # :pylint: disable=unused-argument
         assert os.path.exists(vid), "read-only volume missing vid"
         super(ReadOnlyFile, self).__init__(name=name,
-                                         pool=pool,
-                                         vid=vid,
-                                         **kwargs)
+                                           pool=pool,
+                                           vid=vid,
+                                           size=size,
+                                           **kwargs)
         self.path = self.vid
-
-    @property
-    def size(self):
-        return qubes.storage.get_disk_usage(self.vid)
 
 
 class OriginFile(SizeMixIn):
+    # :pylint: disable=missing-docstring
     script = 'block-origin'
 
     def __init__(self, **kwargs):
         super(OriginFile, self).__init__(**kwargs)
-        self.path = os.path.join(self.target_dir, self.name + '.img')
+        self.path_origin = os.path.join(self.target_dir, self.name + '.img')
         self.path_cow = os.path.join(self.target_dir, self.name + '-cow.img')
-        self.vid = self.path
-
-    def create(self):
-        create_file(self.path, self.size)
-        create_file(self.path_cow, self.size)
+        self.path = '%s:%s' % (self.path_origin, self.path_cow)
+        self.vid = self.path_origin
 
     def commit(self):
         raise NotImplementedError
 
     @property
-    def size(self):
-        if self.vid and os.path.exists(self.vid):
-            return qubes.storage.get_disk_usage(self.vid)
-        else:
-            return self._size
-
-    @property
-    def created(self):
-        return os.path.exists(self.path) and os.path.exists(self.path_cow)
+    def usage(self):
+        result = 0
+        if os.path.exists(self.path_origin):
+            result += get_disk_usage(self.path_origin)
+        if os.path.exists(self.path_cow):
+            result += get_disk_usage(self.path_cow)
+        return result
 
 
 class SnapshotFile(Volume):
-    # :pylint: disable=too-few-public-methods
+    # :pylint: disable=missing-docstring
     script = 'block-snapshot'
     rw = False
+    usage = 0
 
     def __init__(self, name=None, pool=None, vid=None, target_dir=None,
-                 **kwargs):
-        assert vid, "SnapshotVolume missing a vid to OriginVolume"
-        assert os.path.exists(vid), "OriginVolume does not exist"
+                 size=None, **kwargs):
+        assert size
         super(SnapshotFile, self).__init__(name=name,
-                                         pool=pool,
-                                         vid=vid,
-                                         **kwargs)
-        self.path = os.path.join(target_dir, name + '.img')
+                                           pool=pool,
+                                           vid=vid,
+                                           size=size,
+                                           **kwargs)
+        self.path_origin = os.path.join(target_dir, name + '.img')
         self.path_cow = os.path.join(target_dir, name + '-cow.img')
+        self.path = '%s:%s' % (self.path_origin, self.path_cow)
+        self.vid = self.path_origin
 
     @property
     def created(self):
-        return os.path.exists(self.path) and os.path.exists(self.path_cow)
-
-    @property
-    def size(self):
-        return qubes.storage.get_disk_usage(self.vid)
+        return os.path.exists(self.path_origin) and os.path.exists(
+            self.path_cow)
 
 
 class VolatileFile(SizeMixIn):
+    # :pylint: disable=missing-docstring
 
     def __init__(self, **kwargs):
         super(VolatileFile, self).__init__(**kwargs)
@@ -446,8 +311,94 @@ class VolatileFile(SizeMixIn):
         self.vid = self.path
 
 
-def create_file(path, size):
+def create_sparse_file(path, size):
+    ''' Create an empty sparse file '''
     if os.path.exists(path):
         raise IOError("Volume %s already exists", path)
+    parent_dir = os.path.dirname(path)
+    if not os.path.exists(parent_dir):
+        os.makedirs(parent_dir)
     with open(path, 'a+b') as fh:
         fh.truncate(size)
+
+
+def get_disk_usage_one(st):
+    '''Extract disk usage of one inode from its stat_result struct.
+
+    If known, get real disk usage, as written to device by filesystem, not
+    logical file size. Those values may be different for sparse files.
+
+    :param os.stat_result st: stat result
+    :returns: disk usage
+    '''
+    try:
+        return st.st_blocks * BLKSIZE
+    except AttributeError:
+        return st.st_size
+
+
+def get_disk_usage(path):
+    '''Get real disk usage of given path (file or directory).
+
+    When *path* points to directory, then it is evaluated recursively.
+
+    This function tries estiate real disk usage. See documentation of
+    :py:func:`get_disk_usage_one`.
+
+    :param str path: path to evaluate
+    :returns: disk usage
+    '''
+    try:
+        st = os.lstat(path)
+    except OSError:
+        return 0
+
+    ret = get_disk_usage_one(st)
+
+    # if path is not a directory, this is skipped
+    for dirpath, dirnames, filenames in os.walk(path):
+        for name in dirnames + filenames:
+            ret += get_disk_usage_one(os.lstat(os.path.join(dirpath, name)))
+
+    return ret
+
+
+def create_dir_if_not_exists(path):
+    """ Check if a directory exists in if not create it.
+
+        This method does not create any parent directories.
+    """
+    if not os.path.exists(path):
+        os.mkdir(path)
+
+
+def copy_file(source, destination):
+    '''Effective file copy, preserving sparse files etc.
+    '''
+    # TODO: Windows support
+    # We prefer to use Linux's cp, because it nicely handles sparse files
+    assert os.path.exists(source), \
+        "Missing the source %s to copy from" % source
+    assert not os.path.exists(destination), \
+        "Destination %s already exists" % destination
+
+    parent_dir = os.path.dirname(destination)
+    if not os.path.exists(parent_dir):
+        os.makedirs(parent_dir)
+
+    try:
+        subprocess.check_call(['cp', '--reflink=auto', source, destination])
+    except subprocess.CalledProcessError:
+        raise IOError('Error while copying {!r} to {!r}'.format(source,
+                                                                destination))
+
+
+def _remove_if_exists(volume):
+    if os.path.exists(volume.path):
+        os.remove(volume.path)
+
+
+def _check_path(path):
+    ''' Raise an StoragePoolException if ``path`` does not exist'''
+    if not os.path.exists(path):
+        raise StoragePoolException('Missing image file: %s' % path)

@@ -333,10 +333,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     @property
     def block_devices(self):
-        return [self.storage.root_dev_config(),
-                self.storage.private_dev_config(),
-                self.storage.volatile_dev_config(),
-                self.storage.other_dev_config()]
+        ''' Return all :py:class:`qubes.devices.BlockDevice`s for current domain
+            for serialization in the libvirt XML template as <disk>.
+        '''
+        return [v.block_device() for v in self.volumes.values()]
 
     @property
     def qdb(self):
@@ -353,21 +353,27 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     def private_img(self):
         '''Location of private image of the VM (that contains :file:`/rw` \
         and :file:`/home`).'''
-        return self.storage.private_img
+        warnings.warn("volatile_img is deprecated, use volumes['private'].vid",
+                      DeprecationWarning)
+        return self.volumes['private'].vid
 
 
     # XXX this should go to to AppVM? or TemplateVM?
     @property
     def root_img(self):
         '''Location of root image.'''
-        return self.storage.root_img
+        warnings.warn("root_img is deprecated, use volumes['root'].vid",
+                      DeprecationWarning)
+        return self.volumes['root'].vid
 
 
     # XXX and this should go to exactly where? DispVM has it.
     @property
     def volatile_img(self):
         '''Volatile image that overlays :py:attr:`root_img`.'''
-        return self.storage.volatile_img
+        warnings.warn("volatile_img is deprecated, use volumes['volatile'].vid",
+                      DeprecationWarning)
+        return self.volumes['volatile'].vid
 
 
     # XXX shouldn't this go elsewhere?
@@ -425,8 +431,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     # constructor
     #
 
-    def __init__(self, app, xml, **kwargs):
+    def __init__(self, app, xml, volume_config={}, **kwargs):
         super(QubesVM, self).__init__(app, xml, **kwargs)
+        if hasattr(self, 'volume_config'):
+            dict_merge(self.volume_config, volume_config)
 
         import qubes.vm.adminvm # pylint: disable=redefined-outer-name
 
@@ -637,7 +645,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     self.netvm.start(start_guid=start_guid,
                         notify_function=notify_function)
 
-        self.storage.prepare_for_vm_startup()
+        self.storage.start()
         self._update_libvirt_domain()
 
         qmemman_client = self.request_memory(mem_required)
@@ -729,6 +737,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     exc_info=1)
 
         self.libvirt_domain.shutdown()
+        self.storage.stop()
 
 
     def kill(self):
@@ -742,6 +751,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesVMNotStartedError(self)
 
         self.libvirt_domain.destroy()
+        self.storage.stop()
 
 
     def force_shutdown(self, *args, **kwargs):
@@ -1025,7 +1035,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         p.communicate(input=self.default_user)
 
 
-    # TODO move to storage
+    # TODO rename to create
     def create_on_disk(self, source_template=None):
         '''Create files needed for VM.
 
@@ -1115,11 +1125,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         while self.is_running(): #1696
             time.sleep(1)
 
-
     def remove_from_disk(self):
         '''Remove domain remnants from disk.'''
         self.fire_event('domain-remove-from-disk')
-        self.storage.remove_from_disk()
+        self.storage.remove()
+        shutil.rmtree(self.vm.dir_path)
 
 
     def clone_disk_files(self, src):
@@ -1454,68 +1464,69 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     # XXX shouldn't this go only to vms that have root image?
     def get_disk_utilization_root_img(self):
-        '''Get space that is actually ocuppied by :py:attr:`root_img`.
+        '''Get space that is actually ocuppied by :py:attr:`volumes['root']`.
 
-        Root image is a sparse file, so it is probably much less than logical
-        available space.
-
+           This is a temporary wrapper for backwards compatibility. You should
+           call directly :py:attr:`volumes[name].utilization`
         :returns: domain's real disk image size [FIXME unit]
         :rtype: FIXME
 
         .. seealso:: :py:meth:`get_root_img_sz`
         '''
 
-        return qubes.storage.get_disk_usage(self.root_img)
+        warnings.warn(
+            "get_disk_utilization_root_img is deprecated, use volumes['root'].utilization",
+            DeprecationWarning)
+        return qubes.storage.get_disk_usage(self.volumes['root'].utilization)
 
 
     # XXX shouldn't this go only to vms that have root image?
     def get_root_img_sz(self):
-        '''Get image size of :py:attr:`root_img`.
+        '''Get the size of the :py:attr:`volumes['root']`.
 
-        Root image is a sparse file, so it is probably much more than ocuppied
-        physical space.
-
+        This is a temporary wrapper for backwards compatibility. You should
+        call directly :py:attr:`volumes[name].size`
         :returns: domain's virtual disk size [FIXME unit]
         :rtype: FIXME
 
         .. seealso:: :py:meth:`get_disk_utilization_root_img`
         '''
 
-        if not os.path.exists(self.root_img):
-            return 0
-
-        return os.path.getsize(self.root_img)
-
+        warnings.warn(
+            "get_disk_root_img_sz is deprecated, use volumes['root'].size",
+            DeprecationWarning)
+        return qubes.storage.get_disk_usage(self.volumes['root'].size)
 
     def get_disk_utilization_private_img(self):
-        '''Get space that is actually ocuppied by :py:attr:`private_img`.
+        '''Get space that is actually ocuppied by :py:attr:`volumes['private']`.
 
-        Private image is a sparse file, so it is probably much less than
-        logical available space.
-
+           This is a temporary wrapper for backwards compatibility. You should
+           call directly :py:attr:`volumes[name].utilization`
         :returns: domain's real disk image size [FIXME unit]
         :rtype: FIXME
+        '''
 
-        .. seealso:: :py:meth:`get_private_img_sz`
-        ''' # pylint: disable=invalid-name
-
-        return qubes.storage.get_disk_usage(self.private_img)
-
+        warnings.warn(
+            "get_disk_utilization_private_img is deprecated, use volumes['private'].utilization",
+            DeprecationWarning)
+        return qubes.storage.get_disk_usage(self.volumes[
+            'private'].utilization)
 
     def get_private_img_sz(self):
-        '''Get image size of :py:attr:`private_img`.
+        '''Get the size of the :py:attr:`volumes['private']`.
 
-        Private image is a sparse file, so it is probably much more than
-        ocuppied physical space.
-
+        This is a temporary wrapper for backwards compatibility. You should
+        call directly :py:attr:`volumes[name].size`
         :returns: domain's virtual disk size [FIXME unit]
         :rtype: FIXME
 
         .. seealso:: :py:meth:`get_disk_utilization_private_img`
         '''
 
-        return self.storage.get_private_img_sz()
-
+        warnings.warn(
+            "get_disk_private_img_sz is deprecated, use volumes['private'].size",
+            DeprecationWarning)
+        return qubes.storage.get_disk_usage(self.volumes['private'].size)
 
     def get_disk_utilization(self):
         '''Return total space actually occuppied by all files belonging to \
@@ -1526,7 +1537,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         '''
 
         return qubes.storage.get_disk_usage(self.dir_path)
-
 
     # TODO move to storage
     def verify_files(self):
@@ -1751,3 +1761,20 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 #           if self.is_qrexec_running():
 #               #TODO: kill qrexec daemon
 #               pass
+
+
+def dict_merge(dct, merge_dct):
+    """ Recursive dict merge. Inspired by :meth:``dict.update()``, instead of
+    updating only top-level keys, dict_merge recurses down into dicts nested
+    to an arbitrary depth, updating keys. The ``merge_dct`` is merged into
+    ``dct``. (Source https://gist.github.com/angstwad/bf22d1822c38a92ec0a9)
+    :param dct: dict onto which the merge is executed
+    :param merge_dct: dct merged into dct
+    :return: None
+    """
+    for k, v in merge_dct.iteritems():
+        if (k in dct and isinstance(dct[k], dict)
+                and isinstance(merge_dct[k], dict)):
+            dict_merge(dct[k], merge_dct[k])
+        else:
+            dct[k] = merge_dct[k]

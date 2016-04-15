@@ -39,7 +39,6 @@ import qubes.exc
 import qubes.utils
 from qubes.devices import BlockDevice
 
-BLKSIZE = 512
 STORAGE_ENTRY_POINT = 'qubes.storage'
 
 
@@ -93,91 +92,20 @@ class Storage(object):
     in mind.
     '''
 
-    modules_dev = 'xvdd'
-
     def __init__(self, vm):
         #: Domain for which we manage storage
         self.vm = vm
+        self.log = self.vm.log
         #: Additional drive (currently used only by HVM)
         self.drive = None
-        for name, conf in self.vm.volume_config.items():
-            assert 'pool' in conf
-            pool = get_pool(conf['pool'], self.vm)
-            self.vm.volumes[name] = pool.init_volume(conf)
-
-    @property
-    def root_img(self):
-        pool = self.get_pool()
-        return pool.root_img
-
-    @property
-    def private_img(self):
-        pool = self.get_pool()
-        return pool.private_img
-
-    @property
-    def volatile_img(self):
-        pool = self.get_pool()
-        return pool.volatile_img
-
-    @property
-    def rootcow_img(self):
-        pool = self.get_pool()
-        return pool.rootcow_img
-
-    def get_config_params(self):
-        args = {}
-        args['rootdev'] = self.root_dev_config()
-        args['privatedev'] = self.private_dev_config()
-        args['volatiledev'] = self.volatile_dev_config()
-        args['otherdevs'] = self.other_dev_config()
-
-        args['kerneldir'] = self.kernels_dir
-
-        return args
-
-    def root_dev_config(self):
-        pool = self.get_pool()
-        return pool.root_dev_config()
-
-    def private_dev_config(self):
-        pool = self.get_pool()
-        return pool.private_dev_config()
-
-    def volatile_dev_config(self):
-        pool = self.get_pool()
-        return pool.volatile_dev_config()
-
-    def modules_dev_config(self):
-        return self.format_disk_dev(self.modules_img,
-                                    'kernel',
-                                    rw=self.modules_img_rw)
-
-    def other_dev_config(self):
-        if self.modules_img is not None:
-            return self.modules_dev_config()
-        elif self.drive is not None:
-            (drive_type, drive_domain, drive_path) = self.drive.split(":")
-            if drive_type == 'hd':
-                drive_type = 'disk'
-
-            rw = (drive_type == 'disk')
-
-            if drive_domain.lower() == "dom0":
-                drive_domain = None
-
-            return self.format_disk_dev(drive_path,
-                                        'other',
-                                        rw=rw,
-                                        devtype=drive_type,
-                                        domain=drive_domain)
-
-        else:
-            return ''
-
-    def format_disk_dev(self, path, name, script=None, rw=True, devtype='disk',
-                        domain=None):
-        return BlockDevice(path, name, script, rw, domain, devtype)
+        self.pools = {}
+        if hasattr(vm, 'volume_config'):
+            for name, conf in self.vm.volume_config.items():
+                assert 'pool' in conf, "Pool missing in volume_config" % str(
+                    conf)
+                pool = self.vm.app.get_pool(conf['pool'])
+                self.vm.volumes[name] = pool.init_volume(self.vm, conf)
+                self.pools[name] = pool
 
     @property
     def kernels_dir(self):
@@ -186,51 +114,33 @@ class Storage(object):
         If :py:attr:`self.vm.kernel` is :py:obj:`None`, the this points inside
         :py:attr:`self.vm.dir_path`
         '''
-        return os.path.join(qubes.config.system_path['qubes_base_dir'],
-            qubes.config.system_path['qubes_kernels_base_dir'], self.vm.kernel)\
-            if self.vm.kernel is not None \
-        else os.path.join(self.vm.dir_path,
-            qubes.config.vm_files['kernels_subdir'])
-
-    @property
-    def modules_img(self):
-        '''Path to image with modules.
-
-        Depending on domain, this may be global or inside domain's dir.
-        '''
-
-        modules_path = os.path.join(self.kernels_dir, 'modules.img')
-
-        if os.path.exists(modules_path):
-            return modules_path
-        else:
-            return None
-
-
-    @property
-    def modules_img_rw(self):
-        ''':py:obj:`True` if module image should be mounted RW, :py:obj:`False`
-        otherwise.'''
-        return self.vm.kernel is None
-
+        assert 'kernel' in self.vm.volumes, "VM has no kernel pool"
+        return self.vm.volumes['kernel'].kernels_dir
 
     def get_disk_utilization(self):
-        return get_disk_usage(self.vm.dir_path)
+        ''' Returns summed up disk utilization for all domain volumes '''
+        result = 0
+        for volume in self.vm.volumes.values():
+            result += volume.usage
+        return result
 
+    # TODO Remove this wrapper
     def get_disk_utilization_private_img(self):
-        # pylint: disable=invalid-name
-        return get_disk_usage(self.private_img)
+        # pylint: disable=invalid-name,missing-docstring
+        return self.vm.volume['private'].usage
 
+    # TODO Remove this wrapper
     def get_private_img_sz(self):
-        if not os.path.exists(self.private_img):
-            return 0
+        # :pylint: disable=missing-docstring
+        return self.vm.volume['private'].size
 
-        return os.path.getsize(self.private_img)
+    def resize(self, volume, size):
+        ''' Resize volume '''
+        self.get_pool(volume).resize(volume, size)
 
-    def resize_private_img(self, size):
-        raise NotImplementedError()
-
+    # TODO rename it to create()
     def create_on_disk(self, source_template=None):
+        # :pylint: disable=missing-docstring
         if source_template is None and hasattr(self.vm, 'template'):
             source_template = self.vm.template
 
@@ -238,14 +148,17 @@ class Storage(object):
 
         self.vm.log.info('Creating directory: {0}'.format(self.vm.dir_path))
         os.makedirs(self.vm.dir_path)
-        pool = self.get_pool()
-        pool.create_on_disk_private_img(source_template)
-        pool.create_on_disk_root_img(source_template)
-        pool.reset_volatile_storage()
+        for name, volume in self.vm.volumes.items():
+            source_volume = None
+            if source_template and hasattr(source_template, 'volumes'):
+                source_volume = source_template.volumes[name]
+            self.get_pool(volume).create(volume, source_volume=source_volume)
 
         os.umask(old_umask)
 
+    # TODO migrate this
     def clone_disk_files(self, src_vm):
+        # :pylint: disable=missing-docstring
         self.vm.log.info('Creating directory: {0}'.format(self.vm.dir_path))
         os.mkdir(self.vm.dir_path)
 
@@ -255,14 +168,15 @@ class Storage(object):
             self._copy_file(src_vm.private_img, self.vm.private_img)
 
         if src_vm.updateable and hasattr(src_vm, 'root_img'):
-            self.vm.log.info('Copying the root image: {} -> {}'.format(
-                src_vm.root_img, self.root_img))
-            self._copy_file(src_vm.root_img, self.root_img)
+            self.vm.log.info(
+                'Copying the root image: {} -> {}'.format(
+                    src_vm.volume['root'].path_origin,
+                    self.vm.volume['root'].path_origin)
+            )
+            self._copy_file(src_vm.volume['root'].path_origin,
+                            self.vm.volume['root'].path_origin)
 
-            # TODO: modules?
-            # XXX which modules? -woju
-
-
+    # TODO migrate this
     @staticmethod
     def rename(newpath, oldpath):
         '''Move storage directory, most likely during domain's rename.
@@ -280,133 +194,87 @@ class Storage(object):
 
         os.rename(oldpath, newpath)
 
-
     def verify_files(self):
+        '''Verify that the storage is sane.
+
+        On success, returns normally. On failure, raises exception.
+        '''
         if not os.path.exists(self.vm.dir_path):
-            raise qubes.exc.QubesVMError(self.vm,
+            raise qubes.exc.QubesVMError(
+                self.vm,
                 'VM directory does not exist: {}'.format(self.vm.dir_path))
 
-        if hasattr(self.vm, 'root_img') and not os.path.exists(self.root_img):
-            raise qubes.exc.QubesVMError(self.vm,
-                'VM root image file does not exist: {}'.format(self.root_img))
-
-        if hasattr(self.vm, 'private_img') \
-                and not os.path.exists(self.private_img):
-            raise qubes.exc.QubesVMError(self.vm,
-                'VM private image file does not exist: {}'.format(
-                    self.private_img))
-
-        if self.modules_img is not None \
-                and not os.path.exists(self.modules_img):
-            raise qubes.exc.QubesVMError(self.vm,
-                'VM kernel modules image does not exists: {}'.format(
-                    self.modules_img))
-
-
-    def remove_from_disk(self):
+    def remove(self):
+        for name, volume in self.vm.volumes.items():
+            self.log.info('Removing volume %s: %s' % (name, volume.vid))
+            self.get_pool(volume).remove(volume)
         shutil.rmtree(self.vm.dir_path)
 
+    def start(self):
+        ''' Execute the start method on each pool '''
+        for volume in self.vm.volumes.values():
+            self.get_pool(volume).start(volume)
 
+    def stop(self):
+        ''' Execute the start method on each pool '''
+        for volume in self.vm.volumes.values():
+            self.get_pool(volume).stop(volume)
 
-    def prepare_for_vm_startup(self):
-        pool = get_pool(self.vm.pool_name, self.vm)
-        pool.reset_volatile_storage()
-
-        if hasattr(self.vm, 'private_img') \
-                and not os.path.exists(self.private_img):
-            self.vm.log.info('Creating empty VM private image file: {0}'.format(
-                pool.private_img))
-            pool.create_on_disk_private_img()
-
-    def get_pool(self):
-        return get_pool(self.vm.pool_name, self.vm)
+    def get_pool(self, volume):
+        ''' Helper function '''
+        assert isinstance(volume, Volume), "You need to pass a Volume"
+        return self.pools[volume.name]
 
     def commit_template_changes(self):
-        pool = self.get_pool()
-        pool.commit_template_changes()
+        for volume in self.vm.volumes.values():
+            if volume.volume_type == 'origin':
+                self.get_pool(volume).commit_template_changes(volume)
 
-def get_disk_usage_one(st):
-    '''Extract disk usage of one inode from its stat_result struct.
-
-    If known, get real disk usage, as written to device by filesystem, not
-    logical file size. Those values may be different for sparse files.
-
-    :param os.stat_result st: stat result
-    :returns: disk usage
-    '''
-    try:
-        return st.st_blocks * BLKSIZE
-    except AttributeError:
-        return st.st_size
-
-
-def get_disk_usage(path):
-    '''Get real disk usage of given path (file or directory).
-
-    When *path* points to directory, then it is evaluated recursively.
-
-    This function tries estiate real disk usage. See documentation of
-    :py:func:`get_disk_usage_one`.
-
-    :param str path: path to evaluate
-    :returns: disk usage
-    '''
-    try:
-        st = os.lstat(path)
-    except OSError:
-        return 0
-
-    ret = get_disk_usage_one(st)
-
-    # if path is not a directory, this is skipped
-    for dirpath, dirnames, filenames in os.walk(path):
-        for name in dirnames + filenames:
-            ret += get_disk_usage_one(os.lstat(os.path.join(dirpath, name)))
-
-    return ret
 
 class Pool(object):
+    ''' A Pool is used to manage different kind of volumes (File
+        based/LVM/Btrfs/...).
+
+        3rd Parties providing own storage implementations will need to extend
+        this class.
+    '''
     private_img_size = qubes.config.defaults['private_img_size']
     root_img_size = qubes.config.defaults['root_img_size']
 
-    def __init__(self, vm=None, name=None, **kwargs):
-        assert vm
+    def __init__(self, name=None, **kwargs):
+        # :pylint: disable=unused-argument
         assert name, "Pool name is missing"
-        self.vm = vm
         self.name = name
 
-    def root_dev_config(self):
-        raise NotImplementedError()
+    def create(self, volume, source_volume):
+        ''' Create the given volume on disk or copy from provided
+            `source_volume`.
+        '''
+        raise NotImplementedError("Pool %s has create() not implemented" %
+                                  self.name)
 
-    def private_dev_config(self):
-        raise NotImplementedError()
+    def commit_template_changes(self, volume):
+        ''' Update origin device '''
+        raise NotImplementedError(
+            "Pool %s has commit_template_changes() not implemented" %
+            self.name)
 
-    def volatile_dev_config(self):
-        raise NotImplementedError()
+    @property
+    def config(self):
+        ''' Returns the pool config to be written to qubes.xml '''
+        raise NotImplementedError("Pool %s has config() not implemented" %
+                                  self.name)
 
-    def create_on_disk_private_img(self, source_template=None):
-        raise NotImplementedError()
-
-    def create_on_disk_root_img(self, source_template=None):
-        raise NotImplementedError()
-
-    def create_dir_if_not_exists(self, path):
-        """ Check if a directory exists in if not create it.
-
-            This method does not create any parent directories.
-        """
-        if not os.path.exists(path):
-            os.mkdir(path)
-
-    def commit_template_changes(self):
-        raise NotImplementedError()
     @staticmethod
     def _copy_file(source, destination):
         '''Effective file copy, preserving sparse files etc.
         '''
         # TODO: Windows support
-
         # We prefer to use Linux's cp, because it nicely handles sparse files
+        assert os.path.exists(source), \
+            "Missing the source %s to copy from" % source
+        assert not os.path.exists(destination), \
+            "Destination %s already exists" % destination
         try:
             subprocess.check_call(['cp', '--reflink=auto', source, destination
                                    ])
@@ -414,34 +282,34 @@ class Pool(object):
             raise IOError('Error while copying {!r} to {!r}'.format(
                 source, destination))
 
-    def format_disk_dev(self, path, vdev, script=None, rw=True, devtype='disk',
-                        domain=None):
+    def remove(self, volume):
+        ''' Remove volume'''
+        raise NotImplementedError("Pool %s has remove() not implemented" %
+                                  self.name)
 
-        return BlockDevice(path, vdev, script, rw, domain, devtype)
-    def reset_volatile_storage(self):
-        # Re-create only for template based VMs
-        try:
-            if self.vm.template is not None and self.volatile_img:
-                if os.path.exists(self.volatile_img):
-                    os.remove(self.volatile_img)
-        except AttributeError: # self.vm.template
-            pass
+    def clone(self, source, target):
+        ''' Clone volume '''
+        raise NotImplementedError("Pool %s has clone() not implemented" %
+                                  self.name)
 
-        # For StandaloneVM create it only if not already exists
-        # (eg after backup-restore)
-        if hasattr(self, 'volatile_img') \
-                and not os.path.exists(self.volatile_img):
-            self.vm.log.info(
-                'Creating volatile image: {0}'.format(self.volatile_img))
-            subprocess.check_call(
-                [qubes.config.system_path["prepare_volatile_img_cmd"],
-                    self.volatile_img,
-                    str(self.root_img_size / 1024 / 1024)])
+    def start(self, volume):
+        ''' Do what ever is needed on start '''
+        raise NotImplementedError("Pool %s has start() not implemented" %
+                                  self.name)
+
+    def stop(self, volume):
+        ''' Do what ever is needed on stop'''
+        raise NotImplementedError("Pool %s has stop() not implemented" %
+                                  self.name)
 
     def init_volume(self, volume_config):
-        raise NotImplementedError()
+        ''' Initialize a :py:class:`qubes.storage.Volume` from `volume_config`.
+        '''
+        raise NotImplementedError("Pool %s has init_volume() not implemented" %
+                                  self.name)
+
 
 def pool_drivers():
     """ Return a list of EntryPoints names """
     return [ep.name
-        for ep in pkg_resources.iter_entry_points(STORAGE_ENTRY_POINT)]
+            for ep in pkg_resources.iter_entry_points(STORAGE_ENTRY_POINT)]
