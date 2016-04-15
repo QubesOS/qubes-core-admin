@@ -1492,13 +1492,19 @@ class Qubes(PropertyHolder):
     def add_pool(self, **kwargs):
         """ Add a storage pool to config."""
         name = kwargs['name']
-        self.pools[name] = self._get_pool(**kwargs)
+        assert name not in self.pools.keys(), \
+            "Pool named %s already exists" % name
+        pool = self._get_pool(**kwargs)
+        pool.setup()
+        self.pools[name] = pool
         self.save()
 
     def remove_pool(self, name):
         """ Remove a storage pool from config file.  """
         try:
+            pool = self.pools[name]
             del self.pools[name]
+            pool.destroy()
         except KeyError:
             return
 

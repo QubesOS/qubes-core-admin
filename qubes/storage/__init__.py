@@ -23,7 +23,6 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
-
 """ Qubes storage system"""
 
 from __future__ import absolute_import
@@ -164,7 +163,8 @@ class Storage(object):
             pool = self.get_pool(target)
             source = src_vm.volumes[name]
             volume = pool.clone(source, target)
-            assert volume, "%s.clone() returned '%s'" % (pool.__class__, volume)
+            assert volume, "%s.clone() returned '%s'" % (pool.__class__,
+                                                         volume)
             self.vm.volumes[name] = volume
 
     # TODO migrate this
@@ -236,6 +236,7 @@ class Pool(object):
         # :pylint: disable=unused-argument
         assert name, "Pool name is missing"
         self.name = name
+        kwargs['name'] = self.name
 
     def create(self, volume, source_volume):
         ''' Create the given volume on disk or copy from provided
@@ -261,6 +262,10 @@ class Pool(object):
         raise NotImplementedError("Pool %s has clone() not implemented" %
                                   self.name)
 
+    def destroy(self):
+        raise NotImplementedError("Pool %s has destroy() not implemented" %
+                                  self.name)
+
     def remove(self, volume):
         ''' Remove volume'''
         raise NotImplementedError("Pool %s has remove() not implemented" %
@@ -269,6 +274,10 @@ class Pool(object):
     def start(self, volume):
         ''' Do what ever is needed on start '''
         raise NotImplementedError("Pool %s has start() not implemented" %
+                                  self.name)
+
+    def setup(self):
+        raise NotImplementedError("Pool %s has setup() not implemented" %
                                   self.name)
 
     def stop(self, volume):
