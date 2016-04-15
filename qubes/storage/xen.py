@@ -301,3 +301,128 @@ class XenPool(Pool):
             raise StoragePoolException("Unknown volume type " + volume_type)
         return known_types[volume_type](**volume_config)
 
+
+class SizeMixIn(Volume):
+
+    def __init__(self, name=None, pool=None, vid=None, target_dir=None, size=0,
+                 **kwargs):
+        assert size > 0, 'Size for volume ' + name + ' is <=0'
+        super(SizeMixIn, self).__init__(name=name,
+                                        pool=pool,
+                                        vid=vid,
+                                        **kwargs)
+        self._size = size
+        self.target_dir = target_dir
+
+    @property
+    def size(self):
+        if self.vid and os.path.exists(self.vid):
+            return qubes.storage.get_disk_usage(self.vid)
+        else:
+            return self._size
+
+
+class ReadWriteFile(SizeMixIn):
+    # :pylint: disable=too-few-public-methods
+    def __init__(self, **kwargs):
+        super(ReadWriteFile, self).__init__(**kwargs)
+        self.path = os.path.join(self.target_dir, self.name + '.img')
+        self.vid = self.path
+
+    @property
+    def size(self):
+        if self.vid and os.path.exists(self.vid):
+            return qubes.storage.get_disk_usage(self.vid)
+        else:
+            return self._size
+
+    def create(self):
+        create_file(self.path, self.size)
+
+    @property
+    def created(self):
+        return os.path.exists(self.path)
+
+
+class ReadOnlyFile(Volume):
+
+    def __init__(self, name=None, pool=None, vid=None, target_dir=None,
+                 **kwargs):
+        assert os.path.exists(vid), "read-only volume missing vid"
+        super(ReadOnlyFile, self).__init__(name=name,
+                                         pool=pool,
+                                         vid=vid,
+                                         **kwargs)
+        self.path = self.vid
+
+    @property
+    def size(self):
+        return qubes.storage.get_disk_usage(self.vid)
+
+
+class OriginFile(SizeMixIn):
+    script = 'block-origin'
+
+    def __init__(self, **kwargs):
+        super(OriginFile, self).__init__(**kwargs)
+        self.path = os.path.join(self.target_dir, self.name + '.img')
+        self.path_cow = os.path.join(self.target_dir, self.name + '-cow.img')
+        self.vid = self.path
+
+    def create(self):
+        create_file(self.path, self.size)
+        create_file(self.path_cow, self.size)
+
+    def commit(self):
+        raise NotImplementedError
+
+    @property
+    def size(self):
+        if self.vid and os.path.exists(self.vid):
+            return qubes.storage.get_disk_usage(self.vid)
+        else:
+            return self._size
+
+    @property
+    def created(self):
+        return os.path.exists(self.path) and os.path.exists(self.path_cow)
+
+
+class SnapshotFile(Volume):
+    # :pylint: disable=too-few-public-methods
+    script = 'block-snapshot'
+    rw = False
+
+    def __init__(self, name=None, pool=None, vid=None, target_dir=None,
+                 **kwargs):
+        assert vid, "SnapshotVolume missing a vid to OriginVolume"
+        assert os.path.exists(vid), "OriginVolume does not exist"
+        super(SnapshotFile, self).__init__(name=name,
+                                         pool=pool,
+                                         vid=vid,
+                                         **kwargs)
+        self.path = os.path.join(target_dir, name + '.img')
+        self.path_cow = os.path.join(target_dir, name + '-cow.img')
+
+    @property
+    def created(self):
+        return os.path.exists(self.path) and os.path.exists(self.path_cow)
+
+    @property
+    def size(self):
+        return qubes.storage.get_disk_usage(self.vid)
+
+
+class VolatileFile(SizeMixIn):
+
+    def __init__(self, **kwargs):
+        super(VolatileFile, self).__init__(**kwargs)
+        self.path = os.path.join(self.target_dir, 'volatile.img')
+        self.vid = self.path
+
+
+def create_file(path, size):
+    if os.path.exists(path):
+        raise IOError("Volume %s already exists", path)
+    with open(path, 'a+b') as fh:
+        fh.truncate(size)
