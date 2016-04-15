@@ -482,8 +482,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self.uuid = uuid.uuid4()
 
         # Initialize VM image storage class
-        self.storage = qubes.storage.get_pool(
-            self.pool_name, self).get_storage()
+        self.storage = qubes.storage.Storage(self)
 
 
     @qubes.events.handler('property-set:label')

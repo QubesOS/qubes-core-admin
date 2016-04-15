@@ -37,6 +37,7 @@ import pkg_resources
 import qubes
 import qubes.exc
 import qubes.utils
+from qubes.devices import BlockDevice
 
 BLKSIZE = 512
 STORAGE_ENTRY_POINT = 'qubes.storage'
@@ -92,29 +93,37 @@ class Storage(object):
     in mind.
     '''
 
-    root_img = None
-    private_img = None
-    volatile_img = None
+    modules_dev = 'xvdd'
 
-    modules_dev = None
-
-    def __init__(self, vm, private_img_size=None, root_img_size=None):
-
+    def __init__(self, vm):
         #: Domain for which we manage storage
         self.vm = vm
-
-        #: Size of the private image
-        self.private_img_size = private_img_size \
-            if private_img_size is not None \
-            else qubes.config.defaults['private_img_size']
-
-        #: Size of the root image
-        self.root_img_size = root_img_size \
-            if root_img_size is not None \
-            else qubes.config.defaults['root_img_size']
-
         #: Additional drive (currently used only by HVM)
         self.drive = None
+        for name, conf in self.vm.volume_config.items():
+            assert 'pool' in conf
+            pool = get_pool(conf['pool'], self.vm)
+            self.vm.volumes[name] = pool.init_volume(conf)
+
+    @property
+    def root_img(self):
+        pool = self.get_pool()
+        return pool.root_img
+
+    @property
+    def private_img(self):
+        pool = self.get_pool()
+        return pool.private_img
+
+    @property
+    def volatile_img(self):
+        pool = self.get_pool()
+        return pool.volatile_img
+
+    @property
+    def rootcow_img(self):
+        pool = self.get_pool()
+        return pool.rootcow_img
 
     def get_config_params(self):
         args = {}
@@ -128,17 +137,25 @@ class Storage(object):
         return args
 
     def root_dev_config(self):
-        raise NotImplementedError()
+        pool = self.get_pool()
+        return pool.root_dev_config()
 
     def private_dev_config(self):
-        raise NotImplementedError()
+        pool = self.get_pool()
+        return pool.private_dev_config()
 
     def volatile_dev_config(self):
-        raise NotImplementedError()
+        pool = self.get_pool()
+        return pool.volatile_dev_config()
+
+    def modules_dev_config(self):
+        return self.format_disk_dev(self.modules_img,
+                                    'kernel',
+                                    rw=self.modules_img_rw)
 
     def other_dev_config(self):
         if self.modules_img is not None:
-            return BlockDevice(self.modules_img, 'kernel', rw=False)
+            return self.modules_dev_config()
         elif self.drive is not None:
             (drive_type, drive_domain, drive_path) = self.drive.split(":")
             if drive_type == 'hd':
@@ -160,7 +177,7 @@ class Storage(object):
 
     def format_disk_dev(self, path, name, script=None, rw=True, devtype='disk',
                         domain=None):
-        raise NotImplementedError()
+        return BlockDevice(path, name, script, rw, domain, devtype)
 
     @property
     def kernels_dir(self):
@@ -174,7 +191,6 @@ class Storage(object):
             if self.vm.kernel is not None \
         else os.path.join(self.vm.dir_path,
             qubes.config.vm_files['kernels_subdir'])
-
 
     @property
     def modules_img(self):
@@ -198,29 +214,6 @@ class Storage(object):
         return self.vm.kernel is None
 
 
-    def abspath(self, path, rel=None):
-        '''Make absolute path.
-
-        If given path is relative, it is interpreted as relative to
-        :py:attr:`self.vm.dir_path` or given *rel*.
-        '''
-        return path if os.path.isabs(path) \
-            else os.path.join(rel or self.vm.dir_path, path)
-
-
-    @staticmethod
-    def _copy_file(source, destination):
-        '''Effective file copy, preserving sparse files etc.
-        '''
-        # TODO: Windows support
-
-        # We prefer to use Linux's cp, because it nicely handles sparse files
-        try:
-            subprocess.check_call(['cp', '--reflink=auto', source, destination])
-        except subprocess.CalledProcessError:
-            raise IOError('Error while copying {!r} to {!r}'.format(
-                source, destination))
-
     def get_disk_utilization(self):
         return get_disk_usage(self.vm.dir_path)
 
@@ -237,12 +230,6 @@ class Storage(object):
     def resize_private_img(self, size):
         raise NotImplementedError()
 
-    def create_on_disk_private_img(self, source_template=None):
-        raise NotImplementedError()
-
-    def create_on_disk_root_img(self, source_template=None):
-        raise NotImplementedError()
-
     def create_on_disk(self, source_template=None):
         if source_template is None and hasattr(self.vm, 'template'):
             source_template = self.vm.template
@@ -250,10 +237,11 @@ class Storage(object):
         old_umask = os.umask(002)
 
         self.vm.log.info('Creating directory: {0}'.format(self.vm.dir_path))
-        os.mkdir(self.vm.dir_path)
-        self.create_on_disk_private_img(source_template)
-        self.create_on_disk_root_img(source_template)
-        self.reset_volatile_storage()
+        os.makedirs(self.vm.dir_path)
+        pool = self.get_pool()
+        pool.create_on_disk_private_img(source_template)
+        pool.create_on_disk_root_img(source_template)
+        pool.reset_volatile_storage()
 
         os.umask(old_umask)
 
@@ -319,36 +307,23 @@ class Storage(object):
         shutil.rmtree(self.vm.dir_path)
 
 
-    def reset_volatile_storage(self):
-        # Re-create only for template based VMs
-        try:
-            if self.vm.template is not None and self.volatile_img:
-                if os.path.exists(self.volatile_img):
-                    os.remove(self.volatile_img)
-        except AttributeError: # self.vm.template
-            pass
-
-        # For StandaloneVM create it only if not already exists
-        # (eg after backup-restore)
-        if hasattr(self, 'volatile_img') \
-                and not os.path.exists(self.volatile_img):
-            self.vm.log.info(
-                'Creating volatile image: {0}'.format(self.volatile_img))
-            subprocess.check_call(
-                [qubes.config.system_path["prepare_volatile_img_cmd"],
-                    self.volatile_img,
-                    str(self.root_img_size / 1024 / 1024)])
-
 
     def prepare_for_vm_startup(self):
-        self.reset_volatile_storage()
+        pool = get_pool(self.vm.pool_name, self.vm)
+        pool.reset_volatile_storage()
 
         if hasattr(self.vm, 'private_img') \
                 and not os.path.exists(self.private_img):
             self.vm.log.info('Creating empty VM private image file: {0}'.format(
-                self.private_img))
-            self.create_on_disk_private_img()
+                pool.private_img))
+            pool.create_on_disk_private_img()
 
+    def get_pool(self):
+        return get_pool(self.vm.pool_name, self.vm)
+
+    def commit_template_changes(self):
+        pool = self.get_pool()
+        pool.commit_template_changes()
 
 def get_disk_usage_one(st):
     '''Extract disk usage of one inode from its stat_result struct.
@@ -391,56 +366,29 @@ def get_disk_usage(path):
     return ret
 
 class Pool(object):
-    def __init__(self, vm, dir_path, name):
-        assert vm is not None
-        assert dir_path is not None
-        assert name
+    private_img_size = qubes.config.defaults['private_img_size']
+    root_img_size = qubes.config.defaults['root_img_size']
 
+    def __init__(self, vm=None, name=None, **kwargs):
+        assert vm
+        assert name, "Pool name is missing"
         self.vm = vm
         self.name = name
-        self.dir_path = os.path.normpath(dir_path)
 
-        self.create_dir_if_not_exists(self.dir_path)
+    def root_dev_config(self):
+        raise NotImplementedError()
 
-        self.vmdir = self.vmdir_path(vm, self.dir_path)
+    def private_dev_config(self):
+        raise NotImplementedError()
 
-        appvms_path = os.path.join(self.dir_path, 'appvms')
-        self.create_dir_if_not_exists(appvms_path)
+    def volatile_dev_config(self):
+        raise NotImplementedError()
 
-        servicevms_path = os.path.join(self.dir_path, 'servicevms')
-        self.create_dir_if_not_exists(servicevms_path)
+    def create_on_disk_private_img(self, source_template=None):
+        raise NotImplementedError()
 
-        vm_templates_path = os.path.join(self.dir_path, 'vm-templates')
-        self.create_dir_if_not_exists(vm_templates_path)
-
-    # XXX there is also a class attribute on the domain classes which does
-    # exactly that -- which one should prevail?
-    def vmdir_path(self, vm, pool_dir):
-        """ Returns the path to vmdir depending on the type of the VM.
-
-            The default QubesOS file storage saves the vm images in three
-            different directories depending on the ``QubesVM`` type:
-
-            * ``appvms`` for ``QubesAppVm`` or ``QubesHvm``
-            * ``vm-templates`` for ``QubesTemplateVm`` or ``QubesTemplateHvm``
-
-            Args:
-                vm: a QubesVM
-                pool_dir: the root directory of the pool
-
-            Returns:
-                string (str) absolute path to the directory where the vm files
-                             are stored
-        """
-        if vm.is_template():
-            subdir = 'vm-templates'
-        elif vm.is_disposablevm():
-            subdir = 'appvms'
-            return os.path.join(pool_dir, subdir, vm.template.name + '-dvm')
-        else:
-            subdir = 'appvms'
-
-        return os.path.join(pool_dir, subdir, vm.name)
+    def create_on_disk_root_img(self, source_template=None):
+        raise NotImplementedError()
 
     def create_dir_if_not_exists(self, path):
         """ Check if a directory exists in if not create it.
@@ -450,6 +398,48 @@ class Pool(object):
         if not os.path.exists(path):
             os.mkdir(path)
 
+    def commit_template_changes(self):
+        raise NotImplementedError()
+    @staticmethod
+    def _copy_file(source, destination):
+        '''Effective file copy, preserving sparse files etc.
+        '''
+        # TODO: Windows support
+
+        # We prefer to use Linux's cp, because it nicely handles sparse files
+        try:
+            subprocess.check_call(['cp', '--reflink=auto', source, destination
+                                   ])
+        except subprocess.CalledProcessError:
+            raise IOError('Error while copying {!r} to {!r}'.format(
+                source, destination))
+
+    def format_disk_dev(self, path, vdev, script=None, rw=True, devtype='disk',
+                        domain=None):
+
+        return BlockDevice(path, vdev, script, rw, domain, devtype)
+    def reset_volatile_storage(self):
+        # Re-create only for template based VMs
+        try:
+            if self.vm.template is not None and self.volatile_img:
+                if os.path.exists(self.volatile_img):
+                    os.remove(self.volatile_img)
+        except AttributeError: # self.vm.template
+            pass
+
+        # For StandaloneVM create it only if not already exists
+        # (eg after backup-restore)
+        if hasattr(self, 'volatile_img') \
+                and not os.path.exists(self.volatile_img):
+            self.vm.log.info(
+                'Creating volatile image: {0}'.format(self.volatile_img))
+            subprocess.check_call(
+                [qubes.config.system_path["prepare_volatile_img_cmd"],
+                    self.volatile_img,
+                    str(self.root_img_size / 1024 / 1024)])
+
+    def init_volume(self, volume_config):
+        raise NotImplementedError()
 
 def pool_drivers():
     """ Return a list of EntryPoints names """
