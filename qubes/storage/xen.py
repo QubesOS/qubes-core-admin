@@ -113,6 +113,13 @@ class XenPool(Pool):
 
         self._resize_loop_device(path)
 
+    def remove(self, volume):
+        if volume.volume_type in ['read-write', 'volatile']:
+            _remove_if_exists(volume.vid)
+        elif volume.volume_type == 'origin':
+            _remove_if_exists(volume.vid)
+            _remove_if_exists(volume.path_cow)
+
     def _resize_loop_device(self, path):
         # find loop device if any
         p = subprocess.Popen(
