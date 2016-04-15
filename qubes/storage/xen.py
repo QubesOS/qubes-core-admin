@@ -50,6 +50,20 @@ class XenPool(Pool):
         vm_templates_path = os.path.join(self.dir_path, 'vm-templates')
         create_dir_if_not_exists(vm_templates_path)
 
+    def clone(self, source, target):
+        ''' Clones the volume if the `source.pool` if the source is a
+            :py:class:`XenVolume`.
+        '''
+        if issubclass(XenVolume, source.__class__):
+            raise StoragePoolException('Volumes %s and %s use different pools'
+                                       % (source.__class__, target.__class__))
+
+        if source.volume_type not in ['origin', 'read-write']:
+            return target
+
+        copy_file(source.vid, target.vid)
+        return target
+
     def create(self, volume, source_volume=None):
         _type = volume.volume_type
         size = volume.size
@@ -200,7 +214,9 @@ class XenPool(Pool):
 
 
 class XenVolume(Volume):
-    ''' Parent class for the xen volumes implementation '''
+    ''' Parent class for the xen volumes implementation which expects a
+        `target_dir` param on initialization.
+    '''
 
     def __init__(self, target_dir, **kwargs):
         self.target_dir = target_dir
@@ -212,15 +228,11 @@ class SizeMixIn(XenVolume):
     ''' A mix in which expects a `size` param to be > 0 on initialization and
         provides a usage property wrapper.
     '''
-    def __init__(self, name=None, pool=None, vid=None, target_dir=None, size=0,
-                 **kwargs):
-        assert size > 0, 'Size for volume ' + name + ' is <=0'
-        super(SizeMixIn, self).__init__(name=name,
-                                        pool=pool,
-                                        vid=vid,
-                                        size=size,
-                                        **kwargs)
-        self.target_dir = target_dir
+
+    def __init__(self, size=0, **kwargs):
+        super(SizeMixIn, self).__init__(size=int(size), **kwargs)
+        assert size, 'Empty size provided'
+        assert size > 0, 'Size for volume ' + kwargs['name'] + ' is <=0'
 
     @property
     def usage(self):
@@ -237,19 +249,13 @@ class ReadWriteFile(SizeMixIn):
         self.vid = self.path
 
 
-class ReadOnlyFile(Volume):
+class ReadOnlyFile(XenVolume):
     # :pylint: disable=missing-docstring
     usage = 0
 
-    def __init__(self, name=None, pool=None, vid=None, target_dir=None,
-                 size=0, **kwargs):
+    def __init__(self, size=0, **kwargs):
         # :pylint: disable=unused-argument
-        assert os.path.exists(vid), "read-only volume missing vid"
-        super(ReadOnlyFile, self).__init__(name=name,
-                                           pool=pool,
-                                           vid=vid,
-                                           size=size,
-                                           **kwargs)
+        super(ReadOnlyFile, self).__init__(size=int(size), **kwargs)
         self.path = self.vid
 
 
@@ -277,22 +283,17 @@ class OriginFile(SizeMixIn):
         return result
 
 
-class SnapshotFile(Volume):
+class SnapshotFile(XenVolume):
     # :pylint: disable=missing-docstring
     script = 'block-snapshot'
     rw = False
     usage = 0
 
-    def __init__(self, name=None, pool=None, vid=None, target_dir=None,
-                 size=None, **kwargs):
+    def __init__(self, name=None, size=None, **kwargs):
         assert size
-        super(SnapshotFile, self).__init__(name=name,
-                                           pool=pool,
-                                           vid=vid,
-                                           size=size,
-                                           **kwargs)
-        self.path_origin = os.path.join(target_dir, name + '.img')
-        self.path_cow = os.path.join(target_dir, name + '-cow.img')
+        super(SnapshotFile, self).__init__(name=name, size=int(size), **kwargs)
+        self.path_origin = os.path.join(self.target_dir, name + '.img')
+        self.path_cow = os.path.join(self.target_dir, name + '-cow.img')
         self.path = '%s:%s' % (self.path_origin, self.path_cow)
         self.vid = self.path_origin
 

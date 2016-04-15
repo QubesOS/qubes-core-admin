@@ -1114,18 +1114,20 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.storage.remove()
         shutil.rmtree(self.vm.dir_path)
 
-
     def clone_disk_files(self, src):
         '''Clone files from other vm.
 
         :param qubes.vm.qubesvm.QubesVM src: source VM
         '''
 
-        if src.is_running(): # XXX what about paused?
+        if src.is_running():  # XXX what about paused?
             raise qubes.exc.QubesVMNotHaltedError(
                 self, 'Cannot clone a running domain {!r}'.format(self.name))
 
-        self.storage.clone_disk_files(src)
+        if hasattr(src, 'volume_config'):
+            self.volume_config = src.volume_config
+        self.storage = qubes.storage.Storage(self)
+        self.storage.clone(src)
 
         if src.icon_path is not None \
                 and os.path.exists(src.dir_path) \

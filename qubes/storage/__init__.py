@@ -31,7 +31,6 @@ from __future__ import absolute_import
 import os
 import os.path
 import shutil
-import subprocess
 
 import pkg_resources
 import qubes
@@ -146,7 +145,7 @@ class Storage(object):
 
         old_umask = os.umask(002)
 
-        self.vm.log.info('Creating directory: {0}'.format(self.vm.dir_path))
+        self.log.info('Creating directory: {0}'.format(self.vm.dir_path))
         os.makedirs(self.vm.dir_path)
         for name, volume in self.vm.volumes.items():
             source_volume = None
@@ -156,25 +155,17 @@ class Storage(object):
 
         os.umask(old_umask)
 
-    # TODO migrate this
-    def clone_disk_files(self, src_vm):
-        # :pylint: disable=missing-docstring
+    def clone(self, src_vm):
         self.vm.log.info('Creating directory: {0}'.format(self.vm.dir_path))
-        os.mkdir(self.vm.dir_path)
-
-        if hasattr(src_vm, 'private_img'):
-            self.vm.log.info('Copying the private image: {} -> {}'.format(
-                src_vm.private_img, self.vm.private_img))
-            self._copy_file(src_vm.private_img, self.vm.private_img)
-
-        if src_vm.updateable and hasattr(src_vm, 'root_img'):
-            self.vm.log.info(
-                'Copying the root image: {} -> {}'.format(
-                    src_vm.volume['root'].path_origin,
-                    self.vm.volume['root'].path_origin)
-            )
-            self._copy_file(src_vm.volume['root'].path_origin,
-                            self.vm.volume['root'].path_origin)
+        if not os.path.exists(self.vm.dir_path):
+            self.log.info('Creating directory: {0}'.format(self.vm.dir_path))
+            os.makedirs(self.vm.dir_path)
+        for name, target in self.vm.volumes.items():
+            pool = self.get_pool(target)
+            source = src_vm.volumes[name]
+            volume = pool.clone(source, target)
+            assert volume, "%s.clone() returned '%s'" % (pool.__class__, volume)
+            self.vm.volumes[name] = volume
 
     # TODO migrate this
     @staticmethod
@@ -265,31 +256,14 @@ class Pool(object):
         raise NotImplementedError("Pool %s has config() not implemented" %
                                   self.name)
 
-    @staticmethod
-    def _copy_file(source, destination):
-        '''Effective file copy, preserving sparse files etc.
-        '''
-        # TODO: Windows support
-        # We prefer to use Linux's cp, because it nicely handles sparse files
-        assert os.path.exists(source), \
-            "Missing the source %s to copy from" % source
-        assert not os.path.exists(destination), \
-            "Destination %s already exists" % destination
-        try:
-            subprocess.check_call(['cp', '--reflink=auto', source, destination
-                                   ])
-        except subprocess.CalledProcessError:
-            raise IOError('Error while copying {!r} to {!r}'.format(
-                source, destination))
+    def clone(self, source, target):
+        ''' Clone volume '''
+        raise NotImplementedError("Pool %s has clone() not implemented" %
+                                  self.name)
 
     def remove(self, volume):
         ''' Remove volume'''
         raise NotImplementedError("Pool %s has remove() not implemented" %
-                                  self.name)
-
-    def clone(self, source, target):
-        ''' Clone volume '''
-        raise NotImplementedError("Pool %s has clone() not implemented" %
                                   self.name)
 
     def start(self, volume):
