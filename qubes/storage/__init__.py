@@ -56,7 +56,11 @@ class Volume(object):
     script = None
     usage = 0
 
-    def __init__(self, name=None, pool=None, volume_type=None, vid=None,
+    def __init__(self,
+                 name=None,
+                 pool=None,
+                 volume_type=None,
+                 vid=None,
                  size=0):
         assert name and pool and volume_type
         self.name = str(name)
@@ -167,23 +171,12 @@ class Storage(object):
                                                          volume)
             self.vm.volumes[name] = volume
 
-    # TODO migrate this
-    @staticmethod
-    def rename(newpath, oldpath):
-        '''Move storage directory, most likely during domain's rename.
-
-        .. note::
-            The arguments are in different order than in :program:`cp` utility.
-
-        .. versionchange:: 4.0
-            This is now dummy method that just passes everything to
-            :py:func:`os.rename`.
-
-        :param str newpath: New path
-        :param str oldpath: Old path
-        '''
-
-        os.rename(oldpath, newpath)
+    def rename(self, old_name, new_name):
+        ''' Notify the pools that the domain was renamed '''
+        volumes = self.vm.volumes
+        for name, volume in volumes.items():
+            pool = self.get_pool(volume)
+            volumes[name] = pool.rename(volume, old_name, new_name)
 
     def verify_files(self):
         '''Verify that the storage is sane.
@@ -269,6 +262,11 @@ class Pool(object):
     def remove(self, volume):
         ''' Remove volume'''
         raise NotImplementedError("Pool %s has remove() not implemented" %
+                                  self.name)
+
+    def rename(self, volume, old_name, new_name):
+        ''' Called when the domain changes its name '''
+        raise NotImplementedError("Pool %s has rename() not implemented" %
                                   self.name)
 
     def start(self, volume):

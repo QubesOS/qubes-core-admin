@@ -114,6 +114,23 @@ class XenPool(Pool):
             _remove_if_exists(volume.vid)
             _remove_if_exists(volume.path_cow)
 
+    def rename(self, volume, old_name, new_name):
+        assert issubclass(volume.__class__, XenVolume)
+        old_dir = os.path.dirname(volume.path)
+        new_dir = os.path.join(os.path.dirname(old_dir), new_name)
+
+        if not os.path.exists(new_dir):
+            os.makedirs(new_dir)
+
+        if volume.volume_type == 'read-write':
+            volume.rename_target_dir(new_name, new_dir)
+        elif volume.volume_type == 'read-only':
+            volume.rename_target_dir(old_name, new_dir)
+        elif volume.volume_type in ['origin', 'volatile']:
+            volume.rename_target_dir(new_dir)
+
+        return volume
+
     def _resize_loop_device(self, path):
         # find loop device if any
         p = subprocess.Popen(
@@ -275,6 +292,17 @@ class ReadWriteFile(SizeMixIn):
         self.path = os.path.join(self.target_dir, self.name + '.img')
         self.vid = self.path
 
+    def rename_target_dir(self, new_name, new_dir):
+        # :pylint: disable=unused-argument
+        old_path = self.path
+        file_name = os.path.basename(self.path)
+        new_path = os.path.join(new_dir, file_name)
+
+        os.rename(old_path, new_path)
+        self.target_dir = new_dir
+        self.path = new_path
+        self.vid = self.path
+
 
 class ReadOnlyFile(XenVolume):
     # :pylint: disable=missing-docstring
@@ -284,6 +312,20 @@ class ReadOnlyFile(XenVolume):
         # :pylint: disable=unused-argument
         super(ReadOnlyFile, self).__init__(size=int(size), **kwargs)
         self.path = self.vid
+
+    def rename_target_dir(self, old_name, new_dir):
+        # only copy the read-only volume if it's "owned" by the current vm
+        # "owned" means that it's in a directory named the same as the vm
+        if os.path.basename(self.target_dir) == old_name:
+            file_name = os.path.basename(self.path)
+            new_path = os.path.join(new_dir, file_name)
+            old_path = self.path
+
+            os.rename(old_path, new_path)
+
+            self.target_dir = new_dir
+            self.path = new_path
+            self.vid = self.path
 
 
 class OriginFile(SizeMixIn):
@@ -299,6 +341,19 @@ class OriginFile(SizeMixIn):
 
     def commit(self):
         raise NotImplementedError
+
+    def rename_target_dir(self, new_dir):
+        old_path_origin = self.path_origin
+        old_path_cow = self.path_cow
+        new_path_origin = os.path.join(new_dir, self.name + '.img')
+        new_path_cow = os.path.join(new_dir, self.name + '-cow.img')
+        os.rename(old_path_origin, new_path_origin)
+        os.rename(old_path_cow, new_path_cow)
+        self.target_dir = new_dir
+        self.path_origin = new_path_origin
+        self.path_cow = new_path_cow
+        self.path = '%s:%s' % (self.path_origin, self.path_cow)
+        self.vid = self.path_origin
 
     @property
     def usage(self):
@@ -335,7 +390,15 @@ class VolatileFile(SizeMixIn):
 
     def __init__(self, **kwargs):
         super(VolatileFile, self).__init__(**kwargs)
-        self.path = os.path.join(self.target_dir, 'volatile.img')
+        self.path = os.path.join(self.target_dir, self.name + '.img')
+        self.vid = self.path
+
+    def rename_target_dir(self, new_dir):
+        _remove_if_exists(self)
+        file_name = os.path.basename(self.path)
+        self.target_dir = new_dir
+        new_path = os.path.join(new_dir, file_name)
+        self.path = new_path
         self.vid = self.path
 
 

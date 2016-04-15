@@ -566,17 +566,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self._qdb_connection.close()
             self._qdb_connection = None
 
-        self.storage.rename(
-            os.path.join(qubes.config.system_path['qubes_base_dir'],
-                self.dir_path_prefix, new_name),
-            os.path.join(qubes.config.system_path['qubes_base_dir'],
-                self.dir_path_prefix, old_name))
+        self.storage.rename(old_name, new_name)
+
+        prefix = os.path.join(qubes.config.system_path['qubes_base_dir'], self.dir_path_prefix)
+        old_config = os.path.join(prefix, old_name, old_name + '.conf')
+        new_config = os.path.join(prefix, new_name, new_name + '.conf')
+        os.rename(old_config, new_config)
 
         self._update_libvirt_domain()
 
         if self.autostart:
             self.autostart = self.autostart
-
 
     @qubes.events.handler('property-pre-set:autostart')
     def on_property_pre_set_autostart(self, event, prop, name, value,
