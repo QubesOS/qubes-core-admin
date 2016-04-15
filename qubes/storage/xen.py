@@ -248,6 +248,13 @@ class SizeMixIn(XenVolume):
         ''' Returns the actualy used space '''
         return get_disk_usage(self.vid)
 
+    @property
+    def config(self):
+        ''' return config data for serialization to qubes.xml '''
+        return {'name': self.name,
+                'pool': self.pool,
+                'size': str(self.size),
+                'volume_type': self.volume_type}
 
 
 class ReadWriteFile(SizeMixIn):
