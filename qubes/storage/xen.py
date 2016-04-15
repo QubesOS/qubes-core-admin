@@ -299,6 +299,11 @@ class XenPool(Pool):
         }
         if volume_type not in known_types:
             raise StoragePoolException("Unknown volume type " + volume_type)
+
+        if volume_type == 'snapshot':
+            path = qubes.storage.get_pool(volume_config['pool'], self.vm.template).target_dir
+            volume_config['vid'] = os.path.join(path, volume_config['name'] + '.img')
+
         return known_types[volume_type](**volume_config)
 
 
