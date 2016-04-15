@@ -38,6 +38,7 @@ BLKSIZE = 512
 
 class XenPool(Pool):
     ''' File based 'original' disk implementation '''
+    driver = 'xen'
 
     def __init__(self, name=None, dir_path=None):
         super(XenPool, self).__init__(name=name)
@@ -76,6 +77,14 @@ class XenPool(Pool):
             create_sparse_file(volume.path, size)
 
         return volume
+
+    @property
+    def config(self):
+        return {
+            'name': self.name,
+            'dir_path': self.dir_path,
+            'driver': XenPool.driver,
+        }
 
     def resize(self, volume, size):
         ''' Expands volume, throws
