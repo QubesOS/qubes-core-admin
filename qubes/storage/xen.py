@@ -45,12 +45,6 @@ class XenPool(Pool):
         assert dir_path, "No pool dir_path specified"
         self.dir_path = os.path.normpath(dir_path)
 
-        create_dir_if_not_exists(self.dir_path)
-        appvms_path = os.path.join(self.dir_path, 'appvms')
-        create_dir_if_not_exists(appvms_path)
-        vm_templates_path = os.path.join(self.dir_path, 'vm-templates')
-        create_dir_if_not_exists(vm_templates_path)
-
     def clone(self, source, target):
         ''' Clones the volume if the `source.pool` if the source is a
             :py:class:`XenVolume`.
@@ -147,6 +141,16 @@ class XenPool(Pool):
             f_cow.truncate(volume.size)
         os.umask(old_umask)
         return volume
+
+    def destroy(self):
+        pass
+
+    def setup(self):
+        create_dir_if_not_exists(self.dir_path)
+        appvms_path = os.path.join(self.dir_path, 'appvms')
+        create_dir_if_not_exists(appvms_path)
+        vm_templates_path = os.path.join(self.dir_path, 'vm-templates')
+        create_dir_if_not_exists(vm_templates_path)
 
     def start(self, volume):
         if volume.volume_type == 'volatile':

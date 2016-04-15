@@ -71,11 +71,17 @@ class LinuxKernel(Pool):
             'driver': LinuxKernel.driver,
         }
 
+    def destroy(self):
+        pass
+
     def remove(self, volume):
         pass
 
     def rename(self, volume, old_name, new_name):
         return volume
+
+    def setup(self):
+        pass
 
     def start(self, volume):
         path = volume.path
