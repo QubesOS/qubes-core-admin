@@ -464,7 +464,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self.features['check-updates'] = None
 
         # will be initialized after loading all the properties
-        self.storage = None
 
         # fire hooks
         if xml is None:
