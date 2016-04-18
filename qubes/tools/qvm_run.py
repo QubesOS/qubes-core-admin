@@ -84,8 +84,8 @@ def main(args=None):
     if args.color_output is None and args.filter_esc:
         args.color_output = '31'
 
-    if args.vm is qubes.tools.VM_ALL and args.passio:
-        parser.error('--all and --passio are mutually exclusive')
+    if len(args.vm) > 1 and args.passio:
+        parser.error('--passio cannot be used when more than 1 qube is chosen')
     if args.localcmd and not passio.passio:
         parser.error('--localcmd have no effect without --pass-io')
     if args.color_output and not args.filter_esc:
