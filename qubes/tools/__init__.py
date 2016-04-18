@@ -189,7 +189,7 @@ class QubesArgumentParser(argparse.ArgumentParser):
                 vmchoice.add_argument('--all',
                     action='store_const', const=VM_ALL, dest='vm',
                     help='perform the action on all qubes')
-                vmchoice.add_argument('--exclude',
+                self.add_argument('--exclude',
                     action='append', default=[],
                     help='exclude the qube from --all')
                 nargs = '?'
