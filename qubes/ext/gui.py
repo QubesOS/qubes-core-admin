@@ -202,3 +202,25 @@ class GUI(qubes.ext.Extension):
         pipe.stdin.write(''.join(monitor_layout))
         pipe.stdin.close()
         pipe.wait()
+
+
+    @staticmethod
+    def is_guid_running(vm):
+        '''Check whether gui daemon for this domain is available.
+
+        :returns: :py:obj:`True` if guid is running, \
+            :py:obj:`False` otherwise.
+        :rtype: bool
+        '''
+        xid = self.xid
+        if xid < 0:
+            return False
+        if not os.path.exists('/var/run/qubes/guid-running.{}'.format(xid)):
+            return False
+        return True
+
+
+    @qubes.ext.handler('domain-is-fully-usable')
+    def on_domain_is_fully_usable(self, vm, event):
+        if not self.is_guid_running(vm):
+            yield False

@@ -1312,21 +1312,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             and self.libvirt_domain.state() == libvirt.VIR_DOMAIN_PAUSED
 
 
-    def is_guid_running(self):
-        '''Check whether gui daemon for this domain is available.
-
-        :returns: :py:obj:`True` if guid is running, \
-            :py:obj:`False` otherwise.
-        :rtype: bool
-        '''
-        xid = self.xid
-        if xid < 0:
-            return False
-        if not os.path.exists('/var/run/qubes/guid-running.%d' % xid):
-            return False
-        return True
-
-
     def is_qrexec_running(self):
         '''Check whether qrexec for this domain is available.
 
@@ -1340,21 +1325,19 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
 
     def is_fully_usable(self):
+        return all(self.fire_event('domain-is-fully-usable'))
+
+
+    @qubes.events.handler('domain-is-fully-usable')
+    def on_domain_is_fully_usable(self, event):
         '''Check whether domain is running and sane.
 
-        Currently this checks for running guid and qrexec.
-
-        :returns: :py:obj:`True` if qrexec is running, \
-            :py:obj:`False` otherwise.
-        :rtype: bool
+        Currently this checks for running qrexec.
         '''
 
         # Running gui-daemon implies also VM running
-        if not self.is_guid_running():
-            return False
         if not self.is_qrexec_running():
-            return False
-        return True
+            yield False
 
 
     # memory and disk
