@@ -59,11 +59,7 @@ Helper classes and functions
    :members:
    :show-inheritance:
 
-.. autoclass:: qubes.vm.DeviceCollection
-   :members:
-   :show-inheritance:
-
-.. autoclass:: qubes.vm.DeviceManager
+.. autoclass:: qubes.vm.Features
    :members:
    :show-inheritance:
 
@@ -87,11 +83,6 @@ Special VM types:
    dispvm
    adminvm
 
-HVMs:
-
-.. toctree::
-   :maxdepth: 1
-
-   hvm
+.. standalonevm
 
 .. vim: ts=3 sw=3 et

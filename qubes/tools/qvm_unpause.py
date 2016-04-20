@@ -22,7 +22,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
-'''qvm-unpause - Unause a domain'''
+'''qvm-unpause - Unpause a domain'''
 
 import sys
 import qubes
