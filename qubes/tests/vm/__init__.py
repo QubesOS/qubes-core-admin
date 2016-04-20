@@ -29,6 +29,10 @@ class TestVMM(object):
     # pylint: disable=too-few-public-methods
     def __init__(self, offline_mode=False):
         self.offline_mode = offline_mode
+    @property
+    def libvirt_conn(self):
+        import libvirt
+        raise libvirt.libvirtError('phony error')
 
 class TestHost(object):
     # pylint: disable=too-few-public-methods

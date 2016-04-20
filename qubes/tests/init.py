@@ -283,3 +283,115 @@ class TC_20_PropertyHolder(qubes.tests.QubesTestCase):
     @unittest.skip('test not implemented')
     def test_010_property_require(self):
         pass
+
+
+class TestVM(qubes.vm.BaseVM):
+    qid = qubes.property('qid', type=int)
+    name = qubes.property('name')
+    netid = qid
+
+class TestApp(qubes.tests.TestEmitter):
+    pass
+
+class TC_30_VMCollection(qubes.tests.QubesTestCase):
+    def setUp(self):
+        self.app = TestApp()
+        self.vms = qubes.VMCollection(self.app)
+
+        self.testvm1 = TestVM(None, None, qid=1, name='testvm1')
+        self.testvm2 = TestVM(None, None, qid=2, name='testvm2')
+
+    def test_000_contains(self):
+        self.vms._dict = {1: self.testvm1}
+
+        self.assertIn(1, self.vms)
+        self.assertIn('testvm1', self.vms)
+        self.assertIn(self.testvm1, self.vms)
+
+        self.assertNotIn(2, self.vms)
+        self.assertNotIn('testvm2', self.vms)
+        self.assertNotIn(self.testvm2, self.vms)
+
+    def test_001_getitem(self):
+        self.vms._dict = {1: self.testvm1}
+
+        self.assertIs(self.vms[1], self.testvm1)
+        self.assertIs(self.vms['testvm1'], self.testvm1)
+        self.assertIs(self.vms[self.testvm1], self.testvm1)
+
+    def test_002_add(self):
+        self.vms.add(self.testvm1)
+        self.assertIn(1, self.vms)
+
+        self.assertEventFired(self.app, 'domain-add', args=[self.testvm1])
+
+        with self.assertRaises(TypeError):
+            self.vms.add(object())
+
+        testvm_qid_collision = TestVM(None, None, name='testvm2', qid=1)
+        testvm_name_collision = TestVM(None, None, name='testvm1', qid=2)
+
+        with self.assertRaises(ValueError):
+            self.vms.add(testvm_qid_collision)
+        with self.assertRaises(ValueError):
+            self.vms.add(testvm_name_collision)
+
+    def test_003_qids(self):
+        self.vms.add(self.testvm1)
+        self.vms.add(self.testvm2)
+
+        self.assertItemsEqual(self.vms.qids(), [1, 2])
+        self.assertItemsEqual(self.vms.keys(), [1, 2])
+
+    def test_004_names(self):
+        self.vms.add(self.testvm1)
+        self.vms.add(self.testvm2)
+
+        self.assertItemsEqual(self.vms.names(), ['testvm1', 'testvm2'])
+
+    def test_005_vms(self):
+        self.vms.add(self.testvm1)
+        self.vms.add(self.testvm2)
+
+        self.assertItemsEqual(self.vms.vms(), [self.testvm1, self.testvm2])
+        self.assertItemsEqual(self.vms.values(), [self.testvm1, self.testvm2])
+
+    def test_006_items(self):
+        self.vms.add(self.testvm1)
+        self.vms.add(self.testvm2)
+
+        self.assertItemsEqual(self.vms.items(),
+            [(1, self.testvm1), (2, self.testvm2)])
+
+    def test_007_len(self):
+        self.vms.add(self.testvm1)
+        self.vms.add(self.testvm2)
+
+        self.assertEqual(len(self.vms), 2)
+
+    def test_008_delitem(self):
+        self.vms.add(self.testvm1)
+        self.vms.add(self.testvm2)
+
+        del self.vms['testvm2']
+
+        self.assertItemsEqual(self.vms.vms(), [self.testvm1])
+        self.assertEventFired(self.app, 'domain-delete', args=[self.testvm2])
+
+    def test_100_get_new_unused_qid(self):
+        self.vms.add(self.testvm1)
+        self.vms.add(self.testvm2)
+
+        self.vms.get_new_unused_qid()
+
+    def test_101_get_new_unused_netid(self):
+        self.vms.add(self.testvm1)
+        self.vms.add(self.testvm2)
+
+        self.vms.get_new_unused_netid()
+
+#   def test_200_get_vms_based_on(self):
+#       pass
+
+#   def test_201_get_vms_connected_to(self):
+#       pass

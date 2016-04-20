@@ -140,17 +140,17 @@ class TC_00_setters(qubes.tests.QubesTestCase):
     # there is no check for self.app.get_label()
 
 
-class TC_90_QubesVM(qubes.tests.QubesTestCase):
+class QubesVMTestsMixin(object):
+    property_no_default = object()
+
     def setUp(self):
-        super(TC_90_QubesVM, self).setUp()
+        super(QubesVMTestsMixin, self).setUp()
         self.app = qubes.tests.vm.TestApp()
 
     def get_vm(self, **kwargs):
         return qubes.vm.qubesvm.QubesVM(self.app, None,
             qid=1, name=qubes.tests.VMPREFIX + 'test',
             **kwargs)
-
-    property_no_default = object()
 
     def assertPropertyValue(self, vm, prop_name, set_value, expected_value,
             expected_xml_content=None):
@@ -208,24 +208,8 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
         self.assertPropertyValue(vm, prop_name, 123, True)
         self.assertPropertyInvalidValue(vm, prop_name, '')
 
-    def setup_netvms(self, vm):
-        # usage of QubesVM here means that those tests should be after
-        # testing properties used here
-        self.netvm1 = qubes.vm.qubesvm.QubesVM(self.app, None, qid=2,
-            name=qubes.tests.VMPREFIX + 'netvm1',
-            provides_network=True)
-        self.netvm2 = qubes.vm.qubesvm.QubesVM(self.app, None, qid=3,
-            name=qubes.tests.VMPREFIX + 'netvm2',
-            provides_network=True)
-        self.nonetvm = qubes.vm.qubesvm.QubesVM(self.app, None, qid=4,
-            name=qubes.tests.VMPREFIX + 'nonet')
-        self.app.domains = {}
-        for domain in (vm, self.netvm1, self.netvm2, self.nonetvm):
-            self.app.domains[domain.qid] = domain
-            self.app.domains[domain] = domain
-            self.app.domains[domain.name] = domain
-        self.app.default_netvm = self.netvm1
 
+class TC_90_QubesVM(QubesVMTestsMixin,qubes.tests.QubesTestCase):
     def test_000_init(self):
         self.get_vm()
 
@@ -286,34 +270,6 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
         vm = self.get_vm()
         self.assertPropertyInvalidValue(vm, 'label', 'invalid')
         self.assertPropertyInvalidValue(vm, 'label', 123)
-
-    def test_140_netvm(self):
-        vm = self.get_vm()
-        self.setup_netvms(vm)
-        self.assertPropertyDefaultValue(vm, 'netvm', self.app.default_netvm)
-        self.assertPropertyValue(vm, 'netvm', self.netvm2, self.netvm2,
-            self.netvm2.name)
-        del vm.netvm
-        self.assertPropertyDefaultValue(vm, 'netvm', self.app.default_netvm)
-        self.assertPropertyValue(vm, 'netvm', self.netvm2.name, self.netvm2,
-            self.netvm2.name)
-        self.assertPropertyValue(vm, 'netvm', None, None, '')
-
-    def test_141_netvm_invalid(self):
-        vm = self.get_vm()
-        self.setup_netvms(vm)
-        self.assertPropertyInvalidValue(vm, 'netvm', 'invalid')
-        self.assertPropertyInvalidValue(vm, 'netvm', 123)
-
-    def test_142_netvm_netvm(self):
-        vm = self.get_vm()
-        self.setup_netvms(vm)
-        self.assertPropertyInvalidValue(vm, 'netvm', self.nonetvm)
-
-    def test_143_netvm_loopback(self):
-        vm = self.get_vm()
-        self.app.domains = {1: vm, vm: vm}
-        self.assertPropertyInvalidValue(vm, 'netvm', vm)
 
     def test_150_hvm(self):
         vm = self.get_vm()
@@ -500,47 +456,6 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
             '/etc/systemd/system/multi-user.target.wants/'
             'qubes-vm@{}.service'.format(vm.name)),
             "systemd service not disabled by resetting autostart")
-
-    def test_290_dispvm_netvm(self):
-        vm = self.get_vm()
-        self.setup_netvms(vm)
-        self.assertPropertyDefaultValue(vm, 'dispvm_netvm',
-            self.app.default_netvm)
-        self.assertPropertyValue(vm, 'dispvm_netvm', self.netvm2, self.netvm2,
-            self.netvm2.name)
-        del vm.dispvm_netvm
-        self.assertPropertyDefaultValue(vm, 'dispvm_netvm',
-            self.app.default_netvm)
-        self.assertPropertyValue(vm, 'dispvm_netvm', self.netvm2.name,
-            self.netvm2, self.netvm2.name)
-        # XXX FIXME xml value
-        self.assertPropertyValue(vm, 'dispvm_netvm', None, None, 'None')
-
-    def test_291_dispvm_netvm_invalid(self):
-        vm = self.get_vm()
-        self.setup_netvms(vm)
-        self.assertPropertyInvalidValue(vm, 'dispvm_netvm', 'invalid')
-        self.assertPropertyInvalidValue(vm, 'dispvm_netvm', 123)
-
-    def test_291_dispvm_netvm_netvm(self):
-        vm = self.get_vm()
-        nonetvm = TestVM(qid=2, app=self.app, name='nonetvm')
-        self.app.domains = {1: vm, 2: nonetvm}
-        self.assertPropertyInvalidValue(vm, 'dispvm_netvm', nonetvm)
-
-    def test_291_dispvm_netvm_default(self):
-        """Check if vm.dispvm_netvm default is really vm.netvm"""
-        vm = self.get_vm()
-        self.setup_netvms(vm)
-        vm.netvm = self.netvm2
-        self.assertPropertyDefaultValue(vm, 'dispvm_netvm', self.netvm2)
-        del vm.netvm
-        self.assertPropertyDefaultValue(vm, 'dispvm_netvm', self.netvm1)
-
-    def test_292_dispvm_netvm_loopback(self):
-        vm = self.get_vm()
-        self.app.domains = {1: vm, vm: vm}
-        self.assertPropertyInvalidValue(vm, 'dispvm_netvm', vm)
 
     @unittest.skip('TODO')
     def test_300_qrexec_installed(self):

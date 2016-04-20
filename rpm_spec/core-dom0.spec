@@ -276,6 +276,10 @@ fi
 %{python_sitelib}/qubes/tests/vm/adminvm.py*
 %{python_sitelib}/qubes/tests/vm/qubesvm.py*
 
+%dir %{python_sitelib}/qubes/tests/vm/mix
+%{python_sitelib}/qubes/tests/vm/mix/__init__.py*
+%{python_sitelib}/qubes/tests/vm/mix/net.py*
+
 %dir %{python_sitelib}/qubes/tests/tools
 %{python_sitelib}/qubes/tests/tools/__init__.py*
 %{python_sitelib}/qubes/tests/tools/init.py*

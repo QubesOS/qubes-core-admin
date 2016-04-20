@@ -28,9 +28,10 @@ import libvirt
 import lxml.etree
 
 import qubes
+import qubes.events
 import qubes.exc
 
-class NetVMMixin(object):
+class NetVMMixin(qubes.events.Emitter):
     mac = qubes.property('mac', type=str,
         default='00:16:3E:5E:6C:00',
         ls_width=17,
@@ -268,15 +269,29 @@ class NetVMMixin(object):
         self.fire_event('property-set:netvm', 'netvm', new_netvm, old_netvm)
 
 
-    @qubes.events.handler('property-set:netvm')
-    def on_property_set_netvm(self, event, name, new_netvm, old_netvm=None):
-        # pylint: disable=unused-argument
+    @qubes.events.handler('property-pre-set:netvm')
+    def on_property_pre_set_netvm(self, event, name, new_netvm, old_netvm=None):
+        if new_netvm is None:
+            return
+
+        if not new_netvm.provides_network:
+            raise qubes.exc.QubesValueError(
+                'The {!s} qube does not provide network'.format(new_netvm))
+
+        if new_netvm is self \
+                or new_netvm in self.app.domains.get_vms_connected_to(self):
+            raise qubes.exc.QubesValueError('Loops in network are unsupported')
+
         # TODO offline_mode
-        if self.is_running() and new_netvm is not None \
-                and not new_netvm.is_running():
+        if self.is_running() and not new_netvm.is_running():
             raise qubes.exc.QubesVMNotStartedError(new_netvm,
                 'Cannot dynamically attach to stopped NetVM: {!r}'.format(
                     new_netvm))
+
+
+    @qubes.events.handler('property-set:netvm')
+    def on_property_set_netvm(self, event, name, new_netvm, old_netvm=None):
+        # pylint: disable=unused-argument
 
         if self.netvm is not None:
             if self.is_running():

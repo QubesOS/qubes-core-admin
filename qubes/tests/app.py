@@ -30,7 +30,6 @@ import lxml.etree
 
 import qubes
 import qubes.events
-import qubes.vm
 
 import qubes.tests
 
