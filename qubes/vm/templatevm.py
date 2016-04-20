@@ -15,6 +15,11 @@ class TemplateVM(qubes.vm.qubesvm.QubesVM):
         '''COW image'''
         return self.storage.rootcow_img
 
+    @property
+    def appvms(self):
+        for vm in self.app.domains:
+            if hasattr(vm, 'template') and vm.template is self:
+                yield vm
 
     def __init__(self, *args, **kwargs):
         super(TemplateVM, self).__init__(*args, **kwargs)
