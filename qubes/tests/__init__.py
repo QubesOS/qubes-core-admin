@@ -971,6 +971,8 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
             'qubes.tests.int.tools.qubes_create',
             'qubes.tests.int.tools.qvm_prefs',
             'qubes.tests.int.tools.qvm_run',
+            # external modules
+            'qubes.tests.extra',
             ):
         tests.addTests(loader.loadTestsFromName(modname))
 
