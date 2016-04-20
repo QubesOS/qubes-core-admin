@@ -32,6 +32,10 @@ class ExtraTestCase(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
 
     template = None
 
+    def setUp(self):
+        super(ExtraTestCase, self).setUp()
+        self.init_default_template(self.template)
+
     def create_vms(self, names):
         """
         Create AppVMs for the duration of the test. Will be automatically
@@ -47,14 +51,15 @@ class ExtraTestCase(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         for vmname in names:
             vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
                                     name=self.make_vm_name(vmname),
-                                    template=template)
-            vm.create_on_disk(verbose=False)
+                                    template=template,
+                                    label='red')
+            vm.create_on_disk()
         self.save_and_reload_db()
 
         # get objects after reload
         vms = []
         for vmname in names:
-            vms.append(self.app.domains[self.make_vm_name])
+            vms.append(self.app.domains[self.make_vm_name(vmname)])
         return vms
 
     def enable_network(self):
@@ -66,7 +71,7 @@ class ExtraTestCase(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
 
 def load_tests(loader, tests, pattern):
     for entry in pkg_resources.iter_entry_points('qubes.tests.extra'):
-        for test_case in entry():
+        for test_case in entry.load()():
             tests.addTests(loader.loadTestsFromTestCase(test_case))
 
     try:

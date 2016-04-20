@@ -223,7 +223,7 @@ class QubesTestCase(unittest.TestCase):
 
     def __str__(self):
         return '{}/{}/{}'.format(
-            '.'.join(self.__class__.__module__.split('.')[2:]),
+            self.__class__.__module__,
             self.__class__.__name__,
             self._testMethodName)
 
@@ -971,6 +971,8 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
             'qubes.tests.int.tools.qubes_create',
             'qubes.tests.int.tools.qvm_prefs',
             'qubes.tests.int.tools.qvm_run',
+            # external modules
+            'qubes.tests.extra',
             ):
         tests.addTests(loader.loadTestsFromName(modname))
 

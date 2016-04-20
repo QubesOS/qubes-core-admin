@@ -226,7 +226,7 @@ Test package
 
         logpath = os.path.join(self.tmpdir, 'dom0-update-output.txt')
         try:
-            subprocess.check_call(['sudo', 'qubes-dom0-update', '-y'] +
+            subprocess.check_call(['sudo', '-E', 'qubes-dom0-update', '-y'] +
                                   self.dom0_update_common_opts,
                                   stdout=open(logpath, 'w'),
                                   stderr=subprocess.STDOUT)
@@ -256,7 +256,7 @@ Test package
         shutil.rmtree('/var/lib/qubes/updates/repodata')
         logpath = os.path.join(self.tmpdir, 'dom0-update-output.txt')
         try:
-            subprocess.check_call(['sudo', 'qubes-dom0-update', '-y',
+            subprocess.check_call(['sudo', '-E', 'qubes-dom0-update', '-y',
                                    '--clean'] +
                                   self.dom0_update_common_opts,
                                   stdout=open(logpath, 'w'),
