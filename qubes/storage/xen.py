@@ -267,9 +267,9 @@ class SizeMixIn(XenVolume):
     '''
 
     def __init__(self, size=0, **kwargs):
-        super(SizeMixIn, self).__init__(size=int(size), **kwargs)
         assert size, 'Empty size provided'
         assert size > 0, 'Size for volume ' + kwargs['name'] + ' is <=0'
+        super(SizeMixIn, self).__init__(size=int(size), **kwargs)
 
     @property
     def usage(self):
