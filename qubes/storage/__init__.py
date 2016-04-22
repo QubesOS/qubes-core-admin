@@ -58,13 +58,8 @@ class Volume(object):
     script = None
     usage = 0
 
-    def __init__(self,
-                 name=None,
-                 pool=None,
-                 volume_type=None,
-                 vid=None,
-                 size=0):
-        assert name and pool and volume_type
+    def __init__(self, name, pool, volume_type, vid=None, size=0, **kwargs):
+        super(Volume, self).__init__(**kwargs)
         self.name = str(name)
         self.pool = str(pool)
         self.vid = vid
@@ -232,9 +227,8 @@ class Pool(object):
     private_img_size = qubes.config.defaults['private_img_size']
     root_img_size = qubes.config.defaults['root_img_size']
 
-    def __init__(self, name=None, **kwargs):
-        # :pylint: disable=unused-argument
-        assert name, "Pool name is missing"
+    def __init__(self, name, **kwargs):
+        super(Pool, self).__init__(**kwargs)
         self.name = name
         kwargs['name'] = self.name
 
