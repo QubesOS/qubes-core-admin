@@ -70,7 +70,10 @@ class SystemState(object):
         # see https://wiki.openstack.org/wiki/XenServer/Overhead
         # we divide total and free physical memory by this to get "assignable" memory
         self.MEM_OVERHEAD_FACTOR = 1.0 / 1.00781
-        self.ALL_PHYS_MEM = int(self.xc.physinfo()['total_memory']*1024 * self.MEM_OVERHEAD_FACTOR)
+        try:
+            self.ALL_PHYS_MEM = int(self.xc.physinfo()['total_memory']*1024 * self.MEM_OVERHEAD_FACTOR)
+        except xen.lowlevel.xc.Error:
+            self.ALL_PHYS_MEM = 0
 
     def add_domain(self, id):
         self.log.debug('add_domain(id={!r})'.format(id))
