@@ -71,6 +71,9 @@ class Volume(object):
         self.size = size
         self.volume_type = volume_type
 
+    def __xml__(self):
+        return lxml.etree.Element('volume', **self.config)
+
     @property
     def config(self):
         ''' return config data for serialization to qubes.xml '''

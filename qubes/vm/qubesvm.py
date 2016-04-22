@@ -493,8 +493,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if hasattr(self, 'volumes'):
             volume_config_node = lxml.etree.Element('volume-config')
             for volume in self.volumes.values():
-                volume_node = lxml.etree.Element('volume', **volume.config)
-                volume_config_node.append(volume_node)
+                volume_config_node.append(volume.__xml__())
 
             element.append(volume_config_node)
 
