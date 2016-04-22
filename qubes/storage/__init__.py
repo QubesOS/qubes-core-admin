@@ -37,6 +37,8 @@ import qubes.exc
 import qubes.utils
 from qubes.devices import BlockDevice
 
+import lxml.etree
+
 STORAGE_ENTRY_POINT = 'qubes.storage'
 
 
@@ -230,6 +232,9 @@ class Pool(object):
         assert name, "Pool name is missing"
         self.name = name
         kwargs['name'] = self.name
+
+    def __xml__(self):
+        return lxml.etree.Element('pool', **self.config)
 
     def create(self, volume, source_volume):
         ''' Create the given volume on disk or copy from provided

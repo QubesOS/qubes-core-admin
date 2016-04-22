@@ -1319,7 +1319,13 @@ class Qubes(PropertyHolder):
         element = lxml.etree.Element('qubes')
 
         element.append(self.xml_labels())
-        element.append(self.xml_pool_configs())
+
+        pools_xml = lxml.etree.Element('pools')
+        for pool in self.pools.values():
+            pools_xml.append(pool.__xml__())
+
+        element.append(pools_xml)
+
         element.append(self.xml_properties())
 
         domains = lxml.etree.Element('domains')
@@ -1421,15 +1427,6 @@ class Qubes(PropertyHolder):
         for label in sorted(self.labels.values(), key=lambda labl: labl.index):
             labels.append(label.__xml__())
         return labels
-
-    def xml_pool_configs(self):
-        """ Helper for converting pools config to xml """
-        pools_xml = lxml.etree.Element('pools')
-        for pool in self.pools.values():
-            p = lxml.etree.Element('pool', **pool.config)
-            pools_xml.append(p)
-
-        return pools_xml
 
     def get_vm_class(self, clsname):
         '''Find the class for a domain.
