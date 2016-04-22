@@ -286,14 +286,14 @@ class SizeMixIn(XenVolume):
 
 
 class ReadWriteFile(SizeMixIn):
-    # :pylint: disable=missing-docstring
+    ''' Represents a readable & writable file image based volume '''
     def __init__(self, **kwargs):
         super(ReadWriteFile, self).__init__(**kwargs)
         self.path = os.path.join(self.target_dir, self.name + '.img')
         self.vid = self.path
 
     def rename_target_dir(self, new_name, new_dir):
-        # :pylint: disable=unused-argument
+        ''' Called by :py:class:`XenPool` when a domain changes it's name '''
         old_path = self.path
         file_name = os.path.basename(self.path)
         new_path = os.path.join(new_dir, file_name)
@@ -305,17 +305,20 @@ class ReadWriteFile(SizeMixIn):
 
 
 class ReadOnlyFile(XenVolume):
-    # :pylint: disable=missing-docstring
+    ''' Represents a readonly file image based volume '''
     usage = 0
 
     def __init__(self, size=0, **kwargs):
-        # :pylint: disable=unused-argument
         super(ReadOnlyFile, self).__init__(size=int(size), **kwargs)
         self.path = self.vid
 
     def rename_target_dir(self, old_name, new_dir):
-        # only copy the read-only volume if it's "owned" by the current vm
-        # "owned" means that it's in a directory named the same as the vm
+        """ Called by :py:class:`XenPool` when a domain changes it's name.
+
+        Only copies the volume if it belongs to the domain being renamed.
+        Currently if a volume is in a directory named the same as the domain,
+        it's ”owned” by the domain.
+        """
         if os.path.basename(self.target_dir) == old_name:
             file_name = os.path.basename(self.path)
             new_path = os.path.join(new_dir, file_name)
@@ -329,7 +332,11 @@ class ReadOnlyFile(XenVolume):
 
 
 class OriginFile(SizeMixIn):
-    # :pylint: disable=missing-docstring
+    ''' Represents a readable, writeable & snapshotable file image based volume.
+
+        This is used for TemplateVM's
+    '''
+
     script = 'block-origin'
 
     def __init__(self, **kwargs):
@@ -340,9 +347,11 @@ class OriginFile(SizeMixIn):
         self.vid = self.path_origin
 
     def commit(self):
+        ''' Commit Template changes '''
         raise NotImplementedError
 
     def rename_target_dir(self, new_dir):
+        ''' Called by :py:class:`XenPool` when a domain changes it's name '''
         old_path_origin = self.path_origin
         old_path_cow = self.path_cow
         new_path_origin = os.path.join(new_dir, self.name + '.img')
@@ -366,7 +375,7 @@ class OriginFile(SizeMixIn):
 
 
 class SnapshotFile(XenVolume):
-    # :pylint: disable=missing-docstring
+    ''' Represents a readonly snapshot of an :py:class:`OriginFile` volume '''
     script = 'block-snapshot'
     rw = False
     usage = 0
@@ -379,21 +388,18 @@ class SnapshotFile(XenVolume):
         self.path = '%s:%s' % (self.path_origin, self.path_cow)
         self.vid = self.path_origin
 
-    @property
-    def created(self):
-        return os.path.exists(self.path_origin) and os.path.exists(
-            self.path_cow)
-
 
 class VolatileFile(SizeMixIn):
-    # :pylint: disable=missing-docstring
-
+    ''' Represents a readable & writeable file based volume, which will be
+        discarded and recreated at each startup.
+    '''
     def __init__(self, **kwargs):
         super(VolatileFile, self).__init__(**kwargs)
         self.path = os.path.join(self.target_dir, self.name + '.img')
         self.vid = self.path
 
     def rename_target_dir(self, new_dir):
+        ''' Called by :py:class:`XenPool` when a domain changes it's name '''
         _remove_if_exists(self)
         file_name = os.path.basename(self.path)
         self.target_dir = new_dir
