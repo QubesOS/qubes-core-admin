@@ -445,10 +445,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             for name, conf in volume_config.items():
                 for k, v in conf.items():
                     self.volume_config[name][k] = v
+        elif volume_config:
+            raise TypeError(
+                'volume_config specified, but {} did not expect that.' %
+                self.__class__.__name__)
 
-        import qubes.vm.adminvm # pylint: disable=redefined-outer-name
+        import qubes.vm.adminvm  # pylint: disable=redefined-outer-name
 
-        #Init private attrs
+        # Init private attrs
 
         self._libvirt_domain = None
         self._qdb_connection = None
