@@ -1495,7 +1495,6 @@ class Qubes(PropertyHolder):
         pool = self._get_pool(**kwargs)
         pool.setup()
         self.pools[name] = pool
-        self.save()
 
     def remove_pool(self, name):
         """ Remove a storage pool from config file.  """
@@ -1506,7 +1505,6 @@ class Qubes(PropertyHolder):
         except KeyError:
             return
 
-        self.save()
 
     def get_pool(self, name):
         '''  Returns a :py:class:`qubes.storage.Pool` instance '''
