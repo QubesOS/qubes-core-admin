@@ -1,0 +1,2 @@
+class DBusException(Exception):
+    pass
