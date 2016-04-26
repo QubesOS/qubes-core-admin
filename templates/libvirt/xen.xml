@@ -45,12 +45,27 @@
 	<on_reboot>destroy</on_reboot>
 	<on_crash>destroy</on_crash>
 	<devices>
-        {#
-		{% for device in vm.storage %}
-            <disk type="block" device="{{ device.type }}">
+        {% set i = 0 %}
+        {# TODO Allow more volumes out of the box #}
+        {% set dd = ['e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p',
+            'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y']
+        %}
+		{% for device in vm.block_devices %}
+            <disk type="block" device="{{ device.devtype }}">
                 <driver name="phy" />
                 <source dev="{{ device.path }}" />
-                <target dev="{{ device.vdev }}" />
+                {% if device.name == 'root' %}
+                    <target dev="xvda" />
+                {% elif device.name == 'private' %}
+                    <target dev="xvdb" />
+                {% elif device.name == 'volatile' %}
+                    <target dev="xvdc" />
+                {% elif device.name == 'kernel' %}
+                    <target dev="xvdd" />
+                {% else %}
+                    <target dev="xvd{{dd[i]}}" />
+                    {% set i = i + 1 %}
+                {% endif %}
 
                 {% if not device.rw %}
                     <readonly />
@@ -65,15 +80,6 @@
                 {% endif %}
             </disk>
 		{% endfor %}
-        #}
-
-        {{ vm.storage.root_dev_config() }}
-        {% if not prepare_dvm %}{{ vm.storage.private_dev_config() }}{% endif %}
-        {{ vm.storage.other_dev_config() }}
-
-		{% if not vm.hvm %}
-            {{ vm.storage.volatile_dev_config() }}
-		{% endif %}
 
 		{% if vm.netvm %}
 			<interface type="ethernet">

@@ -17,9 +17,12 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 import qubes.log
-from qubes.storage import StoragePoolException, pool_drivers
+from qubes.exc import QubesException
+from qubes.storage import pool_drivers
 from qubes.storage.xen import XenPool
-from qubes.tests import QubesTestCase
+from qubes.tests import QubesTestCase, SystemTestsMixin
+
+# :pylint: disable=invalid-name
 
 
 class TestApp(qubes.tests.TestEmitter):
@@ -27,30 +30,26 @@ class TestApp(qubes.tests.TestEmitter):
 
 
 class TestVM(object):
-    def __init__(self, app, qid, name, pool_name, template=None):
-        super(TestVM, self).__init__()
-        self.app = app
-        self.qid = qid
-        self.name = name
-        self.pool_name = pool_name
-        self.template = template
-        self.hvm = False
-        self.storage = qubes.storage.get_pool(self.pool_name,
-                                              self).get_storage()
+    def __init__(self, test, template=None):
+        self.app = test.app
+        self.name = test.make_vm_name('appvm')
         self.log = qubes.log.get_vm_logger(self.name)
 
+        if template:
+            self.template = template
+
     def is_template(self):
+        # :pylint: disable=no-self-use
         return False
 
     def is_disposablevm(self):
+        # :pylint: disable=no-self-use
         return False
-
-    @property
-    def dir_path(self):
-        return self.storage.vmdir
 
 
 class TestTemplateVM(TestVM):
+    dir_path_prefix = qubes.config.system_path['qubes_templates_dir']
+
     def is_template(self):
         return True
 
@@ -60,46 +59,47 @@ class TestDisposableVM(TestVM):
         return True
 
 
-class TC_00_Pool(QubesTestCase):
+class TC_00_Pool(SystemTestsMixin, QubesTestCase):
     """ This class tests the utility methods from :mod:``qubes.storage`` """
 
     def setUp(self):
         super(TC_00_Pool, self).setUp()
+        self.init_default_template()
 
     def test_000_unknown_pool_driver(self):
         # :pylint: disable=protected-access
         """ Expect an exception when unknown pool is requested"""
-        with self.assertRaises(StoragePoolException):
-            qubes.storage._get_pool_klass('foo-bar')
+        with self.assertRaises(QubesException):
+            self.app.get_pool('foo-bar')
 
     def test_001_all_pool_drivers(self):
-        """ The only predefined pool driver is file """
-        self.assertEquals(["xen"], pool_drivers())
+        """ The only predefined pool driver is xen """
+        self.assertEquals(['linux-kernel', 'xen'], pool_drivers())
 
     def test_002_get_pool_klass(self):
         """ Expect the default pool to be `XenPool` """
         # :pylint: disable=protected-access
-        result = qubes.storage._get_pool_klass('default')
-        self.assertTrue(result is XenPool)
+        result = self.app.get_pool('default')
+        self.assertIsInstance(result, XenPool)
 
     def test_003_pool_exists_default(self):
         """ Expect the default pool to exists """
-        self.assertTrue(qubes.storage.pool_exists('default'))
+        self.assertPoolExists('default')
 
-    def test_004_pool_exists_random(self):
-        """ Expect this pool to not a exist """
-        self.assertFalse(qubes.storage.pool_exists(
-            'asdh312096r832598213iudhas'))
-
-    def test_005_add_remove_pool(self):
+    def test_004_add_remove_pool(self):
         """ Tries to adding and removing a pool. """
         pool_name = 'asdjhrp89132'
 
         # make sure it's really does not exist
-        qubes.storage.remove_pool(pool_name)
+        self.app.remove_pool(pool_name)
+        self.assertFalse(self.assertPoolExists(pool_name))
 
-        qubes.storage.add_pool(pool_name, driver='xen')
-        self.assertTrue(qubes.storage.pool_exists(pool_name))
+        self.app.add_pool(name=pool_name, driver='xen', dir_path='/tmp/asdjhrp89132')
+        self.assertTrue(self.assertPoolExists(pool_name))
 
-        qubes.storage.remove_pool(pool_name)
-        self.assertFalse(qubes.storage.pool_exists(pool_name))
+        self.app.remove_pool(pool_name)
+        self.assertFalse(self.assertPoolExists(pool_name))
+
+    def assertPoolExists(self, pool):
+        """ Check if specified pool exists """
+        return pool in self.app.pools.keys()

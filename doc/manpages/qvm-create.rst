@@ -53,6 +53,10 @@ Options
    Use provided :file:`root.img` instead of default/empty one (file will be
    *moved*). This option is mutually exclusive with :option:`--root-copy-from`.
 
+.. option:: --pool=POOL_NAME:VOLUME_NAME, -P POOL_NAME:VOLUME_NAME
+
+    Specify the pool to use for a volume
+
 Options for internal use
 ------------------------
 
@@ -71,5 +75,6 @@ Authors
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>
 | Marek Marczykowski <marmarek at invisiblethingslab dot com>
 | Wojtek Porczyk <woju at invisiblethingslab dot com>
+| Bahtiar `kalkin-` Gadimov <bahtiar at gadimov dot de> 
 
 .. vim: ts=3 sw=3 et tw=80

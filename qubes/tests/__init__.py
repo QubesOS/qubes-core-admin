@@ -820,7 +820,7 @@ class BackupTestsMixin(SystemTestsMixin):
             name=vmname, template=template, provides_network=True, label='red')
         testnet.create_on_disk()
         vms.append(testnet)
-        self.fill_image(testnet.private_img, 20*1024*1024)
+        self.fill_image(testnet.volumes['private'].vid, 20*1024*1024)
 
         vmname = self.make_vm_name('test1')
         if self.verbose:
@@ -831,16 +831,17 @@ class BackupTestsMixin(SystemTestsMixin):
         testvm1.netvm = testnet
         testvm1.create_on_disk()
         vms.append(testvm1)
-        self.fill_image(testvm1.private_img, 100*1024*1024)
+        self.fill_image(testvm1.volumes['private'].vid, 100*1024*1024)
 
         vmname = self.make_vm_name('testhvm1')
         if self.verbose:
             print >>sys.stderr, "-> Creating %s" % vmname
         testvm2 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
-            name=vmname,
-            hvm=True, label='red')
-        testvm2.create_on_disk()
-        self.fill_image(testvm2.root_img, 1024*1024*1024, True)
+                                      name=vmname,
+                                      hvm=True,
+                                      label='red')
+        testvm2.create_on_disk(verbose=self.verbose)
+        self.fill_image(testvm2.volumes['root'].vid, 1024 * 1024 * 1024, True)
         vms.append(testvm2)
 
         vmname = self.make_vm_name('template')

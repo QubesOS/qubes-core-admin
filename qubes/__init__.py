@@ -36,8 +36,6 @@ __author__ = 'Invisible Things Lab'
 __license__ = 'GPLv2 or later'
 __version__ = 'R3'
 
-import ast
-import atexit
 import collections
 import errno
 import grp
@@ -47,12 +45,9 @@ import os.path
 import sys
 import tempfile
 import time
-import warnings
 
 import __builtin__
 
-import docutils.core
-import docutils.io
 import jinja2
 import lxml.etree
 import pkg_resources
@@ -1181,7 +1176,6 @@ class Qubes(PropertyHolder):
         default=True,
         doc='check for updates inside qubes')
 
-
     def __init__(self, store=None, load=True, **kwargs):
         #: logger instance for logging global messages
         self.log = logging.getLogger('app')
@@ -1193,6 +1187,9 @@ class Qubes(PropertyHolder):
 
         #: collection of all available labels for VMs
         self.labels = {}
+
+        #: collection of all pools
+        self.pools = {}
 
         #: Connection to VMM
         self.vmm = VMMConnection()
@@ -1235,7 +1232,7 @@ class Qubes(PropertyHolder):
         '''
 
         try:
-            fd = os.open(self._store, os.O_RDWR) # no O_CREAT
+            fd = os.open(self._store, os.O_RDWR)  # no O_CREAT
         except OSError as e:
             if e.errno != errno.ENOENT:
                 raise
@@ -1256,10 +1253,18 @@ class Qubes(PropertyHolder):
 
         self.xml = lxml.etree.parse(fh)
 
-        # stage 1: load labels
+        # stage 1: load labels and pools
         for node in self.xml.xpath('./labels/label'):
             label = Label.fromxml(node)
             self.labels[label.index] = label
+
+        for node in self.xml.xpath('./pools/pool'):
+            name = node.get('name')
+            assert name, "Pool name '%s' is invalid " % name
+            try:
+                self.pools[name] = self._get_pool(**node.attrib)
+            except qubes.exc.QubesException as e:
+                self.log.error(e.message)
 
         # stage 2: load VMs
         for node in self.xml.xpath('./domains/domain'):
@@ -1270,7 +1275,7 @@ class Qubes(PropertyHolder):
             vm.init_log()
             self.domains.add(vm)
 
-        if not 0 in self.domains:
+        if 0 not in self.domains:
             self.domains.add(qubes.vm.adminvm.AdminVM(
                 self, None, qid=0, name='dom0'))
 
@@ -1310,11 +1315,17 @@ class Qubes(PropertyHolder):
         fh.close()
         del fh
 
-
     def __xml__(self):
         element = lxml.etree.Element('qubes')
 
         element.append(self.xml_labels())
+
+        pools_xml = lxml.etree.Element('pools')
+        for pool in self.pools.values():
+            pools_xml.append(pool.__xml__())
+
+        element.append(pools_xml)
+
         element.append(self.xml_properties())
 
         domains = lxml.etree.Element('domains')
@@ -1395,6 +1406,10 @@ class Qubes(PropertyHolder):
             7: Label(7, '0x75507b', 'purple'),
             8: Label(8, '0x000000', 'black'),
         }
+
+        for name, config in qubes.config.defaults['pool_configs'].items():
+            self.pools[name] = self._get_pool(**config)
+
         self.domains.add(
             qubes.vm.adminvm.AdminVM(self, None, qid=0, name='dom0'))
         self.save()
@@ -1412,7 +1427,6 @@ class Qubes(PropertyHolder):
         for label in sorted(self.labels.values(), key=lambda labl: labl.index):
             labels.append(label.__xml__())
         return labels
-
 
     def get_vm_class(self, clsname):
         '''Find the class for a domain.
@@ -1473,6 +1487,52 @@ class Qubes(PropertyHolder):
 
         raise KeyError(label)
 
+    def add_pool(self, **kwargs):
+        """ Add a storage pool to config."""
+        name = kwargs['name']
+        assert name not in self.pools.keys(), \
+            "Pool named %s already exists" % name
+        pool = self._get_pool(**kwargs)
+        pool.setup()
+        self.pools[name] = pool
+
+    def remove_pool(self, name):
+        """ Remove a storage pool from config file.  """
+        try:
+            pool = self.pools[name]
+            del self.pools[name]
+            pool.destroy()
+        except KeyError:
+            return
+
+
+    def get_pool(self, name):
+        '''  Returns a :py:class:`qubes.storage.Pool` instance '''
+        try:
+            return self.pools[name]
+        except KeyError:
+            raise qubes.exc.QubesException('Unknown storage pool ' + name)
+
+    def _get_pool(self, **kwargs):
+        try:
+            name = kwargs['name']
+            assert name, 'Name needs to be an non empty string'
+        except KeyError:
+            raise qubes.exc.QubesException('No pool name for pool')
+
+        try:
+            driver = kwargs['driver']
+        except KeyError:
+            raise qubes.exc.QubesException('No driver specified for pool ' +
+                                           name)
+        try:
+            klass = qubes.get_entry_point_one(
+                qubes.storage.STORAGE_ENTRY_POINT, driver)
+            del kwargs['driver']
+            return klass(**kwargs)
+        except KeyError:
+            raise qubes.exc.QubesException('Driver %s for pool %s' %
+                                           (driver, name))
 
     @qubes.events.handler('domain-pre-delete')
     def on_domain_pre_deleted(self, event, vm):

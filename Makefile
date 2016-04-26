@@ -60,7 +60,6 @@ endif
 #	$(MAKE) install -C tests
 	$(MAKE) install -C relaxng
 	mkdir -p $(DESTDIR)/etc/qubes
-	cp etc/storage.conf $(DESTDIR)/etc/qubes/
 ifeq ($(BACKEND_VMM),xen)
 	# Currently supported only on xen
 	cp etc/qmemman.conf $(DESTDIR)/etc/qubes/

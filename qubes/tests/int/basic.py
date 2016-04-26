@@ -392,8 +392,9 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestsMixin,
         self.save_and_reload_db()
 
     def get_rootimg_checksum(self):
-        p = subprocess.Popen(['sha1sum', self.test_template.root_img],
-                             stdout=subprocess.PIPE)
+        p = subprocess.Popen(
+            ['sha1sum', self.test_template.volumes['root'].vid],
+            stdout=subprocess.PIPE)
         return p.communicate()[0]
 
     def _do_test(self):

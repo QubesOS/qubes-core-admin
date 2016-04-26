@@ -46,9 +46,10 @@ parser.add_argument('--property', '--prop', '-p',
     action=qubes.tools.PropertyAction,
     help='set domain\'s property, like "internal", "memory" or "vcpus"')
 
-parser.add_argument('--pool-name', '--pool', '-P',
-    action=qubes.tools.SinglePropertyAction,
-    help='specify the storage pool to use')
+parser.add_argument('--pool', '-P',
+                    action='append',
+                    metavar='POOL_NAME:VOLUME_NAME',
+                    help='specify the pool to use for a volume')
 
 parser.add_argument('--template', '-t',
     action=qubes.tools.SinglePropertyAction,
@@ -78,6 +79,17 @@ parser.add_argument('name', metavar='VMNAME',
 
 def main(args=None):
     args = parser.parse_args(args)
+
+    if args.pool:
+        args.properties['volume_config'] = {}
+        for pool_vol in args.pool:
+            try:
+                pool_name, volume_name = pool_vol.split(':')
+                config = {'pool': pool_name, 'name': volume_name}
+                args.properties['volume_config'][volume_name] = config
+            except ValueError:
+                parser.error(
+                    'Pool argument must be of form: -P pool_name:volume_name')
 
     if 'label' not in args.properties:
         parser.error('--label option is mandatory')
