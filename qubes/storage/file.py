@@ -109,10 +109,10 @@ class FilePool(Pool):
 
     def remove(self, volume):
         if volume.volume_type in ['read-write', 'volatile']:
-            _remove_if_exists(volume.vid)
+            _remove_if_exists(volume)
         elif volume.volume_type == 'origin':
-            _remove_if_exists(volume.vid)
-            _remove_if_exists(volume.path_cow)
+            _remove_if_exists(volume)
+            _remove_if_exists(volume)
 
     def rename(self, volume, old_name, new_name):
         assert issubclass(volume.__class__, FileVolume)

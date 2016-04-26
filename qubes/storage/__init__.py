@@ -29,7 +29,6 @@ from __future__ import absolute_import
 
 import os
 import os.path
-import shutil
 
 import pkg_resources
 import qubes
@@ -192,9 +191,7 @@ class Storage(object):
 
     def remove(self):
         for name, volume in self.vm.volumes.items():
-            self.log.info('Removing volume %s: %s' % (name, volume.vid))
             self.get_pool(volume).remove(volume)
-        shutil.rmtree(self.vm.dir_path)
 
     def start(self):
         ''' Execute the start method on each pool '''

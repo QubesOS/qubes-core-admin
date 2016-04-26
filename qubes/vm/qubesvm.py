@@ -1137,7 +1137,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         '''Remove domain remnants from disk.'''
         self.fire_event('domain-remove-from-disk')
         self.storage.remove()
-        shutil.rmtree(self.vm.dir_path)
+        shutil.rmtree(self.dir_path)
 
     def clone_disk_files(self, src):
         '''Clone files from other vm.
