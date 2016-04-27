@@ -64,6 +64,9 @@ class DomainPool(Pool):
     def clone(self, source, target):
         raise NotImplementedError
 
+    def __xml__(self):
+        return None
+
 
 class DomainVolume(Volume):
     ''' A volume provided by a block device in an domain '''

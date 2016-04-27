@@ -708,7 +708,9 @@ class Qubes(qubes.PropertyHolder):
 
         pools_xml = lxml.etree.Element('pools')
         for pool in self.pools.values():
-            pools_xml.append(pool.__xml__())
+            xml = pool.__xml__()
+            if xml is not None:
+                pools_xml.append(xml)
 
         element.append(pools_xml)
 
