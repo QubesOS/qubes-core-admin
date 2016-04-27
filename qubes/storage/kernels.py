@@ -21,24 +21,27 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+''' This module contains pool implementations for different OS kernels. '''
 import os
 
 from qubes.storage import Pool, StoragePoolException, Volume
 
 
 class LinuxModules(Volume):
+    ''' A volume representing a ro linux kernel '''
     rw = False
 
     def __init__(self, target_dir, kernel_version, **kwargs):
+        kwargs['vid'] = kernel_version
         super(LinuxModules, self).__init__(**kwargs)
         self.kernels_dir = os.path.join(target_dir, kernel_version)
         self.path = os.path.join(self.kernels_dir, 'modules.img')
-        self.vid = self.path
         self.vmlinuz = os.path.join(self.kernels_dir, 'vmlinuz')
         self.initramfs = os.path.join(self.kernels_dir, 'initramfs')
 
 
 class LinuxKernel(Pool):
+    ''' Provides linux kernels '''
     driver = 'linux-kernel'
 
     def __init__(self, name=None, dir_path=None):
@@ -99,6 +102,16 @@ class LinuxKernel(Pool):
 
     def stop(self, volume):
         pass
+
+    @property
+    def volumes(self):
+        ''' Return all known kernel volumes '''
+        return [LinuxModules(self.dir_path,
+                             kernel_version,
+                             pool=self.name,
+                             name=kernel_version,
+                             volume_type='read-only')
+                for kernel_version in os.listdir(self.dir_path)]
 
 
 def _check_path(path):
