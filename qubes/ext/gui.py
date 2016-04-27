@@ -78,8 +78,7 @@ class GUI(qubes.ext.Extension):
                 or not os.path.exists('/var/run/shm.id'):
             return
 
-        # FIXME move this method to this extension, plugged to event
-        if vm.is_guid_running():
+        if self.is_guid_running(vm):
             return
 
         if not vm.features.check_with_template('gui', not vm.hvm):
@@ -212,7 +211,7 @@ class GUI(qubes.ext.Extension):
             :py:obj:`False` otherwise.
         :rtype: bool
         '''
-        xid = self.xid
+        xid = vm.xid
         if xid < 0:
             return False
         if not os.path.exists('/var/run/qubes/guid-running.{}'.format(xid)):
