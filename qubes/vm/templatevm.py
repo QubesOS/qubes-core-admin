@@ -62,23 +62,27 @@ class TemplateVM(QubesVM):
                 'pool': 'default',
                 'volume_type': 'origin',
                 'size': defaults['root_img_size'],
+                'internal': True
             },
             'private': {
                 'name': 'private',
                 'pool': 'default',
                 'volume_type': 'read-write',
                 'size': defaults['private_img_size'],
+                'internal': True
             },
             'volatile': {
                 'name': 'volatile',
                 'pool': 'default',
                 'size': defaults['root_img_size'],
                 'volume_type': 'volatile',
+                'internal': True
             },
             'kernel': {
                 'name': 'kernel',
                 'pool': 'linux-kernel',
                 'volume_type': 'read-only',
+                'internal': True
             }
         }
         super(TemplateVM, self).__init__(*args, **kwargs)

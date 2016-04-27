@@ -57,7 +57,7 @@ class Volume(object):
     usage = 0
 
     def __init__(self, name, pool, volume_type, vid=None, size=0,
-                 removable=False, **kwargs):
+                 removable=False, internal=False, **kwargs):
         super(Volume, self).__init__(**kwargs)
         self.name = str(name)
         self.pool = str(pool)
@@ -65,6 +65,7 @@ class Volume(object):
         self.size = size
         self.volume_type = volume_type
         self.removable = removable
+        self.internal = internal
 
     def __xml__(self):
         return lxml.etree.Element('volume', **self.config)

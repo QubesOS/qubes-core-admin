@@ -111,6 +111,7 @@ class LinuxKernel(Pool):
                              kernel_version,
                              pool=self.name,
                              name=kernel_version,
+                             internal=True,
                              volume_type='read-only')
                 for kernel_version in os.listdir(self.dir_path)]
 

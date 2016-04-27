@@ -45,23 +45,27 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
                 'name': 'root',
                 'pool': 'default',
                 'volume_type': 'snapshot',
+                'internal': True
             },
             'private': {
                 'name': 'private',
                 'pool': 'default',
                 'volume_type': 'origin',
                 'size': defaults['private_img_size'],
+                'internal': True
             },
             'volatile': {
                 'name': 'volatile',
                 'pool': 'default',
                 'volume_type': 'volatile',
                 'size': defaults['root_img_size'],
+                'internal': True
             },
             'kernel': {
                 'name': 'kernel',
                 'pool': 'linux-kernel',
                 'volume_type': 'read-only',
+                'internal': True
             }
         }
         super(AppVM, self).__init__(*args, **kwargs)
