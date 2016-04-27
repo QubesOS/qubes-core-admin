@@ -30,13 +30,12 @@ from __future__ import absolute_import
 import os
 import os.path
 
-import pkg_resources
 import lxml.etree
-
+import pkg_resources
 import qubes
+import qubes.devices
 import qubes.exc
 import qubes.utils
-import qubes.devices
 
 STORAGE_ENTRY_POINT = 'qubes.storage'
 
@@ -88,6 +87,16 @@ class Volume(object):
         '''
         return qubes.devices.BlockDevice(self.path, self.name, self.script,
             self.rw, self.domain, self.devtype)
+
+    def __eq__(self, other):
+        return other.pool == self.pool and other.vid == self.vid \
+            and other.volume_type == self.volume_type
+
+    def __neq__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash('%s:%s %s' % (self.pool, self.vid, self.volume_type))
 
 
 class Storage(object):
