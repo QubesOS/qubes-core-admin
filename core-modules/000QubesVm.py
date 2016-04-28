@@ -1412,8 +1412,8 @@ class QubesVm(object):
                     e.get_error_code())
                 raise
 
-        if os.path.exists("/etc/systemd/system/multi-user.target.wants/qubes-vm@" + self.name + ".service") == True:
-            retcode = subprocess.call(["sudo", "rm", "/etc/systemd/system/multi-user.target.wants/qubes-vm@" + self.name + ".service"])
+        if os.path.exists("/etc/systemd/system/multi-user.target.wants/qubes-vm@" + self.name + ".service"):
+            subprocess.call(["sudo", "systemctl", "-q", "disable","qubes-vm@" + self.name + ".service"])
             if retcode != 0:
                 raise QubesException("Failed to delete autostart entry for VM")
 
