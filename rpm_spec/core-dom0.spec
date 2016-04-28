@@ -206,6 +206,7 @@ fi
 
 %dir %{python_sitelib}/qubes
 %{python_sitelib}/qubes/__init__.py*
+%{python_sitelib}/qubes/app.py*
 %{python_sitelib}/qubes/backup.py*
 %{python_sitelib}/qubes/config.py*
 %{python_sitelib}/qubes/core2migration.py*
@@ -262,10 +263,10 @@ fi
 %{python_sitelib}/qubes/tests/run.py*
 %{python_sitelib}/qubes/tests/extra.py*
 
+%{python_sitelib}/qubes/tests/app.py*
 %{python_sitelib}/qubes/tests/devices.py*
 %{python_sitelib}/qubes/tests/events.py*
-%{python_sitelib}/qubes/tests/init1.py*
-%{python_sitelib}/qubes/tests/init2.py*
+%{python_sitelib}/qubes/tests/init.py*
 %{python_sitelib}/qubes/tests/storage.py*
 %{python_sitelib}/qubes/tests/storage_file.py*
 

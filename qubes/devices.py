@@ -25,7 +25,7 @@
 
 import re
 
-import qubes
+import qubes.utils
 
 
 class DeviceCollection(object):
@@ -50,7 +50,8 @@ class DeviceCollection(object):
         '''
 
         try:
-            devclass = qubes.get_entry_point_one('qubes.devices', self._class)
+            devclass = qubes.utils.get_entry_point_one(
+                'qubes.devices', self._class)
         except KeyError:
             devclass = str
 

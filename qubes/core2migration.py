@@ -19,17 +19,16 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>
 #
-#
-import os
-import sys
+
+import lxml.etree
+import xml.parsers.expat
+
 import qubes
 import qubes.vm.appvm
 import qubes.vm.standalonevm
 import qubes.vm.templatevm
 import qubes.vm.adminvm
 import qubes.ext.r3compatibility
-import lxml.etree
-import xml.parsers.expat
 
 
 class AppVM(qubes.vm.appvm.AppVM):

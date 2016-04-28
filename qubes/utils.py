@@ -26,6 +26,7 @@
 
 import hashlib
 import os
+import pkg_resources
 import re
 import subprocess
 
@@ -147,3 +148,17 @@ def urandom(size):
     if rand is None:
         raise IOError('failed to read urandom')
     return hashlib.sha512(rand).digest()
+
+
+def get_entry_point_one(group, name):
+    epoints = tuple(pkg_resources.iter_entry_points(group, name))
+    if not epoints:
+        raise KeyError(name)
+    elif len(epoints) > 1:
+        raise TypeError(
+            'more than 1 implementation of {!r} found: {}'.format(name,
+                ', '.join('{}.{}'.format(ep.module_name, '.'.join(ep.attrs))
+                    for ep in epoints)))
+    return epoints[0].load()
+
+

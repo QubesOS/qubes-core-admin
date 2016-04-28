@@ -26,6 +26,7 @@
 
 # TODO allow to set properties and create domains
 
+import subprocess
 import threading
 
 import qubes.ext.gui

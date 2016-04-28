@@ -945,13 +945,13 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
             # unit tests
             'qubes.tests.events',
             'qubes.tests.devices',
-            'qubes.tests.init1',
+            'qubes.tests.init',
             'qubes.tests.vm.init',
             'qubes.tests.storage',
             'qubes.tests.storage_file',
             'qubes.tests.vm.qubesvm',
             'qubes.tests.vm.adminvm',
-            'qubes.tests.init2',
+            'qubes.tests.app',
             ):
         tests.addTests(loader.loadTestsFromName(modname))
 

@@ -42,9 +42,9 @@ import xml.parsers.expat
 import lxml.etree
 
 import qubes
-import qubes.log
 import qubes.devices
 import qubes.events
+import qubes.log
 import qubes.tools.qvm_ls
 
 
@@ -583,3 +583,68 @@ class BaseVM(qubes.PropertyHolder):
             return None
 
         return conf
+
+
+class VMProperty(qubes.property):
+    '''Property that is referring to a VM
+
+    :param type vmclass: class that returned VM is supposed to be instance of
+
+    and all supported by :py:class:`property` with the exception of ``type`` \
+        and ``setter``
+    '''
+
+    _none_value = ''
+
+    def __init__(self, name, vmclass=BaseVM, allow_none=False,
+            **kwargs):
+        if 'type' in kwargs:
+            raise TypeError(
+                "'type' keyword parameter is unsupported in {}".format(
+                    self.__class__.__name__))
+        if 'setter' in kwargs:
+            raise TypeError(
+                "'setter' keyword parameter is unsupported in {}".format(
+                    self.__class__.__name__))
+        if not issubclass(vmclass, BaseVM):
+            raise TypeError(
+                "'vmclass' should specify a subclass of qubes.vm.BaseVM")
+
+        super(VMProperty, self).__init__(name,
+            saver=(lambda self_, prop, value:
+                self._none_value if value is None else value.name),
+            **kwargs)
+        self.vmclass = vmclass
+        self.allow_none = allow_none
+
+
+    def __set__(self, instance, value):
+        if value is self.__class__.DEFAULT:
+            self.__delete__(instance)
+            return
+
+        if value == self._none_value:
+            value = None
+        if value is None:
+            if self.allow_none:
+                super(VMProperty, self).__set__(instance, value)
+                return
+            else:
+                raise ValueError(
+                    'Property {!r} does not allow setting to {!r}'.format(
+                        self.__name__, value))
+
+        app = instance if isinstance(instance, qubes.Qubes) else instance.app
+
+        try:
+            vm = app.domains[value]
+        except KeyError:
+            raise qubes.exc.QubesVMNotFoundError(value)
+
+        if not isinstance(vm, self.vmclass):
+            raise TypeError('wrong VM class: domains[{!r}] if of type {!s} '
+                'and not {!s}'.format(value,
+                    vm.__class__.__name__,
+                    self.vmclass.__name__))
+
+        super(VMProperty, self).__set__(instance, vm)
