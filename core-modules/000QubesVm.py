@@ -1412,6 +1412,11 @@ class QubesVm(object):
                     e.get_error_code())
                 raise
 
+        if os.path.exists("/etc/systemd/system/multi-user.target.wants/qubes-vm@" + self.name + ".service"):
+            subprocess.call(["sudo", "systemctl", "-q", "disable","qubes-vm@" + self.name + ".service"])
+            if retcode != 0:
+                raise QubesException("Failed to delete autostart entry for VM")
+
         self.storage.remove_from_disk()
 
     def write_firewall_conf(self, conf):
