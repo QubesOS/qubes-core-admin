@@ -287,7 +287,7 @@ class Pool(object):
         raise NotImplementedError("Pool %s has stop() not implemented" %
                                   self.name)
 
-    def init_volume(self, volume_config):
+    def init_volume(self, vm, volume_config):
         ''' Initialize a :py:class:`qubes.storage.Volume` from `volume_config`.
         '''
         raise NotImplementedError("Pool %s has init_volume() not implemented" %
