@@ -917,7 +917,7 @@ class Qubes(qubes.PropertyHolder):
             del kwargs['driver']
             return klass(**kwargs)
         except KeyError:
-            raise qubes.exc.QubesException('Driver %s for pool %s' %
+            raise qubes.exc.QubesException('No driver %s for pool %s' %
                                            (driver, name))
 
     @qubes.events.handler('domain-pre-delete')
