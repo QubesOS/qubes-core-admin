@@ -5,43 +5,86 @@
 
 Synopsis
 --------
-| :command:`qvm-block` [*options*] -l
-| :command:`qvm-block` [*options*] -a <*device*> <*vm-name*>
-| :command:`qvm-block` [*options*] -d <*device*>
-| :command:`qvm-block` [*options*] -d <*vm-name*>
 
+| :command:`qvm-block` *COMMAND* [-h] [--verbose] [--quiet] [options] [arguments]
+
+Description
+-----------
+
+.. TODO Add description
 
 Options
 -------
 
 .. option:: --help, -h
 
-   Show this help message and exit
+   Show help message and exit
 
-.. option:: --list, -l
+.. option:: --verbose, -v
 
-   List block devices
+   Increase verbosity.
 
-.. option:: --attach, -a
+.. option:: --quiet, -q
 
-   Attach block device to specified domain
+   Decrease verbosity.
 
-.. option:: --detach, -d
+Commands
+--------
 
-   Detach block device
+list
+^^^^
 
+| :command:`qvm-block list` [-h] [--verbose] [--quiet] [-p *POOL_NAME*] [-i] [*VMNAME* [*VMNAME* ...]]
 
-.. option:: -D, --devtype
+List block devices. By default the internal devices are hidden. When the
+stdout is connected to a TTY `qvm-block list` will print a pretty table by
+omitting redundant data. This behaviour is disabled when `--full` option is
+passed or stdout is redirected to a pipe or file.
 
-   Device type. Default is disk
+.. option:: -p, --pool
+
+   list volumes from specified pool
+
+.. option:: -i, --internal
+
+   list internal devices
+
+.. option:: --full
+
+   print domain names
+
+.. option:: --all
+
+   List volumes from all qubes. You can use :option:`--exclude` to limit the
+   qubes set. Don't forget — internal devices are hidden by default!
+
+.. option:: --exclude
+
+   Exclude the qube from :option:`--all`.
+
+aliases: ls, l
+
+attach
+^^^^^^
+
+| :command:`qvm-block attach` [-h] [--verbose] [--quiet] [--ro] *VMNAME* *POOL_NAME:VOLUME_ID*
+
+Attach the volume with *VOLUME_ID* from *POOL_NAME* to the domain *VMNAME*
 
 .. option:: --ro
 
-   Force read-only mode
+   attach device read-only
 
-.. option:: --no-auto-detach
+aliases: a, at
 
-   Fail when device already connected to other domain
+detach
+^^^^^^
+
+| :command:`qvm-block detach` [-h] [--verbose] [--quiet] *VMNAME* *POOL_NAME:VOLUME_ID*
+
+Detach the volume with *POOL_NAME:VOLUME_ID* from domain *VMNAME*
+
+aliases: d, dt
 
 Authors
 -------
@@ -49,6 +92,6 @@ Authors
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>
 | Marek Marczykowski <marmarek at invisiblethingslab dot com>
-| Bahtiar `kalkin-` Gadimov <bahtiar at gadimov  dot de> 
+| Bahtiar `kalkin-` Gadimov <bahtiar at gadimov dot de> 
 
 .. vim: ts=3 sw=3 et tw=80
