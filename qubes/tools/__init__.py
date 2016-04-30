@@ -31,6 +31,7 @@ import argparse
 import importlib
 import logging
 import os
+import subprocess
 import sys
 import textwrap
 
@@ -398,3 +399,17 @@ class VmNameGroup(argparse._MutuallyExclusiveGroup):
                           default=[])  # the default parameter is important! see
                                 # https://stackoverflow.com/questions/35044288
                                 # and `argparse.ArgumentParser.parse_args()`
+
+
+def print_table(table):
+    ''' Uses the unix column command to print pretty table.
+
+        :param str text: list of lists/sets
+    '''
+    unit_separator = chr(31)
+    cmd = ['column', '-t', '-s', unit_separator]
+    text_table = '\n'.join([unit_separator.join(row) for row in table])
+
+    p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+    p.stdin.write(text_table)
+    p.communicate()
