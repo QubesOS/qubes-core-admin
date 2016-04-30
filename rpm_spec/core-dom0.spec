@@ -232,7 +232,7 @@ fi
 
 %dir %{python_sitelib}/qubes/storage
 %{python_sitelib}/qubes/storage/__init__.py*
-%{python_sitelib}/qubes/storage/xen.py*
+%{python_sitelib}/qubes/storage/file.py*
 %{python_sitelib}/qubes/storage/kernels.py*
 
 %dir %{python_sitelib}/qubes/tools
@@ -267,7 +267,7 @@ fi
 %{python_sitelib}/qubes/tests/init1.py*
 %{python_sitelib}/qubes/tests/init2.py*
 %{python_sitelib}/qubes/tests/storage.py*
-%{python_sitelib}/qubes/tests/storage_xen.py*
+%{python_sitelib}/qubes/tests/storage_file.py*
 
 %dir %{python_sitelib}/qubes/tests/vm
 %{python_sitelib}/qubes/tests/vm/__init__.py*

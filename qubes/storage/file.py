@@ -36,20 +36,20 @@ from qubes.storage import Pool, StoragePoolException, Volume
 BLKSIZE = 512
 
 
-class XenPool(Pool):
+class FilePool(Pool):
     ''' File based 'original' disk implementation '''
-    driver = 'xen'
+    driver = 'file'
 
     def __init__(self, name=None, dir_path=None):
-        super(XenPool, self).__init__(name=name)
+        super(FilePool, self).__init__(name=name)
         assert dir_path, "No pool dir_path specified"
         self.dir_path = os.path.normpath(dir_path)
 
     def clone(self, source, target):
         ''' Clones the volume if the `source.pool` if the source is a
-            :py:class:`XenVolume`.
+            :py:class:`FileVolume`.
         '''
-        if issubclass(XenVolume, source.__class__):
+        if issubclass(FileVolume, source.__class__):
             raise StoragePoolException('Volumes %s and %s use different pools'
                                        % (source.__class__, target.__class__))
 
@@ -77,7 +77,7 @@ class XenPool(Pool):
         return {
             'name': self.name,
             'dir_path': self.dir_path,
-            'driver': XenPool.driver,
+            'driver': FilePool.driver,
         }
 
     def resize(self, volume, size):
@@ -115,7 +115,7 @@ class XenPool(Pool):
             _remove_if_exists(volume.path_cow)
 
     def rename(self, volume, old_name, new_name):
-        assert issubclass(volume.__class__, XenVolume)
+        assert issubclass(volume.__class__, FileVolume)
         old_dir = os.path.dirname(volume.path)
         new_dir = os.path.join(os.path.dirname(old_dir), new_name)
 
@@ -240,7 +240,7 @@ class XenPool(Pool):
         if volume_type in ['snapshot', 'read-only']:
             origin_pool = vm.app.get_pool(volume_config['pool'])
             assert isinstance(origin_pool,
-                              XenPool), 'Origin volume not a xen volume'
+                              FilePool), 'Origin volume not a xen volume'
             volume_config['target_dir'] = origin_pool.target_dir(vm.template)
             name = volume_config['name']
             volume_config['size'] = vm.template.volume_config[name]['size']
@@ -250,7 +250,7 @@ class XenPool(Pool):
         return known_types[volume_type](**volume_config)
 
 
-class XenVolume(Volume):
+class FileVolume(Volume):
     ''' Parent class for the xen volumes implementation which expects a
         `target_dir` param on initialization.
     '''
@@ -258,10 +258,10 @@ class XenVolume(Volume):
     def __init__(self, target_dir, **kwargs):
         self.target_dir = target_dir
         assert self.target_dir, "target_dir not specified"
-        super(XenVolume, self).__init__(**kwargs)
+        super(FileVolume, self).__init__(**kwargs)
 
 
-class SizeMixIn(XenVolume):
+class SizeMixIn(FileVolume):
     ''' A mix in which expects a `size` param to be > 0 on initialization and
         provides a usage property wrapper.
     '''
@@ -293,7 +293,7 @@ class ReadWriteFile(SizeMixIn):
         self.vid = self.path
 
     def rename_target_dir(self, new_name, new_dir):
-        ''' Called by :py:class:`XenPool` when a domain changes it's name '''
+        ''' Called by :py:class:`FilePool` when a domain changes it's name '''
         old_path = self.path
         file_name = os.path.basename(self.path)
         new_path = os.path.join(new_dir, file_name)
@@ -304,7 +304,7 @@ class ReadWriteFile(SizeMixIn):
         self.vid = self.path
 
 
-class ReadOnlyFile(XenVolume):
+class ReadOnlyFile(FileVolume):
     ''' Represents a readonly file image based volume '''
     usage = 0
 
@@ -313,7 +313,7 @@ class ReadOnlyFile(XenVolume):
         self.path = self.vid
 
     def rename_target_dir(self, old_name, new_dir):
-        """ Called by :py:class:`XenPool` when a domain changes it's name.
+        """ Called by :py:class:`FilePool` when a domain changes it's name.
 
         Only copies the volume if it belongs to the domain being renamed.
         Currently if a volume is in a directory named the same as the domain,
@@ -351,7 +351,7 @@ class OriginFile(SizeMixIn):
         raise NotImplementedError
 
     def rename_target_dir(self, new_dir):
-        ''' Called by :py:class:`XenPool` when a domain changes it's name '''
+        ''' Called by :py:class:`FilePool` when a domain changes it's name '''
         old_path_origin = self.path_origin
         old_path_cow = self.path_cow
         new_path_origin = os.path.join(new_dir, self.name + '.img')
@@ -374,7 +374,7 @@ class OriginFile(SizeMixIn):
         return result
 
 
-class SnapshotFile(XenVolume):
+class SnapshotFile(FileVolume):
     ''' Represents a readonly snapshot of an :py:class:`OriginFile` volume '''
     script = 'block-snapshot'
     rw = False
@@ -399,7 +399,7 @@ class VolatileFile(SizeMixIn):
         self.vid = self.path
 
     def rename_target_dir(self, new_dir):
-        ''' Called by :py:class:`XenPool` when a domain changes it's name '''
+        ''' Called by :py:class:`FilePool` when a domain changes it's name '''
         _remove_if_exists(self)
         file_name = os.path.basename(self.path)
         self.target_dir = new_dir

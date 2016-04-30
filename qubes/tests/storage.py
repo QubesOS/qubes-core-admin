@@ -19,7 +19,7 @@
 import qubes.log
 from qubes.exc import QubesException
 from qubes.storage import pool_drivers
-from qubes.storage.xen import XenPool
+from qubes.storage.file import FilePool
 from qubes.tests import QubesTestCase, SystemTestsMixin
 
 # :pylint: disable=invalid-name
@@ -73,14 +73,14 @@ class TC_00_Pool(SystemTestsMixin, QubesTestCase):
             self.app.get_pool('foo-bar')
 
     def test_001_all_pool_drivers(self):
-        """ The only predefined pool driver is xen """
-        self.assertEquals(['linux-kernel', 'xen'], pool_drivers())
+        """ The only predefined pool driver is file """
+        self.assertEquals(['linux-kernel', 'file'], pool_drivers())
 
     def test_002_get_pool_klass(self):
-        """ Expect the default pool to be `XenPool` """
+        """ Expect the default pool to be `FilePool` """
         # :pylint: disable=protected-access
         result = self.app.get_pool('default')
-        self.assertIsInstance(result, XenPool)
+        self.assertIsInstance(result, FilePool)
 
     def test_003_pool_exists_default(self):
         """ Expect the default pool to exists """
@@ -94,7 +94,9 @@ class TC_00_Pool(SystemTestsMixin, QubesTestCase):
         self.app.remove_pool(pool_name)
         self.assertFalse(self.assertPoolExists(pool_name))
 
-        self.app.add_pool(name=pool_name, driver='xen', dir_path='/tmp/asdjhrp89132')
+        self.app.add_pool(name=pool_name,
+                          driver='file',
+                          dir_path='/tmp/asdjhrp89132')
         self.assertTrue(self.assertPoolExists(pool_name))
 
         self.app.remove_pool(pool_name)

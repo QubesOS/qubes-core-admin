@@ -87,7 +87,7 @@ defaults = {
 
     'pool_configs': {
         'default': {'dir_path': qubes_base_dir,
-                    'driver': 'xen',
+                    'driver': 'file',
                     'name': 'default'},
         'linux-kernel': {
             'dir_path': os.path.join(qubes_base_dir,

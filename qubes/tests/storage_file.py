@@ -23,17 +23,15 @@ import qubes.storage
 import qubes.tests.storage
 from qubes.config import defaults
 from qubes.storage import Storage
-from qubes.storage.xen import (OriginFile, ReadOnlyFile, ReadWriteFile,
-                               SnapshotFile, VolatileFile)
+from qubes.storage.file import (OriginFile, ReadOnlyFile, ReadWriteFile,
+                                SnapshotFile, VolatileFile)
 from qubes.tests import QubesTestCase, SystemTestsMixin
 from qubes.tests.storage import TestVM
-
 
 # :pylint: disable=invalid-name
 
 
-class TC_00_XenPool(SystemTestsMixin, QubesTestCase):
-
+class TC_00_FilePool(SystemTestsMixin, QubesTestCase):
     """ This class tests some properties of the 'default' pool. """
 
     def test000_default_pool_dir(self):
@@ -61,21 +59,21 @@ class TC_00_XenPool(SystemTestsMixin, QubesTestCase):
                                    label='red')
 
 
-class TC_01_XenVolumes(SystemTestsMixin, QubesTestCase):
+class TC_01_FileVolumes(SystemTestsMixin, QubesTestCase):
     POOL_DIR = '/var/lib/qubes/test-pool'
     POOL_NAME = 'test-pool'
-    POOL_CONF = {'driver': 'xen', 'dir_path': POOL_DIR, 'name': POOL_NAME}
+    POOL_CONF = {'driver': 'file', 'dir_path': POOL_DIR, 'name': POOL_NAME}
 
     def setUp(self):
         """ Add a test file based storage pool """
-        super(TC_01_XenVolumes, self).setUp()
+        super(TC_01_FileVolumes, self).setUp()
         self.init_default_template()
         self.app.add_pool(**self.POOL_CONF)
 
     def tearDown(self):
         """ Remove the file based storage pool after testing """
         self.app.remove_pool("test-pool")
-        super(TC_01_XenVolumes, self).tearDown()
+        super(TC_01_FileVolumes, self).tearDown()
         shutil.rmtree(self.POOL_DIR, ignore_errors=True)
 
     def test_000_origin_volume(self):
@@ -201,9 +199,8 @@ class TC_01_XenVolumes(SystemTestsMixin, QubesTestCase):
 
 
 @qubes.tests.skipUnlessDom0
-class TC_03_XenPool(SystemTestsMixin, QubesTestCase):
-
-    """ Test the paths for the default Xen file based storage (``XenStorage``).
+class TC_03_FilePool(SystemTestsMixin, QubesTestCase):
+    """ Test the paths for the default file based pool (``FilePool``).
     """
 
     POOL_DIR = '/var/lib/qubes/test-pool'
@@ -211,18 +208,18 @@ class TC_03_XenPool(SystemTestsMixin, QubesTestCase):
     TEMPLATES_DIR = '/var/lib/qubes/test-pool/vm-templates'
     SERVICE_DIR = '/var/lib/qubes/test-pool/servicevms'
     POOL_NAME = 'test-pool'
-    POOL_CONFIG = {'driver': 'xen', 'dir_path': POOL_DIR, 'name': POOL_NAME}
+    POOL_CONFIG = {'driver': 'file', 'dir_path': POOL_DIR, 'name': POOL_NAME}
 
     def setUp(self):
         """ Add a test file based storage pool """
-        super(TC_03_XenPool, self).setUp()
+        super(TC_03_FilePool, self).setUp()
         self.init_default_template()
         self.app.add_pool(**self.POOL_CONFIG)
 
     def tearDown(self):
         """ Remove the file based storage pool after testing """
         self.app.remove_pool("test-pool")
-        super(TC_03_XenPool, self).tearDown()
+        super(TC_03_FilePool, self).tearDown()
         shutil.rmtree(self.POOL_DIR, ignore_errors=True)
 
     def test_001_pool_exists(self):
@@ -239,7 +236,7 @@ class TC_03_XenPool(SystemTestsMixin, QubesTestCase):
 
         self.assertFalse(os.path.exists(pool_dir))
 
-        self.app.add_pool(name=pool_name, dir_path=pool_dir, driver='xen')
+        self.app.add_pool(name=pool_name, dir_path=pool_dir, driver='file')
 
         self.assertTrue(os.path.exists(pool_dir))
         self.assertTrue(os.path.exists(appvms_dir))

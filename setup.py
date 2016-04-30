@@ -44,7 +44,7 @@ if __name__ == '__main__':
                 'pci = qubes.devices:PCIDevice',
             ],
             'qubes.storage': [
-                'xen = qubes.storage.xen:XenPool',
+                'file = qubes.storage.file:FilePool',
                 'linux-kernel = qubes.storage.kernels:LinuxKernel',
             ]
         })
