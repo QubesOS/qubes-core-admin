@@ -73,7 +73,7 @@ class ExtraTestMixin(qubes.tests.SystemTestsMixin):
 
 def load_tests(loader, tests, pattern):
     for entry in pkg_resources.iter_entry_points('qubes.tests.extra'):
-        for test_case in entry():
+        for test_case in entry.load()():
             tests.addTests(loader.loadTestsFromTestCase(
                 type(
                     entry.name + '_' + test_case.__name__,
