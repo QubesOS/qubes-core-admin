@@ -27,12 +27,12 @@ import qubes.tests
 import qubes.qubes
 
 
-class ExtraTestMixin(qubes.tests.SystemTestsMixin):
+class ExtraTestCase(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
 
     template = None
 
     def setUp(self):
-        super(ExtraTestMixin, self).setUp()
+        super(ExtraTestCase, self).setUp()
         self.qc.unlock_db()
 
     def create_vms(self, names):
@@ -74,13 +74,7 @@ class ExtraTestMixin(qubes.tests.SystemTestsMixin):
 def load_tests(loader, tests, pattern):
     for entry in pkg_resources.iter_entry_points('qubes.tests.extra'):
         for test_case in entry.load()():
-            tests.addTests(loader.loadTestsFromTestCase(
-                type(
-                    entry.name + '_' + test_case.__name__,
-                    (test_case, ExtraTestMixin, qubes.tests.QubesTestCase),
-                    {}
-                )
-            ))
+            tests.addTests(loader.loadTestsFromTestCase(test_case))
 
     try:
         qc = qubes.qubes.QubesVmCollection()
@@ -100,8 +94,7 @@ def load_tests(loader, tests, pattern):
                     type(
                         '{}_{}_{}'.format(
                             entry.name, test_case.__name__, template),
-                        (test_case, ExtraTestMixin,
-                         qubes.tests.QubesTestCase),
+                        (test_case,),
                         {'template': template}
                     )
                 ))
