@@ -1336,8 +1336,11 @@ class Qubes(PropertyHolder):
         return element
 
 
-    def save(self):
+    def save(self, filename=None):
         '''Save all data to qubes.xml
+
+        :param str filename: optional filename, if other than the one from \
+            which the store was loaded
 
         There are several problems with saving :file:`qubes.xml` which must be
         mitigated:
@@ -1350,8 +1353,11 @@ class Qubes(PropertyHolder):
         :throws EnvironmentError: failure on saving
         '''
 
+        if filename is None:
+            filename = self._store
+
         while True:
-            fd_old = os.open(self._store, os.O_RDWR | os.O_CREAT)
+            fd_old = os.open(filename, os.O_RDWR | os.O_CREAT)
             if os.name == 'posix':
                 fcntl.lockf(fd_old, fcntl.LOCK_EX)
             elif os.name == 'nt':
@@ -1364,32 +1370,32 @@ class Qubes(PropertyHolder):
             # While we were waiting for lock, someone could have unlink()ed (or
             # rename()d) our file out of the filesystem. We have to ensure we
             # got lock on something linked to filesystem. If not, try again.
-            if os.fstat(fd_old) == os.stat(self._store):
+            if os.fstat(fd_old) == os.stat(filename):
                 break
             else:
                 os.close(fd_old)
 
         if self.__load_timestamp:
-            current_file_timestamp = os.path.getmtime(self._store)
+            current_file_timestamp = os.path.getmtime(filename)
             if current_file_timestamp != self.__load_timestamp:
                 os.close(fd_old)
                 raise qubes.exc.QubesException(
                     "Someone else modified qubes.xml in the meantime")
 
-        fh_new = tempfile.NamedTemporaryFile(prefix=self._store, delete=False)
+        fh_new = tempfile.NamedTemporaryFile(prefix=filename, delete=False)
         lxml.etree.ElementTree(self.__xml__()).write(
             fh_new, encoding='utf-8', pretty_print=True)
         fh_new.flush()
         os.chmod(fh_new.name, 0660)
         os.chown(fh_new.name, -1, grp.getgrnam('qubes').gr_gid)
-        os.rename(fh_new.name, self._store)
+        os.rename(fh_new.name, filename)
 
         # intentionally do not call explicit unlock to not unlock the file
         # before all buffers are flushed
         fh_new.close()
         # update stored mtime, in case of multiple save() calls without
         # loading qubes.xml again
-        self.__load_timestamp = os.path.getmtime(self._store)
+        self.__load_timestamp = os.path.getmtime(filename)
         os.close(fd_old)
 
 
