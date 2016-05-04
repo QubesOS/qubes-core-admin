@@ -449,7 +449,8 @@ def prepare_backup_header(target_directory, passphrase, compressed=False,
 def backup_do(base_backup_dir, files_to_backup, passphrase,
               progress_callback=None, encrypted=False, appvm=None,
               compressed=False, hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
-              crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM):
+              crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM,
+              tmpdir="/var/tmp"):
     global running_backup_operation
 
     def queue_put_with_check(proc, vmproc, queue, element):
@@ -510,7 +511,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
         progress = blocks_backedup * 11 / total_backup_sz
         progress_callback(progress)
 
-    backup_tmpdir = tempfile.mkdtemp(prefix="/var/tmp/backup_")
+    backup_tmpdir = tempfile.mkdtemp(prefix="{}/backup_".format(tmpdir))
     running_backup_operation.tmpdir_to_remove = backup_tmpdir
 
     # Tar with tape length does not deals well with stdout (close stdout between
