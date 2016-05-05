@@ -86,7 +86,7 @@ def main(args=None):
 
     if len(args.vm) > 1 and args.passio:
         parser.error('--passio cannot be used when more than 1 qube is chosen')
-    if args.localcmd and not passio.passio:
+    if args.localcmd and not args.passio:
         parser.error('--localcmd have no effect without --pass-io')
     if args.color_output and not args.filter_esc:
         parser.error('--color-output must be used with --filter-escape-chars')

@@ -38,8 +38,11 @@ class TestHost(object):
 
 class TestApp(qubes.tests.TestEmitter):
     labels = {1: qubes.Label(1, '0xcc0000', 'red')}
-    get_label = qubes.Qubes.get_label
     check_updates_vm = False
+
+    def get_label(self, label):
+        # pylint: disable=unused-argument
+        return self.labels[1]
 
     def __init__(self):
         super(TestApp, self).__init__()
