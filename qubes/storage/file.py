@@ -112,7 +112,6 @@ class FilePool(Pool):
             _remove_if_exists(volume)
         elif volume.volume_type == 'origin':
             _remove_if_exists(volume)
-            _remove_if_exists(volume)
 
     def rename(self, volume, old_name, new_name):
         assert issubclass(volume.__class__, FileVolume)
@@ -493,6 +492,8 @@ def copy_file(source, destination):
 def _remove_if_exists(volume):
     if os.path.exists(volume.path):
         os.remove(volume.path)
+    if volume.volume_type == 'origin':
+        os.remove(volume.path_cow)
 
 
 def _check_path(path):
