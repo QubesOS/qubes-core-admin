@@ -364,7 +364,7 @@ class TC_90_QubesVM(qubes.tests.QubesTestCase):
         # TODO: human readable setter (500M, 4G)?
 
     def test_180_internal(self):
-        vm = self.get_vm()
+        vm = self.get_vm(label='red')
         self._test_generic_bool_property(vm, 'internal', False)
 
     def test_190_vcpus(self):
