@@ -190,8 +190,15 @@ class Storage(object):
                 'VM directory does not exist: {}'.format(self.vm.dir_path))
 
     def remove(self):
+        ''' Remove all the volumes.
+
+            Errors on removal are catched and logged.
+        '''
         for name, volume in self.vm.volumes.items():
-            self.get_pool(volume).remove(volume)
+            try:
+                self.get_pool(volume).remove(volume)
+            except (IOError, OSError) as e:
+                self.vm.log.exception("Failed to remove volume %s", name, e)
 
     def start(self):
         ''' Execute the start method on each pool '''
