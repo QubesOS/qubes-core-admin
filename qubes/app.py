@@ -24,7 +24,9 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
+import collections
 import errno
+import functools
 import grp
 import logging
 import os
@@ -59,6 +61,66 @@ import qubes.utils
 import qubes.vm.adminvm
 import qubes.vm.qubesvm
 import qubes.vm.templatevm
+
+
+class VirDomainWrapper(object):
+    def __init__(self, connection, vm):
+        self._connection = connection
+        self._vm = vm
+
+    def _reconnect_if_dead(self):
+        is_dead = not self._vm.connect().isAlive()
+        if is_dead:
+            self._connection._reconnect_if_dead()
+            self._vm = self._connection._conn.lookupByUUID(self._vm.getUUID())
+        return is_dead
+
+    def __getattr__(self, attrname):
+        attr = getattr(self._vm, attrname)
+        if not isinstance(attr, collections.Callable):
+            return attr
+
+        @functools.wraps(attr)
+        def wrapper(*args, **kwargs):
+            try:
+                return attr(*args, **kwargs)
+            except libvirt.libvirtError as e:
+                if self._reconnect_if_dead():
+                    return getattr(self._vm, attrname)(*args, **kwargs)
+                raise
+        return wrapper
+
+
+class VirConnectWrapper(object):
+    def __init__(self, uri):
+        self._conn = libvirt.open(uri)
+
+    def _reconnect_if_dead(self):
+        is_dead = not self._conn.isAlive()
+        if is_dead:
+            self._conn = libvirt.open(self._conn.getURI())
+        return is_dead
+
+    def _wrap_domain(self, ret):
+        if isinstance(ret, libvirt.virDomain):
+            ret = VirDomainWrapper(self, ret)
+        return ret
+
+    def __getattr__(self, attrname):
+        attr = getattr(self._conn, attrname)
+        if not isinstance(attr, collections.Callable):
+            return attr
+
+        @functools.wraps(attr)
+        def wrapper(*args, **kwargs):
+            try:
+                return self._wrap_domain(attr(*args, **kwargs))
+            except libvirt.libvirtError as e:
+                if self._reconnect_if_dead():
+                    return self._wrap_domain(
+                        getattr(self._conn, attrname)(*args, **kwargs))
+                raise
+        return wrapper
 
 
 class VMMConnection(object):
@@ -102,9 +164,8 @@ class VMMConnection(object):
             self._xs = xen.lowlevel.xs.xs()
         if 'xen.lowlevel.cs' in sys.modules:
             self._xc = xen.lowlevel.xc.xc()
-        self._libvirt_conn = libvirt.open(qubes.config.defaults['libvirt_uri'])
-        if self._libvirt_conn is None:
-            raise qubes.exc.QubesException('Failed connect to libvirt driver')
+        self._libvirt_conn = VirConnectWrapper(
+            qubes.config.defaults['libvirt_uri'])
         libvirt.registerErrorHandler(self._libvirt_error_handler, None)
 
     @property
