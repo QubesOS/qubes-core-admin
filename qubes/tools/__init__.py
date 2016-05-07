@@ -25,10 +25,13 @@
 '''Qubes' command line tools
 '''
 
+from __future__ import print_function
+
 import argparse
 import importlib
 import logging
 import os
+import sys
 import textwrap
 
 import qubes.log
@@ -281,6 +284,11 @@ class QubesArgumentParser(argparse.ArgumentParser):
             qubes.log.enable_debug()
         elif verbose >= 1:
             qubes.log.enable()
+
+    # pylint: disable=no-self-use
+    def print_error(self, *args, **kwargs):
+        ''' Print to ``sys.stderr``'''
+        print(*args, file=sys.stderr, **kwargs)
 
 
 def get_parser_for_command(command):
