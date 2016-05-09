@@ -164,6 +164,18 @@ class Storage(object):
                 return True
         return False
 
+    def detach(self, volume):
+        ''' Detach a volume from domain '''
+        parsed_xml = lxml.etree.fromstring(self.vm.libvirt_domain.XMLDesc())
+        disks = parsed_xml.xpath("//domain/devices/disk")
+        for disk in disks:
+            source = disk.xpath('source')[0]
+            if source.get('dev') == '/dev/%s' % volume.vid:
+                disk_xml = lxml.etree.tostring(disk, encoding='utf-8')
+                self.vm.libvirt_domain.detachDevice(disk_xml)
+                return
+        raise StoragePoolException('Volume {!r} is not attached'.format(volume))
+
     @property
     def kernels_dir(self):
         '''Directory where kernel resides.

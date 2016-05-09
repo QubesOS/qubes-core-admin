@@ -250,7 +250,7 @@ man_pages = [
     ('manpages/qvm-backup', 'qvm-backup',
         u'Create backup of specified VMs', _man_pages_author, 1),
     ('manpages/qvm-block', 'qvm-block',
-        u'List/set VM block devices.', _man_pages_author, 1),
+        u'Qubes volume and block device managment', _man_pages_author, 1),
     ('manpages/qvm-clone-template', 'qvm-clone-template',
         u'Clones an existing template by copying all its disk files', _man_pages_author, 1),
     ('manpages/qvm-clone', 'qvm-clone',

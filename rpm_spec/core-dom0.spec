@@ -244,6 +244,7 @@ fi
 %{python_sitelib}/qubes/tools/qubes_create.py*
 %{python_sitelib}/qubes/tools/qubes_monitor_layout_notify.py*
 %{python_sitelib}/qubes/tools/qubes_prefs.py*
+%{python_sitelib}/qubes/tools/qvm_block.py*
 %{python_sitelib}/qubes/tools/qvm_create.py*
 %{python_sitelib}/qubes/tools/qvm_features.py*
 %{python_sitelib}/qubes/tools/qvm_kill.py*
