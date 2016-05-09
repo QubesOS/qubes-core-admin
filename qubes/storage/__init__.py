@@ -29,6 +29,7 @@ from __future__ import absolute_import
 
 import os
 import os.path
+import string
 
 import lxml.etree
 import pkg_resources
@@ -105,6 +106,8 @@ class Storage(object):
     in mind.
     '''
 
+    AVAILABLE_FRONTENDS = set(['xvd' + c for c in string.ascii_lowercase])
+
     def __init__(self, vm):
         #: Domain for which we manage storage
         self.vm = vm
@@ -119,6 +122,47 @@ class Storage(object):
                 pool = self.vm.app.get_pool(conf['pool'])
                 self.vm.volumes[name] = pool.init_volume(self.vm, conf)
                 self.pools[name] = pool
+
+    def attach(self, volume, rw=False):
+        ''' Attach a volume to the domain '''
+        assert self.vm.is_running()
+
+        if self._is_already_attached(volume):
+            self.vm.log.info("{!r} already attached".format(volume))
+            return
+
+        try:
+            frontend = self.unused_frontend()
+        except IndexError:
+            raise StoragePoolException("No unused frontend found")
+        disk = lxml.etree.Element("disk")
+        disk.set('type', 'block')
+        disk.set('device', 'disk')
+        lxml.etree.SubElement(disk, 'driver').set('name', 'phy')
+        lxml.etree.SubElement(disk, 'source').set('dev', '/dev/%s' % volume.vid)
+        lxml.etree.SubElement(disk, 'target').set('dev', frontend)
+        if not rw:
+            lxml.etree.SubElement(disk, 'readonly')
+
+        if self.vm.qid != 0:
+            lxml.etree.SubElement(disk, 'backenddomain').set(
+                'name', volume.pool.split('p_')[1])
+
+        xml_string = lxml.etree.tostring(disk, encoding='utf-8')
+        self.vm.libvirt_domain.attachDevice(xml_string)
+        # trigger watches to update device status
+        # FIXME: this should be removed once libvirt will report such
+        # events itself
+        # self.vm.qdb.write('/qubes-block-devices', '') ← do we need this?
+
+    def _is_already_attached(self, volume):
+        ''' Checks if the given volume is already attached '''
+        parsed_xml = lxml.etree.fromstring(self.vm.libvirt_domain.XMLDesc())
+        disk_sources = parsed_xml.xpath("//domain/devices/disk/source")
+        for source in disk_sources:
+            if source.get('dev') == '/dev/%s' % volume.vid:
+                return True
+        return False
 
     @property
     def kernels_dir(self):
@@ -219,6 +263,21 @@ class Storage(object):
         for volume in self.vm.volumes.values():
             if volume.volume_type == 'origin':
                 self.get_pool(volume).commit_template_changes(volume)
+
+    def unused_frontend(self):
+        ''' Find an unused device name '''
+        unused_frontends = self.AVAILABLE_FRONTENDS.difference(
+            self.used_frontends)
+        return sorted(unused_frontends)[0]
+
+    @property
+    def used_frontends(self):
+        ''' Used device names '''
+        xml = self.vm.libvirt_domain.XMLDesc()
+        parsed_xml = lxml.etree.fromstring(xml)
+        return set([target.get('dev', None)
+                    for target in parsed_xml.xpath(
+                        "//domain/devices/disk/target")])
 
 
 class Pool(object):
