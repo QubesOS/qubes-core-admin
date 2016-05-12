@@ -78,9 +78,7 @@ class Volume(object):
                 'volume_type': self.volume_type}
 
     def __repr__(self):
-        return '{}(name={!s}, pool={!r}, vid={!r}, volume_type={!r})'.format(
-            self.__class__.__name__, self.name, self.pool, self.vid,
-            self.volume_type)
+        return '{!r}'.format(self.pool + ':' + self.vid)
 
     def block_device(self):
         ''' Return :py:class:`qubes.devices.BlockDevice` for serialization in
