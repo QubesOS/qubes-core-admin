@@ -1,0 +1,213 @@
+#!/usr/bin/env python3
+
+import subprocess as sub
+import shlex
+import argparse
+import time
+import sys
+
+from os.path import expanduser
+
+#the term qube refers to a qubes vm
+
+def is_program_installed_in_qube( qube_name, command ):
+	is_installed = True
+
+	try:
+		shell_cmd = "qvm-run " + shlex.quote( qube_name ) + " --pass-io --no-color-output 'command -v " + command + "' &> /dev/null"
+		sub.check_call( shell_cmd, shell = True )
+
+	except sub.CalledProcessError:
+		is_installed = False
+
+	return is_installed
+
+
+#this function requires virsh 
+#domstate only works for Xen domU (guests)
+def is_qube_running( qube_name ):
+	runs = False
+
+	out = sub.check_output([ "virsh", "-c", "xen:///", "domstate", shlex.quote( qube_name ) ])
+	out = out.decode('utf-8').replace('\n', '')
+
+	if 'running' == out:
+		runs = True
+
+	return runs
+
+
+def get_qube_packages( qube_name ):
+	content = "## Qubes Packages\n\n"
+
+	#a qube can have more than one package manager installed (only one is functional)
+	pkg_cmd = { 'dpkg' : 'dpkg -l qubes-*', 'pacman' : 'pacman -Qs', 'rpm' : 'rpm -qa qubes-*' }
+
+	if is_qube_running( qube_name ):
+
+		for package_manager in pkg_cmd.keys():
+			if is_program_installed_in_qube( qube_name, package_manager ):
+				pkg_list_cmd = pkg_cmd[package_manager]
+
+				try:
+					shell_cmd = "qvm-run " + shlex.quote( qube_name ) + " --pass-io --no-color-output '" +  pkg_list_cmd + "' 2> /dev/null"
+					out = sub.check_output( shell_cmd, shell = True )
+					out = out.decode('utf-8')
+					content = content + "### Package Manager: " + package_manager + "\n\n"
+					content = content + wrap_code( out )
+				except sub.CalledProcessError:
+					True #do nothing
+
+	else:
+		content = content + "**No packages listed, because Qube " + qube_name + " was not running**\n\n"	
+
+	return content		
+
+def get_dom0_packages():
+	content = "## Dom0 Packages\n\n"
+	out = sub.check_output([ "rpm", "-qa", "qubes-*" ])
+	out = out.decode('utf-8')
+	content = content + wrap_code( out )
+	
+	return content
+
+
+def wrap_code( text ):
+	code = "~~~\n" + text + "~~~\n\n"
+	
+	return code
+
+
+def get_log_file_content( qube_name ):
+	content = "## Log Files\n\n"
+	qubes_os_log = "/var/log/qubes/"
+	ext = ".log"
+
+	log_prefix = [ "guid", "pacat", "qubesdb", "qrexec" ]
+
+	for prefix in log_prefix:
+		log_file = prefix + "." + qube_name + ext
+		content = content + "### Log File: " + log_file + "\n\n"
+		content = content + wrap_code( get_log_file( qubes_os_log + log_file ) )
+
+	return content
+
+
+def get_qube_prefs( qube_name ):
+	qube_prefs = sub.check_output([ "qvm-prefs", shlex.quote( qube_name ) ])
+	qube_prefs = qube_prefs.decode('utf-8')
+	
+	content = "### Qube Prefs\n\n"
+	content = content + wrap_code( qube_prefs )
+	
+	return content
+
+
+def report( qube_name ):
+	template = '''# {title}
+
+{content}
+'''
+
+	title = "Bug report: " + qube_name
+
+	content = get_qube_prefs( qube_name )
+	content = content + get_dom0_packages()
+	content = content + get_log_file_content( qube_name )
+	content = content + get_qube_packages( qube_name )
+	
+
+	report = template.format( **locals() )
+
+	return report
+
+
+def write_report( report_content, file_path ):
+	with open( file_path, 'w' ) as report_file:
+		report_file.write( report_content )
+
+
+def send_report( dest_qube, file_path):
+	#if dest_qube is not running -> start dest_qube
+	if not is_qube_running( dest_qube ):
+		try:
+			sub.check_call([ "qvm-start", shlex.quote( dest_qube ) ])
+		except sub.CalledProcessError:
+			print( "Error while starting: " + dest_qube, file = sys.stderr )
+
+	try: 
+		sub.check_call([ "qvm-move-to-vm", shlex.quote( dest_qube ), file_path ])
+	except sub.calledProcessError:
+		print( "Moving file bug-report failed", file = sys.stderr ) 
+
+
+def get_log_file( log_file ):
+	data = ""
+
+	#open and close the file
+	with open( log_file ) as log:
+		data = log.read()
+
+	return data	
+
+
+def qube_exist( qube_name ):
+	exists = True
+	
+	try:
+		#calls: qvm-check --quiet vmanme
+		sub.check_call([ "qvm-check", "--quiet", shlex.quote( qube_name ) ])
+
+	except sub.CalledProcessError:
+		exists = False
+
+	return exists  
+
+
+def get_report_file_path( qube_name ):
+	#exapanduser sub.CalledProcessError:-> works corss platform
+	home_dir = expanduser("~")
+	date = time.strftime("%H%M%S")
+	file_path = home_dir + "/" + qube_name + "_bug-report_" + date + ".md"
+
+	return file_path
+
+ 
+def main():
+	parser = argparse.ArgumentParser( description = 'Generates a bug report for a specific qube (Qubes VM)' )
+	parser.add_argument( 'vmname', metavar = '<vmanme>', type = str )
+	parser.add_argument( '-d', '--dest-vm', dest = "destvm", type = str, default = 'dom0', help = "destination vm" )
+	parser.add_argument( '-p', '--print-report', action = 'store_const', const = "print_report", required = False, help = "prints the report without writing it or sending it to a destination VM" )
+	args = parser.parse_args()
+
+	if qube_exist( args.vmname ):
+
+		if qube_exist( args.destvm ):
+			report_content = report( args.vmname )
+
+			if args.print_report:
+				print( report_content )
+
+			else:
+				file_path = get_report_file_path( args.vmname )
+				write_report( report_content, file_path )
+				print( "Report written to: " + file_path )
+
+				if 'dom0' != args.destvm:
+					send_report( args.destvm, file_path )
+					print( "Report send to VM: " + args.destvm )
+
+			exit(0)
+
+		else:
+			print ( "Destination VM does not exist" )
+			exit(1)
+ 
+	else:
+		print( "VM does not exist" )
+		exit(1)
+
+	print( args )
+  
+
+main()
