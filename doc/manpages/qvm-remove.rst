@@ -5,27 +5,39 @@
 
 Synopsis
 --------
-:command:`qvm-remove` [-h] [--verbose] [--quiet] [--force-root] [--just-db] *VMNAME* [*VMNAME* ...]
-
+:command:`qvm-remove` [-h] [--verbose] [--quiet] [--force-root] [--all] [--exclude *EXCLUDE*] [--just-db] [*VMNAME* [*VMNAME* ...]]
 
 Options
 -------
+
+.. option:: --all
+
+   Remove  all qubes. You can use :option:`--exclude` to limit the
+   qubes set. dom0 is not removed
+
+.. option:: --exclude
+
+   Exclude the qube from :option:`--all`.
 
 .. option:: --help, -h
 
     Show this help message and exit
 
-.. option:: --quiet, -q
+.. option:: --force-root
 
-    Be quiet
+    Force to run, even with root privileges
 
 .. option:: --just-db
 
     Remove only from the Qubes Xen DB, do not remove any files
 
-.. option:: --force-root
+.. option:: --verbose, -v
 
-    Force to run, even with root privileges
+   increase verbosity
+
+.. option:: --quiet, -q
+
+   decrease verbosity
 
 Authors
 -------
