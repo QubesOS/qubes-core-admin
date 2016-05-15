@@ -6,10 +6,19 @@
 Synopsis
 --------
 
-:command:`qvm-kill` skel-manpage.py [-h] [--verbose] [--quiet] *VMNAME*
+:command:`qvm-kill` [-h] [--verbose] [--quiet] [--all] [--exclude *EXCLUDE*] [*VMNAME* [*VMNAME* ...]]
 
 Options
 -------
+
+.. option:: --all
+
+   Kill all qubes. You can use :option:`--exclude` to limit the
+   qubes set. dom0 is not killed.
+
+.. option:: --exclude
+
+   Exclude the qube from :option:`--all`.
 
 .. option:: --help, -h
 
