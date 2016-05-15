@@ -136,7 +136,7 @@ class QubesVm(object):
             "pci_strictreset": {"default": True},
             # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
             "internal": { "default": False, 'attr': '_internal' },
-            "vcpus": { "default": None },
+            "vcpus": { "default": 2 },
             "uses_default_kernel": { "default": True, 'order': 30 },
             "uses_default_kernelopts": { "default": True, 'order': 30 },
             "kernel": {
@@ -326,11 +326,6 @@ class QubesVm(object):
         # Linux specific cap: max memory can't scale beyond 10.79*init_mem
         if self.maxmem > self.memory * 10:
             self.maxmem = self.memory * 10
-
-        # By default allow use all VCPUs
-        if self.vcpus is None and not vmm.offline_mode:
-            qubes_host = QubesHost()
-            self.vcpus = qubes_host.no_cpus
 
         # Always set if meminfo-writer should be active or not
         if 'meminfo-writer' not in self.services:
