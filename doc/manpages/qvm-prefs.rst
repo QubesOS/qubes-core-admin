@@ -6,7 +6,7 @@
 Synopsis
 --------
 
-:command:`qvm-prefs` qvm-prefs [-h] [--xml *XMLFILE*] [--verbose] [--quiet] [--force-root] [--help-properties] *VMNAME* [*PROPERTY* [*VALUE*\|--delete]]
+:command:`qvm-prefs` qvm-prefs [-h] [--verbose] [--quiet] [--force-root] [--help-properties] *VMNAME* [*PROPERTY* [*VALUE* \| --delete \| --default ]]
 
 Options
 -------
@@ -18,10 +18,6 @@ Options
 .. option:: --help-properties
 
    List available properties with short descriptions and exit.
-
-.. option:: --qubesxml=XMLFILE
-
-   Qubes OS store file.
 
 .. option:: --verbose, -v
 

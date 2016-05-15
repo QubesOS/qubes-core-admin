@@ -6,7 +6,7 @@
 Synopsis
 --------
 
-:command:`qvm-create` [-h] [--qubesxml *XMLFILE*] [--force-root] [--class *CLS*] [--property *NAME*=*VALUE*] [--template *VALUE*] [--label *VALUE*] [--root-copy-from *FILENAME* | --root-move-from *FILENAME*] *VMNAME*
+:command:`qvm-create` [-h] [--verbose] [--quiet] [--force-root] [--class *CLS*] [--property *NAME*=*VALUE*] [--pool *POOL_NAME:VOLUME_NAME*] [--template *VALUE*] --label *VALUE* [--root-copy-from *FILENAME* | --root-move-from *FILENAME*] *VMNAME*
 
 Options
 -------
@@ -15,9 +15,13 @@ Options
 
    show help message and exit
 
-.. option:: --qubesxml=XMLFILE
+.. option:: --verbose, -v
 
-   Qubes OS store file
+   Increase verbosity.
+
+.. option:: --quiet, -q
+
+   Decrease verbosity.
 
 .. option:: --force-root
 

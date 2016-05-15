@@ -24,10 +24,6 @@ Options
 
    Show help message and exit.
 
-.. option:: --qubesxml=XMLFILE
-
-   Use another :file:`qubes.xml` file.
-
 .. option:: --verbose, -v
 
    Increase verbosity.
@@ -64,6 +60,10 @@ Options
 .. option:: --preparing-dvm
 
    Do actions necessary when preparing DVM image.
+
+.. option:: --skip-if-running
+   
+   Do not fail if the qube is already runnning
 
 .. option:: --no-start-guid
 

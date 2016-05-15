@@ -6,7 +6,7 @@
 Synopsis
 --------
 
-:command:`qvm-kill` skel-manpage.py [-h] [--verbose] [--quiet] *VMNAME*
+:command:`qvm-kill` [-h] [--verbose] [--quiet] [*VMNAME* [*VMNAME* ...]]
 
 Options
 -------
