@@ -92,10 +92,21 @@ def main():
         touch_dvm_savefile = is_dvm_up_to_date(tvm, dvm_tmpl)
 
     print >> sys.stderr, "Creating temporary VM..."
-    fstrim_vm = qvm_collection.add_new_vm("QubesAppVm",
-                                          template=tvm,
-                                          name="{}-fstrim".format(tvm_name),
-                                          netvm=None,
+    trim_vmname = "trim-{}".format(tvm_name[:31 - len('trim-')])
+    fstrim_vm = qvm_collection.get_vm_by_name(trim_vmname)
+    if fstrim_vm is not None:
+        if not fstrim_vm.internal:
+            print >>sys.stderr, \
+                "ERROR: VM '{}' already exists and is not marked as internal. " \
+                "Remove it manually."
+        fstrim_vm.remove_from_disk()
+        qvm_collection.pop(fstrim_vm.qid)
+    fstrim_vm = qvm_collection.add_new_vm(
+        "QubesAppVm",
+        template=tvm,
+        name=trim_vmname,
+        netvm=None,
+        internal=True,
     )
     if not fstrim_vm:
         print >> sys.stderr, "ERROR: Failed to create new VM"
