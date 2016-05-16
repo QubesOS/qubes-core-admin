@@ -45,6 +45,20 @@ disable=
   abstract-class-little-used,
   bad-continuation
 
+#
+# OTHER NICE SETS
+#
+
+# IMPORTS
+#disable=all
+#enable=
+#  cyclic-import,
+#  import-error,
+#  no-member,
+#  super-on-old-class,
+#  undefined-variable,
+#  unused-import
+
 
 [REPORTS]
 
