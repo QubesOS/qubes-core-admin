@@ -1441,7 +1441,9 @@ class TC_50_MimeHandlers(qubes.tests.SystemTestsMixin):
                                    passio_popen=True)
             vmpattern = "disp*"
         else:
-            self.qrexec_policy('qubes.Filecopy', self.source_vm.name,
+            self.qrexec_policy('qubes.OpenInVM', self.source_vm.name,
+                self.target_vmname)
+            self.qrexec_policy('qubes.OpenURL', self.source_vm.name,
                 self.target_vmname)
             p = self.source_vm.run("qvm-open-in-vm {} {}".format(
                 self.target_vmname, filename), passio_popen=True)
@@ -1573,6 +1575,10 @@ class TC_50_MimeHandlers(qubes.tests.SystemTestsMixin):
         self.open_file_and_check_viewer(filename, [],
                                         ["shotwell", "eog", "display"])
 
+    def test_010_url(self):
+        self.open_file_and_check_viewer("https://www.qubes-os.org/", [],
+                                        ["Firefox", "Iceweasel"])
+
     def test_100_txt_dispvm(self):
         filename = "/home/user/test_file.txt"
         self.prepare_txt(filename)
@@ -1620,6 +1626,11 @@ class TC_50_MimeHandlers(qubes.tests.SystemTestsMixin):
         self.prepare_jpg(filename)
         self.open_file_and_check_viewer(filename, [],
                                         ["shotwell", "eog", "display"],
+                                        dispvm=True)
+
+    def test_110_url_dispvm(self):
+        self.open_file_and_check_viewer("https://www.qubes-os.org/", [],
+                                        ["Firefox", "Iceweasel"],
                                         dispvm=True)
 
 
