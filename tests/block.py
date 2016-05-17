@@ -234,6 +234,7 @@ class TC_00_List(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             "echo ,,L | sfdisk {path};"
             "loopdev=`losetup -f`; "
             "losetup -P $loopdev {path}; "
+            "blockdev --rereadpt $loopdev; "
             "udevadm settle".format(path=self.img_path), user="root")
 
         dev_list = qubes.qubesutils.block_list_vm(self.vm)
@@ -260,6 +261,7 @@ class TC_00_List(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             "echo ,,L | sfdisk {path};"
             "loopdev=`losetup -f`; "
             "losetup -P $loopdev {path}; "
+            "blockdev --rereadpt $loopdev; "
             "mkfs.ext4 -q -F ${{loopdev}}p1; "
             "mkdir -p {mntdir}; "
             "mount ${{loopdev}}p1 {mntdir}; "
