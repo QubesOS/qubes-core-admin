@@ -1,0 +1,10 @@
+## Note that policy parsing stops at the first match,
+## so adding anything below "$anyvm $anyvm action" line will have no effect
+
+## Please use a single # to start your custom comments
+
+sys-whonix anon-whonix allow
+whonix-gw anon-whonix allow
+whonix-ws anon-whonix allow
+$anyvm	$dispvm	allow
+$anyvm	$anyvm	ask
