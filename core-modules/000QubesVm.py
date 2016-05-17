@@ -1763,6 +1763,33 @@ class QubesVm(object):
             guid_cmd += ['-v', '-v']
         elif not verbose:
             guid_cmd += ['-q']
+        # Avoid using environment variables for checking the current session,
+        #  because this script may be called with cleared env (like with sudo).
+        if subprocess.check_output(
+                ['xprop', '-root', '-notype', 'KDE_SESSION_VERSION']) == \
+                'KDE_SESSION_VERSION = 5\n':
+            # native decoration plugins is used, so adjust window properties
+            # accordingly
+            guid_cmd += ['-T']  # prefix window titles with VM name
+            # get owner of X11 session
+            session_owner = None
+            for line in subprocess.check_output(['xhost']).splitlines():
+                if line == 'SI:localuser:root':
+                    pass
+                elif line.startswith('SI:localuser:'):
+                    session_owner = line.split(":")[2]
+            if session_owner is not None:
+                data_dir = os.path.expanduser(
+                    '~{}/.local/share'.format(session_owner))
+            else:
+                # fallback to current user
+                data_dir = os.path.expanduser('~/.local/share')
+
+            guid_cmd += ['-p',
+                '_KDE_NET_WM_COLOR_SCHEME=s:{}'.format(
+                    os.path.join(data_dir,
+                        'qubes-kde', self.label.name + '.colors'))]
+
         retcode = subprocess.call (guid_cmd)
         if (retcode != 0) :
             raise QubesException("Cannot start qubes-guid!")
