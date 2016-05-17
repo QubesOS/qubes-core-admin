@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 
-import subprocess as sub
-import shlex
+import subprocess
 import argparse
 import time
 import sys
+import os
 
 from os.path import expanduser
 
 #the term qube refers to a qubes vm
 
-def is_program_installed_in_qube( qube_name, command ):
+def is_program_installed_in_qube( program, qube_name ):
 	is_installed = True
 
 	try:
-		shell_cmd = "qvm-run " + shlex.quote( qube_name ) + " --pass-io --no-color-output 'command -v " + command + "' &> /dev/null"
-		sub.check_call( shell_cmd, shell = True )
+		command = 'command -v ' + program
+		subprocess.check_call([ 'qvm-run', qube_name, '--pass-io', '--no-color-output', command ], stdout = open( os.devnull, 'w' ) )
 
-	except sub.CalledProcessError:
+	except subprocess.CalledProcessError:
 		is_installed = False
 
 	return is_installed
@@ -28,7 +28,7 @@ def is_program_installed_in_qube( qube_name, command ):
 def is_qube_running( qube_name ):
 	runs = False
 
-	out = sub.check_output([ "virsh", "-c", "xen:///", "domstate", shlex.quote( qube_name ) ])
+	out = subprocess.check_output([ "virsh", "-c", "xen:///", "domstate", qube_name ])
 	out = out.decode('utf-8').replace('\n', '')
 
 	if 'running' == out:
@@ -41,31 +41,31 @@ def get_qube_packages( qube_name ):
 	content = "## Qubes Packages\n\n"
 
 	#a qube can have more than one package manager installed (only one is functional)
-	pkg_cmd = { 'dpkg' : 'dpkg -l qubes-*', 'pacman' : 'pacman -Qs', 'rpm' : 'rpm -qa qubes-*' }
+	pkg_cmd = { 'dpkg' : 'dpkg -l qubes-*', 'pacman' : 'pacman -Qs qubes', 'rpm' : 'rpm -qa qubes-*' }
 
 	if is_qube_running( qube_name ):
 
 		for package_manager in pkg_cmd.keys():
-			if is_program_installed_in_qube( qube_name, package_manager ):
+			if is_program_installed_in_qube( package_manager, qube_name ):
 				pkg_list_cmd = pkg_cmd[package_manager]
 
 				try:
-					shell_cmd = "qvm-run " + shlex.quote( qube_name ) + " --pass-io --no-color-output '" +  pkg_list_cmd + "' 2> /dev/null"
-					out = sub.check_output( shell_cmd, shell = True )
+					out = subprocess.check_output([ 'qvm-run', qube_name, '--pass-io', '--no-color-output', pkg_list_cmd ], stderr = open( os.devnull, 'w' ) )
 					out = out.decode('utf-8')
-					content = content + "### Package Manager: " + package_manager + "\n\n"
+					content = content + create_heading( ( "Package Manager: " + package_manager ), 3 )
 					content = content + wrap_code( out )
-				except sub.CalledProcessError:
-					True #do nothing
+				except subprocess.CalledProcessError:
+					pass #do nothing
 
 	else:
 		content = content + "**No packages listed, because Qube " + qube_name + " was not running**\n\n"	
 
-	return content		
+	return content	
+	
 
 def get_dom0_packages():
-	content = "## Dom0 Packages\n\n"
-	out = sub.check_output([ "rpm", "-qa", "qubes-*" ])
+	content = create_heading( "Dom0 Packages", 2 )
+	out = subprocess.check_output([ "rpm", "-qa", "qubes-*" ])
 	out = out.decode('utf-8')
 	content = content + wrap_code( out )
 	
@@ -77,6 +77,19 @@ def wrap_code( text ):
 	
 	return code
 
+def create_heading( heading, level ):
+	heading = heading + "\n\n"
+	 
+	if 1 == level:
+		heading = "# " + heading
+	elif 2 == level: 
+		heading = "## " + heading
+	else:
+		heading = "### " + heading
+
+	return heading
+		
+
 
 def get_log_file_content( qube_name ):
 	content = "## Log Files\n\n"
@@ -87,37 +100,36 @@ def get_log_file_content( qube_name ):
 
 	for prefix in log_prefix:
 		log_file = prefix + "." + qube_name + ext
-		content = content + "### Log File: " + log_file + "\n\n"
+		content = content + create_heading( ( "Log File: " + log_file ), 3 )
 		content = content + wrap_code( get_log_file( qubes_os_log + log_file ) )
 
 	return content
 
 
 def get_qube_prefs( qube_name ):
-	qube_prefs = sub.check_output([ "qvm-prefs", shlex.quote( qube_name ) ])
+	qube_prefs = subprocess.check_output([ "qvm-prefs", qube_name ])
 	qube_prefs = qube_prefs.decode('utf-8')
 	
-	content = "### Qube Prefs\n\n"
+	content = create_heading( "Qube Prefs", 2 )
 	content = content + wrap_code( qube_prefs )
 	
 	return content
 
 
 def report( qube_name ):
-	template = '''# {title}
-
+	template = '''{title}
 {content}
 '''
 
-	title = "Bug report: " + qube_name
+	title_text = create_heading( "Bug report: " + qube_name, 1 )
 
-	content = get_qube_prefs( qube_name )
-	content = content + get_dom0_packages()
-	content = content + get_log_file_content( qube_name )
-	content = content + get_qube_packages( qube_name )
+	content_text = get_qube_prefs( qube_name )
+	content_text = content_text + get_dom0_packages()
+	content_text = content_text + get_log_file_content( qube_name )
+	content_text = content_text + get_qube_packages( qube_name )
 	
 
-	report = template.format( **locals() )
+	report = template.format( title=title_text, content=content_text )
 
 	return report
 
@@ -131,13 +143,13 @@ def send_report( dest_qube, file_path):
 	#if dest_qube is not running -> start dest_qube
 	if not is_qube_running( dest_qube ):
 		try:
-			sub.check_call([ "qvm-start", shlex.quote( dest_qube ) ])
-		except sub.CalledProcessError:
+			subprocess.check_call([ "qvm-start", dest_qube ])
+		except subprocess.CalledProcessError:
 			print( "Error while starting: " + dest_qube, file = sys.stderr )
 
 	try: 
-		sub.check_call([ "qvm-move-to-vm", shlex.quote( dest_qube ), file_path ])
-	except sub.calledProcessError:
+		subprocess.check_call([ "qvm-move-to-vm", dest_qube, file_path ])
+	except subprocess.calledProcessError:
 		print( "Moving file bug-report failed", file = sys.stderr ) 
 
 
@@ -156,38 +168,41 @@ def qube_exist( qube_name ):
 	
 	try:
 		#calls: qvm-check --quiet vmanme
-		sub.check_call([ "qvm-check", "--quiet", shlex.quote( qube_name ) ])
+		subprocess.check_call([ "qvm-check", "--quiet", qube_name ])
 
-	except sub.CalledProcessError:
+	except subprocess.CalledProcessError:
 		exists = False
 
 	return exists  
 
 
 def get_report_file_path( qube_name ):
-	#exapanduser sub.CalledProcessError:-> works corss platform
+	#exapanduser -> works corss platform
 	home_dir = expanduser("~")
 	date = time.strftime("%H%M%S")
 	file_path = home_dir + "/" + qube_name + "_bug-report_" + date + ".md"
 
 	return file_path
 
- 
+
 def main():
 	parser = argparse.ArgumentParser( description = 'Generates a bug report for a specific qube (Qubes VM)' )
 	parser.add_argument( 'vmname', metavar = '<vmanme>', type = str )
-	parser.add_argument( '-d', '--dest-vm', dest = "destvm", type = str, default = 'dom0', help = "destination vm" )
+	parser.add_argument( '-d', '--dest-vm', metavar = '<dest-vm>', dest = "destvm", type = str, default = 'dom0', help = "send the report to the destination VM" )
 	parser.add_argument( '-p', '--print-report', action = 'store_const', const = "print_report", required = False, help = "prints the report without writing it or sending it to a destination VM" )
 	args = parser.parse_args()
 
 	if qube_exist( args.vmname ):
 
 		if qube_exist( args.destvm ):
+			#get the report
 			report_content = report( args.vmname )
 
+			#if -p or --print-report is an argument print the report
 			if args.print_report:
 				print( report_content )
 
+			#write and send the report
 			else:
 				file_path = get_report_file_path( args.vmname )
 				write_report( report_content, file_path )
@@ -206,8 +221,7 @@ def main():
 	else:
 		print( "VM does not exist" )
 		exit(1)
-
-	print( args )
   
 
+#calls the main function -> program start point
 main()
