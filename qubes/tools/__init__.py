@@ -148,6 +148,57 @@ class HelpPropertiesAction(argparse.Action):
         parser.exit(message=text)
 
 
+class VmNameAction(QubesAction):
+    ''' Action for parsing one ore multiple domains from provided VMNAMEs '''
+
+    # pylint: disable=too-few-public-methods,redefined-builtin
+    def __init__(self, option_strings, nargs=1, dest='vmnames', help=None,
+                 **kwargs):
+        if help is None:
+            if nargs == argparse.OPTIONAL:
+                help = 'at most one domain name'
+            elif nargs == 1:
+                help = 'a domain name'
+            elif nargs == argparse.ZERO_OR_MORE:
+                help = 'zero or more domain names'
+            elif nargs == argparse.ONE_OR_MORE:
+                help = 'one or more domain names'
+            elif nargs > 1:
+                help = '%s domain names' % nargs
+            else:
+                raise argparse.ArgumentError(
+                    nargs, "Passed unexpected value {!s} as {!s} nargs ".format(
+                        nargs, dest))
+
+        super(VmNameAction, self).__init__(option_strings, dest=dest, help=help,
+                                           nargs=nargs, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        ''' Set ``namespace.vmname`` to ``values`` '''
+        print("{!r}".format(values))
+        setattr(namespace, self.dest, values)
+
+    def parse_qubes_app(self, parser, namespace):
+        assert hasattr(namespace, 'app')
+        setattr(namespace, 'domains', [])
+        app = namespace.app
+        if hasattr(namespace, 'all_domains') and namespace.all_domains:
+            namespace.domains = [
+                vm
+                for vm in app.domains
+                if vm.qid != 0 and vm.name not in namespace.exclude
+            ]
+        else:
+            if hasattr(namespace, 'exclude') and namespace.exclude:
+                parser.error('--exclude can only be used with --all')
+
+            for vm_name in getattr(namespace, self.dest):
+                try:
+                    namespace.domains += [app.domains[vm_name]]
+                except KeyError:
+                    parser.error('no such domain: {!r}'.format(vm_name))
+
+
 class QubesArgumentParser(argparse.ArgumentParser):
     '''Parser preconfigured for use in most of the Qubes command-line tools.
 
