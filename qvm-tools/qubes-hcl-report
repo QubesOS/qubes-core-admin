@@ -103,7 +103,7 @@ XL_VTX=`cat $TEMP_DIR/xl-info |grep xen_caps | grep hvm`
 XL_VTD=`cat $TEMP_DIR/xl-info |grep virt_caps |grep hvm_directio`
 PCRS=`find /sys/devices/ -name pcrs`
 
-FILENAME="Qubes-HCL-${BRAND//+([^[:alnum:]])/_}-${PRODUCT//+([^[:alnum:]])/_}-$DATE"
+FILENAME="Qubes-HCL-${BRAND//[^[:alnum:]]/_}-${PRODUCT//[^[:alnum:]]/_}-$DATE"
 
 if [[ $XL_VTX ]]
  then 
