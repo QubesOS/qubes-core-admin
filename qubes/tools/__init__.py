@@ -40,6 +40,20 @@ import qubes.log
 VM_ALL = object()
 
 
+class QubesAction(argparse.Action):
+    ''' Interface providing a convinience method to be called, after
+        `namespace.app` is instantiated.
+    '''
+    # pylint: disable=too-few-public-methods
+    def parse_qubes_app(self, parser, namespace):
+        ''' This method is called by :py:class:`qubes.tools.QubesArgumentParser`
+            after the `namespace.app` is instantiated. Oerwrite this method when
+            extending :py:class:`qubes.tools.QubesAction` to initialized values
+            based on the `namespace.app`
+        '''
+        raise NotImplementedError
+
+
 class PropertyAction(argparse.Action):
     '''Action for argument parser that stores a property.'''
     # pylint: disable=redefined-builtin,too-few-public-methods
