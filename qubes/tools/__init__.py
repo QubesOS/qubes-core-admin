@@ -175,7 +175,6 @@ class VmNameAction(QubesAction):
 
     def __call__(self, parser, namespace, values, option_string=None):
         ''' Set ``namespace.vmname`` to ``values`` '''
-        print("{!r}".format(values))
         setattr(namespace, self.dest, values)
 
     def parse_qubes_app(self, parser, namespace):
@@ -377,3 +376,22 @@ def get_parser_for_command(command):
             raise AttributeError('cannot find parser in module')
 
     return parser
+
+
+# pylint: disable=protected-access
+class VmNameGroup(argparse._MutuallyExclusiveGroup):
+    ''' Adds an a VMNAME, --all & --exclude parameters to a
+        :py:class:``argparse.ArgumentParser```.
+    '''
+
+    def __init__(self, container, required, vm_action=VmNameAction):
+        super(VmNameGroup, self).__init__(container, required=required)
+        self.add_argument('--all', action='store_true',
+                          dest='all_domains',
+                          help='perform the action on all qubes')
+        container.add_argument('--exclude', action='append', default=[],
+                               help='exclude the qube from --all')
+        self.add_argument('VMNAME', action=vm_action, nargs='*',
+                          default=[])  # the default parameter is important! see
+                                # https://stackoverflow.com/questions/35044288
+                                # and `argparse.ArgumentParser.parse_args()`
