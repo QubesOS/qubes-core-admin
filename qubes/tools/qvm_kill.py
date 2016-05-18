@@ -30,8 +30,7 @@ import qubes.exc
 import qubes.tools
 
 parser = qubes.tools.QubesArgumentParser(
-    description='forceful shutdown of a domain',
-    want_vm=True)
+    description='forceful shutdown of a domain', vmname_nargs='+')
 
 
 def main(args=None):
@@ -43,12 +42,15 @@ def main(args=None):
 
     args = parser.parse_args(args)
 
-    try:
-        args.vm.force_shutdown()
-    except (IOError, OSError, qubes.exc.QubesException) as e:
-        parser.error_runtime(str(e))
+    exit_code = 0
+    for domain in args.domains:
+        try:
+            domain.force_shutdown()
+        except (IOError, OSError, qubes.exc.QubesException) as e:
+            exit_code = 1
+            parser.print_error(str(e))
 
-    return 0
+    return exit_code
 
 
 if __name__ == '__main__':

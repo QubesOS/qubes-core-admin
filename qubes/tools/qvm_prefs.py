@@ -36,7 +36,7 @@ import qubes.vm
 
 parser = qubes.tools.QubesArgumentParser(
     want_force_root=True,
-    want_vm=True)
+    vmname_nargs=1)
 
 parser.add_argument('--help-properties',
     action=qubes.tools.HelpPropertiesAction,
@@ -63,18 +63,18 @@ def main(args=None):
     args = parser.parse_args(args)
 
     if args.property is None:
-        properties = args.vm.property_list()
+        properties = args.domain.property_list()
         width = max(len(prop.__name__) for prop in properties)
 
         for prop in sorted(properties):
             try:
-                value = getattr(args.vm, prop.__name__)
+                value = getattr(args.domain, prop.__name__)
             except AttributeError:
                 print('{name:{width}s}  U'.format(
                     name=prop.__name__, width=width))
                 continue
 
-            if args.vm.property_is_default(prop):
+            if args.domain.property_is_default(prop):
                 print('{name:{width}s}  D  {value!s}'.format(
                     name=prop.__name__, width=width, value=value))
             else:
@@ -83,21 +83,22 @@ def main(args=None):
 
         return 0
 
-    if args.property not in [prop.__name__ for prop in args.vm.property_list()]:
+    if args.property not in [prop.__name__
+                             for prop in args.domain.property_list()]:
         parser.error('no such property: {!r}'.format(args.property))
 
     if args.value is not None:
-        setattr(args.vm, args.property, args.value)
+        setattr(args.domain, args.property, args.value)
         args.app.save()
         return 0
 
     if args.delete:
-        delattr(args.vm, args.property)
+        delattr(args.domain, args.property)
         args.app.save()
         return 0
 
 
-    print(str(getattr(args.vm, args.property)))
+    print(str(getattr(args.domain, args.property)))
 
     return 0
 

@@ -31,9 +31,7 @@ import qubes.exc
 import qubes.tools
 
 
-parser = qubes.tools.QubesArgumentParser(
-    want_vm=True,
-    want_vm_all=True)
+parser = qubes.tools.QubesArgumentParser(vmname_nargs='+')
 
 parser.add_argument('--user', '-u', metavar='USER',
     help='run command in a qube as USER')
@@ -84,7 +82,7 @@ def main(args=None):
     if args.color_output is None and args.filter_esc:
         args.color_output = '31'
 
-    if len(args.vm) > 1 and args.passio:
+    if len(args.domains) > 1 and args.passio:
         parser.error('--passio cannot be used when more than 1 qube is chosen')
     if args.localcmd and not args.passio:
         parser.error('--localcmd have no effect without --pass-io')
@@ -92,7 +90,7 @@ def main(args=None):
         parser.error('--color-output must be used with --filter-escape-chars')
 
     retcode = 0
-    for vm in args.vm:
+    for vm in args.domains:
         if args.autostart and not vm.is_running():
             vm.start()
 

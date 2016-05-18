@@ -25,17 +25,14 @@
 
 from __future__ import print_function
 
-import qubes.config
-import qubes.tools
-
 import sys
 import time
 
+import qubes.config
+import qubes.tools
 
 parser = qubes.tools.QubesArgumentParser(
-    description='gracefully shut down a qube',
-    want_vm=True,
-    want_vm_all=True)
+    description='gracefully shut down a qube', vmname_nargs='+')
 
 parser.add_argument('--force',
     action='store_true', default=False,
@@ -56,14 +53,14 @@ parser.add_argument('--timeout',
 def main(args=None):
     args = parser.parse_args(args)
 
-    for vm in args.vm:
+    for vm in args.domains:
         vm.shutdown(force=args.force)
 
     if not args.wait:
         return
 
     timeout = args.timeout
-    current_vms = list(sorted(args.vm))
+    current_vms = list(sorted(args.domains))
     while timeout >= 0:
         current_vms = [vm for vm in current_vms
             if vm.get_power_state() != 'Halted']

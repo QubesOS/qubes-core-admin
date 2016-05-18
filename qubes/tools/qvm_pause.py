@@ -28,9 +28,8 @@ import sys
 import qubes
 
 
-parser = qubes.tools.QubesArgumentParser(
-    want_vm=True,
-    description='pause a domain')
+parser = qubes.tools.QubesArgumentParser(vmname_nargs='+',
+                                         description='pause a domain')
 
 
 def main(args=None):
@@ -41,7 +40,8 @@ def main(args=None):
     '''
 
     args = parser.parse_args(args)
-    args.vm.pause()
+    for domain in args.domains:
+        domain.pause()
 
     return 0
 

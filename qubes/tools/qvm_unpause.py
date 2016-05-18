@@ -29,8 +29,9 @@ import qubes
 
 
 parser = qubes.tools.QubesArgumentParser(
-    want_vm=True,
+    vmname_nargs=1,
     description='unpause a domain')
+
 
 def main(args=None):
     '''Main routine of :program:`qvm-unpause`.
@@ -40,7 +41,7 @@ def main(args=None):
     '''
 
     args = parser.parse_args(args)
-    args.vm.unpause()
+    args.domains[0].unpause()
 
     return 0
 

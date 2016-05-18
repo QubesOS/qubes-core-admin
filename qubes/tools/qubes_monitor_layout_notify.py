@@ -35,9 +35,7 @@ import qubes.tools
 
 parser = qubes.tools.QubesArgumentParser(
     description='Send monitor layout to one qube or to all of them',
-    want_app=True,
-    want_vm=True,
-    want_vm_optional=True)
+    want_app=True, vmname_nargs='?')
 
 
 def main(args=None):

@@ -21,17 +21,19 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
-
 '''qvm-start - Start a domain'''
 
 # TODO notification in tray
 
 import argparse
 import sys
+
 import qubes
+
 
 class DriveAction(argparse.Action):
     '''Action for argument parser that stores drive image path.'''
+
     # pylint: disable=redefined-builtin,too-few-public-methods
     def __init__(self,
             option_strings,
@@ -49,10 +51,8 @@ class DriveAction(argparse.Action):
         setattr(namespace, self.dest, self.prefix + values)
 
 
-parser = qubes.tools.QubesArgumentParser(
-    want_vm=True,
-    description='start a domain')
-
+parser = qubes.tools.QubesArgumentParser(vmname_nargs=1,
+                                         description='start a domain')
 
 parser_drive = parser.add_mutually_exclusive_group()
 
@@ -98,6 +98,7 @@ parser.add_argument('--skip-if-running',
 
 parser.set_defaults(drive=None)
 
+
 def main(args=None):
     '''Main routine of :program:`qvm-start`.
 
@@ -110,7 +111,7 @@ def main(args=None):
 #   if options.tray:
 #       tray_notify_init()
 
-    vm = args.vm
+    vm = args.domains[0]
 
     if args.skip_if_running and vm.is_running():
         return
