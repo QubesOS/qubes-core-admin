@@ -205,7 +205,12 @@ class QubesArgumentParser(argparse.ArgumentParser):
     :param bool want_app_no_instance: don't actually instantiate \
         :py:class:`qubes.Qubes` object, just add argument for custom xml file
     :param bool want_force_root: add ``--force-root`` option
-    :param bool want_vm: add ``VMNAME`` as first positional argument
+    :param mixed vmname_nargs: The number of ``VMNAME`` arguments that should be
+            consumed. Values include:
+                - N (an integer) consumes N arguments (and produces a list)
+                - '?' consumes zero or one arguments
+                - '*' consumes zero or more arguments (and produces a list)
+                - '+' consumes one or more arguments (and produces a list)
     *kwargs* are passed to :py:class:`argparser.ArgumentParser`.
 
     Currenty supported options:
@@ -214,62 +219,38 @@ class QubesArgumentParser(argparse.ArgumentParser):
         ``--verbose`` and ``--quiet``
     '''
 
-    def __init__(self,
-            want_app=True,
-            want_app_no_instance=False,
-            want_force_root=False,
-            want_vm=False,
-            want_vm_optional=False,
-            want_vm_all=False,
-            **kwargs):
+    def __init__(self, want_app=True, want_app_no_instance=False,
+                 want_force_root=False, vmname_nargs=None, **kwargs):
 
         super(QubesArgumentParser, self).__init__(**kwargs)
 
         self._want_app = want_app
         self._want_app_no_instance = want_app_no_instance
         self._want_force_root = want_force_root
-        self._want_vm = want_vm
-        self._want_vm_optional = want_vm_optional
-        self._want_vm_all = want_vm_all
-
+        self._vmname_nargs = vmname_nargs
         if self._want_app:
-            self.add_argument('--qubesxml', metavar='FILE',
-                action='store', dest='app',
-                help=argparse.SUPPRESS)
+            self.add_argument('--qubesxml', metavar='FILE', action='store',
+                              dest='app', help=argparse.SUPPRESS)
 
-        self.add_argument('--verbose', '-v',
-            action='count',
-            help='increase verbosity')
 
-        self.add_argument('--quiet', '-q',
-            action='count',
-            help='decrease verbosity')
+        self.add_argument('--verbose', '-v', action='count',
+                          help='increase verbosity')
+
+        self.add_argument('--quiet', '-q', action='count',
+                          help='decrease verbosity')
 
         if self._want_force_root:
-            self.add_argument('--force-root',
-                action='store_true', default=False,
-                help='force to run as root')
+            self.add_argument('--force-root', action='store_true',
+                              default=False, help='force to run as root')
 
-        if self._want_vm:
-            if self._want_vm_all:
-                vmchoice = self.add_mutually_exclusive_group()
-                vmchoice.add_argument('--all',
-                    action='store_const', const=VM_ALL, dest='vm',
-                    help='perform the action on all qubes')
-                self.add_argument('--exclude',
-                    action='append', default=[],
-                    help='exclude the qube from --all')
-                nargs = '?'
-            else:
-                vmchoice = self
-                nargs = '?' if self._want_vm_optional else None
-
-            vmchoice.add_argument('vm', metavar='VMNAME',
-                action='store', nargs=nargs,
-                help='name of the domain')
+        if self._vmname_nargs in [argparse.ZERO_OR_MORE, argparse.ONE_OR_MORE]:
+            vm_name_group = VmNameGroup(self, self._vmname_nargs)
+            self._mutually_exclusive_groups.append(vm_name_group)
+        elif self._vmname_nargs is not None:
+            self.add_argument('VMNAME', nargs=self._vmname_nargs,
+                              action=VmNameAction)
 
         self.set_defaults(verbose=1, quiet=0)
-
 
     def parse_args(self, *args, **kwargs):
         namespace = super(QubesArgumentParser, self).parse_args(*args, **kwargs)
@@ -278,29 +259,12 @@ class QubesArgumentParser(argparse.ArgumentParser):
             self.set_qubes_verbosity(namespace)
             namespace.app = qubes.Qubes(namespace.app)
 
-            if self._want_vm:
-                if self._want_vm_all:
-                    if namespace.vm is VM_ALL:
-                        namespace.vm = [vm for vm in namespace.app.domains
-                            if vm.qid != 0 and vm.name not in namespace.exclude]
-                    else:
-                        if namespace.exclude:
-                            self.error('--exclude can only be used with --all')
-                        try:
-                            namespace.vm = \
-                                (namespace.app.domains[namespace.vm],)
-                        except KeyError:
-                            self.error(
-                                'no such domain: {!r}'.format(namespace.vm))
-
-                else:
-                    try:
-                        namespace.vm = namespace.app.domains[namespace.vm]
-                    except KeyError:
-                        self.error('no such domain: {!r}'.format(namespace.vm))
-
         if self._want_force_root:
             self.dont_run_as_root(namespace)
+
+        for action in self._actions:
+            if issubclass(action.__class__, QubesAction):
+                action.parse_qubes_app(self, namespace)
 
         return namespace
 
@@ -328,9 +292,9 @@ class QubesArgumentParser(argparse.ArgumentParser):
             self.error_runtime(
                 'refusing to run as root; add --force-root to override')
 
-
     @staticmethod
     def get_loglevel_from_verbosity(namespace):
+        ''' Return loglevel calculated from quiet and verbose arguments '''
         return (namespace.quiet - namespace.verbose) * 10 + logging.WARNING
 
 
