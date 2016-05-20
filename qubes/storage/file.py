@@ -237,13 +237,27 @@ class FilePool(Pool):
             raise StoragePoolException("Unknown volume type " + volume_type)
 
         if volume_type in ['snapshot', 'read-only']:
-            origin_pool = vm.app.get_pool(
-                vm.template.volume_config[name]['pool'])
+            name = volume_config['name']
+
+            origin_vm = vm
+            while hasattr(origin_vm, 'template') and \
+                origin_vm.volume_config[name]['volume_type'] == \
+                    volume_type:
+                origin_vm = origin_vm.template
+
+            expected_origin_type = {
+                'snapshot': 'origin',
+                'read-only': 'read-write',  # FIXME: really?
+            }[volume_type]
+            assert origin_vm.volume_config[name]['volume_type'] == \
+                expected_origin_type
+
+            origin_pool = vm.app.get_pool(origin_vm.volume_config[name]['pool'])
             assert isinstance(origin_pool,
                               FilePool), 'Origin volume not a file volume'
-            volume_config['target_dir'] = origin_pool.target_dir(vm.template)
-            name = volume_config['name']
-            volume_config['size'] = vm.template.volume_config[name]['size']
+
+            volume_config['target_dir'] = origin_pool.target_dir(origin_vm)
+            volume_config['size'] = origin_vm.volume_config[name]['size']
         else:
             volume_config['target_dir'] = self.target_dir(vm)
 
