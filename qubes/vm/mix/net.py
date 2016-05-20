@@ -202,8 +202,9 @@ class NetVMMixin(qubes.events.Emitter):
             self.log.info('Starting NetVM ({0})'.format(self.netvm.name))
             self.netvm.start()
 
-        self.libvirt_domain.attachDevice(lxml.etree.ElementTree(
-            self.lvxml_net_dev(self.ip, self.mac, self.netvm)).tostring())
+        self.libvirt_domain.attachDevice(
+            lxml.etree.tostring(lxml.etree.ElementTree(
+                self.lvxml_net_dev(self.ip, self.mac, self.netvm))))
 
 
     def detach_network(self):
@@ -213,8 +214,9 @@ class NetVMMixin(qubes.events.Emitter):
             raise qubes.exc.QubesVMNotRunningError(self)
         assert self.netvm is not None
 
-        self.libvirt_domain.detachDevice(lxml.etree.ElementTree(
-            self.lvxml_net_dev(self.ip, self.mac, self.netvm)).tostring())
+        self.libvirt_domain.detachDevice(
+            lxml.etree.tostring(lxml.etree.ElementTree(
+                self.lvxml_net_dev(self.ip, self.mac, self.netvm))))
 
 
     def is_networked(self):
