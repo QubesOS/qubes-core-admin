@@ -239,10 +239,8 @@ class FilePool(Pool):
         if volume_type in ['snapshot', 'read-only']:
             name = volume_config['name']
 
-            origin_vm = vm
-            while hasattr(origin_vm, 'template') and \
-                origin_vm.volume_config[name]['volume_type'] == \
-                    volume_type:
+            origin_vm = vm.template
+            while origin_vm.volume_config[name]['volume_type'] == volume_type:
                 origin_vm = origin_vm.template
 
             expected_origin_type = {
