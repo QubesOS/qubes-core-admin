@@ -237,7 +237,8 @@ class FilePool(Pool):
             raise StoragePoolException("Unknown volume type " + volume_type)
 
         if volume_type in ['snapshot', 'read-only']:
-            origin_pool = vm.app.get_pool(volume_config['pool'])
+            origin_pool = vm.app.get_pool(
+                vm.template.volume_config[name]['pool'])
             assert isinstance(origin_pool,
                               FilePool), 'Origin volume not a xen volume'
             volume_config['target_dir'] = origin_pool.target_dir(vm.template)
