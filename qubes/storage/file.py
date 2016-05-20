@@ -240,7 +240,7 @@ class FilePool(Pool):
             origin_pool = vm.app.get_pool(
                 vm.template.volume_config[name]['pool'])
             assert isinstance(origin_pool,
-                              FilePool), 'Origin volume not a xen volume'
+                              FilePool), 'Origin volume not a file volume'
             volume_config['target_dir'] = origin_pool.target_dir(vm.template)
             name = volume_config['name']
             volume_config['size'] = vm.template.volume_config[name]['size']
