@@ -199,6 +199,27 @@ class VmNameAction(QubesAction):
                     parser.error('no such domain: {!r}'.format(vm_name))
 
 
+class PoolsAction(QubesAction):
+    ''' Action for argument parser to gather multiple pools '''
+    # pylint: disable=too-few-public-methods
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        ''' Set ``namespace.vmname`` to ``values`` '''
+        setattr(namespace, self.dest, values)
+
+    def parse_qubes_app(self, parser, namespace):
+        app = namespace.app
+        name = getattr(namespace, self.dest)
+        if not name:
+            return
+        try:
+            setattr(namespace, self.dest, app.get_pool(name))
+        except qubes.exc.QubesException as e:
+            parser.error(e.message)
+            sys.exit(2)
+
+
+
 class QubesArgumentParser(argparse.ArgumentParser):
     '''Parser preconfigured for use in most of the Qubes command-line tools.
 
