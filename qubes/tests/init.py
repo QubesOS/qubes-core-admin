@@ -296,7 +296,7 @@ class TestApp(qubes.tests.TestEmitter):
 class TC_30_VMCollection(qubes.tests.QubesTestCase):
     def setUp(self):
         self.app = TestApp()
-        self.vms = qubes.VMCollection(self.app)
+        self.vms = qubes.app.VMCollection(self.app)
 
         self.testvm1 = TestVM(None, None, qid=1, name='testvm1')
         self.testvm2 = TestVM(None, None, qid=2, name='testvm2')

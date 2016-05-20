@@ -46,7 +46,7 @@ class TC_00_NetVMMixin(
             provides_network=True)
         self.nonetvm = qubes.vm.qubesvm.QubesVM(self.app, None, qid=4,
             name=qubes.tests.VMPREFIX + 'nonet')
-        self.app.domains = qubes.VMCollection(self.app)
+        self.app.domains = qubes.app.VMCollection(self.app)
         for domain in (vm, self.netvm1, self.netvm2, self.nonetvm):
             self.app.domains._dict[domain.qid] = domain
         self.app.default_netvm = self.netvm1
