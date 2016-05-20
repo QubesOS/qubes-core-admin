@@ -34,6 +34,7 @@ if __name__ == '__main__':
                 'TemplateVM = qubes.vm.templatevm:TemplateVM',
                 'StandaloneVM = qubes.vm.standalonevm:StandaloneVM',
                 'AdminVM = qubes.vm.adminvm:AdminVM',
+                'DispVM = qubes.vm.dispvm:DispVM',
             ],
             'qubes.ext': [
                 'qubes.ext.qubesmanager = qubes.ext.qubesmanager:QubesManager',

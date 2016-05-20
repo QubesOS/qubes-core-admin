@@ -26,7 +26,7 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
             'private': {
                 'name': 'private',
                 'pool': 'default',
-                'volume_type': 'read-write',
+                'volume_type': 'origin',
                 'size': defaults['private_img_size'],
             },
             'volatile': {

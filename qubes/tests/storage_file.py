@@ -162,12 +162,13 @@ class TC_01_FileVolumes(SystemTestsMixin, QubesTestCase):
 
         volumes = vm.volumes
         self.assertIsInstance(volumes['root'], SnapshotFile)
-        self.assertIsInstance(volumes['private'], ReadWriteFile)
+        self.assertIsInstance(volumes['private'], OriginFile)
         self.assertIsInstance(volumes['volatile'], VolatileFile)
         expected = vm.template.dir_path + '/root.img:' + vm.template.dir_path \
             + '/root-cow.img'
         self.assertVolumePath(vm, 'root', expected, rw=False)
-        expected = vm.dir_path + '/private.img'
+        expected = vm.dir_path + '/private.img:' + \
+            vm.dir_path + '/private-cow.img'
         self.assertVolumePath(vm, 'private', expected, rw=True)
         expected = vm.dir_path + '/volatile.img'
         self.assertVolumePath(vm, 'volatile', expected, rw=True)
@@ -264,9 +265,17 @@ class TC_03_FilePool(SystemTestsMixin, QubesTestCase):
 
         expected_vmdir = os.path.join(self.APPVMS_DIR, vm.name)
 
-        expected_private_path = os.path.join(expected_vmdir, 'private.img')
-        self.assertEqualsAndExists(vm.volumes['private'].path,
-                                   expected_private_path)
+        expected_private_origin_path = \
+            os.path.join(expected_vmdir, 'private.img')
+        expected_private_cow_path = \
+            os.path.join(expected_vmdir, 'private-cow.img')
+        expected_private_path = '%s:%s' % (expected_private_origin_path,
+                                        expected_private_cow_path)
+        self.assertEquals(vm.volumes['private'].path, expected_private_path)
+        self.assertEqualsAndExists(vm.volumes['private'].path_origin,
+            expected_private_origin_path)
+        self.assertEqualsAndExists(vm.volumes['private'].path_cow,
+            expected_private_cow_path)
 
         expected_volatile_path = os.path.join(expected_vmdir, 'volatile.img')
         self.assertEqualsAndExists(vm.volumes['volatile'].path,
