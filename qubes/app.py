@@ -382,7 +382,7 @@ class VMCollection(object):
     values = vms
 
 
-    def add(self, value):
+    def add(self, value, _enable_events=True):
         '''Add VM to collection
 
         :param qubes.vm.BaseVM value: VM to add
@@ -404,8 +404,9 @@ class VMCollection(object):
                 'name={!r} ({!r})'.format(value.name, self[value.name]))
 
         self._dict[value.qid] = value
-        value.events_enabled = True
-        self.app.fire_event('domain-add', value)
+        if _enable_events:
+            value.events_enabled = True
+            self.app.fire_event('domain-add', value)
 
         return value
 
@@ -659,11 +660,12 @@ class Qubes(qubes.PropertyHolder):
             vm = cls(self, node)
             vm.load_properties(load_stage=2)
             vm.init_log()
-            self.domains.add(vm)
+            self.domains.add(vm, _enable_events=False)
 
         if 0 not in self.domains:
-            self.domains.add(qubes.vm.adminvm.AdminVM(
-                self, None, qid=0, name='dom0'))
+            self.domains.add(
+                qubes.vm.adminvm.AdminVM(self, None, qid=0, name='dom0'),
+                _enable_events=False)
 
         # stage 3: load global properties
         self.load_properties(load_stage=3)
