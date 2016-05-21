@@ -126,24 +126,16 @@ class VirConnectWrapper(object):
 class VMMConnection(object):
     '''Connection to Virtual Machine Manager (libvirt)'''
 
-    def __init__(self):
+    def __init__(self, offline_mode=False):
         self._libvirt_conn = None
         self._xs = None
         self._xc = None
-        self._offline_mode = False
+        self._offline_mode = offline_mode
 
     @property
     def offline_mode(self):
         '''Check or enable offline mode (do not actually connect to vmm)'''
         return self._offline_mode
-
-    @offline_mode.setter
-    def offline_mode(self, value):
-        if value and self._libvirt_conn is not None:
-            raise qubes.exc.QubesException(
-                'Cannot change offline mode while already connected')
-
-        self._offline_mode = value
 
     def _libvirt_error_handler(self, ctx, error):
         pass
@@ -563,7 +555,7 @@ class Qubes(qubes.PropertyHolder):
         default=True,
         doc='check for updates inside qubes')
 
-    def __init__(self, store=None, load=True, **kwargs):
+    def __init__(self, store=None, load=True, offline_mode=False, **kwargs):
         #: logger instance for logging global messages
         self.log = logging.getLogger('app')
 
@@ -579,7 +571,7 @@ class Qubes(qubes.PropertyHolder):
         self.pools = {}
 
         #: Connection to VMM
-        self.vmm = VMMConnection()
+        self.vmm = VMMConnection(offline_mode=offline_mode)
 
         #: Information about host system
         self.host = QubesHost(self)

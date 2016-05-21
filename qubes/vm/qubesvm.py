@@ -1324,6 +1324,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         :rtype: bool
         '''
 
+        if self.app.vmm.offline_mode:
+            return False
+
         # TODO context manager #1693
         return self.libvirt_domain and self.libvirt_domain.isActive()
 
