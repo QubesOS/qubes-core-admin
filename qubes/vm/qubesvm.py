@@ -595,11 +595,20 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     def on_property_pre_set_autostart(self, event, prop, value,
             oldvalue=None):
         # pylint: disable=unused-argument
-        if subprocess.call(['sudo', 'systemctl',
-                ('enable' if value else 'disable'),
-                'qubes-vm@{}.service'.format(self.name)]):
+        # workaround https://bugzilla.redhat.com/show_bug.cgi?id=1181922
+        if value:
+            retcode = subprocess.call(
+                ["sudo", "ln", "-sf",
+                 "/usr/lib/systemd/system/qubes-vm@.service",
+                 "/etc/systemd/system/multi-user.target.wants/qubes-vm@{"
+                 "}".format(self.name)])
+        else:
+            retcode = subprocess.call(
+                ['sudo', 'systemctl', 'disable',
+                    'qubes-vm@{}.service'.format(self.name)])
+        if retcode:
             raise qubes.exc.QubesException(
-                'Failed to set autostart for VM via systemctl')
+                'Failed to set autostart for VM in systemd')
 
 
     @qubes.events.handler('device-pre-attach:pci')
