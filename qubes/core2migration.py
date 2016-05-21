@@ -121,19 +121,8 @@ class Core2Qubes(qubes.Qubes):
             self.log.error(err)
             return False
 
-        self.labels = {
-            1: qubes.Label(1, '0xcc0000', 'red'),
-            2: qubes.Label(2, '0xf57900', 'orange'),
-            3: qubes.Label(3, '0xedd400', 'yellow'),
-            4: qubes.Label(4, '0x73d216', 'green'),
-            5: qubes.Label(5, '0x555753', 'gray'),
-            6: qubes.Label(6, '0x3465a4', 'blue'),
-            7: qubes.Label(7, '0x75507b', 'purple'),
-            8: qubes.Label(8, '0x000000', 'black'),
-        }
+        self.load_initial_values()
 
-        self.domains.add(qubes.vm.adminvm.AdminVM(
-            self, None, qid=0, name='dom0'))
 
         vm_classes = ["TemplateVm", "TemplateHVm",
             "AppVm", "HVm", "NetVm", "ProxyVm"]
