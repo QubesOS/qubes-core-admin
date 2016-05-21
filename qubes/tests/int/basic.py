@@ -104,7 +104,7 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
                 qubes.config.system_path['qubes_base_dir'],
                 qubes.config.system_path['qubes_appvms_dir'], newname))
         self.assertEqual(self.vm.conf_file,
-            os.path.join(self.vm.dir_path, newname + '.conf'))
+            os.path.join(self.vm.dir_path, 'libvirt.xml'))
         self.assertTrue(os.path.exists(
             os.path.join(self.vm.dir_path, "apps", newname + "-vm.directory")))
         # FIXME: set whitelisted-appmenus.list first
