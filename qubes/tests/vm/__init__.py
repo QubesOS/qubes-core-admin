@@ -46,7 +46,12 @@ class TestApp(qubes.tests.TestEmitter):
 
     def get_label(self, label):
         # pylint: disable=unused-argument
-        return self.labels[1]
+        if label in self.labels:
+            return self.labels[label]
+        for l in self.labels.values():
+            if l.name == label:
+                return l
+        raise KeyError(label)
 
     def __init__(self):
         super(TestApp, self).__init__()
