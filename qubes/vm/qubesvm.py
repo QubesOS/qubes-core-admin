@@ -93,6 +93,10 @@ def _setter_name(self, prop, value):
     except AttributeError:
         pass
 
+    if value in self.app.domains:
+        raise qubes.exc.QubesException(
+            'VM named {} alread exists'.format(value))
+
     return value
 
 
@@ -124,6 +128,12 @@ def _setter_label(self, prop, value):
         return self.app.labels[int(value.split('-', 1)[1])]
 
     return self.app.get_label(value)
+
+def _setter_positive_int(self, prop, value):
+    value = int(value)
+    if value <= 0:
+        raise ValueError('Value must be positive')
+    return value
 
 
 class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
@@ -185,11 +195,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             package manager.''')
 
     memory = qubes.property('memory', type=int,
+        setter=_setter_positive_int,
         default=(lambda self:
             qubes.config.defaults['hvm_memory' if self.hvm else 'memory']),
         doc='Memory currently available for this VM.')
 
     maxmem = qubes.property('maxmem', type=int,
+        setter=_setter_positive_int,
         default=(lambda self: self.app.host.memory_total / 1024 / 2),
         doc='''Maximum amount of memory available for this VM (for the purpose
             of the memory balancer).''')
@@ -202,6 +214,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     # FIXME self.app.host could not exist - only self.app.vm required by API
     vcpus = qubes.property('vcpus',
         type=int,
+        setter=_setter_positive_int,
         default=(lambda self: self.app.host.no_cpus),
         ls_width=2,
         doc='FIXME')
@@ -252,6 +265,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 #           return self._default_user
 
     qrexec_timeout = qubes.property('qrexec_timeout', type=int, default=60,
+        setter=_setter_positive_int,
         ls_width=3,
         doc='''Time in seconds after which qrexec connection attempt is deemed
             failed. Operating system inside VM should be able to boot in this

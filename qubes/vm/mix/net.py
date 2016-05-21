@@ -26,14 +26,24 @@
 
 import libvirt
 import lxml.etree
+import re
 
 import qubes
 import qubes.events
 import qubes.exc
 
+def _setter_mac(self, prop, value):
+    if not isinstance(value, basestring):
+        raise ValueError('MAC address must be a string')
+    value = value.lower()
+    if re.match(r"^([0-9a-f][0-9a-f]:){5}[0-9a-f][0-9a-f]$", value) is None:
+        raise ValueError('Invalid MAC address value')
+    return value
+
 class NetVMMixin(qubes.events.Emitter):
     mac = qubes.property('mac', type=str,
         default='00:16:3E:5E:6C:00',
+        setter=_setter_mac,
         ls_width=17,
         doc='MAC address of the NIC emulated inside VM')
 
