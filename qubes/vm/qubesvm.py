@@ -597,7 +597,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self.autostart = self.autostart
 
     @qubes.events.handler('property-pre-set:autostart')
-    def on_property_pre_set_autostart(self, event, prop, name, value,
+    def on_property_pre_set_autostart(self, event, prop, value,
             oldvalue=None):
         # pylint: disable=unused-argument
         if subprocess.call(['sudo', 'systemctl',

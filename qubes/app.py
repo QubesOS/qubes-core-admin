@@ -994,4 +994,4 @@ class Qubes(qubes.PropertyHolder):
             if vm.provides_network and vm.property_is_default('netvm'):
                 # fire property-del:netvm as it is responsible for resetting
                 # netvm to it's default value
-                vm.fire_event('property-del:netvm', 'netvm', newvalue, oldvalue)
+                vm.fire_event('property-del:netvm', 'netvm', oldvalue)

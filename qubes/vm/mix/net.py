@@ -180,7 +180,7 @@ class NetVMMixin(qubes.events.Emitter):
 
 
     @qubes.events.handler('domain-pre-shutdown')
-    def shutdown_net(self, force=False):
+    def shutdown_net(self, event, force=False):
         connected_vms = [vm for vm in self.connected_vms if vm.is_running()]
         if connected_vms and not force:
             raise qubes.exc.QubesVMError(
@@ -272,7 +272,7 @@ class NetVMMixin(qubes.events.Emitter):
         pass
 
     @qubes.events.handler('property-del:netvm')
-    def on_property_del_netvm(self, event, name, old_netvm):
+    def on_property_del_netvm(self, event, prop, old_netvm=None):
         # pylint: disable=unused-argument
         # we are changing to default netvm
         new_netvm = self.netvm
