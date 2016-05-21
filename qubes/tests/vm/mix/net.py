@@ -22,6 +22,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+import unittest
 
 import qubes
 import qubes.vm.qubesvm
@@ -81,6 +82,7 @@ class TC_00_NetVMMixin(
         self.app.domains = {1: vm, vm: vm}
         self.assertPropertyInvalidValue(vm, 'netvm', vm)
 
+    @unittest.skip('TODO: probably remove')
     def test_290_dispvm_netvm(self):
         vm = self.get_vm()
         self.setup_netvms(vm)
@@ -96,18 +98,21 @@ class TC_00_NetVMMixin(
         # XXX FIXME xml value
         self.assertPropertyValue(vm, 'dispvm_netvm', None, None, 'None')
 
+    @unittest.skip('TODO: probably remove')
     def test_291_dispvm_netvm_invalid(self):
         vm = self.get_vm()
         self.setup_netvms(vm)
         self.assertPropertyInvalidValue(vm, 'dispvm_netvm', 'invalid')
         self.assertPropertyInvalidValue(vm, 'dispvm_netvm', 123)
 
+    @unittest.skip('TODO: probably remove')
     def test_291_dispvm_netvm_netvm(self):
         vm = self.get_vm()
         nonetvm = TestVM(qid=2, app=self.app, name='nonetvm')
         self.app.domains = {1: vm, 2: nonetvm}
         self.assertPropertyInvalidValue(vm, 'dispvm_netvm', nonetvm)
 
+    @unittest.skip('TODO: probably remove')
     def test_291_dispvm_netvm_default(self):
         """Check if vm.dispvm_netvm default is really vm.netvm"""
         vm = self.get_vm()
@@ -117,6 +122,7 @@ class TC_00_NetVMMixin(
         del vm.netvm
         self.assertPropertyDefaultValue(vm, 'dispvm_netvm', self.netvm1)
 
+    @unittest.skip('TODO: probably remove')
     def test_292_dispvm_netvm_loopback(self):
         vm = self.get_vm()
         self.app.domains = {1: vm, vm: vm}

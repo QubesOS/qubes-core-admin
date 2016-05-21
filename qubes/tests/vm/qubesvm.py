@@ -288,11 +288,6 @@ class TC_90_QubesVM(QubesVMTestsMixin,qubes.tests.QubesTestCase):
         self.assertPropertyInvalidValue(vm, 'memory', -100)
         self.assertPropertyInvalidValue(vm, 'memory', '-100')
         self.assertPropertyInvalidValue(vm, 'memory', '')
-
-    def test_162_memory_more_than_host(self):
-        vm = self.get_vm()
-        self.assertPropertyInvalidValue(vm, 'memory',
-            2 * self.app.host.memory_total)
         # TODO: higher than maxmem
         # TODO: human readable setter (500M, 4G)?
 
@@ -311,11 +306,6 @@ class TC_90_QubesVM(QubesVMTestsMixin,qubes.tests.QubesTestCase):
         self.assertPropertyInvalidValue(vm, 'maxmem', -100)
         self.assertPropertyInvalidValue(vm, 'maxmem', '-100')
         self.assertPropertyInvalidValue(vm, 'maxmem', '')
-
-    def test_172_maxmem_more_than_host(self):
-        vm = self.get_vm()
-        self.assertPropertyInvalidValue(vm, 'maxmem',
-            2 * self.app.host.memory_total)
         # TODO: lower than memory
         # TODO: human readable setter (500M, 4G)?
 
@@ -337,8 +327,6 @@ class TC_90_QubesVM(QubesVMTestsMixin,qubes.tests.QubesTestCase):
         self.assertPropertyInvalidValue(vm, 'vcpus', -2)
         self.assertPropertyInvalidValue(vm, 'vcpus', '-2')
         self.assertPropertyInvalidValue(vm, 'vcpus', '')
-        self.assertPropertyInvalidValue(vm, 'vcpus',
-            2 * self.app.host.no_cpus)
 
     def test_200_debug(self):
         vm = self.get_vm()
@@ -351,10 +339,6 @@ class TC_90_QubesVM(QubesVMTestsMixin,qubes.tests.QubesTestCase):
     def test_220_include_in_backups(self):
         vm = self.get_vm()
         self._test_generic_bool_property(vm, 'include_in_backups', True)
-
-    def test_230_backup_content(self):
-        vm = self.get_vm()
-        self._test_generic_bool_property(vm, 'backup_content', False)
 
     def test_240_firewall_conf(self):
         vm = self.get_vm()
