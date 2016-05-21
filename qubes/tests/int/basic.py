@@ -100,7 +100,9 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             self.vm.name = newname
         self.assertEqual(self.vm.name, newname)
         self.assertEqual(self.vm.dir_path,
-            os.path.join(qubes.config.system_path['qubes_appvms_dir'], newname))
+            os.path.join(
+                qubes.config.system_path['qubes_base_dir'],
+                qubes.config.system_path['qubes_appvms_dir'], newname))
         self.assertEqual(self.vm.conf_file,
             os.path.join(self.vm.dir_path, newname + '.conf'))
         self.assertTrue(os.path.exists(
