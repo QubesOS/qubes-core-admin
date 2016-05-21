@@ -60,11 +60,12 @@ class Core2Qubes(qubes.Qubes):
             raise ValueError("store path required")
         super(Core2Qubes, self).__init__(store, load, **kwargs)
 
-    def load_globals(self, element):
+    def load_default_template(self, element):
         default_template = element.get("default_template")
         self.default_template = int(default_template) \
             if default_template.lower() != "none" else None
 
+    def load_globals(self, element):
         default_netvm = element.get("default_netvm")
         if default_netvm is not None:
             self.default_netvm = int(default_netvm) \
@@ -85,7 +86,6 @@ class Core2Qubes(qubes.Qubes):
             self.clockvm = int(clockvm) \
                 if clockvm != "None" else None
 
-        self.default_kernel = element.get("default_kernel")
 
     def set_netvm_dependency(self, element):
         kwargs = {}
@@ -110,6 +110,72 @@ class Core2Qubes(qubes.Qubes):
 
         # TODO: dispvm_netvm
 
+    def import_core2_vm(self, element):
+        vm_class_name = element.tag
+        try:
+            kwargs = {}
+            if vm_class_name in ["TemplateVm", "TemplateHVm"]:
+                vm_class = qubes.vm.templatevm.TemplateVM
+            elif element.get('template_qid').lower() == "none":
+                kwargs['dir_path'] = element.get('dir_path')
+                vm_class = StandaloneVM
+            else:
+                kwargs['dir_path'] = element.get('dir_path')
+                kwargs['template'] = int(element.get('template_qid'))
+                vm_class = AppVM
+            # simple attributes
+            for attr in ['installed_by_rpm', 'include_in_backups',
+                    'qrexec_timeout', 'internal', 'label', 'name',
+                    'vcpus', 'memory', 'maxmem', 'default_user',
+                    'debug', 'pci_strictreset', 'mac', 'autostart']:
+                value = element.get(attr)
+                if value:
+                    kwargs[attr] = value
+            # attributes with default value
+            for attr in ["kernel", "kernelopts"]:
+                value = element.get(attr)
+                if value and value.lower() == "none":
+                    value = None
+                value_is_default = element.get(
+                    "uses_default_{}".format(attr))
+                if value_is_default and value_is_default.lower() != \
+                        "true":
+                    kwargs[attr] = value
+            kwargs['hvm'] = "HVm" in vm_class_name
+            vm = self.add_new_vm(vm_class,
+                qid=int(element.get('qid')), **kwargs)
+            services = element.get('services')
+            if services:
+                services = eval(services)
+            else:
+                services = {}
+            for service, value in services.iteritems():
+                feature = service
+                for repl_feature, repl_service in \
+                        qubes.ext.r3compatibility.\
+                        R3Compatibility.features_to_services.\
+                        iteritems():
+                    if repl_service == service:
+                        feature = repl_feature
+                vm.features[feature] = value
+            for attr in ['backup_content', 'backup_path',
+                'backup_size']:
+                value = element.get(attr)
+                vm.features[attr.replace('_', '-')] = value
+            pcidevs = element.get('pcidevs')
+            if pcidevs:
+                pcidevs = eval(pcidevs)
+            for pcidev in pcidevs:
+                try:
+                    vm.devices["pci"].attach(pcidev)
+                except qubes.exc.QubesException as e:
+                    self.log.error("VM {}: {}".format(vm.name, str(e)))
+        except (ValueError, LookupError) as err:
+            self.log.error("import error ({1}): {2}".format(
+                vm_class_name, err))
+            if 'vm' in locals():
+                del self.domains[vm]
+
     def load(self):
         qubes_store_file = open(self._store, 'r')
 
@@ -123,78 +189,27 @@ class Core2Qubes(qubes.Qubes):
 
         self.load_initial_values()
 
+        self.default_kernel = tree.getroot().get("default_kernel")
 
         vm_classes = ["TemplateVm", "TemplateHVm",
             "AppVm", "HVm", "NetVm", "ProxyVm"]
-        for (vm_class_name) in vm_classes:
+        # First load templates
+        for vm_class_name in ["TemplateVm", "TemplateHVm"]:
+            vms_of_class = tree.findall("Qubes" + vm_class_name)
+            for element in vms_of_class:
+                self.import_core2_vm(element)
+
+        # Then set default template ...
+        self.load_default_template(tree.getroot())
+
+        # ... and load other VMs
+        for vm_class_name in ["AppVm", "HVm", "NetVm", "ProxyVm"]:
             vms_of_class = tree.findall("Qubes" + vm_class_name)
             # first non-template based, then template based
             sorted_vms_of_class = sorted(vms_of_class,
                 key=lambda x: str(x.get('template_qid')).lower() != "none")
             for element in sorted_vms_of_class:
-                try:
-                    kwargs = {}
-                    if vm_class_name in ["TemplateVm", "TemplateHVm"]:
-                        vm_class = qubes.vm.templatevm.TemplateVM
-                    elif element.get('template_qid').lower() == "none":
-                        kwargs['dir_path'] = element.get('dir_path')
-                        vm_class = StandaloneVM
-                    else:
-                        kwargs['dir_path'] = element.get('dir_path')
-                        kwargs['template'] = int(element.get('template_qid'))
-                        vm_class = AppVM
-                    # simple attributes
-                    for attr in ['installed_by_rpm', 'include_in_backups',
-                            'qrexec_timeout', 'internal', 'label', 'name',
-                            'vcpus', 'memory', 'maxmem', 'default_user',
-                            'debug', 'pci_strictreset', 'mac', 'autostart']:
-                        value = element.get(attr)
-                        if value:
-                            kwargs[attr] = value
-                    # attributes with default value
-                    for attr in ["kernel", "kernelopts"]:
-                        value = element.get(attr)
-                        if value and value.lower() == "none":
-                            value = None
-                        value_is_default = element.get(
-                            "uses_default_{}".format(attr))
-                        if value_is_default and value_is_default.lower() != \
-                                "true":
-                            kwargs[attr] = value
-                    kwargs['hvm'] = "HVm" in vm_class_name
-                    vm = self.add_new_vm(vm_class,
-                        qid=int(element.get('qid')), **kwargs)
-                    services = element.get('services')
-                    if services:
-                        services = eval(services)
-                    else:
-                        services = {}
-                    for service, value in services.iteritems():
-                        feature = service
-                        for repl_feature, repl_service in \
-                                qubes.ext.r3compatibility.\
-                                R3Compatibility.features_to_services.\
-                                iteritems():
-                            if repl_service == service:
-                                feature = repl_feature
-                        vm.features[feature] = value
-                    for attr in ['backup_content', 'backup_path',
-                        'backup_size']:
-                        value = element.get(attr)
-                        vm.features[attr.replace('_', '-')] = value
-                    pcidevs = element.get('pcidevs')
-                    if pcidevs:
-                        pcidevs = eval(pcidevs)
-                    for pcidev in pcidevs:
-                        try:
-                            vm.devices["pci"].attach(pcidev)
-                        except qubes.exc.QubesException as e:
-                            self.log.error("VM {}: {}".format(vm.name, str(e)))
-                except (ValueError, LookupError) as err:
-                    self.log.error("import error ({1}): {2}".format(
-                        vm_class_name, err))
-                    if 'vm' in locals():
-                        del self.domains[vm]
+                self.import_core2_vm(element)
 
         # After importing all VMs, set netvm references, in the same order
         for vm_class_name in vm_classes:
@@ -205,6 +220,7 @@ class Core2Qubes(qubes.Qubes):
                     self.log.error("VM {}: failed to set netvm dependency: {}".
                         format(element.get('name'), err))
 
+        # and load other defaults (default netvm, updatevm etc)
         self.load_globals(tree.getroot())
 
     def save(self):
