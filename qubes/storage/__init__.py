@@ -149,8 +149,6 @@ class Storage(object):
 
         old_umask = os.umask(002)
 
-        self.log.info('Creating directory: {0}'.format(self.vm.dir_path))
-        os.makedirs(self.vm.dir_path)
         for name, volume in self.vm.volumes.items():
             source_volume = None
             if source_template and hasattr(source_template, 'volumes'):
@@ -195,6 +193,7 @@ class Storage(object):
             Errors on removal are catched and logged.
         '''
         for name, volume in self.vm.volumes.items():
+            self.log.info('Removing volume %s: %s' % (name, volume.vid))
             try:
                 self.get_pool(volume).remove(volume)
             except (IOError, OSError) as e:

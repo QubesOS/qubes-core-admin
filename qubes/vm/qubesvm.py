@@ -1092,6 +1092,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             # pylint: disable=no-member
             source_template = self.template
 
+        self.log.info('Creating directory: {0}'.format(self.dir_path))
+        os.makedirs(self.dir_path, mode=0o775)
+
         self.storage.create_on_disk(source_template)
 
         self.log.info('Creating icon symlink: {} -> {}'.format(
