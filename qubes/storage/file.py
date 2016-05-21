@@ -109,9 +109,10 @@ class FilePool(Pool):
 
     def remove(self, volume):
         if volume.volume_type in ['read-write', 'volatile']:
-            _remove_if_exists(volume)
+            _remove_if_exists(volume.path)
         elif volume.volume_type == 'origin':
-            _remove_if_exists(volume)
+            _remove_if_exists(volume.path)
+            _remove_if_exists(volume.path_cow)
 
     def rename(self, volume, old_name, new_name):
         assert issubclass(volume.__class__, FileVolume)
@@ -188,7 +189,7 @@ class FilePool(Pool):
 
         assert volume.size
 
-        _remove_if_exists(volume)
+        _remove_if_exists(volume.path)
 
         with open(volume.path, "w") as f_volatile:
             f_volatile.truncate(volume.size)
@@ -412,7 +413,7 @@ class VolatileFile(SizeMixIn):
 
     def rename_target_dir(self, new_dir):
         ''' Called by :py:class:`FilePool` when a domain changes it's name '''
-        _remove_if_exists(self)
+        _remove_if_exists(self.path)
         file_name = os.path.basename(self.path)
         self.target_dir = new_dir
         new_path = os.path.join(new_dir, file_name)
@@ -502,11 +503,9 @@ def copy_file(source, destination):
                                                                 destination))
 
 
-def _remove_if_exists(volume):
-    if os.path.exists(volume.path):
-        os.remove(volume.path)
-    if volume.volume_type == 'origin':
-        os.remove(volume.path_cow)
+def _remove_if_exists(path):
+    if os.path.exists(path):
+        os.remove(path)
 
 
 def _check_path(path):
