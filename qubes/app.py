@@ -772,10 +772,7 @@ class Qubes(qubes.PropertyHolder):
         self.__load_timestamp = os.path.getmtime(self._store)
         os.close(fd_old)
 
-
-    @classmethod
-    def create_empty_store(cls, *args, **kwargs):
-        self = cls(*args, load=False, **kwargs)
+    def load_initial_values(self):
         self.labels = {
             1: qubes.Label(1, '0xcc0000', 'red'),
             2: qubes.Label(2, '0xf57900', 'orange'),
@@ -792,6 +789,11 @@ class Qubes(qubes.PropertyHolder):
 
         self.domains.add(
             qubes.vm.adminvm.AdminVM(self, None, qid=0, name='dom0'))
+
+    @classmethod
+    def create_empty_store(cls, *args, **kwargs):
+        self = cls(*args, load=False, **kwargs)
+        self.load_initial_values()
         self.save()
 
         return self
