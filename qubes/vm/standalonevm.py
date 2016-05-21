@@ -24,8 +24,35 @@
 
 import qubes.events
 import qubes.vm.qubesvm
+import qubes.config
 
 class StandaloneVM(qubes.vm.qubesvm.QubesVM):
     '''Standalone Application VM'''
 
-    pass
+    def __init__(self, *args, **kwargs):
+        self.volume_config = {
+            'root': {
+                'name': 'root',
+                'pool': 'default',
+                'volume_type': 'origin',
+                'size': qubes.config.defaults['root_img_size'],
+            },
+            'private': {
+                'name': 'private',
+                'pool': 'default',
+                'volume_type': 'origin',
+                'size': qubes.config.defaults['private_img_size'],
+            },
+            'volatile': {
+                'name': 'volatile',
+                'pool': 'default',
+                'volume_type': 'volatile',
+                'size': qubes.config.defaults['root_img_size'],
+            },
+            'kernel': {
+                'name': 'kernel',
+                'pool': 'linux-kernel',
+                'volume_type': 'read-only',
+            }
+        }
+        super(StandaloneVM, self).__init__(*args, **kwargs)
