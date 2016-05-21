@@ -840,7 +840,7 @@ class BackupTestsMixin(SystemTestsMixin):
                                       name=vmname,
                                       hvm=True,
                                       label='red')
-        testvm2.create_on_disk(verbose=self.verbose)
+        testvm2.create_on_disk()
         self.fill_image(testvm2.volumes['root'].vid, 1024 * 1024 * 1024, True)
         vms.append(testvm2)
 
