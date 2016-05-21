@@ -16,7 +16,6 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
                                 doc='Template, on which this AppVM is based.')
 
     def __init__(self, *args, **kwargs):
-        self.volumes = {}
         self.volume_config = {
             'root': {
                 'name': 'root',

@@ -434,6 +434,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     def __init__(self, app, xml, volume_config={}, **kwargs):
         super(QubesVM, self).__init__(app, xml, **kwargs)
+        self.volumes = {}
         if hasattr(self, 'volume_config'):
             if xml is not None:
                 for node in xml.xpath('volume-config/volume'):

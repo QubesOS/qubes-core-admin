@@ -30,7 +30,6 @@ class TemplateVM(QubesVM):
 
     def __init__(self, *args, **kwargs):
         assert 'template' not in kwargs, "A TemplateVM can not have a template"
-        self.volumes = {}
         self.volume_config = {
             'root': {
                 'name': 'root',

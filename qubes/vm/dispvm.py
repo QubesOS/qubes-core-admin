@@ -20,7 +20,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         doc='''Internal, persistent identifier of particular DispVM.''')
 
     def __init__(self, *args, **kwargs):
-        self.volumes = {}
         self.volume_config = {
             'root': {
                 'name': 'root',
