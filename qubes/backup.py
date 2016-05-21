@@ -41,6 +41,7 @@ from multiprocessing import Queue, Process
 import qubes
 import qubes.core2migration
 import qubes.storage
+import qubes.storage.file
 
 QUEUE_ERROR = "ERROR"
 
@@ -214,7 +215,7 @@ class SendWorker(Process):
 class Backup(object):
     class FileToBackup(object):
         def __init__(self, file_path, subdir=None):
-            sz = qubes.storage.get_disk_usage(file_path)
+            sz = qubes.storage.file.get_disk_usage(file_path)
 
             if subdir is None:
                 abs_file_path = os.path.abspath(file_path)
