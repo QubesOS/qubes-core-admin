@@ -338,9 +338,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         try:
             self._libvirt_domain = self.app.vmm.libvirt_conn.lookupByUUID(
                 self.uuid.bytes)
-        except libvirt.libvirtError:
-            if self.app.vmm.libvirt_conn.virConnGetLastError()[0] == \
-                    libvirt.VIR_ERR_NO_DOMAIN:
+        except libvirt.libvirtError as e:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 self._update_libvirt_domain()
             else:
                 raise
@@ -462,8 +461,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     self.volume_config[name][k] = v
         elif volume_config:
             raise TypeError(
-                'volume_config specified, but {} did not expect that.' %
-                self.__class__.__name__)
+                'volume_config specified, but {} did not expect that.'.format(
+                self.__class__.__name__))
 
         import qubes.vm.adminvm  # pylint: disable=redefined-outer-name
 
@@ -929,8 +928,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             call_kwargs['stdout'] = null
 
         if passio_popen:
-            popen_kwargs = {'stdout': subprocess.PIPE}
-            popen_kwargs['stdin'] = subprocess.PIPE
+            popen_kwargs = {
+                'stdout': subprocess.PIPE,
+                'stdin': subprocess.PIPE
+            }
             if passio_stderr:
                 popen_kwargs['stderr'] = subprocess.PIPE
             else:
