@@ -51,6 +51,8 @@ import qubes.vm
 import qubes.vm.mix.net
 import qubes.tools.qvm_ls
 
+from qubes.storage.domain import DomainPool
+
 qmemman_present = False
 try:
     import qubes.qmemman.client
@@ -516,6 +518,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         # Initialize VM image storage class
         self.storage = qubes.storage.Storage(self)
+        vm_pool = DomainPool(self)
+        self.app.pools[vm_pool.name] = vm_pool
 
 
     @qubes.events.handler('property-set:label')
