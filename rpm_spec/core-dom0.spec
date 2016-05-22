@@ -234,6 +234,7 @@ fi
 %dir %{python_sitelib}/qubes/storage
 %{python_sitelib}/qubes/storage/__init__.py*
 %{python_sitelib}/qubes/storage/file.py*
+%{python_sitelib}/qubes/storage/domain.py*
 %{python_sitelib}/qubes/storage/kernels.py*
 
 %dir %{python_sitelib}/qubes/tools
