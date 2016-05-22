@@ -360,6 +360,13 @@ class QubesArgumentParser(argparse.ArgumentParser):
         for action in self._actions:
             if issubclass(action.__class__, QubesAction):
                 action.parse_qubes_app(self, namespace)
+            elif issubclass(action.__class__, argparse._SubParsersAction):
+                assert hasattr(namespace, 'command')
+                command = namespace.command
+                subparser = action._name_parser_map[command]
+                for subaction in subparser._actions:
+                    if issubclass(subaction.__class__, QubesAction):
+                        subaction.parse_qubes_app(self, namespace)
 
         return namespace
 
