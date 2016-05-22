@@ -489,17 +489,20 @@ class VmNameGroup(argparse._MutuallyExclusiveGroup):
         :py:class:``argparse.ArgumentParser```.
     '''
 
-    def __init__(self, container, required, vm_action=VmNameAction):
+    def __init__(self, container, required, vm_action=VmNameAction, help=None):
+        # pylint: disable=redefined-builtin
         super(VmNameGroup, self).__init__(container, required=required)
-        self.add_argument('--all', action='store_true',
-                          dest='all_domains',
-                          help='perform the action on all qubes')
+        if not help:
+            help = 'perform the action on all qubes'
+        self.add_argument('--all', action='store_true', dest='all_domains',
+                          help=help)
         container.add_argument('--exclude', action='append', default=[],
                                help='exclude the qube from --all')
-        self.add_argument('VMNAME', action=vm_action, nargs='*',
-                          default=[])  # the default parameter is important! see
-                                # https://stackoverflow.com/questions/35044288
-                                # and `argparse.ArgumentParser.parse_args()`
+
+        #  ⚠ the default parameter below is important! ⚠
+        #  See https://stackoverflow.com/questions/35044288 and
+        #  `argparse.ArgumentParser.parse_args()` implementation
+        self.add_argument('VMNAME', action=vm_action, nargs='*', default=[])
 
 
 def print_table(table):
