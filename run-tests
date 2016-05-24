@@ -7,4 +7,4 @@ PYTHONPATH="${TESTPYTHONPATH}:${PYTHONPATH}"
 export PYTHONPATH
 
 "${PYTHON}" setup.py egg_info --egg-base "${TESTPYTHONPATH}"
-"${PYTHON}" -m qubes.tests.run
+"${PYTHON}" -m qubes.tests.run "$@"

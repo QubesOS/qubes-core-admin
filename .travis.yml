@@ -1,0 +1,9 @@
+language: python
+python:
+  - '2.7'
+install: pip install -r ci/requirements.txt
+script:
+  - PYTHONPATH=test-packages pylint --rcfile=ci/pylintrc qubes
+  - ./run-tests --no-syslog
+
+# vim: ts=2 sts=2 sw=2 et
