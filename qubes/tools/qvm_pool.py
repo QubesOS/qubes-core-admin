@@ -99,12 +99,8 @@ class _Remove(argparse.Action):
                                       help='remove pool')
 
     def __call__(self, parser, namespace, name, option_string=None):
-        app = qubes.Qubes(namespace.app)
-        if name in app.pools.keys():
-            setattr(namespace, 'command', 'remove')
-            setattr(namespace, 'name', name)
-        else:
-            parser.error('no such pool %s\n' % name)
+        setattr(namespace, 'command', 'remove')
+        setattr(namespace, 'name', name)
 
 
 class _Add(argparse.Action):
@@ -119,12 +115,8 @@ class _Add(argparse.Action):
                                    help='add pool')
 
     def __call__(self, parser, namespace, values, option_string=None):
-        app = qubes.Qubes(namespace.app)
         name, driver = values
-
-        if name in app.pools.keys():
-            parser.error('pool named %s already exists \n' % name)
-        elif driver not in drivers:
+        if driver not in drivers:
             parser.error('driver %s is unknown \n' % driver)
         else:
             setattr(namespace, 'command', 'add')
@@ -195,15 +187,21 @@ def main(args=None):
     :param list args: Optional arguments to override those delivered from \
         command line.
     '''
-    args = get_parser().parse_args(args)
+    parser = get_parser()
+    args = parser.parse_args(args)
     if args.command is None or args.command == 'list':
         list_pools(args.app)
     elif args.command == 'add':
+        if args.name in args.app.pools.keys():
+            parser.error('pool named %s already exists \n' % args.name)
         args.app.add_pool(name=args.name, driver=args.driver, **args.options)
         args.app.save()
     elif args.command == 'remove':
-        args.app.remove_pool(args.name)
-        args.app.save()
+        if args.name in args.app.pools.keys():
+            args.app.remove_pool(args.name)
+            args.app.save()
+        else:
+            parser.print_error('no such pool %s\n' % args.name)
     elif args.command == 'info':
         pool_info(args.pools)
     return 0
