@@ -26,6 +26,7 @@ import datetime
 import base64
 import hashlib
 import logging
+import grp
 import lxml.etree
 import os
 import os.path
@@ -37,6 +38,7 @@ import time
 import uuid
 import xml.parsers.expat
 import signal
+import pwd
 from qubes import qmemman
 from qubes import qmemman_algo
 import libvirt
@@ -1818,13 +1820,21 @@ class QubesVm(object):
         self.log.debug('start_qrexec_daemon()')
         if verbose:
             print >> sys.stderr, "--> Starting the qrexec daemon..."
+        qrexec = []
+        if os.getuid() == 0:
+            # try to always have qrexec running as normal user, otherwise
+            # many qrexec services would need to deal with root/user
+            # permission problems
+            qubes_group = grp.getgrnam('qubes')
+            qrexec = ['sudo', '-u', qubes_group.gr_mem[0]]
+
+        qrexec += ['env', 'QREXEC_STARTUP_TIMEOUT=' + str(self.qrexec_timeout),
+            system_path["qrexec_daemon_path"]]
+
         qrexec_args = [str(self.xid), self.name, self.default_user]
         if not verbose:
             qrexec_args.insert(0, "-q")
-        qrexec_env = os.environ
-        qrexec_env['QREXEC_STARTUP_TIMEOUT'] = str(self.qrexec_timeout)
-        retcode = subprocess.call ([system_path["qrexec_daemon_path"]] +
-                                   qrexec_args, env=qrexec_env)
+        retcode = subprocess.call(qrexec + qrexec_args)
         if (retcode != 0) :
             raise OSError ("Cannot execute qrexec-daemon!")
 
