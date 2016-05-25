@@ -29,6 +29,7 @@ import unittest
 import lxml.etree
 
 import qubes
+import qubes.app
 import qubes.events
 import qubes.vm
 
