@@ -873,12 +873,14 @@ class Qubes(qubes.PropertyHolder):
 
         raise KeyError(label)
 
-    def add_pool(self, **kwargs):
+    def add_pool(self, name, **kwargs):
         """ Add a storage pool to config."""
-        name = kwargs['name']
-        if 'name' not in kwargs:
-            raise qubes.exc.QubesException('No pool name specified')
 
+        if name in self.pools.keys():
+            raise qubes.exc.QubesException('pool named %s already exists \n' %
+                                           name)
+
+        kwargs['name'] = name
         pool = self._get_pool(**kwargs)
         pool.setup()
         self.pools[name] = pool
