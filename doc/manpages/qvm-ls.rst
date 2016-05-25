@@ -6,8 +6,7 @@
 Synopsis
 --------
 
-:command:`qvm-ls` [*options*]
-
+:command:`qvm-ls` [-h] [--verbose] [--quiet] [--help-columns] [--help-formats] [--format *FORMAT* | --fields *FIELD*,...]
 
 Options
 -------
@@ -35,10 +34,13 @@ Options
    :option:`--format`. All columns along with short descriptions can be listed
    with :option:`--help-columns`.
 
-.. option:: --qubesxml=XMLFILE
+.. option:: --verbose, -v
 
-   Qubes store file
+   Increase verbosity.
 
+.. option:: --quiet, -q
+
+   Decrease verbosity.
 
 Authors
 -------

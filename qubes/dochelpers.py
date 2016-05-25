@@ -28,6 +28,7 @@ This module contains classes and functions which help to maintain documentation,
 particularly our custom Sphinx extension.
 '''
 
+import argparse
 import csv
 import os
 import posixpath
@@ -40,12 +41,14 @@ import docutils.nodes
 import docutils.parsers.rst
 import docutils.parsers.rst.roles
 import docutils.statemachine
+import qubes.tools
 import sphinx
 import sphinx.errors
 import sphinx.locale
 import sphinx.util.docfields
 
-import qubes.tools
+SUBCOMMANDS_TITLE = 'COMMANDS'
+OPTIONS_TITLE = 'OPTIONS'
 
 
 def fetch_ticket_info(uri):
@@ -209,39 +212,24 @@ def prepare_manpage(command):
     return stream.getvalue()
 
 
-class ArgumentCheckVisitor(docutils.nodes.SparseNodeVisitor):
-    def __init__(self, app, command, document):
+class OptionsCheckVisitor(docutils.nodes.SparseNodeVisitor):
+    ''' Checks if the visited option nodes and the specified args are in sync.
+    '''
+    def __init__(self, command, args, document):
+        assert isinstance(args, set)
         docutils.nodes.SparseNodeVisitor.__init__(self, document)
-
-        self.app = app
         self.command = command
-        self.args = set()
-
-        try:
-            parser = qubes.tools.get_parser_for_command(command)
-        except ImportError:
-            self.app.warn('cannot import module for command')
-            self.command = None
-            return
-        except AttributeError:
-            raise sphinx.errors.SphinxError('cannot find parser in module')
-
-        # pylint: disable=protected-access
-        for action in parser._actions:
-            self.args.update(action.option_strings)
-
-
-    # pylint: disable=no-self-use,unused-argument
+        self.args = args
 
     def visit_desc(self, node):
+        ''' Skips all but 'option' elements '''
+        # pylint: disable=no-self-use
         if not node.get('desctype', None) == 'option':
             raise docutils.nodes.SkipChildren
 
 
     def visit_desc_name(self, node):
-        if self.command is None:
-            return
-
+        ''' Checks if the option is defined `self.args` '''
         if not isinstance(node[0], docutils.nodes.Text):
             raise sphinx.errors.SphinxError('first child should be Text')
 
@@ -252,18 +240,149 @@ class ArgumentCheckVisitor(docutils.nodes.SparseNodeVisitor):
             raise sphinx.errors.SphinxError(
                 'No such argument for {!r}: {!r}'.format(self.command, arg))
 
+    def check_undocumented_arguments(self, ignored_options=set()):
+        ''' Call this to check if any undocumented arguments are left.
 
-    def depart_document(self, node):
-        if self.args:
+            While the documentation talks about a
+            'SparseNodeVisitor.depart_document()' function, this function does
+            not exists. (For details see implementation of
+            :py:method:`NodeVisitor.dispatch_departure()`) So we need to
+            manually call this.
+        '''
+        left_over_args = self.args - ignored_options
+        if left_over_args:
             raise sphinx.errors.SphinxError(
-                'Undocumented arguments: {!r}'.format(
-                    ', '.join(sorted(self.args))))
+                'Undocumented arguments for command {!r}: {!r}'.format(
+                    self.command, ', '.join(sorted(left_over_args))))
 
+
+class CommandCheckVisitor(docutils.nodes.SparseNodeVisitor):
+    ''' Checks if the visited sub command section nodes and the specified sub
+        command args are in sync.
+    '''
+
+    def __init__(self, command, sub_commands, document):
+        docutils.nodes.SparseNodeVisitor.__init__(self, document)
+        self.command = command
+        self.sub_commands = sub_commands
+
+    def visit_section(self, node):
+        ''' Checks if the visited sub-command section nodes exists and it
+            options are in sync.
+
+            Uses :py:class:`OptionsCheckVisitor` for checking
+            sub-commands options
+        '''
+        # pylint: disable=no-self-use
+        title = str(node[0][0])
+        if title.upper() == SUBCOMMANDS_TITLE:
+            return
+
+        sub_cmd = self.command + ' ' + title
+
+        try:
+            args = self.sub_commands[title]
+            options_visitor = OptionsCheckVisitor(sub_cmd, args, self.document)
+            node.walkabout(options_visitor)
+            options_visitor.check_undocumented_arguments(
+                {'--help', '--quiet', '--verbose', '-h', '-q', '-v'})
+            del self.sub_commands[title]
+        except KeyError:
+            raise sphinx.errors.SphinxError(
+                'No such sub-command {!r}'.format(sub_cmd))
+
+    def visit_Text(self, node):
+        ''' If the visited text node starts with 'alias: ', all the provided
+            comma separted alias in this node, are removed from
+            `self.sub_commands`
+        '''
+        # pylint: disable=invalid-name
+        text = str(node).strip()
+        if text.startswith('aliases:'):
+            aliases = {a.strip() for a in text.split('aliases:')[1].split(',')}
+            for alias in aliases:
+                assert alias in self.sub_commands
+                del self.sub_commands[alias]
+
+
+    def check_undocumented_sub_commands(self):
+        ''' Call this to check if any undocumented sub_commands are left.
+
+            While the documentation talks about a
+            'SparseNodeVisitor.depart_document()' function, this function does
+            not exists. (For details see implementation of
+            :py:method:`NodeVisitor.dispatch_departure()`) So we need to
+            manually call this.
+        '''
+        if self.sub_commands:
+            raise sphinx.errors.SphinxError(
+                'Undocumented commands for {!r}: {!r}'.format(
+                    self.command, ', '.join(sorted(self.sub_commands.keys()))))
+
+
+class ManpageCheckVisitor(docutils.nodes.SparseNodeVisitor):
+    ''' Checks if the sub-commands and options specified in the 'COMMAND' and
+        'OPTIONS' (case insensitve) sections in sync the command parser.
+    '''
+    def __init__(self, app, command, document):
+        docutils.nodes.SparseNodeVisitor.__init__(self, document)
+        try:
+            parser = qubes.tools.get_parser_for_command(command)
+        except ImportError:
+            app.warn('cannot import module for command')
+            self.parser = None
+            return
+        except AttributeError:
+            raise sphinx.errors.SphinxError('cannot find parser in module')
+
+        self.command = command
+        self.parser = parser
+        self.options = set()
+        self.sub_commands = {}
+        self.app = app
+
+        # pylint: disable=protected-access
+        for action in parser._actions:
+            if action.help == argparse.SUPPRESS:
+                continue
+
+            if issubclass(action.__class__,
+                          qubes.tools.AliasedSubParsersAction):
+                for cmd, cmd_parser in action._name_parser_map.items():
+                    self.sub_commands[cmd] = set()
+                    for sub_action in cmd_parser._actions:
+                        if sub_action.help != argparse.SUPPRESS:
+                            self.sub_commands[cmd].update(
+                                sub_action.option_strings)
+            else:
+                self.options.update(action.option_strings)
+
+    def visit_section(self, node):
+        ''' If section title is OPTIONS or COMMANDS dispatch the apropriate
+            `NodeVisitor`.
+        '''
+        if self.parser is None:
+            return
+
+        section_title = str(node[0][0]).upper()
+        if section_title == OPTIONS_TITLE:
+            options_visitor = OptionsCheckVisitor(self.command, self.options,
+                                          self.document)
+            node.walkabout(options_visitor)
+            options_visitor.check_undocumented_arguments()
+        elif section_title == SUBCOMMANDS_TITLE:
+            sub_cmd_visitor = CommandCheckVisitor(
+                self.command, self.sub_commands, self.document)
+            node.walkabout(sub_cmd_visitor)
+            sub_cmd_visitor.check_undocumented_sub_commands()
 
 def check_man_args(app, doctree, docname):
+    ''' Checks the manpage for undocumented or obsolete sub-commands and
+        options.
+    '''
     command = os.path.split(docname)[1]
     app.info('Checking arguments for {!r}'.format(command))
-    doctree.walk(ArgumentCheckVisitor(app, command, doctree))
+    doctree.walk(ManpageCheckVisitor(app, command, doctree))
 
 
 #
