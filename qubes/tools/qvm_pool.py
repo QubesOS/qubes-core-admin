@@ -136,14 +136,8 @@ class _Options(argparse.Action):
             help='comma-separated list of driver options')
 
     def __call__(self, parser, namespace, options, option_string=None):
-        result = {}
-        for option in options.split(','):
-            if option.count('=') != 1:
-                parser.error('option %s should have form option=value' %
-                             option)
-            name, value = option.split('=')
-            result[name] = value
-        setattr(namespace, 'options', result)
+        setattr(namespace, 'options',
+                dict([option.split('=', 1) for option in options.split(',')]))
 
 
 def get_parser():
