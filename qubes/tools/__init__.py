@@ -198,6 +198,40 @@ class VmNameAction(QubesAction):
                 except KeyError:
                     parser.error('no such domain: {!r}'.format(vm_name))
 
+
+class RunningVmNameAction(VmNameAction):
+    ''' Action for argument parser that gets a running domain from VMNAME '''
+    # pylint: disable=too-few-public-methods
+
+    def __init__(self, option_strings, nargs=1, dest='vmnames', help=None,
+                 **kwargs):
+        # pylint: disable=redefined-builtin
+        if help is None:
+            if nargs == argparse.OPTIONAL:
+                help = 'at most one running domain'
+            elif nargs == 1:
+                help = 'running domain name'
+            elif nargs == argparse.ZERO_OR_MORE:
+                help = 'zero or more running domains'
+            elif nargs == argparse.ONE_OR_MORE:
+                help = 'one or more running domains'
+            elif nargs > 1:
+                help = '%s running domains' % nargs
+            else:
+                raise argparse.ArgumentError(
+                    nargs, "Passed unexpected value {!s} as {!s} nargs ".format(
+                        nargs, dest))
+        super(RunningVmNameAction, self).__init__(
+            option_strings, dest=dest, help=help, nargs=nargs, **kwargs)
+
+    def parse_qubes_app(self, parser, namespace):
+        super(RunningVmNameAction, self).parse_qubes_app(parser, namespace)
+        for vm in namespace.domains:
+            if not vm.is_running():
+                parser.error_runtime("domain {!r} is not running".format(
+                    vm.name))
+
+
 class VolumeAction(QubesAction):
     ''' Action for argument parser that gets the
         :py:class:``qubes.storage.Volume`` from a POOL_NAME:VOLUME_ID string.
