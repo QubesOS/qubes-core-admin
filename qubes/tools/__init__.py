@@ -272,25 +272,30 @@ class VolumeAction(QubesAction):
         except ValueError:
             parser.error('expected a pool & volume id combination like foo:bar')
 
+
 class PoolsAction(QubesAction):
     ''' Action for argument parser to gather multiple pools '''
     # pylint: disable=too-few-public-methods
 
     def __call__(self, parser, namespace, values, option_string=None):
         ''' Set ``namespace.vmname`` to ``values`` '''
-        setattr(namespace, self.dest, values)
+        if hasattr(namespace, self.dest) and getattr(namespace, self.dest):
+            names = getattr(namespace, self.dest)
+        else:
+            names = []
+        names += [values]
+        setattr(namespace, self.dest, names)
 
     def parse_qubes_app(self, parser, namespace):
         app = namespace.app
-        name = getattr(namespace, self.dest)
-        if not name:
-            return
-        try:
-            setattr(namespace, self.dest, app.get_pool(name))
-        except qubes.exc.QubesException as e:
-            parser.error(e.message)
-            sys.exit(2)
-
+        pool_names = getattr(namespace, self.dest)
+        if pool_names:
+            try:
+                pools = [app.get_pool(name) for name in pool_names]
+                setattr(namespace, self.dest, pools)
+            except qubes.exc.QubesException as e:
+                parser.error(e.message)
+                sys.exit(2)
 
 
 class QubesArgumentParser(argparse.ArgumentParser):
