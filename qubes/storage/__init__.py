@@ -99,6 +99,9 @@ class Volume(object):
     def __hash__(self):
         return hash('%s:%s %s' % (self.pool, self.vid, self.volume_type))
 
+    def __str__(self):
+        return "{!s}:{!s}".format(self.pool, self.vid)
+
 
 class Storage(object):
     ''' Class for handling VM virtual disks.
