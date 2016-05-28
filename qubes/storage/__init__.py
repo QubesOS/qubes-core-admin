@@ -251,7 +251,7 @@ class Pool(object):
     def __xml__(self):
         return lxml.etree.Element('pool', **self.config)
 
-    def create(self, volume, source_volume):
+    def create(self, volume, source_volume=None):
         ''' Create the given volume on disk or copy from provided
             `source_volume`.
         '''
