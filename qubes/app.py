@@ -911,6 +911,7 @@ class Qubes(qubes.PropertyHolder):
         pool = self._get_pool(**kwargs)
         pool.setup()
         self.pools[name] = pool
+        return pool
 
     def remove_pool(self, name):
         """ Remove a storage pool from config file.  """
