@@ -79,6 +79,7 @@ class DomainPool(Pool):
             else:
                 msg = ("{!s} vm's device path {!s} contains unsafe characters")
                 self.vm.log.error(msg.format(self.vm.name, atr))
+                continue
 
             if name not in devices.keys():
                 devices[name] = {}
