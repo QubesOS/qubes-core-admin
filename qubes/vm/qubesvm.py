@@ -96,7 +96,7 @@ def _setter_name(self, prop, value):
         pass
 
     if value in self.app.domains:
-        raise qubes.exc.QubesException(
+        raise qubes.exc.QubesValueError(
             'VM named {} alread exists'.format(value))
 
     return value
