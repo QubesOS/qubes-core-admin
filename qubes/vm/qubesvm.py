@@ -771,7 +771,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # timeouts on forcible detach at domain destroy; if that fails, too bad
         for pci in self.devices['pci']:
             try:
-                self.libvirt_domain.detachDevice(self.lvxml_pci_dev(pci))
+                self.libvirt_domain.detachDevice(
+                    lxml.etree.tostring(self.lvxml_pci_dev(pci)))
             except libvirt.libvirtError as e:
                 self.log.warning(
                     'error while gracefully detaching PCI device ({!r}) during'
