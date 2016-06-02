@@ -57,3 +57,4 @@ class TestApp(qubes.tests.TestEmitter):
         super(TestApp, self).__init__()
         self.vmm = TestVMM()
         self.host = TestHost()
+        self.pools = {}
