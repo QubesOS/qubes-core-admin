@@ -122,6 +122,7 @@ class FilePool(Pool):
         if not os.path.exists(new_dir):
             os.makedirs(new_dir)
 
+        # FIXME: proper polymorphism
         if volume.volume_type == 'read-write':
             volume.rename_target_dir(new_name, new_dir)
         elif volume.volume_type == 'read-only':
@@ -131,7 +132,8 @@ class FilePool(Pool):
 
         return volume
 
-    def _resize_loop_device(self, path):
+    @staticmethod
+    def _resize_loop_device(path):
         # find loop device if any
         p = subprocess.Popen(
             ['sudo', 'losetup', '--associated', path],
@@ -183,10 +185,10 @@ class FilePool(Pool):
     def stop(self, volume):
         pass
 
-    def _reset_volume(self, volume):
+    @staticmethod
+    def _reset_volume(volume):
         ''' Remove and recreate a volatile volume '''
         assert volume.volume_type == 'volatile', "Not a volatile volume"
-
         assert volume.size
 
         _remove_if_exists(volume.path)
@@ -307,6 +309,7 @@ class ReadWriteFile(SizeMixIn):
 
     def rename_target_dir(self, new_name, new_dir):
         ''' Called by :py:class:`FilePool` when a domain changes it's name '''
+        # pylint: disable=unused-argument
         old_path = self.path
         file_name = os.path.basename(self.path)
         new_path = os.path.join(new_dir, file_name)

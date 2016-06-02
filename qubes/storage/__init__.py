@@ -31,12 +31,12 @@ import os
 import os.path
 
 import pkg_resources
+import lxml.etree
+
 import qubes
 import qubes.exc
 import qubes.utils
-from qubes.devices import BlockDevice
-
-import lxml.etree
+import qubes.devices
 
 STORAGE_ENTRY_POINT = 'qubes.storage'
 
@@ -86,8 +86,8 @@ class Volume(object):
         ''' Return :py:class:`qubes.devices.BlockDevice` for serialization in
             the libvirt XML template as <disk>.
         '''
-        return BlockDevice(self.path, self.name, self.script, self.rw,
-                           self.domain, self.devtype)
+        return qubes.devices.BlockDevice(self.path, self.name, self.script,
+            self.rw, self.domain, self.devtype)
 
 
 class Storage(object):

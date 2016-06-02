@@ -1,8 +1,6 @@
 #!/usr/bin/python2 -O
 # vim: fileencoding=utf-8
 
-import random
-
 import qubes.vm.qubesvm
 import qubes.vm.appvm
 import qubes.config

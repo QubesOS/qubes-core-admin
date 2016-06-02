@@ -41,11 +41,12 @@ import docutils.nodes
 import docutils.parsers.rst
 import docutils.parsers.rst.roles
 import docutils.statemachine
-import qubes.tools
 import sphinx
 import sphinx.errors
 import sphinx.locale
 import sphinx.util.docfields
+
+import qubes.tools
 
 SUBCOMMANDS_TITLE = 'COMMANDS'
 OPTIONS_TITLE = 'OPTIONS'
@@ -240,7 +241,7 @@ class OptionsCheckVisitor(docutils.nodes.SparseNodeVisitor):
             raise sphinx.errors.SphinxError(
                 'No such argument for {!r}: {!r}'.format(self.command, arg))
 
-    def check_undocumented_arguments(self, ignored_options=set()):
+    def check_undocumented_arguments(self, ignored_options=None):
         ''' Call this to check if any undocumented arguments are left.
 
             While the documentation talks about a
@@ -249,6 +250,8 @@ class OptionsCheckVisitor(docutils.nodes.SparseNodeVisitor):
             :py:method:`NodeVisitor.dispatch_departure()`) So we need to
             manually call this.
         '''
+        if ignored_options is None:
+            ignored_options = set()
         left_over_args = self.args - ignored_options
         if left_over_args:
             raise sphinx.errors.SphinxError(

@@ -24,15 +24,17 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
-import libvirt
-import lxml.etree
 import re
+
+import lxml.etree
+import libvirt
 
 import qubes
 import qubes.events
 import qubes.exc
 
 def _setter_mac(self, prop, value):
+    # pylint: disable=unused-argument
     if not isinstance(value, basestring):
         raise ValueError('MAC address must be a string')
     value = value.lower()
@@ -154,7 +156,7 @@ class NetVMMixin(qubes.events.Emitter):
         in its netvm.
 
         This is needed when starting netvm *after* its connected domains.
-        '''
+        ''' # pylint: disable=unused-argument
 
         if self.netvm:
             self.netvm.reload_firewall_for_vm(self)
@@ -170,7 +172,7 @@ class NetVMMixin(qubes.events.Emitter):
                 # 1426
                 vm.run('modprobe -r xen-netfront xennet',
                     user='root', wait=True)
-            except:
+            except:  # pylint: disable=bare-except
                 pass
 
             try:
@@ -181,9 +183,11 @@ class NetVMMixin(qubes.events.Emitter):
 
     @qubes.events.handler('domain-pre-shutdown')
     def shutdown_net(self, event, force=False):
+        # pylint: disable=unused-argument
+
         connected_vms = [vm for vm in self.connected_vms if vm.is_running()]
         if connected_vms and not force:
-            raise qubes.exc.QubesVMError(
+            raise qubes.exc.QubesVMError(self,
                 'There are other VMs connected to this VM: {}'.format(
                     ', '.join(vm.name for vm in connected_vms)))
 
@@ -283,6 +287,7 @@ class NetVMMixin(qubes.events.Emitter):
 
     @qubes.events.handler('property-pre-set:netvm')
     def on_property_pre_set_netvm(self, event, name, new_netvm, old_netvm=None):
+        # pylint: disable=unused-argument
         if new_netvm is None:
             return
 
@@ -334,5 +339,6 @@ class NetVMMixin(qubes.events.Emitter):
     # FIXME use event after creating Xen domain object, but before "resume"
     @qubes.events.handler('firewall-changed')
     def on_firewall_changed(self, event):
+        # pylint: disable=unused-argument
         if self.is_running() and self.netvm:
             self.netvm.reload_firewall_for_vm(self)

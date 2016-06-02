@@ -66,6 +66,7 @@ class _Info(qubes.tools.PoolsAction):
 
     def __init__(self, option_strings, help='print pool info and exit',
                  **kwargs):
+        # pylint: disable=redefined-builtin
         super(_Info, self).__init__(option_strings, help=help, **kwargs)
 
     def __call__(self, parser, namespace, values, option_string=None):

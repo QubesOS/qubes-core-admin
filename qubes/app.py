@@ -37,8 +37,8 @@ import time
 import uuid
 
 import jinja2
-import libvirt
 import lxml.etree
+import libvirt
 
 try:
     import xen.lowlevel.xs
@@ -47,6 +47,7 @@ except ImportError:
     pass
 
 if os.name == 'posix':
+    # pylint: disable=wrong-import-order
     import fcntl
 elif os.name == 'nt':
     # pylint: disable=import-error
@@ -66,6 +67,8 @@ import qubes.vm.templatevm
 
 
 class VirDomainWrapper(object):
+    # pylint: disable=too-few-public-methods
+
     def __init__(self, connection, vm):
         self._connection = connection
         self._vm = vm
@@ -73,6 +76,7 @@ class VirDomainWrapper(object):
     def _reconnect_if_dead(self):
         is_dead = not self._vm.connect().isAlive()
         if is_dead:
+            # pylint: disable=protected-access
             self._connection._reconnect_if_dead()
             self._vm = self._connection._conn.lookupByUUID(self._vm.getUUID())
         return is_dead
@@ -86,7 +90,7 @@ class VirDomainWrapper(object):
         def wrapper(*args, **kwargs):
             try:
                 return attr(*args, **kwargs)
-            except libvirt.libvirtError as e:
+            except libvirt.libvirtError:
                 if self._reconnect_if_dead():
                     return getattr(self._vm, attrname)(*args, **kwargs)
                 raise
@@ -94,6 +98,8 @@ class VirDomainWrapper(object):
 
 
 class VirConnectWrapper(object):
+    # pylint: disable=too-few-public-methods
+
     def __init__(self, uri):
         self._conn = libvirt.open(uri)
 
@@ -117,7 +123,7 @@ class VirConnectWrapper(object):
         def wrapper(*args, **kwargs):
             try:
                 return self._wrap_domain(attr(*args, **kwargs))
-            except libvirt.libvirtError as e:
+            except libvirt.libvirtError:
                 if self._reconnect_if_dead():
                     return self._wrap_domain(
                         getattr(self._conn, attrname)(*args, **kwargs))
@@ -488,7 +494,7 @@ class VMCollection(object):
 
 
     def get_new_unused_dispid(self):
-        for i in range(qubes.config.max_dispid ** 0.5):
+        for _ in range(qubes.config.max_dispid ** 0.5):
             dispid = random.SystemRandom().randrange(qubes.config.max_dispid)
             if not any(getattr(vm, 'dispid', None) == dispid for vm in self):
                 return dispid
@@ -694,9 +700,10 @@ class Qubes(qubes.PropertyHolder):
         # using 123/udp port)
         if hasattr(self, 'clockvm') and self.clockvm is not None:
             if self.clockvm.features.get('services/ntpd', False):
-                self.log.warning("VM set as clockvm ({!r}) has enabled 'ntpd' "
-                    "service! Expect failure when syncing time in dom0.".format(
-                        self.clockvm))
+                self.log.warning(
+                    'VM set as clockvm (%r) has enabled \'ntpd\' service! '
+                    'Expect failure when syncing time in dom0.',
+                    self.clockvm)
             else:
                 self.clockvm.features['services/ntpd'] = ''
 
@@ -828,7 +835,8 @@ class Qubes(qubes.PropertyHolder):
             labels.append(label.__xml__())
         return labels
 
-    def get_vm_class(self, clsname):
+    @staticmethod
+    def get_vm_class(clsname):
         '''Find the class for a domain.
 
         Classess are registered as setuptools' entry points in ``qubes.vm``
@@ -916,7 +924,8 @@ class Qubes(qubes.PropertyHolder):
         except KeyError:
             raise qubes.exc.QubesException('Unknown storage pool ' + name)
 
-    def _get_pool(self, **kwargs):
+    @staticmethod
+    def _get_pool(**kwargs):
         try:
             name = kwargs['name']
             assert name, 'Name needs to be an non empty string'

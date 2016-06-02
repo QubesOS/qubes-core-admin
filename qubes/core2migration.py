@@ -20,8 +20,10 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>
 #
 
-import lxml.etree
+import ast
 import xml.parsers.expat
+
+import lxml.etree
 
 import qubes
 import qubes.vm.appvm
@@ -146,7 +148,7 @@ class Core2Qubes(qubes.Qubes):
                 qid=int(element.get('qid')), **kwargs)
             services = element.get('services')
             if services:
-                services = eval(services)
+                services = ast.literal_eval(services)
             else:
                 services = {}
             for service, value in services.iteritems():
@@ -164,7 +166,7 @@ class Core2Qubes(qubes.Qubes):
                 vm.features[attr.replace('_', '-')] = value
             pcidevs = element.get('pcidevs')
             if pcidevs:
-                pcidevs = eval(pcidevs)
+                pcidevs = ast.literal_eval(pcidevs)
             for pcidev in pcidevs:
                 try:
                     vm.devices["pci"].attach(pcidev)
@@ -182,7 +184,7 @@ class Core2Qubes(qubes.Qubes):
         try:
             qubes_store_file.seek(0)
             tree = lxml.etree.parse(qubes_store_file)
-        except (EnvironmentError,
+        except (EnvironmentError,  # pylint: disable=broad-except
                 xml.parsers.expat.ExpatError) as err:
             self.log.error(err)
             return False

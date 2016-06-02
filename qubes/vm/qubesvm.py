@@ -29,7 +29,6 @@ from __future__ import absolute_import
 import base64
 import datetime
 import itertools
-import lxml
 import os
 import os.path
 import re
@@ -40,25 +39,29 @@ import time
 import uuid
 import warnings
 
+import lxml
 import libvirt
 
 import qubes
 import qubes.config
 import qubes.exc
 import qubes.storage
+import qubes.storage.domain
+import qubes.storage.file
+import qubes.tools.qvm_ls
 import qubes.utils
 import qubes.vm
 import qubes.vm.mix.net
-import qubes.tools.qvm_ls
-
-from qubes.storage.domain import DomainPool
 
 qmemman_present = False
 try:
-    import qubes.qmemman.client
+    import qubes.qmemman.client  # pylint: disable=wrong-import-position
     qmemman_present = True
 except ImportError:
     pass
+
+MEM_OVERHEAD_BASE = (3 + 1) * 1024 * 1024
+MEM_OVERHEAD_PER_VCPU = 3 * 1024 * 1024 / 2
 
 
 def _setter_qid(self, prop, value):
@@ -132,6 +135,7 @@ def _setter_label(self, prop, value):
     return self.app.get_label(value)
 
 def _setter_positive_int(self, prop, value):
+    # pylint: disable=unused-argument
     value = int(value)
     if value <= 0:
         raise ValueError('Value must be positive')
@@ -225,7 +229,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         default='default',
         doc='storage pool for this qube devices')
 
-    dir_path = property( (lambda self: os.path.join(qubes.config.system_path['qubes_base_dir'], self.dir_path_prefix, self.name)),
+    dir_path = property('dir_path',
+        (lambda self: os.path.join(qubes.config.system_path['qubes_base_dir'],
+            self.dir_path_prefix, self.name)),
         doc='Root directory for files related to this domain')
 
     # XXX swallowed uses_default_kernel
@@ -359,7 +365,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         '''QubesDB handle for this domain.'''
         if self._qdb_connection is None:
             if self.is_running():
-                import qubesdb
+                import qubesdb  # pylint: disable=import-error
                 self._qdb_connection = qubesdb.QubesDB(self.name)
         return self._qdb_connection
 
@@ -413,13 +419,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     def is_template(self):
         warnings.warn('vm.is_template() is deprecated, use isinstance()',
             DeprecationWarning)
-        import qubes.vm.templatevm
+        import qubes.vm.templatevm  # pylint: disable=redefined-outer-name
         return isinstance(self, qubes.vm.templatevm.TemplateVM)
 
     def is_appvm(self):
         warnings.warn('vm.is_appvm() is deprecated, use isinstance()',
             DeprecationWarning)
-        import qubes.vm.appvm
+        import qubes.vm.appvm  # pylint: disable=redefined-outer-name
         return isinstance(self, qubes.vm.appvm.AppVM)
 
     def is_proxyvm(self):
@@ -430,7 +436,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     def is_disposablevm(self):
         warnings.warn('vm.is_disposable() is deprecated, use isinstance()',
             DeprecationWarning)
-        import qubes.vm.dispvm
+        import qubes.vm.dispvm  # pylint: disable=redefined-outer-name
         return isinstance(self, qubes.vm.dispvm.DispVM)
 
     def is_netvm(self):
@@ -447,20 +453,25 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     # constructor
     #
 
-    def __init__(self, app, xml, volume_config={}, **kwargs):
+    def __init__(self, app, xml, volume_config=None, **kwargs):
         super(QubesVM, self).__init__(app, xml, **kwargs)
         self.volumes = {}
+        self.storage = None
+        self.volume_config = {}
+
+        if volume_config is None:
+            volume_config = {}
         if hasattr(self, 'volume_config'):
             if xml is not None:
                 for node in xml.xpath('volume-config/volume'):
                     name = node.get('name')
                     assert name
-                    for k, v in node.items():
-                        self.volume_config[name][k] = v
+                    for key, value in node.items():
+                        self.volume_config[name][key] = value
 
             for name, conf in volume_config.items():
-                for k, v in conf.items():
-                    self.volume_config[name][k] = v
+                for key, value in conf.items():
+                    self.volume_config[name][key] = value
         elif volume_config:
             raise TypeError(
                 'volume_config specified, but {} did not expect that.'.format(
@@ -472,7 +483,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self._libvirt_domain = None
         self._qdb_connection = None
-
         if xml is None:
             # we are creating new VM and attributes came through kwargs
             assert hasattr(self, 'qid')
@@ -510,14 +520,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     def __xml__(self):
         element = super(QubesVM, self).__xml__()
+
         if hasattr(self, 'volumes'):
             volume_config_node = lxml.etree.Element('volume-config')
             for volume in self.volumes.values():
                 volume_config_node.append(volume.__xml__())
-
             element.append(volume_config_node)
 
-                
         return element
 
     #
@@ -531,8 +540,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self.uuid = uuid.uuid4()
 
         # Initialize VM image storage class
+        # XXX why not in constructor?
         self.storage = qubes.storage.Storage(self)
-        vm_pool = DomainPool(self)
+        vm_pool = qubes.storage.domain.DomainPool(self)
         self.app.pools[vm_pool.name] = vm_pool
 
 
@@ -1019,9 +1029,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if not qmemman_present:
             return
 
-        MEM_OVERHEAD_BASE = (3 + 1) * 1024 * 1024
-        MEM_OVERHEAD_PER_VCPU = 3 * 1024 * 1024 / 2
-
         if mem_required is None:
             mem_required = int(self.memory) * 1024 * 1024
 
@@ -1143,6 +1150,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # FIXME move this to qubes.storage.xen.XenVMStorage
         retcode = 0
         if self.is_running():
+            # pylint: disable=redefined-variable-type
             retcode = self.run('''
                 while [ "`blockdev --getsize64 /dev/xvdb`" -lt {0} ]; do
                     head /dev/xvdb >/dev/null;
@@ -1408,7 +1416,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         '''Check whether domain is running and sane.
 
         Currently this checks for running qrexec.
-        '''
+        ''' # pylint: disable=unused-argument
 
         # Running gui-daemon implies also VM running
         if not self.is_qrexec_running():
@@ -1531,10 +1539,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         .. seealso:: :py:meth:`get_root_img_sz`
         '''
 
-        warnings.warn(
-            "get_disk_utilization_root_img is deprecated, use volumes['root'].utilization",
-            DeprecationWarning)
-        return qubes.storage.get_disk_usage(self.volumes['root'].utilization)
+        warnings.warn("get_disk_utilization_root_img is deprecated,"
+            " use volumes['root'].utilization", DeprecationWarning)
+        return qubes.storage.file.get_disk_usage(
+            self.volumes['root'].utilization)
 
 
     # XXX shouldn't this go only to vms that have root image?
@@ -1552,7 +1560,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         warnings.warn(
             "get_disk_root_img_sz is deprecated, use volumes['root'].size",
             DeprecationWarning)
-        return qubes.storage.get_disk_usage(self.volumes['root'].size)
+        return qubes.storage.file.get_disk_usage(self.volumes['root'].size)
 
     def get_disk_utilization_private_img(self):
         '''Get space that is actually ocuppied by :py:attr:`volumes['private']`.
@@ -1561,12 +1569,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
            call directly :py:attr:`volumes[name].utilization`
         :returns: domain's real disk image size [FIXME unit]
         :rtype: FIXME
-        '''
+        ''' # pylint: disable=invalid-name
 
-        warnings.warn(
-            "get_disk_utilization_private_img is deprecated, use volumes['private'].utilization",
-            DeprecationWarning)
-        return qubes.storage.get_disk_usage(self.volumes[
+        warnings.warn("get_disk_utilization_private_img is deprecated,"
+            " use volumes['private'].utilization", DeprecationWarning)
+        return qubes.storage.file.get_disk_usage(self.volumes[
             'private'].utilization)
 
     def get_private_img_sz(self):
@@ -1580,10 +1587,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         .. seealso:: :py:meth:`get_disk_utilization_private_img`
         '''
 
-        warnings.warn(
-            "get_disk_private_img_sz is deprecated, use volumes['private'].size",
-            DeprecationWarning)
-        return qubes.storage.get_disk_usage(self.volumes['private'].size)
+        warnings.warn("get_disk_private_img_sz is deprecated,"
+            " use volumes['private'].size", DeprecationWarning)
+        return qubes.storage.file.get_disk_usage(self.volumes['private'].size)
 
     def get_disk_utilization(self):
         '''Return total space actually occuppied by all files belonging to \
@@ -1593,7 +1599,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         :rtype: FIXME
         '''
 
-        return qubes.storage.get_disk_usage(self.dir_path)
+        return qubes.storage.file.get_disk_usage(self.dir_path)
 
     # TODO move to storage
     def verify_files(self):

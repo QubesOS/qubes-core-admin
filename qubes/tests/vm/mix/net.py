@@ -54,6 +54,7 @@ class TC_00_NetVMMixin(
         self.app.default_fw_netvm = self.netvm1
 
 
+    @qubes.tests.skipUnlessDom0
     def test_140_netvm(self):
         vm = self.get_vm()
         self.setup_netvms(vm)

@@ -349,6 +349,7 @@ class TC_90_QubesVM(QubesVMTestsMixin,qubes.tests.QubesTestCase):
         self.assertPropertyDefaultValue(vm, 'firewall_conf',
             'firewall.xml')
 
+    @unittest.expectedFailure
     def test_241_firewall_conf_invalid(self):
         vm = self.get_vm()
         self.assertPropertyInvalidValue(vm, 'firewall_conf', None)

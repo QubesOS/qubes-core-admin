@@ -24,7 +24,11 @@
 
 '''qvm-features - Manage domain's features'''
 
+from __future__ import print_function
+
 import argparse
+import sys
+
 import qubes
 
 parser = qubes.tools.QubesArgumentParser(

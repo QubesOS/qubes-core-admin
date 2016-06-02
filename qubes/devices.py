@@ -110,8 +110,13 @@ class DeviceManager(dict):
 
 
 class RegexDevice(str):
+    regex = None
     def __init__(self, *args, **kwargs):
         super(RegexDevice, self).__init__(*args, **kwargs)
+
+        if self.regex is None:
+            raise NotImplementedError(
+                'You should overload .regex attribute in subclass')
 
         dev_match = self.regex.match(self)
         if not dev_match:
@@ -127,6 +132,7 @@ class PCIDevice(RegexDevice):
 
 
 class BlockDevice(object):
+    # pylint: disable=too-few-public-methods
     def __init__(self, path, name, script=None, rw=True, domain=None,
                  devtype='disk'):
         assert name, 'Missing device name'

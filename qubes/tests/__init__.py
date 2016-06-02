@@ -959,6 +959,9 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
     tests.addTests(loader.discover(
         os.path.join(os.path.dirname(__file__), 'tools')))
 
+    if not in_dom0:
+        return tests
+
     for modname in (
             # integration tests
             'qubes.tests.int.basic',

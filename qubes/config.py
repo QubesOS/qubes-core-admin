@@ -28,9 +28,9 @@
 # make a real /etc/qubes/master.conf or whatever
 #
 
-import os.path
-
 '''Constants which can be configured in one place'''
+
+import os.path
 
 qubes_base_dir = "/var/lib/qubes"
 system_path = {

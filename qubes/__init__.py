@@ -32,10 +32,6 @@ Qubes OS
 
 from __future__ import absolute_import
 
-__author__ = 'Invisible Things Lab'
-__license__ = 'GPLv2 or later'
-__version__ = 'R3'
-
 import collections
 import errno
 import grp
@@ -52,10 +48,13 @@ import jinja2
 import lxml.etree
 import pkg_resources
 
-
 import qubes.config
 import qubes.events
 import qubes.exc
+
+__author__ = 'Invisible Things Lab'
+__license__ = 'GPLv2 or later'
+__version__ = 'R3'
 
 
 class Label(object):
@@ -632,6 +631,7 @@ class PropertyHolder(qubes.events.Emitter):
                 # pylint: disable=no-member
                 self.log.fatal(msg)
 
+# pylint: disable=wrong-import-position
 from qubes.vm import VMProperty
 from qubes.app import Qubes
 

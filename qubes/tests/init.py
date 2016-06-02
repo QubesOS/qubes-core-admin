@@ -25,6 +25,7 @@
 
 import os
 import unittest
+import uuid
 
 import lxml.etree
 
@@ -290,6 +291,7 @@ class TestVM(qubes.vm.BaseVM):
     qid = qubes.property('qid', type=int)
     name = qubes.property('name')
     netid = qid
+    uuid = uuid.uuid5(uuid.NAMESPACE_DNS, 'testvm')
 
 class TestApp(qubes.tests.TestEmitter):
     pass

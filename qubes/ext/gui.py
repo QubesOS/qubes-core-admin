@@ -110,11 +110,12 @@ class GUI(qubes.ext.Extension):
         if vm.hvm:
             guid_cmd += ['-Q', '-n']
 
-            stubdom_guid_pidfile = \
-                '/var/run/qubes/guid-running.{}'.format(self.get_stubdom_xid(vm))
+            stubdom_guid_pidfile = '/var/run/qubes/guid-running.{}'.format(
+                self.get_stubdom_xid(vm))
             if not vm.debug and os.path.exists(stubdom_guid_pidfile):
                 # Terminate stubdom guid once "real" gui agent connects
-                stubdom_guid_pid = open(stubdom_guid_pidfile, 'r').read().strip()
+                stubdom_guid_pid = \
+                    open(stubdom_guid_pidfile, 'r').read().strip()
                 guid_cmd += ['-K', stubdom_guid_pid]
 
         try:
@@ -153,6 +154,7 @@ class GUI(qubes.ext.Extension):
 
     @qubes.ext.handler('domain-spawn')
     def on_domain_spawn(self, vm, event, start_guid=True, **kwargs):
+        # pylint: disable=unused-argument
         if not start_guid:
             return
 
@@ -179,13 +181,13 @@ class GUI(qubes.ext.Extension):
 
         try:
             subprocess.check_call(guid_cmd)
-        except subprocess.CalledProcesException:
+        except subprocess.CalledProcessError:
             raise qubes.exc.QubesVMError(vm, 'Cannot start gui daemon')
 
 
     @qubes.ext.handler('monitor-layout-change')
     def on_monitor_layout_change(self, vm, event, monitor_layout=None):
-        # pylint: disable=no-self-use
+        # pylint: disable=no-self-use,unused-argument
         if vm.features.check_with_template('no-monitor-layout', False) \
                 or not vm.is_running():
             return
@@ -221,5 +223,6 @@ class GUI(qubes.ext.Extension):
 
     @qubes.ext.handler('domain-is-fully-usable')
     def on_domain_is_fully_usable(self, vm, event):
+        # pylint: disable=unused-argument
         if not self.is_guid_running(vm):
             yield False

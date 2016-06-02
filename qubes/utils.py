@@ -26,13 +26,13 @@
 
 import hashlib
 import os
-import pkg_resources
 import re
 import subprocess
 
 import docutils
 import docutils.core
 import docutils.io
+import pkg_resources
 
 import qubes.exc
 
