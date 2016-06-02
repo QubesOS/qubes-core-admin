@@ -414,8 +414,12 @@ class VMCollection(object):
             raise KeyError(key)
 
         if isinstance(key, qubes.vm.BaseVM):
-            if key in self:
-                return key
+            key = key.uuid
+
+        if isinstance(key, uuid.UUID):
+            for vm in self:
+                if vm.uuid == key:
+                    return vm
             raise KeyError(key)
 
         raise KeyError(key)
