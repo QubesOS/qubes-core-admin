@@ -97,7 +97,7 @@ def main():
         backend_vm = qvm_collection.get_vm_by_name(args[1].split(":")[0])
         if backend_vm is None:
             parser.error("No such VM: {}".format(args[1].split(":")[0]))
-        dev_list = usb_list(vm=backend_vm)
+        dev_list = usb_list(qvm_collection, vm=backend_vm)
         if not args[1] in dev_list.keys():
             parser.error("Invalid device name: %s" % args[1])
         dev = dev_list[args[1]]
@@ -108,7 +108,7 @@ def main():
 #            kwargs['frontend'] = options.frontend
         kwargs['auto_detach'] = options.auto_detach
         try:
-            usb_attach(vm, dev, **kwargs)
+            usb_attach(qvm_collection, vm, dev, **kwargs)
         except QubesException as e:
             print >> sys.stderr, "ERROR: %s" % str(e)
             sys.exit(1)
@@ -125,7 +125,7 @@ def main():
             #    kwargs['frontend'] = options.frontend
             #    usb_detach(vm, **kwargs)
             #else:
-            usb_detach_all(vm)
+            usb_detach_all(qvm_collection, vm)
         else:
             # Maybe usbvm:device?
 
@@ -137,25 +137,24 @@ def main():
             backend_vm = qvm_collection.get_vm_by_name(args[0].split(":")[0])
             if backend_vm is None:
                 parser.error("No such VM: {}".format(args[0].split(":")[0]))
-            dev_list = usb_list(vm=backend_vm)
+            dev_list = usb_list(qvm_collection, vm=backend_vm)
             if not args[0] in dev_list.keys():
                 parser.error("Invalid device name: %s" % args[0])
             dev = dev_list[args[0]]
-            attached_to = usb_check_attached(dev)
+            attached_to = usb_check_attached(qvm_collection, dev)
             if attached_to is None:
                 print >> sys.stderr, "WARNING: Device not connected to any VM"
                 exit(0)
-            vm = qvm_collection.get_vm_by_name(attached_to)
-            usb_detach(vm, dev)
+            usb_detach(qvm_collection, attached_to, dev)
     else:
         if len(args) > 0:
             parser.error("Too many parameters")
         # do_list
-        for dev in usb_list(qvmc=qvm_collection).values():
-            attached_to = usb_check_attached(dev)
+        for dev in usb_list(qvm_collection).values():
+            attached_to = dev['connected-to']
             attached_to_str = ""
             if attached_to:
-                attached_to_str = " (attached to %s)" % (attached_to)
+                attached_to_str = " (attached to %s)" % (attached_to.name)
             print "%s\t%s%s" % (dev['name'], dev['desc'], attached_to_str)
         exit (0)
 

@@ -476,7 +476,7 @@ def usb_encode_device_for_qdb(device):
     """ encode actual device name (xenstore doesn't allow dot in key names, so translated it into underscore) """
     return device.replace('.', '_')
 
-def usb_list_vm(vm):
+def usb_list_vm(qvmc, vm):
     if not vm.is_running():
         return {}
 
@@ -512,7 +512,12 @@ def usb_list_vm(vm):
                         "Invalid %s device 'connected-to' in VM '%s'" % (
                             dev_name, vm.name)
                     continue
-                connected_to = untrusted_connected_to
+                connected_to = qvmc.get_vm_by_name(untrusted_connected_to)
+                if connected_to is None:
+                    print >>sys.stderr, \
+                        "Device {} appears to be connected to {}, " \
+                        "but such VM doesn't exist".format(
+                            dev_name, untrusted_connected_to)
             else:
                 connected_to = None
 
@@ -531,7 +536,7 @@ def usb_list_vm(vm):
     return devices
 
 
-def usb_list(qvmc=None, vm=None):
+def usb_list(qvmc, vm=None):
     """
     Returns a dictionary of USB devices (for PVUSB backends running in all VM).
     The dictionary is keyed by 'name' (see below), each element is a dictionary itself:
@@ -546,16 +551,14 @@ def usb_list(qvmc=None, vm=None):
         else:
             vm_list = [vm]
     else:
-        if qvmc is None:
-            raise QubesException("You must pass either qvm or vm argument")
         vm_list = qvmc.values()
 
     devices_list = {}
     for vm in vm_list:
-        devices_list.update(usb_list_vm(vm))
+        devices_list.update(usb_list_vm(qvmc, vm))
     return devices_list
 
-def usb_check_attached(device):
+def usb_check_attached(qvmc, device):
     """Reread device attachment status"""
     vm = device['vm']
     untrusted_connected_to = vm.qdb.read(
@@ -565,22 +568,27 @@ def usb_check_attached(device):
             raise QubesException(
                 "Invalid %s device 'connected-to' in VM '%s'" % (
                     device['device'], vm.name))
-        connected_to = untrusted_connected_to
+        connected_to = qvmc.get_vm_by_name(untrusted_connected_to)
+        if connected_to is None:
+            print >>sys.stderr, \
+                "Device {} appears to be connected to {}, " \
+                "but such VM doesn't exist".format(
+                    device['device'], untrusted_connected_to)
     else:
         connected_to = None
     return connected_to
 
-def usb_attach(vm, device, auto_detach=False, wait=True):
+def usb_attach(qvmc, vm, device, auto_detach=False, wait=True):
     if not vm.is_running():
         raise QubesException("VM {} not running".format(vm.name))
 
     if not device['vm'].is_running():
         raise QubesException("VM {} not running".format(device['vm'].name))
 
-    connected_to = usb_check_attached(device)
+    connected_to = usb_check_attached(qvmc, device)
     if connected_to:
         if auto_detach:
-            usb_detach(device)
+            usb_detach(qvmc, device)
         else:
             raise QubesException("Device {} already connected, to {}".format(
                 device['name'], connected_to
@@ -629,12 +637,13 @@ def usb_attach(vm, device, auto_detach=False, wait=True):
                 f.seek(0)
                 f.write(''.join(policy))
 
-def usb_detach(vm, device):
-    connected_to = usb_check_attached(device)
+def usb_detach(qvmc, vm, device):
+    connected_to = usb_check_attached(qvmc, device)
     # detect race conditions; there is still race here, but much smaller
-    if vm.name != connected_to:
+    if connected_to is None or connected_to.qid != vm.qid:
         raise QubesException(
-            "Device {} not connected to VM {}".format(device['name'], vm.name))
+            "Device {} not connected to VM {}".format(
+                device['name'], vm.name))
 
     p = vm.run_service('qubes.USBDetach', passio_popen=True, user='root')
     (stdout, stderr) = p.communicate(
