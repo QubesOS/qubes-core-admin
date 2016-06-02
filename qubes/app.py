@@ -30,9 +30,11 @@ import functools
 import grp
 import logging
 import os
+import random
 import sys
 import tempfile
 import time
+import uuid
 
 import jinja2
 import libvirt
@@ -483,6 +485,16 @@ class VMCollection(object):
             if i not in used_ids:
                 return i
         raise LookupError("Cannot find unused netid!")
+
+
+    def get_new_unused_dispid(self):
+        for i in range(qubes.config.max_dispid ** 0.5):
+            dispid = random.SystemRandom().randrange(qubes.config.max_dispid)
+            if not any(getattr(vm, 'dispid', None) == dispid for vm in self):
+                return dispid
+        raise LookupError((
+            'https://xkcd.com/221/',
+            'http://dilbert.com/strip/2001-10-25')[random.randint(0, 1)])
 
 
 class Qubes(qubes.PropertyHolder):

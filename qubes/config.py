@@ -111,3 +111,4 @@ defaults = {
 
 max_qid = 254
 max_netid = 254
+max_dispid = 10000

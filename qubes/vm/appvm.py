@@ -3,6 +3,7 @@
 
 import qubes.events
 import qubes.vm.qubesvm
+
 from qubes.config import defaults
 
 
