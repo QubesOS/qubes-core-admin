@@ -758,6 +758,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self.force_shutdown()
             raise
 
+        return self
+
 
     def shutdown(self, force=False):
         '''Shutdown domain.
@@ -787,6 +789,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.libvirt_domain.shutdown()
         self.storage.stop()
 
+        return self
+
 
     def kill(self):
         '''Forcefuly shutdown (destroy) domain.
@@ -801,6 +805,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.libvirt_domain.destroy()
         self.storage.stop()
 
+        return self
+
 
     def force_shutdown(self, *args, **kwargs):
         '''Deprecated alias for :py:meth:`kill`'''
@@ -808,6 +814,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             'Call to deprecated function force_shutdown(), use kill() instead',
             DeprecationWarning, stacklevel=2)
         self.kill(*args, **kwargs)
+
+        return self
 
 
     def suspend(self):
@@ -832,6 +840,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             else:
                 self.libvirt_domain.suspend()
 
+        return self
+
 
     def pause(self):
         '''Pause (suspend) domain. This currently delegates to \
@@ -841,6 +851,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesVMNotRunningError(self)
 
         self.suspend()
+
+        return self
 
 
     def resume(self):
@@ -856,6 +868,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         else:
             self.unpause()
 
+        return self
+
 
     def unpause(self):
         '''Resume (unpause) a domain'''
@@ -863,6 +877,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesVMNotPausedError(self)
 
         self.libvirt_domain.resume()
+
+        return self
 
 
     def run(self, command, user=None, autostart=False, notify_function=None,
