@@ -653,8 +653,11 @@ def usb_detach(qvmc, vm, device):
         # TODO: sanitize and include stdout
         raise QubesException('Device detach failed')
 
-def usb_detach_all(vm):
-    raise NotImplementedError("Detaching all devices from a given VM is not implemented yet")
+def usb_detach_all(qvmc, vm):
+    for dev in usb_list(qvmc).values():
+        connected_to = dev['connected-to']
+        if connected_to is not None and connected_to.qid == vm.qid:
+            usb_detach(qvmc, connected_to, dev)
 
 ####### QubesWatch ######
 
