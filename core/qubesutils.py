@@ -645,9 +645,10 @@ def usb_detach(qvmc, vm, device):
             "Device {} not connected to VM {}".format(
                 device['name'], vm.name))
 
-    p = vm.run_service('qubes.USBDetach', passio_popen=True, user='root')
+    p = device['vm'].run_service('qubes.USBDetach', passio_popen=True,
+        user='root')
     (stdout, stderr) = p.communicate(
-        '{} {}\n'.format(device['vm'].name, device['device']))
+        '{}\n'.format(device['device']))
     if p.returncode != 0:
         # TODO: sanitize and include stdout
         raise QubesException('Device detach failed')
