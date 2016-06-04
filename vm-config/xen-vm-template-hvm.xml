@@ -15,6 +15,7 @@
     <acpi/>
     <apic/>
     <viridian/>
+    {features}
   </features>
   <clock offset='variable' adjustment='{timeoffset}' basis='{time_basis}'/>
   <on_poweroff>destroy</on_poweroff>

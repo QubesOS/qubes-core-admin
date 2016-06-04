@@ -62,7 +62,7 @@ Requires:       libvirt-python
 %if x%{?backend_vmm} == xxen
 Requires:       xen-runtime
 Requires:       xen-hvm
-Requires:       libvirt-daemon-xen >= 1.2.20-4
+Requires:       libvirt-daemon-xen >= 1.2.20-6
 %endif
 Requires:       createrepo
 Requires:       gnome-packagekit

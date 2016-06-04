@@ -136,6 +136,7 @@ class QubesVm(object):
                     eval(value) if value.find("[") >= 0 else
                     eval("[" + value + "]") },
             "pci_strictreset": {"default": True},
+            "pci_e820_host": {"default": True},
             # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
             "internal": { "default": False, 'attr': '_internal' },
             "vcpus": { "default": 2 },
@@ -1191,6 +1192,7 @@ class QubesVm(object):
             # If dynamic memory management disabled, set maxmem=mem
             args['maxmem'] = args['mem']
         args['vcpus'] = str(self.vcpus)
+        args['features'] = ''
         if self.netvm is not None:
             args['ip'] = self.ip
             args['mac'] = self.mac
@@ -1215,6 +1217,8 @@ class QubesVm(object):
             args['network_end'] = '-->'
             args['no_network_begin'] = ''
             args['no_network_end'] = ''
+        if len(self.pcidevs) and self.pci_e820_host:
+            args['features'] = '<xen><e820_host state=\'on\'/></xen>'
         args.update(self.storage.get_config_params())
         if hasattr(self, 'kernelopts'):
             args['kernelopts'] = self.kernelopts
