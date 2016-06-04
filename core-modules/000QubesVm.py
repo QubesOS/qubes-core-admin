@@ -26,6 +26,7 @@ import datetime
 import base64
 import hashlib
 import logging
+import grp
 import lxml.etree
 import os
 import os.path
@@ -1831,10 +1832,19 @@ class QubesVm(object):
         # force connection to a new daemon
         self._qdb_connection = None
 
-        retcode = subprocess.call ([
+        qubesdb_cmd = []
+        if os.getuid() == 0:
+            # try to always have qubesdb running as normal user, otherwise
+            # killing it at VM restart (see above) will always fail
+            qubes_group = grp.getgrnam('qubes')
+            qubesdb_cmd = ['runuser', '-u', qubes_group.gr_mem[0], '--']
+
+        qubesdb_cmd += [
             system_path["qubesdb_daemon_path"],
             str(self.xid),
-            self.name])
+            self.name]
+
+        retcode = subprocess.call (qubesdb_cmd)
         if retcode != 0:
             raise OSError("ERROR: Cannot execute qubesdb-daemon!")
 
