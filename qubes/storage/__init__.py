@@ -233,10 +233,20 @@ class Pool(object):
     private_img_size = qubes.config.defaults['private_img_size']
     root_img_size = qubes.config.defaults['root_img_size']
 
+    def __eq__(self, other):
+        return self.name == other.name
+
+
+    def __neq__(self, other):
+        return not self.__eq__(other)
+
     def __init__(self, name, **kwargs):
         super(Pool, self).__init__(**kwargs)
         self.name = name
         kwargs['name'] = self.name
+
+    def __str__(self):
+        return self.name
 
     def __xml__(self):
         return lxml.etree.Element('pool', **self.config)
