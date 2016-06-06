@@ -294,6 +294,12 @@ class Pool(object):
         raise NotImplementedError("Pool %s has verify() not implemented" %
                                   self.name)
 
+    @property
+    def volumes(self):
+        ''' Return a list of volumes managed by this pool '''
+        raise NotImplementedError("Pool %s has volumes() not implemented" %
+                                  self.name)
+
 
 def pool_drivers():
     """ Return a list of EntryPoints names """

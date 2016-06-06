@@ -46,6 +46,7 @@ class FilePool(Pool):
         super(FilePool, self).__init__(name=name)
         assert dir_path, "No pool dir_path specified"
         self.dir_path = os.path.normpath(dir_path)
+        self._volumes = []
 
     def clone(self, source, target):
         ''' Clones the volume if the `source.pool` if the source is a
@@ -259,13 +260,16 @@ class FilePool(Pool):
         else:
             volume_config['target_dir'] = self.target_dir(vm)
 
-        return known_types[volume_type](**volume_config)
+        volume = known_types[volume_type](**volume_config)
+        self._volumes += [volume]
+        return volume
 
     def verify(self, volume):
         return volume.verify()
 
-    def verify(self, volume):
-        return volume.verify()
+    @property
+    def volumes(self):
+        return self._volumes
 
 
 class FileVolume(Volume):
