@@ -1758,7 +1758,15 @@ class QubesVm(object):
         if verbose:
             print >> sys.stderr, "--> Starting Qubes GUId..."
 
-        guid_cmd = [system_path["qubes_guid_path"],
+        guid_cmd = []
+        if os.getuid() == 0:
+            # try to always have guid running as normal user, otherwise
+            # clipboard file may be created as root and other permission
+            # problems
+            qubes_group = grp.getgrnam('qubes')
+            guid_cmd = ['runuser', '-u', qubes_group.gr_mem[0], '--']
+
+        guid_cmd += [system_path["qubes_guid_path"],
             "-d", str(self.xid), "-N", self.name,
             "-c", self.label.color,
             "-i", self.label.icon_path,
