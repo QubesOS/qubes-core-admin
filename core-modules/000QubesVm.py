@@ -1830,7 +1830,7 @@ class QubesVm(object):
             # many qrexec services would need to deal with root/user
             # permission problems
             qubes_group = grp.getgrnam('qubes')
-            qrexec = ['sudo', '-u', qubes_group.gr_mem[0]]
+            qrexec = ['runuser', '-u', qubes_group.gr_mem[0], '--']
 
         qrexec += ['env', 'QREXEC_STARTUP_TIMEOUT=' + str(self.qrexec_timeout),
             system_path["qrexec_daemon_path"]]
