@@ -296,7 +296,7 @@ class QubesHost(object):
             for vm in info:
                 previous[vm['domid']] = {}
                 previous[vm['domid']]['cpu_time'] = (
-                    vm['cpu_time'] / vm['online_vcpus'])
+                    vm['cpu_time'] / max(vm['online_vcpus'], 1))
                 previous[vm['domid']]['cpu_usage'] = 0
             time.sleep(wait_time)
 
