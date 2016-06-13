@@ -68,6 +68,7 @@ Requires(postun): systemd-units
 Requires:	python, pciutils, python-inotify, python-daemon
 Requires:	python-setuptools
 Requires:       qubes-core-dom0-linux >= 3.1.8
+Requires:       qubes-core-dom0-doc
 Requires:       qubes-db-dom0
 Requires:       python-lxml
 # TODO: R: qubes-gui-dom0 >= 2.1.11
@@ -76,7 +77,7 @@ Requires:       libvirt-python
 %if x%{?backend_vmm} == xxen
 Requires:       xen-runtime
 Requires:       xen-hvm
-Requires:       libvirt-daemon-xen >= 1.2.20-4
+Requires:       libvirt-daemon-xen >= 1.2.20-6
 %endif
 Requires:       createrepo
 Requires:       gnome-packagekit
@@ -351,6 +352,8 @@ fi
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.NotifyTools
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.NotifyUpdates
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.OpenInVM
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.OpenInVM
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.OpenURL
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.VMShell
 /etc/qubes-rpc/qubes.FeaturesRequest
 /etc/qubes-rpc/qubes.GetRandomizedTime

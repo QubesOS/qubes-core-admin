@@ -17,6 +17,8 @@ endif
 	cp backupcompatibility.py[co] $(DESTDIR)$(PYTHON_TESTSPATH)
 	cp basic.py $(DESTDIR)$(PYTHON_TESTSPATH)
 	cp basic.py[co] $(DESTDIR)$(PYTHON_TESTSPATH)
+	cp block.py $(DESTDIR)$(PYTHON_TESTSPATH)
+	cp block.py[co] $(DESTDIR)$(PYTHON_TESTSPATH)
 	cp dom0_update.py $(DESTDIR)$(PYTHON_TESTSPATH)
 	cp dom0_update.py[co] $(DESTDIR)$(PYTHON_TESTSPATH)
 	cp network.py $(DESTDIR)$(PYTHON_TESTSPATH)

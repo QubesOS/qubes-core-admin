@@ -26,6 +26,7 @@ import datetime
 import base64
 import hashlib
 import logging
+import grp
 import lxml.etree
 import os
 import os.path
@@ -37,6 +38,7 @@ import time
 import uuid
 import xml.parsers.expat
 import signal
+import pwd
 from qubes import qmemman
 from qubes import qmemman_algo
 import libvirt
@@ -134,9 +136,10 @@ class QubesVm(object):
                     eval(value) if value.find("[") >= 0 else
                     eval("[" + value + "]") },
             "pci_strictreset": {"default": True},
+            "pci_e820_host": {"default": True},
             # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
             "internal": { "default": False, 'attr': '_internal' },
-            "vcpus": { "default": None },
+            "vcpus": { "default": 2 },
             "uses_default_kernel": { "default": True, 'order': 30 },
             "uses_default_kernelopts": { "default": True, 'order': 30 },
             "kernel": {
@@ -326,11 +329,6 @@ class QubesVm(object):
         # Linux specific cap: max memory can't scale beyond 10.79*init_mem
         if self.maxmem > self.memory * 10:
             self.maxmem = self.memory * 10
-
-        # By default allow use all VCPUs
-        if self.vcpus is None and not vmm.offline_mode:
-            qubes_host = QubesHost()
-            self.vcpus = qubes_host.no_cpus
 
         # Always set if meminfo-writer should be active or not
         if 'meminfo-writer' not in self.services:
@@ -1194,6 +1192,7 @@ class QubesVm(object):
             # If dynamic memory management disabled, set maxmem=mem
             args['maxmem'] = args['mem']
         args['vcpus'] = str(self.vcpus)
+        args['features'] = ''
         if self.netvm is not None:
             args['ip'] = self.ip
             args['mac'] = self.mac
@@ -1218,6 +1217,8 @@ class QubesVm(object):
             args['network_end'] = '-->'
             args['no_network_begin'] = ''
             args['no_network_end'] = ''
+        if len(self.pcidevs) and self.pci_e820_host:
+            args['features'] = '<xen><e820_host state=\'on\'/></xen>'
         args.update(self.storage.get_config_params())
         if hasattr(self, 'kernelopts'):
             args['kernelopts'] = self.kernelopts
@@ -1411,6 +1412,11 @@ class QubesVm(object):
                 print >>sys.stderr, "libvirt error code: {!r}".format(
                     e.get_error_code())
                 raise
+
+        if os.path.exists("/etc/systemd/system/multi-user.target.wants/qubes-vm@" + self.name + ".service"):
+            subprocess.call(["sudo", "systemctl", "-q", "disable","qubes-vm@" + self.name + ".service"])
+            if retcode != 0:
+                raise QubesException("Failed to delete autostart entry for VM")
 
         self.storage.remove_from_disk()
 
@@ -1752,7 +1758,15 @@ class QubesVm(object):
         if verbose:
             print >> sys.stderr, "--> Starting Qubes GUId..."
 
-        guid_cmd = [system_path["qubes_guid_path"],
+        guid_cmd = []
+        if os.getuid() == 0:
+            # try to always have guid running as normal user, otherwise
+            # clipboard file may be created as root and other permission
+            # problems
+            qubes_group = grp.getgrnam('qubes')
+            guid_cmd = ['runuser', '-u', qubes_group.gr_mem[0], '--']
+
+        guid_cmd += [system_path["qubes_guid_path"],
             "-d", str(self.xid), "-N", self.name,
             "-c", self.label.color,
             "-i", self.label.icon_path,
@@ -1763,6 +1777,33 @@ class QubesVm(object):
             guid_cmd += ['-v', '-v']
         elif not verbose:
             guid_cmd += ['-q']
+        # Avoid using environment variables for checking the current session,
+        #  because this script may be called with cleared env (like with sudo).
+        if subprocess.check_output(
+                ['xprop', '-root', '-notype', 'KDE_SESSION_VERSION']) == \
+                'KDE_SESSION_VERSION = 5\n':
+            # native decoration plugins is used, so adjust window properties
+            # accordingly
+            guid_cmd += ['-T']  # prefix window titles with VM name
+            # get owner of X11 session
+            session_owner = None
+            for line in subprocess.check_output(['xhost']).splitlines():
+                if line == 'SI:localuser:root':
+                    pass
+                elif line.startswith('SI:localuser:'):
+                    session_owner = line.split(":")[2]
+            if session_owner is not None:
+                data_dir = os.path.expanduser(
+                    '~{}/.local/share'.format(session_owner))
+            else:
+                # fallback to current user
+                data_dir = os.path.expanduser('~/.local/share')
+
+            guid_cmd += ['-p',
+                '_KDE_NET_WM_COLOR_SCHEME=s:{}'.format(
+                    os.path.join(data_dir,
+                        'qubes-kde', self.label.name + '.colors'))]
+
         retcode = subprocess.call (guid_cmd)
         if (retcode != 0) :
             raise QubesException("Cannot start qubes-guid!")
@@ -1791,13 +1832,21 @@ class QubesVm(object):
         self.log.debug('start_qrexec_daemon()')
         if verbose:
             print >> sys.stderr, "--> Starting the qrexec daemon..."
+        qrexec = []
+        if os.getuid() == 0:
+            # try to always have qrexec running as normal user, otherwise
+            # many qrexec services would need to deal with root/user
+            # permission problems
+            qubes_group = grp.getgrnam('qubes')
+            qrexec = ['runuser', '-u', qubes_group.gr_mem[0], '--']
+
+        qrexec += ['env', 'QREXEC_STARTUP_TIMEOUT=' + str(self.qrexec_timeout),
+            system_path["qrexec_daemon_path"]]
+
         qrexec_args = [str(self.xid), self.name, self.default_user]
         if not verbose:
             qrexec_args.insert(0, "-q")
-        qrexec_env = os.environ
-        qrexec_env['QREXEC_STARTUP_TIMEOUT'] = str(self.qrexec_timeout)
-        retcode = subprocess.call ([system_path["qrexec_daemon_path"]] +
-                                   qrexec_args, env=qrexec_env)
+        retcode = subprocess.call(qrexec + qrexec_args)
         if (retcode != 0) :
             raise OSError ("Cannot execute qrexec-daemon!")
 
@@ -1826,10 +1875,19 @@ class QubesVm(object):
         # force connection to a new daemon
         self._qdb_connection = None
 
-        retcode = subprocess.call ([
+        qubesdb_cmd = []
+        if os.getuid() == 0:
+            # try to always have qubesdb running as normal user, otherwise
+            # killing it at VM restart (see above) will always fail
+            qubes_group = grp.getgrnam('qubes')
+            qubesdb_cmd = ['runuser', '-u', qubes_group.gr_mem[0], '--']
+
+        qubesdb_cmd += [
             system_path["qubesdb_daemon_path"],
             str(self.xid),
-            self.name])
+            self.name]
+
+        retcode = subprocess.call (qubesdb_cmd)
         if retcode != 0:
             raise OSError("ERROR: Cannot execute qubesdb-daemon!")
 

@@ -67,6 +67,14 @@ pci_strictreset
     cases it could make sense - for example when the VM to which it is assigned
     is trusted one, or is running all the time.
 
+pci_e820_host
+    Accepted values: ``True``, ``False``
+
+    Give VM with PCI devices a memory map (e820) of the host. This is
+    required for some devices to properly resolve conflicts in address space.
+    This option is enabled by default for VMs with PCI devices and have no
+    effect for VMs without devices.
+
 label
     Accepted values: ``red``, ``orange``, ``yellow``, ``green``, ``gray``,
     ``blue``, ``purple``, ``black``

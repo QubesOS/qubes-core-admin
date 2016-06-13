@@ -38,8 +38,7 @@ class TC_00_Dom0UpgradeMixin(qubes.tests.SystemTestsMixin):
     Tests for downloading dom0 updates using VMs based on different templates
     """
     pkg_name = 'qubes-test-pkg'
-    dom0_update_common_opts = ['--disablerepo=*', '--enablerepo=test',
-                               '--setopt=test.copy_local=1']
+    dom0_update_common_opts = ['--disablerepo=*', '--enablerepo=test']
     update_flag_path = '/var/lib/qubes/updates/dom0-updates-available'
 
     @classmethod
@@ -84,9 +83,9 @@ Expire-Date: 0
         p.stdin.write('''
 [test]
 name = Test
-baseurl = file:///tmp/repo
+baseurl = http://localhost:8080/
 enabled = 1
-        ''')
+''')
         p.stdin.close()
         p.wait()
 
@@ -114,6 +113,7 @@ enabled = 1
         subprocess.check_call(['sudo', 'rpm', '--import',
                                os.path.join(self.tmpdir, 'pubkey.asc')])
         self.updatevm.start()
+        self.repo_running = False
 
     def tearDown(self):
         super(TC_00_Dom0UpgradeMixin, self).tearDown()
@@ -180,6 +180,13 @@ Test package
         elif retcode != 0:
             self.skipTest("createrepo failed with code {}, cannot perform the "
                       "test".format(retcode))
+        self.start_repo()
+
+    def start_repo(self):
+        if not self.repo_running:
+            self.updatevm.run("cd /tmp/repo &&"
+                              "python -m SimpleHTTPServer 8080")
+            self.repo_running = True
 
     def test_000_update(self):
         """Dom0 update tests

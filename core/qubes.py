@@ -91,7 +91,6 @@ qubes_max_netid = 254
 
 ##########################################
 
-
 def register_qubes_vm_class(vm_class):
     QubesVmClasses[vm_class.__name__] = vm_class
     # register class as local for this module - to make it easy to import from
