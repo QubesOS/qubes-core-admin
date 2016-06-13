@@ -1,31 +1,31 @@
 <domain type="xen">
 <name>{% if prepare_dvm %}%NAME%{% else %}{{ vm.name }}{% endif %}</name>
-	<uuid>{{ vm.uuid }}</uuid>
-	<memory unit="MiB">{{ vm.maxmem }}</memory>
-	<currentMemory unit="MiB">{{ vm.memory }}</currentMemory>
-	<vcpu placement="static">{{ vm.vcpus }}</vcpu>
-	<os>
-	{% if vm.hvm %}
-		<type arch="x86_64" machine="xenfv">hvm</type>
-		<loader>hvmloader</loader>
-		<boot dev="cdrom" />
-		<boot dev="hd" />
+    <uuid>{{ vm.uuid }}</uuid>
+    <memory unit="MiB">{{ vm.maxmem }}</memory>
+    <currentMemory unit="MiB">{{ vm.memory }}</currentMemory>
+    <vcpu placement="static">{{ vm.vcpus }}</vcpu>
+    <os>
+    {% if vm.hvm %}
+        <type arch="x86_64" machine="xenfv">hvm</type>
+        <loader>hvmloader</loader>
+        <boot dev="cdrom" />
+        <boot dev="hd" />
 <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
-	{% else %}
-		<type arch="x86_64" machine="xenpv">linux</type>
-		<kernel>{{ vm.storage.kernels_dir }}/vmlinuz</kernel>
-		<initrd>{{ vm.storage.kernels_dir }}/initramfs</initrd>
-		<cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH 3 {{ vm.kernelopts }}</cmdline>
-	{% endif %}
-	</os>
+    {% else %}
+        <type arch="x86_64" machine="xenpv">linux</type>
+        <kernel>{{ vm.storage.kernels_dir }}/vmlinuz</kernel>
+        <initrd>{{ vm.storage.kernels_dir }}/initramfs</initrd>
+        <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH 3 {{ vm.kernelopts }}</cmdline>
+    {% endif %}
+    </os>
 
-	{% if vm.hvm %}
-		<features>
-			<pae/>
-			<acpi/>
-			<apic/>
-			<viridian/>
-		</features>
+    {% if vm.hvm %}
+        <features>
+            <pae/>
+            <acpi/>
+            <apic/>
+            <viridian/>
+        </features>
 
         {% set timezone = vm.features.check_with_template('timezone', 'localtime').lower() %}
         {% if timezone == 'localtime' %}
@@ -35,22 +35,22 @@
         {% else %}
             <clock offset="variable" adjustment="0" basis="UTC" />
         {% endif %}
-	{% else %}
-		<clock offset='utc' adjustment='reset'>
-			<timer name="tsc" mode="native"/>
-		</clock>
-	{% endif %}
+    {% else %}
+        <clock offset='utc' adjustment='reset'>
+            <timer name="tsc" mode="native"/>
+        </clock>
+    {% endif %}
 
-	<on_poweroff>destroy</on_poweroff>
-	<on_reboot>destroy</on_reboot>
-	<on_crash>destroy</on_crash>
-	<devices>
+    <on_poweroff>destroy</on_poweroff>
+    <on_reboot>destroy</on_reboot>
+    <on_crash>destroy</on_crash>
+    <devices>
         {% set i = 0 %}
         {# TODO Allow more volumes out of the box #}
         {% set dd = ['e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p',
             'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y']
         %}
-		{% for device in vm.block_devices %}
+        {% for device in vm.block_devices %}
             <disk type="block" device="{{ device.devtype }}">
                 <driver name="phy" />
                 <source dev="{{ device.path }}" />
@@ -79,23 +79,23 @@
                     <script path="{{ device.script }}"></script>
                 {% endif %}
             </disk>
-		{% endfor %}
+        {% endfor %}
 
-		{% if vm.netvm %}
-			<interface type="ethernet">
-				<mac address="{{ vm.mac }}" />
+        {% if vm.netvm %}
+            <interface type="ethernet">
+                <mac address="{{ vm.mac }}" />
                 <ip address="
                     {%- if prepare_dvm -%}
                         %IP%
                     {%- else -%}
                         {{ vm.ip }}
                     {%- endif %}" />
-				<backenddomain name="{{ vm.netvm.name }}" />
+                <backenddomain name="{{ vm.netvm.name }}" />
                 <script path="vif-route-qubes"></script>
-			</interface>
-		{% endif %}
+            </interface>
+        {% endif %}
 
-		{% for device in vm.devices.pci %}
+        {% for device in vm.devices.pci %}
             <hostdev type="pci" managed="yes">
                 <source>
                     <address
@@ -104,9 +104,9 @@
                         function="0x{{ device.function }}" />
                 </source>
             </hostdev>
-		{% endfor %}
+        {% endfor %}
 
-		{% if vm.hvm %}
+        {% if vm.hvm %}
             <emulator
                 type="stubdom"
                 {% if vm.netvm %}
@@ -117,15 +117,15 @@
                         ,netmask={{ vm.netmask }}"
                 {% endif %}
                 />
-			<input type="tablet" bus="usb"/>
-			<video type="vga"/>
-		{% else %}
-			<console type="pty">
-				<target type="xen" port="0"/>
-			</console>
-		{% endif %}
+            <input type="tablet" bus="usb"/>
+            <video type="vga"/>
+        {% else %}
+            <console type="pty">
+                <target type="xen" port="0"/>
+            </console>
+        {% endif %}
 
-	</devices>
+    </devices>
 </domain>
  
 <!-- vim: set ft=jinja ts=4 sts=4 sw=4 et tw=80 : -->
