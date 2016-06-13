@@ -19,14 +19,22 @@
     {% endif %}
     </os>
 
-    {% if vm.hvm %}
-        <features>
+    <features>
+        {% if vm.hvm %}
             <pae/>
             <acpi/>
             <apic/>
             <viridian/>
-        </features>
+        {% endif %}
 
+        {% if vm.devices['pci'] and vm.features.get('pci-e820-host', True) %}
+            <xen>
+                <e820_host state="on"/>
+            </xen>
+        {% endif %}
+    </features>
+
+    {% if vm.hvm %}
         {% set timezone = vm.features.check_with_template('timezone', 'localtime').lower() %}
         {% if timezone == 'localtime' %}
             <clock offset="variable" adjustment="0" basis="localtime" />
