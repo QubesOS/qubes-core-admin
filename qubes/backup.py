@@ -1237,6 +1237,9 @@ class BackupRestoreOptions(object):
         #: set template to default if the one referenced in backup do not
         # exists on the host
         self.use_default_template = True
+        #: use default kernel if the one referenced in backup do not exists
+        # on the host
+        self.use_default_kernel = True
         #: restore dom0 home
         self.dom0_home = True
         #: dictionary how what templates should be used instead of those
@@ -1271,6 +1274,8 @@ class BackupRestore(object):
         MISSING_NETVM = object()
         #: TemplateVM used by the VM does not exists on the host
         MISSING_TEMPLATE = object()
+        #: Kernel used by the VM does not exists on the host
+        MISSING_KERNEL = object()
 
         def __init__(self, vm):
             self.vm = vm
@@ -1824,6 +1829,19 @@ class BackupRestore(object):
                         else:
                             vm_info.problems.add(self.VMToRestore.MISSING_NETVM)
 
+            # check kernel
+            if hasattr(vm_info.vm, 'kernel'):
+                installed_kernels = os.listdir(os.path.join(
+                    qubes.config.qubes_base_dir,
+                    qubes.config.system_path['qubes_kernels_base_dir']))
+                if not vm_info.vm.property_is_default('kernel') \
+                        and vm_info.vm.kernel \
+                        and vm_info.vm.kernel not in installed_kernels:
+                    if self.options.use_default_kernel:
+                        vm_info.vm.kernel = qubes.property.DEFAULT
+                    else:
+                        vm_info.problems.add(self.VMToRestore.MISSING_KERNEL)
+
         return restore_info
 
     def _is_vm_included_in_backup_v1(self, check_vm):
@@ -2158,16 +2176,6 @@ class BackupRestore(object):
                     del self.app.domains[new_vm.qid]
                 continue
 
-            if hasattr(vm, 'kernel'):
-                # TODO: add a setting for this?
-                if not vm.property_is_default('kernel') and vm.kernel and \
-                        vm.kernel not in \
-                        os.listdir(os.path.join(qubes.config.qubes_base_dir,
-                            qubes.config.system_path[
-                            'qubes_kernels_base_dir'])):
-                    self.log.warning("Kernel %s not installed, "
-                    "using default one" % vm.kernel)
-                    vm.kernel = qubes.property.DEFAULT
             # remove no longer needed backup metadata
             if 'backup-content' in vm.features:
                 del vm.features['backup-content']
