@@ -26,7 +26,6 @@
 
 import re
 
-import lxml.etree
 import libvirt
 
 import qubes
@@ -204,7 +203,6 @@ class NetVMMixin(qubes.events.Emitter):
                     pass
 
 
-    # TODO maybe this should be other way: backend.devices['net'].attach(self)
     def attach_network(self):
         '''Attach network in this machine to it's netvm.'''
 
@@ -217,8 +215,8 @@ class NetVMMixin(qubes.events.Emitter):
             self.netvm.start()
 
         self.libvirt_domain.attachDevice(
-            lxml.etree.tostring(lxml.etree.ElementTree(
-                self.lvxml_net_dev(self.ip, self.mac, self.netvm))))
+            self.app.env.get_template('libvirt/devices/net.xml').render(
+                vm=self))
 
 
     def detach_network(self):
@@ -228,9 +226,9 @@ class NetVMMixin(qubes.events.Emitter):
             raise qubes.exc.QubesVMNotRunningError(self)
         assert self.netvm is not None
 
-        self.libvirt_domain.detachDevice(
-            lxml.etree.tostring(lxml.etree.ElementTree(
-                self.lvxml_net_dev(self.ip, self.mac, self.netvm))))
+        self.libvirt_domain.attachDevice(
+            self.app.env.get_template('libvirt/devices/net.xml').render(
+                vm=self))
 
 
     def is_networked(self):

@@ -271,27 +271,6 @@ class BaseVM(qubes.PropertyHolder):
     # xml serialising methods
     #
 
-    @staticmethod
-    def lvxml_net_dev(ip, mac, backend):
-        '''Return ``<interface>`` node for libvirt xml.
-
-        This was previously _format_net_dev
-
-        :param str ip: IP address of the frontend
-        :param str mac: MAC (Ethernet) address of the frontend
-        :param qubes.vm.qubesvm.QubesVM backend: Backend domain
-        :rtype: lxml.etree._Element
-        '''
-
-        interface = lxml.etree.Element('interface', type='ethernet')
-        interface.append(lxml.etree.Element('mac', address=mac))
-        interface.append(lxml.etree.Element('ip', address=ip))
-        interface.append(lxml.etree.Element('backenddomain', name=backend.name))
-        interface.append(lxml.etree.Element('script', path="vif-route-qubes"))
-
-        return interface
-
-
     def create_config_file(self, file_path=None, prepare_dvm=False):
         '''Create libvirt's XML domain config file
 
