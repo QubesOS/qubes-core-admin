@@ -310,6 +310,8 @@ class Backup(object):
         self.vms_for_backup = [vm for vm in vms_list
             if vm.name not in exclude_list]
 
+        self._files_to_backup = self.get_files_to_backup()
+
     def __del__(self):
         if self.tmpdir and os.path.exists(self.tmpdir):
             shutil.rmtree(self.tmpdir)
@@ -399,7 +401,7 @@ class Backup(object):
             summary += fmt.format('-')
         summary += "\n"
 
-        files_to_backup = self.get_files_to_backup()
+        files_to_backup = self._files_to_backup
 
         for qid, vm_info in files_to_backup.iteritems():
             s = ""
@@ -506,8 +508,7 @@ class Backup(object):
         qubes_xml = os.path.join(self.tmpdir, 'qubes.xml')
         backup_app = qubes.Qubes(qubes_xml)
 
-        # FIXME: cache it earlier?
-        files_to_backup = self.get_files_to_backup()
+        files_to_backup = self._files_to_backup
         # make sure backup_content isn't set initially
         for vm in backup_app.domains:
             vm.features['backup-content'] = False
@@ -572,14 +573,13 @@ class Backup(object):
         for f in header_files:
             to_send.put(f)
 
-        vm_files_to_backup = self.get_files_to_backup()
         qubes_xml_info = self.VMToBackup(
             None,
             [self.FileToBackup(qubes_xml, '')],
             ''
         )
         for vm_info in itertools.chain([qubes_xml_info],
-                vm_files_to_backup.itervalues()):
+                files_to_backup.itervalues()):
             for file_info in vm_info.files:
 
                 self.log.debug("Backing up {}".format(file_info))
