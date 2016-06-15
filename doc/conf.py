@@ -288,8 +288,6 @@ man_pages = [
     ('manpages/qvm-template-commit', 'qvm-template-commit',
         u'Commit changes to a template', _man_pages_author, 1),
 
-    ('manpages/qubes-guid', 'qubes-guid',
-        u'Daemon for Qubes GUI isolation protocol', _man_pages_author, 1),
     ('manpages/qubes-prefs', 'qubes-prefs',
         u'Display system-wide Qubes settings', _man_pages_author, 1),
 ]
