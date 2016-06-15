@@ -625,49 +625,82 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
 
     @qubes.events.handler('device-pre-attach:pci')
-    def on_device_pre_attached_pci(self, event, pci):
+    def on_device_pre_attached_pci(self, event, device):
         # pylint: disable=unused-argument
-        if not os.path.exists('/sys/bus/pci/devices/0000:{}'.format(pci)):
-            raise qubes.exc.QubesException('Invalid PCI device: {}'.format(pci))
+        if not os.path.exists('/sys/bus/pci/devices/0000:{}'.format(device)):
+            raise qubes.exc.QubesException(
+                'Invalid PCI device: {}'.format(device))
 
         if not self.is_running():
             return
 
         try:
-            # TODO: libvirt-ise
-            subprocess.check_call(
-                ['sudo', qubes.config.system_path['qubes_pciback_cmd'], pci])
-            subprocess.check_call(
-                ['sudo', 'xl', 'pci-attach', str(self.xid), pci])
+            self.bind_pci_to_pciback(device)
+            self.libvirt_domain.attachDevice(
+                self.app.env.get_template('libvirt/devices/pci.xml').render(
+                    device=device))
         except subprocess.CalledProcessError as e:
             self.log.exception('Failed to attach PCI device {!r} on the fly,'
-                ' changes will be seen after VM restart.'.format(pci), e)
+                ' changes will be seen after VM restart.'.format(device), e)
 
 
     @qubes.events.handler('device-pre-detach:pci')
-    def on_device_pre_detached_pci(self, event, pci):
+    def on_device_pre_detached_pci(self, event, device):
         # pylint: disable=unused-argument
         if not self.is_running():
             return
 
-        # TODO: libvirt-ise
+        # this cannot be converted to general API, because there is no
+        # provision in libvirt for extracting device-side BDF; we need it for
+        # qubes.DetachPciDevice, which unbinds driver, not to oops the kernel
+
         p = subprocess.Popen(['xl', 'pci-list', str(self.xid)],
                 stdout=subprocess.PIPE)
-        result = p.communicate()
-        m = re.search(r"^(\d+.\d+)\s+0000:%s$" % pci, result[0],
+        result = p.communicate()[0]
+        m = re.search(r'^(\d+.\d+)\s+0000:{}$'.format(device), result,
             flags=re.MULTILINE)
         if not m:
-            print >>sys.stderr, "Device %s already detached" % pci
+            self.log.error('Device %s already detached', device)
             return
         vmdev = m.group(1)
         try:
-            self.run_service("qubes.DetachPciDevice",
-                user="root", input="00:%s" % vmdev)
-            subprocess.check_call(
-                ['sudo', 'xl', 'pci-detach', str(self.xid), pci])
-        except subprocess.CalledProcessError as e:
+            self.run_service('qubes.DetachPciDevice',
+                user='root', input='00:{}'.format(vmdev))
+            self.libvirt_domain.detachDevice(
+                self.app.env.get_template('libvirt/devices/pci.xml').render(
+                    device=device))
+        except (subprocess.CalledProcessError, libvirt.libvirtError) as e:
             self.log.exception('Failed to detach PCI device {!r} on the fly,'
-                ' changes will be seen after VM restart.'.format(pci), e)
+                ' changes will be seen after VM restart.'.format(device), e)
+            raise
+
+
+    def bind_pci_to_pciback(self, device):
+        '''Bind PCI device to pciback driver.
+
+        :param qubes.devices.PCIDevice device: device to attach
+
+        Devices should be unbound from their normal kernel drivers and bound to
+        the dummy driver, which allows for attaching them to a domain.
+        '''
+        try:
+            node = self.app.vmm.libvirt_conn.nodeDeviceLookupByName(
+                device.libvirt_name)
+        except libvirt.libvirtError as e:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_NODE_DEVICE:
+                raise qubes.exc.QubesException(
+                    'PCI device {!r} does not exist (domain {!r})'.format(
+                        device, self.name))
+            raise
+
+        try:
+            node.dettach()
+        except libvirt.libvirtError as e:
+            if e.get_error_code() == libvirt.VIR_ERR_INTERNAL_ERROR:
+                # allreaddy dettached
+                pass
+            else:
+                raise
 
 
     #
@@ -709,23 +742,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         # Bind pci devices to pciback driver
         for pci in self.devices['pci']:
-            try:
-                node = self.app.vmm.libvirt_conn.nodeDeviceLookupByName(
-                    'pci_0000_' + pci.replace(':', '_').replace('.', '_'))
-            except libvirt.libvirtError as e:
-                if e.get_error_code() == libvirt.VIR_ERR_NO_NODE_DEVICE:
-                    raise qubes.exc.QubesException(
-                        'PCI device {!r} does not exist (domain {!r})'.format(
-                            pci, self.name))
-
-            try:
-                node.dettach()
-            except libvirt.libvirtError as e:
-                if e.get_error_code() == libvirt.VIR_ERR_INTERNAL_ERROR:
-                    # allreaddy dettached
-                    pass
-                else:
-                    raise
+            self.bind_pci_to_pciback(pci)
 
         self.libvirt_domain.createWithFlags(libvirt.VIR_DOMAIN_START_PAUSED)
 
@@ -785,15 +802,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         # try to gracefully detach PCI devices before shutdown, to mitigate
         # timeouts on forcible detach at domain destroy; if that fails, too bad
-        for pci in self.devices['pci']:
+        for device in self.devices['pci']:
             try:
-                self.libvirt_domain.detachDevice(
-                    lxml.etree.tostring(self.lvxml_pci_dev(pci)))
+                self.libvirt_domain.detachDevice(self.app.env.get_template(
+                    'libvirt/devices/pci.xml').render(device=device))
             except libvirt.libvirtError as e:
                 self.log.warning(
                     'error while gracefully detaching PCI device ({!r}) during'
                     ' shutdown of {!r}; error code: {!r}; continuing'
-                    ' anyway'.format(pci, self.name, e.get_error_code()),
+                    ' anyway'.format(device, self.name, e.get_error_code()),
                     exc_info=1)
 
         self.libvirt_domain.shutdown()

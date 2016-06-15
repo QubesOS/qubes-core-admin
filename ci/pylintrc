@@ -30,7 +30,8 @@ reports=yes
 ignored-classes=
   VMProperty,
   libvirt,libvirtError,
-  dbus,SystemBus
+  dbus,SystemBus,
+  PCIDevice
 
 ignore-mixin-members=yes
 generated-members=

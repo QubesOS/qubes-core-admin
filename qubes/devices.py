@@ -130,6 +130,10 @@ class PCIDevice(RegexDevice):
     regex = re.compile(
         r'^(?P<bus>[0-9a-f]+):(?P<device>[0-9a-f]+)\.(?P<function>[0-9a-f]+)$')
 
+    @property
+    def libvirt_name(self):
+        return 'pci_000_{}_{}_{}'.format(self.bus, self.device, self.name)
+
 
 class BlockDevice(object):
     # pylint: disable=too-few-public-methods

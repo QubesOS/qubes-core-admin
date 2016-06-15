@@ -104,14 +104,7 @@
         {% endif %}
 
         {% for device in vm.devices.pci %}
-            <hostdev type="pci" managed="yes">
-                <source>
-                    <address
-                        bus="0x{{ device.bus }}"
-                        slot="0x{{ device.device }}"
-                        function="0x{{ device.function }}" />
-                </source>
-            </hostdev>
+            {% include libvirt/devices/pci.xml %}
         {% endfor %}
 
         {% if vm.hvm %}
