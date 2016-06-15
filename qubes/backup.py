@@ -298,12 +298,7 @@ class Backup(object):
 
         self.log = logging.getLogger('qubes.backup')
 
-        # FIXME: drop this legacy feature?
-        if isinstance(self.compressed, basestring):
-            self.compression_filter = self.compressed
-            self.compressed = True
-        else:
-            self.compression_filter = DEFAULT_COMPRESSION_FILTER
+        self.compression_filter = DEFAULT_COMPRESSION_FILTER
 
         if exclude_list is None:
             exclude_list = []
@@ -920,7 +915,6 @@ class ExtractWorker2(Process):
                             self.decryptor_process,
                             self.tar2_process]:
                 if process:
-                    # FIXME: kill()?
                     try:
                         process.terminate()
                     except OSError:
@@ -972,7 +966,6 @@ class ExtractWorker2(Process):
             elif not self.tar2_process:
                 # Extracting of the current archive failed, skip to the next
                 # archive
-                # TODO: some debug option to preserve it?
                 os.remove(filename)
                 continue
             else:
@@ -1157,7 +1150,6 @@ class ExtractWorker3(ExtractWorker2):
             elif not self.tar2_process:
                 # Extracting of the current archive failed, skip to the next
                 # archive
-                # TODO: some debug option to preserve it?
                 os.remove(filename)
                 continue
             else:
@@ -1652,7 +1644,6 @@ class BackupRestore(object):
             "Extracting data: " + size_to_human(vms_size) + " to restore")
 
         # retrieve backup from the backup stream (either VM, or dom0 file)
-        # TODO: add some safety margin in vms_size?
         (retrieve_proc, filelist_pipe, error_pipe) = \
             self._start_retrieval_process(vms_dirs, limit_count, vms_size)
 
@@ -1722,8 +1713,12 @@ class BackupRestore(object):
                         MAX_STDERR_BYTES)))
             # wait for other processes (if any)
             for proc in self.processes_to_kill_on_cancel:
-                # FIXME check 'vmproc' exit code?
                 proc.wait()
+
+            if vmproc.returncode != 0:
+                raise qubes.exc.QubesException(
+                    "Backup completed, but VM receiving it reported an error "
+                    "(exit code {})".format(vmproc.returncode))
 
             if filename and filename != "EOF":
                 raise qubes.exc.QubesException(
