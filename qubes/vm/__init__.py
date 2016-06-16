@@ -120,6 +120,7 @@ class Features(dict):
     #
 
     _NO_DEFAULT = object()
+
     def check_with_template(self, feature, default=_NO_DEFAULT):
         if feature in self:
             return self[feature]
@@ -200,7 +201,7 @@ class BaseVM(qubes.PropertyHolder):
 
             for node in self.xml.xpath('./properties/property'):
                 name = node.get('name')
-                if not name in all_names:
+                if name not in all_names:
                     raise TypeError(
                         'property {!r} not applicable to {!r}'.format(
                             name, self.__class__.__name__))
@@ -211,11 +212,9 @@ class BaseVM(qubes.PropertyHolder):
         if hasattr(self, 'name'):
             self.init_log()
 
-
     def init_log(self):
         '''Initialise logger for this domain.'''
         self.log = qubes.log.get_vm_logger(self.name)
-
 
     def __xml__(self):
         element = lxml.etree.Element('domain')
@@ -352,7 +351,7 @@ class BaseVM(qubes.PropertyHolder):
                 tree.write(fd, encoding="UTF-8", pretty_print=True)
             fd.close()
             os.umask(old_umask)
-        except EnvironmentError as err: # pylint: disable=broad-except
+        except EnvironmentError as err:  # pylint: disable=broad-except
             print >> sys.stderr, "{0}: save error: {1}".format(
                     os.path.basename(sys.argv[0]), err)
             return False
@@ -445,7 +444,7 @@ class BaseVM(qubes.PropertyHolder):
 
                 conf["rules"].append(rule)
 
-        except EnvironmentError as err: # pylint: disable=broad-except
+        except EnvironmentError as err:  # pylint: disable=broad-except
             # problem accessing file, like ENOTFOUND, EPERM or sth
             # return default config
             return conf
@@ -491,7 +490,6 @@ class VMProperty(qubes.property):
             **kwargs)
         self.vmclass = vmclass
         self.allow_none = allow_none
-
 
     def __set__(self, instance, value):
         if value is self.__class__.DEFAULT:
