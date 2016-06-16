@@ -1958,7 +1958,7 @@ class BackupRestore(object):
             "template": {"func": "'n/a' if not hasattr(vm, 'template') is None "
                                  "else vm_info.template"},
 
-            "netvm": {"func": "'n/a' if vm.is_netvm() and not vm.is_proxyvm() else\
+            "netvm": {"func": "'n/a' if vm.is_netvm() else\
                       ('*' if vm.property_is_default('netvm') else '') +\
                         vm_info.netvm if vm_info.netvm is not None "
                               "else '-'"},

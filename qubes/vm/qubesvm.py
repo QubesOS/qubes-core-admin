@@ -386,11 +386,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         return os.path.join(self.dir_path, 'libvirt.xml')
 
     # XXX I don't know what to do with these; probably should be isinstance(...)
-    def is_proxyvm(self):
-        warnings.warn('vm.is_proxyvm() is deprecated',
-            DeprecationWarning)
-        return self.netvm is not None and self.provides_network
-
     def is_disposablevm(self):
         warnings.warn('vm.is_disposable() is deprecated, use isinstance()',
             DeprecationWarning)
