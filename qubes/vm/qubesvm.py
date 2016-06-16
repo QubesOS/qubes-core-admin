@@ -1223,6 +1223,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self, 'Cannot clone a running domain {!r}'.format(self.name))
 
         if hasattr(src, 'volume_config'):
+            # pylint: disable=attribute-defined-outside-init
             self.volume_config = src.volume_config
         self.storage = qubes.storage.Storage(self)
         self.storage.clone(src)
