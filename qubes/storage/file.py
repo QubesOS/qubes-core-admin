@@ -24,6 +24,9 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
+''' This module contains pool implementations backed by file images'''
+
+
 from __future__ import absolute_import
 
 import os
@@ -122,13 +125,7 @@ class FilePool(Pool):
         if not os.path.exists(new_dir):
             os.makedirs(new_dir)
 
-        # FIXME: proper polymorphism
-        if volume.volume_type == 'read-write':
-            volume.rename_target_dir(new_name, new_dir)
-        elif volume.volume_type == 'read-only':
-            volume.rename_target_dir(old_name, new_dir)
-        elif volume.volume_type in ['origin', 'volatile']:
-            volume.rename_target_dir(new_dir)
+        volume.rename_target_dir(old_name, new_name)
 
         return volume
 
@@ -275,6 +272,13 @@ class FileVolume(Volume):
         assert self.target_dir, "target_dir not specified"
         super(FileVolume, self).__init__(**kwargs)
 
+    def _new_dir(self, new_name):
+        ''' Returns a new directory path based on the new_name. This is a helper
+            method for moving file images during vm renaming.
+        '''
+        old_dir = os.path.dirname(self.path)
+        return os.path.join(os.path.dirname(old_dir), new_name)
+
 
 class SizeMixIn(FileVolume):
     ''' A mix in which expects a `size` param to be > 0 on initialization and
@@ -328,13 +332,14 @@ class ReadOnlyFile(FileVolume):
         super(ReadOnlyFile, self).__init__(size=int(size), **kwargs)
         self.path = self.vid
 
-    def rename_target_dir(self, old_name, new_dir):
+    def rename_target_dir(self, old_name, new_name):
         """ Called by :py:class:`FilePool` when a domain changes it's name.
 
         Only copies the volume if it belongs to the domain being renamed.
         Currently if a volume is in a directory named the same as the domain,
         it's ”owned” by the domain.
         """
+        new_dir = self._new_dir(new_name)
         if os.path.basename(self.target_dir) == old_name:
             file_name = os.path.basename(self.path)
             new_path = os.path.join(new_dir, file_name)
@@ -366,8 +371,10 @@ class OriginFile(SizeMixIn):
         ''' Commit Template changes '''
         raise NotImplementedError
 
-    def rename_target_dir(self, new_dir):
-        ''' Called by :py:class:`FilePool` when a domain changes it's name '''
+    def rename_target_dir(self, old_name, new_name):
+        ''' Called by :py:class:`FilePool` when a domain changes it's name.
+        '''  # pylint: disable=unused-argument
+        new_dir = self._new_dir(new_name)
         old_path_origin = self.path_origin
         old_path_cow = self.path_cow
         new_path_origin = os.path.join(new_dir, self.name + '.img')
@@ -414,15 +421,16 @@ class VolatileFile(SizeMixIn):
         self.path = os.path.join(self.target_dir, self.name + '.img')
         self.vid = self.path
 
-    def rename_target_dir(self, new_dir):
-        ''' Called by :py:class:`FilePool` when a domain changes it's name '''
+    def rename_target_dir(self, old_name, new_name):
+        ''' Called by :py:class:`FilePool` when a domain changes it's name.
+    '''  # pylint: disable=unused-argument
+        new_dir = self._new_dir(new_name)
         _remove_if_exists(self.path)
         file_name = os.path.basename(self.path)
         self.target_dir = new_dir
         new_path = os.path.join(new_dir, file_name)
         self.path = new_path
         self.vid = self.path
-
 
 def create_sparse_file(path, size):
     ''' Create an empty sparse file '''
