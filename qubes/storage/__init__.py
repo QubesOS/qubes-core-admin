@@ -133,9 +133,8 @@ class Storage(object):
         ''' Resize volume '''
         self.get_pool(volume).resize(volume, size)
 
-    # TODO rename it to create()
-    def create_on_disk(self, source_template=None):
-        # :pylint: disable=missing-docstring
+    def create(self, source_template=None):
+
         if source_template is None and hasattr(self.vm, 'template'):
             source_template = self.vm.template
 

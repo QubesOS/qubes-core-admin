@@ -1144,7 +1144,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.log.info('Creating directory: {0}'.format(self.dir_path))
         os.makedirs(self.dir_path, mode=0o775)
 
-        self.storage.create_on_disk(source_template)
+        self.storage.create(source_template)
 
         self.log.info('Creating icon symlink: {} -> {}'.format(
             self.icon_path, self.label.icon_path))
