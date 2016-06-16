@@ -701,7 +701,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.fire_event_pre('domain-pre-start', preparing_dvm=preparing_dvm,
             start_guid=start_guid, mem_required=mem_required)
 
-        self.verify_files()
+        self.storage.verify_files()
 
         if self.netvm is not None:
             if self.netvm.qid != 0:
@@ -1516,20 +1516,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self.log.exception(
                     'libvirt error code: {!r}'.format(e.get_error_code()))
                 raise
-
-    # TODO move to storage
-    def verify_files(self):
-        '''Verify that files accessed by this machine are sane.
-
-        On success, returns normally. On failure, raises exception.
-        '''
-
-        self.storage.verify_files()
-
-        self.fire_event('domain-verify-files')
-
-        return True
-
 
     # miscellanous
 
