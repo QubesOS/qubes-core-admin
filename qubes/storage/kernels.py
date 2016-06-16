@@ -84,6 +84,9 @@ class LinuxKernel(Pool):
     def destroy(self):
         pass
 
+    def is_outdated(self, volume):
+        return False
+
     def remove(self, volume):
         pass
 
