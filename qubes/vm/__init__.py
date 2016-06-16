@@ -28,13 +28,8 @@
 
 '''
 
-import ast
-import collections
 import datetime
-import functools
-import itertools
 import os
-import re
 import subprocess
 import sys
 import xml.parsers.expat
