@@ -1,6 +1,5 @@
 #!/usr/bin/python2 -O
 # vim: fileencoding=utf-8
-
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
@@ -40,7 +39,7 @@ import uuid
 import warnings
 
 import lxml
-import libvirt
+import libvirt  # pylint: disable=import-error
 
 import qubes
 import qubes.config
@@ -65,6 +64,7 @@ MEM_OVERHEAD_PER_VCPU = 3 * 1024 * 1024 / 2
 
 
 def _setter_qid(self, prop, value):
+    ''' Helper for setting the domain qid '''
     # pylint: disable=unused-argument
     value = int(value)
     if not 0 <= value <= qubes.config.max_qid:
@@ -75,6 +75,7 @@ def _setter_qid(self, prop, value):
 
 
 def _setter_name(self, prop, value):
+    ''' Helper for setting the domain name '''
     if not isinstance(value, basestring):
         raise TypeError('{} value must be string, {!r} found'.format(
             prop.__name__, type(value).__name__))
@@ -106,7 +107,8 @@ def _setter_name(self, prop, value):
 
 
 def _setter_kernel(self, prop, value):
-    # pylint: disable=unused-argument
+    ''' Helper for setting the domain kernel and running sanity checks on it.
+    '''  # pylint: disable=unused-argument
     if value is None:
         return value
     value = str(value)
@@ -126,6 +128,7 @@ def _setter_kernel(self, prop, value):
 
 
 def _setter_label(self, prop, value):
+    ''' Helper for setting the domain label '''
     # pylint: disable=unused-argument
     if isinstance(value, qubes.Label):
         return value
@@ -135,6 +138,7 @@ def _setter_label(self, prop, value):
     return self.app.get_label(value)
 
 def _setter_positive_int(self, prop, value):
+    ''' Helper for setting a positive int. Checks that the int is >= 0 '''
     # pylint: disable=unused-argument
     value = int(value)
     if value <= 0:
@@ -190,7 +194,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         doc='''Use full virtualisation (HVM) for this qube,
             instead of paravirtualisation (PV)''')
 
-    # XXX this should be part of qubes.xml
+    # SEE: 1815 this should be part of qubes.xml
     firewall_conf = qubes.property('firewall_conf', type=str,
         default='firewall.xml')
 
@@ -217,7 +221,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         doc='''Internal VM (not shown in qubes-manager, don't create appmenus
             entries.''')
 
-    # FIXME self.app.host could not exist - only self.app.vm required by API
     vcpus = qubes.property('vcpus',
         type=int,
         setter=_setter_positive_int,
@@ -229,20 +232,18 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         default='default',
         doc='storage pool for this qube devices')
 
-    # XXX swallowed uses_default_kernel
-    # XXX not applicable to HVM?
+    # CORE2: swallowed uses_default_kernel
     kernel = qubes.property('kernel', type=str,
         setter=_setter_kernel,
         default=(lambda self: self.app.default_kernel),
         ls_width=12,
         doc='Kernel used by this domain.')
 
-    # XXX swallowed uses_default_kernelopts
-    # XXX not applicable to HVM?
+    # CORE2: swallowed uses_default_kernelopts
     kernelopts = qubes.property('kernelopts', type=str, load_stage=4,
-        default=(lambda self: qubes.config.defaults['kernelopts_pcidevs'] \
-            if len(self.devices['pci']) > 0 \
-            else self.template.kernelopts if hasattr(self, 'template') \
+        default=(lambda self: qubes.config.defaults['kernelopts_pcidevs']
+            if len(self.devices['pci']) > 0
+            else self.template.kernelopts if hasattr(self, 'template')
             else qubes.config.defaults['kernelopts']),
         ls_width=30,
         doc='Kernel command line passed to domain.')
@@ -292,7 +293,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         saver=(lambda self, prop, value: value.strftime('%s')),
         doc='FIXME')
 
-
     #
     # static, class-wide properties
     #
@@ -325,7 +325,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self.log.exception('libvirt error code: {!r}'.format(
                     e.get_error_code()))
                 raise
-
 
     @property
     def libvirt_domain(self):
@@ -382,11 +381,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     def icon_path(self):
         return os.path.join(self.dir_path, 'icon.png')
 
-
     @property
     def conf_file(self):
         return os.path.join(self.dir_path, 'libvirt.xml')
-
 
     # XXX I don't know what to do with these; probably should be isinstance(...)
     def is_template(self):
@@ -418,9 +415,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         return isinstance(self, qubes.vm.mix.net.NetVMMixin) \
                and self.provides_network
 
-
     # network-related
-
 
     #
     # constructor
@@ -481,7 +476,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         if xml is None:
             # new qube, disable updates check if requested for new qubes
-            # TODO: when features (#1637) are done, migrate to plugin
+            # SEE: 1637 when features are done, migrate to plugin
             if not self.app.check_updates_vm:
                 self.features['check-updates'] = None
 
@@ -514,11 +509,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self.uuid = uuid.uuid4()
 
         # Initialize VM image storage class
-        # XXX why not in constructor?
         self.storage = qubes.storage.Storage(self)
         vm_pool = qubes.storage.domain.DomainPool(self)
         self.app.pools[vm_pool.name] = vm_pool
-
 
     @qubes.events.handler('property-set:label')
     def on_property_set_label(self, event, name, new_label, old_label=None):
@@ -530,7 +523,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 pass
             if hasattr(os, "symlink"):
                 os.symlink(new_label.icon_path, self.icon_path)
-                # FIXME: some os-independent wrapper?
                 subprocess.call(['sudo', 'xdg-icon-resource', 'forceupdate'])
             else:
                 shutil.copy(new_label.icon_path, self.icon_path)
@@ -597,7 +589,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesException(
                 'Failed to set autostart for VM in systemd')
 
-
     @qubes.events.handler('device-pre-attach:pci')
     def on_device_pre_attached_pci(self, event, device):
         # pylint: disable=unused-argument
@@ -616,7 +607,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         except subprocess.CalledProcessError as e:
             self.log.exception('Failed to attach PCI device {!r} on the fly,'
                 ' changes will be seen after VM restart.'.format(device), e)
-
 
     @qubes.events.handler('device-pre-detach:pci')
     def on_device_pre_detached_pci(self, event, device):
@@ -648,7 +638,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 ' changes will be seen after VM restart.'.format(device), e)
             raise
 
-
     def bind_pci_to_pciback(self, device):
         '''Bind PCI device to pciback driver.
 
@@ -675,7 +664,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 pass
             else:
                 raise
-
 
     #
     # methods for changing domain state
@@ -704,6 +692,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.storage.verify_files()
 
         if self.netvm is not None:
+            # pylint: disable = no-member
             if self.netvm.qid != 0:
                 if not self.netvm.is_running():
                     self.netvm.start(start_guid=start_guid,
@@ -761,7 +750,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self
 
-
     def shutdown(self, force=False):
         '''Shutdown domain.
 
@@ -792,7 +780,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self
 
-
     def kill(self):
         '''Forcefuly shutdown (destroy) domain.
 
@@ -808,7 +795,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self
 
-
     def force_shutdown(self, *args, **kwargs):
         '''Deprecated alias for :py:meth:`kill`'''
         warnings.warn(
@@ -817,7 +803,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.kill(*args, **kwargs)
 
         return self
-
 
     def suspend(self):
         '''Suspend (pause) domain.
@@ -833,8 +818,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         if len(self.devices['pci']) > 0:
             raise qubes.exc.QubesNotImplementedError(
-                'Cannot suspend domain {!r} which has PCI devices attached' \
-                    .format(self.name))
+                'Cannot suspend domain {!r} which has PCI devices attached'
+                .format(self.name))
         else:
             if self.hvm:
                 self.libvirt_domain.pause()
@@ -842,7 +827,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self.libvirt_domain.suspend()
 
         return self
-
 
     def pause(self):
         '''Pause (suspend) domain. This currently delegates to \
@@ -854,7 +838,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.suspend()
 
         return self
-
 
     def resume(self):
         '''Resume suspended domain.
@@ -871,7 +854,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self
 
-
     def unpause(self):
         '''Resume (unpause) a domain'''
         if not self.is_paused():
@@ -880,7 +862,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.libvirt_domain.resume()
 
         return self
-
 
     def run(self, command, user=None, autostart=False, notify_function=None,
             passio=False, passio_popen=False, passio_stderr=False,
@@ -969,7 +950,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             null.close()
         return retcode
 
-
     def run_service(self, service, source=None, user=None,
                     passio_popen=False, input=None, localcmd=None, gui=False,
                     wait=True, passio_stderr=False):
@@ -982,7 +962,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         :param str user: username to run service as
         :param bool passio_popen: passed verbatim to :py:meth:`run`
         :param str input: string passed as input to service
-        ''' # pylint: disable=redefined-builtin
+        '''  # pylint: disable=redefined-builtin
 
         if len([i for i in (input, passio_popen, localcmd) if i]) > 1:
             raise TypeError(
@@ -1039,7 +1019,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return qmemman_client
 
-
     def start_qrexec_daemon(self):
         '''Start qrexec daemon.
 
@@ -1066,7 +1045,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         except subprocess.CalledProcessError:
             raise qubes.exc.QubesVMError(self, 'Cannot execute qrexec-daemon!')
 
-
     def start_qubesdb(self):
         '''Start QubesDB daemon.
 
@@ -1083,7 +1061,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if retcode != 0:
             raise qubes.exc.QubesException('Cannot execute qubesdb-daemon')
 
-
     def wait_for_session(self):
         '''Wait until machine finished boot sequence.
 
@@ -1098,8 +1075,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             user="root", passio_popen=True, gui=False, wait=True)
         p.communicate(input=self.default_user)
 
-
-    # TODO rename to create
     def create_on_disk(self, source_template=None):
         '''Create files needed for VM.
 
@@ -1165,7 +1140,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         # fire hooks
         self.fire_event('domain-clone-files', src)
-
 
     #
     # methods for querying domain state
@@ -1275,7 +1249,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainState
                 Libvirt's enum describing precise state of a domain.
-        ''' # pylint: disable=too-many-return-statements
+        '''  # pylint: disable=too-many-return-statements
 
         libvirt_domain = self.libvirt_domain
         if libvirt_domain is None:
@@ -1292,7 +1266,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     return "Halting"
                 elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_SHUTOFF:
                     return "Dying"
-                elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PMSUSPENDED:
+                elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PMSUSPENDED:  # nopep8
                     return "Suspended"
                 else:
                     if not self.is_fully_usable():
@@ -1331,7 +1305,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # TODO context manager #1693
         return self.libvirt_domain and self.libvirt_domain.isActive()
 
-
     def is_paused(self):
         '''Check whether this domain is paused.
 
@@ -1342,7 +1315,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self.libvirt_domain \
             and self.libvirt_domain.state() == libvirt.VIR_DOMAIN_PAUSED
-
 
     def is_qrexec_running(self):
         '''Check whether qrexec for this domain is available.
@@ -1355,22 +1327,19 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             return False
         return os.path.exists('/var/run/qubes/qrexec.%s' % self.name)
 
-
     def is_fully_usable(self):
         return all(self.fire_event('domain-is-fully-usable'))
-
 
     @qubes.events.handler('domain-is-fully-usable')
     def on_domain_is_fully_usable(self, event):
         '''Check whether domain is running and sane.
 
         Currently this checks for running qrexec.
-        ''' # pylint: disable=unused-argument
+        '''  # pylint: disable=unused-argument
 
         # Running gui-daemon implies also VM running
         if not self.is_qrexec_running():
             yield False
-
 
     # memory and disk
 
@@ -1395,15 +1364,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     libvirt.VIR_ERR_NO_DOMAIN,
 
                     # libxl_domain_info failed (race condition from isActive)
-                    libvirt.VIR_ERR_INTERNAL_ERROR,
-                    ):
+                    libvirt.VIR_ERR_INTERNAL_ERROR):
                 return 0
 
             else:
                 self.log.exception(
                     'libvirt error code: {!r}'.format(e.get_error_code()))
                 raise
-
 
     def get_mem_static_max(self):
         '''Get maximum memory available to VM.
@@ -1424,15 +1391,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     libvirt.VIR_ERR_NO_DOMAIN,
 
                     # libxl_domain_info failed (race condition from isActive)
-                    libvirt.VIR_ERR_INTERNAL_ERROR,
-                    ):
+                    libvirt.VIR_ERR_INTERNAL_ERROR):
                 return 0
 
             else:
                 self.log.exception(
                     'libvirt error code: {!r}'.format(e.get_error_code()))
                 raise
-
 
     def get_cputime(self):
         '''Get total CPU time burned by this domain since start.
@@ -1465,8 +1430,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     libvirt.VIR_ERR_NO_DOMAIN,
 
                     # libxl_domain_info failed (race condition from isActive)
-                    libvirt.VIR_ERR_INTERNAL_ERROR,
-                    ):
+                    libvirt.VIR_ERR_INTERNAL_ERROR):
                 return 0
 
             else:
@@ -1492,8 +1456,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         else:
             return None
 
-
-    # XXX this probably should go to AppVM
     def is_outdated(self):
         '''Check whether domain needs restart to update root image from \
             template.
@@ -1546,7 +1508,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         '''
 
         return os.path.relpath(path, self.dir_path)
-
 
     def create_qdb_entries(self):
         '''Create entries in Qubes DB.
@@ -1601,7 +1562,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.fire_event('domain-qdb-create')
 
-
     def _update_libvirt_domain(self):
         '''Re-initialise :py:attr:`libvirt_domain`.'''
         domain_config = self.create_config_file()
@@ -1616,7 +1576,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     'Check BIOS settings for VT-x/AMD-V extensions.')
             else:
                 raise
-
 
     #
     # workshop -- those are to be reworked later
@@ -1636,38 +1595,3 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         domain.memory_maximum = self.get_mem_static_max() * 1024
 
         return qubes.qmemman.algo.prefmem(domain) / 1024
-
-
-
-    #
-    # landfill -- those are unneeded
-    #
-
-
-
-
-#       attrs = {
-    # XXX probably will be obsoleted by .events_enabled
-#   "_do_not_reset_firewall": { "func": lambda x: False },
-
-#   "_start_guid_first": { "func": lambda x: False },
-#   }
-
-    # this function appears unused
-#   def _cleanup_zombie_domains(self):
-#       """
-#       This function is workaround broken libxl (which leaves not fully
-#       created domain on failure) and vchan on domain crash behaviour
-#       @return: None
-#       """
-#       xc = self.get_xc_dominfo()
-#       if xc and xc['dying'] == 1:
-#           # GUID still running?
-#           guid_pidfile = '/var/run/qubes/guid-running.%d' % xc['domid']
-#           if os.path.exists(guid_pidfile):
-#               guid_pid = open(guid_pidfile).read().strip()
-#               os.kill(int(guid_pid), 15)
-#           # qrexec still running?
-#           if self.is_qrexec_running():
-#               #TODO: kill qrexec daemon
-#               pass
