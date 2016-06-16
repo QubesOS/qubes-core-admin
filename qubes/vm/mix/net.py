@@ -1,6 +1,5 @@
 #!/usr/bin/python2 -O
 # vim: fileencoding=utf-8
-
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
@@ -24,15 +23,18 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
+''' This module contains the NetVMMixin '''
+
 import re
 
-import libvirt
-
+import libvirt  # pylint: disable=import-error
 import qubes
 import qubes.events
 import qubes.exc
 
+
 def _setter_mac(self, prop, value):
+    ''' Helper for setting the MAC address '''
     # pylint: disable=unused-argument
     if not isinstance(value, basestring):
         raise ValueError('MAC address must be a string')
@@ -41,14 +43,16 @@ def _setter_mac(self, prop, value):
         raise ValueError('Invalid MAC address value')
     return value
 
+
 class NetVMMixin(qubes.events.Emitter):
+    ''' Mixin containing network functionality '''
     mac = qubes.property('mac', type=str,
         default='00:16:3E:5E:6C:00',
         setter=_setter_mac,
         ls_width=17,
         doc='MAC address of the NIC emulated inside VM')
 
-    # XXX swallowed uses_default_netvm
+    # CORE2: swallowed uses_default_netvm
     netvm = qubes.VMProperty('netvm', load_stage=4, allow_none=True,
         default=(lambda self: self.app.default_fw_netvm if self.provides_network
             else self.app.default_netvm),
@@ -62,7 +66,6 @@ class NetVMMixin(qubes.events.Emitter):
         doc='''If this domain can act as network provider (formerly known as
             NetVM or ProxyVM)''')
 
-
     #
     # used in networked appvms or proxyvms (netvm is not None)
     #
@@ -74,10 +77,9 @@ class NetVMMixin(qubes.events.Emitter):
         if not self.is_networked():
             return None
         if self.netvm is not None:
-            return self.netvm.get_ip_for_vm(self)
+            return self.netvm.get_ip_for_vm(self)  # pylint: disable=no-member
         else:
             return self.get_ip_for_vm(self)
-
 
     #
     # used in netvms (provides_network=True)
@@ -88,7 +90,7 @@ class NetVMMixin(qubes.events.Emitter):
     def get_ip_for_vm(vm):
         '''Get IP address for (appvm) domain connected to this (netvm) domain.
         '''
-        import qubes.vm.dispvm # pylint: disable=redefined-outer-name
+        import qubes.vm.dispvm  # pylint: disable=redefined-outer-name
         if isinstance(vm, qubes.vm.dispvm.DispVM):
             return '10.138.{}.{}'.format((vm.dispid >> 8) & 7, vm.dispid & 7)
 
@@ -110,6 +112,9 @@ class NetVMMixin(qubes.events.Emitter):
 
     @property
     def connected_vms(self):
+        ''' Return a generator containing all domains connected to the current
+            NetVM.
+        '''
         for vm in self.app.domains:
             if vm.netvm is self:
                 yield vm
@@ -130,10 +135,8 @@ class NetVMMixin(qubes.events.Emitter):
         else:
             return None
 
-
     def __init__(self, *args, **kwargs):
         super(NetVMMixin, self).__init__(*args, **kwargs)
-
 
     @qubes.events.handler('domain-start')
     def on_domain_started(self, event, **kwargs):
@@ -141,16 +144,16 @@ class NetVMMixin(qubes.events.Emitter):
         in its netvm.
 
         This is needed when starting netvm *after* its connected domains.
-        ''' # pylint: disable=unused-argument
+        '''  # pylint: disable=unused-argument
 
         if self.netvm:
-            self.netvm.reload_firewall_for_vm(self)
+            self.netvm.reload_firewall_for_vm(self)  # pylint: disable=no-member
 
         for vm in self.connected_vms:
             if not vm.is_running():
                 continue
             vm.log.info('Attaching network')
-            # 1426
+            # SEE: 1426
             vm.cleanup_vifs()
 
             try:
@@ -165,10 +168,12 @@ class NetVMMixin(qubes.events.Emitter):
             except qubes.exc.QubesException:
                 vm.log.warning('Cannot attach network', exc_info=1)
 
-
     @qubes.events.handler('domain-pre-shutdown')
     def shutdown_net(self, event, force=False):
-        # pylint: disable=unused-argument
+        ''' Checks before NetVM shutdown if any connected domains are running.
+            If `force` is `True` tries to detach network interfaces of connected
+            vms
+        '''  # pylint: disable=unused-argument
 
         connected_vms = [vm for vm in self.connected_vms if vm.is_running()]
         if connected_vms and not force:
@@ -176,6 +181,7 @@ class NetVMMixin(qubes.events.Emitter):
                 'There are other VMs connected to this VM: {}'.format(
                     ', '.join(vm.name for vm in connected_vms)))
 
+        # SEE: 1426
         # detach network interfaces of connected VMs before shutting down,
         # otherwise libvirt will not notice it and will try to detach them
         # again (which would fail, obviously).
@@ -188,7 +194,6 @@ class NetVMMixin(qubes.events.Emitter):
                     # ignore errors
                     pass
 
-
     def attach_network(self):
         '''Attach network in this machine to it's netvm.'''
 
@@ -196,14 +201,14 @@ class NetVMMixin(qubes.events.Emitter):
             raise qubes.exc.QubesVMNotRunningError(self)
         assert self.netvm is not None
 
-        if not self.netvm.is_running():
+        if not self.netvm.is_running():  # pylint: disable=no-member
+            # pylint: disable=no-member
             self.log.info('Starting NetVM ({0})'.format(self.netvm.name))
             self.netvm.start()
 
         self.libvirt_domain.attachDevice(
             self.app.env.get_template('libvirt/devices/net.xml').render(
                 vm=self))
-
 
     def detach_network(self):
         '''Detach machine from it's netvm'''
@@ -215,7 +220,6 @@ class NetVMMixin(qubes.events.Emitter):
         self.libvirt_domain.attachDevice(
             self.app.env.get_template('libvirt/devices/net.xml').render(
                 vm=self))
-
 
     def is_networked(self):
         '''Check whether this VM can reach network (firewall notwithstanding).
@@ -230,17 +234,12 @@ class NetVMMixin(qubes.events.Emitter):
 
         return self.netvm is not None
 
-
     def cleanup_vifs(self):
         '''Remove stale network device backends.
 
         Libvirt does not remove vif when backend domain is down, so we must do
         it manually. This method is one big hack for #1426.
         '''
-
-        # FIXME: remove this?
-        if not self.is_running():
-            return
 
         dev_basepath = '/local/domain/%d/device/vif' % self.xid
         for dev in self.app.vmm.xs.ls('', dev_basepath):
@@ -256,11 +255,13 @@ class NetVMMixin(qubes.events.Emitter):
             self.app.vmm.xs.rm('', '{}/{}'.format(dev_basepath, dev))
 
     def reload_firewall_for_vm(self, vm):
-        # TODO QubesOS/qubes-issues#1815
+        ''' Reload the firewall rules for the vm '''
+        # SEE:1815
         pass
 
     @qubes.events.handler('property-del:netvm')
     def on_property_del_netvm(self, event, prop, old_netvm=None):
+        ''' Sets the the NetVM to default NetVM '''
         # pylint: disable=unused-argument
         # we are changing to default netvm
         new_netvm = self.netvm
@@ -268,9 +269,9 @@ class NetVMMixin(qubes.events.Emitter):
             return
         self.fire_event('property-set:netvm', 'netvm', new_netvm, old_netvm)
 
-
     @qubes.events.handler('property-pre-set:netvm')
     def on_property_pre_set_netvm(self, event, name, new_netvm, old_netvm=None):
+        ''' Run sanity checks before setting a new NetVM '''
         # pylint: disable=unused-argument
         if new_netvm is None:
             return
@@ -283,24 +284,23 @@ class NetVMMixin(qubes.events.Emitter):
                 or new_netvm in self.app.domains.get_vms_connected_to(self):
             raise qubes.exc.QubesValueError('Loops in network are unsupported')
 
-        # TODO offline_mode
-        if self.is_running() and not new_netvm.is_running():
+        if not self.app.vmm.offline_mod and self.is_running() \
+                and not new_netvm.is_running():
+
             raise qubes.exc.QubesVMNotStartedError(new_netvm,
                 'Cannot dynamically attach to stopped NetVM: {!r}'.format(
                     new_netvm))
 
-
     @qubes.events.handler('property-set:netvm')
     def on_property_set_netvm(self, event, name, new_netvm, old_netvm=None):
+        ''' Replaces the current NetVM with a new one and fires
+            net-domain-connect event
+        '''
         # pylint: disable=unused-argument
 
         if self.netvm is not None:
             if self.is_running():
                 self.detach_network()
-
-                # TODO change to domain-removed event handler in netvm
-#               if hasattr(self.netvm, 'post_vm_net_detach'):
-#                   self.netvm.post_vm_net_detach(self)
 
         if new_netvm is None:
             return
@@ -310,19 +310,23 @@ class NetVMMixin(qubes.events.Emitter):
             self.create_qdb_entries()
             self.attach_network()
 
-            # TODO documentation
-            new_netvm.fire_event('net-domain-connect', self)
-            # FIXME handle in the above event?
-            new_netvm.reload_firewall_for_vm(self)
+            new_netvm.fire_event('net-domain-connect', self)  # SEE: 1811
+
+    @qubes.events.handler('net-domain-connect')
+    def on_net_domain_connect(self, event, vm):
+        ''' Reloads the firewall config for vm '''
+        # pylint: disable=unused-argument
+        self.reload_firewall_for_vm(vm)
 
     @qubes.events.handler('domain-qdb-create')
     def on_domain_qdb_create(self, event):
-        # TODO: fill firewall QubesDB entries (QubesOS/qubes-issues#1815)
+        ''' Fills the QubesDB with firewall entries. Not implemented '''
+        # SEE: 1815 fill firewall QubesDB entries
         pass
 
-    # FIXME use event after creating Xen domain object, but before "resume"
-    @qubes.events.handler('firewall-changed')
+    @qubes.events.handler('firewall-changed', 'domain-spawn')
     def on_firewall_changed(self, event):
+        ''' Reloads the firewall if vm is running and has a NetVM assigned '''
         # pylint: disable=unused-argument
         if self.is_running() and self.netvm:
-            self.netvm.reload_firewall_for_vm(self)
+            self.netvm.reload_firewall_for_vm(self)  # pylint: disable=no-member
