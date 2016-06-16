@@ -261,40 +261,19 @@ class BaseVM(qubes.PropertyHolder):
         return '<{} object at {:#x} {}>'.format(
             self.__class__.__name__, id(self), ' '.join(proprepr))
 
-
     #
     # xml serialising methods
     #
 
-    def create_config_file(self, file_path=None, prepare_dvm=False):
+    def create_config_file(self, prepare_dvm=False):
         '''Create libvirt's XML domain config file
 
-        :param str file_path: Path to file to create \
-            (default: :py:attr:`qubes.vm.qubesvm.QubesVM.conf_file`)
         :param bool prepare_dvm: If we are in the process of preparing \
             DisposableVM
         '''
-
-        if file_path is None:
-            file_path = self.conf_file
-
         domain_config = self.app.env.get_template('libvirt/xen.xml').render(
             vm=self, prepare_dvm=prepare_dvm)
-
-        # FIXME: This is only for debugging purposes
-        old_umask = os.umask(002)
-        try:
-            conf_appvm = open(file_path, "w")
-            conf_appvm.write(domain_config)
-            conf_appvm.close()
-        except: # pylint: disable=bare-except
-            # Ignore errors
-            pass
-        finally:
-            os.umask(old_umask)
-
         return domain_config
-
 
     #
     # firewall
