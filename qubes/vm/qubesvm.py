@@ -386,12 +386,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         return os.path.join(self.dir_path, 'libvirt.xml')
 
     # XXX I don't know what to do with these; probably should be isinstance(...)
-    def is_appvm(self):
-        warnings.warn('vm.is_appvm() is deprecated, use isinstance()',
-            DeprecationWarning)
-        import qubes.vm.appvm  # pylint: disable=redefined-outer-name
-        return isinstance(self, qubes.vm.appvm.AppVM)
-
     def is_proxyvm(self):
         warnings.warn('vm.is_proxyvm() is deprecated',
             DeprecationWarning)
