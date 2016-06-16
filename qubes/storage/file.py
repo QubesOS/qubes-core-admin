@@ -1,6 +1,5 @@
 #!/usr/bin/python2 -O
 # vim: fileencoding=utf-8
-
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
@@ -131,6 +130,7 @@ class FilePool(Pool):
 
     @staticmethod
     def _resize_loop_device(path):
+        ''' Sets the loop device capacity '''
         # find loop device if any
         p = subprocess.Popen(
             ['sudo', 'losetup', '--associated', path],
@@ -494,9 +494,7 @@ def create_dir_if_not_exists(path):
 
 
 def copy_file(source, destination):
-    '''Effective file copy, preserving sparse files etc.
-    '''
-    # TODO: Windows support
+    '''Effective file copy, preserving sparse files etc.'''
     # We prefer to use Linux's cp, because it nicely handles sparse files
     assert os.path.exists(source), \
         "Missing the source %s to copy from" % source
@@ -515,6 +513,7 @@ def copy_file(source, destination):
 
 
 def _remove_if_exists(path):
+    ''' Removes a path if it exist, silently succeeds if file does not exist '''
     if os.path.exists(path):
         os.remove(path)
 
