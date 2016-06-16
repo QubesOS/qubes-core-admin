@@ -1944,10 +1944,10 @@ class BackupRestore(object):
             "qid": {"func": "vm.qid"},
 
             "name": {"func": "('[' if isinstance(vm, qubes.vm.templatevm.TemplateVM) else '')\
-                     + ('{' if vm.is_netvm() else '')\
+                     + ('{' if vm.provides_network else '')\
                      + vm.name \
                      + (']' if isinstance(vm, qubes.vm.templatevm.TemplateVM) else '')\
-                     + ('}' if vm.is_netvm() else '')"},
+                     + ('}' if vm.provides_network else '')"},
 
             "type": {"func": "'Tpl' if isinstance(vm, qubes.vm.templatevm.TemplateVM) else \
                      'App' if isinstance(vm, qubes.vm.appvm.AppVM) else \
@@ -1958,7 +1958,7 @@ class BackupRestore(object):
             "template": {"func": "'n/a' if not hasattr(vm, 'template') is None "
                                  "else vm_info.template"},
 
-            "netvm": {"func": "'n/a' if vm.is_netvm() else\
+            "netvm": {"func": "'n/a' if vm.provides_network else\
                       ('*' if vm.property_is_default('netvm') else '') +\
                         vm_info.netvm if vm_info.netvm is not None "
                               "else '-'"},

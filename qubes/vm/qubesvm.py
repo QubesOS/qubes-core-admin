@@ -385,19 +385,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     def conf_file(self):
         return os.path.join(self.dir_path, 'libvirt.xml')
 
-    # XXX I don't know what to do with these; probably should be isinstance(...)
-    def is_disposablevm(self):
-        warnings.warn('vm.is_disposable() is deprecated, use isinstance()',
-            DeprecationWarning)
-        import qubes.vm.dispvm  # pylint: disable=redefined-outer-name
-        return isinstance(self, qubes.vm.dispvm.DispVM)
-
-    def is_netvm(self):
-        warnings.warn('vm.is_netvm() is deprecated, use isinstance()',
-            DeprecationWarning)
-        return isinstance(self, qubes.vm.mix.net.NetVMMixin) \
-               and self.provides_network
-
     # network-related
 
     #

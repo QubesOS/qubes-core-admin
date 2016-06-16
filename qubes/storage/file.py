@@ -212,10 +212,10 @@ class FilePool(Pool):
                              are stored
         """
         # FIX Remove this if we drop the file backend
-        import qubes.vm.templatevm  # nopep8
+        import qubes.vm  # nopep8
         if isinstance(vm, qubes.vm.templatevm.TemplateVM):
             subdir = 'vm-templates'
-        elif vm.is_disposablevm():
+        elif isinstance(vm, qubes.vm.dispvm.DispVM):
             subdir = 'appvms'
             return os.path.join(self.dir_path, subdir,
                                 vm.template.name + '-dvm')
