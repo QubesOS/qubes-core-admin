@@ -192,6 +192,7 @@ class Storage(object):
             raise qubes.exc.QubesVMError(
                 self.vm,
                 'VM directory does not exist: {}'.format(self.vm.dir_path))
+        self.vm.fire_event('domain-verify-files')
 
     def remove(self):
         ''' Remove all the volumes.
