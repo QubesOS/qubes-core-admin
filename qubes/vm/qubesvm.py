@@ -364,41 +364,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self._qdb_connection = qubesdb.QubesDB(self.name)
         return self._qdb_connection
 
-
-    # XXX this should go to to AppVM?
-    @property
-    def private_img(self):
-        '''Location of private image of the VM (that contains :file:`/rw` \
-        and :file:`/home`).'''
-        warnings.warn("volatile_img is deprecated, use volumes['private'].vid",
-                      DeprecationWarning)
-        return self.volumes['private'].vid
-
-
-    # XXX this should go to to AppVM? or TemplateVM?
-    @property
-    def root_img(self):
-        '''Location of root image.'''
-        warnings.warn("root_img is deprecated, use volumes['root'].vid",
-                      DeprecationWarning)
-        return self.volumes['root'].vid
-
-
-    # XXX and this should go to exactly where? DispVM has it.
-    @property
-    def volatile_img(self):
-        '''Volatile image that overlays :py:attr:`root_img`.'''
-        warnings.warn("volatile_img is deprecated, use volumes['volatile'].vid",
-                      DeprecationWarning)
-        return self.volumes['volatile'].vid
-
-
     # XXX shouldn't this go elsewhere?
     @property
     def updateable(self):
         '''True if this machine may be updated on its own.'''
         return not hasattr(self, 'template')
-
 
     @property
     def dir_path(self):
