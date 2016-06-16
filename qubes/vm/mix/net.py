@@ -108,20 +108,6 @@ class NetVMMixin(qubes.events.Emitter):
         '''Netmask for gateway address.'''
         return '255.255.255.255' if self.is_networked() else None
 
-    @qubes.tools.qvm_ls.column(width=7)
-    @property
-    def vif(self):
-        '''Name of the network interface backend in netvm that is connected to
-        NIC inside this domain.'''
-        if self.xid < 0:
-            return None
-        if self.netvm is None:
-            return None
-
-        # XXX ugly hack ahead
-        # stubdom_xid is one more than self.xid
-        return 'vif{0}.+'.format(self.xid + int(self.hvm))
-
     @property
     def connected_vms(self):
         for vm in self.app.domains:
