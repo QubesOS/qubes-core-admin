@@ -28,13 +28,8 @@
 
 '''
 
-import ast
-import collections
 import datetime
-import functools
-import itertools
 import os
-import re
 import subprocess
 import sys
 import xml.parsers.expat
@@ -125,7 +120,9 @@ class Features(dict):
     #
 
     _NO_DEFAULT = object()
+
     def check_with_template(self, feature, default=_NO_DEFAULT):
+        ''' Check if the vm's template has the specified feature. '''
         if feature in self:
             return self[feature]
 
@@ -198,14 +195,14 @@ class BaseVM(qubes.PropertyHolder):
             for node in xml.xpath('./tags/tag'):
                 self.tags[node.get('name')] = node.text
 
-            # TODO: firewall, policy
+            # SEE:1815 firewall, policy.
 
             # check if properties are appropriate
             all_names = set(prop.__name__ for prop in self.property_list())
 
             for node in self.xml.xpath('./properties/property'):
                 name = node.get('name')
-                if not name in all_names:
+                if name not in all_names:
                     raise TypeError(
                         'property {!r} not applicable to {!r}'.format(
                             name, self.__class__.__name__))
@@ -216,11 +213,9 @@ class BaseVM(qubes.PropertyHolder):
         if hasattr(self, 'name'):
             self.init_log()
 
-
     def init_log(self):
         '''Initialise logger for this domain.'''
         self.log = qubes.log.get_vm_logger(self.name)
-
 
     def __xml__(self):
         element = lxml.etree.Element('domain')
@@ -266,54 +261,24 @@ class BaseVM(qubes.PropertyHolder):
         return '<{} object at {:#x} {}>'.format(
             self.__class__.__name__, id(self), ' '.join(proprepr))
 
-
     #
     # xml serialising methods
     #
 
-    def create_config_file(self, file_path=None, prepare_dvm=False):
+    def create_config_file(self, prepare_dvm=False):
         '''Create libvirt's XML domain config file
 
-        If :py:attr:`qubes.vm.qubesvm.QubesVM.uses_custom_config` is true, this
-        does nothing.
-
-        :param str file_path: Path to file to create \
-            (default: :py:attr:`qubes.vm.qubesvm.QubesVM.conf_file`)
         :param bool prepare_dvm: If we are in the process of preparing \
             DisposableVM
         '''
-
-        if file_path is None:
-            file_path = self.conf_file
-        # TODO
-        # if self.uses_custom_config:
-        #     conf_appvm = open(file_path, "r")
-        #     domain_config = conf_appvm.read()
-        #     conf_appvm.close()
-        #     return domain_config
-
         domain_config = self.app.env.get_template('libvirt/xen.xml').render(
             vm=self, prepare_dvm=prepare_dvm)
-
-        # FIXME: This is only for debugging purposes
-        old_umask = os.umask(002)
-        try:
-            conf_appvm = open(file_path, "w")
-            conf_appvm.write(domain_config)
-            conf_appvm.close()
-        except: # pylint: disable=bare-except
-            # Ignore errors
-            pass
-        finally:
-            os.umask(old_umask)
-
         return domain_config
-
 
     #
     # firewall
-    # TODO rewrite it, have <firewall/> node under <domain/>
-    # and possibly integrate with generic policy framework
+    # SEE:1815 rewrite it, have <firewall/> node under <domain/>
+    # and possibly integrate with generic policy framework.
     #
 
     def write_firewall_conf(self, conf):
@@ -366,7 +331,7 @@ class BaseVM(qubes.PropertyHolder):
                 tree.write(fd, encoding="UTF-8", pretty_print=True)
             fd.close()
             os.umask(old_umask)
-        except EnvironmentError as err: # pylint: disable=broad-except
+        except EnvironmentError as err:  # pylint: disable=broad-except
             print >> sys.stderr, "{0}: save error: {1}".format(
                     os.path.basename(sys.argv[0]), err)
             return False
@@ -385,16 +350,18 @@ class BaseVM(qubes.PropertyHolder):
             subprocess.call(["sudo", "systemctl", "start",
                              "qubes-reload-firewall@%s.timer" % self.name])
 
-        # XXX any better idea? some arguments?
+        # SEE:1815 any better idea? some arguments?
         self.fire_event('firewall-changed')
 
         return True
 
     def has_firewall(self):
+        ''' Return `True` if there are some vm specific firewall rules set '''
         return os.path.exists(os.path.join(self.dir_path, self.firewall_conf))
 
     @staticmethod
     def get_firewall_defaults():
+        ''' Returns the default firewall rules '''
         return {
             'rules': list(),
             'allow': True,
@@ -403,6 +370,7 @@ class BaseVM(qubes.PropertyHolder):
             'allowYumProxy': False}
 
     def get_firewall_conf(self):
+        ''' Returns the firewall config dictionary '''
         conf = self.get_firewall_defaults()
 
         try:
@@ -459,7 +427,7 @@ class BaseVM(qubes.PropertyHolder):
 
                 conf["rules"].append(rule)
 
-        except EnvironmentError as err: # pylint: disable=broad-except
+        except EnvironmentError as err:  # pylint: disable=broad-except
             # problem accessing file, like ENOTFOUND, EPERM or sth
             # return default config
             return conf
@@ -505,7 +473,6 @@ class VMProperty(qubes.property):
             **kwargs)
         self.vmclass = vmclass
         self.allow_none = allow_none
-
 
     def __set__(self, instance, value):
         if value is self.__class__.DEFAULT:
