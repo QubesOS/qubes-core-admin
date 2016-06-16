@@ -146,17 +146,20 @@ def main(args=None):
         try:
             vm.create_on_disk()
 
+            # TODO this is file pool specific. Change it to a more general
+            # solution
+            root_img_path = vm.volumes['root'].vid
             if args.root_move_from is not None:
 #               if (options.verbose):
 #                   print "--> Replacing root.img with provided file"
-                os.unlink(vm.root_img)
-                os.rename(args.root_move_from, vm.root_img)
+                os.unlink(root_img_path)
+                os.rename(args.root_move_from, root_img_path)
             elif args.root_copy_from is not None:
 #               if (options.verbose):
 #                   print "--> Replacing root.img with provided file"
-                os.unlink(vm.root_img)
+                os.unlink(root_img_path)
                 # use 'cp' to preserve sparse file
-                subprocess.check_call(['cp', args.root_copy_from, vm.root_img])
+                subprocess.check_call(['cp', args.root_copy_from, root_img_path])
 
         except (IOError, OSError) as err:
             parser.error(str(err))
