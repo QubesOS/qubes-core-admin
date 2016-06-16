@@ -18,6 +18,11 @@ env:
 after_success:
   - ~/qubes-builder/scripts/travis-deploy
 
+# don't build tags which are meant for code signing only
+branches:
+  except:
+    - /.*_.*/
+
 addons:
   apt:
     packages:
