@@ -1,6 +1,5 @@
 #!/usr/bin/python2 -O
 # vim: fileencoding=utf-8
-
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
@@ -24,6 +23,8 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
+''' This module contains the AdminVM implementation '''
+
 import qubes
 import qubes.exc
 import qubes.vm.qubesvm
@@ -41,7 +42,6 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
         default=None,
         doc='There are other ways to set kernel for Dom0.')
 
-
     @property
     def xid(self):
         '''Always ``0``.
@@ -50,7 +50,6 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
            :py:attr:`qubes.vm.qubesvm.QubesVM.xid`
         '''
         return 0
-
 
     @property
     def libvirt_domain(self):
@@ -61,13 +60,6 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
         '''
         return None
 
-
-    # XXX probably unneeded, will return None as we don't have netvm
-#   @property
-#   def ip(self):
-#       return "10.137.0.2"
-
-
     def is_running(self):
         '''Always :py:obj:`True`.
 
@@ -76,7 +68,6 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
         '''
         return True
 
-
     def get_power_state(self):
         '''Always ``'Running'``.
 
@@ -84,7 +75,6 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
            :py:meth:`qubes.vm.qubesvm.QubesVM.get_power_state`
         '''
         return 'Running'
-
 
     def get_mem(self):
         '''Get current memory usage of Dom0.
@@ -100,7 +90,6 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
             if line.startswith('MemTotal:'):
                 return int(line.split(':')[1].strip().split()[0])
         raise NotImplementedError()
-
 
     def get_mem_static_max(self):
         '''Get maximum memory available to Dom0.
@@ -118,7 +107,6 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
         '''
         return True
 
-
     def start(self, **kwargs):
         '''Always raises an exception.
 
@@ -127,15 +115,13 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
         '''  # pylint: disable=unused-argument
         raise qubes.exc.QubesVMError(self, 'Cannot start Dom0 fake domain!')
 
-
     def suspend(self):
         '''Does nothing.
 
         .. seealso:
            :py:meth:`qubes.vm.qubesvm.QubesVM.suspend`
         '''
-        # XXX shouldn't we spew an exception?
-        return
+        raise qubes.exc.QubesVMError(self, 'Cannot suspend Dom0 fake domain!')
 
 
 #   def __init__(self, **kwargs):
