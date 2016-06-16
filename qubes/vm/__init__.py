@@ -269,9 +269,6 @@ class BaseVM(qubes.PropertyHolder):
     def create_config_file(self, file_path=None, prepare_dvm=False):
         '''Create libvirt's XML domain config file
 
-        If :py:attr:`qubes.vm.qubesvm.QubesVM.uses_custom_config` is true, this
-        does nothing.
-
         :param str file_path: Path to file to create \
             (default: :py:attr:`qubes.vm.qubesvm.QubesVM.conf_file`)
         :param bool prepare_dvm: If we are in the process of preparing \
@@ -280,12 +277,6 @@ class BaseVM(qubes.PropertyHolder):
 
         if file_path is None:
             file_path = self.conf_file
-        # TODO
-        # if self.uses_custom_config:
-        #     conf_appvm = open(file_path, "r")
-        #     domain_config = conf_appvm.read()
-        #     conf_appvm.close()
-        #     return domain_config
 
         domain_config = self.app.env.get_template('libvirt/xen.xml').render(
             vm=self, prepare_dvm=prepare_dvm)
