@@ -211,7 +211,9 @@ class FilePool(Pool):
                 string (str) absolute path to the directory where the vm files
                              are stored
         """
-        if vm.is_template():
+        # FIX Remove this if we drop the file backend
+        import qubes.vm.templatevm  # nopep8
+        if isinstance(vm, qubes.vm.templatevm.TemplateVM):
             subdir = 'vm-templates'
         elif vm.is_disposablevm():
             subdir = 'appvms'

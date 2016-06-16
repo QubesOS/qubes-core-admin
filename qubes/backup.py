@@ -417,7 +417,7 @@ class Backup(object):
             fmt = "{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
             if qid == 0:
                 s += fmt.format("User home")
-            elif vm_info['vm'].is_template():
+            elif isinstance(vm_info['vm'], qubes.vm.templatevm.TemplateVM):
                 s += fmt.format("Template VM")
             else:
                 s += fmt.format("VM" + (" + Sys" if vm_info['vm'].updateable
@@ -1798,11 +1798,14 @@ class BackupRestore(object):
                     host_template = self.app.domains[template_name]
                 except KeyError:
                     host_template = None
-                if not host_template or not host_template.is_template():
+                if not host_template \
+                        or not isinstance(host_template,
+                        qubes.vm.templatevm.TemplateVM):
                     # Maybe the (custom) template is in the backup?
                     if not (template_name in restore_info.keys() and
                             restore_info[template_name].good_to_go and
-                            restore_info[template_name].vm.is_template()):
+                            isinstance(restore_info[template_name].vm,
+                                qubes.vm.templatevm.TemplateVM)):
                         if self.options.use_default_template and \
                                 self.app.default_template:
                             if vm_info.orig_template is None:
@@ -1940,13 +1943,13 @@ class BackupRestore(object):
         fields = {
             "qid": {"func": "vm.qid"},
 
-            "name": {"func": "('[' if vm.is_template() else '')\
+            "name": {"func": "('[' if isinstance(vm, qubes.vm.templatevm.TemplateVM) else '')\
                      + ('{' if vm.is_netvm() else '')\
                      + vm.name \
-                     + (']' if vm.is_template() else '')\
+                     + (']' if isinstance(vm, qubes.vm.templatevm.TemplateVM) else '')\
                      + ('}' if vm.is_netvm() else '')"},
 
-            "type": {"func": "'Tpl' if vm.is_template() else \
+            "type": {"func": "'Tpl' if isinstance(vm, qubes.vm.templatevm.TemplateVM) else \
                      'App' if isinstance(vm, qubes.vm.appvm.AppVM) else \
                      vm.__class__.__name__.replace('VM','')"},
 
@@ -2113,7 +2116,8 @@ class BackupRestore(object):
             return
 
         # First load templates, then other VMs
-        for vm in sorted(vms.values(), key=lambda x: x.is_template(),
+        for vm in sorted(vms.values(),
+                key=lambda x: isinstance(x, qubes.vm.templatevm.TemplateVM),
                 reverse=True):
             if self.canceled:
                 # only break the loop to save qubes.xml

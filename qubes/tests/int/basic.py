@@ -330,7 +330,7 @@ class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     @unittest.skip('test not converted to core3 API')
     def test_006_template(self):
         templates = [tpl for tpl in self.app.domains.values() if
-            tpl.is_template()]
+            isinstance(tpl, qubes.vm.templatevm.TemplateVM)]
         if not templates:
             self.skipTest("No templates installed")
         some_template = templates[0].name

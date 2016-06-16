@@ -386,12 +386,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         return os.path.join(self.dir_path, 'libvirt.xml')
 
     # XXX I don't know what to do with these; probably should be isinstance(...)
-    def is_template(self):
-        warnings.warn('vm.is_template() is deprecated, use isinstance()',
-            DeprecationWarning)
-        import qubes.vm.templatevm  # pylint: disable=redefined-outer-name
-        return isinstance(self, qubes.vm.templatevm.TemplateVM)
-
     def is_appvm(self):
         warnings.warn('vm.is_appvm() is deprecated, use isinstance()',
             DeprecationWarning)
@@ -1494,7 +1488,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             '/local/domain/0/backend/vbd/{}/51712/node'.format(self.xid))
 
         return used_dmdev != current_dmdev
-
 
     #
     # helper methods
