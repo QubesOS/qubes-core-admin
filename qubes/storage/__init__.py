@@ -161,6 +161,21 @@ class Storage(object):
                                                          volume)
             self.vm.volumes[name] = volume
 
+    @property
+    def outdated_volumes(self):
+        ''' Returns a list of outdated volumes '''
+        result = []
+        if self.vm.is_halted():
+            return result
+
+        volumes = self.vm.volumes
+        for volume in volumes.values():
+            pool = self.get_pool(volume)
+            if pool.is_outdated(volume):
+                result += [volume]
+
+        return result
+
     def rename(self, old_name, new_name):
         ''' Notify the pools that the domain was renamed '''
         volumes = self.vm.volumes
@@ -255,6 +270,10 @@ class Pool(object):
 
     def destroy(self):
         raise NotImplementedError("Pool %s has destroy() not implemented" %
+                                  self.name)
+
+    def is_outdated(self, volume):
+        raise NotImplementedError("Pool %s has is_outdated() not implemented" %
                                   self.name)
 
     def remove(self, volume):
