@@ -110,14 +110,6 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
         '''
         return self.app.vmm.libvirt_conn.getInfo()[1]
 
-    def get_private_img_sz(self):
-        '''Always ``0``.
-
-        .. seealso:
-           :py:meth:`qubes.vm.qubesvm.QubesVM.get_private_img_sz`
-        '''
-        return 0
-
     def verify_files(self):
         '''Always :py:obj:`True`
 
