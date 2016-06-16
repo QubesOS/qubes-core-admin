@@ -146,6 +146,7 @@ class QubesVMTestsMixin(object):
     def setUp(self):
         super(QubesVMTestsMixin, self).setUp()
         self.app = qubes.tests.vm.TestApp()
+        self.app.vmm.offline_mode = True
 
     def get_vm(self, **kwargs):
         return qubes.vm.qubesvm.QubesVM(self.app, None,

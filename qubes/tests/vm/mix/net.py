@@ -35,6 +35,7 @@ class TC_00_NetVMMixin(
     def setUp(self):
         super(TC_00_NetVMMixin, self).setUp()
         self.app = qubes.tests.vm.TestApp()
+        self.app.vmm.offline_mode = True
 
     def setup_netvms(self, vm):
         # usage of QubesVM here means that those tests should be after

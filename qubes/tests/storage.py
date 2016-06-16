@@ -58,13 +58,18 @@ class TestDisposableVM(TestVM):
     def is_disposablevm(self):
         return True
 
+class TestApp(qubes.Qubes):
+    def __init__(self, *args, **kwargs):
+        super(TestApp, self).__init__('/tmp/qubes-test.xml',
+            load=False, offline_mode=True, **kwargs)
+        self.load_initial_values()
 
-class TC_00_Pool(SystemTestsMixin, QubesTestCase):
+class TC_00_Pool(QubesTestCase):
     """ This class tests the utility methods from :mod:``qubes.storage`` """
 
     def setUp(self):
         super(TC_00_Pool, self).setUp()
-        self.init_default_template()
+        self.app = TestApp()
 
     def test_000_unknown_pool_driver(self):
         # :pylint: disable=protected-access

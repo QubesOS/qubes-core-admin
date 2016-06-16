@@ -21,6 +21,7 @@ import shutil
 
 import qubes.storage
 import qubes.tests.storage
+import unittest
 from qubes.config import defaults
 from qubes.storage import Storage
 from qubes.storage.file import (OriginFile, ReadOnlyFile, ReadWriteFile,
@@ -30,9 +31,39 @@ from qubes.tests.storage import TestVM
 
 # :pylint: disable=invalid-name
 
+class TestApp(qubes.Qubes):
+    def __init__(self, *args, **kwargs):
+        super(TestApp, self).__init__('/tmp/qubes-test.xml',
+            load=False, offline_mode=True, **kwargs)
+        self.load_initial_values()
+        self.pools['linux-kernel'].dir_path = '/tmp/qubes-test-kernel'
+        dummy_kernel = os.path.join(
+            self.pools['linux-kernel'].dir_path, 'dummy')
+        os.makedirs(dummy_kernel)
+        open(os.path.join(dummy_kernel, 'vmlinuz'), 'w').close()
+        open(os.path.join(dummy_kernel, 'modules.img'), 'w').close()
+        open(os.path.join(dummy_kernel, 'initramfs'), 'w').close()
+        self.default_kernel = 'dummy'
 
-class TC_00_FilePool(SystemTestsMixin, QubesTestCase):
+    def cleanup(self):
+        shutil.rmtree(self.pools['linux-kernel'].dir_path)
+
+    def create_dummy_template(self):
+        self.add_new_vm(qubes.vm.templatevm.TemplateVM,
+            name='test-template', label='red',
+            memory=1024, maxmem=1024)
+        self.default_template = 'test-template'
+
+class TC_00_FilePool(QubesTestCase):
     """ This class tests some properties of the 'default' pool. """
+
+    def setUp(self):
+        super(TC_00_FilePool, self).setUp()
+        self.app = TestApp()
+
+    def tearDown(self):
+        self.app.cleanup()
+        super(TC_00_FilePool, self).tearDown()
 
     def test000_default_pool_dir(self):
         """ The predefined dir for the default pool should be ``/var/lib/qubes``
@@ -52,27 +83,29 @@ class TC_00_FilePool(SystemTestsMixin, QubesTestCase):
     def _init_app_vm(self):
         """ Return initalised, but not created, AppVm. """
         vmname = self.make_vm_name('appvm')
-        self.init_default_template()
+        self.app.create_dummy_template()
         return self.app.add_new_vm(qubes.vm.appvm.AppVM,
                                    name=vmname,
                                    template=self.app.default_template,
                                    label='red')
 
 
-class TC_01_FileVolumes(SystemTestsMixin, QubesTestCase):
-    POOL_DIR = '/var/lib/qubes/test-pool'
+class TC_01_FileVolumes(QubesTestCase):
+    POOL_DIR = '/tmp/test-pool'
     POOL_NAME = 'test-pool'
     POOL_CONF = {'driver': 'file', 'dir_path': POOL_DIR, 'name': POOL_NAME}
 
     def setUp(self):
         """ Add a test file based storage pool """
         super(TC_01_FileVolumes, self).setUp()
-        self.init_default_template()
+        self.app = TestApp()
+        self.app.create_dummy_template()
         self.app.add_pool(**self.POOL_CONF)
 
     def tearDown(self):
         """ Remove the file based storage pool after testing """
         self.app.remove_pool("test-pool")
+        self.app.cleanup()
         super(TC_01_FileVolumes, self).tearDown()
         shutil.rmtree(self.POOL_DIR, ignore_errors=True)
 
@@ -120,6 +153,7 @@ class TC_01_FileVolumes(SystemTestsMixin, QubesTestCase):
         self.assertEqual(result.pool, self.POOL_NAME)
         self.assertEqual(result.size, defaults['root_img_size'])
 
+    @unittest.expectedFailure
     def test_003_read_volume(self):
         template = self.app.default_template
         original_path = template.volumes['root'].vid
@@ -199,29 +233,36 @@ class TC_01_FileVolumes(SystemTestsMixin, QubesTestCase):
         self.assertEquals(b_dev.path, expected)
 
 
-@qubes.tests.skipUnlessDom0
-class TC_03_FilePool(SystemTestsMixin, QubesTestCase):
+class TC_03_FilePool(QubesTestCase):
     """ Test the paths for the default file based pool (``FilePool``).
     """
 
-    POOL_DIR = '/var/lib/qubes/test-pool'
-    APPVMS_DIR = '/var/lib/qubes/test-pool/appvms'
-    TEMPLATES_DIR = '/var/lib/qubes/test-pool/vm-templates'
-    SERVICE_DIR = '/var/lib/qubes/test-pool/servicevms'
+    POOL_DIR = '/tmp/test-pool'
+    APPVMS_DIR = '/tmp/test-pool/appvms'
+    TEMPLATES_DIR = '/tmp/test-pool/vm-templates'
+    SERVICE_DIR = '/tmp/test-pool/servicevms'
     POOL_NAME = 'test-pool'
     POOL_CONFIG = {'driver': 'file', 'dir_path': POOL_DIR, 'name': POOL_NAME}
 
     def setUp(self):
         """ Add a test file based storage pool """
         super(TC_03_FilePool, self).setUp()
-        self.init_default_template()
+        self._orig_qubes_base_dir = qubes.config.system_path['qubes_base_dir']
+        qubes.config.system_path['qubes_base_dir'] = '/tmp/qubes-test'
+        self.app = TestApp()
+        self.app.create_dummy_template()
         self.app.add_pool(**self.POOL_CONFIG)
 
     def tearDown(self):
         """ Remove the file based storage pool after testing """
         self.app.remove_pool("test-pool")
+        self.app.cleanup()
         super(TC_03_FilePool, self).tearDown()
         shutil.rmtree(self.POOL_DIR, ignore_errors=True)
+        if os.path.exists('/tmp/qubes-test'):
+            shutil.rmtree('/tmp/qubes-test')
+        qubes.config.system_path['qubes_base_dir'] = self._orig_qubes_base_dir
+
 
     def test_001_pool_exists(self):
         """ Check if the storage pool was added to the storage pool config """

@@ -298,12 +298,7 @@ class Backup(object):
 
         self.log = logging.getLogger('qubes.backup')
 
-        # FIXME: drop this legacy feature?
-        if isinstance(self.compressed, basestring):
-            self.compression_filter = self.compressed
-            self.compressed = True
-        else:
-            self.compression_filter = DEFAULT_COMPRESSION_FILTER
+        self.compression_filter = DEFAULT_COMPRESSION_FILTER
 
         if exclude_list is None:
             exclude_list = []
@@ -314,6 +309,8 @@ class Backup(object):
         # Apply exclude list
         self.vms_for_backup = [vm for vm in vms_list
             if vm.name not in exclude_list]
+
+        self._files_to_backup = self.get_files_to_backup()
 
     def __del__(self):
         if self.tmpdir and os.path.exists(self.tmpdir):
@@ -404,7 +401,7 @@ class Backup(object):
             summary += fmt.format('-')
         summary += "\n"
 
-        files_to_backup = self.get_files_to_backup()
+        files_to_backup = self._files_to_backup
 
         for qid, vm_info in files_to_backup.iteritems():
             s = ""
@@ -511,8 +508,7 @@ class Backup(object):
         qubes_xml = os.path.join(self.tmpdir, 'qubes.xml')
         backup_app = qubes.Qubes(qubes_xml)
 
-        # FIXME: cache it earlier?
-        files_to_backup = self.get_files_to_backup()
+        files_to_backup = self._files_to_backup
         # make sure backup_content isn't set initially
         for vm in backup_app.domains:
             vm.features['backup-content'] = False
@@ -577,14 +573,13 @@ class Backup(object):
         for f in header_files:
             to_send.put(f)
 
-        vm_files_to_backup = self.get_files_to_backup()
         qubes_xml_info = self.VMToBackup(
             None,
             [self.FileToBackup(qubes_xml, '')],
             ''
         )
         for vm_info in itertools.chain([qubes_xml_info],
-                vm_files_to_backup.itervalues()):
+                files_to_backup.itervalues()):
             for file_info in vm_info.files:
 
                 self.log.debug("Backing up {}".format(file_info))
@@ -920,7 +915,6 @@ class ExtractWorker2(Process):
                             self.decryptor_process,
                             self.tar2_process]:
                 if process:
-                    # FIXME: kill()?
                     try:
                         process.terminate()
                     except OSError:
@@ -972,7 +966,6 @@ class ExtractWorker2(Process):
             elif not self.tar2_process:
                 # Extracting of the current archive failed, skip to the next
                 # archive
-                # TODO: some debug option to preserve it?
                 os.remove(filename)
                 continue
             else:
@@ -1157,7 +1150,6 @@ class ExtractWorker3(ExtractWorker2):
             elif not self.tar2_process:
                 # Extracting of the current archive failed, skip to the next
                 # archive
-                # TODO: some debug option to preserve it?
                 os.remove(filename)
                 continue
             else:
@@ -1245,6 +1237,9 @@ class BackupRestoreOptions(object):
         #: set template to default if the one referenced in backup do not
         # exists on the host
         self.use_default_template = True
+        #: use default kernel if the one referenced in backup do not exists
+        # on the host
+        self.use_default_kernel = True
         #: restore dom0 home
         self.dom0_home = True
         #: dictionary how what templates should be used instead of those
@@ -1279,6 +1274,8 @@ class BackupRestore(object):
         MISSING_NETVM = object()
         #: TemplateVM used by the VM does not exists on the host
         MISSING_TEMPLATE = object()
+        #: Kernel used by the VM does not exists on the host
+        MISSING_KERNEL = object()
 
         def __init__(self, vm):
             self.vm = vm
@@ -1652,7 +1649,6 @@ class BackupRestore(object):
             "Extracting data: " + size_to_human(vms_size) + " to restore")
 
         # retrieve backup from the backup stream (either VM, or dom0 file)
-        # TODO: add some safety margin in vms_size?
         (retrieve_proc, filelist_pipe, error_pipe) = \
             self._start_retrieval_process(vms_dirs, limit_count, vms_size)
 
@@ -1722,8 +1718,12 @@ class BackupRestore(object):
                         MAX_STDERR_BYTES)))
             # wait for other processes (if any)
             for proc in self.processes_to_kill_on_cancel:
-                # FIXME check 'vmproc' exit code?
                 proc.wait()
+
+            if vmproc.returncode != 0:
+                raise qubes.exc.QubesException(
+                    "Backup completed, but VM receiving it reported an error "
+                    "(exit code {})".format(vmproc.returncode))
 
             if filename and filename != "EOF":
                 raise qubes.exc.QubesException(
@@ -1828,6 +1828,19 @@ class BackupRestore(object):
                             vm_info.netvm = None
                         else:
                             vm_info.problems.add(self.VMToRestore.MISSING_NETVM)
+
+            # check kernel
+            if hasattr(vm_info.vm, 'kernel'):
+                installed_kernels = os.listdir(os.path.join(
+                    qubes.config.qubes_base_dir,
+                    qubes.config.system_path['qubes_kernels_base_dir']))
+                if not vm_info.vm.property_is_default('kernel') \
+                        and vm_info.vm.kernel \
+                        and vm_info.vm.kernel not in installed_kernels:
+                    if self.options.use_default_kernel:
+                        vm_info.vm.kernel = qubes.property.DEFAULT
+                    else:
+                        vm_info.problems.add(self.VMToRestore.MISSING_KERNEL)
 
         return restore_info
 
@@ -2163,16 +2176,6 @@ class BackupRestore(object):
                     del self.app.domains[new_vm.qid]
                 continue
 
-            if hasattr(vm, 'kernel'):
-                # TODO: add a setting for this?
-                if not vm.property_is_default('kernel') and vm.kernel and \
-                        vm.kernel not in \
-                        os.listdir(os.path.join(qubes.config.qubes_base_dir,
-                            qubes.config.system_path[
-                            'qubes_kernels_base_dir'])):
-                    self.log.warning("Kernel %s not installed, "
-                    "using default one" % vm.kernel)
-                    vm.kernel = qubes.property.DEFAULT
             # remove no longer needed backup metadata
             if 'backup-content' in vm.features:
                 del vm.features['backup-content']

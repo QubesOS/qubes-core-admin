@@ -87,8 +87,6 @@ def format_doc(docstring):
         config_section=None, enable_exit_status=None)
     return pub.writer.document.astext()
 
-# FIXME those are wrong, k/M/G are SI prefixes and means 10**3
-# maybe adapt https://code.activestate.com/recipes/578019
 def parse_size(size):
     units = [
         ('K', 1000), ('KB', 1000),

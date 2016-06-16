@@ -117,8 +117,7 @@ class R3Compatibility(qubes.ext.Extension):
 
         self.write_services(vm)
 
-    # FIXME use event after creating Xen domain object, but before "resume"
-    @qubes.ext.handler('domain-start')
+    @qubes.ext.handler('domain-spawn')
     def on_domain_started(self, vm, event, **kwargs):
         # pylint: disable=unused-argument
         if vm.netvm:
