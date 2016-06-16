@@ -769,7 +769,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             when domain is already shut down.
         '''
 
-        if not self.is_running(): # TODO not self.is_halted()
+        if self.is_halted():
             raise qubes.exc.QubesVMNotStartedError(self)
 
         self.fire_event_pre('domain-pre-shutdown', force=force)
@@ -1188,7 +1188,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         :param qubes.vm.qubesvm.QubesVM src: source VM
         '''
 
-        if src.is_running():  # XXX what about paused?
+        if not self.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(
                 self, 'Cannot clone a running domain {!r}'.format(self.name))
 
@@ -1359,6 +1359,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         assert False
 
+    def is_halted(self):
+        ''' Check whether this domain's state is 'Halted'
+            :returns: :py:obj:`True` if this domain is halted, \
+                :py:obj:`False` otherwise.
+            :rtype: bool
+        '''
+        return self.get_power_state() == 'Halted'
 
     def is_running(self):
         '''Check whether this domain is running.
