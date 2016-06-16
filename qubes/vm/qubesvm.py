@@ -460,10 +460,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         super(QubesVM, self).__init__(app, xml, **kwargs)
         self.volumes = {}
         self.storage = None
-        self.volume_config = {}
 
         if volume_config is None:
             volume_config = {}
+
         if hasattr(self, 'volume_config'):
             if xml is not None:
                 for node in xml.xpath('volume-config/volume'):
@@ -475,6 +475,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             for name, conf in volume_config.items():
                 for key, value in conf.items():
                     self.volume_config[name][key] = value
+
         elif volume_config:
             raise TypeError(
                 'volume_config specified, but {} did not expect that.'.format(
