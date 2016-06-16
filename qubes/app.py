@@ -248,6 +248,8 @@ class QubesHost(object):
     def memory_total(self):
         '''Total memory, in kbytes'''
 
+        if self.app.vmm.offline_mode:
+            return 2**64-1
         self._fetch()
         return self._total_mem
 
@@ -255,6 +257,9 @@ class QubesHost(object):
     @property
     def no_cpus(self):
         '''Number of CPUs'''
+
+        if self.app.vmm.offline_mode:
+            return 42
 
         self._fetch()
         return self._no_cpus
