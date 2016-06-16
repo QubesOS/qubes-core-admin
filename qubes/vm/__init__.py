@@ -122,6 +122,7 @@ class Features(dict):
     _NO_DEFAULT = object()
 
     def check_with_template(self, feature, default=_NO_DEFAULT):
+        ''' Check if the vm's template has the specified feature. '''
         if feature in self:
             return self[feature]
 
@@ -376,10 +377,12 @@ class BaseVM(qubes.PropertyHolder):
         return True
 
     def has_firewall(self):
+        ''' Return `True` if there are some vm specific firewall rules set '''
         return os.path.exists(os.path.join(self.dir_path, self.firewall_conf))
 
     @staticmethod
     def get_firewall_defaults():
+        ''' Returns the default firewall rules '''
         return {
             'rules': list(),
             'allow': True,
@@ -388,6 +391,7 @@ class BaseVM(qubes.PropertyHolder):
             'allowYumProxy': False}
 
     def get_firewall_conf(self):
+        ''' Returns the firewall config dictionary '''
         conf = self.get_firewall_defaults()
 
         try:
