@@ -1126,56 +1126,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # fire hooks
         self.fire_event('domain-create-on-disk', source_template)
 
-
-    # TODO move to storage
-    def resize_private_img(self, size):
-        '''Resize private image.'''
-
-        warnings.warn(
-            "resize_private_img is deprecated, use volumes[name].resize()",
-            DeprecationWarning)
-
-        self.volumes['private'].resize(size)
-
-        # and then the filesystem
-        # FIXME move this to qubes.storage.xen.XenVMStorage
-        retcode = 0
-        if self.is_running():
-            # pylint: disable=redefined-variable-type
-            retcode = self.run('''
-                while [ "`blockdev --getsize64 /dev/xvdb`" -lt {0} ]; do
-                    head /dev/xvdb >/dev/null;
-                    sleep 0.2;
-                done;
-                resize2fs /dev/xvdb'''.format(size), user="root", wait=True)
-
-        if retcode != 0:
-            raise qubes.exc.QubesException('resize2fs failed')
-
-    def resize_root_img(self, size, allow_start=False):
-        warnings.warn(
-            "resize_root_img is deprecated, use volumes[name].resize()",
-            DeprecationWarning)
-
-        self.volumes['root'].resize(size)
-
-        if not allow_start:
-            raise qubes.exc.QubesException(
-                'The qube has to be started to complete the operation, but is'
-                ' required not to start. Either run the operation again'
-                ' allowing  starting of the qube this time, or run resize2fs'
-                ' in the qube manually.')
-
-        self.start(start_guid=False)
-
-        # TODO run_service #1695
-        self.run('resize2fs /dev/mapper/dmroot', user='root',
-             wait=True, gui=False)
-
-        self.shutdown()
-        while self.is_running(): #1696
-            time.sleep(1)
-
     def remove_from_disk(self):
         '''Remove domain remnants from disk.'''
         self.fire_event('domain-remove-from-disk')
