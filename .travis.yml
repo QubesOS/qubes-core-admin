@@ -4,7 +4,7 @@ language: python
 python:
   - '2.7'
 install:
-  - pip install -r ci/requirements.txt
+  - pip install --quiet -r ci/requirements.txt
   - git clone https://github.com/QubesOS/qubes-builder ~/qubes-builder
 # debootstrap in trusty is old...
 before_script: sudo ln -s sid /usr/share/debootstrap/scripts/stretch
