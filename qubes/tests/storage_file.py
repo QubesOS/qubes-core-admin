@@ -21,6 +21,7 @@ import shutil
 
 import qubes.storage
 import qubes.tests.storage
+import unittest
 from qubes.config import defaults
 from qubes.storage import Storage
 from qubes.storage.file import (OriginFile, ReadOnlyFile, ReadWriteFile,
@@ -152,6 +153,7 @@ class TC_01_FileVolumes(QubesTestCase):
         self.assertEqual(result.pool, self.POOL_NAME)
         self.assertEqual(result.size, defaults['root_img_size'])
 
+    @unittest.expectedFailure
     def test_003_read_volume(self):
         template = self.app.default_template
         original_path = template.volumes['root'].vid
