@@ -129,16 +129,6 @@ class Storage(object):
             result += volume.usage
         return result
 
-    # TODO Remove this wrapper
-    def get_disk_utilization_private_img(self):
-        # pylint: disable=invalid-name,missing-docstring
-        return self.vm.volume['private'].usage
-
-    # TODO Remove this wrapper
-    def get_private_img_sz(self):
-        # :pylint: disable=missing-docstring
-        return self.vm.volume['private'].size
-
     def resize(self, volume, size):
         ''' Resize volume '''
         self.get_pool(volume).resize(volume, size)

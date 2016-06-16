@@ -38,7 +38,7 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
             self.app = qubes.tests.vm.TestApp()
             self.vm = qubes.vm.adminvm.AdminVM(self.app,
                 xml=None, qid=0, name='dom0')
-        except: # pylint: disable=bare-except
+        except:  # pylint: disable=bare-except
             if self.id().endswith('.test_000_init'):
                 raise
             self.skipTest('setup failed')
@@ -69,17 +69,16 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
         self.assertGreater(self.vm.get_mem_static_max(), 0)
 
     def test_304_get_disk_utilization(self):
-        self.assertEqual(self.vm.get_disk_utilization(), 0)
+        self.assertRaises(self.vm.storage.get_disk_utilization(), 0)
 
-    def test_305_get_disk_utilization_private_img(self):
-        # pylint: disable=invalid-name
-        self.assertEqual(self.vm.get_disk_utilization_private_img(), 0)
+    def test_305_has_no_private_volume(self):
+        self.assertEqual(KeyError, self.vm.volumes['private'])
 
-    def test_306_get_private_img_sz(self):
-        self.assertEqual(self.vm.get_private_img_sz(), 0)
+    def test_306_has_no_root_volume(self):
+        self.assertEqual(KeyError, self.vm.volumes['root'])
 
-    def test_307_verify_files(self):
-        self.assertEqual(self.vm.get_private_img_sz(), 0)
+    def test_307_has_no_volatile_volume(self):
+        self.assertEqual(KeyError, self.vm.volumes['volatile'])
 
     def test_310_start(self):
         with self.assertRaises(qubes.exc.QubesException):

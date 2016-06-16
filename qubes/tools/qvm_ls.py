@@ -31,7 +31,6 @@ from __future__ import print_function
 import __builtin__
 import argparse
 import collections
-import math
 import sys
 import textwrap
 
@@ -122,8 +121,10 @@ class Column(object):
         if isinstance(ret, (qubes.vm.BaseVM, qubes.Label)):
             return ret.name
 
-        return ret
+        if isinstance(ret, int):
+            return str(ret)
 
+        return ret
 
     def __repr__(self):
         return '{}(head={!r}, width={!r})'.format(self.__class__.__name__,
@@ -389,6 +390,29 @@ class StatusColumn(Column):
         return ''.join((flag(self, vm) or '-') for flag in self.get_flags())
 
 
+def calc_size(vm, volume_name):
+    ''' Calculates the volume size in MB '''
+    try:
+        return vm.volumes[volume_name].size // 1024 // 1024
+    except KeyError:
+        return 0
+
+def calc_usage(vm, volume_name):
+    ''' Calculates the volume usage in MB '''
+    try:
+        return vm.volumes[volume_name].usage // 1024 // 1024
+    except KeyError:
+        return 0
+
+def calc_used(vm, volume_name):
+    ''' Calculates the volume usage in percent '''
+    size = calc_size(vm, volume_name)
+    if size == 0:
+        return 0
+    usage = calc_usage(vm, volume_name)
+    return usage * 100 // size
+
+
 # todo maxmem
 
 Column('GATEWAY', width=15,
@@ -396,45 +420,37 @@ Column('GATEWAY', width=15,
     doc='Network gateway.')
 
 Column('MEMORY', width=5,
-    attr=(lambda vm: vm.get_mem()/1024 if vm.is_running() else None),
+    attr=(lambda vm: vm.get_mem() / 1024 if vm.is_running() else None),
     doc='Memory currently used by VM')
 
 Column('DISK', width=5,
-    attr=(lambda vm: vm.get_disk_utilization()/1024/1024),
+    attr=(lambda vm: vm.storage.get_disk_utilization() / 1024 / 1024),
     doc='Total disk utilisation.')
 
 
 Column('PRIV-CURR', width=5,
-    attr=(lambda vm:
-        int(math.floor(vm.get_disk_utilization_private_img()/1024/1024))),
+    attr=(lambda vm: calc_usage(vm, 'private')),
     doc='Disk utilisation by private image (/home, /usr/local).')
 
 Column('PRIV-MAX', width=5,
-    attr=(lambda vm:
-        int(math.floor(vm.get_private_img_sz()/1024/1024))),
+    attr=(lambda vm: calc_size(vm, 'private')),
     doc='Maximum available space for private image.')
 
 Column('PRIV-USED', width=5,
-    attr=(lambda vm:
-        int(math.floor(vm.get_disk_utilization_private_img() * 100
-            / vm.get_private_img_sz()))),
+    attr=(lambda vm: calc_used(vm, 'private')),
     doc='Disk utilisation by private image as a percentage of available space.')
 
 
 Column('ROOT-CURR', width=5,
-    attr=(lambda vm:
-        int(math.floor(vm.get_disk_utilization_private_img()/1024/1024))),
+    attr=(lambda vm: calc_usage(vm, 'root')),
     doc='Disk utilisation by root image (/usr, /lib, /etc, ...).')
 
 Column('ROOT-MAX', width=5,
-    attr=(lambda vm:
-        int(math.floor(vm.get_private_img_sz()/1024/1024))),
+    attr=(lambda vm: calc_size(vm, 'root')),
     doc='Maximum available space for root image.')
 
 Column('ROOT-USED', width=5,
-    attr=(lambda vm:
-        int(math.floor(vm.get_disk_utilization_private_img() * 100
-            / vm.get_private_img_sz()))),
+    attr=(lambda vm: calc_used(vm, 'root')),
     doc='Disk utilisation by root image as a percentage of available space.')
 
 

@@ -95,7 +95,7 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
            :py:meth:`qubes.vm.qubesvm.QubesVM.get_mem`
         '''
 
-        #return psutil.virtual_memory().total/1024
+        # return psutil.virtual_memory().total/1024
         for line in open('/proc/meminfo'):
             if line.startswith('MemTotal:'):
                 return int(line.split(':')[1].strip().split()[0])
@@ -110,23 +110,6 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
         '''
         return self.app.vmm.libvirt_conn.getInfo()[1]
 
-
-    def get_disk_utilization(self):
-        '''Always ``0``.
-
-        .. seealso:
-           :py:meth:`qubes.vm.qubesvm.QubesVM.get_disk_utilization`
-        '''
-        return 0
-
-    def get_disk_utilization_private_img(self):
-        '''Always ``0``.
-
-        .. seealso:
-           :py:meth:`qubes.vm.qubesvm.QubesVM.get_disk_utilization_private_img`
-        '''
-        return 0
-
     def get_private_img_sz(self):
         '''Always ``0``.
 
@@ -134,7 +117,6 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
            :py:meth:`qubes.vm.qubesvm.QubesVM.get_private_img_sz`
         '''
         return 0
-
 
     def verify_files(self):
         '''Always :py:obj:`True`
@@ -150,7 +132,7 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
 
         .. seealso:
            :py:meth:`qubes.vm.qubesvm.QubesVM.start`
-        ''' # pylint: disable=unused-argument
+        '''  # pylint: disable=unused-argument
         raise qubes.exc.QubesVMError(self, 'Cannot start Dom0 fake domain!')
 
 
