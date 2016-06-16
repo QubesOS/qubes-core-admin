@@ -110,7 +110,40 @@ class Core2Qubes(qubes.Qubes):
             else:
                 vm.netvm = int(netvm_qid)
 
-        # TODO: dispvm_netvm
+    def set_dispvm_netvm_dependency(self, element):
+        kwargs = {}
+        attr_list = ("qid", "uses_default_netvm", "netvm_qid")
+
+        for attribute in attr_list:
+            kwargs[attribute] = element.get(attribute)
+
+        vm = self.domains[int(kwargs["qid"])]
+
+        if element.get("uses_default_dispvm_netvm") is None:
+            uses_default_dispvm_netvm = True
+        else:
+            uses_default_dispvm_netvm = (
+                True if element.get("uses_default_dispvm_netvm") == "True"
+                else False)
+        if not uses_default_dispvm_netvm:
+            dispvm_netvm_qid = element.get("dispvm_netvm_qid")
+            if dispvm_netvm_qid is None or dispvm_netvm_qid == "none":
+                dispvm_netvm = None
+            else:
+                dispvm_netvm = self.domains[int(dispvm_netvm_qid)]
+        else:
+            dispvm_netvm = vm.netvm
+
+        if dispvm_netvm:
+            dispvm_tpl_name = 'disp-{}'.format(dispvm_netvm.name)
+        else:
+            dispvm_tpl_name = 'disp-no-netvm'
+
+        if dispvm_tpl_name not in self.domains:
+            vm = self.add_new_vm(qubes.vm.appvm.AppVM,
+                name=dispvm_tpl_name)
+            # TODO: add support for #2075
+        # TODO: set qrexec policy based on dispvm_netvm value
 
     def import_core2_vm(self, element):
         vm_class_name = element.tag
