@@ -195,7 +195,7 @@ class BaseVM(qubes.PropertyHolder):
             for node in xml.xpath('./tags/tag'):
                 self.tags[node.get('name')] = node.text
 
-            # TODO: firewall, policy
+            # SEE:1815 firewall, policy.
 
             # check if properties are appropriate
             all_names = set(prop.__name__ for prop in self.property_list())
@@ -277,8 +277,8 @@ class BaseVM(qubes.PropertyHolder):
 
     #
     # firewall
-    # TODO rewrite it, have <firewall/> node under <domain/>
-    # and possibly integrate with generic policy framework
+    # SEE:1815 rewrite it, have <firewall/> node under <domain/>
+    # and possibly integrate with generic policy framework.
     #
 
     def write_firewall_conf(self, conf):
@@ -350,7 +350,7 @@ class BaseVM(qubes.PropertyHolder):
             subprocess.call(["sudo", "systemctl", "start",
                              "qubes-reload-firewall@%s.timer" % self.name])
 
-        # XXX any better idea? some arguments?
+        # SEE:1815 any better idea? some arguments?
         self.fire_event('firewall-changed')
 
         return True
