@@ -14,3 +14,10 @@ script:
   - ~/qubes-builder/scripts/travis-build
 env:
  - DIST_DOM0=fc23 USE_QUBES_REPO_VERSION=3.2 USE_QUBES_REPO_TESTING=1
+
+addons:
+  apt:
+    packages:
+      - debootstrap
+
+# vim: ts=2 sts=2 sw=2 et
