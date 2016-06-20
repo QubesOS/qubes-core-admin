@@ -858,6 +858,36 @@ class TC_10_HVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.assertEquals(testvm1.get_power_state(), "Running")
         # TODO: launch some OS there and check the size
 
+    def test_200_start_invalid_drive(self):
+        """Regression test for #1619"""
+        testvm1 = self.qc.add_new_vm("QubesHVm",
+                                     name=self.make_vm_name('vm1'))
+        testvm1.create_on_disk(verbose=False)
+        testvm1.drive = 'hd:dom0:/invalid'
+        self.qc.save()
+        self.qc.unlock_db()
+        try:
+            testvm1.start()
+        except Exception as e:
+            self.assertIsInstance(e, QubesException)
+        else:
+            self.fail('No exception raised')
+
+    def test_201_start_invalid_drive_cdrom(self):
+        """Regression test for #1619"""
+        testvm1 = self.qc.add_new_vm("QubesHVm",
+                                     name=self.make_vm_name('vm1'))
+        testvm1.create_on_disk(verbose=False)
+        testvm1.drive = 'cdrom:dom0:/invalid'
+        self.qc.save()
+        self.qc.unlock_db()
+        try:
+            testvm1.start()
+        except Exception as e:
+            self.assertIsInstance(e, QubesException)
+        else:
+            self.fail('No exception raised')
+
 class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
     def test_000_prepare_dvm(self):
         self.qc.unlock_db()
