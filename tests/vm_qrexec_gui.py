@@ -1221,9 +1221,12 @@ class TC_40_PVGrub(qubes.tests.SystemTestsMixin):
 
     def install_packages(self, vm):
         if self.template.startswith('fedora-'):
-            cmd_install1 = 'yum clean expire-cache && ' \
-                           'yum install -y qubes-kernel-vm-support grub2-tools'
-            cmd_install2 = 'yum install -y kernel kernel-devel'
+            cmd_install1 = 'dnf clean expire-cache && ' \
+                'dnf install -y qubes-kernel-vm-support grub2-tools'
+            cmd_install2 = 'yum install -y kernel && ' \
+                'KVER=$(rpm -q --qf %{VERSION}-%{RELEASE}.%{ARCH} kernel) && ' \
+                'dnf install --allowerasing  -y kernel-devel-$KVER && ' \
+                'dkms autoinstall -k $KVER'
             cmd_update_grub = 'grub2-mkconfig -o /boot/grub2/grub.cfg'
         elif self.template.startswith('debian-'):
             cmd_install1 = 'apt-get update && apt-get install -y ' \
