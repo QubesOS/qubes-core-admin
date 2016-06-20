@@ -312,7 +312,16 @@ class QubesHVm(QubesResizableVm):
         else:
             return -1
 
+    def validate_drive_path(self, drive):
+        drive_type, drive_domain, drive_path = drive.split(':', 2)
+        if drive_domain == 'dom0':
+            if not os.path.exists(drive_path):
+                raise QubesException("Invalid drive path '{}'".format(
+                    drive_path))
+
     def start(self, *args, **kwargs):
+        if self.drive:
+            self.validate_drive_path(self.drive)
         # make it available to storage.prepare_for_vm_startup, which is
         # called before actually building VM libvirt configuration
         self.storage.drive = self.drive
