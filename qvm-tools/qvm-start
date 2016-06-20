@@ -86,7 +86,12 @@ def main():
         exit(1)
 
     if options.install_windows_tools:
-        options.drive = 'cdrom:dom0:/usr/lib/qubes/qubes-windows-tools.iso'
+        windows_tools_path = '/usr/lib/qubes/qubes-windows-tools.iso'
+        if not os.path.exists(windows_tools_path):
+            print >> sys.stderr, "You need to install 'qubes-windows-tools' " \
+                                 "package in dom0 first"
+            exit(1)
+        options.drive = 'cdrom:dom0:{}'.format(windows_tools_path)
 
     if options.drive_hd:
         options.drive = 'hd:' + options.drive_hd
