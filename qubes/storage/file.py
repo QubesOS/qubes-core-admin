@@ -107,7 +107,18 @@ class FilePool(Pool):
         with open(path, 'a+b') as fd:
             fd.truncate(size)
 
-        self._resize_loop_device(path)
+        p = subprocess.Popen(
+            ['sudo', 'losetup', '--associated', path],
+            stdout=subprocess.PIPE)
+        result = p.communicate()
+
+        m = re.match(r'^(/dev/loop\d+):\s', result[0])
+        if m is not None:
+            loop_dev = m.group(1)
+
+            # resize loop device
+            subprocess.check_call(['sudo', 'losetup', '--set-capacity', loop_dev
+                                   ])
 
     def remove(self, volume):
         if volume.volume_type in ['read-write', 'volatile']:
@@ -127,23 +138,6 @@ class FilePool(Pool):
         volume.rename_target_dir(old_name, new_name)
 
         return volume
-
-    @staticmethod
-    def _resize_loop_device(path):
-        ''' Sets the loop device capacity '''
-        # find loop device if any
-        p = subprocess.Popen(
-            ['sudo', 'losetup', '--associated', path],
-            stdout=subprocess.PIPE)
-        result = p.communicate()
-
-        m = re.match(r'^(/dev/loop\d+):\s', result[0])
-        if m is not None:
-            loop_dev = m.group(1)
-
-            # resize loop device
-            subprocess.check_call(['sudo', 'losetup', '--set-capacity',
-                                   loop_dev])
 
     def commit_template_changes(self, volume):
         if volume.volume_type != 'origin':
