@@ -87,7 +87,17 @@ class Volume(object):
             the libvirt XML template as <disk>.
         '''
         return qubes.devices.BlockDevice(self.path, self.name, self.script,
-            self.rw, self.domain, self.devtype)
+            self.rw, self.domain, self.devtype)  # NOQA
+
+    def __eq__(self, other):
+        return other.pool == self.pool and other.vid == self.vid \
+            and other.volume_type == self.volume_type
+
+    def __neq__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash('%s:%s %s' % (self.pool, self.vid, self.volume_type))
 
 
 class Storage(object):
