@@ -128,17 +128,9 @@ def main(args=None):
         vm.debug = args.debug
 
     try:
-        vm.verify_files()
-    except (IOError, OSError) as e:
-        parser.error(
-            'error verifying files for domain {!r}: {!r}'.format(vm.name, e))
-
-    try:
-        #xid =
         vm.start(
             preparing_dvm=args.preparing_dvm,
             start_guid=args.start_guid)
-            # notify_function=
     except qubes.exc.QubesException as e:
         parser.error_runtime('Qubes error: {!r}'.format(e))
 
