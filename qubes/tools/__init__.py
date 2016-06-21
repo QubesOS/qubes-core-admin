@@ -363,9 +363,11 @@ class QubesArgumentParser(argparse.ArgumentParser):
             self.dont_run_as_root(namespace)
 
         for action in self._actions:
+            # pylint: disable=protected-access
             if issubclass(action.__class__, QubesAction):
                 action.parse_qubes_app(self, namespace)
-            elif issubclass(action.__class__, argparse._SubParsersAction):
+            elif issubclass(action.__class__,
+                    argparse._SubParsersAction):  # pylint: disable=no-member
                 assert hasattr(namespace, 'command')
                 command = namespace.command
                 subparser = action._name_parser_map[command]
