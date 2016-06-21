@@ -82,6 +82,10 @@ class FilePool(Pool):
             'driver': FilePool.driver,
         }
 
+    def is_outdated(self, volume):
+        # FIX: Implement or remove this at all?
+        raise NotImplementedError
+
     def resize(self, volume, size):
         ''' Expands volume, throws
             :py:class:`qubst.storage.StoragePoolException` if given size is

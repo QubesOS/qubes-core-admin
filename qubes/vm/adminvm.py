@@ -104,7 +104,7 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
 
         .. seealso:
            :py:meth:`qubes.vm.qubesvm.QubesVM.verify_files`
-        '''
+        '''  # pylint: disable=no-self-use
         return True
 
     def start(self, **kwargs):
