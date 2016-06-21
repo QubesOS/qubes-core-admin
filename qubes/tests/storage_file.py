@@ -302,7 +302,7 @@ class TC_03_FilePool(QubesTestCase):
                                      }
                                  },
                                  label='red')
-        vm.storage.create_on_disk()
+        vm.storage.create()
 
         expected_vmdir = os.path.join(self.APPVMS_DIR, vm.name)
 
