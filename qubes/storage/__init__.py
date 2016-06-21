@@ -30,18 +30,18 @@ from __future__ import absolute_import
 import os
 import os.path
 
-import pkg_resources
 import lxml.etree
-
+import pkg_resources
 import qubes
+import qubes.devices
 import qubes.exc
 import qubes.utils
-import qubes.devices
 
 STORAGE_ENTRY_POINT = 'qubes.storage'
 
 
 class StoragePoolException(qubes.exc.QubesException):
+    ''' A general storage exception '''
     pass
 
 
@@ -87,7 +87,7 @@ class Volume(object):
             the libvirt XML template as <disk>.
         '''
         return qubes.devices.BlockDevice(self.path, self.name, self.script,
-            self.rw, self.domain, self.devtype)  # NOQA
+            self.rw, self.domain, self.devtype)
 
     def __eq__(self, other):
         return other.pool == self.pool and other.vid == self.vid \
@@ -144,7 +144,7 @@ class Storage(object):
         self.get_pool(volume).resize(volume, size)
 
     def create(self, source_template=None):
-
+        ''' Creates volumes on disk '''
         if source_template is None and hasattr(self.vm, 'template'):
             source_template = self.vm.template
 
@@ -159,6 +159,7 @@ class Storage(object):
         os.umask(old_umask)
 
     def clone(self, src_vm):
+        ''' Clone volumes from the specified vm '''
         self.vm.log.info('Creating directory: {0}'.format(self.vm.dir_path))
         if not os.path.exists(self.vm.dir_path):
             self.log.info('Creating directory: {0}'.format(self.vm.dir_path))
@@ -216,6 +217,7 @@ class Storage(object):
         return self.pools[volume.name]
 
     def commit_template_changes(self):
+        ''' Makes changes to an 'origin' volume persistent '''
         for volume in self.vm.volumes.values():
             if volume.volume_type == 'origin':
                 self.get_pool(volume).commit_template_changes(volume)
@@ -264,6 +266,9 @@ class Pool(object):
                                   self.name)
 
     def destroy(self):
+        ''' Called when removing the pool. Use this for implementation specific
+            clean up.
+        '''
         raise NotImplementedError("Pool %s has destroy() not implemented" %
                                   self.name)
 
@@ -283,6 +288,9 @@ class Pool(object):
                                   self.name)
 
     def setup(self):
+        ''' Called when adding a pool to the system. Use this for implementation
+            specific set up.
+        '''
         raise NotImplementedError("Pool %s has setup() not implemented" %
                                   self.name)
 
