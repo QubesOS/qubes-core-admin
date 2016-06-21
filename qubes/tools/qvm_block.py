@@ -25,7 +25,6 @@
 from __future__ import print_function
 
 import sys
-from lxml import etree
 
 import qubes
 import qubes.exc
@@ -106,10 +105,9 @@ def list_volumes(args):
         domains = args.domains
     else:
         domains = args.app.domains
-
     for domain in domains:  # gather the domain names
         try:
-            for volume in domain.volumes.values():
+            for volume in domain.attached_volumes:
                 try:
                     volume_data = vd_dict[volume.pool][volume.vid]
                     volume_data.domains += [domain.name]
@@ -119,19 +117,6 @@ def list_volumes(args):
         except AttributeError:
             # Skipping domain without volumes
             continue
-
-    for domain in domains:
-        if domain.qid == 0:
-            continue
-        lvirt = domain.libvirt_domain
-        xml = etree.fromstring(lvirt.XMLDesc())
-        disks = xml.xpath("//domain/devices/disk")
-        for disk in disks:
-            if disk.find('backenddomain') is not None:
-                pool = 'p_%s' % disk.find('backenddomain').get('name')
-                vid = disk.find('source').get('dev').split('/dev/')[1]
-                volume_data = vd_dict[pool][vid]
-                volume_data.domains += [domain.name]
 
     if hasattr(args, 'domains') and args.domains:
         result = [x  # reduce to only VolumeData with assigned domains

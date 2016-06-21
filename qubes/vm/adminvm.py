@@ -43,6 +43,10 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
         doc='There are other ways to set kernel for Dom0.')
 
     @property
+    def attached_volumes(self):
+        return []
+
+    @property
     def xid(self):
         '''Always ``0``.
 
