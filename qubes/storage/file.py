@@ -216,7 +216,8 @@ class FilePool(Pool):
                              are stored
         """
         # FIX Remove this if we drop the file backend
-        import qubes.vm  # nopep8
+        import qubes.vm.templatevm  # nopep8
+        import qubes.vm.dispvm  # nopep8
         if isinstance(vm, qubes.vm.templatevm.TemplateVM):
             subdir = 'vm-templates'
         elif isinstance(vm, qubes.vm.dispvm.DispVM):
@@ -437,6 +438,7 @@ class VolatileFile(SizeMixIn):
         new_path = os.path.join(new_dir, file_name)
         self.path = new_path
         self.vid = self.path
+
 
 def create_sparse_file(path, size):
     ''' Create an empty sparse file '''
