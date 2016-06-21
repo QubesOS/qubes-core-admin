@@ -150,37 +150,41 @@ def main():
     cpu_usages = None
 
     if arguments.raw_data:
-        if ''
-    fields_to_display = ["name", "on", "state", "updbl", "type", "template", "netvm", "label" ]
+        fields_to_display = arguments.raw_data
+        if 'cpu' in arguments.raw_data:
+            qhost = QubesHost()
+            (measure_time, cpu_usages) = qhost.measure_cpu_usage(qvm_collection)
+    else:
+        fields_to_display = ["name", "on", "state", "updbl", "type", "template", "netvm", "label" ]
 
-    if (arguments.ids):
-        fields_to_display += ["qid", "xid"]
+        if (arguments.ids):
+            fields_to_display += ["qid", "xid"]
 
-    if (arguments.cpu):
-        qhost = QubesHost()
-        (measure_time, cpu_usages) = qhost.measure_cpu_usage(qvm_collection)
-        fields_to_display += ["cpu"]
+        if (arguments.cpu):
+            qhost = QubesHost()
+            (measure_time, cpu_usages) = qhost.measure_cpu_usage(qvm_collection)
+            fields_to_display += ["cpu"]
 
-    if (arguments.mem):
-        fields_to_display += ["mem"]
+        if (arguments.mem):
+            fields_to_display += ["mem"]
 
-    if arguments.backup:
-        fields_to_display += ["last backup"]
+        if arguments.backup:
+            fields_to_display += ["last backup"]
 
-    if (arguments.network):
-        if 'template' in fields_to_display:
-            fields_to_display.remove ("template")
-        fields_to_display += ["ip", "ip back", "gateway/DNS"]
+        if (arguments.network):
+            if 'template' in fields_to_display:
+                fields_to_display.remove ("template")
+            fields_to_display += ["ip", "ip back", "gateway/DNS"]
 
-    if (arguments.disk):
-        if 'template' in fields_to_display:
-            fields_to_display.remove ("template")
-        if 'netvm' in fields_to_display:
-            fields_to_display.remove ("netvm")
-        fields_to_display += ["priv-curr", "priv-max", "root-curr", "root-max", "disk" ]
+        if (arguments.disk):
+            if 'template' in fields_to_display:
+                fields_to_display.remove ("template")
+            if 'netvm' in fields_to_display:
+                fields_to_display.remove ("netvm")
+            fields_to_display += ["priv-curr", "priv-max", "root-curr", "root-max", "disk" ]
 
-    if (arguments.kernel):
-        fields_to_display += ["kernel", "kernelopts" ]
+        if (arguments.kernel):
+            fields_to_display += ["kernel", "kernelopts" ]
 
     
     vms_list = [vm for vm in qvm_collection.values()]
