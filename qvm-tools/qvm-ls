@@ -24,7 +24,7 @@
 from qubes.qubes import QubesVmCollection
 from qubes.qubes import QubesHost
 from qubes.qubes import QubesException
-from optparse import OptionParser
+from argparse import ArgumentParser
 import sys
 
 
@@ -91,119 +91,140 @@ fields = {
 
 
 def main():
-    usage = "usage: %prog [options] <vm-name>"
-    parser = OptionParser (usage)
+    usage = "%(prog)s [options]"
+    parser = ArgumentParser ()
 
-    parser.add_option ("-n", "--network", dest="network",
+    parser.add_argument ("VMs", action="store", nargs="*",
+                        help="Specify VMs to be queried")
+
+    parser.add_argument ("-n", "--network", dest="network",
                        action="store_true", default=False,
                        help="Show network addresses assigned to VMs")
 
-    parser.add_option ("-c", "--cpu", dest="cpu",
+    parser.add_argument ("-c", "--cpu", dest="cpu",
                        action="store_true", default=False,
                        help="Show CPU load")
 
-    parser.add_option ("-m", "--mem", dest="mem",
+    parser.add_argument ("-m", "--mem", dest="mem",
                        action="store_true", default=False,
                        help="Show memory usage")
 
-    parser.add_option ("-d", "--disk", dest="disk",
+    parser.add_argument ("-d", "--disk", dest="disk",
                        action="store_true", default=False,
                        help="Show VM disk utilization statistics")
 
-    parser.add_option ("-k", "--kernel", dest="kernel",
+    parser.add_argument ("-k", "--kernel", dest="kernel",
                        action="store_true", default=False,
-                       help="Show VM kernel options")
+                       help="Show VM kernel arguments")
 
-    parser.add_option ("-i", "--ids", dest="ids",
+    parser.add_argument ("-i", "--ids", dest="ids",
                        action="store_true", default=False,
                        help="Show Qubes and Xen id#s")
 
-    parser.add_option("-b", "--last-backup", dest="backup",
+    parser.add_argument("-b", "--last-backup", dest="backup",
                       action="store_true", default=False,
                       help="Show date of last VM backup")
 
-    parser.add_option("--raw-list", dest="raw_list",
+    parser.add_argument("--raw-list", dest="raw_list",
                       action="store_true", default=False,
                       help="List only VM names one per line")
 
+    parser.add_argument("--raw-data", dest="raw_data",
+                        action="store", nargs="+",
+                        help="Display specify data of specified VMs.\
+                              Intended for bash-parsing.")
 
-    (options, args) = parser.parse_args ()
+
+    arguments = parser.parse_args ()
 
     qvm_collection = QubesVmCollection()
     qvm_collection.lock_db_for_reading()
     qvm_collection.load()
     qvm_collection.unlock_db()
 
-    if options.raw_list:
+    if arguments.raw_list:
         for vm in qvm_collection.values():
             print vm.name
         return
 
-    fields_to_display = ["name", "on", "state", "updbl", "type", "template", "netvm", "label" ]
-
     cpu_usages = None
 
-    if (options.ids):
-        fields_to_display += ["qid", "xid"]
+    if arguments.raw_data:
+        fields_to_display = arguments.raw_data
+        if 'cpu' in arguments.raw_data:
+            qhost = QubesHost()
+            (measure_time, cpu_usages) = qhost.measure_cpu_usage(qvm_collection)
+    else:
+        fields_to_display = ["name", "on", "state", "updbl", "type", "template", "netvm", "label" ]
 
-    if (options.cpu):
-        qhost = QubesHost()
-        (measure_time, cpu_usages) = qhost.measure_cpu_usage(qvm_collection)
-        fields_to_display += ["cpu"]
+        if (arguments.ids):
+            fields_to_display += ["qid", "xid"]
 
-    if (options.mem):
-        fields_to_display += ["mem"]
+        if (arguments.cpu):
+            qhost = QubesHost()
+            (measure_time, cpu_usages) = qhost.measure_cpu_usage(qvm_collection)
+            fields_to_display += ["cpu"]
 
-    if options.backup:
-        fields_to_display += ["last backup"]
+        if (arguments.mem):
+            fields_to_display += ["mem"]
 
-    if (options.network):
-        if 'template' in fields_to_display:
-            fields_to_display.remove ("template")
-        fields_to_display += ["ip", "ip back", "gateway/DNS"]
+        if arguments.backup:
+            fields_to_display += ["last backup"]
 
-    if (options.disk):
-        if 'template' in fields_to_display:
-            fields_to_display.remove ("template")
-        if 'netvm' in fields_to_display:
-            fields_to_display.remove ("netvm")
-        fields_to_display += ["priv-curr", "priv-max", "root-curr", "root-max", "disk" ]
+        if (arguments.network):
+            if 'template' in fields_to_display:
+                fields_to_display.remove ("template")
+            fields_to_display += ["ip", "ip back", "gateway/DNS"]
 
-    if (options.kernel):
-        fields_to_display += ["kernel", "kernelopts" ]
+        if (arguments.disk):
+            if 'template' in fields_to_display:
+                fields_to_display.remove ("template")
+            if 'netvm' in fields_to_display:
+                fields_to_display.remove ("netvm")
+            fields_to_display += ["priv-curr", "priv-max", "root-curr", "root-max", "disk" ]
+
+        if (arguments.kernel):
+            fields_to_display += ["kernel", "kernelopts" ]
 
     
     vms_list = [vm for vm in qvm_collection.values()]
-    if len(args) > 0:
-        vms_list = [vm for vm in vms_list if vm.name in args]
-    no_vms = len (vms_list)
-    vms_to_display = []
-    # Frist, the NetVMs...
-    for netvm in vms_list:
-        if netvm.is_netvm():
-            vms_to_display.append (netvm)
+    #assume VMs are presented in desired order:
+    if len(arguments.VMs) > 0:
+        vms_list = [vm for vm in vms_list if vm.name in arguments.VMs]
+    #otherwise, format them accordingly:
+    else:
+        no_vms = len (vms_list)
+        vms_to_display = []
+        # Frist, the NetVMs...
+        for netvm in vms_list:
+            if netvm.is_netvm():
+                vms_to_display.append (netvm)
 
-    # Now, the AppVMs without template (or with template not included in the list)...
-    for appvm in vms_list:
-        if appvm.is_appvm() and not appvm.is_template() and \
-            (appvm.template is None or appvm.template not in vms_list):
-            vms_to_display.append (appvm)
+        # Now, the AppVMs without template (or with template not included in the list)...
+        for appvm in vms_list:
+            if appvm.is_appvm() and not appvm.is_template() and \
+                (appvm.template is None or appvm.template not in vms_list):
+                vms_to_display.append (appvm)
 
-    # Now, the template, and all its AppVMs...
-    for tvm in vms_list:
-        if tvm.is_template():
-            vms_to_display.append (tvm)
-            for vm in vms_list:
-                if (vm.is_appvm() or vm.is_disposablevm()) and \
-		    vm.template and vm.template.qid == tvm.qid:
-                    vms_to_display.append(vm)
+        # Now, the template, and all its AppVMs...
+        for tvm in vms_list:
+            if tvm.is_template():
+                vms_to_display.append (tvm)
+                for vm in vms_list:
+                    if (vm.is_appvm() or vm.is_disposablevm()) and \
+                vm.template and vm.template.qid == tvm.qid:
+                        vms_to_display.append(vm)
 
-    assert len(vms_to_display) == no_vms
+        assert len(vms_to_display) == no_vms
 
-    # First calculate the maximum width of each field we want to display
-    #  also collect data to display
-    for f in fields_to_display:
-        fields[f]["max_width"] = len(f)
+        #We DON'T NEED a max_width if we devide output by pipes!
+
+        # First calculate the maximum width of each field we want to display
+        #  also collect data to display
+        for f in fields_to_display:
+            fields[f]["max_width"] = len(f)
+
+
     data_to_display = []
     for vm in vms_to_display:
         data_row = {}
@@ -213,42 +234,49 @@ def main():
             else:
                 data_row[f] = str(eval(fields[f]["func"]))
             l = len(data_row[f])
-            if l > fields[f]["max_width"]:
+            if 'max_width' in fields[f] and l > fields[f]["max_width"]:
                 fields[f]["max_width"] = l
         data_to_display.append(data_row)
         try:
             vm.verify_files()
         except QubesException as err:
             print >> sys.stderr, "WARNING: VM '{0}' has corrupted files!".format(vm.name)
-                
-    # XXX: For what?
-    total_width = 0;
-    for f in fields_to_display:
-        total_width += fields[f]["max_width"]
 
-    # Display the header
-    s = ""
-    for f in fields_to_display:
-        fmt="{{0:-^{0}}}-+".format(fields[f]["max_width"] + 1)
-        s += fmt.format('-')
-    print s
-    s = ""
-    for f in fields_to_display:
-        fmt="{{0:>{0}}} |".format(fields[f]["max_width"] + 1)
-        s += fmt.format(f) 
-    print s
-    s = ""
-    for f in fields_to_display:
-        fmt="{{0:-^{0}}}-+".format(fields[f]["max_width"] + 1)
-        s += fmt.format('-')
-    print s
+    #Nicely formatted header only needed for humans
+    if not arguments.raw_data:
+        # XXX: For what?
+        total_width = 0;
+        for f in fields_to_display:
+            total_width += fields[f]["max_width"]
 
-    # ... and the actual data
-    for row in data_to_display:
+        # Display the header
+        s = ""
+        for f in fields_to_display:
+            fmt="{{0:-^{0}}}-+".format(fields[f]["max_width"] + 1)
+            s += fmt.format('-')
+        print s
         s = ""
         for f in fields_to_display:
             fmt="{{0:>{0}}} |".format(fields[f]["max_width"] + 1)
-            s += fmt.format(row[f]) 
+            s += fmt.format(f) 
         print s
+        s = ""
+        for f in fields_to_display:
+            fmt="{{0:-^{0}}}-+".format(fields[f]["max_width"] + 1)
+            s += fmt.format('-')
+        print s
+
+        # ... and the actual data
+        for row in data_to_display:
+            s = ""
+            for f in fields_to_display:
+                fmt="{{0:>{0}}} |".format(fields[f]["max_width"] + 1)
+                s += fmt.format(row[f]) 
+            print s
+
+    #won't look pretty, but is easy to parse!
+    else:
+        for row in data_to_display:
+            print '|'.join([row[f] for f in fields_to_display])
 
 main()
