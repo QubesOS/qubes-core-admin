@@ -513,7 +513,7 @@ def _reset_volume(volume):
 
     assert volume.size
 
-    _remove_if_exists(volume)
+    _remove_if_exists(volume.path)
 
     with open(volume.path, "w") as f_volatile:
         f_volatile.truncate(volume.size)
