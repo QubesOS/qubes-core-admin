@@ -261,6 +261,12 @@ class FilePool(Pool):
 
         return known_types[volume_type](**volume_config)
 
+    def verify(self, volume):
+        return volume.verify()
+
+    def verify(self, volume):
+        return volume.verify()
+
 
 class FileVolume(Volume):
     ''' Parent class for the xen volumes implementation which expects a
@@ -306,6 +312,7 @@ class SizeMixIn(FileVolume):
 
 class ReadWriteFile(SizeMixIn):
     ''' Represents a readable & writable file image based volume '''
+
     def __init__(self, **kwargs):
         super(ReadWriteFile, self).__init__(**kwargs)
         self.path = os.path.join(self.target_dir, self.name + '.img')
@@ -322,6 +329,11 @@ class ReadWriteFile(SizeMixIn):
         self.target_dir = new_dir
         self.path = new_path
         self.vid = self.path
+
+    def verify(self):
+        ''' Verifies the volume. '''
+        if not os.path.exists(self.path):
+            raise StoragePoolException('Missing image file: %s' % self.path)
 
 
 class ReadOnlyFile(FileVolume):
@@ -350,6 +362,11 @@ class ReadOnlyFile(FileVolume):
             self.target_dir = new_dir
             self.path = new_path
             self.vid = self.path
+
+    def verify(self):
+        ''' Verifies the volume. '''
+        if not os.path.exists(self.path):
+            raise StoragePoolException('Missing image file: %s' % self.path)
 
 
 class OriginFile(SizeMixIn):
@@ -396,6 +413,12 @@ class OriginFile(SizeMixIn):
             result += get_disk_usage(self.path_cow)
         return result
 
+    def verify(self):
+        ''' Verifies the volume. '''
+        if not os.path.exists(self.path_origin):
+            raise StoragePoolException('Missing image file: %s' %
+                                       self.path_origin)
+
 
 class SnapshotFile(FileVolume):
     ''' Represents a readonly snapshot of an :py:class:`OriginFile` volume '''
@@ -410,6 +433,12 @@ class SnapshotFile(FileVolume):
         self.path_cow = os.path.join(self.target_dir, name + '-cow.img')
         self.path = '%s:%s' % (self.path_origin, self.path_cow)
         self.vid = self.path_origin
+
+    def verify(self):
+        ''' Verifies the volume. '''
+        if not os.path.exists(self.path_origin):
+            raise StoragePoolException('Missing image file: %s' %
+                                       self.path_origin)
 
 
 class VolatileFile(SizeMixIn):
@@ -431,6 +460,11 @@ class VolatileFile(SizeMixIn):
         new_path = os.path.join(new_dir, file_name)
         self.path = new_path
         self.vid = self.path
+
+    def verify(self):
+        ''' Verifies the volume. '''
+        pass
+
 
 def create_sparse_file(path, size):
     ''' Create an empty sparse file '''

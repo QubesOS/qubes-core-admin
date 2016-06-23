@@ -58,10 +58,6 @@ class LinuxKernel(Pool):
 
         volume = LinuxModules(self.dir_path, vm.kernel, **volume_config)
 
-        _check_path(volume.path)
-        _check_path(volume.vmlinuz)
-        _check_path(volume.initramfs)
-
         return volume
 
     def clone(self, source, target):
@@ -102,6 +98,11 @@ class LinuxKernel(Pool):
 
     def stop(self, volume):
         pass
+
+    def verify(self, volume):
+        _check_path(volume.path)
+        _check_path(volume.vmlinuz)
+        _check_path(volume.initramfs)
 
     @property
     def volumes(self):

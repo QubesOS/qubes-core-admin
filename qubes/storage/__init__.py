@@ -177,6 +177,8 @@ class Storage(object):
             raise qubes.exc.QubesVMError(
                 self.vm,
                 'VM directory does not exist: {}'.format(self.vm.dir_path))
+        for volume in self.vm.volumes.values():
+            self.get_pool(volume).verify(volume)
 
     def remove(self):
         ''' Remove all the volumes.
@@ -285,6 +287,11 @@ class Pool(object):
         ''' Initialize a :py:class:`qubes.storage.Volume` from `volume_config`.
         '''
         raise NotImplementedError("Pool %s has init_volume() not implemented" %
+                                  self.name)
+
+    def verify(self, volume):
+        ''' Verifies the volume. '''
+        raise NotImplementedError("Pool %s has verify() not implemented" %
                                   self.name)
 
 
