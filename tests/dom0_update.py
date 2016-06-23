@@ -266,7 +266,8 @@ Test package
         open(self.update_flag_path, 'a').close()
 
         # remove also repodata to test #1685
-        shutil.rmtree('/var/lib/qubes/updates/repodata')
+        if os.path.exists('/var/lib/qubes/updates/repodata'):
+            shutil.rmtree('/var/lib/qubes/updates/repodata')
         logpath = os.path.join(self.tmpdir, 'dom0-update-output.txt')
         try:
             subprocess.check_call(['sudo', 'qubes-dom0-update', '-y',
