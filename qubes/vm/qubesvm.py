@@ -1099,7 +1099,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         :param qubes.vm.qubesvm.QubesVM src: source VM
         '''
 
-        if not self.is_halted():
+        # If the current vm name is not a part of `self.app.domains.keys()`,
+        # then the current vm is in creation process. Calling
+        # `self.is_halted()` at this point, would instantiate libvirt, we want
+        # avoid that.
+        if self.name in self.app.domains.keys() and not self.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(
                 self, 'Cannot clone a running domain {!r}'.format(self.name))
 
