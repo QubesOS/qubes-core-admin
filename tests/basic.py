@@ -31,7 +31,7 @@ import tempfile
 
 import unittest
 import time
-from qubes.qubes import QubesVmCollection, QubesException, system_path
+from qubes.qubes import QubesVmCollection, QubesException, system_path, vmm
 import libvirt
 
 import qubes.qubes
@@ -52,6 +52,26 @@ class TC_00_Basic(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
 
         with self.assertNotRaises(qubes.qubes.QubesException):
             vm.verify_files()
+
+    def test_010_remove(self):
+        vmname = self.make_vm_name('appvm')
+        vm = self.qc.add_new_vm('QubesAppVm',
+            name=vmname, template=self.qc.get_default_template())
+        vm.create_on_disk(verbose=False)
+        # check for QubesOS/qubes-issues#1930
+        vm.autostart = True
+        self.save_and_reload_db()
+        vm = self.qc[vm.qid]
+        vm.remove_from_disk()
+        self.qc.pop(vm.qid)
+        self.save_and_reload_db()
+        self.assertNotIn(vm.qid, self.qc)
+        self.assertFalse(os.path.exists(vm.dir_path))
+        self.assertFalse(os.path.exists(
+            '/etc/systemd/system/multi-user.target.wants/'
+            'qubes-vm@{}.service'.format(vm.name)))
+        with self.assertRaises(libvirt.libvirtError):
+            vmm.libvirt_conn.lookupByName(vm.name)
 
 
 class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
