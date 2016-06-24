@@ -948,8 +948,8 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
         try:
             window_title = 'user@%s' % (dispvm.template.name + "-dvm")
             p.stdin.write("xterm -e "
-                          "\"sh -s -c 'echo \\\"\033]0;{}\007\\\";read x;'\"\n".
-                          format(window_title))
+                "\"sh -c 'echo \\\"\033]0;{}\007\\\";read x;'\"\n".
+                format(window_title))
             self.wait_for_window(window_title)
 
             time.sleep(0.5)
