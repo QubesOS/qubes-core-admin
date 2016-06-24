@@ -38,7 +38,7 @@ Specify no state options to check if VM exists"""
     help="Determine if VM is paused")
     parser.add_option ("--template", action="store_true", dest="template", default=False,
     help="Determine if VM is a template")
-    
+
     (options, args) = parser.parse_args ()
     if (len (args) != 1):
         parser.error ("You must specify VM name!")
@@ -54,27 +54,27 @@ Specify no state options to check if VM exists"""
         if options.verbose:
             print >> sys.stdout, "A VM with the name '{0}' does not exist in the system!".format(vmname)
         exit(1)
-        
+
     elif options.running:
-        vm_state=not vm.is_running()
+        vm_state = not vm.is_running()
         if options.verbose:
             print >> sys.stdout, "A VM with the name {0} is {1}running.".format(vmname, "not " * vm_state)
         exit(vm_state)
 
     elif options.paused:
-        vm_state=not vm.is_paused()
+        vm_state = not vm.is_paused()
         if options.verbose:
             print >> sys.stdout, "A VM with the name {0} is {1}paused.".format(vmname, "not " * vm_state)
         exit(vm_state)
 
     elif options.template:
-        vm_state=not vm.is_template()
+        vm_state = not vm.is_template()
         if options.verbose:
             print >> sys.stdout, "A VM with the name {0} is {1}a template.".format(vmname, "not " * vm_state)
         exit(vm_state)
 
     else:
-        if options.verbose: 
+        if options.verbose:
             print >> sys.stdout, "A VM with the name '{0}' does exist.".format(vmname)
         exit(0)
 
