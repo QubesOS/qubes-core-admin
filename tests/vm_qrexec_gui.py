@@ -785,6 +785,8 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
 
     def test_210_time_sync(self):
         """Test time synchronization mechanism"""
+        if self.template.startswith('whonix-'):
+            self.skipTest('qvm-sync-clock disabled for Whonix VMs')
         self.testvm1.start()
         self.testvm2.start()
         (start_time, _) = subprocess.Popen(["date", "-u", "+%s"],
