@@ -1001,7 +1001,7 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
                                    'key', 'ctrl+x', 'ctrl+s'])
             subprocess.check_call(['xdotool',
                                    'key', 'ctrl+x', 'ctrl+c'])
-        elif "vim" in window_title:
+        elif "vim" in window_title or "user@" in window_title:
             subprocess.check_call(['xdotool', 'windowactivate', '--sync', winid,
                                    'key', 'i', 'type', 'test test 2\n'])
             subprocess.check_call(
@@ -1460,7 +1460,7 @@ class TC_50_MimeHandlers(qubes.tests.SystemTestsMixin):
     def test_000_txt(self):
         filename = "/home/user/test_file.txt"
         self.prepare_txt(filename)
-        self.open_file_and_check_viewer(filename, ["vim"],
+        self.open_file_and_check_viewer(filename, ["vim", "user@"],
                                         ["gedit", "emacs"])
 
     def test_001_pdf(self):
@@ -1502,7 +1502,7 @@ class TC_50_MimeHandlers(qubes.tests.SystemTestsMixin):
     def test_100_txt_dispvm(self):
         filename = "/home/user/test_file.txt"
         self.prepare_txt(filename)
-        self.open_file_and_check_viewer(filename, ["vim"],
+        self.open_file_and_check_viewer(filename, ["vim", "user@"],
                                         ["gedit", "emacs"],
                                         dispvm=True)
 
