@@ -190,7 +190,7 @@ def main():
     vms_list = [vm for vm in qvm_collection.values()]
     #assume VMs are presented in desired order:
     if len(arguments.VMs) > 0:
-        vms_list = [vm for vm in vms_list if vm.name in arguments.VMs]
+        vms_to_display = [vm for vm in vms_list if vm.name in arguments.VMs]
     #otherwise, format them accordingly:
     else:
         no_vms = len (vms_list)
