@@ -127,7 +127,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         time.sleep(0.5)
         subprocess.check_call(
             ['xdotool', 'search', '--name', title,
-             'windowactivate', 'type', 'exit\n'])
+             'windowactivate', '--sync', 'type', 'exit\n'])
 
         wait_count = 0
         while subprocess.call(['xdotool', 'search', '--name', title],
@@ -168,7 +168,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         time.sleep(0.5)
         subprocess.check_call(
             ['xdotool', 'search', '--name', title,
-             'windowactivate', 'type', 'exit\n'])
+             'windowactivate', '--sync', 'type', 'exit\n'])
 
         wait_count = 0
         while subprocess.call(['xdotool', 'search', '--name', title],
@@ -1097,25 +1097,24 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
             replace('(', '\(').replace(')', '\)')
         time.sleep(1)
         if "gedit" in window_title:
-            subprocess.check_call(['xdotool', 'search', '--name', window_title,
-                                   'windowactivate', 'type', 'test test 2\n'])
+            subprocess.check_call(['xdotool', 'windowactivate', '--sync', winid,
+                'type', 'test test 2\n'])
             time.sleep(0.5)
-            subprocess.check_call(['xdotool', 'search', '--name', window_title,
+            subprocess.check_call(['xdotool',
                                    'key', 'ctrl+s', 'ctrl+q'])
         elif "emacs" in window_title:
-            subprocess.check_call(['xdotool', 'search', '--name', window_title,
-                                   'windowactivate', 'type', 'test test 2\n'])
+            subprocess.check_call(['xdotool', 'windowactivate', '--sync', winid,
+                                   'type', 'test test 2\n'])
             time.sleep(0.5)
-            subprocess.check_call(['xdotool', 'search', '--name', window_title,
+            subprocess.check_call(['xdotool',
                                    'key', 'ctrl+x', 'ctrl+s'])
-            subprocess.check_call(['xdotool', 'search', '--name', window_title,
+            subprocess.check_call(['xdotool',
                                    'key', 'ctrl+x', 'ctrl+c'])
         elif "vim" in window_title:
-            subprocess.check_call(['xdotool', 'search', '--name', window_title,
-                                   'windowactivate', 'key', 'i',
-                                   'type', 'test test 2\n'])
+            subprocess.check_call(['xdotool', 'windowactivate', '--sync', winid,
+                                   'key', 'i', 'type', 'test test 2\n'])
             subprocess.check_call(
-                ['xdotool', 'search', '--name', window_title,
+                ['xdotool',
                  'key', 'Escape', 'colon', 'w', 'q', 'Return'])
         else:
             self.fail("Unknown editor window: {}".format(window_title))
@@ -1190,7 +1189,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
 
         # Type and copy some text
         subprocess.check_call(['xdotool', 'search', '--name', window_title,
-                               'windowactivate',
+                               'windowactivate', '--sync',
                                'type', '{}'.format(test_string)])
         # second xdotool call because type --terminator do not work (SEGV)
         # additionally do not use search here, so window stack will be empty
