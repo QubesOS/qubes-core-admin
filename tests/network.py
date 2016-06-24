@@ -88,6 +88,8 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         run_netvm_cmd("ip link set test0 up")
         run_netvm_cmd("ip addr add {}/24 dev test0".format(self.test_ip))
         run_netvm_cmd("iptables -I INPUT -d {} -j ACCEPT".format(self.test_ip))
+        # ignore failure
+        self.run_cmd(self.testnetvm, "killall --wait dnsmasq")
         run_netvm_cmd("dnsmasq -a {ip} -A /{name}/{ip} -i test0 -z".format(
             ip=self.test_ip, name=self.test_name))
         run_netvm_cmd("echo nameserver {} > /etc/resolv.conf".format(
