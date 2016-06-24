@@ -1044,6 +1044,7 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
                 self.fail("Timeout while waiting for editor window")
             time.sleep(0.3)
 
+        time.sleep(0.5)
         self._handle_editor(winid)
         p.wait()
         p = testvm1.run("cat /home/user/test.txt",
