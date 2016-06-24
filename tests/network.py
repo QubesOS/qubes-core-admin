@@ -54,6 +54,9 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
 
     def setUp(self):
         super(VmNetworkingMixin, self).setUp()
+        if self.template.startswith('whonix-'):
+            self.skipTest("Test not supported here - Whonix uses its own "
+                          "firewall settings")
         self.testnetvm = self.qc.add_new_vm("QubesNetVm",
             name=self.make_vm_name('netvm1'),
             template=self.qc.get_vm_by_name(self.template))

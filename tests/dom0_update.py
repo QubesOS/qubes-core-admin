@@ -100,6 +100,10 @@ enabled = 1
 
     def setUp(self):
         super(TC_00_Dom0UpgradeMixin, self).setUp()
+        if self.template.startswith('whonix-'):
+            # Whonix redirect all the traffic through tor, so repository
+            # on http://localhost:8080/ is unavailable
+            self.skipTest("Test not supported for this template")
         self.updatevm = self.qc.add_new_vm(
             "QubesProxyVm",
             name=self.make_vm_name("updatevm"),

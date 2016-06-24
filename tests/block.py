@@ -200,6 +200,9 @@ class TC_00_List(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             self.fail("Device {} not found in {!r}".format('test-dm', dev_list))
 
     def test_013_list_dm_removed(self):
+        if self.template is None:
+            self.skipTest('test not supported in dom0 - loop devices excluded '
+                          'in dom0')
         self.run_script(
             "set -e;"
             "truncate -s 128M {path}; "
