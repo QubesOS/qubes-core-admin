@@ -27,10 +27,17 @@ import sys
 import time
 
 def main():
-    usage = "usage: %prog [options] <vm-name>"
+    usage = """usage: %prog [options] <vm-name>\n
+Specify no state options to check if VM exists"""
     parser = OptionParser (usage)
 
     parser.add_option ("-q", "--quiet", action="store_false", dest="verbose", default=True)
+    parser.add_option ("--running", action="store_true", dest="running", default=False,
+    help="Determine if VM is running")
+    parser.add_option ("--paused", action="store_true", dest="paused", default=False,
+    help="Determine if VM is paused")
+    parser.add_option ("--template", action="store_true", dest="template", default=False,
+    help="Determine if VM is a template")
     
     (options, args) = parser.parse_args ()
     if (len (args) != 1):
@@ -47,6 +54,24 @@ def main():
         if options.verbose:
             print >> sys.stdout, "A VM with the name '{0}' does not exist in the system!".format(vmname)
         exit(1)
+        
+    elif options.running:
+        vm_state=not vm.is_running()
+        if options.verbose:
+            print >> sys.stdout, "A VM with the name {0} is {1}running.".format(vmname, "not " * vm_state)
+        exit(vm_state)
+
+    elif options.paused:
+        vm_state=not vm.is_paused()
+        if options.verbose:
+            print >> sys.stdout, "A VM with the name {0} is {1}paused.".format(vmname, "not " * vm_state)
+        exit(vm_state)
+
+    elif options.template:
+        vm_state=not vm.is_template()
+        if options.verbose:
+            print >> sys.stdout, "A VM with the name {0} is {1}a template.".format(vmname, "not " * vm_state)
+        exit(vm_state)
 
     else:
         if options.verbose: 
