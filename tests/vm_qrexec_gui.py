@@ -1612,7 +1612,7 @@ class TC_50_MimeHandlers(qubes.tests.SystemTestsMixin):
 
     def test_010_url(self):
         self.open_file_and_check_viewer("https://www.qubes-os.org/", [],
-                                        ["Firefox", "Iceweasel"])
+                                        ["Firefox", "Iceweasel", "Navigator"])
 
     def test_100_txt_dispvm(self):
         filename = "/home/user/test_file.txt"
@@ -1665,7 +1665,7 @@ class TC_50_MimeHandlers(qubes.tests.SystemTestsMixin):
 
     def test_110_url_dispvm(self):
         self.open_file_and_check_viewer("https://www.qubes-os.org/", [],
-                                        ["Firefox", "Iceweasel"],
+                                        ["Firefox", "Iceweasel", "Navigator"],
                                         dispvm=True)
 
 
