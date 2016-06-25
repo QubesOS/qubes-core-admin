@@ -1332,7 +1332,7 @@ class TC_50_MimeHandlers(qubes.tests.SystemTestsMixin):
                                    passio_popen=True)
             vmpattern = "disp*"
         else:
-            self.qrexec_policy('qubes.Filecopy', self.source_vm.name,
+            self.qrexec_policy('qubes.OpenInVM', self.source_vm.name,
                 self.target_vmname)
             p = self.source_vm.run("qvm-open-in-vm {} {}".format(
                 self.target_vmname, filename), passio_popen=True)
