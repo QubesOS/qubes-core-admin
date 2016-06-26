@@ -445,8 +445,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 'volume_config specified, but {} did not expect that.'.format(
                 self.__class__.__name__))
 
-        import qubes.vm.adminvm  # pylint: disable=redefined-outer-name
-
         # Init private attrs
 
         self._libvirt_domain = None
@@ -464,14 +462,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # By default allow use all VCPUs
 #       if not hasattr(self, 'vcpus') and not self.app.vmm.offline_mode:
 #           self.vcpus = self.app.host.no_cpus
-
-        if len(self.devices['pci']) > 0:
-            # Force meminfo-writer disabled when VM have PCI devices
-            self.features['meminfo-writer'] = None
-        elif not isinstance(self, qubes.vm.adminvm.AdminVM) \
-                and 'meminfo-writer' not in self.features:
-            # Always set if meminfo-writer should be active or not
-            self.features['meminfo-writer'] = '1'
 
         if xml is None:
             # new qube, disable updates check if requested for new qubes
