@@ -700,6 +700,7 @@ class Qubes(qubes.PropertyHolder):
         # stage 4: fill all remaining VM properties
         for vm in self.domains:
             vm.load_properties(load_stage=4)
+            vm.load_extras()
 
         # stage 5: misc fixups
 

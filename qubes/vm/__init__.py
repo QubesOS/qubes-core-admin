@@ -183,38 +183,28 @@ class BaseVM(qubes.PropertyHolder):
         #: user-specified tags
         self.tags = tags or {}
 
-        if self.xml is not None:
-            # features
-            for node in xml.xpath('./features/feature'):
-                self.features[node.get('name')] = node.text
-
-            # devices (pci, usb, ...)
-            for parent in xml.xpath('./devices'):
-                devclass = parent.get('class')
-                for node in parent.xpath('./device'):
-                    self.devices[devclass].attach(node.text)
-
-            # tags
-            for node in xml.xpath('./tags/tag'):
-                self.tags[node.get('name')] = node.text
-
-            # SEE:1815 firewall, policy.
-
-            # check if properties are appropriate
-            all_names = set(prop.__name__ for prop in self.property_list())
-
-            for node in self.xml.xpath('./properties/property'):
-                name = node.get('name')
-                if name not in all_names:
-                    raise TypeError(
-                        'property {!r} not applicable to {!r}'.format(
-                            name, self.__class__.__name__))
-
         #: logger instance for logging messages related to this VM
         self.log = None
 
         if hasattr(self, 'name'):
             self.init_log()
+
+    def load_extras(self):
+        # features
+        for node in self.xml.xpath('./features/feature'):
+            self.features[node.get('name')] = node.text
+
+        # devices (pci, usb, ...)
+        for parent in self.xml.xpath('./devices'):
+            devclass = parent.get('class')
+            for node in parent.xpath('./device'):
+                self.devices[devclass].attach(node.text)
+
+        # tags
+        for node in self.xml.xpath('./tags/tag'):
+            self.tags[node.get('name')] = node.text
+
+        # SEE:1815 firewall, policy.
 
     def init_log(self):
         '''Initialise logger for this domain.'''

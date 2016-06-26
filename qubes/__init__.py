@@ -439,6 +439,16 @@ class PropertyHolder(qubes.events.Emitter):
         for key, value in propvalues.items():
             setattr(self, key, value)
 
+        if self.xml is not None:
+            # check if properties are appropriate
+            all_names = set(prop.__name__ for prop in self.property_list())
+
+            for node in self.xml.xpath('./properties/property'):
+                name = node.get('name')
+                if name not in all_names:
+                    raise TypeError(
+                        'property {!r} not applicable to {!r}'.format(
+                            name, self.__class__.__name__))
 
     @classmethod
     def property_list(cls, load_stage=None):

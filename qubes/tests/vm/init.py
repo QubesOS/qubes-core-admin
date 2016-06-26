@@ -83,6 +83,7 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
         node = self.xml.xpath('//domain')[0]
         vm = TestVM(None, node)
         vm.load_properties(load_stage=None)
+        vm.load_extras()
 
         self.assertEqual(vm.qid, 1)
         self.assertEqual(vm.testprop, 'testvalue')
