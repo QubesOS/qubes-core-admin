@@ -217,12 +217,12 @@ def main():
 
         assert len(vms_to_display) == no_vms
 
-        #We DON'T NEED a max_width if we devide output by pipes!
+    #We DON'T NEED a max_width if we devide output by pipes!
 
-        # First calculate the maximum width of each field we want to display
-        #  also collect data to display
-        for f in fields_to_display:
-            fields[f]["max_width"] = len(f)
+    # First calculate the maximum width of each field we want to display
+    #  also collect data to display
+    for f in fields_to_display:
+        fields[f]["max_width"] = len(f)
 
 
     data_to_display = []
