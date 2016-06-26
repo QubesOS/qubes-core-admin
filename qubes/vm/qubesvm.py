@@ -243,7 +243,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     # CORE2: swallowed uses_default_kernelopts
     kernelopts = qubes.property('kernelopts', type=str, load_stage=4,
         default=(lambda self: qubes.config.defaults['kernelopts_pcidevs']
-            if len(self.devices['pci']) > 0
+            if list(self.devices['pci'].attached())
             else self.template.kernelopts if hasattr(self, 'template')
             else qubes.config.defaults['kernelopts']),
         ls_width=30,
@@ -476,6 +476,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self.events_enabled = True
         self.fire_event('domain-init')
 
+    def __hash__(self):
+        return self.qid
+
     def __xml__(self):
         element = super(QubesVM, self).__xml__()
 
@@ -700,7 +703,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         qmemman_client = self.request_memory(mem_required)
 
         # Bind pci devices to pciback driver
-        for pci in self.devices['pci']:
+        for pci in self.devices['pci'].attached():
             self.bind_pci_to_pciback(pci)
 
         self.libvirt_domain.createWithFlags(libvirt.VIR_DOMAIN_START_PAUSED)
@@ -802,7 +805,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if not self.is_running() and not self.is_paused():
             raise qubes.exc.QubesVMNotRunningError(self)
 
-        if len(self.devices['pci']) > 0:
+        if list(self.devices['pci'].attached()):
             raise qubes.exc.QubesNotImplementedError(
                 'Cannot suspend domain {!r} which has PCI devices attached'
                 .format(self.name))

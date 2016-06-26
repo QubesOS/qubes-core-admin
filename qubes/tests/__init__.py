@@ -135,12 +135,15 @@ class TestEmitter(qubes.events.Emitter):
         self.fired_events = collections.Counter()
 
     def fire_event(self, event, *args, **kwargs):
-        super(TestEmitter, self).fire_event(event, *args, **kwargs)
+        effects = super(TestEmitter, self).fire_event(event, *args, **kwargs)
         self.fired_events[(event, args, tuple(sorted(kwargs.items())))] += 1
+        return effects
 
     def fire_event_pre(self, event, *args, **kwargs):
-        super(TestEmitter, self).fire_event_pre(event, *args, **kwargs)
+        effects = super(TestEmitter, self).fire_event_pre(event, *args,
+            **kwargs)
         self.fired_events[(event, args, tuple(sorted(kwargs.items())))] += 1
+        return effects
 
 def expectedFailureIfTemplate(templates):
     """

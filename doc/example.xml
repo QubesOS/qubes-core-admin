@@ -22,7 +22,7 @@
             </features>
 
             <devices class="pci">
-                <device>01:23.45</device>
+                <device backend-domain="dom0" id="01:23.45"/>
             </devices>
         </domain>
 

@@ -206,14 +206,24 @@ the parser will complain about missing combine= attribute on the second <start>.
                     <oneOrMore>
                         <element name="device">
                             <doc:description>
-                                One device. This tag should contain some
-                                identifier, format of which depends on
-                                particular device class.
+                                One device. It's identified by by a pair of
+                                backend domain and some identifier (device class
+                                dependant).
                             </doc:description>
-                            <!-- TODO: pattern dependent on class! -->
-                            <data type="string">
-                                <param name="pattern">[0-9a-f]{2}:[0-9a-f]{2}.[0-9a-f]{2}</param>
-                            </data>
+                            <attribute name="backend-domain">
+                                <doc:description>
+                                    Backend domain name.
+                                </doc:description>
+                                <data type="string">
+                                    <param name="pattern">[a-z0-9_]+</param>
+                                </data>
+                            </attribute>
+                            <attribute name="id">
+                                <!-- TODO: pattern dependent on class! -->
+                                <data type="string">
+                                    <param name="pattern">[0-9a-f]{2}:[0-9a-f]{2}.[0-9a-f]{2}</param>
+                                </data>
+                            </attribute>
                         </element>
                     </oneOrMore>
                 </element>

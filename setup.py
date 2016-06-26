@@ -43,6 +43,7 @@ if __name__ == '__main__':
             ],
             'qubes.devices': [
                 'pci = qubes.devices:PCIDevice',
+                'testclass = qubes.tests.devices:TestDevice',
             ],
             'qubes.storage': [
                 'file = qubes.storage.file:FilePool',
