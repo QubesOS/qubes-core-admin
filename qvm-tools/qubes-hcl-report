@@ -217,7 +217,7 @@ if [[ "$SUPPORT_FILES" == 1 ]]
 
     # cpio
     cd $TEMP_DIR
-    find -print0 |cpio --quiet -o -H crc --null |gzip  >$HOME/$FILENAME.cpio.gz
+    find -print0 | cpio --quiet -o -H crc --null | gzip  > "$HOME/$FILENAME.cpio.gz"
     cd
 fi
 
@@ -225,7 +225,7 @@ fi
 if [[ "$COPY2VM" != "dom0" ]]
  then
     # Copy to VM
-    qvm-start -q $COPY2VM 2>/dev/null
+    qvm-start -q $COPY2VM 2> /dev/null
 
     if [[ -f "$HOME/$FILENAME.cpio.gz" ]]
       then
