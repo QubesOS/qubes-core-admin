@@ -209,7 +209,7 @@ versions:
     FIXLINK
 
 ---
-" >> $HOME/$FILENAME.yml
+" >> "$HOME/$FILENAME.yml"
 
 
 if [[ "$SUPPORT_FILES" == 1 ]]
