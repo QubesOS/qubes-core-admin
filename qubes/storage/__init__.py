@@ -29,14 +29,14 @@ from __future__ import absolute_import
 
 import os
 import os.path
+import string
 
-import pkg_resources
 import lxml.etree
-
+import pkg_resources
 import qubes
+import qubes.devices
 import qubes.exc
 import qubes.utils
-import qubes.devices
 
 STORAGE_ENTRY_POINT = 'qubes.storage'
 
@@ -58,7 +58,7 @@ class Volume(object):
     usage = 0
 
     def __init__(self, name, pool, volume_type, vid=None, size=0,
-                 removable=False, **kwargs):
+                 removable=False, internal=False, **kwargs):
         super(Volume, self).__init__(**kwargs)
         self.name = str(name)
         self.pool = str(pool)
@@ -66,6 +66,7 @@ class Volume(object):
         self.size = size
         self.volume_type = volume_type
         self.removable = removable
+        self.internal = internal
 
     def __xml__(self):
         return lxml.etree.Element('volume', **self.config)
@@ -78,9 +79,7 @@ class Volume(object):
                 'volume_type': self.volume_type}
 
     def __repr__(self):
-        return '{}(name={!s}, pool={!r}, vid={!r}, volume_type={!r})'.format(
-            self.__class__.__name__, self.name, self.pool, self.vid,
-            self.volume_type)
+        return '{!r}'.format(self.pool + ':' + self.vid)
 
     def block_device(self):
         ''' Return :py:class:`qubes.devices.BlockDevice` for serialization in
@@ -89,6 +88,16 @@ class Volume(object):
         return qubes.devices.BlockDevice(self.path, self.name, self.script,
             self.rw, self.domain, self.devtype)
 
+    def __eq__(self, other):
+        return other.pool == self.pool and other.vid == self.vid \
+            and other.volume_type == self.volume_type
+
+    def __neq__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash('%s:%s %s' % (self.pool, self.vid, self.volume_type))
+
 
 class Storage(object):
     ''' Class for handling VM virtual disks.
@@ -96,6 +105,8 @@ class Storage(object):
     This is base class for all other implementations, mostly with Xen on Linux
     in mind.
     '''
+
+    AVAILABLE_FRONTENDS = set(['xvd' + c for c in string.ascii_lowercase])
 
     def __init__(self, vm):
         #: Domain for which we manage storage
@@ -111,6 +122,59 @@ class Storage(object):
                 pool = self.vm.app.get_pool(conf['pool'])
                 self.vm.volumes[name] = pool.init_volume(self.vm, conf)
                 self.pools[name] = pool
+
+    def attach(self, volume, rw=False):
+        ''' Attach a volume to the domain '''
+        assert self.vm.is_running()
+
+        if self._is_already_attached(volume):
+            self.vm.log.info("{!r} already attached".format(volume))
+            return
+
+        try:
+            frontend = self.unused_frontend()
+        except IndexError:
+            raise StoragePoolException("No unused frontend found")
+        disk = lxml.etree.Element("disk")
+        disk.set('type', 'block')
+        disk.set('device', 'disk')
+        lxml.etree.SubElement(disk, 'driver').set('name', 'phy')
+        lxml.etree.SubElement(disk, 'source').set('dev', '/dev/%s' % volume.vid)
+        lxml.etree.SubElement(disk, 'target').set('dev', frontend)
+        if not rw:
+            lxml.etree.SubElement(disk, 'readonly')
+
+        if self.vm.qid != 0:
+            lxml.etree.SubElement(disk, 'backenddomain').set(
+                'name', volume.pool.split('p_')[1])
+
+        xml_string = lxml.etree.tostring(disk, encoding='utf-8')
+        self.vm.libvirt_domain.attachDevice(xml_string)
+        # trigger watches to update device status
+        # FIXME: this should be removed once libvirt will report such
+        # events itself
+        # self.vm.qdb.write('/qubes-block-devices', '') ← do we need this?
+
+    def _is_already_attached(self, volume):
+        ''' Checks if the given volume is already attached '''
+        parsed_xml = lxml.etree.fromstring(self.vm.libvirt_domain.XMLDesc())
+        disk_sources = parsed_xml.xpath("//domain/devices/disk/source")
+        for source in disk_sources:
+            if source.get('dev') == '/dev/%s' % volume.vid:
+                return True
+        return False
+
+    def detach(self, volume):
+        ''' Detach a volume from domain '''
+        parsed_xml = lxml.etree.fromstring(self.vm.libvirt_domain.XMLDesc())
+        disks = parsed_xml.xpath("//domain/devices/disk")
+        for disk in disks:
+            source = disk.xpath('source')[0]
+            if source.get('dev') == '/dev/%s' % volume.vid:
+                disk_xml = lxml.etree.tostring(disk, encoding='utf-8')
+                self.vm.libvirt_domain.detachDevice(disk_xml)
+                return
+        raise StoragePoolException('Volume {!r} is not attached'.format(volume))
 
     @property
     def kernels_dir(self):
@@ -192,6 +256,8 @@ class Storage(object):
             raise qubes.exc.QubesVMError(
                 self.vm,
                 'VM directory does not exist: {}'.format(self.vm.dir_path))
+        for volume in self.vm.volumes.values():
+            self.get_pool(volume).verify(volume)
         self.vm.fire_event('domain-verify-files')
 
     def remove(self):
@@ -225,6 +291,21 @@ class Storage(object):
         for volume in self.vm.volumes.values():
             if volume.volume_type == 'origin':
                 self.get_pool(volume).commit_template_changes(volume)
+
+    def unused_frontend(self):
+        ''' Find an unused device name '''
+        unused_frontends = self.AVAILABLE_FRONTENDS.difference(
+            self.used_frontends)
+        return sorted(unused_frontends)[0]
+
+    @property
+    def used_frontends(self):
+        ''' Used device names '''
+        xml = self.vm.libvirt_domain.XMLDesc()
+        parsed_xml = lxml.etree.fromstring(xml)
+        return set([target.get('dev', None)
+                    for target in parsed_xml.xpath(
+                        "//domain/devices/disk/target")])
 
 
 class Pool(object):
@@ -305,6 +386,17 @@ class Pool(object):
         ''' Initialize a :py:class:`qubes.storage.Volume` from `volume_config`.
         '''
         raise NotImplementedError("Pool %s has init_volume() not implemented" %
+                                  self.name)
+
+    def verify(self, volume):
+        ''' Verifies the volume. '''
+        raise NotImplementedError("Pool %s has verify() not implemented" %
+                                  self.name)
+
+    @property
+    def volumes(self):
+        ''' Return a list of volumes managed by this pool '''
+        raise NotImplementedError("Pool %s has volumes() not implemented" %
                                   self.name)
 
 

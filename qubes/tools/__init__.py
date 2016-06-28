@@ -199,25 +199,103 @@ class VmNameAction(QubesAction):
                     parser.error('no such domain: {!r}'.format(vm_name))
 
 
-class PoolsAction(QubesAction):
-    ''' Action for argument parser to gather multiple pools '''
+class RunningVmNameAction(VmNameAction):
+    ''' Action for argument parser that gets a running domain from VMNAME '''
     # pylint: disable=too-few-public-methods
+
+    def __init__(self, option_strings, nargs=1, dest='vmnames', help=None,
+                 **kwargs):
+        # pylint: disable=redefined-builtin
+        if help is None:
+            if nargs == argparse.OPTIONAL:
+                help = 'at most one running domain'
+            elif nargs == 1:
+                help = 'running domain name'
+            elif nargs == argparse.ZERO_OR_MORE:
+                help = 'zero or more running domains'
+            elif nargs == argparse.ONE_OR_MORE:
+                help = 'one or more running domains'
+            elif nargs > 1:
+                help = '%s running domains' % nargs
+            else:
+                raise argparse.ArgumentError(
+                    nargs, "Passed unexpected value {!s} as {!s} nargs ".format(
+                        nargs, dest))
+        super(RunningVmNameAction, self).__init__(
+            option_strings, dest=dest, help=help, nargs=nargs, **kwargs)
+
+    def parse_qubes_app(self, parser, namespace):
+        super(RunningVmNameAction, self).parse_qubes_app(parser, namespace)
+        for vm in namespace.domains:
+            if not vm.is_running():
+                parser.error_runtime("domain {!r} is not running".format(
+                    vm.name))
+
+
+class VolumeAction(QubesAction):
+    ''' Action for argument parser that gets the
+        :py:class:``qubes.storage.Volume`` from a POOL_NAME:VOLUME_ID string.
+    '''
+    # pylint: disable=too-few-public-methods
+
+    def __init__(self, help='A pool & volume id combination',
+                 required=True, **kwargs):
+        # pylint: disable=redefined-builtin
+        super(VolumeAction, self).__init__(help=help, required=required,
+                                           **kwargs)
 
     def __call__(self, parser, namespace, values, option_string=None):
         ''' Set ``namespace.vmname`` to ``values`` '''
         setattr(namespace, self.dest, values)
 
     def parse_qubes_app(self, parser, namespace):
+        ''' Acquire the :py:class:``qubes.storage.Volume`` object from
+            ``namespace.app``.
+        '''
+        assert hasattr(namespace, 'app')
         app = namespace.app
-        name = getattr(namespace, self.dest)
-        if not name:
-            return
-        try:
-            setattr(namespace, self.dest, app.get_pool(name))
-        except qubes.exc.QubesException as e:
-            parser.error(e.message)
-            sys.exit(2)
 
+        try:
+            pool_name, vid = getattr(namespace, self.dest).split(':')
+            try:
+                pool = app.pools[pool_name]
+                volume = [v for v in pool.volumes if v.vid == vid]
+                assert volume > 1, 'Duplicate vids in pool %s' % pool_name
+                if len(volume) == 0:
+                    parser.error_runtime(
+                        'no volume with id {!r} pool: {!r}'.format(vid,
+                                                                   pool_name))
+                else:
+                    setattr(namespace, self.dest, volume[0])
+            except KeyError:
+                parser.error_runtime('no pool {!r}'.format(pool_name))
+        except ValueError:
+            parser.error('expected a pool & volume id combination like foo:bar')
+
+
+class PoolsAction(QubesAction):
+    ''' Action for argument parser to gather multiple pools '''
+    # pylint: disable=too-few-public-methods
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        ''' Set ``namespace.vmname`` to ``values`` '''
+        if hasattr(namespace, self.dest) and getattr(namespace, self.dest):
+            names = getattr(namespace, self.dest)
+        else:
+            names = []
+        names += [values]
+        setattr(namespace, self.dest, names)
+
+    def parse_qubes_app(self, parser, namespace):
+        app = namespace.app
+        pool_names = getattr(namespace, self.dest)
+        if pool_names:
+            try:
+                pools = [app.get_pool(name) for name in pool_names]
+                setattr(namespace, self.dest, pools)
+            except qubes.exc.QubesException as e:
+                parser.error(e.message)
+                sys.exit(2)
 
 
 class QubesArgumentParser(argparse.ArgumentParser):
@@ -285,8 +363,17 @@ class QubesArgumentParser(argparse.ArgumentParser):
             self.dont_run_as_root(namespace)
 
         for action in self._actions:
+            # pylint: disable=protected-access
             if issubclass(action.__class__, QubesAction):
                 action.parse_qubes_app(self, namespace)
+            elif issubclass(action.__class__,
+                    argparse._SubParsersAction):  # pylint: disable=no-member
+                assert hasattr(namespace, 'command')
+                command = namespace.command
+                subparser = action._name_parser_map[command]
+                for subaction in subparser._actions:
+                    if issubclass(subaction.__class__, QubesAction):
+                        subaction.parse_qubes_app(self, namespace)
 
         return namespace
 
@@ -409,17 +496,20 @@ class VmNameGroup(argparse._MutuallyExclusiveGroup):
         :py:class:``argparse.ArgumentParser```.
     '''
 
-    def __init__(self, container, required, vm_action=VmNameAction):
+    def __init__(self, container, required, vm_action=VmNameAction, help=None):
+        # pylint: disable=redefined-builtin
         super(VmNameGroup, self).__init__(container, required=required)
-        self.add_argument('--all', action='store_true',
-                          dest='all_domains',
-                          help='perform the action on all qubes')
+        if not help:
+            help = 'perform the action on all qubes'
+        self.add_argument('--all', action='store_true', dest='all_domains',
+                          help=help)
         container.add_argument('--exclude', action='append', default=[],
                                help='exclude the qube from --all')
-        self.add_argument('VMNAME', action=vm_action, nargs='*',
-                          default=[])  # the default parameter is important! see
-                                # https://stackoverflow.com/questions/35044288
-                                # and `argparse.ArgumentParser.parse_args()`
+
+        #  ⚠ the default parameter below is important! ⚠
+        #  See https://stackoverflow.com/questions/35044288 and
+        #  `argparse.ArgumentParser.parse_args()` implementation
+        self.add_argument('VMNAME', action=vm_action, nargs='*', default=[])
 
 
 def print_table(table):

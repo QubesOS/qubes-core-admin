@@ -36,7 +36,7 @@ ignored-classes=
 ignore-mixin-members=yes
 generated-members=
   iter_entry_points,
-  Element,ElementTree,QName,parse,tostring
+  Element,ElementTree,QName,SubElement,fromstring,parse,tostring,
 
 [BASIC]
 

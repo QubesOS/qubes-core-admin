@@ -326,6 +326,23 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 raise
 
     @property
+    def attached_volumes(self):
+        result = []
+        xml_desc = self.libvirt_domain.XMLDesc()
+        xml = lxml.etree.fromstring(xml_desc)
+        for disk in xml.xpath("//domain/devices/disk"):
+            if disk.find('backenddomain') is not None:
+                pool_name = 'p_%s' % disk.find('backenddomain').get('name')
+                pool = self.app.pools[pool_name]
+                vid = disk.find('source').get('dev').split('/dev/')[1]
+                for volume in pool.volumes:
+                    if volume.vid == vid:
+                        result += [volume]
+                        break
+
+        return result + self.volumes.values()
+
+    @property
     def libvirt_domain(self):
         '''Libvirt domain object from libvirt.
 
