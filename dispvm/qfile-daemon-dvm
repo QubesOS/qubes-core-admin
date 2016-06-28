@@ -187,6 +187,6 @@ def main():
         subprocess.call(['/usr/lib/qubes/qrexec-client', '-d', dispvm.name,
                          user+':exec /usr/lib/qubes/qubes-rpc-multiplexer ' +
                          exec_index + " " + src_vmname])
-        qfile.finish_disposable(dispvm.name)
+        QfileDaemonDvm.finish_disposable(dispvm.name)
 
 main()
