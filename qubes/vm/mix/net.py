@@ -325,7 +325,7 @@ class NetVMMixin(qubes.events.Emitter):
         pass
 
     @qubes.events.handler('firewall-changed', 'domain-spawn')
-    def on_firewall_changed(self, event):
+    def on_firewall_changed(self, event, **kwargs):
         ''' Reloads the firewall if vm is running and has a NetVM assigned '''
         # pylint: disable=unused-argument
         if self.is_running() and self.netvm:
