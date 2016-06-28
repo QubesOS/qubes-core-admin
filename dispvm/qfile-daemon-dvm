@@ -171,6 +171,10 @@ class QfileDaemonDvm:
 
 def main():
     exec_index = sys.argv[1]
+    if exec_index == "FINISH":
+        QfileDaemonDvm.finish_disposable(sys.argv[2])
+        return
+
     src_vmname = sys.argv[2]
     user = sys.argv[3]
     # accessed directly by get_dvm()
@@ -183,6 +187,10 @@ def main():
     qfile = QfileDaemonDvm(src_vmname)
     dispvm = qfile.get_dvm()
     if dispvm is not None:
+        if exec_index == "LAUNCH":
+            print dispvm.name
+            return
+
         print >>sys.stderr, "time=%s, starting VM process" % (str(time.time()))
         subprocess.call(['/usr/lib/qubes/qrexec-client', '-d', dispvm.name,
                          user+':exec /usr/lib/qubes/qubes-rpc-multiplexer ' +
