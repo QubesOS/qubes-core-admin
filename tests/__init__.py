@@ -489,7 +489,7 @@ class SystemTestsMixin(object):
         # accessing window properties
         self.wait_for_window(title)
         command = ['xdotool', 'search', '--name', title,
-                   'windowactivate',
+                   'windowactivate', '--sync',
                    'key'] + keys
         subprocess.check_call(command)
 
