@@ -202,7 +202,8 @@ class QubesVm(object):
             'kernelopts', 'services', 'installed_by_rpm',\
             'uses_default_netvm', 'include_in_backups', 'debug',\
             'qrexec_timeout', 'autostart', 'uses_default_dispvm_netvm',
-            'backup_content', 'backup_size', 'backup_path', 'pool_name' ]:
+            'backup_content', 'backup_size', 'backup_path', 'pool_name',\
+            'pci_e820_host']:
             attrs[prop]['save'] = lambda prop=prop: str(getattr(self, prop))
         # Simple paths
         for prop in ['conf_file', 'firewall_conf']:
