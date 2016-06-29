@@ -69,16 +69,19 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
         self.assertGreater(self.vm.get_mem_static_max(), 0)
 
     def test_304_get_disk_utilization(self):
-        self.assertRaises(self.vm.storage.get_disk_utilization(), 0)
+        self.assertEqual(self.vm.storage.get_disk_utilization(), 0)
 
     def test_305_has_no_private_volume(self):
-        self.assertEqual(KeyError, self.vm.volumes['private'])
+        with self.assertRaises(KeyError):
+            self.vm.volumes['private']
 
     def test_306_has_no_root_volume(self):
-        self.assertEqual(KeyError, self.vm.volumes['root'])
+        with self.assertRaises(KeyError):
+            self.vm.volumes['root']
 
     def test_307_has_no_volatile_volume(self):
-        self.assertEqual(KeyError, self.vm.volumes['volatile'])
+        with self.assertRaises(KeyError):
+            self.vm.volumes['volatile']
 
     def test_310_start(self):
         with self.assertRaises(qubes.exc.QubesException):

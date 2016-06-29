@@ -284,7 +284,7 @@ class NetVMMixin(qubes.events.Emitter):
                 or new_netvm in self.app.domains.get_vms_connected_to(self):
             raise qubes.exc.QubesValueError('Loops in network are unsupported')
 
-        if not self.app.vmm.offline_mod and self.is_running() \
+        if not self.app.vmm.offline_mode and self.is_running() \
                 and not new_netvm.is_running():
 
             raise qubes.exc.QubesVMNotStartedError(new_netvm,
