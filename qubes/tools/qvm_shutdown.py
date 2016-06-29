@@ -53,8 +53,7 @@ parser.add_argument('--timeout',
 def main(args=None):
     args = parser.parse_args(args)
 
-    for vm in args.domains:
-        vm.shutdown(force=args.force)
+    [vm.shutdown(force=args.force) for vm in args.domains if not vm.is_halted()]
 
     if not args.wait:
         return
@@ -64,13 +63,16 @@ def main(args=None):
     while timeout >= 0:
         current_vms = [vm for vm in current_vms
             if vm.get_power_state() != 'Halted']
+        if not current_vms:
+            return 0
         args.app.log.info('Waiting for shutdown ({}): {}'.format(
-            timeout, ', '.join(map(str, current_vms))))
+            timeout, ', '.join([str(vm) for vm in current_vms])))
         time.sleep(1)
         timeout -= 1
 
-    args.app.log.notice(
-        'Killing remaining qubes: {}'.format(', '.join(map(str, current_vms))))
+    args.app.log.info(
+        'Killing remaining qubes: {}'
+        .format(', '.join([str(vm) for vm in current_vms])))
     for vm in current_vms:
         vm.force_shutdown()
 
