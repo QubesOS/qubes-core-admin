@@ -969,7 +969,7 @@ class QubesVm(object):
         uuid = self.uuid
 
         start_time = vmm.xs.read('', "/vm/%s/start_time" % str(uuid))
-        if start_time != '':
+        if start_time:
             return datetime.datetime.fromtimestamp(float(start_time))
         else:
             return None
