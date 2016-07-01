@@ -729,6 +729,10 @@ class QubesWatch(object):
         return '/local/domain/%s/memory/meminfo' % xid
 
     def _register_watches(self, libvirt_domain):
+        if libvirt_domain and libvirt_domain.ID() == 0:
+            # don't use libvirt object for dom0, to always have the same
+            # hardcoded "dom0" name
+            libvirt_domain = None
         if libvirt_domain:
             name = libvirt_domain.name()
             if name in self._qdb:
@@ -769,7 +773,10 @@ class QubesWatch(object):
         self._register_watches(libvirt_domain)
 
     def _unregister_watches(self, libvirt_domain):
-        name = libvirt_domain.name()
+        if libvirt_domain and libvirt_domain.ID() == 0:
+            name = "dom0"
+        else:
+            name = libvirt_domain.name()
         if name in self._qdb_events:
             libvirt.virEventRemoveHandle(self._qdb_events[name])
             del(self._qdb_events[name])
