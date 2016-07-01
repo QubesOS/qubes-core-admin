@@ -244,11 +244,6 @@ def main():
 
     #Nicely formatted header only needed for humans
     if not arguments.raw_data:
-        # XXX: For what?
-        total_width = 0;
-        for f in fields_to_display:
-            total_width += fields[f]["max_width"]
-
         # Display the header
         s = ""
         for f in fields_to_display:
