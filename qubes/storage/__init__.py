@@ -42,6 +42,7 @@ STORAGE_ENTRY_POINT = 'qubes.storage'
 
 
 class StoragePoolException(qubes.exc.QubesException):
+    ''' A general storage exception '''
     pass
 
 
@@ -97,6 +98,9 @@ class Volume(object):
 
     def __hash__(self):
         return hash('%s:%s %s' % (self.pool, self.vid, self.volume_type))
+
+    def __str__(self):
+        return "{!s}:{!s}".format(self.pool, self.vid)
 
 
 class Storage(object):
@@ -198,7 +202,7 @@ class Storage(object):
         self.get_pool(volume).resize(volume, size)
 
     def create(self, source_template=None):
-
+        ''' Creates volumes on disk '''
         if source_template is None and hasattr(self.vm, 'template'):
             source_template = self.vm.template
 
@@ -213,6 +217,7 @@ class Storage(object):
         os.umask(old_umask)
 
     def clone(self, src_vm):
+        ''' Clone volumes from the specified vm '''
         self.vm.log.info('Creating directory: {0}'.format(self.vm.dir_path))
         if not os.path.exists(self.vm.dir_path):
             self.log.info('Creating directory: {0}'.format(self.vm.dir_path))
@@ -288,6 +293,7 @@ class Storage(object):
         return self.pools[volume.name]
 
     def commit_template_changes(self):
+        ''' Makes changes to an 'origin' volume persistent '''
         for volume in self.vm.volumes.values():
             if volume.volume_type == 'origin':
                 self.get_pool(volume).commit_template_changes(volume)
@@ -318,15 +324,25 @@ class Pool(object):
     private_img_size = qubes.config.defaults['private_img_size']
     root_img_size = qubes.config.defaults['root_img_size']
 
+    def __eq__(self, other):
+        return self.name == other.name
+
+
+    def __neq__(self, other):
+        return not self.__eq__(other)
+
     def __init__(self, name, **kwargs):
         super(Pool, self).__init__(**kwargs)
         self.name = name
         kwargs['name'] = self.name
 
+    def __str__(self):
+        return self.name
+
     def __xml__(self):
         return lxml.etree.Element('pool', **self.config)
 
-    def create(self, volume, source_volume):
+    def create(self, volume, source_volume=None):
         ''' Create the given volume on disk or copy from provided
             `source_volume`.
         '''
@@ -351,6 +367,9 @@ class Pool(object):
                                   self.name)
 
     def destroy(self):
+        ''' Called when removing the pool. Use this for implementation specific
+            clean up.
+        '''
         raise NotImplementedError("Pool %s has destroy() not implemented" %
                                   self.name)
 
@@ -374,6 +393,9 @@ class Pool(object):
                                   self.name)
 
     def setup(self):
+        ''' Called when adding a pool to the system. Use this for implementation
+            specific set up.
+        '''
         raise NotImplementedError("Pool %s has setup() not implemented" %
                                   self.name)
 

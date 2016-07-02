@@ -91,7 +91,7 @@ class FilePool(Pool):
         ''' Expands volume, throws
             :py:class:`qubst.storage.StoragePoolException` if given size is
             less than current_size
-        '''
+        '''  # pylint: disable=no-self-use
         _type = volume.volume_type
         if _type not in ['origin', 'read-write', 'volatile']:
             raise StoragePoolException('Can not resize a %s volume %s' %
@@ -112,7 +112,18 @@ class FilePool(Pool):
         with open(path, 'a+b') as fd:
             fd.truncate(size)
 
-        self._resize_loop_device(path)
+        p = subprocess.Popen(
+            ['sudo', 'losetup', '--associated', path],
+            stdout=subprocess.PIPE)
+        result = p.communicate()
+
+        m = re.match(r'^(/dev/loop\d+):\s', result[0])
+        if m is not None:
+            loop_dev = m.group(1)
+
+            # resize loop device
+            subprocess.check_call(['sudo', 'losetup', '--set-capacity', loop_dev
+                                   ])
 
     def remove(self, volume):
         if volume.volume_type in ['read-write', 'volatile']:
@@ -132,23 +143,6 @@ class FilePool(Pool):
         volume.rename_target_dir(old_name, new_name)
 
         return volume
-
-    @staticmethod
-    def _resize_loop_device(path):
-        ''' Sets the loop device capacity '''
-        # find loop device if any
-        p = subprocess.Popen(
-            ['sudo', 'losetup', '--associated', path],
-            stdout=subprocess.PIPE)
-        result = p.communicate()
-
-        m = re.match(r'^(/dev/loop\d+):\s', result[0])
-        if m is not None:
-            loop_dev = m.group(1)
-
-            # resize loop device
-            subprocess.check_call(['sudo', 'losetup', '--set-capacity',
-                                   loop_dev])
 
     def commit_template_changes(self, volume):
         if volume.volume_type != 'origin':
@@ -175,7 +169,7 @@ class FilePool(Pool):
 
     def start(self, volume):
         if volume.volume_type == 'volatile':
-            self._reset_volume(volume)
+            _reset_volume(volume)
         if volume.volume_type in ['origin', 'snapshot']:
             _check_path(volume.path_origin)
             _check_path(volume.path_cow)
@@ -186,18 +180,6 @@ class FilePool(Pool):
 
     def stop(self, volume):
         pass
-
-    @staticmethod
-    def _reset_volume(volume):
-        ''' Remove and recreate a volatile volume '''
-        assert volume.volume_type == 'volatile', "Not a volatile volume"
-        assert volume.size
-
-        _remove_if_exists(volume.path)
-
-        with open(volume.path, "w") as f_volatile:
-            f_volatile.truncate(volume.size)
-        return volume
 
     def target_dir(self, vm):
         """ Returns the path to vmdir depending on the type of the VM.
@@ -259,6 +241,7 @@ class FilePool(Pool):
                 expected_origin_type
 
             origin_pool = vm.app.get_pool(origin_vm.volume_config[name]['pool'])
+
             assert isinstance(origin_pool,
                               FilePool), 'Origin volume not a file volume'
 
@@ -558,7 +541,7 @@ def copy_file(source, destination):
 
 
 def _remove_if_exists(path):
-    ''' Removes a path if it exist, silently succeeds if file does not exist '''
+    ''' Removes a file if it exist, silently succeeds if file does not exist '''
     if os.path.exists(path):
         os.remove(path)
 
@@ -567,3 +550,16 @@ def _check_path(path):
     ''' Raise an StoragePoolException if ``path`` does not exist'''
     if not os.path.exists(path):
         raise StoragePoolException('Missing image file: %s' % path)
+
+
+def _reset_volume(volume):
+    ''' Remove and recreate a volatile volume '''
+    assert volume.volume_type == 'volatile', "Not a volatile volume"
+
+    assert volume.size
+
+    _remove_if_exists(volume.path)
+
+    with open(volume.path, "w") as f_volatile:
+        f_volatile.truncate(volume.size)
+    return volume

@@ -63,7 +63,7 @@ class LinuxKernel(Pool):
     def clone(self, source, target):
         return target
 
-    def create(self, volume, source_volume):
+    def create(self, volume, source_volume=None):
         return volume
 
     def commit_template_changes(self, volume):
