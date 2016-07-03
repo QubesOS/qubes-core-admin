@@ -45,19 +45,20 @@ def prepare_table(vd_list, full=False):
     '''
     output = []
     if sys.stdout.isatty():
-        output += [('POOL_NAME:VOLUME_ID', 'VOLUME_TYPE', 'VMNAME')]
+        output += [('POOL:VOLUME', 'VMNAME', 'VOLUME_NAME')]  # NOQA
 
     for volume in vd_list:
         if volume.domains:
-            vmname = volume.domains.pop()
-            output += [(str(volume), volume.volume_type, vmname)]
-            for vmname in volume.domains:
+            vmname, volume_name = volume.domains.pop()
+            output += [(str(volume), vmname, volume_name)]
+            for tupple in volume.domains:
+                vmname, volume_name = tupple
                 if full or not sys.stdout.isatty():
-                    output += [(str(volume), volume.volume_type, vmname)]
+                    output += [(str(volume), vmname, volume_name)]
                 else:
-                    output += [('', '', vmname)]
+                    output += [('', vmname, volume_name)]
         else:
-            output += [(str(volume), volume.volume_type)]
+            output += [(str(volume), "")]
 
     return output
 
@@ -70,7 +71,6 @@ class VolumeData(object):
     def __init__(self, volume):
         self.name = volume.name
         self.pool = volume.pool
-        self.volume_type = volume.volume_type
         self.vid = volume.vid
         self.domains = []
 
