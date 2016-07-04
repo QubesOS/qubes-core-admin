@@ -22,6 +22,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
+import sys
 import pkg_resources
 import qubes.tests
 import qubes.vm.appvm
@@ -71,8 +72,17 @@ class ExtraTestCase(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
 
 def load_tests(loader, tests, pattern):
     for entry in pkg_resources.iter_entry_points('qubes.tests.extra'):
-        for test_case in entry.load()():
-            tests.addTests(loader.loadTestsFromTestCase(test_case))
+        try:
+            for test_case in entry.load()():
+                tests.addTests(loader.loadTestsFromTestCase(test_case))
+        except Exception as err:  # pylint: disable=broad-except
+            tb = sys.exc_info()[2]
+            def runTest(self):
+                raise err, None, tb
+            ExtraLoadFailure = type('ExtraLoadFailure',
+                (qubes.tests.QubesTestCase,),
+                {entry.name: runTest})
+            tests.addTest(ExtraLoadFailure(entry.name))
 
     try:
         app = qubes.Qubes()
@@ -83,15 +93,24 @@ def load_tests(loader, tests, pattern):
 
     for entry in pkg_resources.iter_entry_points(
             'qubes.tests.extra.for_template'):
-        for test_case in entry.load()():
-            for template in templates:
-                tests.addTests(loader.loadTestsFromTestCase(
-                    type(
-                        '{}_{}_{}'.format(
-                            entry.name, test_case.__name__, template),
-                        (test_case,),
-                        {'template': template}
-                    )
-                ))
+        try:
+            for test_case in entry.load()():
+                for template in templates:
+                    tests.addTests(loader.loadTestsFromTestCase(
+                        type(
+                            '{}_{}_{}'.format(
+                                entry.name, test_case.__name__, template),
+                            (test_case,),
+                            {'template': template}
+                        )
+                    ))
+        except Exception as err:  # pylint: disable=broad-except
+            tb = sys.exc_info()[2]
+            def runTest(self):
+                raise err, None, tb
+            ExtraForTemplateLoadFailure = type('ExtraForTemplateLoadFailure',
+                (qubes.tests.QubesTestCase,),
+                {entry.name: runTest})
+            tests.addTest(ExtraLoadFailure(entry.name))
 
     return tests
