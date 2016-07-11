@@ -61,6 +61,7 @@ parser.add_argument('--unset', '--default', '--delete', '-D',
 
 def main(args=None):
     args = parser.parse_args(args)
+    args.domain = args.domains.pop()
 
     if args.property is None:
         properties = args.domain.property_list()
@@ -96,7 +97,6 @@ def main(args=None):
         delattr(args.domain, args.property)
         args.app.save()
         return 0
-
 
     print(str(getattr(args.domain, args.property)))
 
