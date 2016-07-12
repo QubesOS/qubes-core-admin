@@ -51,6 +51,9 @@ BLKSIZE = 512
 AVAILABLE_FRONTENDS = ['xvd'+c for c in
                        string.lowercase[8:]+string.lowercase[:8]]
 
+class USBProxyNotInstalled(QubesException):
+    pass
+
 def mbytes_to_kmg(size):
     if size > 1024:
         return "%d GiB" % (size/1024)
@@ -620,9 +623,14 @@ def usb_attach(qvmc, vm, device, auto_detach=False, wait=True):
         p = vm.run_service('qubes.USBAttach', passio_popen=True, user='root')
         (stdout, stderr) = p.communicate(
             '{} {}\n'.format(device['vm'].name, device['device']))
-        if p.returncode != 0:
+        if p.returncode == 127:
+            raise USBProxyNotInstalled(
+                "qubes-usb-proxy not installed in the VM")
+        elif p.returncode != 0:
             # TODO: sanitize and include stdout
-            raise QubesException('Device attach failed')
+            sanitized_stderr = ''.join([c for c in stderr if ord(c) >= 0x20])
+            raise QubesException('Device attach failed: {}'.format(
+                sanitized_stderr))
     finally:
         # FIXME: there is a race condition here - some other process might
         # modify the file in the meantime. This may result in unexpected
