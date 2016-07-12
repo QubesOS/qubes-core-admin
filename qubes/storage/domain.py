@@ -21,7 +21,7 @@
 #
 ''' Manages block devices in a domain '''
 
-import string
+import string  # pylint: disable=deprecated-module
 
 from qubes.storage import Pool, Volume
 
@@ -99,15 +99,12 @@ class DomainPool(Pool):
 class DomainVolume(Volume):
     ''' A volume provided by a block device in an domain '''
 
-    def __init__(self, name, pool, desc, mode, size):
-        if mode == 'w':
-            volume_type = 'read-write'
-        else:
-            volume_type = 'read-only'
+    def __init__(self, name, pool, desc, mode, **kwargs):
+        rw = (mode == 'w')
 
-        super(DomainVolume, self).__init__(desc,
-                                           pool,
-                                           volume_type,
-                                           vid=name,
-                                           size=size,
-                                           removable=True)
+        super(DomainVolume, self).__init__(desc, pool, vid=name, removable=True,
+                                           rw=rw, **kwargs)
+
+    @property
+    def revisions(self):
+        return {}
