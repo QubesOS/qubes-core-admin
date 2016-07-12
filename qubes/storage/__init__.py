@@ -186,9 +186,53 @@ class Storage(object):
             for name, conf in self.vm.volume_config.items():
                 assert 'pool' in conf, "Pool missing in volume_config" % str(
                     conf)
+                if 'volume_type' in conf:
+                    conf = self._migrate_config(conf)
+
                 pool = self.vm.app.get_pool(conf['pool'])
                 self.vm.volumes[name] = pool.init_volume(self.vm, conf)
                 self.pools[name] = pool
+
+    def _migrate_config(self, conf):
+        ''' Migrates from the old config style to new
+        '''  # FIXME: Remove this compatibility hack
+        assert 'volume_type' in conf
+        _type = conf['volume_type']
+        old_volume_types = [
+            'read-write', 'read-only', 'origin', 'snapshot', 'volatile'
+        ]
+        msg = "Volume {!s} has unknown type {!s}".format(conf['name'], _type)
+        assert conf['volume_type'] in old_volume_types, msg
+        if _type == 'origin':
+            conf['rw'] = True
+            conf['source'] = None
+            conf['save_on_stop'] = True
+            conf['revisions_to_keep'] = 1
+        elif _type == 'snapshot':
+            conf['rw'] = False
+            if conf['pool'] == 'default':
+                template_vid = os.path.join('vm-templates',
+                    self.vm.template.name, conf['name'])
+            elif conf['pool'] == 'qubes_dom0':
+                template_vid = os.path.join(
+                    'qubes_dom0', self.vm.template.name + '-' + conf['name'])
+            conf['source'] = template_vid
+            conf['snap_on_start'] = True
+        elif _type == 'read-write':
+            conf['rw'] = True
+            conf['save_on_stop'] = True
+            conf['revisions_to_keep'] = 0
+        elif _type == 'read-only':
+            conf['rw'] = False
+            conf['snap_on_start'] = True
+            conf['save_on_stop'] = False
+            conf['revisions_to_keep'] = 0
+        elif _type == 'volatile':
+            conf['snap_on_start'] = False
+            conf['save_on_stop'] = False
+            conf['revisions_to_keep'] = 0
+        del conf['volume_type']
+        return conf
 
     def attach(self, volume, rw=False):
         ''' Attach a volume to the domain '''
