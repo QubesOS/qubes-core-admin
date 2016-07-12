@@ -387,7 +387,6 @@ class VMCollection(object):
     __iter__ = vms
     values = vms
 
-
     def add(self, value, _enable_events=True):
         '''Add VM to collection
 
@@ -406,8 +405,9 @@ class VMCollection(object):
             raise ValueError('This collection already holds VM that has '
                 'qid={!r} ({!r})'.format(value.qid, self[value.qid]))
         if value.name in self:
-            raise ValueError('This collection already holds VM that has '
-                'name={!r} ({!r})'.format(value.name, self[value.name]))
+
+            raise ValueError('A VM named {!s} already exists'
+                .format(value.name))
 
         self._dict[value.qid] = value
         if _enable_events:
