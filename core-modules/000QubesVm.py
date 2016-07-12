@@ -1692,13 +1692,14 @@ class QubesVm(object):
                             localcmd=localcmd, user=user, wait=wait, gui=gui)
         elif input:
             p = self.run("QUBESRPC %s %s" % (service, source),
-                user=user, wait=wait, gui=gui, passio_popen=True)
+                user=user, wait=wait, gui=gui, passio_popen=True,
+                passio_stderr=True)
             p.communicate(input)
             return p.returncode
         else:
             return self.run("QUBESRPC %s %s" % (service, source),
                             passio_popen=passio_popen, user=user, wait=wait,
-                            gui=gui)
+                            gui=gui, passio_stderr=passio_popen)
 
     def attach_network(self, verbose = False, wait = True, netvm = None):
         self.log.debug('attach_network(netvm={!r})'.format(netvm))
