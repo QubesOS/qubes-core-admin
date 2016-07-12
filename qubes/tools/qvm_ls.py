@@ -604,7 +604,11 @@ def main(args=None):
     '''
 
     parser = get_parser()
-    args = parser.parse_args(args)
+    try:
+        args = parser.parse_args(args)
+    except qubes.exc.QubesException as e:
+        parser.print_error(e.message)
+        return 1
 
     if args.fields:
         columns = [col.strip() for col in args.fields.split(',')]
