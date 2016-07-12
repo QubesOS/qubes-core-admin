@@ -421,10 +421,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     name = node.get('name')
                     assert name
                     for key, value in node.items():
-                        self.volume_config[name][key] = value
+                        # pylint: disable=no-member
+                        if value == 'True':
+                            self.volume_config[name][key] = True
+                        else:
+                            self.volume_config[name][key] = value
 
             for name, conf in volume_config.items():
                 for key, value in conf.items():
+                    # pylint: disable=no-member
                     self.volume_config[name][key] = value
 
         elif volume_config:
