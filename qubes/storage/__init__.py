@@ -305,37 +305,55 @@ class Storage(object):
         return result
 
     def resize(self, volume, size):
-        ''' Resize volume '''
+        ''' Resizes volume a read-writable volume '''
         self.get_pool(volume).resize(volume, size)
 
-    def create(self, source_template=None):
+    def create(self):
         ''' Creates volumes on disk '''
-        if source_template is None and hasattr(self.vm, 'template'):
-            source_template = self.vm.template
-
         old_umask = os.umask(002)
 
-        for name, volume in self.vm.volumes.items():
-            source_volume = None
-            if source_template and hasattr(source_template, 'volumes'):
-                source_volume = source_template.volumes[name]
-            self.get_pool(volume).create(volume, source_volume=source_volume)
+        for volume in self.vm.volumes.values():
+            self.get_pool(volume).create(volume)
 
         os.umask(old_umask)
 
     def clone(self, src_vm):
         ''' Clone volumes from the specified vm '''
-        self.vm.log.info('Creating directory: {0}'.format(self.vm.dir_path))
-        if not os.path.exists(self.vm.dir_path):
-            self.log.info('Creating directory: {0}'.format(self.vm.dir_path))
-            os.makedirs(self.vm.dir_path)
-        for name, target in self.vm.volumes.items():
-            pool = self.get_pool(target)
-            source = src_vm.volumes[name]
-            volume = pool.clone(source, target)
-            assert volume, "%s.clone() returned '%s'" % (pool.__class__,
-                                                         volume)
-            self.vm.volumes[name] = volume
+
+        src_path = src_vm.dir_path
+        msg = "Source path {!s} does not exist".format(src_path)
+        assert os.path.exists(src_path), msg
+
+        dst_path = self.vm.dir_path
+        msg = "Destination {!s} already exists".format(dst_path)
+        assert not os.path.exists(dst_path), msg
+        os.mkdir(dst_path)
+
+        self.vm.volumes = {}
+        with VmCreationManager(self.vm):
+            for name, config in self.vm.volume_config.items():
+                dst_pool = self.get_pool(config['pool'])
+                dst = dst_pool.init_volume(self.vm, config)
+                src_volume = src_vm.volumes[name]
+                src_pool = self.vm.app.get_pool(src_volume.pool)
+                if dst_pool == src_pool:
+                    msg = "Cloning volume {!s} from vm {!s}"
+                    self.vm.log.info(msg.format(src_volume.name, src_vm.name))
+                    volume = dst_pool.clone(src_volume, dst)
+                else:
+                    msg = "Importing volume {!s} from vm {!s}"
+                    self.vm.log.info(msg.format(src_volume.name, src_vm.name))
+                    volume = dst_pool.import_volume(dst_pool, dst, src_pool,
+                                                    src_volume)
+
+                assert volume, "%s.clone() returned '%s'" % (
+                    dst_pool.__class__.__name__, volume)
+
+                self.vm.volumes[name] = volume
+
+        msg = "Cloning directory: {!s} to {!s}"
+        msg = msg.format(src_path, dst_path)
+        self.log.info(msg)
 
     @property
     def outdated_volumes(self):
@@ -560,6 +578,17 @@ class Pool(object):
         return NotImplementedError(msg)
 
 
+def _sanitize_config(config):
+    ''' Helper function to convert types to appropriate strings
+    '''  # FIXME: find another solution for serializing basic types
+    result = {}
+    for key, value in config.items():
+        if isinstance(value, bool):
+            if value:
+                result[key] = 'True'
+        else:
+            result[key] = str(value)
+    return result
 
 
 def pool_drivers():
@@ -571,3 +600,23 @@ def pool_drivers():
 def isodate(seconds=time.time()):
     ''' Helper method which returns an iso date '''
     return datetime.utcfromtimestamp(seconds).isoformat("T")
+
+
+class VmCreationManager(object):
+    ''' A `ContextManager` which cleans up if volume creation fails.
+    '''  # pylint: disable=too-few-public-methods
+    def __init__(self, vm):
+        self.vm = vm
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, type, value, tb):  # pylint: disable=redefined-builtin
+        if type is not None and value is not None and tb is not None:
+            for volume in self.vm.volumes.values():
+                try:
+                    pool = self.vm.storage.get_pool(volume)
+                    pool.remove(volume)
+                except Exception:  # pylint: disable=broad-except
+                    pass
+            os.rmdir(self.vm.dir_path)
