@@ -90,6 +90,8 @@ Requires:       PyQt4
 # for property's docstrings
 Requires:	python-docutils
 
+# for lvm support
+Requires: lvm2-python-libs
 
 # Prevent preupgrade from installation (it pretend to provide distribution upgrade)
 Obsoletes:	preupgrade < 2.0
@@ -237,6 +239,7 @@ fi
 %{python_sitelib}/qubes/storage/file.py*
 %{python_sitelib}/qubes/storage/domain.py*
 %{python_sitelib}/qubes/storage/kernels.py*
+%{python_sitelib}/qubes/storage/lvm.py*
 
 %dir %{python_sitelib}/qubes/tools
 %{python_sitelib}/qubes/tools/__init__.py*
@@ -245,6 +248,7 @@ fi
 %{python_sitelib}/qubes/tools/qubes_monitor_layout_notify.py*
 %{python_sitelib}/qubes/tools/qubes_prefs.py*
 %{python_sitelib}/qubes/tools/qvm_block.py*
+%{python_sitelib}/qubes/tools/qubes_lvm.py*
 %{python_sitelib}/qubes/tools/qvm_create.py*
 %{python_sitelib}/qubes/tools/qvm_features.py*
 %{python_sitelib}/qubes/tools/qvm_check.py*
