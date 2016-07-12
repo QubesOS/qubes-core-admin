@@ -29,7 +29,7 @@ from __future__ import absolute_import
 
 import os
 import os.path
-import string
+import string  # pylint: disable=deprecated-module
 
 import lxml.etree
 import pkg_resources
@@ -49,58 +49,118 @@ class StoragePoolException(qubes.exc.QubesException):
 class Volume(object):
     ''' Encapsulates all data about a volume for serialization to qubes.xml and
         libvirt config.
+
+
+        Keep in mind!
+        volatile        = not snap_on_start and not save_on_stop
+        snapshot        =     snap_on_start and not save_on_stop
+        origin          = not snap_on_start and     save_on_stop
+        origin_snapshot =     snap_on_start and     save_on_stop
     '''
 
     devtype = 'disk'
     domain = None
     path = None
-    rw = True
     script = None
     usage = 0
 
-    def __init__(self, name, pool, volume_type, vid=None, size=0,
-                 removable=False, internal=False, **kwargs):
+    def __init__(self, name, pool, vid, internal=False, removable=False,
+            revisions_to_keep=0, rw=False, save_on_stop=False, size=0,
+            snap_on_start=False, source=None, **kwargs):
+        ''' Initialize a volume.
+
+            :param str name: The domain name
+            :param str pool: The pool name
+            :param str vid:  Volume identifier needs to be unique in pool
+            :param bool internal: If `True` volume is hidden when qvm-block ls
+                is used
+            :param bool removable: If `True` volume can be detached from vm at
+                run time
+            :param int revisions_to_keep: Amount of revisions to keep around
+            :param bool rw: If true volume will be mounted read-write
+            :param bool snap_on_start: Create a snapshot from source on start
+            :param bool save_on_stop: Write changes to disk in vm.stop()
+            :param str source: Vid of other volume in same pool
+            :param str/int size: Size of the volume
+
+        '''
+
         super(Volume, self).__init__(**kwargs)
+
         self.name = str(name)
         self.pool = str(pool)
-        self.vid = vid
-        self.size = size
-        self.volume_type = volume_type
-        self.removable = removable
         self.internal = internal
+        self.removable = removable
+        self.revisions_to_keep = revisions_to_keep
+        self.rw = rw
+        self.save_on_stop = save_on_stop
+        self.size = int(size)
+        self.snap_on_start = snap_on_start
+        self.source = source
+        self.vid = vid
 
-    def __xml__(self):
-        return lxml.etree.Element('volume', **self.config)
+    def __eq__(self, other):
+        return other.pool == self.pool and other.vid == self.vid
 
-    @property
-    def config(self):
-        ''' return config data for serialization to qubes.xml '''
-        return {'name': self.name,
-                'pool': self.pool,
-                'volume_type': self.volume_type}
+    def __hash__(self):
+        return hash('%s:%s' % (self.pool, self.vid))
+
+    def __neq__(self, other):
+        return not self.__eq__(other)
 
     def __repr__(self):
         return '{!r}'.format(self.pool + ':' + self.vid)
+
+    def __str__(self):
+        return str(self.vid)
+
+    def __xml__(self):
+        config = _sanitize_config(self.config)
+        return lxml.etree.Element('volume', **config)
 
     def block_device(self):
         ''' Return :py:class:`qubes.devices.BlockDevice` for serialization in
             the libvirt XML template as <disk>.
         '''
         return qubes.devices.BlockDevice(self.path, self.name, self.script,
-            self.rw, self.domain, self.devtype)
+                                         self.rw, self.domain, self.devtype)
 
-    def __eq__(self, other):
-        return other.pool == self.pool and other.vid == self.vid \
-            and other.volume_type == self.volume_type
+    @property
+    def revisions(self):
+        ''' Returns a `dict` containing revision identifiers and paths '''
+        msg = "{!s} has revisions not implemented".format(self.__class__)
+        raise NotImplementedError(msg)
 
-    def __neq__(self, other):
-        return not self.__eq__(other)
+    @property
+    def config(self):
+        ''' return config data for serialization to qubes.xml '''
+        result = {'name': self.name, 'pool': self.pool, 'vid': self.vid, }
 
-    def __hash__(self):
-        return hash('%s:%s %s' % (self.pool, self.vid, self.volume_type))
+        if self.internal:
+            result['internal'] = self.internal
 
-    def __str__(self):
-        return "{!s}:{!s}".format(self.pool, self.vid)
+        if self.removable:
+            result['removable'] = self.removable
+
+        if self.revisions_to_keep:
+            result['revisions_to_keep'] = self.revisions_to_keep
+
+        if self.rw:
+            result['rw'] = self.rw
+
+        if self.save_on_stop:
+            result['save_on_stop'] = self.save_on_stop
+
+        if self.size:
+            result['size'] = self.size
+
+        if self.snap_on_start:
+            result['snap_on_start'] = self.snap_on_start
+
+        if self.source:
+            result['source'] = self.source
+
+        return result
 
 
 class Storage(object):
@@ -119,6 +179,7 @@ class Storage(object):
         #: Additional drive (currently used only by HVM)
         self.drive = None
         self.pools = {}
+
         if hasattr(vm, 'volume_config'):
             for name, conf in self.vm.volume_config.items():
                 assert 'pool' in conf, "Pool missing in volume_config" % str(
@@ -187,7 +248,7 @@ class Storage(object):
         If :py:attr:`self.vm.kernel` is :py:obj:`None`, the this points inside
         :py:attr:`self.vm.dir_path`
         '''
-        assert 'kernel' in self.vm.volumes, "VM has no kernel pool"
+        assert 'kernel' in self.vm.volumes, "VM has no kernel volume"
         return self.vm.volumes['kernel'].kernels_dir
 
     def get_disk_utilization(self):
@@ -248,11 +309,15 @@ class Storage(object):
     def rename(self, old_name, new_name):
         ''' Notify the pools that the domain was renamed '''
         volumes = self.vm.volumes
+        vm = self.vm
+        old_dir_path = os.path.join(os.path.dirname(vm.dir_path), old_name)
+        new_dir_path = os.path.join(os.path.dirname(vm.dir_path), new_name)
+        os.rename(old_dir_path, new_dir_path)
         for name, volume in volumes.items():
             pool = self.get_pool(volume)
             volumes[name] = pool.rename(volume, old_name, new_name)
 
-    def verify_files(self):
+    def verify(self):
         '''Verify that the storage is sane.
 
         On success, returns normally. On failure, raises exception.
@@ -264,6 +329,7 @@ class Storage(object):
         for volume in self.vm.volumes.values():
             self.get_pool(volume).verify(volume)
         self.vm.fire_event('domain-verify-files')
+        return True
 
     def remove(self):
         ''' Remove all the volumes.
@@ -280,7 +346,8 @@ class Storage(object):
     def start(self):
         ''' Execute the start method on each pool '''
         for volume in self.vm.volumes.values():
-            self.get_pool(volume).start(volume)
+            pool = self.get_pool(volume)
+            volume = pool.start(volume)
 
     def stop(self):
         ''' Execute the start method on each pool '''
@@ -289,8 +356,12 @@ class Storage(object):
 
     def get_pool(self, volume):
         ''' Helper function '''
-        assert isinstance(volume, Volume), "You need to pass a Volume"
-        return self.pools[volume.name]
+        assert isinstance(volume, (Volume, basestring)), \
+            "You need to pass a Volume or pool name as str"
+        if isinstance(volume, Volume):
+            return self.pools[volume.name]
+        else:
+            return self.vm.app.pools[volume]
 
     def commit_template_changes(self):
         ''' Makes changes to an 'origin' volume persistent '''
@@ -320,106 +391,129 @@ class Pool(object):
 
         3rd Parties providing own storage implementations will need to extend
         this class.
-    '''
+    '''  # pylint: disable=unused-argument
     private_img_size = qubes.config.defaults['private_img_size']
     root_img_size = qubes.config.defaults['root_img_size']
+
+    def __init__(self, name, revisions_to_keep=1, **kwargs):
+        super(Pool, self).__init__(**kwargs)
+        self.name = name
+        self.revisions_to_keep = revisions_to_keep
+        kwargs['name'] = self.name
 
     def __eq__(self, other):
         return self.name == other.name
 
-
     def __neq__(self, other):
         return not self.__eq__(other)
-
-    def __init__(self, name, **kwargs):
-        super(Pool, self).__init__(**kwargs)
-        self.name = name
-        kwargs['name'] = self.name
 
     def __str__(self):
         return self.name
 
     def __xml__(self):
-        return lxml.etree.Element('pool', **self.config)
+        config = _sanitize_config(self.config)
+        return lxml.etree.Element('pool', **config)
 
-    def create(self, volume, source_volume=None):
+    def create(self, volume):
         ''' Create the given volume on disk or copy from provided
             `source_volume`.
         '''
-        raise NotImplementedError("Pool %s has create() not implemented" %
-                                  self.name)
+        raise self._not_implemented("create")
 
-    def commit_template_changes(self, volume):
-        ''' Update origin device '''
-        raise NotImplementedError(
-            "Pool %s has commit_template_changes() not implemented" %
-            self.name)
+    def commit(self, volume):  # pylint: disable=no-self-use
+        ''' Write the snapshot to disk '''
+        msg = "Got volume_type {!s} when expected 'snap'"
+        msg = msg.format(volume.volume_type)
+        assert volume.volume_type == 'snap', msg
 
     @property
     def config(self):
         ''' Returns the pool config to be written to qubes.xml '''
-        raise NotImplementedError("Pool %s has config() not implemented" %
-                                  self.name)
+        raise self._not_implemented("config")
 
     def clone(self, source, target):
         ''' Clone volume '''
-        raise NotImplementedError("Pool %s has clone() not implemented" %
-                                  self.name)
+        raise self._not_implemented("clone")
 
     def destroy(self):
         ''' Called when removing the pool. Use this for implementation specific
             clean up.
         '''
-        raise NotImplementedError("Pool %s has destroy() not implemented" %
-                                  self.name)
+        raise self._not_implemented("destroy")
+
+    def export(self, volume):
+        ''' Returns an object that can be `open()`. '''
+        raise self._not_implemented("export")
+
+    def import_volume(self, dst_pool, dst_volume, src_pool, src_volume):
+        ''' Imports data to a volume in this pool '''
+        raise self._not_implemented("import_volume")
+
+    def init_volume(self, vm, volume_config):
+        ''' Initialize a :py:class:`qubes.storage.Volume` from `volume_config`.
+        '''
+        raise self._not_implemented("init_volume")
+
+    def is_dirty(self, volume):
+        ''' Return `True` if volume was not properly shutdown and commited '''
+        raise self._not_implemented("is_dirty")
 
     def is_outdated(self, volume):
-        raise NotImplementedError("Pool %s has is_outdated() not implemented" %
-                                  self.name)
+        ''' Returns `True` if the currently used `volume.source` of a snapshot
+            volume is outdated.
+        '''
+        raise self._not_implemented("is_outdated")
+
+    def recover(self, volume):
+        ''' Try to recover a :py:class:`Volume` or :py:class:`SnapVolume` '''
+        raise self._not_implemented("recover")
 
     def remove(self, volume):
         ''' Remove volume'''
-        raise NotImplementedError("Pool %s has remove() not implemented" %
-                                  self.name)
+        raise self._not_implemented("remove")
 
     def rename(self, volume, old_name, new_name):
         ''' Called when the domain changes its name '''
-        raise NotImplementedError("Pool %s has rename() not implemented" %
-                                  self.name)
+        raise self._not_implemented("rename")
 
-    def start(self, volume):
-        ''' Do what ever is needed on start '''
-        raise NotImplementedError("Pool %s has start() not implemented" %
-                                  self.name)
+    def reset(self, volume):
+        ''' Drop and recreate volume without copying it's content from source.
+        '''
+        raise self._not_implemented("reset")
+
+    def revert(self, volume, revision=None):
+        ''' Revert volume to previous revision  '''
+        raise self._not_implemented("revert")
 
     def setup(self):
         ''' Called when adding a pool to the system. Use this for implementation
             specific set up.
         '''
-        raise NotImplementedError("Pool %s has setup() not implemented" %
-                                  self.name)
+        raise self._not_implemented("setup")
 
-    def stop(self, volume):
+    def start(self, volume):  # pylint: disable=no-self-use
+        ''' Do what ever is needed on start '''
+        raise self._not_implemented("start")
+
+    def stop(self, volume):  # pylint: disable=no-self-use
         ''' Do what ever is needed on stop'''
-        raise NotImplementedError("Pool %s has stop() not implemented" %
-                                  self.name)
-
-    def init_volume(self, vm, volume_config):
-        ''' Initialize a :py:class:`qubes.storage.Volume` from `volume_config`.
-        '''
-        raise NotImplementedError("Pool %s has init_volume() not implemented" %
-                                  self.name)
 
     def verify(self, volume):
         ''' Verifies the volume. '''
-        raise NotImplementedError("Pool %s has verify() not implemented" %
-                                  self.name)
+        raise self._not_implemented("verify")
 
     @property
     def volumes(self):
         ''' Return a list of volumes managed by this pool '''
-        raise NotImplementedError("Pool %s has volumes() not implemented" %
-                                  self.name)
+        raise self._not_implemented("volumes")
+
+    def _not_implemented(self, method_name):
+        ''' Helper for emitting helpful `NotImplementedError` exceptions '''
+        msg = "Pool driver {!s} has {!s}() not implemented"
+        msg = msg.format(str(self.__class__.__name__), method_name)
+        return NotImplementedError(msg)
+
+
 
 
 def pool_drivers():
