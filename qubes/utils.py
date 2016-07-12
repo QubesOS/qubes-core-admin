@@ -25,6 +25,8 @@
 #
 
 import hashlib
+import random
+import string
 import os
 import re
 import subprocess
@@ -158,3 +160,9 @@ def get_entry_point_one(group, name):
                 ', '.join('{}.{}'.format(ep.module_name, '.'.join(ep.attrs))
                     for ep in epoints)))
     return epoints[0].load()
+
+
+def random_string(length=5):
+    ''' Return random string consisting of ascii_leters and digits '''
+    return ''.join(random.choice(string.ascii_letters + string.digits)
+                   for _ in range(length))
