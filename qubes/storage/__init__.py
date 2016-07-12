@@ -30,6 +30,8 @@ from __future__ import absolute_import
 import os
 import os.path
 import string  # pylint: disable=deprecated-module
+import time
+from datetime import datetime
 
 import lxml.etree
 import pkg_resources
@@ -520,3 +522,8 @@ def pool_drivers():
     """ Return a list of EntryPoints names """
     return [ep.name
             for ep in pkg_resources.iter_entry_points(STORAGE_ENTRY_POINT)]
+
+
+def isodate(seconds=time.time()):
+    ''' Helper method which returns an iso date '''
+    return datetime.utcfromtimestamp(seconds).isoformat("T")
