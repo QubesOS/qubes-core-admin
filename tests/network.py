@@ -334,6 +334,21 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.assertNotEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
                          "Spoofed ping should be blocked")
 
+    def test_100_late_xldevd_startup(self):
+        """Regression test for #1990"""
+        self.qc.unlock_db()
+        # Simulater late xl devd startup
+        cmd = "systemctl stop xendriverdomain"
+        if self.run_cmd(self.testnetvm, cmd) != 0:
+            self.fail("Command '%s' failed" % cmd)
+        self.testvm1.start()
+
+        cmd = "systemctl start xendriverdomain"
+        if self.run_cmd(self.testnetvm, cmd) != 0:
+            self.fail("Command '%s' failed" % cmd)
+
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
+
 class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
     """
     Tests for VM updates
