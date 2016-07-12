@@ -25,6 +25,7 @@
 
 from __future__ import absolute_import
 
+import copy
 import base64
 import datetime
 import itertools
@@ -1074,6 +1075,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         os.makedirs(self.dir_path, mode=0o775)
 
         if pool or pools:
+            # pylint: disable=attribute-defined-outside-init
             self.volume_config = _patch_volume_config(self.volume_config, pool,
                                                       pools)
             self.storage = qubes.storage.Storage(self)
@@ -1096,7 +1098,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         shutil.rmtree(self.dir_path)
         self.storage.remove()
 
-    def clone_disk_files(self, src):
+    def clone_disk_files(self, src, pool=None, pools=None, ):
         '''Clone files from other vm.
 
         :param qubes.vm.qubesvm.QubesVM src: source VM
@@ -1110,9 +1112,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesVMNotHaltedError(
                 self, 'Cannot clone a running domain {!r}'.format(self.name))
 
-        if hasattr(src, 'volume_config'):
+        if pool or pools:
             # pylint: disable=attribute-defined-outside-init
-            self.volume_config = src.volume_config
+            self.volume_config = _patch_volume_config(self.volume_config, pool,
+                                                      pools)
+
         self.storage = qubes.storage.Storage(self)
         self.storage.clone(src)
         self.storage.verify()
@@ -1589,3 +1593,53 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         domain.memory_maximum = self.get_mem_static_max() * 1024
 
         return qubes.qmemman.algo.prefmem(domain) / 1024
+
+
+def _clean_volume_config(config):
+    common_attributes = ['name', 'pool', 'size', 'internal', 'removable',
+                            'revisions_to_keep', 'rw', 'snap_on_start',
+                            'save_on_stop', 'source']
+    config_copy = copy.deepcopy(config)
+    return {k: v for k, v in config_copy.items() if k in common_attributes}
+
+
+def _patch_pool_config(config, pool=None, pools=None):
+    assert pool is not None or pools is not None
+    is_saveable = 'save_on_stop' in config and config['save_on_stop']
+    is_resetable = not ('snap_on_start' in config and  # volatile
+                        config['snap_on_start'] and not is_saveable)
+
+    is_exportable = is_saveable or is_resetable
+
+    name = config['name']
+
+    if pool and is_exportable:
+        config['pool'] = str(pool)
+    elif pool and not is_exportable:
+        pass
+    elif pools and name in pools.keys():
+        if is_exportable:
+            config['pool'] = str(pools[name])
+        else:
+            msg = "Can't clone a snapshot volume {!s} to pool {!s} " \
+                .format(name, pools[name])
+            raise qubes.exc.QubesException(msg)
+    return config
+
+def _patch_volume_config(volume_config, pool=None, pools=None):
+    assert not (pool and pools), \
+        'You can not pass pool & pools parameter at same time'
+    assert pool or pools
+
+    result = {}
+
+    for name, config in volume_config.items():
+        # copy only the subset of volume_config key/values
+        dst_config = _clean_volume_config(config)
+
+        if pool is not None or pools is not None:
+            dst_config = _patch_pool_config(dst_config, pool, pools)
+
+        result[name] = dst_config
+
+    return result
