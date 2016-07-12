@@ -2178,7 +2178,7 @@ class BackupRestore(object):
                         vm.features['backup-path']),
                         new_vm.dir_path)
 
-                new_vm.verify_files()
+                new_vm.storage.verify()
             except Exception as err:
                 self.log.error("ERROR: {0}".format(err))
                 self.log.warning("*** Skipping VM: {0}".format(vm.name))
