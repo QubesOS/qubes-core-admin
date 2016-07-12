@@ -20,19 +20,16 @@ import qubes.log
 from qubes.exc import QubesException
 from qubes.storage import pool_drivers
 from qubes.storage.file import FilePool
-from qubes.tests import QubesTestCase, SystemTestsMixin
+from qubes.tests import QubesTestCase
 
 # :pylint: disable=invalid-name
-
-
-class TestApp(qubes.tests.TestEmitter):
-    pass
 
 
 class TestVM(object):
     def __init__(self, test, template=None):
         self.app = test.app
         self.name = test.make_vm_name('appvm')
+        self.dir_path = '/var/lib/qubes/appvms/' + self.name
         self.log = qubes.log.get_vm_logger(self.name)
 
         if template:
@@ -50,6 +47,10 @@ class TestVM(object):
 class TestTemplateVM(TestVM):
     dir_path_prefix = qubes.config.system_path['qubes_templates_dir']
 
+    def __init__(self, test, template=None):
+        super(TestTemplateVM, self).__init__(test, template)
+        self.dir_path = '/var/lib/qubes/vm-templates/' + self.name
+
     def is_template(self):
         return True
 
@@ -59,7 +60,7 @@ class TestDisposableVM(TestVM):
         return True
 
 class TestApp(qubes.Qubes):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs):  # pylint: disable=unused-argument
         super(TestApp, self).__init__('/tmp/qubes-test.xml',
             load=False, offline_mode=True, **kwargs)
         self.load_initial_values()
