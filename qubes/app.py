@@ -415,7 +415,6 @@ class VMCollection(object):
 
         return value
 
-
     def __getitem__(self, key):
         if isinstance(key, int):
             return self._dict[key]
@@ -858,7 +857,6 @@ class Qubes(qubes.PropertyHolder):
                 'no such VM class: {!r}'.format(clsname))
         # don't catch TypeError
 
-
     def add_new_vm(self, cls, qid=None, **kwargs):
         '''Add new Virtual Machine to colletion
 
@@ -871,9 +869,10 @@ class Qubes(qubes.PropertyHolder):
         # override it with default template)
         if 'template' not in kwargs and hasattr(cls, 'template'):
             kwargs['template'] = self.default_template
+        elif 'template' in kwargs and isinstance(kwargs['template'], str):
+            kwargs['template'] = self.domains[kwargs['template']]
 
         return self.domains.add(cls(self, None, qid=qid, **kwargs))
-
 
     def get_label(self, label):
         '''Get label as identified by index or name

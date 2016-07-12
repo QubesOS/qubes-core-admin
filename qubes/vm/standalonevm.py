@@ -34,25 +34,34 @@ class StandaloneVM(qubes.vm.qubesvm.QubesVM):
             'root': {
                 'name': 'root',
                 'pool': 'default',
-                'volume_type': 'origin',
+                'snap_on_start': False,
+                'save_on_stop': True,
+                'rw': True,
+                'source': None,
+                'internal': True,
                 'size': qubes.config.defaults['root_img_size'],
             },
             'private': {
                 'name': 'private',
                 'pool': 'default',
-                'volume_type': 'origin',
+                'snap_on_start': False,
+                'save_on_stop': True,
+                'rw': True,
+                'source': None,
+                'internal': True,
                 'size': qubes.config.defaults['private_img_size'],
             },
             'volatile': {
                 'name': 'volatile',
                 'pool': 'default',
-                'volume_type': 'volatile',
+                'internal': True,
                 'size': qubes.config.defaults['root_img_size'],
             },
             'kernel': {
                 'name': 'kernel',
                 'pool': 'linux-kernel',
-                'volume_type': 'read-only',
+                'rw': False,
+                'internal': True
             }
         }
         super(StandaloneVM, self).__init__(*args, **kwargs)

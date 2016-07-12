@@ -21,12 +21,12 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
-
 ''' This module contains the AppVM implementation '''
+
+import copy
 
 import qubes.events
 import qubes.vm.qubesvm
-
 from qubes.config import defaults
 
 
@@ -39,36 +39,75 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
                                 ls_width=31,
                                 doc='Template, on which this AppVM is based.')
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, app, xml, template=None, **kwargs):
         self.volume_config = {
             'root': {
                 'name': 'root',
                 'pool': 'default',
-                'volume_type': 'snapshot',
+                'snap_on_start': True,
+                'save_on_stop': False,
+                'rw': False,
                 'internal': True
             },
             'private': {
                 'name': 'private',
                 'pool': 'default',
-                'volume_type': 'origin',
+                'snap_on_start': False,
+                'save_on_stop': True,
+                'rw': True,
+                'source': None,
                 'size': defaults['private_img_size'],
                 'internal': True
             },
             'volatile': {
                 'name': 'volatile',
                 'pool': 'default',
-                'volume_type': 'volatile',
                 'size': defaults['root_img_size'],
-                'internal': True
+                'internal': True,
+                'rw': True,
             },
             'kernel': {
                 'name': 'kernel',
                 'pool': 'linux-kernel',
-                'volume_type': 'read-only',
+                'snap_on_start': True,
+                'rw': False,
                 'internal': True
             }
         }
-        super(AppVM, self).__init__(*args, **kwargs)
+
+        if template is not None:
+            # template is only passed if the AppVM is created, in other cases we
+            # don't need to patch the volume_config because the config is
+            # coming from XML, already as we need it
+
+            for name, conf in self.volume_config.items():
+                tpl_volume = template.volumes[name]
+
+                conf['size'] = tpl_volume.size
+                conf['pool'] = tpl_volume.pool
+
+                has_source = ('source' in conf and conf['source'] is not None)
+                is_snapshot = 'snap_on_start' in conf and conf['snap_on_start']
+                if is_snapshot and not has_source:
+                    if tpl_volume.source is not None:
+                        conf['source'] = tpl_volume.source
+                    else:
+                        conf['source'] = tpl_volume.vid
+
+            for name, config in template.volume_config.items():
+                # in case the template vm has more volumes add them to own
+                # config
+                if name not in self.volume_config:
+                    self.volume_config[name] = copy.deepcopy(config)
+                    if 'vid' in self.volume_config[name]:
+                        del self.volume_config[name]['vid']
+
+        super(AppVM, self).__init__(app, xml, **kwargs)
+        if not hasattr(template, 'template') and template is not None:
+            self.template = template
+        if 'source' not in self.volume_config['root']:
+            msg = 'missing source for root volume'
+            raise qubes.exc.QubesException(msg)
 
     @qubes.events.handler('domain-load')
     def on_domain_loaded(self, event):
