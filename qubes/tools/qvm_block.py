@@ -50,13 +50,14 @@ def prepare_table(vd_list, full=False):
     for volume in vd_list:
         if volume.domains:
             vmname, volume_name = volume.domains.pop()
-            output += [(str(volume), vmname, volume_name)]
+            output += [(str(volume), vmname, volume_name, volume.revisions)]
             for tupple in volume.domains:
                 vmname, volume_name = tupple
                 if full or not sys.stdout.isatty():
-                    output += [(str(volume), vmname, volume_name)]
+                    output += [(str(volume), vmname, volume_name,
+                            volume.revisions)]
                 else:
-                    output += [('', vmname, volume_name)]
+                    output += [('', vmname, volume_name, '', volume.revisions)]
         else:
             output += [(str(volume), "")]
 
@@ -72,6 +73,10 @@ class VolumeData(object):
         self.name = volume.name
         self.pool = volume.pool
         self.vid = volume.vid
+        if volume.revisions != {}:
+            self.revisions = 'Yes'
+        else:
+            self.revisions = 'No'
         self.domains = []
 
     def __str__(self):
@@ -110,7 +115,7 @@ def list_volumes(args):
             for volume in domain.attached_volumes:
                 try:
                     volume_data = vd_dict[volume.pool][volume.vid]
-                    volume_data.domains += [domain.name]
+                    volume_data.domains += [(domain.name, volume.name)]
                 except KeyError:
                     # Skipping volume
                     continue
