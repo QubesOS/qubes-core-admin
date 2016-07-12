@@ -131,6 +131,15 @@ def list_volumes(args):
         result = [x for p in vd_dict.itervalues() for x in p.itervalues()]
     qubes.tools.print_table(prepare_table(result, full=args.full))
 
+def revert_volume(args):
+    volume = args.volume
+    app = args.app
+    try:
+        pool = app.pools[volume.pool]
+        pool.revert(volume)
+    except qubes.storage.StoragePoolException as e:
+        print(e.message, file=sys.stderr)
+        sys.exit(1)
 
 def attach_volumes(args):
     ''' Called by the parser to execute the :program:`qvm-block attach`
@@ -178,6 +187,14 @@ def init_list_parser(sub_parsers):
     list_parser._mutually_exclusive_groups.append(vm_name_group)
     list_parser.set_defaults(func=list_volumes)
 
+def init_revert_parser(sub_parsers):
+    revert_parser = sub_parsers.add_parser(
+        'revert', aliases=('rv', 'r'),
+        help='revert volume to previous revision')
+    revert_parser.add_argument(metavar='POOL_NAME:VOLUME_ID', dest='volume',
+                               action=qubes.tools.VolumeAction)
+    revert_parser.set_defaults(func=revert_volume)
+
 
 def get_parser():
     '''Create :py:class:`argparse.ArgumentParser` suitable for
@@ -190,6 +207,7 @@ def get_parser():
         description="For more information see qvm-block command -h",
         dest='command')
     init_list_parser(sub_parsers)
+    init_revert_parser(sub_parsers)
     attach_parser = sub_parsers.add_parser(
         'attach', help="Attach volume to domain", aliases=('at', 'a'))
     attach_parser.add_argument('--ro', help='attach device read-only',
