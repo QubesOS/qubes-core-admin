@@ -547,14 +547,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # pylint: disable=unused-argument
         self.init_log()
 
+        self.storage.rename(old_name, new_name)
+
         if self._libvirt_domain is not None:
             self.libvirt_domain.undefine()
             self._libvirt_domain = None
         if self._qdb_connection is not None:
             self._qdb_connection.close()
             self._qdb_connection = None
-
-        self.storage.rename(old_name, new_name)
 
         self._update_libvirt_domain()
 
@@ -680,7 +680,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.fire_event_pre('domain-pre-start', preparing_dvm=preparing_dvm,
             start_guid=start_guid, mem_required=mem_required)
 
-        self.storage.verify_files()
+        self.storage.verify()
 
         if self.netvm is not None:
             # pylint: disable = no-member
@@ -1066,21 +1066,19 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             user="root", passio_popen=True, gui=False, wait=True)
         p.communicate(input=self.default_user)
 
-    def create_on_disk(self, source_template=None):
+    def create_on_disk(self, pool=None, pools=None):
         '''Create files needed for VM.
-
-        :param qubes.vm.templatevm.TemplateVM source_template: Template to use
-            (if :py:obj:`None`, use domain's own template
         '''
-
-        if source_template is None and hasattr(self, 'template'):
-            # pylint: disable=no-member
-            source_template = self.template
 
         self.log.info('Creating directory: {0}'.format(self.dir_path))
         os.makedirs(self.dir_path, mode=0o775)
 
-        self.storage.create(source_template)
+        if pool or pools:
+            self.volume_config = _patch_volume_config(self.volume_config, pool,
+                                                      pools)
+            self.storage = qubes.storage.Storage(self)
+
+        self.storage.create()
 
         self.log.info('Creating icon symlink: {} -> {}'.format(
             self.icon_path, self.label.icon_path))
@@ -1090,13 +1088,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             shutil.copy(self.label.icon_path, self.icon_path)
 
         # fire hooks
-        self.fire_event('domain-create-on-disk', source_template)
+        self.fire_event('domain-create-on-disk')
 
     def remove_from_disk(self):
         '''Remove domain remnants from disk.'''
         self.fire_event('domain-remove-from-disk')
-        self.storage.remove()
         shutil.rmtree(self.dir_path)
+        self.storage.remove()
 
     def clone_disk_files(self, src):
         '''Clone files from other vm.
@@ -1117,6 +1115,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self.volume_config = src.volume_config
         self.storage = qubes.storage.Storage(self)
         self.storage.clone(src)
+        self.storage.verify()
+        assert self.volumes != {}
 
         if src.icon_path is not None \
                 and os.path.exists(src.dir_path) \
