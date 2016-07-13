@@ -24,7 +24,6 @@
 #
 
 import os
-import unittest
 import uuid
 
 import lxml.etree
@@ -43,9 +42,9 @@ class TestVM(qubes.vm.BaseVM):
     uuid = uuid.uuid5(uuid.NAMESPACE_DNS, 'testvm')
 
     def is_halted(self):
-        return False
+        return True
 
-    def get_power_state():
+    def get_power_state(self):
         return "Halted"
 
 class TestApp(qubes.tests.TestEmitter):
@@ -163,7 +162,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             os.unlink('/tmp/qubestest.xml')
         except:
             pass
-        app = qubes.Qubes.create_empty_store('/tmp/qubestest.xml')
+        qubes.Qubes.create_empty_store('/tmp/qubestest.xml')
 
     @qubes.tests.skipUnlessGit
     def test_900_example_xml_in_doc(self):
