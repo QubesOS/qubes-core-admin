@@ -29,11 +29,11 @@ import os
 import re
 import subprocess
 
+import pkg_resources
+
 import docutils
 import docutils.core
 import docutils.io
-import pkg_resources
-
 import qubes.exc
 
 
@@ -158,5 +158,3 @@ def get_entry_point_one(group, name):
                 ', '.join('{}.{}'.format(ep.module_name, '.'.join(ep.attrs))
                     for ep in epoints)))
     return epoints[0].load()
-
-
