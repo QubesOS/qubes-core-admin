@@ -32,22 +32,12 @@ Qubes OS
 
 from __future__ import absolute_import
 
+import __builtin__
 import collections
-import errno
-import grp
-import logging
 import os
 import os.path
-import sys
-import tempfile
-import time
 
-import __builtin__
-
-import jinja2
 import lxml.etree
-import pkg_resources
-
 import qubes.config
 import qubes.events
 import qubes.exc
@@ -439,7 +429,7 @@ class PropertyHolder(qubes.events.Emitter):
         propvalues = {}
 
         all_names = set(prop.__name__ for prop in self.property_list())
-        for key in list(kwargs.keys()):
+        for key in list(kwargs):
             if not key in all_names:
                 continue
             propvalues[key] = kwargs.pop(key)
