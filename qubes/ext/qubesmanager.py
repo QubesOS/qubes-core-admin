@@ -29,8 +29,8 @@
 .. warning:: API defined here is not declared stable.
 '''
 
-import qubes.ext
 import dbus
+import qubes.ext
 
 
 class QubesManager(qubes.ext.Extension):
