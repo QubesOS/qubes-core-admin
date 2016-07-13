@@ -293,6 +293,12 @@ class TestVM(qubes.vm.BaseVM):
     netid = qid
     uuid = uuid.uuid5(uuid.NAMESPACE_DNS, 'testvm')
 
+    def is_halted(self):
+        return False
+
+    def get_power_state():
+        return "Halted"
+
 class TestApp(qubes.tests.TestEmitter):
     pass
 
