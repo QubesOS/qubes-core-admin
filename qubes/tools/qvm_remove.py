@@ -40,12 +40,8 @@ parser.add_argument('--just-db',
 def main(args=None):  # pylint: disable=missing-docstring
     args = parser.parse_args(args)
     for vm in args.domains:
-        if not vm.is_halted():
-            parser.print_error('VM {!s} not halted'.format(vm))
-            return 1
         del args.app.domains[vm.qid]
         args.app.save()
-        vm.libvirt_domain.undefine()
         if not args.just_db:
             vm.remove_from_disk()
 

@@ -437,13 +437,16 @@ class VMCollection(object):
 
         raise KeyError(key)
 
-
     def __delitem__(self, key):
         vm = self[key]
+        if not vm.is_halted():
+            msg = "Can't remove, vm {!s}, beacuse it's in state {!s}."
+            msg = msg.format(vm, vm.get_power_state())
+            raise qubes.exc.QubesVMNotHaltedError(msg)
         self.app.fire_event_pre('domain-pre-delete', vm)
+        vm.libvirt_domain.undefine()
         del self._dict[vm.qid]
         self.app.fire_event('domain-delete', vm)
-
 
     def __contains__(self, key):
         return any((key == vm or key == vm.qid or key == vm.name)
