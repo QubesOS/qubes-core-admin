@@ -23,6 +23,8 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
+''' Shutdown a qube '''
+
 from __future__ import print_function
 
 import sys
@@ -32,7 +34,7 @@ import qubes.config
 import qubes.tools
 
 parser = qubes.tools.QubesArgumentParser(
-    description='gracefully shut down a qube', vmname_nargs='+')
+    description=__doc__, vmname_nargs='+')
 
 parser.add_argument('--force',
     action='store_true', default=False,
@@ -50,10 +52,12 @@ parser.add_argument('--timeout',
         ' (default: %d)')
 
 
-def main(args=None):
+def main(args=None):  # pylint: disable=missing-docstring
     args = parser.parse_args(args)
 
-    [vm.shutdown(force=args.force) for vm in args.domains if not vm.is_halted()]
+    for vm in args.domains:
+        if not vm.is_halted():
+            vm.shutdown(force=args.force)
 
     if not args.wait:
         return
