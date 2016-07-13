@@ -36,13 +36,14 @@ import tempfile
 import time
 import uuid
 
-import jinja2
 import lxml.etree
+
+import jinja2
 import libvirt
 
 try:
-    import xen.lowlevel.xs
-    import xen.lowlevel.xc
+    import xen.lowlevel.xs  # pylint: disable=wrong-import-order
+    import xen.lowlevel.xc  # pylint: disable=wrong-import-order
 except ImportError:
     pass
 
@@ -58,12 +59,12 @@ else:
     raise RuntimeError("Qubes works only on POSIX or WinNT systems")
 
 
-import qubes
-import qubes.ext
-import qubes.utils
-import qubes.vm.adminvm
-import qubes.vm.qubesvm
-import qubes.vm.templatevm
+import qubes  # pylint: disable=wrong-import-position
+import qubes.ext  # pylint: disable=wrong-import-position
+import qubes.utils  # pylint: disable=wrong-import-position
+import qubes.vm.adminvm  # pylint: disable=wrong-import-position
+import qubes.vm.qubesvm  # pylint: disable=wrong-import-position
+import qubes.vm.templatevm  # pylint: disable=wrong-import-position
 
 
 class VirDomainWrapper(object):
