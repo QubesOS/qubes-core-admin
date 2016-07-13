@@ -292,6 +292,12 @@ class TestVM(qubes.vm.BaseVM):
     netid = qid
     uuid = uuid.uuid5(uuid.NAMESPACE_DNS, 'testvm')
 
+    class MockLibvirt(object):
+        def undefine(self):
+            pass
+
+    libvirt_domain = MockLibvirt()
+
     def is_halted(self):
         return True
 
