@@ -343,7 +343,7 @@ class Backup(object):
             # TODO this is file pool specific. Change it to a more general
             # solution
             if vm.volumes['private'] is not None:
-                path_to_private_img = vm.volumes['private'].vid
+                path_to_private_img = vm.volumes['private'].path
                 vm_files.append(self.FileToBackup(path_to_private_img, subdir))
 
             vm_files.append(self.FileToBackup(vm.icon_path, subdir))
@@ -358,7 +358,7 @@ class Backup(object):
             if vm.updateable:
                 # TODO this is file pool specific. Change it to a more general
                 # solution
-                path_to_root_img = vm.volumes['root'].vid
+                path_to_root_img = vm.volumes['root'].path
                 vm_files.append(self.FileToBackup(path_to_root_img, subdir))
             files_to_backup[vm.qid] = self.VMToBackup(vm, vm_files, subdir)
 
@@ -1725,11 +1725,10 @@ class BackupRestore(object):
             # wait for other processes (if any)
             for proc in self.processes_to_kill_on_cancel:
                 proc.wait()
-
-            if vmproc.returncode != 0:
-                raise qubes.exc.QubesException(
-                    "Backup completed, but VM receiving it reported an error "
-                    "(exit code {})".format(vmproc.returncode))
+                if proc.returncode != 0:
+                    raise qubes.exc.QubesException(
+                        "Backup completed, but VM receiving it reported an error "
+                        "(exit code {})".format(proc.returncode))
 
             if filename and filename != "EOF":
                 raise qubes.exc.QubesException(

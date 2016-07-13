@@ -26,7 +26,6 @@
 
 import os
 
-import unittest
 import sys
 import qubes
 import qubes.exc
@@ -77,10 +76,13 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
         hvmtemplate = self.app.add_new_vm(
             qubes.vm.templatevm.TemplateVM, name=vmname, hvm=True, label='red')
         hvmtemplate.create_on_disk()
-        self.fill_image(os.path.join(hvmtemplate.dir_path, '00file'),
-                        195*1024*1024-4096*3)
-        self.fill_image(hvmtemplate.private_img, 195*1024*1024-4096*3)
-        self.fill_image(hvmtemplate.root_img, 1024*1024*1024, sparse=True)
+        self.fill_image(
+            os.path.join(hvmtemplate.dir_path, '00file'),
+            195 * 1024 * 1024 - 4096 * 3)
+        self.fill_image(hvmtemplate.volumes['private'].path,
+                        195 * 1024 * 1024 - 4096 * 3)
+        self.fill_image(hvmtemplate.volumes['root'].path, 1024 * 1024 * 1024,
+                        sparse=True)
         vms.append(hvmtemplate)
         self.app.save()
 
@@ -93,7 +95,7 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
 
     def test_005_compressed_custom(self):
         vms = self.create_backup_vms()
-        self.make_backup(vms, compressed="bzip2")
+        self.make_backup(vms, compression_filter="bzip2")
         self.remove_vms(reversed(vms))
         self.restore_backup()
         for vm in vms:

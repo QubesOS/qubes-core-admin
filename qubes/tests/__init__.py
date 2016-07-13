@@ -820,7 +820,7 @@ class BackupTestsMixin(SystemTestsMixin):
             name=vmname, template=template, provides_network=True, label='red')
         testnet.create_on_disk()
         vms.append(testnet)
-        self.fill_image(testnet.volumes['private'].vid, 20*1024*1024)
+        self.fill_image(testnet.volumes['private'].path, 20*1024*1024)
 
         vmname = self.make_vm_name('test1')
         if self.verbose:
@@ -831,7 +831,7 @@ class BackupTestsMixin(SystemTestsMixin):
         testvm1.netvm = testnet
         testvm1.create_on_disk()
         vms.append(testvm1)
-        self.fill_image(testvm1.volumes['private'].vid, 100*1024*1024)
+        self.fill_image(testvm1.volumes['private'].path, 100*1024*1024)
 
         vmname = self.make_vm_name('testhvm1')
         if self.verbose:
@@ -841,7 +841,7 @@ class BackupTestsMixin(SystemTestsMixin):
                                       hvm=True,
                                       label='red')
         testvm2.create_on_disk()
-        self.fill_image(testvm2.volumes['root'].vid, 1024 * 1024 * 1024, True)
+        self.fill_image(testvm2.volumes['root'].path, 1024 * 1024 * 1024, True)
         vms.append(testvm2)
 
         vmname = self.make_vm_name('template')
@@ -850,7 +850,7 @@ class BackupTestsMixin(SystemTestsMixin):
         testvm3 = self.app.add_new_vm(qubes.vm.templatevm.TemplateVM,
             name=vmname, label='red')
         testvm3.create_on_disk()
-        self.fill_image(testvm3.root_img, 100*1024*1024, True)
+        self.fill_image(testvm3.volumes['root'].path, 100 * 1024 * 1024, True)
         vms.append(testvm3)
 
         vmname = self.make_vm_name('custom')
