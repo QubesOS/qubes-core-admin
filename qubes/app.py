@@ -820,6 +820,11 @@ class Qubes(qubes.PropertyHolder):
         for name, config in qubes.config.defaults['pool_configs'].items():
             self.pools[name] = self._get_pool(**config)
 
+        # check if the default LVM Thin pool qubes_dom0/pool00 exists
+        if os.path.exists('/dev/mapper/qubes_dom0-pool00-tpool'):
+            self.add_pool(volume_group='qubes_dom0', thin_pool='pool00',
+                          name='lvm', driver='lvm_thin')
+
         self.domains.add(
             qubes.vm.adminvm.AdminVM(self, None, qid=0, name='dom0'))
 
