@@ -120,6 +120,9 @@ class ThinPool(qubes.storage.Pool):
         return ThinVolume(**volume_config)
 
     def import_volume(self, dst_pool, dst_volume, src_pool, src_volume):
+        if not src_volume.save_on_stop:
+            return dst_volume
+
         src_path = src_pool.export(src_volume)
 
         # HACK: neat trick to speed up testing if you have same physical thin
