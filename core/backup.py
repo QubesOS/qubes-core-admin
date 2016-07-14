@@ -1718,8 +1718,9 @@ def restore_info_verify(restore_info, host_collection):
                 if not (netvm_name in restore_info.keys() and
                         restore_info[netvm_name]['vm'].is_netvm()):
                     if options['use-default-netvm']:
-                        vm_info['netvm'] = host_collection \
-                            .get_default_netvm().name
+                        default_netvm = host_collection.get_default_netvm()
+                        vm_info['netvm'] = default_netvm.name if \
+                            default_netvm else None
                         vm_info['vm'].uses_default_netvm = True
                     elif options['use-none-netvm']:
                         vm_info['netvm'] = None
