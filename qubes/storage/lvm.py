@@ -34,50 +34,39 @@ class ThinPool(qubes.storage.Pool):
 
     driver = 'lvm_thin'
 
-    def __init__(self, volume_group, thin_pool, **kwargs):
-        super(ThinPool, self).__init__(**kwargs)
+    def __init__(self, volume_group, thin_pool, revisions_to_keep=1, **kwargs):
+        super(ThinPool, self).__init__(revisions_to_keep=revisions_to_keep,
+                                       **kwargs)
         self.volume_group = volume_group
         self.thin_pool = thin_pool
         self._pool_id = "{!s}/{!s}".format(volume_group, thin_pool)
         self.log = logging.getLogger('qube.storage.lvm.%s' % self._pool_id)
-
-    def backup(self, volume):
-        msg = "Expected volume_type 'snap' got {!s}"
-        msg = msg.format(volume.volume_type)
-        assert volume.volume_type == 'snap', msg
-        cmd = ['remove', volume.vid + "-back"]
-        qubes_lvm(cmd, self.log)
-        cmd = ['clone', volume.vid, volume.vid + "-back"]
-        qubes_lvm(cmd, self.log)
-        volume.backups = [volume.vid + "-back"]
-        return volume
 
     def clone(self, source, target):
         cmd = ['clone', source.vid, target.vid]
         qubes_lvm(cmd, self.log)
         return target
 
-    def commit(self, volume):
-        msg = "Expected rw:True & volume_type 'snap' got {!s} & rw:{!s}"
-        msg = msg.format(volume.volume_type, volume.rw)
-        assert volume.volume_type == 'snap' and volume.rw, msg
-        assert volume.path.endswith("-snap")
-        self.backup(volume)
-        cmd = ['remove', volume.vid]
-        qubes_lvm(cmd, self.log)
-        cmd = ['clone', volume.path, volume.vid]
-        qubes_lvm(cmd, self.log)
+    def _commit(self, volume):
+        msg = "Trying to commit {!s}, but it has save_on_stop == False"
+        msg = msg.format(volume)
+        assert volume.save_on_stop, msg
 
-    def _backup(self, volume):
-        msg = "Expected volume_type 'snap' got {!s}"
-        msg = msg.format(volume.volume_type)
-        assert volume.volume_type == 'snap', msg
+        msg = "Trying to commit {!s}, but it has rw == False"
+        msg = msg.format(volume)
+        assert volume.rw, msg
+        assert hasattr(volume, '_vid_snap')
+
         cmd = ['remove', volume.vid + "-back"]
         qubes_lvm(cmd, self.log)
-        cmd = ['clone', volume.vid, volume.vid + "-back"]
+        cmd = ['clone', volume._vid_snap, volume.vid + "-back"]
         qubes_lvm(cmd, self.log)
-        volume.backups = [volume.vid + "-back"]
-        return 'XXX'
+
+        cmd = ['remove', volume.vid]
+        qubes_lvm(cmd, self.log)
+        cmd = ['clone', volume._vid_snap, volume.vid]
+        qubes_lvm(cmd, self.log)
+        cmd = ['remove', volume._vid_snap]
 
     @property
     def config(self):
@@ -188,6 +177,18 @@ class ThinPool(qubes.storage.Pool):
             volume._vid_snap = volume.vid + '-snap'
         return volume
 
+    def revert(self, volume, revision=None):
+        old_path = volume.path + '-back'
+        if not os.path.exists(old_path):
+            msg = "Volume {!s} has no {!s}".format(volume, old_path)
+            raise qubes.storage.StoragePoolException(msg)
+
+        cmd = ['remove', volume.vid]
+        qubes_lvm(cmd, self.log)
+        cmd = ['clone', volume.vid + '-back', volume.vid]
+        qubes_lvm(cmd, self.log)
+        return volume
+
     def _reset(self, volume):
         self.remove(volume)
         self.create(volume)
@@ -208,18 +209,15 @@ class ThinPool(qubes.storage.Pool):
 
     def stop(self, volume):
         if volume.save_on_stop:
-            cmd = ['remove', volume.vid]
-            qubes_lvm(cmd, self.log)
-            cmd = ['clone', volume._vid_snap, volume.vid]
-            qubes_lvm(cmd, self.log)
-            cmd = ['remove', volume._vid_snap]
-            qubes_lvm(cmd, self.log)
-        elif volume._is_volatile:
+            self._commit(volume)
+
+        if volume._is_volatile:
             cmd = ['remove', volume.vid]
             qubes_lvm(cmd, self.log)
         else:
             cmd = ['remove', volume._vid_snap]
             qubes_lvm(cmd, self.log)
+        return volume
 
     def _snapshot(self, volume):
         if volume.source is None:
@@ -299,6 +297,11 @@ class ThinVolume(qubes.storage.Volume):
 
     @property
     def revisions(self):
+        path = self.path + '-back'
+        if os.path.exists(path):
+            seconds = os.path.getctime(path)
+            iso_date = qubes.storage.isodate(seconds).split('.', 1)[0]
+            return {iso_date: path}
         return {}
 
     @property
