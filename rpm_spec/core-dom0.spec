@@ -247,6 +247,7 @@ fi
 %{python_sitelib}/qubes/tools/qvm_block.py*
 %{python_sitelib}/qubes/tools/qvm_create.py*
 %{python_sitelib}/qubes/tools/qvm_features.py*
+%{python_sitelib}/qubes/tools/qvm_check.py*
 %{python_sitelib}/qubes/tools/qvm_clone.py*
 %{python_sitelib}/qubes/tools/qvm_kill.py*
 %{python_sitelib}/qubes/tools/qvm_ls.py*
