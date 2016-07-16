@@ -2236,6 +2236,13 @@ def backup_restore_do(restore_info,
                 error_callback("*** Some VM property will not be restored")
 
             try:
+                for service, value in vm.services.items():
+                    new_vm.services[service] = value
+            except Exception as err:
+                error_callback("ERROR: {0}".format(err))
+                error_callback("*** Some VM property will not be restored")
+
+            try:
                 new_vm.appmenus_create(verbose=callable(print_callback))
             except Exception as err:
                 error_callback("ERROR during appmenu restore: {0}".format(err))
