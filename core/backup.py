@@ -2305,6 +2305,10 @@ def backup_restore_do(restore_info,
         if retcode != 0:
             error_callback("*** Error while setting home directory owner")
 
+    if callable(print_callback):
+        print_callback("-> Done. Please install updates for all the restored "
+                       "templates.")
+
     shutil.rmtree(restore_tmpdir)
 
 # vim:sw=4:et:
