@@ -39,8 +39,11 @@ class TC_00_List(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
                 name=self.make_vm_name("vm"),
                 template=self.qc.get_vm_by_name(self.template))
             self.vm.create_on_disk(verbose=False)
+            self.save_and_reload_db()
+            self.qc.unlock_db()
             self.vm.start()
         else:
+            self.qc.unlock_db()
             self.vm = self.qc[0]
 
     def tearDown(self):
