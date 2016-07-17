@@ -287,9 +287,10 @@ def main():
         print >> sys.stderr, "NOTE: Before restoring the dom0 home directory, "
                              "a new directory named "\
                              "'home-pre-restore-<current-time>' will be "\
-                             "created inside the dom0 home directory, and "\
-                             "all the other existing contents of the dom0 "\
-                             "home directory will be moved there."
+                             "created inside the dom0 home directory. If any "\
+                             "restored files conflict with existing files, "\
+                             "the existing files will be moved to this new "\
+                             "directory."
 
     if options.pass_file is None:
         if raw_input("Do you want to proceed? [y/N] ").upper() != "Y":
