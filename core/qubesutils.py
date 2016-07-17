@@ -815,6 +815,8 @@ class QubesWatch(object):
                 return
         else:
             name = "dom0"
+            if name in self._qdb:
+                return
             self._qdb[name] = QubesDB(name)
         try:
             self._qdb[name].watch('/qubes-block-devices')
