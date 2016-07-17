@@ -1705,7 +1705,11 @@ def restore_info_verify(restore_info, host_collection):
 
         # check netvm
         vm_info.pop('missing-netvm', None)
-        if vm_info['netvm']:
+        if vm_info['vm'].uses_default_netvm:
+            default_netvm = host_collection.get_default_netvm()
+            vm_info['netvm'] = default_netvm.name if \
+                default_netvm else None
+        elif vm_info['netvm']:
             netvm_name = vm_info['netvm']
 
             netvm_on_host = host_collection.get_vm_by_name(netvm_name)

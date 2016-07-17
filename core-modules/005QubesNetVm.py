@@ -42,6 +42,7 @@ class QubesNetVm(QubesVm):
         attrs_config['dir_path']['func'] = \
             lambda value: value if value is not None else \
                 os.path.join(system_path["qubes_servicevms_dir"], self.name)
+        attrs_config['uses_default_netvm']['func'] = lambda x: False
         attrs_config['label']['default'] = defaults["servicevm_label"]
         attrs_config['memory']['default'] = 300
 
