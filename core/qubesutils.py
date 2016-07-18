@@ -760,7 +760,8 @@ class QubesWatch(object):
                 # which can just remove the domain
                 if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                     pass
-                raise
+                else:
+                    raise
         # and for dom0
         self._register_watches(None)
 
