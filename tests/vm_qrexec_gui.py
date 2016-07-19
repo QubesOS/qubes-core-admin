@@ -1098,13 +1098,29 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
         time.sleep(1)
         if "gedit" in window_title:
             subprocess.check_call(['xdotool', 'windowactivate', '--sync', winid,
-                'type', 'test test 2\n'])
+                'type', 'Test test 2\n'])
             time.sleep(0.5)
             subprocess.check_call(['xdotool',
                                    'key', 'ctrl+s', 'ctrl+q'])
+        elif "LibreOffice" in window_title:
+            # wait for actual editor (we've got splash screen)
+            search = subprocess.Popen(['xdotool', 'search', '--sync',
+                '--onlyvisible', '--all', '--name', '--class', 'disp*|Writer'],
+                stdout=subprocess.PIPE,
+                                  stderr=open(os.path.devnull, 'w'))
+            retcode = search.wait()
+            if retcode == 0:
+                winid = search.stdout.read().strip()
+            time.sleep(0.5)
+            subprocess.check_call(['xdotool', 'windowactivate', '--sync', winid,
+                'type', 'Test test 2\n'])
+            time.sleep(0.5)
+            subprocess.check_call(['xdotool',
+                                   'key', '--delay', '100', 'ctrl+s',
+                'Return', 'ctrl+q'])
         elif "emacs" in window_title:
             subprocess.check_call(['xdotool', 'windowactivate', '--sync', winid,
-                                   'type', 'test test 2\n'])
+                                   'type', 'Test test 2\n'])
             time.sleep(0.5)
             subprocess.check_call(['xdotool',
                                    'key', 'ctrl+x', 'ctrl+s'])
@@ -1112,7 +1128,7 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
                                    'key', 'ctrl+x', 'ctrl+c'])
         elif "vim" in window_title or "user@" in window_title:
             subprocess.check_call(['xdotool', 'windowactivate', '--sync', winid,
-                                   'key', 'i', 'type', 'test test 2\n'])
+                                   'key', 'i', 'type', 'Test test 2\n'])
             subprocess.check_call(
                 ['xdotool',
                  'key', 'Escape', 'colon', 'w', 'q', 'Return'])
@@ -1158,7 +1174,10 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
         p = testvm1.run("cat /home/user/test.txt",
                         passio_popen=True)
         (test_txt_content, _) = p.communicate()
-        self.assertEqual(test_txt_content, "test test 2\ntest1\n")
+        # Drop BOM if added by editor
+        if test_txt_content.startswith('\xef\xbb\xbf'):
+            test_txt_content = test_txt_content[3:]
+        self.assertEqual(test_txt_content, "Test test 2\ntest1\n")
 
 
 class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
@@ -1572,7 +1591,7 @@ class TC_50_MimeHandlers(qubes.tests.SystemTestsMixin):
         filename = "/home/user/test_file.txt"
         self.prepare_txt(filename)
         self.open_file_and_check_viewer(filename, ["vim", "user@"],
-                                        ["gedit", "emacs"])
+                                        ["gedit", "emacs", "libreoffice"])
 
     def test_001_pdf(self):
         filename = "/home/user/test_file.pdf"
@@ -1618,7 +1637,7 @@ class TC_50_MimeHandlers(qubes.tests.SystemTestsMixin):
         filename = "/home/user/test_file.txt"
         self.prepare_txt(filename)
         self.open_file_and_check_viewer(filename, ["vim", "user@"],
-                                        ["gedit", "emacs"],
+                                        ["gedit", "emacs", "libreoffice"],
                                         dispvm=True)
 
     def test_101_pdf_dispvm(self):
