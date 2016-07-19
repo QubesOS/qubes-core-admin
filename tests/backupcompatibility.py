@@ -146,6 +146,19 @@ compression-filter=gzip
 '''
 
 class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
+    def tearDown(self):
+        self.qc.unlock_db()
+        self.qc.lock_db_for_writing()
+        self.qc.load()
+
+        # Remove here as we use 'test-' prefix, instead of 'test-inst-'
+        self._remove_test_vms(self.qc, self.conn, prefix="test-")
+
+        self.qc.save()
+        self.qc.unlock_db()
+
+        super(TC_00_BackupCompatibility, self).tearDown()
+
     def create_whitelisted_appmenus(self, filename):
         f = open(filename, "w")
         f.write("gnome-terminal.desktop\n")
