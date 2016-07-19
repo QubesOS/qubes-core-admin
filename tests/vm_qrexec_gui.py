@@ -1165,7 +1165,7 @@ class TC_40_PVGrub(qubes.tests.SystemTestsMixin):
         if self.template.startswith('fedora-'):
             cmd_install1 = 'dnf clean expire-cache && ' \
                 'dnf install -y qubes-kernel-vm-support grub2-tools'
-            cmd_install2 = 'yum install -y kernel && ' \
+            cmd_install2 = 'dnf install -y kernel && ' \
                 'KVER=$(rpm -q --qf %{VERSION}-%{RELEASE}.%{ARCH} kernel) && ' \
                 'dnf install --allowerasing  -y kernel-devel-$KVER && ' \
                 'dkms autoinstall -k $KVER'
