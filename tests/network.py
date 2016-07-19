@@ -165,8 +165,8 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
 
         # check for nm-applet presence
         self.assertEqual(subprocess.call([
-            'xdotool', 'search', '--all', '--name',
-            '--class', '^(NetworkManager Applet|{})$'.format(self.proxy.name)],
+            'xdotool', 'search', '--class', '{}:nm-applet'.format(
+                self.proxy.name)],
             stdout=open('/dev/null', 'w')), 0, "nm-applet window not found")
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
                          "Ping by IP failed (after NM reconnection")

@@ -878,7 +878,7 @@ class TC_04_DispVM(qubes.tests.SystemTestsMixin,
                              stderr=open(os.devnull, 'w'))
         p.stdin.write("qubesdb-read /name\n")
         p.stdin.write("echo ERROR\n")
-        p.stdin.write("poweroff\n")
+        p.stdin.write("sudo poweroff\n")
         # do not close p.stdin on purpose - wait to automatic disconnect when
         #  domain is destroyed
         timeout = 30
