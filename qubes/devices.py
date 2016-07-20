@@ -132,7 +132,7 @@ class PCIDevice(RegexDevice):
 
     @property
     def libvirt_name(self):
-        return 'pci_000_{}_{}_{}'.format(self.bus, self.device, self.name)
+        return 'pci_0000_{}_{}_{}'.format(self.bus, self.device, self.function)
 
 
 class BlockDevice(object):
