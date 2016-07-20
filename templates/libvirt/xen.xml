@@ -94,7 +94,7 @@
         {% endif %}
 
         {% for device in vm.devices.pci %}
-            {% include libvirt/devices/pci.xml %}
+            {% include 'libvirt/devices/pci.xml' %}
         {% endfor %}
 
         {% if vm.hvm %}
