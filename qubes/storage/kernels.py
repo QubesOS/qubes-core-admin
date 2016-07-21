@@ -33,12 +33,16 @@ class LinuxModules(Volume):
 
     def __init__(self, target_dir, kernel_version, **kwargs):
         kwargs['vid'] = kernel_version
+        kwargs['source'] = self
         super(LinuxModules, self).__init__(**kwargs)
         self.kernels_dir = os.path.join(target_dir, kernel_version)
         self.path = os.path.join(self.kernels_dir, 'modules.img')
         self.vmlinuz = os.path.join(self.kernels_dir, 'vmlinuz')
         self.initramfs = os.path.join(self.kernels_dir, 'initramfs')
 
+    @property
+    def revisions(self):
+        return {}
 
 class LinuxKernel(Pool):
     ''' Provides linux kernels '''
@@ -50,23 +54,22 @@ class LinuxKernel(Pool):
         self.dir_path = dir_path
 
     def init_volume(self, vm, volume_config):
-        assert 'volume_type' in volume_config, "Volume type missing " \
-            + str(volume_config)
-        volume_type = volume_config['volume_type']
-        if volume_type != 'read-only':
-            raise StoragePoolException("Unknown volume type " + volume_type)
+        assert not volume_config['rw']
 
         volume = LinuxModules(self.dir_path, vm.kernel, **volume_config)
 
         return volume
 
+    def is_dirty(self, volume):
+        return False
+
     def clone(self, source, target):
         return target
 
-    def create(self, volume, source_volume=None):
+    def create(self, volume):
         return volume
 
-    def commit_template_changes(self, volume):
+    def commit(self, volume):
         return volume
 
     @property
@@ -78,6 +81,12 @@ class LinuxKernel(Pool):
         }
 
     def destroy(self):
+        pass
+
+    def export(self, volume):
+        return volume.path
+
+    def import_volume(self, dst_pool, dst_volume, src_pool, src_volume):
         pass
 
     def is_outdated(self, volume):
@@ -115,7 +124,8 @@ class LinuxKernel(Pool):
                              pool=self.name,
                              name=kernel_version,
                              internal=True,
-                             volume_type='read-only')
+                             rw=False
+                             )
                 for kernel_version in os.listdir(self.dir_path)]
 
 

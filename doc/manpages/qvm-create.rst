@@ -32,7 +32,7 @@ Options
    The new domain class name (default: **AppVM** for
    :py:class:`qubes.vm.appvm.AppVM`).
 
-.. option:: --prop=NAME=VALUE, --property=NAME=VALUE, -p NAME=VALUE
+.. option:: --prop=NAME=VALUE, --property=NAME=VALUE
 
    Set domain's property, like "internal", "memory" or "vcpus". Any property may
    be set this way, even "qid".
@@ -57,9 +57,14 @@ Options
    Use provided :file:`root.img` instead of default/empty one (file will be
    *moved*). This option is mutually exclusive with :option:`--root-copy-from`.
 
-.. option:: --pool=POOL_NAME:VOLUME_NAME, -P POOL_NAME:VOLUME_NAME
+.. option:: -P POOL
 
-    Specify the pool to use for a volume
+    Pool to use for the new domain. All volumes besides snapshots volumes are
+    imported in to the specified POOL. ~HIS IS WHAT YOU WANT TO USE NORMALLY.
+
+.. option:: --pool=POOL:VOLUME, -p POOL:VOLUME
+
+    Specify the pool to use for the specific volume
 
 Options for internal use
 ------------------------

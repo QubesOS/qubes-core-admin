@@ -22,9 +22,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
-
 ''' This module contains pool implementations backed by file images'''
-
 
 from __future__ import absolute_import
 
@@ -33,47 +31,22 @@ import os.path
 import re
 import subprocess
 
-from qubes.storage import Pool, StoragePoolException, Volume
+import qubes.storage
 
 BLKSIZE = 512
 
 
-class FilePool(Pool):
-    ''' File based 'original' disk implementation '''
+class FilePool(qubes.storage.Pool):
+    ''' File based 'original' disk implementation
+    '''  # pylint: disable=protected-access
     driver = 'file'
 
-    def __init__(self, name=None, dir_path=None):
-        super(FilePool, self).__init__(name=name)
+    def __init__(self, revisions_to_keep=1, dir_path=None, **kwargs):
+        super(FilePool, self).__init__(revisions_to_keep=revisions_to_keep,
+                                       **kwargs)
         assert dir_path, "No pool dir_path specified"
         self.dir_path = os.path.normpath(dir_path)
         self._volumes = []
-
-    def clone(self, source, target):
-        ''' Clones the volume if the `source.pool` if the source is a
-            :py:class:`FileVolume`.
-        '''
-        if issubclass(FileVolume, source.__class__):
-            raise StoragePoolException('Volumes %s and %s use different pools'
-                                       % (source.__class__, target.__class__))
-
-        if source.volume_type not in ['origin', 'read-write']:
-            return target
-
-        copy_file(source.vid, target.vid)
-        return target
-
-    def create(self, volume, source_volume=None):
-        _type = volume.volume_type
-        size = volume.size
-        if _type == 'origin':
-            create_sparse_file(volume.path_origin, size)
-            create_sparse_file(volume.path_cow, size)
-        elif _type in ['read-write'] and source_volume:
-            copy_file(source_volume.path, volume.path)
-        elif _type in ['read-write', 'volatile']:
-            create_sparse_file(volume.path, size)
-
-        return volume
 
     @property
     def config(self):
@@ -81,40 +54,79 @@ class FilePool(Pool):
             'name': self.name,
             'dir_path': self.dir_path,
             'driver': FilePool.driver,
+            'revisions_to_keep': self.revisions_to_keep
         }
 
-    def is_outdated(self, volume):
-        # FIX: Implement or remove this at all?
-        raise NotImplementedError
+    def clone(self, source, target):
+        new_dir = os.path.dirname(target.path)
+        if target._is_origin or target._is_volume:
+            if not os.path.exists:
+                os.makedirs(new_dir)
+            copy_file(source.path, target.path)
+        return target
+
+    def create(self, volume):
+        assert isinstance(volume.size, (int, long)) and volume.size > 0, \
+            'Volatile volume size must be > 0'
+        if volume._is_origin:
+            create_sparse_file(volume.path, volume.size)
+            create_sparse_file(volume.path_cow, volume.size)
+        elif not volume._is_snapshot:
+            if volume.source is not None:
+                source_path = os.path.join(self.dir_path,
+                                           volume.source + '.img')
+                copy_file(source_path, volume.path)
+            elif volume._is_volatile:
+                pass
+            else:
+                create_sparse_file(volume.path, volume.size)
+
+    def init_volume(self, vm, volume_config):
+        volume_config['dir_path'] = self.dir_path
+        if os.path.join(self.dir_path, self._vid_prefix(vm)) == vm.dir_path:
+            volume_config['backward_comp'] = True
+
+        if 'vid' not in volume_config:
+            volume_config['vid'] = os.path.join(
+                self._vid_prefix(vm), volume_config['name'])
+
+        try:
+            if volume_config['reset_on_start']:
+                volume_config['revisions_to_keep'] = 0
+        except KeyError:
+            pass
+        finally:
+            if 'revisions_to_keep' not in volume_config:
+                volume_config['revisions_to_keep'] = self.revisions_to_keep
+
+        volume = FileVolume(**volume_config)
+        self._volumes += [volume]
+        return volume
+
+    def is_dirty(self, volume):
+        return False  # TODO: How to implement this?
 
     def resize(self, volume, size):
         ''' Expands volume, throws
-            :py:class:`qubst.storage.StoragePoolException` if given size is
-            less than current_size
+            :py:class:`qubst.storage.qubes.storage.StoragePoolException` if
+            given size is less than current_size
         '''  # pylint: disable=no-self-use
-        _type = volume.volume_type
-        if _type not in ['origin', 'read-write', 'volatile']:
-            raise StoragePoolException('Can not resize a %s volume %s' %
-                                       (_type, volume.vid))
+        if not volume.rw:
+            msg = 'Can not resize reađonly volume {!s}'.format(volume)
+            raise qubes.storage.StoragePoolException(msg)
 
         if size <= volume.size:
-            raise StoragePoolException(
+            raise qubes.storage.StoragePoolException(
                 'For your own safety, shrinking of %s is'
                 ' disabled. If you really know what you'
                 ' are doing, use `truncate` on %s manually.' %
                 (volume.name, volume.vid))
 
-        if _type == 'origin':
-            path = volume.path_origin
-        elif _type in ['read-write', 'volatile']:
-            path = volume.path
-
-        with open(path, 'a+b') as fd:
+        with open(volume.path, 'a+b') as fd:
             fd.truncate(size)
 
-        p = subprocess.Popen(
-            ['sudo', 'losetup', '--associated', path],
-            stdout=subprocess.PIPE)
+        p = subprocess.Popen(['sudo', 'losetup', '--associated', volume.path],
+                             stdout=subprocess.PIPE)
         result = p.communicate()
 
         m = re.match(r'^(/dev/loop\d+):\s', result[0])
@@ -122,34 +134,57 @@ class FilePool(Pool):
             loop_dev = m.group(1)
 
             # resize loop device
-            subprocess.check_call(['sudo', 'losetup', '--set-capacity', loop_dev
-                                   ])
+            subprocess.check_call(['sudo', 'losetup', '--set-capacity',
+                                   loop_dev])
 
     def remove(self, volume):
-        if volume.volume_type in ['read-write', 'volatile']:
+        if not volume.internal:
+            return  # do not remove random attached file volumes
+        elif volume._is_snapshot:
+            return  # no need to remove, because it's just a snapshot
+        else:
             _remove_if_exists(volume.path)
-        elif volume.volume_type == 'origin':
-            _remove_if_exists(volume.path)
-            _remove_if_exists(volume.path_cow)
+            if volume._is_origin:
+                _remove_if_exists(volume.path_cow)
 
     def rename(self, volume, old_name, new_name):
         assert issubclass(volume.__class__, FileVolume)
-        old_dir = os.path.dirname(volume.path)
-        new_dir = os.path.join(os.path.dirname(old_dir), new_name)
+        subdir, _, volume_path = volume.vid.split('/', 2)
 
-        if not os.path.exists(new_dir):
-            os.makedirs(new_dir)
+        if volume._is_origin:
+            # TODO: Renaming the old revisions
+            new_path = os.path.join(self.dir_path, subdir, new_name)
+            if not os.path.exists(new_path):
+                os.mkdir(new_path, 0755)
+            new_volume_path = os.path.join(new_path, self.name + '.img')
+            if not volume.backward_comp:
+                os.rename(volume.path, new_volume_path)
+            new_volume_path_cow = os.path.join(new_path, self.name + '-cow.img')
+            if os.path.exists(new_volume_path_cow) and not volume.backward_comp:
+                os.rename(volume.path_cow, new_volume_path_cow)
 
-        volume.rename_target_dir(old_name, new_name)
+        volume.vid = os.path.join(subdir, new_name, volume_path)
 
         return volume
 
-    def commit_template_changes(self, volume):
-        if volume.volume_type != 'origin':
+    def import_volume(self, dst_pool, dst_volume, src_pool, src_volume):
+        msg = "Can not import snapshot volume {!s} in to pool {!s} "
+        msg = msg.format(src_volume, self)
+        assert not src_volume.snap_on_start, msg
+        if dst_volume.save_on_stop:
+            copy_file(src_pool.export(src_volume), dst_volume.path)
+        return dst_volume
+
+    def commit(self, volume):
+        msg = 'Tried to commit a non commitable volume {!r}'.format(volume)
+        assert (volume._is_origin or volume._is_volume) and volume.rw, msg
+
+        if volume._is_volume:
             return volume
 
         if os.path.exists(volume.path_cow):
-            os.rename(volume.path_cow, volume.path_cow + '.old')
+            old_path = volume.path_cow + '.old'
+            os.rename(volume.path_cow, old_path)
 
         old_umask = os.umask(002)
         with open(volume.path_cow, 'w') as f_cow:
@@ -160,6 +195,37 @@ class FilePool(Pool):
     def destroy(self):
         pass
 
+    def export(self, volume):
+        return volume.path
+
+    def reset(self, volume):
+        ''' Remove and recreate a volatile volume '''
+        assert volume._is_volatile, "Not a volatile volume"
+        assert isinstance(volume.size, (int, long)) and volume.size > 0, \
+            'Volatile volume size must be > 0'
+
+        _remove_if_exists(volume.path)
+
+        with open(volume.path, "w") as f_volatile:
+            f_volatile.truncate(volume.size)
+        return volume
+
+    def revert(self, volume, revision=None):
+        if revision is not None:
+            try:
+                return volume.revisions[revision]
+            except KeyError:
+                msg = "Volume {!r} does not have revision {!s}"
+                msg = msg.format(volume, revision)
+                raise qubes.storage.StoragePoolException(msg)
+        else:
+            try:
+                old_path = volume.revisions.values().pop()
+                os.rename(old_path, volume.path_cow)
+            except IndexError:
+                msg = "Volume {!r} does not have old revisions".format(volume)
+                raise qubes.storage.StoragePoolException(msg)
+
     def setup(self):
         create_dir_if_not_exists(self.dir_path)
         appvms_path = os.path.join(self.dir_path, 'appvms')
@@ -168,18 +234,39 @@ class FilePool(Pool):
         create_dir_if_not_exists(vm_templates_path)
 
     def start(self, volume):
-        if volume.volume_type == 'volatile':
-            _reset_volume(volume)
-        if volume.volume_type in ['origin', 'snapshot']:
-            _check_path(volume.path_origin)
-            _check_path(volume.path_cow)
-        else:
+        if volume._is_snapshot or volume._is_origin:
             _check_path(volume.path)
-
+            try:
+                _check_path(volume.path_cow)
+            except qubes.storage.StoragePoolException:
+                create_sparse_file(volume.path_cow, volume.size)
+                _check_path(volume.path_cow)
+        elif volume._is_volatile:
+            self.reset(volume)
         return volume
 
     def stop(self, volume):
-        pass
+        if volume.save_on_stop:
+            self.commit(volume)
+        elif volume._is_volatile:
+            _remove_if_exists(volume.path)
+        return volume
+
+    @staticmethod
+    def _vid_prefix(vm):
+        ''' Helper to create a prefix for the vid for volume
+        '''  # FIX Remove this if we drop the file backend
+        import qubes.vm.templatevm  # pylint: disable=redefined-outer-name
+        import qubes.vm.dispvm  # pylint: disable=redefined-outer-name
+        if isinstance(vm, qubes.vm.templatevm.TemplateVM):
+            subdir = 'vm-templates'
+        elif isinstance(vm, qubes.vm.dispvm.DispVM):
+            subdir = 'appvms'
+            return os.path.join(subdir, vm.template.name + '-dvm')
+        else:
+            subdir = 'appvms'
+
+        return os.path.join(subdir, vm.name)
 
     def target_dir(self, vm):
         """ Returns the path to vmdir depending on the type of the VM.
@@ -198,61 +285,8 @@ class FilePool(Pool):
                 string (str) absolute path to the directory where the vm files
                              are stored
         """
-        # FIX Remove this if we drop the file backend
-        import qubes.vm.templatevm  # nopep8
-        import qubes.vm.dispvm  # nopep8
-        if isinstance(vm, qubes.vm.templatevm.TemplateVM):
-            subdir = 'vm-templates'
-        elif isinstance(vm, qubes.vm.dispvm.DispVM):
-            subdir = 'appvms'
-            return os.path.join(self.dir_path, subdir,
-                                vm.template.name + '-dvm')
-        else:
-            subdir = 'appvms'
 
-        return os.path.join(self.dir_path, subdir, vm.name)
-
-    def init_volume(self, vm, volume_config):
-        assert 'volume_type' in volume_config, "Volume type missing " \
-            + str(volume_config)
-        volume_type = volume_config['volume_type']
-        known_types = {
-            'read-write': ReadWriteFile,
-            'read-only': ReadOnlyFile,
-            'origin': OriginFile,
-            'snapshot': SnapshotFile,
-            'volatile': VolatileFile,
-        }
-        if volume_type not in known_types:
-            raise StoragePoolException("Unknown volume type " + volume_type)
-
-        if volume_type in ['snapshot', 'read-only']:
-            name = volume_config['name']
-
-            origin_vm = vm.template
-            while origin_vm.volume_config[name]['volume_type'] == volume_type:
-                origin_vm = origin_vm.template
-
-            expected_origin_type = {
-                'snapshot': 'origin',
-                'read-only': 'read-write',  # FIXME: really?
-            }[volume_type]
-            assert origin_vm.volume_config[name]['volume_type'] == \
-                expected_origin_type
-
-            origin_pool = vm.app.get_pool(origin_vm.volume_config[name]['pool'])
-
-            assert isinstance(origin_pool,
-                              FilePool), 'Origin volume not a file volume'
-
-            volume_config['target_dir'] = origin_pool.target_dir(origin_vm)
-            volume_config['size'] = origin_vm.volume_config[name]['size']
-        else:
-            volume_config['target_dir'] = self.target_dir(vm)
-
-        volume = known_types[volume_type](**volume_config)
-        self._volumes += [volume]
-        return volume
+        return os.path.join(self.dir_path, self._vid_prefix(vm))
 
     def verify(self, volume):
         return volume.verify()
@@ -262,33 +296,77 @@ class FilePool(Pool):
         return self._volumes
 
 
-class FileVolume(Volume):
+class FileVolume(qubes.storage.Volume):
     ''' Parent class for the xen volumes implementation which expects a
-        `target_dir` param on initialization.
-    '''
+        `target_dir` param on initialization.  '''
 
-    def __init__(self, target_dir, **kwargs):
-        self.target_dir = target_dir
-        assert self.target_dir, "target_dir not specified"
+    def __init__(self, dir_path, backward_comp=False, **kwargs):
+        self.dir_path = dir_path
+        self.backward_comp = backward_comp
+        assert self.dir_path, "dir_path not specified"
         super(FileVolume, self).__init__(**kwargs)
 
-    def _new_dir(self, new_name):
-        ''' Returns a new directory path based on the new_name. This is a helper
-            method for moving file images during vm renaming.
+        if self.snap_on_start and self.source is None:
+            msg = "snap_on_start specified on {!r} but no volume source set"
+            msg = msg.format(self.name)
+            raise qubes.storage.StoragePoolException(msg)
+        elif not self.snap_on_start and self.source is not None:
+            msg = "source specified on {!r} but no snap_on_start set"
+            msg = msg.format(self.name)
+            raise qubes.storage.StoragePoolException(msg)
+
+        if self._is_snapshot:
+            self.path = os.path.join(self.dir_path, self.source + '.img')
+            img_name = self.source + '-cow.img'
+            self.path_cow = os.path.join(self.dir_path, img_name)
+        elif self._is_volume or self._is_volatile:
+            self.path = os.path.join(self.dir_path, self.vid + '.img')
+        elif self._is_origin:
+            self.path = os.path.join(self.dir_path, self.vid + '.img')
+            img_name = self.vid + '-cow.img'
+            self.path_cow = os.path.join(self.dir_path, img_name)
+        else:
+            assert False, 'This should not happen'
+
+    def verify(self):
+        ''' Verifies the volume. '''
+        if not os.path.exists(self.path) and not self._is_volatile:
+            msg = 'Missing image file: {!s}.'.format(self.path)
+            raise qubes.storage.StoragePoolException(msg)
+        return True
+
+    @property
+    def script(self):
+        if self._is_volume or self._is_volatile:
+            return None
+        elif self._is_origin:
+            return 'block-origin'
+        elif self._is_origin_snapshot or self._is_snapshot:
+            return 'block-snapshot'
+
+    def block_device(self):
+        ''' Return :py:class:`qubes.devices.BlockDevice` for serialization in
+            the libvirt XML template as <disk>.
         '''
-        old_dir = os.path.dirname(self.path)
-        return os.path.join(os.path.dirname(old_dir), new_name)
+        path = self.path
+        if self._is_origin or self._is_snapshot:
+            path += ":" + self.path_cow
+        return qubes.devices.BlockDevice(path, self.name, self.script, self.rw,
+                                         self.domain, self.devtype)
 
+    @property
+    def revisions(self):
+        if not hasattr(self, 'path_cow'):
+            return {}
 
-class SizeMixIn(FileVolume):
-    ''' A mix in which expects a `size` param to be > 0 on initialization and
-        provides a usage property wrapper.
-    '''
+        old_revision = self.path_cow + '.old'  # pylint: disable=no-member
 
-    def __init__(self, size=0, **kwargs):
-        assert size, 'Empty size provided'
-        assert size > 0, 'Size for volume ' + kwargs['name'] + ' is <=0'
-        super(SizeMixIn, self).__init__(size=int(size), **kwargs)
+        if not os.path.exists(old_revision):
+            return {}
+        else:
+            seconds = os.path.getctime(old_revision)
+            iso_date = qubes.storage.isodate(seconds).split('.', 1)[0]
+            return {iso_date: old_revision}
 
     @property
     def usage(self):
@@ -296,169 +374,31 @@ class SizeMixIn(FileVolume):
         return get_disk_usage(self.vid)
 
     @property
-    def config(self):
-        ''' return config data for serialization to qubes.xml '''
-        return {'name': self.name,
-                'pool': self.pool,
-                'size': str(self.size),
-                'volume_type': self.volume_type}
-
-
-class ReadWriteFile(SizeMixIn):
-    ''' Represents a readable & writable file image based volume '''
-
-    def __init__(self, **kwargs):
-        super(ReadWriteFile, self).__init__(**kwargs)
-        self.path = os.path.join(self.target_dir, self.name + '.img')
-        self.vid = self.path
-
-    def rename_target_dir(self, new_name, new_dir):
-        ''' Called by :py:class:`FilePool` when a domain changes it's name '''
-        # pylint: disable=unused-argument
-        old_path = self.path
-        file_name = os.path.basename(self.path)
-        new_path = os.path.join(new_dir, file_name)
-
-        os.rename(old_path, new_path)
-        self.target_dir = new_dir
-        self.path = new_path
-        self.vid = self.path
-
-    def verify(self):
-        ''' Verifies the volume. '''
-        if not os.path.exists(self.path):
-            raise StoragePoolException('Missing image file: %s' % self.path)
-
-
-class ReadOnlyFile(FileVolume):
-    ''' Represents a readonly file image based volume '''
-    usage = 0
-
-    def __init__(self, size=0, **kwargs):
-        super(ReadOnlyFile, self).__init__(size=int(size), **kwargs)
-        self.path = self.vid
-
-    def rename_target_dir(self, old_name, new_name):
-        """ Called by :py:class:`FilePool` when a domain changes it's name.
-
-        Only copies the volume if it belongs to the domain being renamed.
-        Currently if a volume is in a directory named the same as the domain,
-        it's ”owned” by the domain.
-        """
-        new_dir = self._new_dir(new_name)
-        if os.path.basename(self.target_dir) == old_name:
-            file_name = os.path.basename(self.path)
-            new_path = os.path.join(new_dir, file_name)
-            old_path = self.path
-
-            os.rename(old_path, new_path)
-
-            self.target_dir = new_dir
-            self.path = new_path
-            self.vid = self.path
-
-    def verify(self):
-        ''' Verifies the volume. '''
-        if not os.path.exists(self.path):
-            raise StoragePoolException('Missing image file: %s' % self.path)
-
-
-class OriginFile(SizeMixIn):
-    ''' Represents a readable, writeable & snapshotable file image based volume.
-
-        This is used for TemplateVM's
-    '''
-
-    script = 'block-origin'
-
-    def __init__(self, **kwargs):
-        super(OriginFile, self).__init__(**kwargs)
-        self.path_origin = os.path.join(self.target_dir, self.name + '.img')
-        self.path_cow = os.path.join(self.target_dir, self.name + '-cow.img')
-        self.path = '%s:%s' % (self.path_origin, self.path_cow)
-        self.vid = self.path_origin
-
-    def commit(self):
-        ''' Commit Template changes '''
-        raise NotImplementedError
-
-    def rename_target_dir(self, old_name, new_name):
-        ''' Called by :py:class:`FilePool` when a domain changes it's name.
-        '''  # pylint: disable=unused-argument
-        new_dir = self._new_dir(new_name)
-        old_path_origin = self.path_origin
-        old_path_cow = self.path_cow
-        new_path_origin = os.path.join(new_dir, self.name + '.img')
-        new_path_cow = os.path.join(new_dir, self.name + '-cow.img')
-        os.rename(old_path_origin, new_path_origin)
-        os.rename(old_path_cow, new_path_cow)
-        self.target_dir = new_dir
-        self.path_origin = new_path_origin
-        self.path_cow = new_path_cow
-        self.path = '%s:%s' % (self.path_origin, self.path_cow)
-        self.vid = self.path_origin
+    def _is_volatile(self):
+        ''' Internal helper. Useful for differentiating volume handling '''
+        return not self.snap_on_start and not self.save_on_stop
 
     @property
-    def usage(self):
-        result = 0
-        if os.path.exists(self.path_origin):
-            result += get_disk_usage(self.path_origin)
-        if os.path.exists(self.path_cow):
-            result += get_disk_usage(self.path_cow)
-        return result
+    def _is_origin(self):
+        ''' Internal helper. Useful for differentiating volume handling '''
+        # pylint: disable=line-too-long
+        return not self.snap_on_start and self.save_on_stop and self.revisions_to_keep > 0  # NOQA
 
-    def verify(self):
-        ''' Verifies the volume. '''
-        if not os.path.exists(self.path_origin):
-            raise StoragePoolException('Missing image file: %s' %
-                                       self.path_origin)
+    @property
+    def _is_snapshot(self):
+        ''' Internal helper. Useful for differentiating volume handling '''
+        return self.snap_on_start and not self.save_on_stop
 
+    @property
+    def _is_origin_snapshot(self):
+        ''' Internal helper. Useful for differentiating volume handling '''
+        return self.snap_on_start and self.save_on_stop
 
-class SnapshotFile(FileVolume):
-    ''' Represents a readonly snapshot of an :py:class:`OriginFile` volume '''
-    script = 'block-snapshot'
-    rw = False
-    usage = 0
-
-    def __init__(self, name=None, size=None, **kwargs):
-        assert size
-        super(SnapshotFile, self).__init__(name=name, size=int(size), **kwargs)
-        self.path_origin = os.path.join(self.target_dir, name + '.img')
-        self.path_cow = os.path.join(self.target_dir, name + '-cow.img')
-        self.path = '%s:%s' % (self.path_origin, self.path_cow)
-        self.vid = self.path_origin
-
-    def verify(self):
-        ''' Verifies the volume. '''
-        if not os.path.exists(self.path_origin):
-            raise StoragePoolException('Missing image file: %s' %
-                                       self.path_origin)
-
-
-class VolatileFile(SizeMixIn):
-    ''' Represents a readable & writeable file based volume, which will be
-        discarded and recreated at each startup.
-    '''
-    def __init__(self, **kwargs):
-        super(VolatileFile, self).__init__(**kwargs)
-        self.path = os.path.join(self.target_dir, self.name + '.img')
-        self.vid = self.path
-
-    def rename_target_dir(self, old_name, new_name):
-        ''' Called by :py:class:`FilePool` when a domain changes it's name.
-    '''  # pylint: disable=unused-argument
-        new_dir = self._new_dir(new_name)
-        _remove_if_exists(self.path)
-        file_name = os.path.basename(self.path)
-        self.target_dir = new_dir
-        new_path = os.path.join(new_dir, file_name)
-        self.path = new_path
-        self.vid = self.path
-
-    def verify(self):
-        ''' Verifies the volume. '''
-        pass
-
+    @property
+    def _is_volume(self):
+        ''' Internal helper. Usefull for differentiating volume handling '''
+        # pylint: disable=line-too-long
+        return not self.snap_on_start and self.save_on_stop and self.revisions_to_keep == 0  # NOQA
 
 def create_sparse_file(path, size):
     ''' Create an empty sparse file '''
@@ -534,7 +474,9 @@ def copy_file(source, destination):
         os.makedirs(parent_dir)
 
     try:
-        subprocess.check_call(['cp', '--reflink=auto', source, destination])
+        cmd = ['sudo', 'cp', '--sparse=auto',
+               '--reflink=auto', source, destination]
+        subprocess.check_call(cmd)
     except subprocess.CalledProcessError:
         raise IOError('Error while copying {!r} to {!r}'.format(source,
                                                                 destination))
@@ -549,17 +491,5 @@ def _remove_if_exists(path):
 def _check_path(path):
     ''' Raise an StoragePoolException if ``path`` does not exist'''
     if not os.path.exists(path):
-        raise StoragePoolException('Missing image file: %s' % path)
-
-
-def _reset_volume(volume):
-    ''' Remove and recreate a volatile volume '''
-    assert volume.volume_type == 'volatile', "Not a volatile volume"
-
-    assert volume.size
-
-    _remove_if_exists(volume.path)
-
-    with open(volume.path, "w") as f_volatile:
-        f_volatile.truncate(volume.size)
-    return volume
+        msg = 'Missing image file: %s' % path
+        raise qubes.storage.StoragePoolException(msg)

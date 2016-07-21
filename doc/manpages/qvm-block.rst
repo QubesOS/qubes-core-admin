@@ -86,6 +86,15 @@ Detach the volume with *POOL_NAME:VOLUME_ID* from domain *VMNAME*
 
 aliases: d, dt
 
+revert
+^^^^^^
+
+| :command:`qvm-block revert` [-h] [--verbose] [--quiet] *POOL_NAME:VOLUME_ID*
+
+Revert a volume to previous revision.
+
+aliases: rv, r
+
 Authors
 -------
 

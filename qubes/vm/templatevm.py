@@ -60,38 +60,40 @@ class TemplateVM(QubesVM):
             'root': {
                 'name': 'root',
                 'pool': 'default',
-                'volume_type': 'origin',
+                'snap_on_start': False,
+                'save_on_stop': True,
+                'rw': True,
+                'source': None,
                 'size': defaults['root_img_size'],
                 'internal': True
             },
             'private': {
                 'name': 'private',
                 'pool': 'default',
-                'volume_type': 'read-write',
+                'snap_on_start': False,
+                'save_on_stop': True,
+                'rw': True,
+                'source': None,
                 'size': defaults['private_img_size'],
+                'revisions_to_keep': 0,
                 'internal': True
             },
             'volatile': {
                 'name': 'volatile',
                 'pool': 'default',
                 'size': defaults['root_img_size'],
-                'volume_type': 'volatile',
-                'internal': True
+                'internal': True,
+                'rw': True,
             },
             'kernel': {
                 'name': 'kernel',
                 'pool': 'linux-kernel',
-                'volume_type': 'read-only',
-                'internal': True
+                'snap_on_start': True,
+                'internal': True,
+                'rw': False
             }
         }
         super(TemplateVM, self).__init__(*args, **kwargs)
-
-    def clone_disk_files(self, src):
-        super(TemplateVM, self).clone_disk_files(src)
-
-        # Create root-cow.img
-        self.commit_changes()
 
     def commit_changes(self):
         '''Commit changes to template'''

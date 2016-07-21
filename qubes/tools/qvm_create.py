@@ -42,14 +42,20 @@ parser.add_argument('--class', '-C', dest='cls',
     default='AppVM',
     help='specify the class of the new domain (default: %(default)s)')
 
-parser.add_argument('--property', '--prop', '-p',
+parser.add_argument('--property', '--prop',
     action=qubes.tools.PropertyAction,
     help='set domain\'s property, like "internal", "memory" or "vcpus"')
 
-parser.add_argument('--pool', '-P',
+parser.add_argument('--pool', '-p',
                     action='append',
                     metavar='POOL_NAME:VOLUME_NAME',
                     help='specify the pool to use for a volume')
+
+parser.add_argument('-P',
+                    metavar='POOL_NAME',
+                    dest='one_pool',
+                    default='',
+                    help='change all volume pools to specified pool')
 
 parser.add_argument('--template', '-t',
     action=qubes.tools.SinglePropertyAction,
@@ -80,16 +86,18 @@ parser.add_argument('name', metavar='VMNAME',
 def main(args=None):
     args = parser.parse_args(args)
 
-    if args.pool:
-        args.properties['volume_config'] = {}
+    pools = {}
+    pool = None
+    if hasattr(args, 'pools') and args.pools:
         for pool_vol in args.pool:
             try:
                 pool_name, volume_name = pool_vol.split(':')
-                config = {'pool': pool_name, 'name': volume_name}
-                args.properties['volume_config'][volume_name] = config
+                pools[volume_name] = pool_name
             except ValueError:
                 parser.error(
                     'Pool argument must be of form: -P pool_name:volume_name')
+    if args.one_pool:
+        pool = args.one_pool
 
     if 'label' not in args.properties:
         parser.error('--label option is mandatory')
@@ -144,7 +152,7 @@ def main(args=None):
 
     if not args.no_root:
         try:
-            vm.create_on_disk()
+            vm.create_on_disk(pool, pools)
 
             # TODO this is file pool specific. Change it to a more general
             # solution

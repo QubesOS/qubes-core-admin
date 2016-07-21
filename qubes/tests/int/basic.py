@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # vim: fileencoding=utf-8
-
+# pylint: disable=invalid-name
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
@@ -35,7 +35,7 @@ import qubes.vm.appvm
 import qubes.vm.qubesvm
 import qubes.vm.templatevm
 
-import libvirt
+import libvirt  # pylint: disable=import-error
 
 
 class TC_00_Basic(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
@@ -46,17 +46,12 @@ class TC_00_Basic(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     def test_000_qubes_create(self):
         self.assertIsInstance(self.app, qubes.Qubes)
 
-    def test_001_qvm_create_default_template(self):
-        self.app.add_new_vm
-
-
     def test_100_qvm_create(self):
         vmname = self.make_vm_name('appvm')
 
         vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=vmname, template=self.app.default_template,
-            label='red'
-        )
+            label='red')
 
         self.assertIsNotNone(vm)
         self.assertEqual(vm.name, vmname)
@@ -64,17 +59,18 @@ class TC_00_Basic(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         vm.create_on_disk()
 
         with self.assertNotRaises(qubes.exc.QubesException):
-            vm.verify_files()
+            vm.storage.verify()
 
 
 class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
+    # pylint: disable=attribute-defined-outside-init
     def setUp(self):
         super(TC_01_Properties, self).setUp()
         self.init_default_template()
         self.vmname = self.make_vm_name('appvm')
-        self.vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
-            name=self.vmname,
-            label='red')
+        self.vm = self.app.add_new_vm(qubes.vm.appvm.AppVM, name=self.vmname,
+                                      template=self.app.default_template,
+                                      label='red')
         self.vm.create_on_disk()
 
     def save_and_reload_db(self):
@@ -82,7 +78,7 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         if hasattr(self, 'vm'):
             self.vm = self.app.domains[self.vm.qid]
         if hasattr(self, 'netvm'):
-            self.netvm = self.app[self.netvm.qid]
+            self.netvm = self.app.domains[self.netvm.qid]
 
     def test_000_rename(self):
         newname = self.make_vm_name('newname')
@@ -103,13 +99,11 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             os.path.join(
                 qubes.config.system_path['qubes_base_dir'],
                 qubes.config.system_path['qubes_appvms_dir'], newname))
-        self.assertEqual(self.vm.conf_file,
-            os.path.join(self.vm.dir_path, 'libvirt.xml'))
         self.assertTrue(os.path.exists(
             os.path.join(self.vm.dir_path, "apps", newname + "-vm.directory")))
         # FIXME: set whitelisted-appmenus.list first
-        self.assertTrue(os.path.exists(
-            os.path.join(self.vm.dir_path, "apps", newname + "-firefox.desktop")))
+        self.assertTrue(os.path.exists(os.path.join(
+            self.vm.dir_path, "apps", newname + "-firefox.desktop")))
         self.assertTrue(os.path.exists(
             os.path.join(os.getenv("HOME"), ".local/share/desktop-directories",
                 newname + "-vm.directory")))
@@ -135,7 +129,7 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
 
     def test_001_rename_libvirt_undefined(self):
         self.vm.libvirt_domain.undefine()
-        self.vm._libvirt_domain = None
+        self.vm._libvirt_domain = None  # pylint: disable=protected-access
 
         newname = self.make_vm_name('newname')
         with self.assertNotRaises(
@@ -146,15 +140,20 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         testvm1 = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,
             name=self.make_vm_name("vm"),
+            template=self.app.default_template,
             label='red')
         testvm1.create_on_disk()
         testvm2 = self.app.add_new_vm(testvm1.__class__,
                                      name=self.make_vm_name("clone"),
                                      template=testvm1.template,
-                                     label='red',
-                                     )
+                                     label='red')
         testvm2.clone_properties(testvm1)
         testvm2.clone_disk_files(testvm1)
+        self.assertTrue(testvm1.storage.verify())
+        self.assertIn('source', testvm1.volumes['root'].config)
+        self.assertNotEquals(testvm2, None)
+        self.assertNotEquals(testvm2.volumes, {})
+        self.assertIn('source', testvm2.volumes['root'].config)
 
         # qubes.xml reload
         self.save_and_reload_db()
@@ -200,8 +199,7 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         testvm3 = self.app.add_new_vm(testvm1.__class__,
                                      name=self.make_vm_name("clone2"),
                                      template=testvm1.template,
-                                     label='red',
-                                     )
+                                     label='red',)
         testvm3.clone_properties(testvm1)
         testvm3.clone_disk_files(testvm1)
 
@@ -235,14 +233,15 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         # TODO decide what exception should be here
         with self.assertRaises((qubes.exc.QubesException, ValueError)):
             self.vm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
-                name=self.vmname, template=self.app.default_template)
+                name=self.vmname, template=self.app.default_template,
+                label='red')
             self.vm2.create_on_disk()
 
     def test_021_name_conflict_template(self):
         # TODO decide what exception should be here
         with self.assertRaises((qubes.exc.QubesException, ValueError)):
             self.vm2 = self.app.add_new_vm(qubes.vm.templatevm.TemplateVM,
-                name=self.vmname)
+                name=self.vmname, label='red')
             self.vm2.create_on_disk()
 
     def test_030_rename_conflict_app(self):
@@ -257,6 +256,7 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
                 self.vm2.name = self.vmname
 
 class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
+    # pylint: disable=attribute-defined-outside-init
 
     def setUp(self):
         super(TC_02_QvmPrefs, self).setUp()
@@ -349,7 +349,7 @@ class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             ('invalid', '', False),
             ('[invalid]', '', False),
             # TODO:
-            #('["12:12.0"]', '', False)
+            # ('["12:12.0"]', '', False)
         ])
 
     @unittest.skip('test not converted to core3 API')
@@ -368,6 +368,7 @@ class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
 
 class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestsMixin,
                                      qubes.tests.QubesTestCase):
+    # pylint: disable=attribute-defined-outside-init
 
     def setUp(self):
         super(TC_03_QvmRevertTemplateChanges, self).setUp()
@@ -395,7 +396,7 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestsMixin,
 
     def get_rootimg_checksum(self):
         p = subprocess.Popen(
-            ['sha1sum', self.test_template.volumes['root'].vid],
+            ['sha1sum', self.test_template.volumes['root'].path_cow],
             stdout=subprocess.PIPE)
         return p.communicate()[0]
 
@@ -407,9 +408,11 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestsMixin,
         if checksum_before == checksum_changed:
             self.log.warning("template not modified, test result will be "
                              "unreliable")
+        self.assertNotEqual(self.test_template.volumes['root'].revisions, {})
         with self.assertNotRaises(subprocess.CalledProcessError):
-            subprocess.check_call(['sudo', 'qvm-revert-template-changes',
-                                   '--force', self.test_template.name])
+            pool_vid = repr(self.test_template.volumes['root']).strip("'")
+            revert_cmd = ['qvm-block', 'revert', pool_vid]
+            subprocess.check_call(revert_cmd)
 
         checksum_after = self.get_rootimg_checksum()
         self.assertEquals(checksum_before, checksum_after)
@@ -442,8 +445,7 @@ class TC_04_DispVM(qubes.tests.SystemTestsMixin,
         self.disp_tpl = self.app.add_new_vm(disp_tpl.__class__,
             name=disp_tpl.name,
             template=disp_tpl.template,
-            label='red'
-        )
+            label='red')
         self.app.save()
 
     @staticmethod
@@ -458,6 +460,7 @@ class TC_04_DispVM(qubes.tests.SystemTestsMixin,
         """
 
         testvm1 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+                                     template=self.app.default_template,
                                      name=self.make_vm_name('vm1'),
                                      label='red')
         testvm1.create_on_disk()
@@ -512,6 +515,7 @@ class TC_04_DispVM(qubes.tests.SystemTestsMixin,
         Check firewall propagation VM->DispVM, when VM have no firewall rules
         """
         testvm1 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+                                     template=self.app.default_template,
                                      name=self.make_vm_name('vm1'),
                                      label='red')
         testvm1.create_on_disk()
@@ -544,8 +548,8 @@ class TC_04_DispVM(qubes.tests.SystemTestsMixin,
             dispvm_name = p.stdout.readline().strip()
             self.reload_db()
             dispvm = self.app.domains[dispvm_name]
-            self.assertIsNotNone(dispvm, "DispVM {} not found in qubes.xml".format(
-                dispvm_name))
+            self.assertIsNotNone(
+                dispvm, "DispVM {} not found in qubes.xml".format(dispvm_name))
             # check if firewall was propagated to the DispVM from the right VM
             self.assertEquals(testvm1.get_firewall_conf(),
                               dispvm.get_firewall_conf())
@@ -624,7 +628,5 @@ class TC_04_DispVM(qubes.tests.SystemTestsMixin,
         dispvm = self.app.domains[dispvm_name]
         self.assertIsNone(dispvm, "DispVM {} still exists in qubes.xml".format(
             dispvm_name))
-
-
 
 # vim: ts=4 sw=4 et
