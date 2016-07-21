@@ -190,7 +190,11 @@ class ThinPool(qubes.storage.Pool):
         return volume
 
     def _reset(self, volume):
-        self.remove(volume)
+        try:
+            self.remove(volume)
+        except qubes.storage.StoragePoolException:
+            pass
+
         self.create(volume)
 
     def setup(self):
