@@ -42,7 +42,6 @@ class DeviceCollection(object):
         self._class = class_
         self._set = set()
 
-
     def attach(self, device):
         '''Attach (add) device to domain.
 
@@ -66,7 +65,6 @@ class DeviceCollection(object):
         self._set.add(device)
         self._vm.fire_event('device-attach:' + self._class, device)
 
-
     def detach(self, device):
         '''Detach (remove) device from domain.
 
@@ -81,14 +79,11 @@ class DeviceCollection(object):
         self._set.remove(device)
         self._vm.fire_event('device-detach:' + self._class, device)
 
-
     def __iter__(self):
         return iter(self._set)
 
-
     def __contains__(self, item):
         return item in self._set
-
 
     def __len__(self):
         return len(self._set)
@@ -111,6 +106,7 @@ class DeviceManager(dict):
 
 class RegexDevice(str):
     regex = None
+
     def __init__(self, *args, **kwargs):
         super(RegexDevice, self).__init__(*args, **kwargs)
 
