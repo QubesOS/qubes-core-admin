@@ -85,10 +85,11 @@ def list_pools(app):
     ''' Prints out all known pools and their drivers '''
     result = [('NAME', 'DRIVER')]
     for pool in app.pools.values():
-        if len(pool.volumes) > 0 and not issubclass(
+        if len(pool.volumes) == 0 and issubclass(
                 pool.__class__, qubes.storage.domain.DomainPool):
             # skip empty DomainPools
-            result += [(pool.name, pool.driver)]
+            continue
+        result += [(pool.name, pool.driver)]
     qubes.tools.print_table(result)
 
 
