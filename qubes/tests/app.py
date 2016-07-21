@@ -24,7 +24,6 @@
 #
 
 import os
-import unittest
 import uuid
 
 import lxml.etree
@@ -41,6 +40,18 @@ class TestVM(qubes.vm.BaseVM):
     name = qubes.property('name')
     netid = qid
     uuid = uuid.uuid5(uuid.NAMESPACE_DNS, 'testvm')
+
+    class MockLibvirt(object):
+        def undefine(self):
+            pass
+
+    libvirt_domain = MockLibvirt()
+
+    def is_halted(self):
+        return True
+
+    def get_power_state(self):
+        return "Halted"
 
 class TestApp(qubes.tests.TestEmitter):
     pass
@@ -157,7 +168,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             os.unlink('/tmp/qubestest.xml')
         except:
             pass
-        app = qubes.Qubes.create_empty_store('/tmp/qubestest.xml')
+        qubes.Qubes.create_empty_store('/tmp/qubestest.xml')
 
     @qubes.tests.skipUnlessGit
     def test_900_example_xml_in_doc(self):

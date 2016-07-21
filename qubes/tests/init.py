@@ -23,7 +23,6 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
-import os
 import unittest
 import uuid
 
@@ -70,7 +69,7 @@ class TC_10_property(qubes.tests.QubesTestCase):
         try:
             class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
                 testprop1 = qubes.property('testprop1')
-        except: # pylint: disable=bare-except
+        except:  # pylint: disable=bare-except
             self.skipTest('MyTestHolder class definition failed')
         self.holder = MyTestHolder(None)
 
@@ -120,6 +119,7 @@ class TC_10_property(qubes.tests.QubesTestCase):
             self.assertIs(prop, MyTestHolder.testprop1)
             self.assertEquals(value, 'testvalue')
             return 'settervalue'
+
         class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
             testprop1 = qubes.property('testprop1', setter=setter)
         holder = MyTestHolder(None)
@@ -219,7 +219,6 @@ class TC_20_PropertyHolder(qubes.tests.QubesTestCase):
 
         self.holder = TestHolder(xml)
 
-
     def test_000_property_list(self):
         self.assertListEqual([p.__name__ for p in self.holder.property_list()],
             ['testprop1', 'testprop2', 'testprop3', 'testprop4'])
@@ -292,6 +291,18 @@ class TestVM(qubes.vm.BaseVM):
     name = qubes.property('name')
     netid = qid
     uuid = uuid.uuid5(uuid.NAMESPACE_DNS, 'testvm')
+
+    class MockLibvirt(object):
+        def undefine(self):
+            pass
+
+    libvirt_domain = MockLibvirt()
+
+    def is_halted(self):
+        return True
+
+    def get_power_state(self):
+        return "Halted"
 
 class TestApp(qubes.tests.TestEmitter):
     pass
