@@ -186,7 +186,7 @@ class FilePool(qubes.storage.Pool):
             old_path = volume.path_cow + '.old'
             os.rename(volume.path_cow, old_path)
 
-        old_umask = os.umask(002)
+        old_umask = os.umask(0o002)
         with open(volume.path_cow, 'w') as f_cow:
             f_cow.truncate(volume.size)
         os.umask(old_umask)

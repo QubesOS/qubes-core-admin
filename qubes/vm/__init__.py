@@ -325,7 +325,7 @@ class BaseVM(qubes.PropertyHolder):
         tree = lxml.etree.ElementTree(root)
 
         try:
-            old_umask = os.umask(002)
+            old_umask = os.umask(0o002)
             with open(os.path.join(self.dir_path,
                     self.firewall_conf), 'w') as fd:
                 tree.write(fd, encoding="UTF-8", pretty_print=True)
