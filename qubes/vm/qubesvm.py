@@ -1095,9 +1095,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     def remove_from_disk(self):
         '''Remove domain remnants from disk.'''
         if not self.is_halted():
-            msg = "Can't remove, vm {!s}, beacuse it's in state {!s}."
-            msg = msg.format(self, self.get_power_state())
-            raise qubes.exc.QubesVMNotHaltedError(msg)
+            raise qubes.exc.QubesVMNotHaltedError(
+                "Can't remove VM {!s}, beacuse it's in state {!r}.".format(
+                    self, self.get_power_state()))
 
         self.fire_event('domain-remove-from-disk')
         shutil.rmtree(self.dir_path)
