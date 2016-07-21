@@ -23,6 +23,8 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
+''' Shutdown a qube '''
+
 from __future__ import print_function
 
 import sys
@@ -32,7 +34,7 @@ import qubes.config
 import qubes.tools
 
 parser = qubes.tools.QubesArgumentParser(
-    description='gracefully shut down a qube', vmname_nargs='+')
+    description=__doc__, vmname_nargs='+')
 
 parser.add_argument('--force',
     action='store_true', default=False,
@@ -50,11 +52,12 @@ parser.add_argument('--timeout',
         ' (default: %d)')
 
 
-def main(args=None):
+def main(args=None):  # pylint: disable=missing-docstring
     args = parser.parse_args(args)
 
     for vm in args.domains:
-        vm.shutdown(force=args.force)
+        if not vm.is_halted():
+            vm.shutdown(force=args.force)
 
     if not args.wait:
         return
@@ -64,13 +67,16 @@ def main(args=None):
     while timeout >= 0:
         current_vms = [vm for vm in current_vms
             if vm.get_power_state() != 'Halted']
+        if not current_vms:
+            return 0
         args.app.log.info('Waiting for shutdown ({}): {}'.format(
-            timeout, ', '.join(map(str, current_vms))))
+            timeout, ', '.join([str(vm) for vm in current_vms])))
         time.sleep(1)
         timeout -= 1
 
-    args.app.log.notice(
-        'Killing remaining qubes: {}'.format(', '.join(map(str, current_vms))))
+    args.app.log.info(
+        'Killing remaining qubes: {}'
+        .format(', '.join([str(vm) for vm in current_vms])))
     for vm in current_vms:
         vm.force_shutdown()
 
