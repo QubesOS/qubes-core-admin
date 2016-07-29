@@ -22,6 +22,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+from distutils import spawn
 
 import multiprocessing
 import os
@@ -699,205 +700,121 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestsMixin,
         self.setup_hvm_template()
         self._do_test()
 
-class TC_04_DispVM(qubes.tests.SystemTestsMixin,
-                   qubes.tests.QubesTestCase):
 
-    @staticmethod
-    def get_dispvm_template_name():
-        vmdir = os.readlink('/var/lib/qubes/dvmdata/vmdir')
-        return os.path.basename(vmdir)
-
-    def test_000_firewall_propagation(self):
-        """
-        Check firewall propagation VM->DispVM, when VM have some firewall rules
-        """
-
-        # FIXME: currently qubes.xml doesn't contain this information...
-        dispvm_template_name = self.get_dispvm_template_name()
-        dispvm_template = self.qc.get_vm_by_name(dispvm_template_name)
-
+class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
+    @unittest.skipUnless(spawn.find_executable('xdotool'),
+                         "xdotool not installed")
+    def test_000_clipboard(self):
         testvm1 = self.qc.add_new_vm("QubesAppVm",
                                      name=self.make_vm_name('vm1'),
                                      template=self.qc.get_default_template())
         testvm1.create_on_disk(verbose=False)
-        firewall = testvm1.get_firewall_conf()
-        firewall['allowDns'] = False
-        firewall['allowYumProxy'] = False
-        firewall['rules'] = [{'address': '1.2.3.4',
-                              'netmask': 24,
-                              'proto': 'tcp',
-                              'portBegin': 22,
-                              'portEnd': 22,
-                              }]
-        testvm1.write_firewall_conf(firewall)
+        testvm2 = self.qc.add_new_vm("QubesAppVm",
+                                     name=self.make_vm_name('vm2'),
+                                     template=self.qc.get_default_template())
+        testvm2.create_on_disk(verbose=False)
         self.qc.save()
         self.qc.unlock_db()
 
         testvm1.start()
+        testvm2.start()
 
-        p = testvm1.run("qvm-run --dispvm 'qubesdb-read /name; echo ERROR;"
-                        " read x'",
-                        passio_popen=True)
+        window_title = 'user@{}'.format(testvm1.name)
+        testvm1.run('zenity --text-info --editable --title={}'.format(
+            window_title))
 
-        dispvm_name = p.stdout.readline().strip()
-        self.qc.lock_db_for_reading()
-        self.qc.load()
-        self.qc.unlock_db()
-        dispvm = self.qc.get_vm_by_name(dispvm_name)
-        self.assertIsNotNone(dispvm, "DispVM {} not found in qubes.xml".format(
-            dispvm_name))
-        # check if firewall was propagated to the DispVM
-        self.assertEquals(testvm1.get_firewall_conf(),
-                          dispvm.get_firewall_conf())
-        # and only there (#1608)
-        self.assertNotEquals(dispvm_template.get_firewall_conf(),
-                             dispvm.get_firewall_conf())
-        # then modify some rule
-        firewall = dispvm.get_firewall_conf()
-        firewall['rules'] = [{'address': '4.3.2.1',
-                              'netmask': 24,
-                              'proto': 'tcp',
-                              'portBegin': 22,
-                              'portEnd': 22,
-                              }]
-        dispvm.write_firewall_conf(firewall)
-        # and check again if wasn't saved anywhere else (#1608)
-        self.assertNotEquals(dispvm_template.get_firewall_conf(),
-                             dispvm.get_firewall_conf())
-        self.assertNotEquals(testvm1.get_firewall_conf(),
-                             dispvm.get_firewall_conf())
-        p.stdin.write('\n')
+        self.wait_for_window(window_title)
+        time.sleep(0.5)
+        test_string = "test{}".format(testvm1.xid)
+
+        # Type and copy some text
+        subprocess.check_call(['xdotool', 'search', '--name', window_title,
+                               'windowactivate', '--sync',
+                               'type', '{}'.format(test_string)])
+        # second xdotool call because type --terminator do not work (SEGV)
+        # additionally do not use search here, so window stack will be empty
+        # and xdotool will use XTEST instead of generating events manually -
+        # this will be much better - at least because events will have
+        # correct timestamp (so gui-daemon would not drop the copy request)
+        subprocess.check_call(['xdotool',
+                               'key', 'ctrl+a', 'ctrl+c', 'ctrl+shift+c',
+                               'Escape'])
+
+        clipboard_content = \
+            open('/var/run/qubes/qubes-clipboard.bin', 'r').read().strip()
+        self.assertEquals(clipboard_content, test_string,
+                          "Clipboard copy operation failed - content")
+        clipboard_source = \
+            open('/var/run/qubes/qubes-clipboard.bin.source',
+                 'r').read().strip()
+        self.assertEquals(clipboard_source, testvm1.name,
+                          "Clipboard copy operation failed - owner")
+
+        # Then paste it to the other window
+        window_title = 'user@{}'.format(testvm2.name)
+        p = testvm2.run('zenity --entry --title={} > test.txt'.format(
+                        window_title), passio_popen=True)
+        self.wait_for_window(window_title)
+
+        subprocess.check_call(['xdotool', 'key', '--delay', '100',
+                               'ctrl+shift+v', 'ctrl+v', 'Return'])
         p.wait()
 
-    def test_001_firewall_propagation(self):
-        """
-        Check firewall propagation VM->DispVM, when VM have no firewall rules
-        """
+        # And compare the result
+        (test_output, _) = testvm2.run('cat test.txt',
+                                       passio_popen=True).communicate()
+        self.assertEquals(test_string, test_output.strip())
+
+        clipboard_content = \
+            open('/var/run/qubes/qubes-clipboard.bin', 'r').read().strip()
+        self.assertEquals(clipboard_content, "",
+                          "Clipboard not wiped after paste - content")
+        clipboard_source = \
+            open('/var/run/qubes/qubes-clipboard.bin.source', 'r').read(
+
+            ).strip()
+        self.assertEquals(clipboard_source, "",
+                          "Clipboard not wiped after paste - owner")
+
+class TC_05_StandaloneVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
+    def test_000_create_start(self):
         testvm1 = self.qc.add_new_vm("QubesAppVm",
-                                     name=self.make_vm_name('vm1'),
-                                     template=self.qc.get_default_template())
-        testvm1.create_on_disk(verbose=False)
+                                     template=None,
+                                     name=self.make_vm_name('vm1'))
+        testvm1.create_on_disk(verbose=False,
+                               source_template=self.qc.get_default_template())
         self.qc.save()
         self.qc.unlock_db()
+        testvm1.start()
+        self.assertEquals(testvm1.get_power_state(), "Running")
 
-        # FIXME: currently qubes.xml doesn't contain this information...
-        dispvm_template_name = self.get_dispvm_template_name()
-        dispvm_template = self.qc.get_vm_by_name(dispvm_template_name)
-        original_firewall = None
-        if os.path.exists(dispvm_template.firewall_conf):
-            original_firewall = tempfile.TemporaryFile()
-            with open(dispvm_template.firewall_conf) as f:
-                original_firewall.write(f.read())
-        try:
-
-            firewall = dispvm_template.get_firewall_conf()
-            firewall['allowDns'] = False
-            firewall['allowYumProxy'] = False
-            firewall['rules'] = [{'address': '1.2.3.4',
-                                  'netmask': 24,
-                                  'proto': 'tcp',
-                                  'portBegin': 22,
-                                  'portEnd': 22,
-                                  }]
-            dispvm_template.write_firewall_conf(firewall)
-
-            testvm1.start()
-
-            p = testvm1.run("qvm-run --dispvm 'qubesdb-read /name; echo ERROR;"
-                            " read x'",
-                            passio_popen=True)
-
-            dispvm_name = p.stdout.readline().strip()
-            self.qc.lock_db_for_reading()
-            self.qc.load()
-            self.qc.unlock_db()
-            dispvm = self.qc.get_vm_by_name(dispvm_name)
-            self.assertIsNotNone(dispvm, "DispVM {} not found in qubes.xml".format(
-                dispvm_name))
-            # check if firewall was propagated to the DispVM from the right VM
-            self.assertEquals(testvm1.get_firewall_conf(),
-                              dispvm.get_firewall_conf())
-            # and only there (#1608)
-            self.assertNotEquals(dispvm_template.get_firewall_conf(),
-                                 dispvm.get_firewall_conf())
-            # then modify some rule
-            firewall = dispvm.get_firewall_conf()
-            firewall['rules'] = [{'address': '4.3.2.1',
-                                  'netmask': 24,
-                                  'proto': 'tcp',
-                                  'portBegin': 22,
-                                  'portEnd': 22,
-                                  }]
-            dispvm.write_firewall_conf(firewall)
-            # and check again if wasn't saved anywhere else (#1608)
-            self.assertNotEquals(dispvm_template.get_firewall_conf(),
-                                 dispvm.get_firewall_conf())
-            self.assertNotEquals(testvm1.get_firewall_conf(),
-                                 dispvm.get_firewall_conf())
-            p.stdin.write('\n')
-            p.wait()
-        finally:
-            if original_firewall:
-                original_firewall.seek(0)
-                with open(dispvm_template.firewall_conf, 'w') as f:
-                    f.write(original_firewall.read())
-                original_firewall.close()
-            else:
-                os.unlink(dispvm_template.firewall_conf)
-
-    def test_002_cleanup(self):
+    def test_100_resize_root_img(self):
+        testvm1 = self.qc.add_new_vm("QubesAppVm",
+                                     template=None,
+                                     name=self.make_vm_name('vm1'))
+        testvm1.create_on_disk(verbose=False,
+                               source_template=self.qc.get_default_template())
+        self.qc.save()
         self.qc.unlock_db()
-        p = subprocess.Popen(['/usr/lib/qubes/qfile-daemon-dvm',
-                              'qubes.VMShell', 'dom0', 'DEFAULT'],
-                             stdin=subprocess.PIPE,
-                             stdout=subprocess.PIPE,
-                             stderr=open(os.devnull, 'w'))
-        (stdout, _) = p.communicate(input="echo test; qubesdb-read /name; "
-                                          "echo ERROR\n")
-        self.assertEquals(p.returncode, 0)
-        lines = stdout.splitlines()
-        self.assertEqual(lines[0], "test")
-        dispvm_name = lines[1]
-        self.qc.lock_db_for_reading()
-        self.qc.load()
-        self.qc.unlock_db()
-        dispvm = self.qc.get_vm_by_name(dispvm_name)
-        self.assertIsNone(dispvm, "DispVM {} still exists in qubes.xml".format(
-            dispvm_name))
-
-    def test_003_cleanup_destroyed(self):
-        """
-        Check if DispVM is properly removed even if it terminated itself (#1660)
-        :return:
-        """
-        self.qc.unlock_db()
-        p = subprocess.Popen(['/usr/lib/qubes/qfile-daemon-dvm',
-                              'qubes.VMShell', 'dom0', 'DEFAULT'],
-                             stdin=subprocess.PIPE,
-                             stdout=subprocess.PIPE,
-                             stderr=open(os.devnull, 'w'))
-        p.stdin.write("qubesdb-read /name\n")
-        p.stdin.write("echo ERROR\n")
-        p.stdin.write("sudo poweroff\n")
-        # do not close p.stdin on purpose - wait to automatic disconnect when
-        #  domain is destroyed
-        timeout = 30
-        while timeout > 0:
-            if p.poll():
-                break
+        with self.assertRaises(QubesException):
+            testvm1.resize_root_img(20*1024**3)
+        testvm1.resize_root_img(20*1024**3, allow_start=True)
+        timeout = 60
+        while testvm1.is_running():
             time.sleep(1)
             timeout -= 1
-        # includes check for None - timeout
-        self.assertEquals(p.returncode, 0)
-        lines = p.stdout.read().splitlines()
-        dispvm_name = lines[0]
-        self.assertNotEquals(dispvm_name, "ERROR")
-        self.qc.lock_db_for_reading()
-        self.qc.load()
-        self.qc.unlock_db()
-        dispvm = self.qc.get_vm_by_name(dispvm_name)
-        self.assertIsNone(dispvm, "DispVM {} still exists in qubes.xml".format(
-            dispvm_name))
+            if timeout == 0:
+                self.fail("Timeout while waiting for VM shutdown")
+        self.assertEquals(testvm1.get_root_img_sz(), 20*1024**3)
+        testvm1.start()
+        p = testvm1.run('df --output=size /|tail -n 1',
+                        passio_popen=True)
+        # new_size in 1k-blocks
+        (new_size, _) = p.communicate()
+        # some safety margin for FS metadata
+        self.assertGreater(int(new_size.strip()), 19*1024**2)
+
+
 
 
 
