@@ -47,7 +47,9 @@ def vm_run_cmd(vm, cmd, options):
     if options.verbose:
         print >> sys.stderr, "Running command on VM: '{0}'...".format(vm.name)
     if options.passio and options.color_output is not None:
-        print "\033[0;%dm" % options.color_output,
+        sys.stdout.write("\033[0;{}m".format(options.color_output))
+    if options.passio and options.color_stderr is not None:
+        sys.stderr.write("\033[0;{}m".format(options.color_stderr))
 
     try:
         def tray_notify_generic(level, str):
@@ -65,6 +67,8 @@ def vm_run_cmd(vm, cmd, options):
     except QubesException as err:
         if options.passio and options.color_output is not None:
             sys.stdout.write("\033[0m")
+        if options.passio and options.color_stderr is not None:
+            sys.stderr.write("\033[0m")
         if options.tray:
             tray_notify_error(str(err))
             notify_error_qubes_manager(vm.name, str(err))
@@ -73,6 +77,8 @@ def vm_run_cmd(vm, cmd, options):
     finally:
         if options.passio and options.color_output is not None:
             sys.stdout.write("\033[0m")
+        if options.passio and options.color_stderr is not None:
+            sys.stderr.write("\033[0m")
 
 def main():
     usage = "usage: %prog [options] [<vm-name>] [<cmd>]"
@@ -122,9 +128,18 @@ def main():
                       dest="color_output", default=None,
                       help="Disable marking VM output with red color")
 
+    parser.add_option("--no-color-stderr", action="store_false",
+                      dest="color_stderr", default=None,
+                      help="Disable marking VM stderr with red color")
+
     parser.add_option("--color-output", action="store", type="int",
                       dest="color_output",
                       help="Force marking VM output with given ANSI style ("
+                           "use 31 for red)")
+
+    parser.add_option("--color-stderr", action="store", type="int",
+                      dest="color_stderr",
+                      help="Force marking VM stderr with given ANSI style ("
                            "use 31 for red)")
 
     (options, args) = parser.parse_args ()
@@ -144,6 +159,12 @@ def main():
             options.color_output = 31
     elif options.color_output is False:
         options.color_output = None
+
+    if options.color_stderr is None:
+        if os.isatty(sys.stderr.fileno()) and not options.localcmd:
+            options.color_stderr = 31
+    elif options.color_stderr is False:
+        options.color_stderr = None
 
     if (options.pause or options.unpause):
         takes_cmd_argument = False
