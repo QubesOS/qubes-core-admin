@@ -862,6 +862,151 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         # some safety margin for FS metadata
         self.assertGreater(int(new_size.strip()), 5.8*1024**2)
 
+    @unittest.skipUnless(spawn.find_executable('xdotool'),
+                         "xdotool not installed")
+    def test_300_bug_1028_gui_memory_pinning(self):
+        """
+        If VM window composition buffers are relocated in memory, GUI will
+        still use old pointers and will display old pages
+        :return:
+        """
+        self.testvm1.memory = 800
+        self.testvm1.maxmem = 800
+        # exclude from memory balancing
+        self.testvm1.services['meminfo-writer'] = False
+        self.testvm1.start()
+        # and allow large map count
+        self.testvm1.run("echo 256000 > /proc/sys/vm/max_map_count",
+            user="root", wait=True)
+        allocator_c = (
+            "#include <sys/mman.h>\n"
+            "#include <stdlib.h>\n"
+            "#include <stdio.h>\n"
+            "\n"
+            "int main(int argc, char **argv) {\n"
+            "	int total_pages;\n"
+            "	char *addr, *iter;\n"
+            "\n"
+            "	total_pages = atoi(argv[1]);\n"
+            "	addr = mmap(NULL, total_pages * 0x1000, PROT_READ | "
+            "PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);\n"
+            "	if (addr == MAP_FAILED) {\n"
+            "		perror(\"mmap\");\n"
+            "		exit(1);\n"
+            "	}\n"
+            "	printf(\"Stage1\\n\");\n"
+            "   fflush(stdout);\n"
+            "	getchar();\n"
+            "	for (iter = addr; iter < addr + total_pages*0x1000; iter += "
+            "0x2000) {\n"
+            "		if (mlock(iter, 0x1000) == -1) {\n"
+            "			perror(\"mlock\");\n"
+            "           fprintf(stderr, \"%d of %d\\n\", (iter-addr)/0x1000, "
+            "total_pages);\n"
+            "			exit(1);\n"
+            "		}\n"
+            "	}\n"
+            "	printf(\"Stage2\\n\");\n"
+            "   fflush(stdout);\n"
+            "	for (iter = addr+0x1000; iter < addr + total_pages*0x1000; "
+            "iter += 0x2000) {\n"
+            "		if (munmap(iter, 0x1000) == -1) {\n"
+            "			perror(\"munmap\");\n"
+            "			exit(1);\n"
+            "		}\n"
+            "	}\n"
+            "	printf(\"Stage3\\n\");\n"
+            "   fflush(stdout);\n"
+            "   fclose(stdout);\n"
+            "	getchar();\n"
+            "\n"
+            "	return 0;\n"
+            "}\n")
+
+        p = self.testvm1.run("cat > allocator.c", passio_popen=True)
+        p.communicate(allocator_c)
+        p = self.testvm1.run("gcc allocator.c -o allocator",
+            passio_popen=True, passio_stderr=True)
+        (stdout, stderr) = p.communicate()
+        if p.returncode != 0:
+            self.skipTest("allocator compile failed: {}".format(stderr))
+
+        # drop caches to have even more memory pressure
+        self.testvm1.run("echo 3 > /proc/sys/vm/drop_caches",
+            user="root", wait=True)
+
+        # now fragment all free memory
+        p = self.testvm1.run("grep ^MemFree: /proc/meminfo|awk '{print $2}'",
+            passio_popen=True)
+        memory_pages = int(p.communicate()[0].strip())
+        memory_pages /= 4 # 4k pages
+        alloc1 = self.testvm1.run(
+            "ulimit -l unlimited; exec /home/user/allocator {}".format(
+                memory_pages),
+            user="root", passio_popen=True, passio_stderr=True)
+        # wait for memory being allocated; can't use just .read(), because EOF
+        # passing is unreliable while the process is still running
+        alloc1.stdin.write("\n")
+        alloc1.stdin.flush()
+        alloc_out = alloc1.stdout.read(len("Stage1\nStage2\nStage3\n"))
+
+        if "Stage3" not in alloc_out:
+            # read stderr only in case of failed assert, but still have nice
+            # failure message (don't use self.fail() directly)
+            self.assertIn("Stage3", alloc_out, alloc1.stderr.read())
+
+        # now, launch some window - it should get fragmented composition buffer
+        # it is important to have some changing content there, to generate
+        # content update events (aka damage notify)
+        proc = self.testvm1.run("gnome-terminal --full-screen -e top",
+            passio_popen=True)
+
+        # help xdotool a little...
+        time.sleep(2)
+        # get window ID
+        search = subprocess.Popen(['xdotool', 'search', '--sync',
+            '--onlyvisible', '--class', self.testvm1.name + ':.*erminal'],
+            stdout=subprocess.PIPE)
+        winid = search.communicate()[0].strip()
+        xprop = subprocess.Popen(['xprop', '-notype', '-id', winid,
+            '_QUBES_VMWINDOWID'], stdout=subprocess.PIPE)
+        vm_winid = xprop.stdout.read().strip().split(' ')[4]
+
+        # now free the fragmented memory and trigger compaction
+        alloc1.stdin.write("\n")
+        alloc1.wait()
+        self.testvm1.run("echo 1 > /proc/sys/vm/compact_memory", user="root")
+
+        # now window may be already "broken"; to be sure, allocate (=zero)
+        # some memory
+        alloc2 = self.testvm1.run(
+            "ulimit -l unlimited; /home/user/allocator {}".format(memory_pages),
+            user="root", passio_popen=True, passio_stderr=True)
+        alloc2.stdout.read(len("Stage1\n"))
+
+        # wait for damage notify - top updates every 3 sec by default
+        time.sleep(6)
+
+        # now take screenshot of the window, from dom0 and VM
+        # choose pnm format, as it doesn't have any useless metadata - easy
+        # to compare
+        p = self.testvm1.run("import -window {} pnm:-".format(vm_winid),
+            passio_popen=True, passio_stderr=True)
+        (vm_image, stderr) = p.communicate()
+        if p.returncode != 0:
+            raise Exception("Failed to get VM window image: {}".format(
+                stderr))
+
+        p = subprocess.Popen(["import", "-window", winid, "pnm:-"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (dom0_image, stderr) = p.communicate()
+        if p.returncode != 0:
+            raise Exception("Failed to get dom0 window image: {}".format(
+                stderr))
+
+        if vm_image != dom0_image:
+            self.fail("Dom0 window doesn't match VM window content")
+
 
 def load_tests(loader, tests, pattern):
     try:
