@@ -35,6 +35,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import uuid
 import warnings
 
@@ -742,7 +743,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self
 
-    def shutdown(self, force=False):
+    def shutdown(self, force=False, wait=False):
         '''Shutdown domain.
 
         :raises qubes.exc.QubesVMNotStartedError: \
@@ -769,6 +770,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.libvirt_domain.shutdown()
         self.storage.stop()
+
+        while wait and not self.is_halted():
+            time.sleep(0.25)
 
         return self
 
