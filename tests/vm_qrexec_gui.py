@@ -1135,7 +1135,9 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
         time.sleep(1)
         if "gedit" in window_title:
             subprocess.check_call(['xdotool', 'windowactivate', '--sync', winid,
-                'type', 'Test test 2\n'])
+                                   'type', 'Test test 2'])
+            subprocess.check_call(['xdotool', 'key', '--window', winid,
+                                   'key', 'Return'])
             time.sleep(0.5)
             subprocess.check_call(['xdotool',
                                    'key', 'ctrl+s', 'ctrl+q'])
@@ -1150,14 +1152,18 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
                 winid = search.stdout.read().strip()
             time.sleep(0.5)
             subprocess.check_call(['xdotool', 'windowactivate', '--sync', winid,
-                'type', 'Test test 2\n'])
+                                   'type', 'Test test 2'])
+            subprocess.check_call(['xdotool', 'key', '--window', winid,
+                                   'key', 'Return'])
             time.sleep(0.5)
             subprocess.check_call(['xdotool',
                                    'key', '--delay', '100', 'ctrl+s',
                 'Return', 'ctrl+q'])
         elif "emacs" in window_title:
             subprocess.check_call(['xdotool', 'windowactivate', '--sync', winid,
-                                   'type', 'Test test 2\n'])
+                                   'type', 'Test test 2'])
+            subprocess.check_call(['xdotool', 'key', '--window', winid,
+                                   'key', 'Return'])
             time.sleep(0.5)
             subprocess.check_call(['xdotool',
                                    'key', 'ctrl+x', 'ctrl+s'])
@@ -1165,7 +1171,9 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
                                    'key', 'ctrl+x', 'ctrl+c'])
         elif "vim" in window_title or "user@" in window_title:
             subprocess.check_call(['xdotool', 'windowactivate', '--sync', winid,
-                                   'key', 'i', 'type', 'Test test 2\n'])
+                                   'key', 'i', 'type', 'Test test 2'])
+            subprocess.check_call(['xdotool', 'key', '--window', winid,
+                                   'key', 'Return'])
             subprocess.check_call(
                 ['xdotool',
                  'key', 'Escape', 'colon', 'w', 'q', 'Return'])
