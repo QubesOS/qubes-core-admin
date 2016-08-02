@@ -78,4 +78,3 @@ class TC_00_Regressions(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase)
             p.stdin.close()
             self.assertTrue(dispvm_name.startswith("disp"),
                                  "Try {} failed".format(try_no))
-
