@@ -518,10 +518,10 @@ class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
         p = self.netvm_repo.run(
             "mkdir -p /tmp/apt-repo/dists/test && "
             "cd /tmp/apt-repo/dists/test && "
-            "cat > Release <<EOF && "
-            "echo '' $(sha1sum {p} | cut -f 1 -d ' ') $(stat -c %s {p}) {p}"
+            "cat > Release && "
+            "echo '' $(sha256sum {p} | cut -f 1 -d ' ') $(stat -c %s {p}) {p}"
             " >> Release && "
-            "echo '' $(sha1sum {z} | cut -f 1 -d ' ') $(stat -c %s {z}) {z}"
+            "echo '' $(sha256sum {z} | cut -f 1 -d ' ') $(stat -c %s {z}) {z}"
             " >> Release"
             .format(p="main/binary-amd64/Packages",
                     z="main/binary-amd64/Packages.gz"),
@@ -531,11 +531,10 @@ class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
             "Label: Test repo\n"
             "Suite: test\n"
             "Codename: test\n"
-            "Date: Tue, 27 Oct 2015 03:22:09 +0100\n"
+            "Date: Tue, 27 Oct 2015 03:22:09 UTC\n"
             "Architectures: amd64\n"
             "Components: main\n"
-            "SHA1:\n"
-            "EOF\n"
+            "SHA256:\n"
         )
         p.stdin.close()
         if p.wait() != 0:
