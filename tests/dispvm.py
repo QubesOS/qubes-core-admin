@@ -394,7 +394,16 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
             retcode = search.wait()
             if retcode == 0:
                 winid = search.stdout.read().strip()
-                break
+                # get window title
+                (window_title, _) = subprocess.Popen(
+                    ['xdotool', 'getwindowname', winid], stdout=subprocess.PIPE). \
+                    communicate()
+                window_title = window_title.strip()
+                # ignore LibreOffice splash screen and window with no title
+                # set yet
+                if window_title and not window_title.startswith("LibreOffice")\
+                        and not window_title == 'VMapp command':
+                    break
             wait_count += 1
             if wait_count > 100:
                 self.fail("Timeout while waiting for editor window")
