@@ -34,6 +34,7 @@ class ExtraTestCase(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     def setUp(self):
         super(ExtraTestCase, self).setUp()
         self.qc.unlock_db()
+        self.default_netvm = None
 
     def create_vms(self, names):
         """
@@ -52,7 +53,9 @@ class ExtraTestCase(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         for vmname in names:
             vm = self.qc.add_new_vm("QubesAppVm",
                                     name=self.make_vm_name(vmname),
-                                    template=template)
+                                    template=template,
+                                    uses_default_netvm=False,
+                                    netvm=self.default_netvm)
             vm.create_on_disk(verbose=False)
         self.save_and_reload_db()
         self.qc.unlock_db()
@@ -67,9 +70,11 @@ class ExtraTestCase(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         """
         Enable access to the network. Must be called before creating VMs.
         """
-        # nothing to do in core2
-        pass
-
+        self.default_netvm = self.qc.get_default_netvm()
+        if self.template.startswith('whonix-ws'):
+            whonix_netvm = self.qc.get_vm_by_name('sys-whonix')
+            if whonix_netvm:
+                self.default_netvm = whonix_netvm
 
 def load_tests(loader, tests, pattern):
     for entry in pkg_resources.iter_entry_points('qubes.tests.extra'):
