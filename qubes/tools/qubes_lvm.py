@@ -66,22 +66,19 @@ def pool_exists(args):
     return False
 
 
-def thin_volume_exists(volume):
+def volume_exists(volume):
     """ Check if the given volume exists and is a thin volume """
     log.debug("Checking if the %s thin volume exists", volume)
     assert volume is not None
-
-    cmd = ['sudo', 'lvs', '-o', 'lv_modules', '--rows', volume]
-    try:
-        output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-        log.debug(output)
-        # Just because the above command succeded it does not mean that we
-        # really have a volume managed by a thin pool. It could be just any
-        # volume. Below we check that the volume uses the thin-pool module.
-        if "thin-pool,thin" in output:
+    vg_name, volume_name = volume.split('/', 1)
+    volume_group = lvm.vgOpen(vg_name)
+    for p in volume_group.listLVs():
+        if p.getAttr()[0] == 'V' and p.getName() == volume_name:
+            volume_group.close()
             return True
-    except subprocess.CalledProcessError:
-        return False
+
+    volume_group.close()
+    return False
 
 
 def remove_volume(args):
@@ -92,7 +89,7 @@ def remove_volume(args):
         process still has the volume locked.
     """
     img = args.name
-    if not thin_volume_exists(img):
+    if not volume_exists(img):
         log.info("Expected to remove %s, but volume does not exist", img)
         return
 
