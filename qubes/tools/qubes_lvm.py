@@ -28,7 +28,7 @@ import os
 import subprocess
 import sys
 import time
-import lvm
+import lvm  # pylint: disable=import-error
 
 import qubes
 
