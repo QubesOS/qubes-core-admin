@@ -1,9 +1,5 @@
 #!/bin/sh
 
-if [ "`id -u`" != "0" ]; then
-	exec sudo $0 $*
-fi
-
 set -e
 
 if ! echo $PATH | grep -q sbin; then
