@@ -133,13 +133,17 @@ def main(args=None):
     if args.debug:
         vm.debug = args.debug
 
-    try:
+    if args.debug:
         vm.start(
             preparing_dvm=args.preparing_dvm,
             start_guid=args.start_guid)
-    except qubes.exc.QubesException as e:
-        parser.error_runtime('Qubes error: {!r}'.format(e))
-
+    else:
+        try:
+            vm.start(
+                preparing_dvm=args.preparing_dvm,
+                start_guid=args.start_guid)
+        except qubes.exc.QubesException as e:
+            parser.error_runtime('Qubes error: {!r}'.format(e))
     return 0
 
 
