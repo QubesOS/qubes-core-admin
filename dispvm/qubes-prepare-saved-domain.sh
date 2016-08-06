@@ -74,8 +74,13 @@ fstype=`df --output=fstype $VMDIR | tail -n 1`
 if [ "$fstype" = "tmpfs" ]; then
     # bsdtar doesn't work on tmpfs because FS_IOC_FIEMAP ioctl isn't supported
     # there
-    tar -cSf saved-cows.tar volatile.img
+    tar -cSf saved-cows.tar volatile.img || exit 1
 else
-    bsdtar -cSf saved-cows.tar volatile.img
+    errors=`bsdtar -cSf saved-cows.tar volatile.img 2>&1`
+    if [ -n "$errors" ]; then
+        echo "Failed to create saved-cows.tar: $errors" >&2
+        rm -f saved-cows.tar
+        exit 1
+    fi
 fi
 echo "DVM savefile created successfully."
