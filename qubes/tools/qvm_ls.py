@@ -463,9 +463,10 @@ class Table(object):
     :param qubes.Qubes app: Qubes application object.
     :param list colnames: Names of the columns (need not to be uppercase).
     '''
-    def __init__(self, app, colnames):
+    def __init__(self, app, colnames, raw_data=False):
         self.app = app
         self.columns = tuple(Column.columns[col.upper()] for col in colnames)
+        self.raw_data = raw_data
 
 
     def format_head(self):
@@ -478,7 +479,10 @@ class Table(object):
 
     def format_row(self, vm):
         '''Format single table row (all columns for one domain).'''
-        return ''.join(col.cell(vm) for col in self.columns)
+        if self.raw_data:
+            return '|'.join(col.format(vm) for col in self.columns)
+        else:
+            return ''.join(col.cell(vm) for col in self.columns)
 
 
     def write_table(self, stream=sys.stdout):
@@ -487,7 +491,8 @@ class Table(object):
         :param file stream: Stream to write the table to.
         '''
 
-        stream.write(self.format_head() + '\n')
+        if not self.raw_data:
+            stream.write(self.format_head() + '\n')
         for vm in self.app.domains:
             stream.write(self.format_row(vm) + '\n')
 
@@ -588,6 +593,10 @@ def get_parser():
         action='store',
         help='user specified format (see available columns below)')
 
+
+    parser.add_argument('--raw-data', action='store_true',
+        help='Display specify data of specified VMs. Intended for '
+             'bash-parsing.')
 
 #   parser.add_argument('--conf', '-c',
 #       action='store', metavar='CFGFILE',

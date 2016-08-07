@@ -99,6 +99,10 @@ enabled = 1
 
     def setUp(self):
         super(TC_00_Dom0UpgradeMixin, self).setUp()
+        if self.template.startswith('whonix-'):
+            # Whonix redirect all the traffic through tor, so repository
+            # on http://localhost:8080/ is unavailable
+            self.skipTest("Test not supported for this template")
         self.init_default_template(self.template)
         self.updatevm = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,
@@ -260,7 +264,8 @@ Test package
         open(self.update_flag_path, 'a').close()
 
         # remove also repodata to test #1685
-        shutil.rmtree('/var/lib/qubes/updates/repodata')
+        if os.path.exists('/var/lib/qubes/updates/repodata'):
+            shutil.rmtree('/var/lib/qubes/updates/repodata')
         logpath = os.path.join(self.tmpdir, 'dom0-update-output.txt')
         try:
             subprocess.check_call(['sudo', '-E', 'qubes-dom0-update', '-y',

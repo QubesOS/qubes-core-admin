@@ -62,14 +62,26 @@ Options
 .. option:: --colour-output=COLOUR, --color-output=COLOR
 
    Mark the qube output with given ANSI colour (ie. "31" for red). The exact
-   apping of numbers to colours and styles depends of the particular terminal
+   mapping of numbers to colours and styles depends of the particular terminal
    emulator.
 
    Colouring can be disabled with :option:`--no-colour-output`.
 
+.. option:: --colour-stderr=COLOUR, --color-stderr=COLOR
+
+   Mark the qube stderr with given ANSI colour (ie. "31" for red). The exact
+   mapping of numbers to colours and styles depends of the particular terminal
+   emulator.
+
+   Colouring can be disabled with :option:`--no-colour-stderr`.
+
 .. option:: --no-colour-output, --no-color-output
 
-   Disable colouring the stdio.
+   Disable colouring the stdout.
+
+.. option:: --no-colour-stderr, --no-color-stderr
+
+   Disable colouring the stderr.
 
 .. option:: --filter-escape-chars
 

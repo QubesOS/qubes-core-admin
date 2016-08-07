@@ -455,10 +455,15 @@ class SystemTestsMixin(object):
         if not self.app.default_template:
             self.skipTest('Default template required for testing networking')
         default_netvm = self.host_app.default_netvm
+        # if testing Whonix Workstation based VMs, try to use sys-whonix instead
+        if self.app.default_template.name.startswith('whonix-ws'):
+            if 'sys-whonix' in self.host_app.domains:
+                default_netvm = self.host_app.domains['sys-whonix']
         if default_netvm is None:
             self.skipTest('Default netvm required')
         if not default_netvm.is_running():
-            self.skipTest('Default netvm required to be running')
+            self.skipTest('VM {} required to be running'.format(
+                default_netvm.name))
         # Add NetVM stub to qubes-test.xml matching the one on host.
         # Keeping 'qid' the same is critical because IP addresses are
         # calculated from it.
@@ -670,7 +675,7 @@ class SystemTestsMixin(object):
         # accessing window properties
         self.wait_for_window(title)
         command = ['xdotool', 'search', '--name', title,
-                   'windowactivate',
+                   'windowactivate', '--sync',
                    'key'] + keys
         subprocess.check_call(command)
 
@@ -819,6 +824,7 @@ class BackupTestsMixin(SystemTestsMixin):
         testnet = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=vmname, template=template, provides_network=True, label='red')
         testnet.create_on_disk()
+        testnet.features['services/ntpd'] = True
         vms.append(testnet)
         self.fill_image(testnet.volumes['private'].path, 20*1024*1024)
 

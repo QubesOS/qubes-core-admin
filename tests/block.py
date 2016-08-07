@@ -39,8 +39,11 @@ class TC_00_List(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
                 name=self.make_vm_name("vm"),
                 template=self.qc.get_vm_by_name(self.template))
             self.vm.create_on_disk(verbose=False)
+            self.save_and_reload_db()
+            self.qc.unlock_db()
             self.vm.start()
         else:
+            self.qc.unlock_db()
             self.vm = self.qc[0]
 
     def tearDown(self):
@@ -200,6 +203,9 @@ class TC_00_List(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             self.fail("Device {} not found in {!r}".format('test-dm', dev_list))
 
     def test_013_list_dm_removed(self):
+        if self.template is None:
+            self.skipTest('test not supported in dom0 - loop devices excluded '
+                          'in dom0')
         self.run_script(
             "set -e;"
             "truncate -s 128M {path}; "

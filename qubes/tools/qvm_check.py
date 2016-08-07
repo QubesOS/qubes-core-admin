@@ -29,19 +29,46 @@ import sys
 import qubes.tools
 
 parser = qubes.tools.QubesArgumentParser(description=__doc__, vmname_nargs='+')
+parser.add_argument("--running", action="store_true", dest="running",
+    default=False, help="Determine if (any of given) VM is running")
+parser.add_argument("--paused", action="store_true", dest="paused",
+    default=False, help="Determine if (any of given) VM is paused")
+parser.add_argument("--template", action="store_true", dest="template",
+    default=False, help="Determine if (any of given) VM is a template")
+
+
+def print_msg(domains, what_single, what_plural):
+    if len(domains) == 0:
+        print("None of given VM {!s}".format(what_single))
+    if len(domains) == 1:
+        print("VM {!s} {!s}".format(domains[0], what_single))
+    else:
+        txt = ", ".join([vm.name for vm in domains])
+        print("VMs {!s} {!s}".format(txt, what_plural))
 
 
 def main(args=None):
     args = parser.parse_args(args)
     domains = args.domains
-    if args.verbose:
-        if len(domains) == 1:
-            print("VM {!s} exist".format(domains[0]))
-        else:
-            txt = ", ".join([vm.name for vm in domains]).strip()
-            msg = "VMs {!s} exist".format(txt)
-            print(msg.format(txt))
-
+    if args.running:
+        running = [vm for vm in domains if vm.is_running()]
+        if args.verbose:
+            print_msg(running, "is running", "are running")
+        return 0 if running else 1
+    elif args.paused:
+        paused = [vm for vm in domains if vm.is_paused()]
+        if args.verbose:
+            print_msg(paused, "is paused", "are running")
+        return 0 if paused else 1
+    elif args.template:
+        template = [vm for vm in domains if vm.is_template()]
+        if args.verbose:
+            print_msg(template, "is a template", "are templates")
+        return 0 if template else 1
+    else:
+        if args.verbose:
+            print_msg(domains, "exists", "exist")
+        return 0 if domains else 1
 
 if __name__ == '__main__':
     sys.exit(main())

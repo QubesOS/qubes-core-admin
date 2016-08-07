@@ -755,19 +755,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.fire_event_pre('domain-pre-shutdown', force=force)
 
-        # try to gracefully detach PCI devices before shutdown, to mitigate
-        # timeouts on forcible detach at domain destroy; if that fails, too bad
-        for device in self.devices['pci']:
-            try:
-                self.libvirt_domain.detachDevice(self.app.env.get_template(
-                    'libvirt/devices/pci.xml').render(device=device))
-            except libvirt.libvirtError as e:
-                self.log.warning(
-                    'error while gracefully detaching PCI device ({!r}) during'
-                    ' shutdown of {!r}; error code: {!r}; continuing'
-                    ' anyway'.format(device, self.name, e.get_error_code()),
-                    exc_info=1)
-
         self.libvirt_domain.shutdown()
         self.storage.stop()
 
@@ -975,6 +962,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             # Internally use passio_popen, but do not return POpen object to
             # the user - use internally for p.communicate()
             passio_popen = True
+            passio_stderr = True
 
         source = 'dom0' if source is None else self.app.domains[source].name
 

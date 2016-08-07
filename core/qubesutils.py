@@ -49,6 +49,9 @@ import xen.lowlevel.xs
 AVAILABLE_FRONTENDS = ['xvd'+c for c in
                        string.lowercase[8:]+string.lowercase[:8]]
 
+class USBProxyNotInstalled(QubesException):
+    pass
+
 def mbytes_to_kmg(size):
     if size > 1024:
         return "%d GiB" % (size/1024)
@@ -580,9 +583,14 @@ def usb_attach(qvmc, vm, device, auto_detach=False, wait=True):
         p = vm.run_service('qubes.USBAttach', passio_popen=True, user='root')
         (stdout, stderr) = p.communicate(
             '{} {}\n'.format(device['vm'].name, device['device']))
-        if p.returncode != 0:
+        if p.returncode == 127:
+            raise USBProxyNotInstalled(
+                "qubes-usb-proxy not installed in the VM")
+        elif p.returncode != 0:
             # TODO: sanitize and include stdout
-            raise QubesException('Device attach failed')
+            sanitized_stderr = ''.join([c for c in stderr if ord(c) >= 0x20])
+            raise QubesException('Device attach failed: {}'.format(
+                sanitized_stderr))
     finally:
         # FIXME: there is a race condition here - some other process might
         # modify the file in the meantime. This may result in unexpected
@@ -658,7 +666,8 @@ class QubesWatch(object):
                 # which can just remove the domain
                 if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                     pass
-                raise
+                else:
+                    raise
         # and for dom0
         self._register_watches(None)
 
@@ -689,6 +698,10 @@ class QubesWatch(object):
         return '/local/domain/%s/memory/meminfo' % xid
 
     def _register_watches(self, libvirt_domain):
+        if libvirt_domain and libvirt_domain.ID() == 0:
+            # don't use libvirt object for dom0, to always have the same
+            # hardcoded "dom0" name
+            libvirt_domain = None
         if libvirt_domain:
             name = libvirt_domain.name()
             if name in self._qdb:
@@ -709,6 +722,8 @@ class QubesWatch(object):
                 return
         else:
             name = "dom0"
+            if name in self._qdb:
+                return
             self._qdb[name] = QubesDB(name)
         try:
             self._qdb[name].watch('/qubes-block-devices')
@@ -729,7 +744,10 @@ class QubesWatch(object):
         self._register_watches(libvirt_domain)
 
     def _unregister_watches(self, libvirt_domain):
-        name = libvirt_domain.name()
+        if libvirt_domain and libvirt_domain.ID() == 0:
+            name = "dom0"
+        else:
+            name = libvirt_domain.name()
         if name in self._qdb_events:
             libvirt.virEventRemoveHandle(self._qdb_events[name])
             del(self._qdb_events[name])

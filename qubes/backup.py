@@ -2271,5 +2271,7 @@ class BackupRestore(object):
                 self.log.error("*** Error while setting home directory owner")
 
         shutil.rmtree(self.tmpdir)
+        self.log.info("-> Done. Please install updates for all the restored "
+                      "templates.")
 
 # vim:sw=4:et:

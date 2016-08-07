@@ -34,6 +34,11 @@ Options
    :option:`--format`. All columns along with short descriptions can be listed
    with :option:`--help-columns`.
 
+.. option:: --raw-data
+
+   Output data in easy to parse format. Table header is skipped and columns are
+   separated by `|` character.
+
 .. option:: --verbose, -v
 
    Increase verbosity.

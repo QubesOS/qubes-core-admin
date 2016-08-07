@@ -202,7 +202,8 @@ class QubesVm(object):
             'kernelopts', 'services', 'installed_by_rpm',\
             'uses_default_netvm', 'include_in_backups', 'debug',\
             'qrexec_timeout', 'autostart', 'uses_default_dispvm_netvm',
-            'backup_content', 'backup_size', 'backup_path', 'pool_name' ]:
+            'backup_content', 'backup_size', 'backup_path', 'pool_name',\
+            'pci_e820_host']:
             attrs[prop]['save'] = lambda prop=prop: str(getattr(self, prop))
         # Simple paths
         for prop in ['conf_file', 'firewall_conf']:
@@ -966,7 +967,7 @@ class QubesVm(object):
         uuid = self.uuid
 
         start_time = vmm.xs.read('', "/vm/%s/start_time" % str(uuid))
-        if start_time != '':
+        if start_time:
             return datetime.datetime.fromtimestamp(float(start_time))
         else:
             return None
@@ -1414,7 +1415,8 @@ class QubesVm(object):
                 raise
 
         if os.path.exists("/etc/systemd/system/multi-user.target.wants/qubes-vm@" + self.name + ".service"):
-            subprocess.call(["sudo", "systemctl", "-q", "disable","qubes-vm@" + self.name + ".service"])
+            retcode = subprocess.call(["sudo", "systemctl", "-q", "disable",
+                "qubes-vm@" + self.name + ".service"])
             if retcode != 0:
                 raise QubesException("Failed to delete autostart entry for VM")
 
@@ -1690,13 +1692,14 @@ class QubesVm(object):
                             localcmd=localcmd, user=user, wait=wait, gui=gui)
         elif input:
             p = self.run("QUBESRPC %s %s" % (service, source),
-                user=user, wait=wait, gui=gui, passio_popen=True)
+                user=user, wait=wait, gui=gui, passio_popen=True,
+                passio_stderr=True)
             p.communicate(input)
             return p.returncode
         else:
             return self.run("QUBESRPC %s %s" % (service, source),
                             passio_popen=passio_popen, user=user, wait=wait,
-                            gui=gui)
+                            gui=gui, passio_stderr=passio_popen)
 
     def attach_network(self, verbose = False, wait = True, netvm = None):
         self.log.debug('attach_network(netvm={!r})'.format(netvm))
@@ -2053,15 +2056,6 @@ class QubesVm(object):
 
         if not self.is_running():
             raise QubesException ("VM already stopped!")
-
-        # try to gracefully detach PCI devices before shutdown, to mitigate
-        # timeouts on forcible detach at domain destroy; if that fails, too bad
-        try:
-            for pcidev in self.pcidevs:
-                self.libvirt_domain.detachDevice(self._format_pci_dev(pcidev))
-        except libvirt.libvirtError as e:
-            print >>sys.stderr, "WARNING: {}, continuing VM shutdown " \
-                                "anyway".format(str(e))
 
         self.libvirt_domain.shutdown()
 

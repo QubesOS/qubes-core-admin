@@ -44,6 +44,10 @@ def main(args=None):  # pylint: disable=missing-docstring
         args.app.save()
         if not args.just_db:
             vm.remove_from_disk()
+        else:
+            # normally it is done by vm.remove_from_disk(), but it isn't
+            # called in this case
+            vm.libvirt_domain.undefine()
 
     return 0
 

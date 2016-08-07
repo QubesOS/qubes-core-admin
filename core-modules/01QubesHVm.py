@@ -203,7 +203,30 @@ class QubesHVm(QubesResizableVm):
         else:
             raise QubesException("Needs qrexec agent installed in VM to use this function. See also qvm-prefs.")
 
+    @property
+    def stubdom_xid(self):
+        if self.xid < 0:
+            return -1
+
+        if vmm.xs is None:
+            return -1
+
+        stubdom_xid_str = vmm.xs.read('', '/local/domain/%d/image/device-model-domid' % self.xid)
+        if stubdom_xid_str is not None:
+            return int(stubdom_xid_str)
+        else:
+            return -1
+
+    def validate_drive_path(self, drive):
+        drive_type, drive_domain, drive_path = drive.split(':', 2)
+        if drive_domain == 'dom0':
+            if not os.path.exists(drive_path):
+                raise QubesException("Invalid drive path '{}'".format(
+                    drive_path))
+
     def start(self, *args, **kwargs):
+        if self.drive:
+            self.validate_drive_path(self.drive)
         # make it available to storage.prepare_for_vm_startup, which is
         # called before actually building VM libvirt configuration
         self.storage.drive = self.drive

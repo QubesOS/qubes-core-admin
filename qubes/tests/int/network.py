@@ -58,6 +58,9 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
 
     def setUp(self):
         super(VmNetworkingMixin, self).setUp()
+        if self.template.startswith('whonix-'):
+            self.skipTest("Test not supported here - Whonix uses its own "
+                          "firewall settings")
         self.init_default_template(self.template)
         self.testnetvm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('netvm1'),
@@ -91,6 +94,8 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         run_netvm_cmd("ip link set test0 up")
         run_netvm_cmd("ip addr add {}/24 dev test0".format(self.test_ip))
         run_netvm_cmd("iptables -I INPUT -d {} -j ACCEPT".format(self.test_ip))
+        # ignore failure
+        self.run_cmd(self.testnetvm, "killall --wait dnsmasq")
         run_netvm_cmd("dnsmasq -a {ip} -A /{name}/{ip} -i test0 -z".format(
             ip=self.test_ip, name=self.test_name))
         run_netvm_cmd("echo nameserver {} > /etc/resolv.conf".format(
@@ -165,8 +170,8 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
 
         # check for nm-applet presence
         self.assertEqual(subprocess.call([
-            'xdotool', 'search', '--all', '--name',
-            '--class', '^(NetworkManager Applet|{})$'.format(self.proxy.name)],
+            'xdotool', 'search', '--class', '{}:nm-applet'.format(
+                self.proxy.name)],
             stdout=open('/dev/null', 'w')), 0, "nm-applet window not found")
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
                          "Ping by IP failed (after NM reconnection")
@@ -329,6 +334,19 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.assertNotEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
                          "Spoofed ping should be blocked")
 
+    def test_100_late_xldevd_startup(self):
+        """Regression test for #1990"""
+        # Simulater late xl devd startup
+        cmd = "systemctl stop xendriverdomain"
+        if self.run_cmd(self.testnetvm, cmd) != 0:
+            self.fail("Command '%s' failed" % cmd)
+        self.testvm1.start()
+
+        cmd = "systemctl start xendriverdomain"
+        if self.run_cmd(self.testnetvm, cmd) != 0:
+            self.fail("Command '%s' failed" % cmd)
+
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
 
 # noinspection PyAttributeOutsideInit
 class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
@@ -504,10 +522,10 @@ class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
         p = self.netvm_repo.run(
             "mkdir -p /tmp/apt-repo/dists/test && "
             "cd /tmp/apt-repo/dists/test && "
-            "cat > Release <<EOF && "
-            "echo '' $(sha1sum {p} | cut -f 1 -d ' ') $(stat -c %s {p}) {p}"
+            "cat > Release && "
+            "echo '' $(sha256sum {p} | cut -f 1 -d ' ') $(stat -c %s {p}) {p}"
             " >> Release && "
-            "echo '' $(sha1sum {z} | cut -f 1 -d ' ') $(stat -c %s {z}) {z}"
+            "echo '' $(sha256sum {z} | cut -f 1 -d ' ') $(stat -c %s {z}) {z}"
             " >> Release"
             .format(p="main/binary-amd64/Packages",
                     z="main/binary-amd64/Packages.gz"),
@@ -517,11 +535,10 @@ class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
             "Label: Test repo\n"
             "Suite: test\n"
             "Codename: test\n"
-            "Date: Tue, 27 Oct 2015 03:22:09 +0100\n"
+            "Date: Tue, 27 Oct 2015 03:22:09 UTC\n"
             "Architectures: amd64\n"
             "Components: main\n"
-            "SHA1:\n"
-            "EOF\n"
+            "SHA256:\n"
         )
         p.stdin.close()
         if p.wait() != 0:

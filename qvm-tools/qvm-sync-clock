@@ -101,7 +101,7 @@ def main():
                          gui=False, passio_popen=True, ignore_stderr=True)
         date_out = p.stdout.read(100)
         date_out = date_out.strip()
-        if not re.match(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+0000$', date_out):
+        if not re.match(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:?00$', date_out):
             print >> sys.stderr, 'Invalid date output, aborting!'
             sys.exit(1)
 

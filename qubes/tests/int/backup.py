@@ -41,6 +41,32 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
         self.restore_backup()
         for vm in vms:
             self.assertIn(vm.name, self.app.domains)
+            restored_vm = self.app.domains[vm.name]
+            for prop in ('name', 'kernel', 'uses_default_kernel',
+                    'uses_default_netvm', 'memory', 'maxmem', 'kernelopts',
+                    'uses_default_kernelopts', 'services', 'vcpus', 'pcidevs',
+                    'include_in_backups', 'default_user', 'qrexec_timeout',
+                    'autostart', 'pci_strictreset', 'pci_e820_host', 'debug',
+                    'internal'):
+                if not hasattr(vm, prop):
+                    continue
+                self.assertEquals(
+                    getattr(vm, prop), getattr(restored_vm, prop),
+                    "VM {} - property {} not properly restored".format(
+                        vm.name, prop))
+            for prop in ('netvm', 'template', 'label'):
+                orig_value = getattr(vm, prop)
+                restored_value = getattr(restored_vm, prop)
+                if orig_value and restored_value:
+                    self.assertEquals(orig_value.name, restored_value.name,
+                        "VM {} - property {} not properly restored".format(
+                            vm.name, prop))
+                else:
+                    self.assertEquals(orig_value, restored_value,
+                        "VM {} - property {} not properly restored".format(
+                            vm.name, prop))
+
+        self.remove_vms(vms)
 
     def test_001_compressed_backup(self):
         vms = self.create_backup_vms()

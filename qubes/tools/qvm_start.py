@@ -26,6 +26,7 @@
 # TODO notification in tray
 
 import argparse
+import os
 import sys
 
 import qubes
@@ -71,7 +72,7 @@ parser_drive.add_argument('--cdrom', metavar='IMAGE',
 parser_drive.add_argument('--install-windows-tools',
     action='store_const', dest='drive', default=False,
     const='cdrom:dom0:/usr/lib/qubes/qubes-windows-tools.iso',
-    help='temporarily ttach Windows tools CDROM to the domain')
+    help='temporarily attach Windows tools CDROM to the domain')
 
 
 parser.add_argument('--conf-file', metavar='FILE',
@@ -120,6 +121,11 @@ def main(args=None):
         if 'drive' not in (prop.__name__ for prop in vm.property_list()):
             parser.error(
                 'domain {!r} does not support attaching drives'.format(vm.name))
+    else:
+        if args.drive == 'cdrom:dom0:/usr/lib/qubes/qubes-windows-tools.iso':
+            path = args.drive.split(':', 2)[2]
+            if not os.path.exists(path):
+                parser.error('qubes-windows-tools package not installed')
 
     if args.conf_file is not None:
         vm.conf_file = args.conf_file

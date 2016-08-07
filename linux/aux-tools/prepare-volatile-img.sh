@@ -1,9 +1,5 @@
 #!/bin/sh
 
-if [ "`id -u`" != "0" ]; then
-	exec sudo $0 $*
-fi
-
 set -e
 
 if ! echo $PATH | grep -q sbin; then
@@ -24,5 +20,6 @@ if [ -e "$FILENAME" ]; then
 	exit 1
 fi
 
+umask 002
 TOTAL_SIZE=$[ $ROOT_SIZE + $SWAP_SIZE + 512 ]
 truncate -s ${TOTAL_SIZE}M "$FILENAME"

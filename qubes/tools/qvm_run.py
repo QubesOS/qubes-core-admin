@@ -59,9 +59,17 @@ parser.add_argument('--colour-output', '--color-output', metavar='COLOUR',
     action='store', dest='color_output', default=None,
     help='mark the qube output with given ANSI colour (ie. "31" for red)')
 
+parser.add_argument('--colour-stderr', '--color-stderr', metavar='COLOUR',
+    action='store', dest='color_stderr', default=None,
+    help='mark the qube stderr with given ANSI colour (ie. "31" for red)')
+
 parser.add_argument('--no-colour-output', '--no-color-output',
     action='store_false', dest='color_output',
     help='disable colouring the stdio')
+
+parser.add_argument('--no-colour-stderr', '--no-color-stderr',
+    action='store_false', dest='color_stderr',
+    help='disable colouring the stderr')
 
 parser.add_argument('--filter-escape-chars',
     action='store_true', dest='filter_esc',
@@ -82,6 +90,9 @@ def main(args=None):
     if args.color_output is None and args.filter_esc:
         args.color_output = '31'
 
+    if args.color_output is None and os.isatty(sys.stderr.fileno()):
+        args.color_stderr = 31
+
     if len(args.domains) > 1 and args.passio:
         parser.error('--passio cannot be used when more than 1 qube is chosen')
     if args.localcmd and not args.passio:
@@ -97,6 +108,9 @@ def main(args=None):
         if args.color_output:
             sys.stdout.write('\033[0;{}m'.format(args.color_output))
             sys.stdout.flush()
+        if args.color_stderr:
+            sys.stderr.write('\033[0;{}m'.format(args.color_stderr))
+            sys.stderr.flush()
 
         try:
             retcode = max(retcode, vm.run(args.cmd,
@@ -117,6 +131,9 @@ def main(args=None):
             if args.color_output:
                 sys.stdout.write('\033[0m')
                 sys.stdout.flush()
+            if args.color_stderr:
+                sys.stderr.write('\033[0m')
+                sys.stderr.flush()
 
     return retcode
 
