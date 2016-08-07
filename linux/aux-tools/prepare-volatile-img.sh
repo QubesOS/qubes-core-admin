@@ -20,5 +20,6 @@ if [ -e "$FILENAME" ]; then
 	exit 1
 fi
 
+umask 002
 TOTAL_SIZE=$[ $ROOT_SIZE + $SWAP_SIZE + 512 ]
 truncate -s ${TOTAL_SIZE}M "$FILENAME"
