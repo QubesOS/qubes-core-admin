@@ -79,7 +79,7 @@ class VirDomainWrapper(object):
         if is_dead:
             # pylint: disable=protected-access
             self._connection._reconnect_if_dead()
-            self._vm = self._connection._conn.lookupByUUID(self._vm.getUUID())
+            self._vm = self._connection._conn.lookupByUUID(self._vm.UUID())
         return is_dead
 
     def __getattr__(self, attrname):
