@@ -149,7 +149,7 @@ class Core2Qubes(qubes.Qubes):
         vm_class_name = element.tag
         try:
             kwargs = {}
-            if vm_class_name in ["TemplateVm", "TemplateHVm"]:
+            if vm_class_name in ["QubesTemplateVm", "QubesTemplateHVm"]:
                 vm_class = qubes.vm.templatevm.TemplateVM
             elif element.get('template_qid').lower() == "none":
                 kwargs['dir_path'] = element.get('dir_path')
