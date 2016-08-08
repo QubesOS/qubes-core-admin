@@ -45,6 +45,11 @@ REGEX_OUTPUT = re.compile(r'''
            (?P<x>\d+)[+]
            (?P<y>\d+)
          )|[\D])                       # or not a digit
+        ([ ]\(.*\))?[ ]?               # ignore options
+        (                              #  304mm x 228mm
+           (?P<width_mm>\d+)mm[ ]x[ ]
+           (?P<height_mm>\d+)mm
+        )?
         .*                             # ignore rest of line
         ''')
 
@@ -57,11 +62,34 @@ def get_monitor_layout():
         if not line.startswith("Screen") and not line.startswith(" "):
             output_params = REGEX_OUTPUT.match(line).groupdict()
             if output_params['width']:
-                outputs.append("%s %s %s %s\n" % (
+                phys_size = ""
+                if output_params['width_mm']:
+                    # don't provide real values for privacy reasons - see
+                    # #1951 for details
+                    dpi = (int(output_params['width']) * 254 /
+                          int(output_params['width_mm']) / 10)
+                    if dpi > 300:
+                        dpi = 300
+                    elif dpi > 200:
+                        dpi = 200
+                    elif dpi > 150:
+                        dpi = 150
+                    else:
+                        # if lower, don't provide this info to the VM at all
+                        dpi = 0
+                    if dpi:
+                        # now calculate dimensions based on approximate DPI
+                        phys_size = " {} {}".format(
+                            int(output_params['width']) * 254 / dpi / 10,
+                            int(output_params['height']) * 254 / dpi / 10,
+                        )
+                outputs.append("%s %s %s %s%s\n" % (
                             output_params['width'],
                             output_params['height'],
                             output_params['x'],
-                            output_params['y']))
+                            output_params['y'],
+                            phys_size,
+                ))
     return outputs
 
 
