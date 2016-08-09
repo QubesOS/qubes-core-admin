@@ -523,11 +523,6 @@ class SystemTestsMixin(object):
         except: # pylint: disable=bare-except
             pass
 
-        try:
-            vm.libvirt_domain.undefine()
-        except (AttributeError, libvirt.libvirtError):
-            pass
-
         del app.domains[vm.qid]
         del vm
 
