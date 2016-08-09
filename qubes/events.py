@@ -50,6 +50,8 @@ def handler(*events):
     def decorator(func):
         # pylint: disable=missing-docstring
         func.ha_events = events
+        # mark class own handler (i.e. not from extension)
+        func.ha_bound = True
         return func
 
     return decorator
