@@ -768,7 +768,10 @@ class BackupTestsMixin(SystemTestsMixin):
 
     def setUp(self):
         super(BackupTestsMixin, self).setUp()
-        self.init_default_template()
+        try:
+            self.init_default_template(self.template)
+        except AttributeError:
+            self.init_default_template()
         self.error_detected = multiprocessing.Queue()
         self.verbose = False
 
