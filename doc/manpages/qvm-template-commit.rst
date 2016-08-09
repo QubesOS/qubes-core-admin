@@ -15,6 +15,14 @@ Options
 
     Show this help message and exit
 
+.. option:: --verbose, -v
+
+   Increase verbosity.
+
+.. option:: --quiet, -q
+
+   Decrease verbosity.
+
 Authors
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
