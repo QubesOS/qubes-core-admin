@@ -156,7 +156,8 @@ class Core2Qubes(qubes.Qubes):
                 vm_class = StandaloneVM
             else:
                 kwargs['dir_path'] = element.get('dir_path')
-                kwargs['template'] = int(element.get('template_qid'))
+                kwargs['template'] = self.domains[int(element.get(
+                    'template_qid'))]
                 vm_class = AppVM
             # simple attributes
             for attr in ['installed_by_rpm', 'include_in_backups',
