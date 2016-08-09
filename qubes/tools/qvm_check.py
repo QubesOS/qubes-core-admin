@@ -41,7 +41,7 @@ parser.add_argument("--template", action="store_true", dest="template",
 def print_msg(domains, what_single, what_plural):
     if len(domains) == 0:
         print("None of given VM {!s}".format(what_single))
-    if len(domains) == 1:
+    elif len(domains) == 1:
         print("VM {!s} {!s}".format(domains[0], what_single))
     else:
         txt = ", ".join([vm.name for vm in domains])
@@ -59,7 +59,7 @@ def main(args=None):
     elif args.paused:
         paused = [vm for vm in domains if vm.is_paused()]
         if args.verbose:
-            print_msg(paused, "is paused", "are running")
+            print_msg(paused, "is paused", "are paused")
         return 0 if paused else 1
     elif args.template:
         template = [vm for vm in domains if isinstance(vm,
