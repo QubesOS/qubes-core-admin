@@ -42,11 +42,11 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
         for vm in vms:
             self.assertIn(vm.name, self.app.domains)
             restored_vm = self.app.domains[vm.name]
-            for prop in ('name', 'kernel', 'uses_default_kernel',
-                    'uses_default_netvm', 'memory', 'maxmem', 'kernelopts',
-                    'uses_default_kernelopts', 'services', 'vcpus', 'pcidevs',
+            for prop in ('name', 'kernel',
+                    'memory', 'maxmem', 'kernelopts',
+                    'services', 'vcpus', 'features'
                     'include_in_backups', 'default_user', 'qrexec_timeout',
-                    'autostart', 'pci_strictreset', 'pci_e820_host', 'debug',
+                    'autostart', 'pci_strictreset', 'debug',
                     'internal'):
                 if not hasattr(vm, prop):
                     continue
@@ -65,6 +65,11 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
                     self.assertEquals(orig_value, restored_value,
                         "VM {} - property {} not properly restored".format(
                             vm.name, prop))
+            for dev_class in ["pci", "usb"]:
+                for dev in vm.devices[dev_class]:
+                    self.assertIn(dev, restored_vm.devices[dev_class])
+
+            # TODO: compare disk images
 
         self.remove_vms(vms)
 
