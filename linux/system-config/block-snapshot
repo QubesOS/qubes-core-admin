@@ -251,6 +251,10 @@ case "$command" in
             domain=$(cat "$HOTPLUG_STORE-domain")
             if [ "$domain" ]; then
               # Dont stop on errors
+              if [ -r /var/lib/qubes/qubes-test.xml -a \
+                  "${domain#test-}" != "$domain" ]; then
+                export QUBES_XML_PATH=/var/lib/qubes/qubes-test.xml
+              fi
               /usr/bin/qvm-template-commit --offline-mode "$domain" || true
             fi
           fi
