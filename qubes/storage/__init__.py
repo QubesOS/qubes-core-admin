@@ -427,11 +427,11 @@ class Storage(object):
         else:
             return self.vm.app.pools[volume]
 
-    def commit_template_changes(self):
+    def commit(self):
         ''' Makes changes to an 'origin' volume persistent '''
         for volume in self.vm.volumes.values():
-            if volume.volume_type == 'origin':
-                self.get_pool(volume).commit_template_changes(volume)
+            if volume.save_on_stop:
+                self.get_pool(volume).commit(volume)
 
     def unused_frontend(self):
         ''' Find an unused device name '''
