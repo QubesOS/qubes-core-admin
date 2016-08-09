@@ -29,7 +29,7 @@ import qubes
 
 
 parser = qubes.tools.QubesArgumentParser(
-    vmname_nargs=1,
+    vmname_nargs='+',
     description='unpause a domain')
 
 
@@ -41,7 +41,8 @@ def main(args=None):
     '''
 
     args = parser.parse_args(args)
-    args.domains[0].unpause()
+    for domain in args.domains:
+        domain.unpause()
 
     return 0
 
