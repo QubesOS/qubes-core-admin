@@ -51,6 +51,7 @@ import lxml.etree
 import time
 
 import qubes.config
+import qubes.devices
 import qubes.events
 import qubes.backup
 import qubes.exc
@@ -220,6 +221,8 @@ class QubesTestCase(unittest.TestCase):
             self.__class__.__module__,
             self.__class__.__name__,
             self._testMethodName))
+        self.addTypeEqualityFunc(qubes.devices.DeviceManager,
+            self.assertDevicesEqual)
 
 
     def __str__(self):
@@ -287,6 +290,15 @@ class QubesTestCase(unittest.TestCase):
         for key in xml1.keys():
             self.assertEqual(xml1.get(key), xml2.get(key))
 
+    def assertDevicesEqual(self, devices1, devices2, msg=None):
+        self.assertEqual(devices1.keys(), devices2.keys(), msg)
+        for dev_class in devices1.keys():
+            self.assertEqual(
+                [str(dev) for dev in devices1[dev_class]],
+                [str(dev) for dev in devices2[dev_class]],
+                "Devices of class {} differs{}".format(
+                    dev_class, (": " + msg) if msg else "")
+            )
 
     def assertEventFired(self, emitter, event, args=None, kwargs=None):
         '''Check whether event was fired on given emitter and fail if it did
