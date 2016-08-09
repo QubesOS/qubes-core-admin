@@ -27,6 +27,7 @@ from __future__ import print_function
 import sys
 
 import qubes.tools
+import qubes.vm.templatevm
 
 parser = qubes.tools.QubesArgumentParser(description=__doc__, vmname_nargs='+')
 parser.add_argument("--running", action="store_true", dest="running",
@@ -61,7 +62,8 @@ def main(args=None):
             print_msg(paused, "is paused", "are running")
         return 0 if paused else 1
     elif args.template:
-        template = [vm for vm in domains if vm.is_template()]
+        template = [vm for vm in domains if isinstance(vm,
+            qubes.vm.templatevm.TemplateVM)]
         if args.verbose:
             print_msg(template, "is a template", "are templates")
         return 0 if template else 1
