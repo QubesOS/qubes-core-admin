@@ -465,7 +465,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         # Type and copy some text
         subprocess.check_call(['xdotool', 'search', '--name', window_title,
                                'windowactivate', '--sync',
-                               'type', '{}'.format(test_string)])
+                               'type', test_string])
         # second xdotool call because type --terminator do not work (SEGV)
         # additionally do not use search here, so window stack will be empty
         # and xdotool will use XTEST instead of generating events manually -

@@ -84,7 +84,7 @@
                 {% endif %}
 
                 {% if device.script %}
-                    <script path="{{ device.script }}"></script>
+                    <script path="{{ device.script }}" />
                 {% endif %}
             </disk>
         {% endfor %}

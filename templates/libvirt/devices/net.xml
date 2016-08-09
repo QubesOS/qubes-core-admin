@@ -7,7 +7,7 @@
             {{ vm.ip }}
         {%- endif %}" />
     <backenddomain name="{{ vm.netvm.name }}" />
-    <script path="vif-route-qubes"></script>
+    <script path="vif-route-qubes" />
 </interface>
 
 {# vim : set ft=jinja ts=4 sts=4 sw=4 et : #}
