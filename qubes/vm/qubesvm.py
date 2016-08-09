@@ -569,7 +569,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 ["sudo", "ln", "-sf",
                  "/usr/lib/systemd/system/qubes-vm@.service",
                  "/etc/systemd/system/multi-user.target.wants/qubes-vm@{"
-                 "}".format(self.name)])
+                 "}.service".format(self.name)])
         else:
             retcode = subprocess.call(
                 ['sudo', 'systemctl', 'disable',
@@ -577,6 +577,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if retcode:
             raise qubes.exc.QubesException(
                 'Failed to set autostart for VM in systemd')
+
+    @qubes.events.handler('property-pre-del:autostart')
+    def on_property_pre_del_autostart(self, event, prop, oldvalue=None):
+        # pylint: disable=unused-argument
+        if oldvalue:
+            retcode = subprocess.call(
+                ['sudo', 'systemctl', 'disable',
+                    'qubes-vm@{}.service'.format(self.name)])
+            if retcode:
+                raise qubes.exc.QubesException(
+                    'Failed to reset autostart for VM in systemd')
 
     @qubes.events.handler('device-pre-attach:pci')
     def on_device_pre_attached_pci(self, event, device):
