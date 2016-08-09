@@ -1,11 +1,6 @@
 <interface type="ethernet">
     <mac address="{{ vm.mac }}" />
-    <ip address="
-        {%- if prepare_dvm -%}
-            %IP%
-        {%- else -%}
-            {{ vm.ip }}
-        {%- endif %}" />
+    <ip address="{{ vm.ip }}" />
     <backenddomain name="{{ vm.netvm.name }}" />
     <script path="vif-route-qubes" />
 </interface>
