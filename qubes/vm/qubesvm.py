@@ -811,10 +811,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 'Cannot suspend domain {!r} which has PCI devices attached'
                 .format(self.name))
         else:
-            if self.hvm:
-                self.libvirt_domain.pause()
-            else:
-                self.libvirt_domain.suspend()
+            self.libvirt_domain.suspend()
 
         return self
 
@@ -1317,7 +1314,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         '''
 
         return self.libvirt_domain \
-            and self.libvirt_domain.state() == libvirt.VIR_DOMAIN_PAUSED
+            and self.libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PAUSED
 
     def is_qrexec_running(self):
         '''Check whether qrexec for this domain is available.
