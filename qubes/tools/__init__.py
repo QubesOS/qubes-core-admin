@@ -316,6 +316,7 @@ class QubesArgumentParser(argparse.ArgumentParser):
     Currenty supported options:
         ``--force-root`` (optional)
         ``--qubesxml`` location of :file:`qubes.xml` (help is suppressed)
+        ``--offline-mode`` do not talk to hypervisor (help is suppressed)
         ``--verbose`` and ``--quiet``
     '''
 
@@ -331,6 +332,8 @@ class QubesArgumentParser(argparse.ArgumentParser):
         if self._want_app:
             self.add_argument('--qubesxml', metavar='FILE', action='store',
                               dest='app', help=argparse.SUPPRESS)
+            self.add_argument('--offline-mode', action='store_true',
+                default=False, dest='offline_mode', help=argparse.SUPPRESS)
 
 
         self.add_argument('--verbose', '-v', action='count',
@@ -357,7 +360,8 @@ class QubesArgumentParser(argparse.ArgumentParser):
 
         if self._want_app and not self._want_app_no_instance:
             self.set_qubes_verbosity(namespace)
-            namespace.app = qubes.Qubes(namespace.app)
+            namespace.app = qubes.Qubes(namespace.app,
+                offline_mode=namespace.offline_mode)
 
         if self._want_force_root:
             self.dont_run_as_root(namespace)
