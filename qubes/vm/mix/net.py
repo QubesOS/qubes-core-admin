@@ -164,7 +164,7 @@ class NetVMMixin(qubes.events.Emitter):
                 pass
 
             try:
-                vm.attach_network(wait=False)
+                vm.attach_network()
             except qubes.exc.QubesException:
                 vm.log.warning('Cannot attach network', exc_info=1)
 
