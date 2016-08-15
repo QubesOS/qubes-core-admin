@@ -36,7 +36,7 @@ import qubes.ext.r3compatibility
 class AppVM(qubes.vm.appvm.AppVM):
     """core2 compatibility AppVM class, with variable dir_path"""
     dir_path = qubes.property('dir_path',
-        default=(lambda self: self.storage.vmdir),
+        default=(lambda self: super(AppVM, self).dir_path),
         saver=qubes.property.dontsave,
         doc="VM storage directory",
     )
@@ -47,7 +47,7 @@ class AppVM(qubes.vm.appvm.AppVM):
 class StandaloneVM(qubes.vm.standalonevm.StandaloneVM):
     """core2 compatibility StandaloneVM class, with variable dir_path"""
     dir_path = qubes.property('dir_path',
-        default=(lambda self: self.storage.vmdir),
+        default=(lambda self: super(StandaloneVM, self).dir_path),
         saver=qubes.property.dontsave,
         doc="VM storage directory")
 
