@@ -43,7 +43,7 @@ class ThinPool(qubes.storage.Pool):
         self.log = logging.getLogger('qube.storage.lvm.%s' % self._pool_id)
 
     def clone(self, source, target):
-        cmd = ['clone', source.vid, target.vid]
+        cmd = ['clone', str(source), str(target)]
         qubes_lvm(cmd, self.log)
         return target
 
