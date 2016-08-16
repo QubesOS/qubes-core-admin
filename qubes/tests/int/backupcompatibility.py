@@ -415,7 +415,6 @@ class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, qubes.tests.QubesT
                 'use-default-template': True,
                 'use-default-netvm': True,
             },
-            expect_errors=['Kernel None not installed, using default one']
         )
         with self.assertNotRaises(KeyError):
             vm = self.app.domains["test-template-clone"]
