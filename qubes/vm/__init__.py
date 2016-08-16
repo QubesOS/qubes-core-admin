@@ -126,9 +126,12 @@ class Features(dict):
         if feature in self:
             return self[feature]
 
-        if hasattr(self.vm, 'template') and self.vm.template is not None \
-                and feature in self.vm.template.features:
-            return self.vm.template.features[feature]
+        if hasattr(self.vm, 'template') and self.vm.template is not None:
+            try:
+                return self.vm.template.features[feature]
+            except KeyError:
+                # handle default just below
+                pass
 
         if default is self._NO_DEFAULT:
             raise KeyError(feature)
