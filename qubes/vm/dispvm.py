@@ -22,6 +22,7 @@
 #
 
 ''' A disposable vm implementation '''
+import copy
 
 import qubes.vm.qubesvm
 import qubes.vm.appvm
@@ -63,6 +64,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 'name': 'volatile',
                 'pool': 'default',
                 'internal': True,
+                'rw': True,
                 'size': qubes.config.defaults['root_img_size'] +
                         qubes.config.defaults['private_img_size'],
             },
@@ -74,6 +76,40 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 'internal': True
             }
         }
+        if 'name' not in kwargs and 'dispid' in kwargs:
+            kwargs['name'] = 'disp' + str(kwargs['dispid'])
+        template = kwargs.get('template', None)
+
+        if template is not None:
+            # template is only passed if the AppVM is created, in other cases we
+            # don't need to patch the volume_config because the config is
+            # coming from XML, already as we need it
+
+            for name, conf in self.volume_config.items():
+                tpl_volume = template.volumes[name]
+
+                conf['size'] = tpl_volume.size
+                conf['pool'] = tpl_volume.pool
+
+                has_source = ('source' in conf and conf['source'] is not None)
+                is_snapshot = 'snap_on_start' in conf and conf['snap_on_start']
+                if is_snapshot and not has_source:
+                    if tpl_volume.source is not None:
+                        conf['source'] = tpl_volume.source
+                    else:
+                        conf['source'] = tpl_volume.vid
+
+            for name, config in template.volume_config.items():
+                # in case the template vm has more volumes add them to own
+                # config
+                if name not in self.volume_config:
+                    self.volume_config[name] = copy.deepcopy(config)
+                    if 'vid' in self.volume_config[name]:
+                        del self.volume_config[name]['vid']
+
+            # by default inherit label from the DispVM template
+            if 'label' not in kwargs:
+                kwargs['label'] = template.label
 
         super(DispVM, self).__init__(*args, **kwargs)
 
@@ -109,6 +145,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             dispid=app.domains.get_new_unused_dispid(),
             template=app.domains[appvm],
             **kwargs)
+        dispvm.clone_properties(app.domains[appvm])
         dispvm.create_on_disk()
         app.save()
         return dispvm

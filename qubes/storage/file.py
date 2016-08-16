@@ -260,9 +260,6 @@ class FilePool(qubes.storage.Pool):
         import qubes.vm.dispvm  # pylint: disable=redefined-outer-name
         if isinstance(vm, qubes.vm.templatevm.TemplateVM):
             subdir = 'vm-templates'
-        elif isinstance(vm, qubes.vm.dispvm.DispVM):
-            subdir = 'appvms'
-            return os.path.join(subdir, vm.template.name + '-dvm')
         else:
             subdir = 'appvms'
 

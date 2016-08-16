@@ -507,7 +507,7 @@ class VMCollection(object):
 
 
     def get_new_unused_dispid(self):
-        for _ in range(qubes.config.max_dispid ** 0.5):
+        for _ in range(int(qubes.config.max_dispid ** 0.5)):
             dispid = random.SystemRandom().randrange(qubes.config.max_dispid)
             if not any(getattr(vm, 'dispid', None) == dispid for vm in self):
                 return dispid
