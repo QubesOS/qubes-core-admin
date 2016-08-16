@@ -103,4 +103,4 @@ class TemplateVM(QubesVM):
             assert not self.is_running(), \
                 'Attempt to commit changes on running Template VM!'
 
-        self.storage.commit_template_changes()
+        self.storage.commit()
