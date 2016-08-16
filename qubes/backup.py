@@ -1844,9 +1844,12 @@ class BackupRestore(object):
                 installed_kernels = os.listdir(os.path.join(
                     qubes.config.qubes_base_dir,
                     qubes.config.system_path['qubes_kernels_base_dir']))
-                if not vm_info.vm.property_is_default('kernel') \
-                        and vm_info.vm.kernel \
-                        and vm_info.vm.kernel not in installed_kernels:
+                # if uses default kernel - do not validate it
+                # allow kernel=None only for HVM,
+                # otherwise require valid kernel
+                if not (vm_info.vm.property_is_default('kernel')
+                        or (not vm_info.vm.kernel and vm_info.vm.hvm)
+                        or vm_info.vm.kernel in installed_kernels):
                     if self.options.use_default_kernel:
                         vm_info.vm.kernel = qubes.property.DEFAULT
                     else:
