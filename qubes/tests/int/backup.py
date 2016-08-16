@@ -73,7 +73,7 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
 
             # TODO: compare disk images
 
-        self.remove_vms(vms)
+        self.remove_vms(reversed(vms))
 
     def test_001_compressed_backup(self):
         vms = self.create_backup_vms()
