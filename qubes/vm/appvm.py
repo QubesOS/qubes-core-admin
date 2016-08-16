@@ -103,7 +103,7 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
                         del self.volume_config[name]['vid']
 
         super(AppVM, self).__init__(app, xml, **kwargs)
-        if not hasattr(template, 'template') and template is not None:
+        if not hasattr(self, 'template') and template is not None:
             self.template = template
         if 'source' not in self.volume_config['root']:
             msg = 'missing source for root volume'
