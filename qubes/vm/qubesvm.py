@@ -294,6 +294,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         saver=(lambda self, prop, value: value.strftime('%s')),
         doc='FIXME')
 
+    default_dispvm = qubes.VMProperty('default_dispvm',
+        load_stage=4,
+        allow_none=True,
+        default=(lambda self: self.app.default_dispvm),
+        doc='Default VM to be used as Disposable VM for service calls.')
+
     #
     # static, class-wide properties
     #

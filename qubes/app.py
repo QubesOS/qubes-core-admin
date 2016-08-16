@@ -583,6 +583,8 @@ class Qubes(qubes.PropertyHolder):
         doc='Which VM to use as NTP proxy for updating AdminVM')
     default_kernel = qubes.property('default_kernel', load_stage=3,
         doc='Which kernel to use when not overriden in VM')
+    default_dispvm = qubes.VMProperty('default_dispvm', load_stage=3,
+        doc='Default DispVM base for service calls')
 
     # TODO #1637 #892
     check_updates_vm = qubes.property('check_updates_vm',
