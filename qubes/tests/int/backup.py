@@ -55,6 +55,8 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
                     "VM {} - property {} not properly restored".format(
                         vm.name, prop))
             for prop in ('netvm', 'template', 'label'):
+                if not hasattr(vm, prop):
+                    continue
                 orig_value = getattr(vm, prop)
                 restored_value = getattr(restored_vm, prop)
                 if orig_value and restored_value:
