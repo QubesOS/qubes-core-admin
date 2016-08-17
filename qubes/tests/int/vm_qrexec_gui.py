@@ -30,30 +30,34 @@ import subprocess
 import unittest
 import time
 
-from qubes.qubes import QubesVmCollection, defaults, QubesException
-
+import qubes.config
 import qubes.tests
+import qubes.vm.appvm
+import qubes.vm.templatevm
 import re
 
 TEST_DATA = "0123456789" * 1024
 
+
 class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
     def setUp(self):
         super(TC_00_AppVMMixin, self).setUp()
-        self.testvm1 = self.qc.add_new_vm(
-            "QubesAppVm",
+        self.init_default_template(self.template)
+        if self._testMethodName == 'test_210_time_sync':
+            self.init_networking()
+        self.testvm1 = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            label='red',
             name=self.make_vm_name('vm1'),
-            template=self.qc.get_vm_by_name(self.template))
-        self.testvm1.create_on_disk(verbose=False)
-        self.testvm2 = self.qc.add_new_vm(
-            "QubesAppVm",
+            template=self.app.domains[self.template])
+        self.testvm1.create_on_disk()
+        self.testvm2 = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
+            label='red',
             name=self.make_vm_name('vm2'),
-            template=self.qc.get_vm_by_name(self.template))
-        self.testvm2.create_on_disk(verbose=False)
-        self.save_and_reload_db()
-        self.qc.unlock_db()
-        self.testvm1 = self.qc[self.testvm1.qid]
-        self.testvm2 = self.qc[self.testvm2.qid]
+            template=self.app.domains[self.template])
+        self.testvm2.create_on_disk()
+        self.app.save()
 
     def test_000_start_shutdown(self):
         self.testvm1.start()
@@ -62,7 +66,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
 
         shutdown_counter = 0
         while self.testvm1.is_running():
-            if shutdown_counter > defaults["shutdown_counter_max"]:
+            if shutdown_counter > qubes.config.defaults["shutdown_counter_max"]:
                 self.fail("VM hanged during shutdown")
             shutdown_counter += 1
             time.sleep(1)
@@ -791,15 +795,9 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         self.testvm2.start()
         (start_time, _) = subprocess.Popen(["date", "-u", "+%s"],
                                            stdout=subprocess.PIPE).communicate()
-        original_clockvm = self.qc.get_clockvm_vm()
-        if original_clockvm:
-            original_clockvm_name = original_clockvm.name
-        else:
-            original_clockvm_name = "none"
         try:
-            # use qubes-prefs to not hassle with qubes.xml locking
-            subprocess.check_call(["qubes-prefs", "-s", "clockvm",
-                                   self.testvm1.name])
+            self.app.clockvm = self.testvm1
+            self.app.save()
             # break vm and dom0 time, to check if qvm-sync-clock would fix it
             subprocess.check_call(["sudo", "date", "-s",
                                    "2001-01-01T12:34:56"],
@@ -833,9 +831,6 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             # reset time to some approximation of the real time
             subprocess.Popen(["sudo", "date", "-u", "-s", "@" + start_time])
             raise
-        finally:
-            subprocess.call(["qubes-prefs", "-s", "clockvm",
-                             original_clockvm_name])
 
     def test_250_resize_private_img(self):
         """
@@ -843,7 +838,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         :return:
         """
         # First offline test
-        self.testvm1.resize_private_img(4*1024**3)
+        self.testvm1.storage.resize('private', 4*1024**3)
         self.testvm1.start()
         df_cmd = '( df --output=size /rw || df /rw | awk \'{print $2}\' )|' \
                  'tail -n 1'
@@ -854,7 +849,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         # some safety margin for FS metadata
         self.assertGreater(int(new_size.strip()), 3.8*1024**2)
         # Then online test
-        self.testvm1.resize_private_img(6*1024**3)
+        self.testvm1.storage.resize('private', 6*1024**3)
         p = self.testvm1.run(df_cmd,
                              passio_popen=True)
         # new_size in 1k-blocks
@@ -873,7 +868,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         self.testvm1.memory = 800
         self.testvm1.maxmem = 800
         # exclude from memory balancing
-        self.testvm1.services['meminfo-writer'] = False
+        self.testvm1.features['services/meminfo-writer'] = False
         self.testvm1.start()
         # and allow large map count
         self.testvm1.run("echo 256000 > /proc/sys/vm/max_map_count",
@@ -1010,12 +1005,9 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
 
 def load_tests(loader, tests, pattern):
     try:
-        qc = qubes.qubes.QubesVmCollection()
-        qc.lock_db_for_reading()
-        qc.load()
-        qc.unlock_db()
-        templates = [vm.name for vm in qc.values() if
-                     isinstance(vm, qubes.qubes.QubesTemplateVm)]
+        app = qubes.Qubes()
+        templates = [vm.name for vm in app.domains if
+                     isinstance(vm, qubes.vm.templatevm.TemplateVM)]
     except OSError:
         templates = []
     for template in templates:
