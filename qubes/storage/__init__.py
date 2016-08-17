@@ -306,6 +306,8 @@ class Storage(object):
 
     def resize(self, volume, size):
         ''' Resizes volume a read-writable volume '''
+        if isinstance(volume, basestring):
+            volume = self.vm.volumes[volume]
         self.get_pool(volume).resize(volume, size)
 
     def create(self):
