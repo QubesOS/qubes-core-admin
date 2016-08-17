@@ -145,7 +145,10 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             dispid=app.domains.get_new_unused_dispid(),
             template=app.domains[appvm],
             **kwargs)
-        dispvm.clone_properties(app.domains[appvm])
+        # exclude template
+        proplist = [prop for prop in dispvm.property_list()
+            if prop.clone and prop.__name__ not in ['template']]
+        dispvm.clone_properties(app.domains[appvm], proplist=proplist)
         dispvm.create_on_disk()
         app.save()
         return dispvm
