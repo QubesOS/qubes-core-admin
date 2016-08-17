@@ -440,9 +440,7 @@ class VMCollection(object):
     def __delitem__(self, key):
         vm = self[key]
         if not vm.is_halted():
-            msg = "Can't remove, vm {!s}, beacuse it's in state {!s}."
-            msg = msg.format(vm, vm.get_power_state())
-            raise qubes.exc.QubesVMNotHaltedError(msg)
+            raise qubes.exc.QubesVMNotHaltedError(vm)
         self.app.fire_event_pre('domain-pre-delete', vm)
         try:
             vm.libvirt_domain.undefine()
