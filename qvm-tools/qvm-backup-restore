@@ -284,7 +284,7 @@ def main():
                 exit(1)
             else:
                 print >> sys.stderr, "Continuing as directed."
-        print >> sys.stderr, "NOTE: Before restoring the dom0 home directory, "
+        print >> sys.stderr, "NOTE: Before restoring the dom0 home directory, "\
                              "a new directory named "\
                              "'home-pre-restore-<current-time>' will be "\
                              "created inside the dom0 home directory. If any "\
