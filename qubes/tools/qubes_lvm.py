@@ -22,9 +22,7 @@
 
 from __future__ import print_function
 
-import datetime
 import logging
-import os
 import subprocess
 import sys
 import time
@@ -33,23 +31,6 @@ import lvm  # pylint: disable=import-error
 import qubes
 
 log = logging.getLogger('qubes.storage.lvm')
-
-
-def lvm_image_changed(vm):
-    ''' Returns true if source image changed '''
-    # TODO: reimplement lvm_image_changed
-    vm_root = vm.root_img
-    tp_root = vm.template.root_img
-    if not os.path.exists(vm_root):
-        return False
-    cmd = 'date +"%%s" -d "' + \
-        '`sudo tune2fs %s -l|grep "Last write time"|cut -d":" -f2,3,4`"'
-    result1 = subprocess.check_output(cmd % vm_root, shell=True).strip()
-    result2 = subprocess.check_output(cmd % tp_root, shell=True).strip()
-
-    result1 = datetime.datetime.strptime(result1, '%c')
-    result2 = datetime.datetime.strptime(result2, '%c')
-    return result2 > result1
 
 
 def pool_exists(args):
