@@ -75,7 +75,7 @@ def remove_volume(args):
 
     tries = 1
     successful = False
-    cmd = ['sudo', 'lvremove', '-f', img]
+    cmd = ['lvremove', '-f', img]
 
     while tries <= 3 and not successful:
         log.info("Trying to remove LVM %s", img)
@@ -100,7 +100,7 @@ def clone_volume(args):
     """ Calls lvcreate and creates new snapshot. """
     old = args.source
     new_name = args.destination
-    cmd = ["sudo", "lvcreate", "-kn", "-ay", "-s", old, "-n", new_name]
+    cmd = ["lvcreate", "-kn", "-ay", "-s", old, "-n", new_name]
     return subprocess.call(cmd)
 
 
@@ -112,7 +112,7 @@ def new_volume(args):
     size = args.size
     log.info('Creating new Thin LVM %s in %s VG %s bytes', name, thin_pool,
              size)
-    cmd = ['sudo', 'lvcreate', '-T', thin_pool, '-kn', '-ay', '-n', name, '-V',
+    cmd = ['lvcreate', '-T', thin_pool, '-kn', '-ay', '-n', name, '-V',
            str(size) + 'B']
 
     return subprocess.call(cmd)
@@ -121,7 +121,7 @@ def new_volume(args):
 def rename_volume(old_name, new_name):
     ''' Rename volume '''
     log.debug("Renaming LVM  %s to %s ", old_name, new_name)
-    retcode = subprocess.call(["sudo", "lvrename", old_name, new_name])
+    retcode = subprocess.call(["lvrename", old_name, new_name])
     if retcode != 0:
         raise IOError("Error renaming LVM  %s to %s " % (old_name, new_name))
     return new_name
