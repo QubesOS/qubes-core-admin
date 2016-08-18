@@ -31,6 +31,7 @@ import os.path
 import re
 import subprocess
 
+import qubes.devices
 import qubes.storage
 
 BLKSIZE = 512

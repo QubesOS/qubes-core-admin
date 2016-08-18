@@ -255,9 +255,9 @@ class Storage(object):
         if not rw:
             lxml.etree.SubElement(disk, 'readonly')
 
-        if self.vm.qid != 0:
+        if volume.domain is not None:
             lxml.etree.SubElement(disk, 'backenddomain').set(
-                'name', volume.pool.split('p_')[1])
+                'name', volume.domain.name)
 
         xml_string = lxml.etree.tostring(disk, encoding='utf-8')
         self.vm.libvirt_domain.attachDevice(xml_string)

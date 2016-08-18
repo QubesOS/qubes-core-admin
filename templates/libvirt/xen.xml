@@ -81,7 +81,7 @@
                 {% endif %}
 
                 {% if device.domain %}
-                    <domain name="{{ domain }}" />
+                    <backenddomain name="{{ domain }}" />
                 {% endif %}
 
                 {% if device.script %}
