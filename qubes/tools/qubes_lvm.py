@@ -22,13 +22,12 @@
 
 from __future__ import print_function
 
+import argparse
 import logging
 import subprocess
 import sys
 import time
 import lvm  # pylint: disable=import-error
-
-import qubes
 
 log = logging.getLogger('qubes.storage.lvm')
 
@@ -131,7 +130,7 @@ def rename_volume(old_name, new_name):
 def init_pool_parser(sub_parsers):
     ''' Initialize pool subparser '''
     pool_parser = sub_parsers.add_parser(
-        'pool', aliases=('p', 'pl'),
+        'pool',
         help="Exit with exit code 0 if pool exists")
     pool_parser.add_argument('pool_id', metavar='VG/POOL',
                              help="volume_group/pool_name")
@@ -141,7 +140,7 @@ def init_pool_parser(sub_parsers):
 def init_new_parser(sub_parsers):
     ''' Initialize the 'new' subparser '''
     new_parser = sub_parsers.add_parser(
-        'new', aliases=('n', 'create'),
+        'create',
         help='Creates a new thin ThinPoolLogicalVolume')
     new_parser.add_argument('pool_id', metavar='VG/POOL',
                             help="volume_group/pool_name")
@@ -157,7 +156,7 @@ def init_new_parser(sub_parsers):
 def init_import_parser(sub_parsers):
     ''' Initialize import subparser '''
     import_parser = sub_parsers.add_parser(
-        'import', aliases=('imp', 'i'),
+        'import',
         help='sparse copy data from stdin to a thin volume')
     import_parser.add_argument('name', metavar='VG/VID',
                                help='volume_group/volume_name')
@@ -166,7 +165,7 @@ def init_import_parser(sub_parsers):
 def init_clone_parser(sub_parsers):
     ''' Initialize clone subparser '''
     clone_parser = sub_parsers.add_parser(
-        'clone', aliases=('cln', 'c'),
+        'clone',
         help='sparse copy data from stdin to a thin volume')
     clone_parser.add_argument('source', metavar='VG/VID',
                                help='volume_group/volume_name')
@@ -204,7 +203,7 @@ def list_volumes(args):
 
 def init_volumes_parser(sub_parsers):
     ''' Initialize volumes subparser '''
-    parser = sub_parsers.add_parser('volumes', aliases=('v', 'vol'),
+    parser = sub_parsers.add_parser('volumes',
                                     help='list volumes in a pool')
     parser.add_argument('name', metavar='VG/THIN_POOL',
                         help='volume_group/thin_pool_name')
@@ -213,7 +212,7 @@ def init_volumes_parser(sub_parsers):
 
 def init_remove_parser(sub_parsers):
     ''' Initialize remove subparser '''
-    remove_parser = sub_parsers.add_parser('remove', aliases=('rm', 'r'),
+    remove_parser = sub_parsers.add_parser('remove',
                                            help='Removes a LogicalVolume')
     remove_parser.add_argument('name', metavar='VG/VID',
                                help='volume_group/volume_name')
@@ -224,8 +223,9 @@ def get_parser():
     '''Create :py:class:`argparse.ArgumentParser` suitable for
     :program:`qubes-lvm`.
     '''
-    parser = qubes.tools.QubesArgumentParser(description=__doc__, want_app=True)
-    parser.register('action', 'parsers', qubes.tools.AliasedSubParsersAction)
+    parser = argparse.ArgumentParser(description=__doc__)
+    # pylint: disable=protected-access
+    parser.register('action', 'parsers', argparse._SubParsersAction)
     sub_parsers = parser.add_subparsers(
         title='commands',
         description="For more information see qubes-lvm command -h",
