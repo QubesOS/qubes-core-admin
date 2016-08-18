@@ -113,7 +113,7 @@ class DeviceCollection(object):
         self.devclass = qubes.utils.get_entry_point_one(
             'qubes.devices', self._class)
 
-    def attach(self, device):
+    def attach(self, device, persistent=True):
         '''Attach (add) device to domain.
 
         :param DeviceInfo device: device object
@@ -124,11 +124,12 @@ class DeviceCollection(object):
                 'device {!r} of class {} already attached to {!r}'.format(
                     device, self._class, self._vm))
         self._vm.fire_event_pre('device-pre-attach:' + self._class, device)
-        self._set.add(device)
+        if persistent:
+            self._set.add(device)
         self._vm.fire_event('device-attach:' + self._class, device)
 
 
-    def detach(self, device):
+    def detach(self, device, persistent=True):
         '''Detach (remove) device from domain.
 
         :param DeviceInfo device: device object
@@ -139,7 +140,8 @@ class DeviceCollection(object):
                 'device {!r} of class {} not attached to {!r}'.format(
                     device, self._class, self._vm))
         self._vm.fire_event_pre('device-pre-detach:' + self._class, device)
-        self._set.remove(device)
+        if persistent:
+            self._set.remove(device)
         self._vm.fire_event('device-detach:' + self._class, device)
 
     def attached(self, persistent=None):
