@@ -201,7 +201,7 @@ class ThinPool(qubes.storage.Pool):
         self.create(volume)
 
     def setup(self):
-        pass  # TODO Should we create a non existing pool?gt
+        pass  # TODO Should we create a non existing pool?
 
     def start(self, volume):
         if volume._is_snapshot:

@@ -550,6 +550,13 @@ class Pool(object):
         '''
         raise self._not_implemented("reset")
 
+    def resize(self, volume, size):
+        ''' Expands volume, throws
+            :py:class:`qubes.storage.StoragePoolException` if
+            given size is less than current_size
+        '''
+        raise self._not_implemented("resize")
+
     def revert(self, volume, revision=None):
         ''' Revert volume to previous revision  '''
         raise self._not_implemented("revert")
