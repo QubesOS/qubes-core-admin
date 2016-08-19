@@ -1,23 +1,23 @@
-===================
-qvm-template-commit
-===================
+=============
+qvm-grow-root
+=============
 
 NAME
 ====
-qvm-template-commit
+qvm-grow-root - increase root storage capacity of a specified VM
 
-:Date:   2012-04-11
+:Date:   2014-03-21
 
 SYNOPSIS
 ========
-| qvm-template-commit [options] <vm-name>
+| qvm-grow-root <vm-name> <size>
 
 OPTIONS
 =======
 -h, --help
     Show this help message and exit
---offline-mode
-    Offline mode
+--allow-start
+    Allow VM to be started to complete the operation
 	
 AUTHORS
 =======

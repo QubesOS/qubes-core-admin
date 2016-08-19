@@ -22,7 +22,9 @@ OPTIONS
     Specify path to the template directory
 -c CONF_FILE, --conf=CONF_FILE
     Specify the Xen VM .conf file to use(relative to the template dir path)
-
+--force-root
+    Force to run, even with root privileges
+	
 AUTHORS
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>

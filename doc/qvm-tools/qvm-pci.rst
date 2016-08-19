@@ -29,7 +29,9 @@ OPTIONS
         usb - USB controllers
 -d, --delete
     Remove a PCI device from specified VM
-
+--offline-mode
+    Offline mode
+	
 AUTHORS
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>

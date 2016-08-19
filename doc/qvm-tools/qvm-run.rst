@@ -40,6 +40,20 @@ OPTIONS
     Pass stdin/stdout/stderr from remote program
 --localcmd=LOCALCMD
     With --pass-io, pass stdin/stdout/stderr to the given program
+--nogui
+    Run command without gui
+--filter-escape-chars
+    Filter terminal escape sequences (default if output is terminal)
+--no-filter-escape-chars
+    Do not filter terminal escape sequences - overrides --filter-escape-chars, DANGEROUS when output is terminal
+--no-color-output
+    Disable marking VM output with red color
+--no-color-stderr
+    Disable marking VM stderr with red color
+--color-output
+    Force marking VM output with given ANSI style (use 31 for red)
+--color-stderr
+    Force marking VM stderr with given ANSI style (use 31 for red)
 --force
     Force operation, even if may damage other VMs (eg. shutdown of NetVM)
 
