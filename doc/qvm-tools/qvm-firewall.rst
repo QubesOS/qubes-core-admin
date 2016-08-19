@@ -36,9 +36,13 @@ OPTIONS
 -Y SET_YUM_PROXY, --yum-proxy=SET_YUM_PROXY
     Set access to Qubes yum proxy (allow/deny).
     *Note:* if set to "deny", access will be rejected even if policy set to "allow"
+-r, --reload
+    Reload firewall (implied by any change action)
 -n, --numeric
     Display port numbers instead of services (makes sense only with --list)
-
+--force-root
+    Force to run, even with root privileges
+	
 AUTHORS
 =======
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>

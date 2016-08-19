@@ -6,7 +6,6 @@ NAME
 ====
 qvm-block - list/set VM PCI devices.
 
-
 :Date:   2012-04-10
 
 SYNOPSIS
@@ -16,13 +15,14 @@ SYNOPSIS
 | qvm-block -d [options] <device>
 | qvm-block -d [options] <vm-name>
 
-
 OPTIONS
 =======
 -h, --help
     Show this help message and exit
 -l, --list
     List block devices            
+-A, --attach-file
+    Attach specified file instead of physical device
 -a, --attach
     Attach block device to specified VM
 -d, --detach          
@@ -33,6 +33,10 @@ OPTIONS
     Force read-only mode
 --no-auto-detach
     Fail when device already connected to other VM
+--show-system-disks
+    List also system disks
+--force-root
+    Force to run, even with root privileges
 
 AUTHORS
 =======

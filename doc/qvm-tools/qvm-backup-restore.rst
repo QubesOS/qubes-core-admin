@@ -38,6 +38,8 @@ OPTIONS
     Restore from a backup located in a specific AppVM
 -e, --encrypted
     The backup is encrypted
+-p, --passphrase-file
+    Read passphrase from file, or use '-' to read from stdin
 -z, --compressed
     The backup is compressed
 --debug

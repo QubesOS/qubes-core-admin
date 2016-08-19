@@ -22,6 +22,8 @@ OPTIONS
     Force operation, even if may damage other VMs (eg. shutdown of NetVM)
 --wait
     Wait for the VM(s) to shutdown
+--wait-time
+    Timeout after which VM will be killed when --wait is used
 --all
     Shutdown all running VMs
 --exclude=EXCLUDE_LIST

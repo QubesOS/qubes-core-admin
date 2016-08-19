@@ -25,7 +25,11 @@ OPTIONS
     Get a single property of a specified VM
 -s, --set
     Set properties of a specified VM
-
+--force-root
+    Force to run, even with root privileges
+--offline-mode
+    Offline mode
+	
 PROPERTIES
 ==========
 

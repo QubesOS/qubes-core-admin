@@ -32,6 +32,8 @@ OPTIONS
     Show date of last VM backup
 --raw-list
     List only VM names one per line
+--raw-data
+    Display specify data of specified VMs. Intended for bash-parsing.
 
 AUTHORS
 =======
