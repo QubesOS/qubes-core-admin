@@ -217,8 +217,10 @@ class ThinPool(qubes.storage.Pool):
     def stop(self, volume):
         if volume.save_on_stop:
             self._commit(volume)
-
-        if volume._is_volatile:
+        if volume._is_snapshot:
+            cmd = ['remove', volume._vid_snap]
+            qubes_lvm(cmd, self.log)
+        elif volume._is_volatile:
             cmd = ['remove', volume.vid]
             qubes_lvm(cmd, self.log)
         else:
@@ -227,6 +229,12 @@ class ThinPool(qubes.storage.Pool):
         return volume
 
     def _snapshot(self, volume):
+        try:
+            cmd = ['remove', volume._vid_snap]
+            qubes_lvm(cmd, self.log)
+        except:
+            pass
+
         if volume.source is None:
             cmd = ['clone', volume.vid, volume._vid_snap]
         else:
