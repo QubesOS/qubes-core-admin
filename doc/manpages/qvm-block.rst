@@ -86,6 +86,12 @@ Detach the volume with *POOL_NAME:VOLUME_ID* from domain *VMNAME*
 
 aliases: d, dt
 
+extend
+^^^^^^
+| :command:`qvm-block extend` [-h] [--verbose] [--quiet] *POOL_NAME:VOLUME_ID* *SIZE*
+
+Extends the volume with *POOL_NAME:VOLUME_ID* BY *SIZE* bytes
+
 revert
 ^^^^^^
 
