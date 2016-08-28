@@ -32,6 +32,8 @@ class ThinPool(qubes.storage.Pool):
     ''' LVM Thin based pool implementation
     '''  # pylint: disable=protected-access
 
+    size_cache = None
+
     driver = 'lvm_thin'
 
     def __init__(self, volume_group, thin_pool, revisions_to_keep=1, **kwargs):
@@ -90,6 +92,7 @@ class ThinPool(qubes.storage.Pool):
                 str(volume.size)
             ]
             qubes_lvm(cmd, self.log)
+        reset_cache()
         return volume
 
     def destroy(self):
@@ -146,6 +149,7 @@ class ThinPool(qubes.storage.Pool):
                     dst.write(tmp)
         p.stdin.close()
         p.wait()
+        reset_cache()
         return dst_volume
 
     def is_dirty(self, volume):
@@ -161,6 +165,7 @@ class ThinPool(qubes.storage.Pool):
 
         cmd = ['remove', volume.vid]
         qubes_lvm(cmd, self.log)
+        reset_cache()
 
     def rename(self, volume, old_name, new_name):
         ''' Called when the domain changes its name '''
@@ -179,6 +184,7 @@ class ThinPool(qubes.storage.Pool):
         if not volume._is_volatile:
             volume._vid_snap = volume.vid + '-snap'
         return volume
+        reset_cache()
 
     def revert(self, volume, revision=None):
         old_path = volume.path + '-back'
@@ -190,6 +196,7 @@ class ThinPool(qubes.storage.Pool):
         qubes_lvm(cmd, self.log)
         cmd = ['clone', volume.vid + '-back', volume.vid]
         qubes_lvm(cmd, self.log)
+        reset_cache()
         return volume
 
     def resize(self, volume, size):
@@ -210,7 +217,7 @@ class ThinPool(qubes.storage.Pool):
 
         cmd = ['extend', volume.vid, str(size)]
         qubes_lvm(cmd, self.log)
-        volume.size += size
+        reset_cache()
 
     def _reset(self, volume):
         try:
@@ -232,6 +239,7 @@ class ThinPool(qubes.storage.Pool):
             if not self.is_dirty(volume):
                 self._snapshot(volume)
 
+        reset_cache
         return volume
 
     def stop(self, volume):
@@ -244,6 +252,7 @@ class ThinPool(qubes.storage.Pool):
         else:
             cmd = ['remove', volume._vid_snap]
             qubes_lvm(cmd, self.log)
+        reset_cache()
         return volume
 
     def _snapshot(self, volume):
@@ -301,9 +310,40 @@ class ThinPool(qubes.storage.Pool):
                str(volume.size)]
         qubes_lvm(cmd, self.log)
 
+
+def init_cache(log=logging.getLogger('qube.storage.lvm')):
+    cmd = ['sudo', 'lvs', '--noheadings', '-o',
+           'vg_name,name,lv_size,data_percent', '--units', 'b', '--separator',
+           ',']
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = p.communicate()
+    return_code = p.returncode
+    if return_code == 0 and err:
+        log.warning(err)
+    elif return_code != 0:
+        raise qubes.storage.StoragePoolException(err)
+
+    result = {}
+
+    for l in out.splitlines():
+        l = l.strip()
+        pool_name, name, size, usage_percent = l.split(',', 3)
+        if '' in  [pool_name, name, size, usage_percent]:
+            continue
+        name = pool_name + "/" + name
+        size = int(size[:-1])
+        usage = int(size / 100 * float(usage_percent))
+        result[name] = {'size':size, 'usage': usage}
+
+    return result
+
+
+size_cache = init_cache()
+
 class ThinVolume(qubes.storage.Volume):
     ''' Default LVM thin volume implementation
     '''  # pylint: disable=too-few-public-methods
+
 
     def __init__(self, volume_group, **kwargs):
         self.volume_group = volume_group
@@ -347,6 +387,22 @@ class ThinVolume(qubes.storage.Volume):
     def _is_volatile(self):
         return not self.snap_on_start and not self.save_on_stop
 
+    @property
+    def size(self):
+        try:
+            return qubes.storage.lvm.size_cache[self.vid]['size']
+        except KeyError:
+            return self._size
+
+    @property
+    def usage(self):  # lvm thin usage always returns at least the same usage as
+                      # the parent
+        try:
+            return qubes.storage.lvm.size_cache[self.vid]['usage']
+        except KeyError:
+            return 0
+
+
 def pool_exists(pool_id):
     ''' Return true if pool exists '''
     cmd = ['pool', pool_id]
@@ -369,3 +425,7 @@ def qubes_lvm(cmd, log=logging.getLogger('qube.storage.lvm')):
         assert err, "Command exited unsuccessful, but printed nothing to stderr"
         raise qubes.storage.StoragePoolException(err)
     return True
+
+
+def reset_cache(log=logging.getLogger('qube.storage.lvm')):
+    qubes.storage.lvm.size_cache = init_cache
