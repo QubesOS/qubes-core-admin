@@ -192,6 +192,26 @@ class ThinPool(qubes.storage.Pool):
         qubes_lvm(cmd, self.log)
         return volume
 
+    def resize(self, volume, size):
+        ''' Expands volume, throws
+            :py:class:`qubst.storage.qubes.storage.StoragePoolException` if
+            given size is less than current_size
+        '''
+        if not volume.rw:
+            msg = 'Can not resize reađonly volume {!s}'.format(volume)
+            raise qubes.storage.StoragePoolException(msg)
+
+        if size <= volume.size:
+            raise qubes.storage.StoragePoolException(
+                'For your own safety, shrinking of %s is'
+                ' disabled. If you really know what you'
+                ' are doing, use `truncate` on %s manually.' %
+                (volume.name, volume.vid))
+
+        cmd = ['extend', volume.vid, str(size)]
+        qubes_lvm(cmd, self.log)
+        volume.size += size
+
     def _reset(self, volume):
         try:
             self.remove(volume)

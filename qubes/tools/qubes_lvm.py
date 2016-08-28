@@ -127,6 +127,21 @@ def rename_volume(old_name, new_name):
     return new_name
 
 
+def extend_volume(args):
+    ''' Extends an existing lvm volume. Note this works on any lvm volume not
+        only thin volumes.
+    '''
+    vid = args.name
+    size = int(args.size) / ( 1000 * 1000)
+    log.debug("Extending LVM %s to %s", vid, size)
+    cmd = ["lvextend", "-L+%s" % size, vid]
+    log.debug(cmd)
+    retcode = subprocess.call(cmd)
+    if retcode != 0:
+        raise IOError("Error extending LVM  %s to %s " % (vid, size))
+    return 0
+
+
 def init_pool_parser(sub_parsers):
     ''' Initialize pool subparser '''
     pool_parser = sub_parsers.add_parser(
@@ -219,6 +234,17 @@ def init_remove_parser(sub_parsers):
     remove_parser.set_defaults(func=remove_volume)
 
 
+def init_extend_parser(sub_parsers):
+    ''' Initialize extend subparser '''
+    extend_parser = sub_parsers.add_parser('extend',
+                                           help='extends a LogicalVolume')
+    extend_parser.add_argument('name', metavar='VG/VID',
+                               help='volume_group/volume_name')
+    extend_parser.set_defaults(func=extend_volume)
+    extend_parser.add_argument(
+        'size', help='size in bytes of the new ThinPoolLogicalVolume')
+
+
 def get_parser():
     '''Create :py:class:`argparse.ArgumentParser` suitable for
     :program:`qubes-lvm`.
@@ -230,12 +256,13 @@ def get_parser():
         title='commands',
         description="For more information see qubes-lvm command -h",
         dest='command')
-    init_pool_parser(sub_parsers)
+    init_clone_parser(sub_parsers)
+    init_extend_parser(sub_parsers)
     init_import_parser(sub_parsers)
     init_new_parser(sub_parsers)
-    init_volumes_parser(sub_parsers)
+    init_pool_parser(sub_parsers)
     init_remove_parser(sub_parsers)
-    init_clone_parser(sub_parsers)
+    init_volumes_parser(sub_parsers)
 
     return parser
 
