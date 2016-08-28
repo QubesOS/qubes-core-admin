@@ -195,6 +195,25 @@ def init_revert_parser(sub_parsers):
                                action=qubes.tools.VolumeAction)
     revert_parser.set_defaults(func=revert_volume)
 
+def init_attach_parser(sub_parsers):
+    attach_parser = sub_parsers.add_parser(
+        'attach', help="Attach volume to domain", aliases=('at', 'a'))
+    attach_parser.add_argument('--ro', help='attach device read-only',
+                               action='store_true')
+    attach_parser.add_argument('VMNAME', action=qubes.tools.RunningVmNameAction)
+    attach_parser.add_argument(metavar='POOL_NAME:VOLUME_ID', dest='volume',
+                               action=qubes.tools.VolumeAction)
+    attach_parser.set_defaults(func=attach_volumes)
+
+
+def init_dettach_parser(sub_parsers):
+    detach_parser = sub_parsers.add_parser(
+        "detach", help="Detach volume from domain", aliases=('d', 'dt'))
+    detach_parser.add_argument('VMNAME', action=qubes.tools.RunningVmNameAction)
+    detach_parser.add_argument(metavar='POOL_NAME:VOLUME_ID', dest='volume',
+                               action=qubes.tools.VolumeAction)
+    detach_parser.set_defaults(func=detach_volumes)
+
 
 def get_parser():
     '''Create :py:class:`argparse.ArgumentParser` suitable for
@@ -206,22 +225,10 @@ def get_parser():
         title='commands',
         description="For more information see qvm-block command -h",
         dest='command')
+    init_attach_parser(sub_parsers)
+    init_dettach_parser(sub_parsers)
     init_list_parser(sub_parsers)
     init_revert_parser(sub_parsers)
-    attach_parser = sub_parsers.add_parser(
-        'attach', help="Attach volume to domain", aliases=('at', 'a'))
-    attach_parser.add_argument('--ro', help='attach device read-only',
-                               action='store_true')
-    attach_parser.add_argument('VMNAME', action=qubes.tools.RunningVmNameAction)
-    attach_parser.add_argument(metavar='POOL_NAME:VOLUME_ID', dest='volume',
-                               action=qubes.tools.VolumeAction)
-    attach_parser.set_defaults(func=attach_volumes)
-    detach_parser = sub_parsers.add_parser(
-        "detach", help="Detach volume from domain", aliases=('d', 'dt'))
-    detach_parser.add_argument('VMNAME', action=qubes.tools.RunningVmNameAction)
-    detach_parser.add_argument(metavar='POOL_NAME:VOLUME_ID', dest='volume',
-                               action=qubes.tools.VolumeAction)
-    detach_parser.set_defaults(func=detach_volumes)
 
     return parser
 
