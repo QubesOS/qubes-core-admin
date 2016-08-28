@@ -342,7 +342,7 @@ def qubes_lvm(cmd, log=logging.getLogger('qube.storage.lvm')):
     out, err = p.communicate()
     return_code = p.returncode
     if out:
-        log.info(out)
+        log.debug(out)
     if return_code == 0 and err:
         log.warning(err)
     elif return_code != 0:
