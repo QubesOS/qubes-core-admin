@@ -24,6 +24,7 @@
 
 from __future__ import print_function
 
+import re
 import sys
 
 import qubes
@@ -168,6 +169,34 @@ def detach_volumes(args):
         sys.exit(1)
 
 
+def extend_volumes(args):
+    ''' Called by the parser to execute the :program:`qvm-block extend`
+        subcommand
+    '''
+    volume = args.volume
+    app = args.app
+    try:
+        size = int(args.size.strip())
+    except ValueError:
+        if re.match(r'^(\d+[kgm])$', args.size.strip(), re.IGNORECASE):
+            size = int(args.size.strip()[:-1])
+            factor = args.size.strip()[-1:]
+        elif re.match(r'^(\d+[kgm][B])$', args.size.strip(), re.IGNORECASE):
+            size = int(args.size.strip()[:-2])
+            factor = args.size.strip()[-2:-1]
+        else:
+            print("Unknown size %s" % args.size, file=sys.stderr)
+            sys.exit(1)
+        if factor == "K":
+            size *= 1000
+        elif factor == "M":
+            size *= 1000 * 1000
+        elif factor == "G":
+            size *= 1000 * 1000 * 1000
+    pool = app.get_pool(volume.pool)
+    pool.resize(volume, volume.size+size)
+    app.save()
+
 def init_list_parser(sub_parsers):
     ''' Configures the parser for the :program:`qvm-block list` subcommand '''
     # pylint: disable=protected-access
@@ -214,6 +243,14 @@ def init_dettach_parser(sub_parsers):
                                action=qubes.tools.VolumeAction)
     detach_parser.set_defaults(func=detach_volumes)
 
+def init_extend_parser(sub_parsers):
+    extend_parser = sub_parsers.add_parser(
+        "extend", help="extend volume from domain", aliases=('d', 'dt'))
+    extend_parser.add_argument(metavar='POOL_NAME:VOLUME_ID', dest='volume',
+                               action=qubes.tools.VolumeAction)
+    extend_parser.add_argument(
+        'size', help='size in bytes of the new ThinPoolLogicalVolume')
+    extend_parser.set_defaults(func=extend_volumes)
 
 def get_parser():
     '''Create :py:class:`argparse.ArgumentParser` suitable for
@@ -227,6 +264,7 @@ def get_parser():
         dest='command')
     init_attach_parser(sub_parsers)
     init_dettach_parser(sub_parsers)
+    init_extend_parser(sub_parsers)
     init_list_parser(sub_parsers)
     init_revert_parser(sub_parsers)
 
