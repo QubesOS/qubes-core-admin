@@ -101,6 +101,7 @@ XEN_EXTRA=`cat $TEMP_DIR/xl-info |grep xen_extra |cut -d: -f2 |tr -d ' '`
 QUBES=`cat $TEMP_DIR/qubes-release |cut -d '(' -f2 |cut -d ')' -f1`
 XL_VTX=`cat $TEMP_DIR/xl-info |grep xen_caps | grep hvm`
 XL_VTD=`cat $TEMP_DIR/xl-info |grep virt_caps |grep hvm_directio`
+XL_HAP=`cat $TEMP_DIR/xl-dmesg |grep 'HVM: Hardware Assisted Paging (HAP) detected'`
 PCRS=`find /sys/devices/ -name pcrs`
 
 FILENAME="Qubes-HCL-${BRAND//[^[:alnum:]]/_}-${PRODUCT//[^[:alnum:]]/_}-$DATE"
@@ -125,6 +126,12 @@ if [[ $XL_VTD ]]
     VTD="Not active"
     IOMMU="no"
 
+fi
+
+if [ -n "$XL_HAP" ]; then
+    HAP="yes"
+else
+    HAP="no"
 fi
 
 if [[ $PCRS ]]
@@ -152,6 +159,7 @@ echo -e "Net:\n$NET\n"
 echo -e "SCSI:\n$SCSI\n"
 echo -e "HVM:\t\t$VTX"
 echo -e "I/O MMU:\t$VTD"
+echo -e "HAP/SLAT:\t${HAP^}"
 echo -e "TPM:\t\t$TPM"
 echo
 
@@ -164,6 +172,8 @@ hvm:
   '$HVM'
 iommu:
   '$IOMMU'
+slat:
+  '$HAP'
 tpm:
   '$TPM_s'
 brand: |
