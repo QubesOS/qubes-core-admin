@@ -20,6 +20,10 @@ OPTIONS
     Be quiet           
 -p DIR_PATH, --path=DIR_PATH
     Specify path to the template directory
+--force-root
+    Force to run, even with root privileges
+-P, --pool
+    Specify in to which storage pool to clone
 
 AUTHORS
 =======
