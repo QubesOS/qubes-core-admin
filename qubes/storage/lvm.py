@@ -232,7 +232,7 @@ class ThinPool(qubes.storage.Pool):
         try:
             cmd = ['remove', volume._vid_snap]
             qubes_lvm(cmd, self.log)
-        except:
+        except:  # pylint: disable=bare-except
             pass
 
         if volume.source is None:
