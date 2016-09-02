@@ -132,7 +132,7 @@ def extend_volume(args):
         only thin volumes.
     '''
     vid = args.name
-    size = int(args.size) / ( 1000 * 1000)
+    size = int(args.size) / (1000 * 1000)
     log.debug("Extending LVM %s to %s", vid, size)
     cmd = ["lvextend", "-L+%s" % size, vid]
     log.debug(cmd)
