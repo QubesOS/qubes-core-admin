@@ -78,6 +78,13 @@ sudo dmidecode > $TEMP_DIR/dmidecode
 xl info > $TEMP_DIR/xl-info
 xl dmesg > $TEMP_DIR/xl-dmesg
 
+if cat $TEMP_DIR/xl-dmesg | grep "$XL_DMESG_PREFIX_REGEX"'Xen version ' > /dev/null; then
+    XL_DMESG_INCOMPLETE=no
+else
+    XL_DMESG_INCOMPLETE=yes
+    echo -e 'WARNING: "xl dmesg" is incomplete. Some information are missing. Please reboot and try again.\n'
+fi
+
 
 BRAND=`cat $TEMP_DIR/dmidecode |grep -A9 "System Information" |grep "Manufacturer:" |cut -d ' ' -f2-`
 PRODUCT=`cat $TEMP_DIR/dmidecode |grep -A9 "System Information" |grep "Product Name:" |cut -d ' ' -f3-`
@@ -130,7 +137,10 @@ if [[ $XL_VTD ]]
 
 fi
 
-if [ -n "$XL_HAP" ]; then
+if [ $XL_DMESG_INCOMPLETE = yes ]; then
+    HAP=""
+    HAP_VERBOSE='Unknown ("xl dmesg" incomplete)'
+elif [ -n "$XL_HAP" ]; then
     HAP="yes"
     HAP_VERBOSE="Yes"
     if [[ "$XL_HAP" =~ "disabled" ]]; then
