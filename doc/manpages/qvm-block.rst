@@ -88,9 +88,9 @@ aliases: d, dt
 
 extend
 ^^^^^^
-| :command:`qvm-block extend` [-h] [--verbose] [--quiet] *POOL_NAME:VOLUME_ID* *SIZE*
+| :command:`qvm-block extend` [-h] [--verbose] [--quiet] *POOL_NAME:VOLUME_ID* *NEW_SIZE*
 
-Extends the volume with *POOL_NAME:VOLUME_ID* BY *SIZE* bytes
+Extend the volume with *POOL_NAME:VOLUME_ID* TO *NEW_SIZE*
 
 revert
 ^^^^^^

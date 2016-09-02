@@ -129,12 +129,12 @@ def rename_volume(old_name, new_name):
 
 def extend_volume(args):
     ''' Extends an existing lvm volume. Note this works on any lvm volume not
-        only thin volumes.
+        only on thin volumes.
     '''
     vid = args.name
     size = int(args.size) / (1000 * 1000)
     log.debug("Extending LVM %s to %s", vid, size)
-    cmd = ["lvextend", "-L+%s" % size, vid]
+    cmd = ["lvextend", "-L%s" % size, vid]
     log.debug(cmd)
     retcode = subprocess.call(cmd)
     if retcode != 0:
