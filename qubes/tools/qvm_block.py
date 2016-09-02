@@ -24,12 +24,12 @@
 
 from __future__ import print_function
 
-import re
 import sys
 
 import qubes
 import qubes.exc
 import qubes.tools
+import qubes.utils
 
 
 def prepare_table(vd_list, full=False):
@@ -175,24 +175,7 @@ def extend_volumes(args):
     '''
     volume = args.volume
     app = args.app
-    try:
-        size = int(args.size.strip())
-    except ValueError:
-        if re.match(r'^(\d+[kgm])$', args.size.strip(), re.IGNORECASE):
-            size = int(args.size.strip()[:-1])
-            factor = args.size.strip()[-1:]
-        elif re.match(r'^(\d+[kgm][B])$', args.size.strip(), re.IGNORECASE):
-            size = int(args.size.strip()[:-2])
-            factor = args.size.strip()[-2:-1]
-        else:
-            print("Unknown size %s" % args.size, file=sys.stderr)
-            sys.exit(1)
-        if factor == "K":
-            size *= 1000
-        elif factor == "M":
-            size *= 1000 * 1000
-        elif factor == "G":
-            size *= 1000 * 1000 * 1000
+    size = qubes.utils.parse_size(args.size)
     pool = app.get_pool(volume.pool)
     pool.resize(volume, volume.size+size)
     app.save()
