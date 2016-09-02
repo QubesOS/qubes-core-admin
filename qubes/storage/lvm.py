@@ -345,9 +345,9 @@ class ThinVolume(qubes.storage.Volume):
     '''  # pylint: disable=too-few-public-methods
 
 
-    def __init__(self, volume_group, **kwargs):
+    def __init__(self, volume_group, size=0, **kwargs):
         self.volume_group = volume_group
-        super(ThinVolume, self).__init__(**kwargs)
+        super(ThinVolume, self).__init__(size=size, **kwargs)
 
         if self.snap_on_start and self.source is None:
             msg = "snap_on_start specified on {!r} but no volume source set"
@@ -361,6 +361,8 @@ class ThinVolume(qubes.storage.Volume):
         self.path = '/dev/' + self.vid
         if not self._is_volatile:
             self._vid_snap = self.vid + '-snap'
+
+        self._size = size
 
     @property
     def revisions(self):
