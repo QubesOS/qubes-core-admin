@@ -183,8 +183,8 @@ class ThinPool(qubes.storage.Pool):
 
         if not volume._is_volatile:
             volume._vid_snap = volume.vid + '-snap'
-        return volume
         reset_cache()
+        return volume
 
     def revert(self, volume, revision=None):
         old_path = volume.path + '-back'
@@ -212,7 +212,7 @@ class ThinPool(qubes.storage.Pool):
             raise qubes.storage.StoragePoolException(
                 'For your own safety, shrinking of %s is'
                 ' disabled. If you really know what you'
-                ' are doing, use `truncate` on %s manually.' %
+                ' are doing, use `lvresize` on %s manually.' %
                 (volume.name, volume.vid))
 
         cmd = ['extend', volume.vid, str(size)]
@@ -239,7 +239,7 @@ class ThinPool(qubes.storage.Pool):
             if not self.is_dirty(volume):
                 self._snapshot(volume)
 
-        reset_cache
+        reset_cache()
         return volume
 
     def stop(self, volume):
