@@ -325,9 +325,9 @@ def init_cache(log=logging.getLogger('qube.storage.lvm')):
 
     result = {}
 
-    for l in out.splitlines():
-        l = l.strip()
-        pool_name, name, size, usage_percent = l.split(',', 3)
+    for line in out.splitlines():
+        line = line.strip()
+        pool_name, name, size, usage_percent = line.split(',', 3)
         if '' in  [pool_name, name, size, usage_percent]:
             continue
         name = pool_name + "/" + name
@@ -429,5 +429,5 @@ def qubes_lvm(cmd, log=logging.getLogger('qube.storage.lvm')):
     return True
 
 
-def reset_cache(log=logging.getLogger('qube.storage.lvm')):
+def reset_cache():
     qubes.storage.lvm.size_cache = init_cache
