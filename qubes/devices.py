@@ -50,6 +50,15 @@ Such extension should provide:
 import qubes.utils
 
 
+class DeviceNotAttached(qubes.exc.QubesException, KeyError):
+    '''Trying to detach not attached device'''
+    pass
+
+class DeviceAlreadyAttached(qubes.exc.QubesException, KeyError):
+    '''Trying to attach already attached device'''
+    pass
+
+
 class DeviceCollection(object):
     '''Bag for devices.
 
@@ -120,7 +129,7 @@ class DeviceCollection(object):
         '''
 
         if device in self.attached():
-            raise KeyError(
+            raise DeviceAlreadyAttached(
                 'device {!r} of class {} already attached to {!r}'.format(
                     device, self._class, self._vm))
         self._vm.fire_event_pre('device-pre-attach:' + self._class, device)
@@ -136,8 +145,8 @@ class DeviceCollection(object):
         '''
 
         if device not in self.attached():
-            raise KeyError(
-                'device {!r} of class {} not attached to {!r}'.format(
+            raise DeviceNotAttached(
+                'device {!s} of class {} not attached to {!s}'.format(
                     device, self._class, self._vm))
         self._vm.fire_event_pre('device-pre-detach:' + self._class, device)
         if persistent:
@@ -261,6 +270,8 @@ class DeviceInfo(object):
             self.ident == other.ident
         )
 
+    def __str__(self):
+        return '{!s}:{!s}'.format(self.backend_domain, self.ident)
 
 class UnknownDevice(DeviceInfo):
     # pylint: disable=too-few-public-methods
