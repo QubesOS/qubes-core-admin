@@ -186,7 +186,11 @@ def get_parser(device_class=None):
 
 def main(args=None):
     '''Main routine of :program:`qvm-block`.'''
-    args = get_parser().parse_args(args)
+    basename = os.path.basename(sys.argv[0])
+    devclass = None
+    if basename.startswith('qvm-') and basename != 'qvm-device':
+        devclass = basename[4:]
+    args = get_parser(devclass).parse_args(args)
     try:
         args.func(args)
     except qubes.exc.QubesException as e:
