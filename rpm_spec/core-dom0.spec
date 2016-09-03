@@ -250,6 +250,7 @@ fi
 %{python_sitelib}/qubes/tools/qvm_block.py*
 %{python_sitelib}/qubes/tools/qubes_lvm.py*
 %{python_sitelib}/qubes/tools/qvm_create.py*
+%{python_sitelib}/qubes/tools/qvm_device.py*
 %{python_sitelib}/qubes/tools/qvm_features.py*
 %{python_sitelib}/qubes/tools/qvm_check.py*
 %{python_sitelib}/qubes/tools/qvm_clone.py*
@@ -298,6 +299,7 @@ fi
 %dir %{python_sitelib}/qubes/tests/tools
 %{python_sitelib}/qubes/tests/tools/__init__.py*
 %{python_sitelib}/qubes/tests/tools/init.py*
+%{python_sitelib}/qubes/tests/tools/qvm_device.py*
 %{python_sitelib}/qubes/tests/tools/qvm_ls.py*
 
 %dir %{python_sitelib}/qubes/tests/int
