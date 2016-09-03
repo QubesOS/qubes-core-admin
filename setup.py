@@ -40,9 +40,10 @@ if __name__ == '__main__':
                 'qubes.ext.qubesmanager = qubes.ext.qubesmanager:QubesManager',
                 'qubes.ext.gui = qubes.ext.gui:GUI',
                 'qubes.ext.r3compatibility = qubes.ext.r3compatibility:R3Compatibility',
+                'qubes.ext.pci = qubes.ext.pci:PCIDeviceExtension',
             ],
             'qubes.devices': [
-                'pci = qubes.devices:PCIDevice',
+                'pci = qubes.ext.pci:PCIDevice',
                 'testclass = qubes.tests.devices:TestDevice',
             ],
             'qubes.storage': [

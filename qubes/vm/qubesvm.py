@@ -243,7 +243,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     # CORE2: swallowed uses_default_kernelopts
     kernelopts = qubes.property('kernelopts', type=str, load_stage=4,
         default=(lambda self: qubes.config.defaults['kernelopts_pcidevs']
-            if list(self.devices['pci'].attached())
+            if list(self.devices['pci'].attached(persistent=True))
             else self.template.kernelopts if hasattr(self, 'template')
             else qubes.config.defaults['kernelopts']),
         ls_width=30,
@@ -588,82 +588,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 raise qubes.exc.QubesException(
                     'Failed to reset autostart for VM in systemd')
 
-    @qubes.events.handler('device-pre-attach:pci')
-    def on_device_pre_attached_pci(self, event, device):
-        # pylint: disable=unused-argument
-        if not os.path.exists('/sys/bus/pci/devices/0000:{}'.format(device)):
-            raise qubes.exc.QubesException(
-                'Invalid PCI device: {}'.format(device))
-
-        if not self.is_running():
-            return
-
-        try:
-            self.bind_pci_to_pciback(device)
-            self.libvirt_domain.attachDevice(
-                self.app.env.get_template('libvirt/devices/pci.xml').render(
-                    device=device))
-        except subprocess.CalledProcessError as e:
-            self.log.exception('Failed to attach PCI device {!r} on the fly,'
-                ' changes will be seen after VM restart.'.format(device), e)
-
-    @qubes.events.handler('device-pre-detach:pci')
-    def on_device_pre_detached_pci(self, event, device):
-        # pylint: disable=unused-argument
-        if not self.is_running():
-            return
-
-        # this cannot be converted to general API, because there is no
-        # provision in libvirt for extracting device-side BDF; we need it for
-        # qubes.DetachPciDevice, which unbinds driver, not to oops the kernel
-
-        p = subprocess.Popen(['xl', 'pci-list', str(self.xid)],
-                stdout=subprocess.PIPE)
-        result = p.communicate()[0]
-        m = re.search(r'^(\d+.\d+)\s+0000:{}$'.format(device), result,
-            flags=re.MULTILINE)
-        if not m:
-            self.log.error('Device %s already detached', device)
-            return
-        vmdev = m.group(1)
-        try:
-            self.run_service('qubes.DetachPciDevice',
-                user='root', input='00:{}'.format(vmdev))
-            self.libvirt_domain.detachDevice(
-                self.app.env.get_template('libvirt/devices/pci.xml').render(
-                    device=device))
-        except (subprocess.CalledProcessError, libvirt.libvirtError) as e:
-            self.log.exception('Failed to detach PCI device {!r} on the fly,'
-                ' changes will be seen after VM restart.'.format(device), e)
-            raise
-
-    def bind_pci_to_pciback(self, device):
-        '''Bind PCI device to pciback driver.
-
-        :param qubes.devices.PCIDevice device: device to attach
-
-        Devices should be unbound from their normal kernel drivers and bound to
-        the dummy driver, which allows for attaching them to a domain.
-        '''
-        try:
-            node = self.app.vmm.libvirt_conn.nodeDeviceLookupByName(
-                device.libvirt_name)
-        except libvirt.libvirtError as e:
-            if e.get_error_code() == libvirt.VIR_ERR_NO_NODE_DEVICE:
-                raise qubes.exc.QubesException(
-                    'PCI device {!r} does not exist (domain {!r})'.format(
-                        device, self.name))
-            raise
-
-        try:
-            node.dettach()
-        except libvirt.libvirtError as e:
-            if e.get_error_code() == libvirt.VIR_ERR_INTERNAL_ERROR:
-                # allreaddy dettached
-                pass
-            else:
-                raise
-
     #
     # methods for changing domain state
     #
@@ -701,10 +625,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self._update_libvirt_domain()
 
         qmemman_client = self.request_memory(mem_required)
-
-        # Bind pci devices to pciback driver
-        for pci in self.devices['pci'].attached():
-            self.bind_pci_to_pciback(pci)
 
         self.libvirt_domain.createWithFlags(libvirt.VIR_DOMAIN_START_PAUSED)
 

@@ -27,7 +27,7 @@
             <viridian/>
         {% endif %}
 
-        {% if vm.devices['pci'].attached() | list
+        {% if vm.devices['pci'].attached(persistent=True) | list
                 and vm.features.get('pci-e820-host', True) %}
             <xen>
                 <e820_host state="on"/>
@@ -94,7 +94,7 @@
             {% include 'libvirt/devices/net.xml' with context %}
         {% endif %}
 
-        {% for device in vm.devices.pci.attached() %}
+        {% for device in vm.devices.pci.attached(persistent=True) %}
             {% include 'libvirt/devices/pci.xml' %}
         {% endfor %}
 

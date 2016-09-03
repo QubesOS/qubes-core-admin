@@ -268,6 +268,7 @@ fi
 %dir %{python_sitelib}/qubes/ext
 %{python_sitelib}/qubes/ext/__init__.py*
 %{python_sitelib}/qubes/ext/gui.py*
+%{python_sitelib}/qubes/ext/pci.py*
 %{python_sitelib}/qubes/ext/qubesmanager.py*
 %{python_sitelib}/qubes/ext/r3compatibility.py*
 

@@ -245,10 +245,17 @@ class DeviceInfo(object):
         self.backend_domain = backend_domain
         #: device identifier (unique for given domain and device type)
         self.ident = ident
-        #: human readable description/name of the device
-        self.description = description
-        #: (running) domain to which device is currently attached
-        self.frontend_domain = frontend_domain
+        # allow redefining those as dynamic properties in subclasses
+        try:
+            #: human readable description/name of the device
+            self.description = description
+        except AttributeError:
+            pass
+        try:
+            #: (running) domain to which device is currently attached
+            self.frontend_domain = frontend_domain
+        except AttributeError:
+            pass
         self.data = kwargs
 
         if hasattr(self, 'regex'):

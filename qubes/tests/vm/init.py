@@ -31,10 +31,17 @@ import qubes.vm
 
 import qubes.tests
 
+class TestVMM(object):
+    def __init__(self):
+        super(TestVMM, self).__init__()
+        self.offline_mode = True
+
+
 class TestApp(object):
     def __init__(self):
         super(TestApp, self).__init__()
         self.domains = {}
+        self.vmm = TestVMM()
 
 
 class TestVM(qubes.vm.BaseVM):
@@ -104,7 +111,7 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
 
         self.assertItemsEqual(vm.devices.keys(), ('pci',))
         self.assertItemsEqual(list(vm.devices['pci'].attached(persistent=True)),
-            [qubes.devices.PCIDevice(vm, '00:11.22')])
+            [qubes.ext.pci.PCIDevice(vm, '00:11.22')])
 
         self.assertXMLIsValid(vm.__xml__(), 'domain.rng')
 
