@@ -1,4 +1,8 @@
-<hostdev type="pci" managed="yes">
+<hostdev type="pci" managed="yes"
+{% if vm.features.get('pci-no-strict-reset/' + device.ident, False) %}
+ nostrictreset="yes"
+{% endif %}
+>
     <source>
         <address
             bus="0x{{ device.bus }}"

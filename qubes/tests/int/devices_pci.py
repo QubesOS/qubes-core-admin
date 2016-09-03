@@ -50,6 +50,7 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestsMixin,
                 label='red',
             )
             self.vm.create_on_disk()
+            self.vm.features['pci-no-strict-reset/' + pcidev] = True
             self.app.save()
 
     def test_000_list(self):
