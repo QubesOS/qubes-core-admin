@@ -111,6 +111,29 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         with self.assertRaises(LookupError):
             self.collection.detach(self.device)
 
+    def test_013_list_attached_persistent(self):
+        self.assertEqual(set([]), set(self.collection.attached()))
+        self.collection.attach(self.device)
+        self.assertEqual({self.device}, set(self.collection.attached()))
+        self.assertEqual({self.device},
+            set(self.collection.attached(persistent=True)))
+        self.assertEqual(set([]),
+            set(self.collection.attached(persistent=False)))
+
+    def test_014_list_attached_non_persistent(self):
+        self.collection.attach(self.device, persistent=False)
+        # device-attach event not implemented, so manipulate object manually
+        self.device.frontend_domain = self.emitter
+        self.assertEqual({self.device},
+            set(self.collection.attached()))
+        self.assertEqual(set([]),
+            set(self.collection.attached(persistent=True)))
+        self.assertEqual({self.device},
+            set(self.collection.attached(persistent=False)))
+
+    def test_015_list_available(self):
+        self.assertEqual({self.device}, set(self.collection))
+
 
 class TC_01_DeviceManager(qubes.tests.QubesTestCase):
     def setUp(self):
