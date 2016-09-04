@@ -45,7 +45,8 @@ def prepare_table(vd_list, full=False):
     '''
     output = []
     if sys.stdout.isatty():
-        output += [('POOL:VOLUME', 'VMNAME', 'VOLUME_NAME')]  # NOQA
+        # NOQA
+        output += [('POOL:VOLUME', 'VMNAME', 'VOLUME_NAME', 'REVERT_POSSIBLE')]
 
     for volume in vd_list:
         if volume.domains:
