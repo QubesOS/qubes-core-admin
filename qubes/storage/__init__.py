@@ -137,6 +137,12 @@ class Volume(object):
     def size(self):
         return self._size
 
+    @size.setter
+    def size(self, size):
+        # pylint: disable=attribute-defined-outside-init
+        self._size = int(size)
+
+
     @property
     def config(self):
         ''' return config data for serialization to qubes.xml '''
