@@ -471,7 +471,7 @@ def copy_file(source, destination):
         os.makedirs(parent_dir)
 
     try:
-        cmd = ['sudo', 'cp', '--sparse=auto',
+        cmd = ['cp', '--sparse=auto',
                '--reflink=auto', source, destination]
         subprocess.check_call(cmd)
     except subprocess.CalledProcessError:
