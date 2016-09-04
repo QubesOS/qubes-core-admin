@@ -87,6 +87,7 @@ class TC_04_DispVM(qubes.tests.SystemTestsMixin,
         # includes check for None - timeout
         self.assertEquals(p.returncode, 0)
         lines = p.stdout.read().splitlines()
+        self.assertTrue(lines, 'No output received from DispVM')
         dispvm_name = lines[0]
         self.assertNotEquals(dispvm_name, "ERROR")
 
