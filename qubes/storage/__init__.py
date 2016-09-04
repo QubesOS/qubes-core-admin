@@ -96,7 +96,7 @@ class Volume(object):
         self.revisions_to_keep = revisions_to_keep
         self.rw = rw
         self.save_on_stop = save_on_stop
-        self.size = int(size)
+        self._size = int(size)
         self.snap_on_start = snap_on_start
         self.source = source
         self.vid = vid
@@ -132,6 +132,10 @@ class Volume(object):
         ''' Returns a `dict` containing revision identifiers and paths '''
         msg = "{!s} has revisions not implemented".format(self.__class__)
         raise NotImplementedError(msg)
+
+    @property
+    def size(self):
+        return self._size
 
     @property
     def config(self):
