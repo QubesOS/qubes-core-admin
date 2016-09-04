@@ -58,39 +58,59 @@ POOL_CONF = {'name': 'test-lvm',
              'thin_pool': DEFAULT_LVM_POOL.split('/')[1]}
 
 
-@skipUnlessLvmPoolExists
-class TC_00_ThinPool(qubes.tests.SystemTestsMixin,
-                         qubes.tests.QubesTestCase):
+class ThinPoolBase(qubes.tests.QubesTestCase):
     ''' Sanity tests for :py:class:`qubes.storage.lvm.ThinPool` '''
 
     created_pool = False
 
     def setUp(self):
-        super(TC_00_ThinPool, self).setUp()
+        super(ThinPoolBase, self).setUp()
         volume_group, thin_pool = DEFAULT_LVM_POOL.split('/', 1)
         self.pool = self._find_pool(volume_group, thin_pool)
         if not self.pool:
             self.pool = self.app.add_pool(**POOL_CONF)
             self.created_pool = True
-        self.init_default_template()
 
     def tearDown(self):
         ''' Remove the default lvm pool if it was created only for this test '''
         if self.created_pool:
             self.app.remove_pool(self.pool.name)
-        super(TC_00_ThinPool, self).tearDown()
+        super(ThinPoolBase, self).tearDown()
+
 
     def _find_pool(self, volume_group, thin_pool):
         ''' Returns the pool matching the specified ``volume_group`` &
             ``thin_pool``, or None.
         '''
         pools = [p for p in self.app.pools
-                 if issubclass(p.__class__, ThinPool)]
+            if issubclass(p.__class__, ThinPool)]
         for pool in pools:
             if pool.volume_group == volume_group \
                     and pool.thin_pool == thin_pool:
                 return pool
         return None
+
+@skipUnlessLvmPoolExists
+class TC_00_ThinPool(ThinPoolBase):
+    ''' Sanity tests for :py:class:`qubes.storage.lvm.ThinPool` '''
+
+    def setUp(self):
+        xml_path = '/tmp/qubes-test.xml'
+        self.app = qubes.Qubes.create_empty_store(store=xml_path,
+            clockvm=None,
+            updatevm=None,
+            offline_mode=True,
+        )
+        os.environ['QUBES_XML_PATH'] = xml_path
+        super(TC_00_ThinPool, self).setUp()
+
+    def tearDown(self):
+        super(TC_00_ThinPool, self).tearDown()
+        os.unlink(self.app.store)
+        del self.app
+        for attr in dir(self):
+            if isinstance(getattr(self, attr), qubes.vm.BaseVM):
+                delattr(self, attr)
 
     def test_000_default_thin_pool(self):
         ''' Check whether :py:data`DEFAULT_LVM_POOL` exists. This pool is
@@ -138,6 +158,14 @@ class TC_00_ThinPool(qubes.tests.SystemTestsMixin,
         path = "/dev/%s" % volume.vid
         self.assertTrue(os.path.exists(path))
         self.pool.remove(volume)
+
+@skipUnlessLvmPoolExists
+class TC_01_ThinPool(qubes.tests.SystemTestsMixin, ThinPoolBase):
+    ''' Sanity tests for :py:class:`qubes.storage.lvm.ThinPool` '''
+
+    def setUp(self):
+        super(TC_01_ThinPool, self).setUp()
+        self.init_default_template()
 
     def test_004_import(self):
         template_vm = self.app.default_template

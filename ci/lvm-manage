@@ -1,0 +1,27 @@
+# This is to include LVM-requiring tests in Travis-CI
+if [ "$1" = "setup-lvm" -a -n "$2" ]; then
+    POOL_PATH=$2
+    VG_NAME=`echo $POOL_PATH | cut -f 1 -d /`
+    POOL_NAME=`echo $POOL_PATH | cut -f 2 -d /`
+    if lvs $VG_NAME >/dev/null 2>&1 || lvs $POOL_PATH >/dev/null 2>&1; then
+        echo "WARNING: either VG '$VG_NAME' or thin pool '$POOL_PATH' already exists, not reusing" >&2
+        exit 1
+    fi
+    set -e
+    loop_file=`mktemp`
+    truncate -s 1G $loop_file
+    loop_dev=`losetup -f --show $loop_file`
+    # auto cleanup
+    rm -f $loop_file
+    vgcreate "$VG_NAME" $loop_dev
+    lvcreate --thinpool "$POOL_NAME" --type thin-pool -L 960M "$VG_NAME"
+    exit 0
+elif [ "$1" = "cleanup-lvm" -a -n "$2" ]; then
+    VG_NAME=`echo $2 | cut -f 1 -d /`
+    set -e
+    pvs=`vgs --noheadings -o pv_name $VG_NAME | tr -d ' '`
+    lvremove -f "$2"
+    vgremove "$VG_NAME"
+    losetup -d $pvs
+    exit 0
+fi
