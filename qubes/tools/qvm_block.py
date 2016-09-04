@@ -114,6 +114,8 @@ def list_volumes(args):
     for domain in domains:  # gather the domain names
         try:
             for volume in domain.attached_volumes:
+                if not args.internal and volume.internal:
+                    continue
                 try:
                     volume_data = vd_dict[volume.pool][volume.vid]
                     volume_data.domains += [(domain.name, volume.name)]
