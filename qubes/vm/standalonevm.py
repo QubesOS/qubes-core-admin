@@ -55,6 +55,7 @@ class StandaloneVM(qubes.vm.qubesvm.QubesVM):
                 'name': 'volatile',
                 'pool': 'default',
                 'internal': True,
+                'rw': True,
                 'size': qubes.config.defaults['root_img_size'],
             },
             'kernel': {
