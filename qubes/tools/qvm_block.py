@@ -231,8 +231,7 @@ def init_extend_parser(sub_parsers):
         "extend", help="extend volume from domain", aliases=('d', 'dt'))
     extend_parser.add_argument(metavar='POOL_NAME:VOLUME_ID', dest='volume',
                                action=qubes.tools.VolumeAction)
-    extend_parser.add_argument(
-        'size', help='size in bytes of the new ThinPoolLogicalVolume')
+    extend_parser.add_argument('size', help='New size in bytes')
     extend_parser.set_defaults(func=extend_volumes)
 
 def get_parser():
