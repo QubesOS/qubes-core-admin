@@ -67,7 +67,7 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
                     self.assertEquals(orig_value, restored_value,
                         "VM {} - property {} not properly restored".format(
                             vm.name, prop))
-            for dev_class in ["pci", "usb"]:
+            for dev_class in vm.devices.keys():
                 for dev in vm.devices[dev_class]:
                     self.assertIn(dev, restored_vm.devices[dev_class])
 

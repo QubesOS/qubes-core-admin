@@ -525,6 +525,13 @@ def print_table(table):
     cmd = ['column', '-t', '-s', unit_separator]
     text_table = '\n'.join([unit_separator.join(row) for row in table])
 
-    p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
-    p.stdin.write(text_table)
-    p.communicate()
+    # for tests...
+    if sys.stdout != sys.__stdout__:
+        p = subprocess.Popen(cmd + ['-c', '80'], stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE)
+        p.stdin.write(text_table)
+        (out, _) = p.communicate()
+        sys.stdout.write(out)
+    else:
+        p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+        p.communicate(text_table)

@@ -31,6 +31,18 @@ import qubes.vm
 
 import qubes.tests
 
+class TestVMM(object):
+    def __init__(self):
+        super(TestVMM, self).__init__()
+        self.offline_mode = True
+
+
+class TestApp(object):
+    def __init__(self):
+        super(TestApp, self).__init__()
+        self.domains = {}
+        self.vmm = TestVMM()
+
 
 class TestVM(qubes.vm.BaseVM):
     qid = qubes.property('qid', type=int)
@@ -66,7 +78,7 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
             </features>
 
             <devices class="pci">
-                <device>00:11.22</device>
+                <device backend-domain="domain1" id="00:11.22"/>
             </devices>
 
             <devices class="usb" />
@@ -81,7 +93,8 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
 
     def test_000_load(self):
         node = self.xml.xpath('//domain')[0]
-        vm = TestVM(None, node)
+        vm = TestVM(TestApp(), node)
+        vm.app.domains['domain1'] = vm
         vm.load_properties(load_stage=None)
         vm.load_extras()
 
@@ -97,7 +110,8 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
         })
 
         self.assertItemsEqual(vm.devices.keys(), ('pci',))
-        self.assertItemsEqual(vm.devices['pci'], ('00:11.22',))
+        self.assertItemsEqual(list(vm.devices['pci'].attached(persistent=True)),
+            [qubes.ext.pci.PCIDevice(vm, '00:11.22')])
 
         self.assertXMLIsValid(vm.__xml__(), 'domain.rng')
 

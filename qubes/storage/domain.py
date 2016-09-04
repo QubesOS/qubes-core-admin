@@ -86,7 +86,7 @@ class DomainPool(Pool):
 
             devices[name][atr] = value
 
-        return [DomainVolume(n, self.name, **atrs)
+        return [DomainVolume(n, self.vm, self.name, **atrs)
                 for n, atrs in devices.items()]
 
     def clone(self, source, target):
@@ -99,11 +99,12 @@ class DomainPool(Pool):
 class DomainVolume(Volume):
     ''' A volume provided by a block device in an domain '''
 
-    def __init__(self, name, pool, desc, mode, **kwargs):
+    def __init__(self, vm, name, pool, desc, mode, **kwargs):
         rw = (mode == 'w')
 
         super(DomainVolume, self).__init__(desc, pool, vid=name, removable=True,
                                            rw=rw, **kwargs)
+        self.domain = vm
 
     @property
     def revisions(self):

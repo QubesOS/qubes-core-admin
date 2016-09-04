@@ -27,24 +27,68 @@ import qubes.devices
 
 import qubes.tests
 
+class TestDevice(qubes.devices.DeviceInfo):
+    pass
+
+
+class TestVMCollection(dict):
+    def __iter__(self):
+        return iter(set(self.values()))
+
+
+class TestApp(object):
+    def __init__(self):
+        self.domains = TestVMCollection()
+
+
+class TestVM(qubes.tests.TestEmitter):
+    def __init__(self, app, name, *args, **kwargs):
+        super(TestVM, self).__init__(*args, **kwargs)
+        self.app = app
+        self.name = name
+        self.device = TestDevice(self, 'testdev', 'Description')
+        self.events_enabled = True
+        self.devices = {
+            'testclass': qubes.devices.DeviceCollection(self, 'testclass')
+        }
+        self.app.domains[name] = self
+        self.app.domains[self] = self
+
+    def __str__(self):
+        return self.name
+
+    @qubes.events.handler('device-list-attached:testclass')
+    def dev_testclass_list_attached(self, event, persistent):
+        for vm in self.app.domains:
+            if vm.device.frontend_domain == self:
+                yield vm.device
+
+    @qubes.events.handler('device-list:testclass')
+    def dev_testclass_list(self, event):
+        yield self.device
+
+
 class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
     def setUp(self):
-        self.emitter = qubes.tests.TestEmitter()
-        self.collection = qubes.devices.DeviceCollection(self.emitter, 'testclass')
+        self.app = TestApp()
+        self.emitter = TestVM(self.app, 'vm')
+        self.app.domains['vm'] = self.emitter
+        self.device = self.emitter.device
+        self.collection = self.emitter.devices['testclass']
 
     def test_000_init(self):
         self.assertFalse(self.collection._set)
 
     def test_001_attach(self):
-        self.collection.attach('testdev')
+        self.collection.attach(self.device)
         self.assertEventFired(self.emitter, 'device-pre-attach:testclass')
         self.assertEventFired(self.emitter, 'device-attach:testclass')
         self.assertEventNotFired(self.emitter, 'device-pre-detach:testclass')
         self.assertEventNotFired(self.emitter, 'device-detach:testclass')
 
     def test_002_detach(self):
-        self.collection.attach('testdev')
-        self.collection.detach('testdev')
+        self.collection.attach(self.device)
+        self.collection.detach(self.device)
         self.assertEventFired(self.emitter, 'device-pre-attach:testclass')
         self.assertEventFired(self.emitter, 'device-attach:testclass')
         self.assertEventFired(self.emitter, 'device-pre-detach:testclass')
@@ -52,31 +96,56 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
 
     def test_010_empty_detach(self):
         with self.assertRaises(LookupError):
-            self.collection.detach('testdev')
+            self.collection.detach(self.device)
 
     def test_011_double_attach(self):
-        self.collection.attach('testdev')
+        self.collection.attach(self.device)
 
         with self.assertRaises(LookupError):
-            self.collection.attach('testdev')
+            self.collection.attach(self.device)
 
     def test_012_double_detach(self):
-        self.collection.attach('testdev')
-        self.collection.detach('testdev')
+        self.collection.attach(self.device)
+        self.collection.detach(self.device)
 
         with self.assertRaises(LookupError):
-            self.collection.detach('testdev')
+            self.collection.detach(self.device)
+
+    def test_013_list_attached_persistent(self):
+        self.assertEqual(set([]), set(self.collection.attached()))
+        self.collection.attach(self.device)
+        self.assertEqual({self.device}, set(self.collection.attached()))
+        self.assertEqual({self.device},
+            set(self.collection.attached(persistent=True)))
+        self.assertEqual(set([]),
+            set(self.collection.attached(persistent=False)))
+
+    def test_014_list_attached_non_persistent(self):
+        self.collection.attach(self.device, persistent=False)
+        # device-attach event not implemented, so manipulate object manually
+        self.device.frontend_domain = self.emitter
+        self.assertEqual({self.device},
+            set(self.collection.attached()))
+        self.assertEqual(set([]),
+            set(self.collection.attached(persistent=True)))
+        self.assertEqual({self.device},
+            set(self.collection.attached(persistent=False)))
+
+    def test_015_list_available(self):
+        self.assertEqual({self.device}, set(self.collection))
 
 
 class TC_01_DeviceManager(qubes.tests.QubesTestCase):
     def setUp(self):
-        self.emitter = qubes.tests.TestEmitter()
+        self.app = TestApp()
+        self.emitter = TestVM(self.app, 'vm')
         self.manager = qubes.devices.DeviceManager(self.emitter)
 
     def test_000_init(self):
         self.assertEqual(self.manager, {})
 
     def test_001_missing(self):
-        self.manager['testclass'].attach('testdev')
+        device = TestDevice(self.emitter.app.domains['vm'], 'testdev')
+        self.manager['testclass'].attach(device)
         self.assertEventFired(self.emitter, 'device-attach:testclass')
 

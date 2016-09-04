@@ -135,12 +135,15 @@ class TestEmitter(qubes.events.Emitter):
         self.fired_events = collections.Counter()
 
     def fire_event(self, event, *args, **kwargs):
-        super(TestEmitter, self).fire_event(event, *args, **kwargs)
+        effects = super(TestEmitter, self).fire_event(event, *args, **kwargs)
         self.fired_events[(event, args, tuple(sorted(kwargs.items())))] += 1
+        return effects
 
     def fire_event_pre(self, event, *args, **kwargs):
-        super(TestEmitter, self).fire_event_pre(event, *args, **kwargs)
+        effects = super(TestEmitter, self).fire_event_pre(event, *args,
+            **kwargs)
         self.fired_events[(event, args, tuple(sorted(kwargs.items())))] += 1
+        return effects
 
 def expectedFailureIfTemplate(templates):
     """
@@ -972,6 +975,8 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
             'qubes.tests.vm.mix.net',
             'qubes.tests.vm.adminvm',
             'qubes.tests.app',
+            'qubes.tests.tools.qvm_device',
+            'qubes.tests.tools.qvm_ls',
             ):
         tests.addTests(loader.loadTestsFromName(modname))
 
@@ -984,6 +989,7 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
     for modname in (
             # integration tests
             'qubes.tests.int.basic',
+            'qubes.tests.int.devices_pci',
             'qubes.tests.int.dom0_update',
             'qubes.tests.int.network',
             'qubes.tests.int.dispvm',

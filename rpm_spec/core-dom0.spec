@@ -250,6 +250,7 @@ fi
 %{python_sitelib}/qubes/tools/qvm_block.py*
 %{python_sitelib}/qubes/tools/qubes_lvm.py*
 %{python_sitelib}/qubes/tools/qvm_create.py*
+%{python_sitelib}/qubes/tools/qvm_device.py*
 %{python_sitelib}/qubes/tools/qvm_features.py*
 %{python_sitelib}/qubes/tools/qvm_check.py*
 %{python_sitelib}/qubes/tools/qvm_clone.py*
@@ -268,6 +269,7 @@ fi
 %dir %{python_sitelib}/qubes/ext
 %{python_sitelib}/qubes/ext/__init__.py*
 %{python_sitelib}/qubes/ext/gui.py*
+%{python_sitelib}/qubes/ext/pci.py*
 %{python_sitelib}/qubes/ext/qubesmanager.py*
 %{python_sitelib}/qubes/ext/r3compatibility.py*
 
@@ -297,6 +299,7 @@ fi
 %dir %{python_sitelib}/qubes/tests/tools
 %{python_sitelib}/qubes/tests/tools/__init__.py*
 %{python_sitelib}/qubes/tests/tools/init.py*
+%{python_sitelib}/qubes/tests/tools/qvm_device.py*
 %{python_sitelib}/qubes/tests/tools/qvm_ls.py*
 
 %dir %{python_sitelib}/qubes/tests/int
@@ -304,6 +307,7 @@ fi
 %{python_sitelib}/qubes/tests/int/backup.py*
 %{python_sitelib}/qubes/tests/int/backupcompatibility.py*
 %{python_sitelib}/qubes/tests/int/basic.py*
+%{python_sitelib}/qubes/tests/int/devices_pci.py*
 %{python_sitelib}/qubes/tests/int/dispvm.py*
 %{python_sitelib}/qubes/tests/int/dom0_update.py*
 %{python_sitelib}/qubes/tests/int/network.py*

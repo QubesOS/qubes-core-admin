@@ -187,12 +187,12 @@ class Core2Qubes(qubes.Qubes):
                 services = ast.literal_eval(services)
             else:
                 services = {}
-            for service, value in services.iteritems():
+            for service, value in services.items():
                 feature = service
                 for repl_feature, repl_service in \
                         qubes.ext.r3compatibility.\
                         R3Compatibility.features_to_services.\
-                        iteritems():
+                        items():
                     if repl_service == service:
                         feature = repl_feature
                 vm.features[feature] = value
@@ -205,7 +205,8 @@ class Core2Qubes(qubes.Qubes):
                 pcidevs = ast.literal_eval(pcidevs)
             for pcidev in pcidevs:
                 try:
-                    vm.devices["pci"].attach(pcidev)
+                    vm.devices["pci"].attach(
+                        self.domains[0].devices['pci'][pcidev])
                 except qubes.exc.QubesException as e:
                     self.log.error("VM {}: {}".format(vm.name, str(e)))
         except (ValueError, LookupError) as err:
