@@ -187,7 +187,12 @@ def main(args=None):
         command line.
     '''
     parser = get_parser()
-    args = parser.parse_args(args)
+    try:
+        args = parser.parse_args(args)
+    except qubes.exc.QubesException as e:
+        parser.print_error(e.message)
+        return 1
+
     if args.command is None or args.command == 'list':
         list_pools(args.app)
     elif args.command == 'add':

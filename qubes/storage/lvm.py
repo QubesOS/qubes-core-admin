@@ -43,7 +43,7 @@ class ThinPool(qubes.storage.Pool):
         self.log = logging.getLogger('qube.storage.lvm.%s' % self._pool_id)
 
     def clone(self, source, target):
-        cmd = ['clone', source.vid, target.vid]
+        cmd = ['clone', str(source), str(target)]
         qubes_lvm(cmd, self.log)
         return target
 
@@ -217,8 +217,10 @@ class ThinPool(qubes.storage.Pool):
     def stop(self, volume):
         if volume.save_on_stop:
             self._commit(volume)
-
-        if volume._is_volatile:
+        if volume._is_snapshot:
+            cmd = ['remove', volume._vid_snap]
+            qubes_lvm(cmd, self.log)
+        elif volume._is_volatile:
             cmd = ['remove', volume.vid]
             qubes_lvm(cmd, self.log)
         else:
@@ -227,6 +229,12 @@ class ThinPool(qubes.storage.Pool):
         return volume
 
     def _snapshot(self, volume):
+        try:
+            cmd = ['remove', volume._vid_snap]
+            qubes_lvm(cmd, self.log)
+        except:  # pylint: disable=bare-except
+            pass
+
         if volume.source is None:
             cmd = ['clone', volume.vid, volume._vid_snap]
         else:
@@ -342,7 +350,7 @@ def qubes_lvm(cmd, log=logging.getLogger('qube.storage.lvm')):
     out, err = p.communicate()
     return_code = p.returncode
     if out:
-        log.info(out)
+        log.debug(out)
     if return_code == 0 and err:
         log.warning(err)
     elif return_code != 0:

@@ -229,8 +229,13 @@ def get_parser():
 
 def main(args=None):
     '''Main routine of :program:`qvm-block`.'''
-    args = get_parser().parse_args(args)
-    args.func(args)
+    parser = get_parser()
+    try:
+        args = parser.parse_args(args)
+        args.func(args)
+    except qubes.exc.QubesException as e:
+        parser.print_error(e.message)
+        return 1
 
 
 if __name__ == '__main__':
