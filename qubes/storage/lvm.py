@@ -438,4 +438,4 @@ def qubes_lvm(cmd, log=logging.getLogger('qube.storage.lvm')):
 
 
 def reset_cache():
-    qubes.storage.lvm.size_cache = init_cache
+    qubes.storage.lvm.size_cache = init_cache()
