@@ -136,6 +136,7 @@ class FilePool(qubes.storage.Pool):
             # resize loop device
             subprocess.check_call(['sudo', 'losetup', '--set-capacity',
                                    loop_dev])
+        volume.size = size
 
     def remove(self, volume):
         if not volume.internal:
