@@ -39,6 +39,7 @@ import time
 import uuid
 import warnings
 
+import grp
 import lxml
 import libvirt  # pylint: disable=import-error
 
@@ -926,6 +927,27 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return qmemman_client
 
+    @staticmethod
+    def start_daemon(command, **kwargs):
+        '''Start a daemon for the VM
+
+        This function take care to run it as appropriate user.
+
+        :param command: command to run (array for
+        :py:meth:`subprocess.check_call`)
+        :param kwargs: args for :py:meth:`subprocess.check_call`
+        :return: None
+        '''
+
+        prefix_cmd = []
+        if os.getuid() == 0:
+            # try to always have VM daemons running as normal user, otherwise
+            # some files (like clipboard) may be created as root and cause
+            # permission problems
+            qubes_group = grp.getgrnam('qubes')
+            prefix_cmd = ['runuser', '-u', qubes_group.gr_mem[0], '--']
+        subprocess.check_call(prefix_cmd + command, **kwargs)
+
     def start_qrexec_daemon(self):
         '''Start qrexec daemon.
 
@@ -946,7 +968,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             qrexec_env['QREXEC_STARTUP_TIMEOUT'] = str(self.qrexec_timeout)
 
         try:
-            subprocess.check_call(
+            self.start_daemon(
                 [qubes.config.system_path["qrexec_daemon_path"]] + qrexec_args,
                 env=qrexec_env)
         except subprocess.CalledProcessError:
@@ -961,11 +983,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.log.info('Starting Qubes DB')
 
         # FIXME #1694 #1241
-        retcode = subprocess.call([
-            qubes.config.system_path["qubesdb_daemon_path"],
-            str(self.xid),
-            self.name])
-        if retcode != 0:
+        try:
+            self.start_daemon([
+                qubes.config.system_path["qubesdb_daemon_path"],
+                str(self.xid),
+                self.name])
+        except subprocess.CalledProcessError:
             raise qubes.exc.QubesException('Cannot execute qubesdb-daemon')
 
     def wait_for_session(self):

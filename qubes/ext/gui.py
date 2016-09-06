@@ -183,7 +183,7 @@ class GUI(qubes.ext.Extension):
         guid_cmd += self.kde_guid_args(vm)
 
         try:
-            subprocess.check_call(guid_cmd)
+            vm.start_daemon(guid_cmd)
         except subprocess.CalledProcessError:
             raise qubes.exc.QubesVMError(vm,
                 'Cannot start qubes-guid for domain {!r}'.format(vm.name))
@@ -246,7 +246,7 @@ class GUI(qubes.ext.Extension):
         guid_cmd += self.kde_guid_args(vm)
 
         try:
-            subprocess.check_call(guid_cmd)
+            vm.start_daemon(guid_cmd)
         except subprocess.CalledProcessError:
             raise qubes.exc.QubesVMError(vm, 'Cannot start gui daemon')
 
