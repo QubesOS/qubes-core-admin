@@ -217,7 +217,7 @@ class NetVMMixin(qubes.events.Emitter):
             raise qubes.exc.QubesVMNotRunningError(self)
         assert self.netvm is not None
 
-        self.libvirt_domain.attachDevice(
+        self.libvirt_domain.detachDevice(
             self.app.env.get_template('libvirt/devices/net.xml').render(
                 vm=self))
 
@@ -273,23 +273,25 @@ class NetVMMixin(qubes.events.Emitter):
     def on_property_pre_set_netvm(self, event, name, new_netvm, old_netvm=None):
         ''' Run sanity checks before setting a new NetVM '''
         # pylint: disable=unused-argument
-        if new_netvm is None:
-            return
+        if new_netvm is not None:
+            if not new_netvm.provides_network:
+                raise qubes.exc.QubesValueError(
+                    'The {!s} qube does not provide network'.format(new_netvm))
 
-        if not new_netvm.provides_network:
-            raise qubes.exc.QubesValueError(
-                'The {!s} qube does not provide network'.format(new_netvm))
+            if new_netvm is self \
+                    or new_netvm in self.app.domains.get_vms_connected_to(self):
+                raise qubes.exc.QubesValueError(
+                    'Loops in network are unsupported')
 
-        if new_netvm is self \
-                or new_netvm in self.app.domains.get_vms_connected_to(self):
-            raise qubes.exc.QubesValueError('Loops in network are unsupported')
+            if not self.app.vmm.offline_mode \
+                    and self.is_running() and not new_netvm.is_running():
+                raise qubes.exc.QubesVMNotStartedError(new_netvm,
+                    'Cannot dynamically attach to stopped NetVM: {!r}'.format(
+                        new_netvm))
 
-        if not self.app.vmm.offline_mode and self.is_running() \
-                and not new_netvm.is_running():
-
-            raise qubes.exc.QubesVMNotStartedError(new_netvm,
-                'Cannot dynamically attach to stopped NetVM: {!r}'.format(
-                    new_netvm))
+        if old_netvm is not None:
+            if self.is_running():
+                self.detach_network()
 
     @qubes.events.handler('property-set:netvm')
     def on_property_set_netvm(self, event, name, new_netvm, old_netvm=None):
@@ -297,10 +299,6 @@ class NetVMMixin(qubes.events.Emitter):
             net-domain-connect event
         '''
         # pylint: disable=unused-argument
-
-        if self.netvm is not None:
-            if self.is_running():
-                self.detach_network()
 
         if new_netvm is None:
             return
