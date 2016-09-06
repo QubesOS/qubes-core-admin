@@ -94,6 +94,40 @@ def get_monitor_layout():
 
 
 class GUI(qubes.ext.Extension):
+    @staticmethod
+    def kde_guid_args(vm):
+        '''Return KDE-specific arguments for guid, if applicable'''
+
+        guid_cmd = []
+        # Avoid using environment variables for checking the current session,
+        #  because this script may be called with cleared env (like with sudo).
+        if subprocess.check_output(
+                ['xprop', '-root', '-notype', 'KDE_SESSION_VERSION']) == \
+                'KDE_SESSION_VERSION = 5\n':
+            # native decoration plugins is used, so adjust window properties
+            # accordingly
+            guid_cmd += ['-T']  # prefix window titles with VM name
+            # get owner of X11 session
+            session_owner = None
+            for line in subprocess.check_output(['xhost']).splitlines():
+                if line == 'SI:localuser:root':
+                    pass
+                elif line.startswith('SI:localuser:'):
+                    session_owner = line.split(":")[2]
+            if session_owner is not None:
+                data_dir = os.path.expanduser(
+                    '~{}/.local/share'.format(session_owner))
+            else:
+                # fallback to current user
+                data_dir = os.path.expanduser('~/.local/share')
+
+            guid_cmd += ['-p',
+                '_KDE_NET_WM_COLOR_SCHEME=s:{}'.format(
+                    os.path.join(data_dir,
+                        'qubes-kde', vm.label.name + '.colors'))]
+        return guid_cmd
+
+
     @qubes.ext.handler('domain-start', 'domain-cmd-pre-run')
     def start_guid(self, vm, event, preparing_dvm=False, start_guid=True,
             extra_guid_args=None, **kwargs):
@@ -145,6 +179,8 @@ class GUI(qubes.ext.Extension):
                 stubdom_guid_pid = \
                     open(stubdom_guid_pidfile, 'r').read().strip()
                 guid_cmd += ['-K', stubdom_guid_pid]
+
+        guid_cmd += self.kde_guid_args(vm)
 
         try:
             subprocess.check_call(guid_cmd)
@@ -206,6 +242,8 @@ class GUI(qubes.ext.Extension):
             guid_cmd += ['-v', '-v']
         else:
             guid_cmd += ['-q']
+
+        guid_cmd += self.kde_guid_args(vm)
 
         try:
             subprocess.check_call(guid_cmd)
