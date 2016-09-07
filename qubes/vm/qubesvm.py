@@ -28,7 +28,6 @@ from __future__ import absolute_import
 import copy
 import base64
 import datetime
-import itertools
 import os
 import os.path
 import re
@@ -1456,7 +1455,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # pylint: disable=no-member
 
         self.qdb.write('/name', self.name)
-        self.qdb.write('/qubes-vm-type', self.__class__.__name__)
+        self.qdb.write('/type', self.__class__.__name__)
         self.qdb.write('/qubes-vm-updateable', str(self.updateable))
         self.qdb.write('/qubes-vm-persistence',
             'full' if self.updateable else 'rw-only')
@@ -1470,19 +1469,21 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             base64.b64encode(qubes.utils.urandom(64)))
 
         if self.provides_network:
-            self.qdb.write('/network-provider/gateway', self.gateway)
-            self.qdb.write('/network-provider/netmask', self.netmask)
+            # '/qubes-netvm-network' value is only checked for being non empty
+            self.qdb.write('/qubes-netvm-network', self.gateway)
+            self.qdb.write('/qubes-netvm-gateway', self.gateway)
+            self.qdb.write('/qubes-netvm-netmask', self.netmask)
 
-            for i, addr in zip(itertools.count(start=1), self.dns):
-                self.qdb.write('/network-provider/dns-{}'.format(i), addr)
+            for i, addr in zip(('primary', 'secondary'), self.dns):
+                self.qdb.write('/qubes-netvm-{}-dns'.format(i), addr)
 
         if self.netvm is not None:
-            self.qdb.write('/network/ip', self.ip)
-            self.qdb.write('/network/netmask', self.netvm.netmask)
-            self.qdb.write('/network/gateway', self.netvm.gateway)
+            self.qdb.write('/qubes-ip', self.ip)
+            self.qdb.write('/qubes-netmask', self.netvm.netmask)
+            self.qdb.write('/qubes-gateway', self.netvm.gateway)
 
-            for i, addr in zip(itertools.count(start=1), self.dns):
-                self.qdb.write('/network/dns-{}'.format(i), addr)
+            for i, addr in zip(('primary', 'secondary'), self.dns):
+                self.qdb.write('/qubes-{}-dns'.format(i), addr)
 
 
         tzname = qubes.utils.get_timezone()
