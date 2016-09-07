@@ -1456,16 +1456,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # pylint: disable=no-member
 
         self.qdb.write('/name', self.name)
-        self.qdb.write('/type', self.__class__.__name__)
-        self.qdb.write('/updateable', str(self.updateable))
-        self.qdb.write('/persistence', 'full' if self.updateable else 'rw-only')
-        self.qdb.write('/debug', str(int(self.debug)))
+        self.qdb.write('/qubes-vm-type', self.__class__.__name__)
+        self.qdb.write('/qubes-vm-updateable', str(self.updateable))
+        self.qdb.write('/qubes-vm-persistence',
+            'full' if self.updateable else 'rw-only')
+        self.qdb.write('/qubes-debug-mode', str(int(self.debug)))
         try:
-            self.qdb.write('/template', self.template.name)
+            self.qdb.write('/qubes-base-template', self.template.name)
         except AttributeError:
-            self.qdb.write('/template', '')
+            self.qdb.write('/qubes-base-template', '')
 
-        self.qdb.write('/random-seed',
+        self.qdb.write('/qubes-random-seed',
             base64.b64encode(qubes.utils.urandom(64)))
 
         if self.provides_network:
@@ -1483,16 +1484,18 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             for i, addr in zip(itertools.count(start=1), self.dns):
                 self.qdb.write('/network/dns-{}'.format(i), addr)
 
+
         tzname = qubes.utils.get_timezone()
         if tzname:
-            self.qdb.write('/timezone', tzname)
+            self.qdb.write('/qubes-timezone', tzname)
 
         for feature, value in self.features.items():
             self.qdb.write('/features/{0}'.format(feature),
                     str(value) if value else '')
 
-        self.qdb.write('/devices/block', '')
-        self.qdb.write('/devices/usb', '')
+        self.qdb.write('/qubes-block-devices', '')
+
+        self.qdb.write('/qubes-usb-devices', '')
 
         # TODO: Currently the whole qmemman is quite Xen-specific, so stay with
         # xenstore for it until decided otherwise
