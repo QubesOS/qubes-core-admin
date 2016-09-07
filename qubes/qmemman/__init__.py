@@ -41,7 +41,6 @@ slow_memset_react_msg="VM didn't give back all requested memory"
 
 class DomainState:
     def __init__(self, id):
-        self.meminfo = None		#dictionary of memory info read from client
         self.memory_current = 0     # the current memory size
         self.memory_actual = None   # the current memory allocation (what VM
                                     #  is using or can use at any time)
@@ -286,7 +285,7 @@ class SystemState(object):
 
     def print_stats(self, xenfree, memset_reqs):
         for i in self.domdict.keys():
-            if self.domdict[i].meminfo is not None:
+            if self.domdict[i].mem_used is not None:
                 self.log.info('stat: dom {!r} act={} pref={}'.format(i,
                     self.domdict[i].memory_actual,
                     qubes.qmemman.algo.prefmem(self.domdict[i])))
@@ -375,6 +374,6 @@ class SystemState(object):
             self.mem_set(dom, mem)
 
 #        for i in self.domdict.keys():
-#            print 'domain ', i, ' meminfo=', self.domdict[i].meminfo, 'actual mem', self.domdict[i].memory_actual
+#            print 'domain ', i, ' meminfo=', self.domdict[i].mem_used, 'actual mem', self.domdict[i].memory_actual
 #            print 'domain ', i, 'actual mem', self.domdict[i].memory_actual
 #        print 'xen free mem', self.get_free_xen_memory()

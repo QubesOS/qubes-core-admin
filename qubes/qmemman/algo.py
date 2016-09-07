@@ -37,64 +37,76 @@ log = logging.getLogger('qmemman.daemon.algo')
 
 #untrusted meminfo size is taken from xenstore key, thus its size is limited
 #so splits do not require excessive memory
-def parse_meminfo(untrusted_meminfo):
+def sanitize_and_parse_meminfo(untrusted_meminfo):
+    if not untrusted_meminfo:
+        return None
+
+    # new syntax - just one int
+    try:
+        if int(untrusted_meminfo) >= 0:
+            return int(untrusted_meminfo)
+    except ValueError:
+        pass
+
+    # not new syntax - try the old one
     untrusted_dict = {}
-#split meminfo contents into lines
-    untrusted_lines = string.split(untrusted_meminfo,"\n")
+    # split meminfo contents into lines
+    untrusted_lines = string.split(untrusted_meminfo, "\n")
     for untrusted_lines_iterator in untrusted_lines:
-#split a single meminfo line into words
+        # split a single meminfo line into words
         untrusted_words = string.split(untrusted_lines_iterator)
         if len(untrusted_words) >= 2:
-            untrusted_dict[string.rstrip(untrusted_words[0], ":")] = untrusted_words[1]
+            untrusted_dict[string.rstrip(untrusted_words[0], ":")] = \
+                untrusted_words[1]
 
-    return untrusted_dict
+    # sanitize start
+    if not is_meminfo_suspicious(untrusted_meminfo):
+        # sanitize end
+        meminfo = untrusted_meminfo
+        return meminfo['MemTotal'] - \
+            meminfo['MemFree'] - meminfo['Cached'] - meminfo['Buffers'] + \
+            meminfo['SwapTotal'] - meminfo['SwapFree']
 
-def is_meminfo_suspicious(domain, untrusted_meminfo):
+
+    return None
+
+
+def is_meminfo_suspicious(untrusted_meminfo):
     log.debug('is_meminfo_suspicious('
-        'domain={!r}, untrusted_meminfo={!r})'.format(
-            domain, untrusted_meminfo))
+        'untrusted_meminfo={!r})'.format(untrusted_meminfo))
     ret = False
 
-#check whether the required keys exist and are not negative
+    # check whether the required keys exist and are not negative
     try:
-        for i in ('MemTotal', 'MemFree', 'Buffers', 'Cached', 'SwapTotal', 'SwapFree'):
+        for i in ('MemTotal', 'MemFree', 'Buffers', 'Cached',
+                'SwapTotal', 'SwapFree'):
             val = int(untrusted_meminfo[i])*1024
-            if (val < 0):
+            if val < 0:
                 ret = True
             untrusted_meminfo[i] = val
     except:
         ret = True
 
-    if not ret and untrusted_meminfo['SwapTotal'] < untrusted_meminfo['SwapFree']:
+    if untrusted_meminfo['SwapTotal'] < untrusted_meminfo['SwapFree']:
         ret = True
-    if not ret and untrusted_meminfo['MemTotal'] < untrusted_meminfo['MemFree'] + untrusted_meminfo['Cached'] + untrusted_meminfo['Buffers']:
+    if untrusted_meminfo['MemTotal'] < \
+            untrusted_meminfo['MemFree'] + \
+            untrusted_meminfo['Cached'] + untrusted_meminfo['Buffers']:
         ret = True
-#we could also impose some limits on all the above values
-#but it has little purpose - all the domain can gain by passing e.g.
-#very large SwapTotal is that it will be assigned all free Xen memory
-#it can be achieved with legal values, too, and it will not allow to
-#starve existing domains, by design
+    # we could also impose some limits on all the above values
+    # but it has little purpose - all the domain can gain by passing e.g.
+    # very large SwapTotal is that it will be assigned all free Xen memory
+    # it can be achieved with legal values, too, and it will not allow to
+    # starve existing domains, by design
     if ret:
-        log.warning('suspicious meminfo for domain {!r}'
-            ' memory_actual={!r} untrusted_meminfo={!r}'.format(domain.id,
-                domain.memory_actual, untrusted_meminfo))
+        log.warning('suspicious meminfo untrusted_meminfo={!r}'.format(untrusted_meminfo))
     return ret
 
-#called when a domain updates its 'meminfo' xenstore key
+
+# called when a domain updates its 'meminfo' xenstore key
 def refresh_meminfo_for_domain(domain, untrusted_xenstore_key):
-    untrusted_meminfo = parse_meminfo(untrusted_xenstore_key)
-    if untrusted_meminfo is None:
-        domain.meminfo = None
-        return
-#sanitize start
-    if is_meminfo_suspicious(domain, untrusted_meminfo):
-#sanitize end
-        domain.meminfo = None
-        domain.mem_used = None
-    else:
-#sanitized, can assign
-        domain.meminfo = untrusted_meminfo
-        domain.mem_used =  domain.meminfo['MemTotal'] - domain.meminfo['MemFree'] - domain.meminfo['Cached'] - domain.meminfo['Buffers'] + domain.meminfo['SwapTotal'] - domain.meminfo['SwapFree']
+    domain.mem_used = sanitize_and_parse_meminfo(untrusted_xenstore_key)
+
 
 def prefmem(domain):
 #dom0 is special, as it must have large cache, for vbds. Thus, give it a special boost
@@ -158,7 +170,7 @@ def balance_when_enough_memory(domain_dictionary,
     left_memory = 0
     acceptors_count = 0
     for i in domain_dictionary.keys():
-        if domain_dictionary[i].meminfo is None:
+        if domain_dictionary[i].mem_used is None:
             continue
         if domain_dictionary[i].no_progress:
             continue
@@ -264,7 +276,7 @@ def balance(xen_free_memory, domain_dictionary):
     acceptors = list()  # domains that require more memory
 #pass 1: compute the above "total" values
     for i in domain_dictionary.keys():
-        if domain_dictionary[i].meminfo is None:
+        if domain_dictionary[i].mem_used is None:
             continue
         if domain_dictionary[i].no_progress:
             continue

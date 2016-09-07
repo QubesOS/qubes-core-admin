@@ -1537,6 +1537,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         domain = qubes.qmemman.DomainState(self.xid)
         qubes.qmemman.algo.refresh_meminfo_for_domain(
             domain, untrusted_meminfo_key)
+        if domain.mem_used is None:
+            # apparently invalid xenstore content
+            return 0
         domain.memory_maximum = self.get_mem_static_max() * 1024
 
         return qubes.qmemman.algo.prefmem(domain) / 1024
