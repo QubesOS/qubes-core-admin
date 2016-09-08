@@ -216,6 +216,7 @@ fi
 %{python_sitelib}/qubes/devices.py*
 %{python_sitelib}/qubes/dochelpers.py*
 %{python_sitelib}/qubes/events.py*
+%{python_sitelib}/qubes/firewall.py*
 %{python_sitelib}/qubes/exc.py*
 %{python_sitelib}/qubes/log.py*
 %{python_sitelib}/qubes/rngdoc.py*
@@ -281,6 +282,7 @@ fi
 %{python_sitelib}/qubes/tests/app.py*
 %{python_sitelib}/qubes/tests/devices.py*
 %{python_sitelib}/qubes/tests/events.py*
+%{python_sitelib}/qubes/tests/firewall.py*
 %{python_sitelib}/qubes/tests/init.py*
 %{python_sitelib}/qubes/tests/storage.py*
 %{python_sitelib}/qubes/tests/storage_file.py*
