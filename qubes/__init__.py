@@ -274,7 +274,7 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
         self._enforce_write_once(instance)
 
         try:
-            oldvalue = getattr(instance, self.__name__)
+            oldvalue = getattr(instance, self._attr_name)
             has_oldvalue = True
         except AttributeError:
             has_oldvalue = False
