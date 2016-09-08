@@ -42,6 +42,15 @@ LOG_PATH='/var/log/qubes/qmemman.log'
 
 system_state = SystemState()
 global_lock = thread.allocate_lock()
+# If XS_Watcher will
+# handle meminfo event before @introduceDomain, it will use
+# incomplete domain list for that and may redistribute memory
+# allocated to some VM, but not yet used (see #1389).
+# To fix that, system_state should be updated (refresh domain
+# list) before processing other changes, every time some process requested
+# memory for a new VM, before releasing the lock. Then XS_Watcher will check
+# this flag before processing other event.
+force_refresh_domain_list = False
 
 def only_in_first_list(l1, l2):
     ret=[]
@@ -65,41 +74,65 @@ class XS_Watcher:
         self.log.debug('XS_Watcher()')
 
         self.handle = xen.lowlevel.xs.xs()
-        self.handle.watch('@introduceDomain', WatchType(XS_Watcher.domain_list_changed, None))
-        self.handle.watch('@releaseDomain', WatchType(XS_Watcher.domain_list_changed, None))
+        self.handle.watch('@introduceDomain', WatchType(
+            XS_Watcher.domain_list_changed, False))
+        self.handle.watch('@releaseDomain', WatchType(
+            XS_Watcher.domain_list_changed, False))
         self.watch_token_dict = {}
 
+    def domain_list_changed(self, refresh_only=False):
+        """
+        Check if any domain was created/destroyed. If it was, update
+        appropriate list. Then redistribute memory.
 
-    def domain_list_changed(self, param):
-        self.log.debug('domain_list_changed(param={!r})'.format(param))
+        :param refresh_only If True, only refresh domain list, do not
+        redistribute memory. In this mode, caller must already hold
+        global_lock.
+        """
+        self.log.debug('domain_list_changed(only_refresh={!r})'.format(
+            refresh_only))
 
-        curr = self.handle.ls('', '/local/domain')
-        self.log.debug('curr={!r}'.format(curr))
+        got_lock = False
+        if not refresh_only:
+            self.log.debug('acquiring global_lock')
+            global_lock.acquire()
+            got_lock = True
+            self.log.debug('global_lock acquired')
+        try:
+            curr = self.handle.ls('', '/local/domain')
+            if curr is None:
+                return
 
-        if curr == None:
-            return
+            # check if domain is really there, it may happen that some empty
+            # directories are left in xenstore
+            curr = filter(
+                lambda x:
+                self.handle.read('',
+                                 '/local/domain/{}/domid'.format(x)
+                                 ) is not None,
+                curr
+            )
+            self.log.debug('curr={!r}'.format(curr))
 
-        self.log.debug('acquiring global_lock')
-        global_lock.acquire()
-        self.log.debug('global_lock acquired')
+            for i in only_in_first_list(curr, self.watch_token_dict.keys()):
+                # new domain has been created
+                watch = WatchType(XS_Watcher.meminfo_changed, i)
+                self.watch_token_dict[i] = watch
+                self.handle.watch(get_domain_meminfo_key(i), watch)
+                system_state.add_domain(i)
 
-        for i in only_in_first_list(curr, self.watch_token_dict.keys()):
-#new domain has been created
-            watch = WatchType(XS_Watcher.meminfo_changed, i)
-            self.watch_token_dict[i] = watch
-            self.handle.watch(get_domain_meminfo_key(i), watch)
-            system_state.add_domain(i)
+            for i in only_in_first_list(self.watch_token_dict.keys(), curr):
+                # domain destroyed
+                self.handle.unwatch(get_domain_meminfo_key(i), self.watch_token_dict[i])
+                self.watch_token_dict.pop(i)
+                system_state.del_domain(i)
+        finally:
+            if got_lock:
+                global_lock.release()
+                self.log.debug('global_lock released')
 
-        for i in only_in_first_list(self.watch_token_dict.keys(), curr):
-#domain destroyed
-            self.handle.unwatch(get_domain_meminfo_key(i), self.watch_token_dict[i])
-            self.watch_token_dict.pop(i)
-            system_state.del_domain(i)
-
-        global_lock.release()
-        self.log.debug('global_lock released')
-
-        system_state.do_balance()
+        if not refresh_only:
+            system_state.do_balance()
 
 
     def meminfo_changed(self, domain_id):
@@ -111,6 +144,8 @@ class XS_Watcher:
         self.log.debug('acquiring global_lock')
         global_lock.acquire()
         self.log.debug('global_lock acquired')
+        if force_refresh_domain_list:
+            self.domain_list_changed(refresh_only=True)
 
         system_state.refresh_meminfo(domain_id, untrusted_meminfo_key)
 
@@ -140,35 +175,41 @@ class QMemmanReqHandler(SocketServer.BaseRequestHandler):
         self.log = logging.getLogger('qmemman.daemon.reqhandler')
 
         got_lock = False
-        # self.request is the TCP socket connected to the client
-        while True:
-            self.data = self.request.recv(1024).strip()
-            self.log.debug('data={!r}'.format(self.data))
-            if len(self.data) == 0:
-                self.log.info('EOF')
+        try:
+            # self.request is the TCP socket connected to the client
+            while True:
+                self.data = self.request.recv(1024).strip()
+                self.log.debug('data={!r}'.format(self.data))
+                if len(self.data) == 0:
+                    self.log.info('EOF')
+                    if got_lock:
+                        global force_refresh_domain_list
+                        force_refresh_domain_list = True
+                    return
+
+                # XXX something is wrong here: return without release?
                 if got_lock:
-                    global_lock.release()
-                    self.log.debug('global_lock released')
-                return
+                    self.log.warning('Second request over qmemman.sock?')
+                    return
 
-            # XXX something is wrong here: return without release?
+                self.log.debug('acquiring global_lock')
+                global_lock.acquire()
+                self.log.debug('global_lock acquired')
+
+                got_lock = True
+                if system_state.do_balloon(int(self.data)):
+                    resp = "OK\n"
+                else:
+                    resp = "FAIL\n"
+                self.log.debug('resp={!r}'.format(resp))
+                self.request.send(resp)
+        except BaseException as e:
+            self.log.exception(
+                "exception while handling request: {!r}".format(e))
+        finally:
             if got_lock:
-                self.log.warning('Second request over qmemman.sock?')
-                return
-
-            self.log.debug('acquiring global_lock')
-            global_lock.acquire()
-            self.log.debug('global_lock acquired')
-
-            got_lock = True
-            if system_state.do_balloon(int(self.data)):
-                resp = "OK\n"
-            else:
-                resp = "FAIL\n"
-            self.log.debug('resp={!r}'.format(resp))
-            self.request.send(resp)
-
-            # XXX no release of lock?
+                global_lock.release()
+                self.log.debug('global_lock released')
 
 
 def start_server(server):
@@ -194,7 +235,12 @@ class QMemmanServer:
         usage = "usage: %prog [options]"
         parser = OptionParser(usage)
         parser.add_option("-c", "--config", action="store", dest="config", default=config_path)
+        parser.add_option("-d", "--debug", action="store_true", dest="debug",
+                          default=False, help="Enable debugging")
         (options, args) = parser.parse_args()
+
+        if options.debug:
+            logging.root.setLevel(logging.DEBUG)
 
         # close io
         sys.stdin.close()

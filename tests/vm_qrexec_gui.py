@@ -33,6 +33,7 @@ import time
 from qubes.qubes import QubesVmCollection, defaults, QubesException
 
 import qubes.tests
+import re
 
 TEST_DATA = "0123456789" * 1024
 
@@ -53,24 +54,6 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         self.qc.unlock_db()
         self.testvm1 = self.qc[self.testvm1.qid]
         self.testvm2 = self.qc[self.testvm2.qid]
-
-    def enter_keys_in_window(self, title, keys):
-        """
-        Search for window with given title, then enter listed keys there.
-        The function will wait for said window to appear.
-
-        :param title: title of window
-        :param keys: list of keys to enter, as for `xdotool key`
-        :return: None
-        """
-
-        # 'xdotool search --sync' sometimes crashes on some race when
-        # accessing window properties
-        self.wait_for_window(title)
-        command = ['xdotool', 'search', '--name', title,
-                   'windowactivate',
-                   'key'] + keys
-        subprocess.check_call(command)
 
     def test_000_start_shutdown(self):
         self.testvm1.start()
@@ -144,7 +127,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         time.sleep(0.5)
         subprocess.check_call(
             ['xdotool', 'search', '--name', title,
-             'windowactivate', 'type', 'exit\n'])
+             'windowactivate', '--sync', 'type', 'exit\n'])
 
         wait_count = 0
         while subprocess.call(['xdotool', 'search', '--name', title],
@@ -185,7 +168,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         time.sleep(0.5)
         subprocess.check_call(
             ['xdotool', 'search', '--name', title,
-             'windowactivate', 'type', 'exit\n'])
+             'windowactivate', '--sync', 'type', 'exit\n'])
 
         wait_count = 0
         while subprocess.call(['xdotool', 'search', '--name', title],
@@ -546,17 +529,123 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             self.fail("Timeout, probably deadlock")
         self.assertEqual(result.value, 0, "Service call failed")
 
-    @unittest.skipUnless(spawn.find_executable('xdotool'),
-                         "xdotool not installed")
+    def test_080_qrexec_service_argument_allow_default(self):
+        """Qrexec service call with argument"""
+        self.testvm1.start()
+        self.testvm2.start()
+        p = self.testvm2.run("cat > /etc/qubes-rpc/test.Argument", user="root",
+                             passio_popen=True)
+        p.communicate("/bin/echo $1")
+
+        with open("/etc/qubes-rpc/policy/test.Argument", "w") as policy:
+            policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
+        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.Argument")
+
+        p = self.testvm1.run("/usr/lib/qubes/qrexec-client-vm {} "
+                             "test.Argument+argument".format(self.testvm2.name),
+                             passio_popen=True)
+        (stdout, stderr) = p.communicate()
+        self.assertEqual(stdout, "argument\n")
+
+    def test_081_qrexec_service_argument_allow_specific(self):
+        """Qrexec service call with argument - allow only specific value"""
+        self.testvm1.start()
+        self.testvm2.start()
+        p = self.testvm2.run("cat > /etc/qubes-rpc/test.Argument", user="root",
+                             passio_popen=True)
+        p.communicate("/bin/echo $1")
+
+        with open("/etc/qubes-rpc/policy/test.Argument", "w") as policy:
+            policy.write("$anyvm $anyvm deny")
+        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.Argument")
+
+        with open("/etc/qubes-rpc/policy/test.Argument+argument", "w") as \
+                policy:
+            policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
+        self.addCleanup(os.unlink,
+            "/etc/qubes-rpc/policy/test.Argument+argument")
+
+        p = self.testvm1.run("/usr/lib/qubes/qrexec-client-vm {} "
+                             "test.Argument+argument".format(self.testvm2.name),
+                             passio_popen=True)
+        (stdout, stderr) = p.communicate()
+        self.assertEqual(stdout, "argument\n")
+
+    def test_082_qrexec_service_argument_deny_specific(self):
+        """Qrexec service call with argument - deny specific value"""
+        self.testvm1.start()
+        self.testvm2.start()
+        p = self.testvm2.run("cat > /etc/qubes-rpc/test.Argument", user="root",
+                             passio_popen=True)
+        p.communicate("/bin/echo $1")
+
+        with open("/etc/qubes-rpc/policy/test.Argument", "w") as policy:
+            policy.write("$anyvm $anyvm allow")
+        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.Argument")
+
+        with open("/etc/qubes-rpc/policy/test.Argument+argument", "w") as \
+                policy:
+            policy.write("%s %s deny" % (self.testvm1.name, self.testvm2.name))
+        self.addCleanup(os.unlink,
+            "/etc/qubes-rpc/policy/test.Argument+argument")
+
+        p = self.testvm1.run("/usr/lib/qubes/qrexec-client-vm {} "
+                             "test.Argument+argument".format(self.testvm2.name),
+                             passio_popen=True)
+        (stdout, stderr) = p.communicate()
+        self.assertEqual(stdout, "")
+        self.assertEqual(p.returncode, 1, "Service request should be denied")
+
+    def test_083_qrexec_service_argument_specific_implementation(self):
+        """Qrexec service call with argument - argument specific
+        implementatation"""
+        self.testvm1.start()
+        self.testvm2.start()
+        p = self.testvm2.run("cat > /etc/qubes-rpc/test.Argument", user="root",
+                             passio_popen=True)
+        p.communicate("/bin/echo $1")
+
+        p = self.testvm2.run("cat > /etc/qubes-rpc/test.Argument+argument",
+            user="root", passio_popen=True)
+        p.communicate("/bin/echo specific: $1")
+
+        with open("/etc/qubes-rpc/policy/test.Argument", "w") as policy:
+            policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
+        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.Argument")
+
+        p = self.testvm1.run("/usr/lib/qubes/qrexec-client-vm {} "
+                             "test.Argument+argument".format(self.testvm2.name),
+                             passio_popen=True)
+        (stdout, stderr) = p.communicate()
+        self.assertEqual(stdout, "specific: argument\n")
+
+    def test_084_qrexec_service_argument_extra_env(self):
+        """Qrexec service call with argument - extra env variables"""
+        self.testvm1.start()
+        self.testvm2.start()
+        p = self.testvm2.run("cat > /etc/qubes-rpc/test.Argument", user="root",
+                             passio_popen=True)
+        p.communicate("/bin/echo $QREXEC_SERVICE_FULL_NAME "
+                      "$QREXEC_SERVICE_ARGUMENT")
+
+        with open("/etc/qubes-rpc/policy/test.Argument", "w") as policy:
+            policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
+        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.Argument")
+
+        p = self.testvm1.run("/usr/lib/qubes/qrexec-client-vm {} "
+                             "test.Argument+argument".format(self.testvm2.name),
+                             passio_popen=True)
+        (stdout, stderr) = p.communicate()
+        self.assertEqual(stdout, "test.Argument+argument argument\n")
+
     def test_100_qrexec_filecopy(self):
         self.testvm1.start()
         self.testvm2.start()
+        self.qrexec_policy('qubes.Filecopy', self.testvm1.name,
+            self.testvm2.name)
         p = self.testvm1.run("qvm-copy-to-vm %s /etc/passwd" %
                              self.testvm2.name, passio_popen=True,
                              passio_stderr=True)
-        # Confirm transfer
-        subprocess.check_call(
-            ['xdotool', 'search', '--sync', '--name', 'Question', 'key', 'y'])
         p.wait()
         self.assertEqual(p.returncode, 0, "qvm-copy-to-vm failed: %s" %
                          p.stderr.read())
@@ -566,15 +655,55 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                                    wait=True)
         self.assertEqual(retcode, 0, "file differs")
 
-    @unittest.skipUnless(spawn.find_executable('xdotool'),
-                         "xdotool not installed")
+    def test_105_qrexec_filemove(self):
+        self.testvm1.start()
+        self.testvm2.start()
+        self.qrexec_policy('qubes.Filecopy', self.testvm1.name,
+            self.testvm2.name)
+        retcode = self.testvm1.run("cp /etc/passwd passwd", wait=True)
+        assert retcode == 0, "Failed to prepare source file"
+        p = self.testvm1.run("qvm-move-to-vm %s passwd" %
+                             self.testvm2.name, passio_popen=True,
+                             passio_stderr=True)
+        p.wait()
+        self.assertEqual(p.returncode, 0, "qvm-move-to-vm failed: %s" %
+                         p.stderr.read())
+        retcode = self.testvm2.run("diff /etc/passwd "
+                                   "/home/user/QubesIncoming/{}/passwd".format(
+                                       self.testvm1.name),
+                                   wait=True)
+        self.assertEqual(retcode, 0, "file differs")
+        retcode = self.testvm1.run("test -f passwd", wait=True)
+        self.assertEqual(retcode, 1, "source file not removed")
+
+    def test_101_qrexec_filecopy_with_autostart(self):
+        self.testvm1.start()
+        self.qrexec_policy('qubes.Filecopy', self.testvm1.name,
+            self.testvm2.name)
+        p = self.testvm1.run("qvm-copy-to-vm %s /etc/passwd" %
+                             self.testvm2.name, passio_popen=True,
+                             passio_stderr=True)
+        p.wait()
+        self.assertEqual(p.returncode, 0, "qvm-copy-to-vm failed: %s" %
+                         p.stderr.read())
+        # workaround for libvirt bug (domain ID isn't updated when is started
+        #  from other application) - details in
+        # QubesOS/qubes-core-libvirt@63ede4dfb4485c4161dd6a2cc809e8fb45ca664f
+        self.testvm2._libvirt_domain = None
+        self.assertTrue(self.testvm2.is_running())
+        retcode = self.testvm2.run("diff /etc/passwd "
+                                   "/home/user/QubesIncoming/{}/passwd".format(
+                                       self.testvm1.name),
+                                   wait=True)
+        self.assertEqual(retcode, 0, "file differs")
+
     def test_110_qrexec_filecopy_deny(self):
         self.testvm1.start()
         self.testvm2.start()
+        self.qrexec_policy('qubes.Filecopy', self.testvm1.name,
+            self.testvm2.name, allow=False)
         p = self.testvm1.run("qvm-copy-to-vm %s /etc/passwd" %
                              self.testvm2.name, passio_popen=True)
-        # Deny transfer
-        self.enter_keys_in_window('Question', ['n'])
         p.wait()
         self.assertNotEqual(p.returncode, 0, "qvm-copy-to-vm unexpectedly "
                             "succeeded")
@@ -586,15 +715,13 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
 
     @unittest.skip("Xen gntalloc driver crashes when page is mapped in the "
                    "same domain")
-    @unittest.skipUnless(spawn.find_executable('xdotool'),
-                         "xdotool not installed")
     def test_120_qrexec_filecopy_self(self):
         self.testvm1.start()
+        self.qrexec_policy('qubes.Filecopy', self.testvm1.name,
+            self.testvm1.name)
         p = self.testvm1.run("qvm-copy-to-vm %s /etc/passwd" %
                              self.testvm1.name, passio_popen=True,
                              passio_stderr=True)
-        # Confirm transfer
-        self.enter_keys_in_window('Question', ['y'])
         p.wait()
         self.assertEqual(p.returncode, 0, "qvm-copy-to-vm failed: %s" %
                          p.stderr.read())
@@ -603,6 +730,41 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                 self.testvm1.name),
             wait=True)
         self.assertEqual(retcode, 0, "file differs")
+
+    @unittest.skipUnless(spawn.find_executable('xdotool'),
+                         "xdotool not installed")
+    def test_130_qrexec_filemove_disk_full(self):
+        self.testvm1.start()
+        self.testvm2.start()
+        self.qrexec_policy('qubes.Filecopy', self.testvm1.name,
+            self.testvm2.name)
+        # Prepare test file
+        prepare_cmd = ("yes teststring | dd of=testfile bs=1M "
+                       "count=50 iflag=fullblock")
+        retcode = self.testvm1.run(prepare_cmd, wait=True)
+        if retcode != 0:
+            raise RuntimeError("Failed '{}' in {}".format(prepare_cmd,
+                                                          self.testvm1.name))
+        # Prepare target directory with limited size
+        prepare_cmd = (
+            "mkdir -p /home/user/QubesIncoming && "
+            "chown user /home/user/QubesIncoming && "
+            "mount -t tmpfs none /home/user/QubesIncoming -o size=48M"
+        )
+        retcode = self.testvm2.run(prepare_cmd, user="root", wait=True)
+        if retcode != 0:
+            raise RuntimeError("Failed '{}' in {}".format(prepare_cmd,
+                                                          self.testvm2.name))
+        p = self.testvm1.run("qvm-move-to-vm %s testfile" %
+                             self.testvm2.name, passio_popen=True,
+                             passio_stderr=True)
+        # Close GUI error message
+        self.enter_keys_in_window('Error', ['Return'])
+        p.wait()
+        self.assertNotEqual(p.returncode, 0, "qvm-move-to-vm should fail")
+        retcode = self.testvm1.run("test -f testfile", wait=True)
+        self.assertEqual(retcode, 0, "testfile should not be deleted in "
+                                     "source VM")
 
     def test_200_timezone(self):
         """Test whether timezone setting is properly propagated to the VM"""
@@ -623,6 +785,8 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
 
     def test_210_time_sync(self):
         """Test time synchronization mechanism"""
+        if self.template.startswith('whonix-'):
+            self.skipTest('qvm-sync-clock disabled for Whonix VMs')
         self.testvm1.start()
         self.testvm2.start()
         (start_time, _) = subprocess.Popen(["date", "-u", "+%s"],
@@ -650,6 +814,10 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             self.assertEquals(retcode, 0,
                               "qvm-sync-clock failed with code {}".
                               format(retcode))
+            # qvm-sync-clock is asynchronous - it spawns qubes.SetDateTime
+            # service, send it timestamp value and exists without waiting for
+            # actual time set
+            time.sleep(1)
             (vm_time, _) = self.testvm1.run("date -u +%s",
                                             passio_popen=True).communicate()
             self.assertAlmostEquals(int(vm_time), int(start_time), delta=30)
@@ -677,7 +845,9 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         # First offline test
         self.testvm1.resize_private_img(4*1024**3)
         self.testvm1.start()
-        p = self.testvm1.run('df --output=size /rw|tail -n 1',
+        df_cmd = '( df --output=size /rw || df /rw | awk \'{print $2}\' )|' \
+                 'tail -n 1'
+        p = self.testvm1.run(df_cmd,
                              passio_popen=True)
         # new_size in 1k-blocks
         (new_size, _) = p.communicate()
@@ -685,489 +855,157 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         self.assertGreater(int(new_size.strip()), 3.8*1024**2)
         # Then online test
         self.testvm1.resize_private_img(6*1024**3)
-        p = self.testvm1.run('df --output=size /rw|tail -n 1',
+        p = self.testvm1.run(df_cmd,
                              passio_popen=True)
         # new_size in 1k-blocks
         (new_size, _) = p.communicate()
         # some safety margin for FS metadata
         self.assertGreater(int(new_size.strip()), 5.8*1024**2)
 
-
-class TC_05_StandaloneVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
-    def test_000_create_start(self):
-        testvm1 = self.qc.add_new_vm("QubesAppVm",
-                                     template=None,
-                                     name=self.make_vm_name('vm1'))
-        testvm1.create_on_disk(verbose=False,
-                               source_template=self.qc.get_default_template())
-        self.qc.save()
-        self.qc.unlock_db()
-        testvm1.start()
-        self.assertEquals(testvm1.get_power_state(), "Running")
-
-    def test_100_resize_root_img(self):
-        testvm1 = self.qc.add_new_vm("QubesAppVm",
-                                     template=None,
-                                     name=self.make_vm_name('vm1'))
-        testvm1.create_on_disk(verbose=False,
-                               source_template=self.qc.get_default_template())
-        self.qc.save()
-        self.qc.unlock_db()
-        testvm1.resize_root_img(20*1024**3)
-        timeout = 60
-        while testvm1.is_running():
-            time.sleep(1)
-            timeout -= 1
-            if timeout == 0:
-                self.fail("Timeout while waiting for VM shutdown")
-        self.assertEquals(testvm1.get_root_img_sz(), 20*1024**3)
-        testvm1.start()
-        p = testvm1.run('df --output=size /|tail -n 1',
-                        passio_popen=True)
-        # new_size in 1k-blocks
-        (new_size, _) = p.communicate()
-        # some safety margin for FS metadata
-        self.assertGreater(int(new_size.strip()), 19*1024**2)
-
-
-class TC_10_HVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
-    # TODO: test with some OS inside
-    # TODO: windows tools tests
-
-    def test_000_create_start(self):
-        testvm1 = self.qc.add_new_vm("QubesHVm",
-                                     name=self.make_vm_name('vm1'))
-        testvm1.create_on_disk(verbose=False)
-        self.qc.save()
-        self.qc.unlock_db()
-        testvm1.start()
-        self.assertEquals(testvm1.get_power_state(), "Running")
-
-    def test_010_create_start_template(self):
-        templatevm = self.qc.add_new_vm("QubesTemplateHVm",
-                                        name=self.make_vm_name('template'))
-        templatevm.create_on_disk(verbose=False)
-        self.qc.save()
-        self.qc.unlock_db()
-
-        templatevm.start()
-        self.assertEquals(templatevm.get_power_state(), "Running")
-
-    def test_020_create_start_template_vm(self):
-        templatevm = self.qc.add_new_vm("QubesTemplateHVm",
-                                        name=self.make_vm_name('template'))
-        templatevm.create_on_disk(verbose=False)
-        testvm2 = self.qc.add_new_vm("QubesHVm",
-                                     name=self.make_vm_name('vm2'),
-                                     template=templatevm)
-        testvm2.create_on_disk(verbose=False)
-        self.qc.save()
-        self.qc.unlock_db()
-
-        testvm2.start()
-        self.assertEquals(testvm2.get_power_state(), "Running")
-
-    def test_030_prevent_simultaneus_start(self):
-        templatevm = self.qc.add_new_vm("QubesTemplateHVm",
-                                        name=self.make_vm_name('template'))
-        templatevm.create_on_disk(verbose=False)
-        testvm2 = self.qc.add_new_vm("QubesHVm",
-                                     name=self.make_vm_name('vm2'),
-                                     template=templatevm)
-        testvm2.create_on_disk(verbose=False)
-        self.qc.save()
-        self.qc.unlock_db()
-
-        templatevm.start()
-        self.assertEquals(templatevm.get_power_state(), "Running")
-        self.assertRaises(QubesException, testvm2.start)
-        templatevm.force_shutdown()
-        testvm2.start()
-        self.assertEquals(testvm2.get_power_state(), "Running")
-        self.assertRaises(QubesException, templatevm.start)
-
-    def test_100_resize_root_img(self):
-        testvm1 = self.qc.add_new_vm("QubesHVm",
-                                     name=self.make_vm_name('vm1'))
-        testvm1.create_on_disk(verbose=False)
-        self.qc.save()
-        self.qc.unlock_db()
-        testvm1.resize_root_img(30*1024**3)
-        self.assertEquals(testvm1.get_root_img_sz(), 30*1024**3)
-        testvm1.start()
-        self.assertEquals(testvm1.get_power_state(), "Running")
-        # TODO: launch some OS there and check the size
-
-class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
-    def test_000_prepare_dvm(self):
-        self.qc.unlock_db()
-        retcode = subprocess.call(['/usr/bin/qvm-create-default-dvm',
-                                   self.template],
-                                  stderr=open(os.devnull, 'w'))
-        self.assertEqual(retcode, 0)
-        self.qc.lock_db_for_writing()
-        self.qc.load()
-        self.assertIsNotNone(self.qc.get_vm_by_name(
-            self.template + "-dvm"))
-        # TODO: check mtime of snapshot file
-
-    def test_010_simple_dvm_run(self):
-        self.qc.unlock_db()
-        p = subprocess.Popen(['/usr/lib/qubes/qfile-daemon-dvm',
-                              'qubes.VMShell', 'dom0', 'DEFAULT'],
-                             stdin=subprocess.PIPE,
-                             stdout=subprocess.PIPE,
-                             stderr=open(os.devnull, 'w'))
-        (stdout, _) = p.communicate(input="echo test")
-        self.assertEqual(stdout, "test\n")
-        # TODO: check if DispVM is destroyed
-
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
-    def test_020_gui_app(self):
-        self.qc.unlock_db()
-        p = subprocess.Popen(['/usr/lib/qubes/qfile-daemon-dvm',
-                              'qubes.VMShell', 'dom0', 'DEFAULT'],
-                             stdin=subprocess.PIPE,
-                             stdout=subprocess.PIPE,
-                             stderr=open(os.devnull, 'w'))
+    def test_300_bug_1028_gui_memory_pinning(self):
+        """
+        If VM window composition buffers are relocated in memory, GUI will
+        still use old pointers and will display old pages
+        :return:
+        """
+        self.testvm1.memory = 800
+        self.testvm1.maxmem = 800
+        # exclude from memory balancing
+        self.testvm1.services['meminfo-writer'] = False
+        self.testvm1.start()
+        # and allow large map count
+        self.testvm1.run("echo 256000 > /proc/sys/vm/max_map_count",
+            user="root", wait=True)
+        allocator_c = (
+            "#include <sys/mman.h>\n"
+            "#include <stdlib.h>\n"
+            "#include <stdio.h>\n"
+            "\n"
+            "int main(int argc, char **argv) {\n"
+            "	int total_pages;\n"
+            "	char *addr, *iter;\n"
+            "\n"
+            "	total_pages = atoi(argv[1]);\n"
+            "	addr = mmap(NULL, total_pages * 0x1000, PROT_READ | "
+            "PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);\n"
+            "	if (addr == MAP_FAILED) {\n"
+            "		perror(\"mmap\");\n"
+            "		exit(1);\n"
+            "	}\n"
+            "	printf(\"Stage1\\n\");\n"
+            "   fflush(stdout);\n"
+            "	getchar();\n"
+            "	for (iter = addr; iter < addr + total_pages*0x1000; iter += "
+            "0x2000) {\n"
+            "		if (mlock(iter, 0x1000) == -1) {\n"
+            "			perror(\"mlock\");\n"
+            "           fprintf(stderr, \"%d of %d\\n\", (iter-addr)/0x1000, "
+            "total_pages);\n"
+            "			exit(1);\n"
+            "		}\n"
+            "	}\n"
+            "	printf(\"Stage2\\n\");\n"
+            "   fflush(stdout);\n"
+            "	for (iter = addr+0x1000; iter < addr + total_pages*0x1000; "
+            "iter += 0x2000) {\n"
+            "		if (munmap(iter, 0x1000) == -1) {\n"
+            "			perror(\"munmap\");\n"
+            "			exit(1);\n"
+            "		}\n"
+            "	}\n"
+            "	printf(\"Stage3\\n\");\n"
+            "   fflush(stdout);\n"
+            "   fclose(stdout);\n"
+            "	getchar();\n"
+            "\n"
+            "	return 0;\n"
+            "}\n")
 
-        # wait for DispVM startup:
-        p.stdin.write("echo test\n")
-        p.stdin.flush()
-        l = p.stdout.readline()
-        self.assertEqual(l, "test\n")
+        p = self.testvm1.run("cat > allocator.c", passio_popen=True)
+        p.communicate(allocator_c)
+        p = self.testvm1.run("gcc allocator.c -o allocator",
+            passio_popen=True, passio_stderr=True)
+        (stdout, stderr) = p.communicate()
+        if p.returncode != 0:
+            self.skipTest("allocator compile failed: {}".format(stderr))
 
-        # potential race condition, but our tests are supposed to be
-        # running on dedicated machine, so should not be a problem
-        self.qc.lock_db_for_reading()
-        self.qc.load()
-        self.qc.unlock_db()
+        # drop caches to have even more memory pressure
+        self.testvm1.run("echo 3 > /proc/sys/vm/drop_caches",
+            user="root", wait=True)
 
-        max_qid = 0
-        for vm in self.qc.values():
-            if not vm.is_disposablevm():
-                continue
-            if vm.qid > max_qid:
-                max_qid = vm.qid
-        dispvm = self.qc[max_qid]
-        self.assertNotEqual(dispvm.qid, 0, "DispVM not found in qubes.xml")
-        self.assertTrue(dispvm.is_running())
-        try:
-            window_title = 'user@%s' % (dispvm.template.name + "-dvm")
-            p.stdin.write("xterm -e "
-                          "\"sh -s -c 'echo \\\"\033]0;{}\007\\\";read;'\"\n".
-                          format(window_title))
-            self.wait_for_window(window_title)
+        # now fragment all free memory
+        p = self.testvm1.run("grep ^MemFree: /proc/meminfo|awk '{print $2}'",
+            passio_popen=True)
+        memory_pages = int(p.communicate()[0].strip())
+        memory_pages /= 4 # 4k pages
+        alloc1 = self.testvm1.run(
+            "ulimit -l unlimited; exec /home/user/allocator {}".format(
+                memory_pages),
+            user="root", passio_popen=True, passio_stderr=True)
+        # wait for memory being allocated; can't use just .read(), because EOF
+        # passing is unreliable while the process is still running
+        alloc1.stdin.write("\n")
+        alloc1.stdin.flush()
+        alloc_out = alloc1.stdout.read(len("Stage1\nStage2\nStage3\n"))
 
-            time.sleep(0.5)
-            subprocess.check_call(['xdotool', 'search', '--name', window_title,
-                                  'windowactivate', 'key', 'Return'])
+        if "Stage3" not in alloc_out:
+            # read stderr only in case of failed assert, but still have nice
+            # failure message (don't use self.fail() directly)
+            self.assertIn("Stage3", alloc_out, alloc1.stderr.read())
 
-            wait_count = 0
-            while subprocess.call(['xdotool', 'search', '--name', window_title],
-                                  stdout=open(os.path.devnull, 'w'),
-                                  stderr=subprocess.STDOUT) == 0:
-                wait_count += 1
-                if wait_count > 100:
-                    self.fail("Timeout while waiting for gnome-terminal "
-                              "termination")
-                time.sleep(0.1)
-        finally:
-            p.stdin.close()
+        # now, launch some window - it should get fragmented composition buffer
+        # it is important to have some changing content there, to generate
+        # content update events (aka damage notify)
+        proc = self.testvm1.run("gnome-terminal --full-screen -e top",
+            passio_popen=True)
 
-        wait_count = 0
-        while dispvm.is_running():
-            wait_count += 1
-            if wait_count > 100:
-                self.fail("Timeout while waiting for DispVM destruction")
-            time.sleep(0.1)
-        wait_count = 0
-        while p.poll() is None:
-            wait_count += 1
-            if wait_count > 100:
-                self.fail("Timeout while waiting for qfile-daemon-dvm "
-                          "termination")
-            time.sleep(0.1)
-        self.assertEqual(p.returncode, 0)
+        # help xdotool a little...
+        time.sleep(2)
+        # get window ID
+        search = subprocess.Popen(['xdotool', 'search', '--sync',
+            '--onlyvisible', '--class', self.testvm1.name + ':.*erminal'],
+            stdout=subprocess.PIPE)
+        winid = search.communicate()[0].strip()
+        xprop = subprocess.Popen(['xprop', '-notype', '-id', winid,
+            '_QUBES_VMWINDOWID'], stdout=subprocess.PIPE)
+        vm_winid = xprop.stdout.read().strip().split(' ')[4]
 
-        self.qc.lock_db_for_reading()
-        self.qc.load()
-        self.qc.unlock_db()
-        self.assertIsNone(self.qc.get_vm_by_name(dispvm.name),
-                          "DispVM not removed from qubes.xml")
+        # now free the fragmented memory and trigger compaction
+        alloc1.stdin.write("\n")
+        alloc1.wait()
+        self.testvm1.run("echo 1 > /proc/sys/vm/compact_memory", user="root")
 
-    def _handle_editor(self, winid):
-        (window_title, _) = subprocess.Popen(
-            ['xdotool', 'getwindowname', winid], stdout=subprocess.PIPE).\
-            communicate()
-        window_title = window_title.strip().\
-            replace('(', '\(').replace(')', '\)')
-        time.sleep(1)
-        if "gedit" in window_title:
-            subprocess.check_call(['xdotool', 'search', '--name', window_title,
-                                   'windowactivate', 'type', 'test test 2\n'])
-            time.sleep(0.5)
-            subprocess.check_call(['xdotool', 'search', '--name', window_title,
-                                   'key', 'ctrl+s', 'ctrl+q'])
-        elif "emacs" in window_title:
-            subprocess.check_call(['xdotool', 'search', '--name', window_title,
-                                   'windowactivate', 'type', 'test test 2\n'])
-            time.sleep(0.5)
-            subprocess.check_call(['xdotool', 'search', '--name', window_title,
-                                   'key', 'ctrl+x', 'ctrl+s'])
-            subprocess.check_call(['xdotool', 'search', '--name', window_title,
-                                   'key', 'ctrl+x', 'ctrl+c'])
-        elif "vim" in window_title:
-            subprocess.check_call(['xdotool', 'search', '--name', window_title,
-                                   'windowactivate', 'key', 'i',
-                                   'type', 'test test 2\n'])
-            subprocess.check_call(
-                ['xdotool', 'search', '--name', window_title,
-                 'key', 'Escape', 'colon', 'w', 'q', 'Return'])
-        else:
-            self.fail("Unknown editor window: {}".format(window_title))
+        # now window may be already "broken"; to be sure, allocate (=zero)
+        # some memory
+        alloc2 = self.testvm1.run(
+            "ulimit -l unlimited; /home/user/allocator {}".format(memory_pages),
+            user="root", passio_popen=True, passio_stderr=True)
+        alloc2.stdout.read(len("Stage1\n"))
 
-    @unittest.skipUnless(spawn.find_executable('xdotool'),
-                         "xdotool not installed")
-    def test_030_edit_file(self):
-        testvm1 = self.qc.add_new_vm("QubesAppVm",
-                                     name=self.make_vm_name('vm1'),
-                                     template=self.qc.get_vm_by_name(
-                                         self.template))
-        testvm1.create_on_disk(verbose=False)
-        self.qc.save()
+        # wait for damage notify - top updates every 3 sec by default
+        time.sleep(6)
 
-        testvm1.start()
-        testvm1.run("echo test1 > /home/user/test.txt", wait=True)
+        # now take screenshot of the window, from dom0 and VM
+        # choose pnm format, as it doesn't have any useless metadata - easy
+        # to compare
+        p = self.testvm1.run("import -window {} pnm:-".format(vm_winid),
+            passio_popen=True, passio_stderr=True)
+        (vm_image, stderr) = p.communicate()
+        if p.returncode != 0:
+            raise Exception("Failed to get VM window image: {}".format(
+                stderr))
 
-        self.qc.unlock_db()
-        p = testvm1.run("qvm-open-in-dvm /home/user/test.txt",
-                        passio_popen=True)
+        p = subprocess.Popen(["import", "-window", winid, "pnm:-"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (dom0_image, stderr) = p.communicate()
+        if p.returncode != 0:
+            raise Exception("Failed to get dom0 window image: {}".format(
+                stderr))
 
-        wait_count = 0
-        winid = None
-        while True:
-            search = subprocess.Popen(['xdotool', 'search',
-                                       '--onlyvisible', '--class', 'disp*'],
-                                      stdout=subprocess.PIPE,
-                                      stderr=open(os.path.devnull, 'w'))
-            retcode = search.wait()
-            if retcode == 0:
-                winid = search.stdout.read().strip()
-                break
-            wait_count += 1
-            if wait_count > 100:
-                self.fail("Timeout while waiting for editor window")
-            time.sleep(0.3)
-
-        self._handle_editor(winid)
-        p.wait()
-        p = testvm1.run("cat /home/user/test.txt",
-                        passio_popen=True)
-        (test_txt_content, _) = p.communicate()
-        self.assertEqual(test_txt_content, "test test 2\ntest1\n")
-
-
-class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
-    @unittest.skipUnless(spawn.find_executable('xdotool'),
-                         "xdotool not installed")
-    def test_000_clipboard(self):
-        testvm1 = self.qc.add_new_vm("QubesAppVm",
-                                     name=self.make_vm_name('vm1'),
-                                     template=self.qc.get_default_template())
-        testvm1.create_on_disk(verbose=False)
-        testvm2 = self.qc.add_new_vm("QubesAppVm",
-                                     name=self.make_vm_name('vm2'),
-                                     template=self.qc.get_default_template())
-        testvm2.create_on_disk(verbose=False)
-        self.qc.save()
-        self.qc.unlock_db()
-
-        testvm1.start()
-        testvm2.start()
-
-        window_title = 'user@{}'.format(testvm1.name)
-        testvm1.run('zenity --text-info --editable --title={}'.format(
-            window_title))
-
-        self.wait_for_window(window_title)
-        time.sleep(0.5)
-        test_string = "test{}".format(testvm1.xid)
-
-        # Type and copy some text
-        subprocess.check_call(['xdotool', 'search', '--name', window_title,
-                               'windowactivate',
-                               'type', '{}'.format(test_string)])
-        # second xdotool call because type --terminator do not work (SEGV)
-        # additionally do not use search here, so window stack will be empty
-        # and xdotool will use XTEST instead of generating events manually -
-        # this will be much better - at least because events will have
-        # correct timestamp (so gui-daemon would not drop the copy request)
-        subprocess.check_call(['xdotool',
-                               'key', 'ctrl+a', 'ctrl+c', 'ctrl+shift+c',
-                               'Escape'])
-
-        clipboard_content = \
-            open('/var/run/qubes/qubes-clipboard.bin', 'r').read().strip()
-        self.assertEquals(clipboard_content, test_string,
-                          "Clipboard copy operation failed - content")
-        clipboard_source = \
-            open('/var/run/qubes/qubes-clipboard.bin.source',
-                 'r').read().strip()
-        self.assertEquals(clipboard_source, testvm1.name,
-                          "Clipboard copy operation failed - owner")
-
-        # Then paste it to the other window
-        window_title = 'user@{}'.format(testvm2.name)
-        p = testvm2.run('zenity --entry --title={} > test.txt'.format(
-                        window_title), passio_popen=True)
-        self.wait_for_window(window_title)
-
-        subprocess.check_call(['xdotool', 'key', '--delay', '100',
-                               'ctrl+shift+v', 'ctrl+v', 'Return'])
-        p.wait()
-
-        # And compare the result
-        (test_output, _) = testvm2.run('cat test.txt',
-                                       passio_popen=True).communicate()
-        self.assertEquals(test_string, test_output.strip())
-
-        clipboard_content = \
-            open('/var/run/qubes/qubes-clipboard.bin', 'r').read().strip()
-        self.assertEquals(clipboard_content, "",
-                          "Clipboard not wiped after paste - content")
-        clipboard_source = \
-            open('/var/run/qubes/qubes-clipboard.bin.source', 'r').read(
-
-            ).strip()
-        self.assertEquals(clipboard_source, "",
-                          "Clipboard not wiped after paste - owner")
-
-
-@unittest.skipUnless(os.path.exists('/var/lib/qubes/vm-kernels/pvgrub2'),
-                     'grub-xen package not installed')
-class TC_40_PVGrub(qubes.tests.SystemTestsMixin):
-    def setUp(self):
-        super(TC_40_PVGrub, self).setUp()
-        supported = False
-        if self.template.startswith('fedora-'):
-            supported = True
-        elif self.template.startswith('debian-'):
-            supported = True
-        if not supported:
-            self.skipTest("Template {} not supported by this test".format(
-                self.template))
-
-    def install_packages(self, vm):
-        if self.template.startswith('fedora-'):
-            cmd_install1 = 'yum install -y qubes-kernel-vm-support grub2-tools'
-            cmd_install2 = 'yum install -y kernel kernel-devel'
-            cmd_update_grub = 'grub2-mkconfig -o /boot/grub2/grub.cfg'
-        elif self.template.startswith('debian-'):
-            cmd_install1 = 'apt-get update && apt-get install -y ' \
-                           'qubes-kernel-vm-support grub2-common'
-            cmd_install2 = 'apt-get install -y linux-image-amd64'
-            cmd_update_grub = 'mkdir /boot/grub && update-grub2'
-        else:
-            assert False, "Unsupported template?!"
-
-        for cmd in [cmd_install1, cmd_install2, cmd_update_grub]:
-            p = vm.run(cmd, user="root", passio_popen=True, passio_stderr=True)
-            (stdout, stderr) = p.communicate()
-            self.assertEquals(p.returncode, 0,
-                              "Failed command: {}\nSTDOUT: {}\nSTDERR: {}"
-                              .format(cmd, stdout, stderr))
-
-    def get_kernel_version(self, vm):
-        if self.template.startswith('fedora-'):
-            cmd_get_kernel_version = 'rpm -q kernel|sort -n|tail -1|' \
-                                     'cut -d - -f 2-'
-        elif self.template.startswith('debian-'):
-            cmd_get_kernel_version = \
-                'dpkg-query --showformat=\'${Package}\\n\' --show ' \
-                '\'linux-image-*-amd64\'|sort -n|tail -1|cut -d - -f 3-'
-        else:
-            raise RuntimeError("Unsupported template?!")
-
-        p = vm.run(cmd_get_kernel_version, user="root", passio_popen=True)
-        (kver, _) = p.communicate()
-        self.assertEquals(p.returncode, 0,
-                          "Failed command: {}".format(cmd_get_kernel_version))
-        return kver.strip()
-
-    def test_000_standalone_vm(self):
-        testvm1 = self.qc.add_new_vm("QubesAppVm",
-                                     template=None,
-                                     name=self.make_vm_name('vm1'))
-        testvm1.create_on_disk(verbose=False,
-                               source_template=self.qc.get_vm_by_name(
-                                   self.template))
-        self.save_and_reload_db()
-        self.qc.unlock_db()
-        testvm1 = self.qc[testvm1.qid]
-        testvm1.start()
-        self.install_packages(testvm1)
-        kver = self.get_kernel_version(testvm1)
-        self.shutdown_and_wait(testvm1)
-
-        self.qc.lock_db_for_writing()
-        self.qc.load()
-        testvm1 = self.qc[testvm1.qid]
-        testvm1.kernel = 'pvgrub2'
-        self.save_and_reload_db()
-        self.qc.unlock_db()
-        testvm1 = self.qc[testvm1.qid]
-        testvm1.start()
-        p = testvm1.run('uname -r', passio_popen=True)
-        (actual_kver, _) = p.communicate()
-        self.assertEquals(actual_kver.strip(), kver)
-
-    def test_010_template_based_vm(self):
-        test_template = self.qc.add_new_vm("QubesTemplateVm",
-                                           template=None,
-                                           name=self.make_vm_name('template'))
-        test_template.clone_attrs(self.qc.get_vm_by_name(self.template))
-        test_template.clone_disk_files(
-            src_vm=self.qc.get_vm_by_name(self.template),
-            verbose=False)
-
-        testvm1 = self.qc.add_new_vm("QubesAppVm",
-                                     template=test_template,
-                                     name=self.make_vm_name('vm1'))
-        testvm1.create_on_disk(verbose=False,
-                               source_template=test_template)
-        self.save_and_reload_db()
-        self.qc.unlock_db()
-        test_template = self.qc[test_template.qid]
-        testvm1 = self.qc[testvm1.qid]
-        test_template.start()
-        self.install_packages(test_template)
-        kver = self.get_kernel_version(test_template)
-        self.shutdown_and_wait(test_template)
-
-        self.qc.lock_db_for_writing()
-        self.qc.load()
-        test_template = self.qc[test_template.qid]
-        test_template.kernel = 'pvgrub2'
-        testvm1 = self.qc[testvm1.qid]
-        testvm1.kernel = 'pvgrub2'
-        self.save_and_reload_db()
-        self.qc.unlock_db()
-
-        # Check if TemplateBasedVM boots and has the right kernel
-        testvm1 = self.qc[testvm1.qid]
-        testvm1.start()
-        p = testvm1.run('uname -r', passio_popen=True)
-        (actual_kver, _) = p.communicate()
-        self.assertEquals(actual_kver.strip(), kver)
-
-        # And the same for the TemplateVM itself
-        test_template = self.qc[test_template.qid]
-        test_template.start()
-        p = test_template.run('uname -r', passio_popen=True)
-        (actual_kver, _) = p.communicate()
-        self.assertEquals(actual_kver.strip(), kver)
+        if vm_image != dom0_image:
+            self.fail("Dom0 window doesn't match VM window content")
 
 
 def load_tests(loader, tests, pattern):
@@ -1185,17 +1023,6 @@ def load_tests(loader, tests, pattern):
             type(
                 'TC_00_AppVM_' + template,
                 (TC_00_AppVMMixin, qubes.tests.QubesTestCase),
-                {'template': template})))
-
-        tests.addTests(loader.loadTestsFromTestCase(
-            type(
-                'TC_20_DispVM_' + template,
-                (TC_20_DispVMMixin, qubes.tests.QubesTestCase),
-                {'template': template})))
-        tests.addTests(loader.loadTestsFromTestCase(
-            type(
-                'TC_40_PVGrub_' + template,
-                (TC_40_PVGrub, qubes.tests.QubesTestCase),
                 {'template': template})))
 
     return tests

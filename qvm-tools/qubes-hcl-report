@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-VERSION=2.4
+VERSION=2.5
 COPY2VM="dom0"
 SUPPORT_FILES=0
 
@@ -101,9 +101,10 @@ XEN_EXTRA=`cat $TEMP_DIR/xl-info |grep xen_extra |cut -d: -f2 |tr -d ' '`
 QUBES=`cat $TEMP_DIR/qubes-release |cut -d '(' -f2 |cut -d ')' -f1`
 XL_VTX=`cat $TEMP_DIR/xl-info |grep xen_caps | grep hvm`
 XL_VTD=`cat $TEMP_DIR/xl-info |grep virt_caps |grep hvm_directio`
+XL_HAP=`cat $TEMP_DIR/xl-dmesg |grep 'HVM: Hardware Assisted Paging (HAP) detected'`
 PCRS=`find /sys/devices/ -name pcrs`
 
-FILENAME="Qubes-HCL-${BRAND// /_}-${PRODUCT// /_}-$DATE"
+FILENAME="Qubes-HCL-${BRAND//[^[:alnum:]]/_}-${PRODUCT//[^[:alnum:]]/_}-$DATE"
 
 if [[ $XL_VTX ]]
  then 
@@ -125,6 +126,12 @@ if [[ $XL_VTD ]]
     VTD="Not active"
     IOMMU="no"
 
+fi
+
+if [ -n "$XL_HAP" ]; then
+    HAP="yes"
+else
+    HAP="no"
 fi
 
 if [[ $PCRS ]]
@@ -152,6 +159,7 @@ echo -e "Net:\n$NET\n"
 echo -e "SCSI:\n$SCSI\n"
 echo -e "HVM:\t\t$VTX"
 echo -e "I/O MMU:\t$VTD"
+echo -e "HAP/SLAT:\t${HAP^}"
 echo -e "TPM:\t\t$TPM"
 echo
 
@@ -164,6 +172,8 @@ hvm:
   '$HVM'
 iommu:
   '$IOMMU'
+slat:
+  '$HAP'
 tpm:
   '$TPM_s'
 brand: |
@@ -209,7 +219,7 @@ versions:
     FIXLINK
 
 ---
-" >> $HOME/$FILENAME.yml
+" >> "$HOME/$FILENAME.yml"
 
 
 if [[ "$SUPPORT_FILES" == 1 ]]
@@ -217,7 +227,7 @@ if [[ "$SUPPORT_FILES" == 1 ]]
 
     # cpio
     cd $TEMP_DIR
-    find -print0 |cpio --quiet -o -H crc --null |gzip  >$HOME/$FILENAME.cpio.gz
+    find -print0 | cpio --quiet -o -H crc --null | gzip  > "$HOME/$FILENAME.cpio.gz"
     cd
 fi
 
@@ -225,16 +235,16 @@ fi
 if [[ "$COPY2VM" != "dom0" ]]
  then
     # Copy to VM
-    qvm-start -q $COPY2VM 2>/dev/null
+    qvm-start -q $COPY2VM 2> /dev/null
 
     if [[ -f "$HOME/$FILENAME.cpio.gz" ]]
       then
-        cat $HOME/$FILENAME.cpio.gz | qvm-run -a -q --pass-io $COPY2VM "cat >/home/user/$FILENAME.cpio.gz"
+        cat "$HOME/$FILENAME.cpio.gz" | qvm-run -a -q --pass-io $COPY2VM "cat > \"/home/user/$FILENAME.cpio.gz\""
     fi
 
     if [[ -f "$HOME/$FILENAME.yml" ]]
       then
-        cat $HOME/$FILENAME.yml | qvm-run -a -q --pass-io $COPY2VM "cat >/home/user/$FILENAME.yml"
+        cat "$HOME/$FILENAME.yml" | qvm-run -a -q --pass-io $COPY2VM "cat > \"/home/user/$FILENAME.yml\""
     fi
 
 fi

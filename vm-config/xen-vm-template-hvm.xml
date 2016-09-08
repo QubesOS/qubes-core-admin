@@ -9,20 +9,21 @@
     <loader>hvmloader</loader>
     <boot dev='cdrom'/>
     <boot dev='hd'/>
-    {disable_network1}<cmdline>-net lwip,client_ip={ip},server_ip={dns2},dns={dns1},gw={gateway},netmask={netmask}</cmdline>{disable_network2}
   </os>
   <features>
     <pae/>
     <acpi/>
     <apic/>
     <viridian/>
+    {features}
   </features>
   <clock offset='variable' adjustment='{timeoffset}' basis='{time_basis}'/>
   <on_poweroff>destroy</on_poweroff>
   <on_reboot>destroy</on_reboot>
   <on_crash>destroy</on_crash>
   <devices>
-    <emulator type='stubdom'/>
+    {no_network_begin}<emulator type='stubdom'/>{no_network_end}
+    {network_begin}<emulator type='stubdom' cmdline='-net lwip,client_ip={ip},server_ip={dns2},dns={dns1},gw={gateway},netmask={netmask}'/>{network_end}
 {rootdev}
 {privatedev}
 {otherdevs}

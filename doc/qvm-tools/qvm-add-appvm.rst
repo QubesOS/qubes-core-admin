@@ -6,7 +6,7 @@ NAME
 ====
 qvm-add-appvm - add an already installed appvm to the Qubes DB
 
-WARNING: Noramlly you would not need this command, and you would use qvm-create instead!
+WARNING: Normally you should not need this command, and you should use qvm-create instead!
 
 :Date:   2012-04-10
 
@@ -22,6 +22,8 @@ OPTIONS
     Specify path to the template directory
 -c CONF_FILE, --conf=CONF_FILE
     Specify the Xen VM .conf file to use(relative to the template dir path)
+--force-root
+    Force to run, even with root privileges
 
 AUTHORS
 =======

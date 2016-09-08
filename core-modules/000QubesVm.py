@@ -26,6 +26,7 @@ import datetime
 import base64
 import hashlib
 import logging
+import grp
 import lxml.etree
 import os
 import os.path
@@ -37,15 +38,16 @@ import time
 import uuid
 import xml.parsers.expat
 import signal
+import pwd
 from qubes import qmemman
 from qubes import qmemman_algo
 import libvirt
-import warnings
 
 from qubes.qubes import dry_run,vmm
 from qubes.qubes import register_qubes_vm_class
 from qubes.qubes import QubesVmCollection,QubesException,QubesHost,QubesVmLabels
 from qubes.qubes import defaults,system_path,vm_files,qubes_max_qid
+from qubes.storage import get_pool
 
 qmemman_present = False
 try:
@@ -109,6 +111,7 @@ class QubesVm(object):
             "name": { "order": 1 },
             "uuid": { "order": 0, "eval": 'uuid.UUID(value) if value else None' },
             "dir_path": { "default": None, "order": 2 },
+            "pool_name": { "default":"default" },
             "conf_file": {
                 "func": lambda value: self.absolute_path(value, self.name +
                                                                  ".conf"),
@@ -133,9 +136,10 @@ class QubesVm(object):
                     eval(value) if value.find("[") >= 0 else
                     eval("[" + value + "]") },
             "pci_strictreset": {"default": True},
+            "pci_e820_host": {"default": True},
             # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
             "internal": { "default": False, 'attr': '_internal' },
-            "vcpus": { "default": None },
+            "vcpus": { "default": 2 },
             "uses_default_kernel": { "default": True, 'order': 30 },
             "uses_default_kernelopts": { "default": True, 'order': 30 },
             "kernel": {
@@ -198,7 +202,8 @@ class QubesVm(object):
             'kernelopts', 'services', 'installed_by_rpm',\
             'uses_default_netvm', 'include_in_backups', 'debug',\
             'qrexec_timeout', 'autostart', 'uses_default_dispvm_netvm',
-            'backup_content', 'backup_size', 'backup_path' ]:
+            'backup_content', 'backup_size', 'backup_path', 'pool_name',\
+            'pci_e820_host']:
             attrs[prop]['save'] = lambda prop=prop: str(getattr(self, prop))
         # Simple paths
         for prop in ['conf_file', 'firewall_conf']:
@@ -326,11 +331,6 @@ class QubesVm(object):
         if self.maxmem > self.memory * 10:
             self.maxmem = self.memory * 10
 
-        # By default allow use all VCPUs
-        if self.vcpus is None and not vmm.offline_mode:
-            qubes_host = QubesHost()
-            self.vcpus = qubes_host.no_cpus
-
         # Always set if meminfo-writer should be active or not
         if 'meminfo-writer' not in self.services:
             self.services['meminfo-writer'] = not (len(self.pcidevs) > 0)
@@ -345,7 +345,11 @@ class QubesVm(object):
                 self.services['qubes-update-check'] = False
 
         # Initialize VM image storage class
-        self.storage = defaults["storage_class"](self)
+        self.storage = get_pool(self.pool_name, self).getStorage()
+        self.dir_path = self.storage.vmdir
+        self.icon_path = os.path.join(self.storage.vmdir, 'icon.png')
+        self.conf_file = os.path.join(self.storage.vmdir, self.name + '.conf')
+
         if hasattr(self, 'kernels_dir'):
             modules_path = os.path.join(self.kernels_dir,
                     "modules.img")
@@ -561,6 +565,10 @@ class QubesVm(object):
             return False
         if len(name) > 31:
             return False
+        if name == 'lost+found':
+            # avoid conflict when /var/lib/qubes/appvms is mounted on
+            # separate partition
+            return False
         return re.match(r"^[a-zA-Z][a-zA-Z0-9_.-]*$", name) is not None
 
     def pre_rename(self, new_name):
@@ -582,9 +590,18 @@ class QubesVm(object):
         if self.installed_by_rpm:
             raise QubesException("Cannot rename VM installed by RPM -- first clone VM and then use yum to remove package.")
 
+        assert self._collection is not None
+        if self._collection.get_vm_by_name(name):
+            raise QubesException("VM with this name already exists")
+
         self.pre_rename(name)
-        if self.libvirt_domain:
+        try:
             self.libvirt_domain.undefine()
+        except libvirt.libvirtError as e:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
+                pass
+            else:
+                raise
         if self._qdb_connection:
             self._qdb_connection.close()
             self._qdb_connection = None
@@ -714,6 +731,8 @@ class QubesVm(object):
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return -1
             else:
+                print >>sys.stderr, "libvirt error code: {!r}".format(
+                    e.get_error_code())
                 raise
 
 
@@ -766,9 +785,13 @@ class QubesVm(object):
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return 0
                 # libxl_domain_info failed - domain no longer exists
-            elif e.get_error_code() == libvirt.VIR_INTERNAL_ERROR:
+            elif e.get_error_code() == libvirt.VIR_ERR_INTERNAL_ERROR:
+                return 0
+            elif e.get_error_code() is None:  # unknown...
                 return 0
             else:
+                print >>sys.stderr, "libvirt error code: {!r}".format(
+                    e.get_error_code())
                 raise
 
     def get_cputime(self):
@@ -783,9 +806,13 @@ class QubesVm(object):
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return 0
                 # libxl_domain_info failed - domain no longer exists
-            elif e.get_error_code() == libvirt.VIR_INTERNAL_ERROR:
+            elif e.get_error_code() == libvirt.VIR_ERR_INTERNAL_ERROR:
+                return 0
+            elif e.get_error_code() is None:  # unknown...
                 return 0
             else:
+                print >>sys.stderr, "libvirt error code: {!r}".format(
+                    e.get_error_code())
                 raise
 
     def get_mem_static_max(self):
@@ -827,6 +854,8 @@ class QubesVm(object):
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return 0
             else:
+                print >>sys.stderr, "libvirt error code: {!r}".format(
+                    e.get_error_code())
                 raise
 
     def get_disk_utilization_root_img(self):
@@ -901,7 +930,14 @@ class QubesVm(object):
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return False
+                # libxl_domain_info failed - domain no longer exists
+            elif e.get_error_code() == libvirt.VIR_ERR_INTERNAL_ERROR:
+                return False
+            elif e.get_error_code() is None:  # unknown...
+                return False
             else:
+                print >>sys.stderr, "libvirt error code: {!r}".format(
+                    e.get_error_code())
                 raise
 
     def is_paused(self):
@@ -913,7 +949,14 @@ class QubesVm(object):
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return False
+                # libxl_domain_info failed - domain no longer exists
+            elif e.get_error_code() == libvirt.VIR_ERR_INTERNAL_ERROR:
+                return False
+            elif e.get_error_code() is None:  # unknown...
+                return False
             else:
+                print >>sys.stderr, "libvirt error code: {!r}".format(
+                    e.get_error_code())
                 raise
 
     def get_start_time(self):
@@ -924,7 +967,7 @@ class QubesVm(object):
         uuid = self.uuid
 
         start_time = vmm.xs.read('', "/vm/%s/start_time" % str(uuid))
-        if start_time != '':
+        if start_time:
             return datetime.datetime.fromtimestamp(float(start_time))
         else:
             return None
@@ -1061,6 +1104,7 @@ class QubesVm(object):
 
         if self.is_netvm():
             self.qdb.write("/qubes-netvm-gateway", self.gateway)
+            self.qdb.write("/qubes-netvm-primary-dns", self.gateway)
             self.qdb.write("/qubes-netvm-secondary-dns", self.secondary_dns)
             self.qdb.write("/qubes-netvm-netmask", self.netmask)
             self.qdb.write("/qubes-netvm-network", self.network)
@@ -1069,6 +1113,7 @@ class QubesVm(object):
             self.qdb.write("/qubes-ip", self.ip)
             self.qdb.write("/qubes-netmask", self.netvm.netmask)
             self.qdb.write("/qubes-gateway", self.netvm.gateway)
+            self.qdb.write("/qubes-primary-dns", self.netvm.gateway)
             self.qdb.write("/qubes-secondary-dns", self.netvm.secondary_dns)
 
         tzname = self.get_timezone()
@@ -1148,6 +1193,7 @@ class QubesVm(object):
             # If dynamic memory management disabled, set maxmem=mem
             args['maxmem'] = args['mem']
         args['vcpus'] = str(self.vcpus)
+        args['features'] = ''
         if self.netvm is not None:
             args['ip'] = self.ip
             args['mac'] = self.mac
@@ -1156,8 +1202,10 @@ class QubesVm(object):
             args['dns2'] = self.secondary_dns
             args['netmask'] = self.netmask
             args['netdev'] = self._format_net_dev(self.ip, self.mac, self.netvm.name)
-            args['disable_network1'] = '';
-            args['disable_network2'] = '';
+            args['network_begin'] = ''
+            args['network_end'] = ''
+            args['no_network_begin'] = '<!--'
+            args['no_network_end'] = '-->'
         else:
             args['ip'] = ''
             args['mac'] = ''
@@ -1166,8 +1214,12 @@ class QubesVm(object):
             args['dns2'] = ''
             args['netmask'] = ''
             args['netdev'] = ''
-            args['disable_network1'] = '<!--';
-            args['disable_network2'] = '-->';
+            args['network_begin'] = '<!--'
+            args['network_end'] = '-->'
+            args['no_network_begin'] = ''
+            args['no_network_end'] = ''
+        if len(self.pcidevs) and self.pci_e820_host:
+            args['features'] = '<xen><e820_host state=\'on\'/></xen>'
         args.update(self.storage.get_config_params())
         if hasattr(self, 'kernelopts'):
             args['kernelopts'] = self.kernelopts
@@ -1262,9 +1314,10 @@ class QubesVm(object):
             hook(self, verbose, source_template=source_template)
 
     def get_clone_attrs(self):
-        attrs = ['kernel', 'uses_default_kernel', 'netvm', 'uses_default_netvm', \
-            'memory', 'maxmem', 'kernelopts', 'uses_default_kernelopts', 'services', 'vcpus', \
-            '_mac', 'pcidevs', 'include_in_backups', '_label', 'default_user']
+        attrs = ['kernel', 'uses_default_kernel', 'netvm', 'uses_default_netvm',
+                 'memory', 'maxmem', 'kernelopts', 'uses_default_kernelopts',
+                 'services', 'vcpus', '_mac', 'pcidevs', 'include_in_backups',
+                 '_label', 'default_user', 'qrexec_timeout']
 
         # fire hooks
         for hook in self.hooks_get_clone_attrs:
@@ -1357,7 +1410,15 @@ class QubesVm(object):
                 # already undefined
                 pass
             else:
+                print >>sys.stderr, "libvirt error code: {!r}".format(
+                    e.get_error_code())
                 raise
+
+        if os.path.exists("/etc/systemd/system/multi-user.target.wants/qubes-vm@" + self.name + ".service"):
+            retcode = subprocess.call(["sudo", "systemctl", "-q", "disable",
+                "qubes-vm@" + self.name + ".service"])
+            if retcode != 0:
+                raise QubesException("Failed to delete autostart entry for VM")
 
         self.storage.remove_from_disk()
 
@@ -1623,17 +1684,22 @@ class QubesVm(object):
         if bool(input) + bool(passio_popen) + bool(localcmd) > 1:
             raise ValueError("'input', 'passio_popen', 'localcmd' cannot be "
                              "used together")
+        if not wait and (localcmd or input):
+            raise ValueError("Cannot use wait=False with input or "
+                             "localcmd specified")
         if localcmd:
             return self.run("QUBESRPC %s %s" % (service, source),
                             localcmd=localcmd, user=user, wait=wait, gui=gui)
         elif input:
-            return self.run("QUBESRPC %s %s" % (service, source),
-                            localcmd="echo %s" % input, user=user, wait=wait,
-                            gui=gui)
+            p = self.run("QUBESRPC %s %s" % (service, source),
+                user=user, wait=wait, gui=gui, passio_popen=True,
+                passio_stderr=True)
+            p.communicate(input)
+            return p.returncode
         else:
             return self.run("QUBESRPC %s %s" % (service, source),
                             passio_popen=passio_popen, user=user, wait=wait,
-                            gui=gui)
+                            gui=gui, passio_stderr=passio_popen)
 
     def attach_network(self, verbose = False, wait = True, netvm = None):
         self.log.debug('attach_network(netvm={!r})'.format(netvm))
@@ -1695,7 +1761,15 @@ class QubesVm(object):
         if verbose:
             print >> sys.stderr, "--> Starting Qubes GUId..."
 
-        guid_cmd = [system_path["qubes_guid_path"],
+        guid_cmd = []
+        if os.getuid() == 0:
+            # try to always have guid running as normal user, otherwise
+            # clipboard file may be created as root and other permission
+            # problems
+            qubes_group = grp.getgrnam('qubes')
+            guid_cmd = ['runuser', '-u', qubes_group.gr_mem[0], '--']
+
+        guid_cmd += [system_path["qubes_guid_path"],
             "-d", str(self.xid), "-N", self.name,
             "-c", self.label.color,
             "-i", self.label.icon_path,
@@ -1706,6 +1780,33 @@ class QubesVm(object):
             guid_cmd += ['-v', '-v']
         elif not verbose:
             guid_cmd += ['-q']
+        # Avoid using environment variables for checking the current session,
+        #  because this script may be called with cleared env (like with sudo).
+        if subprocess.check_output(
+                ['xprop', '-root', '-notype', 'KDE_SESSION_VERSION']) == \
+                'KDE_SESSION_VERSION = 5\n':
+            # native decoration plugins is used, so adjust window properties
+            # accordingly
+            guid_cmd += ['-T']  # prefix window titles with VM name
+            # get owner of X11 session
+            session_owner = None
+            for line in subprocess.check_output(['xhost']).splitlines():
+                if line == 'SI:localuser:root':
+                    pass
+                elif line.startswith('SI:localuser:'):
+                    session_owner = line.split(":")[2]
+            if session_owner is not None:
+                data_dir = os.path.expanduser(
+                    '~{}/.local/share'.format(session_owner))
+            else:
+                # fallback to current user
+                data_dir = os.path.expanduser('~/.local/share')
+
+            guid_cmd += ['-p',
+                '_KDE_NET_WM_COLOR_SCHEME=s:{}'.format(
+                    os.path.join(data_dir,
+                        'qubes-kde', self.label.name + '.colors'))]
+
         retcode = subprocess.call (guid_cmd)
         if (retcode != 0) :
             raise QubesException("Cannot start qubes-guid!")
@@ -1734,13 +1835,21 @@ class QubesVm(object):
         self.log.debug('start_qrexec_daemon()')
         if verbose:
             print >> sys.stderr, "--> Starting the qrexec daemon..."
+        qrexec = []
+        if os.getuid() == 0:
+            # try to always have qrexec running as normal user, otherwise
+            # many qrexec services would need to deal with root/user
+            # permission problems
+            qubes_group = grp.getgrnam('qubes')
+            qrexec = ['runuser', '-u', qubes_group.gr_mem[0], '--']
+
+        qrexec += ['env', 'QREXEC_STARTUP_TIMEOUT=' + str(self.qrexec_timeout),
+            system_path["qrexec_daemon_path"]]
+
         qrexec_args = [str(self.xid), self.name, self.default_user]
         if not verbose:
             qrexec_args.insert(0, "-q")
-        qrexec_env = os.environ
-        qrexec_env['QREXEC_STARTUP_TIMEOUT'] = str(self.qrexec_timeout)
-        retcode = subprocess.call ([system_path["qrexec_daemon_path"]] +
-                                   qrexec_args, env=qrexec_env)
+        retcode = subprocess.call(qrexec + qrexec_args)
         if (retcode != 0) :
             raise OSError ("Cannot execute qrexec-daemon!")
 
@@ -1769,10 +1878,19 @@ class QubesVm(object):
         # force connection to a new daemon
         self._qdb_connection = None
 
-        retcode = subprocess.call ([
+        qubesdb_cmd = []
+        if os.getuid() == 0:
+            # try to always have qubesdb running as normal user, otherwise
+            # killing it at VM restart (see above) will always fail
+            qubes_group = grp.getgrnam('qubes')
+            qubesdb_cmd = ['runuser', '-u', qubes_group.gr_mem[0], '--']
+
+        qubesdb_cmd += [
             system_path["qubesdb_daemon_path"],
             str(self.xid),
-            self.name])
+            self.name]
+
+        retcode = subprocess.call (qubesdb_cmd)
         if retcode != 0:
             raise OSError("ERROR: Cannot execute qubesdb-daemon!")
 

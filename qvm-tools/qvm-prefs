@@ -58,6 +58,7 @@ def do_list(vm):
     print fmt.format ("config", vm.conf_file)
     print fmt.format ("pcidevs", vm.pcidevs)
     print fmt.format ("pci_strictreset", vm.pci_strictreset)
+    print fmt.format ("pci_e820_host", vm.pci_e820_host)
     if vm.template is None:
         print fmt.format ("root_img", vm.root_img)
     if hasattr(vm, "rootcow_img") and vm.rootcow_img is not None:
@@ -226,6 +227,14 @@ def set_pci_strictreset(vms, vm, args):
         return False
 
     vm.pci_strictreset = bool(eval(args[0].capitalize()))
+    return True
+
+def set_pci_e820_host(vms, vm, args):
+    if len (args) != 1:
+        print >> sys.stderr, "Missing value (True/False)!"
+        return False
+
+    vm.pci_e820_host = bool(eval(args[0].capitalize()))
     return True
 
 def set_netvm(vms, vm, args):
@@ -485,6 +494,7 @@ properties = {
     "include_in_backups": set_include_in_backups,
     "pcidevs": set_pcidevs,
     "pci_strictreset": set_pci_strictreset,
+    "pci_e820_host": set_pci_e820_host,
     "label" : set_label,
     "netvm" : set_netvm,
     "dispvm_netvm" : set_dispvm_netvm,
@@ -536,7 +546,7 @@ def main():
                       default=False)
     parser.add_option("-s", "--set", action="store_true", dest="do_set",
                       default=False)
-    parser.add_option ("-g", "--gry", action="store_true", dest="do_get",
+    parser.add_option ("-g", "--get", action="store_true", dest="do_get",
                        default=False)
     parser.add_option("--force-root", action="store_true", dest="force_root",
                       default=False,

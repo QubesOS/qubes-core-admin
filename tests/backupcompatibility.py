@@ -146,6 +146,19 @@ compression-filter=gzip
 '''
 
 class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
+    def tearDown(self):
+        self.qc.unlock_db()
+        self.qc.lock_db_for_writing()
+        self.qc.load()
+
+        # Remove here as we use 'test-' prefix, instead of 'test-inst-'
+        self._remove_test_vms(self.qc, self.conn, prefix="test-")
+
+        self.qc.save()
+        self.qc.unlock_db()
+
+        super(TC_00_BackupCompatibility, self).tearDown()
+
     def create_whitelisted_appmenus(self, filename):
         f = open(filename, "w")
         f.write("gnome-terminal.desktop\n")
@@ -167,14 +180,20 @@ class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, qubes.tests.QubesT
 
     def create_volatile_img(self, filename):
         self.create_sparse(filename, 11.5*2**30)
-        sfdisk_input="0,1024,S\n,10240,L\n"
-        p = subprocess.Popen(["/usr/sbin/sfdisk", "--no-reread", "-u",
-                                   "M",
-                               filename], stdout=open("/dev/null","w"),
-                              stderr=subprocess.STDOUT, stdin=subprocess.PIPE)
-        p.communicate(input=sfdisk_input)
-        self.assertEqual(p.returncode, 0, "sfdisk failed with code %d" % p
-                         .returncode)
+        # here used to be sfdisk call with "0,1024,S\n,10240,L\n" input,
+        # but since sfdisk folks like to change command arguments in
+        # incompatible way, have an partition table verbatim here
+        ptable = (
+            '\x00\x00\x00\x00\x00\x00\x00\x00\xab\x39\xd5\xd4\x00\x00\x20\x00'
+            '\x00\x21\xaa\x82\x82\x28\x08\x00\x00\x00\x00\x00\x00\x20\xaa\x00'
+            '\x82\x29\x15\x83\x9c\x79\x08\x00\x00\x20\x00\x00\x01\x40\x00\x00'
+            '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+            '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaa\x55'
+        )
+        with open(filename, 'r+') as f:
+            f.seek(0x1b0)
+            f.write(ptable)
+
         # TODO: mkswap
 
     def fullpath(self, name):
@@ -424,6 +443,7 @@ class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, qubes.tests.QubesT
 
         self.restore_backup(self.backupdir, options={
             'use-default-template': True,
+            'use-default-netvm': True,
         })
         self.assertIsNotNone(self.qc.get_vm_by_name("test-template-clone"))
         self.assertIsNotNone(self.qc.get_vm_by_name("test-testproxy"))

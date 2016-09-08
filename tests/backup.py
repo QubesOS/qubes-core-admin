@@ -28,7 +28,7 @@ import os
 
 import unittest
 import sys
-
+from qubes.qubes import QubesException, QubesTemplateVm
 import qubes.tests
 
 class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
@@ -37,6 +37,32 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
         self.make_backup(vms)
         self.remove_vms(vms)
         self.restore_backup()
+        for vm in vms:
+            restored_vm = self.qc.get_vm_by_name(vm.name)
+            for prop in ('name', 'kernel', 'uses_default_kernel',
+                    'uses_default_netvm', 'memory', 'maxmem', 'kernelopts',
+                    'uses_default_kernelopts', 'services', 'vcpus', 'pcidevs',
+                    'include_in_backups', 'default_user', 'qrexec_timeout',
+                    'autostart', 'pci_strictreset', 'pci_e820_host', 'debug',
+                    'internal'):
+                if prop not in vm.get_attrs_config():
+                    continue
+                self.assertEquals(
+                    getattr(vm, prop), getattr(restored_vm, prop),
+                    "VM {} - property {} not properly restored".format(
+                        vm.name, prop))
+            for prop in ('netvm', 'template', 'label'):
+                orig_value = getattr(vm, prop)
+                restored_value = getattr(restored_vm, prop)
+                if orig_value and restored_value:
+                    self.assertEquals(orig_value.name, restored_value.name,
+                        "VM {} - property {} not properly restored".format(
+                            vm.name, prop))
+                else:
+                    self.assertEquals(orig_value, restored_value,
+                        "VM {} - property {} not properly restored".format(
+                            vm.name, prop))
+
         self.remove_vms(vms)
 
     def test_001_compressed_backup(self):
@@ -63,7 +89,6 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
         self.restore_backup()
         self.remove_vms(vms)
 
-
     def test_004_sparse_multipart(self):
         vms = []
 
@@ -85,21 +110,16 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
         self.restore_backup()
         self.remove_vms(vms)
 
-
-    # TODO: iterate over templates
-    def test_100_send_to_vm(self):
+    def test_005_compressed_custom(self):
         vms = self.create_backup_vms()
-        self.backupvm.start()
-        self.make_backup(vms,
-                         do_kwargs={
-                             'appvm': self.backupvm,
-                             'compressed': True,
-                             'encrypted': True},
-                         target='dd of=/var/tmp/backup-test')
+        self.make_backup(vms, do_kwargs={'compressed': "bzip2"})
         self.remove_vms(vms)
-        self.restore_backup(source='dd if=/var/tmp/backup-test',
-                            appvm=self.backupvm)
+        self.restore_backup()
         self.remove_vms(vms)
+
+    def test_100_backup_dom0_no_restore(self):
+        self.make_backup([self.qc[0]])
+        # TODO: think of some safe way to test restore...
 
     def test_200_restore_over_existing_directory(self):
         """
@@ -119,3 +139,115 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
                     test_dir)
             ])
         self.remove_vms(vms)
+
+    def test_210_auto_rename(self):
+        """
+        Test for #869
+        :return:
+        """
+        vms = self.create_backup_vms()
+        self.make_backup(vms)
+        self.restore_backup(options={
+            'rename-conflicting': True
+        })
+        for vm in vms:
+            self.assertIsNotNone(self.qc.get_vm_by_name(vm.name+'1'))
+            restored_vm = self.qc.get_vm_by_name(vm.name+'1')
+            if vm.netvm and not vm.uses_default_netvm:
+                self.assertEqual(restored_vm.netvm.name, vm.netvm.name+'1')
+
+        self.remove_vms(vms)
+
+class TC_10_BackupVMMixin(qubes.tests.BackupTestsMixin):
+    def setUp(self):
+        super(TC_10_BackupVMMixin, self).setUp()
+        self.backupvm = self.qc.add_new_vm(
+            "QubesAppVm",
+            name=self.make_vm_name('backupvm'),
+            template=self.qc.get_vm_by_name(self.template)
+        )
+        self.backupvm.create_on_disk(verbose=self.verbose)
+
+    def test_100_send_to_vm_file_with_spaces(self):
+        vms = self.create_backup_vms()
+        self.backupvm.start()
+        self.backupvm.run("mkdir '/var/tmp/backup directory'", wait=True)
+        self.make_backup(vms,
+                         do_kwargs={
+                             'appvm': self.backupvm,
+                             'compressed': True,
+                             'encrypted': True},
+                         target='/var/tmp/backup directory')
+        self.remove_vms(vms)
+        p = self.backupvm.run("ls /var/tmp/backup*/qubes-backup*",
+                              passio_popen=True)
+        (backup_path, _) = p.communicate()
+        backup_path = backup_path.strip()
+        self.restore_backup(source=backup_path,
+                            appvm=self.backupvm)
+        self.remove_vms(vms)
+
+    def test_110_send_to_vm_command(self):
+        vms = self.create_backup_vms()
+        self.backupvm.start()
+        self.make_backup(vms,
+                         do_kwargs={
+                             'appvm': self.backupvm,
+                             'compressed': True,
+                             'encrypted': True},
+                         target='dd of=/var/tmp/backup-test')
+        self.remove_vms(vms)
+        self.restore_backup(source='dd if=/var/tmp/backup-test',
+                            appvm=self.backupvm)
+        self.remove_vms(vms)
+
+    def test_110_send_to_vm_no_space(self):
+        """
+        Check whether backup properly report failure when no enough space is
+        available
+        :return:
+        """
+        vms = self.create_backup_vms()
+        self.backupvm.start()
+        retcode = self.backupvm.run(
+            # Debian 7 has too old losetup to handle loop-control device
+            "mknod /dev/loop0 b 7 0;"
+            "truncate -s 50M /home/user/backup.img && "
+            "mkfs.ext4 -F /home/user/backup.img && "
+            "mkdir /home/user/backup && "
+            "mount /home/user/backup.img /home/user/backup -o loop &&"
+            "chmod 777 /home/user/backup",
+            user="root", wait=True)
+        if retcode != 0:
+            raise RuntimeError("Failed to prepare backup directory")
+        with self.assertRaises(QubesException):
+            self.make_backup(vms,
+                             do_kwargs={
+                                 'appvm': self.backupvm,
+                                 'compressed': False,
+                                 'encrypted': True},
+                             target='/home/user/backup',
+                             expect_failure=True)
+        self.qc.lock_db_for_writing()
+        self.qc.load()
+        self.remove_vms(vms)
+
+
+def load_tests(loader, tests, pattern):
+    try:
+        qc = qubes.qubes.QubesVmCollection()
+        qc.lock_db_for_reading()
+        qc.load()
+        qc.unlock_db()
+        templates = [vm.name for vm in qc.values() if
+                     isinstance(vm, QubesTemplateVm)]
+    except OSError:
+        templates = []
+    for template in templates:
+        tests.addTests(loader.loadTestsFromTestCase(
+            type(
+                'TC_10_BackupVM_' + template,
+                (TC_10_BackupVMMixin, qubes.tests.QubesTestCase),
+                {'template': template})))
+
+    return tests

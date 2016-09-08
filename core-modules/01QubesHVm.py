@@ -100,8 +100,6 @@ class QubesHVm(QubesResizableVm):
             (not 'xml_element' in kwargs or kwargs['xml_element'].get('guiagent_installed') is None):
             self.services['meminfo-writer'] = False
 
-        self.storage.rootcow_img = None
-
     @property
     def type(self):
         return "HVM"
@@ -314,7 +312,16 @@ class QubesHVm(QubesResizableVm):
         else:
             return -1
 
+    def validate_drive_path(self, drive):
+        drive_type, drive_domain, drive_path = drive.split(':', 2)
+        if drive_domain == 'dom0':
+            if not os.path.exists(drive_path):
+                raise QubesException("Invalid drive path '{}'".format(
+                    drive_path))
+
     def start(self, *args, **kwargs):
+        if self.drive:
+            self.validate_drive_path(self.drive)
         # make it available to storage.prepare_for_vm_startup, which is
         # called before actually building VM libvirt configuration
         self.storage.drive = self.drive
@@ -352,24 +359,27 @@ class QubesHVm(QubesResizableVm):
         if (retcode != 0) :
             raise QubesException("Cannot start qubes-guid!")
 
-    def start_guid(self, verbose = True, notify_function = None,
-            before_qrexec=False, **kwargs):
-        # If user force the guiagent, start_guid will mimic a standard QubesVM
-        if not before_qrexec and self.guiagent_installed:
-            kwargs['extra_guid_args'] = kwargs.get('extra_guid_args', []) + \
-                                        ['-Q']
-            super(QubesHVm, self).start_guid(verbose, notify_function, **kwargs)
-            stubdom_guid_pidfile = '/var/run/qubes/guid-running.%d' % self.stubdom_xid
-            if os.path.exists(stubdom_guid_pidfile) and not self.debug:
-                try:
-                    stubdom_guid_pid = int(open(stubdom_guid_pidfile, 'r').read())
-                    os.kill(stubdom_guid_pid, signal.SIGTERM)
-                except Exception as ex:
-                    print >> sys.stderr, "WARNING: Failed to kill stubdom gui daemon: %s" % str(ex)
-        elif before_qrexec and (not self.guiagent_installed or self.debug):
+    def start_guid(self, verbose=True, notify_function=None,
+                   before_qrexec=False, **kwargs):
+        if not before_qrexec:
+            return
+
+        if not self.guiagent_installed or self.debug:
             if verbose:
                 print >> sys.stderr, "--> Starting Qubes GUId (full screen)..."
             self.start_stubdom_guid(verbose=verbose)
+
+        kwargs['extra_guid_args'] = kwargs.get('extra_guid_args', []) + \
+            ['-Q', '-n']
+
+        stubdom_guid_pidfile = \
+            '/var/run/qubes/guid-running.%d' % self.stubdom_xid
+        if not self.debug and os.path.exists(stubdom_guid_pidfile):
+            # Terminate stubdom guid once "real" gui agent connects
+            stubdom_guid_pid = int(open(stubdom_guid_pidfile, 'r').read())
+            kwargs['extra_guid_args'] += ['-K', str(stubdom_guid_pid)]
+
+        super(QubesHVm, self).start_guid(verbose, notify_function, **kwargs)
 
     def start_qrexec_daemon(self, **kwargs):
         if not self.qrexec_installed:

@@ -16,6 +16,8 @@ OPTIONS
 =======
 -h, --help
     Show this help message and exit
+--offline-mode
+    Offline mode
 
 AUTHORS
 =======

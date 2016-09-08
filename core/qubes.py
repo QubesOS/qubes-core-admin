@@ -224,7 +224,7 @@ class QubesHost(object):
                 cputime = vm.get_cputime()
                 previous[vm.xid] = {}
                 previous[vm.xid]['cpu_time'] = (
-                        cputime / vm.vcpus)
+                        cputime / max(vm.vcpus, 1))
                 previous[vm.xid]['cpu_usage'] = 0
             time.sleep(wait_time)
 
@@ -651,6 +651,8 @@ class QubesVmCollection(dict):
             self.qubes_store_file.close()
 
     def unlock_db(self):
+        if self.qubes_store_file is None:
+            return
         # intentionally do not call explicit unlock to not unlock the file
         # before all buffers are flushed
         self.log.debug('unlock_db()')
@@ -711,18 +713,13 @@ class QubesVmCollection(dict):
 
     def set_netvm_dependency(self, element):
         kwargs = {}
-        attr_list = ("qid", "uses_default_netvm", "netvm_qid")
+        attr_list = ("qid", "netvm_qid")
 
         for attribute in attr_list:
             kwargs[attribute] = element.get(attribute)
 
         vm = self[int(kwargs["qid"])]
 
-        if "uses_default_netvm" not in kwargs:
-            vm.uses_default_netvm = True
-        else:
-            vm.uses_default_netvm = (
-                    True if kwargs["uses_default_netvm"] == "True" else False)
         if vm.uses_default_netvm is True:
             if vm.is_proxyvm():
                 netvm = self.get_default_fw_netvm()

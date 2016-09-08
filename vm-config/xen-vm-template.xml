@@ -10,6 +10,7 @@
     <initrd>{kerneldir}/initramfs</initrd>
     <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH 3 {kernelopts}</cmdline>
   </os>
+  <features>{features}</features>
   <clock offset='utc' adjustment='reset'>
     <timer name="tsc" mode="native"/>
   </clock>

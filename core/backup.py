@@ -357,8 +357,8 @@ def backup_prepare(vms_list=None, exclude_list=None,
 
     vms_not_for_backup = [vm.name for vm in qvm_collection.values()
                           if not vm.backup_content]
-    print_callback("VMs not selected for backup: %s" % " ".join(
-        vms_not_for_backup))
+    print_callback("VMs not selected for backup:\n%s" % "\n".join(sorted(
+        vms_not_for_backup)))
 
     if there_are_running_vms:
         raise QubesException("Please shutdown all VMs before proceeding.")
@@ -400,6 +400,10 @@ class SendWorker(Process):
                                           stdin=subprocess.PIPE,
                                           stdout=self.backup_stdout)
             if final_proc.wait() >= 2:
+                if self.queue.full():
+                    # if queue is already full, remove some entry to wake up
+                    # main thread, so it will be able to notice error
+                    self.queue.get()
                 # handle only exit code 2 (tar fatal error) or
                 # greater (call failed?)
                 raise QubesException(
@@ -445,8 +449,20 @@ def prepare_backup_header(target_directory, passphrase, compressed=False,
 def backup_do(base_backup_dir, files_to_backup, passphrase,
               progress_callback=None, encrypted=False, appvm=None,
               compressed=False, hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
-              crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM):
+              crypto_algorithm=DEFAULT_CRYPTO_ALGORITHM,
+              tmpdir=None):
     global running_backup_operation
+
+    def queue_put_with_check(proc, vmproc, queue, element):
+        if queue.full():
+            if not proc.is_alive():
+                if vmproc:
+                    message = ("Failed to write the backup, VM output:\n" +
+                               vmproc.stderr.read())
+                else:
+                    message = "Failed to write the backup. Out of disk space?"
+                raise QubesException(message)
+        queue.put(element)
 
     total_backup_sz = 0
     passphrase = passphrase.encode('utf-8')
@@ -495,7 +511,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
         progress = blocks_backedup * 11 / total_backup_sz
         progress_callback(progress)
 
-    backup_tmpdir = tempfile.mkdtemp(prefix="/var/tmp/backup_")
+    backup_tmpdir = tempfile.mkdtemp(prefix="backup_", dir=tmpdir)
     running_backup_operation.tmpdir_to_remove = backup_tmpdir
 
     # Tar with tape length does not deals well with stdout (close stdout between
@@ -552,15 +568,16 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
         # be verified before untaring this.
         # Prefix the path in archive with filename["subdir"] to have it
         # verified during untar
-        tar_cmdline = ["tar", "-Pc", '--sparse',
+        tar_cmdline = (["tar", "-Pc", '--sparse',
                        "-f", backup_pipe,
-                       '-C', os.path.dirname(filename["path"]),
-                       '--dereference',
-                       '--xform', 's:^%s:%s\\0:' % (
+                       '-C', os.path.dirname(filename["path"])] +
+                       (['--dereference'] if filename["subdir"] != "dom0-home/"
+                       else []) +
+                       ['--xform', 's:^%s:%s\\0:' % (
                            os.path.basename(filename["path"]),
                            filename["subdir"]),
                        os.path.basename(filename["path"])
-                       ]
+                       ])
         if compressed:
             tar_cmdline.insert(-1,
                                "--use-compress-program=%s" % compression_filter)
@@ -650,7 +667,9 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
                                          run_error)
 
             # Send the chunk to the backup target
-            to_send.put(os.path.relpath(chunkfile, backup_tmpdir))
+            queue_put_with_check(
+                send_proc, vmproc, to_send,
+                os.path.relpath(chunkfile, backup_tmpdir))
 
             # Close HMAC
             hmac.stdin.close()
@@ -668,7 +687,9 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
             hmac_file.close()
 
             # Send the HMAC to the backup target
-            to_send.put(os.path.relpath(chunkfile, backup_tmpdir) + ".hmac")
+            queue_put_with_check(
+                send_proc, vmproc, to_send,
+                os.path.relpath(chunkfile, backup_tmpdir) + ".hmac")
 
             if tar_sparse.poll() is None or run_error == "size_limit":
                 run_error = "paused"
@@ -680,7 +701,7 @@ def backup_do(base_backup_dir, files_to_backup, passphrase,
                         .poll()
         pipe.close()
 
-    to_send.put("FINISHED")
+    queue_put_with_check(send_proc, vmproc, to_send, "FINISHED")
     send_proc.join()
     shutil.rmtree(backup_tmpdir)
 
@@ -1553,6 +1574,8 @@ def backup_restore_set_defaults(options):
         options['ignore-username-mismatch'] = False
     if 'verify-only' not in options:
         options['verify-only'] = False
+    if 'rename-conflicting' not in options:
+        options['rename-conflicting'] = False
 
     return options
 
@@ -1620,6 +1643,22 @@ def backup_restore_header(source, passphrase,
     return (restore_tmpdir, os.path.join(restore_tmpdir, "qubes.xml"),
             header_data)
 
+def generate_new_name_for_conflicting_vm(orig_name, host_collection,
+                                         restore_info):
+    number = 1
+    if len(orig_name) > 29:
+        orig_name = orig_name[0:29]
+    new_name = orig_name
+    while (new_name in restore_info.keys() or
+           new_name in map(lambda x: x.get('rename_to', None),
+                           restore_info.values()) or
+           host_collection.get_vm_by_name(new_name)):
+        new_name = str('{}{}'.format(orig_name, number))
+        number += 1
+        if number == 100:
+            # give up
+            return None
+    return new_name
 
 def restore_info_verify(restore_info, host_collection):
     options = restore_info['$OPTIONS$']
@@ -1637,7 +1676,16 @@ def restore_info_verify(restore_info, host_collection):
         vm_info.pop('already-exists', None)
         if not options['verify-only'] and \
                 host_collection.get_vm_by_name(vm) is not None:
-            vm_info['already-exists'] = True
+            if options['rename-conflicting']:
+                new_name = generate_new_name_for_conflicting_vm(
+                    vm, host_collection, restore_info
+                )
+                if new_name is not None:
+                    vm_info['rename-to'] = new_name
+                else:
+                    vm_info['already-exists'] = True
+            else:
+                vm_info['already-exists'] = True
 
         # check template
         vm_info.pop('missing-template', None)
@@ -1658,7 +1706,11 @@ def restore_info_verify(restore_info, host_collection):
 
         # check netvm
         vm_info.pop('missing-netvm', None)
-        if vm_info['netvm']:
+        if vm_info['vm'].uses_default_netvm:
+            default_netvm = host_collection.get_default_netvm()
+            vm_info['netvm'] = default_netvm.name if \
+                default_netvm else None
+        elif vm_info['netvm']:
             netvm_name = vm_info['netvm']
 
             netvm_on_host = host_collection.get_vm_by_name(netvm_name)
@@ -1670,8 +1722,9 @@ def restore_info_verify(restore_info, host_collection):
                 if not (netvm_name in restore_info.keys() and
                         restore_info[netvm_name]['vm'].is_netvm()):
                     if options['use-default-netvm']:
-                        vm_info['netvm'] = host_collection \
-                            .get_default_netvm().name
+                        default_netvm = host_collection.get_default_netvm()
+                        vm_info['netvm'] = default_netvm.name if \
+                            default_netvm else None
                         vm_info['vm'].uses_default_netvm = True
                     elif options['use-none-netvm']:
                         vm_info['netvm'] = None
@@ -1683,6 +1736,22 @@ def restore_info_verify(restore_info, host_collection):
                                                   'missing-template',
                                                   'already-exists',
                                                   'excluded']])
+
+    # update references to renamed VMs:
+    for vm in restore_info.keys():
+        if vm in ['$OPTIONS$', 'dom0']:
+            continue
+        vm_info = restore_info[vm]
+        template_name = vm_info['template']
+        if (template_name in restore_info and
+                restore_info[template_name]['good-to-go'] and
+                'rename-to' in restore_info[template_name]):
+            vm_info['template'] = restore_info[template_name]['rename-to']
+        netvm_name = vm_info['netvm']
+        if (netvm_name in restore_info and
+                restore_info[netvm_name]['good-to-go'] and
+                'rename-to' in restore_info[netvm_name]):
+            vm_info['netvm'] = restore_info[netvm_name]['rename-to']
 
     return restore_info
 
@@ -1956,8 +2025,11 @@ def backup_restore_print_summary(restore_info, print_callback=print_stdout):
             s += " <-- No matching template on the host or in the backup found!"
         elif 'missing-netvm' in vm_info:
             s += " <-- No matching netvm on the host or in the backup found!"
-        elif 'orig-template' in vm_info:
-            s += " <-- Original template was '%s'" % (vm_info['orig-template'])
+        else:
+            if 'orig-template' in vm_info:
+                s += " <-- Original template was '%s'" % (vm_info['orig-template'])
+            if 'rename-to' in vm_info:
+                s += " <-- Will be renamed to '%s'" % vm_info['rename-to']
 
         print_callback(s)
 
@@ -2105,33 +2177,35 @@ def backup_restore_do(restore_info,
                 error_callback("Skipping...")
                 continue
 
-            if os.path.exists(vm.dir_path):
-                move_to_path = tempfile.mkdtemp('', os.path.basename(
-                    vm.dir_path), os.path.dirname(vm.dir_path))
-                try:
-                    os.rename(vm.dir_path, move_to_path)
-                    error_callback("*** Directory {} already exists! It has "
-                                   "been moved to {}".format(vm.dir_path,
-                                                             move_to_path))
-                except OSError:
-                    error_callback("*** Directory {} already exists and "
-                                   "cannot be moved!".format(vm.dir_path))
-                    error_callback("Skipping...")
-                    continue
-
             template = None
             if vm.template is not None:
                 template_name = restore_info[vm.name]['template']
                 template = host_collection.get_vm_by_name(template_name)
 
             new_vm = None
+            vm_name = vm.name
+            if 'rename-to' in restore_info[vm.name]:
+                vm_name = restore_info[vm.name]['rename-to']
 
             try:
-                new_vm = host_collection.add_new_vm(vm_class_name, name=vm.name,
-                                                    conf_file=vm.conf_file,
-                                                    dir_path=vm.dir_path,
+                new_vm = host_collection.add_new_vm(vm_class_name, name=vm_name,
                                                     template=template,
                                                     installed_by_rpm=False)
+                if os.path.exists(new_vm.dir_path):
+                    move_to_path = tempfile.mkdtemp('', os.path.basename(
+                        new_vm.dir_path), os.path.dirname(new_vm.dir_path))
+                    try:
+                        os.rename(new_vm.dir_path, move_to_path)
+                        error_callback(
+                            "*** Directory {} already exists! It has "
+                            "been moved to {}".format(new_vm.dir_path,
+                                                      move_to_path))
+                    except OSError:
+                        error_callback(
+                            "*** Directory {} already exists and "
+                            "cannot be moved!".format(new_vm.dir_path))
+                        error_callback("Skipping...")
+                        continue
 
                 if format_version == 1:
                     restore_vm_dir_v1(backup_location,
@@ -2167,6 +2241,13 @@ def backup_restore_do(restore_info,
                 error_callback("*** Some VM property will not be restored")
 
             try:
+                for service, value in vm.services.items():
+                    new_vm.services[service] = value
+            except Exception as err:
+                error_callback("ERROR: {0}".format(err))
+                error_callback("*** Some VM property will not be restored")
+
+            try:
                 new_vm.appmenus_create(verbose=callable(print_callback))
             except Exception as err:
                 error_callback("ERROR during appmenu restore: {0}".format(err))
@@ -2175,7 +2256,11 @@ def backup_restore_do(restore_info,
 
     # Set network dependencies - only non-default netvm setting
     for vm in vms.values():
-        host_vm = host_collection.get_vm_by_name(vm.name)
+        vm_name = vm.name
+        if 'rename-to' in restore_info[vm.name]:
+            vm_name = restore_info[vm.name]['rename-to']
+        host_vm = host_collection.get_vm_by_name(vm_name)
+
         if host_vm is None:
             # Failed/skipped VM
             continue
@@ -2230,6 +2315,10 @@ def backup_restore_do(restore_info,
         retcode = subprocess.call(['sudo', 'chown', '-R', local_user, home_dir])
         if retcode != 0:
             error_callback("*** Error while setting home directory owner")
+
+    if callable(print_callback):
+        print_callback("-> Done. Please install updates for all the restored "
+                       "templates.")
 
     shutil.rmtree(restore_tmpdir)
 

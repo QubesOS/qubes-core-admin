@@ -22,15 +22,18 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+from distutils import spawn
 
 import multiprocessing
 import os
 import shutil
 import subprocess
+import tempfile
 
 import unittest
 import time
-from qubes.qubes import QubesVmCollection, QubesException, system_path
+from qubes.qubes import QubesVmCollection, QubesException, system_path, vmm
+import libvirt
 
 import qubes.qubes
 import qubes.tests
@@ -50,6 +53,26 @@ class TC_00_Basic(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
 
         with self.assertNotRaises(qubes.qubes.QubesException):
             vm.verify_files()
+
+    def test_010_remove(self):
+        vmname = self.make_vm_name('appvm')
+        vm = self.qc.add_new_vm('QubesAppVm',
+            name=vmname, template=self.qc.get_default_template())
+        vm.create_on_disk(verbose=False)
+        # check for QubesOS/qubes-issues#1930
+        vm.autostart = True
+        self.save_and_reload_db()
+        vm = self.qc[vm.qid]
+        vm.remove_from_disk()
+        self.qc.pop(vm.qid)
+        self.save_and_reload_db()
+        self.assertNotIn(vm.qid, self.qc)
+        self.assertFalse(os.path.exists(vm.dir_path))
+        self.assertFalse(os.path.exists(
+            '/etc/systemd/system/multi-user.target.wants/'
+            'qubes-vm@{}.service'.format(vm.name)))
+        with self.assertRaises(libvirt.libvirtError):
+            vmm.libvirt_conn.lookupByName(vm.name)
 
 
 class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
@@ -112,6 +135,14 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.assertFalse(os.path.exists(
             '/etc/systemd/system/multi-user.target.wants/'
             'qubes-vm@{}.service'.format(self.vmname)))
+
+    def test_001_rename_libvirt_undefined(self):
+        self.vm.libvirt_domain.undefine()
+        self.vm._libvirt_domain = None
+
+        newname = self.make_vm_name('newname')
+        with self.assertNotRaises(libvirt.libvirtError):
+            self.vm.set_name(newname)
 
     def test_010_netvm(self):
         if self.qc.get_default_netvm() is None:
@@ -257,6 +288,45 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.assertEquals(testvm1.services, testvm3.services)
         self.assertEquals(testvm1.get_firewall_conf(),
                           testvm3.get_firewall_conf())
+
+    def test_020_name_conflict_app(self):
+        with self.assertRaises(QubesException):
+            self.vm2 = self.qc.add_new_vm('QubesAppVm',
+                name=self.vmname, template=self.qc.get_default_template())
+            self.vm2.create_on_disk(verbose=False)
+
+    def test_021_name_conflict_hvm(self):
+        with self.assertRaises(QubesException):
+            self.vm2 = self.qc.add_new_vm('QubesHVm',
+                name=self.vmname, template=self.qc.get_default_template())
+            self.vm2.create_on_disk(verbose=False)
+
+    def test_022_name_conflict_net(self):
+        with self.assertRaises(QubesException):
+            self.vm2 = self.qc.add_new_vm('QubesNetVm',
+                name=self.vmname, template=self.qc.get_default_template())
+            self.vm2.create_on_disk(verbose=False)
+
+    def test_030_rename_conflict_app(self):
+        vm2name = self.make_vm_name('newname')
+
+        self.vm2 = self.qc.add_new_vm('QubesAppVm',
+            name=vm2name, template=self.qc.get_default_template())
+        self.vm2.create_on_disk(verbose=False)
+
+        with self.assertRaises(QubesException):
+            self.vm2.set_name(self.vmname)
+
+    def test_031_rename_conflict_net(self):
+        vm3name = self.make_vm_name('newname')
+
+        self.vm3 = self.qc.add_new_vm('QubesNetVm',
+            name=vm3name, template=self.qc.get_default_template())
+        self.vm3.create_on_disk(verbose=False)
+
+        with self.assertRaises(QubesException):
+            self.vm3.set_name(self.vmname)
+
 
 class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     def setup_appvm(self):
@@ -570,6 +640,182 @@ class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.setup_hvm()
         self.execute_tests('kernel', [('default', '', False)])
         self.execute_tests('kernelopts', [('default', '', False)])
+
+class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestsMixin,
+                                     qubes.tests.QubesTestCase):
+
+    def setup_pv_template(self):
+        self.test_template = self.qc.add_new_vm(
+            "QubesTemplateVm",
+            name=self.make_vm_name("pv-clone"),
+        )
+        self.test_template.clone_attrs(src_vm=self.qc.get_default_template())
+        self.test_template.clone_disk_files(
+            src_vm=self.qc.get_default_template(),
+            verbose=False)
+        self.save_and_reload_db()
+        self.qc.unlock_db()
+
+    def setup_hvm_template(self):
+        self.test_template = self.qc.add_new_vm(
+            "QubesTemplateHVm",
+            name=self.make_vm_name("hvm"),
+        )
+        self.test_template.create_on_disk(verbose=False)
+        self.save_and_reload_db()
+        self.qc.unlock_db()
+
+    def get_rootimg_checksum(self):
+        p = subprocess.Popen(['sha1sum', self.test_template.root_img],
+                             stdout=subprocess.PIPE)
+        return p.communicate()[0]
+
+    def _do_test(self):
+        checksum_before = self.get_rootimg_checksum()
+        self.test_template.start(verbose=False)
+        self.shutdown_and_wait(self.test_template)
+        checksum_changed = self.get_rootimg_checksum()
+        if checksum_before == checksum_changed:
+            self.log.warning("template not modified, test result will be "
+                             "unreliable")
+        with self.assertNotRaises(subprocess.CalledProcessError):
+            subprocess.check_call(['sudo', 'qvm-revert-template-changes',
+                                   '--force', self.test_template.name])
+
+        checksum_after = self.get_rootimg_checksum()
+        self.assertEquals(checksum_before, checksum_after)
+
+    def test_000_revert_pv(self):
+        """
+        Test qvm-revert-template-changes for PV template
+        """
+        self.setup_pv_template()
+        self._do_test()
+
+    def test_000_revert_hvm(self):
+        """
+        Test qvm-revert-template-changes for HVM template
+        """
+        # TODO: have some system there, so the root.img will get modified
+        self.setup_hvm_template()
+        self._do_test()
+
+
+class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
+    @unittest.skipUnless(spawn.find_executable('xdotool'),
+                         "xdotool not installed")
+    def test_000_clipboard(self):
+        testvm1 = self.qc.add_new_vm("QubesAppVm",
+                                     name=self.make_vm_name('vm1'),
+                                     template=self.qc.get_default_template())
+        testvm1.create_on_disk(verbose=False)
+        testvm2 = self.qc.add_new_vm("QubesAppVm",
+                                     name=self.make_vm_name('vm2'),
+                                     template=self.qc.get_default_template())
+        testvm2.create_on_disk(verbose=False)
+        self.qc.save()
+        self.qc.unlock_db()
+
+        testvm1.start()
+        testvm2.start()
+
+        window_title = 'user@{}'.format(testvm1.name)
+        testvm1.run('zenity --text-info --editable --title={}'.format(
+            window_title))
+
+        self.wait_for_window(window_title)
+        time.sleep(0.5)
+        test_string = "test{}".format(testvm1.xid)
+
+        # Type and copy some text
+        subprocess.check_call(['xdotool', 'search', '--name', window_title,
+                               'windowactivate', '--sync',
+                               'type', '{}'.format(test_string)])
+        # second xdotool call because type --terminator do not work (SEGV)
+        # additionally do not use search here, so window stack will be empty
+        # and xdotool will use XTEST instead of generating events manually -
+        # this will be much better - at least because events will have
+        # correct timestamp (so gui-daemon would not drop the copy request)
+        subprocess.check_call(['xdotool',
+                               'key', 'ctrl+a', 'ctrl+c', 'ctrl+shift+c',
+                               'Escape'])
+
+        clipboard_content = \
+            open('/var/run/qubes/qubes-clipboard.bin', 'r').read().strip()
+        self.assertEquals(clipboard_content, test_string,
+                          "Clipboard copy operation failed - content")
+        clipboard_source = \
+            open('/var/run/qubes/qubes-clipboard.bin.source',
+                 'r').read().strip()
+        self.assertEquals(clipboard_source, testvm1.name,
+                          "Clipboard copy operation failed - owner")
+
+        # Then paste it to the other window
+        window_title = 'user@{}'.format(testvm2.name)
+        p = testvm2.run('zenity --entry --title={} > test.txt'.format(
+                        window_title), passio_popen=True)
+        self.wait_for_window(window_title)
+
+        subprocess.check_call(['xdotool', 'key', '--delay', '100',
+                               'ctrl+shift+v', 'ctrl+v', 'Return'])
+        p.wait()
+
+        # And compare the result
+        (test_output, _) = testvm2.run('cat test.txt',
+                                       passio_popen=True).communicate()
+        self.assertEquals(test_string, test_output.strip())
+
+        clipboard_content = \
+            open('/var/run/qubes/qubes-clipboard.bin', 'r').read().strip()
+        self.assertEquals(clipboard_content, "",
+                          "Clipboard not wiped after paste - content")
+        clipboard_source = \
+            open('/var/run/qubes/qubes-clipboard.bin.source', 'r').read(
+
+            ).strip()
+        self.assertEquals(clipboard_source, "",
+                          "Clipboard not wiped after paste - owner")
+
+class TC_05_StandaloneVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
+    def test_000_create_start(self):
+        testvm1 = self.qc.add_new_vm("QubesAppVm",
+                                     template=None,
+                                     name=self.make_vm_name('vm1'))
+        testvm1.create_on_disk(verbose=False,
+                               source_template=self.qc.get_default_template())
+        self.qc.save()
+        self.qc.unlock_db()
+        testvm1.start()
+        self.assertEquals(testvm1.get_power_state(), "Running")
+
+    def test_100_resize_root_img(self):
+        testvm1 = self.qc.add_new_vm("QubesAppVm",
+                                     template=None,
+                                     name=self.make_vm_name('vm1'))
+        testvm1.create_on_disk(verbose=False,
+                               source_template=self.qc.get_default_template())
+        self.qc.save()
+        self.qc.unlock_db()
+        with self.assertRaises(QubesException):
+            testvm1.resize_root_img(20*1024**3)
+        testvm1.resize_root_img(20*1024**3, allow_start=True)
+        timeout = 60
+        while testvm1.is_running():
+            time.sleep(1)
+            timeout -= 1
+            if timeout == 0:
+                self.fail("Timeout while waiting for VM shutdown")
+        self.assertEquals(testvm1.get_root_img_sz(), 20*1024**3)
+        testvm1.start()
+        p = testvm1.run('df --output=size /|tail -n 1',
+                        passio_popen=True)
+        # new_size in 1k-blocks
+        (new_size, _) = p.communicate()
+        # some safety margin for FS metadata
+        self.assertGreater(int(new_size.strip()), 19*1024**2)
+
+
+
 
 
 # vim: ts=4 sw=4 et

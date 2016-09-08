@@ -34,6 +34,10 @@ def main():
     usage = "usage: %prog <vm-name> <size>"
     parser = OptionParser (usage)
 
+    parser.add_option("--allow-start", action="store_true",
+                      dest="allow_start", default=False,
+                      help="Allow VM to be started to complete the operation")
+
     (options, args) = parser.parse_args ()
     if (len (args) != 2):
         parser.error ("You must specify VM name and new size!")
@@ -57,7 +61,7 @@ def main():
         exit(1)
 
     try:
-        vm.resize_root_img(size_bytes)
+        vm.resize_root_img(size_bytes, allow_start=options.allow_start)
     except (IOError, OSError, QubesException) as err:
         print >> sys.stderr, "ERROR: {0}".format(err)
         exit (1)

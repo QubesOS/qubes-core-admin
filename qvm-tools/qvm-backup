@@ -30,6 +30,7 @@ import qubes.backup
 import os
 import sys
 import getpass
+from locale import getpreferredencoding
 
 def print_progress(progress):
     print >> sys.stderr, "\r-> Backing up files: {0}%...".format (progress),
@@ -40,46 +41,64 @@ def main():
 
     parser.add_option ("-x", "--exclude", action="append",
                        dest="exclude_list", default=[],
-                       help="Exclude the specified VM from backup (may be "
+                       help="Exclude the specified VM from the backup (may be "
                             "repeated)")
     parser.add_option ("--force-root", action="store_true", dest="force_root", default=False,
-                       help="Force to run, even with root privileges")
+                       help="Force to run with root privileges")
     parser.add_option ("-d", "--dest-vm", action="store", dest="appvm",
-                       help="The AppVM to send backups to (implies -e)")
+                       help="Specify the destination VM to which the backup "
+                            "will be sent (implies -e)")
     parser.add_option ("-e", "--encrypt", action="store_true", dest="encrypt", default=False,
-                       help="Encrypts the backup")
+                       help="Encrypt the backup")
     parser.add_option ("--no-encrypt", action="store_true",
                        dest="no_encrypt", default=False,
-                       help="Skip encryption even if sending the backup to VM")
+                       help="Skip encryption even if sending the backup to a "
+                            "VM")
+    parser.add_option ("-p", "--passphrase-file", action="store",
+                       dest="pass_file", default=None,
+                       help="Read passphrase from a file, or use '-' to read "
+                            "from stdin")
     parser.add_option ("-E", "--enc-algo", action="store",
                        dest="crypto_algorithm", default=None,
-                       help="Specify non-default encryption algorithm. For "
-                            "list of supported algos execute 'openssl "
+                       help="Specify a non-default encryption algorithm. For a "
+                            "list of supported algorithms, execute 'openssl "
                             "list-cipher-algorithms' (implies -e)")
     parser.add_option ("-H", "--hmac-algo", action="store",
                        dest="hmac_algorithm", default=None,
-                       help="Specify non-default hmac algorithm. For list of "
-                            "supported algos execute 'openssl "
+                       help="Specify a non-default HMAC algorithm. For a list "
+                            "of supported algorithms, execute 'openssl "
                             "list-message-digest-algorithms'")
     parser.add_option ("-z", "--compress", action="store_true", dest="compress", default=False,
                        help="Compress the backup")
+    parser.add_option ("-Z", "--compress-filter", action="store",
+                       dest="compress_filter", default=False,
+                       help="Specify a non-default compression filter program "
+                            "(default: gzip)")
+    parser.add_option("--tmpdir", action="store", dest="tmpdir", default=None,
+                      help="Specify a temporary directory (if you have at least "
+                           "1GB free RAM in dom0, use of /tmp is advised) ("
+                           "default: /var/tmp)")
     parser.add_option ("--debug", action="store_true", dest="debug",
                        default=False, help="Enable (a lot of) debug output")
 
     (options, args) = parser.parse_args ()
 
     if (len (args) < 1):
-        print >> sys.stderr, "You must specify the target backup directory (e.g. /mnt/backup)"
-        print >> sys.stderr, "qvm-backup will create a subdirectory there for each individual backup."
+        print >> sys.stderr, "You must specify the target backup directory "\
+                             " (e.g. /mnt/backup)."
+        print >> sys.stderr, "qvm-backup will create a subdirectory there for "\
+                             " each individual backup."
         exit (0)
 
     base_backup_dir = args[0]
 
     if hasattr(os, "geteuid") and os.geteuid() == 0:
         if not options.force_root:
-            print >> sys.stderr, "*** Running this tool as root is strongly discouraged, this will lead you in permissions problems."
-            print >> sys.stderr, "Retry as unprivileged user."
-            print >> sys.stderr, "... or use --force-root to continue anyway."
+            print >> sys.stderr, "*** Running this tool as root is strongly "\
+                                 "discouraged. This will lead to permissions "\
+                                 "problems."
+            print >> sys.stderr, "Retry as an unprivileged user, or use "\
+                                 "--force-root to continue anyway."
             exit(1)
 
     # Only for locking
@@ -123,14 +142,15 @@ def main():
         backup_fs_free_sz = stat.f_bsize * stat.f_bavail
         print
         if (total_backup_sz > backup_fs_free_sz):
-            print >>sys.stderr, "ERROR: Not enough space available on the backup filesystem!"
+            print >>sys.stderr, "ERROR: Not enough space available on the "\
+                                "backup filesystem!"
             exit(1)
 
         print "-> Available space: {0}".format(size_to_human(backup_fs_free_sz))
     else:
         appvm = qvm_collection.get_vm_by_name(options.appvm)
         if appvm is None:
-            print >>sys.stderr, "ERROR: VM {0} does not exist".format(options.appvm)
+            print >>sys.stderr, "ERROR: VM {0} does not exist!".format(options.appvm)
             exit(1)
 
         stat = os.statvfs('/var/tmp')
@@ -138,50 +158,54 @@ def main():
         print
         if (backup_fs_free_sz < 1000000000):
             print >>sys.stderr, "ERROR: Not enough space available " \
-                "on the local filesystem (needs 1GB for temporary files)!"
+                "on the local filesystem (1GB required for temporary files)!"
             exit(1)
 
         if not appvm.is_running():
             appvm.start(verbose=True)
 
     if options.appvm:
-        print >>sys.stderr, ("WARNING: VM {} excluded because it's used to "
-                            "store the backup.").format(options.appvm)
+        print >>sys.stderr, ("NOTE: VM {} will be excluded because it is "
+                             "the backup destination.").format(options.appvm)
         options.exclude_list.append(options.appvm)
 
     if not options.encrypt:
-        print >>sys.stderr, "WARNING: encryption will not be used"
+        print >>sys.stderr, "WARNING: The backup will NOT be encrypted!"
 
-    prompt = raw_input ("Do you want to proceed? [y/N] ")
-    if not (prompt == "y" or prompt == "Y"):
-        exit (0)
+    if options.pass_file is not None:
+        f = open(options.pass_file) if options.pass_file != "-" else sys.stdin
+        passphrase = f.readline().rstrip()
+        if f is not sys.stdin:
+            f.close()
 
-    if options.encrypt:
-        passphrase = getpass.getpass("Please enter the pass phrase that will "
-                                     "be used to encrypt and verify the "
-                                     "backup: ")
     else:
-        passphrase = getpass.getpass("Please enter the pass phrase that will "
-                                     "be used to verify the backup: ")
+        if raw_input("Do you want to proceed? [y/N] ").upper() != "Y":
+            exit(0)
 
-    passphrase2 = getpass.getpass("Enter again for verification: ")
-    if passphrase != passphrase2:
-        print >>sys.stderr, "ERROR: Password mismatch"
-        exit(1)
+        s = ("Please enter the passphrase that will be used to {}verify "
+             "the backup: ").format('encrypt and ' if options.encrypt else '')
+        passphrase = getpass.getpass(s)
 
-    passphrase = passphrase.decode(sys.stdin.encoding)
+        if getpass.getpass("Enter again for verification: ") != passphrase:
+            print >>sys.stderr, "ERROR: Passphrase mismatch!"
+            exit(1)
+
+    encoding = sys.stdin.encoding or getpreferredencoding()
+    passphrase = passphrase.decode(encoding)
 
     kwargs = {}
     if options.hmac_algorithm:
         kwargs['hmac_algorithm'] = options.hmac_algorithm
     if options.crypto_algorithm:
         kwargs['crypto_algorithm'] = options.crypto_algorithm
+    if options.tmpdir:
+        kwargs['tmpdir'] = options.tmpdir
 
     try:
         backup_do(base_backup_dir, files_to_backup, passphrase,
                 progress_callback=print_progress,
                 encrypted=options.encrypt,
-                compressed=options.compress,
+                compressed=options.compress_filter or options.compress,
                 appvm=appvm, **kwargs)
     except QubesException as e:
         print >>sys.stderr, "ERROR: %s" % str(e)

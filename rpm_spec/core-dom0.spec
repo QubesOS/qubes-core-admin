@@ -27,6 +27,9 @@
 
 %{!?version: %define version %(cat version)}
 
+# debug_package hack should be removed when BuildArch:noarch is enabled below
+%define debug_package %{nil}
+
 %define _dracutmoddir	/usr/lib/dracut/modules.d
 %if %{fedora} < 17
 %define _dracutmoddir   /usr/share/dracut/modules.d
@@ -43,11 +46,14 @@ License:	GPL
 URL:		http://www.qubes-os.org
 BuildRequires:  ImageMagick
 BuildRequires:	systemd-units
+# FIXME: Enable this and disable debug_package
+#BuildArch: noarch
 Requires(post): systemd-units
 Requires(preun): systemd-units
 Requires(postun): systemd-units
 Requires:	python, pciutils, python-inotify, python-daemon
-Requires:       qubes-core-dom0-linux >= 2.0.24
+Requires:       qubes-core-dom0-linux >= 3.1.8
+Requires:       qubes-core-dom0-doc
 Requires:       qubes-db-dom0
 Requires:       python-lxml
 Requires:       python-psutil
@@ -57,7 +63,7 @@ Requires:       libvirt-python
 %if x%{?backend_vmm} == xxen
 Requires:       xen-runtime
 Requires:       xen-hvm
-Requires:       libvirt-daemon-xen >= 1.2.12-3
+Requires:       libvirt-daemon-xen >= 1.2.20-6
 %endif
 Requires:       createrepo
 Requires:       gnome-packagekit
@@ -154,7 +160,6 @@ if ! grep -q ^qubes: /etc/group ; then
 fi
 
 %triggerin -- xen-runtime
-sed -i 's/\/block /\/block.qubes /' /etc/udev/rules.d/xen-backend.rules
 /usr/lib/qubes/fix-dir-perms.sh
 
 %preun
@@ -170,12 +175,12 @@ if [ "$1" = 0 ] ; then
     chgrp root /etc/xen
     chmod 700 /etc/xen
     groupdel qubes
-    sed -i 's/\/block.qubes /\/block /' /etc/udev/rules.d/xen-backend.rules
 fi
 
 %files
 %defattr(-,root,root,-)
 %config(noreplace) %attr(0664,root,qubes) %{_sysconfdir}/qubes/qmemman.conf
+%config(noreplace) %attr(0664,root,qubes) %{_sysconfdir}/qubes/storage.conf
 /usr/bin/qvm-*
 /usr/bin/qubes-*
 %dir %{python_sitearch}/qubes
@@ -245,11 +250,14 @@ fi
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.Filecopy
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.GetImageRGBA
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.OpenInVM
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.OpenURL
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.NotifyTools
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.NotifyUpdates
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.VMShell
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.GetRandomizedTime
 /etc/qubes-rpc/qubes.NotifyTools
 /etc/qubes-rpc/qubes.NotifyUpdates
+/etc/qubes-rpc/qubes.GetRandomizedTime
 %attr(2770,root,qubes) %dir /var/log/qubes
 %attr(0770,root,qubes) %dir /var/run/qubes
 /etc/xdg/autostart/qubes-guid.desktop

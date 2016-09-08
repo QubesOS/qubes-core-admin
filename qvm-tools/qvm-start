@@ -57,6 +57,9 @@ def main():
                       help="Do actions necessary when preparing DVM image")
     parser.add_option ("--custom-config", action="store", dest="custom_config", default=None,
                       help="Use custom Xen config instead of Qubes-generated one")
+    parser.add_option("--skip-if-running", action="store_true",
+                      dest="skip_if_running", default=False,
+                      help="Do not fail if the VM is already running")
     parser.add_option ("--debug", action="store_true", dest="debug", default=False,
                       help="Enable debug mode for this VM (until its shutdown)")
 
@@ -83,7 +86,12 @@ def main():
         exit(1)
 
     if options.install_windows_tools:
-        options.drive = 'cdrom:dom0:/usr/lib/qubes/qubes-windows-tools.iso'
+        windows_tools_path = '/usr/lib/qubes/qubes-windows-tools.iso'
+        if not os.path.exists(windows_tools_path):
+            print >> sys.stderr, "You need to install 'qubes-windows-tools' " \
+                                 "package in dom0 first"
+            exit(1)
+        options.drive = 'cdrom:dom0:{}'.format(windows_tools_path)
 
     if options.drive_hd:
         options.drive = 'hd:' + options.drive_hd
@@ -103,6 +111,9 @@ def main():
 
     if options.debug:
         vm.debug = True
+
+    if options.skip_if_running and vm.is_running():
+        return
 
     try:
         vm.verify_files()

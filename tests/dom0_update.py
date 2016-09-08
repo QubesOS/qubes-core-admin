@@ -39,8 +39,8 @@ class TC_00_Dom0UpgradeMixin(qubes.tests.SystemTestsMixin):
     Tests for downloading dom0 updates using VMs based on different templates
     """
     pkg_name = 'qubes-test-pkg'
-    dom0_update_common_opts = ['--disablerepo=*', '--enablerepo=test',
-                               '--setopt=test.copy_local=1']
+    dom0_update_common_opts = ['--disablerepo=*', '--enablerepo=test']
+    update_flag_path = '/var/lib/qubes/updates/dom0-updates-available'
 
     @classmethod
     def generate_key(cls, keydir):
@@ -84,9 +84,9 @@ Expire-Date: 0
         p.stdin.write('''
 [test]
 name = Test
-baseurl = file:///tmp/repo
+baseurl = http://localhost:8080/
 enabled = 1
-        ''')
+''')
         p.stdin.close()
         p.wait()
 
@@ -100,6 +100,10 @@ enabled = 1
 
     def setUp(self):
         super(TC_00_Dom0UpgradeMixin, self).setUp()
+        if self.template.startswith('whonix-'):
+            # Whonix redirect all the traffic through tor, so repository
+            # on http://localhost:8080/ is unavailable
+            self.skipTest("Test not supported for this template")
         self.updatevm = self.qc.add_new_vm(
             "QubesProxyVm",
             name=self.make_vm_name("updatevm"),
@@ -114,6 +118,7 @@ enabled = 1
         subprocess.check_call(['sudo', 'rpm', '--import',
                                os.path.join(self.tmpdir, 'pubkey.asc')])
         self.updatevm.start()
+        self.repo_running = False
 
     def tearDown(self):
         self.qc.lock_db_for_writing()
@@ -185,12 +190,27 @@ Test package
         elif retcode != 0:
             self.skipTest("createrepo failed with code {}, cannot perform the "
                       "test".format(retcode))
+        self.start_repo()
+
+    def start_repo(self):
+        if not self.repo_running:
+            self.updatevm.run("cd /tmp/repo &&"
+                              "python -m SimpleHTTPServer 8080")
+            self.repo_running = True
 
     def test_000_update(self):
+        """Dom0 update tests
+
+        Check if package update is:
+         - detected
+         - installed
+         - "updates pending" flag is cleared
+        """
         filename = self.create_pkg(self.tmpdir, self.pkg_name, '1.0')
         subprocess.check_call(['sudo', 'rpm', '-i', filename])
         filename = self.create_pkg(self.tmpdir, self.pkg_name, '2.0')
         self.send_pkg(filename)
+        open(self.update_flag_path, 'a').close()
 
         logpath = os.path.join(self.tmpdir, 'dom0-update-output.txt')
         try:
@@ -210,6 +230,68 @@ Test package
             self.pkg_name)], stdout=open(os.devnull, 'w'))
         self.assertEqual(retcode, 0, 'Package {}-2.0 not installed after '
                                      'update'.format(self.pkg_name))
+        self.assertFalse(os.path.exists(self.update_flag_path),
+                         "'updates pending' flag not cleared")
+
+    def test_005_update_flag_clear(self):
+        """Check if 'updates pending' flag is creared"""
+
+        # create any pkg (but not install it) to initialize repo in the VM
+        filename = self.create_pkg(self.tmpdir, self.pkg_name, '1.0')
+        self.send_pkg(filename)
+        open(self.update_flag_path, 'a').close()
+
+        logpath = os.path.join(self.tmpdir, 'dom0-update-output.txt')
+        try:
+            subprocess.check_call(['sudo', 'qubes-dom0-update', '-y'] +
+                                  self.dom0_update_common_opts,
+                                  stdout=open(logpath, 'w'),
+                                  stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError:
+            self.fail("qubes-dom0-update failed: " + open(
+                logpath).read())
+
+        with open(logpath) as f:
+            dom0_update_output = f.read()
+            self.assertFalse('Errno' in dom0_update_output or
+                             'Couldn\'t' in dom0_update_output,
+                             "qubes-dom0-update reported an error: {}".
+                             format(dom0_update_output))
+
+        self.assertFalse(os.path.exists(self.update_flag_path),
+                         "'updates pending' flag not cleared")
+
+    def test_006_update_flag_clear(self):
+        """Check if 'updates pending' flag is creared, using --clean"""
+
+        # create any pkg (but not install it) to initialize repo in the VM
+        filename = self.create_pkg(self.tmpdir, self.pkg_name, '1.0')
+        self.send_pkg(filename)
+        open(self.update_flag_path, 'a').close()
+
+        # remove also repodata to test #1685
+        if os.path.exists('/var/lib/qubes/updates/repodata'):
+            shutil.rmtree('/var/lib/qubes/updates/repodata')
+        logpath = os.path.join(self.tmpdir, 'dom0-update-output.txt')
+        try:
+            subprocess.check_call(['sudo', 'qubes-dom0-update', '-y',
+                                   '--clean'] +
+                                  self.dom0_update_common_opts,
+                                  stdout=open(logpath, 'w'),
+                                  stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError:
+            self.fail("qubes-dom0-update failed: " + open(
+                logpath).read())
+
+        with open(logpath) as f:
+            dom0_update_output = f.read()
+            self.assertFalse('Errno' in dom0_update_output or
+                             'Couldn\'t' in dom0_update_output,
+                             "qubes-dom0-update reported an error: {}".
+                             format(dom0_update_output))
+
+        self.assertFalse(os.path.exists(self.update_flag_path),
+                         "'updates pending' flag not cleared")
 
     def test_010_instal(self):
         filename = self.create_pkg(self.tmpdir, self.pkg_name, '1.0')

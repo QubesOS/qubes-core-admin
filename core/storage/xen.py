@@ -16,115 +16,92 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-#
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+# USA.
 #
 
 from __future__ import absolute_import
 
 import os
 import os.path
+import re
 import subprocess
 import sys
-import re
 
-from qubes.storage import QubesVmStorage
 from qubes.qubes import QubesException, vm_files
+from qubes.storage import Pool, QubesVmStorage
 
 
-class QubesXenVmStorage(QubesVmStorage):
+class XenStorage(QubesVmStorage):
     """
     Class for VM storage of Xen VMs.
     """
 
-    def __init__(self, vm, **kwargs):
-        super(QubesXenVmStorage, self).__init__(vm, **kwargs)
+    def __init__(self, vm, vmdir, **kwargs):
+        """ Instantiate the storage.
 
-        self.root_dev = "xvda"
-        self.private_dev = "xvdb"
-        self.volatile_dev = "xvdc"
-        self.modules_dev = "xvdd"
+            Args:
+                vm: a QubesVM
+                vmdir: the root directory of the pool
+        """
+        assert vm is not None
+        assert vmdir is not None
+
+        super(XenStorage, self).__init__(vm, **kwargs)
+
+        self.vmdir = vmdir
 
         if self.vm.is_template():
-            self.rootcow_img = os.path.join(self.vmdir, vm_files["rootcow_img"])
+            self.rootcow_img = os.path.join(self.vmdir,
+                                            vm_files["rootcow_img"])
         else:
             self.rootcow_img = None
 
-    def _format_disk_dev(self, path, script, vdev, rw=True, type="disk", domain=None):
-        if path is None:
-            return ''
-        template = "    <disk type='block' device='{type}'>\n" \
-                   "      <driver name='phy'/>\n" \
-                   "      <source dev='{path}'/>\n" \
-                   "      <target dev='{vdev}' bus='xen'/>\n" \
-                   "{params}" \
-                   "    </disk>\n"
-        params = ""
-        if not rw:
-            params += "      <readonly/>\n"
-        if domain:
-            params += "      <backenddomain name='%s'/>\n" % domain
-        if script:
-            params += "      <script path='%s'/>\n" % script
-        return template.format(path=path, vdev=vdev, type=type,
-            params=params)
+        self.private_img = os.path.join(vmdir, 'private.img')
+        if self.vm.template:
+            self.root_img = self.vm.template.root_img
+        else:
+            self.root_img = os.path.join(vmdir, 'root.img')
+        self.volatile_img = os.path.join(vmdir, 'volatile.img')
 
-    def _get_rootdev(self):
-        if self.vm.is_template() and \
-                os.path.exists(os.path.join(self.vmdir, "root-cow.img")):
-            return self._format_disk_dev(
-                    "{dir}/root.img:{dir}/root-cow.img".format(
-                        dir=self.vmdir),
+    def root_dev_config(self):
+        if self.vm.is_template() and self.rootcow_img:
+            return self.format_disk_dev(
+                    "{root}:{rootcow}".format(
+                        root=self.root_img, rootcow=self.rootcow_img),
                     "block-origin", self.root_dev, True)
-        elif self.vm.template and not self.vm.template.storage.rootcow_img:
-            # HVM template-based VM - template doesn't have own
-            # root-cow.img, only one device-mapper layer
-            return self._format_disk_dev(
-                    "{tpldir}/root.img:{vmdir}/volatile.img".format(
-                        tpldir=self.vm.template.dir_path,
-                        vmdir=self.vmdir),
+        elif self.vm.template and not hasattr(self.vm, 'kernel'):
+            # HVM template-based VM - only one device-mapper layer, in dom0 (
+            # root+volatile)
+            # HVM detection based on 'kernel' property is massive hack,
+            # but taken from assumption that VM needs Qubes-specific kernel (
+            # actually initramfs) to assemble the second layer of device-mapper
+            return self.format_disk_dev(
+                    "{root}:{volatile}".format(
+                        root=self.vm.template.storage.root_img,
+                        volatile=self.volatile_img),
                     "block-snapshot", self.root_dev, True)
         elif self.vm.template:
             # any other template-based VM - two device-mapper layers: one
             # in dom0 (here) from root+root-cow, and another one from
             # this+volatile.img
-            return self._format_disk_dev(
-                    "{dir}/root.img:{dir}/root-cow.img".format(
-                        dir=self.vm.template.dir_path),
+            return self.format_disk_dev(
+                    "{root}:{rootcow}".format(
+                        root=self.root_img,
+                        rootcow=self.vm.template.storage.rootcow_img),
                     "block-snapshot", self.root_dev, False)
         else:
-            return self._format_disk_dev(
-                    "{dir}/root.img".format(dir=self.vmdir),
+            return self.format_disk_dev(
+                    "{root}".format(root=self.root_img),
                     None, self.root_dev, True)
 
-    def get_config_params(self):
-        args = {}
-        args['rootdev'] = self._get_rootdev()
-        args['privatedev'] = \
-                self._format_disk_dev(self.private_img,
-                        None, self.private_dev, True)
-        args['volatiledev'] = \
-                self._format_disk_dev(self.volatile_img,
-                        None, self.volatile_dev, True)
-        if self.modules_img is not None:
-            args['otherdevs'] = \
-                    self._format_disk_dev(self.modules_img,
-                            None, self.modules_dev, self.modules_img_rw)
-        elif self.drive is not None:
-            (drive_type, drive_domain, drive_path) = self.drive.split(":")
-            if drive_type == "hd":
-                drive_type = "disk"
-            if drive_domain.lower() == "dom0":
-                drive_domain = None
+    def private_dev_config(self):
+        return self.format_disk_dev(self.private_img, None,
+                                    self.private_dev, True)
 
-            args['otherdevs'] = self._format_disk_dev(drive_path, None,
-                    self.modules_dev,
-                    rw=True if drive_type == "disk" else False, type=drive_type,
-                    domain=drive_domain)
-        else:
-            args['otherdevs'] = ''
-
-        return args
+    def volatile_dev_config(self):
+        return self.format_disk_dev(self.volatile_img, None,
+                                    self.volatile_dev, True)
 
     def create_on_disk_private_img(self, verbose, source_template = None):
         if source_template:
@@ -158,7 +135,7 @@ class QubesXenVmStorage(QubesVmStorage):
             self.commit_template_changes()
 
     def rename(self, old_name, new_name):
-        super(QubesXenVmStorage, self).rename(old_name, new_name)
+        super(XenStorage, self).rename(old_name, new_name)
 
         old_dirpath = os.path.join(os.path.dirname(self.vmdir), old_name)
         if self.rootcow_img:
@@ -226,11 +203,11 @@ class QubesXenVmStorage(QubesVmStorage):
                 f_volatile.close()
                 f_root.close()
                 return
-        super(QubesXenVmStorage, self).reset_volatile_storage(
+        super(XenStorage, self).reset_volatile_storage(
             verbose=verbose, source_template=source_template)
 
     def prepare_for_vm_startup(self, verbose):
-        super(QubesXenVmStorage, self).prepare_for_vm_startup(verbose=verbose)
+        super(XenStorage, self).prepare_for_vm_startup(verbose=verbose)
 
         if self.drive is not None:
             (drive_type, drive_domain, drive_path) = self.drive.split(":")
@@ -249,3 +226,15 @@ class QubesXenVmStorage(QubesVmStorage):
                     raise QubesException(
                         "VM '{}' holding '{}' does not exists".format(
                             drive_domain, drive_path))
+        if self.rootcow_img and not os.path.exists(self.rootcow_img):
+            self.commit_template_changes()
+
+
+class XenPool(Pool):
+
+    def __init__(self, vm, dir_path):
+        super(XenPool, self).__init__(vm, dir_path)
+
+    def getStorage(self):
+        """ Returns an instantiated ``XenStorage``. """
+        return XenStorage(self.vm, vmdir=self.vmdir)
