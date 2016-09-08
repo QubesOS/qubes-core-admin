@@ -1783,8 +1783,8 @@ class QubesVm(object):
         # Avoid using environment variables for checking the current session,
         #  because this script may be called with cleared env (like with sudo).
         if subprocess.check_output(
-                ['xprop', '-root', '-notype', 'KDE_SESSION_VERSION']) == \
-                'KDE_SESSION_VERSION = 5\n':
+                ['xprop', '-root', '-notype', 'KWIN_RUNNING']) == \
+                'KWIN_RUNNING = 0x1\n':
             # native decoration plugins is used, so adjust window properties
             # accordingly
             guid_cmd += ['-T']  # prefix window titles with VM name
