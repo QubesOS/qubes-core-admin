@@ -24,12 +24,13 @@
 #
 
 ''' This module contains the NetVMMixin '''
-
+import os
 import re
 
 import libvirt  # pylint: disable=import-error
 import qubes
 import qubes.events
+import qubes.firewall
 import qubes.exc
 
 
@@ -65,6 +66,9 @@ class NetVMMixin(qubes.events.Emitter):
         type=bool, setter=qubes.property.bool,
         doc='''If this domain can act as network provider (formerly known as
             NetVM or ProxyVM)''')
+
+    firewall_conf = qubes.property('firewall_conf', type=str,
+        default='firewall.xml')
 
     #
     # used in networked appvms or proxyvms (netvm is not None)
@@ -136,6 +140,7 @@ class NetVMMixin(qubes.events.Emitter):
             return None
 
     def __init__(self, *args, **kwargs):
+        self._firewall = None
         super(NetVMMixin, self).__init__(*args, **kwargs)
 
     @qubes.events.handler('domain-start')
@@ -256,8 +261,18 @@ class NetVMMixin(qubes.events.Emitter):
 
     def reload_firewall_for_vm(self, vm):
         ''' Reload the firewall rules for the vm '''
-        # SEE:1815
-        pass
+        if not self.is_running():
+            return
+
+        base_dir = '/qubes-firewall/' + vm.ip + '/'
+        # remove old entries if any (but don't touch base empty entry - it
+        # would trigger reload right away
+        self.qdb.rm(base_dir)
+        # write new rules
+        for key, value in vm.firewall.qdb_entries().items():
+            self.qdb.write(base_dir + key, value)
+        # signal its done
+        self.qdb.write(base_dir[:-1], '')
 
     @qubes.events.handler('property-del:netvm')
     def on_property_del_netvm(self, event, prop, old_netvm=None):
@@ -328,3 +343,15 @@ class NetVMMixin(qubes.events.Emitter):
         # pylint: disable=unused-argument
         if self.is_running() and self.netvm:
             self.netvm.reload_firewall_for_vm(self)  # pylint: disable=no-member
+
+    # CORE2: swallowed get_firewall_conf, write_firewall_conf,
+    # get_firewall_defaults
+    @property
+    def firewall(self):
+        if self._firewall is None:
+            self._firewall = qubes.firewall.Firewall(self)
+        return self._firewall
+
+    def has_firewall(self):
+        ''' Return `True` if there are some vm specific firewall rules set '''
+        return os.path.exists(os.path.join(self.dir_path, self.firewall_conf))

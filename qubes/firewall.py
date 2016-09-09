@@ -24,6 +24,7 @@
 import datetime
 import subprocess
 
+import itertools
 import lxml.etree
 import os
 import socket
@@ -459,6 +460,17 @@ class Firewall(object):
             self.vm.log.error("save error: {}".format(err))
             raise qubes.exc.QubesException('save error: {}'.format(err))
 
+        self.vm.fire_event('firewall-changed')
+
         if expiring_rules_present and not self.vm.app.vmm.offline_mode:
             subprocess.call(["sudo", "systemctl", "start",
                              "qubes-reload-firewall@%s.timer" % self.vm.name])
+
+
+    def qdb_entries(self):
+        entries = {
+            'policy': str(self.policy)
+        }
+        for ruleno, rule in zip(itertools.count(), self.rules):
+            entries['{:04}'.format(ruleno)] = rule.rule
+        return entries

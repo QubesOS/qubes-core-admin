@@ -195,10 +195,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         doc='''Use full virtualisation (HVM) for this qube,
             instead of paravirtualisation (PV)''')
 
-    # SEE: 1815 this should be part of qubes.xml
-    firewall_conf = qubes.property('firewall_conf', type=str,
-        default='firewall.xml')
-
     installed_by_rpm = qubes.property('installed_by_rpm',
         type=bool, setter=qubes.property.bool,
         default=False,

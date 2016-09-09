@@ -532,3 +532,21 @@ class TC_10_Firewall(qubes.tests.QubesTestCase):
         fw = qubes.firewall.Firewall(self.vm, True)
         self.assertEqual(fw.rules, rules)
 
+    def test_005_qdb_entries(self):
+        fw = qubes.firewall.Firewall(self.vm, True)
+        rules = [
+            qubes.firewall.Rule(None, action='drop', proto='icmp'),
+            qubes.firewall.Rule(None, action='drop', proto='tcp', dstports=80),
+            qubes.firewall.Rule(None, action='accept', proto='udp'),
+            qubes.firewall.Rule(None, action='accept', specialtarget='dns'),
+        ]
+        fw.rules.extend(rules)
+        fw.policy = qubes.firewall.Action.drop
+        expected_qdb_entries = {
+            'policy': 'drop',
+            '0000': 'action=drop proto=icmp',
+            '0001': 'action=drop proto=tcp dstports=80-80',
+            '0002': 'action=accept proto=udp',
+            '0003': 'action=accept specialtarget=dns',
+        }
+        self.assertEqual(fw.qdb_entries(), expected_qdb_entries)
