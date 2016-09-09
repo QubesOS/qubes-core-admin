@@ -22,7 +22,8 @@
 #
 
 from qubes.qubes import QubesVmCollection
-from optparse import OptionParser;
+from optparse import OptionParser
+import libvirt
 import os
 import sys
 
@@ -82,7 +83,11 @@ def main():
         if options.remove_from_db_only:
             # normally it is done by vm.remove_from_disk(), but it isn't
             # called in this case
-            vm.libvirt_domain.undefine()
+            try:
+                vm.libvirt_domain.undefine()
+            except libvirt.libvirtError:
+                # ignore the case when it was never defined
+                pass
         if vm.installed_by_rpm:
             if options.verbose:
                 print >> sys.stderr, "--> VM installed by RPM, leaving all the files on disk"
