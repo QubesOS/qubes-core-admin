@@ -60,9 +60,9 @@ def sanitize_and_parse_meminfo(untrusted_meminfo):
                 untrusted_words[1]
 
     # sanitize start
-    if not is_meminfo_suspicious(untrusted_meminfo):
+    if not is_meminfo_suspicious(untrusted_dict):
         # sanitize end
-        meminfo = untrusted_meminfo
+        meminfo = untrusted_dict
         return meminfo['MemTotal'] - \
             meminfo['MemFree'] - meminfo['Cached'] - meminfo['Buffers'] + \
             meminfo['SwapTotal'] - meminfo['SwapFree']
@@ -131,7 +131,7 @@ def balloon(memsize, domain_dictionary):
     request = list()
     available = 0
     for i in domain_dictionary.keys():
-        if domain_dictionary[i].meminfo is None:
+        if domain_dictionary[i].mem_used is None:
             continue
         if domain_dictionary[i].no_progress:
             continue
