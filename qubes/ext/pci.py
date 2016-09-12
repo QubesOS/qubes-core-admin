@@ -97,8 +97,8 @@ def attached_devices(app):
 
     xs = app.vmm.xs
     devices = {}
-    for domid in xs.ls('', 'backend/pci'):
-        for devid in xs.ls('', 'backend/pci/' + domid):
+    for domid in xs.ls('', 'backend/pci') or []:
+        for devid in xs.ls('', 'backend/pci/' + domid) or []:
             devpath = 'backend/pci/' + domid + '/' + devid
             domain_name = xs.read('', devpath + '/domain')
             try:
