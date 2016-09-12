@@ -269,7 +269,7 @@ class NetVMMixin(qubes.events.Emitter):
         # would trigger reload right away
         self.qdb.rm(base_dir)
         # write new rules
-        for key, value in vm.firewall.qdb_entries().items():
+        for key, value in vm.firewall.qdb_entries(addr_family=4).items():
             self.qdb.write(base_dir + key, value)
         # signal its done
         self.qdb.write(base_dir[:-1], '')
