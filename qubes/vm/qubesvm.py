@@ -567,8 +567,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             retcode = subprocess.call(
                 ["sudo", "ln", "-sf",
                  "/usr/lib/systemd/system/qubes-vm@.service",
-                 "/etc/systemd/system/multi-user.target.wants/qubes-vm@{"
-                 "}.service".format(self.name)])
+                 "/etc/systemd/system/multi-user.target.wants/qubes-vm@"
+                 "{}.service".format(self.name)])
         else:
             retcode = subprocess.call(
                 ['sudo', 'systemctl', 'disable',
