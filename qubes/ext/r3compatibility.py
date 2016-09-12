@@ -23,6 +23,7 @@
 #
 import datetime
 import qubes.ext
+import qubes.firewall
 import qubes.vm.qubesvm
 import qubes.vm.appvm
 import qubes.vm.templatevm
@@ -106,7 +107,7 @@ class R3Compatibility(qubes.ext.Extension):
 
         for vm in firewallvm.connected_vms:
             iptables = "*filter\n"
-            conf = vm.get_firewall_conf()
+            conf = vm.firewall
 
             xid = vm.xid
             if xid < 0:  # VM not active ATM
@@ -119,61 +120,46 @@ class R3Compatibility(qubes.ext.Extension):
             # Anti-spoof rules are added by vif-script (vif-route-qubes),
             # here we trust IP address
 
-            accept_action = "ACCEPT"
-            reject_action = "REJECT --reject-with icmp-host-prohibited"
+            for rule in conf.rules:
+                if rule.specialtarget == 'dns':
+                    if rule.dstports not in ('53', None):
+                        continue
+                    if rule.proto:
+                        protos = {'tcp', 'udp'}.intersection(str(rule.proto))
+                    else:
+                        protos = {'tcp', 'udp'}
+                    for proto in protos:
+                        if rule.dsthost:
+                            dsthosts = set(vm.dns).intersection(
+                                [str(rule.dsthost).replace('/24', '')])
+                        else:
+                            dsthosts = vm.dns
+                        for dsthost in dsthosts:
+                            iptables += '-A FORWARD -s {}'.format(ip)
+                            iptables += ' -d {!s}'.format(dsthost)
+                            iptables += ' -p {!s}'.format(proto)
+                            iptables += ' --dport 53'
+                            iptables += ' -j {}\n'.format(
+                                str(rule.action).upper())
+                else:
+                    iptables += '-A FORWARD -s {}'.format(ip)
+                    if rule.dsthost:
+                        iptables += ' -d {!s}'.format(rule.dsthost)
+                    if rule.proto:
+                        iptables += ' -p {!s}'.format(rule.proto)
+                    if rule.dstports:
+                        iptables += ' --dport {}'.format(
+                            str(rule.dstports).replace('-', ':'))
+                    iptables += ' -j {0}\n'.format(str(rule.action).upper())
 
-            if conf["allow"]:
-                default_action = accept_action
-                rules_action = reject_action
-            else:
-                default_action = reject_action
-                rules_action = accept_action
-
-            for rule in conf["rules"]:
-                iptables += "-A FORWARD -s {0} -d {1}".format(
-                    ip, rule["address"])
-                if rule["netmask"] != 32:
-                    iptables += "/{0}".format(rule["netmask"])
-
-                if rule["proto"] is not None and rule["proto"] != "any":
-                    iptables += " -p {0}".format(rule["proto"])
-                    if rule["portBegin"] is not None and rule["portBegin"] > 0:
-                        iptables += " --dport {0}".format(rule["portBegin"])
-                        if rule["portEnd"] is not None and \
-                                rule["portEnd"] > rule["portBegin"]:
-                            iptables += ":{0}".format(rule["portEnd"])
-
-                iptables += " -j {0}\n".format(rules_action)
-
-            if conf["allowDns"] and firewallvm.netvm is not None:
-                # PREROUTING does DNAT to NetVM DNSes, so we need self.netvm.
-                # properties
-                iptables += "-A FORWARD -s {0} -p udp -d {1} --dport 53 -j " \
-                            "ACCEPT\n".format(ip, vm.dns[0])
-                iptables += "-A FORWARD -s {0} -p udp -d {1} --dport 53 -j " \
-                            "ACCEPT\n".format(ip, vm.dns[1])
-                iptables += "-A FORWARD -s {0} -p tcp -d {1} --dport 53 -j " \
-                            "ACCEPT\n".format(ip, vm.dns[0])
-                iptables += "-A FORWARD -s {0} -p tcp -d {1} --dport 53 -j " \
-                            "ACCEPT\n".format(ip, vm.dns[1])
-            if conf["allowIcmp"]:
-                iptables += "-A FORWARD -s {0} -p icmp -j ACCEPT\n".format(ip)
-            if conf["allowYumProxy"]:
-                iptables += \
-                    "-A FORWARD -s {0} -p tcp -d {1} --dport {2} -j ACCEPT\n".\
-                        format(ip, yum_proxy_ip, yum_proxy_port)
-            else:
-                iptables += \
-                    "-A FORWARD -s {0} -p tcp -d {1} --dport {2} -j DROP\n".\
-                        format(ip, yum_proxy_ip, yum_proxy_port)
-
-            iptables += "-A FORWARD -s {0} -j {1}\n".format(ip, default_action)
-            iptables += "COMMIT\n"
-            firewallvm.qdb.write("/qubes-iptables-domainrules/" + str(xid),
+            iptables += '-A FORWARD -s {0} -j {1}\n'.format(ip,
+                str(conf.policy).upper())
+            iptables += 'COMMIT\n'
+            firewallvm.qdb.write('/qubes-iptables-domainrules/' + str(xid),
                 iptables)
         # no need for ending -A FORWARD -j DROP, cause default action is DROP
 
-        firewallvm.qdb.write("/qubes-iptables", 'reload')
+        firewallvm.qdb.write('/qubes-iptables', 'reload')
 
     def write_services(self, vm):
         for feature, value in vm.features.items():
