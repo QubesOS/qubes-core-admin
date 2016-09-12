@@ -196,11 +196,8 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
 
         # block all for first
 
-        self.testvm1.write_firewall_conf({
-            'allow': False,
-            'allowDns': False,
-            'allowIcmp': False,
-        })
+        self.testvm1.firewall.policy = 'drop'
+        self.testvm1.firewall.save()
         self.testvm1.start()
         self.assertTrue(self.proxy.is_running())
 
@@ -225,11 +222,10 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
 
         # block all except ICMP
 
-        self.testvm1.write_firewall_conf({
-            'allow': False,
-            'allowDns': False,
-            'allowIcmp': True,
-        })
+        self.testvm1.firewall.rules = [(
+            qubes.firewall.Rule(None, action='accept', proto='icmp')
+        )]
+        self.testvm1.firewall.save()
         # Ugly hack b/c there is no feedback when the rules are actually applied
         time.sleep(3)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
@@ -239,11 +235,11 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
 
         # all TCP still blocked
 
-        self.testvm1.write_firewall_conf({
-            'allow': False,
-            'allowDns': True,
-            'allowIcmp': True,
-        })
+        self.testvm1.firewall.rules = [
+            qubes.firewall.Rule(None, action='accept', proto='icmp'),
+            qubes.firewall.Rule(None, action='accept', specialtarget='dns'),
+        ]
+        self.testvm1.firewall.save()
         # Ugly hack b/c there is no feedback when the rules are actually applied
         time.sleep(3)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0,
@@ -253,15 +249,13 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
 
         # block all except target
 
-        self.testvm1.write_firewall_conf({
-            'allow': False,
-            'allowDns': True,
-            'allowIcmp': True,
-            'rules': [{'address': self.test_ip,
-                       'netmask': 32,
-                       'proto': 'tcp',
-                       'portBegin': 1234
-                      }] })
+        self.testvm1.firewall.policy = 'drop'
+        self.testvm1.firewall.rules = [
+            qubes.firewall.Rule(None, action='accept', dsthost=self.test_ip,
+                proto='tcp', dstports=1234),
+        ]
+        self.testvm1.firewall.save()
+
         # Ugly hack b/c there is no feedback when the rules are actually applied
         time.sleep(3)
         self.assertEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
@@ -269,16 +263,13 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
 
         # allow all except target
 
-        self.testvm1.write_firewall_conf({
-            'allow': True,
-            'allowDns': True,
-            'allowIcmp': True,
-            'rules': [{'address': self.test_ip,
-                       'netmask': 32,
-                       'proto': 'tcp',
-                       'portBegin': 1234
-                      }]
-        })
+        self.testvm1.firewall.policy = 'accept'
+        self.testvm1.firewall.rules = [
+            qubes.firewall.Rule(None, action='drop', dsthost=self.test_ip,
+                proto='tcp', dstports=1234),
+        ]
+        self.testvm1.firewall.save()
+
         # Ugly hack b/c there is no feedback when the rules are actually applied
         time.sleep(3)
         self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,

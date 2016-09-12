@@ -53,6 +53,8 @@ class TestVM(object):
         self.dir_path = '/tmp'
         self.app = TestApp()
 
+    def fire_event(self, event):
+        pass
 
 # noinspection PyPep8Naming
 class TC_00_RuleChoice(qubes.tests.QubesTestCase):

@@ -31,9 +31,11 @@ import time
 import unittest
 
 import qubes
+import qubes.firewall
 import qubes.tests
 import qubes.vm.appvm
 import qubes.vm.qubesvm
+import qubes.vm.standalonevm
 import qubes.vm.templatevm
 
 import libvirt  # pylint: disable=import-error
@@ -85,12 +87,16 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         newname = self.make_vm_name('newname')
 
         self.assertEqual(self.vm.name, self.vmname)
-        self.vm.write_firewall_conf({'allow': False, 'allowDns': False})
+        self.vm.firewall.policy = 'drop'
+        self.vm.firewall.rules = [
+            qubes.firewall.Rule(None, action='accept', specialtarget='dns')
+        ]
+        self.vm.firewall.save()
         self.vm.autostart = True
         self.addCleanup(os.system,
                         'sudo systemctl -q disable qubes-vm@{}.service || :'.
                         format(self.vmname))
-        pre_rename_firewall = self.vm.get_firewall_conf()
+        pre_rename_firewall = self.vm.firewall.rules
 
         with self.assertNotRaises(
                 (OSError, libvirt.libvirtError, qubes.exc.QubesException)):
@@ -117,9 +123,10 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.assertFalse(os.path.exists(
             os.path.join(os.getenv("HOME"), ".local/share/applications",
                 self.vmname + "-firefox.desktop")))
-        self.assertEquals(pre_rename_firewall, self.vm.get_firewall_conf())
+        self.vm.firewall.load()
+        self.assertEquals(pre_rename_firewall, self.vm.firewall.rules)
         with self.assertNotRaises((qubes.exc.QubesException, OSError)):
-            self.vm.write_firewall_conf({'allow': False})
+            self.vm.firewall.save()
         self.assertTrue(self.vm.autostart)
         self.assertTrue(os.path.exists(
             '/etc/systemd/system/multi-user.target.wants/'
@@ -178,24 +185,19 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
                           testvm2.include_in_backups)
         self.assertEquals(testvm1.default_user, testvm2.default_user)
         self.assertEquals(testvm1.features, testvm2.features)
-        # TODO
-        # self.assertEquals(testvm1.get_firewall_conf(),
-        #                   testvm2.get_firewall_conf())
+        self.assertEquals(testvm1.firewall.rules,
+                          testvm2.firewall.rules)
 
         # now some non-default values
         testvm1.netvm = None
         testvm1.label = 'orange'
         testvm1.memory = 512
-        firewall = testvm1.get_firewall_conf()
-        firewall['allowDns'] = False
-        firewall['allowYumProxy'] = False
-        firewall['rules'] = [{'address': '1.2.3.4',
-                              'netmask': 24,
-                              'proto': 'tcp',
-                              'portBegin': 22,
-                              'portEnd': 22,
-                              }]
-        testvm1.write_firewall_conf(firewall)
+        firewall = testvm1.firewall
+        firewall.policy = 'drop'
+        firewall.rules = [
+            qubes.firewall.Rule(None, action='accept', dsthost='1.2.3.0/24',
+                proto='tcp', dstports=22)]
+        firewall.save()
 
         testvm3 = self.app.add_new_vm(testvm1.__class__,
                                      name=self.make_vm_name("clone2"),
@@ -226,9 +228,8 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
                           testvm3.include_in_backups)
         self.assertEquals(testvm1.default_user, testvm3.default_user)
         self.assertEquals(testvm1.features, testvm3.features)
-        # TODO
-        # self.assertEquals(testvm1.get_firewall_conf(),
-        #                   testvm3.get_firewall_conf())
+        self.assertEquals(testvm1.firewall.rules,
+                          testvm2.firewall.rules)
 
     def test_020_name_conflict_app(self):
         # TODO decide what exception should be here
