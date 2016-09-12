@@ -33,7 +33,7 @@ import qubes.vm.adminvm
 import qubes.ext.r3compatibility
 
 
-class AppVM(qubes.vm.appvm.AppVM):
+class AppVM(qubes.vm.appvm.AppVM):  # pylint: disable=too-many-ancestors
     """core2 compatibility AppVM class, with variable dir_path"""
     dir_path = qubes.property('dir_path',
         # pylint: disable=undefined-variable
@@ -46,7 +46,8 @@ class AppVM(qubes.vm.appvm.AppVM):
         return False
 
 class StandaloneVM(qubes.vm.standalonevm.StandaloneVM):
-    """core2 compatibility StandaloneVM class, with variable dir_path"""
+    """core2 compatibility StandaloneVM class, with variable dir_path
+    """  # pylint: disable=too-many-ancestors
     dir_path = qubes.property('dir_path',
         # pylint: disable=undefined-variable
         default=(lambda self: super(StandaloneVM, self).dir_path),
