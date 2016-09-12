@@ -501,6 +501,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.storage = qubes.storage.Storage(self)
         vm_pool = qubes.storage.domain.DomainPool(self)
         self.app.pools[vm_pool.name] = vm_pool
+        if event == 'domain-load':
+            self.start_forwarding_signals()
 
     @qubes.events.handler('property-set:label')
     def on_property_set_label(self, event, name, new_label, old_label=None):

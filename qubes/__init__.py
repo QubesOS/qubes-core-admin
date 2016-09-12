@@ -41,6 +41,7 @@ import lxml.etree
 import qubes.config
 import qubes.events
 import qubes.exc
+import qubes.signals
 
 __author__ = 'Invisible Things Lab'
 __license__ = 'GPLv2 or later'
@@ -372,8 +373,9 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
         return bool(value)
 
 
-class PropertyHolder(qubes.events.Emitter):
-    '''Abstract class for holding :py:class:`qubes.property`
+class PropertyHolder(qubes.events.Emitter, qubes.signals.SignalEmitter):
+    '''Abstract class for holding :py:class:`qubes.property`. This class also
+       forwards all the events to the the signal receivers.
 
     Events fired by instances of this class:
 
@@ -630,6 +632,13 @@ class PropertyHolder(qubes.events.Emitter):
             else:
                 # pylint: disable=no-member
                 self.log.fatal(msg)
+
+    def fire_event(self, event, *args, **kwargs):
+        ''' Fires the event as signal and calls the inherited fire_event method
+        '''
+        self.fire_signal(event, *args, **kwargs)
+        return super(PropertyHolder, self).fire_event(event, *args, **kwargs)
+
 
 # pylint: disable=wrong-import-position
 from qubes.vm import VMProperty
