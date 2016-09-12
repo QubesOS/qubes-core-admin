@@ -467,10 +467,16 @@ class Firewall(object):
                              "qubes-reload-firewall@%s.timer" % self.vm.name])
 
 
-    def qdb_entries(self):
+    def qdb_entries(self, addr_family=None):
         entries = {
             'policy': str(self.policy)
         }
+        exclude_dsttype = None
+        if addr_family is not None:
+            exclude_dsttype = 'dst4' if addr_family == 6 else 'dst6'
         for ruleno, rule in zip(itertools.count(), self.rules):
+            # exclude rules for another address family
+            if rule.dsthost and rule.dsthost.type == exclude_dsttype:
+                continue
             entries['{:04}'.format(ruleno)] = rule.rule
         return entries
