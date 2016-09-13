@@ -63,9 +63,9 @@ class TC_00_Actions(qubes.tests.QubesTestCase):
             self.assertEventNotFired(self.vm2,
                 'device-list-attached:testclass')
             self.assertEqual(
-                buf.getvalue(),
-                'vm1:testdev  Description  \n'
-                'vm2:testdev  Description  \n'
+                [x.rstrip() for x in buf.getvalue().splitlines()],
+                ['vm1:testdev  Description',
+                 'vm2:testdev  Description']
             )
 
     def test_001_list_one(self):
