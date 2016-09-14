@@ -725,12 +725,17 @@ class Qubes(qubes.PropertyHolder):
             vm.events_enabled = True
             vm.fire_event('domain-load')
 
+        self.start_forwarding_signals()
+
         # get a file timestamp (before closing it - still holding the lock!),
         #  to detect whether anyone else have modified it in the meantime
         self.__load_timestamp = os.path.getmtime(self._store)
         # intentionally do not call explicit unlock
         fh.close()
         del fh
+
+    def __str__(self):
+        return str(self._store)
 
     def __xml__(self):
         element = lxml.etree.Element('qubes')
@@ -810,6 +815,9 @@ class Qubes(qubes.PropertyHolder):
         # loading qubes.xml again
         self.__load_timestamp = os.path.getmtime(self._store)
         os.close(fd_old)
+        for vm in self.domains:
+            vm.fire_event('domain-save')
+        self.fire_event('app-save')
 
     def load_initial_values(self):
         self.labels = {

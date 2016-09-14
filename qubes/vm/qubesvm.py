@@ -501,6 +501,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.storage = qubes.storage.Storage(self)
         vm_pool = qubes.storage.domain.DomainPool(self)
         self.app.pools[vm_pool.name] = vm_pool
+        if event == 'domain-load':
+            self.start_forwarding_signals()
 
     @qubes.events.handler('property-set:label')
     def on_property_set_label(self, event, name, new_label, old_label=None):
@@ -1299,7 +1301,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             return False
 
         # TODO context manager #1693
-        return self.libvirt_domain and self.libvirt_domain.isActive()
+        return bool(self.libvirt_domain and self.libvirt_domain.isActive())
 
     def is_paused(self):
         '''Check whether this domain is paused.

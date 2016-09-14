@@ -219,6 +219,7 @@ fi
 %{python_sitelib}/qubes/exc.py*
 %{python_sitelib}/qubes/log.py*
 %{python_sitelib}/qubes/rngdoc.py*
+%{python_sitelib}/qubes/signals.py*
 %{python_sitelib}/qubes/utils.py*
 
 %dir %{python_sitelib}/qubes/vm
