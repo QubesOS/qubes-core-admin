@@ -99,13 +99,14 @@ class SignalEmitter(object):
         ''' Sends out a signal to each signal receiver '''
         for receiver in self.signal_receivers:
             try:
-                receiver.fire_signal(self, name, *args, **kwargs)
-            except Exception:  # pylint: disable=broad-except
+                receiver.fire_signal(self, name, args, kwargs)
+            except Exception as exc:  # pylint: disable=broad-except
                 msg = "Can not send event {!r} to the receiver {!r}".format(
                     name, receiver)
                 try:
                     # pylint: disable=no-member
                     self.log.warn(msg)
+                    self.log.exception(exc)
                 except:  # pylint: disable=bare-except
                     print(msg, file=sys.stderr)
 
