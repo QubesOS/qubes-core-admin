@@ -1301,7 +1301,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             return False
 
         # TODO context manager #1693
-        return self.libvirt_domain and self.libvirt_domain.isActive()
+        return bool(self.libvirt_domain and self.libvirt_domain.isActive())
 
     def is_paused(self):
         '''Check whether this domain is paused.
