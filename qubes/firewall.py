@@ -204,7 +204,12 @@ class Comment(RuleOption):
 
 
 class Rule(qubes.PropertyHolder):
-    def __init__(self, xml, **kwargs):
+    def __init__(self, xml=None, **kwargs):
+        '''Single firewall rule
+
+        :param xml: XML element describing rule, or None
+        :param kwargs: rule elements
+        '''
         super(Rule, self).__init__(xml, **kwargs)
         self.load_properties()
         self.events_enabled = True
@@ -347,7 +352,7 @@ class Rule(qubes.PropertyHolder):
         if expire:
             kwargs['expire'] = expire
 
-        return cls(None, **kwargs)
+        return cls(**kwargs)
 
     def __eq__(self, other):
         return self.rule == other.rule
