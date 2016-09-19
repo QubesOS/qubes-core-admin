@@ -404,6 +404,12 @@ class ThinVolume(qubes.storage.Volume):
         except KeyError:
             return self._size
 
+    @size.setter
+    def size(self, _):
+        raise qubes.storage.StoragePoolException(
+            "You shouldn't use lvm size setter")
+
+
     @property
     def usage(self):  # lvm thin usage always returns at least the same usage as
                       # the parent
@@ -438,4 +444,4 @@ def qubes_lvm(cmd, log=logging.getLogger('qube.storage.lvm')):
 
 
 def reset_cache():
-    qubes.storage.lvm.size_cache = init_cache
+    qubes.storage.lvm.size_cache = init_cache()
