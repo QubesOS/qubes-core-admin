@@ -25,9 +25,9 @@ import datetime
 import subprocess
 
 import itertools
-import lxml.etree
 import os
 import socket
+import lxml.etree
 
 import qubes
 import qubes.vm.qubesvm
