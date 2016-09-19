@@ -135,7 +135,10 @@ class Emitter(object):
         for cls in order:
             if not hasattr(cls, '__handlers__'):
                 continue
-            for func in sorted(cls.__handlers__[event],
+            handlers = cls.__handlers__[event]
+            if '*' in cls.__handlers__:
+                handlers = cls.__handlers__['*'] | handlers
+            for func in sorted(handlers,
                     key=(lambda handler: hasattr(handler, 'ha_bound')),
                     reverse=True):
                 effect = func(self, event, *args, **kwargs)

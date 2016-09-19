@@ -82,3 +82,27 @@ class TC_00_Emitter(qubes.tests.QubesTestCase):
 
         self.assertItemsEqual(effect,
             ('testvalue1', 'testvalue2', 'testvalue3', 'testvalue4'))
+
+    def test_004_catch_all(self):
+        # need something mutable
+        testevent_fired = [0]
+
+        def on_all(subject, event, *args, **kwargs):
+            # pylint: disable=unused-argument
+            testevent_fired[0] += 1
+
+        def on_foo(subject, event, *args, **kwargs):
+            # pylint: disable=unused-argument
+            testevent_fired[0] += 1
+
+        emitter = qubes.events.Emitter()
+        emitter.add_handler('*', on_all)
+        emitter.add_handler('foo', on_foo)
+        emitter.events_enabled = True
+        emitter.fire_event('testevent')
+        self.assertEqual(testevent_fired[0], 1)
+        emitter.fire_event('foo')
+        # now catch-all and foo should be executed
+        self.assertEqual(testevent_fired[0], 3)
+        emitter.fire_event('bar')
+        self.assertEqual(testevent_fired[0], 4)
