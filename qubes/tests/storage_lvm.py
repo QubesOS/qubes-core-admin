@@ -56,8 +56,8 @@ def skipUnlessLvmPoolExists(test_item):  # pylint: disable=invalid-name
 
 POOL_CONF = {'name': 'test-lvm',
              'driver': 'lvm_thin',
-             'volume_group': 'qubes_dom0',
-             'thin_pool': 'pool00'}
+             'volume_group': DEFAULT_LVM_POOL.split('/')[0],
+             'thin_pool': DEFAULT_LVM_POOL.split('/')[1]}
 
 
 @skipUnlessLvmPoolExists
@@ -150,7 +150,8 @@ class TC_00_ThinPool(qubes.tests.SystemTestsMixin,
         vm.clone_disk_files(template_vm, pool='test-lvm')
         for v_name, volume in vm.volumes.items():
             if volume.save_on_stop:
-                expected = "/dev/qubes_dom0/{!s}-{!s}".format(vm.name, v_name)
+                expected = "/dev/{!s}/{!s}-{!s}".format(
+                    DEFAULT_LVM_POOL.split('/')[0], vm.name, v_name)
                 self.assertEqual(volume.path, expected)
         with self.assertNotRaises(qubes.exc.QubesException):
             vm.start()
@@ -161,7 +162,8 @@ class TC_00_ThinPool(qubes.tests.SystemTestsMixin,
         vm.create_on_disk(pool='test-lvm')
         for v_name, volume in vm.volumes.items():
             if volume.save_on_stop:
-                expected = "/dev/qubes_dom0/{!s}-{!s}".format(vm.name, v_name)
+                expected = "/dev/{!s}/{!s}-{!s}".format(
+                    DEFAULT_LVM_POOL.split('/')[0], vm.name, v_name)
                 self.assertEqual(volume.path, expected)
         with self.assertNotRaises(qubes.exc.QubesException):
             vm.start()
