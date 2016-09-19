@@ -1,62 +1,85 @@
 .. program:: qvm-firewall
 
-=======================================================
-:program:`qvm-firewall` -- Qubes firewall configuration
-=======================================================
+:program:`qvm-firewall` -- Manage VM outbound firewall
+======================================================
 
 Synopsis
-========
-:command:`qvm-firewall` [-n] <*vm-name*> [*action*] [*rule spec*]
+--------
 
-Rule specification can be one of:
-    1. *address*\ |\ *hostname*\ [/*netmask*] tcp|udp *port*\ [-*port*]
-    2. *address*\ |\ *hostname*\ [/*netmask*] tcp|udp *service_name*
-    3. *address*\ |\ *hostname*\ [/*netmask*] any
+:command:`qvm-firewall` [-h] [--verbose] [--quiet] [--reload] *VMNAME* add *RULE*
+:command:`qvm-firewall` [-h] [--verbose] [--quiet] [--reload] *VMNAME* del [--rule-no=*RULE_NUMBER*] [*RULE*]
+:command:`qvm-firewall` [-h] [--verbose] [--quiet] [--reload] *VMNAME* list [--raw]
+:command:`qvm-firewall` [-h] [--verbose] [--quiet] [--reload] *VMNAME* policy {accept,drop}
 
 Options
-=======
+-------
 
 .. option:: --help, -h
 
-    Show this help message and exit
+   show help message and exit
 
-.. option:: --list, -l
+.. option:: --verbose, -v
 
-    List firewall settings (default action)
+   increase verbosity
 
-.. option:: --add, -a
+.. option:: --quiet, -q
 
-    Add rule
+   decrease verbosity
 
-.. option:: --del, -d
+.. option:: --reload, -r
 
-    Remove rule (given by number or by rule spec)
+   force reloading rules even when unchanged
 
-.. option:: --policy=SET_POLICY, -P SET_POLICY
+.. option:: --raw
 
-    Set firewall policy (allow/deny)
+   Print raw rules when listing
 
-.. option:: --icmp=SET_ICMP, -i SET_ICMP
 
-    Set ICMP access (allow/deny)
+Actions description
+-------------------
 
-.. option:: --dns=SET_DNS, -D SET_DNS
+Available actions:
 
-    Set DNS access (allow/deny)
+* add - add specified rule. See `Rule syntax` section below.
 
-.. option:: --yum-proxy=SET_YUM_PROXY, -Y SET_YUM_PROXY
+* del - delete specified rule. Can be selected either by rule number using
+:option:`--rule-no`, or specifying rule itself.
 
-    Set access to Qubes yum proxy (allow/deny).
+* list - list all the rules for a given VM.
 
-    .. note::
-       if set to "deny", access will be rejected even if policy set to "allow"
+* policy - set default action if no rule matches.
 
-.. option:: --numeric, -n
 
-    Display port numbers instead of services (makes sense only with :option:`--list`)
+Rule syntax
+-----------
+
+A single rule is built from:
+ - action - either ``drop`` or ``accept``
+ - zero or more matches
+
+Selected action is applied on given packet when all specified matches do match,
+further rules are not evaluated. If none of the rules match, default action
+(``policy``) is applied.
+
+Supported matches:
+ - ``dsthost`` - destination host or network. Can be either IP address in CIDR
+ notation, or a host name. Both IPv4 and IPv6 are supported by the rule syntax.
+ - ``proto`` - specific IP protocol. Supported values: ``tcp``, ``udp``,
+ ``icmp``.
+ - ``dstports`` - destination port or ports range. Can be either a single port,
+ or a range separated by ``-``. Valid only together with ``proto=udp`` or
+ ``proto=tcp``.
+ - ``icmptype`` - ICMP message type, specified as numeric value. Valid only
+ together with ``proto=icmp``.
+ - ``specialtarget`` - predefined target. Currently the only supported value is
+ ``dns``. This can be combined with other matches to narrow it down.
 
 Authors
-=======
+-------
+
 | Joanna Rutkowska <joanna at invisiblethingslab dot com>
 | Rafal Wojtczuk <rafal at invisiblethingslab dot com>
 | Marek Marczykowski <marmarek at invisiblethingslab dot com>
+| Wojtek Porczyk <woju at invisiblethingslab dot com>
+
+.. vim: ts=3 sw=3 et tw=80

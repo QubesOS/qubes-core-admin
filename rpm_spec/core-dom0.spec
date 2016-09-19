@@ -253,6 +253,7 @@ fi
 %{python_sitelib}/qubes/tools/qvm_create.py*
 %{python_sitelib}/qubes/tools/qvm_device.py*
 %{python_sitelib}/qubes/tools/qvm_features.py*
+%{python_sitelib}/qubes/tools/qvm_firewall.py*
 %{python_sitelib}/qubes/tools/qvm_check.py*
 %{python_sitelib}/qubes/tools/qvm_clone.py*
 %{python_sitelib}/qubes/tools/qvm_kill.py*
@@ -302,6 +303,7 @@ fi
 %{python_sitelib}/qubes/tests/tools/__init__.py*
 %{python_sitelib}/qubes/tests/tools/init.py*
 %{python_sitelib}/qubes/tests/tools/qvm_device.py*
+%{python_sitelib}/qubes/tests/tools/qvm_firewall.py*
 %{python_sitelib}/qubes/tests/tools/qvm_ls.py*
 
 %dir %{python_sitelib}/qubes/tests/int
@@ -318,6 +320,7 @@ fi
 %dir %{python_sitelib}/qubes/tests/int/tools
 %{python_sitelib}/qubes/tests/int/tools/__init__.py*
 %{python_sitelib}/qubes/tests/int/tools/qubes_create.py*
+%{python_sitelib}/qubes/tests/int/tools/qvm_firewall.py*
 %{python_sitelib}/qubes/tests/int/tools/qvm_check.py*
 %{python_sitelib}/qubes/tests/int/tools/qvm_prefs.py*
 %{python_sitelib}/qubes/tests/int/tools/qvm_run.py*
