@@ -30,14 +30,17 @@ Qubes OS
 :copyright: © 2010-2015 Invisible Things Lab
 '''
 
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
+
 
 import __builtin__
 import collections
 import os
 import os.path
+import sys
 
 import lxml.etree
+import pkg_resources
 import qubes.config
 import qubes.events
 import qubes.exc
@@ -45,6 +48,8 @@ import qubes.exc
 __author__ = 'Invisible Things Lab'
 __license__ = 'GPLv2 or later'
 __version__ = 'R3'
+
+RECEIVERS_ENTRY_POINT = 'qubes.events.proxy'
 
 
 class Label(object):
@@ -373,7 +378,8 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
 
 
 class PropertyHolder(qubes.events.Emitter):
-    '''Abstract class for holding :py:class:`qubes.property`
+    '''Abstract class for holding :py:class:`qubes.property`. This class also
+       forwards all the events to the registered event proxies.
 
     Events fired by instances of this class:
 
@@ -425,6 +431,10 @@ class PropertyHolder(qubes.events.Emitter):
 
     def __init__(self, xml, **kwargs):
         self.xml = xml
+        self.proxies = []
+        for entry in pkg_resources.iter_entry_points(RECEIVERS_ENTRY_POINT):
+            receiver = entry.load()
+            self.proxies.append(receiver())
 
         propvalues = {}
 
@@ -449,6 +459,8 @@ class PropertyHolder(qubes.events.Emitter):
                     raise TypeError(
                         'property {!r} not applicable to {!r}'.format(
                             name, self.__class__.__name__))
+
+
 
     @classmethod
     def property_list(cls, load_stage=None):
@@ -630,6 +642,29 @@ class PropertyHolder(qubes.events.Emitter):
             else:
                 # pylint: disable=no-member
                 self.log.fatal(msg)
+
+    def fire_event(self, event, *args, **kwargs):
+        ''' Fires the event as signal and calls the inherited fire_event method
+        '''
+        result = super(PropertyHolder, self).fire_event(event, *args, **kwargs)
+        self._forward_event(event, *args, **kwargs)
+        return result
+
+    def _forward_event(self, event, *args, **kwargs):
+        ''' Forward the event to each registered receiver '''
+        for proxy in self.proxies:
+            try:
+                proxy.forward(self, event, *args, **kwargs)
+            except Exception as exc:  # pylint: disable=broad-except
+                msg = "Can not send event {!r} to the receiver {!r}".format(
+                    event, proxy)
+                try:
+                    # pylint: disable=no-member
+                    self.log.warn(msg)
+                    self.log.exception(exc)
+                except:  # pylint: disable=bare-except
+                    print(msg, file=sys.stderr)
+
 
 # pylint: disable=wrong-import-position
 from qubes.vm import VMProperty
