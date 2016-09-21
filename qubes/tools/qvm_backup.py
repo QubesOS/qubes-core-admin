@@ -91,8 +91,7 @@ def main(args=None):
         except KeyError:
             parser.error('no such domain: {!r}'.format(args.appvm))
         args.app.log.info(("NOTE: VM {} will be excluded because it is "
-               "the backup destination.").format(args.appvm),
-            file=sys.stderr)
+               "the backup destination.").format(args.appvm))
 
     if appvm:
         args.exclude_list.append(appvm.name)
@@ -137,7 +136,7 @@ def main(args=None):
             appvm.start()
 
     if not args.encrypted:
-        args.app.log.info("WARNING: The backup will NOT be encrypted!", file=sys.stderr)
+        args.app.log.info("WARNING: The backup will NOT be encrypted!")
 
     if args.pass_file is not None:
         pass_f = open(args.pass_file) if args.pass_file != "-" else sys.stdin

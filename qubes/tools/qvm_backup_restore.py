@@ -3,7 +3,7 @@
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
-# Copyright (C) 2016 Marek Marczykowski-Górecki 
+# Copyright (C) 2016 Marek Marczykowski-Górecki
 #                               <marmarek@invisiblethingslab.com>
 #
 # This program is free software; you can redistribute it and/or modify
@@ -89,7 +89,104 @@ parser.add_argument('vms', nargs='*', action='store', default='[]',
     help='Restore only those VMs')
 
 
+def handle_broken(app, args, restore_info):
+    there_are_conflicting_vms = False
+    there_are_missing_templates = False
+    there_are_missing_netvms = False
+    dom0_username_mismatch = False
+
+    for vm_info in restore_info.values():
+        assert isinstance(vm_info, qubes.backup.BackupRestore.VMToRestore)
+        if qubes.backup.BackupRestore.VMToRestore.EXCLUDED in vm_info.problems:
+            continue
+        if qubes.backup.BackupRestore.VMToRestore.MISSING_TEMPLATE in \
+                vm_info.problems:
+            there_are_missing_templates = True
+        if qubes.backup.BackupRestore.VMToRestore.MISSING_NETVM in \
+                vm_info.problems:
+            there_are_missing_netvms = True
+        if qubes.backup.BackupRestore.VMToRestore.ALREADY_EXISTS in \
+                vm_info.problems:
+            there_are_conflicting_vms = True
+        if qubes.backup.BackupRestore.Dom0ToRestore.USERNAME_MISMATCH in \
+                vm_info.problems:
+            dom0_username_mismatch = True
+
+
+    if there_are_conflicting_vms:
+        app.log.error(
+            "*** There are VMs with conflicting names on the host! ***")
+        if args.skip_conflicting:
+            app.log.error(
+                "Those VMs will not be restored. "
+                "The host VMs will NOT be overwritten.")
+        else:
+            raise qubes.exc.QubesException(
+                "Remove VMs with conflicting names from the host "
+                "before proceeding.\n"
+                "Or use --skip-conflicting to restore only those VMs that "
+                "do not exist on the host.\n"
+                "Or use --rename-conflicting to restore those VMs under "
+                "modified names (with numbers at the end).")
+
+    app.log.info("The above VMs will be copied and added to your system.")
+    app.log.info("Exisiting VMs will NOT be removed.")
+
+    if there_are_missing_templates:
+        app.log.warning("*** One or more TemplateVMs are missing on the "
+                           "host! ***")
+        if not (args.skip_broken or args.ignore_missing):
+            raise qubes.exc.QubesException(
+                "Install them before proceeding with the restore."
+                "Or pass: --skip-broken or --ignore-missing.")
+        elif args.skip_broken:
+            app.log.warning("Skipping broken entries: VMs that depend on "
+                                 "missing TemplateVMs will NOT be restored.")
+        elif args.ignore_missing:
+            app.log.warning("Ignoring missing entries: VMs that depend "
+                               "on missing TemplateVMs will NOT be restored.")
+        else:
+            raise qubes.exc.QubesException(
+                "INTERNAL ERROR! Please report this to the Qubes OS team!")
+
+    if there_are_missing_netvms:
+        app.log.warning("*** One or more NetVMs are missing on the "
+                           "host! ***")
+        if not (args.skip_broken or args.ignore_missing):
+            raise qubes.exc.QubesException(
+                "Install them before proceeding with the restore."
+                "Or pass: --skip-broken or --ignore-missing.")
+        elif args.skip_broken:
+            app.log.warning("Skipping broken entries: VMs that depend on "
+                               "missing NetVMs will NOT be restored.")
+        elif args.ignore_missing:
+            app.log.warning("Ignoring missing entries: VMs that depend "
+                               "on missing NetVMs will NOT be restored.")
+        else:
+            raise qubes.exc.QubesException(
+                "INTERNAL ERROR! Please report this to the Qubes OS team!")
+
+    if 'dom0' in restore_info.keys() and args.dom0_home:
+        if dom0_username_mismatch:
+            app.log.warning("*** Dom0 username mismatch! This can break "
+                               "some settings! ***")
+            if not args.ignore_username_mismatch:
+                raise qubes.exc.QubesException(
+                    "Skip restoring the dom0 home directory "
+                    "(--skip-dom0-home), or pass "
+                    "--ignore-username-mismatch to continue anyway.")
+            else:
+                app.log.warning("Continuing as directed.")
+        app.log.warning("NOTE: Before restoring the dom0 home directory, "
+            "a new directory named "
+            "'home-pre-restore-<current-time>' will be "
+            "created inside the dom0 home directory. If any "
+            "restored files conflict with existing files, "
+            "the existing files will be moved to this new "
+            "directory.")
+
 def main(args=None):
+    # pylint: disable=too-many-return-statements
     args = parser.parse_args(args)
 
     appvm = None
@@ -109,6 +206,7 @@ def main(args=None):
                                      "and (if encrypted) decrypt the backup: ")
 
     encoding = sys.stdin.encoding or locale.getpreferredencoding()
+    # pylint: disable=redefined-variable-type
     passphrase = passphrase.decode(encoding)
 
     args.app.log.info("Checking backup content...")
@@ -145,108 +243,10 @@ def main(args=None):
 
     print(backup.get_restore_summary(restore_info))
 
-    there_are_conflicting_vms = False
-    there_are_missing_templates = False
-    there_are_missing_netvms = False
-    dom0_username_mismatch = False
-
-    for vm_info in restore_info.values():
-        assert isinstance(vm_info, qubes.backup.BackupRestore.VMToRestore)
-        if qubes.backup.BackupRestore.VMToRestore.EXCLUDED in vm_info.problems:
-            continue
-        if qubes.backup.BackupRestore.VMToRestore.MISSING_TEMPLATE in \
-                vm_info.problems:
-            there_are_missing_templates = True
-        if qubes.backup.BackupRestore.VMToRestore.MISSING_NETVM in \
-                vm_info.problems:
-            there_are_missing_netvms = True
-        if qubes.backup.BackupRestore.VMToRestore.ALREADY_EXISTS in \
-                vm_info.problems:
-            there_are_conflicting_vms = True
-        if qubes.backup.BackupRestore.Dom0ToRestore.USERNAME_MISMATCH in \
-                vm_info.problems:
-            dom0_username_mismatch = True
-
-
-    if there_are_conflicting_vms:
-        args.app.log.error(
-            "*** There are VMs with conflicting names on the host! ***")
-        if args.skip_conflicting:
-            args.app.log.error(
-                "Those VMs will not be restored. "
-                "The host VMs will NOT be overwritten.")
-        else:
-            args.app.log.error(
-                "Remove VMs with conflicting names from the host "
-                "before proceeding.")
-            args.app.log.error(
-                "Or use --skip-conflicting to restore only those VMs that "
-                "do not exist on the host.")
-            args.app.log.error(
-                "Or use --rename-conflicting to restore those VMs under "
-                "modified names (with numbers at the end).")
-            return 1
-
-    args.app.log.info("The above VMs will be copied and added to your system.")
-    args.app.log.info("Exisiting VMs will NOT be removed.")
-
-    if there_are_missing_templates:
-        args.app.log.error("*** One or more TemplateVMs are missing on the "
-                           "host! ***")
-        if not (args.skip_broken or args.ignore_missing):
-            args.app.log.error("Install them before proceeding with the "
-                                 "restore.")
-            args.app.log.error("Or pass: --skip-broken or --ignore-missing.")
-            return 1
-        elif args.skip_broken:
-            args.app.log.error("Skipping broken entries: VMs that depend on "
-                                 "missing TemplateVMs will NOT be restored.")
-        elif args.ignore_missing:
-            args.app.log.error("Ignoring missing entries: VMs that depend "
-                               "on missing TemplateVMs will NOT be restored.")
-        else:
-            args.app.log.error("INTERNAL ERROR! Please report this to the "
-                               "Qubes OS team!")
-            return 1
-
-    if there_are_missing_netvms:
-        args.app.log.error("*** One or more NetVMs are missing on the "
-                           "host! ***")
-        if not (args.skip_broken or args.ignore_missing):
-            args.app.log.error("Install them before proceeding with the "
-                               "restore.")
-            args.app.log.error("Or pass: --skip-broken or --ignore-missing.")
-            return 1
-        elif args.skip_broken:
-            args.app.log.error("Skipping broken entries: VMs that depend on "
-                               "missing NetVMs will NOT be restored.")
-        elif args.ignore_missing:
-            args.app.log.error("Ignoring missing entries: VMs that depend "
-                               "on missing NetVMs will NOT be restored.")
-        else:
-            args.app.log.error("INTERNAL ERROR! Please report this to the "
-                               "Qubes OS team!")
-            return 1
-
-    if 'dom0' in restore_info.keys() and args.dom0_home:
-        if dom0_username_mismatch:
-            args.app.log.error("*** Dom0 username mismatch! This can break "
-                               "some settings! ***")
-            if not args.ignore_username_mismatch:
-                args.app.log.error("Skip restoring the dom0 home directory "
-                                   "(--skip-dom0-home), or pass "
-                                   "--ignore-username-mismatch to continue "
-                                   "anyway.")
-                return 1
-            else:
-                args.app.log.error("Continuing as directed.")
-        args.app.log.error("NOTE: Before restoring the dom0 home directory, "
-            "a new directory named "
-            "'home-pre-restore-<current-time>' will be "
-            "created inside the dom0 home directory. If any "
-            "restored files conflict with existing files, "
-            "the existing files will be moved to this new "
-            "directory.")
+    try:
+        handle_broken(args.app, args, restore_info)
+    except qubes.exc.QubesException as e:
+        parser.error_runtime(str(e))
 
     if args.pass_file is None:
         if raw_input("Do you want to proceed? [y/N] ").upper() != "Y":
