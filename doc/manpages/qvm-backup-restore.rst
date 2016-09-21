@@ -15,6 +15,15 @@ Options
 
     Show this help message and exit
 
+.. option:: --verbose, -v
+
+   Increase verbosity
+
+.. option:: --quiet, -q
+
+   Decrease verbosity
+
+
 .. option:: --verify-only
 
     Do not restore the data, only verify backup integrity
@@ -30,6 +39,10 @@ Options
 .. option:: --skip-conflicting
 
     Do not restore VMs that are already present on the host
+
+.. option:: --rename-conflicting
+
+   Restore VMs that are already present on the host under different names
 
 .. option:: --force-root
 
@@ -56,17 +69,11 @@ Options
 
     Restore from a backup located in a specific AppVM
 
-.. option:: --encrypted, -e
+.. option:: --passphrase-file, -p
 
-    The backup is encrypted
+   Read passphrase from file, or use '-' to read from stdin
 
-.. option:: --compressed. -z
 
-    The backup is compressed
-
-.. option:: --debug
-
-    Enable (a lot of) debug output
 
 Authors
 =======

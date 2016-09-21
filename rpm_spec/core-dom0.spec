@@ -250,6 +250,8 @@ fi
 %{python_sitelib}/qubes/tools/qubes_prefs.py*
 %{python_sitelib}/qubes/tools/qvm_block.py*
 %{python_sitelib}/qubes/tools/qubes_lvm.py*
+%{python_sitelib}/qubes/tools/qvm_backup.py*
+%{python_sitelib}/qubes/tools/qvm_backup_restore.py*
 %{python_sitelib}/qubes/tools/qvm_create.py*
 %{python_sitelib}/qubes/tools/qvm_device.py*
 %{python_sitelib}/qubes/tools/qvm_features.py*
