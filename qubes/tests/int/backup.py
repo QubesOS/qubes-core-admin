@@ -94,18 +94,19 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
         f.close()
 
     # NOTE: this was create_basic_vms
-    def create_backup_vms(self):
+    def create_backup_vms(self, pool=None):
         template = self.app.default_template
 
         vms = []
         vmname = self.make_vm_name('test-net')
         self.log.debug("Creating %s" % vmname)
         testnet = self.app.add_new_vm(qubes.vm.appvm.AppVM,
-            name=vmname, template=template, provides_network=True, label='red')
-        testnet.create_on_disk()
+            name=vmname, template=template, provides_network=True,
+            label='red')
+        testnet.create_on_disk(pool=pool)
         testnet.features['services/ntpd'] = True
         vms.append(testnet)
-        self.fill_image(testnet.volumes['private'].path, 20*1024*1024)
+        self.fill_image(testnet.storage.export('private'), 20*1024*1024)
 
         vmname = self.make_vm_name('test1')
         self.log.debug("Creating %s" % vmname)
@@ -113,9 +114,9 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
             name=vmname, template=template, label='red')
         testvm1.uses_default_netvm = False
         testvm1.netvm = testnet
-        testvm1.create_on_disk()
+        testvm1.create_on_disk(pool=pool)
         vms.append(testvm1)
-        self.fill_image(testvm1.volumes['private'].path, 100*1024*1024)
+        self.fill_image(testvm1.storage.export('private'), 100 * 1024 * 1024)
 
         vmname = self.make_vm_name('testhvm1')
         self.log.debug("Creating %s" % vmname)
@@ -123,23 +124,24 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
                                       name=vmname,
                                       hvm=True,
                                       label='red')
-        testvm2.create_on_disk()
-        self.fill_image(testvm2.volumes['root'].path, 1024 * 1024 * 1024, True)
+        testvm2.create_on_disk(pool=pool)
+        self.fill_image(testvm2.storage.export('root'), 1024 * 1024 * 1024, \
+            True)
         vms.append(testvm2)
 
         vmname = self.make_vm_name('template')
         self.log.debug("Creating %s" % vmname)
         testvm3 = self.app.add_new_vm(qubes.vm.templatevm.TemplateVM,
             name=vmname, label='red')
-        testvm3.create_on_disk()
-        self.fill_image(testvm3.volumes['root'].path, 100 * 1024 * 1024, True)
+        testvm3.create_on_disk(pool=pool)
+        self.fill_image(testvm3.storage.export('root'), 100 * 1024 * 1024, True)
         vms.append(testvm3)
 
         vmname = self.make_vm_name('custom')
         self.log.debug("Creating %s" % vmname)
         testvm4 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=vmname, template=testvm3, label='red')
-        testvm4.create_on_disk()
+        testvm4.create_on_disk(pool=pool)
         vms.append(testvm4)
 
         self.app.save()
@@ -327,9 +329,9 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.QubesTestCase):
         self.fill_image(
             os.path.join(hvmtemplate.dir_path, '00file'),
             195 * 1024 * 1024 - 4096 * 3)
-        self.fill_image(hvmtemplate.volumes['private'].path,
+        self.fill_image(hvmtemplate.storage.export('private'),
                         195 * 1024 * 1024 - 4096 * 3)
-        self.fill_image(hvmtemplate.volumes['root'].path, 1024 * 1024 * 1024,
+        self.fill_image(hvmtemplate.storage.export('root'), 1024 * 1024 * 1024,
                         sparse=True)
         vms.append(hvmtemplate)
         self.app.save()
