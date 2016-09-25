@@ -33,7 +33,9 @@ import sys
 import qubes
 import qubes.backup
 import qubes.exc
+import qubes.storage.lvm
 import qubes.tests
+import qubes.tests.storage_lvm
 import qubes.vm
 import qubes.vm.appvm
 import qubes.vm.templatevm
@@ -395,6 +397,35 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.QubesTestCase):
                 restored_vm = self.app.domains[vm.name + '1']
             if vm.netvm and not vm.property_is_default('netvm'):
                 self.assertEqual(restored_vm.netvm.name, vm.netvm.name + '1')
+
+    def _find_pool(self, volume_group, thin_pool):
+        ''' Returns the pool matching the specified ``volume_group`` &
+            ``thin_pool``, or None.
+        '''
+        pools = [p for p in self.app.pools
+                 if issubclass(p.__class__, qubes.storage.lvm.ThinPool)]
+        for pool in pools:
+            if pool.volume_group == volume_group \
+                    and pool.thin_pool == thin_pool:
+                return pool
+        return None
+
+    @qubes.tests.storage_lvm.skipUnlessLvmPoolExists
+    def test_300_backup_lvm(self):
+        volume_group, thin_pool = \
+            qubes.tests.storage_lvm.DEFAULT_LVM_POOL.split('/', 1)
+        self.pool = self._find_pool(volume_group, thin_pool)
+        if not self.pool:
+            self.pool = self.app.add_pool(
+                **qubes.tests.storage_lvm.POOL_CONF)
+            self.created_pool = True
+        vms = self.create_backup_vms(pool=self.pool)
+        orig_hashes = self.vm_checksum(vms)
+        self.make_backup(vms)
+        self.remove_vms(reversed(vms))
+        self.restore_backup()
+        self.assertCorrectlyRestored(vms, orig_hashes)
+        self.remove_vms(reversed(vms))
 
 
 class TC_10_BackupVMMixin(BackupTestsMixin):
