@@ -86,7 +86,7 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
             size = f.tell()
         f.seek(0)
 
-        for block_num in xrange(size/block_size):
+        for block_num in range(size/block_size):
             f.write('a' * block_size)
             if sparse:
                 f.seek(block_size, 1)
@@ -183,7 +183,7 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
             restore_op = qubes.backup.BackupRestore(
                 self.app, backupfile, appvm, "qubes")
             if options:
-                for key, value in options.iteritems():
+                for key, value in options.items():
                     setattr(restore_op.options, key, value)
             restore_info = restore_op.get_restore_info()
         self.log.debug(restore_op.get_restore_summary(restore_info))
