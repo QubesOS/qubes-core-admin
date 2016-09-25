@@ -100,7 +100,12 @@ class ThinPool(qubes.storage.Pool):
 
     def export(self, volume):
         ''' Returns an object that can be `open()`. '''
-        return '/dev/' + volume.vid
+        devpath = '/dev/' + volume.vid
+        if not os.access(devpath, os.R_OK):
+            # FIXME: convert to udev rules, and drop after introducing qubesd
+            subprocess.check_call(['sudo', 'chgrp', 'qubes', devpath])
+            subprocess.check_call(['sudo', 'chmod', 'g+rw', devpath])
+        return devpath
 
     def init_volume(self, vm, volume_config):
         ''' Initialize a :py:class:`qubes.storage.Volume` from `volume_config`.
