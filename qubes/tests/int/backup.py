@@ -56,10 +56,8 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
         except AttributeError:
             self.init_default_template()
         self.error_detected = multiprocessing.Queue()
-        self.verbose = False
 
-        if self.verbose:
-            print >>sys.stderr, "-> Creating backupvm"
+        self.log.debug("Creating backupvm")
 
         self.backupdir = os.path.join(os.environ["HOME"], "test-backup")
         if os.path.exists(self.backupdir):
@@ -81,8 +79,7 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
     def fill_image(self, path, size=None, sparse=False):
         block_size = 4096
 
-        if self.verbose:
-            print >>sys.stderr, "-> Filling %s" % path
+        self.log.debug("Filling %s" % path)
         f = open(path, 'w+')
         if size is None:
             f.seek(0, 2)
@@ -102,8 +99,7 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
 
         vms = []
         vmname = self.make_vm_name('test-net')
-        if self.verbose:
-            print >>sys.stderr, "-> Creating %s" % vmname
+        self.log.debug("Creating %s" % vmname)
         testnet = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=vmname, template=template, provides_network=True, label='red')
         testnet.create_on_disk()
@@ -112,8 +108,7 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
         self.fill_image(testnet.volumes['private'].path, 20*1024*1024)
 
         vmname = self.make_vm_name('test1')
-        if self.verbose:
-            print >>sys.stderr, "-> Creating %s" % vmname
+        self.log.debug("Creating %s" % vmname)
         testvm1 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=vmname, template=template, label='red')
         testvm1.uses_default_netvm = False
@@ -123,8 +118,7 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
         self.fill_image(testvm1.volumes['private'].path, 100*1024*1024)
 
         vmname = self.make_vm_name('testhvm1')
-        if self.verbose:
-            print >>sys.stderr, "-> Creating %s" % vmname
+        self.log.debug("Creating %s" % vmname)
         testvm2 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
                                       name=vmname,
                                       hvm=True,
@@ -134,8 +128,7 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
         vms.append(testvm2)
 
         vmname = self.make_vm_name('template')
-        if self.verbose:
-            print >>sys.stderr, "-> Creating %s" % vmname
+        self.log.debug("Creating %s" % vmname)
         testvm3 = self.app.add_new_vm(qubes.vm.templatevm.TemplateVM,
             name=vmname, label='red')
         testvm3.create_on_disk()
@@ -143,8 +136,7 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
         vms.append(testvm3)
 
         vmname = self.make_vm_name('custom')
-        if self.verbose:
-            print >>sys.stderr, "-> Creating %s" % vmname
+        self.log.debug("Creating %s" % vmname)
         testvm4 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=vmname, template=testvm3, label='red')
         testvm4.create_on_disk()
@@ -194,8 +186,7 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
                 for key, value in options.iteritems():
                     setattr(restore_op.options, key, value)
             restore_info = restore_op.get_restore_info()
-        if self.verbose:
-            print restore_op.get_restore_summary(restore_info)
+        self.log.debug(restore_op.get_restore_summary(restore_info))
 
         with self.assertNotRaises(qubes.exc.QubesException):
             restore_op.restore_do(restore_info)
@@ -328,8 +319,7 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.QubesTestCase):
         vms = []
 
         vmname = self.make_vm_name('testhvm2')
-        if self.verbose:
-            print >>sys.stderr, "-> Creating %s" % vmname
+        self.log.debug("Creating %s" % vmname)
 
         hvmtemplate = self.app.add_new_vm(
             qubes.vm.templatevm.TemplateVM, name=vmname, hvm=True, label='red')
