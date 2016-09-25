@@ -22,6 +22,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+import hashlib
 import logging
 import multiprocessing
 
@@ -36,7 +37,7 @@ import qubes.tests
 import qubes.vm
 import qubes.vm.appvm
 import qubes.vm.templatevm
-
+import qubes.vm.qubesvm
 
 # noinspection PyAttributeOutsideInit
 class BackupTestsMixin(qubes.tests.SystemTestsMixin):
@@ -224,14 +225,31 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
         f.truncate(size)
         f.close()
 
-
-class TC_00_Backup(BackupTestsMixin, qubes.tests.QubesTestCase):
-    def test_000_basic_backup(self):
-        vms = self.create_backup_vms()
-        self.make_backup(vms)
-        self.remove_vms(reversed(vms))
-        self.restore_backup()
+    def vm_checksum(self, vms):
+        hashes = {}
         for vm in vms:
+            assert isinstance(vm, qubes.vm.qubesvm.QubesVM)
+            hashes[vm.name] = {}
+            for name, volume in vm.volumes.items():
+                if not volume.rw or not volume.save_on_stop:
+                    continue
+                vol_path = vm.storage.get_pool(volume).export(volume)
+                hasher = hashlib.sha1()
+                with open(vol_path) as afile:
+                    for buf in iter(lambda: afile.read(4096000), b''):
+                        hasher.update(buf)
+                hashes[vm.name][name] = hasher.hexdigest()
+        return hashes
+
+    def assertCorrectlyRestored(self, orig_vms, orig_hashes):
+        ''' Verify if restored VMs are identical to those before backup.
+
+        :param orig_vms: collection of original QubesVM objects
+        :param orig_hashes: result of :py:meth:`vm_checksum` on original VMs,
+            before backup
+        :return:
+        '''
+        for vm in orig_vms:
             self.assertIn(vm.name, self.app.domains)
             restored_vm = self.app.domains[vm.name]
             for prop in ('name', 'kernel',
@@ -261,35 +279,50 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.QubesTestCase):
                             vm.name, prop))
             for dev_class in vm.devices.keys():
                 for dev in vm.devices[dev_class]:
-                    self.assertIn(dev, restored_vm.devices[dev_class])
+                    self.assertIn(dev, restored_vm.devices[dev_class],
+                        "VM {} - {} device not restored".format(
+                            vm.name, dev_class))
 
-            # TODO: compare disk images
+            if orig_hashes:
+                hashes = self.vm_checksum([restored_vm])[restored_vm.name]
+                self.assertEqual(orig_hashes[vm.name], hashes,
+                    "VM {} - disk images are not properly restored".format(
+                        vm.name))
 
+
+class TC_00_Backup(BackupTestsMixin, qubes.tests.QubesTestCase):
+    def test_000_basic_backup(self):
+        vms = self.create_backup_vms()
+        orig_hashes = self.vm_checksum(vms)
+        self.make_backup(vms)
+        self.remove_vms(reversed(vms))
+        self.restore_backup()
+        self.assertCorrectlyRestored(vms, orig_hashes)
         self.remove_vms(reversed(vms))
 
     def test_001_compressed_backup(self):
         vms = self.create_backup_vms()
+        orig_hashes = self.vm_checksum(vms)
         self.make_backup(vms, compressed=True)
         self.remove_vms(reversed(vms))
         self.restore_backup()
-        for vm in vms:
-            self.assertIn(vm.name, self.app.domains)
+        self.assertCorrectlyRestored(vms, orig_hashes)
 
     def test_002_encrypted_backup(self):
         vms = self.create_backup_vms()
+        orig_hashes = self.vm_checksum(vms)
         self.make_backup(vms, encrypted=True)
         self.remove_vms(reversed(vms))
         self.restore_backup()
-        for vm in vms:
-            self.assertIn(vm.name, self.app.domains)
+        self.assertCorrectlyRestored(vms, orig_hashes)
 
     def test_003_compressed_encrypted_backup(self):
         vms = self.create_backup_vms()
+        orig_hashes = self.vm_checksum(vms)
         self.make_backup(vms, compressed=True, encrypted=True)
         self.remove_vms(reversed(vms))
         self.restore_backup()
-        for vm in vms:
-            self.assertIn(vm.name, self.app.domains)
+        self.assertCorrectlyRestored(vms, orig_hashes)
 
     def test_004_sparse_multipart(self):
         vms = []
@@ -310,21 +343,22 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.QubesTestCase):
                         sparse=True)
         vms.append(hvmtemplate)
         self.app.save()
+        orig_hashes = self.vm_checksum(vms)
 
         self.make_backup(vms)
         self.remove_vms(reversed(vms))
         self.restore_backup()
-        for vm in vms:
-            self.assertIn(vm.name, self.app.domains)
+        self.assertCorrectlyRestored(vms, orig_hashes)
         # TODO check vm.backup_timestamp
 
     def test_005_compressed_custom(self):
         vms = self.create_backup_vms()
+        orig_hashes = self.vm_checksum(vms)
         self.make_backup(vms, compression_filter="bzip2")
         self.remove_vms(reversed(vms))
         self.restore_backup()
-        for vm in vms:
-            self.assertIn(vm.name, self.app.domains)
+        self.assertCorrectlyRestored(vms, orig_hashes)
+
 
     def test_100_backup_dom0_no_restore(self):
         # do not write it into dom0 home itself...
@@ -339,6 +373,7 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.QubesTestCase):
         :return:
         """
         vms = self.create_backup_vms()
+        orig_hashes = self.vm_checksum(vms)
         self.make_backup(vms)
         self.remove_vms(reversed(vms))
         test_dir = vms[0].dir_path
@@ -350,6 +385,7 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.QubesTestCase):
                 '*** Directory {} already exists! It has been moved'.format(
                     test_dir)
             ])
+        self.assertCorrectlyRestored(vms, orig_hashes)
 
     def test_210_auto_rename(self):
         """
