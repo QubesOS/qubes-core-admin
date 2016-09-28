@@ -427,6 +427,28 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.QubesTestCase):
         self.assertCorrectlyRestored(vms, orig_hashes)
         self.remove_vms(reversed(vms))
 
+    @qubes.tests.storage_lvm.skipUnlessLvmPoolExists
+    def test_301_restore_to_lvm(self):
+        volume_group, thin_pool = \
+            qubes.tests.storage_lvm.DEFAULT_LVM_POOL.split('/', 1)
+        self.pool = self._find_pool(volume_group, thin_pool)
+        if not self.pool:
+            self.pool = self.app.add_pool(
+                **qubes.tests.storage_lvm.POOL_CONF)
+            self.created_pool = True
+        vms = self.create_backup_vms()
+        orig_hashes = self.vm_checksum(vms)
+        self.make_backup(vms)
+        self.remove_vms(reversed(vms))
+        self.restore_backup(options={'override_pool': self.pool.name})
+        self.assertCorrectlyRestored(vms, orig_hashes)
+        for vm in vms:
+            vm = self.app.domains[vm.name]
+            for volume in vm.volumes.values():
+                if volume.save_on_stop:
+                    self.assertEqual(volume.pool, self.pool.name)
+        self.remove_vms(reversed(vms))
+
 
 class TC_10_BackupVMMixin(BackupTestsMixin):
     def setUp(self):
