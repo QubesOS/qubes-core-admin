@@ -579,6 +579,25 @@ class SystemTestsMixin(object):
                 else:
                     os.unlink(dirpath)
 
+    @staticmethod
+    def _remove_vm_disk_lvm(prefix=VMPREFIX):
+        ''' Remove LVM volumes with given prefix
+
+        This is "a bit" drastic, as it removes volumes regardless of volume
+        group, thin pool etc. But we assume no important data on test system.
+        '''
+        try:
+            volumes = subprocess.check_output(
+                ['sudo', 'lvs', '--noheadings', '-o', 'vg_name,name',
+                    '--separator', '/'])
+            if ('/' + prefix) not in volumes:
+                return
+            subprocess.check_call(['sudo', 'lvremove', '-f'] +
+                [vol.strip() for vol in volumes.splitlines()
+                    if ('/' + prefix) in vol],
+                stdout=open(os.devnull, 'w'))
+        except subprocess.CalledProcessError:
+            pass
 
     @classmethod
     def remove_vms(cls, vms):
@@ -623,6 +642,7 @@ class SystemTestsMixin(object):
                     vmnames.add(name)
         for vmname in vmnames:
             cls._remove_vm_disk(vmname)
+        cls._remove_vm_disk_lvm(prefix)
 
     def qrexec_policy(self, service, source, destination, allow=True):
         """
