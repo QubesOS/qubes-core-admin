@@ -89,9 +89,9 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
         f.seek(0)
 
         for block_num in range(size/block_size):
-            f.write('a' * block_size)
             if sparse:
                 f.seek(block_size, 1)
+            f.write('a' * block_size)
 
         f.close()
 
