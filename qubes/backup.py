@@ -26,6 +26,7 @@ import itertools
 import logging
 from qubes.utils import size_to_human
 import sys
+import stat
 import os
 import fcntl
 import subprocess
@@ -931,8 +932,32 @@ class ExtractWorker2(Process):
         debug_msg = filter(msg_re.match, new_lines)
         self.log.debug('tar2_stderr: {}'.format('\n'.join(debug_msg)))
         new_lines = filter(lambda x: not msg_re.match(x), new_lines)
-
+        if self.adjust_output_size:
+            # search for first file size reported by tar, after setting
+            # self.adjust_output_size (so don't look at self.tar2_stderr)
+            # this is used only when extracting single-file archive, so don't
+            #  bother with checking file name
+            file_size_re = re.compile(r"^[^ ]+ [^ ]+/[^ ]+ *([0-9]+) .*")
+            for line in new_lines:
+                match = file_size_re.match(line)
+                if match:
+                    file_size = match.groups()[0]
+                    self.resize_lvm(self.adjust_output_size, file_size)
+                    self.adjust_output_size = None
         self.tar2_stderr += new_lines
+
+    def resize_lvm(self, dev, size):
+        # FIXME: HACK
+        try:
+            subprocess.check_call(
+                ['sudo', 'lvresize', '-f', '-L', str(size) + 'B', dev],
+                stdout=open(os.devnull, 'w'), stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
+            if e.returncode == 3:
+                # already at the right size
+                pass
+            else:
+                raise
 
     def run(self):
         try:
@@ -966,6 +991,15 @@ class ExtractWorker2(Process):
             # is extracted there
             if dirname in self.relocate:
                 old = old.replace(dirname, self.relocate[dirname], 1)
+            try:
+                stat_buf = os.stat(new)
+                if stat.S_ISBLK(stat_buf.st_mode):
+                    # output file is block device (LVM) - adjust its
+                    # size, otherwise it may fail
+                    # from lack of space
+                    self.resize_lvm(new, stat_buf.st_size)
+            except OSError:  # ENOENT
+                pass
             subprocess.check_call(
                 ['dd', 'if='+old, 'of='+new, 'conv=sparse'])
             os.unlink(old)
@@ -1005,16 +1039,26 @@ class ExtractWorker2(Process):
                             self.handle_dir_relocations(
                                 os.path.dirname(inner_name))
                         self.tar2_current_file = None
+                        self.adjust_output_size = None
 
                 inner_name = os.path.relpath(filename.rstrip('.000'))
                 redirect_stdout = None
                 if self.relocate and inner_name in self.relocate:
                     # TODO: add `dd conv=sparse` when removing tar layer
                     tar2_cmdline = ['tar',
-                        '-%sMOf' % ("t" if self.verify_only else "x"),
+                        '-%sMvvOf' % ("t" if self.verify_only else "x"),
                         self.restore_pipe,
                         inner_name]
                     output_file = self.relocate[inner_name]
+                    try:
+                        stat_buf = os.stat(output_file)
+                        if stat.S_ISBLK(stat_buf.st_mode):
+                            # output file is block device (LVM) - adjust its
+                            # size during extraction, otherwise it may fail
+                            # from lack of space
+                            self.adjust_output_size = output_file
+                    except OSError: # ENOENT
+                        pass
                     redirect_stdout = open(output_file, 'w')
                 elif self.relocate and \
                         os.path.dirname(inner_name) in self.relocate:
@@ -1112,6 +1156,7 @@ class ExtractWorker2(Process):
                 self.tar2_process.terminate()
                 self.tar2_process.wait()
                 self.tar2_process = None
+                self.adjust_output_size = None
                 self.log.error("Error while processing '{}': {}".format(
                     self.tar2_current_file, details))
 
@@ -1136,6 +1181,7 @@ class ExtractWorker2(Process):
                             "\n".join(self.tar2_stderr))))
             else:
                 # Finished extracting the tar file
+                self.collect_tar_output()
                 self.tar2_process = None
                 # if that was whole-directory archive, handle
                 # relocated files now
@@ -1144,6 +1190,7 @@ class ExtractWorker2(Process):
                 if os.path.basename(inner_name) == '.':
                     self.handle_dir_relocations(
                         os.path.dirname(inner_name))
+                self.adjust_output_size = None
 
         self.log.debug("Finished extracting thread")
 
@@ -1188,6 +1235,7 @@ class ExtractWorker3(ExtractWorker2):
                                    "\n  ".join(self.tar2_stderr)))
                     else:
                         # Finished extracting the tar file
+                        self.collect_tar_output()
                         self.tar2_process = None
                         # if that was whole-directory archive, handle
                         # relocated files now
@@ -1197,15 +1245,25 @@ class ExtractWorker3(ExtractWorker2):
                             self.handle_dir_relocations(
                                 os.path.dirname(inner_name))
                         self.tar2_current_file = None
+                        self.adjust_output_size = None
 
                 inner_name = os.path.relpath(filename.rstrip('.000'))
                 redirect_stdout = None
                 if self.relocate and inner_name in self.relocate:
                     # TODO: add dd conv=sparse when removing tar layer
                     tar2_cmdline = ['tar',
-                        '-%sO' % ("t" if self.verify_only else "x"),
+                        '-%svvO' % ("t" if self.verify_only else "x"),
                         inner_name]
                     output_file = self.relocate[inner_name]
+                    try:
+                        stat_buf = os.stat(output_file)
+                        if stat.S_ISBLK(stat_buf.st_mode):
+                            # output file is block device (LVM) - adjust its
+                            # size during extraction, otherwise it may fail
+                            # from lack of space
+                            self.adjust_output_size = output_file
+                    except OSError:  # ENOENT
+                        pass
                     redirect_stdout = open(output_file, 'w')
                 elif self.relocate and \
                         os.path.dirname(inner_name) in self.relocate:
@@ -1293,6 +1351,7 @@ class ExtractWorker3(ExtractWorker2):
                 self.tar2_process.terminate()
                 self.tar2_process.wait()
                 self.tar2_process = None
+                self.adjust_output_size = None
                 self.log.error("Error while processing '{}': {}".format(
                     self.tar2_current_file, details))
 
@@ -1320,6 +1379,7 @@ class ExtractWorker3(ExtractWorker2):
                             "\n".join(self.tar2_stderr))))
             else:
                 # Finished extracting the tar file
+                self.collect_tar_output()
                 self.tar2_process = None
                 # if that was whole-directory archive, handle
                 # relocated files now
@@ -1328,6 +1388,7 @@ class ExtractWorker3(ExtractWorker2):
                 if os.path.basename(inner_name) == '.':
                     self.handle_dir_relocations(
                         os.path.dirname(inner_name))
+                self.adjust_output_size = None
 
         self.log.debug("Finished extracting thread")
 
