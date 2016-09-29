@@ -37,7 +37,8 @@ REGEX_OUTPUT = re.compile(r'''
         (?x)                           # ignore whitespace
         ^                              # start of string
         (?P<output>[A-Za-z0-9\-]*)[ ]  # LVDS VGA etc
-        (?P<connect>(dis)?connected)[ ]# dis/connected
+        (?P<connect>(dis)?connected)   # dis/connected
+        ([ ]
         (?P<primary>(primary)?)[ ]?
         ((                             # a group
            (?P<width>\d+)x             # either 1024x768+0+0
@@ -51,6 +52,7 @@ REGEX_OUTPUT = re.compile(r'''
            (?P<height_mm>\d+)mm
         )?
         .*                             # ignore rest of line
+        )?                             # everything after (dis)connect is optional
         ''')
 
 
