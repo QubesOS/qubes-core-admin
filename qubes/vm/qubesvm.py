@@ -699,6 +699,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.libvirt_domain.destroy()
         self.storage.stop()
 
+        self.fire_event_pre('domain-shutdown', force=True)
         return self
 
     def force_shutdown(self, *args, **kwargs):
