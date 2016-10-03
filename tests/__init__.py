@@ -548,7 +548,7 @@ class SystemTestsMixin(object):
                     "menuentry 'Default' {\n"
                     "  linux /vmlinuz root=/dev/xvda1 "
                     "rd.driver.blacklist=bochs_drm "
-                    "rd.driver.blacklist=uhci_hcd\n"
+                    "rd.driver.blacklist=uhci_hcd console=hvc0\n"
                     "  initrd /initrd\n"
                     "}"
                 )
