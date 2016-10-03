@@ -683,6 +683,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         while wait and not self.is_halted():
             time.sleep(0.25)
 
+        self.fire_event_pre('domain-shutdown', force=force)
         return self
 
     def kill(self):
