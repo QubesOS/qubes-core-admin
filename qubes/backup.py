@@ -1004,6 +1004,36 @@ class ExtractWorker2(Process):
                 ['dd', 'if='+old, 'of='+new, 'conv=sparse'])
             os.unlink(old)
 
+    def cleanup_tar2(self, wait=True, terminate=False):
+        if self.tar2_process is None:
+            return
+        if terminate:
+            self.tar2_process.terminate()
+        if wait:
+            self.tar2_process.wait()
+        elif self.tar2_process.poll() is None:
+            return
+        if self.tar2_process.returncode != 0:
+            self.collect_tar_output()
+            self.log.error(
+                "ERROR: unable to extract files for {0}, tar "
+                "output:\n  {1}".
+                    format(self.tar2_current_file,
+                    "\n  ".join(self.tar2_stderr)))
+        else:
+            # Finished extracting the tar file
+            self.collect_tar_output()
+            self.tar2_process = None
+            # if that was whole-directory archive, handle
+            # relocated files now
+            inner_name = os.path.relpath(
+                os.path.splitext(self.tar2_current_file)[0])
+            if os.path.basename(inner_name) == '.':
+                self.handle_dir_relocations(
+                    os.path.dirname(inner_name))
+            self.tar2_current_file = None
+            self.adjust_output_size = None
+
     def __run__(self):
         self.log.debug("Started sending thread")
         self.log.debug("Moving to dir " + self.base_dir)
@@ -1019,27 +1049,7 @@ class ExtractWorker2(Process):
 
             if filename.endswith('.000'):
                 # next file
-                if self.tar2_process is not None:
-                    if self.tar2_process.wait() != 0:
-                        self.collect_tar_output()
-                        self.log.error(
-                            "ERROR: unable to extract files for {0}, tar "
-                            "output:\n  {1}".
-                            format(self.tar2_current_file,
-                                   "\n  ".join(self.tar2_stderr)))
-                    else:
-                        # Finished extracting the tar file
-                        self.collect_tar_output()
-                        self.tar2_process = None
-                        # if that was whole-directory archive, handle
-                        # relocated files now
-                        inner_name = os.path.relpath(
-                            os.path.splitext(self.tar2_current_file)[0])
-                        if os.path.basename(inner_name) == '.':
-                            self.handle_dir_relocations(
-                                os.path.dirname(inner_name))
-                        self.tar2_current_file = None
-                        self.adjust_output_size = None
+                self.cleanup_tar2(wait=True, terminate=False)
 
                 inner_name = os.path.relpath(filename.rstrip('.000'))
                 redirect_stdout = None
@@ -1057,7 +1067,7 @@ class ExtractWorker2(Process):
                             # size during extraction, otherwise it may fail
                             # from lack of space
                             self.adjust_output_size = output_file
-                    except OSError: # ENOENT
+                    except OSError:  # ENOENT
                         pass
                     redirect_stdout = open(output_file, 'w')
                 elif self.relocate and \
@@ -1153,12 +1163,9 @@ class ExtractWorker2(Process):
                     details = "\n".join(self.tar2_stderr)
                 else:
                     details = "%s failed" % run_error
-                self.tar2_process.terminate()
-                self.tar2_process.wait()
-                self.tar2_process = None
-                self.adjust_output_size = None
                 self.log.error("Error while processing '{}': {}".format(
                     self.tar2_current_file, details))
+                self.cleanup_tar2(wait=True, terminate=True)
 
             # Delete the file as we don't need it anymore
             self.log.debug("Removing file " + filename)
@@ -1166,32 +1173,7 @@ class ExtractWorker2(Process):
 
         os.unlink(self.restore_pipe)
 
-        if self.tar2_process is not None:
-            if filename == QUEUE_ERROR:
-                self.tar2_process.terminate()
-                self.tar2_process.wait()
-            elif self.tar2_process.wait() != 0:
-                self.collect_tar_output()
-                raise qubes.exc.QubesException(
-                    "unable to extract files for {0}.{1} Tar command "
-                    "output: %s".
-                    format(self.tar2_current_file,
-                           (" Perhaps the backup is encrypted?"
-                            if not self.encrypted else "",
-                            "\n".join(self.tar2_stderr))))
-            else:
-                # Finished extracting the tar file
-                self.collect_tar_output()
-                self.tar2_process = None
-                # if that was whole-directory archive, handle
-                # relocated files now
-                inner_name = os.path.relpath(
-                    os.path.splitext(self.tar2_current_file)[0])
-                if os.path.basename(inner_name) == '.':
-                    self.handle_dir_relocations(
-                        os.path.dirname(inner_name))
-                self.adjust_output_size = None
-
+        self.cleanup_tar2(wait=True, terminate=(filename == QUEUE_ERROR))
         self.log.debug("Finished extracting thread")
 
 
@@ -1226,26 +1208,7 @@ class ExtractWorker3(ExtractWorker2):
                 # next file
                 if self.tar2_process is not None:
                     input_pipe.close()
-                    if self.tar2_process.wait() != 0:
-                        self.collect_tar_output()
-                        self.log.error(
-                            "ERROR: unable to extract files for {0}, tar "
-                            "output:\n  {1}".
-                            format(self.tar2_current_file,
-                                   "\n  ".join(self.tar2_stderr)))
-                    else:
-                        # Finished extracting the tar file
-                        self.collect_tar_output()
-                        self.tar2_process = None
-                        # if that was whole-directory archive, handle
-                        # relocated files now
-                        inner_name = os.path.relpath(
-                            os.path.splitext(self.tar2_current_file)[0])
-                        if os.path.basename(inner_name) == '.':
-                            self.handle_dir_relocations(
-                                os.path.dirname(inner_name))
-                        self.tar2_current_file = None
-                        self.adjust_output_size = None
+                    self.cleanup_tar2(wait=True, terminate=False)
 
                 inner_name = os.path.relpath(filename.rstrip('.000'))
                 redirect_stdout = None
@@ -1348,12 +1311,9 @@ class ExtractWorker3(ExtractWorker2):
                     self.decryptor_process.terminate()
                     self.decryptor_process.wait()
                     self.decryptor_process = None
-                self.tar2_process.terminate()
-                self.tar2_process.wait()
-                self.tar2_process = None
-                self.adjust_output_size = None
                 self.log.error("Error while processing '{}': {}".format(
                     self.tar2_current_file, details))
+                self.cleanup_tar2(wait=True, terminate=True)
 
             # Delete the file as we don't need it anymore
             self.log.debug("Removing file " + filename)
@@ -1366,29 +1326,7 @@ class ExtractWorker3(ExtractWorker2):
                     self.decryptor_process.terminate()
                     self.decryptor_process.wait()
                     self.decryptor_process = None
-                self.tar2_process.terminate()
-                self.tar2_process.wait()
-            elif self.tar2_process.wait() != 0:
-                self.collect_tar_output()
-                raise qubes.exc.QubesException(
-                    "unable to extract files for {0}.{1} Tar command "
-                    "output: %s".
-                    format(self.tar2_current_file,
-                           (" Perhaps the backup is encrypted?"
-                            if not self.encrypted else "",
-                            "\n".join(self.tar2_stderr))))
-            else:
-                # Finished extracting the tar file
-                self.collect_tar_output()
-                self.tar2_process = None
-                # if that was whole-directory archive, handle
-                # relocated files now
-                inner_name = os.path.relpath(
-                    os.path.splitext(self.tar2_current_file)[0])
-                if os.path.basename(inner_name) == '.':
-                    self.handle_dir_relocations(
-                        os.path.dirname(inner_name))
-                self.adjust_output_size = None
+            self.cleanup_tar2(terminate=(filename == QUEUE_ERROR))
 
         self.log.debug("Finished extracting thread")
 
