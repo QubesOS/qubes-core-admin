@@ -22,6 +22,8 @@ VERSION=2.5
 COPY2VM="dom0"
 SUPPORT_FILES=0
 
+XL_DMESG_PREFIX_REGEX='^(XEN) \(\[[^]]*\] \)\?'
+
 while [ $# -gt 0 ]; do
   case "$1" in
 
@@ -76,6 +78,13 @@ sudo dmidecode > $TEMP_DIR/dmidecode
 xl info > $TEMP_DIR/xl-info
 xl dmesg > $TEMP_DIR/xl-dmesg
 
+if cat $TEMP_DIR/xl-dmesg | grep "$XL_DMESG_PREFIX_REGEX"'Xen version ' > /dev/null; then
+    XL_DMESG_INCOMPLETE=no
+else
+    XL_DMESG_INCOMPLETE=yes
+    echo -e 'WARNING: "xl dmesg" is incomplete. Some information are missing. Please reboot and try again.\n'
+fi
+
 
 BRAND=`cat $TEMP_DIR/dmidecode |grep -A9 "System Information" |grep "Manufacturer:" |cut -d ' ' -f2-`
 PRODUCT=`cat $TEMP_DIR/dmidecode |grep -A9 "System Information" |grep "Product Name:" |cut -d ' ' -f3-`
@@ -101,7 +110,7 @@ XEN_EXTRA=`cat $TEMP_DIR/xl-info |grep xen_extra |cut -d: -f2 |tr -d ' '`
 QUBES=`cat $TEMP_DIR/qubes-release |cut -d '(' -f2 |cut -d ')' -f1`
 XL_VTX=`cat $TEMP_DIR/xl-info |grep xen_caps | grep hvm`
 XL_VTD=`cat $TEMP_DIR/xl-info |grep virt_caps |grep hvm_directio`
-XL_HAP=`cat $TEMP_DIR/xl-dmesg |grep 'HVM: Hardware Assisted Paging (HAP) detected'`
+XL_HAP=`cat $TEMP_DIR/xl-dmesg |grep "$XL_DMESG_PREFIX_REGEX"'HVM: Hardware Assisted Paging (HAP) detected\( but disabled\)\?$'`
 PCRS=`find /sys/devices/ -name pcrs`
 
 FILENAME="Qubes-HCL-${BRAND//[^[:alnum:]]/_}-${PRODUCT//[^[:alnum:]]/_}-$DATE"
@@ -128,10 +137,18 @@ if [[ $XL_VTD ]]
 
 fi
 
-if [ -n "$XL_HAP" ]; then
+if [ $XL_DMESG_INCOMPLETE = yes ]; then
+    HAP=""
+    HAP_VERBOSE='Unknown ("xl dmesg" incomplete)'
+elif [ -n "$XL_HAP" ]; then
     HAP="yes"
+    HAP_VERBOSE="Yes"
+    if [[ "$XL_HAP" =~ "disabled" ]]; then
+        HAP_VERBOSE="Yes (disabled)"
+    fi
 else
     HAP="no"
+    HAP_VERBOSE="No"
 fi
 
 if [[ $PCRS ]]
@@ -159,7 +176,7 @@ echo -e "Net:\n$NET\n"
 echo -e "SCSI:\n$SCSI\n"
 echo -e "HVM:\t\t$VTX"
 echo -e "I/O MMU:\t$VTD"
-echo -e "HAP/SLAT:\t${HAP^}"
+echo -e "HAP/SLAT:\t$HAP_VERBOSE"
 echo -e "TPM:\t\t$TPM"
 echo
 
