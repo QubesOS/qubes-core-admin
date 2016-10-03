@@ -4,7 +4,7 @@ qvm-firewall
 
 NAME
 ====
-qvm-firewall
+qvm-firewall - manage VM's firewall rules
 
 :Date:   2012-04-10
 
