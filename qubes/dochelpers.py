@@ -29,7 +29,7 @@ particularly our custom Sphinx extension.
 '''
 
 import argparse
-import csv
+import json
 import os
 import posixpath
 import re
@@ -52,21 +52,27 @@ SUBCOMMANDS_TITLE = 'COMMANDS'
 OPTIONS_TITLE = 'OPTIONS'
 
 
-def fetch_ticket_info(uri):
+class GithubTicket(object):
+    def __init__(self, data):
+        self.number = data['number']
+        self.summary = data['title']
+        self.uri = data['html_url']
+
+def fetch_ticket_info(app, number):
     '''Fetch info about particular trac ticket given
 
-    :param str uri: URI at which ticket resides
+    :param app: Sphinx app object
+    :param str number: number of the ticket, without #
     :rtype: mapping
     :raises: urllib2.HTTPError
     '''
 
-    data = urllib2.urlopen(uri + '?format=csv').read()
-    reader = csv.reader((line + '\n' for line in data.split('\r\n')),
-        quoting=csv.QUOTE_MINIMAL, quotechar='"')
-
-    return dict(zip(*((cell.decode('utf-8') for cell in row)
-        for row in list(reader)[:2])))
-
+    response = urllib2.urlopen(urllib2.Request(
+        app.config.ticket_base_uri.format(number=number),
+        headers={
+            'Accept': 'application/vnd.github.v3+json',
+            'User-agent': __name__}))
+    return GithubTicket(json.load(response))
 
 def ticket(name, rawtext, text, lineno, inliner, options=None, content=None):
     '''Link to qubes ticket
@@ -91,10 +97,8 @@ def ticket(name, rawtext, text, lineno, inliner, options=None, content=None):
         prb = inliner.problematic(rawtext, rawtext, msg)
         return [prb], [msg]
 
-    app = inliner.document.settings.env.app
-    uri = posixpath.join(app.config.ticket_base_uri, ticketno)
     try:
-        info = fetch_ticket_info(uri)
+        info = fetch_ticket_info(inliner.document.settings.env.app, ticketno)
     except urllib2.HTTPError, e:
         msg = inliner.reporter.error(
             'Error while fetching ticket info: {!s}'.format(e), line=lineno)
@@ -105,8 +109,8 @@ def ticket(name, rawtext, text, lineno, inliner, options=None, content=None):
 
     node = docutils.nodes.reference(
         rawtext,
-        '#{} ({})'.format(ticketno, info['summary']),
-        refuri=uri,
+        '#{} ({})'.format(info.number, info.summary),
+        refuri=info.uri,
         **options)
 
     return [node], []
@@ -423,8 +427,10 @@ def break_to_pdb(app, *dummy):
 
 def setup(app):
     app.add_role('ticket', ticket)
-    app.add_config_value('ticket_base_uri',
-        'https://wiki.qubes-os.org/ticket/', 'env')
+    app.add_config_value(
+        'ticket_base_uri',
+        'https://api.github.com/repos/QubesOS/qubes-issues/issues/{number}',
+        'env')
     app.add_config_value('break_to_pdb', False, 'env')
     app.add_node(versioncheck,
         html=(visit, depart),
