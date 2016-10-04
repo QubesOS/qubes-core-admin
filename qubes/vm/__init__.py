@@ -269,8 +269,12 @@ class BaseVM(qubes.PropertyHolder):
         :param bool prepare_dvm: If we are in the process of preparing \
             DisposableVM
         '''
-        domain_config = self.app.env.get_template('libvirt/xen.xml').render(
-            vm=self, prepare_dvm=prepare_dvm)
+        domain_config = self.app.env.select_template([
+                'libvirt/xen/by-name/{}.xml'.format(self.name),
+                'libvirt/xen-user.xml',
+                'libvirt/xen-dist.xml',
+                'libvirt/xen.xml',
+            ]).render(vm=self, prepare_dvm=prepare_dvm)
         return domain_config
 
 

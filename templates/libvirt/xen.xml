@@ -1,122 +1,134 @@
 <domain type="xen">
-<name>{% if prepare_dvm %}%NAME%{% else %}{{ vm.name }}{% endif %}</name>
-    <uuid>{{ vm.uuid }}</uuid>
-    <memory unit="MiB">{{ vm.maxmem }}</memory>
-    <currentMemory unit="MiB">{{ vm.memory }}</currentMemory>
-    <vcpu placement="static">{{ vm.vcpus }}</vcpu>
+    {% block basic %}
+        <name>{% if prepare_dvm %}%NAME%{% else %}{{ vm.name }}{% endif %}</name>
+        <uuid>{{ vm.uuid }}</uuid>
+        <memory unit="MiB">{{ vm.maxmem }}</memory>
+        <currentMemory unit="MiB">{{ vm.memory }}</currentMemory>
+        <vcpu placement="static">{{ vm.vcpus }}</vcpu>
+    {% endblock %}
     <os>
-    {% if vm.hvm %}
-        <type arch="x86_64" machine="xenfv">hvm</type>
-        <loader>hvmloader</loader>
-        <boot dev="cdrom" />
-        <boot dev="hd" />
-<!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
-    {% else %}
-        <type arch="x86_64" machine="xenpv">linux</type>
-        <kernel>{{ vm.storage.kernels_dir }}/vmlinuz</kernel>
-        <initrd>{{ vm.storage.kernels_dir }}/initramfs</initrd>
-        <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH 3 {{ vm.kernelopts }}</cmdline>
-    {% endif %}
+        {% block os %}
+            {% if vm.hvm %}
+                <type arch="x86_64" machine="xenfv">hvm</type>
+                <loader>hvmloader</loader>
+                <boot dev="cdrom" />
+                <boot dev="hd" />
+            <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
+            {% else %}
+                <type arch="x86_64" machine="xenpv">linux</type>
+                <kernel>{{ vm.storage.kernels_dir }}/vmlinuz</kernel>
+                <initrd>{{ vm.storage.kernels_dir }}/initramfs</initrd>
+                <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH 3 {{ vm.kernelopts }}</cmdline>
+            {% endif %}
+        {% endblock %}
     </os>
 
     <features>
-        {% if vm.hvm %}
-            <pae/>
-            <acpi/>
-            <apic/>
-            <viridian/>
-        {% endif %}
+        {% block features %}
+            {% if vm.hvm %}
+                <pae/>
+                <acpi/>
+                <apic/>
+                <viridian/>
+            {% endif %}
 
-        {% if vm.devices['pci'].attached(persistent=True) | list
-                and vm.features.get('pci-e820-host', True) %}
-            <xen>
-                <e820_host state="on"/>
-            </xen>
-        {% endif %}
+            {% if vm.devices['pci'].attached(persistent=True) | list
+                    and vm.features.get('pci-e820-host', True) %}
+                <xen>
+                    <e820_host state="on"/>
+                </xen>
+            {% endif %}
+        {% endblock %}
     </features>
 
-    {% if vm.hvm %}
-        {% set timezone = vm.features.check_with_template('timezone', 'localtime').lower() %}
-        {% if timezone == 'localtime' %}
-            <clock offset="variable" adjustment="0" basis="localtime" />
-        {% elif timezone.isdigit() %}
-            <clock offset="variable" adjustment="{{ timezone }}" basis="UTC" />
-        {% else %}
-            <clock offset="variable" adjustment="0" basis="UTC" />
-        {% endif %}
-    {% else %}
-        <clock offset='utc' adjustment='reset'>
-            <timer name="tsc" mode="native"/>
-        </clock>
-    {% endif %}
-
-    <on_poweroff>destroy</on_poweroff>
-    <on_reboot>destroy</on_reboot>
-    <on_crash>destroy</on_crash>
-    <devices>
-        {% set i = 0 %}
-        {# TODO Allow more volumes out of the box #}
-        {% set dd = ['e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p',
-            'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y']
-        %}
-        {% for device in vm.block_devices %}
-            <disk type="block" device="{{ device.devtype }}">
-                <driver name="phy" />
-                <source dev="{{ device.path }}" />
-                {% if device.name == 'root' %}
-                    <target dev="xvda" />
-                {% elif device.name == 'private' %}
-                    <target dev="xvdb" />
-                {% elif device.name == 'volatile' %}
-                    <target dev="xvdc" />
-                {% elif device.name == 'kernel' %}
-                    <target dev="xvdd" />
-                {% else %}
-                    <target dev="xvd{{dd[i]}}" />
-                    {% set i = i + 1 %}
-                {% endif %}
-
-                {% if not device.rw %}
-                    <readonly />
-                {% endif %}
-
-                {% if device.domain %}
-                    <backenddomain name="{{ domain }}" />
-                {% endif %}
-
-                {% if device.script %}
-                    <script path="{{ device.script }}" />
-                {% endif %}
-            </disk>
-        {% endfor %}
-
-        {% if vm.netvm %}
-            {% include 'libvirt/devices/net.xml' with context %}
-        {% endif %}
-
-        {% for device in vm.devices.pci.attached(persistent=True) %}
-            {% include 'libvirt/devices/pci.xml' %}
-        {% endfor %}
-
+    {% block clock %}
         {% if vm.hvm %}
-            <emulator
-                type="stubdom"
-                {% if vm.netvm %}
-                    cmdline="-net lwip,client_ip={{ vm.ip -}}
-                        ,server_ip={{ vm.secondary_dns -}}
-                        ,dns={{ vm.netvm.gateway -}}
-                        ,gw={{ self.netvm.gateway -}}
-                        ,netmask={{ vm.netmask }}"
-                {% endif %}
-                />
-            <input type="tablet" bus="usb"/>
-            <video type="vga"/>
+            {% set timezone = vm.features.check_with_template('timezone', 'localtime').lower() %}
+            {% if timezone == 'localtime' %}
+                <clock offset="variable" adjustment="0" basis="localtime" />
+            {% elif timezone.isdigit() %}
+                <clock offset="variable" adjustment="{{ timezone }}" basis="UTC" />
+            {% else %}
+                <clock offset="variable" adjustment="0" basis="UTC" />
+            {% endif %}
         {% else %}
-            <console type="pty">
-                <target type="xen" port="0"/>
-            </console>
+            <clock offset='utc' adjustment='reset'>
+                <timer name="tsc" mode="native"/>
+            </clock>
         {% endif %}
+    {% endblock %}
 
+    {% block on %}
+        <on_poweroff>destroy</on_poweroff>
+        <on_reboot>destroy</on_reboot>
+        <on_crash>destroy</on_crash>
+    {% endblock %}
+
+    <devices>
+        {% block devices %}
+            {% set i = 0 %}
+            {# TODO Allow more volumes out of the box #}
+            {% set dd = ['e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p',
+                'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y']
+            %}
+            {% for device in vm.block_devices %}
+                <disk type="block" device="{{ device.devtype }}">
+                    <driver name="phy" />
+                    <source dev="{{ device.path }}" />
+                    {% if device.name == 'root' %}
+                        <target dev="xvda" />
+                    {% elif device.name == 'private' %}
+                        <target dev="xvdb" />
+                    {% elif device.name == 'volatile' %}
+                        <target dev="xvdc" />
+                    {% elif device.name == 'kernel' %}
+                        <target dev="xvdd" />
+                    {% else %}
+                        <target dev="xvd{{dd[i]}}" />
+                        {% set i = i + 1 %}
+                    {% endif %}
+
+                    {% if not device.rw %}
+                        <readonly />
+                    {% endif %}
+
+                    {% if device.domain %}
+                        <backenddomain name="{{ domain }}" />
+                    {% endif %}
+
+                    {% if device.script %}
+                        <script path="{{ device.script }}" />
+                    {% endif %}
+                </disk>
+            {% endfor %}
+
+            {% if vm.netvm %}
+                {% include 'libvirt/devices/net.xml' with context %}
+            {% endif %}
+
+            {% for device in vm.devices.pci.attached(persistent=True) %}
+                {% include 'libvirt/devices/pci.xml' %}
+            {% endfor %}
+
+            {% if vm.hvm %}
+                <emulator
+                    type="stubdom"
+                    {% if vm.netvm %}
+                        cmdline="-net lwip,client_ip={{ vm.ip -}}
+                            ,server_ip={{ vm.secondary_dns -}}
+                            ,dns={{ vm.netvm.gateway -}}
+                            ,gw={{ self.netvm.gateway -}}
+                            ,netmask={{ vm.netmask }}"
+                    {% endif %}
+                    />
+                <input type="tablet" bus="usb"/>
+                <video type="vga"/>
+            {% else %}
+                <console type="pty">
+                    <target type="xen" port="0"/>
+                </console>
+            {% endif %}
+        {% endblock %}
     </devices>
 </domain>
  

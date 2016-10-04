@@ -26,6 +26,7 @@ manpages and API documentation. For primary user documentation, see
 .. toctree::
    :maxdepth: 1
 
+   libvirt
    autoxml
    manpages/index
 

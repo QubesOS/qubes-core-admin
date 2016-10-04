@@ -625,7 +625,10 @@ class Qubes(qubes.PropertyHolder):
 
         #: jinja2 environment for libvirt XML templates
         self.env = jinja2.Environment(
-            loader=jinja2.FileSystemLoader('/usr/share/qubes/templates'),
+            loader=jinja2.FileSystemLoader([
+                '/etc/qubes/templates',
+                '/usr/share/qubes/templates',
+            ]),
             undefined=jinja2.StrictUndefined)
 
         if load:
