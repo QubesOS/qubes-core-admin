@@ -1026,8 +1026,8 @@ class ExtractWorker2(Process):
             self.tar2_process = None
             # if that was whole-directory archive, handle
             # relocated files now
-            inner_name = os.path.relpath(
-                os.path.splitext(self.tar2_current_file)[0])
+            inner_name = os.path.splitext(self.tar2_current_file)[0]\
+                .replace(self.base_dir + '/', '')
             if os.path.basename(inner_name) == '.':
                 self.handle_dir_relocations(
                     os.path.dirname(inner_name))
@@ -1051,7 +1051,8 @@ class ExtractWorker2(Process):
                 # next file
                 self.cleanup_tar2(wait=True, terminate=False)
 
-                inner_name = os.path.relpath(filename.rstrip('.000'))
+                inner_name = filename.rstrip('.000').replace(
+                    self.base_dir + '/', '')
                 redirect_stdout = None
                 if self.relocate and inner_name in self.relocate:
                     # TODO: add `dd conv=sparse` when removing tar layer
@@ -1210,7 +1211,8 @@ class ExtractWorker3(ExtractWorker2):
                     input_pipe.close()
                     self.cleanup_tar2(wait=True, terminate=False)
 
-                inner_name = os.path.relpath(filename.rstrip('.000'))
+                inner_name = filename.rstrip('.000').replace(
+                    self.base_dir + '/', '')
                 redirect_stdout = None
                 if self.relocate and inner_name in self.relocate:
                     # TODO: add dd conv=sparse when removing tar layer
