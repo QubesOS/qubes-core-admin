@@ -32,7 +32,7 @@ import sys
 import qubes
 
 parser = qubes.tools.QubesArgumentParser(
-    want_vm=True,
+    vmname_nargs=1,
     description='manage domain\'s features')
 
 parser.add_argument('--request',

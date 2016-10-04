@@ -18,9 +18,13 @@ Options
 
    show help message and exit
 
-.. option:: --qubesxml=XMLFILE
+.. option:: --verbose, -v
 
-   Where to put this new file in question.
+   Increase verbosity.
+
+.. option:: --quiet, -q
+
+   Decrease verbosity.
 
 .. option:: --property=NAME=VALUE, --prop=NAME=VALUE, -p NAME=VALUE
 

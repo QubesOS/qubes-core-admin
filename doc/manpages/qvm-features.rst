@@ -23,6 +23,10 @@ Options
 
    decrease verbosity
 
+.. option:: --unset, --default, --delete, -D
+
+   Unset the feature.
+
 Description
 -----------
 

@@ -23,6 +23,14 @@ Options
 
    Decrease verbosity.
 
+.. option:: --all
+
+   Unause all the qubes.
+
+.. option:: --exclude=EXCLUDE
+
+   Exclude the qube from :option:`--all`.
+
 Authors
 -------
 
