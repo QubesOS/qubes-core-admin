@@ -2100,11 +2100,10 @@ class BackupRestore(object):
 
             "updbl": {"func": "'Yes' if vm.updateable else ''"},
 
-            "template": {"func": "'n/a' if not hasattr(vm, 'template') is None "
+            "template": {"func": "'n/a' if not hasattr(vm, 'template') "
                                  "else vm_info.template"},
 
-            "netvm": {"func": "'n/a' if vm.provides_network else\
-                      ('*' if vm.property_is_default('netvm') else '') +\
+            "netvm": {"func": "('*' if vm.property_is_default('netvm') else '') +\
                         vm_info.netvm if vm_info.netvm is not None "
                               "else '-'"},
 
@@ -2409,8 +2408,9 @@ class BackupRestore(object):
             try:
                 # first only minimal set, later clone_properties
                 # will be called
+                cls = self.app.get_vm_class(vm.__class__.__name__)
                 new_vm = self.app.add_new_vm(
-                    vm.__class__,
+                    cls,
                     name=vm_name,
                     label=vm.label,
                     installed_by_rpm=False,
