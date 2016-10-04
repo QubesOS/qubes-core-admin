@@ -215,7 +215,7 @@ class SendWorker(Process):
 
 class Backup(object):
     class FileToBackup(object):
-        def __init__(self, file_path, subdir=None):
+        def __init__(self, file_path, subdir=None, name=None):
             sz = qubes.storage.file.get_disk_usage(file_path)
 
             if subdir is None:
@@ -230,9 +230,16 @@ class Backup(object):
                 if len(subdir) > 0 and not subdir.endswith('/'):
                     subdir += '/'
 
+            #: real path to the file
             self.path = file_path
+            #: size of the file
             self.size = sz
+            #: directory in backup archive where file should be placed
             self.subdir = subdir
+            #: use this name in the archive (aka rename)
+            self.name = os.path.basename(file_path)
+            if name is not None:
+                self.name = name
 
     class VMToBackup(object):
         def __init__(self, vm, files, subdir):
@@ -341,11 +348,10 @@ class Backup(object):
                 subdir = None
 
             vm_files = []
-            # TODO this is file pool specific. Change it to a more general
-            # solution
             if vm.volumes['private'] is not None:
-                path_to_private_img = vm.volumes['private'].path
-                vm_files.append(self.FileToBackup(path_to_private_img, subdir))
+                path_to_private_img = vm.storage.export('private')
+                vm_files.append(self.FileToBackup(path_to_private_img, subdir,
+                        'private.img'))
 
             vm_files.append(self.FileToBackup(vm.icon_path, subdir))
             vm_files.extend(self.FileToBackup(i, subdir)
@@ -357,10 +363,9 @@ class Backup(object):
                 vm_files.append(self.FileToBackup(firewall_conf, subdir))
 
             if vm.updateable:
-                # TODO this is file pool specific. Change it to a more general
-                # solution
-                path_to_root_img = vm.volumes['root'].path
-                vm_files.append(self.FileToBackup(path_to_root_img, subdir))
+                path_to_root_img = vm.storage.export('root')
+                vm_files.append(self.FileToBackup(path_to_root_img, subdir,
+                    'root.img'))
             files_to_backup[vm.qid] = self.VMToBackup(vm, vm_files, subdir)
 
         # Dom0 user home
@@ -593,7 +598,7 @@ class Backup(object):
 
                 backup_tempfile = os.path.join(
                     self.tmpdir, file_info.subdir,
-                    os.path.basename(file_info.path))
+                    file_info.name)
                 self.log.debug("Using temporary location: {}".format(
                     backup_tempfile))
 
@@ -610,13 +615,27 @@ class Backup(object):
                                '-C', os.path.dirname(file_info.path)] +
                                (['--dereference'] if
                                 file_info.subdir != "dom0-home/" else []) +
-                               ['--xform', 's:^%s:%s\\0:' % (
+                               ['--xform=s:^%s:%s\\0:' % (
                                    os.path.basename(file_info.path),
                                    file_info.subdir),
                                 os.path.basename(file_info.path)
                                 ])
+                file_stat = os.stat(file_info.path)
+                if stat.S_ISBLK(file_stat.st_mode) or \
+                        file_info.name != os.path.basename(file_info.path):
+                    # tar doesn't handle content of block device, use our
+                    # writer
+                    # also use our tar writer when renaming file
+                    assert not stat.S_ISDIR(file_stat.st_mode),\
+                        "Renaming directories not supported"
+                    tar_cmdline = ['python', '-m', 'qubes.tarwriter',
+                        '--override-name=%s' % (
+                            os.path.join(file_info.subdir, os.path.basename(
+                                file_info.name))),
+                        file_info.path,
+                        backup_pipe]
                 if self.compressed:
-                    tar_cmdline.insert(-1,
+                    tar_cmdline.insert(-2,
                         "--use-compress-program=%s" % self.compression_filter)
 
                 self.log.debug(" ".join(tar_cmdline))
