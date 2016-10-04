@@ -220,6 +220,7 @@ fi
 %{python_sitelib}/qubes/exc.py*
 %{python_sitelib}/qubes/log.py*
 %{python_sitelib}/qubes/rngdoc.py*
+%{python_sitelib}/qubes/tarwriter.py*
 %{python_sitelib}/qubes/utils.py*
 
 %dir %{python_sitelib}/qubes/vm
@@ -290,6 +291,7 @@ fi
 %{python_sitelib}/qubes/tests/storage.py*
 %{python_sitelib}/qubes/tests/storage_file.py*
 %{python_sitelib}/qubes/tests/storage_lvm.py*
+%{python_sitelib}/qubes/tests/tarwriter.py*
 
 %dir %{python_sitelib}/qubes/tests/vm
 %{python_sitelib}/qubes/tests/vm/__init__.py*
