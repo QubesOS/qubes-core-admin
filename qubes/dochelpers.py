@@ -31,7 +31,6 @@ particularly our custom Sphinx extension.
 import argparse
 import json
 import os
-import posixpath
 import re
 import StringIO
 import urllib2
@@ -53,6 +52,7 @@ OPTIONS_TITLE = 'OPTIONS'
 
 
 class GithubTicket(object):
+    # pylint: disable=too-few-public-methods
     def __init__(self, data):
         self.number = data['number']
         self.summary = data['title']
