@@ -207,8 +207,13 @@ class QubesTestResult(unittest.TestResult):
                 color=self.color),
             self.errors)
         self.printErrorList(
-            '{color[red]}FAIL{color[normal]}'.format(color=self.color),
+            '{color[red]}FAIL{color[normal]}'.format(
+                color=self.color),
             self.failures)
+        self.printErrorList(
+            '{color[yellow]}EXPECTED{color[normal]}'.format(
+                color=self.color),
+            self.expectedFailures)
 
     def printErrorList(self, flavour, errors): # pylint: disable=invalid-name
         for test, err in errors:
