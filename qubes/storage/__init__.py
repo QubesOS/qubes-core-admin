@@ -463,6 +463,15 @@ class Storage(object):
                     for target in parsed_xml.xpath(
                         "//domain/devices/disk/target")])
 
+    def export(self, volume):
+        ''' Helper function to export volume (pool.export(volume))'''
+        assert isinstance(volume, (Volume, basestring)), \
+            "You need to pass a Volume or pool name as str"
+        if isinstance(volume, Volume):
+            return self.pools[volume.name].export(volume)
+        else:
+            return self.pools[volume].export(self.vm.volumes[volume])
+
 
 class Pool(object):
     ''' A Pool is used to manage different kind of volumes (File

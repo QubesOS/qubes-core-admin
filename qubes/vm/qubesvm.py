@@ -1559,7 +1559,7 @@ def _patch_pool_config(config, pool=None, pools=None):
 
     name = config['name']
 
-    if pool and is_exportable:
+    if pool and is_exportable and config['pool'] == 'default':
         config['pool'] = str(pool)
     elif pool and not is_exportable:
         pass

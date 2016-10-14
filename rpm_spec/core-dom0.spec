@@ -220,6 +220,7 @@ fi
 %{python_sitelib}/qubes/exc.py*
 %{python_sitelib}/qubes/log.py*
 %{python_sitelib}/qubes/rngdoc.py*
+%{python_sitelib}/qubes/tarwriter.py*
 %{python_sitelib}/qubes/utils.py*
 
 %dir %{python_sitelib}/qubes/vm
@@ -250,6 +251,8 @@ fi
 %{python_sitelib}/qubes/tools/qubes_prefs.py*
 %{python_sitelib}/qubes/tools/qvm_block.py*
 %{python_sitelib}/qubes/tools/qubes_lvm.py*
+%{python_sitelib}/qubes/tools/qvm_backup.py*
+%{python_sitelib}/qubes/tools/qvm_backup_restore.py*
 %{python_sitelib}/qubes/tools/qvm_create.py*
 %{python_sitelib}/qubes/tools/qvm_device.py*
 %{python_sitelib}/qubes/tools/qvm_features.py*
@@ -288,6 +291,7 @@ fi
 %{python_sitelib}/qubes/tests/storage.py*
 %{python_sitelib}/qubes/tests/storage_file.py*
 %{python_sitelib}/qubes/tests/storage_lvm.py*
+%{python_sitelib}/qubes/tests/tarwriter.py*
 
 %dir %{python_sitelib}/qubes/tests/vm
 %{python_sitelib}/qubes/tests/vm/__init__.py*

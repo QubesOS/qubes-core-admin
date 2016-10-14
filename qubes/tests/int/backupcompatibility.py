@@ -31,6 +31,7 @@ import sys
 import re
 
 import qubes.tests
+import qubes.tests.int.backup
 
 QUBESXML_R2B2 = '''
 <QubesVmCollection updatevm="3" default_kernel="3.7.6-2" default_netvm="3" default_fw_netvm="2" default_template="1" clockvm="2">
@@ -143,7 +144,8 @@ compressed={compressed}
 compression-filter=gzip
 '''
 
-class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
+class TC_00_BackupCompatibility(
+    qubes.tests.int.backup.BackupTestsMixin, qubes.tests.QubesTestCase):
 
     def tearDown(self):
         self.remove_test_vms(prefix="test-")

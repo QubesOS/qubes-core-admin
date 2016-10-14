@@ -181,6 +181,10 @@ class Core2Qubes(qubes.Qubes):
                         "true":
                     kwargs[attr] = value
             kwargs['hvm'] = "HVm" in vm_class_name
+            kwargs['provides_network'] = \
+                vm_class_name in ('QubesNetVm', 'QubesProxyVm')
+            if vm_class_name == 'QubesNetVm':
+                kwargs['netvm'] = None
             vm = self.add_new_vm(vm_class,
                 qid=int(element.get('qid')), **kwargs)
             services = element.get('services')
