@@ -486,3 +486,17 @@ class TC_00_BackupCompatibility(
         self.assertEqual(self.app.domains["test-custom-template-appvm"]
                          .template,
                          self.app.domains["test-template-clone"])
+
+
+class TC_01_BackupCompatibilityIntoLVM(TC_00_BackupCompatibility):
+    def setUp(self):
+        super(TC_01_BackupCompatibilityIntoLVM, self).setUp()
+        self.init_lvm_pool()
+
+    def restore_backup(self, source=None, appvm=None, options=None,
+            expect_errors=None, manipulate_restore_info=None):
+        if options is None:
+            options = {}
+        options['override_pool'] = self.pool.name
+        super(TC_01_BackupCompatibilityIntoLVM, self).restore_backup(source,
+            appvm, options, expect_errors, manipulate_restore_info)
