@@ -176,7 +176,7 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
         #self.reload_db()
 
     def restore_backup(self, source=None, appvm=None, options=None,
-                       expect_errors=None):
+                       expect_errors=None, manipulate_restore_info=None):
         if source is None:
             backupfile = os.path.join(self.backupdir,
                                       sorted(os.listdir(self.backupdir))[-1])
@@ -190,6 +190,8 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
                 for key, value in options.items():
                     setattr(restore_op.options, key, value)
             restore_info = restore_op.get_restore_info()
+        if callable(manipulate_restore_info):
+            restore_info = manipulate_restore_info(restore_info)
         self.log.debug(restore_op.get_restore_summary(restore_info))
 
         with self.assertNotRaises(qubes.exc.QubesException):
@@ -357,7 +359,28 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.QubesTestCase):
         # create backup with internal dependencies (template, netvm etc)
         # try restoring only AppVMs (but not templates, netvms) - should
         # handle according to options set
-        self.skipTest('test not implemented')
+        exclude = [
+            self.make_vm_name('test-net'),
+            self.make_vm_name('template')
+        ]
+        def exclude_some(restore_info):
+            for name in exclude:
+                restore_info.pop(name)
+            return restore_info
+        vms = self.create_backup_vms()
+        orig_hashes = self.vm_checksum(vms)
+        self.make_backup(vms, compression_filter="bzip2")
+        self.remove_vms(reversed(vms))
+        self.restore_backup(manipulate_restore_info=exclude_some)
+        for vm in vms:
+            if vm.name == self.make_vm_name('test1'):
+                # netvm was set to 'test-inst-test-net' - excluded
+                vm.netvm = qubes.property.DEFAULT
+            elif vm.name == self.make_vm_name('custom'):
+                # template was set to 'test-inst-template' - excluded
+                vm.template = self.app.default_template
+        vms = [vm for vm in vms if vm.name not in exclude]
+        self.assertCorrectlyRestored(vms, orig_hashes)
 
     def test_100_backup_dom0_no_restore(self):
         # do not write it into dom0 home itself...
