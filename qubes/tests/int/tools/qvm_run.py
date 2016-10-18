@@ -112,6 +112,7 @@ class TC_00_qvm_run(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.assertEqual(0, qubes.tools.qvm_run.main(
             self.sharedopts + ['--autostart', vm2.name, 'true']))
 
+    @unittest.expectedFailure
     def test_005_colour_output(self):
         sys.stdout = StringIO.StringIO()
         qubes.tools.qvm_run.main(

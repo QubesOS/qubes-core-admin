@@ -49,6 +49,7 @@ class TC_04_DispVM(qubes.tests.SystemTestsMixin,
         self.testvm.create_on_disk()
         self.app.save()
 
+    @unittest.expectedFailure
     def test_002_cleanup(self):
         self.testvm.start()
 
@@ -64,6 +65,7 @@ class TC_04_DispVM(qubes.tests.SystemTestsMixin,
         self.reload_db()
         self.assertNotIn(dispvm_name, self.app.domains)
 
+    @unittest.expectedFailure
     def test_003_cleanup_destroyed(self):
         """
         Check if DispVM is properly removed even if it terminated itself (#1660)

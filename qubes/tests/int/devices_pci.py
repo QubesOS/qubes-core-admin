@@ -24,8 +24,8 @@
 #
 import os
 import subprocess
-
 import time
+import unittest
 
 import qubes.devices
 import qubes.ext.pci
@@ -53,6 +53,7 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestsMixin,
             self.vm.features['pci-no-strict-reset/' + pcidev] = True
             self.app.save()
 
+    @unittest.expectedFailure
     def test_000_list(self):
         p = subprocess.Popen(['lspci'], stdout=subprocess.PIPE)
         # get a dict: BDF -> description

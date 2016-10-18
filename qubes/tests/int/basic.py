@@ -83,6 +83,7 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         if hasattr(self, 'netvm'):
             self.netvm = self.app.domains[self.netvm.qid]
 
+    @unittest.expectedFailure
     def test_000_rename(self):
         newname = self.make_vm_name('newname')
 
@@ -144,6 +145,7 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
                 (OSError, libvirt.libvirtError, qubes.exc.QubesException)):
             self.vm.name = newname
 
+    @unittest.expectedFailure
     def test_030_clone(self):
         testvm1 = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,
@@ -517,6 +519,7 @@ class TC_05_StandaloneVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase
         super(TC_05_StandaloneVM, self).setUp()
         self.init_default_template()
 
+    @unittest.expectedFailure
     def test_000_create_start(self):
         testvm1 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
                                      name=self.make_vm_name('vm1'), label='red')
@@ -525,6 +528,7 @@ class TC_05_StandaloneVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase
         testvm1.start()
         self.assertEquals(testvm1.get_power_state(), "Running")
 
+    @unittest.expectedFailure
     def test_100_resize_root_img(self):
         testvm1 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
                                      name=self.make_vm_name('vm1'), label='red')
