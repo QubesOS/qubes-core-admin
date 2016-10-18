@@ -405,6 +405,11 @@ class TC_00_BackupCompatibility(
 
         output.close()
 
+    def assertRestored(self, name):
+        with self.assertNotRaises((KeyError, qubes.exc.QubesException)):
+            vm = self.app.domains[name]
+            vm.storage.verify()
+
     def test_100_r1(self):
         self.create_v1_files(r2b2=False)
 
@@ -418,12 +423,11 @@ class TC_00_BackupCompatibility(
                 'use-default-netvm': True,
             },
         )
-        with self.assertNotRaises(KeyError):
-            vm = self.app.domains["test-template-clone"]
-            vm = self.app.domains["test-testproxy"]
-            vm = self.app.domains["test-work"]
-            vm = self.app.domains["test-standalonevm"]
-            vm = self.app.domains["test-custom-template-appvm"]
+        self.assertRestored("test-template-clone")
+        self.assertRestored("test-testproxy")
+        self.assertRestored("test-work")
+        self.assertRestored("test-standalonevm")
+        self.assertRestored("test-custom-template-appvm")
         self.assertEqual(self.app.domains["test-custom-template-appvm"]
                          .template,
                          self.app.domains["test-template-clone"])
@@ -439,13 +443,12 @@ class TC_00_BackupCompatibility(
             'use-default-template': True,
             'use-default-netvm': True,
         })
-        with self.assertNotRaises(KeyError):
-            vm = self.app.domains["test-template-clone"]
-            vm = self.app.domains["test-testproxy"]
-            vm = self.app.domains["test-work"]
-            vm = self.app.domains["test-testhvm"]
-            vm = self.app.domains["test-standalonevm"]
-            vm = self.app.domains["test-custom-template-appvm"]
+        self.assertRestored("test-template-clone")
+        self.assertRestored("test-testproxy")
+        self.assertRestored("test-work")
+        self.assertRestored("test-testhvm")
+        self.assertRestored("test-standalonevm")
+        self.assertRestored("test-custom-template-appvm")
         self.assertEqual(self.app.domains["test-custom-template-appvm"]
                          .template,
                          self.app.domains["test-template-clone"])
@@ -457,13 +460,12 @@ class TC_00_BackupCompatibility(
             'use-default-template': True,
             'use-default-netvm': True,
         })
-        with self.assertNotRaises(KeyError):
-            vm = self.app.domains["test-template-clone"]
-            vm = self.app.domains["test-testproxy"]
-            vm = self.app.domains["test-work"]
-            vm = self.app.domains["test-testhvm"]
-            vm = self.app.domains["test-standalonevm"]
-            vm = self.app.domains["test-custom-template-appvm"]
+        self.assertRestored("test-template-clone")
+        self.assertRestored("test-testproxy")
+        self.assertRestored("test-work")
+        self.assertRestored("test-testhvm")
+        self.assertRestored("test-standalonevm")
+        self.assertRestored("test-custom-template-appvm")
         self.assertEqual(self.app.domains["test-custom-template-appvm"]
                          .template,
                          self.app.domains["test-template-clone"])
@@ -475,13 +477,12 @@ class TC_00_BackupCompatibility(
             'use-default-template': True,
             'use-default-netvm': True,
         })
-        with self.assertNotRaises(KeyError):
-            vm = self.app.domains["test-template-clone"]
-            vm = self.app.domains["test-testproxy"]
-            vm = self.app.domains["test-work"]
-            vm = self.app.domains["test-testhvm"]
-            vm = self.app.domains["test-standalonevm"]
-            vm = self.app.domains["test-custom-template-appvm"]
+        self.assertRestored("test-template-clone")
+        self.assertRestored("test-testproxy")
+        self.assertRestored("test-work")
+        self.assertRestored("test-testhvm")
+        self.assertRestored("test-standalonevm")
+        self.assertRestored("test-custom-template-appvm")
         self.assertEqual(self.app.domains["test-custom-template-appvm"]
                          .template,
                          self.app.domains["test-template-clone"])
