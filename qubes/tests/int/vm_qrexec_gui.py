@@ -145,6 +145,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
 
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
+    @unittest.expectedFailure
     def test_012_qubes_desktop_run(self):
         self.testvm1.start()
         self.assertEquals(self.testvm1.get_power_state(), "Running")
@@ -832,6 +833,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             subprocess.Popen(["sudo", "date", "-u", "-s", "@" + start_time])
             raise
 
+    @unittest.expectedFailure
     def test_250_resize_private_img(self):
         """
         Test private.img resize, both offline and online

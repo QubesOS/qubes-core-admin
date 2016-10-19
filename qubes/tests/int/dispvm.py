@@ -209,6 +209,7 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
 
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
+    @unittest.expectedFailure
     def test_030_edit_file(self):
         testvm1 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
                                      name=self.make_vm_name('vm1'),
