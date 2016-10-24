@@ -206,6 +206,41 @@ class _AssertNotRaisesContext(object):
         self.exception = exc_value # store for later retrieval
 
 
+class substitute_entry_points(object):
+    '''Monkey-patch pkg_resources to substitute one group in iter_entry_points
+
+    This is for testing plugins, like device classes.
+
+    :param str group: The group that is to be overloaded.
+    :param str tempgroup: The substitute group.
+
+    Inside this context, if one iterates over entry points in overloaded group,
+    the iteration actually happens over the other group.
+
+    This context manager is stackable. To substitute more than one entry point
+    group, just nest two contexts.
+    ''' # pylint: disable=invalid-name
+
+    def __init__(self, group, tempgroup):
+        self.group = group
+        self.tempgroup = tempgroup
+        self._orig_iter_entry_points = None
+
+    def _iter_entry_points(self, group, *args, **kwargs):
+        if group == self.group:
+            group = self.tempgroup
+        return self._orig_iter_entry_points(group, *args, **kwargs)
+
+    def __enter__(self):
+        self._orig_iter_entry_points = pkg_resources.iter_entry_points
+        pkg_resources.iter_entry_points = self._iter_entry_points
+        return self
+
+    def __exit__(self, exc_type, exc_value, tb):
+        pkg_resources.iter_entry_points = self._orig_iter_entry_points
+        self._orig_iter_entry_points = None
+
+
 class BeforeCleanExit(BaseException):
     '''Raised from :py:meth:`QubesTestCase.tearDown` when
     :py:attr:`qubes.tests.run.QubesDNCTestResult.do_not_clean` is set.'''
