@@ -166,7 +166,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-loaded'``)
 
-        .. event:: domain-pre-start (subject, event, preparing_dvm, start_guid, mem_required)
+        .. event:: domain-pre-start \
+                (subject, event, preparing_dvm, start_guid, mem_required)
 
             Fired at the beginning of :py:meth:`start` method.
 
