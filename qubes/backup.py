@@ -376,7 +376,9 @@ class Backup(object):
 
         self.log = logging.getLogger('qubes.backup')
 
-        self.compression_filter = DEFAULT_COMPRESSION_FILTER
+        if not self.encrypted:
+            self.log.warning('\'encrypted\' option is ignored, backup is '
+                             'always encrypted')
 
         if exclude_list is None:
             exclude_list = []
