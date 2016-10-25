@@ -548,6 +548,16 @@ class Qubes(qubes.PropertyHolder):
             :param event: Event name (``'domain-add'``)
             :param vm: Domain object
 
+        .. event:: domain-pre-delete (subject, event, vm)
+
+            When domain is deleted. VM still has reference to ``app`` object,
+            and is contained within VMCollection. You may prevent removal by
+            raising an exception.
+
+            :param subject: Event emitter
+            :param event: Event name (``'domain-pre-delete'``)
+            :param vm: Domain object
+
         .. event:: domain-delete (subject, event, vm)
 
             When domain is deleted. VM still has reference to ``app`` object,

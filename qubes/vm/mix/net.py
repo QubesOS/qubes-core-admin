@@ -323,7 +323,7 @@ class NetVMMixin(qubes.events.Emitter):
             self.create_qdb_entries()
             self.attach_network()
 
-            new_netvm.fire_event('net-domain-connect', self)  # SEE: 1811
+            new_netvm.fire_event('net-domain-connect', self)
 
     @qubes.events.handler('net-domain-connect')
     def on_net_domain_connect(self, event, vm):

@@ -420,6 +420,11 @@ class PropertyHolder(qubes.events.Emitter):
             :param name: Property name
             :param oldvalue: Old value of the property
 
+        .. event:: clone-properties (subject, event, src, proplist)
+
+            :param src: object, from which we are cloning
+            :param proplist: list of properties
+
     Members:
     '''
 

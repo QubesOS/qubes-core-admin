@@ -148,7 +148,197 @@ def _setter_positive_int(self, prop, value):
 
 
 class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
-    '''Base functionality of Qubes VM shared between all VMs.'''
+    '''Base functionality of Qubes VM shared between all VMs.
+
+    The following events are raised on this class or its subclasses:
+
+        .. event:: domain-init (subject, event)
+
+            Fired at the end of class' constructor.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-init'``)
+
+        .. event:: domain-load (subject, event)
+
+            Fired after the qube was loaded from :file:`qubes.xml`
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-loaded'``)
+
+        .. event:: domain-pre-start (subject, event, preparing_dvm, start_guid, mem_required)
+
+            Fired at the beginning of :py:meth:`start` method.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-pre-start'``)
+
+            *other arguments are as in :py:meth:`start`*
+
+        .. event:: domain-spawn (subject, event, preparing_dvm, start_guid)
+
+            Fired after creating libvirt domain.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-spawn'``)
+
+            *other arguments are as in :py:meth:`start`*
+
+        .. event:: domain-start (subject, event, preparing_dvm, start_guid)
+
+            Fired at the end of :py:meth:`start` method.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-start'``)
+
+            *other arguments are as in :py:meth:`start`*
+
+        .. event:: domain-pre-shutdown (subject, event, force)
+
+            Fired at the beginning of :py:meth:`shutdown` method.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-pre-shutdown'``)
+            :param force: If the shutdown is to be forceful
+
+        .. event:: domain-cmd-pre-run (subject, event, start_guid)
+
+            Fired at the beginning of :py:meth:`run` method.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-cmd-pre-run'``)
+            :param start_guid: If the gui daemon can be started
+
+        .. event:: domain-create-on-disk (subject, event)
+
+            Fired at the end of :py:meth:`create_on_disk` method.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-create-on-disk'``)
+
+        .. event:: domain-remove-from-disk (subject, event)
+
+            Fired at the beginning of :py:meth:`remove_from_disk` method, before
+            the qube directory is removed.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-remove-from-disk'``)
+
+        .. event:: domain-clone-files (subject, event, src)
+
+            Fired at the end of :py:meth:`clone_disk_files` method.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-clone-files'``)
+            :param src: source qube
+
+        .. event:: domain-verify-files (subject, event)
+
+            Fired at the end of :py:meth:`clone_disk_files` method.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-verify-files'``)
+
+            If you think some files are missing or damaged, raise an exception.
+
+        .. event:: domain-is-fully-usable (subject, event)
+
+            Fired at the end of :py:meth:`clone_disk_files` method.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-is-fully-usable'``)
+
+            You may ``yield False`` from the handler if you think the qube is
+            not fully usable. This will cause the domain to be in "transient"
+            state in the domain lifecycle.
+
+        .. event:: domain-qtb-create (subject, event)
+
+            Fired at the end of :py:meth:`create_qdb_entries` method.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-qtb-create'``)
+
+            This event is a good place to add your custom entries to the qdb.
+
+        .. event:: backup-get-files (subject, event)
+
+            Collects additional file to be included in a backup.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'backup-get-files'``)
+
+            Handlers should yield paths of the files.
+
+        .. event:: domain-restore (subject, event)
+
+            Domain was just restored from backup, although the storage was not
+            yet verified and the app object was not yet saved.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-restore'``)
+
+        .. event:: domain-feature-set (subject, event, key, value)
+
+            A feature was changed.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-feature-set'``)
+            :param key: feature name
+            :param value: new value
+
+        .. event:: domain-feature-delete (subject, event, key)
+
+            A feature was removed.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-feature-set'``)
+            :param key: feature name
+
+        .. event:: feature-request (subject, event, *, untrusted_features)
+
+            The domain is performing a feature request.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'feature-request'``)
+            :param untrusted_features: :py:class:`dict` containing the feature \
+            request
+
+            The content of the `untrusted_features` variable is, as the name
+            implies, **UNTRUSTED**. The remind this to programmer, the variable
+            name has to be exactly as provided.
+
+            It is up to the extensions to decide, what to do with request,
+            ranging from plainly ignoring the request to verbatim copy into
+            :py:attr:`features` with only minimal sanitisation.
+
+        .. event:: monitor-layout-change (subject, event, monitor_layout)
+
+            Desktop layout was changed, probably because a display was plugged
+            in or out.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'monitor-layout-change'``)
+            :param monitor_layout: The new layout
+
+        .. event:: firewall-changed (subject, event)
+
+            Firewall was changed.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'firewall-changed'``)
+
+        .. event:: net-domain-connect (subject, event, vm)
+
+            Fired after connecting a domiain to this vm.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'net-domain-connect'``)
+            :param vm: The domain that was just connected.
+
+            On the `vm` object there was probably ``property-set:netvm`` fired
+            earlier.
+    '''
 
     #
     # per-class properties
