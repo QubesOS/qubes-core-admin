@@ -80,6 +80,7 @@ class BackupHeader(object):
         'compression-filter': 'compression_filter',
         'crypto-algorithm': 'crypto_algorithm',
         'hmac-algorithm': 'hmac_algorithm',
+        'backup-id': 'backup_id'
     }
     bool_options = ['encrypted', 'compressed']
     int_options = ['version']
@@ -91,7 +92,8 @@ class BackupHeader(object):
             compressed=None,
             compression_filter=None,
             hmac_algorithm=None,
-            crypto_algorithm=None):
+            crypto_algorithm=None,
+            backup_id=None):
         # repeat the list to help code completion...
         self.version = version
         self.encrypted = encrypted
@@ -101,6 +103,7 @@ class BackupHeader(object):
         self.compression_filter = compression_filter
         self.hmac_algorithm = hmac_algorithm
         self.crypto_algorithm = crypto_algorithm
+        self.backup_id = backup_id
 
         if header_data is not None:
             self.load(header_data)
@@ -152,6 +155,8 @@ class BackupHeader(object):
                 expected_attrs += ['crypto_algorithm']
             if self.version >= 3 and self.compressed:
                 expected_attrs += ['compression_filter']
+            if self.version >= 4:
+                expected_attrs += ['backup_id']
             for key in expected_attrs:
                 if getattr(self, key) is None:
                     raise qubes.exc.QubesException(
@@ -353,6 +358,10 @@ class Backup(object):
         #: callback for progress reporting. Will be called with one argument
         #: - progress in percents
         self.progress_callback = None
+        #: backup ID, needs to be unique (for a given user),
+        #: not necessary unpredictable; automatically generated
+        self.backup_id = datetime.datetime.now().strftime(
+            '%Y%m%dT%H%M%S-' + str(os.getpid()))
 
         for key, value in kwargs.iteritems():
             if hasattr(self, key):
@@ -535,6 +544,7 @@ class Backup(object):
             encrypted=self.encrypted,
             compressed=self.compressed,
             compression_filter=self.compression_filter,
+            backup_id=self.backup_id,
         )
         backup_header.save(header_file_path)
         # Start encrypt, scrypt will also handle integrity
@@ -722,8 +732,12 @@ class Backup(object):
 
                     # Start encrypt, scrypt will also handle integrity
                     # protection
-                    scrypt_passphrase = os.path.relpath(chunkfile[:-4],
-                        self.tmpdir) + '!' + passphrase
+                    scrypt_passphrase = \
+                        '{backup_id}!{filename}!{passphrase}'.format(
+                            backup_id=self.backup_id,
+                            filename=os.path.relpath(chunkfile[:-4],
+                                self.tmpdir),
+                            passphrase=passphrase)
                     scrypt = launch_scrypt(
                         "enc", "-", chunkfile, scrypt_passphrase)
 
@@ -1622,7 +1636,14 @@ class BackupRestore(object):
             fulloutput = os.path.join(self.tmpdir, output)
         else:
             fulloutput = os.path.join(self.tmpdir, origname)
-        passphrase = origname + '!' + self.passphrase.encode('utf-8')
+        if origname == HEADER_FILENAME:
+            passphrase = origname + '!' + self.passphrase.encode('utf-8')
+        else:
+            passphrase = \
+                '{backup_id}!{filename}!{passphrase}'.format(
+                    backup_id=self.header_data.backup_id,
+                    filename=origname,
+                    passphrase=self.passphrase.encode('utf-8'))
         p = launch_scrypt('dec', fullname, fulloutput, passphrase)
         (_, stderr) = p.communicate()
         if p.returncode != 0:
