@@ -1303,7 +1303,19 @@ class ExtractWorker3(ExtractWorker2):
                 os.remove(filename)
                 continue
             else:
+                (basename, ext) = os.path.splitext(self.tar2_current_file)
+                previous_chunk_number = int(ext[1:])
+                expected_filename = basename + '.%03d' % (
+                    previous_chunk_number+1)
+                if expected_filename != filename:
+                    self.cleanup_tar2(wait=True, terminate=True)
+                    self.log.error(
+                        'Unexpected file in archive: {}, expected {}'.format(
+                            filename, expected_filename))
+                    os.remove(filename)
+                    continue
                 self.log.debug("Releasing next chunck")
+
             self.tar2_current_file = filename
 
             run_error = handle_streams(
