@@ -161,7 +161,8 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
             else:
                 raise
 
-        backup.passphrase = 'qubes'
+        if 'passphrase' not in kwargs:
+            backup.passphrase = 'qubes'
         backup.target_dir = target
 
         try:
@@ -176,7 +177,8 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
         #self.reload_db()
 
     def restore_backup(self, source=None, appvm=None, options=None,
-                       expect_errors=None, manipulate_restore_info=None):
+                       expect_errors=None, manipulate_restore_info=None,
+                       passphrase='qubes'):
         if source is None:
             backupfile = os.path.join(self.backupdir,
                                       sorted(os.listdir(self.backupdir))[-1])
@@ -185,7 +187,7 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
 
         with self.assertNotRaises(qubes.exc.QubesException):
             restore_op = qubes.backup.BackupRestore(
-                self.app, backupfile, appvm, "qubes")
+                self.app, backupfile, appvm, passphrase)
             if options:
                 for key, value in options.items():
                     setattr(restore_op.options, key, value)
