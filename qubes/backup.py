@@ -2021,7 +2021,7 @@ class BackupRestore(object):
                 vm_info.problems.add(self.VMToRestore.EXCLUDED)
 
             if not self.options.verify_only and \
-                    vm in self.app.domains:
+                    vm_info.name in self.app.domains:
                 if self.options.rename_conflicting:
                     new_name = self.generate_new_name_for_conflicting_vm(
                         vm, restore_info
@@ -2342,6 +2342,8 @@ class BackupRestore(object):
         '''
 
         # FIXME handle locking
+
+        restore_info = self.restore_info_verify(restore_info)
 
         self._restore_vms_metadata(restore_info)
 
