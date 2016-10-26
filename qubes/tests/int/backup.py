@@ -384,6 +384,14 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.QubesTestCase):
         vms = [vm for vm in vms if vm.name not in exclude]
         self.assertCorrectlyRestored(vms, orig_hashes)
 
+    def test_020_encrypted_backup_non_ascii(self):
+        vms = self.create_backup_vms()
+        orig_hashes = self.vm_checksum(vms)
+        self.make_backup(vms, encrypted=True, passphrase=u'zażółć gęślą jaźń')
+        self.remove_vms(reversed(vms))
+        self.restore_backup(passphrase=u'zażółć gęślą jaźń')
+        self.assertCorrectlyRestored(vms, orig_hashes)
+
     def test_100_backup_dom0_no_restore(self):
         # do not write it into dom0 home itself...
         os.mkdir('/var/tmp/test-backup')
