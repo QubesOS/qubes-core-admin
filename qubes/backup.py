@@ -271,7 +271,7 @@ def launch_scrypt(action, input_name, output_name, passphrase):
         if actual_prompt != prompt:
             raise qubes.exc.QubesException(
                 'Unexpected prompt from scrypt: {}'.format(actual_prompt))
-        pty.write(passphrase + '\n')
+        pty.write(passphrase.encode('utf-8') + b'\n')
         pty.flush()
     # save it here, so garbage collector would not close it (which would kill
     #  the child)
@@ -551,8 +551,8 @@ class Backup(object):
         backup_header.save(header_file_path)
         # Start encrypt, scrypt will also handle integrity
         # protection
-        scrypt_passphrase = HEADER_FILENAME + '!' + self.passphrase.encode(
-            'utf-8')
+        scrypt_passphrase = u'{filename}!{passphrase}'.format(
+            filename=HEADER_FILENAME, passphrase=self.passphrase)
         scrypt = launch_scrypt(
             'enc', header_file_path, header_file_path + '.hmac',
             scrypt_passphrase)
@@ -609,8 +609,6 @@ class Backup(object):
             backup_app.domains[qid].features['backup-path'] = vm_info.subdir
             backup_app.domains[qid].features['backup-size'] = vm_info.size
         backup_app.save()
-
-        passphrase = self.passphrase.encode('utf-8')
 
         vmproc = None
         tar_sparse = None
@@ -735,11 +733,11 @@ class Backup(object):
                     # Start encrypt, scrypt will also handle integrity
                     # protection
                     scrypt_passphrase = \
-                        '{backup_id}!{filename}!{passphrase}'.format(
+                        u'{backup_id}!{filename}!{passphrase}'.format(
                             backup_id=self.backup_id,
                             filename=os.path.relpath(chunkfile[:-4],
                                 self.tmpdir),
-                            passphrase=passphrase)
+                            passphrase=self.passphrase)
                     scrypt = launch_scrypt(
                         "enc", "-", chunkfile, scrypt_passphrase)
 
@@ -1651,13 +1649,14 @@ class BackupRestore(object):
         else:
             fulloutput = os.path.join(self.tmpdir, origname)
         if origname == HEADER_FILENAME:
-            passphrase = origname + '!' + self.passphrase.encode('utf-8')
+            passphrase = u'{filename}!{passphrase}'.format(
+                filename=origname,
+                passphrase=self.passphrase)
         else:
-            passphrase = \
-                '{backup_id}!{filename}!{passphrase}'.format(
-                    backup_id=self.header_data.backup_id,
-                    filename=origname,
-                    passphrase=self.passphrase.encode('utf-8'))
+            passphrase = u'{backup_id}!{filename}!{passphrase}'.format(
+                backup_id=self.header_data.backup_id,
+                filename=origname,
+                passphrase=self.passphrase)
         p = launch_scrypt('dec', fullname, fulloutput, passphrase)
         (_, stderr) = p.communicate()
         if p.returncode != 0:
