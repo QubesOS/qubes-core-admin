@@ -162,12 +162,23 @@ class Core2Qubes(qubes.Qubes):
                     'template_qid'))]
                 vm_class = AppVM
             # simple attributes
-            for attr in ['installed_by_rpm', 'include_in_backups',
-                    'qrexec_timeout', 'internal', 'label', 'name',
-                    'vcpus', 'memory', 'maxmem', 'default_user',
-                    'debug', 'pci_strictreset', 'mac', 'autostart']:
+            for attr, default in {
+                'installed_by_rpm': 'False',
+                'include_in_backups': 'True',
+                'qrexec_timeout': '60',
+                'internal': 'False',
+                'label': None,
+                'name': None,
+                'vcpus': '2',
+                'memory': '400',
+                'maxmem': '4000',
+                'default_user': 'user',
+                'debug': 'False',
+                'pci_strictreset': 'True',
+                'mac': None,
+                'autostart': 'False'}.items():
                 value = element.get(attr)
-                if value:
+                if value and value != default:
                     kwargs[attr] = value
             # attributes with default value
             for attr in ["kernel", "kernelopts"]:
