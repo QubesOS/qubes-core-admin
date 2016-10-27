@@ -600,7 +600,8 @@ class Qubes(qubes.PropertyHolder):
         default=True,
         doc='check for updates inside qubes')
 
-    def __init__(self, store=None, load=True, offline_mode=False, **kwargs):
+    def __init__(self, store=None, load=True, offline_mode=False, lock=False,
+            **kwargs):
         #: logger instance for logging global messages
         self.log = logging.getLogger('app')
 
@@ -632,6 +633,7 @@ class Qubes(qubes.PropertyHolder):
         super(Qubes, self).__init__(xml=None, **kwargs)
 
         self.__load_timestamp = None
+        self.__locked_fh = None
 
         #: jinja2 environment for libvirt XML templates
         self.env = jinja2.Environment(
@@ -642,7 +644,7 @@ class Qubes(qubes.PropertyHolder):
             undefined=jinja2.StrictUndefined)
 
         if load:
-            self.load()
+            self.load(lock=lock)
 
         self.events_enabled = True
 
@@ -650,7 +652,7 @@ class Qubes(qubes.PropertyHolder):
     def store(self):
         return self._store
 
-    def load(self):
+    def load(self, lock=False):
         '''Open qubes.xml
 
         :throws EnvironmentError: failure on parsing store
@@ -658,26 +660,7 @@ class Qubes(qubes.PropertyHolder):
         :raises lxml.etree.XMLSyntaxError: on syntax error in qubes.xml
         '''
 
-        try:
-            fd = os.open(self._store, os.O_RDWR)  # no O_CREAT
-        except OSError as e:
-            if e.errno != errno.ENOENT:
-                raise
-            raise qubes.exc.QubesException(
-                'Qubes XML store {!r} is missing; use qubes-create tool'.format(
-                    self._store))
-        fh = os.fdopen(fd, 'rb')
-
-        if os.name == 'posix':
-            fcntl.lockf(fh, fcntl.LOCK_EX)
-        elif os.name == 'nt':
-            # pylint: disable=protected-access
-            win32file.LockFileEx(
-                win32file._get_osfhandle(fh.fileno()),
-                win32con.LOCKFILE_EXCLUSIVE_LOCK,
-                0, -0x10000,
-                pywintypes.OVERLAPPED())
-
+        fh = self._acquire_lock()
         self.xml = lxml.etree.parse(fh)
 
         # stage 1: load labels and pools
@@ -741,9 +724,10 @@ class Qubes(qubes.PropertyHolder):
         # get a file timestamp (before closing it - still holding the lock!),
         #  to detect whether anyone else have modified it in the meantime
         self.__load_timestamp = os.path.getmtime(self._store)
-        # intentionally do not call explicit unlock
-        fh.close()
-        del fh
+
+        if not lock:
+            self._release_lock()
+
 
     def __xml__(self):
         element = lxml.etree.Element('qubes')
@@ -768,7 +752,7 @@ class Qubes(qubes.PropertyHolder):
         return element
 
 
-    def save(self):
+    def save(self, lock=True):
         '''Save all data to qubes.xml
 
         There are several problems with saving :file:`qubes.xml` which must be
@@ -779,36 +763,15 @@ class Qubes(qubes.PropertyHolder):
         - Attempts to write two or more files concurrently. This is done by
           sophisticated locking.
 
+        :param bool lock: keep file locked after saving
         :throws EnvironmentError: failure on saving
         '''
 
-        while True:
-            fd_old = os.open(self._store, os.O_RDWR | os.O_CREAT)
-            if os.name == 'posix':
-                fcntl.lockf(fd_old, fcntl.LOCK_EX)
-            elif os.name == 'nt':
-                # pylint: disable=protected-access
-                overlapped = pywintypes.OVERLAPPED()
-                win32file.LockFileEx(
-                    win32file._get_osfhandle(fd_old),
-                    win32con.LOCKFILE_EXCLUSIVE_LOCK, 0, -0x10000, overlapped)
+        if not self.__locked_fh:
+            self._acquire_lock(for_save=True)
 
-            # While we were waiting for lock, someone could have unlink()ed (or
-            # rename()d) our file out of the filesystem. We have to ensure we
-            # got lock on something linked to filesystem. If not, try again.
-            if os.fstat(fd_old) == os.stat(self._store):
-                break
-            else:
-                os.close(fd_old)
-
-        if self.__load_timestamp:
-            current_file_timestamp = os.path.getmtime(self._store)
-            if current_file_timestamp != self.__load_timestamp:
-                os.close(fd_old)
-                raise qubes.exc.QubesException(
-                    "Someone else modified qubes.xml in the meantime")
-
-        fh_new = tempfile.NamedTemporaryFile(prefix=self._store, delete=False)
+        fh_new = tempfile.NamedTemporaryFile(
+            prefix=self._store, delete=False)
         lxml.etree.ElementTree(self.__xml__()).write(
             fh_new, encoding='utf-8', pretty_print=True)
         fh_new.flush()
@@ -816,13 +779,70 @@ class Qubes(qubes.PropertyHolder):
         os.chown(fh_new.name, -1, grp.getgrnam('qubes').gr_gid)
         os.rename(fh_new.name, self._store)
 
-        # intentionally do not call explicit unlock to not unlock the file
-        # before all buffers are flushed
-        fh_new.close()
         # update stored mtime, in case of multiple save() calls without
         # loading qubes.xml again
         self.__load_timestamp = os.path.getmtime(self._store)
-        os.close(fd_old)
+
+        # this releases lock for all other processes,
+        # but they should instantly block on the new descriptor
+        self.__locked_fh.close()
+        self.__locked_fh = fh_new
+
+        if not lock:
+            self._release_lock()
+
+
+    def _acquire_lock(self, for_save=False):
+        assert self.__locked_fh is None, 'double lock'
+
+        while True:
+            try:
+                fd = os.open(self._store,
+                    os.O_RDWR | (os.O_CREAT * int(for_save)))
+            except OSError as e:
+                if not for_save and e.errno == errno.ENOENT:
+                    raise qubes.exc.QubesException(
+                        'Qubes XML store {!r} is missing; '
+                        'use qubes-create tool'.format(self._store))
+                raise
+
+            # While we were waiting for lock, someone could have unlink()ed
+            # (or rename()d) our file out of the filesystem. We have to
+            # ensure we got lock on something linked to filesystem.
+            # If not, try again.
+            if os.fstat(fd) != os.stat(self._store):
+                os.close(fd)
+                continue
+
+            if self.__load_timestamp and \
+                    os.path.getmtime(self._store) != self.__load_timestamp:
+                os.close(fd)
+                raise qubes.exc.QubesException(
+                    'Someone else modified qubes.xml in the meantime')
+
+            break
+
+        if os.name == 'posix':
+            fcntl.lockf(fd, fcntl.LOCK_EX)
+        elif os.name == 'nt':
+            # pylint: disable=protected-access
+            overlapped = pywintypes.OVERLAPPED()
+            win32file.LockFileEx(
+                win32file._get_osfhandle(fd),
+                win32con.LOCKFILE_EXCLUSIVE_LOCK, 0, -0x10000, overlapped)
+
+        self.__locked_fh = os.fdopen(fd, 'r+b')
+        return self.__locked_fh
+
+
+    def _release_lock(self):
+        assert self.__locked_fh is not None, 'double release'
+
+        # intentionally do not call explicit unlock to not unlock the file
+        # before all buffers are flushed
+        self.__locked_fh.close()
+        self.__locked_fh = None
+
 
     def load_initial_values(self):
         self.labels = {
@@ -848,10 +868,10 @@ class Qubes(qubes.PropertyHolder):
             qubes.vm.adminvm.AdminVM(self, None, qid=0, name='dom0'))
 
     @classmethod
-    def create_empty_store(cls, *args, **kwargs):
+    def create_empty_store(cls, lock=False, *args, **kwargs):
         self = cls(*args, load=False, **kwargs)
         self.load_initial_values()
-        self.save()
+        self.save(lock=lock)
 
         return self
 

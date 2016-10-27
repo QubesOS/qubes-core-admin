@@ -220,8 +220,9 @@ class Core2Qubes(qubes.Qubes):
             if 'vm' in locals():
                 del self.domains[vm]
 
-    def load(self):
+    def load(self, lock=False):
         qubes_store_file = open(self._store, 'r')
+        self._acquire_lock(qubes_store_file)
 
         try:
             qubes_store_file.seek(0)
@@ -267,5 +268,8 @@ class Core2Qubes(qubes.Qubes):
         # and load other defaults (default netvm, updatevm etc)
         self.load_globals(tree.getroot())
 
-    def save(self):
+        if not lock:
+            self._release_lock()
+
+    def save(self, lock=False):
         raise NotImplementedError("Saving old qubes.xml not supported")
