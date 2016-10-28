@@ -8,7 +8,7 @@
     <type arch='x86_64' machine='xenpv'>linux</type>
     <kernel>{kerneldir}/vmlinuz</kernel>
     <initrd>{kerneldir}/initramfs</initrd>
-    <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH plymouth.enable=0 {kernelopts}</cmdline>
+    <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 {kernelopts}</cmdline>
   </os>
   <features>{features}</features>
   <clock offset='utc' adjustment='reset'>
