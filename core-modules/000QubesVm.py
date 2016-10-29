@@ -2017,6 +2017,11 @@ class QubesVm(object):
             # preparing DispVM, where it isn't needed because of "invisible"
             # mode
             start_guid = False
+        if start_guid and 'DISPLAY' not in os.environ:
+            if verbose:
+                print >> sys.stderr, \
+                    "WARNING: not starting GUI, because DISPLAY not set"
+            start_guid = False
 
         if start_guid:
             self.start_guid(verbose=verbose, notify_function=notify_function,
