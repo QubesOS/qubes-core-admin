@@ -247,6 +247,7 @@ class NetVMMixin(qubes.events.Emitter):
             self.log.info('Starting NetVM ({0})'.format(self.netvm.name))
             self.netvm.start()
 
+        self.netvm.set_mapped_ip_info_for_vm(self)
         self.libvirt_domain.attachDevice(
             self.app.env.get_template('libvirt/devices/net.xml').render(
                 vm=self))
@@ -310,6 +311,12 @@ class NetVMMixin(qubes.events.Emitter):
         # signal its done
         self.qdb.write(base_dir[:-1], '')
 
+    def set_mapped_ip_info_for_vm(self, vm):
+        '''
+        Set configuration to possibly hide real IP from the VM.
+        This needs to be done before executing 'script'
+        (`/etc/xen/scripts/vif-route-qubes`) in network providing VM
+        '''
         # add info about remapped IPs (VM IP hidden from the VM itself)
         mapped_ip_base = '/mapped-ip/{}'.format(vm.ip)
         if vm.visible_ip:
@@ -391,6 +398,7 @@ class NetVMMixin(qubes.events.Emitter):
         ''' Reloads the firewall if vm is running and has a NetVM assigned '''
         # pylint: disable=unused-argument
         if self.is_running() and self.netvm:
+            self.netvm.set_mapped_ip_info_for_vm(self)
             self.netvm.reload_firewall_for_vm(self)  # pylint: disable=no-member
 
     # CORE2: swallowed get_firewall_conf, write_firewall_conf,
