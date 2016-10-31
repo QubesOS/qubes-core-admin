@@ -130,3 +130,17 @@ class TC_00_NetVMMixin(
         self.app.domains = {1: vm, vm: vm}
         self.assertPropertyInvalidValue(vm, 'dispvm_netvm', vm)
 
+    def test_150_ip(self):
+        vm = self.get_vm()
+        self.setup_netvms(vm)
+        self.assertPropertyDefaultValue(vm, 'ip', '10.137.0.' + str(vm.qid))
+        vm.ip = '192.168.1.1'
+        self.assertEqual(vm.ip, '192.168.1.1')
+
+    def test_151_ip_invalid(self):
+        vm = self.get_vm()
+        self.setup_netvms(vm)
+        self.assertPropertyInvalidValue(vm, 'ip', 'abcd')
+        self.assertPropertyInvalidValue(vm, 'ip', 'a.b.c.d')
+        self.assertPropertyInvalidValue(vm, 'ip', '1111.2222.3333.4444')
+        # TODO: implement and add here: 0.0.0.0, 333.333.333.333
