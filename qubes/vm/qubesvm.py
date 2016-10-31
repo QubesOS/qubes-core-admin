@@ -1474,9 +1474,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self.qdb.write('/qubes-netvm-{}-dns'.format(i), addr)
 
         if self.netvm is not None:
-            self.qdb.write('/qubes-ip', self.ip)
-            self.qdb.write('/qubes-netmask', self.netvm.netmask)
-            self.qdb.write('/qubes-gateway', self.netvm.gateway)
+            self.qdb.write('/qubes-ip', self.visible_ip)
+            self.qdb.write('/qubes-netmask', self.visible_netmask)
+            self.qdb.write('/qubes-gateway', self.visible_gateway)
 
             for i, addr in zip(('primary', 'secondary'), self.dns):
                 self.qdb.write('/qubes-{}-dns'.format(i), addr)

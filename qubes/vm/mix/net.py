@@ -85,6 +85,27 @@ class NetVMMixin(qubes.events.Emitter):
         else:
             return self.get_ip_for_vm(self)
 
+    @qubes.tools.qvm_ls.column(width=15)
+    @property
+    def visible_ip(self):
+        '''IP address of this domain as seen by the domain.'''
+        return self.features.check_with_template('net/fake-ip', None) or \
+            self.ip
+
+    @qubes.tools.qvm_ls.column(width=15)
+    @property
+    def visible_gateway(self):
+        '''Default gateway of this domain as seen by the domain.'''
+        return self.features.check_with_template('net/fake-gateway', None) or \
+            self.netvm.gateway
+
+    @qubes.tools.qvm_ls.column(width=15)
+    @property
+    def visible_netmask(self):
+        '''Netmask as seen by the domain.'''
+        return self.features.check_with_template('net/fake-netmask', None) or \
+            self.netvm.netmask
+
     #
     # used in netvms (provides_network=True)
     # those properties and methods are most likely accessed as vm.netvm.<prop>
@@ -273,6 +294,19 @@ class NetVMMixin(qubes.events.Emitter):
             self.qdb.write(base_dir + key, value)
         # signal its done
         self.qdb.write(base_dir[:-1], '')
+
+        # add info about remapped IPs (VM IP hidden from the VM itself)
+        mapped_ip_base = '/mapped-ip/{}'.format(vm.ip)
+        if vm.visible_ip:
+            self.qdb.write(mapped_ip_base + '/visible-ip', vm.visible_ip)
+        else:
+            self.qdb.rm(mapped_ip_base + '/visible-ip')
+        if vm.visible_gateway:
+            self.qdb.write(mapped_ip_base + '/visible-gateway',
+                vm.visible_gateway)
+        else:
+            self.qdb.rm(mapped_ip_base + '/visible-gateway')
+
 
     @qubes.events.handler('property-del:netvm')
     def on_property_del_netvm(self, event, prop, old_netvm=None):
