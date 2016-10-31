@@ -142,7 +142,7 @@ class NetVMMixin(qubes.events.Emitter):
     @property
     def gateway(self):
         '''Gateway for other domains that use this domain as netvm.'''
-        return self.ip if self.provides_network else None
+        return self.visible_ip if self.provides_network else None
 
     @qubes.tools.qvm_ls.column(width=15)
     @property
