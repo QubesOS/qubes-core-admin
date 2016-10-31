@@ -344,6 +344,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.testvm1.features['net/fake-ip'] = '192.168.1.128'
         self.testvm1.features['net/fake-gateway'] = '192.168.1.1'
         self.testvm1.features['net/fake-netmask'] = '255.255.255.0'
+        self.app.save()
         self.testvm1.start()
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
@@ -368,6 +369,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
     def test_201_fake_ip_without_gw(self):
         '''Test hiding VM real IP'''
         self.testvm1.features['net/fake-ip'] = '192.168.1.128'
+        self.app.save()
         self.testvm1.start()
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
@@ -433,6 +435,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
                          "TCP connection should be blocked")
 
     def test_203_fake_ip_inter_vm_allow(self):
+        '''Access VM with "fake IP" from other VM (when firewall allows)'''
         self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('proxy'),
             label='red')
@@ -487,6 +490,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.proxy.features['net/fake-gateway'] = '192.168.1.1'
         self.proxy.features['net/fake-netmask'] = '255.255.255.0'
         self.testvm1.netvm = self.proxy
+        self.app.save()
         self.testvm1.start()
 
         self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0)
@@ -534,6 +538,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
     def test_210_custom_ip_simple(self):
         '''Custom AppVM IP'''
         self.testvm1.ip = '192.168.1.1'
+        self.app.save()
         self.testvm1.start()
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
@@ -548,6 +553,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.proxy.netvm = self.testnetvm
         self.proxy.ip = '192.168.1.1'
         self.testvm1.netvm = self.proxy
+        self.app.save()
 
         self.testvm1.start()
 
