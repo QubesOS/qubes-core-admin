@@ -45,6 +45,25 @@ def _setter_mac(self, prop, value):
     return value
 
 
+def _default_ip(self):
+    if not self.is_networked():
+        return None
+    if self.netvm is not None:
+        return self.netvm.get_ip_for_vm(self)  # pylint: disable=no-member
+    else:
+        return self.get_ip_for_vm(self)
+
+
+def _setter_ip(self, prop, value):
+    # pylint: disable=unused-argument
+    if not isinstance(value, basestring):
+        raise ValueError('IP address must be a string')
+    value = value.lower()
+    if re.match(r"^([0-9]{1,3}.){3}[0-9]{1,3}$", value) is None:
+        raise ValueError('Invalid IP address value')
+    return value
+
+
 class NetVMMixin(qubes.events.Emitter):
     ''' Mixin containing network functionality '''
     mac = qubes.property('mac', type=str,
@@ -52,6 +71,12 @@ class NetVMMixin(qubes.events.Emitter):
         setter=_setter_mac,
         ls_width=17,
         doc='MAC address of the NIC emulated inside VM')
+
+    ip = qubes.property('ip', type=str,
+        default=_default_ip,
+        setter=_setter_ip,
+        ls_width=15,
+        doc='IP address of this domain.')
 
     # CORE2: swallowed uses_default_netvm
     netvm = qubes.VMProperty('netvm', load_stage=4, allow_none=True,
@@ -74,16 +99,6 @@ class NetVMMixin(qubes.events.Emitter):
     # used in networked appvms or proxyvms (netvm is not None)
     #
 
-    @qubes.tools.qvm_ls.column(width=15)
-    @property
-    def ip(self):
-        '''IP address of this domain.'''
-        if not self.is_networked():
-            return None
-        if self.netvm is not None:
-            return self.netvm.get_ip_for_vm(self)  # pylint: disable=no-member
-        else:
-            return self.get_ip_for_vm(self)
 
     @qubes.tools.qvm_ls.column(width=15)
     @property
