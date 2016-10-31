@@ -432,6 +432,105 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
                          "TCP connection should be blocked")
 
+    def test_203_fake_ip_inter_vm_allow(self):
+        self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=self.make_vm_name('proxy'),
+            label='red')
+        self.proxy.create_on_disk()
+        self.proxy.provides_network = True
+        self.proxy.netvm = self.testnetvm
+        self.testvm1.netvm = self.proxy
+        self.testvm1.features['net/fake-ip'] = '192.168.1.128'
+        self.testvm1.features['net/fake-gateway'] = '192.168.1.1'
+        self.testvm1.features['net/fake-netmask'] = '255.255.255.0'
+
+        self.testvm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=self.make_vm_name('vm3'),
+            label='red')
+        self.testvm2.create_on_disk()
+        self.testvm2.netvm = self.proxy
+        self.app.save()
+
+        self.testvm1.start()
+        self.testvm2.start()
+
+        cmd = 'iptables -I FORWARD -s {} -d {} -j ACCEPT'.format(
+            self.testvm2.ip, self.testvm1.ip)
+        retcode = self.proxy.run(cmd, user='root', wait=True)
+        self.assertEqual(retcode, 0, '{} failed with: {}'.format(cmd, retcode))
+
+        cmd = 'iptables -I INPUT -s {} -j ACCEPT'.format(
+            self.testvm2.ip)
+        retcode = self.testvm1.run(cmd, user='root', wait=True)
+        self.assertEqual(retcode, 0, '{} failed with: {}'.format(cmd, retcode))
+
+        self.assertEqual(self.run_cmd(self.testvm2,
+            self.ping_cmd.format(target=self.testvm1.ip)), 0)
+
+        cmd = 'iptables -nvxL INPUT | grep {}'.format(self.testvm2.ip)
+        p = self.testvm1.run(cmd, user='root', passio_popen=True)
+        (stdout, _) = p.communicate()
+        self.assertEqual(p.returncode, 0,
+            '{} failed with {}'.format(cmd, p.returncode))
+        self.assertNotEqual(stdout.split()[0], '0',
+            'Packets didn\'t managed to the VM')
+
+    def test_204_fake_ip_proxy(self):
+        '''Test hiding VM real IP'''
+        self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=self.make_vm_name('proxy'),
+            label='red')
+        self.proxy.create_on_disk()
+        self.proxy.provides_network = True
+        self.proxy.netvm = self.testnetvm
+        self.proxy.features['net/fake-ip'] = '192.168.1.128'
+        self.proxy.features['net/fake-gateway'] = '192.168.1.1'
+        self.proxy.features['net/fake-netmask'] = '255.255.255.0'
+        self.testvm1.netvm = self.proxy
+        self.testvm1.start()
+
+        self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0)
+        self.assertEqual(self.run_cmd(self.proxy, self.ping_name), 0)
+
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
+
+        p = self.proxy.run('ip addr show dev eth0', user='root',
+            passio_popen=True,
+            ignore_stderr=True)
+        p.stdin.close()
+        output = p.stdout.read()
+        self.assertEqual(p.wait(), 0, 'ip addr show dev eth0 failed')
+        self.assertIn('192.168.1.128', output)
+        self.assertNotIn(self.testvm1.ip, output)
+
+        p = self.proxy.run('ip route show', user='root',
+            passio_popen=True,
+            ignore_stderr=True)
+        p.stdin.close()
+        output = p.stdout.read()
+        self.assertEqual(p.wait(), 0, 'ip route show failed')
+        self.assertIn('192.168.1.1', output)
+        self.assertNotIn(self.testvm1.netvm.ip, output)
+
+        p = self.testvm1.run('ip addr show dev eth0', user='root',
+            passio_popen=True,
+            ignore_stderr=True)
+        p.stdin.close()
+        output = p.stdout.read()
+        self.assertEqual(p.wait(), 0, 'ip addr show dev eth0 failed')
+        self.assertNotIn('192.168.1.128', output)
+        self.assertIn(self.testvm1.ip, output)
+
+        p = self.testvm1.run('ip route show', user='root',
+            passio_popen=True,
+            ignore_stderr=True)
+        p.stdin.close()
+        output = p.stdout.read()
+        self.assertEqual(p.wait(), 0, 'ip route show failed')
+        self.assertIn('192.168.1.128', output)
+        self.assertNotIn(self.proxy.ip, output)
+
     def test_210_custom_ip_simple(self):
         '''Custom AppVM IP'''
         self.testvm1.ip = '192.168.1.1'
