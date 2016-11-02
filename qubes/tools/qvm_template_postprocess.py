@@ -121,8 +121,13 @@ def post_install(args):
     import_data(args.dir, vm)
     app.save()
 
-    # TODO: retrieve appmenus
-
+    if not app.vmm.offline_mode:
+        # just created, so no need to save previous value - we know what it was
+        vm.netvm = None
+        vm.start(start_guid=False)
+        vm.fire_event('template-postinstall')
+        vm.shutdown(wait=True)
+        vm.netvm = qubes.property.DEFAULT
     return 0
 
 
