@@ -25,6 +25,7 @@
 
 ''' This module contains the AdminVM implementation '''
 
+import libvirt
 import qubes
 import qubes.exc
 import qubes.vm.qubesvm
@@ -41,6 +42,14 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
     kernel = qubes.property('netvm', setter=qubes.property.forbidden,
         default=None,
         doc='There are other ways to set kernel for Dom0.')
+
+    memory = qubes.property('memory', setter=qubes.property.forbidden,
+        default=lambda self: self.get_mem(),
+        doc='Memory currently assigned to dom0.')
+
+    maxmem = qubes.property('maxmem', setter=qubes.property.forbidden,
+        default=lambda self: self.get_mem_static_max(),
+        doc='Maximum dom0 memory size, modify using xen boot options.')
 
     @property
     def attached_volumes(self):
@@ -101,7 +110,16 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
         .. seealso:
            :py:meth:`qubes.vm.qubesvm.QubesVM.get_mem_static_max`
         '''
-        return self.app.vmm.libvirt_conn.getInfo()[1]
+        if self.app.vmm.offline_mode:
+            # default value passed on xen cmdline
+            return 4096
+        else:
+            try:
+                return self.app.vmm.libvirt_conn.getInfo()[1]
+            except libvirt.libvirtError as e:
+                self.log.warning(
+                    'Failed to get memory limit for dom0: {}'.format(e))
+                return 4096
 
     def verify_files(self):
         '''Always :py:obj:`True`

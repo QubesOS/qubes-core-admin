@@ -48,7 +48,8 @@ def main(args=None):
     '''
 
     args = parser.parse_args(args)
-    qubes.Qubes.create_empty_store(args.app, **args.properties)
+    qubes.Qubes.create_empty_store(args.app,
+        offline_mode=args.offline_mode, **args.properties)
     return 0
 
 
