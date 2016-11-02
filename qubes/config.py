@@ -104,10 +104,9 @@ defaults = {
 
     'vm_default_netmask': "255.255.255.0",
 
-    # Set later
-    'appvm_label': None,
-    'template_label': None,
-    'servicevm_label': None,
+    'appvm_label': 'red',
+    'template_label': 'black',
+    'servicevm_label': 'red',
 }
 
 max_qid = 254
