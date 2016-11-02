@@ -88,7 +88,11 @@ parser.add_argument('--preparing-dvm',
 
 parser.add_argument('--no-start-guid',
     action='store_false', dest='start_guid', default=True,
-    help='do not start the gui daemon (ignored)')
+    help='do not start the gui daemon')
+
+parser.add_argument('--no-guid',
+    action='store_false', dest='start_guid',
+    help='same as --no-start-guid')
 
 parser.add_argument('--skip-if-running',
     action='store_true', default=False,

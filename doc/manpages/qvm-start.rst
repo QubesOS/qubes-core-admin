@@ -65,7 +65,7 @@ Options
    
    Do not fail if the qube is already runnning
 
-.. option:: --no-start-guid
+.. option:: --no-start-guid, --no-guid
 
    Do not start GUI daemon.
 
