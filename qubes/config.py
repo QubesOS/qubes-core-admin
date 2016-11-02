@@ -86,9 +86,10 @@ defaults = {
     'root_img_size': 10*1024*1024*1024,
 
     'pool_configs': {
-        'default': {'dir_path': qubes_base_dir,
+        # create file pool even when the default one is LVM
+        'varlibqubes': {'dir_path': qubes_base_dir,
                     'driver': 'file',
-                    'name': 'default'},
+                    'name': 'varlibqubes'},
         'linux-kernel': {
             'dir_path': os.path.join(qubes_base_dir,
                                      system_path['qubes_kernels_base_dir']),
