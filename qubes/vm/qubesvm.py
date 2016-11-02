@@ -39,6 +39,8 @@ import uuid
 import warnings
 
 import grp
+
+import errno
 import lxml
 import libvirt  # pylint: disable=import-error
 
@@ -1229,7 +1231,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     self, self.get_power_state()))
 
         self.fire_event('domain-remove-from-disk')
-        shutil.rmtree(self.dir_path)
+        try:
+            shutil.rmtree(self.dir_path)
+        except OSError as e:
+            if e.errno == errno.ENOENT:
+                pass
+            else:
+                raise
         self.storage.remove()
 
     def clone_disk_files(self, src, pool=None, pools=None, ):
