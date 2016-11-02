@@ -87,6 +87,8 @@ def main(args=None):
                     name=prop.__name__, width=width, value=value))
 
         return 0
+    else:
+        args.property = args.property.replace('-', '_')
 
 
     if args.value is not None:

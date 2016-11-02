@@ -91,6 +91,8 @@ def main(args=None):
                     name=prop.__name__, width=width, value=value))
 
         return 0
+    else:
+        args.property = args.property.replace('-', '_')
 
     if args.property not in [prop.__name__
                              for prop in args.domain.property_list()]:
