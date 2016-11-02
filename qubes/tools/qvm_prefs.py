@@ -42,6 +42,14 @@ parser.add_argument('--help-properties',
     action=qubes.tools.HelpPropertiesAction,
     klass=qubes.vm.qubesvm.QubesVM)
 
+parser.add_argument('--get', '-g',
+    action='store_true',
+    help='Ignored; for compatibility with older scripts.')
+
+parser.add_argument('--set', '-s',
+    action='store_true',
+    help='Ignored; for compatibility with older scripts.')
+
 parser.add_argument('property', metavar='PROPERTY',
     nargs='?',
     help='name of the property to show or change')

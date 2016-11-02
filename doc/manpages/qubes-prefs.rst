@@ -35,6 +35,14 @@ Options
 
    Unset the property. If is has default value, it will be used instead.
 
+.. option:: --get, -g
+
+   Ignored; for compatibility with older scripts.
+
+.. option:: --set, -s
+
+   Ignored; for compatibility with older scripts.
+
 
 Common properties
 =================
