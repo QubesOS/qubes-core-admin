@@ -127,8 +127,12 @@ def get_vm_logger(vmname):
     logger = logging.getLogger('vm.' + vmname)
     if logger.handlers:
         return logger
-    handler = logging.FileHandler(
-        os.path.join(LOGPATH, 'vm-{}.log'.format(vmname)))
+    old_umask = os.umask(0o007)
+    try:
+        handler = logging.FileHandler(
+            os.path.join(LOGPATH, 'vm-{}.log'.format(vmname)))
+    finally:
+        os.umask(old_umask)
     handler.setFormatter(formatter_log)
     logger.addHandler(handler)
 
