@@ -870,6 +870,9 @@ class Qubes(qubes.PropertyHolder):
     @classmethod
     def create_empty_store(cls, lock=False, *args, **kwargs):
         self = cls(*args, load=False, **kwargs)
+        if os.path.exists(self.store):
+            raise qubes.exc.QubesException(
+                '{} already exists, aborting'.format(self.store))
         self.load_initial_values()
         self.save(lock=lock)
 
