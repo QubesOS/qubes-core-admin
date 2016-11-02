@@ -333,7 +333,7 @@ class QubesArgumentParser(argparse.ArgumentParser):
             self.add_argument('--qubesxml', metavar='FILE', action='store',
                               dest='app', help=argparse.SUPPRESS)
             self.add_argument('--offline-mode', action='store_true',
-                default=False, dest='offline_mode', help=argparse.SUPPRESS)
+                default=None, dest='offline_mode', help=argparse.SUPPRESS)
 
 
         self.add_argument('--verbose', '-v', action='count',
