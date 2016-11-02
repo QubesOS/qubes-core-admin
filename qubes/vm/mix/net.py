@@ -284,7 +284,7 @@ class NetVMMixin(qubes.events.Emitter):
         '''
 
         dev_basepath = '/local/domain/%d/device/vif' % self.xid
-        for dev in self.app.vmm.xs.ls('', dev_basepath):
+        for dev in self.app.vmm.xs.ls('', dev_basepath) or []:
             # check if backend domain is alive
             backend_xid = int(self.app.vmm.xs.read('',
                 '{}/{}/backend-id'.format(dev_basepath, dev)))

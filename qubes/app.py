@@ -487,9 +487,9 @@ class VMCollection(object):
             for vm in cur_vm.connected_vms:
                 if vm in dependent_vms:
                     continue
-                dependent_vms.add(vm.qid)
+                dependent_vms.add(vm)
 #               if vm.is_netvm():
-                new_vms.add(vm.qid)
+                new_vms.add(vm)
 
         return dependent_vms
 
