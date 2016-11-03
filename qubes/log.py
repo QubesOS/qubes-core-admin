@@ -30,6 +30,7 @@ See also: :py:attr:`qubes.vm.qubesvm.QubesVM.log`
 import logging
 import os
 import sys
+import fcntl
 
 import dbus
 
@@ -107,6 +108,8 @@ def enable():
     old_umask = os.umask(0o007)
     try:
         handler_log = logging.FileHandler(log_path, 'a', encoding='utf-8')
+        fcntl.fcntl(handler_log.stream.fileno(),
+            fcntl.F_SETFD, fcntl.FD_CLOEXEC)
     finally:
         os.umask(old_umask)
     handler_log.setFormatter(formatter_log)
@@ -140,6 +143,8 @@ def get_vm_logger(vmname):
     try:
         handler = logging.FileHandler(
             os.path.join(LOGPATH, 'vm-{}.log'.format(vmname)))
+        fcntl.fcntl(handler.stream.fileno(),
+            fcntl.F_SETFD, fcntl.FD_CLOEXEC)
     finally:
         os.umask(old_umask)
     handler.setFormatter(formatter_log)
