@@ -141,19 +141,9 @@ class ThinPool(qubes.storage.Pool):
         else:
             dst_volume = self.create(dst_volume)
 
-        cmd = ['sudo', 'qubes-lvm', 'import', dst_volume.vid]
-        blk_size = 4096
-        p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
-        dst = p.stdin
-        with open(src_path, 'rb') as src:
-            while True:
-                tmp = src.read(blk_size)
-                if not tmp:
-                    break
-                else:
-                    dst.write(tmp)
-        p.stdin.close()
-        p.wait()
+        cmd = ['sudo', 'dd', 'if=' + src_path, 'of=/dev/' + dst_volume.vid,
+            'conv=sparse']
+        subprocess.check_call(cmd)
         reset_cache()
         return dst_volume
 
