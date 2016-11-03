@@ -134,7 +134,9 @@ sed '/^autoballoon=/d;/^lockfile=/d' -i /etc/xen/xl.conf
 echo 'autoballoon=0' >> /etc/xen/xl.conf
 echo 'lockfile="/var/run/qubes/xl-lock"' >> /etc/xen/xl.conf
 
+if [ -e /etc/sysconfig/prelink ]; then
 sed 's/^PRELINKING\s*=.*/PRELINKING=no/' -i /etc/sysconfig/prelink
+fi
 
 systemctl --no-reload enable qubes-core.service >/dev/null 2>&1
 systemctl --no-reload enable qubes-netvm.service >/dev/null 2>&1
