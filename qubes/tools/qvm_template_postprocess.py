@@ -30,6 +30,8 @@ import subprocess
 
 import sys
 
+import grp
+
 import qubes
 import qubes.tools
 
@@ -120,6 +122,22 @@ def post_install(args):
     vm.log.info('Importing data')
     import_data(args.dir, vm)
     app.save()
+    if os.getuid() == 0:
+        # fix permissions, do it only here (not after starting the VM),
+        # because we're running as root only at early installation phase,
+        # when offline mode is enabled anyway - otherwise main() would switch
+        # to non-root user
+        try:
+            qubes_group = grp.getgrnam('qubes')
+            for dirpath, _, filenames in os.walk(vm.dir_path):
+                os.chown(dirpath, -1, qubes_group.gr_gid)
+                os.chmod(dirpath, 0o2775)
+                for name in filenames:
+                    filename = os.path.join(dirpath, name)
+                    os.chown(filename, -1, qubes_group.gr_gid)
+                    os.chmod(filename, 0o664)
+        except KeyError:
+            raise qubes.exc.QubesException('\'qubes\' group missing')
 
     if not app.vmm.offline_mode:
         # just created, so no need to save previous value - we know what it was
@@ -151,6 +169,17 @@ def pre_remove(args):
 
 
 def main(args=None):
+    if os.getuid() == 0:
+        try:
+            qubes_group = grp.getgrnam('qubes')
+            prefix_cmd = ['runuser', '-u', qubes_group.gr_mem[0], '--']
+            os.execvp('runuser', prefix_cmd + sys.argv)
+        except (KeyError, IndexError):
+            # When group or user do not exist yet, continue as root. This
+            # probably also means we're still in installer, so some actions
+            # will not be taken anyway (because of running in chroot ->
+            # offline mode).
+            pass
     args = parser.parse_args(args)
     if not args.really:
         parser.error('Do not call this tool directly.')
