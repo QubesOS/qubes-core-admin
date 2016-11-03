@@ -160,6 +160,8 @@ class ThinPool(qubes.storage.Pool):
             cmd = ['remove', volume._vid_snap]
             qubes_lvm(cmd, self.log)
 
+        if not os.path.exists(volume.path):
+            return
         cmd = ['remove', volume.vid]
         qubes_lvm(cmd, self.log)
         reset_cache()
