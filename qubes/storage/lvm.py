@@ -69,6 +69,7 @@ class ThinPool(qubes.storage.Pool):
         cmd = ['clone', volume._vid_snap, volume.vid]
         qubes_lvm(cmd, self.log)
         cmd = ['remove', volume._vid_snap]
+        qubes_lvm(cmd, self.log)
 
     @property
     def config(self):
@@ -83,8 +84,9 @@ class ThinPool(qubes.storage.Pool):
         assert volume.vid
         assert volume.size
         if volume.source:
-            return self.clone(volume.source, volume)
-        else:
+            # will clone in start()
+            return volume
+        elif not volume._is_volatile:
             cmd = [
                 'create',
                 self._pool_id,
@@ -92,7 +94,7 @@ class ThinPool(qubes.storage.Pool):
                 str(volume.size)
             ]
             qubes_lvm(cmd, self.log)
-        reset_cache()
+            reset_cache()
         return volume
 
     def destroy(self):
@@ -398,6 +400,16 @@ class ThinVolume(qubes.storage.Volume):
         raise qubes.storage.StoragePoolException(
             "You shouldn't use lvm size setter")
 
+    def block_device(self):
+        ''' Return :py:class:`qubes.devices.BlockDevice` for serialization in
+            the libvirt XML template as <disk>.
+        '''
+        if not self._is_volatile:
+            return qubes.devices.BlockDevice(
+                '/dev/' + self._vid_snap, self.name, self.script,
+                self.rw, self.domain, self.devtype)
+        else:
+            return super(ThinVolume, self).block_device()
 
     @property
     def usage(self):  # lvm thin usage always returns at least the same usage as
