@@ -36,12 +36,19 @@ import qubes.ext
 class QubesManager(qubes.ext.Extension):
     def __init__(self, *args, **kwargs):
         super(QubesManager, self).__init__(*args, **kwargs)
-        self._system_bus = dbus.SystemBus()
+        try:
+            self._system_bus = dbus.SystemBus()
+        except dbus.exceptions.DBusException:
+            # we can't access Qubes() object here to check for offline mode,
+            # so lets assume it is this case...
+            self._system_bus = None
 
     # pylint: disable=no-self-use,unused-argument,too-few-public-methods
 
     @qubes.ext.handler('status:error')
     def on_status_error(self, vm, event, status, message):
+        if self._system_bus is None:
+            return
         try:
             qubes_manager = self._system_bus.get_object(
                 'org.qubesos.QubesManager',
@@ -54,6 +61,8 @@ class QubesManager(qubes.ext.Extension):
 
     @qubes.ext.handler('status:no-error')
     def on_status_no_error(self, vm, event, status, message):
+        if self._system_bus is None:
+            return
         try:
             qubes_manager = self._system_bus.get_object(
                 'org.qubesos.QubesManager',

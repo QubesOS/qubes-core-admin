@@ -99,7 +99,16 @@ def enable():
     handler_console.setFormatter(formatter_console)
     logging.root.addHandler(handler_console)
 
-    handler_log = logging.FileHandler('log', 'a', encoding='utf-8')
+    if os.path.exists('/var/log/qubes'):
+        log_path = '/var/log/qubes/qubes.log'
+    else:
+        # for tests, travis etc
+        log_path = '/tmp/qubes.log'
+    old_umask = os.umask(0o007)
+    try:
+        handler_log = logging.FileHandler(log_path, 'a', encoding='utf-8')
+    finally:
+        os.umask(old_umask)
     handler_log.setFormatter(formatter_log)
     logging.root.addHandler(handler_log)
 
