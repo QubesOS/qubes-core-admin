@@ -267,37 +267,27 @@ class ThinPool(qubes.storage.Pool):
 
     def verify(self, volume):
         ''' Verifies the volume. '''
-        cmd = ['sudo', 'qubes-lvm', 'volumes',
-               self.volume_group + '/' + self.thin_pool]
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-        result = p.communicate()[0]
-        for line in result.splitlines():
-            if not line.strip():
-                continue
-            vid, atr = line.strip().split(' ')
-            if vid == volume.vid:
-                return atr[4] == 'a'
-
-        return False
+        try:
+            vol_info = size_cache[volume.vid]
+            return vol_info['attr'][4] == 'a'
+        except KeyError:
+            return False
 
     @property
     def volumes(self):
         ''' Return a list of volumes managed by this pool '''
-        cmd = ['sudo', 'qubes-lvm', 'volumes',
-               self.volume_group + '/' + self.thin_pool]
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-        result = p.communicate()[0]
         volumes = []
-        for line in result.splitlines():
-            if not line.strip():
+        for vid, vol_info in size_cache.items():
+            if not vid.startswith(self.volume_group + '/'):
                 continue
-            vid, atr = line.strip().split(' ')
+            if vol_info['pool_lv'] != self.thin_pool:
+                continue
             config = {
                 'pool': self.name,
                 'vid': vid,
                 'name': vid,
                 'volume_group': self.volume_group,
-                'rw': atr[1] == 'w',
+                'rw': vol_info['attr'][1] == 'w',
             }
             volumes += [ThinVolume(**config)]
         return volumes
@@ -315,10 +305,13 @@ class ThinPool(qubes.storage.Pool):
 
 
 def init_cache(log=logging.getLogger('qube.storage.lvm')):
-    cmd = ['sudo', 'lvs', '--noheadings', '-o',
-           'vg_name,name,lv_size,data_percent', '--units', 'b', '--separator',
-           ',']
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    cmd = ['lvs', '--noheadings', '-o',
+           'vg_name,pool_lv,name,lv_size,data_percent,lv_attr',
+           '--units', 'b', '--separator', ',']
+    if os.getuid() != 0:
+        cmd.insert(0, 'sudo')
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        close_fds=True)
     out, err = p.communicate()
     return_code = p.returncode
     if return_code == 0 and err:
@@ -330,13 +323,14 @@ def init_cache(log=logging.getLogger('qube.storage.lvm')):
 
     for line in out.splitlines():
         line = line.strip()
-        pool_name, name, size, usage_percent = line.split(',', 3)
-        if '' in  [pool_name, name, size, usage_percent]:
+        pool_name, pool_lv, name, size, usage_percent, attr = line.split(',', 5)
+        if '' in [pool_name, pool_lv, name, size, usage_percent]:
             continue
         name = pool_name + "/" + name
         size = int(size[:-1])
         usage = int(size / 100 * float(usage_percent))
-        result[name] = {'size':size, 'usage': usage}
+        result[name] = {'size': size, 'usage': usage, 'pool_lv': pool_lv,
+            'attr': attr}
 
     return result
 
@@ -416,16 +410,34 @@ class ThinVolume(qubes.storage.Volume):
 
 def pool_exists(pool_id):
     ''' Return true if pool exists '''
-    cmd = ['pool', pool_id]
-    return qubes_lvm(cmd)
+    try:
+        vol_info = size_cache[pool_id]
+        return vol_info['attr'][0] == 't'
+    except KeyError:
+        return False
 
 
 def qubes_lvm(cmd, log=logging.getLogger('qube.storage.lvm')):
-    ''' Call :program:`qubes-lvm` to execute an LVM operation '''
-    # TODO Refactor this ones the udev groups gets fixed and we don't need root
-    # for operations on lvm devices
-    cmd = ['sudo', 'qubes-lvm'] + cmd
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    ''' Call :program:`lvm` to execute an LVM operation '''
+    action = cmd[0]
+    if action == 'remove':
+        lvm_cmd = ['lvremove', '-f', cmd[1]]
+    elif action == 'clone':
+        lvm_cmd = ['lvcreate', '-kn', '-ay', '-s', cmd[1], '-n', cmd[2]]
+    elif action == 'create':
+        lvm_cmd = ['lvcreate', '-T', cmd[1], '-kn', '-ay', '-n', cmd[2], '-V',
+           str(cmd[3]) + 'B']
+    elif action == 'extend':
+        size = int(cmd[2]) / (1000 * 1000)
+        lvm_cmd = ["lvextend", "-L%s" % size, cmd[1]]
+    else:
+        raise NotImplementedError('unsupported action: ' + action)
+    if os.getuid() != 0:
+        cmd = ['sudo', 'lvm'] + lvm_cmd
+    else:
+        cmd = ['lvm'] + lvm_cmd
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        close_fds=True)
     out, err = p.communicate()
     return_code = p.returncode
     if out:
