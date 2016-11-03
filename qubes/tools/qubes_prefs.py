@@ -26,6 +26,7 @@
 
 from __future__ import print_function
 
+import argparse
 import sys
 
 import qubes
@@ -33,8 +34,11 @@ import qubes.tools
 import qubes.utils
 
 
-parser = qubes.tools.QubesArgumentParser(
-    want_force_root=True)
+parser = qubes.tools.QubesArgumentParser()
+
+# keep it here for compatibility with earlier and possibly future versions
+parser.add_argument('--force-root',
+    action='store_true', help=argparse.SUPPRESS)
 
 parser.add_argument('--help-properties',
     action=qubes.tools.HelpPropertiesAction)

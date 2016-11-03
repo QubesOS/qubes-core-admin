@@ -27,10 +27,6 @@ Options
 
    Decrease verbosity.
 
-.. option:: --force-root
-
-   Force to run as root.
-
 .. option:: --unset, --default, --delete, -D
 
    Unset the property. If is has default value, it will be used instead.
