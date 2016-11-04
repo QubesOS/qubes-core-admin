@@ -1173,9 +1173,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         :raises OSError: when starting fails.
         '''
 
-        self.log.info('Starting Qubes DB')
+        # drop old connection to QubesDB, if any
+        self._qdb_connection = None
 
-        # FIXME #1694 #1241
+        self.log.info('Starting Qubes DB')
         try:
             self.start_daemon([
                 qubes.config.system_path["qubesdb_daemon_path"],
