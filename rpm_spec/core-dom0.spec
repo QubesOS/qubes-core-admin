@@ -318,6 +318,7 @@ fi
 %{python_sitelib}/qubes/tests/int/dispvm.py*
 %{python_sitelib}/qubes/tests/int/dom0_update.py*
 %{python_sitelib}/qubes/tests/int/network.py*
+%{python_sitelib}/qubes/tests/int/storage.py*
 %{python_sitelib}/qubes/tests/int/vm_qrexec_gui.py*
 
 %dir %{python_sitelib}/qubes/tests/int/tools
