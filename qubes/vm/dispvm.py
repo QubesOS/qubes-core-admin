@@ -162,7 +162,10 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         '''
         app = qubes.Qubes(self.app.store)
         self = app.domains[self.uuid]
-        self.force_shutdown()
+        try:
+            self.force_shutdown()
+        except qubes.exc.QubesVMNotStartedError:
+            pass
         self.remove_from_disk()
         del app.domains[self]
         app.save()
