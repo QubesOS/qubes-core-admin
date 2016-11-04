@@ -115,11 +115,14 @@ def list_volumes(args):
     for domain in domains:  # gather the domain names
         try:
             for volume in domain.attached_volumes:
-                if not args.internal and volume.internal:
-                    continue
                 try:
-                    volume_data = vd_dict[volume.pool][volume.vid]
-                    volume_data.domains += [(domain.name, volume.name)]
+                    if not args.internal and volume.internal:
+                        # some pools (LVM) may set 'internal' flag only when
+                        # listing volumes of specific domain
+                        del vd_dict[volume.pool][volume.vid]
+                    else:
+                        volume_data = vd_dict[volume.pool][volume.vid]
+                        volume_data.domains += [(domain.name, volume.name)]
                 except KeyError:
                     # Skipping volume
                     continue

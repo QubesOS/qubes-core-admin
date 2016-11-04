@@ -272,6 +272,9 @@ class ThinPool(qubes.storage.Pool):
                 continue
             if vol_info['pool_lv'] != self.thin_pool:
                 continue
+            if vid.endswith('-snap'):
+                # implementation detail volume
+                continue
             config = {
                 'pool': self.name,
                 'vid': vid,
