@@ -59,16 +59,17 @@ class ThinPool(qubes.storage.Pool):
         assert volume.rw, msg
         assert hasattr(volume, '_vid_snap')
 
-        cmd = ['remove', volume.vid + "-back"]
-        qubes_lvm(cmd, self.log)
-        cmd = ['clone', volume._vid_snap, volume.vid + "-back"]
+        try:
+            cmd = ['remove', volume.vid + "-back"]
+            qubes_lvm(cmd, self.log)
+        except qubes.storage.StoragePoolException:
+            pass
+        cmd = ['clone', volume.vid, volume.vid + "-back"]
         qubes_lvm(cmd, self.log)
 
         cmd = ['remove', volume.vid]
         qubes_lvm(cmd, self.log)
         cmd = ['clone', volume._vid_snap, volume.vid]
-        qubes_lvm(cmd, self.log)
-        cmd = ['remove', volume._vid_snap]
         qubes_lvm(cmd, self.log)
 
     @property
@@ -83,16 +84,16 @@ class ThinPool(qubes.storage.Pool):
     def create(self, volume):
         assert volume.vid
         assert volume.size
-        if volume.source:
-            # will clone in start()
-            return volume
-        elif not volume._is_volatile:
-            cmd = [
-                'create',
-                self._pool_id,
-                volume.vid.split('/', 1)[1],
-                str(volume.size)
-            ]
+        if volume.save_on_stop:
+            if volume.source:
+                cmd = ['clone', str(volume.source), volume.vid]
+            else:
+                cmd = [
+                    'create',
+                    self._pool_id,
+                    volume.vid.split('/', 1)[1],
+                    str(volume.size)
+                ]
             qubes_lvm(cmd, self.log)
             reset_cache()
         return volume
@@ -173,14 +174,12 @@ class ThinPool(qubes.storage.Pool):
         if volume.save_on_stop:
             cmd = ['clone', volume.vid, new_vid]
             qubes_lvm(cmd, self.log)
-
-        if volume.save_on_stop or volume._is_volatile:
             cmd = ['remove', volume.vid]
             qubes_lvm(cmd, self.log)
 
         volume.vid = new_vid
 
-        if not volume._is_volatile:
+        if volume.snap_on_start:
             volume._vid_snap = volume.vid + '-snap'
         reset_cache()
         return volume
@@ -222,28 +221,23 @@ class ThinPool(qubes.storage.Pool):
         pass  # TODO Should we create a non existing pool?
 
     def start(self, volume):
-        if volume._is_snapshot:
-            self._snapshot(volume)
-        elif volume._is_volatile:
-            self._reset_volume(volume)
-        else:
-            if not self.is_dirty(volume):
+        if volume.snap_on_start:
+            if not volume.save_on_stop or not self.is_dirty(volume):
                 self._snapshot(volume)
+        elif not volume.save_on_stop:
+            self._reset_volume(volume)
 
         reset_cache()
         return volume
 
     def stop(self, volume):
-        if volume.save_on_stop:
+        if volume.save_on_stop and volume.snap_on_start:
             self._commit(volume)
-        if volume._is_snapshot:
+        if volume.snap_on_start:
             cmd = ['remove', volume._vid_snap]
             qubes_lvm(cmd, self.log)
-        elif volume._is_volatile:
+        elif not volume.save_on_stop:
             cmd = ['remove', volume.vid]
-            qubes_lvm(cmd, self.log)
-        else:
-            cmd = ['remove', volume._vid_snap]
             qubes_lvm(cmd, self.log)
         reset_cache()
         return volume
@@ -355,7 +349,7 @@ class ThinVolume(qubes.storage.Volume):
             raise qubes.storage.StoragePoolException(msg)
 
         self.path = '/dev/' + self.vid
-        if not self._is_volatile:
+        if self.snap_on_start:
             self._vid_snap = self.vid + '-snap'
 
         self._size = size
@@ -401,7 +395,7 @@ class ThinVolume(qubes.storage.Volume):
         ''' Return :py:class:`qubes.devices.BlockDevice` for serialization in
             the libvirt XML template as <disk>.
         '''
-        if not self._is_volatile:
+        if self.snap_on_start:
             return qubes.devices.BlockDevice(
                 '/dev/' + self._vid_snap, self.name, self.script,
                 self.rw, self.domain, self.devtype)
