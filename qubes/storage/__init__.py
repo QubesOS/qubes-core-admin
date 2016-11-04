@@ -194,14 +194,23 @@ class Storage(object):
 
         if hasattr(vm, 'volume_config'):
             for name, conf in self.vm.volume_config.items():
-                assert 'pool' in conf, "Pool missing in volume_config" % str(
-                    conf)
                 if 'volume_type' in conf:
                     conf = self._migrate_config(conf)
 
-                pool = self.vm.app.get_pool(conf['pool'])
-                self.vm.volumes[name] = pool.init_volume(self.vm, conf)
-                self.pools[name] = pool
+                self.init_volume(name, conf)
+
+    def init_volume(self, name, volume_config):
+        ''' Initialize Volume instance attached to this domain '''
+        assert 'pool' in volume_config, "Pool missing in volume_config" % str(
+            volume_config)
+
+        if 'name' not in volume_config:
+            volume_config['name'] = name
+        pool = self.vm.app.get_pool(volume_config['pool'])
+        volume = pool.init_volume(self.vm, volume_config)
+        self.vm.volumes[name] = volume
+        self.pools[name] = pool
+        return volume
 
     def _migrate_config(self, conf):
         ''' Migrates from the old config style to new
