@@ -218,14 +218,6 @@ class ThinPool(qubes.storage.Pool):
         qubes_lvm(cmd, self.log)
         reset_cache()
 
-    def _reset(self, volume):
-        try:
-            self.remove(volume)
-        except qubes.storage.StoragePoolException:
-            pass
-
-        self.create(volume)
-
     def setup(self):
         pass  # TODO Should we create a non existing pool?
 
@@ -233,7 +225,7 @@ class ThinPool(qubes.storage.Pool):
         if volume._is_snapshot:
             self._snapshot(volume)
         elif volume._is_volatile:
-            self._reset(volume)
+            self._reset_volume(volume)
         else:
             if not self.is_dirty(volume):
                 self._snapshot(volume)
@@ -298,11 +290,14 @@ class ThinPool(qubes.storage.Pool):
 
     def _reset_volume(self, volume):
         ''' Resets a volatile volume '''
-        assert volume.volume_type == 'volatile', \
+        assert volume._is_volatile, \
             'Expected a volatile volume, but got {!r}'.format(volume)
         self.log.debug('Resetting volatile ' + volume.vid)
-        cmd = ['remove', volume.vid]
-        qubes_lvm(cmd, self.log)
+        try:
+            cmd = ['remove', volume.vid]
+            qubes_lvm(cmd, self.log)
+        except qubes.storage.StoragePoolException:
+            pass
         cmd = ['create', self._pool_id, volume.vid.split('/')[1],
                str(volume.size)]
         qubes_lvm(cmd, self.log)
