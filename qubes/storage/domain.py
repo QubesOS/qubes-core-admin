@@ -86,8 +86,8 @@ class DomainPool(Pool):
 
             devices[name][atr] = value
 
-        return [DomainVolume(n, self.vm, self.name, **atrs)
-                for n, atrs in devices.items()]
+        return [DomainVolume(self.vm, _name, self.name, **atrs)
+                for _name, atrs in devices.items()]
 
     def clone(self, source, target):
         raise NotImplementedError
