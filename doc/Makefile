@@ -24,7 +24,7 @@ install: manpages
 manpages: $(QVM_DOCS) $(QUBES_DOCS) $(VM_DOCS)
 	
 preview:	$(rst)
-	pandoc -s -f rst -t man $(rst) | groff -mandoc -Tlatin1 | less -R
+	$(PANDOC) $(rst) | groff -mandoc -Tlatin1 | less -R
 
 clean:
 	rm -f $(QVM_DOCS) $(QUBES_DOCS) $(VM_DOCS)
