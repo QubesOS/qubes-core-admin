@@ -2012,7 +2012,7 @@ class QubesVm(object):
             # Run GUI daemon in "invisible" mode, so applications started by
             # prerun script will not disturb the user
             extra_guid_args = ['-I']
-        elif not os.path.exists('/var/run/shm.id'):
+        elif not os.path.exists('/var/run/qubes/shm.id'):
             # Start GUI daemon only when shmoverride is loaded; unless
             # preparing DispVM, where it isn't needed because of "invisible"
             # mode
