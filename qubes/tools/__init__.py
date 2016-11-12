@@ -486,7 +486,6 @@ def get_parser_for_command(command):
 
     return parser
 
-
 # pylint: disable=protected-access
 class VmNameGroup(argparse._MutuallyExclusiveGroup):
     ''' Adds an a VMNAME, --all & --exclude parameters to a

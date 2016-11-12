@@ -108,11 +108,9 @@ def init_list_parser(sub_parsers):
 
 
 class DeviceAction(qubes.tools.QubesAction):
-    ''' Action for argument parser that gets the
-        :py:class:``qubes.storage.Volume`` from a POOL_NAME:VOLUME_ID string.
-    '''
-    # pylint: disable=too-few-public-methods
-
+    ''' Validates the device string and sets the corresponding
+        `qubes.devices.DeviceInfo` object.
+    ''' # pylint: disable=too-few-public-methods
     def __init__(self, help='A domain & device id combination',
                  required=True, allow_unknown=False, **kwargs):
         # pylint: disable=redefined-builtin
@@ -142,6 +140,7 @@ class DeviceAction(qubes.tools.QubesAction):
                         qubes.devices.UnknownDevice):
                     parser.error_runtime('no device {!r} in qube {!r}'.format(
                         backend_name, devid))
+                setattr(namespace, self.dest, dev)
             except KeyError:
                 parser.error_runtime('no domain {!r}'.format(backend_name))
         except ValueError:
@@ -174,13 +173,13 @@ def get_parser(device_class=None):
         'attach', help="Attach device to domain", aliases=('at', 'a'))
     attach_parser.add_argument('VMNAME', action=qubes.tools.RunningVmNameAction)
     attach_parser.add_argument(metavar='BACKEND:DEVICE_ID', dest='device',
-                               action=qubes.tools.VolumeAction)
+                               action=DeviceAction)
     attach_parser.set_defaults(func=detach_device)
     detach_parser = sub_parsers.add_parser(
         "detach", help="Detach device from domain", aliases=('d', 'dt'))
     detach_parser.add_argument('VMNAME', action=qubes.tools.RunningVmNameAction)
     detach_parser.add_argument(metavar='BACKEND:DEVICE_ID', dest='device',
-                               action=qubes.tools.VolumeAction)
+                               action=DeviceAction)
     detach_parser.set_defaults(func=detach_device)
 
     return parser
