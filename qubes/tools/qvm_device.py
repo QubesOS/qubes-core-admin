@@ -55,7 +55,7 @@ def prepare_table(dev_list):
     for dev in dev_list:
         output += [(
             "{!s}:{!s}".format(dev.backend_domain, dev.ident),
-            dev.description,
+            str(dev.description),
             str(dev.frontend_domain) if dev.frontend_domain else "",
         )]
 
