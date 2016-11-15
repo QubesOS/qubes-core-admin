@@ -24,6 +24,8 @@
 from __future__ import unicode_literals
 import itertools
 import logging
+import termios
+
 from qubes.utils import size_to_human
 import sys
 import stat
@@ -50,7 +52,9 @@ QUEUE_FINISHED = "FINISHED"
 
 HEADER_FILENAME = 'backup-header'
 DEFAULT_CRYPTO_ALGORITHM = 'aes-256-cbc'
-DEFAULT_HMAC_ALGORITHM = 'SHA512'
+# 'scrypt' is not exactly HMAC algorithm, but a tool we use to
+# integrity-protect the data
+DEFAULT_HMAC_ALGORITHM = 'scrypt'
 DEFAULT_COMPRESSION_FILTER = 'gzip'
 CURRENT_BACKUP_FORMAT_VERSION = '4'
 # Maximum size of error message get from process stderr (including VM process)
@@ -76,6 +80,7 @@ class BackupHeader(object):
         'compression-filter': 'compression_filter',
         'crypto-algorithm': 'crypto_algorithm',
         'hmac-algorithm': 'hmac_algorithm',
+        'backup-id': 'backup_id'
     }
     bool_options = ['encrypted', 'compressed']
     int_options = ['version']
@@ -87,7 +92,8 @@ class BackupHeader(object):
             compressed=None,
             compression_filter=None,
             hmac_algorithm=None,
-            crypto_algorithm=None):
+            crypto_algorithm=None,
+            backup_id=None):
         # repeat the list to help code completion...
         self.version = version
         self.encrypted = encrypted
@@ -97,6 +103,7 @@ class BackupHeader(object):
         self.compression_filter = compression_filter
         self.hmac_algorithm = hmac_algorithm
         self.crypto_algorithm = crypto_algorithm
+        self.backup_id = backup_id
 
         if header_data is not None:
             self.load(header_data)
@@ -148,6 +155,8 @@ class BackupHeader(object):
                 expected_attrs += ['crypto_algorithm']
             if self.version >= 3 and self.compressed:
                 expected_attrs += ['compression_filter']
+            if self.version >= 4:
+                expected_attrs += ['backup_id']
             for key in expected_attrs:
                 if getattr(self, key) is None:
                     raise qubes.exc.QubesException(
@@ -211,6 +220,63 @@ class SendWorker(Process):
             os.remove(filename)
 
         self.log.debug("Finished sending thread")
+
+
+def launch_proc_with_pty(args, stdin=None, stdout=None, stderr=None, echo=True):
+    """Similar to pty.fork, but handle stdin/stdout according to parameters
+    instead of connecting to the pty
+
+    :return tuple (subprocess.Popen, pty_master)
+    """
+
+    def set_ctty(ctty_fd, master_fd):
+        os.setsid()
+        os.close(master_fd)
+        fcntl.ioctl(ctty_fd, termios.TIOCSCTTY, 0)
+        if not echo:
+            termios_p = termios.tcgetattr(ctty_fd)
+            # termios_p.c_lflags
+            termios_p[3] &= ~termios.ECHO
+            termios.tcsetattr(ctty_fd, termios.TCSANOW, termios_p)
+    (pty_master, pty_slave) = os.openpty()
+    p = subprocess.Popen(args, stdin=stdin, stdout=stdout, stderr=stderr,
+        preexec_fn=lambda: set_ctty(pty_slave, pty_master))
+    os.close(pty_slave)
+    return p, os.fdopen(pty_master, 'w+')
+
+
+def launch_scrypt(action, input_name, output_name, passphrase):
+    '''
+    Launch 'scrypt' process, pass passphrase to it and return
+    subprocess.Popen object.
+
+    :param action: 'enc' or 'dec'
+    :param input_name: input path or '-' for stdin
+    :param output_name: output path or '-' for stdout
+    :param passphrase: passphrase
+    :return: subprocess.Popen object
+    '''
+    command_line = ['scrypt', action, input_name, output_name]
+    (p, pty) = launch_proc_with_pty(command_line,
+        stdin=subprocess.PIPE if input_name == '-' else None,
+        stdout=subprocess.PIPE if output_name == '-' else None,
+        stderr=subprocess.PIPE,
+        echo=False)
+    if action == 'enc':
+        prompts = ('Please enter passphrase: ', 'Please confirm passphrase: ')
+    else:
+        prompts = ('Please enter passphrase: ',)
+    for prompt in prompts:
+        actual_prompt = p.stderr.read(len(prompt))
+        if actual_prompt != prompt:
+            raise qubes.exc.QubesException(
+                'Unexpected prompt from scrypt: {}'.format(actual_prompt))
+        pty.write(passphrase.encode('utf-8') + b'\n')
+        pty.flush()
+    # save it here, so garbage collector would not close it (which would kill
+    #  the child)
+    p.pty = pty
+    return p
 
 
 class Backup(object):
@@ -292,6 +358,10 @@ class Backup(object):
         #: callback for progress reporting. Will be called with one argument
         #: - progress in percents
         self.progress_callback = None
+        #: backup ID, needs to be unique (for a given user),
+        #: not necessary unpredictable; automatically generated
+        self.backup_id = datetime.datetime.now().strftime(
+            '%Y%m%dT%H%M%S-' + str(os.getpid()))
 
         for key, value in kwargs.iteritems():
             if hasattr(self, key):
@@ -306,7 +376,9 @@ class Backup(object):
 
         self.log = logging.getLogger('qubes.backup')
 
-        self.compression_filter = DEFAULT_COMPRESSION_FILTER
+        if not self.encrypted:
+            self.log.warning('\'encrypted\' option is ignored, backup is '
+                             'always encrypted')
 
         if exclude_list is None:
             exclude_list = []
@@ -474,17 +546,21 @@ class Backup(object):
             encrypted=self.encrypted,
             compressed=self.compressed,
             compression_filter=self.compression_filter,
+            backup_id=self.backup_id,
         )
         backup_header.save(header_file_path)
+        # Start encrypt, scrypt will also handle integrity
+        # protection
+        scrypt_passphrase = u'{filename}!{passphrase}'.format(
+            filename=HEADER_FILENAME, passphrase=self.passphrase)
+        scrypt = launch_scrypt(
+            'enc', header_file_path, header_file_path + '.hmac',
+            scrypt_passphrase)
 
-        hmac = subprocess.Popen(
-            ["openssl", "dgst", "-" + self.hmac_algorithm,
-                "-hmac", self.passphrase],
-            stdin=open(header_file_path, "r"),
-            stdout=open(header_file_path + ".hmac", "w"))
-        if hmac.wait() != 0:
+        if scrypt.wait() != 0:
             raise qubes.exc.QubesException(
-                "Failed to compute hmac of header file")
+                "Failed to compute hmac of header file: "
+                + scrypt.stderr.read())
         return HEADER_FILENAME, HEADER_FILENAME + ".hmac"
 
 
@@ -533,8 +609,6 @@ class Backup(object):
             backup_app.domains[qid].features['backup-path'] = vm_info.subdir
             backup_app.domains[qid].features['backup-size'] = vm_info.size
         backup_app.save()
-
-        passphrase = self.passphrase.encode('utf-8')
 
         vmproc = None
         tar_sparse = None
@@ -640,73 +714,53 @@ class Backup(object):
 
                 self.log.debug(" ".join(tar_cmdline))
 
-                # Tips: Popen(bufsize=0)
-                # Pipe: tar-sparse | encryptor [| hmac] | tar | backup_target
-                # Pipe: tar-sparse [| hmac] | tar | backup_target
+                # Pipe: tar-sparse | scrypt | tar | backup_target
                 # TODO: log handle stderr
                 tar_sparse = subprocess.Popen(
-                    tar_cmdline, stdin=subprocess.PIPE)
+                    tar_cmdline)
                 self.processes_to_kill_on_cancel.append(tar_sparse)
 
                 # Wait for compressor (tar) process to finish or for any
                 # error of other subprocesses
                 i = 0
+                pipe = open(backup_pipe, 'rb')
                 run_error = "paused"
-                encryptor = None
-                if self.encrypted:
-                    # Start encrypt
-                    # If no cipher is provided,
-                    # the data is forwarded unencrypted !!!
-                    encryptor = subprocess.Popen([
-                        "openssl", "enc",
-                        "-e", "-" + self.crypto_algorithm,
-                        "-pass", "pass:" + passphrase],
-                        stdin=open(backup_pipe, 'rb'),
-                        stdout=subprocess.PIPE)
-                    pipe = encryptor.stdout
-                else:
-                    pipe = open(backup_pipe, 'rb')
                 while run_error == "paused":
-
-                    # Start HMAC
-                    hmac = subprocess.Popen([
-                        "openssl", "dgst", "-" + self.hmac_algorithm,
-                        "-hmac", passphrase],
-                        stdin=subprocess.PIPE,
-                        stdout=subprocess.PIPE)
-
                     # Prepare a first chunk
-                    chunkfile = backup_tempfile + "." + "%03d" % i
+                    chunkfile = backup_tempfile + ".%03d.enc" % i
                     i += 1
-                    chunkfile_p = open(chunkfile, 'wb')
 
-                    common_args = {
-                        'backup_target': chunkfile_p,
-                        'hmac': hmac,
-                        'vmproc': vmproc,
-                        'addproc': tar_sparse,
-                        'progress_callback': self._add_vm_progress,
-                        'size_limit': self.chunk_size,
-                    }
-                    run_error = wait_backup_feedback(
-                        in_stream=pipe, streamproc=encryptor,
-                        **common_args)
-                    chunkfile_p.close()
+                    # Start encrypt, scrypt will also handle integrity
+                    # protection
+                    scrypt_passphrase = \
+                        u'{backup_id}!{filename}!{passphrase}'.format(
+                            backup_id=self.backup_id,
+                            filename=os.path.relpath(chunkfile[:-4],
+                                self.tmpdir),
+                            passphrase=self.passphrase)
+                    scrypt = launch_scrypt(
+                        "enc", "-", chunkfile, scrypt_passphrase)
+
+                    run_error = handle_streams(
+                        pipe,
+                        {'backup_target': scrypt.stdin},
+                        {'vmproc': vmproc,
+                         'addproc': tar_sparse,
+                         'scrypt': scrypt,
+                        },
+                        self.chunk_size,
+                        self._add_vm_progress
+                    )
 
                     self.log.debug(
-                        "Wait_backup_feedback returned: {}".format(run_error))
+                        "12 returned: {}".format(run_error))
 
                     if self.canceled:
                         try:
                             tar_sparse.terminate()
                         except OSError:
                             pass
-                        try:
-                            hmac.terminate()
-                        except OSError:
-                            pass
                         tar_sparse.wait()
-                        hmac.wait()
                         to_send.put(QUEUE_ERROR)
                         send_proc.join()
                         shutil.rmtree(self.tmpdir)
@@ -722,28 +776,15 @@ class Backup(object):
                                 "Failed to perform backup: error in " +
                                 run_error)
 
+                    scrypt.stdin.close()
+                    scrypt.wait()
+                    self.log.debug("scrypt return code: {}".format(
+                        scrypt.poll()))
+
                     # Send the chunk to the backup target
                     self._queue_put_with_check(
                         send_proc, vmproc, to_send,
                         os.path.relpath(chunkfile, self.tmpdir))
-
-                    # Close HMAC
-                    hmac.stdin.close()
-                    hmac.wait()
-                    self.log.debug("HMAC proc return code: {}".format(
-                        hmac.poll()))
-
-                    # Write HMAC data next to the chunk file
-                    hmac_data = hmac.stdout.read()
-                    self.log.debug(
-                        "Writing hmac to {}.hmac".format(chunkfile))
-                    with open(chunkfile + ".hmac", 'w') as hmac_file:
-                        hmac_file.write(hmac_data)
-
-                    # Send the HMAC to the backup target
-                    self._queue_put_with_check(
-                        send_proc, vmproc, to_send,
-                        os.path.relpath(chunkfile, self.tmpdir) + ".hmac")
 
                     if tar_sparse.poll() is None or run_error == "size_limit":
                         run_error = "paused"
@@ -783,96 +824,52 @@ class Backup(object):
         self.app.save()
 
 
-
-
-def wait_backup_feedback(progress_callback, in_stream, streamproc,
-                         backup_target, hmac=None, vmproc=None,
-                         addproc=None,
-                         size_limit=None):
+def handle_streams(stream_in, streams_out, processes, size_limit=None,
+        progress_callback=None):
     '''
-    Wait for backup chunk to finish
-    - Monitor all the processes (streamproc, hmac, vmproc, addproc) for errors
-    - Copy stdout of streamproc to backup_target and hmac stdin if available
-    - Compute progress based on total_backup_sz and send progress to
-      progress_callback function
-    - Returns if
-    -     one of the monitored processes error out (streamproc, hmac, vmproc,
-          addproc), along with the processe that failed
-    -     all of the monitored processes except vmproc finished successfully
-          (vmproc termination is controlled by the python script)
-    -     streamproc does not delivers any data anymore (return with the error
-          "")
-    -     size_limit is provided and is about to be exceeded
-    '''
+    Copy stream_in to all streams_out and monitor all mentioned processes.
+    If any of them terminate with non-zero code, interrupt the process. Copy
+    at most `size_limit` data (if given).
 
+    :param stream_in: file-like object to read data from
+    :param streams_out: dict of file-like objects to write data to
+    :param processes: dict of subprocess.Popen objects to monitor
+    :param size_limit: int maximum data amount to process
+    :param progress_callback: callable function to report progress, will be
+    given copied data size (it should accumulate internally)
+    :return: failed process name, failed stream name, "size_limit" or None (
+    no error)
+    '''
     buffer_size = 409600
-    run_error = None
-    run_count = 1
     bytes_copied = 0
-    log = logging.getLogger('qubes.backup')
+    while True:
+        if size_limit:
+            to_copy = min(buffer_size, size_limit - bytes_copied)
+            if to_copy <= 0:
+                return "size_limit"
+        else:
+            to_copy = buffer_size
+        buf = stream_in.read(to_copy)
+        if not len(buf):
+            # done
+            return None
 
-    while run_count > 0 and run_error is None:
-        if size_limit and bytes_copied + buffer_size > size_limit:
-            return "size_limit"
-
-        buf = in_stream.read(buffer_size)
         if callable(progress_callback):
             progress_callback(len(buf))
+        for name, stream in streams_out.items():
+            if stream is None:
+                continue
+            try:
+                stream.write(buf)
+            except IOError:
+                return name
         bytes_copied += len(buf)
 
-        run_count = 0
-        if hmac:
-            retcode = hmac.poll()
-            if retcode is not None:
-                if retcode != 0:
-                    run_error = "hmac"
-            else:
-                run_count += 1
-
-        if addproc:
-            retcode = addproc.poll()
-            if retcode is not None:
-                if retcode != 0:
-                    run_error = "addproc"
-            else:
-                run_count += 1
-
-        if vmproc:
-            retcode = vmproc.poll()
-            if retcode is not None:
-                if retcode != 0:
-                    run_error = "VM"
-                    log.debug(vmproc.stdout.read())
-            else:
-                # VM should run until the end
-                pass
-
-        if streamproc:
-            retcode = streamproc.poll()
-            if retcode is not None:
-                if retcode != 0:
-                    run_error = "streamproc"
-                    break
-                elif retcode == 0 and len(buf) <= 0:
-                    return ""
-            run_count += 1
-
-        else:
-            if len(buf) <= 0:
-                return ""
-
-        try:
-            backup_target.write(buf)
-        except IOError as e:
-            if e.errno == errno.EPIPE:
-                run_error = "target"
-            else:
-                raise
-
-        if hmac:
-            hmac.stdin.write(buf)
-
-    return run_error
+        for name, proc in processes.items():
+            if proc is None:
+                continue
+            if proc.poll():
+                return name
 
 
 class ExtractWorker2(Process):
@@ -1127,6 +1124,10 @@ class ExtractWorker2(Process):
             self.tar2_current_file = filename
 
             pipe = open(self.restore_pipe, 'wb')
+            monitor_processes = {
+                'vmproc': self.vmproc,
+                'addproc': self.tar2_process,
+            }
             common_args = {
                 'backup_target': pipe,
                 'hmac': None,
@@ -1144,28 +1145,23 @@ class ExtractWorker2(Process):
                     (["-z"] if self.compressed else []),
                     stdin=open(filename, 'rb'),
                     stdout=subprocess.PIPE)
-
-                run_error = wait_backup_feedback(
-                    progress_callback=self.progress_callback,
-                    in_stream=self.decryptor_process.stdout,
-                    streamproc=self.decryptor_process,
-                    **common_args)
+                in_stream = self.decryptor_process.stdout
+                monitor_processes['decryptor'] = self.decryptor_process
             elif self.compressed:
                 self.decompressor_process = subprocess.Popen(
                     ["gzip", "-d"],
                     stdin=open(filename, 'rb'),
                     stdout=subprocess.PIPE)
-
-                run_error = wait_backup_feedback(
-                    progress_callback=self.progress_callback,
-                    in_stream=self.decompressor_process.stdout,
-                    streamproc=self.decompressor_process,
-                    **common_args)
+                in_stream = self.decompressor_process.stdout
+                monitor_processes['decompresor'] = self.decompressor_process
             else:
-                run_error = wait_backup_feedback(
-                    progress_callback=self.progress_callback,
-                    in_stream=open(filename, "rb"), streamproc=None,
-                    **common_args)
+                in_stream = open(filename, 'rb')
+
+            run_error = handle_streams(
+                in_stream,
+                {'target': pipe},
+                monitor_processes,
+                progress_callback=self.progress_callback)
 
             try:
                 pipe.close()
@@ -1177,7 +1173,7 @@ class ExtractWorker2(Process):
                     # ignore the error
                 else:
                     raise
-            if len(run_error):
+            if run_error:
                 if run_error == "target":
                     self.collect_tar_output()
                     details = "\n".join(self.tar2_stderr)
@@ -1307,22 +1303,31 @@ class ExtractWorker3(ExtractWorker2):
                 os.remove(filename)
                 continue
             else:
+                (basename, ext) = os.path.splitext(self.tar2_current_file)
+                previous_chunk_number = int(ext[1:])
+                expected_filename = basename + '.%03d' % (
+                    previous_chunk_number+1)
+                if expected_filename != filename:
+                    self.cleanup_tar2(wait=True, terminate=True)
+                    self.log.error(
+                        'Unexpected file in archive: {}, expected {}'.format(
+                            filename, expected_filename))
+                    os.remove(filename)
+                    continue
                 self.log.debug("Releasing next chunck")
+
             self.tar2_current_file = filename
 
-            common_args = {
-                'backup_target': input_pipe,
-                'hmac': None,
-                'vmproc': self.vmproc,
-                'addproc': self.tar2_process
-            }
+            run_error = handle_streams(
+                open(filename, 'rb'),
+                {'target': input_pipe},
+                {'vmproc': self.vmproc,
+                 'addproc': self.tar2_process,
+                 'decryptor': self.decryptor_process,
+                },
+                progress_callback=self.progress_callback)
 
-            run_error = wait_backup_feedback(
-                progress_callback=self.progress_callback,
-                in_stream=open(filename, "rb"), streamproc=None,
-                **common_args)
-
-            if len(run_error):
+            if run_error:
                 if run_error == "target":
                     self.collect_tar_output()
                     details = "\n".join(self.tar2_stderr)
@@ -1356,6 +1361,8 @@ def get_supported_hmac_algo(hmac_algorithm=None):
     # Start with provided default
     if hmac_algorithm:
         yield hmac_algorithm
+    if hmac_algorithm != 'scrypt':
+        yield 'scrypt'
     proc = subprocess.Popen(['openssl', 'list-message-digest-algorithms'],
                             stdout=subprocess.PIPE)
     for algo in proc.stdout.readlines():
@@ -1575,6 +1582,10 @@ class BackupRestore(object):
 
     def _verify_hmac(self, filename, hmacfile, algorithm=None):
         def load_hmac(hmac_text):
+            if filter(lambda x: ord(x) not in range(128),
+                    hmac_text):
+                raise qubes.exc.QubesException(
+                    "Invalid content of {}".format(hmacfile))
             hmac_text = hmac_text.strip().split("=")
             if len(hmac_text) > 1:
                 hmac_text = hmac_text[1].strip()
@@ -1592,6 +1603,17 @@ class BackupRestore(object):
             raise qubes.exc.QubesException(
                 "ERROR: expected hmac for {}, but got {}".
                 format(filename, hmacfile))
+
+        if algorithm == 'scrypt':
+            # in case of 'scrypt' _verify_hmac is only used for backup header
+            assert filename == HEADER_FILENAME
+            self._verify_and_decrypt(hmacfile, HEADER_FILENAME + '.dec')
+            if open(os.path.join(self.tmpdir, filename)).read() != \
+                    open(os.path.join(self.tmpdir, filename + '.dec')).read():
+                raise qubes.exc.QubesException(
+                    'Invalid hmac on {}'.format(filename))
+            else:
+                return True
 
         hmac_proc = subprocess.Popen(
             ["openssl", "dgst", "-" + algorithm, "-hmac", passphrase],
@@ -1618,6 +1640,80 @@ class BackupRestore(object):
                     "Is the passphrase correct?".
                     format(filename, load_hmac(hmac_stdout)))
 
+    def _verify_and_decrypt(self, filename, output=None):
+        assert filename.endswith('.enc') or filename.endswith('.hmac')
+        fullname = os.path.join(self.tmpdir, filename)
+        (origname, _) = os.path.splitext(filename)
+        if output:
+            fulloutput = os.path.join(self.tmpdir, output)
+        else:
+            fulloutput = os.path.join(self.tmpdir, origname)
+        if origname == HEADER_FILENAME:
+            passphrase = u'{filename}!{passphrase}'.format(
+                filename=origname,
+                passphrase=self.passphrase)
+        else:
+            passphrase = u'{backup_id}!{filename}!{passphrase}'.format(
+                backup_id=self.header_data.backup_id,
+                filename=origname,
+                passphrase=self.passphrase)
+        p = launch_scrypt('dec', fullname, fulloutput, passphrase)
+        (_, stderr) = p.communicate()
+        if p.returncode != 0:
+            os.unlink(fulloutput)
+            raise qubes.exc.QubesException('failed to decrypt {}: {}'.format(
+                fullname, stderr))
+        # encrypted file is no longer needed
+        os.unlink(fullname)
+        return origname
+
+    def _retrieve_backup_header_files(self, files, allow_none=False):
+        (retrieve_proc, filelist_pipe, error_pipe) = \
+            self._start_retrieval_process(
+                files, len(files), 1024 * 1024)
+        filelist = filelist_pipe.read()
+        retrieve_proc_returncode = retrieve_proc.wait()
+        if retrieve_proc in self.processes_to_kill_on_cancel:
+            self.processes_to_kill_on_cancel.remove(retrieve_proc)
+        extract_stderr = error_pipe.read(MAX_STDERR_BYTES)
+
+        # wait for other processes (if any)
+        for proc in self.processes_to_kill_on_cancel:
+            if proc.wait() != 0:
+                raise qubes.exc.QubesException(
+                    "Backup header retrieval failed (exit code {})".format(
+                        proc.wait())
+                )
+
+        if retrieve_proc_returncode != 0:
+            if not filelist and 'Not found in archive' in extract_stderr:
+                if allow_none:
+                    return None
+                else:
+                    raise qubes.exc.QubesException(
+                        "unable to read the qubes backup file {0} ({1}): {2}".format(
+                            self.backup_location,
+                            retrieve_proc.wait(),
+                            extract_stderr
+                        ))
+        actual_files = filelist.splitlines()
+        if sorted(actual_files) != sorted(files):
+            raise qubes.exc.QubesException(
+                'unexpected files in archive: got {!r}, expeced {!r}'.format(
+                    actual_files, files
+                ))
+        for f in files:
+            if not os.path.exists(os.path.join(self.tmpdir, f)):
+                if allow_none:
+                    return None
+                else:
+                    raise qubes.exc.QubesException(
+                        'Unable to retrieve file {} from backup {}: {}'.format(
+                            f, self.backup_location, extract_stderr
+                        )
+                    )
+        return files
+
     def _retrieve_backup_header(self):
         """Retrieve backup header and qubes.xml. Only backup header is
         analyzed, qubes.xml is left as-is
@@ -1634,82 +1730,47 @@ class BackupRestore(object):
             header_data.version = 1
             return header_data
 
-        (retrieve_proc, filelist_pipe, error_pipe) = \
-            self._start_retrieval_process(
-                ['backup-header', 'backup-header.hmac',
-                'qubes.xml.000', 'qubes.xml.000.hmac'], 4, 1024 * 1024)
+        header_files = self._retrieve_backup_header_files(
+            ['backup-header', 'backup-header.hmac'], allow_none=True)
 
-        expect_tar_error = False
-
-        filename = filelist_pipe.readline().strip()
-        hmacfile = filelist_pipe.readline().strip()
-        # tar output filename before actually extracting it, so wait for the
-        # next one before trying to access it
-        if not self.backup_vm:
-            filelist_pipe.readline().strip()
-
-        self.log.debug("Got backup header and hmac: {}, {}".format(
-            filename, hmacfile))
-
-        if not filename or filename == "EOF" or \
-                not hmacfile or hmacfile == "EOF":
-            retrieve_proc.wait()
-            proc_error_msg = error_pipe.read(MAX_STDERR_BYTES)
-            raise qubes.exc.QubesException(
-                "Premature end of archive while receiving "
-                "backup header. Process output:\n" + proc_error_msg)
-        file_ok = False
-        hmac_algorithm = DEFAULT_HMAC_ALGORITHM
-        for hmac_algo in get_supported_hmac_algo(hmac_algorithm):
-            try:
-                if self._verify_hmac(filename, hmacfile, hmac_algo):
-                    file_ok = True
-                    hmac_algorithm = hmac_algo
-                    break
-            except qubes.exc.QubesException:
-                # Ignore exception here, try the next algo
-                pass
-        if not file_ok:
-            raise qubes.exc.QubesException(
-                "Corrupted backup header (hmac verification "
-                "failed). Is the password correct?")
-        if os.path.basename(filename) == HEADER_FILENAME:
-            filename = os.path.join(self.tmpdir, filename)
-            header_data = BackupHeader(open(filename, 'r').read())
-            os.unlink(filename)
-        else:
-            # if no header found, create one with guessed HMAC algo
+        if not header_files:
+            # R2-Beta3 didn't have backup header, so if none is found,
+            # assume it's version=2 and use values present at that time
             header_data = BackupHeader(
                 version=2,
-                hmac_algorithm=hmac_algorithm,
                 # place explicitly this value, because it is what format_version
                 # 2 have
+                hmac_algorithm='SHA1',
                 crypto_algorithm='aes-256-cbc',
                 # TODO: set encrypted to something...
             )
-            # when tar do not find expected file in archive, it exit with
-            # code 2. This will happen because we've requested backup-header
-            # file, but the archive do not contain it. Ignore this particular
-            # error.
-            if not self.backup_vm:
-                expect_tar_error = True
+        else:
+            filename = HEADER_FILENAME
+            hmacfile = HEADER_FILENAME + '.hmac'
+            self.log.debug("Got backup header and hmac: {}, {}".format(
+                filename, hmacfile))
 
-        if retrieve_proc.wait() != 0 and not expect_tar_error:
-            raise qubes.exc.QubesException(
-                "unable to read the qubes backup file {0} ({1}): {2}".format(
-                    self.backup_location,
-                    retrieve_proc.wait(),
-                    error_pipe.read(MAX_STDERR_BYTES)
-                ))
-        if retrieve_proc in self.processes_to_kill_on_cancel:
-            self.processes_to_kill_on_cancel.remove(retrieve_proc)
-        # wait for other processes (if any)
-        for proc in self.processes_to_kill_on_cancel:
-            if proc.wait() != 0:
+            file_ok = False
+            hmac_algorithm = DEFAULT_HMAC_ALGORITHM
+            for hmac_algo in get_supported_hmac_algo(hmac_algorithm):
+                try:
+                    if self._verify_hmac(filename, hmacfile, hmac_algo):
+                        file_ok = True
+                        break
+                except qubes.exc.QubesException as e:
+                    self.log.debug(
+                        'Failed to verify {} using {}: {}'.format(
+                            hmacfile, hmac_algo, str(e)))
+                    # Ignore exception here, try the next algo
+                    pass
+            if not file_ok:
                 raise qubes.exc.QubesException(
-                    "Backup header retrieval failed (exit code {})".format(
-                        proc.wait())
-                )
+                    "Corrupted backup header (hmac verification "
+                    "failed). Is the password correct?")
+            filename = os.path.join(self.tmpdir, filename)
+            header_data = BackupHeader(open(filename, 'r').read())
+            os.unlink(filename)
+
         return header_data
 
     def _start_inner_extraction_worker(self, queue, relocate):
@@ -1742,6 +1803,9 @@ class BackupRestore(object):
         elif format_version in [3, 4]:
             extractor_params['compression_filter'] = \
                 self.header_data.compression_filter
+            if format_version == 4:
+                # encryption already handled
+                extractor_params['encrypted'] = False
             extract_proc = ExtractWorker3(**extractor_params)
         else:
             raise NotImplementedError(
@@ -1760,7 +1824,14 @@ class BackupRestore(object):
                 offline_mode=True)
             return backup_app
         else:
-            self._verify_hmac("qubes.xml.000", "qubes.xml.000.hmac")
+            if self.header_data.version in [2, 3]:
+                self._retrieve_backup_header_files(
+                    ['qubes.xml.000', 'qubes.xml.000.hmac'])
+                self._verify_hmac("qubes.xml.000", "qubes.xml.000.hmac")
+            else:
+                self._retrieve_backup_header_files(['qubes.xml.000.enc'])
+                self._verify_and_decrypt('qubes.xml.000.enc')
+
             queue = Queue()
             queue.put("qubes.xml.000")
             queue.put(QUEUE_FINISHED)
@@ -1808,6 +1879,7 @@ class BackupRestore(object):
 
         try:
             filename = None
+            hmacfile = None
             nextfile = None
             while True:
                 if self.canceled:
@@ -1831,30 +1903,58 @@ class BackupRestore(object):
                 if not filename or filename == "EOF":
                     break
 
-                hmacfile = filelist_pipe.readline().strip()
-
-                if self.canceled:
-                    break
                 # if reading archive directly with tar, wait for next filename -
                 # tar prints filename before processing it, so wait for
                 # the next one to be sure that whole file was extracted
                 if not self.backup_vm:
                     nextfile = filelist_pipe.readline().strip()
 
-                self.log.debug("Getting hmac:" + hmacfile)
-                if not hmacfile or hmacfile == "EOF":
-                    # Premature end of archive, either of tar1_command or
-                    # vmproc exited with error
-                    break
+                if self.header_data.version in [2, 3]:
+                    if not self.backup_vm:
+                        hmacfile = nextfile
+                        nextfile = filelist_pipe.readline().strip()
+                    else:
+                        hmacfile = filelist_pipe.readline().strip()
+
+                    if self.canceled:
+                        break
+
+                    self.log.debug("Getting hmac:" + hmacfile)
+                    if not hmacfile or hmacfile == "EOF":
+                        # Premature end of archive, either of tar1_command or
+                        # vmproc exited with error
+                        break
+                else:  # self.header_data.version == 4
+                    if not filename.endswith('.enc'):
+                        raise qubes.exc.QubesException(
+                            'Invalid file extension found in archive: {}'.
+                            format(filename))
 
                 if not any(map(lambda x: filename.startswith(x), vms_dirs)):
                     self.log.debug("Ignoring VM not selected for restore")
                     os.unlink(os.path.join(self.tmpdir, filename))
-                    os.unlink(os.path.join(self.tmpdir, hmacfile))
+                    if hmacfile:
+                        os.unlink(os.path.join(self.tmpdir, hmacfile))
                     continue
 
-                if self._verify_hmac(filename, hmacfile):
-                    to_extract.put(os.path.join(self.tmpdir, filename))
+                if self.header_data.version in [2, 3]:
+                    self._verify_hmac(filename, hmacfile)
+                else:
+                    # _verify_and_decrypt will write output to a file with
+                    # '.enc' extension cut off. This is safe because:
+                    # - `scrypt` tool will override output, so if the file was
+                    # already there (received from the VM), it will be removed
+                    # - incoming archive extraction will refuse to override
+                    # existing file, so if `scrypt` already created one,
+                    # it can not be manipulated by the VM
+                    # - when the file is retrieved from the VM, it appears at
+                    # the final form - if it's visible, VM have no longer
+                    # influence over its content
+                    #
+                    # This all means that if the file was correctly verified
+                    # + decrypted, we will surely access the right file
+                    filename = self._verify_and_decrypt(filename)
+                to_extract.put(os.path.join(self.tmpdir, filename))
 
             if self.canceled:
                 raise BackupCanceledError("Restore canceled",
@@ -1921,7 +2021,7 @@ class BackupRestore(object):
                 vm_info.problems.add(self.VMToRestore.EXCLUDED)
 
             if not self.options.verify_only and \
-                    vm in self.app.domains:
+                    vm_info.name in self.app.domains:
                 if self.options.rename_conflicting:
                     new_name = self.generate_new_name_for_conflicting_vm(
                         vm, restore_info
@@ -2242,6 +2342,8 @@ class BackupRestore(object):
         '''
 
         # FIXME handle locking
+
+        restore_info = self.restore_info_verify(restore_info)
 
         self._restore_vms_metadata(restore_info)
 

@@ -63,6 +63,17 @@ VMPREFIX = 'test-inst-'
 CLSVMPREFIX = 'test-cls-'
 
 
+if 'DEFAULT_LVM_POOL' in os.environ.keys():
+    DEFAULT_LVM_POOL = os.environ['DEFAULT_LVM_POOL']
+else:
+    DEFAULT_LVM_POOL = 'qubes_dom0/pool00'
+
+
+POOL_CONF = {'name': 'test-lvm',
+             'driver': 'lvm_thin',
+             'volume_group': DEFAULT_LVM_POOL.split('/')[0],
+             'thin_pool': DEFAULT_LVM_POOL.split('/')[1]}
+
 #: :py:obj:`True` if running in dom0, :py:obj:`False` otherwise
 in_dom0 = False
 
@@ -527,6 +538,30 @@ class SystemTestsMixin(object):
             provides_network=True
         )
         self.app.default_netvm = netvm_clone
+
+
+    def _find_pool(self, volume_group, thin_pool):
+        ''' Returns the pool matching the specified ``volume_group`` &
+            ``thin_pool``, or None.
+        '''
+        pools = [p for p in self.app.pools
+                 if issubclass(p.__class__, qubes.storage.lvm.ThinPool)]
+        for pool in pools:
+            if pool.volume_group == volume_group \
+                    and pool.thin_pool == thin_pool:
+                return pool
+        return None
+
+    def init_lvm_pool(self):
+        volume_group, thin_pool = DEFAULT_LVM_POOL.split('/', 1)
+        path = "/dev/mapper/{!s}-{!s}".format(volume_group, thin_pool)
+        if not os.path.exists(path):
+            self.skipTest('LVM thin pool {!r} does not exist'.
+                format(DEFAULT_LVM_POOL))
+        self.pool = self._find_pool(volume_group, thin_pool)
+        if not self.pool:
+            self.pool = self.app.add_pool(**POOL_CONF)
+            self.created_pool = True
 
     def reload_db(self):
         self.app = qubes.Qubes(qubes.tests.XMLPATH)
