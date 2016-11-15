@@ -127,11 +127,8 @@ class Features(dict):
             return self[feature]
 
         if hasattr(self.vm, 'template') and self.vm.template is not None:
-            try:
-                return self.vm.template.features[feature]
-            except KeyError:
-                # handle default just below
-                pass
+            return self.vm.template.features.check_with_template(feature,
+                default)
 
         if default is self._NO_DEFAULT:
             raise KeyError(feature)

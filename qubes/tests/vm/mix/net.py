@@ -84,49 +84,17 @@ class TC_00_NetVMMixin(
         self.app.domains = {1: vm, vm: vm}
         self.assertPropertyInvalidValue(vm, 'netvm', vm)
 
-    @unittest.skip('TODO: probably remove')
-    def test_290_dispvm_netvm(self):
+    def test_150_ip(self):
         vm = self.get_vm()
         self.setup_netvms(vm)
-        self.assertPropertyDefaultValue(vm, 'dispvm_netvm',
-            self.app.default_netvm)
-        self.assertPropertyValue(vm, 'dispvm_netvm', self.netvm2, self.netvm2,
-            self.netvm2.name)
-        del vm.dispvm_netvm
-        self.assertPropertyDefaultValue(vm, 'dispvm_netvm',
-            self.app.default_netvm)
-        self.assertPropertyValue(vm, 'dispvm_netvm', self.netvm2.name,
-            self.netvm2, self.netvm2.name)
-        # XXX FIXME xml value
-        self.assertPropertyValue(vm, 'dispvm_netvm', None, None, 'None')
+        self.assertPropertyDefaultValue(vm, 'ip', '10.137.0.' + str(vm.qid))
+        vm.ip = '192.168.1.1'
+        self.assertEqual(vm.ip, '192.168.1.1')
 
-    @unittest.skip('TODO: probably remove')
-    def test_291_dispvm_netvm_invalid(self):
+    def test_151_ip_invalid(self):
         vm = self.get_vm()
         self.setup_netvms(vm)
-        self.assertPropertyInvalidValue(vm, 'dispvm_netvm', 'invalid')
-        self.assertPropertyInvalidValue(vm, 'dispvm_netvm', 123)
-
-    @unittest.skip('TODO: probably remove')
-    def test_291_dispvm_netvm_netvm(self):
-        vm = self.get_vm()
-        nonetvm = TestVM(qid=2, app=self.app, name='nonetvm')
-        self.app.domains = {1: vm, 2: nonetvm}
-        self.assertPropertyInvalidValue(vm, 'dispvm_netvm', nonetvm)
-
-    @unittest.skip('TODO: probably remove')
-    def test_291_dispvm_netvm_default(self):
-        """Check if vm.dispvm_netvm default is really vm.netvm"""
-        vm = self.get_vm()
-        self.setup_netvms(vm)
-        vm.netvm = self.netvm2
-        self.assertPropertyDefaultValue(vm, 'dispvm_netvm', self.netvm2)
-        del vm.netvm
-        self.assertPropertyDefaultValue(vm, 'dispvm_netvm', self.netvm1)
-
-    @unittest.skip('TODO: probably remove')
-    def test_292_dispvm_netvm_loopback(self):
-        vm = self.get_vm()
-        self.app.domains = {1: vm, vm: vm}
-        self.assertPropertyInvalidValue(vm, 'dispvm_netvm', vm)
-
+        self.assertPropertyInvalidValue(vm, 'ip', 'abcd')
+        self.assertPropertyInvalidValue(vm, 'ip', 'a.b.c.d')
+        self.assertPropertyInvalidValue(vm, 'ip', '1111.2222.3333.4444')
+        # TODO: implement and add here: 0.0.0.0, 333.333.333.333

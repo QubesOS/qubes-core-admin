@@ -45,6 +45,25 @@ def _setter_mac(self, prop, value):
     return value
 
 
+def _default_ip(self):
+    if not self.is_networked():
+        return None
+    if self.netvm is not None:
+        return self.netvm.get_ip_for_vm(self)  # pylint: disable=no-member
+    else:
+        return self.get_ip_for_vm(self)
+
+
+def _setter_ip(self, prop, value):
+    # pylint: disable=unused-argument
+    if not isinstance(value, basestring):
+        raise ValueError('IP address must be a string')
+    value = value.lower()
+    if re.match(r"^([0-9]{1,3}.){3}[0-9]{1,3}$", value) is None:
+        raise ValueError('Invalid IP address value')
+    return value
+
+
 class NetVMMixin(qubes.events.Emitter):
     ''' Mixin containing network functionality '''
     mac = qubes.property('mac', type=str,
@@ -52,6 +71,12 @@ class NetVMMixin(qubes.events.Emitter):
         setter=_setter_mac,
         ls_width=17,
         doc='MAC address of the NIC emulated inside VM')
+
+    ip = qubes.property('ip', type=str,
+        default=_default_ip,
+        setter=_setter_ip,
+        ls_width=15,
+        doc='IP address of this domain.')
 
     # CORE2: swallowed uses_default_netvm
     netvm = qubes.VMProperty('netvm', load_stage=4, allow_none=True,
@@ -74,16 +99,27 @@ class NetVMMixin(qubes.events.Emitter):
     # used in networked appvms or proxyvms (netvm is not None)
     #
 
+
     @qubes.tools.qvm_ls.column(width=15)
     @property
-    def ip(self):
-        '''IP address of this domain.'''
-        if not self.is_networked():
-            return None
-        if self.netvm is not None:
-            return self.netvm.get_ip_for_vm(self)  # pylint: disable=no-member
-        else:
-            return self.get_ip_for_vm(self)
+    def visible_ip(self):
+        '''IP address of this domain as seen by the domain.'''
+        return self.features.check_with_template('net/fake-ip', None) or \
+            self.ip
+
+    @qubes.tools.qvm_ls.column(width=15)
+    @property
+    def visible_gateway(self):
+        '''Default gateway of this domain as seen by the domain.'''
+        return self.features.check_with_template('net/fake-gateway', None) or \
+            self.netvm.gateway
+
+    @qubes.tools.qvm_ls.column(width=15)
+    @property
+    def visible_netmask(self):
+        '''Netmask as seen by the domain.'''
+        return self.features.check_with_template('net/fake-netmask', None) or \
+            self.netvm.netmask
 
     #
     # used in netvms (provides_network=True)
@@ -106,7 +142,7 @@ class NetVMMixin(qubes.events.Emitter):
     @property
     def gateway(self):
         '''Gateway for other domains that use this domain as netvm.'''
-        return self.ip if self.provides_network else None
+        return self.visible_ip if self.provides_network else None
 
     @qubes.tools.qvm_ls.column(width=15)
     @property
@@ -211,6 +247,7 @@ class NetVMMixin(qubes.events.Emitter):
             self.log.info('Starting NetVM ({0})'.format(self.netvm.name))
             self.netvm.start()
 
+        self.netvm.set_mapped_ip_info_for_vm(self)
         self.libvirt_domain.attachDevice(
             self.app.env.get_template('libvirt/devices/net.xml').render(
                 vm=self))
@@ -273,6 +310,25 @@ class NetVMMixin(qubes.events.Emitter):
             self.qdb.write(base_dir + key, value)
         # signal its done
         self.qdb.write(base_dir[:-1], '')
+
+    def set_mapped_ip_info_for_vm(self, vm):
+        '''
+        Set configuration to possibly hide real IP from the VM.
+        This needs to be done before executing 'script'
+        (`/etc/xen/scripts/vif-route-qubes`) in network providing VM
+        '''
+        # add info about remapped IPs (VM IP hidden from the VM itself)
+        mapped_ip_base = '/mapped-ip/{}'.format(vm.ip)
+        if vm.visible_ip:
+            self.qdb.write(mapped_ip_base + '/visible-ip', vm.visible_ip)
+        else:
+            self.qdb.rm(mapped_ip_base + '/visible-ip')
+        if vm.visible_gateway:
+            self.qdb.write(mapped_ip_base + '/visible-gateway',
+                vm.visible_gateway)
+        else:
+            self.qdb.rm(mapped_ip_base + '/visible-gateway')
+
 
     @qubes.events.handler('property-del:netvm')
     def on_property_del_netvm(self, event, prop, old_netvm=None):
@@ -342,6 +398,7 @@ class NetVMMixin(qubes.events.Emitter):
         ''' Reloads the firewall if vm is running and has a NetVM assigned '''
         # pylint: disable=unused-argument
         if self.is_running() and self.netvm:
+            self.netvm.set_mapped_ip_info_for_vm(self)
             self.netvm.reload_firewall_for_vm(self)  # pylint: disable=no-member
 
     # CORE2: swallowed get_firewall_conf, write_firewall_conf,

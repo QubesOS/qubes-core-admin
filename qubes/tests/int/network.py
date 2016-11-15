@@ -58,7 +58,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
 
     def setUp(self):
         super(VmNetworkingMixin, self).setUp()
-        if self.template.startswith('whonix-'):
+        if self.template.startswith('whonix-gw'):
             self.skipTest("Test not supported here - Whonix uses its own "
                           "firewall settings")
         self.init_default_template(self.template)
@@ -338,6 +338,278 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             self.fail("Command '%s' failed" % cmd)
 
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
+
+    def test_200_fake_ip_simple(self):
+        '''Test hiding VM real IP'''
+        self.testvm1.features['net/fake-ip'] = '192.168.1.128'
+        self.testvm1.features['net/fake-gateway'] = '192.168.1.1'
+        self.testvm1.features['net/fake-netmask'] = '255.255.255.0'
+        self.app.save()
+        self.testvm1.start()
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
+        p = self.testvm1.run('ip addr show dev eth0', user='root',
+            passio_popen=True,
+            ignore_stderr=True)
+        p.stdin.close()
+        output = p.stdout.read()
+        self.assertEqual(p.wait(), 0, 'ip addr show dev eth0 failed')
+        self.assertIn('192.168.1.128', output)
+        self.assertNotIn(self.testvm1.ip, output)
+
+        p = self.testvm1.run('ip route show', user='root',
+            passio_popen=True,
+            ignore_stderr=True)
+        p.stdin.close()
+        output = p.stdout.read()
+        self.assertEqual(p.wait(), 0, 'ip route show failed')
+        self.assertIn('192.168.1.1', output)
+        self.assertNotIn(self.testvm1.netvm.ip, output)
+
+    def test_201_fake_ip_without_gw(self):
+        '''Test hiding VM real IP'''
+        self.testvm1.features['net/fake-ip'] = '192.168.1.128'
+        self.app.save()
+        self.testvm1.start()
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
+        p = self.testvm1.run('ip addr show dev eth0', user='root',
+            passio_popen=True,
+            ignore_stderr=True)
+        p.stdin.close()
+        output = p.stdout.read()
+        self.assertEqual(p.wait(), 0, 'ip addr show dev eth0 failed')
+        self.assertIn('192.168.1.128', output)
+        self.assertNotIn(self.testvm1.ip, output)
+
+    def test_202_fake_ip_firewall(self):
+        '''Test hiding VM real IP, firewall'''
+        self.testvm1.features['net/fake-ip'] = '192.168.1.128'
+        self.testvm1.features['net/fake-gateway'] = '192.168.1.1'
+        self.testvm1.features['net/fake-netmask'] = '255.255.255.0'
+
+        self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=self.make_vm_name('proxy'),
+            label='red')
+        self.proxy.provides_network = True
+        self.proxy.create_on_disk()
+        self.proxy.netvm = self.testnetvm
+        self.testvm1.netvm = self.proxy
+        self.app.save()
+
+        if self.run_cmd(self.testnetvm, 'nc -h 2>&1|grep -q nmap.org') == 0:
+            nc_version = NcVersion.Nmap
+        else:
+            nc_version = NcVersion.Trad
+
+        # block all but ICMP and DNS
+
+        self.testvm1.firewall.policy = 'drop'
+        self.testvm1.firewall.rules = [
+            qubes.firewall.Rule(None, action='accept', proto='icmp'),
+            qubes.firewall.Rule(None, action='accept', specialtarget='dns'),
+        ]
+        self.testvm1.firewall.save()
+        self.testvm1.start()
+        self.assertTrue(self.proxy.is_running())
+
+        if nc_version == NcVersion.Nmap:
+            self.testnetvm.run("nc -l --send-only -e /bin/hostname -k 1234")
+        else:
+            self.testnetvm.run("while nc -l -e /bin/hostname -p 1234; do "
+                               "true; done")
+
+        self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0,
+                         "Ping by IP from ProxyVM failed")
+        self.assertEqual(self.run_cmd(self.proxy, self.ping_name), 0,
+                         "Ping by name from ProxyVM failed")
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
+                         "Ping by IP should be allowed")
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0,
+                         "Ping by name should be allowed")
+        if nc_version == NcVersion.Nmap:
+            nc_cmd = "nc -w 1 --recv-only {} 1234".format(self.test_ip)
+        else:
+            nc_cmd = "nc -w 1 {} 1234".format(self.test_ip)
+        self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
+                         "TCP connection should be blocked")
+
+    def test_203_fake_ip_inter_vm_allow(self):
+        '''Access VM with "fake IP" from other VM (when firewall allows)'''
+        self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=self.make_vm_name('proxy'),
+            label='red')
+        self.proxy.create_on_disk()
+        self.proxy.provides_network = True
+        self.proxy.netvm = self.testnetvm
+        self.testvm1.netvm = self.proxy
+        self.testvm1.features['net/fake-ip'] = '192.168.1.128'
+        self.testvm1.features['net/fake-gateway'] = '192.168.1.1'
+        self.testvm1.features['net/fake-netmask'] = '255.255.255.0'
+
+        self.testvm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=self.make_vm_name('vm3'),
+            label='red')
+        self.testvm2.create_on_disk()
+        self.testvm2.netvm = self.proxy
+        self.app.save()
+
+        self.testvm1.start()
+        self.testvm2.start()
+
+        cmd = 'iptables -I FORWARD -s {} -d {} -j ACCEPT'.format(
+            self.testvm2.ip, self.testvm1.ip)
+        retcode = self.proxy.run(cmd, user='root', wait=True)
+        self.assertEqual(retcode, 0, '{} failed with: {}'.format(cmd, retcode))
+
+        cmd = 'iptables -I INPUT -s {} -j ACCEPT'.format(
+            self.testvm2.ip)
+        retcode = self.testvm1.run(cmd, user='root', wait=True)
+        self.assertEqual(retcode, 0, '{} failed with: {}'.format(cmd, retcode))
+
+        self.assertEqual(self.run_cmd(self.testvm2,
+            self.ping_cmd.format(target=self.testvm1.ip)), 0)
+
+        cmd = 'iptables -nvxL INPUT | grep {}'.format(self.testvm2.ip)
+        p = self.testvm1.run(cmd, user='root', passio_popen=True)
+        (stdout, _) = p.communicate()
+        self.assertEqual(p.returncode, 0,
+            '{} failed with {}'.format(cmd, p.returncode))
+        self.assertNotEqual(stdout.split()[0], '0',
+            'Packets didn\'t managed to the VM')
+
+    def test_204_fake_ip_proxy(self):
+        '''Test hiding VM real IP'''
+        self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=self.make_vm_name('proxy'),
+            label='red')
+        self.proxy.create_on_disk()
+        self.proxy.provides_network = True
+        self.proxy.netvm = self.testnetvm
+        self.proxy.features['net/fake-ip'] = '192.168.1.128'
+        self.proxy.features['net/fake-gateway'] = '192.168.1.1'
+        self.proxy.features['net/fake-netmask'] = '255.255.255.0'
+        self.testvm1.netvm = self.proxy
+        self.app.save()
+        self.testvm1.start()
+
+        self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0)
+        self.assertEqual(self.run_cmd(self.proxy, self.ping_name), 0)
+
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
+
+        p = self.proxy.run('ip addr show dev eth0', user='root',
+            passio_popen=True,
+            ignore_stderr=True)
+        p.stdin.close()
+        output = p.stdout.read()
+        self.assertEqual(p.wait(), 0, 'ip addr show dev eth0 failed')
+        self.assertIn('192.168.1.128', output)
+        self.assertNotIn(self.testvm1.ip, output)
+
+        p = self.proxy.run('ip route show', user='root',
+            passio_popen=True,
+            ignore_stderr=True)
+        p.stdin.close()
+        output = p.stdout.read()
+        self.assertEqual(p.wait(), 0, 'ip route show failed')
+        self.assertIn('192.168.1.1', output)
+        self.assertNotIn(self.testvm1.netvm.ip, output)
+
+        p = self.testvm1.run('ip addr show dev eth0', user='root',
+            passio_popen=True,
+            ignore_stderr=True)
+        p.stdin.close()
+        output = p.stdout.read()
+        self.assertEqual(p.wait(), 0, 'ip addr show dev eth0 failed')
+        self.assertNotIn('192.168.1.128', output)
+        self.assertIn(self.testvm1.ip, output)
+
+        p = self.testvm1.run('ip route show', user='root',
+            passio_popen=True,
+            ignore_stderr=True)
+        p.stdin.close()
+        output = p.stdout.read()
+        self.assertEqual(p.wait(), 0, 'ip route show failed')
+        self.assertIn('192.168.1.128', output)
+        self.assertNotIn(self.proxy.ip, output)
+
+    def test_210_custom_ip_simple(self):
+        '''Custom AppVM IP'''
+        self.testvm1.ip = '192.168.1.1'
+        self.app.save()
+        self.testvm1.start()
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
+
+    def test_211_custom_ip_proxy(self):
+        '''Custom ProxyVM IP'''
+        self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=self.make_vm_name('proxy'),
+            label='red')
+        self.proxy.create_on_disk()
+        self.proxy.provides_network = True
+        self.proxy.netvm = self.testnetvm
+        self.proxy.ip = '192.168.1.1'
+        self.testvm1.netvm = self.proxy
+        self.app.save()
+
+        self.testvm1.start()
+
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
+
+    def test_212_custom_ip_firewall(self):
+        '''Custom VM IP and firewall'''
+        self.testvm1.ip = '192.168.1.1'
+
+        self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=self.make_vm_name('proxy'),
+            label='red')
+        self.proxy.provides_network = True
+        self.proxy.create_on_disk()
+        self.proxy.netvm = self.testnetvm
+        self.testvm1.netvm = self.proxy
+        self.app.save()
+
+        if self.run_cmd(self.testnetvm, 'nc -h 2>&1|grep -q nmap.org') == 0:
+            nc_version = NcVersion.Nmap
+        else:
+            nc_version = NcVersion.Trad
+
+        # block all but ICMP and DNS
+
+        self.testvm1.firewall.policy = 'drop'
+        self.testvm1.firewall.rules = [
+            qubes.firewall.Rule(None, action='accept', proto='icmp'),
+            qubes.firewall.Rule(None, action='accept', specialtarget='dns'),
+        ]
+        self.testvm1.firewall.save()
+        self.testvm1.start()
+        self.assertTrue(self.proxy.is_running())
+
+        if nc_version == NcVersion.Nmap:
+            self.testnetvm.run("nc -l --send-only -e /bin/hostname -k 1234")
+        else:
+            self.testnetvm.run("while nc -l -e /bin/hostname -p 1234; do "
+                               "true; done")
+
+        self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0,
+                         "Ping by IP from ProxyVM failed")
+        self.assertEqual(self.run_cmd(self.proxy, self.ping_name), 0,
+                         "Ping by name from ProxyVM failed")
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
+                         "Ping by IP should be allowed")
+        self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0,
+                         "Ping by name should be allowed")
+        if nc_version == NcVersion.Nmap:
+            nc_cmd = "nc -w 1 --recv-only {} 1234".format(self.test_ip)
+        else:
+            nc_cmd = "nc -w 1 {} 1234".format(self.test_ip)
+        self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
+                         "TCP connection should be blocked")
+
 
 # noinspection PyAttributeOutsideInit
 class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
