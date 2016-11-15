@@ -251,7 +251,6 @@ fi
 %{python_sitelib}/qubes/tools/qubes_monitor_layout_notify.py*
 %{python_sitelib}/qubes/tools/qubes_prefs.py*
 %{python_sitelib}/qubes/tools/qvm_block.py*
-%{python_sitelib}/qubes/tools/qubes_lvm.py*
 %{python_sitelib}/qubes/tools/qvm_backup.py*
 %{python_sitelib}/qubes/tools/qvm_backup_restore.py*
 %{python_sitelib}/qubes/tools/qvm_create.py*
@@ -320,6 +319,7 @@ fi
 %{python_sitelib}/qubes/tests/int/dispvm.py*
 %{python_sitelib}/qubes/tests/int/dom0_update.py*
 %{python_sitelib}/qubes/tests/int/network.py*
+%{python_sitelib}/qubes/tests/int/storage.py*
 %{python_sitelib}/qubes/tests/int/vm_qrexec_gui.py*
 
 %dir %{python_sitelib}/qubes/tests/int/tools

@@ -618,14 +618,19 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     for key, value in node.items():
                         # pylint: disable=no-member
                         if value == 'True':
-                            self.volume_config[name][key] = True
-                        else:
+                            value = True
+                        try:
                             self.volume_config[name][key] = value
+                        except KeyError:
+                            self.volume_config[name] = {key: value}
 
             for name, conf in volume_config.items():
                 for key, value in conf.items():
                     # pylint: disable=no-member
-                    self.volume_config[name][key] = value
+                    try:
+                        self.volume_config[name][key] = value
+                    except KeyError:
+                        self.volume_config[name] = {key: value}
 
         elif volume_config:
             raise TypeError(

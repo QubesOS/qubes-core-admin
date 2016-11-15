@@ -59,16 +59,18 @@ class ThinPool(qubes.storage.Pool):
         assert volume.rw, msg
         assert hasattr(volume, '_vid_snap')
 
-        cmd = ['remove', volume.vid + "-back"]
-        qubes_lvm(cmd, self.log)
-        cmd = ['clone', volume._vid_snap, volume.vid + "-back"]
+        try:
+            cmd = ['remove', volume.vid + "-back"]
+            qubes_lvm(cmd, self.log)
+        except qubes.storage.StoragePoolException:
+            pass
+        cmd = ['clone', volume.vid, volume.vid + "-back"]
         qubes_lvm(cmd, self.log)
 
         cmd = ['remove', volume.vid]
         qubes_lvm(cmd, self.log)
         cmd = ['clone', volume._vid_snap, volume.vid]
         qubes_lvm(cmd, self.log)
-        cmd = ['remove', volume._vid_snap]
 
     @property
     def config(self):
@@ -82,17 +84,18 @@ class ThinPool(qubes.storage.Pool):
     def create(self, volume):
         assert volume.vid
         assert volume.size
-        if volume.source:
-            return self.clone(volume.source, volume)
-        else:
-            cmd = [
-                'create',
-                self._pool_id,
-                volume.vid.split('/', 1)[1],
-                str(volume.size)
-            ]
+        if volume.save_on_stop:
+            if volume.source:
+                cmd = ['clone', str(volume.source), volume.vid]
+            else:
+                cmd = [
+                    'create',
+                    self._pool_id,
+                    volume.vid.split('/', 1)[1],
+                    str(volume.size)
+                ]
             qubes_lvm(cmd, self.log)
-        reset_cache()
+            reset_cache()
         return volume
 
     def destroy(self):
@@ -141,19 +144,9 @@ class ThinPool(qubes.storage.Pool):
         else:
             dst_volume = self.create(dst_volume)
 
-        cmd = ['sudo', 'qubes-lvm', 'import', dst_volume.vid]
-        blk_size = 4096
-        p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
-        dst = p.stdin
-        with open(src_path, 'rb') as src:
-            while True:
-                tmp = src.read(blk_size)
-                if not tmp:
-                    break
-                else:
-                    dst.write(tmp)
-        p.stdin.close()
-        p.wait()
+        cmd = ['sudo', 'dd', 'if=' + src_path, 'of=/dev/' + dst_volume.vid,
+            'conv=sparse']
+        subprocess.check_call(cmd)
         reset_cache()
         return dst_volume
 
@@ -168,6 +161,8 @@ class ThinPool(qubes.storage.Pool):
             cmd = ['remove', volume._vid_snap]
             qubes_lvm(cmd, self.log)
 
+        if not os.path.exists(volume.path):
+            return
         cmd = ['remove', volume.vid]
         qubes_lvm(cmd, self.log)
         reset_cache()
@@ -179,14 +174,12 @@ class ThinPool(qubes.storage.Pool):
         if volume.save_on_stop:
             cmd = ['clone', volume.vid, new_vid]
             qubes_lvm(cmd, self.log)
-
-        if volume.save_on_stop or volume._is_volatile:
             cmd = ['remove', volume.vid]
             qubes_lvm(cmd, self.log)
 
         volume.vid = new_vid
 
-        if not volume._is_volatile:
+        if volume.snap_on_start:
             volume._vid_snap = volume.vid + '-snap'
         reset_cache()
         return volume
@@ -224,40 +217,27 @@ class ThinPool(qubes.storage.Pool):
         qubes_lvm(cmd, self.log)
         reset_cache()
 
-    def _reset(self, volume):
-        try:
-            self.remove(volume)
-        except qubes.storage.StoragePoolException:
-            pass
-
-        self.create(volume)
-
     def setup(self):
         pass  # TODO Should we create a non existing pool?
 
     def start(self, volume):
-        if volume._is_snapshot:
-            self._snapshot(volume)
-        elif volume._is_volatile:
-            self._reset(volume)
-        else:
-            if not self.is_dirty(volume):
+        if volume.snap_on_start:
+            if not volume.save_on_stop or not self.is_dirty(volume):
                 self._snapshot(volume)
+        elif not volume.save_on_stop:
+            self._reset_volume(volume)
 
         reset_cache()
         return volume
 
     def stop(self, volume):
-        if volume.save_on_stop:
+        if volume.save_on_stop and volume.snap_on_start:
             self._commit(volume)
-        if volume._is_snapshot:
+        if volume.snap_on_start:
             cmd = ['remove', volume._vid_snap]
             qubes_lvm(cmd, self.log)
-        elif volume._is_volatile:
+        elif not volume.save_on_stop:
             cmd = ['remove', volume.vid]
-            qubes_lvm(cmd, self.log)
-        else:
-            cmd = ['remove', volume._vid_snap]
             qubes_lvm(cmd, self.log)
         reset_cache()
         return volume
@@ -277,58 +257,57 @@ class ThinPool(qubes.storage.Pool):
 
     def verify(self, volume):
         ''' Verifies the volume. '''
-        cmd = ['sudo', 'qubes-lvm', 'volumes',
-               self.volume_group + '/' + self.thin_pool]
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-        result = p.communicate()[0]
-        for line in result.splitlines():
-            if not line.strip():
-                continue
-            vid, atr = line.strip().split(' ')
-            if vid == volume.vid:
-                return atr[4] == 'a'
-
-        return False
+        try:
+            vol_info = size_cache[volume.vid]
+            return vol_info['attr'][4] == 'a'
+        except KeyError:
+            return False
 
     @property
     def volumes(self):
         ''' Return a list of volumes managed by this pool '''
-        cmd = ['sudo', 'qubes-lvm', 'volumes',
-               self.volume_group + '/' + self.thin_pool]
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-        result = p.communicate()[0]
         volumes = []
-        for line in result.splitlines():
-            if not line.strip():
+        for vid, vol_info in size_cache.items():
+            if not vid.startswith(self.volume_group + '/'):
                 continue
-            vid, atr = line.strip().split(' ')
+            if vol_info['pool_lv'] != self.thin_pool:
+                continue
+            if vid.endswith('-snap'):
+                # implementation detail volume
+                continue
             config = {
                 'pool': self.name,
                 'vid': vid,
                 'name': vid,
                 'volume_group': self.volume_group,
-                'rw': atr[1] == 'w',
+                'rw': vol_info['attr'][1] == 'w',
             }
             volumes += [ThinVolume(**config)]
         return volumes
 
     def _reset_volume(self, volume):
         ''' Resets a volatile volume '''
-        assert volume.volume_type == 'volatile', \
+        assert volume._is_volatile, \
             'Expected a volatile volume, but got {!r}'.format(volume)
         self.log.debug('Resetting volatile ' + volume.vid)
-        cmd = ['remove', volume.vid]
-        qubes_lvm(cmd, self.log)
+        try:
+            cmd = ['remove', volume.vid]
+            qubes_lvm(cmd, self.log)
+        except qubes.storage.StoragePoolException:
+            pass
         cmd = ['create', self._pool_id, volume.vid.split('/')[1],
                str(volume.size)]
         qubes_lvm(cmd, self.log)
 
 
 def init_cache(log=logging.getLogger('qube.storage.lvm')):
-    cmd = ['sudo', 'lvs', '--noheadings', '-o',
-           'vg_name,name,lv_size,data_percent', '--units', 'b', '--separator',
-           ',']
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    cmd = ['lvs', '--noheadings', '-o',
+           'vg_name,pool_lv,name,lv_size,data_percent,lv_attr',
+           '--units', 'b', '--separator', ',']
+    if os.getuid() != 0:
+        cmd.insert(0, 'sudo')
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        close_fds=True)
     out, err = p.communicate()
     return_code = p.returncode
     if return_code == 0 and err:
@@ -340,13 +319,14 @@ def init_cache(log=logging.getLogger('qube.storage.lvm')):
 
     for line in out.splitlines():
         line = line.strip()
-        pool_name, name, size, usage_percent = line.split(',', 3)
-        if '' in  [pool_name, name, size, usage_percent]:
+        pool_name, pool_lv, name, size, usage_percent, attr = line.split(',', 5)
+        if '' in [pool_name, pool_lv, name, size, usage_percent]:
             continue
         name = pool_name + "/" + name
         size = int(size[:-1])
         usage = int(size / 100 * float(usage_percent))
-        result[name] = {'size':size, 'usage': usage}
+        result[name] = {'size': size, 'usage': usage, 'pool_lv': pool_lv,
+            'attr': attr}
 
     return result
 
@@ -372,7 +352,7 @@ class ThinVolume(qubes.storage.Volume):
             raise qubes.storage.StoragePoolException(msg)
 
         self.path = '/dev/' + self.vid
-        if not self._is_volatile:
+        if self.snap_on_start:
             self._vid_snap = self.vid + '-snap'
 
         self._size = size
@@ -414,6 +394,16 @@ class ThinVolume(qubes.storage.Volume):
         raise qubes.storage.StoragePoolException(
             "You shouldn't use lvm size setter")
 
+    def block_device(self):
+        ''' Return :py:class:`qubes.devices.BlockDevice` for serialization in
+            the libvirt XML template as <disk>.
+        '''
+        if self.snap_on_start:
+            return qubes.devices.BlockDevice(
+                '/dev/' + self._vid_snap, self.name, self.script,
+                self.rw, self.domain, self.devtype)
+        else:
+            return super(ThinVolume, self).block_device()
 
     @property
     def usage(self):  # lvm thin usage always returns at least the same usage as
@@ -426,16 +416,34 @@ class ThinVolume(qubes.storage.Volume):
 
 def pool_exists(pool_id):
     ''' Return true if pool exists '''
-    cmd = ['pool', pool_id]
-    return qubes_lvm(cmd)
+    try:
+        vol_info = size_cache[pool_id]
+        return vol_info['attr'][0] == 't'
+    except KeyError:
+        return False
 
 
 def qubes_lvm(cmd, log=logging.getLogger('qube.storage.lvm')):
-    ''' Call :program:`qubes-lvm` to execute an LVM operation '''
-    # TODO Refactor this ones the udev groups gets fixed and we don't need root
-    # for operations on lvm devices
-    cmd = ['sudo', 'qubes-lvm'] + cmd
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    ''' Call :program:`lvm` to execute an LVM operation '''
+    action = cmd[0]
+    if action == 'remove':
+        lvm_cmd = ['lvremove', '-f', cmd[1]]
+    elif action == 'clone':
+        lvm_cmd = ['lvcreate', '-kn', '-ay', '-s', cmd[1], '-n', cmd[2]]
+    elif action == 'create':
+        lvm_cmd = ['lvcreate', '-T', cmd[1], '-kn', '-ay', '-n', cmd[2], '-V',
+           str(cmd[3]) + 'B']
+    elif action == 'extend':
+        size = int(cmd[2]) / (1000 * 1000)
+        lvm_cmd = ["lvextend", "-L%s" % size, cmd[1]]
+    else:
+        raise NotImplementedError('unsupported action: ' + action)
+    if os.getuid() != 0:
+        cmd = ['sudo', 'lvm'] + lvm_cmd
+    else:
+        cmd = ['lvm'] + lvm_cmd
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        close_fds=True)
     out, err = p.communicate()
     return_code = p.returncode
     if out:
