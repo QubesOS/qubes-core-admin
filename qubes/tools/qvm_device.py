@@ -174,7 +174,7 @@ def get_parser(device_class=None):
     attach_parser.add_argument('VMNAME', action=qubes.tools.RunningVmNameAction)
     attach_parser.add_argument(metavar='BACKEND:DEVICE_ID', dest='device',
                                action=DeviceAction)
-    attach_parser.set_defaults(func=detach_device)
+    attach_parser.set_defaults(func=attach_device)
     detach_parser = sub_parsers.add_parser(
         "detach", help="Detach device from domain", aliases=('d', 'dt'))
     detach_parser.add_argument('VMNAME', action=qubes.tools.RunningVmNameAction)
