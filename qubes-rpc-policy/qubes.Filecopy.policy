@@ -3,4 +3,5 @@
 
 ## Please use a single # to start your custom comments
 
+$anyvm	dom0	deny
 $anyvm	$anyvm	ask
