@@ -167,7 +167,7 @@ def get_parser(device_class=None):
                for entry in pkg_resources.iter_entry_points('qubes.devices')]
     if device_class:
         parser.add_argument('devclass', const=device_class,
-            action='store_const', choices=all_classes, help=argparse.SUPPRESS)
+            action='store_const', help=argparse.SUPPRESS)
     else:
         parser.add_argument('devclass', metavar='DEVICE_CLASS', action='store',
             choices=all_classes, help="Device class to manage (%s)" %
