@@ -84,6 +84,8 @@ def attach_device(args):
     vm = args.domains[0]
     persistent = args.persistent
     vm.devices[args.devclass].attach(device, persistent=persistent)
+    if persistent:
+        args.app.save()
 
 
 def detach_device(args):
@@ -92,8 +94,12 @@ def detach_device(args):
     '''
     device = args.device
     vm = args.domains[0]
-    persistent = args.only_once
-    vm.devices[args.devclass].detach(device, persistent=persistent)
+    was_persistent = False
+    if device in vm.devices[args.devclass].attached(persistent=True):
+        was_persistent = True
+    vm.devices[args.devclass].detach(device, persistent=args.only_once)
+    if was_persistent:
+        args.app.save()
 
 
 def init_list_parser(sub_parsers):
