@@ -40,6 +40,8 @@ class TestNamespace(object):
             self.domains = domains
         if device:
             self.device = device
+        self.persistent = False
+        self.only_once = False
 
 
 class TC_00_Actions(qubes.tests.QubesTestCase):
