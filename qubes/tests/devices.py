@@ -40,6 +40,9 @@ class TestApp(object):
     def __init__(self):
         self.domains = TestVMCollection()
 
+    def save(self):
+        pass
+
 
 class TestVM(qubes.tests.TestEmitter):
     def __init__(self, app, name, *args, **kwargs):
