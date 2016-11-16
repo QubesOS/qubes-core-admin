@@ -82,7 +82,8 @@ def attach_device(args):
     '''
     device = args.device
     vm = args.domains[0]
-    vm.devices[args.devclass].attach(device)
+    persistent = args.persistent
+    vm.devices[args.devclass].attach(device, persistent=persistent)
 
 
 def detach_device(args):
@@ -91,7 +92,8 @@ def detach_device(args):
     '''
     device = args.device
     vm = args.domains[0]
-    vm.devices[args.devclass].detach(device)
+    persistent = args.only_once
+    vm.devices[args.devclass].detach(device, persistent=persistent)
 
 
 def init_list_parser(sub_parsers):
@@ -174,12 +176,16 @@ def get_parser(device_class=None):
     attach_parser.add_argument('VMNAME', action=qubes.tools.RunningVmNameAction)
     attach_parser.add_argument(metavar='BACKEND:DEVICE_ID', dest='device',
                                action=DeviceAction)
+    attach_parser.add_argument('-p', '--persistent', action='store_true',
+        help='attach on startup', default=False, required=False)
     attach_parser.set_defaults(func=attach_device)
     detach_parser = sub_parsers.add_parser(
         "detach", help="Detach device from domain", aliases=('d', 'dt'))
     detach_parser.add_argument('VMNAME', action=qubes.tools.RunningVmNameAction)
     detach_parser.add_argument(metavar='BACKEND:DEVICE_ID', dest='device',
                                action=DeviceAction)
+    detach_parser.add_argument('-o', '--only-once', action='store_false',
+        help='device will still be attached on next startup', default=False, required=False)
     detach_parser.set_defaults(func=detach_device)
 
     return parser
