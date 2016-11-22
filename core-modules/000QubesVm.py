@@ -312,7 +312,7 @@ class QubesVm(object):
 
         if not self.verify_name(self.name):
             msg = ("'%s' is invalid VM name (invalid characters, over 31 chars long, "
-                   "or one of 'none', 'true', 'false')") % self.name
+                   "ends with '-dm', or one of 'none', 'true', 'false')") % self.name
             if 'xml_element' in kwargs:
                 print >>sys.stderr, "WARNING: %s" % msg
             else:
@@ -569,6 +569,9 @@ class QubesVm(object):
             # avoid conflict when /var/lib/qubes/appvms is mounted on
             # separate partition
             return False
+        if name.endswith('-dm'):
+            # avoid conflict with device model stubdomain names for HVMs
+            return False
         return re.match(r"^[a-zA-Z][a-zA-Z0-9_.-]*$", name) is not None
 
     def pre_rename(self, new_name):
@@ -585,7 +588,7 @@ class QubesVm(object):
             raise QubesException("Cannot change name of running VM!")
 
         if not self.verify_name(name):
-            raise QubesException("Invalid characters in VM name")
+            raise QubesException("Invalid VM name")
 
         if self.installed_by_rpm:
             raise QubesException("Cannot rename VM installed by RPM -- first clone VM and then use yum to remove package.")
