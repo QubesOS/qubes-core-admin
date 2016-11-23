@@ -87,6 +87,7 @@ def main():
         if options.do_file_attach:
             dev = {}
             (dev['vm'], dev['device']) = args[1].split(":")
+            dev['desc'] = dev['device']
             dev['mode'] = 'w'
         else:
             dev_list = block_list(qvm_collection)

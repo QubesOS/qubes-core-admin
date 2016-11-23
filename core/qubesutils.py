@@ -372,7 +372,9 @@ def block_check_attached(qvmc, device):
                                         "VM '%s'" % (source.get('type'),
                                                      vm.name)
                     continue
-                if backend_name == device['vm'] and path == device['device']:
+                if backend_name == device['vm'] and (path == device['device']
+                        or not path.startswith('/dev/') and path == device[
+                        'desc']):
                     return {
                         "frontend": disk.find('target').get('dev'),
                         "vm": vm}
