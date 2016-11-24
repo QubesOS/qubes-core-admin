@@ -809,8 +809,12 @@ class Qubes(qubes.PropertyHolder):
         lxml.etree.ElementTree(self.__xml__()).write(
             fh_new, encoding='utf-8', pretty_print=True)
         fh_new.flush()
-        os.chmod(fh_new.name, 0o660)
-        os.chown(fh_new.name, -1, grp.getgrnam('qubes').gr_gid)
+        try:
+            os.chown(fh_new.name, -1, grp.getgrnam('qubes').gr_gid)
+            os.chmod(fh_new.name, 0o660)
+        except KeyError:  # group 'qubes' not found
+            # don't change mode if no 'qubes' group in the system
+            pass
         os.rename(fh_new.name, self._store)
 
         # update stored mtime, in case of multiple save() calls without
