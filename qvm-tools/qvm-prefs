@@ -196,7 +196,7 @@ def set_mac(vms, vm, args):
         print >> sys.stderr, "Missing MAC argument!"
         return False
 
-    if not re.match("[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}|auto", args[0]):
+    if not re.match("[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$|auto$", args[0]):
         print >> sys.stderr, "Invalid MAC argument!"
         print >> sys.stderr, "Possible values:"
         print >> sys.stderr, "1) auto"
