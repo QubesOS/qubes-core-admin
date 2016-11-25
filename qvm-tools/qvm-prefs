@@ -122,6 +122,12 @@ def do_get(vms, vm, prop):
         prop = 'dir_path'
     elif prop == 'last_backup':
         prop = 'backup_timestamp'
+    elif prop == 'MAC':
+        prop = 'mac'
+    elif prop == 'root_cow_img':
+        prop = 'rootcow_img'
+    elif prop == 'root_volatile_img':
+        prop = 'volatile_img'
     if not hasattr(vm, prop):
         print >>sys.stderr, "VM '{}' has no attribute '{}'".format(vm.name,
                                                                    prop)
@@ -521,7 +527,7 @@ properties = {
 
 def do_set(vms, vm, property, args):
     if property not in properties.keys():
-        print >> sys.stderr, "ERROR: Wrong property name: '{0}'".format(property)
+        print >> sys.stderr, "ERROR: Cannot set property : '{0}'".format(property)
         return False
 
     if not hasattr(vm, property):
@@ -601,6 +607,8 @@ def main():
             exit (1)
 
         property = args[1]
+        if property == 'MAC':
+            property = 'mac'
         if do_set(qvm_collection, vm, property, args[2:]):
             qvm_collection.save()
             qvm_collection.unlock_db()
