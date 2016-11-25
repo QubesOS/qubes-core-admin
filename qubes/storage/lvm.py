@@ -27,6 +27,17 @@ import subprocess
 import qubes
 
 
+def check_lvm_version():
+    #Check if lvm is very very old, like in Travis-CI
+    try:
+        lvm_help = subprocess.check_output(['lvm', 'lvcreate', '--help'],
+            stderr=subprocess.DEVNULL).decode()
+        return '--setactivationskip' not in lvm_help
+    except subprocess.CalledProcessError:
+        pass
+
+lvm_is_very_old = check_lvm_version()
+
 class ThinPool(qubes.storage.Pool):
     ''' LVM Thin based pool implementation
     '''  # pylint: disable=protected-access
@@ -437,6 +448,9 @@ def qubes_lvm(cmd, log=logging.getLogger('qube.storage.lvm')):
         lvm_cmd = ["lvextend", "-L%s" % size, cmd[1]]
     else:
         raise NotImplementedError('unsupported action: ' + action)
+    if lvm_is_very_old:
+        # old lvm in trusty image used there does not support -k option
+        lvm_cmd = [x for x in lvm_cmd if x != '-kn']
     if os.getuid() != 0:
         cmd = ['sudo', 'lvm'] + lvm_cmd
     else:
