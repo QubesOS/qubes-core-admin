@@ -935,14 +935,8 @@ QubesVmLabels = {
 }
 
 QubesDispVmLabels = {
-    "red":      QubesVmLabel(1, "0xcc0000", "red",      dispvm=True),
-    "orange":   QubesVmLabel(2, "0xf57900", "orange",   dispvm=True),
-    "yellow":   QubesVmLabel(3, "0xedd400", "yellow",   dispvm=True),
-    "green":    QubesVmLabel(4, "0x73d216", "green",    dispvm=True),
-    "gray":     QubesVmLabel(5, "0x555753", "gray",     dispvm=True),
-    "blue":     QubesVmLabel(6, "0x3465a4", "blue",     dispvm=True),
-    "purple":   QubesVmLabel(7, "0x75507b", "purple",   dispvm=True),
-    "black":    QubesVmLabel(8, "0x000000", "black",    dispvm=True),
+    k: QubesVmLabel(index=v.index, color=v.color, name=v.name, dispvm=True)
+        for k, v in QubesVmLabels.iteritems()
 }
 
 defaults["appvm_label"] = QubesVmLabels["red"]
