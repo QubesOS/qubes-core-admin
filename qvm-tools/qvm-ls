@@ -134,8 +134,16 @@ def main():
                         help="Display specify data of specified VMs.\
                               Intended for bash-parsing.")
 
+    parser.add_argument("--list-fields", dest="list_fields",
+                        action="store_true", default=False,
+                        help="List field names valid for --raw-data")
+
 
     arguments = parser.parse_args ()
+
+    if arguments.list_fields:
+        print '\n'.join(sorted(fields.keys()))
+        return
 
     qvm_collection = QubesVmCollection()
     qvm_collection.lock_db_for_reading()

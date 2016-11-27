@@ -34,6 +34,8 @@ OPTIONS
     List only VM names one per line
 --raw-data
     Display specify data of specified VMs. Intended for bash-parsing.
+--list-fields
+    List field names valid for --raw-data
 
 AUTHORS
 =======
