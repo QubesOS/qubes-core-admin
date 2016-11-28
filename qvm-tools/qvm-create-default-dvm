@@ -1,5 +1,5 @@
 #!/bin/sh
-if [ $# != 1 -a $# != 2 ] ; then
+if [ $# != 1 -a $# != 2 -o $1 == "--help" -o $1 == "-h" ] ; then
 	echo 'Usage: qvm-create-default-dvm templatename|--default-template|--used-template [script-name|--default-script]'
 	exit 1
 fi
