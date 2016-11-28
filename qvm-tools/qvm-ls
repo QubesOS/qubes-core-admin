@@ -41,6 +41,8 @@ fields = {
              + ('>' if vm.is_disposablevm() else '')\
              + ('}' if vm.is_netvm() else '')"},
 
+    "name-raw": {"func": "vm.name"},
+
     "type": {"func": "'HVM' if vm.type == 'HVM' else \
              ('Tpl' if vm.is_template() else \
              ('' if vm.type in ['AppVM', 'DisposableVM'] else \
