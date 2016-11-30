@@ -879,13 +879,14 @@ class Qubes(qubes.PropertyHolder):
             qubes.vm.adminvm.AdminVM(self, None, qid=0, name='dom0'))
 
     @classmethod
-    def create_empty_store(cls, lock=False, *args, **kwargs):
+    def create_empty_store(cls, *args, **kwargs):
         self = cls(*args, load=False, **kwargs)
         if os.path.exists(self.store):
             raise qubes.exc.QubesException(
                 '{} already exists, aborting'.format(self.store))
         self.load_initial_values()
-        self.save(lock=lock)
+        # TODO py3 get lock= as keyword-only arg
+        self.save(kwargs.get('lock'))
 
         return self
 
