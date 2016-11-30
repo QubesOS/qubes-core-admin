@@ -1004,6 +1004,44 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         if vm_image != dom0_image:
             self.fail("Dom0 window doesn't match VM window content")
 
+class TC_10_Generic(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
+    def setUp(self):
+        super(TC_10_Generic, self).setUp()
+        self.vm = self.qc.add_new_vm(
+            "QubesAppVm",
+            name=self.make_vm_name('vm'),
+            template=self.qc.get_default_template())
+        self.vm.create_on_disk(verbose=False)
+        self.save_and_reload_db()
+        self.qc.unlock_db()
+        self.vm = self.qc[self.vm.qid]
+
+    def test_000_anyvm_deny_dom0(self):
+        '''$anyvm in policy should not match dom0'''
+        policy = open("/etc/qubes-rpc/policy/test.AnyvmDeny", "w")
+        policy.write("%s $anyvm allow" % (self.vm.name,))
+        policy.close()
+        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.AnyvmDeny")
+
+        flagfile = '/tmp/test-anyvmdeny-flag'
+        if os.path.exists(flagfile):
+            os.remove(flagfile)
+        with open('/etc/qubes-rpc/test.AnyvmDeny', 'w') as f:
+            f.write('touch {}\n'.format(flagfile))
+            f.write('echo service output\n')
+        self.addCleanup(os.unlink, "/etc/qubes-rpc/test.AnyvmDeny")
+
+        self.vm.start(verbose=False)
+        p = self.vm.run("/usr/lib/qubes/qrexec-client-vm dom0 test.AnyvmDeny",
+                             passio_popen=True, passio_stderr=True)
+        (stdout, stderr) = p.communicate()
+        self.assertEqual(p.returncode, 1,
+            '$anyvm matched dom0, qrexec-client-vm output: {}'.
+                format(stdout + stderr))
+        self.assertFalse(os.path.exists(flagfile),
+            'Flag file created (service was run) even though should be denied,'
+            ' qrexec-client-vm output: {}'.format(stdout + stderr))
+
 
 def load_tests(loader, tests, pattern):
     try:

@@ -312,7 +312,7 @@ class QubesVm(object):
 
         if not self.verify_name(self.name):
             msg = ("'%s' is invalid VM name (invalid characters, over 31 chars long, "
-                   "or one of 'none', 'true', 'false')") % self.name
+                   "ends with '-dm', or one of 'none', 'true', 'false')") % self.name
             if 'xml_element' in kwargs:
                 print >>sys.stderr, "WARNING: %s" % msg
             else:
@@ -569,6 +569,9 @@ class QubesVm(object):
             # avoid conflict when /var/lib/qubes/appvms is mounted on
             # separate partition
             return False
+        if name.endswith('-dm'):
+            # avoid conflict with device model stubdomain names for HVMs
+            return False
         return re.match(r"^[a-zA-Z][a-zA-Z0-9_.-]*$", name) is not None
 
     def pre_rename(self, new_name):
@@ -585,7 +588,7 @@ class QubesVm(object):
             raise QubesException("Cannot change name of running VM!")
 
         if not self.verify_name(name):
-            raise QubesException("Invalid characters in VM name")
+            raise QubesException("Invalid VM name")
 
         if self.installed_by_rpm:
             raise QubesException("Cannot rename VM installed by RPM -- first clone VM and then use yum to remove package.")
@@ -1783,8 +1786,8 @@ class QubesVm(object):
         # Avoid using environment variables for checking the current session,
         #  because this script may be called with cleared env (like with sudo).
         if subprocess.check_output(
-                ['xprop', '-root', '-notype', 'KDE_SESSION_VERSION']) == \
-                'KDE_SESSION_VERSION = 5\n':
+                ['xprop', '-root', '-notype', 'KWIN_RUNNING']) == \
+                'KWIN_RUNNING = 0x1\n':
             # native decoration plugins is used, so adjust window properties
             # accordingly
             guid_cmd += ['-T']  # prefix window titles with VM name
@@ -2012,10 +2015,16 @@ class QubesVm(object):
             # Run GUI daemon in "invisible" mode, so applications started by
             # prerun script will not disturb the user
             extra_guid_args = ['-I']
-        elif not os.path.exists('/var/run/shm.id'):
+        elif not os.path.exists('/var/run/qubes/shm.id') \
+                and not os.path.exists('/var/run/shm.id'):
             # Start GUI daemon only when shmoverride is loaded; unless
             # preparing DispVM, where it isn't needed because of "invisible"
             # mode
+            start_guid = False
+        if start_guid and 'DISPLAY' not in os.environ:
+            if verbose:
+                print >> sys.stderr, \
+                    "WARNING: not starting GUI, because DISPLAY not set"
             start_guid = False
 
         if start_guid:

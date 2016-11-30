@@ -332,7 +332,9 @@ def block_check_attached(qvmc, device):
                                         "VM '%s'" % (source.get('type'),
                                                      vm.name)
                     continue
-                if backend_name == device['vm'] and path == device['device']:
+                if backend_name == device['vm'] and (path == device['device']
+                        or not path.startswith('/dev/') and path == device[
+                        'desc']):
                     return {
                         "frontend": disk.find('target').get('dev'),
                         "vm": vm}
@@ -384,6 +386,8 @@ def block_attach(qvmc, vm, device, frontend=None, mode="w", auto_detach=False, w
     SubElement(disk, 'target').set('dev', frontend)
     if backend_vm.qid != 0:
         SubElement(disk, 'backenddomain').set('name', device['vm'])
+    if mode == "r":
+        SubElement(disk, 'readonly')
     vm.libvirt_domain.attachDevice(etree.tostring(disk,  encoding='utf-8'))
     try:
         # trigger watches to update device status

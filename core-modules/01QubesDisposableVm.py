@@ -40,6 +40,7 @@ except ImportError:
     pass
 
 DISPID_STATE_FILE = '/var/run/qubes/dispid'
+GUID_SHMID_FILE = ['/var/run/qubes/shm.id', '/var/run/shm.id']
 
 class QubesDisposableVm(QubesVm):
     """
@@ -222,7 +223,8 @@ class QubesDisposableVm(QubesVm):
         if qmemman_present:
             qmemman_client.close()
 
-        if kwargs.get('start_guid', True) and os.path.exists('/var/run/shm.id'):
+        if kwargs.get('start_guid', True) and \
+                any(os.path.exists(x) for x in GUID_SHMID_FILE):
             self.start_guid(verbose=verbose, before_qrexec=True,
                     notify_function=kwargs.get('notify_function', None))
 
@@ -230,7 +232,8 @@ class QubesDisposableVm(QubesVm):
                 notify_function=kwargs.get('notify_function', None))
         print >>sys.stderr, "time=%s, qrexec done" % (str(time.time()))
 
-        if kwargs.get('start_guid', True) and os.path.exists('/var/run/shm.id'):
+        if kwargs.get('start_guid', True) and \
+                any(os.path.exists(x) for x in GUID_SHMID_FILE):
             self.start_guid(verbose=verbose,
                     notify_function=kwargs.get('notify_function', None))
         print >>sys.stderr, "time=%s, guid done" % (str(time.time()))
