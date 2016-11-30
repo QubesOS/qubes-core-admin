@@ -216,7 +216,7 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
                                  label='red')
 
         expected = vm.template.dir_path + '/root.img:' + vm.template.dir_path \
-            + '/root-cow.img'
+            + '/root-cow.img:' + vm.dir_path + '/root-cow.img'
         self.assertVolumePath(vm, 'root', expected, rw=False)
         expected = vm.dir_path + '/private.img:' + \
             vm.dir_path + '/private-cow.img'
