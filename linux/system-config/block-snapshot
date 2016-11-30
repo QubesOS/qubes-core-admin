@@ -53,14 +53,21 @@ get_dev() {
 }
 
 get_dm_snapshot_name() {
+  local base cow cow2
+
   base=$1
   cow=$2
+  cow2=$3
 
-  echo snapshot-$(stat -c '%D:%i' "$base")-$(stat -c '%D:%i' "$cow")
+  name="snapshot-$(stat -c '%D:%i' "$base")-$(stat -c '%D:%i' "$cow")"
+  if [ -n "$cow2" ]; then
+    name="$name-$(stat -c '%D:%i' "$cow2")"
+  fi
+  echo "$name"
 }
 
 create_dm_snapshot() {
-  local base_dev cow_dev base_sz
+  local base_dev cow_dev base_sz base cow dm_devname
 
   dm_devname=$1
   base=$2
@@ -77,7 +84,7 @@ create_dm_snapshot() {
 }
 
 create_dm_snapshot_origin() {
-  local base_dev base_sz
+  local base_dev base_sz dm_devname base
 
   dm_devname=$1
   base=$2
@@ -103,8 +110,14 @@ case "$command" in
         fi
         echo $p > "$HOTPLUG_STORE-params"
         echo $t > "$HOTPLUG_STORE-type"
-        base=${p/:*/}
-        cow=${p/*:/}
+        base=${p%%:*}
+        cow=${p#*:}
+        cow2=${p##*:}
+        if [ "$cow" != "$cow2" ]; then
+          cow=${cow%:*}
+        else
+          cow2=""
+        fi
 
         if [ -L "$base" ]; then
           base=$(readlink -f "$base") || fatal "$base link does not exist."
@@ -114,6 +127,10 @@ case "$command" in
           cow=$(readlink -f "$cow") || fatal "$cow link does not exist."
         fi
 
+        if [ -L "$cow2" ]; then
+          cow2=$(readlink -f "$cow2") || fatal "$cow2 link does not exist."
+        fi
+
         # first ensure that snapshot device exists (to write somewhere changes from snapshot-origin)
         dm_devname=$(get_dm_snapshot_name "$base" "$cow")
 
@@ -121,6 +138,12 @@ case "$command" in
 
         # prepare snapshot device
         create_dm_snapshot $dm_devname "$base" "$cow"
+
+        if [ -n "$cow2" ]; then
+          dm_devname_full=$(get_dm_snapshot_name "$base" "$cow" "$cow2")
+          create_dm_snapshot "$dm_devname_full" "/dev/mapper/$dm_devname" "$cow2"
+          dm_devname="$dm_devname_full"
+        fi
 
         if [ "$t" == "snapshot" ]; then
           #that's all for snapshot, store name of prepared device
@@ -152,8 +175,14 @@ case "$command" in
     case $t in
       snapshot|origin)
         p=$3
-        base=${p/:*/}
-        cow=${p/*:/}
+        base=${p%%:*}
+        cow=${p#*:}
+        cow2=${p##*:}
+        if [ "$cow" != "$cow2" ]; then
+          cow=${cow%:*}
+        else
+          cow2=""
+        fi
 
         if [ -L "$base" ]; then
           base=$(readlink -f "$base") || fatal "$base link does not exist."
@@ -163,6 +192,10 @@ case "$command" in
           cow=$(readlink -f "$cow") || fatal "$cow link does not exist."
         fi
 
+        if [ -L "$cow2" ]; then
+          cow2=$(readlink -f "$cow2") || fatal "$cow2 link does not exist."
+        fi
+
         # first ensure that snapshot device exists (to write somewhere changes from snapshot-origin)
         dm_devname=$(get_dm_snapshot_name "$base" "$cow")
 
@@ -170,6 +203,12 @@ case "$command" in
 
         # prepare snapshot device
         create_dm_snapshot $dm_devname "$base" "$cow"
+
+        if [ -n "$cow2" ]; then
+          dm_devname_full=$(get_dm_snapshot_name "$base" "$cow" "$cow2")
+          create_dm_snapshot "$dm_devname_full" "/dev/mapper/$dm_devname" "$cow2"
+          dm_devname="$dm_devname_full"
+        fi
 
         if [ "$t" == "snapshot" ]; then
           #that's all for snapshot, store name of prepared device
@@ -232,7 +271,7 @@ case "$command" in
         fi
 
         # get list of used (loop) devices
-        deps="$(dmsetup deps $node | cut -d: -f2 | sed -e 's#(7, \([0-9]\+\))#/dev/loop\1#g')"
+        deps="$(dmsetup deps $node -o blkdevname | cut -d: -f2 | sed -e 's#(\([a-z0-9-]\+\))#/dev/\1#g')"
 
         # if this is origin
         if [ "${node/origin/}" != "$node" ]; then
@@ -241,7 +280,8 @@ case "$command" in
             use_count=$(dmsetup info $snap|grep Open|awk '{print $3}')
             if [ "$use_count" -eq 0 ]; then
               # unused snapshot - remove it
-              deps="$deps $(dmsetup deps $snap | cut -d: -f2 | sed -e 's#(7, \([0-9]\+\))#/dev/loop\1#g')"
+              deps="$deps $(dmsetup deps $snap -o blkdevname | cut -d: -f2 |\
+                   sed -e 's#(\([a-z0-9-]\+\))#/dev/\1#g')"
               log debug "Removing $snap"
               dmsetup remove $snap
             fi
@@ -265,11 +305,18 @@ case "$command" in
           dmsetup remove $node
         fi
 
-        # try to free loop devices
+        # try to free unused devices
         for dev in $deps; do
           if [ -b "$dev" ]; then
             log debug "Removing $dev"
-            losetup -d $dev 2> /dev/null || true
+            case $dev in
+              /dev/loop*)
+                losetup -d $dev 2> /dev/null || true
+                ;;
+              /dev/dm-*)
+                dmsetup remove $dev 2> /dev/null || true
+                ;;
+            esac
           fi
         done
 
