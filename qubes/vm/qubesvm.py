@@ -821,8 +821,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self._update_libvirt_domain()
 
         qmemman_client = self.request_memory(mem_required)
-
-        self.libvirt_domain.createWithFlags(libvirt.VIR_DOMAIN_START_PAUSED)
+        try:
+            self.libvirt_domain.createWithFlags(libvirt.VIR_DOMAIN_START_PAUSED)
+        except:
+            if qmemman_client:
+                qmemman_client.close()
+            raise
 
         try:
             self.fire_event('domain-spawn',
