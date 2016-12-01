@@ -270,6 +270,7 @@ fi
 %{python_sitelib}/qubes/tools/qvm_run.py*
 %{python_sitelib}/qubes/tools/qvm_shutdown.py*
 %{python_sitelib}/qubes/tools/qvm_start.py*
+%{python_sitelib}/qubes/tools/qvm_tags.py*
 %{python_sitelib}/qubes/tools/qvm_template_commit.py*
 %{python_sitelib}/qubes/tools/qvm_template_postprocess.py*
 %{python_sitelib}/qubes/tools/qvm_unpause.py*
