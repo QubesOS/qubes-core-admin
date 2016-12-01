@@ -51,11 +51,10 @@ def main():
 
     if hasattr(os, "geteuid") and os.geteuid() == 0:
         if not options.force_root:
-            print >> sys.stderr, "*** Running this tool as root is" + \
-                " strongly discouraged, this will lead you in permissions" + \
-                "problems."
-            print >> sys.stderr, "Retry as unprivileged user."
-            print >> sys.stderr, "... or use --force-root to continue anyway."
+            print >> sys.stderr, "WARNING: Running this tool as root can lead to" + \
+                " permission problems and is strongly discouraged. Please" + \
+                " retry as an unprivileged user or use --force-root to" + \
+                " continue anyway."
             exit(1)
 
     qvm_collection = QubesVmCollection()
