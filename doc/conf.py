@@ -285,6 +285,8 @@ man_pages = [
         u'Gracefully shut down a VM', _man_pages_author, 1),
     ('manpages/qvm-start', 'qvm-start',
         u'Start a specified VM', _man_pages_author, 1),
+    ('manpages/qvm-tags', 'qvm-tags',
+        u'Manage tags on a qube', _man_pages_author, 1),
     ('manpages/qvm-template-commit', 'qvm-template-commit',
         u'Commit changes to a template', _man_pages_author, 1),
 
