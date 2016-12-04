@@ -11,8 +11,9 @@ qvm-block - list/set VM PCI devices.
 SYNOPSIS
 ========
 | qvm-block -l [options]
-| qvm-block -a [options] <device> <vm-name>
-| qvm-block -d [options] <device>
+| qvm-block -a [options] <vm-name> <device-vm-name>:<device>
+| qvm-block -A [options] <vm-name> <file-vm-name>:<file>
+| qvm-block -d [options] <device-vm-name>:<device>
 | qvm-block -d [options] <vm-name>
 
 OPTIONS
