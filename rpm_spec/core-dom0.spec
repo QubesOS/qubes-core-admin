@@ -83,7 +83,6 @@ Requires:       createrepo
 Requires:       gnome-packagekit
 Requires:       cronie
 Requires:       bsdtar
-Requires:       scrypt
 # for qubes-hcl-report
 Requires:       dmidecode
 Requires:       PyQt4
