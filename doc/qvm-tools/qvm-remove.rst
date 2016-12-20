@@ -19,7 +19,7 @@ OPTIONS
 -q, --quiet
     Be quiet   
 --just-db
-    Remove only from the Qubes Xen DB, do not remove any files
+    Remove only from qubes.xml; do not remove any files
 --force-root
     Force to run, even with root privileges
 
