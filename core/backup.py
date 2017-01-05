@@ -175,7 +175,7 @@ def backup_prepare(vms_list=None, exclude_list=None,
     print_callback(s)
 
     files_to_backup_index = 0
-    for vm in vms_for_backup:
+    for vm in sorted(vms_for_backup, key=lambda vm: vm.name):
         if vm.is_template():
             # handle templates later
             continue
