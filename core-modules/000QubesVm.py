@@ -655,7 +655,10 @@ class QubesVm(object):
             return self.netvm
         else:
             if isinstance(self._dispvm_netvm, int):
-                return self._collection[self._dispvm_netvm]
+                if  self._dispvm_netvm in self._collection:
+                    return self._collection[self._dispvm_netvm]
+                else:
+                    return None
             else:
                 return self._dispvm_netvm
 
