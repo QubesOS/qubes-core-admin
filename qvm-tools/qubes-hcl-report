@@ -33,7 +33,7 @@ while [ $# -gt 0 ]; do
 
     -* | -h | --help)
       echo -e "qubes-hcl-report v$VERSION"
-      echo ""
+      echo "TEST VERSION"
       echo "This tool is used to gather basic hardware information for the Qubes HCL (Hardware Compatibility List)"
       echo "and copy the results to the given AppVM for the easy contribution."
       echo ""
@@ -103,6 +103,7 @@ VGA=`cat $TEMP_DIR/lspci |grep "VGA\|Display" |cut -d ':' -f3- |sed -e "s/^[[:sp
 NET=`cat $TEMP_DIR/lspci |lspci |grep "Network\|Ethernet" |cut -d ':' -f3- |sed -e "s/^[[:space:]]*/\  /"`
 SCSI=`cat $TEMP_DIR/scsi |grep Model |cut -d ':' -f3-|sed -e "s/^[[:space:]]*/\  /"`
 RAM=`cat $TEMP_DIR/xl-info |grep total_memory |cut -d ':' -f2 |tr -d ' '`
+USB=`lspci|grep USB|wc -l`
 BIOS=`cat $TEMP_DIR/dmidecode |grep -A9 "BIOS Information" |grep "Version" |cut -d ' ' -f2-`
 XEN_MAJOR=`cat $TEMP_DIR/xl-info |grep xen_major |cut -d: -f2 |tr -d ' '`
 XEN_MINOR=`cat $TEMP_DIR/xl-info |grep xen_minor |cut -d: -f2 |tr -d ' '`
@@ -112,6 +113,8 @@ XL_VTX=`cat $TEMP_DIR/xl-info |grep xen_caps | grep hvm`
 XL_VTD=`cat $TEMP_DIR/xl-info |grep virt_caps |grep hvm_directio`
 XL_HAP=`cat $TEMP_DIR/xl-dmesg |grep "$XL_DMESG_PREFIX_REGEX"'HVM: Hardware Assisted Paging (HAP) detected\( but disabled\)\?$'`
 PCRS=`find /sys/devices/ -name pcrs`
+XL_REMAP=`cat $TEMP_DIR/xl-dmesg |grep "$XL_DMESG_PREFIX_REGEX"'Intel VT-d Interrupt Remapping enabled'`
+
 
 FILENAME="Qubes-HCL-${BRAND//[^[:alnum:]]/_}-${PRODUCT//[^[:alnum:]]/_}-$DATE"
 
@@ -159,7 +162,14 @@ if [[ $PCRS ]]
     TPM="Device not found"
     TPM_s="unknown"
 fi
-    
+
+if [[ $XL_REMAP ]]
+ then
+    REMAP="yes"
+ else
+    REMAP="no"
+fi
+
 
 cat /etc/qubes-release
 echo
@@ -178,6 +188,7 @@ echo -e "HVM:\t\t$VTX"
 echo -e "I/O MMU:\t$VTD"
 echo -e "HAP/SLAT:\t$HAP_VERBOSE"
 echo -e "TPM:\t\t$TPM"
+echo -e "Remapping:\t$REMAP"
 echo
 
 echo -e "---
@@ -193,6 +204,8 @@ slat:
   '$HAP'
 tpm:
   '$TPM_s'
+remap:
+  '$REMAP'
 brand: |
   $BRAND
 model: |
@@ -217,7 +230,8 @@ memory: |
   $RAM
 scsi: |
 $SCSI
-
+usb: |
+  $USB
 versions:
 
 - works:
