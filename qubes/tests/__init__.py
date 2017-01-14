@@ -507,10 +507,20 @@ class SystemTestsMixin(object):
         elif isinstance(template, str):
             template = self.host_app.domains[template]
 
+        used_pools = [vol.pool for vol in template.volumes.values()]
+
+        for pool in used_pools:
+            if pool in self.app.pools:
+                continue
+            self.app.add_pool(**self.host_app.pools[pool].config)
+
         template_vm = self.app.add_new_vm(qubes.vm.templatevm.TemplateVM,
             name=template.name,
             uuid=template.uuid,
             label='black')
+        for name, volume in template_vm.volumes.items():
+            if volume.pool != template.volumes[name].pool:
+                template_vm.storage.init_volume(name, volume.config)
         self.app.default_template = template_vm
 
     def init_networking(self):
