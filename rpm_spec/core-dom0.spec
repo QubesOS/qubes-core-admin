@@ -358,6 +358,7 @@ fi
 %{python3_sitelib}/qubes/tests/integ/tools/__pycache__/*
 %{python3_sitelib}/qubes/tests/integ/tools/__init__.py
 %{python3_sitelib}/qubes/tests/integ/tools/qubes_create.py
+%{python3_sitelib}/qubes/tests/integ/tools/qvm_features.py*
 %{python3_sitelib}/qubes/tests/integ/tools/qvm_firewall.py
 %{python3_sitelib}/qubes/tests/integ/tools/qvm_check.py
 %{python3_sitelib}/qubes/tests/integ/tools/qvm_prefs.py
