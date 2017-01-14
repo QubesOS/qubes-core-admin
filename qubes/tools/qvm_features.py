@@ -70,6 +70,10 @@ def main(args=None):
         if args.delete:
             parser.error('--unset requires a feature')
 
+        if not vm.features:
+            # max doesn't like empty list
+            return 0
+
         width = max(len(feature) for feature in vm.features)
         for feature in sorted(vm.features):
             print('{name:{width}s}  {value}'.format(
