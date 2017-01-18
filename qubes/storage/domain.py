@@ -1,5 +1,3 @@
-#!/usr/bin/env python2
-# -*- encoding: utf8 -*-
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
@@ -19,8 +17,10 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+
 ''' Manages block devices in a domain '''
 
+import itertools
 import string  # pylint: disable=deprecated-module
 
 from qubes.storage import Pool, Volume
@@ -43,9 +43,10 @@ class DomainPool(Pool):
         ''' Queries qubesdb and returns volumes for `self.vm` '''
 
         qdb = self.vm.qdb
-        safe_set = set(string.letters + string.digits + string.punctuation)
+        safe_set = set(itertools.chain(
+            string.ascii_letters, string.digits, string.punctuation))
         allowed_attributes = {'desc': string.printable,
-                              'mode': string.letters,
+                              'mode': string.ascii_letters,
                               'size': string.digits}
         if not self.vm.is_running():
             return []

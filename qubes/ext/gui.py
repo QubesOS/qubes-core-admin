@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# vim: fileencoding=utf-8
-
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #

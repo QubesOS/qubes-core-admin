@@ -1,6 +1,3 @@
-#!/usr/bin/python2 -O
-# vim: fileencoding=utf-8
-
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
@@ -24,6 +21,7 @@
 
 import argparse
 import curses
+import itertools
 import logging
 import logging.handlers
 import os
@@ -36,29 +34,37 @@ import unittest.signals
 import qubes.tests
 
 class CursesColor(dict):
+    colors = (
+        'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white')
+    attrs = {
+        'bold': 'bold', 'normal': 'sgr0'}
     def __init__(self):
         super(CursesColor, self).__init__()
+        self.has_colors = False
         try:
             curses.setupterm()
+            self.has_colors = True
         except curses.error:
             return
 
-        # pylint: disable=bad-whitespace
-        self['black']   = curses.tparm(curses.tigetstr('setaf'), 0)
-        self['red']     = curses.tparm(curses.tigetstr('setaf'), 1)
-        self['green']   = curses.tparm(curses.tigetstr('setaf'), 2)
-        self['yellow']  = curses.tparm(curses.tigetstr('setaf'), 3)
-        self['blue']    = curses.tparm(curses.tigetstr('setaf'), 4)
-        self['magenta'] = curses.tparm(curses.tigetstr('setaf'), 5)
-        self['cyan']    = curses.tparm(curses.tigetstr('setaf'), 6)
-        self['white']   = curses.tparm(curses.tigetstr('setaf'), 7)
-
-        self['bold']    = curses.tigetstr('bold')
-        self['normal']  = curses.tigetstr('sgr0')
 
     def __missing__(self, key):
         # pylint: disable=unused-argument,no-self-use
-        return ''
+        if not self.has_colors:
+            return ''
+
+        try:
+            value = curses.tigetstr(self.attrs[key])
+        except KeyError:
+            try:
+                value = curses.tparm(
+                    curses.tigetstr('setaf'), self.colors.index(key))
+            except ValueError:
+                return ''
+
+        value = value.decode()
+        self[key] = value
+        return value
 
 
 class QubesTestResult(unittest.TestResult):
@@ -293,13 +299,18 @@ parser.add_argument('--do-clean', '-C',
     help='do execute tearDown even on failed tests.')
 
 # pylint: disable=protected-access
+try:
+    name_to_level = logging._nameToLevel
+except AttributeError:
+    name_to_level = logging._levelNames
 parser.add_argument('--loglevel', '-L', metavar='LEVEL',
     action='store', choices=tuple(k
-        for k in sorted(logging._levelNames.keys(),
-            key=lambda x: logging._levelNames[x])
-        if isinstance(k, basestring)),
+        for k in sorted(name_to_level.keys(),
+            key=lambda x: name_to_level[x])
+        if isinstance(k, str)),
     help='logging level for file and syslog forwarding '
         '(one of: %(choices)s; default: %(default)s)')
+del name_to_level
 # pylint: enable=protected-access
 
 parser.add_argument('--logfile', '-o', metavar='FILE',

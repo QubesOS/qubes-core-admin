@@ -1,5 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
@@ -962,7 +960,7 @@ class ExtractWorker2(Process):
                         pass
                     process.wait()
             self.log.error("ERROR: " + unicode(e))
-            raise e, None, exc_traceback
+            raise
 
     def handle_dir_relocations(self, dirname):
         ''' Relocate files in given director when it's already extracted

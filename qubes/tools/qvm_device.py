@@ -1,6 +1,5 @@
-#!/usr/bin/python2
-# coding=utf-8
 # pylint: disable=C,R
+
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
@@ -194,7 +193,7 @@ def main(args=None):
     try:
         args.func(args)
     except qubes.exc.QubesException as e:
-        print(e.message, file=sys.stderr)
+        print(str(e), file=sys.stderr)
         return 1
     return 0
 

@@ -1,5 +1,3 @@
-#!/usr/bin/python2
-# -*- encoding: utf8 -*-
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
@@ -145,7 +143,7 @@ def main(args=None):
             pass_f.close()
 
     else:
-        if raw_input("Do you want to proceed? [y/N] ").upper() != "Y":
+        if input("Do you want to proceed? [y/N] ").upper() != "Y":
             return 0
 
         prompt = ("Please enter the passphrase that will be used to {}verify "

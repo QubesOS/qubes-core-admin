@@ -1,6 +1,5 @@
-#!/usr/bin/python2
-# -*- encoding: utf8 -*-
-# :pylint: disable=too-few-public-methods
+# pylint: disable=too-few-public-methods
+
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #

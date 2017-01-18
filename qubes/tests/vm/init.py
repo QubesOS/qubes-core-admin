@@ -1,5 +1,3 @@
-#!/usr/bin/python2 -O
-# vim: fileencoding=utf-8
 # pylint: disable=protected-access
 
 #
@@ -109,8 +107,8 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
             'testfeature_aqq': 'aqq',
         })
 
-        self.assertItemsEqual(vm.devices.keys(), ('pci',))
-        self.assertItemsEqual(list(vm.devices['pci'].attached(persistent=True)),
+        self.assertCountEqual(vm.devices.keys(), ('pci',))
+        self.assertCountEqual(list(vm.devices['pci'].attached(persistent=True)),
             [qubes.ext.pci.PCIDevice(vm, '00:11.22')])
 
         self.assertXMLIsValid(vm.__xml__(), 'domain.rng')

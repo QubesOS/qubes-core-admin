@@ -1,5 +1,3 @@
-#!/usr/bin/python2 -O
-# vim: fileencoding=utf-8
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
@@ -24,6 +22,7 @@
 #
 
 ''' This module contains the NetVMMixin '''
+
 import os
 import re
 
@@ -37,7 +36,7 @@ import qubes.exc
 def _setter_mac(self, prop, value):
     ''' Helper for setting the MAC address '''
     # pylint: disable=unused-argument
-    if not isinstance(value, basestring):
+    if not isinstance(value, str):
         raise ValueError('MAC address must be a string')
     value = value.lower()
     if re.match(r"^([0-9a-f][0-9a-f]:){5}[0-9a-f][0-9a-f]$", value) is None:
@@ -56,7 +55,7 @@ def _default_ip(self):
 
 def _setter_ip(self, prop, value):
     # pylint: disable=unused-argument
-    if not isinstance(value, basestring):
+    if not isinstance(value, str):
         raise ValueError('IP address must be a string')
     value = value.lower()
     if re.match(r"^([0-9]{1,3}.){3}[0-9]{1,3}$", value) is None:

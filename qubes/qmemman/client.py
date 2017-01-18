@@ -1,5 +1,3 @@
-#!/usr/bin/python2
-# -*- coding: utf-8 -*-
 # pylint: skip-file
 
 #
@@ -21,11 +19,11 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
-#
+
 import socket
 import fcntl
-class QMemmanClient:
 
+class QMemmanClient:
     def request_memory(self, amount):
         self.sock = socket.socket(socket.AF_UNIX)
 

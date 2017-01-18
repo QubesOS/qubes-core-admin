@@ -1,6 +1,3 @@
-#!/usr/bin/python2 -O
-# vim: fileencoding=utf-8
-
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
@@ -143,7 +140,7 @@ class BaseVMMeta(qubes.events.EmitterMeta):
         qubes.tools.qvm_ls.process_class(cls)
 
 
-class BaseVM(qubes.PropertyHolder):
+class BaseVM(qubes.PropertyHolder, metaclass=BaseVMMeta):
     '''Base class for all VMs
 
     :param app: Qubes application context
@@ -156,8 +153,6 @@ class BaseVM(qubes.PropertyHolder):
     :py:class:`qubes.vm.qubesvm.QubesVM`.
     '''
     # pylint: disable=no-member
-
-    __metaclass__ = BaseVMMeta
 
     def __init__(self, app, xml, features=None, devices=None, tags=None,
             **kwargs):

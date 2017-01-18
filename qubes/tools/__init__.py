@@ -1,6 +1,3 @@
-#!/usr/bin/python2 -O
-# vim: fileencoding=utf-8
-
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
@@ -294,7 +291,7 @@ class PoolsAction(QubesAction):
                 pools = [app.get_pool(name) for name in pool_names]
                 setattr(namespace, self.dest, pools)
             except qubes.exc.QubesException as e:
-                parser.error(e.message)
+                parser.error(str(e))
                 sys.exit(2)
 
 
@@ -530,9 +527,9 @@ def print_table(table):
     if sys.stdout != sys.__stdout__:
         p = subprocess.Popen(cmd + ['-c', '80'], stdin=subprocess.PIPE,
             stdout=subprocess.PIPE)
-        p.stdin.write(text_table)
+        p.stdin.write(text_table.encode())
         (out, _) = p.communicate()
-        sys.stdout.write(out)
+        sys.stdout.write(out.decode())
     else:
         p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
-        p.communicate(text_table)
+        p.communicate(text_table.encode())

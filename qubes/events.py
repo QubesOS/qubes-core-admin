@@ -1,6 +1,3 @@
-#!/usr/bin/python2 -O
-# vim: fileencoding=utf-8
-
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
@@ -94,14 +91,12 @@ class EmitterMeta(type):
                 cls.add_handler(event, attr)
 
 
-class Emitter(object):
+class Emitter(object, metaclass=EmitterMeta):
     '''Subject that can emit events.
 
     By default all events are disabled not to interfere with loading from XML.
     To enable event dispatch, set :py:attr:`events_enabled` to :py:obj:`True`.
     '''
-
-    __metaclass__ = EmitterMeta
 
     def __init__(self, *args, **kwargs):
         super(Emitter, self).__init__(*args, **kwargs)

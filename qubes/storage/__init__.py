@@ -1,6 +1,3 @@
-#!/usr/bin/python2 -O
-# vim: fileencoding=utf-8
-
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
@@ -23,6 +20,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+
 """ Qubes storage system"""
 
 from __future__ import absolute_import
@@ -325,7 +323,7 @@ class Storage(object):
 
     def resize(self, volume, size):
         ''' Resizes volume a read-writable volume '''
-        if isinstance(volume, basestring):
+        if isinstance(volume, str):
             volume = self.vm.volumes[volume]
         self.get_pool(volume).resize(volume, size)
         if self.vm.is_running():
@@ -444,7 +442,7 @@ class Storage(object):
 
     def get_pool(self, volume):
         ''' Helper function '''
-        assert isinstance(volume, (Volume, basestring)), \
+        assert isinstance(volume, (Volume, str)), \
             "You need to pass a Volume or pool name as str"
         if isinstance(volume, Volume):
             return self.pools[volume.name]
@@ -474,7 +472,7 @@ class Storage(object):
 
     def export(self, volume):
         ''' Helper function to export volume (pool.export(volume))'''
-        assert isinstance(volume, (Volume, basestring)), \
+        assert isinstance(volume, (Volume, str)), \
             "You need to pass a Volume or pool name as str"
         if isinstance(volume, Volume):
             return self.pools[volume.name].export(volume)

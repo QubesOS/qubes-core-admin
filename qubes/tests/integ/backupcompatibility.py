@@ -1,5 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
@@ -19,7 +17,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
-#
+
 from multiprocessing import Queue
 
 import os
@@ -31,7 +29,7 @@ import sys
 import re
 
 import qubes.tests
-import qubes.tests.int.backup
+import qubes.tests.integ.backup
 
 QUBESXML_R2B2 = '''
 <QubesVmCollection updatevm="3" default_kernel="3.7.6-2" default_netvm="3" default_fw_netvm="2" default_template="1" clockvm="2">
@@ -145,7 +143,7 @@ compression-filter=gzip
 '''
 
 class TC_00_BackupCompatibility(
-    qubes.tests.int.backup.BackupTestsMixin, qubes.tests.QubesTestCase):
+    qubes.tests.integ.backup.BackupTestsMixin, qubes.tests.QubesTestCase):
 
     def tearDown(self):
         self.remove_test_vms(prefix="test-")

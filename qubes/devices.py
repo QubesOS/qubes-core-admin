@@ -1,6 +1,3 @@
-#!/usr/bin/python2 -O
-# vim: fileencoding=utf-8
-
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
@@ -47,6 +44,7 @@ Such extension should provide:
  - handle `device-list-attached:class` event - list currently attached
  devices to this domain
 '''
+
 import qubes.utils
 
 

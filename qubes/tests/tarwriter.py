@@ -1,5 +1,3 @@
-#!/usr/bin/python2
-# -*- encoding: utf8 -*-
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
@@ -19,6 +17,8 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
 import os
 import subprocess
 import tempfile
@@ -58,7 +58,7 @@ class TC_00_TarWriter(qubes.tests.QubesTestCase):
             expected_output = (
                 'tar: Removing leading `/\' from member names\n' +
                 expected_output)
-        self.assertEqual(tar_output, expected_output)
+        self.assertEqual(tar_output.decode(), expected_output)
         extracted_path = os.path.join(self.extract_dir,
             expected_name.lstrip('/'))
         with self.assertNotRaises(subprocess.CalledProcessError):

@@ -1,6 +1,3 @@
-#!/usr/bin/python2 -O
-# vim: fileencoding=utf-8
-
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
@@ -65,7 +62,6 @@ import qubes.utils  # pylint: disable=wrong-import-position
 import qubes.vm.adminvm  # pylint: disable=wrong-import-position
 import qubes.vm.qubesvm  # pylint: disable=wrong-import-position
 import qubes.vm.templatevm  # pylint: disable=wrong-import-position
-
 
 class VirDomainWrapper(object):
     # pylint: disable=too-few-public-methods
@@ -241,7 +237,7 @@ class QubesHost(object):
         # pylint: disable=unused-variable
         (model, memory, cpus, mhz, nodes, socket, cores, threads) = \
             self.app.vmm.libvirt_conn.getInfo()
-        self._total_mem = long(memory) * 1024
+        self._total_mem = int(memory) * 1024
         self._no_cpus = cpus
 
         self.app.log.debug('QubesHost: no_cpus={} memory_total={}'.format(
@@ -283,7 +279,7 @@ class QubesHost(object):
             self._physinfo = self.app.xc.physinfo()
         except AttributeError:
             raise NotImplementedError('This function requires Xen hypervisor')
-        return long(self._physinfo['free_memory'])
+        return int(self._physinfo['free_memory'])
 
 
     def measure_cpu_usage(self, previous_time=None, previous=None,
@@ -329,7 +325,7 @@ class QubesHost(object):
                 current[vm['domid']]['cpu_usage'] = (
                     float(current[vm['domid']]['cpu_time'] -
                         previous[vm['domid']]['cpu_time']) /
-                    long(1000 ** 3) / (current_time - previous_time) * 100)
+                    1000 ** 3 / (current_time - previous_time) * 100)
                 if current[vm['domid']]['cpu_usage'] < 0:
                     # VM has been rebooted
                     current[vm['domid']]['cpu_usage'] = 0
@@ -428,7 +424,7 @@ class VMCollection(object):
         if isinstance(key, int):
             return self._dict[key]
 
-        if isinstance(key, basestring):
+        if isinstance(key, str):
             for vm in self:
                 if vm.name == key:
                     return vm
@@ -682,7 +678,7 @@ class Qubes(qubes.PropertyHolder):
             try:
                 self.pools[name] = self._get_pool(**node.attrib)
             except qubes.exc.QubesException as e:
-                self.log.error(e.message)
+                self.log.error(str(e))
 
         # stage 2: load VMs
         for node in self.xml.xpath('./domains/domain'):
@@ -783,7 +779,7 @@ class Qubes(qubes.PropertyHolder):
         lxml.etree.ElementTree(self.__xml__()).write(
             fh_new, encoding='utf-8', pretty_print=True)
         fh_new.flush()
-        os.chmod(fh_new.name, 0660)
+        os.chmod(fh_new.name, 0o660)
         os.chown(fh_new.name, -1, grp.getgrnam('qubes').gr_gid)
         os.rename(fh_new.name, self._store)
 

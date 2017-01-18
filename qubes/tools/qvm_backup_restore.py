@@ -1,5 +1,3 @@
-#!/usr/bin/python2
-# -*- encoding: utf8 -*-
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
@@ -249,7 +247,7 @@ def main(args=None):
         parser.error_runtime(str(e))
 
     if args.pass_file is None:
-        if raw_input("Do you want to proceed? [y/N] ").upper() != "Y":
+        if input("Do you want to proceed? [y/N] ").upper() != "Y":
             exit(0)
 
     try:

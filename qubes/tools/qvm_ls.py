@@ -1,5 +1,3 @@
-#!/usr/bin/python -O
-# vim: fileencoding=utf-8
 # pylint: disable=too-few-public-methods
 
 #
@@ -28,7 +26,6 @@
 
 from __future__ import print_function
 
-import __builtin__
 import argparse
 import collections
 import sys
@@ -101,7 +98,7 @@ class Column(object):
 
         ret = None
         try:
-            if isinstance(self._attr, basestring):
+            if isinstance(self._attr, str):
                 ret = vm
                 for attrseg in self._attr.split('.'):
                     ret = getattr(ret, attrseg)
@@ -151,7 +148,7 @@ def column(width=0, head=None):
     def decorator(obj):
         # pylint: disable=missing-docstring
         # we keep hints on fget, so the order of decorators does not matter
-        holder = obj.fget if isinstance(obj, __builtin__.property) else obj
+        holder = obj.fget if isinstance(obj, property) else obj
 
         try:
             holder.ls_head = head or holder.__name__.replace('_', '-').upper()
@@ -202,7 +199,7 @@ def process_class(cls):
     for klass in cls.__mro__:
         for prop in klass.__dict__.values():
             holder = prop.fget \
-                if isinstance(prop, __builtin__.property) \
+                if isinstance(prop, property) \
                 else prop
             if not hasattr(holder, 'ls_head') or holder.ls_head is None:
                 continue
@@ -616,7 +613,7 @@ def main(args=None):
     try:
         args = parser.parse_args(args)
     except qubes.exc.QubesException as e:
-        parser.print_error(e.message)
+        parser.print_error(str(e))
         return 1
 
     if args.fields:

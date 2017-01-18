@@ -1,6 +1,3 @@
-#!/usr/bin/python2 -O
-# vim: fileencoding=utf-8
-
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
@@ -80,7 +77,7 @@ class TC_00_Emitter(qubes.tests.QubesTestCase):
 
         effect = emitter.fire_event('testevent')
 
-        self.assertItemsEqual(effect,
+        self.assertCountEqual(effect,
             ('testvalue1', 'testvalue2', 'testvalue3', 'testvalue4'))
 
     def test_004_catch_all(self):

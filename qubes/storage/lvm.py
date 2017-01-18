@@ -1,5 +1,3 @@
-# vim: fileencoding=utf-8
-# pylint: disable=abstract-method
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
@@ -19,6 +17,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+
 ''' Driver for storing vm images in a LVM thin pool '''
 
 import logging

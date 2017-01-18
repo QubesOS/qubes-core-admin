@@ -1,5 +1,3 @@
-#!/usr/bin/python2 -O
-# vim: fileencoding=utf-8
 # pylint: disable=protected-access,pointless-statement
 
 #
@@ -292,6 +290,12 @@ class TestVM(qubes.vm.BaseVM):
     netid = qid
     uuid = uuid.uuid5(uuid.NAMESPACE_DNS, 'testvm')
 
+    def __lt__(self, other):
+        try:
+            return self.name < other.name
+        except AttributeError:
+            return NotImplemented
+
     class MockLibvirt(object):
         def undefine(self):
             pass
@@ -303,6 +307,7 @@ class TestVM(qubes.vm.BaseVM):
 
     def get_power_state(self):
         return "Halted"
+
 
 class TestApp(qubes.tests.TestEmitter):
     pass
@@ -354,27 +359,27 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
         self.vms.add(self.testvm1)
         self.vms.add(self.testvm2)
 
-        self.assertItemsEqual(self.vms.qids(), [1, 2])
-        self.assertItemsEqual(self.vms.keys(), [1, 2])
+        self.assertCountEqual(self.vms.qids(), [1, 2])
+        self.assertCountEqual(self.vms.keys(), [1, 2])
 
     def test_004_names(self):
         self.vms.add(self.testvm1)
         self.vms.add(self.testvm2)
 
-        self.assertItemsEqual(self.vms.names(), ['testvm1', 'testvm2'])
+        self.assertCountEqual(self.vms.names(), ['testvm1', 'testvm2'])
 
     def test_005_vms(self):
         self.vms.add(self.testvm1)
         self.vms.add(self.testvm2)
 
-        self.assertItemsEqual(self.vms.vms(), [self.testvm1, self.testvm2])
-        self.assertItemsEqual(self.vms.values(), [self.testvm1, self.testvm2])
+        self.assertCountEqual(self.vms.vms(), [self.testvm1, self.testvm2])
+        self.assertCountEqual(self.vms.values(), [self.testvm1, self.testvm2])
 
     def test_006_items(self):
         self.vms.add(self.testvm1)
         self.vms.add(self.testvm2)
 
-        self.assertItemsEqual(self.vms.items(),
+        self.assertCountEqual(self.vms.items(),
             [(1, self.testvm1), (2, self.testvm2)])
 
     def test_007_len(self):
@@ -389,7 +394,7 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
 
         del self.vms['testvm2']
 
-        self.assertItemsEqual(self.vms.vms(), [self.testvm1])
+        self.assertCountEqual(self.vms.vms(), [self.testvm1])
         self.assertEventFired(self.app, 'domain-delete', args=[self.testvm2])
 
     def test_100_get_new_unused_qid(self):

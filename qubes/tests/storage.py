@@ -1,3 +1,4 @@
+#
 # The Qubes OS Project, https://www.qubes-os.org/
 #
 # Copyright (C) 2015  Bahtiar `kalkin-` Gadimov <bahtiar@gadimov.de>
@@ -15,6 +16,7 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
 
 import qubes.log
 from qubes.exc import QubesException
@@ -80,7 +82,7 @@ class TC_00_Pool(QubesTestCase):
 
     def test_001_all_pool_drivers(self):
         """ The only predefined pool driver is file """
-        self.assertEquals(['linux-kernel', 'lvm_thin', 'file'], pool_drivers())
+        self.assertCountEqual(['linux-kernel', 'lvm_thin', 'file'], pool_drivers())
 
     def test_002_get_pool_klass(self):
         """ Expect the default pool to be `FilePool` """

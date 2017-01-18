@@ -1,5 +1,3 @@
-#!/usr/bin/python2 -O
-# vim: fileencoding=utf-8
 # pylint: disable=protected-access
 
 #
@@ -22,6 +20,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+
 import os
 
 import unittest
@@ -244,7 +243,7 @@ class TC_90_QubesVM(QubesVMTestsMixin,qubes.tests.QubesTestCase):
 
     def test_110_name(self):
         vm = self.get_vm()
-        self.assertIsInstance(vm.name, basestring)
+        self.assertIsInstance(vm.name, str)
 
     def test_120_uuid(self):
         my_uuid = uuid.uuid4()

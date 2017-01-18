@@ -1,6 +1,3 @@
-#!/usr/bin/python2 -O
-# vim: fileencoding=utf-8
-
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
@@ -30,9 +27,7 @@ Qubes OS
 :copyright: © 2010-2015 Invisible Things Lab
 '''
 
-from __future__ import absolute_import
-
-import __builtin__
+import builtins
 import collections
 import os
 import os.path
@@ -110,7 +105,7 @@ class Label(object):
             self.name)
 
 
-    @__builtin__.property
+    @builtins.property
     def icon_path(self):
         '''Icon path
 
@@ -121,7 +116,7 @@ class Label(object):
             self.icon) + ".png"
 
 
-    @__builtin__.property
+    @builtins.property
     def icon_path_dispvm(self):
         '''Icon path
 
@@ -360,7 +355,7 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
         :py:obj:`True`.
         ''' # pylint: disable=bad-staticmethod-argument,unused-argument
 
-        if isinstance(value, basestring):
+        if isinstance(value, str):
             lcvalue = value.lower()
             if lcvalue in ('0', 'no', 'false', 'off'):
                 return False

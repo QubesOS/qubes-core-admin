@@ -1,5 +1,3 @@
-#!/usr/bin/python2 -O
-# vim: fileencoding=utf-8
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
@@ -22,6 +20,7 @@
 #
 
 ''' A disposable vm implementation '''
+
 import copy
 
 import qubes.vm.qubesvm

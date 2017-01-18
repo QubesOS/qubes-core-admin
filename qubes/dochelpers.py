@@ -1,6 +1,3 @@
-#!/usr/bin/python2 -O
-# vim: fileencoding=utf-8
-
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
@@ -29,11 +26,12 @@ particularly our custom Sphinx extension.
 '''
 
 import argparse
+import io
 import json
 import os
 import re
-import StringIO
-import urllib2
+import urllib.error
+import urllib.request
 
 import docutils
 import docutils.nodes
@@ -64,10 +62,10 @@ def fetch_ticket_info(app, number):
     :param app: Sphinx app object
     :param str number: number of the ticket, without #
     :rtype: mapping
-    :raises: urllib2.HTTPError
+    :raises: urllib.error.HTTPError
     '''
 
-    response = urllib2.urlopen(urllib2.Request(
+    response = urllib.request.urlopen(urllib.request.Request(
         app.config.ticket_base_uri.format(number=number),
         headers={
             'Accept': 'application/vnd.github.v3+json',
@@ -99,7 +97,7 @@ def ticket(name, rawtext, text, lineno, inliner, options=None, content=None):
 
     try:
         info = fetch_ticket_info(inliner.document.settings.env.app, ticketno)
-    except urllib2.HTTPError, e:
+    except urllib.error.HTTPError as e:
         msg = inliner.reporter.error(
             'Error while fetching ticket info: {!s}'.format(e), line=lineno)
         prb = inliner.problematic(rawtext, rawtext, msg)
@@ -167,7 +165,7 @@ def make_rst_section(heading, char):
 
 def prepare_manpage(command):
     parser = qubes.tools.get_parser_for_command(command)
-    stream = StringIO.StringIO()
+    stream = io.StringIO()
     stream.write('.. program:: {}\n\n'.format(command))
     stream.write(make_rst_section(
         ':program:`{}` -- {}'.format(command, parser.description), '='))

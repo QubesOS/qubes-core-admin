@@ -1,5 +1,3 @@
-#!/usr/bin/python2 -O
-# vim: fileencoding=utf-8
 # pylint: disable=invalid-name
 
 #
@@ -33,7 +31,6 @@
     don't run the tests.
 """
 
-import __builtin__
 import collections
 import functools
 import logging
@@ -90,7 +87,7 @@ except libvirt.libvirtError:
 
 try:
     in_git = subprocess.check_output(
-        ['git', 'rev-parse', '--show-toplevel']).strip()
+        ['git', 'rev-parse', '--show-toplevel']).decode().strip()
     qubes.log.LOGPATH = '/tmp'
     qubes.log.LOGFILE = '/tmp/qubes.log'
 except subprocess.CalledProcessError:
@@ -166,7 +163,7 @@ def expectedFailureIfTemplate(templates):
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
             template = self.template
-            if isinstance(templates, basestring):
+            if isinstance(templates, str):
                 should_expect_fail = template in templates
             else:
                 should_expect_fail = any([template in x for x in templates])
@@ -283,7 +280,11 @@ class QubesTestCase(unittest.TestCase):
     def tearDown(self):
         super(QubesTestCase, self).tearDown()
 
-        result = self._resultForDoCleanups
+        # TODO: find better way in py3
+        try:
+            result = self._outcome.result
+        except:
+            result = self._resultForDoCleanups
         failed_test_cases = result.failures \
             + result.errors \
             + [(tc, None) for tc in result.unexpectedSuccesses]
@@ -334,7 +335,7 @@ class QubesTestCase(unittest.TestCase):
 
         self.assertEqual(xml1.tag, xml2.tag)
         self.assertEqual(xml1.text, xml2.text)
-        self.assertItemsEqual(xml1.keys(), xml2.keys())
+        self.assertCountEqual(xml1.keys(), xml2.keys())
         for key in xml1.keys():
             self.assertEqual(xml1.get(key), xml2.get(key))
 
@@ -503,7 +504,7 @@ class SystemTestsMixin(object):
     def init_default_template(self, template=None):
         if template is None:
             template = self.host_app.default_template
-        elif isinstance(template, basestring):
+        elif isinstance(template, str):
             template = self.host_app.domains[template]
 
         template_vm = self.app.add_new_vm(qubes.vm.templatevm.TemplateVM,
@@ -752,9 +753,8 @@ class SystemTestsMixin(object):
 
         wait_count = 0
         while subprocess.call(['xdotool', 'search', '--name', title],
-                              stdout=open(os.path.devnull, 'w'),
-                              stderr=subprocess.STDOUT) == \
-                __builtin__.int(show):
+                stdout=open(os.path.devnull, 'w'), stderr=subprocess.STDOUT) \
+                    == int(show):
             wait_count += 1
             if wait_count > timeout*10:
                 self.fail("Timeout while waiting for {} window to {}".format(
@@ -841,7 +841,7 @@ class SystemTestsMixin(object):
             init_path = os.path.join(mountpoint, 'init')
             with open(init_path, 'w') as f:
                 f.write(init_script)
-            os.chmod(init_path, 0755)
+            os.chmod(init_path, 0o755)
             dracut_args = [
                 '--kver', kernel_version,
                 '--include', init_path,
@@ -894,23 +894,23 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
 
     for modname in (
             # integration tests
-            'qubes.tests.int.basic',
-            'qubes.tests.int.storage',
-            'qubes.tests.int.devices_pci',
-            'qubes.tests.int.dom0_update',
-            'qubes.tests.int.network',
-            'qubes.tests.int.dispvm',
-            'qubes.tests.int.vm_qrexec_gui',
-            'qubes.tests.int.backup',
-            'qubes.tests.int.backupcompatibility',
+            'qubes.tests.integ.basic',
+            'qubes.tests.integ.storage',
+            'qubes.tests.integ.devices_pci',
+            'qubes.tests.integ.dom0_update',
+            'qubes.tests.integ.network',
+            'qubes.tests.integ.dispvm',
+            'qubes.tests.integ.vm_qrexec_gui',
+            'qubes.tests.integ.backup',
+            'qubes.tests.integ.backupcompatibility',
 #           'qubes.tests.regressions',
 
             # tool tests
-            'qubes.tests.int.tools.qubes_create',
-            'qubes.tests.int.tools.qvm_check',
-            'qubes.tests.int.tools.qvm_firewall',
-            'qubes.tests.int.tools.qvm_prefs',
-            'qubes.tests.int.tools.qvm_run',
+            'qubes.tests.integ.tools.qubes_create',
+            'qubes.tests.integ.tools.qvm_check',
+            'qubes.tests.integ.tools.qvm_firewall',
+            'qubes.tests.integ.tools.qvm_prefs',
+            'qubes.tests.integ.tools.qvm_run',
 
             # external modules
 #           'qubes.tests.extra',

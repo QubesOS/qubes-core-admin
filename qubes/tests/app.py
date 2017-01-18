@@ -1,5 +1,3 @@
-#!/usr/bin/python2 -O
-# vim: fileencoding=utf-8
 # pylint: disable=protected-access,pointless-statement
 
 #
@@ -32,26 +30,7 @@ import qubes
 import qubes.events
 
 import qubes.tests
-
-# FIXME: blatant duplication with qubes.tests.init
-
-class TestVM(qubes.vm.BaseVM):
-    qid = qubes.property('qid', type=int)
-    name = qubes.property('name')
-    netid = qid
-    uuid = uuid.uuid5(uuid.NAMESPACE_DNS, 'testvm')
-
-    class MockLibvirt(object):
-        def undefine(self):
-            pass
-
-    libvirt_domain = MockLibvirt()
-
-    def is_halted(self):
-        return True
-
-    def get_power_state(self):
-        return "Halted"
+import qubes.tests.init
 
 class TestApp(qubes.tests.TestEmitter):
     pass
@@ -61,8 +40,10 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
         self.app = TestApp()
         self.vms = qubes.app.VMCollection(self.app)
 
-        self.testvm1 = TestVM(None, None, qid=1, name='testvm1')
-        self.testvm2 = TestVM(None, None, qid=2, name='testvm2')
+        self.testvm1 = qubes.tests.init.TestVM(
+            None, None, qid=1, name='testvm1')
+        self.testvm2 = qubes.tests.init.TestVM(
+            None, None, qid=2, name='testvm2')
 
     def test_000_contains(self):
         self.vms._dict = {1: self.testvm1}
@@ -91,8 +72,10 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
         with self.assertRaises(TypeError):
             self.vms.add(object())
 
-        testvm_qid_collision = TestVM(None, None, name='testvm2', qid=1)
-        testvm_name_collision = TestVM(None, None, name='testvm1', qid=2)
+        testvm_qid_collision = qubes.tests.init.TestVM(
+            None, None, name='testvm2', qid=1)
+        testvm_name_collision = qubes.tests.init.TestVM(
+            None, None, name='testvm1', qid=2)
 
         with self.assertRaises(ValueError):
             self.vms.add(testvm_qid_collision)
@@ -103,27 +86,27 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
         self.vms.add(self.testvm1)
         self.vms.add(self.testvm2)
 
-        self.assertItemsEqual(self.vms.qids(), [1, 2])
-        self.assertItemsEqual(self.vms.keys(), [1, 2])
+        self.assertCountEqual(self.vms.qids(), [1, 2])
+        self.assertCountEqual(self.vms.keys(), [1, 2])
 
     def test_004_names(self):
         self.vms.add(self.testvm1)
         self.vms.add(self.testvm2)
 
-        self.assertItemsEqual(self.vms.names(), ['testvm1', 'testvm2'])
+        self.assertCountEqual(self.vms.names(), ['testvm1', 'testvm2'])
 
     def test_005_vms(self):
         self.vms.add(self.testvm1)
         self.vms.add(self.testvm2)
 
-        self.assertItemsEqual(self.vms.vms(), [self.testvm1, self.testvm2])
-        self.assertItemsEqual(self.vms.values(), [self.testvm1, self.testvm2])
+        self.assertCountEqual(self.vms.vms(), [self.testvm1, self.testvm2])
+        self.assertCountEqual(self.vms.values(), [self.testvm1, self.testvm2])
 
     def test_006_items(self):
         self.vms.add(self.testvm1)
         self.vms.add(self.testvm2)
 
-        self.assertItemsEqual(self.vms.items(),
+        self.assertCountEqual(self.vms.items(),
             [(1, self.testvm1), (2, self.testvm2)])
 
     def test_007_len(self):
@@ -138,7 +121,7 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
 
         del self.vms['testvm2']
 
-        self.assertItemsEqual(self.vms.vms(), [self.testvm1])
+        self.assertCountEqual(self.vms.vms(), [self.testvm1])
         self.assertEventFired(self.app, 'domain-delete', args=[self.testvm2])
 
     def test_100_get_new_unused_qid(self):

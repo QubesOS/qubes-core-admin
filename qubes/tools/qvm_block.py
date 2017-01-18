@@ -1,6 +1,5 @@
-#!/usr/bin/python2
 # pylint: disable=C,R
-# -*- encoding: utf8 -*-
+
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
@@ -132,10 +131,10 @@ def list_volumes(args):
 
     if hasattr(args, 'domains') and args.domains:
         result = [x  # reduce to only VolumeData with assigned domains
-                  for p in vd_dict.itervalues() for x in p.itervalues()
+                  for p in vd_dict.values() for x in p.values()
                   if x.domains]
     else:
-        result = [x for p in vd_dict.itervalues() for x in p.itervalues()]
+        result = [x for p in vd_dict.values() for x in p.values()]
     qubes.tools.print_table(prepare_table(result, full=args.full))
 
 def revert_volume(args):
@@ -145,7 +144,7 @@ def revert_volume(args):
         pool = app.pools[volume.pool]
         pool.revert(volume)
     except qubes.storage.StoragePoolException as e:
-        print(e.message, file=sys.stderr)
+        print(str(e), file=sys.stderr)
         sys.exit(1)
 
 def attach_volumes(args):
@@ -158,7 +157,7 @@ def attach_volumes(args):
         rw = not args.ro
         vm.storage.attach(volume, rw=rw)
     except qubes.storage.StoragePoolException as e:
-        print(e.message, file=sys.stderr)
+        print(str(e), file=sys.stderr)
         sys.exit(1)
 
 
@@ -171,7 +170,7 @@ def detach_volumes(args):
     try:
         vm.storage.detach(volume)
     except qubes.storage.StoragePoolException as e:
-        print(e.message, file=sys.stderr)
+        print(str(e), file=sys.stderr)
         sys.exit(1)
 
 
@@ -266,7 +265,7 @@ def main(args=None):
         args = parser.parse_args(args)
         args.func(args)
     except qubes.exc.QubesException as e:
-        parser.print_error(e.message)
+        parser.print_error(str(e))
         return 1
 
 

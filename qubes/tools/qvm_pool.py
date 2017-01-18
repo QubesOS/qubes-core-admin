@@ -1,6 +1,5 @@
-#!/usr/bin/python2
-# -*- encoding: utf8 -*-
-# :pylint: disable=too-few-public-methods
+# pylint: disable=too-few-public-methods
+
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
@@ -190,7 +189,7 @@ def main(args=None):
     try:
         args = parser.parse_args(args)
     except qubes.exc.QubesException as e:
-        parser.print_error(e.message)
+        parser.print_error(str(e))
         return 1
 
     if args.command is None or args.command == 'list':

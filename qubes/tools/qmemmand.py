@@ -1,5 +1,3 @@
-#!/usr/bin/python2
-# -*- coding: utf-8 -*-
 # pylint: skip-file
 
 #
@@ -283,7 +281,7 @@ def main():
     log.debug('instantiating server')
     os.umask(0)
     server = SocketServer.UnixStreamServer(SOCK_PATH, QMemmanReqHandler)
-    os.umask(077)
+    os.umask(0o077)
 
     # notify systemd
     nofity_socket = os.getenv('NOTIFY_SOCKET')

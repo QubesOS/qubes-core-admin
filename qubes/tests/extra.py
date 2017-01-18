@@ -1,6 +1,3 @@
-#!/usr/bin/python2 -O
-# vim: fileencoding=utf-8
-
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
@@ -76,9 +73,8 @@ def load_tests(loader, tests, pattern):
             for test_case in entry.load()():
                 tests.addTests(loader.loadTestsFromTestCase(test_case))
         except Exception as err:  # pylint: disable=broad-except
-            tb = sys.exc_info()[2]
             def runTest(self):
-                raise err, None, tb
+                raise err
             ExtraLoadFailure = type('ExtraLoadFailure',
                 (qubes.tests.QubesTestCase,),
                 {entry.name: runTest})
@@ -105,9 +101,8 @@ def load_tests(loader, tests, pattern):
                         )
                     ))
         except Exception as err:  # pylint: disable=broad-except
-            tb = sys.exc_info()[2]
             def runTest(self):
-                raise err, None, tb
+                raise err
             ExtraForTemplateLoadFailure = type('ExtraForTemplateLoadFailure',
                 (qubes.tests.QubesTestCase,),
                 {entry.name: runTest})
