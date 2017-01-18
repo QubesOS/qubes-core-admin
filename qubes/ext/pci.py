@@ -23,7 +23,7 @@
 import os
 import re
 import subprocess
-import libvirt
+import libvirt  # pylint: disable=import-error
 import lxml
 import lxml.etree
 
@@ -205,6 +205,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
             if hostdev.get('type') != 'pci':
                 continue
             address = hostdev.find('source/address')
+            qid = int(address.get('domain'), base=16)
             bus = address.get('bus')[2:]
             device = address.get('slot')[2:]
             function = address.get('function')[2:]
@@ -214,7 +215,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
                 device=device,
                 function=function,
             )
-            yield PCIDevice(vm.app.domains[0], ident)
+            yield PCIDevice(backend_domain=vm.app.domains[qid], ident=ident)
 
     @qubes.ext.handler('device-pre-attach:pci')
     def on_device_pre_attached_pci(self, vm, event, device):

@@ -40,6 +40,8 @@ class TestNamespace(object):
             self.domains = domains
         if device:
             self.device = device
+        self.persistent = False
+        self.only_once = False
 
 
 class TC_00_Actions(qubes.tests.QubesTestCase):
@@ -119,15 +121,26 @@ class TC_00_Actions(qubes.tests.QubesTestCase):
         self.assertEventNotFired(self.vm2,
             'device-attach:testclass', [self.device])
 
-    def test_011_double_attach(self):
-        args = TestNamespace(
-            self.app,
-            [self.vm1],
-            self.device
-        )
-        qubes.tools.qvm_device.attach_device(args)
-        with self.assertRaises(qubes.exc.QubesException):
-            qubes.tools.qvm_device.attach_device(args)
+#   Disabled tests because the is_attached check logic is normally provided by a
+#   device extension.
+#   def test_011_double_attach(self):
+#       args = TestNamespace(
+#           self.app,
+#           [self.vm1],
+#           self.device
+#       )
+#       qubes.tools.qvm_device.attach_device(args)
+#       with self.assertRaises(qubes.exc.QubesException):
+#           qubes.tools.qvm_device.attach_device(args)
+#
+#   def test_021_detach_not_attached(self):
+#       args = TestNamespace(
+#           self.app,
+#           [self.vm1],
+#           self.device
+#       )
+#       with self.assertRaises(qubes.exc.QubesException):
+#           qubes.tools.qvm_device.detach_device(args)
 
     def test_020_detach(self):
         args = TestNamespace(
@@ -140,11 +153,3 @@ class TC_00_Actions(qubes.tests.QubesTestCase):
         self.vm1.devices['testclass']._set.add(self.device)
         qubes.tools.qvm_device.detach_device(args)
 
-    def test_021_detach_not_attached(self):
-        args = TestNamespace(
-            self.app,
-            [self.vm1],
-            self.device
-        )
-        with self.assertRaises(qubes.exc.QubesException):
-            qubes.tools.qvm_device.detach_device(args)

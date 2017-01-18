@@ -102,11 +102,9 @@ class SinglePropertyAction(argparse.Action):
 
         self.name = dest
 
-
     def __call__(self, parser, namespace, values, option_string=None):
         getattr(namespace, self.dest)[self.name] = values \
             if self.const is None else self.const
-
 
 class HelpPropertiesAction(argparse.Action):
     '''Action for argument parser that displays all properties and exits.'''
@@ -126,9 +124,8 @@ class HelpPropertiesAction(argparse.Action):
             help=help)
 
         # late import because of circular dependency
-        import qubes # pylint: disable=redefined-outer-name
+        import qubes  # pylint: disable=redefined-outer-name
         self._klass = klass if klass is not None else qubes.Qubes
-
 
     def __call__(self, parser, namespace, values, option_string=None):
         # pylint: disable=redefined-outer-name
@@ -335,7 +332,6 @@ class QubesArgumentParser(argparse.ArgumentParser):
             self.add_argument('--offline-mode', action='store_true',
                 default=None, dest='offline_mode', help=argparse.SUPPRESS)
 
-
         self.add_argument('--verbose', '-v', action='count',
                           help='increase verbosity')
 
@@ -381,14 +377,12 @@ class QubesArgumentParser(argparse.ArgumentParser):
 
         return namespace
 
-
     def error_runtime(self, message):
         '''Runtime error, without showing usage.
 
         :param str message: message to show
         '''
         self.exit(1, '{}: error: {}\n'.format(self.prog, message))
-
 
     def dont_run_as_root(self, namespace):
         '''Prevent running as root.
@@ -398,7 +392,7 @@ class QubesArgumentParser(argparse.ArgumentParser):
         '''
         try:
             euid = os.geteuid()
-        except AttributeError: # no geteuid(), probably NT
+        except AttributeError:  # no geteuid(), probably NT
             return
 
         if euid == 0 and not namespace.force_root:
@@ -409,7 +403,6 @@ class QubesArgumentParser(argparse.ArgumentParser):
     def get_loglevel_from_verbosity(namespace):
         ''' Return loglevel calculated from quiet and verbose arguments '''
         return (namespace.quiet - namespace.verbose) * 10 + logging.WARNING
-
 
     @staticmethod
     def set_qubes_verbosity(namespace):
@@ -433,10 +426,10 @@ class QubesArgumentParser(argparse.ArgumentParser):
 
 
 class AliasedSubParsersAction(argparse._SubParsersAction):
-    # source https://gist.github.com/sampsyo/471779
-    # pylint: disable=protected-access,too-few-public-methods
+    ''' Source https://gist.github.com/sampsyo/471779
+    '''  # pylint: disable=protected-access,too-few-public-methods
     class _AliasedPseudoAction(argparse.Action):
-        # pylint: disable=redefined-builtin
+        # pylint: disable=redefined-builtin,missing-docstring
         def __init__(self, name, aliases, help):
             dest = name
             if aliases:
@@ -492,7 +485,6 @@ def get_parser_for_command(command):
             raise AttributeError('cannot find parser in module')
 
     return parser
-
 
 # pylint: disable=protected-access
 class VmNameGroup(argparse._MutuallyExclusiveGroup):
