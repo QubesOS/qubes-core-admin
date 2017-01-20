@@ -5,6 +5,7 @@ VERSION := $(shell cat version)
 DIST_DOM0 ?= fc18
 
 OS ?= Linux
+PYTHON ?= python3
 
 ifeq ($(OS),Linux)
 DATADIR ?= /var/lib/qubes
@@ -43,7 +44,7 @@ clean:
 	make -C dispvm clean
 
 all:
-	python setup.py build
+	$(PYTHON) setup.py build
 #	make all -C tests
 	# Currently supported only on xen
 ifeq ($(BACKEND_VMM),xen)
@@ -56,7 +57,7 @@ ifeq ($(OS),Linux)
 	$(MAKE) install -C linux/aux-tools
 	$(MAKE) install -C linux/system-config
 endif
-	python setup.py install -O1 --skip-build --root $(DESTDIR)
+	$(PYTHON) setup.py install -O1 --skip-build --root $(DESTDIR)
 	ln -s qvm-device $(DESTDIR)/usr/bin/qvm-pci
 	ln -s qvm-device $(DESTDIR)/usr/bin/qvm-usb
 #	$(MAKE) install -C tests

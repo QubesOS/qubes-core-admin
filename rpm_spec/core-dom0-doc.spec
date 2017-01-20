@@ -33,8 +33,8 @@ Group:		Qubes
 Vendor:		Invisible Things Lab
 License:	GPL
 URL:		http://www.qubes-os.org
-BuildRequires: python-sphinx
-BuildRequires: python-lxml
+BuildRequires: python3-sphinx
+BuildRequires: python3-lxml
 BuildArch: noarch
 Obsoletes:	qubes-doc-dom0 <= 2.0
 Provides:	qubes-doc-dom0
@@ -45,11 +45,13 @@ Provides:	qubes-doc-dom0
 The Qubes docs for dom0 tools
 
 %build
-make man
+make PYTHON=%{__python3} SPHINXBUILD=sphinx-build-%{python3_version} man
 
 %install
 
-make DESTDIR=$RPM_BUILD_ROOT install
+make DESTDIR=$RPM_BUILD_ROOT \
+    PYTHON=%{__python3} SPHINXBUILD=sphinx-build-%{python3_version} \
+    install
 
 %clean
 rm -rf $RPM_BUILD_ROOT

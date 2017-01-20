@@ -3,7 +3,7 @@
 
 # You can set these variables from the command line.
 SPHINXOPTS    =
-SPHINXBUILD   = sphinx-build
+SPHINXBUILD   ?= sphinx-build
 PAPER         =
 BUILDDIR      = _build
 
@@ -161,7 +161,7 @@ doctest: $(DEPEND)
 
 
 autoxml.rst: ../relaxng/qubes.rng example.xml
-	../qubes/rngdoc.py $+ > $@
+	$(PYTHON) ../qubes/rngdoc.py $+ > $@
 
 .PHONY: install
 install: man

@@ -23,7 +23,7 @@
 #
 #
 
-#%{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(False)")}
+#%{!?python3_sitelib: %define python3_sitelib %(%{__python3} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(False)")}
 
 %{!?version: %define version %(cat version)}
 
@@ -57,10 +57,12 @@ AutoReq:	no
 BuildRequires:  ImageMagick
 BuildRequires:	systemd-units
 
+BuildRequires:  python3-devel
+
 # for building documentation
-BuildRequires:	python-sphinx
-BuildRequires:	libvirt-python
-BuildRequires:	dbus-python
+BuildRequires:	python3-sphinx
+BuildRequires:	libvirt-python3
+BuildRequires:	python3-dbus
 
 Requires(post): systemd-units
 Requires(preun): systemd-units
@@ -70,10 +72,10 @@ Requires:	python-setuptools
 Requires:       qubes-core-dom0-linux >= 3.1.8
 Requires:       qubes-core-dom0-doc
 Requires:       qubes-db-dom0
-Requires:       python-lxml
+Requires:       python3-lxml
 # TODO: R: qubes-gui-dom0 >= 2.1.11
 Conflicts:      qubes-gui-dom0 < 1.1.13
-Requires:       libvirt-python
+Requires:       libvirt-python3
 %if x%{?backend_vmm} == xxen
 Requires:       xen-runtime
 Requires:       xen-hvm
@@ -88,7 +90,7 @@ Requires:       dmidecode
 Requires:       PyQt4
 
 # for property's docstrings
-Requires:	python-docutils
+Requires:	python3-docutils
 
 # for lvm support
 Requires: lvm2-python-libs
@@ -117,7 +119,7 @@ make all
 make install \
     DESTDIR=$RPM_BUILD_ROOT \
     UNITDIR=%{_unitdir} \
-    PYTHON_SITEPATH=%{python_sitelib} \
+    PYTHON_SITEPATH=%{python3_sitelib} \
     SYSCONFDIR=%{_sysconfdir}
 
 %post
@@ -206,137 +208,163 @@ fi
 /usr/bin/qubes-*
 /usr/bin/qmemmand
 
-%dir %{python_sitelib}/qubes-*.egg-info
-%{python_sitelib}/qubes-*.egg-info/*
+%dir %{python3_sitelib}/qubes-*.egg-info
+%{python3_sitelib}/qubes-*.egg-info/*
 
-%dir %{python_sitelib}/qubes
-%{python_sitelib}/qubes/__init__.py*
-%{python_sitelib}/qubes/app.py*
-%{python_sitelib}/qubes/backup.py*
-%{python_sitelib}/qubes/config.py*
-%{python_sitelib}/qubes/core2migration.py*
-%{python_sitelib}/qubes/devices.py*
-%{python_sitelib}/qubes/dochelpers.py*
-%{python_sitelib}/qubes/events.py*
-%{python_sitelib}/qubes/firewall.py*
-%{python_sitelib}/qubes/exc.py*
-%{python_sitelib}/qubes/log.py*
-%{python_sitelib}/qubes/rngdoc.py*
-%{python_sitelib}/qubes/tarwriter.py*
-%{python_sitelib}/qubes/utils.py*
+%dir %{python3_sitelib}/qubes
+%dir %{python3_sitelib}/qubes/__pycache__
+%{python3_sitelib}/qubes/__pycache__/*
+%{python3_sitelib}/qubes/__init__.py
+%{python3_sitelib}/qubes/app.py
+%{python3_sitelib}/qubes/backup.py
+%{python3_sitelib}/qubes/config.py
+%{python3_sitelib}/qubes/core2migration.py
+%{python3_sitelib}/qubes/devices.py
+%{python3_sitelib}/qubes/dochelpers.py
+%{python3_sitelib}/qubes/events.py
+%{python3_sitelib}/qubes/firewall.py
+%{python3_sitelib}/qubes/exc.py
+%{python3_sitelib}/qubes/log.py
+%{python3_sitelib}/qubes/rngdoc.py
+%{python3_sitelib}/qubes/tarwriter.py
+%{python3_sitelib}/qubes/utils.py
 
-%dir %{python_sitelib}/qubes/vm
-%{python_sitelib}/qubes/vm/__init__.py*
-%{python_sitelib}/qubes/vm/adminvm.py*
-%{python_sitelib}/qubes/vm/appvm.py*
-%{python_sitelib}/qubes/vm/dispvm.py*
-%{python_sitelib}/qubes/vm/qubesvm.py*
-%{python_sitelib}/qubes/vm/standalonevm.py*
-%{python_sitelib}/qubes/vm/templatevm.py*
+%dir %{python3_sitelib}/qubes/vm
+%dir %{python3_sitelib}/qubes/vm/__pycache__
+%{python3_sitelib}/qubes/vm/__pycache__/*
+%{python3_sitelib}/qubes/vm/__init__.py
+%{python3_sitelib}/qubes/vm/adminvm.py
+%{python3_sitelib}/qubes/vm/appvm.py
+%{python3_sitelib}/qubes/vm/dispvm.py
+%{python3_sitelib}/qubes/vm/qubesvm.py
+%{python3_sitelib}/qubes/vm/standalonevm.py
+%{python3_sitelib}/qubes/vm/templatevm.py
 
-%dir %{python_sitelib}/qubes/vm/mix
-%{python_sitelib}/qubes/vm/mix/__init__.py*
-%{python_sitelib}/qubes/vm/mix/net.py*
+%dir %{python3_sitelib}/qubes/vm/mix
+%dir %{python3_sitelib}/qubes/vm/mix/__pycache__
+%{python3_sitelib}/qubes/vm/mix/__pycache__/*
+%{python3_sitelib}/qubes/vm/mix/__init__.py
+%{python3_sitelib}/qubes/vm/mix/net.py
 
-%dir %{python_sitelib}/qubes/storage
-%{python_sitelib}/qubes/storage/__init__.py*
-%{python_sitelib}/qubes/storage/file.py*
-%{python_sitelib}/qubes/storage/domain.py*
-%{python_sitelib}/qubes/storage/kernels.py*
-%{python_sitelib}/qubes/storage/lvm.py*
+%dir %{python3_sitelib}/qubes/storage
+%dir %{python3_sitelib}/qubes/storage/__pycache__
+%{python3_sitelib}/qubes/storage/__pycache__/*
+%{python3_sitelib}/qubes/storage/__init__.py
+%{python3_sitelib}/qubes/storage/file.py
+%{python3_sitelib}/qubes/storage/domain.py
+%{python3_sitelib}/qubes/storage/kernels.py
+%{python3_sitelib}/qubes/storage/lvm.py
 
-%dir %{python_sitelib}/qubes/tools
-%{python_sitelib}/qubes/tools/__init__.py*
-%{python_sitelib}/qubes/tools/qmemmand.py*
-%{python_sitelib}/qubes/tools/qubes_create.py*
-%{python_sitelib}/qubes/tools/qubes_monitor_layout_notify.py*
-%{python_sitelib}/qubes/tools/qubes_prefs.py*
-%{python_sitelib}/qubes/tools/qvm_block.py*
-%{python_sitelib}/qubes/tools/qvm_backup.py*
-%{python_sitelib}/qubes/tools/qvm_backup_restore.py*
-%{python_sitelib}/qubes/tools/qvm_create.py*
-%{python_sitelib}/qubes/tools/qvm_device.py*
-%{python_sitelib}/qubes/tools/qvm_features.py*
-%{python_sitelib}/qubes/tools/qvm_firewall.py*
-%{python_sitelib}/qubes/tools/qvm_check.py*
-%{python_sitelib}/qubes/tools/qvm_clone.py*
-%{python_sitelib}/qubes/tools/qvm_kill.py*
-%{python_sitelib}/qubes/tools/qvm_ls.py*
-%{python_sitelib}/qubes/tools/qvm_pause.py*
-%{python_sitelib}/qubes/tools/qvm_pool.py*
-%{python_sitelib}/qubes/tools/qvm_prefs.py*
-%{python_sitelib}/qubes/tools/qvm_remove.py*
-%{python_sitelib}/qubes/tools/qvm_run.py*
-%{python_sitelib}/qubes/tools/qvm_shutdown.py*
-%{python_sitelib}/qubes/tools/qvm_start.py*
-%{python_sitelib}/qubes/tools/qvm_tags.py*
-%{python_sitelib}/qubes/tools/qvm_template_commit.py*
-%{python_sitelib}/qubes/tools/qvm_template_postprocess.py*
-%{python_sitelib}/qubes/tools/qvm_unpause.py*
+%dir %{python3_sitelib}/qubes/tools
+%dir %{python3_sitelib}/qubes/tools/__pycache__
+%{python3_sitelib}/qubes/tools/__pycache__/*
+%{python3_sitelib}/qubes/tools/__init__.py
+%{python3_sitelib}/qubes/tools/qmemmand.py
+%{python3_sitelib}/qubes/tools/qubes_create.py
+%{python3_sitelib}/qubes/tools/qubes_monitor_layout_notify.py
+%{python3_sitelib}/qubes/tools/qubes_prefs.py
+%{python3_sitelib}/qubes/tools/qvm_block.py
+%{python3_sitelib}/qubes/tools/qvm_backup.py
+%{python3_sitelib}/qubes/tools/qvm_backup_restore.py
+%{python3_sitelib}/qubes/tools/qvm_create.py
+%{python3_sitelib}/qubes/tools/qvm_device.py
+%{python3_sitelib}/qubes/tools/qvm_features.py
+%{python3_sitelib}/qubes/tools/qvm_firewall.py
+%{python3_sitelib}/qubes/tools/qvm_check.py
+%{python3_sitelib}/qubes/tools/qvm_clone.py
+%{python3_sitelib}/qubes/tools/qvm_kill.py
+%{python3_sitelib}/qubes/tools/qvm_ls.py
+%{python3_sitelib}/qubes/tools/qvm_pause.py
+%{python3_sitelib}/qubes/tools/qvm_pool.py
+%{python3_sitelib}/qubes/tools/qvm_prefs.py
+%{python3_sitelib}/qubes/tools/qvm_remove.py
+%{python3_sitelib}/qubes/tools/qvm_run.py
+%{python3_sitelib}/qubes/tools/qvm_shutdown.py
+%{python3_sitelib}/qubes/tools/qvm_start.py
+%{python3_sitelib}/qubes/tools/qvm_tags.py
+%{python3_sitelib}/qubes/tools/qvm_template_commit.py
+%{python3_sitelib}/qubes/tools/qvm_template_postprocess.py
+%{python3_sitelib}/qubes/tools/qvm_unpause.py
 
-%dir %{python_sitelib}/qubes/ext
-%{python_sitelib}/qubes/ext/__init__.py*
-%{python_sitelib}/qubes/ext/gui.py*
-%{python_sitelib}/qubes/ext/pci.py*
-%{python_sitelib}/qubes/ext/qubesmanager.py*
-%{python_sitelib}/qubes/ext/r3compatibility.py*
+%dir %{python3_sitelib}/qubes/ext
+%dir %{python3_sitelib}/qubes/ext/__pycache__
+%{python3_sitelib}/qubes/ext/__pycache__/*
+%{python3_sitelib}/qubes/ext/__init__.py
+%{python3_sitelib}/qubes/ext/gui.py
+%{python3_sitelib}/qubes/ext/pci.py
+%{python3_sitelib}/qubes/ext/qubesmanager.py
+%{python3_sitelib}/qubes/ext/r3compatibility.py
 
-%dir %{python_sitelib}/qubes/tests
-%{python_sitelib}/qubes/tests/__init__.py*
-%{python_sitelib}/qubes/tests/run.py*
-%{python_sitelib}/qubes/tests/extra.py*
+%dir %{python3_sitelib}/qubes/tests
+%dir %{python3_sitelib}/qubes/tests/__pycache__
+%{python3_sitelib}/qubes/tests/__pycache__/*
+%{python3_sitelib}/qubes/tests/__init__.py
+%{python3_sitelib}/qubes/tests/run.py
+%{python3_sitelib}/qubes/tests/extra.py
 
-%{python_sitelib}/qubes/tests/app.py*
-%{python_sitelib}/qubes/tests/devices.py*
-%{python_sitelib}/qubes/tests/events.py*
-%{python_sitelib}/qubes/tests/firewall.py*
-%{python_sitelib}/qubes/tests/init.py*
-%{python_sitelib}/qubes/tests/storage.py*
-%{python_sitelib}/qubes/tests/storage_file.py*
-%{python_sitelib}/qubes/tests/storage_lvm.py*
-%{python_sitelib}/qubes/tests/tarwriter.py*
+%{python3_sitelib}/qubes/tests/app.py
+%{python3_sitelib}/qubes/tests/devices.py
+%{python3_sitelib}/qubes/tests/events.py
+%{python3_sitelib}/qubes/tests/firewall.py
+%{python3_sitelib}/qubes/tests/init.py
+%{python3_sitelib}/qubes/tests/storage.py
+%{python3_sitelib}/qubes/tests/storage_file.py
+%{python3_sitelib}/qubes/tests/storage_lvm.py
+%{python3_sitelib}/qubes/tests/tarwriter.py
 
-%dir %{python_sitelib}/qubes/tests/vm
-%{python_sitelib}/qubes/tests/vm/__init__.py*
-%{python_sitelib}/qubes/tests/vm/init.py*
-%{python_sitelib}/qubes/tests/vm/adminvm.py*
-%{python_sitelib}/qubes/tests/vm/qubesvm.py*
+%dir %{python3_sitelib}/qubes/tests/vm
+%dir %{python3_sitelib}/qubes/tests/vm/__pycache__
+%{python3_sitelib}/qubes/tests/vm/__pycache__/*
+%{python3_sitelib}/qubes/tests/vm/__init__.py
+%{python3_sitelib}/qubes/tests/vm/init.py
+%{python3_sitelib}/qubes/tests/vm/adminvm.py
+%{python3_sitelib}/qubes/tests/vm/qubesvm.py
 
-%dir %{python_sitelib}/qubes/tests/vm/mix
-%{python_sitelib}/qubes/tests/vm/mix/__init__.py*
-%{python_sitelib}/qubes/tests/vm/mix/net.py*
+%dir %{python3_sitelib}/qubes/tests/vm/mix
+%dir %{python3_sitelib}/qubes/tests/vm/mix/__pycache__
+%{python3_sitelib}/qubes/tests/vm/mix/__pycache__/*
+%{python3_sitelib}/qubes/tests/vm/mix/__init__.py
+%{python3_sitelib}/qubes/tests/vm/mix/net.py
 
-%dir %{python_sitelib}/qubes/tests/tools
-%{python_sitelib}/qubes/tests/tools/__init__.py*
-%{python_sitelib}/qubes/tests/tools/init.py*
-%{python_sitelib}/qubes/tests/tools/qvm_device.py*
-%{python_sitelib}/qubes/tests/tools/qvm_firewall.py*
-%{python_sitelib}/qubes/tests/tools/qvm_ls.py*
+%dir %{python3_sitelib}/qubes/tests/tools
+%dir %{python3_sitelib}/qubes/tests/tools/__pycache__
+%{python3_sitelib}/qubes/tests/tools/__pycache__/*
+%{python3_sitelib}/qubes/tests/tools/__init__.py
+%{python3_sitelib}/qubes/tests/tools/init.py
+%{python3_sitelib}/qubes/tests/tools/qvm_device.py
+%{python3_sitelib}/qubes/tests/tools/qvm_firewall.py
+%{python3_sitelib}/qubes/tests/tools/qvm_ls.py
 
-%dir %{python_sitelib}/qubes/tests/int
-%{python_sitelib}/qubes/tests/int/__init__.py*
-%{python_sitelib}/qubes/tests/int/backup.py*
-%{python_sitelib}/qubes/tests/int/backupcompatibility.py*
-%{python_sitelib}/qubes/tests/int/basic.py*
-%{python_sitelib}/qubes/tests/int/devices_pci.py*
-%{python_sitelib}/qubes/tests/int/dispvm.py*
-%{python_sitelib}/qubes/tests/int/dom0_update.py*
-%{python_sitelib}/qubes/tests/int/network.py*
-%{python_sitelib}/qubes/tests/int/storage.py*
-%{python_sitelib}/qubes/tests/int/vm_qrexec_gui.py*
+%dir %{python3_sitelib}/qubes/tests/integ
+%dir %{python3_sitelib}/qubes/tests/integ/__pycache__
+%{python3_sitelib}/qubes/tests/integ/__pycache__/*
+%{python3_sitelib}/qubes/tests/integ/__init__.py
+%{python3_sitelib}/qubes/tests/integ/backup.py
+%{python3_sitelib}/qubes/tests/integ/backupcompatibility.py
+%{python3_sitelib}/qubes/tests/integ/basic.py
+%{python3_sitelib}/qubes/tests/integ/devices_pci.py
+%{python3_sitelib}/qubes/tests/integ/dispvm.py
+%{python3_sitelib}/qubes/tests/integ/dom0_update.py
+%{python3_sitelib}/qubes/tests/integ/network.py
+%{python3_sitelib}/qubes/tests/integ/storage.py
+%{python3_sitelib}/qubes/tests/integ/vm_qrexec_gui.py
 
-%dir %{python_sitelib}/qubes/tests/int/tools
-%{python_sitelib}/qubes/tests/int/tools/__init__.py*
-%{python_sitelib}/qubes/tests/int/tools/qubes_create.py*
-%{python_sitelib}/qubes/tests/int/tools/qvm_firewall.py*
-%{python_sitelib}/qubes/tests/int/tools/qvm_check.py*
-%{python_sitelib}/qubes/tests/int/tools/qvm_prefs.py*
-%{python_sitelib}/qubes/tests/int/tools/qvm_run.py*
+%dir %{python3_sitelib}/qubes/tests/integ/tools
+%dir %{python3_sitelib}/qubes/tests/integ/tools/__pycache__
+%{python3_sitelib}/qubes/tests/integ/tools/__pycache__/*
+%{python3_sitelib}/qubes/tests/integ/tools/__init__.py
+%{python3_sitelib}/qubes/tests/integ/tools/qubes_create.py
+%{python3_sitelib}/qubes/tests/integ/tools/qvm_firewall.py
+%{python3_sitelib}/qubes/tests/integ/tools/qvm_check.py
+%{python3_sitelib}/qubes/tests/integ/tools/qvm_prefs.py
+%{python3_sitelib}/qubes/tests/integ/tools/qvm_run.py
 
-%dir %{python_sitelib}/qubes/qmemman
-%{python_sitelib}/qubes/qmemman/__init__.py*
-%{python_sitelib}/qubes/qmemman/algo.py*
-%{python_sitelib}/qubes/qmemman/client.py*
+%dir %{python3_sitelib}/qubes/qmemman
+%dir %{python3_sitelib}/qubes/qmemman/__pycache__
+%{python3_sitelib}/qubes/qmemman/__pycache__/*
+%{python3_sitelib}/qubes/qmemman/__init__.py
+%{python3_sitelib}/qubes/qmemman/algo.py
+%{python3_sitelib}/qubes/qmemman/client.py
 
 /usr/lib/qubes/unbind-pci-device.sh
 /usr/lib/qubes/cleanup-dispvms
