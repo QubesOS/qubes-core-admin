@@ -660,7 +660,7 @@ class SystemTestsMixin(object):
         try:
             volumes = subprocess.check_output(
                 ['sudo', 'lvs', '--noheadings', '-o', 'vg_name,name',
-                    '--separator', '/'])
+                    '--separator', '/']).decode()
             if ('/' + prefix) not in volumes:
                 return
             subprocess.check_call(['sudo', 'lvremove', '-f'] +

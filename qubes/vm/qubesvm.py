@@ -400,7 +400,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     maxmem = qubes.property('maxmem', type=int,
         setter=_setter_positive_int,
-        default=(lambda self: min(self.app.host.memory_total / 1024 / 2, 4000)),
+        default=(lambda self:
+            int(min(self.app.host.memory_total / 1024 / 2, 4000))),
         doc='''Maximum amount of memory available for this VM (for the purpose
             of the memory balancer).''')
 

@@ -317,7 +317,7 @@ def init_cache(log=logging.getLogger('qube.storage.lvm')):
     result = {}
 
     for line in out.splitlines():
-        line = line.strip()
+        line = line.decode().strip()
         pool_name, pool_lv, name, size, usage_percent, attr = line.split(',', 5)
         if '' in [pool_name, pool_lv, name, size, usage_percent]:
             continue

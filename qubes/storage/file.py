@@ -129,7 +129,7 @@ class FilePool(qubes.storage.Pool):
                              stdout=subprocess.PIPE)
         result = p.communicate()
 
-        m = re.match(r'^(/dev/loop\d+):\s', result[0])
+        m = re.match(r'^(/dev/loop\d+):\s', result[0].decode())
         if m is not None:
             loop_dev = m.group(1)
 

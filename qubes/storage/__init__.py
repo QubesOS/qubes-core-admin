@@ -91,7 +91,7 @@ class Volume(object):
         self.pool = str(pool)
         self.internal = internal
         self.removable = removable
-        self.revisions_to_keep = revisions_to_keep
+        self.revisions_to_keep = int(revisions_to_keep)
         self.rw = rw
         self.save_on_stop = save_on_stop
         self._size = int(size)

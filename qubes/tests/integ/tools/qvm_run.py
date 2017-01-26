@@ -19,8 +19,8 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
+import io
 import os
-import StringIO
 import sys
 import tempfile
 import unittest
@@ -111,7 +111,7 @@ class TC_00_qvm_run(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
 
     @unittest.skip('expected error')
     def test_005_colour_output(self):
-        sys.stdout = StringIO.StringIO()
+        sys.stdout = io.StringIO()
         qubes.tools.qvm_run.main(
             self.sharedopts + ['--colour-output', '32', self.vm1.name, 'true'])
         self.assertEqual('\033[0;32m\033[0m', sys.stdout.getvalue())
