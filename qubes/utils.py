@@ -26,6 +26,7 @@ import random
 import string
 import os
 import re
+import socket
 import subprocess
 
 import pkg_resources
@@ -163,3 +164,15 @@ def random_string(length=5):
     ''' Return random string consisting of ascii_leters and digits '''
     return ''.join(random.choice(string.ascii_letters + string.digits)
                    for _ in range(length))
+
+def systemd_notify():
+    '''Notify systemd'''
+    nofity_socket = os.getenv('NOTIFY_SOCKET')
+    if not nofity_socket:
+        return
+    if nofity_socket.startswith('@'):
+        nofity_socket = '\0' + nofity_socket[1:]
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+    s.connect(nofity_socket)
+    s.sendall(b'READY=1')
+    s.close()

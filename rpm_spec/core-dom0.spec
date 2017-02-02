@@ -208,6 +208,7 @@ fi
 /usr/bin/qvm-*
 /usr/bin/qubes-*
 /usr/bin/qmemmand
+/usr/bin/qubesd
 
 %dir %{python3_sitelib}/qubes-*.egg-info
 %{python3_sitelib}/qubes-*.egg-info/*
@@ -223,8 +224,9 @@ fi
 %{python3_sitelib}/qubes/devices.py
 %{python3_sitelib}/qubes/dochelpers.py
 %{python3_sitelib}/qubes/events.py
-%{python3_sitelib}/qubes/firewall.py
 %{python3_sitelib}/qubes/exc.py
+%{python3_sitelib}/qubes/firewall.py
+%{python3_sitelib}/qubes/libvirtaio.py
 %{python3_sitelib}/qubes/log.py
 %{python3_sitelib}/qubes/rngdoc.py
 %{python3_sitelib}/qubes/tarwriter.py
@@ -264,6 +266,7 @@ fi
 %{python3_sitelib}/qubes/tools/qubes_create.py
 %{python3_sitelib}/qubes/tools/qubes_monitor_layout_notify.py
 %{python3_sitelib}/qubes/tools/qubes_prefs.py
+%{python3_sitelib}/qubes/tools/qubesd.py
 %{python3_sitelib}/qubes/tools/qvm_block.py
 %{python3_sitelib}/qubes/tools/qvm_backup.py
 %{python3_sitelib}/qubes/tools/qvm_backup_restore.py
@@ -386,6 +389,7 @@ fi
 %{_unitdir}/qubes-netvm.service
 %{_unitdir}/qubes-qmemman.service
 %{_unitdir}/qubes-vm@.service
+%{_unitdir}/qubesd.service
 %{_unitdir}/qubes-reload-firewall@.service
 %{_unitdir}/qubes-reload-firewall@.timer
 %attr(2770,root,qubes) %dir /var/lib/qubes
