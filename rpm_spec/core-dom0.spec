@@ -228,6 +228,7 @@ fi
 %{python3_sitelib}/qubes/firewall.py
 %{python3_sitelib}/qubes/libvirtaio.py
 %{python3_sitelib}/qubes/log.py
+%{python3_sitelib}/qubes/mgmt.py
 %{python3_sitelib}/qubes/rngdoc.py
 %{python3_sitelib}/qubes/tarwriter.py
 %{python3_sitelib}/qubes/utils.py
