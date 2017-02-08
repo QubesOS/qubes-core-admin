@@ -3,13 +3,9 @@
 import asyncio
 import functools
 import io
-import json
-import operator
 import os
 import reprlib
 import signal
-import socket
-import sys
 import types
 
 import qubes
@@ -25,6 +21,8 @@ class ProtocolRepr(reprlib.Repr):
         if isinstance(x, qubes.vm.qubesvm.QubesVM):
             x = x.name
         return super().repr1(x, level)
+
+    # pylint: disable=invalid-name
 
     def repr_str(self, x, level):
         '''Warning: this is incompatible with python 3 wrt to b'' '''
@@ -79,17 +77,17 @@ class QubesMgmt(object):
         except AttributeError:
             raise ProtocolError(
                 'no such attribute: {!r}'.format(
-                    untrusted_function_name))
+                    untrusted_func_name))
 
         if not isinstance(untrusted_func, types.MethodType):
             raise ProtocolError(
                 'no such method: {!r}'.format(
-                    untrusted_function_name))
+                    untrusted_func_name))
 
         if getattr(untrusted_func, 'not_in_api', False):
             raise ProtocolError(
                 'attempt to call private method: {!r}'.format(
-                    untrusted_function_name))
+                    untrusted_func_name))
 
         self.execute = untrusted_func
         del untrusted_func_name
@@ -141,18 +139,19 @@ class QubesMgmt(object):
             return 'default=True '
         else:
             return 'default={} {}'.format(
-                str(dest.property_is_default(self.arg)),
-                self.repr(self.value))
+                str(self.dest.property_is_default(self.arg)),
+                self.repr(value))
 
 
 class QubesDaemonProtocol(asyncio.Protocol):
     buffer_size = 65536
 
     def __init__(self, *args, app, **kwargs):
-        super().__init__()
+        super().__init__(*args, **kwargs)
         self.app = app
         self.untrusted_buffer = io.BytesIO()
-        self.untrusted_buffer_trusted_len = 0
+        self.len_untrusted_buffer = 0
+        self.transport = None
 
     def connection_made(self, transport):
         print('connection_made()')
@@ -164,13 +163,12 @@ class QubesDaemonProtocol(asyncio.Protocol):
 
     def data_received(self, untrusted_data):
         print('data_received(untrusted_data={!r})'.format(untrusted_data))
-        if self.untrusted_buffer_trusted_len + len(untrusted_data) \
-                > self.buffer_size:
+        if self.len_untrusted_buffer + len(untrusted_data) > self.buffer_size:
             print('  request too long')
             self.transport.close()
             return
 
-        self.untrusted_buffer_trusted_len += \
+        self.len_untrusted_buffer += \
             self.untrusted_buffer.write(untrusted_data)
 
     def eof_received(self):

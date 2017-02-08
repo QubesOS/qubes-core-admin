@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
 
 import asyncio
-import collections
 import ctypes
-import functools
 import itertools
 import logging
-import signal
 
 import libvirt
-
-import pdb
 
 ctypes.pythonapi.PyCapsule_GetPointer.restype = ctypes.c_void_p
 ctypes.pythonapi.PyCapsule_GetPointer.argtypes = (
@@ -25,6 +20,7 @@ except AttributeError:
 
 class LibvirtAsyncIOEventImpl(object):
     class Callback(object):
+        # pylint: disable=too-few-public-methods
         _iden_counter = itertools.count()
         def __init__(self, impl, cb, opaque, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -42,7 +38,7 @@ class LibvirtAsyncIOEventImpl(object):
             self.impl.log.debug('callback %d close(), scheduling ff', self.iden)
 
             # Now this is cheating but we have no better option.
-            caps_cb, caps_opaque, caps_ff = self.opaque
+            dummy, caps_opaque, caps_ff = self.opaque
             ff = virFreeCallback(ctypes.pythonapi.PyCapsule_GetPointer(
                 caps_ff, b'virFreeCallback'))
 
@@ -53,6 +49,7 @@ class LibvirtAsyncIOEventImpl(object):
 
 
     class FDCallback(Callback):
+        # pylint: disable=too-few-public-methods
         def __init__(self, *args, descriptor, event, **kwargs):
             super().__init__(*args, **kwargs)
             self.descriptor = descriptor
@@ -75,9 +72,9 @@ class LibvirtAsyncIOEventImpl(object):
         def timer(self):
             while True:
                 try:
-                    t = self.timeout * 1e-3
-                    self.impl.log.debug('sleeping %r', t)
-                    yield from asyncio.sleep(t)
+                    timeout = self.timeout * 1e-3
+                    self.impl.log.debug('sleeping %r', timeout)
+                    yield from asyncio.sleep(timeout)
                 except asyncio.CancelledError:
                     self.impl.log.debug('timer %d cancelled', self.iden)
                     break
@@ -94,7 +91,7 @@ class LibvirtAsyncIOEventImpl(object):
             self.impl.log.debug('timer %r stop', self.iden)
             if self.task is None:
                 return
-            self.task.cancel()
+            self.task.cancel()  # pylint: disable=no-member
             self.task = None
 
         def close(self):
@@ -128,7 +125,7 @@ class LibvirtAsyncIOEventImpl(object):
             super().__init__()
             self.loop = loop
         def __missing__(self, fd):
-            descriptor = self.Descriptor(loop, fd)
+            descriptor = self.Descriptor(self.loop, fd)
             self[fd] = descriptor
             return descriptor
 
@@ -139,6 +136,7 @@ class LibvirtAsyncIOEventImpl(object):
         self.log = logging.getLogger(self.__class__.__name__)
 
     def register(self):
+        # pylint: disable=bad-whitespace
         libvirt.virEventRegisterImpl(
             self.add_handle,  self.update_handle,  self.remove_handle,
             self.add_timeout, self.update_timeout, self.remove_timeout)

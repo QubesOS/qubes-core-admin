@@ -172,7 +172,7 @@ def systemd_notify():
         return
     if nofity_socket.startswith('@'):
         nofity_socket = '\0' + nofity_socket[1:]
-    s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
-    s.connect(nofity_socket)
-    s.sendall(b'READY=1')
-    s.close()
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+    sock.connect(nofity_socket)
+    sock.sendall(b'READY=1')
+    sock.close()
