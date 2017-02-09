@@ -208,7 +208,7 @@ fi
 /usr/bin/qvm-*
 /usr/bin/qubes-*
 /usr/bin/qmemmand
-/usr/bin/qubesd
+/usr/bin/qubesd*
 
 %dir %{python3_sitelib}/qubes-*.egg-info
 %{python3_sitelib}/qubes-*.egg-info/*
@@ -268,6 +268,7 @@ fi
 %{python3_sitelib}/qubes/tools/qubes_monitor_layout_notify.py
 %{python3_sitelib}/qubes/tools/qubes_prefs.py
 %{python3_sitelib}/qubes/tools/qubesd.py
+%{python3_sitelib}/qubes/tools/qubesd_query.py
 %{python3_sitelib}/qubes/tools/qvm_block.py
 %{python3_sitelib}/qubes/tools/qvm_backup.py
 %{python3_sitelib}/qubes/tools/qvm_backup_restore.py

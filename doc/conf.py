@@ -292,6 +292,9 @@ man_pages = [
 
     ('manpages/qubes-prefs', 'qubes-prefs',
         u'Display system-wide Qubes settings', _man_pages_author, 1),
+
+    ('manpages/qubesd-query', 'qubesd-query',
+        u'Low-level qubesd interrogation tool', _man_pages_author, 1),
 ]
 
 if os.path.exists('sandbox.rst'):
