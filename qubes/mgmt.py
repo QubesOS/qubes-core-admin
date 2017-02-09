@@ -115,6 +115,12 @@ class QubesMgmt(object):
             self.dest, self.arg, *args, **kwargs)
 
     @not_in_api
+    def fire_event_for_filter(self, iterable, *args, **kwargs):
+        for selector in self.fire_event_for_permission(*args, **kwargs):
+            iterable = filter(selector, iterable)
+        return iterable
+
+    @not_in_api
     def repr(self, *args, **kwargs):
         return self.prepr.repr(*args, **kwargs)
 
@@ -128,15 +134,22 @@ class QubesMgmt(object):
         assert not untrusted_payload
         del untrusted_payload
 
-        domains = self.app.domains
-        for selector in self.fire_event_for_permission():
-            domains = filter(selector, domains)
+        domains = self.fire_event_for_filter(self.app.domains)
 
         return ''.join('{} class={} state={}\n'.format(
                 self.repr(vm),
                 vm.__class__.__name__,
                 vm.get_power_state())
             for vm in sorted(domains))
+
+    def vm_property_list(self, untrusted_payload):
+        assert not self.arg
+        assert not untrusted_payload
+        del untrusted_payload
+
+        properties = self.fire_event_for_filter(self.dest.property_list())
+
+        return ''.join('{}\n'.format(prop.__name__) for prop in properties)
 
     def vm_property_get(self, untrusted_payload):
         assert self.arg in self.dest.property_list()
@@ -153,5 +166,3 @@ class QubesMgmt(object):
             return 'default={} {}'.format(
                 str(self.dest.property_is_default(self.arg)),
                 self.repr(value))
-
-
