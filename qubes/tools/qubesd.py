@@ -36,8 +36,9 @@ class QubesDaemonProtocol(asyncio.Protocol):
     def data_received(self, untrusted_data):
         print('data_received(untrusted_data={!r})'.format(untrusted_data))
         if self.len_untrusted_buffer + len(untrusted_data) > self.buffer_size:
-            print('  request too long')
-            self.transport.close()
+            self.app.log.warning('request too long')
+            self.transport.abort()
+            self.untrusted_buffer.close()
             return
 
         self.len_untrusted_buffer += \
@@ -49,29 +50,48 @@ class QubesDaemonProtocol(asyncio.Protocol):
             src, method, dest, arg, untrusted_payload = \
                 self.untrusted_buffer.getvalue().split(b'\0', 4)
         except ValueError:
-            # TODO logging
+            self.app.log.warning('framing error')
+            self.transport.abort()
             return
+        finally:
+            self.untrusted_buffer.close()
 
         try:
             mgmt = qubes.mgmt.QubesMgmt(self.app, src, method, dest, arg)
             response = mgmt.execute(untrusted_payload=untrusted_payload)
-        except qubes.mgmt.PermissionDenied as err:
-            # TODO logging
-            return
-        except qubes.mgmt.ProtocolError as err:
-            # TODO logging
-            print(repr(err))
-            return
-        except AssertionError:
-            # TODO logging
-            print(repr(err))
+
+        # except clauses will fall through to transport.abort() below
+
+        except qubes.mgmt.PermissionDenied:
+            self.app.log.warning(
+                'permission denied for call %s+%s (%s → %s) '
+                'with payload of %d bytes',
+                    method, arg, src, dest, len(untrusted_payload))
+
+        except qubes.mgmt.ProtocolError:
+            self.app.log.warning(
+                'protocol error for call %s+%s (%s → %s) '
+                'with payload of %d bytes',
+                    method, arg, src, dest, len(untrusted_payload))
+
+        except Exception:  # pylint: disable=broad-except
+            self.app.log.exception(
+                'unhandled exception while calling '
+                'src=%r method=%r dest=%r arg=%r len(untrusted_payload)=%d',
+                    src, method, dest, arg, len(untrusted_payload))
+
+        else:
+            self.transport.write(response.encode('ascii'))
+            try:
+                self.transport.write_eof()
+            except NotImplementedError:
+                pass
+            self.transport.close()
             return
 
-        self.transport.write(response.encode('ascii'))
-        try:
-            self.transport.write_eof()
-        except NotImplementedError:
-            pass
+        # this is reached if from except: blocks; do not put it in finally:,
+        # because this will prevent the good case from sending the reply
+        self.transport.abort()
 
 
 def sighandler(loop, signame, server):
