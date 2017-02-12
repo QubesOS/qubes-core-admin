@@ -64,24 +64,19 @@ def main(args=None):
         # Request mode: instead of setting the features directly,
         # let the extensions handle them first.
         vm.fire_event('feature-request', untrusted_features=args.features)
-        return 0
 
-    if args.feature is None:
+    elif args.feature is None:
         if args.delete:
             parser.error('--unset requires a feature')
 
-        if not vm.features:
-            # max doesn't like empty list
-            return 0
+        # max doesn't like empty list
+        if vm.features:
+            width = max(len(feature) for feature in vm.features)
+            for feature in sorted(vm.features):
+                print('{name:{width}s}  {value}'.format(
+                    name=feature, value=vm.features[feature], width=width))
 
-        width = max(len(feature) for feature in vm.features)
-        for feature in sorted(vm.features):
-            print('{name:{width}s}  {value}'.format(
-                name=feature, value=vm.features[feature], width=width))
-
-        return 0
-
-    if args.delete:
+    elif args.delete:
         if args.value is not None:
             parser.error('cannot both set and unset a value')
         try:
@@ -89,17 +84,17 @@ def main(args=None):
             args.app.save()
         except KeyError:
             pass
-        return 0
 
-    if args.value is None:
+    elif args.value is None:
         try:
             print(vm.features[args.feature])
             return 0
         except KeyError:
             return 1
+    else:
+        vm.features[args.feature] = args.value
+        args.app.save()
 
-    vm.features[args.feature] = args.value
-    args.app.save()
     return 0
 
 
