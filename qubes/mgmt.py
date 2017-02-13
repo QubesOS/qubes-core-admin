@@ -166,3 +166,17 @@ class QubesMgmt(object):
             return 'default={} {}'.format(
                 str(self.dest.property_is_default(self.arg)),
                 self.repr(value))
+
+    def vm_property_help(self, untrusted_payload):
+        assert self.arg in self.dest.property_list()
+        assert not untrusted_payload
+        del untrusted_payload
+
+        self.fire_event_for_permission()
+
+        try:
+            doc = self.dest.property_get_def(self.arg).__doc__
+        except AttributeError:
+            return ''
+
+        return qubes.utils.format_doc(doc)
