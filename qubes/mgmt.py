@@ -180,3 +180,12 @@ class QubesMgmt(object):
             return ''
 
         return qubes.utils.format_doc(doc)
+
+    def vm_property_reset(self, untrusted_payload):
+        assert self.arg in self.dest.property_list()
+        assert not untrusted_payload
+        del untrusted_payload
+
+        self.fire_event_for_permission()
+
+        delattr(self.dest, self.arg)
