@@ -235,21 +235,34 @@ class FilePool(qubes.storage.Pool):
         create_dir_if_not_exists(vm_templates_path)
 
     def start(self, volume):
-        if volume._is_snapshot or volume._is_origin:
-            _check_path(volume.path)
-            try:
-                _check_path(volume.path_cow)
-            except qubes.storage.StoragePoolException:
-                create_sparse_file(volume.path_cow, volume.size)
-                _check_path(volume.path_cow)
-        elif volume._is_volatile:
+        if volume._is_volatile:
             self.reset(volume)
+        else:
+            _check_path(volume.path)
+            if volume.snap_on_start:
+                if not volume.save_on_stop:
+                    # make sure previous snapshot is removed - even if VM
+                    # shutdown routing wasn't called (power interrupt or so)
+                    _remove_if_exists(volume.path_cow)
+                try:
+                    _check_path(volume.path_cow)
+                except qubes.storage.StoragePoolException:
+                    create_sparse_file(volume.path_cow, volume.size)
+                    _check_path(volume.path_cow)
+                if hasattr(volume, 'path_source_cow'):
+                    try:
+                        _check_path(volume.path_source_cow)
+                    except qubes.storage.StoragePoolException:
+                        create_sparse_file(volume.path_source_cow, volume.size)
+                        _check_path(volume.path_source_cow)
         return volume
 
     def stop(self, volume):
         if volume.save_on_stop:
             self.commit(volume)
-        elif volume._is_volatile:
+        elif volume.snap_on_start:
+            _remove_if_exists(volume.path_cow)
+        else:
             _remove_if_exists(volume.path)
         return volume
 
@@ -316,6 +329,8 @@ class FileVolume(qubes.storage.Volume):
         if self._is_snapshot:
             self.path = os.path.join(self.dir_path, self.source + '.img')
             img_name = self.source + '-cow.img'
+            self.path_source_cow = os.path.join(self.dir_path, img_name)
+            img_name = self.vid + '-cow.img'
             self.path_cow = os.path.join(self.dir_path, img_name)
         elif self._is_volume or self._is_volatile:
             self.path = os.path.join(self.dir_path, self.vid + '.img')
@@ -347,6 +362,8 @@ class FileVolume(qubes.storage.Volume):
             the libvirt XML template as <disk>.
         '''
         path = self.path
+        if self._is_snapshot:
+            path += ":" + self.path_source_cow
         if self._is_origin or self._is_snapshot:
             path += ":" + self.path_cow
         return qubes.devices.BlockDevice(path, self.name, self.script, self.rw,
@@ -380,7 +397,7 @@ class FileVolume(qubes.storage.Volume):
     def _is_origin(self):
         ''' Internal helper. Useful for differentiating volume handling '''
         # pylint: disable=line-too-long
-        return not self.snap_on_start and self.save_on_stop and self.revisions_to_keep > 0  # NOQA
+        return self.save_on_stop and self.revisions_to_keep > 0  # NOQA
 
     @property
     def _is_snapshot(self):

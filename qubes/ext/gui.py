@@ -135,8 +135,8 @@ class GUI(qubes.ext.Extension):
         GUI daemon securely displays windows from domain.
         ''' # pylint: disable=no-self-use,unused-argument
 
-        if not start_guid or preparing_dvm \
-                or not os.path.exists('/var/run/shm.id'):
+
+        if not start_guid or preparing_dvm:
             return
 
         if self.is_guid_running(vm):
@@ -148,6 +148,18 @@ class GUI(qubes.ext.Extension):
 
         if not os.getenv('DISPLAY'):
             vm.log.error('Not starting gui daemon, no DISPLAY set')
+            return
+
+        display = os.getenv('DISPLAY')
+        if not display.startswith(':'):
+            vm.log.error('Expected local $DISPLAY, got \'{}\''.format(display))
+            return
+
+        display_num = display[1:].partition('.')[0]
+        shmid_path = '/var/run/qubes/shm.id.{}'.format(display_num)
+        if not os.path.exists(shmid_path):
+            vm.log.error(
+                'Not starting gui daemon, no {} file'.format(shmid_path))
             return
 
         vm.log.info('Starting gui daemon')

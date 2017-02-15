@@ -7,8 +7,6 @@ python:
 install:
   - pip install --quiet -r ci/requirements.txt
   - git clone https://github.com/"${TRAVIS_REPO_SLUG%%/*}"/qubes-builder ~/qubes-builder
-# debootstrap in trusty is old...
-before_script: sudo ln -s sid /usr/share/debootstrap/scripts/stretch
 script:
   - PYTHONPATH=test-packages pylint --rcfile=ci/pylintrc qubes
   - ./run-tests --no-syslog

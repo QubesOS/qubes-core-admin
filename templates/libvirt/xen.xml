@@ -115,9 +115,9 @@
                     type="stubdom"
                     {% if vm.netvm %}
                         cmdline="-net lwip,client_ip={{ vm.ip -}}
-                            ,server_ip={{ vm.secondary_dns -}}
+                            ,server_ip={{ vm.dns[1] -}}
                             ,dns={{ vm.netvm.gateway -}}
-                            ,gw={{ self.netvm.gateway -}}
+                            ,gw={{ vm.netvm.gateway -}}
                             ,netmask={{ vm.netmask }}"
                     {% endif %}
                     />

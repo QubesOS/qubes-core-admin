@@ -211,6 +211,52 @@ class StorageTestMixin(qubes.tests.SystemTestsMixin):
         self.assertNotEqual(p.returncode, 0,
             'origin changes not visible in snapshot: {}'.format(stdout))
 
+    def test_004_snapshot_non_persistent(self):
+        '''Test snapshot volume non-persistence'''
+        size = 128 * 1024 * 1024
+        volume_config = {
+            'pool': self.pool.name,
+            'size': size,
+            'internal': False,
+            'save_on_stop': True,
+            'rw': True,
+        }
+        testvol = self.vm1.storage.init_volume('testvol', volume_config)
+        self.vm1.storage.get_pool(testvol).create(testvol)
+        volume_config = {
+            'pool': self.pool.name,
+            'size': size,
+            'internal': False,
+            'snap_on_start': True,
+            'source': testvol.vid,
+            'rw': True,
+        }
+        testvol_snap = self.vm2.storage.init_volume('testvol', volume_config)
+        self.vm2.storage.get_pool(testvol_snap).create(testvol_snap)
+        self.app.save()
+        self.vm2.start()
+
+        p = self.vm2.run(
+            'head -c {} /dev/zero | diff -q /dev/xvde -'.format(size),
+            user='root', passio_popen=True)
+        stdout, _ = p.communicate()
+        self.assertEqual(p.returncode, 0,
+            'snapshot image not clean: {}'.format(stdout))
+
+        self.vm2.run('echo test123 > /dev/xvde && sync', user='root', wait=True)
+        p.wait()
+        self.assertEqual(p.returncode, 0,
+            'Write to read-write snapshot volume failed')
+        self.vm2.shutdown(wait=True)
+        self.vm2.start()
+        p = self.vm2.run(
+            'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(size),
+            user='root', passio_popen=True)
+        stdout, _ = p.communicate()
+        self.assertEqual(p.returncode, 0,
+            'changes on snapshot survived VM restart: {}'.format(
+                stdout))
+
 
 class StorageFile(StorageTestMixin, qubes.tests.QubesTestCase):
     def init_pool(self):
