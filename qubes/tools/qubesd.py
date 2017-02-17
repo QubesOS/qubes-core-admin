@@ -5,6 +5,8 @@ import functools
 import io
 import os
 import signal
+import struct
+import traceback
 
 import qubes
 import qubes.libvirtaio
@@ -14,16 +16,17 @@ import qubes.vm.qubesvm
 
 QUBESD_SOCK = '/var/run/qubesd.sock'
 
-
 class QubesDaemonProtocol(asyncio.Protocol):
     buffer_size = 65536
+    header = struct.Struct('!H')
 
-    def __init__(self, *args, app, **kwargs):
+    def __init__(self, *args, app, debug=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.app = app
         self.untrusted_buffer = io.BytesIO()
         self.len_untrusted_buffer = 0
         self.transport = None
+        self.debug = debug
 
     def connection_made(self, transport):
         print('connection_made()')
@@ -74,6 +77,12 @@ class QubesDaemonProtocol(asyncio.Protocol):
                 'with payload of %d bytes',
                     method, arg, src, dest, len(untrusted_payload))
 
+        except qubes.exc.QubesException as err:
+            self.send_exception(err)
+            self.transport.write_eof()
+            self.transport.close()
+            return
+
         except Exception:  # pylint: disable=broad-except
             self.app.log.exception(
                 'unhandled exception while calling '
@@ -81,7 +90,7 @@ class QubesDaemonProtocol(asyncio.Protocol):
                     src, method, dest, arg, len(untrusted_payload))
 
         else:
-            self.transport.write(response.encode('ascii'))
+            self.send_response(response)
             try:
                 self.transport.write_eof()
             except NotImplementedError:
@@ -92,6 +101,39 @@ class QubesDaemonProtocol(asyncio.Protocol):
         # this is reached if from except: blocks; do not put it in finally:,
         # because this will prevent the good case from sending the reply
         self.transport.abort()
+
+
+    def send_header(self, *args):
+        self.transport.write(self.header.pack(*args))
+
+    def send_response(self, content):
+        self.send_header(0x30)
+        self.transport.write(content.encode('utf-8'))
+
+    def send_event(self, subject, event, **kwargs):
+        self.send_header(0x31)
+
+        if subject is not self.app:
+            self.transport.write(subject.name.encode('ascii'))
+        self.transport.write(b'\0')
+
+        self.transport.write(event.encode('ascii') + b'\0')
+
+        for k, v in kwargs.items():
+            self.transport.write('{}\0{}\0'.format(k, str(v)).encode('ascii'))
+        self.transport.write(b'\0')
+
+    def send_exception(self, exc):
+        self.send_header(0x32)
+
+        self.transport.write(type(exc).__name__ + b'\0')
+
+        if self.debug:
+            self.transport.write(''.join(traceback.format_exception(
+                type(exc), exc, exc.__traceback__)).encode('utf-8'))
+        self.transport.write(b'\0')
+
+        self.transport.write(str(exc).encode('utf-8') + b'\0')
 
 
 def sighandler(loop, signame, server):
