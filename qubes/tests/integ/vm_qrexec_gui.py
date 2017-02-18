@@ -34,7 +34,7 @@ import qubes.vm.appvm
 import qubes.vm.templatevm
 import re
 
-TEST_DATA = "0123456789" * 1024
+TEST_DATA = b"0123456789" * 1024
 
 
 class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
@@ -222,7 +222,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             stdout = p.stdout.read()
             p.stdin.write(TEST_DATA)
             p.stdin.close()
-            if stdout.strip() != "test":
+            if stdout.strip() != b"test":
                 result.value = 1
             # this may hang in some buggy cases
             elif len(p.stderr.read()) > 0:
@@ -258,14 +258,14 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                                  ">&$SAVED_FD_1'" % self.testvm2.name,
                                  passio_popen=True)
             (stdout, stderr) = p.communicate()
-            if stdout != "test\n":
+            if stdout != b"test\n":
                 result.value = 1
 
         self.testvm1.start()
         self.testvm2.start()
         p = self.testvm2.run("cat > /etc/qubes-rpc/test.EOF", user="root",
                              passio_popen=True)
-        p.stdin.write("/bin/cat")
+        p.stdin.write(b"/bin/cat")
         p.stdin.close()
         p.wait()
         policy = open("/etc/qubes-rpc/policy/test.EOF", "w")
@@ -293,14 +293,14 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                                  % self.testvm2.name,
                                  passio_popen=True)
             (stdout, stderr) = p.communicate()
-            if stdout != "test\n":
+            if stdout != b"test\n":
                 result.value = 1
 
         self.testvm1.start()
         self.testvm2.start()
         p = self.testvm2.run("cat > /etc/qubes-rpc/test.EOF", user="root",
                              passio_popen=True)
-        p.stdin.write("echo test; exec >&-; cat >/dev/null")
+        p.stdin.write(b"echo test; exec >&-; cat >/dev/null")
         p.stdin.close()
         p.wait()
         policy = open("/etc/qubes-rpc/policy/test.EOF", "w")
@@ -376,7 +376,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
 
         p = self.testvm2.run("cat > /etc/qubes-rpc/test.Retcode", user="root",
                              passio_popen=True)
-        p.stdin.write("exit 0")
+        p.stdin.write(b"exit 0")
         p.stdin.close()
         p.wait()
 
@@ -385,11 +385,11 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                              % self.testvm1.name,
                              passio_popen=True)
         (stdout, stderr) = p.communicate()
-        self.assertEqual(stdout, "0\n")
+        self.assertEqual(stdout, b"0\n")
 
         p = self.testvm2.run("cat > /etc/qubes-rpc/test.Retcode", user="root",
                              passio_popen=True)
-        p.stdin.write("exit 3")
+        p.stdin.write(b"exit 3")
         p.stdin.close()
         p.wait()
 
@@ -398,7 +398,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                              % self.testvm1.name,
                              passio_popen=True)
         (stdout, stderr) = p.communicate()
-        self.assertEqual(stdout, "3\n")
+        self.assertEqual(stdout, b"3\n")
 
     def test_070_qrexec_vm_simultaneous_write(self):
         """Test for simultaneous write in VM(src)->VM(dst) connection
@@ -432,9 +432,9 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         p = self.testvm2.run("cat > /etc/qubes-rpc/test.write", user="root",
                              passio_popen=True)
         # first write a lot of data
-        p.stdin.write("dd if=/dev/zero bs=993 count=10000 iflag=fullblock\n")
+        p.stdin.write(b"dd if=/dev/zero bs=993 count=10000 iflag=fullblock\n")
         # and only then read something
-        p.stdin.write("dd of=/dev/null bs=993 count=10000 iflag=fullblock\n")
+        p.stdin.write(b"dd of=/dev/null bs=993 count=10000 iflag=fullblock\n")
         p.stdin.close()
         p.wait()
         policy = open("/etc/qubes-rpc/policy/test.write", "w")
@@ -473,9 +473,9 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         p = self.testvm2.run("cat > /etc/qubes-rpc/test.write", user="root",
                              passio_popen=True)
         # first write a lot of data
-        p.stdin.write("dd if=/dev/zero bs=993 count=10000 iflag=fullblock\n")
+        p.stdin.write(b"dd if=/dev/zero bs=993 count=10000 iflag=fullblock\n")
         # and only then read something
-        p.stdin.write("dd of=/dev/null bs=993 count=10000 iflag=fullblock\n")
+        p.stdin.write(b"dd of=/dev/null bs=993 count=10000 iflag=fullblock\n")
         p.stdin.close()
         p.wait()
         policy = open("/etc/qubes-rpc/policy/test.write", "w")
@@ -512,11 +512,11 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         p = self.testvm2.run("cat > /etc/qubes-rpc/test.write", user="root",
                              passio_popen=True)
         # first write a lot of data
-        p.stdin.write("dd if=/dev/zero bs=993 count=10000 iflag=fullblock &\n")
+        p.stdin.write(b"dd if=/dev/zero bs=993 count=10000 iflag=fullblock &\n")
         # and only then read something
-        p.stdin.write("dd of=/dev/null bs=993 count=10000 iflag=fullblock\n")
-        p.stdin.write("sleep 1; \n")
-        p.stdin.write("wait\n")
+        p.stdin.write(b"dd of=/dev/null bs=993 count=10000 iflag=fullblock\n")
+        p.stdin.write(b"sleep 1; \n")
+        p.stdin.write(b"wait\n")
         p.stdin.close()
         p.wait()
         policy = open("/etc/qubes-rpc/policy/test.write", "w")
@@ -538,7 +538,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         self.testvm2.start()
         p = self.testvm2.run("cat > /etc/qubes-rpc/test.Argument", user="root",
                              passio_popen=True)
-        p.communicate("/bin/echo $1")
+        p.communicate(b"/bin/echo $1")
 
         with open("/etc/qubes-rpc/policy/test.Argument", "w") as policy:
             policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
@@ -548,7 +548,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                              "test.Argument+argument".format(self.testvm2.name),
                              passio_popen=True)
         (stdout, stderr) = p.communicate()
-        self.assertEqual(stdout, "argument\n")
+        self.assertEqual(stdout, b"argument\n")
 
     def test_081_qrexec_service_argument_allow_specific(self):
         """Qrexec service call with argument - allow only specific value"""
@@ -556,7 +556,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         self.testvm2.start()
         p = self.testvm2.run("cat > /etc/qubes-rpc/test.Argument", user="root",
                              passio_popen=True)
-        p.communicate("/bin/echo $1")
+        p.communicate(b"/bin/echo $1")
 
         with open("/etc/qubes-rpc/policy/test.Argument", "w") as policy:
             policy.write("$anyvm $anyvm deny")
@@ -572,7 +572,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                              "test.Argument+argument".format(self.testvm2.name),
                              passio_popen=True)
         (stdout, stderr) = p.communicate()
-        self.assertEqual(stdout, "argument\n")
+        self.assertEqual(stdout, b"argument\n")
 
     def test_082_qrexec_service_argument_deny_specific(self):
         """Qrexec service call with argument - deny specific value"""
@@ -580,7 +580,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         self.testvm2.start()
         p = self.testvm2.run("cat > /etc/qubes-rpc/test.Argument", user="root",
                              passio_popen=True)
-        p.communicate("/bin/echo $1")
+        p.communicate(b"/bin/echo $1")
 
         with open("/etc/qubes-rpc/policy/test.Argument", "w") as policy:
             policy.write("$anyvm $anyvm allow")
@@ -596,7 +596,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                              "test.Argument+argument".format(self.testvm2.name),
                              passio_popen=True)
         (stdout, stderr) = p.communicate()
-        self.assertEqual(stdout, "")
+        self.assertEqual(stdout, b"")
         self.assertEqual(p.returncode, 1, "Service request should be denied")
 
     def test_083_qrexec_service_argument_specific_implementation(self):
@@ -606,11 +606,11 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         self.testvm2.start()
         p = self.testvm2.run("cat > /etc/qubes-rpc/test.Argument", user="root",
                              passio_popen=True)
-        p.communicate("/bin/echo $1")
+        p.communicate(b"/bin/echo $1")
 
         p = self.testvm2.run("cat > /etc/qubes-rpc/test.Argument+argument",
             user="root", passio_popen=True)
-        p.communicate("/bin/echo specific: $1")
+        p.communicate(b"/bin/echo specific: $1")
 
         with open("/etc/qubes-rpc/policy/test.Argument", "w") as policy:
             policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
@@ -620,7 +620,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                              "test.Argument+argument".format(self.testvm2.name),
                              passio_popen=True)
         (stdout, stderr) = p.communicate()
-        self.assertEqual(stdout, "specific: argument\n")
+        self.assertEqual(stdout, b"specific: argument\n")
 
     def test_084_qrexec_service_argument_extra_env(self):
         """Qrexec service call with argument - extra env variables"""
@@ -628,8 +628,8 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         self.testvm2.start()
         p = self.testvm2.run("cat > /etc/qubes-rpc/test.Argument", user="root",
                              passio_popen=True)
-        p.communicate("/bin/echo $QREXEC_SERVICE_FULL_NAME "
-                      "$QREXEC_SERVICE_ARGUMENT")
+        p.communicate(b"/bin/echo $QREXEC_SERVICE_FULL_NAME "
+                      b"$QREXEC_SERVICE_ARGUMENT")
 
         with open("/etc/qubes-rpc/policy/test.Argument", "w") as policy:
             policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
@@ -639,7 +639,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                              "test.Argument+argument".format(self.testvm2.name),
                              passio_popen=True)
         (stdout, stderr) = p.communicate()
-        self.assertEqual(stdout, "test.Argument+argument argument\n")
+        self.assertEqual(stdout, b"test.Argument+argument argument\n")
 
     def test_100_qrexec_filecopy(self):
         self.testvm1.start()
@@ -784,7 +784,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         # Check if reverting back to UTC works
         (vm_tz, _) = self.testvm1.run("TZ=UTC date +%Z",
                                       passio_popen=True).communicate()
-        self.assertEqual(vm_tz.strip(), "UTC")
+        self.assertEqual(vm_tz.strip(), b"UTC")
 
     def test_210_time_sync(self):
         """Test time synchronization mechanism"""
@@ -919,7 +919,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             "}\n")
 
         p = self.testvm1.run("cat > allocator.c", passio_popen=True)
-        p.communicate(allocator_c)
+        p.communicate(allocator_c.encode())
         p = self.testvm1.run("gcc allocator.c -o allocator",
             passio_popen=True, passio_stderr=True)
         (stdout, stderr) = p.communicate()
@@ -941,14 +941,14 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             user="root", passio_popen=True, passio_stderr=True)
         # wait for memory being allocated; can't use just .read(), because EOF
         # passing is unreliable while the process is still running
-        alloc1.stdin.write("\n")
+        alloc1.stdin.write(b"\n")
         alloc1.stdin.flush()
         alloc_out = alloc1.stdout.read(len("Stage1\nStage2\nStage3\n"))
 
-        if "Stage3" not in alloc_out:
+        if b"Stage3" not in alloc_out:
             # read stderr only in case of failed assert, but still have nice
             # failure message (don't use self.fail() directly)
-            self.assertIn("Stage3", alloc_out, alloc1.stderr.read())
+            self.assertIn(b"Stage3", alloc_out, alloc1.stderr.read())
 
         # now, launch some window - it should get fragmented composition buffer
         # it is important to have some changing content there, to generate
@@ -965,10 +965,10 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         winid = search.communicate()[0].strip()
         xprop = subprocess.Popen(['xprop', '-notype', '-id', winid,
             '_QUBES_VMWINDOWID'], stdout=subprocess.PIPE)
-        vm_winid = xprop.stdout.read().strip().split(' ')[4]
+        vm_winid = xprop.stdout.read().decode().strip().split(' ')[4]
 
         # now free the fragmented memory and trigger compaction
-        alloc1.stdin.write("\n")
+        alloc1.stdin.write(b"\n")
         alloc1.wait()
         self.testvm1.run("echo 1 > /proc/sys/vm/compact_memory", user="root")
 

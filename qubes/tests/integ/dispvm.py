@@ -72,9 +72,9 @@ class TC_04_DispVM(qubes.tests.SystemTestsMixin,
         self.testvm.start()
 
         p = self.testvm.run("qvm-run --dispvm bash; true", passio_popen=True)
-        p.stdin.write("qubesdb-read /name\n")
-        p.stdin.write("echo ERROR\n")
-        p.stdin.write("sudo poweroff\n")
+        p.stdin.write(b"qubesdb-read /name\n")
+        p.stdin.write(b"echo ERROR\n")
+        p.stdin.write(b"sudo poweroff\n")
         # do not close p.stdin on purpose - wait to automatic disconnect when
         #  domain is destroyed
         timeout = 30
@@ -88,7 +88,7 @@ class TC_04_DispVM(qubes.tests.SystemTestsMixin,
         lines = p.stdout.read().splitlines()
         self.assertTrue(lines, 'No output received from DispVM')
         dispvm_name = lines[0]
-        self.assertNotEquals(dispvm_name, "ERROR")
+        self.assertNotEquals(dispvm_name, b"ERROR")
 
         self.reload_db()
         self.assertNotIn(dispvm_name, self.app.domains)
@@ -111,8 +111,8 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
         try:
             dispvm.start()
             p = dispvm.run_service('qubes.VMShell', passio_popen=True)
-            (stdout, _) = p.communicate(input="echo test")
-            self.assertEqual(stdout, "test\n")
+            (stdout, _) = p.communicate(input=b"echo test")
+            self.assertEqual(stdout, b"test\n")
         finally:
             dispvm.cleanup()
 
@@ -124,17 +124,17 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
             dispvm.start()
             p = dispvm.run_service('qubes.VMShell', passio_popen=True)
             # wait for DispVM startup:
-            p.stdin.write("echo test\n")
+            p.stdin.write(b"echo test\n")
             p.stdin.flush()
             l = p.stdout.readline()
-            self.assertEqual(l, "test\n")
+            self.assertEqual(l, b"test\n")
 
             self.assertTrue(dispvm.is_running())
             try:
                 window_title = 'user@%s' % (dispvm.name,)
                 p.stdin.write("xterm -e "
                     "\"sh -c 'echo \\\"\033]0;{}\007\\\";read x;'\"\n".
-                    format(window_title))
+                    format(window_title).encode())
                 self.wait_for_window(window_title)
 
                 time.sleep(0.5)
@@ -154,7 +154,7 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
         (window_title, _) = subprocess.Popen(
             ['xdotool', 'getwindowname', winid], stdout=subprocess.PIPE).\
             communicate()
-        window_title = window_title.strip().\
+        window_title = window_title.decode().strip().\
             replace('(', '\(').replace(')', '\)')
         time.sleep(1)
         if "gedit" in window_title:
@@ -235,7 +235,7 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
                 (window_title, _) = subprocess.Popen(
                     ['xdotool', 'getwindowname', winid], stdout=subprocess.PIPE). \
                     communicate()
-                window_title = window_title.strip()
+                window_title = window_title.decode().strip()
                 # ignore LibreOffice splash screen and window with no title
                 # set yet
                 if window_title and not window_title.startswith("LibreOffice")\
@@ -253,9 +253,9 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
                         passio_popen=True)
         (test_txt_content, _) = p.communicate()
         # Drop BOM if added by editor
-        if test_txt_content.startswith('\xef\xbb\xbf'):
+        if test_txt_content.startswith(b'\xef\xbb\xbf'):
             test_txt_content = test_txt_content[3:]
-        self.assertEqual(test_txt_content, "Test test 2\ntest1\n")
+        self.assertEqual(test_txt_content, b"Test test 2\ntest1\n")
 
 def load_tests(loader, tests, pattern):
     try:

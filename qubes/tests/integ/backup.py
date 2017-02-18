@@ -80,16 +80,16 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
         block_size = 4096
 
         self.log.debug("Filling %s" % path)
-        f = open(path, 'w+')
+        f = open(path, 'wb+')
         if size is None:
             f.seek(0, 2)
             size = f.tell()
         f.seek(0)
 
-        for block_num in range(size/block_size):
+        for block_num in range(int(size/block_size)):
             if sparse:
                 f.seek(block_size, 1)
-            f.write('a' * block_size)
+            f.write(b'a' * block_size)
 
         f.close()
 
@@ -232,7 +232,7 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
                     continue
                 vol_path = vm.storage.get_pool(volume).export(volume)
                 hasher = hashlib.sha1()
-                with open(vol_path) as afile:
+                with open(vol_path, 'rb') as afile:
                     for buf in iter(lambda: afile.read(4096000), b''):
                         hasher.update(buf)
                 hashes[vm.name][name] = hasher.hexdigest()

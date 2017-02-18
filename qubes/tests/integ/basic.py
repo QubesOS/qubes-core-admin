@@ -502,7 +502,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         # And compare the result
         (test_output, _) = testvm2.run('cat test.txt',
                                        passio_popen=True).communicate()
-        self.assertEquals(test_string, test_output.strip())
+        self.assertEquals(test_string, test_output.strip().decode('ascii'))
 
         clipboard_content = \
             open('/var/run/qubes/qubes-clipboard.bin', 'r').read().strip()

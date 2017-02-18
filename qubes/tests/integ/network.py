@@ -51,7 +51,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
     def run_cmd(self, vm, cmd, user="root"):
         p = vm.run(cmd, user=user, passio_popen=True, ignore_stderr=True)
         p.stdin.close()
-        p.stdout.read()
+        p.stdout.read().decode()
         return p.wait()
 
     def setUp(self):
@@ -350,7 +350,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             passio_popen=True,
             ignore_stderr=True)
         p.stdin.close()
-        output = p.stdout.read()
+        output = p.stdout.read().decode()
         self.assertEqual(p.wait(), 0, 'ip addr show dev eth0 failed')
         self.assertIn('192.168.1.128', output)
         self.assertNotIn(self.testvm1.ip, output)
@@ -359,7 +359,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             passio_popen=True,
             ignore_stderr=True)
         p.stdin.close()
-        output = p.stdout.read()
+        output = p.stdout.read().decode()
         self.assertEqual(p.wait(), 0, 'ip route show failed')
         self.assertIn('192.168.1.1', output)
         self.assertNotIn(self.testvm1.netvm.ip, output)
@@ -375,7 +375,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             passio_popen=True,
             ignore_stderr=True)
         p.stdin.close()
-        output = p.stdout.read()
+        output = p.stdout.read().decode()
         self.assertEqual(p.wait(), 0, 'ip addr show dev eth0 failed')
         self.assertIn('192.168.1.128', output)
         self.assertNotIn(self.testvm1.ip, output)
@@ -473,7 +473,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         (stdout, _) = p.communicate()
         self.assertEqual(p.returncode, 0,
             '{} failed with {}'.format(cmd, p.returncode))
-        self.assertNotEqual(stdout.split()[0], '0',
+        self.assertNotEqual(stdout.decode().split()[0], '0',
             'Packets didn\'t managed to the VM')
 
     def test_204_fake_ip_proxy(self):
@@ -501,7 +501,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             passio_popen=True,
             ignore_stderr=True)
         p.stdin.close()
-        output = p.stdout.read()
+        output = p.stdout.read().decode()
         self.assertEqual(p.wait(), 0, 'ip addr show dev eth0 failed')
         self.assertIn('192.168.1.128', output)
         self.assertNotIn(self.testvm1.ip, output)
@@ -510,7 +510,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             passio_popen=True,
             ignore_stderr=True)
         p.stdin.close()
-        output = p.stdout.read()
+        output = p.stdout.read().decode()
         self.assertEqual(p.wait(), 0, 'ip route show failed')
         self.assertIn('192.168.1.1', output)
         self.assertNotIn(self.testvm1.netvm.ip, output)
@@ -519,7 +519,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             passio_popen=True,
             ignore_stderr=True)
         p.stdin.close()
-        output = p.stdout.read()
+        output = p.stdout.read().decode()
         self.assertEqual(p.wait(), 0, 'ip addr show dev eth0 failed')
         self.assertNotIn('192.168.1.128', output)
         self.assertIn(self.testvm1.ip, output)
@@ -528,7 +528,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             passio_popen=True,
             ignore_stderr=True)
         p.stdin.close()
-        output = p.stdout.read()
+        output = p.stdout.read().decode()
         self.assertEqual(p.wait(), 0, 'ip route show failed')
         self.assertIn('192.168.1.128', output)
         self.assertNotIn(self.proxy.ip, output)
@@ -688,7 +688,7 @@ class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
     def run_cmd(self, vm, cmd, user="root"):
         p = vm.run(cmd, user=user, passio_popen=True, ignore_stderr=True)
         p.stdin.close()
-        p.stdout.read()
+        p.stdout.read().decode()
         return p.wait()
 
     def setUp(self):
@@ -778,7 +778,7 @@ class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
         p.stdin.close()
         if p.wait() != 0:
             raise RuntimeError("Failed to write Packages file: {}".format(
-                p.stderr.read()))
+                p.stderr.read().decode()))
 
         p = self.netvm_repo.run(
             "mkdir -p /tmp/apt-repo/dists/test && "
@@ -804,7 +804,7 @@ class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
         p.stdin.close()
         if p.wait() != 0:
             raise RuntimeError("Failed to write Release file: {}".format(
-                p.stderr.read()))
+                p.stderr.read().decode()))
 
     def create_repo_yum(self):
         pkg_file_name = "test-pkg-1.0-1.fc21.x86_64.rpm"
@@ -815,7 +815,7 @@ class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
         p.stdin.close()
         if p.wait() != 0:
             raise RuntimeError("Failed to write {}: {}".format(pkg_file_name,
-                                                               p.stderr.read()))
+                                                               p.stderr.read().decode()))
 
         # createrepo is installed by default in Fedora template
         p = self.netvm_repo.run("createrepo /tmp/yum-repo",
@@ -823,7 +823,7 @@ class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
                                 passio_stderr=True)
         if p.wait() != 0:
             raise RuntimeError("Failed to create yum metadata: {}".format(
-                p.stderr.read()))
+                p.stderr.read().decode()))
 
     def create_repo_and_serve(self):
         if self.template.count("debian") or self.template.count("whonix"):

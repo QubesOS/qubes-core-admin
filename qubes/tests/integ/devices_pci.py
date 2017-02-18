@@ -58,7 +58,7 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestsMixin,
         # get a dict: BDF -> description
         actual_devices = dict(
             l.split(' (')[0].split(' ', 1)
-                for l in p.communicate()[0].splitlines())
+                for l in p.communicate()[0].decode().splitlines())
         for dev in self.app.domains[0].devices['pci']:
             self.assertIsInstance(dev, qubes.ext.pci.PCIDevice)
             self.assertEqual(dev.backend_domain, self.app.domains[0])

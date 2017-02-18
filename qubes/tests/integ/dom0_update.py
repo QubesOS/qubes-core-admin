@@ -54,7 +54,7 @@ Key-Usage: sign
 Name-Real: Qubes test
 Expire-Date: 0
 %commit
-        '''.format(keydir=keydir))
+        '''.format(keydir=keydir).encode())
         p.stdin.close()
         p.wait()
 
@@ -63,7 +63,7 @@ Expire-Date: 0
         p = subprocess.Popen(gpg_opts + ['--with-colons', '--list-keys'],
                              stdout=subprocess.PIPE)
         for line in p.stdout.readlines():
-            fields = line.split(':')
+            fields = line.decode().split(':')
             if fields[0] == 'pub':
                 return fields[4][-8:].lower()
         raise RuntimeError
@@ -79,7 +79,7 @@ Expire-Date: 0
         p = subprocess.Popen(['sudo', 'dd',
                               'status=none', 'of=/etc/yum.repos.d/test.repo'],
                              stdin=subprocess.PIPE)
-        p.stdin.write('''
+        p.stdin.write(b'''
 [test]
 name = Test
 baseurl = http://localhost:8080/
@@ -173,7 +173,7 @@ Test package
         p = self.updatevm.run('mkdir -p /tmp/repo; cat > /tmp/repo/{}'.format(
             os.path.basename(
                 filename)), passio_popen=True)
-        p.stdin.write(open(filename).read())
+        p.stdin.write(open(filename, 'rb').read())
         p.stdin.close()
         p.wait()
         retcode = self.updatevm.run('cd /tmp/repo; createrepo .', wait=True)

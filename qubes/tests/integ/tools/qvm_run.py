@@ -87,13 +87,13 @@ class TC_00_qvm_run(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             self.sharedopts + ['--pass-io', self.vm1.name, 'false']))
 
     def test_002_passio_localcmd(self):
-        self.assertEqual('aqq', self.get_qvm_run_output(
+        self.assertEqual(b'aqq', self.get_qvm_run_output(
             self.sharedopts + [self.vm1.name, 'printf aqq']))
 
     def test_003_user(self):
-        self.assertNotEqual('0\n', self.get_qvm_run_output(
+        self.assertNotEqual(b'0\n', self.get_qvm_run_output(
             self.sharedopts + ['--user', 'user', self.vm1.name, 'id -u']))
-        self.assertEqual('0\n', self.get_qvm_run_output(
+        self.assertEqual(b'0\n', self.get_qvm_run_output(
             self.sharedopts + ['--user', 'root', self.vm1.name, 'id -u']))
 
     def test_004_autostart(self):
@@ -114,13 +114,13 @@ class TC_00_qvm_run(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         sys.stdout = io.StringIO()
         qubes.tools.qvm_run.main(
             self.sharedopts + ['--colour-output', '32', self.vm1.name, 'true'])
-        self.assertEqual('\033[0;32m\033[0m', sys.stdout.getvalue())
+        self.assertEqual(b'\033[0;32m\033[0m', sys.stdout.getvalue())
 
     def test_006_filter_esc(self):
-        self.assertEqual('\033', self.get_qvm_run_output(
+        self.assertEqual(b'\033', self.get_qvm_run_output(
             self.sharedopts + ['--no-filter-escape-chars', self.vm1.name,
                 r'printf \\033']))
-        self.assertEqual('_', self.get_qvm_run_output(
+        self.assertEqual(b'_', self.get_qvm_run_output(
             self.sharedopts + ['--filter-escape-chars', self.vm1.name,
                 r'printf \\033']))
 
