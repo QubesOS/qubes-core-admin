@@ -299,6 +299,11 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
     def __hash__(self):
         return hash(self.__name__)
 
+    def __lt__(self, other):
+        if isinstance(other, property):
+            return self.__name__ < other.__name__
+        else:
+            return self < other
 
     def __eq__(self, other):
         return isinstance(other, property) and self.__name__ == other.__name__
