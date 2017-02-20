@@ -1203,7 +1203,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # Note : User root is redefined to SYSTEM in the Windows agent code
         p = self.run('QUBESRPC qubes.WaitForSession none',
             user="root", passio_popen=True, gui=False, wait=True)
-        p.communicate(input=self.default_user)
+        p.communicate(input=self.default_user.encode())
 
     def create_on_disk(self, pool=None, pools=None):
         '''Create files needed for VM.

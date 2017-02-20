@@ -327,7 +327,7 @@ class Storage(object):
             volume = self.vm.volumes[volume]
         self.get_pool(volume).resize(volume, size)
         if self.vm.is_running():
-            self.vm.run_service('qubes.ResizeDisk', input=volume.name,
+            self.vm.run_service('qubes.ResizeDisk', input=volume.name.encode(),
                 user='root', wait=True)
 
     def create(self):
