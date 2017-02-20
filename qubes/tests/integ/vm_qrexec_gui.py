@@ -1005,14 +1005,13 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
 class TC_10_Generic(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     def setUp(self):
         super(TC_10_Generic, self).setUp()
-        self.vm = self.qc.add_new_vm(
-            "QubesAppVm",
+        self.vm = self.app.add_new_vm(
+            qubes.vm.appvm.AppVM,
             name=self.make_vm_name('vm'),
-            template=self.qc.get_default_template())
-        self.vm.create_on_disk(verbose=False)
+            template=self.app.default_template)
+        self.vm.create_on_disk()
         self.save_and_reload_db()
-        self.qc.unlock_db()
-        self.vm = self.qc[self.vm.qid]
+        self.vm = self.app.domains[self.vm.qid]
 
     def test_000_anyvm_deny_dom0(self):
         '''$anyvm in policy should not match dom0'''
