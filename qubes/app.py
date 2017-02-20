@@ -902,8 +902,8 @@ class Qubes(qubes.PropertyHolder):
     def get_vm_class(clsname):
         '''Find the class for a domain.
 
-        Classess are registered as setuptools' entry points in ``qubes.vm``
-        group. Any package may supply their own classess.
+        Classes are registered as setuptools' entry points in ``qubes.vm``
+        group. Any package may supply their own classes.
 
         :param str clsname: name of the class
         :return type: class
@@ -917,7 +917,7 @@ class Qubes(qubes.PropertyHolder):
         # don't catch TypeError
 
     def add_new_vm(self, cls, qid=None, **kwargs):
-        '''Add new Virtual Machine to colletion
+        '''Add new Virtual Machine to collection
 
         '''
 
