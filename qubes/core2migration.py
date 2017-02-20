@@ -230,12 +230,11 @@ class Core2Qubes(qubes.Qubes):
                 del self.domains[vm]
 
     def load(self, lock=False):
-        qubes_store_file = open(self._store, 'r')
-        self._acquire_lock(qubes_store_file)
+        fh = self._acquire_lock()
 
         try:
-            qubes_store_file.seek(0)
-            tree = lxml.etree.parse(qubes_store_file)
+            fh.seek(0)
+            tree = lxml.etree.parse(fh)
         except (EnvironmentError,  # pylint: disable=broad-except
                 xml.parsers.expat.ExpatError) as err:
             self.log.error(err)
