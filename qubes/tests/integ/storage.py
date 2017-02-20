@@ -116,7 +116,7 @@ class StorageTestMixin(qubes.tests.SystemTestsMixin):
             'pool': self.pool.name,
             'size': size,
             'internal': False,
-            'save_on_stop': True,
+            'save_on_stop': False,
             'rw': False,
         }
         testvol = self.vm1.storage.init_volume('testvol', volume_config)
