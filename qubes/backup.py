@@ -22,6 +22,9 @@
 from __future__ import unicode_literals
 import itertools
 import logging
+
+import functools
+
 from qubes.utils import size_to_human
 import sys
 import stat
@@ -163,7 +166,7 @@ class BackupHeader(object):
         with open(filename, "w") as f:
             # make sure 'version' is the first key
             f.write('version={}\n'.format(self.version))
-            for key, attr in self.header_keys.iteritems():
+            for key, attr in self.header_keys.items():
                 if key == 'version':
                     continue
                 if getattr(self, attr) is None:
@@ -252,7 +255,7 @@ class Backup(object):
 
         @property
         def size(self):
-            return reduce(lambda x, y: x + y.size, self.files, 0)
+            return functools.reduce(lambda x, y: x + y.size, self.files, 0)
 
     def __init__(self, app, vms_list=None, exclude_list=None, **kwargs):
         """
@@ -300,7 +303,7 @@ class Backup(object):
         self.backup_id = datetime.datetime.now().strftime(
             '%Y%m%dT%H%M%S-' + str(os.getpid()))
 
-        for key, value in kwargs.iteritems():
+        for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
             else:
@@ -394,7 +397,7 @@ class Backup(object):
                 vm_files,
                 os.path.join('dom0-home', os.path.basename(home_dir)))
 
-        self.total_backup_bytes = reduce(
+        self.total_backup_bytes = functools.reduce(
             lambda x, y: x + y.size, files_to_backup.values(), 0)
         return files_to_backup
 
@@ -424,7 +427,7 @@ class Backup(object):
 
         files_to_backup = self._files_to_backup
 
-        for qid, vm_info in files_to_backup.iteritems():
+        for qid, vm_info in files_to_backup.items():
             s = ""
             fmt = "{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
             s += fmt.format(vm_info['vm'].name)
@@ -535,7 +538,7 @@ class Backup(object):
         for vm in backup_app.domains:
             vm.features['backup-content'] = False
 
-        for qid, vm_info in files_to_backup.iteritems():
+        for qid, vm_info in files_to_backup.items():
             if qid != 0 and vm_info.vm.is_running():
                 raise qubes.exc.QubesVMNotHaltedError(vm_info.vm)
             # VM is included in the backup
@@ -551,8 +554,8 @@ class Backup(object):
             # If APPVM, STDOUT is a PIPE
             vmproc = self.target_vm.run_service('qubes.Backup',
                 passio_popen=True, passio_stderr=True)
-            vmproc.stdin.write(self.target_dir.
-                               replace("\r", "").replace("\n", "") + "\n")
+            vmproc.stdin.write((self.target_dir.
+                replace("\r", "").replace("\n", "") + "\n").encode())
             backup_stdout = vmproc.stdin
             self.processes_to_kill_on_cancel.append(vmproc)
         else:
@@ -599,7 +602,7 @@ class Backup(object):
             ''
         )
         for vm_info in itertools.chain([qubes_xml_info],
-                files_to_backup.itervalues()):
+                files_to_backup.values()):
             for file_info in vm_info.files:
 
                 self.log.debug("Backing up {}".format(file_info))
@@ -1072,7 +1075,7 @@ class ExtractWorker2(Process):
                         self.restore_pipe,
                         inner_name]
 
-                self.log.debug("Running command " + unicode(tar2_cmdline))
+                self.log.debug("Running command " + str(tar2_cmdline))
                 self.tar2_process = subprocess.Popen(tar2_cmdline,
                     stdin=subprocess.PIPE, stderr=subprocess.PIPE,
                     stdout=redirect_stdout)
@@ -1236,7 +1239,7 @@ class ExtractWorker3(ExtractWorker2):
                         tar2_cmdline.insert(-1, "--use-compress-program=%s" %
                                             DEFAULT_COMPRESSION_FILTER)
 
-                self.log.debug("Running command " + unicode(tar2_cmdline))
+                self.log.debug("Running command " + str(tar2_cmdline))
                 if self.encrypted:
                     # Start decrypt
                     self.decryptor_process = subprocess.Popen(
@@ -1520,7 +1523,7 @@ class BackupRestore(object):
         tar1_env = os.environ.copy()
         tar1_env['UPDATES_MAX_BYTES'] = str(limit_bytes)
         tar1_env['UPDATES_MAX_FILES'] = str(limit_count)
-        self.log.debug("Run command" + unicode(tar1_command))
+        self.log.debug("Run command" + str(tar1_command))
         command = subprocess.Popen(
             tar1_command,
             stdin=backup_stdin,
@@ -1581,7 +1584,7 @@ class BackupRestore(object):
             hmac = load_hmac(open(os.path.join(self.tmpdir, hmacfile),
                 'r').read())
 
-            if len(hmac) > 0 and load_hmac(hmac_stdout) == hmac:
+            if len(hmac) > 0 and load_hmac(hmac_stdout.decode('ascii')) == hmac:
                 os.unlink(os.path.join(self.tmpdir, hmacfile))
                 self.log.debug(
                     "File verification OK -> Sending file {}".format(filename))
@@ -1590,7 +1593,7 @@ class BackupRestore(object):
                 raise qubes.exc.QubesException(
                     "ERROR: invalid hmac for file {0}: {1}. "
                     "Is the passphrase correct?".
-                    format(filename, load_hmac(hmac_stdout)))
+                    format(filename, load_hmac(hmac_stdout.decode('ascii'))))
 
     def _retrieve_backup_header(self):
         """Retrieve backup header and qubes.xml. Only backup header is
@@ -1615,8 +1618,8 @@ class BackupRestore(object):
 
         expect_tar_error = False
 
-        filename = filelist_pipe.readline().strip()
-        hmacfile = filelist_pipe.readline().strip()
+        filename = filelist_pipe.readline().strip().decode('ascii')
+        hmacfile = filelist_pipe.readline().strip().decode('ascii')
         # tar output filename before actually extracting it, so wait for the
         # next one before trying to access it
         if not self.backup_vm:
@@ -2095,7 +2098,7 @@ class BackupRestore(object):
                 if vm_info.vm:
                     # noinspection PyUnusedLocal
                     vm = vm_info.vm
-                    l = len(unicode(eval(fields[f]["func"])))
+                    l = len(str(eval(fields[f]["func"])))
                     if l > fields[f]["max_width"]:
                         fields[f]["max_width"] = l
             total_width += fields[f]["max_width"]
