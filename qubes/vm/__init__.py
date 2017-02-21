@@ -68,14 +68,14 @@ class Features(dict):
 
     def __delitem__(self, key):
         super(Features, self).__delitem__(key)
-        self.vm.fire_event('domain-feature-delete', key)
+        self.vm.fire_event('domain-feature-delete', key=key)
 
     def __setitem__(self, key, value):
         if value is None or isinstance(value, bool):
             value = '1' if value else ''
         else:
             value = str(value)
-        self.vm.fire_event('domain-feature-set', key, value)
+        self.vm.fire_event('domain-feature-set', key=key, value=value)
         super(Features, self).__setitem__(key, value)
 
     def clear(self):

@@ -116,7 +116,7 @@ class Emitter(object, metaclass=EmitterMeta):
         cls.__handlers__[event].add(func)
 
 
-    def _fire_event_in_order(self, order, event, *args, **kwargs):
+    def _fire_event_in_order(self, order, event, kwargs):
         '''Fire event for classes in given order.
 
         Do not use this method. Use :py:meth:`fire_event` or
@@ -136,13 +136,13 @@ class Emitter(object, metaclass=EmitterMeta):
             for func in sorted(handlers,
                     key=(lambda handler: hasattr(handler, 'ha_bound')),
                     reverse=True):
-                effect = func(self, event, *args, **kwargs)
+                effect = func(self, event, **kwargs)
                 if effect is not None:
                     effects.extend(effect)
         return effects
 
 
-    def fire_event(self, event, *args, **kwargs):
+    def fire_event(self, event, **kwargs):
         '''Call all handlers for an event.
 
         Handlers are called for class and all parent classess, in **reversed**
@@ -156,15 +156,15 @@ class Emitter(object, metaclass=EmitterMeta):
         :param str event: event identificator
         :returns: list of effects
 
-        All *args* and *kwargs* are passed verbatim. They are different for
-        different events.
+        All *kwargs* are passed verbatim. They are different for different
+        events.
         '''
 
         return self._fire_event_in_order(reversed(self.__class__.__mro__),
-            event, *args, **kwargs)
+            event, kwargs)
 
 
-    def fire_event_pre(self, event, *args, **kwargs):
+    def fire_event_pre(self, event, **kwargs):
         '''Call all handlers for an event.
 
         Handlers are called for class and all parent classess, in **true**
@@ -177,9 +177,9 @@ class Emitter(object, metaclass=EmitterMeta):
         :param str event: event identificator
         :returns: list of effects
 
-        All *args* and *kwargs* are passed verbatim. They are different for
-        different events.
+        All *kwargs* are passed verbatim. They are different for different
+        events.
         '''
 
         return self._fire_event_in_order(self.__class__.__mro__,
-            event, *args, **kwargs)
+            event, kwargs)

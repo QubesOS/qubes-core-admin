@@ -416,7 +416,7 @@ class VMCollection(object):
         self._dict[value.qid] = value
         if _enable_events:
             value.events_enabled = True
-            self.app.fire_event('domain-add', value)
+            self.app.fire_event('domain-add', vm=value)
 
         return value
 
@@ -445,7 +445,7 @@ class VMCollection(object):
         vm = self[key]
         if not vm.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(vm)
-        self.app.fire_event_pre('domain-pre-delete', vm)
+        self.app.fire_event_pre('domain-pre-delete', vm=vm)
         try:
             vm.libvirt_domain.undefine()
         except libvirt.libvirtError as e:
@@ -453,7 +453,7 @@ class VMCollection(object):
                 # already undefined
                 pass
         del self._dict[vm.qid]
-        self.app.fire_event('domain-delete', vm)
+        self.app.fire_event('domain-delete', vm=vm)
 
     def __contains__(self, key):
         return any((key == vm or key == vm.qid or key == vm.name)
@@ -1074,7 +1074,8 @@ class Qubes(qubes.PropertyHolder):
             if not vm.provides_network and vm.property_is_default('netvm'):
                 # fire property-del:netvm as it is responsible for resetting
                 # netvm to it's default value
-                vm.fire_event('property-del:netvm', 'netvm', newvalue, oldvalue)
+                vm.fire_event('property-del:netvm',
+                    name='netvm', newvalue=newvalue, oldvalue=oldvalue)
 
 
     @qubes.events.handler('property-set:default_netvm')
@@ -1085,4 +1086,5 @@ class Qubes(qubes.PropertyHolder):
             if vm.provides_network and vm.property_is_default('netvm'):
                 # fire property-del:netvm as it is responsible for resetting
                 # netvm to it's default value
-                vm.fire_event('property-del:netvm', 'netvm', oldvalue)
+                vm.fire_event('property-del:netvm',
+                    name='netvm', oldvalue=oldvalue)

@@ -250,19 +250,19 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
 
         if has_oldvalue:
             instance.fire_event_pre('property-pre-set:' + self.__name__,
-                self.__name__, value, oldvalue)
+                name=self.__name__, newvalue=value, oldvalue=oldvalue)
         else:
             instance.fire_event_pre('property-pre-set:' + self.__name__,
-                self.__name__, value)
+                name=self.__name__, newvalue=value)
 
         instance._property_init(self, value) # pylint: disable=protected-access
 
         if has_oldvalue:
-            instance.fire_event('property-set:' + self.__name__, self.__name__,
-                value, oldvalue)
+            instance.fire_event('property-set:' + self.__name__,
+                name=self.__name__, newvalue=value, oldvalue=oldvalue)
         else:
-            instance.fire_event('property-set:' + self.__name__, self.__name__,
-                value)
+            instance.fire_event('property-set:' + self.__name__,
+                name=self.__name__, newvalue=value)
 
 
     def __delete__(self, instance):
@@ -276,16 +276,16 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
 
         if has_oldvalue:
             instance.fire_event_pre('property-pre-del:' + self.__name__,
-                self.__name__, oldvalue)
+                name=self.__name__, oldvalue=oldvalue)
             delattr(instance, self._attr_name)
             instance.fire_event('property-del:' + self.__name__,
-                self.__name__, oldvalue)
+                name=self.__name__, oldvalue=oldvalue)
 
         else:
             instance.fire_event_pre('property-pre-del:' + self.__name__,
-                self.__name__)
+                name=self.__name__)
             instance.fire_event('property-del:' + self.__name__,
-                self.__name__)
+                name=self.__name__)
 
 
     def __repr__(self):
@@ -601,7 +601,7 @@ class PropertyHolder(qubes.events.Emitter):
             except AttributeError:
                 continue
 
-        self.fire_event('clone-properties', src, proplist)
+        self.fire_event('clone-properties', src=src, proplist=proplist)
 
 
     def property_require(self, prop, allow_none=False, hard=False):

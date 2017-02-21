@@ -113,9 +113,9 @@ class TC_00_Actions(qubes.tests.QubesTestCase):
         )
         qubes.tools.qvm_device.attach_device(args)
         self.assertEventFired(self.vm1,
-            'device-attach:testclass', [self.device])
+            'device-attach:testclass', kwargs={'device': self.device})
         self.assertEventNotFired(self.vm2,
-            'device-attach:testclass', [self.device])
+            'device-attach:testclass', kwargs={'device': self.device})
 
     def test_011_double_attach(self):
         args = TestNamespace(

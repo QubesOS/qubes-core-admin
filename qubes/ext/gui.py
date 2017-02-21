@@ -263,21 +263,21 @@ class GUI(qubes.ext.Extension):
 
 
     @qubes.ext.handler('monitor-layout-change')
-    def on_monitor_layout_change(self, vm, event, monitor_layout=None):
+    def on_monitor_layout_change(self, vm, event, layout=None):
         # pylint: disable=no-self-use,unused-argument
         if vm.features.check_with_template('no-monitor-layout', False) \
                 or not vm.is_running():
             return
 
-        if monitor_layout is None:
-            monitor_layout = get_monitor_layout()
-            if not monitor_layout:
+        if layout is None:
+            layout = get_monitor_layout()
+            if not layout:
                 return
 
         pipe = vm.run('QUBESRPC qubes.SetMonitorLayout dom0',
             passio_popen=True, wait=True)
 
-        pipe.stdin.write(''.join(monitor_layout))
+        pipe.stdin.write(''.join(layout))
         pipe.stdin.close()
         pipe.wait()
 

@@ -130,10 +130,10 @@ class DeviceCollection(object):
             raise DeviceAlreadyAttached(
                 'device {!r} of class {} already attached to {!r}'.format(
                     device, self._class, self._vm))
-        self._vm.fire_event_pre('device-pre-attach:' + self._class, device)
+        self._vm.fire_event_pre('device-pre-attach:'+self._class, device=device)
         if persistent:
             self._set.add(device)
-        self._vm.fire_event('device-attach:' + self._class, device)
+        self._vm.fire_event('device-attach:' + self._class, device=device)
 
 
     def detach(self, device, persistent=True):
@@ -146,10 +146,10 @@ class DeviceCollection(object):
             raise DeviceNotAttached(
                 'device {!s} of class {} not attached to {!s}'.format(
                     device, self._class, self._vm))
-        self._vm.fire_event_pre('device-pre-detach:' + self._class, device)
+        self._vm.fire_event_pre('device-pre-detach:'+self._class, device=device)
         if persistent:
             self._set.remove(device)
-        self._vm.fire_event('device-detach:' + self._class, device)
+        self._vm.fire_event('device-detach:' + self._class, device=device)
 
     def attached(self, persistent=None):
         '''List devices which are (or may be) attached to this vm
@@ -212,7 +212,7 @@ class DeviceCollection(object):
         :raises AssertionError: when multiple devices with the same ident are
         found
         '''
-        dev = self._vm.fire_event('device-get:' + self._class, ident)
+        dev = self._vm.fire_event('device-get:' + self._class, ident=ident)
         if dev:
             assert len(dev) == 1
             return dev[0]

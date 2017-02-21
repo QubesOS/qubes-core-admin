@@ -13,8 +13,9 @@ Firing events
 Events are fired by calling :py:meth:`qubes.events.Emitter.fire_event`. The
 first argument is event name (a string). You can fire any event you wish, the
 names are not checked in any way, however each class' documentation tells what
-standard events will be fired on it. The rest of arguments are dependent on the
-particular event in question -- they are passed as-is to handlers.
+standard events will be fired on it. When firing an event, caller may specify
+some optional keyword arguments. Those are dependent on the particular event in
+question -- they are passed as-is to handlers.
 
 Event handlers are fired in reverse method resolution order, that is, first for
 parent class and then for it's child. For each class, first are called handlers

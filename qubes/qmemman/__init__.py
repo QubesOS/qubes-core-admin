@@ -142,8 +142,8 @@ class SystemState(object):
                 if dom_name is not None:
                     try:
                         qubes.Qubes().domains[str(dom_name)].fire_event(
-                            'status:no-error', 'no-error',
-                            slow_memset_react_msg)
+                            'status:no-error', status='no-error',
+                            msg=slow_memset_react_msg)
                     except LookupError:
                         pass
                 self.domdict[i].slow_memset_react = False
@@ -154,8 +154,8 @@ class SystemState(object):
                 if dom_name is not None:
                     try:
                         qubes.Qubes().domains[str(dom_name)].fire_event(
-                            'status:no-error', 'no-error',
-                            no_progress_msg)
+                            'status:no-error', status='no-error',
+                            msg=no_progress_msg)
                     except LookupError:
                         pass
                 self.domdict[i].no_progress = False
@@ -345,8 +345,8 @@ class SystemState(object):
                                     try:
                                         qubes.Qubes().domains[str(
                                             dom_name)].fire_event(
-                                            'status:error', 'error',
-                                            no_progress_msg)
+                                            'status:error', status='error',
+                                            msg=no_progress_msg)
                                     except LookupError:
                                         pass
                             else:
@@ -361,8 +361,8 @@ class SystemState(object):
                                     try:
                                         qubes.Qubes().domains[str(
                                             dom_name)].fire_event(
-                                            'status:error', 'error',
-                                            slow_memset_react_msg)
+                                            'status:error', status='error',
+                                            msg=slow_memset_react_msg)
                                     except LookupError:
                                         pass
                     self.mem_set(dom, self.get_free_xen_memory() + self.domdict[dom].memory_actual - self.XEN_FREE_MEM_LEFT)

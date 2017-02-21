@@ -53,14 +53,14 @@ def main(args=None):
 
     subprocess.check_call(['killall', '-HUP', 'qubes-guid'])
     if args.vm:
-        args.vm.fire_event('monitor-layout-change', monitor_layout)
+        args.vm.fire_event('monitor-layout-change', layout=monitor_layout)
     else:
         threads = []
 
         for vm in args.app.domains:
             thread = threading.Thread(name=vm.name, target=vm.fire_event,
                 args=('monitor-layout-change',),
-                kwargs={'monitor_layout': monitor_layout})
+                kwargs={'layout': monitor_layout})
             threads.append(thread)
             thread.run()
 

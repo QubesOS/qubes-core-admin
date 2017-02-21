@@ -269,27 +269,31 @@ class Rule(qubes.PropertyHolder):
 
     # noinspection PyUnusedLocal
     @qubes.events.handler('property-pre-set:dstports')
-    def on_set_dstports(self, _event, _prop, _new_value, _old_value=None):
+    def on_set_dstports(self, event, name, newvalue, oldvalue=None):
+        # pylint: disable=unused-argument
         if self.proto not in ('tcp', 'udp'):
             raise ValueError(
                 'dstports valid only for \'tcp\' and \'udp\' protocols')
 
     # noinspection PyUnusedLocal
     @qubes.events.handler('property-pre-set:icmptype')
-    def on_set_icmptype(self, _event, _prop, _new_value, _old_value=None):
+    def on_set_icmptype(self, event, name, newvalue, oldvalue=None):
+        # pylint: disable=unused-argument
         if self.proto not in ('icmp',):
             raise ValueError('icmptype valid only for \'icmp\' protocol')
 
     # noinspection PyUnusedLocal
     @qubes.events.handler('property-set:proto')
-    def on_set_proto(self, _event, _prop, new_value, _old_value=None):
-        if new_value not in ('tcp', 'udp'):
+    def on_set_proto(self, event, name, newvalue, oldvalue=None):
+        # pylint: disable=unused-argument
+        if newvalue not in ('tcp', 'udp'):
             self.dstports = qubes.property.DEFAULT
-        if new_value not in ('icmp',):
+        if newvalue not in ('icmp',):
             self.icmptype = qubes.property.DEFAULT
 
     @qubes.events.handler('property-del:proto')
-    def on_del_proto(self, _event, _prop, _old_value):
+    def on_del_proto(self, event, name, oldvalue):
+        # pylint: disable=unused-argument
         self.dstports = qubes.property.DEFAULT
         self.icmptype = qubes.property.DEFAULT
 

@@ -130,7 +130,7 @@ class TestEmitter(qubes.events.Emitter):
     >>> emitter = TestEmitter()
     >>> emitter.fired_events
     Counter()
-    >>> emitter.fire_event('event', 1, 2, 3, spam='eggs', foo='bar')
+    >>> emitter.fire_event('event', spam='eggs', foo='bar')
     >>> emitter.fired_events
     Counter({('event', (1, 2, 3), (('foo', 'bar'), ('spam', 'eggs'))): 1})
     '''
@@ -141,15 +141,14 @@ class TestEmitter(qubes.events.Emitter):
         #: :py:class:`collections.Counter` instance
         self.fired_events = collections.Counter()
 
-    def fire_event(self, event, *args, **kwargs):
-        effects = super(TestEmitter, self).fire_event(event, *args, **kwargs)
-        self.fired_events[(event, args, tuple(sorted(kwargs.items())))] += 1
+    def fire_event(self, event, **kwargs):
+        effects = super(TestEmitter, self).fire_event(event, **kwargs)
+        self.fired_events[(event, tuple(kwargs.items()))] += 1
         return effects
 
-    def fire_event_pre(self, event, *args, **kwargs):
-        effects = super(TestEmitter, self).fire_event_pre(event, *args,
-            **kwargs)
-        self.fired_events[(event, args, tuple(sorted(kwargs.items())))] += 1
+    def fire_event_pre(self, event, **kwargs):
+        effects = super(TestEmitter, self).fire_event_pre(event, **kwargs)
+        self.fired_events[(event, tuple(kwargs.items()))] += 1
         return effects
 
 def expectedFailureIfTemplate(templates):
@@ -349,53 +348,57 @@ class QubesTestCase(unittest.TestCase):
                     dev_class, (": " + msg) if msg else "")
             )
 
-    def assertEventFired(self, emitter, event, args=None, kwargs=None):
+    def assertEventFired(self, subject, event, kwargs=None):
         '''Check whether event was fired on given emitter and fail if it did
         not.
 
-        :param emitter: emitter which is being checked
+        :param subject: emitter which is being checked
         :type emitter: :py:class:`TestEmitter`
         :param str event: event identifier
-        :param list args: when given, all items must appear in args passed to \
-            an event
         :param list kwargs: when given, all items must appear in kwargs passed \
             to an event
         '''
 
-        for ev, ev_args, ev_kwargs in emitter.fired_events:
+        will_not_match = object()
+        for ev, ev_kwargs in subject.fired_events:
             if ev != event:
                 continue
-            if args is not None and any(i not in ev_args for i in args):
-                continue
-            if kwargs is not None and any(i not in ev_kwargs for i in kwargs):
-                continue
+            if kwargs is not None:
+                ev_kwargs = dict(ev_kwargs)
+                if any(ev_kwargs.get(k, will_not_match) != v
+                        for k, v in kwargs.items()):
+                    continue
 
             return
 
-        self.fail('event {!r} did not fire on {!r}'.format(event, emitter))
+        self.fail('event {!r} {}did not fire on {!r}'.format(
+            event, ('' if kwargs is None else '{!r} '.format(kwargs)), subject))
 
 
-    def assertEventNotFired(self, emitter, event, args=None, kwargs=None):
+    def assertEventNotFired(self, subject, event, kwargs=None):
         '''Check whether event was fired on given emitter. Fail if it did.
 
-        :param emitter: emitter which is being checked
+        :param subject: emitter which is being checked
         :type emitter: :py:class:`TestEmitter`
         :param str event: event identifier
-        :param list args: when given, all items must appear in args passed to \
-            an event
         :param list kwargs: when given, all items must appear in kwargs passed \
             to an event
         '''
 
-        for ev, ev_args, ev_kwargs in emitter.fired_events:
+        will_not_match = object()
+        for ev, ev_kwargs in subject.fired_events:
             if ev != event:
                 continue
-            if args is not None and any(i not in ev_args for i in args):
-                continue
-            if kwargs is not None and any(i not in ev_kwargs for i in kwargs):
-                continue
+            if kwargs is not None:
+                ev_kwargs = dict(ev_kwargs)
+                if any(ev_kwargs.get(k, will_not_match) != v
+                        for k, v in kwargs.items()):
+                    continue
 
-            self.fail('event {!r} did fire on {!r}'.format(event, emitter))
+            self.fail('event {!r} {}did fire on {!r}'.format(
+                event,
+                ('' if kwargs is None else '{!r} '.format(kwargs)),
+                subject))
 
         return
 

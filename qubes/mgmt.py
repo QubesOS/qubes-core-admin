@@ -110,13 +110,13 @@ class QubesMgmt(object):
     #
 
     @not_in_api
-    def fire_event_for_permission(self, *args, **kwargs):
+    def fire_event_for_permission(self, **kwargs):
         return self.src.fire_event_pre('mgmt-permission:{}'.format(self.method),
-            self.dest, self.arg, *args, **kwargs)
+            self.dest, self.arg, **kwargs)
 
     @not_in_api
-    def fire_event_for_filter(self, iterable, *args, **kwargs):
-        for selector in self.fire_event_for_permission(*args, **kwargs):
+    def fire_event_for_filter(self, iterable, **kwargs):
+        for selector in self.fire_event_for_permission(**kwargs):
             iterable = filter(selector, iterable)
         return iterable
 

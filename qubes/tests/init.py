@@ -342,7 +342,8 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
         self.vms.add(self.testvm1)
         self.assertIn(1, self.vms)
 
-        self.assertEventFired(self.app, 'domain-add', args=[self.testvm1])
+        self.assertEventFired(self.app, 'domain-add',
+            kwargs={'vm': self.testvm1})
 
         with self.assertRaises(TypeError):
             self.vms.add(object())
@@ -395,7 +396,8 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
         del self.vms['testvm2']
 
         self.assertCountEqual(self.vms.vms(), [self.testvm1])
-        self.assertEventFired(self.app, 'domain-delete', args=[self.testvm2])
+        self.assertEventFired(self.app, 'domain-delete',
+            kwargs={'vm': self.testvm2})
 
     def test_100_get_new_unused_qid(self):
         self.vms.add(self.testvm1)

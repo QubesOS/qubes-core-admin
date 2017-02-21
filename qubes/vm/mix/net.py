@@ -337,7 +337,8 @@ class NetVMMixin(qubes.events.Emitter):
         new_netvm = self.netvm
         if new_netvm == old_netvm:
             return
-        self.fire_event('property-set:netvm', 'netvm', new_netvm, old_netvm)
+        self.fire_event('property-set:netvm',
+            name='netvm', newvalue=new_netvm, oldvalue=old_netvm)
 
     @qubes.events.handler('property-pre-set:netvm')
     def on_property_pre_set_netvm(self, event, name, new_netvm, old_netvm=None):
@@ -378,7 +379,7 @@ class NetVMMixin(qubes.events.Emitter):
             self.create_qdb_entries()
             self.attach_network()
 
-            new_netvm.fire_event('net-domain-connect', self)
+            new_netvm.fire_event('net-domain-connect', vm=self)
 
     @qubes.events.handler('net-domain-connect')
     def on_net_domain_connect(self, event, vm):

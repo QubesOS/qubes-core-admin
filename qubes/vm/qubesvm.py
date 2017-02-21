@@ -1287,7 +1287,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 shutil.copy(src.icon_path, self.icon_path)
 
         # fire hooks
-        self.fire_event('domain-clone-files', src)
+        self.fire_event('domain-clone-files', src=src)
 
     #
     # methods for querying domain state
