@@ -523,7 +523,8 @@ class SystemTestsMixin(object):
             label='black')
         for name, volume in template_vm.volumes.items():
             if volume.pool != template.volumes[name].pool:
-                template_vm.storage.init_volume(name, volume.config)
+                template_vm.storage.init_volume(name,
+                    template.volumes[name].config)
         self.app.default_template = template_vm
 
     def init_networking(self):
