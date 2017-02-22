@@ -86,6 +86,7 @@ Requires:       gnome-packagekit
 Requires:       cronie
 Requires:       bsdtar
 Requires:       python3-jinja2
+Requires:       scrypt
 # for qubes-hcl-report
 Requires:       dmidecode
 Requires:       PyQt4
