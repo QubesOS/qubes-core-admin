@@ -111,6 +111,7 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
 
     def test_013_list_attached_persistent(self):
         self.assertEqual(set([]), set(self.collection.attached()))
+        self.assertEventFired(self.emitter, 'device-list-attached:testclass')
         self.collection.attach(self.device)
         self.assertEqual({self.device}, set(self.collection.attached()))
         self.assertEqual({self.device},
@@ -128,9 +129,11 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
             set(self.collection.attached(persistent=True)))
         self.assertEqual({self.device},
             set(self.collection.attached(persistent=False)))
+        self.assertEventFired(self.emitter, 'device-list-attached:testclass')
 
     def test_015_list_available(self):
         self.assertEqual({self.device}, set(self.collection))
+        self.assertEventFired(self.emitter, 'device-list:testclass')
 
 
 class TC_01_DeviceManager(qubes.tests.QubesTestCase):
