@@ -1652,7 +1652,7 @@ class BackupRestore(object):
                 "failed). Is the password correct?")
         if os.path.basename(filename) == HEADER_FILENAME:
             filename = os.path.join(self.tmpdir, filename)
-            header_data = BackupHeader(open(filename, 'r').read())
+            header_data = BackupHeader(open(filename, 'rb').read())
             os.unlink(filename)
         else:
             # if no header found, create one with guessed HMAC algo
