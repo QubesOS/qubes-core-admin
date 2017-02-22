@@ -828,7 +828,8 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
 
         except:
             # reset time to some approximation of the real time
-            subprocess.Popen(["sudo", "date", "-u", "-s", "@" + start_time])
+            subprocess.Popen(
+                ["sudo", "date", "-u", "-s", "@" + start_time.decode()])
             raise
 
     @unittest.expectedFailure
@@ -934,7 +935,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         p = self.testvm1.run("grep ^MemFree: /proc/meminfo|awk '{print $2}'",
             passio_popen=True)
         memory_pages = int(p.communicate()[0].strip())
-        memory_pages /= 4 # 4k pages
+        memory_pages //= 4 # 4k pages
         alloc1 = self.testvm1.run(
             "ulimit -l unlimited; exec /home/user/allocator {}".format(
                 memory_pages),

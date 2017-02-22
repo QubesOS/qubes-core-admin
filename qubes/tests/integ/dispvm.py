@@ -51,10 +51,10 @@ class TC_04_DispVM(qubes.tests.SystemTestsMixin,
         self.testvm.start()
 
         p = self.testvm.run("qvm-run --dispvm bash", passio_popen=True)
-        (stdout, _) = p.communicate(input="echo test; qubesdb-read /name; "
-                                          "echo ERROR\n")
+        (stdout, _) = p.communicate(input=b"echo test; qubesdb-read /name; "
+                                          b"echo ERROR\n")
         self.assertEquals(p.returncode, 0)
-        lines = stdout.splitlines()
+        lines = stdout.decode('ascii').splitlines()
         self.assertEqual(lines[0], "test")
         dispvm_name = lines[1]
         # wait for actual DispVM destruction
