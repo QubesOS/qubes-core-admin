@@ -44,6 +44,7 @@ import qubes
 import qubes.core2migration
 import qubes.storage
 import qubes.storage.file
+import qubes.vm.templatevm
 
 QUEUE_ERROR = "ERROR"
 
@@ -64,6 +65,7 @@ HEADER_QUBES_XML_MAX_SIZE = 1024 * 1024
 BLKSIZE = 512
 
 _re_alphanum = re.compile(r'^[A-Za-z0-9-]*$')
+
 
 class BackupCanceledError(qubes.exc.QubesException):
     def __init__(self, msg, tmpdir=None):
@@ -241,7 +243,7 @@ def launch_proc_with_pty(args, stdin=None, stdout=None, stderr=None, echo=True):
     p = subprocess.Popen(args, stdin=stdin, stdout=stdout, stderr=stderr,
         preexec_fn=lambda: set_ctty(pty_slave, pty_master))
     os.close(pty_slave)
-    return p, os.fdopen(pty_master, 'w+')
+    return p, os.fdopen(pty_master, 'wb+', buffering=0)
 
 
 def launch_scrypt(action, input_name, output_name, passphrase):
@@ -262,9 +264,9 @@ def launch_scrypt(action, input_name, output_name, passphrase):
         stderr=subprocess.PIPE,
         echo=False)
     if action == 'enc':
-        prompts = ('Please enter passphrase: ', 'Please confirm passphrase: ')
+        prompts = (b'Please enter passphrase: ', b'Please confirm passphrase: ')
     else:
-        prompts = ('Please enter passphrase: ',)
+        prompts = (b'Please enter passphrase: ',)
     for prompt in prompts:
         actual_prompt = p.stderr.read(len(prompt))
         if actual_prompt != prompt:
@@ -618,6 +620,7 @@ class Backup(object):
                 passio_popen=True, passio_stderr=True)
             vmproc.stdin.write((self.target_dir.
                 replace("\r", "").replace("\n", "") + "\n").encode())
+            vmproc.stdin.flush()
             backup_stdout = vmproc.stdin
             self.processes_to_kill_on_cancel.append(vmproc)
         else:
@@ -701,7 +704,7 @@ class Backup(object):
                     # also use our tar writer when renaming file
                     assert not stat.S_ISDIR(file_stat.st_mode),\
                         "Renaming directories not supported"
-                    tar_cmdline = ['python', '-m', 'qubes.tarwriter',
+                    tar_cmdline = ['python3', '-m', 'qubes.tarwriter',
                         '--override-name=%s' % (
                             os.path.join(file_info.subdir, os.path.basename(
                                 file_info.name))),
@@ -752,7 +755,7 @@ class Backup(object):
                     )
 
                     self.log.debug(
-                        "12 returned: {}".format(run_error))
+                        "Wait_backup_feedback returned: {}".format(run_error))
 
                     if self.canceled:
                         try:
@@ -978,7 +981,6 @@ class ExtractWorker2(Process):
         try:
             self.__run__()
         except Exception as e:
-            exc_type, exc_value, exc_traceback = sys.exc_info()
             # Cleanup children
             for process in [self.decompressor_process,
                             self.decryptor_process,
@@ -989,7 +991,7 @@ class ExtractWorker2(Process):
                     except OSError:
                         pass
                     process.wait()
-            self.log.error("ERROR: " + unicode(e))
+            self.log.error("ERROR: " + str(e))
             raise
 
     def handle_dir_relocations(self, dirname):
@@ -1126,12 +1128,6 @@ class ExtractWorker2(Process):
             monitor_processes = {
                 'vmproc': self.vmproc,
                 'addproc': self.tar2_process,
-            }
-            common_args = {
-                'backup_target': pipe,
-                'hmac': None,
-                'vmproc': self.vmproc,
-                'addproc': self.tar2_process
             }
             if self.encrypted:
                 # Start decrypt
@@ -1365,6 +1361,7 @@ def get_supported_hmac_algo(hmac_algorithm=None):
     proc = subprocess.Popen(['openssl', 'list-message-digest-algorithms'],
                             stdout=subprocess.PIPE)
     for algo in proc.stdout.readlines():
+        algo = algo.decode('ascii')
         if '=>' in algo:
             continue
         yield algo.strip()
@@ -1533,10 +1530,13 @@ class BackupRestore(object):
             vmproc = self.backup_vm.run_service('qubes.Restore',
                 passio_popen=True, passio_stderr=True)
             vmproc.stdin.write(
-                self.backup_location.replace("\r", "").replace("\n", "") + "\n")
+                (self.backup_location.replace("\r", "").replace("\n",
+                    "") + "\n").encode())
+            vmproc.stdin.flush()
 
             # Send to tar2qfile the VMs that should be extracted
-            vmproc.stdin.write(" ".join(filelist) + "\n")
+            vmproc.stdin.write((" ".join(filelist) + "\n").encode())
+            vmproc.stdin.flush()
             self.processes_to_kill_on_cancel.append(vmproc)
 
             backup_stdin = vmproc.stdout
@@ -1581,8 +1581,7 @@ class BackupRestore(object):
 
     def _verify_hmac(self, filename, hmacfile, algorithm=None):
         def load_hmac(hmac_text):
-            if filter(lambda x: ord(x) not in range(128),
-                    hmac_text):
+            if any(ord(x) not in range(128) for x in hmac_text):
                 raise qubes.exc.QubesException(
                     "Invalid content of {}".format(hmacfile))
             hmac_text = hmac_text.strip().split("=")
@@ -1695,10 +1694,10 @@ class BackupRestore(object):
                             retrieve_proc.wait(),
                             extract_stderr
                         ))
-        actual_files = filelist.splitlines()
+        actual_files = filelist.decode('ascii').splitlines()
         if sorted(actual_files) != sorted(files):
             raise qubes.exc.QubesException(
-                'unexpected files in archive: got {!r}, expeced {!r}'.format(
+                'unexpected files in archive: got {!r}, expected {!r}'.format(
                     actual_files, files
                 ))
         for f in files:
@@ -1767,7 +1766,7 @@ class BackupRestore(object):
                     "Corrupted backup header (hmac verification "
                     "failed). Is the password correct?")
             filename = os.path.join(self.tmpdir, filename)
-            header_data = BackupHeader(open(filename, 'r').read())
+            header_data = BackupHeader(open(filename, 'rb').read())
             os.unlink(filename)
 
         return header_data
@@ -1895,7 +1894,7 @@ class BackupRestore(object):
                 if nextfile is not None:
                     filename = nextfile
                 else:
-                    filename = filelist_pipe.readline().strip()
+                    filename = filelist_pipe.readline().decode('ascii').strip()
 
                 self.log.debug("Getting new file:" + filename)
 
@@ -1906,14 +1905,16 @@ class BackupRestore(object):
                 # tar prints filename before processing it, so wait for
                 # the next one to be sure that whole file was extracted
                 if not self.backup_vm:
-                    nextfile = filelist_pipe.readline().strip()
+                    nextfile = filelist_pipe.readline().decode('ascii').strip()
 
                 if self.header_data.version in [2, 3]:
                     if not self.backup_vm:
                         hmacfile = nextfile
-                        nextfile = filelist_pipe.readline().strip()
+                        nextfile = filelist_pipe.readline().\
+                            decode('ascii').strip()
                     else:
-                        hmacfile = filelist_pipe.readline().strip()
+                        hmacfile = filelist_pipe.readline().\
+                            decode('ascii').strip()
 
                     if self.canceled:
                         break

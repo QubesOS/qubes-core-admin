@@ -508,7 +508,7 @@ class TC_10_BackupVMMixin(BackupTestsMixin):
         p = self.backupvm.run("ls /var/tmp/backup*/qubes-backup*",
                               passio_popen=True)
         (backup_path, _) = p.communicate()
-        backup_path = backup_path.strip()
+        backup_path = backup_path.decode().strip()
         self.restore_backup(source=backup_path,
                             appvm=self.backupvm)
 
