@@ -32,9 +32,9 @@ class QMemmanClient:
         fcntl.fcntl(self.sock.fileno(), fcntl.F_SETFD, flags)
 
         self.sock.connect("/var/run/qubes/qmemman.sock")
-        self.sock.send(str(amount)+"\n")
-        self.received = self.sock.recv(1024).strip()
-        if self.received == 'OK':
+        self.sock.send(str(int(amount)).encode('ascii')+b"\n")
+        received = self.sock.recv(1024).strip()
+        if received == b'OK':
             return True
         else:
             return False

@@ -20,14 +20,14 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 #
-import ConfigParser
-import SocketServer
+import configparser
+import socketserver
 import logging
 import logging.handlers
 import os
 import socket
 import sys
-import thread
+import threading
 
 import xen.lowlevel.xs
 
@@ -39,7 +39,7 @@ SOCK_PATH = '/var/run/qubes/qmemman.sock'
 LOG_PATH = '/var/log/qubes/qmemman.log'
 
 system_state = qubes.qmemman.SystemState()
-global_lock = thread.allocate_lock()
+global_lock = threading.Lock()
 # If XS_Watcher will
 # handle meminfo event before @introduceDomain, it will use
 # incomplete domain list for that and may redistribute memory
@@ -161,7 +161,7 @@ class XS_Watcher(object):
             token.fn(self, token.param)
 
 
-class QMemmanReqHandler(SocketServer.BaseRequestHandler):
+class QMemmanReqHandler(socketserver.BaseRequestHandler):
     """
     The RequestHandler class for our server.
 
@@ -196,10 +196,10 @@ class QMemmanReqHandler(SocketServer.BaseRequestHandler):
                 self.log.debug('global_lock acquired')
 
                 got_lock = True
-                if system_state.do_balloon(int(self.data)):
-                    resp = "OK\n"
+                if system_state.do_balloon(int(self.data.decode('ascii'))):
+                    resp = b"OK\n"
                 else:
-                    resp = "FAIL\n"
+                    resp = b"FAIL\n"
                 self.log.debug('resp={!r}'.format(resp))
                 self.request.send(resp)
         except BaseException as e:
@@ -253,7 +253,7 @@ def main():
 
     log = logging.getLogger('qmemman.daemon')
 
-    config = ConfigParser.SafeConfigParser({
+    config = configparser.SafeConfigParser({
             'vm-min-mem': str(qubes.qmemman.algo.MIN_PREFMEM),
             'dom0-mem-boost': str(qubes.qmemman.algo.DOM0_MEM_BOOST),
             'cache-margin-factor': str(qubes.qmemman.algo.CACHE_FACTOR)
@@ -280,7 +280,7 @@ def main():
 
     log.debug('instantiating server')
     os.umask(0)
-    server = SocketServer.UnixStreamServer(SOCK_PATH, QMemmanReqHandler)
+    server = socketserver.UnixStreamServer(SOCK_PATH, QMemmanReqHandler)
     os.umask(0o077)
 
     # notify systemd
@@ -294,5 +294,5 @@ def main():
         s.sendall("READY=1")
         s.close()
 
-    thread.start_new_thread(server.serve_forever, ())
+    threading.Thread(target=server.serve_forever).start()
     XS_Watcher().watch_loop()

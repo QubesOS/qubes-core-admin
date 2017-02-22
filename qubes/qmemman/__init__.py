@@ -26,6 +26,7 @@ import os
 import string
 import time
 
+import functools
 import xen.lowlevel.xc
 import xen.lowlevel.xs
 
@@ -91,7 +92,7 @@ class SystemState(object):
         # at any time
         # assumption: self.refresh_memactual was called before
         # (so domdict[id].memory_actual is up to date)
-        assigned_but_unused = reduce(
+        assigned_but_unused = functools.reduce(
             lambda acc, dom: acc + max(0, dom.last_target-dom.memory_current),
             self.domdict.values(),
             0
@@ -113,7 +114,7 @@ class SystemState(object):
     def refresh_memactual(self):
         for domain in self.xc.domain_getinfo():
             id = str(domain['domid'])
-            if self.domdict.has_key(id):
+            if id in self.domdict:
                 # real memory usage
                 self.domdict[id].memory_current = domain['mem_kb']*1024
                 # what VM is using or can use
