@@ -30,7 +30,7 @@ import qubes.ext
 
 
 # "LVDS connected 1024x768+0+0 (normal left inverted right) 304mm x 228mm"
-REGEX_OUTPUT = re.compile(rb'''
+REGEX_OUTPUT = re.compile(r'''
         (?x)                           # ignore whitespace
         ^                              # start of string
         (?P<output>[A-Za-z0-9\-]*)[ ]  # LVDS VGA etc
@@ -58,7 +58,8 @@ def get_monitor_layout():
 
     for line in subprocess.Popen(
             ['xrandr', '-q'], stdout=subprocess.PIPE).stdout:
-        if not line.startswith(b"Screen") and not line.startswith(b" "):
+        line = line.decode()
+        if not line.startswith("Screen") and not line.startswith(" "):
             output_params = REGEX_OUTPUT.match(line).groupdict()
             if output_params['width']:
                 phys_size = ""
