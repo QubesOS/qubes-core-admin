@@ -700,7 +700,7 @@ class SystemTestsMixin(object):
             try:
                 cls.remove_vms(vm for vm in qubes.Qubes(xmlpath).domains
                     if vm.name.startswith(prefix))
-            except qubes.exc.QubesException:
+            except (qubes.exc.QubesException, lxml.etree.XMLSyntaxError):
                 # If qubes-test.xml is broken that much it doesn't even load,
                 #  simply remove it. VMs will be cleaned up the hard way.
                 # TODO logging?
