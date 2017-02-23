@@ -301,9 +301,9 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
 
     def __lt__(self, other):
         if isinstance(other, property):
-            return self.__name__ < other.__name__
-        else:
-            return self < other
+            return (self.load_stage, self.order, self.__name__) <\
+                   (other.load_stage, other.order, other.__name__)
+        return NotImplemented
 
     def __eq__(self, other):
         return isinstance(other, property) and self.__name__ == other.__name__
@@ -470,9 +470,7 @@ class PropertyHolder(qubes.events.Emitter):
         if load_stage is not None:
             props = set(prop for prop in props
                 if prop.load_stage == load_stage)
-        return sorted(props,
-            key=lambda prop: (prop.load_stage, prop.order, prop.__name__))
-
+        return sorted(props)
 
     def _property_init(self, prop, value):
         '''Initialise property to a given value, without side effects.
