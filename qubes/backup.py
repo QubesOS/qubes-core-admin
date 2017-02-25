@@ -61,6 +61,8 @@ CURRENT_BACKUP_FORMAT_VERSION = '4'
 MAX_STDERR_BYTES = 1024
 # header + qubes.xml max size
 HEADER_QUBES_XML_MAX_SIZE = 1024 * 1024
+# hmac file max size - regardless of backup format version!
+HMAC_MAX_SIZE = 4096
 
 BLKSIZE = 512
 
@@ -1597,6 +1599,11 @@ class BackupRestore(object):
         passphrase = self.passphrase.encode('utf-8')
         self.log.debug("Verifying file {}".format(filename))
 
+        if os.stat(os.path.join(self.tmpdir, hmacfile)).st_size > \
+                HMAC_MAX_SIZE:
+            raise qubes.exc.QubesException('HMAC file {} too large'.format(
+                hmacfile))
+
         if hmacfile != filename + ".hmac":
             raise qubes.exc.QubesException(
                 "ERROR: expected hmac for {}, but got {}".
@@ -1606,8 +1613,9 @@ class BackupRestore(object):
             # in case of 'scrypt' _verify_hmac is only used for backup header
             assert filename == HEADER_FILENAME
             self._verify_and_decrypt(hmacfile, HEADER_FILENAME + '.dec')
-            if open(os.path.join(self.tmpdir, filename)).read() != \
-                    open(os.path.join(self.tmpdir, filename + '.dec')).read():
+            if open(os.path.join(self.tmpdir, filename), 'rb').read() != \
+                    open(os.path.join(self.tmpdir, filename + '.dec'),
+                        'rb').read():
                 raise qubes.exc.QubesException(
                     'Invalid hmac on {}'.format(filename))
             else:
@@ -1625,7 +1633,7 @@ class BackupRestore(object):
         else:
             self.log.debug("Loading hmac for file {}".format(filename))
             hmac = load_hmac(open(os.path.join(self.tmpdir, hmacfile),
-                'r').read())
+                'r', encoding='ascii').read())
 
             if len(hmac) > 0 and load_hmac(hmac_stdout.decode('ascii')) == hmac:
                 os.unlink(os.path.join(self.tmpdir, hmacfile))
