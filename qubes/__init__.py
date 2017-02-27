@@ -306,6 +306,8 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
         return NotImplemented
 
     def __eq__(self, other):
+        if isinstance(other, str):
+            return self.__name__ == other
         return isinstance(other, property) and self.__name__ == other.__name__
 
 
