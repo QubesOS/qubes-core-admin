@@ -137,7 +137,7 @@ class QubesMgmt(object):
         domains = self.fire_event_for_filter(self.app.domains)
 
         return ''.join('{} class={} state={}\n'.format(
-                self.repr(vm),
+                vm.name,
                 vm.__class__.__name__,
                 vm.get_power_state())
             for vm in sorted(domains))
