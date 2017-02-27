@@ -19,7 +19,7 @@ QUBESD_SOCK = '/var/run/qubesd.sock'
 
 class QubesDaemonProtocol(asyncio.Protocol):
     buffer_size = 65536
-    header = struct.Struct('!H')
+    header = struct.Struct('Bx')
 
     def __init__(self, *args, app, debug=False, **kwargs):
         super().__init__(*args, **kwargs)
