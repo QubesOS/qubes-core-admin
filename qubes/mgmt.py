@@ -112,7 +112,7 @@ class QubesMgmt(object):
     @not_in_api
     def fire_event_for_permission(self, **kwargs):
         return self.src.fire_event_pre('mgmt-permission:{}'.format(self.method),
-            self.dest, self.arg, **kwargs)
+            dest=self.dest, arg=self.arg, **kwargs)
 
     @not_in_api
     def fire_event_for_filter(self, iterable, **kwargs):
