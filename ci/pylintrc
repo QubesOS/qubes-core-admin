@@ -17,6 +17,8 @@ disable=
   missing-docstring,
   star-args
 
+confidence=HIGH,INFERENCE,INFERENCE_FAILURE
+
 [REPORTS]
 
 # Set the output format. Available formats are text, parseable, colorized, msvs

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3.6
-# pylint: disable=deprecated-method
 
 import argparse
 import asyncio
