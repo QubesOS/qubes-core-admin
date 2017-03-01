@@ -59,9 +59,15 @@ class QubesDaemonProtocol(asyncio.Protocol):
         finally:
             self.untrusted_buffer.close()
 
+        asyncio.ensure_future(self.respond(
+            src, method, dest, arg, untrusted_payload=untrusted_payload))
+
+    @asyncio.coroutine
+    def respond(self, src, method, dest, arg, *, untrusted_payload):
         try:
             mgmt = qubes.mgmt.QubesMgmt(self.app, src, method, dest, arg)
-            response = mgmt.execute(untrusted_payload=untrusted_payload)
+            response = yield from mgmt.execute(
+                untrusted_payload=untrusted_payload)
 
         # except clauses will fall through to transport.abort() below
 

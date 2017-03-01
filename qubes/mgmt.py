@@ -22,8 +22,8 @@
 Qubes OS Management API
 '''
 
+import asyncio
 import reprlib
-import types
 
 import qubes.vm.qubesvm
 
@@ -91,7 +91,7 @@ class QubesMgmt(object):
                 'no such attribute: {!r}'.format(
                     untrusted_func_name))
 
-        if not isinstance(untrusted_func, types.MethodType):
+        if not asyncio.iscoroutinefunction(untrusted_func):
             raise ProtocolError(
                 'no such method: {!r}'.format(
                     untrusted_func_name))
@@ -128,6 +128,7 @@ class QubesMgmt(object):
     # ACTUAL RPC CALLS
     #
 
+    @asyncio.coroutine
     def vm_list(self, untrusted_payload):
         assert self.dest.name == 'dom0'
         assert not self.arg
@@ -142,6 +143,7 @@ class QubesMgmt(object):
                 vm.get_power_state())
             for vm in sorted(domains))
 
+    @asyncio.coroutine
     def vm_property_list(self, untrusted_payload):
         assert not self.arg
         assert not untrusted_payload
@@ -151,6 +153,7 @@ class QubesMgmt(object):
 
         return ''.join('{}\n'.format(prop.__name__) for prop in properties)
 
+    @asyncio.coroutine
     def vm_property_get(self, untrusted_payload):
         assert self.arg in self.dest.property_list()
         assert not untrusted_payload
@@ -167,6 +170,7 @@ class QubesMgmt(object):
                 str(self.dest.property_is_default(self.arg)),
                 self.repr(value))
 
+    @asyncio.coroutine
     def vm_property_help(self, untrusted_payload):
         assert self.arg in self.dest.property_list()
         assert not untrusted_payload
@@ -181,6 +185,7 @@ class QubesMgmt(object):
 
         return qubes.utils.format_doc(doc)
 
+    @asyncio.coroutine
     def vm_property_reset(self, untrusted_payload):
         assert self.arg in self.dest.property_list()
         assert not untrusted_payload
