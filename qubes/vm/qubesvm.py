@@ -536,7 +536,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                         result += [volume]
                         break
 
-        return result + self.volumes.values()
+        return result + list(self.volumes.values())
 
     @property
     def libvirt_domain(self):
