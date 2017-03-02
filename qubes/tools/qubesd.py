@@ -4,6 +4,7 @@ import asyncio
 import functools
 import io
 import os
+import shutil
 import signal
 import struct
 import traceback
@@ -18,7 +19,7 @@ QUBESD_SOCK = '/var/run/qubesd.sock'
 
 class QubesDaemonProtocol(asyncio.Protocol):
     buffer_size = 65536
-    header = struct.Struct('!H')
+    header = struct.Struct('Bx')
 
     def __init__(self, *args, app, debug=False, **kwargs):
         super().__init__(*args, **kwargs)
@@ -162,6 +163,7 @@ def main(args=None):
     old_umask = os.umask(0o007)
     server = loop.run_until_complete(loop.create_unix_server(
         functools.partial(QubesDaemonProtocol, app=args.app), QUBESD_SOCK))
+    shutil.chown(QUBESD_SOCK, group='qubes')
     os.umask(old_umask)
     del old_umask
 

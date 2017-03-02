@@ -55,7 +55,7 @@ class DomainPool(Pool):
         # /qubes-block-devices/foo/{desc,mode,size} we need to merge this
         devices = {}
         for untrusted_device_path in untrusted_qubes_devices:
-            if not all(c in safe_set for c in untrusted_device_path):
+            if not all(chr(c) in safe_set for c in untrusted_device_path):
                 msg = ("%s vm's device path name contains unsafe characters. "
                        "Skipping it.")
                 self.vm.log.warning(msg % self.vm.name)
@@ -63,7 +63,8 @@ class DomainPool(Pool):
 
             # name can be trusted because it was checked as a part of
             # untrusted_device_path check above
-            _, _, name, untrusted_atr = untrusted_device_path.split('/', 4)
+            _, _, name, untrusted_atr = untrusted_device_path.\
+                decode('ascii').split('/', 4)
 
             if untrusted_atr in allowed_attributes.keys():
                 atr = untrusted_atr
@@ -75,8 +76,8 @@ class DomainPool(Pool):
 
             untrusted_value = qdb.read(untrusted_device_path)
             allowed_characters = allowed_attributes[atr]
-            if all(c in allowed_characters for c in untrusted_value):
-                value = untrusted_value
+            if all(chr(c) in allowed_characters for c in untrusted_value):
+                value = untrusted_value.decode('ascii')
             else:
                 msg = ("{!s} vm's device path {!s} contains unsafe characters")
                 self.vm.log.error(msg.format(self.vm.name, atr))

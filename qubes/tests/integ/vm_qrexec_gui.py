@@ -970,6 +970,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
 
         # now free the fragmented memory and trigger compaction
         alloc1.stdin.write(b"\n")
+        alloc1.stdin.flush()
         alloc1.wait()
         self.testvm1.run("echo 1 > /proc/sys/vm/compact_memory", user="root")
 
@@ -1006,9 +1007,11 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
 class TC_10_Generic(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     def setUp(self):
         super(TC_10_Generic, self).setUp()
+        self.init_default_template()
         self.vm = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,
             name=self.make_vm_name('vm'),
+            label='red',
             template=self.app.default_template)
         self.vm.create_on_disk()
         self.save_and_reload_db()
@@ -1029,7 +1032,7 @@ class TC_10_Generic(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             f.write('echo service output\n')
         self.addCleanup(os.unlink, "/etc/qubes-rpc/test.AnyvmDeny")
 
-        self.vm.start(verbose=False)
+        self.vm.start()
         p = self.vm.run("/usr/lib/qubes/qrexec-client-vm dom0 test.AnyvmDeny",
                              passio_popen=True, passio_stderr=True)
         (stdout, stderr) = p.communicate()

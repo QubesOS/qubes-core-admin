@@ -290,11 +290,11 @@ case "$command" in
             # Commit template changes
             domain=$(cat "$HOTPLUG_STORE-domain")
             if [ "$domain" ]; then
-              # Dont stop on errors
               if [ -r /var/lib/qubes/qubes-test.xml -a \
                   "${domain#test-}" != "$domain" ]; then
                 export QUBES_XML_PATH=/var/lib/qubes/qubes-test.xml
               fi
+              # Dont stop on errors
               /usr/bin/qvm-template-commit --offline-mode "$domain" || true
             fi
           fi

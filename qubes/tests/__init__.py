@@ -523,7 +523,8 @@ class SystemTestsMixin(object):
             label='black')
         for name, volume in template_vm.volumes.items():
             if volume.pool != template.volumes[name].pool:
-                template_vm.storage.init_volume(name, volume.config)
+                template_vm.storage.init_volume(name,
+                    template.volumes[name].config)
         self.app.default_template = template_vm
 
     def init_networking(self):
@@ -699,7 +700,7 @@ class SystemTestsMixin(object):
             try:
                 cls.remove_vms(vm for vm in qubes.Qubes(xmlpath).domains
                     if vm.name.startswith(prefix))
-            except qubes.exc.QubesException:
+            except (qubes.exc.QubesException, lxml.etree.XMLSyntaxError):
                 # If qubes-test.xml is broken that much it doesn't even load,
                 #  simply remove it. VMs will be cleaned up the hard way.
                 # TODO logging?

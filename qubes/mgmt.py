@@ -112,7 +112,7 @@ class QubesMgmt(object):
     @not_in_api
     def fire_event_for_permission(self, **kwargs):
         return self.src.fire_event_pre('mgmt-permission:{}'.format(self.method),
-            self.dest, self.arg, **kwargs)
+            dest=self.dest, arg=self.arg, **kwargs)
 
     @not_in_api
     def fire_event_for_filter(self, iterable, **kwargs):
@@ -138,7 +138,7 @@ class QubesMgmt(object):
         domains = self.fire_event_for_filter(self.app.domains)
 
         return ''.join('{} class={} state={}\n'.format(
-                self.repr(vm),
+                vm.name,
                 vm.__class__.__name__,
                 vm.get_power_state())
             for vm in sorted(domains))
