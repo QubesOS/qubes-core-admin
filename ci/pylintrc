@@ -4,10 +4,13 @@ ignore=tests,backup.py
 
 [MESSAGES CONTROL]
 # abstract-class-little-used: see http://www.logilab.org/ticket/111138
+# deprecated-method:
+#   enable again after disabling py-3.4.3 asyncio.ensure_future compat hack
 disable=
   abstract-class-little-used,
   bad-continuation,
   cyclic-import,
+  deprecated-method,
   duplicate-code,
   file-ignored,
   fixme,
@@ -16,8 +19,6 @@ disable=
   logging-format-interpolation,
   missing-docstring,
   star-args
-
-confidence=HIGH,INFERENCE,INFERENCE_FAILURE
 
 [REPORTS]
 
