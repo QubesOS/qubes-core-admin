@@ -635,6 +635,15 @@ def pool_drivers():
             for ep in pkg_resources.iter_entry_points(STORAGE_ENTRY_POINT)]
 
 
+def driver_parameters(name):
+    ''' Get __init__ parameters from a driver with out `self` & `name`. '''
+    init_function = qubes.utils.get_entry_point_one(
+        qubes.storage.STORAGE_ENTRY_POINT, name).__init__
+    params = init_function.func_code.co_varnames
+    ignored_params = ['self', 'name']
+    return [p for p in params if p not in ignored_params]
+
+
 def isodate(seconds=time.time()):
     ''' Helper method which returns an iso date '''
     return datetime.utcfromtimestamp(seconds).isoformat("T")
