@@ -63,6 +63,8 @@ class QubesDaemonProtocol(asyncio.Protocol):
         asyncio.ensure_future(self.respond(
             src, method, dest, arg, untrusted_payload=untrusted_payload))
 
+        return True
+
     @asyncio.coroutine
     def respond(self, src, method, dest, arg, *, untrusted_payload):
         try:
