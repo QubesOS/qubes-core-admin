@@ -132,12 +132,14 @@ class QubesMgmt(object):
 
     @asyncio.coroutine
     def vm_list(self, untrusted_payload):
-        assert self.dest.name == 'dom0'
         assert not self.arg
         assert not untrusted_payload
         del untrusted_payload
 
-        domains = self.fire_event_for_filter(self.app.domains)
+        if self.dest.name == 'dom0':
+            domains = self.fire_event_for_filter(self.app.domains)
+        else:
+            domains = self.fire_event_for_filter([self.dest])
 
         return ''.join('{} class={} state={}\n'.format(
                 vm.name,
