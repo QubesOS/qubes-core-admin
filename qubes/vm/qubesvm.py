@@ -488,6 +488,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         default=(lambda self: self.app.default_dispvm),
         doc='Default VM to be used as Disposable VM for service calls.')
 
+
+    updateable = qubes.property('updateable',
+        default=(lambda self: not hasattr(self, 'template')),
+        type=bool,
+        setter=qubes.property.forbidden,
+        doc='True if this machine may be updated on its own.')
+
     #
     # static, class-wide properties
     #
@@ -574,12 +581,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 import qubesdb  # pylint: disable=import-error
                 self._qdb_connection = qubesdb.QubesDB(self.name)
         return self._qdb_connection
-
-    # XXX shouldn't this go elsewhere?
-    @property
-    def updateable(self):
-        '''True if this machine may be updated on its own.'''
-        return not hasattr(self, 'template')
 
     @property
     def dir_path(self):
