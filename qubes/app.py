@@ -872,7 +872,8 @@ class Qubes(qubes.PropertyHolder):
             self.pools[name] = self._get_pool(**config)
 
         self.domains.add(
-            qubes.vm.adminvm.AdminVM(self, None, qid=0, name='dom0'))
+            qubes.vm.adminvm.AdminVM(self, None, qid=0, name='dom0',
+                label='black'))
 
     @classmethod
     def create_empty_store(cls, *args, **kwargs):

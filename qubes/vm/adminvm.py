@@ -143,6 +143,9 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
         '''
         raise qubes.exc.QubesVMError(self, 'Cannot suspend Dom0 fake domain!')
 
+    @property
+    def icon_path(self):
+        return None
 
 #   def __init__(self, **kwargs):
 #       super(QubesAdminVm, self).__init__(qid=0, name="dom0", netid=0,
