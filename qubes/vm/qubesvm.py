@@ -703,7 +703,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.app.pools[vm_pool.name] = vm_pool
 
     @qubes.events.handler('property-set:label')
-    def on_property_set_label(self, event, name, new_label, old_label=None):
+    def on_property_set_label(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
         if self.icon_path:
             try:
@@ -711,10 +711,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             except OSError:
                 pass
             if hasattr(os, "symlink"):
-                os.symlink(new_label.icon_path, self.icon_path)
+                os.symlink(newvalue.icon_path, self.icon_path)
                 subprocess.call(['sudo', 'xdg-icon-resource', 'forceupdate'])
             else:
-                shutil.copy(new_label.icon_path, self.icon_path)
+                shutil.copy(newvalue.icon_path, self.icon_path)
 
     @qubes.events.handler('property-pre-set:name')
     def on_property_pre_set_name(self, event, name, newvalue, oldvalue=None):
@@ -737,11 +737,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                                    'qubes-vm@{}.service'.format(oldvalue)])
 
     @qubes.events.handler('property-set:name')
-    def on_property_set_name(self, event, name, new_name, old_name=None):
+    def on_property_set_name(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
         self.init_log()
 
-        self.storage.rename(old_name, new_name)
+        self.storage.rename(oldvalue, newvalue)
 
         if self._libvirt_domain is not None:
             self.libvirt_domain.undefine()
@@ -756,11 +756,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self.autostart = self.autostart
 
     @qubes.events.handler('property-pre-set:autostart')
-    def on_property_pre_set_autostart(self, event, prop, value,
+    def on_property_pre_set_autostart(self, event, prop, newvalue,
             oldvalue=None):
         # pylint: disable=unused-argument
         # workaround https://bugzilla.redhat.com/show_bug.cgi?id=1181922
-        if value:
+        if newvalue:
             retcode = subprocess.call(
                 ["sudo", "ln", "-sf",
                  "/usr/lib/systemd/system/qubes-vm@.service",
