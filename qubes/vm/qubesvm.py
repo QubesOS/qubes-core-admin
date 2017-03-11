@@ -128,6 +128,9 @@ def _setter_kernel(self, prop, value):
     if value is None:
         return value
     value = str(value)
+    if '/' in value:
+        raise qubes.exc.QubesPropertyValueError(self, prop, value,
+            'Kernel name cannot contain \'/\'')
     dirname = os.path.join(
         qubes.config.system_path['qubes_base_dir'],
         qubes.config.system_path['qubes_kernels_base_dir'],
