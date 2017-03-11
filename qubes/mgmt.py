@@ -165,14 +165,28 @@ class QubesMgmt(object):
 
         self.fire_event_for_permission()
 
+        property_def = self.dest.property_get_def(self.arg)
+        # explicit list to be sure that it matches protocol spec
+        if isinstance(property_def, qubes.vm.VMProperty):
+            property_type = 'vm'
+        elif property_def.type is int:
+            property_type = 'int'
+        elif property_def.type is bool:
+            property_type = 'bool'
+        elif self.arg == 'label':
+            property_type = 'label'
+        else:
+            property_type = 'str'
+
         try:
             value = getattr(self.dest, self.arg)
         except AttributeError:
-            return 'default=True '
+            return 'default=True type={} '.format(property_type)
         else:
-            return 'default={} {}'.format(
+            return 'default={} type={} {}'.format(
                 str(self.dest.property_is_default(self.arg)),
-                self.repr(value))
+                property_type,
+                str(value) if value is not None else '')
 
     @asyncio.coroutine
     def vm_property_help(self, untrusted_payload):
