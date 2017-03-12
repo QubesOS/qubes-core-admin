@@ -435,10 +435,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         ls_width=2,
         doc='FIXME')
 
-    pool_name = qubes.property('pool_name',
-        default='default',
-        doc='storage pool for this qube devices')
-
     # CORE2: swallowed uses_default_kernel
     kernel = qubes.property('kernel', type=str,
         setter=_setter_kernel,
