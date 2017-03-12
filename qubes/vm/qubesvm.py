@@ -30,6 +30,7 @@ import os
 import os.path
 import re
 import shutil
+import string
 import subprocess
 import sys
 import time
@@ -164,6 +165,16 @@ def _setter_positive_int(self, prop, value):
         raise ValueError('Value must be positive')
     return value
 
+
+def _setter_default_user(self, prop, value):
+    ''' Helper for setting default user '''
+    value = str(value)
+    # specifically forbid: ':', ' ', ''', '"'
+    allowed_chars = string.ascii_letters + string.digits + '_-+,.'
+    if not all(c in allowed_chars for c in value):
+        raise qubes.exc.QubesPropertyValueError(self, prop, value,
+            'Username can contain only those characters: ' + allowed_chars)
+    return value
 
 class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     '''Base functionality of Qubes VM shared between all VMs.
@@ -461,6 +472,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     default_user = qubes.property('default_user', type=str,
         default=(lambda self: self.template.default_user
             if hasattr(self, 'template') else 'user'),
+        setter=_setter_default_user,
         ls_width=12,
         doc='FIXME')
 
