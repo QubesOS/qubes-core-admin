@@ -91,8 +91,10 @@ class NetVMMixin(qubes.events.Emitter):
         doc='''If this domain can act as network provider (formerly known as
             NetVM or ProxyVM)''')
 
-    firewall_conf = qubes.property('firewall_conf', type=str,
-        default='firewall.xml')
+
+    @property
+    def firewall_conf(self):
+        return 'firewall.xml'
 
     #
     # used in networked appvms or proxyvms (netvm is not None)
