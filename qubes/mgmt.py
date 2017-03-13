@@ -234,6 +234,7 @@ class QubesMgmt(object):
         self.fire_event_for_permission(newvalue=newvalue)
 
         setattr(self.dest, self.arg, newvalue)
+        self.app.save()
 
     @asyncio.coroutine
     def vm_property_help(self, untrusted_payload):
@@ -259,6 +260,7 @@ class QubesMgmt(object):
         self.fire_event_for_permission()
 
         delattr(self.dest, self.arg)
+        self.app.save()
 
     @asyncio.coroutine
     def vm_volume_list(self, untrusted_payload):
@@ -310,6 +312,7 @@ class QubesMgmt(object):
         self.fire_event_for_permission(revision=revision)
 
         self.dest.storage.get_pool(volume).revert(revision)
+        self.app.save()
 
     @asyncio.coroutine
     def vm_volume_resize(self, untrusted_payload):
@@ -324,6 +327,7 @@ class QubesMgmt(object):
         self.fire_event_for_permission(size=size)
 
         self.dest.storage.resize(self.arg, size)
+        self.app.save()
 
     @asyncio.coroutine
     def pool_list(self, untrusted_payload):
@@ -398,6 +402,7 @@ class QubesMgmt(object):
         pool_config = untrusted_pool_config
 
         self.app.add_pool(name=pool_name, driver=self.arg, **pool_config)
+        self.app.save()
 
     @asyncio.coroutine
     def pool_remove(self, untrusted_payload):
@@ -409,3 +414,4 @@ class QubesMgmt(object):
         self.fire_event_for_permission()
 
         self.app.remove_pool(self.arg)
+        self.app.save()
