@@ -23,29 +23,8 @@ Qubes OS Management API
 '''
 
 import asyncio
-import reprlib
 
 import qubes.vm.qubesvm
-
-
-class ProtocolRepr(reprlib.Repr):
-    def repr1(self, x, level):
-        if isinstance(x, qubes.vm.qubesvm.QubesVM):
-            x = x.name
-        return super().repr1(x, level)
-
-    # pylint: disable=invalid-name
-
-    def repr_str(self, x, level):
-        '''Warning: this is incompatible with python 3 wrt to b'' '''
-        return "'{}'".format(''.join(
-                chr(c)
-                if 0x20 < c < 0x7f and c not in (ord("'"), ord('\\'))
-                else '\\x{:02x}'.format(c)
-            for c in x.encode()))
-
-    def repr_Label(self, x, level):
-        return self.repr1(x.name, level)
 
 
 class ProtocolError(AssertionError):
@@ -84,8 +63,6 @@ class QubesMgmt(object):
 
         #: argument
         self.arg = arg.decode('ascii')
-
-        self.prepr = ProtocolRepr()
 
         #: name of the method
         self.method = method.decode('ascii')
@@ -139,10 +116,6 @@ class QubesMgmt(object):
             iterable = filter(selector, iterable)
         return iterable
 
-    @not_in_api
-    def repr(self, *args, **kwargs):
-        return self.prepr.repr(*args, **kwargs)
-
     #
     # ACTUAL RPC CALLS
     #
@@ -190,7 +163,7 @@ class QubesMgmt(object):
         else:
             return 'default={} {}'.format(
                 str(self.dest.property_is_default(self.arg)),
-                self.repr(value))
+                str(value))
 
     @asyncio.coroutine
     def vm_property_help(self, untrusted_payload):
