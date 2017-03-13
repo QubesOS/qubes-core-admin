@@ -58,19 +58,36 @@ class PermissionDenied(Exception):
 
 
 def not_in_api(func):
+    '''Decorator for methods not intended to appear in API.
+
+    The decorated method cannot be called from public API using
+    :py:class:`QubesMgmt` class. The method becomes "private", and can be
+    called only as a helper for other methods.
+    '''
     func.not_in_api = True
     return func
 
 class QubesMgmt(object):
+    '''Implementation of Qubes Management API calls
+
+    This class contains all the methods available in the API.
+    '''
     def __init__(self, app, src, method, dest, arg):
+        #: :py:class:`qubes.Qubes` object
         self.app = app
 
+        #: source qube
         self.src = self.app.domains[src.decode('ascii')]
+
+        #: destination qube
         self.dest = self.app.domains[dest.decode('ascii')]
+
+        #: argument
         self.arg = arg.decode('ascii')
 
         self.prepr = ProtocolRepr()
 
+        #: name of the method
         self.method = method.decode('ascii')
 
         untrusted_func_name = self.method
@@ -111,11 +128,13 @@ class QubesMgmt(object):
 
     @not_in_api
     def fire_event_for_permission(self, **kwargs):
+        '''Fire an event on the source qube to check for permission'''
         return self.src.fire_event_pre('mgmt-permission:{}'.format(self.method),
             dest=self.dest, arg=self.arg, **kwargs)
 
     @not_in_api
     def fire_event_for_filter(self, iterable, **kwargs):
+        '''Fire an event on the source qube to filter for permission'''
         for selector in self.fire_event_for_permission(**kwargs):
             iterable = filter(selector, iterable)
         return iterable
@@ -130,6 +149,7 @@ class QubesMgmt(object):
 
     @asyncio.coroutine
     def vm_list(self, untrusted_payload):
+        '''List all the domains'''
         assert self.dest.name == 'dom0'
         assert not self.arg
         assert not untrusted_payload
@@ -145,6 +165,7 @@ class QubesMgmt(object):
 
     @asyncio.coroutine
     def vm_property_list(self, untrusted_payload):
+        '''List all properties on a qube'''
         assert not self.arg
         assert not untrusted_payload
         del untrusted_payload
@@ -155,6 +176,7 @@ class QubesMgmt(object):
 
     @asyncio.coroutine
     def vm_property_get(self, untrusted_payload):
+        '''Get a value of one property'''
         assert self.arg in self.dest.property_list()
         assert not untrusted_payload
         del untrusted_payload
@@ -172,6 +194,7 @@ class QubesMgmt(object):
 
     @asyncio.coroutine
     def vm_property_help(self, untrusted_payload):
+        '''Get help for one property'''
         assert self.arg in self.dest.property_list()
         assert not untrusted_payload
         del untrusted_payload
@@ -187,6 +210,7 @@ class QubesMgmt(object):
 
     @asyncio.coroutine
     def vm_property_reset(self, untrusted_payload):
+        '''Reset a property to a default value'''
         assert self.arg in self.dest.property_list()
         assert not untrusted_payload
         del untrusted_payload

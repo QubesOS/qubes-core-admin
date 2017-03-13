@@ -19,6 +19,7 @@ manpages and API documentation. For primary user documentation, see
    qubes-exc
    qubes-ext
    qubes-log
+   qubes-mgmt
    qubes-tools/index
    qubes-tests
    qubes-dochelpers

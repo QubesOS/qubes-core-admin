@@ -385,7 +385,10 @@ def check_man_args(app, doctree, docname):
     ''' Checks the manpage for undocumented or obsolete sub-commands and
         options.
     '''
-    command = os.path.split(docname)[1]
+    dirname, command = os.path.split(docname)
+    if os.path.basename(dirname) != 'manpages':
+        return
+
     app.info('Checking arguments for {!r}'.format(command))
     doctree.walk(ManpageCheckVisitor(app, command, doctree))
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 #
 # The Qubes OS Project, https://www.qubes-os.org/
 #
