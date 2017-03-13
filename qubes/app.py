@@ -859,6 +859,7 @@ class Qubes(qubes.PropertyHolder):
             7: qubes.Label(7, '0x75507b', 'purple'),
             8: qubes.Label(8, '0x000000', 'black'),
         }
+        assert max(self.labels.keys()) == qubes.config.max_default_label
 
         # check if the default LVM Thin pool qubes_dom0/pool00 exists
         if os.path.exists('/dev/mapper/qubes_dom0-pool00-tpool'):

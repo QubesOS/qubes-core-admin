@@ -415,3 +415,87 @@ class QubesMgmt(object):
 
         self.app.remove_pool(self.arg)
         self.app.save()
+
+    @asyncio.coroutine
+    def label_list(self, untrusted_payload):
+        assert self.dest.name == 'dom0'
+        assert not self.arg
+        assert not untrusted_payload
+        del untrusted_payload
+
+        labels = self.fire_event_for_filter(self.app.labels.values())
+
+        return ''.join('{}\n'.format(label.name) for label in labels)
+
+    @asyncio.coroutine
+    def label_get(self, untrusted_payload):
+        assert self.dest.name == 'dom0'
+        assert not untrusted_payload
+        del untrusted_payload
+
+        try:
+            label = self.app.get_label(self.arg)
+        except KeyError:
+            raise qubes.exc.QubesValueError
+
+        self.fire_event_for_permission(label=label)
+
+        return label.color
+
+    @asyncio.coroutine
+    def label_create(self, untrusted_payload):
+        assert self.dest.name == 'dom0'
+
+        # don't confuse label name with label index
+        assert not self.arg.isdigit()
+        allowed_chars = string.ascii_letters + string.digits + '-_.'
+        assert all(c in allowed_chars for c in self.arg)
+        try:
+            self.app.get_label(self.arg)
+        except KeyError:
+            # ok, no such label yet
+            pass
+        else:
+            raise qubes.exc.QubesValueError('label already exists')
+
+        untrusted_payload = untrusted_payload.decode('ascii').strip()
+        assert len(untrusted_payload) == 8
+        assert untrusted_payload.startswith('0x')
+        # besides prefix, only hex digits are allowed
+        assert all(x in string.hexdigits for x in untrusted_payload[2:])
+
+        # TODO: try to avoid creating label too similar to existing one?
+        color = untrusted_payload
+
+        self.fire_event_for_permission(color=color)
+
+        # allocate new index, but make sure it's outside of default labels set
+        new_index = max(
+            qubes.config.max_default_label, *self.app.labels.keys()) + 1
+
+        label = qubes.Label(new_index, color, self.arg)
+        self.app.labels[new_index] = label
+        self.app.save()
+
+    @asyncio.coroutine
+    def label_remove(self, untrusted_payload):
+        assert self.dest.name == 'dom0'
+        assert not untrusted_payload
+        del untrusted_payload
+
+        try:
+            label = self.app.get_label(self.arg)
+        except KeyError:
+            raise qubes.exc.QubesValueError
+        # don't allow removing default labels
+        assert label.index > qubes.config.max_default_label
+
+        # FIXME: this should be in app.add_label()
+        for vm in self.app.domains:
+            if vm.label == label:
+                raise qubes.exc.QubesException('label still in use')
+
+        self.fire_event_for_permission(label=label)
+
+        del self.app.labels[label.index]
+        self.app.save()
