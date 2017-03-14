@@ -10,7 +10,7 @@ qvm-shutdown
 
 SYNOPSIS
 ========
-| qvm-shutdown [options] <vm-name>
+| qvm-shutdown [options] <vm-name> [vm-name ...]
 
 OPTIONS
 =======

@@ -28,7 +28,7 @@ import sys
 import time
 
 def main():
-    usage = "usage: %prog [options] <vm-name>"
+    usage = "usage: %prog [options] <vm-name> [vm-name ...]"
     parser = OptionParser (usage)
     
     parser.add_option ("-q", "--quiet", action="store_false", dest="verbose", default=True)
