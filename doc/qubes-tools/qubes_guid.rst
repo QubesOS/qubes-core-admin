@@ -6,8 +6,6 @@ NAME
 ====
 qubes_guid
 
-:Date:   2012-04-13
-
 SYNOPSIS
 ========
 | qubes_guid -d domain_id [-c color] [-l label_index] [-i icon name, no suffix] [-v] [-q]

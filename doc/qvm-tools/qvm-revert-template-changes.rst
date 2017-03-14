@@ -6,8 +6,6 @@ NAME
 ====
 qvm-revert-template-changes
 
-:Date:   2012-04-11
-
 SYNOPSIS
 ========
 | qvm-revert-template-changes [options] <template-name>

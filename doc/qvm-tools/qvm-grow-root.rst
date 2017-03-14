@@ -6,8 +6,6 @@ NAME
 ====
 qvm-grow-root - increase root storage capacity of a specified VM
 
-:Date:   2014-03-21
-
 SYNOPSIS
 ========
 | qvm-grow-root <vm-name> <size>

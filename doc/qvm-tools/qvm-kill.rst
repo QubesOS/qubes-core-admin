@@ -6,8 +6,6 @@ NAME
 ====
 qvm-kill - kills the specified VM
 
-:Date:   2012-04-10
-
 SYNOPSIS
 ========
 | qvm-kill [options] <vm-name>
