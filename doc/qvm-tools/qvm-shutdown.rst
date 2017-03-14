@@ -6,8 +6,6 @@ NAME
 ====
 qvm-shutdown
 
-:Date:   2012-04-11
-
 SYNOPSIS
 ========
 | qvm-shutdown [options] <vm-name> [vm-name ...]
