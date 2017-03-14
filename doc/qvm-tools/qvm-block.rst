@@ -6,8 +6,6 @@ NAME
 ====
 qvm-block - list/set VM PCI devices.
 
-:Date:   2012-04-10
-
 SYNOPSIS
 ========
 | qvm-block -l [options]

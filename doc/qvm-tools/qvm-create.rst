@@ -6,8 +6,6 @@ NAME
 ====
 qvm-create - creates a new VM
 
-:Date:   2012-04-10
-
 SYNOPSIS
 ========
 | qvm-create [options] <vm-name>
