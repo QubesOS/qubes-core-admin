@@ -7,6 +7,8 @@ After=qubes-db-dom0.service libvirtd.service xenconsoled.service
 Type=oneshot
 StandardOutput=syslog
 RemainAfterExit=yes
+# Needed to avoid rebooting before all VMs have shut down.
+TimeoutStopSec=180
 ExecStart=/usr/lib/qubes/startup-misc.sh
 ExecStop=/usr/bin/qvm-shutdown -q --all --wait
 # QubesDB daemons stop after 60s timeout in worst case; speed it up, since no
