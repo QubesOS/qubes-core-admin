@@ -6,8 +6,6 @@ NAME
 ====
 qvm-grow-private - increase private storage capacity of a specified VM
 
-:Date:   2012-04-10
-
 SYNOPSIS
 ========
 | qvm-grow-private <vm-name> <size>

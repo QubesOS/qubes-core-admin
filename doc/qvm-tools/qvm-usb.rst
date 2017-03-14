@@ -6,8 +6,6 @@ NAME
 ====
 qvm-usb - List/set VM USB devices
 
-:Date:   2013-03-16
-
 SYNOPSIS
 ========
 | qvm-usb -l [options]

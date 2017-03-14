@@ -6,8 +6,6 @@ NAME
 ====
 qvm-create-default-dvm - creates a default disposable VM
 
-:Date:   2012-04-10
-
 SYNOPSIS
 ========
 | qvm-create-default-dvm templatename|--default-template|--used-template [script-name|--default-script]

@@ -6,8 +6,6 @@ NAME
 ====
 qvm-check - Specify no state options to check if VM exists
 
-:Date:   2013-06-23
-
 SYNOPSIS
 ========
 | qvm-check [options] <vm-name>

@@ -6,8 +6,6 @@ NAME
 ====
 qvm-backup-restore - restores Qubes VMs from backup
 
-:Date:   2012-04-10
-
 SYNOPSIS
 ========
 | qvm-backup-restore [options] <backup-dir>
