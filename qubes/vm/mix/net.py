@@ -332,7 +332,7 @@ class NetVMMixin(qubes.events.Emitter):
 
 
     @qubes.events.handler('property-del:netvm')
-    def on_property_del_netvm(self, event, prop, oldvalue=None):
+    def on_property_del_netvm(self, event, name, oldvalue=None):
         ''' Sets the the NetVM to default NetVM '''
         # pylint: disable=unused-argument
         # we are changing to default netvm
