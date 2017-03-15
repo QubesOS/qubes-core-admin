@@ -314,6 +314,7 @@ fi
 %{python3_sitelib}/qubes/tests/events.py
 %{python3_sitelib}/qubes/tests/firewall.py
 %{python3_sitelib}/qubes/tests/init.py
+%{python3_sitelib}/qubes/tests/mgmt.py
 %{python3_sitelib}/qubes/tests/storage.py
 %{python3_sitelib}/qubes/tests/storage_file.py
 %{python3_sitelib}/qubes/tests/storage_lvm.py
