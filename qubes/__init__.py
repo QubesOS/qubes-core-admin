@@ -372,7 +372,7 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
                 return False
             if lcvalue in ('1', 'yes', 'true', 'on'):
                 return True
-            raise ValueError(
+            raise qubes.exc.QubesValueError(
                 'Invalid literal for boolean property: {!r}'.format(value))
 
         return bool(value)
