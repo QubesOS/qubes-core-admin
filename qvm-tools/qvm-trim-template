@@ -134,6 +134,7 @@ def main():
                                 'vm': 'dom0',
                                 'device': tvm.root_img,
                                 'mode': 'w',
+                                'desc': '',
                             },
                             mode='w',
                             frontend='xvdi')
