@@ -143,12 +143,22 @@ class TestEmitter(qubes.events.Emitter):
 
     def fire_event(self, event, **kwargs):
         effects = super(TestEmitter, self).fire_event(event, **kwargs)
-        self.fired_events[(event, tuple(kwargs.items()))] += 1
+        ev_kwargs = frozenset(
+            (key,
+                frozenset(value.items()) if isinstance(value, dict) else value)
+            for key, value in kwargs.items()
+        )
+        self.fired_events[(event, ev_kwargs)] += 1
         return effects
 
     def fire_event_pre(self, event, **kwargs):
         effects = super(TestEmitter, self).fire_event_pre(event, **kwargs)
-        self.fired_events[(event, tuple(kwargs.items()))] += 1
+        ev_kwargs = frozenset(
+            (key,
+                frozenset(value.items()) if isinstance(value, dict) else value)
+            for key, value in kwargs.items()
+        )
+        self.fired_events[(event, ev_kwargs)] += 1
         return effects
 
 def expectedFailureIfTemplate(templates):
