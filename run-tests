@@ -1,6 +1,6 @@
 #!/bin/sh
 
-: "${PYTHON:=python}"
+: "${PYTHON:=python3}"
 : "${TESTPYTHONPATH:=test-packages}"
 
 PYTHONPATH="${TESTPYTHONPATH}:${PYTHONPATH}"
