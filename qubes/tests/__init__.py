@@ -45,6 +45,7 @@ import unittest
 from distutils import spawn
 
 import lxml.etree
+import pkg_resources
 
 import qubes.backup
 import qubes.config
