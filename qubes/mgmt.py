@@ -26,6 +26,8 @@ import asyncio
 import reprlib
 import string
 
+import functools
+
 import qubes.vm.qubesvm
 import qubes.storage
 
@@ -62,6 +64,14 @@ class PermissionDenied(Exception):
 def not_in_api(func):
     func.not_in_api = True
     return func
+
+def no_payload(func):
+    @functools.wraps(func)
+    def wrapper(self, untrusted_payload):
+        if untrusted_payload != b'':
+            raise ProtocolError('unexpected payload')
+        return func(self)
+    return wrapper
 
 class QubesMgmt(object):
     def __init__(self, app, src, method, dest, arg):
@@ -131,10 +141,9 @@ class QubesMgmt(object):
     #
 
     @asyncio.coroutine
-    def vm_list(self, untrusted_payload):
+    @no_payload
+    def vm_list(self):
         assert not self.arg
-        assert not untrusted_payload
-        del untrusted_payload
 
         if self.dest.name == 'dom0':
             domains = self.fire_event_for_filter(self.app.domains)
@@ -148,20 +157,18 @@ class QubesMgmt(object):
             for vm in sorted(domains))
 
     @asyncio.coroutine
-    def vm_property_list(self, untrusted_payload):
+    @no_payload
+    def vm_property_list(self):
         assert not self.arg
-        assert not untrusted_payload
-        del untrusted_payload
 
         properties = self.fire_event_for_filter(self.dest.property_list())
 
         return ''.join('{}\n'.format(prop.__name__) for prop in properties)
 
     @asyncio.coroutine
-    def vm_property_get(self, untrusted_payload):
+    @no_payload
+    def vm_property_get(self):
         assert self.arg in self.dest.property_list()
-        assert not untrusted_payload
-        del untrusted_payload
 
         self.fire_event_for_permission()
 
@@ -237,10 +244,9 @@ class QubesMgmt(object):
         self.app.save()
 
     @asyncio.coroutine
-    def vm_property_help(self, untrusted_payload):
+    @no_payload
+    def vm_property_help(self):
         assert self.arg in self.dest.property_list()
-        assert not untrusted_payload
-        del untrusted_payload
 
         self.fire_event_for_permission()
 
@@ -252,10 +258,9 @@ class QubesMgmt(object):
         return qubes.utils.format_doc(doc)
 
     @asyncio.coroutine
-    def vm_property_reset(self, untrusted_payload):
+    @no_payload
+    def vm_property_reset(self):
         assert self.arg in self.dest.property_list()
-        assert not untrusted_payload
-        del untrusted_payload
 
         self.fire_event_for_permission()
 
@@ -263,19 +268,17 @@ class QubesMgmt(object):
         self.app.save()
 
     @asyncio.coroutine
-    def vm_volume_list(self, untrusted_payload):
+    @no_payload
+    def vm_volume_list(self):
         assert not self.arg
-        assert not untrusted_payload
-        del untrusted_payload
 
         volume_names = self.fire_event_for_filter(self.dest.volumes.keys())
         return ''.join('{}\n'.format(name) for name in volume_names)
 
     @asyncio.coroutine
-    def vm_volume_info(self, untrusted_payload):
+    @no_payload
+    def vm_volume_info(self):
         assert self.arg in self.dest.volumes.keys()
-        assert not untrusted_payload
-        del untrusted_payload
 
         self.fire_event_for_permission()
 
@@ -288,10 +291,9 @@ class QubesMgmt(object):
             volume_properties)
 
     @asyncio.coroutine
-    def vm_volume_listsnapshots(self, untrusted_payload):
+    @no_payload
+    def vm_volume_listsnapshots(self):
         assert self.arg in self.dest.volumes.keys()
-        assert not untrusted_payload
-        del untrusted_payload
 
         self.fire_event_for_permission()
 
@@ -330,22 +332,20 @@ class QubesMgmt(object):
         self.app.save()
 
     @asyncio.coroutine
-    def pool_list(self, untrusted_payload):
+    @no_payload
+    def pool_list(self):
         assert not self.arg
         assert self.dest.name == 'dom0'
-        assert not untrusted_payload
-        del untrusted_payload
 
         pools = self.fire_event_for_filter(self.app.pools)
 
         return ''.join('{}\n'.format(pool) for pool in pools)
 
     @asyncio.coroutine
-    def pool_listdrivers(self, untrusted_payload):
+    @no_payload
+    def pool_listdrivers(self):
         assert self.dest.name == 'dom0'
         assert not self.arg
-        assert not untrusted_payload
-        del untrusted_payload
 
         drivers = self.fire_event_for_filter(qubes.storage.pool_drivers())
 
@@ -355,11 +355,10 @@ class QubesMgmt(object):
             for driver in drivers)
 
     @asyncio.coroutine
-    def pool_info(self, untrusted_payload):
+    @no_payload
+    def pool_info(self):
         assert self.dest.name == 'dom0'
         assert self.arg in self.app.pools.keys()
-        assert not untrusted_payload
-        del untrusted_payload
 
         pool = self.app.pools[self.arg]
 
@@ -405,11 +404,10 @@ class QubesMgmt(object):
         self.app.save()
 
     @asyncio.coroutine
-    def pool_remove(self, untrusted_payload):
+    @no_payload
+    def pool_remove(self):
         assert self.dest.name == 'dom0'
         assert self.arg in self.app.pools.keys()
-        assert not untrusted_payload
-        del untrusted_payload
 
         self.fire_event_for_permission()
 
@@ -417,21 +415,19 @@ class QubesMgmt(object):
         self.app.save()
 
     @asyncio.coroutine
-    def label_list(self, untrusted_payload):
+    @no_payload
+    def label_list(self):
         assert self.dest.name == 'dom0'
         assert not self.arg
-        assert not untrusted_payload
-        del untrusted_payload
 
         labels = self.fire_event_for_filter(self.app.labels.values())
 
         return ''.join('{}\n'.format(label.name) for label in labels)
 
     @asyncio.coroutine
-    def label_get(self, untrusted_payload):
+    @no_payload
+    def label_get(self):
         assert self.dest.name == 'dom0'
-        assert not untrusted_payload
-        del untrusted_payload
 
         try:
             label = self.app.get_label(self.arg)
@@ -478,10 +474,9 @@ class QubesMgmt(object):
         self.app.save()
 
     @asyncio.coroutine
-    def label_remove(self, untrusted_payload):
+    @no_payload
+    def label_remove(self):
         assert self.dest.name == 'dom0'
-        assert not untrusted_payload
-        del untrusted_payload
 
         try:
             label = self.app.get_label(self.arg)
