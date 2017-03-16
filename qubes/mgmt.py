@@ -23,33 +23,12 @@ Qubes OS Management API
 '''
 
 import asyncio
-import reprlib
 import string
 
 import functools
 
 import qubes.vm.qubesvm
 import qubes.storage
-
-
-class ProtocolRepr(reprlib.Repr):
-    def repr1(self, x, level):
-        if isinstance(x, qubes.vm.qubesvm.QubesVM):
-            x = x.name
-        return super().repr1(x, level)
-
-    # pylint: disable=invalid-name
-
-    def repr_str(self, x, level):
-        '''Warning: this is incompatible with python 3 wrt to b'' '''
-        return "'{}'".format(''.join(
-                chr(c)
-                if 0x20 < c < 0x7f and c not in (ord("'"), ord('\\'))
-                else '\\x{:02x}'.format(c)
-            for c in x.encode()))
-
-    def repr_Label(self, x, level):
-        return self.repr1(x.name, level)
 
 
 class ProtocolError(AssertionError):
@@ -65,6 +44,7 @@ def not_in_api(func):
     func.not_in_api = True
     return func
 
+
 def no_payload(func):
     @functools.wraps(func)
     def wrapper(self, untrusted_payload):
@@ -73,6 +53,7 @@ def no_payload(func):
         return func(self)
     return wrapper
 
+
 class QubesMgmt(object):
     def __init__(self, app, src, method, dest, arg):
         self.app = app
@@ -80,8 +61,6 @@ class QubesMgmt(object):
         self.src = self.app.domains[src.decode('ascii')]
         self.dest = self.app.domains[dest.decode('ascii')]
         self.arg = arg.decode('ascii')
-
-        self.prepr = ProtocolRepr()
 
         self.method = method.decode('ascii')
 
@@ -132,9 +111,6 @@ class QubesMgmt(object):
             iterable = filter(selector, iterable)
         return iterable
 
-    @not_in_api
-    def repr(self, *args, **kwargs):
-        return self.prepr.repr(*args, **kwargs)
 
     #
     # ACTUAL RPC CALLS
