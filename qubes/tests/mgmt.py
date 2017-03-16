@@ -28,6 +28,11 @@ import qubes
 import qubes.tests
 import qubes.mgmt
 
+# properties defined in API
+volume_properties = [
+    'pool', 'vid', 'size', 'usage', 'rw', 'internal', 'source',
+    'save_on_stop', 'snap_on_start']
+
 
 class MgmtTestCase(qubes.tests.QubesTestCase):
     def setUp(self):
@@ -270,6 +275,523 @@ class TC_00_VMs(MgmtTestCase):
                 self.call_mgmt_func(b'mgmt.vm.property.Help', b'test-vm1',
                     b'no-such-property')
             self.assertFalse(mock.called)
+        self.assertFalse(self.app.save.called)
+
+    def test_070_vm_volume_list(self):
+        self.vm.volumes = unittest.mock.Mock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel']
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        value = self.call_mgmt_func(b'mgmt.vm.volume.List', b'test-vm1')
+        self.assertEqual(value, 'root\nprivate\nvolatile\nkernel\n')
+        # check if _only_ keys were accessed
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [unittest.mock.call.keys()])
+
+    def test_080_vm_volume_info(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel']
+        }
+        for prop in volume_properties:
+            volumes_conf[
+                '__getitem__.return_value.{}'.format(prop)] = prop +'-value'
+        self.vm.volumes.configure_mock(**volumes_conf)
+        value = self.call_mgmt_func(b'mgmt.vm.volume.Info', b'test-vm1',
+            b'private')
+        self.assertEqual(value,
+            ''.join('{p}={p}-value\n'.format(p=p) for p in volume_properties))
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [unittest.mock.call.keys(),
+             unittest.mock.call.__getattr__('__getitem__')('private')])
+
+    def test_080_vm_volume_info_invalid_volume(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel']
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.vm.volume.Info', b'test-vm1',
+                b'no-such-volume')
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [unittest.mock.call.keys()])
+
+    def test_090_vm_volume_listsnapshots(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+            '__getitem__.return_value.revisions': ['rev1', 'rev2'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        value = self.call_mgmt_func(b'mgmt.vm.volume.ListSnapshots',
+            b'test-vm1', b'private')
+        self.assertEqual(value,
+            'rev1\nrev2\n')
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [unittest.mock.call.keys(),
+            unittest.mock.call.__getattr__('__getitem__')('private')])
+
+    def test_090_vm_volume_listsnapshots_invalid_volume(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel']
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.vm.volume.ListSnapshots', b'test-vm1',
+                b'no-such-volume')
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [unittest.mock.call.keys()])
+
+    @unittest.skip('method not implemented yet')
+    def test_100_vm_volume_snapshot(self):
+        pass
+
+    @unittest.skip('method not implemented yet')
+    def test_100_vm_volume_snapshot_invlid_volume(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+            '__getitem__.return_value.revisions': ['rev1', 'rev2'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.vm.volume.Snapshots',
+                b'test-vm1', b'no-such-volume')
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [unittest.mock.call.keys()])
+
+    @unittest.skip('method not implemented yet')
+    def test_100_vm_volume_snapshot_invalid_revision(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel']
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.vm.volume.Snapshots',
+                b'test-vm1', b'private', b'no-such-rev')
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [unittest.mock.call.keys(),
+            unittest.mock.call.__getattr__('__getitem__')('private')])
+
+    def test_110_vm_volume_revert(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+            '__getitem__.return_value.revisions': ['rev1', 'rev2'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        value = self.call_mgmt_func(b'mgmt.vm.volume.Revert',
+            b'test-vm1', b'private', b'rev1')
+        self.assertIsNone(value)
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [unittest.mock.call.keys(),
+                unittest.mock.call.__getattr__('__getitem__')('private')])
+        self.assertEqual(self.vm.storage.mock_calls,
+            [unittest.mock.call.get_pool(self.vm.volumes['private']),
+             unittest.mock.call.get_pool().revert('rev1')])
+
+    def test_110_vm_volume_revert_invalid_rev(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+            '__getitem__.return_value.revisions': ['rev1', 'rev2'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.vm.volume.Revert',
+                b'test-vm1', b'private', b'no-such-rev')
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [unittest.mock.call.keys(),
+                unittest.mock.call.__getattr__('__getitem__')('private')])
+        self.assertFalse(self.vm.storage.called)
+
+    def test_120_vm_volume_resize(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        value = self.call_mgmt_func(b'mgmt.vm.volume.Resize',
+            b'test-vm1', b'private', b'1024000000')
+        self.assertIsNone(value)
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [unittest.mock.call.keys()])
+        self.assertEqual(self.vm.storage.mock_calls,
+            [unittest.mock.call.resize('private', 1024000000)])
+
+    def test_120_vm_volume_resize_invalid_size1(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.vm.volume.Resize',
+                b'test-vm1', b'private', b'no-int-size')
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [unittest.mock.call.keys()])
+        self.assertFalse(self.vm.storage.called)
+
+    def test_120_vm_volume_resize_invalid_size2(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.vm.volume.Resize',
+                b'test-vm1', b'private', b'-1')
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [unittest.mock.call.keys()])
+        self.assertFalse(self.vm.storage.called)
+
+    def test_130_pool_list(self):
+        self.app.pools = ['file', 'lvm']
+        value = self.call_mgmt_func(b'mgmt.pool.List', b'dom0')
+        self.assertEqual(value, 'file\nlvm\n')
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.pool_drivers')
+    @unittest.mock.patch('qubes.storage.driver_parameters')
+    def test_140_pool_listdrivers(self, mock_parameters, mock_drivers):
+        self.app.pools = ['file', 'lvm']
+
+        mock_drivers.return_value = ['driver1', 'driver2']
+        mock_parameters.side_effect = \
+            lambda driver: {
+                'driver1': ['param1', 'param2'],
+                'driver2': ['param3', 'param4']
+            }[driver]
+
+        value = self.call_mgmt_func(b'mgmt.pool.ListDrivers', b'dom0')
+        self.assertEqual(value,
+            'driver1 param1 param2\ndriver2 param3 param4\n')
+        self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
+        self.assertEqual(mock_parameters.mock_calls,
+            [unittest.mock.call('driver1'), unittest.mock.call('driver2')])
+        self.assertFalse(self.app.save.called)
+
+    def test_150_pool_info(self):
+        self.app.pools = {
+            'pool1': unittest.mock.Mock(config={
+                'param1': 'value1', 'param2': 'value2'})
+        }
+        value = self.call_mgmt_func(b'mgmt.pool.Info', b'dom0', b'pool1')
+
+        self.assertEqual(value, 'param1=value1\nparam2=value2\n')
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.pool_drivers')
+    @unittest.mock.patch('qubes.storage.driver_parameters')
+    def test_160_pool_add(self, mock_parameters, mock_drivers):
+        self.app.pools = {
+            'file': unittest.mock.Mock(),
+            'lvm': unittest.mock.Mock()
+        }
+
+        mock_drivers.return_value = ['driver1', 'driver2']
+        mock_parameters.side_effect = \
+            lambda driver: {
+                'driver1': ['param1', 'param2'],
+                'driver2': ['param3', 'param4']
+            }[driver]
+
+        self.app.add_pool = unittest.mock.Mock()
+
+        value = self.call_mgmt_func(b'mgmt.pool.Add', b'dom0', b'driver1',
+            b'name=test-pool\nparam1=some-value\n')
+        self.assertIsNone(value)
+        self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
+        self.assertEqual(mock_parameters.mock_calls,
+            [unittest.mock.call('driver1')])
+        self.assertEqual(self.app.add_pool.mock_calls,
+            [unittest.mock.call(name='test-pool', driver='driver1',
+                param1='some-value')])
+        self.assertTrue(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.pool_drivers')
+    @unittest.mock.patch('qubes.storage.driver_parameters')
+    def test_160_pool_add_invalid_driver(self, mock_parameters, mock_drivers):
+        self.app.pools = {
+            'file': unittest.mock.Mock(),
+            'lvm': unittest.mock.Mock()
+        }
+
+        mock_drivers.return_value = ['driver1', 'driver2']
+        mock_parameters.side_effect = \
+            lambda driver: {
+                'driver1': ['param1', 'param2'],
+                'driver2': ['param3', 'param4']
+            }[driver]
+
+        self.app.add_pool = unittest.mock.Mock()
+
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.pool.Add', b'dom0',
+                b'no-such-driver', b'name=test-pool\nparam1=some-value\n')
+        self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
+        self.assertEqual(mock_parameters.mock_calls, [])
+        self.assertEqual(self.app.add_pool.mock_calls, [])
+        self.assertFalse(self.app.save.called)
+
+
+    @unittest.mock.patch('qubes.storage.pool_drivers')
+    @unittest.mock.patch('qubes.storage.driver_parameters')
+    def test_160_pool_add_invalid_param(self, mock_parameters, mock_drivers):
+        self.app.pools = {
+            'file': unittest.mock.Mock(),
+            'lvm': unittest.mock.Mock()
+        }
+
+        mock_drivers.return_value = ['driver1', 'driver2']
+        mock_parameters.side_effect = \
+            lambda driver: {
+                'driver1': ['param1', 'param2'],
+                'driver2': ['param3', 'param4']
+            }[driver]
+
+        self.app.add_pool = unittest.mock.Mock()
+
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.pool.Add', b'dom0',
+                b'driver1', b'name=test-pool\nparam3=some-value\n')
+        self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
+        self.assertEqual(mock_parameters.mock_calls,
+            [unittest.mock.call('driver1')])
+        self.assertEqual(self.app.add_pool.mock_calls, [])
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.pool_drivers')
+    @unittest.mock.patch('qubes.storage.driver_parameters')
+    def test_160_pool_add_missing_name(self, mock_parameters, mock_drivers):
+        self.app.pools = {
+            'file': unittest.mock.Mock(),
+            'lvm': unittest.mock.Mock()
+        }
+
+        mock_drivers.return_value = ['driver1', 'driver2']
+        mock_parameters.side_effect = \
+            lambda driver: {
+                'driver1': ['param1', 'param2'],
+                'driver2': ['param3', 'param4']
+            }[driver]
+
+        self.app.add_pool = unittest.mock.Mock()
+
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.pool.Add', b'dom0',
+                b'driver1', b'param1=value\nparam2=some-value\n')
+        self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
+        self.assertEqual(mock_parameters.mock_calls, [])
+        self.assertEqual(self.app.add_pool.mock_calls, [])
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.pool_drivers')
+    @unittest.mock.patch('qubes.storage.driver_parameters')
+    def test_160_pool_add_existing_pool(self, mock_parameters, mock_drivers):
+        self.app.pools = {
+            'file': unittest.mock.Mock(),
+            'lvm': unittest.mock.Mock()
+        }
+
+        mock_drivers.return_value = ['driver1', 'driver2']
+        mock_parameters.side_effect = \
+            lambda driver: {
+                'driver1': ['param1', 'param2'],
+                'driver2': ['param3', 'param4']
+            }[driver]
+
+        self.app.add_pool = unittest.mock.Mock()
+
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.pool.Add', b'dom0',
+                b'driver1', b'name=file\nparam1=value\nparam2=some-value\n')
+        self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
+        self.assertEqual(mock_parameters.mock_calls, [])
+        self.assertEqual(self.app.add_pool.mock_calls, [])
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.pool_drivers')
+    @unittest.mock.patch('qubes.storage.driver_parameters')
+    def test_160_pool_add_invalid_config_format(self, mock_parameters,
+            mock_drivers):
+        self.app.pools = {
+            'file': unittest.mock.Mock(),
+            'lvm': unittest.mock.Mock()
+        }
+
+        mock_drivers.return_value = ['driver1', 'driver2']
+        mock_parameters.side_effect = \
+            lambda driver: {
+                'driver1': ['param1', 'param2'],
+                'driver2': ['param3', 'param4']
+            }[driver]
+
+        self.app.add_pool = unittest.mock.Mock()
+
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.pool.Add', b'dom0',
+                b'driver1', b'name=test-pool\nparam 1=value\n_param2\n')
+        self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
+        self.assertEqual(mock_parameters.mock_calls, [])
+        self.assertEqual(self.app.add_pool.mock_calls, [])
+        self.assertFalse(self.app.save.called)
+
+    def test_170_pool_remove(self):
+        self.app.pools = {
+            'file': unittest.mock.Mock(),
+            'lvm': unittest.mock.Mock(),
+            'test-pool': unittest.mock.Mock(),
+        }
+        self.app.remove_pool = unittest.mock.Mock()
+        value = self.call_mgmt_func(b'mgmt.pool.Remove', b'dom0', b'test-pool')
+        self.assertIsNone(value)
+        self.assertEqual(self.app.remove_pool.mock_calls,
+            [unittest.mock.call('test-pool')])
+        self.assertTrue(self.app.save.called)
+
+    def test_170_pool_remove_invalid_pool(self):
+        self.app.pools = {
+            'file': unittest.mock.Mock(),
+            'lvm': unittest.mock.Mock(),
+            'test-pool': unittest.mock.Mock(),
+        }
+        self.app.remove_pool = unittest.mock.Mock()
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.pool.Remove', b'dom0',
+                b'no-such-pool')
+        self.assertEqual(self.app.remove_pool.mock_calls, [])
+        self.assertFalse(self.app.save.called)
+
+    def test_180_label_list(self):
+        value = self.call_mgmt_func(b'mgmt.label.List', b'dom0')
+        self.assertEqual(value,
+            ''.join('{}\n'.format(l.name) for l in self.app.labels.values()))
+        self.assertFalse(self.app.save.called)
+
+    def test_190_label_get(self):
+        self.app.get_label = unittest.mock.Mock()
+        self.app.get_label.configure_mock(**{'return_value.color': '0xff0000'})
+        value = self.call_mgmt_func(b'mgmt.label.Get', b'dom0', b'red')
+        self.assertEqual(value, '0xff0000')
+        self.assertEqual(self.app.get_label.mock_calls,
+            [unittest.mock.call('red')])
+        self.assertFalse(self.app.save.called)
+
+    def test_200_label_create(self):
+        self.app.get_label = unittest.mock.Mock()
+        self.app.get_label.side_effect=KeyError
+        self.app.labels = unittest.mock.MagicMock()
+        labels_config = {
+            'keys.return_value': range(1, 9),
+        }
+        self.app.labels.configure_mock(**labels_config)
+        value = self.call_mgmt_func(b'mgmt.label.Create', b'dom0', b'cyan',
+            b'0x00ffff')
+        self.assertIsNone(value)
+        self.assertEqual(self.app.get_label.mock_calls,
+            [unittest.mock.call('cyan')])
+        self.assertEqual(self.app.labels.mock_calls,
+            [unittest.mock.call.keys(),
+            unittest.mock.call.__getattr__('__setitem__')(9,
+                qubes.Label(9, '0x00ffff', 'cyan'))])
+        self.assertTrue(self.app.save.called)
+
+    def test_200_label_create_invalid_color(self):
+        self.app.get_label = unittest.mock.Mock()
+        self.app.get_label.side_effect=KeyError
+        self.app.labels = unittest.mock.MagicMock()
+        labels_config = {
+            'keys.return_value': range(1, 9),
+        }
+        self.app.labels.configure_mock(**labels_config)
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.label.Create', b'dom0', b'cyan',
+                b'abcd')
+        self.assertEqual(self.app.get_label.mock_calls,
+            [unittest.mock.call('cyan')])
+        self.assertEqual(self.app.labels.mock_calls, [])
+        self.assertFalse(self.app.save.called)
+
+    def test_200_label_create_invalid_name(self):
+        self.app.get_label = unittest.mock.Mock()
+        self.app.get_label.side_effect=KeyError
+        self.app.labels = unittest.mock.MagicMock()
+        labels_config = {
+            'keys.return_value': range(1, 9),
+        }
+        self.app.labels.configure_mock(**labels_config)
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.label.Create', b'dom0', b'01',
+                b'0xff0000')
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.label.Create', b'dom0', b'../xxx',
+                b'0xff0000')
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.label.Create', b'dom0',
+                b'strange-name!@#$',
+                b'0xff0000')
+
+        self.assertEqual(self.app.get_label.mock_calls, [])
+        self.assertEqual(self.app.labels.mock_calls, [])
+        self.assertFalse(self.app.save.called)
+
+    def test_200_label_create_already_exists(self):
+        self.app.get_label = unittest.mock.Mock(wraps=self.app.get_label)
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.call_mgmt_func(b'mgmt.label.Create', b'dom0', b'red',
+                b'abcd')
+        self.assertEqual(self.app.get_label.mock_calls,
+            [unittest.mock.call('red')])
+        self.assertFalse(self.app.save.called)
+
+    def test_210_label_remove(self):
+        label = qubes.Label(9, '0x00ffff', 'cyan')
+        self.app.labels[9] = label
+        self.app.get_label = unittest.mock.Mock(wraps=self.app.get_label,
+            **{'return_value.index': 9})
+        self.app.labels = unittest.mock.MagicMock(wraps=self.app.labels)
+        value = self.call_mgmt_func(b'mgmt.label.Remove', b'dom0', b'cyan')
+        self.assertIsNone(value)
+        self.assertEqual(self.app.get_label.mock_calls,
+            [unittest.mock.call('cyan')])
+        self.assertEqual(self.app.labels.mock_calls,
+            [unittest.mock.call.__delitem__(9)])
+        self.assertTrue(self.app.save.called)
+
+    def test_210_label_remove_invalid_label(self):
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.call_mgmt_func(b'mgmt.label.Remove', b'dom0',
+                b'no-such-label')
+        self.assertFalse(self.app.save.called)
+
+    def test_210_label_remove_default_label(self):
+        self.app.labels = unittest.mock.MagicMock(wraps=self.app.labels)
+        self.app.get_label = unittest.mock.Mock(wraps=self.app.get_label,
+            **{'return_value.index': 6})
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.label.Remove', b'dom0',
+                b'blue')
+        self.assertEqual(self.app.labels.mock_calls, [])
+        self.assertFalse(self.app.save.called)
+
+    def test_210_label_remove_in_use(self):
+        self.app.labels = unittest.mock.MagicMock(wraps=self.app.labels)
+        self.app.get_label = unittest.mock.Mock(wraps=self.app.get_label,
+            **{'return_value.index': 1})
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.label.Remove', b'dom0',
+                b'red')
+        self.assertEqual(self.app.labels.mock_calls, [])
         self.assertFalse(self.app.save.called)
 
     def test_990_vm_unexpected_payload(self):
