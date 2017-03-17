@@ -47,7 +47,6 @@ Such extension should provide:
 
 import qubes.utils
 
-
 class DeviceNotAttached(qubes.exc.QubesException, KeyError):
     '''Trying to detach not attached device'''
     pass
@@ -327,3 +326,52 @@ class BlockDevice(object):
         self.domain = domain
         self.devtype = devtype
 
+class PersistentCollection(object):
+
+    ''' Helper object managing persistent `DeviceAssignment`s.
+    '''
+
+    def __init__(self):
+        self._dict = {}
+
+    def add(self, assignment: DeviceAssignment):
+        ''' Add assignment to collection '''
+        assert assignment.persistent and assignment.frontend_domain
+        vm = assignment.backend_domain
+        ident = assignment.ident
+        key = (vm, ident)
+        assert key not in self._dict
+
+        self._dict[key] = assignment
+
+    def discard(self, assignment):
+        ''' Discard assignment from collection '''
+        assert assignment.persistent and assignment.frontend_domain
+        vm = assignment.backend_domain
+        ident = assignment.ident
+        key = (vm, ident)
+        if key not in self._dict:
+            raise KeyError
+        del self._dict[key]
+
+    def __contains__(self, device) -> bool:
+        vm = device.backend_domain
+        ident = device.ident
+        key = (vm, ident)
+        return key in self._dict
+
+    def get(self, device: DeviceInfo) -> DeviceAssignment:
+        ''' Returns the corresponding `qubes.devices.DeviceAssignment` for the
+            device. '''
+        vm = device.backend_domain
+        ident = device.ident
+        key = (vm, ident)
+        if key not in self._dict:
+            raise KeyError
+        return self._dict[key]
+
+    def __iter__(self):
+        return self._dict.values().__iter__()
+
+    def __len__(self) -> int:
+        return len(self._dict.keys())
