@@ -117,7 +117,8 @@ class QubesDaemonProtocol(asyncio.Protocol):
 
     def send_response(self, content):
         self.send_header(0x30)
-        self.transport.write(content.encode('utf-8'))
+        if content is not None:
+            self.transport.write(content.encode('utf-8'))
 
     def send_event(self, subject, event, **kwargs):
         self.send_header(0x31)
