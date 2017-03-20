@@ -9,8 +9,9 @@ import signal
 import struct
 import traceback
 
+import libvirtaio
+
 import qubes
-import qubes.libvirtaio
 import qubes.mgmt
 import qubes.utils
 import qubes.vm.qubesvm
@@ -154,7 +155,7 @@ def main(args=None):
     args = parser.parse_args(args)
     loop = asyncio.get_event_loop()
 
-    qubes.libvirtaio.LibvirtAsyncIOEventImpl(loop).register()
+    libvirtaio.virEventRegisterAsyncIOImpl(loop=loop)
 
     try:
         os.unlink(QUBESD_SOCK)
