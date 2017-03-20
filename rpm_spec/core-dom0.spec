@@ -378,6 +378,11 @@ fi
 %{python3_sitelib}/qubes/qmemman/algo.py
 %{python3_sitelib}/qubes/qmemman/client.py
 
+%dir %{python3_sitelib}/qubespolicy
+%dir %{python3_sitelib}/qubespolicy/__pycache__
+%{python3_sitelib}/qubespolicy/__pycache__/*
+%{python3_sitelib}/qubespolicy/__init__.py
+
 /usr/lib/qubes/unbind-pci-device.sh
 /usr/lib/qubes/cleanup-dispvms
 /usr/lib/qubes/qfile-daemon-dvm*
