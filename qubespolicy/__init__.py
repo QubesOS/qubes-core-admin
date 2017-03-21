@@ -643,4 +643,4 @@ def get_system_info():
     '''
 
     system_info = qubesd_call('dom0', 'mgmtinternal.GetSystemInfo')
-    return json.loads(system_info)
+    return json.loads(system_info.decode('utf-8'))
