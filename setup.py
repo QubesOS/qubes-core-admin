@@ -28,7 +28,9 @@ if __name__ == '__main__':
         url='https://www.qubes-os.org/',
         packages=setuptools.find_packages(exclude=('core*', 'tests')),
         entry_points={
-            'console_scripts': list(get_console_scripts()),
+            'console_scripts': list(get_console_scripts()) + [
+                'qrexec-policy = qubespolicy.cli:main',
+            ],
             'qubes.vm': [
                 'AppVM = qubes.vm.appvm:AppVM',
                 'TemplateVM = qubes.vm.templatevm:TemplateVM',
