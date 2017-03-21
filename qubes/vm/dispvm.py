@@ -136,6 +136,10 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         This method modifies :file:`qubes.xml` file.
         The qube returned is not started.
         '''
+        if not appvm.dispvm_allowed:
+            raise qubes.exc.QubesException(
+                'Refusing to start DispVM out of this AppVM, because '
+                'dispvm_allowed=False')
         app = appvm.app
         dispvm = app.add_new_vm(
             cls,

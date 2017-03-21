@@ -37,6 +37,12 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
                                 ls_width=31,
                                 doc='Template, on which this AppVM is based.')
 
+    dispvm_allowed = qubes.property('dispvm_allowed',
+        type=bool,
+        default=False,
+        doc='Should this VM be allowed to start as Disposable VM'
+    )
+
     def __init__(self, app, xml, template=None, **kwargs):
         self.volume_config = {
             'root': {
