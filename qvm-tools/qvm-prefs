@@ -579,6 +579,10 @@ def main():
                              "the same time!"
         exit(1)
 
+    if vmname == 'dom0':
+        print >> sys.stderr, "dom0 cannot be edited by qvm-prefs"
+        exit(1)
+
     if options.offline_mode:
         vmm.offline_mode = True
 
