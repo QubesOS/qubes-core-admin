@@ -19,40 +19,51 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
-import unittest, time
-from core.gtkhelpers import VMListModeler, GtkOneTimerHelper, FocusStealingHelper, Gtk
+import time
+import unittest
+
+from gi.repository import Gtk
+
+from qubespolicy.gtkhelpers import VMListModeler, GtkOneTimerHelper, \
+    FocusStealingHelper
+
 
 class VMListModelerMock(VMListModeler):
     def __init__(self):
         VMListModeler.__init__(self)
 
     def _get_list(self):
-        return [  MockVm(0, "dom0", "black"),
-                        MockVm(2, "test-red1", "red"),
-                        MockVm(4, "test-red2", "red"),
-                        MockVm(7, "test-red3", "red"),
-                        MockVm(8, "test-source", "green"),
-                        MockVm(10, "test-target", "orange"),
-                        MockVm(15, "test-disp6", "red", True) ]
+        return [
+            MockVm(0, "dom0", "black"),
+            MockVm(2, "test-red1", "red"),
+            MockVm(4, "test-red2", "red"),
+            MockVm(7, "test-red3", "red"),
+            MockVm(8, "test-source", "green"),
+            MockVm(10, "test-target", "orange"),
+            MockVm(15, "test-disp6", "red", True)
+        ]
 
     @staticmethod
     def get_name_whitelist():
-        return [ "test-red1", "test-red2", "test-red3",
-                 "test-target", "test-disp6" ]
+        return ["test-red1", "test-red2", "test-red3",
+                "test-target", "test-disp6"]
+
 
 class MockVmLabel:
-    def __init__(self, index, color, name, dispvm = False):
+    def __init__(self, index, color, name, dispvm=False):
         self.index = index
         self.color = color
         self.name = name
         self.dispvm = dispvm
         self.icon = "gnome-foot"
 
+
 class MockVm:
-    def __init__(self, qid, name, color, dispvm = False):
+    def __init__(self, qid, name, color, dispvm=False):
         self.qid = qid
         self.name = name
         self.label = MockVmLabel(qid, 0x000000, color, dispvm)
+
 
 class MockComboEntry:
     def __init__(self, text):
@@ -64,12 +75,13 @@ class MockComboEntry:
     def get_text(self):
         return self._text
 
+
 class GtkTestCase(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         unittest.TestCase.__init__(self, *args, **kwargs)
         self._smallest_wait = 0.01
 
-    def flush_gtk_events(self, wait_seconds = 0):
+    def flush_gtk_events(self, wait_seconds=0):
         start = time.time()
         iterations = 0
         remaining_wait = wait_seconds
@@ -80,16 +92,17 @@ class GtkTestCase(unittest.TestCase):
 
         while remaining_wait >= 0:
             while Gtk.events_pending():
-                Gtk.main_iteration_do(blocking = False)
+                Gtk.main_iteration_do(blocking=False)
                 iterations += 1
 
             time_length = time.time() - start
             remaining_wait = wait_seconds - time_length
 
-            if (remaining_wait > 0):
+            if remaining_wait > 0:
                 time.sleep(self._smallest_wait)
 
-        return (iterations, time_length)
+        return iterations, time_length
+
 
 class VMListModelerTest(VMListModelerMock, unittest.TestCase):
     def __init__(self, *args, **kwargs):
@@ -102,8 +115,8 @@ class VMListModelerTest(VMListModelerMock, unittest.TestCase):
     def test_valid_qube_name(self):
         self.apply_model(Gtk.ComboBox())
 
-        for name in [ "test-red1", "test-red2", "test-red3",
-                      "test-target", "test-disp6" ]:
+        for name in ["test-red1", "test-red2", "test-red3",
+                     "test-target", "test-disp6"]:
 
             mock = MockComboEntry(name)
             self.assertEquals(name, self._get_valid_qube_name(mock, mock, []))
@@ -115,7 +128,7 @@ class VMListModelerTest(VMListModelerMock, unittest.TestCase):
         list_exc = ["test-disp6", "test-red2"]
 
         self.apply_model(Gtk.ComboBox(),
-            [VMListModeler.NameBlacklistFilter([ list_exc[0], list_exc[1] ]) ])
+            [VMListModeler.NameBlacklistFilter([list_exc[0], list_exc[1]])])
 
         for name in list_exc:
             mock = MockComboEntry(name)
@@ -126,7 +139,7 @@ class VMListModelerTest(VMListModelerMock, unittest.TestCase):
     def test_invalid_qube_name(self):
         self.apply_model(Gtk.ComboBox())
 
-        for name in [ "test-nonexistant", None, "", 1 ]:
+        for name in ["test-nonexistant", None, "", 1]:
 
             mock = MockComboEntry(name)
             self.assertIsNone(self._get_valid_qube_name(mock, mock, []))
@@ -151,7 +164,7 @@ class VMListModelerTest(VMListModelerMock, unittest.TestCase):
         self.assertIsNotNone(new_object.get_model())
 
     def test_apply_model_only_combobox(self):
-        invalid_types = [ 1, "One", u'1', {'1': "one"}, VMListModelerMock()]
+        invalid_types = [1, "One", u'1', {'1': "one"}, VMListModelerMock()]
 
         for invalid_type in invalid_types:
             with self.assertRaises(TypeError):
@@ -163,19 +176,19 @@ class VMListModelerTest(VMListModelerMock, unittest.TestCase):
         self.apply_model(combo)
         self.assertEquals(7, len(combo.get_model()))
 
-        self.apply_model(combo, [   VMListModeler.NameBlacklistFilter([
-                                        self._entries.keys()[0] ]) ])
+        self.apply_model(combo, [
+            VMListModeler.NameBlacklistFilter([self._entries.keys()[0]])])
         self.assertEquals(6, len(combo.get_model()))
 
-        self.apply_model(combo, [   VMListModeler.NameBlacklistFilter([
-                                        self._entries.keys()[0] ]),
-                                    VMListModeler.NameBlacklistFilter([
-                                        self._entries.keys()[1] ]) ])
+        self.apply_model(combo, [
+            VMListModeler.NameBlacklistFilter([self._entries.keys()[0]]),
+            VMListModeler.NameBlacklistFilter([self._entries.keys()[1]])])
         self.assertEquals(5, len(combo.get_model()))
 
-        self.apply_model(combo, [   VMListModeler.NameBlacklistFilter([
-                                        self._entries.keys()[0],
-                                        self._entries.keys()[1] ]) ])
+        self.apply_model(combo, [VMListModeler.NameBlacklistFilter([
+            self._entries.keys()[0],
+            self._entries.keys()[1]
+        ])])
         self.assertEquals(5, len(combo.get_model()))
 
     def test_apply_model_whitelist(self):
@@ -184,13 +197,13 @@ class VMListModelerTest(VMListModelerMock, unittest.TestCase):
         self.apply_model(combo)
         self.assertEquals(7, len(combo.get_model()))
 
-        self.apply_model(combo, [   VMListModeler.NameWhitelistFilter([
-                                        self._entries.keys()[0] ]) ])
+        self.apply_model(combo, [
+            VMListModeler.NameWhitelistFilter([self._entries.keys()[0]])])
         self.assertEquals(1, len(combo.get_model()))
 
-        self.apply_model(combo, [   VMListModeler.NameWhitelistFilter([
+        self.apply_model(combo, [VMListModeler.NameWhitelistFilter([
                                         self._entries.keys()[0],
-                                        self._entries.keys()[1] ]) ])
+                                        self._entries.keys()[1]])])
         self.assertEquals(2, len(combo.get_model()))
 
     def test_apply_model_multiple_filters(self):
@@ -199,15 +212,15 @@ class VMListModelerTest(VMListModelerMock, unittest.TestCase):
         self.apply_model(combo)
         self.assertEquals(7, len(combo.get_model()))
 
-        self.apply_model(combo, [   VMListModeler.NameWhitelistFilter([
+        self.apply_model(combo, [VMListModeler.NameWhitelistFilter([
                                         self._entries.keys()[0],
                                         self._entries.keys()[1],
                                         self._entries.keys()[2],
                                         self._entries.keys()[3],
-                                        self._entries.keys()[4] ]),
-                                    VMListModeler.NameBlacklistFilter([
+                                        self._entries.keys()[4]]),
+                                 VMListModeler.NameBlacklistFilter([
                                         self._entries.keys()[0],
-                                        self._entries.keys()[1] ]) ])
+                                        self._entries.keys()[1]])])
         self.assertEquals(3, len(combo.get_model()))
 
     def test_apply_icon(self):
@@ -222,7 +235,7 @@ class VMListModelerTest(VMListModelerMock, unittest.TestCase):
                 new_object.get_icon_pixbuf(Gtk.EntryIconPosition.PRIMARY))
 
     def test_apply_icon_only_entry(self):
-        invalid_types = [ 1, "One", u'1', {'1': "one"}, Gtk.ComboBox()]
+        invalid_types = [1, "One", u'1', {'1': "one"}, Gtk.ComboBox()]
 
         for invalid_type in invalid_types:
             with self.assertRaises(TypeError):
@@ -231,13 +244,14 @@ class VMListModelerTest(VMListModelerMock, unittest.TestCase):
     def test_apply_icon_only_existing(self):
         new_object = Gtk.Entry()
 
-        for name in [ "test-red1", "test-red2", "test-red3",
-                      "test-target", "test-disp6" ]:
+        for name in ["test-red1", "test-red2", "test-red3",
+                     "test-target", "test-disp6"]:
             self.apply_icon(new_object, name)
 
-        for name in [ "test-nonexistant", None, "", 1 ]:
+        for name in ["test-nonexistant", None, "", 1]:
             with self.assertRaises(ValueError):
                 self.apply_icon(new_object, name)
+
 
 class GtkOneTimerHelperTest(GtkOneTimerHelper, GtkTestCase):
     def __init__(self, *args, **kwargs):
@@ -293,7 +307,7 @@ class GtkOneTimerHelperTest(GtkOneTimerHelper, GtkTestCase):
 
     def test_more_tasks(self):
         num = 0
-        for num in range(1,10):
+        for num in range(1, 10):
             self._timer_schedule()
             self.flush_gtk_events(self._test_time/4)
         self.flush_gtk_events(self._test_time*1.75)
@@ -303,45 +317,47 @@ class GtkOneTimerHelperTest(GtkOneTimerHelper, GtkTestCase):
 
     def test_more_tasks_cancel(self):
         num = 0
-        for num in range(1,10):
+        for num in range(1, 10):
             self._timer_schedule()
             self.flush_gtk_events(self._test_time/4)
         self._invalidate_current_timer()
-        self.flush_gtk_events(self._test_time*1.75)
+        self.flush_gtk_events(int(self._test_time*1.75))
         self.assertEquals([], self._run_timers)
         self.assertEquals(num+1, self._current_timer_id)
         self.assertFalse(self._timer_has_completed())
 
     def test_subsequent_tasks(self):
-        self._timer_schedule() #1
+        self._timer_schedule()  # 1
         self.flush_gtk_events(self._test_time*2)
         self.assertEquals([1], self._run_timers)
         self.assertEquals(1, self._current_timer_id)
         self.assertTrue(self._timer_has_completed())
 
-        self._timer_schedule() #2
+        self._timer_schedule()  # 2
         self.flush_gtk_events(self._test_time*2)
-        self.assertEquals([1,2], self._run_timers)
+        self.assertEquals([1, 2], self._run_timers)
         self.assertEquals(2, self._current_timer_id)
         self.assertTrue(self._timer_has_completed())
 
         self._invalidate_timer_completed()
-        self._timer_schedule() #3
-        self._invalidate_current_timer() #4
+        self._timer_schedule()  # 3
+        self._invalidate_current_timer()  # 4
         self.flush_gtk_events(self._test_time*2)
-        self.assertEquals([1,2], self._run_timers)
+        self.assertEquals([1, 2], self._run_timers)
         self.assertEquals(4, self._current_timer_id)
         self.assertFalse(self._timer_has_completed())
 
-        self._timer_schedule() #5
+        self._timer_schedule()  # 5
         self.flush_gtk_events(self._test_time*2)
-        self.assertEquals([1,2,5], self._run_timers)
+        self.assertEquals([1, 2, 5], self._run_timers)
         self.assertEquals(5, self._current_timer_id)
         self.assertTrue(self._timer_has_completed())
+
 
 class FocusStealingHelperMock(FocusStealingHelper):
     def simulate_focus(self):
         self._window_changed_focus(True)
+
 
 class FocusStealingHelperTest(FocusStealingHelperMock, GtkTestCase):
     def __init__(self, *args, **kwargs):
@@ -352,7 +368,7 @@ class FocusStealingHelperTest(FocusStealingHelperMock, GtkTestCase):
         self._test_window = Gtk.Window()
 
         FocusStealingHelperMock.__init__(self, self._test_window,
-                                     self._test_button, self._test_time)
+            self._test_button, self._test_time)
 
     def test_nothing_runs_automatically(self):
         self.assertFalse(self.can_perform_action())
@@ -440,5 +456,5 @@ class FocusStealingHelperTest(FocusStealingHelperMock, GtkTestCase):
         self.assertTrue(self.can_perform_action())
         self.assertFalse(self._test_button.get_sensitive())
 
-if __name__=='__main__':
+if __name__ == '__main__':
     unittest.main()

@@ -19,13 +19,15 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
-import qubes
-import gi, os
+import gi
+import os
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GdkPixbuf, GObject, GLib
-from . qubesutils import sanitize_domain_name
+import qubes
+from qubespolicy.utils import sanitize_domain_name
 
 glade_directory = os.path.join(os.path.dirname(__file__), "glade")
+
 
 class GtkIconGetter:
     def __init__(self, size):
@@ -43,6 +45,7 @@ class GtkIconGetter:
             self._icons[name] = icon
 
         return self._icons[name]
+
 
 class VMListModeler:
     def __init__(self):
@@ -68,7 +71,7 @@ class VMListModeler:
 
     def _create_entries(self):
         for vm in self._get_list():
-            sanitize_domain_name(vm.name, assert_sanitized = True)
+            sanitize_domain_name(vm.name, assert_sanitized=True)
 
             icon = self._get_icon(vm)
 
@@ -120,13 +123,13 @@ class VMListModeler:
         if name:
             activation_trigger(entry_box)
 
-    def apply_model(self, destination_object, vm_filter_list = None,
-                    selection_trigger = None, activation_trigger = None):
+    def apply_model(self, destination_object, vm_filter_list=None,
+                    selection_trigger=None, activation_trigger=None):
         if isinstance(destination_object, Gtk.ComboBox):
             list_store = Gtk.ListStore(int, str, GdkPixbuf.Pixbuf)
 
             exclusions = []
-            for vm_name in sorted(self._entries.iterkeys()):
+            for vm_name in sorted(self._entries.keys()):
                 entry = self._entries[vm_name]
 
                 matches = True
@@ -223,6 +226,7 @@ class VMListModeler:
         def matches(self, vm):
             return vm.name in self._allowed_names_list
 
+
 class GtkOneTimerHelper:
     def __init__(self, wait_seconds):
         self._wait_seconds = wait_seconds
@@ -254,8 +258,9 @@ class GtkOneTimerHelper:
     def _timer_has_completed(self):
         return self._timer_completed
 
+
 class FocusStealingHelper(GtkOneTimerHelper):
-    def __init__(self, window, target_button, wait_seconds = 1):
+    def __init__(self, window, target_button, wait_seconds=1):
         GtkOneTimerHelper.__init__(self, wait_seconds)
         self._window = window
         self._target_button = target_button
@@ -298,4 +303,3 @@ class FocusStealingHelper(GtkOneTimerHelper):
 
     def can_perform_action(self):
         return self._timer_has_completed()
-

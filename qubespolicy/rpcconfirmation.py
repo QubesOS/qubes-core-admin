@@ -19,25 +19,29 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
-from . gtkhelpers import VMListModeler, FocusStealingHelper, glade_directory
-from . qubesutils import sanitize_domain_name, sanitize_service_name
+
 from gi.repository import Gtk, Gdk, GLib
 import os
+from qubespolicy.gtkhelpers import VMListModeler, FocusStealingHelper, \
+    glade_directory
+from qubespolicy.utils import sanitize_domain_name, \
+    sanitize_service_name
 
-class RPCConfirmationWindow():
+
+class RPCConfirmationWindow:
     _source_file = os.path.join(glade_directory, "RPCConfirmationWindow.glade")
-    _source_id = { 'window': "RPCConfirmationWindow",
+    _source_id = {'window': "RPCConfirmationWindow",
                   'ok': "okButton",
                   'cancel': "cancelButton",
                   'source': "sourceEntry",
-                  'rpc_label' : "rpcLabel",
+                  'rpc_label': "rpcLabel",
                   'target': "TargetCombo",
                   'error_bar': "ErrorBar",
                   'error_message': "ErrorMessage",
-                }
+                  }
 
     def _clicked_ok(self, source):
-        assert source != None, \
+        assert source is not None, \
                'Called the clicked ok callback from no source object'
 
         if self._can_perform_action():
@@ -62,7 +66,7 @@ class RPCConfirmationWindow():
                 self._close()
 
     def _update_ok_button_sensitivity(self, data):
-        valid = (data != None)
+        valid = (data is not None)
 
         if valid:
             (self._target_qid, self._target_name) = data
@@ -79,12 +83,13 @@ class RPCConfirmationWindow():
     def _close_error(self, error_bar, response):
         assert error_bar == self._error_bar, \
                'Closed the error bar with the wrong error bar as parameter'
-        assert response != None, 'Closed the error bar with None as a response'
+        assert response is not None, \
+            'Closed the error bar with None as a response'
 
         self._error_bar.set_visible(False)
 
     def _set_initial_target(self, source, target):
-        if target != None:
+        if target is not None:
             if target == source:
                 self._show_error(
                      "Source and target domains must not be the same.")
@@ -121,15 +126,15 @@ class RPCConfirmationWindow():
         return formatted
 
     def _connect_events(self):
-        self._rpc_window.connect("key-press-event",self._key_pressed)
+        self._rpc_window.connect("key-press-event", self._key_pressed)
         self._rpc_ok_button.connect("clicked", self._clicked_ok)
         self._rpc_cancel_button.connect("clicked", self._clicked_cancel)
 
         self._error_bar.connect("response", self._close_error)
 
-    def __init__(self, source, rpc_operation, name_whitelist, target = None):
-        sanitize_domain_name(source, assert_sanitized = True)
-        sanitize_service_name(source, assert_sanitized = True)
+    def __init__(self, source, rpc_operation, name_whitelist, target=None):
+        sanitize_domain_name(source, assert_sanitized=True)
+        sanitize_service_name(source, assert_sanitized=True)
 
         self._gtk_builder = Gtk.Builder()
         self._gtk_builder.add_from_file(self._source_file)
@@ -162,8 +167,8 @@ class RPCConfirmationWindow():
         domain_filters = [VMListModeler.NameWhitelistFilter(name_whitelist)]
 
         list_modeler.apply_model(self._rpc_combo_box, domain_filters,
-                    selection_trigger = self._update_ok_button_sensitivity,
-                    activation_trigger = self._clicked_ok )
+                    selection_trigger=self._update_ok_button_sensitivity,
+                    activation_trigger=self._clicked_ok)
 
         self._source_entry.set_text(source)
         list_modeler.apply_icon(self._source_entry, source)
@@ -197,12 +202,13 @@ class RPCConfirmationWindow():
         self._show()
 
         if self._confirmed:
-            return { 'name': self._target_name, 'qid': self._target_qid,
-                     'parameters': {} }
+            return {'name': self._target_name, 'qid': self._target_qid,
+                    'parameters': {}}
         else:
             return False
 
-def confirm_rpc(source, rpc_operation, name_whitelist, target = None):
+
+def confirm_rpc(source, rpc_operation, name_whitelist, target=None):
     window = RPCConfirmationWindow(source, rpc_operation, name_whitelist,
                                    target)
 

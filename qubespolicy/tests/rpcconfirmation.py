@@ -19,9 +19,14 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
-import unittest, sys
-from core.rpcconfirmation import RPCConfirmationWindow
-from gtkhelpers import VMListModelerMock, GtkTestCase, FocusStealingHelperMock
+import sys
+import unittest
+
+from qubespolicy.tests.gtkhelpers import VMListModelerMock, GtkTestCase, \
+    FocusStealingHelperMock
+
+from qubespolicy.rpcconfirmation import RPCConfirmationWindow
+
 
 class MockRPCConfirmationWindow(RPCConfirmationWindow):
     def _new_VM_list_modeler(self):
@@ -34,8 +39,8 @@ class MockRPCConfirmationWindow(RPCConfirmationWindow):
                     self._focus_stealing_seconds)
 
     def __init__(self, source, rpc_operation,
-                 name_whitelist = VMListModelerMock.get_name_whitelist(),
-                 target = None, focus_stealing_seconds = 1):
+                 name_whitelist=VMListModelerMock.get_name_whitelist(),
+                 target=None, focus_stealing_seconds=1):
         self._focus_stealing_seconds = focus_stealing_seconds
 
         RPCConfirmationWindow.__init__(self, source, rpc_operation,
@@ -49,20 +54,21 @@ class MockRPCConfirmationWindow(RPCConfirmationWindow):
         model_iter = model.get_iter_first()
         domains = []
 
-        while model_iter != None:
+        while model_iter is not None:
             domain_name = model.get_value(model_iter, 1)
 
-            domains = domains + [domain_name]
+            domains += [domain_name]
 
             model_iter = model.iter_next(model_iter)
 
         return domains
 
+
 class RPCConfirmationWindowTestBase(MockRPCConfirmationWindow, GtkTestCase):
-    def __init__(self, test_method, source_name = "test-source",
-                 rpc_operation = "test.Operation",
-                 name_whitelist = VMListModelerMock.get_name_whitelist(),
-                 target_name = None):
+    def __init__(self, test_method, source_name="test-source",
+                 rpc_operation="test.Operation",
+                 name_whitelist=VMListModelerMock.get_name_whitelist(),
+                 target_name=None):
         GtkTestCase.__init__(self, test_method)
         self.test_source_name = source_name
         self.test_rpc_operation = rpc_operation
@@ -81,7 +87,7 @@ class RPCConfirmationWindowTestBase(MockRPCConfirmationWindow, GtkTestCase):
                                        self.test_rpc_operation,
                                        name_whitelist,
                                        self.test_target_name,
-                                       focus_stealing_seconds = self._test_time)
+                                       focus_stealing_seconds=self._test_time)
 
     def _can_perform_action(self):
         return True
@@ -111,12 +117,10 @@ class RPCConfirmationWindowTestBase(MockRPCConfirmationWindow, GtkTestCase):
         self.assertIsNotNone(self._error_message)
 
     def test_is_showing_source(self):
-        self.assertTrue(self.test_source_name in
-                            self._source_entry.get_text())
+        self.assertTrue(self.test_source_name in self._source_entry.get_text())
 
     def test_is_showing_operation(self):
-        self.assertTrue(self.test_rpc_operation in
-                            self._rpc_label.get_text())
+        self.assertTrue(self.test_rpc_operation in self._rpc_label.get_text())
 
     def test_escape_and_format_rpc_text(self):
         self.assertEquals("qubes.<b>Test</b>",
@@ -137,24 +141,24 @@ class RPCConfirmationWindowTestBase(MockRPCConfirmationWindow, GtkTestCase):
                           self._escape_and_format_rpc_text("<script>.inject"))
 
     def test_lifecycle_open_select_ok(self):
-        self._lifecycle_start(select_target = True)
-        self._lifecycle_click(click_type = "ok")
+        self._lifecycle_start(select_target=True)
+        self._lifecycle_click(click_type="ok")
 
     def test_lifecycle_open_select_cancel(self):
-        self._lifecycle_start(select_target = True)
-        self._lifecycle_click(click_type = "cancel")
+        self._lifecycle_start(select_target=True)
+        self._lifecycle_click(click_type="cancel")
 
     def test_lifecycle_open_select_exit(self):
-        self._lifecycle_start(select_target = True)
-        self._lifecycle_click(click_type = "exit")
+        self._lifecycle_start(select_target=True)
+        self._lifecycle_click(click_type="exit")
 
     def test_lifecycle_open_cancel(self):
-        self._lifecycle_start(select_target = False)
-        self._lifecycle_click(click_type = "cancel")
+        self._lifecycle_start(select_target=False)
+        self._lifecycle_click(click_type="cancel")
 
     def test_lifecycle_open_exit(self):
-        self._lifecycle_start(select_target = False)
-        self._lifecycle_click(click_type = "exit")
+        self._lifecycle_start(select_target=False)
+        self._lifecycle_click(click_type="exit")
 
     def _lifecycle_click(self, click_type):
         if click_type == "ok":
@@ -198,7 +202,7 @@ class RPCConfirmationWindowTestBase(MockRPCConfirmationWindow, GtkTestCase):
         try:
             # We expect the call to exit immediately, since no window is opened
             self.confirm_rpc()
-        except BaseException:
+        except Exception:
             pass
 
         self.assertFalse(self.test_called_close)
@@ -234,15 +238,16 @@ class RPCConfirmationWindowTestBase(MockRPCConfirmationWindow, GtkTestCase):
         else:
             self.assertFalse(self._focus_helper.can_perform_action())
 
+
 class RPCConfirmationWindowTestWithTarget(RPCConfirmationWindowTestBase):
     def __init__(self, test_method):
         RPCConfirmationWindowTestBase.__init__(self, test_method,
-                 source_name = "test-source", rpc_operation = "test.Operation",
-                 target_name =  "test-target")
+                 source_name="test-source", rpc_operation="test.Operation",
+                 target_name="test-target")
 
     def test_lifecycle_open_ok(self):
-        self._lifecycle_start(select_target = False)
-        self._lifecycle_click(click_type = "ok")
+        self._lifecycle_start(select_target=False)
+        self._lifecycle_click(click_type="ok")
 
     def assert_initial_state(self, after_focus_timer):
         self.assertIsNotNone(self._target_qid)
@@ -262,6 +267,7 @@ class RPCConfirmationWindowTestWithTarget(RPCConfirmationWindowTestBase):
         self.assertIsNotNone(self._target_qid)
         self.assertIsNotNone(self._target_name)
 
+
 class RPCConfirmationWindowTestWithTargetInvalid(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         unittest.TestCase.__init__(self, *args, **kwargs)
@@ -280,32 +286,34 @@ class RPCConfirmationWindowTestWithTargetInvalid(unittest.TestCase):
                                               target=target)
         self.assertEquals(expect, rpcWindow.is_error_visible())
 
+
 class RPCConfirmationWindowTestWhitelist(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         unittest.TestCase.__init__(self, *args, **kwargs)
 
     def test_no_domains(self):
-        self._assert_whitelist([],[])
+        self._assert_whitelist([], [])
 
     def test_all_red_domains(self):
         self._assert_whitelist(["test-red1", "test-red2", "test-red3"],
                                ["test-red1", "test-red2", "test-red3"])
 
     def test_all_red_domains_plus_nonexistent(self):
-        self._assert_whitelist(["test-red1", "test-red2", "test-red3",
-                                "test-blue1", "test-blue2", "test-blue3"],
-                               ["test-red1", "test-red2", "test-red3"])
+        self._assert_whitelist(
+            ["test-red1", "test-red2", "test-red3",
+             "test-blue1", "test-blue2", "test-blue3"],
+            ["test-red1", "test-red2", "test-red3"])
 
     def test_all_allowed_domains(self):
-        self._assert_whitelist(["test-red1", "test-red2", "test-red3",
-                                "test-target", "test-disp6", "test-source",
-                                "dom0"], ["test-red1", "test-red2", "test-red3",
-                                "test-target", "test-disp6", "test-source",
-                                "dom0"])
+        self._assert_whitelist(
+            ["test-red1", "test-red2", "test-red3",
+             "test-target", "test-disp6", "test-source", "dom0"],
+            ["test-red1", "test-red2", "test-red3",
+             "test-target", "test-disp6", "test-source", "dom0"])
 
     def _assert_whitelist(self, whitelist, expected):
-        rpcWindow = MockRPCConfirmationWindow("test-source", "test.Operation",
-                                              whitelist)
+        rpcWindow = MockRPCConfirmationWindow(
+            "test-source", "test.Operation", whitelist)
 
         domains = rpcWindow.get_shown_domains()
 
@@ -314,7 +322,7 @@ class RPCConfirmationWindowTestWhitelist(unittest.TestCase):
 
         self.assertEquals(len(expected), len(domains))
 
-if __name__=='__main__':
+if __name__ == '__main__':
     test = False
     window = False
 
@@ -323,12 +331,12 @@ if __name__=='__main__':
     elif sys.argv[1] == '-w':
         window = True
     else:
-        print "Usage: " + __file__ + " [-t|-w]"
+        print("Usage: " + __file__ + " [-t|-w]")
 
     if window:
-        print MockRPCConfirmationWindow("test-source",
+        print(MockRPCConfirmationWindow("test-source",
                                         "qubes.Filecopy",
                                         VMListModelerMock.get_name_whitelist(),
-                                        "test-red1").confirm_rpc()
+                                        "test-red1").confirm_rpc())
     elif test:
-        unittest.main(argv = [sys.argv[0]])
+        unittest.main(argv=[sys.argv[0]])
