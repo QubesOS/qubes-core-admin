@@ -910,6 +910,8 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
             'qubes.tests.tools.qvm_firewall',
             'qubes.tests.tools.qvm_ls',
             'qubespolicy.tests',
+            'qubespolicy.tests.gtkhelpers',
+            'qubespolicy.tests.rpcconfirmation',
             ):
         tests.addTests(loader.loadTestsFromName(modname))
 
