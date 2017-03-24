@@ -27,43 +27,18 @@ from gi.repository import Gtk
 from qubespolicy.gtkhelpers import VMListModeler, GtkOneTimerHelper, \
     FocusStealingHelper
 
+mock_domains_info = {
+    'dom0': {'icon': 'black', 'type': 'AdminVM'},
+    'test-red1': {'icon': 'red', 'type': 'AppVM'},
+    'test-red2': {'icon': 'red', 'type': 'AppVM'},
+    'test-red3': {'icon': 'red', 'type': 'AppVM'},
+    'test-source': {'icon': 'green', 'type': 'AppVM'},
+    'test-target': {'icon': 'orange', 'type': 'AppVM'},
+    '$dispvm:test-disp6': {'icon': 'red', 'type': 'DispVM'},
+}
 
-class VMListModelerMock(VMListModeler):
-    def __init__(self):
-        VMListModeler.__init__(self)
-
-    def _get_list(self):
-        return [
-            MockVm(0, "dom0", "black"),
-            MockVm(2, "test-red1", "red"),
-            MockVm(4, "test-red2", "red"),
-            MockVm(7, "test-red3", "red"),
-            MockVm(8, "test-source", "green"),
-            MockVm(10, "test-target", "orange"),
-            MockVm(15, "test-disp6", "red", True)
-        ]
-
-    @staticmethod
-    def get_name_whitelist():
-        return ["test-red1", "test-red2", "test-red3",
-                "test-target", "test-disp6"]
-
-
-class MockVmLabel:
-    def __init__(self, index, color, name, dispvm=False):
-        self.index = index
-        self.color = color
-        self.name = name
-        self.dispvm = dispvm
-        self.icon = "edit-find"
-
-
-class MockVm:
-    def __init__(self, qid, name, color, dispvm=False):
-        self.qid = qid
-        self.name = name
-        self.label = MockVmLabel(qid, 0x000000, color, dispvm)
-
+mock_whitelist = ["test-red1", "test-red2", "test-red3",
+                  "test-target", "$dispvm:test-disp6"]
 
 class MockComboEntry:
     def __init__(self, text):
@@ -104,53 +79,60 @@ class GtkTestCase(unittest.TestCase):
         return iterations, time_length
 
 
-class VMListModelerTest(VMListModelerMock, unittest.TestCase):
+class VMListModelerTest(VMListModeler, unittest.TestCase):
     def __init__(self, *args, **kwargs):
         unittest.TestCase.__init__(self, *args, **kwargs)
-        VMListModelerMock.__init__(self)
+        VMListModeler.__init__(self, mock_domains_info)
 
     def test_entries_gets_loaded(self):
         self.assertIsNotNone(self._entries)
 
     def test_valid_qube_name(self):
-        self.apply_model(Gtk.ComboBox())
+        self.apply_model(Gtk.ComboBox(), list(mock_domains_info.keys()))
 
         for name in ["test-red1", "test-red2", "test-red3",
-                     "test-target", "test-disp6"]:
+                     "test-target", "Disposable VM (test-disp6)"]:
 
             mock = MockComboEntry(name)
-            self.assertEquals(name, self._get_valid_qube_name(mock, mock, []))
-            self.assertEquals(name, self._get_valid_qube_name(None, mock, []))
-            self.assertEquals(name, self._get_valid_qube_name(mock, None, []))
-            self.assertIsNone(self._get_valid_qube_name(None, None, []))
+            self.assertEquals(name,
+                self._get_valid_qube_name(mock, mock, mock_whitelist))
+            self.assertEquals(name,
+                self._get_valid_qube_name(None, mock, mock_whitelist))
+            self.assertEquals(name,
+                self._get_valid_qube_name(mock, None, mock_whitelist))
+            self.assertIsNone(
+                self._get_valid_qube_name(None, None, mock_whitelist))
 
-    def test_valid_qube_name_exceptions(self):
-        list_exc = ["test-disp6", "test-red2"]
+    def test_valid_qube_name_whitelist(self):
+        list_exc = ["$dispvm:test-disp6", "test-red2"]
 
-        self.apply_model(Gtk.ComboBox(),
-            [VMListModeler.NameBlacklistFilter([list_exc[0], list_exc[1]])])
+        whitelist = [name for name in mock_whitelist if name not in list_exc]
+        self.apply_model(Gtk.ComboBox(), whitelist)
 
         for name in list_exc:
             mock = MockComboEntry(name)
-            self.assertIsNone(self._get_valid_qube_name(mock, mock, list_exc))
-            self.assertIsNone(self._get_valid_qube_name(None, mock, list_exc))
-            self.assertIsNone(self._get_valid_qube_name(mock, None, list_exc))
+            self.assertIsNone(self._get_valid_qube_name(mock, mock, whitelist))
+            self.assertIsNone(self._get_valid_qube_name(None, mock, whitelist))
+            self.assertIsNone(self._get_valid_qube_name(mock, None, whitelist))
 
     def test_invalid_qube_name(self):
-        self.apply_model(Gtk.ComboBox())
+        self.apply_model(Gtk.ComboBox(), mock_whitelist)
 
         for name in ["test-nonexistant", None, "", 1]:
 
             mock = MockComboEntry(name)
-            self.assertIsNone(self._get_valid_qube_name(mock, mock, []))
-            self.assertIsNone(self._get_valid_qube_name(None, mock, []))
-            self.assertIsNone(self._get_valid_qube_name(mock, None, []))
+            self.assertIsNone(
+                self._get_valid_qube_name(mock, mock, mock_whitelist))
+            self.assertIsNone(
+                self._get_valid_qube_name(None, mock, mock_whitelist))
+            self.assertIsNone(
+                self._get_valid_qube_name(mock, None, mock_whitelist))
 
     def test_apply_model(self):
         new_object = Gtk.ComboBox()
         self.assertIsNone(new_object.get_model())
 
-        self.apply_model(new_object)
+        self.apply_model(new_object, mock_whitelist)
 
         self.assertIsNotNone(new_object.get_model())
 
@@ -159,74 +141,31 @@ class VMListModelerTest(VMListModelerMock, unittest.TestCase):
 
         self.assertIsNone(new_object.get_model())
 
-        self.apply_model(new_object)
+        self.apply_model(new_object, [])
 
         self.assertIsNotNone(new_object.get_model())
 
     def test_apply_model_only_combobox(self):
-        invalid_types = [1, "One", u'1', {'1': "one"}, VMListModelerMock()]
+        invalid_types = [1, "One", u'1', {'1': "one"}, VMListModeler(
+            mock_domains_info)]
 
         for invalid_type in invalid_types:
             with self.assertRaises(TypeError):
-                self.apply_model(invalid_type)
-
-    def test_apply_model_blacklist(self):
-        combo = Gtk.ComboBox()
-
-        self.apply_model(combo)
-        self.assertEquals(7, len(combo.get_model()))
-
-        names = list(self._entries.keys())
-
-        self.apply_model(combo, [
-            VMListModeler.NameBlacklistFilter([names[0]])])
-        self.assertEquals(6, len(combo.get_model()))
-
-        self.apply_model(combo, [
-            VMListModeler.NameBlacklistFilter([names[0]]),
-            VMListModeler.NameBlacklistFilter([names[1]])])
-        self.assertEquals(5, len(combo.get_model()))
-
-        self.apply_model(combo, [VMListModeler.NameBlacklistFilter([
-            names[0],
-            names[1]
-        ])])
-        self.assertEquals(5, len(combo.get_model()))
+                self.apply_model(invalid_type, [])
 
     def test_apply_model_whitelist(self):
         combo = Gtk.ComboBox()
 
-        self.apply_model(combo)
+        self.apply_model(combo, list(mock_domains_info.keys()))
         self.assertEquals(7, len(combo.get_model()))
 
-        names = list(self._entries.keys())
+        names = [entry['api_name'] for entry in self._entries.values()]
 
-        self.apply_model(combo, [
-            VMListModeler.NameWhitelistFilter([names[0]])])
+        self.apply_model(combo, [names[0]])
         self.assertEquals(1, len(combo.get_model()))
 
-        self.apply_model(combo, [VMListModeler.NameWhitelistFilter([
-                                        names[0],
-                                        names[1]])])
+        self.apply_model(combo, [names[0], names[1]])
         self.assertEquals(2, len(combo.get_model()))
-
-    def test_apply_model_multiple_filters(self):
-        combo = Gtk.ComboBox()
-
-        self.apply_model(combo)
-        self.assertEquals(7, len(combo.get_model()))
-
-        names = list(self._entries.keys())
-        self.apply_model(combo, [VMListModeler.NameWhitelistFilter([
-                names[0],
-                names[1],
-                names[2],
-                names[3],
-                names[4]]),
-            VMListModeler.NameBlacklistFilter([
-                names[0],
-                names[1]])])
-        self.assertEquals(3, len(combo.get_model()))
 
     def test_apply_icon(self):
         new_object = Gtk.Entry()
@@ -234,7 +173,7 @@ class VMListModelerTest(VMListModelerMock, unittest.TestCase):
         self.assertIsNone(
                 new_object.get_icon_pixbuf(Gtk.EntryIconPosition.PRIMARY))
 
-        self.apply_icon(new_object, "test-disp6")
+        self.apply_icon(new_object, "Disposable VM (test-disp6)")
 
         self.assertIsNotNone(
                 new_object.get_icon_pixbuf(Gtk.EntryIconPosition.PRIMARY))
@@ -250,7 +189,7 @@ class VMListModelerTest(VMListModelerMock, unittest.TestCase):
         new_object = Gtk.Entry()
 
         for name in ["test-red1", "test-red2", "test-red3",
-                     "test-target", "test-disp6"]:
+                     "test-target", "Disposable VM (test-disp6)"]:
             self.apply_icon(new_object, name)
 
         for name in ["test-nonexistant", None, "", 1]:

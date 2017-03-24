@@ -68,9 +68,8 @@ class RPCConfirmationWindow:
         valid = (data is not None)
 
         if valid:
-            (self._target_qid, self._target_name) = data
+            self._target_name = data
         else:
-            self._target_qid = None
             self._target_name = None
 
         self._focus_helper.request_sensitivity(valid)
@@ -131,7 +130,8 @@ class RPCConfirmationWindow:
 
         self._error_bar.connect("response", self._close_error)
 
-    def __init__(self, source, rpc_operation, name_whitelist, target=None):
+    def __init__(self, entries_info, source, rpc_operation, targets_list,
+            target=None):
         sanitize_domain_name(source, assert_sanitized=True)
         sanitize_service_name(source, assert_sanitized=True)
 
@@ -153,7 +153,6 @@ class RPCConfirmationWindow:
                                             self._source_id['error_bar'])
         self._error_message = self._gtk_builder.get_object(
                                             self._source_id['error_message'])
-        self._target_qid = None
         self._target_name = None
 
         self._focus_helper = self._new_focus_stealing_helper()
@@ -161,11 +160,10 @@ class RPCConfirmationWindow:
         self._rpc_label.set_markup(
                     self._escape_and_format_rpc_text(rpc_operation))
 
+        self._entries_info = entries_info
         list_modeler = self._new_VM_list_modeler()
 
-        domain_filters = [VMListModeler.NameWhitelistFilter(name_whitelist)]
-
-        list_modeler.apply_model(self._rpc_combo_box, domain_filters,
+        list_modeler.apply_model(self._rpc_combo_box, targets_list,
                     selection_trigger=self._update_ok_button_sensitivity,
                     activation_trigger=self._clicked_ok)
 
@@ -189,7 +187,7 @@ class RPCConfirmationWindow:
         Gtk.main()
 
     def _new_VM_list_modeler(self):
-        return VMListModeler()
+        return VMListModeler(self._entries_info)
 
     def _new_focus_stealing_helper(self):
         return FocusStealingHelper(
@@ -201,15 +199,14 @@ class RPCConfirmationWindow:
         self._show()
 
         if self._confirmed:
-            return {'name': self._target_name, 'qid': self._target_qid,
-                    'parameters': {}}
+            return self._target_name
         else:
             return False
 
 
-def confirm_rpc(source, rpc_operation, name_whitelist, target=None):
-    window = RPCConfirmationWindow(source, rpc_operation, name_whitelist,
-                                   target)
+def confirm_rpc(entries_info, source, rpc_operation, targets_list, target=None):
+    window = RPCConfirmationWindow(entries_info, source, rpc_operation,
+        targets_list, target)
 
     return window.confirm_rpc()
 

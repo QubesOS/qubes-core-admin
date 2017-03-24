@@ -20,10 +20,10 @@
 #
 
 import gi
-import os
+import itertools
+
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GdkPixbuf, GObject, GLib
-import qubes
 from qubespolicy.utils import sanitize_domain_name
 
 
@@ -46,63 +46,61 @@ class GtkIconGetter:
 
 
 class VMListModeler:
-    def __init__(self):
+    def __init__(self, domains_info=None):
         self._icon_getter = GtkIconGetter(16)
 
         self._entries = {}
+        self._domains_info = domains_info
         self._create_entries()
 
-
-    def _get_icon(self, vm):
-        return self._icon_getter.get_icon(vm.label.icon)
-
-    def _get_list(self):
-        collection = qubes.QubesVmCollection()
-        try:
-            collection.lock_db_for_reading()
-
-            collection.load()
-
-            return [vm for vm in collection.values()]
-        finally:
-            collection.unlock_db()
-
     def _create_entries(self):
-        for vm in self._get_list():
-            sanitize_domain_name(vm.name, assert_sanitized=True)
+        for name, vm in self._domains_info.items():
+            if name.startswith('$dispvm:'):
+                vm_name = name[len('$dispvm:'):]
+                dispvm = True
+            else:
+                vm_name = name
+                dispvm = False
+            sanitize_domain_name(vm_name, assert_sanitized=True)
 
-            icon = self._get_icon(vm)
+            icon = self._icon_getter.get_icon(vm.get('icon', None))
 
-            self._entries[vm.name] = {'qid': vm.qid,
-                                      'icon': icon,
-                                      'vm': vm}
+            if dispvm:
+                display_name = 'Disposable VM ({})'.format(vm_name)
+            else:
+                display_name = vm_name
+            self._entries[display_name] = {
+                                   'api_name': name,
+                                   'icon': icon,
+                                   'vm': vm}
 
-
-    def _get_valid_qube_name(self, combo, entry_box, exclusions):
+    def _get_valid_qube_name(self, combo, entry_box, whitelist):
         name = None
 
         if combo and combo.get_active_id():
             selected = combo.get_active_id()
 
-            if selected in self._entries and selected not in exclusions:
+            if selected in self._entries and \
+                    self._entries[selected]['api_name'] in whitelist:
                 name = selected
 
         if not name and entry_box:
             typed = entry_box.get_text()
 
-            if typed in self._entries and typed not in exclusions:
+            if typed in self._entries and \
+                    self._entries[typed]['api_name'] in whitelist:
                 name = typed
 
         return name
 
-    def _combo_change(self, selection_trigger, combo, entry_box, exclusions):
+    def _combo_change(self, selection_trigger, combo, entry_box, whitelist):
         data = None
-        name = self._get_valid_qube_name(combo, entry_box, exclusions)
+        name = self._get_valid_qube_name(combo, entry_box, whitelist)
 
         if name:
             entry = self._entries[name]
 
-            data = (entry['qid'], name)
+            data = entry['api_name']
 
             if entry_box:
                 entry_box.set_icon_from_pixbuf(
@@ -115,33 +113,22 @@ class VMListModeler:
         if selection_trigger:
             selection_trigger(data)
 
-    def _entry_activate(self, activation_trigger, combo, entry_box, exclusions):
-        name = self._get_valid_qube_name(combo, entry_box, exclusions)
+    def _entry_activate(self, activation_trigger, combo, entry_box, whitelist):
+        name = self._get_valid_qube_name(combo, entry_box, whitelist)
 
         if name:
             activation_trigger(entry_box)
 
-    def apply_model(self, destination_object, vm_filter_list=None,
+    def apply_model(self, destination_object, vm_list,
                     selection_trigger=None, activation_trigger=None):
         if isinstance(destination_object, Gtk.ComboBox):
             list_store = Gtk.ListStore(int, str, GdkPixbuf.Pixbuf)
 
-            exclusions = []
-            for vm_name in sorted(self._entries.keys()):
-                entry = self._entries[vm_name]
-
-                matches = True
-
-                if vm_filter_list:
-                    for vm_filter in vm_filter_list:
-                        if not vm_filter.matches(entry['vm']):
-                            matches = False
-                            break
-
-                if matches:
-                    list_store.append([entry['qid'], vm_name, entry['icon']])
-                else:
-                    exclusions += [vm_name]
+            for entry_no, display_name in zip(itertools.count(),
+                    sorted(self._entries.keys())):
+                entry = self._entries[display_name]
+                if entry['api_name'] in vm_list:
+                    list_store.append([entry_no, display_name, entry['icon']])
 
             destination_object.set_model(list_store)
             destination_object.set_id_column(1)
@@ -173,7 +160,7 @@ class VMListModeler:
                             activation_trigger,
                             destination_object,
                             entry,
-                            exclusions))
+                            vm_list))
 
                 # A Combo with an entry has a text column already
                 text_column = destination_object.get_cells()[0]
@@ -189,7 +176,7 @@ class VMListModeler:
                              selection_trigger,
                              combo,
                              entry_box,
-                             exclusions)
+                             vm_list)
 
             destination_object.connect("changed", changed_function)
             changed_function(destination_object)
@@ -209,20 +196,6 @@ class VMListModeler:
         else:
             raise TypeError(
                     "Only expecting Gtk.Entry objects to want our icon.")
-
-    class NameBlacklistFilter:
-        def __init__(self, avoid_names_list):
-            self._avoid_names_list = avoid_names_list
-
-        def matches(self, vm):
-            return vm.name not in self._avoid_names_list
-
-    class NameWhitelistFilter:
-        def __init__(self, allowed_names_list):
-            self._allowed_names_list = allowed_names_list
-
-        def matches(self, vm):
-            return vm.name in self._allowed_names_list
 
 
 class GtkOneTimerHelper:
