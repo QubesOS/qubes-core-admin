@@ -55,7 +55,7 @@ class MockVmLabel:
         self.color = color
         self.name = name
         self.dispvm = dispvm
-        self.icon = "gnome-foot"
+        self.icon = "edit-find"
 
 
 class MockVm:

@@ -40,7 +40,7 @@ class GtkIconGetter:
             try:
                 icon = self._theme.load_icon(name, self._size, 0)
             except GLib.Error:
-                icon = self._theme.load_icon("gnome-foot", self._size, 0)
+                icon = self._theme.load_icon("edit-find", self._size, 0)
 
             self._icons[name] = icon
 
