@@ -67,10 +67,25 @@ def main(args=None):
         policy = qubespolicy.Policy(args.service_name)
         action = policy.evaluate(system_info, args.domain, args.target)
         if action.action == qubespolicy.Action.ask:
-            #(... ask the user, see action.targets_for_ask ...)
-            # TODO: this is placeholder
-            #action.handle_user_response(response, target_chosen_by_user)
-            action.handle_user_response(False)
+            # late import to save on time for allow/deny actions
+            import qubespolicy.rpcconfirmation as rpcconfirmation
+            entries_info = system_info['domains'].copy()
+            for dispvm_base in system_info['domains']:
+                if not system_info['domains'][dispvm_base]['dispvm_allowed']:
+                    continue
+                dispvm_api_name = '$dispvm:' + dispvm_base
+                entries_info[dispvm_api_name] = \
+                    system_info['domains'][dispvm_base].copy()
+                entries_info[dispvm_api_name]['icon'] = \
+                    entries_info[dispvm_api_name]['icon'].replace('app', 'disp')
+
+            response = rpcconfirmation.confirm_rpc(
+                entries_info, args.domain, args.service_name,
+                action.targets_for_ask, action.target)
+            if response:
+                action.handle_user_response(True, response)
+            else:
+                action.handle_user_response(False)
         log.info(log_prefix + 'allowed')
         action.execute(caller_ident)
     except qubespolicy.PolicySyntaxError as e:
