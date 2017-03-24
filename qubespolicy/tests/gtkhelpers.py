@@ -176,18 +176,20 @@ class VMListModelerTest(VMListModelerMock, unittest.TestCase):
         self.apply_model(combo)
         self.assertEquals(7, len(combo.get_model()))
 
+        names = list(self._entries.keys())
+
         self.apply_model(combo, [
-            VMListModeler.NameBlacklistFilter([self._entries.keys()[0]])])
+            VMListModeler.NameBlacklistFilter([names[0]])])
         self.assertEquals(6, len(combo.get_model()))
 
         self.apply_model(combo, [
-            VMListModeler.NameBlacklistFilter([self._entries.keys()[0]]),
-            VMListModeler.NameBlacklistFilter([self._entries.keys()[1]])])
+            VMListModeler.NameBlacklistFilter([names[0]]),
+            VMListModeler.NameBlacklistFilter([names[1]])])
         self.assertEquals(5, len(combo.get_model()))
 
         self.apply_model(combo, [VMListModeler.NameBlacklistFilter([
-            self._entries.keys()[0],
-            self._entries.keys()[1]
+            names[0],
+            names[1]
         ])])
         self.assertEquals(5, len(combo.get_model()))
 
@@ -197,13 +199,15 @@ class VMListModelerTest(VMListModelerMock, unittest.TestCase):
         self.apply_model(combo)
         self.assertEquals(7, len(combo.get_model()))
 
+        names = list(self._entries.keys())
+
         self.apply_model(combo, [
-            VMListModeler.NameWhitelistFilter([self._entries.keys()[0]])])
+            VMListModeler.NameWhitelistFilter([names[0]])])
         self.assertEquals(1, len(combo.get_model()))
 
         self.apply_model(combo, [VMListModeler.NameWhitelistFilter([
-                                        self._entries.keys()[0],
-                                        self._entries.keys()[1]])])
+                                        names[0],
+                                        names[1]])])
         self.assertEquals(2, len(combo.get_model()))
 
     def test_apply_model_multiple_filters(self):
@@ -212,15 +216,16 @@ class VMListModelerTest(VMListModelerMock, unittest.TestCase):
         self.apply_model(combo)
         self.assertEquals(7, len(combo.get_model()))
 
+        names = list(self._entries.keys())
         self.apply_model(combo, [VMListModeler.NameWhitelistFilter([
-                                        self._entries.keys()[0],
-                                        self._entries.keys()[1],
-                                        self._entries.keys()[2],
-                                        self._entries.keys()[3],
-                                        self._entries.keys()[4]]),
-                                 VMListModeler.NameBlacklistFilter([
-                                        self._entries.keys()[0],
-                                        self._entries.keys()[1]])])
+                names[0],
+                names[1],
+                names[2],
+                names[3],
+                names[4]]),
+            VMListModeler.NameBlacklistFilter([
+                names[0],
+                names[1]])])
         self.assertEquals(3, len(combo.get_model()))
 
     def test_apply_icon(self):
