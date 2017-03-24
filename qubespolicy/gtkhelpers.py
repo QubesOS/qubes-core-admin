@@ -26,8 +26,6 @@ from gi.repository import Gtk, Gdk, GdkPixbuf, GObject, GLib
 import qubes
 from qubespolicy.utils import sanitize_domain_name
 
-glade_directory = os.path.join(os.path.dirname(__file__), "glade")
-
 
 class GtkIconGetter:
     def __init__(self, size):

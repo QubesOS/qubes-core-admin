@@ -18,18 +18,17 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
-
-
+import pkg_resources
 from gi.repository import Gtk, Gdk, GLib
 import os
-from qubespolicy.gtkhelpers import VMListModeler, FocusStealingHelper, \
-    glade_directory
+from qubespolicy.gtkhelpers import VMListModeler, FocusStealingHelper
 from qubespolicy.utils import sanitize_domain_name, \
     sanitize_service_name
 
 
 class RPCConfirmationWindow:
-    _source_file = os.path.join(glade_directory, "RPCConfirmationWindow.glade")
+    _source_file = pkg_resources.resource_filename('qubespolicy',
+        os.path.join('glade', "RPCConfirmationWindow.glade"))
     _source_id = {'window': "RPCConfirmationWindow",
                   'ok': "okButton",
                   'cancel': "cancelButton",
