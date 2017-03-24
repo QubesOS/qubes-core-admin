@@ -385,6 +385,19 @@ fi
 %{python3_sitelib}/qubespolicy/__pycache__/*
 %{python3_sitelib}/qubespolicy/__init__.py
 %{python3_sitelib}/qubespolicy/cli.py
+%{python3_sitelib}/qubespolicy/gtkhelpers.py
+%{python3_sitelib}/qubespolicy/rpcconfirmation.py
+%{python3_sitelib}/qubespolicy/utils.py
+
+%dir %{python3_sitelib}/qubespolicy/tests
+%dir %{python3_sitelib}/qubespolicy/tests/__pycache__
+%{python3_sitelib}/qubespolicy/tests/__pycache__/*
+%{python3_sitelib}/qubespolicy/tests/__init__.py
+%{python3_sitelib}/qubespolicy/tests/gtkhelpers.py
+%{python3_sitelib}/qubespolicy/tests/rpcconfirmation.py
+
+%dir %{python3_sitelib}/qubespolicy/glade
+%{python3_sitelib}/qubespolicy/glade/RPCConfirmationWindow.glade
 
 /usr/lib/qubes/unbind-pci-device.sh
 /usr/lib/qubes/cleanup-dispvms
