@@ -271,10 +271,11 @@ class QubesMgmt(object):
     def vm_volume_listsnapshots(self):
         assert self.arg in self.dest.volumes.keys()
 
-        self.fire_event_for_permission()
-
         volume = self.dest.volumes[self.arg]
-        return ''.join('{}\n'.format(revision) for revision in volume.revisions)
+        revisions = [revision for revision in volume.revisions]
+        revisions = self.fire_event_for_filter(revisions)
+
+        return ''.join('{}\n'.format(revision) for revision in revisions)
 
     @asyncio.coroutine
     def vm_volume_revert(self, untrusted_payload):
@@ -369,12 +370,10 @@ class QubesMgmt(object):
 
         driver_parameters = qubes.storage.driver_parameters(self.arg)
         assert all(key in driver_parameters for key in untrusted_pool_config)
-
-        # option names validated, validation of option values is delegated to
-        #  extension (through events mechanism)
-        self.fire_event_for_permission(name=pool_name,
-            untrusted_pool_config=untrusted_pool_config)
         pool_config = untrusted_pool_config
+
+        self.fire_event_for_permission(name=pool_name,
+            pool_config=pool_config)
 
         self.app.add_pool(name=pool_name, driver=self.arg, **pool_config)
         self.app.save()
@@ -436,7 +435,7 @@ class QubesMgmt(object):
         # besides prefix, only hex digits are allowed
         assert all(x in string.hexdigits for x in untrusted_payload[2:])
 
-        # TODO: try to avoid creating label too similar to existing one?
+        # SEE: #2732
         color = untrusted_payload
 
         self.fire_event_for_permission(color=color)
