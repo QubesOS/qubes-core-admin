@@ -358,3 +358,11 @@ class VMProperty(qubes.property):
                     self.vmclass.__name__))
 
         super(VMProperty, self).__set__(instance, vm)
+
+    def sanitize(self, *, untrusted_newvalue):
+        try:
+            untrusted_vmname = untrusted_newvalue.decode('ascii')
+        except UnicodeDecodeError:
+            raise qubes.exc.QubesValueError
+        validate_name(None, self, untrusted_vmname)
+        return untrusted_vmname

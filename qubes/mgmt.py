@@ -176,43 +176,7 @@ class QubesMgmt(object):
         assert self.arg in self.dest.property_list()
 
         property_def = self.dest.property_get_def(self.arg)
-        # do not treat type='str' as sufficient validation
-        if isinstance(property_def, qubes.vm.VMProperty):
-            try:
-                untrusted_vmname = untrusted_payload.decode('ascii')
-            except UnicodeDecodeError:
-                raise qubes.exc.QubesValueError
-            qubes.vm.qubesvm.validate_name(self.dest, property_def,
-                untrusted_vmname)
-            try:
-                newvalue = self.app.domains[untrusted_vmname]
-            except KeyError:
-                raise qubes.exc.QubesPropertyValueError(
-                    self.dest, property_def, untrusted_vmname)
-        elif property_def.type is not None and property_def.type is not str:
-            if property_def.type is bool:
-                try:
-                    untrusted_value = untrusted_payload.decode('ascii')
-                except UnicodeDecodeError:
-                    raise qubes.exc.QubesValueError
-                newvalue = qubes.property.bool(None, None, untrusted_value)
-            else:
-                try:
-                    newvalue = property_def.type(untrusted_payload)
-                except ValueError:
-                    raise qubes.exc.QubesValueError
-        else:
-            # other types (including explicitly defined 'str') coerce to str
-            # with limited characters allowed
-            try:
-                untrusted_value = untrusted_payload.decode('ascii')
-            except UnicodeDecodeError:
-                raise qubes.exc.QubesValueError
-            allowed_set = string.printable
-            if not all(x in allowed_set for x in untrusted_value):
-                raise qubes.exc.QubesValueError(
-                    'Invalid characters in property value')
-            newvalue = untrusted_value
+        newvalue = property_def.sanitize(untrusted_newvalue=untrusted_payload)
 
         self.fire_event_for_permission(newvalue=newvalue)
 

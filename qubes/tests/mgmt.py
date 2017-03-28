@@ -130,18 +130,10 @@ class TC_00_VMs(MgmtTestCase):
             value = self.call_mgmt_func(b'mgmt.vm.property.Set', b'test-vm1',
                 b'netvm', b'test-net')
             self.assertIsNone(value)
-            mock.assert_called_once_with(self.vm, netvm)
+            mock.assert_called_once_with(self.vm, 'test-net')
         self.app.save.assert_called_once_with()
 
-    def test_031_vm_property_set_vm_invalid1(self):
-        with unittest.mock.patch('qubes.vm.VMProperty.__set__') as mock:
-            with self.assertRaises(qubes.exc.QubesValueError):
-                self.call_mgmt_func(b'mgmt.vm.property.Set', b'test-vm1',
-                    b'netvm', b'no-such-vm')
-            self.assertFalse(mock.called)
-        self.assertFalse(self.app.save.called)
-
-    def test_032_vm_property_set_vm_invalid2(self):
+    def test_032_vm_property_set_vm_invalid1(self):
         with unittest.mock.patch('qubes.vm.VMProperty.__set__') as mock:
             with self.assertRaises(qubes.exc.QubesValueError):
                 self.call_mgmt_func(b'mgmt.vm.property.Set', b'test-vm1',
@@ -149,7 +141,7 @@ class TC_00_VMs(MgmtTestCase):
             self.assertFalse(mock.called)
         self.assertFalse(self.app.save.called)
 
-    def test_033_vm_property_set_vm_invalid3(self):
+    def test_033_vm_property_set_vm_invalid2(self):
         with unittest.mock.patch('qubes.vm.VMProperty.__set__') as mock:
             with self.assertRaises(qubes.exc.QubesValueError):
                 self.call_mgmt_func(b'mgmt.vm.property.Set', b'test-vm1',
