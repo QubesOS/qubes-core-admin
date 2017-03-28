@@ -28,7 +28,6 @@ import base64
 import datetime
 import os
 import os.path
-import re
 import shutil
 import string
 import subprocess
@@ -76,34 +75,9 @@ def _setter_qid(self, prop, value):
     return value
 
 
-def validate_name(holder, prop, value):
-    ''' Check if value is syntactically correct VM name '''
-    if not isinstance(value, str):
-        raise TypeError('VM name must be string, {!r} found'.format(
-            type(value).__name__))
-    if len(value) > 31:
-        if holder is not None and prop is not None:
-            raise qubes.exc.QubesPropertyValueError(holder, prop, value,
-                '{} value must be shorter than 32 characters'.format(
-                    prop.__name__))
-        else:
-            raise qubes.exc.QubesValueError(
-                'VM name must be shorter than 32 characters')
-
-    # this regexp does not contain '+'; if it had it, we should specifically
-    # disallow 'lost+found' #1440
-    if re.match(r"^[a-zA-Z][a-zA-Z0-9_-]*$", value) is None:
-        if holder is not None and prop is not None:
-            raise qubes.exc.QubesPropertyValueError(holder, prop, value,
-                '{} value contains illegal characters'.format(prop.__name__))
-        else:
-            raise qubes.exc.QubesValueError(
-                'VM name contains illegal characters')
-
-
 def _setter_name(self, prop, value):
     ''' Helper for setting the domain name '''
-    validate_name(self, prop, value)
+    qubes.vm.validate_name(self, prop, value)
 
     if self.is_running():
         raise qubes.exc.QubesVMNotHaltedError(
