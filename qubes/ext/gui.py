@@ -201,7 +201,6 @@ class GUI(qubes.ext.Extension):
                 'Cannot start qubes-guid for domain {!r}'.format(vm.name))
 
         vm.fire_event('monitor-layout-change')
-        vm.wait_for_session()
 
 
     @staticmethod

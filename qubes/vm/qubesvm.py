@@ -23,6 +23,7 @@
 
 from __future__ import absolute_import
 
+import asyncio
 import copy
 import base64
 import datetime
@@ -642,6 +643,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self._libvirt_domain = None
         self._qdb_connection = None
+
+        #: this :py:class:`asyncio.Event` will fire when session is obtained
+        self.have_session = asyncio.Event()
+
         if xml is None:
             # we are creating new VM and attributes came through kwargs
             assert hasattr(self, 'qid')
@@ -788,7 +793,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     # methods for changing domain state
     #
 
-    def start(self, preparing_dvm=False, start_guid=True,
+    async def start(self, preparing_dvm=False, start_guid=True,
             notify_function=None, mem_required=None):
         '''Start domain
 
@@ -808,19 +813,22 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.fire_event_pre('domain-pre-start', preparing_dvm=preparing_dvm,
             start_guid=start_guid, mem_required=mem_required)
 
-        self.storage.verify()
+        await asyncio.get_event_loop().run_in_executor(None,
+            self.storage.verify)
 
         if self.netvm is not None:
             # pylint: disable = no-member
             if self.netvm.qid != 0:
                 if not self.netvm.is_running():
-                    self.netvm.start(start_guid=start_guid,
+                    await self.netvm.start(start_guid=start_guid,
                         notify_function=notify_function)
 
-        self.storage.start()
+        await asyncio.get_event_loop().run_in_executor(None,
+            self.storage.start)
         self._update_libvirt_domain()
 
-        qmemman_client = self.request_memory(mem_required)
+        qmemman_client = await asyncio.get_event_loop().run_in_executor(None,
+            self.request_memory, mem_required)
         try:
             self.libvirt_domain.createWithFlags(libvirt.VIR_DOMAIN_START_PAUSED)
         except:
@@ -833,7 +841,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 preparing_dvm=preparing_dvm, start_guid=start_guid)
 
             self.log.info('Setting Qubes DB info for the VM')
-            self.start_qubesdb()
+            await self.start_qubesdb()
             self.create_qdb_entries()
 
             if preparing_dvm:
@@ -855,7 +863,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 #               self.start_guid()
 
             if not preparing_dvm:
-                self.start_qrexec_daemon()
+                await self.start_qrexec_daemon()
 
             self.fire_event('domain-start',
                 preparing_dvm=preparing_dvm, start_guid=start_guid)
@@ -864,12 +872,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             if self.is_running() or self.is_paused():
                 # This avoids losing the exception if an exception is raised in
                 # self.force_shutdown(), because the vm is not running or paused
-                self.force_shutdown()
+                await self.kill()
             raise
+
+        asyncio.ensure_future(self.wait_for_session())
 
         return self
 
-    def shutdown(self, force=False, wait=False):
+    async def shutdown(self, force=False, wait=False):
         '''Shutdown domain.
 
         :raises qubes.exc.QubesVMNotStartedError: \
@@ -882,14 +892,16 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.fire_event_pre('domain-pre-shutdown', force=force)
 
         self.libvirt_domain.shutdown()
-        self.storage.stop()
+
+        await asyncio.get_event_loop().run_in_executor(None,
+            self.storage.stop)
 
         while wait and not self.is_halted():
-            time.sleep(0.25)
+            await asyncio.sleep(0.25)
 
         return self
 
-    def kill(self):
+    async def kill(self):
         '''Forcefuly shutdown (destroy) domain.
 
         :raises qubes.exc.QubesVMNotStartedError: \
@@ -900,7 +912,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesVMNotStartedError(self)
 
         self.libvirt_domain.destroy()
-        self.storage.stop()
+        await asyncio.get_event_loop().run_in_executor(None,
+            self.storage.stop)
 
         return self
 
@@ -909,11 +922,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         warnings.warn(
             'Call to deprecated function force_shutdown(), use kill() instead',
             DeprecationWarning, stacklevel=2)
-        self.kill(*args, **kwargs)
+        return self.kill(*args, **kwargs)
 
-        return self
-
-    def suspend(self):
+    async def suspend(self):
         '''Suspend (pause) domain.
 
         :raises qubes.exc.QubesVMNotRunnignError: \
@@ -934,7 +945,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self
 
-    def pause(self):
+    async def pause(self):
         '''Pause (suspend) domain. This currently delegates to \
         :py:meth:`suspend`.'''
 
@@ -945,7 +956,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self
 
-    def resume(self):
+    async def resume(self):
         '''Resume suspended domain.
 
         :raises qubes.exc.QubesVMNotSuspendedError: when machine is not paused
@@ -960,7 +971,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self
 
-    def unpause(self):
+    async def unpause(self):
         '''Resume (unpause) a domain'''
         if not self.is_paused():
             raise qubes.exc.QubesVMNotPausedError(self)
@@ -969,6 +980,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self
 
+    # TODO async def
+    # TODO def run_for_retcode, factor out passio
     def run(self, command, user=None, autostart=False, notify_function=None,
             passio=False, passio_popen=False, passio_stderr=False,
             ignore_stderr=False, localcmd=None, wait=False, gui=True,
@@ -1017,6 +1030,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self, 'Domain {!r}: qrexec not connected'.format(self.name))
 
         self.fire_event_pre('domain-cmd-pre-run', start_guid=gui)
+
+        if not self.have_session.is_set():
+            raise qubes.exc.QubesVMError(self, 'don\'t have session yet')
 
         args = [qubes.config.system_path['qrexec_client_path'],
             '-d', str(self.name),
@@ -1127,7 +1143,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         return qmemman_client
 
     @staticmethod
-    def start_daemon(command, **kwargs):
+    async def start_daemon(*command, input=None, **kwargs):
         '''Start a daemon for the VM
 
         This function take care to run it as appropriate user.
@@ -1138,16 +1154,19 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         :return: None
         '''
 
-        prefix_cmd = []
         if os.getuid() == 0:
             # try to always have VM daemons running as normal user, otherwise
             # some files (like clipboard) may be created as root and cause
             # permission problems
             qubes_group = grp.getgrnam('qubes')
-            prefix_cmd = ['runuser', '-u', qubes_group.gr_mem[0], '--']
-        subprocess.check_call(prefix_cmd + command, **kwargs)
+            command = ['runuser', '-u', qubes_group.gr_mem[0], '--'] + command
+        p = await asyncio.create_subprocess_exec(*command, **kwargs)
+        stdout, stderr = await p.communicate(input=input)
+        if p.returncode:
+            raise subprocess.CalledProcessError(p.returncode, command,
+                output=stdout, stderr=stderr)
 
-    def start_qrexec_daemon(self):
+    async def start_qrexec_daemon(self):
         '''Start qrexec daemon.
 
         :raises OSError: when starting fails.
@@ -1167,13 +1186,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             qrexec_env['QREXEC_STARTUP_TIMEOUT'] = str(self.qrexec_timeout)
 
         try:
-            self.start_daemon(
-                [qubes.config.system_path["qrexec_daemon_path"]] + qrexec_args,
+            await self.start_daemon(
+                qubes.config.system_path['qrexec_daemon_path'], *qrexec_args,
                 env=qrexec_env)
         except subprocess.CalledProcessError:
             raise qubes.exc.QubesVMError(self, 'Cannot execute qrexec-daemon!')
 
-    def start_qubesdb(self):
+    async def start_qubesdb(self):
         '''Start QubesDB daemon.
 
         :raises OSError: when starting fails.
@@ -1184,14 +1203,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.log.info('Starting Qubes DB')
         try:
-            self.start_daemon([
-                qubes.config.system_path["qubesdb_daemon_path"],
+            await self.start_daemon(
+                qubes.config.system_path['qubesdb_daemon_path'],
                 str(self.xid),
-                self.name])
+                self.name)
         except subprocess.CalledProcessError:
             raise qubes.exc.QubesException('Cannot execute qubesdb-daemon')
 
-    def wait_for_session(self):
+    async def wait_for_session(self):
         '''Wait until machine finished boot sequence.
 
         This is done by executing qubes RPC call that checks if dummy system
@@ -1201,9 +1220,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.log.info('Waiting for qubes-session')
 
         # Note : User root is redefined to SYSTEM in the Windows agent code
-        p = self.run('QUBESRPC qubes.WaitForSession none',
-            user="root", passio_popen=True, gui=False, wait=True)
-        p.communicate(input=self.default_user.encode())
+        p = await asyncio.get_event_loop().run_in_executor(
+            functools.partial(self.run, 'QUBESRPC qubes.WaitForSession none',
+                user='root', passio_popen=True, gui=False, wait=True))
+        await asyncio.get_event_loop().run_in_executor(functools.partial(
+            p.communicate, input=self.default_user.encode()))
+        self.have_session.set()
 
     def create_on_disk(self, pool=None, pools=None):
         '''Create files needed for VM.
@@ -1714,6 +1736,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.fire_event('domain-qdb-create')
 
+    # TODO async; update this in constructor
     def _update_libvirt_domain(self):
         '''Re-initialise :py:attr:`libvirt_domain`.'''
         domain_config = self.create_config_file()
