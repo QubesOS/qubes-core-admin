@@ -67,15 +67,23 @@ BuildRequires:	python3-dbus
 Requires(post): systemd-units
 Requires(preun): systemd-units
 Requires(postun): systemd-units
-Requires:	python, pciutils, python-inotify, python-daemon
-Requires:	python-setuptools
+
+Requires:       python3
+#Requires:       python3-aiofiles
+Requires:       python3-docutils
+Requires:       python3-jinja2
+Requires:       python3-lxml
+Requires:       python3-qubesdb
+Requires:       python3-setuptools
+Requires:       python3-xen
+Requires:       libvirt-python3
+
+Requires:       pciutils
 Requires:       qubes-core-dom0-linux >= 3.1.8
 Requires:       qubes-core-dom0-doc
 Requires:       qubes-db-dom0
-Requires:       python3-lxml
 # TODO: R: qubes-gui-dom0 >= 2.1.11
 Conflicts:      qubes-gui-dom0 < 1.1.13
-Requires:       libvirt-python3
 %if x%{?backend_vmm} == xxen
 Requires:       xen-runtime
 Requires:       xen-hvm
@@ -85,14 +93,10 @@ Requires:       createrepo
 Requires:       gnome-packagekit
 Requires:       cronie
 Requires:       bsdtar
-Requires:       python3-jinja2
 Requires:       scrypt
 # for qubes-hcl-report
 Requires:       dmidecode
 Requires:       PyQt4
-
-# for property's docstrings
-Requires:	python3-docutils
 
 # for lvm support
 Requires: lvm2-python-libs
