@@ -110,44 +110,48 @@ def init_list_parser(sub_parsers):
 
 class DeviceAction(qubes.tools.QubesAction):
     ''' Action for argument parser that gets the
-        :py:class:``qubes.storage.Volume`` from a POOL_NAME:VOLUME_ID string.
-    '''
-    # pylint: disable=too-few-public-methods
+        :py:class:``qubes.device.DeviceInfo`` from a BACKEND:DEVICE_ID string.
+    '''  # pylint: disable=too-few-public-methods
 
-    def __init__(self, help='A domain & device id combination',
-                 required=True, allow_unknown=False, **kwargs):
+    def __init__(self, help='A pool & volume id combination',
+                 required=True, **kwargs):
         # pylint: disable=redefined-builtin
         super(DeviceAction, self).__init__(help=help, required=required,
                                            **kwargs)
-        self.allow_unknown = allow_unknown
 
     def __call__(self, parser, namespace, values, option_string=None):
-        ''' Set ``namespace.device`` to ``values`` '''
+        ''' Set ``namespace.vmname`` to ``values`` '''
         setattr(namespace, self.dest, values)
 
     def parse_qubes_app(self, parser, namespace):
-        ''' Acquire the :py:class:``qubes.devices.DeviceInfo`` object from
-            ``namespace.app``.
-        '''
         assert hasattr(namespace, 'app')
-        assert hasattr(namespace, 'devclass')
         app = namespace.app
+
+        assert hasattr(namespace, 'device')
+        backend_device_id = getattr(namespace, self.dest)
+
+        assert hasattr(namespace, 'devclass')
         devclass = namespace.devclass
 
         try:
-            backend_name, devid = getattr(namespace, self.dest).split(':', 1)
+            vmname, device_id = backend_device_id.split(':', 1)
             try:
-                backend = app.domains[backend_name]
-                dev = backend.devices[devclass][devid]
-                if not self.allow_unknown and isinstance(dev,
-                        qubes.devices.UnknownDevice):
-                    parser.error_runtime('no device {!r} in qube {!r}'.format(
-                        backend_name, devid))
+                vm = app.domains[vmname]
             except KeyError:
-                parser.error_runtime('no domain {!r}'.format(backend_name))
+                parser.error_runtime("no backend vm {!r}".format(vmname))
+
+            try:
+                device = vm.devices[devclass][device_id]
+            except KeyError:
+                parser.error_runtime(
+                    "backend vm {!r} doesn't expose device {!r}"
+                    .format(vmname, device_id))
+            device_assignment = qubes.devices.DeviceAssignment(vm, device_id,)
+            setattr(namespace, 'device_assignment', device_assignment)
         except ValueError:
-            parser.error('expected a domain & device id combination like '
-                         'foo:bar')
+            parser.error('expected a backend vm & device id combination ' \
+                         'like foo:bar got %s' % backend_device_id)
+
 
 def get_parser(device_class=None):
     '''Create :py:class:`argparse.ArgumentParser` suitable for
@@ -181,8 +185,12 @@ def get_parser(device_class=None):
         detach_parser.add_argument(metavar='BACKEND:DEVICE_ID', dest='device',
                                     action=qubes.tools.VolumeAction)
     else:
-        attach_parser.add_argument(metavar='BACKEND:DEVICE_ID', dest='device')
-        detach_parser.add_argument(metavar='BACKEND:DEVICE_ID', dest='device')
+        attach_parser.add_argument(metavar='BACKEND:DEVICE_ID',
+                                   dest='device',
+                                   action=DeviceAction)
+        detach_parser.add_argument(metavar='BACKEND:DEVICE_ID',
+                                   dest='device',
+                                   action=DeviceAction)
 
     attach_parser.set_defaults(func=attach_device)
     detach_parser.set_defaults(func=detach_device)
