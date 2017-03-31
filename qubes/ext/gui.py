@@ -25,6 +25,8 @@ import os
 import re
 import subprocess
 
+import asyncio
+
 import qubes.config
 import qubes.ext
 
@@ -194,13 +196,17 @@ class GUI(qubes.ext.Extension):
 
         guid_cmd += self.kde_guid_args(vm)
 
-        try:
-            vm.start_daemon(guid_cmd)
-        except subprocess.CalledProcessError:
-            raise qubes.exc.QubesVMError(vm,
-                'Cannot start qubes-guid for domain {!r}'.format(vm.name))
+        @asyncio.coroutine
+        def coro():
+            try:
+                yield from vm.start_daemon(guid_cmd)
+            except subprocess.CalledProcessError:
+                raise qubes.exc.QubesVMError(vm,
+                    'Cannot start qubes-guid for domain {!r}'.format(vm.name))
 
-        vm.fire_event('monitor-layout-change')
+            vm.fire_event('monitor-layout-change')
+
+        asyncio.ensure_future(coro())
 
 
     @staticmethod

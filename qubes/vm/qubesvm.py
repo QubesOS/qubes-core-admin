@@ -823,12 +823,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     yield from self.netvm.start(start_guid=start_guid,
                         notify_function=notify_function)
 
+        # TODO: lock
+
+        qmemman_client = yield from asyncio.get_event_loop().run_in_executor(
+            None, self.request_memory, mem_required)
+
         yield from asyncio.get_event_loop().run_in_executor(None,
             self.storage.start)
         self._update_libvirt_domain()
 
-        qmemman_client = yield from asyncio.get_event_loop().run_in_executor(
-            None, self.request_memory, mem_required)
         try:
             self.libvirt_domain.createWithFlags(libvirt.VIR_DOMAIN_START_PAUSED)
         except:
@@ -1213,8 +1216,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.log.info('qubes-session acquired')
         self.have_session.set()
-
-        self.fire_event('have-session')
+        self.fire_event('domain-has-session')
 
     def create_on_disk(self, pool=None, pools=None):
         '''Create files needed for VM.
