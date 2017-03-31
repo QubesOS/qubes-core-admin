@@ -26,28 +26,28 @@
 import libvirt
 import qubes
 import qubes.exc
-import qubes.vm.qubesvm
+import qubes.vm
 
-class AdminVM(qubes.vm.qubesvm.QubesVM):
+class AdminVM(qubes.vm.BaseVM):
     '''Dom0'''
 
     dir_path = None
 
-    netvm = qubes.property('netvm', setter=qubes.property.forbidden,
-        default=None,
-        doc='Dom0 cannot have netvm')
+    name = qubes.property('name',
+        default='dom0', setter=qubes.property.forbidden)
 
-    kernel = qubes.property('netvm', setter=qubes.property.forbidden,
-        default=None,
-        doc='There are other ways to set kernel for Dom0.')
+    label = qubes.property('label',
+        setter=qubes.vm.setter_label,
+        saver=(lambda self, prop, value: 'label-{}'.format(value.index)),
+        doc='''Colourful label assigned to VM. This is where the colour of the
+            padlock is set.''')
 
-    memory = qubes.property('memory', setter=qubes.property.forbidden,
-        default=lambda self: self.get_mem(),
-        doc='Memory currently assigned to dom0.')
+    qid = qubes.property('qid',
+        default=0, setter=qubes.property.forbidden)
 
-    maxmem = qubes.property('maxmem', setter=qubes.property.forbidden,
-        default=lambda self: self.get_mem_static_max(),
-        doc='Maximum dom0 memory size, modify using xen boot options.')
+    uuid = qubes.property('uuid',
+        default='00000000-0000-0000-0000-000000000000',
+        setter=qubes.property.forbidden)
 
     @property
     def attached_volumes(self):
@@ -71,7 +71,8 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
         '''
         return None
 
-    def is_running(self):
+    @staticmethod
+    def is_running():
         '''Always :py:obj:`True`.
 
         .. seealso:
@@ -79,7 +80,8 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
         '''
         return True
 
-    def get_power_state(self):
+    @staticmethod
+    def get_power_state():
         '''Always ``'Running'``.
 
         .. seealso:
@@ -87,7 +89,8 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
         '''
         return 'Running'
 
-    def get_mem(self):
+    @staticmethod
+    def get_mem():
         '''Get current memory usage of Dom0.
 
         Unit is KiB.

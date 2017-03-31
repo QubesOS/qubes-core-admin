@@ -907,8 +907,7 @@ class Qubes(qubes.PropertyHolder):
             self.pools[name] = self._get_pool(**config)
 
         self.domains.add(
-            qubes.vm.adminvm.AdminVM(self, None, qid=0, name='dom0',
-                label='black'))
+            qubes.vm.adminvm.AdminVM(self, None, label='black'))
 
     @classmethod
     def create_empty_store(cls, *args, **kwargs):
@@ -1122,7 +1121,7 @@ class Qubes(qubes.PropertyHolder):
             oldvalue=None):
         # pylint: disable=unused-argument
         for vm in self.domains:
-            if vm.property_is_default('netvm'):
+            if hasattr(vm, 'netvm') and vm.property_is_default('netvm'):
                 # fire property-del:netvm as it is responsible for resetting
                 # netvm to it's default value
                 vm.fire_event('property-del:netvm',

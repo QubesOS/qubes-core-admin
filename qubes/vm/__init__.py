@@ -446,3 +446,14 @@ class VMProperty(qubes.property):
             return untrusted_vmname
         validate_name(None, self, untrusted_vmname)
         return untrusted_vmname
+
+
+def setter_label(self, prop, value):
+    ''' Helper for setting the domain label '''
+    # pylint: disable=unused-argument
+    if isinstance(value, qubes.Label):
+        return value
+    if isinstance(value, str) and value.startswith('label-'):
+        return self.app.labels[int(value.split('-', 1)[1])]
+
+    return self.app.get_label(value)

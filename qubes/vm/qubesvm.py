@@ -118,16 +118,6 @@ def _setter_kernel(self, prop, value):
     return value
 
 
-def _setter_label(self, prop, value):
-    ''' Helper for setting the domain label '''
-    # pylint: disable=unused-argument
-    if isinstance(value, qubes.Label):
-        return value
-    if isinstance(value, str) and value.startswith('label-'):
-        return self.app.labels[int(value.split('-', 1)[1])]
-
-    return self.app.get_label(value)
-
 def _setter_positive_int(self, prop, value):
     ''' Helper for setting a positive int. Checks that the int is >= 0 '''
     # pylint: disable=unused-argument
@@ -376,7 +366,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     #
 
     label = qubes.property('label',
-        setter=_setter_label,
+        setter=qubes.vm.setter_label,
         saver=(lambda self, prop, value: 'label-{}'.format(value.index)),
         doc='''Colourful label assigned to VM. This is where the colour of the
             padlock is set.''')

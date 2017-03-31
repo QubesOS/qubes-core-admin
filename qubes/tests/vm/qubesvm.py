@@ -30,6 +30,7 @@ import datetime
 import qubes
 import qubes.exc
 import qubes.config
+import qubes.vm
 import qubes.vm.qubesvm
 
 import qubes.tests
@@ -131,12 +132,12 @@ class TC_00_setters(qubes.tests.QubesTestCase):
     def test_030_setter_label_object(self):
         label = TestApp.labels[1]
         self.assertIs(label,
-            qubes.vm.qubesvm._setter_label(self.vm, self.prop, label))
+            qubes.vm.setter_label(self.vm, self.prop, label))
 
     def test_031_setter_label_getitem(self):
         label = TestApp.labels[1]
         self.assertIs(label,
-            qubes.vm.qubesvm._setter_label(self.vm, self.prop, 'label-1'))
+            qubes.vm.setter_label(self.vm, self.prop, 'label-1'))
 
     # there is no check for self.app.get_label()
 

@@ -166,7 +166,7 @@ class NetVMMixin(qubes.events.Emitter):
             NetVM.
         '''
         for vm in self.app.domains:
-            if vm.netvm is self:
+            if getattr(vm, 'netvm', None) is self:
                 yield vm
 
     #
