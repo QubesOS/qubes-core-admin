@@ -169,15 +169,22 @@ def get_parser(device_class=None):
     init_list_parser(sub_parsers)
     attach_parser = sub_parsers.add_parser(
         'attach', help="Attach device to domain", aliases=('at', 'a'))
-    attach_parser.add_argument('VMNAME', action=qubes.tools.RunningVmNameAction)
-    attach_parser.add_argument(metavar='BACKEND:DEVICE_ID', dest='device',
-                               action=qubes.tools.VolumeAction)
-    attach_parser.set_defaults(func=detach_device)
     detach_parser = sub_parsers.add_parser(
         "detach", help="Detach device from domain", aliases=('d', 'dt'))
+
+    attach_parser.add_argument('VMNAME', action=qubes.tools.RunningVmNameAction)
     detach_parser.add_argument('VMNAME', action=qubes.tools.RunningVmNameAction)
-    detach_parser.add_argument(metavar='BACKEND:DEVICE_ID', dest='device',
-                               action=qubes.tools.VolumeAction)
+
+    if device_class == 'block':
+        attach_parser.add_argument(metavar='BACKEND:DEVICE_ID', dest='device',
+                                action=qubes.tools.VolumeAction)
+        detach_parser.add_argument(metavar='BACKEND:DEVICE_ID', dest='device',
+                                    action=qubes.tools.VolumeAction)
+    else:
+        attach_parser.add_argument(metavar='BACKEND:DEVICE_ID', dest='device')
+        detach_parser.add_argument(metavar='BACKEND:DEVICE_ID', dest='device')
+
+    attach_parser.set_defaults(func=attach_device)
     detach_parser.set_defaults(func=detach_device)
 
     return parser
