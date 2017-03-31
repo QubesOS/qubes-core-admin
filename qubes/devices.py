@@ -57,6 +57,30 @@ class DeviceAlreadyAttached(qubes.exc.QubesException, KeyError):
     pass
 
 
+class DeviceAssignment(object): # pylint: disable=too-few-public-methods
+    ''' Maps a device to a frontend_domain. '''
+
+    def __init__(self, backend_domain, ident, options=None, persistent=False,
+                 frontend_domain=None):
+        self.backend_domain = backend_domain
+        self.ident = ident
+        self.options = options or []
+        self.persistent = persistent
+        self.frontend_domain = frontend_domain
+
+    def __repr__(self):
+        return "[%s]:%s" % (self.backend_domain, self.ident)
+
+    def __hash__(self):
+        return hash((self.backend_domain, self.ident))
+
+    def __eq__(self, other):
+        if not isinstance(self, other.__class__):
+            raise NotImplementedError
+
+        return self.backend_domain == other.backend_domain \
+           and self.ident == other.ident
+
 class DeviceCollection(object):
     '''Bag for devices.
 
@@ -302,3 +326,4 @@ class BlockDevice(object):
         self.script = script
         self.domain = domain
         self.devtype = devtype
+
