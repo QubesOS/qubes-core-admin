@@ -248,7 +248,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
 
         p = subprocess.Popen(['xl', 'pci-list', str(vm.xid)],
                 stdout=subprocess.PIPE)
-        result = p.communicate()[0]
+        result = p.communicate()[0].decode()
         m = re.search(r'^(\d+.\d+)\s+0000:{}$'.format(device.ident), result,
             flags=re.MULTILINE)
         if not m:
