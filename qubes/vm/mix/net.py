@@ -91,8 +91,10 @@ class NetVMMixin(qubes.events.Emitter):
         doc='''If this domain can act as network provider (formerly known as
             NetVM or ProxyVM)''')
 
-    firewall_conf = qubes.property('firewall_conf', type=str,
-        default='firewall.xml')
+
+    @property
+    def firewall_conf(self):
+        return 'firewall.xml'
 
     #
     # used in networked appvms or proxyvms (netvm is not None)
@@ -330,7 +332,7 @@ class NetVMMixin(qubes.events.Emitter):
 
 
     @qubes.events.handler('property-del:netvm')
-    def on_property_del_netvm(self, event, prop, oldvalue=None):
+    def on_property_del_netvm(self, event, name, oldvalue=None):
         ''' Sets the the NetVM to default NetVM '''
         # pylint: disable=unused-argument
         # we are changing to default netvm

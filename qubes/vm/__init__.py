@@ -27,6 +27,7 @@
 
 import datetime
 import os
+import re
 import subprocess
 import sys
 import xml.parsers.expat
@@ -38,6 +39,31 @@ import qubes.devices
 import qubes.events
 import qubes.log
 import qubes.tools.qvm_ls
+
+
+def validate_name(holder, prop, value):
+    ''' Check if value is syntactically correct VM name '''
+    if not isinstance(value, str):
+        raise TypeError('VM name must be string, {!r} found'.format(
+            type(value).__name__))
+    if len(value) > 31:
+        if holder is not None and prop is not None:
+            raise qubes.exc.QubesPropertyValueError(holder, prop, value,
+                '{} value must be shorter than 32 characters'.format(
+                    prop.__name__))
+        else:
+            raise qubes.exc.QubesValueError(
+                'VM name must be shorter than 32 characters')
+
+    # this regexp does not contain '+'; if it had it, we should specifically
+    # disallow 'lost+found' #1440
+    if re.match(r"^[a-zA-Z][a-zA-Z0-9_-]*$", value) is None:
+        if holder is not None and prop is not None:
+            raise qubes.exc.QubesPropertyValueError(holder, prop, value,
+                '{} value contains illegal characters'.format(prop.__name__))
+        else:
+            raise qubes.exc.QubesValueError(
+                'VM name contains illegal characters')
 
 
 class Features(dict):
@@ -332,3 +358,11 @@ class VMProperty(qubes.property):
                     self.vmclass.__name__))
 
         super(VMProperty, self).__set__(instance, vm)
+
+    def sanitize(self, *, untrusted_newvalue):
+        try:
+            untrusted_vmname = untrusted_newvalue.decode('ascii')
+        except UnicodeDecodeError:
+            raise qubes.exc.QubesValueError
+        validate_name(None, self, untrusted_vmname)
+        return untrusted_vmname

@@ -859,6 +859,7 @@ class Qubes(qubes.PropertyHolder):
             7: qubes.Label(7, '0x75507b', 'purple'),
             8: qubes.Label(8, '0x000000', 'black'),
         }
+        assert max(self.labels.keys()) == qubes.config.max_default_label
 
         # check if the default LVM Thin pool qubes_dom0/pool00 exists
         if os.path.exists('/dev/mapper/qubes_dom0-pool00-tpool'):
@@ -872,7 +873,8 @@ class Qubes(qubes.PropertyHolder):
             self.pools[name] = self._get_pool(**config)
 
         self.domains.add(
-            qubes.vm.adminvm.AdminVM(self, None, qid=0, name='dom0'))
+            qubes.vm.adminvm.AdminVM(self, None, qid=0, name='dom0',
+                label='black'))
 
     @classmethod
     def create_empty_store(cls, *args, **kwargs):
@@ -1085,7 +1087,7 @@ class Qubes(qubes.PropertyHolder):
             oldvalue=None):
         # pylint: disable=unused-argument
         for vm in self.domains:
-            if vm.provides_network and vm.property_is_default('netvm'):
+            if vm.property_is_default('netvm'):
                 # fire property-del:netvm as it is responsible for resetting
                 # netvm to it's default value
                 vm.fire_event('property-del:netvm',

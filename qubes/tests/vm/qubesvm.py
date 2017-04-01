@@ -340,20 +340,6 @@ class TC_90_QubesVM(QubesVMTestsMixin,qubes.tests.QubesTestCase):
         vm = self.get_vm()
         self._test_generic_bool_property(vm, 'include_in_backups', True)
 
-    def test_240_firewall_conf(self):
-        vm = self.get_vm()
-        self.assertPropertyDefaultValue(vm, 'firewall_conf', 'firewall.xml')
-        self.assertPropertyValue(vm, 'firewall_conf', 'other.xml',
-            'other.xml', 'other.xml')
-        del vm.firewall_conf
-        self.assertPropertyDefaultValue(vm, 'firewall_conf',
-            'firewall.xml')
-
-    @unittest.expectedFailure
-    def test_241_firewall_conf_invalid(self):
-        vm = self.get_vm()
-        self.assertPropertyInvalidValue(vm, 'firewall_conf', None)
-
     @qubes.tests.skipUnlessDom0
     def test_250_kernel(self):
         kernels = os.listdir(os.path.join(

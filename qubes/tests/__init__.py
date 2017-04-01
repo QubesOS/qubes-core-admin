@@ -45,6 +45,7 @@ import unittest
 from distutils import spawn
 
 import lxml.etree
+import pkg_resources
 
 import qubes.backup
 import qubes.config
@@ -143,12 +144,22 @@ class TestEmitter(qubes.events.Emitter):
 
     def fire_event(self, event, **kwargs):
         effects = super(TestEmitter, self).fire_event(event, **kwargs)
-        self.fired_events[(event, tuple(kwargs.items()))] += 1
+        ev_kwargs = frozenset(
+            (key,
+                frozenset(value.items()) if isinstance(value, dict) else value)
+            for key, value in kwargs.items()
+        )
+        self.fired_events[(event, ev_kwargs)] += 1
         return effects
 
     def fire_event_pre(self, event, **kwargs):
         effects = super(TestEmitter, self).fire_event_pre(event, **kwargs)
-        self.fired_events[(event, tuple(kwargs.items()))] += 1
+        ev_kwargs = frozenset(
+            (key,
+                frozenset(value.items()) if isinstance(value, dict) else value)
+            for key, value in kwargs.items()
+        )
+        self.fired_events[(event, ev_kwargs)] += 1
         return effects
 
 def expectedFailureIfTemplate(templates):
@@ -894,6 +905,7 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
             'qubes.tests.vm.adminvm',
             'qubes.tests.app',
             'qubes.tests.tarwriter',
+            'qubes.tests.mgmt',
             'qubes.tests.tools.qvm_device',
             'qubes.tests.tools.qvm_firewall',
             'qubes.tests.tools.qvm_ls',

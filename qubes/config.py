@@ -109,3 +109,6 @@ defaults = {
 max_qid = 254
 max_netid = 254
 max_dispid = 10000
+#: built-in standard labels, if creating new one, allocate them above this
+# number, at least until label index is removed from API
+max_default_label = 8

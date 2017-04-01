@@ -29,8 +29,8 @@ import base64
 import datetime
 import os
 import os.path
-import re
 import shutil
+import string
 import subprocess
 import sys
 import time
@@ -78,18 +78,8 @@ def _setter_qid(self, prop, value):
 
 def _setter_name(self, prop, value):
     ''' Helper for setting the domain name '''
-    if not isinstance(value, str):
-        raise TypeError('{} value must be string, {!r} found'.format(
-            prop.__name__, type(value).__name__))
-    if len(value) > 31:
-        raise ValueError('{} value must be shorter than 32 characters'.format(
-            prop.__name__))
+    qubes.vm.validate_name(self, prop, value)
 
-    # this regexp does not contain '+'; if it had it, we should specifically
-    # disallow 'lost+found' #1440
-    if re.match(r"^[a-zA-Z][a-zA-Z0-9_-]*$", value) is None:
-        raise ValueError('{} value contains illegal characters'.format(
-            prop.__name__))
     if self.is_running():
         raise qubes.exc.QubesVMNotHaltedError(
             self, 'Cannot change name of running VM')
@@ -102,7 +92,7 @@ def _setter_name(self, prop, value):
         pass
 
     if value in self.app.domains:
-        raise qubes.exc.QubesValueError(
+        raise qubes.exc.QubesPropertyValueError(self, prop, value,
             'VM named {} alread exists'.format(value))
 
     return value
@@ -114,6 +104,9 @@ def _setter_kernel(self, prop, value):
     if value is None:
         return value
     value = str(value)
+    if '/' in value:
+        raise qubes.exc.QubesPropertyValueError(self, prop, value,
+            'Kernel name cannot contain \'/\'')
     dirname = os.path.join(
         qubes.config.system_path['qubes_base_dir'],
         qubes.config.system_path['qubes_kernels_base_dir'],
@@ -147,6 +140,16 @@ def _setter_positive_int(self, prop, value):
         raise ValueError('Value must be positive')
     return value
 
+
+def _setter_default_user(self, prop, value):
+    ''' Helper for setting default user '''
+    value = str(value)
+    # specifically forbid: ':', ' ', ''', '"'
+    allowed_chars = string.ascii_letters + string.digits + '_-+,.'
+    if not all(c in allowed_chars for c in value):
+        raise qubes.exc.QubesPropertyValueError(self, prop, value,
+            'Username can contain only those characters: ' + allowed_chars)
+    return value
 
 class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     '''Base functionality of Qubes VM shared between all VMs.
@@ -418,10 +421,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         ls_width=2,
         doc='FIXME')
 
-    pool_name = qubes.property('pool_name',
-        default='default',
-        doc='storage pool for this qube devices')
-
     # CORE2: swallowed uses_default_kernel
     kernel = qubes.property('kernel', type=str,
         setter=_setter_kernel,
@@ -448,6 +447,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     default_user = qubes.property('default_user', type=str,
         default=(lambda self: self.template.default_user
             if hasattr(self, 'template') else 'user'),
+        setter=_setter_default_user,
         ls_width=12,
         doc='FIXME')
 
@@ -488,6 +488,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         allow_none=True,
         default=(lambda self: self.app.default_dispvm),
         doc='Default VM to be used as Disposable VM for service calls.')
+
+
+    updateable = qubes.property('updateable',
+        default=(lambda self: not hasattr(self, 'template')),
+        type=bool,
+        setter=qubes.property.forbidden,
+        doc='True if this machine may be updated on its own.')
 
     #
     # static, class-wide properties
@@ -575,12 +582,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 import qubesdb  # pylint: disable=import-error
                 self._qdb_connection = qubesdb.QubesDB(self.name)
         return self._qdb_connection
-
-    # XXX shouldn't this go elsewhere?
-    @property
-    def updateable(self):
-        '''True if this machine may be updated on its own.'''
-        return not hasattr(self, 'template')
 
     @property
     def dir_path(self):
@@ -707,7 +708,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.app.pools[vm_pool.name] = vm_pool
 
     @qubes.events.handler('property-set:label')
-    def on_property_set_label(self, event, name, new_label, old_label=None):
+    def on_property_set_label(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
         if self.icon_path:
             try:
@@ -715,10 +716,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             except OSError:
                 pass
             if hasattr(os, "symlink"):
-                os.symlink(new_label.icon_path, self.icon_path)
+                os.symlink(newvalue.icon_path, self.icon_path)
                 subprocess.call(['sudo', 'xdg-icon-resource', 'forceupdate'])
             else:
-                shutil.copy(new_label.icon_path, self.icon_path)
+                shutil.copy(newvalue.icon_path, self.icon_path)
 
     @qubes.events.handler('property-pre-set:name')
     def on_property_pre_set_name(self, event, name, newvalue, oldvalue=None):
@@ -741,11 +742,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                                    'qubes-vm@{}.service'.format(oldvalue)])
 
     @qubes.events.handler('property-set:name')
-    def on_property_set_name(self, event, name, new_name, old_name=None):
+    def on_property_set_name(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
         self.init_log()
 
-        self.storage.rename(old_name, new_name)
+        self.storage.rename(oldvalue, newvalue)
 
         if self._libvirt_domain is not None:
             self.libvirt_domain.undefine()
@@ -760,11 +761,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self.autostart = self.autostart
 
     @qubes.events.handler('property-pre-set:autostart')
-    def on_property_pre_set_autostart(self, event, prop, value,
+    def on_property_pre_set_autostart(self, event, prop, newvalue,
             oldvalue=None):
         # pylint: disable=unused-argument
         # workaround https://bugzilla.redhat.com/show_bug.cgi?id=1181922
-        if value:
+        if newvalue:
             retcode = subprocess.call(
                 ["sudo", "ln", "-sf",
                  "/usr/lib/systemd/system/qubes-vm@.service",

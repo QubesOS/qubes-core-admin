@@ -31,6 +31,7 @@ import builtins
 import collections
 import os
 import os.path
+import string
 
 import lxml.etree
 import qubes.config
@@ -104,6 +105,10 @@ class Label(object):
             self.color,
             self.name)
 
+    def __eq__(self, other):
+        if isinstance(other, Label):
+            return self.name == other.name
+        return NotImplemented
 
     @builtins.property
     def icon_path(self):
@@ -193,7 +198,7 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
         self._setter = setter
         self._saver = saver if saver is not None else (
             lambda self, prop, value: str(value))
-        self._type = type
+        self.type = type
         self._default = default
         self._write_once = write_once
         self.order = order
@@ -245,8 +250,8 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
 
         if self._setter is not None:
             value = self._setter(instance, self, value)
-        if self._type not in (None, type(value)):
-            value = self._type(value)
+        if self.type not in (None, type(value)):
+            value = self.type(value)
 
         if has_oldvalue:
             instance.fire_event_pre('property-pre-set:' + self.__name__,
@@ -317,6 +322,41 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
                 'property {!r} is write-once and already set'.format(
                     self.__name__))
 
+    def sanitize(self, *, untrusted_newvalue):
+        '''Coarse sanitization of value to be set, before sending it to a
+        setter. Can raise QubesValueError if the value is invalid.
+
+        :param untrusted_newvalue: value to be validated
+        :return sanitized value
+        :raises qubes.exc.QubesValueError
+        '''
+        # do not treat type='str' as sufficient validation
+        if self.type is not None and self.type is not str:
+            # assume specific type will preform enough validation
+            if self.type is bool:
+                try:
+                    untrusted_newvalue = untrusted_newvalue.decode('ascii')
+                except UnicodeDecodeError:
+                    raise qubes.exc.QubesValueError
+                return self.bool(None, None, untrusted_newvalue)
+            else:
+                try:
+                    return self.type(untrusted_newvalue)
+                except ValueError:
+                    raise qubes.exc.QubesValueError
+        else:
+            # 'str' or not specified type
+            try:
+                untrusted_newvalue = untrusted_newvalue.decode('ascii',
+                    errors='strict')
+            except UnicodeDecodeError:
+                raise qubes.exc.QubesValueError
+            allowed_set = string.printable
+            if not all(x in allowed_set for x in untrusted_newvalue):
+                raise qubes.exc.QubesValueError(
+                    'Invalid characters in property value')
+            return untrusted_newvalue
+
 
     #
     # exceptions
@@ -368,7 +408,7 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
                 return False
             if lcvalue in ('1', 'yes', 'true', 'on'):
                 return True
-            raise ValueError(
+            raise qubes.exc.QubesValueError(
                 'Invalid literal for boolean property: {!r}'.format(value))
 
         return bool(value)
