@@ -2,8 +2,7 @@ sudo: required
 dist: trusty
 language: python
 python:
-# - '2.7'
-  - '3.4'
+  - '3.5'
 install:
   - pip install --quiet -r ci/requirements.txt
   - git clone https://github.com/"${TRAVIS_REPO_SLUG%%/*}"/qubes-builder ~/qubes-builder
