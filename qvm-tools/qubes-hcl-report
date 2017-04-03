@@ -33,7 +33,7 @@ while [ $# -gt 0 ]; do
 
     -* | -h | --help)
       echo -e "qubes-hcl-report v$VERSION"
-      echo "TEST VERSION"
+      echo ""
       echo "This tool is used to gather basic hardware information for the Qubes HCL (Hardware Compatibility List)"
       echo "and copy the results to the given AppVM for the easy contribution."
       echo ""
