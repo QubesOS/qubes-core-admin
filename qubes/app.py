@@ -55,13 +55,15 @@ elif os.name == 'nt':
 else:
     raise RuntimeError("Qubes works only on POSIX or WinNT systems")
 
-
-import qubes  # pylint: disable=wrong-import-position
-import qubes.ext  # pylint: disable=wrong-import-position
-import qubes.utils  # pylint: disable=wrong-import-position
-import qubes.vm.adminvm  # pylint: disable=wrong-import-position
-import qubes.vm.qubesvm  # pylint: disable=wrong-import-position
-import qubes.vm.templatevm  # pylint: disable=wrong-import-position
+# pylint: disable=wrong-import-position
+import qubes
+import qubes.ext
+import qubes.utils
+import qubes.vm
+import qubes.vm.adminvm
+import qubes.vm.qubesvm
+import qubes.vm.templatevm
+# pylint: enable=wrong-import-position
 
 class VirDomainWrapper(object):
     # pylint: disable=too-few-public-methods
@@ -912,7 +914,8 @@ class Qubes(qubes.PropertyHolder):
         '''
 
         try:
-            return qubes.utils.get_entry_point_one('qubes.vm', clsname)
+            return qubes.utils.get_entry_point_one(
+                qubes.vm.VM_ENTRY_POINT, clsname)
         except KeyError:
             raise qubes.exc.QubesException(
                 'no such VM class: {!r}'.format(clsname))

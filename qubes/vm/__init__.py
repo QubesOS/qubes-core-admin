@@ -40,6 +40,7 @@ import qubes.events
 import qubes.log
 import qubes.tools.qvm_ls
 
+VM_ENTRY_POINT = 'qubes.vm'
 
 def validate_name(holder, prop, value):
     ''' Check if value is syntactically correct VM name '''

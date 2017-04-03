@@ -27,6 +27,7 @@ import string
 
 import pkg_resources
 
+import qubes.vm
 import qubes.vm.qubesvm
 import qubes.storage
 
@@ -156,6 +157,15 @@ class QubesMgmt(AbstractQubesMgmt):
     .. seealso::
         https://www.qubes-os.org/doc/mgmt1/
     '''
+
+    @api('mgmt.vmclass.List', no_payload=True)
+    async def vmclass_list(self):
+        '''List all VM classes'''
+        assert not self.arg
+        assert self.dest.name == 'dom0'
+
+        return ''.join('{}\n'.format(ep.name)
+            for ep in pkg_resources.iter_entry_points(qubes.vm.VM_ENTRY_POINT))
 
     @api('mgmt.vm.List', no_payload=True)
     async def vm_list(self):
@@ -464,3 +474,28 @@ class QubesMgmt(AbstractQubesMgmt):
 
         del self.app.labels[label.index]
         self.app.save()
+
+    @api('mgmt.vm.Start', no_payload=True)
+    async def vm_start(self):
+        assert not self.arg
+        await self.dest.start()
+
+    @api('mgmt.vm.Shutdown', no_payload=True)
+    async def vm_shutdown(self):
+        assert not self.arg
+        await self.dest.shutdown()
+
+    @api('mgmt.vm.Pause', no_payload=True)
+    async def vm_pause(self):
+        assert not self.arg
+        await self.dest.pause()
+
+    @api('mgmt.vm.Unpause', no_payload=True)
+    async def vm_unpause(self):
+        assert not self.arg
+        await self.dest.unpause()
+
+    @api('mgmt.vm.Kill', no_payload=True)
+    async def vm_kill(self):
+        assert not self.arg
+        await self.dest.kill()
