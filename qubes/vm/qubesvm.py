@@ -32,8 +32,6 @@ import os.path
 import shutil
 import string
 import subprocess
-import sys
-import time
 import uuid
 import warnings
 
