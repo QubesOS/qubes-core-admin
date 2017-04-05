@@ -164,8 +164,11 @@ class QubesMgmt(AbstractQubesMgmt):
         assert not self.arg
         assert self.dest.name == 'dom0'
 
+        entrypoints = self.fire_event_for_filter(
+            pkg_resources.iter_entry_points(qubes.vm.VM_ENTRY_POINT))
+
         return ''.join('{}\n'.format(ep.name)
-            for ep in pkg_resources.iter_entry_points(qubes.vm.VM_ENTRY_POINT))
+            for ep in entrypoints)
 
     @api('mgmt.vm.List', no_payload=True)
     async def vm_list(self):
@@ -478,24 +481,29 @@ class QubesMgmt(AbstractQubesMgmt):
     @api('mgmt.vm.Start', no_payload=True)
     async def vm_start(self):
         assert not self.arg
+        self.fire_event_for_permission()
         await self.dest.start()
 
     @api('mgmt.vm.Shutdown', no_payload=True)
     async def vm_shutdown(self):
         assert not self.arg
+        self.fire_event_for_permission()
         await self.dest.shutdown()
 
     @api('mgmt.vm.Pause', no_payload=True)
     async def vm_pause(self):
         assert not self.arg
+        self.fire_event_for_permission()
         await self.dest.pause()
 
     @api('mgmt.vm.Unpause', no_payload=True)
     async def vm_unpause(self):
         assert not self.arg
+        self.fire_event_for_permission()
         await self.dest.unpause()
 
     @api('mgmt.vm.Kill', no_payload=True)
     async def vm_kill(self):
         assert not self.arg
+        self.fire_event_for_permission()
         await self.dest.kill()
