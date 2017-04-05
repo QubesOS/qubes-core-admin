@@ -794,8 +794,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     # methods for changing domain state
     #
 
-    async def start(self, preparing_dvm=False, start_guid=True,
-            notify_function=None, mem_required=None):
+    @asyncio.coroutine
+    def start(self, preparing_dvm=False, start_guid=True, notify_function=None,
+            mem_required=None):
         '''Start domain
 
         :param bool preparing_dvm: FIXME
@@ -814,22 +815,22 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.fire_event_pre('domain-pre-start', preparing_dvm=preparing_dvm,
             start_guid=start_guid, mem_required=mem_required)
 
-        await asyncio.get_event_loop().run_in_executor(None,
+        yield from asyncio.get_event_loop().run_in_executor(None,
             self.storage.verify)
 
         if self.netvm is not None:
             # pylint: disable = no-member
             if self.netvm.qid != 0:
                 if not self.netvm.is_running():
-                    await self.netvm.start(start_guid=start_guid,
+                    yield from self.netvm.start(start_guid=start_guid,
                         notify_function=notify_function)
 
-        await asyncio.get_event_loop().run_in_executor(None,
+        yield from asyncio.get_event_loop().run_in_executor(None,
             self.storage.start)
         self._update_libvirt_domain()
 
-        qmemman_client = await asyncio.get_event_loop().run_in_executor(None,
-            self.request_memory, mem_required)
+        qmemman_client = yield from asyncio.get_event_loop().run_in_executor(
+            None, self.request_memory, mem_required)
         try:
             self.libvirt_domain.createWithFlags(libvirt.VIR_DOMAIN_START_PAUSED)
         except:
@@ -842,7 +843,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 preparing_dvm=preparing_dvm, start_guid=start_guid)
 
             self.log.info('Setting Qubes DB info for the VM')
-            await self.start_qubesdb()
+            yield from self.start_qubesdb()
             self.create_qdb_entries()
 
             if preparing_dvm:
@@ -864,7 +865,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 #               self.start_guid()
 
             if not preparing_dvm:
-                await self.start_qrexec_daemon()
+                yield from self.start_qrexec_daemon()
 
             self.fire_event('domain-start',
                 preparing_dvm=preparing_dvm, start_guid=start_guid)
@@ -873,14 +874,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             if self.is_running() or self.is_paused():
                 # This avoids losing the exception if an exception is raised in
                 # self.force_shutdown(), because the vm is not running or paused
-                await self.kill()
+                yield from self.kill()
             raise
 
         asyncio.ensure_future(self._wait_for_session())
 
         return self
 
-    async def shutdown(self, force=False, wait=False):
+    @asyncio.coroutine
+    def shutdown(self, force=False, wait=False):
         '''Shutdown domain.
 
         :raises qubes.exc.QubesVMNotStartedError: \
@@ -894,15 +896,16 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.libvirt_domain.shutdown()
 
-        await asyncio.get_event_loop().run_in_executor(None,
+        yield from asyncio.get_event_loop().run_in_executor(None,
             self.storage.stop)
 
         while wait and not self.is_halted():
-            await asyncio.sleep(0.25)
+            yield from asyncio.sleep(0.25)
 
         return self
 
-    async def kill(self):
+    @asyncio.coroutine
+    def kill(self):
         '''Forcefuly shutdown (destroy) domain.
 
         :raises qubes.exc.QubesVMNotStartedError: \
@@ -913,7 +916,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesVMNotStartedError(self)
 
         self.libvirt_domain.destroy()
-        await asyncio.get_event_loop().run_in_executor(None,
+        yield from asyncio.get_event_loop().run_in_executor(None,
             self.storage.stop)
 
         return self
@@ -925,7 +928,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             DeprecationWarning, stacklevel=2)
         return self.kill(*args, **kwargs)
 
-    async def suspend(self):
+    @asyncio.coroutine
+    def suspend(self):
         '''Suspend (pause) domain.
 
         :raises qubes.exc.QubesVMNotRunnignError: \
@@ -946,7 +950,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self
 
-    async def pause(self):
+    @asyncio.coroutine
+    def pause(self):
         '''Pause (suspend) domain. This currently delegates to \
         :py:meth:`suspend`.'''
 
@@ -957,7 +962,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self
 
-    async def resume(self):
+    @asyncio.coroutine
+    def resume(self):
         '''Resume suspended domain.
 
         :raises qubes.exc.QubesVMNotSuspendedError: when machine is not paused
@@ -972,7 +978,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self
 
-    async def unpause(self):
+    @asyncio.coroutine
+    def unpause(self):
         '''Resume (unpause) a domain'''
         if not self.is_paused():
             raise qubes.exc.QubesVMNotPausedError(self)
@@ -981,7 +988,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self
 
-    async def run_service(self, service, source=None, user=None,
+    @asyncio.coroutine
+    def run_service(self, service, source=None, user=None,
             filter_esc=False, autostart=False, gui=False, **kwargs):
         '''Run service on this VM
 
@@ -1020,7 +1028,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         elif not self.is_running():
             if not autostart:
                 raise qubes.exc.QubesVMNotRunningError(self)
-            await self.start(start_guid=gui)
+            yield from self.start(start_guid=gui)
 
         if not self.is_qrexec_running():
             raise qubes.exc.QubesVMError(
@@ -1031,14 +1039,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.fire_event_pre('domain-cmd-pre-run', start_guid=gui)
 
-        return await asyncio.create_subprocess_exec(
+        return (yield from asyncio.create_subprocess_exec(
             qubes.config.system_path['qrexec_client_path'],
             '-d', str(self.name),
             *(('-t', '-T') if filter_esc else ()),
             '{}:QUBESRPC {} {}'.format(user, service, source),
-            **kwargs)
+            **kwargs))
 
-    async def run_service_for_stdio(self, *args, input=None, **kwargs):
+    @asyncio.coroutine
+    def run_service_for_stdio(self, *args, input=None, **kwargs):
         '''Run a service, pass an optional input and return (stdout, stderr).
 
         Raises an exception if return code != 0.
@@ -1050,10 +1059,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             not filtered for problems originating between the keyboard and the
             chair.
         '''  # pylint: disable=redefined-builtin
-        p = await self.run_service(*args, **kwargs)
+        p = yield from self.run_service(*args, **kwargs)
 
         # this one is actually a tuple, but there is no need to unpack it
-        stdouterr = await p.communicate(input=input)
+        stdouterr = yield from p.communicate(input=input)
 
         if p.returncode:
             raise qubes.exc.QubesVMError(self,
@@ -1121,7 +1130,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         return qmemman_client
 
     @staticmethod
-    async def start_daemon(*command, input=None, **kwargs):
+    @asyncio.coroutine
+    def start_daemon(*command, input=None, **kwargs):
         '''Start a daemon for the VM
 
         This function take care to run it as appropriate user.
@@ -1138,13 +1148,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             # permission problems
             qubes_group = grp.getgrnam('qubes')
             command = ['runuser', '-u', qubes_group.gr_mem[0], '--'] + command
-        p = await asyncio.create_subprocess_exec(*command, **kwargs)
-        stdout, stderr = await p.communicate(input=input)
+        p = yield from asyncio.create_subprocess_exec(*command, **kwargs)
+        stdout, stderr = yield from p.communicate(input=input)
         if p.returncode:
             raise subprocess.CalledProcessError(p.returncode, command,
                 output=stdout, stderr=stderr)
 
-    async def start_qrexec_daemon(self):
+    @asyncio.coroutine
+    def start_qrexec_daemon(self):
         '''Start qrexec daemon.
 
         :raises OSError: when starting fails.
@@ -1164,13 +1175,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             qrexec_env['QREXEC_STARTUP_TIMEOUT'] = str(self.qrexec_timeout)
 
         try:
-            await self.start_daemon(
+            yield from self.start_daemon(
                 qubes.config.system_path['qrexec_daemon_path'], *qrexec_args,
                 env=qrexec_env)
         except subprocess.CalledProcessError:
             raise qubes.exc.QubesVMError(self, 'Cannot execute qrexec-daemon!')
 
-    async def start_qubesdb(self):
+    @asyncio.coroutine
+    def start_qubesdb(self):
         '''Start QubesDB daemon.
 
         :raises OSError: when starting fails.
@@ -1181,14 +1193,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.log.info('Starting Qubes DB')
         try:
-            await self.start_daemon(
+            yield from self.start_daemon(
                 qubes.config.system_path['qubesdb_daemon_path'],
                 str(self.xid),
                 self.name)
         except subprocess.CalledProcessError:
             raise qubes.exc.QubesException('Cannot execute qubesdb-daemon')
 
-    async def _wait_for_session(self):
+    @asyncio.coroutine
+    def _wait_for_session(self):
         '''Wait until machine finished boot sequence.
 
         This is done by executing qubes RPC call that checks if dummy system
@@ -1197,7 +1210,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.log.info('Waiting for qubes-session')
 
-        await self.run_service_for_stdio('qubes.WaitForSession',
+        yield from self.run_service_for_stdio('qubes.WaitForSession',
             user='root', gui=False, input=self.default_user.encode())
 
         self.log.info('qubes-session acquired')

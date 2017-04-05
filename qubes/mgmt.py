@@ -22,6 +22,7 @@
 Qubes OS Management API
 '''
 
+import asyncio
 import functools
 import string
 
@@ -159,7 +160,8 @@ class QubesMgmt(AbstractQubesMgmt):
     '''
 
     @api('mgmt.vmclass.List', no_payload=True)
-    async def vmclass_list(self):
+    @asyncio.coroutine
+    def vmclass_list(self):
         '''List all VM classes'''
         assert not self.arg
         assert self.dest.name == 'dom0'
@@ -171,7 +173,8 @@ class QubesMgmt(AbstractQubesMgmt):
             for ep in entrypoints)
 
     @api('mgmt.vm.List', no_payload=True)
-    async def vm_list(self):
+    @asyncio.coroutine
+    def vm_list(self):
         '''List all the domains'''
         assert not self.arg
 
@@ -187,7 +190,8 @@ class QubesMgmt(AbstractQubesMgmt):
             for vm in sorted(domains))
 
     @api('mgmt.vm.property.List', no_payload=True)
-    async def vm_property_list(self):
+    @asyncio.coroutine
+    def vm_property_list(self):
         '''List all properties on a qube'''
         assert not self.arg
 
@@ -196,7 +200,8 @@ class QubesMgmt(AbstractQubesMgmt):
         return ''.join('{}\n'.format(prop.__name__) for prop in properties)
 
     @api('mgmt.vm.property.Get', no_payload=True)
-    async def vm_property_get(self):
+    @asyncio.coroutine
+    def vm_property_get(self):
         '''Get a value of one property'''
         assert self.arg in self.dest.property_list()
 
@@ -226,7 +231,8 @@ class QubesMgmt(AbstractQubesMgmt):
                 str(value) if value is not None else '')
 
     @api('mgmt.vm.property.Set')
-    async def vm_property_set(self, untrusted_payload):
+    @asyncio.coroutine
+    def vm_property_set(self, untrusted_payload):
         assert self.arg in self.dest.property_list()
 
         property_def = self.dest.property_get_def(self.arg)
@@ -238,7 +244,8 @@ class QubesMgmt(AbstractQubesMgmt):
         self.app.save()
 
     @api('mgmt.vm.property.Help', no_payload=True)
-    async def vm_property_help(self):
+    @asyncio.coroutine
+    def vm_property_help(self):
         '''Get help for one property'''
         assert self.arg in self.dest.property_list()
 
@@ -252,7 +259,8 @@ class QubesMgmt(AbstractQubesMgmt):
         return qubes.utils.format_doc(doc)
 
     @api('mgmt.vm.property.Reset', no_payload=True)
-    async def vm_property_reset(self):
+    @asyncio.coroutine
+    def vm_property_reset(self):
         '''Reset a property to a default value'''
         assert self.arg in self.dest.property_list()
 
@@ -262,14 +270,16 @@ class QubesMgmt(AbstractQubesMgmt):
         self.app.save()
 
     @api('mgmt.vm.volume.List', no_payload=True)
-    async def vm_volume_list(self):
+    @asyncio.coroutine
+    def vm_volume_list(self):
         assert not self.arg
 
         volume_names = self.fire_event_for_filter(self.dest.volumes.keys())
         return ''.join('{}\n'.format(name) for name in volume_names)
 
     @api('mgmt.vm.volume.Info', no_payload=True)
-    async def vm_volume_info(self):
+    @asyncio.coroutine
+    def vm_volume_info(self):
         assert self.arg in self.dest.volumes.keys()
 
         self.fire_event_for_permission()
@@ -283,7 +293,8 @@ class QubesMgmt(AbstractQubesMgmt):
             volume_properties)
 
     @api('mgmt.vm.volume.ListSnapshots', no_payload=True)
-    async def vm_volume_listsnapshots(self):
+    @asyncio.coroutine
+    def vm_volume_listsnapshots(self):
         assert self.arg in self.dest.volumes.keys()
 
         volume = self.dest.volumes[self.arg]
@@ -293,7 +304,8 @@ class QubesMgmt(AbstractQubesMgmt):
         return ''.join('{}\n'.format(revision) for revision in revisions)
 
     @api('mgmt.vm.volume.Revert')
-    async def vm_volume_revert(self, untrusted_payload):
+    @asyncio.coroutine
+    def vm_volume_revert(self, untrusted_payload):
         assert self.arg in self.dest.volumes.keys()
         untrusted_revision = untrusted_payload.decode('ascii').strip()
         del untrusted_payload
@@ -309,7 +321,8 @@ class QubesMgmt(AbstractQubesMgmt):
         self.app.save()
 
     @api('mgmt.vm.volume.Resize')
-    async def vm_volume_resize(self, untrusted_payload):
+    @asyncio.coroutine
+    def vm_volume_resize(self, untrusted_payload):
         assert self.arg in self.dest.volumes.keys()
         untrusted_size = untrusted_payload.decode('ascii').strip()
         del untrusted_payload
@@ -324,7 +337,8 @@ class QubesMgmt(AbstractQubesMgmt):
         self.app.save()
 
     @api('mgmt.pool.List', no_payload=True)
-    async def pool_list(self):
+    @asyncio.coroutine
+    def pool_list(self):
         assert not self.arg
         assert self.dest.name == 'dom0'
 
@@ -333,7 +347,8 @@ class QubesMgmt(AbstractQubesMgmt):
         return ''.join('{}\n'.format(pool) for pool in pools)
 
     @api('mgmt.pool.ListDrivers', no_payload=True)
-    async def pool_listdrivers(self):
+    @asyncio.coroutine
+    def pool_listdrivers(self):
         assert self.dest.name == 'dom0'
         assert not self.arg
 
@@ -345,7 +360,8 @@ class QubesMgmt(AbstractQubesMgmt):
             for driver in drivers)
 
     @api('mgmt.pool.Info', no_payload=True)
-    async def pool_info(self):
+    @asyncio.coroutine
+    def pool_info(self):
         assert self.dest.name == 'dom0'
         assert self.arg in self.app.pools.keys()
 
@@ -357,7 +373,8 @@ class QubesMgmt(AbstractQubesMgmt):
             for prop, val in sorted(pool.config.items()))
 
     @api('mgmt.pool.Add')
-    async def pool_add(self, untrusted_payload):
+    @asyncio.coroutine
+    def pool_add(self, untrusted_payload):
         assert self.dest.name == 'dom0'
         drivers = qubes.storage.pool_drivers()
         assert self.arg in drivers
@@ -391,7 +408,8 @@ class QubesMgmt(AbstractQubesMgmt):
         self.app.save()
 
     @api('mgmt.pool.Remove', no_payload=True)
-    async def pool_remove(self):
+    @asyncio.coroutine
+    def pool_remove(self):
         assert self.dest.name == 'dom0'
         assert self.arg in self.app.pools.keys()
 
@@ -401,7 +419,8 @@ class QubesMgmt(AbstractQubesMgmt):
         self.app.save()
 
     @api('mgmt.label.List', no_payload=True)
-    async def label_list(self):
+    @asyncio.coroutine
+    def label_list(self):
         assert self.dest.name == 'dom0'
         assert not self.arg
 
@@ -410,7 +429,8 @@ class QubesMgmt(AbstractQubesMgmt):
         return ''.join('{}\n'.format(label.name) for label in labels)
 
     @api('mgmt.label.Get', no_payload=True)
-    async def label_get(self):
+    @asyncio.coroutine
+    def label_get(self):
         assert self.dest.name == 'dom0'
 
         try:
@@ -423,7 +443,8 @@ class QubesMgmt(AbstractQubesMgmt):
         return label.color
 
     @api('mgmt.label.Create')
-    async def label_create(self, untrusted_payload):
+    @asyncio.coroutine
+    def label_create(self, untrusted_payload):
         assert self.dest.name == 'dom0'
 
         # don't confuse label name with label index
@@ -458,7 +479,8 @@ class QubesMgmt(AbstractQubesMgmt):
         self.app.save()
 
     @api('mgmt.label.Remove', no_payload=True)
-    async def label_remove(self):
+    @asyncio.coroutine
+    def label_remove(self):
         assert self.dest.name == 'dom0'
 
         try:
@@ -479,31 +501,36 @@ class QubesMgmt(AbstractQubesMgmt):
         self.app.save()
 
     @api('mgmt.vm.Start', no_payload=True)
-    async def vm_start(self):
+    @asyncio.coroutine
+    def vm_start(self):
         assert not self.arg
         self.fire_event_for_permission()
-        await self.dest.start()
+        yield from self.dest.start()
 
     @api('mgmt.vm.Shutdown', no_payload=True)
-    async def vm_shutdown(self):
+    @asyncio.coroutine
+    def vm_shutdown(self):
         assert not self.arg
         self.fire_event_for_permission()
-        await self.dest.shutdown()
+        yield from self.dest.shutdown()
 
     @api('mgmt.vm.Pause', no_payload=True)
-    async def vm_pause(self):
+    @asyncio.coroutine
+    def vm_pause(self):
         assert not self.arg
         self.fire_event_for_permission()
-        await self.dest.pause()
+        yield from self.dest.pause()
 
     @api('mgmt.vm.Unpause', no_payload=True)
-    async def vm_unpause(self):
+    @asyncio.coroutine
+    def vm_unpause(self):
         assert not self.arg
         self.fire_event_for_permission()
-        await self.dest.unpause()
+        yield from self.dest.unpause()
 
     @api('mgmt.vm.Kill', no_payload=True)
-    async def vm_kill(self):
+    @asyncio.coroutine
+    def vm_kill(self):
         assert not self.arg
         self.fire_event_for_permission()
-        await self.dest.kill()
+        yield from self.dest.kill()
