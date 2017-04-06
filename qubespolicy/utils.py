@@ -56,4 +56,3 @@ def sanitize_domain_name(input_string, assert_sanitized=False):
 
 def sanitize_service_name(input_string, assert_sanitized=False):
     return _sanitize_name(input_string, {'+'}, assert_sanitized)
-

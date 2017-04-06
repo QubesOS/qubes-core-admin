@@ -19,39 +19,35 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
-import gi
 import itertools
-
+# pylint: disable=import-error,wrong-import-position
+import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GdkPixbuf, GObject, GLib
+# pylint: enable=import-error
+
 from qubespolicy.utils import sanitize_domain_name
+# pylint: enable=wrong-import-position
 
-
-class GtkIconGetter:
-    def __init__(self, size):
+class VMListModeler:
+    def __init__(self, domains_info=None):
+        self._entries = {}
+        self._domains_info = domains_info
         self._icons = {}
-        self._size = size
+        self._icon_size = 16
         self._theme = Gtk.IconTheme.get_default()
+        self._create_entries()
 
-    def get_icon(self, name):
+    def _get_icon(self, name):
         if name not in self._icons:
             try:
-                icon = self._theme.load_icon(name, self._size, 0)
-            except GLib.Error:
-                icon = self._theme.load_icon("edit-find", self._size, 0)
+                icon = self._theme.load_icon(name, self._icon_size, 0)
+            except GLib.Error:  # pylint: disable=catching-non-exception
+                icon = self._theme.load_icon("edit-find", self._icon_size, 0)
 
             self._icons[name] = icon
 
         return self._icons[name]
-
-
-class VMListModeler:
-    def __init__(self, domains_info=None):
-        self._icon_getter = GtkIconGetter(16)
-
-        self._entries = {}
-        self._domains_info = domains_info
-        self._create_entries()
 
     def _create_entries(self):
         for name, vm in self._domains_info.items():
@@ -63,7 +59,7 @@ class VMListModeler:
                 dispvm = False
             sanitize_domain_name(vm_name, assert_sanitized=True)
 
-            icon = self._icon_getter.get_icon(vm.get('icon', None))
+            icon = self._get_icon(vm.get('icon', None))
 
             if dispvm:
                 display_name = 'Disposable VM ({})'.format(vm_name)
@@ -125,7 +121,7 @@ class VMListModeler:
             list_store = Gtk.ListStore(int, str, GdkPixbuf.Pixbuf)
 
             for entry_no, display_name in zip(itertools.count(),
-                    sorted(self._entries.keys())):
+                    sorted(self._entries)):
                 entry = self._entries[display_name]
                 if entry['api_name'] in vm_list:
                     list_store.append([entry_no, display_name, entry['icon']])
@@ -199,6 +195,7 @@ class VMListModeler:
 
 
 class GtkOneTimerHelper:
+    # pylint: disable=too-few-public-methods
     def __init__(self, wait_seconds):
         self._wait_seconds = wait_seconds
         self._current_timer_id = 0

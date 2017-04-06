@@ -30,7 +30,7 @@ from qubespolicy.rpcconfirmation import RPCConfirmationWindow
 
 
 class MockRPCConfirmationWindow(RPCConfirmationWindow):
-    def _new_VM_list_modeler(self):
+    def _new_vm_list_modeler(self):
         return VMListModeler(mock_domains_info)
 
     def _new_focus_stealing_helper(self):

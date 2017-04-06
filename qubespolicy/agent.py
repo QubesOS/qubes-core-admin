@@ -23,13 +23,17 @@
 decisions.'''
 
 import pydbus
+# pylint: disable=import-error,wrong-import-position
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import GLib
+# pylint: enable=import-error
 
 import qubespolicy.rpcconfirmation
+# pylint: enable=wrong-import-position
 
 class PolicyAgent(object):
+    # pylint: disable=too-few-public-methods
     dbus = """
     <node>
       <interface name='org.qubesos.PolicyAgent'>
@@ -45,8 +49,10 @@ class PolicyAgent(object):
     </node>
     """
 
-    def Ask(self, source, service_name, targets, default_target,
+    @staticmethod
+    def Ask(source, service_name, targets, default_target,
             icons):
+        # pylint: disable=invalid-name
         entries_info = {}
         for target in targets:
             entries_info[target] = {}

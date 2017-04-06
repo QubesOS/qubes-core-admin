@@ -18,15 +18,17 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
-import pkg_resources
-from gi.repository import Gtk, Gdk, GLib
 import os
+from gi.repository import Gtk, Gdk, GLib  # pylint: disable=import-error
+import pkg_resources
+
 from qubespolicy.gtkhelpers import VMListModeler, FocusStealingHelper
 from qubespolicy.utils import sanitize_domain_name, \
     sanitize_service_name
 
 
 class RPCConfirmationWindow:
+    # pylint: disable=too-few-public-methods
     _source_file = pkg_resources.resource_filename('qubespolicy',
         os.path.join('glade', "RPCConfirmationWindow.glade"))
     _source_id = {'window': "RPCConfirmationWindow",
@@ -110,7 +112,8 @@ class RPCConfirmationWindow:
     def _can_perform_action(self):
         return self._focus_helper.can_perform_action()
 
-    def _escape_and_format_rpc_text(self, rpc_operation):
+    @staticmethod
+    def _escape_and_format_rpc_text(rpc_operation):
         escaped = GLib.markup_escape_text(rpc_operation)
 
         partitioned = escaped.partition('.')
@@ -161,7 +164,7 @@ class RPCConfirmationWindow:
                     self._escape_and_format_rpc_text(rpc_operation))
 
         self._entries_info = entries_info
-        list_modeler = self._new_VM_list_modeler()
+        list_modeler = self._new_vm_list_modeler()
 
         list_modeler.apply_model(self._rpc_combo_box, targets_list,
                     selection_trigger=self._update_ok_button_sensitivity,
@@ -186,7 +189,7 @@ class RPCConfirmationWindow:
 
         Gtk.main()
 
-    def _new_VM_list_modeler(self):
+    def _new_vm_list_modeler(self):
         return VMListModeler(self._entries_info)
 
     def _new_focus_stealing_helper(self):
@@ -209,4 +212,3 @@ def confirm_rpc(entries_info, source, rpc_operation, targets_list, target=None):
         targets_list, target)
 
     return window.confirm_rpc()
-
