@@ -73,6 +73,7 @@ Requires:       python3
 Requires:       python3-docutils
 Requires:       python3-jinja2
 Requires:       python3-lxml
+Requires:       python3-pydbus
 Requires:       python3-qubesdb
 Requires:       python3-setuptools
 Requires:       python3-xen
@@ -210,11 +211,13 @@ fi
 %files
 %defattr(-,root,root,-)
 %config(noreplace) %attr(0664,root,qubes) %{_sysconfdir}/qubes/qmemman.conf
+%config(noreplace) /etc/dbus-1/system.d/org.qubesos.PolicyAgent.conf
 /usr/bin/qvm-*
 /usr/bin/qubes-*
 /usr/bin/qmemmand
 /usr/bin/qubesd*
 /usr/bin/qrexec-policy
+/usr/bin/qrexec-policy-agent
 
 %dir %{python3_sitelib}/qubes-*.egg-info
 %{python3_sitelib}/qubes-*.egg-info/*
@@ -385,6 +388,7 @@ fi
 %{python3_sitelib}/qubespolicy/__pycache__/*
 %{python3_sitelib}/qubespolicy/__init__.py
 %{python3_sitelib}/qubespolicy/cli.py
+%{python3_sitelib}/qubespolicy/agent.py
 %{python3_sitelib}/qubespolicy/gtkhelpers.py
 %{python3_sitelib}/qubespolicy/rpcconfirmation.py
 %{python3_sitelib}/qubespolicy/utils.py
@@ -454,5 +458,6 @@ fi
 %attr(2770,root,qubes) %dir /var/log/qubes
 %attr(0770,root,qubes) %dir /var/run/qubes
 /etc/xdg/autostart/qubes-guid.desktop
+/etc/xdg/autostart/qrexec-policy-agent.desktop
 
 /usr/share/doc/qubes/relaxng/*.rng

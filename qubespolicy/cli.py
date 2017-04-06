@@ -68,20 +68,24 @@ def main(args=None):
         action = policy.evaluate(system_info, args.domain, args.target)
         if action.action == qubespolicy.Action.ask:
             # late import to save on time for allow/deny actions
-            import qubespolicy.rpcconfirmation as rpcconfirmation
-            entries_info = system_info['domains'].copy()
+            import pydbus
+            bus = pydbus.SystemBus()
+            proxy = bus.get('org.qubesos.PolicyAgent',
+                '/org/qubesos/PolicyAgent')
+
+            icons = {name: system_info['domains'][name]['icon']
+                for name in system_info['domains'].keys()}
             for dispvm_base in system_info['domains']:
                 if not system_info['domains'][dispvm_base]['dispvm_allowed']:
                     continue
                 dispvm_api_name = '$dispvm:' + dispvm_base
-                entries_info[dispvm_api_name] = \
-                    system_info['domains'][dispvm_base].copy()
-                entries_info[dispvm_api_name]['icon'] = \
-                    entries_info[dispvm_api_name]['icon'].replace('app', 'disp')
+                icons[dispvm_api_name] = \
+                    system_info['domains'][dispvm_base]['icon']
+                icons[dispvm_api_name] = \
+                    icons[dispvm_api_name].replace('app', 'disp')
 
-            response = rpcconfirmation.confirm_rpc(
-                entries_info, args.domain, args.service_name,
-                action.targets_for_ask, action.target)
+            response = proxy.Ask(args.domain, args.service_name,
+                action.targets_for_ask, action.target or '', icons)
             if response:
                 action.handle_user_response(True, response)
             else:

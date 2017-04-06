@@ -33,6 +33,7 @@ if __name__ == '__main__':
         entry_points={
             'console_scripts': list(get_console_scripts()) + [
                 'qrexec-policy = qubespolicy.cli:main',
+                'qrexec-policy-agent = qubespolicy.agent:main',
             ],
             'qubes.vm': [
                 'AppVM = qubes.vm.appvm:AppVM',
