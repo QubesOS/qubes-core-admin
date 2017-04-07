@@ -41,6 +41,7 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestsMixin,
                 self.skipTest('Specify PCI device with QUBES_TEST_PCIDEV '
                               'environment variable')
             self.dev = self.app.domains[0].devices['pci'][pcidev]
+            self.assignment = qubes.devices.DeviceAssignment(backend_domain=self.dev.backend_domain, ident=self.dev.ident, persistent=True)
             if isinstance(self.dev, qubes.devices.UnknownDevice):
                 self.skipTest('Specified device {} does not exists'.format(pcidev))
             self.init_default_template()
@@ -64,110 +65,111 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestsMixin,
             self.assertEqual(dev.backend_domain, self.app.domains[0])
             self.assertIn(dev.ident, actual_devices)
             self.assertEqual(dev.description, actual_devices[dev.ident])
-            self.assertIsInstance(dev.frontend_domain,
-                (qubes.vm.BaseVM, None.__class__))
             actual_devices.pop(dev.ident)
 
         if actual_devices:
             self.fail('Not all devices listed, missing: {}'.format(
                 actual_devices))
 
-    def test_010_attach_offline(self):
-        self.assertIsNone(self.dev.frontend_domain)
-        self.assertNotIn(self.dev, self.vm.devices['pci'].attached())
-        self.assertNotIn(self.dev, self.vm.devices['pci'].attached(
-            persistent=True))
-        self.assertNotIn(self.dev, self.vm.devices['pci'].attached(
-            persistent=False))
+    def assertDeviceNotInCollection(self, dev, dev_col):
+        self.assertNotIn(dev, dev_col.attached())
+        self.assertNotIn(dev, dev_col.persistent())
+        self.assertNotIn(dev, dev_col.assignments())
+        self.assertNotIn(dev, dev_col.assignments(persistent=True))
 
-        self.vm.devices['pci'].attach(self.dev)
+    def test_010_attach_offline_persistent(self):
+        dev_col = self.vm.devices['pci']
+        self.assertDeviceNotInCollection(self.dev, dev_col)
+        dev_col.attach(self.assignment)
         self.app.save()
+        self.assertNotIn(self.dev, dev_col.attached())
+        self.assertIn(self.dev, dev_col.persistent())
+        self.assertIn(self.dev, dev_col.assignments())
+        self.assertIn(self.dev, dev_col.assignments(persistent=True))
+        self.assertNotIn(self.dev, dev_col.assignments(persistent=False))
 
-        # still should be None, as domain is not started yet
-        self.assertIsNone(self.dev.frontend_domain)
-        self.assertIn(self.dev, self.vm.devices['pci'].attached())
-        self.assertIn(self.dev, self.vm.devices['pci'].attached(
-            persistent=True))
-        self.assertNotIn(self.dev, self.vm.devices['pci'].attached(
-            persistent=False))
+
         self.vm.start()
 
-        self.assertEqual(self.dev.frontend_domain, self.vm)
-        self.assertIn(self.dev, self.vm.devices['pci'].attached())
-        self.assertIn(self.dev, self.vm.devices['pci'].attached(
-            persistent=True))
-        self.assertNotIn(self.dev, self.vm.devices['pci'].attached(
-            persistent=False))
-
+        self.assertIn(self.dev, dev_col.attached())
         p = self.vm.run('lspci', passio_popen=True)
         (stdout, _) = p.communicate()
-        self.assertIn(self.dev.description, stdout)
+        self.assertIn(self.dev.description, stdout.decode())
 
-    def test_011_attach_online(self):
+
+    def test_011_attach_offline_temp_fail(self):
+        dev_col = self.vm.devices['pci']
+        self.assertDeviceNotInCollection(self.dev, dev_col)
+        self.assignment.persistent = False
+        with self.assertRaises(qubes.devices.WrongAssignment):
+            dev_col.attach(self.assignment)
+
+
+    def test_020_attach_online_persistent(self):
         self.vm.start()
-        self.vm.devices['pci'].attach(self.dev)
+        dev_col = self.vm.devices['pci']
+        self.assertDeviceNotInCollection(self.dev, dev_col)
+        dev_col.attach(self.assignment)
 
-        self.assertEqual(self.dev.frontend_domain, self.vm)
-        self.assertIn(self.dev, self.vm.devices['pci'].attached())
-        self.assertIn(self.dev, self.vm.devices['pci'].attached(
-            persistent=True))
-        self.assertNotIn(self.dev, self.vm.devices['pci'].attached(
-            persistent=False))
+        self.assertIn(self.dev, dev_col.attached())
+        self.assertIn(self.dev, dev_col.persistent())
+        self.assertIn(self.dev, dev_col.assignments())
+        self.assertIn(self.dev, dev_col.assignments(persistent=True))
+        self.assertNotIn(self.dev, dev_col.assignments(persistent=False))
 
         # give VM kernel some time to discover new device
         time.sleep(1)
         p = self.vm.run('lspci', passio_popen=True)
         (stdout, _) = p.communicate()
-        self.assertIn(self.dev.description, stdout)
+        self.assertIn(self.dev.description, stdout.decode())
 
-    def test_012_attach_online_temp(self):
+
+    def test_021_persist_detach_online_fail(self):
+        dev_col = self.vm.devices['pci']
+        self.assertDeviceNotInCollection(self.dev, dev_col)
+        dev_col.attach(self.assignment)
+        self.app.save()
         self.vm.start()
-        self.vm.devices['pci'].attach(self.dev, persistent=False)
+        with self.assertRaises(qubes.devices.WrongAssignment):
+            self.vm.devices['pci'].detach(self.assignment)
 
-        self.assertEqual(self.dev.frontend_domain, self.vm)
-        self.assertIn(self.dev, self.vm.devices['pci'].attached())
-        self.assertNotIn(self.dev, self.vm.devices['pci'].attached(
-            persistent=True))
-        self.assertIn(self.dev, self.vm.devices['pci'].attached(
-            persistent=False))
+    def test_030_persist_attach_detach_offline(self):
+        dev_col = self.vm.devices['pci']
+        self.assertDeviceNotInCollection(self.dev, dev_col)
+        dev_col.attach(self.assignment)
+        self.app.save()
+        self.assertNotIn(self.dev, dev_col.attached())
+        self.assertIn(self.dev, dev_col.persistent())
+        self.assertIn(self.dev, dev_col.assignments())
+        self.assertIn(self.dev, dev_col.assignments(persistent=True))
+        self.assertNotIn(self.dev, dev_col.assignments(persistent=False))
+        dev_col.detach(self.assignment)
+        self.assertDeviceNotInCollection(self.dev, dev_col)
+
+    def test_031_attach_detach_online_temp(self):
+        dev_col = self.vm.devices['pci']
+        self.vm.start()
+        self.assignment.persistent = False
+        self.assertDeviceNotInCollection(self.dev, dev_col)
+        dev_col.attach(self.assignment)
+
+        self.assertIn(self.dev, dev_col.attached())
+        self.assertNotIn(self.dev, dev_col.persistent())
+        self.assertIn(self.dev, dev_col.assignments())
+        self.assertIn(self.dev, dev_col.assignments(persistent=False))
+        self.assertNotIn(self.dev, dev_col.assignments(persistent=True))
+        self.assertIn(self.dev, dev_col.assignments(persistent=False))
+
 
         # give VM kernel some time to discover new device
         time.sleep(1)
         p = self.vm.run('lspci', passio_popen=True)
         (stdout, _) = p.communicate()
-        self.assertIn(self.dev.description, stdout)
 
-    def test_020_detach_online(self):
-        self.vm.devices['pci'].attach(self.dev)
-        self.app.save()
-        self.vm.start()
-
-        self.assertIn(self.dev, self.vm.devices['pci'].attached())
-        self.assertIn(self.dev, self.vm.devices['pci'].attached(
-            persistent=True))
-        self.assertNotIn(self.dev, self.vm.devices['pci'].attached(
-            persistent=False))
-        self.assertEqual(self.dev.frontend_domain, self.vm)
-
-        self.vm.devices['pci'].detach(self.dev)
-
-        self.assertIsNone(self.dev.frontend_domain)
-        self.assertNotIn(self.dev, self.vm.devices['pci'].attached())
-        self.assertNotIn(self.dev, self.vm.devices['pci'].attached(
-            persistent=True))
-        self.assertNotIn(self.dev, self.vm.devices['pci'].attached(
-            persistent=False))
+        self.assertIn(self.dev.description, stdout.decode())
+        dev_col.detach(self.assignment)
+        self.assertDeviceNotInCollection(self.dev, dev_col)
 
         p = self.vm.run('lspci', passio_popen=True)
         (stdout, _) = p.communicate()
-        self.assertNotIn(self.dev.description, stdout)
-
-        # can't do this right now because of kernel bug - it cause the whole
-        # PCI bus being deregistered, which emit some warning in sysfs
-        # handling code (removing non-existing "0000:00" group)
-        #
-        # p = self.vm.run('dmesg', passio_popen=True)
-        # (stdout, _) = p.communicate()
-        # # check for potential oops
-        # self.assertNotIn('end trace', stdout)
-
+        self.assertNotIn(self.dev.description, stdout.decode())
