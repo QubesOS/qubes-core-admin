@@ -291,7 +291,7 @@ def main():
         if nofity_socket.startswith('@'):
             nofity_socket = '\0%s' % nofity_socket[1:]
         s.connect(nofity_socket)
-        s.sendall("READY=1")
+        s.sendall(b"READY=1")
         s.close()
 
     threading.Thread(target=server.serve_forever).start()
