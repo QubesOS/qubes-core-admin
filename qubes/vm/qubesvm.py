@@ -1153,7 +1153,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             # some files (like clipboard) may be created as root and cause
             # permission problems
             qubes_group = grp.getgrnam('qubes')
-            command = ['runuser', '-u', qubes_group.gr_mem[0], '--'] + command
+            command = ['runuser', '-u', qubes_group.gr_mem[0], '--'] + \
+                list(command)
         p = yield from asyncio.create_subprocess_exec(*command, **kwargs)
         stdout, stderr = yield from p.communicate(input=input)
         if p.returncode:
