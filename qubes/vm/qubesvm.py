@@ -429,7 +429,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     # CORE2: swallowed uses_default_kernelopts
     kernelopts = qubes.property('kernelopts', type=str, load_stage=4,
         default=(lambda self: qubes.config.defaults['kernelopts_pcidevs']
-            if list(self.devices['pci'].attached(persistent=True))
+            if list(self.devices['pci'].persistent())
             else self.template.kernelopts if hasattr(self, 'template')
             else qubes.config.defaults['kernelopts']),
         ls_width=30,
