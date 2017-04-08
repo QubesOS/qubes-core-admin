@@ -212,8 +212,8 @@ the parser will complain about missing combine= attribute on the second <start>.
                             </doc:description>
                             <attribute name="backend-domain">
                                 <doc:description>
-                                    Backend domain name.
-                                </doc:description>
+                                  Backend domain name.
+                              </doc:description>
                                 <data type="string">
                                     <param name="pattern">[a-z0-9_]+</param>
                                 </data>
@@ -224,6 +224,15 @@ the parser will complain about missing combine= attribute on the second <start>.
                                     <param name="pattern">[0-9a-f]{2}:[0-9a-f]{2}.[0-9a-f]{2}</param>
                                 </data>
                             </attribute>
+                              <optional>
+                                <element name="options">
+                                    <doc:description>
+                                      Options
+                                  </doc:description>
+                                <data type="string">
+                                </data>
+                              </element>
+                            </optional>
                         </element>
                     </oneOrMore>
                 </element>
