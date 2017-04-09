@@ -54,8 +54,10 @@ def qubesd_client(socket, payload, *args):
     writer.write_eof()
 
     try:
-        data = yield from reader.read()
-        sys.stdout.buffer.write(data)  # pylint: disable=no-member
+        while not reader.at_eof():
+            data = yield from reader.read(4096)
+            sys.stdout.buffer.write(data)  # pylint: disable=no-member
+            sys.stdout.flush()
     except asyncio.CancelledError:
         return
     finally:
