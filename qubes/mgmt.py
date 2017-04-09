@@ -112,6 +112,9 @@ class AbstractQubesMgmt(object):
         #: name of the method
         self.method = method.decode('ascii')
 
+        #: is this operation cancellable?
+        self.cancellable = False
+
         untrusted_candidates = []
         for attr in dir(self):
             untrusted_func = getattr(self, attr)
@@ -135,8 +138,24 @@ class AbstractQubesMgmt(object):
             'multiple candidates for method {!r}'.format(self.method)
 
         #: the method to execute
-        self.execute = untrusted_candidates[0]
+        self._handler = untrusted_candidates[0]
+        self._running_handler = None
         del untrusted_candidates
+
+    def execute(self, *, untrusted_payload):
+        '''Execute management operation.
+
+        This method is a coroutine.
+        '''
+        self._running_handler = asyncio.ensure_future(self._handler(
+            untrusted_payload=untrusted_payload))
+        return self._running_handler
+
+    def cancel(self):
+        '''If operation is cancellable, interrupt it'''
+        if self.cancellable and self._running_handler is not None:
+            self._running_handler.cancel()
+
 
     def fire_event_for_permission(self, **kwargs):
         '''Fire an event on the source qube to check for permission'''

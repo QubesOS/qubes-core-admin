@@ -32,6 +32,7 @@ class QubesDaemonProtocol(asyncio.Protocol):
         self.len_untrusted_buffer = 0
         self.transport = None
         self.debug = debug
+        self.mgmt = None
 
     def connection_made(self, transport):
         print('connection_made()')
@@ -40,6 +41,10 @@ class QubesDaemonProtocol(asyncio.Protocol):
     def connection_lost(self, exc):
         print('connection_lost(exc={!r})'.format(exc))
         self.untrusted_buffer.close()
+        # for cancellable operation, interrupt it, otherwise it will do nothing
+        if self.mgmt is not None:
+            self.mgmt.cancel()
+        self.transport = None
 
     def data_received(self, untrusted_data):  # pylint: disable=arguments-differ
         print('data_received(untrusted_data={!r})'.format(untrusted_data))
@@ -72,9 +77,12 @@ class QubesDaemonProtocol(asyncio.Protocol):
     @asyncio.coroutine
     def respond(self, src, method, dest, arg, *, untrusted_payload):
         try:
-            mgmt = self.handler(self.app, src, method, dest, arg)
-            response = yield from mgmt.execute(
+            self.mgmt = self.handler(self.app, src, method, dest, arg,
+                self.send_event)
+            response = yield from self.mgmt.execute(
                 untrusted_payload=untrusted_payload)
+            if self.transport is None:
+                return
 
         # except clauses will fall through to transport.abort() below
 
@@ -91,9 +99,14 @@ class QubesDaemonProtocol(asyncio.Protocol):
                     method, arg, src, dest, len(untrusted_payload))
 
         except qubes.exc.QubesException as err:
-            self.send_exception(err)
-            self.transport.write_eof()
-            self.transport.close()
+            self.app.log.exception(
+                'error while calling '
+                'src=%r method=%r dest=%r arg=%r len(untrusted_payload)=%d',
+                src, method, dest, arg, len(untrusted_payload))
+            if self.transport is not None:
+                self.send_exception(err)
+                self.transport.write_eof()
+                self.transport.close()
             return
 
         except Exception:  # pylint: disable=broad-except
