@@ -556,3 +556,39 @@ class QubesMgmt(AbstractQubesMgmt):
         assert not self.arg
         self.fire_event_for_permission()
         yield from self.dest.kill()
+
+    @api('mgmt.Events', no_payload=True)
+    @asyncio.coroutine
+    def events(self):
+        assert not self.arg
+
+        # run until client connection is terminated
+        self.cancellable = True
+        wait_for_cancel = asyncio.get_event_loop().create_future()
+
+        # cache event filters, to not call an event each time an event arrives
+        event_filters = self.fire_event_for_permission()
+
+        def handler(subject, event, **kwargs):
+            if self.dest.name != 'dom0' and subject != self.dest:
+                return
+            if event.startswith('mgmt-permission:'):
+                return
+            for selector in event_filters:
+                if not selector((subject, event, kwargs)):
+                    return
+            self.send_event(subject, event, **kwargs)
+
+        if self.dest.name == 'dom0':
+            type(self.app).add_handler('*', handler)
+        qubes.vm.BaseVM.add_handler('*', handler)
+
+        try:
+            yield from wait_for_cancel
+        except asyncio.CancelledError:
+            # the above waiting was already interrupted, this is all we need
+            pass
+
+        if self.dest.name == 'dom0':
+            type(self.app).remove_handler('*', handler)
+        qubes.vm.BaseVM.remove_handler('*', handler)
