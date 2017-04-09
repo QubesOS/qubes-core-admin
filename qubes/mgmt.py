@@ -96,7 +96,7 @@ class AbstractQubesMgmt(object):
     There are also two helper functions for firing events associated with API
     calls.
     '''
-    def __init__(self, app, src, method, dest, arg):
+    def __init__(self, app, src, method, dest, arg, send_event=None):
         #: :py:class:`qubes.Qubes` object
         self.app = app
 
@@ -111,6 +111,9 @@ class AbstractQubesMgmt(object):
 
         #: name of the method
         self.method = method.decode('ascii')
+
+        #: callback for sending events if applicable
+        self.send_event = send_event
 
         #: is this operation cancellable?
         self.cancellable = False

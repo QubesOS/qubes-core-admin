@@ -32,6 +32,7 @@ class QubesDaemonProtocol(asyncio.Protocol):
         self.len_untrusted_buffer = 0
         self.transport = None
         self.debug = debug
+        self.event_sent = False
         self.mgmt = None
 
     def connection_made(self, transport):
@@ -81,6 +82,7 @@ class QubesDaemonProtocol(asyncio.Protocol):
                 self.send_event)
             response = yield from self.mgmt.execute(
                 untrusted_payload=untrusted_payload)
+            assert not (self.event_sent and response)
             if self.transport is None:
                 return
 
@@ -116,7 +118,8 @@ class QubesDaemonProtocol(asyncio.Protocol):
                     src, method, dest, arg, len(untrusted_payload))
 
         else:
-            self.send_response(response)
+            if not self.event_sent:
+                self.send_response(response)
             try:
                 self.transport.write_eof()
             except NotImplementedError:
@@ -133,11 +136,13 @@ class QubesDaemonProtocol(asyncio.Protocol):
         self.transport.write(self.header.pack(*args))
 
     def send_response(self, content):
+        assert not self.event_sent
         self.send_header(0x30)
         if content is not None:
             self.transport.write(content.encode('utf-8'))
 
     def send_event(self, subject, event, **kwargs):
+        self.event_sent = True
         self.send_header(0x31)
 
         if subject is not self.app:
