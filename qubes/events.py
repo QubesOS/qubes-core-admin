@@ -115,6 +115,17 @@ class Emitter(object, metaclass=EmitterMeta):
         # pylint: disable=no-member
         cls.__handlers__[event].add(func)
 
+    @classmethod
+    def remove_handler(cls, event, func):
+        '''Remove event handler from subject's class.
+
+        :param str event: event identificator
+        :param collections.Callable handler: handler callable
+        '''
+
+        # pylint: disable=no-member
+        cls.__handlers__[event].remove(func)
+
 
     def _fire_event_in_order(self, order, event, kwargs):
         '''Fire event for classes in given order.
