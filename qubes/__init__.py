@@ -407,6 +407,16 @@ class property(object):  # pylint: disable=redefined-builtin,invalid-name
         return bool(value)
 
 
+def stateless_property(func):
+    '''Decorator similar to :py:class:`builtins.property`, but for properties
+    exposed through management API (including qvm-prefs etc)'''
+    return property(func.__name__,
+        setter=property.forbidden,
+        saver=property.DontSave,
+        default=func,
+        doc=func.__doc__)
+
+
 class PropertyHolder(qubes.events.Emitter):
     '''Abstract class for holding :py:class:`qubes.property`
 

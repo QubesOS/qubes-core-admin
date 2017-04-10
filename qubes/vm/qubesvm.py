@@ -502,7 +502,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     # VMM-related
 
-    @property
+    @qubes.stateless_property
     def xid(self):
         '''Xen ID.
 

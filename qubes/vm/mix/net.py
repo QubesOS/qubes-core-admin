@@ -98,19 +98,19 @@ class NetVMMixin(qubes.events.Emitter):
     #
 
 
-    @property
+    @qubes.stateless_property
     def visible_ip(self):
         '''IP address of this domain as seen by the domain.'''
         return self.features.check_with_template('net/fake-ip', None) or \
             self.ip
 
-    @property
+    @qubes.stateless_property
     def visible_gateway(self):
         '''Default gateway of this domain as seen by the domain.'''
         return self.features.check_with_template('net/fake-gateway', None) or \
             self.netvm.gateway
 
-    @property
+    @qubes.stateless_property
     def visible_netmask(self):
         '''Netmask as seen by the domain.'''
         return self.features.check_with_template('net/fake-netmask', None) or \
@@ -133,7 +133,7 @@ class NetVMMixin(qubes.events.Emitter):
         # does not happen, because qid < 253, but may happen in the future.
         return '10.137.{}.{}'.format((vm.qid >> 8) & 7, vm.qid & 7)
 
-    @property
+    @qubes.stateless_property
     def gateway(self):
         '''Gateway for other domains that use this domain as netvm.'''
         return self.visible_ip if self.provides_network else None
