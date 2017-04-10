@@ -68,20 +68,17 @@ class NetVMMixin(qubes.events.Emitter):
     mac = qubes.property('mac', type=str,
         default='00:16:3E:5E:6C:00',
         setter=_setter_mac,
-        ls_width=17,
         doc='MAC address of the NIC emulated inside VM')
 
     ip = qubes.property('ip', type=str,
         default=_default_ip,
         setter=_setter_ip,
-        ls_width=15,
         doc='IP address of this domain.')
 
     # CORE2: swallowed uses_default_netvm
     netvm = qubes.VMProperty('netvm', load_stage=4, allow_none=True,
         default=(lambda self: self.app.default_fw_netvm if self.provides_network
             else self.app.default_netvm),
-        ls_width=31,
         doc='''VM that provides network connection to this domain. When
             `None`, machine is disconnected. When absent, domain uses default
             NetVM.''')
@@ -101,21 +98,18 @@ class NetVMMixin(qubes.events.Emitter):
     #
 
 
-    @qubes.tools.qvm_ls.column(width=15)
     @property
     def visible_ip(self):
         '''IP address of this domain as seen by the domain.'''
         return self.features.check_with_template('net/fake-ip', None) or \
             self.ip
 
-    @qubes.tools.qvm_ls.column(width=15)
     @property
     def visible_gateway(self):
         '''Default gateway of this domain as seen by the domain.'''
         return self.features.check_with_template('net/fake-gateway', None) or \
             self.netvm.gateway
 
-    @qubes.tools.qvm_ls.column(width=15)
     @property
     def visible_netmask(self):
         '''Netmask as seen by the domain.'''
@@ -139,13 +133,11 @@ class NetVMMixin(qubes.events.Emitter):
         # does not happen, because qid < 253, but may happen in the future.
         return '10.137.{}.{}'.format((vm.qid >> 8) & 7, vm.qid & 7)
 
-    @qubes.tools.qvm_ls.column(head='IPBACK', width=15)
     @property
     def gateway(self):
         '''Gateway for other domains that use this domain as netvm.'''
         return self.visible_ip if self.provides_network else None
 
-    @qubes.tools.qvm_ls.column(width=15)
     @property
     def netmask(self):
         '''Netmask for gateway address.'''
@@ -164,7 +156,6 @@ class NetVMMixin(qubes.events.Emitter):
     # used in both
     #
 
-    @qubes.tools.qvm_ls.column(width=15)
     @property
     def dns(self):
         '''Secondary DNS server set up for this domain.'''

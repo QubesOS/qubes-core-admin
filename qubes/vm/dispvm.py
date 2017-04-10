@@ -33,12 +33,10 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     template = qubes.VMProperty('template',
                                 load_stage=4,
                                 vmclass=qubes.vm.appvm.AppVM,
-                                ls_width=31,
                                 doc='AppVM, on which this DispVM is based.')
 
     dispid = qubes.property('dispid', type=int, write_once=True,
         clone=False,
-        ls_width=3,
         doc='''Internal, persistent identifier of particular DispVM.''')
 
     def __init__(self, *args, **kwargs):

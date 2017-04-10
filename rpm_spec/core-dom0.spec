@@ -288,7 +288,6 @@ fi
 %{python3_sitelib}/qubes/tools/qvm_check.py
 %{python3_sitelib}/qubes/tools/qvm_clone.py
 %{python3_sitelib}/qubes/tools/qvm_kill.py
-%{python3_sitelib}/qubes/tools/qvm_ls.py
 %{python3_sitelib}/qubes/tools/qvm_pause.py
 %{python3_sitelib}/qubes/tools/qvm_pool.py
 %{python3_sitelib}/qubes/tools/qvm_prefs.py
@@ -349,7 +348,6 @@ fi
 %{python3_sitelib}/qubes/tests/tools/init.py
 %{python3_sitelib}/qubes/tests/tools/qvm_device.py
 %{python3_sitelib}/qubes/tests/tools/qvm_firewall.py
-%{python3_sitelib}/qubes/tests/tools/qvm_ls.py
 
 %dir %{python3_sitelib}/qubes/tests/integ
 %dir %{python3_sitelib}/qubes/tests/integ/__pycache__

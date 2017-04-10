@@ -132,7 +132,7 @@ class Label(object):
             self.icon_dispvm) + ".png"
 
 
-class property(object): # pylint: disable=redefined-builtin,invalid-name
+class property(object):  # pylint: disable=redefined-builtin,invalid-name
     '''Qubes property.
 
     This class holds one property that can be saved to and loaded from
@@ -157,8 +157,6 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
     :param int order: order of evaluation (bigger order values are later)
     :param bool clone: :py:meth:`PropertyHolder.clone_properties` will not \
         include this property by default if :py:obj:`False`
-    :param str ls_head: column head for :program:`qvm-ls`
-    :param int ls_width: column width in :program:`qvm-ls`
     :param str doc: docstring; this should be one paragraph of plain RST, no \
         sphinx-specific features
 
@@ -192,7 +190,7 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
     def __init__(self, name, setter=None, saver=None, type=None,
             default=_NO_DEFAULT, write_once=False, load_stage=2, order=0,
             save_via_ref=False, clone=True,
-            ls_head=None, ls_width=None, doc=None):
+            doc=None):
         # pylint: disable=redefined-builtin
         self.__name__ = name
         self._setter = setter
@@ -207,11 +205,6 @@ class property(object): # pylint: disable=redefined-builtin,invalid-name
         self.clone = clone
         self.__doc__ = doc
         self._attr_name = '_qubesprop_' + name
-
-        if ls_head is not None or ls_width is not None:
-            self.ls_head = ls_head or self.__name__.replace('_', '-').upper()
-            self.ls_width = max(ls_width or 0, len(self.ls_head) + 1)
-
 
     def __get__(self, instance, owner):
         if instance is None:

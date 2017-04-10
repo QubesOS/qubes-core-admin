@@ -38,7 +38,6 @@ import qubes
 import qubes.devices
 import qubes.events
 import qubes.log
-import qubes.tools.qvm_ls
 
 VM_ENTRY_POINT = 'qubes.vm'
 
@@ -164,7 +163,6 @@ class BaseVMMeta(qubes.events.EmitterMeta):
     '''Metaclass for :py:class:`.BaseVM`'''
     def __init__(cls, name, bases, dict_):
         super(BaseVMMeta, cls).__init__(name, bases, dict_)
-        qubes.tools.qvm_ls.process_class(cls)
 
 
 class BaseVM(qubes.PropertyHolder, metaclass=BaseVMMeta):

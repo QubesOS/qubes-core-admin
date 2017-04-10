@@ -47,7 +47,6 @@ import qubes.exc
 import qubes.storage
 import qubes.storage.domain
 import qubes.storage.file
-import qubes.tools.qvm_ls
 import qubes.utils
 import qubes.vm
 import qubes.vm.mix.net
@@ -357,7 +356,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     label = qubes.property('label',
         setter=_setter_label,
         saver=(lambda self, prop, value: 'label-{}'.format(value.index)),
-        ls_width=14,
         doc='''Colourful label assigned to VM. This is where the colour of the
             padlock is set.''')
 
@@ -368,18 +366,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     qid = qubes.property('qid', type=int, write_once=True,
         setter=_setter_qid,
         clone=False,
-        ls_width=3,
         doc='''Internal, persistent identificator of particular domain. Note
             this is different from Xen domid.''')
 
     name = qubes.property('name', type=str,
         clone=False,
-        ls_width=31,
         doc='User-specified name of the domain.')
 
     uuid = qubes.property('uuid', type=uuid.UUID, write_once=True,
         clone=False,
-        ls_width=36,
         doc='UUID from libvirt.')
 
     hvm = qubes.property('hvm',
@@ -416,14 +411,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         type=int,
         setter=_setter_positive_int,
         default=(lambda self: self.app.host.no_cpus),
-        ls_width=2,
         doc='FIXME')
 
     # CORE2: swallowed uses_default_kernel
     kernel = qubes.property('kernel', type=str,
         setter=_setter_kernel,
         default=(lambda self: self.app.default_kernel),
-        ls_width=12,
         doc='Kernel used by this domain.')
 
     # CORE2: swallowed uses_default_kernelopts
@@ -434,7 +427,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             if list(self.devices['pci'].persistent())
             else self.template.kernelopts if hasattr(self, 'template')
             else qubes.config.defaults['kernelopts']),
-        ls_width=30,
         doc='Kernel command line passed to domain.')
 
     debug = qubes.property('debug', type=bool, default=False,
@@ -449,7 +441,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         default=(lambda self: self.template.default_user
             if hasattr(self, 'template') else 'user'),
         setter=_setter_default_user,
-        ls_width=12,
         doc='FIXME')
 
     # pylint: enable=no-member
@@ -463,7 +454,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     qrexec_timeout = qubes.property('qrexec_timeout', type=int, default=60,
         setter=_setter_positive_int,
-        ls_width=3,
         doc='''Time in seconds after which qrexec connection attempt is deemed
             failed. Operating system inside VM should be able to boot in this
             time.''')
@@ -512,7 +502,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     # VMM-related
 
-    @qubes.tools.qvm_ls.column(width=3)
     @property
     def xid(self):
         '''Xen ID.
