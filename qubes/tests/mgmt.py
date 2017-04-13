@@ -21,6 +21,7 @@
 ''' Tests for management calls endpoints '''
 
 import asyncio
+
 import libvirt
 import unittest.mock
 
@@ -836,6 +837,28 @@ class TC_00_VMs(MgmtTestCase):
         self.assertIsNone(value)
         func_mock.assert_called_once_with()
 
+    def test_270_events(self):
+        send_event = unittest.mock.Mock()
+        mgmt_obj = qubes.mgmt.QubesMgmt(self.app, b'dom0', b'mgmt.Events',
+            b'dom0', b'', send_event=send_event)
+
+        @asyncio.coroutine
+        def fire_event():
+            self.vm.fire_event('test-event', arg1='abc')
+            mgmt_obj.cancel()
+
+        loop = asyncio.get_event_loop()
+        execute_task = asyncio.ensure_future(
+            mgmt_obj.execute(untrusted_payload=b''))
+        asyncio.ensure_future(fire_event())
+        loop.run_until_complete(execute_task)
+        self.assertIsNone(execute_task.result())
+        self.assertEventFired(self.emitter,
+            'mgmt-permission:' + 'mgmt.Events')
+        self.assertEqual(send_event.mock_calls,
+            [unittest.mock.call(self.vm, 'test-event', arg1='abc')])
+
+
     def test_990_vm_unexpected_payload(self):
         methods_with_no_payload = [
             b'mgmt.vm.List',
@@ -871,6 +894,7 @@ class TC_00_VMs(MgmtTestCase):
             b'mgmt.vm.Pause',
             b'mgmt.vm.Unpause',
             b'mgmt.vm.Kill',
+            b'mgmt.Events',
         ]
         # make sure also no methods on actual VM gets called
         vm_mock = unittest.mock.MagicMock()
@@ -915,6 +939,7 @@ class TC_00_VMs(MgmtTestCase):
             b'mgmt.vm.Pause',
             b'mgmt.vm.Unpause',
             b'mgmt.vm.Kill',
+            b'mgmt.Events',
         ]
         # make sure also no methods on actual VM gets called
         vm_mock = unittest.mock.MagicMock()
@@ -955,6 +980,7 @@ class TC_00_VMs(MgmtTestCase):
             b'mgmt.pool.Info',
             b'mgmt.pool.Remove',
             b'mgmt.backup.Execute',
+            b'mgmt.Events',
         ]
         # make sure also no methods on actual VM gets called
         vm_mock = unittest.mock.MagicMock()
@@ -986,6 +1012,7 @@ class TC_00_VMs(MgmtTestCase):
             b'mgmt.property.List',
             b'mgmt.pool.List',
             b'mgmt.pool.ListDrivers',
+            b'mgmt.Events',
         ]
         # make sure also no methods on actual VM gets called
         vm_mock = unittest.mock.MagicMock()
