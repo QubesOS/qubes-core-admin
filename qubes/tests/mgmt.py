@@ -786,6 +786,56 @@ class TC_00_VMs(MgmtTestCase):
         self.assertEqual(self.app.labels.mock_calls, [])
         self.assertFalse(self.app.save.called)
 
+    def test_220_start(self):
+        func_mock = unittest.mock.Mock()
+        @asyncio.coroutine
+        def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+        self.vm.start = coroutine_mock
+        value = self.call_mgmt_func(b'mgmt.vm.Start', b'test-vm1')
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with()
+
+    def test_230_shutdown(self):
+        func_mock = unittest.mock.Mock()
+        @asyncio.coroutine
+        def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+        self.vm.shutdown = coroutine_mock
+        value = self.call_mgmt_func(b'mgmt.vm.Shutdown', b'test-vm1')
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with()
+
+    def test_240_pause(self):
+        func_mock = unittest.mock.Mock()
+        @asyncio.coroutine
+        def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+        self.vm.pause = coroutine_mock
+        value = self.call_mgmt_func(b'mgmt.vm.Pause', b'test-vm1')
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with()
+
+    def test_250_unpause(self):
+        func_mock = unittest.mock.Mock()
+        @asyncio.coroutine
+        def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+        self.vm.unpause = coroutine_mock
+        value = self.call_mgmt_func(b'mgmt.vm.Unpause', b'test-vm1')
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with()
+
+    def test_260_kill(self):
+        func_mock = unittest.mock.Mock()
+        @asyncio.coroutine
+        def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+        self.vm.kill = coroutine_mock
+        value = self.call_mgmt_func(b'mgmt.vm.Kill', b'test-vm1')
+        self.assertIsNone(value)
+        func_mock.assert_called_once_with()
+
     def test_990_vm_unexpected_payload(self):
         methods_with_no_payload = [
             b'mgmt.vm.List',
