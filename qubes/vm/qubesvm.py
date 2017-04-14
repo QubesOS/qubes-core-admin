@@ -521,6 +521,21 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     e.get_error_code()))
                 raise
 
+    @qubes.stateless_property
+    def stubdom_xid(self):
+        if self.xid < 0:
+            return -1
+
+        if self.app.vmm.xs is None:
+            return -1
+
+        stubdom_xid_str = self.app.vmm.xs.read('',
+            '/local/domain/{}/image/device-model-domid'.format(self.xid))
+        if stubdom_xid_str is None or not stubdom_xid_str.isdigit():
+            return -1
+
+        return int(stubdom_xid_str)
+
     @property
     def attached_volumes(self):
         result = []
