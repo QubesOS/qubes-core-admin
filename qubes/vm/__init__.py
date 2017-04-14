@@ -108,7 +108,7 @@ class Features(dict):
         for key in self:
             del self[key]
 
-    def pop(self):
+    def pop(self, _key, _default=None):
         '''Not implemented
         :raises: NotImplementedError
         '''
@@ -120,7 +120,7 @@ class Features(dict):
         '''
         raise NotImplementedError()
 
-    def setdefault(self):
+    def setdefault(self, _key, _default=None):
         '''Not implemented
         :raises: NotImplementedError
         '''
