@@ -583,6 +583,9 @@ class QubesMgmt(AbstractQubesMgmt):
             type(self.app).add_handler('*', handler)
         qubes.vm.BaseVM.add_handler('*', handler)
 
+        # send artificial event as a confirmation that connection is established
+        self.send_event(self.app, 'connection-established')
+
         try:
             yield from wait_for_cancel
         except asyncio.CancelledError:

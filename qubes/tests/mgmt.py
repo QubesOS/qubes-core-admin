@@ -856,7 +856,10 @@ class TC_00_VMs(MgmtTestCase):
         self.assertEventFired(self.emitter,
             'mgmt-permission:' + 'mgmt.Events')
         self.assertEqual(send_event.mock_calls,
-            [unittest.mock.call(self.vm, 'test-event', arg1='abc')])
+            [
+                unittest.mock.call(self.app, 'connection-established'),
+                unittest.mock.call(self.vm, 'test-event', arg1='abc')
+            ])
 
 
     def test_990_vm_unexpected_payload(self):
