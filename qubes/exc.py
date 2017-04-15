@@ -142,3 +142,12 @@ class QubesMemoryError(QubesException, MemoryError):
         super(QubesMemoryError, self).__init__(
             msg or 'Not enough memory to start domain {!r}'.format(vm.name))
         self.vm = vm
+
+
+class QubesFeatureNotFoundError(QubesException, KeyError):
+    '''Feature not set for a given domain'''
+    def __init__(self, domain, feature):
+        super(QubesFeatureNotFoundError, self).__init__(
+            'Feature not set for domain {}: {}'.format(domain, feature))
+        self.feature = feature
+        self.vm = domain

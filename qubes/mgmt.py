@@ -595,3 +595,57 @@ class QubesMgmt(AbstractQubesMgmt):
         if self.dest.name == 'dom0':
             type(self.app).remove_handler('*', handler)
         qubes.vm.BaseVM.remove_handler('*', handler)
+
+    @api('mgmt.vm.feature.List', no_payload=True)
+    @asyncio.coroutine
+    def vm_feature_list(self):
+        assert not self.arg
+        features = self.fire_event_for_filter(self.dest.features.keys())
+        return ''.join('{}\n'.format(feature) for feature in features)
+
+    @api('mgmt.vm.feature.Get', no_payload=True)
+    @asyncio.coroutine
+    def vm_feature_get(self):
+        # validation of self.arg done by qrexec-policy is enough
+
+        self.fire_event_for_permission()
+        try:
+            value = self.dest.features[self.arg]
+        except KeyError:
+            raise qubes.exc.QubesFeatureNotFoundError(self.dest, self.arg)
+        return value
+
+    @api('mgmt.vm.feature.CheckWithTemplate', no_payload=True)
+    @asyncio.coroutine
+    def vm_feature_checkwithtemplate(self):
+        # validation of self.arg done by qrexec-policy is enough
+
+        self.fire_event_for_permission()
+        try:
+            value = self.dest.features.check_with_template(self.arg)
+        except KeyError:
+            raise qubes.exc.QubesFeatureNotFoundError(self.dest, self.arg)
+        return value
+
+    @api('mgmt.vm.feature.Remove', no_payload=True)
+    @asyncio.coroutine
+    def vm_feature_remove(self):
+        # validation of self.arg done by qrexec-policy is enough
+
+        self.fire_event_for_permission()
+        try:
+            del self.dest.features[self.arg]
+        except KeyError:
+            raise qubes.exc.QubesFeatureNotFoundError(self.dest, self.arg)
+        self.app.save()
+
+    @api('mgmt.vm.feature.Set')
+    @asyncio.coroutine
+    def vm_feature_set(self, untrusted_payload):
+        # validation of self.arg done by qrexec-policy is enough
+        value = untrusted_payload.decode('ascii', errors='strict')
+        del untrusted_payload
+
+        self.fire_event_for_permission(value=value)
+        self.dest.features[self.arg] = value
+        self.app.save()
