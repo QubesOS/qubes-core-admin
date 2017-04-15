@@ -480,7 +480,7 @@ class VMCollection(object):
 #       if not self[netvm_qid].is_netvm():
 #           return set([])
 
-        while len(new_vms) > 0:
+        while new_vms:
             cur_vm = new_vms.pop()
             for vm in cur_vm.connected_vms:
                 if vm in dependent_vms:

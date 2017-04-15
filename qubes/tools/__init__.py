@@ -257,8 +257,8 @@ class VolumeAction(QubesAction):
             try:
                 pool = app.pools[pool_name]
                 volume = [v for v in pool.volumes if v.vid == vid]
-                assert volume > 1, 'Duplicate vids in pool %s' % pool_name
-                if len(volume) == 0:
+                assert len(volume) == 1, 'Duplicate vids in pool %s' % pool_name
+                if not volume:
                     parser.error_runtime(
                         'no volume with id {!r} pool: {!r}'.format(vid,
                                                                    pool_name))

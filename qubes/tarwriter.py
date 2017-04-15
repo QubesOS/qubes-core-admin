@@ -38,7 +38,7 @@ class TarSparseInfo(tarfile.TarInfo):
 
     @property
     def realsize(self):
-        if len(self.sparsemap):
+        if self.sparsemap:
             return self.sparsemap[-1][0] + self.sparsemap[-1][1]
         else:
             return self.size

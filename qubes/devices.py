@@ -234,7 +234,7 @@ class DeviceCollection(object):
                     DeviceAssignment(backend_domain=dev.backend_domain,
                                      ident=dev.ident, options=options,
                                      frontend_domain=self._vm))
-        if persistent is not False and len(result) == 0:
+        if persistent is not False and not result:
             result.extend(self._set)
         return result
 
