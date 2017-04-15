@@ -195,7 +195,11 @@ class DeviceCollection(object):
 
     def attached(self):
         '''List devices which are (or may be) attached to this vm '''
-        return self._vm.fire_event('device-list-attached:' + self._class) or []
+        attached = self._vm.fire_event('device-list-attached:' + self._class)
+        if attached:
+            return [dev for dev, _ in attached]
+
+        return []
 
     def persistent(self):
         ''' Devices persistently attached and safe to access before libvirt
@@ -218,7 +222,7 @@ class DeviceCollection(object):
         devices = self._vm.fire_event('device-list-attached:' + self._class,
             persistent=persistent)
         result = []
-        for dev in devices:
+        for dev, options in devices:
             if dev in self._set and persistent is False:
                 continue
             elif dev in self._set:
@@ -228,7 +232,7 @@ class DeviceCollection(object):
             else:
                 result.append(
                     DeviceAssignment(backend_domain=dev.backend_domain,
-                                     ident=dev.ident, options=dev.options,
+                                     ident=dev.ident, options=options,
                                      frontend_domain=self._vm))
         if persistent is not False and len(result) == 0:
             result.extend(self._set)

@@ -60,7 +60,7 @@ class TestVM(qubes.tests.TestEmitter):
     def dev_testclass_list_attached(self, event, persistent = False):
         for vm in self.app.domains:
             if vm.device.frontend_domain == self:
-                yield vm.device
+                yield (vm.device, {})
 
     @qubes.events.handler('device-list:testclass')
     def dev_testclass_list(self, event):

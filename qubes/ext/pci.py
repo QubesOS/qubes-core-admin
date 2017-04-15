@@ -212,7 +212,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
                 device=device,
                 function=function,
             )
-            yield PCIDevice(vm.app.domains[0], ident)
+            yield (PCIDevice(vm.app.domains[0], ident), {})
 
     @qubes.ext.handler('device-pre-attach:pci')
     def on_device_pre_attached_pci(self, vm, event, device):
