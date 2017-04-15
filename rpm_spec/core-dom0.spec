@@ -348,6 +348,7 @@ fi
 %{python3_sitelib}/qubes/tests/tools/qubesd.py
 %{python3_sitelib}/qubes/tests/tools/qvm_device.py
 %{python3_sitelib}/qubes/tests/tools/qvm_firewall.py
+%{python3_sitelib}/qubes/tests/tools/qubesd.py
 
 %dir %{python3_sitelib}/qubes/tests/integ
 %dir %{python3_sitelib}/qubes/tests/integ/__pycache__
