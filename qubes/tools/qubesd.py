@@ -158,7 +158,7 @@ class QubesDaemonProtocol(asyncio.Protocol):
     def send_exception(self, exc):
         self.send_header(0x32)
 
-        self.transport.write(type(exc).__name__ + b'\0')
+        self.transport.write(type(exc).__name__.encode() + b'\0')
 
         if self.debug:
             self.transport.write(''.join(traceback.format_exception(
