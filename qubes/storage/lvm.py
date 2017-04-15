@@ -401,8 +401,8 @@ class ThinVolume(qubes.storage.Volume):
             return qubes.storage.BlockDevice(
                 '/dev/' + self._vid_snap, self.name, self.script,
                 self.rw, self.domain, self.devtype)
-        else:
-            return super(ThinVolume, self).block_device()
+
+        return super(ThinVolume, self).block_device()
 
     @property
     def usage(self):  # lvm thin usage always returns at least the same usage as

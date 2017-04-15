@@ -377,10 +377,10 @@ class FileVolume(qubes.storage.Volume):
 
         if not os.path.exists(old_revision):
             return {}
-        else:
-            seconds = os.path.getctime(old_revision)
-            iso_date = qubes.storage.isodate(seconds).split('.', 1)[0]
-            return {iso_date: old_revision}
+
+        seconds = os.path.getctime(old_revision)
+        iso_date = qubes.storage.isodate(seconds).split('.', 1)[0]
+        return {iso_date: old_revision}
 
     @property
     def usage(self):

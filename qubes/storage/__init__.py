@@ -460,8 +460,8 @@ class Storage(object):
             "You need to pass a Volume or pool name as str"
         if isinstance(volume, Volume):
             return self.pools[volume.name]
-        else:
-            return self.vm.app.pools[volume]
+
+        return self.vm.app.pools[volume]
 
     def commit(self):
         ''' Makes changes to an 'origin' volume persistent '''
@@ -490,8 +490,8 @@ class Storage(object):
             "You need to pass a Volume or pool name as str"
         if isinstance(volume, Volume):
             return self.pools[volume.name].export(volume)
-        else:
-            return self.pools[volume].export(self.vm.volumes[volume])
+
+        return self.pools[volume].export(self.vm.volumes[volume])
 
 
 class Pool(object):

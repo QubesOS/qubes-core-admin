@@ -40,8 +40,7 @@ class TarSparseInfo(tarfile.TarInfo):
     def realsize(self):
         if self.sparsemap:
             return self.sparsemap[-1][0] + self.sparsemap[-1][1]
-        else:
-            return self.size
+        return self.size
 
     def sparse_header_chunk(self, index):
         if index < len(self.sparsemap):
@@ -49,8 +48,7 @@ class TarSparseInfo(tarfile.TarInfo):
                 tarfile.itn(self.sparsemap[index][0], 12, tarfile.GNU_FORMAT),
                 tarfile.itn(self.sparsemap[index][1], 12, tarfile.GNU_FORMAT),
             ])
-        else:
-            return b'\0' * 12 * 2
+        return b'\0' * 12 * 2
 
     def get_gnu_header(self):
         '''Part placed in 'prefix' field of posix header'''
@@ -81,8 +79,7 @@ class TarSparseInfo(tarfile.TarInfo):
         header_buf = super(TarSparseInfo, self).tobuf(format, encoding, errors)
         if len(self.sparsemap) > 4:
             return header_buf + b''.join(self.create_ext_sparse_headers())
-        else:
-            return header_buf
+        return header_buf
 
     def create_ext_sparse_headers(self):
         for ext_hdr in range(4, len(self.sparsemap), 21):

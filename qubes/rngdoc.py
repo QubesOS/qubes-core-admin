@@ -55,8 +55,8 @@ class Element(object):
         if wrap:
             return ''.join(self.schema.wrapper.fill(p) + '\n\n'
                 for p in textwrap.dedent(xml.text.strip('\n')).split('\n\n'))
-        else:
-            return ' '.join(xml.text.strip().split())
+
+        return ' '.join(xml.text.strip().split())
 
 
     def get_data_type(self, xml=None):

@@ -406,8 +406,7 @@ class Firewall(object):
         def _translate_action(key):
             if xml_root.get(key, policy_v1) == 'allow':
                 return Action.accept
-            else:
-                return Action.drop
+            return Action.drop
 
         self.rules.append(Rule(None,
             action=_translate_action('dns'),

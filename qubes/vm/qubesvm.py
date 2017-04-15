@@ -1432,10 +1432,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 else:
                     if not self.is_fully_usable():
                         return "Transient"
-                    else:
-                        return "Running"
-            else:
-                return 'Halted'
+
+                    return "Running"
+
+            return 'Halted'
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return 'Halted'
@@ -1614,8 +1614,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             '/vm/{}/start_time'.format(self.uuid))
         if start_time != '':
             return datetime.datetime.fromtimestamp(float(start_time))
-        else:
-            return None
+
+        return None
 
     def is_outdated(self):
         '''Check whether domain needs restart to update root image from \
