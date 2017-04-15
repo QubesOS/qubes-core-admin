@@ -346,6 +346,7 @@ fi
 %{python3_sitelib}/qubes/tests/tools/__pycache__/*
 %{python3_sitelib}/qubes/tests/tools/__init__.py
 %{python3_sitelib}/qubes/tests/tools/init.py
+%{python3_sitelib}/qubes/tests/tools/qubesd.py
 %{python3_sitelib}/qubes/tests/tools/qvm_device.py
 %{python3_sitelib}/qubes/tests/tools/qvm_firewall.py
 
