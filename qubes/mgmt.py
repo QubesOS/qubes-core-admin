@@ -464,6 +464,20 @@ class QubesMgmt(AbstractQubesMgmt):
 
         return label.color
 
+    @api('mgmt.label.Index', no_payload=True)
+    @asyncio.coroutine
+    def label_index(self):
+        assert self.dest.name == 'dom0'
+
+        try:
+            label = self.app.get_label(self.arg)
+        except KeyError:
+            raise qubes.exc.QubesValueError
+
+        self.fire_event_for_permission(label=label)
+
+        return str(label.index)
+
     @api('mgmt.label.Create')
     @asyncio.coroutine
     def label_create(self, untrusted_payload):

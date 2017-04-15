@@ -681,6 +681,15 @@ class TC_00_VMs(MgmtTestCase):
             [unittest.mock.call('red')])
         self.assertFalse(self.app.save.called)
 
+    def test_195_label_index(self):
+        self.app.get_label = unittest.mock.Mock()
+        self.app.get_label.configure_mock(**{'return_value.index': 1})
+        value = self.call_mgmt_func(b'mgmt.label.Index', b'dom0', b'red')
+        self.assertEqual(value, '1')
+        self.assertEqual(self.app.get_label.mock_calls,
+            [unittest.mock.call('red')])
+        self.assertFalse(self.app.save.called)
+
     def test_200_label_create(self):
         self.app.get_label = unittest.mock.Mock()
         self.app.get_label.side_effect=KeyError
