@@ -63,7 +63,7 @@ class DeviceAssignment(object): # pylint: disable=too-few-public-methods
                  frontend_domain=None):
         self.backend_domain = backend_domain
         self.ident = ident
-        self.options = options or []
+        self.options = options or {}
         self.persistent = persistent
         self.frontend_domain = frontend_domain
 
