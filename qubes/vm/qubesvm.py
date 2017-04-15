@@ -1004,7 +1004,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         '''Run service on this VM
 
         :param str service: service name
-        :param qubes.vm.qubesvm.QubesVM: source domain as presented to this VM
+        :param qubes.vm.qubesvm.QubesVM source: source domain as presented to
+        this VM
         :param str user: username to run service as
         :param bool filter_esc: filter escape sequences to protect terminal \
             emulator
