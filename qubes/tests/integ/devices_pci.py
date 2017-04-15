@@ -101,7 +101,7 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestsMixin,
         dev_col = self.vm.devices['pci']
         self.assertDeviceNotInCollection(self.dev, dev_col)
         self.assignment.persistent = False
-        with self.assertRaises(qubes.devices.WrongAssignment):
+        with self.assertRaises(qubes.exc.QubesVMNotRunningError):
             dev_col.attach(self.assignment)
 
 
@@ -130,7 +130,7 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestsMixin,
         dev_col.attach(self.assignment)
         self.app.save()
         self.vm.start()
-        with self.assertRaises(qubes.devices.WrongAssignment):
+        with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
             self.vm.devices['pci'].detach(self.assignment)
 
     def test_030_persist_attach_detach_offline(self):

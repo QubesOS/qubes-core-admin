@@ -55,10 +55,6 @@ class DeviceAlreadyAttached(qubes.exc.QubesException, KeyError):
     '''Trying to attach already attached device'''
     pass
 
-class WrongAssignment(qubes.exc.QubesException, KeyError):
-    '''Trying to attach non permanent assignment to a halted vm'''
-    pass
-
 
 class DeviceAssignment(object): # pylint: disable=too-few-public-methods
     ''' Maps a device to a frontend_domain. '''
@@ -155,13 +151,13 @@ class DeviceCollection(object):
 
         if not device_assignment.frontend_domain:
             device_assignment.frontend_domain = self._vm
+        else:
+            assert device_assignment.frontend_domain == self._vm, \
+                "Trying to attach DeviceAssignment belonging to other domain"
 
-        if device_assignment.frontend_domain != self._vm:
-            raise WrongAssignment(
-                "Trying to attach DeviceAssignment belonging to other domain")
         if not device_assignment.persistent and self._vm.is_halted():
-            raise WrongAssignment("Devices can only be attached persistent to "
-                                  "a halted vm")
+            raise qubes.exc.QubesVMNotRunningError(self._vm,
+                "Devices can only be attached  non-persistent to a running vm")
         device = self._device(device_assignment)
         if device in self.assignments():
             raise DeviceAlreadyAttached(
@@ -182,7 +178,7 @@ class DeviceCollection(object):
             device_assignment.frontend_domain = self._vm
 
         if device_assignment in self._set and not self._vm.is_halted():
-            raise WrongAssignment(
+            raise qubes.exc.QubesVMNotHaltedError(self._vm,
                 "Can not remove a persistent attachment from a non halted vm")
         if device_assignment not in self.assignments():
             raise DeviceNotAttached(
