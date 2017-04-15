@@ -344,19 +344,6 @@ class UnknownDevice(DeviceInfo):
             frontend_domain, **kwargs)
 
 
-class BlockDevice(object):
-    # pylint: disable=too-few-public-methods
-    def __init__(self, path, name, script=None, rw=True, domain=None,
-                 devtype='disk'):
-        assert name, 'Missing device name'
-        assert path, 'Missing device path'
-        self.path = path
-        self.name = name
-        self.rw = rw
-        self.script = script
-        self.domain = domain
-        self.devtype = devtype
-
 class PersistentCollection(object):
 
     ''' Helper object managing persistent `DeviceAssignment`s.

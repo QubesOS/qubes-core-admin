@@ -34,7 +34,6 @@ from datetime import datetime
 import lxml.etree
 import pkg_resources
 import qubes
-import qubes.devices
 import qubes.exc
 import qubes.utils
 
@@ -44,6 +43,21 @@ STORAGE_ENTRY_POINT = 'qubes.storage'
 class StoragePoolException(qubes.exc.QubesException):
     ''' A general storage exception '''
     pass
+
+
+class BlockDevice(object):
+    ''' Represents a storage block device. '''
+    # pylint: disable=too-few-public-methods
+    def __init__(self, path, name, script=None, rw=True, domain=None,
+                 devtype='disk'):
+        assert name, 'Missing device name'
+        assert path, 'Missing device path'
+        self.path = path
+        self.name = name
+        self.rw = rw
+        self.script = script
+        self.domain = domain
+        self.devtype = devtype
 
 
 class Volume(object):
@@ -119,10 +133,10 @@ class Volume(object):
         return lxml.etree.Element('volume', **config)
 
     def block_device(self):
-        ''' Return :py:class:`qubes.devices.BlockDevice` for serialization in
+        ''' Return :py:class:`BlockDevice` for serialization in
             the libvirt XML template as <disk>.
         '''
-        return qubes.devices.BlockDevice(self.path, self.name, self.script,
+        return BlockDevice(self.path, self.name, self.script,
                                          self.rw, self.domain, self.devtype)
 
     @property

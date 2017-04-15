@@ -567,7 +567,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     @property
     def block_devices(self):
-        ''' Return all :py:class:`qubes.devices.BlockDevice`s for current domain
+        ''' Return all :py:class:`qubes.storage.BlockDevice`s for current domain
             for serialization in the libvirt XML template as <disk>.
         '''
         return [v.block_device() for v in self.volumes.values()]
