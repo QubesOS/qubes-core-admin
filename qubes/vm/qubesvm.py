@@ -429,6 +429,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     # CORE2: swallowed uses_default_kernelopts
     kernelopts = qubes.property('kernelopts', type=str, load_stage=4,
         default=(lambda self: qubes.config.defaults['kernelopts_pcidevs']
+            # pylint: disable=no-member
             if list(self.devices['pci'].persistent())
             else self.template.kernelopts if hasattr(self, 'template')
             else qubes.config.defaults['kernelopts']),
@@ -443,6 +444,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     # XXX shouldn't this go to standalone VM and TemplateVM, and leave here
     #     only plain property?
     default_user = qubes.property('default_user', type=str,
+        # pylint: disable=no-member
         default=(lambda self: self.template.default_user
             if hasattr(self, 'template') else 'user'),
         setter=_setter_default_user,

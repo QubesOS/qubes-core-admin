@@ -93,7 +93,7 @@ class Element(object):
         for xml in self.xml.xpath('''./rng:attribute |
                 ./rng:optional/rng:attribute |
                 ./rng:choice/rng:attribute''', namespaces=self.nsmap):
-            required = xml.getparent() == self.xml and 'yes' or 'no'
+            required = 'yes' if xml.getparent() == self.xml else 'no'
             yield (xml, required)
 
 
@@ -212,6 +212,7 @@ Quick example, worth thousands lines of specification:
 
 
 if __name__ == '__main__':
+    # pylint: disable=no-value-for-parameter
     main(*sys.argv[1:])
 
 # vim: ts=4 sw=4 et

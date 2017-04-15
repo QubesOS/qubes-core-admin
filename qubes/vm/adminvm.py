@@ -115,8 +115,7 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
             try:
                 return self.app.vmm.libvirt_conn.getInfo()[1]
             except libvirt.libvirtError as e:
-                self.log.warning(
-                    'Failed to get memory limit for dom0: {}'.format(e))
+                self.log.warning('Failed to get memory limit for dom0: %s', e)
                 return 4096
 
     def verify_files(self):
@@ -127,7 +126,8 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
         '''  # pylint: disable=no-self-use
         return True
 
-    def start(self, **kwargs):
+    def start(self, preparing_dvm=False, start_guid=True, notify_function=None,
+            mem_required=None):
         '''Always raises an exception.
 
         .. seealso:

@@ -26,6 +26,7 @@ import qubes.devices
 import qubes.tests
 
 class TestDevice(qubes.devices.DeviceInfo):
+    # pylint: disable=too-few-public-methods
     pass
 
 
@@ -35,6 +36,7 @@ class TestVMCollection(dict):
 
 
 class TestApp(object):
+    # pylint: disable=too-few-public-methods
     def __init__(self):
         self.domains = TestVMCollection()
 

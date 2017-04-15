@@ -19,6 +19,8 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
+''' Qubes PCI Extensions '''
+
 import os
 import re
 import subprocess
@@ -34,7 +36,7 @@ pci_classes = None
 
 
 def load_pci_classes():
-    # List of known device classes, subclasses and programming interfaces
+    ''' List of known device classes, subclasses and programming interfaces. '''
     # Syntax:
     # C class       class_name
     #       subclass        subclass_name           <-- single tab

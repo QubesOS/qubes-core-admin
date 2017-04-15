@@ -221,7 +221,8 @@ class Core2Qubes(qubes.Qubes):
             for pcidev in pcidevs:
                 try:
                     dev = self.domains[0].devices['pci'][pcidev]
-                    assignment = qubes.devices.DeviceAssignment(backend_domain=dev.backend_domain, ident=dev.ident)
+                    assignment = qubes.devices.DeviceAssignment(
+                        backend_domain=dev.backend_domain, ident=dev.ident)
                     vm.devices["pci"].attach(assignment)
                 except qubes.exc.QubesException as e:
                     self.log.error("VM {}: {}".format(vm.name, str(e)))

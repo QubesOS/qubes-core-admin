@@ -352,8 +352,8 @@ class QubesArgumentParser(argparse.ArgumentParser):
 
         self.set_defaults(verbose=1, quiet=0)
 
-    def parse_args(self, *args, **kwargs):
-        namespace = super(QubesArgumentParser, self).parse_args(*args, **kwargs)
+    def parse_args(self, args=None, namespace=None):
+        namespace = super(QubesArgumentParser, self).parse_args(args, namespace)
 
         if self._want_app and not self._want_app_no_instance:
             self.set_qubes_verbosity(namespace)
@@ -441,9 +441,8 @@ class AliasedSubParsersAction(argparse._SubParsersAction):
             sup = super(AliasedSubParsersAction._AliasedPseudoAction, self)
             sup.__init__(option_strings=[], dest=dest, help=help)
 
-        def __call__(self, **kwargs):
-            super(AliasedSubParsersAction._AliasedPseudoAction, self).__call__(
-                **kwargs)
+        def __call__(self, parser, namespace, values, option_string=None):
+            raise NotImplementedError
 
     def add_parser(self, name, **kwargs):
         if 'aliases' in kwargs:

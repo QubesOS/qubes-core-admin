@@ -292,7 +292,7 @@ class DeviceInfo(object):
     ''' Holds all information about a device '''
     # pylint: disable=too-few-public-methods
     def __init__(self, backend_domain, ident, description=None,
-                 frontend_domain=None, options = None, **kwargs):
+                 frontend_domain=None, options=None, **kwargs):
         #: domain providing this device
         self.backend_domain = backend_domain
         #: device identifier (unique for given domain and device type)
@@ -308,6 +308,7 @@ class DeviceInfo(object):
             self.frontend_domain = frontend_domain
         except AttributeError:
             pass
+        self.options = options or dict()
         self.data = kwargs
 
         if hasattr(self, 'regex'):
