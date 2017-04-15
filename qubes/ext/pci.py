@@ -21,6 +21,7 @@
 
 ''' Qubes PCI Extensions '''
 
+import functools
 import os
 import re
 import subprocess
@@ -192,7 +193,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
     def on_device_get_pci(self, vm, event, ident):
         # pylint: disable=unused-argument,no-self-use
         if not vm.app.vmm.offline_mode:
-            yield PCIDevice(vm, ident)
+            yield _cache_get(vm, ident)
 
     @qubes.ext.handler('device-list-attached:pci')
     def on_device_list_attached(self, vm, event, **kwargs):
@@ -228,9 +229,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
             return
 
         try:
-            device = next(
-                self.on_device_get_pci(vm, event, device.ident)
-            )
+            device = _cache_get(vm, device.ident)
             self.bind_pci_to_pciback(vm.app, device)
             vm.libvirt_domain.attachDevice(
                 vm.app.env.get_template('libvirt/devices/pci.xml').render(
@@ -250,9 +249,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
         # provision in libvirt for extracting device-side BDF; we need it for
         # qubes.DetachPciDevice, which unbinds driver, not to oops the kernel
 
-        device = next(
-            self.on_device_get_pci(vm, event, device.ident)
-        )
+        device = _cache_get(vm, device.ident)
         p = subprocess.Popen(['xl', 'pci-list', str(vm.xid)],
                 stdout=subprocess.PIPE)
         result = p.communicate()[0].decode()
@@ -278,8 +275,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
     def on_domain_pre_start(self, vm, _event, **_kwargs):
         # Bind pci devices to pciback driver
         for assignment in vm.devices['pci'].persistent():
-            device = next(
-                self.on_device_get_pci(vm, _event, assignment.ident))
+            device = _cache_get(vm, assignment.ident)
             self.bind_pci_to_pciback(vm.app, device)
 
     @staticmethod
@@ -309,3 +305,8 @@ class PCIDeviceExtension(qubes.ext.Extension):
                 pass
             else:
                 raise
+
+@functools.lru_cache(maxsize=None)
+def _cache_get(vm, ident):
+    ''' Caching wrapper around `PCIDevice(vm, ident)`. '''
+    return PCIDevice(vm, ident)
