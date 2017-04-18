@@ -22,6 +22,7 @@
 #
 #
 
+import ast
 import datetime
 import base64
 import hashlib
@@ -132,14 +133,14 @@ class QubesVm(object):
             "pcidevs": {
                 "default": '[]',
                 "order": 25,
-                "func": lambda value: [] if value in ["none", None]  else
-                    eval(value) if value.find("[") >= 0 else
-                    eval("[" + value + "]") },
+                "func": lambda value: list([] if value in ["none", None] else
+                    ast.literal_eval(value) if value.find("[") >= 0 else
+                    ast.literal_eval("[" + value + "]")) },
             "pci_strictreset": {"default": True},
             "pci_e820_host": {"default": True},
             # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
             "internal": { "default": False, 'attr': '_internal' },
-            "vcpus": { "default": 2 },
+            "vcpus": { "default": 2, "func": int },
             "uses_default_kernel": { "default": True, 'order': 30 },
             "uses_default_kernelopts": { "default": True, 'order': 30 },
             "kernel": {
@@ -161,7 +162,7 @@ class QubesVm(object):
                 else not self.installed_by_rpm },
             "services": {
                 "default": {},
-                "func": lambda value: eval(str(value)) },
+                "func": lambda value: dict(ast.literal_eval(str(value))) },
             "debug": { "default": False },
             "default_user": { "default": "user", "attr": "_default_user" },
             "qrexec_timeout": { "default": 60 },
