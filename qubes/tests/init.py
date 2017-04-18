@@ -64,6 +64,7 @@ class TC_00_Label(qubes.tests.QubesTestCase):
 
 class TC_10_property(qubes.tests.QubesTestCase):
     def setUp(self):
+        super().setUp()
         try:
             class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
                 testprop1 = qubes.property('testprop1')
@@ -206,6 +207,7 @@ class TestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
 
 class TC_20_PropertyHolder(qubes.tests.QubesTestCase):
     def setUp(self):
+        super().setUp()
         xml = lxml.etree.XML('''
 <qubes version="3">
     <properties>
@@ -314,6 +316,7 @@ class TestApp(qubes.tests.TestEmitter):
 
 class TC_30_VMCollection(qubes.tests.QubesTestCase):
     def setUp(self):
+        super().setUp()
         self.app = TestApp()
         self.vms = qubes.app.VMCollection(self.app)
 

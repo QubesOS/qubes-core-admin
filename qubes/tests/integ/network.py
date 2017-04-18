@@ -22,6 +22,7 @@
 
 from distutils import spawn
 
+import asyncio
 import multiprocessing
 import os
 import subprocess
@@ -34,7 +35,6 @@ import qubes.vm.appvm
 class NcVersion:
     Trad = 1
     Nmap = 2
-
 
 # noinspection PyAttributeOutsideInit
 class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
@@ -49,10 +49,11 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
     template = None
 
     def run_cmd(self, vm, cmd, user="root"):
-        p = vm.run(cmd, user=user, passio_popen=True, ignore_stderr=True)
-        p.stdin.close()
-        p.stdout.read().decode()
-        return p.wait()
+        try:
+            self.loop.run_until_complete(vm.run_for_stdio(cmd))
+        except subprocess.CalledProcessError as e:
+            return e.returncode
+        return 0
 
     def setUp(self):
         super(VmNetworkingMixin, self).setUp()
@@ -81,11 +82,12 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
                 self.fail("Command '%s' failed" % cmd)
 
         if not self.testnetvm.is_running():
-            self.testnetvm.start()
+            self.loop.run_until_complete(self.testnetvm.start())
         # Ensure that dnsmasq is installed:
-        p = self.testnetvm.run("dnsmasq --version", user="root",
-                               passio_popen=True)
-        if p.wait() != 0:
+        try:
+            self.loop.run_until_complete(self.testnetvm.run_for_stdio(
+                'dnsmasq --version', user='root'))
+        except subprocess.CalledProcessError:
             self.skipTest("dnsmasq not installed")
 
         run_netvm_cmd("ip link add test0 type dummy")
@@ -102,7 +104,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
 
 
     def test_000_simple_networking(self):
-        self.testvm1.start()
+        self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
 
@@ -113,11 +115,11 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             label='red')
         self.proxy.provides_network = True
         self.proxy.netvm = self.testnetvm
-        self.proxy.create_on_disk()
+        self.loop.run_until_complete(self.proxy.create_on_disk())
         self.testvm1.netvm = self.proxy
         self.app.save()
 
-        self.testvm1.start()
+        self.loop.run_until_complete(self.testvm1.start())
         self.assertTrue(self.proxy.is_running())
         self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0,
                          "Ping by IP from ProxyVM failed")
@@ -137,13 +139,13 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             name=self.make_vm_name('proxy'),
             label='red')
         self.proxy.provides_network = True
-        self.proxy.create_on_disk()
+        self.loop.run_until_complete(self.proxy.create_on_disk())
         self.proxy.netvm = self.testnetvm
         self.proxy.features['network-manager'] = True
         self.testvm1.netvm = self.proxy
         self.app.save()
 
-        self.testvm1.start()
+        self.loop.run_until_complete(self.testvm1.start())
         self.assertTrue(self.proxy.is_running())
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
                          "Ping by IP failed")
@@ -182,7 +184,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             name=self.make_vm_name('proxy'),
             label='red')
         self.proxy.provides_network = True
-        self.proxy.create_on_disk()
+        self.loop.run_until_complete(self.proxy.create_on_disk())
         self.proxy.netvm = self.testnetvm
         self.testvm1.netvm = self.proxy
         self.app.save()
@@ -196,14 +198,13 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
 
         self.testvm1.firewall.policy = 'drop'
         self.testvm1.firewall.save()
-        self.testvm1.start()
+        self.loop.run_until_complete(self.testvm1.start())
         self.assertTrue(self.proxy.is_running())
 
-        if nc_version == NcVersion.Nmap:
-            self.testnetvm.run("nc -l --send-only -e /bin/hostname -k 1234")
-        else:
-            self.testnetvm.run("while nc -l -e /bin/hostname -p 1234; do "
-                               "true; done")
+        self.loop.run_until_complete(self.testnetvm.run_for_stdio(
+            'nc -l --send-only -e /bin/hostname -k 1234'
+            if nc_version == NcVersion.Nmap
+            else 'while nc -l -e /bin/hostname -p 1234; do true; done'))
 
         self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0,
                          "Ping by IP from ProxyVM failed")
@@ -278,7 +279,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('proxy'),
             label='red')
-        self.proxy.create_on_disk()
+        self.loop.run_until_complete(self.proxy.create_on_disk())
         self.proxy.provides_network = True
         self.proxy.netvm = self.testnetvm
         self.testvm1.netvm = self.proxy
@@ -286,12 +287,13 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.testvm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('vm3'),
             label='red')
-        self.testvm2.create_on_disk()
+        self.loop.run_until_complete(self.testvm2.create_on_disk())
         self.testvm2.netvm = self.proxy
         self.app.save()
 
-        self.testvm1.start()
-        self.testvm2.start()
+        self.loop.run_until_complete(asyncio.wait([
+            self.testvm1.start(),
+            self.testvm2.start()]))
 
         self.assertNotEqual(self.run_cmd(self.testvm1,
             self.ping_cmd.format(target=self.testvm2.ip)), 0)
@@ -312,14 +314,14 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
 
     def test_050_spoof_ip(self):
         """Test if VM IP spoofing is blocked"""
-        self.testvm1.start()
+        self.loop.run_until_complete(self.testvm1.start())
 
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
-        self.testvm1.run("ip addr flush dev eth0", user="root", wait=True)
-        self.testvm1.run("ip addr add 10.137.1.128/24 dev eth0", user="root",
-                         wait=True)
-        self.testvm1.run("ip route add default dev eth0", user="root",
-                         wait=True)
+        self.loop.run_until_complete(self.testvm1.run_for_stdio('''
+            ip addr flush dev eth0
+            ip addr add 10.137.1.128/24 dev eth0
+            ip route add default dev eth0
+        ''', user='root'))
         self.assertNotEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
                          "Spoofed ping should be blocked")
 
@@ -329,7 +331,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         cmd = "systemctl stop xendriverdomain"
         if self.run_cmd(self.testnetvm, cmd) != 0:
             self.fail("Command '%s' failed" % cmd)
-        self.testvm1.start()
+        self.loop.run_until_complete(self.testvm1.start())
 
         cmd = "systemctl start xendriverdomain"
         if self.run_cmd(self.testnetvm, cmd) != 0:
@@ -343,24 +345,26 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.testvm1.features['net/fake-gateway'] = '192.168.1.1'
         self.testvm1.features['net/fake-netmask'] = '255.255.255.0'
         self.app.save()
-        self.testvm1.start()
+        self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
-        p = self.testvm1.run('ip addr show dev eth0', user='root',
-            passio_popen=True,
-            ignore_stderr=True)
-        p.stdin.close()
-        output = p.stdout.read().decode()
-        self.assertEqual(p.wait(), 0, 'ip addr show dev eth0 failed')
+
+        try:
+            (output, _) = self.loop.run_until_complete(
+                self.testvm1.run_for_stdio(
+                    'ip addr show dev eth0', user='root'))
+        except subprocess.CalledProcessError:
+            self.fail('ip addr show dev eth0 failed')
+
         self.assertIn('192.168.1.128', output)
         self.assertNotIn(self.testvm1.ip, output)
 
-        p = self.testvm1.run('ip route show', user='root',
-            passio_popen=True,
-            ignore_stderr=True)
-        p.stdin.close()
-        output = p.stdout.read().decode()
-        self.assertEqual(p.wait(), 0, 'ip route show failed')
+        try:
+            (output, _) = self.loop.run_until_complete(
+                self.testvm1.run_for_stdio('ip route show', user='root'))
+        except subprocess.CalledProcessError:
+            self.fail('ip route show failed')
+
         self.assertIn('192.168.1.1', output)
         self.assertNotIn(self.testvm1.netvm.ip, output)
 
@@ -368,15 +372,17 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         '''Test hiding VM real IP'''
         self.testvm1.features['net/fake-ip'] = '192.168.1.128'
         self.app.save()
-        self.testvm1.start()
+        self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
-        p = self.testvm1.run('ip addr show dev eth0', user='root',
-            passio_popen=True,
-            ignore_stderr=True)
-        p.stdin.close()
-        output = p.stdout.read().decode()
-        self.assertEqual(p.wait(), 0, 'ip addr show dev eth0 failed')
+
+        try:
+            (output, _) = self.loop.run_until_complete(
+                self.testvm1.run_for_stdio('ip addr show dev eth0',
+                    user='root'))
+        except subprocess.CalledProcessError:
+            self.fail('ip addr show dev eth0 failed')
+
         self.assertIn('192.168.1.128', output)
         self.assertNotIn(self.testvm1.ip, output)
 
@@ -390,7 +396,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             name=self.make_vm_name('proxy'),
             label='red')
         self.proxy.provides_network = True
-        self.proxy.create_on_disk()
+        self.loop.run_until_complete(self.proxy.create_on_disk())
         self.proxy.netvm = self.testnetvm
         self.testvm1.netvm = self.proxy
         self.app.save()
@@ -408,14 +414,13 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             qubes.firewall.Rule(None, action='accept', specialtarget='dns'),
         ]
         self.testvm1.firewall.save()
-        self.testvm1.start()
+        self.loop.run_until_complete(self.testvm1.start())
         self.assertTrue(self.proxy.is_running())
 
-        if nc_version == NcVersion.Nmap:
-            self.testnetvm.run("nc -l --send-only -e /bin/hostname -k 1234")
-        else:
-            self.testnetvm.run("while nc -l -e /bin/hostname -p 1234; do "
-                               "true; done")
+        self.loop.run_until_complete(self.testnetvm.run_for_stdio(
+            'nc -l --send-only -e /bin/hostname -k 1234'
+            if nc_version == NcVersion.Nmap
+            else 'while nc -l -e /bin/hostname -p 1234; do true; done'))
 
         self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0,
                          "Ping by IP from ProxyVM failed")
@@ -437,7 +442,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('proxy'),
             label='red')
-        self.proxy.create_on_disk()
+        self.loop.run_until_complete(self.proxy.create_on_disk())
         self.proxy.provides_network = True
         self.proxy.netvm = self.testnetvm
         self.testvm1.netvm = self.proxy
@@ -448,31 +453,36 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.testvm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('vm3'),
             label='red')
-        self.testvm2.create_on_disk()
+        self.loop.run_until_complete(self.testvm2.create_on_disk())
         self.testvm2.netvm = self.proxy
         self.app.save()
 
-        self.testvm1.start()
-        self.testvm2.start()
+        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.testvm2.start())
 
-        cmd = 'iptables -I FORWARD -s {} -d {} -j ACCEPT'.format(
-            self.testvm2.ip, self.testvm1.ip)
-        retcode = self.proxy.run(cmd, user='root', wait=True)
-        self.assertEqual(retcode, 0, '{} failed with: {}'.format(cmd, retcode))
+        try:
+            self.loop.run_until_complete(self.proxy.run_for_stdio(
+                'iptables -I FORWARD -s {} -d {} -j ACCEPT'.format(
+                    self.testvm2.ip, self.testvm1.ip), user='root'))
+        except subprocess.CalledProcessError as e:
+            self.fail('{} failed with: {}'.format(cmd, e.returncode))
 
-        cmd = 'iptables -I INPUT -s {} -j ACCEPT'.format(
-            self.testvm2.ip)
-        retcode = self.testvm1.run(cmd, user='root', wait=True)
-        self.assertEqual(retcode, 0, '{} failed with: {}'.format(cmd, retcode))
+        try:
+            self.loop.run_until_complete(self.proxy.run_for_stdio(
+                'iptables -I INPUT -s {} -j ACCEPT'.format(
+                    self.testvm2.ip), user='root'))
+        except subprocess.CalledProcessError as e:
+            self.fail('{} failed with: {}'.format(cmd, e.returncode))
 
         self.assertEqual(self.run_cmd(self.testvm2,
             self.ping_cmd.format(target=self.testvm1.ip)), 0)
 
-        cmd = 'iptables -nvxL INPUT | grep {}'.format(self.testvm2.ip)
-        p = self.testvm1.run(cmd, user='root', passio_popen=True)
-        (stdout, _) = p.communicate()
-        self.assertEqual(p.returncode, 0,
-            '{} failed with {}'.format(cmd, p.returncode))
+        try:
+            (stdout, _) = self.loop.run_until_complete(self.testvm1.run_for_stdio(
+                'iptables -nvxL INPUT | grep {}'.format(self.testvm2.ip), user='root'))
+        except subprocess.CalledProcessError as e:
+            self.fail(
+                '{} failed with {}'.format(cmd, e.returncode))
         self.assertNotEqual(stdout.decode().split()[0], '0',
             'Packets didn\'t managed to the VM')
 
@@ -481,7 +491,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('proxy'),
             label='red')
-        self.proxy.create_on_disk()
+        self.loop.run_until_complete(self.proxy.create_on_disk())
         self.proxy.provides_network = True
         self.proxy.netvm = self.testnetvm
         self.proxy.features['net/fake-ip'] = '192.168.1.128'
@@ -489,7 +499,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.proxy.features['net/fake-netmask'] = '255.255.255.0'
         self.testvm1.netvm = self.proxy
         self.app.save()
-        self.testvm1.start()
+        self.loop.run_until_complete(self.testvm1.start())
 
         self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.proxy, self.ping_name), 0)
@@ -497,39 +507,39 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
 
-        p = self.proxy.run('ip addr show dev eth0', user='root',
-            passio_popen=True,
-            ignore_stderr=True)
-        p.stdin.close()
-        output = p.stdout.read().decode()
-        self.assertEqual(p.wait(), 0, 'ip addr show dev eth0 failed')
+        try:
+            (output, _) = self.loop.run_until_complete(
+                self.proxy.run_for_stdio(
+                    'ip addr show dev eth0', user='root'))
+        except subprocess.CalledProcessError as e:
+            self.fail('ip addr show dev eth0 failed')
         self.assertIn('192.168.1.128', output)
         self.assertNotIn(self.testvm1.ip, output)
 
-        p = self.proxy.run('ip route show', user='root',
-            passio_popen=True,
-            ignore_stderr=True)
-        p.stdin.close()
-        output = p.stdout.read().decode()
-        self.assertEqual(p.wait(), 0, 'ip route show failed')
+        try:
+            (output, _) = self.loop.run_until_complete(
+                self.proxy.run_for_stdio(
+                    'ip route show', user='root'))
+        except subprocess.CalledProcessError as e:
+            self.fail('ip route show failed')
         self.assertIn('192.168.1.1', output)
         self.assertNotIn(self.testvm1.netvm.ip, output)
 
-        p = self.testvm1.run('ip addr show dev eth0', user='root',
-            passio_popen=True,
-            ignore_stderr=True)
-        p.stdin.close()
-        output = p.stdout.read().decode()
-        self.assertEqual(p.wait(), 0, 'ip addr show dev eth0 failed')
+        try:
+            (output, _) = self.loop.run_until_complete(
+                self.testvm1.run_for_stdio(
+                    'ip addr show dev eth0', user='root'))
+        except subprocess.CalledProcessError as e:
+            self.fail('ip addr show dev eth0 failed')
         self.assertNotIn('192.168.1.128', output)
         self.assertIn(self.testvm1.ip, output)
 
-        p = self.testvm1.run('ip route show', user='root',
-            passio_popen=True,
-            ignore_stderr=True)
-        p.stdin.close()
-        output = p.stdout.read().decode()
-        self.assertEqual(p.wait(), 0, 'ip route show failed')
+        try:
+            (output, _) = self.loop.run_until_complete(
+                self.testvm1.run_for_stdio(
+                    'ip route show', user='root'))
+        except subprocess.CalledProcessError as e:
+            self.fail('ip route show failed')
         self.assertIn('192.168.1.128', output)
         self.assertNotIn(self.proxy.ip, output)
 
@@ -537,7 +547,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         '''Custom AppVM IP'''
         self.testvm1.ip = '192.168.1.1'
         self.app.save()
-        self.testvm1.start()
+        self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
 
@@ -546,14 +556,14 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('proxy'),
             label='red')
-        self.proxy.create_on_disk()
+        self.loop.run_until_complete(self.proxy.create_on_disk())
         self.proxy.provides_network = True
         self.proxy.netvm = self.testnetvm
         self.proxy.ip = '192.168.1.1'
         self.testvm1.netvm = self.proxy
         self.app.save()
 
-        self.testvm1.start()
+        self.loop.run_until_complete(self.testvm1.start())
 
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
@@ -566,7 +576,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             name=self.make_vm_name('proxy'),
             label='red')
         self.proxy.provides_network = True
-        self.proxy.create_on_disk()
+        self.loop.run_until_complete(self.proxy.create_on_disk())
         self.proxy.netvm = self.testnetvm
         self.testvm1.netvm = self.proxy
         self.app.save()
@@ -584,14 +594,13 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             qubes.firewall.Rule(None, action='accept', specialtarget='dns'),
         ]
         self.testvm1.firewall.save()
-        self.testvm1.start()
+        self.loop.run_until_complete(self.testvm1.start())
         self.assertTrue(self.proxy.is_running())
 
-        if nc_version == NcVersion.Nmap:
-            self.testnetvm.run("nc -l --send-only -e /bin/hostname -k 1234")
-        else:
-            self.testnetvm.run("while nc -l -e /bin/hostname -p 1234; do "
-                               "true; done")
+        self.loop.run_until_complete(self.testnetvm.run_for_stdio(
+            'nc -l --send-only -e /bin/hostname -k 1234'
+            if nc_version == NcVersion.Nmap
+            else 'while nc -l -e /bin/hostname -p 1234; do true; done'))
 
         self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0,
                          "Ping by IP from ProxyVM failed")
@@ -686,10 +695,11 @@ class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
     )
 
     def run_cmd(self, vm, cmd, user="root"):
-        p = vm.run(cmd, user=user, passio_popen=True, ignore_stderr=True)
-        p.stdin.close()
-        p.stdout.read().decode()
-        return p.wait()
+        try:
+            self.loop.run_until_complete(vm.run_for_stdio(cmd))
+        except subprocess.CalledProcessError as e:
+            return e.returncode
+        return 0
 
     def setUp(self):
         super(VmUpdatesMixin, self).setUp()
@@ -724,116 +734,95 @@ class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
             qubes.vm.appvm.AppVM,
             name=self.make_vm_name('vm1'),
             label='red')
-        self.testvm1.create_on_disk()
+        self.loop.run_until_complete(self.testvm1.create_on_disk())
 
     def test_000_simple_update(self):
         self.save_and_reload_db()
         # reload the VM to have all the properties properly set (especially
         # default netvm)
         self.testvm1 = self.app.domains[self.testvm1.qid]
-        self.testvm1.start()
-        p = self.testvm1.run(self.update_cmd, wait=True, user="root",
-                             passio_popen=True, passio_stderr=True)
-        (stdout, stderr) = p.communicate()
-        self.assertIn(p.wait(), self.exit_code_ok,
-                      "{}: {}\n{}".format(self.update_cmd, stdout, stderr)
-                      )
+        self.loop.run_until_complete(self.testvm1.start())
+        p = self.loop.run_until_complete(
+            self.testvm1.run(self.update_cmd, user='root'))
+        (stdout, stderr) = self.loop.run_until_complete(p.communicate())
+        self.assertIn(p.returncode, self.exit_code_ok,
+            '{}: {}\n{}'.format(self.update_cmd, stdout, stderr))
 
     def create_repo_apt(self):
         pkg_file_name = "test-pkg_1.0-1_amd64.deb"
-        p = self.netvm_repo.run("mkdir /tmp/apt-repo && cd /tmp/apt-repo &&"
-                                "base64 -d | zcat > {}".format(pkg_file_name),
-                                passio_popen=True)
-        p.stdin.write(self.DEB_PACKAGE_GZIP_BASE64)
-        p.stdin.close()
-        if p.wait() != 0:
-            raise RuntimeError("Failed to write {}".format(pkg_file_name))
+        self.loop.run_until_complete(self.netvm_repo.run_for_stdio('''
+            mkdir /tmp/apt-repo \
+            && cd /tmp/apt-repo \
+            && base64 -d | zcat > {}
+            '''.format(pkg_file_name),
+            input=self.DEB_PACKAGE_GZIP_BASE64))
         # do not assume dpkg-scanpackage installed
         packages_path = "dists/test/main/binary-amd64/Packages"
-        p = self.netvm_repo.run(
-            "mkdir -p /tmp/apt-repo/dists/test/main/binary-amd64 && "
-            "cd /tmp/apt-repo && "
-            "cat > {packages} && "
-            "echo MD5sum: $(openssl md5 -r {pkg} | cut -f 1 -d ' ')"
-            " >> {packages} && "
-            "echo SHA1: $(openssl sha1 -r {pkg} | cut -f 1 -d ' ')"
-            " >> {packages} && "
-            "echo SHA256: $(openssl sha256 -r {pkg} | cut -f 1 -d ' ')"
-            " >> {packages} && "
-            "gzip < {packages} > {packages}.gz".format(pkg=pkg_file_name,
-                                                       packages=packages_path),
-            passio_popen=True, passio_stderr=True)
-        p.stdin.write(
-            "Package: test-pkg\n"
-            "Version: 1.0-1\n"
-            "Architecture: amd64\n"
-            "Maintainer: unknown <user@host>\n"
-            "Installed-Size: 25\n"
-            "Filename: {pkg}\n"
-            "Size: 994\n"
-            "Section: unknown\n"
-            "Priority: optional\n"
-            "Description: Test package\n".format(pkg=pkg_file_name)
-        )
-        p.stdin.close()
-        if p.wait() != 0:
-            raise RuntimeError("Failed to write Packages file: {}".format(
-                p.stderr.read().decode()))
+        self.loop.run_until_complete(self.netvm_repo.run_for_stdio('''
+            mkdir -p /tmp/apt-repo/dists/test/main/binary-amd64 \
+            && cd /tmp/apt-repo \
+            && cat > {packages} \
+            && echo MD5sum: $(openssl md5 -r {pkg} | cut -f 1 -d ' ') \
+                >> {packages} \
+            && echo SHA1: $(openssl sha1 -r {pkg} | cut -f 1 -d ' ') \
+                >> {packages} \
+            && echo SHA256: $(openssl sha256 -r {pkg} | cut -f 1 -d ' ') \
+                >> {packages} \
+            && gzip < {packages} > {packages}.gz
+            '''.format(pkg=pkg_file_name, packages=packages_path),
+            input='''\
+Package: test-pkg
+Version: 1.0-1
+Architecture: amd64
+Maintainer: unknown <user@host>
+Installed-Size: 25
+Filename: {pkg}
+Size: 994
+Section: unknown
+Priority: optional
+Description: Test package'''.format(pkg=pkg_file_name).encode('utf-8')))
 
-        p = self.netvm_repo.run(
-            "mkdir -p /tmp/apt-repo/dists/test && "
-            "cd /tmp/apt-repo/dists/test && "
-            "cat > Release && "
-            "echo '' $(sha256sum {p} | cut -f 1 -d ' ') $(stat -c %s {p}) {p}"
-            " >> Release && "
-            "echo '' $(sha256sum {z} | cut -f 1 -d ' ') $(stat -c %s {z}) {z}"
-            " >> Release"
-            .format(p="main/binary-amd64/Packages",
-                    z="main/binary-amd64/Packages.gz"),
-            passio_popen=True, passio_stderr=True
-        )
-        p.stdin.write(
-            "Label: Test repo\n"
-            "Suite: test\n"
-            "Codename: test\n"
-            "Date: Tue, 27 Oct 2015 03:22:09 UTC\n"
-            "Architectures: amd64\n"
-            "Components: main\n"
-            "SHA256:\n"
-        )
-        p.stdin.close()
-        if p.wait() != 0:
-            raise RuntimeError("Failed to write Release file: {}".format(
-                p.stderr.read().decode()))
+        self.loop.run_until_complete(self.netvm_repo.run_for_stdio('''
+            mkdir -p /tmp/apt-repo/dists/test \
+            && cd /tmp/apt-repo/dists/test \
+            && cat > Release \
+            && echo '' $(sha256sum {p} | cut -f 1 -d ' ') $(stat -c %s {p}) {p}\
+                >> Release \
+            && echo '' $(sha256sum {z} | cut -f 1 -d ' ') $(stat -c %s {z}) {z}\
+                >> Release
+            '''.format(p='main/binary-amd64/Packages',
+                    z='main/binary-amd64/Packages.gz'),
+            input='''\
+Label: Test repo
+Suite: test
+Codename: test
+Date: Tue, 27 Oct 2015 03:22:09 UTC
+Architectures: amd64
+Components: main
+SHA256:
+'''))
 
     def create_repo_yum(self):
         pkg_file_name = "test-pkg-1.0-1.fc21.x86_64.rpm"
-        p = self.netvm_repo.run("mkdir /tmp/yum-repo && cd /tmp/yum-repo &&"
-                                "base64 -d | zcat > {}".format(pkg_file_name),
-                                passio_popen=True, passio_stderr=True)
-        p.stdin.write(self.RPM_PACKAGE_GZIP_BASE64)
-        p.stdin.close()
-        if p.wait() != 0:
-            raise RuntimeError("Failed to write {}: {}".format(pkg_file_name,
-                                                               p.stderr.read().decode()))
+        self.loop.run_until_complete(self.netvm_repo.run_for_stdio('''
+            mkdir /tmp/yum-repo \
+            && cd /tmp/yum-repo \
+            && base64 -d | zcat > {}
+            '''.format(pkg_file_name), input=self.RPM_PACKAGE_GZIP_BASE64))
 
         # createrepo is installed by default in Fedora template
-        p = self.netvm_repo.run("createrepo /tmp/yum-repo",
-                                passio_popen=True,
-                                passio_stderr=True)
-        if p.wait() != 0:
-            raise RuntimeError("Failed to create yum metadata: {}".format(
-                p.stderr.read().decode()))
+        self.loop.run_until_complete(self.netvm_repo.run_for_stdio(
+            'createrepo /tmp/yum-repo'))
 
     def create_repo_and_serve(self):
         if self.template.count("debian") or self.template.count("whonix"):
             self.create_repo_apt()
-            self.netvm_repo.run("cd /tmp/apt-repo &&"
-                                "python -m SimpleHTTPServer 8080")
+            self.loop.run_until_complete(self.netvm_repo.run(
+                'cd /tmp/apt-repo && python -m SimpleHTTPServer 8080'))
         elif self.template.count("fedora"):
             self.create_repo_yum()
-            self.netvm_repo.run("cd /tmp/yum-repo &&"
-                                "python -m SimpleHTTPServer 8080")
+            self.loop.run_until_complete(self.netvm_repo.run(
+                'cd /tmp/yum-repo && python -m SimpleHTTPServer 8080'))
         else:
             # not reachable...
             self.skipTest("Template {} not supported by this test".format(
@@ -848,13 +837,13 @@ class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
         """
 
         if self.template.count("debian") or self.template.count("whonix"):
-            self.testvm1.run(
+            self.loop.run_until_complete(self.testvm1.run_for_stdio(
                 "rm -f /etc/apt/sources.list.d/* &&"
                 "echo 'deb [trusted=yes] http://localhost:8080 test main' "
                 "> /etc/apt/sources.list",
-                user="root")
+                user="root"))
         elif self.template.count("fedora"):
-            self.testvm1.run(
+            self.loop.run_until_complete(self.testvm1.run_for_stdio(
                 "rm -f /etc/yum.repos.d/*.repo &&"
                 "echo '[test]' > /etc/yum.repos.d/test.repo &&"
                 "echo 'name=Test repo' >> /etc/yum.repos.d/test.repo &&"
@@ -862,7 +851,7 @@ class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
                 "echo 'baseurl=http://localhost:8080/'"
                 " >> /etc/yum.repos.d/test.repo",
                 user="root"
-            )
+            ))
         else:
             # not reachable...
             self.skipTest("Template {} not supported by this test".format(
@@ -881,7 +870,7 @@ class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
             name=self.make_vm_name('net'),
             label='red')
         self.netvm_repo.provides_network = True
-        self.netvm_repo.create_on_disk()
+        self.loop.run_until_complete(self.netvm_repo.create_on_disk())
         self.testvm1.netvm = self.netvm_repo
         # NetVM should have qubes-updates-proxy enabled by default
         #self.netvm_repo.features['qubes-updates-proxy'] = True
@@ -890,38 +879,33 @@ class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
         self.app.save()
 
         # Setup test repo
-        self.netvm_repo.start()
+        self.loop.run_until_complete(self.netvm_repo.start())
         self.create_repo_and_serve()
 
         # Configure local repo
-        self.testvm1.start()
+        self.loop.run_until_complete(self.testvm1.start())
         self.configure_test_repo()
 
         # update repository metadata
-        p = self.testvm1.run(self.update_cmd, wait=True, user="root",
-                             passio_popen=True, passio_stderr=True)
-        (stdout, stderr) = p.communicate()
-        self.assertIn(p.wait(), self.exit_code_ok,
-                      "{}: {}\n{}".format(self.update_cmd, stdout, stderr)
-                      )
+        p = self.loop.run_until_complete(self.testvm1.run(
+            self.update_cmd, user='root'))
+        (stdout, stderr) = self.loop.run_until_complete(p.communicate())
+        self.assertIn(self.loop.run_until_complete(p.wait()), self.exit_code_ok,
+            '{}: {}\n{}'.format(self.update_cmd, stdout, stderr))
 
         # install test package
-        p = self.testvm1.run(self.install_cmd.format('test-pkg'),
-                             wait=True, user="root",
-                             passio_popen=True, passio_stderr=True)
-        (stdout, stderr) = p.communicate()
-        self.assertIn(p.wait(), self.exit_code_ok,
-                      "{}: {}\n{}".format(self.update_cmd, stdout, stderr)
-                      )
+        p = self.loop.run_until_complete(self.testvm1.run(
+            self.install_cmd.format('test-pkg'), user='root'))
+        (stdout, stderr) = self.loop.run_until_complete(p.communicate())
+        self.assertIn(self.loop.run_until_complete(p.wait()), self.exit_code_ok,
+            '{}: {}\n{}'.format(self.update_cmd, stdout, stderr))
 
         # verify if it was really installed
-        p = self.testvm1.run(self.install_test_cmd.format('test-pkg'),
-                             wait=True, user="root",
-                             passio_popen=True, passio_stderr=True)
-        (stdout, stderr) = p.communicate()
-        self.assertIn(p.wait(), self.exit_code_ok,
-                      "{}: {}\n{}".format(self.update_cmd, stdout, stderr)
-                      )
+        p = self.loop.run_until_complete(self.testvm1.run(
+            self.install_test_cmd.format('test-pkg'), user='root'))
+        (stdout, stderr) = self.loop.run_until_complete(p.communicate())
+        self.assertIn(self.loop.run_until_complete(p.wait()), self.exit_code_ok,
+            '{}: {}\n{}'.format(self.update_cmd, stdout, stderr))
 
 def load_tests(loader, tests, pattern):
     try:

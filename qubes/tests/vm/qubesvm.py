@@ -60,6 +60,7 @@ class TestVM(object):
 
 class TC_00_setters(qubes.tests.QubesTestCase):
     def setUp(self):
+        super().setUp()
         self.vm = TestVM()
         self.prop = TestProp()
 

@@ -500,14 +500,14 @@ class TC_10_BackupVMMixin(BackupTestsMixin):
     def test_100_send_to_vm_file_with_spaces(self):
         vms = self.create_backup_vms()
         self.backupvm.start()
-        self.backupvm.run("mkdir '/var/tmp/backup directory'", wait=True)
+        self.loop.run_until_complete(self.backupvm.run_for_stdio(
+            "mkdir '/var/tmp/backup directory'"))
         self.make_backup(vms, target_vm=self.backupvm,
             compressed=True, encrypted=True,
             target='/var/tmp/backup directory')
         self.remove_vms(reversed(vms))
-        p = self.backupvm.run("ls /var/tmp/backup*/qubes-backup*",
-                              passio_popen=True)
-        (backup_path, _) = p.communicate()
+        (backup_path, _) = self.loop.run_until_complete(
+            self.backupvm.run_for_stdio("ls /var/tmp/backup*/qubes-backup*"))
         backup_path = backup_path.decode().strip()
         self.restore_backup(source=backup_path,
                             appvm=self.backupvm)
@@ -530,7 +530,7 @@ class TC_10_BackupVMMixin(BackupTestsMixin):
         """
         vms = self.create_backup_vms()
         self.backupvm.start()
-        retcode = self.backupvm.run(
+        self.loop.run_until_complete(self.backupvm.run_for_stdio(
             # Debian 7 has too old losetup to handle loop-control device
             "mknod /dev/loop0 b 7 0;"
             "truncate -s 50M /home/user/backup.img && "
@@ -538,9 +538,7 @@ class TC_10_BackupVMMixin(BackupTestsMixin):
             "mkdir /home/user/backup && "
             "mount /home/user/backup.img /home/user/backup -o loop &&"
             "chmod 777 /home/user/backup",
-            user="root", wait=True)
-        if retcode != 0:
-            raise RuntimeError("Failed to prepare backup directory")
+            user="root"))
         with self.assertRaises(qubes.exc.QubesException):
             self.make_backup(vms, target_vm=self.backupvm,
                 compressed=False, encrypted=True,

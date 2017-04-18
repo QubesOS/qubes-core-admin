@@ -37,6 +37,7 @@ class TestApp(qubes.tests.TestEmitter):
 
 class TC_30_VMCollection(qubes.tests.QubesTestCase):
     def setUp(self):
+        super().setUp()
         self.app = TestApp()
         self.vms = qubes.app.VMCollection(self.app)
 

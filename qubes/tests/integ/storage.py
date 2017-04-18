@@ -19,8 +19,8 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
+import asyncio
 import os
-
 import shutil
 
 import qubes.storage.lvm
@@ -51,6 +51,10 @@ class StorageTestMixin(qubes.tests.SystemTestsMixin):
 
     def test_000_volatile(self):
         '''Test if volatile volume is really volatile'''
+        return self.loop.run_until_complete(self._test_000_volatile())
+
+    @asyncio.coroutine
+    def _test_000_volatile(self):
         size = 32*1024*1024
         volume_config = {
             'pool': self.pool.name,
@@ -60,27 +64,29 @@ class StorageTestMixin(qubes.tests.SystemTestsMixin):
             'rw': True,
         }
         testvol = self.vm1.storage.init_volume('testvol', volume_config)
-        self.vm1.storage.get_pool(testvol).create(testvol)
+        yield from self.vm1.storage.get_pool(testvol).create(testvol)
         self.app.save()
-        self.vm1.start()
-        p = self.vm1.run(
+        yield from (self.vm1.start())
+
+        # volatile image not clean
+        yield from (self.vm1.run_for_stdio(
             'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(size),
-            user='root', passio_popen=True)
-        stdout, _ = p.communicate()
-        self.assertEqual(p.returncode, 0,
-            'volatile image not clean: {}'.format(stdout))
-        self.vm1.run('echo test123 > /dev/xvde', user='root', wait=True)
-        self.vm1.shutdown(wait=True)
-        self.vm1.start()
-        p = self.vm1.run(
+            user='root'))
+        # volatile image not volatile
+        yield from (
+            self.vm1.run_for_stdio('echo test123 > /dev/xvde', user='root'))
+        yield from (self.vm1.shutdown(wait=True))
+        yield from (self.vm1.start())
+        yield from (self.vm1.run_for_stdio(
             'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(size),
-            user='root', passio_popen=True)
-        stdout, _ = p.communicate()
-        self.assertEqual(p.returncode, 0,
-            'volatile image not volatile: {}'.format(stdout))
+            user='root'))
 
     def test_001_non_volatile(self):
         '''Test if non-volatile volume is really non-volatile'''
+        return self.loop.run_until_complete(self._test_001_non_volatile())
+
+    @asyncio.coroutine
+    def _test_001_non_volatile(self):
         size = 32*1024*1024
         volume_config = {
             'pool': self.pool.name,
@@ -89,28 +95,31 @@ class StorageTestMixin(qubes.tests.SystemTestsMixin):
             'save_on_stop': True,
             'rw': True,
         }
-        testvol = self.vm1.storage.init_volume('testvol', volume_config)
-        self.vm1.storage.get_pool(testvol).create(testvol)
+        testvol = yield from self.vm1.storage.init_volume(
+            'testvol', volume_config)
+        yield from self.vm1.storage.get_pool(testvol).create(testvol)
         self.app.save()
-        self.vm1.start()
-        p = self.vm1.run(
+        yield from self.vm1.start()
+        # non-volatile image not clean
+        yield from self.vm1.run_for_stdio(
             'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(size),
-            user='root', passio_popen=True)
-        stdout, _ = p.communicate()
-        self.assertEqual(p.returncode, 0,
-            'non-volatile image not clean: {}'.format(stdout))
-        self.vm1.run('echo test123 > /dev/xvde', user='root', wait=True)
-        self.vm1.shutdown(wait=True)
-        self.vm1.start()
-        p = self.vm1.run(
+            user='root')
+
+        yield from self.vm1.run_for_stdio('echo test123 > /dev/xvde',
+            user='root')
+        yield from self.vm1.shutdown(wait=True)
+        yield from self.vm1.start()
+        # non-volatile image volatile
+        yield from self.vm1.run_for_stdio(
             'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(size),
-            user='root', passio_popen=True)
-        stdout, _ = p.communicate()
-        self.assertNotEqual(p.returncode, 0,
-            'non-volatile image volatile: {}'.format(stdout))
+            user='root')
 
     def test_002_read_only(self):
         '''Test read-only volume'''
+        self.loop.run_until_complete(self._test_002_read_only())
+
+    @asyncio.coroutine
+    def _test_002_read_only(self):
         size = 32 * 1024 * 1024
         volume_config = {
             'pool': self.pool.name,
@@ -120,29 +129,28 @@ class StorageTestMixin(qubes.tests.SystemTestsMixin):
             'rw': False,
         }
         testvol = self.vm1.storage.init_volume('testvol', volume_config)
-        self.vm1.storage.get_pool(testvol).create(testvol)
+        yield from self.vm1.storage.get_pool(testvol).create(testvol)
         self.app.save()
-        self.vm1.start()
-        p = self.vm1.run(
+        yield from self.vm1.start()
+        # non-volatile image not clean
+        yield from self.vm1.run_for_stdio(
             'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(size),
-            user='root', passio_popen=True)
-        stdout, _ = p.communicate()
-        self.assertEqual(p.returncode, 0,
-            'non-volatile image not clean: {}'.format(stdout))
-        p = self.vm1.run('echo test123 > /dev/xvde', user='root',
-            passio_popen=True)
-        p.wait()
-        self.assertNotEqual(p.returncode, 0,
-            'Write to read-only volume unexpectedly succeeded')
-        p = self.vm1.run(
+            user='root')
+        # Write to read-only volume unexpectedly succeeded
+        with self.assertRaises(subprocess.CalledProcessError):
+            yield from self.vm1.run_for_stdio('echo test123 > /dev/xvde',
+                user='root')
+        # read-only volume modified
+        yield from self.vm1.run_for_stdio(
             'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(size),
-            user='root', passio_popen=True)
-        stdout, _ = p.communicate()
-        self.assertEqual(p.returncode, 0,
-            'read-only volume modified: {}'.format(stdout))
+            user='root')
 
     def test_003_snapshot(self):
         '''Test snapshot volume data propagation'''
+        self.loop.run_until_complete(self._test_003_snapshot())
+
+    @asyncio.coroutine
+    def _test_003_snapshot(self):
         size = 128 * 1024 * 1024
         volume_config = {
             'pool': self.pool.name,
@@ -152,7 +160,7 @@ class StorageTestMixin(qubes.tests.SystemTestsMixin):
             'rw': True,
         }
         testvol = self.vm1.storage.init_volume('testvol', volume_config)
-        self.vm1.storage.get_pool(testvol).create(testvol)
+        yield from self.vm1.storage.get_pool(testvol).create(testvol)
         volume_config = {
             'pool': self.pool.name,
             'size': size,
@@ -162,57 +170,55 @@ class StorageTestMixin(qubes.tests.SystemTestsMixin):
             'rw': True,
         }
         testvol_snap = self.vm2.storage.init_volume('testvol', volume_config)
-        self.vm2.storage.get_pool(testvol_snap).create(testvol_snap)
+        yield from self.vm2.storage.get_pool(testvol_snap).create(testvol_snap)
         self.app.save()
-        self.vm1.start()
-        self.vm2.start()
-        p = self.vm1.run(
+        yield from self.vm1.start()
+        yield from self.vm2.start()
+        # origin image not clean
+        yield from self.vm1.run_for_stdio(
             'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(size),
-            user='root', passio_popen=True)
-        stdout, _ = p.communicate()
-        self.assertEqual(p.returncode, 0,
-            'origin image not clean: {}'.format(stdout))
+            user='root')
 
-        p = self.vm2.run(
+        # snapshot image not clean
+        yield from self.vm2.run_for_stdio(
             'head -c {} /dev/zero | diff -q /dev/xvde -'.format(size),
-            user='root', passio_popen=True)
-        stdout, _ = p.communicate()
-        self.assertEqual(p.returncode, 0,
-            'snapshot image not clean: {}'.format(stdout))
+            user='root')
 
-        self.vm1.run('echo test123 > /dev/xvde && sync', user='root', wait=True)
-        p.wait()
-        self.assertEqual(p.returncode, 0,
-            'Write to read-write volume failed')
-        p = self.vm2.run(
+        # Write to read-write volume failed
+        yield from self.vm1.run_for_stdio('echo test123 > /dev/xvde && sync',
+            user='root')
+        # origin changes propagated to snapshot too early
+        yield from self.vm2.run_for_stdio(
             'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(size),
-            user='root', passio_popen=True)
-        stdout, _ = p.communicate()
-        self.assertEqual(p.returncode, 0,
-            'origin changes propagated to snapshot too early: {}'.format(
-                stdout))
-        self.vm1.shutdown(wait=True)
+            user='root')
+        yield from self.vm1.shutdown(wait=True)
+
         # after origin shutdown there should be still no change
-        p = self.vm2.run(
-            'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(size),
-            user='root', passio_popen=True)
-        stdout, _ = p.communicate()
-        self.assertEqual(p.returncode, 0,
-            'origin changes propagated to snapshot too early2: {}'.format(
-                stdout))
 
-        self.vm2.shutdown(wait=True)
-        self.vm2.start()
-        # only after target VM restart changes should be visible
-        p = self.vm2.run(
+        # origin changes propagated to snapshot too early2
+        yield from self.vm2.run_for_stdio(
             'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(size),
-            user='root', passio_popen=True)
-        stdout, _ = p.communicate()
-        self.assertNotEqual(p.returncode, 0,
-            'origin changes not visible in snapshot: {}'.format(stdout))
+            user='root')
+
+        yield from self.vm2.shutdown(wait=True)
+        yield from self.vm2.start()
+
+        # only after target VM restart changes should be visible
+
+        # origin changes not visible in snapshot
+        with self.assertRaises(subprocess.CalledProcessError):
+            yield from self.vm2.run(
+                'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(
+                    size),
+                user='root')
 
     def test_004_snapshot_non_persistent(self):
         '''Test snapshot volume non-persistence'''
+        return self.loop.run_until_complete(
+            self._test_004_snapshot_non_persistent())
+
+    @asyncio.coroutine
+    def _test_004_snapshot_non_persistent(self):
         size = 128 * 1024 * 1024
         volume_config = {
             'pool': self.pool.name,
@@ -222,7 +228,7 @@ class StorageTestMixin(qubes.tests.SystemTestsMixin):
             'rw': True,
         }
         testvol = self.vm1.storage.init_volume('testvol', volume_config)
-        self.vm1.storage.get_pool(testvol).create(testvol)
+        yield from self.vm1.storage.get_pool(testvol).create(testvol)
         volume_config = {
             'pool': self.pool.name,
             'size': size,
@@ -232,30 +238,25 @@ class StorageTestMixin(qubes.tests.SystemTestsMixin):
             'rw': True,
         }
         testvol_snap = self.vm2.storage.init_volume('testvol', volume_config)
-        self.vm2.storage.get_pool(testvol_snap).create(testvol_snap)
+        yield from self.vm2.storage.get_pool(testvol_snap).create(testvol_snap)
         self.app.save()
-        self.vm2.start()
+        yield from self.vm2.start()
 
-        p = self.vm2.run(
+        # snapshot image not clean
+        yield from self.vm2.run_for_stdio(
             'head -c {} /dev/zero | diff -q /dev/xvde -'.format(size),
-            user='root', passio_popen=True)
-        stdout, _ = p.communicate()
-        self.assertEqual(p.returncode, 0,
-            'snapshot image not clean: {}'.format(stdout))
+            user='root')
 
-        self.vm2.run('echo test123 > /dev/xvde && sync', user='root', wait=True)
-        p.wait()
-        self.assertEqual(p.returncode, 0,
-            'Write to read-write snapshot volume failed')
-        self.vm2.shutdown(wait=True)
-        self.vm2.start()
-        p = self.vm2.run(
+        # Write to read-write snapshot volume failed
+        yield from self.vm2.run_for_stdio('echo test123 > /dev/xvde && sync',
+            user='root')
+        yield from self.vm2.shutdown(wait=True)
+        yield from self.vm2.start()
+
+        # changes on snapshot survived VM restart
+        yield from self.vm2.run_for_stdio(
             'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(size),
-            user='root', passio_popen=True)
-        stdout, _ = p.communicate()
-        self.assertEqual(p.returncode, 0,
-            'changes on snapshot survived VM restart: {}'.format(
-                stdout))
+            user='root')
 
 
 class StorageFile(StorageTestMixin, qubes.tests.QubesTestCase):
