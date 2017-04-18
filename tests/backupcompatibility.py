@@ -159,18 +159,17 @@ class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, qubes.tests.QubesT
 
         super(TC_00_BackupCompatibility, self).tearDown()
 
-    def create_whitelisted_appmenus(self, filename):
-        f = open(filename, "w")
-        f.write("gnome-terminal.desktop\n")
-        f.write("nautilus.desktop\n")
-        f.write("firefox.desktop\n")
-        f.write("mozilla-thunderbird.desktop\n")
-        f.write("libreoffice-startcenter.desktop\n")
-        f.close()
+    def create_whitelisted_appmenus(self, filename, appmenus_list=None):
+        if appmenus_list is None:
+            appmenus_list = ['gnome-terminal', 'nautilus', 'firefox'
+                'mozilla-thunderbird', 'libreoffice-startcenter']
+        with open(filename, "w") as f:
+            for app in appmenus_list:
+                f.write(app + '.desktop\n')
 
-    def create_appmenus(self, dir, template, list):
+    def create_appmenus(self, dir, template, list, fname_prefix=''):
         for name in list:
-            f = open(os.path.join(dir, name + ".desktop"), "w")
+            f = open(os.path.join(dir, fname_prefix + name + ".desktop"), "w")
             f.write(template.format(name=name, comment=name, command=name))
             f.close()
 
@@ -357,7 +356,8 @@ class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, qubes.tests.QubesT
             self.append_backup_stream(part_with_dir+".hmac", stream,
                                       basedir=self.fullpath("stage1"))
 
-    def create_v3_backup(self, encrypted=True, compressed=True):
+    def create_v3_backup(self, encrypted=True, compressed=True,
+            custom_header=None, custom_qubes_xml=None):
         """
         Create "backup format 3" backup - used in R2 and R3.0
 
@@ -365,25 +365,29 @@ class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, qubes.tests.QubesT
         :return:
         """
         output = open(self.fullpath("backup.bin"), "w")
-        f = open(self.fullpath("backup-header"), "w")
-        f.write(BACKUP_HEADER_R2.format(
-            encrypted=str(encrypted),
-            compressed=str(compressed)
-        ))
-        f.close()
+        with open(self.fullpath("backup-header"), "w") as f:
+            if custom_header is not None:
+                f.write(custom_header)
+            else:
+                f.write(BACKUP_HEADER_R2.format(
+                    encrypted=str(encrypted),
+                    compressed=str(compressed)
+                ))
         self.calculate_hmac("backup-header")
         self.append_backup_stream("backup-header", output)
         self.append_backup_stream("backup-header.hmac", output)
-        f = open(self.fullpath("qubes.xml"), "w")
-        if encrypted:
-            qubesxml = QUBESXML_R2
-            for vmname, subdir in MANGLED_SUBDIRS_R2.items():
-                qubesxml = re.sub(r"[a-z-]*/{}".format(vmname),
-                                  subdir, qubesxml)
-            f.write(qubesxml)
-        else:
-            f.write(QUBESXML_R2)
-        f.close()
+        with open(self.fullpath("qubes.xml"), "w") as f:
+            if custom_qubes_xml is not None:
+                f.write(custom_qubes_xml)
+            else:
+                if encrypted:
+                    qubesxml = QUBESXML_R2
+                    for vmname, subdir in MANGLED_SUBDIRS_R2.items():
+                        qubesxml = re.sub(r"[a-z-]*/{}".format(vmname),
+                                          subdir, qubesxml)
+                    f.write(qubesxml)
+                else:
+                    f.write(QUBESXML_R2)
 
         self.handle_v3_file("qubes.xml", "", output, encrypted=encrypted,
                             compressed=compressed)
@@ -399,7 +403,8 @@ class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, qubes.tests.QubesT
                         subdir = vm_dir
                     self.handle_v3_file(
                         os.path.join(vm_dir, f_name),
-                        subdir+'/', output, encrypted=encrypted)
+                        subdir+'/', output, encrypted=encrypted,
+                        compressed=compressed)
 
         for vm_name in os.listdir(self.fullpath("vm-templates")):
             vm_dir = os.path.join("vm-templates", vm_name)
@@ -409,7 +414,7 @@ class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, qubes.tests.QubesT
                 subdir = vm_dir
             self.handle_v3_file(
                 os.path.join(vm_dir, "."),
-                subdir+'/', output, encrypted=encrypted)
+                subdir+'/', output, encrypted=encrypted, compressed=compressed)
 
         output.close()
 
