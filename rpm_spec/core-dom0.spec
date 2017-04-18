@@ -199,6 +199,9 @@ fi
 %{python_sitearch}/qubes/backup.py
 %{python_sitearch}/qubes/backup.pyc
 %{python_sitearch}/qubes/backup.pyo
+%{python_sitearch}/qubes/backupparser.py
+%{python_sitearch}/qubes/backupparser.pyc
+%{python_sitearch}/qubes/backupparser.pyo
 %{python_sitearch}/qubes/storage/*.py
 %{python_sitearch}/qubes/storage/*.pyc
 %{python_sitearch}/qubes/storage/*.pyo

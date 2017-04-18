@@ -23,10 +23,7 @@
 #
 #
 from __future__ import unicode_literals
-from qubes import QubesException, QubesVmCollection
-from qubes import QubesVmClasses
-from qubes import system_path, vm_files
-from qubesutils import size_to_human, print_stdout, print_stderr, get_disk_usage
+
 import sys
 import os
 import fcntl
@@ -39,6 +36,13 @@ import grp
 import pwd
 import errno
 import datetime
+
+from qubes import QubesException, QubesVmCollection, qubes_base_dir
+from qubes import QubesVmClasses
+from qubes import system_path, vm_files
+from backupparser import SafeQubesVmCollection
+from qubesutils import size_to_human, print_stdout, print_stderr, \
+    get_disk_usage
 from multiprocessing import Queue, Process
 
 BACKUP_DEBUG = False
@@ -1576,6 +1580,8 @@ def backup_restore_set_defaults(options):
         options['verify-only'] = False
     if 'rename-conflicting' not in options:
         options['rename-conflicting'] = False
+    if 'paranoid-mode' not in options:
+        options['paranoid-mode'] = False
 
     return options
 
@@ -1860,6 +1866,9 @@ def backup_restore_prepare(backup_location, passphrase, options=None,
         error_callback=error_callback,
         format_version=format_version)
 
+    if not callable(print_callback):
+        print_callback = lambda x: None
+
     if header_data:
         if BackupHeader.version in header_data:
             format_version = header_data[BackupHeader.version]
@@ -1874,11 +1883,31 @@ def backup_restore_prepare(backup_location, passphrase, options=None,
         if BackupHeader.compression_filter in header_data:
             compression_filter = header_data[BackupHeader.compression_filter]
 
+    if options['paranoid-mode']:
+        if format_version != 3:
+            raise QubesException(
+                'paranoid-mode: Rejecting old backup format')
+        if compressed:
+            raise QubesException(
+                'paranoid-mode: Compressed backups rejected')
+        if crypto_algorithm != DEFAULT_CRYPTO_ALGORITHM:
+            raise QubesException(
+                'paranoid-mode: Only {} encryption allowed'.format(
+                    DEFAULT_CRYPTO_ALGORITHM))
+        if options['dom0-home']:
+            print_callback('paranoid-mode: not restoring dom0 home')
+            options['dom0-home'] = False
+
     if BACKUP_DEBUG:
         print "Loading file", qubes_xml
-    backup_collection = QubesVmCollection(store_filename=qubes_xml)
-    backup_collection.lock_db_for_reading()
-    backup_collection.load()
+    if options['paranoid-mode']:
+        backup_collection = SafeQubesVmCollection(store_filename=qubes_xml)
+        backup_collection.lock_db_for_reading()
+        backup_collection.load()
+    else:
+        backup_collection = QubesVmCollection(store_filename=qubes_xml)
+        backup_collection.lock_db_for_reading()
+        backup_collection.load()
 
     if host_collection is None:
         host_collection = QubesVmCollection()
@@ -2115,6 +2144,9 @@ def backup_restore_do(restore_info,
     appvm = options['appvm']
     format_version = options['format_version']
 
+    if not callable(print_callback):
+        print_callback = lambda x: None
+
     if format_version is None:
         format_version = backup_detect_format_version(backup_location)
 
@@ -2242,6 +2274,19 @@ def backup_restore_do(restore_info,
                                       vm.dir_path,
                                       os.path.dirname(new_vm.dir_path))
                 elif format_version >= 2:
+                    if options['paranoid-mode']:
+                        # cleanup/exclude things; do it this late to be sure
+                        # that no tricks on tar archive level would
+                        # (re-)create those files/directories
+                        for filedir in ['apps', 'apps.templates',
+                                'apps.tempicons', 'apps.icons', 'firewall.xml']:
+                            path = os.path.join(restore_tmpdir,
+                                vm.backup_path, filedir)
+                            if os.path.exists(path):
+                                print_callback('paranoid-mode: VM {}: skipping '
+                                               '{}'.format(vm.name, filedir))
+                                shutil.rmtree(path)
+
                     shutil.move(os.path.join(restore_tmpdir, vm.backup_path),
                                 new_vm.dir_path)
 

@@ -23,6 +23,8 @@ endif
 	cp notify.py[co] $(DESTDIR)$(PYTHON_QUBESPATH)
 	cp backup.py $(DESTDIR)$(PYTHON_QUBESPATH)
 	cp backup.py[co] $(DESTDIR)$(PYTHON_QUBESPATH)
+	cp backupparser.py $(DESTDIR)$(PYTHON_QUBESPATH)
+	cp backupparser.py[co] $(DESTDIR)$(PYTHON_QUBESPATH)
 ifneq ($(BACKEND_VMM),)
 	if [ -r settings-$(SETTINGS_SUFFIX).py ]; then \
 		cp settings-$(SETTINGS_SUFFIX).py $(DESTDIR)$(PYTHON_QUBESPATH)/settings.py && \
