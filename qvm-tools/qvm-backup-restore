@@ -196,6 +196,8 @@ def main():
             there_are_missing_templates = True
         if 'missing-netvm' in vm_info.keys():
             there_are_missing_netvms = True
+        if 'missing-dispvm_netvm' in vm_info.keys():
+            there_are_missing_netvms = True
         if 'already-exists' in vm_info.keys():
             there_are_conflicting_vms = True
         if 'username-mismatch' in vm_info.keys():

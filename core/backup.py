@@ -1731,8 +1731,31 @@ def restore_info_verify(restore_info, host_collection):
                     else:
                         vm_info['missing-netvm'] = True
 
+        # check dispvm-netvm
+        vm_info.pop('missing-dispvm_netvm', None)
+        if not vm_info['vm'].uses_default_dispvm_netvm and \
+                vm_info['dispvm_netvm']:
+            dispvm_netvm_name = vm_info['dispvm_netvm']
+
+            dispvm_netvm_on_host = host_collection.get_vm_by_name(dispvm_netvm_name)
+
+            # No dispvm_netvm on the host?
+            if not ((dispvm_netvm_on_host is not None) and dispvm_netvm_on_host.is_netvm()):
+
+                # Maybe the (custom) dispvm_netvm is in the backup?
+                if not (dispvm_netvm_name in restore_info.keys() and
+                        restore_info[dispvm_netvm_name]['vm'].is_netvm()):
+                    if options['use-default-netvm']:
+                        vm_info['dispvm_netvm'] = vm_info['netvm']
+                        vm_info['vm'].uses_default_dispvm_netvm = True
+                    elif options['use-none-netvm']:
+                        vm_info['dispvm_netvm'] = None
+                    else:
+                        vm_info['missing-dispvm_netvm'] = True
+
         vm_info['good-to-go'] = not any([(prop in vm_info.keys()) for
                                          prop in ['missing-netvm',
+                                                  'missing-dispvm_netvm',
                                                   'missing-template',
                                                   'already-exists',
                                                   'excluded']])
@@ -1895,6 +1918,13 @@ def backup_restore_prepare(backup_location, passphrase, options=None,
                 # directly _netvm to suppress setter action, especially
                 # modifying firewall
                 vm._netvm = None
+
+            if vm.dispvm_netvm is None:
+                vms_to_restore[vm.name]['dispvm_netvm'] = None
+            else:
+                netvm_name = vm.dispvm_netvm.name
+                vms_to_restore[vm.name]['dispvm_netvm'] = netvm_name
+                vm.dispvm_netvm = None
 
     # Store restore parameters
     options['location'] = backup_location
@@ -2271,6 +2301,13 @@ def backup_restore_do(restore_info,
                     restore_info[vm.name]['netvm'])
             else:
                 host_vm.netvm = None
+
+        if not vm.uses_default_dispvm_netvm:
+            if restore_info[vm.name]['dispvm_netvm'] is not None:
+                host_vm.dispvm_netvm = host_collection.get_vm_by_name(
+                    restore_info[vm.name]['dispvm_netvm'])
+            else:
+                host_vm.dispvm_netvm = None
 
     host_collection.save()
     if lock_obtained:
