@@ -158,6 +158,28 @@ class TC_00_Backup(qubes.tests.BackupTestsMixin, qubes.tests.QubesTestCase):
 
         self.remove_vms(vms)
 
+    def test_300_paranoid(self):
+        vms = self.create_backup_vms()
+        self.make_backup(vms)
+        self.remove_vms(vms)
+        self.restore_backup(options={'paranoid-mode': True})
+        self.remove_vms(vms)
+
+    def test_301_paranoid_reject_compression(self):
+        vms = self.create_backup_vms()
+        self.make_backup(vms, do_kwargs={'compressed': True})
+        self.remove_vms(vms)
+        backupfile = os.path.join(self.backupdir,
+                                  sorted(os.listdir(self.backupdir))[-1])
+
+        with self.assertRaises(qubes.qubes.QubesException):
+            qubes.backup.backup_restore_prepare(
+                backupfile, "qubes",
+                host_collection=self.qc,
+                print_callback=self.print_callback,
+                options={'paranoid-mode': True})
+
+
 class TC_10_BackupVMMixin(qubes.tests.BackupTestsMixin):
     def setUp(self):
         super(TC_10_BackupVMMixin, self).setUp()

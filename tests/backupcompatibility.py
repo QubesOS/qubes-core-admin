@@ -846,3 +846,63 @@ class TC_00_BackupCompatibility(qubes.tests.BackupTestsMixin, qubes.tests.QubesT
             'dom0-home': False,  # TODO
         })
         self.assertCorrectlyRestoredR32()
+
+    def test_900_paranoid(self):
+        self.create_v3_backup_r32(encrypted=True, compressed=False)
+
+        self.restore_backup(self.fullpath("backup.bin"), options={
+            'use-default-template': True,
+            'use-default-netvm': True,
+            'paranoid-mode': True})
+        self.assertCorrectlyRestoredR32()
+
+    def test_901_paranoid_reject_compression(self):
+        self.create_v3_backup_r32(encrypted=True, compressed=True)
+        with self.assertRaises(qubes.qubes.QubesException):
+            qubes.backup.backup_restore_prepare(
+                self.fullpath("backup.bin"), "qubes",
+                host_collection=self.qc,
+                print_callback=self.print_callback,
+                options={
+                    'use-default-template': True,
+                    'use-default-netvm': True,
+                    'paranoid-mode': True})
+
+    def test_902_paranoid_sanitize_attrs(self):
+        qubes_xml = QUBESXML_R32.replace(
+            'default_user="user"',
+            'default_user="user; rm -rf /"').replace(
+            'pcidevs="[]"',
+            'pcidevs="[\'00:11.a\']"')
+        for vmname, subdir in MANGLED_SUBDIRS_R32.items():
+            qubes_xml = re.sub(r"[a-z-]*/{}".format(vmname),
+                subdir, qubes_xml)
+        self.create_v3_backup_r32(encrypted=True,
+            compressed=False, custom_qubes_xml=qubes_xml)
+        self.restore_backup(
+            self.fullpath("backup.bin"),
+            options={
+                'use-default-template': True,
+                'use-default-netvm': True,
+                'paranoid-mode': True})
+        self.assertEqual(self.qc.get_vm_by_name("test-work").default_user,
+            'user')
+        self.assertEqual(self.qc.get_vm_by_name("test-work").pcidevs, [])
+
+    def test_903_paranoid_sanitize_attrs2(self):
+        qubes_xml = QUBESXML_R32.replace(
+            'pcidevs="[]"',
+            'pcidevs="[os.system(\'touch /tmp/owned\')]"')
+        for vmname, subdir in MANGLED_SUBDIRS_R32.items():
+            qubes_xml = re.sub(r"[a-z-]*/{}".format(vmname),
+                subdir, qubes_xml)
+        self.create_v3_backup_r32(encrypted=True, compressed=False,
+            custom_qubes_xml=qubes_xml)
+        self.restore_backup(
+            self.fullpath("backup.bin"),
+            options={
+                'use-default-template': True,
+                'use-default-netvm': True,
+                'paranoid-mode': True})
+        self.assertEqual(self.qc.get_vm_by_name("test-work").pcidevs, [])
+        self.assertFalse(os.path.exists('/tmp/owned'))
