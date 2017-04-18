@@ -94,6 +94,13 @@ def main():
     parser.add_option ("-z", "--compressed", action="store_true", dest="compressed", default=False,
                        help="The backup is compressed")
 
+    parser.add_option("--paranoid-mode", "--plan-b", action="store_true",
+                      dest="paranoid_mode", default=False,
+                      help="Treat the backup as untrusted, don't restore "
+                           "things potentially compromising security, "
+                           "even when properly authenticated. See man page "
+                           "for details.")
+
     parser.add_option ("--debug", action="store_true", dest="debug",
                        default=False, help="Enable (a lot of) debug output")
 
@@ -131,6 +138,8 @@ def main():
         restore_options['exclude'] = options.exclude
     if options.verify_only:
         restore_options['verify-only'] = True
+    if options.paranoid_mode:
+        restore_options['paranoid-mode'] = True
     if options.debug:
         qubes.backup.BACKUP_DEBUG = True
 
