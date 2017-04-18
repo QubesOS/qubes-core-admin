@@ -609,7 +609,7 @@ class BackupTestsMixin(SystemTestsMixin):
             print msg
 
     def fill_image(self, path, size=None, sparse=False):
-        block_size = 4096
+        block_size = 4096 * 1024
 
         if self.verbose:
             print >>sys.stderr, "-> Filling %s" % path
