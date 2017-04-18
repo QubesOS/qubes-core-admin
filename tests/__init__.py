@@ -150,12 +150,10 @@ class _AssertNotRaisesContext(object):
 
         if issubclass(exc_type, self.expected):
             raise self.failureException(
-                "{0} raised".format(exc_name))
+                "{} raised: {}".format(exc_name, str(exc_value)))
         else:
             # pass through
             return False
-
-        self.exception = exc_value # store for later retrieval
 
 
 class BeforeCleanExit(BaseException):
