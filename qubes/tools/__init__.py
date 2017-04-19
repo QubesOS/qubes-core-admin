@@ -185,15 +185,20 @@ class VmNameAction(QubesAction):
                 for vm in app.domains
                 if vm.qid != 0 and vm.name not in namespace.exclude
             ]
-        else:
+        elif getattr(namespace, self.dest):
             if hasattr(namespace, 'exclude') and namespace.exclude:
                 parser.error('--exclude can only be used with --all')
 
-            for vm_name in getattr(namespace, self.dest):
-                try:
-                    namespace.domains += [app.domains[vm_name]]
-                except KeyError:
-                    parser.error('no such domain: {!r}'.format(vm_name))
+            if self.nargs in [argparse.OPTIONAL]:
+                vm_name = getattr(namespace, self.dest)
+                vm = app.domains[vm_name]
+                namespace.domains = [vm]
+            else:
+                for vm_name in getattr(namespace, self.dest):
+                    try:
+                        namespace.domains += [app.domains[vm_name]]
+                    except KeyError:
+                        parser.error('no such domain: {!r}'.format(vm_name))
 
 
 class RunningVmNameAction(VmNameAction):
