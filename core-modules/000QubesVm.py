@@ -1101,6 +1101,7 @@ class QubesVm(object):
             return
 
         self.qdb.write("/name", self.name)
+        self.qdb.write("/qubes-label", self.label.name)
         self.qdb.write("/qubes-vm-type", self.type)
         self.qdb.write("/qubes-vm-updateable", str(self.updateable))
         self.qdb.write("/qubes-vm-persistence",
