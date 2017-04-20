@@ -249,7 +249,8 @@ class QubesVm(object):
         for hook in self.hooks_set_attr:
             hook(self, attr, newvalue, oldvalue)
 
-    def __basic_parse_xml_attr(self, value):
+    @staticmethod
+    def __basic_parse_xml_attr(value):
         if value is None:
             return None
         if value.lower() == "none":
@@ -561,8 +562,9 @@ class QubesVm(object):
         else:
             return False
 
-    def verify_name(self, name):
-        if not isinstance(self.__basic_parse_xml_attr(name), str):
+    @classmethod
+    def verify_name(cls, name):
+        if not isinstance(cls.__basic_parse_xml_attr(name), str):
             return False
         if len(name) > 31:
             return False
