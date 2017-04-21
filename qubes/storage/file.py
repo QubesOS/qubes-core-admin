@@ -30,7 +30,6 @@ import os.path
 import re
 import subprocess
 
-import qubes.devices
 import qubes.storage
 
 BLKSIZE = 512
@@ -358,7 +357,7 @@ class FileVolume(qubes.storage.Volume):
             return 'block-snapshot'
 
     def block_device(self):
-        ''' Return :py:class:`qubes.devices.BlockDevice` for serialization in
+        ''' Return :py:class:`qubes.storage.BlockDevice` for serialization in
             the libvirt XML template as <disk>.
         '''
         path = self.path
@@ -366,7 +365,7 @@ class FileVolume(qubes.storage.Volume):
             path += ":" + self.path_source_cow
         if self._is_origin or self._is_snapshot:
             path += ":" + self.path_cow
-        return qubes.devices.BlockDevice(path, self.name, self.script, self.rw,
+        return qubes.storage.BlockDevice(path, self.name, self.script, self.rw,
                                          self.domain, self.devtype)
 
     @property
@@ -378,6 +377,7 @@ class FileVolume(qubes.storage.Volume):
 
         if not os.path.exists(old_revision):
             return {}
+
         seconds = os.path.getctime(old_revision)
         iso_date = qubes.storage.isodate(seconds).split('.', 1)[0]
         return {iso_date: old_revision}

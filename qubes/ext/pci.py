@@ -19,6 +19,9 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
+''' Qubes PCI Extensions '''
+
+import functools
 import os
 import re
 import subprocess
@@ -34,7 +37,7 @@ pci_classes = None
 
 
 def load_pci_classes():
-    # List of known device classes, subclasses and programming interfaces
+    ''' List of known device classes, subclasses and programming interfaces. '''
     # Syntax:
     # C class       class_name
     #       subclass        subclass_name           <-- single tab
@@ -122,7 +125,6 @@ def _device_desc(hostdev_xml):
     )
 
 
-
 class PCIDevice(qubes.devices.DeviceInfo):
     # pylint: disable=too-few-public-methods
     regex = re.compile(
@@ -191,7 +193,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
     def on_device_get_pci(self, vm, event, ident):
         # pylint: disable=unused-argument,no-self-use
         if not vm.app.vmm.offline_mode:
-            yield PCIDevice(vm, ident)
+            yield _cache_get(vm, ident)
 
     @qubes.ext.handler('device-list-attached:pci')
     def on_device_list_attached(self, vm, event, **kwargs):
@@ -213,7 +215,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
                 device=device,
                 function=function,
             )
-            yield PCIDevice(vm.app.domains[0], ident)
+            yield (PCIDevice(vm.app.domains[0], ident), {})
 
     @qubes.ext.handler('device-pre-attach:pci')
     def on_device_pre_attached_pci(self, vm, event, device):
@@ -227,6 +229,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
             return
 
         try:
+            device = _cache_get(vm, device.ident)
             self.bind_pci_to_pciback(vm.app, device)
             vm.libvirt_domain.attachDevice(
                 vm.app.env.get_template('libvirt/devices/pci.xml').render(
@@ -246,9 +249,10 @@ class PCIDeviceExtension(qubes.ext.Extension):
         # provision in libvirt for extracting device-side BDF; we need it for
         # qubes.DetachPciDevice, which unbinds driver, not to oops the kernel
 
+        device = _cache_get(vm, device.ident)
         p = subprocess.Popen(['xl', 'pci-list', str(vm.xid)],
                 stdout=subprocess.PIPE)
-        result = p.communicate()[0]
+        result = p.communicate()[0].decode()
         m = re.search(r'^(\d+.\d+)\s+0000:{}$'.format(device.ident), result,
             flags=re.MULTILINE)
         if not m:
@@ -270,8 +274,9 @@ class PCIDeviceExtension(qubes.ext.Extension):
     @qubes.ext.handler('domain-pre-start')
     def on_domain_pre_start(self, vm, _event, **_kwargs):
         # Bind pci devices to pciback driver
-        for pci in vm.devices['pci'].attached():
-            self.bind_pci_to_pciback(vm.app, pci)
+        for assignment in vm.devices['pci'].persistent():
+            device = _cache_get(vm, assignment.ident)
+            self.bind_pci_to_pciback(vm.app, device)
 
     @staticmethod
     def bind_pci_to_pciback(app, device):
@@ -300,3 +305,8 @@ class PCIDeviceExtension(qubes.ext.Extension):
                 pass
             else:
                 raise
+
+@functools.lru_cache(maxsize=None)
+def _cache_get(vm, ident):
+    ''' Caching wrapper around `PCIDevice(vm, ident)`. '''
+    return PCIDevice(vm, ident)

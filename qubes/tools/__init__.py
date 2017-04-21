@@ -257,7 +257,7 @@ class VolumeAction(QubesAction):
             try:
                 pool = app.pools[pool_name]
                 volume = [v for v in pool.volumes if v.vid == vid]
-                assert volume > 1, 'Duplicate vids in pool %s' % pool_name
+                assert len(volume) == 1, 'Duplicate vids in pool %s' % pool_name
                 if not volume:
                     parser.error_runtime(
                         'no volume with id {!r} pool: {!r}'.format(vid,
@@ -352,9 +352,8 @@ class QubesArgumentParser(argparse.ArgumentParser):
 
         self.set_defaults(verbose=1, quiet=0)
 
-    def parse_args(self, *args, **kwargs):
-        # pylint: disable=arguments-differ
-        namespace = super(QubesArgumentParser, self).parse_args(*args, **kwargs)
+    def parse_args(self, args=None, namespace=None):
+        namespace = super(QubesArgumentParser, self).parse_args(args, namespace)
 
         if self._want_app and not self._want_app_no_instance:
             self.set_qubes_verbosity(namespace)
@@ -442,8 +441,8 @@ class AliasedSubParsersAction(argparse._SubParsersAction):
             sup = super(AliasedSubParsersAction._AliasedPseudoAction, self)
             sup.__init__(option_strings=[], dest=dest, help=help)
 
-        def __call__(self, **kwargs):
-            pass
+        def __call__(self, parser, namespace, values, option_string=None):
+            raise NotImplementedError
 
     def add_parser(self, name, **kwargs):
         if 'aliases' in kwargs:

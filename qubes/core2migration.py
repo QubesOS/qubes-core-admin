@@ -24,6 +24,7 @@ import xml.parsers.expat
 import lxml.etree
 
 import qubes
+import qubes.devices
 import qubes.vm.appvm
 import qubes.vm.standalonevm
 import qubes.vm.templatevm
@@ -219,8 +220,10 @@ class Core2Qubes(qubes.Qubes):
                 pcidevs = ast.literal_eval(pcidevs)
             for pcidev in pcidevs:
                 try:
-                    vm.devices["pci"].attach(
-                        self.domains[0].devices['pci'][pcidev])
+                    dev = self.domains[0].devices['pci'][pcidev]
+                    assignment = qubes.devices.DeviceAssignment(
+                        backend_domain=dev.backend_domain, ident=dev.ident)
+                    vm.devices["pci"].attach(assignment)
                 except qubes.exc.QubesException as e:
                     self.log.error("VM {}: {}".format(vm.name, str(e)))
         except (ValueError, LookupError) as err:

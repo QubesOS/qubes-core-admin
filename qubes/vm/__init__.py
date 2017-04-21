@@ -217,11 +217,17 @@ class BaseVM(qubes.PropertyHolder, metaclass=BaseVMMeta):
         for parent in self.xml.xpath('./devices'):
             devclass = parent.get('class')
             for node in parent.xpath('./device'):
-                device = self.devices[devclass].devclass(
+                options = {}
+                if node.get('options'):
+                    options = node.get('options').attribs(),
+
+                device_assignment = qubes.devices.DeviceAssignment(
                     self.app.domains[node.get('backend-domain')],
-                    node.get('id')
+                    node.get('id'),
+                    options,
+                    persistent=True
                 )
-                self.devices[devclass].attach(device)
+                self.devices[devclass].attach(device_assignment)
 
         # tags
         for node in self.xml.xpath('./tags/tag'):
@@ -250,10 +256,14 @@ class BaseVM(qubes.PropertyHolder, metaclass=BaseVMMeta):
         for devclass in self.devices:
             devices = lxml.etree.Element('devices')
             devices.set('class', devclass)
-            for device in self.devices[devclass].attached(persistent=True):
+            for device in self.devices[devclass].assignments(persistent=True):
                 node = lxml.etree.Element('device')
                 node.set('backend-domain', device.backend_domain.name)
                 node.set('id', device.ident)
+                options_node = lxml.etree.Element('options')
+                for key, val in device.options:
+                    options_node.set(key, val)
+                node.append(options_node)
                 devices.append(node)
             element.append(devices)
 

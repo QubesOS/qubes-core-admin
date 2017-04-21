@@ -394,13 +394,14 @@ class ThinVolume(qubes.storage.Volume):
             "You shouldn't use lvm size setter")
 
     def block_device(self):
-        ''' Return :py:class:`qubes.devices.BlockDevice` for serialization in
+        ''' Return :py:class:`qubes.storage.BlockDevice` for serialization in
             the libvirt XML template as <disk>.
         '''
         if self.snap_on_start:
-            return qubes.devices.BlockDevice(
+            return qubes.storage.BlockDevice(
                 '/dev/' + self._vid_snap, self.name, self.script,
                 self.rw, self.domain, self.devtype)
+
         return super(ThinVolume, self).block_device()
 
     @property

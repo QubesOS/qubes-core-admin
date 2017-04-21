@@ -55,6 +55,7 @@ class Element(object):
         if wrap:
             return ''.join(self.schema.wrapper.fill(p) + '\n\n'
                 for p in textwrap.dedent(xml.text.strip('\n')).split('\n\n'))
+
         return ' '.join(xml.text.strip().split())
 
 
@@ -211,6 +212,7 @@ Quick example, worth thousands lines of specification:
 
 
 if __name__ == '__main__':
-    main(*sys.argv[1:])  # pylint: disable=no-value-for-parameter
+    # pylint: disable=no-value-for-parameter
+    main(*sys.argv[1:])
 
 # vim: ts=4 sw=4 et

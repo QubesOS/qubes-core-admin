@@ -430,7 +430,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     # pylint: disable=no-member
     kernelopts = qubes.property('kernelopts', type=str, load_stage=4,
         default=(lambda self: qubes.config.defaults['kernelopts_pcidevs']
-            if list(self.devices['pci'].attached(persistent=True))
+            # pylint: disable=no-member
+            if list(self.devices['pci'].persistent())
             else self.template.kernelopts if hasattr(self, 'template')
             else qubes.config.defaults['kernelopts']),
         ls_width=30,
@@ -444,6 +445,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     # XXX shouldn't this go to standalone VM and TemplateVM, and leave here
     #     only plain property?
     default_user = qubes.property('default_user', type=str,
+        # pylint: disable=no-member
         default=(lambda self: self.template.default_user
             if hasattr(self, 'template') else 'user'),
         setter=_setter_default_user,
@@ -570,7 +572,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     @property
     def block_devices(self):
-        ''' Return all :py:class:`qubes.devices.BlockDevice`s for current domain
+        ''' Return all :py:class:`qubes.storage.BlockDevice`s for current domain
             for serialization in the libvirt XML template as <disk>.
         '''
         return [v.block_device() for v in self.volumes.values()]
@@ -1435,7 +1437,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 else:
                     if not self.is_fully_usable():
                         return "Transient"
+
                     return "Running"
+
             return 'Halted'
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
@@ -1614,6 +1618,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             '/vm/{}/start_time'.format(self.uuid))
         if start_time != '':
             return datetime.datetime.fromtimestamp(float(start_time))
+
         return None
 
     def is_outdated(self):

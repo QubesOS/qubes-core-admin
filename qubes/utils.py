@@ -111,18 +111,21 @@ def parse_size(size):
 def mbytes_to_kmg(size):
     if size > 1024:
         return "%d GiB" % (size / 1024)
+
     return "%d MiB" % size
 
 
 def kbytes_to_kmg(size):
     if size > 1024:
         return mbytes_to_kmg(size / 1024)
+
     return "%d KiB" % size
 
 
 def bytes_to_kmg(size):
     if size > 1024:
         return kbytes_to_kmg(size / 1024)
+
     return "%d B" % size
 
 
@@ -134,6 +137,7 @@ def size_to_human(size):
         return str(round(size / 1024.0, 1)) + ' KiB'
     elif size < 1024 * 1024 * 1024:
         return str(round(size / (1024.0 * 1024), 1)) + ' MiB'
+
     return str(round(size / (1024.0 * 1024 * 1024), 1)) + ' GiB'
 
 

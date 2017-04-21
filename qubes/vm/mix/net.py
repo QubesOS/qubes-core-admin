@@ -49,6 +49,7 @@ def _default_ip(self):
         return None
     if self.netvm is not None:
         return self.netvm.get_ip_for_vm(self)  # pylint: disable=no-member
+
     return self.get_ip_for_vm(self)
 
 
@@ -172,6 +173,7 @@ class NetVMMixin(qubes.events.Emitter):
                 '10.139.1.1',
                 '10.139.1.2',
             )
+
         return None
 
     def __init__(self, *args, **kwargs):

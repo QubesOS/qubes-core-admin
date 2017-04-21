@@ -309,6 +309,7 @@ class StatusColumn(Column):
         if ret is not None:
             if getattr(vm, 'hvm', False):
                 return ret.upper()
+
             return ret
 
 
@@ -477,6 +478,7 @@ class Table(object):
         '''Format single table row (all columns for one domain).'''
         if self.raw_data:
             return '|'.join(col.format(vm) for col in self.columns)
+
         return ''.join(col.cell(vm) for col in self.columns)
 
 
