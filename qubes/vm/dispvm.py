@@ -123,7 +123,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         '''Create a new instance from given AppVM
 
         :param qubes.vm.appvm.AppVM appvm: template from which the VM should \
-            be created (could also be name or qid)
+            be created
         :returns: new disposable vm
 
         *kwargs* are passed to the newly created VM
@@ -133,12 +133,14 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         >>> dispvm.run_service('qubes.VMShell', input='firefox')
         >>> dispvm.cleanup()
 
-        This method modifies :file:`qubes.xml` file. In fact, the newly created
-        vm belongs to other :py:class:`qubes.Qubes` instance than the *app*.
+        This method modifies :file:`qubes.xml` file.
         The qube returned is not started.
         '''
-        store = appvm.app.store if isinstance(appvm, qubes.vm.BaseVM) else None
-        app = qubes.Qubes(store)
+        if not appvm.dispvm_allowed:
+            raise qubes.exc.QubesException(
+                'Refusing to start DispVM out of this AppVM, because '
+                'dispvm_allowed=False')
+        app = appvm.app
         dispvm = app.add_new_vm(
             cls,
             dispid=app.domains.get_new_unused_dispid(),
@@ -156,15 +158,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         '''Clean up after the DispVM
 
         This stops the disposable qube and removes it from the store.
-
         This method modifies :file:`qubes.xml` file.
         '''
-        app = qubes.Qubes(self.app.store)
-        self = app.domains[self.uuid]
         try:
             self.force_shutdown()
         except qubes.exc.QubesVMNotStartedError:
             pass
         self.remove_from_disk()
-        del app.domains[self]
-        app.save()
+        del self.app.domains[self]
+        self.app.save()

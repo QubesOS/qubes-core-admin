@@ -216,8 +216,7 @@ class DeviceCollection(object):
         if dev:
             assert len(dev) == 1
             return dev[0]
-        else:
-            return UnknownDevice(self._vm, ident)
+        return UnknownDevice(self._vm, ident)
 
 
 class DeviceManager(dict):

@@ -909,8 +909,17 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
             'qubes.tests.tools.qvm_device',
             'qubes.tests.tools.qvm_firewall',
             'qubes.tests.tools.qvm_ls',
+            'qubespolicy.tests',
             ):
         tests.addTests(loader.loadTestsFromName(modname))
+
+    # GTK/Glib is way too old there
+    if 'TRAVIS' not in os.environ:
+        for modname in (
+                'qubespolicy.tests.gtkhelpers',
+                'qubespolicy.tests.rpcconfirmation',
+                ):
+            tests.addTests(loader.loadTestsFromName(modname))
 
     tests.addTests(loader.discover(
         os.path.join(os.path.dirname(__file__), 'tools')))

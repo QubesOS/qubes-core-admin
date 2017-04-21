@@ -309,8 +309,7 @@ class StatusColumn(Column):
         if ret is not None:
             if getattr(vm, 'hvm', False):
                 return ret.upper()
-            else:
-                return ret
+            return ret
 
 
     @flag(2)
@@ -478,8 +477,7 @@ class Table(object):
         '''Format single table row (all columns for one domain).'''
         if self.raw_data:
             return '|'.join(col.format(vm) for col in self.columns)
-        else:
-            return ''.join(col.cell(vm) for col in self.columns)
+        return ''.join(col.cell(vm) for col in self.columns)
 
 
     def write_table(self, stream=sys.stdout):

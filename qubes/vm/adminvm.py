@@ -132,7 +132,7 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
 
         .. seealso:
            :py:meth:`qubes.vm.qubesvm.QubesVM.start`
-        '''  # pylint: disable=unused-argument
+        '''  # pylint: disable=unused-argument,arguments-differ
         raise qubes.exc.QubesVMError(self, 'Cannot start Dom0 fake domain!')
 
     def suspend(self):

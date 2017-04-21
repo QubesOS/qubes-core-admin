@@ -13,17 +13,20 @@ import libvirtaio
 
 import qubes
 import qubes.mgmt
+import qubes.mgmtinternal
 import qubes.utils
 import qubes.vm.qubesvm
 
 QUBESD_SOCK = '/var/run/qubesd.sock'
+QUBESD_INTERNAL_SOCK = '/var/run/qubesd.internal.sock'
 
 class QubesDaemonProtocol(asyncio.Protocol):
     buffer_size = 65536
     header = struct.Struct('Bx')
 
-    def __init__(self, *args, app, debug=False, **kwargs):
+    def __init__(self, handler, *args, app, debug=False, **kwargs):
         super().__init__(*args, **kwargs)
+        self.handler = handler
         self.app = app
         self.untrusted_buffer = io.BytesIO()
         self.len_untrusted_buffer = 0
@@ -39,6 +42,7 @@ class QubesDaemonProtocol(asyncio.Protocol):
         self.untrusted_buffer.close()
 
     def data_received(self, untrusted_data):
+        # pylint: disable=arguments-differ
         print('data_received(untrusted_data={!r})'.format(untrusted_data))
         if self.len_untrusted_buffer + len(untrusted_data) > self.buffer_size:
             self.app.log.warning('request too long')
@@ -69,7 +73,7 @@ class QubesDaemonProtocol(asyncio.Protocol):
     @asyncio.coroutine
     def respond(self, src, method, dest, arg, *, untrusted_payload):
         try:
-            mgmt = qubes.mgmt.QubesMgmt(self.app, src, method, dest, arg)
+            mgmt = self.handler(self.app, src, method, dest, arg)
             response = yield from mgmt.execute(
                 untrusted_payload=untrusted_payload)
 
@@ -147,9 +151,10 @@ class QubesDaemonProtocol(asyncio.Protocol):
         self.transport.write(str(exc).encode('utf-8') + b'\0')
 
 
-def sighandler(loop, signame, server):
+def sighandler(loop, signame, server, server_internal):
     print('caught {}, exiting'.format(signame))
     server.close()
+    server_internal.close()
     loop.stop()
 
 parser = qubes.tools.QubesArgumentParser(description='Qubes OS daemon')
@@ -166,20 +171,35 @@ def main(args=None):
         pass
     old_umask = os.umask(0o007)
     server = loop.run_until_complete(loop.create_unix_server(
-        functools.partial(QubesDaemonProtocol, app=args.app), QUBESD_SOCK))
+        functools.partial(QubesDaemonProtocol, qubes.mgmt.QubesMgmt,
+            app=args.app), QUBESD_SOCK))
     shutil.chown(QUBESD_SOCK, group='qubes')
+
+    try:
+        os.unlink(QUBESD_INTERNAL_SOCK)
+    except FileNotFoundError:
+        pass
+    server_internal = loop.run_until_complete(loop.create_unix_server(
+        functools.partial(QubesDaemonProtocol,
+            qubes.mgmtinternal.QubesInternalMgmt,
+            app=args.app), QUBESD_INTERNAL_SOCK))
+    shutil.chown(QUBESD_INTERNAL_SOCK, group='qubes')
+
     os.umask(old_umask)
     del old_umask
 
     for signame in ('SIGINT', 'SIGTERM'):
         loop.add_signal_handler(getattr(signal, signame),
-            sighandler, loop, signame, server)
+            sighandler, loop, signame, server, server_internal)
 
     qubes.utils.systemd_notify()
 
     try:
         loop.run_forever()
-        loop.run_until_complete(server.wait_closed())
+        loop.run_until_complete(asyncio.wait([
+            server.wait_closed(),
+            server_internal.wait_closed(),
+        ]))
     finally:
         loop.close()
 
