@@ -274,7 +274,6 @@ fi
 %{python3_sitelib}/qubes/tools/__init__.py
 %{python3_sitelib}/qubes/tools/qmemmand.py
 %{python3_sitelib}/qubes/tools/qubes_create.py
-%{python3_sitelib}/qubes/tools/qubes_monitor_layout_notify.py
 %{python3_sitelib}/qubes/tools/qubes_prefs.py
 %{python3_sitelib}/qubes/tools/qubesd.py
 %{python3_sitelib}/qubes/tools/qubesd_query.py
