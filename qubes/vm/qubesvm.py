@@ -908,6 +908,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         while wait and not self.is_halted():
             yield from asyncio.sleep(0.25)
 
+        self.fire_event_pre('domain-shutdown', force=force)
         return self
 
     @asyncio.coroutine
@@ -925,6 +926,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         yield from asyncio.get_event_loop().run_in_executor(None,
             self.storage.stop)
 
+        self.fire_event_pre('domain-shutdown', force=True)
         return self
 
     def force_shutdown(self, *args, **kwargs):
