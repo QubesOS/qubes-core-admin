@@ -21,6 +21,7 @@ manpages and API documentation. For primary user documentation, see
    qubes-log
    qubes-mgmt
    qubes-policy
+   qubes-backup
    qubes-tools/index
    qubes-tests
    qubes-dochelpers

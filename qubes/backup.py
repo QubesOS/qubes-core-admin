@@ -76,6 +76,9 @@ class BackupCanceledError(qubes.exc.QubesException):
 
 
 class BackupHeader(object):
+    '''Structure describing backup-header file included as the first file in
+    backup archive
+    '''
     header_keys = {
         'version': 'version',
         'encrypted': 'encrypted',
@@ -283,6 +286,27 @@ def launch_scrypt(action, input_name, output_name, passphrase):
 
 
 class Backup(object):
+    '''Backup operation manager. Usage:
+
+    >>> app = qubes.Qubes()
+    >>> # optional - you can use 'None' to use default list (based on
+    >>> #  vm.include_in_backups property)
+    >>> vms = [app.domains[name] for name in ['my-vm1', 'my-vm2', 'my-vm3']]
+    >>> exclude_vms = []
+    >>> options = {
+    >>>     'encrypted': True,
+    >>>     'compressed': True,
+    >>>     'passphrase': 'This is very weak backup passphrase',
+    >>>     'target_vm': app.domains['sys-usb'],
+    >>>     'target_dir': '/media/disk',
+    >>> }
+    >>> backup_op = Backup(app, vms, exclude_vms, **options)
+    >>> print(backup_op.get_backup_summary())
+    >>> backup_op.backup_do()
+
+    See attributes of this object for all available options.
+
+    '''
     class FileToBackup(object):
         def __init__(self, file_path, subdir=None, name=None):
             sz = qubes.storage.file.get_disk_usage(file_path)
@@ -1404,6 +1428,7 @@ class BackupRestoreOptions(object):
 
 class BackupRestore(object):
     """Usage:
+
     >>> restore_op = BackupRestore(...)
     >>> # adjust restore_op.options here
     >>> restore_info = restore_op.get_restore_info()
