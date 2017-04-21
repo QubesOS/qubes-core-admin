@@ -204,7 +204,6 @@ def main(args=None):
                                      "and (if encrypted) decrypt the backup: ")
 
     encoding = sys.stdin.encoding or locale.getpreferredencoding()
-    # pylint: disable=redefined-variable-type
     passphrase = passphrase.decode(encoding)
 
     args.app.log.info("Checking backup content...")

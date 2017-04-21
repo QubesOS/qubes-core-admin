@@ -55,8 +55,7 @@ class Element(object):
         if wrap:
             return ''.join(self.schema.wrapper.fill(p) + '\n\n'
                 for p in textwrap.dedent(xml.text.strip('\n')).split('\n\n'))
-        else:
-            return ' '.join(xml.text.strip().split())
+        return ' '.join(xml.text.strip().split())
 
 
     def get_data_type(self, xml=None):
@@ -93,7 +92,7 @@ class Element(object):
         for xml in self.xml.xpath('''./rng:attribute |
                 ./rng:optional/rng:attribute |
                 ./rng:choice/rng:attribute''', namespaces=self.nsmap):
-            required = xml.getparent() == self.xml and 'yes' or 'no'
+            required = 'yes' if xml.getparent() == self.xml else 'no'
             yield (xml, required)
 
 
@@ -212,6 +211,6 @@ Quick example, worth thousands lines of specification:
 
 
 if __name__ == '__main__':
-    main(*sys.argv[1:])
+    main(*sys.argv[1:])  # pylint: disable=no-value-for-parameter
 
 # vim: ts=4 sw=4 et

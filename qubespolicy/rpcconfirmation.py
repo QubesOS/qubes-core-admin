@@ -119,7 +119,7 @@ class RPCConfirmationWindow:
         partitioned = escaped.partition('.')
         formatted = partitioned[0] + partitioned[1]
 
-        if len(partitioned[2]) > 0:
+        if partitioned[2]:
             formatted += "<b>" + partitioned[2] + "</b>"
         else:
             formatted = "<b>" + formatted + "</b>"
@@ -203,8 +203,7 @@ class RPCConfirmationWindow:
 
         if self._confirmed:
             return self._target_name
-        else:
-            return False
+        return False
 
 
 def confirm_rpc(entries_info, source, rpc_operation, targets_list, target=None):

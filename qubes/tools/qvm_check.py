@@ -38,6 +38,7 @@ parser.add_argument("--template", action="store_true", dest="template",
 
 
 def print_msg(domains, what_single, what_plural):
+    # pylint: disable=len-as-condition
     if len(domains) == 0:
         print("None of given VM {!s}".format(what_single))
     elif len(domains) == 1:

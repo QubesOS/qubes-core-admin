@@ -364,7 +364,7 @@ class PolicyAction(object):
             self.target = target
             self.action = Action.allow
         else:
-            self.action = Action.deny  # pylint: disable=redefined-variable-type
+            self.action = Action.deny
             raise AccessDenied(
                 'denied by the user {}:{}'.format(self.rule.filename,
                     self.rule.lineno))
@@ -569,7 +569,7 @@ class Policy(object):
             else:
                 targets = list(
                     self.collect_targets_for_ask(system_info, source))
-            if len(targets) == 0:
+            if not targets:
                 raise AccessDenied(
                     'policy define \'ask\' action at {}:{} but no target is '
                     'available to choose from'.format(

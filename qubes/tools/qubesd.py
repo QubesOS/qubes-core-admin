@@ -42,6 +42,7 @@ class QubesDaemonProtocol(asyncio.Protocol):
         self.untrusted_buffer.close()
 
     def data_received(self, untrusted_data):
+        # pylint: disable=arguments-differ
         print('data_received(untrusted_data={!r})'.format(untrusted_data))
         if self.len_untrusted_buffer + len(untrusted_data) > self.buffer_size:
             self.app.log.warning('request too long')

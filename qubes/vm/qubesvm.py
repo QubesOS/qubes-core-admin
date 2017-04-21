@@ -427,6 +427,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         doc='Kernel used by this domain.')
 
     # CORE2: swallowed uses_default_kernelopts
+    # pylint: disable=no-member
     kernelopts = qubes.property('kernelopts', type=str, load_stage=4,
         default=(lambda self: qubes.config.defaults['kernelopts_pcidevs']
             if list(self.devices['pci'].attached(persistent=True))
@@ -448,6 +449,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         setter=_setter_default_user,
         ls_width=12,
         doc='FIXME')
+
+    # pylint: enable=no-member
 
 #   @property
 #   def default_user(self):
@@ -1430,15 +1433,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 else:
                     if not self.is_fully_usable():
                         return "Transient"
-                    else:
-                        return "Running"
-            else:
-                return 'Halted'
+                    return "Running"
+            return 'Halted'
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return 'Halted'
-            else:
-                raise
+            raise
 
         assert False
 
@@ -1612,8 +1612,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             '/vm/{}/start_time'.format(self.uuid))
         if start_time != '':
             return datetime.datetime.fromtimestamp(float(start_time))
-        else:
-            return None
+        return None
 
     def is_outdated(self):
         '''Check whether domain needs restart to update root image from \
