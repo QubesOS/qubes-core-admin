@@ -8,7 +8,7 @@ qvm-backup
 
 SYNOPSIS
 ========
-| qvm-backup [options] <backup-dir-path>
+| qvm-backup [options] <backup-dir-path> [vms-to-be-included ...]
 
 OPTIONS
 =======
