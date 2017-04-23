@@ -61,10 +61,9 @@ class QubesResizableVmWithResize2fs(QubesResizableVm):
         super(QubesResizableVmWithResize2fs, self).\
             resize_root_img(size, allow_start=allow_start)
         if not allow_start:
-            raise QubesException("VM start required to complete the "
-                                 "operation, but not allowed. Either run the "
-                                 "operation again allowing VM start this "
-                                 "time, or run resize2fs in the VM manually.")
+            raise QubesException("To complete the resize operation start the "
+                                 "qube. You may need to run resize2fs manually"
+                                 "in the qube .")
         self.start(start_guid=False)
         self.run("resize2fs /dev/mapper/dmroot", user="root", wait=True,
                  gui=False)
