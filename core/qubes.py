@@ -802,9 +802,8 @@ class QubesVmCollection(dict):
             tree = lxml.etree.parse(self.qubes_store_file)
         except (EnvironmentError,
                 xml.parsers.expat.ExpatError) as err:
-            print("{0}: import error: {1}".format(
+            raise QubesException("error loading qubes.xml: {}".format(
                 os.path.basename(sys.argv[0]), err))
-            return False
 
         self.load_globals(tree.getroot())
 
@@ -819,10 +818,9 @@ class QubesVmCollection(dict):
                     vm = vm_class(xml_element=element, collection=self)
                     self[vm.qid] = vm
                 except (ValueError, LookupError) as err:
-                    print("{0}: import error ({1}): {2}".format(
-                        os.path.basename(sys.argv[0]), vm_class_name, err))
-                    raise
-                    return False
+                    raise QubesException(
+                        "error loading VM from qubes.xml({}): {}".format(
+                            vm_class_name, err))
 
         # After importing all VMs, set netvm references, in the same order
         for (vm_class_name, vm_class) in sorted(QubesVmClasses.items(),

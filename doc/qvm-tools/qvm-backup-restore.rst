@@ -40,6 +40,17 @@ OPTIONS
     Read passphrase from file, or use '-' to read from stdin
 -z, --compressed
     The backup is compressed
+--paranoid-mode, --plan-b
+    Treat the backup as untrusted, disable restoring things potentially
+    compromising security of dom0/other VMs, even when such data is properly
+    authenticated. This may be used to restore a backup made on compromissed
+    system. Things currently affected by this option:
+      - disable dom0 home restore
+      - reject compressed backups
+      - reject old backup formats (Qubes R2 and older)
+      - more strict validation of VM names (for example don't allow '..' in it)
+      - do not restore firewall rules, attached PCI devices, attached block
+        devices, menu entries
 --debug
     Enable (a lot of) debug output
 

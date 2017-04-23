@@ -150,12 +150,10 @@ class _AssertNotRaisesContext(object):
 
         if issubclass(exc_type, self.expected):
             raise self.failureException(
-                "{0} raised".format(exc_name))
+                "{} raised: {}".format(exc_name, str(exc_value)))
         else:
             # pass through
             return False
-
-        self.exception = exc_value # store for later retrieval
 
 
 class BeforeCleanExit(BaseException):
@@ -611,7 +609,7 @@ class BackupTestsMixin(SystemTestsMixin):
             print msg
 
     def fill_image(self, path, size=None, sparse=False):
-        block_size = 4096
+        block_size = 4096 * 1024
 
         if self.verbose:
             print >>sys.stderr, "-> Filling %s" % path

@@ -22,6 +22,7 @@
 #
 #
 
+import ast
 import datetime
 import base64
 import hashlib
@@ -132,14 +133,14 @@ class QubesVm(object):
             "pcidevs": {
                 "default": '[]',
                 "order": 25,
-                "func": lambda value: [] if value in ["none", None]  else
-                    eval(value) if value.find("[") >= 0 else
-                    eval("[" + value + "]") },
+                "func": lambda value: list([] if value in ["none", None] else
+                    ast.literal_eval(value) if value.find("[") >= 0 else
+                    ast.literal_eval("[" + value + "]")) },
             "pci_strictreset": {"default": True},
             "pci_e820_host": {"default": True},
             # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
             "internal": { "default": False, 'attr': '_internal' },
-            "vcpus": { "default": 2 },
+            "vcpus": { "default": 2, "func": int },
             "uses_default_kernel": { "default": True, 'order': 30 },
             "uses_default_kernelopts": { "default": True, 'order': 30 },
             "kernel": {
@@ -161,7 +162,7 @@ class QubesVm(object):
                 else not self.installed_by_rpm },
             "services": {
                 "default": {},
-                "func": lambda value: eval(str(value)) },
+                "func": lambda value: dict(ast.literal_eval(str(value))) },
             "debug": { "default": False },
             "default_user": { "default": "user", "attr": "_default_user" },
             "qrexec_timeout": { "default": 60 },
@@ -248,7 +249,8 @@ class QubesVm(object):
         for hook in self.hooks_set_attr:
             hook(self, attr, newvalue, oldvalue)
 
-    def __basic_parse_xml_attr(self, value):
+    @staticmethod
+    def __basic_parse_xml_attr(value):
         if value is None:
             return None
         if value.lower() == "none":
@@ -560,8 +562,9 @@ class QubesVm(object):
         else:
             return False
 
-    def verify_name(self, name):
-        if not isinstance(self.__basic_parse_xml_attr(name), str):
+    @classmethod
+    def verify_name(cls, name):
+        if not isinstance(cls.__basic_parse_xml_attr(name), str):
             return False
         if len(name) > 31:
             return False
@@ -1323,7 +1326,8 @@ class QubesVm(object):
         attrs = ['kernel', 'uses_default_kernel', 'netvm', 'uses_default_netvm',
                  'memory', 'maxmem', 'kernelopts', 'uses_default_kernelopts',
                  'services', 'vcpus', '_mac', 'pcidevs', 'include_in_backups',
-                 '_label', 'default_user', 'qrexec_timeout']
+                 '_label', 'default_user', 'qrexec_timeout',
+                 'dispvm_netvm', 'uses_default_dispvm_netvm']
 
         # fire hooks
         for hook in self.hooks_get_clone_attrs:
