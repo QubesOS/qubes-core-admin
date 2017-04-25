@@ -110,6 +110,9 @@ class Label(object):
             return self.name == other.name
         return NotImplemented
 
+    def __hash__(self):
+        return hash(self.name)
+
     @builtins.property
     def icon_path(self):
         '''Icon path

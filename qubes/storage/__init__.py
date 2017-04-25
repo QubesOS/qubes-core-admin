@@ -519,6 +519,9 @@ class Pool(object):
     def __str__(self):
         return self.name
 
+    def __hash__(self):
+        return hash(self.name)
+
     def __xml__(self):
         config = _sanitize_config(self.config)
         return lxml.etree.Element('pool', **config)
