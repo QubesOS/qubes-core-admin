@@ -21,6 +21,8 @@
 ''' Tests for management calls endpoints '''
 
 import asyncio
+import os
+import shutil
 
 import libvirt
 import unittest.mock
@@ -46,6 +48,9 @@ class MgmtTestCase(qubes.tests.QubesTestCase):
         self.template = app.add_new_vm('TemplateVM', label='black',
             name='test-template')
         app.default_template = 'test-template'
+        with qubes.tests.substitute_entry_points('qubes.storage',
+                'qubes.tests.storage'):
+            app.add_pool('test', driver='test')
         app.save = unittest.mock.Mock()
         self.vm = app.add_new_vm('AppVM', label='red', name='test-vm1',
             template='test-template')
@@ -61,6 +66,17 @@ class MgmtTestCase(qubes.tests.QubesTestCase):
         self.emitter = qubes.tests.TestEmitter()
         self.app.domains[0].fire_event = self.emitter.fire_event
         self.app.domains[0].fire_event_pre = self.emitter.fire_event_pre
+
+        self.test_base_dir = '/tmp/qubes-test-dir'
+        self.base_dir_patch = unittest.mock.patch.dict(qubes.config.system_path,
+            {'qubes_base_dir': self.test_base_dir})
+        self.base_dir_patch.start()
+
+    def tearDown(self):
+        self.base_dir_patch.stop()
+        if os.path.exists(self.test_base_dir):
+            shutil.rmtree(self.test_base_dir)
+        super(MgmtTestCase, self).tearDown()
 
     def call_mgmt_func(self, method, dest, arg=b'', payload=b''):
         mgmt_obj = qubes.mgmt.QubesMgmt(self.app, b'dom0', method, dest, arg)
@@ -848,7 +864,7 @@ class TC_00_VMs(MgmtTestCase):
         func_mock.assert_called_once_with()
 
     def test_270_events(self):
-        send_event = unittest.mock.Mock()
+        send_event = unittest.mock.Mock(spec=[])
         mgmt_obj = qubes.mgmt.QubesMgmt(self.app, b'dom0', b'mgmt.Events',
             b'dom0', b'', send_event=send_event)
 
@@ -943,6 +959,293 @@ class TC_00_VMs(MgmtTestCase):
             self.call_mgmt_func(b'mgmt.vm.feature.Set',
                 b'test-vm1', b'test-feature', b'\x02\x03\xffsome-value')
         self.assertNotIn('test-feature', self.vm.features)
+        self.assertFalse(self.app.save.called)
+
+    @asyncio.coroutine
+    def dummy_coro(self, *args, **kwargs):
+        pass
+
+    @unittest.mock.patch('qubes.storage.Storage.create')
+    def test_330_vm_create_standalone(self, storage_mock):
+        storage_mock.side_effect = self.dummy_coro
+        self.call_mgmt_func(b'mgmt.vm.Create.StandaloneVM',
+            b'dom0', b'', b'name=test-vm2 label=red')
+
+        self.assertIn('test-vm2', self.app.domains)
+        vm = self.app.domains['test-vm2']
+        self.assertIsInstance(vm, qubes.vm.standalonevm.StandaloneVM)
+        self.assertEqual(vm.label, self.app.get_label('red'))
+        self.assertEqual(storage_mock.mock_calls,
+            [unittest.mock.call(self.app.domains['test-vm2']).create()])
+        self.assertTrue(os.path.exists(os.path.join(
+            self.test_base_dir, 'appvms', 'test-vm2')))
+
+        self.assertTrue(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.create')
+    def test_331_vm_create_standalone_spurious_template(self, storage_mock):
+        storage_mock.side_effect = self.dummy_coro
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.vm.Create.StandaloneVM',
+                b'dom0', b'test-template', b'name=test-vm2 label=red')
+
+        self.assertNotIn('test-vm2', self.app.domains)
+        self.assertEqual(storage_mock.mock_calls, [])
+        self.assertFalse(os.path.exists(os.path.join(
+            self.test_base_dir, 'appvms', 'test-vm2')))
+
+        self.assertNotIn('test-vm2', self.app.domains)
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.create')
+    def test_332_vm_create_app(self, storage_mock):
+        storage_mock.side_effect = self.dummy_coro
+        self.call_mgmt_func(b'mgmt.vm.Create.AppVM',
+            b'dom0', b'test-template', b'name=test-vm2 label=red')
+
+        self.assertIn('test-vm2', self.app.domains)
+        vm = self.app.domains['test-vm2']
+        self.assertEqual(vm.label, self.app.get_label('red'))
+        self.assertEqual(vm.template, self.app.domains['test-template'])
+        self.assertEqual(storage_mock.mock_calls,
+            [unittest.mock.call(self.app.domains['test-vm2']).create()])
+        self.assertTrue(os.path.exists(os.path.join(
+            self.test_base_dir, 'appvms', 'test-vm2')))
+
+        self.assertTrue(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.create')
+    def test_333_vm_create_app_missing_template(self, storage_mock):
+        storage_mock.side_effect = self.dummy_coro
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.vm.Create.AppVM',
+                b'dom0', b'', b'name=test-vm2 label=red')
+
+        self.assertNotIn('test-vm2', self.app.domains)
+        self.assertEqual(storage_mock.mock_calls, [])
+        self.assertFalse(os.path.exists(os.path.join(
+            self.test_base_dir, 'appvms', 'test-vm2')))
+
+        self.assertNotIn('test-vm2', self.app.domains)
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.create')
+    def test_334_vm_create_invalid_name(self, storage_mock):
+        storage_mock.side_effect = self.dummy_coro
+        with self.assertRaises(qubes.exc.QubesValueError):
+            self.call_mgmt_func(b'mgmt.vm.Create.AppVM',
+                b'dom0', b'test-template', b'name=test-###')
+
+        self.assertNotIn('test-###', self.app.domains)
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.create')
+    def test_335_vm_create_missing_name(self, storage_mock):
+        storage_mock.side_effect = self.dummy_coro
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.vm.Create.AppVM',
+                b'dom0', b'test-template', b'label=red')
+
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.create')
+    def test_336_vm_create_spurious_pool(self, storage_mock):
+        storage_mock.side_effect = self.dummy_coro
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.vm.Create.AppVM',
+                b'dom0', b'test-template',
+                b'name=test-vm2 label=red pool=default')
+
+        self.assertNotIn('test-vm2', self.app.domains)
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.create')
+    def test_337_vm_create_duplicate_name(self, storage_mock):
+        storage_mock.side_effect = self.dummy_coro
+        with self.assertRaises(qubes.exc.QubesException):
+            self.call_mgmt_func(b'mgmt.vm.Create.AppVM',
+                b'dom0', b'test-template',
+                b'name=test-vm1 label=red')
+
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.create')
+    def test_338_vm_create_name_twice(self, storage_mock):
+        storage_mock.side_effect = self.dummy_coro
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.vm.Create.AppVM',
+                b'dom0', b'test-template',
+                b'name=test-vm2 name=test-vm3 label=red')
+
+        self.assertNotIn('test-vm2', self.app.domains)
+        self.assertNotIn('test-vm3', self.app.domains)
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.create')
+    def test_340_vm_create_in_pool_app(self, storage_mock):
+        storage_mock.side_effect = self.dummy_coro
+        self.call_mgmt_func(b'mgmt.vm.CreateInPool.AppVM',
+            b'dom0', b'test-template', b'name=test-vm2 label=red '
+                                 b'pool=test')
+
+        self.assertIn('test-vm2', self.app.domains)
+        vm = self.app.domains['test-vm2']
+        self.assertEqual(vm.label, self.app.get_label('red'))
+        self.assertEqual(vm.template, self.app.domains['test-template'])
+        # setting pool= affect only volumes actually created for this VM,
+        # not used from a template or so
+        self.assertEqual(vm.volume_config['root']['pool'], 'default')
+        self.assertEqual(vm.volume_config['private']['pool'], 'test')
+        self.assertEqual(vm.volume_config['volatile']['pool'], 'test')
+        self.assertEqual(vm.volume_config['kernel']['pool'], 'linux-kernel')
+        self.assertEqual(storage_mock.mock_calls,
+            [unittest.mock.call(self.app.domains['test-vm2']).create()])
+        self.assertTrue(os.path.exists(os.path.join(
+            self.test_base_dir, 'appvms', 'test-vm2')))
+
+        self.assertTrue(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.create')
+    def test_341_vm_create_in_pool_private(self, storage_mock):
+        storage_mock.side_effect = self.dummy_coro
+        self.call_mgmt_func(b'mgmt.vm.CreateInPool.AppVM',
+            b'dom0', b'test-template', b'name=test-vm2 label=red '
+                                 b'pool:private=test')
+
+        self.assertIn('test-vm2', self.app.domains)
+        vm = self.app.domains['test-vm2']
+        self.assertEqual(vm.label, self.app.get_label('red'))
+        self.assertEqual(vm.template, self.app.domains['test-template'])
+        self.assertEqual(vm.volume_config['root']['pool'], 'default')
+        self.assertEqual(vm.volume_config['private']['pool'], 'test')
+        self.assertEqual(vm.volume_config['volatile']['pool'], 'default')
+        self.assertEqual(vm.volume_config['kernel']['pool'], 'linux-kernel')
+        self.assertEqual(storage_mock.mock_calls,
+            [unittest.mock.call(self.app.domains['test-vm2']).create()])
+        self.assertTrue(os.path.exists(os.path.join(
+            self.test_base_dir, 'appvms', 'test-vm2')))
+
+        self.assertTrue(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.create')
+    def test_342_vm_create_in_pool_invalid_pool(self, storage_mock):
+        storage_mock.side_effect = self.dummy_coro
+        with self.assertRaises(qubes.exc.QubesException):
+            self.call_mgmt_func(b'mgmt.vm.CreateInPool.AppVM',
+                b'dom0', b'test-template', b'name=test-vm2 label=red '
+                                     b'pool=no-such-pool')
+
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.create')
+    def test_343_vm_create_in_pool_invalid_pool2(self, storage_mock):
+        storage_mock.side_effect = self.dummy_coro
+        with self.assertRaises(qubes.exc.QubesException):
+            self.call_mgmt_func(b'mgmt.vm.CreateInPool.AppVM',
+                b'dom0', b'test-template', b'name=test-vm2 label=red '
+                                     b'pool:private=no-such-pool')
+
+        self.assertNotIn('test-vm2', self.app.domains)
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.create')
+    def test_344_vm_create_in_pool_invalid_volume(self, storage_mock):
+        storage_mock.side_effect = self.dummy_coro
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.vm.CreateInPool.AppVM',
+                b'dom0', b'test-template', b'name=test-vm2 label=red '
+                                     b'pool:invalid=test')
+
+        self.assertNotIn('test-vm2', self.app.domains)
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.create')
+    def test_345_vm_create_in_pool_app_root(self, storage_mock):
+        # setting custom pool for 'root' volume of AppVM should not be
+        # allowed - this volume belongs to the template
+        storage_mock.side_effect = self.dummy_coro
+        with self.assertRaises(qubes.exc.QubesException):
+            self.call_mgmt_func(b'mgmt.vm.CreateInPool.AppVM',
+                b'dom0', b'test-template', b'name=test-vm2 label=red '
+                                     b'pool:root=test')
+
+        self.assertNotIn('test-vm2', self.app.domains)
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.create')
+    def test_346_vm_create_in_pool_duplicate_pool(self, storage_mock):
+        # setting custom pool for 'root' volume of AppVM should not be
+        # allowed - this volume belongs to the template
+        storage_mock.side_effect = self.dummy_coro
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'mgmt.vm.CreateInPool.AppVM',
+                b'dom0', b'test-template', b'name=test-vm2 label=red '
+                b'pool=test pool:root=test')
+
+        self.assertNotIn('test-vm2', self.app.domains)
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.clone')
+    @unittest.mock.patch('qubes.storage.Storage.verify')
+    def test_350_vm_clone(self, mock_verify, mock_clone):
+        mock_clone.side_effect = self.dummy_coro
+        mock_verify.side_effect = self.dummy_coro
+        self.call_mgmt_func(b'mgmt.vm.Clone',
+            b'test-vm1', b'', b'name=test-vm2')
+
+        self.assertIn('test-vm2', self.app.domains)
+        vm = self.app.domains['test-vm2']
+        self.assertEqual(vm.label, self.app.get_label('red'))
+        self.assertEqual(vm.template, self.app.domains['test-template'])
+        self.assertEqual(mock_clone.mock_calls,
+            [unittest.mock.call(self.app.domains['test-vm2']).clone(
+                self.app.domains['test-vm1'])])
+        self.assertTrue(os.path.exists(os.path.join(
+            self.test_base_dir, 'appvms', 'test-vm2')))
+
+        self.assertTrue(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.clone')
+    @unittest.mock.patch('qubes.storage.Storage.verify')
+    def test_351_vm_clone_extra_params(self, mock_verify, mock_clone):
+        mock_clone.side_effect = self.dummy_coro
+        mock_verify.side_effect = self.dummy_coro
+        with self.assertRaises(qubes.exc.QubesException):
+            self.call_mgmt_func(b'mgmt.vm.Clone',
+                b'test-vm1', b'', b'name=test-vm2 label=red')
+
+        self.assertNotIn('test-vm2', self.app.domains)
+        self.assertEqual(mock_clone.mock_calls, [])
+        self.assertFalse(os.path.exists(os.path.join(
+            self.test_base_dir, 'appvms', 'test-vm2')))
+
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.clone')
+    @unittest.mock.patch('qubes.storage.Storage.verify')
+    def test_352_vm_clone_duplicate_name(self, mock_verify, mock_clone):
+        mock_clone.side_effect = self.dummy_coro
+        mock_verify.side_effect = self.dummy_coro
+        with self.assertRaises(qubes.exc.QubesException):
+            self.call_mgmt_func(b'mgmt.vm.Clone',
+                b'test-vm1', b'', b'name=test-vm1')
+
+        self.assertFalse(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.clone')
+    @unittest.mock.patch('qubes.storage.Storage.verify')
+    def test_353_vm_clone_invalid_name(self, mock_verify, mock_clone):
+        mock_clone.side_effect = self.dummy_coro
+        mock_verify.side_effect = self.dummy_coro
+        with self.assertRaises(qubes.exc.QubesException):
+            self.call_mgmt_func(b'mgmt.vm.Clone',
+                b'test-vm1', b'', b'name=test-vm2/..')
+
+        self.assertNotIn('test-vm2/..', self.app.domains)
+        self.assertEqual(mock_clone.mock_calls, [])
+        self.assertFalse(os.path.exists(os.path.join(
+            self.test_base_dir, 'appvms', 'test-vm2/..')))
+
         self.assertFalse(self.app.save.called)
 
     def test_990_vm_unexpected_payload(self):

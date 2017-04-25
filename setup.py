@@ -56,5 +56,11 @@ if __name__ == '__main__':
                 'file = qubes.storage.file:FilePool',
                 'linux-kernel = qubes.storage.kernels:LinuxKernel',
                 'lvm_thin = qubes.storage.lvm:ThinPool',
-            ]
+            ],
+            'qubes.tests.storage': [
+                'test = qubes.tests.storage:TestPool',
+                'file = qubes.storage.file:FilePool',
+                'linux-kernel = qubes.storage.kernels:LinuxKernel',
+                'lvm_thin = qubes.storage.lvm:ThinPool',
+            ],
         })

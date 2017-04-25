@@ -17,7 +17,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
-
+import unittest.mock
 import qubes.log
 from qubes.exc import QubesException
 from qubes.storage import pool_drivers
@@ -25,6 +25,14 @@ from qubes.storage.file import FilePool
 from qubes.tests import QubesTestCase
 
 # :pylint: disable=invalid-name
+
+
+class TestPool(unittest.mock.Mock):
+    def __init__(self, *args, **kwargs):
+        super(TestPool, self).__init__(*args, spec=qubes.storage.Pool, **kwargs)
+
+    def __str__(self):
+        return 'test'
 
 
 class TestVM(object):

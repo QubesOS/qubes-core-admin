@@ -31,7 +31,7 @@ import pkg_resources
 import qubes.vm
 import qubes.vm.qubesvm
 import qubes.storage
-
+import qubes.utils
 
 class ProtocolError(AssertionError):
     '''Raised when something is wrong with data received'''
@@ -42,7 +42,7 @@ class PermissionDenied(Exception):
     pass
 
 
-def api(name, *, no_payload=False):
+def api(name, *, no_payload=False, endpoints=None):
     '''Decorator factory for methods intended to appear in API.
 
     The decorated method can be called from public API using a child of
@@ -63,20 +63,24 @@ def api(name, *, no_payload=False):
     If *no_payload* is true, then the method is called with no arguments.
     '''
 
-    # TODO regexp for vm/dev classess; supply regexp groups as untrusted_ kwargs
-
     def decorator(func):
         if no_payload:
             # the following assignment is needed for how closures work in Python
             _func = func
             @functools.wraps(_func)
-            def wrapper(self, untrusted_payload):
+            def wrapper(self, untrusted_payload, **kwargs):
                 if untrusted_payload != b'':
                     raise ProtocolError('unexpected payload')
-                return _func(self)
+                return _func(self, **kwargs)
             func = wrapper
 
-        func._rpcname = name  # pylint: disable=protected-access
+        # pylint: disable=protected-access
+        if endpoints is None:
+            func._rpcname = ((name, None),)
+        else:
+            func._rpcname = tuple(
+                (name.format(endpoint=endpoint), endpoint)
+                for endpoint in endpoints)
         return func
 
     return decorator
@@ -128,19 +132,19 @@ class AbstractQubesMgmt(object):
 
         untrusted_candidates = []
         for attr in dir(self):
-            untrusted_func = getattr(self, attr)
+            func = getattr(self, attr)
 
-            if not callable(untrusted_func):
+            if not callable(func):
                 continue
 
             try:
                 # pylint: disable=protected-access
-                if untrusted_func._rpcname != self.method:
-                    continue
+                for method, endpoint in func._rpcname:
+                    if method != self.method:
+                        continue
+                    untrusted_candidates.append((func, endpoint))
             except AttributeError:
                 continue
-
-            untrusted_candidates.append(untrusted_func)
 
         if not untrusted_candidates:
             raise ProtocolError('no such method: {!r}'.format(self.method))
@@ -158,8 +162,12 @@ class AbstractQubesMgmt(object):
 
         This method is a coroutine.
         '''
-        self._running_handler = asyncio.ensure_future(self._handler(
-            untrusted_payload=untrusted_payload))
+        handler, endpoint = self._handler
+        kwargs = {}
+        if endpoint is not None:
+            kwargs['endpoint'] = endpoint
+        self._running_handler = asyncio.ensure_future(handler(
+            untrusted_payload=untrusted_payload, **kwargs))
         return self._running_handler
 
     def cancel(self):
@@ -699,4 +707,131 @@ class QubesMgmt(AbstractQubesMgmt):
 
         self.fire_event_for_permission(value=value)
         self.dest.features[self.arg] = value
+        self.app.save()
+
+    @api('mgmt.vm.Create.{endpoint}', endpoints=(ep.name
+            for ep in pkg_resources.iter_entry_points(qubes.vm.VM_ENTRY_POINT)))
+    @asyncio.coroutine
+    def vm_create(self, endpoint, untrusted_payload=None):
+        return self._vm_create(endpoint, allow_pool=False,
+            untrusted_payload=untrusted_payload)
+
+    @api('mgmt.vm.CreateInPool.{endpoint}', endpoints=(ep.name
+            for ep in pkg_resources.iter_entry_points(qubes.vm.VM_ENTRY_POINT)))
+    @asyncio.coroutine
+    def vm_create_in_pool(self, endpoint, untrusted_payload=None):
+        return self._vm_create(endpoint, allow_pool=True,
+            untrusted_payload=untrusted_payload)
+
+    def _vm_create(self, vm_type, allow_pool=False, untrusted_payload=None):
+        assert self.dest.name == 'dom0'
+
+        kwargs = {}
+        pool = None
+        pools = {}
+
+        # this will raise exception if none is found
+        vm_class = qubes.utils.get_entry_point_one(qubes.vm.VM_ENTRY_POINT,
+            vm_type)
+
+        # if argument is given, it needs to be a valid template, and only
+        # when given VM class do need a template
+        if hasattr(vm_class, 'template'):
+            assert self.arg in self.app.domains
+            kwargs['template'] = self.app.domains[self.arg]
+        else:
+            assert not self.arg
+
+        for untrusted_param in untrusted_payload.decode('ascii',
+                errors='strict').split(' '):
+            untrusted_key, untrusted_value = untrusted_param.split('=', 1)
+            if untrusted_key in kwargs:
+                raise ProtocolError('duplicated parameters')
+
+            if untrusted_key == 'name':
+                qubes.vm.validate_name(None, None, untrusted_value)
+                kwargs['name'] = untrusted_value
+
+            elif untrusted_key == 'label':
+                # don't confuse label name with label index
+                assert not untrusted_value.isdigit()
+                allowed_chars = string.ascii_letters + string.digits + '-_.'
+                assert all(c in allowed_chars for c in untrusted_value)
+                try:
+                    kwargs['label'] = self.app.get_label(untrusted_value)
+                except KeyError:
+                    raise qubes.exc.QubesValueError
+
+            elif untrusted_key == 'pool' and allow_pool:
+                if pool is not None:
+                    raise ProtocolError('duplicated pool parameter')
+                pool = self.app.get_pool(untrusted_value)
+            elif untrusted_key.startswith('pool:') and allow_pool:
+                untrusted_volume = untrusted_key.split(':', 1)[1]
+                # kind of ugly, but actual list of volumes is available only
+                # after creating a VM
+                assert untrusted_volume in ['root', 'private', 'volatile',
+                    'kernel']
+                volume = untrusted_volume
+                if volume in pools:
+                    raise ProtocolError(
+                        'duplicated pool:{} parameter'.format(volume))
+                pools[volume] = self.app.get_pool(untrusted_value)
+
+            else:
+                raise ProtocolError('Invalid param name')
+        del untrusted_payload
+
+        if 'name' not in kwargs or 'label' not in kwargs:
+            raise ProtocolError('Missing name or label')
+
+        if pool and pools:
+            raise ProtocolError(
+                'Only one of \'pool=\' and \'pool:volume=\' can be used')
+
+        if kwargs['name'] in self.app.domains:
+            raise qubes.exc.QubesValueError(
+                'VM {} already exists'.format(kwargs['name']))
+
+        self.fire_event_for_permission(pool=pool, pools=pools, **kwargs)
+
+        vm = self.app.add_new_vm(vm_class, **kwargs)
+
+        try:
+            yield from vm.create_on_disk(pool=pool, pools=pools)
+        except:
+            del self.app.domains[vm]
+            raise
+        self.app.save()
+
+    @api('mgmt.vm.Clone')
+    @asyncio.coroutine
+    def vm_clone(self, untrusted_payload):
+        assert not self.arg
+
+        assert untrusted_payload.startswith(b'name=')
+        untrusted_name = untrusted_payload[5:].decode('ascii')
+        qubes.vm.validate_name(None, None, untrusted_name)
+        new_name = untrusted_name
+
+        del untrusted_payload
+
+        if new_name in self.app.domains:
+            raise qubes.exc.QubesValueError('Already exists')
+
+        self.fire_event_for_permission(new_name=new_name)
+
+        src_vm = self.dest
+
+        dst_vm = self.app.add_new_vm(src_vm.__class__, name=new_name)
+        try:
+            dst_vm.clone_properties(src_vm)
+            # TODO: tags
+            # TODO: features
+            # TODO: firewall
+            # TODO: persistent devices
+            yield from dst_vm.clone_disk_files(src_vm)
+        except:
+            del self.app.domains[dst_vm]
+            raise
         self.app.save()
