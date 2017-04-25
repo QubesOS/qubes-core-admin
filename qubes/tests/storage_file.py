@@ -23,6 +23,8 @@
 import os
 import shutil
 
+import asyncio
+
 import qubes.storage
 import qubes.tests.storage
 from qubes.config import defaults
@@ -311,7 +313,8 @@ class TC_03_FilePool(qubes.tests.QubesTestCase):
                                          'pool': 'test-pool'
                                      }
                                  }, label='red')
-        vm.create_on_disk()
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(vm.create_on_disk())
 
         expected_vmdir = os.path.join(self.APPVMS_DIR, vm.name)
 
@@ -341,7 +344,8 @@ class TC_03_FilePool(qubes.tests.QubesTestCase):
                                          'pool': 'test-pool'
                                      }
                                  }, label='red')
-        vm.create_on_disk()
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(vm.create_on_disk())
 
         expected_vmdir = os.path.join(self.TEMPLATES_DIR, vm.name)
 

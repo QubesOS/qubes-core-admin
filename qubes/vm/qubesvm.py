@@ -837,8 +837,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         qmemman_client = yield from asyncio.get_event_loop().run_in_executor(
             None, self.request_memory, mem_required)
 
-        yield from asyncio.get_event_loop().run_in_executor(None,
-            self.storage.start)
+        yield from self.storage.start()
         self._update_libvirt_domain()
 
         try:
@@ -906,8 +905,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.libvirt_domain.shutdown()
 
-        yield from asyncio.get_event_loop().run_in_executor(None,
-            self.storage.stop)
+        # FIXME: move to libvirt domain destroy event handler
+        yield from self.storage.stop()
 
         while wait and not self.is_halted():
             yield from asyncio.sleep(0.25)
@@ -926,8 +925,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesVMNotStartedError(self)
 
         self.libvirt_domain.destroy()
-        yield from asyncio.get_event_loop().run_in_executor(None,
-            self.storage.stop)
+        # FIXME: move to libvirt domain destroy event handler
+        yield from self.storage.stop()
 
         return self
 
@@ -1229,6 +1228,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.have_session.set()
         self.fire_event('domain-has-session')
 
+    @asyncio.coroutine
     def create_on_disk(self, pool=None, pools=None):
         '''Create files needed for VM.
         '''
@@ -1242,7 +1242,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                                                       pools)
             self.storage = qubes.storage.Storage(self)
 
-        self.storage.create()
+        yield from self.storage.create()
 
         self.log.info('Creating icon symlink: {} -> {}'.format(
             self.icon_path, self.label.icon_path))
@@ -1254,6 +1254,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # fire hooks
         self.fire_event('domain-create-on-disk')
 
+    @asyncio.coroutine
     def remove_from_disk(self):
         '''Remove domain remnants from disk.'''
         if not self.is_halted():
@@ -1263,14 +1264,16 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.fire_event('domain-remove-from-disk')
         try:
+            # TODO: make it async?
             shutil.rmtree(self.dir_path)
         except OSError as e:
             if e.errno == errno.ENOENT:
                 pass
             else:
                 raise
-        self.storage.remove()
+        yield from self.storage.remove()
 
+    @asyncio.coroutine
     def clone_disk_files(self, src, pool=None, pools=None, ):
         '''Clone files from other vm.
 
@@ -1291,7 +1294,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                                                       pools)
 
         self.storage = qubes.storage.Storage(self)
-        self.storage.clone(src)
+        yield from self.storage.clone(src)
         self.storage.verify()
         assert self.volumes != {}
 
