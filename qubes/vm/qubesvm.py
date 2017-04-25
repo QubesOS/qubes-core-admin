@@ -753,6 +753,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # pylint: disable=unused-argument
         self.init_log()
 
+        old_dir_path = os.path.join(os.path.dirname(self.dir_path), oldvalue)
+        new_dir_path = os.path.join(os.path.dirname(self.dir_path), newvalue)
+        os.rename(old_dir_path, new_dir_path)
+
         self.storage.rename(oldvalue, newvalue)
 
         if self._libvirt_domain is not None:
@@ -1287,6 +1291,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if self.name in self.app.domains.keys() and not self.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(
                 self, 'Cannot clone a running domain {!r}'.format(self.name))
+
+        msg = "Destination {!s} already exists".format(self.dir_path)
+        assert not os.path.exists(self.dir_path), msg
+
+        self.log.info('Creating directory: {0}'.format(self.dir_path))
+        os.makedirs(self.dir_path, mode=0o775)
 
         if pool or pools:
             # pylint: disable=attribute-defined-outside-init

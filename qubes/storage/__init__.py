@@ -370,22 +370,9 @@ class Storage(object):
     def clone(self, src_vm):
         ''' Clone volumes from the specified vm '''
 
-        src_path = src_vm.dir_path
-        msg = "Source path {!s} does not exist".format(src_path)
-        assert os.path.exists(src_path), msg
-
-        dst_path = self.vm.dir_path
-        msg = "Destination {!s} already exists".format(dst_path)
-        assert not os.path.exists(dst_path), msg
-        os.mkdir(dst_path)
-
         # clone/import functions may be either synchronous or asynchronous
         # in the later case, we need to wait for them to finish
         clone_op = {}
-
-        msg = "Cloning directory: {!s} to {!s}"
-        msg = msg.format(src_path, dst_path)
-        self.log.info(msg)
 
         self.vm.volumes = {}
         with VmCreationManager(self.vm):
@@ -439,10 +426,6 @@ class Storage(object):
     def rename(self, old_name, new_name):
         ''' Notify the pools that the domain was renamed '''
         volumes = self.vm.volumes
-        vm = self.vm
-        old_dir_path = os.path.join(os.path.dirname(vm.dir_path), old_name)
-        new_dir_path = os.path.join(os.path.dirname(vm.dir_path), new_name)
-        os.rename(old_dir_path, new_dir_path)
         for name, volume in volumes.items():
             pool = self.get_pool(volume)
             volumes[name] = pool.rename(volume, old_name, new_name)
