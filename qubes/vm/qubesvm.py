@@ -1048,7 +1048,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesVMError(
                 self, 'Domain {!r}: qrexec not connected'.format(self.name))
 
-        if not self.have_session.is_set():
+        if gui and not self.have_session.is_set():
             raise qubes.exc.QubesVMError(self, 'don\'t have session yet')
 
         self.fire_event_pre('domain-cmd-pre-run', start_guid=gui)
