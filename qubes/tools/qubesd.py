@@ -176,11 +176,17 @@ def sighandler(loop, signame, server, server_internal):
 
 parser = qubes.tools.QubesArgumentParser(description='Qubes OS daemon')
 
-def main(args=None):
-    args = parser.parse_args(args)
-    loop = asyncio.get_event_loop()
 
+def main(args=None):
+    loop = asyncio.get_event_loop()
     libvirtaio.virEventRegisterAsyncIOImpl(loop=loop)
+    try:
+        args = parser.parse_args(args)
+    except:
+        loop.close()
+        raise
+
+    args.app.vmm.register_event_handlers(args.app)
 
     try:
         os.unlink(QUBESD_SOCK)

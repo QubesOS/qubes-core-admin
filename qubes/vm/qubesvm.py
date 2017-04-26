@@ -195,6 +195,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             *other arguments are as in :py:meth:`start`*
 
+        .. event:: domain-shutdown (subject, event)
+
+            Fired when domain has been shut down.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-shutdown'``)
+
         .. event:: domain-pre-shutdown (subject, event, force)
 
             Fired at the beginning of :py:meth:`shutdown` method.

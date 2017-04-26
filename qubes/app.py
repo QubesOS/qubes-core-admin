@@ -106,6 +106,7 @@ class VirConnectWrapper(object):
         is_dead = not self._conn.isAlive()
         if is_dead:
             self._conn = libvirt.open(self._conn.getURI())
+            # TODO: re-register event handlers
         return is_dead
 
     def _wrap_domain(self, ret):
@@ -212,6 +213,33 @@ class VMMConnection(object):
 
         self.init_vmm_connection()
         return self._xs
+
+    def register_event_handlers(self, app):
+        '''Register libvirt event handlers, which will translate libvirt
+        events into qubes.events. This function should be called only in
+        'qubesd' process and only when mainloop has been already set.
+        '''
+        self._libvirt_conn.domainEventRegisterAny(
+            None,  # any domain
+            libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE,
+            self._domain_event_callback,
+            app
+        )
+
+    @staticmethod
+    def _domain_event_callback(_conn, domain, event, _detail, opaque):
+        '''Generic libvirt event handler (virConnectDomainEventCallback),
+        translate libvirt event into qubes.events.
+        '''
+        app = opaque
+        try:
+            vm = app.domains[domain.name()]
+        except KeyError:
+            # ignore events for unknown domains
+            return
+
+        if event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
+            vm.fire_event('domain-shutdown')
 
     def __del__(self):
         if self._libvirt_conn:
