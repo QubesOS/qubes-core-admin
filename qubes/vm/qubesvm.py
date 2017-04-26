@@ -901,6 +901,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return self
 
+    @qubes.events.handler('domain-shutdown')
+    def on_domain_shutdown(self, _event, **_kwargs):
+        '''Cleanup after domain shutdown'''
+        asyncio.ensure_future(self.storage.stop())
+
     @asyncio.coroutine
     def shutdown(self, force=False, wait=False):
         '''Shutdown domain.
@@ -915,9 +920,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.fire_event_pre('domain-pre-shutdown', force=force)
 
         self.libvirt_domain.shutdown()
-
-        # FIXME: move to libvirt domain destroy event handler
-        yield from self.storage.stop()
 
         while wait and not self.is_halted():
             yield from asyncio.sleep(0.25)
@@ -936,8 +938,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesVMNotStartedError(self)
 
         self.libvirt_domain.destroy()
-        # FIXME: move to libvirt domain destroy event handler
-        yield from self.storage.stop()
 
         return self
 
