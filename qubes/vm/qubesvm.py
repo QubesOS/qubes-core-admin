@@ -1080,6 +1080,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             not filtered for problems originating between the keyboard and the
             chair.
         '''  # pylint: disable=redefined-builtin
+
+        kwargs.setdefault('stdin', subprocess.PIPE)
+        kwargs.setdefault('stdout', subprocess.PIPE)
+        kwargs.setdefault('stderr', subprocess.PIPE)
         p = yield from self.run_service(*args, **kwargs)
 
         # this one is actually a tuple, but there is no need to unpack it
