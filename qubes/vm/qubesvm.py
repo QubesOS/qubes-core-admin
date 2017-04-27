@@ -1257,7 +1257,16 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                                                       pools)
             self.storage = qubes.storage.Storage(self)
 
-        yield from self.storage.create()
+        try:
+            yield from self.storage.create()
+        except:
+            try:
+                yield from self.storage.remove()
+                os.rmdir(self.dir_path)
+            except:  # pylint: disable=bare-except
+                self.log.exception('failed to cleanup {} after failed VM '
+                                   'creation'.format(self.dir_path))
+            raise
 
         self.log.info('Creating icon symlink: {} -> {}'.format(
             self.icon_path, self.label.icon_path))
