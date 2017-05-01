@@ -28,7 +28,7 @@ Devices can be of different classes (like 'pci', 'usb', etc). Each device
 class is implemented by an extension.
 
 Devices are identified by pair of (backend domain, `ident`), where `ident` is
-:py:class:`str`.
+:py:class:`str` and can contain only characters from `[a-zA-Z0-9._-]` set.
 
 Such extension should provide:
  - `qubes.devices` endpoint - a class descendant from
