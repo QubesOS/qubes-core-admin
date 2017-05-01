@@ -75,7 +75,7 @@ class DeviceAssignment(object): # pylint: disable=too-few-public-methods
 
     def __eq__(self, other):
         if not isinstance(self, other.__class__):
-            raise NotImplementedError
+            return NotImplemented
 
         return self.backend_domain == other.backend_domain \
            and self.ident == other.ident
