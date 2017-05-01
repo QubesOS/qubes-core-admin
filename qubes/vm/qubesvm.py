@@ -894,7 +894,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             if self.is_running() or self.is_paused():
                 # This avoids losing the exception if an exception is raised in
                 # self.force_shutdown(), because the vm is not running or paused
-                yield from self.kill()
+                yield from self.kill()  # pylint: disable=not-an-iterable
             raise
 
         asyncio.ensure_future(self._wait_for_session())
