@@ -409,6 +409,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         doc='''Maximum amount of memory available for this VM (for the purpose
             of the memory balancer).''')
 
+    stubdom_mem = qubes.property('stubdom_mem', type=int,
+        setter=_setter_positive_int,
+        default=None,
+        doc='Memory ammount allocated for the stubdom')
+
     internal = qubes.property('internal', default=False,
         type=bool, setter=qubes.property.bool,
         doc='''Internal VM (not shown in qubes-manager, don't create appmenus
@@ -1136,7 +1141,19 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             return
 
         if mem_required is None:
-            mem_required = int(self.memory) * 1024 * 1024
+            if self.hvm:
+                if self.stubdom_mem:
+                    stubdom_mem = self.stubdom_mem
+                else:
+                    if self.features.get('linux-stubdom', False):
+                        stubdom_mem = 128 # from libxl_create.c
+                    else:
+                        stubdom_mem = 28 # from libxl_create.c
+                stubdom_mem += 16 # video ram
+            else:
+                stubdom_mem = 0
+
+            mem_required = int(self.memory + stubdom_mem) * 1024 * 1024
 
         qmemman_client = qubes.qmemman.client.QMemmanClient()
         try:

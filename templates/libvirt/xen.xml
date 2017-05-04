@@ -112,17 +112,32 @@
 
             {% if vm.hvm %}
                 <emulator
-                    type="stubdom"
-                    {% if vm.netvm %}
+                    {% if vm.features.get('linux-stubdom', False) %}
+                        type="stubdom-linux"
+                    {% else %}
+                        type="stubdom"
+                    {% endif %}
+                    {% if vm.netvm and not vm.features.get('linux-stubdom', False) %}
                         cmdline="-net lwip,client_ip={{ vm.ip -}}
                             ,server_ip={{ vm.dns[1] -}}
                             ,dns={{ vm.netvm.gateway -}}
                             ,gw={{ vm.netvm.gateway -}}
                             ,netmask={{ vm.netmask }}"
                     {% endif %}
+                    {% if vm.stubdom_mem %}
+                        memory="{{ vm.stubdom_mem * 1024 -}}"
+                    {% endif %}
                     />
                 <input type="tablet" bus="usb"/>
-                <video type="vga"/>
+                {% if vm.features.get('linux-stubdom', False) %}
+                    <video type="cirrus"/>
+                {% else %}
+                    <video type="vga"/>
+                {% endif %}
+                {% if vm.features.get('linux-stubdom', False) %}
+                    {# TODO only add qubes gui if gui-agent is not installed in HVM #}
+                    <graphics type="qubes"/>
+                {% endif %}
             {% else %}
                 <console type="pty">
                     <target type="xen" port="0"/>
