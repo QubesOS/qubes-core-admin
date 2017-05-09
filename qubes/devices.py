@@ -223,11 +223,11 @@ class DeviceCollection(object):
             persistent=persistent)
         result = []
         for dev, options in devices:
-            if dev in self._set and persistent is False:
+            if dev in self._set and not persistent:
                 continue
             elif dev in self._set:
                 result.append(self._set.get(dev))
-            elif dev not in self._set and persistent is True:
+            elif dev not in self._set and persistent:
                 continue
             else:
                 result.append(
@@ -374,20 +374,12 @@ class PersistentCollection(object):
         del self._dict[key]
 
     def __contains__(self, device) -> bool:
-        vm = device.backend_domain
-        ident = device.ident
-        key = (vm, ident)
-        return key in self._dict
+        return (device.backend_domain, device.ident) in self._dict
 
     def get(self, device: DeviceInfo) -> DeviceAssignment:
         ''' Returns the corresponding `qubes.devices.DeviceAssignment` for the
             device. '''
-        vm = device.backend_domain
-        ident = device.ident
-        key = (vm, ident)
-        if key not in self._dict:
-            raise KeyError
-        return self._dict[key]
+        return self._dict[(device.backend_domain, device.ident)]
 
     def __iter__(self):
         return self._dict.values().__iter__()
