@@ -108,6 +108,8 @@ class Emitter(object, metaclass=EmitterMeta):
     def add_handler(cls, event, func):
         '''Add event handler to subject's class.
 
+        This is class method, it is invalid to call it on object instance.
+
         :param str event: event identificator
         :param collections.Callable handler: handler callable
         '''
@@ -118,6 +120,11 @@ class Emitter(object, metaclass=EmitterMeta):
     @classmethod
     def remove_handler(cls, event, func):
         '''Remove event handler from subject's class.
+
+        This is class method, it is invalid to call it on object instance.
+
+        This method must be called on the same class as
+        :py:meth:`add_handler` was called to register the handler.
 
         :param str event: event identificator
         :param collections.Callable handler: handler callable
