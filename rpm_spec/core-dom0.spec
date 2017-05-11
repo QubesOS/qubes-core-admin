@@ -61,6 +61,7 @@ BuildRequires:  python3-devel
 
 # for building documentation
 BuildRequires:	python3-sphinx
+BuildRequires:	python3-lxml
 BuildRequires:	libvirt-python3
 BuildRequires:	python3-dbus
 
@@ -102,6 +103,9 @@ Requires:       PyQt4
 # for lvm support
 Requires: lvm2-python-libs
 
+Obsoletes:	qubes-core-dom0-doc <= 4.0
+Provides:	qubes-core-dom0-doc
+
 # Prevent preupgrade from installation (it pretend to provide distribution upgrade)
 Obsoletes:	preupgrade < 2.0
 Provides:	preupgrade = 2.0
@@ -120,6 +124,7 @@ ln -sf . %{name}-%{version}
 %build
 
 make all
+make -C doc PYTHON=%{__python3} SPHINXBUILD=sphinx-build-%{python3_version} man
 
 %install
 
@@ -128,6 +133,11 @@ make install \
     UNITDIR=%{_unitdir} \
     PYTHON_SITEPATH=%{python3_sitelib} \
     SYSCONFDIR=%{_sysconfdir}
+
+make -C doc DESTDIR=$RPM_BUILD_ROOT \
+    PYTHON=%{__python3} SPHINXBUILD=sphinx-build-%{python3_version} \
+    install
+
 
 %post
 
@@ -217,6 +227,8 @@ fi
 /usr/bin/qubesd*
 /usr/bin/qrexec-policy
 /usr/bin/qrexec-policy-agent
+
+%{_mandir}/man1/qubes*.1*
 
 %dir %{python3_sitelib}/qubes-*.egg-info
 %{python3_sitelib}/qubes-*.egg-info/*
