@@ -376,9 +376,6 @@ fi
 /usr/lib/qubes/unbind-pci-device.sh
 /usr/lib/qubes/cleanup-dispvms
 /usr/lib/qubes/block-cleaner-daemon.py*
-/usr/lib/qubes/vusb-ctl.py*
-/usr/lib/qubes/xl-qvm-usb-attach.py*
-/usr/lib/qubes/xl-qvm-usb-detach.py*
 /usr/lib/qubes/fix-dir-perms.sh
 /usr/lib/qubes/startup-misc.sh
 /usr/lib/qubes/prepare-volatile-img.sh
