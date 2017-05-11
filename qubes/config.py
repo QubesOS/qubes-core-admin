@@ -52,9 +52,6 @@ system_path = {
     'qrexec_policy_dir': '/etc/qubes-rpc/policy',
 
     'config_template_pv': '/usr/share/qubes/vm-template.xml',
-
-    'qubes_pciback_cmd': '/usr/lib/qubes/unbind-pci-device.sh',
-    'prepare_volatile_img_cmd': '/usr/lib/qubes/prepare-volatile-img.sh',
 }
 
 vm_files = {
