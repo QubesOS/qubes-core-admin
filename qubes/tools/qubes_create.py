@@ -21,8 +21,6 @@
 
 '''qvm-create - Create new Qubes OS store'''
 
-# TODO allow to set properties and create domains
-
 import sys
 import qubes
 import qubes.tools
@@ -31,11 +29,6 @@ parser = qubes.tools.QubesArgumentParser(
     description='Create new Qubes OS store.',
     want_app=True,
     want_app_no_instance=True)
-
-parser.add_argument('--property', '--prop', '-p',
-    action=qubes.tools.PropertyAction,
-    help='set global property')
-
 
 def main(args=None):
     '''Main routine of :program:`qubes-create`.
@@ -46,7 +39,7 @@ def main(args=None):
 
     args = parser.parse_args(args)
     qubes.Qubes.create_empty_store(args.app,
-        offline_mode=args.offline_mode, **args.properties)
+        offline_mode=args.offline_mode)
     return 0
 
 

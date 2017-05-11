@@ -906,8 +906,6 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
             'qubes.tests.app',
             'qubes.tests.tarwriter',
             'qubes.tests.mgmt',
-            'qubes.tests.tools.qvm_device',
-            'qubes.tests.tools.qvm_firewall',
             'qubespolicy.tests',
             'qubes.tests.tools.qubesd',
             ):
@@ -939,14 +937,6 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
             'qubes.tests.integ.backup',
             'qubes.tests.integ.backupcompatibility',
 #           'qubes.tests.regressions',
-
-            # tool tests
-            'qubes.tests.integ.tools.qubes_create',
-            'qubes.tests.integ.tools.qvm_check',
-            'qubes.tests.integ.tools.qvm_features',
-            'qubes.tests.integ.tools.qvm_firewall',
-            'qubes.tests.integ.tools.qvm_prefs',
-            'qubes.tests.integ.tools.qvm_run',
 
             # external modules
 #           'qubes.tests.extra',

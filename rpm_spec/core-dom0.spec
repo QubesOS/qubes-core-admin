@@ -273,30 +273,11 @@ fi
 %{python3_sitelib}/qubes/tools/__init__.py
 %{python3_sitelib}/qubes/tools/qmemmand.py
 %{python3_sitelib}/qubes/tools/qubes_create.py
-%{python3_sitelib}/qubes/tools/qubes_prefs.py
 %{python3_sitelib}/qubes/tools/qubesd.py
 %{python3_sitelib}/qubes/tools/qubesd_query.py
-%{python3_sitelib}/qubes/tools/qvm_block.py
 %{python3_sitelib}/qubes/tools/qvm_backup.py
 %{python3_sitelib}/qubes/tools/qvm_backup_restore.py
-%{python3_sitelib}/qubes/tools/qvm_create.py
-%{python3_sitelib}/qubes/tools/qvm_device.py
-%{python3_sitelib}/qubes/tools/qvm_features.py
-%{python3_sitelib}/qubes/tools/qvm_firewall.py
-%{python3_sitelib}/qubes/tools/qvm_check.py
-%{python3_sitelib}/qubes/tools/qvm_clone.py
-%{python3_sitelib}/qubes/tools/qvm_kill.py
-%{python3_sitelib}/qubes/tools/qvm_pause.py
-%{python3_sitelib}/qubes/tools/qvm_pool.py
-%{python3_sitelib}/qubes/tools/qvm_prefs.py
-%{python3_sitelib}/qubes/tools/qvm_remove.py
-%{python3_sitelib}/qubes/tools/qvm_run.py
-%{python3_sitelib}/qubes/tools/qvm_shutdown.py
-%{python3_sitelib}/qubes/tools/qvm_start.py
-%{python3_sitelib}/qubes/tools/qvm_tags.py
-%{python3_sitelib}/qubes/tools/qvm_template_commit.py
 %{python3_sitelib}/qubes/tools/qvm_template_postprocess.py
-%{python3_sitelib}/qubes/tools/qvm_unpause.py
 
 %dir %{python3_sitelib}/qubes/ext
 %dir %{python3_sitelib}/qubes/ext/__pycache__
@@ -343,10 +324,6 @@ fi
 %dir %{python3_sitelib}/qubes/tests/tools/__pycache__
 %{python3_sitelib}/qubes/tests/tools/__pycache__/*
 %{python3_sitelib}/qubes/tests/tools/__init__.py
-%{python3_sitelib}/qubes/tests/tools/init.py
-%{python3_sitelib}/qubes/tests/tools/qubesd.py
-%{python3_sitelib}/qubes/tests/tools/qvm_device.py
-%{python3_sitelib}/qubes/tests/tools/qvm_firewall.py
 %{python3_sitelib}/qubes/tests/tools/qubesd.py
 
 %dir %{python3_sitelib}/qubes/tests/integ
@@ -368,11 +345,6 @@ fi
 %{python3_sitelib}/qubes/tests/integ/tools/__pycache__/*
 %{python3_sitelib}/qubes/tests/integ/tools/__init__.py
 %{python3_sitelib}/qubes/tests/integ/tools/qubes_create.py
-%{python3_sitelib}/qubes/tests/integ/tools/qvm_features.py*
-%{python3_sitelib}/qubes/tests/integ/tools/qvm_firewall.py
-%{python3_sitelib}/qubes/tests/integ/tools/qvm_check.py
-%{python3_sitelib}/qubes/tests/integ/tools/qvm_prefs.py
-%{python3_sitelib}/qubes/tests/integ/tools/qvm_run.py
 
 %dir %{python3_sitelib}/qubes/qmemman
 %dir %{python3_sitelib}/qubes/qmemman/__pycache__

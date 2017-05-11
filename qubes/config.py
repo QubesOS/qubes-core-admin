@@ -55,7 +55,6 @@ system_path = {
 
     'qubes_pciback_cmd': '/usr/lib/qubes/unbind-pci-device.sh',
     'prepare_volatile_img_cmd': '/usr/lib/qubes/prepare-volatile-img.sh',
-    'monitor_layout_notify_cmd': '/usr/bin/qubes-monitor-layout-notify',
 }
 
 vm_files = {
