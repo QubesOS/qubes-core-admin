@@ -148,7 +148,6 @@ fi
 
 systemctl --no-reload enable qubes-core.service >/dev/null 2>&1
 systemctl --no-reload enable qubes-netvm.service >/dev/null 2>&1
-systemctl --no-reload enable qubes-setupdvm.service >/dev/null 2>&1
 
 # Conflicts with libxl stack, so disable it
 systemctl --no-reload disable xend.service >/dev/null 2>&1
@@ -404,20 +403,17 @@ fi
 
 /usr/lib/qubes/unbind-pci-device.sh
 /usr/lib/qubes/cleanup-dispvms
-/usr/lib/qubes/qfile-daemon-dvm*
 /usr/lib/qubes/block-cleaner-daemon.py*
 /usr/lib/qubes/vusb-ctl.py*
 /usr/lib/qubes/xl-qvm-usb-attach.py*
 /usr/lib/qubes/xl-qvm-usb-detach.py*
 /usr/lib/qubes/fix-dir-perms.sh
-/usr/lib/qubes/startup-dvm.sh
 /usr/lib/qubes/startup-misc.sh
 /usr/lib/qubes/prepare-volatile-img.sh
 /usr/libexec/qubes/qubes-notify-tools
 /usr/libexec/qubes/qubes-notify-updates
 %{_unitdir}/qubes-block-cleaner.service
 %{_unitdir}/qubes-core.service
-%{_unitdir}/qubes-setupdvm.service
 %{_unitdir}/qubes-netvm.service
 %{_unitdir}/qubes-qmemman.service
 %{_unitdir}/qubes-vm@.service
@@ -435,9 +431,6 @@ fi
 /usr/share/qubes/templates/libvirt/devices/pci.xml
 /usr/share/qubes/templates/libvirt/devices/net.xml
 /usr/lib/tmpfiles.d/qubes.conf
-/usr/lib/qubes/qubes-prepare-saved-domain.sh
-/usr/lib/qubes/qubes-update-dispvm-savefile-with-progress.sh
-/etc/xen/scripts/block.qubes
 /etc/xen/scripts/block-snapshot
 /etc/xen/scripts/block-origin
 /etc/xen/scripts/vif-route-qubes
@@ -456,7 +449,6 @@ fi
 /etc/qubes-rpc/qubes.NotifyUpdates
 %attr(2770,root,qubes) %dir /var/log/qubes
 %attr(0770,root,qubes) %dir /var/run/qubes
-/etc/xdg/autostart/qubes-guid.desktop
 /etc/xdg/autostart/qrexec-policy-agent.desktop
 
 /usr/share/doc/qubes/relaxng/*.rng

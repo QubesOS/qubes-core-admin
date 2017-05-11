@@ -1,7 +1,0 @@
-[Desktop Entry]
-Name=Qubes Guid
-Comment=Starts Dom0 GUI daemon for Qubes VMs
-Icon=qubes
-Exec=qvm-run --all true
-Terminal=false
-Type=Application

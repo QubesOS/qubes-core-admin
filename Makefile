@@ -40,16 +40,10 @@ rpms-dom0:
 		$(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION)*.rpm \
 		$(RPMS_DIR)/noarch/qubes-core-dom0-doc-$(VERSION)*rpm
 
-clean:
-	make -C dispvm clean
-
 all:
 	$(PYTHON) setup.py build
 #	make all -C tests
 	# Currently supported only on xen
-ifeq ($(BACKEND_VMM),xen)
-	make all -C dispvm
-endif
 
 install:
 ifeq ($(OS),Linux)
@@ -67,7 +61,6 @@ ifeq ($(BACKEND_VMM),xen)
 	# Currently supported only on xen
 	cp etc/qmemman.conf $(DESTDIR)/etc/qubes/
 endif
-	$(MAKE) install -C dispvm
 	mkdir -p $(DESTDIR)/etc/qubes-rpc/policy
 	mkdir -p $(DESTDIR)/usr/libexec/qubes
 	cp qubes-rpc-policy/qubes.FeaturesRequest.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.FeaturesRequest
