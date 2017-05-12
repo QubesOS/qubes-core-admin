@@ -159,13 +159,7 @@ class Features(dict):
         return default
 
 
-class BaseVMMeta(qubes.events.EmitterMeta):
-    '''Metaclass for :py:class:`.BaseVM`'''
-    def __init__(cls, name, bases, dict_):
-        super(BaseVMMeta, cls).__init__(name, bases, dict_)
-
-
-class BaseVM(qubes.PropertyHolder, metaclass=BaseVMMeta):
+class BaseVM(qubes.PropertyHolder):
     '''Base class for all VMs
 
     :param app: Qubes application context
