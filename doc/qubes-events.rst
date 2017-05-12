@@ -40,29 +40,7 @@ which the event was fired and the second one is the event name. The rest are
 passed from :py:meth:`qubes.events.Emitter.fire_event` as described previously.
 One callable can handle more than one event.
 
-The easiest way to hook an event is to invoke
-:py:meth:`qubes.events.Emitter.add_handler` classmethod.
-
-.. code-block:: python
-
-   import qubes.events
-
-   class MyClass(qubes.events.Emitter):
-       pass
-
-   def event_handler(subject, event):
-       if event == 'event1':
-           print('Got event 1')
-       elif event == 'event2':
-           print('Got event 2')
-
-   MyClass.add_handler('event1', event_handler)
-   MyClass.add_handler('event2', event_handler)
-
-   o = MyClass()
-   o.fire_event('event1')
-
-If you wish to define handler in the class definition, the best way is to use
+The easiest way to hook an event is to use
 :py:func:`qubes.events.handler` decorator.
 
 .. code-block:: python
@@ -80,7 +58,10 @@ If you wish to define handler in the class definition, the best way is to use
    o = MyClass()
    o.fire_event('event1')
 
+Note that your handler will be called for all instances of this class.
+
 .. TODO: extensions
+.. TODO: add/remove_handler
 
 
 Handling events with variable signature
@@ -100,7 +81,8 @@ every other python function with variable signature.
        else:
            print('Property {} changed {!r} -> {!r}'.format(name, oldvalue, newvalue))
 
-   qubes.Qubes.add_handler('property-set:default_netvm')
+   app = qubes.Qubes()
+   app.add_handler('property-set:default_netvm')
 
 If you expect :py:obj:`None` to be a reasonable value of the property, you have
 a problem. One way to solve it is to invent your very own, magic
@@ -117,7 +99,8 @@ a problem. One way to solve it is to invent your very own, magic
        else:
            print('Property {} changed {!r} -> {!r}'.format(name, oldvalue, newvalue))
 
-   qubes.Qubes.add_handler('property-set:default_netvm')
+   app = qubes.Qubes()
+   app.add_handler('property-set:default_netvm')
 
 There is no possible way of collision other than intentionally passing this very
 object (not even passing similar featureless ``object()``), because ``is``

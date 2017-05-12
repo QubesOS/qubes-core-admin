@@ -27,6 +27,8 @@ etc.
 
 import collections
 
+import itertools
+
 
 def handler(*events):
     '''Event handler decorator factory.
@@ -88,7 +90,7 @@ class EmitterMeta(type):
                 continue
 
             for event in attr.ha_events:
-                cls.add_handler(event, attr)
+                cls.__handlers__[event].add(attr)
 
 
 class Emitter(object, metaclass=EmitterMeta):
@@ -102,10 +104,10 @@ class Emitter(object, metaclass=EmitterMeta):
         super(Emitter, self).__init__(*args, **kwargs)
         if not hasattr(self, 'events_enabled'):
             self.events_enabled = False
+        self.__handlers__ = collections.defaultdict(set)
 
 
-    @classmethod
-    def add_handler(cls, event, func):
+    def add_handler(self, event, func):
         '''Add event handler to subject's class.
 
         This is class method, it is invalid to call it on object instance.
@@ -115,10 +117,9 @@ class Emitter(object, metaclass=EmitterMeta):
         '''
 
         # pylint: disable=no-member
-        cls.__handlers__[event].add(func)
+        self.__handlers__[event].add(func)
 
-    @classmethod
-    def remove_handler(cls, event, func):
+    def remove_handler(self, event, func):
         '''Remove event handler from subject's class.
 
         This is class method, it is invalid to call it on object instance.
@@ -131,8 +132,7 @@ class Emitter(object, metaclass=EmitterMeta):
         '''
 
         # pylint: disable=no-member
-        cls.__handlers__[event].remove(func)
-
+        self.__handlers__[event].remove(func)
 
     def _fire_event_in_order(self, order, event, kwargs):
         '''Fire event for classes in given order.
@@ -145,12 +145,14 @@ class Emitter(object, metaclass=EmitterMeta):
             return []
 
         effects = []
-        for cls in order:
-            if not hasattr(cls, '__handlers__'):
+        for i in order:
+            try:
+                handlers_dict = i.__handlers__
+            except AttributeError:
                 continue
-            handlers = cls.__handlers__[event]
-            if '*' in cls.__handlers__:
-                handlers = cls.__handlers__['*'] | handlers
+            handlers = handlers_dict.get(event, set())
+            if '*' in handlers_dict:
+                handlers = handlers_dict['*'] | handlers
             for func in sorted(handlers,
                     key=(lambda handler: hasattr(handler, 'ha_bound')),
                     reverse=True):
@@ -158,7 +160,6 @@ class Emitter(object, metaclass=EmitterMeta):
                 if effect is not None:
                     effects.extend(effect)
         return effects
-
 
     def fire_event(self, event, **kwargs):
         '''Call all handlers for an event.
@@ -178,7 +179,8 @@ class Emitter(object, metaclass=EmitterMeta):
         events.
         '''
 
-        return self._fire_event_in_order(reversed(self.__class__.__mro__),
+        return self._fire_event_in_order(
+            itertools.chain(reversed(self.__class__.__mro__), (self,)),
             event, kwargs)
 
 
@@ -199,5 +201,6 @@ class Emitter(object, metaclass=EmitterMeta):
         events.
         '''
 
-        return self._fire_event_in_order(self.__class__.__mro__,
+        return self._fire_event_in_order(
+            itertools.chain((self,), self.__class__.__mro__),
             event, kwargs)

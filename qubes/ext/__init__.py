@@ -45,11 +45,12 @@ class Extension(object):
 
                 if attr.ha_vm is not None:
                     for event in attr.ha_events:
-                        attr.ha_vm.add_handler(event, attr)
+                        attr.ha_vm.__handlers__[event].add(attr)
                 else:
                     # global hook
                     for event in attr.ha_events:
-                        qubes.Qubes.add_handler(event, attr)
+                        # pylint: disable=no-member
+                        qubes.Qubes.__handlers__[event].add(attr)
 
         return cls._instance
 
