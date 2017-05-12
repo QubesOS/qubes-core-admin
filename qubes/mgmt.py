@@ -179,6 +179,34 @@ class AbstractQubesMgmt(object):
             self.fire_event_for_permission(**kwargs))
 
 
+class QubesMgmtEventsDispatcher(object):
+    def __init__(self, filters, send_event):
+        self.filters = filters
+        self.send_event = send_event
+
+    def vm_handler(self, subject, event, **kwargs):
+        if event.startswith('mgmt-permission:'):
+            return
+        if not list(apply_filters([(subject, event, kwargs)],
+                self.filters)):
+            return
+        self.send_event(subject, event, **kwargs)
+
+    def app_handler(self, subject, event, **kwargs):
+        if not list(apply_filters([(subject, event, kwargs)],
+                self.filters)):
+            return
+        self.send_event(subject, event, **kwargs)
+
+    def on_domain_add(self, subject, event, vm):
+        # pylint: disable=unused-argument
+        vm.add_handler('*', self.vm_handler)
+
+    def on_domain_delete(self, subject, event, vm):
+        # pylint: disable=unused-argument
+        vm.remove_handler('*', self.vm_handler)
+
+
 class QubesMgmt(AbstractQubesMgmt):
     '''Implementation of Qubes Management API calls
 
@@ -590,19 +618,15 @@ class QubesMgmt(AbstractQubesMgmt):
         # cache event filters, to not call an event each time an event arrives
         event_filters = self.fire_event_for_permission()
 
-        def handler(subject, event, **kwargs):
-            if self.dest.name != 'dom0' and subject != self.dest:
-                return
-            if event.startswith('mgmt-permission:'):
-                return
-            if not list(apply_filters([(subject, event, kwargs)],
-                    event_filters)):
-                return
-            self.send_event(subject, event, **kwargs)
-
+        dispatcher = QubesMgmtEventsDispatcher(event_filters, self.send_event)
         if self.dest.name == 'dom0':
-            type(self.app).add_handler('*', handler)
-        qubes.vm.BaseVM.add_handler('*', handler)
+            self.app.add_handler('*', dispatcher.app_handler)
+            self.app.add_handler('domain-add', dispatcher.on_domain_add)
+            self.app.add_handler('domain-delete', dispatcher.on_domain_delete)
+            for vm in self.app.domains:
+                vm.add_handler('*', dispatcher.vm_handler)
+        else:
+            self.dest.add_handler('*', dispatcher.vm_handler)
 
         # send artificial event as a confirmation that connection is established
         self.send_event(self.app, 'connection-established')
@@ -614,8 +638,14 @@ class QubesMgmt(AbstractQubesMgmt):
             pass
 
         if self.dest.name == 'dom0':
-            type(self.app).remove_handler('*', handler)
-        qubes.vm.BaseVM.remove_handler('*', handler)
+            self.app.remove_handler('*', dispatcher.app_handler)
+            self.app.remove_handler('domain-add', dispatcher.on_domain_add)
+            self.app.remove_handler('domain-delete',
+                dispatcher.on_domain_delete)
+            for vm in self.app.domains:
+                vm.remove_handler('*', dispatcher.vm_handler)
+        else:
+            self.dest.remove_handler('*', dispatcher.vm_handler)
 
     @api('mgmt.vm.feature.List', no_payload=True)
     @asyncio.coroutine
