@@ -584,8 +584,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         # if argument is given, it needs to be a valid template, and only
         # when given VM class do need a template
         if hasattr(vm_class, 'template'):
-            assert self.arg in self.app.domains
-            kwargs['template'] = self.app.domains[self.arg]
+            if self.arg:
+                assert self.arg in self.app.domains
+                kwargs['template'] = self.app.domains[self.arg]
         else:
             assert not self.arg
 

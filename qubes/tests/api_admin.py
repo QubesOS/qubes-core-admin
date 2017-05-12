@@ -1052,19 +1052,18 @@ class TC_00_VMs(AdminAPITestCase):
         self.assertTrue(self.app.save.called)
 
     @unittest.mock.patch('qubes.storage.Storage.create')
-    def test_333_vm_create_app_missing_template(self, storage_mock):
+    def test_333_vm_create_app_default_template(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
-        with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'admin.vm.Create.AppVM',
-                b'dom0', b'', b'name=test-vm2 label=red')
+        self.call_mgmt_func(b'admin.vm.Create.AppVM',
+            b'dom0', b'', b'name=test-vm2 label=red')
 
-        self.assertNotIn('test-vm2', self.app.domains)
-        self.assertEqual(storage_mock.mock_calls, [])
-        self.assertFalse(os.path.exists(os.path.join(
-            self.test_base_dir, 'appvms', 'test-vm2')))
+        self.assertEqual(storage_mock.mock_calls,
+            [unittest.mock.call(self.app.domains['test-vm2']).create()])
 
-        self.assertNotIn('test-vm2', self.app.domains)
-        self.assertFalse(self.app.save.called)
+        self.assertIn('test-vm2', self.app.domains)
+        self.assertEqual(self.app.domains['test-vm2'].template,
+            self.app.default_template)
+        self.assertTrue(self.app.save.called)
 
     @unittest.mock.patch('qubes.storage.Storage.create')
     def test_334_vm_create_invalid_name(self, storage_mock):
