@@ -64,6 +64,7 @@ def _setter_ip(self, prop, value):
 
 
 def _setter_netvm(self, prop, value):
+    # pylint: disable=unused-argument
     if value is None:
         return
     if not value.provides_network:

@@ -25,6 +25,7 @@
 
 from __future__ import absolute_import
 
+import inspect
 import os
 import os.path
 import string  # pylint: disable=deprecated-module
@@ -394,10 +395,10 @@ class Storage(object):
                     clone_op[name] = asyncio.ensure_future(clone_op_ret)
 
             yield from asyncio.wait(x for x in clone_op.values()
-                if asyncio.isfuture(x))
+                if inspect.isawaitable(x))
 
             for name, clone_op_ret in clone_op.items():
-                if asyncio.isfuture(clone_op_ret):
+                if inspect.isawaitable(clone_op_ret):
                     volume = clone_op_ret.result
                 else:
                     volume = clone_op_ret

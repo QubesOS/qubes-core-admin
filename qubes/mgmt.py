@@ -139,8 +139,8 @@ class AbstractQubesMgmt(object):
 
             try:
                 # pylint: disable=protected-access
-                for method, endpoint in func._rpcname:
-                    if method != self.method:
+                for method_name, endpoint in func._rpcname:
+                    if method_name != self.method:
                         continue
                     untrusted_candidates.append((func, endpoint))
             except AttributeError:
