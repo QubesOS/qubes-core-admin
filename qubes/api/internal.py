@@ -39,7 +39,7 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
     # ACTUAL RPC CALLS
     #
 
-    @qubes.api.method('mgmtinternal.GetSystemInfo', no_payload=True)
+    @qubes.api.method('internal.GetSystemInfo', no_payload=True)
     @asyncio.coroutine
     def getsysteminfo(self):
         assert self.dest.name == 'dom0'
@@ -58,14 +58,14 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
 
         return json.dumps(system_info)
 
-    @qubes.api.method('mgmtinternal.vm.Start', no_payload=True)
+    @qubes.api.method('internal.vm.Start', no_payload=True)
     @asyncio.coroutine
     def start(self):
         assert not self.arg
 
         yield from self.dest.start()
 
-    @qubes.api.method('mgmtinternal.vm.Create.DispVM', no_payload=True)
+    @qubes.api.method('internal.vm.Create.DispVM', no_payload=True)
     @asyncio.coroutine
     def create_dispvm(self):
         assert not self.arg
@@ -74,7 +74,7 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         dispvm = qubes.vm.dispvm.DispVM.from_appvm(self.dest)
         return dispvm.name
 
-    @qubes.api.method('mgmtinternal.vm.CleanupDispVM', no_payload=True)
+    @qubes.api.method('internal.vm.CleanupDispVM', no_payload=True)
     @asyncio.coroutine
     def cleanup_dispvm(self):
         assert not self.arg

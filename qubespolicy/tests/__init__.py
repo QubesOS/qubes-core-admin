@@ -414,7 +414,7 @@ class TC_10_PolicyAction(qubes.tests.QubesTestCase):
             'test-vm2', rule, 'test-vm2')
         action.execute('some-ident')
         self.assertEqual(mock_qubesd_call.mock_calls,
-            [unittest.mock.call('test-vm2', 'mgmtinternal.vm.Start')])
+            [unittest.mock.call('test-vm2', 'internal.vm.Start')])
         self.assertEqual(mock_subprocess.mock_calls,
             [unittest.mock.call([qubespolicy.QREXEC_CLIENT, '-d', 'test-vm2',
              '-c', 'some-ident', 'DEFAULT:QUBESRPC test.service test-vm1'])])
@@ -427,7 +427,7 @@ class TC_10_PolicyAction(qubes.tests.QubesTestCase):
             'dom0', rule, 'dom0')
         action.execute('some-ident')
         self.assertEqual(mock_qubesd_call.mock_calls,
-            [unittest.mock.call('dom0', 'mgmtinternal.vm.Start')])
+            [unittest.mock.call('dom0', 'internal.vm.Start')])
         self.assertEqual(mock_subprocess.mock_calls,
             [unittest.mock.call([qubespolicy.QREXEC_CLIENT, '-d', 'dom0',
              '-c', 'some-ident',
@@ -441,14 +441,14 @@ class TC_10_PolicyAction(qubes.tests.QubesTestCase):
         action = qubespolicy.PolicyAction('test.service', 'test-vm1',
             '$dispvm:default-dvm', rule, '$dispvm:default-dvm')
         mock_qubesd_call.side_effect = (lambda target, call:
-            b'dispvm-name' if call == 'mgmtinternal.vm.Create.DispVM' else
+            b'dispvm-name' if call == 'internal.vm.Create.DispVM' else
             unittest.mock.DEFAULT)
         action.execute('some-ident')
         self.assertEqual(mock_qubesd_call.mock_calls,
-            [unittest.mock.call('default-dvm', 'mgmtinternal.vm.Create.DispVM'),
-             unittest.mock.call('dispvm-name', 'mgmtinternal.vm.Start'),
+            [unittest.mock.call('default-dvm', 'internal.vm.Create.DispVM'),
+             unittest.mock.call('dispvm-name', 'internal.vm.Start'),
              unittest.mock.call('dispvm-name',
-                'mgmtinternal.vm.CleanupDispVM')])
+                'internal.vm.CleanupDispVM')])
         self.assertEqual(mock_subprocess.mock_calls,
             [unittest.mock.call([qubespolicy.QREXEC_CLIENT, '-d', 'dispvm-name',
              '-c', 'some-ident', '-W',
@@ -465,7 +465,7 @@ class TC_10_PolicyAction(qubes.tests.QubesTestCase):
             qubespolicy.QubesMgmtException('QubesVMNotHaltedError')
         action.execute('some-ident')
         self.assertEqual(mock_qubesd_call.mock_calls,
-            [unittest.mock.call('test-vm2', 'mgmtinternal.vm.Start')])
+            [unittest.mock.call('test-vm2', 'internal.vm.Start')])
         self.assertEqual(mock_subprocess.mock_calls,
             [unittest.mock.call([qubespolicy.QREXEC_CLIENT, '-d', 'test-vm2',
              '-c', 'some-ident', 'DEFAULT:QUBESRPC test.service test-vm1'])])
@@ -482,7 +482,7 @@ class TC_10_PolicyAction(qubes.tests.QubesTestCase):
         with self.assertRaises(qubespolicy.QubesMgmtException):
             action.execute('some-ident')
         self.assertEqual(mock_qubesd_call.mock_calls,
-            [unittest.mock.call('test-vm2', 'mgmtinternal.vm.Start')])
+            [unittest.mock.call('test-vm2', 'internal.vm.Start')])
         self.assertEqual(mock_subprocess.mock_calls, [])
 
 @unittest.mock.patch('qubespolicy.POLICY_DIR', tmp_policy_dir)

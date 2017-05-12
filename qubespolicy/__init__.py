@@ -413,9 +413,9 @@ class PolicyAction(object):
         :return: name of new Disposable VM
         '''
         base_appvm = self.target.split(':', 1)[1]
-        dispvm_name = qubesd_call(base_appvm, 'mgmtinternal.vm.Create.DispVM')
+        dispvm_name = qubesd_call(base_appvm, 'internal.vm.Create.DispVM')
         dispvm_name = dispvm_name.decode('ascii')
-        qubesd_call(dispvm_name, 'mgmtinternal.vm.Start')
+        qubesd_call(dispvm_name, 'internal.vm.Start')
         return dispvm_name
 
     def ensure_target_running(self):
@@ -425,7 +425,7 @@ class PolicyAction(object):
         :return: None
         '''
         try:
-            qubesd_call(self.target, 'mgmtinternal.vm.Start')
+            qubesd_call(self.target, 'internal.vm.Start')
         except QubesMgmtException as e:
             if e.exc_type == 'QubesVMNotHaltedError':
                 pass
@@ -440,7 +440,7 @@ class PolicyAction(object):
         :param dispvm: name of Disposable VM
         :return: None
         '''
-        qubesd_call(dispvm, 'mgmtinternal.vm.CleanupDispVM')
+        qubesd_call(dispvm, 'internal.vm.CleanupDispVM')
 
 
 class Policy(object):
@@ -642,5 +642,5 @@ def get_system_info():
 
     '''
 
-    system_info = qubesd_call('dom0', 'mgmtinternal.GetSystemInfo')
+    system_info = qubesd_call('dom0', 'internal.GetSystemInfo')
     return json.loads(system_info.decode('utf-8'))
