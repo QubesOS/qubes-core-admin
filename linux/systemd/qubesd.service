@@ -1,0 +1,10 @@
+[Unit]
+Description=Qubes OS daemon
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/qubesd
+StandardOutput=syslog
+
+[Install]
+WantedBy=multi-user.target

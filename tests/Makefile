@@ -41,6 +41,8 @@ endif
 	cp run.py[co] $(DESTDIR)$(PYTHON_TESTSPATH)
 	cp storage.py $(DESTDIR)$(PYTHON_TESTSPATH)
 	cp storage.py[co] $(DESTDIR)$(PYTHON_TESTSPATH)
+	cp storage_file.py $(DESTDIR)$(PYTHON_TESTSPATH)
+	cp storage_file.py[co] $(DESTDIR)$(PYTHON_TESTSPATH)
 	cp storage_xen.py $(DESTDIR)$(PYTHON_TESTSPATH)
 	cp storage_xen.py[co] $(DESTDIR)$(PYTHON_TESTSPATH)
 	cp vm_qrexec_gui.py $(DESTDIR)$(PYTHON_TESTSPATH)

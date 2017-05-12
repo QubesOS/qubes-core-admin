@@ -1,1 +1,3 @@
-*.gz
+_build
+sandbox.rst
+autoxml.rst

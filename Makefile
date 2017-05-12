@@ -5,6 +5,7 @@ VERSION := $(shell cat version)
 DIST_DOM0 ?= fc18
 
 OS ?= Linux
+PYTHON ?= python3
 
 ifeq ($(OS),Linux)
 DATADIR ?= /var/lib/qubes
@@ -39,19 +40,10 @@ rpms-dom0:
 		$(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION)*.rpm \
 		$(RPMS_DIR)/noarch/qubes-core-dom0-doc-$(VERSION)*rpm
 
-clean:
-	make -C dispvm clean
-	make -C qmemman clean
-
 all:
-	make all -C core
-	make all -C core-modules
-	make all -C tests
+	$(PYTHON) setup.py build
+#	make all -C tests
 	# Currently supported only on xen
-ifeq ($(BACKEND_VMM),xen)
-	make all -C qmemman
-	make all -C dispvm
-endif
 
 install:
 ifeq ($(OS),Linux)
@@ -59,17 +51,19 @@ ifeq ($(OS),Linux)
 	$(MAKE) install -C linux/aux-tools
 	$(MAKE) install -C linux/system-config
 endif
-	$(MAKE) install -C qvm-tools
-	$(MAKE) install -C core
-	$(MAKE) install -C core-modules
-	$(MAKE) install -C tests
+	$(PYTHON) setup.py install -O1 --skip-build --root $(DESTDIR)
+	ln -s qvm-device $(DESTDIR)/usr/bin/qvm-pci
+	ln -s qvm-device $(DESTDIR)/usr/bin/qvm-usb
+#	$(MAKE) install -C tests
+	$(MAKE) install -C relaxng
+	mkdir -p $(DESTDIR)/etc/qubes
 ifeq ($(BACKEND_VMM),xen)
 	# Currently supported only on xen
-	$(MAKE) install -C qmemman
+	cp etc/qmemman.conf $(DESTDIR)/etc/qubes/
 endif
-	$(MAKE) install -C dispvm
 	mkdir -p $(DESTDIR)/etc/qubes-rpc/policy
 	mkdir -p $(DESTDIR)/usr/libexec/qubes
+	cp qubes-rpc-policy/qubes.FeaturesRequest.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.FeaturesRequest
 	cp qubes-rpc-policy/qubes.Filecopy.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.Filecopy
 	cp qubes-rpc-policy/qubes.OpenInVM.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.OpenInVM
 	cp qubes-rpc-policy/qubes.OpenURL.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.OpenURL
@@ -78,14 +72,21 @@ endif
 	cp qubes-rpc-policy/qubes.NotifyTools.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.NotifyTools
 	cp qubes-rpc-policy/qubes.GetImageRGBA.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.GetImageRGBA
 	cp qubes-rpc-policy/qubes.GetRandomizedTime.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.GetRandomizedTime
-	cp qubes-rpc/qubes.NotifyUpdates $(DESTDIR)/etc/qubes-rpc/
-	cp qubes-rpc/qubes.NotifyTools $(DESTDIR)/etc/qubes-rpc/
+	cp qubes-rpc-policy/qubes.NotifyTools.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.NotifyTools
+	cp qubes-rpc-policy/qubes.NotifyUpdates.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.NotifyUpdates
+	cp qubes-rpc-policy/qubes.OpenInVM.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.OpenInVM
+	cp qubes-rpc-policy/qubes.VMShell.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.VMShell
+	cp qubes-rpc/qubes.FeaturesRequest $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes.GetRandomizedTime $(DESTDIR)/etc/qubes-rpc/
+	cp qubes-rpc/qubes.NotifyTools $(DESTDIR)/etc/qubes-rpc/
+	cp qubes-rpc/qubes.NotifyUpdates $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes-notify-updates $(DESTDIR)/usr/libexec/qubes/
 	cp qubes-rpc/qubes-notify-tools $(DESTDIR)/usr/libexec/qubes/
+
 	mkdir -p "$(DESTDIR)$(FILESDIR)"
-	cp vm-config/$(BACKEND_VMM)-vm-template.xml "$(DESTDIR)$(FILESDIR)/vm-template.xml"
-	cp vm-config/$(BACKEND_VMM)-vm-template-hvm.xml "$(DESTDIR)$(FILESDIR)/vm-template-hvm.xml"
+	cp -r templates "$(DESTDIR)$(FILESDIR)/templates"
+	rm -f "$(DESTDIR)$(FILESDIR)/templates/README"
+
 	mkdir -p $(DESTDIR)$(DATADIR)
 	mkdir -p $(DESTDIR)$(DATADIR)/vm-templates
 	mkdir -p $(DESTDIR)$(DATADIR)/appvms

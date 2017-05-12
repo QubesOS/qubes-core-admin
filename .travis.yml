@@ -1,7 +1,29 @@
 sudo: required
 dist: trusty
-language: generic
-install: git clone https://github.com/QubesOS/qubes-builder ~/qubes-builder
-script: ~/qubes-builder/scripts/travis-build
+language: python
+python:
+  - '3.5'
+install:
+  - pip install --quiet -r ci/requirements.txt
+  - git clone https://github.com/"${TRAVIS_REPO_SLUG%%/*}"/qubes-builder ~/qubes-builder
+script:
+  - PYTHONPATH=test-packages pylint --rcfile=ci/pylintrc qubes qubespolicy
+  - ./run-tests --no-syslog
+  - ~/qubes-builder/scripts/travis-build
 env:
- - DIST_DOM0=fc23 USE_QUBES_REPO_VERSION=3.2 USE_QUBES_REPO_TESTING=1
+ - DIST_DOM0=fc25 USE_QUBES_REPO_VERSION=4.0 USE_QUBES_REPO_TESTING=1
+
+after_success:
+  - ~/qubes-builder/scripts/travis-deploy
+
+# don't build tags which are meant for code signing only
+branches:
+  except:
+    - /.*_.*/
+
+addons:
+  apt:
+    packages:
+      - debootstrap
+
+# vim: ts=2 sts=2 sw=2 et

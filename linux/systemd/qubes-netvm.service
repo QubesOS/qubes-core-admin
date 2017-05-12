@@ -9,7 +9,7 @@ Group=qubes
 Environment=DISPLAY=:0
 RemainAfterExit=yes
 KillMode=none
-ExecStart=/bin/sh -c 'NETVM=`qubes-prefs --get default-netvm`; [ -n "$NETVM" ] && qvm-start -q --no-guid $NETVM'
+ExecStart=/bin/sh -c 'NETVM=`qubes-prefs --force-root default-netvm`; [ -n "$NETVM" ] && qvm-start -q --no-guid $NETVM'
 
 [Install]
 WantedBy=multi-user.target

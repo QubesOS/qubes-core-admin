@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<grammar xmlns="http://relaxng.org/ns/structure/1.0">
+    <include href="qubes.rng">
+        <start>
+            <ref name="domain" />
+        </start>
+    </include>
+</grammar>
+
+<!--
+vim: ts=4 sw=4 et
+-->

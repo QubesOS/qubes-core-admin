@@ -1,5 +1,9 @@
 rpm/
 pkgs/
+qubes.egg-info/
+.coverage
+.coverage.*
+htmlcov/
 *.pyc
 *.pyo
 *~

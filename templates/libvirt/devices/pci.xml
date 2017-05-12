@@ -1,0 +1,14 @@
+<hostdev type="pci" managed="yes"
+{% if vm.features.get('pci-no-strict-reset/' + device.ident, False) %}
+ nostrictreset="yes"
+{% endif %}
+>
+    <source>
+        <address
+            bus="0x{{ device.bus }}"
+            slot="0x{{ device.device }}"
+            function="0x{{ device.function }}" />
+    </source>
+</hostdev>
+
+{# vim : set ft=jinja ts=4 sts=4 sw=4 et : #}

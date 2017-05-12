@@ -1,0 +1,21 @@
+#!/bin/sh
+
+CLEANUP_LVM=
+if sudo --non-interactive $(dirname "$0")/ci/lvm-manage setup-lvm vg$$/pool; then
+    export DEFAULT_LVM_POOL=vg$$/pool
+    CLEANUP_LVM=yes
+fi
+
+: "${PYTHON:=python3}"
+: "${TESTPYTHONPATH:=test-packages}"
+
+PYTHONPATH="${TESTPYTHONPATH}:${PYTHONPATH}"
+export PYTHONPATH
+
+"${PYTHON}" setup.py egg_info --egg-base "${TESTPYTHONPATH}"
+"${PYTHON}" -m coverage run --rcfile=ci/coveragerc -m qubes.tests.run "$@"
+retcode=$?
+if [ -n "$CLEANUP_LVM" ]; then
+    sudo --non-interactive $(dirname "$0")/ci/lvm-manage cleanup-lvm "$DEFAULT_LVM_POOL"
+fi
+exit $retcode
