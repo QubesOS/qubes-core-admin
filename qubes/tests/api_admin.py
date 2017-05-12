@@ -815,6 +815,7 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_220_start(self):
         func_mock = unittest.mock.Mock()
+
         @asyncio.coroutine
         def coroutine_mock(*args, **kwargs):
             return func_mock(*args, **kwargs)
@@ -825,6 +826,7 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_230_shutdown(self):
         func_mock = unittest.mock.Mock()
+
         @asyncio.coroutine
         def coroutine_mock(*args, **kwargs):
             return func_mock(*args, **kwargs)
@@ -835,6 +837,7 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_240_pause(self):
         func_mock = unittest.mock.Mock()
+
         @asyncio.coroutine
         def coroutine_mock(*args, **kwargs):
             return func_mock(*args, **kwargs)
@@ -845,6 +848,7 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_250_unpause(self):
         func_mock = unittest.mock.Mock()
+
         @asyncio.coroutine
         def coroutine_mock(*args, **kwargs):
             return func_mock(*args, **kwargs)
@@ -855,6 +859,7 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_260_kill(self):
         func_mock = unittest.mock.Mock()
+
         @asyncio.coroutine
         def coroutine_mock(*args, **kwargs):
             return func_mock(*args, **kwargs)
