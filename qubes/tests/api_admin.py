@@ -91,52 +91,52 @@ class AdminAPITestCase(qubes.tests.QubesTestCase):
 
 class TC_00_VMs(AdminAPITestCase):
     def test_000_vm_list(self):
-        value = self.call_mgmt_func(b'mgmt.vm.List', b'dom0')
+        value = self.call_mgmt_func(b'admin.vm.List', b'dom0')
         self.assertEqual(value,
             'dom0 class=AdminVM state=Running\n'
             'test-template class=TemplateVM state=Halted\n'
             'test-vm1 class=AppVM state=Halted\n')
 
     def test_001_vm_list_single(self):
-        value = self.call_mgmt_func(b'mgmt.vm.List', b'test-vm1')
+        value = self.call_mgmt_func(b'admin.vm.List', b'test-vm1')
         self.assertEqual(value,
             'test-vm1 class=AppVM state=Halted\n')
 
     def test_010_vm_property_list(self):
         # this test is kind of stupid, but at least check if appropriate
         # mgmt-permission event is fired
-        value = self.call_mgmt_func(b'mgmt.vm.property.List', b'test-vm1')
+        value = self.call_mgmt_func(b'admin.vm.property.List', b'test-vm1')
         properties = self.app.domains['test-vm1'].property_list()
         self.assertEqual(value,
             ''.join('{}\n'.format(prop.__name__) for prop in properties))
 
     def test_020_vm_property_get_str(self):
-        value = self.call_mgmt_func(b'mgmt.vm.property.Get', b'test-vm1',
+        value = self.call_mgmt_func(b'admin.vm.property.Get', b'test-vm1',
             b'name')
         self.assertEqual(value, 'default=False type=str test-vm1')
 
     def test_021_vm_property_get_int(self):
-        value = self.call_mgmt_func(b'mgmt.vm.property.Get', b'test-vm1',
+        value = self.call_mgmt_func(b'admin.vm.property.Get', b'test-vm1',
             b'vcpus')
         self.assertEqual(value, 'default=True type=int 42')
 
     def test_022_vm_property_get_bool(self):
-        value = self.call_mgmt_func(b'mgmt.vm.property.Get', b'test-vm1',
+        value = self.call_mgmt_func(b'admin.vm.property.Get', b'test-vm1',
             b'provides_network')
         self.assertEqual(value, 'default=True type=bool False')
 
     def test_023_vm_property_get_label(self):
-        value = self.call_mgmt_func(b'mgmt.vm.property.Get', b'test-vm1',
+        value = self.call_mgmt_func(b'admin.vm.property.Get', b'test-vm1',
             b'label')
         self.assertEqual(value, 'default=False type=label red')
 
     def test_024_vm_property_get_vm(self):
-        value = self.call_mgmt_func(b'mgmt.vm.property.Get', b'test-vm1',
+        value = self.call_mgmt_func(b'admin.vm.property.Get', b'test-vm1',
             b'template')
         self.assertEqual(value, 'default=False type=vm test-template')
 
     def test_025_vm_property_get_vm_none(self):
-        value = self.call_mgmt_func(b'mgmt.vm.property.Get', b'test-vm1',
+        value = self.call_mgmt_func(b'admin.vm.property.Get', b'test-vm1',
             b'netvm')
         self.assertEqual(value, 'default=True type=vm ')
 
@@ -145,7 +145,7 @@ class TC_00_VMs(AdminAPITestCase):
             template='test-template', provides_network=True)
 
         with unittest.mock.patch('qubes.vm.VMProperty.__set__') as mock:
-            value = self.call_mgmt_func(b'mgmt.vm.property.Set', b'test-vm1',
+            value = self.call_mgmt_func(b'admin.vm.property.Set', b'test-vm1',
                 b'netvm', b'test-net')
             self.assertIsNone(value)
             mock.assert_called_once_with(self.vm, 'test-net')
@@ -154,7 +154,7 @@ class TC_00_VMs(AdminAPITestCase):
     def test_032_vm_property_set_vm_invalid1(self):
         with unittest.mock.patch('qubes.vm.VMProperty.__set__') as mock:
             with self.assertRaises(qubes.exc.QubesValueError):
-                self.call_mgmt_func(b'mgmt.vm.property.Set', b'test-vm1',
+                self.call_mgmt_func(b'admin.vm.property.Set', b'test-vm1',
                     b'netvm', b'forbidden-chars/../!')
             self.assertFalse(mock.called)
         self.assertFalse(self.app.save.called)
@@ -162,14 +162,14 @@ class TC_00_VMs(AdminAPITestCase):
     def test_033_vm_property_set_vm_invalid2(self):
         with unittest.mock.patch('qubes.vm.VMProperty.__set__') as mock:
             with self.assertRaises(qubes.exc.QubesValueError):
-                self.call_mgmt_func(b'mgmt.vm.property.Set', b'test-vm1',
+                self.call_mgmt_func(b'admin.vm.property.Set', b'test-vm1',
                     b'netvm', b'\x80\x90\xa0')
             self.assertFalse(mock.called)
         self.assertFalse(self.app.save.called)
 
     def test_034_vm_propert_set_bool_true(self):
         with unittest.mock.patch('qubes.property.__set__') as mock:
-            value = self.call_mgmt_func(b'mgmt.vm.property.Set', b'test-vm1',
+            value = self.call_mgmt_func(b'admin.vm.property.Set', b'test-vm1',
                 b'autostart', b'True')
             self.assertIsNone(value)
             mock.assert_called_once_with(self.vm, True)
@@ -177,7 +177,7 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_035_vm_propert_set_bool_false(self):
         with unittest.mock.patch('qubes.property.__set__') as mock:
-            value = self.call_mgmt_func(b'mgmt.vm.property.Set', b'test-vm1',
+            value = self.call_mgmt_func(b'admin.vm.property.Set', b'test-vm1',
                 b'autostart', b'False')
             self.assertIsNone(value)
             mock.assert_called_once_with(self.vm, False)
@@ -186,7 +186,7 @@ class TC_00_VMs(AdminAPITestCase):
     def test_036_vm_propert_set_bool_invalid1(self):
         with unittest.mock.patch('qubes.property.__set__') as mock:
             with self.assertRaises(qubes.exc.QubesValueError):
-                self.call_mgmt_func(b'mgmt.vm.property.Set', b'test-vm1',
+                self.call_mgmt_func(b'admin.vm.property.Set', b'test-vm1',
                     b'autostart', b'some string')
             self.assertFalse(mock.called)
         self.assertFalse(self.app.save.called)
@@ -194,14 +194,14 @@ class TC_00_VMs(AdminAPITestCase):
     def test_037_vm_propert_set_bool_invalid2(self):
         with unittest.mock.patch('qubes.property.__set__') as mock:
             with self.assertRaises(qubes.exc.QubesValueError):
-                self.call_mgmt_func(b'mgmt.vm.property.Set', b'test-vm1',
+                self.call_mgmt_func(b'admin.vm.property.Set', b'test-vm1',
                     b'autostart', b'\x80\x90@#$%^&*(')
             self.assertFalse(mock.called)
         self.assertFalse(self.app.save.called)
 
     def test_038_vm_propert_set_str(self):
         with unittest.mock.patch('qubes.property.__set__') as mock:
-            value = self.call_mgmt_func(b'mgmt.vm.property.Set', b'test-vm1',
+            value = self.call_mgmt_func(b'admin.vm.property.Set', b'test-vm1',
                 b'kernel', b'1.0')
             self.assertIsNone(value)
             mock.assert_called_once_with(self.vm, '1.0')
@@ -210,14 +210,14 @@ class TC_00_VMs(AdminAPITestCase):
     def test_039_vm_propert_set_str_invalid1(self):
         with unittest.mock.patch('qubes.property.__set__') as mock:
             with self.assertRaises(qubes.exc.QubesValueError):
-                self.call_mgmt_func(b'mgmt.vm.property.Set', b'test-vm1',
+                self.call_mgmt_func(b'admin.vm.property.Set', b'test-vm1',
                     b'kernel', b'some, non-ASCII: \x80\xd2')
             self.assertFalse(mock.called)
         self.assertFalse(self.app.save.called)
 
     def test_040_vm_propert_set_int(self):
         with unittest.mock.patch('qubes.property.__set__') as mock:
-            value = self.call_mgmt_func(b'mgmt.vm.property.Set', b'test-vm1',
+            value = self.call_mgmt_func(b'admin.vm.property.Set', b'test-vm1',
                 b'maxmem', b'1024000')
             self.assertIsNone(value)
             mock.assert_called_once_with(self.vm, 1024000)
@@ -226,14 +226,14 @@ class TC_00_VMs(AdminAPITestCase):
     def test_041_vm_propert_set_int_invalid1(self):
         with unittest.mock.patch('qubes.property.__set__') as mock:
             with self.assertRaises(qubes.exc.QubesValueError):
-                self.call_mgmt_func(b'mgmt.vm.property.Set', b'test-vm1',
+                self.call_mgmt_func(b'admin.vm.property.Set', b'test-vm1',
                     b'maxmem', b'fourty two')
             self.assertFalse(mock.called)
         self.assertFalse(self.app.save.called)
 
     def test_042_vm_propert_set_label(self):
         with unittest.mock.patch('qubes.property.__set__') as mock:
-            value = self.call_mgmt_func(b'mgmt.vm.property.Set', b'test-vm1',
+            value = self.call_mgmt_func(b'admin.vm.property.Set', b'test-vm1',
                 b'label', b'green')
             self.assertIsNone(value)
             mock.assert_called_once_with(self.vm, 'green')
@@ -242,7 +242,7 @@ class TC_00_VMs(AdminAPITestCase):
     def test_043_vm_propert_set_label_invalid1(self):
         with unittest.mock.patch('qubes.property.__set__') as mock:
             with self.assertRaises(qubes.exc.QubesValueError):
-                self.call_mgmt_func(b'mgmt.vm.property.Set', b'test-vm1',
+                self.call_mgmt_func(b'admin.vm.property.Set', b'test-vm1',
                     b'maxmem', b'some, non-ASCII: \x80\xd2')
             self.assertFalse(mock.called)
         self.assertFalse(self.app.save.called)
@@ -251,13 +251,13 @@ class TC_00_VMs(AdminAPITestCase):
     def test_044_vm_propert_set_label_invalid2(self):
         with unittest.mock.patch('qubes.property.__set__') as mock:
             with self.assertRaises(qubes.exc.QubesValueError):
-                self.call_mgmt_func(b'mgmt.vm.property.Set', b'test-vm1',
+                self.call_mgmt_func(b'admin.vm.property.Set', b'test-vm1',
                     b'maxmem', b'non-existing-color')
             self.assertFalse(mock.called)
         self.assertFalse(self.app.save.called)
 
     def test_050_vm_property_help(self):
-        value = self.call_mgmt_func(b'mgmt.vm.property.Help', b'test-vm1',
+        value = self.call_mgmt_func(b'admin.vm.property.Help', b'test-vm1',
             b'label')
         self.assertEqual(value,
             'Colourful label assigned to VM. This is where the colour of the '
@@ -266,14 +266,14 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_052_vm_property_help_invalid_property(self):
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.vm.property.Help', b'test-vm1',
+            self.call_mgmt_func(b'admin.vm.property.Help', b'test-vm1',
                 b'no-such-property')
 
         self.assertFalse(self.app.save.called)
 
     def test_060_vm_property_reset(self):
         with unittest.mock.patch('qubes.property.__delete__') as mock:
-            value = self.call_mgmt_func(b'mgmt.vm.property.Reset', b'test-vm1',
+            value = self.call_mgmt_func(b'admin.vm.property.Reset', b'test-vm1',
                 b'default_user')
             mock.assert_called_with(self.vm)
         self.assertIsNone(value)
@@ -282,7 +282,7 @@ class TC_00_VMs(AdminAPITestCase):
     def test_062_vm_property_reset_invalid_property(self):
         with unittest.mock.patch('qubes.property.__delete__') as mock:
             with self.assertRaises(AssertionError):
-                self.call_mgmt_func(b'mgmt.vm.property.Help', b'test-vm1',
+                self.call_mgmt_func(b'admin.vm.property.Help', b'test-vm1',
                     b'no-such-property')
             self.assertFalse(mock.called)
         self.assertFalse(self.app.save.called)
@@ -293,7 +293,7 @@ class TC_00_VMs(AdminAPITestCase):
             'keys.return_value': ['root', 'private', 'volatile', 'kernel']
         }
         self.vm.volumes.configure_mock(**volumes_conf)
-        value = self.call_mgmt_func(b'mgmt.vm.volume.List', b'test-vm1')
+        value = self.call_mgmt_func(b'admin.vm.volume.List', b'test-vm1')
         self.assertEqual(value, 'root\nprivate\nvolatile\nkernel\n')
         # check if _only_ keys were accessed
         self.assertEqual(self.vm.volumes.mock_calls,
@@ -308,7 +308,7 @@ class TC_00_VMs(AdminAPITestCase):
             volumes_conf[
                 '__getitem__.return_value.{}'.format(prop)] = prop +'-value'
         self.vm.volumes.configure_mock(**volumes_conf)
-        value = self.call_mgmt_func(b'mgmt.vm.volume.Info', b'test-vm1',
+        value = self.call_mgmt_func(b'admin.vm.volume.Info', b'test-vm1',
             b'private')
         self.assertEqual(value,
             ''.join('{p}={p}-value\n'.format(p=p) for p in volume_properties))
@@ -323,7 +323,7 @@ class TC_00_VMs(AdminAPITestCase):
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.vm.volume.Info', b'test-vm1',
+            self.call_mgmt_func(b'admin.vm.volume.Info', b'test-vm1',
                 b'no-such-volume')
         self.assertEqual(self.vm.volumes.mock_calls,
             [unittest.mock.call.keys()])
@@ -335,7 +335,7 @@ class TC_00_VMs(AdminAPITestCase):
             '__getitem__.return_value.revisions': ['rev1', 'rev2'],
         }
         self.vm.volumes.configure_mock(**volumes_conf)
-        value = self.call_mgmt_func(b'mgmt.vm.volume.ListSnapshots',
+        value = self.call_mgmt_func(b'admin.vm.volume.ListSnapshots',
             b'test-vm1', b'private')
         self.assertEqual(value,
             'rev1\nrev2\n')
@@ -350,7 +350,7 @@ class TC_00_VMs(AdminAPITestCase):
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.vm.volume.ListSnapshots', b'test-vm1',
+            self.call_mgmt_func(b'admin.vm.volume.ListSnapshots', b'test-vm1',
                 b'no-such-volume')
         self.assertEqual(self.vm.volumes.mock_calls,
             [unittest.mock.call.keys()])
@@ -368,7 +368,7 @@ class TC_00_VMs(AdminAPITestCase):
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.vm.volume.Snapshots',
+            self.call_mgmt_func(b'admin.vm.volume.Snapshots',
                 b'test-vm1', b'no-such-volume')
         self.assertEqual(self.vm.volumes.mock_calls,
             [unittest.mock.call.keys()])
@@ -381,7 +381,7 @@ class TC_00_VMs(AdminAPITestCase):
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.vm.volume.Snapshots',
+            self.call_mgmt_func(b'admin.vm.volume.Snapshots',
                 b'test-vm1', b'private', b'no-such-rev')
         self.assertEqual(self.vm.volumes.mock_calls,
             [unittest.mock.call.keys(),
@@ -395,7 +395,7 @@ class TC_00_VMs(AdminAPITestCase):
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
-        value = self.call_mgmt_func(b'mgmt.vm.volume.Revert',
+        value = self.call_mgmt_func(b'admin.vm.volume.Revert',
             b'test-vm1', b'private', b'rev1')
         self.assertIsNone(value)
         self.assertEqual(self.vm.volumes.mock_calls,
@@ -414,7 +414,7 @@ class TC_00_VMs(AdminAPITestCase):
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.vm.volume.Revert',
+            self.call_mgmt_func(b'admin.vm.volume.Revert',
                 b'test-vm1', b'private', b'no-such-rev')
         self.assertEqual(self.vm.volumes.mock_calls,
             [unittest.mock.call.keys(),
@@ -428,7 +428,7 @@ class TC_00_VMs(AdminAPITestCase):
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
-        value = self.call_mgmt_func(b'mgmt.vm.volume.Resize',
+        value = self.call_mgmt_func(b'admin.vm.volume.Resize',
             b'test-vm1', b'private', b'1024000000')
         self.assertIsNone(value)
         self.assertEqual(self.vm.volumes.mock_calls,
@@ -444,7 +444,7 @@ class TC_00_VMs(AdminAPITestCase):
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.vm.volume.Resize',
+            self.call_mgmt_func(b'admin.vm.volume.Resize',
                 b'test-vm1', b'private', b'no-int-size')
         self.assertEqual(self.vm.volumes.mock_calls,
             [unittest.mock.call.keys()])
@@ -458,7 +458,7 @@ class TC_00_VMs(AdminAPITestCase):
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.vm.volume.Resize',
+            self.call_mgmt_func(b'admin.vm.volume.Resize',
                 b'test-vm1', b'private', b'-1')
         self.assertEqual(self.vm.volumes.mock_calls,
             [unittest.mock.call.keys()])
@@ -466,7 +466,7 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_130_pool_list(self):
         self.app.pools = ['file', 'lvm']
-        value = self.call_mgmt_func(b'mgmt.pool.List', b'dom0')
+        value = self.call_mgmt_func(b'admin.pool.List', b'dom0')
         self.assertEqual(value, 'file\nlvm\n')
         self.assertFalse(self.app.save.called)
 
@@ -482,7 +482,7 @@ class TC_00_VMs(AdminAPITestCase):
                 'driver2': ['param3', 'param4']
             }[driver]
 
-        value = self.call_mgmt_func(b'mgmt.pool.ListDrivers', b'dom0')
+        value = self.call_mgmt_func(b'admin.pool.ListDrivers', b'dom0')
         self.assertEqual(value,
             'driver1 param1 param2\ndriver2 param3 param4\n')
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
@@ -495,7 +495,7 @@ class TC_00_VMs(AdminAPITestCase):
             'pool1': unittest.mock.Mock(config={
                 'param1': 'value1', 'param2': 'value2'})
         }
-        value = self.call_mgmt_func(b'mgmt.pool.Info', b'dom0', b'pool1')
+        value = self.call_mgmt_func(b'admin.pool.Info', b'dom0', b'pool1')
 
         self.assertEqual(value, 'param1=value1\nparam2=value2\n')
         self.assertFalse(self.app.save.called)
@@ -517,7 +517,7 @@ class TC_00_VMs(AdminAPITestCase):
 
         self.app.add_pool = unittest.mock.Mock()
 
-        value = self.call_mgmt_func(b'mgmt.pool.Add', b'dom0', b'driver1',
+        value = self.call_mgmt_func(b'admin.pool.Add', b'dom0', b'driver1',
             b'name=test-pool\nparam1=some-value\n')
         self.assertIsNone(value)
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
@@ -546,7 +546,7 @@ class TC_00_VMs(AdminAPITestCase):
         self.app.add_pool = unittest.mock.Mock()
 
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.pool.Add', b'dom0',
+            self.call_mgmt_func(b'admin.pool.Add', b'dom0',
                 b'no-such-driver', b'name=test-pool\nparam1=some-value\n')
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
         self.assertEqual(mock_parameters.mock_calls, [])
@@ -572,7 +572,7 @@ class TC_00_VMs(AdminAPITestCase):
         self.app.add_pool = unittest.mock.Mock()
 
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.pool.Add', b'dom0',
+            self.call_mgmt_func(b'admin.pool.Add', b'dom0',
                 b'driver1', b'name=test-pool\nparam3=some-value\n')
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
         self.assertEqual(mock_parameters.mock_calls,
@@ -598,7 +598,7 @@ class TC_00_VMs(AdminAPITestCase):
         self.app.add_pool = unittest.mock.Mock()
 
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.pool.Add', b'dom0',
+            self.call_mgmt_func(b'admin.pool.Add', b'dom0',
                 b'driver1', b'param1=value\nparam2=some-value\n')
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
         self.assertEqual(mock_parameters.mock_calls, [])
@@ -623,7 +623,7 @@ class TC_00_VMs(AdminAPITestCase):
         self.app.add_pool = unittest.mock.Mock()
 
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.pool.Add', b'dom0',
+            self.call_mgmt_func(b'admin.pool.Add', b'dom0',
                 b'driver1', b'name=file\nparam1=value\nparam2=some-value\n')
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
         self.assertEqual(mock_parameters.mock_calls, [])
@@ -649,7 +649,7 @@ class TC_00_VMs(AdminAPITestCase):
         self.app.add_pool = unittest.mock.Mock()
 
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.pool.Add', b'dom0',
+            self.call_mgmt_func(b'admin.pool.Add', b'dom0',
                 b'driver1', b'name=test-pool\nparam 1=value\n_param2\n')
         self.assertEqual(mock_drivers.mock_calls, [unittest.mock.call()])
         self.assertEqual(mock_parameters.mock_calls, [])
@@ -663,7 +663,7 @@ class TC_00_VMs(AdminAPITestCase):
             'test-pool': unittest.mock.Mock(),
         }
         self.app.remove_pool = unittest.mock.Mock()
-        value = self.call_mgmt_func(b'mgmt.pool.Remove', b'dom0', b'test-pool')
+        value = self.call_mgmt_func(b'admin.pool.Remove', b'dom0', b'test-pool')
         self.assertIsNone(value)
         self.assertEqual(self.app.remove_pool.mock_calls,
             [unittest.mock.call('test-pool')])
@@ -677,13 +677,13 @@ class TC_00_VMs(AdminAPITestCase):
         }
         self.app.remove_pool = unittest.mock.Mock()
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.pool.Remove', b'dom0',
+            self.call_mgmt_func(b'admin.pool.Remove', b'dom0',
                 b'no-such-pool')
         self.assertEqual(self.app.remove_pool.mock_calls, [])
         self.assertFalse(self.app.save.called)
 
     def test_180_label_list(self):
-        value = self.call_mgmt_func(b'mgmt.label.List', b'dom0')
+        value = self.call_mgmt_func(b'admin.label.List', b'dom0')
         self.assertEqual(value,
             ''.join('{}\n'.format(l.name) for l in self.app.labels.values()))
         self.assertFalse(self.app.save.called)
@@ -691,7 +691,7 @@ class TC_00_VMs(AdminAPITestCase):
     def test_190_label_get(self):
         self.app.get_label = unittest.mock.Mock()
         self.app.get_label.configure_mock(**{'return_value.color': '0xff0000'})
-        value = self.call_mgmt_func(b'mgmt.label.Get', b'dom0', b'red')
+        value = self.call_mgmt_func(b'admin.label.Get', b'dom0', b'red')
         self.assertEqual(value, '0xff0000')
         self.assertEqual(self.app.get_label.mock_calls,
             [unittest.mock.call('red')])
@@ -700,7 +700,7 @@ class TC_00_VMs(AdminAPITestCase):
     def test_195_label_index(self):
         self.app.get_label = unittest.mock.Mock()
         self.app.get_label.configure_mock(**{'return_value.index': 1})
-        value = self.call_mgmt_func(b'mgmt.label.Index', b'dom0', b'red')
+        value = self.call_mgmt_func(b'admin.label.Index', b'dom0', b'red')
         self.assertEqual(value, '1')
         self.assertEqual(self.app.get_label.mock_calls,
             [unittest.mock.call('red')])
@@ -714,7 +714,7 @@ class TC_00_VMs(AdminAPITestCase):
             'keys.return_value': range(1, 9),
         }
         self.app.labels.configure_mock(**labels_config)
-        value = self.call_mgmt_func(b'mgmt.label.Create', b'dom0', b'cyan',
+        value = self.call_mgmt_func(b'admin.label.Create', b'dom0', b'cyan',
             b'0x00ffff')
         self.assertIsNone(value)
         self.assertEqual(self.app.get_label.mock_calls,
@@ -734,7 +734,7 @@ class TC_00_VMs(AdminAPITestCase):
         }
         self.app.labels.configure_mock(**labels_config)
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.label.Create', b'dom0', b'cyan',
+            self.call_mgmt_func(b'admin.label.Create', b'dom0', b'cyan',
                 b'abcd')
         self.assertEqual(self.app.get_label.mock_calls,
             [unittest.mock.call('cyan')])
@@ -750,13 +750,13 @@ class TC_00_VMs(AdminAPITestCase):
         }
         self.app.labels.configure_mock(**labels_config)
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.label.Create', b'dom0', b'01',
+            self.call_mgmt_func(b'admin.label.Create', b'dom0', b'01',
                 b'0xff0000')
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.label.Create', b'dom0', b'../xxx',
+            self.call_mgmt_func(b'admin.label.Create', b'dom0', b'../xxx',
                 b'0xff0000')
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.label.Create', b'dom0',
+            self.call_mgmt_func(b'admin.label.Create', b'dom0',
                 b'strange-name!@#$',
                 b'0xff0000')
 
@@ -767,7 +767,7 @@ class TC_00_VMs(AdminAPITestCase):
     def test_200_label_create_already_exists(self):
         self.app.get_label = unittest.mock.Mock(wraps=self.app.get_label)
         with self.assertRaises(qubes.exc.QubesValueError):
-            self.call_mgmt_func(b'mgmt.label.Create', b'dom0', b'red',
+            self.call_mgmt_func(b'admin.label.Create', b'dom0', b'red',
                 b'abcd')
         self.assertEqual(self.app.get_label.mock_calls,
             [unittest.mock.call('red')])
@@ -779,7 +779,7 @@ class TC_00_VMs(AdminAPITestCase):
         self.app.get_label = unittest.mock.Mock(wraps=self.app.get_label,
             **{'return_value.index': 9})
         self.app.labels = unittest.mock.MagicMock(wraps=self.app.labels)
-        value = self.call_mgmt_func(b'mgmt.label.Remove', b'dom0', b'cyan')
+        value = self.call_mgmt_func(b'admin.label.Remove', b'dom0', b'cyan')
         self.assertIsNone(value)
         self.assertEqual(self.app.get_label.mock_calls,
             [unittest.mock.call('cyan')])
@@ -789,7 +789,7 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_210_label_remove_invalid_label(self):
         with self.assertRaises(qubes.exc.QubesValueError):
-            self.call_mgmt_func(b'mgmt.label.Remove', b'dom0',
+            self.call_mgmt_func(b'admin.label.Remove', b'dom0',
                 b'no-such-label')
         self.assertFalse(self.app.save.called)
 
@@ -798,7 +798,7 @@ class TC_00_VMs(AdminAPITestCase):
         self.app.get_label = unittest.mock.Mock(wraps=self.app.get_label,
             **{'return_value.index': 6})
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.label.Remove', b'dom0',
+            self.call_mgmt_func(b'admin.label.Remove', b'dom0',
                 b'blue')
         self.assertEqual(self.app.labels.mock_calls, [])
         self.assertFalse(self.app.save.called)
@@ -808,7 +808,7 @@ class TC_00_VMs(AdminAPITestCase):
         self.app.get_label = unittest.mock.Mock(wraps=self.app.get_label,
             **{'return_value.index': 1})
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.label.Remove', b'dom0',
+            self.call_mgmt_func(b'admin.label.Remove', b'dom0',
                 b'red')
         self.assertEqual(self.app.labels.mock_calls, [])
         self.assertFalse(self.app.save.called)
@@ -819,7 +819,7 @@ class TC_00_VMs(AdminAPITestCase):
         def coroutine_mock(*args, **kwargs):
             return func_mock(*args, **kwargs)
         self.vm.start = coroutine_mock
-        value = self.call_mgmt_func(b'mgmt.vm.Start', b'test-vm1')
+        value = self.call_mgmt_func(b'admin.vm.Start', b'test-vm1')
         self.assertIsNone(value)
         func_mock.assert_called_once_with()
 
@@ -829,7 +829,7 @@ class TC_00_VMs(AdminAPITestCase):
         def coroutine_mock(*args, **kwargs):
             return func_mock(*args, **kwargs)
         self.vm.shutdown = coroutine_mock
-        value = self.call_mgmt_func(b'mgmt.vm.Shutdown', b'test-vm1')
+        value = self.call_mgmt_func(b'admin.vm.Shutdown', b'test-vm1')
         self.assertIsNone(value)
         func_mock.assert_called_once_with()
 
@@ -839,7 +839,7 @@ class TC_00_VMs(AdminAPITestCase):
         def coroutine_mock(*args, **kwargs):
             return func_mock(*args, **kwargs)
         self.vm.pause = coroutine_mock
-        value = self.call_mgmt_func(b'mgmt.vm.Pause', b'test-vm1')
+        value = self.call_mgmt_func(b'admin.vm.Pause', b'test-vm1')
         self.assertIsNone(value)
         func_mock.assert_called_once_with()
 
@@ -849,7 +849,7 @@ class TC_00_VMs(AdminAPITestCase):
         def coroutine_mock(*args, **kwargs):
             return func_mock(*args, **kwargs)
         self.vm.unpause = coroutine_mock
-        value = self.call_mgmt_func(b'mgmt.vm.Unpause', b'test-vm1')
+        value = self.call_mgmt_func(b'admin.vm.Unpause', b'test-vm1')
         self.assertIsNone(value)
         func_mock.assert_called_once_with()
 
@@ -859,13 +859,13 @@ class TC_00_VMs(AdminAPITestCase):
         def coroutine_mock(*args, **kwargs):
             return func_mock(*args, **kwargs)
         self.vm.kill = coroutine_mock
-        value = self.call_mgmt_func(b'mgmt.vm.Kill', b'test-vm1')
+        value = self.call_mgmt_func(b'admin.vm.Kill', b'test-vm1')
         self.assertIsNone(value)
         func_mock.assert_called_once_with()
 
     def test_270_events(self):
         send_event = unittest.mock.Mock(spec=[])
-        mgmt_obj = qubes.api.admin.QubesAdminAPI(self.app, b'dom0', b'mgmt.Events',
+        mgmt_obj = qubes.api.admin.QubesAdminAPI(self.app, b'dom0', b'admin.Events',
             b'dom0', b'', send_event=send_event)
 
         @asyncio.coroutine
@@ -880,7 +880,7 @@ class TC_00_VMs(AdminAPITestCase):
         loop.run_until_complete(execute_task)
         self.assertIsNone(execute_task.result())
         self.assertEventFired(self.emitter,
-            'mgmt-permission:' + 'mgmt.Events')
+            'mgmt-permission:' + 'admin.Events')
         self.assertEqual(send_event.mock_calls,
             [
                 unittest.mock.call(self.app, 'connection-established'),
@@ -889,26 +889,26 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_280_feature_list(self):
         self.vm.features['test-feature'] = 'some-value'
-        value = self.call_mgmt_func(b'mgmt.vm.feature.List', b'test-vm1')
+        value = self.call_mgmt_func(b'admin.vm.feature.List', b'test-vm1')
         self.assertEqual(value, 'test-feature\n')
         self.assertFalse(self.app.save.called)
 
     def test_290_feature_get(self):
         self.vm.features['test-feature'] = 'some-value'
-        value = self.call_mgmt_func(b'mgmt.vm.feature.Get', b'test-vm1',
+        value = self.call_mgmt_func(b'admin.vm.feature.Get', b'test-vm1',
             b'test-feature')
         self.assertEqual(value, 'some-value')
         self.assertFalse(self.app.save.called)
 
     def test_291_feature_get_none(self):
         with self.assertRaises(qubes.exc.QubesFeatureNotFoundError):
-            self.call_mgmt_func(b'mgmt.vm.feature.Get',
+            self.call_mgmt_func(b'admin.vm.feature.Get',
                 b'test-vm1', b'test-feature')
         self.assertFalse(self.app.save.called)
 
     def test_300_feature_remove(self):
         self.vm.features['test-feature'] = 'some-value'
-        value = self.call_mgmt_func(b'mgmt.vm.feature.Remove', b'test-vm1',
+        value = self.call_mgmt_func(b'admin.vm.feature.Remove', b'test-vm1',
             b'test-feature')
         self.assertIsNone(value, None)
         self.assertNotIn('test-feature', self.vm.features)
@@ -916,39 +916,39 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_301_feature_remove_none(self):
         with self.assertRaises(qubes.exc.QubesFeatureNotFoundError):
-            self.call_mgmt_func(b'mgmt.vm.feature.Remove',
+            self.call_mgmt_func(b'admin.vm.feature.Remove',
                 b'test-vm1', b'test-feature')
         self.assertFalse(self.app.save.called)
 
     def test_310_feature_checkwithtemplate(self):
         self.vm.features['test-feature'] = 'some-value'
-        value = self.call_mgmt_func(b'mgmt.vm.feature.CheckWithTemplate',
+        value = self.call_mgmt_func(b'admin.vm.feature.CheckWithTemplate',
             b'test-vm1', b'test-feature')
         self.assertEqual(value, 'some-value')
         self.assertFalse(self.app.save.called)
 
     def test_311_feature_checkwithtemplate_tpl(self):
         self.template.features['test-feature'] = 'some-value'
-        value = self.call_mgmt_func(b'mgmt.vm.feature.CheckWithTemplate',
+        value = self.call_mgmt_func(b'admin.vm.feature.CheckWithTemplate',
             b'test-vm1', b'test-feature')
         self.assertEqual(value, 'some-value')
         self.assertFalse(self.app.save.called)
 
     def test_312_feature_checkwithtemplate_none(self):
         with self.assertRaises(qubes.exc.QubesFeatureNotFoundError):
-            self.call_mgmt_func(b'mgmt.vm.feature.CheckWithTemplate',
+            self.call_mgmt_func(b'admin.vm.feature.CheckWithTemplate',
                 b'test-vm1', b'test-feature')
         self.assertFalse(self.app.save.called)
 
     def test_320_feature_set(self):
-        value = self.call_mgmt_func(b'mgmt.vm.feature.Set',
+        value = self.call_mgmt_func(b'admin.vm.feature.Set',
             b'test-vm1', b'test-feature', b'some-value')
         self.assertIsNone(value)
         self.assertEqual(self.vm.features['test-feature'], 'some-value')
         self.assertTrue(self.app.save.called)
 
     def test_321_feature_set_empty(self):
-        value = self.call_mgmt_func(b'mgmt.vm.feature.Set',
+        value = self.call_mgmt_func(b'admin.vm.feature.Set',
             b'test-vm1', b'test-feature', b'')
         self.assertIsNone(value)
         self.assertEqual(self.vm.features['test-feature'], '')
@@ -956,7 +956,7 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_320_feature_set_invalid(self):
         with self.assertRaises(UnicodeDecodeError):
-            self.call_mgmt_func(b'mgmt.vm.feature.Set',
+            self.call_mgmt_func(b'admin.vm.feature.Set',
                 b'test-vm1', b'test-feature', b'\x02\x03\xffsome-value')
         self.assertNotIn('test-feature', self.vm.features)
         self.assertFalse(self.app.save.called)
@@ -968,7 +968,7 @@ class TC_00_VMs(AdminAPITestCase):
     @unittest.mock.patch('qubes.storage.Storage.create')
     def test_330_vm_create_standalone(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
-        self.call_mgmt_func(b'mgmt.vm.Create.StandaloneVM',
+        self.call_mgmt_func(b'admin.vm.Create.StandaloneVM',
             b'dom0', b'', b'name=test-vm2 label=red')
 
         self.assertIn('test-vm2', self.app.domains)
@@ -986,7 +986,7 @@ class TC_00_VMs(AdminAPITestCase):
     def test_331_vm_create_standalone_spurious_template(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.vm.Create.StandaloneVM',
+            self.call_mgmt_func(b'admin.vm.Create.StandaloneVM',
                 b'dom0', b'test-template', b'name=test-vm2 label=red')
 
         self.assertNotIn('test-vm2', self.app.domains)
@@ -1000,7 +1000,7 @@ class TC_00_VMs(AdminAPITestCase):
     @unittest.mock.patch('qubes.storage.Storage.create')
     def test_332_vm_create_app(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
-        self.call_mgmt_func(b'mgmt.vm.Create.AppVM',
+        self.call_mgmt_func(b'admin.vm.Create.AppVM',
             b'dom0', b'test-template', b'name=test-vm2 label=red')
 
         self.assertIn('test-vm2', self.app.domains)
@@ -1018,7 +1018,7 @@ class TC_00_VMs(AdminAPITestCase):
     def test_333_vm_create_app_missing_template(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.vm.Create.AppVM',
+            self.call_mgmt_func(b'admin.vm.Create.AppVM',
                 b'dom0', b'', b'name=test-vm2 label=red')
 
         self.assertNotIn('test-vm2', self.app.domains)
@@ -1033,7 +1033,7 @@ class TC_00_VMs(AdminAPITestCase):
     def test_334_vm_create_invalid_name(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
         with self.assertRaises(qubes.exc.QubesValueError):
-            self.call_mgmt_func(b'mgmt.vm.Create.AppVM',
+            self.call_mgmt_func(b'admin.vm.Create.AppVM',
                 b'dom0', b'test-template', b'name=test-###')
 
         self.assertNotIn('test-###', self.app.domains)
@@ -1043,7 +1043,7 @@ class TC_00_VMs(AdminAPITestCase):
     def test_335_vm_create_missing_name(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.vm.Create.AppVM',
+            self.call_mgmt_func(b'admin.vm.Create.AppVM',
                 b'dom0', b'test-template', b'label=red')
 
         self.assertFalse(self.app.save.called)
@@ -1052,7 +1052,7 @@ class TC_00_VMs(AdminAPITestCase):
     def test_336_vm_create_spurious_pool(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.vm.Create.AppVM',
+            self.call_mgmt_func(b'admin.vm.Create.AppVM',
                 b'dom0', b'test-template',
                 b'name=test-vm2 label=red pool=default')
 
@@ -1063,7 +1063,7 @@ class TC_00_VMs(AdminAPITestCase):
     def test_337_vm_create_duplicate_name(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
         with self.assertRaises(qubes.exc.QubesException):
-            self.call_mgmt_func(b'mgmt.vm.Create.AppVM',
+            self.call_mgmt_func(b'admin.vm.Create.AppVM',
                 b'dom0', b'test-template',
                 b'name=test-vm1 label=red')
 
@@ -1073,7 +1073,7 @@ class TC_00_VMs(AdminAPITestCase):
     def test_338_vm_create_name_twice(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.vm.Create.AppVM',
+            self.call_mgmt_func(b'admin.vm.Create.AppVM',
                 b'dom0', b'test-template',
                 b'name=test-vm2 name=test-vm3 label=red')
 
@@ -1084,7 +1084,7 @@ class TC_00_VMs(AdminAPITestCase):
     @unittest.mock.patch('qubes.storage.Storage.create')
     def test_340_vm_create_in_pool_app(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
-        self.call_mgmt_func(b'mgmt.vm.CreateInPool.AppVM',
+        self.call_mgmt_func(b'admin.vm.CreateInPool.AppVM',
             b'dom0', b'test-template', b'name=test-vm2 label=red '
                                  b'pool=test')
 
@@ -1108,7 +1108,7 @@ class TC_00_VMs(AdminAPITestCase):
     @unittest.mock.patch('qubes.storage.Storage.create')
     def test_341_vm_create_in_pool_private(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
-        self.call_mgmt_func(b'mgmt.vm.CreateInPool.AppVM',
+        self.call_mgmt_func(b'admin.vm.CreateInPool.AppVM',
             b'dom0', b'test-template', b'name=test-vm2 label=red '
                                  b'pool:private=test')
 
@@ -1131,7 +1131,7 @@ class TC_00_VMs(AdminAPITestCase):
     def test_342_vm_create_in_pool_invalid_pool(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
         with self.assertRaises(qubes.exc.QubesException):
-            self.call_mgmt_func(b'mgmt.vm.CreateInPool.AppVM',
+            self.call_mgmt_func(b'admin.vm.CreateInPool.AppVM',
                 b'dom0', b'test-template', b'name=test-vm2 label=red '
                                      b'pool=no-such-pool')
 
@@ -1141,7 +1141,7 @@ class TC_00_VMs(AdminAPITestCase):
     def test_343_vm_create_in_pool_invalid_pool2(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
         with self.assertRaises(qubes.exc.QubesException):
-            self.call_mgmt_func(b'mgmt.vm.CreateInPool.AppVM',
+            self.call_mgmt_func(b'admin.vm.CreateInPool.AppVM',
                 b'dom0', b'test-template', b'name=test-vm2 label=red '
                                      b'pool:private=no-such-pool')
 
@@ -1152,7 +1152,7 @@ class TC_00_VMs(AdminAPITestCase):
     def test_344_vm_create_in_pool_invalid_volume(self, storage_mock):
         storage_mock.side_effect = self.dummy_coro
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.vm.CreateInPool.AppVM',
+            self.call_mgmt_func(b'admin.vm.CreateInPool.AppVM',
                 b'dom0', b'test-template', b'name=test-vm2 label=red '
                                      b'pool:invalid=test')
 
@@ -1165,7 +1165,7 @@ class TC_00_VMs(AdminAPITestCase):
         # allowed - this volume belongs to the template
         storage_mock.side_effect = self.dummy_coro
         with self.assertRaises(qubes.exc.QubesException):
-            self.call_mgmt_func(b'mgmt.vm.CreateInPool.AppVM',
+            self.call_mgmt_func(b'admin.vm.CreateInPool.AppVM',
                 b'dom0', b'test-template', b'name=test-vm2 label=red '
                                      b'pool:root=test')
 
@@ -1178,7 +1178,7 @@ class TC_00_VMs(AdminAPITestCase):
         # allowed - this volume belongs to the template
         storage_mock.side_effect = self.dummy_coro
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'mgmt.vm.CreateInPool.AppVM',
+            self.call_mgmt_func(b'admin.vm.CreateInPool.AppVM',
                 b'dom0', b'test-template', b'name=test-vm2 label=red '
                 b'pool=test pool:root=test')
 
@@ -1190,7 +1190,7 @@ class TC_00_VMs(AdminAPITestCase):
     def test_350_vm_clone(self, mock_verify, mock_clone):
         mock_clone.side_effect = self.dummy_coro
         mock_verify.side_effect = self.dummy_coro
-        self.call_mgmt_func(b'mgmt.vm.Clone',
+        self.call_mgmt_func(b'admin.vm.Clone',
             b'test-vm1', b'', b'name=test-vm2')
 
         self.assertIn('test-vm2', self.app.domains)
@@ -1211,7 +1211,7 @@ class TC_00_VMs(AdminAPITestCase):
         mock_clone.side_effect = self.dummy_coro
         mock_verify.side_effect = self.dummy_coro
         with self.assertRaises(qubes.exc.QubesException):
-            self.call_mgmt_func(b'mgmt.vm.Clone',
+            self.call_mgmt_func(b'admin.vm.Clone',
                 b'test-vm1', b'', b'name=test-vm2 label=red')
 
         self.assertNotIn('test-vm2', self.app.domains)
@@ -1227,7 +1227,7 @@ class TC_00_VMs(AdminAPITestCase):
         mock_clone.side_effect = self.dummy_coro
         mock_verify.side_effect = self.dummy_coro
         with self.assertRaises(qubes.exc.QubesException):
-            self.call_mgmt_func(b'mgmt.vm.Clone',
+            self.call_mgmt_func(b'admin.vm.Clone',
                 b'test-vm1', b'', b'name=test-vm1')
 
         self.assertFalse(self.app.save.called)
@@ -1238,7 +1238,7 @@ class TC_00_VMs(AdminAPITestCase):
         mock_clone.side_effect = self.dummy_coro
         mock_verify.side_effect = self.dummy_coro
         with self.assertRaises(qubes.exc.QubesException):
-            self.call_mgmt_func(b'mgmt.vm.Clone',
+            self.call_mgmt_func(b'admin.vm.Clone',
                 b'test-vm1', b'', b'name=test-vm2/..')
 
         self.assertNotIn('test-vm2/..', self.app.domains)
@@ -1250,44 +1250,44 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_990_vm_unexpected_payload(self):
         methods_with_no_payload = [
-            b'mgmt.vm.List',
-            b'mgmt.vm.Remove',
-            b'mgmt.vm.property.List',
-            b'mgmt.vm.property.Get',
-            b'mgmt.vm.property.Help',
-            b'mgmt.vm.property.HelpRst',
-            b'mgmt.vm.property.Reset',
-            b'mgmt.vm.feature.List',
-            b'mgmt.vm.feature.Get',
-            b'mgmt.vm.feature.CheckWithTemplate',
-            b'mgmt.vm.feature.Remove',
-            b'mgmt.vm.tag.List',
-            b'mgmt.vm.tag.Get',
-            b'mgmt.vm.tag.Remove',
-            b'mgmt.vm.tag.Set',
-            b'mgmt.vm.firewall.Get',
-            b'mgmt.vm.firewall.RemoveRule',
-            b'mgmt.vm.firewall.Flush',
-            b'mgmt.vm.device.pci.Attach',
-            b'mgmt.vm.device.pci.Detach',
-            b'mgmt.vm.device.pci.List',
-            b'mgmt.vm.device.pci.Available',
-            b'mgmt.vm.microphone.Attach',
-            b'mgmt.vm.microphone.Detach',
-            b'mgmt.vm.microphone.Status',
-            b'mgmt.vm.volume.ListSnapshots',
-            b'mgmt.vm.volume.List',
-            b'mgmt.vm.volume.Info',
-            b'mgmt.vm.Start',
-            b'mgmt.vm.Shutdown',
-            b'mgmt.vm.Pause',
-            b'mgmt.vm.Unpause',
-            b'mgmt.vm.Kill',
-            b'mgmt.Events',
-            b'mgmt.vm.feature.List',
-            b'mgmt.vm.feature.Get',
-            b'mgmt.vm.feature.Remove',
-            b'mgmt.vm.feature.CheckWithTemplate',
+            b'admin.vm.List',
+            b'admin.vm.Remove',
+            b'admin.vm.property.List',
+            b'admin.vm.property.Get',
+            b'admin.vm.property.Help',
+            b'admin.vm.property.HelpRst',
+            b'admin.vm.property.Reset',
+            b'admin.vm.feature.List',
+            b'admin.vm.feature.Get',
+            b'admin.vm.feature.CheckWithTemplate',
+            b'admin.vm.feature.Remove',
+            b'admin.vm.tag.List',
+            b'admin.vm.tag.Get',
+            b'admin.vm.tag.Remove',
+            b'admin.vm.tag.Set',
+            b'admin.vm.firewall.Get',
+            b'admin.vm.firewall.RemoveRule',
+            b'admin.vm.firewall.Flush',
+            b'admin.vm.device.pci.Attach',
+            b'admin.vm.device.pci.Detach',
+            b'admin.vm.device.pci.List',
+            b'admin.vm.device.pci.Available',
+            b'admin.vm.microphone.Attach',
+            b'admin.vm.microphone.Detach',
+            b'admin.vm.microphone.Status',
+            b'admin.vm.volume.ListSnapshots',
+            b'admin.vm.volume.List',
+            b'admin.vm.volume.Info',
+            b'admin.vm.Start',
+            b'admin.vm.Shutdown',
+            b'admin.vm.Pause',
+            b'admin.vm.Unpause',
+            b'admin.vm.Kill',
+            b'admin.Events',
+            b'admin.vm.feature.List',
+            b'admin.vm.feature.Get',
+            b'admin.vm.feature.Remove',
+            b'admin.vm.feature.CheckWithTemplate',
         ]
         # make sure also no methods on actual VM gets called
         vm_mock = unittest.mock.MagicMock()
@@ -1313,27 +1313,27 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_991_vm_unexpected_argument(self):
         methods_with_no_argument = [
-            b'mgmt.vm.List',
-            b'mgmt.vm.Clone',
-            b'mgmt.vm.Remove',
-            b'mgmt.vm.property.List',
-            b'mgmt.vm.feature.List',
-            b'mgmt.vm.tag.List',
-            b'mgmt.vm.firewall.List',
-            b'mgmt.vm.firewall.Flush',
-            b'mgmt.vm.device.pci.List',
-            b'mgmt.vm.device.pci.Available',
-            b'mgmt.vm.microphone.Attach',
-            b'mgmt.vm.microphone.Detach',
-            b'mgmt.vm.microphone.Status',
-            b'mgmt.vm.volume.List',
-            b'mgmt.vm.Start',
-            b'mgmt.vm.Shutdown',
-            b'mgmt.vm.Pause',
-            b'mgmt.vm.Unpause',
-            b'mgmt.vm.Kill',
-            b'mgmt.Events',
-            b'mgmt.vm.feature.List',
+            b'admin.vm.List',
+            b'admin.vm.Clone',
+            b'admin.vm.Remove',
+            b'admin.vm.property.List',
+            b'admin.vm.feature.List',
+            b'admin.vm.tag.List',
+            b'admin.vm.firewall.List',
+            b'admin.vm.firewall.Flush',
+            b'admin.vm.device.pci.List',
+            b'admin.vm.device.pci.Available',
+            b'admin.vm.microphone.Attach',
+            b'admin.vm.microphone.Detach',
+            b'admin.vm.microphone.Status',
+            b'admin.vm.volume.List',
+            b'admin.vm.Start',
+            b'admin.vm.Shutdown',
+            b'admin.vm.Pause',
+            b'admin.vm.Unpause',
+            b'admin.vm.Kill',
+            b'admin.Events',
+            b'admin.vm.feature.List',
         ]
         # make sure also no methods on actual VM gets called
         vm_mock = unittest.mock.MagicMock()
@@ -1359,22 +1359,22 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_992_dom0_unexpected_payload(self):
         methods_with_no_payload = [
-            b'mgmt.vmclass.List',
-            b'mgmt.vm.List',
-            b'mgmt.label.List',
-            b'mgmt.label.Get',
-            b'mgmt.label.Remove',
-            b'mgmt.property.List',
-            b'mgmt.property.Get',
-            b'mgmt.property.Help',
-            b'mgmt.property.HelpRst',
-            b'mgmt.property.Reset',
-            b'mgmt.pool.List',
-            b'mgmt.pool.ListDrivers',
-            b'mgmt.pool.Info',
-            b'mgmt.pool.Remove',
-            b'mgmt.backup.Execute',
-            b'mgmt.Events',
+            b'admin.vmclass.List',
+            b'admin.vm.List',
+            b'admin.label.List',
+            b'admin.label.Get',
+            b'admin.label.Remove',
+            b'admin.property.List',
+            b'admin.property.Get',
+            b'admin.property.Help',
+            b'admin.property.HelpRst',
+            b'admin.property.Reset',
+            b'admin.pool.List',
+            b'admin.pool.ListDrivers',
+            b'admin.pool.Info',
+            b'admin.pool.Remove',
+            b'admin.backup.Execute',
+            b'admin.Events',
         ]
         # make sure also no methods on actual VM gets called
         vm_mock = unittest.mock.MagicMock()
@@ -1400,13 +1400,13 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_993_dom0_unexpected_argument(self):
         methods_with_no_argument = [
-            b'mgmt.vmclass.List',
-            b'mgmt.vm.List',
-            b'mgmt.label.List',
-            b'mgmt.property.List',
-            b'mgmt.pool.List',
-            b'mgmt.pool.ListDrivers',
-            b'mgmt.Events',
+            b'admin.vmclass.List',
+            b'admin.vm.List',
+            b'admin.label.List',
+            b'admin.property.List',
+            b'admin.pool.List',
+            b'admin.pool.ListDrivers',
+            b'admin.Events',
         ]
         # make sure also no methods on actual VM gets called
         vm_mock = unittest.mock.MagicMock()
@@ -1434,34 +1434,34 @@ class TC_00_VMs(AdminAPITestCase):
         # TODO set some better arguments, to make sure the call was rejected
         # because of invalid destination, not invalid arguments
         methods_for_dom0_only = [
-            b'mgmt.vmclass.List',
-            b'mgmt.vm.Create.AppVM',
-            b'mgmt.vm.CreateInPool.AppVM',
-            b'mgmt.vm.CreateTemplate',
-            b'mgmt.label.List',
-            b'mgmt.label.Create',
-            b'mgmt.label.Get',
-            b'mgmt.label.Remove',
-            b'mgmt.property.List',
-            b'mgmt.property.Get',
-            b'mgmt.property.Set',
-            b'mgmt.property.Help',
-            b'mgmt.property.HelpRst',
-            b'mgmt.property.Reset',
-            b'mgmt.pool.List',
-            b'mgmt.pool.ListDrivers',
-            b'mgmt.pool.Info',
-            b'mgmt.pool.Add',
-            b'mgmt.pool.Remove',
-            b'mgmt.pool.volume.List',
-            b'mgmt.pool.volume.Info',
-            b'mgmt.pool.volume.ListSnapshots',
-            b'mgmt.pool.volume.Snapshot',
-            b'mgmt.pool.volume.Revert',
-            b'mgmt.pool.volume.Resize',
-            b'mgmt.backup.Execute',
-            b'mgmt.backup.Info',
-            b'mgmt.backup.Restore',
+            b'admin.vmclass.List',
+            b'admin.vm.Create.AppVM',
+            b'admin.vm.CreateInPool.AppVM',
+            b'admin.vm.CreateTemplate',
+            b'admin.label.List',
+            b'admin.label.Create',
+            b'admin.label.Get',
+            b'admin.label.Remove',
+            b'admin.property.List',
+            b'admin.property.Get',
+            b'admin.property.Set',
+            b'admin.property.Help',
+            b'admin.property.HelpRst',
+            b'admin.property.Reset',
+            b'admin.pool.List',
+            b'admin.pool.ListDrivers',
+            b'admin.pool.Info',
+            b'admin.pool.Add',
+            b'admin.pool.Remove',
+            b'admin.pool.volume.List',
+            b'admin.pool.volume.Info',
+            b'admin.pool.volume.ListSnapshots',
+            b'admin.pool.volume.Snapshot',
+            b'admin.pool.volume.Revert',
+            b'admin.pool.volume.Resize',
+            b'admin.backup.Execute',
+            b'admin.backup.Info',
+            b'admin.backup.Restore',
         ]
         # make sure also no methods on actual VM gets called
         vm_mock = unittest.mock.MagicMock()
@@ -1505,49 +1505,49 @@ class TC_00_VMs(AdminAPITestCase):
         # TODO set some better arguments, to make sure the call was rejected
         # because of invalid destination, not invalid arguments
         methods_for_vm_only = [
-            b'mgmt.vm.Clone',
-            b'mgmt.vm.Remove',
-            b'mgmt.vm.property.List',
-            b'mgmt.vm.property.Get',
-            b'mgmt.vm.property.Set',
-            b'mgmt.vm.property.Help',
-            b'mgmt.vm.property.HelpRst',
-            b'mgmt.vm.property.Reset',
-            b'mgmt.vm.feature.List',
-            b'mgmt.vm.feature.Get',
-            b'mgmt.vm.feature.Set',
-            b'mgmt.vm.feature.CheckWithTemplate',
-            b'mgmt.vm.feature.Remove',
-            b'mgmt.vm.tag.List',
-            b'mgmt.vm.tag.Get',
-            b'mgmt.vm.tag.Remove',
-            b'mgmt.vm.tag.Set',
-            b'mgmt.vm.firewall.Get',
-            b'mgmt.vm.firewall.RemoveRule',
-            b'mgmt.vm.firewall.InsertRule',
-            b'mgmt.vm.firewall.Flush',
-            b'mgmt.vm.device.pci.Attach',
-            b'mgmt.vm.device.pci.Detach',
-            b'mgmt.vm.device.pci.List',
-            b'mgmt.vm.device.pci.Available',
-            b'mgmt.vm.microphone.Attach',
-            b'mgmt.vm.microphone.Detach',
-            b'mgmt.vm.microphone.Status',
-            b'mgmt.vm.volume.ListSnapshots',
-            b'mgmt.vm.volume.List',
-            b'mgmt.vm.volume.Info',
-            b'mgmt.vm.volume.Revert',
-            b'mgmt.vm.volume.Resize',
-            b'mgmt.vm.Start',
-            b'mgmt.vm.Shutdown',
-            b'mgmt.vm.Pause',
-            b'mgmt.vm.Unpause',
-            b'mgmt.vm.Kill',
-            b'mgmt.vm.feature.List',
-            b'mgmt.vm.feature.Get',
-            b'mgmt.vm.feature.Set',
-            b'mgmt.vm.feature.Remove',
-            b'mgmt.vm.feature.CheckWithTemplate',
+            b'admin.vm.Clone',
+            b'admin.vm.Remove',
+            b'admin.vm.property.List',
+            b'admin.vm.property.Get',
+            b'admin.vm.property.Set',
+            b'admin.vm.property.Help',
+            b'admin.vm.property.HelpRst',
+            b'admin.vm.property.Reset',
+            b'admin.vm.feature.List',
+            b'admin.vm.feature.Get',
+            b'admin.vm.feature.Set',
+            b'admin.vm.feature.CheckWithTemplate',
+            b'admin.vm.feature.Remove',
+            b'admin.vm.tag.List',
+            b'admin.vm.tag.Get',
+            b'admin.vm.tag.Remove',
+            b'admin.vm.tag.Set',
+            b'admin.vm.firewall.Get',
+            b'admin.vm.firewall.RemoveRule',
+            b'admin.vm.firewall.InsertRule',
+            b'admin.vm.firewall.Flush',
+            b'admin.vm.device.pci.Attach',
+            b'admin.vm.device.pci.Detach',
+            b'admin.vm.device.pci.List',
+            b'admin.vm.device.pci.Available',
+            b'admin.vm.microphone.Attach',
+            b'admin.vm.microphone.Detach',
+            b'admin.vm.microphone.Status',
+            b'admin.vm.volume.ListSnapshots',
+            b'admin.vm.volume.List',
+            b'admin.vm.volume.Info',
+            b'admin.vm.volume.Revert',
+            b'admin.vm.volume.Resize',
+            b'admin.vm.Start',
+            b'admin.vm.Shutdown',
+            b'admin.vm.Pause',
+            b'admin.vm.Unpause',
+            b'admin.vm.Kill',
+            b'admin.vm.feature.List',
+            b'admin.vm.feature.Get',
+            b'admin.vm.feature.Set',
+            b'admin.vm.feature.Remove',
+            b'admin.vm.feature.CheckWithTemplate',
         ]
         # make sure also no methods on actual VM gets called
         vm_mock = unittest.mock.MagicMock()
