@@ -535,7 +535,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     @qubes.stateless_property
     def stubdom_xid(self):
-        if self.xid < 0:
+        if not self.is_running():
             return -1
 
         if self.app.vmm.xs is None:
