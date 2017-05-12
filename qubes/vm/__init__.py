@@ -322,10 +322,6 @@ class VMProperty(qubes.property):
             raise TypeError(
                 "'type' keyword parameter is unsupported in {}".format(
                     self.__class__.__name__))
-        if 'setter' in kwargs:
-            raise TypeError(
-                "'setter' keyword parameter is unsupported in {}".format(
-                    self.__class__.__name__))
         if not issubclass(vmclass, BaseVM):
             raise TypeError(
                 "'vmclass' should specify a subclass of qubes.vm.BaseVM")

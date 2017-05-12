@@ -63,6 +63,20 @@ def _setter_ip(self, prop, value):
     return value
 
 
+def _setter_netvm(self, prop, value):
+    if value is None:
+        return
+    if not value.provides_network:
+        raise qubes.exc.QubesValueError(
+            'The {!s} qube does not provide network'.format(value))
+
+    if value is self \
+            or value in self.app.domains.get_vms_connected_to(self):
+        raise qubes.exc.QubesValueError(
+            'Loops in network are unsupported')
+    return value
+
+
 class NetVMMixin(qubes.events.Emitter):
     ''' Mixin containing network functionality '''
     mac = qubes.property('mac', type=str,
@@ -79,6 +93,7 @@ class NetVMMixin(qubes.events.Emitter):
     netvm = qubes.VMProperty('netvm', load_stage=4, allow_none=True,
         default=(lambda self: self.app.default_fw_netvm if self.provides_network
             else self.app.default_netvm),
+        setter=_setter_netvm,
         doc='''VM that provides network connection to this domain. When
             `None`, machine is disconnected. When absent, domain uses default
             NetVM.''')
@@ -338,15 +353,6 @@ class NetVMMixin(qubes.events.Emitter):
         ''' Run sanity checks before setting a new NetVM '''
         # pylint: disable=unused-argument
         if newvalue is not None:
-            if not newvalue.provides_network:
-                raise qubes.exc.QubesValueError(
-                    'The {!s} qube does not provide network'.format(newvalue))
-
-            if newvalue is self \
-                    or newvalue in self.app.domains.get_vms_connected_to(self):
-                raise qubes.exc.QubesValueError(
-                    'Loops in network are unsupported')
-
             if not self.app.vmm.offline_mode \
                     and self.is_running() and not newvalue.is_running():
                 raise qubes.exc.QubesVMNotStartedError(newvalue,
