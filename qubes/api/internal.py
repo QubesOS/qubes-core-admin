@@ -23,13 +23,12 @@
 import asyncio
 import json
 
-import qubes.mgmt
+import qubes.api
+import qubes.api.admin
 import qubes.vm.dispvm
 
-api = qubes.mgmt.api
 
-
-class QubesInternalMgmt(qubes.mgmt.AbstractQubesMgmt):
+class QubesInternalAPI(qubes.api.AbstractQubesAPI):
     ''' Communication interface for dom0 components,
     by design the input here is trusted.'''
     #
@@ -40,7 +39,7 @@ class QubesInternalMgmt(qubes.mgmt.AbstractQubesMgmt):
     # ACTUAL RPC CALLS
     #
 
-    @api('mgmtinternal.GetSystemInfo', no_payload=True)
+    @qubes.api.method('mgmtinternal.GetSystemInfo', no_payload=True)
     @asyncio.coroutine
     def getsysteminfo(self):
         assert self.dest.name == 'dom0'
@@ -59,14 +58,14 @@ class QubesInternalMgmt(qubes.mgmt.AbstractQubesMgmt):
 
         return json.dumps(system_info)
 
-    @api('mgmtinternal.vm.Start', no_payload=True)
+    @qubes.api.method('mgmtinternal.vm.Start', no_payload=True)
     @asyncio.coroutine
     def start(self):
         assert not self.arg
 
         yield from self.dest.start()
 
-    @api('mgmtinternal.vm.Create.DispVM', no_payload=True)
+    @qubes.api.method('mgmtinternal.vm.Create.DispVM', no_payload=True)
     @asyncio.coroutine
     def create_dispvm(self):
         assert not self.arg
@@ -75,7 +74,7 @@ class QubesInternalMgmt(qubes.mgmt.AbstractQubesMgmt):
         dispvm = qubes.vm.dispvm.DispVM.from_appvm(self.dest)
         return dispvm.name
 
-    @api('mgmtinternal.vm.CleanupDispVM', no_payload=True)
+    @qubes.api.method('mgmtinternal.vm.CleanupDispVM', no_payload=True)
     @asyncio.coroutine
     def cleanup_dispvm(self):
         assert not self.arg

@@ -23,13 +23,13 @@
 import asyncio
 import os
 import shutil
-
-import libvirt
 import unittest.mock
 
+import libvirt
+
 import qubes
+import qubes.api.admin
 import qubes.tests
-import qubes.mgmt
 
 # properties defined in API
 volume_properties = [
@@ -37,7 +37,7 @@ volume_properties = [
     'save_on_stop', 'snap_on_start']
 
 
-class MgmtTestCase(qubes.tests.QubesTestCase):
+class AdminAPITestCase(qubes.tests.QubesTestCase):
     def setUp(self):
         super().setUp()
         app = qubes.Qubes('/tmp/qubes-test.xml', load=False)
@@ -76,10 +76,10 @@ class MgmtTestCase(qubes.tests.QubesTestCase):
         self.base_dir_patch.stop()
         if os.path.exists(self.test_base_dir):
             shutil.rmtree(self.test_base_dir)
-        super(MgmtTestCase, self).tearDown()
+        super(AdminAPITestCase, self).tearDown()
 
     def call_mgmt_func(self, method, dest, arg=b'', payload=b''):
-        mgmt_obj = qubes.mgmt.QubesMgmt(self.app, b'dom0', method, dest, arg)
+        mgmt_obj = qubes.api.admin.QubesAdminAPI(self.app, b'dom0', method, dest, arg)
 
         loop = asyncio.get_event_loop()
         response = loop.run_until_complete(
@@ -89,7 +89,7 @@ class MgmtTestCase(qubes.tests.QubesTestCase):
         return response
 
 
-class TC_00_VMs(MgmtTestCase):
+class TC_00_VMs(AdminAPITestCase):
     def test_000_vm_list(self):
         value = self.call_mgmt_func(b'mgmt.vm.List', b'dom0')
         self.assertEqual(value,
@@ -865,7 +865,7 @@ class TC_00_VMs(MgmtTestCase):
 
     def test_270_events(self):
         send_event = unittest.mock.Mock(spec=[])
-        mgmt_obj = qubes.mgmt.QubesMgmt(self.app, b'dom0', b'mgmt.Events',
+        mgmt_obj = qubes.api.admin.QubesAdminAPI(self.app, b'dom0', b'mgmt.Events',
             b'dom0', b'', send_event=send_event)
 
         @asyncio.coroutine

@@ -23,168 +23,15 @@ Qubes OS Management API
 '''
 
 import asyncio
-import functools
 import string
 
 import pkg_resources
 
-import qubes.vm
-import qubes.vm.qubesvm
+import qubes.api
 import qubes.storage
 import qubes.utils
-
-class ProtocolError(AssertionError):
-    '''Raised when something is wrong with data received'''
-    pass
-
-class PermissionDenied(Exception):
-    '''Raised deliberately by handlers when we decide not to cooperate'''
-    pass
-
-
-def api(name, *, no_payload=False, endpoints=None):
-    '''Decorator factory for methods intended to appear in API.
-
-    The decorated method can be called from public API using a child of
-    :py:class:`AbstractQubesMgmt` class. The method becomes "public", and can be
-    called using remote management interface.
-
-    :param str name: qrexec rpc method name
-    :param bool no_payload: if :py:obj:`True`, will barf on non-empty payload; \
-        also will not pass payload at all to the method
-
-    The expected function method should have one argument (other than usual
-    *self*), ``untrusted_payload``, which will contain the payload.
-
-    .. warning::
-        This argument has to be named such, to remind the programmer that the
-        content of this variable is indeed untrusted.
-
-    If *no_payload* is true, then the method is called with no arguments.
-    '''
-
-    def decorator(func):
-        if no_payload:
-            # the following assignment is needed for how closures work in Python
-            _func = func
-            @functools.wraps(_func)
-            def wrapper(self, untrusted_payload, **kwargs):
-                if untrusted_payload != b'':
-                    raise ProtocolError('unexpected payload')
-                return _func(self, **kwargs)
-            func = wrapper
-
-        # pylint: disable=protected-access
-        if endpoints is None:
-            func._rpcname = ((name, None),)
-        else:
-            func._rpcname = tuple(
-                (name.format(endpoint=endpoint), endpoint)
-                for endpoint in endpoints)
-        return func
-
-    return decorator
-
-
-def apply_filters(iterable, filters):
-    '''Apply filters returned by mgmt-permission:... event'''
-    for selector in filters:
-        iterable = filter(selector, iterable)
-    return iterable
-
-
-class AbstractQubesMgmt(object):
-    '''Common code for Qubes Management Protocol handling
-
-    Different interfaces can expose different API call sets, however they share
-    common protocol and common implementation framework. This class is the
-    latter.
-
-    To implement a new interface, inherit from this class and write at least one
-    method and decorate it with :py:func:`api` decorator. It will have access to
-    pre-defined attributes: :py:attr:`app`, :py:attr:`src`, :py:attr:`dest`,
-    :py:attr:`arg` and :py:attr:`method`.
-
-    There are also two helper functions for firing events associated with API
-    calls.
-    '''
-    def __init__(self, app, src, method, dest, arg, send_event=None):
-        #: :py:class:`qubes.Qubes` object
-        self.app = app
-
-        #: source qube
-        self.src = self.app.domains[src.decode('ascii')]
-
-        #: destination qube
-        self.dest = self.app.domains[dest.decode('ascii')]
-
-        #: argument
-        self.arg = arg.decode('ascii')
-
-        #: name of the method
-        self.method = method.decode('ascii')
-
-        #: callback for sending events if applicable
-        self.send_event = send_event
-
-        #: is this operation cancellable?
-        self.cancellable = False
-
-        untrusted_candidates = []
-        for attr in dir(self):
-            func = getattr(self, attr)
-
-            if not callable(func):
-                continue
-
-            try:
-                # pylint: disable=protected-access
-                for method_name, endpoint in func._rpcname:
-                    if method_name != self.method:
-                        continue
-                    untrusted_candidates.append((func, endpoint))
-            except AttributeError:
-                continue
-
-        if not untrusted_candidates:
-            raise ProtocolError('no such method: {!r}'.format(self.method))
-
-        assert len(untrusted_candidates) == 1, \
-            'multiple candidates for method {!r}'.format(self.method)
-
-        #: the method to execute
-        self._handler = untrusted_candidates[0]
-        self._running_handler = None
-        del untrusted_candidates
-
-    def execute(self, *, untrusted_payload):
-        '''Execute management operation.
-
-        This method is a coroutine.
-        '''
-        handler, endpoint = self._handler
-        kwargs = {}
-        if endpoint is not None:
-            kwargs['endpoint'] = endpoint
-        self._running_handler = asyncio.ensure_future(handler(
-            untrusted_payload=untrusted_payload, **kwargs))
-        return self._running_handler
-
-    def cancel(self):
-        '''If operation is cancellable, interrupt it'''
-        if self.cancellable and self._running_handler is not None:
-            self._running_handler.cancel()
-
-
-    def fire_event_for_permission(self, **kwargs):
-        '''Fire an event on the source qube to check for permission'''
-        return self.src.fire_event_pre('mgmt-permission:{}'.format(self.method),
-            dest=self.dest, arg=self.arg, **kwargs)
-
-    def fire_event_for_filter(self, iterable, **kwargs):
-        '''Fire an event on the source qube to filter for permission'''
-        return apply_filters(iterable,
-            self.fire_event_for_permission(**kwargs))
+import qubes.vm
+import qubes.vm.qubesvm
 
 
 class QubesMgmtEventsDispatcher(object):
@@ -195,13 +42,13 @@ class QubesMgmtEventsDispatcher(object):
     def vm_handler(self, subject, event, **kwargs):
         if event.startswith('mgmt-permission:'):
             return
-        if not list(apply_filters([(subject, event, kwargs)],
+        if not list(qubes.api.apply_filters([(subject, event, kwargs)],
                 self.filters)):
             return
         self.send_event(subject, event, **kwargs)
 
     def app_handler(self, subject, event, **kwargs):
-        if not list(apply_filters([(subject, event, kwargs)],
+        if not list(qubes.api.apply_filters([(subject, event, kwargs)],
                 self.filters)):
             return
         self.send_event(subject, event, **kwargs)
@@ -215,7 +62,7 @@ class QubesMgmtEventsDispatcher(object):
         vm.remove_handler('*', self.vm_handler)
 
 
-class QubesMgmt(AbstractQubesMgmt):
+class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     '''Implementation of Qubes Management API calls
 
     This class contains all the methods available in the main API.
@@ -224,7 +71,7 @@ class QubesMgmt(AbstractQubesMgmt):
         https://www.qubes-os.org/doc/mgmt1/
     '''
 
-    @api('mgmt.vmclass.List', no_payload=True)
+    @qubes.api.method('mgmt.vmclass.List', no_payload=True)
     @asyncio.coroutine
     def vmclass_list(self):
         '''List all VM classes'''
@@ -237,7 +84,7 @@ class QubesMgmt(AbstractQubesMgmt):
         return ''.join('{}\n'.format(ep.name)
             for ep in entrypoints)
 
-    @api('mgmt.vm.List', no_payload=True)
+    @qubes.api.method('mgmt.vm.List', no_payload=True)
     @asyncio.coroutine
     def vm_list(self):
         '''List all the domains'''
@@ -254,7 +101,7 @@ class QubesMgmt(AbstractQubesMgmt):
                 vm.get_power_state())
             for vm in sorted(domains))
 
-    @api('mgmt.vm.property.List', no_payload=True)
+    @qubes.api.method('mgmt.vm.property.List', no_payload=True)
     @asyncio.coroutine
     def vm_property_list(self):
         '''List all properties on a qube'''
@@ -264,7 +111,7 @@ class QubesMgmt(AbstractQubesMgmt):
 
         return ''.join('{}\n'.format(prop.__name__) for prop in properties)
 
-    @api('mgmt.vm.property.Get', no_payload=True)
+    @qubes.api.method('mgmt.vm.property.Get', no_payload=True)
     @asyncio.coroutine
     def vm_property_get(self):
         '''Get a value of one property'''
@@ -295,7 +142,7 @@ class QubesMgmt(AbstractQubesMgmt):
                 property_type,
                 str(value) if value is not None else '')
 
-    @api('mgmt.vm.property.Set')
+    @qubes.api.method('mgmt.vm.property.Set')
     @asyncio.coroutine
     def vm_property_set(self, untrusted_payload):
         assert self.arg in self.dest.property_list()
@@ -308,7 +155,7 @@ class QubesMgmt(AbstractQubesMgmt):
         setattr(self.dest, self.arg, newvalue)
         self.app.save()
 
-    @api('mgmt.vm.property.Help', no_payload=True)
+    @qubes.api.method('mgmt.vm.property.Help', no_payload=True)
     @asyncio.coroutine
     def vm_property_help(self):
         '''Get help for one property'''
@@ -323,7 +170,7 @@ class QubesMgmt(AbstractQubesMgmt):
 
         return qubes.utils.format_doc(doc)
 
-    @api('mgmt.vm.property.Reset', no_payload=True)
+    @qubes.api.method('mgmt.vm.property.Reset', no_payload=True)
     @asyncio.coroutine
     def vm_property_reset(self):
         '''Reset a property to a default value'''
@@ -334,7 +181,7 @@ class QubesMgmt(AbstractQubesMgmt):
         delattr(self.dest, self.arg)
         self.app.save()
 
-    @api('mgmt.vm.volume.List', no_payload=True)
+    @qubes.api.method('mgmt.vm.volume.List', no_payload=True)
     @asyncio.coroutine
     def vm_volume_list(self):
         assert not self.arg
@@ -342,7 +189,7 @@ class QubesMgmt(AbstractQubesMgmt):
         volume_names = self.fire_event_for_filter(self.dest.volumes.keys())
         return ''.join('{}\n'.format(name) for name in volume_names)
 
-    @api('mgmt.vm.volume.Info', no_payload=True)
+    @qubes.api.method('mgmt.vm.volume.Info', no_payload=True)
     @asyncio.coroutine
     def vm_volume_info(self):
         assert self.arg in self.dest.volumes.keys()
@@ -357,7 +204,7 @@ class QubesMgmt(AbstractQubesMgmt):
         return ''.join('{}={}\n'.format(key, getattr(volume, key)) for key in
             volume_properties)
 
-    @api('mgmt.vm.volume.ListSnapshots', no_payload=True)
+    @qubes.api.method('mgmt.vm.volume.ListSnapshots', no_payload=True)
     @asyncio.coroutine
     def vm_volume_listsnapshots(self):
         assert self.arg in self.dest.volumes.keys()
@@ -368,7 +215,7 @@ class QubesMgmt(AbstractQubesMgmt):
 
         return ''.join('{}\n'.format(revision) for revision in revisions)
 
-    @api('mgmt.vm.volume.Revert')
+    @qubes.api.method('mgmt.vm.volume.Revert')
     @asyncio.coroutine
     def vm_volume_revert(self, untrusted_payload):
         assert self.arg in self.dest.volumes.keys()
@@ -385,7 +232,7 @@ class QubesMgmt(AbstractQubesMgmt):
         self.dest.storage.get_pool(volume).revert(revision)
         self.app.save()
 
-    @api('mgmt.vm.volume.Resize')
+    @qubes.api.method('mgmt.vm.volume.Resize')
     @asyncio.coroutine
     def vm_volume_resize(self, untrusted_payload):
         assert self.arg in self.dest.volumes.keys()
@@ -401,7 +248,7 @@ class QubesMgmt(AbstractQubesMgmt):
         self.dest.storage.resize(self.arg, size)
         self.app.save()
 
-    @api('mgmt.pool.List', no_payload=True)
+    @qubes.api.method('mgmt.pool.List', no_payload=True)
     @asyncio.coroutine
     def pool_list(self):
         assert not self.arg
@@ -411,7 +258,7 @@ class QubesMgmt(AbstractQubesMgmt):
 
         return ''.join('{}\n'.format(pool) for pool in pools)
 
-    @api('mgmt.pool.ListDrivers', no_payload=True)
+    @qubes.api.method('mgmt.pool.ListDrivers', no_payload=True)
     @asyncio.coroutine
     def pool_listdrivers(self):
         assert self.dest.name == 'dom0'
@@ -424,7 +271,7 @@ class QubesMgmt(AbstractQubesMgmt):
             ' '.join(qubes.storage.driver_parameters(driver)))
             for driver in drivers)
 
-    @api('mgmt.pool.Info', no_payload=True)
+    @qubes.api.method('mgmt.pool.Info', no_payload=True)
     @asyncio.coroutine
     def pool_info(self):
         assert self.dest.name == 'dom0'
@@ -437,7 +284,7 @@ class QubesMgmt(AbstractQubesMgmt):
         return ''.join('{}={}\n'.format(prop, val)
             for prop, val in sorted(pool.config.items()))
 
-    @api('mgmt.pool.Add')
+    @qubes.api.method('mgmt.pool.Add')
     @asyncio.coroutine
     def pool_add(self, untrusted_payload):
         assert self.dest.name == 'dom0'
@@ -472,7 +319,7 @@ class QubesMgmt(AbstractQubesMgmt):
         self.app.add_pool(name=pool_name, driver=self.arg, **pool_config)
         self.app.save()
 
-    @api('mgmt.pool.Remove', no_payload=True)
+    @qubes.api.method('mgmt.pool.Remove', no_payload=True)
     @asyncio.coroutine
     def pool_remove(self):
         assert self.dest.name == 'dom0'
@@ -483,7 +330,7 @@ class QubesMgmt(AbstractQubesMgmt):
         self.app.remove_pool(self.arg)
         self.app.save()
 
-    @api('mgmt.label.List', no_payload=True)
+    @qubes.api.method('mgmt.label.List', no_payload=True)
     @asyncio.coroutine
     def label_list(self):
         assert self.dest.name == 'dom0'
@@ -493,7 +340,7 @@ class QubesMgmt(AbstractQubesMgmt):
 
         return ''.join('{}\n'.format(label.name) for label in labels)
 
-    @api('mgmt.label.Get', no_payload=True)
+    @qubes.api.method('mgmt.label.Get', no_payload=True)
     @asyncio.coroutine
     def label_get(self):
         assert self.dest.name == 'dom0'
@@ -507,7 +354,7 @@ class QubesMgmt(AbstractQubesMgmt):
 
         return label.color
 
-    @api('mgmt.label.Index', no_payload=True)
+    @qubes.api.method('mgmt.label.Index', no_payload=True)
     @asyncio.coroutine
     def label_index(self):
         assert self.dest.name == 'dom0'
@@ -521,7 +368,7 @@ class QubesMgmt(AbstractQubesMgmt):
 
         return str(label.index)
 
-    @api('mgmt.label.Create')
+    @qubes.api.method('mgmt.label.Create')
     @asyncio.coroutine
     def label_create(self, untrusted_payload):
         assert self.dest.name == 'dom0'
@@ -557,7 +404,7 @@ class QubesMgmt(AbstractQubesMgmt):
         self.app.labels[new_index] = label
         self.app.save()
 
-    @api('mgmt.label.Remove', no_payload=True)
+    @qubes.api.method('mgmt.label.Remove', no_payload=True)
     @asyncio.coroutine
     def label_remove(self):
         assert self.dest.name == 'dom0'
@@ -579,42 +426,42 @@ class QubesMgmt(AbstractQubesMgmt):
         del self.app.labels[label.index]
         self.app.save()
 
-    @api('mgmt.vm.Start', no_payload=True)
+    @qubes.api.method('mgmt.vm.Start', no_payload=True)
     @asyncio.coroutine
     def vm_start(self):
         assert not self.arg
         self.fire_event_for_permission()
         yield from self.dest.start()
 
-    @api('mgmt.vm.Shutdown', no_payload=True)
+    @qubes.api.method('mgmt.vm.Shutdown', no_payload=True)
     @asyncio.coroutine
     def vm_shutdown(self):
         assert not self.arg
         self.fire_event_for_permission()
         yield from self.dest.shutdown()
 
-    @api('mgmt.vm.Pause', no_payload=True)
+    @qubes.api.method('mgmt.vm.Pause', no_payload=True)
     @asyncio.coroutine
     def vm_pause(self):
         assert not self.arg
         self.fire_event_for_permission()
         yield from self.dest.pause()
 
-    @api('mgmt.vm.Unpause', no_payload=True)
+    @qubes.api.method('mgmt.vm.Unpause', no_payload=True)
     @asyncio.coroutine
     def vm_unpause(self):
         assert not self.arg
         self.fire_event_for_permission()
         yield from self.dest.unpause()
 
-    @api('mgmt.vm.Kill', no_payload=True)
+    @qubes.api.method('mgmt.vm.Kill', no_payload=True)
     @asyncio.coroutine
     def vm_kill(self):
         assert not self.arg
         self.fire_event_for_permission()
         yield from self.dest.kill()
 
-    @api('mgmt.Events', no_payload=True)
+    @qubes.api.method('mgmt.Events', no_payload=True)
     @asyncio.coroutine
     def events(self):
         assert not self.arg
@@ -655,14 +502,14 @@ class QubesMgmt(AbstractQubesMgmt):
         else:
             self.dest.remove_handler('*', dispatcher.vm_handler)
 
-    @api('mgmt.vm.feature.List', no_payload=True)
+    @qubes.api.method('mgmt.vm.feature.List', no_payload=True)
     @asyncio.coroutine
     def vm_feature_list(self):
         assert not self.arg
         features = self.fire_event_for_filter(self.dest.features.keys())
         return ''.join('{}\n'.format(feature) for feature in features)
 
-    @api('mgmt.vm.feature.Get', no_payload=True)
+    @qubes.api.method('mgmt.vm.feature.Get', no_payload=True)
     @asyncio.coroutine
     def vm_feature_get(self):
         # validation of self.arg done by qrexec-policy is enough
@@ -674,7 +521,7 @@ class QubesMgmt(AbstractQubesMgmt):
             raise qubes.exc.QubesFeatureNotFoundError(self.dest, self.arg)
         return value
 
-    @api('mgmt.vm.feature.CheckWithTemplate', no_payload=True)
+    @qubes.api.method('mgmt.vm.feature.CheckWithTemplate', no_payload=True)
     @asyncio.coroutine
     def vm_feature_checkwithtemplate(self):
         # validation of self.arg done by qrexec-policy is enough
@@ -686,7 +533,7 @@ class QubesMgmt(AbstractQubesMgmt):
             raise qubes.exc.QubesFeatureNotFoundError(self.dest, self.arg)
         return value
 
-    @api('mgmt.vm.feature.Remove', no_payload=True)
+    @qubes.api.method('mgmt.vm.feature.Remove', no_payload=True)
     @asyncio.coroutine
     def vm_feature_remove(self):
         # validation of self.arg done by qrexec-policy is enough
@@ -698,7 +545,7 @@ class QubesMgmt(AbstractQubesMgmt):
             raise qubes.exc.QubesFeatureNotFoundError(self.dest, self.arg)
         self.app.save()
 
-    @api('mgmt.vm.feature.Set')
+    @qubes.api.method('mgmt.vm.feature.Set')
     @asyncio.coroutine
     def vm_feature_set(self, untrusted_payload):
         # validation of self.arg done by qrexec-policy is enough
@@ -709,14 +556,14 @@ class QubesMgmt(AbstractQubesMgmt):
         self.dest.features[self.arg] = value
         self.app.save()
 
-    @api('mgmt.vm.Create.{endpoint}', endpoints=(ep.name
+    @qubes.api.method('mgmt.vm.Create.{endpoint}', endpoints=(ep.name
             for ep in pkg_resources.iter_entry_points(qubes.vm.VM_ENTRY_POINT)))
     @asyncio.coroutine
     def vm_create(self, endpoint, untrusted_payload=None):
         return self._vm_create(endpoint, allow_pool=False,
             untrusted_payload=untrusted_payload)
 
-    @api('mgmt.vm.CreateInPool.{endpoint}', endpoints=(ep.name
+    @qubes.api.method('mgmt.vm.CreateInPool.{endpoint}', endpoints=(ep.name
             for ep in pkg_resources.iter_entry_points(qubes.vm.VM_ENTRY_POINT)))
     @asyncio.coroutine
     def vm_create_in_pool(self, endpoint, untrusted_payload=None):
@@ -746,7 +593,7 @@ class QubesMgmt(AbstractQubesMgmt):
                 errors='strict').split(' '):
             untrusted_key, untrusted_value = untrusted_param.split('=', 1)
             if untrusted_key in kwargs:
-                raise ProtocolError('duplicated parameters')
+                raise qubes.api.ProtocolError('duplicated parameters')
 
             if untrusted_key == 'name':
                 qubes.vm.validate_name(None, None, untrusted_value)
@@ -764,7 +611,7 @@ class QubesMgmt(AbstractQubesMgmt):
 
             elif untrusted_key == 'pool' and allow_pool:
                 if pool is not None:
-                    raise ProtocolError('duplicated pool parameter')
+                    raise qubes.api.ProtocolError('duplicated pool parameter')
                 pool = self.app.get_pool(untrusted_value)
             elif untrusted_key.startswith('pool:') and allow_pool:
                 untrusted_volume = untrusted_key.split(':', 1)[1]
@@ -774,19 +621,19 @@ class QubesMgmt(AbstractQubesMgmt):
                     'kernel']
                 volume = untrusted_volume
                 if volume in pools:
-                    raise ProtocolError(
+                    raise qubes.api.ProtocolError(
                         'duplicated pool:{} parameter'.format(volume))
                 pools[volume] = self.app.get_pool(untrusted_value)
 
             else:
-                raise ProtocolError('Invalid param name')
+                raise qubes.api.ProtocolError('Invalid param name')
         del untrusted_payload
 
         if 'name' not in kwargs or 'label' not in kwargs:
-            raise ProtocolError('Missing name or label')
+            raise qubes.api.ProtocolError('Missing name or label')
 
         if pool and pools:
-            raise ProtocolError(
+            raise qubes.api.ProtocolError(
                 'Only one of \'pool=\' and \'pool:volume=\' can be used')
 
         if kwargs['name'] in self.app.domains:
@@ -804,7 +651,7 @@ class QubesMgmt(AbstractQubesMgmt):
             raise
         self.app.save()
 
-    @api('mgmt.vm.Clone')
+    @qubes.api.method('mgmt.vm.Clone')
     @asyncio.coroutine
     def vm_clone(self, untrusted_payload):
         assert not self.arg

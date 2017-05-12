@@ -247,11 +247,16 @@ fi
 %{python3_sitelib}/qubes/exc.py
 %{python3_sitelib}/qubes/firewall.py
 %{python3_sitelib}/qubes/log.py
-%{python3_sitelib}/qubes/mgmt.py
-%{python3_sitelib}/qubes/mgmtinternal.py
 %{python3_sitelib}/qubes/rngdoc.py
 %{python3_sitelib}/qubes/tarwriter.py
 %{python3_sitelib}/qubes/utils.py
+
+%dir %{python3_sitelib}/qubes/api
+%dir %{python3_sitelib}/qubes/api/__pycache__
+%{python3_sitelib}/qubes/api/__pycache__/*
+%{python3_sitelib}/qubes/api/__init__.py
+%{python3_sitelib}/qubes/api/internal.py
+%{python3_sitelib}/qubes/api/admin.py
 
 %dir %{python3_sitelib}/qubes/vm
 %dir %{python3_sitelib}/qubes/vm/__pycache__
@@ -307,12 +312,12 @@ fi
 %{python3_sitelib}/qubes/tests/run.py
 %{python3_sitelib}/qubes/tests/extra.py
 
+%{python3_sitelib}/qubes/tests/api_admin.py
 %{python3_sitelib}/qubes/tests/app.py
 %{python3_sitelib}/qubes/tests/devices.py
 %{python3_sitelib}/qubes/tests/events.py
 %{python3_sitelib}/qubes/tests/firewall.py
 %{python3_sitelib}/qubes/tests/init.py
-%{python3_sitelib}/qubes/tests/mgmt.py
 %{python3_sitelib}/qubes/tests/storage.py
 %{python3_sitelib}/qubes/tests/storage_file.py
 %{python3_sitelib}/qubes/tests/storage_lvm.py

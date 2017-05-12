@@ -22,7 +22,8 @@ import asyncio
 import socket
 import unittest.mock
 
-import qubes.mgmt
+import qubes.api
+import qubes.api.admin
 import qubes.tests
 import qubes.tools.qubesd
 
@@ -44,7 +45,7 @@ class TestMgmt(object):
                 'mgmt.event': self.event,
             }[self.method.decode()]
         except KeyError:
-            raise qubes.mgmt.ProtocolError('Invalid method')
+            raise qubes.api.ProtocolError('Invalid method')
 
     def execute(self, untrusted_payload):
         self.task = asyncio.Task(self.function(

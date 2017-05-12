@@ -12,8 +12,9 @@ import traceback
 import libvirtaio
 
 import qubes
-import qubes.mgmt
-import qubes.mgmtinternal
+import qubes.api
+import qubes.api.admin
+import qubes.api.internal
 import qubes.utils
 import qubes.vm.qubesvm
 
@@ -88,13 +89,13 @@ class QubesDaemonProtocol(asyncio.Protocol):
 
         # except clauses will fall through to transport.abort() below
 
-        except qubes.mgmt.PermissionDenied:
+        except qubes.api.PermissionDenied:
             self.app.log.warning(
                 'permission denied for call %s+%s (%s → %s) '
                 'with payload of %d bytes',
                     method, arg, src, dest, len(untrusted_payload))
 
-        except qubes.mgmt.ProtocolError:
+        except qubes.api.ProtocolError:
             self.app.log.warning(
                 'protocol error for call %s+%s (%s → %s) '
                 'with payload of %d bytes',
@@ -194,7 +195,7 @@ def main(args=None):
         pass
     old_umask = os.umask(0o007)
     server = loop.run_until_complete(loop.create_unix_server(
-        functools.partial(QubesDaemonProtocol, qubes.mgmt.QubesMgmt,
+        functools.partial(QubesDaemonProtocol, qubes.api.admin.QubesAdminAPI,
             app=args.app), QUBESD_SOCK))
     shutil.chown(QUBESD_SOCK, group='qubes')
 
@@ -204,7 +205,7 @@ def main(args=None):
         pass
     server_internal = loop.run_until_complete(loop.create_unix_server(
         functools.partial(QubesDaemonProtocol,
-            qubes.mgmtinternal.QubesInternalMgmt,
+            qubes.api.internal.QubesInternalAPI,
             app=args.app), QUBESD_INTERNAL_SOCK))
     shutil.chown(QUBESD_INTERNAL_SOCK, group='qubes')
 

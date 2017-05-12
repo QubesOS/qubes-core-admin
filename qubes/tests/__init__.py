@@ -905,7 +905,7 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
             'qubes.tests.vm.adminvm',
             'qubes.tests.app',
             'qubes.tests.tarwriter',
-            'qubes.tests.mgmt',
+            'qubes.tests.api_admin',
             'qubespolicy.tests',
             'qubes.tests.tools.qubesd',
             ):
