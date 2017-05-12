@@ -892,6 +892,38 @@ class TC_00_VMs(AdminAPITestCase):
                 unittest.mock.call(self.vm, 'test-event', arg1='abc')
             ])
 
+    def test_271_events_add_vm(self):
+        send_event = unittest.mock.Mock(spec=[])
+        mgmt_obj = qubes.api.admin.QubesAdminAPI(self.app, b'dom0', b'admin.Events',
+            b'dom0', b'', send_event=send_event)
+
+        @asyncio.coroutine
+        def fire_event():
+            self.vm.fire_event('test-event', arg1='abc')
+            # add VM _after_ starting admin.Events call
+            vm = self.app.add_new_vm('AppVM', label='red', name='test-vm2',
+                template='test-template')
+            vm.fire_event('test-event2', arg1='abc')
+            mgmt_obj.cancel()
+            return vm
+
+        loop = asyncio.get_event_loop()
+        execute_task = asyncio.ensure_future(
+            mgmt_obj.execute(untrusted_payload=b''))
+        event_task = asyncio.ensure_future(fire_event())
+        loop.run_until_complete(execute_task)
+        vm2 = event_task.result()
+        self.assertIsNone(execute_task.result())
+        self.assertEventFired(self.emitter,
+            'mgmt-permission:' + 'admin.Events')
+        self.assertEqual(send_event.mock_calls,
+            [
+                unittest.mock.call(self.app, 'connection-established'),
+                unittest.mock.call(self.vm, 'test-event', arg1='abc'),
+                unittest.mock.call(self.app, 'domain-add', vm=vm2),
+                unittest.mock.call(vm2, 'test-event2', arg1='abc'),
+            ])
+
     def test_280_feature_list(self):
         self.vm.features['test-feature'] = 'some-value'
         value = self.call_mgmt_func(b'admin.vm.feature.List', b'test-vm1')
