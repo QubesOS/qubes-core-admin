@@ -1284,6 +1284,48 @@ class TC_00_VMs(AdminAPITestCase):
 
         self.assertFalse(self.app.save.called)
 
+
+    def test_400_property_list(self):
+        # actual function tested for admin.vm.property.* already
+        # this test is kind of stupid, but at least check if appropriate
+        # mgmt-permission event is fired
+        value = self.call_mgmt_func(b'admin.property.List', b'dom0')
+        properties = self.app.property_list()
+        self.assertEqual(value,
+            ''.join('{}\n'.format(prop.__name__) for prop in properties))
+
+    def test_410_property_get_str(self):
+        # actual function tested for admin.vm.property.* already
+        value = self.call_mgmt_func(b'admin.property.Get', b'dom0',
+            b'default_kernel')
+        self.assertEqual(value, 'default=False type=str 1.0')
+
+    def test_420_propert_set_str(self):
+        # actual function tested for admin.vm.property.* already
+        with unittest.mock.patch('qubes.property.__set__') as mock:
+            value = self.call_mgmt_func(b'admin.property.Set', b'dom0',
+                b'default_kernel', b'1.0')
+            self.assertIsNone(value)
+            mock.assert_called_once_with(self.app, '1.0')
+        self.app.save.assert_called_once_with()
+
+    def test_440_property_help(self):
+        # actual function tested for admin.vm.property.* already
+        value = self.call_mgmt_func(b'admin.property.Help', b'dom0',
+            b'clockvm')
+        self.assertEqual(value,
+            'Which VM to use as NTP proxy for updating AdminVM')
+        self.assertFalse(self.app.save.called)
+
+    def test_450_property_reset(self):
+        # actual function tested for admin.vm.property.* already
+        with unittest.mock.patch('qubes.property.__delete__') as mock:
+            value = self.call_mgmt_func(b'admin.property.Reset', b'dom0',
+                b'clockvm')
+            mock.assert_called_with(self.app)
+        self.assertIsNone(value)
+        self.app.save.assert_called_once_with()
+
     def test_990_vm_unexpected_payload(self):
         methods_with_no_payload = [
             b'admin.vm.List',
