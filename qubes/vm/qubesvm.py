@@ -301,7 +301,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             A feature was removed.
 
             :param subject: Event emitter (the qube object)
-            :param event: Event name (``'domain-feature-set'``)
+            :param event: Event name (``'domain-feature-delete'``)
             :param key: feature name
 
         .. event:: domain-tag-add (subject, event, tag)

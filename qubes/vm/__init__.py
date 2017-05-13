@@ -102,11 +102,13 @@ class Features(dict):
             value = '1' if value else ''
         else:
             value = str(value)
+        # TODO: perhaps this shouldn't be fired on unchanged value? or at
+        # least oldvalue should be provided?
         self.vm.fire_event('domain-feature-set', key=key, value=value)
         super(Features, self).__setitem__(key, value)
 
     def clear(self):
-        for key in self:
+        for key in tuple(self):
             del self[key]
 
     def pop(self, _key, _default=None):
