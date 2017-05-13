@@ -28,6 +28,7 @@
 import datetime
 import os
 import re
+import string
 import subprocess
 import sys
 import xml.parsers.expat
@@ -159,6 +160,82 @@ class Features(dict):
         return default
 
 
+class Tags(set):
+    '''Manager of the tags.
+
+    Tags are simple: tag either can be present on qube or not. Tag is a
+    simple string consisting of ASCII alphanumeric characters, plus `_` and
+    `-`.
+
+    This class inherits from set, but has most of the methods that manipulate
+    the item disarmed (they raise NotImplementedError). The ones that are left
+    fire appropriate events on the qube that owns an instance of this class.
+    '''
+
+    #
+    # Those are the methods that affect contents. Either disarm them or make
+    # them report appropriate events. Good approach is to rewrite them carefully
+    # using official documentation, but use only our (overloaded) methods.
+    #
+    def __init__(self, vm, seq=()):
+        super(Tags, self).__init__()
+        self.vm = vm
+        self.update(seq)
+
+    def clear(self):
+        '''Remove all tags'''
+        for item in tuple(self):
+            self.remove(item)
+
+    def symmetric_difference_update(self, *args, **kwargs):
+        '''Not implemented
+        :raises: NotImplementedError
+        '''
+        raise NotImplementedError()
+
+    def intersection_update(self, *args, **kwargs):
+        '''Not implemented
+        :raises: NotImplementedError
+        '''
+        raise NotImplementedError()
+
+    def pop(self):
+        '''Not implemented
+        :raises: NotImplementedError
+        '''
+        raise NotImplementedError()
+
+    def discard(self, elem):
+        '''Remove a tag if present'''
+        if elem in self:
+            self.remove(elem)
+
+    def update(self, *others):
+        '''Add tags from iterable(s)'''
+        for other in others:
+            for elem in other:
+                self.add(elem)
+
+    def add(self, elem):
+        '''Add a tag'''
+        allowed_chars = string.ascii_letters + string.digits + '_-'
+        if any(i not in allowed_chars for i in elem):
+            raise ValueError('Invalid character in tag')
+        if elem in self:
+            return
+        self.vm.fire_event('domain-tag-add', tag=elem)
+        super(Tags, self).add(elem)
+
+    def remove(self, elem):
+        '''Remove a tag'''
+        super(Tags, self).remove(elem)
+        self.vm.fire_event('domain-tag-delete', tag=elem)
+
+    #
+    # end of overriding
+    #
+
+
 class BaseVM(qubes.PropertyHolder):
     '''Base class for all VMs
 
@@ -192,7 +269,7 @@ class BaseVM(qubes.PropertyHolder):
         self.devices = devices or qubes.devices.DeviceManager(self)
 
         #: user-specified tags
-        self.tags = tags or {}
+        self.tags = Tags(self, tags or ())
 
         #: logger instance for logging messages related to this VM
         self.log = None
@@ -223,7 +300,7 @@ class BaseVM(qubes.PropertyHolder):
 
         # tags
         for node in self.xml.xpath('./tags/tag'):
-            self.tags[node.get('name')] = node.text
+            self.tags.add(node.get('name'))
 
         # SEE:1815 firewall, policy.
 
@@ -262,7 +339,6 @@ class BaseVM(qubes.PropertyHolder):
         tags = lxml.etree.Element('tags')
         for tag in self.tags:
             node = lxml.etree.Element('tag', name=tag)
-            node.text = self.tags[tag]
             tags.append(node)
         element.append(tags)
 

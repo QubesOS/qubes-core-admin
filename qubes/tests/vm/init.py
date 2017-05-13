@@ -67,7 +67,7 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
             </properties>
 
             <tags>
-                <tag name="testtag">tagvalue</tag>
+                <tag name="testtag"/>
             </tags>
 
             <features>
@@ -101,7 +101,7 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
         self.assertEqual(vm.testprop, 'testvalue')
         self.assertEqual(vm.testlabel, 'label-1')
         self.assertEqual(vm.defaultprop, 'defaultvalue')
-        self.assertEqual(vm.tags, {'testtag': 'tagvalue'})
+        self.assertEqual(vm.tags, {'testtag'})
         self.assertEqual(vm.features, {
             'testfeature_empty': '',
             'testfeature_aqq': 'aqq',

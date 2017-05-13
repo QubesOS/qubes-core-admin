@@ -304,6 +304,22 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             :param event: Event name (``'domain-feature-set'``)
             :param key: feature name
 
+        .. event:: domain-tag-add (subject, event, tag)
+
+            A tag was added.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-tag-add'``)
+            :param tag: tag name
+
+        .. event:: domain-tag-delete (subject, event, tag)
+
+            A feature was removed.
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-tag-delete'``)
+            :param tag: tag name
+
         .. event:: feature-request (subject, event, *, untrusted_features)
 
             The domain is performing a feature request.
