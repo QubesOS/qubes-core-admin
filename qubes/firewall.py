@@ -361,6 +361,7 @@ class Rule(qubes.PropertyHolder):
     def __eq__(self, other):
         return self.rule == other.rule
 
+
 class Firewall(object):
     def __init__(self, vm, load=True):
         assert hasattr(vm, 'firewall_conf')
@@ -373,11 +374,32 @@ class Firewall(object):
         if load:
             self.load()
 
+    def __eq__(self, other):
+        if isinstance(other, Firewall):
+            return self.policy == other.policy and self.rules == other.rules
+        return NotImplemented
+
     def load_defaults(self):
+        '''Load default firewall settings'''
         self.rules = []
         self.policy = Action('accept')
 
+    def clone(self, other):
+        '''Clone firewall settings from other instance.
+        This method discards pre-existing firewall settings.
+
+        :param other: other :py:class:`Firewall` instance
+        '''
+        self.policy = other.policy
+        rules = []
+        for rule in other.rules:
+            new_rule = Rule()
+            new_rule.clone_properties(rule)
+            rules.append(new_rule)
+        self.rules = rules
+
     def load(self):
+        '''Load firewall settings from a file'''
         firewall_conf = os.path.join(self.vm.dir_path, self.vm.firewall_conf)
         if os.path.exists(firewall_conf):
             self.rules = []
@@ -396,6 +418,7 @@ class Firewall(object):
             self.load_defaults()
 
     def load_v1(self, xml_root):
+        '''Load old (Qubes < 4.0) firewall XML format'''
         policy_v1 = xml_root.get('policy')
         assert policy_v1 in ('allow', 'deny')
         if policy_v1 == 'allow':
@@ -426,6 +449,7 @@ class Firewall(object):
             self.rules.append(rule)
 
     def load_v2(self, xml_root):
+        '''Load new (Qubes >= 4.0) firewall XML format'''
         self.policy = Action(xml_root.findtext('policy'))
 
         xml_rules = xml_root.find('rules')
@@ -434,6 +458,7 @@ class Firewall(object):
             self.rules.append(rule)
 
     def save(self):
+        '''Save firewall rules to a file'''
         firewall_conf = os.path.join(self.vm.dir_path, self.vm.firewall_conf)
         expiring_rules_present = False
 
@@ -476,6 +501,11 @@ class Firewall(object):
 
 
     def qdb_entries(self, addr_family=None):
+        '''Return firewall settings serialized for QubesDB entries
+
+        :param addr_family: include rules only for IPv4 (4) or IPv6 (6); if
+        None, include both
+        '''
         entries = {
             'policy': str(self.policy)
         }
