@@ -71,6 +71,7 @@ class DeviceAssignment(object): # pylint: disable=too-few-public-methods
         return "[%s]:%s" % (self.backend_domain, self.ident)
 
     def __hash__(self):
+        # it's important to use the same hash as DeviceInfo
         return hash((self.backend_domain, self.ident))
 
     def __eq__(self, other):
@@ -234,21 +235,21 @@ class DeviceCollection(object):
 
         devices = self._vm.fire_event('device-list-attached:' + self._class,
             persistent=persistent)
-        result = []
+        result = set()
         for dev, options in devices:
             if dev in self._set and not persistent:
                 continue
             elif dev in self._set:
-                result.append(self._set.get(dev))
+                result.add(self._set.get(dev))
             elif dev not in self._set and persistent:
                 continue
             else:
-                result.append(
+                result.add(
                     DeviceAssignment(backend_domain=dev.backend_domain,
                                      ident=dev.ident, options=options,
                                      frontend_domain=self._vm))
-        if persistent is not False and not result:
-            result.extend(self._set)
+        if persistent is not False:
+            result.update(self._set)
         return result
 
     def available(self):
@@ -335,7 +336,7 @@ class DeviceInfo(object):
                 setattr(self, group, dev_match.group(group))
 
     def __hash__(self):
-        return hash(self.ident)
+        return hash((self.backend_domain, self.ident))
 
     def __eq__(self, other):
         return (

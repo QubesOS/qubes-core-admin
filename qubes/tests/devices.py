@@ -111,7 +111,7 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
     def test_011_double_attach(self):
         self.collection.attach(self.assignment)
 
-        with self.assertRaises(LookupError):
+        with self.assertRaises(qubes.devices.DeviceAlreadyAttached):
             self.collection.attach(self.assignment)
 
     def test_012_double_detach(self):
