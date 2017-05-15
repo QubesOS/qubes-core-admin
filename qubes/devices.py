@@ -174,10 +174,12 @@ class DeviceCollection(object):
             raise DeviceAlreadyAttached(
                 'device {!s} of class {} already attached to {!s}'.format(
                     device, self._class, self._vm))
-        self._vm.fire_event_pre('device-pre-attach:'+self._class, device=device)
+        self._vm.fire_event_pre('device-pre-attach:'+self._class,
+            device=device, options=device_assignment.options)
         if device_assignment.persistent:
             self._set.add(device_assignment)
-        self._vm.fire_event('device-attach:' + self._class, device=device)
+        self._vm.fire_event('device-attach:' + self._class,
+            device=device, options=device_assignment.options)
 
     def detach(self, device_assignment: DeviceAssignment):
         '''Detach (remove) device from domain.
