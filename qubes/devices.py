@@ -80,6 +80,17 @@ class DeviceAssignment(object): # pylint: disable=too-few-public-methods
         return self.backend_domain == other.backend_domain \
            and self.ident == other.ident
 
+    def clone(self):
+        '''Clone object instance'''
+        return self.__class__(
+            self.backend_domain,
+            self.ident,
+            self.options,
+            self.persistent,
+            self.frontend_domain
+        )
+
+
 class DeviceCollection(object):
     '''Bag for devices.
 
