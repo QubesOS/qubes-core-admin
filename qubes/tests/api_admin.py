@@ -28,6 +28,7 @@ import unittest.mock
 import libvirt
 
 import qubes
+import qubes.devices
 import qubes.api.admin
 import qubes.tests
 
@@ -1329,6 +1330,226 @@ class TC_00_VMs(AdminAPITestCase):
         self.assertIsNone(value)
         self.app.save.assert_called_once_with()
 
+    def device_list_testclass(self, vm, event):
+        if vm is not self.vm:
+            return
+        dev = qubes.devices.DeviceInfo(self.vm, '1234')
+        dev.description = 'Some device'
+        dev.data = {'other_property': 'property-value'}
+        dev.extra_prop = 'xx'
+        yield dev
+        dev = qubes.devices.DeviceInfo(self.vm, '4321')
+        dev.description = 'Some other device'
+        yield dev
+
+    def test_460_vm_device_available(self):
+        self.vm.add_handler('device-list:testclass', self.device_list_testclass)
+        value = self.call_mgmt_func(b'admin.vm.device.testclass.Available',
+            b'test-vm1')
+        self.assertEqual(value,
+            '1234 extra_prop=xx other_property=property-value description=Some '
+            'device\n'
+            '4321 description=Some other device\n')
+        self.assertFalse(self.app.save.called)
+
+    def test_461_vm_device_available_specific(self):
+        self.vm.add_handler('device-list:testclass', self.device_list_testclass)
+        value = self.call_mgmt_func(b'admin.vm.device.testclass.Available',
+            b'test-vm1', b'4321')
+        self.assertEqual(value,
+            '4321 description=Some other device\n')
+        self.assertFalse(self.app.save.called)
+
+    def test_462_vm_device_available_invalid(self):
+        self.vm.add_handler('device-list:testclass', self.device_list_testclass)
+        value = self.call_mgmt_func(b'admin.vm.device.testclass.Available',
+            b'test-vm1', b'no-such-device')
+        self.assertEqual(value, '')
+        self.assertFalse(self.app.save.called)
+
+    def test_470_vm_device_list_persistent(self):
+        assignment = qubes.devices.DeviceAssignment(self.vm, '1234',
+            persistent=True)
+        self.vm.devices['testclass'].attach(assignment)
+        value = self.call_mgmt_func(b'admin.vm.device.testclass.List',
+            b'test-vm1')
+        self.assertEqual(value,
+            'test-vm1+1234 persistent=yes\n')
+        self.assertFalse(self.app.save.called)
+
+    def test_471_vm_device_list_persistent_options(self):
+        assignment = qubes.devices.DeviceAssignment(self.vm, '1234',
+            persistent=True, options={'opt1': 'value'})
+        self.vm.devices['testclass'].attach(assignment)
+        assignment = qubes.devices.DeviceAssignment(self.vm, '4321',
+            persistent=True)
+        self.vm.devices['testclass'].attach(assignment)
+        value = self.call_mgmt_func(b'admin.vm.device.testclass.List',
+            b'test-vm1')
+        self.assertEqual(value,
+            'test-vm1+1234 opt1=value persistent=yes\n'
+            'test-vm1+4321 persistent=yes\n')
+        self.assertFalse(self.app.save.called)
+
+    def device_list_attached_testclass(self, vm, event, **kwargs):
+        if vm is not self.vm:
+            return
+        dev = qubes.devices.DeviceInfo(self.vm, '1234')
+        yield (dev, {'attach_opt': 'value'})
+
+    def test_472_vm_device_list_temporary(self):
+        self.vm.add_handler('device-list-attached:testclass',
+            self.device_list_attached_testclass)
+        value = self.call_mgmt_func(b'admin.vm.device.testclass.List',
+            b'test-vm1')
+        self.assertEqual(value,
+            'test-vm1+1234 attach_opt=value persistent=no\n')
+        self.assertFalse(self.app.save.called)
+
+    def test_473_vm_device_list_mixed(self):
+        self.vm.add_handler('device-list-attached:testclass',
+            self.device_list_attached_testclass)
+        assignment = qubes.devices.DeviceAssignment(self.vm, '4321',
+            persistent=True)
+        self.vm.devices['testclass'].attach(assignment)
+        value = self.call_mgmt_func(b'admin.vm.device.testclass.List',
+            b'test-vm1')
+        self.assertEqual(value,
+            'test-vm1+1234 attach_opt=value persistent=no\n'
+            'test-vm1+4321 persistent=yes\n')
+        self.assertFalse(self.app.save.called)
+
+    def test_474_vm_device_list_specific(self):
+        self.vm.add_handler('device-list-attached:testclass',
+            self.device_list_attached_testclass)
+        assignment = qubes.devices.DeviceAssignment(self.vm, '4321',
+            persistent=True)
+        self.vm.devices['testclass'].attach(assignment)
+        value = self.call_mgmt_func(b'admin.vm.device.testclass.List',
+            b'test-vm1', b'test-vm1+1234')
+        self.assertEqual(value,
+            'test-vm1+1234 attach_opt=value persistent=no\n')
+        self.assertFalse(self.app.save.called)
+
+    def test_480_vm_device_attach(self):
+        self.vm.add_handler('device-list:testclass', self.device_list_testclass)
+        mock_attach = unittest.mock.Mock()
+        mock_attach.return_value = None
+        self.vm.add_handler('device-attach:testclass', mock_attach)
+        with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
+                'is_halted', lambda _: False):
+            value = self.call_mgmt_func(b'admin.vm.device.testclass.Attach',
+                b'test-vm1', b'test-vm1+1234')
+        self.assertIsNone(value)
+        mock_attach.assert_called_once_with(self.vm, 'device-attach:testclass',
+            device=self.vm.devices['testclass']['1234'],
+            options={})
+        self.assertEqual(len(self.vm.devices['testclass'].persistent()), 0)
+        self.app.save.assert_called_once_with()
+
+    def test_481_vm_device_attach(self):
+        self.vm.add_handler('device-list:testclass', self.device_list_testclass)
+        mock_attach = unittest.mock.Mock()
+        mock_attach.return_value = None
+        self.vm.add_handler('device-attach:testclass', mock_attach)
+        with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
+                'is_halted', lambda _: False):
+            value = self.call_mgmt_func(b'admin.vm.device.testclass.Attach',
+                b'test-vm1', b'test-vm1+1234', b'persistent=no')
+        self.assertIsNone(value)
+        mock_attach.assert_called_once_with(self.vm, 'device-attach:testclass',
+            device=self.vm.devices['testclass']['1234'],
+            options={})
+        self.assertEqual(len(self.vm.devices['testclass'].persistent()), 0)
+        self.app.save.assert_called_once_with()
+
+    def test_482_vm_device_attach_not_running(self):
+        self.vm.add_handler('device-list:testclass', self.device_list_testclass)
+        mock_attach = unittest.mock.Mock()
+        self.vm.add_handler('device-attach:testclass', mock_attach)
+        with self.assertRaises(qubes.exc.QubesVMNotRunningError):
+            self.call_mgmt_func(b'admin.vm.device.testclass.Attach',
+                b'test-vm1', b'test-vm1+1234')
+        self.assertFalse(mock_attach.called)
+        self.assertEqual(len(self.vm.devices['testclass'].persistent()), 0)
+        self.assertFalse(self.app.save.called)
+
+    def test_483_vm_device_attach_persistent(self):
+        self.vm.add_handler('device-list:testclass', self.device_list_testclass)
+        mock_attach = unittest.mock.Mock()
+        mock_attach.return_value = None
+        self.vm.add_handler('device-attach:testclass', mock_attach)
+        with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
+                'is_halted', lambda _: False):
+            value = self.call_mgmt_func(b'admin.vm.device.testclass.Attach',
+                b'test-vm1', b'test-vm1+1234', b'persistent=yes')
+        self.assertIsNone(value)
+        dev = self.vm.devices['testclass']['1234']
+        mock_attach.assert_called_once_with(self.vm, 'device-attach:testclass',
+            device=dev,
+            options={})
+        self.assertIn(dev, self.vm.devices['testclass'].persistent())
+        self.app.save.assert_called_once_with()
+
+    def test_484_vm_device_attach_persistent_not_running(self):
+        self.vm.add_handler('device-list:testclass', self.device_list_testclass)
+        mock_attach = unittest.mock.Mock()
+        mock_attach.return_value = None
+        self.vm.add_handler('device-attach:testclass', mock_attach)
+        value = self.call_mgmt_func(b'admin.vm.device.testclass.Attach',
+            b'test-vm1', b'test-vm1+1234', b'persistent=yes')
+        self.assertIsNone(value)
+        dev = self.vm.devices['testclass']['1234']
+        mock_attach.assert_called_once_with(self.vm, 'device-attach:testclass',
+            device=dev,
+            options={})
+        self.assertIn(dev, self.vm.devices['testclass'].persistent())
+        self.app.save.assert_called_once_with()
+
+    def test_485_vm_device_attach_options(self):
+        self.vm.add_handler('device-list:testclass', self.device_list_testclass)
+        mock_attach = unittest.mock.Mock()
+        mock_attach.return_value = None
+        self.vm.add_handler('device-attach:testclass', mock_attach)
+        with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
+                'is_halted', lambda _: False):
+            value = self.call_mgmt_func(b'admin.vm.device.testclass.Attach',
+                b'test-vm1', b'test-vm1+1234', b'option1=value2')
+        self.assertIsNone(value)
+        dev = self.vm.devices['testclass']['1234']
+        mock_attach.assert_called_once_with(self.vm, 'device-attach:testclass',
+            device=dev,
+            options={'option1': 'value2'})
+        self.app.save.assert_called_once_with()
+
+    def test_490_vm_device_detach(self):
+        self.vm.add_handler('device-list:testclass', self.device_list_testclass)
+        self.vm.add_handler('device-list-attached:testclass',
+            self.device_list_attached_testclass)
+        mock_detach = unittest.mock.Mock()
+        mock_detach.return_value = None
+        self.vm.add_handler('device-detach:testclass', mock_detach)
+        with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
+                'is_halted', lambda _: False):
+            value = self.call_mgmt_func(b'admin.vm.device.testclass.Detach',
+                b'test-vm1', b'test-vm1+1234')
+        self.assertIsNone(value)
+        mock_detach.assert_called_once_with(self.vm, 'device-detach:testclass',
+            device=self.vm.devices['testclass']['1234'])
+        self.app.save.assert_called_once_with()
+
+    def test_491_vm_device_detach_not_attached(self):
+        mock_detach = unittest.mock.Mock()
+        mock_detach.return_value = None
+        self.vm.add_handler('device-detach:testclass', mock_detach)
+        with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
+                'is_halted', lambda _: False):
+            with self.assertRaises(qubes.devices.DeviceNotAttached):
+                self.call_mgmt_func(b'admin.vm.device.testclass.Detach',
+                    b'test-vm1', b'test-vm1+1234')
+        self.assertFalse(mock_detach.called)
+        self.assertFalse(self.app.save.called)
+
     def test_990_vm_unexpected_payload(self):
         methods_with_no_payload = [
             b'admin.vm.List',
@@ -1402,8 +1623,6 @@ class TC_00_VMs(AdminAPITestCase):
             b'admin.vm.tag.List',
             b'admin.vm.firewall.List',
             b'admin.vm.firewall.Flush',
-            b'admin.vm.device.pci.List',
-            b'admin.vm.device.pci.Available',
             b'admin.vm.microphone.Attach',
             b'admin.vm.microphone.Detach',
             b'admin.vm.microphone.Status',
