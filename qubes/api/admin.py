@@ -727,10 +727,12 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         dst_vm = self.app.add_new_vm(src_vm.__class__, name=new_name)
         try:
             dst_vm.clone_properties(src_vm)
-            # TODO: tags
-            # TODO: features
-            # TODO: firewall
-            # TODO: persistent devices
+            dst_vm.tags.update(src_vm.tags)
+            dst_vm.features.update(src_vm.features)
+            dst_vm.firewall.clone(src_vm.firewall)
+            for devclass in src_vm.devices:
+                for device_assignment in src_vm.devices[devclass].assignments():
+                    dst_vm.devices[devclass].attach(device_assignment.clone())
             yield from dst_vm.clone_disk_files(src_vm)
         except:
             del self.app.domains[dst_vm]

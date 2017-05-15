@@ -1233,6 +1233,9 @@ class TC_00_VMs(AdminAPITestCase):
         vm = self.app.domains['test-vm2']
         self.assertEqual(vm.label, self.app.get_label('red'))
         self.assertEqual(vm.template, self.app.domains['test-template'])
+        self.assertEqual(vm.tags, self.vm.tags)
+        self.assertEqual(vm.features, self.vm.features)
+        self.assertEqual(vm.firewall, self.vm.firewall)
         self.assertEqual(mock_clone.mock_calls,
             [unittest.mock.call(self.app.domains['test-vm2']).clone(
                 self.app.domains['test-vm1'])])
