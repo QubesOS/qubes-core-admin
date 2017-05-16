@@ -32,17 +32,59 @@ class LinuxModules(Volume):
     rw = False
 
     def __init__(self, target_dir, kernel_version, **kwargs):
-        kwargs['vid'] = kernel_version
+        kwargs['vid'] = ''
         kwargs['source'] = self
         super(LinuxModules, self).__init__(**kwargs)
-        self.kernels_dir = os.path.join(target_dir, kernel_version)
-        self.path = os.path.join(self.kernels_dir, 'modules.img')
-        self.vmlinuz = os.path.join(self.kernels_dir, 'vmlinuz')
-        self.initramfs = os.path.join(self.kernels_dir, 'initramfs')
+        self._kernel_version = kernel_version
+        self.target_dir = target_dir
+
+    @property
+    def vid(self):
+        if callable(self._kernel_version):
+            return self._kernel_version()
+        return self._kernel_version
+
+    @vid.setter
+    def vid(self, value):
+        # ignore
+        pass
+
+    @property
+    def kernels_dir(self):
+        kernel_version = self.vid
+        if kernel_version is None:
+            return None
+        return os.path.join(self.target_dir, kernel_version)
+
+    @property
+    def path(self):
+        kernels_dir = self.kernels_dir
+        if kernels_dir is None:
+            return None
+        return os.path.join(kernels_dir, 'modules.img')
+
+    @property
+    def vmlinuz(self):
+        kernels_dir = self.kernels_dir
+        if kernels_dir is None:
+            return None
+        return os.path.join(kernels_dir, 'vmlinuz')
+
+    @property
+    def initramfs(self):
+        kernels_dir = self.kernels_dir
+        if kernels_dir is None:
+            return None
+        return os.path.join(kernels_dir, 'initramfs')
 
     @property
     def revisions(self):
         return {}
+
+    def block_device(self):
+        if self.vid is not None:
+            return super().block_device()
+
 
 class LinuxKernel(Pool):
     ''' Provides linux kernels '''
@@ -56,7 +98,7 @@ class LinuxKernel(Pool):
     def init_volume(self, vm, volume_config):
         assert not volume_config['rw']
 
-        volume = LinuxModules(self.dir_path, vm.kernel, **volume_config)
+        volume = LinuxModules(self.dir_path, lambda: vm.kernel, **volume_config)
 
         return volume
 
@@ -103,7 +145,7 @@ class LinuxKernel(Pool):
 
     def start(self, volume):
         path = volume.path
-        if not os.path.exists(path):
+        if path and not os.path.exists(path):
             raise StoragePoolException('Missing kernel modules: %s' % path)
 
         return volume
@@ -112,9 +154,10 @@ class LinuxKernel(Pool):
         pass
 
     def verify(self, volume):
-        _check_path(volume.path)
-        _check_path(volume.vmlinuz)
-        _check_path(volume.initramfs)
+        if volume.vid is not None:
+            _check_path(volume.path)
+            _check_path(volume.vmlinuz)
+            _check_path(volume.initramfs)
 
     @property
     def volumes(self):
