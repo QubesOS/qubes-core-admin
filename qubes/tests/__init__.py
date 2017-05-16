@@ -900,6 +900,7 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
             'qubes.tests.storage',
             'qubes.tests.storage_file',
             'qubes.tests.storage_lvm',
+            'qubes.tests.storage_kernels',
             'qubes.tests.vm.qubesvm',
             'qubes.tests.vm.mix.net',
             'qubes.tests.vm.adminvm',
