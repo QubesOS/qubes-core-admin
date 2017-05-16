@@ -1145,7 +1145,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 if self.stubdom_mem:
                     stubdom_mem = self.stubdom_mem
                 else:
-                    if self.features.get('linux-stubdom', False):
+                    if self.features.check_with_template('linux-stubdom', True):
                         stubdom_mem = 128 # from libxl_create.c
                     else:
                         stubdom_mem = 28 # from libxl_create.c
