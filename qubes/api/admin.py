@@ -24,9 +24,9 @@ Qubes OS Management API
 
 import asyncio
 import string
-
 import itertools
 import pkg_resources
+import libvirt
 
 import qubes.api
 import qubes.devices
@@ -486,7 +486,12 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     def vm_start(self):
         assert not self.arg
         self.fire_event_for_permission()
-        yield from self.dest.start()
+        try:
+            yield from self.dest.start()
+        except libvirt.libvirtError as e:
+            # change to QubesException, so will be reported to the user
+            raise qubes.exc.QubesException('Start failed: ' + str(e))
+
 
     @qubes.api.method('admin.vm.Shutdown', no_payload=True)
     @asyncio.coroutine
