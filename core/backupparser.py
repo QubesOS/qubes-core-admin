@@ -238,8 +238,7 @@ class SafeQubesVmCollection(QubesVmCollection):
             tree = lxml.etree.parse(self.qubes_store_file)
         except (EnvironmentError,
         xml.parsers.expat.ExpatError) as err:
-            raise QubesException("error loading qubes.xml: {}".format(
-                os.path.basename(sys.argv[0]), err))
+            raise QubesException("error loading qubes.xml: {}".format(err))
 
         self.load_globals(tree.getroot())
 
