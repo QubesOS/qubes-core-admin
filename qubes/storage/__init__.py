@@ -431,6 +431,7 @@ class Storage(object):
             pool = self.get_pool(volume)
             volumes[name] = pool.rename(volume, old_name, new_name)
 
+    @asyncio.coroutine
     def verify(self):
         '''Verify that the storage is sane.
 
@@ -440,8 +441,13 @@ class Storage(object):
             raise qubes.exc.QubesVMError(
                 self.vm,
                 'VM directory does not exist: {}'.format(self.vm.dir_path))
+        futures = []
         for volume in self.vm.volumes.values():
-            self.get_pool(volume).verify(volume)
+            ret = self.get_pool(volume).verify(volume)
+            if asyncio.iscoroutine(ret):
+                futures.append(ret)
+        if futures:
+            yield from asyncio.wait(futures)
         self.vm.fire_event('domain-verify-files')
         return True
 
@@ -677,7 +683,9 @@ class Pool(object):
         This can be implemented as a coroutine.'''
 
     def verify(self, volume):
-        ''' Verifies the volume. '''
+        ''' Verifies the volume.
+
+        This can be implemented as a coroutine.'''
         raise self._not_implemented("verify")
 
     @property

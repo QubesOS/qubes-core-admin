@@ -854,8 +854,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self.fire_event_pre('domain-pre-start', preparing_dvm=preparing_dvm,
             start_guid=start_guid, mem_required=mem_required)
 
-        yield from asyncio.get_event_loop().run_in_executor(None,
-            self.storage.verify)
+        yield from self.storage.verify()
 
         if self.netvm is not None:
             # pylint: disable = no-member
