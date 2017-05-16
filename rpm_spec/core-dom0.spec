@@ -391,12 +391,10 @@ fi
 %{python3_sitelib}/qubespolicy/glade/RPCConfirmationWindow.glade
 
 /usr/lib/qubes/cleanup-dispvms
-/usr/lib/qubes/block-cleaner-daemon.py*
 /usr/lib/qubes/fix-dir-perms.sh
 /usr/lib/qubes/startup-misc.sh
 /usr/libexec/qubes/qubes-notify-tools
 /usr/libexec/qubes/qubes-notify-updates
-%{_unitdir}/qubes-block-cleaner.service
 %{_unitdir}/qubes-core.service
 %{_unitdir}/qubes-netvm.service
 %{_unitdir}/qubes-qmemman.service
