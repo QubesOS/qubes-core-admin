@@ -62,6 +62,8 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
     @asyncio.coroutine
     def start(self):
         assert not self.arg
+        if self.dest.name == 'dom0':
+            return
 
         yield from self.dest.start()
 
