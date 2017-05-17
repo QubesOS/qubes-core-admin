@@ -90,7 +90,7 @@ def main(args=None):
                 action.handle_user_response(True, response)
             else:
                 action.handle_user_response(False)
-        log.info(log_prefix + 'allowed')
+        log.info(log_prefix + 'allowed to {}'.format(action.target))
         action.execute(caller_ident)
     except qubespolicy.PolicySyntaxError as e:
         log.error(log_prefix + 'error loading policy: ' + str(e))
