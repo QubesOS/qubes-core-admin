@@ -56,6 +56,7 @@ AutoReq:	no
 
 BuildRequires:  ImageMagick
 BuildRequires:	systemd-units
+BuildRequires:  systemd
 
 BuildRequires:  python3-devel
 
@@ -100,6 +101,8 @@ Requires:       scrypt
 Requires:       dmidecode
 Requires:       PyQt4
 
+%{?systemd_requires}
+
 # for lvm support
 Requires: lvm2-python-libs
 
@@ -140,13 +143,10 @@ make -C doc DESTDIR=$RPM_BUILD_ROOT \
 
 
 %post
-
-# Create NetworkManager configuration if we do not have it
-if ! [ -e /etc/NetworkManager/NetworkManager.conf ]; then
-echo '[main]' > /etc/NetworkManager/NetworkManager.conf
-echo 'plugins = keyfile' >> /etc/NetworkManager/NetworkManager.conf
-echo '[keyfile]' >> /etc/NetworkManager/NetworkManager.conf
-fi
+%systemd_post qubes-core.service
+%systemd_post qubes-netvm.service
+%systemd_post qubes-qmemman.service
+%systemd_post qubesd.service
 
 sed '/^autoballoon=/d;/^lockfile=/d' -i /etc/xen/xl.conf
 echo 'autoballoon=0' >> /etc/xen/xl.conf
@@ -156,38 +156,15 @@ if [ -e /etc/sysconfig/prelink ]; then
 sed 's/^PRELINKING\s*=.*/PRELINKING=no/' -i /etc/sysconfig/prelink
 fi
 
-systemctl --no-reload enable qubes-core.service >/dev/null 2>&1
-systemctl --no-reload enable qubes-netvm.service >/dev/null 2>&1
-
 # Conflicts with libxl stack, so disable it
 systemctl --no-reload disable xend.service >/dev/null 2>&1
 systemctl --no-reload disable xendomains.service >/dev/null 2>&1
 systemctl daemon-reload >/dev/null 2>&1 || :
 
-HAD_SYSCONFIG_NETWORK=yes
-if ! [ -e /etc/sysconfig/network ]; then
-    HAD_SYSCONFIG_NETWORK=no
-    # supplant empty one so NetworkManager init script does not complain
-    touch /etc/sysconfig/network
-fi
-
-# Load evtchn module - xenstored needs it
-modprobe evtchn 2> /dev/null || modprobe xen-evtchn
-service xenstored start
-
 if ! [ -e /var/lib/qubes/qubes.xml ]; then
 #    echo "Initializing Qubes DB..."
     umask 007; sg qubes -c 'qubes-create --offline-mode'
     qubes-prefs --force-root --offline-mode default-kernel `ls /var/lib/qubes/vm-kernels|head -n 1` 2> /dev/null
-fi
-
-# Because we now have an installer
-# this script is always executed during upgrade
-# and we decided not to restart core during upgrade
-#service qubes_core start
-
-if [ "x"$HAD_SYSCONFIG_NETWORK = "xno" ]; then
-    rm -f /etc/sysconfig/network
 fi
 
 %clean
@@ -203,6 +180,11 @@ fi
 /usr/lib/qubes/fix-dir-perms.sh
 
 %preun
+%systemd_preun qubes-core.service
+%systemd_preun qubes-netvm.service
+%systemd_preun qubes-qmemman.service
+%systemd_preun qubesd.service
+
 if [ "$1" = 0 ] ; then
 	# no more packages left
     service qubes_netvm stop
@@ -210,6 +192,11 @@ if [ "$1" = 0 ] ; then
 fi
 
 %postun
+%systemd_postun qubes-core.service
+%systemd_postun qubes-netvm.service
+%systemd_postun_with_restart qubes-qmemman.service
+%systemd_postun_with_restart qubesd.service
+
 if [ "$1" = 0 ] ; then
 	# no more packages left
     chgrp root /etc/xen
