@@ -143,11 +143,12 @@ class NetVMMixin(qubes.events.Emitter):
         '''
         import qubes.vm.dispvm  # pylint: disable=redefined-outer-name
         if isinstance(vm, qubes.vm.dispvm.DispVM):
-            return '10.138.{}.{}'.format((vm.dispid >> 8) & 7, vm.dispid & 7)
+            return '10.138.{}.{}'.format((vm.dispid >> 8) & 0xff,
+                vm.dispid & 0xff)
 
         # VM technically can get address which ends in '.0'. This currently
         # does not happen, because qid < 253, but may happen in the future.
-        return '10.137.{}.{}'.format((vm.qid >> 8) & 7, vm.qid & 7)
+        return '10.137.{}.{}'.format((vm.qid >> 8) & 0xff, vm.qid & 0xff)
 
     @qubes.stateless_property
     def gateway(self):
