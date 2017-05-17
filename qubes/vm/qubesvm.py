@@ -871,15 +871,14 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         qmemman_client = yield from asyncio.get_event_loop().run_in_executor(
             None, self.request_memory, mem_required)
 
-        yield from self.storage.start()
-        self._update_libvirt_domain()
-
         try:
+            yield from self.storage.start()
+            self._update_libvirt_domain()
+
             self.libvirt_domain.createWithFlags(libvirt.VIR_DOMAIN_START_PAUSED)
-        except:
+        finally:
             if qmemman_client:
                 qmemman_client.close()
-            raise
 
         try:
             self.fire_event('domain-spawn',
@@ -902,6 +901,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             # successful unpause is some indicator of it
             if qmemman_client:
                 qmemman_client.close()
+                qmemman_client = None
 
 #           if self._start_guid_first and start_guid and not preparing_dvm \
 #                   and os.path.exists('/var/run/shm.id'):
@@ -919,6 +919,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 # self.force_shutdown(), because the vm is not running or paused
                 yield from self.kill()  # pylint: disable=not-an-iterable
             raise
+        finally:
+            if qmemman_client:
+                qmemman_client.close()
 
         asyncio.ensure_future(self._wait_for_session())
 
