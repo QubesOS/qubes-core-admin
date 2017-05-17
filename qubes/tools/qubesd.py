@@ -217,6 +217,8 @@ def main(args=None):
             sighandler, loop, signame, server, server_internal)
 
     qubes.utils.systemd_notify()
+    # make sure children will not inherit this
+    os.environ.pop('NOTIFY_SOCKET', None)
 
     try:
         loop.run_forever()
