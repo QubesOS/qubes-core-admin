@@ -103,13 +103,13 @@ class XS_Watcher(object):
 
             # check if domain is really there, it may happen that some empty
             # directories are left in xenstore
-            curr = filter(
+            curr = list(filter(
                 lambda x:
                 self.handle.read('',
                                  '/local/domain/{}/domid'.format(x)
                                  ) is not None,
                 curr
-            )
+            ))
             self.log.debug('curr={!r}'.format(curr))
 
             for i in only_in_first_list(curr, self.watch_token_dict.keys()):
