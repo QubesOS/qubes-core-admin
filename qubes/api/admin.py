@@ -712,6 +712,25 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             raise
         self.app.save()
 
+    @qubes.api.method('admin.vm.Remove', no_payload=True)
+    @asyncio.coroutine
+    def vm_remove(self):
+        assert not self.arg
+
+        self.fire_event_for_permission()
+
+        if not self.dest.is_halted():
+            raise qubes.exc.QubesVMNotHaltedError(self.dest)
+
+        del self.app.domains[self.dest]
+        try:
+            yield from self.dest.remove_from_disk()
+        except:  # pylint: disable=bare-except
+            self.app.log.exception('Error wile removing VM \'%s\' files',
+                self.dest.name)
+
+        self.app.save()
+
     @qubes.api.method('admin.vm.Clone')
     @asyncio.coroutine
     def vm_clone(self, untrusted_payload):

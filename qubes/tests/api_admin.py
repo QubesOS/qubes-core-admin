@@ -1550,6 +1550,27 @@ class TC_00_VMs(AdminAPITestCase):
         self.assertFalse(mock_detach.called)
         self.assertFalse(self.app.save.called)
 
+    @unittest.mock.patch('qubes.storage.Storage.remove')
+    @unittest.mock.patch('shutil.rmtree')
+    def test_500_vm_remove(self, mock_rmtree, mock_remove):
+        value = self.call_mgmt_func(b'admin.vm.Remove', b'test-vm1')
+        self.assertIsNone(value)
+        mock_rmtree.assert_called_once_with(
+            '/tmp/qubes-test-dir/appvms/test-vm1')
+        mock_remove.assert_called_once_with()
+        self.app.save.assert_called_once_with()
+
+    @unittest.mock.patch('qubes.storage.Storage.remove')
+    @unittest.mock.patch('shutil.rmtree')
+    def test_501_vm_remove_running(self, mock_rmtree, mock_remove):
+        with unittest.mock.patch.object(
+                self.vm, 'get_power_state', lambda: 'Running'):
+            with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
+                self.call_mgmt_func(b'admin.vm.Remove', b'test-vm1')
+        self.assertFalse(mock_rmtree.called)
+        self.assertFalse(mock_remove.called)
+        self.assertFalse(self.app.save.called)
+
     def test_990_vm_unexpected_payload(self):
         methods_with_no_payload = [
             b'admin.vm.List',
