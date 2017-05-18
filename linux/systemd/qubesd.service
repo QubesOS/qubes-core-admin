@@ -5,6 +5,7 @@ Description=Qubes OS daemon
 Type=notify
 ExecStart=/usr/bin/qubesd
 StandardOutput=syslog
+KillMode=process
 
 [Install]
 WantedBy=multi-user.target
