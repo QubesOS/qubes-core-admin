@@ -218,7 +218,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
             yield (PCIDevice(vm.app.domains[0], ident), {})
 
     @qubes.ext.handler('device-pre-attach:pci')
-    def on_device_pre_attached_pci(self, vm, event, device):
+    def on_device_pre_attached_pci(self, vm, event, device, options):
         # pylint: disable=unused-argument
         if not os.path.exists('/sys/bus/pci/devices/0000:{}'.format(
                 device.ident)):
