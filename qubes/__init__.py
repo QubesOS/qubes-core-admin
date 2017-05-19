@@ -294,8 +294,10 @@ class property(object):  # pylint: disable=redefined-builtin,invalid-name
             if self._default is not self._NO_DEFAULT \
             else ''
         return '<{} object at {:#x} name={!r}{}>'.format(
-            self.__class__.__name__, id(self), self.__name__, default) \
+            self.__class__.__name__, id(self), self.__name__, default)
 
+    def __str__(self):
+        return self.__name__
 
     def __hash__(self):
         return hash(self.__name__)
