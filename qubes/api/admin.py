@@ -867,8 +867,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             devclass=devclass, persistent=persistent,
             options=options)
 
-        assignment = qubes.devices.DeviceAssignment(dev.backend_domain,
-            dev.ident, options=options, persistent=persistent)
+        assignment = qubes.devices.DeviceAssignment(
+            dev.backend_domain, dev.ident,
+            options=options, persistent=persistent)
         self.dest.devices[devclass].attach(assignment)
         self.app.save()
 
@@ -889,7 +890,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.fire_event_for_permission(device=dev,
             devclass=devclass)
 
-        assignment = qubes.devices.DeviceAssignment(dev.backend_domain,
-            dev.ident)
+        assignment = qubes.devices.DeviceAssignment(
+            dev.backend_domain, dev.ident)
         self.dest.devices[devclass].detach(assignment)
         self.app.save()

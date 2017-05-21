@@ -81,8 +81,8 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         self.device = self.emitter.device
         self.collection = self.emitter.devices['testclass']
         self.assignment = qubes.devices.DeviceAssignment(
-            backend_domain = self.device.backend_domain,
-            ident = self.device.ident,
+            backend_domain=self.device.backend_domain,
+            ident=self.device.ident,
             persistent=True
         )
 
@@ -161,7 +161,10 @@ class TC_01_DeviceManager(qubes.tests.QubesTestCase):
 
     def test_001_missing(self):
         device = TestDevice(self.emitter.app.domains['vm'], 'testdev')
-        assignment = qubes.devices.DeviceAssignment(backend_domain=device.backend_domain, ident=device.ident, persistent=True)
+        assignment = qubes.devices.DeviceAssignment(
+            backend_domain=device.backend_domain,
+            ident=device.ident,
+            persistent=True)
         self.manager['testclass'].attach(assignment)
         self.assertEventFired(self.emitter, 'device-attach:testclass')
 
