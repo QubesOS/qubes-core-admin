@@ -1,5 +1,5 @@
 <hostdev type="pci" managed="yes"
-{% if vm.features.get('pci-no-strict-reset/' + device.ident, False) %}
+{% if options.get('no-strict-reset', False) %}
  nostrictreset="yes"
 {% endif %}
 >

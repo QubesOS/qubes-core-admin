@@ -106,7 +106,9 @@
                 {% include 'libvirt/devices/net.xml' with context %}
             {% endif %}
 
-            {% for device in vm.devices.pci.persistent() %}
+            {% for assignment in vm.devices.pci.assignments(True) %}
+                {% set device = assignment.device %}
+                {% set options = assignment.options %}
                 {% include 'libvirt/devices/pci.xml' %}
             {% endfor %}
 

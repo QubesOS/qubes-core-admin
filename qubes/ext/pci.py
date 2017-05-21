@@ -233,7 +233,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
             self.bind_pci_to_pciback(vm.app, device)
             vm.libvirt_domain.attachDevice(
                 vm.app.env.get_template('libvirt/devices/pci.xml').render(
-                    device=device, vm=vm))
+                    device=device, vm=vm, options=options))
         except subprocess.CalledProcessError as e:
             vm.log.exception('Failed to attach PCI device {!r} on the fly,'
                 ' changes will be seen after VM restart.'.format(
