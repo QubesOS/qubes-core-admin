@@ -76,7 +76,9 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
             </features>
 
             <devices class="pci">
-                <device backend-domain="domain1" id="00_11.22"/>
+                <device backend-domain="domain1" id="00_11.22">
+                  <option name="no-strict-reset">True</option>
+                </device>
             </devices>
 
             <devices class="usb" />
@@ -110,6 +112,11 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
         self.assertCountEqual(vm.devices.keys(), ('pci',))
         self.assertCountEqual(list(vm.devices['pci'].persistent()),
             [qubes.ext.pci.PCIDevice(vm, '00_11.22')])
+
+        assignments = list(vm.devices['pci'].assignments())
+        self.assertEqual(len(assignments), 1)
+        self.assertEqual(assignments[0].options, {'no-strict-reset': 'True'})
+        self.assertEqual(assignments[0].persistent, True)
 
         self.assertXMLIsValid(vm.__xml__(), 'domain.rng')
 

@@ -289,8 +289,8 @@ class BaseVM(qubes.PropertyHolder):
             devclass = parent.get('class')
             for node in parent.xpath('./device'):
                 options = {}
-                if node.get('options'):
-                    options = node.get('options').attribs(),
+                for option in node.xpath('./option'):
+                    options[option.get('name')] = option.text
 
                 device_assignment = qubes.devices.DeviceAssignment(
                     self.app.domains[node.get('backend-domain')],
@@ -331,10 +331,11 @@ class BaseVM(qubes.PropertyHolder):
                 node = lxml.etree.Element('device')
                 node.set('backend-domain', device.backend_domain.name)
                 node.set('id', device.ident)
-                options_node = lxml.etree.Element('options')
-                for key, val in device.options:
-                    options_node.set(key, val)
-                node.append(options_node)
+                for key, val in device.options.items():
+                    option_node = lxml.etree.Element('option')
+                    option_node.set('name', key)
+                    option_node.text = val
+                    node.append(option_node)
                 devices.append(node)
             element.append(devices)
 
