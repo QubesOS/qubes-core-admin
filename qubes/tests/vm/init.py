@@ -76,7 +76,7 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
             </features>
 
             <devices class="pci">
-                <device backend-domain="domain1" id="00:11.22"/>
+                <device backend-domain="domain1" id="00_11.22"/>
             </devices>
 
             <devices class="usb" />
@@ -109,7 +109,7 @@ class TC_10_BaseVM(qubes.tests.QubesTestCase):
 
         self.assertCountEqual(vm.devices.keys(), ('pci',))
         self.assertCountEqual(list(vm.devices['pci'].persistent()),
-            [qubes.ext.pci.PCIDevice(vm, '00:11.22')])
+            [qubes.ext.pci.PCIDevice(vm, '00_11.22')])
 
         self.assertXMLIsValid(vm.__xml__(), 'domain.rng')
 

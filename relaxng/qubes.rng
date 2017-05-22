@@ -211,7 +211,7 @@ the parser will complain about missing combine= attribute on the second <start>.
                                 dependant).
                             </doc:description>
                             <attribute name="backend-domain">
-                                <doc:description>
+                              <doc:description>
                                   Backend domain name.
                               </doc:description>
                                 <data type="string">
@@ -221,7 +221,7 @@ the parser will complain about missing combine= attribute on the second <start>.
                             <attribute name="id">
                                 <!-- TODO: pattern dependent on class! -->
                                 <data type="string">
-                                    <param name="pattern">[0-9a-f]{2}:[0-9a-f]{2}.[0-9a-f]{2}</param>
+                                    <param name="pattern">[0-9a-f]{2}_[0-9a-f]{2}.[0-9a-f]{2}</param>
                                 </data>
                             </attribute>
                               <optional>

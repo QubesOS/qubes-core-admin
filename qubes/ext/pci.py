@@ -112,7 +112,7 @@ def attached_devices(app):
             for dev in range(int(devnum)):
                 dbdf = xs.read('', devpath + '/dev-' + str(dev))
                 bdf = dbdf[len('0000:'):]
-                devices[bdf] = domain
+                devices[bdf.replace(':', '_')] = domain
 
     return devices
 
@@ -128,7 +128,7 @@ def _device_desc(hostdev_xml):
 class PCIDevice(qubes.devices.DeviceInfo):
     # pylint: disable=too-few-public-methods
     regex = re.compile(
-        r'^(?P<bus>[0-9a-f]+):(?P<device>[0-9a-f]+)\.(?P<function>[0-9a-f]+)$')
+        r'^(?P<bus>[0-9a-f]+)_(?P<device>[0-9a-f]+)\.(?P<function>[0-9a-f]+)$')
     libvirt_regex = re.compile(
         r'^pci_0000_(?P<bus>[0-9a-f]+)_(?P<device>[0-9a-f]+)_'
         r'(?P<function>[0-9a-f]+)$')
@@ -137,7 +137,7 @@ class PCIDevice(qubes.devices.DeviceInfo):
         if libvirt_name:
             dev_match = self.libvirt_regex.match(libvirt_name)
             assert dev_match
-            ident = '{bus}:{device}.{function}'.format(**dev_match.groupdict())
+            ident = '{bus}_{device}.{function}'.format(**dev_match.groupdict())
 
         super(PCIDevice, self).__init__(backend_domain, ident, None)
 
@@ -210,7 +210,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
             device = address.get('slot')[2:]
             function = address.get('function')[2:]
 
-            ident = '{bus}:{device}.{function}'.format(
+            ident = '{bus}_{device}.{function}'.format(
                 bus=bus,
                 device=device,
                 function=function,
@@ -221,7 +221,7 @@ class PCIDeviceExtension(qubes.ext.Extension):
     def on_device_pre_attached_pci(self, vm, event, device, options):
         # pylint: disable=unused-argument
         if not os.path.exists('/sys/bus/pci/devices/0000:{}'.format(
-                device.ident)):
+                device.ident.replace('_', ':'))):
             raise qubes.exc.QubesException(
                 'Invalid PCI device: {}'.format(device.ident))
 
@@ -253,7 +253,9 @@ class PCIDeviceExtension(qubes.ext.Extension):
         p = subprocess.Popen(['xl', 'pci-list', str(vm.xid)],
                 stdout=subprocess.PIPE)
         result = p.communicate()[0].decode()
-        m = re.search(r'^(\d+.\d+)\s+0000:{}$'.format(device.ident), result,
+        m = re.search(r'^(\d+.\d+)\s+0000:{}$'.format(device.ident.replace(
+            '_', ':')),
+            result,
             flags=re.MULTILINE)
         if not m:
             vm.log.error('Device %s already detached', device.ident)
