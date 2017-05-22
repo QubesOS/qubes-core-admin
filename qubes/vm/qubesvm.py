@@ -1494,6 +1494,20 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 Libvirt's enum describing precise state of a domain.
         '''  # pylint: disable=too-many-return-statements
 
+        # don't try to define libvirt domain, if it isn't there, VM surely
+        # isn't running
+        # reason for this "if": allow vm.is_running() in PCI (or other
+        # device) extension while constructing libvirt XML
+        if self._libvirt_domain is None:
+            try:
+                self._libvirt_domain = self.app.vmm.libvirt_conn.lookupByUUID(
+                    self.uuid.bytes)
+            except libvirt.libvirtError as e:
+                if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
+                    return 'Halted'
+                else:
+                    raise
+
         libvirt_domain = self.libvirt_domain
         if libvirt_domain is None:
             return 'Halted'
@@ -1544,8 +1558,21 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if self.app.vmm.offline_mode:
             return False
 
-        # TODO context manager #1693
-        return self.libvirt_domain and self.libvirt_domain.isActive()
+        # don't try to define libvirt domain, if it isn't there, VM surely
+        # isn't running
+        # reason for this "if": allow vm.is_running() in PCI (or other
+        # device) extension while constructing libvirt XML
+        if self._libvirt_domain is None:
+            try:
+                self._libvirt_domain = self.app.vmm.libvirt_conn.lookupByUUID(
+                    self.uuid.bytes)
+            except libvirt.libvirtError as e:
+                if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
+                    return False
+                else:
+                    raise
+
+        return self.libvirt_domain.isActive()
 
     def is_paused(self):
         '''Check whether this domain is paused.
