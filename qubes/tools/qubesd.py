@@ -37,11 +37,9 @@ class QubesDaemonProtocol(asyncio.Protocol):
         self.mgmt = None
 
     def connection_made(self, transport):
-        print('connection_made()')
         self.transport = transport
 
     def connection_lost(self, exc):
-        print('connection_lost(exc={!r})'.format(exc))
         self.untrusted_buffer.close()
         # for cancellable operation, interrupt it, otherwise it will do nothing
         if self.mgmt is not None:
@@ -49,7 +47,6 @@ class QubesDaemonProtocol(asyncio.Protocol):
         self.transport = None
 
     def data_received(self, untrusted_data):  # pylint: disable=arguments-differ
-        print('data_received(untrusted_data={!r})'.format(untrusted_data))
         if self.len_untrusted_buffer + len(untrusted_data) > self.buffer_size:
             self.app.log.warning('request too long')
             self.transport.abort()
@@ -60,7 +57,6 @@ class QubesDaemonProtocol(asyncio.Protocol):
             self.untrusted_buffer.write(untrusted_data)
 
     def eof_received(self):
-        print('eof_received()')
         try:
             src, method, dest, arg, untrusted_payload = \
                 self.untrusted_buffer.getvalue().split(b'\0', 4)
@@ -102,10 +98,15 @@ class QubesDaemonProtocol(asyncio.Protocol):
                     method, arg, src, dest, len(untrusted_payload))
 
         except qubes.exc.QubesException as err:
-            self.app.log.exception(
-                'error while calling '
-                'src=%r method=%r dest=%r arg=%r len(untrusted_payload)=%d',
-                src, method, dest, arg, len(untrusted_payload))
+            msg = ('%r while calling '
+                'src=%r method=%r dest=%r arg=%r len(untrusted_payload)=%d')
+
+            if self.debug:
+                self.app.log.exception(msg,
+                    err, src, method, dest, arg, len(untrusted_payload))
+            else:
+                self.app.log.info(msg,
+                    err, src, method, dest, arg, len(untrusted_payload))
             if self.transport is not None:
                 self.send_exception(err)
                 self.transport.write_eof()
@@ -176,6 +177,9 @@ def sighandler(loop, signame, server, server_internal):
     loop.stop()
 
 parser = qubes.tools.QubesArgumentParser(description='Qubes OS daemon')
+parser.add_argument('--debug', action='store_true', default=False,
+    help='Enable verbose error logging (all exceptions with full '
+         'tracebacks) and also send tracebacks to Admin API clients')
 
 
 def main(args=None):
@@ -196,7 +200,7 @@ def main(args=None):
     old_umask = os.umask(0o007)
     server = loop.run_until_complete(loop.create_unix_server(
         functools.partial(QubesDaemonProtocol, qubes.api.admin.QubesAdminAPI,
-            app=args.app), QUBESD_SOCK))
+            app=args.app, debug=args.debug), QUBESD_SOCK))
     shutil.chown(QUBESD_SOCK, group='qubes')
 
     try:
@@ -206,7 +210,7 @@ def main(args=None):
     server_internal = loop.run_until_complete(loop.create_unix_server(
         functools.partial(QubesDaemonProtocol,
             qubes.api.internal.QubesInternalAPI,
-            app=args.app), QUBESD_INTERNAL_SOCK))
+            app=args.app, debug=args.debug), QUBESD_INTERNAL_SOCK))
     shutil.chown(QUBESD_INTERNAL_SOCK, group='qubes')
 
     os.umask(old_umask)
