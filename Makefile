@@ -7,6 +7,94 @@ DIST_DOM0 ?= fc18
 OS ?= Linux
 PYTHON ?= python3
 
+ADMIN_API_METHODS_SIMPLE = \
+	admin.vm.List \
+	admin.vmclass.List \
+	admin.Events \
+	admin.backup.Execute \
+	admin.backup.Info \
+	admin.backup.Restore \
+	admin.label.Create \
+	admin.label.Get \
+	admin.label.List \
+	admin.label.Remove \
+	admin.pool.Add \
+	admin.pool.Info \
+	admin.pool.List \
+	admin.pool.ListDrivers \
+	admin.pool.Remove \
+	admin.pool.volume.Info \
+	admin.pool.volume.List \
+	admin.pool.volume.ListSnapshots \
+	admin.pool.volume.Resize \
+	admin.pool.volume.Revert \
+	admin.pool.volume.Snapshot \
+	admin.property.Get \
+	admin.property.Help \
+	admin.property.HelpRst \
+	admin.property.List \
+	admin.property.Reset \
+	admin.property.Set \
+	admin.vm.Clone \
+	admin.vm.Create.AppVM \
+	admin.vm.Create.DispVM \
+	admin.vm.Create.StandaloneVM \
+	admin.vm.Create.TemplateVM \
+	admin.vm.CreateInPool.AppVM \
+	admin.vm.CreateInPool.DispVM \
+	admin.vm.CreateInPool.StandaloneVM \
+	admin.vm.CreateInPool.TemplateVM \
+	admin.vm.Kill \
+	admin.vm.List \
+	admin.vm.Pause \
+	admin.vm.Remove \
+	admin.vm.Shutdown \
+	admin.vm.Start \
+	admin.vm.Unpause \
+	admin.vm.device.pci.Attach \
+	admin.vm.device.pci.Available \
+	admin.vm.device.pci.Detach \
+	admin.vm.device.pci.List \
+	admin.vm.device.block.Attach \
+	admin.vm.device.block.Available \
+	admin.vm.device.block.Detach \
+	admin.vm.device.block.List \
+	admin.vm.device.mic.Attach \
+	admin.vm.device.mic.Available \
+	admin.vm.device.mic.Detach \
+	admin.vm.device.mic.List \
+	admin.vm.feature.CheckWithTemplate \
+	admin.vm.feature.Get \
+	admin.vm.feature.List \
+	admin.vm.feature.Remove \
+	admin.vm.feature.Set \
+	admin.vm.firewall.Flush \
+	admin.vm.firewall.Get \
+	admin.vm.firewall.Set \
+	admin.vm.firewall.GetPolicy \
+	admin.vm.firewall.SetPolicy \
+	admin.vm.firewall.Reload \
+	admin.vm.property.Get \
+	admin.vm.property.Help \
+	admin.vm.property.HelpRst \
+	admin.vm.property.List \
+	admin.vm.property.Reset \
+	admin.vm.property.Set \
+	admin.vm.tag.Get \
+	admin.vm.tag.List \
+	admin.vm.tag.Remove \
+	admin.vm.tag.Set \
+	admin.vm.volume.Info \
+	admin.vm.volume.List \
+	admin.vm.volume.ListSnapshots \
+	admin.vm.volume.Resize \
+	admin.vm.volume.Revert \
+	$(null)
+
+ADMIN_API_METHODS := $(ADMIN_API_METHODS_SIMPLE) \
+	 admin.vm.volume.Import \
+	 $(null)
+
 ifeq ($(OS),Linux)
 DATADIR ?= /var/lib/qubes
 STATEDIR ?= /var/run/qubes
@@ -42,6 +130,7 @@ rpms-dom0:
 
 all:
 	$(PYTHON) setup.py build
+	$(MAKE) -C qubes-rpc all
 #	make all -C tests
 	# Currently supported only on xen
 
@@ -82,6 +171,18 @@ endif
 	cp qubes-rpc/qubes.NotifyUpdates $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes-notify-updates $(DESTDIR)/usr/libexec/qubes/
 	cp qubes-rpc/qubes-notify-tools $(DESTDIR)/usr/libexec/qubes/
+	install qubes-rpc/qubesd-query-fast $(DESTDIR)/usr/libexec/qubes/
+	for method in $(ADMIN_API_METHODS_SIMPLE); do \
+		ln -s ../../usr/libexec/qubes/qubesd-query-fast \
+			$(DESTDIR)/etc/qubes-rpc/$$method; \
+	done
+	for method in $(ADMIN_API_METHODS); do \
+		install -m 0644 qubes-rpc-policy/admin-default \
+			$(DESTDIR)/etc/qubes-rpc/policy/$$method; \
+	done
+	install -d $(DESTDIR)/etc/qubes-rpc/policy/include
+	install -m 0644 qubes-rpc-policy/admin-all \
+		$(DESTDIR)/etc/qubes-rpc/policy/include/
 
 	mkdir -p "$(DESTDIR)$(FILESDIR)"
 	cp -r templates "$(DESTDIR)$(FILESDIR)/templates"

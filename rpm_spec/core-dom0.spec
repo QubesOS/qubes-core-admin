@@ -383,6 +383,7 @@ fi
 /usr/lib/qubes/startup-misc.sh
 /usr/libexec/qubes/qubes-notify-tools
 /usr/libexec/qubes/qubes-notify-updates
+/usr/libexec/qubes/qubesd-query-fast
 %{_unitdir}/qubes-core.service
 %{_unitdir}/qubes-netvm.service
 %{_unitdir}/qubes-qmemman.service
@@ -404,6 +405,8 @@ fi
 /etc/xen/scripts/block-snapshot
 /etc/xen/scripts/block-origin
 /etc/xen/scripts/vif-route-qubes
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/admin.*
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/include/admin-all
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.FeaturesRequest
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.Filecopy
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.GetImageRGBA
@@ -413,6 +416,7 @@ fi
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.OpenInVM
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.OpenURL
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.VMShell
+/etc/qubes-rpc/admin.*
 /etc/qubes-rpc/qubes.FeaturesRequest
 /etc/qubes-rpc/qubes.GetRandomizedTime
 /etc/qubes-rpc/qubes.NotifyTools
