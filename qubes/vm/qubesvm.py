@@ -261,12 +261,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             not fully usable. This will cause the domain to be in "transient"
             state in the domain lifecycle.
 
-        .. event:: domain-qtb-create (subject, event)
+        .. event:: domain-qdb-create (subject, event)
 
             Fired at the end of :py:meth:`create_qdb_entries` method.
 
             :param subject: Event emitter (the qube object)
-            :param event: Event name (``'domain-qtb-create'``)
+            :param event: Event name (``'domain-qdb-create'``)
 
             This event is a good place to add your custom entries to the qdb.
 
