@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 from __future__ import print_function
 from pprint import pprint
@@ -103,7 +103,7 @@ class EventVisitor(ast.NodeVisitor):
         if name in ('qubes.events.handler', 'qubes.ext.handler'):
             # here we handle; event names (there may be more than one) are all
             # positional arguments
-            if node.starargs is not None:
+            if any(isinstance(arg, ast.Starred) for arg in node.args):
                 raise AssertionError(
                     'event handler with *args in {} +{}'.format(
                         self.filename, node.lineno))
