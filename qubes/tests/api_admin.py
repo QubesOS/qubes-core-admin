@@ -1574,6 +1574,20 @@ class TC_00_VMs(AdminAPITestCase):
         self.assertFalse(mock_remove.called)
         self.assertFalse(self.app.save.called)
 
+    def test_510_vm_volume_import(self):
+        value = self.call_mgmt_func(b'admin.vm.volume.Import', b'test-vm1',
+            b'private')
+        self.assertEqual(value, '{} {}'.format(
+            2*2**30, '/tmp/qubes-test-dir/appvms/test-vm1/private.img'))
+        self.assertFalse(self.app.save.called)
+
+    def test_511_vm_volume_import_running(self):
+        with unittest.mock.patch.object(
+                self.vm, 'get_power_state', lambda: 'Running'):
+            with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
+                self.call_mgmt_func(b'admin.vm.volume.Import', b'test-vm1',
+                    b'private')
+
     def test_990_vm_unexpected_payload(self):
         methods_with_no_payload = [
             b'admin.vm.List',
