@@ -215,7 +215,7 @@ class Storage(object):
 
     def init_volume(self, name, volume_config):
         ''' Initialize Volume instance attached to this domain '''
-        assert 'pool' in volume_config, "Pool missing in volume_config" % str(
+        assert 'pool' in volume_config, "Pool missing in volume_config " + str(
             volume_config)
 
         if 'name' not in volume_config:
