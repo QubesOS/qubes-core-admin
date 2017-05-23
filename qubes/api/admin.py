@@ -137,7 +137,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         return self._property_get(self.app)
 
     def _property_get(self, dest):
-        assert self.arg in dest.property_list()
+        if self.arg not in dest.property_list():
+            raise qubes.exc.QubesNoSuchPropertyError(dest, self.arg)
 
         self.fire_event_for_permission()
 
@@ -180,7 +181,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             untrusted_payload=untrusted_payload)
 
     def _property_set(self, dest, untrusted_payload):
-        assert self.arg in dest.property_list()
+        if self.arg not in dest.property_list():
+            raise qubes.exc.QubesNoSuchPropertyError(dest, self.arg)
 
         property_def = dest.property_get_def(self.arg)
         newvalue = property_def.sanitize(untrusted_newvalue=untrusted_payload)
@@ -204,7 +206,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         return self._property_help(self.app)
 
     def _property_help(self, dest):
-        assert self.arg in dest.property_list()
+        if self.arg not in dest.property_list():
+            raise qubes.exc.QubesNoSuchPropertyError(dest, self.arg)
 
         self.fire_event_for_permission()
 
@@ -229,7 +232,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         return self._property_reset(self.app)
 
     def _property_reset(self, dest):
-        assert self.arg in dest.property_list()
+        if self.arg not in dest.property_list():
+            raise qubes.exc.QubesNoSuchPropertyError(dest, self.arg)
 
         self.fire_event_for_permission()
 

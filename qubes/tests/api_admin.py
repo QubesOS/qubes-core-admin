@@ -266,7 +266,7 @@ class TC_00_VMs(AdminAPITestCase):
         self.assertFalse(self.app.save.called)
 
     def test_052_vm_property_help_invalid_property(self):
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(qubes.exc.QubesNoSuchPropertyError):
             self.call_mgmt_func(b'admin.vm.property.Help', b'test-vm1',
                 b'no-such-property')
 
@@ -282,7 +282,7 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_062_vm_property_reset_invalid_property(self):
         with unittest.mock.patch('qubes.property.__delete__') as mock:
-            with self.assertRaises(AssertionError):
+            with self.assertRaises(qubes.exc.QubesNoSuchPropertyError):
                 self.call_mgmt_func(b'admin.vm.property.Help', b'test-vm1',
                     b'no-such-property')
             self.assertFalse(mock.called)

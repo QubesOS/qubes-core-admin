@@ -122,6 +122,17 @@ class QubesPropertyValueError(QubesValueError):
         self.value = value
 
 
+class QubesNoSuchPropertyError(QubesException, AttributeError):
+    '''Requested property does not exist
+    '''
+    def __init__(self, holder, prop_name, msg=None):
+        super(QubesNoSuchPropertyError, self).__init__(
+            msg or 'Invalid property {!r} of {!s}'.format(
+                prop_name, holder))
+        self.holder = holder
+        self.prop = prop_name
+
+
 class QubesNotImplementedError(QubesException, NotImplementedError):
     '''Thrown at user when some feature is not implemented'''
     def __init__(self, msg=None):
