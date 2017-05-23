@@ -198,6 +198,9 @@ class FilePool(qubes.storage.Pool):
     def export(self, volume):
         return volume.path
 
+    def import_data(self, volume):
+        return volume.path
+
     def reset(self, volume):
         ''' Remove and recreate a volatile volume '''
         assert volume._is_volatile, "Not a volatile volume"

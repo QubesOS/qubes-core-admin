@@ -544,6 +544,15 @@ class Storage(object):
 
         return self.pools[volume].export(self.vm.volumes[volume])
 
+    def import_data(self, volume):
+        ''' Helper function to import volume data (pool.import_data(volume))'''
+        assert isinstance(volume, (Volume, str)), \
+            "You need to pass a Volume or pool name as str"
+        if isinstance(volume, Volume):
+            return self.pools[volume.name].import_data(volume)
+
+        return self.pools[volume].import_data(self.vm.volumes[volume])
+
 
 class Pool(object):
     ''' A Pool is used to manage different kind of volumes (File
@@ -613,6 +622,15 @@ class Pool(object):
     def export(self, volume):
         ''' Returns an object that can be `open()`. '''
         raise self._not_implemented("export")
+
+    def import_data(self, volume):
+        ''' Returns an object that can be `open()`.
+
+        Storage implementation may register for
+        `domain-volume-import-end` event to cleanup after this. The
+        event will have also success=True|False information.
+        '''
+        raise self._not_implemented("import")
 
     def import_volume(self, dst_pool, dst_volume, src_pool, src_volume):
         ''' Imports data to a volume in this pool '''
