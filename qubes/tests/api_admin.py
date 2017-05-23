@@ -41,6 +41,13 @@ volume_properties = [
 class AdminAPITestCase(qubes.tests.QubesTestCase):
     def setUp(self):
         super().setUp()
+        self.test_base_dir = '/tmp/qubes-test-dir'
+        self.base_dir_patch = unittest.mock.patch.dict(qubes.config.system_path,
+            {'qubes_base_dir': self.test_base_dir})
+        self.base_dir_patch2 = unittest.mock.patch(
+            'qubes.config.qubes_base_dir', self.test_base_dir)
+        self.base_dir_patch.start()
+        self.base_dir_patch2.start()
         app = qubes.Qubes('/tmp/qubes-test.xml', load=False)
         app.vmm = unittest.mock.Mock(spec=qubes.app.VMMConnection)
         app.load_initial_values()
@@ -68,12 +75,8 @@ class AdminAPITestCase(qubes.tests.QubesTestCase):
         self.app.domains[0].fire_event = self.emitter.fire_event
         self.app.domains[0].fire_event_pre = self.emitter.fire_event_pre
 
-        self.test_base_dir = '/tmp/qubes-test-dir'
-        self.base_dir_patch = unittest.mock.patch.dict(qubes.config.system_path,
-            {'qubes_base_dir': self.test_base_dir})
-        self.base_dir_patch.start()
-
     def tearDown(self):
+        self.base_dir_patch2.stop()
         self.base_dir_patch.stop()
         if os.path.exists(self.test_base_dir):
             shutil.rmtree(self.test_base_dir)
