@@ -553,6 +553,18 @@ class Storage(object):
 
         return self.pools[volume].import_data(self.vm.volumes[volume])
 
+    def import_data_end(self, volume, success):
+        ''' Helper function to finish/cleanup data import
+        (pool.import_data_end( volume))'''
+        assert isinstance(volume, (Volume, str)), \
+            "You need to pass a Volume or pool name as str"
+        if isinstance(volume, Volume):
+            return self.pools[volume.name].import_data_end(volume,
+                success=success)
+
+        return self.pools[volume].import_data_end(self.vm.volumes[volume],
+            success=success)
+
 
 class Pool(object):
     ''' A Pool is used to manage different kind of volumes (File
@@ -624,13 +636,17 @@ class Pool(object):
         raise self._not_implemented("export")
 
     def import_data(self, volume):
-        ''' Returns an object that can be `open()`.
-
-        Storage implementation may register for
-        `domain-volume-import-end` event to cleanup after this. The
-        event will have also success=True|False information.
-        '''
+        ''' Returns an object that can be `open()`. '''
         raise self._not_implemented("import")
+
+    def import_data_end(self, volume, success):
+        ''' End data import operation. This may be used by pool
+        implementation to commit changes, cleanup temporary files etc.
+
+        :param success: True if data import was successful, otherwise False
+        '''
+        # by default do nothing
+        pass
 
     def import_volume(self, dst_pool, dst_volume, src_pool, src_volume):
         ''' Imports data to a volume in this pool '''

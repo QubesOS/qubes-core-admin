@@ -1,0 +1,35 @@
+#!/bin/sh
+
+set -e
+
+# use temporary file, because env variables deal poorly with \0 inside
+tmpfile=$(mktemp)
+trap "rm -f $tmpfile" EXIT
+qubesd-query -e \
+        "$QREXEC_REMOTE_DOMAIN" \
+        "admin.vm.volume.Import" \
+        "$QREXEC_REQUESTED_TARGET" \
+        "$1" >$tmpfile
+
+# exit if qubesd returned an error (not '0\0')
+if [ "$(head -c 2 $tmpfile | xxd -p)" != "3000" ]; then
+    cat "$tmpfile"
+    exit 1
+fi
+size=$(tail -c +3 "$tmpfile"|cut -d ' ' -f 1)
+path=$(tail -c +3 "$tmpfile"|cut -d ' ' -f 2)
+
+# now process stdin into this path
+if dd bs=4k of="$path" count="$size" iflag=count_bytes \
+        conv=sparse,notrunc,nocreat,fdatasync; then
+    status="ok"
+else
+    status="fail"
+fi
+
+# send status notification to qubesd, and pass its response to the caller
+echo -n "$status" | qubesd-query -c /var/run/qubesd.internal.sock \
+    "$QREXEC_REMOTE_DOMAIN" \
+    "internal.vm.volume.ImportEnd" \
+    "$QREXEC_REQUESTED_TARGET" \
+    "$1"

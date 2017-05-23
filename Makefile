@@ -176,6 +176,7 @@ endif
 		ln -s ../../usr/libexec/qubes/qubesd-query-fast \
 			$(DESTDIR)/etc/qubes-rpc/$$method; \
 	done
+	install qubes-rpc/admin.vm.volume.Import $(DESTDIR)/etc/qubes-rpc/
 	for method in $(ADMIN_API_METHODS); do \
 		install -m 0644 qubes-rpc-policy/admin-default \
 			$(DESTDIR)/etc/qubes-rpc/policy/$$method; \

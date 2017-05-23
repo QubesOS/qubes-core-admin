@@ -83,3 +83,27 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
 
         # TODO convert to coroutine
         self.dest.cleanup()
+
+    @qubes.api.method('internal.vm.volume.ImportEnd')
+    @asyncio.coroutine
+    def vm_volume_import_end(self, untrusted_payload):
+        '''
+        This is second half of admin.vm.volume.Import handling. It is called
+        when actual import is finished. Response from this method is sent do
+        the client (as a response for admin.vm.volume.Import call).
+        '''
+        assert self.arg in self.dest.volumes.keys()
+        success = untrusted_payload == b'ok'
+
+        try:
+            self.dest.storage.import_data_end(self.arg, success=success)
+        except:
+            self.dest.fire_event('domain-volume-import-end', volume=self.arg,
+                succeess=False)
+            raise
+
+        self.dest.fire_event('domain-volume-import-end', volume=self.arg,
+            succeess=success)
+
+        if not success:
+            raise qubes.exc.QubesException('Data import failed')

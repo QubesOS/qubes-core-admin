@@ -307,6 +307,35 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.dest.storage.resize(self.arg, size)
         self.app.save()
 
+    @qubes.api.method('admin.vm.volume.Import', no_payload=True)
+    @asyncio.coroutine
+    def vm_volume_import(self):
+        '''Import volume data.
+
+        Note that this function only returns a path to where data should be
+        written, actual importing is done by a script in /etc/qubes-rpc
+        When the script finish importing, it will trigger
+        internal.vm.volume.ImportEnd (with either b'ok' or b'fail' as a
+        payload) and response from that call will be actually send to the
+        caller.
+        '''
+        assert self.arg in self.dest.volumes.keys()
+
+        self.fire_event_for_permission()
+
+        if not self.dest.is_halted():
+            raise qubes.exc.QubesVMNotHaltedError(self.dest)
+
+        path = self.dest.storage.import_data(self.arg)
+        assert ' ' not in path
+        size = self.dest.volumes[self.arg].size
+
+        # when we know the action is allowed, inform extensions that it will
+        # be performed
+        self.dest.fire_event('domain-volume-import-begin', volume=self.arg)
+
+        return '{} {}'.format(size, path)
+
     @qubes.api.method('admin.pool.List', no_payload=True)
     @asyncio.coroutine
     def pool_list(self):
