@@ -281,7 +281,6 @@ fi
 %{python3_sitelib}/qubes/tools/qubesd_query.py
 %{python3_sitelib}/qubes/tools/qvm_backup.py
 %{python3_sitelib}/qubes/tools/qvm_backup_restore.py
-%{python3_sitelib}/qubes/tools/qvm_template_postprocess.py
 
 %dir %{python3_sitelib}/qubes/ext
 %dir %{python3_sitelib}/qubes/ext/__pycache__
