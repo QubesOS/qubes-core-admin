@@ -442,5 +442,9 @@ class VMProperty(qubes.property):
             untrusted_vmname = untrusted_newvalue.decode('ascii')
         except UnicodeDecodeError:
             raise qubes.exc.QubesValueError
+        if untrusted_vmname == '':
+            # allow empty VM name for setting VMProperty value, because it's
+            # string representation of None (see self._none_value)
+            return untrusted_vmname
         validate_name(None, self, untrusted_vmname)
         return untrusted_vmname

@@ -155,6 +155,17 @@ class TC_00_VMs(AdminAPITestCase):
             mock.assert_called_once_with(self.vm, 'test-net')
         self.app.save.assert_called_once_with()
 
+    def test_0301_vm_property_set_vm_none(self):
+        netvm = self.app.add_new_vm('AppVM', label='red', name='test-net',
+            template='test-template', provides_network=True)
+
+        with unittest.mock.patch('qubes.vm.VMProperty.__set__') as mock:
+            value = self.call_mgmt_func(b'admin.vm.property.Set', b'test-vm1',
+                b'netvm', b'')
+            self.assertIsNone(value)
+            mock.assert_called_once_with(self.vm, '')
+        self.app.save.assert_called_once_with()
+
     def test_032_vm_property_set_vm_invalid1(self):
         with unittest.mock.patch('qubes.vm.VMProperty.__set__') as mock:
             with self.assertRaises(qubes.exc.QubesValueError):
