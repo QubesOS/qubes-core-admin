@@ -1111,7 +1111,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesVMError(self,
                 'service {!r} failed with retcode {!r}; '
                 'stdout={!r} stderr={!r}'.format(
-                    args, p.returncode, *stdouterr))
+                    args[0], p.returncode, *stdouterr))
 
         return stdouterr
 
@@ -1123,17 +1123,23 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             input = b''
         return b''.join((command.rstrip('\n').encode('utf-8'), b'\n', input))
 
-    def run(self, command, input=None, **kwargs):
-        '''Run a shell command inside the domain using qubes.VMShell qrexec.
+    def run(self, command, input=None, user=None, **kwargs):
+        '''Run a shell command inside the domain using qrexec.
 
         This method is a coroutine.
-
-        *kwargs* are passed verbatim to :py:meth:`run_service`.
         '''  # pylint: disable=redefined-builtin
-        return self.run_service('qubes.VMShell',
-            input=self._prepare_input_for_vmshell(command, input), **kwargs)
 
-    def run_for_stdio(self, command, input=None, **kwargs):
+        if user is None:
+            user = self.default_user
+
+        return asyncio.create_subprocess_exec(
+            qubes.config.system_path['qrexec_client_path'],
+            '-d', str(self.name),
+            '{}:{}'.format(user, command),
+            **kwargs)
+
+    @asyncio.coroutine
+    def run_for_stdio(self, *args, input=None, **kwargs):
         '''Run a shell command inside the domain using qubes.VMShell qrexec.
 
         This method is a coroutine.
@@ -1141,8 +1147,20 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         *kwargs* are passed verbatim to :py:meth:`run_service_for_stdio`.
         See disclaimer there.
         '''  # pylint: disable=redefined-builtin
-        return self.run_service_for_stdio('qubes.VMShell',
-            input=self._prepare_input_for_vmshell(command, input), **kwargs)
+
+        kwargs.setdefault('stdin', subprocess.PIPE)
+        kwargs.setdefault('stdout', subprocess.PIPE)
+        kwargs.setdefault('stderr', subprocess.PIPE)
+        p = yield from self.run(*args, **kwargs)
+        stdouterr = yield from p.communicate(input=input)
+
+        if p.returncode:
+            raise qubes.exc.QubesVMError(self,
+                'service {!r} failed with retcode {!r}; '
+                'stdout={!r} stderr={!r}'.format(
+                    args[0], p.returncode, *stdouterr))
+
+        return stdouterr
 
     def request_memory(self, mem_required=None):
         # overhead of per-qube/per-vcpu Xen structures,
