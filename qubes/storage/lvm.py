@@ -33,7 +33,7 @@ def check_lvm_version():
         lvm_help = subprocess.check_output(['lvm', 'lvcreate', '--help'],
             stderr=subprocess.DEVNULL).decode()
         return '--setactivationskip' not in lvm_help
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, FileNotFoundError):
         pass
 
 lvm_is_very_old = check_lvm_version()
