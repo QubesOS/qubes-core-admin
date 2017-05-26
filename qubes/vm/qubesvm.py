@@ -683,9 +683,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self._libvirt_domain = None
         self._qdb_connection = None
 
-        #: this :py:class:`asyncio.Event` will fire when session is obtained
-        self.have_session = asyncio.Event()
-
         if xml is None:
             # we are creating new VM and attributes came through kwargs
             assert hasattr(self, 'qid')
@@ -923,8 +920,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             if qmemman_client:
                 qmemman_client.close()
 
-        asyncio.ensure_future(self._wait_for_session())
-
         return self
 
     @qubes.events.handler('domain-shutdown')
@@ -1080,9 +1075,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if not self.is_qrexec_running():
             raise qubes.exc.QubesVMError(
                 self, 'Domain {!r}: qrexec not connected'.format(self.name))
-
-        if gui and not self.have_session.is_set():
-            raise qubes.exc.QubesVMError(self, 'don\'t have session yet')
 
         self.fire_event_pre('domain-cmd-pre-run', start_guid=gui)
 
@@ -1263,23 +1255,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self.name)
         except subprocess.CalledProcessError:
             raise qubes.exc.QubesException('Cannot execute qubesdb-daemon')
-
-    @asyncio.coroutine
-    def _wait_for_session(self):
-        '''Wait until machine finished boot sequence.
-
-        This is done by executing qubes RPC call that checks if dummy system
-        service (which is started late in standard runlevel) is active.
-        '''
-
-        self.log.info('Waiting for qubes-session')
-
-        yield from self.run_service_for_stdio('qubes.WaitForSession',
-            user='root', gui=False, input=self.default_user.encode())
-
-        self.log.info('qubes-session acquired')
-        self.have_session.set()
-        self.fire_event('domain-has-session')
 
     @asyncio.coroutine
     def create_on_disk(self, pool=None, pools=None):
