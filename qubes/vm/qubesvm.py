@@ -1819,8 +1819,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self.qdb.write('/qubes-timezone', tzname)
 
         for feature, value in self.features.items():
-            self.qdb.write('/features/{0}'.format(feature),
-                    str(value) if value else '')
+            if not feature.startswith('service/'):
+                continue
+            service = feature[len('service/'):]
+            # forcefully convert to '0' or '1'
+            self.qdb.write('/qubes-service/{}'.format(service),
+                str(int(bool(value))))
 
         self.qdb.write('/qubes-block-devices', '')
 

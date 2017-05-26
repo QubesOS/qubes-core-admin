@@ -162,7 +162,9 @@ class R3Compatibility(qubes.ext.Extension):
 
     def write_services(self, vm):
         for feature, value in vm.features.items():
-            service = self.features_to_services.get(feature, feature)
+            service = self.features_to_services.get(feature, None)
+            if service is None:
+                continue
             # forcefully convert to '0' or '1'
             vm.qdb.write('/qubes-service/{}'.format(service),
                 str(int(bool(value))))
