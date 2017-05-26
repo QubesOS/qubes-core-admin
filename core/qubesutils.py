@@ -469,7 +469,7 @@ def block_detach_all(vm):
 ####### USB devices ######
 
 usb_ver_re = re.compile(r"^(1|2)$")
-usb_device_re = re.compile(r"^[0-9]+-[0-9]+(_[0-9]+)?$")
+usb_device_re = re.compile(r"^[0-9]+-[0-9]+(_[0-9]+)*$")
 usb_port_re = re.compile(r"^$|^[0-9]+-[0-9]+(\.[0-9]+)?$")
 usb_desc_re = re.compile(r"^[ -~]{1,255}$")
 # should match valid VM name
