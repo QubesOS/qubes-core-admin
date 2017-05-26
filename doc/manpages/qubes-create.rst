@@ -26,10 +26,6 @@ Options
 
    Decrease verbosity.
 
-.. option:: --property=NAME=VALUE, --prop=NAME=VALUE, -p NAME=VALUE
-
-   On creation, set global property *NAME* to *VALUE*.
-
 Authors
 -------
 
