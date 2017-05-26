@@ -165,6 +165,7 @@ endif
 	cp qubes-rpc-policy/qubes.NotifyUpdates.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.NotifyUpdates
 	cp qubes-rpc-policy/qubes.OpenInVM.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.OpenInVM
 	cp qubes-rpc-policy/qubes.VMShell.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.VMShell
+	cp qubes-rpc-policy/qubes.UpdatesProxy.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.UpdatesProxy
 	cp qubes-rpc/qubes.FeaturesRequest $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes.GetRandomizedTime $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes.NotifyTools $(DESTDIR)/etc/qubes-rpc/

@@ -414,6 +414,7 @@ fi
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.OpenInVM
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.OpenURL
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.VMShell
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.UpdatesProxy
 /etc/qubes-rpc/admin.*
 /etc/qubes-rpc/qubes.FeaturesRequest
 /etc/qubes-rpc/qubes.GetRandomizedTime
