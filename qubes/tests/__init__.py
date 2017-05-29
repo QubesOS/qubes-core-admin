@@ -245,7 +245,12 @@ class _QrexecPolicyContext(object):
             'allow' if allow else 'deny')
 
     def _change(self, add=True):
-        with self._filename.open('r+') as policy:
+        try:
+            policy = self._filename.open('r+')
+        except FileNotFoundError:
+            policy = self._filename.open('w+')
+
+        try:
             policy_rules = policy.readlines()
             if add:
                 policy_rules.insert(0, self._rule)
@@ -254,6 +259,8 @@ class _QrexecPolicyContext(object):
             policy.truncate(0)
             policy.seek(0)
             policy.write(''.join(policy_rules))
+        finally:
+            policy.close()
 
     def __enter__(self):
         self._change(add=True)

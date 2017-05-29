@@ -234,7 +234,10 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         @asyncio.coroutine
         def run(self):
             p = yield from self.testvm1.run(
-                    'echo test; exec >&-; cat > /dev/null')
+                    'echo test; exec >&-; cat > /dev/null',
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE)
 
             # this will hang on test failure
             stdout = yield from p.stdout.read()
