@@ -45,7 +45,6 @@ import qubes
 import qubes.config
 import qubes.exc
 import qubes.storage
-import qubes.storage.domain
 import qubes.storage.file
 import qubes.utils
 import qubes.vm
@@ -739,8 +738,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         # Initialize VM image storage class
         self.storage = qubes.storage.Storage(self)
-        vm_pool = qubes.storage.domain.DomainPool(self)
-        self.app.pools[vm_pool.name] = vm_pool
 
     @qubes.events.handler('property-set:label')
     def on_property_set_label(self, event, name, newvalue, oldvalue=None):

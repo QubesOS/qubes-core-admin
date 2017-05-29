@@ -266,7 +266,6 @@ fi
 %{python3_sitelib}/qubes/storage/__pycache__/*
 %{python3_sitelib}/qubes/storage/__init__.py
 %{python3_sitelib}/qubes/storage/file.py
-%{python3_sitelib}/qubes/storage/domain.py
 %{python3_sitelib}/qubes/storage/kernels.py
 %{python3_sitelib}/qubes/storage/lvm.py
 
