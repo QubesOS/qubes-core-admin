@@ -285,6 +285,7 @@ fi
 %dir %{python3_sitelib}/qubes/ext/__pycache__
 %{python3_sitelib}/qubes/ext/__pycache__/*
 %{python3_sitelib}/qubes/ext/__init__.py
+%{python3_sitelib}/qubes/ext/block.py
 %{python3_sitelib}/qubes/ext/gui.py
 %{python3_sitelib}/qubes/ext/pci.py
 %{python3_sitelib}/qubes/ext/qubesmanager.py
@@ -300,6 +301,7 @@ fi
 %{python3_sitelib}/qubes/tests/api_admin.py
 %{python3_sitelib}/qubes/tests/app.py
 %{python3_sitelib}/qubes/tests/devices.py
+%{python3_sitelib}/qubes/tests/devices_block.py
 %{python3_sitelib}/qubes/tests/events.py
 %{python3_sitelib}/qubes/tests/firewall.py
 %{python3_sitelib}/qubes/tests/init.py
@@ -397,6 +399,7 @@ fi
 %attr(2770,root,qubes) %dir /var/lib/qubes/dvmdata
 %attr(2770,root,qubes) %dir /var/lib/qubes/vm-kernels
 /usr/share/qubes/templates/libvirt/xen.xml
+/usr/share/qubes/templates/libvirt/devices/block.xml
 /usr/share/qubes/templates/libvirt/devices/pci.xml
 /usr/share/qubes/templates/libvirt/devices/net.xml
 /usr/lib/tmpfiles.d/qubes.conf

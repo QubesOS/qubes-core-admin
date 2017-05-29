@@ -955,6 +955,7 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
             # unit tests
             'qubes.tests.events',
             'qubes.tests.devices',
+            'qubes.tests.devices_block',
             'qubes.tests.firewall',
             'qubes.tests.init',
             'qubes.tests.vm.init',

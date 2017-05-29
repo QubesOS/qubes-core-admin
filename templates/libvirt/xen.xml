@@ -102,6 +102,14 @@
                 </disk>
             {% endfor %}
 
+            {# start external devices from xvdi #}
+            {% set i = 4 %}
+            {% for assignment in vm.devices.block.assignments(True) %}
+                {% set device = assignment.device %}
+                {% set options = assignment.options %}
+                {% include 'libvirt/devices/block.xml' %}
+            {% endfor %}
+
             {% if vm.netvm %}
                 {% include 'libvirt/devices/net.xml' with context %}
             {% endif %}
