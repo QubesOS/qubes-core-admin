@@ -79,7 +79,7 @@ class TC_10_property(qubes.tests.QubesTestCase):
         hash(self.holder.__class__.testprop1)
 
     def test_002_eq(self):
-        self.assertEquals(qubes.property('testprop2'),
+        self.assertEqual(qubes.property('testprop2'),
             qubes.property('testprop2'))
 
     def test_010_set(self):
@@ -116,7 +116,7 @@ class TC_10_property(qubes.tests.QubesTestCase):
         def setter(self2, prop, value):
             self.assertIs(self2, holder)
             self.assertIs(prop, MyTestHolder.testprop1)
-            self.assertEquals(value, 'testvalue')
+            self.assertEqual(value, 'testvalue')
             return 'settervalue'
 
         class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
@@ -236,9 +236,9 @@ class TC_20_PropertyHolder(qubes.tests.QubesTestCase):
         self.assertEventFired(self.holder, 'property-loaded')
         self.assertEventNotFired(self.holder, 'property-set:testprop1')
 
-        self.assertEquals(self.holder.testprop1, 'testvalue1')
-        self.assertEquals(self.holder.testprop2, 'testref2')
-        self.assertEquals(self.holder.testprop3, 'testdefault')
+        self.assertEqual(self.holder.testprop1, 'testvalue1')
+        self.assertEqual(self.holder.testprop2, 'testref2')
+        self.assertEqual(self.holder.testprop3, 'testdefault')
 
         with self.assertRaises(AttributeError):
             self.holder.testprop4

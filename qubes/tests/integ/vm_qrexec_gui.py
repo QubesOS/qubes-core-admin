@@ -71,7 +71,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
 
     def test_000_start_shutdown(self):
         self.loop.run_until_complete(self.testvm1.start())
-        self.assertEquals(self.testvm1.get_power_state(), "Running")
+        self.assertEqual(self.testvm1.get_power_state(), "Running")
         self.loop.run_until_complete(self.testvm1.shutdown())
 
         shutdown_counter = 0
@@ -81,13 +81,13 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             shutdown_counter += 1
             time.sleep(1)
         time.sleep(1)
-        self.assertEquals(self.testvm1.get_power_state(), "Halted")
+        self.assertEqual(self.testvm1.get_power_state(), "Halted")
 
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
     def test_010_run_xterm(self):
         self.loop.run_until_complete(self.testvm1.start())
-        self.assertEquals(self.testvm1.get_power_state(), "Running")
+        self.assertEqual(self.testvm1.get_power_state(), "Running")
 
         p = self.loop.run_until_complete(self.testvm1.run('xterm'))
         try:
@@ -97,8 +97,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                 title = 'user@host'
             while subprocess.call(
                     ['xdotool', 'search', '--name', title],
-                    stdout=open(os.path.devnull, 'w'),
-                    stderr=subprocess.STDOUT) > 0:
+                    stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) > 0:
                 wait_count += 1
                 if wait_count > 100:
                     self.fail("Timeout while waiting for xterm window")
@@ -128,7 +127,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         if "minimal" in self.template:
             self.skipTest("Minimal template doesn't have 'gnome-terminal'")
         self.loop.run_until_complete(self.testvm1.start())
-        self.assertEquals(self.testvm1.get_power_state(), "Running")
+        self.assertEqual(self.testvm1.get_power_state(), "Running")
         p = self.loop.run_until_complete(self.testvm1.run('gnome-terminal'))
         try:
             title = 'user@{}'.format(self.testvm1.name)
@@ -167,7 +166,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
     @unittest.expectedFailure
     def test_012_qubes_desktop_run(self):
         self.loop.run_until_complete(self.testvm1.start())
-        self.assertEquals(self.testvm1.get_power_state(), "Running")
+        self.assertEqual(self.testvm1.get_power_state(), "Running")
         xterm_desktop_path = "/usr/share/applications/xterm.desktop"
         # Debian has it different...
         xterm_desktop_path_debian = \
@@ -224,7 +223,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             self.fail(
                 "Timeout, probably EOF wasn't transferred to the VM process")
 
-        self.assertEquals(stdout, TEST_DATA,
+        self.assertEqual(stdout, TEST_DATA,
             'Received data differs from what was sent')
         self.assertFalse(stderr,
             'Some data was printed to stderr')
@@ -243,7 +242,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             p.stdin.write(TEST_DATA)
             yield from p.stdin.drain()
             p.stdin.close()
-            self.assertEquals(stdout.strip(), 'test',
+            self.assertEqual(stdout.strip(), 'test',
                 'Received data differs from what was expected')
             # this may hang in some buggy cases
             self.assertFalse((yield from p.stderr.read()),
@@ -280,7 +279,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             except asyncio.TimeoutError:
                 self.fail("Timeout, probably EOF wasn't transferred")
 
-        self.assertEquals(stdout, b'test',
+        self.assertEqual(stdout, b'test',
             'Received data differs from what was expected')
 
     @unittest.expectedFailure
@@ -304,7 +303,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             except asyncio.TimeoutError:
                 self.fail("Timeout, probably EOF wasn't transferred")
 
-        self.assertEquals(stdout, b'test',
+        self.assertEqual(stdout, b'test',
             'Received data differs from what was expected')
 
     def test_055_qrexec_dom0_service_abort(self):

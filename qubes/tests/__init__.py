@@ -675,7 +675,7 @@ class SystemTestsMixin(object):
         try:
             # XXX .is_running() may throw libvirtError if undefined
             if vm.is_running():
-                vm.force_shutdown()
+                vm.kill()
         except: # pylint: disable=bare-except
             pass
 

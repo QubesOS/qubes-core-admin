@@ -126,7 +126,7 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             os.path.join(os.getenv("HOME"), ".local/share/applications",
                 self.vmname + "-firefox.desktop")))
         self.vm.firewall.load()
-        self.assertEquals(pre_rename_firewall, self.vm.firewall.rules)
+        self.assertEqual(pre_rename_firewall, self.vm.firewall.rules)
         with self.assertNotRaises((qubes.exc.QubesException, OSError)):
             self.vm.firewall.save()
         self.assertTrue(self.vm.autostart)
@@ -171,24 +171,24 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         testvm1 = self.app.domains[testvm1.qid]
         testvm2 = self.app.domains[testvm2.qid]
 
-        self.assertEquals(testvm1.label, testvm2.label)
-        self.assertEquals(testvm1.netvm, testvm2.netvm)
-        self.assertEquals(testvm1.property_is_default('netvm'),
+        self.assertEqual(testvm1.label, testvm2.label)
+        self.assertEqual(testvm1.netvm, testvm2.netvm)
+        self.assertEqual(testvm1.property_is_default('netvm'),
                           testvm2.property_is_default('netvm'))
-        self.assertEquals(testvm1.kernel, testvm2.kernel)
-        self.assertEquals(testvm1.kernelopts, testvm2.kernelopts)
-        self.assertEquals(testvm1.property_is_default('kernel'),
+        self.assertEqual(testvm1.kernel, testvm2.kernel)
+        self.assertEqual(testvm1.kernelopts, testvm2.kernelopts)
+        self.assertEqual(testvm1.property_is_default('kernel'),
                           testvm2.property_is_default('kernel'))
-        self.assertEquals(testvm1.property_is_default('kernelopts'),
+        self.assertEqual(testvm1.property_is_default('kernelopts'),
                           testvm2.property_is_default('kernelopts'))
-        self.assertEquals(testvm1.memory, testvm2.memory)
-        self.assertEquals(testvm1.maxmem, testvm2.maxmem)
-        self.assertEquals(testvm1.devices, testvm2.devices)
-        self.assertEquals(testvm1.include_in_backups,
+        self.assertEqual(testvm1.memory, testvm2.memory)
+        self.assertEqual(testvm1.maxmem, testvm2.maxmem)
+        self.assertEqual(testvm1.devices, testvm2.devices)
+        self.assertEqual(testvm1.include_in_backups,
                           testvm2.include_in_backups)
-        self.assertEquals(testvm1.default_user, testvm2.default_user)
-        self.assertEquals(testvm1.features, testvm2.features)
-        self.assertEquals(testvm1.firewall.rules,
+        self.assertEqual(testvm1.default_user, testvm2.default_user)
+        self.assertEqual(testvm1.features, testvm2.features)
+        self.assertEqual(testvm1.firewall.rules,
                           testvm2.firewall.rules)
 
         # now some non-default values
@@ -214,24 +214,24 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         testvm1 = self.app.domains[testvm1.qid]
         testvm3 = self.app.domains[testvm3.qid]
 
-        self.assertEquals(testvm1.label, testvm3.label)
-        self.assertEquals(testvm1.netvm, testvm3.netvm)
-        self.assertEquals(testvm1.property_is_default('netvm'),
+        self.assertEqual(testvm1.label, testvm3.label)
+        self.assertEqual(testvm1.netvm, testvm3.netvm)
+        self.assertEqual(testvm1.property_is_default('netvm'),
                           testvm3.property_is_default('netvm'))
-        self.assertEquals(testvm1.kernel, testvm3.kernel)
-        self.assertEquals(testvm1.kernelopts, testvm3.kernelopts)
-        self.assertEquals(testvm1.property_is_default('kernel'),
+        self.assertEqual(testvm1.kernel, testvm3.kernel)
+        self.assertEqual(testvm1.kernelopts, testvm3.kernelopts)
+        self.assertEqual(testvm1.property_is_default('kernel'),
                           testvm3.property_is_default('kernel'))
-        self.assertEquals(testvm1.property_is_default('kernelopts'),
+        self.assertEqual(testvm1.property_is_default('kernelopts'),
                           testvm3.property_is_default('kernelopts'))
-        self.assertEquals(testvm1.memory, testvm3.memory)
-        self.assertEquals(testvm1.maxmem, testvm3.maxmem)
-        self.assertEquals(testvm1.devices, testvm3.devices)
-        self.assertEquals(testvm1.include_in_backups,
+        self.assertEqual(testvm1.memory, testvm3.memory)
+        self.assertEqual(testvm1.maxmem, testvm3.maxmem)
+        self.assertEqual(testvm1.devices, testvm3.devices)
+        self.assertEqual(testvm1.include_in_backups,
                           testvm3.include_in_backups)
-        self.assertEquals(testvm1.default_user, testvm3.default_user)
-        self.assertEquals(testvm1.features, testvm3.features)
-        self.assertEquals(testvm1.firewall.rules,
+        self.assertEqual(testvm1.default_user, testvm3.default_user)
+        self.assertEqual(testvm1.features, testvm3.features)
+        self.assertEqual(testvm1.firewall.rules,
                           testvm2.firewall.rules)
 
     def test_020_name_conflict_app(self):
@@ -294,7 +294,7 @@ class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         )
         (stdout, stderr) = p.communicate()
         if valid:
-            self.assertEquals(p.returncode, 0,
+            self.assertEqual(p.returncode, 0,
                               "qvm-prefs .. '{}' '{}' failed: {}{}".format(
                                   name, value, stdout, stderr
                               ))
@@ -307,7 +307,7 @@ class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         p = subprocess.Popen(['qvm-prefs'] + self.sharedopts +
             ['--', self.testvm.name, name], stdout=subprocess.PIPE)
         (stdout, _) = p.communicate()
-        self.assertEquals(p.returncode, 0)
+        self.assertEqual(p.returncode, 0)
         return stdout.strip()
 
     bool_test_values = [
@@ -330,7 +330,7 @@ class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         for (value, expected, valid) in values:
             self.pref_set(name, value, valid)
             if valid:
-                self.assertEquals(self.pref_get(name), expected)
+                self.assertEqual(self.pref_get(name), expected)
 
     @unittest.skip('test not converted to core3 API')
     def test_006_template(self):
@@ -421,7 +421,7 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestsMixin,
             subprocess.check_call(revert_cmd)
 
         checksum_after = self.get_rootimg_checksum()
-        self.assertEquals(checksum_before, checksum_after)
+        self.assertEqual(checksum_before, checksum_after)
 
     @unittest.expectedFailure
     def test_000_revert_pv(self):
@@ -484,12 +484,12 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
 
         clipboard_content = \
             open('/var/run/qubes/qubes-clipboard.bin', 'r').read().strip()
-        self.assertEquals(clipboard_content, test_string,
+        self.assertEqual(clipboard_content, test_string,
                           "Clipboard copy operation failed - content")
         clipboard_source = \
             open('/var/run/qubes/qubes-clipboard.bin.source',
                  'r').read().strip()
-        self.assertEquals(clipboard_source, testvm1.name,
+        self.assertEqual(clipboard_source, testvm1.name,
                           "Clipboard copy operation failed - owner")
 
         # Then paste it to the other window
@@ -505,16 +505,16 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         # And compare the result
         (test_output, _) = self.loop.run_until_complete(
             testvm2.run_for_stdio('cat test.txt'))
-        self.assertEquals(test_string, test_output.strip().decode('ascii'))
+        self.assertEqual(test_string, test_output.strip().decode('ascii'))
 
         clipboard_content = \
             open('/var/run/qubes/qubes-clipboard.bin', 'r').read().strip()
-        self.assertEquals(clipboard_content, "",
+        self.assertEqual(clipboard_content, "",
                           "Clipboard not wiped after paste - content")
         clipboard_source = \
             open('/var/run/qubes/qubes-clipboard.bin.source', 'r').\
             read().strip()
-        self.assertEquals(clipboard_source, "",
+        self.assertEqual(clipboard_source, "",
                           "Clipboard not wiped after paste - owner")
 
 class TC_05_StandaloneVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
@@ -530,7 +530,7 @@ class TC_05_StandaloneVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase
             testvm1.clone_disk_files(self.app.default_template))
         self.app.save()
         self.loop.run_until_complete(testvm1.start())
-        self.assertEquals(testvm1.get_power_state(), "Running")
+        self.assertEqual(testvm1.get_power_state(), "Running")
 
     @unittest.expectedFailure
     def test_100_resize_root_img(self):
@@ -541,7 +541,7 @@ class TC_05_StandaloneVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase
         self.app.save()
         self.loop.run_until_complete(
             testvm1.storage.resize(testvm1.volumes['root'], 20 * 1024 ** 3))
-        self.assertEquals(testvm1.volumes['root'].size, 20 * 1024 ** 3)
+        self.assertEqual(testvm1.volumes['root'].size, 20 * 1024 ** 3)
         self.loop.run_until_complete(testvm1.start())
         # new_size in 1k-blocks
         (new_size, _) = self.loop.run_until_complete(

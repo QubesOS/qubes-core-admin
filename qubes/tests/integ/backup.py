@@ -257,7 +257,7 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
                     'internal'):
                 if not hasattr(vm, prop):
                     continue
-                self.assertEquals(
+                self.assertEqual(
                     getattr(vm, prop), getattr(restored_vm, prop),
                     "VM {} - property {} not properly restored".format(
                         vm.name, prop))
@@ -267,11 +267,11 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
                 orig_value = getattr(vm, prop)
                 restored_value = getattr(restored_vm, prop)
                 if orig_value and restored_value:
-                    self.assertEquals(orig_value.name, restored_value.name,
+                    self.assertEqual(orig_value.name, restored_value.name,
                         "VM {} - property {} not properly restored".format(
                             vm.name, prop))
                 else:
-                    self.assertEquals(orig_value, restored_value,
+                    self.assertEqual(orig_value, restored_value,
                         "VM {} - property {} not properly restored".format(
                             vm.name, prop))
             for dev_class in vm.devices.keys():

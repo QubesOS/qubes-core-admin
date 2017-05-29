@@ -82,7 +82,7 @@ class TC_00_FilePool(qubes.tests.QubesTestCase):
         """
         result = self.app.get_pool("default").dir_path
         expected = '/var/lib/qubes'
-        self.assertEquals(result, expected)
+        self.assertEqual(result, expected)
 
     def test001_default_storage_class(self):
         """ Check when using default pool the Storage is
@@ -244,7 +244,7 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         volumes = vm.volumes
         b_dev = volumes[dev_name].block_device()
         self.assertEqual(b_dev.rw, rw)
-        self.assertEquals(b_dev.path, expected)
+        self.assertEqual(b_dev.path, expected)
 
 
 class TC_03_FilePool(qubes.tests.QubesTestCase):
@@ -319,12 +319,12 @@ class TC_03_FilePool(qubes.tests.QubesTestCase):
         expected_vmdir = os.path.join(self.APPVMS_DIR, vm.name)
 
         expected_private_path = os.path.join(expected_vmdir, 'private.img')
-        self.assertEquals(vm.volumes['private'].path, expected_private_path)
+        self.assertEqual(vm.volumes['private'].path, expected_private_path)
 
         expected_volatile_path = os.path.join(expected_vmdir, 'volatile.img')
         vm.storage.get_pool(vm.volumes['volatile'])\
             .reset(vm.volumes['volatile'])
-        self.assertEqualsAndExists(vm.volumes['volatile'].path,
+        self.assertEqualAndExists(vm.volumes['volatile'].path,
                                    expected_volatile_path)
 
     def test_013_template_file_images(self):
@@ -353,25 +353,25 @@ class TC_03_FilePool(qubes.tests.QubesTestCase):
         expected_root_cow_path = os.path.join(expected_vmdir, 'root-cow.img')
         expected_root_path = '%s:%s' % (expected_root_origin_path,
                                         expected_root_cow_path)
-        self.assertEquals(vm.volumes['root'].block_device().path,
+        self.assertEqual(vm.volumes['root'].block_device().path,
                           expected_root_path)
         self.assertExist(vm.volumes['root'].path)
 
         expected_private_path = os.path.join(expected_vmdir, 'private.img')
-        self.assertEqualsAndExists(vm.volumes['private'].path,
+        self.assertEqualAndExists(vm.volumes['private'].path,
                                    expected_private_path)
 
         expected_rootcow_path = os.path.join(expected_vmdir, 'root-cow.img')
-        self.assertEqualsAndExists(vm.volumes['root'].path_cow,
+        self.assertEqualAndExists(vm.volumes['root'].path_cow,
                                    expected_rootcow_path)
 
-    def assertEqualsAndExists(self, result_path, expected_path):
+    def assertEqualAndExists(self, result_path, expected_path):
         """ Check if the ``result_path``, matches ``expected_path`` and exists.
 
             See also: :meth:``assertExist``
         """
         # :pylint: disable=invalid-name
-        self.assertEquals(result_path, expected_path)
+        self.assertEqual(result_path, expected_path)
         self.assertExist(result_path)
 
     def assertExist(self, path):
