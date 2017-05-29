@@ -8,7 +8,7 @@
 #define QUBESD_SOCKET "/var/run/qubesd.sock"
 
 void write_wrapper(int fd, char *data, size_t len) {
-    int written = 0;
+    size_t written = 0;
     int ret;
     while (written < len) {
         ret = write(fd, data+written, len-written);
@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
         service_name++;
 
     if (!source_domain || !target_domain || !service_name || argc > 2) {
-        fprintf(stderr, "Usage: %s [service-argument]\n");
+        fprintf(stderr, "Usage: %s [service-argument]\n", argv[0]);
         fprintf(stderr, "\n");
         fprintf(stderr, "Expected environment variables:\n");
         fprintf(stderr, " - QREXEC_REMOTE_DOMAIN - source domain for the call\n");

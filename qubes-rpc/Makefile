@@ -1,4 +1,4 @@
-CFLAGS=-O3
+CFLAGS=-O2 -g -Wall -Werror -Wextra
 
 all: qubesd-query-fast
 
