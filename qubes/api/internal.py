@@ -51,7 +51,7 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
                 'type': domain.__class__.__name__,
                 'dispvm_allowed': getattr(domain, 'dispvm_allowed', False),
                 'default_dispvm': (str(domain.default_dispvm) if
-                    domain.default_dispvm else None),
+                    getattr(domain, 'default_dispvm', None) else None),
                 'icon': str(domain.label.icon),
             } for domain in self.app.domains
         }}
