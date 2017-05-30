@@ -163,7 +163,6 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 if ! [ -e /var/lib/qubes/qubes.xml ]; then
 #    echo "Initializing Qubes DB..."
     umask 007; sg qubes -c 'qubes-create --offline-mode'
-    qubes-prefs --force-root --offline-mode default-kernel `ls /var/lib/qubes/vm-kernels|head -n 1` 2> /dev/null
 fi
 
 %clean
