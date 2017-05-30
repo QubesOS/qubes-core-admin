@@ -359,6 +359,12 @@ class DeviceInfo(object):
             self.ident == other.ident
         )
 
+    def __lt__(self, other):
+        if isinstance(other, DeviceInfo):
+            return (self.backend_domain, self.ident) < \
+                   (other.backend_domain, other.ident)
+        return NotImplemented
+
     def __str__(self):
         return '{!s}:{!s}'.format(self.backend_domain, self.ident)
 
