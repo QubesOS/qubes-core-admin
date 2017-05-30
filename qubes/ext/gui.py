@@ -21,13 +21,12 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
-import os
-
 import qubes.config
 import qubes.ext
 
 
 class GUI(qubes.ext.Extension):
+    # pylint: disable=too-few-public-methods
     # TODO put this somewhere...
     @staticmethod
     def send_gui_mode(vm):

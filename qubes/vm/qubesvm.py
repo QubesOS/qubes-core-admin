@@ -1123,7 +1123,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             input = b''
         return b''.join((command.rstrip('\n').encode('utf-8'), b'\n', input))
 
-    def run(self, command, input=None, user=None, **kwargs):
+    def run(self, command, user=None, **kwargs):
         '''Run a shell command inside the domain using qrexec.
 
         This method is a coroutine.
