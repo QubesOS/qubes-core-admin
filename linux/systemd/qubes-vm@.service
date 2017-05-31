@@ -6,7 +6,7 @@ Before=systemd-user-sessions.service
 [Service]
 Type=oneshot
 Environment=DISPLAY=:0
-ExecStart=/usr/bin/qvm-start --no-guid --skip-if-running %i
+ExecStart=/usr/bin/qvm-start --skip-if-running %i
 Group=qubes
 RemainAfterExit=yes
 
