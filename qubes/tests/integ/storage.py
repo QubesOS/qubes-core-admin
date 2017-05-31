@@ -110,9 +110,11 @@ class StorageTestMixin(qubes.tests.SystemTestsMixin):
         yield from self.vm1.shutdown(wait=True)
         yield from self.vm1.start()
         # non-volatile image volatile
-        yield from self.vm1.run_for_stdio(
-            'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(size),
-            user='root')
+        with self.assertRaises(subprocess.CalledProcessError):
+            yield from self.vm1.run_for_stdio(
+                'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(
+                    size),
+                user='root')
 
     def test_002_read_only(self):
         '''Test read-only volume'''

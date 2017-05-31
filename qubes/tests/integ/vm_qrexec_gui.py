@@ -240,7 +240,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                     stderr=subprocess.PIPE)
 
             # this will hang on test failure
-            stdout = yield from p.stdout.read()
+            stdout = yield from asyncio.wait_for(p.stdout.read(), timeout=10)
 
             p.stdin.write(TEST_DATA)
             yield from p.stdin.drain()
@@ -376,12 +376,6 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             handling anything else.
         """
 
-        def run(self):
-            # first write a lot of data to fill all the buffers
-            # then after some time start reading
-            p.communicate()
-            result.value = p.returncode
-
         self.loop.run_until_complete(asyncio.wait([
             self.testvm1.start(),
             self.testvm2.start()]))
@@ -396,6 +390,8 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         with self.qrexec_policy('test.write', self.testvm1, self.testvm2):
             try:
                 self.loop.run_until_complete(asyncio.wait_for(
+                    # first write a lot of data to fill all the buffers
+                    # then after some time start reading
                     self.testvm1.run_for_stdio('''\
                         /usr/lib/qubes/qrexec-client-vm {} test.write \
                                 /bin/sh -c '
@@ -531,7 +527,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             with self.qrexec_policy('test.Argument+argument',
                     self.testvm1, self.testvm2, allow=False):
                 with self.assertRaises(subprocess.CalledProcessError,
-                        'Service request should be denied'):
+                        msg='Service request should be denied'):
                     self.loop.run_until_complete(
                         self.testvm1.run('/usr/lib/qubes/qrexec-client-vm {} '
                             'test.Argument+argument'.format(self.testvm2.name)))
@@ -707,7 +703,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             'yes teststring | dd of=testfile bs=1M count=50 iflag=fullblock'))
 
         # Prepare target directory with limited size
-        self.loop.run_until_complete(self.testvm2.run(
+        self.loop.run_until_complete(self.testvm2.run_for_stdio(
             'mkdir -p /home/user/QubesIncoming && '
             'chown user /home/user/QubesIncoming && '
             'mount -t tmpfs none /home/user/QubesIncoming -o size=48M',
@@ -902,7 +898,7 @@ int main(int argc, char **argv) {
             "grep ^MemFree: /proc/meminfo|awk '{print $2}'")
         memory_pages = int(stdout) // 4  # 4k pages
 
-        alloc1 = yield from self.testvm1.run(
+        alloc1 = yield from self.testvm1.run_for_stdio(
             'ulimit -l unlimited; exec /home/user/allocator {}'.format(
                 memory_pages),
             user="root")
@@ -915,10 +911,11 @@ int main(int argc, char **argv) {
             len('Stage1\nStage2\nStage3\n'))
 
         if b'Stage3' not in alloc_out:
-            # read stderr only in case of failed assert, but still have nice
+            # read stderr only in case of failed assert (), but still have nice
             # failure message (don't use self.fail() directly)
             #
-            # XXX why don't read stderr always? --woju 20170523
+            # stderr isn't always read, because on not-failed run, the process
+            # is still running, so stderr.read() will wait (indefinitely).
             self.assertIn(b'Stage3', alloc_out,
                 (yield from alloc1.stderr.read()))
 
@@ -998,7 +995,8 @@ class TC_10_Generic(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
 
         self.loop.run_until_complete(self.vm.start())
         with self.qrexec_policy('test.AnyvmDeny', self.vm, '$anyvm'):
-            with self.assertRaises(subprocess.CalledProcessError):
+            with self.assertRaises(subprocess.CalledProcessError,
+                    msg='$anyvm matched dom0'):
                 stdout, stderr = self.loop.run_until_complete(
                     self.vm.run_for_stdio(
                         '/usr/lib/qubes/qrexec-client-vm dom0 test.AnyvmDeny'))

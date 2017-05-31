@@ -201,78 +201,87 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.loop.run_until_complete(self.testvm1.start())
         self.assertTrue(self.proxy.is_running())
 
-        self.loop.run_until_complete(self.testnetvm.run_for_stdio(
+        nc = self.loop.run_until_complete(self.testnetvm.run(
             'nc -l --send-only -e /bin/hostname -k 1234'
             if nc_version == NcVersion.Nmap
             else 'while nc -l -e /bin/hostname -p 1234; do true; done'))
 
-        self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0,
-                         "Ping by IP from ProxyVM failed")
-        self.assertEqual(self.run_cmd(self.proxy, self.ping_name), 0,
-                         "Ping by name from ProxyVM failed")
-        self.assertNotEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
-                         "Ping by IP should be blocked")
-        if nc_version == NcVersion.Nmap:
-            nc_cmd = "nc -w 1 --recv-only {} 1234".format(self.test_ip)
-        else:
-            nc_cmd = "nc -w 1 {} 1234".format(self.test_ip)
-        self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
-                         "TCP connection should be blocked")
+        try:
+            self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0,
+                            "Ping by IP from ProxyVM failed")
+            self.assertEqual(self.run_cmd(self.proxy, self.ping_name), 0,
+                            "Ping by name from ProxyVM failed")
+            self.assertNotEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
+                            "Ping by IP should be blocked")
 
-        # block all except ICMP
+            if nc_version == NcVersion.Nmap:
+                nc_cmd = "nc -w 1 --recv-only {} 1234".format(self.test_ip)
+            else:
+                nc_cmd = "nc -w 1 {} 1234".format(self.test_ip)
+            self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
+                            "TCP connection should be blocked")
 
-        self.testvm1.firewall.rules = [(
-            qubes.firewall.Rule(None, action='accept', proto='icmp')
-        )]
-        self.testvm1.firewall.save()
-        # Ugly hack b/c there is no feedback when the rules are actually applied
-        time.sleep(3)
-        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
-                         "Ping by IP failed (should be allowed now)")
-        self.assertNotEqual(self.run_cmd(self.testvm1, self.ping_name), 0,
-                         "Ping by name should be blocked")
+            # block all except ICMP
 
-        # all TCP still blocked
+            self.testvm1.firewall.rules = [(
+                qubes.firewall.Rule(None, action='accept', proto='icmp')
+            )]
+            self.testvm1.firewall.save()
+            # Ugly hack b/c there is no feedback when the rules are actually
+            # applied
+            time.sleep(3)
+            self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
+                            "Ping by IP failed (should be allowed now)")
+            self.assertNotEqual(self.run_cmd(self.testvm1, self.ping_name), 0,
+                            "Ping by name should be blocked")
 
-        self.testvm1.firewall.rules = [
-            qubes.firewall.Rule(None, action='accept', proto='icmp'),
-            qubes.firewall.Rule(None, action='accept', specialtarget='dns'),
-        ]
-        self.testvm1.firewall.save()
-        # Ugly hack b/c there is no feedback when the rules are actually applied
-        time.sleep(3)
-        self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0,
-                         "Ping by name failed (should be allowed now)")
-        self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
-                         "TCP connection should be blocked")
+            # all TCP still blocked
 
-        # block all except target
+            self.testvm1.firewall.rules = [
+                qubes.firewall.Rule(None, action='accept', proto='icmp'),
+                qubes.firewall.Rule(None, action='accept', specialtarget='dns'),
+            ]
+            self.testvm1.firewall.save()
+            # Ugly hack b/c there is no feedback when the rules are actually
+            # applied
+            time.sleep(3)
+            self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0,
+                            "Ping by name failed (should be allowed now)")
+            self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
+                            "TCP connection should be blocked")
 
-        self.testvm1.firewall.policy = 'drop'
-        self.testvm1.firewall.rules = [
-            qubes.firewall.Rule(None, action='accept', dsthost=self.test_ip,
-                proto='tcp', dstports=1234),
-        ]
-        self.testvm1.firewall.save()
+            # block all except target
 
-        # Ugly hack b/c there is no feedback when the rules are actually applied
-        time.sleep(3)
-        self.assertEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
-                         "TCP connection failed (should be allowed now)")
+            self.testvm1.firewall.policy = 'drop'
+            self.testvm1.firewall.rules = [
+                qubes.firewall.Rule(None, action='accept', dsthost=self.test_ip,
+                    proto='tcp', dstports=1234),
+            ]
+            self.testvm1.firewall.save()
 
-        # allow all except target
+            # Ugly hack b/c there is no feedback when the rules are actually
+            # applied
+            time.sleep(3)
+            self.assertEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
+                            "TCP connection failed (should be allowed now)")
 
-        self.testvm1.firewall.policy = 'accept'
-        self.testvm1.firewall.rules = [
-            qubes.firewall.Rule(None, action='drop', dsthost=self.test_ip,
-                proto='tcp', dstports=1234),
-        ]
-        self.testvm1.firewall.save()
+            # allow all except target
 
-        # Ugly hack b/c there is no feedback when the rules are actually applied
-        time.sleep(3)
-        self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
-                         "TCP connection should be blocked")
+            self.testvm1.firewall.policy = 'accept'
+            self.testvm1.firewall.rules = [
+                qubes.firewall.Rule(None, action='drop', dsthost=self.test_ip,
+                    proto='tcp', dstports=1234),
+            ]
+            self.testvm1.firewall.save()
+
+            # Ugly hack b/c there is no feedback when the rules are actually
+            # applied
+            time.sleep(3)
+            self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
+                            "TCP connection should be blocked")
+        finally:
+            nc.terminate()
+            self.loop.run_until_complete(nc.wait())
 
 
     def test_040_inter_vm(self):
@@ -318,9 +327,9 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
 
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
         self.loop.run_until_complete(self.testvm1.run_for_stdio('''
-            ip addr flush dev eth0
-            ip addr add 10.137.1.128/24 dev eth0
-            ip route add default dev eth0
+            ip addr flush dev eth0 &&
+            ip addr add 10.137.1.128/24 dev eth0 &&
+            ip route add default dev eth0 &&
         ''', user='root'))
         self.assertNotEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
                          "Spoofed ping should be blocked")
@@ -356,6 +365,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         except subprocess.CalledProcessError:
             self.fail('ip addr show dev eth0 failed')
 
+        output = output.decode()
         self.assertIn('192.168.1.128', output)
         self.assertNotIn(self.testvm1.ip, output)
 
@@ -365,6 +375,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         except subprocess.CalledProcessError:
             self.fail('ip route show failed')
 
+        output = output.decode()
         self.assertIn('192.168.1.1', output)
         self.assertNotIn(self.testvm1.netvm.ip, output)
 
@@ -383,6 +394,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         except subprocess.CalledProcessError:
             self.fail('ip addr show dev eth0 failed')
 
+        output = output.decode()
         self.assertIn('192.168.1.128', output)
         self.assertNotIn(self.testvm1.ip, output)
 
@@ -417,25 +429,29 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.loop.run_until_complete(self.testvm1.start())
         self.assertTrue(self.proxy.is_running())
 
-        self.loop.run_until_complete(self.testnetvm.run_for_stdio(
+        nc = self.loop.run_until_complete(self.testnetvm.run(
             'nc -l --send-only -e /bin/hostname -k 1234'
             if nc_version == NcVersion.Nmap
             else 'while nc -l -e /bin/hostname -p 1234; do true; done'))
 
-        self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0,
-                         "Ping by IP from ProxyVM failed")
-        self.assertEqual(self.run_cmd(self.proxy, self.ping_name), 0,
-                         "Ping by name from ProxyVM failed")
-        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
-                         "Ping by IP should be allowed")
-        self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0,
-                         "Ping by name should be allowed")
-        if nc_version == NcVersion.Nmap:
-            nc_cmd = "nc -w 1 --recv-only {} 1234".format(self.test_ip)
-        else:
-            nc_cmd = "nc -w 1 {} 1234".format(self.test_ip)
-        self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
-                         "TCP connection should be blocked")
+        try:
+            self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0,
+                            "Ping by IP from ProxyVM failed")
+            self.assertEqual(self.run_cmd(self.proxy, self.ping_name), 0,
+                            "Ping by name from ProxyVM failed")
+            self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
+                            "Ping by IP should be allowed")
+            self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0,
+                            "Ping by name should be allowed")
+            if nc_version == NcVersion.Nmap:
+                nc_cmd = "nc -w 1 --recv-only {} 1234".format(self.test_ip)
+            else:
+                nc_cmd = "nc -w 1 {} 1234".format(self.test_ip)
+            self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
+                            "TCP connection should be blocked")
+        finally:
+            nc.terminate()
+            self.loop.run_until_complete(nc.wait())
 
     def test_203_fake_ip_inter_vm_allow(self):
         '''Access VM with "fake IP" from other VM (when firewall allows)'''
@@ -478,8 +494,10 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
             self.ping_cmd.format(target=self.testvm1.ip)), 0)
 
         try:
-            (stdout, _) = self.loop.run_until_complete(self.testvm1.run_for_stdio(
-                'iptables -nvxL INPUT | grep {}'.format(self.testvm2.ip), user='root'))
+            (stdout, _) = self.loop.run_until_complete(
+                self.testvm1.run_for_stdio(
+                    'iptables -nvxL INPUT | grep {}'.format(self.testvm2.ip),
+                    user='root'))
         except subprocess.CalledProcessError as e:
             self.fail(
                 '{} failed with {}'.format(cmd, e.returncode))
@@ -513,6 +531,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
                     'ip addr show dev eth0', user='root'))
         except subprocess.CalledProcessError as e:
             self.fail('ip addr show dev eth0 failed')
+        output = output.decode()
         self.assertIn('192.168.1.128', output)
         self.assertNotIn(self.testvm1.ip, output)
 
@@ -522,6 +541,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
                     'ip route show', user='root'))
         except subprocess.CalledProcessError as e:
             self.fail('ip route show failed')
+        output = output.decode()
         self.assertIn('192.168.1.1', output)
         self.assertNotIn(self.testvm1.netvm.ip, output)
 
@@ -531,6 +551,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
                     'ip addr show dev eth0', user='root'))
         except subprocess.CalledProcessError as e:
             self.fail('ip addr show dev eth0 failed')
+        output = output.decode()
         self.assertNotIn('192.168.1.128', output)
         self.assertIn(self.testvm1.ip, output)
 
@@ -540,6 +561,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
                     'ip route show', user='root'))
         except subprocess.CalledProcessError as e:
             self.fail('ip route show failed')
+        output = output.decode()
         self.assertIn('192.168.1.128', output)
         self.assertNotIn(self.proxy.ip, output)
 
@@ -597,25 +619,29 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
         self.loop.run_until_complete(self.testvm1.start())
         self.assertTrue(self.proxy.is_running())
 
-        self.loop.run_until_complete(self.testnetvm.run_for_stdio(
+        nc = self.loop.run_until_complete(self.testnetvm.run(
             'nc -l --send-only -e /bin/hostname -k 1234'
             if nc_version == NcVersion.Nmap
             else 'while nc -l -e /bin/hostname -p 1234; do true; done'))
 
-        self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0,
-                         "Ping by IP from ProxyVM failed")
-        self.assertEqual(self.run_cmd(self.proxy, self.ping_name), 0,
-                         "Ping by name from ProxyVM failed")
-        self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
-                         "Ping by IP should be allowed")
-        self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0,
-                         "Ping by name should be allowed")
-        if nc_version == NcVersion.Nmap:
-            nc_cmd = "nc -w 1 --recv-only {} 1234".format(self.test_ip)
-        else:
-            nc_cmd = "nc -w 1 {} 1234".format(self.test_ip)
-        self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
-                         "TCP connection should be blocked")
+        try:
+            self.assertEqual(self.run_cmd(self.proxy, self.ping_ip), 0,
+                            "Ping by IP from ProxyVM failed")
+            self.assertEqual(self.run_cmd(self.proxy, self.ping_name), 0,
+                            "Ping by name from ProxyVM failed")
+            self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
+                            "Ping by IP should be allowed")
+            self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0,
+                            "Ping by name should be allowed")
+            if nc_version == NcVersion.Nmap:
+                nc_cmd = "nc -w 1 --recv-only {} 1234".format(self.test_ip)
+            else:
+                nc_cmd = "nc -w 1 {} 1234".format(self.test_ip)
+            self.assertNotEqual(self.run_cmd(self.testvm1, nc_cmd), 0,
+                            "TCP connection should be blocked")
+        finally:
+            nc.terminate()
+            self.loop.run_until_complete(nc.wait())
 
 
 # noinspection PyAttributeOutsideInit
