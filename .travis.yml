@@ -14,6 +14,7 @@ env:
  - DIST_DOM0=fc25 USE_QUBES_REPO_VERSION=4.0 USE_QUBES_REPO_TESTING=1
 
 after_success:
+  - codecov
   - ~/qubes-builder/scripts/travis-deploy
 
 # don't build tags which are meant for code signing only
