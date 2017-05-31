@@ -17,5 +17,5 @@ ExecStop=-/usr/bin/killall qubesdb-daemon
 
 [Install]
 WantedBy=multi-user.target
-Also=qubes-meminfo-writer.service qubes-qmemman.service
+Also=qubes-meminfo-writer-dom0.service qubes-qmemman.service
 Alias=qubes_core.service
