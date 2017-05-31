@@ -243,31 +243,47 @@ class _QrexecPolicyContext(object):
         self._filename = pathlib.Path('/etc/qubes-rpc/policy') / service
         self._rule = '{} {} {}\n'.format(source, destination,
             'allow' if allow else 'deny')
+        self._did_create = False
+        self._handle = None
 
-    def _change(self, add=True):
-        try:
-            policy = self._filename.open('r+')
-        except FileNotFoundError:
-            policy = self._filename.open('w+')
+    def load(self):
+        if self._handle is None:
+            try:
+                self._handle = self._filename.open('r+')
+            except FileNotFoundError:
+                self._handle = self._filename.open('w+')
+                self._did_create = True
+        self._handle.seek(0)
+        return self._handle.readlines()
 
-        try:
-            policy_rules = policy.readlines()
-            if add:
-                policy_rules.insert(0, self._rule)
-            else:
-                policy_rules.remove(self._rule)
-            policy.truncate(0)
-            policy.seek(0)
-            policy.write(''.join(policy_rules))
-        finally:
-            policy.close()
+    def save(self, rules):
+        assert self._handle is not None
+        self._handle.truncate(0)
+        self._handle.seek(0)
+        self._handle.write(''.join(rules))
+
+    def close(self):
+        assert self._handle is not None
+        self._handle.close()
+        self._handle = None
 
     def __enter__(self):
-        self._change(add=True)
+        rules = self.load()
+        rules.insert(0, self._rule)
+        self.save(self._rule)
         return self
 
     def __exit__(self, exc_type, exc_value, tb):
-        self._change(add=False)
+        if not self._did_create:
+            try:
+                rules = self.load()
+                rules.remove(self._rule)
+                self.save(rules)
+            finally:
+                self.close()
+        else:
+            self.close()
+            os.unlink(self._filename)
 
 class substitute_entry_points(object):
     '''Monkey-patch pkg_resources to substitute one group in iter_entry_points
