@@ -18,7 +18,8 @@ disable=
   locally-enabled,
   logging-format-interpolation,
   missing-docstring,
-  star-args
+  star-args,
+  wrong-import-order
 
 [REPORTS]
 
