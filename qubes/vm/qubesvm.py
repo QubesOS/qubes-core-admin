@@ -704,6 +704,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         # will be initialized after loading all the properties
 
+        #: operations which shouldn't happen simultaneously with qube startup
+        #  (including another startup of the same qube)
+        self.startup_lock = asyncio.Lock()
+
         # fire hooks
         if xml is None:
             self.events_enabled = True
@@ -841,88 +845,99 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         :param int mem_required: FIXME
         '''
 
-        # Intentionally not used is_running(): eliminate also "Paused",
-        # "Crashed", "Halting"
-        if self.get_power_state() != 'Halted':
-            raise qubes.exc.QubesVMNotHaltedError(self)
+        with (yield from self.startup_lock):
+            # Intentionally not used is_running(): eliminate also "Paused",
+            # "Crashed", "Halting"
+            if self.get_power_state() != 'Halted':
+                return
 
-        self.log.info('Starting {}'.format(self.name))
+            self.log.info('Starting {}'.format(self.name))
 
-        self.fire_event_pre('domain-pre-start', preparing_dvm=preparing_dvm,
-            start_guid=start_guid, mem_required=mem_required)
+            self.fire_event_pre('domain-pre-start', preparing_dvm=preparing_dvm,
+                start_guid=start_guid, mem_required=mem_required)
 
-        yield from self.storage.verify()
+            yield from self.storage.verify()
 
-        if self.netvm is not None:
-            # pylint: disable = no-member
-            if self.netvm.qid != 0:
-                if not self.netvm.is_running():
-                    yield from self.netvm.start(start_guid=start_guid,
-                        notify_function=notify_function)
+            if self.netvm is not None:
+                # pylint: disable = no-member
+                if self.netvm.qid != 0:
+                    if not self.netvm.is_running():
+                        yield from self.netvm.start(start_guid=start_guid,
+                            notify_function=notify_function)
 
-        # TODO: lock
+            qmemman_client = yield from asyncio.get_event_loop().\
+                run_in_executor(None, self.request_memory, mem_required)
 
-        qmemman_client = yield from asyncio.get_event_loop().run_in_executor(
-            None, self.request_memory, mem_required)
+            try:
+                yield from self.storage.start()
+                self._update_libvirt_domain()
 
-        try:
-            yield from self.storage.start()
-            self._update_libvirt_domain()
+                self.libvirt_domain.createWithFlags(
+                    libvirt.VIR_DOMAIN_START_PAUSED)
+            finally:
+                if qmemman_client:
+                    qmemman_client.close()
 
-            self.libvirt_domain.createWithFlags(libvirt.VIR_DOMAIN_START_PAUSED)
-        finally:
-            if qmemman_client:
-                qmemman_client.close()
+            try:
+                self.fire_event('domain-spawn',
+                    preparing_dvm=preparing_dvm, start_guid=start_guid)
 
-        try:
-            self.fire_event('domain-spawn',
-                preparing_dvm=preparing_dvm, start_guid=start_guid)
+                self.log.info('Setting Qubes DB info for the VM')
+                yield from self.start_qubesdb()
+                self.create_qdb_entries()
 
-            self.log.info('Setting Qubes DB info for the VM')
-            yield from self.start_qubesdb()
-            self.create_qdb_entries()
+                if preparing_dvm:
+                    self.qdb.write('/dvm', '1')
 
-            if preparing_dvm:
-                self.qdb.write('/dvm', '1')
+                self.log.warning('Activating the {} VM'.format(self.name))
+                self.libvirt_domain.resume()
 
-            self.log.warning('Activating the {} VM'.format(self.name))
-            self.libvirt_domain.resume()
+                # close() is not really needed, because the descriptor is
+                # close-on-exec anyway, the reason to postpone close() is that
+                # possibly xl is not done constructing the domain after its main
+                # process exits so we close() when we know the domain is up the
+                # successful unpause is some indicator of it
+                if qmemman_client:
+                    qmemman_client.close()
+                    qmemman_client = None
 
-            # close() is not really needed, because the descriptor is
-            # close-on-exec anyway, the reason to postpone close() is that
-            # possibly xl is not done constructing the domain after its main
-            # process exits so we close() when we know the domain is up the
-            # successful unpause is some indicator of it
-            if qmemman_client:
-                qmemman_client.close()
-                qmemman_client = None
+                #if self._start_guid_first and start_guid and not preparing_dvm \
+                #        and os.path.exists('/var/run/shm.id'):
+                #    self.start_guid()
 
-#           if self._start_guid_first and start_guid and not preparing_dvm \
-#                   and os.path.exists('/var/run/shm.id'):
-#               self.start_guid()
+                if not preparing_dvm:
+                    yield from self.start_qrexec_daemon()
 
-            if not preparing_dvm:
-                yield from self.start_qrexec_daemon()
+                self.fire_event('domain-start',
+                    preparing_dvm=preparing_dvm, start_guid=start_guid)
 
-            self.fire_event('domain-start',
-                preparing_dvm=preparing_dvm, start_guid=start_guid)
-
-        except:  # pylint: disable=bare-except
-            if self.is_running() or self.is_paused():
-                # This avoids losing the exception if an exception is raised in
-                # self.force_shutdown(), because the vm is not running or paused
-                yield from self.kill()  # pylint: disable=not-an-iterable
-            raise
-        finally:
-            if qmemman_client:
-                qmemman_client.close()
+            except:  # pylint: disable=bare-except
+                if self.is_running() or self.is_paused():
+                    # This avoids losing the exception if an exception is
+                    # raised in self.force_shutdown(), because the vm is not
+                    # running or paused
+                    yield from self.kill()  # pylint: disable=not-an-iterable
+                raise
+            finally:
+                if qmemman_client:
+                    qmemman_client.close()
 
         return self
+
+    @asyncio.coroutine
+    def on_domain_shutdown_coro(self):
+        '''Coroutine for executing cleanup after domain shutdown.
+        Do not allow domain to be started again until this finishes.
+        '''
+        with (yield from self.startup_lock):
+            yield from self.storage.stop()
 
     @qubes.events.handler('domain-shutdown')
     def on_domain_shutdown(self, _event, **_kwargs):
         '''Cleanup after domain shutdown'''
-        asyncio.ensure_future(self.storage.stop())
+        # TODO: ensure that domain haven't been started _before_ this
+        # coroutine got a chance to acquire a lock
+        asyncio.ensure_future(self.on_domain_shutdown_coro())
 
     @asyncio.coroutine
     def shutdown(self, force=False, wait=False):
