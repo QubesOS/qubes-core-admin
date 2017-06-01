@@ -1,6 +1,6 @@
 <domain type="xen">
     {% block basic %}
-        <name>{% if prepare_dvm %}%NAME%{% else %}{{ vm.name }}{% endif %}</name>
+        <name>{{ vm.name }}</name>
         <uuid>{{ vm.uuid }}</uuid>
         <memory unit="MiB">{{ vm.maxmem }}</memory>
         <currentMemory unit="MiB">{{ vm.memory }}</currentMemory>

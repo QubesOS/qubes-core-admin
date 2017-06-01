@@ -167,7 +167,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             :param event: Event name (``'domain-loaded'``)
 
         .. event:: domain-pre-start \
-                (subject, event, preparing_dvm, start_guid, mem_required)
+                (subject, event, start_guid, mem_required)
 
             Fired at the beginning of :py:meth:`start` method.
 
@@ -176,7 +176,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             *other arguments are as in :py:meth:`start`*
 
-        .. event:: domain-spawn (subject, event, preparing_dvm, start_guid)
+        .. event:: domain-spawn (subject, event, start_guid)
 
             Fired after creating libvirt domain.
 
@@ -185,7 +185,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             *other arguments are as in :py:meth:`start`*
 
-        .. event:: domain-start (subject, event, preparing_dvm, start_guid)
+        .. event:: domain-start (subject, event, start_guid)
 
             Fired at the end of :py:meth:`start` method.
 
@@ -835,11 +835,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     #
 
     @asyncio.coroutine
-    def start(self, preparing_dvm=False, start_guid=True, notify_function=None,
+    def start(self, start_guid=True, notify_function=None,
             mem_required=None):
         '''Start domain
 
-        :param bool preparing_dvm: FIXME
         :param bool start_guid: FIXME
         :param collections.Callable notify_function: FIXME
         :param int mem_required: FIXME
@@ -853,7 +852,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             self.log.info('Starting {}'.format(self.name))
 
-            self.fire_event_pre('domain-pre-start', preparing_dvm=preparing_dvm,
+            self.fire_event_pre('domain-pre-start',
                 start_guid=start_guid, mem_required=mem_required)
 
             yield from self.storage.verify()
@@ -880,14 +879,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             try:
                 self.fire_event('domain-spawn',
-                    preparing_dvm=preparing_dvm, start_guid=start_guid)
+                    start_guid=start_guid)
 
                 self.log.info('Setting Qubes DB info for the VM')
                 yield from self.start_qubesdb()
                 self.create_qdb_entries()
-
-                if preparing_dvm:
-                    self.qdb.write('/dvm', '1')
 
                 self.log.warning('Activating the {} VM'.format(self.name))
                 self.libvirt_domain.resume()
@@ -901,15 +897,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     qmemman_client.close()
                     qmemman_client = None
 
-                #if self._start_guid_first and start_guid and not preparing_dvm \
-                #        and os.path.exists('/var/run/shm.id'):
-                #    self.start_guid()
+                yield from self.start_qrexec_daemon()
 
-                if not preparing_dvm:
-                    yield from self.start_qrexec_daemon()
-
-                self.fire_event('domain-start',
-                    preparing_dvm=preparing_dvm, start_guid=start_guid)
+                self.fire_event('domain-start', start_guid=start_guid)
 
             except:  # pylint: disable=bare-except
                 if self.is_running() or self.is_paused():

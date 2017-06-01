@@ -363,18 +363,16 @@ class BaseVM(qubes.PropertyHolder):
     # xml serialising methods
     #
 
-    def create_config_file(self, prepare_dvm=False):
+    def create_config_file(self):
         '''Create libvirt's XML domain config file
 
-        :param bool prepare_dvm: If we are in the process of preparing \
-            DisposableVM
         '''
         domain_config = self.app.env.select_template([
                 'libvirt/xen/by-name/{}.xml'.format(self.name),
                 'libvirt/xen-user.xml',
                 'libvirt/xen-dist.xml',
                 'libvirt/xen.xml',
-            ]).render(vm=self, prepare_dvm=prepare_dvm)
+            ]).render(vm=self)
         return domain_config
 
 

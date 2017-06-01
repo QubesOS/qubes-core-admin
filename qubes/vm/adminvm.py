@@ -127,7 +127,7 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
         '''  # pylint: disable=no-self-use
         return True
 
-    def start(self, preparing_dvm=False, start_guid=True, notify_function=None,
+    def start(self, start_guid=True, notify_function=None,
             mem_required=None):
         '''Always raises an exception.
 
