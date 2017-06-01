@@ -20,13 +20,13 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 ''' Qrexec policy parser and evaluator '''
+import enum
+import itertools
 import json
 import os
 import os.path
 import socket
 import subprocess
-import enum
-import itertools
 
 # don't import 'qubes.config' please, it takes 0.3s
 QREXEC_CLIENT = '/usr/lib/qubes/qrexec-client'
