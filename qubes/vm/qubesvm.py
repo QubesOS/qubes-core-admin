@@ -401,7 +401,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     hvm = qubes.property('hvm',
         type=bool, setter=qubes.property.bool,
-        default=False,
+        default=True,
         doc='''Use full virtualisation (HVM) for this qube,
             instead of paravirtualisation (PV)''')
 

@@ -274,7 +274,7 @@ class TC_90_QubesVM(QubesVMTestsMixin,qubes.tests.QubesTestCase):
 
     def test_150_hvm(self):
         vm = self.get_vm()
-        self._test_generic_bool_property(vm, 'hvm')
+        self._test_generic_bool_property(vm, 'hvm', default=True)
 
     def test_160_memory(self):
         vm = self.get_vm()

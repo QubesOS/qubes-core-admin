@@ -69,7 +69,7 @@ vm_files = {
 defaults = {
     'libvirt_uri': 'xen:///',
     'memory': 400,
-    'hvm_memory': 512,
+    'hvm_memory': 400,
     'kernelopts': "nopat",
     'kernelopts_pcidevs': "nopat iommu=soft swiotlb=8192",
 
