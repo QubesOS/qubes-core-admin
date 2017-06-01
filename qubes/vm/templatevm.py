@@ -27,6 +27,7 @@ import warnings
 import qubes
 import qubes.config
 import qubes.vm.qubesvm
+import qubes.vm.mix.net
 from qubes.config import defaults
 from qubes.vm.qubesvm import QubesVM
 
@@ -51,6 +52,13 @@ class TemplateVM(QubesVM):
         for vm in self.app.domains:
             if hasattr(vm, 'template') and vm.template is self:
                 yield vm
+
+    netvm = qubes.VMProperty('netvm', load_stage=4, allow_none=True,
+        default=None,
+        # pylint: disable=protected-access
+        setter=qubes.vm.qubesvm.QubesVM.netvm._setter,
+        doc='VM that provides network connection to this domain. When '
+            '`None`, machine is disconnected.')
 
     def __init__(self, *args, **kwargs):
         assert 'template' not in kwargs, "A TemplateVM can not have a template"
