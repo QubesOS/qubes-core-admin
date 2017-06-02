@@ -24,6 +24,12 @@ Options
    Send empty payload. Do not attempt to read anything from standard input, but
    send the request immediately.
 
+.. option:: --fail
+
+   Exit with non-0 exit code when qubesd response is not-OK. By default the tool
+   will exit with 0 when request is successfully delivered to qubesd, regardless
+   of response.
+
 Description
 -----------
 

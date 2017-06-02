@@ -25,6 +25,11 @@ parser.add_argument('--empty', '-e',
     action='store_false', default=True,
     help='do not read from stdin and send empty payload')
 
+parser.add_argument('--fail',
+    dest='fail',
+    action='store_true',
+    help='Should non-OK qubesd response result in non-zero exit code')
+
 parser.add_argument('src', metavar='SRC',
     help='source qube')
 parser.add_argument('method', metavar='METHOD',
@@ -42,10 +47,18 @@ def sighandler(loop, signame, coro):
 
 @asyncio.coroutine
 def qubesd_client(socket, payload, *args):
+    '''
+    Connect to qubesd, send request and passthrough response to stdout
+
+    :param socket: path to qubesd socket
+    :param payload: payload of the request
+    :param args: request to qubesd
+    :return:
+    '''
     try:
         reader, writer = yield from asyncio.open_unix_connection(socket)
     except asyncio.CancelledError:
-        return
+        return 1
 
     for arg in args:
         writer.write(arg.encode('ascii'))
@@ -54,12 +67,16 @@ def qubesd_client(socket, payload, *args):
     writer.write_eof()
 
     try:
+        header_data = yield from reader.read(1)
+        returncode = int(header_data)
+        sys.stdout.buffer.write(header_data)  # pylint: disable=no-member
         while not reader.at_eof():
             data = yield from reader.read(4096)
             sys.stdout.buffer.write(data)  # pylint: disable=no-member
             sys.stdout.flush()
+        return returncode
     except asyncio.CancelledError:
-        return
+        return 1
     finally:
         writer.close()
 
@@ -79,9 +96,13 @@ def main(args=None):
             sighandler, loop, signame, coro)
 
     try:
-        loop.run_until_complete(coro)
+        returncode = loop.run_until_complete(coro)
     finally:
         loop.close()
 
+    if args.fail:
+        return returncode
+    return 0
+
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
