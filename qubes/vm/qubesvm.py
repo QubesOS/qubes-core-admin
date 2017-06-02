@@ -977,17 +977,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         :raises qubes.exc.QubesVMNotRunnignError: \
             when domain is already shut down.
-        :raises qubes.exc.QubesNotImplemetedError: \
-            when domain has PCI devices attached.
         '''
 
         if not self.is_running() and not self.is_paused():
             raise qubes.exc.QubesVMNotRunningError(self)
 
         if list(self.devices['pci'].attached()):
-            raise qubes.exc.QubesNotImplementedError(
-                'Cannot suspend domain {!r} which has PCI devices attached'
-                .format(self.name))
+            yield from self.run_service_for_stdio('qubes.SuspendPre')
+            self.libvirt_domain.pMSuspendForDuration(
+                libvirt.VIR_NODE_SUSPEND_TARGET_MEM, 0, 0)
         else:
             self.libvirt_domain.suspend()
 
@@ -995,13 +993,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     @asyncio.coroutine
     def pause(self):
-        '''Pause (suspend) domain. This currently delegates to \
-        :py:meth:`suspend`.'''
+        '''Pause (suspend) domain.'''
 
         if not self.is_running():
             raise qubes.exc.QubesVMNotRunningError(self)
 
-        self.suspend()
+        self.libvirt_domain.suspend()
 
         return self
 
@@ -1013,11 +1010,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         :raises qubes.exc.QubesVMError: when machine is suspended
         '''
 
+        # pylint: disable=not-an-iterable
         if self.get_power_state() == "Suspended":
-            raise qubes.exc.QubesVMError(self,
-                'Cannot resume suspended domain {!r}'.format(self.name))
+            self.libvirt_domain.pMWakeup()
+            yield from self.run_service_for_stdio('qubes.SuspendPost')
         else:
-            self.unpause()
+            yield from self.unpause()
 
         return self
 
@@ -1397,7 +1395,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         ``'Transient'`` Machine is running, but does not have :program:`guid`
                         or :program:`qrexec` available.
         ``'Running'``   Machine is ready and running.
-        ``'Paused'``    Machine is paused (currently not available, see below).
+        ``'Paused'``    Machine is paused.
         ``'Suspended'`` Machine is S3-suspended.
         ``'Halting'``   Machine is in process of shutting down.
         ``'Dying'``     Machine crashed and is unusable.
@@ -1406,9 +1404,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         ``'NA'``        Machine is in unknown state (most likely libvirt domain
                         is undefined).
         =============== ========================================================
-
-        ``Paused`` state is currently unavailable because of missing code in
-        libvirt/xen glue.
 
         FIXME: graph below may be incomplete and wrong. Click on method name to
         see its documentation.
@@ -1459,13 +1454,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     [label="pause()" URL="#qubes.vm.qubesvm.QubesVM.pause"
                         color=gray75 fontcolor=gray75];
                 Running -> Suspended
-                    [label="pause()" URL="#qubes.vm.qubesvm.QubesVM.pause"
+                    [label="suspend()" URL="#qubes.vm.qubesvm.QubesVM.suspend"
                         color=gray50 fontcolor=gray50];
                 Paused -> Running
                     [label="unpause()" URL="#qubes.vm.qubesvm.QubesVM.unpause"
                         color=gray75 fontcolor=gray75];
                 Suspended -> Running
-                    [label="unpause()" URL="#qubes.vm.qubesvm.QubesVM.unpause"
+                    [label="resume()" URL="#qubes.vm.qubesvm.QubesVM.resume"
                         color=gray50 fontcolor=gray50];
 
                 Running -> Suspended
