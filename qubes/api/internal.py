@@ -22,9 +22,11 @@
 
 import asyncio
 import json
+import subprocess
 
 import qubes.api
 import qubes.api.admin
+import qubes.vm.adminvm
 import qubes.vm.dispvm
 
 
@@ -107,3 +109,75 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
 
         if not success:
             raise qubes.exc.QubesException('Data import failed')
+
+    @qubes.api.method('internal.SuspendPre', no_payload=True)
+    @asyncio.coroutine
+    def suspend_pre(self):
+        '''
+        Method called before host system goes to sleep.
+
+        :return:
+        '''
+
+        # first notify all VMs
+        processes = []
+        for vm in self.app.domains:
+            if isinstance(vm, qubes.vm.adminvm.AdminVM):
+                continue
+            if vm.is_running():
+                proc = yield from vm.run_service(
+                    'qubes.SuspendPreAll', user='root',
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL)
+                processes.append(proc)
+
+        # FIXME: some timeout?
+        if processes:
+            yield from asyncio.wait([p.wait() for p in processes])
+
+        coros = []
+        # then suspend/pause VMs
+        for vm in self.app.domains:
+            if isinstance(vm, qubes.vm.adminvm.AdminVM):
+                continue
+            if vm.is_running():
+                coros.append(vm.suspend())
+        if coros:
+            yield from asyncio.wait(coros)
+
+    @qubes.api.method('internal.SuspendPost', no_payload=True)
+    @asyncio.coroutine
+    def suspend_post(self):
+        '''
+        Method called after host system wake up from sleep.
+
+        :return:
+        '''
+
+        coros = []
+        # first resume/unpause VMs
+        for vm in self.app.domains:
+            if isinstance(vm, qubes.vm.adminvm.AdminVM):
+                continue
+            if vm.get_power_state() in ["Paused", "Suspended"]:
+                coros.append(vm.resume())
+        if coros:
+            yield from asyncio.wait(coros)
+
+        # then notify all VMs
+        processes = []
+        for vm in self.app.domains:
+            if isinstance(vm, qubes.vm.adminvm.AdminVM):
+                continue
+            if vm.is_running():
+                proc = yield from vm.run_service(
+                    'qubes.SuspendPostAll', user='root',
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL)
+                processes.append(proc)
+
+        # FIXME: some timeout?
+        if processes:
+            yield from asyncio.wait([p.wait() for p in processes])
