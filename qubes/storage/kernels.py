@@ -52,28 +52,28 @@ class LinuxModules(Volume):
     @property
     def kernels_dir(self):
         kernel_version = self.vid
-        if kernel_version is None:
+        if not kernel_version:
             return None
         return os.path.join(self.target_dir, kernel_version)
 
     @property
     def path(self):
         kernels_dir = self.kernels_dir
-        if kernels_dir is None:
+        if not kernels_dir:
             return None
         return os.path.join(kernels_dir, 'modules.img')
 
     @property
     def vmlinuz(self):
         kernels_dir = self.kernels_dir
-        if kernels_dir is None:
+        if not kernels_dir:
             return None
         return os.path.join(kernels_dir, 'vmlinuz')
 
     @property
     def initramfs(self):
         kernels_dir = self.kernels_dir
-        if kernels_dir is None:
+        if not kernels_dir:
             return None
         return os.path.join(kernels_dir, 'initramfs')
 
@@ -82,7 +82,7 @@ class LinuxModules(Volume):
         return {}
 
     def block_device(self):
-        if self.vid is not None:
+        if self.vid:
             return super().block_device()
 
 
@@ -154,7 +154,7 @@ class LinuxKernel(Pool):
         pass
 
     def verify(self, volume):
-        if volume.vid is not None:
+        if volume.vid:
             _check_path(volume.path)
             _check_path(volume.vmlinuz)
             _check_path(volume.initramfs)
