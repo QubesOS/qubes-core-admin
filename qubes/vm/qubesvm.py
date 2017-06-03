@@ -1762,6 +1762,24 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     # helper methods
     #
 
+    @staticmethod
+    def config_volume_from_source(volume_config, source):
+        '''Adjust storage volume config to use given volume as a source'''
+
+        volume_config['size'] = source.size
+        volume_config['pool'] = source.pool
+
+        has_source = (
+            'source' in volume_config and volume_config['source'] is not None)
+        is_snapshot = 'snap_on_start' in volume_config and volume_config[
+            'snap_on_start']
+        if is_snapshot and not has_source:
+            if source.source is not None:
+                volume_config['source'] = source.source
+            else:
+                volume_config['source'] = source.vid
+        return volume_config
+
     def relative_path(self, path):
         '''Return path relative to py:attr:`dir_path`.
 

@@ -86,16 +86,7 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
             for name, conf in self.volume_config.items():
                 tpl_volume = template.volumes[name]
 
-                conf['size'] = tpl_volume.size
-                conf['pool'] = tpl_volume.pool
-
-                has_source = ('source' in conf and conf['source'] is not None)
-                is_snapshot = 'snap_on_start' in conf and conf['snap_on_start']
-                if is_snapshot and not has_source:
-                    if tpl_volume.source is not None:
-                        conf['source'] = tpl_volume.source
-                    else:
-                        conf['source'] = tpl_volume.vid
+                self.config_volume_from_source(conf, tpl_volume)
 
             for name, config in template.volume_config.items():
                 # in case the template vm has more volumes add them to own
