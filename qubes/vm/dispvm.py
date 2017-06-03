@@ -106,6 +106,14 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         '''  # pylint: disable=unused-argument
         assert self.template
 
+    @qubes.events.handler('property-pre-set:template')
+    def on_property_pre_set_template(self, event, name, newvalue,
+            oldvalue=None):
+        ''' Disposable VM cannot have template changed '''
+        # pylint: disable=unused-argument
+        raise qubes.exc.QubesValueError(self,
+            'Cannot change template of Disposable VM')
+
     @classmethod
     def from_appvm(cls, appvm, **kwargs):
         '''Create a new instance from given AppVM

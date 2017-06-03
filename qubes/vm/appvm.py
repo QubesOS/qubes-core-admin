@@ -39,11 +39,9 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
     dispvm_allowed = qubes.property('dispvm_allowed',
         type=bool,
         default=False,
-        doc='Should this VM be allowed to start as Disposable VM'
-    )
+        doc='Should this VM be allowed to start as Disposable VM')
 
-    def __init__(self, app, xml, template=None, **kwargs):
-        self.volume_config = {
+    default_volume_config = {
             'root': {
                 'name': 'root',
                 'pool': 'default',
@@ -78,6 +76,10 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
             }
         }
 
+    def __init__(self, app, xml, **kwargs):
+        self.volume_config = copy.deepcopy(self.default_volume_config)
+        template = kwargs.get('template', None)
+
         if template is not None:
             # template is only passed if the AppVM is created, in other cases we
             # don't need to patch the volume_config because the config is
@@ -97,8 +99,6 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
                         del self.volume_config[name]['vid']
 
         super(AppVM, self).__init__(app, xml, **kwargs)
-        if not hasattr(self, 'template') and template is not None:
-            self.template = template
         if 'source' not in self.volume_config['root']:
             msg = 'missing source for root volume'
             raise qubes.exc.QubesException(msg)
@@ -108,3 +108,29 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
         ''' When domain is loaded assert that this vm has a template.
         '''  # pylint: disable=unused-argument
         assert self.template
+
+    @qubes.events.handler('property-pre-set:template')
+    def on_property_pre_set_template(self, event, name, newvalue,
+            oldvalue=None):
+        '''Forbid changing template of running VM
+        '''  # pylint: disable=unused-argument
+        if not self.is_halted():
+            raise qubes.exc.QubesVMNotHaltedError(self,
+                'Cannot change template while qube is running')
+
+    @qubes.events.handler('property-set:template')
+    def on_property_set_template(self, event, name, newvalue, oldvalue=None):
+        ''' Adjust root (and possibly other snap_on_start=True) volume
+        on template change.
+        '''  # pylint: disable=unused-argument
+
+        for volume_name, conf in self.default_volume_config.items():
+            if conf.get('snap_on_start', False) and \
+                    conf.get('source', None) is None:
+                config = copy.deepcopy(conf)
+                template_volume = newvalue.volumes[volume_name]
+                self.volume_config[volume_name] = \
+                    self.config_volume_from_source(
+                        config,
+                        template_volume)
+                self.storage.init_volume(volume_name, config)
