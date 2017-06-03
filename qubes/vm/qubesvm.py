@@ -1492,6 +1492,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # isn't running
         # reason for this "if": allow vm.is_running() in PCI (or other
         # device) extension while constructing libvirt XML
+        if self.app.vmm.offline_mode:
+            return 'Halted'
         if self._libvirt_domain is None:
             try:
                 self._libvirt_domain = self.app.vmm.libvirt_conn.lookupByUUID(
