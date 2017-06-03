@@ -33,6 +33,7 @@ import qubes.config
 import qubes.vm.qubesvm
 
 import qubes.tests
+import qubes.tests.vm
 
 class TestApp(object):
     labels = {1: qubes.Label(1, '0xcc0000', 'red')}
@@ -210,7 +211,7 @@ class QubesVMTestsMixin(object):
         self.assertPropertyInvalidValue(vm, prop_name, '')
 
 
-class TC_90_QubesVM(QubesVMTestsMixin,qubes.tests.QubesTestCase):
+class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
     def test_000_init(self):
         self.get_vm()
 
@@ -430,35 +431,6 @@ class TC_90_QubesVM(QubesVMTestsMixin,qubes.tests.QubesTestCase):
             "systemd service not disabled by resetting autostart")
 
     @unittest.skip('TODO')
-    def test_300_qrexec_installed(self):
-        vm = self.get_vm()
-        self._test_generic_bool_property(vm, 'qrexec_installed', True)
-
-    @unittest.skip('TODO')
-    def test_301_qrexec_installed_default(self):
-        vm = self.get_vm()
-        vm.hvm = False
-        self.assertPropertyDefaultValue(vm, 'qrexec_installed', True)
-        vm.hvm = True
-        self.assertPropertyDefaultValue(vm, 'qrexec_installed', False)
-        # TODO: check inheritance from a template - in appvm copy of this test
-
-    @unittest.skip('TODO')
-    def test_310_guiagent_installed(self):
-        vm = self.get_vm()
-        self._test_generic_bool_property(vm, 'guiagent_installed', True)
-        # TODO: check inheritance from a template - in appvm copy of this test
-
-    @unittest.skip('TODO')
-    def test_311_guiagent_installed_default(self):
-        vm = self.get_vm()
-        vm.hvm = False
-        self.assertPropertyDefaultValue(vm, 'guiagent_installed', True)
-        vm.hvm = True
-        self.assertPropertyDefaultValue(vm, 'guiagent_installed', False)
-        # TODO: check inheritance from a template - in appvm copy of this test
-
-    @unittest.skip('TODO')
     def test_320_seamless_gui_mode(self):
         vm = self.get_vm()
         self._test_generic_bool_property(vm, 'seamless_gui_mode')
@@ -520,11 +492,6 @@ class TC_90_QubesVM(QubesVMTestsMixin,qubes.tests.QubesTestCase):
         #     ('hd:drive.img', '', False),
         #     ('drive.img', '', False),
         # ])
-
-    @unittest.skip('TODO')
-    def test_370_pci_strictreset(self):
-        vm = self.get_vm()
-        self._test_generic_bool_property(vm, 'pci_strictreset')
 
     def test_400_backup_timestamp(self):
         vm = self.get_vm()
