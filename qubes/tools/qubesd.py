@@ -15,11 +15,13 @@ import qubes
 import qubes.api
 import qubes.api.admin
 import qubes.api.internal
+import qubes.api.misc
 import qubes.utils
 import qubes.vm.qubesvm
 
 QUBESD_SOCK = '/var/run/qubesd.sock'
 QUBESD_INTERNAL_SOCK = '/var/run/qubesd.internal.sock'
+QUBESD_MISC_SOCK = '/var/run/qubesd.misc.sock'
 
 class QubesDaemonProtocol(asyncio.Protocol):
     buffer_size = 65536
@@ -170,10 +172,10 @@ class QubesDaemonProtocol(asyncio.Protocol):
         self.transport.write(str(exc).encode('utf-8') + b'\0')
 
 
-def sighandler(loop, signame, server, server_internal):
+def sighandler(loop, signame, *servers):
     print('caught {}, exiting'.format(signame))
-    server.close()
-    server_internal.close()
+    for server in servers:
+        server.close()
     loop.stop()
 
 parser = qubes.tools.QubesArgumentParser(description='Qubes OS daemon')
@@ -213,12 +215,22 @@ def main(args=None):
             app=args.app, debug=args.debug), QUBESD_INTERNAL_SOCK))
     shutil.chown(QUBESD_INTERNAL_SOCK, group='qubes')
 
+    try:
+        os.unlink(QUBESD_MISC_SOCK)
+    except FileNotFoundError:
+        pass
+    server_misc = loop.run_until_complete(loop.create_unix_server(
+        functools.partial(QubesDaemonProtocol,
+            qubes.api.misc.QubesMiscAPI,
+            app=args.app, debug=args.debug), QUBESD_MISC_SOCK))
+    shutil.chown(QUBESD_MISC_SOCK, group='qubes')
+
     os.umask(old_umask)
     del old_umask
 
     for signame in ('SIGINT', 'SIGTERM'):
         loop.add_signal_handler(getattr(signal, signame),
-            sighandler, loop, signame, server, server_internal)
+            sighandler, loop, signame, server, server_internal, server_misc)
 
     qubes.utils.systemd_notify()
     # make sure children will not inherit this

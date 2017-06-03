@@ -509,6 +509,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         default=(lambda self: self.app.default_dispvm),
         doc='Default VM to be used as Disposable VM for service calls.')
 
+    updates_available = qubes.property('updates_available',
+        type=bool,
+        default=False,
+        doc='If updates are pending to be installed')
 
     updateable = qubes.property('updateable',
         default=(lambda self: not hasattr(self, 'template')),

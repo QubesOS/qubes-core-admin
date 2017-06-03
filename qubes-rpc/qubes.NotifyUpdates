@@ -1,1 +1,4 @@
-/usr/libexec/qubes/qubes-notify-updates
+#!/bin/sh
+
+exec /usr/bin/qubesd-query -c /var/run/qubesd.misc.sock --fail \
+         "$QREXEC_REMOTE_DOMAIN" qubes.NotifyUpdates dom0 "" >/dev/null 2>&1

@@ -170,8 +170,6 @@ endif
 	cp qubes-rpc/qubes.GetRandomizedTime $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes.NotifyTools $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes.NotifyUpdates $(DESTDIR)/etc/qubes-rpc/
-	cp qubes-rpc/qubes-notify-updates $(DESTDIR)/usr/libexec/qubes/
-	cp qubes-rpc/qubes-notify-tools $(DESTDIR)/usr/libexec/qubes/
 	install qubes-rpc/qubesd-query-fast $(DESTDIR)/usr/libexec/qubes/
 	for method in $(ADMIN_API_METHODS_SIMPLE); do \
 		ln -s ../../usr/libexec/qubes/qubesd-query-fast \

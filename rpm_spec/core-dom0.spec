@@ -241,8 +241,9 @@ fi
 %dir %{python3_sitelib}/qubes/api/__pycache__
 %{python3_sitelib}/qubes/api/__pycache__/*
 %{python3_sitelib}/qubes/api/__init__.py
-%{python3_sitelib}/qubes/api/internal.py
 %{python3_sitelib}/qubes/api/admin.py
+%{python3_sitelib}/qubes/api/internal.py
+%{python3_sitelib}/qubes/api/misc.py
 
 %dir %{python3_sitelib}/qubes/vm
 %dir %{python3_sitelib}/qubes/vm/__pycache__
@@ -298,6 +299,7 @@ fi
 %{python3_sitelib}/qubes/tests/extra.py
 
 %{python3_sitelib}/qubes/tests/api_admin.py
+%{python3_sitelib}/qubes/tests/api_misc.py
 %{python3_sitelib}/qubes/tests/app.py
 %{python3_sitelib}/qubes/tests/devices.py
 %{python3_sitelib}/qubes/tests/devices_block.py
@@ -380,8 +382,6 @@ fi
 /usr/lib/qubes/cleanup-dispvms
 /usr/lib/qubes/fix-dir-perms.sh
 /usr/lib/qubes/startup-misc.sh
-/usr/libexec/qubes/qubes-notify-tools
-/usr/libexec/qubes/qubes-notify-updates
 /usr/libexec/qubes/qubesd-query-fast
 %{_unitdir}/qubes-core.service
 %{_unitdir}/qubes-netvm.service

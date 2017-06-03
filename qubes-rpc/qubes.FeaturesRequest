@@ -1,13 +1,4 @@
-#!/usr/bin/env python2
+#!/bin/sh
 
-import os
-import qubes
-
-PREFIX = '/features-request/'
-
-app = qubes.Qubes()
-vm = app.domains[os.environ['QREXEC_REMOTE_DOMAIN']]
-vm.fire_event('features-request',
-    untrusted_features={key[len(PREFIX):]: vm.qdb.read(key)
-        for key in vm.qdb.list(PREFIX)})
-app.save()
+exec /usr/bin/qubesd-query -c /var/run/qubesd.misc.sock -e --fail \
+         "$QREXEC_REMOTE_DOMAIN" qubes.FeaturesRequest dom0 "" >/dev/null 2>&1
