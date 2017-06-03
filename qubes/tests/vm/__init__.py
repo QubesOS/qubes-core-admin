@@ -51,8 +51,12 @@ class TestApp(qubes.tests.TestEmitter):
                 return l
         raise KeyError(label)
 
+    def get_pool(self, pool):
+        return self.pools[pool]
+
     def __init__(self):
         super(TestApp, self).__init__()
         self.vmm = TestVMM()
         self.host = TestHost()
         self.pools = {}
+        self.domains = {}
