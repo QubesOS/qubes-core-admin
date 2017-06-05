@@ -352,5 +352,7 @@ def create_server(sockpath, handler, app, debug=False, *, loop=None):
         finally:
             os.umask(old_umask)
 
-    shutil.chown(sockpath, group='qubes')
+    for sock in server.sockets:
+        shutil.chown(sock.getsockname(), group='qubes')
+
     return server

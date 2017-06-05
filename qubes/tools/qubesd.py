@@ -50,6 +50,11 @@ def main(args=None):
         qubes.api.misc.QubesMiscAPI,
         app=args.app, debug=args.debug)))
 
+    socknames = []
+    for server in servers:
+        for sock in server.sockets:
+            socknames.append(sock.getsockname())
+
     for signame in ('SIGINT', 'SIGTERM'):
         loop.add_signal_handler(getattr(signal, signame),
             sighandler, loop, signame, servers)
@@ -62,6 +67,15 @@ def main(args=None):
         loop.run_forever()
         loop.run_until_complete(asyncio.wait([
             server.wait_closed() for server in servers]))
+        for sockname in socknames:
+            try:
+                os.unlink(sockname)
+            except FileNotFoundError:
+                # XXX
+                # We had our socket unlinked by somebody else, possibly other
+                # qubesd instance. That also means we probably unlinked their
+                # socket when creating our server...
+                pass
     finally:
         loop.close()
 
