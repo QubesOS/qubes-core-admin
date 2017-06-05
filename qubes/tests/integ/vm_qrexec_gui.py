@@ -260,6 +260,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         self.loop.run_until_complete(self.testvm1.start())
         self.loop.run_until_complete(run(self))
 
+    @unittest.skip('#2851, because there is no GUI in vm')
     def test_052_qrexec_vm_service_eof(self):
         """Test for EOF transmission VM(src)->VM(dst)"""
 

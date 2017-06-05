@@ -28,6 +28,8 @@ import qubes.api
 import qubes.api.admin
 import qubes.vm.dispvm
 
+QUBESD_MISC_SOCK = '/var/run/qubesd.misc.sock'
+
 
 class QubesMiscAPI(qubes.api.AbstractQubesAPI):
     @qubes.api.method('qubes.FeaturesRequest', no_payload=True)

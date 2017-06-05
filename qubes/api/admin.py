@@ -35,6 +35,8 @@ import qubes.utils
 import qubes.vm
 import qubes.vm.qubesvm
 
+QUBESD_ADMIN_SOCK = '/var/run/qubesd.sock'
+
 
 class QubesMgmtEventsDispatcher(object):
     def __init__(self, filters, send_event):
