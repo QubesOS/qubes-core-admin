@@ -32,6 +32,7 @@ import unittest
 import unittest.signals
 
 import qubes.tests
+import qubes.api.admin
 
 class CursesColor(dict):
     colors = (
@@ -331,6 +332,11 @@ parser.add_argument('--no-kmsg', '--i-am-smarter-than-kay-sievers',
     action='store_false', dest='kmsg',
     help='do not abuse kernel ring-buffer')
 
+parser.add_argument('--allow-running-along-qubesd',
+    action='store_true', default=False,
+    help='allow running in parallel with qubesd;'
+        ' this is DANGEROUS and WILL RESULT IN INCONSISTENT SYSTEM STATE')
+
 parser.add_argument('names', metavar='TESTNAME',
     action='store', nargs='*',
     help='list of tests to run named like in description '
@@ -405,6 +411,10 @@ def main():
                 logging.Formatter('%(name)s[%(process)d]: %(message)s'))
             ha_kmsg.setLevel(logging.CRITICAL)
             logging.root.addHandler(ha_kmsg)
+
+    if not args.allow_running_along_qubesd \
+    and os.path.exists(qubes.api.admin.QUBESD_ADMIN_SOCK):
+        parser.error('refusing to run until qubesd is disabled')
 
     runner = unittest.TextTestRunner(stream=sys.stdout,
         verbosity=(args.verbose-args.quiet),
