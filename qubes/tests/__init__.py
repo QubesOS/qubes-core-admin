@@ -50,6 +50,8 @@ from distutils import spawn
 import lxml.etree
 import pkg_resources
 
+import qubes.api
+import qubes.api.admin
 import qubes.backup
 import qubes.config
 import qubes.devices
@@ -589,6 +591,13 @@ class SystemTestsMixin(object):
             )
         os.environ['QUBES_XML_PATH'] = XMLPATH
 
+        self.qrexec_policy_server = self.loop.run_until_complete(
+            qubes.api.create_server(
+                qubes.api.internal.QUBESD_INTERNAL_SOCK,
+                qubes.api.internal.QubesInternalAPI,
+                app=self.app,
+                debug=True))
+
     def init_default_template(self, template=None):
         if template is None:
             template = self.host_app.default_template
@@ -671,8 +680,15 @@ class SystemTestsMixin(object):
         self.reload_db()
 
     def tearDown(self):
+        # close the server before super(), because that might close the loop
+        for sock in self.qrexec_policy_server.sockets:
+            os.unlink(sock.getsockname())
+        self.qrexec_policy_server.close()
+        self.loop.run_until_complete(self.qrexec_policy_server.wait_closed())
+
         super(SystemTestsMixin, self).tearDown()
         self.remove_test_vms()
+
         # remove all references to VM objects, to release resources - most
         # importantly file descriptors; this object will live
         # during the whole test run, but all the file descriptors would be
