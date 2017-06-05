@@ -699,7 +699,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             self.testvm2.start()]))
 
         # Prepare test file
-        self.loop.run_until_complete(self.testvm1.run(
+        self.loop.run_until_complete(self.testvm1.run_for_stdio(
             'yes teststring | dd of=testfile bs=1M count=50 iflag=fullblock'))
 
         # Prepare target directory with limited size
@@ -890,7 +890,7 @@ int main(int argc, char **argv) {
             self.skipTest('allocator compile failed: {}'.format(stderr))
 
         # drop caches to have even more memory pressure
-        yield from self.testvm1.run(
+        yield from self.testvm1.run_for_stdio(
             'echo 3 > /proc/sys/vm/drop_caches', user='root')
 
         # now fragment all free memory
