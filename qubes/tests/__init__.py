@@ -31,10 +31,12 @@
     don't run the tests.
 """
 
+import asyncio
 import collections
 import functools
 import logging
 import os
+import pathlib
 import shutil
 import subprocess
 import sys
@@ -42,6 +44,7 @@ import tempfile
 import time
 import traceback
 import unittest
+import warnings
 from distutils import spawn
 
 import lxml.etree
@@ -223,6 +226,64 @@ class _AssertNotRaisesContext(object):
 
         self.exception = exc_value # store for later retrieval
 
+class _QrexecPolicyContext(object):
+    '''Context manager for SystemTestsMixin.qrexec_policy'''
+
+    def __init__(self, service, source, destination, allow=True):
+        try:
+            source = source.name
+        except AttributeError:
+            pass
+
+        try:
+            destination = destination.name
+        except AttributeError:
+            pass
+
+        self._filename = pathlib.Path('/etc/qubes-rpc/policy') / service
+        self._rule = '{} {} {}\n'.format(source, destination,
+            'allow' if allow else 'deny')
+        self._did_create = False
+        self._handle = None
+
+    def load(self):
+        if self._handle is None:
+            try:
+                self._handle = self._filename.open('r+')
+            except FileNotFoundError:
+                self._handle = self._filename.open('w+')
+                self._did_create = True
+        self._handle.seek(0)
+        return self._handle.readlines()
+
+    def save(self, rules):
+        assert self._handle is not None
+        self._handle.truncate(0)
+        self._handle.seek(0)
+        self._handle.write(''.join(rules))
+
+    def close(self):
+        assert self._handle is not None
+        self._handle.close()
+        self._handle = None
+
+    def __enter__(self):
+        rules = self.load()
+        rules.insert(0, self._rule)
+        self.save(self._rule)
+        return self
+
+    def __exit__(self, exc_type, exc_value, tb):
+        if not self._did_create:
+            try:
+                rules = self.load()
+                rules.remove(self._rule)
+                self.save(rules)
+            finally:
+                self.close()
+        else:
+            self.close()
+            os.unlink(self._filename)
 
 class substitute_entry_points(object):
     '''Monkey-patch pkg_resources to substitute one group in iter_entry_points
@@ -279,6 +340,8 @@ class QubesTestCase(unittest.TestCase):
         self.addTypeEqualityFunc(qubes.devices.DeviceManager,
             self.assertDevicesEqual)
 
+        self.loop = None
+
 
     def __str__(self):
         return '{}/{}/{}'.format(
@@ -287,8 +350,19 @@ class QubesTestCase(unittest.TestCase):
             self._testMethodName)
 
 
+    def setUp(self):
+        super().setUp()
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+
     def tearDown(self):
         super(QubesTestCase, self).tearDown()
+
+        # The loop, when closing, throws a warning if there is
+        # some unfinished bussiness. Let's catch that.
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            self.loop.close()
 
         # TODO: find better way in py3
         try:
@@ -624,7 +698,7 @@ class SystemTestsMixin(object):
         try:
             # XXX .is_running() may throw libvirtError if undefined
             if vm.is_running():
-                vm.force_shutdown()
+                vm.kill()
         except: # pylint: disable=bare-except
             pass
 
@@ -749,20 +823,7 @@ class SystemTestsMixin(object):
         :return:
         """
 
-        def add_remove_rule(add=True):
-            with open('/etc/qubes-rpc/policy/{}'.format(service), 'r+') as policy:
-                policy_rules = policy.readlines()
-                rule = "{} {} {}\n".format(source, destination,
-                                              'allow' if allow else 'deny')
-                if add:
-                    policy_rules.insert(0, rule)
-                else:
-                    policy_rules.remove(rule)
-                policy.truncate(0)
-                policy.seek(0)
-                policy.write(''.join(policy_rules))
-        add_remove_rule(add=True)
-        self.addCleanup(add_remove_rule, add=False)
+        return _QrexecPolicyContext(service, source, destination, allow=allow)
 
     def wait_for_window(self, title, timeout=30, show=True):
         """

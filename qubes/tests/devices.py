@@ -75,6 +75,7 @@ class TestVM(qubes.tests.TestEmitter):
 
 class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
     def setUp(self):
+        super().setUp()
         self.app = TestApp()
         self.emitter = TestVM(self.app, 'vm')
         self.app.domains['vm'] = self.emitter
@@ -152,6 +153,7 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
 
 class TC_01_DeviceManager(qubes.tests.QubesTestCase):
     def setUp(self):
+        super().setUp()
         self.app = TestApp()
         self.emitter = TestVM(self.app, 'vm')
         self.manager = qubes.devices.DeviceManager(self.emitter)

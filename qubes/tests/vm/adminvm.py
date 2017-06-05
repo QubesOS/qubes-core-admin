@@ -31,6 +31,7 @@ import qubes.tests
 @qubes.tests.skipUnlessDom0
 class TC_00_AdminVM(qubes.tests.QubesTestCase):
     def setUp(self):
+        super().setUp()
         try:
             self.app = qubes.tests.vm.TestApp()
             self.vm = qubes.vm.adminvm.AdminVM(self.app,

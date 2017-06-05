@@ -21,42 +21,16 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
-import os
-
 import qubes.config
 import qubes.ext
 
 
-
 class GUI(qubes.ext.Extension):
+    # pylint: disable=too-few-public-methods
+    # TODO put this somewhere...
     @staticmethod
     def send_gui_mode(vm):
         vm.run_service('qubes.SetGuiMode',
             input=('SEAMLESS'
             if vm.features.get('gui-seamless', False)
             else 'FULLSCREEN'))
-
-
-    @staticmethod
-    def is_guid_running(vm):
-        '''Check whether gui daemon for this domain is available.
-
-        Notice: this will be irrelevant here, after real splitting GUI/Admin.
-
-        :returns: :py:obj:`True` if guid is running, \
-            :py:obj:`False` otherwise.
-        :rtype: bool
-        '''
-        xid = vm.xid
-        if xid < 0:
-            return False
-        if not os.path.exists('/var/run/qubes/guid-running.{}'.format(xid)):
-            return False
-        return True
-
-
-    @qubes.ext.handler('domain-is-fully-usable')
-    def on_domain_is_fully_usable(self, vm, event):
-        # pylint: disable=unused-argument
-        if not self.is_guid_running(vm):
-            yield False

@@ -60,6 +60,7 @@ class TestVM(object):
 
 class TC_00_setters(qubes.tests.QubesTestCase):
     def setUp(self):
+        super().setUp()
         self.vm = TestVM()
         self.prop = TestProp()
 
@@ -158,13 +159,13 @@ class QubesVMTestsMixin(object):
         # single exception?
         with self.assertNotRaises((ValueError, TypeError, KeyError)):
             setattr(vm, prop_name, set_value)
-        self.assertEquals(getattr(vm, prop_name), expected_value)
+        self.assertEqual(getattr(vm, prop_name), expected_value)
         if expected_xml_content is not None:
             xml = vm.__xml__()
             prop_xml = xml.xpath(
                 './properties/property[@name=\'{}\']'.format(prop_name))
-            self.assertEquals(len(prop_xml), 1, "Property not found in XML")
-            self.assertEquals(prop_xml[0].text, expected_xml_content)
+            self.assertEqual(len(prop_xml), 1, "Property not found in XML")
+            self.assertEqual(prop_xml[0].text, expected_xml_content)
 
     def assertPropertyInvalidValue(self, vm, prop_name, set_value):
         orig_value_set = True
@@ -178,7 +179,7 @@ class QubesVMTestsMixin(object):
         with self.assertRaises((ValueError, TypeError, KeyError)):
             setattr(vm, prop_name, set_value)
         if orig_value_set:
-            self.assertEquals(getattr(vm, prop_name), orig_value)
+            self.assertEqual(getattr(vm, prop_name), orig_value)
         else:
             with self.assertRaises(AttributeError):
                 getattr(vm, prop_name)
@@ -190,11 +191,11 @@ class QubesVMTestsMixin(object):
                 getattr(vm, prop_name)
         else:
             with self.assertNotRaises(AttributeError):
-                self.assertEquals(getattr(vm, prop_name), expected_default)
+                self.assertEqual(getattr(vm, prop_name), expected_default)
         xml = vm.__xml__()
         prop_xml = xml.xpath(
             './properties/property[@name=\'{}\']'.format(prop_name))
-        self.assertEquals(len(prop_xml), 0, "Property still found in XML")
+        self.assertEqual(len(prop_xml), 0, "Property still found in XML")
 
     def _test_generic_bool_property(self, vm, prop_name, default=False):
         self.assertPropertyDefaultValue(vm, prop_name, default)

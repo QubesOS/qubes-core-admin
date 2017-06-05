@@ -53,7 +53,7 @@ class TC_04_DispVM(qubes.tests.SystemTestsMixin,
         p = self.testvm.run("qvm-run --dispvm bash", passio_popen=True)
         (stdout, _) = p.communicate(input=b"echo test; qubesdb-read /name; "
                                           b"echo ERROR\n")
-        self.assertEquals(p.returncode, 0)
+        self.assertEqual(p.returncode, 0)
         lines = stdout.decode('ascii').splitlines()
         self.assertEqual(lines[0], "test")
         dispvm_name = lines[1]
@@ -84,7 +84,7 @@ class TC_04_DispVM(qubes.tests.SystemTestsMixin,
             time.sleep(1)
             timeout -= 1
         # includes check for None - timeout
-        self.assertEquals(p.returncode, 0)
+        self.assertEqual(p.returncode, 0)
         lines = p.stdout.read().splitlines()
         self.assertTrue(lines, 'No output received from DispVM')
         dispvm_name = lines[0]

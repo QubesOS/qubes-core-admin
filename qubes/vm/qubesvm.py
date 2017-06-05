@@ -683,9 +683,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         self._libvirt_domain = None
         self._qdb_connection = None
 
-        #: this :py:class:`asyncio.Event` will fire when session is obtained
-        self.have_session = asyncio.Event()
-
         if xml is None:
             # we are creating new VM and attributes came through kwargs
             assert hasattr(self, 'qid')
@@ -923,8 +920,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             if qmemman_client:
                 qmemman_client.close()
 
-        asyncio.ensure_future(self._wait_for_session())
-
         return self
 
     @qubes.events.handler('domain-shutdown')
@@ -1081,9 +1076,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesVMError(
                 self, 'Domain {!r}: qrexec not connected'.format(self.name))
 
-        if gui and not self.have_session.is_set():
-            raise qubes.exc.QubesVMError(self, 'don\'t have session yet')
-
         self.fire_event_pre('domain-cmd-pre-run', start_guid=gui)
 
         return (yield from asyncio.create_subprocess_exec(
@@ -1119,7 +1111,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesVMError(self,
                 'service {!r} failed with retcode {!r}; '
                 'stdout={!r} stderr={!r}'.format(
-                    args, p.returncode, *stdouterr))
+                    args[0], p.returncode, *stdouterr))
 
         return stdouterr
 
@@ -1131,17 +1123,23 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             input = b''
         return b''.join((command.rstrip('\n').encode('utf-8'), b'\n', input))
 
-    def run(self, command, input=None, **kwargs):
-        '''Run a shell command inside the domain using qubes.VMShell qrexec.
+    def run(self, command, user=None, **kwargs):
+        '''Run a shell command inside the domain using qrexec.
 
         This method is a coroutine.
-
-        *kwargs* are passed verbatim to :py:meth:`run_service`.
         '''  # pylint: disable=redefined-builtin
-        return self.run_service('qubes.VMShell',
-            input=self._prepare_input_for_vmshell(command, input), **kwargs)
 
-    def run_for_stdio(self, command, input=None, **kwargs):
+        if user is None:
+            user = self.default_user
+
+        return asyncio.create_subprocess_exec(
+            qubes.config.system_path['qrexec_client_path'],
+            '-d', str(self.name),
+            '{}:{}'.format(user, command),
+            **kwargs)
+
+    @asyncio.coroutine
+    def run_for_stdio(self, *args, input=None, **kwargs):
         '''Run a shell command inside the domain using qubes.VMShell qrexec.
 
         This method is a coroutine.
@@ -1149,8 +1147,20 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         *kwargs* are passed verbatim to :py:meth:`run_service_for_stdio`.
         See disclaimer there.
         '''  # pylint: disable=redefined-builtin
-        return self.run_service_for_stdio('qubes.VMShell',
-            input=self._prepare_input_for_vmshell(command, input), **kwargs)
+
+        kwargs.setdefault('stdin', subprocess.PIPE)
+        kwargs.setdefault('stdout', subprocess.PIPE)
+        kwargs.setdefault('stderr', subprocess.PIPE)
+        p = yield from self.run(*args, **kwargs)
+        stdouterr = yield from p.communicate(input=input)
+
+        if p.returncode:
+            raise qubes.exc.QubesVMError(self,
+                'service {!r} failed with retcode {!r}; '
+                'stdout={!r} stderr={!r}'.format(
+                    args[0], p.returncode, *stdouterr))
+
+        return stdouterr
 
     def request_memory(self, mem_required=None):
         # overhead of per-qube/per-vcpu Xen structures,
@@ -1263,23 +1273,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self.name)
         except subprocess.CalledProcessError:
             raise qubes.exc.QubesException('Cannot execute qubesdb-daemon')
-
-    @asyncio.coroutine
-    def _wait_for_session(self):
-        '''Wait until machine finished boot sequence.
-
-        This is done by executing qubes RPC call that checks if dummy system
-        service (which is started late in standard runlevel) is active.
-        '''
-
-        self.log.info('Waiting for qubes-session')
-
-        yield from self.run_service_for_stdio('qubes.WaitForSession',
-            user='root', gui=False, input=self.default_user.encode())
-
-        self.log.info('qubes-session acquired')
-        self.have_session.set()
-        self.fire_event('domain-has-session')
 
     @asyncio.coroutine
     def create_on_disk(self, pool=None, pools=None):

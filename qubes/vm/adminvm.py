@@ -97,9 +97,10 @@ class AdminVM(qubes.vm.qubesvm.QubesVM):
         '''
 
         # return psutil.virtual_memory().total/1024
-        for line in open('/proc/meminfo'):
-            if line.startswith('MemTotal:'):
-                return int(line.split(':')[1].strip().split()[0])
+        with open('/proc/meminfo') as file:
+            for line in file:
+                if line.startswith('MemTotal:'):
+                    return int(line.split(':')[1].strip().split()[0])
         raise NotImplementedError()
 
     def get_mem_static_max(self):

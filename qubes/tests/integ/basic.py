@@ -24,6 +24,7 @@
 
 from distutils import spawn
 
+import asyncio
 import os
 import subprocess
 import tempfile
@@ -74,7 +75,7 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.vm = self.app.add_new_vm(qubes.vm.appvm.AppVM, name=self.vmname,
                                       template=self.app.default_template,
                                       label='red')
-        self.vm.create_on_disk()
+        self.loop.run_until_complete(self.vm.create_on_disk())
 
     def save_and_reload_db(self):
         super(TC_01_Properties, self).save_and_reload_db()
@@ -125,7 +126,7 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             os.path.join(os.getenv("HOME"), ".local/share/applications",
                 self.vmname + "-firefox.desktop")))
         self.vm.firewall.load()
-        self.assertEquals(pre_rename_firewall, self.vm.firewall.rules)
+        self.assertEqual(pre_rename_firewall, self.vm.firewall.rules)
         with self.assertNotRaises((qubes.exc.QubesException, OSError)):
             self.vm.firewall.save()
         self.assertTrue(self.vm.autostart)
@@ -152,13 +153,13 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             name=self.make_vm_name("vm"),
             template=self.app.default_template,
             label='red')
-        testvm1.create_on_disk()
+        self.loop.run_until_complete(testvm1.create_on_disk())
         testvm2 = self.app.add_new_vm(testvm1.__class__,
                                      name=self.make_vm_name("clone"),
                                      template=testvm1.template,
                                      label='red')
         testvm2.clone_properties(testvm1)
-        testvm2.clone_disk_files(testvm1)
+        self.loop.run_until_complete(testvm2.clone_disk_files(testvm1))
         self.assertTrue(testvm1.storage.verify())
         self.assertIn('source', testvm1.volumes['root'].config)
         self.assertNotEquals(testvm2, None)
@@ -170,24 +171,24 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         testvm1 = self.app.domains[testvm1.qid]
         testvm2 = self.app.domains[testvm2.qid]
 
-        self.assertEquals(testvm1.label, testvm2.label)
-        self.assertEquals(testvm1.netvm, testvm2.netvm)
-        self.assertEquals(testvm1.property_is_default('netvm'),
+        self.assertEqual(testvm1.label, testvm2.label)
+        self.assertEqual(testvm1.netvm, testvm2.netvm)
+        self.assertEqual(testvm1.property_is_default('netvm'),
                           testvm2.property_is_default('netvm'))
-        self.assertEquals(testvm1.kernel, testvm2.kernel)
-        self.assertEquals(testvm1.kernelopts, testvm2.kernelopts)
-        self.assertEquals(testvm1.property_is_default('kernel'),
+        self.assertEqual(testvm1.kernel, testvm2.kernel)
+        self.assertEqual(testvm1.kernelopts, testvm2.kernelopts)
+        self.assertEqual(testvm1.property_is_default('kernel'),
                           testvm2.property_is_default('kernel'))
-        self.assertEquals(testvm1.property_is_default('kernelopts'),
+        self.assertEqual(testvm1.property_is_default('kernelopts'),
                           testvm2.property_is_default('kernelopts'))
-        self.assertEquals(testvm1.memory, testvm2.memory)
-        self.assertEquals(testvm1.maxmem, testvm2.maxmem)
-        self.assertEquals(testvm1.devices, testvm2.devices)
-        self.assertEquals(testvm1.include_in_backups,
+        self.assertEqual(testvm1.memory, testvm2.memory)
+        self.assertEqual(testvm1.maxmem, testvm2.maxmem)
+        self.assertEqual(testvm1.devices, testvm2.devices)
+        self.assertEqual(testvm1.include_in_backups,
                           testvm2.include_in_backups)
-        self.assertEquals(testvm1.default_user, testvm2.default_user)
-        self.assertEquals(testvm1.features, testvm2.features)
-        self.assertEquals(testvm1.firewall.rules,
+        self.assertEqual(testvm1.default_user, testvm2.default_user)
+        self.assertEqual(testvm1.features, testvm2.features)
+        self.assertEqual(testvm1.firewall.rules,
                           testvm2.firewall.rules)
 
         # now some non-default values
@@ -206,31 +207,31 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
                                      template=testvm1.template,
                                      label='red',)
         testvm3.clone_properties(testvm1)
-        testvm3.clone_disk_files(testvm1)
+        self.loop.run_until_complete(testvm3.clone_disk_files(testvm1))
 
         # qubes.xml reload
         self.save_and_reload_db()
         testvm1 = self.app.domains[testvm1.qid]
         testvm3 = self.app.domains[testvm3.qid]
 
-        self.assertEquals(testvm1.label, testvm3.label)
-        self.assertEquals(testvm1.netvm, testvm3.netvm)
-        self.assertEquals(testvm1.property_is_default('netvm'),
+        self.assertEqual(testvm1.label, testvm3.label)
+        self.assertEqual(testvm1.netvm, testvm3.netvm)
+        self.assertEqual(testvm1.property_is_default('netvm'),
                           testvm3.property_is_default('netvm'))
-        self.assertEquals(testvm1.kernel, testvm3.kernel)
-        self.assertEquals(testvm1.kernelopts, testvm3.kernelopts)
-        self.assertEquals(testvm1.property_is_default('kernel'),
+        self.assertEqual(testvm1.kernel, testvm3.kernel)
+        self.assertEqual(testvm1.kernelopts, testvm3.kernelopts)
+        self.assertEqual(testvm1.property_is_default('kernel'),
                           testvm3.property_is_default('kernel'))
-        self.assertEquals(testvm1.property_is_default('kernelopts'),
+        self.assertEqual(testvm1.property_is_default('kernelopts'),
                           testvm3.property_is_default('kernelopts'))
-        self.assertEquals(testvm1.memory, testvm3.memory)
-        self.assertEquals(testvm1.maxmem, testvm3.maxmem)
-        self.assertEquals(testvm1.devices, testvm3.devices)
-        self.assertEquals(testvm1.include_in_backups,
+        self.assertEqual(testvm1.memory, testvm3.memory)
+        self.assertEqual(testvm1.maxmem, testvm3.maxmem)
+        self.assertEqual(testvm1.devices, testvm3.devices)
+        self.assertEqual(testvm1.include_in_backups,
                           testvm3.include_in_backups)
-        self.assertEquals(testvm1.default_user, testvm3.default_user)
-        self.assertEquals(testvm1.features, testvm3.features)
-        self.assertEquals(testvm1.firewall.rules,
+        self.assertEqual(testvm1.default_user, testvm3.default_user)
+        self.assertEqual(testvm1.features, testvm3.features)
+        self.assertEqual(testvm1.firewall.rules,
                           testvm2.firewall.rules)
 
     def test_020_name_conflict_app(self):
@@ -239,21 +240,21 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             self.vm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
                 name=self.vmname, template=self.app.default_template,
                 label='red')
-            self.vm2.create_on_disk()
+            self.loop.run_until_complete(self.vm2.create_on_disk())
 
     def test_021_name_conflict_template(self):
         # TODO decide what exception should be here
         with self.assertRaises((qubes.exc.QubesException, ValueError)):
             self.vm2 = self.app.add_new_vm(qubes.vm.templatevm.TemplateVM,
                 name=self.vmname, label='red')
-            self.vm2.create_on_disk()
+            self.loop.run_until_complete(self.vm2.create_on_disk())
 
     def test_030_rename_conflict_app(self):
         vm2name = self.make_vm_name('newname')
 
         self.vm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=vm2name, template=self.app.default_template, label='red')
-        self.vm2.create_on_disk()
+        self.loop.run_until_complete(self.vm2.create_on_disk())
 
         with self.assertNotRaises(OSError):
             with self.assertRaises(qubes.exc.QubesException):
@@ -272,7 +273,7 @@ class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             qubes.vm.appvm.AppVM,
             name=self.make_vm_name("vm"),
             label='red')
-        self.testvm.create_on_disk()
+        self.loop.run_until_complete(self.testvm.create_on_disk())
         self.save_and_reload_db()
 
     def setup_hvm(self):
@@ -281,7 +282,7 @@ class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             name=self.make_vm_name("hvm"),
             label='red')
         self.testvm.hvm = True
-        self.testvm.create_on_disk()
+        self.loop.run_until_complete(self.testvm.create_on_disk())
         self.save_and_reload_db()
 
     def pref_set(self, name, value, valid=True):
@@ -293,7 +294,7 @@ class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         )
         (stdout, stderr) = p.communicate()
         if valid:
-            self.assertEquals(p.returncode, 0,
+            self.assertEqual(p.returncode, 0,
                               "qvm-prefs .. '{}' '{}' failed: {}{}".format(
                                   name, value, stdout, stderr
                               ))
@@ -306,7 +307,7 @@ class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         p = subprocess.Popen(['qvm-prefs'] + self.sharedopts +
             ['--', self.testvm.name, name], stdout=subprocess.PIPE)
         (stdout, _) = p.communicate()
-        self.assertEquals(p.returncode, 0)
+        self.assertEqual(p.returncode, 0)
         return stdout.strip()
 
     bool_test_values = [
@@ -329,7 +330,7 @@ class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         for (value, expected, valid) in values:
             self.pref_set(name, value, valid)
             if valid:
-                self.assertEquals(self.pref_get(name), expected)
+                self.assertEqual(self.pref_get(name), expected)
 
     @unittest.skip('test not converted to core3 API')
     def test_006_template(self):
@@ -385,7 +386,8 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestsMixin,
             label='red'
         )
         self.test_template.clone_properties(self.app.default_template)
-        self.test_template.clone_disk_files(self.app.default_template)
+        self.loop.run_until_complete(
+            self.test_template.clone_disk_files(self.app.default_template))
         self.save_and_reload_db()
 
     def setup_hvm_template(self):
@@ -395,7 +397,7 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestsMixin,
             label='red',
             hvm=True
         )
-        self.test_template.create_on_disk()
+        self.loop.run_until_complete(self.test_template.create_on_disk())
         self.save_and_reload_db()
 
     def get_rootimg_checksum(self):
@@ -406,7 +408,7 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestsMixin,
 
     def _do_test(self):
         checksum_before = self.get_rootimg_checksum()
-        self.test_template.start()
+        self.loop.run_until_complete(self.test_template.start())
         self.shutdown_and_wait(self.test_template)
         checksum_changed = self.get_rootimg_checksum()
         if checksum_before == checksum_changed:
@@ -419,7 +421,7 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestsMixin,
             subprocess.check_call(revert_cmd)
 
         checksum_after = self.get_rootimg_checksum()
-        self.assertEquals(checksum_before, checksum_after)
+        self.assertEqual(checksum_before, checksum_after)
 
     @unittest.expectedFailure
     def test_000_revert_pv(self):
@@ -449,18 +451,19 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
     def test_000_clipboard(self):
         testvm1 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
                                      name=self.make_vm_name('vm1'), label='red')
-        testvm1.create_on_disk()
+        self.loop.run_until_complete(testvm1.create_on_disk())
         testvm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
                                      name=self.make_vm_name('vm2'), label='red')
-        testvm2.create_on_disk()
+        self.loop.run_until_complete(testvm2.create_on_disk())
         self.app.save()
 
-        testvm1.start()
-        testvm2.start()
+        self.loop.run_until_complete(asyncio.wait([
+            testvm1.start(),
+            testvm2.start()]))
 
         window_title = 'user@{}'.format(testvm1.name)
-        testvm1.run('zenity --text-info --editable --title={}'.format(
-            window_title))
+        self.loop.run_until_complete(testvm1.run(
+            'zenity --text-info --editable --title={}'.format(window_title)))
 
         self.wait_for_window(window_title)
         time.sleep(0.5)
@@ -481,37 +484,37 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
 
         clipboard_content = \
             open('/var/run/qubes/qubes-clipboard.bin', 'r').read().strip()
-        self.assertEquals(clipboard_content, test_string,
+        self.assertEqual(clipboard_content, test_string,
                           "Clipboard copy operation failed - content")
         clipboard_source = \
             open('/var/run/qubes/qubes-clipboard.bin.source',
                  'r').read().strip()
-        self.assertEquals(clipboard_source, testvm1.name,
+        self.assertEqual(clipboard_source, testvm1.name,
                           "Clipboard copy operation failed - owner")
 
         # Then paste it to the other window
         window_title = 'user@{}'.format(testvm2.name)
-        p = testvm2.run('zenity --entry --title={} > test.txt'.format(
-                        window_title), passio_popen=True)
+        p = self.loop.run_until_complete(testvm2.run(
+            'zenity --entry --title={} > test.txt'.format(window_title)))
         self.wait_for_window(window_title)
 
         subprocess.check_call(['xdotool', 'key', '--delay', '100',
                                'ctrl+shift+v', 'ctrl+v', 'Return'])
-        p.wait()
+        self.loop.run_until_complete(p.wait())
 
         # And compare the result
-        (test_output, _) = testvm2.run('cat test.txt',
-                                       passio_popen=True).communicate()
-        self.assertEquals(test_string, test_output.strip().decode('ascii'))
+        (test_output, _) = self.loop.run_until_complete(
+            testvm2.run_for_stdio('cat test.txt'))
+        self.assertEqual(test_string, test_output.strip().decode('ascii'))
 
         clipboard_content = \
             open('/var/run/qubes/qubes-clipboard.bin', 'r').read().strip()
-        self.assertEquals(clipboard_content, "",
+        self.assertEqual(clipboard_content, "",
                           "Clipboard not wiped after paste - content")
         clipboard_source = \
             open('/var/run/qubes/qubes-clipboard.bin.source', 'r').\
             read().strip()
-        self.assertEquals(clipboard_source, "",
+        self.assertEqual(clipboard_source, "",
                           "Clipboard not wiped after paste - owner")
 
 class TC_05_StandaloneVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
@@ -523,24 +526,26 @@ class TC_05_StandaloneVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase
     def test_000_create_start(self):
         testvm1 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
                                      name=self.make_vm_name('vm1'), label='red')
-        testvm1.clone_disk_files(self.app.default_template)
+        self.loop.run_until_complete(
+            testvm1.clone_disk_files(self.app.default_template))
         self.app.save()
-        testvm1.start()
-        self.assertEquals(testvm1.get_power_state(), "Running")
+        self.loop.run_until_complete(testvm1.start())
+        self.assertEqual(testvm1.get_power_state(), "Running")
 
     @unittest.expectedFailure
     def test_100_resize_root_img(self):
         testvm1 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
                                      name=self.make_vm_name('vm1'), label='red')
-        testvm1.clone_disk_files(self.app.default_template)
+        self.loop.run_until_complete(
+            testvm1.clone_disk_files(self.app.default_template))
         self.app.save()
-        testvm1.storage.resize(testvm1.volumes['root'], 20 * 1024 ** 3)
-        self.assertEquals(testvm1.volumes['root'].size, 20 * 1024 ** 3)
-        testvm1.start()
-        p = testvm1.run('df --output=size /|tail -n 1',
-                        passio_popen=True)
+        self.loop.run_until_complete(
+            testvm1.storage.resize(testvm1.volumes['root'], 20 * 1024 ** 3))
+        self.assertEqual(testvm1.volumes['root'].size, 20 * 1024 ** 3)
+        self.loop.run_until_complete(testvm1.start())
         # new_size in 1k-blocks
-        (new_size, _) = p.communicate()
+        (new_size, _) = self.loop.run_until_complete(
+            testvm1.run_for_stdio('df --output=size /|tail -n 1'))
         # some safety margin for FS metadata
         self.assertGreater(int(new_size.strip()), 19 * 1024 ** 2)
 

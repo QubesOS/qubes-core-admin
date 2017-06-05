@@ -22,11 +22,13 @@
 
 from distutils import spawn
 
+import asyncio
 import multiprocessing
 import os
+import shlex
 import subprocess
-import unittest
 import time
+import unittest
 
 import qubes.config
 import qubes.tests
@@ -48,19 +50,29 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             label='red',
             name=self.make_vm_name('vm1'),
             template=self.app.domains[self.template])
-        self.testvm1.create_on_disk()
+        self.loop.run_until_complete(self.testvm1.create_on_disk())
         self.testvm2 = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,
             label='red',
             name=self.make_vm_name('vm2'),
             template=self.app.domains[self.template])
-        self.testvm2.create_on_disk()
+        self.loop.run_until_complete(self.testvm2.create_on_disk())
         self.app.save()
 
+    def create_local_file(self, filename, content, mode='w'):
+        with open(filename, mode) as file:
+            file.write(content)
+        self.addCleanup(os.unlink, filename)
+
+    def create_remote_file(self, vm, filename, content):
+        self.loop.run_until_complete(vm.run_for_stdio(
+            'cat > {}'.format(shlex.quote(filename)),
+            user='root', input=content.encode('utf-8')))
+
     def test_000_start_shutdown(self):
-        self.testvm1.start()
-        self.assertEquals(self.testvm1.get_power_state(), "Running")
-        self.testvm1.shutdown()
+        self.loop.run_until_complete(self.testvm1.start())
+        self.assertEqual(self.testvm1.get_power_state(), "Running")
+        self.loop.run_until_complete(self.testvm1.shutdown())
 
         shutdown_counter = 0
         while self.testvm1.is_running():
@@ -69,92 +81,105 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             shutdown_counter += 1
             time.sleep(1)
         time.sleep(1)
-        self.assertEquals(self.testvm1.get_power_state(), "Halted")
+        self.assertEqual(self.testvm1.get_power_state(), "Halted")
 
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
     def test_010_run_xterm(self):
-        self.testvm1.start()
-        self.assertEquals(self.testvm1.get_power_state(), "Running")
-        self.testvm1.run("xterm")
-        wait_count = 0
-        title = 'user@{}'.format(self.testvm1.name)
-        if self.template.count("whonix"):
-            title = 'user@host'
-        while subprocess.call(
-                ['xdotool', 'search', '--name', title],
-                stdout=open(os.path.devnull, 'w'),
-                stderr=subprocess.STDOUT) > 0:
-            wait_count += 1
-            if wait_count > 100:
-                self.fail("Timeout while waiting for xterm window")
-            time.sleep(0.1)
+        self.loop.run_until_complete(self.testvm1.start())
+        self.assertEqual(self.testvm1.get_power_state(), "Running")
 
-        time.sleep(0.5)
-        subprocess.check_call(
-            ['xdotool', 'search', '--name', title,
-             'windowactivate', 'type', 'exit\n'])
+        p = self.loop.run_until_complete(self.testvm1.run('xterm'))
+        try:
+            wait_count = 0
+            title = 'user@{}'.format(self.testvm1.name)
+            if self.template.count("whonix"):
+                title = 'user@host'
+            while subprocess.call(
+                    ['xdotool', 'search', '--name', title],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) > 0:
+                wait_count += 1
+                if wait_count > 100:
+                    self.fail("Timeout while waiting for xterm window")
+                time.sleep(0.1)
 
-        wait_count = 0
-        while subprocess.call(['xdotool', 'search', '--name', title],
-                              stdout=open(os.path.devnull, 'w'),
-                              stderr=subprocess.STDOUT) == 0:
-            wait_count += 1
-            if wait_count > 100:
-                self.fail("Timeout while waiting for xterm "
-                          "termination")
-            time.sleep(0.1)
+            time.sleep(0.5)
+            subprocess.check_call(
+                ['xdotool', 'search', '--name', title,
+                'windowactivate', 'type', 'exit\n'])
+
+            wait_count = 0
+            while subprocess.call(['xdotool', 'search', '--name', title],
+                                stdout=open(os.path.devnull, 'w'),
+                                stderr=subprocess.STDOUT) == 0:
+                wait_count += 1
+                if wait_count > 100:
+                    self.fail("Timeout while waiting for xterm "
+                            "termination")
+                time.sleep(0.1)
+        finally:
+            p.terminate()
+            self.loop.run_until_complete(p.wait())
 
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
     def test_011_run_gnome_terminal(self):
         if "minimal" in self.template:
             self.skipTest("Minimal template doesn't have 'gnome-terminal'")
-        self.testvm1.start()
-        self.assertEquals(self.testvm1.get_power_state(), "Running")
-        self.testvm1.run("gnome-terminal")
-        title = 'user@{}'.format(self.testvm1.name)
-        if self.template.count("whonix"):
-            title = 'user@host'
-        wait_count = 0
-        while subprocess.call(
-                ['xdotool', 'search', '--name', title],
-                stdout=open(os.path.devnull, 'w'),
-                stderr=subprocess.STDOUT) > 0:
-            wait_count += 1
-            if wait_count > 100:
-                self.fail("Timeout while waiting for gnome-terminal window")
-            time.sleep(0.1)
+        self.loop.run_until_complete(self.testvm1.start())
+        self.assertEqual(self.testvm1.get_power_state(), "Running")
+        p = self.loop.run_until_complete(self.testvm1.run('gnome-terminal'))
+        try:
+            title = 'user@{}'.format(self.testvm1.name)
+            if self.template.count("whonix"):
+                title = 'user@host'
+            wait_count = 0
+            while subprocess.call(
+                    ['xdotool', 'search', '--name', title],
+                    stdout=open(os.path.devnull, 'w'),
+                    stderr=subprocess.STDOUT) > 0:
+                wait_count += 1
+                if wait_count > 100:
+                    self.fail("Timeout while waiting for gnome-terminal window")
+                time.sleep(0.1)
 
-        time.sleep(0.5)
-        subprocess.check_call(
-            ['xdotool', 'search', '--name', title,
-             'windowactivate', '--sync', 'type', 'exit\n'])
+            time.sleep(0.5)
+            subprocess.check_call(
+                ['xdotool', 'search', '--name', title,
+                'windowactivate', '--sync', 'type', 'exit\n'])
 
-        wait_count = 0
-        while subprocess.call(['xdotool', 'search', '--name', title],
-                              stdout=open(os.path.devnull, 'w'),
-                              stderr=subprocess.STDOUT) == 0:
-            wait_count += 1
-            if wait_count > 100:
-                self.fail("Timeout while waiting for gnome-terminal "
-                          "termination")
-            time.sleep(0.1)
+            wait_count = 0
+            while subprocess.call(['xdotool', 'search', '--name', title],
+                                stdout=open(os.path.devnull, 'w'),
+                                stderr=subprocess.STDOUT) == 0:
+                wait_count += 1
+                if wait_count > 100:
+                    self.fail("Timeout while waiting for gnome-terminal "
+                            "termination")
+                time.sleep(0.1)
+        finally:
+            p.terminate()
+            self.loop.run_until_complete(p.wait())
 
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
     @unittest.expectedFailure
     def test_012_qubes_desktop_run(self):
-        self.testvm1.start()
-        self.assertEquals(self.testvm1.get_power_state(), "Running")
+        self.loop.run_until_complete(self.testvm1.start())
+        self.assertEqual(self.testvm1.get_power_state(), "Running")
         xterm_desktop_path = "/usr/share/applications/xterm.desktop"
         # Debian has it different...
         xterm_desktop_path_debian = \
             "/usr/share/applications/debian-xterm.desktop"
-        if self.testvm1.run("test -r {}".format(xterm_desktop_path_debian),
-                            wait=True) == 0:
+        try:
+            self.loop.run_until_complete(self.testvm1.run_for_stdio(
+                'test -r {}'.format(xterm_desktop_path_debian)))
+        except subprocess.CalledProcessError:
+            pass
+        else:
             xterm_desktop_path = xterm_desktop_path_debian
-        self.testvm1.run("qubes-desktop-run {}".format(xterm_desktop_path))
+        self.loop.run_until_complete(
+            self.testvm1.run('qubes-desktop-run {}'.format(xterm_desktop_path)))
         title = 'user@{}'.format(self.testvm1.name)
         if self.template.count("whonix"):
             title = 'user@host'
@@ -185,137 +210,104 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
 
     def test_050_qrexec_simple_eof(self):
         """Test for data and EOF transmission dom0->VM"""
-        result = multiprocessing.Value('i', 0)
 
-        def run(self, result):
-            p = self.testvm1.run("cat", passio_popen=True,
-                                 passio_stderr=True)
+        # XXX is this still correct? this is no longer simple qrexec,
+        # but qubes.VMShell
 
-            (stdout, stderr) = p.communicate(TEST_DATA)
-            if stdout != TEST_DATA:
-                result.value = 1
-            if len(stderr) > 0:
-                result.value = 2
+        self.loop.run_until_complete(self.testvm1.start())
+        try:
+            (stdout, stderr) = self.loop.run_until_complete(asyncio.wait_for(
+                self.testvm1.run_for_stdio('cat', input=TEST_DATA),
+                timeout=10))
+        except asyncio.TimeoutError:
+            self.fail(
+                "Timeout, probably EOF wasn't transferred to the VM process")
 
-        self.testvm1.start()
-
-        t = multiprocessing.Process(target=run, args=(self, result))
-        t.start()
-        t.join(timeout=10)
-        if t.is_alive():
-            t.terminate()
-            self.fail("Timeout, probably EOF wasn't transferred to the VM "
-                      "process")
-        if result.value == 1:
-            self.fail("Received data differs from what was sent")
-        elif result.value == 2:
-            self.fail("Some data was printed to stderr")
+        self.assertEqual(stdout, TEST_DATA,
+            'Received data differs from what was sent')
+        self.assertFalse(stderr,
+            'Some data was printed to stderr')
 
     def test_051_qrexec_simple_eof_reverse(self):
         """Test for EOF transmission VM->dom0"""
-        result = multiprocessing.Value('i', 0)
 
-        def run(self, result):
-            p = self.testvm1.run("echo test; exec >&-; cat > /dev/null",
-                                 passio_popen=True, passio_stderr=True)
+        @asyncio.coroutine
+        def run(self):
+            p = yield from self.testvm1.run(
+                    'echo test; exec >&-; cat > /dev/null',
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE)
+
             # this will hang on test failure
-            stdout = p.stdout.read()
+            stdout = yield from asyncio.wait_for(p.stdout.read(), timeout=10)
+
             p.stdin.write(TEST_DATA)
+            yield from p.stdin.drain()
             p.stdin.close()
-            if stdout.strip() != b"test":
-                result.value = 1
+            self.assertEqual(stdout.strip(), 'test',
+                'Received data differs from what was expected')
             # this may hang in some buggy cases
-            elif len(p.stderr.read()) > 0:
-                result.value = 2
-            elif p.poll() is None:
-                time.sleep(1)
-                if p.poll() is None:
-                    result.value = 3
+            self.assertFalse((yield from p.stderr.read()),
+                'Some data was printed to stderr')
 
-        self.testvm1.start()
+            try:
+                yield from asyncio.wait_for(p.wait(), timeout=1)
+            except asyncio.TimeoutError:
+                self.fail("Timeout, "
+                    "probably EOF wasn't transferred from the VM process")
 
-        t = multiprocessing.Process(target=run, args=(self, result))
-        t.start()
-        t.join(timeout=10)
-        if t.is_alive():
-            t.terminate()
-            self.fail("Timeout, probably EOF wasn't transferred from the VM "
-                      "process")
-        if result.value == 1:
-            self.fail("Received data differs from what was expected")
-        elif result.value == 2:
-            self.fail("Some data was printed to stderr")
-        elif result.value == 3:
-            self.fail("VM proceess didn't terminated on EOF")
+        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(run(self))
 
     def test_052_qrexec_vm_service_eof(self):
         """Test for EOF transmission VM(src)->VM(dst)"""
-        result = multiprocessing.Value('i', 0)
 
-        def run(self, result):
-            p = self.testvm1.run("/usr/lib/qubes/qrexec-client-vm %s test.EOF "
-                                 "/bin/sh -c 'echo test; exec >&-; cat "
-                                 ">&$SAVED_FD_1'" % self.testvm2.name,
-                                 passio_popen=True)
-            (stdout, stderr) = p.communicate()
-            if stdout != b"test\n":
-                result.value = 1
+        self.loop.run_until_complete(asyncio.wait([
+            self.testvm1.start(),
+            self.testvm2.start()]))
+        self.loop.run_until_complete(self.testvm2.run_for_stdio(
+            'cat > /etc/qubes-rpc/test.EOF',
+            user='root',
+            input=b'/bin/cat'))
 
-        self.testvm1.start()
-        self.testvm2.start()
-        p = self.testvm2.run("cat > /etc/qubes-rpc/test.EOF", user="root",
-                             passio_popen=True)
-        p.stdin.write(b"/bin/cat")
-        p.stdin.close()
-        p.wait()
-        policy = open("/etc/qubes-rpc/policy/test.EOF", "w")
-        policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
-        policy.close()
-        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.EOF")
+        with self.qrexec_policy('test.EOF', self.testvm1, self.testvm2):
+            try:
+                stdout, _ = self.loop.run_until_complete(asyncio.wait_for(
+                    self.testvm1.run_for_stdio('''\
+                        /usr/lib/qubes/qrexec-client-vm {} test.EOF \
+                            /bin/sh -c 'echo test; exec >&-; cat >&$SAVED_FD_1'
+                    '''.format(self.testvm2.name)),
+                    timeout=10))
+            except asyncio.TimeoutError:
+                self.fail("Timeout, probably EOF wasn't transferred")
 
-        t = multiprocessing.Process(target=run, args=(self, result))
-        t.start()
-        t.join(timeout=10)
-        if t.is_alive():
-            t.terminate()
-            self.fail("Timeout, probably EOF wasn't transferred")
-        if result.value == 1:
-            self.fail("Received data differs from what was expected")
+        self.assertEqual(stdout, b'test',
+            'Received data differs from what was expected')
 
     @unittest.expectedFailure
     def test_053_qrexec_vm_service_eof_reverse(self):
         """Test for EOF transmission VM(src)<-VM(dst)"""
-        result = multiprocessing.Value('i', 0)
 
-        def run(self, result):
-            p = self.testvm1.run("/usr/lib/qubes/qrexec-client-vm %s test.EOF "
-                                 "/bin/sh -c 'cat >&$SAVED_FD_1'"
-                                 % self.testvm2.name,
-                                 passio_popen=True)
-            (stdout, stderr) = p.communicate()
-            if stdout != b"test\n":
-                result.value = 1
+        self.loop.run_until_complete(asyncio.wait([
+            self.testvm1.start(),
+            self.testvm2.start()]))
+        self.create_remote_file(self.testvm2, '/etc/qubes-rpc/test.EOF',
+                'echo test; exec >&-; cat >/dev/null')
 
-        self.testvm1.start()
-        self.testvm2.start()
-        p = self.testvm2.run("cat > /etc/qubes-rpc/test.EOF", user="root",
-                             passio_popen=True)
-        p.stdin.write(b"echo test; exec >&-; cat >/dev/null")
-        p.stdin.close()
-        p.wait()
-        policy = open("/etc/qubes-rpc/policy/test.EOF", "w")
-        policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
-        policy.close()
-        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.EOF")
+        with self.qrexec_policy('test.EOF', self.testvm1, self.testvm2):
+            try:
+                stdout, _ = self.loop.run_until_complete(asyncio.wait_for(
+                    self.testvm1.run_for_stdio('''\
+                        /usr/lib/qubes/qrexec-client-vm {} test.EOF \
+                            /bin/sh -c 'cat >&$SAVED_FD_1'
+                        '''.format(self.testvm2.name)),
+                    timeout=10))
+            except asyncio.TimeoutError:
+                self.fail("Timeout, probably EOF wasn't transferred")
 
-        t = multiprocessing.Process(target=run, args=(self, result))
-        t.start()
-        t.join(timeout=10)
-        if t.is_alive():
-            t.terminate()
-            self.fail("Timeout, probably EOF wasn't transferred")
-        if result.value == 1:
-            self.fail("Received data differs from what was expected")
+        self.assertEqual(stdout, b'test',
+            'Received data differs from what was expected')
 
     def test_055_qrexec_dom0_service_abort(self):
         """
@@ -327,78 +319,50 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         its stdout - otherwise such service might hang on write(2) call.
         """
 
-        def run (src):
-            p = src.run("/usr/lib/qubes/qrexec-client-vm dom0 "
-                                 "test.Abort /bin/cat /dev/zero",
-                                 passio_popen=True)
+        self.loop.run_until_complete(self.testvm1.start())
+        self.create_local_file('/etc/qubes-rpc/test.Abort',
+            'sleep 1')
 
-            p.communicate()
-            p.wait()
-
-        self.testvm1.start()
-        service = open("/etc/qubes-rpc/test.Abort", "w")
-        service.write("sleep 1")
-        service.close()
-        self.addCleanup(os.unlink, "/etc/qubes-rpc/test.Abort")
-        policy = open("/etc/qubes-rpc/policy/test.Abort", "w")
-        policy.write("%s dom0 allow" % (self.testvm1.name))
-        policy.close()
-        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.Abort")
-
-        t = multiprocessing.Process(target=run, args=(self.testvm1,))
-        t.start()
-        t.join(timeout=10)
-        if t.is_alive():
-            t.terminate()
-            self.fail("Timeout, probably stdout wasn't closed")
-
+        with self.qrexec_policy('test.Abort', self.testvm1, 'dom0'):
+            try:
+                stdout, _ = self.loop.run_until_complete(asyncio.wait_for(
+                    self.testvm1.run_for_stdio('''\
+                        /usr/lib/qubes/qrexec-client-vm dom0 test.Abort \
+                            /bin/cat /dev/zero'''),
+                    timeout=10))
+            except asyncio.TimeoutError:
+                self.fail("Timeout, probably stdout wasn't closed")
 
     def test_060_qrexec_exit_code_dom0(self):
-        self.testvm1.start()
-
-        p = self.testvm1.run("exit 0", passio_popen=True)
-        p.wait()
-        self.assertEqual(0, p.returncode)
-
-        p = self.testvm1.run("exit 3", passio_popen=True)
-        p.wait()
-        self.assertEqual(3, p.returncode)
+        self.loop.run_until_complete(self.testvm1.start())
+        self.loop.run_until_complete(self.testvm1.run_for_stdio('exit 0'))
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.loop.run_until_complete(self.testvm1.run_for_stdio('exit 3'))
 
     @unittest.expectedFailure
     def test_065_qrexec_exit_code_vm(self):
-        self.testvm1.start()
-        self.testvm2.start()
+        self.loop.run_until_complete(asyncio.wait([
+            self.testvm1.start(),
+            self.testvm2.start()]))
 
-        policy = open("/etc/qubes-rpc/policy/test.Retcode", "w")
-        policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
-        policy.close()
-        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.Retcode")
+        with self.qrexec_policy('test.Retcode', self.testvm1, self.testvm2):
+            self.create_remote_file(self.testvm2, '/etc/qubes-rpc/test.Retcode',
+                'exit 0')
+            (stdout, stderr) = self.loop.run_until_complete(
+                self.testvm1.run_for_stdio('''\
+                    /usr/lib/qubes/qrexec-client-vm {} test.Retcode \
+                        /bin/sh -c 'cat >/dev/null';
+                        echo $?'''.format(self.testvm1.name)))
+            self.assertEqual(stdout, b'0\n')
 
-        p = self.testvm2.run("cat > /etc/qubes-rpc/test.Retcode", user="root",
-                             passio_popen=True)
-        p.stdin.write(b"exit 0")
-        p.stdin.close()
-        p.wait()
-
-        p = self.testvm1.run("/usr/lib/qubes/qrexec-client-vm %s test.Retcode "
-                             "/bin/sh -c 'cat >/dev/null'; echo $?"
-                             % self.testvm1.name,
-                             passio_popen=True)
-        (stdout, stderr) = p.communicate()
-        self.assertEqual(stdout, b"0\n")
-
-        p = self.testvm2.run("cat > /etc/qubes-rpc/test.Retcode", user="root",
-                             passio_popen=True)
-        p.stdin.write(b"exit 3")
-        p.stdin.close()
-        p.wait()
-
-        p = self.testvm1.run("/usr/lib/qubes/qrexec-client-vm %s test.Retcode "
-                             "/bin/sh -c 'cat >/dev/null'; echo $?"
-                             % self.testvm1.name,
-                             passio_popen=True)
-        (stdout, stderr) = p.communicate()
-        self.assertEqual(stdout, b"3\n")
+            self.create_remote_file(self.testvm2, '/etc/qubes-rpc/test.Retcode',
+                'exit 3')
+            (stdout, stderr) = self.loop.run_until_complete(
+                self.testvm1.run_for_stdio('''\
+                    /usr/lib/qubes/qrexec-client-vm {} test.Retcode \
+                        /bin/sh -c 'cat >/dev/null';
+                        echo $?'''.format(self.testvm1.name)))
+            self.assertEqual(stdout, b'3\n')
 
     def test_070_qrexec_vm_simultaneous_write(self):
         """Test for simultaneous write in VM(src)->VM(dst) connection
@@ -411,53 +375,43 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             There was a bug where remote side was waiting on write(2) and not
             handling anything else.
         """
-        result = multiprocessing.Value('i', -1)
 
-        def run(self):
-            p = self.testvm1.run(
-                "/usr/lib/qubes/qrexec-client-vm %s test.write "
-                "/bin/sh -c '"
-                # first write a lot of data to fill all the buffers
-                "dd if=/dev/zero bs=993 count=10000 iflag=fullblock & "
-                # then after some time start reading
-                "sleep 1; "
-                "dd of=/dev/null bs=993 count=10000 iflag=fullblock; "
-                "wait"
-                "'" % self.testvm2.name, passio_popen=True)
-            p.communicate()
-            result.value = p.returncode
+        self.loop.run_until_complete(asyncio.wait([
+            self.testvm1.start(),
+            self.testvm2.start()]))
 
-        self.testvm1.start()
-        self.testvm2.start()
-        p = self.testvm2.run("cat > /etc/qubes-rpc/test.write", user="root",
-                             passio_popen=True)
-        # first write a lot of data
-        p.stdin.write(b"dd if=/dev/zero bs=993 count=10000 iflag=fullblock\n")
-        # and only then read something
-        p.stdin.write(b"dd of=/dev/null bs=993 count=10000 iflag=fullblock\n")
-        p.stdin.close()
-        p.wait()
-        policy = open("/etc/qubes-rpc/policy/test.write", "w")
-        policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
-        policy.close()
-        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.write")
+        self.create_remote_file(self.testvm2, '/etc/qubes-rpc/test.write', '''\
+            # first write a lot of data
+            dd if=/dev/zero bs=993 count=10000 iflag=fullblock
+            # and only then read something
+            dd of=/dev/null bs=993 count=10000 iflag=fullblock
+            ''')
 
-        t = multiprocessing.Process(target=run, args=(self,))
-        t.start()
-        t.join(timeout=10)
-        if t.is_alive():
-            t.terminate()
-            self.fail("Timeout, probably deadlock")
-        self.assertEqual(result.value, 0, "Service call failed")
+        with self.qrexec_policy('test.write', self.testvm1, self.testvm2):
+            try:
+                self.loop.run_until_complete(asyncio.wait_for(
+                    # first write a lot of data to fill all the buffers
+                    # then after some time start reading
+                    self.testvm1.run_for_stdio('''\
+                        /usr/lib/qubes/qrexec-client-vm {} test.write \
+                                /bin/sh -c '
+                            dd if=/dev/zero bs=993 count=10000 iflag=fullblock &
+                            sleep 1;
+                            dd of=/dev/null bs=993 count=10000 iflag=fullblock;
+                            wait'
+                        '''.format(self.testvm2.name)), timeout=10))
+            except subprocess.CalledProcessError:
+                self.fail('Service call failed')
+            except asyncio.TimeoutError:
+                self.fail('Timeout, probably deadlock')
 
+    @unittest.skip('localcmd= argument went away')
     def test_071_qrexec_dom0_simultaneous_write(self):
         """Test for simultaneous write in dom0(src)->VM(dst) connection
 
             Similar to test_070_qrexec_vm_simultaneous_write, but with dom0
             as a source.
         """
-        result = multiprocessing.Value('i', -1)
-
         def run(self):
             result.value = self.testvm2.run_service(
                 "test.write", localcmd="/bin/sh -c '"
@@ -469,19 +423,14 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                 "wait"
                 "'")
 
-        self.testvm2.start()
-        p = self.testvm2.run("cat > /etc/qubes-rpc/test.write", user="root",
-                             passio_popen=True)
-        # first write a lot of data
-        p.stdin.write(b"dd if=/dev/zero bs=993 count=10000 iflag=fullblock\n")
-        # and only then read something
-        p.stdin.write(b"dd of=/dev/null bs=993 count=10000 iflag=fullblock\n")
-        p.stdin.close()
-        p.wait()
-        policy = open("/etc/qubes-rpc/policy/test.write", "w")
-        policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
-        policy.close()
-        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.write")
+        self.create_remote_file(self.testvm2, '/etc/qubes-rpc/test.write', '''\
+            # first write a lot of data
+            dd if=/dev/zero bs=993 count=10000 iflag=fullblock
+            # and only then read something
+            dd of=/dev/null bs=993 count=10000 iflag=fullblock
+            ''')
+        self.create_local_file('/etc/qubes-rpc/policy/test.write',
+            '{} {} allow'.format(self.testvm1.name, self.testvm2.name))
 
         t = multiprocessing.Process(target=run, args=(self,))
         t.start()
@@ -491,6 +440,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             self.fail("Timeout, probably deadlock")
         self.assertEqual(result.value, 0, "Service call failed")
 
+    @unittest.skip('localcmd= argument went away')
     def test_072_qrexec_to_dom0_simultaneous_write(self):
         """Test for simultaneous write in dom0(src)<-VM(dst) connection
 
@@ -508,7 +458,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                 "dd of=/dev/null bs=993 count=10000 iflag=fullblock; "
                 "'")
 
-        self.testvm2.start()
+        self.loop.run_until_complete(self.testvm2.start())
         p = self.testvm2.run("cat > /etc/qubes-rpc/test.write", user="root",
                              passio_popen=True)
         # first write a lot of data
@@ -534,187 +484,194 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
 
     def test_080_qrexec_service_argument_allow_default(self):
         """Qrexec service call with argument"""
-        self.testvm1.start()
-        self.testvm2.start()
-        p = self.testvm2.run("cat > /etc/qubes-rpc/test.Argument", user="root",
-                             passio_popen=True)
-        p.communicate(b"/bin/echo $1")
 
-        with open("/etc/qubes-rpc/policy/test.Argument", "w") as policy:
-            policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
-        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.Argument")
+        self.loop.run_until_complete(asyncio.wait([
+            self.testvm1.start(),
+            self.testvm2.start()]))
 
-        p = self.testvm1.run("/usr/lib/qubes/qrexec-client-vm {} "
-                             "test.Argument+argument".format(self.testvm2.name),
-                             passio_popen=True)
-        (stdout, stderr) = p.communicate()
-        self.assertEqual(stdout, b"argument\n")
+        self.create_remote_file(self.testvm2, '/etc/qubes-rpc/test.Argument',
+            '/usr/bin/printf %s "$1"')
+        with self.qrexec_policy('test.Argument', self.testvm1, self.testvm2):
+            stdout, stderr = self.loop.run_until_complete(
+                self.testvm1.run_for_stdio('/usr/lib/qubes/qrexec-client-vm '
+                    '{} test.Argument+argument'.format(self.testvm2.name)))
+            self.assertEqual(stdout, b'argument')
 
     def test_081_qrexec_service_argument_allow_specific(self):
         """Qrexec service call with argument - allow only specific value"""
-        self.testvm1.start()
-        self.testvm2.start()
-        p = self.testvm2.run("cat > /etc/qubes-rpc/test.Argument", user="root",
-                             passio_popen=True)
-        p.communicate(b"/bin/echo $1")
 
-        with open("/etc/qubes-rpc/policy/test.Argument", "w") as policy:
-            policy.write("$anyvm $anyvm deny")
-        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.Argument")
+        self.loop.run_until_complete(asyncio.wait([
+            self.testvm1.start(),
+            self.testvm2.start()]))
 
-        with open("/etc/qubes-rpc/policy/test.Argument+argument", "w") as \
-                policy:
-            policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
-        self.addCleanup(os.unlink,
-            "/etc/qubes-rpc/policy/test.Argument+argument")
+        self.create_remote_file(self.testvm2, '/etc/qubes-rpc/test.Argument',
+            '/usr/bin/printf %s "$1"')
 
-        p = self.testvm1.run("/usr/lib/qubes/qrexec-client-vm {} "
-                             "test.Argument+argument".format(self.testvm2.name),
-                             passio_popen=True)
-        (stdout, stderr) = p.communicate()
-        self.assertEqual(stdout, b"argument\n")
+        with self.qrexec_policy('test.Argument', '$anyvm', '$anyvm', False):
+            with self.qrexec_policy('test.Argument+argument',
+                    self.testvm1.name, self.testvm2.name):
+                stdout, stderr = self.loop.run_until_complete(self.testvm1.run(
+                    '/usr/lib/qubes/qrexec-client-vm '
+                        '{} test.Argument+argument'.format(self.testvm2.name)))
+        self.assertEqual(stdout, b'argument')
 
     def test_082_qrexec_service_argument_deny_specific(self):
         """Qrexec service call with argument - deny specific value"""
-        self.testvm1.start()
-        self.testvm2.start()
-        p = self.testvm2.run("cat > /etc/qubes-rpc/test.Argument", user="root",
-                             passio_popen=True)
-        p.communicate(b"/bin/echo $1")
+        self.loop.run_until_complete(asyncio.wait([
+            self.testvm1.start(),
+            self.testvm2.start()]))
 
-        with open("/etc/qubes-rpc/policy/test.Argument", "w") as policy:
-            policy.write("$anyvm $anyvm allow")
-        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.Argument")
-
-        with open("/etc/qubes-rpc/policy/test.Argument+argument", "w") as \
-                policy:
-            policy.write("%s %s deny" % (self.testvm1.name, self.testvm2.name))
-        self.addCleanup(os.unlink,
-            "/etc/qubes-rpc/policy/test.Argument+argument")
-
-        p = self.testvm1.run("/usr/lib/qubes/qrexec-client-vm {} "
-                             "test.Argument+argument".format(self.testvm2.name),
-                             passio_popen=True)
-        (stdout, stderr) = p.communicate()
-        self.assertEqual(stdout, b"")
-        self.assertEqual(p.returncode, 1, "Service request should be denied")
+        self.create_remote_file(self.testvm2, '/etc/qubes-rpc/test.Argument',
+            '/usr/bin/printf %s "$1"')
+        with self.qrexec_policy('test.Argument', '$anyvm', '$anyvm'):
+            with self.qrexec_policy('test.Argument+argument',
+                    self.testvm1, self.testvm2, allow=False):
+                with self.assertRaises(subprocess.CalledProcessError,
+                        msg='Service request should be denied'):
+                    self.loop.run_until_complete(
+                        self.testvm1.run('/usr/lib/qubes/qrexec-client-vm {} '
+                            'test.Argument+argument'.format(self.testvm2.name)))
 
     def test_083_qrexec_service_argument_specific_implementation(self):
         """Qrexec service call with argument - argument specific
         implementatation"""
-        self.testvm1.start()
-        self.testvm2.start()
-        p = self.testvm2.run("cat > /etc/qubes-rpc/test.Argument", user="root",
-                             passio_popen=True)
-        p.communicate(b"/bin/echo $1")
+        self.loop.run_until_complete(asyncio.wait([
+            self.testvm1.start(),
+            self.testvm2.start()]))
 
-        p = self.testvm2.run("cat > /etc/qubes-rpc/test.Argument+argument",
-            user="root", passio_popen=True)
-        p.communicate(b"/bin/echo specific: $1")
+        self.create_remote_file(self.testvm2,
+            '/etc/qubes-rpc/test.Argument',
+            '/usr/bin/printf %s "$1"')
+        self.create_remote_file(self.testvm2,
+            '/etc/qubes-rpc/test.Argument+argument',
+            '/usr/bin/printf "specific: %s" "$1"')
 
-        with open("/etc/qubes-rpc/policy/test.Argument", "w") as policy:
-            policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
-        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.Argument")
+        with self.qrexec_policy('test.Argument', self.testvm1, self.testvm2):
+            stdout, stderr = self.loop.run_until_complete(
+                self.testvm1.run_for_stdio('/usr/lib/qubes/qrexec-client-vm '
+                    '{} test.Argument+argument'.format(self.testvm2.name)))
 
-        p = self.testvm1.run("/usr/lib/qubes/qrexec-client-vm {} "
-                             "test.Argument+argument".format(self.testvm2.name),
-                             passio_popen=True)
-        (stdout, stderr) = p.communicate()
-        self.assertEqual(stdout, b"specific: argument\n")
+        self.assertEqual(stdout, b'specific: argument')
 
     def test_084_qrexec_service_argument_extra_env(self):
         """Qrexec service call with argument - extra env variables"""
-        self.testvm1.start()
-        self.testvm2.start()
-        p = self.testvm2.run("cat > /etc/qubes-rpc/test.Argument", user="root",
-                             passio_popen=True)
-        p.communicate(b"/bin/echo $QREXEC_SERVICE_FULL_NAME "
-                      b"$QREXEC_SERVICE_ARGUMENT")
+        self.loop.run_until_complete(asyncio.wait([
+            self.testvm1.start(),
+            self.testvm2.start()]))
 
-        with open("/etc/qubes-rpc/policy/test.Argument", "w") as policy:
-            policy.write("%s %s allow" % (self.testvm1.name, self.testvm2.name))
-        self.addCleanup(os.unlink, "/etc/qubes-rpc/policy/test.Argument")
+        self.create_remote_file(self.testvm2, '/etc/qubes-rpc/test.Argument',
+            '/usr/bin/printf "%s %s" '
+                '"$QREXEC_SERVICE_FULL_NAME" "$QREXEC_SERVICE_ARGUMENT"')
 
-        p = self.testvm1.run("/usr/lib/qubes/qrexec-client-vm {} "
-                             "test.Argument+argument".format(self.testvm2.name),
-                             passio_popen=True)
-        (stdout, stderr) = p.communicate()
-        self.assertEqual(stdout, b"test.Argument+argument argument\n")
+        with self.qrexec_policy('test.Argument', self.testvm1, self.testvm2):
+            stdout, stderr = self.loop.run_until_complete(
+                self.testvm1.run_for_stdio('/usr/lib/qubes/qrexec-client-vm '
+                    '{} test.Argument+argument'.format(self.testvm2.name)))
+
+        self.assertEqual(stdout, b'test.Argument+argument argument')
 
     def test_100_qrexec_filecopy(self):
-        self.testvm1.start()
-        self.testvm2.start()
-        self.qrexec_policy('qubes.Filecopy', self.testvm1.name,
-            self.testvm2.name)
-        p = self.testvm1.run("qvm-copy-to-vm %s /etc/passwd" %
-                             self.testvm2.name, passio_popen=True,
-                             passio_stderr=True)
-        p.wait()
-        self.assertEqual(p.returncode, 0, "qvm-copy-to-vm failed: %s" %
-                         p.stderr.read())
-        retcode = self.testvm2.run("diff /etc/passwd "
-                                   "/home/user/QubesIncoming/{}/passwd".format(
-                                       self.testvm1.name),
-                                   wait=True)
-        self.assertEqual(retcode, 0, "file differs")
+        self.loop.run_until_complete(asyncio.wait([
+            self.testvm1.start(),
+            self.testvm2.start()]))
+
+        with self.qrexec_policy('qubes.Filecopy', self.testvm1, self.testvm2):
+            try:
+                stdout, stderr = self.loop.run_until_complete(
+                    self.testvm1.run_for_stdio(
+                        'qvm-copy-to-vm {} /etc/passwd'.format(
+                            self.testvm2.name)))
+            except subprocess.CalledProcessError:
+                self.fail('qvm-copy-to-vm failed: {}'.format(stderr))
+
+        try:
+            self.loop.run_until_complete(self.testvm2.run_for_stdio(
+                'diff /etc/passwd /home/user/QubesIncoming/{}/passwd'.format(
+                    self.testvm1.name)))
+        except subprocess.CalledProcessError:
+            self.fail('file differs')
+
+        try:
+            self.loop.run_until_complete(self.testvm1.run_for_stdio(
+                'test -f /etc/passwd'))
+        except subprocess.CalledProcessError:
+            self.fail('source file got removed')
 
     def test_105_qrexec_filemove(self):
-        self.testvm1.start()
-        self.testvm2.start()
-        self.qrexec_policy('qubes.Filecopy', self.testvm1.name,
-            self.testvm2.name)
-        retcode = self.testvm1.run("cp /etc/passwd passwd", wait=True)
-        assert retcode == 0, "Failed to prepare source file"
-        p = self.testvm1.run("qvm-move-to-vm %s passwd" %
-                             self.testvm2.name, passio_popen=True,
-                             passio_stderr=True)
-        p.wait()
-        self.assertEqual(p.returncode, 0, "qvm-move-to-vm failed: %s" %
-                         p.stderr.read())
-        retcode = self.testvm2.run("diff /etc/passwd "
-                                   "/home/user/QubesIncoming/{}/passwd".format(
-                                       self.testvm1.name),
-                                   wait=True)
-        self.assertEqual(retcode, 0, "file differs")
-        retcode = self.testvm1.run("test -f passwd", wait=True)
-        self.assertEqual(retcode, 1, "source file not removed")
+        self.loop.run_until_complete(asyncio.wait([
+            self.testvm1.start(),
+            self.testvm2.start()]))
+
+        self.loop.run_until_complete(self.testvm1.run_for_stdio(
+            'cp /etc/passwd passwd'))
+        with self.qrexec_policy('qubes.Filecopy', self.testvm1, self.testvm2):
+            try:
+                stdout, stderr = self.loop.run_until_complete(
+                    self.testvm1.run_for_stdio(
+                        'qvm-move-to-vm {} passwd'.format(self.testvm2.name)))
+            except subprocess.CalledProcessError:
+                self.fail('qvm-move-to-vm failed: {}'.format(stderr))
+
+        try:
+            self.loop.run_until_complete(self.testvm2.run_for_stdio(
+                'diff /etc/passwd /home/user/QubesIncoming/{}/passwd'.format(
+                    self.testvm1.name)))
+        except subprocess.CalledProcessError:
+            self.fail('file differs')
+
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.loop.run_until_complete(self.testvm1.run_for_stdio(
+                'test -f passwd'))
 
     def test_101_qrexec_filecopy_with_autostart(self):
-        self.testvm1.start()
-        self.qrexec_policy('qubes.Filecopy', self.testvm1.name,
-            self.testvm2.name)
-        p = self.testvm1.run("qvm-copy-to-vm %s /etc/passwd" %
-                             self.testvm2.name, passio_popen=True,
-                             passio_stderr=True)
-        p.wait()
-        self.assertEqual(p.returncode, 0, "qvm-copy-to-vm failed: %s" %
-                         p.stderr.read())
+        self.loop.run_until_complete(self.testvm1.start())
+
+        with self.qrexec_policy('qubes.Filecopy', self.testvm1, self.testvm2):
+            try:
+                stdout, stderr = self.loop.run_until_complete(
+                    self.testvm1.run_for_stdio(
+                        'qvm-copy-to-vm {} /etc/passwd'.format(
+                            self.testvm2.name)))
+            except subprocess.CalledProcessError:
+                self.fail('qvm-copy-to-vm failed: {}'.format(stderr))
+
         # workaround for libvirt bug (domain ID isn't updated when is started
         #  from other application) - details in
         # QubesOS/qubes-core-libvirt@63ede4dfb4485c4161dd6a2cc809e8fb45ca664f
+        # XXX is it still true with qubesd? --woju 20170523
         self.testvm2._libvirt_domain = None
         self.assertTrue(self.testvm2.is_running())
-        retcode = self.testvm2.run("diff /etc/passwd "
-                                   "/home/user/QubesIncoming/{}/passwd".format(
-                                       self.testvm1.name),
-                                   wait=True)
-        self.assertEqual(retcode, 0, "file differs")
+
+        try:
+            self.loop.run_until_complete(self.testvm2.run_for_stdio(
+                'diff /etc/passwd /home/user/QubesIncoming/{}/passwd'.format(
+                    self.testvm1.name)))
+        except subprocess.CalledProcessError:
+            self.fail('file differs')
+
+        try:
+            self.loop.run_until_complete(self.testvm1.run_for_stdio(
+                'test -f /etc/passwd'))
+        except subprocess.CalledProcessError:
+            self.fail('source file got removed')
 
     def test_110_qrexec_filecopy_deny(self):
-        self.testvm1.start()
-        self.testvm2.start()
-        self.qrexec_policy('qubes.Filecopy', self.testvm1.name,
-            self.testvm2.name, allow=False)
-        p = self.testvm1.run("qvm-copy-to-vm %s /etc/passwd" %
-                             self.testvm2.name, passio_popen=True)
-        p.wait()
-        self.assertNotEqual(p.returncode, 0, "qvm-copy-to-vm unexpectedly "
-                            "succeeded")
-        retcode = self.testvm1.run("ls /home/user/QubesIncoming/%s" %
-                                   self.testvm1.name, wait=True,
-                                   ignore_stderr=True)
-        self.assertNotEqual(retcode, 0, "QubesIncoming exists although file "
-                            "copy was denied")
+        self.loop.run_until_complete(asyncio.wait([
+            self.testvm1.start(),
+            self.testvm2.start()]))
+
+        with self.qrexec_policy('qubes.Filecopy', self.testvm1, self.testvm2,
+                allow=False):
+            with self.assertRaises(subprocess.CalledProcessError):
+                stdout, stderr = self.loop.run_until_complete(
+                    self.testvm1.run_for_stdio(
+                        'qvm-copy-to-vm {} /etc/passwd'.format(
+                            self.testvm2.name)))
+
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.loop.run_until_complete(self.testvm1.run_for_stdio(
+                'test -d /home/user/QubesIncoming/{}'.format(
+                    self.testvm1.name)))
 
     @unittest.skip("Xen gntalloc driver crashes when page is mapped in the "
                    "same domain")
@@ -737,93 +694,86 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
     def test_130_qrexec_filemove_disk_full(self):
-        self.testvm1.start()
-        self.testvm2.start()
-        self.qrexec_policy('qubes.Filecopy', self.testvm1.name,
-            self.testvm2.name)
+        self.loop.run_until_complete(asyncio.wait([
+            self.testvm1.start(),
+            self.testvm2.start()]))
+
         # Prepare test file
-        prepare_cmd = ("yes teststring | dd of=testfile bs=1M "
-                       "count=50 iflag=fullblock")
-        retcode = self.testvm1.run(prepare_cmd, wait=True)
-        if retcode != 0:
-            raise RuntimeError("Failed '{}' in {}".format(prepare_cmd,
-                                                          self.testvm1.name))
+        self.loop.run_until_complete(self.testvm1.run_for_stdio(
+            'yes teststring | dd of=testfile bs=1M count=50 iflag=fullblock'))
+
         # Prepare target directory with limited size
-        prepare_cmd = (
-            "mkdir -p /home/user/QubesIncoming && "
-            "chown user /home/user/QubesIncoming && "
-            "mount -t tmpfs none /home/user/QubesIncoming -o size=48M"
-        )
-        retcode = self.testvm2.run(prepare_cmd, user="root", wait=True)
-        if retcode != 0:
-            raise RuntimeError("Failed '{}' in {}".format(prepare_cmd,
-                                                          self.testvm2.name))
-        p = self.testvm1.run("qvm-move-to-vm %s testfile" %
-                             self.testvm2.name, passio_popen=True,
-                             passio_stderr=True)
+        self.loop.run_until_complete(self.testvm2.run_for_stdio(
+            'mkdir -p /home/user/QubesIncoming && '
+            'chown user /home/user/QubesIncoming && '
+            'mount -t tmpfs none /home/user/QubesIncoming -o size=48M',
+            user='root'))
+
+        with self.qrexec_policy('qubes.Filecopy', self.testvm1, self.testvm2):
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.loop.run_until_complete(self.testvm1.run_for_stdio(
+                    'qvm-move-to-vm {} testfile'.format(self.testvm2.name)))
+
         # Close GUI error message
         self.enter_keys_in_window('Error', ['Return'])
-        p.wait()
-        self.assertNotEqual(p.returncode, 0, "qvm-move-to-vm should fail")
-        retcode = self.testvm1.run("test -f testfile", wait=True)
-        self.assertEqual(retcode, 0, "testfile should not be deleted in "
-                                     "source VM")
+
+        # the file shouldn't be removed in source vm
+        self.loop.run_until_complete(self.testvm1.run_for_stdio(
+            'test -f testfile'))
 
     def test_200_timezone(self):
         """Test whether timezone setting is properly propagated to the VM"""
         if "whonix" in self.template:
             self.skipTest("Timezone propagation disabled on Whonix templates")
 
-        self.testvm1.start()
-        (vm_tz, _) = self.testvm1.run("date +%Z",
-                                      passio_popen=True).communicate()
-        (dom0_tz, _) = subprocess.Popen(["date", "+%Z"],
-                                        stdout=subprocess.PIPE).communicate()
+        self.loop.run_until_complete(self.testvm1.start())
+        vm_tz, _ = self.loop.run_until_complete(self.testvm1.run_for_stdio(
+            'date +%Z'))
+        dom0_tz = subprocess.check_output(['date', '+%Z'])
         self.assertEqual(vm_tz.strip(), dom0_tz.strip())
 
         # Check if reverting back to UTC works
-        (vm_tz, _) = self.testvm1.run("TZ=UTC date +%Z",
-                                      passio_popen=True).communicate()
-        self.assertEqual(vm_tz.strip(), b"UTC")
+        vm_tz, _ = self.loop.run_until_complete(self.testvm1.run_for_stdio(
+            'TZ=UTC date +%Z'))
+        self.assertEqual(vm_tz.strip(), b'UTC')
 
     def test_210_time_sync(self):
         """Test time synchronization mechanism"""
         if self.template.startswith('whonix-'):
             self.skipTest('qvm-sync-clock disabled for Whonix VMs')
-        self.testvm1.start()
-        self.testvm2.start()
-        (start_time, _) = subprocess.Popen(["date", "-u", "+%s"],
-                                           stdout=subprocess.PIPE).communicate()
+        self.loop.run_until_complete(asyncio.wait([
+            self.testvm1.start(),
+            self.testvm2.start()]))
+        start_time = subprocess.check_output(['date', '-u', '+%s'])
+
         try:
             self.app.clockvm = self.testvm1
             self.app.save()
             # break vm and dom0 time, to check if qvm-sync-clock would fix it
-            subprocess.check_call(["sudo", "date", "-s",
-                                   "2001-01-01T12:34:56"],
-                                  stdout=open(os.devnull, 'w'))
-            retcode = self.testvm1.run("date -s 2001-01-01T12:34:56",
-                                       user="root", wait=True)
-            self.assertEquals(retcode, 0, "Failed to break the VM(1) time")
-            retcode = self.testvm2.run("date -s 2001-01-01T12:34:56",
-                                       user="root", wait=True)
-            self.assertEquals(retcode, 0, "Failed to break the VM(2) time")
-            retcode = subprocess.call(["qvm-sync-clock"])
-            self.assertEquals(retcode, 0,
-                              "qvm-sync-clock failed with code {}".
-                              format(retcode))
+            subprocess.check_call(['sudo', 'date', '-s', '2001-01-01T12:34:56'],
+                stdout=subprocess.DEVNULL)
+            self.loop.run_until_complete(asyncio.wait([
+                self.testvm1.run_for_stdio('date -s 2001-01-01T12:34:56',
+                    user='root'),
+                self.testvm2.run_for_stdio('date -s 2001-01-01T12:34:56',
+                    user='root'),
+                ]))
+
+            subprocess.check_call(['qvm-sync-clock'], stdout=subprocess.DEVNULL)
             # qvm-sync-clock is asynchronous - it spawns qubes.SetDateTime
             # service, send it timestamp value and exists without waiting for
             # actual time set
+
             time.sleep(1)
-            (vm_time, _) = self.testvm1.run("date -u +%s",
-                                            passio_popen=True).communicate()
+            vm_time, _ = self.loop.run_until_complete(
+                self.testvm1.run_for_stdio('date -u +%s'))
             self.assertAlmostEquals(int(vm_time), int(start_time), delta=30)
-            (vm_time, _) = self.testvm2.run("date -u +%s",
-                                            passio_popen=True).communicate()
+
+            vm_time, _ = self.loop.run_until_complete(
+                self.testvm2.run_for_stdio('date -u +%s'))
             self.assertAlmostEquals(int(vm_time), int(start_time), delta=30)
-            (dom0_time, _) = subprocess.Popen(["date", "-u", "+%s"],
-                                              stdout=subprocess.PIPE
-                                              ).communicate()
+
+            dom0_time, _ = subprocess.check_output(['date', '-u', '+%s'])
             self.assertAlmostEquals(int(dom0_time), int(start_time), delta=30)
 
         except:
@@ -840,21 +790,20 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         """
         # First offline test
         self.testvm1.storage.resize('private', 4*1024**3)
-        self.testvm1.start()
+        self.loop.run_until_complete(self.testvm1.start())
         df_cmd = '( df --output=size /rw || df /rw | awk \'{print $2}\' )|' \
                  'tail -n 1'
-        p = self.testvm1.run(df_cmd,
-                             passio_popen=True)
         # new_size in 1k-blocks
-        (new_size, _) = p.communicate()
+        new_size, _ = self.loop.run_until_complete(
+            self.testvm1.run_for_stdio(df_cmd))
         # some safety margin for FS metadata
         self.assertGreater(int(new_size.strip()), 3.8*1024**2)
         # Then online test
-        self.testvm1.storage.resize('private', 6*1024**3)
-        p = self.testvm1.run(df_cmd,
-                             passio_popen=True)
+        self.loop.run_until_complete(
+            self.testvm1.storage.resize('private', 6*1024**3))
         # new_size in 1k-blocks
-        (new_size, _) = p.communicate()
+        new_size, _ = self.loop.run_until_complete(
+            self.testvm1.run_for_stdio(df_cmd))
         # some safety margin for FS metadata
         self.assertGreater(int(new_size.strip()), 5.8*1024**2)
 
@@ -866,140 +815,153 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         still use old pointers and will display old pages
         :return:
         """
+
+        # this test does too much asynchronous operations,
+        # so let's rewrite it as a coroutine and call it as such
+        return self.loop.run_until_complete(
+            self._test_300_bug_1028_gui_memory_pinning())
+
+    @asyncio.coroutine
+    def _test_300_bug_1028_gui_memory_pinning(self):
         self.testvm1.memory = 800
         self.testvm1.maxmem = 800
+
         # exclude from memory balancing
         self.testvm1.features['services/meminfo-writer'] = False
-        self.testvm1.start()
-        # and allow large map count
-        self.testvm1.run("echo 256000 > /proc/sys/vm/max_map_count",
-            user="root", wait=True)
-        allocator_c = (
-            "#include <sys/mman.h>\n"
-            "#include <stdlib.h>\n"
-            "#include <stdio.h>\n"
-            "\n"
-            "int main(int argc, char **argv) {\n"
-            "	int total_pages;\n"
-            "	char *addr, *iter;\n"
-            "\n"
-            "	total_pages = atoi(argv[1]);\n"
-            "	addr = mmap(NULL, total_pages * 0x1000, PROT_READ | "
-            "PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);\n"
-            "	if (addr == MAP_FAILED) {\n"
-            "		perror(\"mmap\");\n"
-            "		exit(1);\n"
-            "	}\n"
-            "	printf(\"Stage1\\n\");\n"
-            "   fflush(stdout);\n"
-            "	getchar();\n"
-            "	for (iter = addr; iter < addr + total_pages*0x1000; iter += "
-            "0x2000) {\n"
-            "		if (mlock(iter, 0x1000) == -1) {\n"
-            "			perror(\"mlock\");\n"
-            "           fprintf(stderr, \"%d of %d\\n\", (iter-addr)/0x1000, "
-            "total_pages);\n"
-            "			exit(1);\n"
-            "		}\n"
-            "	}\n"
-            "	printf(\"Stage2\\n\");\n"
-            "   fflush(stdout);\n"
-            "	for (iter = addr+0x1000; iter < addr + total_pages*0x1000; "
-            "iter += 0x2000) {\n"
-            "		if (munmap(iter, 0x1000) == -1) {\n"
-            "			perror(\"munmap\");\n"
-            "			exit(1);\n"
-            "		}\n"
-            "	}\n"
-            "	printf(\"Stage3\\n\");\n"
-            "   fflush(stdout);\n"
-            "   fclose(stdout);\n"
-            "	getchar();\n"
-            "\n"
-            "	return 0;\n"
-            "}\n")
+        yield from self.testvm1.start()
 
-        p = self.testvm1.run("cat > allocator.c", passio_popen=True)
-        p.communicate(allocator_c.encode())
-        p = self.testvm1.run("gcc allocator.c -o allocator",
-            passio_popen=True, passio_stderr=True)
-        (stdout, stderr) = p.communicate()
-        if p.returncode != 0:
-            self.skipTest("allocator compile failed: {}".format(stderr))
+        # and allow large map count
+        yield from self.testvm1.run('echo 256000 > /proc/sys/vm/max_map_count',
+            user="root")
+
+        allocator_c = '''
+#include <sys/mman.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+int main(int argc, char **argv) {
+    int total_pages;
+    char *addr, *iter;
+
+    total_pages = atoi(argv[1]);
+    addr = mmap(NULL, total_pages * 0x1000, PROT_READ | PROT_WRITE,
+        MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+    if (addr == MAP_FAILED) {
+        perror("mmap");
+        exit(1);
+    }
+
+    printf("Stage1\\n");
+    fflush(stdout);
+    getchar();
+    for (iter = addr; iter < addr + total_pages*0x1000; iter += 0x2000) {
+        if (mlock(iter, 0x1000) == -1) {
+            perror("mlock");
+            fprintf(stderr, "%d of %d\\n", (iter-addr)/0x1000, total_pages);
+            exit(1);
+        }
+    }
+
+    printf("Stage2\\n");
+    fflush(stdout);
+    for (iter = addr+0x1000; iter < addr + total_pages*0x1000; iter += 0x2000) {
+        if (munmap(iter, 0x1000) == -1) {
+            perror(\"munmap\");
+            exit(1);
+        }
+    }
+
+    printf("Stage3\\n");
+    fflush(stdout);
+    fclose(stdout);
+    getchar();
+
+    return 0;
+}
+'''
+
+        yield from self.testvm1.run_for_stdio('cat > allocator.c',
+            input=allocator_c.encode())
+
+        try:
+            stdout, stderr = yield from self.testvm1.run_for_stdio(
+                'gcc allocator.c -o allocator')
+        except subprocess.CalledProcessError:
+            self.skipTest('allocator compile failed: {}'.format(stderr))
 
         # drop caches to have even more memory pressure
-        self.testvm1.run("echo 3 > /proc/sys/vm/drop_caches",
-            user="root", wait=True)
+        yield from self.testvm1.run_for_stdio(
+            'echo 3 > /proc/sys/vm/drop_caches', user='root')
 
         # now fragment all free memory
-        p = self.testvm1.run("grep ^MemFree: /proc/meminfo|awk '{print $2}'",
-            passio_popen=True)
-        memory_pages = int(p.communicate()[0].strip())
-        memory_pages //= 4 # 4k pages
-        alloc1 = self.testvm1.run(
-            "ulimit -l unlimited; exec /home/user/allocator {}".format(
+        stdout, _ = yield from self.testvm1.run_for_stdio(
+            "grep ^MemFree: /proc/meminfo|awk '{print $2}'")
+        memory_pages = int(stdout) // 4  # 4k pages
+
+        alloc1 = yield from self.testvm1.run_for_stdio(
+            'ulimit -l unlimited; exec /home/user/allocator {}'.format(
                 memory_pages),
-            user="root", passio_popen=True, passio_stderr=True)
+            user="root")
+
         # wait for memory being allocated; can't use just .read(), because EOF
         # passing is unreliable while the process is still running
-        alloc1.stdin.write(b"\n")
-        alloc1.stdin.flush()
-        alloc_out = alloc1.stdout.read(len("Stage1\nStage2\nStage3\n"))
+        yield from alloc1.stdin.write(b'\n')
+        yield from alloc1.stdin.flush()
+        alloc_out = yield from alloc1.stdout.read(
+            len('Stage1\nStage2\nStage3\n'))
 
-        if b"Stage3" not in alloc_out:
-            # read stderr only in case of failed assert, but still have nice
+        if b'Stage3' not in alloc_out:
+            # read stderr only in case of failed assert (), but still have nice
             # failure message (don't use self.fail() directly)
-            self.assertIn(b"Stage3", alloc_out, alloc1.stderr.read())
+            #
+            # stderr isn't always read, because on not-failed run, the process
+            # is still running, so stderr.read() will wait (indefinitely).
+            self.assertIn(b'Stage3', alloc_out,
+                (yield from alloc1.stderr.read()))
 
         # now, launch some window - it should get fragmented composition buffer
         # it is important to have some changing content there, to generate
         # content update events (aka damage notify)
-        proc = self.testvm1.run("gnome-terminal --full-screen -e top",
-            passio_popen=True)
+        proc = yield from self.testvm1.run(
+            'gnome-terminal --full-screen -e top')
 
         # help xdotool a little...
-        time.sleep(2)
+        yield from asyncio.sleep(2)
         # get window ID
-        search = subprocess.Popen(['xdotool', 'search', '--sync',
-            '--onlyvisible', '--class', self.testvm1.name + ':.*erminal'],
-            stdout=subprocess.PIPE)
-        winid = search.communicate()[0].strip()
-        xprop = subprocess.Popen(['xprop', '-notype', '-id', winid,
-            '_QUBES_VMWINDOWID'], stdout=subprocess.PIPE)
-        vm_winid = xprop.stdout.read().decode().strip().split(' ')[4]
+        winid = yield from asyncio.get_event_loop().run_in_executor(
+            subprocess.check_output,
+            ['xdotool', 'search', '--sync', '--onlyvisible', '--class',
+                self.testvm1.name + ':.*erminal']).decode()
+        xprop = yield from asyncio.get_event_loop().run_in_executor(
+            subprocess.check_output,
+            ['xprop', '-notype', '-id', winid, '_QUBES_VMWINDOWID'])
+        vm_winid = xprop.decode().strip().split(' ')[4]
 
         # now free the fragmented memory and trigger compaction
-        alloc1.stdin.write(b"\n")
-        alloc1.stdin.flush()
-        alloc1.wait()
-        self.testvm1.run("echo 1 > /proc/sys/vm/compact_memory", user="root")
+        yield from alloc1.stdin.write(b'\n')
+        yield from alloc1.stdin.flush()
+        yield from alloc1.wait()
+        yield from self.testvm1.run_for_stdio(
+            'echo 1 > /proc/sys/vm/compact_memory', user='root')
 
         # now window may be already "broken"; to be sure, allocate (=zero)
         # some memory
-        alloc2 = self.testvm1.run(
-            "ulimit -l unlimited; /home/user/allocator {}".format(memory_pages),
-            user="root", passio_popen=True, passio_stderr=True)
-        alloc2.stdout.read(len("Stage1\n"))
+        alloc2 = yield from self.testvm1.run(
+            'ulimit -l unlimited; /home/user/allocator {}'.format(memory_pages),
+            user='root')
+        yield from alloc2.stdout.read(len('Stage1\n'))
 
         # wait for damage notify - top updates every 3 sec by default
-        time.sleep(6)
+        yield from asyncio.sleep(6)
 
         # now take screenshot of the window, from dom0 and VM
         # choose pnm format, as it doesn't have any useless metadata - easy
         # to compare
-        p = self.testvm1.run("import -window {} pnm:-".format(vm_winid),
-            passio_popen=True, passio_stderr=True)
-        (vm_image, stderr) = p.communicate()
-        if p.returncode != 0:
-            raise Exception("Failed to get VM window image: {}".format(
-                stderr))
+        vm_image, _ = yield from self.testvm1.run_for_stdio(
+            'import -window {} pnm:-'.format(vm_winid))
 
-        p = subprocess.Popen(["import", "-window", winid, "pnm:-"],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        (dom0_image, stderr) = p.communicate()
-        if p.returncode != 0:
-            raise Exception("Failed to get dom0 window image: {}".format(
-                stderr))
+        dom0_image = yield from asyncio.get_event_loop().run_in_executor(
+            subprocess.check_output, ['import', '-window', winid, 'pnm:-'])
 
         if vm_image != dom0_image:
             self.fail("Dom0 window doesn't match VM window content")
@@ -1013,7 +975,7 @@ class TC_10_Generic(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             name=self.make_vm_name('vm'),
             label='red',
             template=self.app.default_template)
-        self.vm.create_on_disk()
+        self.loop.run_until_complete(self.vm.create_on_disk())
         self.save_and_reload_db()
         self.vm = self.app.domains[self.vm.qid]
 
@@ -1027,21 +989,20 @@ class TC_10_Generic(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         flagfile = '/tmp/test-anyvmdeny-flag'
         if os.path.exists(flagfile):
             os.remove(flagfile)
-        with open('/etc/qubes-rpc/test.AnyvmDeny', 'w') as f:
-            f.write('touch {}\n'.format(flagfile))
-            f.write('echo service output\n')
-        self.addCleanup(os.unlink, "/etc/qubes-rpc/test.AnyvmDeny")
 
-        self.vm.start()
-        p = self.vm.run("/usr/lib/qubes/qrexec-client-vm dom0 test.AnyvmDeny",
-                             passio_popen=True, passio_stderr=True)
-        (stdout, stderr) = p.communicate()
-        self.assertEqual(p.returncode, 1,
-            '$anyvm matched dom0, qrexec-client-vm output: {}'.
-                format(stdout + stderr))
+        self.create_local_file('/etc/qubes-rpc/test.AnyvmDeny',
+            'touch {}\necho service output\n'.format(flagfile))
+
+        self.loop.run_until_complete(self.vm.start())
+        with self.qrexec_policy('test.AnyvmDeny', self.vm, '$anyvm'):
+            with self.assertRaises(subprocess.CalledProcessError,
+                    msg='$anyvm matched dom0'):
+                stdout, stderr = self.loop.run_until_complete(
+                    self.vm.run_for_stdio(
+                        '/usr/lib/qubes/qrexec-client-vm dom0 test.AnyvmDeny'))
         self.assertFalse(os.path.exists(flagfile),
             'Flag file created (service was run) even though should be denied,'
-            ' qrexec-client-vm output: {}'.format(stdout + stderr))
+            ' qrexec-client-vm output: {} {}'.format(stdout, stderr))
 
 
 def load_tests(loader, tests, pattern):

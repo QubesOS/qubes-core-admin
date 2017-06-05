@@ -51,6 +51,7 @@ class TestVM(qubes.vm.BaseVM):
 
 class TC_10_BaseVM(qubes.tests.QubesTestCase):
     def setUp(self):
+        super().setUp()
         self.xml = lxml.etree.XML('''
 <qubes version="3"> <!-- xmlns="https://qubes-os.org/QubesXML/1" -->
     <labels>
