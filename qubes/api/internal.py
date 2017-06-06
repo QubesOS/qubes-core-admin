@@ -29,19 +29,12 @@ import qubes.api.admin
 import qubes.vm.adminvm
 import qubes.vm.dispvm
 
-QUBESD_INTERNAL_SOCK = '/var/run/qubesd.internal.sock'
-
 
 class QubesInternalAPI(qubes.api.AbstractQubesAPI):
     ''' Communication interface for dom0 components,
     by design the input here is trusted.'''
-    #
-    # PRIVATE METHODS, not to be called via RPC
-    #
 
-    #
-    # ACTUAL RPC CALLS
-    #
+    SOCKNAME = '/var/run/qubesd.internal.sock'
 
     @qubes.api.method('internal.GetSystemInfo', no_payload=True)
     @asyncio.coroutine

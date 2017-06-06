@@ -20,10 +20,12 @@
 # with this program; if not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
+import errno
 import functools
 import io
 import os
 import shutil
+import socket
 import struct
 import traceback
 
@@ -105,6 +107,10 @@ class AbstractQubesAPI(object):
     There are also two helper functions for firing events associated with API
     calls.
     '''
+
+    #: the preferred socket location (to be overridden in child's class)
+    SOCKNAME = None
+
     def __init__(self, app, src, method_name, dest, arg, send_event=None):
         #: :py:class:`qubes.Qubes` object
         self.app = app
@@ -332,27 +338,61 @@ class QubesDaemonProtocol(asyncio.Protocol):
         self.transport.write(str(exc).encode('utf-8') + b'\0')
 
 
-_umask_lock = asyncio.Lock()
-
 @asyncio.coroutine
-def create_server(sockpath, handler, app, debug=False, *, loop=None):
+def create_servers(*args, force=False, loop=None, **kwargs):
+    '''Create multiple Qubes API servers
+
+    :param qubes.Qubes app: the app that is a backend of the servers
+    :param bool force: if :py:obj:`True`, unconditionaly remove existing \
+        sockets; if :py:obj:`False`, raise an error if there is some process \
+        listening to such socket
+    :param asyncio.Loop loop: loop
+
+    *args* are supposed to be classess inheriting from
+    :py:class:`AbstractQubesAPI`
+
+    *kwargs* (like *app* or *debug* for example) are passed to
+    :py:class:`QubesDaemonProtocol` constructor
+    '''
     loop = loop or asyncio.get_event_loop()
+
+    servers = []
+    old_umask = os.umask(0o007)
     try:
-        os.unlink(sockpath)
-    except FileNotFoundError:
-        pass
+        # XXX this can be optimised with asyncio.wait() to start servers in
+        # parallel, but I currently don't see the need
+        for handler in args:
+            sockpath = handler.SOCKNAME
+            assert sockpath is not None, \
+                'SOCKNAME needs to be overloaded in {}'.format(
+                    type(handler).__name__)
 
-    with (yield from _umask_lock):
-        old_umask = os.umask(0o007)
-        try:
+            if os.path.exists(sockpath):
+                if force:
+                    os.unlink(sockpath)
+                else:
+                    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                    try:
+                        sock.connect(sockpath)
+                    except ConnectionRefusedError:
+                        # dead socket, remove it anyway
+                        os.unlink(sockpath)
+                    else:
+                        # woops, someone is listening
+                        sock.close()
+                        raise FileExistsError(errno.EEXIST,
+                            'socket already exists: {!r}'.format(sockpath))
+
             server = yield from loop.create_unix_server(
-                functools.partial(QubesDaemonProtocol,
-                    handler, app=app, debug=debug),
+                functools.partial(QubesDaemonProtocol, handler, **kwargs),
                 sockpath)
-        finally:
-            os.umask(old_umask)
 
-    for sock in server.sockets:
-        shutil.chown(sock.getsockname(), group='qubes')
+            for sock in server.sockets:
+                shutil.chown(sock.getsockname(), group='qubes')
 
-    return server
+            servers.append(server)
+
+    finally:
+        os.umask(old_umask)
+
+    return servers

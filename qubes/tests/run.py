@@ -413,7 +413,7 @@ def main():
             logging.root.addHandler(ha_kmsg)
 
     if not args.allow_running_along_qubesd \
-    and os.path.exists(qubes.api.admin.QUBESD_ADMIN_SOCK):
+    and os.path.exists(qubes.api.admin.QubesAdminAPI.SOCKNAME):
         parser.error('refusing to run until qubesd is disabled')
 
     runner = unittest.TextTestRunner(stream=sys.stdout,

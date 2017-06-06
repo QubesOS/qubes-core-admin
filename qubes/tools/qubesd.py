@@ -36,19 +36,11 @@ def main(args=None):
 
     args.app.vmm.register_event_handlers(args.app)
 
-    servers = []
-    servers.append(loop.run_until_complete(qubes.api.create_server(
-        qubes.api.admin.QUBESD_ADMIN_SOCK,
+    servers = loop.run_until_complete(qubes.api.create_servers(
         qubes.api.admin.QubesAdminAPI,
-        app=args.app, debug=args.debug)))
-    servers.append(loop.run_until_complete(qubes.api.create_server(
-        qubes.api.internal.QUBESD_INTERNAL_SOCK,
         qubes.api.internal.QubesInternalAPI,
-        app=args.app, debug=args.debug)))
-    servers.append(loop.run_until_complete(qubes.api.create_server(
-        qubes.api.misc.QUBESD_MISC_SOCK,
         qubes.api.misc.QubesMiscAPI,
-        app=args.app, debug=args.debug)))
+        app=args.app, debug=args.debug))
 
     socknames = []
     for server in servers:
@@ -71,11 +63,9 @@ def main(args=None):
             try:
                 os.unlink(sockname)
             except FileNotFoundError:
-                # XXX
-                # We had our socket unlinked by somebody else, possibly other
-                # qubesd instance. That also means we probably unlinked their
-                # socket when creating our server...
-                pass
+                args.app.log.warning(
+                    'socket {} got unlinked sometime before shutdown'.format(
+                        sockname))
     finally:
         loop.close()
 

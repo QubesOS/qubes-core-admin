@@ -28,10 +28,10 @@ import qubes.api
 import qubes.api.admin
 import qubes.vm.dispvm
 
-QUBESD_MISC_SOCK = '/var/run/qubesd.misc.sock'
-
 
 class QubesMiscAPI(qubes.api.AbstractQubesAPI):
+    SOCKNAME = '/var/run/qubesd.misc.sock'
+
     @qubes.api.method('qubes.FeaturesRequest', no_payload=True)
     @asyncio.coroutine
     def qubes_features_request(self):

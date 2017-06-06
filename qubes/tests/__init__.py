@@ -103,7 +103,6 @@ except OSError:
     # command not found; let's assume we're outside
     pass
 
-
 def skipUnlessDom0(test_item):
     '''Decorator that skips test outside dom0.
 
@@ -591,12 +590,11 @@ class SystemTestsMixin(object):
             )
         os.environ['QUBES_XML_PATH'] = XMLPATH
 
-        self.qrexec_policy_server = self.loop.run_until_complete(
-            qubes.api.create_server(
-                qubes.api.internal.QUBESD_INTERNAL_SOCK,
+        self.qubesd = self.loop.run_until_complete(
+            qubes.api.create_servers(
+                qubes.api.admin.QubesAdminAPI,
                 qubes.api.internal.QubesInternalAPI,
-                app=self.app,
-                debug=True))
+                app=self.app, debug=True))
 
     def init_default_template(self, template=None):
         if template is None:
@@ -680,11 +678,13 @@ class SystemTestsMixin(object):
         self.reload_db()
 
     def tearDown(self):
-        # close the server before super(), because that might close the loop
-        for sock in self.qrexec_policy_server.sockets:
-            os.unlink(sock.getsockname())
-        self.qrexec_policy_server.close()
-        self.loop.run_until_complete(self.qrexec_policy_server.wait_closed())
+        # close the servers before super(), because that might close the loop
+        for server in self.qubesd:
+            for sock in server.sockets:
+                os.unlink(sock.getsockname())
+            server.close()
+        self.loop.run_until_complete(asyncio.wait([
+            server.wait_closed() for server in self.qubesd]))
 
         super(SystemTestsMixin, self).tearDown()
         self.remove_test_vms()

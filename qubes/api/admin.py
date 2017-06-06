@@ -35,8 +35,6 @@ import qubes.utils
 import qubes.vm
 import qubes.vm.qubesvm
 
-QUBESD_ADMIN_SOCK = '/var/run/qubesd.sock'
-
 
 class QubesMgmtEventsDispatcher(object):
     def __init__(self, filters, send_event):
@@ -74,6 +72,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     .. seealso::
         https://www.qubes-os.org/doc/mgmt1/
     '''
+
+    SOCKNAME = '/var/run/qubesd.sock'
 
     @qubes.api.method('admin.vmclass.List', no_payload=True)
     @asyncio.coroutine
