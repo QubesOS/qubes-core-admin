@@ -111,8 +111,11 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                             "termination")
                 self.loop.run_until_complete(asyncio.sleep(0.1))
         finally:
-            p.terminate()
-            self.loop.run_until_complete(p.wait())
+            try:
+                p.terminate()
+                self.loop.run_until_complete(p.wait())
+            except ProcessLookupError:  # already dead
+                pass
 
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
@@ -151,8 +154,11 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                             "termination")
                 self.loop.run_until_complete(asyncio.sleep(0.1))
         finally:
-            p.terminate()
-            self.loop.run_until_complete(p.wait())
+            try:
+                p.terminate()
+                self.loop.run_until_complete(p.wait())
+            except ProcessLookupError:  # already dead
+                pass
 
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
