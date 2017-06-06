@@ -134,7 +134,7 @@ class ThinPool(qubes.storage.Pool):
 
             assert self.name
 
-            volume_config['vid'] = "{!s}/{!s}-{!s}".format(
+            volume_config['vid'] = "{!s}/vm-{!s}-{!s}".format(
                 self.volume_group, vm_name, volume_config['name'])
 
         volume_config['volume_group'] = self.volume_group
@@ -180,7 +180,7 @@ class ThinPool(qubes.storage.Pool):
 
     def rename(self, volume, old_name, new_name):
         ''' Called when the domain changes its name '''
-        new_vid = "{!s}/{!s}-{!s}".format(self.volume_group, new_name,
+        new_vid = "{!s}/vm-{!s}-{!s}".format(self.volume_group, new_name,
                                           volume.name)
         if volume.save_on_stop:
             cmd = ['clone', volume.vid, new_vid]
