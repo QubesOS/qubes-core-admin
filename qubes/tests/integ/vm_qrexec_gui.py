@@ -70,17 +70,10 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             user='root', input=content.encode('utf-8')))
 
     def test_000_start_shutdown(self):
+        # TODO: wait_for, timeout
         self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.testvm1.get_power_state(), "Running")
-        self.loop.run_until_complete(self.testvm1.shutdown())
-
-        shutdown_counter = 0
-        while self.testvm1.is_running():
-            if shutdown_counter > qubes.config.defaults["shutdown_counter_max"]:
-                self.fail("VM hanged during shutdown")
-            shutdown_counter += 1
-            time.sleep(1)
-        time.sleep(1)
+        self.loop.run_until_complete(self.testvm1.shutdown(wait=True))
         self.assertEqual(self.testvm1.get_power_state(), "Halted")
 
     @unittest.skipUnless(spawn.find_executable('xdotool'),
@@ -101,9 +94,9 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                 wait_count += 1
                 if wait_count > 100:
                     self.fail("Timeout while waiting for xterm window")
-                time.sleep(0.1)
+                self.loop.run_until_complete(asyncio.sleep(0.1))
 
-            time.sleep(0.5)
+            self.loop.run_until_complete(asyncio.sleep(0.5))
             subprocess.check_call(
                 ['xdotool', 'search', '--name', title,
                 'windowactivate', 'type', 'exit\n'])
@@ -116,7 +109,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                 if wait_count > 100:
                     self.fail("Timeout while waiting for xterm "
                             "termination")
-                time.sleep(0.1)
+                self.loop.run_until_complete(asyncio.sleep(0.1))
         finally:
             p.terminate()
             self.loop.run_until_complete(p.wait())
@@ -141,9 +134,9 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                 wait_count += 1
                 if wait_count > 100:
                     self.fail("Timeout while waiting for gnome-terminal window")
-                time.sleep(0.1)
+                self.loop.run_until_complete(asyncio.sleep(0.1))
 
-            time.sleep(0.5)
+            self.loop.run_until_complete(asyncio.sleep(0.5))
             subprocess.check_call(
                 ['xdotool', 'search', '--name', title,
                 'windowactivate', '--sync', 'type', 'exit\n'])
@@ -156,7 +149,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                 if wait_count > 100:
                     self.fail("Timeout while waiting for gnome-terminal "
                             "termination")
-                time.sleep(0.1)
+                self.loop.run_until_complete(asyncio.sleep(0.1))
         finally:
             p.terminate()
             self.loop.run_until_complete(p.wait())
@@ -191,9 +184,9 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             wait_count += 1
             if wait_count > 100:
                 self.fail("Timeout while waiting for xterm window")
-            time.sleep(0.1)
+            self.loop.run_until_complete(asyncio.sleep(0.1))
 
-        time.sleep(0.5)
+        self.loop.run_until_complete(asyncio.sleep(0.5))
         subprocess.check_call(
             ['xdotool', 'search', '--name', title,
              'windowactivate', '--sync', 'type', 'exit\n'])
@@ -206,7 +199,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             if wait_count > 100:
                 self.fail("Timeout while waiting for xterm "
                           "termination")
-            time.sleep(0.1)
+            self.loop.run_until_complete(asyncio.sleep(0.1))
 
     def test_050_qrexec_simple_eof(self):
         """Test for data and EOF transmission dom0->VM"""
@@ -765,7 +758,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             # service, send it timestamp value and exists without waiting for
             # actual time set
 
-            time.sleep(1)
+            self.loop.run_until_complete(asyncio.sleep(1))
             vm_time, _ = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio('date -u +%s'))
             self.assertAlmostEquals(int(vm_time), int(start_time), delta=30)
