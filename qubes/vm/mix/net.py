@@ -203,8 +203,6 @@ class NetVMMixin(qubes.events.Emitter):
             if not vm.is_running():
                 continue
             vm.log.info('Attaching network')
-            # SEE: 1426
-            vm.cleanup_vifs()
 
             try:
                 # 1426
@@ -284,26 +282,6 @@ class NetVMMixin(qubes.events.Emitter):
             return True
 
         return self.netvm is not None
-
-    def cleanup_vifs(self):
-        '''Remove stale network device backends.
-
-        Libvirt does not remove vif when backend domain is down, so we must do
-        it manually. This method is one big hack for #1426.
-        '''
-
-        dev_basepath = '/local/domain/%d/device/vif' % self.xid
-        for dev in self.app.vmm.xs.ls('', dev_basepath) or []:
-            # check if backend domain is alive
-            backend_xid = int(self.app.vmm.xs.read('',
-                '{}/{}/backend-id'.format(dev_basepath, dev)))
-            if backend_xid in self.app.vmm.libvirt_conn.listDomainsID():
-                # check if device is still active
-                if self.app.vmm.xs.read('',
-                        '{}/{}/state'.format(dev_basepath, dev)) == '4':
-                    continue
-            # remove dead device
-            self.app.vmm.xs.rm('', '{}/{}'.format(dev_basepath, dev))
 
     def reload_firewall_for_vm(self, vm):
         ''' Reload the firewall rules for the vm '''
