@@ -362,11 +362,14 @@ class ThinVolume(qubes.storage.Volume):
             msg = msg.format(self.name)
             raise qubes.storage.StoragePoolException(msg)
 
-        self.path = '/dev/' + self.vid
         if self.snap_on_start:
             self._vid_snap = self.vid + '-snap'
 
         self._size = size
+
+    @property
+    def path(self):
+        return '/dev/' + self.vid
 
     @property
     def revisions(self):

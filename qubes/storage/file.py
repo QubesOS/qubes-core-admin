@@ -329,19 +329,25 @@ class FileVolume(qubes.storage.Volume):
             raise qubes.storage.StoragePoolException(msg)
 
         if self._is_snapshot:
-            self.path = os.path.join(self.dir_path, self.source + '.img')
             img_name = self.source + '-cow.img'
             self.path_source_cow = os.path.join(self.dir_path, img_name)
-            img_name = self.vid + '-cow.img'
-            self.path_cow = os.path.join(self.dir_path, img_name)
         elif self._is_volume or self._is_volatile:
-            self.path = os.path.join(self.dir_path, self.vid + '.img')
+            pass
         elif self._is_origin:
-            self.path = os.path.join(self.dir_path, self.vid + '.img')
-            img_name = self.vid + '-cow.img'
-            self.path_cow = os.path.join(self.dir_path, img_name)
+            pass
         else:
             assert False, 'This should not happen'
+
+    @property
+    def path(self):
+        if self._is_snapshot:
+            return os.path.join(self.dir_path, self.source + '.img')
+        return os.path.join(self.dir_path, self.vid + '.img')
+
+    @property
+    def path_cow(self):
+        img_name = self.vid + '-cow.img'
+        return os.path.join(self.dir_path, img_name)
 
     def verify(self):
         ''' Verifies the volume. '''
