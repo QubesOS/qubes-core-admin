@@ -227,6 +227,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         self.assertFalse(stderr,
             'Some data was printed to stderr')
 
+    @unittest.skip('#2851, because there is no GUI in vm')
     def test_051_qrexec_simple_eof_reverse(self):
         """Test for EOF transmission VM->dom0"""
 
