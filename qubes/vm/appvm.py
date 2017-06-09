@@ -48,6 +48,7 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
                 'snap_on_start': True,
                 'save_on_stop': False,
                 'rw': False,
+                'source': None,
                 'internal': True
             },
             'private': {
@@ -56,7 +57,6 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
                 'snap_on_start': False,
                 'save_on_stop': True,
                 'rw': True,
-                'source': None,
                 'size': defaults['private_img_size'],
                 'internal': True
             },
@@ -70,7 +70,6 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
             'kernel': {
                 'name': 'kernel',
                 'pool': 'linux-kernel',
-                'snap_on_start': True,
                 'rw': False,
                 'internal': True
             }

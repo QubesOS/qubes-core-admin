@@ -94,7 +94,6 @@ class TemplateVM(QubesVM):
             'kernel': {
                 'name': 'kernel',
                 'pool': 'linux-kernel',
-                'snap_on_start': True,
                 'internal': True,
                 'rw': False
             }
