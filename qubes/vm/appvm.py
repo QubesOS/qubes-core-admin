@@ -98,9 +98,6 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
                         del self.volume_config[name]['vid']
 
         super(AppVM, self).__init__(app, xml, **kwargs)
-        if 'source' not in self.volume_config['root']:
-            msg = 'missing source for root volume'
-            raise qubes.exc.QubesException(msg)
 
     @qubes.events.handler('domain-load')
     def on_domain_loaded(self, event):

@@ -56,30 +56,6 @@ class FilePool(qubes.storage.Pool):
             'revisions_to_keep': self.revisions_to_keep
         }
 
-    def clone(self, source, target):
-        new_dir = os.path.dirname(target.path)
-        if target._is_origin or target._is_volume:
-            if not os.path.exists:
-                os.makedirs(new_dir)
-            copy_file(source.path, target.path)
-        return target
-
-    def create(self, volume):
-        assert isinstance(volume.size, int) and volume.size > 0, \
-            'Volatile volume size must be > 0'
-        if volume._is_origin:
-            create_sparse_file(volume.path, volume.size)
-            create_sparse_file(volume.path_cow, volume.size)
-        elif not volume._is_snapshot:
-            if volume.source is not None:
-                source_path = os.path.join(self.dir_path,
-                                           volume.source + '.img')
-                copy_file(source_path, volume.path)
-            elif volume._is_volatile:
-                pass
-            else:
-                create_sparse_file(volume.path, volume.size)
-
     def init_volume(self, vm, volume_config):
         volume_config['dir_path'] = self.dir_path
         if os.path.join(self.dir_path, self._vid_prefix(vm)) == vm.dir_path:
@@ -98,44 +74,10 @@ class FilePool(qubes.storage.Pool):
             if 'revisions_to_keep' not in volume_config:
                 volume_config['revisions_to_keep'] = self.revisions_to_keep
 
+        volume_config['pool'] = self
         volume = FileVolume(**volume_config)
         self._volumes += [volume]
         return volume
-
-    def is_dirty(self, volume):
-        return False  # TODO: How to implement this?
-
-    def resize(self, volume, size):
-        ''' Expands volume, throws
-            :py:class:`qubst.storage.qubes.storage.StoragePoolException` if
-            given size is less than current_size
-        '''  # pylint: disable=no-self-use
-        if not volume.rw:
-            msg = 'Can not resize reađonly volume {!s}'.format(volume)
-            raise qubes.storage.StoragePoolException(msg)
-
-        if size <= volume.size:
-            raise qubes.storage.StoragePoolException(
-                'For your own safety, shrinking of %s is'
-                ' disabled. If you really know what you'
-                ' are doing, use `truncate` on %s manually.' %
-                (volume.name, volume.vid))
-
-        with open(volume.path, 'a+b') as fd:
-            fd.truncate(size)
-
-        p = subprocess.Popen(['sudo', 'losetup', '--associated', volume.path],
-                             stdout=subprocess.PIPE)
-        result = p.communicate()
-
-        m = re.match(r'^(/dev/loop\d+):\s', result[0].decode())
-        if m is not None:
-            loop_dev = m.group(1)
-
-            # resize loop device
-            subprocess.check_call(['sudo', 'losetup', '--set-capacity',
-                                   loop_dev])
-        volume.size = size
 
     def remove(self, volume):
         if not volume.internal:
@@ -167,67 +109,8 @@ class FilePool(qubes.storage.Pool):
 
         return volume
 
-    def import_volume(self, dst_pool, dst_volume, src_pool, src_volume):
-        msg = "Can not import snapshot volume {!s} in to pool {!s} "
-        msg = msg.format(src_volume, self)
-        assert not src_volume.snap_on_start, msg
-        if dst_volume.save_on_stop:
-            copy_file(src_pool.export(src_volume), dst_volume.path)
-        return dst_volume
-
-    def commit(self, volume):
-        msg = 'Tried to commit a non commitable volume {!r}'.format(volume)
-        assert (volume._is_origin or volume._is_volume) and volume.rw, msg
-
-        if volume._is_volume:
-            return volume
-
-        if os.path.exists(volume.path_cow):
-            old_path = volume.path_cow + '.old'
-            os.rename(volume.path_cow, old_path)
-
-        old_umask = os.umask(0o002)
-        with open(volume.path_cow, 'w') as f_cow:
-            f_cow.truncate(volume.size)
-        os.umask(old_umask)
-        return volume
-
     def destroy(self):
         pass
-
-    def export(self, volume):
-        return volume.path
-
-    def import_data(self, volume):
-        return volume.path
-
-    def reset(self, volume):
-        ''' Remove and recreate a volatile volume '''
-        assert volume._is_volatile, "Not a volatile volume"
-        assert isinstance(volume.size, int) and volume.size > 0, \
-            'Volatile volume size must be > 0'
-
-        _remove_if_exists(volume.path)
-
-        with open(volume.path, "w") as f_volatile:
-            f_volatile.truncate(volume.size)
-        return volume
-
-    def revert(self, volume, revision=None):
-        if revision is not None:
-            try:
-                return volume.revisions[revision]
-            except KeyError:
-                msg = "Volume {!r} does not have revision {!s}"
-                msg = msg.format(volume, revision)
-                raise qubes.storage.StoragePoolException(msg)
-        else:
-            try:
-                old_path = volume.revisions.values().pop()
-                os.rename(old_path, volume.path_cow)
-            except IndexError:
-                msg = "Volume {!r} does not have old revisions".format(volume)
-                raise qubes.storage.StoragePoolException(msg)
 
     def setup(self):
         create_dir_if_not_exists(self.dir_path)
@@ -235,38 +118,6 @@ class FilePool(qubes.storage.Pool):
         create_dir_if_not_exists(appvms_path)
         vm_templates_path = os.path.join(self.dir_path, 'vm-templates')
         create_dir_if_not_exists(vm_templates_path)
-
-    def start(self, volume):
-        if volume._is_volatile:
-            self.reset(volume)
-        else:
-            _check_path(volume.path)
-            if volume.snap_on_start:
-                if not volume.save_on_stop:
-                    # make sure previous snapshot is removed - even if VM
-                    # shutdown routing wasn't called (power interrupt or so)
-                    _remove_if_exists(volume.path_cow)
-                try:
-                    _check_path(volume.path_cow)
-                except qubes.storage.StoragePoolException:
-                    create_sparse_file(volume.path_cow, volume.size)
-                    _check_path(volume.path_cow)
-                if hasattr(volume, 'path_source_cow'):
-                    try:
-                        _check_path(volume.path_source_cow)
-                    except qubes.storage.StoragePoolException:
-                        create_sparse_file(volume.path_source_cow, volume.size)
-                        _check_path(volume.path_source_cow)
-        return volume
-
-    def stop(self, volume):
-        if volume.save_on_stop:
-            self.commit(volume)
-        elif volume.snap_on_start:
-            _remove_if_exists(volume.path_cow)
-        else:
-            _remove_if_exists(volume.path)
-        return volume
 
     @staticmethod
     def _vid_prefix(vm):
@@ -301,9 +152,6 @@ class FilePool(qubes.storage.Pool):
 
         return os.path.join(self.dir_path, self._vid_prefix(vm))
 
-    def verify(self, volume):
-        return volume.verify()
-
     @property
     def volumes(self):
         return self._volumes
@@ -329,7 +177,7 @@ class FileVolume(qubes.storage.Volume):
             raise qubes.storage.StoragePoolException(msg)
 
         if self._is_snapshot:
-            img_name = self.source + '-cow.img'
+            img_name = self.source.vid + '-cow.img'
             self.path_source_cow = os.path.join(self.dir_path, img_name)
         elif self._is_volume or self._is_volatile:
             pass
@@ -338,10 +186,153 @@ class FileVolume(qubes.storage.Volume):
         else:
             assert False, 'This should not happen'
 
+    def create(self):
+        assert isinstance(self.size, int) and self.size > 0, \
+            'Volatile volume size must be > 0'
+        if self._is_origin:
+            create_sparse_file(self.path, self.size)
+            create_sparse_file(self.path_cow, self.size)
+        elif not self._is_snapshot:
+            if self.source is not None:
+                source_path = os.path.join(self.dir_path,
+                    self.source.vid + '.img')
+                copy_file(source_path, self.path)
+            elif self._is_volatile:
+                pass
+            else:
+                create_sparse_file(self.path, self.size)
+
+    def is_dirty(self):
+        return False  # TODO: How to implement this?
+
+    def resize(self, size):
+        ''' Expands volume, throws
+            :py:class:`qubst.storage.qubes.storage.StoragePoolException` if
+            given size is less than current_size
+        '''  # pylint: disable=no-self-use
+        if not self.rw:
+            msg = 'Can not resize reađonly volume {!s}'.format(self)
+            raise qubes.storage.StoragePoolException(msg)
+
+        if size <= self.size:
+            raise qubes.storage.StoragePoolException(
+                'For your own safety, shrinking of %s is'
+                ' disabled. If you really know what you'
+                ' are doing, use `truncate` on %s manually.' %
+                (self.name, self.vid))
+
+        with open(self.path, 'a+b') as fd:
+            fd.truncate(size)
+
+        p = subprocess.Popen(['sudo', 'losetup', '--associated', self.path],
+                             stdout=subprocess.PIPE)
+        result = p.communicate()
+
+        m = re.match(r'^(/dev/loop\d+):\s', result[0].decode())
+        if m is not None:
+            loop_dev = m.group(1)
+
+            # resize loop device
+            subprocess.check_call(['sudo', 'losetup', '--set-capacity',
+                                   loop_dev])
+        self.size = size
+
+    def commit(self):
+        msg = 'Tried to commit a non commitable volume {!r}'.format(self)
+        assert (self._is_origin or self._is_volume) and self.rw, msg
+
+        if self._is_volume:
+            return self
+
+        if os.path.exists(self.path_cow):
+            old_path = self.path_cow + '.old'
+            os.rename(self.path_cow, old_path)
+
+        old_umask = os.umask(0o002)
+        with open(self.path_cow, 'w') as f_cow:
+            f_cow.truncate(self.size)
+        os.umask(old_umask)
+        return self
+
+    def export(self):
+        return self.path
+
+    def import_volume(self, src_volume):
+        msg = "Can not import snapshot volume {!s} in to pool {!s} "
+        msg = msg.format(src_volume, self)
+        assert not src_volume.snap_on_start, msg
+        if self.save_on_stop:
+            copy_file(src_volume.export(), self.path)
+        return self
+
+
+    def import_data(self):
+        return self.path
+
+    def reset(self):
+        ''' Remove and recreate a volatile volume '''
+        assert self._is_volatile, "Not a volatile volume"
+        assert isinstance(self.size, int) and self.size > 0, \
+            'Volatile volume size must be > 0'
+
+        _remove_if_exists(self.path)
+
+        with open(self.path, "w") as f_volatile:
+            f_volatile.truncate(self.size)
+        return self
+
+    def revert(self, revision=None):
+        if revision is not None:
+            try:
+                return self.revisions[revision]
+            except KeyError:
+                msg = "Volume {!r} does not have revision {!s}"
+                msg = msg.format(self, revision)
+                raise qubes.storage.StoragePoolException(msg)
+        else:
+            try:
+                old_path = self.revisions.values().pop()
+                os.rename(old_path, self.path_cow)
+            except IndexError:
+                msg = "Volume {!r} does not have old revisions".format(self)
+                raise qubes.storage.StoragePoolException(msg)
+
+    def start(self):
+        if self._is_volatile:
+            self.reset()
+        else:
+            _check_path(self.path)
+            if self.snap_on_start:
+                if not self.save_on_stop:
+                    # make sure previous snapshot is removed - even if VM
+                    # shutdown routing wasn't called (power interrupt or so)
+                    _remove_if_exists(self.path_cow)
+                try:
+                    _check_path(self.path_cow)
+                except qubes.storage.StoragePoolException:
+                    create_sparse_file(self.path_cow, self.size)
+                    _check_path(self.path_cow)
+                if hasattr(self, 'path_source_cow'):
+                    try:
+                        _check_path(self.path_source_cow)
+                    except qubes.storage.StoragePoolException:
+                        create_sparse_file(self.path_source_cow, self.size)
+                        _check_path(self.path_source_cow)
+        return self
+
+    def stop(self):
+        if self.save_on_stop:
+            self.commit()
+        elif self.snap_on_start:
+            _remove_if_exists(self.path_cow)
+        else:
+            _remove_if_exists(self.path)
+        return self
+
     @property
     def path(self):
         if self._is_snapshot:
-            return os.path.join(self.dir_path, self.source + '.img')
+            return os.path.join(self.dir_path, self.source.vid + '.img')
         return os.path.join(self.dir_path, self.vid + '.img')
 
     @property
