@@ -97,7 +97,7 @@ def _setter_name(self, prop, value):
 def _setter_kernel(self, prop, value):
     ''' Helper for setting the domain kernel and running sanity checks on it.
     '''  # pylint: disable=unused-argument
-    if value is None or value == '':
+    if not value:
         return ''
     value = str(value)
     if '/' in value:
