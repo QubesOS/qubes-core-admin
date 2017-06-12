@@ -118,8 +118,6 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             '/qubes-tools/default-user': b'user',
         }
         self.configure_qdb(qdb_entries)
-        del self.src.template
-        self.src.configure_mock(**{'features.get.return_value': False})
         response = self.call_mgmt_func(b'qubes.NotifyTools')
         self.assertIsNone(response)
         self.assertEqual(self.app.mock_calls, [
@@ -129,78 +127,36 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             mock.call.qdb.read('/qubes-tools/version'),
             mock.call.qdb.read('/qubes-tools/qrexec'),
             mock.call.qdb.read('/qubes-tools/gui'),
-            mock.call.features.get('qrexec', False),
-            mock.call.features.__setitem__('qrexec', True),
-            mock.call.features.__setitem__('gui', True),
-            mock.call.fire_event('template-postinstall')
+            mock.call.qdb.read('/qubes-tools/default-user'),
+            mock.call.fire_event('features-request', untrusted_features={
+                'gui': '1',
+                'version': '1',
+                'default-user': 'user',
+                'qrexec': '1'}),
         ])
-
-    def test_011_notify_tools_uninstall(self):
-        qdb_entries = {
-            '/qubes-tools/version': b'1',
-            '/qubes-tools/qrexec': b'0',
-            '/qubes-tools/gui': b'0',
-            '/qubes-tools/os': b'Linux',
-            '/qubes-tools/default-user': b'user',
-        }
-        self.configure_qdb(qdb_entries)
-        del self.src.template
-        self.src.configure_mock(**{'features.get.return_value': True})
-        response = self.call_mgmt_func(b'qubes.NotifyTools')
-        self.assertIsNone(response)
-        self.assertEqual(self.app.mock_calls, [
-            mock.call.save()
-        ])
-        self.assertEqual(self.src.mock_calls, [
-            mock.call.qdb.read('/qubes-tools/version'),
-            mock.call.qdb.read('/qubes-tools/qrexec'),
-            mock.call.qdb.read('/qubes-tools/gui'),
-            mock.call.features.get('qrexec', False),
-            mock.call.features.__setitem__('qrexec', False),
-            mock.call.features.__setitem__('gui', False),
-        ])
-
-    def test_012_notify_tools_uninstall2(self):
-        qdb_entries = {
-            '/qubes-tools/version': b'1',
-            '/qubes-tools/os': b'Linux',
-            '/qubes-tools/default-user': b'user',
-        }
-        self.configure_qdb(qdb_entries)
-        del self.src.template
-        self.src.configure_mock(**{'features.get.return_value': True})
-        response = self.call_mgmt_func(b'qubes.NotifyTools')
-        self.assertIsNone(response)
-        self.assertEqual(self.app.mock_calls, [
-            mock.call.save()
-        ])
-        self.assertEqual(self.src.mock_calls, [
-            mock.call.qdb.read('/qubes-tools/version'),
-            mock.call.qdb.read('/qubes-tools/qrexec'),
-            mock.call.qdb.read('/qubes-tools/gui'),
-            mock.call.features.get('qrexec', False),
-            mock.call.features.__setitem__('qrexec', False),
-            mock.call.features.__setitem__('gui', False),
-        ])
+        self.assertEqual(self.app.mock_calls, [mock.call.save()])
 
     def test_013_notify_tools_no_version(self):
         qdb_entries = {
-            '/qubes-tools/qrexec': b'0',
-            '/qubes-tools/gui': b'0',
+            '/qubes-tools/qrexec': b'1',
+            '/qubes-tools/gui': b'1',
             '/qubes-tools/os': b'Linux',
             '/qubes-tools/default-user': b'user',
         }
         self.configure_qdb(qdb_entries)
-        del self.src.template
-        self.src.configure_mock(**{'features.get.return_value': True})
         response = self.call_mgmt_func(b'qubes.NotifyTools')
         self.assertIsNone(response)
-        self.assertEqual(self.app.mock_calls, [])
         self.assertEqual(self.src.mock_calls, [
             mock.call.qdb.read('/qubes-tools/version'),
             mock.call.qdb.read('/qubes-tools/qrexec'),
             mock.call.qdb.read('/qubes-tools/gui'),
+            mock.call.qdb.read('/qubes-tools/default-user'),
+            mock.call.fire_event('features-request', untrusted_features={
+                'gui': '1',
+                'default-user': 'user',
+                'qrexec': '1'}),
         ])
+        self.assertEqual(self.app.mock_calls, [mock.call.save()])
 
     def test_014_notify_tools_invalid_version(self):
         qdb_entries = {
@@ -211,100 +167,47 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             '/qubes-tools/default-user': b'user',
         }
         self.configure_qdb(qdb_entries)
-        del self.src.template
-        self.src.configure_mock(**{'features.get.return_value': True})
-        with self.assertRaises(ValueError):
+        with self.assertRaises(AssertionError):
             self.call_mgmt_func(b'qubes.NotifyTools')
-        self.assertEqual(self.app.mock_calls, [])
+        # should be rejected later
         self.assertEqual(self.src.mock_calls, [
             mock.call.qdb.read('/qubes-tools/version'),
-            mock.call.qdb.read('/qubes-tools/qrexec'),
-            mock.call.qdb.read('/qubes-tools/gui'),
         ])
-
+        self.assertEqual(self.app.mock_calls, [])
 
     def test_015_notify_tools_invalid_value_qrexec(self):
         qdb_entries = {
             '/qubes-tools/version': b'1',
-            '/qubes-tools/qrexec': b'invalid',
+            '/qubes-tools/qrexec': b'invalid value',
             '/qubes-tools/gui': b'0',
             '/qubes-tools/os': b'Linux',
             '/qubes-tools/default-user': b'user',
         }
         self.configure_qdb(qdb_entries)
-        del self.src.template
-        self.src.configure_mock(**{'features.get.return_value': True})
-        with self.assertRaises(ValueError):
+        with self.assertRaises(AssertionError):
             self.call_mgmt_func(b'qubes.NotifyTools')
         self.assertEqual(self.app.mock_calls, [])
         self.assertEqual(self.src.mock_calls, [
             mock.call.qdb.read('/qubes-tools/version'),
             mock.call.qdb.read('/qubes-tools/qrexec'),
-            mock.call.qdb.read('/qubes-tools/gui'),
         ])
 
     def test_016_notify_tools_invalid_value_gui(self):
         qdb_entries = {
             '/qubes-tools/version': b'1',
             '/qubes-tools/qrexec': b'1',
-            '/qubes-tools/gui': b'invalid',
+            '/qubes-tools/gui': b'invalid value',
             '/qubes-tools/os': b'Linux',
             '/qubes-tools/default-user': b'user',
         }
         self.configure_qdb(qdb_entries)
-        del self.src.template
-        self.src.configure_mock(**{'features.get.return_value': True})
-        with self.assertRaises(ValueError):
+        with self.assertRaises(AssertionError):
             self.call_mgmt_func(b'qubes.NotifyTools')
         self.assertEqual(self.app.mock_calls, [])
         self.assertEqual(self.src.mock_calls, [
             mock.call.qdb.read('/qubes-tools/version'),
             mock.call.qdb.read('/qubes-tools/qrexec'),
             mock.call.qdb.read('/qubes-tools/gui'),
-        ])
-
-    def test_017_notify_tools_template_based(self):
-        qdb_entries = {
-            '/qubes-tools/version': b'1',
-            '/qubes-tools/qrexec': b'1',
-            '/qubes-tools/gui': b'invalid',
-            '/qubes-tools/os': b'Linux',
-            '/qubes-tools/default-user': b'user',
-        }
-        self.configure_qdb(qdb_entries)
-        self.src.configure_mock(**{'features.get.return_value': True})
-        response = self.call_mgmt_func(b'qubes.NotifyTools')
-        self.assertIsNone(response)
-        self.assertEqual(self.app.mock_calls, [])
-        self.assertEqual(self.src.mock_calls, [
-            mock.call.template.__bool__(),
-            mock.call.log.warning(
-                'Ignoring qubes.NotifyTools for template-based VM')
-        ])
-
-    def test_018_notify_tools_already_installed(self):
-        qdb_entries = {
-            '/qubes-tools/version': b'1',
-            '/qubes-tools/qrexec': b'1',
-            '/qubes-tools/gui': b'1',
-            '/qubes-tools/os': b'Linux',
-            '/qubes-tools/default-user': b'user',
-        }
-        self.configure_qdb(qdb_entries)
-        del self.src.template
-        self.src.configure_mock(**{'features.get.return_value': True})
-        response = self.call_mgmt_func(b'qubes.NotifyTools')
-        self.assertIsNone(response)
-        self.assertEqual(self.app.mock_calls, [
-            mock.call.save()
-        ])
-        self.assertEqual(self.src.mock_calls, [
-            mock.call.qdb.read('/qubes-tools/version'),
-            mock.call.qdb.read('/qubes-tools/qrexec'),
-            mock.call.qdb.read('/qubes-tools/gui'),
-            mock.call.features.get('qrexec', False),
-            mock.call.features.__setitem__('qrexec', True),
-            mock.call.features.__setitem__('gui', True),
         ])
 
     def test_020_notify_updates_standalone(self):
@@ -315,9 +218,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             mock.call.updateable.__bool__(),
         ])
         self.assertEqual(self.src.updates_available, True)
-        self.assertEqual(self.app.mock_calls, [
-            mock.call.save()
-        ])
+        self.assertEqual(self.app.mock_calls, [mock.call.save()])
 
     def test_021_notify_updates_standalone2(self):
         del self.src.template

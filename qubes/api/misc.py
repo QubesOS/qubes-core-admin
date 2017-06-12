@@ -71,63 +71,21 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
         assert self.dest.name == 'dom0'
         assert not self.arg
 
-        if getattr(self.src, 'template', None):
-            self.src.log.warning(
-                'Ignoring qubes.NotifyTools for template-based VM')
-            return
+        untrusted_features = {}
+        safe_set = string.ascii_letters + string.digits
+        expected_features = ('version', 'qrexec', 'gui', 'default-user')
+        for feature in expected_features:
+            untrusted_value = self.src.qdb.read('/qubes-tools/' + feature)
+            if untrusted_value:
+                untrusted_value = untrusted_value.decode('ascii',
+                    errors='strict')
+                assert all((c in safe_set) for c in untrusted_value)
+                untrusted_features[feature] = untrusted_value
+            del untrusted_value
 
-        # for now used only to check for the tools presence
-        untrusted_version = self.src.qdb.read('/qubes-tools/version')
-
-        # reserved for future use
-        #untrusted_os = self.src.qdb.read('/qubes-tools/os')
-
-        # qrexec agent presence (0 or 1)
-        untrusted_qrexec = self.src.qdb.read('/qubes-tools/qrexec')
-
-        # gui agent presence (0 or 1)
-        untrusted_gui = self.src.qdb.read('/qubes-tools/gui')
-
-        # default user for qvm-run etc
-        # starting with Qubes 4.x ignored
-        #untrusted_user = self.src.qdb.read('/qubes-tools/default-user')
-
-        if untrusted_version is None:
-            # tools didn't advertised its features; it's strange that this
-            # service is called, but ignore it
-            return
-
-        # any suspicious string will raise exception here
-        int(untrusted_version)
-        del untrusted_version
-
-        # untrusted_os - ignore for now
-
-        if untrusted_qrexec is None:
-            qrexec = False
-        else:
-            qrexec = bool(int(untrusted_qrexec))
-        del untrusted_qrexec
-
-        if untrusted_gui is None:
-            gui = False
-        else:
-            gui = bool(int(untrusted_gui))
-        del untrusted_gui
-
-        # ignore default_user
-
-        prev_qrexec = self.src.features.get('qrexec', False)
-        # Let the tools to be able to enable *or disable*
-        # each particular component
-        self.src.features['qrexec'] = qrexec
-        self.src.features['gui'] = gui
+        self.src.fire_event('features-request',
+            untrusted_features=untrusted_features)
         self.app.save()
-
-        if not prev_qrexec and qrexec:
-            # if this is the first time qrexec was advertised, now can finish
-            #  template setup
-            self.src.fire_event('template-postinstall')
 
     @qubes.api.method('qubes.NotifyUpdates')
     @asyncio.coroutine

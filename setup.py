@@ -43,6 +43,7 @@ if __name__ == '__main__':
                 'DispVM = qubes.vm.dispvm:DispVM',
             ],
             'qubes.ext': [
+                'qubes.ext.core_features = qubes.ext.core_features:CoreFeatures',
                 'qubes.ext.qubesmanager = qubes.ext.qubesmanager:QubesManager',
                 'qubes.ext.gui = qubes.ext.gui:GUI',
                 'qubes.ext.r3compatibility = qubes.ext.r3compatibility:R3Compatibility',

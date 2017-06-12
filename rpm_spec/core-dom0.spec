@@ -286,6 +286,7 @@ fi
 %{python3_sitelib}/qubes/ext/__pycache__/*
 %{python3_sitelib}/qubes/ext/__init__.py
 %{python3_sitelib}/qubes/ext/block.py
+%{python3_sitelib}/qubes/ext/core_features.py
 %{python3_sitelib}/qubes/ext/gui.py
 %{python3_sitelib}/qubes/ext/pci.py
 %{python3_sitelib}/qubes/ext/qubesmanager.py
@@ -304,6 +305,7 @@ fi
 %{python3_sitelib}/qubes/tests/devices.py
 %{python3_sitelib}/qubes/tests/devices_block.py
 %{python3_sitelib}/qubes/tests/events.py
+%{python3_sitelib}/qubes/tests/ext.py
 %{python3_sitelib}/qubes/tests/firewall.py
 %{python3_sitelib}/qubes/tests/init.py
 %{python3_sitelib}/qubes/tests/storage.py
