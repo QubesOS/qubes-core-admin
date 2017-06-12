@@ -430,11 +430,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         default=None,
         doc='Memory ammount allocated for the stubdom')
 
-    internal = qubes.property('internal', default=False,
-        type=bool, setter=qubes.property.bool,
-        doc='''Internal VM (not shown in qubes-manager, don't create appmenus
-            entries.''')
-
     vcpus = qubes.property('vcpus',
         type=int,
         setter=_setter_positive_int,
@@ -492,7 +487,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             dom0 boot.''')
 
     include_in_backups = qubes.property('include_in_backups',
-        default=(lambda self: not self.internal),
+        default=True,
         type=bool, setter=qubes.property.bool,
         doc='If this domain is to be included in default backup.')
 
