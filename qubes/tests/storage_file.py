@@ -138,22 +138,31 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         self.assertTrue(volume.rw)
 
     def test_001_snapshot_volume(self):
-        source = 'vm-templates/fedora-23/root'
+        template_vm = self.app.default_template
+        vm = qubes.tests.storage.TestVM(self, template=template_vm)
+
         original_size = qubes.config.defaults['root_img_size']
+        source_config = {
+            'name': 'root',
+            'pool': self.POOL_NAME,
+            'save_on_stop': True,
+            'rw': False,
+            'size': original_size,
+        }
+        source = self.app.get_pool(self.POOL_NAME).init_volume(template_vm,
+            source_config)
         config = {
             'name': 'root',
-            'pool': 'default',
+            'pool': self.POOL_NAME,
             'snap_on_start': True,
             'rw': False,
             'source': source,
             'size': original_size,
         }
 
-        template_vm = self.app.default_template
-        vm = qubes.tests.storage.TestVM(self, template=template_vm)
         volume = self.app.get_pool(self.POOL_NAME).init_volume(vm, config)
         self.assertEqual(volume.name, 'root')
-        self.assertEqual(volume.pool, 'default')
+        self.assertEqual(volume.pool, self.POOL_NAME)
         self.assertEqual(volume.size, original_size)
         self.assertTrue(volume.snap_on_start)
         self.assertTrue(volume.snap_on_start)
@@ -181,12 +190,17 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
     def test_003_read_only_volume(self):
         template = self.app.default_template
         vid = template.volumes['root'].vid
-        config = {'name': 'root', 'pool': 'default', 'rw': False, 'vid': vid}
+        config = {
+            'name': 'root',
+            'pool': self.POOL_NAME,
+            'rw': False,
+            'vid': vid,
+        }
         vm = qubes.tests.storage.TestVM(self, template=template)
 
         volume = self.app.get_pool(self.POOL_NAME).init_volume(vm, config)
         self.assertEqual(volume.name, 'root')
-        self.assertEqual(volume.pool, 'default')
+        self.assertEqual(volume.pool, self.POOL_NAME)
 
         # original_size = qubes.config.defaults['root_img_size']
         # FIXME: self.assertEqual(volume.size, original_size)
@@ -322,10 +336,9 @@ class TC_03_FilePool(qubes.tests.QubesTestCase):
         self.assertEqual(vm.volumes['private'].path, expected_private_path)
 
         expected_volatile_path = os.path.join(expected_vmdir, 'volatile.img')
-        vm.storage.get_pool(vm.volumes['volatile'])\
-            .reset(vm.volumes['volatile'])
+        vm.volumes['volatile'].reset()
         self.assertEqualAndExists(vm.volumes['volatile'].path,
-                                   expected_volatile_path)
+                                  expected_volatile_path)
 
     def test_013_template_file_images(self):
         """ Check if root.img, private.img, volatile.img and root-cow.img are

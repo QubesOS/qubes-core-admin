@@ -25,6 +25,8 @@ import os
 import subprocess
 
 import qubes
+import qubes.storage
+import qubes.utils
 
 
 def check_lvm_version():
@@ -54,34 +56,6 @@ class ThinPool(qubes.storage.Pool):
         self._pool_id = "{!s}/{!s}".format(volume_group, thin_pool)
         self.log = logging.getLogger('qube.storage.lvm.%s' % self._pool_id)
 
-    def clone(self, source, target):
-        cmd = ['clone', str(source), str(target)]
-        qubes_lvm(cmd, self.log)
-        return target
-
-    def _commit(self, volume):
-        msg = "Trying to commit {!s}, but it has save_on_stop == False"
-        msg = msg.format(volume)
-        assert volume.save_on_stop, msg
-
-        msg = "Trying to commit {!s}, but it has rw == False"
-        msg = msg.format(volume)
-        assert volume.rw, msg
-        assert hasattr(volume, '_vid_snap')
-
-        try:
-            cmd = ['remove', volume.vid + "-back"]
-            qubes_lvm(cmd, self.log)
-        except qubes.storage.StoragePoolException:
-            pass
-        cmd = ['clone', volume.vid, volume.vid + "-back"]
-        qubes_lvm(cmd, self.log)
-
-        cmd = ['remove', volume.vid]
-        qubes_lvm(cmd, self.log)
-        cmd = ['clone', volume._vid_snap, volume.vid]
-        qubes_lvm(cmd, self.log)
-
     @property
     def config(self):
         return {
@@ -91,35 +65,8 @@ class ThinPool(qubes.storage.Pool):
             'driver': ThinPool.driver
         }
 
-    def create(self, volume):
-        assert volume.vid
-        assert volume.size
-        if volume.save_on_stop:
-            if volume.source:
-                cmd = ['clone', str(volume.source), volume.vid]
-            else:
-                cmd = [
-                    'create',
-                    self._pool_id,
-                    volume.vid.split('/', 1)[1],
-                    str(volume.size)
-                ]
-            qubes_lvm(cmd, self.log)
-            reset_cache()
-        return volume
-
     def destroy(self):
         pass  # TODO Should we remove an existing pool?
-
-    def export(self, volume):
-        ''' Returns an object that can be `open()`. '''
-        devpath = '/dev/' + volume.vid
-        return devpath
-
-    def import_data(self, volume):
-        ''' Returns an object that can be `open()`. '''
-        devpath = '/dev/' + volume.vid
-        return devpath
 
     def init_volume(self, vm, volume_config):
         ''' Initialize a :py:class:`qubes.storage.Volume` from `volume_config`.
@@ -134,41 +81,16 @@ class ThinPool(qubes.storage.Pool):
 
             assert self.name
 
-            volume_config['vid'] = "{!s}/{!s}-{!s}".format(
+            volume_config['vid'] = "{!s}/vm-{!s}-{!s}".format(
                 self.volume_group, vm_name, volume_config['name'])
 
         volume_config['volume_group'] = self.volume_group
-
+        volume_config['pool'] = self
         return ThinVolume(**volume_config)
-
-    def import_volume(self, dst_pool, dst_volume, src_pool, src_volume):
-        if not src_volume.save_on_stop:
-            return dst_volume
-
-        src_path = src_pool.export(src_volume)
-
-        # HACK: neat trick to speed up testing if you have same physical thin
-        # pool assigned to two qubes-pools i.e: qubes_dom0 and test-lvm
-        # pylint: disable=line-too-long
-        if isinstance(src_pool, ThinPool) and src_pool.thin_pool == dst_pool.thin_pool:  # NOQA
-            return self.clone(src_volume, dst_volume)
-        else:
-            dst_volume = self.create(dst_volume)
-
-        cmd = ['sudo', 'dd', 'if=' + src_path, 'of=/dev/' + dst_volume.vid,
-            'conv=sparse']
-        subprocess.check_call(cmd)
-        reset_cache()
-        return dst_volume
-
-    def is_dirty(self, volume):
-        if volume.save_on_stop:
-            return os.path.exists(volume.path + '-snap')
-        return False
 
     def remove(self, volume):
         assert volume.vid
-        if self.is_dirty(volume):
+        if volume.is_dirty():
             cmd = ['remove', volume._vid_snap]
             qubes_lvm(cmd, self.log)
 
@@ -180,7 +102,7 @@ class ThinPool(qubes.storage.Pool):
 
     def rename(self, volume, old_name, new_name):
         ''' Called when the domain changes its name '''
-        new_vid = "{!s}/{!s}-{!s}".format(self.volume_group, new_name,
+        new_vid = "{!s}/vm-{!s}-{!s}".format(self.volume_group, new_name,
                                           volume.name)
         if volume.save_on_stop:
             cmd = ['clone', volume.vid, new_vid]
@@ -195,84 +117,8 @@ class ThinPool(qubes.storage.Pool):
         reset_cache()
         return volume
 
-    def revert(self, volume, revision=None):
-        old_path = volume.path + '-back'
-        if not os.path.exists(old_path):
-            msg = "Volume {!s} has no {!s}".format(volume, old_path)
-            raise qubes.storage.StoragePoolException(msg)
-
-        cmd = ['remove', volume.vid]
-        qubes_lvm(cmd, self.log)
-        cmd = ['clone', volume.vid + '-back', volume.vid]
-        qubes_lvm(cmd, self.log)
-        reset_cache()
-        return volume
-
-    def resize(self, volume, size):
-        ''' Expands volume, throws
-            :py:class:`qubst.storage.qubes.storage.StoragePoolException` if
-            given size is less than current_size
-        '''
-        if not volume.rw:
-            msg = 'Can not resize reađonly volume {!s}'.format(volume)
-            raise qubes.storage.StoragePoolException(msg)
-
-        if size <= volume.size:
-            raise qubes.storage.StoragePoolException(
-                'For your own safety, shrinking of %s is'
-                ' disabled. If you really know what you'
-                ' are doing, use `lvresize` on %s manually.' %
-                (volume.name, volume.vid))
-
-        cmd = ['extend', volume.vid, str(size)]
-        qubes_lvm(cmd, self.log)
-        reset_cache()
-
     def setup(self):
         pass  # TODO Should we create a non existing pool?
-
-    def start(self, volume):
-        if volume.snap_on_start:
-            if not volume.save_on_stop or not self.is_dirty(volume):
-                self._snapshot(volume)
-        elif not volume.save_on_stop:
-            self._reset_volume(volume)
-
-        reset_cache()
-        return volume
-
-    def stop(self, volume):
-        if volume.save_on_stop and volume.snap_on_start:
-            self._commit(volume)
-        if volume.snap_on_start:
-            cmd = ['remove', volume._vid_snap]
-            qubes_lvm(cmd, self.log)
-        elif not volume.save_on_stop:
-            cmd = ['remove', volume.vid]
-            qubes_lvm(cmd, self.log)
-        reset_cache()
-        return volume
-
-    def _snapshot(self, volume):
-        try:
-            cmd = ['remove', volume._vid_snap]
-            qubes_lvm(cmd, self.log)
-        except:  # pylint: disable=bare-except
-            pass
-
-        if volume.source is None:
-            cmd = ['clone', volume.vid, volume._vid_snap]
-        else:
-            cmd = ['clone', str(volume.source), volume._vid_snap]
-        qubes_lvm(cmd, self.log)
-
-    def verify(self, volume):
-        ''' Verifies the volume. '''
-        try:
-            vol_info = size_cache[volume.vid]
-            return vol_info['attr'][4] == 'a'
-        except KeyError:
-            return False
 
     @property
     def volumes(self):
@@ -295,20 +141,6 @@ class ThinPool(qubes.storage.Pool):
             }
             volumes += [ThinVolume(**config)]
         return volumes
-
-    def _reset_volume(self, volume):
-        ''' Resets a volatile volume '''
-        assert volume._is_volatile, \
-            'Expected a volatile volume, but got {!r}'.format(volume)
-        self.log.debug('Resetting volatile ' + volume.vid)
-        try:
-            cmd = ['remove', volume.vid]
-            qubes_lvm(cmd, self.log)
-        except qubes.storage.StoragePoolException:
-            pass
-        cmd = ['create', self._pool_id, volume.vid.split('/')[1],
-               str(volume.size)]
-        qubes_lvm(cmd, self.log)
 
 
 def init_cache(log=logging.getLogger('qube.storage.lvm')):
@@ -352,6 +184,7 @@ class ThinVolume(qubes.storage.Volume):
     def __init__(self, volume_group, size=0, **kwargs):
         self.volume_group = volume_group
         super(ThinVolume, self).__init__(size=size, **kwargs)
+        self.log = logging.getLogger('qube.storage.lvm.%s' % str(self.pool))
 
         if self.snap_on_start and self.source is None:
             msg = "snap_on_start specified on {!r} but no volume source set"
@@ -362,11 +195,14 @@ class ThinVolume(qubes.storage.Volume):
             msg = msg.format(self.name)
             raise qubes.storage.StoragePoolException(msg)
 
-        self.path = '/dev/' + self.vid
         if self.snap_on_start:
             self._vid_snap = self.vid + '-snap'
 
         self._size = size
+
+    @property
+    def path(self):
+        return '/dev/' + self.vid
 
     @property
     def revisions(self):
@@ -405,6 +241,178 @@ class ThinVolume(qubes.storage.Volume):
         raise qubes.storage.StoragePoolException(
             "You shouldn't use lvm size setter")
 
+    def _reset(self):
+        ''' Resets a volatile volume '''
+        assert self._is_volatile, \
+            'Expected a volatile volume, but got {!r}'.format(self)
+        self.log.debug('Resetting volatile ' + self.vid)
+        try:
+            cmd = ['remove', self.vid]
+            qubes_lvm(cmd, self.log)
+        except qubes.storage.StoragePoolException:
+            pass
+        # pylint: disable=protected-access
+        cmd = ['create', self.pool._pool_id, self.vid.split('/')[1],
+               str(self.size)]
+        qubes_lvm(cmd, self.log)
+
+    def _commit(self):
+        msg = "Trying to commit {!s}, but it has save_on_stop == False"
+        msg = msg.format(self)
+        assert self.save_on_stop, msg
+
+        msg = "Trying to commit {!s}, but it has rw == False"
+        msg = msg.format(self)
+        assert self.rw, msg
+        assert hasattr(self, '_vid_snap')
+
+        try:
+            cmd = ['remove', self.vid + "-back"]
+            qubes_lvm(cmd, self.log)
+        except qubes.storage.StoragePoolException:
+            pass
+        cmd = ['clone', self.vid, self.vid + "-back"]
+        qubes_lvm(cmd, self.log)
+
+        cmd = ['remove', self.vid]
+        qubes_lvm(cmd, self.log)
+        cmd = ['clone', self._vid_snap, self.vid]
+        qubes_lvm(cmd, self.log)
+
+
+    def create(self):
+        assert self.vid
+        assert self.size
+        if self.save_on_stop:
+            if self.source:
+                cmd = ['clone', str(self.source), self.vid]
+            else:
+                cmd = [
+                    'create',
+                    self.pool._pool_id,  # pylint: disable=protected-access
+                    self.vid.split('/', 1)[1],
+                    str(self.size)
+                ]
+            qubes_lvm(cmd, self.log)
+            reset_cache()
+        return self
+
+    def export(self):
+        ''' Returns an object that can be `open()`. '''
+        devpath = '/dev/' + self.vid
+        return devpath
+
+    def import_volume(self, src_volume):
+        if not src_volume.save_on_stop:
+            return self
+
+        src_path = src_volume.export()
+
+        # HACK: neat trick to speed up testing if you have same physical thin
+        # pool assigned to two qubes-pools i.e: qubes_dom0 and test-lvm
+        # pylint: disable=line-too-long
+        if isinstance(src_volume.pool, ThinPool) and \
+                src_volume.pool.thin_pool == self.pool.thin_pool:  # NOQA
+            cmd = ['clone', str(src_volume), str(self)]
+            qubes_lvm(cmd, self.log)
+        else:
+            self.create()
+
+            cmd = ['sudo', 'dd', 'if=' + src_path, 'of=/dev/' + self.vid,
+                'conv=sparse']
+            subprocess.check_call(cmd)
+            reset_cache()
+
+        return self
+
+    def import_data(self):
+        ''' Returns an object that can be `open()`. '''
+        devpath = '/dev/' + self.vid
+        return devpath
+
+    def is_dirty(self):
+        if self.save_on_stop:
+            return os.path.exists(self.path + '-snap')
+        return False
+
+    def revert(self, revision=None):
+        old_path = self.path + '-back'
+        if not os.path.exists(old_path):
+            msg = "Volume {!s} has no {!s}".format(self, old_path)
+            raise qubes.storage.StoragePoolException(msg)
+
+        cmd = ['remove', self.vid]
+        qubes_lvm(cmd, self.log)
+        cmd = ['clone', self.vid + '-back', self.vid]
+        qubes_lvm(cmd, self.log)
+        reset_cache()
+        return self
+
+    def resize(self, size):
+        ''' Expands volume, throws
+            :py:class:`qubst.storage.qubes.storage.StoragePoolException` if
+            given size is less than current_size
+        '''
+        if not self.rw:
+            msg = 'Can not resize reađonly volume {!s}'.format(self)
+            raise qubes.storage.StoragePoolException(msg)
+
+        if size <= self.size:
+            raise qubes.storage.StoragePoolException(
+                'For your own safety, shrinking of %s is'
+                ' disabled. If you really know what you'
+                ' are doing, use `lvresize` on %s manually.' %
+                (self.name, self.vid))
+
+        cmd = ['extend', self.vid, str(size)]
+        qubes_lvm(cmd, self.log)
+        reset_cache()
+
+    def _snapshot(self):
+        try:
+            cmd = ['remove', self._vid_snap]
+            qubes_lvm(cmd, self.log)
+        except:  # pylint: disable=bare-except
+            pass
+
+        if self.source is None:
+            cmd = ['clone', self.vid, self._vid_snap]
+        else:
+            cmd = ['clone', str(self.source), self._vid_snap]
+        qubes_lvm(cmd, self.log)
+
+
+    def start(self):
+        if self.snap_on_start:
+            if not self.save_on_stop or not self.is_dirty():
+                self._snapshot()
+        elif not self.save_on_stop:
+            self._reset()
+
+        reset_cache()
+        return self
+
+    def stop(self):
+        if self.save_on_stop and self.snap_on_start:
+            self._commit()
+        if self.snap_on_start:
+            cmd = ['remove', self._vid_snap]
+            qubes_lvm(cmd, self.log)
+        elif not self.save_on_stop:
+            cmd = ['remove', self.vid]
+            qubes_lvm(cmd, self.log)
+        reset_cache()
+        return self
+
+    def verify(self):
+        ''' Verifies the volume. '''
+        try:
+            vol_info = size_cache[self.vid]
+            return vol_info['attr'][4] == 'a'
+        except KeyError:
+            return False
+
+
     def block_device(self):
         ''' Return :py:class:`qubes.storage.BlockDevice` for serialization in
             the libvirt XML template as <disk>.
@@ -434,7 +442,7 @@ def pool_exists(pool_id):
         return False
 
 
-def qubes_lvm(cmd, log=logging.getLogger('qube.storage.lvm')):
+def qubes_lvm(cmd, log=logging.getLogger('qubes.storage.lvm')):
     ''' Call :program:`lvm` to execute an LVM operation '''
     action = cmd[0]
     if action == 'remove':

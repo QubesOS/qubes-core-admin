@@ -729,8 +729,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if not hasattr(self, 'uuid'):
             self.uuid = uuid.uuid4()
 
-        # Initialize VM image storage class
-        self.storage = qubes.storage.Storage(self)
+        # Initialize VM image storage class;
+        # it might be already initialized by a recursive call from a child VM
+        if self.storage is None:
+            self.storage = qubes.storage.Storage(self)
 
     @qubes.events.handler('property-set:label')
     def on_property_set_label(self, event, name, newvalue, oldvalue=None):
@@ -1756,15 +1758,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         volume_config['size'] = source.size
         volume_config['pool'] = source.pool
 
-        has_source = (
-            'source' in volume_config and volume_config['source'] is not None)
+        needs_source = (
+            'source' in volume_config)
         is_snapshot = 'snap_on_start' in volume_config and volume_config[
             'snap_on_start']
-        if is_snapshot and not has_source:
+        if is_snapshot and needs_source:
             if source.source is not None:
                 volume_config['source'] = source.source
             else:
-                volume_config['source'] = source.vid
+                volume_config['source'] = source
         return volume_config
 
     def relative_path(self, path):

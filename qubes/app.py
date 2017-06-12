@@ -59,6 +59,7 @@ else:
 import qubes
 import qubes.ext
 import qubes.utils
+import qubes.storage
 import qubes.vm
 import qubes.vm.adminvm
 import qubes.vm.qubesvm
@@ -1019,12 +1020,14 @@ class Qubes(qubes.PropertyHolder):
             return
 
 
-    def get_pool(self, name):
+    def get_pool(self, pool):
         '''  Returns a :py:class:`qubes.storage.Pool` instance '''
+        if isinstance(pool, qubes.storage.Pool):
+            return pool
         try:
-            return self.pools[name]
+            return self.pools[pool]
         except KeyError:
-            raise qubes.exc.QubesException('Unknown storage pool ' + name)
+            raise qubes.exc.QubesException('Unknown storage pool ' + pool)
 
     @staticmethod
     def _get_pool(**kwargs):

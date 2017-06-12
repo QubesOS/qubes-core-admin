@@ -33,7 +33,6 @@ class LinuxModules(Volume):
 
     def __init__(self, target_dir, kernel_version, **kwargs):
         kwargs['vid'] = ''
-        kwargs['source'] = self
         super(LinuxModules, self).__init__(**kwargs)
         self._kernel_version = kernel_version
         self.target_dir = target_dir
@@ -81,6 +80,44 @@ class LinuxModules(Volume):
     def revisions(self):
         return {}
 
+    def is_dirty(self):
+        return False
+
+    def clone(self, source):
+        if isinstance(source, LinuxModules):
+            # do nothing
+            return self
+        raise StoragePoolException('clone of LinuxModules volume from '
+                                  'different volume type is not supported')
+
+    def create(self):
+        return self
+
+    def commit(self):
+        return self
+
+    def export(self):
+        return self.path
+
+    def is_outdated(self):
+        return False
+
+    def start(self):
+        path = self.path
+        if path and not os.path.exists(path):
+            raise StoragePoolException('Missing kernel modules: %s' % path)
+
+        return self
+
+    def stop(self):
+        pass
+
+    def verify(self):
+        if self.vid:
+            _check_path(self.path)
+            _check_path(self.vmlinuz)
+            _check_path(self.initramfs)
+
     def block_device(self):
         if self.vid:
             return super().block_device()
@@ -98,20 +135,9 @@ class LinuxKernel(Pool):
     def init_volume(self, vm, volume_config):
         assert not volume_config['rw']
 
+        volume_config['pool'] = self
         volume = LinuxModules(self.dir_path, lambda: vm.kernel, **volume_config)
 
-        return volume
-
-    def is_dirty(self, volume):
-        return False
-
-    def clone(self, source, target):
-        return target
-
-    def create(self, volume):
-        return volume
-
-    def commit(self, volume):
         return volume
 
     @property
@@ -125,14 +151,8 @@ class LinuxKernel(Pool):
     def destroy(self):
         pass
 
-    def export(self, volume):
-        return volume.path
-
     def import_volume(self, dst_pool, dst_volume, src_pool, src_volume):
         pass
-
-    def is_outdated(self, volume):
-        return False
 
     def remove(self, volume):
         pass
@@ -143,28 +163,12 @@ class LinuxKernel(Pool):
     def setup(self):
         pass
 
-    def start(self, volume):
-        path = volume.path
-        if path and not os.path.exists(path):
-            raise StoragePoolException('Missing kernel modules: %s' % path)
-
-        return volume
-
-    def stop(self, volume):
-        pass
-
-    def verify(self, volume):
-        if volume.vid:
-            _check_path(volume.path)
-            _check_path(volume.vmlinuz)
-            _check_path(volume.initramfs)
-
     @property
     def volumes(self):
         ''' Return all known kernel volumes '''
         return [LinuxModules(self.dir_path,
                              kernel_version,
-                             pool=self.name,
+                             pool=self,
                              name=kernel_version,
                              internal=True,
                              rw=False

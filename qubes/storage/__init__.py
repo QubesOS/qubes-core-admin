@@ -86,7 +86,7 @@ class Volume(object):
         ''' Initialize a volume.
 
             :param str name: The domain name
-            :param str pool: The pool name
+            :param Pool pool: The pool object
             :param str vid:  Volume identifier needs to be unique in pool
             :param bool internal: If `True` volume is hidden when qvm-block ls
                 is used
@@ -96,15 +96,18 @@ class Volume(object):
             :param bool rw: If true volume will be mounted read-write
             :param bool snap_on_start: Create a snapshot from source on start
             :param bool save_on_stop: Write changes to disk in vm.stop()
-            :param str source: Vid of other volume in same pool
+            :param Volume source: other volume in same pool, or None
             :param str/int size: Size of the volume
 
         '''
 
         super(Volume, self).__init__(**kwargs)
+        assert isinstance(pool, Pool)
+        assert source is None or (isinstance(source, Volume)
+                                  and source.pool == pool)
 
         self.name = str(name)
-        self.pool = str(pool)
+        self.pool = pool
         self.internal = internal
         self.removable = removable
         self.revisions_to_keep = int(revisions_to_keep)
@@ -116,7 +119,9 @@ class Volume(object):
         self.vid = vid
 
     def __eq__(self, other):
-        return other.pool == self.pool and other.vid == self.vid
+        if isinstance(other, Volume):
+            return other.pool == self.pool and other.vid == self.vid
+        return NotImplemented
 
     def __hash__(self):
         return hash('%s:%s' % (self.pool, self.vid))
@@ -125,7 +130,7 @@ class Volume(object):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return '{!r}'.format(self.pool + ':' + self.vid)
+        return '{!r}'.format(str(self.pool) + ':' + self.vid)
 
     def __str__(self):
         return str(self.vid)
@@ -133,6 +138,93 @@ class Volume(object):
     def __xml__(self):
         config = _sanitize_config(self.config)
         return lxml.etree.Element('volume', **config)
+
+    def create(self):
+        ''' Create the given volume on disk.
+
+            This can be implemented as a coroutine.
+        '''
+        raise self._not_implemented("create")
+
+    def commit(self):
+        ''' Write the snapshot to disk
+
+        This can be implemented as a coroutine.'''
+        raise self._not_implemented("commit")
+
+    def export(self):
+        ''' Returns an object that can be `open()`. '''
+        raise self._not_implemented("export")
+
+    def import_data(self):
+        ''' Returns an object that can be `open()`. '''
+        raise self._not_implemented("import")
+
+    def import_data_end(self, success):
+        ''' End data import operation. This may be used by pool
+        implementation to commit changes, cleanup temporary files etc.
+
+        :param success: True if data import was successful, otherwise False
+        '''
+        # by default do nothing
+        pass
+
+    def import_volume(self, src_volume):
+        ''' Imports data from a different volume (possibly in a different
+        pool '''
+        # pylint: disable=unused-argument
+        raise self._not_implemented("import_volume")
+
+    def is_dirty(self):
+        ''' Return `True` if volume was not properly shutdown and commited '''
+        raise self._not_implemented("is_dirty")
+
+    def is_outdated(self):
+        ''' Returns `True` if the currently used `volume.source` of a snapshot
+            volume is outdated.
+        '''
+        raise self._not_implemented("is_outdated")
+
+    def recover(self):
+        ''' Try to recover a :py:class:`Volume` or :py:class:`SnapVolume` '''
+        raise self._not_implemented("recover")
+
+    def reset(self):
+        ''' Drop and recreate volume without copying it's content from source.
+        '''
+        raise self._not_implemented("reset")
+
+    def resize(self, size):
+        ''' Expands volume, throws
+            :py:class:`qubes.storage.StoragePoolException` if
+            given size is less than current_size
+
+            This can be implemented as a coroutine.
+        '''
+        # pylint: disable=unused-argument
+        raise self._not_implemented("resize")
+
+    def revert(self, revision=None):
+        ''' Revert volume to previous revision  '''
+        # pylint: disable=unused-argument
+        raise self._not_implemented("revert")
+
+    def start(self):
+        ''' Do what ever is needed on start
+
+        This can be implemented as a coroutine.'''
+        raise self._not_implemented("start")
+
+    def stop(self):
+        ''' Do what ever is needed on stop
+
+        This can be implemented as a coroutine.'''
+
+    def verify(self):
+        ''' Verifies the volume.
+
+        This can be implemented as a coroutine.'''
+        raise self._not_implemented("verify")
 
     def block_device(self):
         ''' Return :py:class:`BlockDevice` for serialization in
@@ -160,7 +252,7 @@ class Volume(object):
     @property
     def config(self):
         ''' return config data for serialization to qubes.xml '''
-        result = {'name': self.name, 'pool': self.pool, 'vid': self.vid, }
+        result = {'name': self.name, 'pool': str(self.pool), 'vid': self.vid, }
 
         if self.internal:
             result['internal'] = self.internal
@@ -184,10 +276,15 @@ class Volume(object):
             result['snap_on_start'] = self.snap_on_start
 
         if self.source:
-            result['source'] = self.source
+            result['source'] = str(self.source)
 
         return result
 
+    def _not_implemented(self, method_name):
+        ''' Helper for emitting helpful `NotImplementedError` exceptions '''
+        msg = "Volume {!s} has {!s}() not implemented"
+        msg = msg.format(str(self.__class__.__name__), method_name)
+        return NotImplementedError(msg)
 
 class Storage(object):
     ''' Class for handling VM virtual disks.
@@ -204,12 +301,20 @@ class Storage(object):
         self.log = self.vm.log
         #: Additional drive (currently used only by HVM)
         self.drive = None
-        self.pools = {}
 
         if hasattr(vm, 'volume_config'):
             for name, conf in self.vm.volume_config.items():
-                if 'volume_type' in conf:
-                    conf = self._migrate_config(conf)
+                if 'source' in conf:
+                    template = getattr(vm, 'template', None)
+                    if template:
+                        # we have no control over VM load order,
+                        # so initialize storage recursively if needed
+                        if template.storage is None:
+                            template.storage = Storage(template)
+                        # FIXME: this effectively ignore 'source' value;
+                        # maybe we don't need it at all if it's always from
+                        # VM's template?
+                        conf['source'] = template.volumes[name]
 
                 self.init_volume(name, conf)
 
@@ -223,49 +328,7 @@ class Storage(object):
         pool = self.vm.app.get_pool(volume_config['pool'])
         volume = pool.init_volume(self.vm, volume_config)
         self.vm.volumes[name] = volume
-        self.pools[name] = pool
         return volume
-
-    def _migrate_config(self, conf):
-        ''' Migrates from the old config style to new
-        '''  # FIXME: Remove this compatibility hack
-        assert 'volume_type' in conf
-        _type = conf['volume_type']
-        old_volume_types = [
-            'read-write', 'read-only', 'origin', 'snapshot', 'volatile'
-        ]
-        msg = "Volume {!s} has unknown type {!s}".format(conf['name'], _type)
-        assert conf['volume_type'] in old_volume_types, msg
-        if _type == 'origin':
-            conf['rw'] = True
-            conf['source'] = None
-            conf['save_on_stop'] = True
-            conf['revisions_to_keep'] = 1
-        elif _type == 'snapshot':
-            conf['rw'] = False
-            if conf['pool'] == 'default':
-                template_vid = os.path.join('vm-templates',
-                    self.vm.template.name, conf['name'])
-            elif conf['pool'] == 'qubes_dom0':
-                template_vid = os.path.join(
-                    'qubes_dom0', self.vm.template.name + '-' + conf['name'])
-            conf['source'] = template_vid
-            conf['snap_on_start'] = True
-        elif _type == 'read-write':
-            conf['rw'] = True
-            conf['save_on_stop'] = True
-            conf['revisions_to_keep'] = 0
-        elif _type == 'read-only':
-            conf['rw'] = False
-            conf['snap_on_start'] = True
-            conf['save_on_stop'] = False
-            conf['revisions_to_keep'] = 0
-        elif _type == 'volatile':
-            conf['snap_on_start'] = False
-            conf['save_on_stop'] = False
-            conf['revisions_to_keep'] = 0
-        del conf['volume_type']
-        return conf
 
     def attach(self, volume, rw=False):
         ''' Attach a volume to the domain '''
@@ -342,7 +405,7 @@ class Storage(object):
         ''' Resizes volume a read-writable volume '''
         if isinstance(volume, str):
             volume = self.vm.volumes[volume]
-        ret = self.get_pool(volume).resize(volume, size)
+        ret = volume.resize(size)
         if asyncio.iscoroutine(ret):
             yield from ret
         if self.vm.is_running():
@@ -359,7 +422,7 @@ class Storage(object):
         for volume in self.vm.volumes.values():
             # launch the operation, if it's asynchronous, then append to wait
             #  for them at the end
-            ret = self.get_pool(volume).create(volume)
+            ret = volume.create()
             if asyncio.iscoroutine(ret):
                 coros.append(ret)
         if coros:
@@ -378,10 +441,10 @@ class Storage(object):
         self.vm.volumes = {}
         with VmCreationManager(self.vm):
             for name, config in self.vm.volume_config.items():
-                dst_pool = self.get_pool(config['pool'])
+                dst_pool = self.vm.app.get_pool(config['pool'])
                 dst = dst_pool.init_volume(self.vm, config)
                 src_volume = src_vm.volumes[name]
-                src_pool = self.vm.app.get_pool(src_volume.pool)
+                src_pool = src_volume.pool
                 if dst_pool == src_pool:
                     msg = "Cloning volume {!s} from vm {!s}"
                     self.vm.log.info(msg.format(src_volume.name, src_vm.name))
@@ -404,7 +467,7 @@ class Storage(object):
                     volume = clone_op_ret
 
                 assert volume, "%s.clone() returned '%s'" % (
-                    self.get_pool(self.vm.volume_config[name]['pool']).
+                    self.vm.app.get_pool(self.vm.volume_config[name]['pool']).
                         __class__.__name__, volume)
 
                 self.vm.volumes[name] = volume
@@ -418,8 +481,7 @@ class Storage(object):
 
         volumes = self.vm.volumes
         for volume in volumes.values():
-            pool = self.get_pool(volume)
-            if pool.is_outdated(volume):
+            if volume.is_outdated():
                 result += [volume]
 
         return result
@@ -428,7 +490,7 @@ class Storage(object):
         ''' Notify the pools that the domain was renamed '''
         volumes = self.vm.volumes
         for name, volume in volumes.items():
-            pool = self.get_pool(volume)
+            pool = volume.pool
             volumes[name] = pool.rename(volume, old_name, new_name)
 
     @asyncio.coroutine
@@ -443,7 +505,7 @@ class Storage(object):
                 'VM directory does not exist: {}'.format(self.vm.dir_path))
         futures = []
         for volume in self.vm.volumes.values():
-            ret = self.get_pool(volume).verify(volume)
+            ret = volume.verify()
             if asyncio.iscoroutine(ret):
                 futures.append(ret)
         if futures:
@@ -461,7 +523,7 @@ class Storage(object):
         for name, volume in self.vm.volumes.items():
             self.log.info('Removing volume %s: %s' % (name, volume.vid))
             try:
-                ret = self.get_pool(volume).remove(volume)
+                ret = volume.pool.remove(volume)
                 if asyncio.iscoroutine(ret):
                     futures.append(ret)
             except (IOError, OSError) as e:
@@ -478,8 +540,7 @@ class Storage(object):
         ''' Execute the start method on each pool '''
         futures = []
         for volume in self.vm.volumes.values():
-            pool = self.get_pool(volume)
-            ret = pool.start(volume)
+            ret = volume.start()
             if asyncio.iscoroutine(ret):
                 futures.append(ret)
 
@@ -491,21 +552,12 @@ class Storage(object):
         ''' Execute the start method on each pool '''
         futures = []
         for volume in self.vm.volumes.values():
-            ret = self.get_pool(volume).stop(volume)
+            ret = volume.stop()
             if asyncio.iscoroutine(ret):
                 futures.append(ret)
 
         if futures:
             yield from asyncio.wait(futures)
-
-    def get_pool(self, volume):
-        ''' Helper function '''
-        assert isinstance(volume, (Volume, str)), \
-            "You need to pass a Volume or pool name as str"
-        if isinstance(volume, Volume):
-            return self.pools[volume.name]
-
-        return self.vm.app.pools[volume]
 
     @asyncio.coroutine
     def commit(self):
@@ -513,7 +565,7 @@ class Storage(object):
         futures = []
         for volume in self.vm.volumes.values():
             if volume.save_on_stop:
-                ret = self.get_pool(volume).commit(volume)
+                ret = volume.commit()
                 if asyncio.iscoroutine(ret):
                     futures.append(ret)
 
@@ -540,18 +592,18 @@ class Storage(object):
         assert isinstance(volume, (Volume, str)), \
             "You need to pass a Volume or pool name as str"
         if isinstance(volume, Volume):
-            return self.pools[volume.name].export(volume)
+            return volume.export()
 
-        return self.pools[volume].export(self.vm.volumes[volume])
+        return self.vm.volumes[volume].export()
 
     def import_data(self, volume):
         ''' Helper function to import volume data (pool.import_data(volume))'''
         assert isinstance(volume, (Volume, str)), \
             "You need to pass a Volume or pool name as str"
         if isinstance(volume, Volume):
-            return self.pools[volume.name].import_data(volume)
+            return volume.import_data()
 
-        return self.pools[volume].import_data(self.vm.volumes[volume])
+        return self.vm.volumes[volume].import_data()
 
     def import_data_end(self, volume, success):
         ''' Helper function to finish/cleanup data import
@@ -559,11 +611,10 @@ class Storage(object):
         assert isinstance(volume, (Volume, str)), \
             "You need to pass a Volume or pool name as str"
         if isinstance(volume, Volume):
-            return self.pools[volume.name].import_data_end(volume,
+            return volume.import_data_end(volume,
                 success=success)
 
-        return self.pools[volume].import_data_end(self.vm.volumes[volume],
-            success=success)
+        return self.vm.volumes[volume].import_data_end(success=success)
 
 
 class Pool(object):
@@ -583,7 +634,11 @@ class Pool(object):
         kwargs['name'] = self.name
 
     def __eq__(self, other):
-        return self.name == other.name
+        if isinstance(other, Pool):
+            return self.name == other.name
+        elif isinstance(other, str):
+            return self.name == other
+        return NotImplemented
 
     def __neq__(self, other):
         return not self.__eq__(other)
@@ -598,32 +653,10 @@ class Pool(object):
         config = _sanitize_config(self.config)
         return lxml.etree.Element('pool', **config)
 
-    def create(self, volume):
-        ''' Create the given volume on disk or copy from provided
-            `source_volume`.
-
-            This can be implemented as a coroutine.
-        '''
-        raise self._not_implemented("create")
-
-    def commit(self, volume):  # pylint: disable=no-self-use
-        ''' Write the snapshot to disk
-
-        This can be implemented as a coroutine.'''
-        msg = "Got volume_type {!s} when expected 'snap'"
-        msg = msg.format(volume.volume_type)
-        assert volume.volume_type == 'snap', msg
-
     @property
     def config(self):
         ''' Returns the pool config to be written to qubes.xml '''
         raise self._not_implemented("config")
-
-    def clone(self, source, target):
-        ''' Clone volume.
-
-        This can be implemented as a coroutine. '''
-        raise self._not_implemented("clone")
 
     def destroy(self):
         ''' Called when removing the pool. Use this for implementation specific
@@ -631,45 +664,10 @@ class Pool(object):
         '''
         raise self._not_implemented("destroy")
 
-    def export(self, volume):
-        ''' Returns an object that can be `open()`. '''
-        raise self._not_implemented("export")
-
-    def import_data(self, volume):
-        ''' Returns an object that can be `open()`. '''
-        raise self._not_implemented("import")
-
-    def import_data_end(self, volume, success):
-        ''' End data import operation. This may be used by pool
-        implementation to commit changes, cleanup temporary files etc.
-
-        :param success: True if data import was successful, otherwise False
-        '''
-        # by default do nothing
-        pass
-
-    def import_volume(self, dst_pool, dst_volume, src_pool, src_volume):
-        ''' Imports data to a volume in this pool '''
-        raise self._not_implemented("import_volume")
-
     def init_volume(self, vm, volume_config):
         ''' Initialize a :py:class:`qubes.storage.Volume` from `volume_config`.
         '''
         raise self._not_implemented("init_volume")
-
-    def is_dirty(self, volume):
-        ''' Return `True` if volume was not properly shutdown and commited '''
-        raise self._not_implemented("is_dirty")
-
-    def is_outdated(self, volume):
-        ''' Returns `True` if the currently used `volume.source` of a snapshot
-            volume is outdated.
-        '''
-        raise self._not_implemented("is_outdated")
-
-    def recover(self, volume):
-        ''' Try to recover a :py:class:`Volume` or :py:class:`SnapVolume` '''
-        raise self._not_implemented("recover")
 
     def remove(self, volume):
         ''' Remove volume.
@@ -681,46 +679,11 @@ class Pool(object):
         ''' Called when the domain changes its name '''
         raise self._not_implemented("rename")
 
-    def reset(self, volume):
-        ''' Drop and recreate volume without copying it's content from source.
-        '''
-        raise self._not_implemented("reset")
-
-    def resize(self, volume, size):
-        ''' Expands volume, throws
-            :py:class:`qubes.storage.StoragePoolException` if
-            given size is less than current_size
-
-            This can be implemented as a coroutine.
-        '''
-        raise self._not_implemented("resize")
-
-    def revert(self, volume, revision=None):
-        ''' Revert volume to previous revision  '''
-        raise self._not_implemented("revert")
-
     def setup(self):
         ''' Called when adding a pool to the system. Use this for implementation
             specific set up.
         '''
         raise self._not_implemented("setup")
-
-    def start(self, volume):  # pylint: disable=no-self-use
-        ''' Do what ever is needed on start
-
-        This can be implemented as a coroutine.'''
-        raise self._not_implemented("start")
-
-    def stop(self, volume):  # pylint: disable=no-self-use
-        ''' Do what ever is needed on stop
-
-        This can be implemented as a coroutine.'''
-
-    def verify(self, volume):
-        ''' Verifies the volume.
-
-        This can be implemented as a coroutine.'''
-        raise self._not_implemented("verify")
 
     @property
     def volumes(self):
@@ -780,7 +743,7 @@ class VmCreationManager(object):
         if type is not None and value is not None and tb is not None:
             for volume in self.vm.volumes.values():
                 try:
-                    pool = self.vm.storage.get_pool(volume)
+                    pool = volume.pool
                     pool.remove(volume)
                 except Exception:  # pylint: disable=broad-except
                     pass

@@ -79,7 +79,7 @@ class TC_90_AppVM(qubes.tests.vm.qubesvm.QubesVMTestsMixin,
         self.assertFalse(vm.volume_config['root']['save_on_stop'])
         self.assertTrue(vm.volume_config['root']['snap_on_start'])
         self.assertEqual(vm.volume_config['root'].get('source', None),
-            self.template.volumes['root'].source)
+            self.template.volumes['root'])
 
         self.assertFalse(
             vm.volume_config['volatile'].get('save_on_stop', False))

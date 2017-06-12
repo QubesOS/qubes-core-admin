@@ -68,7 +68,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             'kernel': {
                 'name': 'kernel',
                 'pool': 'linux-kernel',
-                'snap_on_start': True,
                 'rw': False,
                 'internal': True
             }

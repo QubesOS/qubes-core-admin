@@ -134,7 +134,7 @@ class TC_00_ThinPool(ThinPoolBase):
         self.assertEqual(volume.name, 'root')
         self.assertEqual(volume.pool, self.pool.name)
         self.assertEqual(volume.size, qubes.config.defaults['root_img_size'])
-        self.pool.create(volume)
+        volume.create()
         path = "/dev/%s" % volume.vid
         self.assertTrue(os.path.exists(path))
         self.pool.remove(volume)
@@ -154,7 +154,7 @@ class TC_00_ThinPool(ThinPoolBase):
         self.assertEqual(volume.name, 'root')
         self.assertEqual(volume.pool, self.pool.name)
         self.assertEqual(volume.size, qubes.config.defaults['root_img_size'])
-        self.pool.create(volume)
+        volume.create()
         path = "/dev/%s" % volume.vid
         self.assertTrue(os.path.exists(path))
         self.pool.remove(volume)
