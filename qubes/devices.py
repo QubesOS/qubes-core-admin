@@ -60,13 +60,12 @@ class DeviceAssignment(object): # pylint: disable=too-few-public-methods
     ''' Maps a device to a frontend_domain. '''
 
     def __init__(self, backend_domain, ident, options=None, persistent=False,
-            frontend_domain=None, devclass=None):
+            bus=None):
         self.backend_domain = backend_domain
         self.ident = ident
         self.options = options or {}
         self.persistent = persistent
-        self.frontend_domain = frontend_domain
-        self.devclass = devclass
+        self.bus = bus
 
     def __repr__(self):
         return "[%s]:%s" % (self.backend_domain, self.ident)
@@ -89,14 +88,13 @@ class DeviceAssignment(object): # pylint: disable=too-few-public-methods
             self.ident,
             self.options,
             self.persistent,
-            self.frontend_domain,
-            self.devclass,
+            self.bus,
         )
 
     @property
     def device(self):
         '''Get DeviceInfo object corresponding to this DeviceAssignment'''
-        return self.backend_domain.devices[self.devclass][self.ident]
+        return self.backend_domain.devices[self.bus][self.ident]
 
 
 class DeviceCollection(object):
@@ -105,7 +103,7 @@ class DeviceCollection(object):
     Used as default value for :py:meth:`DeviceManager.__missing__` factory.
 
     :param vm: VM for which we manage devices
-    :param class_: device class
+    :param bus: device bus
 
     This class emits following events on VM object:
 
@@ -154,13 +152,13 @@ class DeviceCollection(object):
 
     '''
 
-    def __init__(self, vm, class_):
+    def __init__(self, vm, bus):
         self._vm = vm
-        self._class = class_
+        self._bus = bus
         self._set = PersistentCollection()
 
         self.devclass = qubes.utils.get_entry_point_one(
-            'qubes.devices', self._class)
+            'qubes.devices', self._bus)
 
     def attach(self, device_assignment: DeviceAssignment):
         '''Attach (add) device to domain.
@@ -168,16 +166,10 @@ class DeviceCollection(object):
         :param DeviceInfo device: device object
         '''
 
-        if not device_assignment.frontend_domain:
-            device_assignment.frontend_domain = self._vm
+        if device_assignment.bus is None:
+            device_assignment.bus = self._bus
         else:
-            assert device_assignment.frontend_domain == self._vm, \
-                "Trying to attach DeviceAssignment belonging to other domain"
-
-        if device_assignment.devclass is None:
-            device_assignment.devclass = self._class
-        else:
-            assert device_assignment.devclass == self._class, \
+            assert device_assignment.bus == self._bus, \
                 "Trying to attach DeviceAssignment of a different device class"
 
         if not device_assignment.persistent and self._vm.is_halted():
@@ -187,12 +179,12 @@ class DeviceCollection(object):
         if device in self.assignments():
             raise DeviceAlreadyAttached(
                 'device {!s} of class {} already attached to {!s}'.format(
-                    device, self._class, self._vm))
-        self._vm.fire_event_pre('device-pre-attach:'+self._class,
+                    device, self._bus, self._vm))
+        self._vm.fire_event_pre('device-pre-attach:'+self._bus,
             device=device, options=device_assignment.options)
         if device_assignment.persistent:
             self._set.add(device_assignment)
-        self._vm.fire_event('device-attach:' + self._class,
+        self._vm.fire_event('device-attach:' + self._bus,
             device=device, options=device_assignment.options)
 
     def detach(self, device_assignment: DeviceAssignment):
@@ -201,13 +193,10 @@ class DeviceCollection(object):
         :param DeviceInfo device: device object
         '''
 
-        if not device_assignment.frontend_domain:
-            device_assignment.frontend_domain = self._vm
-
-        if device_assignment.devclass is None:
-            device_assignment.devclass = self._class
+        if device_assignment.bus is None:
+            device_assignment.bus = self._bus
         else:
-            assert device_assignment.devclass == self._class, \
+            assert device_assignment.bus == self._bus, \
                 "Trying to attach DeviceAssignment of a different device class"
 
         if device_assignment in self._set and not self._vm.is_halted():
@@ -216,19 +205,19 @@ class DeviceCollection(object):
         if device_assignment not in self.assignments():
             raise DeviceNotAttached(
                 'device {!s} of class {} not attached to {!s}'.format(
-                    device_assignment.ident, self._class, self._vm))
+                    device_assignment.ident, self._bus, self._vm))
 
         device = device_assignment.device
-        self._vm.fire_event_pre('device-pre-detach:'+self._class, device=device)
+        self._vm.fire_event_pre('device-pre-detach:'+self._bus, device=device)
         if device in self._set:
             device_assignment.persistent = True
             self._set.discard(device_assignment)
 
-        self._vm.fire_event('device-detach:' + self._class, device=device)
+        self._vm.fire_event('device-detach:' + self._bus, device=device)
 
     def attached(self):
         '''List devices which are (or may be) attached to this vm '''
-        attached = self._vm.fire_event('device-list-attached:' + self._class)
+        attached = self._vm.fire_event('device-list-attached:' + self._bus)
         if attached:
             return [dev for dev, _ in attached]
 
@@ -252,7 +241,7 @@ class DeviceCollection(object):
         attached persistently.
         '''
 
-        devices = self._vm.fire_event('device-list-attached:' + self._class,
+        devices = self._vm.fire_event('device-list-attached:' + self._bus,
             persistent=persistent)
         result = set()
         for dev, options in devices:
@@ -267,15 +256,14 @@ class DeviceCollection(object):
                     DeviceAssignment(
                         backend_domain=dev.backend_domain,
                         ident=dev.ident, options=options,
-                        devclass=self._class,
-                        frontend_domain=self._vm))
+                        bus=self._bus))
         if persistent is not False:
             result.update(self._set)
         return result
 
     def available(self):
         '''List devices exposed by this vm'''
-        devices = self._vm.fire_event('device-list:' + self._class)
+        devices = self._vm.fire_event('device-list:' + self._bus)
         return devices
 
     def __iter__(self):
@@ -294,7 +282,7 @@ class DeviceCollection(object):
         :raises AssertionError: when multiple devices with the same ident are
         found
         '''
-        dev = self._vm.fire_event('device-get:' + self._class, ident=ident)
+        dev = self._vm.fire_event('device-get:' + self._bus, ident=ident)
         if dev:
             assert len(dev) == 1
             return dev[0]
@@ -321,7 +309,7 @@ class DeviceInfo(object):
     ''' Holds all information about a device '''
     # pylint: disable=too-few-public-methods
     def __init__(self, backend_domain, ident, description=None,
-                 frontend_domain=None, options=None, **kwargs):
+                 frontend_domain=None):
         #: domain providing this device
         self.backend_domain = backend_domain
         #: device identifier (unique for given domain and device type)
@@ -337,8 +325,6 @@ class DeviceInfo(object):
             self.frontend_domain = frontend_domain
         except AttributeError:
             pass
-        self.options = options or dict()
-        self.data = kwargs
 
         if hasattr(self, 'regex'):
             # pylint: disable=no-member
@@ -374,11 +360,11 @@ class UnknownDevice(DeviceInfo):
     '''Unknown device - for example exposed by domain not running currently'''
 
     def __init__(self, backend_domain, ident, description=None,
-            frontend_domain=None, **kwargs):
+            frontend_domain=None):
         if description is None:
             description = "Unknown device"
         super(UnknownDevice, self).__init__(backend_domain, ident, description,
-            frontend_domain, **kwargs)
+            frontend_domain)
 
 
 class PersistentCollection(object):
@@ -391,7 +377,7 @@ class PersistentCollection(object):
 
     def add(self, assignment: DeviceAssignment):
         ''' Add assignment to collection '''
-        assert assignment.persistent and assignment.frontend_domain
+        assert assignment.persistent
         vm = assignment.backend_domain
         ident = assignment.ident
         key = (vm, ident)
@@ -401,7 +387,7 @@ class PersistentCollection(object):
 
     def discard(self, assignment):
         ''' Discard assignment from collection '''
-        assert assignment.persistent and assignment.frontend_domain
+        assert assignment.persistent
         vm = assignment.backend_domain
         ident = assignment.ident
         key = (vm, ident)

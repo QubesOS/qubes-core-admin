@@ -49,12 +49,12 @@ def sanitize_and_parse_meminfo(untrusted_meminfo):
     # not new syntax - try the old one
     untrusted_dict = {}
     # split meminfo contents into lines
-    untrusted_lines = string.split(untrusted_meminfo, "\n")
+    untrusted_lines = untrusted_meminfo.split("\n")
     for untrusted_lines_iterator in untrusted_lines:
         # split a single meminfo line into words
-        untrusted_words = string.split(untrusted_lines_iterator)
+        untrusted_words = untrusted_lines_iterator.split()
         if len(untrusted_words) >= 2:
-            untrusted_dict[string.rstrip(untrusted_words[0], ":")] = \
+            untrusted_dict[untrusted_words[0].rstrip(":")] = \
                 untrusted_words[1]
 
     # sanitize start

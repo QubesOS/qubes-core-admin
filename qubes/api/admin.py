@@ -817,12 +817,11 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             non_default_attrs = set(attr for attr in dir(dev) if
                 not attr.startswith('_')).difference((
                     'backend_domain', 'ident', 'frontend_domain',
-                    'description', 'options', 'data'))
+                    'description', 'options'))
             properties_txt = ' '.join(
                 '{}={!s}'.format(prop, value) for prop, value
                 in itertools.chain(
                     ((key, getattr(dev, key)) for key in non_default_attrs),
-                    dev.data.items(),
                     # keep description as the last one, according to API
                     # specification
                     (('description', dev.description),)

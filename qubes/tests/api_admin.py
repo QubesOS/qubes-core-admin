@@ -1349,7 +1349,6 @@ class TC_00_VMs(AdminAPITestCase):
             return
         dev = qubes.devices.DeviceInfo(self.vm, '1234')
         dev.description = 'Some device'
-        dev.data = {'other_property': 'property-value'}
         dev.extra_prop = 'xx'
         yield dev
         dev = qubes.devices.DeviceInfo(self.vm, '4321')
@@ -1361,7 +1360,7 @@ class TC_00_VMs(AdminAPITestCase):
         value = self.call_mgmt_func(b'admin.vm.device.testclass.Available',
             b'test-vm1')
         self.assertEqual(value,
-            '1234 extra_prop=xx other_property=property-value description=Some '
+            '1234 extra_prop=xx description=Some '
             'device\n'
             '4321 description=Some other device\n')
         self.assertFalse(self.app.save.called)
