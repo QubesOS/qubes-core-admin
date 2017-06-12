@@ -143,13 +143,14 @@ class XS_Watcher(object):
         self.log.debug('acquiring global_lock')
         global_lock.acquire()
         self.log.debug('global_lock acquired')
-        if force_refresh_domain_list:
-            self.domain_list_changed(refresh_only=True)
+        try:
+            if force_refresh_domain_list:
+                self.domain_list_changed(refresh_only=True)
 
-        system_state.refresh_meminfo(domain_id, untrusted_meminfo_key)
-
-        global_lock.release()
-        self.log.debug('global_lock released')
+            system_state.refresh_meminfo(domain_id, untrusted_meminfo_key)
+        finally:
+            global_lock.release()
+            self.log.debug('global_lock released')
 
 
     def watch_loop(self):
