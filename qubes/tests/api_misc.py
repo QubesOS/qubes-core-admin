@@ -216,8 +216,8 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.assertIsNone(response)
         self.assertEqual(self.src.mock_calls, [
             mock.call.updateable.__bool__(),
+            mock.call.features.__setitem__('updates-available', True),
         ])
-        self.assertEqual(self.src.updates_available, True)
         self.assertEqual(self.app.mock_calls, [mock.call.save()])
 
     def test_021_notify_updates_standalone2(self):
@@ -226,8 +226,8 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.assertIsNone(response)
         self.assertEqual(self.src.mock_calls, [
             mock.call.updateable.__bool__(),
+            mock.call.features.__setitem__('updates-available', False),
         ])
-        self.assertEqual(self.src.updates_available, False)
         self.assertEqual(self.app.mock_calls, [
             mock.call.save()
         ])
@@ -237,8 +237,6 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         with self.assertRaises(AssertionError):
             self.call_mgmt_func(b'qubes.NotifyUpdates', payload=b'')
         self.assertEqual(self.src.mock_calls, [])
-        # not set property returns Mock()
-        self.assertIsInstance(self.src.updates_available, mock.Mock)
         self.assertEqual(self.app.mock_calls, [])
 
     def test_023_notify_updates_invalid2(self):
@@ -246,8 +244,6 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         with self.assertRaises(AssertionError):
             self.call_mgmt_func(b'qubes.NotifyUpdates', payload=b'no updates')
         self.assertEqual(self.src.mock_calls, [])
-        # not set property returns Mock()
-        self.assertIsInstance(self.src.updates_available, mock.Mock)
         self.assertEqual(self.app.mock_calls, [])
 
     def test_024_notify_updates_template_based_no_updates(self):
@@ -259,9 +255,6 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.assertEqual(self.src.mock_calls, [
             mock.call.template.is_running(),
         ])
-        # not set property returns Mock()
-        self.assertIsInstance(self.src.template.updates_available, mock.Mock)
-        self.assertIsInstance(self.src.updates_available, mock.Mock)
         self.assertEqual(self.app.mock_calls, [])
 
     def test_025_notify_updates_template_based(self):
@@ -273,10 +266,8 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.assertIsNone(response)
         self.assertEqual(self.src.mock_calls, [
             mock.call.template.is_running(),
+            mock.call.template.features.__setitem__('updates-available', True),
         ])
-        # not set property returns Mock()
-        self.assertIsInstance(self.src.updates_available, mock.Mock)
-        self.assertEqual(self.src.template.updates_available, True)
         self.assertEqual(self.app.mock_calls, [
             mock.call.save()
         ])
@@ -290,8 +281,6 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.assertEqual(self.src.mock_calls, [
             mock.call.template.is_running(),
         ])
-        # not set property returns Mock()
-        self.assertIsInstance(self.src.updates_available, mock.Mock)
         self.assertIsInstance(self.src.template.updates_available, mock.Mock)
         self.assertEqual(self.app.mock_calls, [])
 
@@ -304,8 +293,6 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         self.assertEqual(self.src.mock_calls, [
             mock.call.template.is_running(),
         ])
-        # not set property returns Mock()
-        self.assertIsInstance(self.src.template.updates_available, mock.Mock)
         self.assertIsInstance(self.src.updates_available, mock.Mock)
         self.assertEqual(self.app.mock_calls, [])
 

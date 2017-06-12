@@ -105,7 +105,7 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
 
         if self.src.updateable:
             # Just trust information from VM itself
-            self.src.updates_available = bool(update_count)
+            self.src.features['updates-available'] = bool(update_count)
             self.app.save()
         elif getattr(self.src, 'template', None) is not None:
             # Hint about updates availability in template
@@ -118,5 +118,6 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
                 # in the template - ignore info
                 if self.src.storage.outdated_volumes:
                     return
-                self.src.template.updates_available = bool(update_count)
+                self.src.template.features['updates-available'] = bool(
+                    update_count)
                 self.app.save()
