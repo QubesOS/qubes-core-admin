@@ -49,6 +49,9 @@ class AdminVM(qubes.vm.BaseVM):
         default='00000000-0000-0000-0000-000000000000',
         setter=qubes.property.forbidden)
 
+    def __str__(self):
+        return self.name
+
     @property
     def attached_volumes(self):
         return []
