@@ -631,8 +631,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     def __init__(self, app, xml, volume_config=None, **kwargs):
         super(QubesVM, self).__init__(app, xml, **kwargs)
-        self.volumes = {}
-        self.storage = None
 
         if volume_config is None:
             volume_config = {}

@@ -283,6 +283,12 @@ class BaseVM(qubes.PropertyHolder):
         #: logger instance for logging messages related to this VM
         self.log = None
 
+        #: storage volumes
+        self.volumes = {}
+
+        #: storage manager
+        self.storage = None
+
         if hasattr(self, 'name'):
             self.init_log()
 
