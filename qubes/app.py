@@ -1060,7 +1060,7 @@ class Qubes(qubes.PropertyHolder):
                 raise qubes.exc.QubesException(
                     'Cannot remove template that has dependent AppVMs. '
                     'Affected are: {}'.format(', '.join(
-                        vm.name for name in sorted(appvms))))
+                        appvm.name for appvm in sorted(appvms))))
 
 
     @qubes.events.handler('domain-delete')
