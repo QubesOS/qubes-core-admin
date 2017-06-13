@@ -219,21 +219,22 @@ class TC_21_Features(qubes.tests.QubesTestCase):
     def test_000_set(self):
         self.features['testfeature'] = 'value'
         self.assertEventFired(self.vm, 'domain-feature-set',
-            kwargs={'key': 'testfeature', 'value': 'value'})
+            kwargs={'feature': 'testfeature', 'value': 'value'})
 
     def test_001_set_existing(self):
-        self.features['test'] = 'value'
+        self.features['test'] = 'oldvalue'
         self.vm.fired_events.clear()
         self.features['test'] = 'value'
         self.assertEventFired(self.vm, 'domain-feature-set',
-            kwargs={'key': 'test', 'value': 'value'})
+            kwargs={'feature': 'test', 'value': 'value', 'oldvalue':
+                'oldvalue'})
 
     def test_002_unset(self):
         self.features['test'] = 'value'
         self.vm.fired_events.clear()
         del self.features['test']
         self.assertEventFired(self.vm, 'domain-feature-delete',
-            kwargs={'key': 'test'})
+            kwargs={'feature': 'test'})
 
     def test_003_unset_not_present(self):
         with self.assertRaises(KeyError):
@@ -244,18 +245,18 @@ class TC_21_Features(qubes.tests.QubesTestCase):
         self.features['test'] = True
         self.assertTrue(self.features['test'])
         self.assertEventFired(self.vm, 'domain-feature-set',
-            kwargs={'key': 'test', 'value': '1'})
+            kwargs={'feature': 'test', 'value': '1'})
 
     def test_005_set_bool_false(self):
         self.features['test'] = False
         self.assertFalse(self.features['test'])
         self.assertEventFired(self.vm, 'domain-feature-set',
-            kwargs={'key': 'test', 'value': ''})
+            kwargs={'feature': 'test', 'value': ''})
 
     def test_006_set_int(self):
         self.features['test'] = 123
         self.assertEventFired(self.vm, 'domain-feature-set',
-            kwargs={'key': 'test', 'value': '123'})
+            kwargs={'feature': 'test', 'value': '123'})
 
     def test_007_clear(self):
         self.features['test'] = 'value1'
@@ -263,9 +264,9 @@ class TC_21_Features(qubes.tests.QubesTestCase):
         self.vm.fired_events.clear()
         self.features.clear()
         self.assertEventFired(self.vm, 'domain-feature-delete',
-            kwargs={'key': 'test'})
+            kwargs={'feature': 'test'})
         self.assertEventFired(self.vm, 'domain-feature-delete',
-            kwargs={'key': 'test2'})
+            kwargs={'feature': 'test2'})
 
     def test_008_update(self):
         self.features['test'] = 'value'
@@ -276,6 +277,7 @@ class TC_21_Features(qubes.tests.QubesTestCase):
         self.assertEqual(self.features['test3'], 'value4')
         self.assertEqual(self.features['test'], 'value')
         self.assertEventFired(self.vm, 'domain-feature-set',
-            kwargs={'key': 'test2', 'value': 'value3'})
+            kwargs={'feature': 'test2', 'value': 'value3',
+                'oldvalue': 'value2'})
         self.assertEventFired(self.vm, 'domain-feature-set',
-            kwargs={'key': 'test3', 'value': 'value4'})
+            kwargs={'feature': 'test3', 'value': 'value4'})

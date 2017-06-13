@@ -95,17 +95,24 @@ class Features(dict):
 
     def __delitem__(self, key):
         super(Features, self).__delitem__(key)
-        self.vm.fire_event('domain-feature-delete', key=key)
+        self.vm.fire_event('domain-feature-delete', feature=key)
 
     def __setitem__(self, key, value):
         if value is None or isinstance(value, bool):
             value = '1' if value else ''
         else:
             value = str(value)
-        # TODO: perhaps this shouldn't be fired on unchanged value? or at
-        # least oldvalue should be provided?
-        self.vm.fire_event('domain-feature-set', key=key, value=value)
+        try:
+            oldvalue = self[key]
+            has_oldvalue = True
+        except KeyError:
+            has_oldvalue = False
         super(Features, self).__setitem__(key, value)
+        if has_oldvalue:
+            self.vm.fire_event('domain-feature-set', feature=key, value=value,
+                oldvalue=oldvalue)
+        else:
+            self.vm.fire_event('domain-feature-set', feature=key, value=value)
 
     def clear(self):
         for key in tuple(self):
@@ -225,8 +232,8 @@ class Tags(set):
             raise ValueError('Invalid character in tag')
         if elem in self:
             return
-        self.vm.fire_event('domain-tag-add', tag=elem)
         super(Tags, self).add(elem)
+        self.vm.fire_event('domain-tag-add', tag=elem)
 
     def remove(self, elem):
         '''Remove a tag'''

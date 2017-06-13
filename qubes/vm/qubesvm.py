@@ -276,14 +276,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-restore'``)
 
-        .. event:: domain-feature-set (subject, event, key, value)
+        .. event:: domain-feature-set (subject, event, feature, value
+            [, oldvalue])
 
             A feature was changed.
+            *oldvalue* is present only when there was any.
 
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-feature-set'``)
-            :param key: feature name
+            :param feature: feature name
             :param value: new value
+            :param oldvalue: old value, if any
 
         .. event:: domain-feature-delete (subject, event, key)
 
@@ -291,7 +294,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-feature-delete'``)
-            :param key: feature name
+            :param feature: feature name
 
         .. event:: domain-tag-add (subject, event, tag)
 
