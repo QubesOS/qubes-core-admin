@@ -2,7 +2,11 @@
     {% block basic %}
         <name>{{ vm.name }}</name>
         <uuid>{{ vm.uuid }}</uuid>
-        <memory unit="MiB">{{ vm.maxmem }}</memory>
+        {% if vm.hvm and vm.devices['pci'].persistent() | list %}
+            <memory unit="MiB">{{ vm.memory }}</memory>
+        {% else %}
+            <memory unit="MiB">{{ vm.maxmem }}</memory>
+        {% endif %}
         <currentMemory unit="MiB">{{ vm.memory }}</currentMemory>
         <vcpu placement="static">{{ vm.vcpus }}</vcpu>
     {% endblock %}
