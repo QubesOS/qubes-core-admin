@@ -101,18 +101,6 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
             ('fire_event', ('template-postinstall',), {})
         ])
 
-    def test_014_notify_tools_invalid_version(self):
-        del self.vm.template
-        with self.assertRaises(ValueError):
-            self.ext.qubes_features_request(self.vm, 'features-request',
-                untrusted_features={
-                    'version': 'this is invalid',
-                    'qrexec': '1',
-                    'gui': '1',
-                    'default-user': 'user',
-                })
-        self.assertEqual(self.vm.mock_calls, [])
-
     def test_015_notify_tools_invalid_value_qrexec(self):
         del self.vm.template
         self.ext.qubes_features_request(self.vm, 'features-request',

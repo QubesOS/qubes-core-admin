@@ -31,12 +31,6 @@ class CoreFeatures(qubes.ext.Extension):
                 'Ignoring qubes.NotifyTools for template-based VM')
             return
 
-        # for now used only to check for the tools presence
-        if 'version' in untrusted_features:
-            # any suspicious string will raise exception here,
-            # but otherwise ignored
-            int(untrusted_features['version'])
-
         requested_features = {}
         for feature in ('qrexec', 'gui'):
             untrusted_value = untrusted_features.get(feature, None)

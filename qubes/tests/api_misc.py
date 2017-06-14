@@ -125,13 +125,11 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             mock.call.save()
         ])
         self.assertEqual(self.src.mock_calls, [
-            mock.call.qdb.read('/qubes-tools/version'),
             mock.call.qdb.read('/qubes-tools/qrexec'),
             mock.call.qdb.read('/qubes-tools/gui'),
             mock.call.qdb.read('/qubes-tools/default-user'),
             mock.call.fire_event('features-request', untrusted_features={
                 'gui': '1',
-                'version': '1',
                 'default-user': 'user',
                 'qrexec': '1'}),
         ])
@@ -148,7 +146,6 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         response = self.call_mgmt_func(b'qubes.NotifyTools')
         self.assertIsNone(response)
         self.assertEqual(self.src.mock_calls, [
-            mock.call.qdb.read('/qubes-tools/version'),
             mock.call.qdb.read('/qubes-tools/qrexec'),
             mock.call.qdb.read('/qubes-tools/gui'),
             mock.call.qdb.read('/qubes-tools/default-user'),
@@ -158,23 +155,6 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
                 'qrexec': '1'}),
         ])
         self.assertEqual(self.app.mock_calls, [mock.call.save()])
-
-    def test_014_notify_tools_invalid_version(self):
-        qdb_entries = {
-            '/qubes-tools/version': b'this is invalid',
-            '/qubes-tools/qrexec': b'0',
-            '/qubes-tools/gui': b'0',
-            '/qubes-tools/os': b'Linux',
-            '/qubes-tools/default-user': b'user',
-        }
-        self.configure_qdb(qdb_entries)
-        with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'qubes.NotifyTools')
-        # should be rejected later
-        self.assertEqual(self.src.mock_calls, [
-            mock.call.qdb.read('/qubes-tools/version'),
-        ])
-        self.assertEqual(self.app.mock_calls, [])
 
     def test_015_notify_tools_invalid_value_qrexec(self):
         qdb_entries = {
@@ -189,7 +169,6 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             self.call_mgmt_func(b'qubes.NotifyTools')
         self.assertEqual(self.app.mock_calls, [])
         self.assertEqual(self.src.mock_calls, [
-            mock.call.qdb.read('/qubes-tools/version'),
             mock.call.qdb.read('/qubes-tools/qrexec'),
         ])
 
@@ -206,7 +185,6 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             self.call_mgmt_func(b'qubes.NotifyTools')
         self.assertEqual(self.app.mock_calls, [])
         self.assertEqual(self.src.mock_calls, [
-            mock.call.qdb.read('/qubes-tools/version'),
             mock.call.qdb.read('/qubes-tools/qrexec'),
             mock.call.qdb.read('/qubes-tools/gui'),
         ])
