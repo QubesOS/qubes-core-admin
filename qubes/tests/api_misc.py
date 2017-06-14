@@ -38,7 +38,8 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
     def configure_qdb(self, entries):
         self.src.configure_mock(**{
             'qdb.read.side_effect': (lambda path: entries.get(path, None)),
-            'qdb.list.side_effect': (lambda path: sorted(entries.keys())),
+            'qdb.list.side_effect': (lambda path:
+                sorted(map(str.encode, entries.keys()))),
         })
 
     def call_mgmt_func(self, method, arg=b'', payload=b''):
