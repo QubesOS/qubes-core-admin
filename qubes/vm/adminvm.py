@@ -52,6 +52,10 @@ class AdminVM(qubes.vm.BaseVM):
     def __str__(self):
         return self.name
 
+    def __lt__(self, other):
+        # order dom0 before anything
+        return self.name != other.name
+
     @property
     def attached_volumes(self):
         return []
