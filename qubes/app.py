@@ -220,7 +220,7 @@ class VMMConnection(object):
         events into qubes.events. This function should be called only in
         'qubesd' process and only when mainloop has been already set.
         '''
-        self._libvirt_conn.domainEventRegisterAny(
+        self.libvirt_conn.domainEventRegisterAny(
             None,  # any domain
             libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE,
             self._domain_event_callback,
