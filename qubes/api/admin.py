@@ -291,6 +291,24 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.dest.storage.get_pool(volume).revert(revision)
         self.app.save()
 
+    @qubes.api.method('admin.vm.volume.Clone')
+    @asyncio.coroutine
+    def vm_volume_clone(self, untrusted_payload):
+        assert self.arg in self.dest.volumes.keys()
+        untrusted_target = untrusted_payload.decode('ascii').strip()
+        del untrusted_payload
+        qubes.vm.validate_name(None, None, untrusted_target)
+        target_vm = self.app.domains[untrusted_target]
+        del untrusted_target
+        assert self.arg in target_vm.volumes.keys()
+
+        volume = self.dest.volumes[self.arg]
+
+        self.fire_event_for_permission(target_vm=target_vm, volume=volume)
+
+        yield from target_vm.storage.clone_volume(self.dest, self.arg)
+        self.app.save()
+
     @qubes.api.method('admin.vm.volume.Resize')
     @asyncio.coroutine
     def vm_volume_resize(self, untrusted_payload):
