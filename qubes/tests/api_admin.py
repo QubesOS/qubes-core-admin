@@ -1687,6 +1687,53 @@ class TC_00_VMs(AdminAPITestCase):
         self.assertEqual(func_mock.mock_calls, [])
         self.assertFalse(self.app.save.called)
 
+    def test_530_tag_list(self):
+        self.vm.tags.add('tag1')
+        self.vm.tags.add('tag2')
+        value = self.call_mgmt_func(b'admin.vm.tag.List', b'test-vm1')
+        self.assertEqual(value, 'tag1\ntag2\n')
+        self.assertFalse(self.app.save.called)
+
+    def test_540_tag_get(self):
+        self.vm.tags.add('tag1')
+        value = self.call_mgmt_func(b'admin.vm.tag.Get', b'test-vm1',
+            b'tag1')
+        self.assertEqual(value, '1')
+        self.assertFalse(self.app.save.called)
+
+    def test_541_tag_get_absent(self):
+        value = self.call_mgmt_func(b'admin.vm.tag.Get', b'test-vm1', b'tag1')
+        self.assertEqual(value, '0')
+        self.assertFalse(self.app.save.called)
+
+    def test_550_tag_remove(self):
+        self.vm.tags.add('tag1')
+        value = self.call_mgmt_func(b'admin.vm.tag.Remove', b'test-vm1',
+            b'tag1')
+        self.assertIsNone(value, None)
+        self.assertNotIn('tag1', self.vm.tags)
+        self.assertTrue(self.app.save.called)
+
+    def test_551_tag_remove_absent(self):
+        with self.assertRaises(qubes.exc.QubesTagNotFoundError):
+            self.call_mgmt_func(b'admin.vm.tag.Remove',
+                b'test-vm1', b'tag1')
+        self.assertFalse(self.app.save.called)
+
+    def test_560_tag_set(self):
+        value = self.call_mgmt_func(b'admin.vm.tag.Set',
+            b'test-vm1', b'tag1')
+        self.assertIsNone(value)
+        self.assertIn('tag1', self.vm.tags)
+        self.assertTrue(self.app.save.called)
+
+    def test_561_tag_set_invalid(self):
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'admin.vm.tag.Set',
+                b'test-vm1', b'+.some-tag')
+        self.assertNotIn('+.some-tag', self.vm.tags)
+        self.assertFalse(self.app.save.called)
+
     def test_990_vm_unexpected_payload(self):
         methods_with_no_payload = [
             b'admin.vm.List',

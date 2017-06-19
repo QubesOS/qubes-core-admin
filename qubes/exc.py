@@ -162,3 +162,12 @@ class QubesFeatureNotFoundError(QubesException, KeyError):
             'Feature not set for domain {}: {}'.format(domain, feature))
         self.feature = feature
         self.vm = domain
+
+class QubesTagNotFoundError(QubesException, KeyError):
+    '''Tag not set for a given domain'''
+
+    def __init__(self, domain, tag):
+        super().__init__('Tag not set for domain {}: {}'.format(
+            domain, tag))
+        self.vm = domain
+        self.tag = tag
