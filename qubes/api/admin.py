@@ -737,6 +737,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.fire_event_for_permission(pool=pool, pools=pools, **kwargs)
 
         vm = self.app.add_new_vm(vm_class, **kwargs)
+        # TODO: move this to extension (in race-free fashion)
         vm.tags.add('created-by-' + str(self.src))
 
         try:
