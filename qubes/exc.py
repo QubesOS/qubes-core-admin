@@ -101,7 +101,7 @@ class QubesVMNotHaltedError(QubesVMError):
 class QubesNoTemplateError(QubesVMError):
     '''Cannot start domain, because there is no template'''
     def __init__(self, vm, msg=None):
-        super(QubesNoTemplateError, self).__init__(
+        super(QubesNoTemplateError, self).__init__(vm,
             msg or 'Template for the domain {!r} not found'.format(vm.name))
 
 
