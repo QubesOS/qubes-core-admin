@@ -649,6 +649,8 @@ class SystemTestsMixin(object):
         self.reload_db()
 
     def tearDown(self):
+        self.remove_test_vms()
+
         # close the servers before super(), because that might close the loop
         for server in self.qubesd:
             for sock in server.sockets:
@@ -658,7 +660,6 @@ class SystemTestsMixin(object):
             server.wait_closed() for server in self.qubesd]))
 
         super(SystemTestsMixin, self).tearDown()
-        self.remove_test_vms()
 
         # remove all references to VM objects, to release resources - most
         # importantly file descriptors; this object will live
