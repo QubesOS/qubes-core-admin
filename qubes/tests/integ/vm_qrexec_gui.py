@@ -315,7 +315,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                 stdout, _ = self.loop.run_until_complete(asyncio.wait_for(
                     self.testvm1.run_for_stdio('''\
                         /usr/lib/qubes/qrexec-client-vm dom0 test.Abort \
-                            /bin/cat /dev/zero'''),
+                            /bin/cat /dev/zero; test $? -eq 141'''),
                     timeout=10))
             except asyncio.TimeoutError:
                 self.fail("Timeout, probably stdout wasn't closed")
