@@ -263,6 +263,7 @@ class _QrexecPolicyContext(object):
         self._handle.truncate(0)
         self._handle.seek(0)
         self._handle.write(''.join(rules))
+        self._handle.flush()
 
     def close(self):
         assert self._handle is not None
