@@ -37,6 +37,7 @@ import functools
 import logging
 import os
 import pathlib
+import shlex
 import shutil
 import subprocess
 import sys
@@ -961,6 +962,16 @@ class SystemTestsMixin(object):
             subprocess.check_call(['sudo', 'umount', mountpoint])
             shutil.rmtree(mountpoint)
             subprocess.check_call(['sudo', 'losetup', '-d', loopdev])
+
+    def create_local_file(self, filename, content, mode='w'):
+        with open(filename, mode) as file:
+            file.write(content)
+        self.addCleanup(os.unlink, filename)
+
+    def create_remote_file(self, vm, filename, content):
+        self.loop.run_until_complete(vm.run_for_stdio(
+            'cat > {}'.format(shlex.quote(filename)),
+            user='root', input=content.encode('utf-8')))
 
 
 def load_tests(loader, tests, pattern): # pylint: disable=unused-argument

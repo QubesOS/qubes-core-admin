@@ -20,21 +20,17 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
-from distutils import spawn
-
 import asyncio
 import multiprocessing
 import os
-import shlex
 import subprocess
-import time
 import unittest
+from distutils import spawn
 
 import qubes.config
 import qubes.tests
 import qubes.vm.appvm
 import qubes.vm.templatevm
-import re
 
 TEST_DATA = b"0123456789" * 1024
 
@@ -58,16 +54,6 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             template=self.app.domains[self.template])
         self.loop.run_until_complete(self.testvm2.create_on_disk())
         self.app.save()
-
-    def create_local_file(self, filename, content, mode='w'):
-        with open(filename, mode) as file:
-            file.write(content)
-        self.addCleanup(os.unlink, filename)
-
-    def create_remote_file(self, vm, filename, content):
-        self.loop.run_until_complete(vm.run_for_stdio(
-            'cat > {}'.format(shlex.quote(filename)),
-            user='root', input=content.encode('utf-8')))
 
     def test_000_start_shutdown(self):
         # TODO: wait_for, timeout
