@@ -641,13 +641,6 @@ class SystemTestsMixin(object):
             self.pool = self.app.add_pool(**POOL_CONF)
             self.created_pool = True
 
-    def reload_db(self):
-        self.app = qubes.Qubes(qubes.tests.XMLPATH)
-
-    def save_and_reload_db(self):
-        self.app.save()
-        self.reload_db()
-
     def tearDown(self):
         self.remove_test_vms()
 

@@ -763,7 +763,7 @@ class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
         self.loop.run_until_complete(self.testvm1.create_on_disk())
 
     def test_000_simple_update(self):
-        self.save_and_reload_db()
+        self.app.save()
         # reload the VM to have all the properties properly set (especially
         # default netvm)
         self.testvm1 = self.app.domains[self.testvm1.qid]

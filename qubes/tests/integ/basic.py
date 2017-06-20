@@ -77,13 +77,6 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
                                       label='red')
         self.loop.run_until_complete(self.vm.create_on_disk())
 
-    def save_and_reload_db(self):
-        super(TC_01_Properties, self).save_and_reload_db()
-        if hasattr(self, 'vm'):
-            self.vm = self.app.domains[self.vm.qid]
-        if hasattr(self, 'netvm'):
-            self.netvm = self.app.domains[self.netvm.qid]
-
     @unittest.expectedFailure
     def test_000_rename(self):
         newname = self.make_vm_name('newname')
@@ -167,7 +160,7 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.assertIn('source', testvm2.volumes['root'].config)
 
         # qubes.xml reload
-        self.save_and_reload_db()
+        self.app.save()
         testvm1 = self.app.domains[testvm1.qid]
         testvm2 = self.app.domains[testvm2.qid]
 
@@ -210,7 +203,7 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.loop.run_until_complete(testvm3.clone_disk_files(testvm1))
 
         # qubes.xml reload
-        self.save_and_reload_db()
+        self.app.save()
         testvm1 = self.app.domains[testvm1.qid]
         testvm3 = self.app.domains[testvm3.qid]
 
@@ -274,7 +267,7 @@ class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             name=self.make_vm_name("vm"),
             label='red')
         self.loop.run_until_complete(self.testvm.create_on_disk())
-        self.save_and_reload_db()
+        self.app.save()
 
     def setup_hvm(self):
         self.testvm = self.app.add_new_vm(
@@ -283,7 +276,7 @@ class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             label='red')
         self.testvm.hvm = True
         self.loop.run_until_complete(self.testvm.create_on_disk())
-        self.save_and_reload_db()
+        self.app.save()
 
     def pref_set(self, name, value, valid=True):
         p = subprocess.Popen(
@@ -388,7 +381,7 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestsMixin,
         self.test_template.clone_properties(self.app.default_template)
         self.loop.run_until_complete(
             self.test_template.clone_disk_files(self.app.default_template))
-        self.save_and_reload_db()
+        self.app.save()
 
     def setup_hvm_template(self):
         self.test_template = self.app.add_new_vm(
@@ -398,7 +391,7 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestsMixin,
             hvm=True
         )
         self.loop.run_until_complete(self.test_template.create_on_disk())
-        self.save_and_reload_db()
+        self.app.save()
 
     def get_rootimg_checksum(self):
         p = subprocess.Popen(

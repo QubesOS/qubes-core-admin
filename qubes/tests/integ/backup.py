@@ -171,9 +171,6 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
             else:
                 raise
 
-        # FIXME why?
-        #self.reload_db()
-
     def restore_backup(self, source=None, appvm=None, options=None,
                        expect_errors=None, manipulate_restore_info=None,
                        passphrase='qubes'):
@@ -196,9 +193,6 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
 
         with self.assertNotRaises(qubes.exc.QubesException):
             restore_op.restore_do(restore_info)
-
-        # maybe someone forgot to call .save()
-        self.reload_db()
 
         errors = []
         if expect_errors is None:

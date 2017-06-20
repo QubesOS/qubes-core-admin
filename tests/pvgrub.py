@@ -87,7 +87,7 @@ class TC_40_PVGrub(qubes.tests.SystemTestsMixin):
         testvm1.create_on_disk(verbose=False,
                                source_template=self.qc.get_vm_by_name(
                                    self.template))
-        self.save_and_reload_db()
+        self.app.save()
         self.qc.unlock_db()
         testvm1 = self.qc[testvm1.qid]
         testvm1.start()
@@ -99,7 +99,7 @@ class TC_40_PVGrub(qubes.tests.SystemTestsMixin):
         self.qc.load()
         testvm1 = self.qc[testvm1.qid]
         testvm1.kernel = 'pvgrub2'
-        self.save_and_reload_db()
+        self.app.save()
         self.qc.unlock_db()
         testvm1 = self.qc[testvm1.qid]
         testvm1.start()
@@ -121,7 +121,7 @@ class TC_40_PVGrub(qubes.tests.SystemTestsMixin):
                                      name=self.make_vm_name('vm1'))
         testvm1.create_on_disk(verbose=False,
                                source_template=test_template)
-        self.save_and_reload_db()
+        self.app.save()
         self.qc.unlock_db()
         test_template = self.qc[test_template.qid]
         testvm1 = self.qc[testvm1.qid]
@@ -136,7 +136,7 @@ class TC_40_PVGrub(qubes.tests.SystemTestsMixin):
         test_template.kernel = 'pvgrub2'
         testvm1 = self.qc[testvm1.qid]
         testvm1.kernel = 'pvgrub2'
-        self.save_and_reload_db()
+        self.app.save()
         self.qc.unlock_db()
 
         # Check if TemplateBasedVM boots and has the right kernel

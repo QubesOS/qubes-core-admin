@@ -52,7 +52,7 @@ class ExtraTestCase(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
                                     template=template,
                                     label='red')
             vm.create_on_disk()
-        self.save_and_reload_db()
+        self.app.save()
 
         # get objects after reload
         vms = []

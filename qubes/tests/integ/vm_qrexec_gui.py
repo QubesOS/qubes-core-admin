@@ -963,7 +963,7 @@ class TC_10_Generic(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             label='red',
             template=self.app.default_template)
         self.loop.run_until_complete(self.vm.create_on_disk())
-        self.save_and_reload_db()
+        self.app.save()
         self.vm = self.app.domains[self.vm.qid]
 
     def test_000_anyvm_deny_dom0(self):

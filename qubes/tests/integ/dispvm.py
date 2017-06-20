@@ -59,7 +59,6 @@ class TC_04_DispVM(qubes.tests.SystemTestsMixin,
         dispvm_name = lines[1]
         # wait for actual DispVM destruction
         time.sleep(1)
-        self.reload_db()
         self.assertNotIn(dispvm_name, self.app.domains)
 
     @unittest.expectedFailure
@@ -90,7 +89,6 @@ class TC_04_DispVM(qubes.tests.SystemTestsMixin,
         dispvm_name = lines[0]
         self.assertNotEquals(dispvm_name, b"ERROR")
 
-        self.reload_db()
         self.assertNotIn(dispvm_name, self.app.domains)
 
 class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
@@ -146,7 +144,6 @@ class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
         finally:
             dispvm.cleanup()
 
-        self.reload_db()
         self.assertNotIn(dispvm.name, self.app.domains,
                           "DispVM not removed from qubes.xml")
 
