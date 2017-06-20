@@ -285,7 +285,7 @@ class _QrexecPolicyContext(object):
                 self.close()
         else:
             self.close()
-            os.unlink(self._filename)
+            self._filename.unlink()
 
 class substitute_entry_points(object):
     '''Monkey-patch pkg_resources to substitute one group in iter_entry_points
