@@ -103,18 +103,6 @@ def _setter_kernel(self, prop, value):
     if '/' in value:
         raise qubes.exc.QubesPropertyValueError(self, prop, value,
             'Kernel name cannot contain \'/\'')
-    dirname = os.path.join(
-        qubes.config.system_path['qubes_base_dir'],
-        qubes.config.system_path['qubes_kernels_base_dir'],
-        value)
-    if not os.path.exists(dirname):
-        raise qubes.exc.QubesPropertyValueError(self, prop, value,
-            'Kernel {!r} not installed'.format(value))
-    for filename in ('vmlinuz', 'initramfs'):
-        if not os.path.exists(os.path.join(dirname, filename)):
-            raise qubes.exc.QubesPropertyValueError(self, prop, value,
-                'Kernel {!r} not properly installed: missing {!r} file'.format(
-                    value, filename))
     return value
 
 
@@ -763,6 +751,24 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if self.autostart:
             subprocess.check_call(['sudo', 'systemctl', '-q', 'disable',
                                    'qubes-vm@{}.service'.format(oldvalue)])
+
+    @qubes.events.handler('property-pre-set:kernel')
+    def on_property_pre_set_kernel(self, event, name, newvalue, oldvalue=None):
+        # pylint: disable=unused-argument
+        dirname = os.path.join(
+            qubes.config.system_path['qubes_base_dir'],
+            qubes.config.system_path['qubes_kernels_base_dir'],
+            newvalue)
+        if not os.path.exists(dirname):
+            raise qubes.exc.QubesPropertyValueError(self,
+                self.property_get_def(name), newvalue,
+                'Kernel {!r} not installed'.format(newvalue))
+        for filename in ('vmlinuz', 'initramfs'):
+            if not os.path.exists(os.path.join(dirname, filename)):
+                raise qubes.exc.QubesPropertyValueError(self,
+                    self.property_get_def(name), newvalue,
+                    'Kernel {!r} not properly installed: '
+                    'missing {!r} file'.format(newvalue, filename))
 
     @qubes.events.handler('property-set:name')
     def on_property_set_name(self, event, name, newvalue, oldvalue=None):
