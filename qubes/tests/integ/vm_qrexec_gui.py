@@ -983,10 +983,12 @@ class TC_10_Generic(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.loop.run_until_complete(self.vm.start())
         with self.qrexec_policy('test.AnyvmDeny', self.vm, '$anyvm'):
             with self.assertRaises(subprocess.CalledProcessError,
-                    msg='$anyvm matched dom0'):
-                stdout, stderr = self.loop.run_until_complete(
+                    msg='$anyvm matched dom0') as e:
+                self.loop.run_until_complete(
                     self.vm.run_for_stdio(
                         '/usr/lib/qubes/qrexec-client-vm dom0 test.AnyvmDeny'))
+            stdout = e.exception.output
+            stderr = e.exception.stderr
         self.assertFalse(os.path.exists(flagfile),
             'Flag file created (service was run) even though should be denied,'
             ' qrexec-client-vm output: {} {}'.format(stdout, stderr))
