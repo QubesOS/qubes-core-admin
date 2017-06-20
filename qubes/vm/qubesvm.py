@@ -1095,10 +1095,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         stdouterr = yield from p.communicate(input=input)
 
         if p.returncode:
-            raise qubes.exc.QubesVMError(self,
-                'service {!r} failed with retcode {!r}; '
-                'stdout={!r} stderr={!r}'.format(
-                    args[0], p.returncode, *stdouterr))
+            raise subprocess.CalledProcessError(p.returncode,
+                args[0], *stdouterr)
 
         return stdouterr
 
@@ -1142,10 +1140,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         stdouterr = yield from p.communicate(input=input)
 
         if p.returncode:
-            raise qubes.exc.QubesVMError(self,
-                'service {!r} failed with retcode {!r}; '
-                'stdout={!r} stderr={!r}'.format(
-                    args[0], p.returncode, *stdouterr))
+            raise subprocess.CalledProcessError(p.returncode,
+                args[0], *stdouterr)
 
         return stdouterr
 
