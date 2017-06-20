@@ -582,13 +582,9 @@ class SystemTestsMixin(object):
             qubes.config.system_path['qubes_store_filename']))
         if os.path.exists(CLASS_XMLPATH):
             shutil.copy(CLASS_XMLPATH, XMLPATH)
-            self.app = qubes.Qubes(XMLPATH)
         else:
-            self.app = qubes.Qubes.create_empty_store(qubes.tests.XMLPATH,
-                default_kernel=self.host_app.default_kernel,
-                clockvm=None,
-                updatevm=None
-            )
+            shutil.copy(self.host_app.store, XMLPATH)
+        self.app = qubes.Qubes(XMLPATH)
         os.environ['QUBES_XML_PATH'] = XMLPATH
 
         self.qubesd = self.loop.run_until_complete(
@@ -603,22 +599,7 @@ class SystemTestsMixin(object):
         elif isinstance(template, str):
             template = self.host_app.domains[template]
 
-        used_pools = [vol.pool for vol in template.volumes.values()]
-
-        for pool in used_pools:
-            if pool in self.app.pools:
-                continue
-            self.app.add_pool(**self.host_app.pools[pool].config)
-
-        template_vm = self.app.add_new_vm(qubes.vm.templatevm.TemplateVM,
-            name=template.name,
-            uuid=template.uuid,
-            label='black')
-        for name, volume in template_vm.volumes.items():
-            if volume.pool != template.volumes[name].pool:
-                template_vm.storage.init_volume(name,
-                    template.volumes[name].config)
-        self.app.default_template = template_vm
+        self.app.default_template = str(template)
 
     def init_networking(self):
         if not self.app.default_template:
@@ -633,19 +614,8 @@ class SystemTestsMixin(object):
         if not default_netvm.is_running():
             self.skipTest('VM {} required to be running'.format(
                 default_netvm.name))
-        # Add NetVM stub to qubes-test.xml matching the one on host.
-        # Keeping 'qid' the same is critical because IP addresses are
-        # calculated from it.
-        # Intentionally don't copy template (use default), as it may be based
-        #  on a different one than actually testing.
-        netvm_clone = self.app.add_new_vm(default_netvm.__class__,
-            qid=default_netvm.qid,
-            name=default_netvm.name,
-            uuid=default_netvm.uuid,
-            label=default_netvm.label,
-            provides_network=True
-        )
-        self.app.default_netvm = netvm_clone
+
+        self.app.default_netvm = str(default_netvm)
 
 
     def _find_pool(self, volume_group, thin_pool):
