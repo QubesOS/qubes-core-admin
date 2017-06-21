@@ -938,6 +938,13 @@ class SystemTestsMixin(object):
             'cat > {}'.format(shlex.quote(filename)),
             user='root', input=content.encode('utf-8')))
 
+    @asyncio.coroutine
+    def wait_for_session(self, vm):
+        yield from asyncio.wait_for(
+            vm.run_service_for_stdio(
+                'qubes.WaitForSession', input=vm.default_user.encode()),
+            timeout=30)
+
 
 def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
     # discard any tests from this module, because it hosts base classes

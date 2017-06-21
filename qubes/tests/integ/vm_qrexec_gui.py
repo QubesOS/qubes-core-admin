@@ -68,6 +68,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.testvm1.get_power_state(), "Running")
 
+        self.loop.run_until_complete(self.wait_for_session(self.testvm1))
         p = self.loop.run_until_complete(self.testvm1.run('xterm'))
         try:
             wait_count = 0
@@ -110,6 +111,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             self.skipTest("Minimal template doesn't have 'gnome-terminal'")
         self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.testvm1.get_power_state(), "Running")
+        self.loop.run_until_complete(self.wait_for_session(self.testvm1))
         p = self.loop.run_until_complete(self.testvm1.run('gnome-terminal'))
         try:
             title = 'user@{}'.format(self.testvm1.name)
@@ -163,6 +165,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             pass
         else:
             xterm_desktop_path = xterm_desktop_path_debian
+        self.loop.run_until_complete(self.wait_for_session(self.testvm1))
         self.loop.run_until_complete(
             self.testvm1.run('qubes-desktop-run {}'.format(xterm_desktop_path)))
         title = 'user@{}'.format(self.testvm1.name)
@@ -687,6 +690,8 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             self.testvm1.start(),
             self.testvm2.start()]))
 
+        self.loop.run_until_complete(self.wait_for_session(self.testvm1))
+
         # Prepare test file
         self.loop.run_until_complete(self.testvm1.run_for_stdio(
             'yes teststring | dd of=testfile bs=1M count=50 iflag=fullblock'))
@@ -818,6 +823,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         # exclude from memory balancing
         self.testvm1.features['services/meminfo-writer'] = False
         yield from self.testvm1.start()
+        yield from self.wait_for_session(self.testvm1)
 
         # and allow large map count
         yield from self.testvm1.run('echo 256000 > /proc/sys/vm/max_map_count',
