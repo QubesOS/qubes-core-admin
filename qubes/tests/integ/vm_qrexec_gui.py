@@ -497,8 +497,9 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         with self.qrexec_policy('test.Argument', '$anyvm', '$anyvm', False):
             with self.qrexec_policy('test.Argument+argument',
                     self.testvm1.name, self.testvm2.name):
-                stdout, stderr = self.loop.run_until_complete(self.testvm1.run(
-                    '/usr/lib/qubes/qrexec-client-vm '
+                stdout, stderr = self.loop.run_until_complete(
+                    self.testvm1.run_for_stdio(
+                        '/usr/lib/qubes/qrexec-client-vm '
                         '{} test.Argument+argument'.format(self.testvm2.name)))
         self.assertEqual(stdout, b'argument')
 
@@ -516,7 +517,8 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                 with self.assertRaises(subprocess.CalledProcessError,
                         msg='Service request should be denied'):
                     self.loop.run_until_complete(
-                        self.testvm1.run('/usr/lib/qubes/qrexec-client-vm {} '
+                        self.testvm1.run_for_stdio(
+                            '/usr/lib/qubes/qrexec-client-vm {} '
                             'test.Argument+argument'.format(self.testvm2.name)))
 
     def test_083_qrexec_service_argument_specific_implementation(self):
@@ -564,12 +566,12 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
 
         with self.qrexec_policy('qubes.Filecopy', self.testvm1, self.testvm2):
             try:
-                stdout, stderr = self.loop.run_until_complete(
+                self.loop.run_until_complete(
                     self.testvm1.run_for_stdio(
                         'qvm-copy-to-vm {} /etc/passwd'.format(
                             self.testvm2.name)))
-            except subprocess.CalledProcessError:
-                self.fail('qvm-copy-to-vm failed: {}'.format(stderr))
+            except subprocess.CalledProcessError as e:
+                self.fail('qvm-copy-to-vm failed: {}'.format(e.stderr))
 
         try:
             self.loop.run_until_complete(self.testvm2.run_for_stdio(
@@ -593,11 +595,11 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
             'cp /etc/passwd passwd'))
         with self.qrexec_policy('qubes.Filecopy', self.testvm1, self.testvm2):
             try:
-                stdout, stderr = self.loop.run_until_complete(
+                self.loop.run_until_complete(
                     self.testvm1.run_for_stdio(
                         'qvm-move-to-vm {} passwd'.format(self.testvm2.name)))
-            except subprocess.CalledProcessError:
-                self.fail('qvm-move-to-vm failed: {}'.format(stderr))
+            except subprocess.CalledProcessError as e:
+                self.fail('qvm-move-to-vm failed: {}'.format(e.stderr))
 
         try:
             self.loop.run_until_complete(self.testvm2.run_for_stdio(
@@ -615,12 +617,12 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
 
         with self.qrexec_policy('qubes.Filecopy', self.testvm1, self.testvm2):
             try:
-                stdout, stderr = self.loop.run_until_complete(
+                self.loop.run_until_complete(
                     self.testvm1.run_for_stdio(
                         'qvm-copy-to-vm {} /etc/passwd'.format(
                             self.testvm2.name)))
-            except subprocess.CalledProcessError:
-                self.fail('qvm-copy-to-vm failed: {}'.format(stderr))
+            except subprocess.CalledProcessError as e:
+                self.fail('qvm-copy-to-vm failed: {}'.format(e.stderr))
 
         # workaround for libvirt bug (domain ID isn't updated when is started
         #  from other application) - details in
@@ -650,7 +652,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         with self.qrexec_policy('qubes.Filecopy', self.testvm1, self.testvm2,
                 allow=False):
             with self.assertRaises(subprocess.CalledProcessError):
-                stdout, stderr = self.loop.run_until_complete(
+                self.loop.run_until_complete(
                     self.testvm1.run_for_stdio(
                         'qvm-copy-to-vm {} /etc/passwd'.format(
                             self.testvm2.name)))
