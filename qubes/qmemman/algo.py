@@ -42,10 +42,11 @@ def sanitize_and_parse_meminfo(untrusted_meminfo):
     # new syntax - just one int
     try:
         if int(untrusted_meminfo) >= 0:
-            return int(untrusted_meminfo)
+            return int(untrusted_meminfo) * 1024
     except ValueError:
         pass
 
+    untrusted_meminfo = untrusted_meminfo.decode('ascii', errors='strict')
     # not new syntax - try the old one
     untrusted_dict = {}
     # split meminfo contents into lines
@@ -61,9 +62,9 @@ def sanitize_and_parse_meminfo(untrusted_meminfo):
     if not is_meminfo_suspicious(untrusted_dict):
         # sanitize end
         meminfo = untrusted_dict
-        return meminfo['MemTotal'] - \
-            meminfo['MemFree'] - meminfo['Cached'] - meminfo['Buffers'] + \
-            meminfo['SwapTotal'] - meminfo['SwapFree']
+        return (meminfo['MemTotal'] -
+            meminfo['MemFree'] - meminfo['Cached'] - meminfo['Buffers'] +
+            meminfo['SwapTotal'] - meminfo['SwapFree']) * 1024
 
 
     return None
@@ -78,7 +79,7 @@ def is_meminfo_suspicious(untrusted_meminfo):
     try:
         for i in ('MemTotal', 'MemFree', 'Buffers', 'Cached',
                 'SwapTotal', 'SwapFree'):
-            val = int(untrusted_meminfo[i])*1024
+            val = int(untrusted_meminfo[i])
             if val < 0:
                 ret = True
             untrusted_meminfo[i] = val
