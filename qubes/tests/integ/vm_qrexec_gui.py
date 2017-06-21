@@ -326,10 +326,10 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
     def test_060_qrexec_exit_code_dom0(self):
         self.loop.run_until_complete(self.testvm1.start())
         self.loop.run_until_complete(self.testvm1.run_for_stdio('exit 0'))
-        with self.assertRaises(subprocess.CalledProcessError):
+        with self.assertRaises(subprocess.CalledProcessError) as e:
             self.loop.run_until_complete(self.testvm1.run_for_stdio('exit 3'))
+        self.assertEqual(e.exception.returncode, 3)
 
-    @unittest.expectedFailure
     def test_065_qrexec_exit_code_vm(self):
         self.loop.run_until_complete(asyncio.wait([
             self.testvm1.start(),
@@ -340,18 +340,16 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                 'exit 0')
             (stdout, stderr) = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio('''\
-                    /usr/lib/qubes/qrexec-client-vm {} test.Retcode \
-                        /bin/sh -c 'cat >/dev/null';
-                        echo $?'''.format(self.testvm1.name)))
+                    /usr/lib/qubes/qrexec-client-vm {} test.Retcode;
+                        echo $?'''.format(self.testvm2.name)))
             self.assertEqual(stdout, b'0\n')
 
             self.create_remote_file(self.testvm2, '/etc/qubes-rpc/test.Retcode',
                 'exit 3')
             (stdout, stderr) = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio('''\
-                    /usr/lib/qubes/qrexec-client-vm {} test.Retcode \
-                        /bin/sh -c 'cat >/dev/null';
-                        echo $?'''.format(self.testvm1.name)))
+                    /usr/lib/qubes/qrexec-client-vm {} test.Retcode;
+                        echo $?'''.format(self.testvm2.name)))
             self.assertEqual(stdout, b'3\n')
 
     def test_070_qrexec_vm_simultaneous_write(self):
