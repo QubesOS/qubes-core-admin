@@ -23,9 +23,7 @@ import socket
 import unittest.mock
 
 import qubes.api
-import qubes.api.admin
 import qubes.tests
-import qubes.tools.qubesd
 
 
 class TestMgmt(object):
@@ -102,7 +100,7 @@ class TC_00_QubesDaemonProtocol(qubes.tests.QubesTestCase):
             asyncio.open_connection(sock=self.sock_client))
 
         connect_coro = self.loop.create_connection(
-            lambda: qubes.tools.qubesd.QubesDaemonProtocol(
+            lambda: qubes.api.QubesDaemonProtocol(
                 TestMgmt, app=self.app),
             sock=self.sock_server)
         self.transport, self.protocol = self.loop.run_until_complete(

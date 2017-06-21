@@ -299,6 +299,7 @@ fi
 %{python3_sitelib}/qubes/tests/run.py
 %{python3_sitelib}/qubes/tests/extra.py
 
+%{python3_sitelib}/qubes/tests/api.py
 %{python3_sitelib}/qubes/tests/api_admin.py
 %{python3_sitelib}/qubes/tests/api_misc.py
 %{python3_sitelib}/qubes/tests/app.py
@@ -333,7 +334,6 @@ fi
 %dir %{python3_sitelib}/qubes/tests/tools/__pycache__
 %{python3_sitelib}/qubes/tests/tools/__pycache__/*
 %{python3_sitelib}/qubes/tests/tools/__init__.py
-%{python3_sitelib}/qubes/tests/tools/qubesd.py
 
 %dir %{python3_sitelib}/qubes/tests/integ
 %dir %{python3_sitelib}/qubes/tests/integ/__pycache__
