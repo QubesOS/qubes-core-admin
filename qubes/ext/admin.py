@@ -29,6 +29,8 @@ class AdminExtension(qubes.ext.Extension):
         '''Forbid changing specific tags'''
         # pylint: disable=no-self-use,unused-argument
         if arg.startswith('created-by-'):
-            raise qubes.api.PermissionDenied()
+            raise qubes.api.PermissionDenied(
+                'changing this tag is prohibited by {}.{}'.format(
+                    __name__, type(self).__name__))
 
-    # TODO create that extension in the first place
+    # TODO create that tag here (need to figure out how to pass mgmtvm name)
