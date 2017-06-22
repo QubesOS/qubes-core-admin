@@ -137,7 +137,7 @@ class XS_Watcher(object):
         self.log.debug('meminfo_changed(domain_id={!r})'.format(domain_id))
         untrusted_meminfo_key = self.handle.read(
             '', get_domain_meminfo_key(domain_id))
-        if untrusted_meminfo_key == None or untrusted_meminfo_key == '':
+        if untrusted_meminfo_key == None or untrusted_meminfo_key == b'':
             return
 
         self.log.debug('acquiring global_lock')
