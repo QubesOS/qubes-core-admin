@@ -431,46 +431,43 @@ class Storage(object):
         os.umask(old_umask)
 
     @asyncio.coroutine
-    def clone(self, src_vm):
-        ''' Clone volumes from the specified vm '''
+    def clone_volume(self, src_vm, name):
+        ''' Clone single volume from the specified vm
+
+        :param QubesVM src_vm: source VM
+        :param str name: name of volume to clone ('root', 'private' etc)
+        :return cloned volume object
+        '''
+        config = self.vm.volume_config[name]
+        dst_pool = self.vm.app.get_pool(config['pool'])
+        dst = dst_pool.init_volume(self.vm, config)
+        src_volume = src_vm.volumes[name]
+        src_pool = src_volume.pool
+        if dst_pool == src_pool:
+            msg = "Cloning volume {!s} from vm {!s}"
+            self.vm.log.info(msg.format(src_volume.name, src_vm.name))
+            clone_op_ret = dst_pool.clone(src_volume, dst)
+        else:
+            msg = "Importing volume {!s} from vm {!s}"
+            self.vm.log.info(msg.format(src_volume.name, src_vm.name))
+            clone_op_ret = dst_pool.import_volume(
+                dst_pool, dst, src_pool, src_volume)
 
         # clone/import functions may be either synchronous or asynchronous
         # in the later case, we need to wait for them to finish
-        clone_op = {}
+        if asyncio.iscoroutine(clone_op_ret):
+            clone_op_ret = yield from clone_op_ret
+        self.vm.volumes[name] = clone_op_ret
+        return self.vm.volumes[name]
+
+    @asyncio.coroutine
+    def clone(self, src_vm):
+        ''' Clone volumes from the specified vm '''
 
         self.vm.volumes = {}
         with VmCreationManager(self.vm):
-            for name, config in self.vm.volume_config.items():
-                dst_pool = self.vm.app.get_pool(config['pool'])
-                dst = dst_pool.init_volume(self.vm, config)
-                src_volume = src_vm.volumes[name]
-                src_pool = src_volume.pool
-                if dst_pool == src_pool:
-                    msg = "Cloning volume {!s} from vm {!s}"
-                    self.vm.log.info(msg.format(src_volume.name, src_vm.name))
-                    clone_op_ret = dst_pool.clone(src_volume, dst)
-                else:
-                    msg = "Importing volume {!s} from vm {!s}"
-                    self.vm.log.info(msg.format(src_volume.name, src_vm.name))
-                    clone_op_ret = dst_pool.import_volume(
-                            dst_pool, dst, src_pool, src_volume)
-                if asyncio.iscoroutine(clone_op_ret):
-                    clone_op[name] = asyncio.ensure_future(clone_op_ret)
-
-            yield from asyncio.wait(x for x in clone_op.values()
-                if inspect.isawaitable(x))
-
-            for name, clone_op_ret in clone_op.items():
-                if inspect.isawaitable(clone_op_ret):
-                    volume = clone_op_ret.result
-                else:
-                    volume = clone_op_ret
-
-                assert volume, "%s.clone() returned '%s'" % (
-                    self.vm.app.get_pool(self.vm.volume_config[name]['pool']).
-                        __class__.__name__, volume)
-
-                self.vm.volumes[name] = volume
+            yield from asyncio.wait(self.clone_volume(src_vm, vol_name)
+                for vol_name in self.vm.volume_config.keys())
 
     @property
     def outdated_volumes(self):

@@ -101,7 +101,7 @@ class QubesVMNotHaltedError(QubesVMError):
 class QubesNoTemplateError(QubesVMError):
     '''Cannot start domain, because there is no template'''
     def __init__(self, vm, msg=None):
-        super(QubesNoTemplateError, self).__init__(
+        super(QubesNoTemplateError, self).__init__(vm,
             msg or 'Template for the domain {!r} not found'.format(vm.name))
 
 
@@ -162,3 +162,12 @@ class QubesFeatureNotFoundError(QubesException, KeyError):
             'Feature not set for domain {}: {}'.format(domain, feature))
         self.feature = feature
         self.vm = domain
+
+class QubesTagNotFoundError(QubesException, KeyError):
+    '''Tag not set for a given domain'''
+
+    def __init__(self, domain, tag):
+        super().__init__('Tag not set for domain {}: {}'.format(
+            domain, tag))
+        self.vm = domain
+        self.tag = tag

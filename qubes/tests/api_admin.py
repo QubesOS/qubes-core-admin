@@ -1598,6 +1598,142 @@ class TC_00_VMs(AdminAPITestCase):
                 self.call_mgmt_func(b'admin.vm.volume.Import', b'test-vm1',
                     b'private')
 
+    def test_520_vm_volume_clone(self):
+        self.vm2 = self.app.add_new_vm('AppVM', label='red', name='test-vm2',
+            template='test-template')
+        self.vm.volumes = unittest.mock.MagicMock()
+        self.vm2.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm2.volumes.configure_mock(**volumes_conf)
+        self.vm2.storage = unittest.mock.Mock()
+        func_mock = unittest.mock.Mock()
+
+        @asyncio.coroutine
+        def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+        self.vm2.storage.clone_volume = coroutine_mock
+
+        self.call_mgmt_func(b'admin.vm.volume.Clone',
+                b'test-vm1', b'private', b'test-vm2')
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [('keys', (), {}),
+             ('__getitem__', ('private', ), {}),
+             ('__getitem__().__hash__', (), {}),
+            ])
+        self.assertEqual(self.vm2.volumes.mock_calls,
+            [unittest.mock.call.keys()])
+        self.assertEqual(self.vm2.storage.mock_calls, [])
+        self.assertEqual(func_mock.mock_calls, [
+            unittest.mock.call(self.vm, 'private')
+        ])
+        self.app.save.assert_called_once_with()
+
+    def test_521_vm_volume_clone_invalid_volume(self):
+        self.vm2 = self.app.add_new_vm('AppVM', label='red', name='test-vm2',
+            template='test-template')
+        self.vm.volumes = unittest.mock.MagicMock()
+        self.vm2.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm2.volumes.configure_mock(**volumes_conf)
+        self.vm2.storage = unittest.mock.Mock()
+        func_mock = unittest.mock.Mock()
+
+        @asyncio.coroutine
+        def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+        self.vm2.storage.clone_volume = coroutine_mock
+
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'admin.vm.volume.Clone',
+                    b'test-vm1', b'private123', b'test-vm2')
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [('keys', (), {})])
+        self.assertEqual(self.vm2.volumes.mock_calls, [])
+        self.assertEqual(self.vm2.storage.mock_calls, [])
+        self.assertEqual(func_mock.mock_calls, [])
+        self.assertFalse(self.app.save.called)
+
+    def test_522_vm_volume_clone_invalid_vm(self):
+        self.vm2 = self.app.add_new_vm('AppVM', label='red', name='test-vm2',
+            template='test-template')
+        self.vm.volumes = unittest.mock.MagicMock()
+        self.vm2.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm2.volumes.configure_mock(**volumes_conf)
+        self.vm2.storage = unittest.mock.Mock()
+        func_mock = unittest.mock.Mock()
+
+        @asyncio.coroutine
+        def coroutine_mock(*args, **kwargs):
+            return func_mock(*args, **kwargs)
+        self.vm2.storage.clone_volume = coroutine_mock
+
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'admin.vm.volume.Clone',
+                    b'test-vm1', b'private123', b'no-such-vm')
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [('keys', (), {})])
+        self.assertEqual(self.vm2.volumes.mock_calls, [])
+        self.assertEqual(self.vm2.storage.mock_calls, [])
+        self.assertEqual(func_mock.mock_calls, [])
+        self.assertFalse(self.app.save.called)
+
+    def test_530_tag_list(self):
+        self.vm.tags.add('tag1')
+        self.vm.tags.add('tag2')
+        value = self.call_mgmt_func(b'admin.vm.tag.List', b'test-vm1')
+        self.assertEqual(value, 'tag1\ntag2\n')
+        self.assertFalse(self.app.save.called)
+
+    def test_540_tag_get(self):
+        self.vm.tags.add('tag1')
+        value = self.call_mgmt_func(b'admin.vm.tag.Get', b'test-vm1',
+            b'tag1')
+        self.assertEqual(value, '1')
+        self.assertFalse(self.app.save.called)
+
+    def test_541_tag_get_absent(self):
+        value = self.call_mgmt_func(b'admin.vm.tag.Get', b'test-vm1', b'tag1')
+        self.assertEqual(value, '0')
+        self.assertFalse(self.app.save.called)
+
+    def test_550_tag_remove(self):
+        self.vm.tags.add('tag1')
+        value = self.call_mgmt_func(b'admin.vm.tag.Remove', b'test-vm1',
+            b'tag1')
+        self.assertIsNone(value, None)
+        self.assertNotIn('tag1', self.vm.tags)
+        self.assertTrue(self.app.save.called)
+
+    def test_551_tag_remove_absent(self):
+        with self.assertRaises(qubes.exc.QubesTagNotFoundError):
+            self.call_mgmt_func(b'admin.vm.tag.Remove',
+                b'test-vm1', b'tag1')
+        self.assertFalse(self.app.save.called)
+
+    def test_560_tag_set(self):
+        value = self.call_mgmt_func(b'admin.vm.tag.Set',
+            b'test-vm1', b'tag1')
+        self.assertIsNone(value)
+        self.assertIn('tag1', self.vm.tags)
+        self.assertTrue(self.app.save.called)
+
+    def test_561_tag_set_invalid(self):
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'admin.vm.tag.Set',
+                b'test-vm1', b'+.some-tag')
+        self.assertNotIn('+.some-tag', self.vm.tags)
+        self.assertFalse(self.app.save.called)
+
     def test_990_vm_unexpected_payload(self):
         methods_with_no_payload = [
             b'admin.vm.List',

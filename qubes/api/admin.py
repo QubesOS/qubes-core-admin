@@ -293,6 +293,24 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.dest.storage.get_pool(volume).revert(revision)
         self.app.save()
 
+    @qubes.api.method('admin.vm.volume.Clone')
+    @asyncio.coroutine
+    def vm_volume_clone(self, untrusted_payload):
+        assert self.arg in self.dest.volumes.keys()
+        untrusted_target = untrusted_payload.decode('ascii').strip()
+        del untrusted_payload
+        qubes.vm.validate_name(None, None, untrusted_target)
+        target_vm = self.app.domains[untrusted_target]
+        del untrusted_target
+        assert self.arg in target_vm.volumes.keys()
+
+        volume = self.dest.volumes[self.arg]
+
+        self.fire_event_for_permission(target_vm=target_vm, volume=volume)
+
+        yield from target_vm.storage.clone_volume(self.dest, self.arg)
+        self.app.save()
+
     @qubes.api.method('admin.vm.volume.Resize')
     @asyncio.coroutine
     def vm_volume_resize(self, untrusted_payload):
@@ -337,6 +355,49 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.dest.fire_event('domain-volume-import-begin', volume=self.arg)
 
         return '{} {}'.format(size, path)
+
+    @qubes.api.method('admin.vm.tag.List', no_payload=True)
+    @asyncio.coroutine
+    def vm_tag_list(self):
+        assert not self.arg
+
+        tags = self.dest.tags
+
+        tags = self.fire_event_for_filter(tags)
+
+        return ''.join('{}\n'.format(tag) for tag in sorted(tags))
+
+    @qubes.api.method('admin.vm.tag.Get', no_payload=True)
+    @asyncio.coroutine
+    def vm_tag_get(self):
+        qubes.vm.Tags.validate_tag(self.arg)
+
+        self.fire_event_for_permission()
+
+        return '1' if self.arg in self.dest.tags else '0'
+
+    @qubes.api.method('admin.vm.tag.Set', no_payload=True)
+    @asyncio.coroutine
+    def vm_tag_set(self):
+        qubes.vm.Tags.validate_tag(self.arg)
+
+        self.fire_event_for_permission()
+
+        self.dest.tags.add(self.arg)
+        self.app.save()
+
+    @qubes.api.method('admin.vm.tag.Remove', no_payload=True)
+    @asyncio.coroutine
+    def vm_tag_remove(self):
+        qubes.vm.Tags.validate_tag(self.arg)
+
+        self.fire_event_for_permission()
+
+        try:
+            self.dest.tags.remove(self.arg)
+        except KeyError:
+            raise qubes.exc.QubesTagNotFoundError(self.dest, self.arg)
+        self.app.save()
 
     @qubes.api.method('admin.pool.List', no_payload=True)
     @asyncio.coroutine

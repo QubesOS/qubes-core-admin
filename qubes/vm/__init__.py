@@ -244,6 +244,11 @@ class Tags(set):
     # end of overriding
     #
 
+    @staticmethod
+    def validate_tag(tag):
+        safe_set = string.ascii_letters + string.digits + '-_'
+        assert all((x in safe_set) for x in tag)
+
 
 class BaseVM(qubes.PropertyHolder):
     '''Base class for all VMs
