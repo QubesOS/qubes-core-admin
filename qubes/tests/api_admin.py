@@ -76,7 +76,6 @@ class AdminAPITestCase(qubes.tests.QubesTestCase):
 
         self.emitter = qubes.tests.TestEmitter()
         self.app.domains[0].fire_event = self.emitter.fire_event
-        self.app.domains[0].fire_event_pre = self.emitter.fire_event_pre
 
     def tearDown(self):
         self.base_dir_patch2.stop()
@@ -1793,8 +1792,6 @@ class TC_00_VMs(AdminAPITestCase):
     def test_590_firewall_reload(self):
         self.vm.firewall.save = unittest.mock.Mock()
         self.app.domains['test-vm1'].fire_event = self.emitter.fire_event
-        self.app.domains['test-vm1'].fire_event_pre = \
-            self.emitter.fire_event_pre
         value = self.call_mgmt_func(b'admin.vm.firewall.Reload',
                 b'test-vm1', b'')
         self.assertIsNone(value)

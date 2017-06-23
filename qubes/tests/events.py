@@ -73,7 +73,6 @@ class TC_00_Emitter(qubes.tests.QubesTestCase):
 
         emitter = TestEmitter()
         emitter.events_enabled = True
-        emitter.fire_event('testevent')
 
         effect = emitter.fire_event('testevent')
 
@@ -129,8 +128,8 @@ class TC_00_Emitter(qubes.tests.QubesTestCase):
                 ['testevent_1'])
 
         with self.subTest('fire_event_pre'):
-            effect = emitter.fire_event_pre('testevent')
-            effect2 = emitter2.fire_event_pre('testevent')
+            effect = emitter.fire_event('testevent', pre_event=True)
+            effect2 = emitter2.fire_event('testevent', pre_event=True)
             self.assertEqual(list(effect),
                 ['testevent_2', 'testevent_1'])
             self.assertEqual(list(effect2),

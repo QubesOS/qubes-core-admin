@@ -250,10 +250,12 @@ class property(object):  # pylint: disable=redefined-builtin,invalid-name
             value = self.type(value)
 
         if has_oldvalue:
-            instance.fire_event_pre('property-pre-set:' + self.__name__,
+            instance.fire_event('property-pre-set:' + self.__name__,
+                pre_event=True,
                 name=self.__name__, newvalue=value, oldvalue=oldvalue)
         else:
-            instance.fire_event_pre('property-pre-set:' + self.__name__,
+            instance.fire_event('property-pre-set:' + self.__name__,
+                pre_event=True,
                 name=self.__name__, newvalue=value)
 
         instance._property_init(self, value) # pylint: disable=protected-access
@@ -276,14 +278,16 @@ class property(object):  # pylint: disable=redefined-builtin,invalid-name
             has_oldvalue = False
 
         if has_oldvalue:
-            instance.fire_event_pre('property-pre-del:' + self.__name__,
+            instance.fire_event('property-pre-del:' + self.__name__,
+                pre_event=True,
                 name=self.__name__, oldvalue=oldvalue)
             delattr(instance, self._attr_name)
             instance.fire_event('property-del:' + self.__name__,
                 name=self.__name__, oldvalue=oldvalue)
 
         else:
-            instance.fire_event_pre('property-pre-del:' + self.__name__,
+            instance.fire_event('property-pre-del:' + self.__name__,
+                pre_event=True,
                 name=self.__name__)
             instance.fire_event('property-del:' + self.__name__,
                 name=self.__name__)

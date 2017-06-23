@@ -22,10 +22,10 @@ parent class and then for it's child. For each class, first are called handlers
 defined in it's source, then handlers from extensions and last the callers added
 manually.
 
-There is second method, :py:meth:`qubes.events.Emitter.fire_event_pre`, which
-fires events in reverse order. It is suitable for events fired before some
-action is performed. You may at your own responsibility raise exceptions from
-such events to try to prevent such action.
+The :py:meth:`qubes.events.Emitter.fire_event` method have keyword argument
+`pre_event`, which fires events in reverse order. It is suitable for events
+fired before some action is performed. You may at your own responsibility raise
+exceptions from such events to try to prevent such action.
 
 Events handlers may yield values. Those values are aggregated and returned
 to the caller as a list of those values. See below for details.

@@ -476,7 +476,7 @@ class VMCollection(object):
         vm = self[key]
         if not vm.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(vm)
-        self.app.fire_event_pre('domain-pre-delete', vm=vm)
+        self.app.fire_event('domain-pre-delete', pre_event=True, vm=vm)
         try:
             vm.libvirt_domain.undefine()
         except libvirt.libvirtError as e:

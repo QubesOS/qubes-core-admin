@@ -180,7 +180,7 @@ class DeviceCollection(object):
             raise DeviceAlreadyAttached(
                 'device {!s} of class {} already attached to {!s}'.format(
                     device, self._bus, self._vm))
-        self._vm.fire_event_pre('device-pre-attach:'+self._bus,
+        self._vm.fire_event('device-pre-attach:'+self._bus, pre_event=True,
             device=device, options=device_assignment.options)
         if device_assignment.persistent:
             self._set.add(device_assignment)
@@ -208,7 +208,8 @@ class DeviceCollection(object):
                     device_assignment.ident, self._bus, self._vm))
 
         device = device_assignment.device
-        self._vm.fire_event_pre('device-pre-detach:'+self._bus, device=device)
+        self._vm.fire_event('device-pre-detach:' + self._bus,
+            pre_event=True, device=device)
         if device in self._set:
             device_assignment.persistent = True
             self._set.discard(device_assignment)
