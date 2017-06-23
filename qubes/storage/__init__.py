@@ -456,9 +456,8 @@ class Storage(object):
         # clone/import functions may be either synchronous or asynchronous
         # in the later case, we need to wait for them to finish
         if asyncio.iscoroutine(clone_op_ret):
-            self.vm.volumes[name] = yield from clone_op_ret
-        else:
-            self.vm.volumes[name] = clone_op_ret
+            clone_op_ret = yield from clone_op_ret
+        self.vm.volumes[name] = clone_op_ret
         return self.vm.volumes[name]
 
     @asyncio.coroutine
