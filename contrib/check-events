@@ -81,7 +81,7 @@ class EventVisitor(ast.NodeVisitor):
             # events this way
             return
 
-        if name.endswith('.fire_event') or name.endswith('.fire_event_pre'):
+        if name.endswith('.fire_event') or name.endswith('.fire_event_async'):
             # here we throw events; event name is the first argument; sometimes
             # it is expressed as 'event-stem:' + some_variable
             eventnode = node.args[0]

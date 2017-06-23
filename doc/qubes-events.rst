@@ -143,6 +143,75 @@ returned to the caller as list. The order of this list is undefined.
    effect = o.fire_event('event1')
 
 
+Asynchronous event handling
+---------------------------
+
+Event handlers can be defined as coroutine. This way they can execute long
+running actions without blocking the whole qubesd process. To define
+asynchronous event handler, annotate a coroutine (a function defined with
+`async def`, or decorated with `py:func:`asyncio.coroutine`) with
+py:func:`qubes.events.handler` decorator. By definition, order of
+such handlers is undefined.
+
+Asynchronous events can be fired using
+:py:meth:`qubes.events.Emitter.fire_event_async` method. It will handle both
+synchronous and asynchronous handlers. It's an error to register asynchronous
+handler (a coroutine) for synchronous event (the one fired with
+:py:meth:`qubes.events.Emitter.fire_event`) - it will result in
+:py:exc:`RuntimeError` exception.
+
+.. code-block:: python
+
+   import asyncio
+   import qubes.events
+
+   class MyClass(qubes.events.Emitter):
+       @qubes.events.handler('event1', 'event2')
+       @asyncio.coroutine
+       def event_handler(self, event):
+           if event == 'event1':
+               print('Got event 1, starting long running action')
+               yield from asyncio.sleep(10)
+               print('Done')
+
+   o = MyClass()
+   loop = asyncio.get_event_loop()
+   loop.run_until_complete(o.fire_event_async('event1'))
+
+Asynchronous event handlers can also return value - but only a collection, not
+yield individual values (because of python limitation):
+
+.. code-block:: python
+
+   import asyncio
+   import qubes.events
+
+   class MyClass(qubes.events.Emitter):
+       @qubes.events.handler('event1')
+       @asyncio.coroutine
+       def event_handler(self, event):
+            print('Got event, starting long running action')
+            yield from asyncio.sleep(10)
+            return ('result1', 'result2')
+
+       @qubes.events.handler('event1')
+       @asyncio.coroutine
+       def another_handler(self, event):
+            print('Got event, starting long running action')
+            yield from asyncio.sleep(10)
+            return ('result3', 'result4')
+
+       @qubes.events.handler('event1')
+       def synchronous_handler(self, event):
+            yield 'sync result'
+
+   o = MyClass()
+   loop = asyncio.get_event_loop()
+   # returns ['sync result', 'result1', 'result2', 'result3', 'result4'],
+   # possibly not in order
+   effects = loop.run_until_complete(o.fire_event_async('event1'))
+
+
 Module contents
 ---------------
 

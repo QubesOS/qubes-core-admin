@@ -18,6 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+import asyncio
 
 import qubes.events
 import qubes.tests
@@ -134,3 +135,36 @@ class TC_00_Emitter(qubes.tests.QubesTestCase):
                 ['testevent_2', 'testevent_1'])
             self.assertEqual(list(effect2),
                 ['testevent_1'])
+
+    def test_005_fire_for_effect_async(self):
+        class TestEmitter(qubes.events.Emitter):
+            @qubes.events.handler('testevent')
+            @asyncio.coroutine
+            def on_testevent_1(self, event):
+                pass
+
+            @qubes.events.handler('testevent')
+            @asyncio.coroutine
+            def on_testevent_2(self, event):
+                yield from asyncio.sleep(0.01)
+                return ['testvalue1']
+
+            @qubes.events.handler('testevent')
+            @asyncio.coroutine
+            def on_testevent_3(self, event):
+                return ('testvalue2', 'testvalue3')
+
+            @qubes.events.handler('testevent')
+            def on_testevent_4(self, event):
+                return ('testvalue4',)
+
+        loop = asyncio.get_event_loop()
+        emitter = TestEmitter()
+        emitter.events_enabled = True
+
+        effect = loop.run_until_complete(emitter.fire_event_async('testevent'))
+        loop.close()
+        asyncio.set_event_loop(None)
+
+        self.assertCountEqual(effect,
+            ('testvalue1', 'testvalue2', 'testvalue3', 'testvalue4'))

@@ -159,6 +159,18 @@ class TestEmitter(qubes.events.Emitter):
         self.fired_events[(event, ev_kwargs)] += 1
         return effects
 
+    @asyncio.coroutine
+    def fire_event_async(self, event, pre_event=False, **kwargs):
+        effects = yield from super(TestEmitter, self).fire_event_async(
+            event, pre_event=pre_event, **kwargs)
+        ev_kwargs = frozenset(
+            (key,
+                frozenset(value.items()) if isinstance(value, dict) else value)
+            for key, value in kwargs.items()
+        )
+        self.fired_events[(event, ev_kwargs)] += 1
+        return effects
+
 
 def expectedFailureIfTemplate(templates):
     """
