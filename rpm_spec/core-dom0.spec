@@ -285,6 +285,7 @@ fi
 %dir %{python3_sitelib}/qubes/ext/__pycache__
 %{python3_sitelib}/qubes/ext/__pycache__/*
 %{python3_sitelib}/qubes/ext/__init__.py
+%{python3_sitelib}/qubes/ext/admin.py
 %{python3_sitelib}/qubes/ext/block.py
 %{python3_sitelib}/qubes/ext/core_features.py
 %{python3_sitelib}/qubes/ext/gui.py
