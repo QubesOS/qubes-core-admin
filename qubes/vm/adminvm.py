@@ -49,6 +49,11 @@ class AdminVM(qubes.vm.BaseVM):
         default='00000000-0000-0000-0000-000000000000',
         setter=qubes.property.forbidden)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self._qdb_connection = None
+
     def __str__(self):
         return self.name
 
@@ -157,6 +162,15 @@ class AdminVM(qubes.vm.BaseVM):
     @property
     def icon_path(self):
         return None
+
+    @property
+    def qdb(self):
+        '''QubesDB handle for this domain.'''
+        if self._qdb_connection is None:
+            import qubesdb  # pylint: disable=import-error
+            self._qdb_connection = qubesdb.QubesDB(self.name)
+        return self._qdb_connection
+
 
 #   def __init__(self, **kwargs):
 #       super(QubesAdminVm, self).__init__(qid=0, name="dom0", netid=0,
