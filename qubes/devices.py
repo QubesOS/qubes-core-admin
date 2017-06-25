@@ -24,8 +24,8 @@
 
 Main concept is that some domain main
 expose (potentially multiple) devices, which can be attached to other domains.
-Devices can be of different classes (like 'pci', 'usb', etc). Each device
-class is implemented by an extension.
+Devices can be of different buses (like 'pci', 'usb', etc). Each device
+bus is implemented by an extension.
 
 Devices are identified by pair of (backend domain, `ident`), where `ident` is
 :py:class:`str` and can contain only characters from `[a-zA-Z0-9._-]` set.
@@ -33,13 +33,13 @@ Devices are identified by pair of (backend domain, `ident`), where `ident` is
 Such extension should provide:
  - `qubes.devices` endpoint - a class descendant from
  :py:class:`qubes.devices.DeviceInfo`, designed to hold device description (
- including class-specific properties)
- - handle `device-attach:class` and `device-detach:class` events for
+ including bus-specific properties)
+ - handle `device-attach:bus` and `device-detach:bus` events for
  performing the attach/detach action; events are fired even when domain isn't
  running and extension should be prepared for this
- - handle `device-list:class` event - list devices exposed by particular
+ - handle `device-list:bus` event - list devices exposed by particular
  domain; it should return list of appropriate DeviceInfo objects
- - handle `device-get:class` event - get one device object exposed by this
+ - handle `device-get:bus` event - get one device object exposed by this
  domain of given identifier
  - handle `device-list-attached:class` event - list currently attached
  devices to this domain
