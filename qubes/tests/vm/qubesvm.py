@@ -360,6 +360,11 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.assertPropertyInvalidValue(vm, 'kernel', 123)
         self.assertPropertyInvalidValue(vm, 'kernel', 'invalid')
 
+    def test_252_kernel_empty(self):
+        vm = self.get_vm()
+        self.assertPropertyValue(vm, 'kernel', '', '', '')
+        self.assertPropertyValue(vm, 'kernel', None, '', '')
+
     def test_260_kernelopts(self):
         vm = self.get_vm()
         self.assertPropertyDefaultValue(vm, 'kernelopts',

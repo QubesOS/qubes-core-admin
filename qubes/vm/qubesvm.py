@@ -755,6 +755,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     @qubes.events.handler('property-pre-set:kernel')
     def on_property_pre_set_kernel(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
+        if not newvalue:
+            return
         dirname = os.path.join(
             qubes.config.system_path['qubes_base_dir'],
             qubes.config.system_path['qubes_kernels_base_dir'],
