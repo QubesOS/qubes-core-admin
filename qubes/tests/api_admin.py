@@ -1319,7 +1319,8 @@ class TC_00_VMs(AdminAPITestCase):
     def test_470_vm_device_list_persistent(self):
         assignment = qubes.devices.DeviceAssignment(self.vm, '1234',
             persistent=True)
-        self.vm.devices['testclass'].attach(assignment)
+        self.loop.run_until_complete(
+            self.vm.devices['testclass'].attach(assignment))
         value = self.call_mgmt_func(b'admin.vm.device.testclass.List',
             b'test-vm1')
         self.assertEqual(value,
@@ -1329,10 +1330,12 @@ class TC_00_VMs(AdminAPITestCase):
     def test_471_vm_device_list_persistent_options(self):
         assignment = qubes.devices.DeviceAssignment(self.vm, '1234',
             persistent=True, options={'opt1': 'value'})
-        self.vm.devices['testclass'].attach(assignment)
+        self.loop.run_until_complete(
+            self.vm.devices['testclass'].attach(assignment))
         assignment = qubes.devices.DeviceAssignment(self.vm, '4321',
             persistent=True)
-        self.vm.devices['testclass'].attach(assignment)
+        self.loop.run_until_complete(
+            self.vm.devices['testclass'].attach(assignment))
         value = self.call_mgmt_func(b'admin.vm.device.testclass.List',
             b'test-vm1')
         self.assertEqual(value,
@@ -1360,7 +1363,8 @@ class TC_00_VMs(AdminAPITestCase):
             self.device_list_attached_testclass)
         assignment = qubes.devices.DeviceAssignment(self.vm, '4321',
             persistent=True)
-        self.vm.devices['testclass'].attach(assignment)
+        self.loop.run_until_complete(
+            self.vm.devices['testclass'].attach(assignment))
         value = self.call_mgmt_func(b'admin.vm.device.testclass.List',
             b'test-vm1')
         self.assertEqual(value,
@@ -1373,7 +1377,8 @@ class TC_00_VMs(AdminAPITestCase):
             self.device_list_attached_testclass)
         assignment = qubes.devices.DeviceAssignment(self.vm, '4321',
             persistent=True)
-        self.vm.devices['testclass'].attach(assignment)
+        self.loop.run_until_complete(
+            self.vm.devices['testclass'].attach(assignment))
         value = self.call_mgmt_func(b'admin.vm.device.testclass.List',
             b'test-vm1', b'test-vm1+1234')
         self.assertEqual(value,

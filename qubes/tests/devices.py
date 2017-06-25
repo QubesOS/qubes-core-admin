@@ -91,15 +91,15 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
         self.assertFalse(self.collection._set)
 
     def test_001_attach(self):
-        self.collection.attach(self.assignment)
+        self.loop.run_until_complete(self.collection.attach(self.assignment))
         self.assertEventFired(self.emitter, 'device-pre-attach:testclass')
         self.assertEventFired(self.emitter, 'device-attach:testclass')
         self.assertEventNotFired(self.emitter, 'device-pre-detach:testclass')
         self.assertEventNotFired(self.emitter, 'device-detach:testclass')
 
     def test_002_detach(self):
-        self.collection.attach(self.assignment)
-        self.collection.detach(self.assignment)
+        self.loop.run_until_complete(self.collection.attach(self.assignment))
+        self.loop.run_until_complete(self.collection.detach(self.assignment))
         self.assertEventFired(self.emitter, 'device-pre-attach:testclass')
         self.assertEventFired(self.emitter, 'device-attach:testclass')
         self.assertEventFired(self.emitter, 'device-pre-detach:testclass')
@@ -107,24 +107,27 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
 
     def test_010_empty_detach(self):
         with self.assertRaises(LookupError):
-            self.collection.detach(self.assignment)
+            self.loop.run_until_complete(
+                self.collection.detach(self.assignment))
 
     def test_011_double_attach(self):
-        self.collection.attach(self.assignment)
+        self.loop.run_until_complete(self.collection.attach(self.assignment))
 
         with self.assertRaises(qubes.devices.DeviceAlreadyAttached):
-            self.collection.attach(self.assignment)
+            self.loop.run_until_complete(
+                self.collection.attach(self.assignment))
 
     def test_012_double_detach(self):
-        self.collection.attach(self.assignment)
-        self.collection.detach(self.assignment)
+        self.loop.run_until_complete(self.collection.attach(self.assignment))
+        self.loop.run_until_complete(self.collection.detach(self.assignment))
 
         with self.assertRaises(qubes.devices.DeviceNotAttached):
-            self.collection.detach(self.assignment)
+            self.loop.run_until_complete(
+                self.collection.detach(self.assignment))
 
     def test_013_list_attached_persistent(self):
         self.assertEqual(set([]), set(self.collection.persistent()))
-        self.collection.attach(self.assignment)
+        self.loop.run_until_complete(self.collection.attach(self.assignment))
         self.assertEventFired(self.emitter, 'device-list-attached:testclass')
         self.assertEqual({self.device}, set(self.collection.persistent()))
         self.assertEqual({self.device},
@@ -135,7 +138,7 @@ class TC_00_DeviceCollection(qubes.tests.QubesTestCase):
     def test_014_list_attached_non_persistent(self):
         self.assignment.persistent = False
         self.emitter.running = True
-        self.collection.attach(self.assignment)
+        self.loop.run_until_complete(self.collection.attach(self.assignment))
         # device-attach event not implemented, so manipulate object manually
         self.device.frontend_domain = self.emitter
         self.assertEqual({self.device},
@@ -167,6 +170,7 @@ class TC_01_DeviceManager(qubes.tests.QubesTestCase):
             backend_domain=device.backend_domain,
             ident=device.ident,
             persistent=True)
-        self.manager['testclass'].attach(assignment)
+        self.loop.run_until_complete(
+            self.manager['testclass'].attach(assignment))
         self.assertEventFired(self.emitter, 'device-attach:testclass')
 

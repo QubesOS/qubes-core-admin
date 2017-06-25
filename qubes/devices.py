@@ -36,14 +36,21 @@ Such extension should provide:
  including bus-specific properties)
  - handle `device-attach:bus` and `device-detach:bus` events for
  performing the attach/detach action; events are fired even when domain isn't
- running and extension should be prepared for this
+ running and extension should be prepared for this; handlers for those events
+ can be coroutines
  - handle `device-list:bus` event - list devices exposed by particular
  domain; it should return list of appropriate DeviceInfo objects
  - handle `device-get:bus` event - get one device object exposed by this
  domain of given identifier
  - handle `device-list-attached:class` event - list currently attached
  devices to this domain
+
+Note that device-listing event handlers can not be asynchronous. This for
+example means you can not call qrexec service there. This is intentional to
+keep device listing operation cheap. You need to design the extension to take
+this into account (for example by using QubesDB).
 '''
+import asyncio
 
 import qubes.utils
 
@@ -111,11 +118,15 @@ class DeviceCollection(object):
 
             Fired when device is attached to a VM.
 
+            Handler for this event can be asynchronous (a coroutine).
+
             :param device: :py:class:`DeviceInfo` object to be attached
 
         .. event:: device-pre-attach:<class> (device)
 
             Fired before device is attached to a VM
+
+            Handler for this event can be asynchronous (a coroutine).
 
             :param device: :py:class:`DeviceInfo` object to be attached
 
@@ -123,11 +134,15 @@ class DeviceCollection(object):
 
             Fired when device is detached from a VM.
 
+            Handler for this event can be asynchronous (a coroutine).
+
             :param device: :py:class:`DeviceInfo` object to be attached
 
         .. event:: device-pre-detach:<class> (device)
 
             Fired before device is detached from a VM
+
+            Handler for this event can be asynchronous (a coroutine).
 
             :param device: :py:class:`DeviceInfo` object to be attached
 
@@ -160,6 +175,7 @@ class DeviceCollection(object):
         self.devclass = qubes.utils.get_entry_point_one(
             'qubes.devices', self._bus)
 
+    @asyncio.coroutine
     def attach(self, device_assignment: DeviceAssignment):
         '''Attach (add) device to domain.
 
@@ -180,13 +196,26 @@ class DeviceCollection(object):
             raise DeviceAlreadyAttached(
                 'device {!s} of class {} already attached to {!s}'.format(
                     device, self._bus, self._vm))
-        self._vm.fire_event('device-pre-attach:'+self._bus, pre_event=True,
+        yield from self._vm.fire_event_async('device-pre-attach:' + self._bus,
+            pre_event=True,
             device=device, options=device_assignment.options)
         if device_assignment.persistent:
             self._set.add(device_assignment)
-        self._vm.fire_event('device-attach:' + self._bus,
+        yield from self._vm.fire_event_async('device-attach:' + self._bus,
             device=device, options=device_assignment.options)
 
+    def load_persistent(self, device_assignment: DeviceAssignment):
+        '''Load DeviceAssignment retrieved from qubes.xml
+
+        This can be used only for loading qubes.xml, when VM events are not
+        enabled yet.
+        '''
+        assert not self._vm.events_enabled
+        assert device_assignment.persistent
+        device_assignment.bus = self._bus
+        self._set.add(device_assignment)
+
+    @asyncio.coroutine
     def detach(self, device_assignment: DeviceAssignment):
         '''Detach (remove) device from domain.
 
@@ -208,13 +237,14 @@ class DeviceCollection(object):
                     device_assignment.ident, self._bus, self._vm))
 
         device = device_assignment.device
-        self._vm.fire_event('device-pre-detach:' + self._bus,
+        yield from self._vm.fire_event_async('device-pre-detach:' + self._bus,
             pre_event=True, device=device)
         if device in self._set:
             device_assignment.persistent = True
             self._set.discard(device_assignment)
 
-        self._vm.fire_event('device-detach:' + self._bus, device=device)
+        yield from self._vm.fire_event_async('device-detach:' + self._bus,
+            device=device)
 
     def attached(self):
         '''List devices which are (or may be) attached to this vm '''

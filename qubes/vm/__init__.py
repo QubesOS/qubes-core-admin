@@ -316,7 +316,7 @@ class BaseVM(qubes.PropertyHolder):
                     options,
                     persistent=True
                 )
-                self.devices[devclass].attach(device_assignment)
+                self.devices[devclass].load_persistent(device_assignment)
 
         # tags
         for node in self.xml.xpath('./tags/tag'):

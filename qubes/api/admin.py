@@ -969,7 +969,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         assignment = qubes.devices.DeviceAssignment(
             dev.backend_domain, dev.ident,
             options=options, persistent=persistent)
-        self.dest.devices[devclass].attach(assignment)
+        yield from self.dest.devices[devclass].attach(assignment)
         self.app.save()
 
     @qubes.api.method('admin.vm.device.{endpoint}.Detach', endpoints=(ep.name
@@ -991,7 +991,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         assignment = qubes.devices.DeviceAssignment(
             dev.backend_domain, dev.ident)
-        self.dest.devices[devclass].detach(assignment)
+        yield from self.dest.devices[devclass].detach(assignment)
         self.app.save()
 
     @qubes.api.method('admin.vm.firewall.Get', no_payload=True)
