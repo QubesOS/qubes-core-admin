@@ -149,6 +149,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             Fired at the beginning of :py:meth:`start` method.
 
+            Handler for this event can be asynchronous (a coroutine).
+
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-pre-start'``)
 
@@ -161,11 +163,15 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-spawn'``)
 
+            Handler for this event can be asynchronous (a coroutine).
+
             *other arguments are as in :py:meth:`start`*
 
         .. event:: domain-start (subject, event, start_guid)
 
             Fired at the end of :py:meth:`start` method.
+
+            Handler for this event can be asynchronous (a coroutine).
 
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-start'``)
@@ -183,6 +189,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             Fired at the beginning of :py:meth:`shutdown` method.
 
+            Handler for this event can be asynchronous (a coroutine).
+
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-pre-shutdown'``)
             :param force: If the shutdown is to be forceful
@@ -190,6 +198,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         .. event:: domain-cmd-pre-run (subject, event, start_guid)
 
             Fired at the beginning of :py:meth:`run_service` method.
+
+            Handler for this event can be asynchronous (a coroutine).
 
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-cmd-pre-run'``)
@@ -199,6 +209,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             Fired at the end of :py:meth:`create_on_disk` method.
 
+            Handler for this event can be asynchronous (a coroutine).
+
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-create-on-disk'``)
 
@@ -207,12 +219,16 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             Fired at the beginning of :py:meth:`remove_from_disk` method, before
             the qube directory is removed.
 
+            Handler for this event can be asynchronous (a coroutine).
+
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-remove-from-disk'``)
 
         .. event:: domain-clone-files (subject, event, src)
 
             Fired at the end of :py:meth:`clone_disk_files` method.
+
+            Handler for this event can be asynchronous (a coroutine).
 
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-clone-files'``)
@@ -847,7 +863,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             self.log.info('Starting {}'.format(self.name))
 
-            self.fire_event('domain-pre-start',
+            yield from self.fire_event_async('domain-pre-start',
                 pre_event=True,
                 start_guid=start_guid, mem_required=mem_required)
 
@@ -874,7 +890,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     qmemman_client.close()
 
             try:
-                self.fire_event('domain-spawn',
+                yield from self.fire_event_async('domain-spawn',
                     start_guid=start_guid)
 
                 self.log.info('Setting Qubes DB info for the VM')
@@ -895,7 +911,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
                 yield from self.start_qrexec_daemon()
 
-                self.fire_event('domain-start', start_guid=start_guid)
+                yield from self.fire_event_async('domain-start',
+                    start_guid=start_guid)
 
             except:  # pylint: disable=bare-except
                 if self.is_running() or self.is_paused():
@@ -936,7 +953,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if self.is_halted():
             raise qubes.exc.QubesVMNotStartedError(self)
 
-        self.fire_event('domain-pre-shutdown', pre_event=True, force=force)
+        yield from self.fire_event_async('domain-pre-shutdown', pre_event=True,
+            force=force)
 
         self.libvirt_domain.shutdown()
 
@@ -1072,7 +1090,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesVMError(
                 self, 'Domain {!r}: qrexec not connected'.format(self.name))
 
-        self.fire_event('domain-cmd-pre-run', pre_event=True, start_guid=gui)
+        yield from self.fire_event_async('domain-cmd-pre-run', pre_event=True,
+            start_guid=gui)
 
         return (yield from asyncio.create_subprocess_exec(
             qubes.config.system_path['qrexec_client_path'],
@@ -1299,7 +1318,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             shutil.copy(self.label.icon_path, self.icon_path)
 
         # fire hooks
-        self.fire_event('domain-create-on-disk')
+        yield from self.fire_event_async('domain-create-on-disk')
 
     @asyncio.coroutine
     def remove_from_disk(self):
@@ -1309,7 +1328,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 "Can't remove VM {!s}, beacuse it's in state {!r}.".format(
                     self, self.get_power_state()))
 
-        self.fire_event('domain-remove-from-disk')
+        yield from self.fire_event_async('domain-remove-from-disk')
         try:
             # TODO: make it async?
             shutil.rmtree(self.dir_path)
@@ -1367,7 +1386,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 shutil.copy(src.icon_path, self.icon_path)
 
         # fire hooks
-        self.fire_event('domain-clone-files', src=src)
+        yield from self.fire_event_async('domain-clone-files', src=src)
 
     #
     # methods for querying domain state
