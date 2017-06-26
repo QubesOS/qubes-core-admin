@@ -293,22 +293,57 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.dest.storage.get_pool(volume).revert(revision)
         self.app.save()
 
-    @qubes.api.method('admin.vm.volume.Clone')
+    @qubes.api.method('admin.vm.volume.CloneFrom', no_payload=True)
     @asyncio.coroutine
-    def vm_volume_clone(self, untrusted_payload):
+    def vm_volume_clone_from(self):
         assert self.arg in self.dest.volumes.keys()
-        untrusted_target = untrusted_payload.decode('ascii').strip()
-        del untrusted_payload
-        qubes.vm.validate_name(None, None, untrusted_target)
-        target_vm = self.app.domains[untrusted_target]
-        del untrusted_target
-        assert self.arg in target_vm.volumes.keys()
 
         volume = self.dest.volumes[self.arg]
 
-        self.fire_event_for_permission(target_vm=target_vm, volume=volume)
+        self.fire_event_for_permission(volume=volume)
 
-        yield from target_vm.storage.clone_volume(self.dest, self.arg)
+        token = qubes.utils.random_string(32)
+        # save token on self.app, as self is not persistent
+        if not hasattr(self.app, 'api_admin_pending_clone'):
+            self.app.api_admin_pending_clone = {}
+        # don't handle collisions any better - if someone is so much out of
+        # luck, can try again anyway
+        assert token not in self.app.api_admin_pending_clone
+
+        self.app.api_admin_pending_clone[token] = volume
+        return token
+
+    @qubes.api.method('admin.vm.volume.CloneTo')
+    @asyncio.coroutine
+    def vm_volume_clone_to(self, untrusted_payload):
+        assert self.arg in self.dest.volumes.keys()
+        untrusted_token = untrusted_payload.decode('ascii').strip()
+        del untrusted_payload
+        assert untrusted_token in getattr(self.app,
+            'api_admin_pending_clone', {})
+        token = untrusted_token
+        del untrusted_token
+
+        src_volume = self.app.api_admin_pending_clone[token]
+        del self.app.api_admin_pending_clone[token]
+
+        # make sure the volume still exists, but invalidate token anyway
+        assert str(src_volume.pool) in self.app.pools
+        assert src_volume in self.app.pools[str(src_volume.pool)].volumes
+
+        dst_volume = self.dest.volumes[self.arg]
+
+        self.fire_event_for_permission(src_volume=src_volume,
+            dst_volume=dst_volume)
+
+        op_retval = dst_volume.import_volume(src_volume)
+
+        # clone/import functions may be either synchronous or asynchronous
+        # in the later case, we need to wait for them to finish
+        if asyncio.iscoroutine(op_retval):
+            op_retval = yield from op_retval
+
+        self.dest.volumes[self.arg] = op_retval
         self.app.save()
 
     @qubes.api.method('admin.vm.volume.Resize')

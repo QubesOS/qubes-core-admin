@@ -21,6 +21,7 @@
 ''' Tests for management calls endpoints '''
 
 import asyncio
+import operator
 import os
 import shutil
 import unittest.mock
@@ -31,6 +32,7 @@ import qubes
 import qubes.devices
 import qubes.api.admin
 import qubes.tests
+import qubes.storage
 
 # properties defined in API
 volume_properties = [
@@ -1532,93 +1534,100 @@ class TC_00_VMs(AdminAPITestCase):
                 self.call_mgmt_func(b'admin.vm.volume.Import', b'test-vm1',
                     b'private')
 
+    def setup_for_clone(self):
+        self.pool = unittest.mock.MagicMock()
+        self.app.pools['test'] = self.pool
+        self.vm2 = self.app.add_new_vm('AppVM', label='red',
+            name='test-vm2',
+            template='test-template', kernel='')
+        self.pool.configure_mock(**{
+            'volumes': qubes.storage.VolumesCollection(self.pool),
+            'init_volume.return_value.pool': self.pool,
+            '__str__.return_value': 'test',
+            'get_volume.side_effect': (lambda vid:
+                self.vm.volumes['private']
+                    if vid is self.vm.volumes['private'].vid
+                    else self.vm2.volumes['private']
+            ),
+        })
+        self.loop.run_until_complete(
+            self.vm.create_on_disk(pool='test'))
+        self.loop.run_until_complete(
+            self.vm2.create_on_disk(pool='test'))
+
+        # the call replaces self.vm.volumes[...] with result of import
+        # operation - make sure it stays as the same object
+        self.vm.volumes['private'].import_volume.return_value = \
+            self.vm.volumes['private']
+        self.vm2.volumes['private'].import_volume.return_value = \
+            self.vm2.volumes['private']
+
     def test_520_vm_volume_clone(self):
-        self.vm2 = self.app.add_new_vm('AppVM', label='red', name='test-vm2',
-            template='test-template')
-        self.vm.volumes = unittest.mock.MagicMock()
-        self.vm2.volumes = unittest.mock.MagicMock()
-        volumes_conf = {
-            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
-        }
-        self.vm.volumes.configure_mock(**volumes_conf)
-        self.vm2.volumes.configure_mock(**volumes_conf)
-        self.vm2.storage = unittest.mock.Mock()
-        func_mock = unittest.mock.Mock()
-
-        @asyncio.coroutine
-        def coroutine_mock(*args, **kwargs):
-            return func_mock(*args, **kwargs)
-        self.vm2.storage.clone_volume = coroutine_mock
-
-        self.call_mgmt_func(b'admin.vm.volume.Clone',
-                b'test-vm1', b'private', b'test-vm2')
-        self.assertEqual(self.vm.volumes.mock_calls,
-            [('keys', (), {}),
-             ('__getitem__', ('private', ), {}),
-             ('__getitem__().__hash__', (), {}),
-            ])
-        self.assertEqual(self.vm2.volumes.mock_calls,
-            [unittest.mock.call.keys()])
-        self.assertEqual(self.vm2.storage.mock_calls, [])
-        self.assertEqual(func_mock.mock_calls, [
-            unittest.mock.call(self.vm, 'private')
-        ])
+        self.setup_for_clone()
+        token = self.call_mgmt_func(b'admin.vm.volume.CloneFrom',
+                b'test-vm1', b'private', b'')
+        # token
+        self.assertEqual(len(token), 32)
+        self.assertFalse(self.app.save.called)
+        value = self.call_mgmt_func(b'admin.vm.volume.CloneTo',
+                b'test-vm2', b'private', token.encode())
+        self.assertIsNone(value)
+        self.vm2.volumes['private'].import_volume.assert_called_once_with(
+            self.vm.volumes['private']
+        )
+        self.vm2.volumes['private'].import_volume.assert_called_once_with(
+            self.vm2.volumes['private']
+        )
         self.app.save.assert_called_once_with()
 
     def test_521_vm_volume_clone_invalid_volume(self):
-        self.vm2 = self.app.add_new_vm('AppVM', label='red', name='test-vm2',
-            template='test-template')
-        self.vm.volumes = unittest.mock.MagicMock()
-        self.vm2.volumes = unittest.mock.MagicMock()
-        volumes_conf = {
-            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
-        }
-        self.vm.volumes.configure_mock(**volumes_conf)
-        self.vm2.volumes.configure_mock(**volumes_conf)
-        self.vm2.storage = unittest.mock.Mock()
-        func_mock = unittest.mock.Mock()
-
-        @asyncio.coroutine
-        def coroutine_mock(*args, **kwargs):
-            return func_mock(*args, **kwargs)
-        self.vm2.storage.clone_volume = coroutine_mock
+        self.setup_for_clone()
 
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'admin.vm.volume.Clone',
-                    b'test-vm1', b'private123', b'test-vm2')
-        self.assertEqual(self.vm.volumes.mock_calls,
-            [('keys', (), {})])
-        self.assertEqual(self.vm2.volumes.mock_calls, [])
-        self.assertEqual(self.vm2.storage.mock_calls, [])
-        self.assertEqual(func_mock.mock_calls, [])
+            self.call_mgmt_func(b'admin.vm.volume.CloneFrom',
+                    b'test-vm1', b'private123', None)
+        self.assertNotIn('init_volume().import_volume',
+            map(operator.itemgetter(0), self.pool.mock_calls))
         self.assertFalse(self.app.save.called)
 
-    def test_522_vm_volume_clone_invalid_vm(self):
-        self.vm2 = self.app.add_new_vm('AppVM', label='red', name='test-vm2',
-            template='test-template')
-        self.vm.volumes = unittest.mock.MagicMock()
-        self.vm2.volumes = unittest.mock.MagicMock()
-        volumes_conf = {
-            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
-        }
-        self.vm.volumes.configure_mock(**volumes_conf)
-        self.vm2.volumes.configure_mock(**volumes_conf)
-        self.vm2.storage = unittest.mock.Mock()
-        func_mock = unittest.mock.Mock()
+    def test_522_vm_volume_clone_invalid_volume2(self):
+        self.setup_for_clone()
 
-        @asyncio.coroutine
-        def coroutine_mock(*args, **kwargs):
-            return func_mock(*args, **kwargs)
-        self.vm2.storage.clone_volume = coroutine_mock
+        token = self.call_mgmt_func(b'admin.vm.volume.CloneFrom',
+                b'test-vm1', b'private', b'')
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'admin.vm.volume.CloneTo',
+                    b'test-vm1', b'private123', token.encode())
+        self.assertNotIn('init_volume().import_volume',
+            map(operator.itemgetter(0), self.pool.mock_calls))
+        self.assertFalse(self.app.save.called)
+
+    def test_523_vm_volume_clone_removed_volume(self):
+        self.setup_for_clone()
+
+        token = self.call_mgmt_func(b'admin.vm.volume.CloneFrom',
+                b'test-vm1', b'private', b'')
+        def get_volume(vid):
+            if vid == self.vm.volumes['private']:
+                raise KeyError(vid)
+            else:
+                return unittest.mock.DEFAULT
+        self.pool.get_volume.side_effect = get_volume
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'admin.vm.volume.CloneTo',
+                    b'test-vm1', b'private', token.encode())
+        self.assertNotIn('init_volume().import_volume',
+            map(operator.itemgetter(0), self.pool.mock_calls))
+        self.assertFalse(self.app.save.called)
+
+    def test_524_vm_volume_clone_invlid_token(self):
+        self.setup_for_clone()
 
         with self.assertRaises(AssertionError):
-            self.call_mgmt_func(b'admin.vm.volume.Clone',
-                    b'test-vm1', b'private123', b'no-such-vm')
-        self.assertEqual(self.vm.volumes.mock_calls,
-            [('keys', (), {})])
-        self.assertEqual(self.vm2.volumes.mock_calls, [])
-        self.assertEqual(self.vm2.storage.mock_calls, [])
-        self.assertEqual(func_mock.mock_calls, [])
+            self.call_mgmt_func(b'admin.vm.volume.CloneTo',
+                    b'test-vm1', b'private', b'no-such-token')
+        self.assertNotIn('init_volume().import_volume',
+            map(operator.itemgetter(0), self.pool.mock_calls))
         self.assertFalse(self.app.save.called)
 
     def test_530_tag_list(self):
