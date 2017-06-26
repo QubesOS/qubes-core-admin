@@ -1,0 +1,95 @@
+#!/usr/bin/python3
+# coding=utf-8
+# The Qubes OS Project, https://www.qubes-os.org/
+#
+# Copyright (C) 2017  Marek Marczykowski-Górecki
+#                                   <marmarek@invisiblethingslab.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+import argparse
+import os
+
+import sys
+
+import qubes.api.admin
+
+parser = argparse.ArgumentParser(
+    description='Generate default Admin API policy')
+parser.add_argument('--include-base', action='store',
+    default='/etc/qubes-rpc/policy/include',
+    help='Base path for included paths (default: %(default)s)')
+parser.add_argument('--destdir', action='store',
+    default='/etc/qubes-rpc/policy',
+    help='Directory where write output files to (default: %(default)s)')
+parser.add_argument('--verbose', action='store_true', default=False,
+    help='Be verbose')
+parser.add_argument('--exclude', action='store', nargs='*',
+    help='Exclude service')
+parser.add_argument('service', nargs='*', action='store',
+    help='Generate policy for those services (default: all)')
+
+default_policy_header = '''\
+## Note that policy parsing stops at the first match.
+
+## Please use a single # to start your custom comments
+
+## Add your entries here, make sure to append ",target=dom0" to all allow/ask actions
+
+## Include a common file for all admin.* methods to ease setting up
+## Management VM.
+## To allow only specific actions, edit specific policy file, like this one. To
+## allow all of them, edit appropriate /etc/qubes-rpc/include/admin-*.
+
+'''
+
+def write_default_policy(args, apiname, clasifiers):
+    ''' Write single default policy for given API call '''
+    assert 'scope' in clasifiers, \
+        'Method {} lack scope classifier'.format(apiname)
+    assert any(attr in clasifiers for attr in ('read', 'write', 'execute')), \
+        'Method {} lack read/write/execute classifier'.format(apiname)
+    assert clasifiers['scope'] in ('local', 'global'), \
+        'Method {} have invalid scope: {}'.format(apiname, clasifiers['scope'])
+
+    file_to_include = 'admin-{scope}-{rwx}'.format(
+        scope=clasifiers['scope'],
+        rwx=('rwx' if clasifiers.get('write', False) or
+                      clasifiers.get('execute', False)
+        else 'ro'))
+
+    if args.verbose:
+        print('Service {}: include {}'.format(apiname, file_to_include),
+            file=sys.stderr)
+    with open(os.path.join(args.destdir, apiname), 'w') as f:
+        f.write(default_policy_header)
+        f.write('$include:{}\n'.format(
+            os.path.join(args.include_base, file_to_include)))
+
+
+def main(args=None):
+    ''' Main function of default-admin-policy tool'''
+    args = parser.parse_args(args)
+
+    for func, apiname, _ in qubes.api.admin.QubesAdminAPI.list_methods():
+        if args.service and apiname not in args.service:
+            continue
+        if args.exclude and apiname in args.exclude:
+            continue
+        write_default_policy(args, apiname, func.classifiers)
+
+
+if __name__ == '__main__':
+    sys.exit(main())

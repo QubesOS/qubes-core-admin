@@ -410,7 +410,10 @@ fi
 /etc/xen/scripts/block-origin
 /etc/xen/scripts/vif-route-qubes
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/admin.*
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/include/admin-all
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/include/admin-local-ro
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/include/admin-local-rwx
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/include/admin-global-ro
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/include/admin-global-rwx
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.FeaturesRequest
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.Filecopy
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.GetImageRGBA
