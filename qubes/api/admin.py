@@ -30,6 +30,7 @@ import libvirt
 
 import qubes.api
 import qubes.devices
+import qubes.firewall
 import qubes.storage
 import qubes.utils
 import qubes.vm
@@ -991,3 +992,37 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             dev.backend_domain, dev.ident)
         self.dest.devices[devclass].detach(assignment)
         self.app.save()
+
+    @qubes.api.method('admin.vm.firewall.Get', no_payload=True)
+    @asyncio.coroutine
+    def vm_firewall_get(self):
+        assert not self.arg
+
+        self.fire_event_for_permission()
+
+        return ''.join('{}\n'.format(rule.api_rule)
+            for rule in self.dest.firewall.rules)
+
+    @qubes.api.method('admin.vm.firewall.Set')
+    @asyncio.coroutine
+    def vm_firewall_set(self, untrusted_payload):
+        assert not self.arg
+        rules = []
+        for untrusted_line in untrusted_payload.decode('ascii',
+                errors='strict').splitlines():
+            rule = qubes.firewall.Rule.from_api_string(untrusted_line)
+            rules.append(rule)
+
+        self.fire_event_for_permission(rules=rules)
+
+        self.dest.firewall.rules = rules
+        self.dest.firewall.save()
+
+    @qubes.api.method('admin.vm.firewall.Reload', no_payload=True)
+    @asyncio.coroutine
+    def vm_firewall_reload(self):
+        assert not self.arg
+
+        self.fire_event_for_permission()
+
+        self.dest.fire_event('firewall-changed')
