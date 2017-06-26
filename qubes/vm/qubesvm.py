@@ -372,7 +372,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         doc='''Internal, persistent identificator of particular domain. Note
             this is different from Xen domid.''')
 
-    name = qubes.property('name', type=str,
+    name = qubes.property('name', type=str, write_once=True,
         clone=False,
         doc='User-specified name of the domain.')
 
