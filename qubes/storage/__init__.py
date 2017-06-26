@@ -614,6 +614,58 @@ class Storage(object):
         return self.vm.volumes[volume].import_data_end(success=success)
 
 
+class VolumesCollection(object):
+    '''Convenient collection wrapper for pool.get_volume and
+    pool.list_volumes
+    '''
+    def __init__(self, pool):
+        self._pool = pool
+
+    def __getitem__(self, item):
+        ''' Get a single volume with given Volume ID.
+
+        You can also a Volume instance to get the same Volume or KeyError if
+        Volume no longer exists.
+
+        :param item: a Volume ID (str) or a Volume instance
+        '''
+        if isinstance(item, Volume):
+            if item.pool == self._pool:
+                return self[item.vid]
+            else:
+                raise KeyError(item)
+        try:
+            return self._pool.get_volume(item)
+        except NotImplementedError:
+            for vol in self:
+                if vol.vid == item:
+                    return vol
+            # if list_volumes is not implemented too, it will raise
+            # NotImplementedError again earlier
+            raise KeyError(item)
+
+    def __iter__(self):
+        ''' Get iterator over pool's volumes '''
+        return iter(self._pool.list_volumes())
+
+    def __contains__(self, item):
+        ''' Check if given volume (either Volume ID or Volume instance) is
+        present in the pool
+        '''
+        try:
+            return self[item] is not None
+        except KeyError:
+            return False
+
+    def keys(self):
+        ''' Return list of volume IDs '''
+        return [vol.vid for vol in self]
+
+    def values(self):
+        ''' Return list of Volumes'''
+        return [vol for vol in self]
+
+
 class Pool(object):
     ''' A Pool is used to manage different kind of volumes (File
         based/LVM/Btrfs/...).
@@ -626,6 +678,7 @@ class Pool(object):
 
     def __init__(self, name, revisions_to_keep=1, **kwargs):
         super(Pool, self).__init__(**kwargs)
+        self._volumes_collection = VolumesCollection(self)
         self.name = name
         self.revisions_to_keep = revisions_to_keep
         kwargs['name'] = self.name
@@ -684,8 +737,19 @@ class Pool(object):
 
     @property
     def volumes(self):
+        ''' Return a collection of volumes managed by this pool '''
+        return self._volumes_collection
+
+    def list_volumes(self):
         ''' Return a list of volumes managed by this pool '''
-        raise self._not_implemented("volumes")
+        raise self._not_implemented("list_volumes")
+
+    def get_volume(self, vid):
+        ''' Return a volume with *vid* from this pool
+
+        :raise KeyError: if no volume is found
+        '''
+        raise self._not_implemented("get_volume")
 
     def _not_implemented(self, method_name):
         ''' Helper for emitting helpful `NotImplementedError` exceptions '''

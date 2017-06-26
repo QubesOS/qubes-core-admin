@@ -152,8 +152,7 @@ class FilePool(qubes.storage.Pool):
 
         return os.path.join(self.dir_path, self._vid_prefix(vm))
 
-    @property
-    def volumes(self):
+    def list_volumes(self):
         return self._volumes
 
 

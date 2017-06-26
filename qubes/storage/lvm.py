@@ -120,8 +120,7 @@ class ThinPool(qubes.storage.Pool):
     def setup(self):
         pass  # TODO Should we create a non existing pool?
 
-    @property
-    def volumes(self):
+    def list_volumes(self):
         ''' Return a list of volumes managed by this pool '''
         volumes = []
         for vid, vol_info in size_cache.items():
