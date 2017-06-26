@@ -1010,7 +1010,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         rules = []
         for untrusted_line in untrusted_payload.decode('ascii',
                 errors='strict').splitlines():
-            rule = qubes.firewall.Rule.from_api_string(untrusted_line)
+            rule = qubes.firewall.Rule.from_api_string(
+                untrusted_rule=untrusted_line)
             rules.append(rule)
 
         self.fire_event_for_permission(rules=rules)

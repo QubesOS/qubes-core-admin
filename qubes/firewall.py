@@ -417,7 +417,7 @@ class Rule(qubes.PropertyHolder):
         #  option-specific validation
         kwargs = {}
         if untrusted_comment:
-            kwargs['comment'] = untrusted_comment
+            kwargs['comment'] = Comment(untrusted_value=untrusted_comment)
 
         for untrusted_option in untrusted_options.strip().split(' '):
             untrusted_key, untrusted_value = untrusted_option.split('=', 1)
@@ -425,9 +425,13 @@ class Rule(qubes.PropertyHolder):
                 raise ValueError('Option \'{}\' already set'.format(
                     untrusted_key))
             if untrusted_key in [str(prop) for prop in cls.property_list()]:
-                kwargs[untrusted_key] = untrusted_value
+                kwargs[untrusted_key] = cls.property_get_def(
+                    untrusted_key).type(untrusted_value=untrusted_value)
             elif untrusted_key in ('dst4', 'dst6', 'dstname'):
-                kwargs['dsthost'] = untrusted_value
+                if 'dsthost' in kwargs:
+                    raise ValueError('Option \'{}\' already set'.format(
+                        'dsthost'))
+                kwargs['dsthost'] = DstHost(untrusted_value=untrusted_value)
             else:
                 raise ValueError('Unknown firewall option')
 
