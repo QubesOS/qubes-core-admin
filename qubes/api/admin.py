@@ -853,7 +853,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             dst_vm.clone_properties(src_vm)
             dst_vm.tags.update(src_vm.tags)
             dst_vm.features.update(src_vm.features)
-            dst_vm.firewall.clone(src_vm.firewall)
+            #dst_vm.firewall.clone(src_vm.firewall)
             for devclass in src_vm.devices:
                 for device_assignment in src_vm.devices[devclass].assignments():
                     dst_vm.devices[devclass].attach(device_assignment.clone())
