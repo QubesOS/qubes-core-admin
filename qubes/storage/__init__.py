@@ -177,7 +177,11 @@ class Volume(object):
 
     def import_volume(self, src_volume):
         ''' Imports data from a different volume (possibly in a different
-        pool '''
+        pool.
+
+        The needs to be create()d first.
+
+        This can be implemented as a coroutine. '''
         # pylint: disable=unused-argument
         raise self._not_implemented("import_volume")
 
@@ -448,16 +452,9 @@ class Storage(object):
         dst_pool = self.vm.app.get_pool(config['pool'])
         dst = dst_pool.init_volume(self.vm, config)
         src_volume = src_vm.volumes[name]
-        src_pool = src_volume.pool
-        if dst_pool == src_pool:
-            msg = "Cloning volume {!s} from vm {!s}"
-            self.vm.log.info(msg.format(src_volume.name, src_vm.name))
-            clone_op_ret = dst_pool.clone(src_volume, dst)
-        else:
-            msg = "Importing volume {!s} from vm {!s}"
-            self.vm.log.info(msg.format(src_volume.name, src_vm.name))
-            clone_op_ret = dst_pool.import_volume(
-                dst_pool, dst, src_pool, src_volume)
+        msg = "Importing volume {!s} from vm {!s}"
+        self.vm.log.info(msg.format(src_volume.name, src_vm.name))
+        clone_op_ret = dst.import_volume(src_volume)
 
         # clone/import functions may be either synchronous or asynchronous
         # in the later case, we need to wait for them to finish

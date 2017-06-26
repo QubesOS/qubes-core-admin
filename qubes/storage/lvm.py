@@ -310,10 +310,11 @@ class ThinVolume(qubes.storage.Volume):
         # pylint: disable=line-too-long
         if isinstance(src_volume.pool, ThinPool) and \
                 src_volume.pool.thin_pool == self.pool.thin_pool:  # NOQA
+            cmd = ['remove', self.vid]
+            qubes_lvm(cmd, self.log)
             cmd = ['clone', str(src_volume), str(self)]
             qubes_lvm(cmd, self.log)
         else:
-            self.create()
             src_path = src_volume.export()
             cmd = ['sudo', 'dd', 'if=' + src_path, 'of=/dev/' + self.vid,
                 'conv=sparse']

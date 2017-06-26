@@ -261,6 +261,7 @@ class FileVolume(qubes.storage.Volume):
         msg = msg.format(src_volume, self)
         assert not src_volume.snap_on_start, msg
         if self.save_on_stop:
+            _remove_if_exists(self.path)
             copy_file(src_volume.export(), self.path)
         return self
 
