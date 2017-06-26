@@ -146,6 +146,12 @@ class Volume(object):
         '''
         raise self._not_implemented("create")
 
+    def remove(self):
+        ''' Remove volume.
+
+        This can be implemented as a coroutine.'''
+        raise self._not_implemented("remove")
+
     def commit(self):
         ''' Write the snapshot to disk
 
@@ -520,7 +526,7 @@ class Storage(object):
         for name, volume in self.vm.volumes.items():
             self.log.info('Removing volume %s: %s' % (name, volume.vid))
             try:
-                ret = volume.pool.remove(volume)
+                ret = volume.remove()
                 if asyncio.iscoroutine(ret):
                     futures.append(ret)
             except (IOError, OSError) as e:
@@ -719,12 +725,6 @@ class Pool(object):
         '''
         raise self._not_implemented("init_volume")
 
-    def remove(self, volume):
-        ''' Remove volume.
-
-        This can be implemented as a coroutine.'''
-        raise self._not_implemented("remove")
-
     def rename(self, volume, old_name, new_name):
         ''' Called when the domain changes its name '''
         raise self._not_implemented("rename")
@@ -804,8 +804,7 @@ class VmCreationManager(object):
         if type is not None and value is not None and tb is not None:
             for volume in self.vm.volumes.values():
                 try:
-                    pool = volume.pool
-                    pool.remove(volume)
+                    volume.remove()
                 except Exception:  # pylint: disable=broad-except
                     pass
             os.rmdir(self.vm.dir_path)

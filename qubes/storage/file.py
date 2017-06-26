@@ -79,16 +79,6 @@ class FilePool(qubes.storage.Pool):
         self._volumes += [volume]
         return volume
 
-    def remove(self, volume):
-        if not volume.internal:
-            return  # do not remove random attached file volumes
-        elif volume._is_snapshot:
-            return  # no need to remove, because it's just a snapshot
-        else:
-            _remove_if_exists(volume.path)
-            if volume._is_origin:
-                _remove_if_exists(volume.path_cow)
-
     def rename(self, volume, old_name, new_name):
         assert issubclass(volume.__class__, FileVolume)
         subdir, _, volume_path = volume.vid.split('/', 2)
@@ -200,6 +190,16 @@ class FileVolume(qubes.storage.Volume):
                 pass
             else:
                 create_sparse_file(self.path, self.size)
+
+    def remove(self):
+        if not self.internal:
+            return  # do not remove random attached file volumes
+        elif self._is_snapshot:
+            return  # no need to remove, because it's just a snapshot
+        else:
+            _remove_if_exists(self.path)
+            if self._is_origin:
+                _remove_if_exists(self.path_cow)
 
     def is_dirty(self):
         return False  # TODO: How to implement this?

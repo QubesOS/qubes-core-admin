@@ -88,18 +88,6 @@ class ThinPool(qubes.storage.Pool):
         volume_config['pool'] = self
         return ThinVolume(**volume_config)
 
-    def remove(self, volume):
-        assert volume.vid
-        if volume.is_dirty():
-            cmd = ['remove', volume._vid_snap]
-            qubes_lvm(cmd, self.log)
-
-        if not os.path.exists(volume.path):
-            return
-        cmd = ['remove', volume.vid]
-        qubes_lvm(cmd, self.log)
-        reset_cache()
-
     def rename(self, volume, old_name, new_name):
         ''' Called when the domain changes its name '''
         new_vid = "{!s}/vm-{!s}-{!s}".format(self.volume_group, new_name,
@@ -295,6 +283,18 @@ class ThinVolume(qubes.storage.Volume):
             qubes_lvm(cmd, self.log)
             reset_cache()
         return self
+
+    def remove(self):
+        assert self.vid
+        if self.is_dirty():
+            cmd = ['remove', self._vid_snap]
+            qubes_lvm(cmd, self.log)
+
+        if not os.path.exists(self.path):
+            return
+        cmd = ['remove', self.vid]
+        qubes_lvm(cmd, self.log)
+        reset_cache()
 
     def export(self):
         ''' Returns an object that can be `open()`. '''
