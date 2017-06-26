@@ -120,7 +120,7 @@ class ThinPool(qubes.storage.Pool):
                 # implementation detail volume
                 continue
             config = {
-                'pool': self.name,
+                'pool': self,
                 'vid': vid,
                 'name': vid,
                 'volume_group': self.volume_group,
@@ -305,8 +305,6 @@ class ThinVolume(qubes.storage.Volume):
         if not src_volume.save_on_stop:
             return self
 
-        src_path = src_volume.export()
-
         # HACK: neat trick to speed up testing if you have same physical thin
         # pool assigned to two qubes-pools i.e: qubes_dom0 and test-lvm
         # pylint: disable=line-too-long
@@ -316,7 +314,7 @@ class ThinVolume(qubes.storage.Volume):
             qubes_lvm(cmd, self.log)
         else:
             self.create()
-
+            src_path = src_volume.export()
             cmd = ['sudo', 'dd', 'if=' + src_path, 'of=/dev/' + self.vid,
                 'conv=sparse']
             subprocess.check_call(cmd)
