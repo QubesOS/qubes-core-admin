@@ -506,10 +506,7 @@ class Firewall(object):
         '''Load old (Qubes < 4.0) firewall XML format'''
         policy_v1 = xml_root.get('policy')
         assert policy_v1 in ('allow', 'deny')
-        if policy_v1 == 'allow':
-            policy = Action('accept')
-        else:
-            policy = Action('drop')
+        default_policy_is_accept = (policy_v1 == 'allow')
 
         def _translate_action(key):
             if xml_root.get(key, policy_v1) == 'allow':
@@ -524,7 +521,7 @@ class Firewall(object):
             action=_translate_action('icmp'),
             proto=Proto.icmp))
 
-        if policy == Action.accept:
+        if default_policy_is_accept:
             rule_action = Action.drop
         else:
             rule_action = Action.accept
@@ -532,7 +529,7 @@ class Firewall(object):
         for element in xml_root:
             rule = Rule.from_xml_v1(element, rule_action)
             self.rules.append(rule)
-        if policy == Action.accept:
+        if default_policy_is_accept:
             self.rules.append(Rule(None, action='accept'))
 
     def load_v2(self, xml_root):
