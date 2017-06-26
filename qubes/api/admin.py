@@ -829,40 +829,6 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.app.save()
 
-    @qubes.api.method('admin.vm.Clone')
-    @asyncio.coroutine
-    def vm_clone(self, untrusted_payload):
-        assert not self.arg
-
-        assert untrusted_payload.startswith(b'name=')
-        untrusted_name = untrusted_payload[5:].decode('ascii')
-        qubes.vm.validate_name(None, None, untrusted_name)
-        new_name = untrusted_name
-
-        del untrusted_payload
-
-        if new_name in self.app.domains:
-            raise qubes.exc.QubesValueError('Already exists')
-
-        self.fire_event_for_permission(new_name=new_name)
-
-        src_vm = self.dest
-
-        dst_vm = self.app.add_new_vm(src_vm.__class__, name=new_name)
-        try:
-            dst_vm.clone_properties(src_vm)
-            dst_vm.tags.update(src_vm.tags)
-            dst_vm.features.update(src_vm.features)
-            #dst_vm.firewall.clone(src_vm.firewall)
-            for devclass in src_vm.devices:
-                for device_assignment in src_vm.devices[devclass].assignments():
-                    dst_vm.devices[devclass].attach(device_assignment.clone())
-            yield from dst_vm.clone_disk_files(src_vm)
-        except:
-            del self.app.domains[dst_vm]
-            raise
-        self.app.save()
-
     @qubes.api.method('admin.vm.device.{endpoint}.Available', endpoints=(ep.name
             for ep in pkg_resources.iter_entry_points('qubes.devices')),
             no_payload=True)

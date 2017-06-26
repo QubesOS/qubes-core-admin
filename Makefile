@@ -35,7 +35,6 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.property.List \
 	admin.property.Reset \
 	admin.property.Set \
-	admin.vm.Clone \
 	admin.vm.Create.AppVM \
 	admin.vm.Create.DispVM \
 	admin.vm.Create.StandaloneVM \
