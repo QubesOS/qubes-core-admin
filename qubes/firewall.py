@@ -368,21 +368,23 @@ class Firewall(object):
         self.vm = vm
         #: firewall rules
         self.rules = []
-        #: default action
-        self.policy = None
 
         if load:
             self.load()
 
+    @property
+    def policy(self):
+        ''' Default action - always 'drop' '''
+        return Action('drop')
+
     def __eq__(self, other):
         if isinstance(other, Firewall):
-            return self.policy == other.policy and self.rules == other.rules
+            return self.rules == other.rules
         return NotImplemented
 
     def load_defaults(self):
         '''Load default firewall settings'''
-        self.rules = []
-        self.policy = Action('accept')
+        self.rules = [Rule(None, action='accept')]
 
     def clone(self, other):
         '''Clone firewall settings from other instance.
@@ -390,7 +392,6 @@ class Firewall(object):
 
         :param other: other :py:class:`Firewall` instance
         '''
-        self.policy = other.policy
         rules = []
         for rule in other.rules:
             new_rule = Rule()
@@ -422,9 +423,9 @@ class Firewall(object):
         policy_v1 = xml_root.get('policy')
         assert policy_v1 in ('allow', 'deny')
         if policy_v1 == 'allow':
-            self.policy = Action('accept')
+            policy = Action('accept')
         else:
-            self.policy = Action('drop')
+            policy = Action('drop')
 
         def _translate_action(key):
             if xml_root.get(key, policy_v1) == 'allow':
@@ -439,7 +440,7 @@ class Firewall(object):
             action=_translate_action('icmp'),
             proto=Proto.icmp))
 
-        if self.policy == Action.accept:
+        if policy == Action.accept:
             rule_action = Action.drop
         else:
             rule_action = Action.accept
@@ -447,11 +448,11 @@ class Firewall(object):
         for element in xml_root:
             rule = Rule.from_xml_v1(element, rule_action)
             self.rules.append(rule)
+        if policy == Action.accept:
+            self.rules.append(Rule(None, action='accept'))
 
     def load_v2(self, xml_root):
         '''Load new (Qubes >= 4.0) firewall XML format'''
-        self.policy = Action(xml_root.findtext('policy'))
-
         xml_rules = xml_root.find('rules')
         for xml_rule in xml_rules:
             rule = Rule(xml_rule)
@@ -463,10 +464,6 @@ class Firewall(object):
         expiring_rules_present = False
 
         xml_root = lxml.etree.Element('firewall', version=str(2))
-
-        xml_policy = lxml.etree.Element('policy')
-        xml_policy.text = str(self.policy)
-        xml_root.append(xml_policy)
 
         xml_rules = lxml.etree.Element('rules')
         for rule in self.rules:

@@ -463,17 +463,17 @@ class TC_10_Firewall(qubes.tests.QubesTestCase):
     def test_000_defaults(self):
         fw = qubes.firewall.Firewall(self.vm, False)
         fw.load_defaults()
-        self.assertEqual(fw.policy, 'accept')
-        self.assertEqual(fw.rules, [])
+        self.assertEqual(fw.policy, 'drop')
+        self.assertEqual(fw.rules, [qubes.firewall.Rule(None, action='accept')])
 
     def test_001_save_load_empty(self):
         fw = qubes.firewall.Firewall(self.vm, True)
-        self.assertEqual(fw.policy, 'accept')
-        self.assertEqual(fw.rules, [])
+        self.assertEqual(fw.policy, 'drop')
+        self.assertEqual(fw.rules, [qubes.firewall.Rule(None, action='accept')])
         fw.save()
         fw.load()
-        self.assertEqual(fw.policy, 'accept')
-        self.assertEqual(fw.rules, [])
+        self.assertEqual(fw.policy, 'drop')
+        self.assertEqual(fw.rules, [qubes.firewall.Rule(None, action='accept')])
 
     def test_002_save_load_rules(self):
         fw = qubes.firewall.Firewall(self.vm, True)
@@ -485,13 +485,13 @@ class TC_10_Firewall(qubes.tests.QubesTestCase):
             qubes.firewall.Rule(None, action='accept', specialtarget='dns'),
             ]
         fw.rules.extend(rules)
-        fw.policy = qubes.firewall.Action.drop
         fw.save()
         self.assertTrue(os.path.exists(os.path.join(
             self.vm.dir_path, self.vm.firewall_conf)))
         fw = qubes.firewall.Firewall(TestVM(), True)
         self.assertEqual(fw.policy, qubes.firewall.Action.drop)
-        self.assertEqual(fw.rules, rules)
+        self.assertEqual(fw.rules,
+            [qubes.firewall.Rule(None, action='accept')] + rules)
 
     def test_003_load_v1(self):
         xml_txt = """<QubesFirewallRules dns="allow" icmp="allow"
@@ -524,8 +524,7 @@ class TC_10_Firewall(qubes.tests.QubesTestCase):
                 dstports=67, expire=1373300257),
             qubes.firewall.Rule(None, action='accept', specialtarget='dns'),
             ]
-        fw.rules.extend(rules)
-        fw.policy = qubes.firewall.Action.drop
+        fw.rules = rules
         fw.save()
         rules.pop(2)
         fw = qubes.firewall.Firewall(self.vm, True)
@@ -539,8 +538,7 @@ class TC_10_Firewall(qubes.tests.QubesTestCase):
             qubes.firewall.Rule(None, action='accept', proto='udp'),
             qubes.firewall.Rule(None, action='accept', specialtarget='dns'),
         ]
-        fw.rules.extend(rules)
-        fw.policy = qubes.firewall.Action.drop
+        fw.rules = rules
         expected_qdb_entries = {
             'policy': 'drop',
             '0000': 'action=drop proto=icmp',
