@@ -607,6 +607,15 @@ class Policy(object):
                     'policy define \'allow\' action at {}:{} but no target is '
                     'specified by caller or policy'.format(
                         rule.filename, rule.lineno))
+            if actual_target == '$dispvm':
+                if system_info['domains'][source]['default_dispvm'] is None:
+                    raise AccessDenied(
+                        'policy define \'allow\' action to $dispvm at {}:{} '
+                        'but no DispVM base is set for this VM'.format(
+                            rule.filename, rule.lineno))
+                actual_target = '$dispvm:' + \
+                    system_info['domains'][source]['default_dispvm']
+
             return PolicyAction(self.service, source,
                 actual_target, rule, target)
         else:

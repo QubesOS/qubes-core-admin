@@ -725,6 +725,19 @@ class TC_20_Policy(qubes.tests.QubesTestCase):
                 'default-dvm', '$dispvm:default-dvm', 'test-invalid-dvm',
                 'test-no-dvm', 'test-template', 'test-standalone'])
 
+    def test_034_eval_resolve_dispvm(self):
+        with open(os.path.join(tmp_policy_dir, 'test.service'), 'w') as f:
+            f.write('test-vm3 $dispvm allow\n')
+
+        policy = qubespolicy.Policy('test.service', tmp_policy_dir)
+        action = policy.evaluate(system_info, 'test-vm3', '$dispvm')
+        self.assertEqual(action.rule, policy.policy_rules[0])
+        self.assertEqual(action.action, qubespolicy.Action.allow)
+        self.assertEqual(action.target, '$dispvm:default-dvm')
+        self.assertEqual(action.original_target, '$dispvm')
+        self.assertEqual(action.service, 'test.service')
+        self.assertIsNone(action.targets_for_ask)
+
 
 class TC_30_Misc(qubes.tests.QubesTestCase):
     @unittest.mock.patch('socket.socket')
