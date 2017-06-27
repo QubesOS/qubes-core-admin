@@ -43,6 +43,7 @@ parser.add_argument('service', nargs='*', action='store',
 
 default_policy_header = '''\
 ## Note that policy parsing stops at the first match.
+## Anything not specifically allowed here (or in included file) will be denied.
 
 ## Please use a single # to start your custom comments
 
