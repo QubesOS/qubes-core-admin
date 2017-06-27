@@ -29,7 +29,7 @@ import qubes.api.admin
 parser = argparse.ArgumentParser(
     description='Generate default Admin API policy')
 parser.add_argument('--include-base', action='store',
-    default='/etc/qubes-rpc/policy/include',
+    default='include',
     help='Base path for included paths (default: %(default)s)')
 parser.add_argument('--destdir', action='store',
     default='/etc/qubes-rpc/policy',
