@@ -155,15 +155,16 @@ class TC_00_PolicyRule(qubes.tests.QubesTestCase):
         self.assertIsNone(line.default_target)
 
     def test_021_line_simple(self):
+        # also check spaces in action field
         line = qubespolicy.PolicyRule(
-            '$tag:tag1 $type:AppVM ask,target=test-vm2,user=user',
+            '$tag:tag1 $type:AppVM ask, target=test-vm2, user=user',
             'filename', 12)
         self.assertEqual(line.filename, 'filename')
         self.assertEqual(line.lineno, 12)
         self.assertEqual(line.action, qubespolicy.Action.ask)
         self.assertEqual(line.source, '$tag:tag1')
         self.assertEqual(line.target, '$type:AppVM')
-        self.assertEqual(line.full_action, 'ask,target=test-vm2,user=user')
+        self.assertEqual(line.full_action, 'ask, target=test-vm2, user=user')
         self.assertEqual(line.override_target, 'test-vm2')
         self.assertEqual(line.override_user, 'user')
         self.assertIsNone(line.default_target)

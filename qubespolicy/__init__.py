@@ -121,11 +121,11 @@ class PolicyRule(object):
         self.filename = filename
 
         try:
-            self.source, self.target, self.full_action = line.split()
+            self.source, self.target, self.full_action = line.split(maxsplit=2)
         except ValueError:
             raise PolicySyntaxError(filename, lineno, 'wrong number of fields')
 
-        (action, *params) = self.full_action.split(',')
+        (action, *params) = self.full_action.replace(' ', '').split(',')
         try:
             self.action = Action[action]
         except KeyError:
