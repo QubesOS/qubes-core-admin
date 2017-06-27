@@ -119,6 +119,7 @@ class BackupHeader(object):
 
         :param untrusted_header_text: header content
         :type untrusted_header_text: basestring
+
         .. warning::
             This function may be exposed to not yet verified header,
             so is security critical.
@@ -864,9 +865,9 @@ def handle_streams(stream_in, streams_out, processes, size_limit=None,
     :param processes: dict of subprocess.Popen objects to monitor
     :param size_limit: int maximum data amount to process
     :param progress_callback: callable function to report progress, will be
-    given copied data size (it should accumulate internally)
+        given copied data size (it should accumulate internally)
     :return: failed process name, failed stream name, "size_limit" or None (
-    no error)
+        no error)
     '''
     buffer_size = 409600
     bytes_copied = 0

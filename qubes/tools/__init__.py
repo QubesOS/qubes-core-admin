@@ -303,11 +303,13 @@ class QubesArgumentParser(argparse.ArgumentParser):
         :py:class:`qubes.Qubes` object, just add argument for custom xml file
     :param bool want_force_root: add ``--force-root`` option
     :param mixed vmname_nargs: The number of ``VMNAME`` arguments that should be
-            consumed. Values include:
-                - N (an integer) consumes N arguments (and produces a list)
-                - '?' consumes zero or one arguments
-                - '*' consumes zero or more arguments (and produces a list)
-                - '+' consumes one or more arguments (and produces a list)
+        consumed. Values include:
+
+            - N (an integer) consumes N arguments (and produces a list)
+            - '?' consumes zero or one arguments
+            - '*' consumes zero or more arguments (and produces a list)
+            - '+' consumes one or more arguments (and produces a list)
+
     *kwargs* are passed to :py:class:`argparser.ArgumentParser`.
 
     Currenty supported options:
