@@ -523,7 +523,6 @@ class TC_10_PolicyAction(qubes.tests.QubesTestCase):
             [unittest.mock.call('test-vm2', 'internal.vm.Start')])
         self.assertEqual(mock_subprocess.mock_calls, [])
 
-@unittest.mock.patch('qubespolicy.POLICY_DIR', tmp_policy_dir)
 class TC_20_Policy(qubes.tests.QubesTestCase):
 
     def setUp(self):
@@ -543,7 +542,7 @@ class TC_20_Policy(qubes.tests.QubesTestCase):
             f.write('test-vm2 test-vm3 ask\n')
             f.write('   # comment  \n')
             f.write('$anyvm $anyvm ask\n')
-        policy = qubespolicy.Policy('test.service')
+        policy = qubespolicy.Policy('test.service', tmp_policy_dir)
         self.assertEqual(policy.service, 'test.service')
         self.assertEqual(len(policy.policy_rules), 3)
         self.assertEqual(policy.policy_rules[0].source, 'test-vm1')
@@ -553,7 +552,7 @@ class TC_20_Policy(qubes.tests.QubesTestCase):
 
     def test_001_not_existent(self):
         with self.assertRaises(qubespolicy.AccessDenied):
-            qubespolicy.Policy('no-such.service')
+            qubespolicy.Policy('no-such.service', tmp_policy_dir)
 
     def test_002_include(self):
         with open(os.path.join(tmp_policy_dir, 'test.service'), 'w') as f:
@@ -562,7 +561,7 @@ class TC_20_Policy(qubes.tests.QubesTestCase):
             f.write('$anyvm $anyvm deny\n')
         with open(os.path.join(tmp_policy_dir, 'test.service2'), 'w') as f:
             f.write('test-vm3 $default allow,target=test-vm2\n')
-        policy = qubespolicy.Policy('test.service')
+        policy = qubespolicy.Policy('test.service', tmp_policy_dir)
         self.assertEqual(policy.service, 'test.service')
         self.assertEqual(len(policy.policy_rules), 3)
         self.assertEqual(policy.policy_rules[0].source, 'test-vm1')
@@ -595,7 +594,7 @@ class TC_20_Policy(qubes.tests.QubesTestCase):
             f.write('test-vm2 $tag:tag2 allow\n')
             f.write('$type:AppVM $default allow,target=test-vm3\n')
             f.write('$tag:tag1 $type:AppVM allow\n')
-        policy = qubespolicy.Policy('test.service')
+        policy = qubespolicy.Policy('test.service', tmp_policy_dir)
         self.assertEqual(policy.find_matching_rule(
             system_info, 'test-vm1', 'test-vm2'), policy.policy_rules[0])
         self.assertEqual(policy.find_matching_rule(
@@ -631,7 +630,7 @@ class TC_20_Policy(qubes.tests.QubesTestCase):
             f.write('$tag:tag1 $type:AppVM allow\n')
             f.write('test-no-dvm $dispvm allow\n')
             f.write('test-standalone $dispvm allow\n')
-        policy = qubespolicy.Policy('test.service')
+        policy = qubespolicy.Policy('test.service', tmp_policy_dir)
         self.assertCountEqual(policy.collect_targets_for_ask(system_info,
             'test-vm1'), ['test-vm1', 'test-vm2', 'test-vm3',
                 '$dispvm:test-vm3',
@@ -652,7 +651,7 @@ class TC_20_Policy(qubes.tests.QubesTestCase):
         with open(os.path.join(tmp_policy_dir, 'test.service'), 'w') as f:
             f.write('test-vm1 test-vm2 allow\n')
 
-        policy = qubespolicy.Policy('test.service')
+        policy = qubespolicy.Policy('test.service', tmp_policy_dir)
         action = policy.evaluate(system_info, 'test-vm1', 'test-vm2')
         self.assertEqual(action.rule, policy.policy_rules[0])
         self.assertEqual(action.action, qubespolicy.Action.allow)
@@ -671,7 +670,7 @@ class TC_20_Policy(qubes.tests.QubesTestCase):
             f.write('$tag:tag2 $anyvm allow\n')
             f.write('test-vm3 $anyvm deny\n')
 
-        policy = qubespolicy.Policy('test.service')
+        policy = qubespolicy.Policy('test.service', tmp_policy_dir)
         action = policy.evaluate(system_info, 'test-vm1', '$default')
         self.assertEqual(action.rule, policy.policy_rules[1])
         self.assertEqual(action.action, qubespolicy.Action.allow)
@@ -693,7 +692,7 @@ class TC_20_Policy(qubes.tests.QubesTestCase):
             f.write('$tag:tag2 $anyvm allow\n')
             f.write('test-vm3 $anyvm deny\n')
 
-        policy = qubespolicy.Policy('test.service')
+        policy = qubespolicy.Policy('test.service', tmp_policy_dir)
         action = policy.evaluate(system_info, 'test-standalone', 'test-vm2')
         self.assertEqual(action.rule, policy.policy_rules[2])
         self.assertEqual(action.action, qubespolicy.Action.ask)
@@ -714,7 +713,7 @@ class TC_20_Policy(qubes.tests.QubesTestCase):
             f.write('$tag:tag2 $anyvm allow\n')
             f.write('test-vm3 $anyvm deny\n')
 
-        policy = qubespolicy.Policy('test.service')
+        policy = qubespolicy.Policy('test.service', tmp_policy_dir)
         action = policy.evaluate(system_info, 'test-standalone', 'test-vm3')
         self.assertEqual(action.rule, policy.policy_rules[3])
         self.assertEqual(action.action, qubespolicy.Action.ask)

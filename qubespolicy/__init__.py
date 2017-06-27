@@ -479,11 +479,14 @@ class Policy(object):
 
     '''
 
-    def __init__(self, service):
-        policy_file = os.path.join(POLICY_DIR, service)
+    def __init__(self, service, policy_dir=POLICY_DIR):
+        policy_file = os.path.join(policy_dir, service)
         if not os.path.exists(policy_file):
             # fallback to policy without specific argument set (if any)
-            policy_file = os.path.join(POLICY_DIR, service.split('+')[0])
+            policy_file = os.path.join(policy_dir, service.split('+')[0])
+
+        #: policy storage directory
+        self.policy_dir = policy_dir
 
         #: service name
         self.service = service
@@ -515,7 +518,7 @@ class Policy(object):
                     include_path = line.split(':', 1)[1]
                     # os.path.join will leave include_path unchanged if it's
                     # already absolute
-                    include_path = os.path.join(POLICY_DIR, include_path)
+                    include_path = os.path.join(self.policy_dir, include_path)
                     self.load_policy_file(include_path)
                 else:
                     self.policy_rules.append(PolicyRule(line, path, lineno))
