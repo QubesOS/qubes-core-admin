@@ -31,7 +31,7 @@ tmp_policy_dir = '/tmp/policy'
 system_info = {
     'domains': {
         'dom0': {
-            'tags': [],
+            'tags': ['dom0-tag'],
             'type': 'AdminVM',
             'default_dispvm': 'default-dvm',
             'dispvm_allowed': False,
@@ -102,6 +102,8 @@ class TC_00_PolicyRule(qubes.tests.QubesTestCase):
             qubespolicy.verify_target_value(system_info, 'test-template'))
         self.assertTrue(
             qubespolicy.verify_target_value(system_info, 'test-standalone'))
+        self.assertTrue(
+            qubespolicy.verify_target_value(system_info, '$adminvm'))
         self.assertFalse(
             qubespolicy.verify_target_value(system_info, 'no-such-vm'))
         self.assertFalse(
@@ -126,6 +128,8 @@ class TC_00_PolicyRule(qubes.tests.QubesTestCase):
         self.assertTrue(qubespolicy.verify_special_value('$tag:other-tag',
             for_target=False))
         self.assertTrue(qubespolicy.verify_special_value('$type:AppVM',
+            for_target=False))
+        self.assertTrue(qubespolicy.verify_special_value('$adminvm',
             for_target=False))
         self.assertFalse(qubespolicy.verify_special_value('$default',
             for_target=False))
@@ -197,6 +201,20 @@ class TC_00_PolicyRule(qubes.tests.QubesTestCase):
         self.assertIsNone(line.override_user)
         self.assertEqual(line.default_target, 'test-vm1')
 
+    def test_024_line_simple(self):
+        line = qubespolicy.PolicyRule(
+            '$anyvm $adminvm ask,default_target=$adminvm',
+            'filename', 12)
+        self.assertEqual(line.filename, 'filename')
+        self.assertEqual(line.lineno, 12)
+        self.assertEqual(line.action, qubespolicy.Action.ask)
+        self.assertEqual(line.source, '$anyvm')
+        self.assertEqual(line.target, '$adminvm')
+        self.assertEqual(line.full_action, 'ask,default_target=$adminvm')
+        self.assertIsNone(line.override_target)
+        self.assertIsNone(line.override_user)
+        self.assertEqual(line.default_target, '$adminvm')
+
     def test_030_line_invalid(self):
         invalid_lines = [
             '$dispvm $default allow',  # $dispvm can't be a source
@@ -236,6 +254,9 @@ class TC_00_PolicyRule(qubes.tests.QubesTestCase):
         self.assertTrue(is_match_single(system_info,
             '$anyvm', '$dispvm:default-dvm'))
         self.assertTrue(is_match_single(system_info, '$dispvm', '$dispvm'))
+        self.assertTrue(is_match_single(system_info, '$adminvm', '$adminvm'))
+        self.assertTrue(is_match_single(system_info, '$adminvm', 'dom0'))
+        self.assertTrue(is_match_single(system_info, 'dom0', '$adminvm'))
         self.assertTrue(is_match_single(system_info, 'dom0', 'dom0'))
         self.assertTrue(is_match_single(system_info,
             '$dispvm:default-dvm', '$dispvm:default-dvm'))
@@ -254,6 +275,15 @@ class TC_00_PolicyRule(qubes.tests.QubesTestCase):
         self.assertFalse(is_match_single(system_info,
             '$dispvm:test-vm1', '$dispvm:test-vm1'))
         self.assertFalse(is_match_single(system_info, '$anyvm', 'dom0'))
+        self.assertFalse(is_match_single(system_info, '$anyvm', '$adminvm'))
+        self.assertFalse(is_match_single(system_info,
+            '$tag:dom0-tag', '$adminvm'))
+        self.assertFalse(is_match_single(system_info,
+            '$type:AdminVM', '$adminvm'))
+        self.assertFalse(is_match_single(system_info,
+            '$tag:dom0-tag', 'dom0'))
+        self.assertFalse(is_match_single(system_info,
+            '$type:AdminVM', 'dom0'))
         self.assertFalse(is_match_single(system_info, '$tag:tag1', 'dom0'))
         self.assertFalse(is_match_single(system_info, '$anyvm', '$tag:tag1'))
         self.assertFalse(is_match_single(system_info, '$anyvm', '$type:AppVM'))
@@ -338,6 +368,13 @@ class TC_00_PolicyRule(qubes.tests.QubesTestCase):
         self.assertEqual(
             line.expand_override_target(system_info, 'test-no-dvm'),
             'dom0')
+
+    def test_075_expand_override_target_dom0(self):
+        line = qubespolicy.PolicyRule(
+            '$anyvm $anyvm allow,target=$adminvm')
+        self.assertEqual(
+            line.expand_override_target(system_info, 'test-no-dvm'),
+            '$adminvm')
 
 
 class TC_10_PolicyAction(qubes.tests.QubesTestCase):

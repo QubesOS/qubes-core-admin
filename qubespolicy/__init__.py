@@ -66,6 +66,8 @@ def verify_target_value(system_info, value):
     '''
     if value == '$dispvm':
         return True
+    elif value == '$adminvm':
+        return True
     elif value.startswith('$dispvm:'):
         dispvm_base = value.split(':', 1)[1]
         if dispvm_base not in system_info['domains']:
@@ -92,6 +94,8 @@ def verify_special_value(value, for_target=True):
     elif value.startswith('$type:') and len(value) > len('$type:'):
         return True
     elif value == '$anyvm':
+        return True
+    elif value == '$adminvm':
         return True
     elif value.startswith('$dispvm:') and for_target:
         return True
@@ -184,8 +188,9 @@ class PolicyRule(object):
                 'allow action for $default rule must specify target= option')
 
         if self.override_target is not None:
-            if self.override_target.startswith('$') and not \
-                    self.override_target.startswith('$dispvm'):
+            if self.override_target.startswith('$') and \
+                    not self.override_target.startswith('$dispvm') and \
+                    self.override_target != '$adminvm':
                 raise PolicySyntaxError(filename, lineno,
                     'target= option needs to name specific target')
 
@@ -216,17 +221,30 @@ class PolicyRule(object):
         if not verify_target_value(system_info, value):
             return False
 
+        # handle $adminvm keyword
+        if policy_value == 'dom0':
+            # TODO: log a warning in Qubes 4.1
+            policy_value = '$adminvm'
+
+        if value == 'dom0':
+            value = '$adminvm'
+
         # allow any _valid_, non-dom0 target
         if policy_value == '$anyvm':
-            return value != 'dom0'
+            return value != '$adminvm'
 
-        # exact match, including $dispvm*
+        # exact match, including $dispvm* and $adminvm
         if value == policy_value:
             return True
 
         # if $dispvm* not matched above, reject it; missing ':' is
         # intentional - handle both '$dispvm' and '$dispvm:xxx'
         if value.startswith('$dispvm'):
+            return False
+
+        # require $adminvm to be matched explicitly (not through $tag or $type)
+        # - if not matched already, reject it
+        if value == '$adminvm':
             return False
 
         # at this point, value name a specific target
@@ -293,6 +311,8 @@ class PolicyRule(object):
             except KeyError:
                 # TODO log a warning?
                 pass
+        elif self.target == '$adminvm':
+            yield self.target
         elif self.target == '$dispvm':
             yield self.target
         else:
@@ -378,6 +398,8 @@ class PolicyAction(object):
         assert self.action == Action.allow
         assert self.target is not None
 
+        if self.target == '$adminvm':
+            self.target = 'dom0'
         if self.target == 'dom0':
             cmd = '{multiplexer} {service} {source} {original_target}'.format(
                 multiplexer=QUBES_RPC_MULTIPLEXER_PATH,

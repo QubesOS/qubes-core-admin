@@ -30,6 +30,10 @@ Each line consist of three values separated by white characters (space(s), tab(s
   - `$dispvm:vm-name` - _new_ Disposable VM created from AppVM `vm-name`
   - `$dispvm` - _new_ Disposable VM created from AppVM pointed by caller
     property `default_dispvm`, which defaults to global property `default_dispvm`
+  - `$adminvm` - Admin VM aka dom0
+
+  Dom0 can only be matched explicitly - either as `dom0` or `$adminvm` keyword.
+  None of `$anyvm`, `$tag:some-tag`, `$type:AdminVM` will match.
 
 3. Action and optional action parameters, one of:
 
