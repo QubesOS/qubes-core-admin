@@ -84,7 +84,7 @@ def verify_special_value(value, for_target=True):
 
     :param value: value to verify
     :param for_target: should classify target-only values as valid (
-    '$default', '$dispvm')
+        '$default', '$dispvm')
     :return: True or False
     '''
     # pylint: disable=too-many-return-statements
@@ -202,7 +202,7 @@ class PolicyRule(object):
 
         :param system_info: information about the system
         :param policy_value: value from qrexec policy (either self.source or
-        self.target)
+            self.target)
         :param value: value to be compared (source or target)
         :return: True or False
         '''
@@ -265,8 +265,8 @@ class PolicyRule(object):
         Check if given (source, target) matches this policy line.
 
         :param system_info: information about the system - available VMs,
-        their types, labels, tags etc. as returned by
-        :py:func:`app_to_system_info`
+            their types, labels, tags etc. as returned by
+            :py:func:`app_to_system_info`
         :param source: name of the source VM
         :param target: name of the target VM, or None if not specified
         :return: True or False
@@ -392,8 +392,8 @@ class PolicyAction(object):
     def execute(self, caller_ident):
         ''' Execute allowed service call
 
-        :param caller_ident: Service caller ident (`process_ident,source_name,
-        source_id`)
+        :param caller_ident: Service caller ident
+            (`process_ident,source_name, source_id`)
         '''
         assert self.action == Action.allow
         assert self.target is not None
@@ -473,7 +473,7 @@ class Policy(object):
     >>> policy = Policy('some-service')
     >>> action = policy.evaluate(system_info, 'source-name', 'target-name')
     >>> if action.action == Action.ask:
-            (... ask the user, see action.targets_for_ask ...)
+    >>>     # ... ask the user, see action.targets_for_ask ...
     >>>     action.handle_user_response(response, target_chosen_by_user)
     >>> action.execute('process-ident')
 
@@ -668,11 +668,11 @@ def get_system_info():
     data is nested dict structure with this structure:
 
     - domains:
-      - <domain name>:
-        - tags: list of tags
-        - type: domain type
-        - dispvm_allowed: should DispVM based on this VM be allowed
-        - default_dispvm: name of default AppVM for DispVMs started from here
+       - `<domain name>`:
+          - tags: list of tags
+          - type: domain type
+          - dispvm_allowed: should DispVM based on this VM be allowed
+          - default_dispvm: name of default AppVM for DispVMs started from here
 
     '''
 
