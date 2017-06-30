@@ -79,26 +79,6 @@ class FilePool(qubes.storage.Pool):
         self._volumes += [volume]
         return volume
 
-    def rename(self, volume, old_name, new_name):
-        assert issubclass(volume.__class__, FileVolume)
-        subdir, _, volume_path = volume.vid.split('/', 2)
-
-        if volume._is_origin:
-            # TODO: Renaming the old revisions
-            new_path = os.path.join(self.dir_path, subdir, new_name)
-            if not os.path.exists(new_path):
-                os.mkdir(new_path, 0o755)
-            new_volume_path = os.path.join(new_path, self.name + '.img')
-            if not volume.backward_comp:
-                os.rename(volume.path, new_volume_path)
-            new_volume_path_cow = os.path.join(new_path, self.name + '-cow.img')
-            if os.path.exists(new_volume_path_cow) and not volume.backward_comp:
-                os.rename(volume.path_cow, new_volume_path_cow)
-
-        volume.vid = os.path.join(subdir, new_name, volume_path)
-
-        return volume
-
     def destroy(self):
         pass
 

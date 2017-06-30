@@ -486,13 +486,6 @@ class Storage(object):
 
         return result
 
-    def rename(self, old_name, new_name):
-        ''' Notify the pools that the domain was renamed '''
-        volumes = self.vm.volumes
-        for name, volume in volumes.items():
-            pool = volume.pool
-            volumes[name] = pool.rename(volume, old_name, new_name)
-
     @asyncio.coroutine
     def verify(self):
         '''Verify that the storage is sane.
@@ -721,10 +714,6 @@ class Pool(object):
         ''' Initialize a :py:class:`qubes.storage.Volume` from `volume_config`.
         '''
         raise self._not_implemented("init_volume")
-
-    def rename(self, volume, old_name, new_name):
-        ''' Called when the domain changes its name '''
-        raise self._not_implemented("rename")
 
     def setup(self):
         ''' Called when adding a pool to the system. Use this for implementation

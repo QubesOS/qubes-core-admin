@@ -88,23 +88,6 @@ class ThinPool(qubes.storage.Pool):
         volume_config['pool'] = self
         return ThinVolume(**volume_config)
 
-    def rename(self, volume, old_name, new_name):
-        ''' Called when the domain changes its name '''
-        new_vid = "{!s}/vm-{!s}-{!s}".format(self.volume_group, new_name,
-                                          volume.name)
-        if volume.save_on_stop:
-            cmd = ['clone', volume.vid, new_vid]
-            qubes_lvm(cmd, self.log)
-            cmd = ['remove', volume.vid]
-            qubes_lvm(cmd, self.log)
-
-        volume.vid = new_vid
-
-        if volume.snap_on_start:
-            volume._vid_snap = volume.vid + '-snap'
-        reset_cache()
-        return volume
-
     def setup(self):
         pass  # TODO Should we create a non existing pool?
 

@@ -157,9 +157,6 @@ class LinuxKernel(Pool):
     def import_volume(self, dst_pool, dst_volume, src_pool, src_volume):
         pass
 
-    def rename(self, volume, old_name, new_name):
-        return volume
-
     def setup(self):
         pass
 
