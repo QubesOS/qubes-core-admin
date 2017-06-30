@@ -78,68 +78,6 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.loop.run_until_complete(self.vm.create_on_disk())
 
     @unittest.expectedFailure
-    def test_000_rename(self):
-        newname = self.make_vm_name('newname')
-
-        self.assertEqual(self.vm.name, self.vmname)
-        self.vm.firewall.policy = 'drop'
-        self.vm.firewall.rules = [
-            qubes.firewall.Rule(None, action='accept', specialtarget='dns')
-        ]
-        self.vm.firewall.save()
-        self.vm.autostart = True
-        self.addCleanup(os.system,
-                        'sudo systemctl -q disable qubes-vm@{}.service || :'.
-                        format(self.vmname))
-        pre_rename_firewall = self.vm.firewall.rules
-
-        with self.assertNotRaises(
-                (OSError, libvirt.libvirtError, qubes.exc.QubesException)):
-            self.vm.name = newname
-        self.assertEqual(self.vm.name, newname)
-        self.assertEqual(self.vm.dir_path,
-            os.path.join(
-                qubes.config.system_path['qubes_base_dir'],
-                qubes.config.system_path['qubes_appvms_dir'], newname))
-        self.assertTrue(os.path.exists(
-            os.path.join(self.vm.dir_path, "apps", newname + "-vm.directory")))
-        # FIXME: set whitelisted-appmenus.list first
-        self.assertTrue(os.path.exists(os.path.join(
-            self.vm.dir_path, "apps", newname + "-firefox.desktop")))
-        self.assertTrue(os.path.exists(
-            os.path.join(os.getenv("HOME"), ".local/share/desktop-directories",
-                newname + "-vm.directory")))
-        self.assertTrue(os.path.exists(
-            os.path.join(os.getenv("HOME"), ".local/share/applications",
-                newname + "-firefox.desktop")))
-        self.assertFalse(os.path.exists(
-            os.path.join(os.getenv("HOME"), ".local/share/desktop-directories",
-                self.vmname + "-vm.directory")))
-        self.assertFalse(os.path.exists(
-            os.path.join(os.getenv("HOME"), ".local/share/applications",
-                self.vmname + "-firefox.desktop")))
-        self.vm.firewall.load()
-        self.assertEqual(pre_rename_firewall, self.vm.firewall.rules)
-        with self.assertNotRaises((qubes.exc.QubesException, OSError)):
-            self.vm.firewall.save()
-        self.assertTrue(self.vm.autostart)
-        self.assertTrue(os.path.exists(
-            '/etc/systemd/system/multi-user.target.wants/'
-            'qubes-vm@{}.service'.format(newname)))
-        self.assertFalse(os.path.exists(
-            '/etc/systemd/system/multi-user.target.wants/'
-            'qubes-vm@{}.service'.format(self.vmname)))
-
-    def test_001_rename_libvirt_undefined(self):
-        self.vm.libvirt_domain.undefine()
-        self.vm._libvirt_domain = None  # pylint: disable=protected-access
-
-        newname = self.make_vm_name('newname')
-        with self.assertNotRaises(
-                (OSError, libvirt.libvirtError, qubes.exc.QubesException)):
-            self.vm.name = newname
-
-    @unittest.expectedFailure
     def test_030_clone(self):
         testvm1 = self.app.add_new_vm(
             qubes.vm.appvm.AppVM,

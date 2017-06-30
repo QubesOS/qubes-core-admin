@@ -72,28 +72,6 @@ def _setter_qid(self, prop, value):
     return value
 
 
-def _setter_name(self, prop, value):
-    ''' Helper for setting the domain name '''
-    qubes.vm.validate_name(self, prop, value)
-
-    if self.is_running():
-        raise qubes.exc.QubesVMNotHaltedError(
-            self, 'Cannot change name of running VM')
-
-    try:
-        if self.installed_by_rpm:
-            raise qubes.exc.QubesException('Cannot rename VM installed by RPM '
-                '-- first clone VM and then use yum to remove package.')
-    except AttributeError:
-        pass
-
-    if value in self.app.domains:
-        raise qubes.exc.QubesPropertyValueError(self, prop, value,
-            'VM named {} alread exists'.format(value))
-
-    return value
-
-
 def _setter_kernel(self, prop, value):
     ''' Helper for setting the domain kernel and running sanity checks on it.
     '''  # pylint: disable=unused-argument
@@ -732,26 +710,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             else:
                 shutil.copy(newvalue.icon_path, self.icon_path)
 
-    @qubes.events.handler('property-pre-set:name')
-    def on_property_pre_set_name(self, event, name, newvalue, oldvalue=None):
-        # pylint: disable=unused-argument
-        try:
-            self.app.domains[newvalue]
-        except KeyError:
-            pass
-        else:
-            raise qubes.exc.QubesValueError(
-                'VM named {!r} already exists'.format(newvalue))
-
-        # TODO not self.is_stopped() would be more appropriate
-        if self.is_running():
-            raise qubes.exc.QubesVMNotHaltedError(
-                'Cannot change name of running domain {!r}'.format(oldvalue))
-
-        if self.autostart:
-            subprocess.check_call(['sudo', 'systemctl', '-q', 'disable',
-                                   'qubes-vm@{}.service'.format(oldvalue)])
-
     @qubes.events.handler('property-pre-set:kernel')
     def on_property_pre_set_kernel(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
@@ -771,29 +729,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     self.property_get_def(name), newvalue,
                     'Kernel {!r} not properly installed: '
                     'missing {!r} file'.format(newvalue, filename))
-
-    @qubes.events.handler('property-set:name')
-    def on_property_set_name(self, event, name, newvalue, oldvalue=None):
-        # pylint: disable=unused-argument
-        self.init_log()
-
-        old_dir_path = os.path.join(os.path.dirname(self.dir_path), oldvalue)
-        new_dir_path = os.path.join(os.path.dirname(self.dir_path), newvalue)
-        os.rename(old_dir_path, new_dir_path)
-
-        self.storage.rename(oldvalue, newvalue)
-
-        if self._libvirt_domain is not None:
-            self.libvirt_domain.undefine()
-            self._libvirt_domain = None
-        if self._qdb_connection is not None:
-            self._qdb_connection.close()
-            self._qdb_connection = None
-
-        self._update_libvirt_domain()
-
-        if self.autostart:
-            self.autostart = self.autostart
 
     @qubes.events.handler('property-pre-set:autostart')
     def on_property_pre_set_autostart(self, event, name, newvalue,

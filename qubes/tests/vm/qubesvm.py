@@ -80,50 +80,6 @@ class TC_00_setters(qubes.tests.QubesTestCase):
             qubes.vm.qubesvm._setter_qid(self.vm,
                 self.prop, qubes.config.max_qid + 5)
 
-
-    def test_010_setter_name(self):
-        self.assertEqual(
-            qubes.vm.qubesvm._setter_name(self.vm, self.prop, 'test_name-1'),
-            'test_name-1')
-
-    def test_011_setter_name_not_a_string(self):
-        # pylint: disable=invalid-name
-        with self.assertRaises(TypeError):
-            qubes.vm.qubesvm._setter_name(self.vm, self.prop, False)
-
-    def test_012_setter_name_longer_than_31(self):
-        # pylint: disable=invalid-name
-        with self.assertRaises(ValueError):
-            qubes.vm.qubesvm._setter_name(self.vm, self.prop, 't' * 32)
-
-    def test_013_setter_name_illegal_character(self):
-        # pylint: disable=invalid-name
-        with self.assertRaises(ValueError):
-            qubes.vm.qubesvm._setter_name(self.vm, self.prop, 'test#')
-
-    def test_014_setter_name_first_not_letter(self):
-        # pylint: disable=invalid-name
-        with self.assertRaises(ValueError):
-            qubes.vm.qubesvm._setter_name(self.vm, self.prop, '1test')
-
-    def test_015_setter_name_running(self):
-        self.vm.running = True
-        with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
-            qubes.vm.qubesvm._setter_name(self.vm, self.prop, 'testname')
-
-    def test_016_setter_name_installed_by_rpm(self):
-        # pylint: disable=invalid-name
-        self.vm.installed_by_rpm = True
-        with self.assertRaises(qubes.exc.QubesException):
-            qubes.vm.qubesvm._setter_name(self.vm, self.prop, 'testname')
-
-    def test_017_setter_name_duplicate(self):
-        # pylint: disable=invalid-name
-        self.vm.app.domains['duplicate'] = TestVM(name='duplicate')
-        with self.assertRaises(qubes.exc.QubesException):
-            qubes.vm.qubesvm._setter_name(self.vm, self.prop, 'duplicate')
-
-
     @unittest.skip('test not implemented')
     def test_020_setter_kernel(self):
         pass
