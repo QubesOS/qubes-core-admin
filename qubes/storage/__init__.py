@@ -111,6 +111,15 @@ class Volume(object):
         assert source is None or (isinstance(source, Volume)
                                   and source.pool == pool)
 
+        if snap_on_start and source is None:
+            msg = "snap_on_start specified on {!r} but no volume source set"
+            msg = msg.format(name)
+            raise StoragePoolException(msg)
+        elif not snap_on_start and source is not None:
+            msg = "source specified on {!r} but no snap_on_start set"
+            msg = msg.format(name)
+            raise StoragePoolException(msg)
+
         #: Name of the volume in a domain it's attached to (like `root` or
         #: `private`).
         self.name = str(name)
