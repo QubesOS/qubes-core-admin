@@ -78,6 +78,8 @@ class Volume(object):
     domain = None
     path = None
     script = None
+    #: disk space used by this volume, can be smaller than :py:attr:`size`
+    #: for sparse volumes
     usage = 0
 
     def __init__(self, name, pool, vid, internal=False, removable=False,
@@ -85,7 +87,7 @@ class Volume(object):
             snap_on_start=False, source=None, **kwargs):
         ''' Initialize a volume.
 
-            :param str name: The domain name
+            :param str name: The name of the volume inside owning domain
             :param Pool pool: The pool object
             :param str vid:  Volume identifier needs to be unique in pool
             :param bool internal: If `True` volume is hidden when qvm-block ls
@@ -94,9 +96,12 @@ class Volume(object):
                 run time
             :param int revisions_to_keep: Amount of revisions to keep around
             :param bool rw: If true volume will be mounted read-write
-            :param bool snap_on_start: Create a snapshot from source on start
-            :param bool save_on_stop: Write changes to disk in vm.stop()
-            :param Volume source: other volume in same pool, or None
+            :param bool snap_on_start: Create a snapshot from source on
+                start, instead of using volume own data
+            :param bool save_on_stop: Write changes to the volume in
+                vm.stop(), otherwise - discard
+            :param Volume source: other volume in same pool to make snapshot
+                from, required if *snap_on_start*=`True`
             :param str/int size: Size of the volume
 
         '''
@@ -106,16 +111,27 @@ class Volume(object):
         assert source is None or (isinstance(source, Volume)
                                   and source.pool == pool)
 
+        #: Name of the volume in a domain it's attached to (like `root` or
+        #: `private`).
         self.name = str(name)
+        #: :py:class:`Pool` instance owning this volume
         self.pool = pool
         self.internal = internal
         self.removable = removable
+        #: How many revisions of the volume to keep. Each revision is created
+        #  at :py:meth:`stop`, if :py:attr:`save_on_stop` is True
         self.revisions_to_keep = int(revisions_to_keep)
+        #: Should this volume be writable by domain.
         self.rw = rw
+        #: Should volume state be saved or discarded at :py:meth:`stop`
         self.save_on_stop = save_on_stop
         self._size = int(size)
+        #: Should the volume state be initialized with a snapshot of
+        #: same-named volume of domain's template.
         self.snap_on_start = snap_on_start
+        #: source volume for :py:attr:`snap_on_start` volumes
         self.source = source
+        #: Volume unique (inside given pool) identifier
         self.vid = vid
 
     def __eq__(self, other):
@@ -142,6 +158,10 @@ class Volume(object):
     def create(self):
         ''' Create the given volume on disk.
 
+            This method is called only once in the volume lifetime. Before
+            calling this method, no data on disk should be touched (in
+            context of this volume).
+
             This can be implemented as a coroutine.
         '''
         raise self._not_implemented("create")
@@ -153,16 +173,36 @@ class Volume(object):
         raise self._not_implemented("remove")
 
     def export(self):
-        ''' Returns an object that can be `open()`. '''
+        ''' Returns a path to read the volume data from.
+
+            Reading from this path when domain owning this volume is
+            running (i.e. when :py:meth:`is_dirty` is True) should return the
+            data from before domain startup.
+
+            Reading from the path returned by this method should return the
+            volume data. If extracting volume data require something more
+            than just reading from file (for example connecting to some other
+            domain, or decompressing the data), the returned path may be a pipe.
+        '''
         raise self._not_implemented("export")
 
     def import_data(self):
-        ''' Returns an object that can be `open()`. '''
+        ''' Returns a path to overwrite volume data.
+
+            This method is called after volume was already :py:meth:`create`-ed.
+
+            Writing to this path should overwrite volume data. If importing
+            volume data require something more than just writing to a file (
+            for example connecting to some other domain, or converting data
+            on the fly), the returned path may be a pipe.
+        '''
         raise self._not_implemented("import")
 
     def import_data_end(self, success):
-        ''' End data import operation. This may be used by pool
+        ''' End the data import operation. This may be used by pool
         implementation to commit changes, cleanup temporary files etc.
+
+        This method is called regardless the operation was successful or not.
 
         :param success: True if data import was successful, otherwise False
         '''
@@ -173,19 +213,24 @@ class Volume(object):
         ''' Imports data from a different volume (possibly in a different
         pool.
 
-        The needs to be create()d first.
+        The volume needs to be create()d first.
 
         This can be implemented as a coroutine. '''
         # pylint: disable=unused-argument
         raise self._not_implemented("import_volume")
 
     def is_dirty(self):
-        ''' Return `True` if volume was not properly shutdown and commited '''
+        ''' Return `True` if volume was not properly shutdown and committed.
+
+            This include the situation when domain owning the volume is still
+            running.
+
+        '''
         raise self._not_implemented("is_dirty")
 
     def is_outdated(self):
-        ''' Returns `True` if the currently used `volume.source` of a snapshot
-            volume is outdated.
+        ''' Returns `True` if this snapshot of a source volume (for
+        `snap_on_start`=True) is outdated.
         '''
         raise self._not_implemented("is_outdated")
 
@@ -195,23 +240,33 @@ class Volume(object):
             given size is less than current_size
 
             This can be implemented as a coroutine.
+
+            :param int size: new size in bytes
         '''
         # pylint: disable=unused-argument
         raise self._not_implemented("resize")
 
     def revert(self, revision=None):
-        ''' Revert volume to previous revision  '''
+        ''' Revert volume to previous revision
+
+        :param revision: revision to revert volume to, see :py:attr:`revisions`
+        '''
         # pylint: disable=unused-argument
         raise self._not_implemented("revert")
 
     def start(self):
-        ''' Do what ever is needed on start
+        ''' Do what ever is needed on start.
+
+        This include making a snapshot of template's volume if
+        :py:attr:`snap_on_start` is set.
 
         This can be implemented as a coroutine.'''
         raise self._not_implemented("start")
 
     def stop(self):
-        ''' Do what ever is needed on stop
+        ''' Do what ever is needed on stop.
+
+        This include committing data if :py:attr:`save_on_stop` is set.
 
         This can be implemented as a coroutine.'''
 
@@ -230,12 +285,14 @@ class Volume(object):
 
     @property
     def revisions(self):
-        ''' Returns a `dict` containing revision identifiers and paths '''
+        ''' Returns a dict containing revision identifiers and time of their
+        creation '''
         msg = "{!s} has revisions not implemented".format(self.__class__)
         raise NotImplementedError(msg)
 
     @property
     def size(self):
+        ''' Volume size in bytes '''
         return self._size
 
     @size.setter

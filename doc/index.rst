@@ -16,6 +16,7 @@ manpages and API documentation. For primary user documentation, see
    qubes
    qubes-vm/index
    qubes-events
+   qubes-storage
    qubes-exc
    qubes-ext
    qubes-log
