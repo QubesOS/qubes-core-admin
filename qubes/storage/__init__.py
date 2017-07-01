@@ -152,12 +152,6 @@ class Volume(object):
         This can be implemented as a coroutine.'''
         raise self._not_implemented("remove")
 
-    def commit(self):
-        ''' Write the snapshot to disk
-
-        This can be implemented as a coroutine.'''
-        raise self._not_implemented("commit")
-
     def export(self):
         ''' Returns an object that can be `open()`. '''
         raise self._not_implemented("export")
@@ -194,15 +188,6 @@ class Volume(object):
             volume is outdated.
         '''
         raise self._not_implemented("is_outdated")
-
-    def recover(self):
-        ''' Try to recover a :py:class:`Volume` or :py:class:`SnapVolume` '''
-        raise self._not_implemented("recover")
-
-    def reset(self):
-        ''' Drop and recreate volume without copying it's content from source.
-        '''
-        raise self._not_implemented("reset")
 
     def resize(self, size):
         ''' Expands volume, throws
@@ -543,19 +528,6 @@ class Storage(object):
 
         if futures:
             yield from asyncio.wait(futures)
-
-    @asyncio.coroutine
-    def commit(self):
-        ''' Makes changes to an 'origin' volume persistent '''
-        futures = []
-        for volume in self.vm.volumes.values():
-            if volume.save_on_stop:
-                ret = volume.commit()
-                if asyncio.iscoroutine(ret):
-                    futures.append(ret)
-
-        if futures:
-            yield asyncio.wait(futures)
 
     def unused_frontend(self):
         ''' Find an unused device name '''
