@@ -36,8 +36,6 @@ system_path = {
     'qrexec_client_path': '/usr/lib/qubes/qrexec-client',
     'qubesdb_daemon_path': '/usr/sbin/qubesdb-daemon',
 
-    'qubes_base_dir': qubes_base_dir,
-
     # Relative to qubes_base_dir
     'qubes_appvms_dir': 'appvms',
     'qubes_templates_dir': 'vm-templates',

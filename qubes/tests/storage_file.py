@@ -306,8 +306,8 @@ class TC_03_FilePool(qubes.tests.QubesTestCase):
     def setUp(self):
         """ Add a test file based storage pool """
         super(TC_03_FilePool, self).setUp()
-        self._orig_qubes_base_dir = qubes.config.system_path['qubes_base_dir']
-        qubes.config.system_path['qubes_base_dir'] = '/tmp/qubes-test'
+        self._orig_qubes_base_dir = qubes.config.qubes_base_dir
+        qubes.config.qubes_base_dir = '/tmp/qubes-test'
         self.app = TestApp()
         self.app.create_dummy_template()
         self.app.add_pool(**self.POOL_CONFIG)
@@ -320,7 +320,7 @@ class TC_03_FilePool(qubes.tests.QubesTestCase):
         shutil.rmtree(self.POOL_DIR, ignore_errors=True)
         if os.path.exists('/tmp/qubes-test'):
             shutil.rmtree('/tmp/qubes-test')
-        qubes.config.system_path['qubes_base_dir'] = self._orig_qubes_base_dir
+        qubes.config.qubes_base_dir = self._orig_qubes_base_dir
 
     def test_001_pool_exists(self):
         """ Check if the storage pool was added to the storage pool config """

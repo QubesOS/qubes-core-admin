@@ -577,7 +577,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     def dir_path(self):
         '''Root directory for files related to this domain'''
         return os.path.join(
-            qubes.config.system_path['qubes_base_dir'],
+            qubes.config.qubes_base_dir,
             self.dir_path_prefix,
             self.name)
 
@@ -716,7 +716,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if not newvalue:
             return
         dirname = os.path.join(
-            qubes.config.system_path['qubes_base_dir'],
+            qubes.config.qubes_base_dir,
             qubes.config.system_path['qubes_kernels_base_dir'],
             newvalue)
         if not os.path.exists(dirname):

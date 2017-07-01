@@ -724,7 +724,7 @@ class Qubes(qubes.PropertyHolder):
         else:
             self._store = os.environ.get('QUBES_XML_PATH',
                 os.path.join(
-                    qubes.config.system_path['qubes_base_dir'],
+                    qubes.config.qubes_base_dir,
                     qubes.config.system_path['qubes_store_filename']))
 
         super(Qubes, self).__init__(xml=None, **kwargs)
