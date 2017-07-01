@@ -262,28 +262,20 @@ class Volume(object):
     @property
     def config(self):
         ''' return config data for serialization to qubes.xml '''
-        result = {'name': self.name, 'pool': str(self.pool), 'vid': self.vid, }
-
-        if self.internal:
-            result['internal'] = self.internal
-
-        if self.removable:
-            result['removable'] = self.removable
-
-        if self.revisions_to_keep:
-            result['revisions_to_keep'] = self.revisions_to_keep
-
-        if self.rw:
-            result['rw'] = self.rw
-
-        if self.save_on_stop:
-            result['save_on_stop'] = self.save_on_stop
+        result = {
+            'name': self.name,
+            'pool': str(self.pool),
+            'vid': self.vid,
+            'internal': self.internal,
+            'removable': self.removable,
+            'revisions_to_keep': self.revisions_to_keep,
+            'rw': self.rw,
+            'save_on_stop': self.save_on_stop,
+            'snap_on_start': self.snap_on_start,
+        }
 
         if self.size:
             result['size'] = self.size
-
-        if self.snap_on_start:
-            result['snap_on_start'] = self.snap_on_start
 
         if self.source:
             result['source'] = str(self.source)

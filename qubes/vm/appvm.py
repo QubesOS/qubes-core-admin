@@ -63,6 +63,8 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
             'volatile': {
                 'name': 'volatile',
                 'pool': 'default',
+                'snap_on_start': False,
+                'save_on_stop': False,
                 'size': defaults['root_img_size'],
                 'internal': True,
                 'rw': True,
@@ -70,6 +72,8 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
             'kernel': {
                 'name': 'kernel',
                 'pool': 'linux-kernel',
+                'snap_on_start': False,
+                'save_on_stop': False,
                 'rw': False,
                 'internal': True
             }

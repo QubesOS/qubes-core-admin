@@ -88,12 +88,16 @@ class TemplateVM(QubesVM):
                 'name': 'volatile',
                 'pool': 'default',
                 'size': defaults['root_img_size'],
+                'snap_on_start': False,
+                'save_on_stop': False,
                 'internal': True,
                 'rw': True,
             },
             'kernel': {
                 'name': 'kernel',
                 'pool': 'linux-kernel',
+                'snap_on_start': False,
+                'save_on_stop': False,
                 'internal': True,
                 'rw': False
             }

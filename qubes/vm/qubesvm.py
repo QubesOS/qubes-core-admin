@@ -1824,20 +1824,17 @@ def _clean_volume_config(config):
 
 def _patch_pool_config(config, pool=None, pools=None):
     assert pool is not None or pools is not None
-    is_saveable = 'save_on_stop' in config and config['save_on_stop']
-    is_resetable = not ('snap_on_start' in config and  # volatile
-                        config['snap_on_start'] and not is_saveable)
-
-    is_exportable = is_saveable or is_resetable
+    is_snapshot = config['snap_on_start']
+    is_rw = config['rw']
 
     name = config['name']
 
-    if pool and is_exportable and config['pool'] == 'default':
+    if pool and not is_snapshot and is_rw:
         config['pool'] = str(pool)
-    elif pool and not is_exportable:
+    elif pool:
         pass
     elif pools and name in pools.keys():
-        if is_exportable:
+        if not is_snapshot:
             config['pool'] = str(pools[name])
         else:
             msg = "Can't clone a snapshot volume {!s} to pool {!s} " \

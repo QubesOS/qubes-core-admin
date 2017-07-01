@@ -61,6 +61,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 'name': 'volatile',
                 'pool': 'default',
                 'internal': True,
+                'snap_on_start': False,
+                'save_on_stop': False,
                 'rw': True,
                 'size': qubes.config.defaults['root_img_size'] +
                         qubes.config.defaults['private_img_size'],
@@ -68,6 +70,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             'kernel': {
                 'name': 'kernel',
                 'pool': 'linux-kernel',
+                'snap_on_start': False,
+                'save_on_stop': False,
                 'rw': False,
                 'internal': True
             }
