@@ -71,7 +71,6 @@ class TemplateVM(QubesVM):
                 'rw': True,
                 'source': None,
                 'size': defaults['root_img_size'],
-                'internal': True
             },
             'private': {
                 'name': 'private',
@@ -82,7 +81,6 @@ class TemplateVM(QubesVM):
                 'source': None,
                 'size': defaults['private_img_size'],
                 'revisions_to_keep': 0,
-                'internal': True
             },
             'volatile': {
                 'name': 'volatile',
@@ -90,7 +88,6 @@ class TemplateVM(QubesVM):
                 'size': defaults['root_img_size'],
                 'snap_on_start': False,
                 'save_on_stop': False,
-                'internal': True,
                 'rw': True,
             },
             'kernel': {
@@ -98,7 +95,6 @@ class TemplateVM(QubesVM):
                 'pool': 'linux-kernel',
                 'snap_on_start': False,
                 'save_on_stop': False,
-                'internal': True,
                 'rw': False
             }
         }

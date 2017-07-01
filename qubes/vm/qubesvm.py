@@ -1815,9 +1815,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
 
 def _clean_volume_config(config):
-    common_attributes = ['name', 'pool', 'size', 'internal', 'removable',
-                            'revisions_to_keep', 'rw', 'snap_on_start',
-                            'save_on_stop', 'source']
+    common_attributes = ['name', 'pool', 'size',
+                         'revisions_to_keep', 'rw', 'snap_on_start',
+                         'save_on_stop', 'source']
     config_copy = copy.deepcopy(config)
     return {k: v for k, v in config_copy.items() if k in common_attributes}
 

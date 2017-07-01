@@ -261,7 +261,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         volume = self.dest.volumes[self.arg]
         # properties defined in API
         volume_properties = [
-            'pool', 'vid', 'size', 'usage', 'rw', 'internal', 'source',
+            'pool', 'vid', 'size', 'usage', 'rw', 'source',
             'save_on_stop', 'snap_on_start']
         return ''.join('{}={}\n'.format(key, getattr(volume, key)) for key in
             volume_properties)

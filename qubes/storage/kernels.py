@@ -167,7 +167,6 @@ class LinuxKernel(Pool):
                              kernel_version,
                              pool=self,
                              name=kernel_version,
-                             internal=True,
                              rw=False
                              )
                 for kernel_version in os.listdir(self.dir_path)]

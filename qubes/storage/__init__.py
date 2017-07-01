@@ -82,7 +82,7 @@ class Volume(object):
     #: for sparse volumes
     usage = 0
 
-    def __init__(self, name, pool, vid, internal=False, removable=False,
+    def __init__(self, name, pool, vid,
             revisions_to_keep=0, rw=False, save_on_stop=False, size=0,
             snap_on_start=False, source=None, **kwargs):
         ''' Initialize a volume.
@@ -90,10 +90,6 @@ class Volume(object):
             :param str name: The name of the volume inside owning domain
             :param Pool pool: The pool object
             :param str vid:  Volume identifier needs to be unique in pool
-            :param bool internal: If `True` volume is hidden when qvm-block ls
-                is used
-            :param bool removable: If `True` volume can be detached from vm at
-                run time
             :param int revisions_to_keep: Amount of revisions to keep around
             :param bool rw: If true volume will be mounted read-write
             :param bool snap_on_start: Create a snapshot from source on
@@ -125,8 +121,6 @@ class Volume(object):
         self.name = str(name)
         #: :py:class:`Pool` instance owning this volume
         self.pool = pool
-        self.internal = internal
-        self.removable = removable
         #: How many revisions of the volume to keep. Each revision is created
         #  at :py:meth:`stop`, if :py:attr:`save_on_stop` is True
         self.revisions_to_keep = int(revisions_to_keep)
@@ -317,8 +311,6 @@ class Volume(object):
             'name': self.name,
             'pool': str(self.pool),
             'vid': self.vid,
-            'internal': self.internal,
-            'removable': self.removable,
             'revisions_to_keep': self.revisions_to_keep,
             'rw': self.rw,
             'save_on_stop': self.save_on_stop,
@@ -382,6 +374,9 @@ class Storage(object):
             pool = getattr(self.vm.app, 'default_pool_' + name)
         else:
             pool = self.vm.app.get_pool(volume_config['pool'])
+        if 'internal' in volume_config:
+            # migrate old config
+            del volume_config['internal']
         volume = pool.init_volume(self.vm, volume_config)
         self.vm.volumes[name] = volume
         return volume

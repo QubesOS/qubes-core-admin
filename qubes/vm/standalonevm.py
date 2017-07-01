@@ -35,7 +35,6 @@ class StandaloneVM(qubes.vm.qubesvm.QubesVM):
                 'save_on_stop': True,
                 'rw': True,
                 'source': None,
-                'internal': True,
                 'size': qubes.config.defaults['root_img_size'],
             },
             'private': {
@@ -45,7 +44,6 @@ class StandaloneVM(qubes.vm.qubesvm.QubesVM):
                 'save_on_stop': True,
                 'rw': True,
                 'source': None,
-                'internal': True,
                 'size': qubes.config.defaults['private_img_size'],
             },
             'volatile': {
@@ -53,7 +51,6 @@ class StandaloneVM(qubes.vm.qubesvm.QubesVM):
                 'pool': 'default',
                 'snap_on_start': False,
                 'save_on_stop': False,
-                'internal': True,
                 'rw': True,
                 'size': qubes.config.defaults['root_img_size'],
             },
@@ -63,7 +60,6 @@ class StandaloneVM(qubes.vm.qubesvm.QubesVM):
                 'snap_on_start': False,
                 'save_on_stop': False,
                 'rw': False,
-                'internal': True
             }
         }
         super(StandaloneVM, self).__init__(*args, **kwargs)

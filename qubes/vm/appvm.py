@@ -49,7 +49,6 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
                 'save_on_stop': False,
                 'rw': False,
                 'source': None,
-                'internal': True
             },
             'private': {
                 'name': 'private',
@@ -58,7 +57,6 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
                 'save_on_stop': True,
                 'rw': True,
                 'size': defaults['private_img_size'],
-                'internal': True
             },
             'volatile': {
                 'name': 'volatile',
@@ -66,7 +64,6 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
                 'snap_on_start': False,
                 'save_on_stop': False,
                 'size': defaults['root_img_size'],
-                'internal': True,
                 'rw': True,
             },
             'kernel': {
@@ -75,7 +72,6 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
                 'snap_on_start': False,
                 'save_on_stop': False,
                 'rw': False,
-                'internal': True
             }
         }
 

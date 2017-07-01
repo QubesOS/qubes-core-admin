@@ -47,20 +47,17 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 'snap_on_start': True,
                 'save_on_stop': False,
                 'rw': False,
-                'internal': True
             },
             'private': {
                 'name': 'private',
                 'pool': 'default',
                 'snap_on_start': True,
                 'save_on_stop': False,
-                'internal': True,
                 'rw': True,
             },
             'volatile': {
                 'name': 'volatile',
                 'pool': 'default',
-                'internal': True,
                 'snap_on_start': False,
                 'save_on_stop': False,
                 'rw': True,
@@ -73,7 +70,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 'snap_on_start': False,
                 'save_on_stop': False,
                 'rw': False,
-                'internal': True
             }
         }
         if 'name' not in kwargs and 'dispid' in kwargs:
