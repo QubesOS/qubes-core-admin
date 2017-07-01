@@ -369,7 +369,10 @@ class Storage(object):
 
         if 'name' not in volume_config:
             volume_config['name'] = name
-        pool = self.vm.app.get_pool(volume_config['pool'])
+        if 'pool' not in volume_config:
+            pool = getattr(self.vm.app, 'default_pool_' + name)
+        else:
+            pool = self.vm.app.get_pool(volume_config['pool'])
         volume = pool.init_volume(self.vm, volume_config)
         self.vm.volumes[name] = volume
         return volume

@@ -28,6 +28,7 @@ import grp
 import logging
 import os
 import random
+import subprocess
 import sys
 import tempfile
 import time
@@ -548,6 +549,46 @@ class VMCollection(object):
             'https://xkcd.com/221/',
             'http://dilbert.com/strip/2001-10-25')[random.randint(0, 1)])
 
+def _default_pool(app):
+    ''' Default storage pool.
+
+    1. If there is one named 'default', use it.
+    2. Check if root fs is on LVM thin - use that
+    3. Look for file-based pool pointing /var/lib/qubes
+    4. Fail
+    '''
+    if 'default' in app.pools:
+        return app.pools['default']
+    else:
+        rootfs = os.stat('/')
+        root_major = (rootfs.st_dev & 0xff00) >> 8
+        root_minor = rootfs.st_dev & 0xff
+        for pool in app.pools.values():
+            if pool.config.get('driver', None) != 'lvm_thin':
+                continue
+            thin_pool = pool.config['thin_pool']
+            thin_volumes = subprocess.check_output(
+                ['lvs', '--select', 'pool_lv=' + thin_pool,
+                '-o', 'lv_kernel_major,lv_kernel_minor', '--noheadings'])
+            if any((str(root_major), str(root_minor)) == thin_vol.split()
+                    for thin_vol in thin_volumes.splitlines()):
+                return pool
+        # not a thin volume? look for file pools
+        for pool in app.pools.values():
+            if pool.config.get('driver', None) != 'file':
+                continue
+            if pool.config['dir_path'] == '/var/lib/qubes':
+                return pool
+        raise AttributeError('Cannot determine default storage pool')
+
+def _setter_pool(app, prop, value):
+    if isinstance(value, qubes.storage.Pool):
+        return value
+    try:
+        return app.pools[value]
+    except KeyError:
+        raise qubes.exc.QubesPropertyValueError(app, prop, value,
+            'No such storage pool')
 
 class Qubes(qubes.PropertyHolder):
     '''Main Qubes application
@@ -628,6 +669,27 @@ class Qubes(qubes.PropertyHolder):
         doc='Which kernel to use when not overriden in VM')
     default_dispvm = qubes.VMProperty('default_dispvm', load_stage=3,
         doc='Default DispVM base for service calls')
+
+    default_pool = qubes.property('default_pool', load_stage=3,
+        default=_default_pool,
+        doc='Default storage pool')
+
+    default_pool_private = qubes.property('default_pool_private', load_stage=3,
+        default=lambda app: app.default_pool,
+        doc='Default storage pool for private volumes')
+
+    default_pool_root = qubes.property('default_pool_root', load_stage=3,
+        default=lambda app: app.default_pool,
+        doc='Default storage pool for root volumes')
+
+    default_pool_volatile = qubes.property('default_pool_volatile',
+        load_stage=3,
+        default=lambda app: app.default_pool,
+        doc='Default storage pool for volatile volumes')
+
+    default_pool_kernel = qubes.property('default_pool_kernel', load_stage=3,
+        default=lambda app: app.default_pool,
+        doc='Default storage pool for kernel volumes')
 
     # TODO #1637 #892
     check_updates_vm = qubes.property('check_updates_vm',
@@ -906,6 +968,8 @@ class Qubes(qubes.PropertyHolder):
                 name='default', driver='file')
         for name, config in qubes.config.defaults['pool_configs'].items():
             self.pools[name] = self._get_pool(**config)
+
+        self.default_pool_kernel = 'linux-kernel'
 
         self.domains.add(
             qubes.vm.adminvm.AdminVM(self, None, label='black'))
