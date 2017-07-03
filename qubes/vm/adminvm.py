@@ -49,6 +49,11 @@ class AdminVM(qubes.vm.BaseVM):
         default='00000000-0000-0000-0000-000000000000',
         setter=qubes.property.forbidden)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self._libvirt_domain = None
+
     def __str__(self):
         return self.name
 
@@ -71,12 +76,14 @@ class AdminVM(qubes.vm.BaseVM):
 
     @property
     def libvirt_domain(self):
-        '''Always :py:obj:`None`.
+        '''Libvirt object for dom0.
 
         .. seealso:
            :py:attr:`qubes.vm.qubesvm.QubesVM.libvirt_domain`
         '''
-        return None
+        if self._libvirt_domain is None:
+            self._libvirt_domain = self.app.vmm.libvirt_conn.lookupByID(0)
+        return self._libvirt_domain
 
     @staticmethod
     def is_running():
