@@ -345,7 +345,6 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             '    <driver name="phy" />\n'
             '    <source dev="/dev/sda" />\n'
             '        <target dev="xvdi" />\n'
-            '\n'
             '    <backenddomain name="sys-usb" />\n'
             '</disk>')
         vm.libvirt_domain.attachDevice.assert_called_once_with(device_xml)
@@ -366,7 +365,6 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             '    <driver name="phy" />\n'
             '    <source dev="/dev/sda" />\n'
             '        <target dev="xvdj" />\n'
-            '\n'
             '    <backenddomain name="sys-usb" />\n'
             '</disk>')
         vm.libvirt_domain.attachDevice.assert_called_once_with(device_xml)
@@ -387,7 +385,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             '    <driver name="phy" />\n'
             '    <source dev="/dev/sda" />\n'
             '        <target dev="xvdi" />\n'
-            '        <readonly />\n\n'
+            '        <readonly />\n'
             '    <backenddomain name="sys-usb" />\n'
             '</disk>')
         vm.libvirt_domain.attachDevice.assert_called_once_with(device_xml)
@@ -462,7 +460,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             '    <driver name="phy" />\n'
             '    <source dev="/dev/sda" />\n'
             '        <target dev="xvdi" />\n'
-            '        <readonly />\n\n'
+            '        <readonly />\n'
             '    <backenddomain name="sys-usb" />\n'
             '</disk>')
         vm.libvirt_domain.attachDevice.assert_called_once_with(device_xml)
@@ -479,7 +477,7 @@ class TC_00_Block(qubes.tests.QubesTestCase):
             '    <driver name="phy" />\n'
             '    <source dev="/dev/sda" />\n'
             '        <target dev="xvdi" />\n'
-            '        <readonly />\n\n'
+            '        <readonly />\n'
             '    <backenddomain name="sys-usb" />\n'
             '</disk>')
         vm = TestVM({}, domain_xml=domain_xml_template.format(device_xml))
