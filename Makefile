@@ -140,6 +140,7 @@ ifeq ($(OS),Linux)
 	$(MAKE) install -C linux/system-config
 endif
 	$(PYTHON) setup.py install -O1 --skip-build --root $(DESTDIR)
+	ln -s qvm-device $(DESTDIR)/usr/bin/qvm-block
 	ln -s qvm-device $(DESTDIR)/usr/bin/qvm-pci
 	ln -s qvm-device $(DESTDIR)/usr/bin/qvm-usb
 #	$(MAKE) install -C tests
