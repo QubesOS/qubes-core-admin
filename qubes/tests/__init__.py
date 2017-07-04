@@ -53,6 +53,7 @@ import pkg_resources
 
 import qubes.api
 import qubes.api.admin
+import qubes.api.internal
 import qubes.backup
 import qubes.config
 import qubes.devices
