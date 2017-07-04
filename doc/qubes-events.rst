@@ -149,8 +149,8 @@ Asynchronous event handling
 Event handlers can be defined as coroutine. This way they can execute long
 running actions without blocking the whole qubesd process. To define
 asynchronous event handler, annotate a coroutine (a function defined with
-`async def`, or decorated with `py:func:`asyncio.coroutine`) with
-py:func:`qubes.events.handler` decorator. By definition, order of
+`async def`, or decorated with :py:func:`asyncio.coroutine`) with
+:py:func:`qubes.events.handler` decorator. By definition, order of
 such handlers is undefined.
 
 Asynchronous events can be fired using
