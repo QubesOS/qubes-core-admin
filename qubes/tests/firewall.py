@@ -80,6 +80,7 @@ class TC_01_Action(qubes.tests.QubesTestCase):
     def test_001_rule(self):
         instance = qubes.firewall.Action('accept')
         self.assertEqual(instance.rule, 'action=accept')
+        self.assertEqual(instance.api_rule, 'action=accept')
 
 
 # noinspection PyPep8Naming
@@ -93,6 +94,7 @@ class TC_02_Proto(qubes.tests.QubesTestCase):
     def test_001_rule(self):
         instance = qubes.firewall.Proto('tcp')
         self.assertEqual(instance.rule, 'proto=tcp')
+        self.assertEqual(instance.api_rule, 'proto=tcp')
 
 
 # noinspection PyPep8Naming
@@ -157,6 +159,7 @@ class TC_02_DstHost(qubes.tests.QubesTestCase):
         self.assertEqual(instance.prefixlen, 128)
         self.assertEqual(str(instance), '2001:abcd:efab::3/128')
         self.assertEqual(instance.rule, 'dst6=2001:abcd:efab::3/128')
+        self.assertEqual(instance.api_rule, 'dst6=2001:abcd:efab::3/128')
 
     def test_011_ipv6_prefixlen(self):
         with self.assertNotRaises(ValueError):
@@ -165,6 +168,7 @@ class TC_02_DstHost(qubes.tests.QubesTestCase):
         self.assertEqual(instance.prefixlen, 64)
         self.assertEqual(str(instance), '2001:abcd:efab::/64')
         self.assertEqual(instance.rule, 'dst6=2001:abcd:efab::/64')
+        self.assertEqual(instance.api_rule, 'dst6=2001:abcd:efab::/64')
 
     def test_012_ipv6_parse_prefixlen(self):
         with self.assertNotRaises(ValueError):
@@ -173,6 +177,7 @@ class TC_02_DstHost(qubes.tests.QubesTestCase):
         self.assertEqual(instance.prefixlen, 64)
         self.assertEqual(str(instance), '2001:abcd:efab::/64')
         self.assertEqual(instance.rule, 'dst6=2001:abcd:efab::/64')
+        self.assertEqual(instance.api_rule, 'dst6=2001:abcd:efab::/64')
 
     def test_013_ipv6_invalid_prefix(self):
         with self.assertRaises(ValueError):
@@ -211,6 +216,7 @@ class TC_03_DstPorts(qubes.tests.QubesTestCase):
         self.assertEqual(str(instance), '80')
         self.assertEqual(instance.range, [80, 80])
         self.assertEqual(instance.rule, 'dstports=80-80')
+        self.assertEqual(instance.api_rule, 'dstports=80-80')
 
     def test_001_single_int(self):
         with self.assertNotRaises(ValueError):
@@ -218,6 +224,7 @@ class TC_03_DstPorts(qubes.tests.QubesTestCase):
         self.assertEqual(str(instance), '80')
         self.assertEqual(instance.range, [80, 80])
         self.assertEqual(instance.rule, 'dstports=80-80')
+        self.assertEqual(instance.api_rule, 'dstports=80-80')
 
     def test_002_range(self):
         with self.assertNotRaises(ValueError):
@@ -261,6 +268,7 @@ class TC_04_IcmpType(qubes.tests.QubesTestCase):
             instance = qubes.firewall.IcmpType('8')
         self.assertEqual(str(instance), '8')
         self.assertEqual(instance.rule, 'icmptype=8')
+        self.assertEqual(instance.api_rule, 'icmptype=8')
 
     def test_002_invalid(self):
         with self.assertRaises(ValueError):
@@ -283,6 +291,7 @@ class TC_05_SpecialTarget(qubes.tests.QubesTestCase):
     def test_001_rule(self):
         instance = qubes.firewall.SpecialTarget('dns')
         self.assertEqual(instance.rule, 'specialtarget=dns')
+        self.assertEqual(instance.api_rule, 'specialtarget=dns')
 
 
 class TC_06_Expire(qubes.tests.QubesTestCase):
@@ -290,6 +299,7 @@ class TC_06_Expire(qubes.tests.QubesTestCase):
         with self.assertNotRaises(ValueError):
             instance = qubes.firewall.Expire(1463292452)
         self.assertEqual(str(instance), '1463292452')
+        self.assertEqual(instance.api_rule, 'expire=1463292452')
         self.assertEqual(instance.datetime,
             datetime.datetime(2016, 5, 15, 6, 7, 32))
         self.assertIsNone(instance.rule)
@@ -322,6 +332,7 @@ class TC_07_Comment(qubes.tests.QubesTestCase):
         with self.assertNotRaises(ValueError):
             instance = qubes.firewall.Comment('Some comment')
         self.assertEqual(str(instance), 'Some comment')
+        self.assertEqual(instance.api_rule, 'comment=Some comment')
         self.assertIsNone(instance.rule)
 
 
@@ -445,6 +456,33 @@ class TC_08_Rule(qubes.tests.QubesTestCase):
         self.assertIsNone(rule.proto)
         self.assertIsNone(rule.dstports)
 
+    def test_008_from_api_string(self):
+        rule_txt = 'action=drop proto=tcp dstports=80-80'
+        with self.assertNotRaises(ValueError):
+            rule = qubes.firewall.Rule.from_api_string(
+                rule_txt)
+        self.assertEqual(rule.dstports.range, [80, 80])
+        self.assertEqual(rule.proto, 'tcp')
+        self.assertEqual(rule.action, 'drop')
+        self.assertIsNone(rule.dsthost)
+        self.assertIsNone(rule.expire)
+        self.assertIsNone(rule.comment)
+        self.assertEqual(rule.api_rule, rule_txt)
+
+    def test_009_from_api_string(self):
+        rule_txt = 'action=accept expire=1463292452 proto=tcp ' \
+                   'comment=Some comment, with spaces'
+        with self.assertNotRaises(ValueError):
+            rule = qubes.firewall.Rule.from_api_string(
+                rule_txt)
+        self.assertEqual(rule.comment, 'Some comment, with spaces')
+        self.assertEqual(rule.proto, 'tcp')
+        self.assertEqual(rule.action, 'accept')
+        self.assertEqual(rule.expire, '1463292452')
+        self.assertIsNone(rule.dstports)
+        self.assertIsNone(rule.dsthost)
+        self.assertEqual(rule.api_rule, rule_txt)
+
 
 class TC_10_Firewall(qubes.tests.QubesTestCase):
     def setUp(self):
@@ -463,17 +501,17 @@ class TC_10_Firewall(qubes.tests.QubesTestCase):
     def test_000_defaults(self):
         fw = qubes.firewall.Firewall(self.vm, False)
         fw.load_defaults()
-        self.assertEqual(fw.policy, 'accept')
-        self.assertEqual(fw.rules, [])
+        self.assertEqual(fw.policy, 'drop')
+        self.assertEqual(fw.rules, [qubes.firewall.Rule(None, action='accept')])
 
     def test_001_save_load_empty(self):
         fw = qubes.firewall.Firewall(self.vm, True)
-        self.assertEqual(fw.policy, 'accept')
-        self.assertEqual(fw.rules, [])
+        self.assertEqual(fw.policy, 'drop')
+        self.assertEqual(fw.rules, [qubes.firewall.Rule(None, action='accept')])
         fw.save()
         fw.load()
-        self.assertEqual(fw.policy, 'accept')
-        self.assertEqual(fw.rules, [])
+        self.assertEqual(fw.policy, 'drop')
+        self.assertEqual(fw.rules, [qubes.firewall.Rule(None, action='accept')])
 
     def test_002_save_load_rules(self):
         fw = qubes.firewall.Firewall(self.vm, True)
@@ -485,13 +523,13 @@ class TC_10_Firewall(qubes.tests.QubesTestCase):
             qubes.firewall.Rule(None, action='accept', specialtarget='dns'),
             ]
         fw.rules.extend(rules)
-        fw.policy = qubes.firewall.Action.drop
         fw.save()
         self.assertTrue(os.path.exists(os.path.join(
             self.vm.dir_path, self.vm.firewall_conf)))
         fw = qubes.firewall.Firewall(TestVM(), True)
         self.assertEqual(fw.policy, qubes.firewall.Action.drop)
-        self.assertEqual(fw.rules, rules)
+        self.assertEqual(fw.rules,
+            [qubes.firewall.Rule(None, action='accept')] + rules)
 
     def test_003_load_v1(self):
         xml_txt = """<QubesFirewallRules dns="allow" icmp="allow"
@@ -524,8 +562,7 @@ class TC_10_Firewall(qubes.tests.QubesTestCase):
                 dstports=67, expire=1373300257),
             qubes.firewall.Rule(None, action='accept', specialtarget='dns'),
             ]
-        fw.rules.extend(rules)
-        fw.policy = qubes.firewall.Action.drop
+        fw.rules = rules
         fw.save()
         rules.pop(2)
         fw = qubes.firewall.Firewall(self.vm, True)
@@ -539,8 +576,7 @@ class TC_10_Firewall(qubes.tests.QubesTestCase):
             qubes.firewall.Rule(None, action='accept', proto='udp'),
             qubes.firewall.Rule(None, action='accept', specialtarget='dns'),
         ]
-        fw.rules.extend(rules)
-        fw.policy = qubes.firewall.Action.drop
+        fw.rules = rules
         expected_qdb_entries = {
             'policy': 'drop',
             '0000': 'action=drop proto=icmp',

@@ -30,6 +30,7 @@ import libvirt
 
 import qubes
 import qubes.devices
+import qubes.firewall
 import qubes.api.admin
 import qubes.tests
 import qubes.storage
@@ -1677,6 +1678,131 @@ class TC_00_VMs(AdminAPITestCase):
         self.assertNotIn('+.some-tag', self.vm.tags)
         self.assertFalse(self.app.save.called)
 
+    def test_570_firewall_get(self):
+        self.vm.firewall.save = unittest.mock.Mock()
+        value = self.call_mgmt_func(b'admin.vm.firewall.Get',
+            b'test-vm1', b'')
+        self.assertEqual(value, 'action=accept\n')
+        self.assertFalse(self.vm.firewall.save.called)
+        self.assertFalse(self.app.save.called)
+
+    def test_571_firewall_get_non_default(self):
+        self.vm.firewall.save = unittest.mock.Mock()
+        self.vm.firewall.rules = [
+            qubes.firewall.Rule(action='accept', proto='tcp',
+                dstports='1-1024'),
+            qubes.firewall.Rule(action='drop', proto='icmp',
+                comment='No ICMP'),
+            qubes.firewall.Rule(action='drop', proto='udp',
+                expire='1499450306'),
+            qubes.firewall.Rule(action='accept'),
+        ]
+        value = self.call_mgmt_func(b'admin.vm.firewall.Get',
+            b'test-vm1', b'')
+        self.assertEqual(value,
+            'action=accept proto=tcp dstports=1-1024\n'
+            'action=drop proto=icmp comment=No ICMP\n'
+            'action=drop expire=1499450306 proto=udp\n'
+            'action=accept\n')
+        self.assertFalse(self.vm.firewall.save.called)
+        self.assertFalse(self.app.save.called)
+
+    def test_580_firewall_set_simple(self):
+        self.vm.firewall.save = unittest.mock.Mock()
+        value = self.call_mgmt_func(b'admin.vm.firewall.Set',
+            b'test-vm1', b'', b'action=accept\n')
+        self.assertEqual(self.vm.firewall.rules,
+            ['action=accept'])
+        self.assertTrue(self.vm.firewall.save.called)
+        self.assertFalse(self.app.save.called)
+
+    def test_581_firewall_set_multi(self):
+        self.vm.firewall.save = unittest.mock.Mock()
+        rules = [
+            qubes.firewall.Rule(action='accept', proto='tcp',
+                dstports='1-1024'),
+            qubes.firewall.Rule(action='drop', proto='icmp',
+                comment='No ICMP'),
+            qubes.firewall.Rule(action='drop', proto='udp',
+                expire='1499450306'),
+            qubes.firewall.Rule(action='accept'),
+        ]
+        rules_txt = (
+            'action=accept proto=tcp dstports=1-1024\n'
+            'action=drop proto=icmp comment=No ICMP\n'
+            'action=drop expire=1499450306 proto=udp\n'
+            'action=accept\n')
+        value = self.call_mgmt_func(b'admin.vm.firewall.Set',
+            b'test-vm1', b'', rules_txt.encode())
+        self.assertEqual(self.vm.firewall.rules, rules)
+        self.assertTrue(self.vm.firewall.save.called)
+        self.assertFalse(self.app.save.called)
+
+    def test_582_firewall_set_invalid(self):
+        self.vm.firewall.save = unittest.mock.Mock()
+        rules_txt = (
+            'action=accept protoxyz=tcp dst4=127.0.0.1\n'
+            'action=drop\n')
+        with self.assertRaises(ValueError):
+            self.call_mgmt_func(b'admin.vm.firewall.Set',
+                b'test-vm1', b'', rules_txt.encode())
+        self.assertEqual(self.vm.firewall.rules,
+            [qubes.firewall.Rule(action='accept')])
+        self.assertFalse(self.vm.firewall.save.called)
+        self.assertFalse(self.app.save.called)
+
+    def test_583_firewall_set_invalid(self):
+        self.vm.firewall.save = unittest.mock.Mock()
+        rules_txt = (
+            'proto=tcp dstports=1-1024\n'
+            'action=drop\n')
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'admin.vm.firewall.Set',
+                b'test-vm1', b'', rules_txt.encode())
+        self.assertEqual(self.vm.firewall.rules,
+            [qubes.firewall.Rule(action='accept')])
+        self.assertFalse(self.vm.firewall.save.called)
+        self.assertFalse(self.app.save.called)
+
+    def test_584_firewall_set_invalid(self):
+        self.vm.firewall.save = unittest.mock.Mock()
+        rules_txt = (
+            'action=accept proto=tcp dstports=1-1024 '
+            'action=drop\n')
+        with self.assertRaises(ValueError):
+            self.call_mgmt_func(b'admin.vm.firewall.Set',
+                b'test-vm1', b'', rules_txt.encode())
+        self.assertEqual(self.vm.firewall.rules,
+            [qubes.firewall.Rule(action='accept')])
+        self.assertFalse(self.vm.firewall.save.called)
+        self.assertFalse(self.app.save.called)
+
+    def test_585_firewall_set_invalid(self):
+        self.vm.firewall.save = unittest.mock.Mock()
+        rules_txt = (
+            'action=accept dstports=1-1024 comment=ążźł\n'
+            'action=drop\n')
+        with self.assertRaises(UnicodeDecodeError):
+            self.call_mgmt_func(b'admin.vm.firewall.Set',
+                b'test-vm1', b'', rules_txt.encode())
+        self.assertEqual(self.vm.firewall.rules,
+            [qubes.firewall.Rule(action='accept')])
+        self.assertFalse(self.vm.firewall.save.called)
+        self.assertFalse(self.app.save.called)
+
+    def test_590_firewall_reload(self):
+        self.vm.firewall.save = unittest.mock.Mock()
+        self.app.domains['test-vm1'].fire_event = self.emitter.fire_event
+        self.app.domains['test-vm1'].fire_event_pre = \
+            self.emitter.fire_event_pre
+        value = self.call_mgmt_func(b'admin.vm.firewall.Reload',
+                b'test-vm1', b'')
+        self.assertIsNone(value)
+        self.assertEventFired(self.emitter, 'firewall-changed')
+        self.assertFalse(self.vm.firewall.save.called)
+        self.assertFalse(self.app.save.called)
+
+
     def test_990_vm_unexpected_payload(self):
         methods_with_no_payload = [
             b'admin.vm.List',
@@ -1695,8 +1821,7 @@ class TC_00_VMs(AdminAPITestCase):
             b'admin.vm.tag.Remove',
             b'admin.vm.tag.Set',
             b'admin.vm.firewall.Get',
-            b'admin.vm.firewall.RemoveRule',
-            b'admin.vm.firewall.Flush',
+            b'admin.vm.firewall.Reload',
             b'admin.vm.device.pci.Attach',
             b'admin.vm.device.pci.Detach',
             b'admin.vm.device.pci.List',
@@ -1748,8 +1873,9 @@ class TC_00_VMs(AdminAPITestCase):
             b'admin.vm.property.List',
             b'admin.vm.feature.List',
             b'admin.vm.tag.List',
-            b'admin.vm.firewall.List',
-            b'admin.vm.firewall.Flush',
+            b'admin.vm.firewall.Get',
+            b'admin.vm.firewall.Set',
+            b'admin.vm.firewall.Reload',
             b'admin.vm.microphone.Attach',
             b'admin.vm.microphone.Detach',
             b'admin.vm.microphone.Status',
@@ -1950,9 +2076,8 @@ class TC_00_VMs(AdminAPITestCase):
             b'admin.vm.tag.Remove',
             b'admin.vm.tag.Set',
             b'admin.vm.firewall.Get',
-            b'admin.vm.firewall.RemoveRule',
-            b'admin.vm.firewall.InsertRule',
-            b'admin.vm.firewall.Flush',
+            b'admin.vm.firewall.Set',
+            b'admin.vm.firewall.Reload',
             b'admin.vm.device.pci.Attach',
             b'admin.vm.device.pci.Detach',
             b'admin.vm.device.pci.List',

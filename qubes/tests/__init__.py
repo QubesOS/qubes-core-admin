@@ -151,7 +151,9 @@ class TestEmitter(qubes.events.Emitter):
         effects = super(TestEmitter, self).fire_event(event, **kwargs)
         ev_kwargs = frozenset(
             (key,
-                frozenset(value.items()) if isinstance(value, dict) else value)
+                frozenset(value.items()) if isinstance(value, dict)
+                else tuple(value) if isinstance(value, list)
+                else value)
             for key, value in kwargs.items()
         )
         self.fired_events[(event, ev_kwargs)] += 1
@@ -161,7 +163,9 @@ class TestEmitter(qubes.events.Emitter):
         effects = super(TestEmitter, self).fire_event_pre(event, **kwargs)
         ev_kwargs = frozenset(
             (key,
-                frozenset(value.items()) if isinstance(value, dict) else value)
+                frozenset(value.items()) if isinstance(value, dict)
+                else tuple(value) if isinstance(value, list)
+                else value)
             for key, value in kwargs.items()
         )
         self.fired_events[(event, ev_kwargs)] += 1

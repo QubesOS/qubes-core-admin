@@ -22,6 +22,7 @@
 #
 
 import datetime
+import string
 import subprocess
 
 import itertools
@@ -34,12 +35,21 @@ import qubes.vm.qubesvm
 
 
 class RuleOption(object):
-    def __init__(self, value):
-        self._value = str(value)
+    def __init__(self, untrusted_value):
+        # subset of string.punctuation
+        safe_set = string.ascii_letters + string.digits + \
+                   ':;,./-_[]'
+        assert all(x in safe_set for x in str(untrusted_value))
+        value = str(untrusted_value)
+        self._value = value
 
     @property
     def rule(self):
         raise NotImplementedError
+
+    @property
+    def api_rule(self):
+        return self.rule
 
     def __str__(self):
         return self._value
@@ -50,14 +60,15 @@ class RuleOption(object):
 # noinspection PyAbstractClass
 class RuleChoice(RuleOption):
     # pylint: disable=abstract-method
-    def __init__(self, value):
-        super(RuleChoice, self).__init__(value)
+    def __init__(self, untrusted_value):
+        # preliminary validation
+        super(RuleChoice, self).__init__(untrusted_value)
         self.allowed_values = \
             [v for k, v in self.__class__.__dict__.items()
                 if not k.startswith('__') and isinstance(v, str) and
                    not v.startswith('__')]
-        if value not in self.allowed_values:
-            raise ValueError(value)
+        if untrusted_value not in self.allowed_values:
+            raise ValueError(untrusted_value)
 
 
 class Action(RuleChoice):
@@ -81,14 +92,14 @@ class Proto(RuleChoice):
 
 class DstHost(RuleOption):
     '''Represent host/network address: either IPv4, IPv6, or DNS name'''
-    def __init__(self, value, prefixlen=None):
-        # TODO: in python >= 3.3 ipaddress module could be used
-        if value.count('/') > 1:
-            raise ValueError('Too many /: ' + value)
-        elif not value.count('/'):
+    def __init__(self, untrusted_value, prefixlen=None):
+        if untrusted_value.count('/') > 1:
+            raise ValueError('Too many /: ' + untrusted_value)
+        elif not untrusted_value.count('/'):
             # add prefix length to bare IP addresses
             try:
-                socket.inet_pton(socket.AF_INET6, value)
+                socket.inet_pton(socket.AF_INET6, untrusted_value)
+                value = untrusted_value
                 self.prefixlen = prefixlen or 128
                 if self.prefixlen < 0 or self.prefixlen > 128:
                     raise ValueError(
@@ -97,10 +108,11 @@ class DstHost(RuleOption):
                 self.type = 'dst6'
             except socket.error:
                 try:
-                    socket.inet_pton(socket.AF_INET, value)
-                    if value.count('.') != 3:
+                    socket.inet_pton(socket.AF_INET, untrusted_value)
+                    if untrusted_value.count('.') != 3:
                         raise ValueError(
                             'Invalid number of dots in IPv4 address')
+                    value = untrusted_value
                     self.prefixlen = prefixlen or 32
                     if self.prefixlen < 0 or self.prefixlen > 32:
                         raise ValueError(
@@ -110,28 +122,33 @@ class DstHost(RuleOption):
                 except socket.error:
                     self.type = 'dsthost'
                     self.prefixlen = 0
+                    safe_set = string.ascii_lowercase + string.digits + '-._'
+                    assert all(c in safe_set for c in untrusted_value)
+                    value = untrusted_value
         else:
-            host, prefixlen = value.split('/', 1)
-            prefixlen = int(prefixlen)
+            untrusted_host, untrusted_prefixlen = untrusted_value.split('/', 1)
+            prefixlen = int(untrusted_prefixlen)
             if prefixlen < 0:
                 raise ValueError('netmask must be non-negative')
             self.prefixlen = prefixlen
             try:
-                socket.inet_pton(socket.AF_INET6, host)
+                socket.inet_pton(socket.AF_INET6, untrusted_host)
+                value = untrusted_value
                 if prefixlen > 128:
                     raise ValueError('netmask for IPv6 must be <= 128')
                 self.type = 'dst6'
             except socket.error:
                 try:
-                    socket.inet_pton(socket.AF_INET, host)
+                    socket.inet_pton(socket.AF_INET, untrusted_host)
                     if prefixlen > 32:
                         raise ValueError('netmask for IPv4 must be <= 32')
                     self.type = 'dst4'
-                    if host.count('.') != 3:
+                    if untrusted_host.count('.') != 3:
                         raise ValueError(
                             'Invalid number of dots in IPv4 address')
+                    value = untrusted_value
                 except socket.error:
-                    raise ValueError('Invalid IP address: ' + host)
+                    raise ValueError('Invalid IP address: ' + untrusted_host)
 
         super(DstHost, self).__init__(value)
 
@@ -141,15 +158,15 @@ class DstHost(RuleOption):
 
 
 class DstPorts(RuleOption):
-    def __init__(self, value):
-        if isinstance(value, int):
-            value = str(value)
-        if value.count('-') == 1:
-            self.range = [int(x) for x in value.split('-', 1)]
-        elif not value.count('-'):
-            self.range = [int(value), int(value)]
+    def __init__(self, untrusted_value):
+        if isinstance(untrusted_value, int):
+            untrusted_value = str(untrusted_value)
+        if untrusted_value.count('-') == 1:
+            self.range = [int(x) for x in untrusted_value.split('-', 1)]
+        elif not untrusted_value.count('-'):
+            self.range = [int(untrusted_value), int(untrusted_value)]
         else:
-            raise ValueError(value)
+            raise ValueError(untrusted_value)
         if any(port < 0 or port > 65536 for port in self.range):
             raise ValueError('Ports out of range')
         if self.range[0] > self.range[1]:
@@ -164,11 +181,11 @@ class DstPorts(RuleOption):
 
 
 class IcmpType(RuleOption):
-    def __init__(self, value):
-        super(IcmpType, self).__init__(value)
-        value = int(value)
-        if value < 0 or value > 255:
+    def __init__(self, untrusted_value):
+        untrusted_value = int(untrusted_value)
+        if untrusted_value < 0 or untrusted_value > 255:
             raise ValueError('ICMP type out of range')
+        super(IcmpType, self).__init__(untrusted_value)
 
     @property
     def rule(self):
@@ -184,13 +201,17 @@ class SpecialTarget(RuleChoice):
 
 
 class Expire(RuleOption):
-    def __init__(self, value):
-        super(Expire, self).__init__(value)
-        self.datetime = datetime.datetime.utcfromtimestamp(int(value))
+    def __init__(self, untrusted_value):
+        super(Expire, self).__init__(untrusted_value)
+        self.datetime = datetime.datetime.utcfromtimestamp(int(untrusted_value))
 
     @property
     def rule(self):
         return None
+
+    @property
+    def api_rule(self):
+        return 'expire=' + str(self)
 
     @property
     def expired(self):
@@ -198,9 +219,23 @@ class Expire(RuleOption):
 
 
 class Comment(RuleOption):
+    # noinspection PyMissingConstructor
+    def __init__(self, untrusted_value):
+        # pylint: disable=super-init-not-called
+        # subset of string.punctuation
+        safe_set = string.ascii_letters + string.digits + \
+                   ':;,./-_[] '
+        assert all(x in safe_set for x in str(untrusted_value))
+        value = str(untrusted_value)
+        self._value = value
+
     @property
     def rule(self):
         return None
+
+    @property
+    def api_rule(self):
+        return 'comment=' + str(self)
 
 
 class Rule(qubes.PropertyHolder):
@@ -311,6 +346,20 @@ class Rule(qubes.PropertyHolder):
             values.append(value.rule)
         return ' '.join(values)
 
+    @property
+    def api_rule(self):
+        values = []
+        # put comment at the end
+        for prop in sorted(self.property_list(),
+                key=(lambda p: p.__name__ == 'comment')):
+            value = getattr(self, prop.__name__)
+            if value is None:
+                continue
+            if value.api_rule is None:
+                continue
+            values.append(value.api_rule)
+        return ' '.join(values)
+
     @classmethod
     def from_xml_v1(cls, node, action):
         netmask = node.get('netmask')
@@ -358,8 +407,43 @@ class Rule(qubes.PropertyHolder):
 
         return cls(**kwargs)
 
+    @classmethod
+    def from_api_string(cls, untrusted_rule):
+        '''Parse a single line of firewall rule'''
+        # comment is allowed to have spaces
+        untrusted_options, _, untrusted_comment = untrusted_rule.partition(
+            'comment=')
+        # appropriate handlers in __init__ of individual options will perform
+        #  option-specific validation
+        kwargs = {}
+        if untrusted_comment:
+            kwargs['comment'] = Comment(untrusted_value=untrusted_comment)
+
+        for untrusted_option in untrusted_options.strip().split(' '):
+            untrusted_key, untrusted_value = untrusted_option.split('=', 1)
+            if untrusted_key in kwargs:
+                raise ValueError('Option \'{}\' already set'.format(
+                    untrusted_key))
+            if untrusted_key in [str(prop) for prop in cls.property_list()]:
+                kwargs[untrusted_key] = cls.property_get_def(
+                    untrusted_key).type(untrusted_value=untrusted_value)
+            elif untrusted_key in ('dst4', 'dst6', 'dstname'):
+                if 'dsthost' in kwargs:
+                    raise ValueError('Option \'{}\' already set'.format(
+                        'dsthost'))
+                kwargs['dsthost'] = DstHost(untrusted_value=untrusted_value)
+            else:
+                raise ValueError('Unknown firewall option')
+
+        return cls(**kwargs)
+
     def __eq__(self, other):
-        return self.rule == other.rule
+        if isinstance(other, Rule):
+            return self.api_rule == other.api_rule
+        return self.api_rule == str(other)
+
+    def __hash__(self):
+        return hash(self.api_rule)
 
 
 class Firewall(object):
@@ -368,21 +452,23 @@ class Firewall(object):
         self.vm = vm
         #: firewall rules
         self.rules = []
-        #: default action
-        self.policy = None
 
         if load:
             self.load()
 
+    @property
+    def policy(self):
+        ''' Default action - always 'drop' '''
+        return Action('drop')
+
     def __eq__(self, other):
         if isinstance(other, Firewall):
-            return self.policy == other.policy and self.rules == other.rules
+            return self.rules == other.rules
         return NotImplemented
 
     def load_defaults(self):
         '''Load default firewall settings'''
-        self.rules = []
-        self.policy = Action('accept')
+        self.rules = [Rule(None, action='accept')]
 
     def clone(self, other):
         '''Clone firewall settings from other instance.
@@ -390,7 +476,6 @@ class Firewall(object):
 
         :param other: other :py:class:`Firewall` instance
         '''
-        self.policy = other.policy
         rules = []
         for rule in other.rules:
             new_rule = Rule()
@@ -421,10 +506,7 @@ class Firewall(object):
         '''Load old (Qubes < 4.0) firewall XML format'''
         policy_v1 = xml_root.get('policy')
         assert policy_v1 in ('allow', 'deny')
-        if policy_v1 == 'allow':
-            self.policy = Action('accept')
-        else:
-            self.policy = Action('drop')
+        default_policy_is_accept = (policy_v1 == 'allow')
 
         def _translate_action(key):
             if xml_root.get(key, policy_v1) == 'allow':
@@ -439,7 +521,7 @@ class Firewall(object):
             action=_translate_action('icmp'),
             proto=Proto.icmp))
 
-        if self.policy == Action.accept:
+        if default_policy_is_accept:
             rule_action = Action.drop
         else:
             rule_action = Action.accept
@@ -447,11 +529,11 @@ class Firewall(object):
         for element in xml_root:
             rule = Rule.from_xml_v1(element, rule_action)
             self.rules.append(rule)
+        if default_policy_is_accept:
+            self.rules.append(Rule(None, action='accept'))
 
     def load_v2(self, xml_root):
         '''Load new (Qubes >= 4.0) firewall XML format'''
-        self.policy = Action(xml_root.findtext('policy'))
-
         xml_rules = xml_root.find('rules')
         for xml_rule in xml_rules:
             rule = Rule(xml_rule)
@@ -463,10 +545,6 @@ class Firewall(object):
         expiring_rules_present = False
 
         xml_root = lxml.etree.Element('firewall', version=str(2))
-
-        xml_policy = lxml.etree.Element('policy')
-        xml_policy.text = str(self.policy)
-        xml_root.append(xml_policy)
 
         xml_rules = lxml.etree.Element('rules')
         for rule in self.rules:
@@ -498,7 +576,6 @@ class Firewall(object):
         if expiring_rules_present and not self.vm.app.vmm.offline_mode:
             subprocess.call(["sudo", "systemctl", "start",
                              "qubes-reload-firewall@%s.timer" % self.vm.name])
-
 
     def qdb_entries(self, addr_family=None):
         '''Return firewall settings serialized for QubesDB entries

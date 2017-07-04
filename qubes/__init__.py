@@ -331,11 +331,12 @@ class property(object):  # pylint: disable=redefined-builtin,invalid-name
         # do not treat type='str' as sufficient validation
         if self.type is not None and self.type is not str:
             # assume specific type will preform enough validation
+            try:
+                untrusted_newvalue = untrusted_newvalue.decode('ascii',
+                    errors='strict')
+            except UnicodeDecodeError:
+                raise qubes.exc.QubesValueError
             if self.type is bool:
-                try:
-                    untrusted_newvalue = untrusted_newvalue.decode('ascii')
-                except UnicodeDecodeError:
-                    raise qubes.exc.QubesValueError
                 return self.bool(None, None, untrusted_newvalue)
             else:
                 try:
