@@ -99,13 +99,3 @@ class TemplateVM(QubesVM):
             }
         }
         super(TemplateVM, self).__init__(*args, **kwargs)
-
-    def commit_changes(self):
-        '''Commit changes to template'''
-        self.log.debug('commit_changes()')
-
-        if not self.app.vmm.offline_mode:
-            assert not self.is_running(), \
-                'Attempt to commit changes on running Template VM!'
-
-        self.storage.commit()

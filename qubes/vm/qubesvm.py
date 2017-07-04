@@ -1643,45 +1643,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return None
 
-    def is_outdated(self):
-        '''Check whether domain needs restart to update root image from \
-            template.
-
-        :returns: :py:obj:`True` if is outdated, :py:obj:`False` otherwise.
-        :rtype: bool
-        '''
-        # pylint: disable=no-member
-
-        # Makes sense only on VM based on template
-        if self.template is None:
-            return False
-
-        if not self.is_running():
-            return False
-
-        if not hasattr(self.template, 'rootcow_img'):
-            return False
-
-        rootimg_inode = os.stat(self.template.root_img)
-        try:
-            rootcow_inode = os.stat(self.template.rootcow_img)
-        except OSError:
-            # The only case when rootcow_img doesn't exists is in the middle of
-            # commit_changes, so VM is outdated right now
-            return True
-
-        current_dmdev = "/dev/mapper/snapshot-{0:x}:{1}-{2:x}:{3}".format(
-                rootimg_inode[2], rootimg_inode[1],
-                rootcow_inode[2], rootcow_inode[1])
-
-        # FIXME
-        # 51712 (0xCA00) is xvda
-        #  backend node name not available through xenapi :(
-        used_dmdev = self.app.vmm.xs.read('',
-            '/local/domain/0/backend/vbd/{}/51712/node'.format(self.xid))
-
-        return used_dmdev != current_dmdev
-
     #
     # helper methods
     #
