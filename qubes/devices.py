@@ -272,8 +272,17 @@ class DeviceCollection(object):
         attached persistently.
         '''
 
-        devices = self._vm.fire_event('device-list-attached:' + self._bus,
-            persistent=persistent)
+        try:
+            devices = self._vm.fire_event('device-list-attached:' + self._bus,
+                persistent=persistent)
+        except Exception as e:  # pylint: disable=broad-except
+            self._vm.log.exception(e, 'Failed to list {} devices'.format(
+                self._bus))
+            if persistent is True:
+                # don't break app.save()
+                return self._set
+            else:
+                raise
         result = set()
         for dev, options in devices:
             if dev in self._set and not persistent:

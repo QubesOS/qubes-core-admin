@@ -10,6 +10,15 @@
         <currentMemory unit="MiB">{{ vm.memory }}</currentMemory>
         <vcpu placement="static">{{ vm.vcpus }}</vcpu>
     {% endblock %}
+    {% block cpu %}
+        <cpu mode='host-passthrough'>
+            <!-- disable nested HVM -->
+            <feature name='vmx' policy='disable'/>
+            <feature name='svm' policy='disable'/>
+            <!-- disable SMAP inside VM, because of Linux bug -->
+            <feature name='smap' policy='disable'/>
+        </cpu>
+    {% endblock %}
     <os>
         {% block os %}
             {% if vm.hvm %}

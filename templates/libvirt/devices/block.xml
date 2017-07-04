@@ -12,5 +12,7 @@
         <readonly />
     {%- endif %}
 
+    {%- if device.backend_domain.name != 'dom0' %}
     <backenddomain name="{{ device.backend_domain.name }}" />
+    {%- endif %}
 </disk>
