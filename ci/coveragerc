@@ -1,3 +1,3 @@
 [run]
-source = qubes
-omit = qubes/tests/*
+source = qubes, qubespolicy
+omit = qubes/tests/*, qubespolicy/tests/*

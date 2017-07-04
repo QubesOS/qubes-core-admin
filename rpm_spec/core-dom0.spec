@@ -213,7 +213,9 @@ fi
 /usr/bin/qubesd*
 /usr/bin/qrexec-policy
 /usr/bin/qrexec-policy-agent
+/usr/bin/qrexec-policy-graph
 
+%{_mandir}/man1/qrexec-policy-graph.1*
 %{_mandir}/man1/qubes*.1*
 
 %dir %{python3_sitelib}/qubes-*.egg-info
@@ -372,6 +374,7 @@ fi
 %{python3_sitelib}/qubespolicy/gtkhelpers.py
 %{python3_sitelib}/qubespolicy/rpcconfirmation.py
 %{python3_sitelib}/qubespolicy/utils.py
+%{python3_sitelib}/qubespolicy/graph.py
 
 %dir %{python3_sitelib}/qubespolicy/tests
 %dir %{python3_sitelib}/qubespolicy/tests/__pycache__
@@ -410,7 +413,10 @@ fi
 /etc/xen/scripts/block-origin
 /etc/xen/scripts/vif-route-qubes
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/admin.*
-%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/include/admin-all
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/include/admin-local-ro
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/include/admin-local-rwx
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/include/admin-global-ro
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/include/admin-global-rwx
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.FeaturesRequest
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.Filecopy
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.GetImageRGBA

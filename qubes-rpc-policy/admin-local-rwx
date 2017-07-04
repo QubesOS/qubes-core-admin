@@ -1,0 +1,11 @@
+## This file is included from all local read-write admin.* policy files
+## _in default configuration_. To allow only specific action,
+## edit specific policy file.
+
+## Note that policy parsing stops at the first match,
+## so adding anything below "$anyvm $anyvm action" line will have no effect
+
+## Please use a single # to start your custom comments
+
+## Add your entries here, make sure to append ",target=dom0" to all allow/ask actions
+

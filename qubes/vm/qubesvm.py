@@ -594,8 +594,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     @property
     def block_devices(self):
-        ''' Return all :py:class:`qubes.storage.BlockDevice`s for current domain
-            for serialization in the libvirt XML template as <disk>.
+        ''' Return all :py:class:`qubes.storage.BlockDevice` for current domain
+        for serialization in the libvirt XML template as <disk>.
         '''
         for v in self.volumes.values():
             block_dev = v.block_device()
@@ -1050,7 +1050,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         :param str service: service name
         :param qubes.vm.qubesvm.QubesVM source: source domain as presented to
-        this VM
+            this VM
         :param str user: username to run service as
         :param bool filter_esc: filter escape sequences to protect terminal \
             emulator
@@ -1221,7 +1221,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         This function take care to run it as appropriate user.
 
         :param command: command to run (array for
-        :py:meth:`subprocess.check_call`)
+            :py:meth:`subprocess.check_call`)
         :param kwargs: args for :py:meth:`subprocess.check_call`
         :return: None
         '''  # pylint: disable=redefined-builtin

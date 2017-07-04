@@ -1,0 +1,13 @@
+## This file is included from all global read-only admin.* policy files
+## _in default configuration_. To allow only specific action,
+## edit specific policy file.
+
+## Note that policy parsing stops at the first match,
+
+## Please use a single # to start your custom comments
+
+## Include all already having write access
+$include:include/admin-global-rwx
+
+## Add your entries here, make sure to append ",target=dom0" to all allow/ask actions
+

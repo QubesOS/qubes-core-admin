@@ -329,8 +329,8 @@ class property(object):  # pylint: disable=redefined-builtin,invalid-name
         setter. Can raise QubesValueError if the value is invalid.
 
         :param untrusted_newvalue: value to be validated
-        :return sanitized value
-        :raises qubes.exc.QubesValueError
+        :return: sanitized value
+        :raises: qubes.exc.QubesValueError
         '''
         # do not treat type='str' as sufficient validation
         if self.type is not None and self.type is not str:

@@ -8,7 +8,6 @@ OS ?= Linux
 PYTHON ?= python3
 
 ADMIN_API_METHODS_SIMPLE = \
-	admin.vm.List \
 	admin.vmclass.List \
 	admin.Events \
 	admin.backup.Execute \
@@ -17,6 +16,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.label.Create \
 	admin.label.Get \
 	admin.label.List \
+	admin.label.Index \
 	admin.label.Remove \
 	admin.pool.Add \
 	admin.pool.Info \
@@ -83,16 +83,14 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.vm.tag.List \
 	admin.vm.tag.Remove \
 	admin.vm.tag.Set \
+	admin.vm.volume.CloneFrom \
+	admin.vm.volume.CloneTo \
 	admin.vm.volume.Info \
 	admin.vm.volume.List \
 	admin.vm.volume.ListSnapshots \
 	admin.vm.volume.Resize \
 	admin.vm.volume.Revert \
 	$(null)
-
-ADMIN_API_METHODS := $(ADMIN_API_METHODS_SIMPLE) \
-	 admin.vm.volume.Import \
-	 $(null)
 
 ifeq ($(OS),Linux)
 DATADIR ?= /var/lib/qubes
@@ -172,15 +170,26 @@ endif
 	install qubes-rpc/qubesd-query-fast $(DESTDIR)/usr/libexec/qubes/
 	for method in $(ADMIN_API_METHODS_SIMPLE); do \
 		ln -s ../../usr/libexec/qubes/qubesd-query-fast \
-			$(DESTDIR)/etc/qubes-rpc/$$method; \
+			$(DESTDIR)/etc/qubes-rpc/$$method || exit 1; \
 	done
 	install qubes-rpc/admin.vm.volume.Import $(DESTDIR)/etc/qubes-rpc/
-	for method in $(ADMIN_API_METHODS); do \
-		install -m 0644 qubes-rpc-policy/admin-default \
-			$(DESTDIR)/etc/qubes-rpc/policy/$$method; \
+	PYTHONPATH=.:test-packages qubes-rpc-policy/generate-admin-policy \
+		--destdir=$(DESTDIR)/etc/qubes-rpc/policy \
+		--exclude admin.vm.Create.AdminVM \
+				  admin.vm.CreateInPool.AdminVM \
+		          admin.vm.device.testclass.Attach \
+				  admin.vm.device.testclass.Detach \
+				  admin.vm.device.testclass.List \
+				  admin.vm.device.testclass.Available
+	# sanity check
+	for method in $(DESTDIR)/etc/qubes-rpc/policy/admin.*; do \
+		ls $(DESTDIR)/etc/qubes-rpc/$$(basename $$method) >/dev/null || exit 1; \
 	done
 	install -d $(DESTDIR)/etc/qubes-rpc/policy/include
-	install -m 0644 qubes-rpc-policy/admin-all \
+	install -m 0644 qubes-rpc-policy/admin-local-ro \
+		qubes-rpc-policy/admin-local-rwx \
+		qubes-rpc-policy/admin-global-ro \
+		qubes-rpc-policy/admin-global-rwx \
 		$(DESTDIR)/etc/qubes-rpc/policy/include/
 
 	mkdir -p "$(DESTDIR)$(FILESDIR)"

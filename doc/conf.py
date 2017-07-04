@@ -243,6 +243,8 @@ _man_pages_author = []
 man_pages = [
     ('manpages/qubesd-query', 'qubesd-query',
         u'Low-level qubesd interrogation tool', _man_pages_author, 1),
+    ('manpages/qrexec-policy-graph', 'qrexec-policy-graph',
+        u'Graph qrexec policy', _man_pages_author, 1),
 ]
 
 if os.path.exists('sandbox.rst'):

@@ -66,6 +66,8 @@ def verify_target_value(system_info, value):
     '''
     if value == '$dispvm':
         return True
+    elif value == '$adminvm':
+        return True
     elif value.startswith('$dispvm:'):
         dispvm_base = value.split(':', 1)[1]
         if dispvm_base not in system_info['domains']:
@@ -82,7 +84,7 @@ def verify_special_value(value, for_target=True):
 
     :param value: value to verify
     :param for_target: should classify target-only values as valid (
-    '$default', '$dispvm')
+        '$default', '$dispvm')
     :return: True or False
     '''
     # pylint: disable=too-many-return-statements
@@ -92,6 +94,8 @@ def verify_special_value(value, for_target=True):
     elif value.startswith('$type:') and len(value) > len('$type:'):
         return True
     elif value == '$anyvm':
+        return True
+    elif value == '$adminvm':
         return True
     elif value.startswith('$dispvm:') and for_target:
         return True
@@ -121,11 +125,11 @@ class PolicyRule(object):
         self.filename = filename
 
         try:
-            self.source, self.target, self.full_action = line.split()
+            self.source, self.target, self.full_action = line.split(maxsplit=2)
         except ValueError:
             raise PolicySyntaxError(filename, lineno, 'wrong number of fields')
 
-        (action, *params) = self.full_action.split(',')
+        (action, *params) = self.full_action.replace(',', ' ').split()
         try:
             self.action = Action[action]
         except KeyError:
@@ -184,8 +188,9 @@ class PolicyRule(object):
                 'allow action for $default rule must specify target= option')
 
         if self.override_target is not None:
-            if self.override_target.startswith('$') and not \
-                    self.override_target.startswith('$dispvm'):
+            if self.override_target.startswith('$') and \
+                    not self.override_target.startswith('$dispvm') and \
+                    self.override_target != '$adminvm':
                 raise PolicySyntaxError(filename, lineno,
                     'target= option needs to name specific target')
 
@@ -197,7 +202,7 @@ class PolicyRule(object):
 
         :param system_info: information about the system
         :param policy_value: value from qrexec policy (either self.source or
-        self.target)
+            self.target)
         :param value: value to be compared (source or target)
         :return: True or False
         '''
@@ -216,17 +221,30 @@ class PolicyRule(object):
         if not verify_target_value(system_info, value):
             return False
 
+        # handle $adminvm keyword
+        if policy_value == 'dom0':
+            # TODO: log a warning in Qubes 4.1
+            policy_value = '$adminvm'
+
+        if value == 'dom0':
+            value = '$adminvm'
+
         # allow any _valid_, non-dom0 target
         if policy_value == '$anyvm':
-            return value != 'dom0'
+            return value != '$adminvm'
 
-        # exact match, including $dispvm*
+        # exact match, including $dispvm* and $adminvm
         if value == policy_value:
             return True
 
         # if $dispvm* not matched above, reject it; missing ':' is
         # intentional - handle both '$dispvm' and '$dispvm:xxx'
         if value.startswith('$dispvm'):
+            return False
+
+        # require $adminvm to be matched explicitly (not through $tag or $type)
+        # - if not matched already, reject it
+        if value == '$adminvm':
             return False
 
         # at this point, value name a specific target
@@ -247,8 +265,8 @@ class PolicyRule(object):
         Check if given (source, target) matches this policy line.
 
         :param system_info: information about the system - available VMs,
-        their types, labels, tags etc. as returned by
-        :py:func:`app_to_system_info`
+            their types, labels, tags etc. as returned by
+            :py:func:`app_to_system_info`
         :param source: name of the source VM
         :param target: name of the target VM, or None if not specified
         :return: True or False
@@ -293,6 +311,8 @@ class PolicyRule(object):
             except KeyError:
                 # TODO log a warning?
                 pass
+        elif self.target == '$adminvm':
+            yield self.target
         elif self.target == '$dispvm':
             yield self.target
         else:
@@ -372,12 +392,14 @@ class PolicyAction(object):
     def execute(self, caller_ident):
         ''' Execute allowed service call
 
-        :param caller_ident: Service caller ident (`process_ident,source_name,
-        source_id`)
+        :param caller_ident: Service caller ident
+            (`process_ident,source_name, source_id`)
         '''
         assert self.action == Action.allow
         assert self.target is not None
 
+        if self.target == '$adminvm':
+            self.target = 'dom0'
         if self.target == 'dom0':
             cmd = '{multiplexer} {service} {source} {original_target}'.format(
                 multiplexer=QUBES_RPC_MULTIPLEXER_PATH,
@@ -451,17 +473,20 @@ class Policy(object):
     >>> policy = Policy('some-service')
     >>> action = policy.evaluate(system_info, 'source-name', 'target-name')
     >>> if action.action == Action.ask:
-            (... ask the user, see action.targets_for_ask ...)
+    >>>     # ... ask the user, see action.targets_for_ask ...
     >>>     action.handle_user_response(response, target_chosen_by_user)
     >>> action.execute('process-ident')
 
     '''
 
-    def __init__(self, service):
-        policy_file = os.path.join(POLICY_DIR, service)
+    def __init__(self, service, policy_dir=POLICY_DIR):
+        policy_file = os.path.join(policy_dir, service)
         if not os.path.exists(policy_file):
             # fallback to policy without specific argument set (if any)
-            policy_file = os.path.join(POLICY_DIR, service.split('+')[0])
+            policy_file = os.path.join(policy_dir, service.split('+')[0])
+
+        #: policy storage directory
+        self.policy_dir = policy_dir
 
         #: service name
         self.service = service
@@ -493,7 +518,7 @@ class Policy(object):
                     include_path = line.split(':', 1)[1]
                     # os.path.join will leave include_path unchanged if it's
                     # already absolute
-                    include_path = os.path.join(POLICY_DIR, include_path)
+                    include_path = os.path.join(self.policy_dir, include_path)
                     self.load_policy_file(include_path)
                 else:
                     self.policy_rules.append(PolicyRule(line, path, lineno))
@@ -582,6 +607,15 @@ class Policy(object):
                     'policy define \'allow\' action at {}:{} but no target is '
                     'specified by caller or policy'.format(
                         rule.filename, rule.lineno))
+            if actual_target == '$dispvm':
+                if system_info['domains'][source]['default_dispvm'] is None:
+                    raise AccessDenied(
+                        'policy define \'allow\' action to $dispvm at {}:{} '
+                        'but no DispVM base is set for this VM'.format(
+                            rule.filename, rule.lineno))
+                actual_target = '$dispvm:' + \
+                    system_info['domains'][source]['default_dispvm']
+
             return PolicyAction(self.service, source,
                 actual_target, rule, target)
         else:
@@ -634,11 +668,11 @@ def get_system_info():
     data is nested dict structure with this structure:
 
     - domains:
-      - <domain name>:
-        - tags: list of tags
-        - type: domain type
-        - dispvm_allowed: should DispVM based on this VM be allowed
-        - default_dispvm: name of default AppVM for DispVMs started from here
+       - `<domain name>`:
+          - tags: list of tags
+          - type: domain type
+          - dispvm_allowed: should DispVM based on this VM be allowed
+          - default_dispvm: name of default AppVM for DispVMs started from here
 
     '''
 

@@ -177,7 +177,7 @@ def expectedFailureIfTemplate(templates):
     Decorator for marking specific test as expected to fail only for some
     templates. Template name is compared as substring, so 'whonix' will
     handle both 'whonix-ws' and 'whonix-gw'.
-     templates can be either a single string, or an iterable
+    templates can be either a single string, or an iterable
     """
     def decorator(func):
         @functools.wraps(func)
