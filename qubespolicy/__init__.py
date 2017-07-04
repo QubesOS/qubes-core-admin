@@ -129,7 +129,7 @@ class PolicyRule(object):
         except ValueError:
             raise PolicySyntaxError(filename, lineno, 'wrong number of fields')
 
-        (action, *params) = self.full_action.replace(' ', '').split(',')
+        (action, *params) = self.full_action.replace(',', ' ').split()
         try:
             self.action = Action[action]
         except KeyError:
