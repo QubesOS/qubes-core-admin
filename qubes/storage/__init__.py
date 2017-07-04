@@ -78,25 +78,26 @@ class Volume(object):
     domain = None
     path = None
     script = None
+    #: disk space used by this volume, can be smaller than :py:attr:`size`
+    #: for sparse volumes
     usage = 0
 
-    def __init__(self, name, pool, vid, internal=False, removable=False,
+    def __init__(self, name, pool, vid,
             revisions_to_keep=0, rw=False, save_on_stop=False, size=0,
             snap_on_start=False, source=None, **kwargs):
         ''' Initialize a volume.
 
-            :param str name: The domain name
+            :param str name: The name of the volume inside owning domain
             :param Pool pool: The pool object
             :param str vid:  Volume identifier needs to be unique in pool
-            :param bool internal: If `True` volume is hidden when qvm-block ls
-                is used
-            :param bool removable: If `True` volume can be detached from vm at
-                run time
             :param int revisions_to_keep: Amount of revisions to keep around
             :param bool rw: If true volume will be mounted read-write
-            :param bool snap_on_start: Create a snapshot from source on start
-            :param bool save_on_stop: Write changes to disk in vm.stop()
-            :param Volume source: other volume in same pool, or None
+            :param bool snap_on_start: Create a snapshot from source on
+                start, instead of using volume own data
+            :param bool save_on_stop: Write changes to the volume in
+                vm.stop(), otherwise - discard
+            :param Volume source: other volume in same pool to make snapshot
+                from, required if *snap_on_start*=`True`
             :param str/int size: Size of the volume
 
         '''
@@ -106,16 +107,34 @@ class Volume(object):
         assert source is None or (isinstance(source, Volume)
                                   and source.pool == pool)
 
+        if snap_on_start and source is None:
+            msg = "snap_on_start specified on {!r} but no volume source set"
+            msg = msg.format(name)
+            raise StoragePoolException(msg)
+        elif not snap_on_start and source is not None:
+            msg = "source specified on {!r} but no snap_on_start set"
+            msg = msg.format(name)
+            raise StoragePoolException(msg)
+
+        #: Name of the volume in a domain it's attached to (like `root` or
+        #: `private`).
         self.name = str(name)
+        #: :py:class:`Pool` instance owning this volume
         self.pool = pool
-        self.internal = internal
-        self.removable = removable
+        #: How many revisions of the volume to keep. Each revision is created
+        #  at :py:meth:`stop`, if :py:attr:`save_on_stop` is True
         self.revisions_to_keep = int(revisions_to_keep)
+        #: Should this volume be writable by domain.
         self.rw = rw
+        #: Should volume state be saved or discarded at :py:meth:`stop`
         self.save_on_stop = save_on_stop
         self._size = int(size)
+        #: Should the volume state be initialized with a snapshot of
+        #: same-named volume of domain's template.
         self.snap_on_start = snap_on_start
+        #: source volume for :py:attr:`snap_on_start` volumes
         self.source = source
+        #: Volume unique (inside given pool) identifier
         self.vid = vid
 
     def __eq__(self, other):
@@ -142,6 +161,10 @@ class Volume(object):
     def create(self):
         ''' Create the given volume on disk.
 
+            This method is called only once in the volume lifetime. Before
+            calling this method, no data on disk should be touched (in
+            context of this volume).
+
             This can be implemented as a coroutine.
         '''
         raise self._not_implemented("create")
@@ -152,23 +175,37 @@ class Volume(object):
         This can be implemented as a coroutine.'''
         raise self._not_implemented("remove")
 
-    def commit(self):
-        ''' Write the snapshot to disk
-
-        This can be implemented as a coroutine.'''
-        raise self._not_implemented("commit")
-
     def export(self):
-        ''' Returns an object that can be `open()`. '''
+        ''' Returns a path to read the volume data from.
+
+            Reading from this path when domain owning this volume is
+            running (i.e. when :py:meth:`is_dirty` is True) should return the
+            data from before domain startup.
+
+            Reading from the path returned by this method should return the
+            volume data. If extracting volume data require something more
+            than just reading from file (for example connecting to some other
+            domain, or decompressing the data), the returned path may be a pipe.
+        '''
         raise self._not_implemented("export")
 
     def import_data(self):
-        ''' Returns an object that can be `open()`. '''
+        ''' Returns a path to overwrite volume data.
+
+            This method is called after volume was already :py:meth:`create`-ed.
+
+            Writing to this path should overwrite volume data. If importing
+            volume data require something more than just writing to a file (
+            for example connecting to some other domain, or converting data
+            on the fly), the returned path may be a pipe.
+        '''
         raise self._not_implemented("import")
 
     def import_data_end(self, success):
-        ''' End data import operation. This may be used by pool
+        ''' End the data import operation. This may be used by pool
         implementation to commit changes, cleanup temporary files etc.
+
+        This method is called regardless the operation was successful or not.
 
         :param success: True if data import was successful, otherwise False
         '''
@@ -179,30 +216,26 @@ class Volume(object):
         ''' Imports data from a different volume (possibly in a different
         pool.
 
-        The needs to be create()d first.
+        The volume needs to be create()d first.
 
         This can be implemented as a coroutine. '''
         # pylint: disable=unused-argument
         raise self._not_implemented("import_volume")
 
     def is_dirty(self):
-        ''' Return `True` if volume was not properly shutdown and commited '''
+        ''' Return `True` if volume was not properly shutdown and committed.
+
+            This include the situation when domain owning the volume is still
+            running.
+
+        '''
         raise self._not_implemented("is_dirty")
 
     def is_outdated(self):
-        ''' Returns `True` if the currently used `volume.source` of a snapshot
-            volume is outdated.
+        ''' Returns `True` if this snapshot of a source volume (for
+        `snap_on_start`=True) is outdated.
         '''
         raise self._not_implemented("is_outdated")
-
-    def recover(self):
-        ''' Try to recover a :py:class:`Volume` or :py:class:`SnapVolume` '''
-        raise self._not_implemented("recover")
-
-    def reset(self):
-        ''' Drop and recreate volume without copying it's content from source.
-        '''
-        raise self._not_implemented("reset")
 
     def resize(self, size):
         ''' Expands volume, throws
@@ -210,23 +243,33 @@ class Volume(object):
             given size is less than current_size
 
             This can be implemented as a coroutine.
+
+            :param int size: new size in bytes
         '''
         # pylint: disable=unused-argument
         raise self._not_implemented("resize")
 
     def revert(self, revision=None):
-        ''' Revert volume to previous revision  '''
+        ''' Revert volume to previous revision
+
+        :param revision: revision to revert volume to, see :py:attr:`revisions`
+        '''
         # pylint: disable=unused-argument
         raise self._not_implemented("revert")
 
     def start(self):
-        ''' Do what ever is needed on start
+        ''' Do what ever is needed on start.
+
+        This include making a snapshot of template's volume if
+        :py:attr:`snap_on_start` is set.
 
         This can be implemented as a coroutine.'''
         raise self._not_implemented("start")
 
     def stop(self):
-        ''' Do what ever is needed on stop
+        ''' Do what ever is needed on stop.
+
+        This include committing data if :py:attr:`save_on_stop` is set.
 
         This can be implemented as a coroutine.'''
 
@@ -245,12 +288,14 @@ class Volume(object):
 
     @property
     def revisions(self):
-        ''' Returns a `dict` containing revision identifiers and paths '''
+        ''' Returns a dict containing revision identifiers and time of their
+        creation '''
         msg = "{!s} has revisions not implemented".format(self.__class__)
         raise NotImplementedError(msg)
 
     @property
     def size(self):
+        ''' Volume size in bytes '''
         return self._size
 
     @size.setter
@@ -262,28 +307,18 @@ class Volume(object):
     @property
     def config(self):
         ''' return config data for serialization to qubes.xml '''
-        result = {'name': self.name, 'pool': str(self.pool), 'vid': self.vid, }
-
-        if self.internal:
-            result['internal'] = self.internal
-
-        if self.removable:
-            result['removable'] = self.removable
-
-        if self.revisions_to_keep:
-            result['revisions_to_keep'] = self.revisions_to_keep
-
-        if self.rw:
-            result['rw'] = self.rw
-
-        if self.save_on_stop:
-            result['save_on_stop'] = self.save_on_stop
+        result = {
+            'name': self.name,
+            'pool': str(self.pool),
+            'vid': self.vid,
+            'revisions_to_keep': self.revisions_to_keep,
+            'rw': self.rw,
+            'save_on_stop': self.save_on_stop,
+            'snap_on_start': self.snap_on_start,
+        }
 
         if self.size:
             result['size'] = self.size
-
-        if self.snap_on_start:
-            result['snap_on_start'] = self.snap_on_start
 
         if self.source:
             result['source'] = str(self.source)
@@ -335,7 +370,13 @@ class Storage(object):
 
         if 'name' not in volume_config:
             volume_config['name'] = name
-        pool = self.vm.app.get_pool(volume_config['pool'])
+        if 'pool' not in volume_config:
+            pool = getattr(self.vm.app, 'default_pool_' + name)
+        else:
+            pool = self.vm.app.get_pool(volume_config['pool'])
+        if 'internal' in volume_config:
+            # migrate old config
+            del volume_config['internal']
         volume = pool.init_volume(self.vm, volume_config)
         self.vm.volumes[name] = volume
         return volume
@@ -486,13 +527,6 @@ class Storage(object):
 
         return result
 
-    def rename(self, old_name, new_name):
-        ''' Notify the pools that the domain was renamed '''
-        volumes = self.vm.volumes
-        for name, volume in volumes.items():
-            pool = volume.pool
-            volumes[name] = pool.rename(volume, old_name, new_name)
-
     @asyncio.coroutine
     def verify(self):
         '''Verify that the storage is sane.
@@ -558,19 +592,6 @@ class Storage(object):
 
         if futures:
             yield from asyncio.wait(futures)
-
-    @asyncio.coroutine
-    def commit(self):
-        ''' Makes changes to an 'origin' volume persistent '''
-        futures = []
-        for volume in self.vm.volumes.values():
-            if volume.save_on_stop:
-                ret = volume.commit()
-                if asyncio.iscoroutine(ret):
-                    futures.append(ret)
-
-        if futures:
-            yield asyncio.wait(futures)
 
     def unused_frontend(self):
         ''' Find an unused device name '''
@@ -721,10 +742,6 @@ class Pool(object):
         ''' Initialize a :py:class:`qubes.storage.Volume` from `volume_config`.
         '''
         raise self._not_implemented("init_volume")
-
-    def rename(self, volume, old_name, new_name):
-        ''' Called when the domain changes its name '''
-        raise self._not_implemented("rename")
 
     def setup(self):
         ''' Called when adding a pool to the system. Use this for implementation

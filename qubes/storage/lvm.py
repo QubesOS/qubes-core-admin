@@ -21,8 +21,13 @@
 ''' Driver for storing vm images in a LVM thin pool '''
 
 import logging
+import operator
 import os
 import subprocess
+
+import time
+
+import asyncio
 
 import qubes
 import qubes.storage
@@ -88,23 +93,6 @@ class ThinPool(qubes.storage.Pool):
         volume_config['pool'] = self
         return ThinVolume(**volume_config)
 
-    def rename(self, volume, old_name, new_name):
-        ''' Called when the domain changes its name '''
-        new_vid = "{!s}/vm-{!s}-{!s}".format(self.volume_group, new_name,
-                                          volume.name)
-        if volume.save_on_stop:
-            cmd = ['clone', volume.vid, new_vid]
-            qubes_lvm(cmd, self.log)
-            cmd = ['remove', volume.vid]
-            qubes_lvm(cmd, self.log)
-
-        volume.vid = new_vid
-
-        if volume.snap_on_start:
-            volume._vid_snap = volume.vid + '-snap'
-        reset_cache()
-        return volume
-
     def setup(self):
         pass  # TODO Should we create a non existing pool?
 
@@ -119,6 +107,9 @@ class ThinPool(qubes.storage.Pool):
             if vid.endswith('-snap'):
                 # implementation detail volume
                 continue
+            if vid.endswith('-back'):
+                # old revisions
+                continue
             config = {
                 'pool': self,
                 'vid': vid,
@@ -132,7 +123,7 @@ class ThinPool(qubes.storage.Pool):
 
 def init_cache(log=logging.getLogger('qube.storage.lvm')):
     cmd = ['lvs', '--noheadings', '-o',
-           'vg_name,pool_lv,name,lv_size,data_percent,lv_attr',
+           'vg_name,pool_lv,name,lv_size,data_percent,lv_attr,origin',
            '--units', 'b', '--separator', ',']
     if os.getuid() != 0:
         cmd.insert(0, 'sudo')
@@ -149,14 +140,15 @@ def init_cache(log=logging.getLogger('qube.storage.lvm')):
 
     for line in out.splitlines():
         line = line.decode().strip()
-        pool_name, pool_lv, name, size, usage_percent, attr = line.split(',', 5)
+        pool_name, pool_lv, name, size, usage_percent, attr, \
+            origin = line.split(',', 6)
         if '' in [pool_name, pool_lv, name, size, usage_percent]:
             continue
         name = pool_name + "/" + name
         size = int(size[:-1])
         usage = int(size / 100 * float(usage_percent))
         result[name] = {'size': size, 'usage': usage, 'pool_lv': pool_lv,
-            'attr': attr}
+            'attr': attr, 'origin': origin}
 
     return result
 
@@ -173,16 +165,7 @@ class ThinVolume(qubes.storage.Volume):
         super(ThinVolume, self).__init__(size=size, **kwargs)
         self.log = logging.getLogger('qube.storage.lvm.%s' % str(self.pool))
 
-        if self.snap_on_start and self.source is None:
-            msg = "snap_on_start specified on {!r} but no volume source set"
-            msg = msg.format(self.name)
-            raise qubes.storage.StoragePoolException(msg)
-        elif not self.snap_on_start and self.source is not None:
-            msg = "source specified on {!r} but no snap_on_start set"
-            msg = msg.format(self.name)
-            raise qubes.storage.StoragePoolException(msg)
-
-        if self.snap_on_start:
+        if self.snap_on_start or self.save_on_stop:
             self._vid_snap = self.vid + '-snap'
 
         self._size = size
@@ -193,28 +176,18 @@ class ThinVolume(qubes.storage.Volume):
 
     @property
     def revisions(self):
-        path = self.path + '-back'
-        if os.path.exists(path):
-            seconds = os.path.getctime(path)
+        name_prefix = self.vid + '-'
+        revisions = {}
+        for revision_vid in size_cache:
+            if not revision_vid.startswith(name_prefix):
+                continue
+            if not revision_vid.endswith('-back'):
+                continue
+            revision_vid = revision_vid[len(name_prefix):]
+            seconds = int(revision_vid[:-len('-back')])
             iso_date = qubes.storage.isodate(seconds).split('.', 1)[0]
-            return {iso_date: path}
-        return {}
-
-    @property
-    def _is_origin(self):
-        return not self.snap_on_start and self.save_on_stop
-
-    @property
-    def _is_origin_snapshot(self):
-        return self.snap_on_start and self.save_on_stop
-
-    @property
-    def _is_snapshot(self):
-        return self.snap_on_start and not self.save_on_stop
-
-    @property
-    def _is_volatile(self):
-        return not self.snap_on_start and not self.save_on_stop
+            revisions[revision_vid] = iso_date
+        return revisions
 
     @property
     def size(self):
@@ -230,8 +203,8 @@ class ThinVolume(qubes.storage.Volume):
 
     def _reset(self):
         ''' Resets a volatile volume '''
-        assert self._is_volatile, \
-            'Expected a volatile volume, but got {!r}'.format(self)
+        assert not self.snap_on_start and not self.save_on_stop, \
+            "Not a volatile volume"
         self.log.debug('Resetting volatile ' + self.vid)
         try:
             cmd = ['remove', self.vid]
@@ -243,6 +216,27 @@ class ThinVolume(qubes.storage.Volume):
                str(self.size)]
         qubes_lvm(cmd, self.log)
 
+    def _remove_revisions(self, revisions=None):
+        '''Remove old volume revisions.
+
+        If no revisions list is given, it removes old revisions according to
+        :py:attr:`revisions_to_keep`
+
+        :param revisions: list of revisions to remove
+        '''
+        if revisions is None:
+            revisions = sorted(self.revisions.items(),
+                key=operator.itemgetter(1))
+            revisions = revisions[:-self.revisions_to_keep]
+            revisions = [rev_id for rev_id, _ in revisions]
+
+        for rev_id in revisions:
+            try:
+                cmd = ['remove', self.vid + rev_id]
+                qubes_lvm(cmd, self.log)
+            except qubes.storage.StoragePoolException:
+                pass
+
     def _commit(self):
         msg = "Trying to commit {!s}, but it has save_on_stop == False"
         msg = msg.format(self)
@@ -253,13 +247,11 @@ class ThinVolume(qubes.storage.Volume):
         assert self.rw, msg
         assert hasattr(self, '_vid_snap')
 
-        try:
-            cmd = ['remove', self.vid + "-back"]
+        if self.revisions_to_keep > 0:
+            cmd = ['clone', self.vid,
+                '{}-{}-back'.format(self.vid, int(time.time()))]
             qubes_lvm(cmd, self.log)
-        except qubes.storage.StoragePoolException:
-            pass
-        cmd = ['clone', self.vid, self.vid + "-back"]
-        qubes_lvm(cmd, self.log)
+            self._remove_revisions()
 
         cmd = ['remove', self.vid]
         qubes_lvm(cmd, self.log)
@@ -290,6 +282,7 @@ class ThinVolume(qubes.storage.Volume):
             cmd = ['remove', self._vid_snap]
             qubes_lvm(cmd, self.log)
 
+        self._remove_revisions(self.revisions.keys())
         if not os.path.exists(self.path):
             return
         cmd = ['remove', self.vid]
@@ -301,6 +294,7 @@ class ThinVolume(qubes.storage.Volume):
         devpath = '/dev/' + self.vid
         return devpath
 
+    @asyncio.coroutine
     def import_volume(self, src_volume):
         if not src_volume.save_on_stop:
             return self
@@ -316,9 +310,14 @@ class ThinVolume(qubes.storage.Volume):
             qubes_lvm(cmd, self.log)
         else:
             src_path = src_volume.export()
-            cmd = ['sudo', 'dd', 'if=' + src_path, 'of=/dev/' + self.vid,
+            cmd = ['dd', 'if=' + src_path, 'of=/dev/' + self.vid,
                 'conv=sparse']
-            subprocess.check_call(cmd)
+            p = yield from asyncio.create_subprocess_exec(*cmd)
+            yield from p.wait()
+            if p.returncode != 0:
+                raise qubes.storage.StoragePoolException(
+                    'Failed to import volume {!r}, dd exit code: {}'.format(
+                        src_volume, p.returncode))
             reset_cache()
 
         return self
@@ -330,18 +329,30 @@ class ThinVolume(qubes.storage.Volume):
 
     def is_dirty(self):
         if self.save_on_stop:
-            return os.path.exists(self.path + '-snap')
+            return os.path.exists('/dev/' + self._vid_snap)
         return False
 
+    def is_outdated(self):
+        if not self.snap_on_start:
+            return False
+        if self._vid_snap not in size_cache:
+            return False
+        return (size_cache[self._vid_snap]['origin'] !=
+               self.source.vid.split('/')[1])
+
+
     def revert(self, revision=None):
-        old_path = self.path + '-back'
+        if revision is None:
+            revision = \
+                max(self.revisions.items(), key=operator.itemgetter(1))[0]
+        old_path = self.path + '-' + revision
         if not os.path.exists(old_path):
             msg = "Volume {!s} has no {!s}".format(self, old_path)
             raise qubes.storage.StoragePoolException(msg)
 
         cmd = ['remove', self.vid]
         qubes_lvm(cmd, self.log)
-        cmd = ['clone', self.vid + '-back', self.vid]
+        cmd = ['clone', self.vid + '-' + revision, self.vid]
         qubes_lvm(cmd, self.log)
         reset_cache()
         return self
@@ -381,22 +392,22 @@ class ThinVolume(qubes.storage.Volume):
 
 
     def start(self):
-        if self.snap_on_start:
+        if self.snap_on_start or self.save_on_stop:
             if not self.save_on_stop or not self.is_dirty():
                 self._snapshot()
-        elif not self.save_on_stop:
+        else:
             self._reset()
 
         reset_cache()
         return self
 
     def stop(self):
-        if self.save_on_stop and self.snap_on_start:
+        if self.save_on_stop:
             self._commit()
-        if self.snap_on_start:
+        if self.snap_on_start or self.save_on_stop:
             cmd = ['remove', self._vid_snap]
             qubes_lvm(cmd, self.log)
-        elif not self.save_on_stop:
+        else:
             cmd = ['remove', self.vid]
             qubes_lvm(cmd, self.log)
         reset_cache()
@@ -415,7 +426,7 @@ class ThinVolume(qubes.storage.Volume):
         ''' Return :py:class:`qubes.storage.BlockDevice` for serialization in
             the libvirt XML template as <disk>.
         '''
-        if self.snap_on_start:
+        if self.snap_on_start or self.save_on_stop:
             return qubes.storage.BlockDevice(
                 '/dev/' + self._vid_snap, self.name, self.script,
                 self.rw, self.domain, self.devtype)

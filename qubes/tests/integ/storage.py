@@ -59,7 +59,6 @@ class StorageTestMixin(qubes.tests.SystemTestsMixin):
         volume_config = {
             'pool': self.pool.name,
             'size': size,
-            'internal': False,
             'save_on_stop': False,
             'rw': True,
         }
@@ -91,7 +90,6 @@ class StorageTestMixin(qubes.tests.SystemTestsMixin):
         volume_config = {
             'pool': self.pool.name,
             'size': size,
-            'internal': False,
             'save_on_stop': True,
             'rw': True,
         }
@@ -126,7 +124,6 @@ class StorageTestMixin(qubes.tests.SystemTestsMixin):
         volume_config = {
             'pool': self.pool.name,
             'size': size,
-            'internal': False,
             'save_on_stop': False,
             'rw': False,
         }
@@ -157,7 +154,6 @@ class StorageTestMixin(qubes.tests.SystemTestsMixin):
         volume_config = {
             'pool': self.pool.name,
             'size': size,
-            'internal': False,
             'save_on_stop': True,
             'rw': True,
         }
@@ -166,7 +162,6 @@ class StorageTestMixin(qubes.tests.SystemTestsMixin):
         volume_config = {
             'pool': self.pool.name,
             'size': size,
-            'internal': False,
             'snap_on_start': True,
             'source': testvol.vid,
             'rw': True,
@@ -225,7 +220,6 @@ class StorageTestMixin(qubes.tests.SystemTestsMixin):
         volume_config = {
             'pool': self.pool.name,
             'size': size,
-            'internal': False,
             'save_on_stop': True,
             'rw': True,
         }
@@ -234,7 +228,6 @@ class StorageTestMixin(qubes.tests.SystemTestsMixin):
         volume_config = {
             'pool': self.pool.name,
             'size': size,
-            'internal': False,
             'snap_on_start': True,
             'source': testvol.vid,
             'rw': True,

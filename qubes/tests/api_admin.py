@@ -37,7 +37,7 @@ import qubes.storage
 
 # properties defined in API
 volume_properties = [
-    'pool', 'vid', 'size', 'usage', 'rw', 'internal', 'source',
+    'pool', 'vid', 'size', 'usage', 'rw', 'source',
     'save_on_stop', 'snap_on_start']
 
 

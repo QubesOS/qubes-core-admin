@@ -37,6 +37,20 @@ BLKSIZE = 512
 
 class FilePool(qubes.storage.Pool):
     ''' File based 'original' disk implementation
+
+    Volumes are stored in sparse files. Additionally device-mapper is used for
+    applying copy-on-write layer.
+
+    Quick reference on device-mapper layers:
+
+    snap_on_start save_on_stop layout
+    yes           yes          not supported
+    no            yes          snapshot-origin(volume.img, volume-cow.img)
+    yes           no           snapshot(
+                                   snapshot(source.img, source-cow.img),
+                                   volume-cow.img)
+    no            no           volume.img directly
+
     '''  # pylint: disable=protected-access
     driver = 'file'
 
@@ -57,16 +71,18 @@ class FilePool(qubes.storage.Pool):
         }
 
     def init_volume(self, vm, volume_config):
+        if volume_config.get('snap_on_start', False) and \
+                volume_config.get('save_on_stop', False):
+            raise NotImplementedError(
+                'snap_on_start + save_on_stop not supported by file driver')
         volume_config['dir_path'] = self.dir_path
-        if os.path.join(self.dir_path, self._vid_prefix(vm)) == vm.dir_path:
-            volume_config['backward_comp'] = True
 
         if 'vid' not in volume_config:
             volume_config['vid'] = os.path.join(
                 self._vid_prefix(vm), volume_config['name'])
 
         try:
-            if volume_config['reset_on_start']:
+            if not volume_config.get('save_on_stop', False):
                 volume_config['revisions_to_keep'] = 0
         except KeyError:
             pass
@@ -74,29 +90,13 @@ class FilePool(qubes.storage.Pool):
             if 'revisions_to_keep' not in volume_config:
                 volume_config['revisions_to_keep'] = self.revisions_to_keep
 
+        if int(volume_config['revisions_to_keep']) > 1:
+            raise NotImplementedError(
+                'FilePool supports maximum 1 volume revision to keep')
+
         volume_config['pool'] = self
         volume = FileVolume(**volume_config)
         self._volumes += [volume]
-        return volume
-
-    def rename(self, volume, old_name, new_name):
-        assert issubclass(volume.__class__, FileVolume)
-        subdir, _, volume_path = volume.vid.split('/', 2)
-
-        if volume._is_origin:
-            # TODO: Renaming the old revisions
-            new_path = os.path.join(self.dir_path, subdir, new_name)
-            if not os.path.exists(new_path):
-                os.mkdir(new_path, 0o755)
-            new_volume_path = os.path.join(new_path, self.name + '.img')
-            if not volume.backward_comp:
-                os.rename(volume.path, new_volume_path)
-            new_volume_path_cow = os.path.join(new_path, self.name + '-cow.img')
-            if os.path.exists(new_volume_path_cow) and not volume.backward_comp:
-                os.rename(volume.path_cow, new_volume_path_cow)
-
-        volume.vid = os.path.join(subdir, new_name, volume_path)
-
         return volume
 
     def destroy(self):
@@ -150,59 +150,37 @@ class FileVolume(qubes.storage.Volume):
     ''' Parent class for the xen volumes implementation which expects a
         `target_dir` param on initialization.  '''
 
-    def __init__(self, dir_path, backward_comp=False, **kwargs):
+    def __init__(self, dir_path, **kwargs):
         self.dir_path = dir_path
-        self.backward_comp = backward_comp
         assert self.dir_path, "dir_path not specified"
         super(FileVolume, self).__init__(**kwargs)
 
-        if self.snap_on_start and self.source is None:
-            msg = "snap_on_start specified on {!r} but no volume source set"
-            msg = msg.format(self.name)
-            raise qubes.storage.StoragePoolException(msg)
-        elif not self.snap_on_start and self.source is not None:
-            msg = "source specified on {!r} but no snap_on_start set"
-            msg = msg.format(self.name)
-            raise qubes.storage.StoragePoolException(msg)
-
-        if self._is_snapshot:
+        if self.snap_on_start:
             img_name = self.source.vid + '-cow.img'
             self.path_source_cow = os.path.join(self.dir_path, img_name)
-        elif self._is_volume or self._is_volatile:
-            pass
-        elif self._is_origin:
-            pass
-        else:
-            assert False, 'This should not happen'
 
     def create(self):
         assert isinstance(self.size, int) and self.size > 0, \
-            'Volatile volume size must be > 0'
-        if self._is_origin:
+            'Volume size must be > 0'
+        if not self.snap_on_start:
             create_sparse_file(self.path, self.size)
+        # path_cow not needed only in volatile volume
+        if self.save_on_stop or self.snap_on_start:
             create_sparse_file(self.path_cow, self.size)
-        elif not self._is_snapshot:
-            if self.source is not None:
-                source_path = os.path.join(self.dir_path,
-                    self.source.vid + '.img')
-                copy_file(source_path, self.path)
-            elif self._is_volatile:
-                pass
-            else:
-                create_sparse_file(self.path, self.size)
 
     def remove(self):
-        if not self.internal:
-            return  # do not remove random attached file volumes
-        elif self._is_snapshot:
-            return  # no need to remove, because it's just a snapshot
-        else:
+        if not self.snap_on_start:
             _remove_if_exists(self.path)
-            if self._is_origin:
-                _remove_if_exists(self.path_cow)
+        if self.snap_on_start or self.save_on_stop:
+            _remove_if_exists(self.path_cow)
 
     def is_dirty(self):
-        return False  # TODO: How to implement this?
+        if not self.save_on_stop:
+            return False
+        if os.path.exists(self.path_cow):
+            stat = os.stat(self.path_cow)
+            return stat.st_blocks > 0
+        return False
 
     def resize(self, size):
         ''' Expands volume, throws
@@ -223,7 +201,7 @@ class FileVolume(qubes.storage.Volume):
         with open(self.path, 'a+b') as fd:
             fd.truncate(size)
 
-        p = subprocess.Popen(['sudo', 'losetup', '--associated', self.path],
+        p = subprocess.Popen(['losetup', '--associated', self.path],
                              stdout=subprocess.PIPE)
         result = p.communicate()
 
@@ -232,28 +210,27 @@ class FileVolume(qubes.storage.Volume):
             loop_dev = m.group(1)
 
             # resize loop device
-            subprocess.check_call(['sudo', 'losetup', '--set-capacity',
+            subprocess.check_call(['losetup', '--set-capacity',
                                    loop_dev])
         self.size = size
 
     def commit(self):
         msg = 'Tried to commit a non commitable volume {!r}'.format(self)
-        assert (self._is_origin or self._is_volume) and self.rw, msg
-
-        if self._is_volume:
-            return self
+        assert self.save_on_stop and self.rw, msg
 
         if os.path.exists(self.path_cow):
-            old_path = self.path_cow + '.old'
-            os.rename(self.path_cow, old_path)
+            if self.revisions_to_keep:
+                old_path = self.path_cow + '.old'
+                os.rename(self.path_cow, old_path)
+            else:
+                os.unlink(self.path_cow)
 
-        old_umask = os.umask(0o002)
-        with open(self.path_cow, 'w') as f_cow:
-            f_cow.truncate(self.size)
-        os.umask(old_umask)
+        create_sparse_file(self.path_cow, self.size)
         return self
 
     def export(self):
+        # FIXME: this should rather return snapshot(self.path, self.path_cow)
+        #  if domain is running
         return self.path
 
     def import_volume(self, src_volume):
@@ -271,53 +248,30 @@ class FileVolume(qubes.storage.Volume):
 
     def reset(self):
         ''' Remove and recreate a volatile volume '''
-        assert self._is_volatile, "Not a volatile volume"
+        assert not self.snap_on_start and not self.save_on_stop, \
+            "Not a volatile volume"
         assert isinstance(self.size, int) and self.size > 0, \
             'Volatile volume size must be > 0'
 
         _remove_if_exists(self.path)
-
-        with open(self.path, "w") as f_volatile:
-            f_volatile.truncate(self.size)
+        create_sparse_file(self.path, self.size)
         return self
 
-    def revert(self, revision=None):
-        if revision is not None:
-            try:
-                return self.revisions[revision]
-            except KeyError:
-                msg = "Volume {!r} does not have revision {!s}"
-                msg = msg.format(self, revision)
-                raise qubes.storage.StoragePoolException(msg)
-        else:
-            try:
-                old_path = self.revisions.values().pop()
-                os.rename(old_path, self.path_cow)
-            except IndexError:
-                msg = "Volume {!r} does not have old revisions".format(self)
-                raise qubes.storage.StoragePoolException(msg)
-
     def start(self):
-        if self._is_volatile:
+        if not self.save_on_stop and not self.snap_on_start:
             self.reset()
         else:
-            _check_path(self.path)
-            if self.snap_on_start:
-                if not self.save_on_stop:
-                    # make sure previous snapshot is removed - even if VM
-                    # shutdown routing wasn't called (power interrupt or so)
-                    _remove_if_exists(self.path_cow)
-                try:
-                    _check_path(self.path_cow)
-                except qubes.storage.StoragePoolException:
-                    create_sparse_file(self.path_cow, self.size)
-                    _check_path(self.path_cow)
-                if hasattr(self, 'path_source_cow'):
-                    try:
-                        _check_path(self.path_source_cow)
-                    except qubes.storage.StoragePoolException:
-                        create_sparse_file(self.path_source_cow, self.size)
-                        _check_path(self.path_source_cow)
+            if not self.save_on_stop:
+                # make sure previous snapshot is removed - even if VM
+                # shutdown routine wasn't called (power interrupt or so)
+                _remove_if_exists(self.path_cow)
+            if not os.path.exists(self.path_cow):
+                create_sparse_file(self.path_cow, self.size)
+            if not self.snap_on_start:
+                _check_path(self.path)
+            if hasattr(self, 'path_source_cow'):
+                if not os.path.exists(self.path_source_cow):
+                    create_sparse_file(self.path_source_cow, self.size)
         return self
 
     def stop(self):
@@ -331,7 +285,7 @@ class FileVolume(qubes.storage.Volume):
 
     @property
     def path(self):
-        if self._is_snapshot:
+        if self.snap_on_start:
             return os.path.join(self.dir_path, self.source.vid + '.img')
         return os.path.join(self.dir_path, self.vid + '.img')
 
@@ -342,18 +296,19 @@ class FileVolume(qubes.storage.Volume):
 
     def verify(self):
         ''' Verifies the volume. '''
-        if not os.path.exists(self.path) and not self._is_volatile:
+        if not os.path.exists(self.path) and \
+                (self.snap_on_start or self.save_on_stop):
             msg = 'Missing image file: {!s}.'.format(self.path)
             raise qubes.storage.StoragePoolException(msg)
         return True
 
     @property
     def script(self):
-        if self._is_volume or self._is_volatile:
+        if not self.snap_on_start and not self.save_on_stop:
             return None
-        elif self._is_origin:
+        elif not self.snap_on_start and self.save_on_stop:
             return 'block-origin'
-        elif self._is_origin_snapshot or self._is_snapshot:
+        elif self.snap_on_start:
             return 'block-snapshot'
 
     def block_device(self):
@@ -361,9 +316,9 @@ class FileVolume(qubes.storage.Volume):
             the libvirt XML template as <disk>.
         '''
         path = self.path
-        if self._is_snapshot:
+        if self.snap_on_start:
             path += ":" + self.path_source_cow
-        if self._is_origin or self._is_snapshot:
+        if self.snap_on_start or self.save_on_stop:
             path += ":" + self.path_cow
         return qubes.storage.BlockDevice(path, self.name, self.script, self.rw,
                                          self.domain, self.devtype)
@@ -380,39 +335,13 @@ class FileVolume(qubes.storage.Volume):
 
         seconds = os.path.getctime(old_revision)
         iso_date = qubes.storage.isodate(seconds).split('.', 1)[0]
-        return {iso_date: old_revision}
+        return {'old': iso_date}
 
     @property
     def usage(self):
         ''' Returns the actualy used space '''
         return get_disk_usage(self.vid)
 
-    @property
-    def _is_volatile(self):
-        ''' Internal helper. Useful for differentiating volume handling '''
-        return not self.snap_on_start and not self.save_on_stop
-
-    @property
-    def _is_origin(self):
-        ''' Internal helper. Useful for differentiating volume handling '''
-        # pylint: disable=line-too-long
-        return self.save_on_stop and self.revisions_to_keep > 0  # NOQA
-
-    @property
-    def _is_snapshot(self):
-        ''' Internal helper. Useful for differentiating volume handling '''
-        return self.snap_on_start and not self.save_on_stop
-
-    @property
-    def _is_origin_snapshot(self):
-        ''' Internal helper. Useful for differentiating volume handling '''
-        return self.snap_on_start and self.save_on_stop
-
-    @property
-    def _is_volume(self):
-        ''' Internal helper. Usefull for differentiating volume handling '''
-        # pylint: disable=line-too-long
-        return not self.snap_on_start and self.save_on_stop and self.revisions_to_keep == 0  # NOQA
 
 def create_sparse_file(path, size):
     ''' Create an empty sparse file '''

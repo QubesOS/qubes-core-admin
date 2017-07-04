@@ -71,7 +71,6 @@ class TemplateVM(QubesVM):
                 'rw': True,
                 'source': None,
                 'size': defaults['root_img_size'],
-                'internal': True
             },
             'private': {
                 'name': 'private',
@@ -82,30 +81,21 @@ class TemplateVM(QubesVM):
                 'source': None,
                 'size': defaults['private_img_size'],
                 'revisions_to_keep': 0,
-                'internal': True
             },
             'volatile': {
                 'name': 'volatile',
                 'pool': 'default',
                 'size': defaults['root_img_size'],
-                'internal': True,
+                'snap_on_start': False,
+                'save_on_stop': False,
                 'rw': True,
             },
             'kernel': {
                 'name': 'kernel',
                 'pool': 'linux-kernel',
-                'internal': True,
+                'snap_on_start': False,
+                'save_on_stop': False,
                 'rw': False
             }
         }
         super(TemplateVM, self).__init__(*args, **kwargs)
-
-    def commit_changes(self):
-        '''Commit changes to template'''
-        self.log.debug('commit_changes()')
-
-        if not self.app.vmm.offline_mode:
-            assert not self.is_running(), \
-                'Attempt to commit changes on running Template VM!'
-
-        self.storage.commit()

@@ -138,6 +138,14 @@ class LinuxKernel(Pool):
     def init_volume(self, vm, volume_config):
         assert not volume_config['rw']
 
+        # migrate old config
+        if volume_config.get('snap_on_start', False) and not \
+                volume_config.get('source', None):
+            volume_config['snap_on_start'] = False
+
+        if volume_config.get('save_on_stop', False):
+            raise NotImplementedError(
+                'LinuxKernel pool does not support save_on_stop=True')
         volume_config['pool'] = self
         volume = LinuxModules(self.dir_path, lambda: vm.kernel, **volume_config)
 
@@ -157,9 +165,6 @@ class LinuxKernel(Pool):
     def import_volume(self, dst_pool, dst_volume, src_pool, src_volume):
         pass
 
-    def rename(self, volume, old_name, new_name):
-        return volume
-
     def setup(self):
         pass
 
@@ -170,7 +175,6 @@ class LinuxKernel(Pool):
                              kernel_version,
                              pool=self,
                              name=kernel_version,
-                             internal=True,
                              rw=False
                              )
                 for kernel_version in os.listdir(self.dir_path)]

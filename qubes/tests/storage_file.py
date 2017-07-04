@@ -136,6 +136,15 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         self.assertFalse(volume.snap_on_start)
         self.assertTrue(volume.save_on_stop)
         self.assertTrue(volume.rw)
+        block = volume.block_device()
+        self.assertEqual(block.path,
+            '{base}.img:{base}-cow.img'.format(
+                base=self.POOL_DIR + '/appvms/' + vm.name + '/root'))
+        self.assertEqual(block.script, 'block-origin')
+        self.assertEqual(block.rw, True)
+        self.assertEqual(block.name, 'root')
+        self.assertEqual(block.devtype, 'disk')
+        self.assertIsNone(block.domain)
 
     def test_001_snapshot_volume(self):
         template_vm = self.app.default_template
@@ -169,6 +178,19 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         self.assertFalse(volume.save_on_stop)
         self.assertFalse(volume.rw)
         self.assertEqual(volume.usage, 0)
+        block = volume.block_device()
+        assert isinstance(block, qubes.storage.BlockDevice)
+        self.assertEqual(block.path,
+            '{base}/{src}.img:{base}/{src}-cow.img:'
+            '{base}/{dst}-cow.img'.format(
+                base=self.POOL_DIR,
+                src='vm-templates/' + template_vm.name + '/root',
+                dst='appvms/' + vm.name + '/root',
+        ))
+        self.assertEqual(block.name, 'root')
+        self.assertEqual(block.script, 'block-snapshot')
+        self.assertEqual(block.rw, False)
+        self.assertEqual(block.devtype, 'disk')
 
     def test_002_read_write_volume(self):
         config = {
@@ -186,6 +208,12 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         self.assertFalse(volume.snap_on_start)
         self.assertTrue(volume.save_on_stop)
         self.assertTrue(volume.rw)
+        block = volume.block_device()
+        self.assertEqual(block.name, 'root')
+        self.assertEqual(block.path, '{base}.img:{base}-cow.img'.format(
+            base=self.POOL_DIR + '/appvms/' + vm.name + '/root'))
+        self.assertEqual(block.rw, True)
+        self.assertEqual(block.script, 'block-origin')
 
     def test_003_read_only_volume(self):
         template = self.app.default_template
@@ -207,6 +235,8 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         self.assertFalse(volume.snap_on_start)
         self.assertFalse(volume.save_on_stop)
         self.assertFalse(volume.rw)
+        block = volume.block_device()
+        self.assertEqual(block.rw, False)
 
     def test_004_volatile_volume(self):
         config = {
@@ -248,7 +278,8 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
 
         expected = vm.dir_path + '/root.img:' + vm.dir_path + '/root-cow.img'
         self.assertVolumePath(vm, 'root', expected, rw=True)
-        expected = vm.dir_path + '/private.img'
+        expected = vm.dir_path + '/private.img:' + \
+                   vm.dir_path + '/private-cow.img'
         self.assertVolumePath(vm, 'private', expected, rw=True)
         expected = vm.dir_path + '/volatile.img'
         self.assertVolumePath(vm, 'volatile', expected, rw=True)
@@ -275,8 +306,8 @@ class TC_03_FilePool(qubes.tests.QubesTestCase):
     def setUp(self):
         """ Add a test file based storage pool """
         super(TC_03_FilePool, self).setUp()
-        self._orig_qubes_base_dir = qubes.config.system_path['qubes_base_dir']
-        qubes.config.system_path['qubes_base_dir'] = '/tmp/qubes-test'
+        self._orig_qubes_base_dir = qubes.config.qubes_base_dir
+        qubes.config.qubes_base_dir = '/tmp/qubes-test'
         self.app = TestApp()
         self.app.create_dummy_template()
         self.app.add_pool(**self.POOL_CONFIG)
@@ -289,7 +320,7 @@ class TC_03_FilePool(qubes.tests.QubesTestCase):
         shutil.rmtree(self.POOL_DIR, ignore_errors=True)
         if os.path.exists('/tmp/qubes-test'):
             shutil.rmtree('/tmp/qubes-test')
-        qubes.config.system_path['qubes_base_dir'] = self._orig_qubes_base_dir
+        qubes.config.qubes_base_dir = self._orig_qubes_base_dir
 
     def test_001_pool_exists(self):
         """ Check if the storage pool was added to the storage pool config """

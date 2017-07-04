@@ -72,28 +72,6 @@ def _setter_qid(self, prop, value):
     return value
 
 
-def _setter_name(self, prop, value):
-    ''' Helper for setting the domain name '''
-    qubes.vm.validate_name(self, prop, value)
-
-    if self.is_running():
-        raise qubes.exc.QubesVMNotHaltedError(
-            self, 'Cannot change name of running VM')
-
-    try:
-        if self.installed_by_rpm:
-            raise qubes.exc.QubesException('Cannot rename VM installed by RPM '
-                '-- first clone VM and then use yum to remove package.')
-    except AttributeError:
-        pass
-
-    if value in self.app.domains:
-        raise qubes.exc.QubesPropertyValueError(self, prop, value,
-            'VM named {} alread exists'.format(value))
-
-    return value
-
-
 def _setter_kernel(self, prop, value):
     ''' Helper for setting the domain kernel and running sanity checks on it.
     '''  # pylint: disable=unused-argument
@@ -615,7 +593,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     def dir_path(self):
         '''Root directory for files related to this domain'''
         return os.path.join(
-            qubes.config.system_path['qubes_base_dir'],
+            qubes.config.qubes_base_dir,
             self.dir_path_prefix,
             self.name)
 
@@ -748,33 +726,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             else:
                 shutil.copy(newvalue.icon_path, self.icon_path)
 
-    @qubes.events.handler('property-pre-set:name')
-    def on_property_pre_set_name(self, event, name, newvalue, oldvalue=None):
-        # pylint: disable=unused-argument
-        try:
-            self.app.domains[newvalue]
-        except KeyError:
-            pass
-        else:
-            raise qubes.exc.QubesValueError(
-                'VM named {!r} already exists'.format(newvalue))
-
-        # TODO not self.is_stopped() would be more appropriate
-        if self.is_running():
-            raise qubes.exc.QubesVMNotHaltedError(
-                'Cannot change name of running domain {!r}'.format(oldvalue))
-
-        if self.autostart:
-            subprocess.check_call(['sudo', 'systemctl', '-q', 'disable',
-                                   'qubes-vm@{}.service'.format(oldvalue)])
-
     @qubes.events.handler('property-pre-set:kernel')
     def on_property_pre_set_kernel(self, event, name, newvalue, oldvalue=None):
         # pylint: disable=unused-argument
         if not newvalue:
             return
         dirname = os.path.join(
-            qubes.config.system_path['qubes_base_dir'],
+            qubes.config.qubes_base_dir,
             qubes.config.system_path['qubes_kernels_base_dir'],
             newvalue)
         if not os.path.exists(dirname):
@@ -787,29 +745,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     self.property_get_def(name), newvalue,
                     'Kernel {!r} not properly installed: '
                     'missing {!r} file'.format(newvalue, filename))
-
-    @qubes.events.handler('property-set:name')
-    def on_property_set_name(self, event, name, newvalue, oldvalue=None):
-        # pylint: disable=unused-argument
-        self.init_log()
-
-        old_dir_path = os.path.join(os.path.dirname(self.dir_path), oldvalue)
-        new_dir_path = os.path.join(os.path.dirname(self.dir_path), newvalue)
-        os.rename(old_dir_path, new_dir_path)
-
-        self.storage.rename(oldvalue, newvalue)
-
-        if self._libvirt_domain is not None:
-            self.libvirt_domain.undefine()
-            self._libvirt_domain = None
-        if self._qdb_connection is not None:
-            self._qdb_connection.close()
-            self._qdb_connection = None
-
-        self._update_libvirt_domain()
-
-        if self.autostart:
-            self.autostart = self.autostart
 
     @qubes.events.handler('property-pre-set:autostart')
     def on_property_pre_set_autostart(self, event, name, newvalue,
@@ -1728,45 +1663,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return None
 
-    def is_outdated(self):
-        '''Check whether domain needs restart to update root image from \
-            template.
-
-        :returns: :py:obj:`True` if is outdated, :py:obj:`False` otherwise.
-        :rtype: bool
-        '''
-        # pylint: disable=no-member
-
-        # Makes sense only on VM based on template
-        if self.template is None:
-            return False
-
-        if not self.is_running():
-            return False
-
-        if not hasattr(self.template, 'rootcow_img'):
-            return False
-
-        rootimg_inode = os.stat(self.template.root_img)
-        try:
-            rootcow_inode = os.stat(self.template.rootcow_img)
-        except OSError:
-            # The only case when rootcow_img doesn't exists is in the middle of
-            # commit_changes, so VM is outdated right now
-            return True
-
-        current_dmdev = "/dev/mapper/snapshot-{0:x}:{1}-{2:x}:{3}".format(
-                rootimg_inode[2], rootimg_inode[1],
-                rootcow_inode[2], rootcow_inode[1])
-
-        # FIXME
-        # 51712 (0xCA00) is xvda
-        #  backend node name not available through xenapi :(
-        used_dmdev = self.app.vmm.xs.read('',
-            '/local/domain/0/backend/vbd/{}/51712/node'.format(self.xid))
-
-        return used_dmdev != current_dmdev
-
     #
     # helper methods
     #
@@ -1900,29 +1796,26 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
 
 def _clean_volume_config(config):
-    common_attributes = ['name', 'pool', 'size', 'internal', 'removable',
-                            'revisions_to_keep', 'rw', 'snap_on_start',
-                            'save_on_stop', 'source']
+    common_attributes = ['name', 'pool', 'size',
+                         'revisions_to_keep', 'rw', 'snap_on_start',
+                         'save_on_stop', 'source']
     config_copy = copy.deepcopy(config)
     return {k: v for k, v in config_copy.items() if k in common_attributes}
 
 
 def _patch_pool_config(config, pool=None, pools=None):
     assert pool is not None or pools is not None
-    is_saveable = 'save_on_stop' in config and config['save_on_stop']
-    is_resetable = not ('snap_on_start' in config and  # volatile
-                        config['snap_on_start'] and not is_saveable)
-
-    is_exportable = is_saveable or is_resetable
+    is_snapshot = config['snap_on_start']
+    is_rw = config['rw']
 
     name = config['name']
 
-    if pool and is_exportable and config['pool'] == 'default':
+    if pool and not is_snapshot and is_rw:
         config['pool'] = str(pool)
-    elif pool and not is_exportable:
+    elif pool:
         pass
     elif pools and name in pools.keys():
-        if is_exportable:
+        if not is_snapshot:
             config['pool'] = str(pools[name])
         else:
             msg = "Can't clone a snapshot volume {!s} to pool {!s} " \

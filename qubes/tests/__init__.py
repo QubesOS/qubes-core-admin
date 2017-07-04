@@ -585,7 +585,7 @@ class SystemTestsMixin(object):
         # need some information from the real qubes.xml - at least installed
         # templates; should not be used for testing, only to initialize self.app
         self.host_app = qubes.Qubes(os.path.join(
-            qubes.config.system_path['qubes_base_dir'],
+            qubes.config.qubes_base_dir,
             qubes.config.system_path['qubes_store_filename']))
         if os.path.exists(CLASS_XMLPATH):
             shutil.copy(CLASS_XMLPATH, XMLPATH)
@@ -729,7 +729,7 @@ class SystemTestsMixin(object):
                 'qubes_appvms_dir',
                 'qubes_servicevms_dir',
                 'qubes_templates_dir'):
-            dirpath = os.path.join(qubes.config.system_path['qubes_base_dir'],
+            dirpath = os.path.join(qubes.config.qubes_base_dir,
                 qubes.config.system_path[dirspec], vmname)
             if os.path.exists(dirpath):
                 if os.path.isdir(dirpath):
@@ -793,7 +793,7 @@ class SystemTestsMixin(object):
                 'qubes_appvms_dir',
                 'qubes_servicevms_dir',
                 'qubes_templates_dir'):
-            dirpath = os.path.join(qubes.config.system_path['qubes_base_dir'],
+            dirpath = os.path.join(qubes.config.qubes_base_dir,
                 qubes.config.system_path[dirspec])
             for name in os.listdir(dirpath):
                 if name.startswith(prefix):
