@@ -146,6 +146,12 @@ class Volume(object):
         '''
         raise self._not_implemented("create")
 
+    def remove(self):
+        ''' Remove volume.
+
+        This can be implemented as a coroutine.'''
+        raise self._not_implemented("remove")
+
     def commit(self):
         ''' Write the snapshot to disk
 
@@ -171,7 +177,11 @@ class Volume(object):
 
     def import_volume(self, src_volume):
         ''' Imports data from a different volume (possibly in a different
-        pool '''
+        pool.
+
+        The needs to be create()d first.
+
+        This can be implemented as a coroutine. '''
         # pylint: disable=unused-argument
         raise self._not_implemented("import_volume")
 
@@ -442,16 +452,9 @@ class Storage(object):
         dst_pool = self.vm.app.get_pool(config['pool'])
         dst = dst_pool.init_volume(self.vm, config)
         src_volume = src_vm.volumes[name]
-        src_pool = src_volume.pool
-        if dst_pool == src_pool:
-            msg = "Cloning volume {!s} from vm {!s}"
-            self.vm.log.info(msg.format(src_volume.name, src_vm.name))
-            clone_op_ret = dst_pool.clone(src_volume, dst)
-        else:
-            msg = "Importing volume {!s} from vm {!s}"
-            self.vm.log.info(msg.format(src_volume.name, src_vm.name))
-            clone_op_ret = dst_pool.import_volume(
-                dst_pool, dst, src_pool, src_volume)
+        msg = "Importing volume {!s} from vm {!s}"
+        self.vm.log.info(msg.format(src_volume.name, src_vm.name))
+        clone_op_ret = dst.import_volume(src_volume)
 
         # clone/import functions may be either synchronous or asynchronous
         # in the later case, we need to wait for them to finish
@@ -520,7 +523,7 @@ class Storage(object):
         for name, volume in self.vm.volumes.items():
             self.log.info('Removing volume %s: %s' % (name, volume.vid))
             try:
-                ret = volume.pool.remove(volume)
+                ret = volume.remove()
                 if asyncio.iscoroutine(ret):
                     futures.append(ret)
             except (IOError, OSError) as e:
@@ -614,6 +617,58 @@ class Storage(object):
         return self.vm.volumes[volume].import_data_end(success=success)
 
 
+class VolumesCollection(object):
+    '''Convenient collection wrapper for pool.get_volume and
+    pool.list_volumes
+    '''
+    def __init__(self, pool):
+        self._pool = pool
+
+    def __getitem__(self, item):
+        ''' Get a single volume with given Volume ID.
+
+        You can also a Volume instance to get the same Volume or KeyError if
+        Volume no longer exists.
+
+        :param item: a Volume ID (str) or a Volume instance
+        '''
+        if isinstance(item, Volume):
+            if item.pool == self._pool:
+                return self[item.vid]
+            else:
+                raise KeyError(item)
+        try:
+            return self._pool.get_volume(item)
+        except NotImplementedError:
+            for vol in self:
+                if vol.vid == item:
+                    return vol
+            # if list_volumes is not implemented too, it will raise
+            # NotImplementedError again earlier
+            raise KeyError(item)
+
+    def __iter__(self):
+        ''' Get iterator over pool's volumes '''
+        return iter(self._pool.list_volumes())
+
+    def __contains__(self, item):
+        ''' Check if given volume (either Volume ID or Volume instance) is
+        present in the pool
+        '''
+        try:
+            return self[item] is not None
+        except KeyError:
+            return False
+
+    def keys(self):
+        ''' Return list of volume IDs '''
+        return [vol.vid for vol in self]
+
+    def values(self):
+        ''' Return list of Volumes'''
+        return [vol for vol in self]
+
+
 class Pool(object):
     ''' A Pool is used to manage different kind of volumes (File
         based/LVM/Btrfs/...).
@@ -626,6 +681,7 @@ class Pool(object):
 
     def __init__(self, name, revisions_to_keep=1, **kwargs):
         super(Pool, self).__init__(**kwargs)
+        self._volumes_collection = VolumesCollection(self)
         self.name = name
         self.revisions_to_keep = revisions_to_keep
         kwargs['name'] = self.name
@@ -666,12 +722,6 @@ class Pool(object):
         '''
         raise self._not_implemented("init_volume")
 
-    def remove(self, volume):
-        ''' Remove volume.
-
-        This can be implemented as a coroutine.'''
-        raise self._not_implemented("remove")
-
     def rename(self, volume, old_name, new_name):
         ''' Called when the domain changes its name '''
         raise self._not_implemented("rename")
@@ -684,8 +734,19 @@ class Pool(object):
 
     @property
     def volumes(self):
+        ''' Return a collection of volumes managed by this pool '''
+        return self._volumes_collection
+
+    def list_volumes(self):
         ''' Return a list of volumes managed by this pool '''
-        raise self._not_implemented("volumes")
+        raise self._not_implemented("list_volumes")
+
+    def get_volume(self, vid):
+        ''' Return a volume with *vid* from this pool
+
+        :raise KeyError: if no volume is found
+        '''
+        raise self._not_implemented("get_volume")
 
     def _not_implemented(self, method_name):
         ''' Helper for emitting helpful `NotImplementedError` exceptions '''
@@ -740,8 +801,7 @@ class VmCreationManager(object):
         if type is not None and value is not None and tb is not None:
             for volume in self.vm.volumes.values():
                 try:
-                    pool = volume.pool
-                    pool.remove(volume)
+                    volume.remove()
                 except Exception:  # pylint: disable=broad-except
                     pass
             os.rmdir(self.vm.dir_path)

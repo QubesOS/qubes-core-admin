@@ -293,22 +293,57 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.dest.storage.get_pool(volume).revert(revision)
         self.app.save()
 
-    @qubes.api.method('admin.vm.volume.Clone')
+    @qubes.api.method('admin.vm.volume.CloneFrom', no_payload=True)
     @asyncio.coroutine
-    def vm_volume_clone(self, untrusted_payload):
+    def vm_volume_clone_from(self):
         assert self.arg in self.dest.volumes.keys()
-        untrusted_target = untrusted_payload.decode('ascii').strip()
-        del untrusted_payload
-        qubes.vm.validate_name(None, None, untrusted_target)
-        target_vm = self.app.domains[untrusted_target]
-        del untrusted_target
-        assert self.arg in target_vm.volumes.keys()
 
         volume = self.dest.volumes[self.arg]
 
-        self.fire_event_for_permission(target_vm=target_vm, volume=volume)
+        self.fire_event_for_permission(volume=volume)
 
-        yield from target_vm.storage.clone_volume(self.dest, self.arg)
+        token = qubes.utils.random_string(32)
+        # save token on self.app, as self is not persistent
+        if not hasattr(self.app, 'api_admin_pending_clone'):
+            self.app.api_admin_pending_clone = {}
+        # don't handle collisions any better - if someone is so much out of
+        # luck, can try again anyway
+        assert token not in self.app.api_admin_pending_clone
+
+        self.app.api_admin_pending_clone[token] = volume
+        return token
+
+    @qubes.api.method('admin.vm.volume.CloneTo')
+    @asyncio.coroutine
+    def vm_volume_clone_to(self, untrusted_payload):
+        assert self.arg in self.dest.volumes.keys()
+        untrusted_token = untrusted_payload.decode('ascii').strip()
+        del untrusted_payload
+        assert untrusted_token in getattr(self.app,
+            'api_admin_pending_clone', {})
+        token = untrusted_token
+        del untrusted_token
+
+        src_volume = self.app.api_admin_pending_clone[token]
+        del self.app.api_admin_pending_clone[token]
+
+        # make sure the volume still exists, but invalidate token anyway
+        assert str(src_volume.pool) in self.app.pools
+        assert src_volume in self.app.pools[str(src_volume.pool)].volumes
+
+        dst_volume = self.dest.volumes[self.arg]
+
+        self.fire_event_for_permission(src_volume=src_volume,
+            dst_volume=dst_volume)
+
+        op_retval = dst_volume.import_volume(src_volume)
+
+        # clone/import functions may be either synchronous or asynchronous
+        # in the later case, we need to wait for them to finish
+        if asyncio.iscoroutine(op_retval):
+            op_retval = yield from op_retval
+
+        self.dest.volumes[self.arg] = op_retval
         self.app.save()
 
     @qubes.api.method('admin.vm.volume.Resize')
@@ -827,40 +862,6 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             self.app.log.exception('Error wile removing VM \'%s\' files',
                 self.dest.name)
 
-        self.app.save()
-
-    @qubes.api.method('admin.vm.Clone')
-    @asyncio.coroutine
-    def vm_clone(self, untrusted_payload):
-        assert not self.arg
-
-        assert untrusted_payload.startswith(b'name=')
-        untrusted_name = untrusted_payload[5:].decode('ascii')
-        qubes.vm.validate_name(None, None, untrusted_name)
-        new_name = untrusted_name
-
-        del untrusted_payload
-
-        if new_name in self.app.domains:
-            raise qubes.exc.QubesValueError('Already exists')
-
-        self.fire_event_for_permission(new_name=new_name)
-
-        src_vm = self.dest
-
-        dst_vm = self.app.add_new_vm(src_vm.__class__, name=new_name)
-        try:
-            dst_vm.clone_properties(src_vm)
-            dst_vm.tags.update(src_vm.tags)
-            dst_vm.features.update(src_vm.features)
-            dst_vm.firewall.clone(src_vm.firewall)
-            for devclass in src_vm.devices:
-                for device_assignment in src_vm.devices[devclass].assignments():
-                    dst_vm.devices[devclass].attach(device_assignment.clone())
-            yield from dst_vm.clone_disk_files(src_vm)
-        except:
-            del self.app.domains[dst_vm]
-            raise
         self.app.save()
 
     @qubes.api.method('admin.vm.device.{endpoint}.Available', endpoints=(ep.name

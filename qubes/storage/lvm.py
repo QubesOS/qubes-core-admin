@@ -88,18 +88,6 @@ class ThinPool(qubes.storage.Pool):
         volume_config['pool'] = self
         return ThinVolume(**volume_config)
 
-    def remove(self, volume):
-        assert volume.vid
-        if volume.is_dirty():
-            cmd = ['remove', volume._vid_snap]
-            qubes_lvm(cmd, self.log)
-
-        if not os.path.exists(volume.path):
-            return
-        cmd = ['remove', volume.vid]
-        qubes_lvm(cmd, self.log)
-        reset_cache()
-
     def rename(self, volume, old_name, new_name):
         ''' Called when the domain changes its name '''
         new_vid = "{!s}/vm-{!s}-{!s}".format(self.volume_group, new_name,
@@ -120,8 +108,7 @@ class ThinPool(qubes.storage.Pool):
     def setup(self):
         pass  # TODO Should we create a non existing pool?
 
-    @property
-    def volumes(self):
+    def list_volumes(self):
         ''' Return a list of volumes managed by this pool '''
         volumes = []
         for vid, vol_info in size_cache.items():
@@ -133,7 +120,7 @@ class ThinPool(qubes.storage.Pool):
                 # implementation detail volume
                 continue
             config = {
-                'pool': self.name,
+                'pool': self,
                 'vid': vid,
                 'name': vid,
                 'volume_group': self.volume_group,
@@ -297,6 +284,18 @@ class ThinVolume(qubes.storage.Volume):
             reset_cache()
         return self
 
+    def remove(self):
+        assert self.vid
+        if self.is_dirty():
+            cmd = ['remove', self._vid_snap]
+            qubes_lvm(cmd, self.log)
+
+        if not os.path.exists(self.path):
+            return
+        cmd = ['remove', self.vid]
+        qubes_lvm(cmd, self.log)
+        reset_cache()
+
     def export(self):
         ''' Returns an object that can be `open()`. '''
         devpath = '/dev/' + self.vid
@@ -306,18 +305,17 @@ class ThinVolume(qubes.storage.Volume):
         if not src_volume.save_on_stop:
             return self
 
-        src_path = src_volume.export()
-
         # HACK: neat trick to speed up testing if you have same physical thin
         # pool assigned to two qubes-pools i.e: qubes_dom0 and test-lvm
         # pylint: disable=line-too-long
         if isinstance(src_volume.pool, ThinPool) and \
                 src_volume.pool.thin_pool == self.pool.thin_pool:  # NOQA
+            cmd = ['remove', self.vid]
+            qubes_lvm(cmd, self.log)
             cmd = ['clone', str(src_volume), str(self)]
             qubes_lvm(cmd, self.log)
         else:
-            self.create()
-
+            src_path = src_volume.export()
             cmd = ['sudo', 'dd', 'if=' + src_path, 'of=/dev/' + self.vid,
                 'conv=sparse']
             subprocess.check_call(cmd)

@@ -137,7 +137,7 @@ class TC_00_ThinPool(ThinPoolBase):
         volume.create()
         path = "/dev/%s" % volume.vid
         self.assertTrue(os.path.exists(path))
-        self.pool.remove(volume)
+        volume.remove()
 
     def test_003_read_write_volume(self):
         ''' Test read-write volume creation '''
@@ -157,7 +157,7 @@ class TC_00_ThinPool(ThinPoolBase):
         volume.create()
         path = "/dev/%s" % volume.vid
         self.assertTrue(os.path.exists(path))
-        self.pool.remove(volume)
+        volume.remove()
 
 @skipUnlessLvmPoolExists
 class TC_01_ThinPool(qubes.tests.SystemTestsMixin, ThinPoolBase):

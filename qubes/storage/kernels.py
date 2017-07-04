@@ -93,6 +93,9 @@ class LinuxModules(Volume):
     def create(self):
         return self
 
+    def remove(self):
+        pass
+
     def commit(self):
         return self
 
@@ -152,9 +155,6 @@ class LinuxKernel(Pool):
         pass
 
     def import_volume(self, dst_pool, dst_volume, src_pool, src_volume):
-        pass
-
-    def remove(self, volume):
         pass
 
     def rename(self, volume, old_name, new_name):
