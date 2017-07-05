@@ -104,7 +104,7 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
             name=vmname, template=template, provides_network=True,
             label='red')
         testnet.create_on_disk(pool=pool)
-        testnet.features['services/ntpd'] = True
+        testnet.features['service.ntpd'] = True
         vms.append(testnet)
         self.fill_image(testnet.storage.export('private'), 20*1024*1024)
 
