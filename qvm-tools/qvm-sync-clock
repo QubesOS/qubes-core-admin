@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # -*- encoding: utf8 -*-
 #
 # The Qubes OS Project, http://www.qubes-os.org
@@ -20,115 +20,28 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 #
-import fcntl
-
-from optparse import OptionParser
-from qubes.qubes import QubesVmCollection
-import os.path
-import os
 import sys
 import re
 import subprocess
-
-qvm_collection = None
-
-def get_netvm_of_vm(vm):
-    netvm = vm
-    while netvm.netvm is not None:
-        netvm = netvm.netvm
-    if netvm is None or netvm.name == 'dom0':
-        print >> sys.stderr, 'There seems to be no network connected to ClockVM, aborting.'
-        sys.exit(1)
-    return netvm
+from qubesadmin import Qubes
 
 def main():
-    parser = OptionParser()
-    parser.add_option ("-v", "--verbose", action="store_true", dest="verbose", default=False)
-    parser.add_option ("-f", "--force", action="store_true", dest="force", default=False)
 
-    (options, args) = parser.parse_args ()
+    app = Qubes()
+    clockvm = app.clockvm
 
-    lockfile_name = "/var/run/qubes/qvm-sync-clock.lock"
-    if os.path.exists(lockfile_name):
-        lockfile = open(lockfile_name, "r")
-    else:
-        lockfile = open(lockfile_name, "w")
+    p = clockvm.run_service('qubes.GetDate')
+    date_out = p.stdout.read(25).decode('ascii', errors='strict')
+    date_out = date_out.strip()
 
-    fcntl.fcntl(lockfile.fileno(), fcntl.F_SETFD, fcntl.FD_CLOEXEC)
-    try:
-        fcntl.flock(lockfile.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except IOError:
-        print >>sys.stderr, "qvm-sync-clock already running, aborting"
+    if not re.match(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:?00$', date_out):
+        sys.stderr.write('Invalid date received, aborting!')
         sys.exit(1)
-    
-    qvm_collection = QubesVmCollection()
-    qvm_collection.lock_db_for_reading()
-    qvm_collection.load()
-    qvm_collection.unlock_db()
+    subprocess.check_call(['date', '-u', '-Iseconds', '-s', date_out],
+        stdout=subprocess.DEVNULL)
+    subprocess.check_call(['hwclock', '--systohc'],
+        stdout=subprocess.DEVNULL)
 
-    clock_vm = qvm_collection.get_clockvm_vm()
-
-    if clock_vm is None:
-        print >> sys.stderr, 'There is no selected ClockVM, aborting.'
-        sys.exit(1)
-
-    if not clock_vm.is_running():
-        print >> sys.stderr, 'ClockVM not started, exiting!'
-        sys.exit(1)
-
-    net_vm = get_netvm_of_vm(clock_vm)
-    if options.verbose:
-        print >> sys.stderr, '--> Waiting for network for ClockVM.'
-
-    # Ignore retcode, try even if nm-online failed - user can setup network manually
-    #  on-online has timeout 30sec by default
-    net_vm.run('nm-online -x', verbose=options.verbose, gui=False, wait=True,
-               ignore_stderr=True)
-
-    # Sync clock
-    if clock_vm.run('QUBESRPC qubes.SyncNtpClock dom0', user="root",
-                    verbose=options.verbose, gui=False, wait=True, ignore_stderr=True) \
-            != 0:
-        if options.force:
-            print >> sys.stderr, 'Time sync failed! - Syncing with dom0 ' \
-                                 'anyway as requested'
-        else:
-            print >> sys.stderr, 'Time sync failed! - Exiting'
-            sys.exit(1)
-    else:
-        # Use the date format based on RFC2822 to avoid localisation issues
-        p = clock_vm.run('date -u -Iseconds', verbose=options.verbose,
-                         gui=False, passio_popen=True, ignore_stderr=True)
-        date_out = p.stdout.read(100)
-        date_out = date_out.strip()
-        if not re.match(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:?00$', date_out):
-            print >> sys.stderr, 'Invalid date output, aborting!'
-            sys.exit(1)
-
-        # Sync dom0 time
-        if options.verbose:
-            print >> sys.stderr, '--> Syncing dom0 clock.'
-
-        subprocess.check_call(['sudo', 'date', '-u', '-Iseconds', '-s', date_out],
-                              stdout=None if options.verbose else open(os.devnull, 'w'))
-        subprocess.check_call(['sudo', 'hwclock', '--systohc'],
-                              stdout=None if options.verbose else open(os.devnull, 'w'))
-
-    # Sync other VMs clock
-    for vm in qvm_collection.values():
-        if vm.is_running() and vm.qid != 0 and vm.qid != clock_vm.qid:
-            if options.verbose:
-                print >> sys.stderr, '--> Syncing \'%s\' clock.' % vm.name
-            try:
-                vm.run_service("qubes.SetDateTime", user="root",
-                               localcmd="date -u -Iseconds")
-            except Exception as e:
-                print >> sys.stderr, "ERROR syncing time in VM '%s': %s" % (vm.name, str(e))
-                pass
-
-    # order is important!
-    os.unlink(lockfile_name)
-    lockfile.close()
-
-main()
+if __name__ == '__main__':
+    main()
 
