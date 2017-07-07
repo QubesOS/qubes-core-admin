@@ -1,6 +1,5 @@
 [Unit]
 Description=Start Qubes VM %i
-After=qubes-netvm.service
 Before=systemd-user-sessions.service
 
 [Service]
