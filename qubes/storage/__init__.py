@@ -351,7 +351,7 @@ class Storage(object):
             for name, conf in self.vm.volume_config.items():
                 if 'source' in conf:
                     template = getattr(vm, 'template', None)
-                    if template:
+                    while template:
                         # we have no control over VM load order,
                         # so initialize storage recursively if needed
                         if template.storage is None:
@@ -360,6 +360,10 @@ class Storage(object):
                         # maybe we don't need it at all if it's always from
                         # VM's template?
                         conf['source'] = template.volumes[name]
+                        if conf['source'].source is not None:
+                            template = getattr(template, 'template', None)
+                        else:
+                            break
 
                 self.init_volume(name, conf)
 

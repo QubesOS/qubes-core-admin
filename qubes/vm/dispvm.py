@@ -47,6 +47,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 'snap_on_start': True,
                 'save_on_stop': False,
                 'rw': False,
+                'source': None,
             },
             'private': {
                 'name': 'private',
@@ -54,6 +55,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 'snap_on_start': True,
                 'save_on_stop': False,
                 'rw': True,
+                'source': None,
             },
             'volatile': {
                 'name': 'volatile',
