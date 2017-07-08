@@ -23,6 +23,8 @@
 
 import copy
 
+import asyncio
+
 import qubes.vm.qubesvm
 import qubes.vm.appvm
 import qubes.config
@@ -116,6 +118,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             'Cannot change template of Disposable VM')
 
     @classmethod
+    @asyncio.coroutine
     def from_appvm(cls, appvm, **kwargs):
         '''Create a new instance from given AppVM
 
@@ -147,10 +150,11 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         proplist = [prop for prop in dispvm.property_list()
             if prop.clone and prop.__name__ not in ['template']]
         dispvm.clone_properties(app.domains[appvm], proplist=proplist)
-        dispvm.create_on_disk()
+        yield from dispvm.create_on_disk()
         app.save()
         return dispvm
 
+    @asyncio.coroutine
     def cleanup(self):
         '''Clean up after the DispVM
 
@@ -158,9 +162,10 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         This method modifies :file:`qubes.xml` file.
         '''
         try:
-            self.force_shutdown()
+            # pylint: disable=not-an-iterable
+            yield from self.kill()
         except qubes.exc.QubesVMNotStartedError:
             pass
-        self.remove_from_disk()
+        yield from self.remove_from_disk()
         del self.app.domains[self]
         self.app.save()
