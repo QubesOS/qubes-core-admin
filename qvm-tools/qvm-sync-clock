@@ -31,13 +31,13 @@ def main():
     clockvm = app.clockvm
 
     p = clockvm.run_service('qubes.GetDate')
-    date_out = p.stdout.read(25).decode('ascii', errors='strict')
-    date_out = date_out.strip()
+    untrusted_date_out = p.stdout.read(25).decode('ascii', errors='strict')
+    untrusted_date_out = untrusted_date_out.strip()
 
-    if not re.match(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:?00$', date_out):
+    if not re.match(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:?00$', untrusted_date_out):
         sys.stderr.write('Invalid date received, aborting!')
         sys.exit(1)
-    subprocess.check_call(['date', '-u', '-Iseconds', '-s', date_out],
+    subprocess.check_call(['date', '-u', '-Iseconds', '-s', untrusted_date_out],
         stdout=subprocess.DEVNULL)
     subprocess.check_call(['hwclock', '--systohc'],
         stdout=subprocess.DEVNULL)
