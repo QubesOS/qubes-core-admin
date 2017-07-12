@@ -806,13 +806,13 @@ class Qubes(qubes.PropertyHolder):
         # Disable ntpd in ClockVM - to not conflict with ntpdate (both are
         # using 123/udp port)
         if hasattr(self, 'clockvm') and self.clockvm is not None:
-            if self.clockvm.features.get('service/ntpd', False):
+            if self.clockvm.features.get('service.ntpd', False):
                 self.log.warning(
                     'VM set as clockvm (%r) has enabled \'ntpd\' service! '
                     'Expect failure when syncing time in dom0.',
                     self.clockvm)
             else:
-                self.clockvm.features['service/ntpd'] = ''
+                self.clockvm.features['service.ntpd'] = ''
 
         for vm in self.domains:
             vm.events_enabled = True
@@ -1149,12 +1149,12 @@ class Qubes(qubes.PropertyHolder):
         # pylint: disable=unused-argument,no-self-use
         if newvalue is None:
             return
-        if newvalue.features.get('service/ntpd', False):
+        if newvalue.features.get('service.ntpd', False):
             raise qubes.exc.QubesVMError(newvalue,
                 'Cannot set {!r} as {!r} since it has ntpd enabled.'.format(
                     newvalue.name, name))
         else:
-            newvalue.features['service/ntpd'] = ''
+            newvalue.features['service.ntpd'] = ''
 
 
     @qubes.events.handler(
