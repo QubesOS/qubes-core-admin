@@ -349,6 +349,7 @@ class Storage(object):
 
         if hasattr(vm, 'volume_config'):
             for name, conf in self.vm.volume_config.items():
+                conf = conf.copy()
                 if 'source' in conf:
                     template = getattr(vm, 'template', None)
                     if template:

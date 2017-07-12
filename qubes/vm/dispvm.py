@@ -21,8 +21,6 @@
 
 ''' A disposable vm implementation '''
 
-import copy
-
 import qubes.vm.qubesvm
 import qubes.vm.appvm
 import qubes.config
@@ -89,7 +87,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 # in case the template vm has more volumes add them to own
                 # config
                 if name not in self.volume_config:
-                    self.volume_config[name] = copy.deepcopy(config)
+                    self.volume_config[name] = config.copy()
                     if 'vid' in self.volume_config[name]:
                         del self.volume_config[name]['vid']
 
