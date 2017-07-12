@@ -398,7 +398,18 @@ def create_servers(*args, force=False, loop=None, **kwargs):
                 shutil.chown(sock.getsockname(), group='qubes')
 
             servers.append(server)
-
+    except:
+        for server in servers:
+            for sock in server.sockets:
+                try:
+                    os.unlink(sock.getsockname())
+                except FileNotFoundError:
+                    pass
+            server.close()
+        if servers:
+            yield from asyncio.wait([
+                server.wait_closed() for server in servers])
+        raise
     finally:
         os.umask(old_umask)
 
