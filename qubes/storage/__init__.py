@@ -351,6 +351,9 @@ class Storage(object):
             for name, conf in self.vm.volume_config.items():
                 if 'source' in conf:
                     template = getattr(vm, 'template', None)
+                    # recursively lookup source volume - templates may be
+                    # chained (TemplateVM -> AppVM -> DispVM, where the
+                    # actual source should be used from TemplateVM)
                     while template:
                         # we have no control over VM load order,
                         # so initialize storage recursively if needed
