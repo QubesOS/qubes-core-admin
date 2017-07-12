@@ -35,9 +35,10 @@ def main():
     untrusted_date_out = untrusted_date_out.strip()
 
     if not re.match(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:?00$', untrusted_date_out):
-        sys.stderr.write('Invalid date received, aborting!')
+        sys.stderr.write('Invalid date received, aborting!\n')
         sys.exit(1)
-    subprocess.check_call(['date', '-u', '-Iseconds', '-s', untrusted_date_out],
+    date_out = untrusted_date_out
+    subprocess.check_call(['date', '-u', '-Iseconds', '-s', date_out],
         stdout=subprocess.DEVNULL)
     subprocess.check_call(['hwclock', '--systohc'],
         stdout=subprocess.DEVNULL)
