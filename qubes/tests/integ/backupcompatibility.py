@@ -143,7 +143,7 @@ compression-filter=gzip
 '''
 
 class TC_00_BackupCompatibility(
-    qubes.tests.integ.backup.BackupTestsMixin, qubes.tests.QubesTestCase):
+        qubes.tests.integ.backup.BackupTestsMixin, qubes.tests.SystemTestCase):
 
     def tearDown(self):
         self.remove_test_vms(prefix="test-")

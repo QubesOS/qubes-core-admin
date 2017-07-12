@@ -35,7 +35,7 @@ import qubes.vm.templatevm
 TEST_DATA = b"0123456789" * 1024
 
 
-class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
+class TC_00_AppVMMixin(object):
     def setUp(self):
         super(TC_00_AppVMMixin, self).setUp()
         self.init_default_template(self.template)
@@ -959,7 +959,7 @@ int main(int argc, char **argv) {
         if vm_image != dom0_image:
             self.fail("Dom0 window doesn't match VM window content")
 
-class TC_10_Generic(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
+class TC_10_Generic(qubes.tests.SystemTestCase):
     def setUp(self):
         super(TC_10_Generic, self).setUp()
         self.init_default_template()
@@ -1011,7 +1011,7 @@ def load_tests(loader, tests, pattern):
         tests.addTests(loader.loadTestsFromTestCase(
             type(
                 'TC_00_AppVM_' + template,
-                (TC_00_AppVMMixin, qubes.tests.QubesTestCase),
+                (TC_00_AppVMMixin, qubes.tests.SystemTestCase),
                 {'template': template})))
 
     return tests

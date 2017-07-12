@@ -26,7 +26,7 @@ import qubes.vm.appvm
 import qubes.vm.templatevm
 
 
-class ExtraTestCase(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
+class ExtraTestCase(qubes.tests.SystemTestCase):
 
     template = None
 

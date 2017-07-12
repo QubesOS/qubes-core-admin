@@ -22,7 +22,7 @@ import qubes.log
 from qubes.exc import QubesException
 from qubes.storage import pool_drivers
 from qubes.storage.file import FilePool
-from qubes.tests import QubesTestCase
+from qubes.tests import SystemTestCase
 
 # :pylint: disable=invalid-name
 
@@ -75,7 +75,7 @@ class TestApp(qubes.Qubes):
             load=False, offline_mode=True, **kwargs)
         self.load_initial_values()
 
-class TC_00_Pool(QubesTestCase):
+class TC_00_Pool(SystemTestCase):
     """ This class tests the utility methods from :mod:``qubes.storage`` """
 
     def setUp(self):

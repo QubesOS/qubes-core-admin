@@ -40,7 +40,7 @@ import qubes.vm.templatevm
 import qubes.vm.qubesvm
 
 # noinspection PyAttributeOutsideInit
-class BackupTestsMixin(qubes.tests.SystemTestsMixin):
+class BackupTestsMixin(object):
     class BackupErrorHandler(logging.Handler):
         def __init__(self, errors_queue, level=logging.NOTSET):
             super(BackupTestsMixin.BackupErrorHandler, self).__init__(level)
@@ -281,7 +281,7 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
                         vm.name))
 
 
-class TC_00_Backup(BackupTestsMixin, qubes.tests.QubesTestCase):
+class TC_00_Backup(BackupTestsMixin, qubes.tests.SystemTestCase):
     def test_000_basic_backup(self):
         vms = self.create_backup_vms()
         orig_hashes = self.vm_checksum(vms)

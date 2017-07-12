@@ -27,8 +27,7 @@ import unittest
 import os
 import time
 
-class TC_04_DispVM(qubes.tests.SystemTestsMixin,
-                   qubes.tests.QubesTestCase):
+class TC_04_DispVM(qubes.tests.SystemTestCase):
 
     def setUp(self):
         super(TC_04_DispVM, self).setUp()
@@ -91,7 +90,7 @@ class TC_04_DispVM(qubes.tests.SystemTestsMixin,
 
         self.assertNotIn(dispvm_name, self.app.domains)
 
-class TC_20_DispVMMixin(qubes.tests.SystemTestsMixin):
+class TC_20_DispVMMixin(object):
 
     def setUp(self):
         super(TC_20_DispVMMixin, self).setUp()
@@ -265,7 +264,7 @@ def load_tests(loader, tests, pattern):
         tests.addTests(loader.loadTestsFromTestCase(
             type(
                 'TC_20_DispVM_' + template,
-                (TC_20_DispVMMixin, qubes.tests.QubesTestCase),
+                (TC_20_DispVMMixin, qubes.tests.SystemTestCase),
                 {'template': template})))
 
     return tests

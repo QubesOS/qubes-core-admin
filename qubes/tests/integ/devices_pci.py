@@ -31,8 +31,7 @@ import qubes.ext.pci
 import qubes.tests
 
 
-class TC_00_Devices_PCI(qubes.tests.SystemTestsMixin,
-        qubes.tests.QubesTestCase):
+class TC_00_Devices_PCI(qubes.tests.SystemTestCase):
     def setUp(self):
         super(TC_00_Devices_PCI, self).setUp()
         if self._testMethodName not in ['test_000_list']:

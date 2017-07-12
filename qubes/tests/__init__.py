@@ -235,7 +235,7 @@ class _AssertNotRaisesContext(object):
         self.exception = exc_value # store for later retrieval
 
 class _QrexecPolicyContext(object):
-    '''Context manager for SystemTestsMixin.qrexec_policy'''
+    '''Context manager for SystemTestCase.qrexec_policy'''
 
     def __init__(self, service, source, destination, allow=True):
         try:
@@ -365,8 +365,6 @@ class QubesTestCase(unittest.TestCase):
         asyncio.set_event_loop(self.loop)
 
     def tearDown(self):
-        super(QubesTestCase, self).tearDown()
-
         # The loop, when closing, throws a warning if there is
         # some unfinished bussiness. Let's catch that.
         with warnings.catch_warnings():
@@ -555,18 +553,18 @@ class QubesTestCase(unittest.TestCase):
             return VMPREFIX + name
 
 
-class SystemTestsMixin(object):
+class SystemTestCase(QubesTestCase):
     """
     Mixin for integration tests. All the tests here should use self.app
     object and when need qubes.xml path - should use :py:data:`XMLPATH`
     defined in this file.
-    Every VM created by test, must use :py:meth:`SystemTestsMixin.make_vm_name`
+    Every VM created by test, must use :py:meth:`SystemTestCase.make_vm_name`
     for VM name.
     By default self.app represents empty collection, if anything is needed
     there from the real collection it can be imported from self.host_app in
-    :py:meth:`SystemTestsMixin.setUp`. But *can not be modified* in any way -
+    :py:meth:`SystemTestCase.setUp`. But *can not be modified* in any way -
     this include both changing attributes in
-    :py:attr:`SystemTestsMixin.host_app` and modifying files of such imported
+    :py:attr:`SystemTestCase.host_app` and modifying files of such imported
     VM. If test need to make some modification, it must clone the VM first.
 
     If some group of tests needs class-wide initialization, first of all the
@@ -579,7 +577,7 @@ class SystemTestsMixin(object):
     def setUp(self):
         if not in_dom0:
             self.skipTest('outside dom0')
-        super(SystemTestsMixin, self).setUp()
+        super(SystemTestCase, self).setUp()
         self.remove_test_vms()
 
         # need some information from the real qubes.xml - at least installed
@@ -656,11 +654,11 @@ class SystemTestsMixin(object):
             for sock in server.sockets:
                 os.unlink(sock.getsockname())
             server.close()
+
         self.loop.run_until_complete(asyncio.wait([
             server.wait_closed() for server in self.qubesd]))
 
-        super(SystemTestsMixin, self).tearDown()
-
+        super(SystemTestCase, self).tearDown()
         # remove all references to VM objects, to release resources - most
         # importantly file descriptors; this object will live
         # during the whole test run, but all the file descriptors would be
@@ -673,7 +671,7 @@ class SystemTestsMixin(object):
 
     @classmethod
     def tearDownClass(cls):
-        super(SystemTestsMixin, cls).tearDownClass()
+        super(SystemTestCase, cls).tearDownClass()
         if not in_dom0:
             return
         cls.remove_test_vms(xmlpath=CLASS_XMLPATH, prefix=CLSVMPREFIX)
