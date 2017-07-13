@@ -345,6 +345,26 @@ class QubesDaemonProtocol(asyncio.Protocol):
         self.transport.write(str(exc).encode('utf-8') + b'\0')
 
 
+def cleanup_socket(sockpath, force):
+    '''Remove socket if stale, or force=True
+    :param sockpath: path to a socket
+    :param force: should remove even if still used
+    '''
+    if force:
+        os.unlink(sockpath)
+    else:
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            sock.connect(sockpath)
+        except ConnectionRefusedError:
+            # dead socket, remove it anyway
+            os.unlink(sockpath)
+        else:
+            # woops, someone is listening
+            sock.close()
+            raise FileExistsError(errno.EEXIST,
+                'socket already exists: {!r}'.format(sockpath))
+
 @asyncio.coroutine
 def create_servers(*args, force=False, loop=None, **kwargs):
     '''Create multiple Qubes API servers
@@ -375,20 +395,7 @@ def create_servers(*args, force=False, loop=None, **kwargs):
                     type(handler).__name__)
 
             if os.path.exists(sockpath):
-                if force:
-                    os.unlink(sockpath)
-                else:
-                    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-                    try:
-                        sock.connect(sockpath)
-                    except ConnectionRefusedError:
-                        # dead socket, remove it anyway
-                        os.unlink(sockpath)
-                    else:
-                        # woops, someone is listening
-                        sock.close()
-                        raise FileExistsError(errno.EEXIST,
-                            'socket already exists: {!r}'.format(sockpath))
+                cleanup_socket(sockpath, force)
 
             server = yield from loop.create_unix_server(
                 functools.partial(QubesDaemonProtocol, handler, **kwargs),
@@ -398,7 +405,18 @@ def create_servers(*args, force=False, loop=None, **kwargs):
                 shutil.chown(sock.getsockname(), group='qubes')
 
             servers.append(server)
-
+    except:
+        for server in servers:
+            for sock in server.sockets:
+                try:
+                    os.unlink(sock.getsockname())
+                except FileNotFoundError:
+                    pass
+            server.close()
+        if servers:
+            yield from asyncio.wait([
+                server.wait_closed() for server in servers])
+        raise
     finally:
         os.umask(old_umask)
 

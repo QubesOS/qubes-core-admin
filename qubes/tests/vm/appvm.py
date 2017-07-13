@@ -20,6 +20,7 @@
 
 from unittest import mock
 
+import qubes.storage
 import qubes.tests
 import qubes.tests.vm.qubesvm
 import qubes.vm.appvm
@@ -48,12 +49,18 @@ class TestVM(object):
     def is_running(self):
         return self.running
 
+class TestPool(qubes.storage.Pool):
+    def init_volume(self, vm, volume_config):
+        vid = '{}/{}'.format(vm.name, volume_config['name'])
+        assert volume_config.pop('pool', None) == self
+        return qubes.storage.Volume(vid=vid, pool=self, **volume_config)
+
+
 class TC_90_AppVM(qubes.tests.vm.qubesvm.QubesVMTestsMixin,
         qubes.tests.QubesTestCase):
     def setUp(self):
         super().setUp()
-        self.app.pools['default'] = mock.Mock(**{
-            'init_volume.return_value.pool': 'default'})
+        self.app.pools['default'] = TestPool('default')
         self.app.pools['linux-kernel'] = mock.Mock(**{
             'init_volume.return_value.pool': 'linux-kernel'})
         self.template = qubes.vm.templatevm.TemplateVM(self.app, None,

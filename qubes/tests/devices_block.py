@@ -110,6 +110,8 @@ class TestApp(object):
         self.env = jinja2.Environment(
             loader=jinja2.FileSystemLoader([
                 'templates',
+                '/etc/qubes/templates',
+                '/usr/share/qubes/templates',
             ]),
             undefined=jinja2.StrictUndefined)
         self.domains = {}

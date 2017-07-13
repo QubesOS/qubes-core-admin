@@ -24,7 +24,6 @@
 from __future__ import absolute_import
 
 import asyncio
-import copy
 import base64
 import datetime
 import os
@@ -1799,8 +1798,7 @@ def _clean_volume_config(config):
     common_attributes = ['name', 'pool', 'size',
                          'revisions_to_keep', 'rw', 'snap_on_start',
                          'save_on_stop', 'source']
-    config_copy = copy.deepcopy(config)
-    return {k: v for k, v in config_copy.items() if k in common_attributes}
+    return {k: v for k, v in config.items() if k in common_attributes}
 
 
 def _patch_pool_config(config, pool=None, pools=None):

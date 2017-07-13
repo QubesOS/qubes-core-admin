@@ -93,7 +93,7 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
                 # in case the template vm has more volumes add them to own
                 # config
                 if name not in self.volume_config:
-                    self.volume_config[name] = copy.deepcopy(config)
+                    self.volume_config[name] = config.copy()
                     if 'vid' in self.volume_config[name]:
                         del self.volume_config[name]['vid']
 
@@ -123,7 +123,7 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
         for volume_name, conf in self.default_volume_config.items():
             if conf.get('snap_on_start', False) and \
                     conf.get('source', None) is None:
-                config = copy.deepcopy(conf)
+                config = conf.copy()
                 template_volume = newvalue.volumes[volume_name]
                 self.volume_config[volume_name] = \
                     self.config_volume_from_source(
