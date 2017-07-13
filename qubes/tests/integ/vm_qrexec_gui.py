@@ -819,7 +819,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
         self.testvm1.maxmem = 800
 
         # exclude from memory balancing
-        self.testvm1.features['services/meminfo-writer'] = False
+        self.testvm1.features['service.meminfo-writer'] = False
         yield from self.testvm1.start()
         yield from self.wait_for_session(self.testvm1)
 

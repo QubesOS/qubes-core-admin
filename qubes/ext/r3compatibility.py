@@ -38,7 +38,7 @@ class R3Compatibility(qubes.ext.Extension):
     '''
 
     features_to_services = {
-        'service/ntpd': 'ntpd',
+        'service.ntpd': 'ntpd',
         'check-updates': 'qubes-update-check',
         'dvm': 'qubes-dvm',
 
