@@ -69,8 +69,7 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
     def create_dispvm(self):
         assert not self.arg
 
-        # TODO convert to coroutine
-        dispvm = qubes.vm.dispvm.DispVM.from_appvm(self.dest)
+        dispvm = yield from qubes.vm.dispvm.DispVM.from_appvm(self.dest)
         return dispvm.name
 
     @qubes.api.method('internal.vm.CleanupDispVM', no_payload=True)
@@ -78,8 +77,7 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
     def cleanup_dispvm(self):
         assert not self.arg
 
-        # TODO convert to coroutine
-        self.dest.cleanup()
+        yield from self.dest.cleanup()
 
     @qubes.api.method('internal.vm.volume.ImportEnd')
     @asyncio.coroutine

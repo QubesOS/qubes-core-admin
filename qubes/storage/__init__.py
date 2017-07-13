@@ -352,7 +352,10 @@ class Storage(object):
                 conf = conf.copy()
                 if 'source' in conf:
                     template = getattr(vm, 'template', None)
-                    if template:
+                    # recursively lookup source volume - templates may be
+                    # chained (TemplateVM -> AppVM -> DispVM, where the
+                    # actual source should be used from TemplateVM)
+                    while template:
                         # we have no control over VM load order,
                         # so initialize storage recursively if needed
                         if template.storage is None:
@@ -361,6 +364,10 @@ class Storage(object):
                         # maybe we don't need it at all if it's always from
                         # VM's template?
                         conf['source'] = template.volumes[name]
+                        if conf['source'].source is not None:
+                            template = getattr(template, 'template', None)
+                        else:
+                            break
 
                 self.init_volume(name, conf)
 
