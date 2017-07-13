@@ -1,6 +1,5 @@
 [Unit]
 Description=Reload firewall for VM %i
-After=qubes-netvm.service
 
 [Service]
 Type=simple

@@ -144,7 +144,6 @@ make -C doc DESTDIR=$RPM_BUILD_ROOT \
 
 %post
 %systemd_post qubes-core.service
-%systemd_post qubes-netvm.service
 %systemd_post qubes-qmemman.service
 %systemd_post qubesd.service
 
@@ -180,7 +179,6 @@ fi
 
 %preun
 %systemd_preun qubes-core.service
-%systemd_preun qubes-netvm.service
 %systemd_preun qubes-qmemman.service
 %systemd_preun qubesd.service
 
@@ -192,7 +190,6 @@ fi
 
 %postun
 %systemd_postun qubes-core.service
-%systemd_postun qubes-netvm.service
 %systemd_postun_with_restart qubes-qmemman.service
 %systemd_postun_with_restart qubesd.service
 
@@ -391,7 +388,6 @@ fi
 /usr/lib/qubes/startup-misc.sh
 /usr/libexec/qubes/qubesd-query-fast
 %{_unitdir}/qubes-core.service
-%{_unitdir}/qubes-netvm.service
 %{_unitdir}/qubes-qmemman.service
 %{_unitdir}/qubes-vm@.service
 %{_unitdir}/qubesd.service
