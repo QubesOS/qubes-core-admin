@@ -26,7 +26,6 @@ import functools
 import termios
 
 from qubes.utils import size_to_human
-import sys
 import stat
 import os
 import fcntl
@@ -37,7 +36,6 @@ import tempfile
 import time
 import grp
 import pwd
-import errno
 import datetime
 from multiprocessing import Queue, Process
 import qubes
@@ -173,15 +171,15 @@ class BackupHeader(object):
                 "Unsupported backup version {}".format(self.version))
 
     def save(self, filename):
-        with open(filename, "w") as f:
+        with open(filename, "w") as f_header:
             # make sure 'version' is the first key
-            f.write('version={}\n'.format(self.version))
+            f_header.write('version={}\n'.format(self.version))
             for key, attr in self.header_keys.items():
                 if key == 'version':
                     continue
                 if getattr(self, attr) is None:
                     continue
-                f.write("{!s}={!s}\n".format(key, getattr(self, attr)))
+                f_header.write("{!s}={!s}\n".format(key, getattr(self, attr)))
 
 
 class SendWorker(Process):
@@ -195,7 +193,7 @@ class SendWorker(Process):
     def run(self):
         self.log.debug("Started sending thread")
 
-        self.log.debug("Moving to temporary dir".format(self.base_dir))
+        self.log.debug("Moving to temporary dir %s", self.base_dir)
         os.chdir(self.base_dir)
 
         for filename in iter(self.queue.get, None):
@@ -308,26 +306,29 @@ class Backup(object):
     See attributes of this object for all available options.
 
     '''
+    # pylint: disable=too-many-instance-attributes
     class FileToBackup(object):
+        # pylint: disable=too-few-public-methods
         def __init__(self, file_path, subdir=None, name=None):
-            sz = qubes.storage.file.get_disk_usage(file_path)
+            file_size = qubes.storage.file.get_disk_usage(file_path)
 
             if subdir is None:
                 abs_file_path = os.path.abspath(file_path)
                 abs_base_dir = os.path.abspath(
                     qubes.config.system_path["qubes_base_dir"]) + '/'
                 abs_file_dir = os.path.dirname(abs_file_path) + '/'
-                (nothing, directory, subdir) = abs_file_dir.partition(abs_base_dir)
+                (nothing, directory, subdir) = \
+                    abs_file_dir.partition(abs_base_dir)
                 assert nothing == ""
                 assert directory == abs_base_dir
             else:
-                if len(subdir) > 0 and not subdir.endswith('/'):
+                if subdir and not subdir.endswith('/'):
                     subdir += '/'
 
             #: real path to the file
             self.path = file_path
             #: size of the file
-            self.size = sz
+            self.size = file_size
             #: directory in backup archive where file should be placed
             self.subdir = subdir
             #: use this name in the archive (aka rename)
@@ -336,6 +337,7 @@ class Backup(object):
                 self.name = name
 
     class VMToBackup(object):
+        # pylint: disable=too-few-public-methods
         def __init__(self, vm, files, subdir):
             self.vm = vm
             self.files = files
@@ -365,17 +367,11 @@ class Backup(object):
         self.tmpdir = None
 
         # Backup settings - defaults
-        #: should the backup be encrypted?
-        self.encrypted = True
         #: should the backup be compressed?
         self.compressed = True
         #: what passphrase should be used to intergrity protect (and encrypt)
         #: the backup; required
         self.passphrase = None
-        #: custom hmac algorithm
-        self.hmac_algorithm = DEFAULT_HMAC_ALGORITHM
-        #: custom encryption algorithm
-        self.crypto_algorithm = DEFAULT_CRYPTO_ALGORITHM
         #: custom compression filter; a program which process stdin to stdout
         self.compression_filter = DEFAULT_COMPRESSION_FILTER
         #: VM to which backup should be sent (if any)
@@ -403,10 +399,6 @@ class Backup(object):
         self.processes_to_kill_on_cancel = []
 
         self.log = logging.getLogger('qubes.backup')
-
-        if not self.encrypted:
-            self.log.warning('\'encrypted\' option is ignored, backup is '
-                             'always encrypted')
 
         if exclude_list is None:
             exclude_list = []
@@ -442,10 +434,7 @@ class Backup(object):
                 # handle dom0 later
                 continue
 
-            if self.encrypted:
-                subdir = 'vm%d/' % vm.qid
-            else:
-                subdir = None
+            subdir = 'vm%d/' % vm.qid
 
             vm_files = []
             if vm.volumes['private'] is not None:
@@ -500,48 +489,48 @@ class Backup(object):
         ]
 
         # Display the header
-        for f in fields_to_display:
-            fmt = "{{0:-^{0}}}-+".format(f["width"] + 1)
+        for field in fields_to_display:
+            fmt = "{{0:-^{0}}}-+".format(field["width"] + 1)
             summary += fmt.format('-')
         summary += "\n"
-        for f in fields_to_display:
-            fmt = "{{0:>{0}}} |".format(f["width"] + 1)
-            summary += fmt.format(f["name"])
+        for field in fields_to_display:
+            fmt = "{{0:>{0}}} |".format(field["width"] + 1)
+            summary += fmt.format(field["name"])
         summary += "\n"
-        for f in fields_to_display:
-            fmt = "{{0:-^{0}}}-+".format(f["width"] + 1)
+        for field in fields_to_display:
+            fmt = "{{0:-^{0}}}-+".format(field["width"] + 1)
             summary += fmt.format('-')
         summary += "\n"
 
         files_to_backup = self._files_to_backup
 
         for qid, vm_info in files_to_backup.items():
-            s = ""
+            summary_line = ""
             fmt = "{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
-            s += fmt.format(vm_info['vm'].name)
+            summary_line += fmt.format(vm_info['vm'].name)
 
             fmt = "{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
             if qid == 0:
-                s += fmt.format("User home")
+                summary_line += fmt.format("User home")
             elif isinstance(vm_info['vm'], qubes.vm.templatevm.TemplateVM):
-                s += fmt.format("Template VM")
+                summary_line += fmt.format("Template VM")
             else:
-                s += fmt.format("VM" + (" + Sys" if vm_info['vm'].updateable
-                    else ""))
+                summary_line += fmt.format("VM" + (" + Sys" if
+                    vm_info['vm'].updateable else ""))
 
             vm_size = vm_info['size']
 
             fmt = "{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
-            s += fmt.format(size_to_human(vm_size))
+            summary_line += fmt.format(size_to_human(vm_size))
 
             if qid != 0 and vm_info['vm'].is_running():
-                s += " <-- The VM is running, please shut it down before proceeding " \
-                     "with the backup!"
+                summary_line += " <-- The VM is running, please shut down it " \
+                     "before proceeding with the backup!"
 
-            summary += s + "\n"
+            summary += summary_line + "\n"
 
-        for f in fields_to_display:
-            fmt = "{{0:-^{0}}}-+".format(f["width"] + 1)
+        for field in fields_to_display:
+            fmt = "{{0:-^{0}}}-+".format(field["width"] + 1)
             summary += fmt.format('-')
         summary += "\n"
 
@@ -553,8 +542,8 @@ class Backup(object):
         summary += fmt.format(size_to_human(self.total_backup_bytes))
         summary += "\n"
 
-        for f in fields_to_display:
-            fmt = "{{0:-^{0}}}-+".format(f["width"] + 1)
+        for field in fields_to_display:
+            fmt = "{{0:-^{0}}}-+".format(field["width"] + 1)
             summary += fmt.format('-')
         summary += "\n"
 
@@ -569,9 +558,8 @@ class Backup(object):
         header_file_path = os.path.join(self.tmpdir, HEADER_FILENAME)
         backup_header = BackupHeader(
             version=CURRENT_BACKUP_FORMAT_VERSION,
-            hmac_algorithm=self.hmac_algorithm,
-            crypto_algorithm=self.crypto_algorithm,
-            encrypted=self.encrypted,
+            hmac_algorithm=DEFAULT_HMAC_ALGORITHM,
+            encrypted=True,
             compressed=self.compressed,
             compression_filter=self.compression_filter,
             backup_id=self.backup_id,
@@ -609,6 +597,7 @@ class Backup(object):
             progress = (
                 100 * (self._done_vms_bytes + self._current_vm_bytes) /
                 self.total_backup_bytes)
+            # pylint: disable=not-callable
             self.progress_callback(progress)
 
     def _add_vm_progress(self, bytes_done):
@@ -616,6 +605,7 @@ class Backup(object):
         self._send_progress_update()
 
     def backup_do(self):
+        # pylint: disable=too-many-statements
         if self.passphrase is None:
             raise qubes.exc.QubesException("No passphrase set")
         qubes_xml = self.app.store
@@ -685,8 +675,8 @@ class Backup(object):
         send_proc = SendWorker(to_send, self.tmpdir, backup_stdout)
         send_proc.start()
 
-        for f in header_files:
-            to_send.put(f)
+        for file_name in header_files:
+            to_send.put(file_name)
 
         qubes_xml_info = self.VMToBackup(
             None,
@@ -879,7 +869,7 @@ def handle_streams(stream_in, streams_out, processes, size_limit=None,
         else:
             to_copy = buffer_size
         buf = stream_in.read(to_copy)
-        if not len(buf):
+        if not buf:
             # done
             return None
 

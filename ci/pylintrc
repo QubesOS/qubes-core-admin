@@ -1,6 +1,6 @@
 [MASTER]
 persistent=no
-ignore=tests,backup.py
+ignore=tests
 
 [MESSAGES CONTROL]
 # abstract-class-little-used: see http://www.logilab.org/ticket/111138
