@@ -305,9 +305,11 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         assert untrusted_revision in snapshots
         revision = untrusted_revision
 
-        self.fire_event_for_permission(revision=revision)
+        self.fire_event_for_permission(volume=volume, revision=revision)
 
-        self.dest.storage.get_pool(volume).revert(revision)
+        ret = volume.revert(revision)
+        if asyncio.iscoroutine(ret):
+            yield from ret
         self.app.save()
 
     # write=True because this allow to clone VM - and most likely modify that
@@ -381,7 +383,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.fire_event_for_permission(size=size)
 
-        self.dest.storage.resize(self.arg, size)
+        yield from self.dest.storage.resize(self.arg, size)
         self.app.save()
 
     @qubes.api.method('admin.vm.volume.Import', no_payload=True,

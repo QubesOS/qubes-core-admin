@@ -377,7 +377,7 @@ class TC_00_VMs(AdminAPITestCase):
         pass
 
     @unittest.skip('method not implemented yet')
-    def test_100_vm_volume_snapshot_invlid_volume(self):
+    def test_100_vm_volume_snapshot_invalid_volume(self):
         self.vm.volumes = unittest.mock.MagicMock()
         volumes_conf = {
             'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
@@ -411,16 +411,21 @@ class TC_00_VMs(AdminAPITestCase):
             '__getitem__.return_value.revisions': ['rev1', 'rev2'],
         }
         self.vm.volumes.configure_mock(**volumes_conf)
+        del self.vm.volumes['private'].revert('rev1')._is_coroutine
         self.vm.storage = unittest.mock.Mock()
         value = self.call_mgmt_func(b'admin.vm.volume.Revert',
             b'test-vm1', b'private', b'rev1')
         self.assertIsNone(value)
-        self.assertEqual(self.vm.volumes.mock_calls,
-            [unittest.mock.call.keys(),
-                unittest.mock.call.__getattr__('__getitem__')('private')])
-        self.assertEqual(self.vm.storage.mock_calls,
-            [unittest.mock.call.get_pool(self.vm.volumes['private']),
-             unittest.mock.call.get_pool().revert('rev1')])
+        print(repr(self.vm.volumes.mock_calls))
+        self.assertEqual(self.vm.volumes.mock_calls, [
+            ('__getitem__', ('private', ), {}),
+            ('__getitem__().revert', ('rev1', ), {}),
+            ('keys', (), {}),
+            ('__getitem__', ('private', ), {}),
+            ('__getitem__().__hash__', (), {}),
+            ('__getitem__().revert', ('rev1', ), {}),
+            ])
+        self.assertEqual(self.vm.storage.mock_calls, [])
 
     def test_110_vm_volume_revert_invalid_rev(self):
         self.vm.volumes = unittest.mock.MagicMock()
@@ -445,6 +450,7 @@ class TC_00_VMs(AdminAPITestCase):
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
+        self.vm.storage.resize.side_effect = self.dummy_coro
         value = self.call_mgmt_func(b'admin.vm.volume.Resize',
             b'test-vm1', b'private', b'1024000000')
         self.assertIsNone(value)
@@ -460,6 +466,7 @@ class TC_00_VMs(AdminAPITestCase):
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
+        self.vm.storage.resize.side_effect = self.dummy_coro
         with self.assertRaises(AssertionError):
             self.call_mgmt_func(b'admin.vm.volume.Resize',
                 b'test-vm1', b'private', b'no-int-size')
@@ -474,6 +481,7 @@ class TC_00_VMs(AdminAPITestCase):
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
+        self.vm.storage.resize.side_effect = self.dummy_coro
         with self.assertRaises(AssertionError):
             self.call_mgmt_func(b'admin.vm.volume.Resize',
                 b'test-vm1', b'private', b'-1')

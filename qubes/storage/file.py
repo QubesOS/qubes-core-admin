@@ -191,7 +191,7 @@ class FileVolume(qubes.storage.Volume):
             msg = 'Can not resize reađonly volume {!s}'.format(self)
             raise qubes.storage.StoragePoolException(msg)
 
-        if size <= self.size:
+        if size < self.size:
             raise qubes.storage.StoragePoolException(
                 'For your own safety, shrinking of %s is'
                 ' disabled. If you really know what you'
