@@ -416,8 +416,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     vcpus = qubes.property('vcpus',
         type=int,
         setter=_setter_positive_int,
-        default=(lambda self: self.app.host.no_cpus),
-        doc='FIXME')
+        default=2,
+        doc='Number of virtual CPUs for a qube')
 
     # CORE2: swallowed uses_default_kernel
     kernel = qubes.property('kernel', type=str,

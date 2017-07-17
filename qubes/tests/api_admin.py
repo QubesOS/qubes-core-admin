@@ -124,7 +124,7 @@ class TC_00_VMs(AdminAPITestCase):
     def test_021_vm_property_get_int(self):
         value = self.call_mgmt_func(b'admin.vm.property.Get', b'test-vm1',
             b'vcpus')
-        self.assertEqual(value, 'default=True type=int 42')
+        self.assertEqual(value, 'default=True type=int 2')
 
     def test_022_vm_property_get_bool(self):
         value = self.call_mgmt_func(b'admin.vm.property.Get', b'test-vm1',

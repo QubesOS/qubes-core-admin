@@ -281,10 +281,10 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
 
     def test_190_vcpus(self):
         vm = self.get_vm()
-        self.assertPropertyDefaultValue(vm, 'vcpus', self.app.host.no_cpus)
+        self.assertPropertyDefaultValue(vm, 'vcpus', 2)
         self.assertPropertyValue(vm, 'vcpus', 3, 3, '3')
         del vm.vcpus
-        self.assertPropertyDefaultValue(vm, 'vcpus', self.app.host.no_cpus)
+        self.assertPropertyDefaultValue(vm, 'vcpus', 2)
         self.assertPropertyValue(vm, 'vcpus', '3', 3, '3')
 
     def test_191_vcpus_invalid(self):
@@ -508,7 +508,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
         <memory unit="MiB">500</memory>
         <currentMemory unit="MiB">400</currentMemory>
-        <vcpu placement="static">4</vcpu>
+        <vcpu placement="static">2</vcpu>
         <os>
             <type arch="x86_64" machine="xenpv">linux</type>
             <kernel>/tmp/kernel/vmlinuz</kernel>
@@ -559,7 +559,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
         <memory unit="MiB">500</memory>
         <currentMemory unit="MiB">400</currentMemory>
-        <vcpu placement="static">4</vcpu>
+        <vcpu placement="static">2</vcpu>
         <cpu mode='host-passthrough'>
             <!-- disable nested HVM -->
             <feature name='vmx' policy='disable'/>
