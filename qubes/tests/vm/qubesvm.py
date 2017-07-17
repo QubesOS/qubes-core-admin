@@ -26,6 +26,7 @@ import os
 import unittest
 import uuid
 import datetime
+import lxml.etree
 
 import qubes
 import qubes.exc
@@ -476,3 +477,26 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm = self.get_vm()
         self.assertPropertyInvalidValue(vm, 'backup_timestamp', 'xxx')
         self.assertPropertyInvalidValue(vm, 'backup_timestamp', None)
+
+    def test_500_property_migrate_virt_mode(self):
+        xml_template = '''
+        <domain class="QubesVM" id="domain-1">
+            <properties>
+                <property name="qid">1</property>
+                <property name="name">testvm</property>
+                <property name="label" ref="label-1" />
+                <property name="hvm">{hvm_value}</property>
+            </properties>
+        </domain>
+        '''
+        xml = lxml.etree.XML(xml_template.format(hvm_value='True'))
+        vm = qubes.vm.qubesvm.QubesVM(self.app, xml)
+        self.assertEqual(vm.virt_mode, 'hvm')
+        with self.assertRaises(AttributeError):
+            vm.hvm
+
+        xml = lxml.etree.XML(xml_template.format(hvm_value='False'))
+        vm = qubes.vm.qubesvm.QubesVM(self.app, xml)
+        self.assertEqual(vm.virt_mode, 'pv')
+        with self.assertRaises(AttributeError):
+            vm.hvm

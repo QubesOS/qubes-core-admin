@@ -621,6 +621,16 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     #
 
     def __init__(self, app, xml, volume_config=None, **kwargs):
+        # migrate renamed properties
+        if xml is not None:
+            node_hvm = xml.find('./properties/property[@name=\'hvm\']')
+            if node_hvm is not None:
+                if qubes.property.bool(None, None, node_hvm.text):
+                    kwargs['virt_mode'] = 'hvm'
+                else:
+                    kwargs['virt_mode'] = 'pv'
+                node_hvm.getparent().remove(node_hvm)
+
         super(QubesVM, self).__init__(app, xml, **kwargs)
 
         if volume_config is None:
