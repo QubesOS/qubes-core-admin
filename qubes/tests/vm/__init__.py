@@ -20,6 +20,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
+import jinja2
 
 import qubes.tests
 
@@ -60,3 +61,11 @@ class TestApp(qubes.tests.TestEmitter):
         self.host = TestHost()
         self.pools = {}
         self.domains = {}
+        #: jinja2 environment for libvirt XML templates
+        self.env = jinja2.Environment(
+            loader=jinja2.FileSystemLoader([
+                'templates',
+                '/etc/qubes/templates',
+                '/usr/share/qubes/templates',
+            ]),
+            undefined=jinja2.StrictUndefined)

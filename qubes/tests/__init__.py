@@ -417,20 +417,29 @@ class QubesTestCase(unittest.TestCase):
             callableObj(*args, **kwargs)
 
 
-    def assertXMLEqual(self, xml1, xml2):
+    def assertXMLEqual(self, xml1, xml2, msg=''):
         '''Check for equality of two XML objects.
 
         :param xml1: first element
         :param xml2: second element
         :type xml1: :py:class:`lxml.etree._Element`
         :type xml2: :py:class:`lxml.etree._Element`
-        '''  # pylint: disable=invalid-name
+        '''
 
         self.assertEqual(xml1.tag, xml2.tag)
-        self.assertEqual(xml1.text, xml2.text)
-        self.assertCountEqual(xml1.keys(), xml2.keys())
+        msg += '/' + str(xml1.tag)
+
+        if xml1.text is not None and xml2.text is not None:
+            self.assertEqual(xml1.text.strip(), xml2.text.strip(), msg)
+        else:
+            self.assertEqual(xml1.text, xml2.text, msg)
+        self.assertCountEqual(xml1.keys(), xml2.keys(), msg)
         for key in xml1.keys():
-            self.assertEqual(xml1.get(key), xml2.get(key))
+            self.assertEqual(xml1.get(key), xml2.get(key), msg)
+
+        self.assertEqual(len(xml1), len(xml2), msg + ' children count')
+        for child1, child2 in zip(xml1, xml2):
+            self.assertXMLEqual(child1, child2, msg=msg)
 
     def assertDevicesEqual(self, devices1, devices2, msg=None):
         self.assertEqual(devices1.keys(), devices2.keys(), msg)
