@@ -678,15 +678,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if self.maxmem > self.memory * 10:
             self.maxmem = self.memory * 10
 
-        # By default allow use all VCPUs
-#       if not hasattr(self, 'vcpus') and not self.app.vmm.offline_mode:
-#           self.vcpus = self.app.host.no_cpus
-
         if xml is None:
             # new qube, disable updates check if requested for new qubes
             # SEE: 1637 when features are done, migrate to plugin
             if not self.app.check_updates_vm:
-                self.features['check-updates'] = None
+                self.features['check-updates'] = False
 
         # will be initialized after loading all the properties
 
