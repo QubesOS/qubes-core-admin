@@ -277,7 +277,6 @@ fi
 %{python3_sitelib}/qubes/tools/qubes_create.py
 %{python3_sitelib}/qubes/tools/qubesd.py
 %{python3_sitelib}/qubes/tools/qubesd_query.py
-%{python3_sitelib}/qubes/tools/qvm_backup.py
 
 %dir %{python3_sitelib}/qubes/ext
 %dir %{python3_sitelib}/qubes/ext/__pycache__
