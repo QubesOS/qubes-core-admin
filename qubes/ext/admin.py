@@ -19,6 +19,7 @@
 
 import qubes.api
 import qubes.ext
+import qubes.vm.adminvm
 
 class AdminExtension(qubes.ext.Extension):
     # pylint: disable=too-few-public-methods
@@ -28,7 +29,8 @@ class AdminExtension(qubes.ext.Extension):
     def on_tag_set_or_remove(self, vm, event, arg, **kwargs):
         '''Forbid changing specific tags'''
         # pylint: disable=no-self-use,unused-argument
-        if arg.startswith('created-by-'):
+        if arg.startswith('created-by-') and \
+                not isinstance(vm, qubes.vm.adminvm.AdminVM):
             raise qubes.api.PermissionDenied(
                 'changing this tag is prohibited by {}.{}'.format(
                     __name__, type(self).__name__))
