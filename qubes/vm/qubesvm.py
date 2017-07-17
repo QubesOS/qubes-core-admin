@@ -102,6 +102,15 @@ def _setter_default_user(self, prop, value):
             'Username can contain only those characters: ' + allowed_chars)
     return value
 
+def _setter_virt_mode(self, prop, value):
+    value = str(value)
+    value = value.lower()
+    if value not in ('hvm', 'pv'):
+        raise qubes.exc.QubesPropertyValueError(self, prop, value,
+            'Invalid virtualization mode, supported values: hvm, pv')
+    return value
+
+
 class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     '''Base functionality of Qubes VM shared between all VMs.
 
@@ -373,11 +382,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         clone=False,
         doc='UUID from libvirt.')
 
-    hvm = qubes.property('hvm',
-        type=bool, setter=qubes.property.bool,
-        default=True,
-        doc='''Use full virtualisation (HVM) for this qube,
-            instead of paravirtualisation (PV)''')
+    virt_mode = qubes.property('virt_mode',
+        type=str, setter=_setter_virt_mode,
+        default='hvm',
+        doc='''Virtualisation mode: full virtualisation ("hvm"),
+            or paravirtualisation ("pv")''')
 
     installed_by_rpm = qubes.property('installed_by_rpm',
         type=bool, setter=qubes.property.bool,
@@ -388,7 +397,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     memory = qubes.property('memory', type=int,
         setter=_setter_positive_int,
         default=(lambda self:
-            qubes.config.defaults['hvm_memory' if self.hvm else 'memory']),
+            qubes.config.defaults[
+                'hvm_memory' if self.virt_mode == 'hvm' else 'memory']),
         doc='Memory currently available for this VM.')
 
     maxmem = qubes.property('maxmem', type=int,
@@ -1117,7 +1127,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             return
 
         if mem_required is None:
-            if self.hvm:
+            if self.virt_mode == 'hvm':
                 if self.stubdom_mem:
                     stubdom_mem = self.stubdom_mem
                 else:
@@ -1186,7 +1196,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             qrexec_args.insert(0, "-q")
 
         qrexec_env = os.environ.copy()
-        if not self.features.check_with_template('qrexec', not self.hvm):
+        if not self.features.check_with_template('qrexec', False):
             self.log.debug(
                 'Starting the qrexec daemon in background, because of features')
             qrexec_env['QREXEC_STARTUP_NOWAIT'] = '1'

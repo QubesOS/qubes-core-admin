@@ -190,7 +190,7 @@ class Core2Qubes(qubes.Qubes):
                 if value_is_default and value_is_default.lower() != \
                         "true":
                     kwargs[attr] = value
-            kwargs['hvm'] = "HVm" in vm_class_name
+            kwargs['virt_mode'] = 'hvm' if "HVm" in vm_class_name else 'pv'
             kwargs['provides_network'] = \
                 vm_class_name in ('QubesNetVm', 'QubesProxyVm')
             if vm_class_name == 'QubesNetVm':

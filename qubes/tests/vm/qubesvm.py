@@ -97,6 +97,19 @@ class TC_00_setters(qubes.tests.QubesTestCase):
 
     # there is no check for self.app.get_label()
 
+    def test_040_setter_virt_mode(self):
+        self.assertEqual(
+            qubes.vm.qubesvm._setter_virt_mode(self.vm, self.prop, 'hvm'),
+            'hvm')
+        self.assertEqual(
+            qubes.vm.qubesvm._setter_virt_mode(self.vm, self.prop, 'HVM'),
+            'hvm')
+        self.assertEqual(
+            qubes.vm.qubesvm._setter_virt_mode(self.vm, self.prop, 'PV'),
+            'pv')
+        with self.assertRaises(ValueError):
+            qubes.vm.qubesvm._setter_virt_mode(self.vm, self.prop, 'True')
+
 
 class QubesVMTestsMixin(object):
     property_no_default = object()
@@ -229,10 +242,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm = self.get_vm()
         self.assertPropertyInvalidValue(vm, 'label', 'invalid')
         self.assertPropertyInvalidValue(vm, 'label', 123)
-
-    def test_150_hvm(self):
-        vm = self.get_vm()
-        self._test_generic_bool_property(vm, 'hvm', default=True)
 
     def test_160_memory(self):
         vm = self.get_vm()

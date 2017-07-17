@@ -212,7 +212,7 @@ class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             qubes.vm.appvm.AppVM,
             name=self.make_vm_name("hvm"),
             label='red')
-        self.testvm.hvm = True
+        self.testvm.virt_mode = 'hvm'
         self.loop.run_until_complete(self.testvm.create_on_disk())
         self.app.save()
 
@@ -326,7 +326,7 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestsMixin,
             qubes.vm.templatevm.TemplateVM,
             name=self.make_vm_name("hvm"),
             label='red',
-            hvm=True
+            virt_mode='hvm',
         )
         self.loop.run_until_complete(self.test_template.create_on_disk())
         self.app.save()

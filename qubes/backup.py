@@ -2123,7 +2123,7 @@ class BackupRestore(object):
                 # allow kernel=None only for HVM,
                 # otherwise require valid kernel
                 if not (vm_info.vm.property_is_default('kernel')
-                        or (not vm_info.vm.kernel and vm_info.vm.hvm)
+                        or (not vm_info.vm.kernel and vm_info.vm.virt_mode == 'hvm')
                         or vm_info.vm.kernel in installed_kernels):
                     if self.options.use_default_kernel:
                         vm_info.vm.kernel = qubes.property.DEFAULT

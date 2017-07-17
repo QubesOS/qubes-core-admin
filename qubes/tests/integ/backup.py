@@ -122,7 +122,7 @@ class BackupTestsMixin(qubes.tests.SystemTestsMixin):
         self.log.debug("Creating %s" % vmname)
         testvm2 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
                                       name=vmname,
-                                      hvm=True,
+                                      virt_mode='hvm',
                                       label='red')
         testvm2.create_on_disk(pool=pool)
         self.fill_image(testvm2.storage.export('root'), 1024 * 1024 * 1024, \
@@ -322,7 +322,7 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.QubesTestCase):
         self.log.debug("Creating %s" % vmname)
 
         hvmtemplate = self.app.add_new_vm(
-            qubes.vm.templatevm.TemplateVM, name=vmname, hvm=True, label='red')
+            qubes.vm.templatevm.TemplateVM, name=vmname, virt_mode='hvm', label='red')
         hvmtemplate.create_on_disk()
         self.fill_image(
             os.path.join(hvmtemplate.dir_path, '00file'),

@@ -2,7 +2,7 @@
     {% block basic %}
         <name>{{ vm.name }}</name>
         <uuid>{{ vm.uuid }}</uuid>
-        {% if vm.hvm and vm.devices['pci'].persistent() | list %}
+        {% if vm.virt_mode == 'hvm' and vm.devices['pci'].persistent() | list %}
             <memory unit="MiB">{{ vm.memory }}</memory>
         {% else %}
             <memory unit="MiB">{{ vm.maxmem }}</memory>
@@ -11,6 +11,7 @@
         <vcpu placement="static">{{ vm.vcpus }}</vcpu>
     {% endblock %}
     {% block cpu %}
+    {% if vm.virt_mode == 'hvm' %}
         <cpu mode='host-passthrough'>
             <!-- disable nested HVM -->
             <feature name='vmx' policy='disable'/>
@@ -18,10 +19,11 @@
             <!-- disable SMAP inside VM, because of Linux bug -->
             <feature name='smap' policy='disable'/>
         </cpu>
+    {% endif %}
     {% endblock %}
     <os>
         {% block os %}
-            {% if vm.hvm %}
+            {% if vm.virt_mode == 'hvm' %}
                 <type arch="x86_64" machine="xenfv">hvm</type>
                 <loader>hvmloader</loader>
                 <boot dev="cdrom" />
@@ -38,7 +40,7 @@
 
     <features>
         {% block features %}
-            {% if vm.hvm %}
+            {% if vm.virt_mode == 'hvm' %}
                 <pae/>
                 <acpi/>
                 <apic/>
@@ -55,7 +57,7 @@
     </features>
 
     {% block clock %}
-        {% if vm.hvm %}
+        {% if vm.virt_mode == 'hvm' %}
             {% set timezone = vm.features.check_with_template('timezone', 'localtime').lower() %}
             {% if timezone == 'localtime' %}
                 <clock offset="variable" adjustment="0" basis="localtime" />
@@ -133,7 +135,7 @@
                 {% include 'libvirt/devices/pci.xml' %}
             {% endfor %}
 
-            {% if vm.hvm %}
+            {% if vm.virt_mode == 'hvm' %}
                 <emulator
                     {% if vm.features.check_with_template('linux-stubdom', True) %}
                         type="stubdom-linux"
