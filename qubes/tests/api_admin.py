@@ -91,7 +91,7 @@ class AdminAPITestCase(qubes.tests.QubesTestCase):
         response = loop.run_until_complete(
             mgmt_obj.execute(untrusted_payload=payload))
         self.assertEventFired(self.emitter,
-            'mgmt-permission:' + method.decode('ascii'))
+            'admin-permission:' + method.decode('ascii'))
         return response
 
 
@@ -110,7 +110,7 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_010_vm_property_list(self):
         # this test is kind of stupid, but at least check if appropriate
-        # mgmt-permission event is fired
+        # admin-permission event is fired
         value = self.call_mgmt_func(b'admin.vm.property.List', b'test-vm1')
         properties = self.app.domains['test-vm1'].property_list()
         self.assertEqual(value,
@@ -902,7 +902,7 @@ class TC_00_VMs(AdminAPITestCase):
         loop.run_until_complete(execute_task)
         self.assertIsNone(execute_task.result())
         self.assertEventFired(self.emitter,
-            'mgmt-permission:' + 'admin.Events')
+            'admin-permission:' + 'admin.Events')
         self.assertEqual(send_event.mock_calls,
             [
                 unittest.mock.call(self.app, 'connection-established'),
@@ -932,7 +932,7 @@ class TC_00_VMs(AdminAPITestCase):
         vm2 = event_task.result()
         self.assertIsNone(execute_task.result())
         self.assertEventFired(self.emitter,
-            'mgmt-permission:' + 'admin.Events')
+            'admin-permission:' + 'admin.Events')
         self.assertEqual(send_event.mock_calls,
             [
                 unittest.mock.call(self.app, 'connection-established'),
@@ -1242,7 +1242,7 @@ class TC_00_VMs(AdminAPITestCase):
     def test_400_property_list(self):
         # actual function tested for admin.vm.property.* already
         # this test is kind of stupid, but at least check if appropriate
-        # mgmt-permission event is fired
+        # admin-permission event is fired
         value = self.call_mgmt_func(b'admin.property.List', b'dom0')
         properties = self.app.property_list()
         self.assertEqual(value,

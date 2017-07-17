@@ -91,7 +91,7 @@ def method(name, *, no_payload=False, endpoints=None, **classifiers):
 
 
 def apply_filters(iterable, filters):
-    '''Apply filters returned by mgmt-permission:... event'''
+    '''Apply filters returned by admin-permission:... event'''
     for selector in filters:
         iterable = filter(selector, iterable)
     return iterable
@@ -188,7 +188,7 @@ class AbstractQubesAPI(object):
 
     def fire_event_for_permission(self, **kwargs):
         '''Fire an event on the source qube to check for permission'''
-        return self.src.fire_event('mgmt-permission:' + self.method,
+        return self.src.fire_event('admin-permission:' + self.method,
             pre_event=True, dest=self.dest, arg=self.arg, **kwargs)
 
     def fire_event_for_filter(self, iterable, **kwargs):

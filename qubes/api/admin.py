@@ -43,7 +43,7 @@ class QubesMgmtEventsDispatcher(object):
         self.send_event = send_event
 
     def vm_handler(self, subject, event, **kwargs):
-        if event.startswith('mgmt-permission:'):
+        if event.startswith('admin-permission:'):
             return
         if not list(qubes.api.apply_filters([(subject, event, kwargs)],
                 self.filters)):
