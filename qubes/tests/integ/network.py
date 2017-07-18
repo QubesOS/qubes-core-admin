@@ -350,9 +350,9 @@ class VmNetworkingMixin(object):
 
     def test_200_fake_ip_simple(self):
         '''Test hiding VM real IP'''
-        self.testvm1.features['net/fake-ip'] = '192.168.1.128'
-        self.testvm1.features['net/fake-gateway'] = '192.168.1.1'
-        self.testvm1.features['net/fake-netmask'] = '255.255.255.0'
+        self.testvm1.features['net.fake-ip'] = '192.168.1.128'
+        self.testvm1.features['net.fake-gateway'] = '192.168.1.1'
+        self.testvm1.features['net.fake-netmask'] = '255.255.255.0'
         self.app.save()
         self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
@@ -381,7 +381,7 @@ class VmNetworkingMixin(object):
 
     def test_201_fake_ip_without_gw(self):
         '''Test hiding VM real IP'''
-        self.testvm1.features['net/fake-ip'] = '192.168.1.128'
+        self.testvm1.features['net.fake-ip'] = '192.168.1.128'
         self.app.save()
         self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
@@ -400,9 +400,9 @@ class VmNetworkingMixin(object):
 
     def test_202_fake_ip_firewall(self):
         '''Test hiding VM real IP, firewall'''
-        self.testvm1.features['net/fake-ip'] = '192.168.1.128'
-        self.testvm1.features['net/fake-gateway'] = '192.168.1.1'
-        self.testvm1.features['net/fake-netmask'] = '255.255.255.0'
+        self.testvm1.features['net.fake-ip'] = '192.168.1.128'
+        self.testvm1.features['net.fake-gateway'] = '192.168.1.1'
+        self.testvm1.features['net.fake-netmask'] = '255.255.255.0'
 
         self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('proxy'),
@@ -462,9 +462,9 @@ class VmNetworkingMixin(object):
         self.proxy.provides_network = True
         self.proxy.netvm = self.testnetvm
         self.testvm1.netvm = self.proxy
-        self.testvm1.features['net/fake-ip'] = '192.168.1.128'
-        self.testvm1.features['net/fake-gateway'] = '192.168.1.1'
-        self.testvm1.features['net/fake-netmask'] = '255.255.255.0'
+        self.testvm1.features['net.fake-ip'] = '192.168.1.128'
+        self.testvm1.features['net.fake-gateway'] = '192.168.1.1'
+        self.testvm1.features['net.fake-netmask'] = '255.255.255.0'
 
         self.testvm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('vm3'),
@@ -512,9 +512,9 @@ class VmNetworkingMixin(object):
         self.loop.run_until_complete(self.proxy.create_on_disk())
         self.proxy.provides_network = True
         self.proxy.netvm = self.testnetvm
-        self.proxy.features['net/fake-ip'] = '192.168.1.128'
-        self.proxy.features['net/fake-gateway'] = '192.168.1.1'
-        self.proxy.features['net/fake-netmask'] = '255.255.255.0'
+        self.proxy.features['net.fake-ip'] = '192.168.1.128'
+        self.proxy.features['net.fake-gateway'] = '192.168.1.1'
+        self.proxy.features['net.fake-netmask'] = '255.255.255.0'
         self.testvm1.netvm = self.proxy
         self.app.save()
         self.loop.run_until_complete(self.testvm1.start())

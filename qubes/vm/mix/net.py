@@ -117,19 +117,19 @@ class NetVMMixin(qubes.events.Emitter):
     @qubes.stateless_property
     def visible_ip(self):
         '''IP address of this domain as seen by the domain.'''
-        return self.features.check_with_template('net/fake-ip', None) or \
+        return self.features.check_with_template('net.fake-ip', None) or \
             self.ip
 
     @qubes.stateless_property
     def visible_gateway(self):
         '''Default gateway of this domain as seen by the domain.'''
-        return self.features.check_with_template('net/fake-gateway', None) or \
+        return self.features.check_with_template('net.fake-gateway', None) or \
             self.netvm.gateway
 
     @qubes.stateless_property
     def visible_netmask(self):
         '''Netmask as seen by the domain.'''
-        return self.features.check_with_template('net/fake-netmask', None) or \
+        return self.features.check_with_template('net.fake-netmask', None) or \
             self.netvm.netmask
 
     #
