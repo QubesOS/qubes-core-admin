@@ -1,6 +1,7 @@
 [Unit]
 Description=Start Qubes VM %i
 Before=systemd-user-sessions.service
+After=qubesd.service
 
 [Service]
 Type=oneshot
