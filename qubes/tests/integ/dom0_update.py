@@ -32,7 +32,7 @@ VM_PREFIX = "test-"
 @unittest.skipUnless(os.path.exists('/usr/bin/rpmsign') and
                      os.path.exists('/usr/bin/rpmbuild'),
                      'rpm-sign and/or rpm-build not installed')
-class TC_00_Dom0UpgradeMixin(qubes.tests.SystemTestsMixin):
+class TC_00_Dom0UpgradeMixin(object):
     """
     Tests for downloading dom0 updates using VMs based on different templates
     """
@@ -369,7 +369,7 @@ def load_tests(loader, tests, pattern):
         tests.addTests(loader.loadTestsFromTestCase(
             type(
                 'TC_00_Dom0Upgrade_' + template,
-                (TC_00_Dom0UpgradeMixin, qubes.tests.QubesTestCase),
+                (TC_00_Dom0UpgradeMixin, qubes.tests.SystemTestCase),
                 {'template': template})))
 
     return tests

@@ -29,7 +29,7 @@ import qubes.tests.storage_lvm
 import qubes.vm.appvm
 
 
-class StorageTestMixin(qubes.tests.SystemTestsMixin):
+class StorageTestMixin(object):
     def setUp(self):
         super(StorageTestMixin, self).setUp()
         self.init_default_template()
@@ -254,7 +254,7 @@ class StorageTestMixin(qubes.tests.SystemTestsMixin):
             user='root')
 
 
-class StorageFile(StorageTestMixin, qubes.tests.QubesTestCase):
+class StorageFile(StorageTestMixin, qubes.tests.SystemTestCase):
     def init_pool(self):
         self.dir_path = '/var/tmp/test-pool'
         self.pool = self.app.add_pool(dir_path=self.dir_path,
@@ -269,7 +269,7 @@ class StorageFile(StorageTestMixin, qubes.tests.QubesTestCase):
 
 
 @qubes.tests.storage_lvm.skipUnlessLvmPoolExists
-class StorageLVM(StorageTestMixin, qubes.tests.QubesTestCase):
+class StorageLVM(StorageTestMixin, qubes.tests.SystemTestCase):
     def init_pool(self):
         # check if the default LVM Thin pool qubes_dom0/pool00 exists
         volume_group, thin_pool = \

@@ -37,7 +37,7 @@ class NcVersion:
     Nmap = 2
 
 # noinspection PyAttributeOutsideInit
-class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
+class VmNetworkingMixin(object):
     test_ip = '192.168.123.45'
     test_name = 'test.example.com'
 
@@ -645,7 +645,7 @@ class VmNetworkingMixin(qubes.tests.SystemTestsMixin):
 
 
 # noinspection PyAttributeOutsideInit
-class VmUpdatesMixin(qubes.tests.SystemTestsMixin):
+class VmUpdatesMixin(object):
     """
     Tests for VM updates
     """
@@ -944,11 +944,11 @@ def load_tests(loader, tests, pattern):
         tests.addTests(loader.loadTestsFromTestCase(
             type(
                 'VmNetworking_' + template,
-                (VmNetworkingMixin, qubes.tests.QubesTestCase),
+                (VmNetworkingMixin, qubes.tests.SystemTestCase),
                 {'template': template})))
         tests.addTests(loader.loadTestsFromTestCase(
             type(
                 'VmUpdates_' + template,
-                (VmUpdatesMixin, qubes.tests.QubesTestCase),
+                (VmUpdatesMixin, qubes.tests.SystemTestCase),
                 {'template': template})))
     return tests

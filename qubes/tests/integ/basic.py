@@ -42,7 +42,7 @@ import qubes.vm.templatevm
 import libvirt  # pylint: disable=import-error
 
 
-class TC_00_Basic(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
+class TC_00_Basic(qubes.tests.SystemTestCase):
     def setUp(self):
         super(TC_00_Basic, self).setUp()
         self.init_default_template()
@@ -66,7 +66,7 @@ class TC_00_Basic(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
             vm.storage.verify()
 
 
-class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
+class TC_01_Properties(qubes.tests.SystemTestCase):
     # pylint: disable=attribute-defined-outside-init
     def setUp(self):
         super(TC_01_Properties, self).setUp()
@@ -75,7 +75,6 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.vm = self.app.add_new_vm(qubes.vm.appvm.AppVM, name=self.vmname,
                                       template=self.app.default_template,
                                       label='red')
-        self.loop.run_until_complete(self.vm.create_on_disk())
 
     @unittest.expectedFailure
     def test_030_clone(self):
@@ -185,13 +184,12 @@ class TC_01_Properties(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
 
         self.vm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=vm2name, template=self.app.default_template, label='red')
-        self.loop.run_until_complete(self.vm2.create_on_disk())
 
         with self.assertNotRaises(OSError):
             with self.assertRaises(qubes.exc.QubesException):
                 self.vm2.name = self.vmname
 
-class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
+class TC_02_QvmPrefs(qubes.tests.SystemTestCase):
     # pylint: disable=attribute-defined-outside-init
 
     def setUp(self):
@@ -302,8 +300,7 @@ class TC_02_QvmPrefs(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.execute_tests('kernel', [('default', '', False)])
         self.execute_tests('kernelopts', [('default', '', False)])
 
-class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestsMixin,
-                                     qubes.tests.QubesTestCase):
+class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestCase):
     # pylint: disable=attribute-defined-outside-init
 
     def setUp(self):
@@ -371,7 +368,7 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestsMixin,
         self.setup_hvm_template()
         self._do_test()
 
-class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
+class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
     def setUp(self):
         super(TC_30_Gui_daemon, self).setUp()
         self.init_default_template()
@@ -448,7 +445,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         self.assertEqual(clipboard_source, "",
                           "Clipboard not wiped after paste - owner")
 
-class TC_05_StandaloneVM(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
+class TC_05_StandaloneVM(qubes.tests.SystemTestCase):
     def setUp(self):
         super(TC_05_StandaloneVM, self).setUp()
         self.init_default_template()

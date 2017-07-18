@@ -25,8 +25,7 @@ import qubes.tools.qubes_create
 import qubes.tests
 
 @qubes.tests.skipUnlessDom0
-class TC_00_qubes_create(
-        qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
+class TC_00_qubes_create(qubes.tests.SystemTestCase):
     def test_000_basic(self):
         self.assertEqual(0, qubes.tools.qubes_create.main([
             '--qubesxml', qubes.tests.XMLPATH]))

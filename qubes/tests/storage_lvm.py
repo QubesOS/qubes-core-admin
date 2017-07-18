@@ -160,7 +160,7 @@ class TC_00_ThinPool(ThinPoolBase):
         volume.remove()
 
 @skipUnlessLvmPoolExists
-class TC_01_ThinPool(qubes.tests.SystemTestsMixin, ThinPoolBase):
+class TC_01_ThinPool(qubes.tests.SystemTestCase, ThinPoolBase):
     ''' Sanity tests for :py:class:`qubes.storage.lvm.ThinPool` '''
 
     def setUp(self):
