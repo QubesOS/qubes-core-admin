@@ -176,3 +176,12 @@ def systemd_notify():
     sock.connect(nofity_socket)
     sock.sendall(b'READY=1')
     sock.close()
+
+def match_vm_name_with_special(vm, name):
+    '''Check if *vm* matches given name, which may be specified as $tag:...
+    or $type:...'''
+    if name.startswith('$tag:'):
+        return name[len('$tag:'):] in vm.tags
+    elif name.startswith('$type:'):
+        return name[len('$type:'):] == vm.__class__.__name__
+    return name == vm.name

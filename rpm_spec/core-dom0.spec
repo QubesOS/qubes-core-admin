@@ -65,6 +65,7 @@ BuildRequires:	python3-sphinx
 BuildRequires:	python3-lxml
 BuildRequires:	libvirt-python3
 BuildRequires:	python3-dbus
+BuildRequires:	python3-PyYAML
 
 Requires(post): systemd-units
 Requires(preun): systemd-units
@@ -78,6 +79,7 @@ Requires:       python3-lxml
 Requires:       python3-pydbus
 Requires:       python3-qubesdb
 Requires:       python3-setuptools
+Requires:       python3-PyYAML
 Requires:       python3-xen
 Requires:       libvirt-python3
 

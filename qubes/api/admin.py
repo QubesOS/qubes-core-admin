@@ -23,17 +23,24 @@ Qubes OS Management API
 '''
 
 import asyncio
-import string
+import functools
 import itertools
-import pkg_resources
+import os
+import string
+
 import libvirt
+import pkg_resources
+import yaml
 
 import qubes.api
+import qubes.backup
+import qubes.config
 import qubes.devices
 import qubes.firewall
 import qubes.storage
 import qubes.utils
 import qubes.vm
+import qubes.vm.adminvm
 import qubes.vm.qubesvm
 
 
@@ -1093,3 +1100,152 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.fire_event_for_permission()
 
         self.dest.fire_event('firewall-changed')
+
+    @asyncio.coroutine
+    def _load_backup_profile(self, profile_name, skip_passphrase=False):
+        '''Load backup profile and return :py:class:`qubes.backup.Backup`
+        instance
+
+        :param profile_name: name of the profile
+        :param skip_passphrase: do not load passphrase - only backup summary
+            can be retrieved when this option is in use
+        '''
+        profile_path = os.path.join(
+            qubes.config.backup_profile_dir, profile_name + '.conf')
+
+        with open(profile_path) as profile_file:
+            profile_data = yaml.safe_load(profile_file)
+
+        try:
+            dest_vm = profile_data['destination_vm']
+            dest_path = profile_data['destination_path']
+            include_vms = profile_data['include']
+            exclude_vms = profile_data.get('exclude', [])
+            compression = profile_data.get('compression', True)
+        except KeyError as err:
+            raise qubes.exc.QubesException(
+                'Invalid backup profile - missing {}'.format(err))
+
+        try:
+            dest_vm = self.app.domains[dest_vm]
+        except KeyError:
+            raise qubes.exc.QubesException(
+                'Invalid destination_vm specified in backup profile')
+
+        if isinstance(dest_vm, qubes.vm.adminvm.AdminVM):
+            dest_vm = None
+
+        if skip_passphrase:
+            passphrase = None
+        elif 'passphrase_text' in profile_data:
+            passphrase = profile_data['passphrase_text']
+        elif 'passphrase_vm' in profile_data:
+            passphrase_vm_name = profile_data['passphrase_vm']
+            try:
+                passphrase_vm = self.app.domains[passphrase_vm_name]
+            except KeyError:
+                raise qubes.exc.QubesException(
+                    'Invalid backup profile - invalid passphrase_vm')
+            # TODO .decode()?
+            passphrase, _ = yield from passphrase_vm.run_service_for_stdio(
+                'qubes.BackupPassphrase+' + self.arg)
+        else:
+            raise qubes.exc.QubesException(
+                'Invalid backup profile - you need to '
+                'specify passphrase_text or passphrase_vm')
+
+        # handle include
+        vms_to_backup = set(vm for vm in self.app.domains
+            if any(qubes.utils.match_vm_name_with_special(vm, name)
+                for name in include_vms))
+
+        # handle exclude
+        vms_to_backup.difference_update(vm for vm in self.app.domains
+            if any(qubes.utils.match_vm_name_with_special(vm, name)
+                for name in exclude_vms))
+
+        kwargs = {
+            'target_vm': dest_vm,
+            'target_dir': dest_path,
+            'compressed': bool(compression),
+            'passphrase': passphrase,
+        }
+        if isinstance(compression, str):
+            kwargs['compression_filter'] = compression
+        backup = qubes.backup.Backup(self.app, vms_to_backup, **kwargs)
+        return backup
+
+    def _backup_progress_callback(self, profile_name, progress):
+        self.app.fire_event('backup-progress', backup_profile=profile_name,
+            progress=progress)
+
+    @qubes.api.method('admin.backup.Execute', no_payload=True,
+        scope='global', read=True, execute=True)
+    @asyncio.coroutine
+    def backup_execute(self):
+        assert self.dest.name == 'dom0'
+        assert self.arg
+        assert '/' not in self.arg
+
+        self.fire_event_for_permission()
+
+        profile_path = os.path.join(qubes.config.backup_profile_dir,
+            self.arg + '.conf')
+        if not os.path.exists(profile_path):
+            raise qubes.api.PermissionDenied(
+                'Backup profile {} does not exist'.format(self.arg))
+
+        if not hasattr(self.app, 'api_admin_running_backups'):
+            self.app.api_admin_running_backups = {}
+
+        backup = yield from self._load_backup_profile(self.arg)
+        backup.progress_callback = functools.partial(
+            self._backup_progress_callback, self.arg)
+
+        # forbid running the same backup operation twice at the time
+        assert self.arg not in self.app.api_admin_running_backups
+
+        backup_task = asyncio.ensure_future(backup.backup_do())
+        self.app.api_admin_running_backups[self.arg] = backup_task
+        try:
+            yield from backup_task
+        finally:
+            del self.app.api_admin_running_backups[self.arg]
+
+    @qubes.api.method('admin.backup.Cancel', no_payload=True,
+        scope='global', execute=True)
+    @asyncio.coroutine
+    def backup_cancel(self):
+        assert self.dest.name == 'dom0'
+        assert self.arg
+        assert '/' not in self.arg
+
+        self.fire_event_for_permission()
+
+        if not hasattr(self.app, 'api_admin_running_backups'):
+            self.app.api_admin_running_backups = {}
+
+        if self.arg not in self.app.api_admin_running_backups:
+            raise qubes.exc.QubesException('Backup operation not running')
+
+        self.app.api_admin_running_backups[self.arg].cancel()
+
+    @qubes.api.method('admin.backup.Info', no_payload=True,
+        scope='local', read=True)
+    @asyncio.coroutine
+    def backup_info(self):
+        assert self.dest.name == 'dom0'
+        assert self.arg
+        assert '/' not in self.arg
+
+        self.fire_event_for_permission()
+
+        profile_path = os.path.join(qubes.config.backup_profile_dir,
+            self.arg + '.conf')
+        if not os.path.exists(profile_path):
+            raise qubes.api.PermissionDenied(
+                'Backup profile {} does not exist'.format(self.arg))
+
+        backup = yield from self._load_backup_profile(self.arg,
+            skip_passphrase=True)
+        return backup.get_backup_summary()

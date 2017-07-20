@@ -12,7 +12,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.Events \
 	admin.backup.Execute \
 	admin.backup.Info \
-	admin.backup.Restore \
+	admin.backup.Cancel \
 	admin.label.Create \
 	admin.label.Get \
 	admin.label.List \
