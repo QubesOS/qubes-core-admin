@@ -374,7 +374,7 @@ def get_disk_usage(path):
 
     When *path* points to directory, then it is evaluated recursively.
 
-    This function tries estiate real disk usage. See documentation of
+    This function tries estimate real disk usage. See documentation of
     :py:func:`get_disk_usage_one`.
 
     :param str path: path to evaluate
