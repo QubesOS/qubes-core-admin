@@ -11,6 +11,7 @@ import qubes.api
 import qubes.api.admin
 import qubes.api.internal
 import qubes.api.misc
+import qubes.log
 import qubes.utils
 import qubes.vm.qubesvm
 
@@ -35,6 +36,9 @@ def main(args=None):
         raise
 
     args.app.vmm.register_event_handlers(args.app)
+
+    if args.debug:
+        qubes.log.enable_debug()
 
     servers = loop.run_until_complete(qubes.api.create_servers(
         qubes.api.admin.QubesAdminAPI,
