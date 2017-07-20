@@ -431,25 +431,25 @@ class Backup(object):
         for qid, vm_info in files_to_backup.items():
             summary_line = ""
             fmt = "{{0:>{0}}} |".format(fields_to_display[0]["width"] + 1)
-            summary_line += fmt.format(vm_info['vm'].name)
+            summary_line += fmt.format(vm_info.vm.name)
 
             fmt = "{{0:>{0}}} |".format(fields_to_display[1]["width"] + 1)
             if qid == 0:
                 summary_line += fmt.format("User home")
-            elif isinstance(vm_info['vm'], qubes.vm.templatevm.TemplateVM):
+            elif isinstance(vm_info.vm, qubes.vm.templatevm.TemplateVM):
                 summary_line += fmt.format("Template VM")
             else:
                 summary_line += fmt.format("VM" + (" + Sys" if
-                    vm_info['vm'].updateable else ""))
+                    vm_info.vm.updateable else ""))
 
-            vm_size = vm_info['size']
+            vm_size = vm_info.size
 
             fmt = "{{0:>{0}}} |".format(fields_to_display[2]["width"] + 1)
             summary_line += fmt.format(size_to_human(vm_size))
 
-            if qid != 0 and vm_info['vm'].is_running():
-                summary_line += " <-- The VM is running, please shut down it " \
-                     "before proceeding with the backup!"
+            if qid != 0 and vm_info.vm.is_running():
+                summary_line += " <-- The VM is running, backup will contain " \
+                                "its state from before its start!"
 
             summary += summary_line + "\n"
 
@@ -474,7 +474,7 @@ class Backup(object):
         vms_not_for_backup = [vm.name for vm in self.app.domains
                               if vm not in self.vms_for_backup]
         summary += "VMs not selected for backup:\n - " + "\n - ".join(
-            sorted(vms_not_for_backup))
+            sorted(vms_not_for_backup)) + "\n"
 
         return summary
 
