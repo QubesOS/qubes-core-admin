@@ -24,6 +24,7 @@ import asyncio
 import operator
 import os
 import shutil
+import tempfile
 import unittest.mock
 
 import libvirt
@@ -1820,6 +1821,139 @@ class TC_00_VMs(AdminAPITestCase):
         self.assertFalse(self.vm.firewall.save.called)
         self.assertFalse(self.app.save.called)
 
+    def test_600_backup_info(self):
+        backup_profile = (
+            'include:\n'
+            ' - test-vm1\n'
+            'destination_vm: test-vm1\n'
+            'destination_path: /var/tmp\n'
+            'passphrase_text: test\n'
+        )
+        expected_info = (
+            '------------------+--------------+--------------+\n'
+            '               VM |         type |         size |\n'
+            '------------------+--------------+--------------+\n'
+            '         test-vm1 |           VM |            0 |\n'
+            '------------------+--------------+--------------+\n'
+            '      Total size: |                           0 |\n'
+            '------------------+--------------+--------------+\n'
+            'VMs not selected for backup:\n'
+            ' - dom0\n'
+            ' - test-template\n'
+        )
+        with tempfile.TemporaryDirectory() as profile_dir:
+            with open(os.path.join(profile_dir, 'testprofile.conf'), 'w') as \
+                    profile_file:
+                profile_file.write(backup_profile)
+            with unittest.mock.patch('qubes.config.backup_profile_dir',
+                    profile_dir):
+                result = self.call_mgmt_func(b'admin.backup.Info', b'dom0',
+                    b'testprofile')
+            self.assertEqual(result, expected_info)
+
+    def test_601_backup_info_profile_missing_destination_path(self):
+        backup_profile = (
+            'include:\n'
+            ' - test-vm1\n'
+            'destination_vm: test-vm1\n'
+            'passphrase_text: test\n'
+        )
+        with tempfile.TemporaryDirectory() as profile_dir:
+            with open(os.path.join(profile_dir, 'testprofile.conf'), 'w') as \
+                    profile_file:
+                profile_file.write(backup_profile)
+            with unittest.mock.patch('qubes.config.backup_profile_dir',
+                    profile_dir):
+                with self.assertRaises(qubes.exc.QubesException):
+                    self.call_mgmt_func(b'admin.backup.Info', b'dom0',
+                        b'testprofile')
+
+    def test_602_backup_info_profile_missing_destination_vm(self):
+        backup_profile = (
+            'include:\n'
+            ' - test-vm1\n'
+            'destination_path: /home/user\n'
+            'passphrase_text: test\n'
+        )
+        with tempfile.TemporaryDirectory() as profile_dir:
+            with open(os.path.join(profile_dir, 'testprofile.conf'), 'w') as \
+                    profile_file:
+                profile_file.write(backup_profile)
+            with unittest.mock.patch('qubes.config.backup_profile_dir',
+                    profile_dir):
+                with self.assertRaises(qubes.exc.QubesException):
+                    self.call_mgmt_func(b'admin.backup.Info', b'dom0',
+                        b'testprofile')
+
+    def test_610_backup_cancel_not_running(self):
+        with self.assertRaises(qubes.exc.QubesException):
+            self.call_mgmt_func(b'admin.backup.Cancel', b'dom0',
+                b'testprofile')
+
+    @unittest.mock.patch('qubes.backup.Backup')
+    def test_620_backup_execute(self, mock_backup):
+        backup_profile = (
+            'include:\n'
+            ' - test-vm1\n'
+            'destination_vm: test-vm1\n'
+            'destination_path: /home/user\n'
+            'passphrase_text: test\n'
+        )
+        mock_backup.return_value.backup_do.side_effect = self.dummy_coro
+        with tempfile.TemporaryDirectory() as profile_dir:
+            with open(os.path.join(profile_dir, 'testprofile.conf'), 'w') as \
+                    profile_file:
+                profile_file.write(backup_profile)
+            with unittest.mock.patch('qubes.config.backup_profile_dir',
+                    profile_dir):
+                result = self.call_mgmt_func(b'admin.backup.Execute', b'dom0',
+                        b'testprofile')
+        self.assertIsNone(result)
+        mock_backup.assert_called_once_with(
+            self.app,
+            {self.vm},
+            target_vm=self.vm,
+            target_dir='/home/user',
+            compressed=True,
+            passphrase='test')
+        mock_backup.return_value.backup_do.assert_called_once_with()
+
+    @unittest.mock.patch('qubes.backup.Backup')
+    def test_621_backup_execute_passphrase_service(self, mock_backup):
+        backup_profile = (
+            'include:\n'
+            ' - test-vm1\n'
+            'destination_vm: test-vm1\n'
+            'destination_path: /home/user\n'
+            'passphrase_vm: test-vm1\n'
+        )
+
+        @asyncio.coroutine
+        def service_passphrase(*args, **kwargs):
+            return ('pass-from-vm', None)
+
+        mock_backup.return_value.backup_do.side_effect = self.dummy_coro
+        self.vm.run_service_for_stdio = unittest.mock.Mock(
+            side_effect=service_passphrase)
+        with tempfile.TemporaryDirectory() as profile_dir:
+            with open(os.path.join(profile_dir, 'testprofile.conf'), 'w') as \
+                    profile_file:
+                profile_file.write(backup_profile)
+            with unittest.mock.patch('qubes.config.backup_profile_dir',
+                    profile_dir):
+                result = self.call_mgmt_func(b'admin.backup.Execute', b'dom0',
+                        b'testprofile')
+        self.assertIsNone(result)
+        mock_backup.assert_called_once_with(
+            self.app,
+            {self.vm},
+            target_vm=self.vm,
+            target_dir='/home/user',
+            compressed=True,
+            passphrase='pass-from-vm')
+        mock_backup.return_value.backup_do.assert_called_once_with()
+        self.vm.run_service_for_stdio.assert_called_with(
+            'qubes.BackupPassphrase+testprofile')
 
     def test_990_vm_unexpected_payload(self):
         methods_with_no_payload = [
