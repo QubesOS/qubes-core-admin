@@ -250,8 +250,9 @@ class Backup(object):
     # pylint: disable=too-many-instance-attributes
     class FileToBackup(object):
         # pylint: disable=too-few-public-methods
-        def __init__(self, file_path, subdir=None, name=None):
-            file_size = qubes.storage.file.get_disk_usage(file_path)
+        def __init__(self, file_path, subdir=None, name=None, size=None):
+            if size is None:
+                size = qubes.storage.file.get_disk_usage(file_path)
 
             if subdir is None:
                 abs_file_path = os.path.abspath(file_path)
@@ -269,7 +270,7 @@ class Backup(object):
             #: real path to the file
             self.path = file_path
             #: size of the file
-            self.size = file_size
+            self.size = size
             #: directory in backup archive where file should be placed
             self.subdir = subdir
             #: use this name in the archive (aka rename)
@@ -362,24 +363,22 @@ class Backup(object):
             subdir = 'vm%d/' % vm.qid
 
             vm_files = []
-            if vm.volumes['private'] is not None:
-                path_to_private_img = vm.storage.export('private')
-                vm_files.append(self.FileToBackup(path_to_private_img, subdir,
-                        'private.img'))
+            for name, volume in vm.volumes.items():
+                if not volume.save_on_stop:
+                    continue
+                vm_files.append(self.FileToBackup(
+                    volume.export(),
+                    subdir,
+                    name + '.img',
+                    volume.usage))
 
-            vm_files.append(self.FileToBackup(vm.icon_path, subdir))
             vm_files.extend(self.FileToBackup(i, subdir)
                 for i in vm.fire_event('backup-get-files'))
 
-            # TODO: drop after merging firewall.xml into qubes.xml
             firewall_conf = os.path.join(vm.dir_path, vm.firewall_conf)
             if os.path.exists(firewall_conf):
                 vm_files.append(self.FileToBackup(firewall_conf, subdir))
 
-            if vm.updateable:
-                path_to_root_img = vm.storage.export('root')
-                vm_files.append(self.FileToBackup(path_to_root_img, subdir,
-                    'root.img'))
             files_to_backup[vm.qid] = self.VMToBackup(vm, vm_files, subdir)
 
         # Dom0 user home
