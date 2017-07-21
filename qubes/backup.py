@@ -705,8 +705,6 @@ class Backup(object):
             vm.features['backup-content'] = False
 
         for qid, vm_info in files_to_backup.items():
-            if qid != 0 and vm_info.vm.is_running():
-                raise qubes.exc.QubesVMNotHaltedError(vm_info.vm)
             # VM is included in the backup
             backup_app.domains[qid].features['backup-content'] = True
             backup_app.domains[qid].features['backup-path'] = vm_info.subdir
