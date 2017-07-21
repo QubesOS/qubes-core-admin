@@ -143,6 +143,8 @@ make -C doc DESTDIR=$RPM_BUILD_ROOT \
     PYTHON=%{__python3} SPHINXBUILD=sphinx-build-%{python3_version} \
     install
 
+mkdir -p $RPM_BUILD_ROOT/etc/qubes/backup
+
 
 %post
 %systemd_post qubes-core.service
@@ -206,6 +208,7 @@ fi
 %defattr(-,root,root,-)
 %config(noreplace) %attr(0664,root,qubes) %{_sysconfdir}/qubes/qmemman.conf
 %config(noreplace) /etc/dbus-1/system.d/org.qubesos.PolicyAgent.conf
+%attr(770,root,qubes) %dir /etc/qubes/backup
 /usr/bin/qvm-*
 /usr/bin/qubes-*
 /usr/bin/qmemmand
