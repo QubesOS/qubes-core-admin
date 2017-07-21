@@ -1,7 +1,7 @@
 #
 # The Qubes OS Project, http://www.qubes-os.org
 #
-# Copyright (C) 2016 Marek Marczykowski-Górecki 
+# Copyright (C) 2016 Marek Marczykowski-Górecki
 #                               <marmarek@invisiblethingslab.com>
 #
 # This program is free software; you can redistribute it and/or modify

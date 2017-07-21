@@ -19,6 +19,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 import argparse
 import functools
+import os
 import subprocess
 import tarfile
 import io
@@ -29,12 +30,21 @@ class TarSparseInfo(tarfile.TarInfo):
     def __init__(self, name="", sparsemap=None):
         super(TarSparseInfo, self).__init__(name)
         if sparsemap is not None:
-            self.type = tarfile.GNUTYPE_SPARSE
-            self.sparsemap = list(sparsemap)
+            self.type = tarfile.REGTYPE
+            self.sparsemap = sparsemap
+            self.sparsemap_buf = self.format_sparse_map()
             # compact size
-            self.size = functools.reduce(lambda x, y: x+y[1], sparsemap, 0)
+            self.size = functools.reduce(lambda x, y: x+y[1], sparsemap,
+                0) + len(self.sparsemap_buf)
+            self.pax_headers['GNU.sparse.major'] = '1'
+            self.pax_headers['GNU.sparse.minor'] = '0'
+            self.pax_headers['GNU.sparse.name'] = name
+            self.pax_headers['GNU.sparse.realsize'] = str(self.realsize)
+            self.name = '{}/GNUSparseFile.{}/{}'.format(
+                os.path.dirname(name), os.getpid(), os.path.basename(name))
         else:
             self.sparsemap = []
+            self.sparsemap_buf = b''
 
     @property
     def realsize(self):
@@ -42,56 +52,22 @@ class TarSparseInfo(tarfile.TarInfo):
             return self.sparsemap[-1][0] + self.sparsemap[-1][1]
         return self.size
 
-    def sparse_header_chunk(self, index):
-        if index < len(self.sparsemap):
-            return b''.join([
-                tarfile.itn(self.sparsemap[index][0], 12, tarfile.GNU_FORMAT),
-                tarfile.itn(self.sparsemap[index][1], 12, tarfile.GNU_FORMAT),
-            ])
-        return b'\0' * 12 * 2
+    def format_sparse_map(self):
+        sparsemap_txt = (str(len(self.sparsemap)) + '\n' +
+            ''.join('{}\n{}\n'.format(*entry) for entry in self.sparsemap))
+        sparsemap_txt_len = len(sparsemap_txt)
+        if sparsemap_txt_len % tarfile.BLOCKSIZE:
+            padding = '\0' * (tarfile.BLOCKSIZE -
+                              sparsemap_txt_len % tarfile.BLOCKSIZE)
+        else:
+            padding = ''
+        return (sparsemap_txt + padding).encode()
 
-    def get_gnu_header(self):
-        '''Part placed in 'prefix' field of posix header'''
-
-        parts = [
-            tarfile.itn(self.mtime, 12, tarfile.GNU_FORMAT),  # atime
-            tarfile.itn(self.mtime, 12, tarfile.GNU_FORMAT),  # ctime
-            tarfile.itn(0, 12, tarfile.GNU_FORMAT),  # offset
-            tarfile.stn('', 4, tarfile.ENCODING, 'surrogateescape'),  #longnames
-            b'\0',  # unused_pad2
-        ]
-        parts += [self.sparse_header_chunk(i) for i in range(4)]
-        parts += [
-            b'\1' if len(self.sparsemap) > 4 else b'\0',  # isextended
-            tarfile.itn(self.realsize, 12, tarfile.GNU_FORMAT),  # realsize
-        ]
-        return b''.join(parts)
-
-    def get_info(self):
-        info = super(TarSparseInfo, self).get_info()
-        # place GNU extension into
-        info['prefix'] = self.get_gnu_header().decode(tarfile.ENCODING)
-        return info
-
-    def tobuf(self, format=tarfile.DEFAULT_FORMAT, encoding=tarfile.ENCODING,
+    def tobuf(self, format=tarfile.PAX_FORMAT, encoding=tarfile.ENCODING,
             errors="strict"):
         # pylint: disable=redefined-builtin
         header_buf = super(TarSparseInfo, self).tobuf(format, encoding, errors)
-        if len(self.sparsemap) > 4:
-            return header_buf + b''.join(self.create_ext_sparse_headers())
-        return header_buf
-
-    def create_ext_sparse_headers(self):
-        for ext_hdr in range(4, len(self.sparsemap), 21):
-            sparse_parts = [
-                self.sparse_header_chunk(i).decode(
-                    tarfile.ENCODING, 'surrogateescape')
-                for i in range(ext_hdr, ext_hdr+21)]
-            sparse_parts.append(
-                '\1' if ext_hdr+21 < len(self.sparsemap) else '\0')
-            yield tarfile.stn(''.join(sparse_parts), 512,
-                    tarfile.ENCODING, 'surrogateescape')
-
+        return header_buf + self.sparsemap_buf
 
 def get_sparse_map(input_file):
     '''
@@ -190,7 +166,7 @@ def main(args=None):
         output = compress.stdin
     else:
         compress = None
-    output.write(tar_info.tobuf(tarfile.GNU_FORMAT))
+    output.write(tar_info.tobuf(tarfile.PAX_FORMAT))
     copy_sparse_data(input_file, output, sparse_map)
     finalize(output)
     input_file.close()
