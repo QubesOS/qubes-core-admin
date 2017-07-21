@@ -642,6 +642,11 @@ class Backup(object):
                         pass
                     raise
 
+                yield from tar_sparse.wait()
+                if tar_sparse.returncode:
+                    raise qubes.exc.QubesException(
+                        'Failed to archive {} file'.format(file_info.path))
+
 
             # This VM done, update progress
             self._done_vms_bytes += vm_info.size
