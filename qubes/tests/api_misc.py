@@ -37,9 +37,10 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
 
     def configure_qdb(self, entries):
         self.src.configure_mock(**{
-            'qdb.read.side_effect': (lambda path: entries.get(path, None)),
-            'qdb.list.side_effect': (lambda path:
-                sorted(map(str.encode, entries.keys()))),
+            'untrusted_qdb.read.side_effect': (
+                lambda path: entries.get(path, None)),
+            'untrusted_qdb.list.side_effect': (
+                lambda path: sorted(map(str.encode, entries.keys()))),
         })
 
     def call_mgmt_func(self, method, arg=b'', payload=b''):
@@ -64,10 +65,10 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             mock.call.save()
         ])
         self.assertEqual(self.src.mock_calls, [
-            mock.call.qdb.list('/features-request/'),
-            mock.call.qdb.read('/features-request/feature1'),
-            mock.call.qdb.read('/features-request/feature2'),
-            mock.call.qdb.read('/features-request/feature3'),
+            mock.call.untrusted_qdb.list('/features-request/'),
+            mock.call.untrusted_qdb.read('/features-request/feature1'),
+            mock.call.untrusted_qdb.read('/features-request/feature2'),
+            mock.call.untrusted_qdb.read('/features-request/feature3'),
             mock.call.fire_event('features-request', untrusted_features={
                 'feature1': '1', 'feature2': '', 'feature3': 'other'})
         ])
@@ -80,7 +81,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             mock.call.save()
         ])
         self.assertEqual(self.src.mock_calls, [
-            mock.call.qdb.list('/features-request/'),
+            mock.call.untrusted_qdb.list('/features-request/'),
             mock.call.fire_event('features-request', untrusted_features={})
         ])
 
@@ -93,8 +94,8 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             self.call_mgmt_func(b'qubes.FeaturesRequest')
         self.assertEqual(self.app.mock_calls, [])
         self.assertEqual(self.src.mock_calls, [
-            mock.call.qdb.list('/features-request/'),
-            mock.call.qdb.read('/features-request/feature1'),
+            mock.call.untrusted_qdb.list('/features-request/'),
+            mock.call.untrusted_qdb.read('/features-request/feature1'),
         ])
 
     def test_003_features_request_invalid2(self):
@@ -106,8 +107,8 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             self.call_mgmt_func(b'qubes.FeaturesRequest')
         self.assertEqual(self.app.mock_calls, [])
         self.assertEqual(self.src.mock_calls, [
-            mock.call.qdb.list('/features-request/'),
-            mock.call.qdb.read('/features-request/feature1'),
+            mock.call.untrusted_qdb.list('/features-request/'),
+            mock.call.untrusted_qdb.read('/features-request/feature1'),
         ])
 
     def test_010_notify_tools(self):
@@ -125,9 +126,9 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             mock.call.save()
         ])
         self.assertEqual(self.src.mock_calls, [
-            mock.call.qdb.read('/qubes-tools/qrexec'),
-            mock.call.qdb.read('/qubes-tools/gui'),
-            mock.call.qdb.read('/qubes-tools/default-user'),
+            mock.call.untrusted_qdb.read('/qubes-tools/qrexec'),
+            mock.call.untrusted_qdb.read('/qubes-tools/gui'),
+            mock.call.untrusted_qdb.read('/qubes-tools/default-user'),
             mock.call.fire_event('features-request', untrusted_features={
                 'gui': '1',
                 'default-user': 'user',
@@ -146,9 +147,9 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         response = self.call_mgmt_func(b'qubes.NotifyTools')
         self.assertIsNone(response)
         self.assertEqual(self.src.mock_calls, [
-            mock.call.qdb.read('/qubes-tools/qrexec'),
-            mock.call.qdb.read('/qubes-tools/gui'),
-            mock.call.qdb.read('/qubes-tools/default-user'),
+            mock.call.untrusted_qdb.read('/qubes-tools/qrexec'),
+            mock.call.untrusted_qdb.read('/qubes-tools/gui'),
+            mock.call.untrusted_qdb.read('/qubes-tools/default-user'),
             mock.call.fire_event('features-request', untrusted_features={
                 'gui': '1',
                 'default-user': 'user',
@@ -169,7 +170,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             self.call_mgmt_func(b'qubes.NotifyTools')
         self.assertEqual(self.app.mock_calls, [])
         self.assertEqual(self.src.mock_calls, [
-            mock.call.qdb.read('/qubes-tools/qrexec'),
+            mock.call.untrusted_qdb.read('/qubes-tools/qrexec'),
         ])
 
     def test_016_notify_tools_invalid_value_gui(self):
@@ -185,8 +186,8 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             self.call_mgmt_func(b'qubes.NotifyTools')
         self.assertEqual(self.app.mock_calls, [])
         self.assertEqual(self.src.mock_calls, [
-            mock.call.qdb.read('/qubes-tools/qrexec'),
-            mock.call.qdb.read('/qubes-tools/gui'),
+            mock.call.untrusted_qdb.read('/qubes-tools/qrexec'),
+            mock.call.untrusted_qdb.read('/qubes-tools/gui'),
         ])
 
     def test_020_notify_updates_standalone(self):

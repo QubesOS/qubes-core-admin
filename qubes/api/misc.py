@@ -52,9 +52,9 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
         prefix = '/features-request/'
 
         keys = [key.decode('ascii', errors='strict')
-            for key in self.src.qdb.list(prefix)]
+            for key in self.src.untrusted_qdb.list(prefix)]
         untrusted_features = {key[len(prefix):]:
-            self.src.qdb.read(key).decode('ascii', errors='strict')
+            self.src.untrusted_qdb.read(key).decode('ascii', errors='strict')
                 for key in keys}
 
         safe_set = string.ascii_letters + string.digits
@@ -79,7 +79,8 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
         safe_set = string.ascii_letters + string.digits
         expected_features = ('qrexec', 'gui', 'default-user')
         for feature in expected_features:
-            untrusted_value = self.src.qdb.read('/qubes-tools/' + feature)
+            untrusted_value = self.src.untrusted_qdb.read(
+                '/qubes-tools/' + feature)
             if untrusted_value:
                 untrusted_value = untrusted_value.decode('ascii',
                     errors='strict')

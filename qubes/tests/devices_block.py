@@ -120,7 +120,7 @@ class TestApp(object):
 class TestVM(object):
     def __init__(self, qdb, domain_xml=None, running=True, name='test-vm'):
         self.name = name
-        self.qdb = TestQubesDB(qdb)
+        self.untrusted_qdb = TestQubesDB(qdb)
         self.libvirt_domain = mock.Mock()
         self.is_running = lambda: running
         self.log = mock.Mock()

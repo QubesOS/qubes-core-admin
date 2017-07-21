@@ -167,7 +167,7 @@ class AdminVM(qubes.vm.BaseVM):
         return None
 
     @property
-    def qdb(self):
+    def untrusted_qdb(self):
         '''QubesDB handle for this domain.'''
         if self._qdb_connection is None:
             import qubesdb  # pylint: disable=import-error

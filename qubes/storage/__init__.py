@@ -419,7 +419,8 @@ class Storage(object):
         # trigger watches to update device status
         # FIXME: this should be removed once libvirt will report such
         # events itself
-        # self.vm.qdb.write('/qubes-block-devices', '') ← do we need this?
+        # self.vm.untrusted_qdb.write('/qubes-block-devices', '')
+        # ← do we need this?
 
     def _is_already_attached(self, volume):
         ''' Checks if the given volume is already attached '''

@@ -590,7 +590,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 yield block_dev
 
     @property
-    def qdb(self):
+    def untrusted_qdb(self):
         '''QubesDB handle for this domain.'''
         if self._qdb_connection is None:
             if self.is_running():
@@ -1714,53 +1714,53 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         '''
         # pylint: disable=no-member
 
-        self.qdb.write('/name', self.name)
-        self.qdb.write('/type', self.__class__.__name__)
-        self.qdb.write('/qubes-vm-updateable', str(self.updateable))
-        self.qdb.write('/qubes-vm-persistence',
+        self.untrusted_qdb.write('/name', self.name)
+        self.untrusted_qdb.write('/type', self.__class__.__name__)
+        self.untrusted_qdb.write('/qubes-vm-updateable', str(self.updateable))
+        self.untrusted_qdb.write('/qubes-vm-persistence',
             'full' if self.updateable else 'rw-only')
-        self.qdb.write('/qubes-debug-mode', str(int(self.debug)))
+        self.untrusted_qdb.write('/qubes-debug-mode', str(int(self.debug)))
         try:
-            self.qdb.write('/qubes-base-template', self.template.name)
+            self.untrusted_qdb.write('/qubes-base-template', self.template.name)
         except AttributeError:
-            self.qdb.write('/qubes-base-template', '')
+            self.untrusted_qdb.write('/qubes-base-template', '')
 
-        self.qdb.write('/qubes-random-seed',
+        self.untrusted_qdb.write('/qubes-random-seed',
             base64.b64encode(qubes.utils.urandom(64)))
 
         if self.provides_network:
             # '/qubes-netvm-network' value is only checked for being non empty
-            self.qdb.write('/qubes-netvm-network', self.gateway)
-            self.qdb.write('/qubes-netvm-gateway', self.gateway)
-            self.qdb.write('/qubes-netvm-netmask', self.netmask)
+            self.untrusted_qdb.write('/qubes-netvm-network', self.gateway)
+            self.untrusted_qdb.write('/qubes-netvm-gateway', self.gateway)
+            self.untrusted_qdb.write('/qubes-netvm-netmask', self.netmask)
 
             for i, addr in zip(('primary', 'secondary'), self.dns):
-                self.qdb.write('/qubes-netvm-{}-dns'.format(i), addr)
+                self.untrusted_qdb.write('/qubes-netvm-{}-dns'.format(i), addr)
 
         if self.netvm is not None:
-            self.qdb.write('/qubes-ip', self.visible_ip)
-            self.qdb.write('/qubes-netmask', self.visible_netmask)
-            self.qdb.write('/qubes-gateway', self.visible_gateway)
+            self.untrusted_qdb.write('/qubes-ip', self.visible_ip)
+            self.untrusted_qdb.write('/qubes-netmask', self.visible_netmask)
+            self.untrusted_qdb.write('/qubes-gateway', self.visible_gateway)
 
             for i, addr in zip(('primary', 'secondary'), self.dns):
-                self.qdb.write('/qubes-{}-dns'.format(i), addr)
+                self.untrusted_qdb.write('/qubes-{}-dns'.format(i), addr)
 
 
         tzname = qubes.utils.get_timezone()
         if tzname:
-            self.qdb.write('/qubes-timezone', tzname)
+            self.untrusted_qdb.write('/qubes-timezone', tzname)
 
         for feature, value in self.features.items():
             if not feature.startswith('service.'):
                 continue
             service = feature[len('service.'):]
             # forcefully convert to '0' or '1'
-            self.qdb.write('/qubes-service/{}'.format(service),
+            self.untrusted_qdb.write('/qubes-service/{}'.format(service),
                 str(int(bool(value))))
 
-        self.qdb.write('/qubes-block-devices', '')
+        self.untrusted_qdb.write('/qubes-block-devices', '')
 
-        self.qdb.write('/qubes-usb-devices', '')
+        self.untrusted_qdb.write('/qubes-usb-devices', '')
 
         # TODO: Currently the whole qmemman is quite Xen-specific, so stay with
         # xenstore for it until decided otherwise
