@@ -248,6 +248,18 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             This event is a good place to add your custom entries to the qdb.
 
+        .. event:: domain-qdb-change:watched-path (subject, event, path)
+
+            Fired when watched QubesDB entry is changed. See
+            :py:meth:`watch_qdb_path`. *watched-path* part of event name is
+            what path was registered for watching, *path* in event argument
+            is what actually have changed (which may be different if watching a
+            directory, i.e. a path with `/` at the end).
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-qdb-change'``)
+            :param path: changed QubesDB path
+
         .. event:: backup-get-files (subject, event)
 
             Collects additional file to be included in a backup.
@@ -725,6 +737,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # it might be already initialized by a recursive call from a child VM
         if self.storage is None:
             self.storage = qubes.storage.Storage(self)
+
+        if not self.app.vmm.offline_mode and self.is_running():
+            self.start_qdb_watch(self.name)
 
     @qubes.events.handler('property-set:label')
     def on_property_set_label(self, event, name, newvalue, oldvalue=None):
@@ -1769,6 +1784,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 [{'dom': self.xid}])
 
         self.fire_event('domain-qdb-create')
+
+        self.start_qdb_watch(self.name)
 
     # TODO async; update this in constructor
     def _update_libvirt_domain(self):
