@@ -24,14 +24,8 @@
 '''Qubes Virtual Machines
 
 '''
-
-import datetime
-import os
 import re
 import string
-import subprocess
-import sys
-import xml.parsers.expat
 
 import lxml.etree
 

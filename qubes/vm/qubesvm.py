@@ -26,6 +26,8 @@ from __future__ import absolute_import
 import asyncio
 import base64
 import datetime
+import errno
+import grp
 import os
 import os.path
 import shutil
@@ -34,11 +36,8 @@ import subprocess
 import uuid
 import warnings
 
-import grp
-
-import errno
-import lxml
 import libvirt  # pylint: disable=import-error
+import lxml
 
 import qubes
 import qubes.config
