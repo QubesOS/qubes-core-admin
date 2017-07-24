@@ -40,7 +40,7 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             'untrusted_qdb.read.side_effect': (
                 lambda path: entries.get(path, None)),
             'untrusted_qdb.list.side_effect': (
-                lambda path: sorted(map(str.encode, entries.keys()))),
+                lambda path: sorted(entries.keys())),
         })
 
     def call_mgmt_func(self, method, arg=b'', payload=b''):

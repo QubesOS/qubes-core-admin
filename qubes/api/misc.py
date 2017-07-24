@@ -51,8 +51,7 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
 
         prefix = '/features-request/'
 
-        keys = [key.decode('ascii', errors='strict')
-            for key in self.src.untrusted_qdb.list(prefix)]
+        keys = self.src.untrusted_qdb.list(prefix)
         untrusted_features = {key[len(prefix):]:
             self.src.untrusted_qdb.read(key).decode('ascii', errors='strict')
                 for key in keys}

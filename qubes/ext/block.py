@@ -124,12 +124,11 @@ class BlockDeviceExtension(qubes.ext.Extension):
     def on_device_list_block(self, vm, event):
         # pylint: disable=unused-argument,no-self-use
 
-        safe_set = {ord(c) for c in
-            string.ascii_letters + string.digits}
+        safe_set = string.ascii_letters + string.digits
         if not vm.is_running():
             return
         untrusted_qubes_devices = vm.untrusted_qdb.list('/qubes-block-devices/')
-        untrusted_idents = set(untrusted_path.split(b'/', 3)[2]
+        untrusted_idents = set(untrusted_path.split('/', 3)[2]
             for untrusted_path in untrusted_qubes_devices)
         for untrusted_ident in untrusted_idents:
             if not all(c in safe_set for c in untrusted_ident):
@@ -138,7 +137,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 vm.log.warning(msg % vm.name)
                 continue
 
-            ident = untrusted_ident.decode('ascii', errors='strict')
+            ident = untrusted_ident
 
             device_info = self.device_get(vm, ident)
             if device_info:
