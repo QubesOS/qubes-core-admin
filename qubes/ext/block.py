@@ -106,6 +106,18 @@ class BlockDevice(qubes.devices.DeviceInfo):
 
 
 class BlockDeviceExtension(qubes.ext.Extension):
+    @qubes.ext.handler('domain-init', 'domain-load')
+    def on_domain_init_load(self, vm, event):
+        '''Initialize watching for changes'''
+        # pylint: disable=unused-argument,no-self-use
+        vm.watch_qdb_path('/qubes-block-devices')
+
+    @qubes.ext.handler('domain-qdb-change:/qubes-block-devices')
+    def on_qdb_change(self, vm, event, path):
+        '''A change in QubesDB means a change in device list'''
+        # pylint: disable=unused-argument,no-self-use
+        vm.fire_event('device-list-change:block')
+
     def device_get(self, vm, ident):
         # pylint: disable=no-self-use
         '''Read information about device from QubesDB
