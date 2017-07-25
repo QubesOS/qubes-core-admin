@@ -229,12 +229,10 @@ class TC_20_PropertyHolder(qubes.tests.QubesTestCase):
         self.assertIs(self.holder.property_get_def(TestHolder.testprop1),
             TestHolder.testprop1)
 
-    @unittest.expectedFailure
     def test_002_load_properties(self):
         self.holder.load_properties()
 
-        self.assertEventFired(self.holder, 'property-loaded')
-        self.assertEventNotFired(self.holder, 'property-set:testprop1')
+        self.assertEventFired(self.holder, 'property-set:testprop1')
 
         self.assertEqual(self.holder.testprop1, 'testvalue1')
         self.assertEqual(self.holder.testprop2, 'testref2')

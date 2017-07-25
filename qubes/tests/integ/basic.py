@@ -127,7 +127,6 @@ class TC_01_Properties(qubes.tests.SystemTestCase):
         testvm1.label = 'orange'
         testvm1.memory = 512
         firewall = testvm1.firewall
-        firewall.policy = 'drop'
         firewall.rules = [
             qubes.firewall.Rule(None, action='accept', dsthost='1.2.3.0/24',
                 proto='tcp', dstports=22)]
@@ -455,20 +454,20 @@ class TC_05_StandaloneVM(qubes.tests.SystemTestCase):
         super(TC_05_StandaloneVM, self).setUp()
         self.init_default_template()
 
-    @unittest.expectedFailure
     def test_000_create_start(self):
         testvm1 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
                                      name=self.make_vm_name('vm1'), label='red')
+        testvm1.features['qrexec'] = True
         self.loop.run_until_complete(
             testvm1.clone_disk_files(self.app.default_template))
         self.app.save()
         self.loop.run_until_complete(testvm1.start())
         self.assertEqual(testvm1.get_power_state(), "Running")
 
-    @unittest.expectedFailure
     def test_100_resize_root_img(self):
         testvm1 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
                                      name=self.make_vm_name('vm1'), label='red')
+        testvm1.features['qrexec'] = True
         self.loop.run_until_complete(
             testvm1.clone_disk_files(self.app.default_template))
         self.app.save()
