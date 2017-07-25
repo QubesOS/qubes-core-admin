@@ -513,13 +513,22 @@ class Storage(object):
         src_volume = src_vm.volumes[name]
         msg = "Importing volume {!s} from vm {!s}"
         self.vm.log.info(msg.format(src_volume.name, src_vm.name))
+
+        # First create the destination volume
+        create_op_ret = dst.create()
+        # clone/import functions may be either synchronous or asynchronous
+        # in the later case, we need to wait for them to finish
+        if asyncio.iscoroutine(create_op_ret):
+            yield from create_op_ret
+
+        # Then import data from source volume
         clone_op_ret = dst.import_volume(src_volume)
 
         # clone/import functions may be either synchronous or asynchronous
         # in the later case, we need to wait for them to finish
         if asyncio.iscoroutine(clone_op_ret):
-            clone_op_ret = yield from clone_op_ret
-        self.vm.volumes[name] = clone_op_ret
+            yield from clone_op_ret
+        self.vm.volumes[name] = dst
         return self.vm.volumes[name]
 
     @asyncio.coroutine
@@ -528,8 +537,8 @@ class Storage(object):
 
         self.vm.volumes = {}
         with VmCreationManager(self.vm):
-            yield from asyncio.wait(self.clone_volume(src_vm, vol_name)
-                for vol_name in self.vm.volume_config.keys())
+            yield from asyncio.wait([self.clone_volume(src_vm, vol_name)
+                for vol_name in self.vm.volume_config.keys()])
 
     @property
     def outdated_volumes(self):
