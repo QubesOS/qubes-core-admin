@@ -180,15 +180,6 @@ class TC_01_Properties(qubes.tests.SystemTestCase):
                 name=self.vmname, label='red')
             self.loop.run_until_complete(self.vm2.create_on_disk())
 
-    def test_030_rename_conflict_app(self):
-        vm2name = self.make_vm_name('newname')
-
-        self.vm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
-            name=vm2name, template=self.app.default_template, label='red')
-
-        with self.assertNotRaises(OSError):
-            with self.assertRaises(qubes.exc.QubesException):
-                self.vm2.name = self.vmname
 
 class TC_02_QvmPrefs(qubes.tests.SystemTestCase):
     # pylint: disable=attribute-defined-outside-init
