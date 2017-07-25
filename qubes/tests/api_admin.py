@@ -422,7 +422,6 @@ class TC_00_VMs(AdminAPITestCase):
         value = self.call_mgmt_func(b'admin.vm.volume.Revert',
             b'test-vm1', b'private', b'rev1')
         self.assertIsNone(value)
-        print(repr(self.vm.volumes.mock_calls))
         self.assertEqual(self.vm.volumes.mock_calls, [
             ('__getitem__', ('private', ), {}),
             ('__getitem__().revert', ('rev1', ), {}),
@@ -1532,6 +1531,7 @@ class TC_00_VMs(AdminAPITestCase):
     @unittest.mock.patch('qubes.storage.Storage.remove')
     @unittest.mock.patch('shutil.rmtree')
     def test_500_vm_remove(self, mock_rmtree, mock_remove):
+        mock_remove.side_effect = self.dummy_coro
         value = self.call_mgmt_func(b'admin.vm.Remove', b'test-vm1')
         self.assertIsNone(value)
         mock_rmtree.assert_called_once_with(
@@ -1542,6 +1542,7 @@ class TC_00_VMs(AdminAPITestCase):
     @unittest.mock.patch('qubes.storage.Storage.remove')
     @unittest.mock.patch('shutil.rmtree')
     def test_501_vm_remove_running(self, mock_rmtree, mock_remove):
+        mock_remove.side_effect = self.dummy_coro
         with unittest.mock.patch.object(
                 self.vm, 'get_power_state', lambda: 'Running'):
             with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
