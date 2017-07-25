@@ -406,8 +406,7 @@ class TC_03_FilePool(qubes.tests.QubesTestCase):
                                    expected_private_path)
 
         expected_rootcow_path = os.path.join(expected_vmdir, 'root-cow.img')
-        self.assertEqualAndExists(vm.volumes['root'].path_cow,
-                                   expected_rootcow_path)
+        self.assertEqual(vm.volumes['root'].path_cow, expected_rootcow_path)
 
     def assertEqualAndExists(self, result_path, expected_path):
         """ Check if the ``result_path``, matches ``expected_path`` and exists.
