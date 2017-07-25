@@ -428,7 +428,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         # Then paste it to the other window
         window_title = 'user@{}'.format(testvm2.name)
         p = self.loop.run_until_complete(testvm2.run(
-            'zenity --entry --title={} > test.txt'.format(window_title)))
+            'zenity --entry --title={} > /tmp/test.txt'.format(window_title)))
         self.wait_for_window(window_title)
 
         subprocess.check_call(['xdotool', 'key', '--delay', '100',
@@ -437,7 +437,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
 
         # And compare the result
         (test_output, _) = self.loop.run_until_complete(
-            testvm2.run_for_stdio('cat test.txt'))
+            testvm2.run_for_stdio('cat /tmp/test.txt'))
         self.assertEqual(test_string, test_output.strip().decode('ascii'))
 
         clipboard_content = \
