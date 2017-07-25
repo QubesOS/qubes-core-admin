@@ -867,7 +867,7 @@ class SystemTestCase(QubesTestCase):
         while timeout > 0:
             if not vm.is_running():
                 return
-            time.sleep(1)
+            self.loop.run_until_complete(asyncio.sleep(1))
             timeout -= 1
         self.fail("Timeout while waiting for VM {} shutdown".format(vm.name))
 
