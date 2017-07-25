@@ -30,7 +30,6 @@ import functools
 import xen.lowlevel.xc
 import xen.lowlevel.xs
 
-import qubes
 import qubes.qmemman.algo
 
 
@@ -141,24 +140,16 @@ class SystemState(object):
                     self.domdict[i].memory_actual <= self.domdict[i].last_target + self.XEN_FREE_MEM_LEFT/4:
                 dom_name = self.xs.read('', '/local/domain/%s/name' % str(i))
                 if dom_name is not None:
-                    try:
-                        qubes.Qubes().domains[str(dom_name)].fire_event(
-                            'status:no-error', status='no-error',
-                            msg=slow_memset_react_msg)
-                    except LookupError:
-                        pass
+                    # TODO: report it somewhere, qubesd or elsewhere
+                    pass
                 self.domdict[i].slow_memset_react = False
 
             if self.domdict[i].no_progress and \
                     self.domdict[i].memory_actual <= self.domdict[i].last_target + self.XEN_FREE_MEM_LEFT/4:
                 dom_name = self.xs.read('', '/local/domain/%s/name' % str(i))
                 if dom_name is not None:
-                    try:
-                        qubes.Qubes().domains[str(dom_name)].fire_event(
-                            'status:no-error', status='no-error',
-                            msg=no_progress_msg)
-                    except LookupError:
-                        pass
+                    # TODO: report it somewhere, qubesd or elsewhere
+                    pass
                 self.domdict[i].no_progress = False
 
 #the below works (and is fast), but then 'xm list' shows unchanged memory value
@@ -343,13 +334,8 @@ class SystemState(object):
                                 self.domdict[dom2].no_progress = True
                                 dom_name = self.xs.read('', '/local/domain/%s/name' % str(dom2))
                                 if dom_name is not None:
-                                    try:
-                                        qubes.Qubes().domains[str(
-                                            dom_name)].fire_event(
-                                            'status:error', status='error',
-                                            msg=no_progress_msg)
-                                    except LookupError:
-                                        pass
+                                    # TODO: report it somewhere, qubesd or elsewhere
+                                    pass
                             else:
                                 self.log.warning('dom {!r} still hold more'
                                     ' memory than have assigned ({} > {})'
@@ -359,13 +345,8 @@ class SystemState(object):
                                 self.domdict[dom2].slow_memset_react = True
                                 dom_name = self.xs.read('', '/local/domain/%s/name' % str(dom2))
                                 if dom_name is not None:
-                                    try:
-                                        qubes.Qubes().domains[str(
-                                            dom_name)].fire_event(
-                                            'status:error', status='error',
-                                            msg=slow_memset_react_msg)
-                                    except LookupError:
-                                        pass
+                                    # TODO: report it somewhere, qubesd or elsewhere
+                                    pass
                     self.mem_set(dom, self.get_free_xen_memory() + self.domdict[dom].memory_actual - self.XEN_FREE_MEM_LEFT)
                     return
 
