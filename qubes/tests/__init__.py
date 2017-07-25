@@ -581,6 +581,8 @@ class SystemTestCase(QubesTestCase):
     be used to create Qubes(CLASS_XMLPATH) object and create/import required
     stuff there. VMs created in :py:meth:`TestCase.setUpClass` should
     use self.make_vm_name('...', class_teardown=True) for name creation.
+    Such (group of) test need to take care about
+    :py:meth:`TestCase.tearDownClass` implementation itself.
     """
     # noinspection PyAttributeOutsideInit
     def setUp(self):
@@ -678,27 +680,20 @@ class SystemTestCase(QubesTestCase):
             if isinstance(getattr(self, attr), qubes.vm.BaseVM):
                 delattr(self, attr)
 
-    @classmethod
-    def tearDownClass(cls):
-        super(SystemTestCase, cls).tearDownClass()
-        if not in_dom0:
-            return
-        cls.remove_test_vms(xmlpath=CLASS_XMLPATH, prefix=CLSVMPREFIX)
 
-    @classmethod
-    def _remove_vm_qubes(cls, vm):
+    def _remove_vm_qubes(self, vm):
         vmname = vm.name
         app = vm.app
 
         try:
             # XXX .is_running() may throw libvirtError if undefined
             if vm.is_running():
-                vm.kill()
+                self.loop.run_until_complete(vm.kill())
         except: # pylint: disable=bare-except
             pass
 
         try:
-            vm.remove_from_disk()
+            self.loop.run_until_complete(vm.remove_from_disk())
         except:  # pylint: disable=bare-except
             pass
 
@@ -712,14 +707,18 @@ class SystemTestCase(QubesTestCase):
         # for example if vm.libvirt_domain malfunctioned.
         try:
             conn = libvirt.open(qubes.config.defaults['libvirt_uri'])
-            dom = conn.lookupByName(vmname)
         except:  # pylint: disable=bare-except
             pass
         else:
-            cls._remove_vm_libvirt(dom)
+            try:
+                dom = conn.lookupByName(vmname)
+            except:  # pylint: disable=bare-except
+                pass
+            else:
+                self._remove_vm_libvirt(dom)
             conn.close()
 
-        cls._remove_vm_disk(vmname)
+        self._remove_vm_disk(vmname)
 
 
     @staticmethod
@@ -765,21 +764,19 @@ class SystemTestCase(QubesTestCase):
         except subprocess.CalledProcessError:
             pass
 
-    @classmethod
-    def remove_vms(cls, vms):
+    def remove_vms(self, vms):
         for vm in vms:
-            cls._remove_vm_qubes(vm)
+            self._remove_vm_qubes(vm)
 
 
-    @classmethod
-    def remove_test_vms(cls, xmlpath=XMLPATH, prefix=VMPREFIX):
+    def remove_test_vms(self, xmlpath=XMLPATH, prefix=VMPREFIX):
         '''Aggresively remove any domain that has name in testing namespace.
         '''
 
         # first, remove them Qubes-way
         if os.path.exists(xmlpath):
             try:
-                cls.remove_vms(vm for vm in qubes.Qubes(xmlpath).domains
+                self.remove_vms(vm for vm in qubes.Qubes(xmlpath).domains
                     if vm.name.startswith(prefix))
             except (qubes.exc.QubesException, lxml.etree.XMLSyntaxError):
                 # If qubes-test.xml is broken that much it doesn't even load,
@@ -792,7 +789,7 @@ class SystemTestCase(QubesTestCase):
         conn = libvirt.open(qubes.config.defaults['libvirt_uri'])
         for dom in conn.listAllDomains():
             if dom.name().startswith(prefix):
-                cls._remove_vm_libvirt(dom)
+                self._remove_vm_libvirt(dom)
         conn.close()
 
         # finally remove anything that is left on disk
@@ -807,8 +804,8 @@ class SystemTestCase(QubesTestCase):
                 if name.startswith(prefix):
                     vmnames.add(name)
         for vmname in vmnames:
-            cls._remove_vm_disk(vmname)
-        cls._remove_vm_disk_lvm(prefix)
+            self._remove_vm_disk(vmname)
+        self._remove_vm_disk_lvm(prefix)
 
     def qrexec_policy(self, service, source, destination, allow=True):
         """
