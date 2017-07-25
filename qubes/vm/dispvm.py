@@ -78,11 +78,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             # template is only passed if the AppVM is created, in other cases we
             # don't need to patch the volume_config because the config is
             # coming from XML, already as we need it
-
-            for name, conf in self.volume_config.items():
-                tpl_volume = template.volumes[name]
-                self.config_volume_from_source(conf, tpl_volume)
-
             for name, config in template.volume_config.items():
                 # in case the template vm has more volumes add them to own
                 # config

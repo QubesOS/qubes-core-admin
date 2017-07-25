@@ -110,7 +110,7 @@ class TC_90_AppVM(qubes.tests.vm.qubesvm.QubesVMTestsMixin,
         self.assertNotEqual(vm.volume_config['root'].get('source', None),
             self.template.volumes['root'].source)
         self.assertEqual(vm.volume_config['root'].get('source', None),
-            template2.volumes['root'].source)
+            template2.volumes['root'])
 
     def test_003_template_change_running(self):
         vm = self.get_vm()

@@ -349,33 +349,43 @@ class Storage(object):
 
         if hasattr(vm, 'volume_config'):
             for name, conf in self.vm.volume_config.items():
-                conf = conf.copy()
-                if 'source' in conf:
-                    template = getattr(vm, 'template', None)
-                    # recursively lookup source volume - templates may be
-                    # chained (TemplateVM -> AppVM -> DispVM, where the
-                    # actual source should be used from TemplateVM)
-                    while template:
-                        # we have no control over VM load order,
-                        # so initialize storage recursively if needed
-                        if template.storage is None:
-                            template.storage = Storage(template)
-                        # FIXME: this effectively ignore 'source' value;
-                        # maybe we don't need it at all if it's always from
-                        # VM's template?
-                        conf['source'] = template.volumes[name]
-                        if conf['source'].source is not None:
-                            template = getattr(template, 'template', None)
-                        else:
-                            break
-
                 self.init_volume(name, conf)
+
+    def _update_volume_config_source(self, name, volume_config):
+        '''Retrieve 'source' volume from VM's template'''
+        template = getattr(self.vm, 'template', None)
+        # recursively lookup source volume - templates may be
+        # chained (TemplateVM -> AppVM -> DispVM, where the
+        # actual source should be used from TemplateVM)
+        while template:
+            source = template.volumes[name]
+            volume_config['source'] = source
+            volume_config['pool'] = source.pool
+            volume_config['size'] = source.size
+            if source.source is not None:
+                template = getattr(template, 'template', None)
+            else:
+                break
 
     def init_volume(self, name, volume_config):
         ''' Initialize Volume instance attached to this domain '''
 
         if 'name' not in volume_config:
             volume_config['name'] = name
+
+        if 'source' in volume_config:
+            # we have no control over VM load order,
+            # so initialize storage recursively if needed
+            template = getattr(self.vm, 'template', None)
+            if template and template.storage is None:
+                template.storage = Storage(template)
+
+            if volume_config['source'] is None:
+                self._update_volume_config_source(name, volume_config)
+            else:
+                # if source is already specified, pool needs to be too
+                pool = self.vm.app.get_pool(volume_config['pool'])
+                volume_config['source'] = pool.volumes[volume_config['source']]
 
         # if pool still unknown, load default
         if 'pool' not in volume_config:
