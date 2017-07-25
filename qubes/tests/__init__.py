@@ -756,11 +756,11 @@ class SystemTestCase(QubesTestCase):
             volumes = subprocess.check_output(
                 ['sudo', 'lvs', '--noheadings', '-o', 'vg_name,name',
                     '--separator', '/']).decode()
-            if ('/' + prefix) not in volumes:
+            if ('/vm-' + prefix) not in volumes:
                 return
             subprocess.check_call(['sudo', 'lvremove', '-f'] +
                 [vol.strip() for vol in volumes.splitlines()
-                    if ('/' + prefix) in vol],
+                    if ('/vm-' + prefix) in vol],
                 stdout=subprocess.DEVNULL)
         except subprocess.CalledProcessError:
             pass
