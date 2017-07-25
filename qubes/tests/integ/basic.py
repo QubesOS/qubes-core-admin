@@ -65,6 +65,20 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         with self.assertNotRaises(qubes.exc.QubesException):
             vm.storage.verify()
 
+    def test_040_qdb_watch(self):
+        flag = set()
+
+        def handler(vm, event, path):
+            if path == '/test-watch-path':
+                flag.add(True)
+
+        vm = self.app.domains[0]
+        vm.watch_qdb_path('/test-watch-path')
+        vm.add_handler('domain-qdb-change:/test-watch-path', handler)
+        self.assertFalse(flag)
+        vm.untrusted_qdb.write('/test-watch-path', 'test-value')
+        self.loop.run_until_complete(asyncio.sleep(0.1))
+        self.assertTrue(flag)
 
 class TC_01_Properties(qubes.tests.SystemTestCase):
     # pylint: disable=attribute-defined-outside-init
