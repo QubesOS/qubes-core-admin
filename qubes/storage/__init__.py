@@ -373,15 +373,15 @@ class Storage(object):
 
     def init_volume(self, name, volume_config):
         ''' Initialize Volume instance attached to this domain '''
-        assert 'pool' in volume_config, "Pool missing in volume_config " + str(
-            volume_config)
 
         if 'name' not in volume_config:
             volume_config['name'] = name
+
+        # if pool still unknown, load default
         if 'pool' not in volume_config:
-            pool = getattr(self.vm.app, 'default_pool_' + name)
-        else:
-            pool = self.vm.app.get_pool(volume_config['pool'])
+            volume_config['pool'] = \
+                getattr(self.vm.app, 'default_pool_' + name)
+        pool = self.vm.app.get_pool(volume_config['pool'])
         if 'internal' in volume_config:
             # migrate old config
             del volume_config['internal']

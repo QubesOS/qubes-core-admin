@@ -95,12 +95,12 @@ class TC_00_Pool(SystemTestCase):
     def test_002_get_pool_klass(self):
         """ Expect the default pool to be `FilePool` """
         # :pylint: disable=protected-access
-        result = self.app.get_pool('default')
+        result = self.app.get_pool('varlibqubes')
         self.assertIsInstance(result, FilePool)
 
     def test_003_pool_exists_default(self):
         """ Expect the default pool to exists """
-        self.assertPoolExists('default')
+        self.assertPoolExists('varlibqubes')
 
     def test_004_add_remove_pool(self):
         """ Tries to adding and removing a pool. """

@@ -60,6 +60,10 @@ class TestApp(qubes.tests.TestEmitter):
         self.vmm = TestVMM()
         self.host = TestHost()
         self.pools = {}
+        self.default_pool_volatile = 'default'
+        self.default_pool_root = 'default'
+        self.default_pool_private = 'default'
+        self.default_pool_kernel = 'linux-kernel'
         self.domains = {}
         #: jinja2 environment for libvirt XML templates
         self.env = jinja2.Environment(

@@ -44,7 +44,6 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
     default_volume_config = {
             'root': {
                 'name': 'root',
-                'pool': 'default',
                 'snap_on_start': True,
                 'save_on_stop': False,
                 'rw': False,
@@ -52,7 +51,6 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
             },
             'private': {
                 'name': 'private',
-                'pool': 'default',
                 'snap_on_start': False,
                 'save_on_stop': True,
                 'rw': True,
@@ -60,7 +58,6 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
             },
             'volatile': {
                 'name': 'volatile',
-                'pool': 'default',
                 'snap_on_start': False,
                 'save_on_stop': False,
                 'size': defaults['root_img_size'],
@@ -68,7 +65,6 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
             },
             'kernel': {
                 'name': 'kernel',
-                'pool': 'linux-kernel',
                 'snap_on_start': False,
                 'save_on_stop': False,
                 'rw': False,

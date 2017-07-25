@@ -80,7 +80,7 @@ class TC_00_FilePool(qubes.tests.QubesTestCase):
             .. sealso::
                Data :data:``qubes.qubes.defaults['pool_config']``.
         """
-        result = self.app.get_pool("default").dir_path
+        result = self.app.get_pool("varlibqubes").dir_path
         expected = '/var/lib/qubes'
         self.assertEqual(result, expected)
 

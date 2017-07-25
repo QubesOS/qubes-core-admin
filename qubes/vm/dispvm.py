@@ -43,7 +43,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         self.volume_config = {
             'root': {
                 'name': 'root',
-                'pool': 'default',
                 'snap_on_start': True,
                 'save_on_stop': False,
                 'rw': False,
@@ -51,7 +50,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             },
             'private': {
                 'name': 'private',
-                'pool': 'default',
                 'snap_on_start': True,
                 'save_on_stop': False,
                 'rw': True,
@@ -59,7 +57,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             },
             'volatile': {
                 'name': 'volatile',
-                'pool': 'default',
                 'snap_on_start': False,
                 'save_on_stop': False,
                 'rw': True,
@@ -68,7 +65,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             },
             'kernel': {
                 'name': 'kernel',
-                'pool': 'linux-kernel',
                 'snap_on_start': False,
                 'save_on_stop': False,
                 'rw': False,

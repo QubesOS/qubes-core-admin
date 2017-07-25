@@ -577,7 +577,7 @@ def _default_pool(app):
         for pool in app.pools.values():
             if pool.config.get('driver', None) != 'file':
                 continue
-            if pool.config['dir_path'] == '/var/lib/qubes':
+            if pool.config['dir_path'] == qubes.config.qubes_base_dir:
                 return pool
         raise AttributeError('Cannot determine default storage pool')
 
@@ -966,11 +966,8 @@ class Qubes(qubes.PropertyHolder):
         # check if the default LVM Thin pool qubes_dom0/pool00 exists
         if os.path.exists('/dev/mapper/qubes_dom0-pool00-tpool'):
             self.add_pool(volume_group='qubes_dom0', thin_pool='pool00',
-                          name='default', driver='lvm_thin')
-        else:
-            self.pools['default'] = self._get_pool(
-                dir_path=qubes.config.qubes_base_dir,
-                name='default', driver='file')
+                          name='lvm', driver='lvm_thin')
+        # pool based on /var/lib/qubes will be created here:
         for name, config in qubes.config.defaults['pool_configs'].items():
             self.pools[name] = self._get_pool(**config)
 
