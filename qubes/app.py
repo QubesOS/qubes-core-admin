@@ -672,23 +672,28 @@ class Qubes(qubes.PropertyHolder):
 
     default_pool = qubes.property('default_pool', load_stage=3,
         default=_default_pool,
+        setter=_setter_pool,
         doc='Default storage pool')
 
     default_pool_private = qubes.property('default_pool_private', load_stage=3,
         default=lambda app: app.default_pool,
+        setter=_setter_pool,
         doc='Default storage pool for private volumes')
 
     default_pool_root = qubes.property('default_pool_root', load_stage=3,
         default=lambda app: app.default_pool,
+        setter=_setter_pool,
         doc='Default storage pool for root volumes')
 
     default_pool_volatile = qubes.property('default_pool_volatile',
         load_stage=3,
         default=lambda app: app.default_pool,
+        setter=_setter_pool,
         doc='Default storage pool for volatile volumes')
 
     default_pool_kernel = qubes.property('default_pool_kernel', load_stage=3,
         default=lambda app: app.default_pool,
+        setter=_setter_pool,
         doc='Default storage pool for kernel volumes')
 
     # TODO #1637 #892
