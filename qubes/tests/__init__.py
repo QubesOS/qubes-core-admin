@@ -94,6 +94,9 @@ try:
 except libvirt.libvirtError:
     pass
 
+if in_dom0:
+    import libvirtaio
+
 try:
     in_git = subprocess.check_output(
         ['git', 'rev-parse', '--show-toplevel']).decode().strip()
@@ -590,6 +593,7 @@ class SystemTestCase(QubesTestCase):
         if not in_dom0:
             self.skipTest('outside dom0')
         super(SystemTestCase, self).setUp()
+        libvirtaio.virEventRegisterAsyncIOImpl(loop=self.loop)
         self.remove_test_vms()
 
         # need some information from the real qubes.xml - at least installed
@@ -603,6 +607,7 @@ class SystemTestCase(QubesTestCase):
             shutil.copy(self.host_app.store, XMLPATH)
         self.app = qubes.Qubes(XMLPATH)
         os.environ['QUBES_XML_PATH'] = XMLPATH
+        self.app.vmm.register_event_handlers(self.app)
 
         self.qubesd = self.loop.run_until_complete(
             qubes.api.create_servers(
