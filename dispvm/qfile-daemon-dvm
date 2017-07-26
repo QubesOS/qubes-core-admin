@@ -128,9 +128,26 @@ class QfileDaemonDvm:
         if not os.path.isfile(dvmdata_dir+'default-savefile') or \
                 not os.path.isfile(dvmdata_dir+'savefile-root'):
             return False
+        is_ok = True
+
+        dvm_vmdir = os.readlink(dvmdata_dir+'vmdir')
+        dvm_name = os.path.basename(dvm_vmdir)
+        # force DispVM rebuild on kernel change
+        dvm_kernel_path = subprocess.check_output(['xmllint', '--xpath',
+                '/domain/os/kernel/text()',
+                os.path.join(dvm_vmdir, dvm_name + '.conf')])
+        dvm_current_kernel = subprocess.check_output(
+                ['qvm-prefs', '--get', dvm_name, 'kernel']).strip()
+        if dvm_kernel_path != '/var/lib/qubes/vm-kernels/' + dvm_current_kernel + '/vmlinuz':
+            is_ok = False
+
+        # force DispVM rebuild on template root.img change
         dvm_mtime = os.stat(current_savefile).st_mtime
         root_mtime = os.stat(dvmdata_dir+'savefile-root').st_mtime
         if dvm_mtime < root_mtime:
+            is_ok = False
+
+        if not is_ok:
             template_name = os.path.basename(
                 os.path.dirname(os.readlink(dvmdata_dir+'savefile-root')))
             if subprocess.call(["xl", "domid", template_name],
