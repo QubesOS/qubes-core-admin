@@ -200,6 +200,9 @@ class AbstractQubesAPI(object):
 class QubesDaemonProtocol(asyncio.Protocol):
     buffer_size = 65536
     header = struct.Struct('Bx')
+    # keep track of connections, to gracefully close them at server exit
+    # (including cleanup of integration test)
+    connections = set()
 
     def __init__(self, handler, *args, app, debug=False, **kwargs):
         super().__init__(*args, **kwargs)
@@ -214,6 +217,7 @@ class QubesDaemonProtocol(asyncio.Protocol):
 
     def connection_made(self, transport):
         self.transport = transport
+        self.connections.add(self)
 
     def connection_lost(self, exc):
         self.untrusted_buffer.close()
@@ -221,6 +225,7 @@ class QubesDaemonProtocol(asyncio.Protocol):
         if self.mgmt is not None:
             self.mgmt.cancel()
         self.transport = None
+        self.connections.remove(self)
 
     def data_received(self, untrusted_data):  # pylint: disable=arguments-differ
         if self.len_untrusted_buffer + len(untrusted_data) > self.buffer_size:
