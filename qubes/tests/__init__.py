@@ -48,6 +48,7 @@ import unittest
 import warnings
 from distutils import spawn
 
+import gc
 import lxml.etree
 import pkg_resources
 
@@ -661,25 +662,42 @@ class SystemTestCase(QubesTestCase):
         self.remove_test_vms()
 
         # close the servers before super(), because that might close the loop
+        server = None
         for server in self.qubesd:
             for sock in server.sockets:
                 os.unlink(sock.getsockname())
             server.close()
+        del server
+
+        # close all existing connections, especially this will interrupt
+        # running admin.Events calls, which do keep reference to Qubes() and
+        # libvirt connection
+        conn = None
+        for conn in qubes.api.QubesDaemonProtocol.connections:
+            if conn.transport:
+                conn.transport.abort()
+        del conn
 
         self.loop.run_until_complete(asyncio.wait([
             server.wait_closed() for server in self.qubesd]))
+        del self.qubesd
 
-        super(SystemTestCase, self).tearDown()
-        # remove all references to VM objects, to release resources - most
-        # importantly file descriptors; this object will live
+        # remove all references to any complex qubes objects, to release
+        # resources - most importantly file descriptors; this object will live
         # during the whole test run, but all the file descriptors would be
         # depleted earlier
+        self.app.vmm._libvirt_conn = None
         del self.app
         del self.host_app
         for attr in dir(self):
-            if isinstance(getattr(self, attr), qubes.vm.BaseVM):
+            obj_type = type(getattr(self, attr))
+            if obj_type.__module__.startswith('qubes'):
                 delattr(self, attr)
 
+        # then trigger garbage collector to really destroy those objects
+        gc.collect()
+
+        super(SystemTestCase, self).tearDown()
 
     def _remove_vm_qubes(self, vm):
         vmname = vm.name
@@ -689,7 +707,7 @@ class SystemTestCase(QubesTestCase):
             # XXX .is_running() may throw libvirtError if undefined
             if vm.is_running():
                 self.loop.run_until_complete(vm.kill())
-        except: # pylint: disable=bare-except
+        except:  # pylint: disable=bare-except
             pass
 
         try:
@@ -776,12 +794,14 @@ class SystemTestCase(QubesTestCase):
         # first, remove them Qubes-way
         if os.path.exists(xmlpath):
             try:
-                self.remove_vms(vm for vm in qubes.Qubes(xmlpath).domains
+                try:
+                    app = self.app
+                except AttributeError:
+                    app = qubes.Qubes(xmlpath)
+                self.remove_vms(vm for vm in app.domains
                     if vm.name.startswith(prefix))
-            except (qubes.exc.QubesException, lxml.etree.XMLSyntaxError):
-                # If qubes-test.xml is broken that much it doesn't even load,
-                #  simply remove it. VMs will be cleaned up the hard way.
-                # TODO logging?
+                del app
+            except qubes.exc.QubesException:
                 pass
             os.unlink(xmlpath)
 
