@@ -120,6 +120,8 @@ class VirConnectWrapper(object):
         attr = getattr(self._conn, attrname)
         if not isinstance(attr, collections.Callable):
             return attr
+        if attrname == 'close':
+            return attr
 
         @functools.wraps(attr)
         def wrapper(*args, **kwargs):
