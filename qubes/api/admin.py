@@ -1093,3 +1093,77 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.fire_event_for_permission()
 
         self.dest.fire_event('firewall-changed')
+
+    def _send_stats_single(self, info_time, info, only_vm, filters,
+            id_to_name_map):
+        '''A single iteration of sending VM stats
+
+        :param info_time: time of previous iteration
+        :param info: information retrieved in previous iteration
+        :param only_vm: send information only about this VM
+        :param filters: filters to apply on stats before sending
+        :param id_to_name_map: ID->VM name map, may be modified
+        :return: tuple(info_time, info) - new information (to be passed to
+        the next iteration)
+        '''
+
+        (info_time, info) = self.app.host.get_vm_stats(info_time, info,
+            only_vm=only_vm)
+        for vm_id, vm_info in info.items():
+            if vm_id not in id_to_name_map:
+                try:
+                    name = \
+                        self.app.vmm.libvirt_conn.lookupByID(vm_id).name()
+                except libvirt.libvirtError as err:
+                    if err.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
+                        # stubdomain or so
+                        name = None
+                    else:
+                        raise
+                id_to_name_map[vm_id] = name
+            else:
+                name = id_to_name_map[vm_id]
+
+            # skip VMs with unknown name
+            if name is None:
+                continue
+
+            if not list(qubes.api.apply_filters([name], filters)):
+                continue
+
+            self.send_event(name, 'vm-stats',
+                memory_kb=int(vm_info['memory_kb']),
+                cpu_time=int(vm_info['cpu_time'] / 1000000),
+                cpu_usage=int(vm_info['cpu_usage']))
+
+        return info_time, info
+
+    @qubes.api.method('admin.vm.Stats', no_payload=True,
+        scope='global', read=True)
+    @asyncio.coroutine
+    def vm_stats(self):
+        assert not self.arg
+
+        # run until client connection is terminated
+        self.cancellable = True
+
+        # cache event filters, to not call an event each time an event arrives
+        stats_filters = self.fire_event_for_permission()
+
+        only_vm = None
+        if self.dest.name != 'dom0':
+            only_vm = self.dest
+
+        self.send_event(self.app, 'connection-established')
+
+        info_time = None
+        info = None
+        id_to_name_map = {0: 'dom0'}
+        try:
+            while True:
+                info_time, info = self._send_stats_single(info_time, info,
+                    only_vm, stats_filters, id_to_name_map)
+                yield from asyncio.sleep(self.app.stats_interval)
+        except asyncio.CancelledError:
+            # valid method to terminate this loop
+            pass

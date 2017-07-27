@@ -706,6 +706,11 @@ class Qubes(qubes.PropertyHolder):
         default=lambda app: app.default_pool,
         doc='Default storage pool for kernel volumes')
 
+    stats_interval = qubes.property('stats_interval',
+        default=3,
+        type=int,
+        doc='Interval in seconds for VM stats reporting (memory, CPU usage)')
+
     # TODO #1637 #892
     check_updates_vm = qubes.property('check_updates_vm',
         type=bool, setter=qubes.property.bool,
