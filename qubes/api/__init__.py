@@ -307,7 +307,8 @@ class QubesDaemonProtocol(asyncio.Protocol):
 
         # this is reached if from except: blocks; do not put it in finally:,
         # because this will prevent the good case from sending the reply
-        self.transport.abort()
+        if self.transport:
+            self.transport.abort()
 
     def send_header(self, *args):
         self.transport.write(self.header.pack(*args))
