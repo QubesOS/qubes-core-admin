@@ -254,7 +254,8 @@ class DeviceCollection(object):
 
     def attached(self):
         '''List devices which are (or may be) attached to this vm '''
-        attached = self._vm.fire_event('device-list-attached:' + self._bus)
+        attached = self._vm.fire_event('device-list-attached:' + self._bus,
+            persistent=None)
         if attached:
             return [dev for dev, _ in attached]
 
