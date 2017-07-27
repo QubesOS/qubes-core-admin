@@ -323,7 +323,7 @@ class QubesDaemonProtocol(asyncio.Protocol):
         self.send_header(0x31)
 
         if subject is not self.app:
-            self.transport.write(subject.name.encode('ascii'))
+            self.transport.write(str(subject).encode('ascii'))
         self.transport.write(b'\0')
 
         self.transport.write(event.encode('ascii') + b'\0')
