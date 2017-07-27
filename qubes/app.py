@@ -172,7 +172,7 @@ class VMMConnection(object):
 
         if 'xen.lowlevel.xs' in sys.modules:
             self._xs = xen.lowlevel.xs.xs()
-        if 'xen.lowlevel.cs' in sys.modules:
+        if 'xen.lowlevel.xc' in sys.modules:
             self._xc = xen.lowlevel.xc.xc()
         self._libvirt_conn = VirConnectWrapper(
             qubes.config.defaults['libvirt_uri'])
@@ -214,7 +214,7 @@ class VMMConnection(object):
                 'xc object is available under Xen hypervisor only')
 
         self.init_vmm_connection()
-        return self._xs
+        return self._xc
 
     def register_event_handlers(self, app):
         '''Register libvirt event handlers, which will translate libvirt
@@ -314,55 +314,70 @@ class QubesHost(object):
         return int(self._physinfo['free_memory'])
 
 
-    def measure_cpu_usage(self, previous_time=None, previous=None,
-            wait_time=1):
+    def get_vm_stats(self, previous_time=None, previous=None, only_vm=None):
         '''Measure cpu usage for all domains at once.
+
+        If previous measurements are given, CPU usage will be given in
+        percents of time. Otherwise only absolute value (seconds).
+
+        Return a tuple of (measurements_time, measurements),
+        where measurements is a dictionary with key: domid, value: dict:
+         - cpu_time - absolute CPU usage (seconds since its startup)
+         - cpu_usage - CPU usage in %
+         - memory_kb - current memory assigned, in kb
 
         This function requires Xen hypervisor.
 
-        .. versionchanged:: 3.0
-            argument order to match return tuple
+        ..warning:
+
+           This function may return info about implementation-specific VMs,
+           like stubdomains for HVM
+
+        :param previous: previous measurement
+        :param previous_time: time of previous measurement
+        :param only_vm: get measurements only for this VM
 
         :raises NotImplementedError: when not under Xen
         '''
 
-        if previous is None:
-            previous_time = time.time()
-            previous = {}
-            try:
-                info = self.app.vmm.xc.domain_getinfo(0, qubes.config.max_qid)
-            except AttributeError:
-                raise NotImplementedError(
-                    'This function requires Xen hypervisor')
+        if (previous_time is None) != (previous is None):
+            raise ValueError(
+                'previous and previous_time must be given together (or none)')
 
-            for vm in info:
-                previous[vm['domid']] = {}
-                previous[vm['domid']]['cpu_time'] = (
-                    vm['cpu_time'] / max(vm['online_vcpus'], 1))
-                previous[vm['domid']]['cpu_usage'] = 0
-            time.sleep(wait_time)
+        if previous is None:
+            previous = {}
 
         current_time = time.time()
         current = {}
         try:
-            info = self.app.vmm.xc.domain_getinfo(0, qubes.config.max_qid)
+            if only_vm:
+                xid = only_vm.xid
+                if xid < 0:
+                    raise qubes.exc.QubesVMNotRunningError(only_vm)
+                info = self.app.vmm.xc.domain_getinfo(xid, 1)
+                if info[0]['domid'] != xid:
+                    raise qubes.exc.QubesVMNotRunningError(only_vm)
+            else:
+                info = self.app.vmm.xc.domain_getinfo(0, 1024)
         except AttributeError:
             raise NotImplementedError(
                 'This function requires Xen hypervisor')
+        # TODO: add stubdomain stats to actual VMs
         for vm in info:
-            current[vm['domid']] = {}
-            current[vm['domid']]['cpu_time'] = (
+            domid = vm['domid']
+            current[domid] = {}
+            current[domid]['memory_kb'] = vm['mem_kb']
+            current[domid]['cpu_time'] = int(
                 vm['cpu_time'] / max(vm['online_vcpus'], 1))
-            if vm['domid'] in previous.keys():
-                current[vm['domid']]['cpu_usage'] = (
-                    float(current[vm['domid']]['cpu_time'] -
-                        previous[vm['domid']]['cpu_time']) /
-                    1000 ** 3 / (current_time - previous_time) * 100)
-                if current[vm['domid']]['cpu_usage'] < 0:
+            if domid in previous:
+                current[domid]['cpu_usage'] = int(
+                    (current[domid]['cpu_time'] - previous[domid]['cpu_time'])
+                    / 1000 ** 3 * 100 / (current_time - previous_time))
+                if current[domid]['cpu_usage'] < 0:
                     # VM has been rebooted
-                    current[vm['domid']]['cpu_usage'] = 0
+                    current[domid]['cpu_usage'] = 0
             else:
-                current[vm['domid']]['cpu_usage'] = 0
+                current[domid]['cpu_usage'] = 0
 
         return (current_time, current)
 
