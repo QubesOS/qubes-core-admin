@@ -663,7 +663,7 @@ class Qubes(qubes.PropertyHolder):
         doc='''Which VM to use as `yum` proxy for updating AdminVM and
             TemplateVMs''')
     clockvm = qubes.VMProperty('clockvm', load_stage=3,
-        allow_none=True,
+        default=None, allow_none=True,
         doc='Which VM to use as NTP proxy for updating AdminVM')
     default_kernel = qubes.property('default_kernel', load_stage=3,
         doc='Which kernel to use when not overriden in VM')
@@ -802,17 +802,6 @@ class Qubes(qubes.PropertyHolder):
         self.property_require('default_template')
         self.property_require('clockvm', allow_none=True)
         self.property_require('updatevm', allow_none=True)
-
-        # Disable ntpd in ClockVM - to not conflict with ntpdate (both are
-        # using 123/udp port)
-        if hasattr(self, 'clockvm') and self.clockvm is not None:
-            if self.clockvm.features.get('service.ntpd', False):
-                self.log.warning(
-                    'VM set as clockvm (%r) has enabled \'ntpd\' service! '
-                    'Expect failure when syncing time in dom0.',
-                    self.clockvm)
-            else:
-                self.clockvm.features['service.ntpd'] = ''
 
         for vm in self.domains:
             vm.events_enabled = True
@@ -1149,13 +1138,14 @@ class Qubes(qubes.PropertyHolder):
         # pylint: disable=unused-argument,no-self-use
         if newvalue is None:
             return
-        if newvalue.features.get('service.ntpd', False):
-            raise qubes.exc.QubesVMError(newvalue,
-                'Cannot set {!r} as {!r} since it has ntpd enabled.'.format(
-                    newvalue.name, name))
-        else:
-            newvalue.features['service.ntpd'] = ''
+        if 'service.clocksync' not in newvalue.features:
+            newvalue.features['service.clocksync'] = True
 
+    @qubes.events.handler('property-set:clockvm')
+    def on_property_set_clockvm(self, event, name, newvalue, oldvalue=None):
+        # pylint: disable=unused-argument,no-self-use
+        if oldvalue and oldvalue.features.get('service.clocksync', False):
+            del oldvalue.features['service.clocksync']
 
     @qubes.events.handler(
         'property-pre-set:default_netvm',
