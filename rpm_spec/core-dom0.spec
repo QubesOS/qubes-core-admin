@@ -289,6 +289,7 @@ fi
 %{python3_sitelib}/qubes/ext/pci.py
 %{python3_sitelib}/qubes/ext/qubesmanager.py
 %{python3_sitelib}/qubes/ext/r3compatibility.py
+%{python3_sitelib}/qubes/ext/services.py
 
 %dir %{python3_sitelib}/qubes/tests
 %dir %{python3_sitelib}/qubes/tests/__pycache__
