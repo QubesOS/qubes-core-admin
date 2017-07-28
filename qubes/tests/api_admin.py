@@ -1930,7 +1930,7 @@ class TC_00_VMs(AdminAPITestCase):
 
         @asyncio.coroutine
         def service_passphrase(*args, **kwargs):
-            return ('pass-from-vm', None)
+            return (b'pass-from-vm', None)
 
         mock_backup.return_value.backup_do.side_effect = self.dummy_coro
         self.vm.run_service_for_stdio = unittest.mock.Mock(
@@ -1950,7 +1950,7 @@ class TC_00_VMs(AdminAPITestCase):
             target_vm=self.vm,
             target_dir='/home/user',
             compressed=True,
-            passphrase='pass-from-vm')
+            passphrase=b'pass-from-vm')
         mock_backup.return_value.backup_do.assert_called_once_with()
         self.vm.run_service_for_stdio.assert_called_with(
             'qubes.BackupPassphrase+testprofile')

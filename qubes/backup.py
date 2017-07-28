@@ -200,6 +200,7 @@ def launch_scrypt(action, input_name, output_name, passphrase):
     :param input_name: input path or '-' for stdin
     :param output_name: output path or '-' for stdout
     :param passphrase: passphrase
+    :type passphrase: bytes
     :return: subprocess.Popen object
     '''
     command_line = ['scrypt', action, input_name, output_name]
@@ -217,7 +218,7 @@ def launch_scrypt(action, input_name, output_name, passphrase):
         if actual_prompt != prompt:
             raise qubes.exc.QubesException(
                 'Unexpected prompt from scrypt: {}'.format(actual_prompt))
-        pty.write(passphrase.encode('utf-8') + b'\n')
+        pty.write(passphrase + b'\n')
         pty.flush()
     # save it here, so garbage collector would not close it (which would kill
     #  the child)
@@ -492,8 +493,8 @@ class Backup(object):
         backup_header.save(header_file_path)
         # Start encrypt, scrypt will also handle integrity
         # protection
-        scrypt_passphrase = u'{filename}!{passphrase}'.format(
-            filename=HEADER_FILENAME, passphrase=self.passphrase)
+        scrypt_passphrase = '{filename}!'.format(
+            filename=HEADER_FILENAME).encode() + self.passphrase
         scrypt = yield from launch_scrypt(
             'enc', header_file_path, header_file_path + '.hmac',
             scrypt_passphrase)
@@ -545,11 +546,10 @@ class Backup(object):
             # Start encrypt, scrypt will also handle integrity
             # protection
             scrypt_passphrase = \
-                u'{backup_id}!{filename}!{passphrase}'.format(
+                '{backup_id}!{filename}!'.format(
                     backup_id=self.backup_id,
                     filename=os.path.relpath(chunkfile[:-4],
-                        self.tmpdir),
-                    passphrase=self.passphrase)
+                        self.tmpdir)).encode() + self.passphrase
             try:
                 scrypt = yield from launch_scrypt(
                     "enc", "-", chunkfile, scrypt_passphrase)
@@ -691,6 +691,8 @@ class Backup(object):
         # pylint: disable=too-many-statements
         if self.passphrase is None:
             raise qubes.exc.QubesException("No passphrase set")
+        if not isinstance(self.passphrase, bytes):
+            self.passphrase = self.passphrase.encode('utf-8')
         qubes_xml = self.app.store
         self.tmpdir = tempfile.mkdtemp()
         shutil.copy(qubes_xml, os.path.join(self.tmpdir, 'qubes.xml'))

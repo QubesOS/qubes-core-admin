@@ -1146,7 +1146,6 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             except KeyError:
                 raise qubes.exc.QubesException(
                     'Invalid backup profile - invalid passphrase_vm')
-            # TODO .decode()?
             passphrase, _ = yield from passphrase_vm.run_service_for_stdio(
                 'qubes.BackupPassphrase+' + self.arg)
         else:
