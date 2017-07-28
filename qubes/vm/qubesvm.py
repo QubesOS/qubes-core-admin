@@ -278,7 +278,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             :param value: new value
             :param oldvalue: old value, if any
 
-        .. event:: domain-feature-delete (subject, event, key)
+        .. event:: domain-feature-delete (subject, event, feature)
 
             A feature was removed.
 
