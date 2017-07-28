@@ -652,9 +652,6 @@ class Backup(object):
             self._done_vms_bytes += vm_info.size
             self._current_vm_bytes = 0
             self._send_progress_update()
-            # Save date of last backup
-            if vm_info.vm:
-                vm_info.vm.backup_timestamp = datetime.datetime.now()
 
         yield from output_queue.put(QUEUE_FINISHED)
 
@@ -799,9 +796,16 @@ class Backup(object):
                 os.close(backup_stdout)
             else:
                 backup_stdout.close()
-            if vmproc_task:
-                yield from vmproc_task
-            shutil.rmtree(self.tmpdir)
+            try:
+                if vmproc_task:
+                    yield from vmproc_task
+            finally:
+                shutil.rmtree(self.tmpdir)
+
+        # Save date of last backup, only when backup succeeded
+        for qid, vm_info in files_to_backup.items():
+            if vm_info.vm:
+                vm_info.vm.backup_timestamp = datetime.datetime.now()
 
         self.app.save()
 
