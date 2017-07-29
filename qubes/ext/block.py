@@ -56,7 +56,7 @@ class BlockDevice(qubes.devices.DeviceInfo):
                 return self.ident
             safe_set = {ord(c) for c in
                 string.ascii_letters + string.digits + '()+,-.:=_/ '}
-            untrusted_desc = self.backend_domain.qdb.read(
+            untrusted_desc = self.backend_domain.untrusted_qdb.read(
                 '/qubes-block-devices/{}/desc'.format(self.ident))
             desc = ''.join((chr(c) if c in safe_set else '_')
                 for c in untrusted_desc)
@@ -69,7 +69,7 @@ class BlockDevice(qubes.devices.DeviceInfo):
         if self._mode is None:
             if not self.backend_domain.is_running():
                 return 'w'
-            untrusted_mode = self.backend_domain.qdb.read(
+            untrusted_mode = self.backend_domain.untrusted_qdb.read(
                 '/qubes-block-devices/{}/mode'.format(self.ident))
             if untrusted_mode is None:
                 self._mode = 'w'
@@ -87,7 +87,7 @@ class BlockDevice(qubes.devices.DeviceInfo):
         if self._size is None:
             if not self.backend_domain.is_running():
                 return None
-            untrusted_size = self.backend_domain.qdb.read(
+            untrusted_size = self.backend_domain.untrusted_qdb.read(
                 '/qubes-block-devices/{}/size'.format(self.ident))
             if untrusted_size is None:
                 self._size = 0
@@ -106,6 +106,18 @@ class BlockDevice(qubes.devices.DeviceInfo):
 
 
 class BlockDeviceExtension(qubes.ext.Extension):
+    @qubes.ext.handler('domain-init', 'domain-load')
+    def on_domain_init_load(self, vm, event):
+        '''Initialize watching for changes'''
+        # pylint: disable=unused-argument,no-self-use
+        vm.watch_qdb_path('/qubes-block-devices')
+
+    @qubes.ext.handler('domain-qdb-change:/qubes-block-devices')
+    def on_qdb_change(self, vm, event, path):
+        '''A change in QubesDB means a change in device list'''
+        # pylint: disable=unused-argument,no-self-use
+        vm.fire_event('device-list-change:block')
+
     def device_get(self, vm, ident):
         # pylint: disable=no-self-use
         '''Read information about device from QubesDB
@@ -114,7 +126,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
         :param ident: device identifier
         :returns BlockDevice'''
 
-        untrusted_qubes_device_attrs = vm.qdb.list(
+        untrusted_qubes_device_attrs = vm.untrusted_qdb.list(
             '/qubes-block-devices/{}/'.format(ident))
         if not untrusted_qubes_device_attrs:
             return None
@@ -124,12 +136,11 @@ class BlockDeviceExtension(qubes.ext.Extension):
     def on_device_list_block(self, vm, event):
         # pylint: disable=unused-argument,no-self-use
 
-        safe_set = {ord(c) for c in
-            string.ascii_letters + string.digits}
+        safe_set = string.ascii_letters + string.digits
         if not vm.is_running():
             return
-        untrusted_qubes_devices = vm.qdb.list('/qubes-block-devices/')
-        untrusted_idents = set(untrusted_path.split(b'/', 3)[2]
+        untrusted_qubes_devices = vm.untrusted_qdb.list('/qubes-block-devices/')
+        untrusted_idents = set(untrusted_path.split('/', 3)[2]
             for untrusted_path in untrusted_qubes_devices)
         for untrusted_ident in untrusted_idents:
             if not all(c in safe_set for c in untrusted_ident):
@@ -138,7 +149,7 @@ class BlockDeviceExtension(qubes.ext.Extension):
                 vm.log.warning(msg % vm.name)
                 continue
 
-            ident = untrusted_ident.decode('ascii', errors='strict')
+            ident = untrusted_ident
 
             device_info = self.device_get(vm, ident)
             if device_info:

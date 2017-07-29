@@ -1,4 +1,27 @@
 #!/bin/sh
+#
+# This Admin API call is implemented as a custom script, instead of dumb
+# passthrough to qubesd because it may get huge amount of data (whole root.img
+# for example). qubesd cannot handle it because:
+#  1. It loads the whole payload into memory, before even start looking at it
+#     (and later, do not allow to modify/append it).
+#  2. There is 64kB limit on payload size that qubesd can handle (because of
+#     point 1).
+#  3. Performance reasons (qubesd is not optimized for performance, passing
+#     such large data stream through it would take ages).
+#
+# The whole admin.vm.volume.Import consists of:
+#    1. Permissions checks, getting a path from appropriate storage pool (done
+#       by qubesd)
+#    2. Actual data import (done by this script, using dd)
+#    3. Report final result, produce final response to the caller (done by
+#       qubesd)
+#    
+#    This way we do not pass all the data through qubesd, but still can
+#    control the process from there in a meaningful way. Note that the last
+#    part (second call to qubesd) may perform all kind of verification (like
+#    a signature check on the data, or so) and can also prevent VM from
+#    starting (hooking also domain-pre-start event) from not verified image.
 
 set -e
 

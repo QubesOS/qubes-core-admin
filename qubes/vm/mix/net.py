@@ -291,12 +291,12 @@ class NetVMMixin(qubes.events.Emitter):
         base_dir = '/qubes-firewall/' + vm.ip + '/'
         # remove old entries if any (but don't touch base empty entry - it
         # would trigger reload right away
-        self.qdb.rm(base_dir)
+        self.untrusted_qdb.rm(base_dir)
         # write new rules
         for key, value in vm.firewall.qdb_entries(addr_family=4).items():
-            self.qdb.write(base_dir + key, value)
+            self.untrusted_qdb.write(base_dir + key, value)
         # signal its done
-        self.qdb.write(base_dir[:-1], '')
+        self.untrusted_qdb.write(base_dir[:-1], '')
 
     def set_mapped_ip_info_for_vm(self, vm):
         '''
@@ -307,14 +307,15 @@ class NetVMMixin(qubes.events.Emitter):
         # add info about remapped IPs (VM IP hidden from the VM itself)
         mapped_ip_base = '/mapped-ip/{}'.format(vm.ip)
         if vm.visible_ip:
-            self.qdb.write(mapped_ip_base + '/visible-ip', vm.visible_ip)
+            self.untrusted_qdb.write(mapped_ip_base + '/visible-ip',
+                vm.visible_ip)
         else:
-            self.qdb.rm(mapped_ip_base + '/visible-ip')
+            self.untrusted_qdb.rm(mapped_ip_base + '/visible-ip')
         if vm.visible_gateway:
-            self.qdb.write(mapped_ip_base + '/visible-gateway',
+            self.untrusted_qdb.write(mapped_ip_base + '/visible-gateway',
                 vm.visible_gateway)
         else:
-            self.qdb.rm(mapped_ip_base + '/visible-gateway')
+            self.untrusted_qdb.rm(mapped_ip_base + '/visible-gateway')
 
 
     @qubes.events.handler('property-del:netvm')

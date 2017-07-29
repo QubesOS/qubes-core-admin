@@ -24,14 +24,9 @@
 '''Qubes Virtual Machines
 
 '''
-
-import datetime
-import os
+import asyncio
 import re
 import string
-import subprocess
-import sys
-import xml.parsers.expat
 
 import lxml.etree
 
@@ -271,6 +266,8 @@ class BaseVM(qubes.PropertyHolder):
         # self.app must be set before super().__init__, because some property
         # setters need working .app attribute
         #: mother :py:class:`qubes.Qubes` object
+        self._qdb_watch_paths = set()
+        self._qdb_connection_watch = None
         self.app = app
 
         super(BaseVM, self).__init__(xml, **kwargs)
@@ -392,6 +389,55 @@ class BaseVM(qubes.PropertyHolder):
                 'libvirt/xen.xml',
             ]).render(vm=self)
         return domain_config
+
+    def watch_qdb_path(self, path):
+        '''Add a QubesDB path to be watched.
+
+        Each change to the path will cause `domain-qdb-change:path` event to be
+        fired.
+        You can call this method for example in response to
+        `domain-init` and `domain-load` events.
+        '''
+
+        if path not in self._qdb_watch_paths:
+            self._qdb_watch_paths.add(path)
+            if self._qdb_connection_watch:
+                self._qdb_connection_watch.watch(path)
+
+    def _qdb_watch_reader(self, loop):
+        '''Callback when self._qdb_connection_watch.watch_fd() FD is
+        readable.
+
+        Read reported event (watched path change) and fire appropriate event.
+        '''
+        import qubesdb  # pylint: disable=import-error
+        try:
+            path = self._qdb_connection_watch.read_watch()
+            for watched_path in self._qdb_watch_paths:
+                if watched_path == path or (
+                            watched_path.endswith('/') and
+                            path.startswith(watched_path)):
+                    self.fire_event('domain-qdb-change:' + watched_path,
+                        path=path)
+        except qubesdb.DisconnectedError:
+            loop.remove_reader(self._qdb_connection_watch.watch_fd())
+            self._qdb_connection_watch.close()
+            self._qdb_connection_watch = None
+
+    def start_qdb_watch(self, name, loop=None):
+        '''Start watching QubesDB
+
+        Calling this method in appropriate time is responsibility of child
+        class.
+        '''
+        import qubesdb  # pylint: disable=import-error
+        self._qdb_connection_watch = qubesdb.QubesDB(name)
+        if loop is None:
+            loop = asyncio.get_event_loop()
+        loop.add_reader(self._qdb_connection_watch.watch_fd(),
+            self._qdb_watch_reader, loop)
+        for path in self._qdb_watch_paths:
+            self._qdb_connection_watch.watch(path)
 
 
 class VMProperty(qubes.property):

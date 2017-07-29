@@ -44,11 +44,17 @@ Such extension should provide:
  domain of given identifier
  - handle `device-list-attached:class` event - list currently attached
  devices to this domain
+ - fire `device-list-change:class` event when device list change is detected
+ (new/removed device)
 
 Note that device-listing event handlers can not be asynchronous. This for
 example means you can not call qrexec service there. This is intentional to
 keep device listing operation cheap. You need to design the extension to take
 this into account (for example by using QubesDB).
+
+Extension may use QubesDB watch API (QubesVM.watch_qdb_path(path), then handle
+`domain-qdb-change:path`) to detect changes and fire
+`device-list-change:class` event.
 '''
 import asyncio
 

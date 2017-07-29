@@ -55,6 +55,9 @@ class AdminVM(qubes.vm.BaseVM):
         self._qdb_connection = None
         self._libvirt_domain = None
 
+        if not self.app.vmm.offline_mode:
+            self.start_qdb_watch('dom0')
+
     def __str__(self):
         return self.name
 
@@ -167,7 +170,7 @@ class AdminVM(qubes.vm.BaseVM):
         return None
 
     @property
-    def qdb(self):
+    def untrusted_qdb(self):
         '''QubesDB handle for this domain.'''
         if self._qdb_connection is None:
             import qubesdb  # pylint: disable=import-error

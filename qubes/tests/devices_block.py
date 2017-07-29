@@ -94,13 +94,9 @@ class TestQubesDB(object):
         self._data = data
 
     def read(self, key):
-        if isinstance(key, str):
-            key = key.encode()
         return self._data.get(key, None)
 
     def list(self, prefix):
-        if isinstance(prefix, str):
-            prefix = prefix.encode()
         return [key for key in self._data if key.startswith(prefix)]
 
 
@@ -120,7 +116,7 @@ class TestApp(object):
 class TestVM(object):
     def __init__(self, qdb, domain_xml=None, running=True, name='test-vm'):
         self.name = name
-        self.qdb = TestQubesDB(qdb)
+        self.untrusted_qdb = TestQubesDB(qdb)
         self.libvirt_domain = mock.Mock()
         self.is_running = lambda: running
         self.log = mock.Mock()
@@ -143,10 +139,10 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
     def test_000_device_get(self):
         vm = TestVM({
-            b'/qubes-block-devices/sda': b'',
-            b'/qubes-block-devices/sda/desc': b'Test device',
-            b'/qubes-block-devices/sda/size': b'1024000',
-            b'/qubes-block-devices/sda/mode': b'w',
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'w',
         })
         device_info = self.ext.device_get(vm, 'sda')
         self.assertIsInstance(device_info, qubes.ext.block.BlockDevice)
@@ -161,10 +157,10 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
     def test_001_device_get_other_node(self):
         vm = TestVM({
-            b'/qubes-block-devices/mapper_dmroot': b'',
-            b'/qubes-block-devices/mapper_dmroot/desc': b'Test device',
-            b'/qubes-block-devices/mapper_dmroot/size': b'1024000',
-            b'/qubes-block-devices/mapper_dmroot/mode': b'w',
+            '/qubes-block-devices/mapper_dmroot': b'',
+            '/qubes-block-devices/mapper_dmroot/desc': b'Test device',
+            '/qubes-block-devices/mapper_dmroot/size': b'1024000',
+            '/qubes-block-devices/mapper_dmroot/mode': b'w',
         })
         device_info = self.ext.device_get(vm, 'mapper_dmroot')
         self.assertIsInstance(device_info, qubes.ext.block.BlockDevice)
@@ -179,20 +175,20 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
     def test_002_device_get_invalid_desc(self):
         vm = TestVM({
-            b'/qubes-block-devices/sda': b'',
-            b'/qubes-block-devices/sda/desc': b'Test device<>za\xc4\x87abc',
-            b'/qubes-block-devices/sda/size': b'1024000',
-            b'/qubes-block-devices/sda/mode': b'w',
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device<>za\xc4\x87abc',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'w',
         })
         device_info = self.ext.device_get(vm, 'sda')
         self.assertEqual(device_info.description, 'Test device__za__abc')
 
     def test_003_device_get_invalid_size(self):
         vm = TestVM({
-            b'/qubes-block-devices/sda': b'',
-            b'/qubes-block-devices/sda/desc': b'Test device',
-            b'/qubes-block-devices/sda/size': b'1024000abc',
-            b'/qubes-block-devices/sda/mode': b'w',
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000abc',
+            '/qubes-block-devices/sda/mode': b'w',
         })
         device_info = self.ext.device_get(vm, 'sda')
         self.assertEqual(device_info.size, 0)
@@ -200,10 +196,10 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
     def test_004_device_get_invalid_mode(self):
         vm = TestVM({
-            b'/qubes-block-devices/sda': b'',
-            b'/qubes-block-devices/sda/desc': b'Test device',
-            b'/qubes-block-devices/sda/size': b'1024000',
-            b'/qubes-block-devices/sda/mode': b'abc',
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'abc',
         })
         device_info = self.ext.device_get(vm, 'sda')
         self.assertEqual(device_info.mode, 'w')
@@ -211,24 +207,24 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
     def test_005_device_get_none(self):
         vm = TestVM({
-            b'/qubes-block-devices/sda': b'',
-            b'/qubes-block-devices/sda/desc': b'Test device',
-            b'/qubes-block-devices/sda/size': b'1024000',
-            b'/qubes-block-devices/sda/mode': b'w',
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'w',
         })
         device_info = self.ext.device_get(vm, 'sdb')
         self.assertIsNone(device_info)
 
     def test_010_devices_list(self):
         vm = TestVM({
-            b'/qubes-block-devices/sda': b'',
-            b'/qubes-block-devices/sda/desc': b'Test device',
-            b'/qubes-block-devices/sda/size': b'1024000',
-            b'/qubes-block-devices/sda/mode': b'w',
-            b'/qubes-block-devices/sdb': b'',
-            b'/qubes-block-devices/sdb/desc': b'Test device2',
-            b'/qubes-block-devices/sdb/size': b'2048000',
-            b'/qubes-block-devices/sdb/mode': b'r',
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'w',
+            '/qubes-block-devices/sdb': b'',
+            '/qubes-block-devices/sdb/desc': b'Test device2',
+            '/qubes-block-devices/sdb/size': b'2048000',
+            '/qubes-block-devices/sdb/mode': b'r',
         })
         devices = sorted(list(self.ext.on_device_list_block(vm, '')))
         self.assertEqual(len(devices), 2)
@@ -250,9 +246,9 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
     def test_012_devices_list_invalid_ident(self):
         vm = TestVM({
-            b'/qubes-block-devices/invalid ident': b'',
-            b'/qubes-block-devices/invalid+ident': b'',
-            b'/qubes-block-devices/invalid#': b'',
+            '/qubes-block-devices/invalid ident': b'',
+            '/qubes-block-devices/invalid+ident': b'',
+            '/qubes-block-devices/invalid#': b'',
         })
         devices = sorted(list(self.ext.on_device_list_block(vm, '')))
         self.assertEqual(len(devices), 0)
@@ -334,10 +330,10 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
     def test_040_attach(self):
         back_vm = TestVM(name='sys-usb', qdb={
-            b'/qubes-block-devices/sda': b'',
-            b'/qubes-block-devices/sda/desc': b'Test device',
-            b'/qubes-block-devices/sda/size': b'1024000',
-            b'/qubes-block-devices/sda/mode': b'w',
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'w',
         })
         vm = TestVM({}, domain_xml=domain_xml_template.format(''))
         dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
@@ -353,10 +349,10 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
     def test_041_attach_frontend(self):
         back_vm = TestVM(name='sys-usb', qdb={
-            b'/qubes-block-devices/sda': b'',
-            b'/qubes-block-devices/sda/desc': b'Test device',
-            b'/qubes-block-devices/sda/size': b'1024000',
-            b'/qubes-block-devices/sda/mode': b'w',
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'w',
         })
         vm = TestVM({}, domain_xml=domain_xml_template.format(''))
         dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
@@ -373,10 +369,10 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
     def test_042_attach_read_only(self):
         back_vm = TestVM(name='sys-usb', qdb={
-            b'/qubes-block-devices/sda': b'',
-            b'/qubes-block-devices/sda/desc': b'Test device',
-            b'/qubes-block-devices/sda/size': b'1024000',
-            b'/qubes-block-devices/sda/mode': b'w',
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'w',
         })
         vm = TestVM({}, domain_xml=domain_xml_template.format(''))
         dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
@@ -394,10 +390,10 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
     def test_043_attach_invalid_option(self):
         back_vm = TestVM(name='sys-usb', qdb={
-            b'/qubes-block-devices/sda': b'',
-            b'/qubes-block-devices/sda/desc': b'Test device',
-            b'/qubes-block-devices/sda/size': b'1024000',
-            b'/qubes-block-devices/sda/mode': b'w',
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'w',
         })
         vm = TestVM({}, domain_xml=domain_xml_template.format(''))
         dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
@@ -408,10 +404,10 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
     def test_044_attach_invalid_option2(self):
         back_vm = TestVM(name='sys-usb', qdb={
-            b'/qubes-block-devices/sda': b'',
-            b'/qubes-block-devices/sda/desc': b'Test device',
-            b'/qubes-block-devices/sda/size': b'1024000',
-            b'/qubes-block-devices/sda/mode': b'w',
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'w',
         })
         vm = TestVM({}, domain_xml=domain_xml_template.format(''))
         dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
@@ -422,10 +418,10 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
     def test_045_attach_backend_not_running(self):
         back_vm = TestVM(name='sys-usb', running=False, qdb={
-            b'/qubes-block-devices/sda': b'',
-            b'/qubes-block-devices/sda/desc': b'Test device',
-            b'/qubes-block-devices/sda/size': b'1024000',
-            b'/qubes-block-devices/sda/mode': b'w',
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'w',
         })
         vm = TestVM({}, domain_xml=domain_xml_template.format(''))
         dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
@@ -435,10 +431,10 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
     def test_046_attach_ro_dev_rw(self):
         back_vm = TestVM(name='sys-usb', qdb={
-            b'/qubes-block-devices/sda': b'',
-            b'/qubes-block-devices/sda/desc': b'Test device',
-            b'/qubes-block-devices/sda/size': b'1024000',
-            b'/qubes-block-devices/sda/mode': b'r',
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'r',
         })
         vm = TestVM({}, domain_xml=domain_xml_template.format(''))
         dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
@@ -449,10 +445,10 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
     def test_047_attach_read_only_auto(self):
         back_vm = TestVM(name='sys-usb', qdb={
-            b'/qubes-block-devices/sda': b'',
-            b'/qubes-block-devices/sda/desc': b'Test device',
-            b'/qubes-block-devices/sda/size': b'1024000',
-            b'/qubes-block-devices/sda/mode': b'r',
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'r',
         })
         vm = TestVM({}, domain_xml=domain_xml_template.format(''))
         dev = qubes.ext.block.BlockDevice(back_vm, 'sda')
@@ -469,10 +465,10 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
     def test_050_detach(self):
         back_vm = TestVM(name='sys-usb', qdb={
-            b'/qubes-block-devices/sda': b'',
-            b'/qubes-block-devices/sda/desc': b'Test device',
-            b'/qubes-block-devices/sda/size': b'1024000',
-            b'/qubes-block-devices/sda/mode': b'r',
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'r',
         })
         device_xml = (
             '<disk type="block" device="disk">\n'
@@ -491,10 +487,10 @@ class TC_00_Block(qubes.tests.QubesTestCase):
 
     def test_051_detach_not_attached(self):
         back_vm = TestVM(name='sys-usb', qdb={
-            b'/qubes-block-devices/sda': b'',
-            b'/qubes-block-devices/sda/desc': b'Test device',
-            b'/qubes-block-devices/sda/size': b'1024000',
-            b'/qubes-block-devices/sda/mode': b'r',
+            '/qubes-block-devices/sda': b'',
+            '/qubes-block-devices/sda/desc': b'Test device',
+            '/qubes-block-devices/sda/size': b'1024000',
+            '/qubes-block-devices/sda/mode': b'r',
         })
         device_xml = (
             '<disk type="block" device="disk">\n'
