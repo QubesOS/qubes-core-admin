@@ -164,9 +164,6 @@ class FileVolume(qubes.storage.Volume):
             'Volume size must be > 0'
         if not self.snap_on_start:
             create_sparse_file(self.path, self.size)
-        # path_cow not needed only in volatile volume
-        if self.save_on_stop or self.snap_on_start:
-            create_sparse_file(self.path_cow, self.size)
 
     def remove(self):
         if not self.snap_on_start:

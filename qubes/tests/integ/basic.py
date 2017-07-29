@@ -60,10 +60,10 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         self.assertIsNotNone(vm)
         self.assertEqual(vm.name, vmname)
         self.assertEqual(vm.template, self.app.default_template)
-        vm.create_on_disk()
+        self.loop.run_until_complete(vm.create_on_disk())
 
         with self.assertNotRaises(qubes.exc.QubesException):
-            vm.storage.verify()
+            self.loop.run_until_complete(vm.storage.verify())
 
     def test_040_qdb_watch(self):
         flag = set()
@@ -89,6 +89,7 @@ class TC_01_Properties(qubes.tests.SystemTestCase):
         self.vm = self.app.add_new_vm(qubes.vm.appvm.AppVM, name=self.vmname,
                                       template=self.app.default_template,
                                       label='red')
+        self.loop.run_until_complete(self.vm.create_on_disk())
 
     @unittest.expectedFailure
     def test_030_clone(self):
@@ -104,7 +105,7 @@ class TC_01_Properties(qubes.tests.SystemTestCase):
                                      label='red')
         testvm2.clone_properties(testvm1)
         self.loop.run_until_complete(testvm2.clone_disk_files(testvm1))
-        self.assertTrue(testvm1.storage.verify())
+        self.assertTrue(self.loop.run_until_complete(testvm1.storage.verify()))
         self.assertIn('source', testvm1.volumes['root'].config)
         self.assertNotEquals(testvm2, None)
         self.assertNotEquals(testvm2.volumes, {})
@@ -140,7 +141,6 @@ class TC_01_Properties(qubes.tests.SystemTestCase):
         testvm1.label = 'orange'
         testvm1.memory = 512
         firewall = testvm1.firewall
-        firewall.policy = 'drop'
         firewall.rules = [
             qubes.firewall.Rule(None, action='accept', dsthost='1.2.3.0/24',
                 proto='tcp', dstports=22)]
@@ -193,15 +193,6 @@ class TC_01_Properties(qubes.tests.SystemTestCase):
                 name=self.vmname, label='red')
             self.loop.run_until_complete(self.vm2.create_on_disk())
 
-    def test_030_rename_conflict_app(self):
-        vm2name = self.make_vm_name('newname')
-
-        self.vm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
-            name=vm2name, template=self.app.default_template, label='red')
-
-        with self.assertNotRaises(OSError):
-            with self.assertRaises(qubes.exc.QubesException):
-                self.vm2.name = self.vmname
 
 class TC_02_QvmPrefs(qubes.tests.SystemTestCase):
     # pylint: disable=attribute-defined-outside-init
@@ -229,13 +220,18 @@ class TC_02_QvmPrefs(qubes.tests.SystemTestCase):
         self.app.save()
 
     def pref_set(self, name, value, valid=True):
-        p = subprocess.Popen(
-            ['qvm-prefs'] + self.sharedopts +
-            (['--'] if value != '-D' else []) + [self.testvm.name, name, value],
+        self.loop.run_until_complete(self._pref_set(name, value, valid))
+
+    @asyncio.coroutine
+    def _pref_set(self, name, value, valid=True):
+        cmd = ['qvm-prefs']
+        if value != '-D':
+            cmd.append('--')
+        cmd.extend((self.testvm.name, name, value))
+        p = yield from asyncio.create_subprocess_exec(*cmd,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        (stdout, stderr) = p.communicate()
+            stderr=subprocess.PIPE)
+        (stdout, stderr) = yield from p.communicate()
         if valid:
             self.assertEqual(p.returncode, 0,
                               "qvm-prefs .. '{}' '{}' failed: {}{}".format(
@@ -247,9 +243,14 @@ class TC_02_QvmPrefs(qubes.tests.SystemTestCase):
                                  "property '{}'".format(value, name))
 
     def pref_get(self, name):
-        p = subprocess.Popen(['qvm-prefs'] + self.sharedopts +
-            ['--', self.testvm.name, name], stdout=subprocess.PIPE)
-        (stdout, _) = p.communicate()
+        self.loop.run_until_complete(self._pref_get(name))
+
+    @asyncio.coroutine
+    def _pref_get(self, name):
+        p = yield from asyncio.create_subprocess_exec(
+            'qvm-prefs', *self.sharedopts, '--', self.testvm.name, name,
+            stdout=subprocess.PIPE)
+        (stdout, _) = yield from p.communicate()
         self.assertEqual(p.returncode, 0)
         return stdout.strip()
 
@@ -357,10 +358,13 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestCase):
             self.log.warning("template not modified, test result will be "
                              "unreliable")
         self.assertNotEqual(self.test_template.volumes['root'].revisions, {})
-        with self.assertNotRaises(subprocess.CalledProcessError):
-            pool_vid = repr(self.test_template.volumes['root']).strip("'")
-            revert_cmd = ['qvm-block', 'revert', pool_vid]
-            subprocess.check_call(revert_cmd)
+        pool_vid = repr(self.test_template.volumes['root']).strip("'")
+        revert_cmd = ['qvm-block', 'revert', pool_vid]
+        p = self.loop.run_until_complete(asyncio.create_subprocess_exec(
+            *revert_cmd))
+        self.loop.run_until_complete(p.wait())
+        self.assertEqual(p.returncode, 0)
+
 
         checksum_after = self.get_rootimg_checksum()
         self.assertEqual(checksum_before, checksum_after)
@@ -437,7 +441,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         # Then paste it to the other window
         window_title = 'user@{}'.format(testvm2.name)
         p = self.loop.run_until_complete(testvm2.run(
-            'zenity --entry --title={} > test.txt'.format(window_title)))
+            'zenity --entry --title={} > /tmp/test.txt'.format(window_title)))
         self.wait_for_window(window_title)
 
         subprocess.check_call(['xdotool', 'key', '--delay', '100',
@@ -446,7 +450,7 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
 
         # And compare the result
         (test_output, _) = self.loop.run_until_complete(
-            testvm2.run_for_stdio('cat test.txt'))
+            testvm2.run_for_stdio('cat /tmp/test.txt'))
         self.assertEqual(test_string, test_output.strip().decode('ascii'))
 
         clipboard_content = \
@@ -464,20 +468,20 @@ class TC_05_StandaloneVM(qubes.tests.SystemTestCase):
         super(TC_05_StandaloneVM, self).setUp()
         self.init_default_template()
 
-    @unittest.expectedFailure
     def test_000_create_start(self):
         testvm1 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
                                      name=self.make_vm_name('vm1'), label='red')
+        testvm1.features['qrexec'] = True
         self.loop.run_until_complete(
             testvm1.clone_disk_files(self.app.default_template))
         self.app.save()
         self.loop.run_until_complete(testvm1.start())
         self.assertEqual(testvm1.get_power_state(), "Running")
 
-    @unittest.expectedFailure
     def test_100_resize_root_img(self):
         testvm1 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
                                      name=self.make_vm_name('vm1'), label='red')
+        testvm1.features['qrexec'] = True
         self.loop.run_until_complete(
             testvm1.clone_disk_files(self.app.default_template))
         self.app.save()

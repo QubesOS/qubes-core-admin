@@ -349,39 +349,49 @@ class Storage(object):
 
         if hasattr(vm, 'volume_config'):
             for name, conf in self.vm.volume_config.items():
-                conf = conf.copy()
-                if 'source' in conf:
-                    template = getattr(vm, 'template', None)
-                    # recursively lookup source volume - templates may be
-                    # chained (TemplateVM -> AppVM -> DispVM, where the
-                    # actual source should be used from TemplateVM)
-                    while template:
-                        # we have no control over VM load order,
-                        # so initialize storage recursively if needed
-                        if template.storage is None:
-                            template.storage = Storage(template)
-                        # FIXME: this effectively ignore 'source' value;
-                        # maybe we don't need it at all if it's always from
-                        # VM's template?
-                        conf['source'] = template.volumes[name]
-                        if conf['source'].source is not None:
-                            template = getattr(template, 'template', None)
-                        else:
-                            break
-
                 self.init_volume(name, conf)
+
+    def _update_volume_config_source(self, name, volume_config):
+        '''Retrieve 'source' volume from VM's template'''
+        template = getattr(self.vm, 'template', None)
+        # recursively lookup source volume - templates may be
+        # chained (TemplateVM -> AppVM -> DispVM, where the
+        # actual source should be used from TemplateVM)
+        while template:
+            source = template.volumes[name]
+            volume_config['source'] = source
+            volume_config['pool'] = source.pool
+            volume_config['size'] = source.size
+            if source.source is not None:
+                template = getattr(template, 'template', None)
+            else:
+                break
 
     def init_volume(self, name, volume_config):
         ''' Initialize Volume instance attached to this domain '''
-        assert 'pool' in volume_config, "Pool missing in volume_config " + str(
-            volume_config)
 
         if 'name' not in volume_config:
             volume_config['name'] = name
+
+        if 'source' in volume_config:
+            # we have no control over VM load order,
+            # so initialize storage recursively if needed
+            template = getattr(self.vm, 'template', None)
+            if template and template.storage is None:
+                template.storage = Storage(template)
+
+            if volume_config['source'] is None:
+                self._update_volume_config_source(name, volume_config)
+            else:
+                # if source is already specified, pool needs to be too
+                pool = self.vm.app.get_pool(volume_config['pool'])
+                volume_config['source'] = pool.volumes[volume_config['source']]
+
+        # if pool still unknown, load default
         if 'pool' not in volume_config:
-            pool = getattr(self.vm.app, 'default_pool_' + name)
-        else:
-            pool = self.vm.app.get_pool(volume_config['pool'])
+            volume_config['pool'] = \
+                getattr(self.vm.app, 'default_pool_' + name)
+        pool = self.vm.app.get_pool(volume_config['pool'])
         if 'internal' in volume_config:
             # migrate old config
             del volume_config['internal']
@@ -504,13 +514,22 @@ class Storage(object):
         src_volume = src_vm.volumes[name]
         msg = "Importing volume {!s} from vm {!s}"
         self.vm.log.info(msg.format(src_volume.name, src_vm.name))
+
+        # First create the destination volume
+        create_op_ret = dst.create()
+        # clone/import functions may be either synchronous or asynchronous
+        # in the later case, we need to wait for them to finish
+        if asyncio.iscoroutine(create_op_ret):
+            yield from create_op_ret
+
+        # Then import data from source volume
         clone_op_ret = dst.import_volume(src_volume)
 
         # clone/import functions may be either synchronous or asynchronous
         # in the later case, we need to wait for them to finish
         if asyncio.iscoroutine(clone_op_ret):
-            clone_op_ret = yield from clone_op_ret
-        self.vm.volumes[name] = clone_op_ret
+            yield from clone_op_ret
+        self.vm.volumes[name] = dst
         return self.vm.volumes[name]
 
     @asyncio.coroutine
@@ -519,8 +538,8 @@ class Storage(object):
 
         self.vm.volumes = {}
         with VmCreationManager(self.vm):
-            yield from asyncio.wait(self.clone_volume(src_vm, vol_name)
-                for vol_name in self.vm.volume_config.keys())
+            yield from asyncio.wait([self.clone_volume(src_vm, vol_name)
+                for vol_name in self.vm.volume_config.keys()])
 
     @property
     def outdated_volumes(self):

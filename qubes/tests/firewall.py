@@ -202,7 +202,6 @@ class TC_02_DstHost(qubes.tests.QubesTestCase):
         with self.assertRaises(ValueError):
             qubes.firewall.DstHost('2001:abcd:efab::3/64')
 
-    @unittest.expectedFailure
     def test_020_invalid_hostname(self):
         with self.assertRaises(ValueError):
             qubes.firewall.DstHost('www  qubes-os.org')

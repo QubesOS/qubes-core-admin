@@ -65,7 +65,6 @@ class TemplateVM(QubesVM):
         self.volume_config = {
             'root': {
                 'name': 'root',
-                'pool': 'default',
                 'snap_on_start': False,
                 'save_on_stop': True,
                 'rw': True,
@@ -74,7 +73,6 @@ class TemplateVM(QubesVM):
             },
             'private': {
                 'name': 'private',
-                'pool': 'default',
                 'snap_on_start': False,
                 'save_on_stop': True,
                 'rw': True,
@@ -84,7 +82,6 @@ class TemplateVM(QubesVM):
             },
             'volatile': {
                 'name': 'volatile',
-                'pool': 'default',
                 'size': defaults['root_img_size'],
                 'snap_on_start': False,
                 'save_on_stop': False,
@@ -92,7 +89,6 @@ class TemplateVM(QubesVM):
             },
             'kernel': {
                 'name': 'kernel',
-                'pool': 'linux-kernel',
                 'snap_on_start': False,
                 'save_on_stop': False,
                 'rw': False

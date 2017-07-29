@@ -22,6 +22,7 @@
 import asyncio
 import os
 import shutil
+import subprocess
 
 import qubes.storage.lvm
 import qubes.tests
@@ -36,11 +37,11 @@ class StorageTestMixin(object):
         self.vm1 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('vm1'),
             label='red')
-        self.vm1.create_on_disk()
+        self.loop.run_until_complete(self.vm1.create_on_disk())
         self.vm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('vm2'),
             label='red')
-        self.vm2.create_on_disk()
+        self.loop.run_until_complete(self.vm2.create_on_disk())
         self.pool = None
         self.init_pool()
         self.app.save()
@@ -63,7 +64,9 @@ class StorageTestMixin(object):
             'rw': True,
         }
         testvol = self.vm1.storage.init_volume('testvol', volume_config)
-        yield from self.vm1.storage.get_pool(testvol).create(testvol)
+        coro_maybe = testvol.create()
+        if asyncio.iscoroutine(coro_maybe):
+            yield from coro_maybe
         self.app.save()
         yield from (self.vm1.start())
 
@@ -93,9 +96,10 @@ class StorageTestMixin(object):
             'save_on_stop': True,
             'rw': True,
         }
-        testvol = yield from self.vm1.storage.init_volume(
-            'testvol', volume_config)
-        yield from self.vm1.storage.get_pool(testvol).create(testvol)
+        testvol = self.vm1.storage.init_volume('testvol', volume_config)
+        coro_maybe = testvol.create()
+        if asyncio.iscoroutine(coro_maybe):
+            yield from coro_maybe
         self.app.save()
         yield from self.vm1.start()
         # non-volatile image not clean
@@ -128,7 +132,9 @@ class StorageTestMixin(object):
             'rw': False,
         }
         testvol = self.vm1.storage.init_volume('testvol', volume_config)
-        yield from self.vm1.storage.get_pool(testvol).create(testvol)
+        coro_maybe = testvol.create()
+        if asyncio.iscoroutine(coro_maybe):
+            yield from coro_maybe
         self.app.save()
         yield from self.vm1.start()
         # non-volatile image not clean
@@ -158,7 +164,9 @@ class StorageTestMixin(object):
             'rw': True,
         }
         testvol = self.vm1.storage.init_volume('testvol', volume_config)
-        yield from self.vm1.storage.get_pool(testvol).create(testvol)
+        coro_maybe = testvol.create()
+        if asyncio.iscoroutine(coro_maybe):
+            yield from coro_maybe
         volume_config = {
             'pool': self.pool.name,
             'size': size,
@@ -167,44 +175,61 @@ class StorageTestMixin(object):
             'rw': True,
         }
         testvol_snap = self.vm2.storage.init_volume('testvol', volume_config)
-        yield from self.vm2.storage.get_pool(testvol_snap).create(testvol_snap)
+        coro_maybe = testvol_snap.create()
+        if asyncio.iscoroutine(coro_maybe):
+            yield from coro_maybe
         self.app.save()
         yield from self.vm1.start()
         yield from self.vm2.start()
-        # origin image not clean
-        yield from self.vm1.run_for_stdio(
-            'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(size),
-            user='root')
 
-        # snapshot image not clean
-        yield from self.vm2.run_for_stdio(
-            'head -c {} /dev/zero | diff -q /dev/xvde -'.format(size),
-            user='root')
+        try:
+            yield from self.vm1.run_for_stdio(
+                'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.
+                    format(size),
+                user='root')
+        except subprocess.CalledProcessError:
+            self.fail('origin image not clean')
 
-        # Write to read-write volume failed
-        yield from self.vm1.run_for_stdio('echo test123 > /dev/xvde && sync',
-            user='root')
-        # origin changes propagated to snapshot too early
-        yield from self.vm2.run_for_stdio(
-            'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(size),
-            user='root')
+        try:
+            yield from self.vm2.run_for_stdio(
+                'head -c {} /dev/zero | diff -q /dev/xvde -'.format(size),
+                user='root')
+        except subprocess.CalledProcessError:
+            self.fail('snapshot image not clean')
+
+        try:
+            yield from self.vm1.run_for_stdio(
+                'echo test123 > /dev/xvde && sync',
+                user='root')
+        except subprocess.CalledProcessError:
+            self.fail('Write to read-write volume failed')
+        try:
+            yield from self.vm2.run_for_stdio(
+                'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.
+                    format(size),
+                user='root')
+        except subprocess.CalledProcessError:
+            self.fail('origin changes propagated to snapshot too early')
         yield from self.vm1.shutdown(wait=True)
 
         # after origin shutdown there should be still no change
 
-        # origin changes propagated to snapshot too early2
-        yield from self.vm2.run_for_stdio(
-            'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(size),
-            user='root')
+        try:
+            yield from self.vm2.run_for_stdio(
+                'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.
+                    format(size),
+                user='root')
+        except subprocess.CalledProcessError:
+            self.fail('origin changes propagated to snapshot too early2')
 
         yield from self.vm2.shutdown(wait=True)
         yield from self.vm2.start()
 
         # only after target VM restart changes should be visible
 
-        # origin changes not visible in snapshot
-        with self.assertRaises(subprocess.CalledProcessError):
-            yield from self.vm2.run(
+        with self.assertRaises(subprocess.CalledProcessError,
+                msg='origin changes not visible in snapshot'):
+            yield from self.vm2.run_for_stdio(
                 'head -c {} /dev/zero 2>&1 | diff -q /dev/xvde - 2>&1'.format(
                     size),
                 user='root')
@@ -224,7 +249,9 @@ class StorageTestMixin(object):
             'rw': True,
         }
         testvol = self.vm1.storage.init_volume('testvol', volume_config)
-        yield from self.vm1.storage.get_pool(testvol).create(testvol)
+        coro_maybe = testvol.create()
+        if asyncio.iscoroutine(coro_maybe):
+            yield from coro_maybe
         volume_config = {
             'pool': self.pool.name,
             'size': size,
@@ -233,7 +260,9 @@ class StorageTestMixin(object):
             'rw': True,
         }
         testvol_snap = self.vm2.storage.init_volume('testvol', volume_config)
-        yield from self.vm2.storage.get_pool(testvol_snap).create(testvol_snap)
+        coro_maybe = testvol_snap.create()
+        if asyncio.iscoroutine(coro_maybe):
+            yield from coro_maybe
         self.app.save()
         yield from self.vm2.start()
 

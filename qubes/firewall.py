@@ -123,7 +123,8 @@ class DstHost(RuleOption):
                     self.type = 'dsthost'
                     self.prefixlen = 0
                     safe_set = string.ascii_lowercase + string.digits + '-._'
-                    assert all(c in safe_set for c in untrusted_value)
+                    if not all(c in safe_set for c in untrusted_value):
+                        raise ValueError('Invalid hostname')
                     value = untrusted_value
         else:
             untrusted_host, untrusted_prefixlen = untrusted_value.split('/', 1)

@@ -120,6 +120,8 @@ class VirConnectWrapper(object):
         attr = getattr(self._conn, attrname)
         if not isinstance(attr, collections.Callable):
             return attr
+        if attrname == 'close':
+            return attr
 
         @functools.wraps(attr)
         def wrapper(*args, **kwargs):
@@ -577,7 +579,7 @@ def _default_pool(app):
         for pool in app.pools.values():
             if pool.config.get('driver', None) != 'file':
                 continue
-            if pool.config['dir_path'] == '/var/lib/qubes':
+            if pool.config['dir_path'] == qubes.config.qubes_base_dir:
                 return pool
         raise AttributeError('Cannot determine default storage pool')
 
@@ -672,23 +674,28 @@ class Qubes(qubes.PropertyHolder):
 
     default_pool = qubes.property('default_pool', load_stage=3,
         default=_default_pool,
+        setter=_setter_pool,
         doc='Default storage pool')
 
     default_pool_private = qubes.property('default_pool_private', load_stage=3,
         default=lambda app: app.default_pool,
+        setter=_setter_pool,
         doc='Default storage pool for private volumes')
 
     default_pool_root = qubes.property('default_pool_root', load_stage=3,
         default=lambda app: app.default_pool,
+        setter=_setter_pool,
         doc='Default storage pool for root volumes')
 
     default_pool_volatile = qubes.property('default_pool_volatile',
         load_stage=3,
         default=lambda app: app.default_pool,
+        setter=_setter_pool,
         doc='Default storage pool for volatile volumes')
 
     default_pool_kernel = qubes.property('default_pool_kernel', load_stage=3,
         default=lambda app: app.default_pool,
+        setter=_setter_pool,
         doc='Default storage pool for kernel volumes')
 
     # TODO #1637 #892
@@ -961,11 +968,8 @@ class Qubes(qubes.PropertyHolder):
         # check if the default LVM Thin pool qubes_dom0/pool00 exists
         if os.path.exists('/dev/mapper/qubes_dom0-pool00-tpool'):
             self.add_pool(volume_group='qubes_dom0', thin_pool='pool00',
-                          name='default', driver='lvm_thin')
-        else:
-            self.pools['default'] = self._get_pool(
-                dir_path=qubes.config.qubes_base_dir,
-                name='default', driver='file')
+                          name='lvm', driver='lvm_thin')
+        # pool based on /var/lib/qubes will be created here:
         for name, config in qubes.config.defaults['pool_configs'].items():
             self.pools[name] = self._get_pool(**config)
 

@@ -24,6 +24,7 @@ import os
 import shutil
 
 import asyncio
+import unittest.mock
 
 import qubes.storage
 import qubes.tests.storage
@@ -50,6 +51,8 @@ class TestApp(qubes.Qubes):
     def cleanup(self):
         ''' Remove temporary directories '''
         shutil.rmtree(self.pools['linux-kernel'].dir_path)
+        if os.path.exists(self.store):
+            os.unlink(self.store)
 
     def create_dummy_template(self):
         ''' Initalizes a dummy TemplateVM as the `default_template` '''
@@ -80,7 +83,7 @@ class TC_00_FilePool(qubes.tests.QubesTestCase):
             .. sealso::
                Data :data:``qubes.qubes.defaults['pool_config']``.
         """
-        result = self.app.get_pool("default").dir_path
+        result = self.app.get_pool("varlibqubes").dir_path
         expected = '/var/lib/qubes'
         self.assertEqual(result, expected)
 
@@ -306,21 +309,32 @@ class TC_03_FilePool(qubes.tests.QubesTestCase):
     def setUp(self):
         """ Add a test file based storage pool """
         super(TC_03_FilePool, self).setUp()
-        self._orig_qubes_base_dir = qubes.config.qubes_base_dir
-        qubes.config.qubes_base_dir = '/tmp/qubes-test'
+        self.test_base_dir = '/tmp/qubes-test-dir'
+        self.base_dir_patch = unittest.mock.patch.dict(qubes.config.system_path,
+            {'qubes_base_dir': self.test_base_dir})
+        self.base_dir_patch2 = unittest.mock.patch(
+            'qubes.config.qubes_base_dir', self.test_base_dir)
+        self.base_dir_patch3 = unittest.mock.patch.dict(
+            qubes.config.defaults['pool_configs']['varlibqubes'],
+            {'dir_path': self.test_base_dir})
+        self.base_dir_patch.start()
+        self.base_dir_patch2.start()
+        self.base_dir_patch3.start()
         self.app = TestApp()
-        self.app.create_dummy_template()
         self.app.add_pool(**self.POOL_CONFIG)
+        self.app.create_dummy_template()
 
     def tearDown(self):
         """ Remove the file based storage pool after testing """
         self.app.remove_pool("test-pool")
         self.app.cleanup()
+        self.base_dir_patch3.stop()
+        self.base_dir_patch2.stop()
+        self.base_dir_patch.stop()
         super(TC_03_FilePool, self).tearDown()
         shutil.rmtree(self.POOL_DIR, ignore_errors=True)
-        if os.path.exists('/tmp/qubes-test'):
-            shutil.rmtree('/tmp/qubes-test')
-        qubes.config.qubes_base_dir = self._orig_qubes_base_dir
+        if os.path.exists('/tmp/qubes-test-dir'):
+            shutil.rmtree('/tmp/qubes-test-dir')
 
     def test_001_pool_exists(self):
         """ Check if the storage pool was added to the storage pool config """
@@ -406,8 +420,7 @@ class TC_03_FilePool(qubes.tests.QubesTestCase):
                                    expected_private_path)
 
         expected_rootcow_path = os.path.join(expected_vmdir, 'root-cow.img')
-        self.assertEqualAndExists(vm.volumes['root'].path_cow,
-                                   expected_rootcow_path)
+        self.assertEqual(vm.volumes['root'].path_cow, expected_rootcow_path)
 
     def assertEqualAndExists(self, result_path, expected_path):
         """ Check if the ``result_path``, matches ``expected_path`` and exists.

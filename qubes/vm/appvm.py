@@ -44,7 +44,6 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
     default_volume_config = {
             'root': {
                 'name': 'root',
-                'pool': 'default',
                 'snap_on_start': True,
                 'save_on_stop': False,
                 'rw': False,
@@ -52,7 +51,6 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
             },
             'private': {
                 'name': 'private',
-                'pool': 'default',
                 'snap_on_start': False,
                 'save_on_stop': True,
                 'rw': True,
@@ -60,7 +58,6 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
             },
             'volatile': {
                 'name': 'volatile',
-                'pool': 'default',
                 'snap_on_start': False,
                 'save_on_stop': False,
                 'size': defaults['root_img_size'],
@@ -68,7 +65,6 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
             },
             'kernel': {
                 'name': 'kernel',
-                'pool': 'linux-kernel',
                 'snap_on_start': False,
                 'save_on_stop': False,
                 'rw': False,
@@ -83,12 +79,6 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
             # template is only passed if the AppVM is created, in other cases we
             # don't need to patch the volume_config because the config is
             # coming from XML, already as we need it
-
-            for name, conf in self.volume_config.items():
-                tpl_volume = template.volumes[name]
-
-                self.config_volume_from_source(conf, tpl_volume)
-
             for name, config in template.volume_config.items():
                 # in case the template vm has more volumes add them to own
                 # config
@@ -124,9 +114,5 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
             if conf.get('snap_on_start', False) and \
                     conf.get('source', None) is None:
                 config = conf.copy()
-                template_volume = newvalue.volumes[volume_name]
-                self.volume_config[volume_name] = \
-                    self.config_volume_from_source(
-                        config,
-                        template_volume)
+                self.volume_config[volume_name] = config
                 self.storage.init_volume(volume_name, config)

@@ -160,7 +160,7 @@ class TC_00_ThinPool(ThinPoolBase):
         volume.remove()
 
 @skipUnlessLvmPoolExists
-class TC_01_ThinPool(qubes.tests.SystemTestCase, ThinPoolBase):
+class TC_01_ThinPool(ThinPoolBase, qubes.tests.SystemTestCase):
     ''' Sanity tests for :py:class:`qubes.storage.lvm.ThinPool` '''
 
     def setUp(self):
@@ -176,7 +176,7 @@ class TC_01_ThinPool(qubes.tests.SystemTestCase, ThinPoolBase):
         vm.clone_disk_files(template_vm, pool='test-lvm')
         for v_name, volume in vm.volumes.items():
             if volume.save_on_stop:
-                expected = "/dev/{!s}/{!s}-{!s}".format(
+                expected = "/dev/{!s}/vm-{!s}-{!s}".format(
                     DEFAULT_LVM_POOL.split('/')[0], vm.name, v_name)
                 self.assertEqual(volume.path, expected)
         with self.assertNotRaises(qubes.exc.QubesException):
@@ -188,7 +188,7 @@ class TC_01_ThinPool(qubes.tests.SystemTestCase, ThinPoolBase):
         vm.create_on_disk(pool='test-lvm')
         for v_name, volume in vm.volumes.items():
             if volume.save_on_stop:
-                expected = "/dev/{!s}/{!s}-{!s}".format(
+                expected = "/dev/{!s}/vm-{!s}-{!s}".format(
                     DEFAULT_LVM_POOL.split('/')[0], vm.name, v_name)
                 self.assertEqual(volume.path, expected)
         with self.assertNotRaises(qubes.exc.QubesException):

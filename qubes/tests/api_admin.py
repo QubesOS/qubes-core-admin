@@ -50,8 +50,12 @@ class AdminAPITestCase(qubes.tests.QubesTestCase):
             {'qubes_base_dir': self.test_base_dir})
         self.base_dir_patch2 = unittest.mock.patch(
             'qubes.config.qubes_base_dir', self.test_base_dir)
+        self.base_dir_patch3 = unittest.mock.patch.dict(
+            qubes.config.defaults['pool_configs']['varlibqubes'],
+            {'dir_path': self.test_base_dir})
         self.base_dir_patch.start()
         self.base_dir_patch2.start()
+        self.base_dir_patch3.start()
         app = qubes.Qubes('/tmp/qubes-test.xml', load=False)
         app.vmm = unittest.mock.Mock(spec=qubes.app.VMMConnection)
         app.load_initial_values()
@@ -63,6 +67,7 @@ class AdminAPITestCase(qubes.tests.QubesTestCase):
         with qubes.tests.substitute_entry_points('qubes.storage',
                 'qubes.tests.storage'):
             app.add_pool('test', driver='test')
+        app.default_pool = 'varlibqubes'
         app.save = unittest.mock.Mock()
         self.vm = app.add_new_vm('AppVM', label='red', name='test-vm1',
             template='test-template')
@@ -79,6 +84,7 @@ class AdminAPITestCase(qubes.tests.QubesTestCase):
         self.app.domains[0].fire_event = self.emitter.fire_event
 
     def tearDown(self):
+        self.base_dir_patch3.stop()
         self.base_dir_patch2.stop()
         self.base_dir_patch.stop()
         if os.path.exists(self.test_base_dir):
@@ -417,7 +423,6 @@ class TC_00_VMs(AdminAPITestCase):
         value = self.call_mgmt_func(b'admin.vm.volume.Revert',
             b'test-vm1', b'private', b'rev1')
         self.assertIsNone(value)
-        print(repr(self.vm.volumes.mock_calls))
         self.assertEqual(self.vm.volumes.mock_calls, [
             ('__getitem__', ('private', ), {}),
             ('__getitem__().revert', ('rev1', ), {}),
@@ -1156,7 +1161,8 @@ class TC_00_VMs(AdminAPITestCase):
         self.assertEqual(vm.template, self.app.domains['test-template'])
         # setting pool= affect only volumes actually created for this VM,
         # not used from a template or so
-        self.assertEqual(vm.volume_config['root']['pool'], 'default')
+        self.assertEqual(vm.volume_config['root']['pool'],
+            self.template.volumes['root'].pool)
         self.assertEqual(vm.volume_config['private']['pool'], 'test')
         self.assertEqual(vm.volume_config['volatile']['pool'], 'test')
         self.assertEqual(vm.volume_config['kernel']['pool'], 'linux-kernel')
@@ -1178,9 +1184,11 @@ class TC_00_VMs(AdminAPITestCase):
         vm = self.app.domains['test-vm2']
         self.assertEqual(vm.label, self.app.get_label('red'))
         self.assertEqual(vm.template, self.app.domains['test-template'])
-        self.assertEqual(vm.volume_config['root']['pool'], 'default')
+        self.assertEqual(vm.volume_config['root']['pool'],
+            self.template.volumes['root'].pool)
         self.assertEqual(vm.volume_config['private']['pool'], 'test')
-        self.assertEqual(vm.volume_config['volatile']['pool'], 'default')
+        self.assertEqual(vm.volume_config['volatile']['pool'],
+            self.app.default_pool_volatile)
         self.assertEqual(vm.volume_config['kernel']['pool'], 'linux-kernel')
         self.assertEqual(storage_mock.mock_calls,
             [unittest.mock.call(self.app.domains['test-vm2']).create()])
@@ -1524,6 +1532,7 @@ class TC_00_VMs(AdminAPITestCase):
     @unittest.mock.patch('qubes.storage.Storage.remove')
     @unittest.mock.patch('shutil.rmtree')
     def test_500_vm_remove(self, mock_rmtree, mock_remove):
+        mock_remove.side_effect = self.dummy_coro
         value = self.call_mgmt_func(b'admin.vm.Remove', b'test-vm1')
         self.assertIsNone(value)
         mock_rmtree.assert_called_once_with(
@@ -1534,6 +1543,7 @@ class TC_00_VMs(AdminAPITestCase):
     @unittest.mock.patch('qubes.storage.Storage.remove')
     @unittest.mock.patch('shutil.rmtree')
     def test_501_vm_remove_running(self, mock_rmtree, mock_remove):
+        mock_remove.side_effect = self.dummy_coro
         with unittest.mock.patch.object(
                 self.vm, 'get_power_state', lambda: 'Running'):
             with self.assertRaises(qubes.exc.QubesVMNotHaltedError):

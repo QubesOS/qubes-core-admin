@@ -20,6 +20,7 @@
 #
 
 import unittest
+import unittest.mock
 
 import qubes
 import qubes.exc
@@ -28,14 +29,13 @@ import qubes.vm.adminvm
 
 import qubes.tests
 
-@qubes.tests.skipUnlessDom0
 class TC_00_AdminVM(qubes.tests.QubesTestCase):
     def setUp(self):
         super().setUp()
         try:
             self.app = qubes.tests.vm.TestApp()
             self.vm = qubes.vm.adminvm.AdminVM(self.app,
-                xml=None, qid=0, name='dom0')
+                xml=None)
         except:  # pylint: disable=bare-except
             if self.id().endswith('.test_000_init'):
                 raise
@@ -48,10 +48,11 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
         self.assertEqual(self.vm.xid, 0)
 
     def test_101_libvirt_domain(self):
-        self.assertIs(self.vm.libvirt_domain, None)
-
-    def test_200_libvirt_netvm(self):
-        self.assertIs(self.vm.netvm, None)
+        with unittest.mock.patch.object(self.app, 'vmm') as mock_vmm:
+            self.assertIsNotNone(self.vm.libvirt_domain)
+            self.assertEqual(mock_vmm.mock_calls, [
+                ('libvirt_conn.lookupByID', (0,), {}),
+            ])
 
     def test_300_is_running(self):
         self.assertTrue(self.vm.is_running())
@@ -65,21 +66,6 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
     @unittest.skip('mock object does not support this')
     def test_303_get_mem_static_max(self):
         self.assertGreater(self.vm.get_mem_static_max(), 0)
-
-    def test_304_get_disk_utilization(self):
-        self.assertEqual(self.vm.storage.get_disk_utilization(), 0)
-
-    def test_305_has_no_private_volume(self):
-        with self.assertRaises(KeyError):
-            self.vm.volumes['private']
-
-    def test_306_has_no_root_volume(self):
-        with self.assertRaises(KeyError):
-            self.vm.volumes['root']
-
-    def test_307_has_no_volatile_volume(self):
-        with self.assertRaises(KeyError):
-            self.vm.volumes['volatile']
 
     def test_310_start(self):
         with self.assertRaises(qubes.exc.QubesException):
