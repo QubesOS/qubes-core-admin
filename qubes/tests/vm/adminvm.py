@@ -34,8 +34,11 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
         super().setUp()
         try:
             self.app = qubes.tests.vm.TestApp()
-            self.vm = qubes.vm.adminvm.AdminVM(self.app,
-                xml=None)
+            with unittest.mock.patch.object(
+                    qubes.vm.adminvm.AdminVM, 'start_qdb_watch') as mock_qdb:
+                self.vm = qubes.vm.adminvm.AdminVM(self.app,
+                    xml=None)
+                mock_qdb.assert_called_once_with('dom0')
         except:  # pylint: disable=bare-except
             if self.id().endswith('.test_000_init'):
                 raise
