@@ -289,7 +289,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             :param value: new value
             :param oldvalue: old value, if any
 
-        .. event:: domain-feature-delete (subject, event, key)
+        .. event:: domain-feature-delete (subject, event, feature)
 
             A feature was removed.
 
@@ -1745,14 +1745,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         tzname = qubes.utils.get_timezone()
         if tzname:
             self.untrusted_qdb.write('/qubes-timezone', tzname)
-
-        for feature, value in self.features.items():
-            if not feature.startswith('service.'):
-                continue
-            service = feature[len('service.'):]
-            # forcefully convert to '0' or '1'
-            self.untrusted_qdb.write('/qubes-service/{}'.format(service),
-                str(int(bool(value))))
 
         self.untrusted_qdb.write('/qubes-block-devices', '')
 

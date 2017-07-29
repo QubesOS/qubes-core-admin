@@ -261,14 +261,40 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
 
 
 class TC_90_Qubes(qubes.tests.QubesTestCase):
+    def tearDown(self):
+        try:
+            os.unlink('/tmp/qubestest.xml')
+        except:
+            pass
+        super(TC_90_Qubes, self).tearDown()
+
     @qubes.tests.skipUnlessDom0
     def test_000_init_empty(self):
         # pylint: disable=no-self-use,unused-variable,bare-except
         try:
             os.unlink('/tmp/qubestest.xml')
-        except:
+        except FileNotFoundError:
             pass
         qubes.Qubes.create_empty_store('/tmp/qubestest.xml')
+
+    def test_100_clockvm(self):
+        app = qubes.Qubes('/tmp/qubestest.xml', load=False, offline_mode=True)
+        app.load_initial_values()
+
+        template = app.add_new_vm('TemplateVM', name='test-template',
+            label='green')
+        appvm = app.add_new_vm('AppVM', name='test-vm', template=template,
+            label='red')
+        self.assertIsNone(app.clockvm)
+        self.assertNotIn('service.clocksync', appvm.features)
+        self.assertNotIn('service.clocksync', template.features)
+        app.clockvm = appvm
+        self.assertIn('service.clocksync', appvm.features)
+        self.assertTrue(appvm.features['service.clocksync'])
+        app.clockvm = template
+        self.assertNotIn('service.clocksync', appvm.features)
+        self.assertIn('service.clocksync', template.features)
+        self.assertTrue(template.features['service.clocksync'])
 
     @qubes.tests.skipUnlessGit
     def test_900_example_xml_in_doc(self):
