@@ -27,6 +27,7 @@ import functools
 import itertools
 import os
 import string
+import subprocess
 
 import libvirt
 import pkg_resources
@@ -1146,8 +1147,16 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             except KeyError:
                 raise qubes.exc.QubesException(
                     'Invalid backup profile - invalid passphrase_vm')
-            passphrase, _ = yield from passphrase_vm.run_service_for_stdio(
-                'qubes.BackupPassphrase+' + self.arg)
+            try:
+                passphrase, _ = yield from passphrase_vm.run_service_for_stdio(
+                    'qubes.BackupPassphrase+' + self.arg)
+                # make it foolproof against "echo passphrase" implementation
+                passphrase = passphrase.strip()
+                assert b'\n' not in passphrase
+            except subprocess.CalledProcessError:
+                raise qubes.exc.QubesException(
+                    'Failed to retrieve passphrase from \'{}\' VM'.format(
+                        passphrase_vm_name))
         else:
             raise qubes.exc.QubesException(
                 'Invalid backup profile - you need to '
