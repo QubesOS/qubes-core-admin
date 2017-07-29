@@ -121,7 +121,7 @@ class ThinPool(qubes.storage.Pool):
         return volumes
 
 
-def init_cache(log=logging.getLogger('qube.storage.lvm')):
+def init_cache(log=logging.getLogger('qubes.storage.lvm')):
     cmd = ['lvs', '--noheadings', '-o',
            'vg_name,pool_lv,name,lv_size,data_percent,lv_attr,origin',
            '--units', 'b', '--separator', ',']
@@ -291,6 +291,8 @@ class ThinVolume(qubes.storage.Volume):
 
     def export(self):
         ''' Returns an object that can be `open()`. '''
+        # make sure the device node is available
+        qubes_lvm(['activate', self.vid], self.log)
         devpath = '/dev/' + self.vid
         return devpath
 
@@ -464,6 +466,8 @@ def qubes_lvm(cmd, log=logging.getLogger('qubes.storage.lvm')):
     elif action == 'extend':
         size = int(cmd[2]) / (1000 * 1000)
         lvm_cmd = ["lvextend", "-L%s" % size, cmd[1]]
+    elif action == 'activate':
+        lvm_cmd = ['lvchange', '-ay', cmd[1]]
     else:
         raise NotImplementedError('unsupported action: ' + action)
     if lvm_is_very_old:
