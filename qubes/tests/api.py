@@ -77,7 +77,11 @@ class TestMgmt(object):
 
         class Subject:
             name = 'subject'
-        self.send_event(Subject, 'event', payload=untrusted_payload.decode())
+
+            def __str__(self):
+                return 'subject'
+
+        self.send_event(Subject(), 'event', payload=untrusted_payload.decode())
         try:
             # give some time to close the other end
             yield from asyncio.sleep(0.1)

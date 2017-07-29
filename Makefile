@@ -90,6 +90,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.vm.volume.ListSnapshots \
 	admin.vm.volume.Resize \
 	admin.vm.volume.Revert \
+	admin.vm.Stats \
 	$(null)
 
 ifeq ($(OS),Linux)

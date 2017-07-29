@@ -22,7 +22,7 @@
 #
 
 import os
-import uuid
+import unittest.mock as mock
 
 import lxml.etree
 
@@ -34,6 +34,120 @@ import qubes.tests.init
 
 class TestApp(qubes.tests.TestEmitter):
     pass
+
+
+class TC_20_QubesHost(qubes.tests.QubesTestCase):
+    sample_xc_domain_getinfo = [
+        {'paused': 0, 'cpu_time': 243951379111104, 'ssidref': 0,
+            'hvm': 0, 'shutdown_reason': 255, 'dying': 0,
+            'mem_kb': 3733212, 'domid': 0, 'max_vcpu_id': 7,
+            'crashed': 0, 'running': 1, 'maxmem_kb': 3734236,
+            'shutdown': 0, 'online_vcpus': 8,
+            'handle': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            'cpupool': 0, 'blocked': 0},
+        {'paused': 0, 'cpu_time': 2849496569205, 'ssidref': 0,
+            'hvm': 0, 'shutdown_reason': 255, 'dying': 0,
+            'mem_kb': 303916, 'domid': 1, 'max_vcpu_id': 0,
+            'crashed': 0, 'running': 0, 'maxmem_kb': 308224,
+            'shutdown': 0, 'online_vcpus': 1,
+            'handle': [116, 174, 229, 207, 17, 1, 79, 39, 191, 37, 41,
+                186, 205, 158, 219, 8],
+            'cpupool': 0, 'blocked': 1},
+        {'paused': 0, 'cpu_time': 249658663079978, 'ssidref': 0,
+            'hvm': 0, 'shutdown_reason': 255, 'dying': 0,
+            'mem_kb': 3782668, 'domid': 11, 'max_vcpu_id': 7,
+            'crashed': 0, 'running': 0, 'maxmem_kb': 3783692,
+            'shutdown': 0, 'online_vcpus': 8,
+            'handle': [169, 95, 55, 127, 140, 94, 79, 220, 186, 210,
+                117, 5, 148, 11, 185, 206],
+            'cpupool': 0, 'blocked': 1}]
+
+    def setUp(self):
+        super(TC_20_QubesHost, self).setUp()
+        self.app = TestApp()
+        self.app.vmm = mock.Mock()
+        self.qubes_host = qubes.app.QubesHost(self.app)
+
+    def test_000_get_vm_stats_single(self):
+        self.app.vmm.configure_mock(**{
+            'xc.domain_getinfo.return_value': self.sample_xc_domain_getinfo
+        })
+
+        info_time, info = self.qubes_host.get_vm_stats()
+        self.assertEqual(self.app.vmm.mock_calls, [
+            ('xc.domain_getinfo', (0, 1024), {}),
+        ])
+        self.assertIsNotNone(info_time)
+        expected_info = {
+            0: {
+                'cpu_time': 243951379111104//8,
+                'cpu_usage': 0,
+                'memory_kb': 3733212,
+            },
+            1: {
+                'cpu_time': 2849496569205,
+                'cpu_usage': 0,
+                'memory_kb': 303916,
+            },
+            11: {
+                'cpu_time': 249658663079978//8,
+                'cpu_usage': 0,
+                'memory_kb': 3782668,
+            },
+        }
+        self.assertEqual(info, expected_info)
+
+    def test_001_get_vm_stats_twice(self):
+        self.app.vmm.configure_mock(**{
+            'xc.domain_getinfo.return_value': self.sample_xc_domain_getinfo
+        })
+
+        prev_time, prev_info = self.qubes_host.get_vm_stats()
+        prev_time -= 1
+        prev_info[0]['cpu_time'] -= 10**8
+        prev_info[1]['cpu_time'] -= 10**9
+        prev_info[11]['cpu_time'] -= 125 * 10**6
+        info_time, info = self.qubes_host.get_vm_stats(prev_time, prev_info)
+        self.assertIsNotNone(info_time)
+        expected_info = {
+            0: {
+                'cpu_time': 243951379111104//8,
+                'cpu_usage': 9,
+                'memory_kb': 3733212,
+            },
+            1: {
+                'cpu_time': 2849496569205,
+                'cpu_usage': 99,
+                'memory_kb': 303916,
+            },
+            11: {
+                'cpu_time': 249658663079978//8,
+                'cpu_usage': 12,
+                'memory_kb': 3782668,
+            },
+        }
+        self.assertEqual(info, expected_info)
+        self.assertEqual(self.app.vmm.mock_calls, [
+            ('xc.domain_getinfo', (0, 1024), {}),
+            ('xc.domain_getinfo', (0, 1024), {}),
+        ])
+
+    def test_002_get_vm_stats_one_vm(self):
+        self.app.vmm.configure_mock(**{
+            'xc.domain_getinfo.return_value': [self.sample_xc_domain_getinfo[1]]
+        })
+
+        vm = mock.Mock
+        vm.xid = 1
+        vm.name = 'somevm'
+
+        info_time, info = self.qubes_host.get_vm_stats(only_vm=vm)
+        self.assertIsNotNone(info_time)
+        self.assertEqual(self.app.vmm.mock_calls, [
+            ('xc.domain_getinfo', (1, 1), {}),
+        ])
+
+
 
 class TC_30_VMCollection(qubes.tests.QubesTestCase):
     def setUp(self):
