@@ -337,7 +337,13 @@ class FileVolume(qubes.storage.Volume):
     @property
     def usage(self):
         ''' Returns the actualy used space '''
-        return get_disk_usage(self.vid)
+        usage = 0
+        if self.save_on_stop or self.snap_on_start:
+            usage = get_disk_usage(self.path_cow)
+        if self.save_on_stop or not self.snap_on_start:
+            usage += get_disk_usage(self.path)
+        return usage
+
 
 
 def create_sparse_file(path, size):
