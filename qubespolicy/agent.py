@@ -54,9 +54,9 @@ class PolicyAgent(object):
             icons):
         # pylint: disable=invalid-name
         entries_info = {}
-        for target in targets:
-            entries_info[target] = {}
-            entries_info[target]['icon'] = icons.get(target, None)
+        for entry in icons:
+            entries_info[entry] = {}
+            entries_info[entry]['icon'] = icons.get(entry, None)
 
         response = qubespolicy.rpcconfirmation.confirm_rpc(
             entries_info, source, service_name,
