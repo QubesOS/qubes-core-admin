@@ -444,6 +444,15 @@ class TC_10_PolicyAction(qubes.tests.QubesTestCase):
             action.handle_user_response(False, None)
         self.assertEqual(action.action, qubespolicy.Action.deny)
 
+    def test_013_handle_user_response_with_default_target(self):
+        rule = qubespolicy.PolicyRule(
+            '$anyvm $anyvm ask,default_target=test-vm2')
+        action = qubespolicy.PolicyAction('test.service', 'test-vm1',
+            None, rule, 'test-vm2', ['test-vm2', 'test-vm3'])
+        action.handle_user_response(True, 'test-vm2')
+        self.assertEqual(action.action, qubespolicy.Action.allow)
+        self.assertEqual(action.target, 'test-vm2')
+
     @unittest.mock.patch('qubespolicy.qubesd_call')
     @unittest.mock.patch('subprocess.call')
     def test_020_execute(self, mock_subprocess, mock_qubesd_call):

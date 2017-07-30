@@ -378,7 +378,6 @@ class PolicyAction(object):
         :return: None
         '''
         assert self.action == Action.ask
-        assert self.target is None
         if response:
             assert target in self.targets_for_ask
             self.target = target
