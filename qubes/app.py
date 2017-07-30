@@ -587,7 +587,8 @@ def _default_pool(app):
             thin_volumes = subprocess.check_output(
                 ['lvs', '--select', 'pool_lv=' + thin_pool,
                 '-o', 'lv_kernel_major,lv_kernel_minor', '--noheadings'])
-            if any((str(root_major), str(root_minor)) == thin_vol.split()
+            thin_volumes = thin_volumes.decode()
+            if any([str(root_major), str(root_minor)] == thin_vol.split()
                     for thin_vol in thin_volumes.splitlines()):
                 return pool
         # not a thin volume? look for file pools
