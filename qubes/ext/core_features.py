@@ -32,7 +32,7 @@ class CoreFeatures(qubes.ext.Extension):
             return
 
         requested_features = {}
-        for feature in ('qrexec', 'gui'):
+        for feature in ('qrexec', 'gui', 'qubes-firewall'):
             untrusted_value = untrusted_features.get(feature, None)
             if untrusted_value in ('1', '0'):
                 requested_features[feature] = bool(int(untrusted_value))
@@ -48,6 +48,11 @@ class CoreFeatures(qubes.ext.Extension):
             # do not allow (Template)VM to override setting if already set
             # some other way
             if feature in requested_features and feature not in vm.features:
+                vm.features[feature] = requested_features[feature]
+
+        # those features can be freely enabled or disabled by template
+        for feature in ('qubes-firewall',):
+            if feature in requested_features:
                 vm.features[feature] = requested_features[feature]
 
         if not qrexec_before and vm.features.get('qrexec', False):
