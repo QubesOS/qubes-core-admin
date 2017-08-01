@@ -242,6 +242,11 @@ class BlockDeviceExtension(qubes.ext.Extension):
                     raise qubes.exc.QubesValueError(
                         'read-only option can only have '
                         '\'yes\' or \'no\' value')
+            elif option == 'devtype':
+                if value not in ('disk', 'cdrom'):
+                    raise qubes.exc.QubesValueError(
+                        'devtype option can only have '
+                        '\'disk\' or \'cdrom\' value')
             else:
                 raise qubes.exc.QubesValueError(
                     'Unsupported option {}'.format(option))
