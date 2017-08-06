@@ -377,6 +377,9 @@ class ThinVolume(qubes.storage.Volume):
 
         cmd = ['extend', self.vid, str(size)]
         qubes_lvm(cmd, self.log)
+        if self.is_dirty():
+            cmd = ['extend', self._vid_snap, str(size)]
+            qubes_lvm(cmd, self.log)
         reset_cache()
 
     def _snapshot(self):
