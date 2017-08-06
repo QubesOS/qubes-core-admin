@@ -479,7 +479,9 @@ class Firewall(object):
         '''
         rules = []
         for rule in other.rules:
-            new_rule = Rule()
+            # Rule constructor require some action, will be overwritten by
+            # clone_properties below
+            new_rule = Rule(action='drop')
             new_rule.clone_properties(rule)
             rules.append(new_rule)
         self.rules = rules
