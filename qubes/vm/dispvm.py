@@ -39,7 +39,10 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         clone=False,
         doc='''Internal, persistent identifier of particular DispVM.''')
 
-    def __init__(self, *args, **kwargs):
+    auto_cleanup = qubes.property('auto_cleanup', type=bool, default=False,
+        doc='automatically remove this VM upon shutdown')
+
+    def __init__(self, app, xml, *args, **kwargs):
         self.volume_config = {
             'root': {
                 'name': 'root',
@@ -70,9 +73,25 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                 'rw': False,
             }
         }
-        if 'name' not in kwargs and 'dispid' in kwargs:
-            kwargs['name'] = 'disp' + str(kwargs['dispid'])
+
         template = kwargs.get('template', None)
+
+        if xml is None:
+            if 'dispid' not in kwargs:
+                kwargs['dispid'] = app.domains.get_new_unused_dispid()
+            if 'name' not in kwargs:
+                kwargs['name'] = 'disp' + str(kwargs['dispid'])
+
+            # by default inherit properties from the DispVM template
+            proplist = [prop.__name__ for prop in template.property_list()
+                if prop.clone and prop.__name__ not in ['template']]
+            self_props = [prop.__name__ for prop in self.property_list()]
+            for prop in proplist:
+                if prop not in self_props:
+                    continue
+                if prop not in kwargs and \
+                        not template.property_is_default(prop):
+                    kwargs[prop] = getattr(template, prop)
 
         if template is not None:
             # template is only passed if the AppVM is created, in other cases we
@@ -86,11 +105,12 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
                     if 'vid' in self.volume_config[name]:
                         del self.volume_config[name]['vid']
 
-            # by default inherit label from the DispVM template
-            if 'label' not in kwargs:
-                kwargs['label'] = template.label
+        super(DispVM, self).__init__(app, xml, *args, **kwargs)
 
-        super(DispVM, self).__init__(*args, **kwargs)
+        if xml is None:
+            self.firewall.clone(template.firewall)
+            self.features.update(template.features)
+            self.tags.update(template.tags)
 
     @qubes.events.handler('domain-load')
     def on_domain_loaded(self, event):
@@ -105,6 +125,19 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         # pylint: disable=unused-argument
         raise qubes.exc.QubesValueError(self,
             'Cannot change template of Disposable VM')
+
+    @asyncio.coroutine
+    def on_domain_shutdown_coro(self):
+        '''Coroutine for executing cleanup after domain shutdown.
+
+        This override default action defined in QubesVM.on_domain_shutdown_coro
+        '''
+        with (yield from self.startup_lock):
+            yield from self.storage.stop()
+            if self.auto_cleanup:
+                yield from self.remove_from_disk()
+                del self.app.domains[self]
+                self.app.save()
 
     @classmethod
     @asyncio.coroutine
@@ -127,18 +160,14 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         '''
         if not appvm.dispvm_allowed:
             raise qubes.exc.QubesException(
-                'Refusing to start DispVM out of this AppVM, because '
+                'Refusing to create DispVM out of this AppVM, because '
                 'dispvm_allowed=False')
         app = appvm.app
         dispvm = app.add_new_vm(
             cls,
-            dispid=app.domains.get_new_unused_dispid(),
-            template=app.domains[appvm],
+            template=appvm,
+            auto_cleanup=True,
             **kwargs)
-        # exclude template
-        proplist = [prop for prop in dispvm.property_list()
-            if prop.clone and prop.__name__ not in ['template']]
-        dispvm.clone_properties(app.domains[appvm], proplist=proplist)
         yield from dispvm.create_on_disk()
         app.save()
         return dispvm
@@ -155,6 +184,8 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             yield from self.kill()
         except qubes.exc.QubesVMNotStartedError:
             pass
-        yield from self.remove_from_disk()
-        del self.app.domains[self]
-        self.app.save()
+        # if auto_cleanup is set, this will be done automatically
+        if not self.auto_cleanup:
+            yield from self.remove_from_disk()
+            del self.app.domains[self]
+            self.app.save()

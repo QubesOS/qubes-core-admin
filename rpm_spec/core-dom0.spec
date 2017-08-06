@@ -326,6 +326,7 @@ fi
 %{python3_sitelib}/qubes/tests/vm/init.py
 %{python3_sitelib}/qubes/tests/vm/adminvm.py
 %{python3_sitelib}/qubes/tests/vm/appvm.py
+%{python3_sitelib}/qubes/tests/vm/dispvm.py
 %{python3_sitelib}/qubes/tests/vm/qubesvm.py
 
 %dir %{python3_sitelib}/qubes/tests/vm/mix
