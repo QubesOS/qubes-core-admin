@@ -915,6 +915,25 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             raise
         self.app.save()
 
+    @qubes.api.method('admin.vm.CreateDisposable', no_payload=True,
+        scope='global', write=True)
+    @asyncio.coroutine
+    def create_disposable(self):
+        assert not self.arg
+
+        if self.dest.name == 'dom0':
+            dispvm_template = self.src.default_dispvm
+        else:
+            dispvm_template = self.dest
+
+        self.fire_event_for_permission(dispvm_template=dispvm_template)
+
+        dispvm = yield from qubes.vm.dispvm.DispVM.from_appvm(dispvm_template)
+        # TODO: move this to extension (in race-free fashion, better than here)
+        dispvm.tags.add('disp-created-by-' + str(self.src))
+
+        return dispvm.name
+
     @qubes.api.method('admin.vm.Remove', no_payload=True,
         scope='global', write=True)
     @asyncio.coroutine

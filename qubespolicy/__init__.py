@@ -33,6 +33,7 @@ QREXEC_CLIENT = '/usr/lib/qubes/qrexec-client'
 QUBES_RPC_MULTIPLEXER_PATH = '/usr/lib/qubes/qubes-rpc-multiplexer'
 POLICY_DIR = '/etc/qubes-rpc/policy'
 QUBESD_INTERNAL_SOCK = '/var/run/qubesd.internal.sock'
+QUBESD_SOCK = '/var/run/qubesd.sock'
 
 
 class AccessDenied(Exception):
@@ -434,9 +435,9 @@ class PolicyAction(object):
         :return: name of new Disposable VM
         '''
         base_appvm = self.target.split(':', 1)[1]
-        dispvm_name = qubesd_call(base_appvm, 'internal.vm.Create.DispVM')
+        dispvm_name = qubesd_call(base_appvm, 'admin.vm.CreateDisposable')
         dispvm_name = dispvm_name.decode('ascii')
-        qubesd_call(dispvm_name, 'internal.vm.Start')
+        qubesd_call(dispvm_name, 'admin.vm.Start')
         return dispvm_name
 
     def ensure_target_running(self):
@@ -445,8 +446,10 @@ class PolicyAction(object):
 
         :return: None
         '''
+        if self.target == 'dom0':
+            return
         try:
-            qubesd_call(self.target, 'internal.vm.Start')
+            qubesd_call(self.target, 'admin.vm.Start')
         except QubesMgmtException as e:
             if e.exc_type == 'QubesVMNotHaltedError':
                 pass
@@ -461,7 +464,7 @@ class PolicyAction(object):
         :param dispvm: name of Disposable VM
         :return: None
         '''
-        qubesd_call(dispvm, 'internal.vm.CleanupDispVM')
+        qubesd_call(dispvm, 'admin.vm.Kill')
 
 
 class Policy(object):
@@ -631,9 +634,13 @@ class QubesMgmtException(Exception):
 
 
 def qubesd_call(dest, method, arg=None, payload=None):
+    if method.startswith('internal.'):
+        socket_path = QUBESD_INTERNAL_SOCK
+    else:
+        socket_path = QUBESD_SOCK
     try:
         client_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        client_socket.connect(QUBESD_INTERNAL_SOCK)
+        client_socket.connect(socket_path)
     except IOError:
         # TODO:
         raise

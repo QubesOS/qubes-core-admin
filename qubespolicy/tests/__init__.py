@@ -461,7 +461,7 @@ class TC_10_PolicyAction(qubes.tests.QubesTestCase):
             'test-vm2', rule, 'test-vm2')
         action.execute('some-ident')
         self.assertEqual(mock_qubesd_call.mock_calls,
-            [unittest.mock.call('test-vm2', 'internal.vm.Start')])
+            [unittest.mock.call('test-vm2', 'admin.vm.Start')])
         self.assertEqual(mock_subprocess.mock_calls,
             [unittest.mock.call([qubespolicy.QREXEC_CLIENT, '-d', 'test-vm2',
              '-c', 'some-ident', 'DEFAULT:QUBESRPC test.service test-vm1'])])
@@ -473,8 +473,7 @@ class TC_10_PolicyAction(qubes.tests.QubesTestCase):
         action = qubespolicy.PolicyAction('test.service', 'test-vm1',
             'dom0', rule, 'dom0')
         action.execute('some-ident')
-        self.assertEqual(mock_qubesd_call.mock_calls,
-            [unittest.mock.call('dom0', 'internal.vm.Start')])
+        self.assertEqual(mock_qubesd_call.mock_calls, [])
         self.assertEqual(mock_subprocess.mock_calls,
             [unittest.mock.call([qubespolicy.QREXEC_CLIENT, '-d', 'dom0',
              '-c', 'some-ident',
@@ -488,14 +487,13 @@ class TC_10_PolicyAction(qubes.tests.QubesTestCase):
         action = qubespolicy.PolicyAction('test.service', 'test-vm1',
             '$dispvm:default-dvm', rule, '$dispvm:default-dvm')
         mock_qubesd_call.side_effect = (lambda target, call:
-            b'dispvm-name' if call == 'internal.vm.Create.DispVM' else
+            b'dispvm-name' if call == 'admin.vm.CreateDisposable' else
             unittest.mock.DEFAULT)
         action.execute('some-ident')
         self.assertEqual(mock_qubesd_call.mock_calls,
-            [unittest.mock.call('default-dvm', 'internal.vm.Create.DispVM'),
-             unittest.mock.call('dispvm-name', 'internal.vm.Start'),
-             unittest.mock.call('dispvm-name',
-                'internal.vm.CleanupDispVM')])
+            [unittest.mock.call('default-dvm', 'admin.vm.CreateDisposable'),
+             unittest.mock.call('dispvm-name', 'admin.vm.Start'),
+             unittest.mock.call('dispvm-name', 'admin.vm.Kill')])
         self.assertEqual(mock_subprocess.mock_calls,
             [unittest.mock.call([qubespolicy.QREXEC_CLIENT, '-d', 'dispvm-name',
              '-c', 'some-ident', '-W',
@@ -512,7 +510,7 @@ class TC_10_PolicyAction(qubes.tests.QubesTestCase):
             qubespolicy.QubesMgmtException('QubesVMNotHaltedError')
         action.execute('some-ident')
         self.assertEqual(mock_qubesd_call.mock_calls,
-            [unittest.mock.call('test-vm2', 'internal.vm.Start')])
+            [unittest.mock.call('test-vm2', 'admin.vm.Start')])
         self.assertEqual(mock_subprocess.mock_calls,
             [unittest.mock.call([qubespolicy.QREXEC_CLIENT, '-d', 'test-vm2',
              '-c', 'some-ident', 'DEFAULT:QUBESRPC test.service test-vm1'])])
@@ -529,7 +527,7 @@ class TC_10_PolicyAction(qubes.tests.QubesTestCase):
         with self.assertRaises(qubespolicy.QubesMgmtException):
             action.execute('some-ident')
         self.assertEqual(mock_qubesd_call.mock_calls,
-            [unittest.mock.call('test-vm2', 'internal.vm.Start')])
+            [unittest.mock.call('test-vm2', 'admin.vm.Start')])
         self.assertEqual(mock_subprocess.mock_calls, [])
 
 class TC_20_Policy(qubes.tests.QubesTestCase):
@@ -755,14 +753,14 @@ class TC_30_Misc(qubes.tests.QubesTestCase):
             'return_value.makefile.return_value.read.return_value': b'0\x00data'
         }
         mock_socket.configure_mock(**mock_config)
-        result = qubespolicy.qubesd_call('test', 'method')
+        result = qubespolicy.qubesd_call('test', 'internal.method')
         self.assertEqual(result, b'data')
         self.assertEqual(mock_socket.mock_calls, [
             unittest.mock.call(socket.AF_UNIX, socket.SOCK_STREAM),
             unittest.mock.call().connect(qubespolicy.QUBESD_INTERNAL_SOCK),
             unittest.mock.call().sendall(b'dom0'),
             unittest.mock.call().sendall(b'\x00'),
-            unittest.mock.call().sendall(b'method'),
+            unittest.mock.call().sendall(b'internal.method'),
             unittest.mock.call().sendall(b'\x00'),
             unittest.mock.call().sendall(b'test'),
             unittest.mock.call().sendall(b'\x00'),
@@ -778,14 +776,15 @@ class TC_30_Misc(qubes.tests.QubesTestCase):
             'return_value.makefile.return_value.read.return_value': b'0\x00data'
         }
         mock_socket.configure_mock(**mock_config)
-        result = qubespolicy.qubesd_call('test', 'method', 'arg', b'payload')
+        result = qubespolicy.qubesd_call('test', 'internal.method', 'arg',
+            b'payload')
         self.assertEqual(result, b'data')
         self.assertEqual(mock_socket.mock_calls, [
             unittest.mock.call(socket.AF_UNIX, socket.SOCK_STREAM),
             unittest.mock.call().connect(qubespolicy.QUBESD_INTERNAL_SOCK),
             unittest.mock.call().sendall(b'dom0'),
             unittest.mock.call().sendall(b'\x00'),
-            unittest.mock.call().sendall(b'method'),
+            unittest.mock.call().sendall(b'internal.method'),
             unittest.mock.call().sendall(b'\x00'),
             unittest.mock.call().sendall(b'test'),
             unittest.mock.call().sendall(b'\x00'),
@@ -805,14 +804,14 @@ class TC_30_Misc(qubes.tests.QubesTestCase):
         }
         mock_socket.configure_mock(**mock_config)
         with self.assertRaises(qubespolicy.QubesMgmtException) as e:
-            qubespolicy.qubesd_call('test', 'method')
+            qubespolicy.qubesd_call('test', 'internal.method')
         self.assertEqual(e.exception.exc_type, 'SomeError')
         self.assertEqual(mock_socket.mock_calls, [
             unittest.mock.call(socket.AF_UNIX, socket.SOCK_STREAM),
             unittest.mock.call().connect(qubespolicy.QUBESD_INTERNAL_SOCK),
             unittest.mock.call().sendall(b'dom0'),
             unittest.mock.call().sendall(b'\x00'),
-            unittest.mock.call().sendall(b'method'),
+            unittest.mock.call().sendall(b'internal.method'),
             unittest.mock.call().sendall(b'\x00'),
             unittest.mock.call().sendall(b'test'),
             unittest.mock.call().sendall(b'\x00'),

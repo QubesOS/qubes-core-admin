@@ -55,30 +55,6 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
 
         return json.dumps(system_info)
 
-    @qubes.api.method('internal.vm.Start', no_payload=True)
-    @asyncio.coroutine
-    def start(self):
-        assert not self.arg
-        if self.dest.name == 'dom0':
-            return
-
-        yield from self.dest.start()
-
-    @qubes.api.method('internal.vm.Create.DispVM', no_payload=True)
-    @asyncio.coroutine
-    def create_dispvm(self):
-        assert not self.arg
-
-        dispvm = yield from qubes.vm.dispvm.DispVM.from_appvm(self.dest)
-        return dispvm.name
-
-    @qubes.api.method('internal.vm.CleanupDispVM', no_payload=True)
-    @asyncio.coroutine
-    def cleanup_dispvm(self):
-        assert not self.arg
-
-        yield from self.dest.cleanup()
-
     @qubes.api.method('internal.vm.volume.ImportEnd')
     @asyncio.coroutine
     def vm_volume_import_end(self, untrusted_payload):

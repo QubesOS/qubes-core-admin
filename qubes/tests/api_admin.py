@@ -2099,6 +2099,39 @@ class TC_00_VMs(AdminAPITestCase):
                     memory_kb=stats2[2]['memory_kb']),
             ])
 
+    @unittest.mock.patch('qubes.storage.Storage.create')
+    def test_640_vm_create_disposable(self, mock_storage):
+        mock_storage.side_effect = self.dummy_coro
+        self.vm.dispvm_allowed = True
+        retval = self.call_mgmt_func(b'admin.vm.CreateDisposable',
+                b'test-vm1')
+        self.assertTrue(retval.startswith('disp'))
+        self.assertIn(retval, self.app.domains)
+        dispvm = self.app.domains[retval]
+        self.assertEqual(dispvm.template, self.vm)
+        mock_storage.assert_called_once_with()
+        self.assertTrue(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.create')
+    def test_641_vm_create_disposable_default(self, mock_storage):
+        mock_storage.side_effect = self.dummy_coro
+        self.vm.dispvm_allowed = True
+        self.app.default_dispvm = self.vm
+        retval = self.call_mgmt_func(b'admin.vm.CreateDisposable',
+                b'dom0')
+        self.assertTrue(retval.startswith('disp'))
+        mock_storage.assert_called_once_with()
+        self.assertTrue(self.app.save.called)
+
+    @unittest.mock.patch('qubes.storage.Storage.create')
+    def test_642_vm_create_disposable_not_allowed(self, storage_mock):
+        storage_mock.side_effect = self.dummy_coro
+        with self.assertRaises(qubes.exc.QubesException):
+            self.call_mgmt_func(b'admin.vm.CreateDisposable',
+                b'test-vm1')
+        self.assertFalse(self.app.save.called)
+
+
     def test_990_vm_unexpected_payload(self):
         methods_with_no_payload = [
             b'admin.vm.List',
