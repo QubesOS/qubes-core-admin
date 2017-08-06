@@ -427,6 +427,7 @@ fi
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.OpenInVM
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.OpenURL
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.VMShell
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.VMRootShell
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.UpdatesProxy
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.GetDate
 /etc/qubes-rpc/admin.*
