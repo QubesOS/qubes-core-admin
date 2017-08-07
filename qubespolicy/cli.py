@@ -66,6 +66,14 @@ def main(args=None):
     try:
         policy = qubespolicy.Policy(args.service_name)
         action = policy.evaluate(system_info, args.domain, args.target)
+        if args.assume_yes_for_ask and action.action == qubespolicy.Action.ask:
+            action.action = qubespolicy.Action.allow
+        if args.just_evaluate:
+            return {
+                qubespolicy.Action.allow: 0,
+                qubespolicy.Action.deny: 1,
+                qubespolicy.Action.ask: 1,
+            }[action.action]
         if action.action == qubespolicy.Action.ask:
             # late import to save on time for allow/deny actions
             import pydbus
