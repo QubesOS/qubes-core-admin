@@ -61,6 +61,8 @@ class ThinPool(qubes.storage.Pool):
         self._pool_id = "{!s}/{!s}".format(volume_group, thin_pool)
         self.log = logging.getLogger('qube.storage.lvm.%s' % self._pool_id)
 
+        self._volume_objects_cache = {}
+
     @property
     def config(self):
         return {
@@ -91,10 +93,26 @@ class ThinPool(qubes.storage.Pool):
 
         volume_config['volume_group'] = self.volume_group
         volume_config['pool'] = self
-        return ThinVolume(**volume_config)
+        volume = ThinVolume(**volume_config)
+        self._volume_objects_cache[volume_config['vid']] = volume
+        return volume
 
     def setup(self):
         pass  # TODO Should we create a non existing pool?
+
+    def get_volume(self, vid):
+        ''' Return a volume with given vid'''
+        if vid in self._volume_objects_cache:
+            return self._volume_objects_cache[vid]
+
+        config = {
+                'pool': self,
+                'vid': vid,
+                'name': vid,
+                'volume_group': self.volume_group,
+            }
+        # don't cache this object, as it doesn't carry full configuration
+        return ThinVolume(**config)
 
     def list_volumes(self):
         ''' Return a list of volumes managed by this pool '''
@@ -288,6 +306,8 @@ class ThinVolume(qubes.storage.Volume):
         cmd = ['remove', self.vid]
         qubes_lvm(cmd, self.log)
         reset_cache()
+        # pylint: disable=protected-access
+        self.pool._volume_objects_cache.pop(self.vid, None)
 
     def export(self):
         ''' Returns an object that can be `open()`. '''
