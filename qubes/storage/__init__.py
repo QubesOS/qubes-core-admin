@@ -660,8 +660,7 @@ class Storage(object):
         assert isinstance(volume, (Volume, str)), \
             "You need to pass a Volume or pool name as str"
         if isinstance(volume, Volume):
-            return volume.import_data_end(volume,
-                success=success)
+            return volume.import_data_end(success=success)
 
         return self.vm.volumes[volume].import_data_end(success=success)
 
