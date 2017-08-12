@@ -822,8 +822,9 @@ def driver_parameters(name):
     ''' Get __init__ parameters from a driver with out `self` & `name`. '''
     init_function = qubes.utils.get_entry_point_one(
         qubes.storage.STORAGE_ENTRY_POINT, name).__init__
-    params = init_function.func_code.co_varnames
-    ignored_params = ['self', 'name']
+    signature = inspect.signature(init_function)
+    params = signature.parameters.keys()
+    ignored_params = ['self', 'name', 'kwargs']
     return [p for p in params if p not in ignored_params]
 
 
