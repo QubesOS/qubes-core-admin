@@ -392,6 +392,7 @@ fi
 /usr/lib/qubes/fix-dir-perms.sh
 /usr/lib/qubes/startup-misc.sh
 /usr/libexec/qubes/qubesd-query-fast
+%{_unitdir}/lvm2-pvscan@.service.d/30_qubes.conf
 %{_unitdir}/qubes-core.service
 %{_unitdir}/qubes-qmemman.service
 %{_unitdir}/qubes-vm@.service
