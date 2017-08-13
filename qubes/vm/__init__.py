@@ -60,6 +60,9 @@ def validate_name(holder, prop, value):
         else:
             raise qubes.exc.QubesValueError(
                 'VM name contains illegal characters')
+    if value in ('none', 'default'):
+        raise qubes.exc.QubesValueError(
+            'VM name cannot be \'none\' nor \'default\'')
 
 
 class Features(dict):
