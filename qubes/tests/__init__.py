@@ -109,6 +109,7 @@ except OSError:
     # command not found; let's assume we're outside
     pass
 
+
 def skipUnlessDom0(test_item):
     '''Decorator that skips test outside dom0.
 
@@ -118,7 +119,6 @@ def skipUnlessDom0(test_item):
 
     return unittest.skipUnless(in_dom0, 'outside dom0')(test_item)
 
-
 def skipUnlessGit(test_item):
     '''Decorator that skips test outside git repo.
 
@@ -127,6 +127,16 @@ def skipUnlessGit(test_item):
     '''
 
     return unittest.skipUnless(in_git, 'outside git tree')(test_item)
+
+def skipUnlessEnv(varname):
+    '''Decorator generator for skipping tests without environment variable set.
+
+    Some tests require working X11 display, like those using GTK library, which
+    segfaults without connection to X.
+    Other require their own, custom variables.
+    '''
+
+    return unittest.skipUnless(os.getenv(varname), 'no {} set'.format(varname))
 
 
 class TestEmitter(qubes.events.Emitter):
