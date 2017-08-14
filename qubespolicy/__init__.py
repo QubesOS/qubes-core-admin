@@ -47,6 +47,12 @@ class PolicySyntaxError(AccessDenied):
         super(PolicySyntaxError, self).__init__(
             '{}:{}: {}'.format(filename, lineno, msg))
 
+class PolicyNotFound(AccessDenied):
+    ''' Policy was not found for this service '''
+    def __init__(self, service_name):
+        super(PolicyNotFound, self).__init__(
+            'Policy not found for service {}'.format(service_name))
+
 
 class Action(enum.Enum):
     ''' Action as defined by policy '''
@@ -486,6 +492,8 @@ class Policy(object):
         if not os.path.exists(policy_file):
             # fallback to policy without specific argument set (if any)
             policy_file = os.path.join(policy_dir, service.split('+')[0])
+        if not os.path.exists(policy_file):
+            raise PolicyNotFound(service)
 
         #: policy storage directory
         self.policy_dir = policy_dir

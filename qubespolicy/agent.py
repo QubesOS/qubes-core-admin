@@ -30,6 +30,7 @@ from gi.repository import GLib
 # pylint: enable=import-error
 
 import qubespolicy.rpcconfirmation
+import qubespolicy.policycreateconfirmation
 # pylint: enable=wrong-import-position
 
 class PolicyAgent(object):
@@ -44,6 +45,11 @@ class PolicyAgent(object):
           <arg type='s' name='default_target' direction='in'/>
           <arg type='a{ss}' name='icons' direction='in'/>
           <arg type='s' name='response' direction='out'/>
+        </method>
+        <method name='ConfirmPolicyCreate'>
+          <arg type='s' name='source' direction='in'/>
+          <arg type='s' name='service_name' direction='in'/>
+          <arg type='b' name='response' direction='out'/>
         </method>
       </interface>
     </node>
@@ -63,6 +69,13 @@ class PolicyAgent(object):
             targets, default_target or None)
         return response or ''
 
+    @staticmethod
+    def ConfirmPolicyCreate(source, service_name):
+        # pylint: disable=invalid-name
+
+        response = qubespolicy.policycreateconfirmation.confirm(
+            source, service_name)
+        return response
 
 def main():
     loop = GLib.MainLoop()

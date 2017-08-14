@@ -374,6 +374,7 @@ fi
 %{python3_sitelib}/qubespolicy/cli.py
 %{python3_sitelib}/qubespolicy/agent.py
 %{python3_sitelib}/qubespolicy/gtkhelpers.py
+%{python3_sitelib}/qubespolicy/policycreateconfirmation.py
 %{python3_sitelib}/qubespolicy/rpcconfirmation.py
 %{python3_sitelib}/qubespolicy/utils.py
 %{python3_sitelib}/qubespolicy/graph.py
@@ -382,10 +383,12 @@ fi
 %dir %{python3_sitelib}/qubespolicy/tests/__pycache__
 %{python3_sitelib}/qubespolicy/tests/__pycache__/*
 %{python3_sitelib}/qubespolicy/tests/__init__.py
+%{python3_sitelib}/qubespolicy/tests/cli.py
 %{python3_sitelib}/qubespolicy/tests/gtkhelpers.py
 %{python3_sitelib}/qubespolicy/tests/rpcconfirmation.py
 
 %dir %{python3_sitelib}/qubespolicy/glade
+%{python3_sitelib}/qubespolicy/glade/PolicyCreateConfirmationWindow.glade
 %{python3_sitelib}/qubespolicy/glade/RPCConfirmationWindow.glade
 
 /usr/lib/qubes/cleanup-dispvms
@@ -414,6 +417,7 @@ fi
 /etc/xen/scripts/block-snapshot
 /etc/xen/scripts/block-origin
 /etc/xen/scripts/vif-route-qubes
+%attr(2775,root,qubes) %dir /etc/qubes-rpc/policy
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/admin.*
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/include/admin-local-ro
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/include/admin-local-rwx

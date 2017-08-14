@@ -51,6 +51,7 @@ if __name__ == '__main__':
                 'qubes.ext.r3compatibility = qubes.ext.r3compatibility:R3Compatibility',
                 'qubes.ext.pci = qubes.ext.pci:PCIDeviceExtension',
                 'qubes.ext.block = qubes.ext.block:BlockDeviceExtension',
+                'qubes.ext.services = qubes.ext.services:ServicesExtension',
             ],
             'qubes.devices': [
                 'pci = qubes.ext.pci:PCIDevice',

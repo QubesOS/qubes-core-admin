@@ -28,8 +28,9 @@ class ServicesExtension(qubes.ext.Extension):
     '''
     # pylint: disable=no-self-use
     @qubes.ext.handler('domain-qdb-create')
-    def on_domain_qdb_create(self, vm):
+    def on_domain_qdb_create(self, vm, event):
         '''Actually export features'''
+        # pylint: disable=unused-argument
         for feature, value in vm.features.items():
             if not feature.startswith('service.'):
                 continue
@@ -39,7 +40,7 @@ class ServicesExtension(qubes.ext.Extension):
                 str(int(bool(value))))
 
     @qubes.ext.handler('domain-feature-set')
-    def on_domain_feature_set(self, vm, feature, value, oldvalue=None):
+    def on_domain_feature_set(self, vm, event, feature, value, oldvalue=None):
         '''Update /qubes-service/ QubesDB tree in runtime'''
         # pylint: disable=unused-argument
         if not vm.is_running():
@@ -52,8 +53,9 @@ class ServicesExtension(qubes.ext.Extension):
             str(int(bool(value))))
 
     @qubes.ext.handler('domain-feature-delete')
-    def on_domain_feature_delete(self, vm, feature):
+    def on_domain_feature_delete(self, vm, event, feature):
         '''Update /qubes-service/ QubesDB tree in runtime'''
+        # pylint: disable=unused-argument
         if not vm.is_running():
             return
         if not feature.startswith('service.'):

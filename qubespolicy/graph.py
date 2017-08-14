@@ -52,17 +52,19 @@ def handle_single_action(args, action):
         service = ''
     else:
         service = action.service
+    target = action.target or action.original_target
+    # handle forced target=
+    if action.rule.override_target:
+        target = action.rule.override_target
+    if args.target and target not in args.target:
+        return ''
     if action.action == qubespolicy.Action.ask:
         if args.include_ask:
-            # handle forced target=
-            if len(action.targets_for_ask) == 1:
-                return '  "{}" -> "{}" [label="{}" color=orange];\n'.format(
-                    action.source, action.targets_for_ask[0], service)
             return '  "{}" -> "{}" [label="{}" color=orange];\n'.format(
-                action.source, action.original_target, service)
+                action.source, target, service)
     elif action.action == qubespolicy.Action.allow:
         return '  "{}" -> "{}" [label="{}" color=red];\n'.format(
-                action.source, action.target, service)
+                action.source, target, service)
     return ''
 
 def main(args=None):
@@ -83,12 +85,9 @@ def main(args=None):
         sources = args.source
 
     targets = list(system_info['domains'].keys())
-    if args.target:
-        targets = args.target
-    else:
-        targets.append('$dispvm')
-        targets.extend('$dispvm:' + dom for dom in system_info['domains']
-            if system_info['domains'][dom]['dispvm_allowed'])
+    targets.append('$dispvm')
+    targets.extend('$dispvm:' + dom for dom in system_info['domains']
+        if system_info['domains'][dom]['dispvm_allowed'])
 
     connections = set()
 

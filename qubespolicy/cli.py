@@ -20,6 +20,7 @@
 import argparse
 import logging
 import logging.handlers
+import os
 
 import sys
 
@@ -46,6 +47,20 @@ parser.add_argument('process_ident', metavar='process-ident',
     help='Qrexec process identifier - for connecting data channel')
 
 
+def create_default_policy(service_name):
+    policy_file = os.path.join(qubespolicy.POLICY_DIR, service_name)
+    with open(policy_file, "w") as policy:
+        policy.write(
+            "## Policy file automatically created on first service call.\n")
+        policy.write(
+            "## Fill free to edit.\n")
+        policy.write("## Note that policy parsing stops at the first match\n")
+        policy.write("\n")
+        policy.write("## Please use a single # to start your custom comments\n")
+        policy.write("\n")
+        policy.write("$anyvm  $anyvm  ask\n")
+
+
 def main(args=None):
     args = parser.parse_args(args)
 
@@ -64,7 +79,22 @@ def main(args=None):
         log.error(log_prefix + 'error getting system info: ' + str(e))
         return 1
     try:
-        policy = qubespolicy.Policy(args.service_name)
+        try:
+            policy = qubespolicy.Policy(args.service_name)
+        except qubespolicy.PolicyNotFound:
+            service_name = args.service_name.split('+')[0]
+            import pydbus
+            bus = pydbus.SystemBus()
+            proxy = bus.get('org.qubesos.PolicyAgent',
+                '/org/qubesos/PolicyAgent')
+            create_policy = proxy.ConfirmPolicyCreate(
+                args.domain, service_name)
+            if create_policy:
+                create_default_policy(service_name)
+                policy = qubespolicy.Policy(args.service_name)
+            else:
+                raise
+
         action = policy.evaluate(system_info, args.domain, args.target)
         if args.assume_yes_for_ask and action.action == qubespolicy.Action.ask:
             action.action = qubespolicy.Action.allow
