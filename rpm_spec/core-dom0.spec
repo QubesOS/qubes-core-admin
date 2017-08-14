@@ -383,6 +383,7 @@ fi
 %dir %{python3_sitelib}/qubespolicy/tests/__pycache__
 %{python3_sitelib}/qubespolicy/tests/__pycache__/*
 %{python3_sitelib}/qubespolicy/tests/__init__.py
+%{python3_sitelib}/qubespolicy/tests/cli.py
 %{python3_sitelib}/qubespolicy/tests/gtkhelpers.py
 %{python3_sitelib}/qubespolicy/tests/rpcconfirmation.py
 
