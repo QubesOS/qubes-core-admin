@@ -1,0 +1,2 @@
+class SystemBus(object):
+    pass
