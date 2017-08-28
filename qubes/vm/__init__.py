@@ -297,6 +297,22 @@ class BaseVM(qubes.PropertyHolder):
         if hasattr(self, 'name'):
             self.init_log()
 
+    def close(self):
+        super().close()
+
+        if self._qdb_connection_watch is not None:
+            asyncio.get_event_loop().remove_reader(
+                self._qdb_connection_watch.watch_fd())
+            self._qdb_connection_watch.close()
+            del self._qdb_connection_watch
+
+        del self.app
+        del self.features
+        del self.storage
+        # TODO storage may have circ references, but it doesn't leak fds
+        del self.devices
+        del self.tags
+
     def load_extras(self):
         # features
         for node in self.xml.xpath('./features/feature'):

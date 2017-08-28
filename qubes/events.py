@@ -106,6 +106,8 @@ class Emitter(object, metaclass=EmitterMeta):
             self.events_enabled = False
         self.__handlers__ = collections.defaultdict(set)
 
+    def close(self):
+        self.events_enabled = False
 
     def add_handler(self, event, func):
         '''Add event handler to subject's class.
