@@ -275,7 +275,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
             os.unlink('/tmp/qubestest.xml')
         except FileNotFoundError:
             pass
-        qubes.Qubes.create_empty_store('/tmp/qubestest.xml')
+        qubes.Qubes.create_empty_store('/tmp/qubestest.xml').close()
 
     def test_100_clockvm(self):
         app = qubes.Qubes('/tmp/qubestest.xml', load=False, offline_mode=True)
@@ -295,6 +295,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         self.assertNotIn('service.clocksync', appvm.features)
         self.assertIn('service.clocksync', template.features)
         self.assertTrue(template.features['service.clocksync'])
+        app.close()
 
     @qubes.tests.skipUnlessGit
     def test_900_example_xml_in_doc(self):

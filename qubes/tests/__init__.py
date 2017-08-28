@@ -605,7 +605,8 @@ class SystemTestCase(QubesTestCase):
         if not in_dom0:
             self.skipTest('outside dom0')
         super(SystemTestCase, self).setUp()
-        libvirtaio.virEventRegisterAsyncIOImpl(loop=self.loop)
+        self.libvirt_event_impl = libvirtaio.virEventRegisterAsyncIOImpl(
+            loop=self.loop)
         self.remove_test_vms()
 
         # need some information from the real qubes.xml - at least installed
@@ -619,13 +620,61 @@ class SystemTestCase(QubesTestCase):
             shutil.copy(self.host_app.store, XMLPATH)
         self.app = qubes.Qubes(XMLPATH)
         os.environ['QUBES_XML_PATH'] = XMLPATH
-        self.app.vmm.register_event_handlers(self.app)
+        self.app.register_event_handlers()
 
         self.qubesd = self.loop.run_until_complete(
             qubes.api.create_servers(
                 qubes.api.admin.QubesAdminAPI,
                 qubes.api.internal.QubesInternalAPI,
                 app=self.app, debug=True))
+
+    def tearDown(self):
+        self.remove_test_vms()
+
+        # close the servers before super(), because that might close the loop
+        server = None
+        for server in self.qubesd:
+            for sock in server.sockets:
+                os.unlink(sock.getsockname())
+            server.close()
+        del server
+
+        # close all existing connections, especially this will interrupt
+        # running admin.Events calls, which do keep reference to Qubes() and
+        # libvirt connection
+        conn = None
+        for conn in qubes.api.QubesDaemonProtocol.connections:
+            if conn.transport:
+                conn.transport.abort()
+        del conn
+
+        self.loop.run_until_complete(asyncio.wait([
+            server.wait_closed() for server in self.qubesd]))
+        del self.qubesd
+
+        # remove all references to any complex qubes objects, to release
+        # resources - most importantly file descriptors; this object will live
+        # during the whole test run, but all the file descriptors would be
+        # depleted earlier
+        self.app.close()
+        self.host_app.close()
+        del self.app
+        del self.host_app
+        for attr in dir(self):
+            obj_type = type(getattr(self, attr))
+            if obj_type.__module__.startswith('qubes'):
+                delattr(self, attr)
+
+        # then trigger garbage collector to really destroy those objects
+        gc.collect()
+
+        self.loop.run_until_complete(self.libvirt_event_impl.drain())
+        if not self.libvirt_event_impl.is_idle():
+            self.log.warning(
+                'libvirt event impl not clean: callbacks %r descriptors %r',
+                self.libvirt_event_impl.callbacks,
+                self.libvirt_event_impl.descriptors)
+        super(SystemTestCase, self).tearDown()
 
     def init_default_template(self, template=None):
         if template is None:
@@ -674,47 +723,6 @@ class SystemTestCase(QubesTestCase):
         if not self.pool:
             self.pool = self.app.add_pool(**POOL_CONF)
             self.created_pool = True
-
-    def tearDown(self):
-        self.remove_test_vms()
-
-        # close the servers before super(), because that might close the loop
-        server = None
-        for server in self.qubesd:
-            for sock in server.sockets:
-                os.unlink(sock.getsockname())
-            server.close()
-        del server
-
-        # close all existing connections, especially this will interrupt
-        # running admin.Events calls, which do keep reference to Qubes() and
-        # libvirt connection
-        conn = None
-        for conn in qubes.api.QubesDaemonProtocol.connections:
-            if conn.transport:
-                conn.transport.abort()
-        del conn
-
-        self.loop.run_until_complete(asyncio.wait([
-            server.wait_closed() for server in self.qubesd]))
-        del self.qubesd
-
-        # remove all references to any complex qubes objects, to release
-        # resources - most importantly file descriptors; this object will live
-        # during the whole test run, but all the file descriptors would be
-        # depleted earlier
-        self.app.vmm._libvirt_conn = None
-        del self.app
-        del self.host_app
-        for attr in dir(self):
-            obj_type = type(getattr(self, attr))
-            if obj_type.__module__.startswith('qubes'):
-                delattr(self, attr)
-
-        # then trigger garbage collector to really destroy those objects
-        gc.collect()
-
-        super(SystemTestCase, self).tearDown()
 
     def _remove_vm_qubes(self, vm):
         vmname = vm.name
