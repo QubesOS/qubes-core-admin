@@ -20,6 +20,7 @@
 #
 
 import argparse
+import code
 import curses
 import itertools
 import logging
@@ -337,6 +338,10 @@ parser.add_argument('--allow-running-along-qubesd',
     help='allow running in parallel with qubesd;'
         ' this is DANGEROUS and WILL RESULT IN INCONSISTENT SYSTEM STATE')
 
+parser.add_argument('--break-to-repl',
+    action='store_true', default=False,
+    help='break to REPL after tests')
+
 parser.add_argument('names', metavar='TESTNAME',
     action='store', nargs='*',
     help='list of tests to run named like in description '
@@ -362,8 +367,8 @@ def list_test_cases(suite):
             yield test
 
 
-def main():
-    args = parser.parse_args()
+def main(args=None):
+    args = parser.parse_args(args)
 
     suite = unittest.TestSuite()
     loader = unittest.TestLoader()
@@ -424,7 +429,12 @@ def main():
     runner.resultclass = QubesDNCTestResult \
         if args.do_not_clean else QubesTestResult
 
-    return runner.run(suite).wasSuccessful()
+    result = runner.run(suite)
+
+    if args.break_to_repl:
+        code.interact(local=locals())
+
+    return result.wasSuccessful()
 
 
 if __name__ == '__main__':
