@@ -52,6 +52,7 @@ import gc
 import lxml.etree
 import pkg_resources
 
+import qubes
 import qubes.api
 import qubes.api.admin
 import qubes.api.internal
@@ -61,6 +62,7 @@ import qubes.devices
 import qubes.events
 import qubes.exc
 import qubes.vm.standalonevm
+import qubes.vm.templatevm
 
 XMLPATH = '/var/lib/qubes/qubes-test.xml'
 CLASS_XMLPATH = '/var/lib/qubes/qubes-class-test.xml'
@@ -990,6 +992,22 @@ class SystemTestCase(QubesTestCase):
             vm.run_service_for_stdio(
                 'qubes.WaitForSession', input=vm.default_user.encode()),
             timeout=30)
+
+
+_templates = None
+def list_templates():
+    '''Returns tuple of template names available in the system.'''
+    global _templates
+    if _templates is None:
+        try:
+            app = qubes.Qubes()
+            _templates = tuple(vm.name for vm in app.domains
+                if isinstance(vm, qubes.vm.templatevm.TemplateVM))
+            app.close()
+            del app
+        except OSError:
+            _templates = ()
+    return _templates
 
 
 def load_tests(loader, tests, pattern): # pylint: disable=unused-argument

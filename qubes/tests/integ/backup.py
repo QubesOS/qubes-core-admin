@@ -541,13 +541,7 @@ class TC_10_BackupVMMixin(BackupTestsMixin):
 
 
 def load_tests(loader, tests, pattern):
-    try:
-        app = qubes.Qubes()
-        templates = [vm.name for vm in app.domains if
-                     isinstance(vm, qubes.vm.templatevm.TemplateVM)]
-    except OSError:
-        templates = []
-    for template in templates:
+    for template in qubes.tests.list_templates():
         tests.addTests(loader.loadTestsFromTestCase(
             type(
                 'TC_10_BackupVM_' + template,
