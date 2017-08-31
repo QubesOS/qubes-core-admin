@@ -69,8 +69,9 @@ def main(args=None):
     caller_ident = args.process_ident + "," + args.domain + "," + args.domain_id
     log = logging.getLogger('qubespolicy')
     log.setLevel(logging.INFO)
-    handler = logging.handlers.SysLogHandler(address='/dev/log')
-    log.addHandler(handler)
+    if not log.handlers:
+        handler = logging.handlers.SysLogHandler(address='/dev/log')
+        log.addHandler(handler)
     log_prefix = 'qrexec: {}: {} -> {}: '.format(
         args.service_name, args.domain, args.target)
     try:

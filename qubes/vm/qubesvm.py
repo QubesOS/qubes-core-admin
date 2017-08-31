@@ -706,6 +706,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self.events_enabled = True
         self.fire_event('domain-init')
 
+    def close(self):
+        if self._qdb_connection is not None:
+            self._qdb_connection.close()
+            self._qdb_connection = None
+        super().close()
+
     def __hash__(self):
         return self.qid
 
