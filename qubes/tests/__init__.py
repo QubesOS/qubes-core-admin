@@ -345,12 +345,6 @@ class substitute_entry_points(object):
         self._orig_iter_entry_points = None
 
 
-class BeforeCleanExit(BaseException):
-    '''Raised from :py:meth:`QubesTestCase.tearDown` when
-    :py:attr:`qubes.tests.run.QubesDNCTestResult.do_not_clean` is set.'''
-    pass
-
-
 class QubesTestCase(unittest.TestCase):
     '''Base class for Qubes unit tests.
     '''
@@ -379,27 +373,15 @@ class QubesTestCase(unittest.TestCase):
         super().setUp()
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
+        self.addCleanup(self.cleanup_loop)
 
-    def tearDown(self):
+    def cleanup_loop(self):
         # The loop, when closing, throws a warning if there is
         # some unfinished bussiness. Let's catch that.
         with warnings.catch_warnings():
             warnings.simplefilter('error')
             self.loop.close()
-
-        # TODO: find better way in py3
-        try:
-            result = self._outcome.result
-        except:
-            result = self._resultForDoCleanups
-        failed_test_cases = result.failures \
-            + result.errors \
-            + [(tc, None) for tc in result.unexpectedSuccesses]
-
-        if getattr(result, 'do_not_clean', False) \
-                and any(tc is self for tc, exc in failed_test_cases):
-            raise BeforeCleanExit()
-
+        del self.loop
 
     def assertNotRaises(self, excClass, callableObj=None, *args, **kwargs):
         """Fail if an exception of class excClass is raised
@@ -628,10 +610,12 @@ class SystemTestCase(QubesTestCase):
                 qubes.api.internal.QubesInternalAPI,
                 app=self.app, debug=True))
 
-    def tearDown(self):
+        self.addCleanup(self.cleanup_app)
+
+
+    def cleanup_app(self):
         self.remove_test_vms()
 
-        # close the servers before super(), because that might close the loop
         server = None
         for server in self.qubesd:
             for sock in server.sockets:
@@ -674,7 +658,6 @@ class SystemTestCase(QubesTestCase):
                 'libvirt event impl not clean: callbacks %r descriptors %r',
                 self.libvirt_event_impl.callbacks,
                 self.libvirt_event_impl.descriptors)
-        super(SystemTestCase, self).tearDown()
 
     def init_default_template(self, template=None):
         if template is None:

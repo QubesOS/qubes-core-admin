@@ -231,10 +231,6 @@ class QubesTestResult(unittest.TestResult):
             self.stream.writeln('%s' % err)
 
 
-class QubesDNCTestResult(QubesTestResult):
-    do_not_clean = True
-
-
 def demo(verbosity=2):
     class TC_00_Demo(qubes.tests.QubesTestCase):
         '''Demo class'''
@@ -292,13 +288,6 @@ parser.add_argument('--failfast', '-f',
 parser.add_argument('--no-failfast',
     action='store_false', dest='failfast',
     help='disable --failfast')
-
-parser.add_argument('--do-not-clean', '--dnc', '-D',
-    action='store_true', dest='do_not_clean',
-    help='do not execute tearDown on failed tests. Implies --failfast.')
-parser.add_argument('--do-clean', '-C',
-    action='store_false', dest='do_not_clean',
-    help='do execute tearDown even on failed tests.')
 
 # pylint: disable=protected-access
 try:
@@ -387,9 +376,6 @@ def main(args=None):
             print(str(test)) # pylint: disable=superfluous-parens
         return True
 
-    if args.do_not_clean:
-        args.failfast = True
-
     logging.root.setLevel(args.loglevel)
 
     if args.logfile is not None:
@@ -425,10 +411,7 @@ def main(args=None):
         verbosity=(args.verbose-args.quiet),
         failfast=args.failfast)
     unittest.signals.installHandler()
-
-    runner.resultclass = QubesDNCTestResult \
-        if args.do_not_clean else QubesTestResult
-
+    runner.resultclass = QubesTestResult
     result = runner.run(suite)
 
     if args.break_to_repl:
