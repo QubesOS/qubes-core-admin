@@ -139,13 +139,12 @@ class VirConnectWrapper(object):
 class VMMConnection(object):
     '''Connection to Virtual Machine Manager (libvirt)'''
 
-    def __init__(self, app, offline_mode=None):
+    def __init__(self, offline_mode=None):
         '''
 
         :param offline_mode: enable/disable offline mode; default is to
         enable when running in chroot as root, otherwise disable
         '''
-        self.app = app
         if offline_mode is None:
             offline_mode = bool(os.getuid() == 0 and
                 os.stat('/') != os.stat('/proc/1/root/.'))
@@ -734,7 +733,7 @@ class Qubes(qubes.PropertyHolder):
         self.pools = {}
 
         #: Connection to VMM
-        self.vmm = VMMConnection(self, offline_mode=offline_mode)
+        self.vmm = VMMConnection(offline_mode=offline_mode)
 
         #: Information about host system
         self.host = QubesHost(self)
