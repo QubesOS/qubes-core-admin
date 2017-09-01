@@ -735,8 +735,7 @@ class TC_00_AppVMMixin(object):
         if self.template.startswith('whonix-'):
             self.skipTest('qvm-sync-clock disabled for Whonix VMs')
         self.loop.run_until_complete(asyncio.wait([
-            self.testvm1.start(),
-            self.testvm2.start()]))
+            self.testvm1.start()]))
         start_time = subprocess.check_output(['date', '-u', '+%s'])
 
         try:
@@ -745,25 +744,21 @@ class TC_00_AppVMMixin(object):
             # break vm and dom0 time, to check if qvm-sync-clock would fix it
             subprocess.check_call(['sudo', 'date', '-s', '2001-01-01T12:34:56'],
                 stdout=subprocess.DEVNULL)
-            self.loop.run_until_complete(asyncio.wait([
+            self.loop.run_until_complete(
                 self.testvm1.run_for_stdio('date -s 2001-01-01T12:34:56',
-                    user='root'),
-                self.testvm2.run_for_stdio('date -s 2001-01-01T12:34:56',
-                    user='root'),
-                ]))
+                    user='root'))
 
-            subprocess.check_call(['qvm-sync-clock'], stdout=subprocess.DEVNULL)
-            # qvm-sync-clock is asynchronous - it spawns qubes.SetDateTime
-            # service, send it timestamp value and exists without waiting for
-            # actual time set
+            p = self.loop.run_until_complete(
+                asyncio.create_subprocess_exec('sudo', 'qvm-sync-clock',
+                    stdout=asyncio.subprocess.DEVNULL))
+            self.loop.run_until_complete(p.wait())
+            self.assertEqual(p.returncode, 0)
+            self.loop.run_until_complete(
+                self.testvm1.run_for_stdio('qvm-sync-clock',
+                    user='root'))
 
-            self.loop.run_until_complete(asyncio.sleep(1))
             vm_time, _ = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio('date -u +%s'))
-            self.assertAlmostEquals(int(vm_time), int(start_time), delta=30)
-
-            vm_time, _ = self.loop.run_until_complete(
-                self.testvm2.run_for_stdio('date -u +%s'))
             self.assertAlmostEquals(int(vm_time), int(start_time), delta=30)
 
             dom0_time, _ = subprocess.check_output(['date', '-u', '+%s'])
