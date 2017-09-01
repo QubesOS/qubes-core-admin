@@ -14,6 +14,9 @@ class libvirtError(Exception):
 def openReadOnly(*args, **kwargs):
     raise libvirtError('mock module, always raises')
 
+def registerErrorHandler(f, ctx):
+    pass
+
 VIR_DOMAIN_BLOCKED = 2
 VIR_DOMAIN_RUNNING = 1
 VIR_DOMAIN_PAUSED = 3

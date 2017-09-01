@@ -19,13 +19,15 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 
-from distutils import spawn
-import qubes.tests
+import os
 import subprocess
 import tempfile
-import unittest
-import os
 import time
+import unittest
+
+from distutils import spawn
+
+import qubes.tests
 
 class TC_04_DispVM(qubes.tests.SystemTestCase):
 
@@ -254,13 +256,7 @@ class TC_20_DispVMMixin(object):
         self.assertEqual(test_txt_content, b"Test test 2\ntest1\n")
 
 def load_tests(loader, tests, pattern):
-    try:
-        app = qubes.Qubes()
-        templates = [vm.name for vm in app.domains if
-                     isinstance(vm, qubes.vm.templatevm.TemplateVM)]
-    except OSError:
-        templates = []
-    for template in templates:
+    for template in qubes.tests.list_templates():
         tests.addTests(loader.loadTestsFromTestCase(
             type(
                 'TC_20_DispVM_' + template,

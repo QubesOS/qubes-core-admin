@@ -32,6 +32,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import traceback
 import uuid
 
 import lxml.etree
@@ -144,13 +145,14 @@ class VMMConnection(object):
         :param offline_mode: enable/disable offline mode; default is to
         enable when running in chroot as root, otherwise disable
         '''
-        self._libvirt_conn = None
-        self._xs = None
-        self._xc = None
         if offline_mode is None:
             offline_mode = bool(os.getuid() == 0 and
                 os.stat('/') != os.stat('/proc/1/root/.'))
         self._offline_mode = offline_mode
+
+        self._libvirt_conn = None
+        self._xs = None
+        self._xc = None
 
     @property
     def offline_mode(self):
@@ -218,36 +220,15 @@ class VMMConnection(object):
         self.init_vmm_connection()
         return self._xc
 
-    def register_event_handlers(self, app):
-        '''Register libvirt event handlers, which will translate libvirt
-        events into qubes.events. This function should be called only in
-        'qubesd' process and only when mainloop has been already set.
-        '''
-        self.libvirt_conn.domainEventRegisterAny(
-            None,  # any domain
-            libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE,
-            self._domain_event_callback,
-            app
-        )
-
-    @staticmethod
-    def _domain_event_callback(_conn, domain, event, _detail, opaque):
-        '''Generic libvirt event handler (virConnectDomainEventCallback),
-        translate libvirt event into qubes.events.
-        '''
-        app = opaque
-        try:
-            vm = app.domains[domain.name()]
-        except KeyError:
-            # ignore events for unknown domains
-            return
-
-        if event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
-            vm.fire_event('domain-shutdown')
-
-    def __del__(self):
+    def close(self):
+        libvirt.registerErrorHandler(None, None)
+        if self._xs:
+            self._xs.close()
+            self._xs = None
         if self._libvirt_conn:
             self._libvirt_conn.close()
+            self._libvirt_conn = None
+        self._xc = None  # and pray it will get garbage-collected
 
 
 class QubesHost(object):
@@ -396,6 +377,12 @@ class VMCollection(object):
     def __init__(self, app):
         self.app = app
         self._dict = dict()
+
+
+    def close(self):
+        del self.app
+        self._dict.clear()
+        del self._dict
 
 
     def __repr__(self):
@@ -729,6 +716,10 @@ class Qubes(qubes.PropertyHolder):
             **kwargs):
         #: logger instance for logging global messages
         self.log = logging.getLogger('app')
+        self.log.debug('init() -> %#x', id(self))
+        self.log.debug('stack:')
+        for frame in traceback.extract_stack():
+            self.log.debug('%s', frame)
 
         self._extensions = qubes.ext.get_extensions()
 
@@ -759,6 +750,7 @@ class Qubes(qubes.PropertyHolder):
 
         self.__load_timestamp = None
         self.__locked_fh = None
+        self._domain_event_callback_id = None
 
         #: jinja2 environment for libvirt XML templates
         self.env = jinja2.Environment(
@@ -907,6 +899,40 @@ class Qubes(qubes.PropertyHolder):
         self.__locked_fh = fh_new
 
         if not lock:
+            self._release_lock()
+
+
+    def close(self):
+        '''Deconstruct the object and break circular references
+
+        After calling this the object is unusable, not even for saving.'''
+
+        self.log.debug('close() <- %#x', id(self))
+        for frame in traceback.extract_stack():
+            self.log.debug('%s', frame)
+
+        super().close()
+
+        if self._domain_event_callback_id is not None:
+            self.vmm.libvirt_conn.domainEventDeregisterAny(
+                self._domain_event_callback_id)
+            self._domain_event_callback_id = None
+
+        # Only our Lord, The God Almighty, knows what references
+        # are kept in extensions.
+        del self._extensions
+
+        for vm in self.domains:
+            vm.close()
+        self.domains.close()
+        del self.domains
+
+        self.vmm.close()
+        del self.vmm
+
+        del self.host
+
+        if self.__locked_fh:
             self._release_lock()
 
 
@@ -1128,6 +1154,34 @@ class Qubes(qubes.PropertyHolder):
         except KeyError:
             raise qubes.exc.QubesException('No driver %s for pool %s' %
                                            (driver, name))
+
+    def register_event_handlers(self):
+        '''Register libvirt event handlers, which will translate libvirt
+        events into qubes.events. This function should be called only in
+        'qubesd' process and only when mainloop has been already set.
+        '''
+        self._domain_event_callback_id = (
+            self.vmm.libvirt_conn.domainEventRegisterAny(
+                None,  # any domain
+                libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE,
+                self._domain_event_callback,
+                None))
+
+    def _domain_event_callback(self, _conn, domain, event, _detail, _opaque):
+        '''Generic libvirt event handler (virConnectDomainEventCallback),
+        translate libvirt event into qubes.events.
+        '''
+        if not self.events_enabled:
+            return
+
+        try:
+            vm = self.domains[domain.name()]
+        except KeyError:
+            # ignore events for unknown domains
+            return
+
+        if event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
+            vm.fire_event('domain-shutdown')
 
     @qubes.events.handler('domain-pre-delete')
     def on_domain_pre_deleted(self, event, vm):

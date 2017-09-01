@@ -52,6 +52,7 @@ import gc
 import lxml.etree
 import pkg_resources
 
+import qubes
 import qubes.api
 import qubes.api.admin
 import qubes.api.internal
@@ -61,6 +62,7 @@ import qubes.devices
 import qubes.events
 import qubes.exc
 import qubes.vm.standalonevm
+import qubes.vm.templatevm
 
 XMLPATH = '/var/lib/qubes/qubes-test.xml'
 CLASS_XMLPATH = '/var/lib/qubes/qubes-class-test.xml'
@@ -109,6 +111,7 @@ except OSError:
     # command not found; let's assume we're outside
     pass
 
+
 def skipUnlessDom0(test_item):
     '''Decorator that skips test outside dom0.
 
@@ -118,7 +121,6 @@ def skipUnlessDom0(test_item):
 
     return unittest.skipUnless(in_dom0, 'outside dom0')(test_item)
 
-
 def skipUnlessGit(test_item):
     '''Decorator that skips test outside git repo.
 
@@ -127,6 +129,16 @@ def skipUnlessGit(test_item):
     '''
 
     return unittest.skipUnless(in_git, 'outside git tree')(test_item)
+
+def skipUnlessEnv(varname):
+    '''Decorator generator for skipping tests without environment variable set.
+
+    Some tests require working X11 display, like those using GTK library, which
+    segfaults without connection to X.
+    Other require their own, custom variables.
+    '''
+
+    return unittest.skipUnless(os.getenv(varname), 'no {} set'.format(varname))
 
 
 class TestEmitter(qubes.events.Emitter):
@@ -333,12 +345,6 @@ class substitute_entry_points(object):
         self._orig_iter_entry_points = None
 
 
-class BeforeCleanExit(BaseException):
-    '''Raised from :py:meth:`QubesTestCase.tearDown` when
-    :py:attr:`qubes.tests.run.QubesDNCTestResult.do_not_clean` is set.'''
-    pass
-
-
 class QubesTestCase(unittest.TestCase):
     '''Base class for Qubes unit tests.
     '''
@@ -367,27 +373,15 @@ class QubesTestCase(unittest.TestCase):
         super().setUp()
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
+        self.addCleanup(self.cleanup_loop)
 
-    def tearDown(self):
+    def cleanup_loop(self):
         # The loop, when closing, throws a warning if there is
         # some unfinished bussiness. Let's catch that.
         with warnings.catch_warnings():
             warnings.simplefilter('error')
             self.loop.close()
-
-        # TODO: find better way in py3
-        try:
-            result = self._outcome.result
-        except:
-            result = self._resultForDoCleanups
-        failed_test_cases = result.failures \
-            + result.errors \
-            + [(tc, None) for tc in result.unexpectedSuccesses]
-
-        if getattr(result, 'do_not_clean', False) \
-                and any(tc is self for tc, exc in failed_test_cases):
-            raise BeforeCleanExit()
-
+        del self.loop
 
     def assertNotRaises(self, excClass, callableObj=None, *args, **kwargs):
         """Fail if an exception of class excClass is raised
@@ -593,7 +587,8 @@ class SystemTestCase(QubesTestCase):
         if not in_dom0:
             self.skipTest('outside dom0')
         super(SystemTestCase, self).setUp()
-        libvirtaio.virEventRegisterAsyncIOImpl(loop=self.loop)
+        self.libvirt_event_impl = libvirtaio.virEventRegisterAsyncIOImpl(
+            loop=self.loop)
         self.remove_test_vms()
 
         # need some information from the real qubes.xml - at least installed
@@ -607,13 +602,62 @@ class SystemTestCase(QubesTestCase):
             shutil.copy(self.host_app.store, XMLPATH)
         self.app = qubes.Qubes(XMLPATH)
         os.environ['QUBES_XML_PATH'] = XMLPATH
-        self.app.vmm.register_event_handlers(self.app)
+        self.app.register_event_handlers()
 
         self.qubesd = self.loop.run_until_complete(
             qubes.api.create_servers(
                 qubes.api.admin.QubesAdminAPI,
                 qubes.api.internal.QubesInternalAPI,
                 app=self.app, debug=True))
+
+        self.addCleanup(self.cleanup_app)
+
+
+    def cleanup_app(self):
+        self.remove_test_vms()
+
+        server = None
+        for server in self.qubesd:
+            for sock in server.sockets:
+                os.unlink(sock.getsockname())
+            server.close()
+        del server
+
+        # close all existing connections, especially this will interrupt
+        # running admin.Events calls, which do keep reference to Qubes() and
+        # libvirt connection
+        conn = None
+        for conn in qubes.api.QubesDaemonProtocol.connections:
+            if conn.transport:
+                conn.transport.abort()
+        del conn
+
+        self.loop.run_until_complete(asyncio.wait([
+            server.wait_closed() for server in self.qubesd]))
+        del self.qubesd
+
+        # remove all references to any complex qubes objects, to release
+        # resources - most importantly file descriptors; this object will live
+        # during the whole test run, but all the file descriptors would be
+        # depleted earlier
+        self.app.close()
+        self.host_app.close()
+        del self.app
+        del self.host_app
+        for attr in dir(self):
+            obj_type = type(getattr(self, attr))
+            if obj_type.__module__.startswith('qubes'):
+                delattr(self, attr)
+
+        # then trigger garbage collector to really destroy those objects
+        gc.collect()
+
+        self.loop.run_until_complete(self.libvirt_event_impl.drain())
+        if not self.libvirt_event_impl.is_idle():
+            self.log.warning(
+                'libvirt event impl not clean: callbacks %r descriptors %r',
+                self.libvirt_event_impl.callbacks,
+                self.libvirt_event_impl.descriptors)
 
     def init_default_template(self, template=None):
         if template is None:
@@ -662,47 +706,6 @@ class SystemTestCase(QubesTestCase):
         if not self.pool:
             self.pool = self.app.add_pool(**POOL_CONF)
             self.created_pool = True
-
-    def tearDown(self):
-        self.remove_test_vms()
-
-        # close the servers before super(), because that might close the loop
-        server = None
-        for server in self.qubesd:
-            for sock in server.sockets:
-                os.unlink(sock.getsockname())
-            server.close()
-        del server
-
-        # close all existing connections, especially this will interrupt
-        # running admin.Events calls, which do keep reference to Qubes() and
-        # libvirt connection
-        conn = None
-        for conn in qubes.api.QubesDaemonProtocol.connections:
-            if conn.transport:
-                conn.transport.abort()
-        del conn
-
-        self.loop.run_until_complete(asyncio.wait([
-            server.wait_closed() for server in self.qubesd]))
-        del self.qubesd
-
-        # remove all references to any complex qubes objects, to release
-        # resources - most importantly file descriptors; this object will live
-        # during the whole test run, but all the file descriptors would be
-        # depleted earlier
-        self.app.vmm._libvirt_conn = None
-        del self.app
-        del self.host_app
-        for attr in dir(self):
-            obj_type = type(getattr(self, attr))
-            if obj_type.__module__.startswith('qubes'):
-                delattr(self, attr)
-
-        # then trigger garbage collector to really destroy those objects
-        gc.collect()
-
-        super(SystemTestCase, self).tearDown()
 
     def _remove_vm_qubes(self, vm):
         vmname = vm.name
@@ -980,6 +983,22 @@ class SystemTestCase(QubesTestCase):
             vm.run_service_for_stdio(
                 'qubes.WaitForSession', input=vm.default_user.encode()),
             timeout=30)
+
+
+_templates = None
+def list_templates():
+    '''Returns tuple of template names available in the system.'''
+    global _templates
+    if _templates is None:
+        try:
+            app = qubes.Qubes()
+            _templates = tuple(vm.name for vm in app.domains
+                if isinstance(vm, qubes.vm.templatevm.TemplateVM))
+            app.close()
+            del app
+        except OSError:
+            _templates = ()
+    return _templates
 
 
 def load_tests(loader, tests, pattern): # pylint: disable=unused-argument

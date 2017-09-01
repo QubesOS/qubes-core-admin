@@ -934,13 +934,7 @@ SHA256:
             '{}: {}\n{}'.format(self.update_cmd, stdout, stderr))
 
 def load_tests(loader, tests, pattern):
-    try:
-        app = qubes.Qubes()
-        templates = [vm.name for vm in app.domains if
-                     isinstance(vm, qubes.vm.templatevm.TemplateVM)]
-    except OSError:
-        templates = []
-    for template in templates:
+    for template in qubes.tests.list_templates():
         tests.addTests(loader.loadTestsFromTestCase(
             type(
                 'VmNetworking_' + template,

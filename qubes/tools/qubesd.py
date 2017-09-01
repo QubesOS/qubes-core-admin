@@ -35,7 +35,7 @@ def main(args=None):
         loop.close()
         raise
 
-    args.app.vmm.register_event_handlers(args.app)
+    args.app.register_event_handlers()
 
     if args.debug:
         qubes.log.enable_debug()

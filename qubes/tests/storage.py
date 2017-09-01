@@ -92,6 +92,7 @@ class TC_00_Pool(SystemTestCase):
 
     def setUp(self):
         super(TC_00_Pool, self).setUp()
+        self.app.close()
         self.app = TestApp()
 
     def test_000_unknown_pool_driver(self):

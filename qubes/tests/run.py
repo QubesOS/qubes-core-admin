@@ -20,6 +20,7 @@
 #
 
 import argparse
+import code
 import curses
 import itertools
 import logging
@@ -230,10 +231,6 @@ class QubesTestResult(unittest.TestResult):
             self.stream.writeln('%s' % err)
 
 
-class QubesDNCTestResult(QubesTestResult):
-    do_not_clean = True
-
-
 def demo(verbosity=2):
     class TC_00_Demo(qubes.tests.QubesTestCase):
         '''Demo class'''
@@ -292,13 +289,6 @@ parser.add_argument('--no-failfast',
     action='store_false', dest='failfast',
     help='disable --failfast')
 
-parser.add_argument('--do-not-clean', '--dnc', '-D',
-    action='store_true', dest='do_not_clean',
-    help='do not execute tearDown on failed tests. Implies --failfast.')
-parser.add_argument('--do-clean', '-C',
-    action='store_false', dest='do_not_clean',
-    help='do execute tearDown even on failed tests.')
-
 # pylint: disable=protected-access
 try:
     name_to_level = logging._nameToLevel
@@ -337,6 +327,10 @@ parser.add_argument('--allow-running-along-qubesd',
     help='allow running in parallel with qubesd;'
         ' this is DANGEROUS and WILL RESULT IN INCONSISTENT SYSTEM STATE')
 
+parser.add_argument('--break-to-repl',
+    action='store_true', default=False,
+    help='break to REPL after tests')
+
 parser.add_argument('names', metavar='TESTNAME',
     action='store', nargs='*',
     help='list of tests to run named like in description '
@@ -362,8 +356,8 @@ def list_test_cases(suite):
             yield test
 
 
-def main():
-    args = parser.parse_args()
+def main(args=None):
+    args = parser.parse_args(args)
 
     suite = unittest.TestSuite()
     loader = unittest.TestLoader()
@@ -381,9 +375,6 @@ def main():
         for test in list_test_cases(suite):
             print(str(test)) # pylint: disable=superfluous-parens
         return True
-
-    if args.do_not_clean:
-        args.failfast = True
 
     logging.root.setLevel(args.loglevel)
 
@@ -420,11 +411,13 @@ def main():
         verbosity=(args.verbose-args.quiet),
         failfast=args.failfast)
     unittest.signals.installHandler()
+    runner.resultclass = QubesTestResult
+    result = runner.run(suite)
 
-    runner.resultclass = QubesDNCTestResult \
-        if args.do_not_clean else QubesTestResult
+    if args.break_to_repl:
+        code.interact(local=locals())
 
-    return runner.run(suite).wasSuccessful()
+    return result.wasSuccessful()
 
 
 if __name__ == '__main__':

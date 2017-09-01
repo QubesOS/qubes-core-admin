@@ -23,7 +23,6 @@ import sys
 import pkg_resources
 import qubes.tests
 import qubes.vm.appvm
-import qubes.vm.templatevm
 
 
 class ExtraTestCase(qubes.tests.SystemTestCase):
@@ -80,18 +79,11 @@ def load_tests(loader, tests, pattern):
                 {entry.name: runTest})
             tests.addTest(ExtraLoadFailure(entry.name))
 
-    try:
-        app = qubes.Qubes()
-        templates = [vm.name for vm in app.domains if
-                     isinstance(vm, qubes.vm.templatevm.TemplateVM)]
-    except OSError:
-        templates = []
-
     for entry in pkg_resources.iter_entry_points(
             'qubes.tests.extra.for_template'):
         try:
             for test_case in entry.load()():
-                for template in templates:
+                for template in qubes.tests.list_templates():
                     tests.addTests(loader.loadTestsFromTestCase(
                         type(
                             '{}_{}_{}'.format(

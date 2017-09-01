@@ -689,6 +689,21 @@ class PropertyHolder(qubes.events.Emitter):
                 # pylint: disable=no-member
                 self.log.fatal(msg)
 
+
+    def close(self):
+        super().close()
+
+        # Remove all properties -- somewhere in them there are cyclic
+        # references. This just removes all the properties, just in case.
+        # They are removed directly, bypassing write_once.
+        for prop in self.property_list():
+            # pylint: disable=protected-access
+            try:
+                delattr(self, prop._attr_name)
+            except AttributeError:
+                pass
+
+
 # pylint: disable=wrong-import-position
 from qubes.vm import VMProperty
 from qubes.app import Qubes

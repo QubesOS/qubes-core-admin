@@ -31,14 +31,12 @@ import qubes.ext.pci
 import qubes.tests
 
 
+@qubes.tests.skipUnlessEnv('QUBES_TEST_PCIDEV')
 class TC_00_Devices_PCI(qubes.tests.SystemTestCase):
     def setUp(self):
         super(TC_00_Devices_PCI, self).setUp()
         if self._testMethodName not in ['test_000_list']:
-            pcidev = os.environ.get('QUBES_TEST_PCIDEV', None)
-            if pcidev is None:
-                self.skipTest('Specify PCI device with QUBES_TEST_PCIDEV '
-                              'environment variable')
+            pcidev = os.environ['QUBES_TEST_PCIDEV']
             self.dev = self.app.domains[0].devices['pci'][pcidev]
             self.assignment = qubes.devices.DeviceAssignment(backend_domain=self.dev.backend_domain, ident=self.dev.ident, persistent=True)
             if isinstance(self.dev, qubes.devices.UnknownDevice):
