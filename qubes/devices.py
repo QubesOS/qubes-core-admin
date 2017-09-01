@@ -68,6 +68,55 @@ class DeviceAlreadyAttached(qubes.exc.QubesException, KeyError):
     '''Trying to attach already attached device'''
     pass
 
+class DeviceInfo(object):
+    ''' Holds all information about a device '''
+    # pylint: disable=too-few-public-methods
+    def __init__(self, backend_domain, ident, description=None,
+                 frontend_domain=None):
+        #: domain providing this device
+        self.backend_domain = backend_domain
+        #: device identifier (unique for given domain and device type)
+        self.ident = ident
+        # allow redefining those as dynamic properties in subclasses
+        try:
+            #: human readable description/name of the device
+            self.description = description
+        except AttributeError:
+            pass
+        try:
+            #: (running) domain to which device is currently attached
+            self.frontend_domain = frontend_domain
+        except AttributeError:
+            pass
+
+        if hasattr(self, 'regex'):
+            # pylint: disable=no-member
+            dev_match = self.regex.match(ident)
+            if not dev_match:
+                raise ValueError('Invalid device identifier: {!r}'.format(
+                    ident))
+
+            for group in self.regex.groupindex:
+                setattr(self, group, dev_match.group(group))
+
+    def __hash__(self):
+        return hash((self.backend_domain, self.ident))
+
+    def __eq__(self, other):
+        return (
+            self.backend_domain == other.backend_domain and
+            self.ident == other.ident
+        )
+
+    def __lt__(self, other):
+        if isinstance(other, DeviceInfo):
+            return (self.backend_domain, self.ident) < \
+                   (other.backend_domain, other.ident)
+        return NotImplemented
+
+    def __str__(self):
+        return '{!s}:{!s}'.format(self.backend_domain, self.ident)
+
 
 class DeviceAssignment(object): # pylint: disable=too-few-public-methods
     ''' Maps a device to a frontend_domain. '''
@@ -350,56 +399,6 @@ class DeviceManager(dict):
     def __missing__(self, key):
         self[key] = DeviceCollection(self._vm, key)
         return self[key]
-
-
-class DeviceInfo(object):
-    ''' Holds all information about a device '''
-    # pylint: disable=too-few-public-methods
-    def __init__(self, backend_domain, ident, description=None,
-                 frontend_domain=None):
-        #: domain providing this device
-        self.backend_domain = backend_domain
-        #: device identifier (unique for given domain and device type)
-        self.ident = ident
-        # allow redefining those as dynamic properties in subclasses
-        try:
-            #: human readable description/name of the device
-            self.description = description
-        except AttributeError:
-            pass
-        try:
-            #: (running) domain to which device is currently attached
-            self.frontend_domain = frontend_domain
-        except AttributeError:
-            pass
-
-        if hasattr(self, 'regex'):
-            # pylint: disable=no-member
-            dev_match = self.regex.match(ident)
-            if not dev_match:
-                raise ValueError('Invalid device identifier: {!r}'.format(
-                    ident))
-
-            for group in self.regex.groupindex:
-                setattr(self, group, dev_match.group(group))
-
-    def __hash__(self):
-        return hash((self.backend_domain, self.ident))
-
-    def __eq__(self, other):
-        return (
-            self.backend_domain == other.backend_domain and
-            self.ident == other.ident
-        )
-
-    def __lt__(self, other):
-        if isinstance(other, DeviceInfo):
-            return (self.backend_domain, self.ident) < \
-                   (other.backend_domain, other.ident)
-        return NotImplemented
-
-    def __str__(self):
-        return '{!s}:{!s}'.format(self.backend_domain, self.ident)
 
 
 class UnknownDevice(DeviceInfo):
