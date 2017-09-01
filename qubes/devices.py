@@ -270,6 +270,27 @@ class DeviceCollection(object):
         device_assignment.bus = self._bus
         self._set.add(device_assignment)
 
+    def update_persistent(self, device: DeviceInfo, persistent: bool):
+        '''Update `persistent` flag of already attached device.
+        '''
+
+        if self._vm.is_halted():
+            raise qubes.exc.QubesVMNotStartedError(self._vm,
+                'VM must be running to modify device persistence flag')
+        assignments = [a for a in self.assignments() if a.device == device]
+        if not assignments:
+            raise qubes.exc.QubesValueError('Device not assigned')
+        assert len(assignments) == 1
+        assignment = assignments[0]
+
+        # be careful to use already present assignment, not the provided one
+        # - to not change options as a side effect
+        if persistent and device not in self._set:
+            assignment.persistent = True
+            self._set.add(assignment)
+        elif not persistent and device in self._set:
+            self._set.discard(assignment)
+
     @asyncio.coroutine
     def detach(self, device_assignment: DeviceAssignment):
         '''Detach (remove) device from domain.
