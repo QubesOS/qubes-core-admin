@@ -196,7 +196,9 @@ class PolicyRule(object):
 
         if self.override_target is not None:
             if self.override_target.startswith('$') and \
-                    not self.override_target.startswith('$dispvm') and \
+                    (not self.override_target.startswith('$dispvm') or
+                    self.override_target.startswith('$dispvm:$tag:') or
+                    self.override_target.startswith('$tag:')) and \
                     self.override_target != '$adminvm':
                 raise PolicySyntaxError(filename, lineno,
                     'target= option needs to name specific target')
@@ -244,9 +246,18 @@ class PolicyRule(object):
         if value == policy_value:
             return True
 
-        # if $dispvm* not matched above, reject it; missing ':' is
-        # intentional - handle both '$dispvm' and '$dispvm:xxx'
-        if value.startswith('$dispvm'):
+        # DispVM request, using tags to match
+        if policy_value.startswith('$dispvm:$tag:') \
+                and value.startswith('$dispvm:'):
+            tag = policy_value.split(':', 2)[2]
+            dispvm_base = value.split(':', 1)[1]
+            # already checked for existence by verify_target_value call
+            dispvm_base_info = system_info['domains'][dispvm_base]
+            return tag in dispvm_base_info['tags']
+
+        # if $dispvm* not matched above, reject it; default DispVM (bare
+        # $dispvm) was resolved by the caller
+        if value.startswith('$dispvm:'):
             return False
 
         # require $adminvm to be matched explicitly (not through $tag or $type)
@@ -281,6 +292,17 @@ class PolicyRule(object):
 
         if not self.is_match_single(system_info, self.source, source):
             return False
+        # $dispvm in policy matches _only_ $dispvm (but not $dispvm:some-vm,
+        # even if that would be the default one)
+        if self.target == '$dispvm' and target == '$dispvm':
+            return True
+        if target == '$dispvm':
+            # resolve default DispVM, to check all kinds of $dispvm:*
+            default_dispvm = system_info['domains'][source]['default_dispvm']
+            if default_dispvm is None:
+                # if this VM have no default DispVM, match only with $anyvm
+                return self.target == '$anyvm'
+            target = '$dispvm:' + default_dispvm
         if not self.is_match_single(system_info, self.target, target):
             return False
         return True
@@ -310,6 +332,12 @@ class PolicyRule(object):
                 if domain['template_for_dispvms']:
                     yield '$dispvm:' + name
             yield '$dispvm'
+        elif self.target.startswith('$dispvm:$tag:'):
+            tag = self.target.split(':', 2)[2]
+            for name, domain in system_info['domains'].items():
+                if tag in domain['tags']:
+                    if domain['template_for_dispvms']:
+                        yield '$dispvm:' + name
         elif self.target.startswith('$dispvm:'):
             dispvm_base = self.target.split(':', 1)[1]
             try:

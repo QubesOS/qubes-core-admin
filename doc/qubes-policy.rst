@@ -29,6 +29,7 @@ Each line consist of three values separated by white characters (space(s), tab(s
     AppVM, TemplateVM, StandaloneVM, DispVM
   - `$default` - used when caller did not specified any VM
   - `$dispvm:vm-name` - _new_ Disposable VM created from AppVM `vm-name`
+  - `$dispvm:$tag:some-tag` - _new_ Disposable VM created from AppVM tagged with `some-tag`
   - `$dispvm` - _new_ Disposable VM created from AppVM pointed by caller
     property `default_dispvm`, which defaults to global property `default_dispvm`
   - `$adminvm` - Admin VM aka dom0
