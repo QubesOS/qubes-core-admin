@@ -352,8 +352,8 @@ class DeviceCollection(object):
         try:
             devices = self._vm.fire_event('device-list-attached:' + self._bus,
                 persistent=persistent)
-        except Exception as e:  # pylint: disable=broad-except
-            self._vm.log.exception(e, 'Failed to list {} devices'.format(
+        except Exception:  # pylint: disable=broad-except
+            self._vm.log.exception('Failed to list {} devices'.format(
                 self._bus))
             if persistent is True:
                 # don't break app.save()
