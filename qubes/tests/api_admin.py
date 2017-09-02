@@ -2131,6 +2131,102 @@ class TC_00_VMs(AdminAPITestCase):
                 b'test-vm1')
         self.assertFalse(self.app.save.called)
 
+    def test_650_vm_device_set_persistent_true(self):
+        self.vm.add_handler('device-list:testclass',
+            self.device_list_testclass)
+        self.vm.add_handler('device-list-attached:testclass',
+            self.device_list_attached_testclass)
+        with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
+                'is_halted', lambda _: False):
+            value = self.call_mgmt_func(
+                b'admin.vm.device.testclass.Set.persistent',
+                b'test-vm1', b'test-vm1+1234', b'True')
+        self.assertIsNone(value)
+        dev = qubes.devices.DeviceInfo(self.vm, '1234')
+        self.assertIn(dev, self.vm.devices['testclass'].persistent())
+        self.app.save.assert_called_once_with()
+
+    def test_651_vm_device_set_persistent_false_unchanged(self):
+        self.vm.add_handler('device-list:testclass',
+            self.device_list_testclass)
+        self.vm.add_handler('device-list-attached:testclass',
+            self.device_list_attached_testclass)
+        with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
+                'is_halted', lambda _: False):
+            value = self.call_mgmt_func(
+                b'admin.vm.device.testclass.Set.persistent',
+                b'test-vm1', b'test-vm1+1234', b'False')
+        self.assertIsNone(value)
+        dev = qubes.devices.DeviceInfo(self.vm, '1234')
+        self.assertNotIn(dev, self.vm.devices['testclass'].persistent())
+        self.app.save.assert_called_once_with()
+
+    def test_652_vm_device_set_persistent_false(self):
+        self.vm.add_handler('device-list:testclass',
+            self.device_list_testclass)
+        assignment = qubes.devices.DeviceAssignment(self.vm, '1234', {},
+            True)
+        self.loop.run_until_complete(
+            self.vm.devices['testclass'].attach(assignment))
+        self.vm.add_handler('device-list-attached:testclass',
+            self.device_list_attached_testclass)
+        dev = qubes.devices.DeviceInfo(self.vm, '1234')
+        self.assertIn(dev, self.vm.devices['testclass'].persistent())
+        with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
+                'is_halted', lambda _: False):
+            value = self.call_mgmt_func(
+                b'admin.vm.device.testclass.Set.persistent',
+                b'test-vm1', b'test-vm1+1234', b'False')
+        self.assertIsNone(value)
+        self.assertNotIn(dev, self.vm.devices['testclass'].persistent())
+        self.assertIn(dev, self.vm.devices['testclass'].attached())
+        self.app.save.assert_called_once_with()
+
+    def test_653_vm_device_set_persistent_true_unchanged(self):
+        self.vm.add_handler('device-list:testclass',
+            self.device_list_testclass)
+        assignment = qubes.devices.DeviceAssignment(self.vm, '1234', {},
+            True)
+        self.loop.run_until_complete(
+            self.vm.devices['testclass'].attach(assignment))
+        self.vm.add_handler('device-list-attached:testclass',
+            self.device_list_attached_testclass)
+        with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
+                'is_halted', lambda _: False):
+            value = self.call_mgmt_func(
+                b'admin.vm.device.testclass.Set.persistent',
+                b'test-vm1', b'test-vm1+1234', b'True')
+        self.assertIsNone(value)
+        dev = qubes.devices.DeviceInfo(self.vm, '1234')
+        self.assertIn(dev, self.vm.devices['testclass'].persistent())
+        self.assertIn(dev, self.vm.devices['testclass'].attached())
+        self.app.save.assert_called_once_with()
+
+    def test_654_vm_device_set_persistent_not_attached(self):
+        self.vm.add_handler('device-list:testclass',
+            self.device_list_testclass)
+        with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
+                'is_halted', lambda _: False):
+            with self.assertRaises(AssertionError):
+                self.call_mgmt_func(
+                    b'admin.vm.device.testclass.Set.persistent',
+                    b'test-vm1', b'test-vm1+1234', b'True')
+        dev = qubes.devices.DeviceInfo(self.vm, '1234')
+        self.assertNotIn(dev, self.vm.devices['testclass'].persistent())
+        self.assertFalse(self.app.save.called)
+
+    def test_655_vm_device_set_persistent_invalid_value(self):
+        self.vm.add_handler('device-list:testclass',
+            self.device_list_testclass)
+        with unittest.mock.patch.object(qubes.vm.qubesvm.QubesVM,
+                'is_halted', lambda _: False):
+            with self.assertRaises(AssertionError):
+                self.call_mgmt_func(
+                    b'admin.vm.device.testclass.Set.persistent',
+                    b'test-vm1', b'test-vm1+1234', b'maybe')
+        dev = qubes.devices.DeviceInfo(self.vm, '1234')
+        self.assertNotIn(dev, self.vm.devices['testclass'].persistent())
+        self.assertFalse(self.app.save.called)
 
     def test_990_vm_unexpected_payload(self):
         methods_with_no_payload = [
