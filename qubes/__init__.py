@@ -640,7 +640,7 @@ class PropertyHolder(qubes.events.Emitter):
         '''Clone properties from other object.
 
         :param PropertyHolder src: source object
-        :param list proplist: list of properties \
+        :param iterable proplist: list of properties \
             (:py:obj:`None` or omit for all properties except those with \
             :py:attr:`property.clone` set to :py:obj:`False`)
         '''

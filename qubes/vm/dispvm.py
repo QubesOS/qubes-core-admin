@@ -77,21 +77,17 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         template = kwargs.get('template', None)
 
         if xml is None:
+            assert template is not None
+
+            if not template.dispvm_allowed:
+                raise qubes.exc.QubesValueError(
+                    'template for DispVM ({}) needs to have '
+                    'dispvm_allowed=True'.format(template.name))
+
             if 'dispid' not in kwargs:
                 kwargs['dispid'] = app.domains.get_new_unused_dispid()
             if 'name' not in kwargs:
                 kwargs['name'] = 'disp' + str(kwargs['dispid'])
-
-            # by default inherit properties from the DispVM template
-            proplist = [prop.__name__ for prop in template.property_list()
-                if prop.clone and prop.__name__ not in ['template']]
-            self_props = [prop.__name__ for prop in self.property_list()]
-            for prop in proplist:
-                if prop not in self_props:
-                    continue
-                if prop not in kwargs and \
-                        not template.property_is_default(prop):
-                    kwargs[prop] = getattr(template, prop)
 
         if template is not None:
             # template is only passed if the AppVM is created, in other cases we
@@ -108,6 +104,13 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         super(DispVM, self).__init__(app, xml, *args, **kwargs)
 
         if xml is None:
+            # by default inherit properties from the DispVM template
+            proplist = [prop.__name__ for prop in template.property_list()
+                if prop.clone and prop.__name__ not in ['template']]
+            self_props = [prop.__name__ for prop in self.property_list()]
+            self.clone_properties(template, set(proplist).intersection(
+                self_props))
+
             self.firewall.clone(template.firewall)
             self.features.update(template.features)
             self.tags.update(template.tags)
@@ -189,3 +192,15 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
             yield from self.remove_from_disk()
             del self.app.domains[self]
             self.app.save()
+
+    @asyncio.coroutine
+    def start(self, **kwargs):
+        # pylint: disable=arguments-differ
+
+        # sanity check, if template_for_dispvm got changed in the meantime
+        if not self.template.dispvm_allowed:
+            raise qubes.exc.QubesException(
+                'template for DispVM ({}) needs to have '
+                'dispvm_allowed=True'.format(self.template.name))
+
+        yield from super(DispVM, self).start(**kwargs)

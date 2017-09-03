@@ -93,3 +93,51 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         with self.assertRaises(qubes.exc.QubesException):
             dispvm = self.loop.run_until_complete(
                 qubes.vm.dispvm.DispVM.from_appvm(self.appvm))
+
+    def test_010_create_direct(self):
+        self.appvm.dispvm_allowed = True
+        orig_getitem = self.app.domains.__getitem__
+        with mock.patch.object(self.app, 'domains', wraps=self.app.domains) \
+                as mock_domains:
+            mock_domains.configure_mock(**{
+                'get_new_unused_dispid': mock.Mock(return_value=42),
+                '__getitem__.side_effect': orig_getitem
+            })
+            dispvm = self.app.add_new_vm(qubes.vm.dispvm.DispVM,
+                name='test-dispvm', template=self.appvm)
+            mock_domains.get_new_unused_dispid.assert_called_once_with()
+        self.assertEqual(dispvm.name, 'test-dispvm')
+        self.assertEqual(dispvm.template, self.appvm)
+        self.assertEqual(dispvm.label, self.appvm.label)
+        self.assertEqual(dispvm.label, self.appvm.label)
+        self.assertEqual(dispvm.auto_cleanup, False)
+
+    def test_011_create_direct_generate_name(self):
+        self.appvm.dispvm_allowed = True
+        orig_getitem = self.app.domains.__getitem__
+        with mock.patch.object(self.app, 'domains', wraps=self.app.domains) \
+                as mock_domains:
+            mock_domains.configure_mock(**{
+                'get_new_unused_dispid': mock.Mock(return_value=42),
+                '__getitem__.side_effect': orig_getitem
+            })
+            dispvm = self.app.add_new_vm(qubes.vm.dispvm.DispVM,
+                template=self.appvm)
+            mock_domains.get_new_unused_dispid.assert_called_once_with()
+        self.assertEqual(dispvm.name, 'disp42')
+        self.assertEqual(dispvm.template, self.appvm)
+        self.assertEqual(dispvm.label, self.appvm.label)
+        self.assertEqual(dispvm.auto_cleanup, False)
+
+    def test_011_create_direct_reject(self):
+        orig_getitem = self.app.domains.__getitem__
+        with mock.patch.object(self.app, 'domains', wraps=self.app.domains) \
+                as mock_domains:
+            mock_domains.configure_mock(**{
+                'get_new_unused_dispid': mock.Mock(return_value=42),
+                '__getitem__.side_effect': orig_getitem
+            })
+            with self.assertRaises(qubes.exc.QubesException):
+                self.app.add_new_vm(qubes.vm.dispvm.DispVM,
+                    name='test-dispvm', template=self.appvm)
+            self.assertFalse(mock_domains.get_new_unused_dispid.called)
