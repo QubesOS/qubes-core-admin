@@ -79,10 +79,10 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if xml is None:
             assert template is not None
 
-            if not template.dispvm_allowed:
+            if not template.template_for_dispvms:
                 raise qubes.exc.QubesValueError(
                     'template for DispVM ({}) needs to have '
-                    'dispvm_allowed=True'.format(template.name))
+                    'template_for_dispvms=True'.format(template.name))
 
             if 'dispid' not in kwargs:
                 kwargs['dispid'] = app.domains.get_new_unused_dispid()
@@ -161,10 +161,10 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         This method modifies :file:`qubes.xml` file.
         The qube returned is not started.
         '''
-        if not appvm.dispvm_allowed:
+        if not appvm.template_for_dispvms:
             raise qubes.exc.QubesException(
                 'Refusing to create DispVM out of this AppVM, because '
-                'dispvm_allowed=False')
+                'template_for_appvms=False')
         app = appvm.app
         dispvm = app.add_new_vm(
             cls,
@@ -198,9 +198,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         # pylint: disable=arguments-differ
 
         # sanity check, if template_for_dispvm got changed in the meantime
-        if not self.template.dispvm_allowed:
+        if not self.template.template_for_dispvms:
             raise qubes.exc.QubesException(
                 'template for DispVM ({}) needs to have '
-                'dispvm_allowed=True'.format(self.template.name))
+                'template_for_dispvms=True'.format(self.template.name))
 
         yield from super(DispVM, self).start(**kwargs)

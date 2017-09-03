@@ -67,7 +67,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
     @mock.patch('qubes.storage.Storage')
     def test_000_from_appvm(self, mock_storage, mock_makedirs, mock_symlink):
         mock_storage.return_value.create.side_effect = self.mock_coro
-        self.appvm.dispvm_allowed = True
+        self.appvm.template_for_dispvms = True
         orig_getitem = self.app.domains.__getitem__
         with mock.patch.object(self.app, 'domains', wraps=self.app.domains) \
                 as mock_domains:
@@ -78,7 +78,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             dispvm = self.loop.run_until_complete(
                 qubes.vm.dispvm.DispVM.from_appvm(self.appvm))
             mock_domains.get_new_unused_dispid.assert_called_once_with()
-        self.assertTrue(dispvm.name.startswith('disp'))
+        self.assertEqual(dispvm.name, 'disp42')
         self.assertEqual(dispvm.template, self.appvm)
         self.assertEqual(dispvm.label, self.appvm.label)
         self.assertEqual(dispvm.label, self.appvm.label)
@@ -95,7 +95,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
                 qubes.vm.dispvm.DispVM.from_appvm(self.appvm))
 
     def test_010_create_direct(self):
-        self.appvm.dispvm_allowed = True
+        self.appvm.template_for_dispvms = True
         orig_getitem = self.app.domains.__getitem__
         with mock.patch.object(self.app, 'domains', wraps=self.app.domains) \
                 as mock_domains:
@@ -113,7 +113,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         self.assertEqual(dispvm.auto_cleanup, False)
 
     def test_011_create_direct_generate_name(self):
-        self.appvm.dispvm_allowed = True
+        self.appvm.template_for_dispvms = True
         orig_getitem = self.app.domains.__getitem__
         with mock.patch.object(self.app, 'domains', wraps=self.app.domains) \
                 as mock_domains:

@@ -115,7 +115,8 @@ def main(args=None):
             icons = {name: system_info['domains'][name]['icon']
                 for name in system_info['domains'].keys()}
             for dispvm_base in system_info['domains']:
-                if not system_info['domains'][dispvm_base]['dispvm_allowed']:
+                if not (system_info['domains'][dispvm_base]
+                        ['template_for_dispvms']):
                     continue
                 dispvm_api_name = '$dispvm:' + dispvm_base
                 icons[dispvm_api_name] = \

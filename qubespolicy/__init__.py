@@ -80,7 +80,7 @@ def verify_target_value(system_info, value):
         if dispvm_base not in system_info['domains']:
             return False
         dispvm_base_info = system_info['domains'][dispvm_base]
-        return bool(dispvm_base_info['dispvm_allowed'])
+        return bool(dispvm_base_info['template_for_dispvms'])
     else:
         return value in system_info['domains']
 
@@ -307,13 +307,13 @@ class PolicyRule(object):
             for name, domain in system_info['domains'].items():
                 if name != 'dom0':
                     yield name
-                if domain['dispvm_allowed']:
+                if domain['template_for_dispvms']:
                     yield '$dispvm:' + name
             yield '$dispvm'
         elif self.target.startswith('$dispvm:'):
             dispvm_base = self.target.split(':', 1)[1]
             try:
-                if system_info['domains'][dispvm_base]['dispvm_allowed']:
+                if system_info['domains'][dispvm_base]['template_for_dispvms']:
                     yield self.target
             except KeyError:
                 # TODO log a warning?
@@ -685,7 +685,7 @@ def get_system_info():
        - `<domain name>`:
           - tags: list of tags
           - type: domain type
-          - dispvm_allowed: should DispVM based on this VM be allowed
+          - template_for_dispvms: should DispVM based on this VM be allowed
           - default_dispvm: name of default AppVM for DispVMs started from here
 
     '''

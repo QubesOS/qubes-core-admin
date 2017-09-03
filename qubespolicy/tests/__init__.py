@@ -34,55 +34,55 @@ system_info = {
             'tags': ['dom0-tag'],
             'type': 'AdminVM',
             'default_dispvm': 'default-dvm',
-            'dispvm_allowed': False,
+            'template_for_dispvms': False,
         },
         'test-vm1': {
             'tags': ['tag1', 'tag2'],
             'type': 'AppVM',
             'default_dispvm': 'default-dvm',
-            'dispvm_allowed': False,
+            'template_for_dispvms': False,
         },
         'test-vm2': {
             'tags': ['tag2'],
             'type': 'AppVM',
             'default_dispvm': 'default-dvm',
-            'dispvm_allowed': False,
+            'template_for_dispvms': False,
         },
         'test-vm3': {
             'tags': [],
             'type': 'AppVM',
             'default_dispvm': 'default-dvm',
-            'dispvm_allowed': True,
+            'template_for_dispvms': True,
         },
         'default-dvm': {
             'tags': [],
             'type': 'AppVM',
             'default_dispvm': 'default-dvm',
-            'dispvm_allowed': True,
+            'template_for_dispvms': True,
         },
         'test-invalid-dvm': {
             'tags': ['tag1', 'tag2'],
             'type': 'AppVM',
             'default_dispvm': 'test-vm1',
-            'dispvm_allowed': False,
+            'template_for_dispvms': False,
         },
         'test-no-dvm': {
             'tags': ['tag1', 'tag2'],
             'type': 'AppVM',
             'default_dispvm': None,
-            'dispvm_allowed': False,
+            'template_for_dispvms': False,
         },
         'test-template': {
             'tags': ['tag1', 'tag2'],
             'type': 'TemplateVM',
             'default_dispvm': 'default-dvm',
-            'dispvm_allowed': False,
+            'template_for_dispvms': False,
         },
         'test-standalone': {
             'tags': ['tag1', 'tag2'],
             'type': 'StandaloneVM',
             'default_dispvm': 'default-dvm',
-            'dispvm_allowed': False,
+            'template_for_dispvms': False,
         },
     }
 }
@@ -268,10 +268,10 @@ class TC_00_PolicyRule(qubes.tests.QubesTestCase):
         self.assertFalse(is_match_single(system_info, '$default', 'test-vm1'))
         self.assertFalse(is_match_single(system_info, '$tag:tag1', 'test-vm3'))
         self.assertFalse(is_match_single(system_info, '$anyvm', 'no-such-vm'))
-        # test-vm1.dispvm_allowed=False
+        # test-vm1.template_for_dispvms=False
         self.assertFalse(is_match_single(system_info,
             '$anyvm', '$dispvm:test-vm1'))
-        # test-vm1.dispvm_allowed=False
+        # test-vm1.template_for_dispvms=False
         self.assertFalse(is_match_single(system_info,
             '$dispvm:test-vm1', '$dispvm:test-vm1'))
         self.assertFalse(is_match_single(system_info, '$anyvm', 'dom0'))

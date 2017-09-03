@@ -41,10 +41,10 @@ class TC_00_qrexec_policy(qubes.tests.QubesTestCase):
         self.system_info_mock = self.system_info_patch.start()
 
         self.system_info = {
-            'domains': {'dom0': {'icon': 'black', 'dispvm_allowed': False},
-                'test-vm1': {'icon': 'red', 'dispvm_allowed': False},
-                'test-vm2': {'icon': 'red', 'dispvm_allowed': False},
-                'test-vm3': {'icon': 'green', 'dispvm_allowed': True}, }}
+            'domains': {'dom0': {'icon': 'black', 'template_for_dispvms': False},
+                'test-vm1': {'icon': 'red', 'template_for_dispvms': False},
+                'test-vm2': {'icon': 'red', 'template_for_dispvms': False},
+                'test-vm3': {'icon': 'green', 'template_for_dispvms': True}, }}
         self.system_info_mock.return_value = self.system_info
 
         self.dbus_patch = unittest.mock.patch('pydbus.SystemBus')

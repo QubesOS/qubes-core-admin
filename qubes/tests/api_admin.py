@@ -2102,7 +2102,7 @@ class TC_00_VMs(AdminAPITestCase):
     @unittest.mock.patch('qubes.storage.Storage.create')
     def test_640_vm_create_disposable(self, mock_storage):
         mock_storage.side_effect = self.dummy_coro
-        self.vm.dispvm_allowed = True
+        self.vm.template_for_dispvms = True
         retval = self.call_mgmt_func(b'admin.vm.CreateDisposable',
                 b'test-vm1')
         self.assertTrue(retval.startswith('disp'))
@@ -2115,7 +2115,7 @@ class TC_00_VMs(AdminAPITestCase):
     @unittest.mock.patch('qubes.storage.Storage.create')
     def test_641_vm_create_disposable_default(self, mock_storage):
         mock_storage.side_effect = self.dummy_coro
-        self.vm.dispvm_allowed = True
+        self.vm.template_for_dispvms = True
         self.app.default_dispvm = self.vm
         retval = self.call_mgmt_func(b'admin.vm.CreateDisposable',
                 b'dom0')
