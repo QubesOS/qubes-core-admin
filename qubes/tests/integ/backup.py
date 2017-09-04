@@ -103,7 +103,8 @@ class BackupTestsMixin(object):
         testnet = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=vmname, template=template, provides_network=True,
             label='red')
-        testnet.create_on_disk(pool=pool)
+        self.loop.run_until_complete(
+            testnet.create_on_disk(pool=pool))
         testnet.features['service.ntpd'] = True
         vms.append(testnet)
         self.fill_image(testnet.storage.export('private'), 20*1024*1024)
@@ -114,7 +115,8 @@ class BackupTestsMixin(object):
             name=vmname, template=template, label='red')
         testvm1.uses_default_netvm = False
         testvm1.netvm = testnet
-        testvm1.create_on_disk(pool=pool)
+        self.loop.run_until_complete(
+            testvm1.create_on_disk(pool=pool))
         vms.append(testvm1)
         self.fill_image(testvm1.storage.export('private'), 100 * 1024 * 1024)
 
@@ -124,7 +126,8 @@ class BackupTestsMixin(object):
                                       name=vmname,
                                       virt_mode='hvm',
                                       label='red')
-        testvm2.create_on_disk(pool=pool)
+        self.loop.run_until_complete(
+            testvm2.create_on_disk(pool=pool))
         self.fill_image(testvm2.storage.export('root'), 1024 * 1024 * 1024, \
             True)
         vms.append(testvm2)
@@ -133,7 +136,8 @@ class BackupTestsMixin(object):
         self.log.debug("Creating %s" % vmname)
         testvm3 = self.app.add_new_vm(qubes.vm.templatevm.TemplateVM,
             name=vmname, label='red')
-        testvm3.create_on_disk(pool=pool)
+        self.loop.run_until_complete(
+            testvm3.create_on_disk(pool=pool))
         self.fill_image(testvm3.storage.export('root'), 100 * 1024 * 1024, True)
         vms.append(testvm3)
 
@@ -141,7 +145,8 @@ class BackupTestsMixin(object):
         self.log.debug("Creating %s" % vmname)
         testvm4 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=vmname, template=testvm3, label='red')
-        testvm4.create_on_disk(pool=pool)
+        self.loop.run_until_complete(
+            testvm4.create_on_disk(pool=pool))
         vms.append(testvm4)
 
         self.app.save()
@@ -164,7 +169,7 @@ class BackupTestsMixin(object):
         backup.target_dir = target
 
         try:
-            backup.backup_do()
+            self.loop.run_until_complete(backup.backup_do())
         except qubes.exc.QubesException as e:
             if not expect_failure:
                 self.fail("QubesException during backup_do: %s" % str(e))
@@ -174,6 +179,8 @@ class BackupTestsMixin(object):
     def restore_backup(self, source=None, appvm=None, options=None,
                        expect_errors=None, manipulate_restore_info=None,
                        passphrase='qubes'):
+        self.skipTest('Test not converted to Qubes 4.0')
+
         if source is None:
             backupfile = os.path.join(self.backupdir,
                                       sorted(os.listdir(self.backupdir))[-1])
@@ -489,11 +496,11 @@ class TC_10_BackupVMMixin(BackupTestsMixin):
             name=self.make_vm_name('backupvm'),
             template=self.template
         )
-        self.backupvm.create_on_disk()
+        self.loop.run_until_complete(self.backupvm.create_on_disk())
 
     def test_100_send_to_vm_file_with_spaces(self):
         vms = self.create_backup_vms()
-        self.backupvm.start()
+        self.loop.run_until_complete(self.backupvm.start())
         self.loop.run_until_complete(self.backupvm.run_for_stdio(
             "mkdir '/var/tmp/backup directory'"))
         self.make_backup(vms, target_vm=self.backupvm,
@@ -508,7 +515,7 @@ class TC_10_BackupVMMixin(BackupTestsMixin):
 
     def test_110_send_to_vm_command(self):
         vms = self.create_backup_vms()
-        self.backupvm.start()
+        self.loop.run_until_complete(self.backupvm.start())
         self.make_backup(vms, target_vm=self.backupvm,
             compressed=True, encrypted=True,
             target='dd of=/var/tmp/backup-test')
@@ -523,7 +530,7 @@ class TC_10_BackupVMMixin(BackupTestsMixin):
         :return:
         """
         vms = self.create_backup_vms()
-        self.backupvm.start()
+        self.loop.run_until_complete(self.backupvm.start())
         self.loop.run_until_complete(self.backupvm.run_for_stdio(
             # Debian 7 has too old losetup to handle loop-control device
             "mknod /dev/loop0 b 7 0;"

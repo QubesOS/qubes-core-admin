@@ -99,33 +99,37 @@ class TC_20_DispVMMixin(object):
         self.init_default_template(self.template)
         self.disp_base = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('dvm'),
-            label='red',
+            label='red', template_for_dispvms=True,
         )
-        self.disp_base.create_on_disk()
+        self.loop.run_until_complete(self.disp_base.create_on_disk())
         self.app.default_dispvm = self.disp_base
         self.app.save()
 
     def test_010_simple_dvm_run(self):
-        dispvm = qubes.vm.dispvm.DispVM.from_appvm(self.disp_base)
+        dispvm = self.loop.run_until_complete(
+            qubes.vm.dispvm.DispVM.from_appvm(self.disp_base))
         try:
-            dispvm.start()
-            p = dispvm.run_service('qubes.VMShell', passio_popen=True)
+            self.loop.run_until_complete(dispvm.start())
+            p = self.loop.run_until_complete(
+                dispvm.run_service('qubes.VMShell', passio_popen=True))
             (stdout, _) = p.communicate(input=b"echo test")
             self.assertEqual(stdout, b"test\n")
         finally:
-            dispvm.cleanup()
+            self.loop.run_until_complete(dispvm.cleanup())
 
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
     def test_020_gui_app(self):
-        dispvm = qubes.vm.dispvm.DispVM.from_appvm(self.disp_base)
+        dispvm = self.loop.run_until_complete(
+            qubes.vm.dispvm.DispVM.from_appvm(self.disp_base))
         try:
-            dispvm.start()
-            p = dispvm.run_service('qubes.VMShell', passio_popen=True)
+            self.loop.run_until_complete(dispvm.start())
+            p = self.loop.run_until_complete(
+                dispvm.run_service('qubes.VMShell', passio_popen=True))
             # wait for DispVM startup:
             p.stdin.write(b"echo test\n")
             p.stdin.flush()
-            l = p.stdout.readline()
+            l = self.loop.run_until_complete(p.stdout.readline())
             self.assertEqual(l, b"test\n")
 
             self.assertTrue(dispvm.is_running())
@@ -143,7 +147,7 @@ class TC_20_DispVMMixin(object):
             finally:
                 p.stdin.close()
         finally:
-            dispvm.cleanup()
+            self.loop.run_until_complete(dispvm.cleanup())
 
         self.assertNotIn(dispvm.name, self.app.domains,
                           "DispVM not removed from qubes.xml")
@@ -210,14 +214,15 @@ class TC_20_DispVMMixin(object):
                                      name=self.make_vm_name('vm1'),
                                      label='red',
                                      template=self.app.domains[self.template])
-        testvm1.create_on_disk()
+        self.loop.run_until_complete(testvm1.create_on_disk())
         self.app.save()
 
-        testvm1.start()
-        testvm1.run("echo test1 > /home/user/test.txt", wait=True)
+        self.loop.run_until_complete(testvm1.start())
+        self.loop.run_until_complete(
+            testvm1.run_for_stdio("echo test1 > /home/user/test.txt"))
 
-        p = testvm1.run("qvm-open-in-dvm /home/user/test.txt",
-                        passio_popen=True)
+        p = self.loop.run_until_complete(
+            testvm1.run("qvm-open-in-dvm /home/user/test.txt"))
 
         wait_count = 0
         winid = None
@@ -246,10 +251,9 @@ class TC_20_DispVMMixin(object):
 
         time.sleep(0.5)
         self._handle_editor(winid)
-        p.wait()
-        p = testvm1.run("cat /home/user/test.txt",
-                        passio_popen=True)
-        (test_txt_content, _) = p.communicate()
+        self.loop.run_until_complete(p.wait())
+        (test_txt_content, _) = self.loop.run_until_complete(
+            testvm1.run_for_stdio("cat /home/user/test.txt"))
         # Drop BOM if added by editor
         if test_txt_content.startswith(b'\xef\xbb\xbf'):
             test_txt_content = test_txt_content[3:]

@@ -406,7 +406,9 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         self.loop.run_until_complete(asyncio.wait([
             testvm1.start(),
             testvm2.start()]))
-
+        self.loop.run_until_complete(asyncio.wait([
+            self.wait_for_session(testvm1),
+            self.wait_for_session(testvm2)]))
         window_title = 'user@{}'.format(testvm1.name)
         self.loop.run_until_complete(testvm1.run(
             'zenity --text-info --editable --title={}'.format(window_title)))

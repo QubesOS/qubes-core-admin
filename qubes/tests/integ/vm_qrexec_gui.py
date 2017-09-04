@@ -594,12 +594,13 @@ class TC_00_AppVMMixin(object):
             self.testvm2.start()]))
 
         self.loop.run_until_complete(self.testvm1.run_for_stdio(
-            'cp /etc/passwd passwd'))
+            'cp /etc/passwd /tmp/passwd'))
         with self.qrexec_policy('qubes.Filecopy', self.testvm1, self.testvm2):
             try:
                 self.loop.run_until_complete(
                     self.testvm1.run_for_stdio(
-                        'qvm-move-to-vm {} passwd'.format(self.testvm2.name)))
+                        'qvm-move-to-vm {} /tmp/passwd'.format(
+                            self.testvm2.name)))
             except subprocess.CalledProcessError as e:
                 self.fail('qvm-move-to-vm failed: {}'.format(e.stderr))
 
@@ -612,7 +613,7 @@ class TC_00_AppVMMixin(object):
 
         with self.assertRaises(subprocess.CalledProcessError):
             self.loop.run_until_complete(self.testvm1.run_for_stdio(
-                'test -f passwd'))
+                'test -f /tmp/passwd'))
 
     def test_101_qrexec_filecopy_with_autostart(self):
         self.loop.run_until_complete(self.testvm1.start())
@@ -693,7 +694,8 @@ class TC_00_AppVMMixin(object):
 
         # Prepare test file
         self.loop.run_until_complete(self.testvm1.run_for_stdio(
-            'yes teststring | dd of=testfile bs=1M count=50 iflag=fullblock'))
+            'yes teststring | dd of=/tmp/testfile bs=1M count=50 '
+            'iflag=fullblock'))
 
         # Prepare target directory with limited size
         self.loop.run_until_complete(self.testvm2.run_for_stdio(
@@ -705,14 +707,15 @@ class TC_00_AppVMMixin(object):
         with self.qrexec_policy('qubes.Filecopy', self.testvm1, self.testvm2):
             with self.assertRaises(subprocess.CalledProcessError):
                 self.loop.run_until_complete(self.testvm1.run_for_stdio(
-                    'qvm-move-to-vm {} testfile'.format(self.testvm2.name)))
+                    'qvm-move-to-vm {} /tmp/testfile'.format(
+                        self.testvm2.name)))
 
         # Close GUI error message
         self.enter_keys_in_window('Error', ['Return'])
 
         # the file shouldn't be removed in source vm
         self.loop.run_until_complete(self.testvm1.run_for_stdio(
-            'test -f testfile'))
+            'test -f /tmp/testfile'))
 
     def test_200_timezone(self):
         """Test whether timezone setting is properly propagated to the VM"""
@@ -761,7 +764,7 @@ class TC_00_AppVMMixin(object):
                 self.testvm1.run_for_stdio('date -u +%s'))
             self.assertAlmostEquals(int(vm_time), int(start_time), delta=30)
 
-            dom0_time, _ = subprocess.check_output(['date', '-u', '+%s'])
+            dom0_time = subprocess.check_output(['date', '-u', '+%s'])
             self.assertAlmostEquals(int(dom0_time), int(start_time), delta=30)
 
         except:
@@ -887,10 +890,11 @@ int main(int argc, char **argv) {
             "grep ^MemFree: /proc/meminfo|awk '{print $2}'")
         memory_pages = int(stdout) // 4  # 4k pages
 
-        alloc1 = yield from self.testvm1.run_for_stdio(
+        alloc1 = yield from self.testvm1.run(
             'ulimit -l unlimited; exec /home/user/allocator {}'.format(
                 memory_pages),
-            user="root")
+            user="root",
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
         # wait for memory being allocated; can't use just .read(), because EOF
         # passing is unreliable while the process is still running
