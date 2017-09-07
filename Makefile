@@ -55,14 +55,17 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.vm.device.pci.Available \
 	admin.vm.device.pci.Detach \
 	admin.vm.device.pci.List \
+	admin.vm.device.pci.Set.persistent \
 	admin.vm.device.block.Attach \
 	admin.vm.device.block.Available \
 	admin.vm.device.block.Detach \
 	admin.vm.device.block.List \
+	admin.vm.device.block.Set.persistent \
 	admin.vm.device.mic.Attach \
 	admin.vm.device.mic.Available \
 	admin.vm.device.mic.Detach \
 	admin.vm.device.mic.List \
+	admin.vm.device.mic.Set.persistent \
 	admin.vm.feature.CheckWithTemplate \
 	admin.vm.feature.Get \
 	admin.vm.feature.List \
@@ -188,6 +191,7 @@ endif
 		          admin.vm.device.testclass.Attach \
 				  admin.vm.device.testclass.Detach \
 				  admin.vm.device.testclass.List \
+				  admin.vm.device.testclass.Set.persistent \
 				  admin.vm.device.testclass.Available
 	# sanity check
 	for method in $(DESTDIR)/etc/qubes-rpc/policy/admin.*; do \

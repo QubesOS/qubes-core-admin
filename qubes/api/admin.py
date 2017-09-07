@@ -1093,6 +1093,36 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         yield from self.dest.devices[devclass].detach(assignment)
         self.app.save()
 
+    # Attach/Detach action can both modify persistent state (with
+    # persistent=True) and volatile state of running VM (with persistent=False).
+    # For this reason, write=True + execute=True
+    @qubes.api.method('admin.vm.device.{endpoint}.Set.persistent',
+        endpoints=(ep.name
+            for ep in pkg_resources.iter_entry_points('qubes.devices')),
+        scope='local', write=True, execute=True)
+    @asyncio.coroutine
+    def vm_device_set_persistent(self, endpoint, untrusted_payload):
+        devclass = endpoint
+
+        assert untrusted_payload in (b'True', b'False')
+        persistent = untrusted_payload == b'True'
+        del untrusted_payload
+
+        # qrexec already verified that no strange characters are in self.arg
+        backend_domain, ident = self.arg.split('+', 1)
+        # device must be already attached
+        matching_devices = [dev for dev
+            in self.dest.devices[devclass].attached()
+            if dev.backend_domain.name == backend_domain and dev.ident == ident]
+        assert len(matching_devices) == 1
+        dev = matching_devices[0]
+
+        self.fire_event_for_permission(device=dev,
+            persistent=persistent)
+
+        self.dest.devices[devclass].update_persistent(dev, persistent)
+        self.app.save()
+
     @qubes.api.method('admin.vm.firewall.Get', no_payload=True,
             scope='local', read=True)
     @asyncio.coroutine
