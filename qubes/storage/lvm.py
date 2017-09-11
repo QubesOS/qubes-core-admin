@@ -142,7 +142,7 @@ class ThinPool(qubes.storage.Pool):
 def init_cache(log=logging.getLogger('qubes.storage.lvm')):
     cmd = ['lvs', '--noheadings', '-o',
            'vg_name,pool_lv,name,lv_size,data_percent,lv_attr,origin',
-           '--units', 'b', '--separator', ',']
+           '--units', 'b', '--separator', ';']
     if os.getuid() != 0:
         cmd.insert(0, 'sudo')
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -159,11 +159,11 @@ def init_cache(log=logging.getLogger('qubes.storage.lvm')):
     for line in out.splitlines():
         line = line.decode().strip()
         pool_name, pool_lv, name, size, usage_percent, attr, \
-            origin = line.split(',', 6)
+            origin = line.split(';', 7)
         if '' in [pool_name, pool_lv, name, size, usage_percent]:
             continue
         name = pool_name + "/" + name
-        size = int(size[:-1])
+        size = int(size[:-1])  # Remove 'B' suffix
         usage = int(size / 100 * float(usage_percent))
         result[name] = {'size': size, 'usage': usage, 'pool_lv': pool_lv,
             'attr': attr, 'origin': origin}
