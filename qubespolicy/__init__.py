@@ -85,30 +85,43 @@ def verify_target_value(system_info, value):
         return value in system_info['domains']
 
 
-def verify_special_value(value, for_target=True):
+def verify_special_value(value, for_target=True, specific_target=False):
     '''
     Verify if given special VM-specifier ('$...') is valid
 
     :param value: value to verify
     :param for_target: should classify target-only values as valid (
         '$default', '$dispvm')
+    :param specific_target: allow only values naming specific target
+        (for use with target=, default= etc)
     :return: True or False
     '''
     # pylint: disable=too-many-return-statements
 
-    if value.startswith('$tag:') and len(value) > len('$tag:'):
+    # values used only for matching VMs, not naming specific one (for actual
+    # call target)
+    if not specific_target:
+        if value.startswith('$tag:') and len(value) > len('$tag:'):
+            return True
+        if value.startswith('$type:') and len(value) > len('$type:'):
+            return True
+        if for_target and value.startswith('$dispvm:$tag:') and \
+                len(value) > len('$dispvm:$tag:'):
+            return True
+        if value == '$anyvm':
+            return True
+        if for_target and value == '$default':
+            return True
+
+    # those can be used to name one specific call VM
+    if value == '$adminvm':
         return True
-    elif value.startswith('$type:') and len(value) > len('$type:'):
+    # allow only specific dispvm, not based on any $xxx keyword - don't name
+    # $tag here specifically, to work also with any future keywords
+    if for_target and value.startswith('$dispvm:') and \
+            not value.startswith('$dispvm:$'):
         return True
-    elif value == '$anyvm':
-        return True
-    elif value == '$adminvm':
-        return True
-    elif value.startswith('$dispvm:') and for_target:
-        return True
-    elif value == '$dispvm' and for_target:
-        return True
-    elif value == '$default' and for_target:
+    if for_target and value == '$dispvm':
         return True
     return False
 
@@ -179,12 +192,12 @@ class PolicyRule(object):
 
         # verify special values
         if self.source.startswith('$'):
-            if not verify_special_value(self.source, False):
+            if not verify_special_value(self.source, False, False):
                 raise PolicySyntaxError(filename, lineno,
                     'invalid source specification: {}'.format(self.source))
 
         if self.target.startswith('$'):
-            if not verify_special_value(self.target, True):
+            if not verify_special_value(self.target, True, False):
                 raise PolicySyntaxError(filename, lineno,
                     'invalid target specification: {}'.format(self.target))
 
@@ -196,10 +209,13 @@ class PolicyRule(object):
 
         if self.override_target is not None:
             if self.override_target.startswith('$') and \
-                    (not self.override_target.startswith('$dispvm') or
-                    self.override_target.startswith('$dispvm:$tag:') or
-                    self.override_target.startswith('$tag:')) and \
-                    self.override_target != '$adminvm':
+                    not verify_special_value(self.override_target, True, True):
+                raise PolicySyntaxError(filename, lineno,
+                    'target= option needs to name specific target')
+
+        if self.default_target is not None:
+            if self.default_target.startswith('$') and \
+                    not verify_special_value(self.default_target, True, True):
                 raise PolicySyntaxError(filename, lineno,
                     'target= option needs to name specific target')
 
