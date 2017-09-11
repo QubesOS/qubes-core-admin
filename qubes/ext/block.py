@@ -58,6 +58,8 @@ class BlockDevice(qubes.devices.DeviceInfo):
                 string.ascii_letters + string.digits + '()+,-.:=_/ '}
             untrusted_desc = self.backend_domain.untrusted_qdb.read(
                 '/qubes-block-devices/{}/desc'.format(self.ident))
+            if not untrusted_desc:
+                return ''
             desc = ''.join((chr(c) if c in safe_set else '_')
                 for c in untrusted_desc)
             self._description = desc
@@ -136,14 +138,13 @@ class BlockDeviceExtension(qubes.ext.Extension):
     def on_device_list_block(self, vm, event):
         # pylint: disable=unused-argument,no-self-use
 
-        safe_set = string.ascii_letters + string.digits
         if not vm.is_running():
             return
         untrusted_qubes_devices = vm.untrusted_qdb.list('/qubes-block-devices/')
         untrusted_idents = set(untrusted_path.split('/', 3)[2]
             for untrusted_path in untrusted_qubes_devices)
         for untrusted_ident in untrusted_idents:
-            if not all(c in safe_set for c in untrusted_ident):
+            if not name_re.match(untrusted_ident):
                 msg = ("%s vm's device path name contains unsafe characters. "
                        "Skipping it.")
                 vm.log.warning(msg % vm.name)
