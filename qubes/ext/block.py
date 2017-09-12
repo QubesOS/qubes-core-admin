@@ -162,7 +162,9 @@ class BlockDeviceExtension(qubes.ext.Extension):
         if not vm.is_running():
             return
         if not vm.app.vmm.offline_mode:
-            yield self.device_get(vm, ident)
+            device_info = self.device_get(vm, ident)
+            if device_info:
+                yield device_info
 
     @qubes.ext.handler('device-list-attached:block')
     def on_device_list_attached(self, vm, event, **kwargs):
