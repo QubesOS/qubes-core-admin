@@ -20,6 +20,8 @@
 
 from unittest import mock
 
+import lxml.etree
+
 import qubes.storage
 import qubes.tests
 import qubes.tests.vm.qubesvm
@@ -118,3 +120,26 @@ class TC_90_AppVM(qubes.tests.vm.qubesvm.QubesVMTestsMixin,
             mock_power.return_value = 'Running'
             with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
                 vm.template = self.template
+
+    def test_500_property_migrate_template_for_dispvms(self):
+        xml_template = '''
+        <domain class="AppVM" id="domain-1">
+            <properties>
+                <property name="qid">1</property>
+                <property name="name">testvm</property>
+                <property name="label" ref="label-1" />
+                <property name="dispvm_allowed">{value}</property>
+            </properties>
+        </domain>
+        '''
+        xml = lxml.etree.XML(xml_template.format(value='True'))
+        vm = qubes.vm.appvm.AppVM(self.app, xml)
+        self.assertEqual(vm.template_for_dispvms, True)
+        with self.assertRaises(AttributeError):
+            vm.dispvm_allowed
+
+        xml = lxml.etree.XML(xml_template.format(value='False'))
+        vm = qubes.vm.appvm.AppVM(self.app, xml)
+        self.assertEqual(vm.template_for_dispvms, False)
+        with self.assertRaises(AttributeError):
+            vm.dispvm_allowed

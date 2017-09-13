@@ -80,35 +80,48 @@ def verify_target_value(system_info, value):
         if dispvm_base not in system_info['domains']:
             return False
         dispvm_base_info = system_info['domains'][dispvm_base]
-        return bool(dispvm_base_info['dispvm_allowed'])
+        return bool(dispvm_base_info['template_for_dispvms'])
     else:
         return value in system_info['domains']
 
 
-def verify_special_value(value, for_target=True):
+def verify_special_value(value, for_target=True, specific_target=False):
     '''
     Verify if given special VM-specifier ('$...') is valid
 
     :param value: value to verify
     :param for_target: should classify target-only values as valid (
         '$default', '$dispvm')
+    :param specific_target: allow only values naming specific target
+        (for use with target=, default= etc)
     :return: True or False
     '''
     # pylint: disable=too-many-return-statements
 
-    if value.startswith('$tag:') and len(value) > len('$tag:'):
+    # values used only for matching VMs, not naming specific one (for actual
+    # call target)
+    if not specific_target:
+        if value.startswith('$tag:') and len(value) > len('$tag:'):
+            return True
+        if value.startswith('$type:') and len(value) > len('$type:'):
+            return True
+        if for_target and value.startswith('$dispvm:$tag:') and \
+                len(value) > len('$dispvm:$tag:'):
+            return True
+        if value == '$anyvm':
+            return True
+        if for_target and value == '$default':
+            return True
+
+    # those can be used to name one specific call VM
+    if value == '$adminvm':
         return True
-    elif value.startswith('$type:') and len(value) > len('$type:'):
+    # allow only specific dispvm, not based on any $xxx keyword - don't name
+    # $tag here specifically, to work also with any future keywords
+    if for_target and value.startswith('$dispvm:') and \
+            not value.startswith('$dispvm:$'):
         return True
-    elif value == '$anyvm':
-        return True
-    elif value == '$adminvm':
-        return True
-    elif value.startswith('$dispvm:') and for_target:
-        return True
-    elif value == '$dispvm' and for_target:
-        return True
-    elif value == '$default' and for_target:
+    if for_target and value == '$dispvm':
         return True
     return False
 
@@ -179,12 +192,12 @@ class PolicyRule(object):
 
         # verify special values
         if self.source.startswith('$'):
-            if not verify_special_value(self.source, False):
+            if not verify_special_value(self.source, False, False):
                 raise PolicySyntaxError(filename, lineno,
                     'invalid source specification: {}'.format(self.source))
 
         if self.target.startswith('$'):
-            if not verify_special_value(self.target, True):
+            if not verify_special_value(self.target, True, False):
                 raise PolicySyntaxError(filename, lineno,
                     'invalid target specification: {}'.format(self.target))
 
@@ -196,8 +209,13 @@ class PolicyRule(object):
 
         if self.override_target is not None:
             if self.override_target.startswith('$') and \
-                    not self.override_target.startswith('$dispvm') and \
-                    self.override_target != '$adminvm':
+                    not verify_special_value(self.override_target, True, True):
+                raise PolicySyntaxError(filename, lineno,
+                    'target= option needs to name specific target')
+
+        if self.default_target is not None:
+            if self.default_target.startswith('$') and \
+                    not verify_special_value(self.default_target, True, True):
                 raise PolicySyntaxError(filename, lineno,
                     'target= option needs to name specific target')
 
@@ -244,9 +262,18 @@ class PolicyRule(object):
         if value == policy_value:
             return True
 
-        # if $dispvm* not matched above, reject it; missing ':' is
-        # intentional - handle both '$dispvm' and '$dispvm:xxx'
-        if value.startswith('$dispvm'):
+        # DispVM request, using tags to match
+        if policy_value.startswith('$dispvm:$tag:') \
+                and value.startswith('$dispvm:'):
+            tag = policy_value.split(':', 2)[2]
+            dispvm_base = value.split(':', 1)[1]
+            # already checked for existence by verify_target_value call
+            dispvm_base_info = system_info['domains'][dispvm_base]
+            return tag in dispvm_base_info['tags']
+
+        # if $dispvm* not matched above, reject it; default DispVM (bare
+        # $dispvm) was resolved by the caller
+        if value.startswith('$dispvm:'):
             return False
 
         # require $adminvm to be matched explicitly (not through $tag or $type)
@@ -281,6 +308,17 @@ class PolicyRule(object):
 
         if not self.is_match_single(system_info, self.source, source):
             return False
+        # $dispvm in policy matches _only_ $dispvm (but not $dispvm:some-vm,
+        # even if that would be the default one)
+        if self.target == '$dispvm' and target == '$dispvm':
+            return True
+        if target == '$dispvm':
+            # resolve default DispVM, to check all kinds of $dispvm:*
+            default_dispvm = system_info['domains'][source]['default_dispvm']
+            if default_dispvm is None:
+                # if this VM have no default DispVM, match only with $anyvm
+                return self.target == '$anyvm'
+            target = '$dispvm:' + default_dispvm
         if not self.is_match_single(system_info, self.target, target):
             return False
         return True
@@ -307,13 +345,19 @@ class PolicyRule(object):
             for name, domain in system_info['domains'].items():
                 if name != 'dom0':
                     yield name
-                if domain['dispvm_allowed']:
+                if domain['template_for_dispvms']:
                     yield '$dispvm:' + name
             yield '$dispvm'
+        elif self.target.startswith('$dispvm:$tag:'):
+            tag = self.target.split(':', 2)[2]
+            for name, domain in system_info['domains'].items():
+                if tag in domain['tags']:
+                    if domain['template_for_dispvms']:
+                        yield '$dispvm:' + name
         elif self.target.startswith('$dispvm:'):
             dispvm_base = self.target.split(':', 1)[1]
             try:
-                if system_info['domains'][dispvm_base]['dispvm_allowed']:
+                if system_info['domains'][dispvm_base]['template_for_dispvms']:
                     yield self.target
             except KeyError:
                 # TODO log a warning?
@@ -685,7 +729,7 @@ def get_system_info():
        - `<domain name>`:
           - tags: list of tags
           - type: domain type
-          - dispvm_allowed: should DispVM based on this VM be allowed
+          - template_for_dispvms: should DispVM based on this VM be allowed
           - default_dispvm: name of default AppVM for DispVMs started from here
 
     '''

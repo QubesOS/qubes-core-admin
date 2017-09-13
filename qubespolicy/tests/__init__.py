@@ -34,55 +34,55 @@ system_info = {
             'tags': ['dom0-tag'],
             'type': 'AdminVM',
             'default_dispvm': 'default-dvm',
-            'dispvm_allowed': False,
+            'template_for_dispvms': False,
         },
         'test-vm1': {
             'tags': ['tag1', 'tag2'],
             'type': 'AppVM',
             'default_dispvm': 'default-dvm',
-            'dispvm_allowed': False,
+            'template_for_dispvms': False,
         },
         'test-vm2': {
             'tags': ['tag2'],
             'type': 'AppVM',
             'default_dispvm': 'default-dvm',
-            'dispvm_allowed': False,
+            'template_for_dispvms': False,
         },
         'test-vm3': {
-            'tags': [],
+            'tags': ['tag3'],
             'type': 'AppVM',
             'default_dispvm': 'default-dvm',
-            'dispvm_allowed': True,
+            'template_for_dispvms': True,
         },
         'default-dvm': {
             'tags': [],
             'type': 'AppVM',
             'default_dispvm': 'default-dvm',
-            'dispvm_allowed': True,
+            'template_for_dispvms': True,
         },
         'test-invalid-dvm': {
             'tags': ['tag1', 'tag2'],
             'type': 'AppVM',
             'default_dispvm': 'test-vm1',
-            'dispvm_allowed': False,
+            'template_for_dispvms': False,
         },
         'test-no-dvm': {
             'tags': ['tag1', 'tag2'],
             'type': 'AppVM',
             'default_dispvm': None,
-            'dispvm_allowed': False,
+            'template_for_dispvms': False,
         },
         'test-template': {
             'tags': ['tag1', 'tag2'],
             'type': 'TemplateVM',
             'default_dispvm': 'default-dvm',
-            'dispvm_allowed': False,
+            'template_for_dispvms': False,
         },
         'test-standalone': {
             'tags': ['tag1', 'tag2'],
             'type': 'StandaloneVM',
             'default_dispvm': 'default-dvm',
-            'dispvm_allowed': False,
+            'template_for_dispvms': False,
         },
     }
 }
@@ -120,6 +120,8 @@ class TC_00_PolicyRule(qubes.tests.QubesTestCase):
         self.assertFalse(
             qubespolicy.verify_target_value(system_info, '$tag:tag1'))
         self.assertFalse(
+            qubespolicy.verify_target_value(system_info, '$dispvm:$tag:tag1'))
+        self.assertFalse(
             qubespolicy.verify_target_value(system_info, '$invalid'))
 
     def test_010_verify_special_value(self):
@@ -131,11 +133,17 @@ class TC_00_PolicyRule(qubes.tests.QubesTestCase):
             for_target=False))
         self.assertTrue(qubespolicy.verify_special_value('$adminvm',
             for_target=False))
+        self.assertTrue(qubespolicy.verify_special_value('$dispvm:some-vm',
+            for_target=True))
+        self.assertTrue(qubespolicy.verify_special_value('$dispvm:$tag:tag1',
+            for_target=True))
         self.assertFalse(qubespolicy.verify_special_value('$default',
             for_target=False))
         self.assertFalse(qubespolicy.verify_special_value('$dispvm',
             for_target=False))
         self.assertFalse(qubespolicy.verify_special_value('$dispvm:some-vm',
+            for_target=False))
+        self.assertFalse(qubespolicy.verify_special_value('$dispvm:$tag:tag1',
             for_target=False))
         self.assertFalse(qubespolicy.verify_special_value('$invalid',
             for_target=False))
@@ -219,6 +227,9 @@ class TC_00_PolicyRule(qubes.tests.QubesTestCase):
         invalid_lines = [
             '$dispvm $default allow',  # $dispvm can't be a source
             '$default $default allow',  # $default can't be a source
+            '$anyvm $default allow,target=$dispvm:$tag:tag1',  # $dispvm:$tag
+            #  as override target
+            '$anyvm $default allow,target=$tag:tag1',  # $tag as override target
             '$anyvm $default deny,target=test-vm1',  # target= used with deny
             '$anyvm $anyvm deny,default_target=test-vm1',  # default_target=
             # with deny
@@ -254,6 +265,8 @@ class TC_00_PolicyRule(qubes.tests.QubesTestCase):
         self.assertTrue(is_match_single(system_info,
             '$anyvm', '$dispvm:default-dvm'))
         self.assertTrue(is_match_single(system_info, '$dispvm', '$dispvm'))
+        self.assertTrue(is_match_single(system_info,
+            '$dispvm:$tag:tag3', '$dispvm:test-vm3'))
         self.assertTrue(is_match_single(system_info, '$adminvm', '$adminvm'))
         self.assertTrue(is_match_single(system_info, '$adminvm', 'dom0'))
         self.assertTrue(is_match_single(system_info, 'dom0', '$adminvm'))
@@ -268,12 +281,20 @@ class TC_00_PolicyRule(qubes.tests.QubesTestCase):
         self.assertFalse(is_match_single(system_info, '$default', 'test-vm1'))
         self.assertFalse(is_match_single(system_info, '$tag:tag1', 'test-vm3'))
         self.assertFalse(is_match_single(system_info, '$anyvm', 'no-such-vm'))
-        # test-vm1.dispvm_allowed=False
+        # test-vm1.template_for_dispvms=False
         self.assertFalse(is_match_single(system_info,
             '$anyvm', '$dispvm:test-vm1'))
-        # test-vm1.dispvm_allowed=False
+        # test-vm1.template_for_dispvms=False
         self.assertFalse(is_match_single(system_info,
             '$dispvm:test-vm1', '$dispvm:test-vm1'))
+        self.assertFalse(is_match_single(system_info,
+            '$dispvm:$tag:tag1', '$dispvm:test-vm1'))
+        # test-vm3 has not tag1
+        self.assertFalse(is_match_single(system_info,
+            '$dispvm:$tag:tag1', '$dispvm:test-vm3'))
+        # default-dvm has no tag3
+        self.assertFalse(is_match_single(system_info,
+            '$dispvm:$tag:tag3', '$dispvm:default-dvm'))
         self.assertFalse(is_match_single(system_info, '$anyvm', 'dom0'))
         self.assertFalse(is_match_single(system_info, '$anyvm', '$adminvm'))
         self.assertFalse(is_match_single(system_info,
@@ -306,6 +327,19 @@ class TC_00_PolicyRule(qubes.tests.QubesTestCase):
         self.assertFalse(line.is_match(system_info, 'no-such-vm', 'test-vm2'))
         line = qubespolicy.PolicyRule('$anyvm $anyvm allow')
         self.assertFalse(line.is_match(system_info, 'test-vm1', 'no-such-vm'))
+        line = qubespolicy.PolicyRule('$anyvm $dispvm allow')
+        self.assertTrue(line.is_match(system_info, 'test-vm1', '$dispvm'))
+        line = qubespolicy.PolicyRule('$anyvm $dispvm allow')
+        self.assertFalse(line.is_match(system_info,
+            'test-vm1', '$dispvm:default-dvm'))
+        line = qubespolicy.PolicyRule('$anyvm $dispvm:default-dvm allow')
+        self.assertTrue(line.is_match(system_info, 'test-vm1', '$dispvm'))
+        line = qubespolicy.PolicyRule('$anyvm $dispvm:default-dvm allow')
+        self.assertTrue(line.is_match(system_info,
+            'test-vm1', '$dispvm:default-dvm'))
+        line = qubespolicy.PolicyRule('$anyvm $dispvm:$tag:tag3 allow')
+        self.assertTrue(line.is_match(system_info,
+            'test-vm1', '$dispvm:test-vm3'))
 
     def test_060_expand_target(self):
         lines = {
@@ -317,6 +351,9 @@ class TC_00_PolicyRule(qubes.tests.QubesTestCase):
             '$anyvm $dispvm:default-dvm allow': ['$dispvm:default-dvm'],
             # no DispVM from test-vm1 allowed
             '$anyvm $dispvm:test-vm1 allow': [],
+            '$anyvm $dispvm:test-vm3 allow': ['$dispvm:test-vm3'],
+            '$anyvm $dispvm:$tag:tag1 allow': [],
+            '$anyvm $dispvm:$tag:tag3 allow': ['$dispvm:test-vm3'],
             '$anyvm test-vm1 allow': ['test-vm1'],
             '$anyvm $type:AppVM allow': ['test-vm1', 'test-vm2', 'test-vm3',
                 'default-dvm', 'test-invalid-dvm', 'test-no-dvm'],
@@ -599,6 +636,9 @@ class TC_20_Policy(qubes.tests.QubesTestCase):
             f.write('test-vm1 $anyvm ask\n')
             f.write('test-vm2 $tag:tag1 deny\n')
             f.write('test-vm2 $tag:tag2 allow\n')
+            f.write('test-vm2 $dispvm:$tag:tag3 allow\n')
+            f.write('test-vm2 $dispvm:$tag:tag2 allow\n')
+            f.write('test-vm2 $dispvm:default-dvm allow\n')
             f.write('$type:AppVM $default allow,target=test-vm3\n')
             f.write('$tag:tag1 $type:AppVM allow\n')
         policy = qubespolicy.Policy('test.service', tmp_policy_dir)
@@ -614,14 +654,22 @@ class TC_20_Policy(qubes.tests.QubesTestCase):
         self.assertEqual(policy.find_matching_rule(
             system_info, 'test-vm1', ''), policy.policy_rules[1])
         self.assertEqual(policy.find_matching_rule(
-            system_info, 'test-vm2', ''), policy.policy_rules[4])
+            system_info, 'test-vm2', ''), policy.policy_rules[7])
         self.assertEqual(policy.find_matching_rule(
-            system_info, 'test-vm2', '$default'), policy.policy_rules[4])
+            system_info, 'test-vm2', '$default'), policy.policy_rules[7])
         self.assertEqual(policy.find_matching_rule(
-            system_info, 'test-no-dvm', 'test-vm3'), policy.policy_rules[5])
+            system_info, 'test-no-dvm', 'test-vm3'), policy.policy_rules[8])
+        self.assertEqual(policy.find_matching_rule(
+            system_info, 'test-vm2', '$dispvm:test-vm3'),
+            policy.policy_rules[4])
+        self.assertEqual(policy.find_matching_rule(
+            system_info, 'test-vm2', '$dispvm'),
+            policy.policy_rules[6])
         with self.assertRaises(qubespolicy.AccessDenied):
             policy.find_matching_rule(
                 system_info, 'test-no-dvm', 'test-standalone')
+        with self.assertRaises(qubespolicy.AccessDenied):
+            policy.find_matching_rule(system_info, 'test-no-dvm', '$dispvm')
         with self.assertRaises(qubespolicy.AccessDenied):
             policy.find_matching_rule(
                 system_info, 'test-standalone', '$default')
@@ -744,6 +792,30 @@ class TC_20_Policy(qubes.tests.QubesTestCase):
         self.assertEqual(action.original_target, '$dispvm')
         self.assertEqual(action.service, 'test.service')
         self.assertIsNone(action.targets_for_ask)
+
+    def test_035_eval_resolve_dispvm_fail(self):
+        with open(os.path.join(tmp_policy_dir, 'test.service'), 'w') as f:
+            f.write('test-no-dvm $dispvm allow\n')
+
+        policy = qubespolicy.Policy('test.service', tmp_policy_dir)
+        with self.assertRaises(qubespolicy.AccessDenied):
+            policy.evaluate(system_info, 'test-no-dvm', '$dispvm')
+
+    def test_036_eval_invalid_override_target(self):
+        with open(os.path.join(tmp_policy_dir, 'test.service'), 'w') as f:
+            f.write('test-vm3 $anyvm allow,target=no-such-vm\n')
+
+        policy = qubespolicy.Policy('test.service', tmp_policy_dir)
+        with self.assertRaises(qubespolicy.AccessDenied):
+            policy.evaluate(system_info, 'test-vm3', '$default')
+
+    def test_037_eval_ask_no_targets(self):
+        with open(os.path.join(tmp_policy_dir, 'test.service'), 'w') as f:
+            f.write('test-vm3 $default ask\n')
+
+        policy = qubespolicy.Policy('test.service', tmp_policy_dir)
+        with self.assertRaises(qubespolicy.AccessDenied):
+            policy.evaluate(system_info, 'test-vm3', '$default')
 
 
 class TC_30_Misc(qubes.tests.QubesTestCase):

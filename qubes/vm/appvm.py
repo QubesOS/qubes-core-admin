@@ -36,7 +36,7 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
                                 vmclass=qubes.vm.templatevm.TemplateVM,
                                 doc='Template, on which this AppVM is based.')
 
-    dispvm_allowed = qubes.property('dispvm_allowed',
+    template_for_dispvms = qubes.property('template_for_dispvms',
         type=bool,
         default=False,
         doc='Should this VM be allowed to start as Disposable VM')
@@ -72,6 +72,15 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
         }
 
     def __init__(self, app, xml, **kwargs):
+        # migrate renamed properties
+        if xml is not None:
+            node_dispvm_allowed = xml.find(
+                './properties/property[@name=\'dispvm_allowed\']')
+            if node_dispvm_allowed is not None:
+                kwargs['template_for_dispvms'] = \
+                    qubes.property.bool(None, None, node_dispvm_allowed.text)
+                node_dispvm_allowed.getparent().remove(node_dispvm_allowed)
+
         self.volume_config = copy.deepcopy(self.default_volume_config)
         template = kwargs.get('template', None)
 

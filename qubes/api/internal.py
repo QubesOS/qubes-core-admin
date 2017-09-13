@@ -46,7 +46,8 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
             domain.name: {
                 'tags': list(domain.tags),
                 'type': domain.__class__.__name__,
-                'dispvm_allowed': getattr(domain, 'dispvm_allowed', False),
+                'template_for_dispvms':
+                    getattr(domain, 'template_for_dispvms', False),
                 'default_dispvm': (str(domain.default_dispvm) if
                     getattr(domain, 'default_dispvm', None) else None),
                 'icon': str(domain.label.icon),
