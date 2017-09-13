@@ -159,7 +159,7 @@ def init_cache(log=logging.getLogger('qubes.storage.lvm')):
     for line in out.splitlines():
         line = line.decode().strip()
         pool_name, pool_lv, name, size, usage_percent, attr, \
-            origin = line.split(';', 7)
+            origin = line.split(';', 6)
         if '' in [pool_name, pool_lv, name, size, usage_percent]:
             continue
         name = pool_name + "/" + name
