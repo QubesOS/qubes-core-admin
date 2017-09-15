@@ -25,7 +25,12 @@
         {% block os %}
             {% if vm.virt_mode == 'hvm' %}
                 <type arch="x86_64" machine="xenfv">hvm</type>
-                <loader>hvmloader</loader>
+                <!--
+                     For the libxl backend libvirt switches between OVMF (UEFI)
+                     and SeaBIOS based on the loader type. This has nothing to
+                     do with the hvmloader binary.
+                -->
+                <loader type="{{ "pflash" if vm.features.check_with_template('uefi', False) else "rom" }}">hvmloader</loader>
                 <boot dev="cdrom" />
                 <boot dev="hd" />
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
