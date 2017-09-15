@@ -569,7 +569,12 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         </cpu>
         <os>
             <type arch="x86_64" machine="xenfv">hvm</type>
-            <loader>hvmloader</loader>
+                <!--
+                     For the libxl backend libvirt switches between OVMF (UEFI)
+                     and SeaBIOS based on the loader type. This has nothing to
+                     do with the hvmloader binary.
+                -->
+            <loader type="rom">hvmloader</loader>
             <boot dev="cdrom" />
             <boot dev="hd" />
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
@@ -587,7 +592,9 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         <devices>
             <emulator type="stubdom-linux" />
             <input type="tablet" bus="usb"/>
-            <video type="cirrus"/>
+            <video>
+                <model type="vga"/>
+            </video>
             <graphics type="qubes"/>
         </devices>
         </domain>
