@@ -374,8 +374,28 @@ class QubesTestCase(unittest.TestCase):
 
     def setUp(self):
         super().setUp()
+        self.addCleanup(self.cleanup_gc)
+
         self.loop = asyncio.get_event_loop()
         self.addCleanup(self.cleanup_loop)
+
+    def cleanup_gc(self):
+        gc.collect()
+        leaked = [obj for obj in gc.get_objects() + gc.garbage
+            if isinstance(obj,
+                (qubes.Qubes, qubes.vm.BaseVM,
+                libvirt.virConnect, libvirt.virDomain))]
+
+        if leaked:
+            try:
+                import objgraph
+                objgraph.show_backrefs(leaked,
+                    max_depth=15, extra_info=extra_info,
+                    filename='/tmp/objgraph-{}.png'.format(self.id()))
+            except ImportError:
+                pass
+
+        assert not leaked
 
     def cleanup_loop(self):
         '''Check if the loop is empty'''
@@ -1013,6 +1033,23 @@ def list_templates():
             _templates = ()
     return _templates
 
+def extra_info(obj):
+    '''Return short info identifying object.
+
+    For example, if obj is a qube, return its name. This is for use with
+    :py:mod:`objgraph` package.
+    '''
+    # Feel free to extend to other cases.
+
+    if isinstance(obj, qubes.vm.qubesvm.QubesVM):
+        try:
+            return obj.name
+        except AttributeError:
+            pass
+    if isinstance(obj, unittest.TestCase):
+        return obj.id()
+
+    return ''
 
 def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
     # discard any tests from this module, because it hosts base classes
