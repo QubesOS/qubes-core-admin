@@ -80,6 +80,8 @@ class TC_01_KernelVolumes(qubes.tests.QubesTestCase):
         """ Remove the file based storage pool after testing """
         self.app.remove_pool("test-pool")
         self.app.cleanup()
+        self.app.close()
+        del self.app
         super(TC_01_KernelVolumes, self).tearDown()
         shutil.rmtree(self.POOL_DIR, ignore_errors=True)
 
@@ -233,6 +235,8 @@ class TC_03_KernelPool(qubes.tests.QubesTestCase):
         """ Remove the file based storage pool after testing """
         self.app.remove_pool("test-pool")
         self.app.cleanup()
+        self.app.close()
+        del self.app
         super(TC_03_KernelPool, self).tearDown()
         shutil.rmtree(self.POOL_DIR, ignore_errors=True)
         if os.path.exists('/tmp/qubes-test'):

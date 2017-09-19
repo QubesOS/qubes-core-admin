@@ -39,10 +39,15 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
                 self.vm = qubes.vm.adminvm.AdminVM(self.app,
                     xml=None)
                 mock_qdb.assert_called_once_with('dom0')
+                self.addCleanup(self.cleanup_adminvm)
         except:  # pylint: disable=bare-except
             if self.id().endswith('.test_000_init'):
                 raise
             self.skipTest('setup failed')
+
+    def cleanup_adminvm(self):
+        self.vm.close()
+        del self.vm
 
     def test_000_init(self):
         pass

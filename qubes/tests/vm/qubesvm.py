@@ -122,9 +122,11 @@ class QubesVMTestsMixin(object):
         self.app.vmm.offline_mode = True
 
     def get_vm(self, **kwargs):
-        return qubes.vm.qubesvm.QubesVM(self.app, None,
+        vm = qubes.vm.qubesvm.QubesVM(self.app, None,
             qid=1, name=qubes.tests.VMPREFIX + 'test',
             **kwargs)
+        self.addCleanup(vm.close)
+        return vm
 
     def assertPropertyValue(self, vm, prop_name, set_value, expected_value,
             expected_xml_content=None):

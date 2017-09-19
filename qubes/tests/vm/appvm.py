@@ -67,12 +67,21 @@ class TC_90_AppVM(qubes.tests.vm.qubesvm.QubesVMTestsMixin,
             qid=1, name=qubes.tests.VMPREFIX + 'template')
         self.app.domains[self.template.name] = self.template
         self.app.domains[self.template] = self.template
+        self.addCleanup(self.cleanup_appvm)
+
+    def cleanup_appvm(self):
+        self.template.close()
+        del self.template
+        self.app.domains.clear()
+        self.app.pools.clear()
 
     def get_vm(self, **kwargs):
-        return qubes.vm.appvm.AppVM(self.app, None,
+        vm = qubes.vm.appvm.AppVM(self.app, None,
             qid=2, name=qubes.tests.VMPREFIX + 'test',
             template=self.template,
             **kwargs)
+        self.addCleanup(vm.close)
+        return vm
 
     def test_000_init(self):
         self.get_vm()
