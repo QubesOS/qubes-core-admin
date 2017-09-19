@@ -384,14 +384,16 @@ class BaseVM(qubes.PropertyHolder):
     def __repr__(self):
         proprepr = []
         for prop in self.property_list():
+            if prop.__name__ in ('name', 'qid'):
+                continue
             try:
                 proprepr.append('{}={!s}'.format(
                     prop.__name__, getattr(self, prop.__name__)))
             except AttributeError:
                 continue
 
-        return '<{} object at {:#x} {}>'.format(
-            self.__class__.__name__, id(self), ' '.join(proprepr))
+        return '<{} at {:#x} name={!r} qid={!r} {}>'.format(type(self).__name__,
+            id(self), self.name, self.qid, ' '.join(proprepr))
 
     #
     # xml serialising methods
