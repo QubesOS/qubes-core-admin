@@ -98,6 +98,9 @@ except libvirt.libvirtError:
 
 if in_dom0:
     import libvirtaio
+    libvirt_event_impl = libvirtaio.virEventRegisterAsyncIOImpl()
+else:
+    libvirt_event_impl = None
 
 try:
     in_git = subprocess.check_output(
@@ -371,16 +374,35 @@ class QubesTestCase(unittest.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.loop)
+        self.loop = asyncio.get_event_loop()
         self.addCleanup(self.cleanup_loop)
 
     def cleanup_loop(self):
-        # The loop, when closing, throws a warning if there is
-        # some unfinished bussiness. Let's catch that.
-        with warnings.catch_warnings():
-            warnings.simplefilter('error')
-            self.loop.close()
+        '''Check if the loop is empty'''
+        # XXX BEWARE this is touching undocumented, implementation-specific
+        # attributes of the loop. This is most certainly unsupported and likely
+        # will break when messing with: Python version, kernel family, loop
+        # implementation, a combination thereof, or other things.
+        # KEYWORDS for searching:
+        #   win32, SelectorEventLoop, ProactorEventLoop, uvloop, gevent
+
+        global libvirt_event_impl
+
+        # Check for unfinished libvirt business.
+        if libvirt_event_impl is not None:
+            self.loop.run_until_complete(libvirt_event_impl.drain())
+
+        # Check there are no Tasks left.
+        assert not self.loop._ready
+        assert not self.loop._scheduled
+
+        # Check the loop watches no descriptors.
+        # NOTE the loop has a pipe for self-interrupting, created once per
+        # lifecycle, and it is unwatched only at loop.close(); so we cannot just
+        # check selector for non-emptiness
+        assert len(self.loop._selector.get_map()) \
+            == int(self.loop._ssock is not None)
+
         del self.loop
 
     def assertNotRaises(self, excClass, callableObj=None, *args, **kwargs):
@@ -587,8 +609,6 @@ class SystemTestCase(QubesTestCase):
         if not in_dom0:
             self.skipTest('outside dom0')
         super(SystemTestCase, self).setUp()
-        self.libvirt_event_impl = libvirtaio.virEventRegisterAsyncIOImpl(
-            loop=self.loop)
         self.remove_test_vms()
 
         # need some information from the real qubes.xml - at least installed
@@ -651,13 +671,6 @@ class SystemTestCase(QubesTestCase):
 
         # then trigger garbage collector to really destroy those objects
         gc.collect()
-
-        self.loop.run_until_complete(self.libvirt_event_impl.drain())
-        if not self.libvirt_event_impl.is_idle():
-            self.log.warning(
-                'libvirt event impl not clean: callbacks %r descriptors %r',
-                self.libvirt_event_impl.callbacks,
-                self.libvirt_event_impl.descriptors)
 
     def init_default_template(self, template=None):
         if template is None:

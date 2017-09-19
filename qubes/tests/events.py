@@ -163,8 +163,6 @@ class TC_00_Emitter(qubes.tests.QubesTestCase):
         emitter.events_enabled = True
 
         effect = loop.run_until_complete(emitter.fire_event_async('testevent'))
-        loop.close()
-        asyncio.set_event_loop(None)
 
         self.assertCountEqual(effect,
             ('testvalue1', 'testvalue2', 'testvalue3', 'testvalue4'))
