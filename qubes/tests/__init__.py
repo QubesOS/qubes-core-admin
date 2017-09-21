@@ -410,7 +410,11 @@ class QubesTestCase(unittest.TestCase):
 
         # Check for unfinished libvirt business.
         if libvirt_event_impl is not None:
-            self.loop.run_until_complete(libvirt_event_impl.drain())
+            try:
+                self.loop.run_until_complete(asyncio.wait_for(
+                    libvirt_event_impl.drain(), timeout=4))
+            except asyncio.TimeoutError:
+                raise AssertionError('libvirt event impl drain timeout')
 
         # Check there are no Tasks left.
         assert not self.loop._ready
