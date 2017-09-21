@@ -11,6 +11,12 @@ added as needed.
 class libvirtError(Exception):
     pass
 
+class virConnect:
+    pass
+
+class virDomain:
+    pass
+
 def openReadOnly(*args, **kwargs):
     raise libvirtError('mock module, always raises')
 
