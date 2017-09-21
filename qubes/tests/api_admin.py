@@ -90,6 +90,11 @@ class AdminAPITestCase(qubes.tests.QubesTestCase):
         self.base_dir_patch.stop()
         if os.path.exists(self.test_base_dir):
             shutil.rmtree(self.test_base_dir)
+        del self.vm
+        del self.template
+        self.app.close()
+        del self.app
+        del self.emitter
         super(AdminAPITestCase, self).tearDown()
 
     def call_mgmt_func(self, method, dest, arg=b'', payload=b''):
@@ -1594,6 +1599,12 @@ class TC_00_VMs(AdminAPITestCase):
             self.vm.volumes['private']
         self.vm2.volumes['private'].import_volume.return_value = \
             self.vm2.volumes['private']
+
+        self.addCleanup(self.cleanup_for_clone)
+
+    def cleanup_for_clone(self):
+        del self.vm2
+        del self.pool
 
     def test_520_vm_volume_clone(self):
         self.setup_for_clone()

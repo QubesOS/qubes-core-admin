@@ -90,93 +90,111 @@ class TC_01_Properties(qubes.tests.SystemTestCase):
                                       template=self.app.default_template,
                                       label='red')
         self.loop.run_until_complete(self.vm.create_on_disk())
+        self.addCleanup(self.cleanup_props)
+
+    def cleanup_props(self):
+        del self.vm
 
     @unittest.expectedFailure
     def test_030_clone(self):
-        testvm1 = self.app.add_new_vm(
-            qubes.vm.appvm.AppVM,
-            name=self.make_vm_name("vm"),
-            template=self.app.default_template,
-            label='red')
-        self.loop.run_until_complete(testvm1.create_on_disk())
-        testvm2 = self.app.add_new_vm(testvm1.__class__,
-                                     name=self.make_vm_name("clone"),
-                                     template=testvm1.template,
-                                     label='red')
-        testvm2.clone_properties(testvm1)
-        self.loop.run_until_complete(testvm2.clone_disk_files(testvm1))
-        self.assertTrue(self.loop.run_until_complete(testvm1.storage.verify()))
-        self.assertIn('source', testvm1.volumes['root'].config)
-        self.assertNotEquals(testvm2, None)
-        self.assertNotEquals(testvm2.volumes, {})
-        self.assertIn('source', testvm2.volumes['root'].config)
+        try:
+            testvm1 = self.app.add_new_vm(
+                qubes.vm.appvm.AppVM,
+                name=self.make_vm_name("vm"),
+                template=self.app.default_template,
+                label='red')
+            self.loop.run_until_complete(testvm1.create_on_disk())
+            testvm2 = self.app.add_new_vm(testvm1.__class__,
+                                        name=self.make_vm_name("clone"),
+                                        template=testvm1.template,
+                                        label='red')
+            testvm2.clone_properties(testvm1)
+            self.loop.run_until_complete(testvm2.clone_disk_files(testvm1))
+            self.assertTrue(self.loop.run_until_complete(testvm1.storage.verify()))
+            self.assertIn('source', testvm1.volumes['root'].config)
+            self.assertNotEquals(testvm2, None)
+            self.assertNotEquals(testvm2.volumes, {})
+            self.assertIn('source', testvm2.volumes['root'].config)
 
-        # qubes.xml reload
-        self.app.save()
-        testvm1 = self.app.domains[testvm1.qid]
-        testvm2 = self.app.domains[testvm2.qid]
+            # qubes.xml reload
+            self.app.save()
+            testvm1 = self.app.domains[testvm1.qid]
+            testvm2 = self.app.domains[testvm2.qid]
 
-        self.assertEqual(testvm1.label, testvm2.label)
-        self.assertEqual(testvm1.netvm, testvm2.netvm)
-        self.assertEqual(testvm1.property_is_default('netvm'),
-                          testvm2.property_is_default('netvm'))
-        self.assertEqual(testvm1.kernel, testvm2.kernel)
-        self.assertEqual(testvm1.kernelopts, testvm2.kernelopts)
-        self.assertEqual(testvm1.property_is_default('kernel'),
-                          testvm2.property_is_default('kernel'))
-        self.assertEqual(testvm1.property_is_default('kernelopts'),
-                          testvm2.property_is_default('kernelopts'))
-        self.assertEqual(testvm1.memory, testvm2.memory)
-        self.assertEqual(testvm1.maxmem, testvm2.maxmem)
-        self.assertEqual(testvm1.devices, testvm2.devices)
-        self.assertEqual(testvm1.include_in_backups,
-                          testvm2.include_in_backups)
-        self.assertEqual(testvm1.default_user, testvm2.default_user)
-        self.assertEqual(testvm1.features, testvm2.features)
-        self.assertEqual(testvm1.firewall.rules,
-                          testvm2.firewall.rules)
+            self.assertEqual(testvm1.label, testvm2.label)
+            self.assertEqual(testvm1.netvm, testvm2.netvm)
+            self.assertEqual(testvm1.property_is_default('netvm'),
+                            testvm2.property_is_default('netvm'))
+            self.assertEqual(testvm1.kernel, testvm2.kernel)
+            self.assertEqual(testvm1.kernelopts, testvm2.kernelopts)
+            self.assertEqual(testvm1.property_is_default('kernel'),
+                            testvm2.property_is_default('kernel'))
+            self.assertEqual(testvm1.property_is_default('kernelopts'),
+                            testvm2.property_is_default('kernelopts'))
+            self.assertEqual(testvm1.memory, testvm2.memory)
+            self.assertEqual(testvm1.maxmem, testvm2.maxmem)
+            self.assertEqual(testvm1.devices, testvm2.devices)
+            self.assertEqual(testvm1.include_in_backups,
+                            testvm2.include_in_backups)
+            self.assertEqual(testvm1.default_user, testvm2.default_user)
+            self.assertEqual(testvm1.features, testvm2.features)
+            self.assertEqual(testvm1.firewall.rules,
+                            testvm2.firewall.rules)
 
-        # now some non-default values
-        testvm1.netvm = None
-        testvm1.label = 'orange'
-        testvm1.memory = 512
-        firewall = testvm1.firewall
-        firewall.rules = [
-            qubes.firewall.Rule(None, action='accept', dsthost='1.2.3.0/24',
-                proto='tcp', dstports=22)]
-        firewall.save()
+            # now some non-default values
+            testvm1.netvm = None
+            testvm1.label = 'orange'
+            testvm1.memory = 512
+            firewall = testvm1.firewall
+            firewall.rules = [
+                qubes.firewall.Rule(None, action='accept', dsthost='1.2.3.0/24',
+                    proto='tcp', dstports=22)]
+            firewall.save()
 
-        testvm3 = self.app.add_new_vm(testvm1.__class__,
-                                     name=self.make_vm_name("clone2"),
-                                     template=testvm1.template,
-                                     label='red',)
-        testvm3.clone_properties(testvm1)
-        self.loop.run_until_complete(testvm3.clone_disk_files(testvm1))
+            testvm3 = self.app.add_new_vm(testvm1.__class__,
+                                        name=self.make_vm_name("clone2"),
+                                        template=testvm1.template,
+                                        label='red',)
+            testvm3.clone_properties(testvm1)
+            self.loop.run_until_complete(testvm3.clone_disk_files(testvm1))
 
-        # qubes.xml reload
-        self.app.save()
-        testvm1 = self.app.domains[testvm1.qid]
-        testvm3 = self.app.domains[testvm3.qid]
+            # qubes.xml reload
+            self.app.save()
+            testvm1 = self.app.domains[testvm1.qid]
+            testvm3 = self.app.domains[testvm3.qid]
 
-        self.assertEqual(testvm1.label, testvm3.label)
-        self.assertEqual(testvm1.netvm, testvm3.netvm)
-        self.assertEqual(testvm1.property_is_default('netvm'),
-                          testvm3.property_is_default('netvm'))
-        self.assertEqual(testvm1.kernel, testvm3.kernel)
-        self.assertEqual(testvm1.kernelopts, testvm3.kernelopts)
-        self.assertEqual(testvm1.property_is_default('kernel'),
-                          testvm3.property_is_default('kernel'))
-        self.assertEqual(testvm1.property_is_default('kernelopts'),
-                          testvm3.property_is_default('kernelopts'))
-        self.assertEqual(testvm1.memory, testvm3.memory)
-        self.assertEqual(testvm1.maxmem, testvm3.maxmem)
-        self.assertEqual(testvm1.devices, testvm3.devices)
-        self.assertEqual(testvm1.include_in_backups,
-                          testvm3.include_in_backups)
-        self.assertEqual(testvm1.default_user, testvm3.default_user)
-        self.assertEqual(testvm1.features, testvm3.features)
-        self.assertEqual(testvm1.firewall.rules,
-                          testvm2.firewall.rules)
+            self.assertEqual(testvm1.label, testvm3.label)
+            self.assertEqual(testvm1.netvm, testvm3.netvm)
+            self.assertEqual(testvm1.property_is_default('netvm'),
+                            testvm3.property_is_default('netvm'))
+            self.assertEqual(testvm1.kernel, testvm3.kernel)
+            self.assertEqual(testvm1.kernelopts, testvm3.kernelopts)
+            self.assertEqual(testvm1.property_is_default('kernel'),
+                            testvm3.property_is_default('kernel'))
+            self.assertEqual(testvm1.property_is_default('kernelopts'),
+                            testvm3.property_is_default('kernelopts'))
+            self.assertEqual(testvm1.memory, testvm3.memory)
+            self.assertEqual(testvm1.maxmem, testvm3.maxmem)
+            self.assertEqual(testvm1.devices, testvm3.devices)
+            self.assertEqual(testvm1.include_in_backups,
+                            testvm3.include_in_backups)
+            self.assertEqual(testvm1.default_user, testvm3.default_user)
+            self.assertEqual(testvm1.features, testvm3.features)
+            self.assertEqual(testvm1.firewall.rules,
+                            testvm2.firewall.rules)
+        finally:
+            try:
+                del testvm1
+            except NameError:
+                pass
+            try:
+                del testvm2
+            except NameError:
+                pass
+            try:
+                del testvm3
+            except NameError:
+                pass
 
     def test_020_name_conflict_app(self):
         # TODO decide what exception should be here
@@ -322,12 +340,16 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestCase):
         super(TC_03_QvmRevertTemplateChanges, self).setUp()
         self.init_default_template()
 
+    def cleanup_template(self):
+        del self.test_template
+
     def setup_pv_template(self):
         self.test_template = self.app.add_new_vm(
             qubes.vm.templatevm.TemplateVM,
             name=self.make_vm_name("pv-clone"),
             label='red'
         )
+        self.addCleanup(self.cleanup_template)
         self.test_template.clone_properties(self.app.default_template)
         self.loop.run_until_complete(
             self.test_template.clone_disk_files(self.app.default_template))
@@ -340,6 +362,7 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestCase):
             label='red',
             virt_mode='hvm',
         )
+        self.addCleanup(self.cleanup_template)
         self.loop.run_until_complete(self.test_template.create_on_disk())
         self.app.save()
 
