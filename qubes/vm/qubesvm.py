@@ -872,15 +872,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self.log.warning('Activating the {} VM'.format(self.name))
                 self.libvirt_domain.resume()
 
-                # close() is not really needed, because the descriptor is
-                # close-on-exec anyway, the reason to postpone close() is that
-                # possibly xl is not done constructing the domain after its main
-                # process exits so we close() when we know the domain is up the
-                # successful unpause is some indicator of it
-                if qmemman_client:
-                    qmemman_client.close()
-                    qmemman_client = None
-
                 yield from self.start_qrexec_daemon()
 
                 yield from self.fire_event_async('domain-start',
@@ -893,9 +884,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     # running or paused
                     yield from self.kill()  # pylint: disable=not-an-iterable
                 raise
-            finally:
-                if qmemman_client:
-                    qmemman_client.close()
 
         return self
 
