@@ -98,6 +98,9 @@ except libvirt.libvirtError:
 
 if in_dom0:
     import libvirtaio
+    libvirt_event_impl = libvirtaio.virEventRegisterAsyncIOImpl()
+else:
+    libvirt_event_impl = None
 
 try:
     in_git = subprocess.check_output(
@@ -371,16 +374,59 @@ class QubesTestCase(unittest.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.loop)
+        self.addCleanup(self.cleanup_gc)
+
+        self.loop = asyncio.get_event_loop()
         self.addCleanup(self.cleanup_loop)
 
+    def cleanup_gc(self):
+        gc.collect()
+        leaked = [obj for obj in gc.get_objects() + gc.garbage
+            if isinstance(obj,
+                (qubes.Qubes, qubes.vm.BaseVM,
+                libvirt.virConnect, libvirt.virDomain))]
+
+        if leaked:
+            try:
+                import objgraph
+                objgraph.show_backrefs(leaked,
+                    max_depth=15, extra_info=extra_info,
+                    filename='/tmp/objgraph-{}.png'.format(self.id()))
+            except ImportError:
+                pass
+
+        assert not leaked
+
     def cleanup_loop(self):
-        # The loop, when closing, throws a warning if there is
-        # some unfinished bussiness. Let's catch that.
-        with warnings.catch_warnings():
-            warnings.simplefilter('error')
-            self.loop.close()
+        '''Check if the loop is empty'''
+        # XXX BEWARE this is touching undocumented, implementation-specific
+        # attributes of the loop. This is most certainly unsupported and likely
+        # will break when messing with: Python version, kernel family, loop
+        # implementation, a combination thereof, or other things.
+        # KEYWORDS for searching:
+        #   win32, SelectorEventLoop, ProactorEventLoop, uvloop, gevent
+
+        global libvirt_event_impl
+
+        # Check for unfinished libvirt business.
+        if libvirt_event_impl is not None:
+            try:
+                self.loop.run_until_complete(asyncio.wait_for(
+                    libvirt_event_impl.drain(), timeout=4))
+            except asyncio.TimeoutError:
+                raise AssertionError('libvirt event impl drain timeout')
+
+        # Check there are no Tasks left.
+        assert not self.loop._ready
+        assert not self.loop._scheduled
+
+        # Check the loop watches no descriptors.
+        # NOTE the loop has a pipe for self-interrupting, created once per
+        # lifecycle, and it is unwatched only at loop.close(); so we cannot just
+        # check selector for non-emptiness
+        assert len(self.loop._selector.get_map()) \
+            == int(self.loop._ssock is not None)
+
         del self.loop
 
     def assertNotRaises(self, excClass, callableObj=None, *args, **kwargs):
@@ -587,8 +633,6 @@ class SystemTestCase(QubesTestCase):
         if not in_dom0:
             self.skipTest('outside dom0')
         super(SystemTestCase, self).setUp()
-        self.libvirt_event_impl = libvirtaio.virEventRegisterAsyncIOImpl(
-            loop=self.loop)
         self.remove_test_vms()
 
         # need some information from the real qubes.xml - at least installed
@@ -651,13 +695,6 @@ class SystemTestCase(QubesTestCase):
 
         # then trigger garbage collector to really destroy those objects
         gc.collect()
-
-        self.loop.run_until_complete(self.libvirt_event_impl.drain())
-        if not self.libvirt_event_impl.is_idle():
-            self.log.warning(
-                'libvirt event impl not clean: callbacks %r descriptors %r',
-                self.libvirt_event_impl.callbacks,
-                self.libvirt_event_impl.descriptors)
 
     def init_default_template(self, template=None):
         if template is None:
@@ -1000,6 +1037,23 @@ def list_templates():
             _templates = ()
     return _templates
 
+def extra_info(obj):
+    '''Return short info identifying object.
+
+    For example, if obj is a qube, return its name. This is for use with
+    :py:mod:`objgraph` package.
+    '''
+    # Feel free to extend to other cases.
+
+    if isinstance(obj, qubes.vm.qubesvm.QubesVM):
+        try:
+            return obj.name
+        except AttributeError:
+            pass
+    if isinstance(obj, unittest.TestCase):
+        return obj.id()
+
+    return ''
 
 def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
     # discard any tests from this module, because it hosts base classes

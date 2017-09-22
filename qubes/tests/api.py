@@ -97,8 +97,6 @@ class TC_00_QubesDaemonProtocol(qubes.tests.QubesTestCase):
         super(TC_00_QubesDaemonProtocol, self).setUp()
         self.app = unittest.mock.Mock()
         self.app.log = self.log
-        self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.loop)
         self.sock_client, self.sock_server = socket.socketpair()
         self.reader, self.writer = self.loop.run_until_complete(
             asyncio.open_connection(sock=self.sock_client))
@@ -113,9 +111,6 @@ class TC_00_QubesDaemonProtocol(qubes.tests.QubesTestCase):
     def tearDown(self):
         self.sock_server.close()
         self.sock_client.close()
-        self.loop.stop()
-        self.loop.run_forever()
-        self.loop.close()
         super(TC_00_QubesDaemonProtocol, self).tearDown()
 
     def test_000_message_ok(self):

@@ -320,6 +320,16 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
 
         self.testvm1 = TestVM(None, None, qid=1, name='testvm1')
         self.testvm2 = TestVM(None, None, qid=2, name='testvm2')
+        self.addCleanup(self.cleanup_testvm)
+
+    def cleanup_testvm(self):
+        self.vms.close()
+        self.testvm1.close()
+        self.testvm2.close()
+        del self.testvm1
+        del self.testvm2
+        del self.vms
+        del self.app
 
     def test_000_contains(self):
         self.vms._dict = {1: self.testvm1}

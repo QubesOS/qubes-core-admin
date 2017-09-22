@@ -57,6 +57,15 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             name='test-vm', template=self.template, label='red')
         self.app.domains[self.appvm.name] = self.appvm
         self.app.domains[self.appvm] = self.appvm
+        self.addCleanup(self.cleanup_dispvm)
+
+    def cleanup_dispvm(self):
+        self.template.close()
+        self.appvm.close()
+        del self.template
+        del self.appvm
+        self.app.domains.clear()
+        self.app.pools.clear()
 
     @asyncio.coroutine
     def mock_coro(self, *args, **kwargs):

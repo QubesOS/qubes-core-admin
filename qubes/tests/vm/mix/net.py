@@ -52,6 +52,18 @@ class TC_00_NetVMMixin(
             self.app.domains._dict[domain.qid] = domain
         self.app.default_netvm = self.netvm1
         self.app.default_fw_netvm = self.netvm1
+        self.addCleanup(self.cleanup_netvms)
+
+    def cleanup_netvms(self):
+        self.netvm1.close()
+        self.netvm2.close()
+        self.nonetvm.close()
+        self.app.domains.close()
+        del self.netvm1
+        del self.netvm2
+        del self.nonetvm
+        del self.app.default_netvm
+        del self.app.default_fw_netvm
 
 
     @qubes.tests.skipUnlessDom0
@@ -81,6 +93,7 @@ class TC_00_NetVMMixin(
     def test_143_netvm_loopback(self):
         vm = self.get_vm()
         self.app.domains = {1: vm, vm: vm}
+        self.addCleanup(self.app.domains.clear)
         self.assertPropertyInvalidValue(vm, 'netvm', vm)
 
     def test_150_ip(self):

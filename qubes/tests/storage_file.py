@@ -75,6 +75,8 @@ class TC_00_FilePool(qubes.tests.QubesTestCase):
 
     def tearDown(self):
         self.app.cleanup()
+        self.app.close()
+        del self.app
         super(TC_00_FilePool, self).tearDown()
 
     def test000_default_pool_dir(self):
@@ -120,6 +122,8 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         """ Remove the file based storage pool after testing """
         self.app.remove_pool("test-pool")
         self.app.cleanup()
+        self.app.close()
+        del self.app
         super(TC_01_FileVolumes, self).tearDown()
         shutil.rmtree(self.POOL_DIR, ignore_errors=True)
 
@@ -328,6 +332,8 @@ class TC_03_FilePool(qubes.tests.QubesTestCase):
         """ Remove the file based storage pool after testing """
         self.app.remove_pool("test-pool")
         self.app.cleanup()
+        self.app.close()
+        del self.app
         self.base_dir_patch3.stop()
         self.base_dir_patch2.stop()
         self.base_dir_patch.stop()
