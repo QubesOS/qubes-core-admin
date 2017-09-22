@@ -205,6 +205,8 @@ class BlockDeviceExtension(qubes.ext.Extension):
             else:
                 options['read-only'] = 'no'
             options['frontend-dev'] = frontend_dev
+            if disk.get('device') != 'disk':
+                options['devtype'] = disk.get('device')
 
             if dev_path.startswith('/dev/'):
                 ident = dev_path[len('/dev/'):]

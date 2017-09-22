@@ -328,6 +328,29 @@ class TC_00_Block(qubes.tests.QubesTestCase):
         self.assertEqual(options['frontend-dev'], 'xvdi')
         self.assertEqual(options['read-only'], 'no')
 
+    def test_033_list_attached_cdrom(self):
+        disk = '''
+        <disk type="block" device="cdrom">
+            <driver name="phy" />
+            <source dev="/dev/sr0" />
+            <target dev="xvdi" />
+            <readonly />
+            <backenddomain name="sys-usb" />
+        </disk>
+        '''
+        vm = TestVM({}, domain_xml=domain_xml_template.format(disk))
+        vm.app.domains['test-vm'] = vm
+        vm.app.domains['sys-usb'] = TestVM({}, name='sys-usb')
+        devices = sorted(list(self.ext.on_device_list_attached(vm, '')))
+        self.assertEqual(len(devices), 1)
+        dev = devices[0][0]
+        options = devices[0][1]
+        self.assertEqual(dev.backend_domain, vm.app.domains['sys-usb'])
+        self.assertEqual(dev.ident, 'sr0')
+        self.assertEqual(options['frontend-dev'], 'xvdi')
+        self.assertEqual(options['read-only'], 'yes')
+        self.assertEqual(options['devtype'], 'cdrom')
+
     def test_040_attach(self):
         back_vm = TestVM(name='sys-usb', qdb={
             '/qubes-block-devices/sda': b'',
