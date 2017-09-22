@@ -839,17 +839,24 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 pre_event=True,
                 start_guid=start_guid, mem_required=mem_required)
 
-            yield from self.storage.verify()
+            try:
+                yield from self.storage.verify()
 
-            if self.netvm is not None:
-                # pylint: disable = no-member
-                if self.netvm.qid != 0:
-                    if not self.netvm.is_running():
-                        yield from self.netvm.start(start_guid=start_guid,
-                            notify_function=notify_function)
+                if self.netvm is not None:
+                    # pylint: disable = no-member
+                    if self.netvm.qid != 0:
+                        if not self.netvm.is_running():
+                            yield from self.netvm.start(start_guid=start_guid,
+                                notify_function=notify_function)
 
-            qmemman_client = yield from asyncio.get_event_loop().\
-                run_in_executor(None, self.request_memory, mem_required)
+                qmemman_client = yield from asyncio.get_event_loop().\
+                    run_in_executor(None, self.request_memory, mem_required)
+
+            except Exception as exc:
+                # let anyone receiving domain-pre-start know that startup failed
+                yield from self.fire_event_async('domain-start-failed',
+                    reason=str(exc))
+                raise
 
             try:
                 yield from self.storage.start()
@@ -857,6 +864,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
                 self.libvirt_domain.createWithFlags(
                     libvirt.VIR_DOMAIN_START_PAUSED)
+
+            except Exception as exc:
+                # let anyone receiving domain-pre-start know that startup failed
+                yield from self.fire_event_async('domain-start-failed',
+                    reason=str(exc))
+                raise
+
             finally:
                 if qmemman_client:
                     qmemman_client.close()
@@ -877,12 +891,16 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 yield from self.fire_event_async('domain-start',
                     start_guid=start_guid)
 
-            except:  # pylint: disable=bare-except
+            except Exception as exc:  # pylint: disable=bare-except
                 if self.is_running() or self.is_paused():
                     # This avoids losing the exception if an exception is
                     # raised in self.force_shutdown(), because the vm is not
                     # running or paused
                     yield from self.kill()  # pylint: disable=not-an-iterable
+
+                # let anyone receiving domain-pre-start know that startup failed
+                yield from self.fire_event_async('domain-start-failed',
+                    reason=str(exc))
                 raise
 
         return self
