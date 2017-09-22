@@ -164,7 +164,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if not appvm.template_for_dispvms:
             raise qubes.exc.QubesException(
                 'Refusing to create DispVM out of this AppVM, because '
-                'template_for_appvms=False')
+                'template_for_dispvms=False')
         app = appvm.app
         dispvm = app.add_new_vm(
             cls,
