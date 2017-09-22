@@ -137,7 +137,7 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         '''
         with (yield from self.startup_lock):
             yield from self.storage.stop()
-            if self.auto_cleanup:
+            if self.auto_cleanup and self in self.app.domains:
                 yield from self.remove_from_disk()
                 del self.app.domains[self]
                 self.app.save()
@@ -197,10 +197,19 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     def start(self, **kwargs):
         # pylint: disable=arguments-differ
 
-        # sanity check, if template_for_dispvm got changed in the meantime
-        if not self.template.template_for_dispvms:
-            raise qubes.exc.QubesException(
-                'template for DispVM ({}) needs to have '
-                'template_for_dispvms=True'.format(self.template.name))
+        try:
+            # sanity check, if template_for_dispvm got changed in the meantime
+            if not self.template.template_for_dispvms:
+                raise qubes.exc.QubesException(
+                    'template for DispVM ({}) needs to have '
+                    'template_for_dispvms=True'.format(self.template.name))
 
-        yield from super(DispVM, self).start(**kwargs)
+            yield from super(DispVM, self).start(**kwargs)
+        except:
+            # cleanup also on failed startup; there is potential race with
+            # self.on_domain_shutdown_coro, so check if wasn't already removed
+            if self.auto_cleanup and self in self.app.domains:
+                yield from self.remove_from_disk()
+                del self.app.domains[self]
+                self.app.save()
+            raise
