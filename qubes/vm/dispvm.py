@@ -121,8 +121,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         '''  # pylint: disable=unused-argument
         assert self.template
 
-    @qubes.events.handler('property-pre-set:template')
-    def on_property_pre_set_template(self, event, name, newvalue,
+    @qubes.events.handler('property-pre-set:template',
+        'property-pre-del:template')
+    def on_property_pre_set_template(self, event, name, newvalue=None,
             oldvalue=None):
         ''' Disposable VM cannot have template changed '''
         # pylint: disable=unused-argument
