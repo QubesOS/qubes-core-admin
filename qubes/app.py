@@ -35,6 +35,7 @@ import time
 import traceback
 import uuid
 
+import itertools
 import lxml.etree
 
 import jinja2
@@ -857,6 +858,8 @@ class Qubes(qubes.PropertyHolder):
 
         return element
 
+    def __str__(self):
+        return type(self).__name__
 
     def save(self, lock=True):
         '''Save all data to qubes.xml
@@ -1186,14 +1189,17 @@ class Qubes(qubes.PropertyHolder):
     @qubes.events.handler('domain-pre-delete')
     def on_domain_pre_deleted(self, event, vm):
         # pylint: disable=unused-argument
-        if isinstance(vm, qubes.vm.templatevm.TemplateVM):
-            appvms = self.domains.get_vms_based_on(vm)
-            if appvms:
-                raise qubes.exc.QubesException(
-                    'Cannot remove template that has dependent AppVMs. '
-                    'Affected are: {}'.format(', '.join(
-                        appvm.name for appvm in sorted(appvms))))
-
+        for obj in itertools.chain(self.domains, (self,)):
+            for prop in obj.property_list():
+                try:
+                    if isinstance(prop, qubes.vm.VMProperty) and \
+                            getattr(obj, prop.__name__) == vm:
+                        self.log.error(
+                            'Cannot remove %s, used by %s.%s',
+                            vm, obj, prop.__name__)
+                        raise qubes.exc.QubesVMInUseError(vm)
+                except AttributeError:
+                    pass
 
     @qubes.events.handler('domain-delete')
     def on_domain_deleted(self, event, vm):

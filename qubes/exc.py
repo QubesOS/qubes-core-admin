@@ -42,6 +42,11 @@ class QubesVMError(QubesException):
         super(QubesVMError, self).__init__(msg)
         self.vm = vm
 
+class QubesVMInUseError(QubesVMError):
+    '''VM is in use, cannot remove.'''
+    def __init__(self, vm, msg=None):
+        super(QubesVMInUseError, self).__init__(vm,
+            msg or 'Domain is in use: {!r}'.format(vm.name))
 
 class QubesVMNotStartedError(QubesVMError):
     '''Domain is not started.
