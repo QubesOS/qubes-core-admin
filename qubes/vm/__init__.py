@@ -500,6 +500,10 @@ class BaseVM(qubes.PropertyHolder):
         for path in self._qdb_watch_paths:
             self._qdb_connection_watch.watch(path)
 
+    @qubes.stateless_property
+    def klass(self):
+        '''Domain class name'''
+        return type(self).__name__
 
 class VMProperty(qubes.property):
     '''Property that is referring to a VM
