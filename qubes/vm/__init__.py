@@ -27,6 +27,7 @@
 import asyncio
 import re
 import string
+import uuid
 
 import lxml.etree
 
@@ -64,6 +65,26 @@ def validate_name(holder, prop, value):
         raise qubes.exc.QubesValueError(
             'VM name cannot be \'none\' nor \'default\'')
 
+def setter_label(self, prop, value):
+    ''' Helper for setting the domain label '''
+    # pylint: disable=unused-argument
+    if isinstance(value, qubes.Label):
+        return value
+    if isinstance(value, str) and value.startswith('label-'):
+        return self.app.labels[int(value.split('-', 1)[1])]
+
+    return self.app.get_label(value)
+
+
+def _setter_qid(self, prop, value):
+    ''' Helper for setting the domain qid '''
+    # pylint: disable=unused-argument
+    value = int(value)
+    if not 0 <= value <= qubes.config.max_qid:
+        raise ValueError(
+            '{} value must be between 0 and qubes.config.max_qid'.format(
+                prop.__name__))
+    return value
 
 class Features(dict):
     '''Manager of the features.
@@ -261,6 +282,25 @@ class BaseVM(qubes.PropertyHolder):
     :py:class:`qubes.vm.qubesvm.QubesVM`.
     '''
     # pylint: disable=no-member
+
+    uuid = qubes.property('uuid', type=uuid.UUID, write_once=True,
+        clone=False,
+        doc='UUID from libvirt.')
+
+    name = qubes.property('name', type=str, write_once=True,
+        clone=False,
+        doc='User-specified name of the domain.')
+
+    qid = qubes.property('qid', type=int, write_once=True,
+        setter=_setter_qid,
+        clone=False,
+        doc='''Internal, persistent identificator of particular domain. Note
+            this is different from Xen domid.''')
+
+    label = qubes.property('label',
+        setter=setter_label,
+        doc='''Colourful label assigned to VM. This is where the colour of the
+            padlock is set.''')
 
     def __init__(self, app, xml, features=None, devices=None, tags=None,
             **kwargs):
@@ -531,14 +571,3 @@ class VMProperty(qubes.property):
             return untrusted_vmname
         validate_name(None, self, untrusted_vmname)
         return untrusted_vmname
-
-
-def setter_label(self, prop, value):
-    ''' Helper for setting the domain label '''
-    # pylint: disable=unused-argument
-    if isinstance(value, qubes.Label):
-        return value
-    if isinstance(value, str) and value.startswith('label-'):
-        return self.app.labels[int(value.split('-', 1)[1])]
-
-    return self.app.get_label(value)

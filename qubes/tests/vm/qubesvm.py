@@ -71,15 +71,15 @@ class TC_00_setters(qubes.tests.QubesTestCase):
 
     def test_000_setter_qid(self):
         self.assertEqual(
-            qubes.vm.qubesvm._setter_qid(self.vm, self.prop, 5), 5)
+            qubes.vm._setter_qid(self.vm, self.prop, 5), 5)
 
     def test_001_setter_qid_lt_0(self):
         with self.assertRaises(ValueError):
-            qubes.vm.qubesvm._setter_qid(self.vm, self.prop, -1)
+            qubes.vm._setter_qid(self.vm, self.prop, -1)
 
     def test_002_setter_qid_gt_max(self):
         with self.assertRaises(ValueError):
-            qubes.vm.qubesvm._setter_qid(self.vm,
+            qubes.vm._setter_qid(self.vm,
                 self.prop, qubes.config.max_qid + 5)
 
     @unittest.skip('test not implemented')

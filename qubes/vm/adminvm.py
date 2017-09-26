@@ -24,9 +24,11 @@
 ''' This module contains the AdminVM implementation '''
 
 import libvirt
+
 import qubes
 import qubes.exc
 import qubes.vm
+
 
 class AdminVM(qubes.vm.BaseVM):
     '''Dom0'''
@@ -35,12 +37,6 @@ class AdminVM(qubes.vm.BaseVM):
 
     name = qubes.property('name',
         default='dom0', setter=qubes.property.forbidden)
-
-    label = qubes.property('label',
-        setter=qubes.vm.setter_label,
-        saver=(lambda self, prop, value: 'label-{}'.format(value.index)),
-        doc='''Colourful label assigned to VM. This is where the colour of the
-            padlock is set.''')
 
     qid = qubes.property('qid',
         default=0, setter=qubes.property.forbidden)

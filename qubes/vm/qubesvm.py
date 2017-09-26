@@ -59,17 +59,6 @@ MEM_OVERHEAD_BASE = (3 + 1) * 1024 * 1024
 MEM_OVERHEAD_PER_VCPU = 3 * 1024 * 1024 / 2
 
 
-def _setter_qid(self, prop, value):
-    ''' Helper for setting the domain qid '''
-    # pylint: disable=unused-argument
-    value = int(value)
-    if not 0 <= value <= qubes.config.max_qid:
-        raise ValueError(
-            '{} value must be between 0 and qubes.config.max_qid'.format(
-                prop.__name__))
-    return value
-
-
 def _setter_kernel(self, prop, value):
     ''' Helper for setting the domain kernel and running sanity checks on it.
     '''  # pylint: disable=unused-argument
@@ -368,30 +357,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     #
     # properties loaded from XML
     #
-
-    label = qubes.property('label',
-        setter=qubes.vm.setter_label,
-        saver=(lambda self, prop, value: 'label-{}'.format(value.index)),
-        doc='''Colourful label assigned to VM. This is where the colour of the
-            padlock is set.''')
-
-#   provides_network = qubes.property('provides_network',
-#       type=bool, setter=qubes.property.bool,
-#       doc='`True` if it is NetVM or ProxyVM, false otherwise.')
-
-    qid = qubes.property('qid', type=int, write_once=True,
-        setter=_setter_qid,
-        clone=False,
-        doc='''Internal, persistent identificator of particular domain. Note
-            this is different from Xen domid.''')
-
-    name = qubes.property('name', type=str, write_once=True,
-        clone=False,
-        doc='User-specified name of the domain.')
-
-    uuid = qubes.property('uuid', type=uuid.UUID, write_once=True,
-        clone=False,
-        doc='UUID from libvirt.')
 
     virt_mode = qubes.property('virt_mode',
         type=str, setter=_setter_virt_mode,
