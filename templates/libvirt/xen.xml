@@ -42,8 +42,8 @@
                 {% endif %}
                 <kernel>{{ vm.storage.kernels_dir }}/vmlinuz</kernel>
                 <initrd>{{ vm.storage.kernels_dir }}/initramfs</initrd>
-                <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 {{ vm.kernelopts }}</cmdline>
             {% endif %}
+            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 {{ vm.kernelopts }}</cmdline>
         {% endblock %}
     </os>
 

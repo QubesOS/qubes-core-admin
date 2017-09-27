@@ -579,6 +579,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <boot dev="cdrom" />
             <boot dev="hd" />
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
+            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 nopat</cmdline>
         </os>
         <features>
             <pae/>
