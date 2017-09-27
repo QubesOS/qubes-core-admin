@@ -96,6 +96,15 @@ class TC_00_NetVMMixin(
         self.addCleanup(self.app.domains.clear)
         self.assertPropertyInvalidValue(vm, 'netvm', vm)
 
+    def test_144_netvm_loopback2(self):
+        vm = self.get_vm()
+        self.setup_netvms(vm)
+        vm.netvm = None
+        self.netvm2.netvm = self.netvm1
+        vm.provides_network = True
+        self.netvm1.netvm = vm
+        self.assertPropertyInvalidValue(vm, 'netvm', self.netvm2)
+
     def test_150_ip(self):
         vm = self.get_vm()
         self.setup_netvms(vm)

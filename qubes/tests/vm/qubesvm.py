@@ -121,9 +121,9 @@ class QubesVMTestsMixin(object):
         self.app = qubes.tests.vm.TestApp()
         self.app.vmm.offline_mode = True
 
-    def get_vm(self, **kwargs):
+    def get_vm(self, name='test', **kwargs):
         vm = qubes.vm.qubesvm.QubesVM(self.app, None,
-            qid=1, name=qubes.tests.VMPREFIX + 'test',
+            qid=1, name=qubes.tests.VMPREFIX + name,
             **kwargs)
         self.addCleanup(vm.close)
         return vm
