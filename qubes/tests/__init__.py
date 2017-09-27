@@ -865,6 +865,8 @@ class SystemTestCase(QubesTestCase):
                 'qubes_templates_dir'):
             dirpath = os.path.join(qubes.config.qubes_base_dir,
                 qubes.config.system_path[dirspec])
+            if not os.path.exists(dirpath):
+                continue
             for name in os.listdir(dirpath):
                 if name.startswith(prefix):
                     vmnames.add(name)
