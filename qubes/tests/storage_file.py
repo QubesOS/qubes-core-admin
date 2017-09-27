@@ -42,7 +42,7 @@ class TestApp(qubes.Qubes):
         self.pools['linux-kernel'].dir_path = '/tmp/qubes-test-kernel'
         dummy_kernel = os.path.join(self.pools['linux-kernel'].dir_path,
                                     'dummy')
-        os.makedirs(dummy_kernel)
+        os.makedirs(dummy_kernel, exist_ok=True)
         open(os.path.join(dummy_kernel, 'vmlinuz'), 'w').close()
         open(os.path.join(dummy_kernel, 'modules.img'), 'w').close()
         open(os.path.join(dummy_kernel, 'initramfs'), 'w').close()
@@ -115,8 +115,9 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         """ Add a test file based storage pool """
         super(TC_01_FileVolumes, self).setUp()
         self.app = TestApp()
-        self.app.create_dummy_template()
         self.app.add_pool(**self.POOL_CONF)
+        self.app.default_pool = self.app.get_pool(self.POOL_NAME)
+        self.app.create_dummy_template()
 
     def tearDown(self):
         """ Remove the file based storage pool after testing """
@@ -268,13 +269,17 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
                                  template=self.app.default_template,
                                  label='red')
 
-        expected = vm.template.dir_path + '/root.img:' + vm.template.dir_path \
-            + '/root-cow.img:' + vm.dir_path + '/root-cow.img'
+        template_dir = os.path.join(self.POOL_DIR, 'vm-templates',
+            vm.template.name)
+        vm_dir = os.path.join(self.POOL_DIR, 'appvms', vmname)
+        expected = template_dir + '/root.img:' + \
+                   template_dir + '/root-cow.img:' + \
+                   vm_dir + '/root-cow.img'
         self.assertVolumePath(vm, 'root', expected, rw=False)
-        expected = vm.dir_path + '/private.img:' + \
-            vm.dir_path + '/private-cow.img'
+        expected = vm_dir + '/private.img:' + \
+            vm_dir + '/private-cow.img'
         self.assertVolumePath(vm, 'private', expected, rw=True)
-        expected = vm.dir_path + '/volatile.img'
+        expected = vm_dir + '/volatile.img'
         self.assertVolumePath(vm, 'volatile', expected, rw=True)
 
     def test_006_template_volumes(self):
@@ -283,12 +288,13 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         vm = self.app.add_new_vm(qubes.vm.templatevm.TemplateVM, name=vmname,
                                  label='red')
 
-        expected = vm.dir_path + '/root.img:' + vm.dir_path + '/root-cow.img'
+        vm_dir = os.path.join(self.POOL_DIR, 'vm-templates', vmname)
+        expected = vm_dir + '/root.img:' + vm_dir + '/root-cow.img'
         self.assertVolumePath(vm, 'root', expected, rw=True)
-        expected = vm.dir_path + '/private.img:' + \
-                   vm.dir_path + '/private-cow.img'
+        expected = vm_dir + '/private.img:' + \
+                   vm_dir + '/private-cow.img'
         self.assertVolumePath(vm, 'private', expected, rw=True)
-        expected = vm.dir_path + '/volatile.img'
+        expected = vm_dir + '/volatile.img'
         self.assertVolumePath(vm, 'volatile', expected, rw=True)
 
     def assertVolumePath(self, vm, dev_name, expected, rw=True):
