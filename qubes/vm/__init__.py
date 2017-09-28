@@ -306,11 +306,12 @@ class BaseVM(qubes.PropertyHolder):
             **kwargs):
         # pylint: disable=redefined-outer-name
 
+        self._qdb_watch_paths = set()
+        self._qdb_connection_watch = None
+
         # self.app must be set before super().__init__, because some property
         # setters need working .app attribute
         #: mother :py:class:`qubes.Qubes` object
-        self._qdb_watch_paths = set()
-        self._qdb_connection_watch = None
         self.app = app
 
         super(BaseVM, self).__init__(xml, **kwargs)
