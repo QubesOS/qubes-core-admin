@@ -83,8 +83,8 @@ class LinuxModules(Volume):
     def is_dirty(self):
         return False
 
-    def clone(self, source):
-        if isinstance(source, LinuxModules):
+    def import_volume(self, src_volume):
+        if isinstance(src_volume, LinuxModules):
             # do nothing
             return self
         raise StoragePoolException('clone of LinuxModules volume from '
