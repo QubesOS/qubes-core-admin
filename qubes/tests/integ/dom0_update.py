@@ -199,7 +199,9 @@ Test package
         if self.repo_running:
             return
         self.repo_proc = self.loop.run_until_complete(self.updatevm.run(
-            'cd /tmp/repo && python -m SimpleHTTPServer 8080'))
+            'cd /tmp/repo && python -m SimpleHTTPServer 8080',
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.STDOUT))
         self.repo_running = True
 
     def test_000_update(self):
