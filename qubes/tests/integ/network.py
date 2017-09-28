@@ -142,7 +142,7 @@ class VmNetworkingMixin(object):
         self.proxy.provides_network = True
         self.loop.run_until_complete(self.proxy.create_on_disk())
         self.proxy.netvm = self.testnetvm
-        self.proxy.features['network-manager'] = True
+        self.proxy.features['service.network-manager'] = True
         self.testvm1.netvm = self.proxy
         self.app.save()
 
@@ -173,7 +173,7 @@ class VmNetworkingMixin(object):
         self.assertEqual(subprocess.call([
             'xdotool', 'search', '--class', '{}:nm-applet'.format(
                 self.proxy.name)],
-            stdout=open('/dev/null', 'w')), 0, "nm-applet window not found")
+            stdout=subprocess.DEVNULL), 0, "nm-applet window not found")
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
                          "Ping by IP failed (after NM reconnection")
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0,
@@ -326,11 +326,11 @@ class VmNetworkingMixin(object):
         self.loop.run_until_complete(self.testvm1.start())
 
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
-        self.loop.run_until_complete(self.testvm1.run_for_stdio('''
-            ip addr flush dev eth0 &&
-            ip addr add 10.137.1.128/24 dev eth0 &&
-            ip route add default dev eth0 &&
-        ''', user='root'))
+        self.loop.run_until_complete(self.testvm1.run_for_stdio(
+            'ip addr flush dev eth0 && '
+            'ip addr add 10.137.1.128/24 dev eth0 && '
+            'ip route add default dev eth0',
+            user='root'))
         self.assertNotEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
                          "Spoofed ping should be blocked")
 
@@ -476,16 +476,17 @@ class VmNetworkingMixin(object):
         self.loop.run_until_complete(self.testvm2.start())
 
         try:
+            cmd = 'iptables -I FORWARD -s {} -d {} -j ACCEPT'.format(
+                self.testvm2.ip, self.testvm1.ip)
             self.loop.run_until_complete(self.proxy.run_for_stdio(
-                'iptables -I FORWARD -s {} -d {} -j ACCEPT'.format(
-                    self.testvm2.ip, self.testvm1.ip), user='root'))
+                cmd, user='root'))
         except subprocess.CalledProcessError as e:
             self.fail('{} failed with: {}'.format(cmd, e.returncode))
 
         try:
+            cmd = 'iptables -I INPUT -s {} -j ACCEPT'.format(self.testvm2.ip)
             self.loop.run_until_complete(self.proxy.run_for_stdio(
-                'iptables -I INPUT -s {} -j ACCEPT'.format(
-                    self.testvm2.ip), user='root'))
+                cmd, user='root'))
         except subprocess.CalledProcessError as e:
             self.fail('{} failed with: {}'.format(cmd, e.returncode))
 
@@ -493,10 +494,9 @@ class VmNetworkingMixin(object):
             self.ping_cmd.format(target=self.testvm1.ip)), 0)
 
         try:
+            cmd = 'iptables -nvxL INPUT | grep {}'.format(self.testvm2.ip)
             (stdout, _) = self.loop.run_until_complete(
-                self.testvm1.run_for_stdio(
-                    'iptables -nvxL INPUT | grep {}'.format(self.testvm2.ip),
-                    user='root'))
+                self.testvm1.run_for_stdio(cmd, user='root'))
         except subprocess.CalledProcessError as e:
             self.fail(
                 '{} failed with {}'.format(cmd, e.returncode))
