@@ -25,6 +25,8 @@ import subprocess
 import tempfile
 import unittest
 
+import asyncio
+
 import qubes
 import qubes.tests
 
@@ -118,8 +120,13 @@ enabled = 1
                                os.path.join(self.tmpdir, 'pubkey.asc')])
         self.loop.run_until_complete(self.updatevm.start())
         self.repo_running = False
+        self.repo_proc = None
 
     def tearDown(self):
+        if self.repo_proc:
+            self.repo_proc.terminate()
+            self.loop.run_until_complete(self.repo_proc.wait())
+            del self.repo_proc
         super(TC_00_Dom0UpgradeMixin, self).tearDown()
 
         subprocess.call(['sudo', 'rpm', '-e', self.pkg_name], stderr=open(
@@ -190,7 +197,7 @@ Test package
     def start_repo(self):
         if self.repo_running:
             return
-        self.loop.run_until_complete(self.updatevm.run(
+        self.repo_proc = self.loop.run_until_complete(self.updatevm.run(
             'cd /tmp/repo && python -m SimpleHTTPServer 8080'))
         self.repo_running = True
 
@@ -209,14 +216,17 @@ Test package
         open(self.update_flag_path, 'a').close()
 
         logpath = os.path.join(self.tmpdir, 'dom0-update-output.txt')
-        try:
-            subprocess.check_call(['sudo', '-E', 'qubes-dom0-update', '-y'] +
-                                  self.dom0_update_common_opts,
-                                  stdout=open(logpath, 'w'),
-                                  stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError:
-            self.fail("qubes-dom0-update failed: " + open(
-                logpath).read())
+        with open(logpath, 'w') as f_log:
+            proc = self.loop.run_until_complete(asyncio.create_subprocess_exec(
+                'qubes-dom0-update', '-y', *self.dom0_update_common_opts,
+                stdout=f_log,
+                stderr=subprocess.STDOUT))
+        self.loop.run_until_complete(proc.wait())
+        if proc.returncode:
+            del proc
+            with open(logpath) as f_log:
+                self.fail("qubes-dom0-update failed: " + f_log.read())
+        del proc
 
         retcode = subprocess.call(['rpm', '-q', '{}-1.0'.format(
             self.pkg_name)], stdout=open(os.devnull, 'w'))
@@ -238,14 +248,17 @@ Test package
         open(self.update_flag_path, 'a').close()
 
         logpath = os.path.join(self.tmpdir, 'dom0-update-output.txt')
-        try:
-            subprocess.check_call(['sudo', '-E', 'qubes-dom0-update', '-y'] +
-                                  self.dom0_update_common_opts,
-                                  stdout=open(logpath, 'w'),
-                                  stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError:
-            self.fail("qubes-dom0-update failed: " + open(
-                logpath).read())
+        with open(logpath, 'w') as f_log:
+            proc = self.loop.run_until_complete(asyncio.create_subprocess_exec(
+                'qubes-dom0-update', '-y', *self.dom0_update_common_opts,
+                stdout=f_log,
+                stderr=subprocess.STDOUT))
+        self.loop.run_until_complete(proc.wait())
+        if proc.returncode:
+            del proc
+            with open(logpath) as f_log:
+                self.fail("qubes-dom0-update failed: " + f_log.read())
+        del proc
 
         with open(logpath) as f:
             dom0_update_output = f.read()
@@ -269,15 +282,18 @@ Test package
         if os.path.exists('/var/lib/qubes/updates/repodata'):
             shutil.rmtree('/var/lib/qubes/updates/repodata')
         logpath = os.path.join(self.tmpdir, 'dom0-update-output.txt')
-        try:
-            subprocess.check_call(['sudo', '-E', 'qubes-dom0-update', '-y',
-                                   '--clean'] +
-                                  self.dom0_update_common_opts,
-                                  stdout=open(logpath, 'w'),
-                                  stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError:
-            self.fail("qubes-dom0-update failed: " + open(
-                logpath).read())
+        with open(logpath, 'w') as f_log:
+            proc = self.loop.run_until_complete(asyncio.create_subprocess_exec(
+                'qubes-dom0-update', '-y', '--clean',
+                *self.dom0_update_common_opts,
+                stdout=f_log,
+                stderr=subprocess.STDOUT))
+        self.loop.run_until_complete(proc.wait())
+        if proc.returncode:
+            del proc
+            with open(logpath) as f_log:
+                self.fail("qubes-dom0-update failed: " + f_log.read())
+        del proc
 
         with open(logpath) as f:
             dom0_update_output = f.read()
@@ -294,15 +310,18 @@ Test package
         self.send_pkg(filename)
 
         logpath = os.path.join(self.tmpdir, 'dom0-update-output.txt')
-        try:
-            subprocess.check_call(['sudo', '-E', 'qubes-dom0-update', '-y'] +
-                                  self.dom0_update_common_opts + [
-                self.pkg_name],
-                                  stdout=open(logpath, 'w'),
-                                  stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError:
-            self.fail("qubes-dom0-update failed: " + open(
-                logpath).read())
+        with open(logpath, 'w') as f_log:
+            proc = self.loop.run_until_complete(asyncio.create_subprocess_exec(
+                'qubes-dom0-update', '-y', *self.dom0_update_common_opts,
+                self.pkg_name,
+                stdout=f_log,
+                stderr=subprocess.STDOUT))
+        self.loop.run_until_complete(proc.wait())
+        if proc.returncode:
+            del proc
+            with open(logpath) as f_log:
+                self.fail("qubes-dom0-update failed: " + f_log.read())
+        del proc
 
         retcode = subprocess.call(['rpm', '-q', '{}-1.0'.format(
             self.pkg_name)], stdout=open('/dev/null', 'w'))
@@ -316,16 +335,19 @@ Test package
         self.send_pkg(filename)
 
         logpath = os.path.join(self.tmpdir, 'dom0-update-output.txt')
-        try:
-            subprocess.check_call(['sudo', '-E', 'qubes-dom0-update', '-y'] +
-                                  self.dom0_update_common_opts + [
-                self.pkg_name],
-                                  stdout=open(logpath, 'w'),
-                                  stderr=subprocess.STDOUT)
-            self.fail("qubes-dom0-update unexpectedly succeeded: " + open(
-                logpath).read())
-        except subprocess.CalledProcessError:
-            pass
+        with open(logpath, 'w') as f_log:
+            proc = self.loop.run_until_complete(asyncio.create_subprocess_exec(
+                'qubes-dom0-update', '-y', *self.dom0_update_common_opts,
+                self.pkg_name,
+                stdout=f_log,
+                stderr=subprocess.STDOUT))
+        self.loop.run_until_complete(proc.wait())
+        if not proc.returncode:
+            del proc
+            with open(logpath) as f_log:
+                self.fail("qubes-dom0-update unexpectedly succeeded: " +
+                          f_log.read())
+        del proc
 
         retcode = subprocess.call(['rpm', '-q', '{}-1.0'.format(
             self.pkg_name)], stdout=open('/dev/null', 'w'))
@@ -341,17 +363,19 @@ Test package
         self.send_pkg(filename)
 
         logpath = os.path.join(self.tmpdir, 'dom0-update-output.txt')
-        try:
-            subprocess.check_call(['sudo', '-E', 'qubes-dom0-update', '-y'] +
-                                  self.dom0_update_common_opts +
-                                  [self.pkg_name],
-                                  stdout=open(logpath, 'w'),
-                                  stderr=subprocess.STDOUT
-                                  )
-            self.fail("qubes-dom0-update unexpectedly succeeded: " + open(
-                logpath).read())
-        except subprocess.CalledProcessError:
-            pass
+        with open(logpath, 'w') as f_log:
+            proc = self.loop.run_until_complete(asyncio.create_subprocess_exec(
+                'qubes-dom0-update', '-y', *self.dom0_update_common_opts,
+                self.pkg_name,
+                stdout=f_log,
+                stderr=subprocess.STDOUT))
+        self.loop.run_until_complete(proc.wait())
+        if not proc.returncode:
+            del proc
+            with open(logpath) as f_log:
+                self.fail("qubes-dom0-update unexpectedly succeeded: " +
+                          f_log.read())
+        del proc
 
         retcode = subprocess.call(['rpm', '-q', '{}-1.0'.format(
             self.pkg_name)], stdout=open('/dev/null', 'w'))
