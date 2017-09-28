@@ -712,7 +712,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self.storage = qubes.storage.Storage(self)
 
         if not self.app.vmm.offline_mode and self.is_running():
-            self.start_qdb_watch(self.name)
+            self.start_qdb_watch()
 
     @qubes.events.handler('property-set:label')
     def on_property_set_label(self, event, name, newvalue, oldvalue=None):
@@ -847,6 +847,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self.log.info('Setting Qubes DB info for the VM')
                 yield from self.start_qubesdb()
                 self.create_qdb_entries()
+                self.start_qdb_watch()
 
                 self.log.warning('Activating the {} VM'.format(self.name))
                 self.libvirt_domain.resume()
@@ -1741,8 +1742,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 [{'dom': self.xid}])
 
         self.fire_event('domain-qdb-create')
-
-        self.start_qdb_watch(self.name)
 
     # TODO async; update this in constructor
     def _update_libvirt_domain(self):

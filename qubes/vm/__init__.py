@@ -486,14 +486,20 @@ class BaseVM(qubes.PropertyHolder):
             self._qdb_connection_watch.close()
             self._qdb_connection_watch = None
 
-    def start_qdb_watch(self, name, loop=None):
+    def start_qdb_watch(self, loop=None):
         '''Start watching QubesDB
 
         Calling this method in appropriate time is responsibility of child
         class.
         '''
+        # cleanup old watch connection first, if any
+        if self._qdb_connection_watch is not None:
+            asyncio.get_event_loop().remove_reader(
+                self._qdb_connection_watch.watch_fd())
+            self._qdb_connection_watch.close()
+
         import qubesdb  # pylint: disable=import-error
-        self._qdb_connection_watch = qubesdb.QubesDB(name)
+        self._qdb_connection_watch = qubesdb.QubesDB(self.name)
         if loop is None:
             loop = asyncio.get_event_loop()
         loop.add_reader(self._qdb_connection_watch.watch_fd(),

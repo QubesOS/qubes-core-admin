@@ -58,7 +58,7 @@ class AdminVM(qubes.vm.BaseVM):
         self._libvirt_domain = None
 
         if not self.app.vmm.offline_mode:
-            self.start_qdb_watch('dom0')
+            self.start_qdb_watch()
 
     def __str__(self):
         return self.name

@@ -38,7 +38,7 @@ class TC_00_AdminVM(qubes.tests.QubesTestCase):
                     qubes.vm.adminvm.AdminVM, 'start_qdb_watch') as mock_qdb:
                 self.vm = qubes.vm.adminvm.AdminVM(self.app,
                     xml=None)
-                mock_qdb.assert_called_once_with('dom0')
+                mock_qdb.assert_called_once_with()
                 self.addCleanup(self.cleanup_adminvm)
         except:  # pylint: disable=bare-except
             if self.id().endswith('.test_000_init'):
