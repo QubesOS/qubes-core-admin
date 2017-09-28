@@ -288,8 +288,10 @@ class StorageFile(StorageTestMixin, qubes.tests.SystemTestCase):
         self.dir_path = '/var/tmp/test-pool'
         self.pool = self.app.add_pool(dir_path=self.dir_path,
             name='test-pool', driver='file')
-        os.mkdir(os.path.join(self.dir_path, 'appvms', self.vm1.name))
-        os.mkdir(os.path.join(self.dir_path, 'appvms', self.vm2.name))
+        os.makedirs(os.path.join(self.dir_path, 'appvms', self.vm1.name),
+            exist_ok=True)
+        os.makedirs(os.path.join(self.dir_path, 'appvms', self.vm2.name),
+            exist_ok=True)
 
     def tearDown(self):
         self.app.remove_pool('test-pool')
