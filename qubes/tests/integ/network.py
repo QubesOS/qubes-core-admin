@@ -68,7 +68,7 @@ class VmNetworkingMixin(object):
         self.loop.run_until_complete(self.testnetvm.create_on_disk())
         self.testnetvm.provides_network = True
         self.testvm1 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
-            name=self.make_vm_name('vm2'),
+            name=self.make_vm_name('vm1'),
             label='red')
         self.loop.run_until_complete(self.testvm1.create_on_disk())
         self.testvm1.netvm = self.testnetvm
@@ -294,7 +294,7 @@ class VmNetworkingMixin(object):
         self.testvm1.netvm = self.proxy
 
         self.testvm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
-            name=self.make_vm_name('vm3'),
+            name=self.make_vm_name('vm2'),
             label='red')
         self.loop.run_until_complete(self.testvm2.create_on_disk())
         self.testvm2.netvm = self.proxy
@@ -466,7 +466,7 @@ class VmNetworkingMixin(object):
         self.testvm1.features['net.fake-netmask'] = '255.255.255.0'
 
         self.testvm2 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
-            name=self.make_vm_name('vm3'),
+            name=self.make_vm_name('vm2'),
             label='red')
         self.loop.run_until_complete(self.testvm2.create_on_disk())
         self.testvm2.netvm = self.proxy
