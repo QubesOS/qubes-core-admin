@@ -761,6 +761,7 @@ class SystemTestCase(QubesTestCase):
             pass
 
         del app.domains[vm.qid]
+        vm.close()
         del vm
 
         app.save()
@@ -828,9 +829,26 @@ class SystemTestCase(QubesTestCase):
             pass
 
     def remove_vms(self, vms):
+        vms = list(vms)
+        if not vms:
+            return
+        # break dependencies
         for vm in vms:
+            vm.default_dispvm = None
+        # then remove in reverse topological order (wrt netvm), using naive
+        # algorithm
+        # this heavily depends on lack of netvm loops
+        while vms:
+            vm = vms.pop(0)
+            # make sure that all connected VMs are going to be removed,
+            # otherwise this will loop forever
+            assert all(x in vms for x in vm.connected_vms)
+            if list(vm.connected_vms):
+                # if still something use this VM, put it at the end of queue
+                # and try next one
+                vms.append(vm)
+                continue
             self._remove_vm_qubes(vm)
-
 
     def remove_test_vms(self, xmlpath=XMLPATH, prefix=VMPREFIX):
         '''Aggresively remove any domain that has name in testing namespace.
@@ -843,8 +861,10 @@ class SystemTestCase(QubesTestCase):
                     app = self.app
                 except AttributeError:
                     app = qubes.Qubes(xmlpath)
-                self.remove_vms(vm for vm in app.domains
-                    if vm.name.startswith(prefix))
+                self.remove_vms([vm for vm in app.domains
+                    if vm.name.startswith(prefix)])
+                if not hasattr(self, 'app'):
+                    app.close()
                 del app
             except qubes.exc.QubesException:
                 pass
@@ -927,13 +947,15 @@ class SystemTestCase(QubesTestCase):
         subprocess.check_call(command)
 
     def shutdown_and_wait(self, vm, timeout=60):
-        vm.shutdown()
+        self.loop.run_until_complete(vm.shutdown())
         while timeout > 0:
             if not vm.is_running():
                 return
             self.loop.run_until_complete(asyncio.sleep(1))
             timeout -= 1
-        self.fail("Timeout while waiting for VM {} shutdown".format(vm.name))
+        name = vm.name
+        del vm
+        self.fail("Timeout while waiting for VM {} shutdown".format(name))
 
     def prepare_hvm_system_linux(self, vm, init_script, extra_files=None):
         if not os.path.exists('/usr/lib/grub/i386-pc'):
