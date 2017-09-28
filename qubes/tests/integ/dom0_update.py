@@ -115,7 +115,7 @@ enabled = 1
         self.app.updatevm = self.updatevm
         self.app.save()
         subprocess.call(['sudo', 'rpm', '-e', self.pkg_name],
-                        stderr=open(os.devnull, 'w'))
+                        stderr=subprocess.DEVNULL)
         subprocess.check_call(['sudo', 'rpm', '--import',
                                os.path.join(self.tmpdir, 'pubkey.asc')])
         self.loop.run_until_complete(self.updatevm.start())
@@ -129,10 +129,10 @@ enabled = 1
             del self.repo_proc
         super(TC_00_Dom0UpgradeMixin, self).tearDown()
 
-        subprocess.call(['sudo', 'rpm', '-e', self.pkg_name], stderr=open(
-            os.devnull, 'w'))
+        subprocess.call(['sudo', 'rpm', '-e', self.pkg_name],
+            stderr=subprocess.DEVNULL)
         subprocess.call(['sudo', 'rpm', '-e', 'gpg-pubkey-{}'.format(
-            self.keyid)], stderr=open(os.devnull, 'w'))
+            self.keyid)], stderr=subprocess.DEVNULL)
 
         for pkg in os.listdir(self.tmpdir):
             if pkg.endswith('.rpm'):
@@ -171,17 +171,18 @@ Test package
             ['rpm', '--quiet', '--define=_gpg_path {}'.format(dir),
              '--define=_gpg_name {}'.format("Qubes test"),
              '--addsign', pkg_path],
-            stdin=open(os.devnull),
-            stdout=open(os.devnull, 'w'),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
             stderr=subprocess.STDOUT)
         subprocess.check_call(['sudo', 'chmod', 'go+rw', '/dev/tty'])
         return pkg_path
 
     def send_pkg(self, filename):
-        self.loop.run_until_complete(self.updatevm.run_for_stdio(
-            'mkdir -p /tmp/repo; cat > /tmp/repo/{}'.format(
-                os.path.basename(filename)),
-            input=open(filename, 'rb').read()))
+        with open(filename, 'rb') as f_pkg:
+            self.loop.run_until_complete(self.updatevm.run_for_stdio(
+                'mkdir -p /tmp/repo; cat > /tmp/repo/{}'.format(
+                    os.path.basename(filename)),
+                input=f_pkg.read()))
         try:
             self.loop.run_until_complete(
                 self.updatevm.run_for_stdio('cd /tmp/repo; createrepo .'))
@@ -229,11 +230,11 @@ Test package
         del proc
 
         retcode = subprocess.call(['rpm', '-q', '{}-1.0'.format(
-            self.pkg_name)], stdout=open(os.devnull, 'w'))
+            self.pkg_name)], stdout=subprocess.DEVNULL)
         self.assertEqual(retcode, 1, 'Package {}-1.0 still installed after '
                                      'update'.format(self.pkg_name))
         retcode = subprocess.call(['rpm', '-q', '{}-2.0'.format(
-            self.pkg_name)], stdout=open(os.devnull, 'w'))
+            self.pkg_name)], stdout=subprocess.DEVNULL)
         self.assertEqual(retcode, 0, 'Package {}-2.0 not installed after '
                                      'update'.format(self.pkg_name))
         self.assertFalse(os.path.exists(self.update_flag_path),
@@ -350,7 +351,7 @@ Test package
         del proc
 
         retcode = subprocess.call(['rpm', '-q', '{}-1.0'.format(
-            self.pkg_name)], stdout=open('/dev/null', 'w'))
+            self.pkg_name)], stdout=subprocess.DEVNULL)
         self.assertEqual(retcode, 1,
                          'Package {}-1.0 installed although '
                          'signature is invalid'.format(self.pkg_name))
@@ -358,7 +359,7 @@ Test package
     def test_030_install_unsigned(self):
         filename = self.create_pkg(self.tmpdir, self.pkg_name, '1.0')
         subprocess.check_call(['rpm', '--delsign', filename],
-                              stdout=open(os.devnull, 'w'),
+                              stdout=subprocess.DEVNULL,
                               stderr=subprocess.STDOUT)
         self.send_pkg(filename)
 
@@ -378,7 +379,7 @@ Test package
         del proc
 
         retcode = subprocess.call(['rpm', '-q', '{}-1.0'.format(
-            self.pkg_name)], stdout=open('/dev/null', 'w'))
+            self.pkg_name)], stdout=subprocess.DEVNULL)
         self.assertEqual(retcode, 1,
                          'UNSIGNED package {}-1.0 installed'.format(self.pkg_name))
 

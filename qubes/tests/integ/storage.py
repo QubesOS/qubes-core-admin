@@ -46,6 +46,12 @@ class StorageTestMixin(object):
         self.init_pool()
         self.app.save()
 
+    def tearDown(self):
+        del self.vm1
+        del self.vm2
+        del self.pool
+        super(StorageTestMixin, self).tearDown()
+
     def init_pool(self):
         ''' Initialize storage pool to be tested, store it in self.pool'''
         raise NotImplementedError
@@ -65,8 +71,10 @@ class StorageTestMixin(object):
         }
         testvol = self.vm1.storage.init_volume('testvol', volume_config)
         coro_maybe = testvol.create()
+        del testvol
         if asyncio.iscoroutine(coro_maybe):
             yield from coro_maybe
+        del coro_maybe
         self.app.save()
         yield from (self.vm1.start())
 
@@ -98,8 +106,10 @@ class StorageTestMixin(object):
         }
         testvol = self.vm1.storage.init_volume('testvol', volume_config)
         coro_maybe = testvol.create()
+        del testvol
         if asyncio.iscoroutine(coro_maybe):
             yield from coro_maybe
+        del coro_maybe
         self.app.save()
         yield from self.vm1.start()
         # non-volatile image not clean
@@ -133,8 +143,10 @@ class StorageTestMixin(object):
         }
         testvol = self.vm1.storage.init_volume('testvol', volume_config)
         coro_maybe = testvol.create()
+        del testvol
         if asyncio.iscoroutine(coro_maybe):
             yield from coro_maybe
+        del coro_maybe
         self.app.save()
         yield from self.vm1.start()
         # non-volatile image not clean
@@ -167,6 +179,7 @@ class StorageTestMixin(object):
         coro_maybe = testvol.create()
         if asyncio.iscoroutine(coro_maybe):
             yield from coro_maybe
+        del coro_maybe
         volume_config = {
             'pool': self.pool.name,
             'size': size,
@@ -174,10 +187,13 @@ class StorageTestMixin(object):
             'source': testvol.vid,
             'rw': True,
         }
+        del testvol
         testvol_snap = self.vm2.storage.init_volume('testvol', volume_config)
         coro_maybe = testvol_snap.create()
+        del testvol_snap
         if asyncio.iscoroutine(coro_maybe):
             yield from coro_maybe
+        del coro_maybe
         self.app.save()
         yield from self.vm1.start()
         yield from self.vm2.start()
@@ -252,6 +268,7 @@ class StorageTestMixin(object):
         coro_maybe = testvol.create()
         if asyncio.iscoroutine(coro_maybe):
             yield from coro_maybe
+        del coro_maybe
         volume_config = {
             'pool': self.pool.name,
             'size': size,
@@ -259,10 +276,13 @@ class StorageTestMixin(object):
             'source': testvol.vid,
             'rw': True,
         }
+        del testvol
         testvol_snap = self.vm2.storage.init_volume('testvol', volume_config)
         coro_maybe = testvol_snap.create()
+        del testvol_snap
         if asyncio.iscoroutine(coro_maybe):
             yield from coro_maybe
+        del coro_maybe
         self.app.save()
         yield from self.vm2.start()
 

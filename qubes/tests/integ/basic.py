@@ -184,6 +184,10 @@ class TC_01_Properties(qubes.tests.SystemTestCase):
                             testvm2.firewall.rules)
         finally:
             try:
+                del firewall
+            except NameError:
+                pass
+            try:
                 del testvm1
             except NameError:
                 pass
@@ -483,29 +487,29 @@ class TC_05_StandaloneVM(qubes.tests.SystemTestCase):
         self.init_default_template()
 
     def test_000_create_start(self):
-        testvm1 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
+        self.testvm1 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
                                      name=self.make_vm_name('vm1'), label='red')
-        testvm1.features['qrexec'] = True
+        self.testvm1.features['qrexec'] = True
         self.loop.run_until_complete(
-            testvm1.clone_disk_files(self.app.default_template))
+            self.testvm1.clone_disk_files(self.app.default_template))
         self.app.save()
-        self.loop.run_until_complete(testvm1.start())
-        self.assertEqual(testvm1.get_power_state(), "Running")
+        self.loop.run_until_complete(self.testvm1.start())
+        self.assertEqual(self.testvm1.get_power_state(), "Running")
 
     def test_100_resize_root_img(self):
-        testvm1 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
+        self.testvm1 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
                                      name=self.make_vm_name('vm1'), label='red')
-        testvm1.features['qrexec'] = True
+        self.testvm1.features['qrexec'] = True
         self.loop.run_until_complete(
-            testvm1.clone_disk_files(self.app.default_template))
+            self.testvm1.clone_disk_files(self.app.default_template))
         self.app.save()
         self.loop.run_until_complete(
-            testvm1.storage.resize(testvm1.volumes['root'], 20 * 1024 ** 3))
-        self.assertEqual(testvm1.volumes['root'].size, 20 * 1024 ** 3)
-        self.loop.run_until_complete(testvm1.start())
+            self.testvm1.storage.resize(self.testvm1.volumes['root'], 20 * 1024 ** 3))
+        self.assertEqual(self.testvm1.volumes['root'].size, 20 * 1024 ** 3)
+        self.loop.run_until_complete(self.testvm1.start())
         # new_size in 1k-blocks
         (new_size, _) = self.loop.run_until_complete(
-            testvm1.run_for_stdio('df --output=size /|tail -n 1'))
+            self.testvm1.run_for_stdio('df --output=size /|tail -n 1'))
         # some safety margin for FS metadata
         self.assertGreater(int(new_size.strip()), 19 * 1024 ** 2)
 
