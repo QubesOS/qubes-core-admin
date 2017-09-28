@@ -191,7 +191,7 @@ Test package
                     self.template))
             else:
                 self.skipTest('createrepo failed with code {}, '
-                    'cannot perform the test'.format(retcode))
+                    'cannot perform the test'.format(e.returncode))
         self.start_repo()
 
     def start_repo(self):

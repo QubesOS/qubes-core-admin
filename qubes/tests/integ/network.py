@@ -30,6 +30,7 @@ import unittest
 import time
 
 import qubes.tests
+import qubes.firewall
 import qubes.vm.appvm
 
 class NcVersion:
@@ -50,7 +51,7 @@ class VmNetworkingMixin(object):
 
     def run_cmd(self, vm, cmd, user="root"):
         try:
-            self.loop.run_until_complete(vm.run_for_stdio(cmd))
+            self.loop.run_until_complete(vm.run_for_stdio(cmd, user=user))
         except subprocess.CalledProcessError as e:
             return e.returncode
         return 0
@@ -196,7 +197,7 @@ class VmNetworkingMixin(object):
 
         # block all for first
 
-        self.testvm1.firewall.policy = 'drop'
+        self.testvm1.firewall.rules = [qubes.firewall.Rule(action='drop')]
         self.testvm1.firewall.save()
         self.loop.run_until_complete(self.testvm1.start())
         self.assertTrue(self.proxy.is_running())
@@ -252,7 +253,6 @@ class VmNetworkingMixin(object):
 
             # block all except target
 
-            self.testvm1.firewall.policy = 'drop'
             self.testvm1.firewall.rules = [
                 qubes.firewall.Rule(None, action='accept', dsthost=self.test_ip,
                     proto='tcp', dstports=1234),
@@ -267,10 +267,10 @@ class VmNetworkingMixin(object):
 
             # allow all except target
 
-            self.testvm1.firewall.policy = 'accept'
             self.testvm1.firewall.rules = [
                 qubes.firewall.Rule(None, action='drop', dsthost=self.test_ip,
                     proto='tcp', dstports=1234),
+                qubes.firewall.Rule(action='accept'),
             ]
             self.testvm1.firewall.save()
 
@@ -420,7 +420,6 @@ class VmNetworkingMixin(object):
 
         # block all but ICMP and DNS
 
-        self.testvm1.firewall.policy = 'drop'
         self.testvm1.firewall.rules = [
             qubes.firewall.Rule(None, action='accept', proto='icmp'),
             qubes.firewall.Rule(None, action='accept', specialtarget='dns'),
@@ -610,7 +609,6 @@ class VmNetworkingMixin(object):
 
         # block all but ICMP and DNS
 
-        self.testvm1.firewall.policy = 'drop'
         self.testvm1.firewall.rules = [
             qubes.firewall.Rule(None, action='accept', proto='icmp'),
             qubes.firewall.Rule(None, action='accept', specialtarget='dns'),
@@ -728,6 +726,10 @@ class VmUpdatesMixin(object):
         return 0
 
     def setUp(self):
+        if not self.template.count('debian') and \
+                not self.template.count('fedora'):
+            self.skipTest("Template {} not supported by this test".format(
+                self.template))
         super(VmUpdatesMixin, self).setUp()
 
         self.update_cmd = None
@@ -750,9 +752,6 @@ class VmUpdatesMixin(object):
             self.install_cmd = cmd + " install -y {}"
             self.install_test_cmd = "rpm -q {}"
             self.exit_code_ok = [0, 100]
-        else:
-            self.skipTest("Template {} not supported by this test".format(
-                self.template))
 
         self.init_default_template(self.template)
         self.init_networking()
@@ -818,7 +817,7 @@ Description: Test package'''.format(pkg=pkg_file_name).encode('utf-8')))
                 >> Release
             '''.format(p='main/binary-amd64/Packages',
                     z='main/binary-amd64/Packages.gz'),
-            input='''\
+            input=b'''\
 Label: Test repo
 Suite: test
 Codename: test
