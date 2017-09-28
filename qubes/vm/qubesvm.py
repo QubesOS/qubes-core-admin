@@ -876,7 +876,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         Do not allow domain to be started again until this finishes.
         '''
         with (yield from self.startup_lock):
-            yield from self.storage.stop()
+            try:
+                yield from self.storage.stop()
+            except qubes.storage.StoragePoolException:
+                self.log.exception('Failed to stop storage for domain %s',
+                    self.name)
 
     @qubes.events.handler('domain-shutdown')
     def on_domain_shutdown(self, _event, **_kwargs):
