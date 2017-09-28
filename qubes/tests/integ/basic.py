@@ -343,7 +343,7 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestCase):
     def cleanup_template(self):
         del self.test_template
 
-    def setup_pv_template(self):
+    def setup_template(self):
         self.test_template = self.app.add_new_vm(
             qubes.vm.templatevm.TemplateVM,
             name=self.make_vm_name("pv-clone"),
@@ -351,26 +351,15 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestCase):
         )
         self.addCleanup(self.cleanup_template)
         self.test_template.clone_properties(self.app.default_template)
+        self.test_template.features.update(self.app.default_template.features)
+        self.test_template.tags.update(self.app.default_template.tags)
         self.loop.run_until_complete(
             self.test_template.clone_disk_files(self.app.default_template))
         self.app.save()
 
-    def setup_hvm_template(self):
-        self.test_template = self.app.add_new_vm(
-            qubes.vm.templatevm.TemplateVM,
-            name=self.make_vm_name("hvm"),
-            label='red',
-            virt_mode='hvm',
-        )
-        self.addCleanup(self.cleanup_template)
-        self.loop.run_until_complete(self.test_template.create_on_disk())
-        self.app.save()
-
     def get_rootimg_checksum(self):
-        p = subprocess.Popen(
-            ['sha1sum', self.test_template.volumes['root'].path],
-            stdout=subprocess.PIPE)
-        return p.communicate()[0]
+        return subprocess.check_output(
+            ['sha1sum', self.test_template.volumes['root'].path])
 
     def _do_test(self):
         checksum_before = self.get_rootimg_checksum()
@@ -387,26 +376,26 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestCase):
             *revert_cmd))
         self.loop.run_until_complete(p.wait())
         self.assertEqual(p.returncode, 0)
-
+        del p
 
         checksum_after = self.get_rootimg_checksum()
         self.assertEqual(checksum_before, checksum_after)
 
     @unittest.expectedFailure
-    def test_000_revert_pv(self):
+    def test_000_revert_linux(self):
         """
         Test qvm-revert-template-changes for PV template
         """
-        self.setup_pv_template()
+        self.setup_template()
         self._do_test()
 
-    @unittest.skip('HVM not yet implemented')
-    def test_000_revert_hvm(self):
+    @unittest.skip('TODO: some non-linux system')
+    def test_001_revert_non_linux(self):
         """
         Test qvm-revert-template-changes for HVM template
         """
         # TODO: have some system there, so the root.img will get modified
-        self.setup_hvm_template()
+        self.setup_template()
         self._do_test()
 
 class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
