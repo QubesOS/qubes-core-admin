@@ -481,14 +481,16 @@ class VmNetworkingMixin(object):
             self.loop.run_until_complete(self.proxy.run_for_stdio(
                 cmd, user='root'))
         except subprocess.CalledProcessError as e:
-            self.fail('{} failed with: {}'.format(cmd, e.returncode))
+            raise AssertionError(
+                '{} failed with: {}'.format(cmd, e.returncode)) from None
 
         try:
             cmd = 'iptables -I INPUT -s {} -j ACCEPT'.format(self.testvm2.ip)
             self.loop.run_until_complete(self.proxy.run_for_stdio(
                 cmd, user='root'))
         except subprocess.CalledProcessError as e:
-            self.fail('{} failed with: {}'.format(cmd, e.returncode))
+            raise AssertionError(
+                '{} failed with: {}'.format(cmd, e.returncode)) from None
 
         self.assertEqual(self.run_cmd(self.testvm2,
             self.ping_cmd.format(target=self.testvm1.ip)), 0)
@@ -498,8 +500,8 @@ class VmNetworkingMixin(object):
             (stdout, _) = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio(cmd, user='root'))
         except subprocess.CalledProcessError as e:
-            self.fail(
-                '{} failed with {}'.format(cmd, e.returncode))
+            raise AssertionError(
+                '{} failed with {}'.format(cmd, e.returncode)) from None
         self.assertNotEqual(stdout.decode().split()[0], '0',
             'Packets didn\'t managed to the VM')
 
