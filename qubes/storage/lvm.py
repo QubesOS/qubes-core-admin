@@ -487,7 +487,7 @@ def qubes_lvm(cmd, log=logging.getLogger('qubes.storage.lvm')):
         lvm_cmd = ['lvcreate', '-T', cmd[1], '-kn', '-ay', '-n', cmd[2], '-V',
            str(cmd[3]) + 'B']
     elif action == 'extend':
-        size = int(cmd[2]) / (1000 * 1000)
+        size = int(cmd[2]) / (1024 * 1024)
         lvm_cmd = ["lvextend", "-L%s" % size, cmd[1]]
     elif action == 'activate':
         lvm_cmd = ['lvchange', '-ay', cmd[1]]
