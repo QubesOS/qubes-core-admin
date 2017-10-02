@@ -748,6 +748,13 @@ class SystemTestCase(QubesTestCase):
         vmname = vm.name
         app = vm.app
 
+        # avoid race with DispVM.auto_cleanup=True
+        try:
+            self.loop.run_until_complete(
+                asyncio.wait_for(vm.startup_lock.acquire(), 10))
+        except asyncio.TimeoutError:
+            pass
+
         try:
             # XXX .is_running() may throw libvirtError if undefined
             if vm.is_running():
@@ -760,7 +767,10 @@ class SystemTestCase(QubesTestCase):
         except:  # pylint: disable=bare-except
             pass
 
-        del app.domains[vm.qid]
+        try:
+            del app.domains[vm.qid]
+        except KeyError:
+            pass
         vm.close()
         del vm
 
@@ -861,8 +871,17 @@ class SystemTestCase(QubesTestCase):
                     app = self.app
                 except AttributeError:
                     app = qubes.Qubes(xmlpath)
+                try:
+                    host_app = self.host_app
+                except AttributeError:
+                    host_app = qubes.Qubes()
                 self.remove_vms([vm for vm in app.domains
-                    if vm.name.startswith(prefix)])
+                    if vm.name.startswith(prefix) or
+                       (isinstance(vm, qubes.vm.dispvm.DispVM) and vm.name
+                        not in host_app.domains)])
+                if not hasattr(self, 'host_app'):
+                    host_app.close()
+                del host_app
                 if not hasattr(self, 'app'):
                     app.close()
                 del app
