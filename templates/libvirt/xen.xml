@@ -11,7 +11,7 @@
         <vcpu placement="static">{{ vm.vcpus }}</vcpu>
     {% endblock %}
     {% block cpu %}
-    {% if vm.virt_mode == 'hvm' %}
+    {% if vm.virt_mode != 'pv' %}
         <cpu mode='host-passthrough'>
             <!-- disable nested HVM -->
             <feature name='vmx' policy='disable'/>
@@ -35,7 +35,11 @@
                 <boot dev="hd" />
             <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
             {% else %}
-                <type arch="x86_64" machine="xenpv">linux</type>
+                {% if vm.virt_mode == 'pvh' %}
+                    <type arch="x86_64" machine="xenfv">hvm</type>
+                {% else %}
+                    <type arch="x86_64" machine="xenpv">linux</type>
+                {% endif %}
                 <kernel>{{ vm.storage.kernels_dir }}/vmlinuz</kernel>
                 <initrd>{{ vm.storage.kernels_dir }}/initramfs</initrd>
                 <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 {{ vm.kernelopts }}</cmdline>
@@ -45,7 +49,7 @@
 
     <features>
         {% block features %}
-            {% if vm.virt_mode == 'hvm' %}
+            {% if vm.virt_mode != 'pv' %}
                 <pae/>
                 <acpi/>
                 <apic/>
@@ -168,6 +172,9 @@
                     <graphics type="qubes"/>
                 {% endif %}
             {% else %}
+                {% if vm.virt_mode == 'pvh' %}
+                    <emulator type="none"/>
+                {% endif %}
                 <console type="pty">
                     <target type="xen" port="0"/>
                 </console>
