@@ -899,10 +899,9 @@ SHA256:
         self.netvm_repo.provides_network = True
         self.loop.run_until_complete(self.netvm_repo.create_on_disk())
         self.testvm1.netvm = self.netvm_repo
-        # NetVM should have qubes-updates-proxy enabled by default
-        #self.netvm_repo.features['qubes-updates-proxy'] = True
+        self.netvm_repo.features['service.qubes-updates-proxy'] = True
         # TODO: consider also adding a test for the template itself
-        self.testvm1.features['updates-proxy-setup'] = True
+        self.testvm1.features['service.updates-proxy-setup'] = True
         self.app.save()
 
         # Setup test repo
@@ -915,7 +914,8 @@ SHA256:
 
         # update repository metadata
         p = self.loop.run_until_complete(self.testvm1.run(
-            self.update_cmd, user='root'))
+            self.update_cmd, user='root', stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE))
         (stdout, stderr) = self.loop.run_until_complete(p.communicate())
         self.assertIn(self.loop.run_until_complete(p.wait()), self.exit_code_ok,
             '{}: {}\n{}'.format(self.update_cmd, stdout, stderr))

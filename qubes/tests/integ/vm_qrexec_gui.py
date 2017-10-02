@@ -751,15 +751,15 @@ class TC_00_AppVMMixin(object):
                 self.testvm1.run_for_stdio('date -s 2001-01-01T12:34:56',
                     user='root'))
 
+            self.loop.run_until_complete(
+                self.testvm1.run_for_stdio('qvm-sync-clock',
+                    user='root'))
+
             p = self.loop.run_until_complete(
                 asyncio.create_subprocess_exec('sudo', 'qvm-sync-clock',
                     stdout=asyncio.subprocess.DEVNULL))
             self.loop.run_until_complete(p.wait())
             self.assertEqual(p.returncode, 0)
-            self.loop.run_until_complete(
-                self.testvm1.run_for_stdio('qvm-sync-clock',
-                    user='root'))
-
             vm_time, _ = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio('date -u +%s'))
             self.assertAlmostEquals(int(vm_time), int(start_time), delta=30)
@@ -772,6 +772,8 @@ class TC_00_AppVMMixin(object):
             subprocess.Popen(
                 ["sudo", "date", "-u", "-s", "@" + start_time.decode()])
             raise
+        finally:
+            self.app.clockvm = None
 
     @unittest.expectedFailure
     def test_250_resize_private_img(self):
@@ -894,12 +896,13 @@ int main(int argc, char **argv) {
             'ulimit -l unlimited; exec /home/user/allocator {}'.format(
                 memory_pages),
             user="root",
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
 
         # wait for memory being allocated; can't use just .read(), because EOF
         # passing is unreliable while the process is still running
-        yield from alloc1.stdin.write(b'\n')
-        yield from alloc1.stdin.flush()
+        alloc1.stdin.write(b'\n')
+        yield from alloc1.stdin.drain()
         alloc_out = yield from alloc1.stdout.read(
             len('Stage1\nStage2\nStage3\n'))
 
@@ -931,8 +934,8 @@ int main(int argc, char **argv) {
         vm_winid = xprop.decode().strip().split(' ')[4]
 
         # now free the fragmented memory and trigger compaction
-        yield from alloc1.stdin.write(b'\n')
-        yield from alloc1.stdin.flush()
+        alloc1.stdin.write(b'\n')
+        yield from alloc1.stdin.drain()
         yield from alloc1.wait()
         yield from self.testvm1.run_for_stdio(
             'echo 1 > /proc/sys/vm/compact_memory', user='root')
