@@ -251,12 +251,12 @@ class _AssertNotRaisesContext(object):
             # pass through
             return False
 
-        self.exception = exc_value # store for later retrieval
+        self.exception = exc_value  # store for later retrieval
 
 class _QrexecPolicyContext(object):
     '''Context manager for SystemTestCase.qrexec_policy'''
 
-    def __init__(self, service, source, destination, allow=True):
+    def __init__(self, service, source, destination, allow=True, action=None):
         try:
             source = source.name
         except AttributeError:
@@ -268,8 +268,9 @@ class _QrexecPolicyContext(object):
             pass
 
         self._filename = pathlib.Path('/etc/qubes-rpc/policy') / service
-        self._rule = '{} {} {}\n'.format(source, destination,
-            'allow' if allow else 'deny')
+        if action is None:
+            action = 'allow' if allow else 'deny'
+        self._rule = '{} {} {}\n'.format(source, destination, action)
         self._did_create = False
         self._handle = None
 
@@ -913,16 +914,20 @@ class SystemTestCase(QubesTestCase):
             self._remove_vm_disk(vmname)
         self._remove_vm_disk_lvm(prefix)
 
-    def qrexec_policy(self, service, source, destination, allow=True):
+    def qrexec_policy(self, service, source, destination, allow=True,
+            action=None):
         """
         Allow qrexec calls for duration of the test
         :param service: service name
         :param source: source VM name
         :param destination: destination VM name
+        :param allow: add rule with 'allow' action, otherwise 'deny'
+        :param action: custom action, if specified *allow* argument is ignored
         :return:
         """
 
-        return _QrexecPolicyContext(service, source, destination, allow=allow)
+        return _QrexecPolicyContext(service, source, destination,
+            allow=allow, action=action)
 
     def wait_for_window(self, title, timeout=30, show=True):
         """
