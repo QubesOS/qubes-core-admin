@@ -103,6 +103,24 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
             dispvm = self.loop.run_until_complete(
                 qubes.vm.dispvm.DispVM.from_appvm(self.appvm))
 
+    def test_002_template_change(self):
+        self.appvm.template_for_dispvms = True
+        orig_getitem = self.app.domains.__getitem__
+        with mock.patch.object(self.app, 'domains', wraps=self.app.domains) \
+                as mock_domains:
+            mock_domains.configure_mock(**{
+                'get_new_unused_dispid': mock.Mock(return_value=42),
+                '__getitem__.side_effect': orig_getitem
+            })
+            dispvm = self.app.add_new_vm(qubes.vm.dispvm.DispVM,
+                name='test-dispvm', template=self.appvm)
+
+            with self.assertRaises(qubes.exc.QubesValueError):
+                dispvm.template = self.appvm
+            with self.assertRaises(qubes.exc.QubesValueError):
+                dispvm.template = qubes.property.DEFAULT
+
+
     def test_010_create_direct(self):
         self.appvm.template_for_dispvms = True
         orig_getitem = self.app.domains.__getitem__

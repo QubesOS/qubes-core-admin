@@ -27,6 +27,7 @@
 import asyncio
 import re
 import string
+import uuid
 
 import lxml.etree
 
@@ -64,6 +65,26 @@ def validate_name(holder, prop, value):
         raise qubes.exc.QubesValueError(
             'VM name cannot be \'none\' nor \'default\'')
 
+def setter_label(self, prop, value):
+    ''' Helper for setting the domain label '''
+    # pylint: disable=unused-argument
+    if isinstance(value, qubes.Label):
+        return value
+    if isinstance(value, str) and value.startswith('label-'):
+        return self.app.labels[int(value.split('-', 1)[1])]
+
+    return self.app.get_label(value)
+
+
+def _setter_qid(self, prop, value):
+    ''' Helper for setting the domain qid '''
+    # pylint: disable=unused-argument
+    value = int(value)
+    if not 0 <= value <= qubes.config.max_qid:
+        raise ValueError(
+            '{} value must be between 0 and qubes.config.max_qid'.format(
+                prop.__name__))
+    return value
 
 class Features(dict):
     '''Manager of the features.
@@ -262,15 +283,35 @@ class BaseVM(qubes.PropertyHolder):
     '''
     # pylint: disable=no-member
 
+    uuid = qubes.property('uuid', type=uuid.UUID, write_once=True,
+        clone=False,
+        doc='UUID from libvirt.')
+
+    name = qubes.property('name', type=str, write_once=True,
+        clone=False,
+        doc='User-specified name of the domain.')
+
+    qid = qubes.property('qid', type=int, write_once=True,
+        setter=_setter_qid,
+        clone=False,
+        doc='''Internal, persistent identificator of particular domain. Note
+            this is different from Xen domid.''')
+
+    label = qubes.property('label',
+        setter=setter_label,
+        doc='''Colourful label assigned to VM. This is where the colour of the
+            padlock is set.''')
+
     def __init__(self, app, xml, features=None, devices=None, tags=None,
             **kwargs):
         # pylint: disable=redefined-outer-name
 
+        self._qdb_watch_paths = set()
+        self._qdb_connection_watch = None
+
         # self.app must be set before super().__init__, because some property
         # setters need working .app attribute
         #: mother :py:class:`qubes.Qubes` object
-        self._qdb_watch_paths = set()
-        self._qdb_connection_watch = None
         self.app = app
 
         super(BaseVM, self).__init__(xml, **kwargs)
@@ -445,14 +486,20 @@ class BaseVM(qubes.PropertyHolder):
             self._qdb_connection_watch.close()
             self._qdb_connection_watch = None
 
-    def start_qdb_watch(self, name, loop=None):
+    def start_qdb_watch(self, loop=None):
         '''Start watching QubesDB
 
         Calling this method in appropriate time is responsibility of child
         class.
         '''
+        # cleanup old watch connection first, if any
+        if self._qdb_connection_watch is not None:
+            asyncio.get_event_loop().remove_reader(
+                self._qdb_connection_watch.watch_fd())
+            self._qdb_connection_watch.close()
+
         import qubesdb  # pylint: disable=import-error
-        self._qdb_connection_watch = qubesdb.QubesDB(name)
+        self._qdb_connection_watch = qubesdb.QubesDB(self.name)
         if loop is None:
             loop = asyncio.get_event_loop()
         loop.add_reader(self._qdb_connection_watch.watch_fd(),
@@ -460,6 +507,10 @@ class BaseVM(qubes.PropertyHolder):
         for path in self._qdb_watch_paths:
             self._qdb_connection_watch.watch(path)
 
+    @qubes.stateless_property
+    def klass(self):
+        '''Domain class name'''
+        return type(self).__name__
 
 class VMProperty(qubes.property):
     '''Property that is referring to a VM
@@ -531,14 +582,3 @@ class VMProperty(qubes.property):
             return untrusted_vmname
         validate_name(None, self, untrusted_vmname)
         return untrusted_vmname
-
-
-def setter_label(self, prop, value):
-    ''' Helper for setting the domain label '''
-    # pylint: disable=unused-argument
-    if isinstance(value, qubes.Label):
-        return value
-    if isinstance(value, str) and value.startswith('label-'):
-        return self.app.labels[int(value.split('-', 1)[1])]
-
-    return self.app.get_label(value)

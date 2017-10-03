@@ -130,6 +130,11 @@ class TC_90_AppVM(qubes.tests.vm.qubesvm.QubesVMTestsMixin,
             with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
                 vm.template = self.template
 
+    def test_004_template_reset(self):
+        vm = self.get_vm()
+        with self.assertRaises(qubes.exc.QubesValueError):
+            vm.template = qubes.property.DEFAULT
+
     def test_500_property_migrate_template_for_dispvms(self):
         xml_template = '''
         <domain class="AppVM" id="domain-1">

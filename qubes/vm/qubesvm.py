@@ -59,17 +59,6 @@ MEM_OVERHEAD_BASE = (3 + 1) * 1024 * 1024
 MEM_OVERHEAD_PER_VCPU = 3 * 1024 * 1024 / 2
 
 
-def _setter_qid(self, prop, value):
-    ''' Helper for setting the domain qid '''
-    # pylint: disable=unused-argument
-    value = int(value)
-    if not 0 <= value <= qubes.config.max_qid:
-        raise ValueError(
-            '{} value must be between 0 and qubes.config.max_qid'.format(
-                prop.__name__))
-    return value
-
-
 def _setter_kernel(self, prop, value):
     ''' Helper for setting the domain kernel and running sanity checks on it.
     '''  # pylint: disable=unused-argument
@@ -368,30 +357,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     #
     # properties loaded from XML
     #
-
-    label = qubes.property('label',
-        setter=qubes.vm.setter_label,
-        saver=(lambda self, prop, value: 'label-{}'.format(value.index)),
-        doc='''Colourful label assigned to VM. This is where the colour of the
-            padlock is set.''')
-
-#   provides_network = qubes.property('provides_network',
-#       type=bool, setter=qubes.property.bool,
-#       doc='`True` if it is NetVM or ProxyVM, false otherwise.')
-
-    qid = qubes.property('qid', type=int, write_once=True,
-        setter=_setter_qid,
-        clone=False,
-        doc='''Internal, persistent identificator of particular domain. Note
-            this is different from Xen domid.''')
-
-    name = qubes.property('name', type=str, write_once=True,
-        clone=False,
-        doc='User-specified name of the domain.')
-
-    uuid = qubes.property('uuid', type=uuid.UUID, write_once=True,
-        clone=False,
-        doc='UUID from libvirt.')
 
     virt_mode = qubes.property('virt_mode',
         type=str, setter=_setter_virt_mode,
@@ -747,7 +712,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             self.storage = qubes.storage.Storage(self)
 
         if not self.app.vmm.offline_mode and self.is_running():
-            self.start_qdb_watch(self.name)
+            self.start_qdb_watch()
 
     @qubes.events.handler('property-set:label')
     def on_property_set_label(self, event, name, newvalue, oldvalue=None):
@@ -839,17 +804,24 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 pre_event=True,
                 start_guid=start_guid, mem_required=mem_required)
 
-            yield from self.storage.verify()
+            try:
+                yield from self.storage.verify()
 
-            if self.netvm is not None:
-                # pylint: disable = no-member
-                if self.netvm.qid != 0:
-                    if not self.netvm.is_running():
-                        yield from self.netvm.start(start_guid=start_guid,
-                            notify_function=notify_function)
+                if self.netvm is not None:
+                    # pylint: disable = no-member
+                    if self.netvm.qid != 0:
+                        if not self.netvm.is_running():
+                            yield from self.netvm.start(start_guid=start_guid,
+                                notify_function=notify_function)
 
-            qmemman_client = yield from asyncio.get_event_loop().\
-                run_in_executor(None, self.request_memory, mem_required)
+                qmemman_client = yield from asyncio.get_event_loop().\
+                    run_in_executor(None, self.request_memory, mem_required)
+
+            except Exception as exc:
+                # let anyone receiving domain-pre-start know that startup failed
+                yield from self.fire_event_async('domain-start-failed',
+                    reason=str(exc))
+                raise
 
             try:
                 yield from self.storage.start()
@@ -857,6 +829,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
                 self.libvirt_domain.createWithFlags(
                     libvirt.VIR_DOMAIN_START_PAUSED)
+
+            except Exception as exc:
+                # let anyone receiving domain-pre-start know that startup failed
+                yield from self.fire_event_async('domain-start-failed',
+                    reason=str(exc))
+                raise
+
             finally:
                 if qmemman_client:
                     qmemman_client.close()
@@ -868,34 +847,27 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 self.log.info('Setting Qubes DB info for the VM')
                 yield from self.start_qubesdb()
                 self.create_qdb_entries()
+                self.start_qdb_watch()
 
                 self.log.warning('Activating the {} VM'.format(self.name))
                 self.libvirt_domain.resume()
-
-                # close() is not really needed, because the descriptor is
-                # close-on-exec anyway, the reason to postpone close() is that
-                # possibly xl is not done constructing the domain after its main
-                # process exits so we close() when we know the domain is up the
-                # successful unpause is some indicator of it
-                if qmemman_client:
-                    qmemman_client.close()
-                    qmemman_client = None
 
                 yield from self.start_qrexec_daemon()
 
                 yield from self.fire_event_async('domain-start',
                     start_guid=start_guid)
 
-            except:  # pylint: disable=bare-except
+            except Exception as exc:  # pylint: disable=bare-except
                 if self.is_running() or self.is_paused():
                     # This avoids losing the exception if an exception is
                     # raised in self.force_shutdown(), because the vm is not
                     # running or paused
                     yield from self.kill()  # pylint: disable=not-an-iterable
+
+                # let anyone receiving domain-pre-start know that startup failed
+                yield from self.fire_event_async('domain-start-failed',
+                    reason=str(exc))
                 raise
-            finally:
-                if qmemman_client:
-                    qmemman_client.close()
 
         return self
 
@@ -905,7 +877,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         Do not allow domain to be started again until this finishes.
         '''
         with (yield from self.startup_lock):
-            yield from self.storage.stop()
+            try:
+                yield from self.storage.stop()
+            except qubes.storage.StoragePoolException:
+                self.log.exception('Failed to stop storage for domain %s',
+                    self.name)
 
     @qubes.events.handler('domain-shutdown')
     def on_domain_shutdown(self, _event, **_kwargs):
@@ -1766,8 +1742,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 [{'dom': self.xid}])
 
         self.fire_event('domain-qdb-create')
-
-        self.start_qdb_watch(self.name)
 
     # TODO async; update this in constructor
     def _update_libvirt_domain(self):
