@@ -95,7 +95,6 @@ class TC_01_Properties(qubes.tests.SystemTestCase):
     def cleanup_props(self):
         del self.vm
 
-    @unittest.expectedFailure
     def test_030_clone(self):
         try:
             testvm1 = self.app.add_new_vm(
@@ -109,6 +108,7 @@ class TC_01_Properties(qubes.tests.SystemTestCase):
                                         template=testvm1.template,
                                         label='red')
             testvm2.clone_properties(testvm1)
+            testvm2.firewall.clone(testvm1.firewall)
             self.loop.run_until_complete(testvm2.clone_disk_files(testvm1))
             self.assertTrue(self.loop.run_until_complete(testvm1.storage.verify()))
             self.assertIn('source', testvm1.volumes['root'].config)
@@ -156,6 +156,7 @@ class TC_01_Properties(qubes.tests.SystemTestCase):
                                         template=testvm1.template,
                                         label='red',)
             testvm3.clone_properties(testvm1)
+            testvm3.firewall.clone(testvm1.firewall)
             self.loop.run_until_complete(testvm3.clone_disk_files(testvm1))
 
             # qubes.xml reload
@@ -181,7 +182,7 @@ class TC_01_Properties(qubes.tests.SystemTestCase):
             self.assertEqual(testvm1.default_user, testvm3.default_user)
             self.assertEqual(testvm1.features, testvm3.features)
             self.assertEqual(testvm1.firewall.rules,
-                            testvm2.firewall.rules)
+                            testvm3.firewall.rules)
         finally:
             try:
                 del firewall
@@ -359,6 +360,7 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestCase):
         self.test_template.tags.update(self.app.default_template.tags)
         self.loop.run_until_complete(
             self.test_template.clone_disk_files(self.app.default_template))
+        self.test_template.volumes['root'].revisions_to_keep = 3
         self.app.save()
 
     def get_rootimg_checksum(self):
@@ -374,8 +376,7 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestCase):
             self.log.warning("template not modified, test result will be "
                              "unreliable")
         self.assertNotEqual(self.test_template.volumes['root'].revisions, {})
-        pool_vid = repr(self.test_template.volumes['root']).strip("'")
-        revert_cmd = ['qvm-block', 'revert', pool_vid]
+        revert_cmd = ['qvm-volume', 'revert', self.test_template.name + ':root']
         p = self.loop.run_until_complete(asyncio.create_subprocess_exec(
             *revert_cmd))
         self.loop.run_until_complete(p.wait())
@@ -385,7 +386,6 @@ class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestCase):
         checksum_after = self.get_rootimg_checksum()
         self.assertEqual(checksum_before, checksum_after)
 
-    @unittest.expectedFailure
     def test_000_revert_linux(self):
         """
         Test qvm-revert-template-changes for PV template

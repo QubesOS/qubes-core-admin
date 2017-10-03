@@ -486,7 +486,7 @@ class VmNetworkingMixin(object):
 
         try:
             cmd = 'iptables -I INPUT -s {} -j ACCEPT'.format(self.testvm2.ip)
-            self.loop.run_until_complete(self.proxy.run_for_stdio(
+            self.loop.run_until_complete(self.testvm1.run_for_stdio(
                 cmd, user='root'))
         except subprocess.CalledProcessError as e:
             raise AssertionError(
@@ -912,27 +912,29 @@ SHA256:
         self.loop.run_until_complete(self.testvm1.start())
         self.configure_test_repo()
 
-        # update repository metadata
-        p = self.loop.run_until_complete(self.testvm1.run(
-            self.update_cmd, user='root', stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE))
-        (stdout, stderr) = self.loop.run_until_complete(p.communicate())
-        self.assertIn(self.loop.run_until_complete(p.wait()), self.exit_code_ok,
-            '{}: {}\n{}'.format(self.update_cmd, stdout, stderr))
+        with self.qrexec_policy('qubes.UpdatesProxy', self.testvm1,
+                '$default', action='allow,target=' + self.netvm_repo.name):
+            # update repository metadata
+            p = self.loop.run_until_complete(self.testvm1.run(
+                self.update_cmd, user='root', stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE))
+            (stdout, stderr) = self.loop.run_until_complete(p.communicate())
+            self.assertIn(self.loop.run_until_complete(p.wait()), self.exit_code_ok,
+                '{}: {}\n{}'.format(self.update_cmd, stdout, stderr))
 
-        # install test package
-        p = self.loop.run_until_complete(self.testvm1.run(
-            self.install_cmd.format('test-pkg'), user='root'))
-        (stdout, stderr) = self.loop.run_until_complete(p.communicate())
-        self.assertIn(self.loop.run_until_complete(p.wait()), self.exit_code_ok,
-            '{}: {}\n{}'.format(self.update_cmd, stdout, stderr))
+            # install test package
+            p = self.loop.run_until_complete(self.testvm1.run(
+                self.install_cmd.format('test-pkg'), user='root'))
+            (stdout, stderr) = self.loop.run_until_complete(p.communicate())
+            self.assertIn(self.loop.run_until_complete(p.wait()), self.exit_code_ok,
+                '{}: {}\n{}'.format(self.update_cmd, stdout, stderr))
 
-        # verify if it was really installed
-        p = self.loop.run_until_complete(self.testvm1.run(
-            self.install_test_cmd.format('test-pkg'), user='root'))
-        (stdout, stderr) = self.loop.run_until_complete(p.communicate())
-        self.assertIn(self.loop.run_until_complete(p.wait()), self.exit_code_ok,
-            '{}: {}\n{}'.format(self.update_cmd, stdout, stderr))
+            # verify if it was really installed
+            p = self.loop.run_until_complete(self.testvm1.run(
+                self.install_test_cmd.format('test-pkg'), user='root'))
+            (stdout, stderr) = self.loop.run_until_complete(p.communicate())
+            self.assertIn(self.loop.run_until_complete(p.wait()), self.exit_code_ok,
+                '{}: {}\n{}'.format(self.update_cmd, stdout, stderr))
 
 def load_tests(loader, tests, pattern):
     for template in qubes.tests.list_templates():
