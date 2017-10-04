@@ -41,6 +41,7 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
             label='red',
         )
         self.loop.run_until_complete(self.disp_base.create_on_disk())
+        self.disp_base.template_for_dispvms = True
         self.app.default_dispvm = self.disp_base
         self.testvm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('vm'),
@@ -49,18 +50,26 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         self.loop.run_until_complete(self.testvm.create_on_disk())
         self.app.save()
 
+    def tearDown(self):
+        self.app.default_dispvm = None
+        super(TC_04_DispVM, self).tearDown()
+
     @unittest.expectedFailure
     def test_002_cleanup(self):
         self.loop.run_until_complete(self.testvm.start())
 
-        (stdout, _) = self.loop.run_until_complete(
-            self.testvm.run_for_stdio("qvm-run --dispvm bash",
-                input=b"echo test; qubesdb-read /name; echo ERROR\n"))
+        try:
+            (stdout, _) = self.loop.run_until_complete(
+                self.testvm.run_for_stdio("qvm-run-vm --dispvm bash",
+                    input=b"echo test; qubesdb-read /name; echo ERROR\n"))
+        except subprocess.CalledProcessError as err:
+            self.fail('qvm-run-vm failed with {} code, stderr: {}'.format(
+                err.returncode, err.stderr))
         lines = stdout.decode('ascii').splitlines()
         self.assertEqual(lines[0], "test")
         dispvm_name = lines[1]
         # wait for actual DispVM destruction
-        time.sleep(1)
+        self.loop.run_until_complete(asyncio.sleep(1))
         self.assertNotIn(dispvm_name, self.app.domains)
 
     @unittest.expectedFailure
@@ -73,7 +82,7 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         self.loop.run_until_complete(self.testvm.start())
 
         p = self.loop.run_until_complete(
-            self.testvm.run("qvm-run --dispvm bash; true",
+            self.testvm.run("qvm-run-vm --dispvm bash; true",
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE))
         p.stdin.write(b"qubesdb-read /name\n")
         p.stdin.write(b"echo ERROR\n")
@@ -104,6 +113,10 @@ class TC_20_DispVMMixin(object):
         self.app.default_dispvm = self.disp_base
         self.app.save()
 
+    def tearDown(self):
+        self.app.default_dispvm = None
+        super(TC_20_DispVMMixin, self).tearDown()
+
     def test_010_simple_dvm_run(self):
         dispvm = self.loop.run_until_complete(
             qubes.vm.dispvm.DispVM.from_appvm(self.disp_base))
@@ -123,6 +136,7 @@ class TC_20_DispVMMixin(object):
             qubes.vm.dispvm.DispVM.from_appvm(self.disp_base))
         try:
             self.loop.run_until_complete(dispvm.start())
+            self.loop.run_until_complete(self.wait_for_session(dispvm))
             p = self.loop.run_until_complete(
                 dispvm.run_service('qubes.VMShell',
                     stdin=subprocess.PIPE,
@@ -149,8 +163,10 @@ class TC_20_DispVMMixin(object):
                 p.stdin.close()
         finally:
             self.loop.run_until_complete(dispvm.cleanup())
+            dispvm_name = dispvm.name
+            del dispvm
 
-        self.assertNotIn(dispvm.name, self.app.domains,
+        self.assertNotIn(dispvm_name, self.app.domains,
                           "DispVM not removed from qubes.xml")
 
     def _handle_editor(self, winid):
@@ -211,19 +227,19 @@ class TC_20_DispVMMixin(object):
                          "xdotool not installed")
     @unittest.expectedFailure
     def test_030_edit_file(self):
-        testvm1 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+        self.testvm1 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
                                      name=self.make_vm_name('vm1'),
                                      label='red',
                                      template=self.app.domains[self.template])
-        self.loop.run_until_complete(testvm1.create_on_disk())
+        self.loop.run_until_complete(self.testvm1.create_on_disk())
         self.app.save()
 
-        self.loop.run_until_complete(testvm1.start())
+        self.loop.run_until_complete(self.testvm1.start())
         self.loop.run_until_complete(
-            testvm1.run_for_stdio("echo test1 > /home/user/test.txt"))
+            self.testvm1.run_for_stdio("echo test1 > /home/user/test.txt"))
 
         p = self.loop.run_until_complete(
-            testvm1.run("qvm-open-in-dvm /home/user/test.txt"))
+            self.testvm1.run("qvm-open-in-dvm /home/user/test.txt"))
 
         wait_count = 0
         winid = None
@@ -234,7 +250,7 @@ class TC_20_DispVMMixin(object):
                     stdout=subprocess.PIPE,
                     stderr=subprocess.DEVNULL))
             stdout, _ = self.loop.run_until_complete(search.communicate())
-            if p.returncode == 0:
+            if search.returncode == 0:
                 winid = stdout.strip()
                 # get window title
                 (window_title, _) = subprocess.Popen(
@@ -255,7 +271,7 @@ class TC_20_DispVMMixin(object):
         self._handle_editor(winid)
         self.loop.run_until_complete(p.wait())
         (test_txt_content, _) = self.loop.run_until_complete(
-            testvm1.run_for_stdio("cat /home/user/test.txt"))
+            self.testvm1.run_for_stdio("cat /home/user/test.txt"))
         # Drop BOM if added by editor
         if test_txt_content.startswith(b'\xef\xbb\xbf'):
             test_txt_content = test_txt_content[3:]
