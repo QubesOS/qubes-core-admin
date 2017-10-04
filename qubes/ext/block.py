@@ -243,10 +243,8 @@ class BlockDeviceExtension(qubes.ext.Extension):
                     raise qubes.exc.QubesValueError(
                         'Invalid frontend-dev option value: ' + value)
             elif option == 'read-only':
-                if value not in ('yes', 'no'):
-                    raise qubes.exc.QubesValueError(
-                        'read-only option can only have '
-                        '\'yes\' or \'no\' value')
+                options[option] = (
+                    'yes' if qubes.property.bool(None, None, value) else 'no')
             elif option == 'devtype':
                 if value not in ('disk', 'cdrom'):
                     raise qubes.exc.QubesValueError(
