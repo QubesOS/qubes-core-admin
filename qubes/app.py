@@ -674,7 +674,7 @@ class Qubes(qubes.PropertyHolder):
     default_kernel = qubes.property('default_kernel', load_stage=3,
         doc='Which kernel to use when not overriden in VM')
     default_dispvm = qubes.VMProperty('default_dispvm', load_stage=3,
-        doc='Default DispVM base for service calls')
+        doc='Default DispVM base for service calls', allow_none=True)
 
     default_pool = qubes.property('default_pool', load_stage=3,
         default=_default_pool,
