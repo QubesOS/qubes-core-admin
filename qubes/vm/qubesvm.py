@@ -945,7 +945,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesVMNotRunningError(self)
 
         if list(self.devices['pci'].attached()):
-            yield from self.run_service_for_stdio('qubes.SuspendPre')
+            yield from self.run_service_for_stdio('qubes.SuspendPre',
+                user='root')
             self.libvirt_domain.pMSuspendForDuration(
                 libvirt.VIR_NODE_SUSPEND_TARGET_MEM, 0, 0)
         else:
@@ -975,7 +976,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # pylint: disable=not-an-iterable
         if self.get_power_state() == "Suspended":
             self.libvirt_domain.pMWakeup()
-            yield from self.run_service_for_stdio('qubes.SuspendPost')
+            yield from self.run_service_for_stdio('qubes.SuspendPost',
+                user='root')
         else:
             yield from self.unpause()
 
