@@ -395,6 +395,9 @@ class ThinVolume(qubes.storage.Volume):
                 ' are doing, use `lvresize` on %s manually.' %
                 (self.name, self.vid))
 
+        if size == self.size:
+            return
+
         cmd = ['extend', self.vid, str(size)]
         qubes_lvm(cmd, self.log)
         if self.is_dirty():
