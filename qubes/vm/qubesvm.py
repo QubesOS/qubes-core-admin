@@ -93,9 +93,9 @@ def _setter_default_user(self, prop, value):
 def _setter_virt_mode(self, prop, value):
     value = str(value)
     value = value.lower()
-    if value not in ('hvm', 'pv'):
+    if value not in ('hvm', 'pv', 'pvh'):
         raise qubes.exc.QubesPropertyValueError(self, prop, value,
-            'Invalid virtualization mode, supported values: hvm, pv')
+            'Invalid virtualization mode, supported values: hvm, pv, pvh')
     return value
 
 
