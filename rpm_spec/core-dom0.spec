@@ -23,8 +23,6 @@
 #
 #
 
-#%{!?python3_sitelib: %define python3_sitelib %(%{__python3} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(False)")}
-
 %{!?version: %define version %(cat version)}
 
 # debug_package hack should be removed when BuildArch:noarch is enabled below
