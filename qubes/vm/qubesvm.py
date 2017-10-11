@@ -96,6 +96,9 @@ def _setter_virt_mode(self, prop, value):
     if value not in ('hvm', 'pv', 'pvh'):
         raise qubes.exc.QubesPropertyValueError(self, prop, value,
             'Invalid virtualization mode, supported values: hvm, pv, pvh')
+    if value == 'pvh' and list(self.devices['pci'].persistent()):
+        raise qubes.exc.QubesPropertyValueError(self, prop, value,
+            "pvh mode can't be set if pci devices are attached")
     return value
 
 
