@@ -271,10 +271,22 @@ class ThinVolume(qubes.storage.Volume):
             qubes_lvm(cmd, self.log)
             self._remove_revisions()
 
-        cmd = ['remove', self.vid]
+        # TODO: when converting this function to coroutine, this _must_ be
+        # under a lock
+        # remove old volume only after _successful_ clone of the new one
+        cmd = ['rename', self.vid, self.vid + '-tmp']
         qubes_lvm(cmd, self.log)
-        cmd = ['clone', self._vid_snap, self.vid]
-        qubes_lvm(cmd, self.log)
+        try:
+            cmd = ['clone', self._vid_snap, self.vid]
+            qubes_lvm(cmd, self.log)
+        except:
+            # restore original volume
+            cmd = ['rename', self.vid + '-tmp', self.vid]
+            qubes_lvm(cmd, self.log)
+            raise
+        else:
+            cmd = ['remove', self.vid + '-tmp']
+            qubes_lvm(cmd, self.log)
 
 
     def create(self):
@@ -494,6 +506,8 @@ def qubes_lvm(cmd, log=logging.getLogger('qubes.storage.lvm')):
         lvm_cmd = ["lvextend", "-L%s" % size, cmd[1]]
     elif action == 'activate':
         lvm_cmd = ['lvchange', '-ay', cmd[1]]
+    elif action == 'rename':
+        lvm_cmd = ['lvrename', cmd[1], cmd[2]]
     else:
         raise NotImplementedError('unsupported action: ' + action)
     if lvm_is_very_old:
