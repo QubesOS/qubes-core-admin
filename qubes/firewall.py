@@ -349,6 +349,8 @@ class Rule(qubes.PropertyHolder):
     @property
     def api_rule(self):
         values = []
+        if self.expire and self.expire.expired:
+            return None
         # put comment at the end
         for prop in sorted(self.property_list(),
                 key=(lambda p: p.__name__ == 'comment')):
@@ -592,6 +594,8 @@ class Firewall(object):
         if addr_family is not None:
             exclude_dsttype = 'dst4' if addr_family == 6 else 'dst6'
         for ruleno, rule in zip(itertools.count(), self.rules):
+            if rule.expire and rule.expire.expired:
+                continue
             # exclude rules for another address family
             if rule.dsthost and rule.dsthost.type == exclude_dsttype:
                 continue

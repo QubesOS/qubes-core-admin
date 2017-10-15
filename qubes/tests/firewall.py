@@ -468,7 +468,7 @@ class TC_08_Rule(qubes.tests.QubesTestCase):
         self.assertEqual(rule.api_rule, rule_txt)
 
     def test_009_from_api_string(self):
-        rule_txt = 'action=accept expire=1463292452 proto=tcp ' \
+        rule_txt = 'action=accept expire=2063292452 proto=tcp ' \
                    'comment=Some comment, with spaces'
         with self.assertNotRaises(ValueError):
             rule = qubes.firewall.Rule.from_api_string(
@@ -476,7 +476,7 @@ class TC_08_Rule(qubes.tests.QubesTestCase):
         self.assertEqual(rule.comment, 'Some comment, with spaces')
         self.assertEqual(rule.proto, 'tcp')
         self.assertEqual(rule.action, 'accept')
-        self.assertEqual(rule.expire, '1463292452')
+        self.assertEqual(rule.expire, '2063292452')
         self.assertIsNone(rule.dstports)
         self.assertIsNone(rule.dsthost)
         self.assertEqual(rule.api_rule, rule_txt)

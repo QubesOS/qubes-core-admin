@@ -1131,7 +1131,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.fire_event_for_permission()
 
         return ''.join('{}\n'.format(rule.api_rule)
-            for rule in self.dest.firewall.rules)
+            for rule in self.dest.firewall.rules
+            if rule.api_rule is not None)
 
     @qubes.api.method('admin.vm.firewall.Set',
             scope='local', write=True)

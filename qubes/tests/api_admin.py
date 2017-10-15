@@ -1736,8 +1736,11 @@ class TC_00_VMs(AdminAPITestCase):
                 dstports='1-1024'),
             qubes.firewall.Rule(action='drop', proto='icmp',
                 comment='No ICMP'),
+            # should not output expired rule
             qubes.firewall.Rule(action='drop', proto='udp',
                 expire='1499450306'),
+            qubes.firewall.Rule(action='drop', proto='udp',
+                expire='2099450306'),
             qubes.firewall.Rule(action='accept'),
         ]
         value = self.call_mgmt_func(b'admin.vm.firewall.Get',
@@ -1745,7 +1748,7 @@ class TC_00_VMs(AdminAPITestCase):
         self.assertEqual(value,
             'action=accept proto=tcp dstports=1-1024\n'
             'action=drop proto=icmp comment=No ICMP\n'
-            'action=drop expire=1499450306 proto=udp\n'
+            'action=drop expire=2099450306 proto=udp\n'
             'action=accept\n')
         self.assertFalse(self.vm.firewall.save.called)
         self.assertFalse(self.app.save.called)
