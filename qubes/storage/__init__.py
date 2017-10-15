@@ -28,6 +28,7 @@ import inspect
 import os
 import os.path
 import string  # pylint: disable=deprecated-module
+import subprocess
 import time
 from datetime import datetime
 
@@ -481,9 +482,17 @@ class Storage(object):
         if asyncio.iscoroutine(ret):
             yield from ret
         if self.vm.is_running():
-            yield from self.vm.run_service_for_stdio('qubes.ResizeDisk',
-                input=volume.name.encode(),
-                user='root')
+            try:
+                yield from self.vm.run_service_for_stdio('qubes.ResizeDisk',
+                    input=volume.name.encode(),
+                    user='root')
+            except subprocess.CalledProcessError as e:
+                service_error = e.stderr.decode('ascii', errors='ignore')
+                service_error = service_error.replace('%', '')
+                raise StoragePoolException(
+                    'Online resize of volume {} failed (you need to resize '
+                    'filesystem manually): {}'.format(volume, service_error))
+
 
     @asyncio.coroutine
     def create(self):
@@ -573,7 +582,10 @@ class Storage(object):
             if asyncio.iscoroutine(ret):
                 futures.append(ret)
         if futures:
-            yield from asyncio.wait(futures)
+            done, _ = yield from asyncio.wait(futures)
+            for task in done:
+                # re-raise any exception from async task
+                task.result()
         self.vm.fire_event('domain-verify-files')
         return True
 
@@ -595,7 +607,10 @@ class Storage(object):
 
         if futures:
             try:
-                yield from asyncio.wait(futures)
+                done, _ = yield from asyncio.wait(futures)
+                for task in done:
+                    # re-raise any exception from async task
+                    task.result()
             except (IOError, OSError) as e:
                 self.vm.log.exception("Failed to remove some volume", e)
 
@@ -609,7 +624,10 @@ class Storage(object):
                 futures.append(ret)
 
         if futures:
-            yield from asyncio.wait(futures)
+            done, _ = yield from asyncio.wait(futures)
+            for task in done:
+                # re-raise any exception from async task
+                task.result()
 
     @asyncio.coroutine
     def stop(self):
@@ -621,7 +639,10 @@ class Storage(object):
                 futures.append(ret)
 
         if futures:
-            yield from asyncio.wait(futures)
+            done, _ = yield from asyncio.wait(futures)
+            for task in done:
+                # re-raise any exception from async task
+                task.result()
 
     def unused_frontend(self):
         ''' Find an unused device name '''
