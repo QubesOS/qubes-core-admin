@@ -432,25 +432,28 @@ class ThinVolume(qubes.storage.Volume):
 
 
     def start(self):
-        if self.snap_on_start or self.save_on_stop:
-            if not self.save_on_stop or not self.is_dirty():
-                self._snapshot()
-        else:
-            self._reset()
-
-        reset_cache()
+        try:
+            if self.snap_on_start or self.save_on_stop:
+                if not self.save_on_stop or not self.is_dirty():
+                    self._snapshot()
+            else:
+                self._reset()
+        finally:
+            reset_cache()
         return self
 
     def stop(self):
-        if self.save_on_stop:
-            self._commit()
-        if self.snap_on_start or self.save_on_stop:
-            cmd = ['remove', self._vid_snap]
-            qubes_lvm(cmd, self.log)
-        else:
-            cmd = ['remove', self.vid]
-            qubes_lvm(cmd, self.log)
-        reset_cache()
+        try:
+            if self.save_on_stop:
+                self._commit()
+            if self.snap_on_start or self.save_on_stop:
+                cmd = ['remove', self._vid_snap]
+                qubes_lvm(cmd, self.log)
+            else:
+                cmd = ['remove', self.vid]
+                qubes_lvm(cmd, self.log)
+        finally:
+            reset_cache()
         return self
 
     def verify(self):
