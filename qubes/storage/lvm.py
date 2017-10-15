@@ -455,11 +455,21 @@ class ThinVolume(qubes.storage.Volume):
 
     def verify(self):
         ''' Verifies the volume. '''
+        if not self.save_on_stop and not self.snap_on_start:
+            # volatile volumes don't need any files
+            return True
+        if self.source is not None:
+            vid = str(self.source)
+        else:
+            vid = self.vid
         try:
-            vol_info = size_cache[self.vid]
-            return vol_info['attr'][4] == 'a'
+            vol_info = size_cache[vid]
+            if vol_info['attr'][4] != 'a':
+                raise qubes.storage.StoragePoolException(
+                    'volume {} not active'.format(vid))
         except KeyError:
-            return False
+            raise qubes.storage.StoragePoolException(
+                'volume {} missing'.format(vid))
 
 
     def block_device(self):

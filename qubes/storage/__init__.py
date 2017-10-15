@@ -276,6 +276,9 @@ class Volume(object):
     def verify(self):
         ''' Verifies the volume.
 
+        This function is supposed to either return :py:obj:`True`, or raise
+        an exception.
+
         This can be implemented as a coroutine.'''
         raise self._not_implemented("verify")
 
