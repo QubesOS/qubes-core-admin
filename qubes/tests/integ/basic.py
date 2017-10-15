@@ -534,22 +534,30 @@ class TC_05_StandaloneVM(qubes.tests.SystemTestCase):
     def test_000_create_start(self):
         self.testvm1 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
                                      name=self.make_vm_name('vm1'), label='red')
-        self.testvm1.features['qrexec'] = True
+        self.testvm1.features.update(self.app.default_template.features)
         self.loop.run_until_complete(
             self.testvm1.clone_disk_files(self.app.default_template))
         self.app.save()
         self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.testvm1.get_power_state(), "Running")
 
+    # current qubes-core-agent do not call resize2fs on VM startup, also #3173
+    @unittest.expectedFailure
     def test_100_resize_root_img(self):
         self.testvm1 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
                                      name=self.make_vm_name('vm1'), label='red')
-        self.testvm1.features['qrexec'] = True
+        self.testvm1.features.update(self.app.default_template.features)
         self.loop.run_until_complete(
             self.testvm1.clone_disk_files(self.app.default_template))
         self.app.save()
-        self.loop.run_until_complete(
-            self.testvm1.storage.resize(self.testvm1.volumes['root'], 20 * 1024 ** 3))
+        try:
+            self.loop.run_until_complete(
+                self.testvm1.storage.resize(self.testvm1.volumes['root'],
+                    20 * 1024 ** 3))
+        except (subprocess.CalledProcessError,
+                qubes.storage.StoragePoolException) as e:
+            # exception object would leak VM reference
+            self.fail(str(e))
         self.assertEqual(self.testvm1.volumes['root'].size, 20 * 1024 ** 3)
         self.loop.run_until_complete(self.testvm1.start())
         # new_size in 1k-blocks
@@ -558,6 +566,31 @@ class TC_05_StandaloneVM(qubes.tests.SystemTestCase):
         # some safety margin for FS metadata
         self.assertGreater(int(new_size.strip()), 19 * 1024 ** 2)
 
+    # See issue #3173
+    @unittest.expectedFailure
+    def test_101_resize_root_img_online(self):
+        self.testvm1 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
+                                     name=self.make_vm_name('vm1'), label='red')
+        self.testvm1.features['qrexec'] = True
+        self.loop.run_until_complete(
+            self.testvm1.clone_disk_files(self.app.default_template))
+        self.testvm1.features.update(self.app.default_template.features)
+        self.app.save()
+        self.loop.run_until_complete(self.testvm1.start())
+        try:
+            self.loop.run_until_complete(
+                self.testvm1.storage.resize(self.testvm1.volumes['root'],
+                    20 * 1024 ** 3))
+        except (subprocess.CalledProcessError,
+                qubes.storage.StoragePoolException) as e:
+            # exception object would leak VM reference
+            self.fail(str(e))
+        self.assertEqual(self.testvm1.volumes['root'].size, 20 * 1024 ** 3)
+        # new_size in 1k-blocks
+        (new_size, _) = self.loop.run_until_complete(
+            self.testvm1.run_for_stdio('df --output=size /|tail -n 1'))
+        # some safety margin for FS metadata
+        self.assertGreater(int(new_size.strip()), 19 * 1024 ** 2)
 
 
 # vim: ts=4 sw=4 et
