@@ -270,10 +270,22 @@ class ThinVolume(qubes.storage.Volume):
             qubes_lvm(cmd, self.log)
             self._remove_revisions()
 
-        cmd = ['remove', self.vid]
+        # TODO: when converting this function to coroutine, this _must_ be
+        # under a lock
+        # remove old volume only after _successful_ clone of the new one
+        cmd = ['rename', self.vid, self.vid + '-tmp']
         qubes_lvm(cmd, self.log)
-        cmd = ['clone', self._vid_snap, self.vid]
-        qubes_lvm(cmd, self.log)
+        try:
+            cmd = ['clone', self._vid_snap, self.vid]
+            qubes_lvm(cmd, self.log)
+        except:
+            # restore original volume
+            cmd = ['rename', self.vid + '-tmp', self.vid]
+            qubes_lvm(cmd, self.log)
+            raise
+        else:
+            cmd = ['remove', self.vid + '-tmp']
+            qubes_lvm(cmd, self.log)
 
 
     def create(self):
@@ -419,34 +431,47 @@ class ThinVolume(qubes.storage.Volume):
 
 
     def start(self):
-        if self.snap_on_start or self.save_on_stop:
-            if not self.save_on_stop or not self.is_dirty():
-                self._snapshot()
-        else:
-            self._reset()
-
-        reset_cache()
+        try:
+            if self.snap_on_start or self.save_on_stop:
+                if not self.save_on_stop or not self.is_dirty():
+                    self._snapshot()
+            else:
+                self._reset()
+        finally:
+            reset_cache()
         return self
 
     def stop(self):
-        if self.save_on_stop:
-            self._commit()
-        if self.snap_on_start or self.save_on_stop:
-            cmd = ['remove', self._vid_snap]
-            qubes_lvm(cmd, self.log)
-        else:
-            cmd = ['remove', self.vid]
-            qubes_lvm(cmd, self.log)
-        reset_cache()
+        try:
+            if self.save_on_stop:
+                self._commit()
+            if self.snap_on_start or self.save_on_stop:
+                cmd = ['remove', self._vid_snap]
+                qubes_lvm(cmd, self.log)
+            else:
+                cmd = ['remove', self.vid]
+                qubes_lvm(cmd, self.log)
+        finally:
+            reset_cache()
         return self
 
     def verify(self):
         ''' Verifies the volume. '''
+        if not self.save_on_stop and not self.snap_on_start:
+            # volatile volumes don't need any files
+            return True
+        if self.source is not None:
+            vid = str(self.source)
+        else:
+            vid = self.vid
         try:
-            vol_info = size_cache[self.vid]
-            return vol_info['attr'][4] == 'a'
+            vol_info = size_cache[vid]
+            if vol_info['attr'][4] != 'a':
+                raise qubes.storage.StoragePoolException(
+                    'volume {} not active'.format(vid))
         except KeyError:
-            return False
+            raise qubes.storage.StoragePoolException(
+                'volume {} missing'.format(vid))
 
 
     def block_device(self):
@@ -493,6 +518,8 @@ def qubes_lvm(cmd, log=logging.getLogger('qubes.storage.lvm')):
         lvm_cmd = ["lvextend", "-L%s" % size, cmd[1]]
     elif action == 'activate':
         lvm_cmd = ['lvchange', '-ay', cmd[1]]
+    elif action == 'rename':
+        lvm_cmd = ['lvrename', cmd[1], cmd[2]]
     else:
         raise NotImplementedError('unsupported action: ' + action)
     if lvm_is_very_old:

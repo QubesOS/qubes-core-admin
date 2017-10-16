@@ -30,9 +30,12 @@ import tempfile
 import time
 import unittest
 
+import collections
+
 import qubes
 import qubes.firewall
 import qubes.tests
+import qubes.storage
 import qubes.vm.appvm
 import qubes.vm.qubesvm
 import qubes.vm.standalonevm
@@ -78,6 +81,49 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         vm.untrusted_qdb.write('/test-watch-path', 'test-value')
         self.loop.run_until_complete(asyncio.sleep(0.1))
         self.assertTrue(flag)
+
+    def _test_200_on_domain_start(self, vm, event, **_kwargs):
+        '''Simulate domain crash just after startup'''
+        vm.libvirt_domain.destroy()
+
+    def test_200_shutdown_event_race(self):
+        '''Regression test for 3164'''
+        vmname = self.make_vm_name('appvm')
+
+        self.vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=vmname, template=self.app.default_template,
+            label='red')
+        # help the luck a little - don't wait for qrexec to easier win the race
+        self.vm.features['qrexec'] = False
+        self.loop.run_until_complete(self.vm.create_on_disk())
+        # another way to help the luck a little - make sure the private
+        # volume is first in (normally unordered) dict - this way if any
+        # volume action fails, it will be at or after private volume - not
+        # before (preventing private volume action)
+        old_volumes = self.vm.volumes
+        self.vm.volumes = collections.OrderedDict()
+        self.vm.volumes['private'] = old_volumes.pop('private')
+        self.vm.volumes.update(old_volumes.items())
+        del old_volumes
+
+        self.loop.run_until_complete(self.vm.start())
+
+        # kill it the way it does not give a chance for domain-shutdown it
+        # execute
+        self.vm.libvirt_domain.destroy()
+
+        # now, lets try to start the VM again, before domain-shutdown event
+        # got handled (#3164), and immediately trigger second domain-shutdown
+        self.vm.add_handler('domain-start', self._test_200_on_domain_start)
+        self.loop.run_until_complete(self.vm.start())
+
+        # and give a chance for both domain-shutdown handlers to execute
+        self.loop.run_until_complete(asyncio.sleep(1))
+        with self.assertNotRaises(qubes.exc.QubesException):
+            # if the above caused two domain-shutdown handlers being called
+            # one after another, private volume is gone
+            self.loop.run_until_complete(self.vm.storage.verify())
+
 
 class TC_01_Properties(qubes.tests.SystemTestCase):
     # pylint: disable=attribute-defined-outside-init
