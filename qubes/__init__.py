@@ -273,7 +273,7 @@ class property(object):  # pylint: disable=redefined-builtin,invalid-name
         self._enforce_write_once(instance)
 
         try:
-            oldvalue = getattr(instance, self._attr_name)
+            oldvalue = getattr(instance, self.__name__)
             has_oldvalue = True
         except AttributeError:
             has_oldvalue = False
@@ -282,7 +282,10 @@ class property(object):  # pylint: disable=redefined-builtin,invalid-name
             instance.fire_event('property-pre-del:' + self.__name__,
                 pre_event=True,
                 name=self.__name__, oldvalue=oldvalue)
-            delattr(instance, self._attr_name)
+            try:
+                delattr(instance, self._attr_name)
+            except AttributeError:
+                pass
             instance.fire_event('property-del:' + self.__name__,
                 name=self.__name__, oldvalue=oldvalue)
 
