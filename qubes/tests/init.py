@@ -100,6 +100,9 @@ class TC_10_property(qubes.tests.QubesTestCase):
         holder = MyTestHolder(None)
 
         self.assertEqual(holder.testprop1, 'defaultvalue')
+        self.assertEqual(
+            type(holder).testprop1.get_default(holder),
+            'defaultvalue')
 
     def test_023_get_default_func(self):
         class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
@@ -277,6 +280,13 @@ class TC_20_PropertyHolder(qubes.tests.QubesTestCase):
         expected_prop3 = lxml.etree.Element('property', name='testprop3')
         expected_prop3.text = 'testdefault'
         self.assertXMLEqual(elements_with_defaults[2], expected_prop3)
+
+    def test_007_property_get_default(self):
+        self.assertEqual(
+            self.holder.property_get_default('testprop3'),
+            'testdefault')
+        with self.assertRaises(AttributeError):
+            self.holder.property_get_default('testprop1'),
 
     @unittest.skip('test not implemented')
     def test_010_property_require(self):

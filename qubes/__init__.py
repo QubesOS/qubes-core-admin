@@ -221,14 +221,16 @@ class property(object):  # pylint: disable=redefined-builtin,invalid-name
             return getattr(instance, self._attr_name)
 
         except AttributeError:
-            if self._default is self._NO_DEFAULT:
-                raise AttributeError(
-                    'property {!r} not set'.format(self.__name__))
-            elif isinstance(self._default, collections.Callable):
-                return self._default(instance)
-            else:
-                return self._default
+            return self.get_default(instance)
 
+    def get_default(self, instance):
+        if self._default is self._NO_DEFAULT:
+            raise AttributeError(
+                'property {!r} have no default'.format(self.__name__))
+        elif isinstance(self._default, collections.Callable):
+            return self._default(instance)
+        else:
+            return self._default
 
     def __set__(self, instance, value):
         self._enforce_write_once(instance)
@@ -553,6 +555,15 @@ class PropertyHolder(qubes.events.Emitter):
         # which we don't want to catch
         attrname = self.property_get_def(prop)._attr_name
         return not hasattr(self, attrname)
+
+    def property_get_default(self, prop):
+        '''Get property default value.
+
+        :param qubes.property or str prop: property object of particular
+        interest
+        '''
+
+        return self.property_get_def(prop).get_default(self)
 
 
     @classmethod
