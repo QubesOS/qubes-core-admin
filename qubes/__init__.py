@@ -257,7 +257,7 @@ class property(object):  # pylint: disable=redefined-builtin,invalid-name
                 pre_event=True,
                 name=self.__name__, newvalue=value)
 
-        instance._property_init(self, value) # pylint: disable=protected-access
+        instance._property_init(self, value)  # pylint: disable=protected-access
 
         if has_oldvalue:
             instance.fire_event('property-set:' + self.__name__,

@@ -500,7 +500,7 @@ class QubesTestCase(unittest.TestCase):
         :param subject: emitter which is being checked
         :type emitter: :py:class:`TestEmitter`
         :param str event: event identifier
-        :param list kwargs: when given, all items must appear in kwargs passed \
+        :param dict kwargs: when given, all items must appear in kwargs passed \
             to an event
         '''
 
