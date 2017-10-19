@@ -159,6 +159,21 @@ class TC_00_VMs(AdminAPITestCase):
             b'netvm')
         self.assertEqual(value, 'default=True type=vm ')
 
+    def test_025_vm_property_get_default_vm_none(self):
+        value = self.call_mgmt_func(
+            b'admin.vm.property.GetDefault',
+            b'test-vm1',
+            b'template')
+        self.assertEqual(value, None)
+
+    def test_026_vm_property_get_default_bool(self):
+        self.vm.provides_network = True
+        value = self.call_mgmt_func(
+            b'admin.vm.property.GetDefault',
+            b'test-vm1',
+            b'provides_network')
+        self.assertEqual(value, 'type=bool False')
+
     def test_030_vm_property_set_vm(self):
         netvm = self.app.add_new_vm('AppVM', label='red', name='test-net',
             template='test-template', provides_network=True)

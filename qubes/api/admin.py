@@ -191,6 +191,49 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                 property_type,
                 str(value) if value is not None else '')
 
+    @qubes.api.method('admin.vm.property.GetDefault', no_payload=True,
+        scope='local', read=True)
+    @asyncio.coroutine
+    def vm_property_get_default(self):
+        '''Get a value of one property'''
+        return self._property_get_default(self.dest)
+
+    @qubes.api.method('admin.property.GetDefault', no_payload=True,
+        scope='global', read=True)
+    @asyncio.coroutine
+    def property_get_default(self):
+        '''Get a value of one global property'''
+        assert self.dest.name == 'dom0'
+        return self._property_get_default(self.app)
+
+    def _property_get_default(self, dest):
+        if self.arg not in dest.property_list():
+            raise qubes.exc.QubesNoSuchPropertyError(dest, self.arg)
+
+        self.fire_event_for_permission()
+
+        property_def = dest.property_get_def(self.arg)
+        # explicit list to be sure that it matches protocol spec
+        if isinstance(property_def, qubes.vm.VMProperty):
+            property_type = 'vm'
+        elif property_def.type is int:
+            property_type = 'int'
+        elif property_def.type is bool:
+            property_type = 'bool'
+        elif self.arg == 'label':
+            property_type = 'label'
+        else:
+            property_type = 'str'
+
+        try:
+            value = property_def.get_default(dest)
+        except AttributeError:
+            return None
+        else:
+            return 'type={} {}'.format(
+                property_type,
+                str(value) if value is not None else '')
+
     @qubes.api.method('admin.vm.property.Set',
         scope='local', write=True)
     @asyncio.coroutine
