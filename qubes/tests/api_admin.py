@@ -185,7 +185,7 @@ class TC_00_VMs(AdminAPITestCase):
             mock.assert_called_once_with(self.vm, 'test-net')
         self.app.save.assert_called_once_with()
 
-    def test_0301_vm_property_set_vm_none(self):
+    def test_031_vm_property_set_vm_none(self):
         netvm = self.app.add_new_vm('AppVM', label='red', name='test-net',
             template='test-template', provides_network=True)
 
