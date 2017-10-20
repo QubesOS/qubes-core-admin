@@ -150,6 +150,7 @@ class TC_20_DispVMMixin(object):
                 p.stdin.write("xterm -e "
                     "\"sh -c 'echo \\\"\033]0;{}\007\\\";read x;'\"\n".
                     format(window_title).encode())
+                self.loop.run_until_complete(p.stdin.drain())
                 self.wait_for_window(window_title)
 
                 time.sleep(0.5)
@@ -226,7 +227,6 @@ class TC_20_DispVMMixin(object):
 
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
-    @unittest.expectedFailure
     def test_030_edit_file(self):
         self.testvm1 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
                                      name=self.make_vm_name('vm1'),
