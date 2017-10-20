@@ -100,6 +100,15 @@ class AdminVM(qubes.vm.BaseVM):
         return True
 
     @staticmethod
+    def is_halted():
+        '''Always :py:obj:`False`.
+
+        .. seealso:
+           :py:meth:`qubes.vm.qubesvm.QubesVM.is_halted`
+        '''
+        return False
+
+    @staticmethod
     def get_power_state():
         '''Always ``'Running'``.
 
