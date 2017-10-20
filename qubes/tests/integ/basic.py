@@ -124,6 +124,68 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
             # one after another, private volume is gone
             self.loop.run_until_complete(self.vm.storage.verify())
 
+    def _test_201_on_domain_pre_start(self, vm, event, **_kwargs):
+        '''Simulate domain crash just after startup'''
+        if not self.domain_shutdown_handled and not self.test_failure_reason:
+            self.test_failure_reason = \
+                'domain-shutdown event was not dispatched before subsequent ' \
+                'start'
+        self.domain_shutdown_handled = False
+
+    def _test_201_domain_shutdown_handler(self, vm, event, **kwargs):
+        if self.domain_shutdown_handled and not self.test_failure_reason:
+            self.test_failure_reason = 'domain-shutdown event received twice'
+        self.domain_shutdown_handled = True
+
+    @unittest.expectedFailure
+    def test_201_shutdown_event_race(self):
+        '''Regression test for 3164 - pure events edition'''
+        vmname = self.make_vm_name('appvm')
+
+        self.vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=vmname, template=self.app.default_template,
+            label='red')
+        # help the luck a little - don't wait for qrexec to easier win the race
+        self.vm.features['qrexec'] = False
+        self.loop.run_until_complete(self.vm.create_on_disk())
+
+        # do not throw exception from inside event handler - test framework
+        # will not recover from it (various objects leaks)
+        self.test_failure_reason = None
+        self.domain_shutdown_handled = False
+        self.vm.add_handler('domain-shutdown',
+            self._test_201_domain_shutdown_handler)
+
+        self.loop.run_until_complete(self.vm.start())
+
+        if self.test_failure_reason:
+            self.fail(self.test_failure_reason)
+
+        self.vm.add_handler('domain-pre-start',
+            self._test_201_on_domain_pre_start)
+
+        # kill it the way it does not give a chance for domain-shutdown it
+        # execute
+        self.vm.libvirt_domain.destroy()
+
+        # now, lets try to start the VM again, before domain-shutdown event
+        # got handled (#3164), and immediately trigger second domain-shutdown
+        self.vm.add_handler('domain-start', self._test_200_on_domain_start)
+        self.loop.run_until_complete(self.vm.start())
+
+        if self.test_failure_reason:
+            self.fail(self.test_failure_reason)
+
+        # and give a chance for both domain-shutdown handlers to execute
+        self.loop.run_until_complete(asyncio.sleep(1))
+
+        if self.test_failure_reason:
+            self.fail(self.test_failure_reason)
+
+        self.assertTrue(self.domain_shutdown_handled,
+            'second domain-shutdown event was not dispatched after domain '
+            'shutdown')
+
 
 class TC_01_Properties(qubes.tests.SystemTestCase):
     # pylint: disable=attribute-defined-outside-init
