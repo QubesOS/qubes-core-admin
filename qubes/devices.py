@@ -244,7 +244,7 @@ class DeviceCollection(object):
 
         if not device_assignment.persistent and self._vm.is_halted():
             raise qubes.exc.QubesVMNotRunningError(self._vm,
-                "Devices can only be attached  non-persistent to a running vm")
+                "VM not running, can only attach device with persistent flag")
         device = device_assignment.device
         if device in self.assignments():
             raise DeviceAlreadyAttached(
