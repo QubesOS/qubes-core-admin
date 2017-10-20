@@ -656,6 +656,16 @@ class SystemTestCase(QubesTestCase):
 
         self.addCleanup(self.cleanup_app)
 
+        self.app.add_handler('domain-delete', self.close_qdb_on_remove)
+
+    def close_qdb_on_remove(self, app, event, vm, **kwargs):
+        # only close QubesDB connection, do not perform other (destructive)
+        # actions of vm.close()
+        if vm._qdb_connection_watch is not None:
+            asyncio.get_event_loop().remove_reader(
+                vm._qdb_connection_watch.watch_fd())
+            vm._qdb_connection_watch.close()
+            vm._qdb_connection_watch = None
 
     def cleanup_app(self):
         self.remove_test_vms()

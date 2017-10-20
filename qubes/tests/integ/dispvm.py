@@ -53,7 +53,6 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         self.app.default_dispvm = None
         super(TC_04_DispVM, self).tearDown()
 
-    @unittest.expectedFailure
     def test_002_cleanup(self):
         self.loop.run_until_complete(self.testvm.start())
 
@@ -71,7 +70,6 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         self.loop.run_until_complete(asyncio.sleep(1))
         self.assertNotIn(dispvm_name, self.app.domains)
 
-    @unittest.expectedFailure
     def test_003_cleanup_destroyed(self):
         """
         Check if DispVM is properly removed even if it terminated itself (#1660)
@@ -160,10 +158,14 @@ class TC_20_DispVMMixin(object):
                 self.wait_for_window(window_title, show=False)
             finally:
                 p.stdin.close()
+                del p
         finally:
             self.loop.run_until_complete(dispvm.cleanup())
             dispvm_name = dispvm.name
             del dispvm
+
+        # give it a time for shutdown + cleanup
+        self.loop.run_until_complete(asyncio.sleep(2))
 
         self.assertNotIn(dispvm_name, self.app.domains,
                           "DispVM not removed from qubes.xml")
