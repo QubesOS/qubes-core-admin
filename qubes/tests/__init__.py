@@ -953,7 +953,7 @@ class SystemTestCase(QubesTestCase):
         wait_count = 0
         while subprocess.call(['xdotool', 'search', '--name', title],
                 stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) \
-                == int(not show):
+                != int(not show):
             wait_count += 1
             if wait_count > timeout*10:
                 self.fail("Timeout while waiting for {} window to {}".format(
