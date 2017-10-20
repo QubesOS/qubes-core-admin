@@ -317,6 +317,17 @@ class NetVMMixin(qubes.events.Emitter):
             self.untrusted_qdb.rm(mapped_ip_base + '/visible-gateway')
 
 
+    @qubes.events.handler('property-pre-del:netvm')
+    def on_property_pre_del_netvm(self, event, name, oldvalue=None):
+        ''' Sets the the NetVM to default NetVM '''
+        # pylint: disable=unused-argument
+        # we are changing to default netvm
+        newvalue = type(self).netvm.get_default(self)
+        if newvalue == oldvalue:
+            return
+        self.fire_event('property-pre-set:netvm', pre_event=True,
+            name='netvm', newvalue=newvalue, oldvalue=oldvalue)
+
     @qubes.events.handler('property-del:netvm')
     def on_property_del_netvm(self, event, name, oldvalue=None):
         ''' Sets the the NetVM to default NetVM '''
