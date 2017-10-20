@@ -526,10 +526,10 @@ class TC_30_Gui_daemon(qubes.tests.SystemTestCase):
         self.assertEqual(clipboard_source, "",
                           "Clipboard not wiped after paste - owner")
 
-class TC_05_StandaloneVM(qubes.tests.SystemTestCase):
+class TC_05_StandaloneVMMixin(object):
     def setUp(self):
-        super(TC_05_StandaloneVM, self).setUp()
-        self.init_default_template()
+        super(TC_05_StandaloneVMMixin, self).setUp()
+        self.init_default_template(self.template)
 
     def test_000_create_start(self):
         self.testvm1 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
@@ -541,8 +541,6 @@ class TC_05_StandaloneVM(qubes.tests.SystemTestCase):
         self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.testvm1.get_power_state(), "Running")
 
-    # current qubes-core-agent do not call resize2fs on VM startup, also #3173
-    @unittest.expectedFailure
     def test_100_resize_root_img(self):
         self.testvm1 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
                                      name=self.make_vm_name('vm1'), label='red')
@@ -566,8 +564,6 @@ class TC_05_StandaloneVM(qubes.tests.SystemTestCase):
         # some safety margin for FS metadata
         self.assertGreater(int(new_size.strip()), 19 * 1024 ** 2)
 
-    # See issue #3173
-    @unittest.expectedFailure
     def test_101_resize_root_img_online(self):
         self.testvm1 = self.app.add_new_vm(qubes.vm.standalonevm.StandaloneVM,
                                      name=self.make_vm_name('vm1'), label='red')
@@ -592,5 +588,15 @@ class TC_05_StandaloneVM(qubes.tests.SystemTestCase):
         # some safety margin for FS metadata
         self.assertGreater(int(new_size.strip()), 19 * 1024 ** 2)
 
+
+def load_tests(loader, tests, pattern):
+    for template in qubes.tests.list_templates():
+        tests.addTests(loader.loadTestsFromTestCase(
+            type(
+                'TC_05_StandaloneVM_' + template,
+                (TC_05_StandaloneVMMixin, qubes.tests.SystemTestCase),
+                {'template': template})))
+
+    return tests
 
 # vim: ts=4 sw=4 et
