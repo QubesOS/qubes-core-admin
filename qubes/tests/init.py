@@ -83,8 +83,10 @@ class TC_10_property(qubes.tests.QubesTestCase):
 
     def test_010_set(self):
         self.holder.testprop1 = 'testvalue'
-        self.assertEventFired(self.holder, 'property-pre-set:testprop1')
-        self.assertEventFired(self.holder, 'property-set:testprop1')
+        self.assertEventFired(self.holder, 'property-pre-set:testprop1',
+            kwargs={'name': 'testprop1', 'newvalue': 'testvalue'})
+        self.assertEventFired(self.holder, 'property-set:testprop1',
+            kwargs={'name': 'testprop1', 'newvalue': 'testvalue'})
 
     def test_020_get(self):
         self.holder.testprop1 = 'testvalue'
@@ -110,6 +112,14 @@ class TC_10_property(qubes.tests.QubesTestCase):
         self.assertEqual(holder.testprop1, 'defaultvalue')
         holder.testprop1 = 'testvalue'
         self.assertEqual(holder.testprop1, 'testvalue')
+        self.assertEventFired(holder, 'property-pre-set:testprop1',
+            kwargs={'name': 'testprop1',
+                'newvalue': 'testvalue',
+                'oldvalue': 'defaultvalue'})
+        self.assertEventFired(holder, 'property-set:testprop1',
+            kwargs={'name': 'testprop1',
+                'newvalue': 'testvalue',
+                'oldvalue': 'defaultvalue'})
 
     def test_030_set_setter(self):
         def setter(self2, prop, value):
@@ -124,6 +134,10 @@ class TC_10_property(qubes.tests.QubesTestCase):
 
         holder.testprop1 = 'testvalue'
         self.assertEqual(holder.testprop1, 'settervalue')
+        self.assertEventFired(holder, 'property-pre-set:testprop1',
+            kwargs={'name': 'testprop1', 'newvalue': 'settervalue'})
+        self.assertEventFired(holder, 'property-set:testprop1',
+            kwargs={'name': 'testprop1', 'newvalue': 'settervalue'})
 
     def test_031_set_type(self):
         class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
@@ -133,6 +147,10 @@ class TC_10_property(qubes.tests.QubesTestCase):
         holder.testprop1 = '5'
         self.assertEqual(holder.testprop1, 5)
         self.assertNotEqual(holder.testprop1, '5')
+        self.assertEventFired(holder, 'property-pre-set:testprop1',
+            kwargs={'name': 'testprop1', 'newvalue': 5})
+        self.assertEventFired(holder, 'property-set:testprop1',
+            kwargs={'name': 'testprop1', 'newvalue': 5})
 
     def test_080_delete(self):
         self.holder.testprop1 = 'testvalue'
@@ -146,6 +164,11 @@ class TC_10_property(qubes.tests.QubesTestCase):
 
         with self.assertRaises(AttributeError):
             self.holder.testprop1
+
+        self.assertEventFired(self.holder, 'property-pre-del:testprop1',
+            kwargs={'name': 'testprop1', 'oldvalue': 'testvalue'})
+        self.assertEventFired(self.holder, 'property-del:testprop1',
+            kwargs={'name': 'testprop1', 'oldvalue': 'testvalue'})
 
     def test_081_delete_by_assign(self):
         self.holder.testprop1 = 'testvalue'
@@ -175,6 +198,10 @@ class TC_10_property(qubes.tests.QubesTestCase):
         del holder.testprop1
 
         self.assertEqual(holder.testprop1, 'defaultvalue')
+        self.assertEventFired(holder, 'property-pre-del:testprop1', kwargs={
+            'name': 'testprop1', 'oldvalue': 'testvalue'})
+        self.assertEventFired(holder, 'property-del:testprop1', kwargs={
+            'name': 'testprop1', 'oldvalue': 'testvalue'})
 
     def test_090_write_once_set(self):
         class MyTestHolder(qubes.tests.TestEmitter, qubes.PropertyHolder):
