@@ -769,7 +769,8 @@ class VmUpdatesMixin(object):
         self.testvm1 = self.app.domains[self.testvm1.qid]
         self.loop.run_until_complete(self.testvm1.start())
         p = self.loop.run_until_complete(
-            self.testvm1.run(self.update_cmd, user='root'))
+            self.testvm1.run(self.update_cmd, user='root',
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE))
         (stdout, stderr) = self.loop.run_until_complete(p.communicate())
         self.assertIn(p.returncode, self.exit_code_ok,
             '{}: {}\n{}'.format(self.update_cmd, stdout, stderr))
@@ -844,11 +845,13 @@ SHA256:
         if self.template.count("debian") or self.template.count("whonix"):
             self.create_repo_apt()
             self.loop.run_until_complete(self.netvm_repo.run(
-                'cd /tmp/apt-repo && python -m SimpleHTTPServer 8080'))
+                'cd /tmp/apt-repo && python -m SimpleHTTPServer 8080',
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
         elif self.template.count("fedora"):
             self.create_repo_yum()
             self.loop.run_until_complete(self.netvm_repo.run(
-                'cd /tmp/yum-repo && python -m SimpleHTTPServer 8080'))
+                'cd /tmp/yum-repo && python -m SimpleHTTPServer 8080',
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
         else:
             # not reachable...
             self.skipTest("Template {} not supported by this test".format(
@@ -923,14 +926,16 @@ SHA256:
 
             # install test package
             p = self.loop.run_until_complete(self.testvm1.run(
-                self.install_cmd.format('test-pkg'), user='root'))
+                self.install_cmd.format('test-pkg'), user='root',
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE))
             (stdout, stderr) = self.loop.run_until_complete(p.communicate())
             self.assertIn(self.loop.run_until_complete(p.wait()), self.exit_code_ok,
                 '{}: {}\n{}'.format(self.update_cmd, stdout, stderr))
 
             # verify if it was really installed
             p = self.loop.run_until_complete(self.testvm1.run(
-                self.install_test_cmd.format('test-pkg'), user='root'))
+                self.install_test_cmd.format('test-pkg'), user='root',
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE))
             (stdout, stderr) = self.loop.run_until_complete(p.communicate())
             self.assertIn(self.loop.run_until_complete(p.wait()), self.exit_code_ok,
                 '{}: {}\n{}'.format(self.update_cmd, stdout, stderr))

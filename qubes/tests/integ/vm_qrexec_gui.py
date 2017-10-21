@@ -774,14 +774,14 @@ class TC_00_AppVMMixin(object):
         finally:
             self.app.clockvm = None
 
-    @unittest.expectedFailure
     def test_250_resize_private_img(self):
         """
         Test private.img resize, both offline and online
         :return:
         """
         # First offline test
-        self.testvm1.storage.resize('private', 4*1024**3)
+        self.loop.run_until_complete(
+            self.testvm1.storage.resize('private', 4*1024**3))
         self.loop.run_until_complete(self.testvm1.start())
         df_cmd = '( df --output=size /rw || df /rw | awk \'{print $2}\' )|' \
                  'tail -n 1'
@@ -797,7 +797,7 @@ class TC_00_AppVMMixin(object):
         new_size, _ = self.loop.run_until_complete(
             self.testvm1.run_for_stdio(df_cmd))
         # some safety margin for FS metadata
-        self.assertGreater(int(new_size.strip()), 5.8*1024**2)
+        self.assertGreater(int(new_size.strip()), 5.7*1024**2)
 
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
@@ -902,8 +902,11 @@ int main(int argc, char **argv) {
         # passing is unreliable while the process is still running
         alloc1.stdin.write(b'\n')
         yield from alloc1.stdin.drain()
-        alloc_out = yield from alloc1.stdout.read(
-            len('Stage1\nStage2\nStage3\n'))
+        try:
+            alloc_out = yield from alloc1.stdout.readexactly(
+                len('Stage1\nStage2\nStage3\n'))
+        except asyncio.IncompleteReadError as e:
+            alloc_out = e.partial
 
         if b'Stage3' not in alloc_out:
             # read stderr only in case of failed assert (), but still have nice
@@ -923,11 +926,11 @@ int main(int argc, char **argv) {
         # help xdotool a little...
         yield from asyncio.sleep(2)
         # get window ID
-        winid = yield from asyncio.get_event_loop().run_in_executor(
+        winid = (yield from asyncio.get_event_loop().run_in_executor(None,
             subprocess.check_output,
             ['xdotool', 'search', '--sync', '--onlyvisible', '--class',
-                self.testvm1.name + ':.*erminal']).decode()
-        xprop = yield from asyncio.get_event_loop().run_in_executor(
+                self.testvm1.name + ':.*erminal'])).decode()
+        xprop = yield from asyncio.get_event_loop().run_in_executor(None,
             subprocess.check_output,
             ['xprop', '-notype', '-id', winid, '_QUBES_VMWINDOWID'])
         vm_winid = xprop.decode().strip().split(' ')[4]
@@ -943,7 +946,7 @@ int main(int argc, char **argv) {
         # some memory
         alloc2 = yield from self.testvm1.run(
             'ulimit -l unlimited; /home/user/allocator {}'.format(memory_pages),
-            user='root')
+            user='root', stdout=subprocess.PIPE)
         yield from alloc2.stdout.read(len('Stage1\n'))
 
         # wait for damage notify - top updates every 3 sec by default
@@ -955,7 +958,7 @@ int main(int argc, char **argv) {
         vm_image, _ = yield from self.testvm1.run_for_stdio(
             'import -window {} pnm:-'.format(vm_winid))
 
-        dom0_image = yield from asyncio.get_event_loop().run_in_executor(
+        dom0_image = yield from asyncio.get_event_loop().run_in_executor(None,
             subprocess.check_output, ['import', '-window', winid, 'pnm:-'])
 
         if vm_image != dom0_image:
