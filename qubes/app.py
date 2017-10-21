@@ -1183,7 +1183,7 @@ class Qubes(qubes.PropertyHolder):
             return
 
         if event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
-            vm.fire_event('domain-shutdown')
+            vm.on_libvirt_domain_stopped()
 
     @qubes.events.handler('domain-pre-delete')
     def on_domain_pre_deleted(self, event, vm):

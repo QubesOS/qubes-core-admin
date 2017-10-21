@@ -137,7 +137,6 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
             self.test_failure_reason = 'domain-shutdown event received twice'
         self.domain_shutdown_handled = True
 
-    @unittest.expectedFailure
     def test_201_shutdown_event_race(self):
         '''Regression test for 3164 - pure events edition'''
         vmname = self.make_vm_name('appvm')
