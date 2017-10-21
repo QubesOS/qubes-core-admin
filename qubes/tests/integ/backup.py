@@ -27,6 +27,9 @@ import os
 import shutil
 
 import sys
+
+import asyncio
+
 import qubes
 import qubes.backup
 import qubes.exc
@@ -37,6 +40,14 @@ import qubes.vm
 import qubes.vm.appvm
 import qubes.vm.templatevm
 import qubes.vm.qubesvm
+
+try:
+    import qubesadmin.backup.restore
+    import qubesadmin.exc
+    restore_available = True
+except ImportError:
+    restore_available = False
+
 
 # noinspection PyAttributeOutsideInit
 class BackupTestsMixin(object):
@@ -65,15 +76,15 @@ class BackupTestsMixin(object):
 
         self.error_handler = self.BackupErrorHandler(self.error_detected,
             level=logging.WARNING)
-        backup_log = logging.getLogger('qubes.backup')
+        backup_log = logging.getLogger('qubesadmin.backup')
         backup_log.addHandler(self.error_handler)
 
     def tearDown(self):
-        super(BackupTestsMixin, self).tearDown()
         shutil.rmtree(self.backupdir)
 
         backup_log = logging.getLogger('qubes.backup')
         backup_log.removeHandler(self.error_handler)
+        super(BackupTestsMixin, self).tearDown()
 
     def fill_image(self, path, size=None, sparse=False):
         block_size = 4096
@@ -112,7 +123,6 @@ class BackupTestsMixin(object):
         self.log.debug("Creating %s" % vmname)
         testvm1 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=vmname, template=template, label='red')
-        testvm1.uses_default_netvm = False
         testvm1.netvm = testnet
         self.loop.run_until_complete(
             testvm1.create_on_disk(pool=pool))
@@ -175,10 +185,18 @@ class BackupTestsMixin(object):
             else:
                 raise
 
+    def remove_vms(self, vms):
+        vms = list(vms)
+        for vm in vms:
+            vm.netvm = None
+            vm.default_dispvm = None
+        super(BackupTestsMixin, self).remove_vms(vms)
+
     def restore_backup(self, source=None, appvm=None, options=None,
                        expect_errors=None, manipulate_restore_info=None,
                        passphrase='qubes'):
-        self.skipTest('Test not converted to Qubes 4.0')
+        if not restore_available:
+            self.skipTest('qubesadmin module not available')
 
         if source is None:
             backupfile = os.path.join(self.backupdir,
@@ -186,19 +204,30 @@ class BackupTestsMixin(object):
         else:
             backupfile = source
 
-        with self.assertNotRaises(qubes.exc.QubesException):
-            restore_op = qubes.backup.BackupRestore(
-                self.app, backupfile, appvm, passphrase)
+        client_app = qubesadmin.Qubes()
+        if appvm:
+            appvm = self.loop.run_until_complete(
+                self.loop.run_in_executor(None,
+                    client_app.domains.__getitem__, appvm.name))
+        with self.assertNotRaises(qubesadmin.exc.QubesException):
+            restore_op = self.loop.run_until_complete(
+                self.loop.run_in_executor(None,
+                    qubesadmin.backup.restore.BackupRestore,
+                    client_app, backupfile, appvm, passphrase))
             if options:
                 for key, value in options.items():
                     setattr(restore_op.options, key, value)
-            restore_info = restore_op.get_restore_info()
+            restore_info = self.loop.run_until_complete(
+                self.loop.run_in_executor(None,
+                    restore_op.get_restore_info))
         if callable(manipulate_restore_info):
             restore_info = manipulate_restore_info(restore_info)
         self.log.debug(restore_op.get_restore_summary(restore_info))
 
-        with self.assertNotRaises(qubes.exc.QubesException):
-            restore_op.restore_do(restore_info)
+        with self.assertNotRaises(qubesadmin.exc.QubesException):
+            self.loop.run_until_complete(
+                self.loop.run_in_executor(None,
+                    restore_op.restore_do, restore_info))
 
         errors = []
         if expect_errors is None:
@@ -230,7 +259,7 @@ class BackupTestsMixin(object):
             for name, volume in vm.volumes.items():
                 if not volume.rw or not volume.save_on_stop:
                     continue
-                vol_path = vm.storage.get_pool(volume).export(volume)
+                vol_path = volume.export()
                 hasher = hashlib.sha1()
                 with open(vol_path, 'rb') as afile:
                     for buf in iter(lambda: afile.read(4096000), b''):
@@ -238,7 +267,37 @@ class BackupTestsMixin(object):
                 hashes[vm.name][name] = hasher.hexdigest()
         return hashes
 
-    def assertCorrectlyRestored(self, orig_vms, orig_hashes):
+    def get_vms_info(self, vms):
+        ''' Get VM metadata, for comparing VM later without holding actual
+        reference to the old object.'''
+
+        vms_info = {}
+        for vm in vms:
+            vm_info = {
+                'properties': {},
+                'default': {},
+                'devices': {},
+            }
+            for prop in ('name', 'kernel',
+                    'memory', 'maxmem', 'kernelopts',
+                    'services', 'vcpus', 'features'
+                    'include_in_backups', 'default_user', 'qrexec_timeout',
+                    'autostart', 'pci_strictreset', 'debug',
+                    'internal', 'netvm', 'template', 'label'):
+                if not hasattr(vm, prop):
+                    continue
+                vm_info['properties'][prop] = str(getattr(vm, prop))
+                vm_info['default'][prop] = vm.property_is_default(prop)
+            for dev_class in vm.devices.keys():
+                vm_info['devices'][dev_class] = {}
+                for dev_ass in vm.devices[dev_class].assignments():
+                    vm_info['devices'][dev_class][str(dev_ass.device)] = \
+                        dev_ass.options
+            vms_info[vm.name] = vm_info
+
+        return vms_info
+
+    def assertCorrectlyRestored(self, vms_info, orig_hashes):
         ''' Verify if restored VMs are identical to those before backup.
 
         :param orig_vms: collection of original QubesVM objects
@@ -246,114 +305,108 @@ class BackupTestsMixin(object):
             before backup
         :return:
         '''
-        for vm in orig_vms:
-            self.assertIn(vm.name, self.app.domains)
-            restored_vm = self.app.domains[vm.name]
-            for prop in ('name', 'kernel',
-                    'memory', 'maxmem', 'kernelopts',
-                    'services', 'vcpus', 'features'
-                    'include_in_backups', 'default_user', 'qrexec_timeout',
-                    'autostart', 'pci_strictreset', 'debug',
-                    'internal'):
-                if not hasattr(vm, prop):
-                    continue
+        for vm_name in vms_info:
+            vm_info = vms_info[vm_name]
+            self.assertIn(vm_name, self.app.domains)
+            restored_vm = self.app.domains[vm_name]
+            for prop in vm_info['properties']:
                 self.assertEqual(
-                    getattr(vm, prop), getattr(restored_vm, prop),
+                    vm_info['properties'][prop],
+                    str(getattr(restored_vm, prop)),
                     "VM {} - property {} not properly restored".format(
-                        vm.name, prop))
-            for prop in ('netvm', 'template', 'label'):
-                if not hasattr(vm, prop):
-                    continue
-                orig_value = getattr(vm, prop)
-                restored_value = getattr(restored_vm, prop)
-                if orig_value and restored_value:
-                    self.assertEqual(orig_value.name, restored_value.name,
-                        "VM {} - property {} not properly restored".format(
-                            vm.name, prop))
-                else:
-                    self.assertEqual(orig_value, restored_value,
-                        "VM {} - property {} not properly restored".format(
-                            vm.name, prop))
-            for dev_class in vm.devices.keys():
-                for dev in vm.devices[dev_class]:
-                    self.assertIn(dev, restored_vm.devices[dev_class],
-                        "VM {} - {} device not restored".format(
-                            vm.name, dev_class))
+                        vm_name, prop))
+                self.assertEqual(
+                    vm_info['default'][prop],
+                    restored_vm.property_is_default(prop),
+                    "VM {} - property {} differs in being default".format(
+                        vm_name, prop))
+            for dev_class in vm_info['devices']:
+                for dev in vm_info['devices'][dev_class]:
+                    found = False
+                    for restored_dev_ass in restored_vm.devices[
+                            dev_class].assignments():
+                        if str(restored_dev_ass.device) == dev:
+                            found = True
+                            self.assertEqual(vm_info['devices'][dev_class][dev],
+                                restored_dev_ass.options,
+                                'VM {} - {} device {} options mismatch'.format(
+                                    vm_name, dev_class, str(dev)))
+                    self.assertTrue(found,
+                        'VM {} - {} device {} not restored'.format(
+                            vm_name, dev_class, dev))
 
             if orig_hashes:
                 hashes = self.vm_checksum([restored_vm])[restored_vm.name]
-                self.assertEqual(orig_hashes[vm.name], hashes,
+                self.assertEqual(orig_hashes[vm_name], hashes,
                     "VM {} - disk images are not properly restored".format(
-                        vm.name))
+                        vm_name))
 
 
 class TC_00_Backup(BackupTestsMixin, qubes.tests.SystemTestCase):
     def test_000_basic_backup(self):
         vms = self.create_backup_vms()
-        orig_hashes = self.vm_checksum(vms)
-        self.make_backup(vms)
-        self.remove_vms(reversed(vms))
+        try:
+            orig_hashes = self.vm_checksum(vms)
+            vms_info = self.get_vms_info(vms)
+            self.make_backup(vms)
+            self.remove_vms(reversed(vms))
+        finally:
+            del vms
         self.restore_backup()
-        self.assertCorrectlyRestored(vms, orig_hashes)
-        self.remove_vms(reversed(vms))
+        self.assertCorrectlyRestored(vms_info, orig_hashes)
 
     def test_001_compressed_backup(self):
         vms = self.create_backup_vms()
-        orig_hashes = self.vm_checksum(vms)
-        self.make_backup(vms, compressed=True)
-        self.remove_vms(reversed(vms))
+        try:
+            orig_hashes = self.vm_checksum(vms)
+            vms_info = self.get_vms_info(vms)
+            self.make_backup(vms, compressed=True)
+            self.remove_vms(reversed(vms))
+        finally:
+            del vms
         self.restore_backup()
-        self.assertCorrectlyRestored(vms, orig_hashes)
-
-    def test_002_encrypted_backup(self):
-        vms = self.create_backup_vms()
-        orig_hashes = self.vm_checksum(vms)
-        self.make_backup(vms, encrypted=True)
-        self.remove_vms(reversed(vms))
-        self.restore_backup()
-        self.assertCorrectlyRestored(vms, orig_hashes)
-
-    def test_003_compressed_encrypted_backup(self):
-        vms = self.create_backup_vms()
-        orig_hashes = self.vm_checksum(vms)
-        self.make_backup(vms, compressed=True, encrypted=True)
-        self.remove_vms(reversed(vms))
-        self.restore_backup()
-        self.assertCorrectlyRestored(vms, orig_hashes)
+        self.assertCorrectlyRestored(vms_info, orig_hashes)
 
     def test_004_sparse_multipart(self):
         vms = []
+        try:
+            vmname = self.make_vm_name('testhvm2')
+            self.log.debug("Creating %s" % vmname)
 
-        vmname = self.make_vm_name('testhvm2')
-        self.log.debug("Creating %s" % vmname)
+            self.hvmtemplate = self.app.add_new_vm(
+                qubes.vm.templatevm.TemplateVM, name=vmname, virt_mode='hvm', label='red')
+            self.loop.run_until_complete(self.hvmtemplate.create_on_disk())
+            self.fill_image(
+                os.path.join(self.hvmtemplate.dir_path, '00file'),
+                195 * 1024 * 1024 - 4096 * 3)
+            self.fill_image(self.hvmtemplate.storage.export('private'),
+                            195 * 1024 * 1024 - 4096 * 3)
+            self.fill_image(self.hvmtemplate.storage.export('root'), 1024 * 1024 * 1024,
+                            sparse=True)
+            vms.append(self.hvmtemplate)
+            self.app.save()
+            orig_hashes = self.vm_checksum(vms)
+            vms_info = self.get_vms_info(vms)
 
-        hvmtemplate = self.app.add_new_vm(
-            qubes.vm.templatevm.TemplateVM, name=vmname, virt_mode='hvm', label='red')
-        hvmtemplate.create_on_disk()
-        self.fill_image(
-            os.path.join(hvmtemplate.dir_path, '00file'),
-            195 * 1024 * 1024 - 4096 * 3)
-        self.fill_image(hvmtemplate.storage.export('private'),
-                        195 * 1024 * 1024 - 4096 * 3)
-        self.fill_image(hvmtemplate.storage.export('root'), 1024 * 1024 * 1024,
-                        sparse=True)
-        vms.append(hvmtemplate)
-        self.app.save()
-        orig_hashes = self.vm_checksum(vms)
-
-        self.make_backup(vms)
-        self.remove_vms(reversed(vms))
-        self.restore_backup()
-        self.assertCorrectlyRestored(vms, orig_hashes)
-        # TODO check vm.backup_timestamp
+            self.make_backup(vms)
+            self.remove_vms(reversed(vms))
+            self.restore_backup()
+            self.assertCorrectlyRestored(vms_info, orig_hashes)
+            # TODO check vm.backup_timestamp
+        finally:
+            del vms
 
     def test_005_compressed_custom(self):
         vms = self.create_backup_vms()
-        orig_hashes = self.vm_checksum(vms)
-        self.make_backup(vms, compression_filter="bzip2")
-        self.remove_vms(reversed(vms))
-        self.restore_backup()
-        self.assertCorrectlyRestored(vms, orig_hashes)
+        try:
+            orig_hashes = self.vm_checksum(vms)
+            vms_info = self.get_vms_info(vms)
+            self.make_backup(vms, compression_filter="bzip2")
+            self.remove_vms(reversed(vms))
+            self.restore_backup()
+            self.assertCorrectlyRestored(vms_info, orig_hashes)
+        finally:
+            del vms
 
     def test_010_selective_restore(self):
         # create backup with internal dependencies (template, netvm etc)
@@ -368,27 +421,39 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.SystemTestCase):
                 restore_info.pop(name)
             return restore_info
         vms = self.create_backup_vms()
-        orig_hashes = self.vm_checksum(vms)
-        self.make_backup(vms, compression_filter="bzip2")
-        self.remove_vms(reversed(vms))
-        self.restore_backup(manipulate_restore_info=exclude_some)
-        for vm in vms:
-            if vm.name == self.make_vm_name('test1'):
-                # netvm was set to 'test-inst-test-net' - excluded
-                vm.netvm = qubes.property.DEFAULT
-            elif vm.name == self.make_vm_name('custom'):
-                # template was set to 'test-inst-template' - excluded
-                vm.template = self.app.default_template
-        vms = [vm for vm in vms if vm.name not in exclude]
-        self.assertCorrectlyRestored(vms, orig_hashes)
+        try:
+            orig_hashes = self.vm_checksum(vms)
+            vms_info = self.get_vms_info(vms)
+            self.make_backup(vms, compression_filter="bzip2")
+            self.remove_vms(reversed(vms))
+            self.restore_backup(manipulate_restore_info=exclude_some)
+            for vm_name in vms_info:
+                if vm_name == self.make_vm_name('test1'):
+                    # netvm was set to 'test-inst-test-net' - excluded
+                    vms_info[vm_name]['properties']['netvm'] = \
+                        str(self.app.default_netvm)
+                    vms_info[vm_name]['default']['netvm'] = True
+                elif vm_name == self.make_vm_name('custom'):
+                    # template was set to 'test-inst-template' - excluded
+                    vms_info[vm_name]['properties']['template'] = \
+                        str(self.app.default_template)
+            for excluded in exclude:
+                vms_info.pop(excluded, None)
+            self.assertCorrectlyRestored(vms_info, orig_hashes)
+        finally:
+            del vms
 
     def test_020_encrypted_backup_non_ascii(self):
         vms = self.create_backup_vms()
-        orig_hashes = self.vm_checksum(vms)
-        self.make_backup(vms, encrypted=True, passphrase=u'zażółć gęślą jaźń')
-        self.remove_vms(reversed(vms))
-        self.restore_backup(passphrase=u'zażółć gęślą jaźń')
-        self.assertCorrectlyRestored(vms, orig_hashes)
+        try:
+            orig_hashes = self.vm_checksum(vms)
+            vms_info = self.get_vms_info(vms)
+            self.make_backup(vms, passphrase=u'zażółć gęślą jaźń')
+            self.remove_vms(reversed(vms))
+            self.restore_backup(passphrase=u'zażółć gęślą jaźń')
+            self.assertCorrectlyRestored(vms_info, orig_hashes)
+        finally:
+            del vms
 
     def test_100_backup_dom0_no_restore(self):
         # do not write it into dom0 home itself...
@@ -403,19 +468,28 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.SystemTestCase):
         :return:
         """
         vms = self.create_backup_vms()
-        orig_hashes = self.vm_checksum(vms)
-        self.make_backup(vms)
-        self.remove_vms(reversed(vms))
-        test_dir = vms[0].dir_path
-        os.mkdir(test_dir)
-        with open(os.path.join(test_dir, 'some-file.txt'), 'w') as f:
-            f.write('test file\n')
-        self.restore_backup(
-            expect_errors=[
-                '*** Directory {} already exists! It has been moved'.format(
-                    test_dir)
+        try:
+            orig_hashes = self.vm_checksum(vms)
+            vms_info = self.get_vms_info(vms)
+            self.make_backup(vms)
+            test_dir = vms[0].dir_path
+            self.remove_vms(reversed(vms))
+            os.mkdir(test_dir)
+            with open(os.path.join(test_dir, 'some-file.txt'), 'w') as f:
+                f.write('test file\n')
+            self.restore_backup(expect_errors=[
+                'Error restoring VM test-inst-test-net, skipping: Got empty '
+                'response from qubesd. See journalctl in dom0 for details.',
+                'Error setting test-inst-test1.netvm to test-inst-test-net: '
+                '\'"No such domain: \\\'test-inst-test-net\\\'"\'',
             ])
-        self.assertCorrectlyRestored(vms, orig_hashes)
+            del vms_info['test-inst-test-net']
+            vms_info['test-inst-test1']['properties']['netvm'] = \
+                str(self.app.default_netvm)
+            vms_info['test-inst-test1']['default']['netvm'] = True
+            self.assertCorrectlyRestored(vms_info, orig_hashes)
+        finally:
+            del vms
 
     def test_210_auto_rename(self):
         """
@@ -423,16 +497,22 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.SystemTestCase):
         :return:
         """
         vms = self.create_backup_vms()
-        self.make_backup(vms)
-        self.restore_backup(options={
-            'rename_conflicting': True
-        })
-        for vm in vms:
-            with self.assertNotRaises(
-                    (qubes.exc.QubesVMNotFoundError, KeyError)):
-                restored_vm = self.app.domains[vm.name + '1']
-            if vm.netvm and not vm.property_is_default('netvm'):
-                self.assertEqual(restored_vm.netvm.name, vm.netvm.name + '1')
+        vms_info = self.get_vms_info(vms)
+        try:
+            self.make_backup(vms)
+            self.restore_backup(options={
+                'rename_conflicting': True
+            })
+            for vm_name in vms_info:
+                with self.assertNotRaises(
+                        (qubes.exc.QubesVMNotFoundError, KeyError)):
+                    restored_vm = self.app.domains[vm_name + '1']
+                if vms_info[vm_name]['properties']['netvm'] and \
+                        not vms_info[vm_name]['default']['netvm']:
+                    self.assertEqual(restored_vm.netvm.name,
+                        vms_info[vm_name]['properties']['netvm'] + '1')
+        finally:
+            del vms
 
     def _find_pool(self, volume_group, thin_pool):
         ''' Returns the pool matching the specified ``volume_group`` &
@@ -456,12 +536,15 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.SystemTestCase):
                 **qubes.tests.storage_lvm.POOL_CONF)
             self.created_pool = True
         vms = self.create_backup_vms(pool=self.pool)
-        orig_hashes = self.vm_checksum(vms)
-        self.make_backup(vms)
-        self.remove_vms(reversed(vms))
-        self.restore_backup()
-        self.assertCorrectlyRestored(vms, orig_hashes)
-        self.remove_vms(reversed(vms))
+        try:
+            orig_hashes = self.vm_checksum(vms)
+            vms_info = self.get_vms_info(vms)
+            self.make_backup(vms)
+            self.remove_vms(reversed(vms))
+            self.restore_backup()
+            self.assertCorrectlyRestored(vms_info, orig_hashes)
+        finally:
+            del vms
 
     @qubes.tests.storage_lvm.skipUnlessLvmPoolExists
     def test_301_restore_to_lvm(self):
@@ -473,17 +556,20 @@ class TC_00_Backup(BackupTestsMixin, qubes.tests.SystemTestCase):
                 **qubes.tests.storage_lvm.POOL_CONF)
             self.created_pool = True
         vms = self.create_backup_vms()
-        orig_hashes = self.vm_checksum(vms)
-        self.make_backup(vms)
-        self.remove_vms(reversed(vms))
-        self.restore_backup(options={'override_pool': self.pool.name})
-        self.assertCorrectlyRestored(vms, orig_hashes)
-        for vm in vms:
-            vm = self.app.domains[vm.name]
-            for volume in vm.volumes.values():
-                if volume.save_on_stop:
-                    self.assertEqual(volume.pool, self.pool.name)
-        self.remove_vms(reversed(vms))
+        try:
+            orig_hashes = self.vm_checksum(vms)
+            vms_info = self.get_vms_info(vms)
+            self.make_backup(vms)
+            self.remove_vms(reversed(vms))
+            self.restore_backup(options={'override_pool': self.pool.name})
+            self.assertCorrectlyRestored(vms_info, orig_hashes)
+            for vm_name in vms_info:
+                vm = self.app.domains[vm_name]
+                for volume in vm.volumes.values():
+                    if volume.save_on_stop:
+                        self.assertEqual(volume.pool, self.pool.name)
+        finally:
+            del vms
 
 
 class TC_10_BackupVMMixin(BackupTestsMixin):
@@ -499,28 +585,40 @@ class TC_10_BackupVMMixin(BackupTestsMixin):
 
     def test_100_send_to_vm_file_with_spaces(self):
         vms = self.create_backup_vms()
-        self.loop.run_until_complete(self.backupvm.start())
-        self.loop.run_until_complete(self.backupvm.run_for_stdio(
-            "mkdir '/var/tmp/backup directory'"))
-        self.make_backup(vms, target_vm=self.backupvm,
-            compressed=True, encrypted=True,
-            target='/var/tmp/backup directory')
-        self.remove_vms(reversed(vms))
-        (backup_path, _) = self.loop.run_until_complete(
-            self.backupvm.run_for_stdio("ls /var/tmp/backup*/qubes-backup*"))
-        backup_path = backup_path.decode().strip()
-        self.restore_backup(source=backup_path,
-                            appvm=self.backupvm)
+        orig_hashes = self.vm_checksum(vms)
+        vms_info = self.get_vms_info(vms)
+        try:
+            self.loop.run_until_complete(self.backupvm.start())
+            self.loop.run_until_complete(self.backupvm.run_for_stdio(
+                "mkdir '/var/tmp/backup directory'"))
+            self.make_backup(vms, target_vm=self.backupvm,
+                compressed=True,
+                target='/var/tmp/backup directory')
+            self.remove_vms(reversed(vms))
+            (backup_path, _) = self.loop.run_until_complete(
+                self.backupvm.run_for_stdio("ls /var/tmp/backup*/qubes-backup*"))
+            backup_path = backup_path.decode().strip()
+            self.restore_backup(source=backup_path,
+                                appvm=self.backupvm)
+            self.assertCorrectlyRestored(vms_info, orig_hashes)
+        finally:
+            del vms
 
     def test_110_send_to_vm_command(self):
         vms = self.create_backup_vms()
-        self.loop.run_until_complete(self.backupvm.start())
-        self.make_backup(vms, target_vm=self.backupvm,
-            compressed=True, encrypted=True,
-            target='dd of=/var/tmp/backup-test')
-        self.remove_vms(reversed(vms))
-        self.restore_backup(source='dd if=/var/tmp/backup-test',
-                            appvm=self.backupvm)
+        orig_hashes = self.vm_checksum(vms)
+        vms_info = self.get_vms_info(vms)
+        try:
+            self.loop.run_until_complete(self.backupvm.start())
+            self.make_backup(vms, target_vm=self.backupvm,
+                compressed=True,
+                target='dd of=/var/tmp/backup-test')
+            self.remove_vms(reversed(vms))
+            self.restore_backup(source='dd if=/var/tmp/backup-test',
+                                appvm=self.backupvm)
+            self.assertCorrectlyRestored(vms_info, orig_hashes)
+        finally:
+            del vms
 
     def test_110_send_to_vm_no_space(self):
         """
@@ -529,21 +627,24 @@ class TC_10_BackupVMMixin(BackupTestsMixin):
         :return:
         """
         vms = self.create_backup_vms()
-        self.loop.run_until_complete(self.backupvm.start())
-        self.loop.run_until_complete(self.backupvm.run_for_stdio(
-            # Debian 7 has too old losetup to handle loop-control device
-            "mknod /dev/loop0 b 7 0;"
-            "truncate -s 50M /home/user/backup.img && "
-            "mkfs.ext4 -F /home/user/backup.img && "
-            "mkdir /home/user/backup && "
-            "mount /home/user/backup.img /home/user/backup -o loop &&"
-            "chmod 777 /home/user/backup",
-            user="root"))
-        with self.assertRaises(qubes.exc.QubesException):
-            self.make_backup(vms, target_vm=self.backupvm,
-                compressed=False, encrypted=True,
-                target='/home/user/backup',
-                expect_failure=True)
+        try:
+            self.loop.run_until_complete(self.backupvm.start())
+            self.loop.run_until_complete(self.backupvm.run_for_stdio(
+                # Debian 7 has too old losetup to handle loop-control device
+                "mknod /dev/loop0 b 7 0;"
+                "truncate -s 50M /home/user/backup.img && "
+                "mkfs.ext4 -F /home/user/backup.img && "
+                "mkdir /home/user/backup && "
+                "mount /home/user/backup.img /home/user/backup -o loop &&"
+                "chmod 777 /home/user/backup",
+                user="root"))
+            with self.assertRaises(qubes.exc.QubesException):
+                self.make_backup(vms, target_vm=self.backupvm,
+                    compressed=False,
+                    target='/home/user/backup',
+                    expect_failure=True)
+        finally:
+            del vms
 
 
 def load_tests(loader, tests, pattern):
@@ -551,7 +652,7 @@ def load_tests(loader, tests, pattern):
         tests.addTests(loader.loadTestsFromTestCase(
             type(
                 'TC_10_BackupVM_' + template,
-                (TC_10_BackupVMMixin, qubes.tests.QubesTestCase),
+                (TC_10_BackupVMMixin, qubes.tests.SystemTestCase),
                 {'template': template})))
 
     return tests
