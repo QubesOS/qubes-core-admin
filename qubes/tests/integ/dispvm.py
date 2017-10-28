@@ -147,8 +147,11 @@ class TC_20_DispVMMixin(object):
             self.assertTrue(dispvm.is_running())
             try:
                 window_title = 'user@%s' % (dispvm.name,)
+                # close xterm on Return, but after short delay, to allow
+                # xdotool to send also keyup event
                 p.stdin.write("xterm -e "
-                    "\"sh -c 'echo \\\"\033]0;{}\007\\\";read x;'\"\n".
+                    "\"sh -c 'echo \\\"\033]0;{}\007\\\";read x;"
+                              "sleep 0.1;'\"\n".
                     format(window_title).encode())
                 self.loop.run_until_complete(p.stdin.drain())
                 self.wait_for_window(window_title)
