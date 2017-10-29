@@ -545,11 +545,29 @@ class TC_00_VMs(AdminAPITestCase):
     def test_150_pool_info(self):
         self.app.pools = {
             'pool1': unittest.mock.Mock(config={
-                'param1': 'value1', 'param2': 'value2'})
+                'param1': 'value1', 'param2': 'value2'},
+                usage=102400,
+                size=204800)
         }
         value = self.call_mgmt_func(b'admin.pool.Info', b'dom0', b'pool1')
 
-        self.assertEqual(value, 'param1=value1\nparam2=value2\n')
+        self.assertEqual(value,
+            'param1=value1\nparam2=value2\nsize=204800\nusage=102400\n')
+        self.assertFalse(self.app.save.called)
+
+    def test_151_pool_info_unsupported_size(self):
+        self.app.pools = {
+            'pool1': unittest.mock.Mock(config={
+                'param1': 'value1', 'param2': 'value2'})
+        }
+        type(self.app.pools['pool1']).size = unittest.mock.PropertyMock(
+            side_effect=NotImplementedError)
+        type(self.app.pools['pool1']).usage = unittest.mock.PropertyMock(
+            side_effect=NotImplementedError)
+        value = self.call_mgmt_func(b'admin.pool.Info', b'dom0', b'pool1')
+
+        self.assertEqual(value,
+            'param1=value1\nparam2=value2\n')
         self.assertFalse(self.app.save.called)
 
     @unittest.mock.patch('qubes.storage.pool_drivers')

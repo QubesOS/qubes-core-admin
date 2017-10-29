@@ -559,8 +559,19 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.fire_event_for_permission(pool=pool)
 
+        size_info = ''
+        try:
+            size_info += 'size={}\n'.format(pool.size)
+        except NotImplementedError:
+            pass
+        try:
+            size_info += 'usage={}\n'.format(pool.usage)
+        except NotImplementedError:
+            pass
+
         return ''.join('{}={}\n'.format(prop, val)
-            for prop, val in sorted(pool.config.items()))
+            for prop, val in sorted(pool.config.items())) + \
+            size_info
 
     @qubes.api.method('admin.pool.Add',
         scope='global', write=True)
