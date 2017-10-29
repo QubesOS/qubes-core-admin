@@ -144,6 +144,16 @@ class FilePool(qubes.storage.Pool):
     def list_volumes(self):
         return self._volumes
 
+    @property
+    def size(self):
+        statvfs = os.statvfs(self.dir_path)
+        return statvfs.f_frsize * statvfs.f_blocks
+
+    @property
+    def usage(self):
+        statvfs = os.statvfs(self.dir_path)
+        return statvfs.f_frsize * (statvfs.f_blocks - statvfs.f_bfree)
+
 
 class FileVolume(qubes.storage.Volume):
     ''' Parent class for the xen volumes implementation which expects a

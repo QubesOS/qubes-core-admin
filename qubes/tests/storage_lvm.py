@@ -26,6 +26,7 @@
 '''
 
 import os
+import subprocess
 import unittest
 
 import qubes.tests
@@ -157,6 +158,26 @@ class TC_00_ThinPool(ThinPoolBase):
         path = "/dev/%s" % volume.vid
         self.assertTrue(os.path.exists(path))
         volume.remove()
+
+    def test_004_size(self):
+        with self.assertNotRaises(NotImplementedError):
+            size = self.pool.size
+        pool_size = subprocess.check_output(['sudo', 'lvs', '--noheadings',
+            '-o', 'lv_size',
+            '--units', 'b', self.pool.volume_group + '/' + self.pool.thin_pool])
+        self.assertEqual(size, int(pool_size.strip()[:-1]))
+
+    def test_005_usage(self):
+        with self.assertNotRaises(NotImplementedError):
+            usage = self.pool.usage
+        pool_info = subprocess.check_output(['sudo', 'lvs', '--noheadings',
+            '-o', 'lv_size,data_percent',
+            '--units', 'b', self.pool.volume_group + '/' + self.pool.thin_pool])
+        pool_size, pool_usage = pool_info.strip().split()
+        pool_size = int(pool_size[:-1])
+        pool_usage = float(pool_usage)
+        self.assertEqual(usage, int(pool_size * pool_usage / 100))
+
 
 @skipUnlessLvmPoolExists
 class TC_01_ThinPool(ThinPoolBase, qubes.tests.SystemTestCase):

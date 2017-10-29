@@ -137,6 +137,22 @@ class ThinPool(qubes.storage.Pool):
             volumes += [ThinVolume(**config)]
         return volumes
 
+    @property
+    def size(self):
+        try:
+            return qubes.storage.lvm.size_cache[
+                self.volume_group + '/' + self.thin_pool]['size']
+        except KeyError:
+            return 0
+
+    @property
+    def usage(self):
+        try:
+            return qubes.storage.lvm.size_cache[
+                self.volume_group + '/' + self.thin_pool]['usage']
+        except KeyError:
+            return 0
+
 
 def init_cache(log=logging.getLogger('qubes.storage.lvm')):
     cmd = ['lvs', '--noheadings', '-o',
@@ -159,7 +175,7 @@ def init_cache(log=logging.getLogger('qubes.storage.lvm')):
         line = line.decode().strip()
         pool_name, pool_lv, name, size, usage_percent, attr, \
             origin = line.split(';', 6)
-        if '' in [pool_name, pool_lv, name, size, usage_percent]:
+        if '' in [pool_name, name, size, usage_percent]:
             continue
         name = pool_name + "/" + name
         size = int(size[:-1])  # Remove 'B' suffix

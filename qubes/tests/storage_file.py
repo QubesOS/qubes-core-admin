@@ -369,6 +369,21 @@ class TC_03_FilePool(qubes.tests.QubesTestCase):
 
         shutil.rmtree(pool_dir, ignore_errors=True)
 
+    def test_003_size(self):
+        pool = self.app.get_pool(self.POOL_NAME)
+        with self.assertNotRaises(NotImplementedError):
+            size = pool.size
+        statvfs = os.statvfs(self.POOL_DIR)
+        self.assertEqual(size, statvfs.f_blocks * statvfs.f_frsize)
+
+    def test_004_usage(self):
+        pool = self.app.get_pool(self.POOL_NAME)
+        with self.assertNotRaises(NotImplementedError):
+            usage = pool.usage
+        statvfs = os.statvfs(self.POOL_DIR)
+        self.assertEqual(usage,
+            statvfs.f_frsize * (statvfs.f_blocks - statvfs.f_bfree))
+
     def test_011_appvm_file_images(self):
         """ Check if all the needed image files are created for an AppVm"""
 
