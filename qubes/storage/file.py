@@ -429,7 +429,7 @@ def copy_file(source, destination):
         os.makedirs(parent_dir)
 
     try:
-        cmd = ['cp', '--sparse=auto',
+        cmd = ['cp', '--sparse=always',
                '--reflink=auto', source, destination]
         subprocess.check_call(cmd)
     except subprocess.CalledProcessError:
