@@ -358,6 +358,8 @@ class ThinVolume(qubes.storage.Volume):
             cmd = ['clone', str(src_volume), str(self)]
             qubes_lvm(cmd, self.log)
         else:
+            if src_volume.size != self.size:
+                self.resize(src_volume.size)
             src_path = src_volume.export()
             cmd = ['dd', 'if=' + src_path, 'of=/dev/' + self.vid,
                 'conv=sparse']
