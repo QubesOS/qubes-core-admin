@@ -575,6 +575,9 @@ class QubesVm(object):
         if name.endswith('-dm'):
             # avoid conflict with device model stubdomain names for HVMs
             return False
+        if name == 'default':
+            # disallow keywords as VM names
+            return False
         return re.match(r"^[a-zA-Z][a-zA-Z0-9_.-]*$", name) is not None
 
     def pre_rename(self, new_name):
