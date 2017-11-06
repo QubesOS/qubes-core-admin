@@ -694,7 +694,7 @@ class Backup(object):
         self.tmpdir = tempfile.mkdtemp()
         shutil.copy(qubes_xml, os.path.join(self.tmpdir, 'qubes.xml'))
         qubes_xml = os.path.join(self.tmpdir, 'qubes.xml')
-        backup_app = qubes.Qubes(qubes_xml)
+        backup_app = qubes.Qubes(qubes_xml, offline_mode=True)
         backup_app.events_enabled = False
 
         files_to_backup = self._files_to_backup
@@ -709,6 +709,7 @@ class Backup(object):
             backup_app.domains[qid].features['backup-path'] = vm_info.subdir
             backup_app.domains[qid].features['backup-size'] = vm_info.size
         backup_app.save()
+        del backup_app
 
         vmproc = None
         if self.target_vm is not None:
