@@ -23,6 +23,7 @@ from __future__ import unicode_literals
 import itertools
 import logging
 import functools
+import string
 import termios
 
 import asyncio
@@ -665,6 +666,13 @@ class Backup(object):
             raise
 
         if proc.returncode:
+            if proc.stderr is not None:
+                proc_stderr = (yield from proc.stderr.read())
+                proc_stderr = proc_stderr.decode('ascii', errors='ignore')
+                proc_stderr = ''.join(
+                    c for c in proc_stderr if c in string.printable and
+                                              c not in '\r\n%{}')
+                error_message += ': ' + proc_stderr
             raise qubes.exc.QubesException(error_message)
 
     @staticmethod
@@ -717,7 +725,9 @@ class Backup(object):
             # If APPVM, STDOUT is a PIPE
             read_fd, write_fd = os.pipe()
             vmproc = yield from self.target_vm.run_service('qubes.Backup',
-                stdin=read_fd, stderr=subprocess.PIPE)
+                stdin=read_fd,
+                stderr=subprocess.PIPE,
+                stdout=subprocess.DEVNULL)
             os.close(read_fd)
             os.write(write_fd, (self.target_dir.
                 replace("\r", "").replace("\n", "") + "\n").encode())
@@ -755,11 +765,12 @@ class Backup(object):
 
         vmproc_task = None
         if vmproc is not None:
-            vmproc_task = asyncio.ensure_future(self._cancel_on_error(
+            vmproc_task = asyncio.ensure_future(
                 self._monitor_process(vmproc,
                     'Writing backup to VM {} failed'.format(
-                        self.target_vm.name)),
-                    send_task))
+                        self.target_vm.name)))
+            asyncio.ensure_future(self._cancel_on_error(
+                vmproc_task, send_task))
 
         for file_name in header_files:
             yield from to_send.put(file_name)
@@ -783,10 +794,12 @@ class Backup(object):
             except:
                 yield from to_send.put(QUEUE_ERROR)
                 # in fact we may be handling CancelledError, induced by
-                # exception in send_task (and propagated by
+                # exception in send_task or vmproc_task (and propagated by
                 # self._cancel_on_error call above); in such a case this
                 # yield from will raise exception, covering CancelledError -
                 # this is intended behaviour
+                if vmproc_task:
+                    yield from vmproc_task
                 yield from send_task
                 raise
 
