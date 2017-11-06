@@ -285,9 +285,6 @@ class QubesDaemonProtocol(asyncio.Protocol):
             if self.debug:
                 self.app.log.exception(msg,
                     err, src, meth, dest, arg, len(untrusted_payload))
-            else:
-                self.app.log.info(msg,
-                    err, src, meth, dest, arg, len(untrusted_payload))
             if self.transport is not None:
                 self.send_exception(err)
                 self.transport.write_eof()
