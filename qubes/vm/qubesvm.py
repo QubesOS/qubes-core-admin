@@ -830,6 +830,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     libvirt.VIR_DOMAIN_START_PAUSED)
 
             except Exception as exc:
+                self.log.error('Start failed: %s', str(exc))
                 # let anyone receiving domain-pre-start know that startup failed
                 yield from self.fire_event_async('domain-start-failed',
                     reason=str(exc))
@@ -857,6 +858,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     start_guid=start_guid)
 
             except Exception as exc:  # pylint: disable=bare-except
+                self.log.error('Start failed: %s', str(exc))
                 if self.is_running() or self.is_paused():
                     # This avoids losing the exception if an exception is
                     # raised in self.force_shutdown(), because the vm is not
