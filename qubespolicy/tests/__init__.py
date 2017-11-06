@@ -685,6 +685,7 @@ class TC_20_Policy(qubes.tests.QubesTestCase):
             f.write('$tag:tag1 $type:AppVM allow\n')
             f.write('test-no-dvm $dispvm allow\n')
             f.write('test-standalone $dispvm allow\n')
+            f.write('test-standalone $adminvm allow\n')
         policy = qubespolicy.Policy('test.service', tmp_policy_dir)
         self.assertCountEqual(policy.collect_targets_for_ask(system_info,
             'test-vm1'), ['test-vm1', 'test-vm2', 'test-vm3',
@@ -698,7 +699,7 @@ class TC_20_Policy(qubes.tests.QubesTestCase):
         self.assertCountEqual(policy.collect_targets_for_ask(system_info,
             'test-standalone'), ['test-vm1', 'test-vm2', 'test-vm3',
             'default-dvm', 'test-no-dvm', 'test-invalid-dvm',
-            '$dispvm:default-dvm'])
+            '$dispvm:default-dvm', 'dom0'])
         self.assertCountEqual(policy.collect_targets_for_ask(system_info,
             'test-no-dvm'), [])
 
