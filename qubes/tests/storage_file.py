@@ -296,6 +296,22 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
         expected = vm_dir + '/volatile.img'
         self.assertVolumePath(vm, 'volatile', expected, rw=True)
 
+    def test_010_revisions_to_keep_reject_invalid(self):
+        ''' Check if TemplateVM volumes are propertly initialized '''
+        config = {
+            'name': 'root',
+            'pool': self.POOL_NAME,
+            'save_on_stop': True,
+            'rw': True,
+            'size': defaults['root_img_size'],
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.POOL_NAME).init_volume(vm, config)
+        self.assertEqual(volume.revisions_to_keep, 1)
+        with self.assertRaises((NotImplementedError, ValueError)):
+            volume.revisions_to_keep = 2
+        self.assertEqual(volume.revisions_to_keep, 1)
+
     def assertVolumePath(self, vm, dev_name, expected, rw=True):
         # :pylint: disable=invalid-name
         volumes = vm.volumes
@@ -383,6 +399,13 @@ class TC_03_FilePool(qubes.tests.QubesTestCase):
         statvfs = os.statvfs(self.POOL_DIR)
         self.assertEqual(usage,
             statvfs.f_frsize * (statvfs.f_blocks - statvfs.f_bfree))
+
+    def test_005_revisions_to_keep(self):
+        pool = self.app.get_pool(self.POOL_NAME)
+        self.assertEqual(pool.revisions_to_keep, 1)
+        with self.assertRaises((NotImplementedError, ValueError)):
+            pool.revisions_to_keep = 2
+        self.assertEqual(pool.revisions_to_keep, 1)
 
     def test_011_appvm_file_images(self):
         """ Check if all the needed image files are created for an AppVm"""
