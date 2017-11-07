@@ -386,6 +386,9 @@ class TC_00_BackupCompatibility(
             for prop, value in kwargs.items():
                 if prop == 'klass':
                     self.assertIsInstance(vm, value)
+                elif prop == 'features':
+                    self.assertEqual(dict(vm.features), value,
+                        'VM {} - features mismatch'.format(vm.name))
                 elif value is qubes.property.DEFAULT:
                     self.assertTrue(vm.property_is_default(prop),
                         'VM {} - property {} not default'.format(vm.name, prop))
@@ -415,17 +418,25 @@ class TC_00_BackupCompatibility(
             'qrexec_timeout': qubes.property.DEFAULT,
             'netvm': qubes.property.DEFAULT,
             'default_user': qubes.property.DEFAULT,
-            'internal': qubes.property.DEFAULT,
             'include_in_backups': True,
             'debug': False,
             'maxmem': 1535,
             'memory': 400,
+            'features': {
+                'service.meminfo-writer': '1',
+            },
+        }
+        template_standalone_props = common_props.copy()
+        template_standalone_props['features'] = {
+            'qrexec': '1',
+            'gui': '1',
+            'service.meminfo-writer': '1',
         }
         self.assertRestored("test-template-clone",
             klass=qubes.vm.templatevm.TemplateVM,
             label='green',
             provides_network=False,
-            **common_props)
+            **template_standalone_props)
         testproxy_props = common_props.copy()
         testproxy_props.update(
             label='red',
@@ -444,7 +455,7 @@ class TC_00_BackupCompatibility(
         self.assertRestored("test-standalonevm",
             klass=qubes.vm.standalonevm.StandaloneVM,
             label='blue',
-            **common_props)
+            **template_standalone_props)
         self.assertRestored("test-custom-template-appvm",
             klass=qubes.vm.appvm.AppVM,
             template='test-template-clone',
@@ -465,17 +476,25 @@ class TC_00_BackupCompatibility(
             'qrexec_timeout': qubes.property.DEFAULT,
             'netvm': qubes.property.DEFAULT,
             'default_user': qubes.property.DEFAULT,
-            'internal': qubes.property.DEFAULT,
             'include_in_backups': True,
             'debug': False,
             'maxmem': 1535,  # 4063 caped by 10*400
             'memory': 400,
+            'features': {
+                'service.meminfo-writer': '1',
+            },
+        }
+        template_standalone_props = common_props.copy()
+        template_standalone_props['features'] = {
+            'qrexec': '1',
+            'gui': '1',
+            'service.meminfo-writer': '1',
         }
         self.assertRestored("test-template-clone",
             klass=qubes.vm.templatevm.TemplateVM,
             label='green',
             provides_network=False,
-            **common_props)
+            **template_standalone_props)
         testproxy_props = common_props.copy()
         testproxy_props.update(
             label='red',
@@ -494,7 +513,7 @@ class TC_00_BackupCompatibility(
         self.assertRestored("test-standalonevm",
             klass=qubes.vm.standalonevm.StandaloneVM,
             label='blue',
-            **common_props)
+            **template_standalone_props)
         self.assertRestored("test-custom-template-appvm",
             klass=qubes.vm.appvm.AppVM,
             template='test-template-clone',
@@ -508,9 +527,9 @@ class TC_01_BackupCompatibilityIntoLVM(TC_00_BackupCompatibility):
         self.init_lvm_pool()
 
     def restore_backup(self, source=None, appvm=None, options=None,
-            expect_errors=None, manipulate_restore_info=None):
+            **kwargs):
         if options is None:
             options = {}
         options['override_pool'] = self.pool.name
         super(TC_01_BackupCompatibilityIntoLVM, self).restore_backup(source,
-            appvm, options, expect_errors, manipulate_restore_info)
+            appvm, options, **kwargs)
