@@ -2275,6 +2275,69 @@ class TC_00_VMs(AdminAPITestCase):
         self.assertNotIn(dev, self.vm.devices['testclass'].persistent())
         self.assertFalse(self.app.save.called)
 
+    def test_660_pool_set_revisions_to_keep(self):
+        self.app.pools['test-pool'] = unittest.mock.Mock()
+        value = self.call_mgmt_func(b'admin.pool.Set.revisions_to_keep',
+            b'dom0', b'test-pool', b'2')
+        self.assertIsNone(value)
+        self.assertEqual(self.app.pools['test-pool'].mock_calls, [])
+        self.assertEqual(self.app.pools['test-pool'].revisions_to_keep, 2)
+        self.app.save.assert_called_once_with()
+
+    def test_661_pool_set_revisions_to_keep_negative(self):
+        self.app.pools['test-pool'] = unittest.mock.Mock()
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'admin.pool.Set.revisions_to_keep',
+                b'dom0', b'test-pool', b'-2')
+        self.assertEqual(self.app.pools['test-pool'].mock_calls, [])
+        self.assertFalse(self.app.save.called)
+
+    def test_662_pool_set_revisions_to_keep_not_a_number(self):
+        self.app.pools['test-pool'] = unittest.mock.Mock()
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'admin.pool.Set.revisions_to_keep',
+                b'dom0', b'test-pool', b'abc')
+        self.assertEqual(self.app.pools['test-pool'].mock_calls, [])
+        self.assertFalse(self.app.save.called)
+
+    def test_670_vm_volume_set_revisions_to_keep(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        value = self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
+            b'test-vm1', b'private', b'2')
+        self.assertIsNone(value)
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [unittest.mock.call.keys(),
+            ('__getitem__', ('private',), {})])
+        self.assertEqual(self.vm.volumes['private'].revisions_to_keep, 2)
+        self.app.save.assert_called_once_with()
+
+    def test_671_vm_volume_set_revisions_to_keep_negative(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
+                b'test-vm1', b'private', b'-2')
+
+    def test_672_vm_volume_set_revisions_to_keep_not_a_number(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
+                b'test-vm1', b'private', b'abc')
+
     def test_990_vm_unexpected_payload(self):
         methods_with_no_payload = [
             b'admin.vm.List',

@@ -476,6 +476,25 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         return '{} {}'.format(size, path)
 
+    @qubes.api.method('admin.vm.volume.Set.revisions_to_keep',
+        scope='local', write=True)
+    @asyncio.coroutine
+    def vm_volume_set_revisions_to_keep(self, untrusted_payload):
+        assert self.arg in self.dest.volumes.keys()
+        try:
+            untrusted_value = int(untrusted_payload.decode('ascii'))
+        except (UnicodeDecodeError, ValueError):
+            raise qubes.api.ProtocolError('Invalid value')
+        del untrusted_payload
+        assert untrusted_value >= 0
+        newvalue = untrusted_value
+        del untrusted_value
+
+        self.fire_event_for_permission(newvalue=newvalue)
+
+        self.dest.volumes[self.arg].revisions_to_keep = newvalue
+        self.app.save()
+
     @qubes.api.method('admin.vm.tag.List', no_payload=True,
         scope='local', read=True)
     @asyncio.coroutine
@@ -619,6 +638,27 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.fire_event_for_permission()
 
         self.app.remove_pool(self.arg)
+        self.app.save()
+
+    @qubes.api.method('admin.pool.Set.revisions_to_keep',
+        scope='global', write=True)
+    @asyncio.coroutine
+    def pool_set_revisions_to_keep(self, untrusted_payload):
+        assert self.dest.name == 'dom0'
+        assert self.arg in self.app.pools.keys()
+        pool = self.app.pools[self.arg]
+        try:
+            untrusted_value = int(untrusted_payload.decode('ascii'))
+        except (UnicodeDecodeError, ValueError):
+            raise qubes.api.ProtocolError('Invalid value')
+        del untrusted_payload
+        assert untrusted_value >= 0
+        newvalue = untrusted_value
+        del untrusted_value
+
+        self.fire_event_for_permission(newvalue=newvalue)
+
+        pool.revisions_to_keep = newvalue
         self.app.save()
 
     @qubes.api.method('admin.label.List', no_payload=True,
