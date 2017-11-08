@@ -227,6 +227,9 @@ class property(object):  # pylint: disable=redefined-builtin,invalid-name
         except AttributeError:
             return self.get_default(instance)
 
+    def has_default(self):
+        return self._default is not self._NO_DEFAULT
+
     def get_default(self, instance):
         if self._default is self._NO_DEFAULT:
             raise AttributeError(
