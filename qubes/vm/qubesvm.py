@@ -1577,9 +1577,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             return 0
 
         try:
-            if not self.libvirt_domain.isActive():
+            info = self.libvirt_domain.info()
+            if info[0] == libvirt.VIR_DOMAIN_SHUTOFF:
                 return 0
-            return self.libvirt_domain.info()[1]
+            return info[1]
 
         except libvirt.libvirtError as e:
             if e.get_error_code() in (
@@ -1632,20 +1633,16 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if self.libvirt_domain is None:
             return 0
 
-        if self.libvirt_domain is None:
-            return 0
-        if not self.libvirt_domain.isActive():
-            return 0
-
         try:
-            if not self.libvirt_domain.isActive():
-                return 0
-
         # this does not work, because libvirt
 #           return self.libvirt_domain.getCPUStats(
 #               libvirt.VIR_NODE_CPU_STATS_ALL_CPUS, 0)[0]['cpu_time']/10**9
 
-            return self.libvirt_domain.info()[4]
+            info = self.libvirt_domain.info()
+            if info[0] == libvirt.VIR_DOMAIN_SHUTOFF:
+                return 0
+
+            return info[4]
 
         except libvirt.libvirtError as e:
             if e.get_error_code() in (
