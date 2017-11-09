@@ -496,7 +496,7 @@ class PropertyHolder(qubes.events.Emitter):
 
         propvalues = {}
 
-        all_names = set(prop.__name__ for prop in self.property_list())
+        all_names = self.property_dict()
         for key in list(kwargs):
             if not key in all_names:
                 continue
@@ -509,14 +509,45 @@ class PropertyHolder(qubes.events.Emitter):
 
         if self.xml is not None:
             # check if properties are appropriate
-            all_names = set(prop.__name__ for prop in self.property_list())
-
             for node in self.xml.xpath('./properties/property'):
                 name = node.get('name')
                 if name not in all_names:
                     raise TypeError(
                         'property {!r} not applicable to {!r}'.format(
                             name, self.__class__.__name__))
+
+    # pylint: disable=too-many-nested-blocks
+    @classmethod
+    def property_dict(cls, load_stage=None):
+        '''List all properties attached to this VM's class
+
+        :param load_stage: Filter by load stage
+        :type load_stage: :py:func:`int` or :py:obj:`None`
+        '''
+
+        # use cls.__dict__ since we must not look at parent classes
+        if "_property_dict" not in cls.__dict__:
+            cls._property_dict = {}
+        memo = cls._property_dict
+
+        if load_stage not in memo:
+            props = dict()
+            if load_stage is None:
+                for class_ in cls.__mro__:
+                    for name in class_.__dict__:
+                        # don't overwrite props with those from base classes
+                        if name not in props:
+                            prop = class_.__dict__[name]
+                            if isinstance(prop, property):
+                                assert name == prop.__name__
+                                props[name] = prop
+            else:
+                for prop in cls.property_dict().values():
+                    if prop.load_stage == load_stage:
+                        props[prop.__name__] = prop
+            memo[load_stage] = props
+
+        return memo[load_stage]
 
     @classmethod
     def property_list(cls, load_stage=None):
@@ -526,14 +557,15 @@ class PropertyHolder(qubes.events.Emitter):
         :type load_stage: :py:func:`int` or :py:obj:`None`
         '''
 
-        props = set()
-        for class_ in cls.__mro__:
-            props.update(prop for prop in class_.__dict__.values()
-                if isinstance(prop, property))
-        if load_stage is not None:
-            props = set(prop for prop in props
-                if prop.load_stage == load_stage)
-        return sorted(props)
+        # use cls.__dict__ since we must not look at parent classes
+        if "_property_list" not in cls.__dict__:
+            cls._property_list = {}
+        memo = cls._property_list
+
+        if load_stage not in memo:
+            memo[load_stage] = sorted(cls.property_dict(load_stage).values())
+
+        return memo[load_stage]
 
     def _property_init(self, prop, value):
         '''Initialise property to a given value, without side effects.
@@ -588,9 +620,9 @@ class PropertyHolder(qubes.events.Emitter):
         if isinstance(prop, qubes.property):
             return prop
 
-        for p in cls.property_list():
-            if p.__name__ == prop:
-                return p
+        props = cls.property_dict()
+        if prop in props:
+            return props[prop]
 
         raise AttributeError('No property {!r} found in {!r}'.format(
             prop, cls))
