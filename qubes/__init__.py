@@ -200,6 +200,10 @@ class property(object):  # pylint: disable=redefined-builtin,invalid-name
             lambda self, prop, value: str(value))
         self.type = type
         self._default = default
+        self._default_function = None
+        if isinstance(default, collections.Callable):
+            self._default_function = default
+
         self._write_once = write_once
         self.order = order
         self.load_stage = load_stage
@@ -227,8 +231,8 @@ class property(object):  # pylint: disable=redefined-builtin,invalid-name
         if self._default is self._NO_DEFAULT:
             raise AttributeError(
                 'property {!r} have no default'.format(self.__name__))
-        elif isinstance(self._default, collections.Callable):
-            return self._default(instance)
+        elif self._default_function:
+            return self._default_function(instance)
         else:
             return self._default
 
