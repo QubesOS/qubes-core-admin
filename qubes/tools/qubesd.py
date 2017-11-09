@@ -51,9 +51,15 @@ def main(args=None):
         for sock in server.sockets:
             socknames.append(sock.getsockname())
 
-    for signame in ('SIGINT', 'SIGTERM'):
-        loop.add_signal_handler(getattr(signal, signame),
-            sighandler, loop, signame, servers)
+    # don't replace pdb debugger's SIGINT handler
+    old_sigint = signal.getsignal(signal.SIGINT)
+    if (old_sigint == signal.SIG_DFL or old_sigint == signal.SIG_IGN or
+        old_sigint == signal.default_int_handler):
+        loop.add_signal_handler(signal.SIGINT,
+            sighandler, loop, "SIGINT", servers)
+
+    loop.add_signal_handler(signal.SIGTERM,
+        sighandler, loop, "SIGTERM", servers)
 
     qubes.utils.systemd_notify()
     # make sure children will not inherit this
