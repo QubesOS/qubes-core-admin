@@ -959,7 +959,7 @@ class SystemTestCase(QubesTestCase):
                 self.fail("Timeout while waiting for {} window to {}".format(
                     title, "show" if show else "hide")
                 )
-            time.sleep(0.1)
+            self.loop.run_until_complete(asyncio.sleep(0.1))
 
     def enter_keys_in_window(self, title, keys):
         """
