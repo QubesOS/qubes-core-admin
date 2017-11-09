@@ -499,12 +499,13 @@ class VMCollection(object):
         if not vm.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(vm)
         self.app.fire_event('domain-pre-delete', pre_event=True, vm=vm)
-        try:
-            vm.libvirt_domain.undefine()
-        except libvirt.libvirtError as e:
-            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
-                # already undefined
-                pass
+        if vm.libvirt_domain:
+            try:
+                vm.libvirt_domain.undefine()
+            except libvirt.libvirtError as e:
+                if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
+                    # already undefined
+                    pass
         del self._dict[vm.qid]
         self.app.fire_event('domain-delete', vm=vm)
 
@@ -1227,21 +1228,20 @@ class Qubes(qubes.PropertyHolder):
             self._domain_event_callback,
             None)
 
-    def _domain_event_callback(self, _conn, domain, event, _detail, _opaque):
+        for vm in self.domains:
+            vm.libvirt_connected()
+
+    def _domain_event_callback(self, _conn, domain, event, detail, _opaque):
         '''Generic libvirt event handler (virConnectDomainEventCallback),
         translate libvirt event into qubes.events.
         '''
-        if not self.events_enabled:
-            return
-
         try:
             vm = self.domains[domain.name()]
         except KeyError:
             # ignore events for unknown domains
             return
 
-        if event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
-            vm.fire_event('domain-shutdown')
+        vm.libvirt_lifecycle_event(event, detail)
 
     @qubes.events.handler('domain-pre-delete')
     def on_domain_pre_deleted(self, event, vm):

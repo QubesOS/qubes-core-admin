@@ -511,6 +511,12 @@ class BaseVM(qubes.PropertyHolder):
         '''Domain class name'''
         return type(self).__name__
 
+    def libvirt_connected(self):
+        pass
+
+    def libvirt_lifecycle_event(self, event, detail):
+        pass
+
 class VMProperty(qubes.property):
     '''Property that is referring to a VM
 

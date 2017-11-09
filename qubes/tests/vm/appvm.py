@@ -125,8 +125,8 @@ class TC_90_AppVM(qubes.tests.vm.qubesvm.QubesVMTestsMixin,
 
     def test_003_template_change_running(self):
         vm = self.get_vm()
-        with mock.patch.object(vm, 'get_power_state') as mock_power:
-            mock_power.return_value = 'Running'
+        with mock.patch.object(vm, 'is_halted') as mock_power:
+            mock_power.return_value = False
             with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
                 vm.template = self.template
 
