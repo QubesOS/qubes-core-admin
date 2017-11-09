@@ -90,27 +90,44 @@ class VirDomainWrapper(object):
 
         @functools.wraps(attr)
         def wrapper(*args, **kwargs):
-            try:
-                return attr(*args, **kwargs)
-            except libvirt.libvirtError:
-                if self._reconnect_if_dead():
+            while True:
+                try:
                     return getattr(self._vm, attrname)(*args, **kwargs)
-                raise
+                except libvirt.libvirtError:
+                    if not self._reconnect_if_dead():
+                        raise
         return wrapper
 
 
-class VirConnectWrapper(object):
+class VirConnectWrapper(qubes.events.Emitter):
     # pylint: disable=too-few-public-methods
 
     def __init__(self, uri):
-        self._conn = libvirt.open(uri)
+        self.events_enabled = True
+        super(VirConnectWrapper, self).__init__()
+        self._conn = None
+        self._connect(uri)
+
+    def _connect(self, uri):
+        if self._conn:
+            self._conn.close()
+        while True:
+            try:
+                self._conn = libvirt.open(uri)
+                self._conn.registerCloseCallback(self._close_callback, None)
+                break
+            except libvirt.libvirtError:
+                time.sleep(1.0)
+        self.fire_event("connected")
 
     def _reconnect_if_dead(self):
-        is_dead = not self._conn.isAlive()
-        if is_dead:
-            self._conn = libvirt.open(self._conn.getURI())
-            # TODO: re-register event handlers
-        return is_dead
+        if self._conn.isAlive():
+            return False
+        self._connect(self._conn.getURI())
+        return True
+
+    def _close_callback(self, _conn, _reason, _opaque):
+        self._reconnect_if_dead()
 
     def _wrap_domain(self, ret):
         if isinstance(ret, libvirt.virDomain):
@@ -126,13 +143,13 @@ class VirConnectWrapper(object):
 
         @functools.wraps(attr)
         def wrapper(*args, **kwargs):
-            try:
-                return self._wrap_domain(attr(*args, **kwargs))
-            except libvirt.libvirtError:
-                if self._reconnect_if_dead():
-                    return self._wrap_domain(
-                        getattr(self._conn, attrname)(*args, **kwargs))
-                raise
+            while True:
+                try:
+                    func = getattr(self._conn, attrname)
+                    return self._wrap_domain(func(*args, **kwargs))
+                except libvirt.libvirtError:
+                    if not self._reconnect_if_dead():
+                        raise
         return wrapper
 
 
@@ -952,11 +969,6 @@ class Qubes(qubes.PropertyHolder):
 
         super().close()
 
-        if self._domain_event_callback_id is not None:
-            self.vmm.libvirt_conn.domainEventDeregisterAny(
-                self._domain_event_callback_id)
-            self._domain_event_callback_id = None
-
         # Only our Lord, The God Almighty, knows what references
         # are kept in extensions.
         del self._extensions
@@ -1202,12 +1214,18 @@ class Qubes(qubes.PropertyHolder):
         events into qubes.events. This function should be called only in
         'qubesd' process and only when mainloop has been already set.
         '''
-        self._domain_event_callback_id = (
-            self.vmm.libvirt_conn.domainEventRegisterAny(
-                None,  # any domain
-                libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE,
-                self._domain_event_callback,
-                None))
+
+        if not self.vmm.offline_mode:
+            self.vmm.libvirt_conn.add_handler("connected",
+                self._libvirt_connected_handler)
+            self._libvirt_connected_handler()
+
+    def _libvirt_connected_handler(self):
+        self.vmm.libvirt_conn.domainEventRegisterAny(
+            None,  # any domain
+            libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE,
+            self._domain_event_callback,
+            None)
 
     def _domain_event_callback(self, _conn, domain, event, _detail, _opaque):
         '''Generic libvirt event handler (virConnectDomainEventCallback),
