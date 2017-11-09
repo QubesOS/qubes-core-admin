@@ -123,13 +123,13 @@ class NetVMMixin(qubes.events.Emitter):
     def visible_gateway(self):
         '''Default gateway of this domain as seen by the domain.'''
         return self.features.check_with_template('net.fake-gateway', None) or \
-            self.netvm.gateway
+            (self.netvm.gateway if self.netvm else None)
 
     @qubes.stateless_property
     def visible_netmask(self):
         '''Netmask as seen by the domain.'''
         return self.features.check_with_template('net.fake-netmask', None) or \
-            self.netvm.netmask
+            (self.netvm.netmask if self.netvm else None)
 
     #
     # used in netvms (provides_network=True)
