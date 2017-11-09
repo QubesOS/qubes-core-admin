@@ -1074,6 +1074,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if user is None:
             user = self.default_user
 
+        # wait for start to complete
+        with (yield from self.startup_lock):
+            pass
+
         if self.is_paused():
             # XXX what about autostart?
             raise qubes.exc.QubesVMNotRunningError(
