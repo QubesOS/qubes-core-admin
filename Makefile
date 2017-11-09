@@ -46,6 +46,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.vm.CreateInPool.StandaloneVM \
 	admin.vm.CreateInPool.TemplateVM \
 	admin.vm.CreateDisposable \
+	admin.vm.GetAllData \
 	admin.vm.Kill \
 	admin.vm.List \
 	admin.vm.Pause \

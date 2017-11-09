@@ -145,6 +145,33 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             self._vm_line_strs(strs, vm)
         return ''.join(strs)
 
+    @qubes.api.method('admin.vm.GetAllData', no_payload=True,
+        scope='global', read=True)
+    @asyncio.coroutine
+    def vm_get_all_data(self):
+        '''List all VMs and return the value of all their properties'''
+        assert not self.arg
+
+        if self.dest.name == 'dom0':
+            domains = self.fire_event_for_filter(self.app.domains)
+        else:
+            domains = self.fire_event_for_filter([self.dest])
+
+        strs = []
+        orig_dest = self.dest
+        orig_method = self.method
+        try:
+            for vm in sorted(domains):
+                self.dest = vm
+                self.method = "admin.vm.property.GetAll"
+                self._vm_line_strs(strs, vm)
+                self._property_get_all_strs(strs, vm, "\tP\t")
+        finally:
+            self.dest = orig_dest
+            self.method = orig_method
+
+        return ''.join(strs)
+
     @qubes.api.method('admin.vm.property.List', no_payload=True,
         scope='local', read=True)
     @asyncio.coroutine
