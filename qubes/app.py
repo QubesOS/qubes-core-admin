@@ -1040,10 +1040,13 @@ class Qubes(qubes.PropertyHolder):
         }
         assert max(self.labels.keys()) == qubes.config.max_default_label
 
-        # check if the default LVM Thin pool qubes_dom0/pool00 exists
-        if os.path.exists('/dev/mapper/qubes_dom0-pool00-tpool'):
-            self.add_pool(volume_group='qubes_dom0', thin_pool='pool00',
-                          name='lvm', driver='lvm_thin')
+        root_volume_group = RootThinPool.volume_group()
+        root_thin_pool = RootThinPool.thin_pool()
+
+        if root_thin_pool:
+            self.add_pool(
+                volume_group=root_volume_group, thin_pool=root_thin_pool,
+                name='lvm', driver='lvm_thin')
         # pool based on /var/lib/qubes will be created here:
         for name, config in qubes.config.defaults['pool_configs'].items():
             self.pools[name] = self._get_pool(**config)
