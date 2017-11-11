@@ -536,14 +536,6 @@ class VMCollection(object):
         raise LookupError("Cannot find unused qid!")
 
 
-    def get_new_unused_netid(self):
-        used_ids = set([vm.netid for vm in self])  # if vm.is_netvm()])
-        for i in range(1, qubes.config.max_netid):
-            if i not in used_ids:
-                return i
-        raise LookupError("Cannot find unused netid!")
-
-
     def get_new_unused_dispid(self):
         for _ in range(int(qubes.config.max_dispid ** 0.5)):
             dispid = random.SystemRandom().randrange(qubes.config.max_dispid)

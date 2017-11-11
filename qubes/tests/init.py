@@ -323,7 +323,6 @@ class TC_20_PropertyHolder(qubes.tests.QubesTestCase):
 class TestVM(qubes.vm.BaseVM):
     qid = qubes.property('qid', type=int)
     name = qubes.property('name')
-    netid = qid
     uuid = uuid.uuid5(uuid.NAMESPACE_DNS, 'testvm')
 
     def __lt__(self, other):
@@ -451,12 +450,6 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
         self.vms.add(self.testvm2)
 
         self.vms.get_new_unused_qid()
-
-    def test_101_get_new_unused_netid(self):
-        self.vms.add(self.testvm1)
-        self.vms.add(self.testvm2)
-
-        self.vms.get_new_unused_netid()
 
 #   def test_200_get_vms_based_on(self):
 #       pass

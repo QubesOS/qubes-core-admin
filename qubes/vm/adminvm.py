@@ -189,7 +189,7 @@ class AdminVM(qubes.vm.BaseVM):
 
 
 #   def __init__(self, **kwargs):
-#       super(QubesAdminVm, self).__init__(qid=0, name="dom0", netid=0,
+#       super(QubesAdminVm, self).__init__(qid=0, name="dom0",
 #                                            dir_path=None,
 #                                            private_img = None,
 #                                            template = None,
