@@ -90,27 +90,44 @@ class VirDomainWrapper(object):
 
         @functools.wraps(attr)
         def wrapper(*args, **kwargs):
-            try:
-                return attr(*args, **kwargs)
-            except libvirt.libvirtError:
-                if self._reconnect_if_dead():
+            while True:
+                try:
                     return getattr(self._vm, attrname)(*args, **kwargs)
-                raise
+                except libvirt.libvirtError:
+                    if not self._reconnect_if_dead():
+                        raise
         return wrapper
 
 
-class VirConnectWrapper(object):
+class VirConnectWrapper(qubes.events.Emitter):
     # pylint: disable=too-few-public-methods
 
     def __init__(self, uri):
-        self._conn = libvirt.open(uri)
+        self.events_enabled = True
+        super(VirConnectWrapper, self).__init__()
+        self._conn = None
+        self._connect(uri)
+
+    def _connect(self, uri):
+        if self._conn:
+            self._conn.close()
+        while True:
+            try:
+                self._conn = libvirt.open(uri)
+                self._conn.registerCloseCallback(self._close_callback, None)
+                break
+            except libvirt.libvirtError:
+                time.sleep(1.0)
+        self.fire_event("connected")
 
     def _reconnect_if_dead(self):
-        is_dead = not self._conn.isAlive()
-        if is_dead:
-            self._conn = libvirt.open(self._conn.getURI())
-            # TODO: re-register event handlers
-        return is_dead
+        if self._conn.isAlive():
+            return False
+        self._connect(self._conn.getURI())
+        return True
+
+    def _close_callback(self, _conn, _reason, _opaque):
+        self._reconnect_if_dead()
 
     def _wrap_domain(self, ret):
         if isinstance(ret, libvirt.virDomain):
@@ -126,13 +143,13 @@ class VirConnectWrapper(object):
 
         @functools.wraps(attr)
         def wrapper(*args, **kwargs):
-            try:
-                return self._wrap_domain(attr(*args, **kwargs))
-            except libvirt.libvirtError:
-                if self._reconnect_if_dead():
-                    return self._wrap_domain(
-                        getattr(self._conn, attrname)(*args, **kwargs))
-                raise
+            while True:
+                try:
+                    func = getattr(self._conn, attrname)
+                    return self._wrap_domain(func(*args, **kwargs))
+                except libvirt.libvirtError:
+                    if not self._reconnect_if_dead():
+                        raise
         return wrapper
 
 
@@ -482,12 +499,13 @@ class VMCollection(object):
         if not vm.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(vm)
         self.app.fire_event('domain-pre-delete', pre_event=True, vm=vm)
-        try:
-            vm.libvirt_domain.undefine()
-        except libvirt.libvirtError as e:
-            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
-                # already undefined
-                pass
+        if vm.libvirt_domain:
+            try:
+                vm.libvirt_domain.undefine()
+            except libvirt.libvirtError as e:
+                if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
+                    # already undefined
+                    pass
         del self._dict[vm.qid]
         self.app.fire_event('domain-delete', vm=vm)
 
@@ -536,14 +554,6 @@ class VMCollection(object):
         raise LookupError("Cannot find unused qid!")
 
 
-    def get_new_unused_netid(self):
-        used_ids = set([vm.netid for vm in self])  # if vm.is_netvm()])
-        for i in range(1, qubes.config.max_netid):
-            if i not in used_ids:
-                return i
-        raise LookupError("Cannot find unused netid!")
-
-
     def get_new_unused_dispid(self):
         for _ in range(int(qubes.config.max_dispid ** 0.5)):
             dispid = random.SystemRandom().randrange(qubes.config.max_dispid)
@@ -552,6 +562,55 @@ class VMCollection(object):
         raise LookupError((
             'https://xkcd.com/221/',
             'http://dilbert.com/strip/2001-10-25')[random.randint(0, 1)])
+
+# pylint: disable=too-few-public-methods
+class RootThinPool:
+    '''The thin pool containing the rootfs device'''
+    _inited = False
+    _volume_group = None
+    _thin_pool = None
+
+    @classmethod
+    def _init(cls):
+        '''Find out the thin pool containing the root device'''
+        if not cls._inited:
+            cls._inited = True
+
+            try:
+                rootfs = os.stat('/')
+                root_major = (rootfs.st_dev & 0xff00) >> 8
+                root_minor = rootfs.st_dev & 0xff
+
+                root_table = subprocess.check_output(["dmsetup",
+                    "-j", str(root_major), "-m", str(root_minor),
+                    "table"])
+
+                _start, _sectors, target_type, target_args = \
+                    root_table.decode().split(" ", 3)
+                if target_type == "thin":
+                    thin_pool_devnum, _thin_pool_id = target_args.split(" ")
+                    with open("/sys/dev/block/{}/dm/name"
+                        .format(thin_pool_devnum), "r") as thin_pool_tpool_f:
+                        thin_pool_tpool = thin_pool_tpool_f.read().rstrip('\n')
+                    if thin_pool_tpool.endswith("-tpool"):
+                        volume_group, thin_pool, _tpool = \
+                            thin_pool_tpool.rsplit("-", 2)
+                        cls._volume_group = volume_group
+                        cls._thin_pool = thin_pool
+            except: # pylint: disable=bare-except
+                pass
+
+    @classmethod
+    def volume_group(cls):
+        '''Volume group of the thin pool containing the rootfs device'''
+        cls._init()
+        return cls._volume_group
+
+    @classmethod
+    def thin_pool(cls):
+        '''Thin pool name containing the rootfs device'''
+        cls._init()
+        return cls._thin_pool
 
 def _default_pool(app):
     ''' Default storage pool.
@@ -564,20 +623,16 @@ def _default_pool(app):
     if 'default' in app.pools:
         return app.pools['default']
     else:
-        rootfs = os.stat('/')
-        root_major = (rootfs.st_dev & 0xff00) >> 8
-        root_minor = rootfs.st_dev & 0xff
-        for pool in app.pools.values():
-            if pool.config.get('driver', None) != 'lvm_thin':
-                continue
-            thin_pool = pool.config['thin_pool']
-            thin_volumes = subprocess.check_output(
-                ['lvs', '--select', 'pool_lv=' + thin_pool,
-                '-o', 'lv_kernel_major,lv_kernel_minor', '--noheadings'])
-            thin_volumes = thin_volumes.decode()
-            if any([str(root_major), str(root_minor)] == thin_vol.split()
-                    for thin_vol in thin_volumes.splitlines()):
-                return pool
+        root_volume_group = RootThinPool.volume_group()
+        root_thin_pool = RootThinPool.thin_pool()
+        if root_thin_pool:
+            for pool in app.pools.values():
+                if pool.config.get('driver', None) != 'lvm_thin':
+                    continue
+                if (pool.config['volume_group'] == root_volume_group and
+                    pool.config['thin_pool'] == root_thin_pool):
+                    return pool
+
         # not a thin volume? look for file pools
         for pool in app.pools.values():
             if pool.config.get('driver', None) != 'file':
@@ -915,11 +970,6 @@ class Qubes(qubes.PropertyHolder):
 
         super().close()
 
-        if self._domain_event_callback_id is not None:
-            self.vmm.libvirt_conn.domainEventDeregisterAny(
-                self._domain_event_callback_id)
-            self._domain_event_callback_id = None
-
         # Only our Lord, The God Almighty, knows what references
         # are kept in extensions.
         del self._extensions
@@ -1003,10 +1053,13 @@ class Qubes(qubes.PropertyHolder):
         }
         assert max(self.labels.keys()) == qubes.config.max_default_label
 
-        # check if the default LVM Thin pool qubes_dom0/pool00 exists
-        if os.path.exists('/dev/mapper/qubes_dom0-pool00-tpool'):
-            self.add_pool(volume_group='qubes_dom0', thin_pool='pool00',
-                          name='lvm', driver='lvm_thin')
+        root_volume_group = RootThinPool.volume_group()
+        root_thin_pool = RootThinPool.thin_pool()
+
+        if root_thin_pool:
+            self.add_pool(
+                volume_group=root_volume_group, thin_pool=root_thin_pool,
+                name='lvm', driver='lvm_thin')
         # pool based on /var/lib/qubes will be created here:
         for name, config in qubes.config.defaults['pool_configs'].items():
             self.pools[name] = self._get_pool(**config)
@@ -1162,28 +1215,33 @@ class Qubes(qubes.PropertyHolder):
         events into qubes.events. This function should be called only in
         'qubesd' process and only when mainloop has been already set.
         '''
-        self._domain_event_callback_id = (
-            self.vmm.libvirt_conn.domainEventRegisterAny(
-                None,  # any domain
-                libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE,
-                self._domain_event_callback,
-                None))
 
-    def _domain_event_callback(self, _conn, domain, event, _detail, _opaque):
+        if not self.vmm.offline_mode:
+            self.vmm.libvirt_conn.add_handler("connected",
+                self._libvirt_connected_handler)
+            self._libvirt_connected_handler()
+
+    def _libvirt_connected_handler(self):
+        self.vmm.libvirt_conn.domainEventRegisterAny(
+            None,  # any domain
+            libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE,
+            self._domain_event_callback,
+            None)
+
+        for vm in self.domains:
+            vm.libvirt_connected()
+
+    def _domain_event_callback(self, _conn, domain, event, detail, _opaque):
         '''Generic libvirt event handler (virConnectDomainEventCallback),
         translate libvirt event into qubes.events.
         '''
-        if not self.events_enabled:
-            return
-
         try:
             vm = self.domains[domain.name()]
         except KeyError:
             # ignore events for unknown domains
             return
 
-        if event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
-            vm.fire_event('domain-shutdown')
+        vm.libvirt_lifecycle_event(event, detail)
 
     @qubes.events.handler('domain-pre-delete')
     def on_domain_pre_deleted(self, event, vm):

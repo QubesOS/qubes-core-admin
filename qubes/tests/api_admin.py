@@ -1566,7 +1566,7 @@ class TC_00_VMs(AdminAPITestCase):
     def test_501_vm_remove_running(self, mock_rmtree, mock_remove):
         mock_remove.side_effect = self.dummy_coro
         with unittest.mock.patch.object(
-                self.vm, 'get_power_state', lambda: 'Running'):
+                self.vm, 'is_halted', lambda: False):
             with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
                 self.call_mgmt_func(b'admin.vm.Remove', b'test-vm1')
         self.assertFalse(mock_rmtree.called)
@@ -1582,7 +1582,7 @@ class TC_00_VMs(AdminAPITestCase):
 
     def test_511_vm_volume_import_running(self):
         with unittest.mock.patch.object(
-                self.vm, 'get_power_state', lambda: 'Running'):
+                self.vm, 'is_halted', lambda: False):
             with self.assertRaises(qubes.exc.QubesVMNotHaltedError):
                 self.call_mgmt_func(b'admin.vm.volume.Import', b'test-vm1',
                     b'private')

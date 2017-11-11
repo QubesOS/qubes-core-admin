@@ -82,6 +82,18 @@ class QubesMgmtEventsDispatcher(object):
         vm.remove_handler('*', self.vm_handler)
 
 
+def escape(unescaped_string):
+    '''Escape a string for the Admin API'''
+    result = unescaped_string
+    # TODO: can we do this faster?
+    result = result.replace("\\", "\\\\") # this must be the first one
+
+    result = result.replace("\r", "\\r")
+    result = result.replace("\n", "\\n")
+    result = result.replace("\t", "\\t")
+    result = result.replace("\0", "\\0")
+    return result
+
 class QubesAdminAPI(qubes.api.AbstractQubesAPI):
     '''Implementation of Qubes Management API calls
 
@@ -107,6 +119,15 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         return ''.join('{}\n'.format(ep.name)
             for ep in entrypoints)
 
+    # pylint: disable=no-self-use
+    def _vm_line_strs(self, strs, vm):
+        strs.append(vm.name)
+        strs.append(" class=")
+        strs.append(vm.__class__.__name__)
+        strs.append(" state=")
+        strs.append(vm.get_power_state())
+        strs.append("\n")
+
     @qubes.api.method('admin.vm.List', no_payload=True,
         scope='global', read=True)
     @asyncio.coroutine
@@ -119,11 +140,37 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         else:
             domains = self.fire_event_for_filter([self.dest])
 
-        return ''.join('{} class={} state={}\n'.format(
-                vm.name,
-                vm.__class__.__name__,
-                vm.get_power_state())
-            for vm in sorted(domains))
+        strs = []
+        for vm in sorted(domains):
+            self._vm_line_strs(strs, vm)
+        return ''.join(strs)
+
+    @qubes.api.method('admin.vm.GetAllData', no_payload=True,
+        scope='global', read=True)
+    @asyncio.coroutine
+    def vm_get_all_data(self):
+        '''List all VMs and return the value of all their properties'''
+        assert not self.arg
+
+        if self.dest.name == 'dom0':
+            domains = self.fire_event_for_filter(self.app.domains)
+        else:
+            domains = self.fire_event_for_filter([self.dest])
+
+        strs = []
+        orig_dest = self.dest
+        orig_method = self.method
+        try:
+            for vm in sorted(domains):
+                self.dest = vm
+                self.method = "admin.vm.property.GetAll"
+                self._vm_line_strs(strs, vm)
+                self._property_get_all_strs(strs, vm, "\tP\t")
+        finally:
+            self.dest = orig_dest
+            self.method = orig_method
+
+        return ''.join(strs)
 
     @qubes.api.method('admin.vm.property.List', no_payload=True,
         scope='local', read=True)
@@ -154,6 +201,13 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         '''Get a value of one property'''
         return self._property_get(self.dest)
 
+    @qubes.api.method('admin.vm.property.GetAll', no_payload=True,
+        scope='local', read=True)
+    @asyncio.coroutine
+    def vm_property_get_all(self):
+        '''Get the value of all properties'''
+        return self._property_get_all(self.dest)
+
     @qubes.api.method('admin.property.Get', no_payload=True,
         scope='global', read=True)
     @asyncio.coroutine
@@ -162,24 +216,39 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         assert self.dest.name == 'dom0'
         return self._property_get(self.app)
 
+    @qubes.api.method('admin.property.GetAll', no_payload=True,
+        scope='global', read=True)
+    @asyncio.coroutine
+    def property_get_all(self):
+        '''Get a value of all global properties'''
+        assert self.dest.name == 'dom0'
+        return self._property_get_all(self.app)
+
+    # pylint: disable=no-self-use
+    def _property_type(self, property_def):
+        # explicit list to be sure that it matches protocol spec
+        property_def_type = property_def.type
+        if property_def_type is str:
+            property_type = 'str'
+        elif property_def_type is int:
+            property_type = 'int'
+        elif property_def_type is bool:
+            property_type = 'bool'
+        elif property_def.__name__ == 'label':
+            property_type = 'label'
+        elif isinstance(property_def, qubes.vm.VMProperty):
+            property_type = 'vm'
+        else:
+            property_type = 'str'
+        return property_type
+
     def _property_get(self, dest):
         if self.arg not in dest.property_list():
             raise qubes.exc.QubesNoSuchPropertyError(dest, self.arg)
 
         self.fire_event_for_permission()
-
         property_def = dest.property_get_def(self.arg)
-        # explicit list to be sure that it matches protocol spec
-        if isinstance(property_def, qubes.vm.VMProperty):
-            property_type = 'vm'
-        elif property_def.type is int:
-            property_type = 'int'
-        elif property_def.type is bool:
-            property_type = 'bool'
-        elif self.arg == 'label':
-            property_type = 'label'
-        else:
-            property_type = 'str'
+        property_type = self._property_type(property_def)
 
         try:
             value = getattr(dest, self.arg)
@@ -190,6 +259,49 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                 str(dest.property_is_default(self.arg)),
                 property_type,
                 str(value) if value is not None else '')
+
+
+    # this is a performance critical function for qvm-ls
+    def _property_get_all_line_strs(self, strs, dest, property_def):
+        property_type = self._property_type(property_def)
+        property_attr = property_def._attr_name # pylint: disable=protected-access
+        dest_dict = dest.__dict__
+        property_is_default = property_attr not in dest_dict
+
+        if not property_is_default:
+            value = dest_dict[property_attr]
+        elif property_def.has_default():
+            value = property_def.get_default(dest)
+        else:
+            value = None
+
+        if value is None:
+            escaped_value = ""
+        elif property_type == "str":
+            escaped_value = escape(str(value))
+        else:
+            escaped_value = str(value)
+
+        strs.append(property_def.__name__)
+        strs.append("\tD\t" if property_is_default else "\t-\t")
+        strs.append(property_type)
+        strs.append("\t")
+        strs.append(escaped_value)
+        strs.append("\n")
+
+    def _property_get_all_strs(self, strs, dest, prefix=None):
+        assert not self.arg
+
+        properties = self.fire_event_for_filter(dest.property_list())
+        for prop in properties:
+            if prefix:
+                strs.append(prefix)
+            self._property_get_all_line_strs(strs, dest, prop)
+
+    def _property_get_all(self, dest):
+        strs = []
+        self._property_get_all_strs(strs, dest)
+        return "".join(strs)
 
     @qubes.api.method('admin.vm.property.GetDefault', no_payload=True,
         scope='local', read=True)

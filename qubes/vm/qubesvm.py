@@ -489,32 +489,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         Or not Xen, but ID.
         '''
 
-        if self.libvirt_domain is None:
-            return -1
-        try:
-            return self.libvirt_domain.ID()
-        except libvirt.libvirtError as e:
-            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
-                return -1
-            else:
-                self.log.exception('libvirt error code: {!r}'.format(
-                    e.get_error_code()))
-                raise
+        return self._xid
 
     @qubes.stateless_property
     def stubdom_xid(self):
-        if not self.is_running():
-            return -1
-
-        if self.app.vmm.xs is None:
-            return -1
-
-        stubdom_xid_str = self.app.vmm.xs.read('',
-            '/local/domain/{}/image/device-model-domid'.format(self.xid))
-        if stubdom_xid_str is None or not stubdom_xid_str.isdigit():
-            return -1
-
-        return int(stubdom_xid_str)
+        return self._stubdom_xid
 
     @property
     def attached_volumes(self):
@@ -539,19 +518,24 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         May be :py:obj:`None`, if libvirt knows nothing about this domain.
         '''
+        return self._get_libvirt_domain(True)
 
+    def _get_libvirt_domain(self, update):
         if self._libvirt_domain is not None:
             return self._libvirt_domain
 
-        # XXX _update_libvirt_domain?
-        try:
-            self._libvirt_domain = self.app.vmm.libvirt_conn.lookupByUUID(
-                self.uuid.bytes)
-        except libvirt.libvirtError as e:
-            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
-                self._update_libvirt_domain()
-            else:
-                raise
+        if not self.app.vmm.offline_mode:
+            # XXX _update_libvirt_domain?
+            try:
+                self._libvirt_domain = self.app.vmm.libvirt_conn.lookupByUUID(
+                    self.uuid.bytes)
+            except libvirt.libvirtError as e:
+                if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
+                    if update:
+                        self._update_libvirt_domain()
+                else:
+                    raise
+
         return self._libvirt_domain
 
     @property
@@ -642,6 +626,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self._libvirt_domain = None
         self._qdb_connection = None
+        self._libvirt_state = libvirt.VIR_DOMAIN_SHUTOFF
+        self._libvirt_substate = 0 # libvirt.VIR_DOMAIN_SHUTOFF_UNKNOWN
+        self._xid = -1
+        self._stubdom_xid = -1
 
         if xml is None:
             # we are creating new VM and attributes came through kwargs
@@ -695,6 +683,49 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         return element
 
+    def libvirt_connected(self):
+        self._update_libvirt_state()
+
+    def libvirt_lifecycle_event(self, event, detail):
+        # TODO: we could perhaps determine the new state from the event
+        #   without asking libvirtd
+        self._update_libvirt_state()
+
+    def _update_libvirt_state(self):
+        was_halted = self.is_halted()
+
+        if self.libvirt_domain is not None:
+            try:
+                state = self.libvirt_domain.state()
+                self._libvirt_state = state[0]
+                self._libvirt_substate = state[1]
+            except libvirt.libvirtError as e:
+                if e.get_error_code() != libvirt.VIR_ERR_NO_DOMAIN:
+                    self.log.exception('libvirt error code: {!r}'.format(
+                        e.get_error_code()))
+                    raise
+
+            try:
+                self._xid = self.libvirt_domain.ID()
+            except libvirt.libvirtError as e:
+                if e.get_error_code() != libvirt.VIR_ERR_NO_DOMAIN:
+                    self.log.exception('libvirt error code: {!r}'.format(
+                        e.get_error_code()))
+                    raise
+
+            if self.is_running() and self.app.vmm.xs is not None:
+                stubdom_xid_str = self.app.vmm.xs.read('',
+                    '/local/domain/{}/image/device-model-domid'
+                        .format(self.xid))
+                if stubdom_xid_str is not None and stubdom_xid_str.isdigit():
+                    self._stubdom_xid = int(stubdom_xid_str)
+
+        if self.is_halted() and not was_halted:
+            self.fire_event('domain-shutdown')
+
+    def _update_libvirt_state_after_op(self):
+        self._update_libvirt_state()
+
     #
     # event handlers
     #
@@ -709,6 +740,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # it might be already initialized by a recursive call from a child VM
         if self.storage is None:
             self.storage = qubes.storage.Storage(self)
+
+        self._update_libvirt_state()
 
         if not self.app.vmm.offline_mode and self.is_running():
             self.start_qdb_watch()
@@ -828,6 +861,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
                 self.libvirt_domain.createWithFlags(
                     libvirt.VIR_DOMAIN_START_PAUSED)
+                self._update_libvirt_state()
 
             except Exception as exc:
                 # let anyone receiving domain-pre-start know that startup failed
@@ -850,6 +884,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
                 self.log.warning('Activating the {} VM'.format(self.name))
                 self.libvirt_domain.resume()
+                self._update_libvirt_state_after_op()
 
                 yield from self.start_qrexec_daemon()
 
@@ -905,6 +940,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.libvirt_domain.shutdown()
 
+        self._update_libvirt_state_after_op()
+
         while wait and not self.is_halted():
             yield from asyncio.sleep(0.25)
 
@@ -922,6 +959,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesVMNotStartedError(self)
 
         self.libvirt_domain.destroy()
+
+        self._update_libvirt_state_after_op()
 
         return self
 
@@ -951,6 +990,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         else:
             self.libvirt_domain.suspend()
 
+        self._update_libvirt_state_after_op()
+
         return self
 
     @asyncio.coroutine
@@ -961,6 +1002,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesVMNotRunningError(self)
 
         self.libvirt_domain.suspend()
+
+        self._update_libvirt_state_after_op()
 
         return self
 
@@ -975,6 +1018,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # pylint: disable=not-an-iterable
         if self.get_power_state() == "Suspended":
             self.libvirt_domain.pMWakeup()
+
+            self._update_libvirt_state_after_op()
+
             yield from self.run_service_for_stdio('qubes.SuspendPost',
                 user='root')
         else:
@@ -989,6 +1035,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             raise qubes.exc.QubesVMNotPausedError(self)
 
         self.libvirt_domain.resume()
+
+        self._update_libvirt_state_after_op()
 
         return self
 
@@ -1025,6 +1073,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         if user is None:
             user = self.default_user
+
+        # wait for start to complete
+        with (yield from self.startup_lock):
+            pass
 
         if self.is_paused():
             # XXX what about autostart?
@@ -1444,52 +1496,24 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 Libvirt's enum describing precise state of a domain.
         '''  # pylint: disable=too-many-return-statements
 
-        # don't try to define libvirt domain, if it isn't there, VM surely
-        # isn't running
-        # reason for this "if": allow vm.is_running() in PCI (or other
-        # device) extension while constructing libvirt XML
-        if self.app.vmm.offline_mode:
-            return 'Halted'
-        if self._libvirt_domain is None:
-            try:
-                self._libvirt_domain = self.app.vmm.libvirt_conn.lookupByUUID(
-                    self.uuid.bytes)
-            except libvirt.libvirtError as e:
-                if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
-                    return 'Halted'
-                else:
-                    raise
+        state = self._libvirt_state
+        if state == libvirt.VIR_DOMAIN_PAUSED:
+            return "Paused"
+        elif state == libvirt.VIR_DOMAIN_CRASHED:
+            return "Crashed"
+        elif state == libvirt.VIR_DOMAIN_SHUTDOWN:
+            return "Halting"
+        elif state == libvirt.VIR_DOMAIN_SHUTOFF:
+            return "Halted"
+        elif state == libvirt.VIR_DOMAIN_PMSUSPENDED:  # nopep8
+            return "Suspended"
+        elif state == libvirt.VIR_DOMAIN_RUNNING:
+            if not self.is_fully_usable():
+                return "Transient"
 
-        libvirt_domain = self.libvirt_domain
-        if libvirt_domain is None:
-            return 'Halted'
-
-        try:
-            if libvirt_domain.isActive():
-                # pylint: disable=line-too-long
-                if libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PAUSED:
-                    return "Paused"
-                elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_CRASHED:
-                    return "Crashed"
-                elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_SHUTDOWN:
-                    return "Halting"
-                elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_SHUTOFF:
-                    return "Dying"
-                elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PMSUSPENDED:  # nopep8
-                    return "Suspended"
-                else:
-                    if not self.is_fully_usable():
-                        return "Transient"
-
-                    return "Running"
-
-            return 'Halted'
-        except libvirt.libvirtError as e:
-            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
-                return 'Halted'
-            raise
-
-        assert False
+            return "Running"
+        else:
+            assert False
 
     def is_halted(self):
         ''' Check whether this domain's state is 'Halted'
@@ -1497,7 +1521,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 :py:obj:`False` otherwise.
             :rtype: bool
         '''
-        return self.get_power_state() == 'Halted'
+        return self._libvirt_state == libvirt.VIR_DOMAIN_SHUTOFF
 
     def is_running(self):
         '''Check whether this domain is running.
@@ -1507,24 +1531,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         :rtype: bool
         '''
 
-        if self.app.vmm.offline_mode:
-            return False
-
-        # don't try to define libvirt domain, if it isn't there, VM surely
-        # isn't running
-        # reason for this "if": allow vm.is_running() in PCI (or other
-        # device) extension while constructing libvirt XML
-        if self._libvirt_domain is None:
-            try:
-                self._libvirt_domain = self.app.vmm.libvirt_conn.lookupByUUID(
-                    self.uuid.bytes)
-            except libvirt.libvirtError as e:
-                if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
-                    return False
-                else:
-                    raise
-
-        return self.libvirt_domain.isActive()
+        return self._libvirt_state != libvirt.VIR_DOMAIN_SHUTOFF
 
     def is_paused(self):
         '''Check whether this domain is paused.
@@ -1534,8 +1541,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         :rtype: bool
         '''
 
-        return self.libvirt_domain \
-            and self.libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PAUSED
+        return self._libvirt_state == libvirt.VIR_DOMAIN_PAUSED
 
     def is_qrexec_running(self):
         '''Check whether qrexec for this domain is available.
@@ -1575,9 +1581,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             return 0
 
         try:
-            if not self.libvirt_domain.isActive():
+            info = self.libvirt_domain.info()
+            if info[0] == libvirt.VIR_DOMAIN_SHUTOFF:
                 return 0
-            return self.libvirt_domain.info()[1]
+            return info[1]
 
         except libvirt.libvirtError as e:
             if e.get_error_code() in (
@@ -1630,20 +1637,16 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if self.libvirt_domain is None:
             return 0
 
-        if self.libvirt_domain is None:
-            return 0
-        if not self.libvirt_domain.isActive():
-            return 0
-
         try:
-            if not self.libvirt_domain.isActive():
-                return 0
-
         # this does not work, because libvirt
 #           return self.libvirt_domain.getCPUStats(
 #               libvirt.VIR_NODE_CPU_STATS_ALL_CPUS, 0)[0]['cpu_time']/10**9
 
-            return self.libvirt_domain.info()[4]
+            info = self.libvirt_domain.info()
+            if info[0] == libvirt.VIR_DOMAIN_SHUTOFF:
+                return 0
+
+            return info[4]
 
         except libvirt.libvirtError as e:
             if e.get_error_code() in (
@@ -1751,6 +1754,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         try:
             self._libvirt_domain = self.app.vmm.libvirt_conn.defineXML(
                 domain_config)
+            self._update_libvirt_state()
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_OS_TYPE \
                     and e.get_str2() == 'hvm':
