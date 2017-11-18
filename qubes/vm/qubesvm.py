@@ -1244,7 +1244,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             else:
                 stubdom_mem = 0
 
-            mem_required = int(self.memory + stubdom_mem) * 1024 * 1024
+            initial_memory = self.memory
+            if self.virt_mode == 'hvm' and self.devices['pci'].persistent():
+                # HVM with PCI devices does not support populate-on-demand on
+                #  Xen
+                initial_memory = self.maxmem
+            mem_required = int(initial_memory + stubdom_mem) * 1024 * 1024
 
         qmemman_client = qubes.qmemman.client.QMemmanClient()
         try:
