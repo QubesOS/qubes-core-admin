@@ -1067,7 +1067,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             non_default_attrs = set(attr for attr in dir(dev) if
                 not attr.startswith('_')).difference((
                     'backend_domain', 'ident', 'frontend_domain',
-                    'description', 'options'))
+                    'description', 'options', 'regex'))
             properties_txt = ' '.join(
                 '{}={!s}'.format(prop, value) for prop, value
                 in itertools.chain(
