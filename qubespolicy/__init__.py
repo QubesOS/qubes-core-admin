@@ -617,6 +617,11 @@ class Policy(object):
                 if verify_target_value(system_info, dispvm):
                     targets.add(dispvm)
 
+        # expand other keywords
+        if '$adminvm' in targets:
+            targets.remove('$adminvm')
+            targets.add('dom0')
+
         return targets
 
     def evaluate(self, system_info, source, target):

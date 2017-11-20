@@ -484,6 +484,8 @@ class VMCollection(object):
         self.app.fire_event('domain-pre-delete', pre_event=True, vm=vm)
         try:
             vm.libvirt_domain.undefine()
+            # pylint: disable=protected-access
+            vm._libvirt_domain = None
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 # already undefined
@@ -1196,7 +1198,9 @@ class Qubes(qubes.PropertyHolder):
                         self.log.error(
                             'Cannot remove %s, used by %s.%s',
                             vm, obj, prop.__name__)
-                        raise qubes.exc.QubesVMInUseError(vm)
+                        raise qubes.exc.QubesVMInUseError(vm,
+                            'Domain is in use: {!r}; details in system log'
+                                .format(vm.name))
                 except AttributeError:
                     pass
 
