@@ -900,7 +900,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 # let anyone receiving domain-pre-start know that startup failed
                 yield from self.fire_event_async('domain-start-failed',
                     reason=str(exc))
-                self.storage.stop()
+                yield from self.storage.stop()
                 raise
 
             finally:
