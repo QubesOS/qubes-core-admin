@@ -47,6 +47,13 @@ class TestProp(object):
     # pylint: disable=too-few-public-methods
     __name__ = 'testprop'
 
+class TestDeviceCollection(object):
+    def __init__(self):
+        self._list = []
+
+    def persistent(self):
+        return self._list
+
 class TestVM(object):
     # pylint: disable=too-few-public-methods
     app = TestApp()
@@ -56,6 +63,7 @@ class TestVM(object):
         self.installed_by_rpm = False
         for k, v in kwargs.items():
             setattr(self, k, v)
+        self.devices = {'pci': TestDeviceCollection()}
 
     def is_running(self):
         return self.running
@@ -108,6 +116,12 @@ class TC_00_setters(qubes.tests.QubesTestCase):
         self.assertEqual(
             qubes.vm.qubesvm._setter_virt_mode(self.vm, self.prop, 'PV'),
             'pv')
+        self.assertEqual(
+            qubes.vm.qubesvm._setter_virt_mode(self.vm, self.prop, 'pvh'),
+            'pvh')
+        self.vm.devices['pci']._list.append(object())
+        with self.assertRaises(ValueError):
+            qubes.vm.qubesvm._setter_virt_mode(self.vm, self.prop, 'pvh')
         with self.assertRaises(ValueError):
             qubes.vm.qubesvm._setter_virt_mode(self.vm, self.prop, 'True')
 
@@ -605,6 +619,69 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm = self.get_vm(uuid=my_uuid)
         vm.netvm = None
         vm.virt_mode = 'hvm'
+        libvirt_xml = vm.create_config_file()
+        self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
+            lxml.etree.XML(expected))
+
+    def test_600_libvirt_xml_pvh(self):
+        expected = '''<domain type="xen">
+        <name>test-inst-test</name>
+        <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
+        <memory unit="MiB">500</memory>
+        <currentMemory unit="MiB">400</currentMemory>
+        <vcpu placement="static">2</vcpu>
+        <cpu mode='host-passthrough'>
+            <!-- disable nested HVM -->
+            <feature name='vmx' policy='disable'/>
+            <feature name='svm' policy='disable'/>
+            <!-- disable SMAP inside VM, because of Linux bug -->
+            <feature name='smap' policy='disable'/>
+        </cpu>
+        <os>
+            <type arch="x86_64" machine="xenfv">hvm</type>
+            <kernel>/tmp/kernel/vmlinuz</kernel>
+            <initrd>/tmp/kernel/initramfs</initrd>
+            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 nopat</cmdline>
+        </os>
+        <features>
+            <pae/>
+            <acpi/>
+            <apic/>
+            <viridian/>
+        </features>
+        <clock offset='utc' adjustment='reset'>
+            <timer name="tsc" mode="native"/>
+        </clock>
+        <on_poweroff>destroy</on_poweroff>
+        <on_reboot>destroy</on_reboot>
+        <on_crash>destroy</on_crash>
+        <devices>
+            <disk type="block" device="disk">
+                <driver name="phy" />
+                <source dev="/tmp/kernel/modules.img" />
+                <target dev="xvdd" />
+                <backenddomain name="dom0" />
+            </disk>
+            <emulator type="none" />
+            <console type="pty">
+                <target type="xen" port="0"/>
+            </console>
+        </devices>
+        </domain>
+        '''
+        my_uuid = '7db78950-c467-4863-94d1-af59806384ea'
+        vm = self.get_vm(uuid=my_uuid)
+        vm.netvm = None
+        vm.virt_mode = 'pvh'
+        # tests for storage are later
+        vm.volumes['kernel'] = unittest.mock.Mock(**{
+            'kernels_dir': '/tmp/kernel',
+            'block_device.return_value.domain': 'dom0',
+            'block_device.return_value.script': None,
+            'block_device.return_value.path': '/tmp/kernel/modules.img',
+            'block_device.return_value.devtype': 'disk',
+            'block_device.return_value.name': 'kernel',
+        })
         libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
             lxml.etree.XML(expected))

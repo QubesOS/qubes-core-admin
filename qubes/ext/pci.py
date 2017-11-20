@@ -224,6 +224,10 @@ class PCIDeviceExtension(qubes.ext.Extension):
             raise qubes.exc.QubesException(
                 'Invalid PCI device: {}'.format(device.ident))
 
+        if vm.virt_mode == 'pvh':
+            raise qubes.exc.QubesException(
+                "Can't attach PCI device to VM in pvh mode")
+
         if not vm.is_running():
             return
 
