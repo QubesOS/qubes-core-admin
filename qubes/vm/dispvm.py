@@ -129,18 +129,18 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         raise qubes.exc.QubesValueError(self,
             'Cannot change template of Disposable VM')
 
+    @qubes.events.handler('domain-shutdown')
     @asyncio.coroutine
-    def on_domain_shutdown_coro(self):
-        '''Coroutine for executing cleanup after domain shutdown.
+    def on_domain_shutdown(self, _event, **_kwargs):
+        yield from self._auto_cleanup()
 
-        This override default action defined in QubesVM.on_domain_shutdown_coro
-        '''
-        with (yield from self.startup_lock):
-            yield from self.storage.stop()
-            if self.auto_cleanup and self in self.app.domains:
-                yield from self.remove_from_disk()
-                del self.app.domains[self]
-                self.app.save()
+    @asyncio.coroutine
+    def _auto_cleanup(self):
+        '''Do auto cleanup if enabled'''
+        if self.auto_cleanup and self in self.app.domains:
+            yield from self.remove_from_disk()
+            del self.app.domains[self]
+            self.app.save()
 
     @classmethod
     @asyncio.coroutine
@@ -206,10 +206,6 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
 
             yield from super(DispVM, self).start(**kwargs)
         except:
-            # cleanup also on failed startup; there is potential race with
-            # self.on_domain_shutdown_coro, so check if wasn't already removed
-            if self.auto_cleanup and self in self.app.domains:
-                yield from self.remove_from_disk()
-                del self.app.domains[self]
-                self.app.save()
+            # Cleanup also on failed startup
+            yield from self._auto_cleanup()
             raise
