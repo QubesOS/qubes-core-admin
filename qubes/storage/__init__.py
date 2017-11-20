@@ -815,6 +815,16 @@ class Pool(object):
         '''
         raise self._not_implemented("get_volume")
 
+    @property
+    def size(self):
+        ''' Storage pool size in bytes '''
+        raise self._not_implemented("size")
+
+    @property
+    def usage(self):
+        ''' Space used in the pool, in bytes '''
+        raise self._not_implemented("usage")
+
     def _not_implemented(self, method_name):
         ''' Helper for emitting helpful `NotImplementedError` exceptions '''
         msg = "Pool driver {!s} has {!s}() not implemented"

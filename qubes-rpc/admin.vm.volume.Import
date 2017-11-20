@@ -44,7 +44,7 @@ path=$(tail -c +3 "$tmpfile"|cut -d ' ' -f 2)
 
 # now process stdin into this path
 if dd bs=4k of="$path" count="$size" iflag=count_bytes,fullblock \
-        conv=sparse,notrunc,nocreat,fdatasync; then
+        conv=sparse,notrunc,nocreat,fdatasync status=none; then
     status="ok"
 else
     status="fail"

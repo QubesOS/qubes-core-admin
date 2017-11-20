@@ -23,11 +23,13 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.pool.List \
 	admin.pool.ListDrivers \
 	admin.pool.Remove \
+	admin.pool.Set.revisions_to_keep \
 	admin.pool.volume.Info \
 	admin.pool.volume.List \
 	admin.pool.volume.ListSnapshots \
 	admin.pool.volume.Resize \
 	admin.pool.volume.Revert \
+	admin.pool.volume.Set.revisions_to_keep \
 	admin.pool.volume.Snapshot \
 	admin.property.Get \
 	admin.property.GetDefault \
@@ -96,6 +98,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.vm.volume.ListSnapshots \
 	admin.vm.volume.Resize \
 	admin.vm.volume.Revert \
+	admin.vm.volume.Set.revisions_to_keep \
 	admin.vm.Stats \
 	$(null)
 

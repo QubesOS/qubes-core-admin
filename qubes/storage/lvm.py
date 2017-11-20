@@ -137,6 +137,22 @@ class ThinPool(qubes.storage.Pool):
             volumes += [ThinVolume(**config)]
         return volumes
 
+    @property
+    def size(self):
+        try:
+            return qubes.storage.lvm.size_cache[
+                self.volume_group + '/' + self.thin_pool]['size']
+        except KeyError:
+            return 0
+
+    @property
+    def usage(self):
+        try:
+            return qubes.storage.lvm.size_cache[
+                self.volume_group + '/' + self.thin_pool]['usage']
+        except KeyError:
+            return 0
+
 
 def init_cache(log=logging.getLogger('qubes.storage.lvm')):
     cmd = ['lvs', '--noheadings', '-o',
@@ -159,7 +175,7 @@ def init_cache(log=logging.getLogger('qubes.storage.lvm')):
         line = line.decode().strip()
         pool_name, pool_lv, name, size, usage_percent, attr, \
             origin = line.split(';', 6)
-        if '' in [pool_name, pool_lv, name, size, usage_percent]:
+        if '' in [pool_name, name, size, usage_percent]:
             continue
         name = pool_name + "/" + name
         size = int(size[:-1])  # Remove 'B' suffix
@@ -342,6 +358,8 @@ class ThinVolume(qubes.storage.Volume):
             cmd = ['clone', str(src_volume), str(self)]
             qubes_lvm(cmd, self.log)
         else:
+            if src_volume.size != self.size:
+                self.resize(src_volume.size)
             src_path = src_volume.export()
             cmd = ['dd', 'if=' + src_path, 'of=/dev/' + self.vid,
                 'conv=sparse']

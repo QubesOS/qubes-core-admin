@@ -54,6 +54,7 @@ class FilePool(qubes.storage.Pool):
     driver = 'file'
 
     def __init__(self, revisions_to_keep=1, dir_path=None, **kwargs):
+        self._revisions_to_keep = 0
         super(FilePool, self).__init__(revisions_to_keep=revisions_to_keep,
                                        **kwargs)
         assert dir_path, "No pool dir_path specified"
@@ -85,18 +86,26 @@ class FilePool(qubes.storage.Pool):
                 volume_config['revisions_to_keep'] = 0
         except KeyError:
             pass
-        finally:
-            if 'revisions_to_keep' not in volume_config:
-                volume_config['revisions_to_keep'] = self.revisions_to_keep
 
-        if int(volume_config['revisions_to_keep']) > 1:
-            raise NotImplementedError(
-                'FilePool supports maximum 1 volume revision to keep')
+        if 'revisions_to_keep' not in volume_config:
+            volume_config['revisions_to_keep'] = self.revisions_to_keep
 
         volume_config['pool'] = self
         volume = FileVolume(**volume_config)
         self._volumes += [volume]
         return volume
+
+    @property
+    def revisions_to_keep(self):
+        return self._revisions_to_keep
+
+    @revisions_to_keep.setter
+    def revisions_to_keep(self, value):
+        value = int(value)
+        if value > 1:
+            raise NotImplementedError(
+                'FilePool supports maximum 1 volume revision to keep')
+        self._revisions_to_keep = value
 
     def destroy(self):
         pass
@@ -144,6 +153,16 @@ class FilePool(qubes.storage.Pool):
     def list_volumes(self):
         return self._volumes
 
+    @property
+    def size(self):
+        statvfs = os.statvfs(self.dir_path)
+        return statvfs.f_frsize * statvfs.f_blocks
+
+    @property
+    def usage(self):
+        statvfs = os.statvfs(self.dir_path)
+        return statvfs.f_frsize * (statvfs.f_blocks - statvfs.f_bfree)
+
 
 class FileVolume(qubes.storage.Volume):
     ''' Parent class for the xen volumes implementation which expects a
@@ -152,11 +171,23 @@ class FileVolume(qubes.storage.Volume):
     def __init__(self, dir_path, **kwargs):
         self.dir_path = dir_path
         assert self.dir_path, "dir_path not specified"
+        self._revisions_to_keep = 0
         super(FileVolume, self).__init__(**kwargs)
 
         if self.snap_on_start:
             img_name = self.source.vid + '-cow.img'
             self.path_source_cow = os.path.join(self.dir_path, img_name)
+
+    @property
+    def revisions_to_keep(self):
+        return self._revisions_to_keep
+
+    @revisions_to_keep.setter
+    def revisions_to_keep(self, value):
+        if int(value) > 1:
+            raise NotImplementedError(
+                'FileVolume supports maximum 1 volume revision to keep')
+        self._revisions_to_keep = int(value)
 
     def create(self):
         assert isinstance(self.size, int) and self.size > 0, \
@@ -419,7 +450,7 @@ def copy_file(source, destination):
         os.makedirs(parent_dir)
 
     try:
-        cmd = ['cp', '--sparse=auto',
+        cmd = ['cp', '--sparse=always',
                '--reflink=auto', source, destination]
         subprocess.check_call(cmd)
     except subprocess.CalledProcessError:
