@@ -71,11 +71,11 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
             self.dest.storage.import_data_end(self.arg, success=success)
         except:
             self.dest.fire_event('domain-volume-import-end', volume=self.arg,
-                succeess=False)
+                success=False)
             raise
 
         self.dest.fire_event('domain-volume-import-end', volume=self.arg,
-            succeess=success)
+            success=success)
 
         if not success:
             raise qubes.exc.QubesException('Data import failed')
