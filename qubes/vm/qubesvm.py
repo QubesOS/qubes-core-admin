@@ -867,6 +867,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 pre_event=True,
                 start_guid=start_guid, mem_required=mem_required)
 
+            qmemman_client = None
             try:
                 yield from self.storage.verify()
 
