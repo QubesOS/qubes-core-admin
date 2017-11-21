@@ -1,6 +1,5 @@
 [Unit]
 Description=Qubes memory management daemon
-After=qubes-core.service
 
 [Service]
 Type=notify
