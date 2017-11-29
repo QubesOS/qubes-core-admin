@@ -432,11 +432,13 @@ fi
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.VMRootShell
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.UpdatesProxy
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.GetDate
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/policy.RegisterArgument
 /etc/qubes-rpc/admin.*
 /etc/qubes-rpc/qubes.FeaturesRequest
 /etc/qubes-rpc/qubes.GetRandomizedTime
 /etc/qubes-rpc/qubes.NotifyTools
 /etc/qubes-rpc/qubes.NotifyUpdates
+/etc/qubes-rpc/policy.RegisterArgument
 %attr(2770,root,qubes) %dir /var/log/qubes
 %attr(0770,root,qubes) %dir /var/run/qubes
 /etc/xdg/autostart/qrexec-policy-agent.desktop
