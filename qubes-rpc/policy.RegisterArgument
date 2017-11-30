@@ -18,6 +18,38 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
+'''policy.RegisterArgument
+
+This qrexec is meant for services, which require some kind of "registering"
+before use (say ``example.Register`` and ``example.Perform+ARGUMENT``). After
+registering, the backend should invoke this call with frontend as the intended
+destination, with the actual service in argument of this call and the argument
+as the payload. The policy generated will be a single line with explicit
+frontend and backend domain names, and a plain "allow", without further
+qualifiers.
+
+The call allows for registering an argument only once, for one frontend domain.
+There is not possibility of deregistering or reregistering for another frontend.
+The backend can always register another argument for any frontend, including
+one that is already registered for some other argument.
+
+By default this qrexec is disabled by policy. To actually use it you should
+drop a policy for an exact call you want to register which will redirect the
+call to dom0.
+
+.. code-block:: none
+    :caption: /etc/qubes-rpc/policy/policy.RegisterArgument+example.Perform
+
+    backendvm $anyvm allow,target=dom0
+
+It will generate, for argument ``EXAMPLE``:
+
+.. code-bloc:: none
+    :caption: /etc/qubes-rpc/policy/example.Perform+EXAMPLE
+
+    frontendvm backendvm allow
+'''
+
 import logging
 import os
 import string
@@ -72,14 +104,14 @@ def main():
 
     argument = untrusted_argument
     del untrusted_argument
-    argument = argument.decode('ascii')
+    argument = argument.decode('ascii', errors='strict')
 
     filename = '{}+{}'.format(rpcname, argument)
     logging.debug('%s %s → %s argument %s filename %s',
             rpcname, frontend, backend, argument, filename)
 
     try:
-        # the 'x' is critical
+        # the 'x' enforces that argument cannot be registered twice
         with open(str(POLICY_PATH / filename), 'x') as file:
             rule = POLICY_RULE.format(frontend=frontend, backend=backend)
             logging.warning('%s: %s → %s %s argument allowed',
