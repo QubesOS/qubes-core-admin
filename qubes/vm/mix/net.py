@@ -24,13 +24,14 @@
 
 import os
 import re
+import socket
 
 import libvirt  # pylint: disable=import-error
 import qubes
+import qubes.config
 import qubes.events
 import qubes.firewall
 import qubes.exc
-
 
 def _setter_mac(self, prop, value):
     ''' Helper for setting the MAC address '''
@@ -61,6 +62,27 @@ def _setter_ip(self, prop, value):
         raise ValueError('Invalid IP address value')
     return value
 
+def _default_ip6(self):
+    if not self.is_networked():
+        return None
+    if not self.features.check_with_netvm('ipv6', False):
+        return None
+    if self.netvm is not None:
+        return self.netvm.get_ip6_for_vm(self)  # pylint: disable=no-member
+
+    return self.get_ip6_for_vm(self)
+
+
+def _setter_ip6(self, prop, value):
+    # pylint: disable=unused-argument
+    if not isinstance(value, str):
+        raise ValueError('IPv6 address must be a string')
+    value = value.lower()
+    try:
+        socket.inet_pton(socket.AF_INET6, value)
+    except socket.error:
+        raise ValueError('Invalid IPv6 address value')
+    return value
 
 def _setter_netvm(self, prop, value):
     # pylint: disable=unused-argument
@@ -92,6 +114,11 @@ class NetVMMixin(qubes.events.Emitter):
         setter=_setter_ip,
         doc='IP address of this domain.')
 
+    ip6 = qubes.property('ip6', type=str,
+        default=_default_ip6,
+        setter=_setter_ip6,
+        doc='IPv6 address of this domain.')
+
     # CORE2: swallowed uses_default_netvm
     netvm = qubes.VMProperty('netvm', load_stage=4, allow_none=True,
         default=(lambda self: self.app.default_netvm),
@@ -122,10 +149,22 @@ class NetVMMixin(qubes.events.Emitter):
             self.ip
 
     @qubes.stateless_property
+    def visible_ip6(self):
+        '''IPv6 address of this domain as seen by the domain.'''
+        return self.ip6
+
+    @qubes.stateless_property
     def visible_gateway(self):
         '''Default gateway of this domain as seen by the domain.'''
         return self.features.check_with_template('net.fake-gateway', None) or \
             (self.netvm.gateway if self.netvm else None)
+
+    @qubes.stateless_property
+    def visible_gateway6(self):
+        '''Default (IPv6) gateway of this domain as seen by the domain.'''
+        if self.features.check_with_netvm('ipv6', False):
+            return self.netvm.gateway6 if self.netvm else None
+        return None
 
     @qubes.stateless_property
     def visible_netmask(self):
@@ -151,10 +190,32 @@ class NetVMMixin(qubes.events.Emitter):
         # does not happen, because qid < 253, but may happen in the future.
         return '10.137.{}.{}'.format((vm.qid >> 8) & 0xff, vm.qid & 0xff)
 
+    @staticmethod
+    def get_ip6_for_vm(vm):
+        '''Get IPv6 address for (appvm) domain connected to this (netvm) domain.
+
+        Default address is constructed with Qubes-specific site-local prefix,
+        and IPv4 suffix (0xa89 is 10.137.).
+        '''
+        import qubes.vm.dispvm  # pylint: disable=redefined-outer-name
+        if isinstance(vm, qubes.vm.dispvm.DispVM):
+            return '{}::a8a:{:x}'.format(
+                qubes.config.qubes_ipv6_prefix, vm.dispid)
+
+        return '{}::a89:{:x}'.format(qubes.config.qubes_ipv6_prefix, vm.qid)
+
     @qubes.stateless_property
     def gateway(self):
         '''Gateway for other domains that use this domain as netvm.'''
         return self.visible_ip if self.provides_network else None
+
+    @qubes.stateless_property
+    def gateway6(self):
+        '''Gateway (IPv6) for other domains that use this domain as netvm.'''
+        if self.features.check_with_netvm('ipv6', False):
+            return 'fe80::fcff:ffff:feff:ffff' if self.provides_network else \
+                None
+        return None
 
     @property
     def netmask(self):
@@ -305,15 +366,20 @@ class NetVMMixin(qubes.events.Emitter):
         if not self.is_running():
             return
 
-        base_dir = '/qubes-firewall/' + vm.ip + '/'
-        # remove old entries if any (but don't touch base empty entry - it
-        # would trigger reload right away
-        self.untrusted_qdb.rm(base_dir)
-        # write new rules
-        for key, value in vm.firewall.qdb_entries(addr_family=4).items():
-            self.untrusted_qdb.write(base_dir + key, value)
-        # signal its done
-        self.untrusted_qdb.write(base_dir[:-1], '')
+        for addr_family in (4, 6):
+            ip = vm.ip6 if addr_family == 6 else vm.ip
+            if ip is None:
+                continue
+            base_dir = '/qubes-firewall/' + ip + '/'
+            # remove old entries if any (but don't touch base empty entry - it
+            # would trigger reload right away
+            self.untrusted_qdb.rm(base_dir)
+            # write new rules
+            for key, value in vm.firewall.qdb_entries(
+                    addr_family=addr_family).items():
+                self.untrusted_qdb.write(base_dir + key, value)
+            # signal its done
+            self.untrusted_qdb.write(base_dir[:-1], '')
 
     def set_mapped_ip_info_for_vm(self, vm):
         '''
@@ -333,7 +399,6 @@ class NetVMMixin(qubes.events.Emitter):
                 vm.visible_gateway)
         else:
             self.untrusted_qdb.rm(mapped_ip_base + '/visible-gateway')
-
 
     @qubes.events.handler('property-pre-del:netvm')
     def on_property_pre_del_netvm(self, event, name, oldvalue=None):

@@ -121,3 +121,21 @@ class TC_00_NetVMMixin(
         self.assertPropertyInvalidValue(vm, 'ip', 'a.b.c.d')
         self.assertPropertyInvalidValue(vm, 'ip', '1111.2222.3333.4444')
         # TODO: implement and add here: 0.0.0.0, 333.333.333.333
+
+    def test_160_ip6(self):
+        vm = self.get_vm()
+        self.setup_netvms(vm)
+        self.assertPropertyDefaultValue(vm, 'ip6', None)
+        vm.netvm.features['ipv6'] = True
+        self.assertPropertyDefaultValue(vm, 'ip6',
+            '{}::a89:{:x}'.format(qubes.config.qubes_ipv6_prefix, vm.qid))
+        vm.ip6 = 'abcd:efff::1'
+        self.assertEqual(vm.ip6, 'abcd:efff::1')
+
+    def test_161_ip6_invalid(self):
+        vm = self.get_vm()
+        self.setup_netvms(vm)
+        vm.netvm.features['ipv6'] = True
+        self.assertPropertyInvalidValue(vm, 'ip', 'zzzz')
+        self.assertPropertyInvalidValue(vm, 'ip',
+            '1:2:3:4:5:6:7:8:0:a:b:c:d:e:f:0')

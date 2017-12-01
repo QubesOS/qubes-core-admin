@@ -1831,6 +1831,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             for i, addr in zip(('primary', 'secondary'), self.dns):
                 self.untrusted_qdb.write('/qubes-{}-dns'.format(i), addr)
 
+            if self.visible_ip6:
+                self.untrusted_qdb.write('/qubes-ip6', self.visible_ip6)
+            if self.visible_gateway6:
+                self.untrusted_qdb.write('/qubes-gateway6',
+                    self.visible_gateway6)
+
 
         tzname = qubes.utils.get_timezone()
         if tzname:
