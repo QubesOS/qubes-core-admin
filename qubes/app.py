@@ -837,7 +837,7 @@ class Qubes(qubes.PropertyHolder):
 
         if 0 not in self.domains:
             self.domains.add(
-                qubes.vm.adminvm.AdminVM(self, None, qid=0, name='dom0'),
+                qubes.vm.adminvm.AdminVM(self, None),
                 _enable_events=False)
 
         # stage 3: load global properties
