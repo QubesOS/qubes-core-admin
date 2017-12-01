@@ -75,11 +75,6 @@ class Core2Qubes(qubes.Qubes):
             self.default_netvm = int(default_netvm) \
                 if default_netvm != "None" else None
 
-        default_fw_netvm = element.get("default_fw_netvm")
-        if default_fw_netvm is not None:
-            self.default_fw_netvm = int(default_fw_netvm) \
-                if default_fw_netvm != "None" else None
-
         updatevm = element.get("updatevm")
         if updatevm is not None:
             self.updatevm = int(updatevm) \

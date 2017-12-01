@@ -270,6 +270,11 @@ class TC_89_QubesEmpty(qubes.tests.QubesTestCase):
             os.unlink('/tmp/qubestest.xml')
         except:
             pass
+        try:
+            self.app.close()
+            del self.app
+        except AttributeError:
+            pass
         super().tearDown()
 
     @qubes.tests.skipUnlessDom0
@@ -280,6 +285,123 @@ class TC_89_QubesEmpty(qubes.tests.QubesTestCase):
         except FileNotFoundError:
             pass
         qubes.Qubes.create_empty_store('/tmp/qubestest.xml').close()
+
+    def test_100_property_migrate_default_fw_netvm(self):
+        xml_template = '''<?xml version="1.0" encoding="utf-8" ?>
+        <qubes version="3.0">
+            <properties>
+                <property name="default_netvm">{default_netvm}</property>
+                <property name="default_fw_netvm">{default_fw_netvm}</property>
+            </properties>
+            <labels>
+                <label id="label-1" color="#cc0000">red</label>
+            </labels>
+            <pools>
+              <pool driver="file" dir_path="/tmp/qubes-test" name="default"/>
+            </pools>
+            <domains>
+                <domain class="StandaloneVM" id="domain-1">
+                    <properties>
+                        <property name="qid">1</property>
+                        <property name="name">sys-net</property>
+                        <property name="provides_network">True</property>
+                        <property name="label" ref="label-1" />
+                        <property name="netvm"></property>
+                        <property name="uuid">2fcfc1f4-b2fe-4361-931a-c5294b35edfa</property>
+                    </properties>
+                    <features/>
+                    <devices class="pci"/>
+                </domain>
+
+                <domain class="StandaloneVM" id="domain-2">
+                    <properties>
+                        <property name="qid">2</property>
+                        <property name="name">sys-firewall</property>
+                        <property name="provides_network">True</property>
+                        <property name="label" ref="label-1" />
+                        <property name="uuid">9a6d9689-25f7-48c9-a15f-8205d6c5b7c6</property>
+                    </properties>
+                </domain>
+
+                <domain class="StandaloneVM" id="domain-3">
+                    <properties>
+                        <property name="qid">3</property>
+                        <property name="name">appvm</property>
+                        <property name="label" ref="label-1" />
+                        <property name="uuid">1d6aab41-3262-400a-b3d3-21aae8fdbec8</property>
+                    </properties>
+                </domain>
+            </domains>
+        </qubes>
+        '''
+        with self.subTest('default_setup'):
+            with open('/tmp/qubestest.xml', 'w') as xml_file:
+                xml_file.write(xml_template.format(
+                    default_netvm='sys-firewall',
+                    default_fw_netvm='sys-net'))
+            self.app = qubes.Qubes('/tmp/qubestest.xml', offline_mode=True)
+            self.assertEqual(
+                self.app.domains['sys-net'].netvm, None)
+            self.assertEqual(
+                self.app.domains['sys-firewall'].netvm, self.app.domains['sys-net'])
+            # property is no longer "default"
+            self.assertFalse(
+                self.app.domains['sys-firewall'].property_is_default('netvm'))
+            # verify that appvm.netvm is unaffected
+            self.assertTrue(
+                self.app.domains['appvm'].property_is_default('netvm'))
+            self.assertEqual(
+                self.app.domains['appvm'].netvm,
+                self.app.domains['sys-firewall'])
+            with self.assertRaises(AttributeError):
+                self.app.default_fw_netvm
+
+            self.app.close()
+            del self.app
+
+        with self.subTest('same'):
+            with open('/tmp/qubestest.xml', 'w') as xml_file:
+                xml_file.write(xml_template.format(
+                    default_netvm='sys-net',
+                    default_fw_netvm='sys-net'))
+            self.app = qubes.Qubes('/tmp/qubestest.xml', offline_mode=True)
+            self.assertEqual(
+                self.app.domains['sys-net'].netvm, None)
+            self.assertEqual(
+                self.app.domains['sys-firewall'].netvm,
+                self.app.domains['sys-net'])
+            self.assertTrue(
+                self.app.domains['sys-firewall'].property_is_default('netvm'))
+            # verify that appvm.netvm is unaffected
+            self.assertTrue(
+                self.app.domains['appvm'].property_is_default('netvm'))
+            self.assertEqual(
+                self.app.domains['appvm'].netvm,
+                self.app.domains['sys-net'])
+            with self.assertRaises(AttributeError):
+                self.app.default_fw_netvm
+
+        with self.subTest('loop'):
+            with open('/tmp/qubestest.xml', 'w') as xml_file:
+                xml_file.write(xml_template.format(
+                    default_netvm='sys-firewall',
+                    default_fw_netvm='sys-firewall'))
+            self.app = qubes.Qubes('/tmp/qubestest.xml', offline_mode=True)
+            self.assertEqual(
+                self.app.domains['sys-net'].netvm, None)
+            # this was netvm loop, better set to none, to not crash qubesd
+            self.assertEqual(
+                self.app.domains['sys-firewall'].netvm, None)
+            self.assertFalse(
+                self.app.domains['sys-firewall'].property_is_default('netvm'))
+            # verify that appvm.netvm is unaffected
+            self.assertTrue(
+                self.app.domains['appvm'].property_is_default('netvm'))
+            self.assertEqual(
+                self.app.domains['appvm'].netvm,
+                self.app.domains['sys-firewall'])
+            with self.assertRaises(AttributeError):
+                self.app.default_fw_netvm
 
 
 class TC_90_Qubes(qubes.tests.QubesTestCase):

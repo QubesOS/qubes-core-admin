@@ -724,11 +724,6 @@ class Qubes(qubes.PropertyHolder):
         setter=_setter_default_netvm,
         doc='''Default NetVM for AppVMs. Initial state is `None`, which means
             that AppVMs are not connected to the Internet.''')
-    default_fw_netvm = qubes.VMProperty('default_fw_netvm', load_stage=3,
-        default=None, allow_none=True,
-        doc='''Default NetVM for ProxyVMs. Initial state is `None`, which means
-            that ProxyVMs (including FirewallVM) are not connected to the
-            Internet.''')
     default_template = qubes.VMProperty('default_template', load_stage=3,
         vmclass=qubes.vm.templatevm.TemplateVM,
         doc='Default template for new AppVMs')
@@ -838,6 +833,50 @@ class Qubes(qubes.PropertyHolder):
     def store(self):
         return self._store
 
+    def _migrate_global_properties(self):
+        '''Migrate renamed/dropped properties'''
+        if self.xml is None:
+            return
+
+        # drop default_fw_netvm
+        node_default_fw_netvm = self.xml.find(
+            './properties/property[@name=\'default_fw_netvm\']')
+        if node_default_fw_netvm is not None:
+            node_default_netvm = self.xml.find(
+                './properties/property[@name=\'default_netvm\']')
+            try:
+                default_fw_netvm = self.domains[node_default_fw_netvm.text]
+                if node_default_netvm is None:
+                    default_netvm = None
+                else:
+                    default_netvm = self.domains[node_default_netvm.text]
+                if default_netvm != default_fw_netvm:
+                    for vm in self.domains:
+                        if not hasattr(vm, 'netvm'):
+                            continue
+                        if not getattr(vm, 'provides_network', False):
+                            continue
+                        node_netvm = vm.xml.find(
+                            './properties/property[@name=\'netvm\']')
+                        if node_netvm is not None:
+                            # non-default netvm
+                            continue
+                        # this will unfortunately break "being default"
+                        # property state, but the alternative (changing
+                        # value behind user's back) is worse
+                        properties = vm.xml.find('./properties')
+                        element = lxml.etree.Element('property',
+                            name='netvm')
+                        element.text = default_fw_netvm.name
+                        # manipulate xml directly, before loading netvm
+                        # property, to avoid hitting netvm loop detection
+                        properties.append(element)
+            except KeyError:
+                # if default_fw_netvm was set to invalid value, simply
+                # drop it
+                pass
+            node_default_fw_netvm.getparent().remove(node_default_fw_netvm)
+
     def load(self, lock=False):
         '''Open qubes.xml
 
@@ -876,6 +915,8 @@ class Qubes(qubes.PropertyHolder):
                 qubes.vm.adminvm.AdminVM(self, None),
                 _enable_events=False)
 
+        self._migrate_global_properties()
+
         # stage 3: load global properties
         self.load_properties(load_stage=3)
 
@@ -886,7 +927,6 @@ class Qubes(qubes.PropertyHolder):
 
         # stage 5: misc fixups
 
-        self.property_require('default_fw_netvm', allow_none=True)
         self.property_require('default_netvm', allow_none=True)
         self.property_require('default_template')
         self.property_require('clockvm', allow_none=True)
@@ -1305,9 +1345,7 @@ class Qubes(qubes.PropertyHolder):
         if oldvalue and oldvalue.features.get('service.clocksync', False):
             del oldvalue.features['service.clocksync']
 
-    @qubes.events.handler(
-        'property-pre-set:default_netvm',
-        'property-pre-set:default_fw_netvm')
+    @qubes.events.handler('property-pre-set:default_netvm')
     def on_property_pre_set_default_netvm(self, event, name, newvalue,
             oldvalue=None):
         # pylint: disable=unused-argument,invalid-name

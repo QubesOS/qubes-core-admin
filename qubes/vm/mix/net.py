@@ -94,8 +94,7 @@ class NetVMMixin(qubes.events.Emitter):
 
     # CORE2: swallowed uses_default_netvm
     netvm = qubes.VMProperty('netvm', load_stage=4, allow_none=True,
-        default=(lambda self: self.app.default_fw_netvm if self.provides_network
-            else self.app.default_netvm),
+        default=(lambda self: self.app.default_netvm),
         setter=_setter_netvm,
         doc='''VM that provides network connection to this domain. When
             `None`, machine is disconnected. When absent, domain uses default
