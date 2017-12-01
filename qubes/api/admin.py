@@ -883,6 +883,19 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             raise qubes.exc.QubesFeatureNotFoundError(self.dest, self.arg)
         return value
 
+    @qubes.api.method('admin.vm.feature.CheckWithNetvm', no_payload=True,
+        scope='local', read=True)
+    @asyncio.coroutine
+    def vm_feature_checkwithnetvm(self):
+        # validation of self.arg done by qrexec-policy is enough
+
+        self.fire_event_for_permission()
+        try:
+            value = self.dest.features.check_with_netvm(self.arg)
+        except KeyError:
+            raise qubes.exc.QubesFeatureNotFoundError(self.dest, self.arg)
+        return value
+
     @qubes.api.method('admin.vm.feature.Remove', no_payload=True,
         scope='local', write=True)
     @asyncio.coroutine

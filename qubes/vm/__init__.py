@@ -186,6 +186,20 @@ class Features(dict):
 
         return default
 
+    def check_with_netvm(self, feature, default=_NO_DEFAULT):
+        ''' Check if the vm's netvm has the specified feature. '''
+        if feature in self:
+            return self[feature]
+
+        if hasattr(self.vm, 'netvm') and self.vm.netvm is not None:
+            return self.vm.netvm.features.check_with_netvm(feature,
+                default)
+
+        if default is self._NO_DEFAULT:
+            raise KeyError(feature)
+
+        return default
+
 
 class Tags(set):
     '''Manager of the tags.

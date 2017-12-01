@@ -69,6 +69,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.vm.device.mic.Detach \
 	admin.vm.device.mic.List \
 	admin.vm.device.mic.Set.persistent \
+	admin.vm.feature.CheckWithNetvm \
 	admin.vm.feature.CheckWithTemplate \
 	admin.vm.feature.Get \
 	admin.vm.feature.List \

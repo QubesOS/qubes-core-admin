@@ -90,6 +90,10 @@ class AdminAPITestCase(qubes.tests.QubesTestCase):
         self.base_dir_patch.stop()
         if os.path.exists(self.test_base_dir):
             shutil.rmtree(self.test_base_dir)
+        try:
+            del self.netvm
+        except AttributeError:
+            pass
         del self.vm
         del self.template
         self.app.close()
@@ -1044,6 +1048,31 @@ class TC_00_VMs(AdminAPITestCase):
     def test_312_feature_checkwithtemplate_none(self):
         with self.assertRaises(qubes.exc.QubesFeatureNotFoundError):
             self.call_mgmt_func(b'admin.vm.feature.CheckWithTemplate',
+                b'test-vm1', b'test-feature')
+        self.assertFalse(self.app.save.called)
+
+    def test_315_feature_checkwithnetvm(self):
+        self.vm.features['test-feature'] = 'some-value'
+        value = self.call_mgmt_func(b'admin.vm.feature.CheckWithNetvm',
+            b'test-vm1', b'test-feature')
+        self.assertEqual(value, 'some-value')
+        self.assertFalse(self.app.save.called)
+
+    def test_316_feature_checkwithnetvm_netvm(self):
+        self.netvm = self.app.add_new_vm('AppVM', label='red',
+            name='test-netvm1',
+            template='test-template',
+            provides_network=True)
+        self.vm.netvm = self.netvm
+        self.netvm.features['test-feature'] = 'some-value'
+        value = self.call_mgmt_func(b'admin.vm.feature.CheckWithNetvm',
+            b'test-vm1', b'test-feature')
+        self.assertEqual(value, 'some-value')
+        self.assertFalse(self.app.save.called)
+
+    def test_317_feature_checkwithnetvm_none(self):
+        with self.assertRaises(qubes.exc.QubesFeatureNotFoundError):
+            self.call_mgmt_func(b'admin.vm.feature.CheckWithNetvm',
                 b'test-vm1', b'test-feature')
         self.assertFalse(self.app.save.called)
 
