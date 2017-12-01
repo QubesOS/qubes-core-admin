@@ -566,6 +566,15 @@ def _default_pool(app):
     if 'default' in app.pools:
         return app.pools['default']
     else:
+        if 'DEFAULT_LVM_POOL' in os.environ:
+            thin_pool = os.environ['DEFAULT_LVM_POOL']
+            for pool in app.pools.values():
+                if pool.config.get('driver', None) != 'lvm_thin':
+                    continue
+                print(pool.config['thin_pool'], thin_pool)
+                if pool.config['thin_pool'] == thin_pool:
+                    return pool
+        # no DEFAULT_LVM_POOL, or pool not defined
         rootfs = os.stat('/')
         root_major = (rootfs.st_dev & 0xff00) >> 8
         root_minor = rootfs.st_dev & 0xff
