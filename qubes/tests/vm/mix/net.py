@@ -40,10 +40,10 @@ class TC_00_NetVMMixin(
         # testing properties used here
         self.netvm1 = qubes.vm.qubesvm.QubesVM(self.app, None, qid=2,
             name=qubes.tests.VMPREFIX + 'netvm1',
-            provides_network=True)
+            provides_network=True, netvm=None)
         self.netvm2 = qubes.vm.qubesvm.QubesVM(self.app, None, qid=3,
             name=qubes.tests.VMPREFIX + 'netvm2',
-            provides_network=True)
+            provides_network=True, netvm=None)
         self.nonetvm = qubes.vm.qubesvm.QubesVM(self.app, None, qid=4,
             name=qubes.tests.VMPREFIX + 'nonet')
         self.app.domains = qubes.app.VMCollection(self.app)

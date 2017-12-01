@@ -606,6 +606,27 @@ def _setter_pool(app, prop, value):
         raise qubes.exc.QubesPropertyValueError(app, prop, value,
             'No such storage pool')
 
+def _setter_default_netvm(app, prop, value):
+    # skip netvm loop check while loading qubes.xml, to avoid tricky loading
+    # order
+    if not app.events_enabled:
+        return value
+
+    if value is None:
+        return value
+    # forbid setting to a value that would result in netvm loop
+    for vm in app.domains:
+        if not hasattr(vm, 'netvm'):
+            continue
+        if not vm.property_is_default('netvm'):
+            continue
+        if value == vm \
+                or value in app.domains.get_vms_connected_to(vm):
+            raise qubes.exc.QubesPropertyValueError(app, prop, value,
+                'Network loop on \'{!s}\''.format(vm))
+    return value
+
+
 class Qubes(qubes.PropertyHolder):
     '''Main Qubes application
 
@@ -664,6 +685,7 @@ class Qubes(qubes.PropertyHolder):
 
     default_netvm = qubes.VMProperty('default_netvm', load_stage=3,
         default=None, allow_none=True,
+        setter=_setter_default_netvm,
         doc='''Default NetVM for AppVMs. Initial state is `None`, which means
             that AppVMs are not connected to the Internet.''')
     default_fw_netvm = qubes.VMProperty('default_fw_netvm', load_stage=3,
