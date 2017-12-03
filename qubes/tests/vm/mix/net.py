@@ -57,7 +57,10 @@ class TC_00_NetVMMixin(
         self.netvm1.close()
         self.netvm2.close()
         self.nonetvm.close()
-        self.app.domains.close()
+        try:
+            self.app.domains.close()
+        except AttributeError:
+            pass
         del self.netvm1
         del self.netvm2
         del self.nonetvm

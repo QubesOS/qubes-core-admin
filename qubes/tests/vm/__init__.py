@@ -38,6 +38,23 @@ class TestHost(object):
         self.memory_total = 1000 * 1024
         self.no_cpus = 4
 
+class TestVMsCollection(dict):
+    def get_vms_connected_to(self, vm):
+        return set()
+
+    def close(self):
+        self.clear()
+
+class TestVolume(object):
+    def __init__(self, pool):
+        self.pool = pool
+        self.size = 0
+        self.source = None
+
+class TestPool(object):
+    def init_volume(self, *args, **kwargs):
+        return TestVolume(self)
+
 class TestApp(qubes.tests.TestEmitter):
     labels = {1: qubes.Label(1, '0xcc0000', 'red')}
     check_updates_vm = False
@@ -58,12 +75,18 @@ class TestApp(qubes.tests.TestEmitter):
         super(TestApp, self).__init__()
         self.vmm = TestVMM()
         self.host = TestHost()
-        self.pools = {}
+        default_pool = TestPool()
+        self.pools = {
+            'default': default_pool,
+            default_pool: default_pool,
+            'linux-kernel': TestPool(),
+        }
         self.default_pool_volatile = 'default'
         self.default_pool_root = 'default'
         self.default_pool_private = 'default'
         self.default_pool_kernel = 'linux-kernel'
-        self.domains = {}
+        self.default_netvm = None
+        self.domains = TestVMsCollection()
         #: jinja2 environment for libvirt XML templates
         self.env = jinja2.Environment(
             loader=jinja2.FileSystemLoader([
