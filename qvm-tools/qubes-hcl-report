@@ -112,7 +112,7 @@ XL_VTX=`cat $TEMP_DIR/xl-info |grep xen_caps | grep hvm`
 XL_VTD=`cat $TEMP_DIR/xl-info |grep virt_caps |grep hvm_directio`
 XL_HAP=`cat $TEMP_DIR/xl-dmesg |grep "$XL_DMESG_PREFIX_REGEX"'HVM: Hardware Assisted Paging (HAP) detected\( but disabled\)\?$'`
 PCRS=`find /sys/devices/ -name pcrs`
-XL_REMAP=`cat $TEMP_DIR/xl-dmesg |grep "$XL_DMESG_PREFIX_REGEX"'Intel VT-d Interrupt Remapping enabled'`
+XL_REMAP=`cat $TEMP_DIR/xl-dmesg |grep "$XL_DMESG_PREFIX_REGEX"'\(Intel VT-d Interrupt Remapping enabled\|Interrupt remapping enabled\)'`
 
 
 FILENAME="Qubes-HCL-${BRAND//[^[:alnum:]]/_}-${PRODUCT//[^[:alnum:]]/_}-$DATE"
