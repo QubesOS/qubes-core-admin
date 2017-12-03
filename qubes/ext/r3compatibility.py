@@ -33,7 +33,7 @@ yum_proxy_port = '8082'
 
 class R3Compatibility(qubes.ext.Extension):
     '''Maintain VM interface compatibility with R3.0 and R3.1.
-    At lease where possible.
+    At least where possible.
     '''
 
     features_to_services = {
