@@ -714,6 +714,77 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
             lxml.etree.XML(expected))
 
+    def test_610_libvirt_xml_network(self):
+        expected = '''<domain type="xen">
+        <name>test-inst-test</name>
+        <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
+        <memory unit="MiB">500</memory>
+        <currentMemory unit="MiB">400</currentMemory>
+        <vcpu placement="static">2</vcpu>
+        <cpu mode='host-passthrough'>
+            <!-- disable nested HVM -->
+            <feature name='vmx' policy='disable'/>
+            <feature name='svm' policy='disable'/>
+            <!-- disable SMAP inside VM, because of Linux bug -->
+            <feature name='smap' policy='disable'/>
+        </cpu>
+        <os>
+            <type arch="x86_64" machine="xenfv">hvm</type>
+                <!--
+                     For the libxl backend libvirt switches between OVMF (UEFI)
+                     and SeaBIOS based on the loader type. This has nothing to
+                     do with the hvmloader binary.
+                -->
+            <loader type="rom">hvmloader</loader>
+            <boot dev="cdrom" />
+            <boot dev="hd" />
+            <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
+            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 nopat</cmdline>
+        </os>
+        <features>
+            <pae/>
+            <acpi/>
+            <apic/>
+            <viridian/>
+        </features>
+        <clock offset="variable" adjustment="0" basis="localtime" />
+        <on_poweroff>destroy</on_poweroff>
+        <on_reboot>destroy</on_reboot>
+        <on_crash>destroy</on_crash>
+        <devices>
+            <interface type="ethernet">
+                <mac address="00:16:3E:5E:6C:00" />
+                <ip address="10.137.0.1" />
+                {extra_ip}
+                <backenddomain name="test-inst-netvm" />
+                <script path="vif-route-qubes" />
+            </interface>
+            <emulator type="stubdom-linux" />
+            <input type="tablet" bus="usb"/>
+            <video>
+                <model type="vga"/>
+            </video>
+            <graphics type="qubes"/>
+        </devices>
+        </domain>
+        '''
+        my_uuid = '7db78950-c467-4863-94d1-af59806384ea'
+        netvm = self.get_vm(qid=2, name='netvm', provides_network=True)
+        vm = self.get_vm(uuid=my_uuid)
+        vm.netvm = netvm
+        vm.virt_mode = 'hvm'
+        with self.subTest('ipv4_only'):
+            libvirt_xml = vm.create_config_file()
+            self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
+                lxml.etree.XML(expected.format(extra_ip='')))
+        with self.subTest('ipv6'):
+            netvm.features['ipv6'] = True
+            libvirt_xml = vm.create_config_file()
+            self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
+                lxml.etree.XML(expected.format(
+                    extra_ip='<ip address="{}::a89:1" family=\'ipv6\'/>'.format(
+                        qubes.config.qubes_ipv6_prefix))))
+
     @unittest.mock.patch('qubes.utils.get_timezone')
     @unittest.mock.patch('qubes.utils.urandom')
     @unittest.mock.patch('qubes.vm.qubesvm.QubesVM.untrusted_qdb')
@@ -826,5 +897,23 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             '/qubes-secondary-dns': '10.139.1.2',
         }
 
-        vm.create_qdb_entries()
-        self.assertEqual(test_qubesdb.data, expected)
+        with self.subTest('ipv4'):
+            vm.create_qdb_entries()
+            self.assertEqual(test_qubesdb.data, expected)
+
+        test_qubesdb.data.clear()
+        with self.subTest('ipv6'):
+            netvm.features['ipv6'] = True
+            expected['/qubes-ip6'] = qubes.config.qubes_ipv6_prefix + '::a89:3'
+            expected['/qubes-gateway6'] = 'fe80::fcff:ffff:feff:ffff'
+            vm.create_qdb_entries()
+            self.assertEqual(test_qubesdb.data, expected)
+
+        test_qubesdb.data.clear()
+        with self.subTest('ipv6_just_appvm'):
+            del netvm.features['ipv6']
+            vm.features['ipv6'] = True
+            expected['/qubes-ip6'] = qubes.config.qubes_ipv6_prefix + '::a89:3'
+            del expected['/qubes-gateway6']
+            vm.create_qdb_entries()
+            self.assertEqual(test_qubesdb.data, expected)
