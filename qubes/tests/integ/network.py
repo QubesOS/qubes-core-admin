@@ -57,7 +57,7 @@ class VmNetworkingMixin(object):
 
     def setUp(self):
         super(VmNetworkingMixin, self).setUp()
-        if self.template.startswith('whonix-gw'):
+        if self.template.startswith('whonix-'):
             self.skipTest("Test not supported here - Whonix uses its own "
                           "firewall settings")
         self.init_default_template(self.template)
