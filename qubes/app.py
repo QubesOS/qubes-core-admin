@@ -538,14 +538,6 @@ class VMCollection(object):
         raise LookupError("Cannot find unused qid!")
 
 
-    def get_new_unused_netid(self):
-        used_ids = set([vm.netid for vm in self])  # if vm.is_netvm()])
-        for i in range(1, qubes.config.max_netid):
-            if i not in used_ids:
-                return i
-        raise LookupError("Cannot find unused netid!")
-
-
     def get_new_unused_dispid(self):
         for _ in range(int(qubes.config.max_dispid ** 0.5)):
             dispid = random.SystemRandom().randrange(qubes.config.max_dispid)
@@ -554,6 +546,55 @@ class VMCollection(object):
         raise LookupError((
             'https://xkcd.com/221/',
             'http://dilbert.com/strip/2001-10-25')[random.randint(0, 1)])
+
+# pylint: disable=too-few-public-methods
+class RootThinPool:
+    '''The thin pool containing the rootfs device'''
+    _inited = False
+    _volume_group = None
+    _thin_pool = None
+
+    @classmethod
+    def _init(cls):
+        '''Find out the thin pool containing the root device'''
+        if not cls._inited:
+            cls._inited = True
+
+            try:
+                rootfs = os.stat('/')
+                root_major = (rootfs.st_dev & 0xff00) >> 8
+                root_minor = rootfs.st_dev & 0xff
+
+                root_table = subprocess.check_output(["dmsetup",
+                    "-j", str(root_major), "-m", str(root_minor),
+                    "table"])
+
+                _start, _sectors, target_type, target_args = \
+                    root_table.decode().split(" ", 3)
+                if target_type == "thin":
+                    thin_pool_devnum, _thin_pool_id = target_args.split(" ")
+                    with open("/sys/dev/block/{}/dm/name"
+                        .format(thin_pool_devnum), "r") as thin_pool_tpool_f:
+                        thin_pool_tpool = thin_pool_tpool_f.read().rstrip('\n')
+                    if thin_pool_tpool.endswith("-tpool"):
+                        volume_group, thin_pool, _tpool = \
+                            thin_pool_tpool.rsplit("-", 2)
+                        cls._volume_group = volume_group
+                        cls._thin_pool = thin_pool
+            except: # pylint: disable=bare-except
+                pass
+
+    @classmethod
+    def volume_group(cls):
+        '''Volume group of the thin pool containing the rootfs device'''
+        cls._init()
+        return cls._volume_group
+
+    @classmethod
+    def thin_pool(cls):
+        '''Thin pool name containing the rootfs device'''
+        cls._init()
+        return cls._thin_pool
 
 def _default_pool(app):
     ''' Default storage pool.
@@ -566,20 +607,16 @@ def _default_pool(app):
     if 'default' in app.pools:
         return app.pools['default']
     else:
-        rootfs = os.stat('/')
-        root_major = (rootfs.st_dev & 0xff00) >> 8
-        root_minor = rootfs.st_dev & 0xff
-        for pool in app.pools.values():
-            if pool.config.get('driver', None) != 'lvm_thin':
-                continue
-            thin_pool = pool.config['thin_pool']
-            thin_volumes = subprocess.check_output(
-                ['lvs', '--select', 'pool_lv=' + thin_pool,
-                '-o', 'lv_kernel_major,lv_kernel_minor', '--noheadings'])
-            thin_volumes = thin_volumes.decode()
-            if any([str(root_major), str(root_minor)] == thin_vol.split()
-                    for thin_vol in thin_volumes.splitlines()):
-                return pool
+        root_volume_group = RootThinPool.volume_group()
+        root_thin_pool = RootThinPool.thin_pool()
+        if root_thin_pool:
+            for pool in app.pools.values():
+                if pool.config.get('driver', None) != 'lvm_thin':
+                    continue
+                if (pool.config['volume_group'] == root_volume_group and
+                    pool.config['thin_pool'] == root_thin_pool):
+                    return pool
+
         # not a thin volume? look for file pools
         for pool in app.pools.values():
             if pool.config.get('driver', None) != 'file':
@@ -1005,10 +1042,13 @@ class Qubes(qubes.PropertyHolder):
         }
         assert max(self.labels.keys()) == qubes.config.max_default_label
 
-        # check if the default LVM Thin pool qubes_dom0/pool00 exists
-        if os.path.exists('/dev/mapper/qubes_dom0-pool00-tpool'):
-            self.add_pool(volume_group='qubes_dom0', thin_pool='pool00',
-                          name='lvm', driver='lvm_thin')
+        root_volume_group = RootThinPool.volume_group()
+        root_thin_pool = RootThinPool.thin_pool()
+
+        if root_thin_pool:
+            self.add_pool(
+                volume_group=root_volume_group, thin_pool=root_thin_pool,
+                name='lvm', driver='lvm_thin')
         # pool based on /var/lib/qubes will be created here:
         for name, config in qubes.config.defaults['pool_configs'].items():
             self.pools[name] = self._get_pool(**config)

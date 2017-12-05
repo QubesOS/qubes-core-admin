@@ -257,12 +257,6 @@ class TC_30_VMCollection(qubes.tests.QubesTestCase):
 
         self.vms.get_new_unused_qid()
 
-    def test_101_get_new_unused_netid(self):
-        self.vms.add(self.testvm1)
-        self.vms.add(self.testvm2)
-
-        self.vms.get_new_unused_netid()
-
 #   def test_200_get_vms_based_on(self):
 #       pass
 
