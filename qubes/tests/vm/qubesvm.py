@@ -783,7 +783,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
                 lxml.etree.XML(expected.format(
                     extra_ip='<ip address="{}::a89:1" family=\'ipv6\'/>'.format(
-                        qubes.config.qubes_ipv6_prefix))))
+                        qubes.config.qubes_ipv6_prefix.replace(':0000', '')))))
 
     @unittest.mock.patch('qubes.utils.get_timezone')
     @unittest.mock.patch('qubes.utils.urandom')
@@ -904,7 +904,9 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         test_qubesdb.data.clear()
         with self.subTest('ipv6'):
             netvm.features['ipv6'] = True
-            expected['/qubes-ip6'] = qubes.config.qubes_ipv6_prefix + '::a89:3'
+            expected['/qubes-ip6'] = \
+                qubes.config.qubes_ipv6_prefix.replace(':0000', '') + \
+                '::a89:3'
             expected['/qubes-gateway6'] = 'fe80::fcff:ffff:feff:ffff'
             vm.create_qdb_entries()
             self.assertEqual(test_qubesdb.data, expected)
@@ -913,7 +915,9 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         with self.subTest('ipv6_just_appvm'):
             del netvm.features['ipv6']
             vm.features['ipv6'] = True
-            expected['/qubes-ip6'] = qubes.config.qubes_ipv6_prefix + '::a89:3'
+            expected['/qubes-ip6'] = \
+                qubes.config.qubes_ipv6_prefix.replace(':0000', '') + \
+                '::a89:3'
             del expected['/qubes-gateway6']
             vm.create_qdb_entries()
             self.assertEqual(test_qubesdb.data, expected)

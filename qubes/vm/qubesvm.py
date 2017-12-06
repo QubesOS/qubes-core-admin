@@ -1816,26 +1816,28 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         if self.provides_network:
             # '/qubes-netvm-network' value is only checked for being non empty
-            self.untrusted_qdb.write('/qubes-netvm-network', self.gateway)
-            self.untrusted_qdb.write('/qubes-netvm-gateway', self.gateway)
-            self.untrusted_qdb.write('/qubes-netvm-netmask', self.netmask)
+            self.untrusted_qdb.write('/qubes-netvm-network', str(self.gateway))
+            self.untrusted_qdb.write('/qubes-netvm-gateway', str(self.gateway))
+            self.untrusted_qdb.write('/qubes-netvm-netmask', str(self.netmask))
 
             for i, addr in zip(('primary', 'secondary'), self.dns):
                 self.untrusted_qdb.write('/qubes-netvm-{}-dns'.format(i), addr)
 
         if self.netvm is not None:
-            self.untrusted_qdb.write('/qubes-ip', self.visible_ip)
-            self.untrusted_qdb.write('/qubes-netmask', self.visible_netmask)
-            self.untrusted_qdb.write('/qubes-gateway', self.visible_gateway)
+            self.untrusted_qdb.write('/qubes-ip', str(self.visible_ip))
+            self.untrusted_qdb.write('/qubes-netmask',
+                str(self.visible_netmask))
+            self.untrusted_qdb.write('/qubes-gateway',
+                str(self.visible_gateway))
 
             for i, addr in zip(('primary', 'secondary'), self.dns):
-                self.untrusted_qdb.write('/qubes-{}-dns'.format(i), addr)
+                self.untrusted_qdb.write('/qubes-{}-dns'.format(i), str(addr))
 
             if self.visible_ip6:
-                self.untrusted_qdb.write('/qubes-ip6', self.visible_ip6)
+                self.untrusted_qdb.write('/qubes-ip6', str(self.visible_ip6))
             if self.visible_gateway6:
                 self.untrusted_qdb.write('/qubes-gateway6',
-                    self.visible_gateway6)
+                    str(self.visible_gateway6))
 
 
         tzname = qubes.utils.get_timezone()

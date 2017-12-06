@@ -21,10 +21,9 @@
 #
 
 ''' This module contains the NetVMMixin '''
-
+import ipaddress
 import os
 import re
-import socket
 
 import libvirt  # pylint: disable=import-error
 import qubes
@@ -53,15 +52,6 @@ def _default_ip(self):
     return self.get_ip_for_vm(self)
 
 
-def _setter_ip(self, prop, value):
-    # pylint: disable=unused-argument
-    if not isinstance(value, str):
-        raise ValueError('IP address must be a string')
-    value = value.lower()
-    if re.match(r"^([0-9]{1,3}.){3}[0-9]{1,3}$", value) is None:
-        raise ValueError('Invalid IP address value')
-    return value
-
 def _default_ip6(self):
     if not self.is_networked():
         return None
@@ -72,17 +62,6 @@ def _default_ip6(self):
 
     return self.get_ip6_for_vm(self)
 
-
-def _setter_ip6(self, prop, value):
-    # pylint: disable=unused-argument
-    if not isinstance(value, str):
-        raise ValueError('IPv6 address must be a string')
-    value = value.lower()
-    try:
-        socket.inet_pton(socket.AF_INET6, value)
-    except socket.error:
-        raise ValueError('Invalid IPv6 address value')
-    return value
 
 def _setter_netvm(self, prop, value):
     # pylint: disable=unused-argument
@@ -109,14 +88,12 @@ class NetVMMixin(qubes.events.Emitter):
         setter=_setter_mac,
         doc='MAC address of the NIC emulated inside VM')
 
-    ip = qubes.property('ip', type=str,
+    ip = qubes.property('ip', type=ipaddress.IPv4Address,
         default=_default_ip,
-        setter=_setter_ip,
         doc='IP address of this domain.')
 
-    ip6 = qubes.property('ip6', type=str,
+    ip6 = qubes.property('ip6', type=ipaddress.IPv6Address,
         default=_default_ip6,
-        setter=_setter_ip6,
         doc='IPv6 address of this domain.')
 
     # CORE2: swallowed uses_default_netvm
@@ -183,12 +160,13 @@ class NetVMMixin(qubes.events.Emitter):
         '''
         import qubes.vm.dispvm  # pylint: disable=redefined-outer-name
         if isinstance(vm, qubes.vm.dispvm.DispVM):
-            return '10.138.{}.{}'.format((vm.dispid >> 8) & 0xff,
-                vm.dispid & 0xff)
+            return ipaddress.IPv4Address('10.138.{}.{}'.format(
+                (vm.dispid >> 8) & 0xff, vm.dispid & 0xff))
 
         # VM technically can get address which ends in '.0'. This currently
         # does not happen, because qid < 253, but may happen in the future.
-        return '10.137.{}.{}'.format((vm.qid >> 8) & 0xff, vm.qid & 0xff)
+        return ipaddress.IPv4Address('10.137.{}.{}'.format(
+            (vm.qid >> 8) & 0xff, vm.qid & 0xff))
 
     @staticmethod
     def get_ip6_for_vm(vm):
@@ -199,10 +177,11 @@ class NetVMMixin(qubes.events.Emitter):
         '''
         import qubes.vm.dispvm  # pylint: disable=redefined-outer-name
         if isinstance(vm, qubes.vm.dispvm.DispVM):
-            return '{}::a8a:{:x}'.format(
-                qubes.config.qubes_ipv6_prefix, vm.dispid)
+            return ipaddress.IPv6Address('{}::a8a:{:x}'.format(
+                qubes.config.qubes_ipv6_prefix, vm.dispid))
 
-        return '{}::a89:{:x}'.format(qubes.config.qubes_ipv6_prefix, vm.qid)
+        return ipaddress.IPv6Address('{}::a89:{:x}'.format(
+            qubes.config.qubes_ipv6_prefix, vm.qid))
 
     @qubes.stateless_property
     def gateway(self):

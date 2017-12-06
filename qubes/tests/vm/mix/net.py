@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
-
+import ipaddress
 import unittest
 
 import qubes
@@ -110,9 +110,10 @@ class TC_00_NetVMMixin(
     def test_150_ip(self):
         vm = self.get_vm()
         self.setup_netvms(vm)
-        self.assertPropertyDefaultValue(vm, 'ip', '10.137.0.' + str(vm.qid))
+        self.assertPropertyDefaultValue(vm, 'ip',
+            ipaddress.IPv4Address('10.137.0.' + str(vm.qid)))
         vm.ip = '192.168.1.1'
-        self.assertEqual(vm.ip, '192.168.1.1')
+        self.assertEqual(vm.ip, ipaddress.IPv4Address('192.168.1.1'))
 
     def test_151_ip_invalid(self):
         vm = self.get_vm()
@@ -128,9 +129,10 @@ class TC_00_NetVMMixin(
         self.assertPropertyDefaultValue(vm, 'ip6', None)
         vm.netvm.features['ipv6'] = True
         self.assertPropertyDefaultValue(vm, 'ip6',
-            '{}::a89:{:x}'.format(qubes.config.qubes_ipv6_prefix, vm.qid))
+            ipaddress.IPv6Address('{}::a89:{:x}'.format(
+                qubes.config.qubes_ipv6_prefix, vm.qid)))
         vm.ip6 = 'abcd:efff::1'
-        self.assertEqual(vm.ip6, 'abcd:efff::1')
+        self.assertEqual(vm.ip6, ipaddress.IPv6Address('abcd:efff::1'))
 
     def test_161_ip6_invalid(self):
         vm = self.get_vm()
