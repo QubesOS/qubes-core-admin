@@ -1818,6 +1818,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             # '/qubes-netvm-network' value is only checked for being non empty
             self.untrusted_qdb.write('/qubes-netvm-network', str(self.gateway))
             self.untrusted_qdb.write('/qubes-netvm-gateway', str(self.gateway))
+            if self.gateway6:
+                self.untrusted_qdb.write('/qubes-netvm-gateway6',
+                    str(self.gateway6))
             self.untrusted_qdb.write('/qubes-netvm-netmask', str(self.netmask))
 
             for i, addr in zip(('primary', 'secondary'), self.dns):
