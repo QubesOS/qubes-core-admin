@@ -607,6 +607,14 @@ def _default_pool(app):
     if 'default' in app.pools:
         return app.pools['default']
     else:
+        if 'DEFAULT_LVM_POOL' in os.environ:
+            thin_pool = os.environ['DEFAULT_LVM_POOL']
+            for pool in app.pools.values():
+                if pool.config.get('driver', None) != 'lvm_thin':
+                    continue
+                if pool.config['thin_pool'] == thin_pool:
+                    return pool
+        # no DEFAULT_LVM_POOL, or pool not defined
         root_volume_group = RootThinPool.volume_group()
         root_thin_pool = RootThinPool.thin_pool()
         if root_thin_pool:
@@ -633,6 +641,27 @@ def _setter_pool(app, prop, value):
     except KeyError:
         raise qubes.exc.QubesPropertyValueError(app, prop, value,
             'No such storage pool')
+
+def _setter_default_netvm(app, prop, value):
+    # skip netvm loop check while loading qubes.xml, to avoid tricky loading
+    # order
+    if not app.events_enabled:
+        return value
+
+    if value is None:
+        return value
+    # forbid setting to a value that would result in netvm loop
+    for vm in app.domains:
+        if not hasattr(vm, 'netvm'):
+            continue
+        if not vm.property_is_default('netvm'):
+            continue
+        if value == vm \
+                or value in app.domains.get_vms_connected_to(vm):
+            raise qubes.exc.QubesPropertyValueError(app, prop, value,
+                'Network loop on \'{!s}\''.format(vm))
+    return value
+
 
 class Qubes(qubes.PropertyHolder):
     '''Main Qubes application
@@ -692,6 +721,7 @@ class Qubes(qubes.PropertyHolder):
 
     default_netvm = qubes.VMProperty('default_netvm', load_stage=3,
         default=None, allow_none=True,
+        setter=_setter_default_netvm,
         doc='''Default NetVM for AppVMs. Initial state is `None`, which means
             that AppVMs are not connected to the Internet.''')
     default_fw_netvm = qubes.VMProperty('default_fw_netvm', load_stage=3,
@@ -843,7 +873,7 @@ class Qubes(qubes.PropertyHolder):
 
         if 0 not in self.domains:
             self.domains.add(
-                qubes.vm.adminvm.AdminVM(self, None, qid=0, name='dom0'),
+                qubes.vm.adminvm.AdminVM(self, None),
                 _enable_events=False)
 
         # stage 3: load global properties

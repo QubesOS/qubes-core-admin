@@ -1,16 +1,12 @@
 #!/usr/bin/python
 
-from qubes.qubes import QubesVmCollection
+from qubesadmin import Qubes
 
 def main():
-    qvm_collection = QubesVmCollection()
-    qvm_collection.lock_db_for_writing()
-    qvm_collection.load()
-    for vm in qvm_collection.values():
-        if vm.is_disposablevm() and not vm.is_running():
-            qvm_collection.pop(vm.qid)
-    qvm_collection.save()
-    qvm_collection.unlock_db()
-
+    app = Qubes()
+    for vm in app.domains:
+        if vm.klass == 'DispVM' and not vm.is_running():
+            if vm.auto_cleanup:
+                del app.domains[vm]
 
 main()

@@ -354,6 +354,9 @@ class BaseVM(qubes.PropertyHolder):
         del self.tags
 
     def load_extras(self):
+        if self.xml is None:
+            return
+
         # features
         for node in self.xml.xpath('./features/feature'):
             self.features[node.get('name')] = node.text

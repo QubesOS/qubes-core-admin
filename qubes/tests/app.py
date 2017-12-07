@@ -321,6 +321,30 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         self.assertIn('service.clocksync', self.template.features)
         self.assertTrue(self.template.features['service.clocksync'])
 
+    def test_110_netvm_loop(self):
+        '''Netvm loop through default_netvm'''
+        netvm = self.app.add_new_vm('AppVM', name='test-net',
+            template=self.template, label='red')
+        try:
+            self.app.default_netvm = None
+            netvm.netvm = qubes.property.DEFAULT
+            with self.assertRaises(ValueError):
+                self.app.default_netvm = netvm
+        finally:
+            del netvm
+
+    def test_111_netvm_loop(self):
+        '''Netvm loop through default_netvm'''
+        netvm = self.app.add_new_vm('AppVM', name='test-net',
+            template=self.template, label='red')
+        try:
+            netvm.netvm = None
+            self.app.default_netvm = netvm
+            with self.assertRaises(ValueError):
+                netvm.netvm = qubes.property.DEFAULT
+        finally:
+            del netvm
+
     def test_200_remove_template(self):
         appvm = self.app.add_new_vm('AppVM', name='test-vm',
             template=self.template,
@@ -345,6 +369,7 @@ class TC_90_Qubes(qubes.tests.QubesTestCase):
         netvm = self.app.add_new_vm('AppVM', name='test-netvm',
             template=self.template, provides_network=True,
             label='red')
+        netvm.netvm = None
         self.app.default_netvm = netvm
         with mock.patch.object(self.app, 'vmm'):
             with self.assertRaises(qubes.exc.QubesVMInUseError):

@@ -704,13 +704,17 @@ class TC_00_AppVMMixin(object):
             user='root'))
 
         with self.qrexec_policy('qubes.Filecopy', self.testvm1, self.testvm2):
-            with self.assertRaises(subprocess.CalledProcessError):
-                self.loop.run_until_complete(self.testvm1.run_for_stdio(
-                    'qvm-move-to-vm {} /tmp/testfile'.format(
-                        self.testvm2.name)))
+            p = self.loop.run_until_complete(self.testvm1.run(
+                'qvm-move-to-vm {} /tmp/testfile'.format(
+                    self.testvm2.name)))
 
-        # Close GUI error message
-        self.enter_keys_in_window('Error', ['Return'])
+            # Close GUI error message
+            try:
+                self.enter_keys_in_window('Error', ['Return'])
+            except subprocess.CalledProcessError:
+                pass
+            self.loop.run_until_complete(p.wait())
+            self.assertNotEqual(p.returncode, 0)
 
         # the file shouldn't be removed in source vm
         self.loop.run_until_complete(self.testvm1.run_for_stdio(

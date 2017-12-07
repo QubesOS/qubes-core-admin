@@ -57,7 +57,7 @@ class VmNetworkingMixin(object):
 
     def setUp(self):
         super(VmNetworkingMixin, self).setUp()
-        if self.template.startswith('whonix-gw'):
+        if self.template.startswith('whonix-'):
             self.skipTest("Test not supported here - Whonix uses its own "
                           "firewall settings")
         self.init_default_template(self.template)
@@ -325,6 +325,9 @@ class VmNetworkingMixin(object):
         self.loop.run_until_complete(self.testvm1.start())
 
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
+        self.assertEqual(self.run_cmd(self.testnetvm,
+            'iptables -I INPUT -i vif+ ! -s {} -p icmp -j LOG'.format(
+                self.testvm1.ip)), 0)
         self.loop.run_until_complete(self.testvm1.run_for_stdio(
             'ip addr flush dev eth0 && '
             'ip addr add 10.137.1.128/24 dev eth0 && '
@@ -332,6 +335,16 @@ class VmNetworkingMixin(object):
             user='root'))
         self.assertNotEqual(self.run_cmd(self.testvm1, self.ping_ip), 0,
                          "Spoofed ping should be blocked")
+        try:
+            (output, _) = self.loop.run_until_complete(
+                self.testnetvm.run_for_stdio('iptables -nxvL INPUT',
+                    user='root'))
+        except subprocess.CalledProcessError:
+            self.fail('iptables -nxvL INPUT failed')
+
+        output = output.decode().splitlines()
+        packets = output[2].lstrip().split()[0]
+        self.assertEquals(packets, '0', 'Some packet hit the INPUT rule')
 
     def test_100_late_xldevd_startup(self):
         """Regression test for #1990"""

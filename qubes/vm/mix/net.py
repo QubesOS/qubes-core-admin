@@ -70,10 +70,13 @@ def _setter_netvm(self, prop, value):
         raise qubes.exc.QubesValueError(
             'The {!s} qube does not provide network'.format(value))
 
-    if value is self \
-            or value in self.app.domains.get_vms_connected_to(self):
-        raise qubes.exc.QubesValueError(
-            'Loops in network are unsupported')
+    # skip check for netvm loops during qubes.xml loading, to avoid tricky
+    # loading order
+    if self.events_enabled:
+        if value is self \
+                or value in self.app.domains.get_vms_connected_to(self):
+            raise qubes.exc.QubesValueError(
+                'Loops in network are unsupported')
     return value
 
 
@@ -186,6 +189,22 @@ class NetVMMixin(qubes.events.Emitter):
     def __init__(self, *args, **kwargs):
         self._firewall = None
         super(NetVMMixin, self).__init__(*args, **kwargs)
+
+    @qubes.events.handler('domain-load')
+    def on_domain_load_netvm_loop_check(self, event):
+        # pylint: disable=unused-argument
+        # make sure there are no netvm loops - which could cause qubesd
+        # looping infinitely
+        if self is self.netvm:
+            self.log.error(
+                'vm \'%s\' network-connected to itself, breaking the '
+                'connection', self.name)
+            self.netvm = None
+        elif self.netvm in self.app.domains.get_vms_connected_to(self):
+            self.log.error(
+                'netvm loop detected on \'%s\', breaking the connection',
+                self.name)
+            self.netvm = None
 
     @qubes.events.handler('domain-start')
     def on_domain_started(self, event, **kwargs):
@@ -323,6 +342,8 @@ class NetVMMixin(qubes.events.Emitter):
         # pylint: disable=unused-argument
         # we are changing to default netvm
         newvalue = type(self).netvm.get_default(self)
+        # check for netvm loop
+        _setter_netvm(self, type(self).netvm, newvalue)
         if newvalue == oldvalue:
             return
         self.fire_event('property-pre-set:netvm', pre_event=True,

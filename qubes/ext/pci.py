@@ -128,13 +128,13 @@ class PCIDevice(qubes.devices.DeviceInfo):
     # pylint: disable=too-few-public-methods
     regex = re.compile(
         r'^(?P<bus>[0-9a-f]+)_(?P<device>[0-9a-f]+)\.(?P<function>[0-9a-f]+)$')
-    libvirt_regex = re.compile(
+    _libvirt_regex = re.compile(
         r'^pci_0000_(?P<bus>[0-9a-f]+)_(?P<device>[0-9a-f]+)_'
         r'(?P<function>[0-9a-f]+)$')
 
     def __init__(self, backend_domain, ident, libvirt_name=None):
         if libvirt_name:
-            dev_match = self.libvirt_regex.match(libvirt_name)
+            dev_match = self._libvirt_regex.match(libvirt_name)
             assert dev_match
             ident = '{bus}_{device}.{function}'.format(**dev_match.groupdict())
 
