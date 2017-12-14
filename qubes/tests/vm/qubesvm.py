@@ -840,17 +840,21 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
     @unittest.mock.patch('qubes.utils.get_timezone')
     @unittest.mock.patch('qubes.utils.urandom')
     @unittest.mock.patch('qubes.vm.qubesvm.QubesVM.untrusted_qdb')
-    def test_621_qdb_appvm_with_network(self, mock_qubesdb, mock_urandom,
+    def test_621_qdb_vm_with_network(self, mock_qubesdb, mock_urandom,
             mock_timezone):
         mock_urandom.return_value = b'A' * 64
         mock_timezone.return_value = 'UTC'
         template = self.get_vm(cls=qubes.vm.templatevm.TemplateVM, name='template')
         template.netvm = None
-        netvm = self.get_vm(cls=qubes.vm.standalonevm.StandaloneVM,
+        netvm = self.get_vm(cls=qubes.vm.appvm.AppVM, template=template,
             name='netvm', qid=2, provides_network=True)
         vm = self.get_vm(cls=qubes.vm.appvm.AppVM, template=template,
             name='appvm', qid=3)
         vm.netvm = netvm
+        vm.kernel = None
+        # pretend the VM is running...
+        vm._qubesprop_xid = 3
+        netvm.kernel = None
         test_qubesdb = TestQubesDB()
         mock_qubesdb.write.side_effect = test_qubesdb.write
         mock_qubesdb.rm.side_effect = test_qubesdb.rm
@@ -920,4 +924,50 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 '::a89:3'
             del expected['/qubes-gateway6']
             vm.create_qdb_entries()
+            self.assertEqual(test_qubesdb.data, expected)
+
+        test_qubesdb.data.clear()
+        with self.subTest('proxy_ipv4'):
+            del vm.features['ipv6']
+            expected['/name'] = 'test-inst-netvm'
+            expected['/qubes-vm-type'] = 'NetVM'
+            del expected['/qubes-ip']
+            del expected['/qubes-gateway']
+            del expected['/qubes-netmask']
+            del expected['/qubes-ip6']
+            del expected['/qubes-primary-dns']
+            del expected['/qubes-secondary-dns']
+            expected['/qubes-netvm-primary-dns'] = '10.139.1.1'
+            expected['/qubes-netvm-secondary-dns'] = '10.139.1.2'
+            expected['/qubes-netvm-network'] = '10.137.0.2'
+            expected['/qubes-netvm-gateway'] = '10.137.0.2'
+            expected['/qubes-netvm-netmask'] = '255.255.255.255'
+            expected['/qubes-iptables-domainrules/3'] = \
+                '*filter\n' \
+                '-A FORWARD -s 10.137.0.3 -j ACCEPT\n' \
+                '-A FORWARD -s 10.137.0.3 -j DROP\n' \
+                'COMMIT\n'
+            expected['/mapped-ip/10.137.0.3/visible-ip'] = '10.137.0.3'
+            expected['/mapped-ip/10.137.0.3/visible-gateway'] = '10.137.0.2'
+            expected['/qubes-firewall/10.137.0.3'] = ''
+            expected['/qubes-firewall/10.137.0.3/0000'] = 'action=accept'
+            expected['/qubes-firewall/10.137.0.3/policy'] = 'drop'
+
+            with unittest.mock.patch('qubes.vm.qubesvm.QubesVM.is_running',
+                    lambda _: True):
+                netvm.create_qdb_entries()
+            self.assertEqual(test_qubesdb.data, expected)
+
+        test_qubesdb.data.clear()
+        with self.subTest('proxy_ipv6'):
+            netvm.features['ipv6'] = True
+            expected['/qubes-netvm-gateway6'] = 'fe80::fcff:ffff:feff:ffff'
+            ip6 = qubes.config.qubes_ipv6_prefix.replace(
+                ':0000', '') + '::a89:3'
+            expected['/qubes-firewall/' + ip6] = ''
+            expected['/qubes-firewall/' + ip6 + '/0000'] = 'action=accept'
+            expected['/qubes-firewall/' + ip6 + '/policy'] = 'drop'
+            with unittest.mock.patch('qubes.vm.qubesvm.QubesVM.is_running',
+                    lambda _: True):
+                netvm.create_qdb_entries()
             self.assertEqual(test_qubesdb.data, expected)
