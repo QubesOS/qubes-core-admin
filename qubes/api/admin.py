@@ -772,7 +772,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             yield from self.dest.start()
         except libvirt.libvirtError as e:
             # change to QubesException, so will be reported to the user
-            raise qubes.exc.QubesException('Start failed: ' + str(e))
+            raise qubes.exc.QubesException('Start failed: ' + str(e) +
+                ', see /var/log/libvirt/libxl/libxl-driver.log for details')
 
 
     @qubes.api.method('admin.vm.Shutdown', no_payload=True,
