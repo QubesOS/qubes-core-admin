@@ -7,6 +7,6 @@ def main():
     for vm in app.domains:
         if vm.klass == 'DispVM' and not vm.is_running():
             if vm.auto_cleanup:
-                del app.domains[vm]
+                del app.domains[vm.name]
 
 main()
