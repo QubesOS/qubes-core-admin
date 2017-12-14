@@ -323,9 +323,12 @@ class ThinVolume(qubes.storage.Volume):
 
     def remove(self):
         assert self.vid
-        if self.is_dirty():
-            cmd = ['remove', self._vid_snap]
-            qubes_lvm(cmd, self.log)
+        try:
+            if os.path.exists('/dev/' + self._vid_snap):
+                cmd = ['remove', self._vid_snap]
+                qubes_lvm(cmd, self.log)
+        except AttributeError:
+            pass
 
         self._remove_revisions(self.revisions.keys())
         if not os.path.exists(self.path):
