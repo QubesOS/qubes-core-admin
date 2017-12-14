@@ -32,6 +32,8 @@ import unittest
 
 import collections
 
+import pkg_resources
+
 import qubes
 import qubes.firewall
 import qubes.tests
@@ -81,6 +83,30 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         vm.untrusted_qdb.write('/test-watch-path', 'test-value')
         self.loop.run_until_complete(asyncio.sleep(0.1))
         self.assertTrue(flag)
+
+    @unittest.skipUnless(
+        spawn.find_executable('xdotool'), "xdotool not installed")
+    def test_120_start_standalone_with_cdrom_dom0(self):
+        vmname = self.make_vm_name('appvm')
+        self.vm = self.app.add_new_vm('StandaloneVM', label='red', name=vmname)
+        self.loop.run_until_complete(self.vm.create_on_disk())
+        self.vm.kernel = None
+
+        iso_path = self.create_bootable_iso()
+        # start the VM using qvm-start tool, to test --cdrom option there
+        p = self.loop.run_until_complete(asyncio.create_subprocess_exec(
+            'qvm-start', '--cdrom=dom0:' + iso_path, self.vm.name,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT))
+        (stdout, _) = self.loop.run_until_complete(p.communicate())
+        self.assertEqual(p.returncode, 0, stdout)
+        # check if VM do not crash instantly
+        self.loop.run_until_complete(asyncio.sleep(5))
+        self.assertTrue(self.vm.is_running())
+        # Type 'poweroff'
+        subprocess.check_call(['xdotool', 'search', '--name', self.vm.name,
+                               'type', 'poweroff\r'])
+        self.loop.run_until_complete(asyncio.sleep(1))
+        self.assertFalse(self.vm.is_running())
 
     def _test_200_on_domain_start(self, vm, event, **_kwargs):
         '''Simulate domain crash just after startup'''
@@ -649,6 +675,48 @@ class TC_05_StandaloneVMMixin(object):
         # some safety margin for FS metadata
         self.assertGreater(int(new_size.strip()), 19 * 1024 ** 2)
 
+class TC_06_AppVMMixin(object):
+    template = None
+
+    def setUp(self):
+        super(TC_06_AppVMMixin, self).setUp()
+        self.init_default_template(self.template)
+
+    @unittest.skipUnless(
+        spawn.find_executable('xdotool'), "xdotool not installed")
+    def test_121_start_standalone_with_cdrom_vm(self):
+        cdrom_vmname = self.make_vm_name('cdrom')
+        self.cdrom_vm = self.app.add_new_vm('AppVM', label='red',
+            name=cdrom_vmname)
+        self.loop.run_until_complete(self.cdrom_vm.create_on_disk())
+        self.loop.run_until_complete(self.cdrom_vm.start())
+        iso_path = self.create_bootable_iso()
+        with open(iso_path, 'rb') as iso_f:
+            self.loop.run_until_complete(
+                self.cdrom_vm.run_for_stdio('cat > /home/user/boot.iso',
+                stdin=iso_f))
+
+        vmname = self.make_vm_name('appvm')
+        self.vm = self.app.add_new_vm('StandaloneVM', label='red', name=vmname)
+        self.loop.run_until_complete(self.vm.create_on_disk())
+        self.vm.kernel = None
+
+        # start the VM using qvm-start tool, to test --cdrom option there
+        p = self.loop.run_until_complete(asyncio.create_subprocess_exec(
+            'qvm-start', '--cdrom=' + cdrom_vmname + ':/home/user/boot.iso',
+            self.vm.name,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT))
+        (stdout, _) = self.loop.run_until_complete(p.communicate())
+        self.assertEqual(p.returncode, 0, stdout)
+        # check if VM do not crash instantly
+        self.loop.run_until_complete(asyncio.sleep(5))
+        self.assertTrue(self.vm.is_running())
+        # Type 'poweroff'
+        subprocess.check_call(['xdotool', 'search', '--name', self.vm.name,
+                               'type', 'poweroff\r'])
+        self.loop.run_until_complete(asyncio.sleep(1))
+        self.assertFalse(self.vm.is_running())
+
 
 def load_tests(loader, tests, pattern):
     for template in qubes.tests.list_templates():
@@ -656,6 +724,11 @@ def load_tests(loader, tests, pattern):
             type(
                 'TC_05_StandaloneVM_' + template,
                 (TC_05_StandaloneVMMixin, qubes.tests.SystemTestCase),
+                {'template': template})))
+        tests.addTests(loader.loadTestsFromTestCase(
+            type(
+                'TC_06_AppVM_' + template,
+                (TC_06_AppVMMixin, qubes.tests.SystemTestCase),
                 {'template': template})))
 
     return tests

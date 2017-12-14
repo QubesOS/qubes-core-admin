@@ -1061,6 +1061,37 @@ class SystemTestCase(QubesTestCase):
             shutil.rmtree(mountpoint)
             subprocess.check_call(['sudo', 'losetup', '-d', loopdev])
 
+    def create_bootable_iso(self):
+        '''Create simple bootable ISO image.
+        Type 'poweroff' to it to terminate that VM.
+        '''
+        isolinux_cfg = (
+            'prompt 1\n'
+            'label poweroff\n'
+            '   kernel poweroff.c32\n'
+        )
+        output_fd, output_path = tempfile.mkstemp('.iso')
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            try:
+                shutil.copy('/usr/share/syslinux/isolinux.bin', tmp_dir)
+                shutil.copy('/usr/share/syslinux/ldlinux.c32', tmp_dir)
+                shutil.copy('/usr/share/syslinux/poweroff.c32', tmp_dir)
+                with open(os.path.join(tmp_dir, 'isolinux.cfg'), 'w') as cfg:
+                    cfg.write(isolinux_cfg)
+                subprocess.check_call(['genisoimage', '-o', output_path,
+                    '-c', 'boot.cat',
+                    '-b', 'isolinux.bin',
+                    '-no-emul-boot',
+                    '-boot-load-size', '4',
+                    '-boot-info-table',
+                    '-q',
+                    tmp_dir])
+            except FileNotFoundError:
+                self.skipTest('syslinux or genisoimage not installed')
+        os.close(output_fd)
+        self.addCleanup(os.unlink, output_path)
+        return output_path
+
     def create_local_file(self, filename, content, mode='w'):
         with open(filename, mode) as file:
             file.write(content)
