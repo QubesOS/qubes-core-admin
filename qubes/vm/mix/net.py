@@ -349,7 +349,7 @@ class NetVMMixin(qubes.events.Emitter):
             ip = vm.ip6 if addr_family == 6 else vm.ip
             if ip is None:
                 continue
-            base_dir = '/qubes-firewall/' + ip + '/'
+            base_dir = '/qubes-firewall/{}/'.format(ip)
             # remove old entries if any (but don't touch base empty entry - it
             # would trigger reload right away
             self.untrusted_qdb.rm(base_dir)
@@ -370,12 +370,12 @@ class NetVMMixin(qubes.events.Emitter):
         mapped_ip_base = '/mapped-ip/{}'.format(vm.ip)
         if vm.visible_ip:
             self.untrusted_qdb.write(mapped_ip_base + '/visible-ip',
-                vm.visible_ip)
+                str(vm.visible_ip))
         else:
             self.untrusted_qdb.rm(mapped_ip_base + '/visible-ip')
         if vm.visible_gateway:
             self.untrusted_qdb.write(mapped_ip_base + '/visible-gateway',
-                vm.visible_gateway)
+                str(vm.visible_gateway))
         else:
             self.untrusted_qdb.rm(mapped_ip_base + '/visible-gateway')
 
