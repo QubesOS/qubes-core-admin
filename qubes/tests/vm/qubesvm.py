@@ -28,6 +28,8 @@ import datetime
 import lxml.etree
 import unittest.mock
 
+import shutil
+
 import qubes
 import qubes.exc
 import qubes.config
@@ -147,6 +149,7 @@ class QubesVMTestsMixin(object):
         super(QubesVMTestsMixin, self).setUp()
         self.app = qubes.tests.vm.TestApp()
         self.app.vmm.offline_mode = True
+        self.app.default_kernel = None
         # when full test run is called, extensions are loaded by earlier
         # tests, but if just this test class is run, load them manually here,
         # to have the same behaviour
@@ -583,6 +586,14 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm = self.get_vm(uuid=my_uuid)
         vm.netvm = None
         vm.virt_mode = 'pv'
+        with unittest.mock.patch('qubes.config.qubes_base_dir',
+                '/tmp/qubes-test'):
+            kernel_dir = '/tmp/qubes-test/vm-kernels/dummy'
+            os.makedirs(kernel_dir, exist_ok=True)
+            open(os.path.join(kernel_dir, 'vmlinuz'), 'w').close()
+            open(os.path.join(kernel_dir, 'initramfs'), 'w').close()
+            self.addCleanup(shutil.rmtree, '/tmp/qubes-test')
+            vm.kernel = 'dummy'
         # tests for storage are later
         vm.volumes['kernel'] = unittest.mock.Mock(**{
             'kernels_dir': '/tmp/kernel',
@@ -620,8 +631,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <loader type="rom">hvmloader</loader>
             <boot dev="cdrom" />
             <boot dev="hd" />
-            <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
-            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 nopat</cmdline>
         </os>
         <features>
             <pae/>
@@ -634,6 +643,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         <on_reboot>destroy</on_reboot>
         <on_crash>destroy</on_crash>
         <devices>
+            <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
             <emulator type="stubdom-linux" />
             <input type="tablet" bus="usb"/>
             <video>
@@ -647,6 +657,69 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm = self.get_vm(uuid=my_uuid)
         vm.netvm = None
         vm.virt_mode = 'hvm'
+        libvirt_xml = vm.create_config_file()
+        self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
+            lxml.etree.XML(expected))
+
+    def test_600_libvirt_xml_hvm_dom0_kernel(self):
+        expected = '''<domain type="xen">
+        <name>test-inst-test</name>
+        <uuid>7db78950-c467-4863-94d1-af59806384ea</uuid>
+        <memory unit="MiB">500</memory>
+        <currentMemory unit="MiB">400</currentMemory>
+        <vcpu placement="static">2</vcpu>
+        <cpu mode='host-passthrough'>
+            <!-- disable nested HVM -->
+            <feature name='vmx' policy='disable'/>
+            <feature name='svm' policy='disable'/>
+            <!-- disable SMAP inside VM, because of Linux bug -->
+            <feature name='smap' policy='disable'/>
+        </cpu>
+        <os>
+            <type arch="x86_64" machine="xenfv">hvm</type>
+                <!--
+                     For the libxl backend libvirt switches between OVMF (UEFI)
+                     and SeaBIOS based on the loader type. This has nothing to
+                     do with the hvmloader binary.
+                -->
+            <loader type="rom">hvmloader</loader>
+            <boot dev="cdrom" />
+            <boot dev="hd" />
+            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 nopat</cmdline>
+        </os>
+        <features>
+            <pae/>
+            <acpi/>
+            <apic/>
+            <viridian/>
+        </features>
+        <clock offset="variable" adjustment="0" basis="localtime" />
+        <on_poweroff>destroy</on_poweroff>
+        <on_reboot>destroy</on_reboot>
+        <on_crash>destroy</on_crash>
+        <devices>
+            <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
+            <emulator type="stubdom-linux" />
+            <input type="tablet" bus="usb"/>
+            <video>
+                <model type="vga"/>
+            </video>
+            <graphics type="qubes"/>
+        </devices>
+        </domain>
+        '''
+        my_uuid = '7db78950-c467-4863-94d1-af59806384ea'
+        vm = self.get_vm(uuid=my_uuid)
+        vm.netvm = None
+        vm.virt_mode = 'hvm'
+        with unittest.mock.patch('qubes.config.qubes_base_dir',
+                '/tmp/qubes-test'):
+            kernel_dir = '/tmp/qubes-test/vm-kernels/dummy'
+            os.makedirs(kernel_dir, exist_ok=True)
+            open(os.path.join(kernel_dir, 'vmlinuz'), 'w').close()
+            open(os.path.join(kernel_dir, 'initramfs'), 'w').close()
+            self.addCleanup(shutil.rmtree, '/tmp/qubes-test')
+            vm.kernel = 'dummy'
         libvirt_xml = vm.create_config_file()
         self.assertXMLEqual(lxml.etree.XML(libvirt_xml),
             lxml.etree.XML(expected))
@@ -701,6 +774,14 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         vm = self.get_vm(uuid=my_uuid)
         vm.netvm = None
         vm.virt_mode = 'pvh'
+        with unittest.mock.patch('qubes.config.qubes_base_dir',
+                '/tmp/qubes-test'):
+            kernel_dir = '/tmp/qubes-test/vm-kernels/dummy'
+            os.makedirs(kernel_dir, exist_ok=True)
+            open(os.path.join(kernel_dir, 'vmlinuz'), 'w').close()
+            open(os.path.join(kernel_dir, 'initramfs'), 'w').close()
+            self.addCleanup(shutil.rmtree, '/tmp/qubes-test')
+            vm.kernel = 'dummy'
         # tests for storage are later
         vm.volumes['kernel'] = unittest.mock.Mock(**{
             'kernels_dir': '/tmp/kernel',
@@ -738,8 +819,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <loader type="rom">hvmloader</loader>
             <boot dev="cdrom" />
             <boot dev="hd" />
-            <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
-            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 nopat</cmdline>
         </os>
         <features>
             <pae/>
@@ -759,6 +838,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <backenddomain name="test-inst-netvm" />
                 <script path="vif-route-qubes" />
             </interface>
+            <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
             <emulator type="stubdom-linux" />
             <input type="tablet" bus="usb"/>
             <video>

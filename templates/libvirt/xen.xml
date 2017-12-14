@@ -33,7 +33,6 @@
                 <loader type="{{ "pflash" if vm.features.check_with_template('uefi', False) else "rom" }}">hvmloader</loader>
                 <boot dev="cdrom" />
                 <boot dev="hd" />
-            <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
             {% else %}
                 {% if vm.virt_mode == 'pvh' %}
                     <type arch="x86_64" machine="xenfv">hvm</type>
@@ -43,7 +42,9 @@
                 <kernel>{{ vm.storage.kernels_dir }}/vmlinuz</kernel>
                 <initrd>{{ vm.storage.kernels_dir }}/initramfs</initrd>
             {% endif %}
-            <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 {{ vm.kernelopts }}</cmdline>
+            {% if vm.kernel %}
+                <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 {{ vm.kernelopts }}</cmdline>
+            {% endif %}
         {% endblock %}
     </os>
 
@@ -145,6 +146,7 @@
             {% endfor %}
 
             {% if vm.virt_mode == 'hvm' %}
+                <!-- server_ip is the address of stubdomain. It hosts it's own DNS server. -->
                 <emulator
                     {% if vm.features.check_with_template('linux-stubdom', True) %}
                         type="stubdom-linux"

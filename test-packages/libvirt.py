@@ -9,7 +9,8 @@ added as needed.
 """
 
 class libvirtError(Exception):
-    pass
+    def get_error_code(self):
+        return VIR_ERR_NO_DOMAIN
 
 class virConnect:
     pass
@@ -30,3 +31,5 @@ VIR_DOMAIN_SHUTDOWN = 4
 VIR_DOMAIN_SHUTOFF = 5
 VIR_DOMAIN_CRASHED = 6
 VIR_DOMAIN_PMSUSPENDED = 7
+
+VIR_ERR_NO_DOMAIN = 0
