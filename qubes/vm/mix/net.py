@@ -443,9 +443,13 @@ class NetVMMixin(qubes.events.Emitter):
 
     @qubes.events.handler('domain-qdb-create')
     def on_domain_qdb_create(self, event):
-        ''' Fills the QubesDB with firewall entries. Not implemented '''
-        # SEE: 1815 fill firewall QubesDB entries
-        pass
+        ''' Fills the QubesDB with firewall entries. '''
+        # pylint: disable=unused-argument
+        for vm in self.connected_vms:
+            if vm.is_running():
+                # keep in sync with on_firewall_changed
+                self.set_mapped_ip_info_for_vm(vm)
+                self.reload_firewall_for_vm(vm)
 
     @qubes.events.handler('firewall-changed', 'domain-spawn')
     def on_firewall_changed(self, event, **kwargs):
