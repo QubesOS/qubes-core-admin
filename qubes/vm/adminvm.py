@@ -38,7 +38,7 @@ class AdminVM(qubes.vm.BaseVM):
         default='dom0', setter=qubes.property.forbidden)
 
     qid = qubes.property('qid',
-        default=0, setter=qubes.property.forbidden)
+        default=0, type=int, setter=qubes.property.forbidden)
 
     uuid = qubes.property('uuid',
         default='00000000-0000-0000-0000-000000000000',
