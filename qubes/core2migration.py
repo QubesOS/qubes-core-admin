@@ -276,6 +276,7 @@ class Core2Qubes(qubes.Qubes):
 
         if not lock:
             self._release_lock()
+        return True
 
     def save(self, lock=False):
         raise NotImplementedError("Saving old qubes.xml not supported")

@@ -835,7 +835,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             # Intentionally not used is_running(): eliminate also "Paused",
             # "Crashed", "Halting"
             if self.get_power_state() != 'Halted':
-                return
+                return self
 
             with (yield from self._domain_stopped_lock):
                 # Don't accept any new stopped event's till a new VM has been
@@ -1229,7 +1229,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         # add an extra MB because Nova rounds up to MBs
 
         if not qmemman_present:
-            return
+            return None
 
         if mem_required is None:
             if self.virt_mode == 'hvm':

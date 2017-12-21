@@ -337,6 +337,7 @@ class FileVolume(qubes.storage.Volume):
             return 'block-origin'
         elif self.snap_on_start:
             return 'block-snapshot'
+        return None
 
     def block_device(self):
         ''' Return :py:class:`qubes.storage.BlockDevice` for serialization in
@@ -379,7 +380,7 @@ class FileVolume(qubes.storage.Volume):
 def create_sparse_file(path, size):
     ''' Create an empty sparse file '''
     if os.path.exists(path):
-        raise IOError("Volume %s already exists", path)
+        raise IOError("Volume %s already exists" % path)
     parent_dir = os.path.dirname(path)
     if not os.path.exists(parent_dir):
         os.makedirs(parent_dir)

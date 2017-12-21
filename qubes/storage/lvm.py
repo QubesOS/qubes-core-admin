@@ -238,7 +238,7 @@ class ThinVolume(qubes.storage.Volume):
         ''' Resets a volatile volume '''
         assert not self.snap_on_start and not self.save_on_stop, \
             "Not a volatile volume"
-        self.log.debug('Resetting volatile ' + self.vid)
+        self.log.debug('Resetting volatile %s', self.vid)
         try:
             cmd = ['remove', self.vid]
             qubes_lvm(cmd, self.log)
@@ -493,6 +493,7 @@ class ThinVolume(qubes.storage.Volume):
         except KeyError:
             raise qubes.storage.StoragePoolException(
                 'volume {} missing'.format(vid))
+        return True
 
 
     def block_device(self):

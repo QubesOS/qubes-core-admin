@@ -123,6 +123,7 @@ class LinuxModules(Volume):
     def block_device(self):
         if self.vid:
             return super().block_device()
+        return None
 
 
 class LinuxKernel(Pool):

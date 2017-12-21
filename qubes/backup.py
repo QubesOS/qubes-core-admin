@@ -851,11 +851,12 @@ def handle_streams(stream_in, stream_out, size_limit=None,
         buf = yield from stream_in.read(to_copy)
         if not buf:
             # done
-            return None
+            break
 
         if callable(progress_callback):
             progress_callback(len(buf))
         stream_out.write(buf)
         bytes_copied += len(buf)
+    return None
 
 # vim:sw=4:et:

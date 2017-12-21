@@ -66,7 +66,7 @@ def _default_ip6(self):
 def _setter_netvm(self, prop, value):
     # pylint: disable=unused-argument
     if value is None:
-        return
+        return None
     if not value.provides_network:
         raise qubes.exc.QubesValueError(
             'The {!s} qube does not provide network'.format(value))

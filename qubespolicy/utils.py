@@ -46,8 +46,7 @@ def _sanitize_name(input_string, extra_allowed_characters, assert_sanitized):
     if assert_sanitized:
         assert input_string == result, \
                'Input string was expected to be sanitized, but was not.'
-    else:
-        return result
+    return result
 
 
 def sanitize_domain_name(input_string, assert_sanitized=False):

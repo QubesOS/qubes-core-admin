@@ -244,7 +244,7 @@ class QubesDaemonProtocol(asyncio.Protocol):
         except ValueError:
             self.app.log.warning('framing error')
             self.transport.abort()
-            return
+            return None
         finally:
             self.untrusted_buffer.close()
 
