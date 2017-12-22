@@ -1204,7 +1204,7 @@ def load_tests(loader, tests, pattern): # pylint: disable=unused-argument
 #           'qubes.tests.regressions',
 
             # external modules
-#           'qubes.tests.extra',
+            'qubes.tests.extra',
             ):
         tests.addTests(loader.loadTestsFromName(modname))
 
