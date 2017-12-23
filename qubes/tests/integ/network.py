@@ -379,7 +379,7 @@ class VmNetworkingMixin(object):
 
         output = output.decode()
         self.assertIn('192.168.1.128', output)
-        self.assertNotIn(self.testvm1.ip, output)
+        self.assertNotIn(str(self.testvm1.ip), output)
 
         try:
             (output, _) = self.loop.run_until_complete(
@@ -389,7 +389,7 @@ class VmNetworkingMixin(object):
 
         output = output.decode()
         self.assertIn('192.168.1.1', output)
-        self.assertNotIn(self.testvm1.netvm.ip, output)
+        self.assertNotIn(str(self.testvm1.netvm.ip), output)
 
     def test_201_fake_ip_without_gw(self):
         '''Test hiding VM real IP'''
@@ -408,7 +408,7 @@ class VmNetworkingMixin(object):
 
         output = output.decode()
         self.assertIn('192.168.1.128', output)
-        self.assertNotIn(self.testvm1.ip, output)
+        self.assertNotIn(str(self.testvm1.ip), output)
 
     def test_202_fake_ip_firewall(self):
         '''Test hiding VM real IP, firewall'''
@@ -546,7 +546,7 @@ class VmNetworkingMixin(object):
             self.fail('ip addr show dev eth0 failed')
         output = output.decode()
         self.assertIn('192.168.1.128', output)
-        self.assertNotIn(self.testvm1.ip, output)
+        self.assertNotIn(str(self.testvm1.ip), output)
 
         try:
             (output, _) = self.loop.run_until_complete(
@@ -556,7 +556,7 @@ class VmNetworkingMixin(object):
             self.fail('ip route show failed')
         output = output.decode()
         self.assertIn('192.168.1.1', output)
-        self.assertNotIn(self.testvm1.netvm.ip, output)
+        self.assertNotIn(str(self.testvm1.netvm.ip), output)
 
         try:
             (output, _) = self.loop.run_until_complete(
@@ -566,7 +566,7 @@ class VmNetworkingMixin(object):
             self.fail('ip addr show dev eth0 failed')
         output = output.decode()
         self.assertNotIn('192.168.1.128', output)
-        self.assertIn(self.testvm1.ip, output)
+        self.assertIn(str(self.testvm1.ip), output)
 
         try:
             (output, _) = self.loop.run_until_complete(
@@ -576,7 +576,7 @@ class VmNetworkingMixin(object):
             self.fail('ip route show failed')
         output = output.decode()
         self.assertIn('192.168.1.128', output)
-        self.assertNotIn(self.proxy.ip, output)
+        self.assertNotIn(str(self.proxy.ip), output)
 
     def test_210_custom_ip_simple(self):
         '''Custom AppVM IP'''
@@ -932,8 +932,8 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
             'ip -6 addr flush dev eth0 && '
             'ip -6 addr add {}/128 dev eth0 && '
             'ip -6 route add default via {} dev eth0'.format(
-                self.testvm1.visible_ip6 + '1',
-                self.testvm1.visible_gateway6),
+                str(self.testvm1.visible_ip6) + '1',
+                str(self.testvm1.visible_gateway6)),
             user='root'))
         self.assertNotEqual(self.run_cmd(self.testvm1, self.ping6_ip), 0,
                          "Spoofed ping should be blocked")
