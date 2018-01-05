@@ -165,3 +165,29 @@ class TC_00_Emitter(qubes.tests.QubesTestCase):
 
         self.assertCountEqual(effect,
             ('testvalue1', 'testvalue2', 'testvalue3', 'testvalue4'))
+
+    def test_006_wildcard(self):
+        # need something mutable
+        testevent_fired = [0]
+
+        def on_foobar(subject, event, *args, **kwargs):
+            # pylint: disable=unused-argument
+            testevent_fired[0] += 1
+
+        def on_foo(subject, event, *args, **kwargs):
+            # pylint: disable=unused-argument
+            testevent_fired[0] += 1
+
+        emitter = qubes.events.Emitter()
+        emitter.add_handler('foo:*', on_foo)
+        emitter.add_handler('foo:bar', on_foobar)
+        emitter.events_enabled = True
+        emitter.fire_event('foo:testevent')
+        self.assertEqual(testevent_fired[0], 1)
+        emitter.fire_event('foo:bar')
+        # now foo:bar and foo:* should be executed
+        self.assertEqual(testevent_fired[0], 3)
+        emitter.fire_event('foo:')
+        self.assertEqual(testevent_fired[0], 4)
+        emitter.fire_event('testevent')
+        self.assertEqual(testevent_fired[0], 4)
