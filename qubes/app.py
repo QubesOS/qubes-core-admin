@@ -1184,7 +1184,10 @@ class Qubes(qubes.PropertyHolder):
         # handle default template; specifically allow template=None (do not
         # override it with default template)
         if 'template' not in kwargs and hasattr(cls, 'template'):
-            kwargs['template'] = self.default_template
+            if cls == self.get_vm_class('DispVM'):
+                kwargs['template'] = self.default_dispvm
+            else:
+                kwargs['template'] = self.default_template
         elif 'template' in kwargs and isinstance(kwargs['template'], str):
             kwargs['template'] = self.domains[kwargs['template']]
 
