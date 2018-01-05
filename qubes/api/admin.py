@@ -1052,6 +1052,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         if not self.dest.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(self.dest)
 
+        if self.dest.installed_by_rpm:
+            raise qubes.exc.QubesVMInUseError(self.dest, \
+                "VM installed by package manager: " + self.dest.name)
+
         del self.app.domains[self.dest]
         try:
             yield from self.dest.remove_from_disk()
