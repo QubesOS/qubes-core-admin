@@ -32,6 +32,7 @@ import os.path
 import shutil
 import string
 import subprocess
+import sys
 import uuid
 import warnings
 
@@ -1145,7 +1146,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         return (yield from asyncio.create_subprocess_exec(
             qubes.config.system_path['qrexec_client_path'],
             '-d', str(self.name),
-            *(('-t', '-T') if filter_esc else ()),
+            *(('-t',) if filter_esc else ()),
+            *(('-T',) if filter_esc or os.isatty(sys.stderr.fileno()) else ()),
             '{}:QUBESRPC {} {}'.format(user, service, source),
             **kwargs))
 
@@ -1197,6 +1199,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         return asyncio.create_subprocess_exec(
             qubes.config.system_path['qrexec_client_path'],
             '-d', str(self.name),
+            *(('-T',) if os.isatty(sys.stderr.fileno()) else ()),
             '{}:{}'.format(user, command),
             **kwargs)
 
