@@ -39,7 +39,7 @@ class ServicesExtension(qubes.ext.Extension):
             vm.untrusted_qdb.write('/qubes-service/{}'.format(service),
                 str(int(bool(value))))
 
-    @qubes.ext.handler('domain-feature-set')
+    @qubes.ext.handler('domain-feature-set:*')
     def on_domain_feature_set(self, vm, event, feature, value, oldvalue=None):
         '''Update /qubes-service/ QubesDB tree in runtime'''
         # pylint: disable=unused-argument
@@ -52,7 +52,7 @@ class ServicesExtension(qubes.ext.Extension):
         vm.untrusted_qdb.write('/qubes-service/{}'.format(service),
             str(int(bool(value))))
 
-    @qubes.ext.handler('domain-feature-delete')
+    @qubes.ext.handler('domain-feature-delete:*')
     def on_domain_feature_delete(self, vm, event, feature):
         '''Update /qubes-service/ QubesDB tree in runtime'''
         # pylint: disable=unused-argument
