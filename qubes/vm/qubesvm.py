@@ -347,15 +347,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             ranging from plainly ignoring the request to verbatim copy into
             :py:attr:`features` with only minimal sanitisation.
 
-        .. event:: monitor-layout-change (subject, event, monitor_layout)
-
-            Desktop layout was changed, probably because a display was plugged
-            in or out.
-
-            :param subject: Event emitter (the qube object)
-            :param event: Event name (``'monitor-layout-change'``)
-            :param monitor_layout: The new layout
-
         .. event:: firewall-changed (subject, event)
 
             Firewall was changed.
