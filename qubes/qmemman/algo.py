@@ -239,7 +239,7 @@ def balance_when_enough_memory(domain_dictionary,
 # prefmem, and redistribute anything left between acceptors
 def balance_when_low_on_memory(domain_dictionary,
         xen_free_memory, total_mem_pref_acceptors, donors, acceptors):
-    log.debug('balance_when_low_on_memory(xen_free_memory={!r}, '
+    log.info('balance_when_low_on_memory(xen_free_memory={!r}, '
         'total_mem_pref_acceptors={!r}, donors={!r}, acceptors={!r})'.format(
          xen_free_memory, total_mem_pref_acceptors, donors, acceptors))
     donors_rq = list()

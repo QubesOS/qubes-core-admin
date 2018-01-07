@@ -143,19 +143,11 @@ class SystemState(object):
             if self.domdict[i].slow_memset_react and \
                     self.domdict[i].memory_actual <= \
                     self.domdict[i].last_target + self.XEN_FREE_MEM_LEFT/4:
-                dom_name = self.xs.read('', '/local/domain/%s/name' % str(i))
-                if dom_name is not None:
-                    # TODO: report it somewhere, qubesd or elsewhere
-                    pass
                 self.domdict[i].slow_memset_react = False
 
             if self.domdict[i].no_progress and \
                     self.domdict[i].memory_actual <= \
                     self.domdict[i].last_target + self.XEN_FREE_MEM_LEFT/4:
-                dom_name = self.xs.read('', '/local/domain/%s/name' % str(i))
-                if dom_name is not None:
-                    # TODO: report it somewhere, qubesd or elsewhere
-                    pass
                 self.domdict[i].no_progress = False
 
     # the below works (and is fast), but then 'xm list' shows unchanged
@@ -285,9 +277,14 @@ class SystemState(object):
     def print_stats(self, xenfree, memset_reqs):
         for i in self.domdict.keys():
             if self.domdict[i].mem_used is not None:
-                self.log.info('stat: dom {!r} act={} pref={}'.format(i,
-                    self.domdict[i].memory_actual,
-                    qubes.qmemman.algo.prefmem(self.domdict[i])))
+                self.log.info('stat: dom {!r} act={} pref={} last_target={}'
+                    '{}{}'.format(i,
+                        self.domdict[i].memory_actual,
+                        qubes.qmemman.algo.prefmem(self.domdict[i]),
+                        self.domdict[i].last_target,
+                        ' no_progress' if self.domdict[i].no_progress else '',
+                        ' slow_memset_react'
+                            if self.domdict[i].slow_memset_react else ''))
 
         self.log.info('stat: xenfree={} memset_reqs={}'.format(xenfree, memset_reqs))
 
@@ -343,11 +340,6 @@ class SystemState(object):
                                             self.domdict[dom2].memory_actual,
                                             mem2))
                                 self.domdict[dom2].no_progress = True
-                                dom_name = self.xs.read('', '/local/domain/%s/name' % str(dom2))
-                                if dom_name is not None:
-                                    # TODO: report it somewhere, qubesd or
-                                    # elsewhere
-                                    pass
                             else:
                                 self.log.warning('dom {!r} still hold more'
                                     ' memory than have assigned ({} > {})'
@@ -355,11 +347,6 @@ class SystemState(object):
                                             self.domdict[dom2].memory_actual,
                                             mem2))
                                 self.domdict[dom2].slow_memset_react = True
-                                dom_name = self.xs.read('', '/local/domain/%s/name' % str(dom2))
-                                if dom_name is not None:
-                                    # TODO: report it somewhere, qubesd or
-                                    # elsewhere
-                                    pass
                     self.mem_set(dom, self.get_free_xen_memory() + self.domdict[dom].memory_actual - self.XEN_FREE_MEM_LEFT)
                     return
 
