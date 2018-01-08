@@ -42,6 +42,7 @@ def do_list(vm):
     print fmt.format ("type", vm.type)
     if vm.template is not None:
         print fmt.format ("template", vm.template.name)
+    print fmt.format ("virt_mode", vm.virt_mode)
     if vm.netvm is not None:
         print fmt.format ("netvm", vm.netvm.name)
     if vm.qid != 0:
@@ -496,6 +497,14 @@ def set_timezone(vms, vm, args):
     vm.timezone = args[0]
     return True
 
+def set_virt_mode(vms, vm, args):
+    if len (args) != 1:
+        print >> sys.stderr, "Missing value (pv, pvh, hvm)!"
+        return False
+
+    vm.virt_mode = args[0]
+    return True
+
 properties = {
     "include_in_backups": set_include_in_backups,
     "pcidevs": set_pcidevs,
@@ -522,6 +531,7 @@ properties = {
     "timezone": set_timezone,
     "internal": set_internal,
     "autostart": set_autostart,
+    "virt_mode": set_virt_mode,
 }
 
 

@@ -4,10 +4,23 @@
   <memory unit='MiB'>{maxmem}</memory>
   <currentMemory unit='MiB'>{mem}</currentMemory>
   <vcpu placement='static'>{vcpus}</vcpu>
+  {cpu_begin}
+  <cpu mode='host-passthrough'>
+    <feature name='vmx' policy='disable'/>
+    <feature name='svm' policy='disable'/>
+    <feature name='smap' policy='disable'/>
+  </cpu>
+  {cpu_end}
   <os>
-    <type arch='x86_64' machine='xenpv'>linux</type>
+    <type arch='x86_64' machine='{machine}'>{type}</type>
+    {boot_begin}
+    <loader>hvmloader</loader>
+    <boot dev="hd"/>
+    {boot_end}
+    {kernel_begin}
     <kernel>{kerneldir}/vmlinuz</kernel>
     <initrd>{kerneldir}/initramfs</initrd>
+    {kernel_end}
     <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 {kernelopts}</cmdline>
   </os>
   <features>{features}</features>
@@ -18,6 +31,9 @@
   <on_reboot>destroy</on_reboot>
   <on_crash>destroy</on_crash>
   <devices>
+    {emulator_begin}
+    <emulator type="{emulator_type}"/>
+    {emulator_end}
 {rootdev}
 {privatedev}
 {volatiledev}

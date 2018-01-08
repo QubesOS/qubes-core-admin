@@ -90,6 +90,12 @@ class QubesVm(object):
     hooks_verify_files = []
     hooks_set_attr = []
 
+    @staticmethod
+    def __virt_mode(value):
+        if value not in ["pv", "pvh", "hvm"]:
+            raise QubesException("Invalid virt_mode.")
+        return value
+
     def get_attrs_config(self):
         """ Object attributes for serialization/deserialization
             inner dict keys:
@@ -123,6 +129,10 @@ class QubesVm(object):
                 "order": 10 },
             "installed_by_rpm": { "default": False, 'order': 10 },
             "template": { "default": None, "attr": '_template', 'order': 10 },
+            "virt_mode": {
+                "default": "pvh",
+                "order": 10,
+                "func": self.__virt_mode},
             ### order >= 20: have template set
             "uses_default_netvm": { "default": True, 'order': 20 },
             "netvm": { "default": None, "attr": "_netvm", 'order': 20 },
@@ -204,7 +214,7 @@ class QubesVm(object):
             'uses_default_netvm', 'include_in_backups', 'debug',\
             'qrexec_timeout', 'autostart', 'uses_default_dispvm_netvm',
             'backup_content', 'backup_size', 'backup_path', 'pool_name',\
-            'pci_e820_host']:
+            'pci_e820_host', 'virt_mode']:
             attrs[prop]['save'] = lambda prop=prop: str(getattr(self, prop))
         # Simple paths
         for prop in ['conf_file', 'firewall_conf']:
@@ -1238,6 +1248,36 @@ class QubesVm(object):
             if self.debug:
                 print >> sys.stderr, "--> Debug mode: adding 'earlyprintk=xen' to kernel opts"
                 args['kernelopts'] += ' earlyprintk=xen'
+
+        if self.virt_mode == 'pv':
+            args['machine'] = 'xenpv'
+            args['type'] = 'linux'
+            args['cpu_begin'] = '<!--'
+            args['cpu_end'] = '-->'
+            args['emulator_begin'] = '<!--'
+            args['emulator_end'] = '-->'
+        else:
+            args['machine'] = 'xenfv'
+            args['type'] = 'hvm'
+            args['cpu_begin'] = ''
+            args['cpu_end'] = ''
+            args['features'] += '<pae/><acpi/><apic/><viridian/>'
+            args['emulator_begin'] = ''
+            args['emulator_end'] = ''
+
+        if self.virt_mode == 'hvm':
+            args['boot_begin'] = ''
+            args['boot_end'] = ''
+            args['kernel_begin'] = '<!--'
+            args['kernel_end'] = '-->'
+            args['emulator_type'] = 'stubdom-linux'
+        else:
+            args['emulator_type'] = 'none' # ignored in pv mode
+            args['boot_begin'] = '<!--'
+            args['boot_end'] = '-->'
+            args['kernel_begin'] = ''
+            args['kernel_end'] = ''
+
 
         # fire hooks
         for hook in self.hooks_get_config_params:
