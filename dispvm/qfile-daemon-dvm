@@ -141,6 +141,15 @@ class QfileDaemonDvm:
         if dvm_kernel_path != '/var/lib/qubes/vm-kernels/' + dvm_current_kernel + '/vmlinuz':
             is_ok = False
 
+        dvm_virt_mode = ('pv' if subprocess.check_output(['xmllint', '--xpath',
+                'string(/domain/os/type/@machine)',
+                os.path.join(dvm_vmdir, dvm_name + '.conf')]) == 'xenpv'
+                else 'pvh')
+        dvm_current_virt_mode = subprocess.check_output(
+                ['qvm-prefs', '--get', dvm_name, 'virt_mode']).strip()
+        if dvm_virt_mode != dvm_current_virt_mode:
+            is_ok = False
+
         # force DispVM rebuild on template root.img change
         dvm_mtime = os.stat(current_savefile).st_mtime
         root_mtime = os.stat(dvmdata_dir+'savefile-root').st_mtime
