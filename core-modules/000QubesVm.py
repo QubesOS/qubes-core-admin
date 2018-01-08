@@ -90,12 +90,6 @@ class QubesVm(object):
     hooks_verify_files = []
     hooks_set_attr = []
 
-    @staticmethod
-    def __virt_mode(value):
-        if value not in ["pv", "pvh", "hvm"]:
-            raise QubesException("Invalid virt_mode.")
-        return value
-
     def get_attrs_config(self):
         """ Object attributes for serialization/deserialization
             inner dict keys:
@@ -132,6 +126,7 @@ class QubesVm(object):
             "virt_mode": {
                 "default": "pvh",
                 "order": 10,
+                "attr": '_virt_mode',
                 "func": self.__virt_mode},
             ### order >= 20: have template set
             "uses_default_netvm": { "default": True, 'order': 20 },
@@ -437,6 +432,20 @@ class QubesVm(object):
         # fire hooks
         for hook in self.hooks_label_setter:
             hook(self, new_label)
+
+    @staticmethod
+    def __virt_mode(value):
+        if value not in ["pv", "pvh", "hvm"]:
+            raise QubesException("Invalid virt_mode.")
+        return value
+
+    @property
+    def virt_mode(self):
+        return self._virt_mode
+
+    @virt_mode.setter
+    def virt_mode(self, new_value):
+        self._virt_mode = self.__virt_mode(new_value)
 
     @property
     def netvm(self):
