@@ -1981,6 +1981,11 @@ class QubesVm(object):
         self.log.debug('start('
             'preparing_dvm={!r}, start_guid={!r}, mem_required={!r})'.format(
                 preparing_dvm, start_guid, mem_required))
+
+        if len(self.pcidevs) != 0 and self.virt_mode == 'pvh':
+            raise QubesException(
+                "pvh mode can't be set if pci devices are attached")
+
         if dry_run:
             return
 
