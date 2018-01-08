@@ -64,6 +64,7 @@ Requires:       libvirt-python
 Requires:       xen-runtime
 Requires:       xen-hvm
 Requires:       libvirt-daemon-xen >= 1.2.20-6
+Requires:       python2-xen
 %endif
 Requires:       createrepo
 Requires:       gnome-packagekit
