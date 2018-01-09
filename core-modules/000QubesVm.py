@@ -1964,6 +1964,8 @@ class QubesVm(object):
         MEM_OVERHEAD_PER_VCPU = 3 * 1024 * 1024 / 2
         if mem_required is None:
             mem_required = int(self.memory) * 1024 * 1024
+            if self.virt_mode == 'hvm':
+                mem_required += (128 + 8) * 1024 * 1024 # memory for stubdom
         if qmemman_present:
             qmemman_client = QMemmanClient()
             try:
