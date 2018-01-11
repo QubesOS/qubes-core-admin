@@ -476,13 +476,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         type=bool, setter=qubes.property.bool,
         doc='If this domain is to be included in default backup.')
 
-    # format got changed from %s to str(datetime.datetime)
     backup_timestamp = qubes.property('backup_timestamp', default=None,
-        setter=(lambda self, prop, value:
-            value if isinstance(value, datetime.datetime) else
-            datetime.datetime.fromtimestamp(int(value))),
-        saver=(lambda self, prop, value: value.strftime('%s')),
-        doc='FIXME')
+        type=int,
+        doc='Time of last backup of the qube, in seconds since unix epoch')
 
     default_dispvm = qubes.VMProperty('default_dispvm',
         load_stage=4,
