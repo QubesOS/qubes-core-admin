@@ -24,7 +24,6 @@ from __future__ import absolute_import
 
 import asyncio
 import base64
-import datetime
 import errno
 import grp
 import os
@@ -1762,10 +1761,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     # miscellanous
 
-    def get_start_time(self):
+    @qubes.stateless_property
+    def start_time(self):
         '''Tell when machine was started.
 
-        :rtype: datetime.datetime
+        :rtype: float or None
         '''
         if not self.is_running():
             return None
@@ -1774,7 +1774,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         start_time = self.app.vmm.xs.read('',
             '/vm/{}/start_time'.format(self.uuid))
         if start_time != '':
-            return datetime.datetime.fromtimestamp(float(start_time))
+            return float(start_time)
 
         return None
 
