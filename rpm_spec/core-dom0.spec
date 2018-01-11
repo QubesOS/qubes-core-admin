@@ -216,6 +216,7 @@ fi
 
 %{_mandir}/man1/qrexec-policy-graph.1*
 %{_mandir}/man1/qubes*.1*
+%{_mandir}/man1/qvm-*.1*
 
 %dir %{python3_sitelib}/qubes-*.egg-info
 %{python3_sitelib}/qubes-*.egg-info/*
