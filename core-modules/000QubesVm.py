@@ -123,11 +123,6 @@ class QubesVm(object):
                 "order": 10 },
             "installed_by_rpm": { "default": False, 'order': 10 },
             "template": { "default": None, "attr": '_template', 'order': 10 },
-            "virt_mode": {
-                "default": "pvh",
-                "order": 10,
-                "attr": '_virt_mode',
-                "func": self.__virt_mode},
             ### order >= 20: have template set
             "uses_default_netvm": { "default": True, 'order': 20 },
             "netvm": { "default": None, "attr": "_netvm", 'order': 20 },
@@ -143,6 +138,11 @@ class QubesVm(object):
                     ast.literal_eval("[" + value + "]")) },
             "pci_strictreset": {"default": True},
             "pci_e820_host": {"default": True},
+            "virt_mode": {
+                "default": "default",
+                "order": 26, # __virt_mode needs self.pcidevs
+                "attr": '_virt_mode',
+                "func": self.__virt_mode},
             # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
             "internal": { "default": False, 'attr': '_internal' },
             "vcpus": { "default": 2, "func": int },
@@ -433,10 +433,22 @@ class QubesVm(object):
         for hook in self.hooks_label_setter:
             hook(self, new_label)
 
-    @staticmethod
-    def __virt_mode(value):
-        if value not in ["pv", "pvh", "hvm"]:
+    def __virt_mode(self, value):
+        if value not in ["default", "pv", "pvh", "hvm"]:
             raise QubesException("Invalid virt_mode.")
+
+        if value == 'default':
+            # We can't decide this in offline mode. So store 'default' which
+            # will be switched to the proper value on next load with vmm
+            # available.
+            if vmm.offline_mode:
+                return 'default'
+
+            if vmm.hvm_supported and not self.pcidevs:
+                value = 'pvh'
+            else:
+                value = 'pv'
+
         return value
 
     @property
