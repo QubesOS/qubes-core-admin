@@ -97,7 +97,8 @@ class ThinPool(qubes.storage.Pool):
         return volume
 
     def setup(self):
-        pass  # TODO Should we create a non existing pool?
+        reset_cache()
+        # TODO Should we create a non existing pool?
 
     def get_volume(self, vid):
         ''' Return a volume with given vid'''
