@@ -140,14 +140,16 @@ class SystemState(object):
     def clear_outdated_error_markers(self):
         # Clear outdated errors
         for i in self.domdict.keys():
-            if self.domdict[i].slow_memset_react and \
-                    self.domdict[i].memory_actual <= \
-                    self.domdict[i].last_target + self.XEN_FREE_MEM_LEFT/4:
+            # clear markers excluding VM from memory balance, if:
+            #  - VM have responded to previous request (with some safety margin)
+            #  - VM request more memory than it has assigned
+            # The second condition avoids starving a VM, even when there is
+            # some free memory available
+            if self.domdict[i].memory_actual <= \
+                    self.domdict[i].last_target + self.XEN_FREE_MEM_LEFT/2 or \
+                    self.domdict[i].memory_actual < \
+                    qubes.qmemman.algo.prefmem(self.domdict[i]):
                 self.domdict[i].slow_memset_react = False
-
-            if self.domdict[i].no_progress and \
-                    self.domdict[i].memory_actual <= \
-                    self.domdict[i].last_target + self.XEN_FREE_MEM_LEFT/4:
                 self.domdict[i].no_progress = False
 
     # the below works (and is fast), but then 'xm list' shows unchanged
