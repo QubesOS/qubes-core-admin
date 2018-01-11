@@ -161,10 +161,13 @@ class SystemState(object):
         # apparently xc.lowlevel throws exceptions too
         try:
             self.xc.domain_setmaxmem(int(id), int(val/1024) + 1024) # LIBXL_MAXMEM_CONSTANT=1024
-            self.xc.domain_set_target_mem(int(id), int(val/1024))
+            self.xc.domain_set_target_mem(int(id), int(val / 1024))
         except:
             pass
-        self.xs.write('', '/local/domain/' + id + '/memory/target', str(int(val/1024)))
+        # VM sees about 16MB memory less, so adjust for it here - qmemman
+        #  handle Xen view of memory
+        self.xs.write('', '/local/domain/' + id + '/memory/target',
+            str(int(val/1024 - 16 * 1024)))
 
     # this is called at the end of ballooning, when we have Xen free mem already
     # make sure that past mem_set will not decrease Xen free mem
