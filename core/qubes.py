@@ -135,6 +135,7 @@ class QubesVMMConnection(object):
         self._xc = None
         self._offline_mode = False
         self._hvm_supported = None
+        self._hap_supported = None
 
     @property
     def offline_mode(self):
@@ -193,6 +194,14 @@ class QubesVMMConnection(object):
             self._hvm_supported = bool(
                     caps_xml.xpath('./guest/os_type[text()=\'hvm\']'))
         return self._hvm_supported
+
+    @property
+    def hap_supported(self):
+        if self._hap_supported is None:
+            caps_xml = lxml.etree.fromstring(self.libvirt_conn.getCapabilities())
+            self._hap_supported = bool(
+                    caps_xml.xpath('./guest/features/hap'))
+        return self._hap_supported
 
 
 ##### VMM global variable definition #####
