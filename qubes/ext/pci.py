@@ -71,7 +71,8 @@ def pcidev_class(dev_xmldesc):
     sysfs_path = dev_xmldesc.findtext('path')
     assert sysfs_path
     try:
-        class_id = open(sysfs_path + '/class').read().strip()
+        with open(sysfs_path + '/class') as f_class:
+            class_id = f_class.read().strip()
     except OSError:
         return "Unknown"
 
