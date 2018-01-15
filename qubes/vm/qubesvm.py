@@ -99,6 +99,11 @@ def _setter_virt_mode(self, prop, value):
             "pvh mode can't be set if pci devices are attached")
     return value
 
+def _default_virt_mode(self):
+    if self.devices['pci'].persistent():
+        return 'hvm'
+    return 'pvh'
+
 
 class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     '''Base functionality of Qubes VM shared between all VMs.
@@ -385,9 +390,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     virt_mode = qubes.property('virt_mode',
         type=str, setter=_setter_virt_mode,
-        default='hvm',
+        default=_default_virt_mode,
         doc='''Virtualisation mode: full virtualisation ("hvm"),
-            or paravirtualisation ("pv")''')
+            or paravirtualisation ("pv"), or hybrid ("pvh")''')
 
     installed_by_rpm = qubes.property('installed_by_rpm',
         type=bool, setter=qubes.property.bool,
