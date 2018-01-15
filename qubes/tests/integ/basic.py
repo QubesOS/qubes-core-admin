@@ -700,6 +700,7 @@ class TC_06_AppVMMixin(object):
         self.vm = self.app.add_new_vm('StandaloneVM', label='red', name=vmname)
         self.loop.run_until_complete(self.vm.create_on_disk())
         self.vm.kernel = None
+        self.vm.virt_mode = 'hvm'
 
         # start the VM using qvm-start tool, to test --cdrom option there
         p = self.loop.run_until_complete(asyncio.create_subprocess_exec(
