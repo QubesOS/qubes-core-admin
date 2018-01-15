@@ -20,6 +20,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 import jinja2
+import unittest.mock
 
 import qubes.tests
 
@@ -27,6 +28,8 @@ class TestVMM(object):
     # pylint: disable=too-few-public-methods
     def __init__(self, offline_mode=False):
         self.offline_mode = offline_mode
+        self.xs = unittest.mock.Mock()
+
     @property
     def libvirt_conn(self):
         import libvirt
