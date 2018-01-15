@@ -513,12 +513,12 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         timestamp = datetime.datetime(2016, 1, 1, 12, 14, 2)
         timestamp_str = timestamp.strftime('%s')
         self.assertPropertyDefaultValue(vm, 'backup_timestamp', None)
-        self.assertPropertyValue(vm, 'backup_timestamp', timestamp,
-            timestamp, timestamp_str)
+        self.assertPropertyValue(vm, 'backup_timestamp', int(timestamp_str),
+            int(timestamp_str), timestamp_str)
         del vm.backup_timestamp
         self.assertPropertyDefaultValue(vm, 'backup_timestamp', None)
         self.assertPropertyValue(vm, 'backup_timestamp', timestamp_str,
-            timestamp)
+            int(timestamp_str))
 
     def test_401_backup_timestamp_invalid(self):
         vm = self.get_vm()

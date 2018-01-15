@@ -24,7 +24,6 @@ from __future__ import absolute_import
 
 import asyncio
 import base64
-import datetime
 import errno
 import grp
 import os
@@ -99,6 +98,11 @@ def _setter_virt_mode(self, prop, value):
         raise qubes.exc.QubesPropertyValueError(self, prop, value,
             "pvh mode can't be set if pci devices are attached")
     return value
+
+def _default_virt_mode(self):
+    if self.devices['pci'].persistent():
+        return 'hvm'
+    return 'pvh'
 
 
 class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
@@ -386,9 +390,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     virt_mode = qubes.property('virt_mode',
         type=str, setter=_setter_virt_mode,
-        default='hvm',
+        default=_default_virt_mode,
         doc='''Virtualisation mode: full virtualisation ("hvm"),
-            or paravirtualisation ("pv")''')
+            or paravirtualisation ("pv"), or hybrid ("pvh")''')
 
     installed_by_rpm = qubes.property('installed_by_rpm',
         type=bool, setter=qubes.property.bool,
@@ -476,13 +480,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         type=bool, setter=qubes.property.bool,
         doc='If this domain is to be included in default backup.')
 
-    # format got changed from %s to str(datetime.datetime)
     backup_timestamp = qubes.property('backup_timestamp', default=None,
-        setter=(lambda self, prop, value:
-            value if isinstance(value, datetime.datetime) else
-            datetime.datetime.fromtimestamp(int(value))),
-        saver=(lambda self, prop, value: value.strftime('%s')),
-        doc='FIXME')
+        type=int,
+        doc='Time of last backup of the qube, in seconds since unix epoch')
 
     default_dispvm = qubes.VMProperty('default_dispvm',
         load_stage=4,
@@ -1766,10 +1766,11 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     # miscellanous
 
-    def get_start_time(self):
+    @qubes.stateless_property
+    def start_time(self):
         '''Tell when machine was started.
 
-        :rtype: datetime.datetime
+        :rtype: float or None
         '''
         if not self.is_running():
             return None
@@ -1778,7 +1779,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         start_time = self.app.vmm.xs.read('',
             '/vm/{}/start_time'.format(self.uuid))
         if start_time != '':
-            return datetime.datetime.fromtimestamp(float(start_time))
+            return float(start_time)
 
         return None
 

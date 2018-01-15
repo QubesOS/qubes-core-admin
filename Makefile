@@ -152,6 +152,10 @@ endif
 	ln -s qvm-device $(DESTDIR)/usr/bin/qvm-block
 	ln -s qvm-device $(DESTDIR)/usr/bin/qvm-pci
 	ln -s qvm-device $(DESTDIR)/usr/bin/qvm-usb
+	install -d $(DESTDIR)/usr/share/man/man1
+	ln -s qvm-device.1.gz $(DESTDIR)/usr/share/man/man1/qvm-block.1.gz
+	ln -s qvm-device.1.gz $(DESTDIR)/usr/share/man/man1/qvm-pci.1.gz
+	ln -s qvm-device.1.gz $(DESTDIR)/usr/share/man/man1/qvm-usb.1.gz
 #	$(MAKE) install -C tests
 	$(MAKE) install -C relaxng
 	mkdir -p $(DESTDIR)/etc/qubes

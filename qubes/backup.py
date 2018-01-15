@@ -819,7 +819,8 @@ class Backup(object):
         # Save date of last backup, only when backup succeeded
         for qid, vm_info in files_to_backup.items():
             if vm_info.vm:
-                vm_info.vm.backup_timestamp = datetime.datetime.now()
+                vm_info.vm.backup_timestamp = \
+                    int(datetime.datetime.now().strftime('%s'))
 
         self.app.save()
 
