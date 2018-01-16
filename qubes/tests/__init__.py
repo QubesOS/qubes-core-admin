@@ -60,6 +60,7 @@ import qubes.config
 import qubes.devices
 import qubes.events
 import qubes.exc
+import qubes.ext.pci
 import qubes.vm.standalonevm
 import qubes.vm.templatevm
 
@@ -378,6 +379,7 @@ class QubesTestCase(unittest.TestCase):
 
         self.loop = asyncio.get_event_loop()
         self.addCleanup(self.cleanup_loop)
+        self.addCleanup(qubes.ext.pci._cache_get.cache_clear)
 
     def cleanup_gc(self):
         gc.collect()
