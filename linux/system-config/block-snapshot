@@ -6,9 +6,11 @@
 
 dir=$(dirname "$0")
 if [ "$1" = "prepare" ] || [ "$1" = "cleanup" ]; then
+  # shellcheck disable=SC1090,SC1091
   . "$dir/xen-hotplug-common.sh"
   command=$1
 else
+  # shellcheck disable=SC1090,SC1091
   . "$dir/block-common.sh"
 fi
 
