@@ -158,12 +158,6 @@ case "$command" in
           echo "/dev/mapper/$dm_devname" > "$HOTPLUG_STORE-node"
           write_dev /dev/mapper/$dm_devname
         fi
-        # Save domain name for template commit on device remove
-        domid=$(xenstore_read "$XENBUS_PATH/frontend-id")
-        # Store name of target domain in case of stubdom
-        domid=$(xenstore_read_default "/local/domain/$domid/target" "$domid")
-        domain=$(xl domname $domid)
-        echo $domain > "$HOTPLUG_STORE-domain"
 
         release_lock "block"
         exit 0
@@ -286,18 +280,6 @@ case "$command" in
               dmsetup remove $snap
             fi
           done
-          if [ "$command" = "remove" ]; then
-            # Commit template changes
-            domain=$(cat "$HOTPLUG_STORE-domain")
-            if [ "$domain" ]; then
-              if [ -r /var/lib/qubes/qubes-test.xml -a \
-                  "${domain#test-}" != "$domain" ]; then
-                export QUBES_XML_PATH=/var/lib/qubes/qubes-test.xml
-              fi
-              # Dont stop on errors
-              /usr/bin/qvm-template-commit --offline-mode "$domain" || true
-            fi
-          fi
         fi
 
         if [ -e $node ]; then
