@@ -391,8 +391,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     virt_mode = qubes.property('virt_mode',
         type=str, setter=_setter_virt_mode,
         default=_default_virt_mode,
-        doc='''Virtualisation mode: full virtualisation ("hvm"),
-            or paravirtualisation ("pv"), or hybrid ("pvh")''')
+        doc='''Virtualisation mode: full virtualisation ("HVM"),
+            or paravirtualisation ("PV"), or hybrid ("PVH")''')
 
     installed_by_rpm = qubes.property('installed_by_rpm',
         type=bool, setter=qubes.property.bool,
@@ -869,6 +869,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             qmemman_client = None
             try:
+                if self.virt_mode == 'pvh' and self.kernel is None:
+                    raise qubes.exc.QubesException(
+                        'virt_mode PVH require kernel to be set')
                 yield from self.storage.verify()
 
                 if self.netvm is not None:
