@@ -99,7 +99,7 @@ create_dm_snapshot_origin() {
   fi
 }
 
-t=$(basename $0)
+t=$(basename "$0")
 t=${t#block-}
 
 case "$command" in
@@ -110,8 +110,8 @@ case "$command" in
         if [ "$p" == "MISSING" ]; then
           fatal "Missing device parameters ($t $XENBUS_PATH/params)"
         fi
-        echo $p > "$HOTPLUG_STORE-params"
-        echo $t > "$HOTPLUG_STORE-type"
+        echo "$p" > "$HOTPLUG_STORE-params"
+        echo "$t" > "$HOTPLUG_STORE-type"
         base=${p%%:*}
         cow=${p#*:}
         cow2=${p##*:}
