@@ -306,7 +306,7 @@ case "$command" in
           rm $HOTPLUG_STORE-*
         fi
         release_lock "block"
-        
+
         exit 0
         ;;
     esac
