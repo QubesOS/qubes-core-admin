@@ -84,6 +84,27 @@ class VMWrapper(object):
                 stderr=subprocess.PIPE if passio_stderr else None))
             return ProcessWrapper(p, self._loop)
 
+    def run_service(self, service, wait=True, input=None, user=None,
+            passio_popen=False,
+            passio_stderr=False, **kwargs):
+        if wait:
+            try:
+                if isinstance(input, str):
+                    input = input.encode()
+                self._loop.run_until_complete(
+                    self._vm.run_service_for_stdio(service,
+                        input=input, user=user))
+            except subprocess.CalledProcessError as err:
+                return err.returncode
+            return 0
+        elif passio_popen:
+            p = self._loop.run_until_complete(self._vm.run_service(service,
+                user=user,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE if passio_stderr else None))
+            return ProcessWrapper(p, self._loop)
+
 
 class ExtraTestCase(qubes.tests.SystemTestCase):
 
@@ -136,6 +157,30 @@ class ExtraTestCase(qubes.tests.SystemTestCase):
         Enable access to the network. Must be called before creating VMs.
         """
         self.init_networking()
+
+    def qrexec_policy(self, service, source, destination, allow=True):
+        """
+        Allow qrexec calls for duration of the test
+        :param service: service name
+        :param source: source VM name
+        :param destination: destination VM name
+        :return:
+        """
+
+        def add_remove_rule(add=True):
+            with open('/etc/qubes-rpc/policy/{}'.format(service), 'r+') as policy:
+                policy_rules = policy.readlines()
+                rule = "{} {} {}\n".format(source, destination,
+                                              'allow' if allow else 'deny')
+                if add:
+                    policy_rules.insert(0, rule)
+                else:
+                    policy_rules.remove(rule)
+                policy.truncate(0)
+                policy.seek(0)
+                policy.write(''.join(policy_rules))
+        add_remove_rule(add=True)
+        self.addCleanup(add_remove_rule, add=False)
 
 
 def load_tests(loader, tests, pattern):
