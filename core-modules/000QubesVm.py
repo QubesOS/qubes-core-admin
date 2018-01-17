@@ -444,7 +444,7 @@ class QubesVm(object):
             if vmm.offline_mode:
                 return 'default'
 
-            if vmm.hvm_supported and vmm.hap_supported and not self.pcidevs:
+            if vmm.pvh_supported and vmm.hap_supported and not self.pcidevs:
                 value = 'pvh'
             else:
                 value = 'pv'

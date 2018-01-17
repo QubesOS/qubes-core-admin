@@ -53,6 +53,7 @@ dry_run = False
 if not dry_run:
     import libvirt
     try:
+        import xen.lowlevel.xc
         import xen.lowlevel.xs
     except ImportError:
         pass
@@ -136,6 +137,7 @@ class QubesVMMConnection(object):
         self._offline_mode = False
         self._hvm_supported = None
         self._hap_supported = None
+        self._pvh_supported = None
 
     @property
     def offline_mode(self):
@@ -159,6 +161,8 @@ class QubesVMMConnection(object):
             # Do not initialize in offline mode
             return
 
+        if 'xen.lowlevel.xc' in sys.modules:
+            self._xc = xen.lowlevel.xc.xc()
         if 'xen.lowlevel.xs' in sys.modules:
             self._xs = xen.lowlevel.xs.xs()
         self._libvirt_conn = libvirt.open(defaults['libvirt_uri'])
@@ -181,6 +185,13 @@ class QubesVMMConnection(object):
         return self._common_getter('_libvirt_conn')
 
     @property
+    def xc(self):
+        if 'xen.lowlevel.xc' in sys.modules:
+            return self._common_getter('_xc')
+        else:
+            return None
+
+    @property
     def xs(self):
         if 'xen.lowlevel.xs' in sys.modules:
             return self._common_getter('_xs')
@@ -198,10 +209,16 @@ class QubesVMMConnection(object):
     @property
     def hap_supported(self):
         if self._hap_supported is None:
-            caps_xml = lxml.etree.fromstring(self.libvirt_conn.getCapabilities())
-            self._hap_supported = bool(
-                    caps_xml.xpath('./guest/features/hap'))
+            xen_caps = self.xc.xeninfo()['xen_caps'].split()
+            self._hap_supported = 'qubes-hap' in xen_caps
         return self._hap_supported
+
+    @property
+    def pvh_supported(self):
+        if self._pvh_supported is None:
+            xen_caps = self.xc.xeninfo()['xen_caps'].split()
+            self._pvh_supported = 'qubes-pvh' in xen_caps
+        return self._pvh_supported
 
 
 ##### VMM global variable definition #####
