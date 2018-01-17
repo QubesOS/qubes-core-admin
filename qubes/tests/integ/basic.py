@@ -91,6 +91,7 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         self.vm = self.app.add_new_vm('StandaloneVM', label='red', name=vmname)
         self.loop.run_until_complete(self.vm.create_on_disk())
         self.vm.kernel = None
+        self.vm.virt_mode = 'hvm'
 
         iso_path = self.create_bootable_iso()
         # start the VM using qvm-start tool, to test --cdrom option there
