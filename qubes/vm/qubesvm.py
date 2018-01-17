@@ -570,6 +570,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if self._libvirt_domain is not None:
             return self._libvirt_domain
 
+        if self.app.vmm.offline_mode:
+            return None
+
         # XXX _update_libvirt_domain?
         try:
             self._libvirt_domain = self.app.vmm.libvirt_conn.lookupByUUID(
