@@ -62,6 +62,9 @@ class VMWrapper(object):
     def __eq__(self, other):
         return self._vm == other
 
+    def __hash__(self):
+        return hash(self._vm)
+
     def start(self):
         return self._loop.run_until_complete(self._vm.start())
 
