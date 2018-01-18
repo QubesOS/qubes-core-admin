@@ -242,10 +242,6 @@ def main():
         ha_file.setFormatter(
             logging.Formatter('%(asctime)s %(name)s[%(process)d]: %(message)s'))
         logging.root.addHandler(ha_stderr)
-    else:
-        # close io
-        sys.stdout.close()
-        sys.stderr.close()
 
     sys.stdin.close()
 
