@@ -925,15 +925,17 @@ int main(int argc, char **argv) {
         # it is important to have some changing content there, to generate
         # content update events (aka damage notify)
         proc = yield from self.testvm1.run(
-            'gnome-terminal --full-screen -e top')
+            'xterm -maximized -e top')
 
         # help xdotool a little...
         yield from asyncio.sleep(2)
+        if proc.returncode is not None:
+            self.fail('xterm failed to start')
         # get window ID
         winid = (yield from asyncio.get_event_loop().run_in_executor(None,
             subprocess.check_output,
             ['xdotool', 'search', '--sync', '--onlyvisible', '--class',
-                self.testvm1.name + ':.*erminal'])).decode()
+                self.testvm1.name + ':xterm'])).decode()
         xprop = yield from asyncio.get_event_loop().run_in_executor(None,
             subprocess.check_output,
             ['xprop', '-notype', '-id', winid, '_QUBES_VMWINDOWID'])

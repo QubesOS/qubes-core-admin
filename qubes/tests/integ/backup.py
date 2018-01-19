@@ -90,7 +90,10 @@ class BackupTestsMixin(object):
         block_size = 4096
 
         self.log.debug("Filling %s" % path)
-        f = open(path, 'wb+')
+        try:
+            f = open(path, 'rb+')
+        except FileNotFoundError:
+            f = open(path, 'wb+')
         if size is None:
             f.seek(0, 2)
             size = f.tell()

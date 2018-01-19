@@ -140,6 +140,8 @@ class SystemState(object):
     def clear_outdated_error_markers(self):
         # Clear outdated errors
         for i in self.domdict.keys():
+            if self.domdict[i].mem_used is None:
+                continue
             # clear markers excluding VM from memory balance, if:
             #  - VM have responded to previous request (with some safety margin)
             #  - VM request more memory than it has assigned
