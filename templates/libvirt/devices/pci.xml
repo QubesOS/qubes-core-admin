@@ -2,6 +2,9 @@
 {% if options.get('no-strict-reset', False) %}
  nostrictreset="yes"
 {% endif %}
+{% if options.get('permissive', False) %}
+ permissive="yes"
+{% endif %}
 >
     <source>
         <address
