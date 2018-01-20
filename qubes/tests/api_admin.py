@@ -381,7 +381,8 @@ class TC_00_VMs(AdminAPITestCase):
         self.vm.volumes = unittest.mock.MagicMock()
         volumes_conf = {
             'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
-            '__getitem__.return_value.revisions': ['rev1', 'rev2'],
+            '__getitem__.return_value.revisions':
+            {'rev2': '2018-02-22T22:22:22', 'rev1': '2018-01-11T11:11:11'},
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         value = self.call_mgmt_func(b'admin.vm.volume.ListSnapshots',
@@ -413,7 +414,8 @@ class TC_00_VMs(AdminAPITestCase):
         self.vm.volumes = unittest.mock.MagicMock()
         volumes_conf = {
             'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
-            '__getitem__.return_value.revisions': ['rev1', 'rev2'],
+            '__getitem__.return_value.revisions':
+            {'rev2': '2018-02-22T22:22:22', 'rev1': '2018-01-11T11:11:11'},
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         with self.assertRaises(AssertionError):
@@ -440,7 +442,8 @@ class TC_00_VMs(AdminAPITestCase):
         self.vm.volumes = unittest.mock.MagicMock()
         volumes_conf = {
             'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
-            '__getitem__.return_value.revisions': ['rev1', 'rev2'],
+            '__getitem__.return_value.revisions':
+            {'rev2': '2018-02-22T22:22:22', 'rev1': '2018-01-11T11:11:11'},
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         del self.vm.volumes['private'].revert('rev1')._is_coroutine
@@ -462,7 +465,8 @@ class TC_00_VMs(AdminAPITestCase):
         self.vm.volumes = unittest.mock.MagicMock()
         volumes_conf = {
             'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
-            '__getitem__.return_value.revisions': ['rev1', 'rev2'],
+            '__getitem__.return_value.revisions':
+            {'rev2': '2018-02-22T22:22:22', 'rev1': '2018-01-11T11:11:11'},
         }
         self.vm.volumes.configure_mock(**volumes_conf)
         self.vm.storage = unittest.mock.Mock()
