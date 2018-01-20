@@ -347,7 +347,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         assert self.arg in self.dest.volumes.keys()
 
         volume = self.dest.volumes[self.arg]
-        revisions = [revision for revision in volume.revisions]
+        id_to_timestamp = volume.revisions
+        revisions = sorted(id_to_timestamp, key=id_to_timestamp.__getitem__)
         revisions = self.fire_event_for_filter(revisions)
 
         return ''.join('{}\n'.format(revision) for revision in revisions)
