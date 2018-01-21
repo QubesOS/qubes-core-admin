@@ -1351,7 +1351,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         '''
 
         self.log.info('Creating directory: {0}'.format(self.dir_path))
-        os.makedirs(self.dir_path, mode=0o775)
+        os.makedirs(self.dir_path, mode=0o775, exist_ok=True)
 
         if pool or pools:
             # pylint: disable=attribute-defined-outside-init
@@ -1418,7 +1418,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         assert not os.path.exists(self.dir_path), msg
 
         self.log.info('Creating directory: {0}'.format(self.dir_path))
-        os.makedirs(self.dir_path, mode=0o775)
+        os.makedirs(self.dir_path, mode=0o775, exist_ok=True)
 
         if pool or pools:
             # pylint: disable=attribute-defined-outside-init

@@ -93,7 +93,7 @@ class TC_00_DispVM(qubes.tests.QubesTestCase):
         self.assertEqual(dispvm.label, self.appvm.label)
         self.assertEqual(dispvm.auto_cleanup, True)
         mock_makedirs.assert_called_once_with(
-            '/var/lib/qubes/appvms/' + dispvm.name, mode=0o775)
+            '/var/lib/qubes/appvms/' + dispvm.name, mode=0o775, exist_ok=True)
         mock_symlink.assert_called_once_with(
             '/usr/share/icons/hicolor/128x128/devices/appvm-red.png',
             '/var/lib/qubes/appvms/{}/icon.png'.format(dispvm.name))
