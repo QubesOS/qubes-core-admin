@@ -33,6 +33,7 @@ import unittest
 import collections
 
 import pkg_resources
+import shutil
 
 import qubes
 import qubes.firewall
@@ -211,6 +212,77 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         self.assertTrue(self.domain_shutdown_handled,
             'second domain-shutdown event was not dispatched after domain '
             'shutdown')
+
+    def _check_udev_for_uuid(self, uuid_value):
+        udev_data_path = '/run/udev/data'
+        for udev_item in os.listdir(udev_data_path):
+            # check only block devices
+            if not udev_item.startswith('b'):
+                continue
+            with open(os.path.join(udev_data_path, udev_item)) as udev_file:
+                self.assertNotIn(uuid_value, udev_file.read(),
+                    'udev parsed filesystem UUID! ' + udev_item)
+
+    def assertVolumesExcludedFromUdev(self, vm):
+        try:
+            # first boot, mkfs private volume
+            self.loop.run_until_complete(vm.start())
+            # get private volume UUID
+            private_uuid, _ = self.loop.run_until_complete(
+                vm.run_for_stdio('blkid -o value /dev/xvdb', user='root'))
+            private_uuid = private_uuid.decode().splitlines()[0]
+
+            # now check if dom0 udev know about it - it shouldn't
+            self._check_udev_for_uuid(private_uuid)
+
+            # now restart the VM and check again
+            self.loop.run_until_complete(vm.shutdown(wait=True))
+            self.loop.run_until_complete(vm.start())
+
+            self._check_udev_for_uuid(private_uuid)
+        finally:
+            del vm
+
+    def test_202_udev_block_exclude_default(self):
+        '''Check if VM images are excluded from udev parsing -
+        default volume pool'''
+        vmname = self.make_vm_name('appvm')
+
+        self.vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=vmname, template=self.app.default_template,
+            label='red')
+        self.loop.run_until_complete(self.vm.create_on_disk())
+        self.assertVolumesExcludedFromUdev(self.vm)
+
+    def test_203_udev_block_exclude_varlibqubes(self):
+        '''Check if VM images are excluded from udev parsing -
+        varlibqubes pool'''
+        vmname = self.make_vm_name('appvm')
+
+        self.vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=vmname, template=self.app.default_template,
+            label='red')
+        self.loop.run_until_complete(self.vm.create_on_disk(
+            pool=self.app.pools['varlibqubes']))
+        self.assertVolumesExcludedFromUdev(self.vm)
+
+    def test_204_udev_block_exclude_custom_file(self):
+        '''Check if VM images are excluded from udev parsing -
+        custom file pool'''
+        vmname = self.make_vm_name('appvm')
+
+        pool_path = tempfile.mkdtemp(
+            prefix='qubes-pool-', dir='/var/tmp')
+        self.addCleanup(shutil.rmtree, pool_path)
+        pool = self.app.add_pool('test-filep', dir_path=pool_path,
+            driver='file')
+
+        self.vm = self.app.add_new_vm(qubes.vm.appvm.AppVM,
+            name=vmname, template=self.app.default_template,
+            label='red')
+        self.loop.run_until_complete(self.vm.create_on_disk(
+            pool=pool))
+        self.assertVolumesExcludedFromUdev(self.vm)
 
 
 class TC_01_Properties(qubes.tests.SystemTestCase):
