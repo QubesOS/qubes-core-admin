@@ -62,6 +62,7 @@ Note that your handler will be called for all instances of this class.
 
 .. TODO: extensions
 .. TODO: add/remove_handler
+.. TODO: wildcards (property-set:*)
 
 
 Handling events with variable signature

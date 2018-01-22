@@ -25,6 +25,7 @@ etc.
 '''
 import asyncio
 import collections
+import fnmatch
 
 import itertools
 
@@ -35,14 +36,15 @@ def handler(*events):
     To hook an event, decorate a method in your plugin class with this
     decorator.
 
-    Some event handlers may be defined as coroutine. In such a case, *async*
-    should be set to :py:obj:``True``.
+    Some event handlers may be defined as coroutine. In such a case
+    :py:func:`asyncio.coroutine` decorator should be used after this one,
+    i.e. you should decorate a coroutine.
     See appropriate event documentation for details.
 
     .. note::
         For hooking events from extensions, see :py:func:`qubes.ext.handler`.
 
-    :param str events: events
+    :param str events: events names, can contain basic wildcards (`*`, `?`)
     '''
 
     def decorator(func):
@@ -155,9 +157,9 @@ class Emitter(object, metaclass=EmitterMeta):
                 handlers_dict = i.__handlers__
             except AttributeError:
                 continue
-            handlers = handlers_dict.get(event, set())
-            if '*' in handlers_dict:
-                handlers = handlers_dict['*'] | handlers
+            handlers = [h_func for h_name, h_func_set in handlers_dict.items()
+                        for h_func in h_func_set
+                        if fnmatch.fnmatch(event, h_name)]
             for func in sorted(handlers,
                     key=(lambda handler: hasattr(handler, 'ha_bound')),
                     reverse=True):

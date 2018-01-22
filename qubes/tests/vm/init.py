@@ -155,37 +155,37 @@ class TC_20_Tags(qubes.tests.QubesTestCase):
 
     def test_000_add(self):
         self.tags.add('testtag')
-        self.assertEventFired(self.vm, 'domain-tag-add',
+        self.assertEventFired(self.vm, 'domain-tag-add:testtag',
             kwargs={'tag': 'testtag'})
 
     def test_001_add_existing(self):
         self.tags.add('testtag')
         self.vm.fired_events.clear()
         self.tags.add('testtag')
-        self.assertEventNotFired(self.vm, 'domain-tag-add')
+        self.assertEventNotFired(self.vm, 'domain-tag-add:testtag')
 
     def test_002_remove(self):
         self.tags.add('testtag')
         self.vm.fired_events.clear()
         self.tags.remove('testtag')
-        self.assertEventFired(self.vm, 'domain-tag-delete',
+        self.assertEventFired(self.vm, 'domain-tag-delete:testtag',
             kwargs={'tag': 'testtag'})
 
     def test_003_remove_not_present(self):
         with self.assertRaises(KeyError):
             self.tags.remove('testtag')
-        self.assertEventNotFired(self.vm, 'domain-tag-delete')
+        self.assertEventNotFired(self.vm, 'domain-tag-delete:testtag')
 
     def test_004_discard_not_present(self):
         with self.assertNotRaises(KeyError):
             self.tags.discard('testtag')
-        self.assertEventNotFired(self.vm, 'domain-tag-delete')
+        self.assertEventNotFired(self.vm, 'domain-tag-delete:testtag')
 
     def test_005_discard_present(self):
         self.tags.add('testtag')
         with self.assertNotRaises(KeyError):
             self.tags.discard('testtag')
-        self.assertEventFired(self.vm, 'domain-tag-delete',
+        self.assertEventFired(self.vm, 'domain-tag-delete:testtag',
             kwargs={'tag': 'testtag'})
 
     def test_006_clear(self):
@@ -193,9 +193,9 @@ class TC_20_Tags(qubes.tests.QubesTestCase):
         self.tags.add('testtag2')
         self.vm.fired_events.clear()
         self.tags.clear()
-        self.assertEventFired(self.vm, 'domain-tag-delete',
+        self.assertEventFired(self.vm, 'domain-tag-delete:testtag',
             kwargs={'tag': 'testtag'})
-        self.assertEventFired(self.vm, 'domain-tag-delete',
+        self.assertEventFired(self.vm, 'domain-tag-delete:testtag2',
             kwargs={'tag': 'testtag2'})
 
     def test_007_update(self):
@@ -203,9 +203,9 @@ class TC_20_Tags(qubes.tests.QubesTestCase):
         self.tags.add('testtag2')
         self.vm.fired_events.clear()
         self.tags.update(('testtag2', 'testtag3'))
-        self.assertEventFired(self.vm, 'domain-tag-add',
+        self.assertEventFired(self.vm, 'domain-tag-add:testtag3',
             kwargs={'tag': 'testtag3'})
-        self.assertEventNotFired(self.vm, 'domain-tag-add',
+        self.assertEventNotFired(self.vm, 'domain-tag-add:testtag2',
             kwargs={'tag': 'testtag2'})
 
 
@@ -217,14 +217,14 @@ class TC_21_Features(qubes.tests.QubesTestCase):
 
     def test_000_set(self):
         self.features['testfeature'] = 'value'
-        self.assertEventFired(self.vm, 'domain-feature-set',
+        self.assertEventFired(self.vm, 'domain-feature-set:testfeature',
             kwargs={'feature': 'testfeature', 'value': 'value'})
 
     def test_001_set_existing(self):
         self.features['test'] = 'oldvalue'
         self.vm.fired_events.clear()
         self.features['test'] = 'value'
-        self.assertEventFired(self.vm, 'domain-feature-set',
+        self.assertEventFired(self.vm, 'domain-feature-set:test',
             kwargs={'feature': 'test', 'value': 'value', 'oldvalue':
                 'oldvalue'})
 
@@ -232,29 +232,30 @@ class TC_21_Features(qubes.tests.QubesTestCase):
         self.features['test'] = 'value'
         self.vm.fired_events.clear()
         del self.features['test']
-        self.assertEventFired(self.vm, 'domain-feature-delete',
+        self.assertEventFired(self.vm, 'domain-feature-delete:test',
             kwargs={'feature': 'test'})
 
     def test_003_unset_not_present(self):
         with self.assertRaises(KeyError):
             del self.features['test']
         self.assertEventNotFired(self.vm, 'domain-feature-delete')
+        self.assertEventNotFired(self.vm, 'domain-feature-delete:test')
 
     def test_004_set_bool_true(self):
         self.features['test'] = True
         self.assertTrue(self.features['test'])
-        self.assertEventFired(self.vm, 'domain-feature-set',
+        self.assertEventFired(self.vm, 'domain-feature-set:test',
             kwargs={'feature': 'test', 'value': '1'})
 
     def test_005_set_bool_false(self):
         self.features['test'] = False
         self.assertFalse(self.features['test'])
-        self.assertEventFired(self.vm, 'domain-feature-set',
+        self.assertEventFired(self.vm, 'domain-feature-set:test',
             kwargs={'feature': 'test', 'value': ''})
 
     def test_006_set_int(self):
         self.features['test'] = 123
-        self.assertEventFired(self.vm, 'domain-feature-set',
+        self.assertEventFired(self.vm, 'domain-feature-set:test',
             kwargs={'feature': 'test', 'value': '123'})
 
     def test_007_clear(self):
@@ -262,9 +263,9 @@ class TC_21_Features(qubes.tests.QubesTestCase):
         self.features['test2'] = 'value2'
         self.vm.fired_events.clear()
         self.features.clear()
-        self.assertEventFired(self.vm, 'domain-feature-delete',
+        self.assertEventFired(self.vm, 'domain-feature-delete:test',
             kwargs={'feature': 'test'})
-        self.assertEventFired(self.vm, 'domain-feature-delete',
+        self.assertEventFired(self.vm, 'domain-feature-delete:test2',
             kwargs={'feature': 'test2'})
 
     def test_008_update(self):
@@ -275,8 +276,8 @@ class TC_21_Features(qubes.tests.QubesTestCase):
         self.assertEqual(self.features['test2'], 'value3')
         self.assertEqual(self.features['test3'], 'value4')
         self.assertEqual(self.features['test'], 'value')
-        self.assertEventFired(self.vm, 'domain-feature-set',
+        self.assertEventFired(self.vm, 'domain-feature-set:test2',
             kwargs={'feature': 'test2', 'value': 'value3',
                 'oldvalue': 'value2'})
-        self.assertEventFired(self.vm, 'domain-feature-set',
+        self.assertEventFired(self.vm, 'domain-feature-set:test3',
             kwargs={'feature': 'test3', 'value': 'value4'})

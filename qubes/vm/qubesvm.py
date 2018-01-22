@@ -296,40 +296,42 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             :param subject: Event emitter (the qube object)
             :param event: Event name (``'domain-restore'``)
 
-        .. event:: domain-feature-set (subject, event, feature, value
+        .. event:: domain-feature-set:feature (subject, event, feature, value
             [, oldvalue])
 
-            A feature was changed.
+            A feature was changed. This event is fired before bare
+            `domain-feature-set` event.
             *oldvalue* is present only when there was any.
 
             :param subject: Event emitter (the qube object)
-            :param event: Event name (``'domain-feature-set'``)
+            :param event: Event name (``'domain-feature-set:' feature``)
             :param feature: feature name
             :param value: new value
             :param oldvalue: old value, if any
 
-        .. event:: domain-feature-delete (subject, event, feature)
+        .. event:: domain-feature-delete:feature (subject, event, feature)
 
-            A feature was removed.
+            A feature was removed. This event is fired before bare
+            `domain-feature-delete` event.
 
             :param subject: Event emitter (the qube object)
-            :param event: Event name (``'domain-feature-delete'``)
+            :param event: Event name (``'domain-feature-delete:' feature``)
             :param feature: feature name
 
-        .. event:: domain-tag-add (subject, event, tag)
+        .. event:: domain-tag-add:tag (subject, event, tag)
 
             A tag was added.
 
             :param subject: Event emitter (the qube object)
-            :param event: Event name (``'domain-tag-add'``)
+            :param event: Event name (``'domain-tag-add:' tag``)
             :param tag: tag name
 
-        .. event:: domain-tag-delete (subject, event, tag)
+        .. event:: domain-tag-delete:tag (subject, event, tag)
 
             A feature was removed.
 
             :param subject: Event emitter (the qube object)
-            :param event: Event name (``'domain-tag-delete'``)
+            :param event: Event name (``'domain-tag-delete:' tag``)
             :param tag: tag name
 
         .. event:: feature-request (subject, event, *, untrusted_features)
@@ -348,15 +350,6 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             It is up to the extensions to decide, what to do with request,
             ranging from plainly ignoring the request to verbatim copy into
             :py:attr:`features` with only minimal sanitisation.
-
-        .. event:: monitor-layout-change (subject, event, monitor_layout)
-
-            Desktop layout was changed, probably because a display was plugged
-            in or out.
-
-            :param subject: Event emitter (the qube object)
-            :param event: Event name (``'monitor-layout-change'``)
-            :param monitor_layout: The new layout
 
         .. event:: firewall-changed (subject, event)
 
