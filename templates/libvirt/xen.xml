@@ -35,7 +35,7 @@
                 <boot dev="hd" />
             {% else %}
                 {% if vm.virt_mode == 'pvh' %}
-                    <type arch="x86_64" machine="xenfv">hvm</type>
+                    <type arch="x86_64" machine="xenfv">pvh</type>
                 {% else %}
                     <type arch="x86_64" machine="xenpv">linux</type>
                 {% endif %}
@@ -174,9 +174,6 @@
                     <graphics type="qubes"/>
                 {% endif %}
             {% else %}
-                {% if vm.virt_mode == 'pvh' %}
-                    <emulator type="none"/>
-                {% endif %}
                 <console type="pty">
                     <target type="xen" port="0"/>
                 </console>
