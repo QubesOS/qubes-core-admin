@@ -48,6 +48,7 @@ class TC_00_Devices_PCI(qubes.tests.SystemTestCase):
                 name=self.make_vm_name('vm'),
                 label='red',
             )
+            self.vm.virt_mode = 'hvm'
             self.loop.run_until_complete(
                 self.vm.create_on_disk())
             self.vm.features['pci-no-strict-reset/' + pcidev] = True
