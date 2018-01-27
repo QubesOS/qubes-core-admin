@@ -89,7 +89,7 @@ Conflicts:      qubes-gui-dom0 < 1.1.13
 Requires:       xen-runtime
 Requires:       xen-hvm
 Requires:       xen-hvm-stubdom-linux
-Requires:       libvirt-daemon-xen >= 3.3.0-6
+Requires:       libvirt-daemon-xen >= 3.3.0-7
 %endif
 Requires:       createrepo
 Requires:       gnome-packagekit
