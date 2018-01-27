@@ -739,7 +739,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             <feature name='smap' policy='disable'/>
         </cpu>
         <os>
-            <type arch="x86_64" machine="xenfv">hvm</type>
+            <type arch="x86_64" machine="xenfv">pvh</type>
             <kernel>/tmp/kernel/vmlinuz</kernel>
             <initrd>/tmp/kernel/initramfs</initrd>
             <cmdline>root=/dev/mapper/dmroot ro nomodeset console=hvc0 rd_NO_PLYMOUTH rd.plymouth.enable=0 plymouth.enable=0 nopat</cmdline>
@@ -763,7 +763,6 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
                 <target dev="xvdd" />
                 <backenddomain name="dom0" />
             </disk>
-            <emulator type="none" />
             <console type="pty">
                 <target type="xen" port="0"/>
             </console>
