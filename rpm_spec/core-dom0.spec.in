@@ -109,10 +109,6 @@ Provides:	preupgrade = 2.0
 
 Source0: %{name}-%{version}.tar.gz
 
-%if 0%{?qubes_builder}
-%define _builddir %(pwd)
-%endif
-
 %description
 The Qubes core files for installation on Dom0.
 
