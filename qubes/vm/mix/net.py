@@ -262,15 +262,13 @@ class NetVMMixin(qubes.events.Emitter):
             vm.log.info('Attaching network')
 
             try:
-                # 1426
-                vm.run('modprobe -r xen-netfront xennet',
-                    user='root', wait=True)
-            except:  # pylint: disable=bare-except
-                pass
+                vm.detach_network()
+            except (qubes.exc.QubesException, libvirt.libvirtError):
+                vm.log.warning('Cannot detach old network', exc_info=1)
 
             try:
                 vm.attach_network()
-            except qubes.exc.QubesException:
+            except (qubes.exc.QubesException, libvirt.libvirtError):
                 vm.log.warning('Cannot attach network', exc_info=1)
 
     @qubes.events.handler('domain-pre-shutdown')
