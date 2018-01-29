@@ -1100,7 +1100,7 @@ class QubesVm(object):
                 if vmm.xs.read('', '%s/%s/state' % (dev_basepath, dev)) == '4':
                     continue
             # remove dead device
-            vmm.xs.rm('', '%s/%s' % (dev_basepath, dev))
+            self.detach_network()
 
     def create_qubesdb_entries(self):
         if dry_run:

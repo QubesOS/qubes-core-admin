@@ -130,14 +130,10 @@ class QubesNetVm(QubesVm):
                 print >> sys.stderr, "--> Attaching network to '{0}'...".format(vm.name)
 
             # Cleanup stale VIFs
-            vm.cleanup_vifs()
-
-            # force frontend to forget about this device
-            #  module actually will be loaded back by udev, as soon as network is attached
             try:
-                vm.run("modprobe -r xen-netfront xennet", user="root")
-            except:
-                pass
+                vm.cleanup_vifs()
+            except QubesException as ex:
+                print >> sys.stderr, ("WARNING: Failed to detach stale netvm from '{0}': {1}".format(vm.name, ex))
 
             try:
                 vm.attach_network(wait=False)
