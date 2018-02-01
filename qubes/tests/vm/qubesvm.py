@@ -962,6 +962,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         expected = {
             '/name': 'test-inst-appvm',
             '/type': 'AppVM',
+            '/default-user': 'user',
             '/qubes-vm-type': 'AppVM',
             '/qubes-debug-mode': '0',
             '/qubes-base-template': 'test-inst-template',
