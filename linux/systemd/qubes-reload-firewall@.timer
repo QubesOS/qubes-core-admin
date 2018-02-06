@@ -3,3 +3,4 @@ Description=Reload VM firewall to expire its temporary rules
 
 [Timer]
 OnActiveSec=1m
+OnUnitActiveSec=1m
