@@ -225,6 +225,8 @@ class ThinVolume(qubes.storage.Volume):
     @property
     def size(self):
         try:
+            if self.is_dirty():
+                return qubes.storage.lvm.size_cache[self._vid_snap]['size']
             return qubes.storage.lvm.size_cache[self.vid]['size']
         except KeyError:
             return self._size
@@ -430,10 +432,11 @@ class ThinVolume(qubes.storage.Volume):
         if size == self.size:
             return
 
-        cmd = ['extend', self.vid, str(size)]
-        qubes_lvm(cmd, self.log)
         if self.is_dirty():
             cmd = ['extend', self._vid_snap, str(size)]
+            qubes_lvm(cmd, self.log)
+        elif self.save_on_stop or not self.snap_on_start:
+            cmd = ['extend', self.vid, str(size)]
             qubes_lvm(cmd, self.log)
         reset_cache()
 
