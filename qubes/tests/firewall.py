@@ -21,6 +21,7 @@
 import datetime
 import os
 
+import asyncio
 import lxml.etree
 import unittest
 
@@ -583,3 +584,24 @@ class TC_10_Firewall(qubes.tests.QubesTestCase):
             '0003': 'action=accept specialtarget=dns',
         }
         self.assertEqual(fw.qdb_entries(), expected_qdb_entries)
+
+    def test_006_auto_expire_rules(self):
+        fw = qubes.firewall.Firewall(self.vm, True)
+        rules = [
+            qubes.firewall.Rule(None, action='drop', proto='icmp'),
+            qubes.firewall.Rule(None, action='drop', proto='tcp', dstports=80),
+            qubes.firewall.Rule(None, action='accept', proto='udp',
+                dstports=67, expire=self.loop.time() + 5),
+            qubes.firewall.Rule(None, action='accept', specialtarget='dns'),
+        ]
+        fw.rules = rules
+        fw.save()
+        self.assertEqual(fw.rules, rules)
+        self.loop.run_until_complete(asyncio.sleep(3))
+        # still old rules should be there
+        self.assertEqual(fw.rules, rules)
+
+        rules.pop(2)
+        self.loop.run_until_complete(asyncio.sleep(3))
+        # expect new rules
+        self.assertEqual(fw.rules, rules)
