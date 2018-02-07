@@ -425,9 +425,9 @@ class ThinVolume(qubes.storage.Volume):
         if size < self.size:
             raise qubes.storage.StoragePoolException(
                 'For your own safety, shrinking of %s is'
-                ' disabled. If you really know what you'
+                ' disabled (%d < %d). If you really know what you'
                 ' are doing, use `lvresize` on %s manually.' %
-                (self.name, self.vid))
+                (self.name, size, self.size, self.vid))
 
         if size == self.size:
             return
