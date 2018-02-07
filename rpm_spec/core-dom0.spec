@@ -399,8 +399,6 @@ fi
 %{_unitdir}/qubes-qmemman.service
 %{_unitdir}/qubes-vm@.service
 %{_unitdir}/qubesd.service
-%{_unitdir}/qubes-reload-firewall@.service
-%{_unitdir}/qubes-reload-firewall@.timer
 %attr(2770,root,qubes) %dir /var/lib/qubes
 %attr(2770,root,qubes) %dir /var/lib/qubes/vm-templates
 %attr(2770,root,qubes) %dir /var/lib/qubes/appvms
