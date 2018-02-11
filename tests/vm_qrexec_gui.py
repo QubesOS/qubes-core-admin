@@ -594,7 +594,7 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
                              passio_popen=True)
         (stdout, stderr) = p.communicate()
         self.assertEqual(stdout, "")
-        self.assertEqual(p.returncode, 1, "Service request should be denied")
+        self.assertNotEqual(p.returncode, 0, "Service request should be denied")
 
     def test_083_qrexec_service_argument_specific_implementation(self):
         """Qrexec service call with argument - argument specific
@@ -1038,7 +1038,7 @@ class TC_10_Generic(qubes.tests.SystemTestsMixin, qubes.tests.QubesTestCase):
         p = self.vm.run("/usr/lib/qubes/qrexec-client-vm dom0 test.AnyvmDeny",
                              passio_popen=True, passio_stderr=True)
         (stdout, stderr) = p.communicate()
-        self.assertEqual(p.returncode, 1,
+        self.assertNotEqual(p.returncode, 0,
             '$anyvm matched dom0, qrexec-client-vm output: {}'.
                 format(stdout + stderr))
         self.assertFalse(os.path.exists(flagfile),
