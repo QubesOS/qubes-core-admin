@@ -101,8 +101,10 @@ class TC_00_Pool(SystemTestCase):
             self.app.get_pool('foo-bar')
 
     def test_001_all_pool_drivers(self):
-        """ The only predefined pool driver is file """
-        self.assertCountEqual(['linux-kernel', 'lvm_thin', 'file'], pool_drivers())
+        """ Expect all our pool drivers (and only them) """
+        self.assertCountEqual(
+            ['linux-kernel', 'lvm_thin', 'file', 'file-reflink'],
+            pool_drivers())
 
     def test_002_get_pool_klass(self):
         """ Expect the default pool to be `FilePool` """

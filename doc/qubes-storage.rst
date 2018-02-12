@@ -30,11 +30,12 @@ Storage pool concept
 
 Storage pool is responsible for managing its volumes. Qubes have defined
 storage pool driver API, allowing to put domains storage in various places. By
-default two drivers are provided: :py:class:`qubes.storage.file.FilePool`
-(named `file`) and :py:class:`qubes.storage.lvm.ThinPool` (named `lvm_thin`).
+default three drivers are provided: :py:class:`qubes.storage.file.FilePool`
+(named `file`), :py:class:`qubes.storage.reflink.ReflinkPool` (named
+`file-reflink`), and :py:class:`qubes.storage.lvm.ThinPool` (named `lvm_thin`).
 But the API allow to implement variety of other drivers (like additionally
 encrypted storage, external disk, drivers using special features of some
-filesystems like btrfs, etc).
+filesystems, etc).
 
 Most of storage API focus on storage volumes. Each volume have at least those
 properties:

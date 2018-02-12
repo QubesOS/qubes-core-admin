@@ -628,7 +628,7 @@ def _default_pool(app):
 
         # not a thin volume? look for file pools
         for pool in app.pools.values():
-            if pool.config.get('driver', None) != 'file':
+            if pool.config.get('driver', None) not in ('file', 'file-reflink'):
                 continue
             if pool.config['dir_path'] == qubes.config.qubes_base_dir:
                 return pool

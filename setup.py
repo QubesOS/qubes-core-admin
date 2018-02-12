@@ -82,12 +82,14 @@ if __name__ == '__main__':
             ],
             'qubes.storage': [
                 'file = qubes.storage.file:FilePool',
+                'file-reflink = qubes.storage.reflink:ReflinkPool',
                 'linux-kernel = qubes.storage.kernels:LinuxKernel',
                 'lvm_thin = qubes.storage.lvm:ThinPool',
             ],
             'qubes.tests.storage': [
                 'test = qubes.tests.storage:TestPool',
                 'file = qubes.storage.file:FilePool',
+                'file-reflink = qubes.storage.reflink:ReflinkPool',
                 'linux-kernel = qubes.storage.kernels:LinuxKernel',
                 'lvm_thin = qubes.storage.lvm:ThinPool',
             ],
