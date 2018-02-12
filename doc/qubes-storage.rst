@@ -9,14 +9,18 @@ possible to register additional 3rd-party drivers.
 Domain's storage volumes:
 
  - `root` - this is where operating system is installed. The volume is
-   available read-write to :py:class:`~qubes.vm.templatevm.TemplateVM` and
-   :py:class:`~qubes.vm.standalonevm.StandaloneVM`, and read-only to others
-   (:py:class:`~qubes.vm.appvm.AppVM` and :py:class:`~qubes.vm.dispvm.DispVM`).
+   available read-write to all domain classes. It could be made read-only for
+   :py:class:`~qubes.vm.appvm.AppVM` and :py:class:`~qubes.vm.dispvm.DispVM` to
+   implement an untrusted storage domain in the future, but doing so will cause
+   such VMs to set up a device-mapper based copy-on-write layer that redirects
+   writes to the `volatile` volume. Whose storage driver may already do CoW,
+   leading to an inefficient CoW-on-CoW setup. For this reason, `root` is
+   currently read-write in all cases.
  - `private` - this is where domain's data live. The volume is available
    read-write to all domain classes (including :py:class:`~qubes.vm.dispvm.DispVM`,
    but data written there is discarded on domain shutdown).
  - `volatile` - this is used for any data that do not to persist. This include
-   swap, copy-on-write layer for `root` volume etc.
+   swap, copy-on-write layer for a future read-only `root` volume etc.
  - `kernel` - domain boot files - operating system kernel, initial ramdisk,
    kernel modules etc. This volume is provided read-only and should be provided by
    a storage pool respecting :py:attr:`qubes.vm.qubesvm.QubesVM.kernel` property.
