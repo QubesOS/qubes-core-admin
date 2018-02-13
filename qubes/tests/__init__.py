@@ -299,7 +299,7 @@ class _QrexecPolicyContext(object):
     def __enter__(self):
         rules = self.load()
         rules.insert(0, self._rule)
-        self.save(self._rule)
+        self.save(rules)
         return self
 
     def __exit__(self, exc_type, exc_value, tb):
