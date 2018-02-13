@@ -128,7 +128,8 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
                 'Cannot change template while qube is running')
         if any(self.dispvms):
             raise qubes.exc.QubesVMInUseError(self,
-                'Cannot change template while there are DispVMs based on this qube')
+                'Cannot change template '
+                'while there are DispVMs based on this qube')
 
     @qubes.events.handler('property-set:template')
     def on_property_set_template(self, event, name, newvalue, oldvalue=None):
