@@ -45,7 +45,7 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
                 'name': 'root',
                 'snap_on_start': True,
                 'save_on_stop': False,
-                'rw': False,
+                'rw': True,
                 'source': None,
             },
             'private': {
