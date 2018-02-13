@@ -97,6 +97,15 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
 
         super(AppVM, self).__init__(app, xml, **kwargs)
 
+    @property
+    def dispvms(self):
+        ''' Returns a generator containing all Disposable VMs based on the
+        current AppVM.
+        '''
+        for vm in self.app.domains:
+            if hasattr(vm, 'template') and vm.template is self:
+                yield vm
+
     @qubes.events.handler('domain-load')
     def on_domain_loaded(self, event):
         ''' When domain is loaded assert that this vm has a template.
@@ -117,6 +126,9 @@ class AppVM(qubes.vm.qubesvm.QubesVM):
         if not self.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(self,
                 'Cannot change template while qube is running')
+        if any(self.dispvms):
+            raise qubes.exc.QubesVMInUseError(self,
+                'Cannot change template while there are DispVMs based on this qube')
 
     @qubes.events.handler('property-set:template')
     def on_property_set_template(self, event, name, newvalue, oldvalue=None):
