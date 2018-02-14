@@ -476,6 +476,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         del vm.default_user
         self.assertPropertyDefaultValue(vm, 'default_user', 'user')
         self.assertPropertyValue(vm, 'default_user', 123, '123', '123')
+        vm.default_user = 'user'
         # TODO: check propagation for template-based VMs
 
     @unittest.skip('TODO')
@@ -901,6 +902,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.assertEqual(test_qubesdb.data, {
             '/name': 'test-inst-test',
             '/type': 'StandaloneVM',
+            '/default-user': 'user',
             '/qubes-vm-type': 'AppVM',
             '/qubes-debug-mode': '0',
             '/qubes-base-template': '',
@@ -960,6 +962,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         expected = {
             '/name': 'test-inst-appvm',
             '/type': 'AppVM',
+            '/default-user': 'user',
             '/qubes-vm-type': 'AppVM',
             '/qubes-debug-mode': '0',
             '/qubes-base-template': 'test-inst-template',

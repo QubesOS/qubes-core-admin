@@ -1798,6 +1798,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
         self.untrusted_qdb.write('/name', self.name)
         self.untrusted_qdb.write('/type', self.__class__.__name__)
+        self.untrusted_qdb.write('/default-user', self.default_user)
         self.untrusted_qdb.write('/qubes-vm-updateable', str(self.updateable))
         self.untrusted_qdb.write('/qubes-vm-persistence',
             'full' if self.updateable else 'rw-only')
