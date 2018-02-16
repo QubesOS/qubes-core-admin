@@ -267,7 +267,7 @@ class ThinVolume(qubes.storage.Volume):
 
         for rev_id in revisions:
             try:
-                cmd = ['remove', self.vid + rev_id]
+                cmd = ['remove', self.vid + '-' + rev_id]
                 qubes_lvm(cmd, self.log)
             except qubes.storage.StoragePoolException:
                 pass
