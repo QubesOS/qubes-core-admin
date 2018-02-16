@@ -58,7 +58,7 @@ class ThinPool(qubes.storage.Pool):
         self.volume_group = volume_group
         self.thin_pool = thin_pool
         self._pool_id = "{!s}/{!s}".format(volume_group, thin_pool)
-        self.log = logging.getLogger('qube.storage.lvm.%s' % self._pool_id)
+        self.log = logging.getLogger('qubes.storage.lvm.%s' % self._pool_id)
 
         self._volume_objects_cache = {}
 
@@ -198,7 +198,7 @@ class ThinVolume(qubes.storage.Volume):
     def __init__(self, volume_group, size=0, **kwargs):
         self.volume_group = volume_group
         super(ThinVolume, self).__init__(size=size, **kwargs)
-        self.log = logging.getLogger('qube.storage.lvm.%s' % str(self.pool))
+        self.log = logging.getLogger('qubes.storage.lvm.%s' % str(self.pool))
 
         if self.snap_on_start or self.save_on_stop:
             self._vid_snap = self.vid + '-snap'

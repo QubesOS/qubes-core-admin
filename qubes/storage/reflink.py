@@ -37,7 +37,7 @@ import qubes.storage
 
 BLKSIZE = 512
 FICLONE = 1074041865  # see ioctl_ficlone manpage
-LOGGER = logging.getLogger('qube.storage.reflink')
+LOGGER = logging.getLogger('qubes.storage.reflink')
 
 
 class ReflinkPool(qubes.storage.Pool):
