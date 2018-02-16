@@ -29,7 +29,6 @@ import subprocess
 
 # don't import 'qubes.config' please, it takes 0.3s
 QREXEC_CLIENT = '/usr/lib/qubes/qrexec-client'
-QUBES_RPC_MULTIPLEXER_PATH = '/usr/lib/qubes/qubes-rpc-multiplexer'
 POLICY_DIR = '/etc/qubes-rpc/policy'
 QUBESD_INTERNAL_SOCK = '/var/run/qubesd.internal.sock'
 QUBESD_SOCK = '/var/run/qubesd.sock'
@@ -450,11 +449,11 @@ class PolicyAction(object):
         if self.target == '$adminvm':
             self.target = 'dom0'
         if self.target == 'dom0':
-            cmd = '{multiplexer} {service} {source} {original_target}'.format(
-                multiplexer=QUBES_RPC_MULTIPLEXER_PATH,
-                service=self.service,
-                source=self.source,
-                original_target=self.original_target)
+            cmd = \
+                'QUBESRPC {service} {source} {original_target}'.format(
+                    service=self.service,
+                    source=self.source,
+                    original_target=self.original_target)
         else:
             cmd = '{user}:QUBESRPC {service} {source}'.format(
                 user=(self.rule.override_user or 'DEFAULT'),
