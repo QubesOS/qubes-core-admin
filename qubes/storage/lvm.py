@@ -286,6 +286,7 @@ class ThinVolume(qubes.storage.Volume):
             cmd = ['clone', self.vid,
                 '{}-{}-back'.format(self.vid, int(time.time()))]
             qubes_lvm(cmd, self.log)
+            reset_cache()
             self._remove_revisions()
 
         # TODO: when converting this function to coroutine, this _must_ be
