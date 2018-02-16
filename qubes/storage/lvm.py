@@ -262,7 +262,8 @@ class ThinVolume(qubes.storage.Volume):
         if revisions is None:
             revisions = sorted(self.revisions.items(),
                 key=operator.itemgetter(1))
-            revisions = revisions[:-self.revisions_to_keep]
+            # pylint: disable=invalid-unary-operand-type
+            revisions = revisions[:(-self.revisions_to_keep) or None]
             revisions = [rev_id for rev_id, _ in revisions]
 
         for rev_id in revisions:
@@ -287,7 +288,7 @@ class ThinVolume(qubes.storage.Volume):
                 '{}-{}-back'.format(self.vid, int(time.time()))]
             qubes_lvm(cmd, self.log)
             reset_cache()
-            self._remove_revisions()
+        self._remove_revisions()
 
         # TODO: when converting this function to coroutine, this _must_ be
         # under a lock
