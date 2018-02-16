@@ -78,6 +78,8 @@ class ThinPool(qubes.storage.Pool):
         ''' Initialize a :py:class:`qubes.storage.Volume` from `volume_config`.
         '''
 
+        if 'revisions_to_keep' not in volume_config.keys():
+            volume_config['revisions_to_keep'] = self.revisions_to_keep
         if 'vid' not in volume_config.keys():
             if vm and hasattr(vm, 'name'):
                 vm_name = vm.name
