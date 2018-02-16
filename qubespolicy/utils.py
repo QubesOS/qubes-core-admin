@@ -24,7 +24,7 @@ def _sanitize_char(input_char, extra_allowed_characters):
     if (ord('a') <= input_char_ord <= ord('z')) \
        or (ord('A') <= input_char_ord <= ord('Z')) \
        or (ord('0') <= input_char_ord <= ord('9')) \
-       or (input_char in ['$', '_', '-', '.']) \
+       or (input_char in ['@', '_', '-', '.']) \
        or (input_char in extra_allowed_characters):
         result = input_char
     else:

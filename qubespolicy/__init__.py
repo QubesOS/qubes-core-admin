@@ -61,23 +61,23 @@ class Action(enum.Enum):
 def is_special_value(value):
     '''Check if given source/target specification is special (keyword) value
     '''
-    return value.startswith('$')
+    return value.startswith('@')
 
 def verify_target_value(system_info, value):
     ''' Check if given value names valid target
 
     This function check if given value is not only syntactically correct,
     but also if names valid service call target (existing domain,
-    or valid $dispvm like keyword)
+    or valid @dispvm like keyword)
 
     :param system_info: information about the system
     :param value: value to be checked
     '''
-    if value == '$dispvm':
+    if value == '@dispvm':
         return True
-    elif value == '$adminvm':
+    elif value == '@adminvm':
         return True
-    elif value.startswith('$dispvm:'):
+    elif value.startswith('@dispvm:'):
         dispvm_base = value.split(':', 1)[1]
         if dispvm_base not in system_info['domains']:
             return False
@@ -89,11 +89,11 @@ def verify_target_value(system_info, value):
 
 def verify_special_value(value, for_target=True, specific_target=False):
     '''
-    Verify if given special VM-specifier ('$...') is valid
+    Verify if given special VM-specifier ('@...') is valid
 
     :param value: value to verify
     :param for_target: should classify target-only values as valid (
-        '$default', '$dispvm')
+        '@default', '@dispvm')
     :param specific_target: allow only values naming specific target
         (for use with target=, default= etc)
     :return: True or False
@@ -103,27 +103,27 @@ def verify_special_value(value, for_target=True, specific_target=False):
     # values used only for matching VMs, not naming specific one (for actual
     # call target)
     if not specific_target:
-        if value.startswith('$tag:') and len(value) > len('$tag:'):
+        if value.startswith('@tag:') and len(value) > len('@tag:'):
             return True
-        if value.startswith('$type:') and len(value) > len('$type:'):
+        if value.startswith('@type:') and len(value) > len('@type:'):
             return True
-        if for_target and value.startswith('$dispvm:$tag:') and \
-                len(value) > len('$dispvm:$tag:'):
+        if for_target and value.startswith('@dispvm:@tag:') and \
+                len(value) > len('@dispvm:@tag:'):
             return True
-        if value == '$anyvm':
+        if value == '@anyvm':
             return True
-        if for_target and value == '$default':
+        if for_target and value == '@default':
             return True
 
     # those can be used to name one specific call VM
-    if value == '$adminvm':
+    if value == '@adminvm':
         return True
-    # allow only specific dispvm, not based on any $xxx keyword - don't name
-    # $tag here specifically, to work also with any future keywords
-    if for_target and value.startswith('$dispvm:') and \
-            not value.startswith('$dispvm:$'):
+    # allow only specific dispvm, not based on any @xxx keyword - don't name
+    # @tag here specifically, to work also with any future keywords
+    if for_target and value.startswith('@dispvm:') and \
+            not value.startswith('@dispvm:@'):
         return True
-    if for_target and value == '$dispvm':
+    if for_target and value == '@dispvm':
         return True
     return False
 
@@ -138,7 +138,7 @@ class PolicyRule(object):
         :raise PolicySyntaxError: when syntax error is found
 
         :param line: a single line of actual qrexec policy (not a comment,
-        empty line or $include)
+        empty line or @include)
         :param filename: name of the file from which this line is loaded
         :param lineno: line number from which this line is loaded
         '''
@@ -193,30 +193,30 @@ class PolicyRule(object):
                     'invalid option {} for {} action'.format(param, action))
 
         # verify special values
-        if self.source.startswith('$'):
+        if is_special_value(self.source):
             if not verify_special_value(self.source, False, False):
                 raise PolicySyntaxError(filename, lineno,
                     'invalid source specification: {}'.format(self.source))
 
-        if self.target.startswith('$'):
+        if is_special_value(self.target):
             if not verify_special_value(self.target, True, False):
                 raise PolicySyntaxError(filename, lineno,
                     'invalid target specification: {}'.format(self.target))
 
-        if self.target == '$default' \
+        if self.target == '@default' \
                 and self.action == Action.allow \
                 and self.override_target is None:
             raise PolicySyntaxError(filename, lineno,
-                'allow action for $default rule must specify target= option')
+                'allow action for @default rule must specify target= option')
 
         if self.override_target is not None:
-            if self.override_target.startswith('$') and \
+            if is_special_value(self.override_target) and \
                     not verify_special_value(self.override_target, True, True):
                 raise PolicySyntaxError(filename, lineno,
                     'target= option needs to name specific target')
 
         if self.default_target is not None:
-            if self.default_target.startswith('$') and \
+            if is_special_value(self.default_target) and \
                     not verify_special_value(self.default_target, True, True):
                 raise PolicySyntaxError(filename, lineno,
                     'target= option needs to name specific target')
@@ -224,7 +224,7 @@ class PolicyRule(object):
     @staticmethod
     def is_match_single(system_info, policy_value, value):
         '''
-        Evaluate if a single value (VM name or '$default') matches policy
+        Evaluate if a single value (VM name or '@default') matches policy
         specification
 
         :param system_info: information about the system
@@ -235,62 +235,62 @@ class PolicyRule(object):
         '''
         # pylint: disable=too-many-return-statements
 
-        # not specified target matches only with $default and $anyvm policy
+        # not specified target matches only with @default and @anyvm policy
         # entry
-        if value == '$default' or value == '':
-            return policy_value in ('$default', '$anyvm')
+        if value == '@default' or value == '':
+            return policy_value in ('@default', '@anyvm')
 
         # if specific target used, check if it's valid
         # this function (is_match_single) is also used for checking call source
         # values, but this isn't a problem, because it will always be a
-        # domain name (not $dispvm or such) - this is guaranteed by a nature
+        # domain name (not @dispvm or such) - this is guaranteed by a nature
         # of qrexec call
         if not verify_target_value(system_info, value):
             return False
 
-        # handle $adminvm keyword
+        # handle @adminvm keyword
         if policy_value == 'dom0':
             # TODO: log a warning in Qubes 4.1
-            policy_value = '$adminvm'
+            policy_value = '@adminvm'
 
         if value == 'dom0':
-            value = '$adminvm'
+            value = '@adminvm'
 
         # allow any _valid_, non-dom0 target
-        if policy_value == '$anyvm':
-            return value != '$adminvm'
+        if policy_value == '@anyvm':
+            return value != '@adminvm'
 
-        # exact match, including $dispvm* and $adminvm
+        # exact match, including @dispvm* and @adminvm
         if value == policy_value:
             return True
 
         # DispVM request, using tags to match
-        if policy_value.startswith('$dispvm:$tag:') \
-                and value.startswith('$dispvm:'):
+        if policy_value.startswith('@dispvm:@tag:') \
+                and value.startswith('@dispvm:'):
             tag = policy_value.split(':', 2)[2]
             dispvm_base = value.split(':', 1)[1]
             # already checked for existence by verify_target_value call
             dispvm_base_info = system_info['domains'][dispvm_base]
             return tag in dispvm_base_info['tags']
 
-        # if $dispvm* not matched above, reject it; default DispVM (bare
-        # $dispvm) was resolved by the caller
-        if value.startswith('$dispvm:'):
+        # if @dispvm* not matched above, reject it; default DispVM (bare
+        # @dispvm) was resolved by the caller
+        if value.startswith('@dispvm:'):
             return False
 
-        # require $adminvm to be matched explicitly (not through $tag or $type)
+        # require @adminvm to be matched explicitly (not through @tag or @type)
         # - if not matched already, reject it
-        if value == '$adminvm':
+        if value == '@adminvm':
             return False
 
         # at this point, value name a specific target
         domain_info = system_info['domains'][value]
 
-        if policy_value.startswith('$tag:'):
+        if policy_value.startswith('@tag:'):
             tag = policy_value.split(':', 1)[1]
             return tag in domain_info['tags']
 
-        if policy_value.startswith('$type:'):
+        if policy_value.startswith('@type:'):
             type_ = policy_value.split(':', 1)[1]
             return type_ == domain_info['type']
 
@@ -310,17 +310,17 @@ class PolicyRule(object):
 
         if not self.is_match_single(system_info, self.source, source):
             return False
-        # $dispvm in policy matches _only_ $dispvm (but not $dispvm:some-vm,
+        # @dispvm in policy matches _only_ @dispvm (but not @dispvm:some-vm,
         # even if that would be the default one)
-        if self.target == '$dispvm' and target == '$dispvm':
+        if self.target == '@dispvm' and target == '@dispvm':
             return True
-        if target == '$dispvm':
-            # resolve default DispVM, to check all kinds of $dispvm:*
+        if target == '@dispvm':
+            # resolve default DispVM, to check all kinds of @dispvm:*
             default_dispvm = system_info['domains'][source]['default_dispvm']
             if default_dispvm is None:
-                # if this VM have no default DispVM, match only with $anyvm
-                return self.target == '$anyvm'
-            target = '$dispvm:' + default_dispvm
+                # if this VM have no default DispVM, match only with @anyvm
+                return self.target == '@anyvm'
+            target = '@dispvm:' + default_dispvm
         if not self.is_match_single(system_info, self.target, target):
             return False
         return True
@@ -333,30 +333,30 @@ class PolicyRule(object):
         :return: matching domains
         '''
 
-        if self.target.startswith('$tag:'):
+        if self.target.startswith('@tag:'):
             tag = self.target.split(':', 1)[1]
             for name, domain in system_info['domains'].items():
                 if tag in domain['tags']:
                     yield name
-        elif self.target.startswith('$type:'):
+        elif self.target.startswith('@type:'):
             type_ = self.target.split(':', 1)[1]
             for name, domain in system_info['domains'].items():
                 if type_ == domain['type']:
                     yield name
-        elif self.target == '$anyvm':
+        elif self.target == '@anyvm':
             for name, domain in system_info['domains'].items():
                 if name != 'dom0':
                     yield name
                 if domain['template_for_dispvms']:
-                    yield '$dispvm:' + name
-            yield '$dispvm'
-        elif self.target.startswith('$dispvm:$tag:'):
+                    yield '@dispvm:' + name
+            yield '@dispvm'
+        elif self.target.startswith('@dispvm:@tag:'):
             tag = self.target.split(':', 2)[2]
             for name, domain in system_info['domains'].items():
                 if tag in domain['tags']:
                     if domain['template_for_dispvms']:
-                        yield '$dispvm:' + name
-        elif self.target.startswith('$dispvm:'):
+                        yield '@dispvm:' + name
+        elif self.target.startswith('@dispvm:'):
             dispvm_base = self.target.split(':', 1)[1]
             try:
                 if system_info['domains'][dispvm_base]['template_for_dispvms']:
@@ -364,9 +364,9 @@ class PolicyRule(object):
             except KeyError:
                 # TODO log a warning?
                 pass
-        elif self.target == '$adminvm':
+        elif self.target == '@adminvm':
             yield self.target
-        elif self.target == '$dispvm':
+        elif self.target == '@dispvm':
             yield self.target
         else:
             if self.target in system_info['domains']:
@@ -374,17 +374,17 @@ class PolicyRule(object):
 
     def expand_override_target(self, system_info, source):
         '''
-        Replace '$dispvm' with specific '$dispvm:...' value, based on qrexec
+        Replace '@dispvm' with specific '@dispvm:...' value, based on qrexec
         call source.
 
         :param system_info: System information
         :param source: Source domain name
-        :return: :py:attr:`override_target` with '$dispvm' substituted
+        :return: :py:attr:`override_target` with '@dispvm' substituted
         '''
-        if self.override_target == '$dispvm':
+        if self.override_target == '@dispvm':
             if system_info['domains'][source]['default_dispvm'] is None:
                 return None
-            return '$dispvm:' + system_info['domains'][source]['default_dispvm']
+            return '@dispvm:' + system_info['domains'][source]['default_dispvm']
         else:
             return self.override_target
 
@@ -450,12 +450,12 @@ class PolicyAction(object):
         assert self.action == Action.allow
         assert self.target is not None
 
-        if self.target == '$adminvm':
+        if self.target == '@adminvm':
             self.target = 'dom0'
         if self.target == 'dom0':
             original_target_type = \
                 'keyword' if is_special_value(self.original_target) else 'name'
-            original_target = self.original_target.lstrip('$')
+            original_target = self.original_target.lstrip('@')
             cmd = \
                 'QUBESRPC {service} {source} {original_target_type} ' \
                 '{original_target}'.format(
@@ -468,7 +468,7 @@ class PolicyAction(object):
                 user=(self.rule.override_user or 'DEFAULT'),
                 service=self.service,
                 source=self.source)
-        if self.target.startswith('$dispvm:'):
+        if self.target.startswith('@dispvm:'):
             target = self.spawn_dispvm()
             dispvm = True
         else:
@@ -569,13 +569,15 @@ class Policy(object):
             for lineno, line in zip(itertools.count(start=1),
                     policy_file.readlines()):
                 line = line.strip()
+                # compatibility with old keywords notation
+                line = line.replace('$', '@')
                 if not line:
                     # skip empty lines
                     continue
                 if line[0] == '#':
                     # skip comments
                     continue
-                if line.startswith('$include:'):
+                if line.startswith('@include:'):
                     include_path = line.split(':', 1)[1]
                     # os.path.join will leave include_path unchanged if it's
                     # already absolute
@@ -597,7 +599,7 @@ class Policy(object):
         ''' Collect targets the user can choose from in 'ask' action
 
         Word 'targets' is used intentionally instead of 'domains', because it
-        can also contains $dispvm like keywords.
+        can also contains @dispvm like keywords.
         '''
         targets = set()
 
@@ -617,17 +619,17 @@ class Policy(object):
                         targets.update(rule.expand_target(system_info))
 
         # expand default DispVM
-        if '$dispvm' in targets:
-            targets.remove('$dispvm')
+        if '@dispvm' in targets:
+            targets.remove('@dispvm')
             if system_info['domains'][source]['default_dispvm'] is not None:
-                dispvm = '$dispvm:' + \
+                dispvm = '@dispvm:' + \
                     system_info['domains'][source]['default_dispvm']
                 if verify_target_value(system_info, dispvm):
                     targets.add(dispvm)
 
         # expand other keywords
-        if '$adminvm' in targets:
-            targets.remove('$adminvm')
+        if '@adminvm' in targets:
+            targets.remove('@adminvm')
             targets.add('dom0')
 
         return targets
@@ -668,18 +670,18 @@ class Policy(object):
             return PolicyAction(self.service, source, rule.default_target,
                 rule, target, targets)
         elif rule.action == Action.allow:
-            if actual_target == '$default':
+            if actual_target == '@default':
                 raise AccessDenied(
                     'policy define \'allow\' action at {}:{} but no target is '
                     'specified by caller or policy'.format(
                         rule.filename, rule.lineno))
-            if actual_target == '$dispvm':
+            if actual_target == '@dispvm':
                 if system_info['domains'][source]['default_dispvm'] is None:
                     raise AccessDenied(
-                        'policy define \'allow\' action to $dispvm at {}:{} '
+                        'policy define \'allow\' action to @dispvm at {}:{} '
                         'but no DispVM base is set for this VM'.format(
                             rule.filename, rule.lineno))
-                actual_target = '$dispvm:' + \
+                actual_target = '@dispvm:' + \
                     system_info['domains'][source]['default_dispvm']
 
             return PolicyAction(self.service, source,

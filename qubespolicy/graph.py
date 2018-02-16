@@ -85,8 +85,8 @@ def main(args=None):
         sources = args.source
 
     targets = list(system_info['domains'].keys())
-    targets.append('$dispvm')
-    targets.extend('$dispvm:' + dom for dom in system_info['domains']
+    targets.append('@dispvm')
+    targets.extend('@dispvm:' + dom for dom in system_info['domains']
         if system_info['domains'][dom]['template_for_dispvms'])
 
     connections = set()

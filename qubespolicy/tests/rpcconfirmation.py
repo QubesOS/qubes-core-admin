@@ -301,7 +301,7 @@ class RPCConfirmationWindowTestWhitelist(unittest.TestCase):
     def test_all_allowed_domains(self):
         self._assert_whitelist(
             ["test-red1", "test-red2", "test-red3",
-             "test-target", "$dispvm:test-disp6", "test-source", "dom0"],
+             "test-target", "@dispvm:test-disp6", "test-source", "dom0"],
             ["test-red1", "test-red2", "test-red3",
              "test-target", "Disposable VM (test-disp6)", "test-source",
                 "dom0"])

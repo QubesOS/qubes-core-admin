@@ -1293,7 +1293,11 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             dest_vm = profile_data['destination_vm']
             dest_path = profile_data['destination_path']
             include_vms = profile_data['include']
+            # convert old keywords to new keywords
+            include_vms = [vm.replace('$', '@') for vm in include_vms]
             exclude_vms = profile_data.get('exclude', [])
+            # convert old keywords to new keywords
+            exclude_vms = [vm.replace('$', '@') for vm in exclude_vms]
             compression = profile_data.get('compression', True)
         except KeyError as err:
             raise qubes.exc.QubesException(

@@ -37,11 +37,11 @@ mock_domains_info = {
     'test-red3': {'icon': 'red', 'type': 'AppVM'},
     'test-source': {'icon': 'green', 'type': 'AppVM'},
     'test-target': {'icon': 'orange', 'type': 'AppVM'},
-    '$dispvm:test-disp6': {'icon': 'red', 'type': 'DispVM'},
+    '@dispvm:test-disp6': {'icon': 'red', 'type': 'DispVM'},
 }
 
 mock_whitelist = ["test-red1", "test-red2", "test-red3",
-                  "test-target", "$dispvm:test-disp6"]
+                  "test-target", "@dispvm:test-disp6"]
 
 class MockComboEntry:
     def __init__(self, text):
@@ -108,7 +108,7 @@ class VMListModelerTest(VMListModeler, unittest.TestCase):
                 self._get_valid_qube_name(None, None, mock_whitelist))
 
     def test_valid_qube_name_whitelist(self):
-        list_exc = ["$dispvm:test-disp6", "test-red2"]
+        list_exc = ["@dispvm:test-disp6", "test-red2"]
 
         whitelist = [name for name in mock_whitelist if name not in list_exc]
         self.apply_model(Gtk.ComboBox(), whitelist)

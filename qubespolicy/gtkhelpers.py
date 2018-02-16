@@ -50,8 +50,8 @@ class VMListModeler:
 
     def _create_entries(self):
         for name, vm in self._domains_info.items():
-            if name.startswith('$dispvm:'):
-                vm_name = name[len('$dispvm:'):]
+            if name.startswith('@dispvm:'):
+                vm_name = name[len('@dispvm:'):]
                 dispvm = True
             else:
                 vm_name = name

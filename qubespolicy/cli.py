@@ -58,7 +58,7 @@ def create_default_policy(service_name):
         policy.write("\n")
         policy.write("## Please use a single # to start your custom comments\n")
         policy.write("\n")
-        policy.write("$anyvm  $anyvm  ask\n")
+        policy.write("@anyvm  @anyvm  ask\n")
 
 
 def main(args=None):
@@ -118,7 +118,7 @@ def main(args=None):
                 if not (system_info['domains'][dispvm_base]
                         ['template_for_dispvms']):
                     continue
-                dispvm_api_name = '$dispvm:' + dispvm_base
+                dispvm_api_name = '@dispvm:' + dispvm_base
                 icons[dispvm_api_name] = \
                     system_info['domains'][dispvm_base]['icon']
                 icons[dispvm_api_name] = \

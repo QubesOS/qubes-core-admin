@@ -107,7 +107,7 @@ class TC_00_qrexec_policy(qubes.tests.QubesTestCase):
             'test-vm1': 'red',
             'test-vm2': 'red',
             'test-vm3': 'green',
-            '$dispvm:test-vm3': 'green',
+            '@dispvm:test-vm3': 'green',
         }
         self.assertEqual(self.dbus_mock.mock_calls, [
             ('', (), {}),
@@ -146,7 +146,7 @@ class TC_00_qrexec_policy(qubes.tests.QubesTestCase):
             'test-vm1': 'red',
             'test-vm2': 'red',
             'test-vm3': 'green',
-            '$dispvm:test-vm3': 'green',
+            '@dispvm:test-vm3': 'green',
         }
         self.assertEqual(self.dbus_mock.mock_calls, [
             ('', (), {}),
@@ -183,7 +183,7 @@ class TC_00_qrexec_policy(qubes.tests.QubesTestCase):
             'test-vm1': 'red',
             'test-vm2': 'red',
             'test-vm3': 'green',
-            '$dispvm:test-vm3': 'green',
+            '@dispvm:test-vm3': 'green',
         }
         self.assertEqual(self.dbus_mock.mock_calls, [
             ('', (), {}),
@@ -314,7 +314,7 @@ class TC_00_qrexec_policy(qubes.tests.QubesTestCase):
                 "\n"
                 "## Please use a single # to start your custom comments\n"
                 "\n"
-                "$anyvm  $anyvm  ask\n")
+                "@anyvm  @anyvm  ask\n")
 
     def test_041_create_policy_abort(self):
         self.policy_mock.configure_mock(**{
