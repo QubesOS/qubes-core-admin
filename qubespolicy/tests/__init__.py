@@ -514,8 +514,20 @@ class TC_10_PolicyAction(qubes.tests.QubesTestCase):
         self.assertEqual(mock_subprocess.mock_calls,
             [unittest.mock.call([qubespolicy.QREXEC_CLIENT, '-d', 'dom0',
              '-c', 'some-ident',
-             qubespolicy.QUBES_RPC_MULTIPLEXER_PATH +
-             ' test.service test-vm1 dom0'])])
+             'QUBESRPC test.service test-vm1 name dom0'])])
+
+    @unittest.mock.patch('qubespolicy.qubesd_call')
+    @unittest.mock.patch('subprocess.call')
+    def test_021_execute_dom0_keyword(self, mock_subprocess, mock_qubesd_call):
+        rule = qubespolicy.PolicyRule('$anyvm dom0 allow')
+        action = qubespolicy.PolicyAction('test.service', 'test-vm1',
+            'dom0', rule, '$adminvm')
+        action.execute('some-ident')
+        self.assertEqual(mock_qubesd_call.mock_calls, [])
+        self.assertEqual(mock_subprocess.mock_calls,
+            [unittest.mock.call([qubespolicy.QREXEC_CLIENT, '-d', 'dom0',
+             '-c', 'some-ident',
+             'QUBESRPC test.service test-vm1 keyword adminvm'])])
 
     @unittest.mock.patch('qubespolicy.qubesd_call')
     @unittest.mock.patch('subprocess.call')

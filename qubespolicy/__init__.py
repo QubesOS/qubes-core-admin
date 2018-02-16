@@ -58,6 +58,10 @@ class Action(enum.Enum):
     deny = 2
     ask = 3
 
+def is_special_value(value):
+    '''Check if given source/target specification is special (keyword) value
+    '''
+    return value.startswith('$')
 
 def verify_target_value(system_info, value):
     ''' Check if given value names valid target
@@ -449,11 +453,16 @@ class PolicyAction(object):
         if self.target == '$adminvm':
             self.target = 'dom0'
         if self.target == 'dom0':
+            original_target_type = \
+                'keyword' if is_special_value(self.original_target) else 'name'
+            original_target = self.original_target.lstrip('$')
             cmd = \
-                'QUBESRPC {service} {source} {original_target}'.format(
+                'QUBESRPC {service} {source} {original_target_type} ' \
+                '{original_target}'.format(
                     service=self.service,
                     source=self.source,
-                    original_target=self.original_target)
+                    original_target_type=original_target_type,
+                    original_target=original_target)
         else:
             cmd = '{user}:QUBESRPC {service} {source}'.format(
                 user=(self.rule.override_user or 'DEFAULT'),
