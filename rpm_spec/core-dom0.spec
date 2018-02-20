@@ -81,7 +81,7 @@ Requires:       python3-xen
 Requires:       libvirt-python3
 
 Requires:       pciutils
-Requires:       qubes-core-dom0-linux >= 3.1.8
+Requires:       qubes-core-dom0-linux >= 4.0.11
 Requires:       qubes-db-dom0
 # TODO: R: qubes-gui-dom0 >= 2.1.11
 Conflicts:      qubes-gui-dom0 < 1.1.13
