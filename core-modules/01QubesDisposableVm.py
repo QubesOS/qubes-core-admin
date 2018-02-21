@@ -102,6 +102,7 @@ class QubesDisposableVm(QubesVm):
             kwargs['kernelopts'] = disp_template.kernelopts
             kwargs['uses_default_kernelopts'] = \
                 disp_template.uses_default_kernelopts
+            kwargs['virt_mode'] = disp_template.virt_mode
         super(QubesDisposableVm, self).__init__(**kwargs)
 
         assert self.template is not None, "Missing template for DisposableVM!"

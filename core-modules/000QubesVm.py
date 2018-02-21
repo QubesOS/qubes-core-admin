@@ -138,6 +138,11 @@ class QubesVm(object):
                     ast.literal_eval("[" + value + "]")) },
             "pci_strictreset": {"default": True},
             "pci_e820_host": {"default": True},
+            "virt_mode": {
+                "default": "default",
+                "order": 26, # __virt_mode needs self.pcidevs
+                "attr": '_virt_mode',
+                "func": self.__virt_mode},
             # Internal VM (not shown in qubes-manager, doesn't create appmenus entries
             "internal": { "default": False, 'attr': '_internal' },
             "vcpus": { "default": 2, "func": int },
@@ -204,7 +209,7 @@ class QubesVm(object):
             'uses_default_netvm', 'include_in_backups', 'debug',\
             'qrexec_timeout', 'autostart', 'uses_default_dispvm_netvm',
             'backup_content', 'backup_size', 'backup_path', 'pool_name',\
-            'pci_e820_host']:
+            'pci_e820_host', 'virt_mode']:
             attrs[prop]['save'] = lambda prop=prop: str(getattr(self, prop))
         # Simple paths
         for prop in ['conf_file', 'firewall_conf']:
@@ -427,6 +432,32 @@ class QubesVm(object):
         # fire hooks
         for hook in self.hooks_label_setter:
             hook(self, new_label)
+
+    def __virt_mode(self, value):
+        if value not in ["default", "pv", "pvh", "hvm"]:
+            raise QubesException("Invalid virt_mode.")
+
+        if value == 'default':
+            # We can't decide this in offline mode. So store 'default' which
+            # will be switched to the proper value on next load with vmm
+            # available.
+            if vmm.offline_mode:
+                return 'default'
+
+            if vmm.pvh_supported and vmm.hap_supported and not self.pcidevs:
+                value = 'pvh'
+            else:
+                value = 'pv'
+
+        return value
+
+    @property
+    def virt_mode(self):
+        return self._virt_mode
+
+    @virt_mode.setter
+    def virt_mode(self, new_value):
+        self._virt_mode = self.__virt_mode(new_value)
 
     @property
     def netvm(self):
@@ -1239,6 +1270,36 @@ class QubesVm(object):
                 print >> sys.stderr, "--> Debug mode: adding 'earlyprintk=xen' to kernel opts"
                 args['kernelopts'] += ' earlyprintk=xen'
 
+        if self.virt_mode == 'pv':
+            args['machine'] = 'xenpv'
+            args['type'] = 'linux'
+            args['cpu_begin'] = '<!--'
+            args['cpu_end'] = '-->'
+            args['emulator_begin'] = '<!--'
+            args['emulator_end'] = '-->'
+        else:
+            args['machine'] = 'xenfv'
+            args['type'] = 'hvm'
+            args['cpu_begin'] = ''
+            args['cpu_end'] = ''
+            args['features'] += '<pae/><acpi/><apic/><viridian/>'
+            args['emulator_begin'] = ''
+            args['emulator_end'] = ''
+
+        if self.virt_mode == 'hvm':
+            args['boot_begin'] = ''
+            args['boot_end'] = ''
+            args['kernel_begin'] = '<!--'
+            args['kernel_end'] = '-->'
+            args['emulator_type'] = 'stubdom-linux'
+        else:
+            args['emulator_type'] = 'none' # ignored in pv mode
+            args['boot_begin'] = '<!--'
+            args['boot_end'] = '-->'
+            args['kernel_begin'] = ''
+            args['kernel_end'] = ''
+
+
         # fire hooks
         for hook in self.hooks_get_config_params:
             args = hook(self, args)
@@ -1915,6 +1976,8 @@ class QubesVm(object):
         MEM_OVERHEAD_PER_VCPU = 3 * 1024 * 1024 / 2
         if mem_required is None:
             mem_required = int(self.memory) * 1024 * 1024
+            if self.virt_mode == 'hvm':
+                mem_required += (128 + 8) * 1024 * 1024 # memory for stubdom
         if qmemman_present:
             qmemman_client = QMemmanClient()
             try:
@@ -1932,6 +1995,11 @@ class QubesVm(object):
         self.log.debug('start('
             'preparing_dvm={!r}, start_guid={!r}, mem_required={!r})'.format(
                 preparing_dvm, start_guid, mem_required))
+
+        if len(self.pcidevs) != 0 and self.virt_mode == 'pvh':
+            raise QubesException(
+                "pvh mode can't be set if pci devices are attached")
+
         if dry_run:
             return
 
