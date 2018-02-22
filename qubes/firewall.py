@@ -22,11 +22,12 @@
 
 import datetime
 import string
-import subprocess
 
 import itertools
 import os
 import socket
+
+import asyncio
 import lxml.etree
 
 import qubes
@@ -543,10 +544,19 @@ class Firewall(object):
             rule = Rule(xml_rule)
             self.rules.append(rule)
 
+    def _expire_rules(self):
+        '''Function called to reload expired rules'''
+        old_rules = self.rules
+        self.load()
+        if self.rules != old_rules:
+            # this will both save rules skipping those expired and trigger
+            # QubesDB update; and possibly schedule another timer
+            self.save()
+
     def save(self):
         '''Save firewall rules to a file'''
         firewall_conf = os.path.join(self.vm.dir_path, self.vm.firewall_conf)
-        expiring_rules_present = False
+        nearest_expire = False
 
         xml_root = lxml.etree.Element('firewall', version=str(2))
 
@@ -556,7 +566,9 @@ class Firewall(object):
                 if rule.expire and rule.expire.expired:
                     continue
                 else:
-                    expiring_rules_present = True
+                    if nearest_expire is None or rule.expire.datetime < \
+                            nearest_expire:
+                        nearest_expire = rule.expire.datetime
             xml_rule = lxml.etree.Element('rule')
             xml_rule.append(rule.xml_properties())
             xml_rules.append(xml_rule)
@@ -577,9 +589,13 @@ class Firewall(object):
 
         self.vm.fire_event('firewall-changed')
 
-        if expiring_rules_present and not self.vm.app.vmm.offline_mode:
-            subprocess.call(["sudo", "systemctl", "start",
-                             "qubes-reload-firewall@%s.timer" % self.vm.name])
+        if nearest_expire and not self.vm.app.vmm.offline_mode:
+            loop = asyncio.get_event_loop()
+            # by documentation call_at use loop.time() clock, which not
+            # necessary must be the same as time module; calculate delay and
+            # use call_later instead
+            expire_when = nearest_expire - datetime.datetime.now()
+            loop.call_later(expire_when, self._expire_rules)
 
     def qdb_entries(self, addr_family=None):
         '''Return firewall settings serialized for QubesDB entries
