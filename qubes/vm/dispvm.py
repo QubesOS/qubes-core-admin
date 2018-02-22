@@ -41,6 +41,10 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
     auto_cleanup = qubes.property('auto_cleanup', type=bool, default=False,
         doc='automatically remove this VM upon shutdown')
 
+    include_in_backups = qubes.property('include_in_backups', type=bool,
+        default=(lambda self: not self.auto_cleanup),
+        doc='If this domain is to be included in default backup.')
+
     def __init__(self, app, xml, *args, **kwargs):
         self.volume_config = {
             'root': {
