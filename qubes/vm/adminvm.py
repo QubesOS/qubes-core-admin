@@ -50,6 +50,10 @@ class AdminVM(qubes.vm.BaseVM):
         default=(lambda self: self.app.default_dispvm),
         doc='Default VM to be used as Disposable VM for service calls.')
 
+    include_in_backups = qubes.property('include_in_backups',
+        default=True, type=bool,
+        doc='If this domain is to be included in default backup.')
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
