@@ -58,7 +58,7 @@ class ThinPool(qubes.storage.Pool):
         self.volume_group = volume_group
         self.thin_pool = thin_pool
         self._pool_id = "{!s}/{!s}".format(volume_group, thin_pool)
-        self.log = logging.getLogger('qube.storage.lvm.%s' % self._pool_id)
+        self.log = logging.getLogger('qubes.storage.lvm.%s' % self._pool_id)
 
         self._volume_objects_cache = {}
 
@@ -78,6 +78,8 @@ class ThinPool(qubes.storage.Pool):
         ''' Initialize a :py:class:`qubes.storage.Volume` from `volume_config`.
         '''
 
+        if 'revisions_to_keep' not in volume_config.keys():
+            volume_config['revisions_to_keep'] = self.revisions_to_keep
         if 'vid' not in volume_config.keys():
             if vm and hasattr(vm, 'name'):
                 vm_name = vm.name
@@ -196,7 +198,7 @@ class ThinVolume(qubes.storage.Volume):
     def __init__(self, volume_group, size=0, **kwargs):
         self.volume_group = volume_group
         super(ThinVolume, self).__init__(size=size, **kwargs)
-        self.log = logging.getLogger('qube.storage.lvm.%s' % str(self.pool))
+        self.log = logging.getLogger('qubes.storage.lvm.%s' % str(self.pool))
 
         if self.snap_on_start or self.save_on_stop:
             self._vid_snap = self.vid + '-snap'
@@ -260,12 +262,13 @@ class ThinVolume(qubes.storage.Volume):
         if revisions is None:
             revisions = sorted(self.revisions.items(),
                 key=operator.itemgetter(1))
-            revisions = revisions[:-self.revisions_to_keep]
+            # pylint: disable=invalid-unary-operand-type
+            revisions = revisions[:(-self.revisions_to_keep) or None]
             revisions = [rev_id for rev_id, _ in revisions]
 
         for rev_id in revisions:
             try:
-                cmd = ['remove', self.vid + rev_id]
+                cmd = ['remove', self.vid + '-' + rev_id]
                 qubes_lvm(cmd, self.log)
             except qubes.storage.StoragePoolException:
                 pass
@@ -284,7 +287,8 @@ class ThinVolume(qubes.storage.Volume):
             cmd = ['clone', self.vid,
                 '{}-{}-back'.format(self.vid, int(time.time()))]
             qubes_lvm(cmd, self.log)
-            self._remove_revisions()
+            reset_cache()
+        self._remove_revisions()
 
         # TODO: when converting this function to coroutine, this _must_ be
         # under a lock

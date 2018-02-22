@@ -37,7 +37,7 @@ import qubes.storage
 
 BLKSIZE = 512
 FICLONE = 1074041865  # see ioctl_ficlone manpage
-LOGGER = logging.getLogger('qube.storage.reflink')
+LOGGER = logging.getLogger('qubes.storage.reflink')
 
 
 class ReflinkPool(qubes.storage.Pool):
@@ -187,9 +187,9 @@ class ReflinkVolume(qubes.storage.Volume):
         _rename_file(self._path_dirty, self._path_clean)
 
     def _add_revision(self):
-        if self.revisions_to_keep is 0:
+        if self.revisions_to_keep == 0:
             return
-        if _get_file_disk_usage(self._path_clean) is 0:
+        if _get_file_disk_usage(self._path_clean) == 0:
             return
         ctime = os.path.getctime(self._path_clean)
         revision = qubes.storage.isodate(int(ctime)) + 'Z'
