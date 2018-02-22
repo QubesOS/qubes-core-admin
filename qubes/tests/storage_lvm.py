@@ -178,6 +178,60 @@ class TC_00_ThinPool(ThinPoolBase):
         pool_usage = float(pool_usage)
         self.assertEqual(usage, int(pool_size * pool_usage / 100))
 
+    def _get_size(self, path):
+        if os.getuid() != 0:
+            return int(
+                subprocess.check_output(
+                    ['sudo', 'blockdev', '--getsize64', path]))
+        fd = os.open(path, os.O_RDONLY)
+        try:
+            return os.lseek(fd, 0, os.SEEK_END)
+        finally:
+            os.close(fd)
+
+    def test_006_resize(self):
+        config = {
+            'name': 'root',
+            'pool': self.pool.name,
+            'rw': True,
+            'save_on_stop': True,
+            'size': 32 * 1024**2,
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        volume.create()
+        self.addCleanup(volume.remove)
+        path = "/dev/%s" % volume.vid
+        new_size = 64 * 1024 ** 2
+        volume.resize(new_size)
+        self.assertEqual(self._get_size(path), new_size)
+        self.assertEqual(volume.size, new_size)
+
+    def test_007_resize_running(self):
+        old_size = 32 * 1024**2
+        config = {
+            'name': 'root',
+            'pool': self.pool.name,
+            'rw': True,
+            'save_on_stop': True,
+            'size': old_size,
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        volume.create()
+        self.addCleanup(volume.remove)
+        volume.start()
+        path = "/dev/%s" % volume.vid
+        path2 = "/dev/%s" % volume._vid_snap
+        new_size = 64 * 1024 ** 2
+        volume.resize(new_size)
+        self.assertEqual(self._get_size(path), old_size)
+        self.assertEqual(self._get_size(path2), new_size)
+        self.assertEqual(volume.size, new_size)
+        volume.stop()
+        self.assertEqual(self._get_size(path), new_size)
+        self.assertEqual(volume.size, new_size)
+
 
 @skipUnlessLvmPoolExists
 class TC_01_ThinPool(ThinPoolBase, qubes.tests.SystemTestCase):
