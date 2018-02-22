@@ -975,6 +975,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             # an exception gets thrown.
             self._domain_stopped_event_handled = True
 
+            while self.get_power_state() == 'Dying':
+                yield from asyncio.sleep(0.25)
             yield from self.fire_event_async('domain-stopped')
             yield from self.fire_event_async('domain-shutdown')
 
@@ -1458,7 +1460,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         ``'Paused'``    Machine is paused.
         ``'Suspended'`` Machine is S3-suspended.
         ``'Halting'``   Machine is in process of shutting down.
-        ``'Dying'``     Machine crashed and is unusable.
+        ``'Dying'``     Machine is still in process of shutting down.
         ``'Crashed'``   Machine crashed and is unusable, probably because of
                         bug in dom0.
         ``'NA'``        Machine is in unknown state (most likely libvirt domain
