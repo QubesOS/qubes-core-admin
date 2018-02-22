@@ -1293,8 +1293,9 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             dest_vm = profile_data['destination_vm']
             dest_path = profile_data['destination_path']
             include_vms = profile_data['include']
-            # convert old keywords to new keywords
-            include_vms = [vm.replace('$', '@') for vm in include_vms]
+            if include_vms is not None:
+                # convert old keywords to new keywords
+                include_vms = [vm.replace('$', '@') for vm in include_vms]
             exclude_vms = profile_data.get('exclude', [])
             # convert old keywords to new keywords
             exclude_vms = [vm.replace('$', '@') for vm in exclude_vms]
@@ -1339,14 +1340,17 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                 'specify passphrase_text or passphrase_vm')
 
         # handle include
-        vms_to_backup = set(vm for vm in self.app.domains
-            if any(qubes.utils.match_vm_name_with_special(vm, name)
-                for name in include_vms))
+        if include_vms is None:
+            vms_to_backup = None
+        else:
+            vms_to_backup = set(vm for vm in self.app.domains
+                if any(qubes.utils.match_vm_name_with_special(vm, name)
+                    for name in include_vms))
 
-        # handle exclude
-        vms_to_backup.difference_update(vm for vm in self.app.domains
-            if any(qubes.utils.match_vm_name_with_special(vm, name)
-                for name in exclude_vms))
+            # handle exclude
+            vms_to_backup.difference_update(vm for vm in self.app.domains
+                if any(qubes.utils.match_vm_name_with_special(vm, name)
+                    for name in exclude_vms))
 
         kwargs = {
             'target_vm': dest_vm,
