@@ -381,6 +381,15 @@ class Backup(object):
             if os.path.exists(firewall_conf):
                 vm_files.append(self.FileToBackup(firewall_conf, subdir))
 
+            if not vm_files:
+                # subdir/ is needed in the tar file, otherwise restore
+                # of a (Disp)VM without any backed up files is going
+                # to fail. Adding a zero-sized file here happens to be
+                # more straightforward than adding an empty directory.
+                empty = self.FileToBackup("/var/run/qubes/empty", subdir)
+                assert empty.size == 0
+                vm_files.append(empty)
+
             files_to_backup[vm.qid] = self.VMToBackup(vm, vm_files, subdir)
 
         # Dom0 user home
