@@ -105,10 +105,6 @@ class LinuxModules(Volume):
         return False
 
     def start(self):
-        path = self.path
-        if path and not os.path.exists(path):
-            raise StoragePoolException('Missing kernel modules: %s' % path)
-
         return self
 
     def stop(self):
@@ -116,12 +112,15 @@ class LinuxModules(Volume):
 
     def verify(self):
         if self.vid:
-            _check_path(self.path)
             _check_path(self.vmlinuz)
             _check_path(self.initramfs)
 
     def block_device(self):
-        if self.vid:
+        path = self.path
+        # create block device for modules.img only if:
+        # - there is kernel set for the VM
+        # - that kernel directory contains modules.img file
+        if path and os.path.exists(path):
             return super().block_device()
         return None
 

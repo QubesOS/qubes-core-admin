@@ -75,6 +75,8 @@ class TC_01_KernelVolumes(qubes.tests.QubesTestCase):
         self.app = TestApp()
         self.app.create_dummy_template()
         self.app.add_pool(**self.POOL_CONF)
+        os.makedirs(self.POOL_DIR + '/dummy', exist_ok=True)
+        open('/tmp/test-pool/dummy/modules.img', 'w').close()
 
     def tearDown(self):
         """ Remove the file based storage pool after testing """
