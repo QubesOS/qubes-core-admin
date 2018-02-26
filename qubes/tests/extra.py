@@ -86,6 +86,9 @@ class VMWrapper(object):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE if passio_stderr else None))
             return ProcessWrapper(p, self._loop)
+        else:
+            asyncio.ensure_future(self._vm.run_for_stdio(command, user=user),
+                loop=self._loop)
 
     def run_service(self, service, wait=True, input=None, user=None,
             passio_popen=False,
