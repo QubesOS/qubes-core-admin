@@ -412,7 +412,8 @@ class NetVMMixin(qubes.events.Emitter):
                     'Cannot dynamically attach to stopped NetVM: {!r}'.format(
                         newvalue))
 
-        if oldvalue is not None:
+        # don't check oldvalue, because it's missing if it was default
+        if self.netvm is not None:
             if self.is_running():
                 self.detach_network()
 
