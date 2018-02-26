@@ -1313,9 +1313,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         try:
             yield from self.start_daemon(
                 qubes.config.system_path['qrexec_daemon_path'], *qrexec_args,
-                env=qrexec_env)
-        except subprocess.CalledProcessError:
-            raise qubes.exc.QubesVMError(self, 'Cannot execute qrexec-daemon!')
+                env=qrexec_env, stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as err:
+            if err.returncode == 3:
+                raise qubes.exc.QubesVMError(self,
+                    'Cannot connect to qrexec agent for {} seconds, '
+                    'see /var/log/xen/console/guest-{}.log for details'.format(
+                        self.qrexec_timeout, self.name
+                    ))
+            else:
+                raise qubes.exc.QubesVMError(self,
+                    'qrexec-daemon startup failed: ' + err.stderr.decode())
 
     @asyncio.coroutine
     def start_qubesdb(self):
