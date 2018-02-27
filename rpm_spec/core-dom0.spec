@@ -350,6 +350,7 @@ fi
 %{python3_sitelib}/qubes/tests/integ/dispvm.py
 %{python3_sitelib}/qubes/tests/integ/dom0_update.py
 %{python3_sitelib}/qubes/tests/integ/network.py
+%{python3_sitelib}/qubes/tests/integ/pvgrub.py
 %{python3_sitelib}/qubes/tests/integ/salt.py
 %{python3_sitelib}/qubes/tests/integ/storage.py
 %{python3_sitelib}/qubes/tests/integ/vm_qrexec_gui.py
