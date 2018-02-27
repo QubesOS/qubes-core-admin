@@ -430,6 +430,7 @@ fi
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.NotifyUpdates
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.OpenInVM
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.OpenURL
+%attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.StartApp
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.VMShell
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.VMRootShell
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/qubes.UpdatesProxy
