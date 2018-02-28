@@ -61,7 +61,7 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
             untrusted_value = untrusted_features[untrusted_key]
             assert all((c in safe_set) for c in untrusted_value)
 
-        self.src.fire_event('features-request',
+        yield from self.src.fire_event_async('features-request',
             untrusted_features=untrusted_features)
         self.app.save()
 
@@ -87,7 +87,7 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
                 untrusted_features[feature] = untrusted_value
             del untrusted_value
 
-        self.src.fire_event('features-request',
+        yield from self.src.fire_event_async('features-request',
             untrusted_features=untrusted_features)
         self.app.save()
 

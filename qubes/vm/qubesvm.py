@@ -334,12 +334,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             :param event: Event name (``'domain-tag-delete:' tag``)
             :param tag: tag name
 
-        .. event:: feature-request (subject, event, *, untrusted_features)
+        .. event:: features-request (subject, event, *, untrusted_features)
 
-            The domain is performing a feature request.
+            The domain is performing a features request.
 
             :param subject: Event emitter (the qube object)
-            :param event: Event name (``'feature-request'``)
+            :param event: Event name (``'features-request'``)
             :param untrusted_features: :py:class:`dict` containing the feature \
             request
 
@@ -350,6 +350,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             It is up to the extensions to decide, what to do with request,
             ranging from plainly ignoring the request to verbatim copy into
             :py:attr:`features` with only minimal sanitisation.
+
+            Handler for this event can be asynchronous (a coroutine).
 
         .. event:: firewall-changed (subject, event)
 

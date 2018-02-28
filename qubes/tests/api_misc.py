@@ -69,8 +69,9 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             mock.call.untrusted_qdb.read('/features-request/feature1'),
             mock.call.untrusted_qdb.read('/features-request/feature2'),
             mock.call.untrusted_qdb.read('/features-request/feature3'),
-            mock.call.fire_event('features-request', untrusted_features={
-                'feature1': '1', 'feature2': '', 'feature3': 'other'})
+            mock.call.fire_event_async('features-request', untrusted_features={
+                'feature1': '1', 'feature2': '', 'feature3': 'other'}),
+            ('fire_event_async().__iter__', (), {}),
         ])
 
     def test_001_features_request_empty(self):
@@ -82,7 +83,9 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
         ])
         self.assertEqual(self.src.mock_calls, [
             mock.call.untrusted_qdb.list('/features-request/'),
-            mock.call.fire_event('features-request', untrusted_features={})
+            mock.call.fire_event_async('features-request',
+                untrusted_features={}),
+            ('fire_event_async().__iter__', (), {}),
         ])
 
     def test_002_features_request_invalid1(self):
@@ -129,10 +132,11 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             mock.call.untrusted_qdb.read('/qubes-tools/qrexec'),
             mock.call.untrusted_qdb.read('/qubes-tools/gui'),
             mock.call.untrusted_qdb.read('/qubes-tools/default-user'),
-            mock.call.fire_event('features-request', untrusted_features={
+            mock.call.fire_event_async('features-request', untrusted_features={
                 'gui': '1',
                 'default-user': 'user',
                 'qrexec': '1'}),
+            ('fire_event_async().__iter__', (), {}),
         ])
         self.assertEqual(self.app.mock_calls, [mock.call.save()])
 
@@ -150,10 +154,11 @@ class TC_00_API_Misc(qubes.tests.QubesTestCase):
             mock.call.untrusted_qdb.read('/qubes-tools/qrexec'),
             mock.call.untrusted_qdb.read('/qubes-tools/gui'),
             mock.call.untrusted_qdb.read('/qubes-tools/default-user'),
-            mock.call.fire_event('features-request', untrusted_features={
+            mock.call.fire_event_async('features-request', untrusted_features={
                 'gui': '1',
                 'default-user': 'user',
                 'qrexec': '1'}),
+            ('fire_event_async().__iter__', (), {}),
         ])
         self.assertEqual(self.app.mock_calls, [mock.call.save()])
 
