@@ -438,6 +438,7 @@ fi
 %attr(0664,root,qubes) %config(noreplace) /etc/qubes-rpc/policy/policy.RegisterArgument
 /etc/qubes-rpc/admin.*
 /etc/qubes-rpc/qubes.FeaturesRequest
+/etc/qubes-rpc/qubes.GetDate
 /etc/qubes-rpc/qubes.GetRandomizedTime
 /etc/qubes-rpc/qubes.NotifyTools
 /etc/qubes-rpc/qubes.NotifyUpdates

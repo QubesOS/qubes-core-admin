@@ -3,4 +3,4 @@
 
 ## Please use a single # to start your custom comments
 
-$anyvm	$anyvm	allow,target=sys-net
+$anyvm	$anyvm	allow,target=dom0

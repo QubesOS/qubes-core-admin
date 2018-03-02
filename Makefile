@@ -184,6 +184,7 @@ endif
 	cp qubes-rpc-policy/qubes.GetDate.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.GetDate
 	cp qubes-rpc-policy/policy.RegisterArgument.policy $(DESTDIR)/etc/qubes-rpc/policy/policy.RegisterArgument
 	cp qubes-rpc/qubes.FeaturesRequest $(DESTDIR)/etc/qubes-rpc/
+	cp qubes-rpc/qubes.GetDate $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes.GetRandomizedTime $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes.NotifyTools $(DESTDIR)/etc/qubes-rpc/
 	cp qubes-rpc/qubes.NotifyUpdates $(DESTDIR)/etc/qubes-rpc/
