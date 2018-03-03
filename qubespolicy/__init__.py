@@ -237,7 +237,7 @@ class PolicyRule(object):
 
         # not specified target matches only with @default and @anyvm policy
         # entry
-        if value == '@default' or value == '':
+        if value == '@default':
             return policy_value in ('@default', '@anyvm')
 
         # if specific target used, check if it's valid
@@ -642,6 +642,8 @@ class Policy(object):
         :return tuple(rule, considered_targets) - where considered targets is a
         list of possible targets for 'ask' action (rule.action == Action.ask)
         '''
+        if target == '':
+            target = '@default'
         rule = self.find_matching_rule(system_info, source, target)
         if rule.action == Action.deny:
             raise AccessDenied(

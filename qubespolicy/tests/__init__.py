@@ -254,8 +254,6 @@ class TC_00_PolicyRule(qubes.tests.QubesTestCase):
         is_match_single = qubespolicy.PolicyRule.is_match_single
         self.assertTrue(is_match_single(system_info, '@anyvm', 'test-vm1'))
         self.assertTrue(is_match_single(system_info, '@anyvm', '@default'))
-        self.assertTrue(is_match_single(system_info, '@anyvm', ''))
-        self.assertTrue(is_match_single(system_info, '@default', ''))
         self.assertTrue(is_match_single(system_info, '@default', '@default'))
         self.assertTrue(is_match_single(system_info, '@tag:tag1', 'test-vm1'))
         self.assertTrue(is_match_single(system_info, '@type:AppVM', 'test-vm1'))
@@ -679,9 +677,7 @@ class TC_20_Policy(qubes.tests.QubesTestCase):
             system_info, 'test-vm2', 'test-no-dvm'), policy.policy_rules[2])
         # @anyvm matches @default too
         self.assertEqual(policy.find_matching_rule(
-            system_info, 'test-vm1', ''), policy.policy_rules[1])
-        self.assertEqual(policy.find_matching_rule(
-            system_info, 'test-vm2', ''), policy.policy_rules[7])
+            system_info, 'test-vm1', '@default'), policy.policy_rules[1])
         self.assertEqual(policy.find_matching_rule(
             system_info, 'test-vm2', '@default'), policy.policy_rules[7])
         self.assertEqual(policy.find_matching_rule(
