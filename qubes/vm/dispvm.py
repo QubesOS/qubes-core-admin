@@ -82,9 +82,9 @@ class DispVM(qubes.vm.qubesvm.QubesVM):
         if xml is None:
             assert template is not None
 
-            if not template.template_for_dispvms:
+            if not getattr(template, 'template_for_dispvms', False):
                 raise qubes.exc.QubesValueError(
-                    'template for DispVM ({}) needs to have '
+                    'template for DispVM ({}) needs to be an AppVM with '
                     'template_for_dispvms=True'.format(template.name))
 
             if 'dispid' not in kwargs:
