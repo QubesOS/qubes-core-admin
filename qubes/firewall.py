@@ -556,7 +556,7 @@ class Firewall(object):
     def save(self):
         '''Save firewall rules to a file'''
         firewall_conf = os.path.join(self.vm.dir_path, self.vm.firewall_conf)
-        nearest_expire = False
+        nearest_expire = None
 
         xml_root = lxml.etree.Element('firewall', version=str(2))
 
@@ -595,7 +595,7 @@ class Firewall(object):
             # necessary must be the same as time module; calculate delay and
             # use call_later instead
             expire_when = nearest_expire - datetime.datetime.now()
-            loop.call_later(expire_when, self._expire_rules)
+            loop.call_later(expire_when.total_seconds(), self._expire_rules)
 
     def qdb_entries(self, addr_family=None):
         '''Return firewall settings serialized for QubesDB entries
