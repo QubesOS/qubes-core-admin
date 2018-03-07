@@ -204,7 +204,7 @@ class SpecialTarget(RuleChoice):
 class Expire(RuleOption):
     def __init__(self, untrusted_value):
         super(Expire, self).__init__(untrusted_value)
-        self.datetime = datetime.datetime.utcfromtimestamp(int(untrusted_value))
+        self.datetime = datetime.datetime.fromtimestamp(int(untrusted_value))
 
     @property
     def rule(self):
@@ -216,7 +216,7 @@ class Expire(RuleOption):
 
     @property
     def expired(self):
-        return self.datetime < datetime.datetime.utcnow()
+        return self.datetime < datetime.datetime.now()
 
 
 class Comment(RuleOption):
