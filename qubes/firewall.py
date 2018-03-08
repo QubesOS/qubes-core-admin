@@ -546,12 +546,10 @@ class Firewall(object):
 
     def _expire_rules(self):
         '''Function called to reload expired rules'''
-        old_rules = self.rules
         self.load()
-        if self.rules != old_rules:
-            # this will both save rules skipping those expired and trigger
-            # QubesDB update; and possibly schedule another timer
-            self.save()
+        # this will both save rules skipping those expired and trigger
+        # QubesDB update; and possibly schedule another timer
+        self.save()
 
     def save(self):
         '''Save firewall rules to a file'''
