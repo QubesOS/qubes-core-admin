@@ -223,9 +223,9 @@ class ReflinkVolume(qubes.storage.Volume):
 
         if size < self.size:
             raise qubes.storage.StoragePoolException(
-                'For your own safety, shrinking of {!s} is disabled.'
-                ' If you really know what you are doing,'
-                ' use "truncate" manually.'.format(self.vid))
+                'For your own safety, shrinking of {!s} is disabled'
+                ' ({:d} < {:d}). If you really know what you are doing,'
+                ' use "truncate" manually.'.format(self.vid, size, self.size))
 
         try:  # assume volume is not (cleanly) stopped ...
             _resize_file(self._path_dirty, size)
