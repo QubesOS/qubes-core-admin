@@ -140,12 +140,7 @@ class ReflinkVolume(qubes.storage.Volume):
         self._prune_revisions(keep=0)
         _remove_file(self._path_clean)
         _remove_file(self._path_dirty)
-
-        try:
-            _remove_empty_dir(os.path.dirname(self._path_dirty))
-        except OSError as ex:
-            if ex.errno is not errno.ENOTEMPTY:
-                raise
+        _remove_empty_dir(os.path.dirname(self._path_dirty))
 
         return self
 
@@ -360,10 +355,13 @@ def _remove_file(path):
         LOGGER.info('Removed file: %s', path)
 
 def _remove_empty_dir(path):
-    with suppress(FileNotFoundError):
+    try:
         os.rmdir(path)
         _fsync_dir(os.path.dirname(path))
         LOGGER.info('Removed empty directory: %s', path)
+    except OSError as ex:
+        if ex.errno not in (errno.ENOENT, errno.ENOTEMPTY):
+            raise
 
 def _rename_file(src, dst):
     os.rename(src, dst)
