@@ -378,6 +378,7 @@ def _resize_file(path, size):
     ''' Resize an existing file. '''
     with open(path, 'rb+') as file:
         file.truncate(size)
+        os.fsync(file.fileno())
 
 def _create_sparse_file(path, size):
     ''' Create an empty sparse file. '''
