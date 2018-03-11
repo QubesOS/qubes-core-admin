@@ -117,8 +117,7 @@ class ReflinkVolume(qubes.storage.Volume):
 
     def verify(self):
         if self.snap_on_start:
-            # pylint: disable=protected-access
-            img = self.source._path_clean
+            img = self.source._path_clean  # pylint: disable=protected-access
         elif self.save_on_stop:
             img = self._path_clean
         else:
@@ -133,15 +132,11 @@ class ReflinkVolume(qubes.storage.Volume):
         ''' Drop volume object from pool; remove volume images from
             oldest to newest; remove empty VM directory.
         '''
-        with suppress(KeyError):
-            # pylint: disable=protected-access
-            del self.pool._volumes[self]
-
+        self.pool._volumes.pop(self, None)  # pylint: disable=protected-access
         self._prune_revisions(keep=0)
         _remove_file(self._path_clean)
         _remove_file(self._path_dirty)
         _remove_empty_dir(os.path.dirname(self._path_dirty))
-
         return self
 
     def is_outdated(self):
@@ -172,8 +167,7 @@ class ReflinkVolume(qubes.storage.Volume):
             self._commit()
         else:
             _remove_file(self._path_dirty)
-            if self.snap_on_start:
-                _remove_file(self._path_clean)
+            _remove_file(self._path_clean)
         return self
 
     def _commit(self):
