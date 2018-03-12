@@ -151,12 +151,12 @@ class ReflinkVolume(qubes.storage.Volume):
         return self.save_on_stop and os.path.exists(self._path_dirty)
 
     def start(self):
+        if self.is_dirty():  # implies self.save_on_stop
+            return self
         if self.snap_on_start:
             # pylint: disable=protected-access
             _copy_file(self.source._path_clean, self._path_clean)
-        if self.is_dirty():  # implies self.save_on_stop
-            return self
-        if self.save_on_stop or self.snap_on_start:
+        if self.snap_on_start or self.save_on_stop:
             _copy_file(self._path_clean, self._path_dirty)
         else:
             _create_sparse_file(self._path_dirty, self.size)
