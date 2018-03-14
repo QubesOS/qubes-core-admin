@@ -138,7 +138,7 @@ class TC_00_ThinPool(ThinPoolBase):
         self.assertEqual(volume.size, qubes.config.defaults['root_img_size'])
         volume.create()
         path = "/dev/%s" % volume.vid
-        self.assertTrue(os.path.exists(path))
+        self.assertTrue(os.path.exists(path), path)
         volume.remove()
 
     def test_003_read_write_volume(self):
@@ -158,7 +158,7 @@ class TC_00_ThinPool(ThinPoolBase):
         self.assertEqual(volume.size, qubes.config.defaults['root_img_size'])
         volume.create()
         path = "/dev/%s" % volume.vid
-        self.assertTrue(os.path.exists(path))
+        self.assertTrue(os.path.exists(path), path)
         volume.remove()
 
     def test_004_size(self):
