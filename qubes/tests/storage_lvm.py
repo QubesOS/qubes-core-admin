@@ -24,7 +24,6 @@
     'volume_group/thin_pool' combination. Pool variables without a prefix
     represent a :py:class:`qubes.storage.lvm.ThinPool`.
 '''
-
 import os
 import subprocess
 import tempfile
@@ -577,6 +576,76 @@ class TC_00_ThinPool(ThinPoolBase):
         self.assertEqual(volume.path, '/dev/' + volume.vid)
         self.assertEqual(snap_uuid, self._get_lv_uuid(volume.path))
         self.assertFalse(os.path.exists(path_snap), path_snap)
+
+        volume.remove()
+
+    def test_020_revert_last(self):
+        ''' Test volume revert'''
+        config = {
+            'name': 'root',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'revisions_to_keep': 2,
+            'size': qubes.config.defaults['root_img_size'],
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        volume.create()
+        volume.start()
+        volume.stop()
+        volume.start()
+        volume.stop()
+        self.assertEqual(len(volume.revisions), 2)
+        revisions = volume.revisions
+        revision_id = max(revisions.keys())
+        current_path = volume.path
+        current_uuid = self._get_lv_uuid(volume.path)
+        rev_uuid = self._get_lv_uuid(volume.vid + '-' + revision_id)
+        self.assertFalse(volume.is_dirty())
+        self.assertNotEqual(current_uuid, rev_uuid)
+        volume.revert()
+        path_snap = '/dev/' + volume._vid_snap
+        self.assertFalse(os.path.exists(path_snap), path_snap)
+        self.assertEqual(current_path, volume.path)
+        new_uuid = self._get_lv_origin_uuid(volume.path)
+        self.assertEqual(new_uuid, rev_uuid)
+        self.assertEqual(volume.revisions, revisions)
+
+        volume.remove()
+
+    def test_021_revert_earlier(self):
+        ''' Test volume revert'''
+        config = {
+            'name': 'root',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'revisions_to_keep': 2,
+            'size': qubes.config.defaults['root_img_size'],
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        volume.create()
+        volume.start()
+        volume.stop()
+        volume.start()
+        volume.stop()
+        self.assertEqual(len(volume.revisions), 2)
+        revisions = volume.revisions
+        revision_id = min(revisions.keys())
+        current_path = volume.path
+        current_uuid = self._get_lv_uuid(volume.path)
+        rev_uuid = self._get_lv_uuid(volume.vid + '-' + revision_id)
+        self.assertFalse(volume.is_dirty())
+        self.assertNotEqual(current_uuid, rev_uuid)
+        volume.revert(revision_id)
+        path_snap = '/dev/' + volume._vid_snap
+        self.assertFalse(os.path.exists(path_snap), path_snap)
+        self.assertEqual(current_path, volume.path)
+        new_uuid = self._get_lv_origin_uuid(volume.path)
+        self.assertEqual(new_uuid, rev_uuid)
+        self.assertEqual(volume.revisions, revisions)
 
         volume.remove()
 
