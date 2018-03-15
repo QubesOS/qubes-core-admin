@@ -29,10 +29,11 @@ import os
 import subprocess
 import tempfile
 import unittest
+import unittest.mock
 
 import qubes.tests
 import qubes.storage
-from qubes.storage.lvm import ThinPool, ThinVolume
+from qubes.storage.lvm import ThinPool, ThinVolume, qubes_lvm
 
 if 'DEFAULT_LVM_POOL' in os.environ.keys():
     DEFAULT_LVM_POOL = os.environ['DEFAULT_LVM_POOL']
@@ -239,6 +240,345 @@ class TC_00_ThinPool(ThinPoolBase):
         volume.stop()
         self.assertEqual(self._get_size(path), new_size)
         self.assertEqual(volume.size, new_size)
+
+    def _get_lv_uuid(self, lv):
+        sudo = [] if os.getuid() == 0 else ['sudo']
+        lvs_output = subprocess.check_output(
+            sudo + ['lvs', '--noheadings', '-o', 'lv_uuid', lv])
+        return lvs_output.strip()
+
+    def _get_lv_origin_uuid(self, lv):
+        sudo = [] if os.getuid() == 0 else ['sudo']
+        if qubes.storage.lvm.lvm_is_very_old:
+            # no support for origin_uuid directly
+            lvs_output = subprocess.check_output(
+                sudo + ['lvs', '--noheadings', '-o', 'origin', lv])
+            lvs_output = subprocess.check_output(
+                sudo + ['lvs', '--noheadings', '-o', 'lv_uuid',
+                    lv.rsplit('/', 1)[0] + '/' + lvs_output.strip().decode()])
+        else:
+            lvs_output = subprocess.check_output(
+                sudo + ['lvs', '--noheadings', '-o', 'origin_uuid', lv])
+        return lvs_output.strip()
+
+    def test_008_commit(self):
+        ''' Test volume changes commit'''
+        config = {
+            'name': 'root',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'size': qubes.config.defaults['root_img_size'],
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        volume.create()
+        path_snap = '/dev/' + volume._vid_snap
+        self.assertFalse(os.path.exists(path_snap), path_snap)
+        origin_uuid = self._get_lv_uuid(volume.path)
+        volume.start()
+        snap_uuid = self._get_lv_uuid(path_snap)
+        self.assertNotEqual(origin_uuid, snap_uuid)
+        path = volume.path
+        self.assertTrue(path.startswith('/dev/' + volume.vid),
+                        '{} does not start with /dev/{}'.format(path, volume.vid))
+        self.assertTrue(os.path.exists(path), path)
+        volume.remove()
+
+    def test_009_interrupted_commit(self):
+        ''' Test volume changes commit'''
+        config = {
+            'name': 'root',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'revisions_to_keep': 2,
+            'size': qubes.config.defaults['root_img_size'],
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        # mock logging, to not interfere with time.time() mock
+        volume.log = unittest.mock.Mock()
+        # do not call volume.create(), do it manually to simulate
+        # interrupted commit
+        revisions = ['-1521065904-back', '-1521065905-back', '-snap']
+        orig_uuids = {}
+        for rev in revisions:
+            cmd = ['create', self.pool._pool_id,
+                   volume.vid.split('/')[1] + rev, str(config['size'])]
+            qubes_lvm(cmd)
+            orig_uuids[rev] = self._get_lv_uuid(volume.vid + rev)
+        qubes.storage.lvm.reset_cache()
+        path_snap = '/dev/' + volume._vid_snap
+        self.assertTrue(volume.is_dirty())
+        self.assertEqual(volume.path,
+                         '/dev/' + volume.vid + revisions[1])
+        expected_revisions = {
+            revisions[0].lstrip('-'): '2018-03-14T22:18:24',
+            revisions[1].lstrip('-'): '2018-03-14T22:18:25',
+        }
+        self.assertEqual(volume.revisions, expected_revisions)
+        volume.start()
+        self.assertEqual(volume.revisions, expected_revisions)
+        snap_uuid = self._get_lv_uuid(path_snap)
+        self.assertEqual(orig_uuids['-snap'], snap_uuid)
+        self.assertTrue(volume.is_dirty())
+        self.assertEqual(volume.path,
+                         '/dev/' + volume.vid + revisions[1])
+        with unittest.mock.patch('time.time') as mock_time:
+            mock_time.side_effect = [521065906]
+            volume.stop()
+        expected_revisions = {
+            revisions[0].lstrip('-'): '2018-03-14T22:18:24',
+            revisions[1].lstrip('-'): '2018-03-14T22:18:25',
+        }
+        self.assertFalse(volume.is_dirty())
+        self.assertEqual(volume.revisions, expected_revisions)
+        self.assertEqual(volume.path, '/dev/' + volume.vid)
+        self.assertEqual(snap_uuid, self._get_lv_uuid(volume.path))
+        self.assertFalse(os.path.exists(path_snap), path_snap)
+
+        volume.remove()
+
+    def test_010_migration1(self):
+        '''Start with old revisions, then start interacting using new code'''
+        config = {
+            'name': 'root',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'revisions_to_keep': 2,
+            'size': qubes.config.defaults['root_img_size'],
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        # mock logging, to not interfere with time.time() mock
+        volume.log = unittest.mock.Mock()
+        # do not call volume.create(), do it manually to have old LV naming
+        revisions = ['', '-1521065904-back', '-1521065905-back']
+        orig_uuids = {}
+        for rev in revisions:
+            cmd = ['create', self.pool._pool_id,
+                   volume.vid.split('/')[1] + rev, str(config['size'])]
+            qubes_lvm(cmd)
+            orig_uuids[rev] = self._get_lv_uuid(volume.vid + rev)
+        qubes.storage.lvm.reset_cache()
+        path_snap = '/dev/' + volume._vid_snap
+        self.assertFalse(os.path.exists(path_snap), path_snap)
+        expected_revisions = {
+            revisions[1].lstrip('-'): '2018-03-14T22:18:24',
+            revisions[2].lstrip('-'): '2018-03-14T22:18:25',
+        }
+        self.assertEqual(volume.revisions, expected_revisions)
+        self.assertEqual(volume.path, '/dev/' + volume.vid)
+
+        volume.start()
+        snap_uuid = self._get_lv_uuid(path_snap)
+        self.assertNotEqual(orig_uuids[''], snap_uuid)
+        snap_origin_uuid = self._get_lv_origin_uuid(path_snap)
+        self.assertEqual(orig_uuids[''], snap_origin_uuid)
+        path = volume.path
+        self.assertEqual(path, '/dev/' + volume.vid)
+        self.assertTrue(os.path.exists(path), path)
+
+        with unittest.mock.patch('time.time') as mock_time:
+            mock_time.side_effect = ('1521065906', '1521065907')
+            volume.stop()
+        revisions.extend(['-1521065906-back'])
+        expected_revisions = {
+            revisions[2].lstrip('-'): '2018-03-14T22:18:25',
+            revisions[3].lstrip('-'): '2018-03-14T22:18:26',
+        }
+        self.assertEqual(volume.revisions, expected_revisions)
+        self.assertEqual(volume.path, '/dev/' + volume.vid)
+        path_snap = '/dev/' + volume._vid_snap
+        self.assertFalse(os.path.exists(path_snap), path_snap)
+        self.assertTrue(os.path.exists('/dev/' + volume.vid))
+        self.assertEqual(self._get_lv_uuid(volume.path), snap_uuid)
+        prev_path = '/dev/' + volume.vid + revisions[3]
+        self.assertEqual(self._get_lv_uuid(prev_path), orig_uuids[''])
+
+        volume.remove()
+        for rev in revisions:
+            path = '/dev/' + volume.vid + rev
+            self.assertFalse(os.path.exists(path), path)
+
+    def test_011_migration2(self):
+        '''VM started with old code, stopped with new'''
+        config = {
+            'name': 'root',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'revisions_to_keep': 1,
+            'size': qubes.config.defaults['root_img_size'],
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        # mock logging, to not interfere with time.time() mock
+        volume.log = unittest.mock.Mock()
+        # do not call volume.create(), do it manually to have old LV naming
+        revisions = ['', '-snap']
+        orig_uuids = {}
+        for rev in revisions:
+            cmd = ['create', self.pool._pool_id,
+                   volume.vid.split('/')[1] + rev, str(config['size'])]
+            qubes_lvm(cmd)
+            orig_uuids[rev] = self._get_lv_uuid(volume.vid + rev)
+        qubes.storage.lvm.reset_cache()
+        path_snap = '/dev/' + volume._vid_snap
+        self.assertTrue(os.path.exists(path_snap), path_snap)
+        expected_revisions = {}
+        self.assertEqual(volume.revisions, expected_revisions)
+        self.assertEqual(volume.path, '/dev/' + volume.vid)
+        self.assertTrue(volume.is_dirty())
+
+        path = volume.path
+        self.assertEqual(path, '/dev/' + volume.vid)
+        self.assertTrue(os.path.exists(path), path)
+
+        with unittest.mock.patch('time.time') as mock_time:
+            mock_time.side_effect = ('1521065906', '1521065907')
+            volume.stop()
+        revisions.extend(['-1521065906-back'])
+        expected_revisions = {
+            revisions[2].lstrip('-'): '2018-03-14T22:18:26',
+        }
+        self.assertEqual(volume.revisions, expected_revisions)
+        self.assertEqual(volume.path, '/dev/' + volume.vid)
+        path_snap = '/dev/' + volume._vid_snap
+        self.assertFalse(os.path.exists(path_snap), path_snap)
+        self.assertTrue(os.path.exists('/dev/' + volume.vid))
+        self.assertEqual(self._get_lv_uuid(volume.path), orig_uuids['-snap'])
+        prev_path = '/dev/' + volume.vid + revisions[2]
+        self.assertEqual(self._get_lv_uuid(prev_path), orig_uuids[''])
+
+        volume.remove()
+        for rev in revisions:
+            path = '/dev/' + volume.vid + rev
+            self.assertFalse(os.path.exists(path), path)
+
+    def test_012_migration3(self):
+        '''VM started with old code, started again with new, stopped with new'''
+        config = {
+            'name': 'root',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'revisions_to_keep': 1,
+            'size': qubes.config.defaults['root_img_size'],
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        # mock logging, to not interfere with time.time() mock
+        volume.log = unittest.mock.Mock()
+        # do not call volume.create(), do it manually to have old LV naming
+        revisions = ['', '-snap']
+        orig_uuids = {}
+        for rev in revisions:
+            cmd = ['create', self.pool._pool_id,
+                   volume.vid.split('/')[1] + rev, str(config['size'])]
+            qubes_lvm(cmd)
+            orig_uuids[rev] = self._get_lv_uuid(volume.vid + rev)
+        qubes.storage.lvm.reset_cache()
+        path_snap = '/dev/' + volume._vid_snap
+        self.assertTrue(os.path.exists(path_snap), path_snap)
+        expected_revisions = {}
+        self.assertEqual(volume.revisions, expected_revisions)
+        self.assertTrue(volume.path, '/dev/' + volume.vid)
+        self.assertTrue(volume.is_dirty())
+
+        volume.start()
+        self.assertEqual(volume.revisions, expected_revisions)
+        self.assertEqual(volume.path, '/dev/' + volume.vid)
+        # -snap LV should be unchanged
+        self.assertEqual(self._get_lv_uuid(volume._vid_snap),
+                         orig_uuids['-snap'])
+
+        volume.remove()
+        for rev in revisions:
+            path = '/dev/' + volume.vid + rev
+            self.assertFalse(os.path.exists(path), path)
+
+    def test_013_migration4(self):
+        '''revisions_to_keep=0, VM started with old code, stopped with new'''
+        config = {
+            'name': 'root',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'revisions_to_keep': 0,
+            'size': qubes.config.defaults['root_img_size'],
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        # mock logging, to not interfere with time.time() mock
+        volume.log = unittest.mock.Mock()
+        # do not call volume.create(), do it manually to have old LV naming
+        revisions = ['', '-snap']
+        orig_uuids = {}
+        for rev in revisions:
+            cmd = ['create', self.pool._pool_id,
+                   volume.vid.split('/')[1] + rev, str(config['size'])]
+            qubes_lvm(cmd)
+            orig_uuids[rev] = self._get_lv_uuid(volume.vid + rev)
+        qubes.storage.lvm.reset_cache()
+        path_snap = '/dev/' + volume._vid_snap
+        self.assertTrue(os.path.exists(path_snap), path_snap)
+        expected_revisions = {}
+        self.assertEqual(volume.revisions, expected_revisions)
+        self.assertEqual(volume.path, '/dev/' + volume.vid)
+        self.assertTrue(volume.is_dirty())
+
+        with unittest.mock.patch('time.time') as mock_time:
+            mock_time.side_effect = ('1521065906', '1521065907')
+            volume.stop()
+        expected_revisions = {}
+        self.assertEqual(volume.revisions, expected_revisions)
+        self.assertEqual(volume.path, '/dev/' + volume.vid)
+
+        volume.remove()
+        for rev in revisions:
+            path = '/dev/' + volume.vid + rev
+            self.assertFalse(os.path.exists(path), path)
+
+    def test_014_commit_keep_0(self):
+        ''' Test volume changes commit, with revisions_to_keep=0'''
+        config = {
+            'name': 'root',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'revisions_to_keep': 0,
+            'size': qubes.config.defaults['root_img_size'],
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        # mock logging, to not interfere with time.time() mock
+        volume.log = unittest.mock.Mock()
+        volume.create()
+        self.assertFalse(volume.is_dirty())
+        path = volume.path
+        expected_revisions = {}
+        self.assertEqual(volume.revisions, expected_revisions)
+
+        volume.start()
+        self.assertEqual(volume.revisions, expected_revisions)
+        path_snap = '/dev/' + volume._vid_snap
+        snap_uuid = self._get_lv_uuid(path_snap)
+        self.assertTrue(volume.is_dirty())
+        self.assertEqual(volume.path, path)
+
+        with unittest.mock.patch('time.time') as mock_time:
+            mock_time.side_effect = [521065906]
+            volume.stop()
+        self.assertFalse(volume.is_dirty())
+        self.assertEqual(volume.revisions, {})
+        self.assertEqual(volume.path, '/dev/' + volume.vid)
+        self.assertEqual(snap_uuid, self._get_lv_uuid(volume.path))
+        self.assertFalse(os.path.exists(path_snap), path_snap)
+
+        volume.remove()
 
 
 @skipUnlessLvmPoolExists
