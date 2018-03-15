@@ -159,7 +159,7 @@ class ThinPool(qubes.storage.Pool):
                 continue
             if vol_info['pool_lv'] != self.thin_pool:
                 continue
-            if vid.endswith('-snap'):
+            if vid.endswith('-snap') or vid.endswith('-import'):
                 # implementation detail volume
                 continue
             if vid.endswith('-back'):
@@ -249,6 +249,8 @@ class ThinVolume(qubes.storage.Volume):
 
         if self.snap_on_start or self.save_on_stop:
             self._vid_snap = self.vid + '-snap'
+        if self.save_on_stop:
+            self._vid_import = self.vid + '-import'
 
         self._size = size
 
@@ -409,6 +411,13 @@ class ThinVolume(qubes.storage.Volume):
         except AttributeError:
             pass
 
+        try:
+            if os.path.exists('/dev/' + self._vid_import):
+                cmd = ['remove', self._vid_import]
+                qubes_lvm(cmd, self.log)
+        except AttributeError:
+            pass
+
         self._remove_revisions(self.revisions.keys())
         if not os.path.exists(self.path):
             return
@@ -434,35 +443,73 @@ class ThinVolume(qubes.storage.Volume):
             raise qubes.storage.StoragePoolException(
                 'Cannot import to dirty volume {} -'
                 ' start and stop a qube to cleanup'.format(self.vid))
+        self.abort_if_import_in_progress()
         # HACK: neat trick to speed up testing if you have same physical thin
         # pool assigned to two qubes-pools i.e: qubes_dom0 and test-lvm
         # pylint: disable=line-too-long
         if isinstance(src_volume.pool, ThinPool) and \
                 src_volume.pool.thin_pool == self.pool.thin_pool:  # NOQA
-            self._commit(src_volume.path, keep=True)
+            self._commit(src_volume.path[len('/dev/'):], keep=True)
         else:
-            cmd = ['create', self.pool._pool_id, self._vid_snap.split('/')[1],
+            cmd = ['create',
+                   self.pool._pool_id,  # pylint: disable=protected-access
+                   self._vid_import.split('/')[1],
                    str(src_volume.size)]
-            qubes_lvm(cmd)
+            qubes_lvm(cmd, self.log)
             src_path = src_volume.export()
-            cmd = ['dd', 'if=' + src_path, 'of=/dev/' + self._vid_snap,
-                'conv=sparse']
+            cmd = ['dd', 'if=' + src_path, 'of=/dev/' + self._vid_import,
+                'conv=sparse', 'status=none']
+            if not os.access('/dev/' + self._vid_import, os.W_OK) or \
+                    not os.access(src_path, os.R_OK):
+                cmd.insert(0, 'sudo')
+
             p = yield from asyncio.create_subprocess_exec(*cmd)
             yield from p.wait()
             if p.returncode != 0:
-                cmd = ['remove', self._vid_snap]
-                qubes_lvm(cmd)
+                cmd = ['remove', self._vid_import]
+                qubes_lvm(cmd, self.log)
                 raise qubes.storage.StoragePoolException(
                     'Failed to import volume {!r}, dd exit code: {}'.format(
                         src_volume, p.returncode))
-            self._commit()
+            self._commit(self._vid_import)
 
         return self
 
     def import_data(self):
         ''' Returns an object that can be `open()`. '''
-        devpath = '/dev/' + self.vid
+        if self.is_dirty():
+            raise qubes.storage.StoragePoolException(
+                'Cannot import data to dirty volume {}, stop the qube first'.
+                format(self.vid))
+        self.abort_if_import_in_progress()
+        # pylint: disable=protected-access
+        cmd = ['create', self.pool._pool_id, self._vid_import.split('/')[1],
+               str(self.size)]
+        qubes_lvm(cmd, self.log)
+        reset_cache()
+        devpath = '/dev/' + self._vid_import
         return devpath
+
+    def import_data_end(self, success):
+        '''Either commit imported data, or discard temporary volume'''
+        if not os.path.exists('/dev/' + self._vid_import):
+            raise qubes.storage.StoragePoolException(
+                'No import operation in progress on {}'.format(self.vid))
+        if success:
+            self._commit(self._vid_import)
+        else:
+            cmd = ['remove', self._vid_import]
+            qubes_lvm(cmd, self.log)
+
+    def abort_if_import_in_progress(self):
+        try:
+            devpath = '/dev/' + self._vid_import
+            if os.path.exists(devpath):
+                raise qubes.storage.StoragePoolException(
+                    'Import operation in progress on {}'.format(self.vid))
+        except AttributeError:  # self._vid_import
+            # no vid_import - import definitely not in progress
+            pass
 
     def is_dirty(self):
         if self.save_on_stop:
@@ -482,6 +529,7 @@ class ThinVolume(qubes.storage.Volume):
             raise qubes.storage.StoragePoolException(
                 'Cannot revert dirty volume {}, stop the qube first'.format(
                     self.vid))
+        self.abort_if_import_in_progress()
         if revision is None:
             revision = \
                 max(self.revisions.items(), key=_revision_sort_key)[0]
@@ -520,6 +568,10 @@ class ThinVolume(qubes.storage.Volume):
         if self.is_dirty():
             cmd = ['extend', self._vid_snap, str(size)]
             qubes_lvm(cmd, self.log)
+        elif hasattr(self, '_vid_import') and \
+                os.path.exists('/dev/' + self._vid_import):
+            cmd = ['extend', self._vid_import, str(size)]
+            qubes_lvm(cmd, self.log)
         elif self.save_on_stop or not self.snap_on_start:
             cmd = ['extend', self._vid_current, str(size)]
             qubes_lvm(cmd, self.log)
@@ -538,8 +590,8 @@ class ThinVolume(qubes.storage.Volume):
             cmd = ['clone', self.source.path, self._vid_snap]
         qubes_lvm(cmd, self.log)
 
-
     def start(self):
+        self.abort_if_import_in_progress()
         try:
             if self.snap_on_start or self.save_on_stop:
                 if not self.save_on_stop or not self.is_dirty():

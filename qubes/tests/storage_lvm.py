@@ -649,6 +649,65 @@ class TC_00_ThinPool(ThinPoolBase):
 
         volume.remove()
 
+    def test_030_import_data(self):
+        ''' Test volume import'''
+        config = {
+            'name': 'root',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'revisions_to_keep': 2,
+            'size': qubes.config.defaults['root_img_size'],
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        volume.create()
+        current_uuid = self._get_lv_uuid(volume.path)
+        self.assertFalse(volume.is_dirty())
+        import_path = volume.import_data()
+        import_uuid = self._get_lv_uuid(import_path)
+        self.assertNotEqual(current_uuid, import_uuid)
+        # success - commit data
+        volume.import_data_end(True)
+        new_current_uuid = self._get_lv_uuid(volume.path)
+        self.assertEqual(new_current_uuid, import_uuid)
+        revisions = volume.revisions
+        self.assertEqual(len(revisions), 1)
+        revision = revisions.popitem()[0]
+        self.assertEqual(current_uuid,
+                         self._get_lv_uuid(volume.vid + '-' + revision))
+        self.assertFalse(os.path.exists(import_path), import_path)
+
+        volume.remove()
+
+    def test_031_import_data_fail(self):
+        ''' Test volume import'''
+        config = {
+            'name': 'root',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'revisions_to_keep': 2,
+            'size': qubes.config.defaults['root_img_size'],
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        volume.create()
+        current_uuid = self._get_lv_uuid(volume.path)
+        self.assertFalse(volume.is_dirty())
+        import_path = volume.import_data()
+        import_uuid = self._get_lv_uuid(import_path)
+        self.assertNotEqual(current_uuid, import_uuid)
+        # fail - discard data
+        volume.import_data_end(False)
+        new_current_uuid = self._get_lv_uuid(volume.path)
+        self.assertEqual(new_current_uuid, current_uuid)
+        revisions = volume.revisions
+        self.assertEqual(len(revisions), 0)
+        self.assertFalse(os.path.exists(import_path), import_path)
+
+        volume.remove()
+
 
 @skipUnlessLvmPoolExists
 class TC_01_ThinPool(ThinPoolBase, qubes.tests.SystemTestCase):
