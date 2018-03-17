@@ -708,6 +708,229 @@ class TC_00_ThinPool(ThinPoolBase):
 
         volume.remove()
 
+    def test_032_import_volume_same_pool(self):
+        '''Import volume from the same pool'''
+        # source volume
+        config = {
+            'name': 'root',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'revisions_to_keep': 2,
+            'size': qubes.config.defaults['root_img_size'],
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        source_volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        source_volume.create()
+
+        source_uuid = self._get_lv_uuid(source_volume.path)
+
+        # destination volume
+        config = {
+            'name': 'root2',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'revisions_to_keep': 2,
+            'size': qubes.config.defaults['root_img_size'],
+        }
+        volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        volume.log = unittest.mock.Mock()
+        with unittest.mock.patch('time.time') as mock_time:
+            mock_time.side_effect = [1521065905]
+            volume.create()
+
+        self.assertEqual(volume.revisions, {})
+        uuid_before = self._get_lv_uuid(volume.path)
+
+        with unittest.mock.patch('time.time') as mock_time:
+            mock_time.side_effect = [1521065906]
+            self.loop.run_until_complete(
+                volume.import_volume(source_volume))
+
+        uuid_after = self._get_lv_uuid(volume.path)
+        self.assertNotEqual(uuid_after, uuid_before)
+
+        # also should be different than source volume (clone, not the same LV)
+        self.assertNotEqual(uuid_after, source_uuid)
+        self.assertEqual(self._get_lv_origin_uuid(volume.path), source_uuid)
+
+        expected_revisions = {
+            '1521065906-back': '2018-03-14T22:18:26',
+        }
+        self.assertEqual(volume.revisions, expected_revisions)
+
+        volume.remove()
+        source_volume.remove()
+
+    def test_033_import_volume_different_pool(self):
+        '''Import volume from a different pool'''
+        source_volume = unittest.mock.Mock()
+        # destination volume
+        config = {
+            'name': 'root2',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'revisions_to_keep': 2,
+            'size': qubes.config.defaults['root_img_size'],
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        volume.log = unittest.mock.Mock()
+        with unittest.mock.patch('time.time') as mock_time:
+            mock_time.side_effect = [1521065905]
+            volume.create()
+
+        self.assertEqual(volume.revisions, {})
+        uuid_before = self._get_lv_uuid(volume.path)
+
+        with tempfile.NamedTemporaryFile() as source_volume_file:
+            source_volume_file.write(b'test-content')
+            source_volume_file.flush()
+            source_volume.size = 16 * 1024 * 1024  # 16MiB
+            source_volume.export.return_value = source_volume_file.name
+            with unittest.mock.patch('time.time') as mock_time:
+                mock_time.side_effect = [1521065906]
+                self.loop.run_until_complete(
+                    volume.import_volume(source_volume))
+
+        uuid_after = self._get_lv_uuid(volume.path)
+        self.assertNotEqual(uuid_after, uuid_before)
+        self.assertEqual(volume.size, 16 * 1024 * 1024)
+
+        volume_content = subprocess.check_output(['sudo', 'cat', volume.path])
+        self.assertEqual(volume_content.rstrip(b'\0'), b'test-content')
+
+        expected_revisions = {
+            '1521065906-back': '2018-03-14T22:18:26',
+        }
+        self.assertEqual(volume.revisions, expected_revisions)
+
+        volume.remove()
+
+    def test_040_volatile(self):
+        '''Volatile volume test'''
+        config = {
+            'name': 'volatile',
+            'pool': self.pool.name,
+            'rw': True,
+            'size': qubes.config.defaults['root_img_size'],
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        # volatile volume don't need any file, verify should succeed
+        self.assertTrue(volume.verify())
+        volume.create()
+        self.assertTrue(volume.verify())
+        self.assertFalse(volume.save_on_stop)
+        self.assertFalse(volume.snap_on_start)
+        path = volume.path
+        self.assertEqual(path, '/dev/' + volume.vid)
+        self.assertFalse(os.path.exists(path))
+        volume.start()
+        self.assertTrue(os.path.exists(path))
+        vol_uuid = self._get_lv_uuid(path)
+        volume.start()
+        self.assertTrue(os.path.exists(path))
+        vol_uuid2 = self._get_lv_uuid(path)
+        self.assertNotEqual(vol_uuid, vol_uuid2)
+        volume.stop()
+        self.assertFalse(os.path.exists(path))
+
+    def test_050_snapshot_volume(self):
+        ''' Test snapshot volume creation '''
+        config_origin = {
+            'name': 'root',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'size': qubes.config.defaults['root_img_size'],
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume_origin = self.app.get_pool(self.pool.name).init_volume(
+            vm, config_origin)
+        volume_origin.create()
+        config_snapshot = {
+            'name': 'root2',
+            'pool': self.pool.name,
+            'snap_on_start': True,
+            'source': volume_origin,
+            'rw': True,
+            'size': qubes.config.defaults['root_img_size'],
+        }
+        volume = self.app.get_pool(self.pool.name).init_volume(
+            vm, config_snapshot)
+        self.assertIsInstance(volume, ThinVolume)
+        self.assertEqual(volume.name, 'root2')
+        self.assertEqual(volume.pool, self.pool.name)
+        self.assertEqual(volume.size, qubes.config.defaults['root_img_size'])
+        # only origin volume really needs to exist, verify should succeed
+        # even before create
+        self.assertTrue(volume.verify())
+        volume.create()
+        path = volume.path
+        self.assertEqual(path, '/dev/' + volume.vid)
+        self.assertFalse(os.path.exists(path), path)
+        volume.start()
+        # snapshot volume isn't considered dirty at any time
+        self.assertFalse(volume.is_dirty())
+        # not outdated yet
+        self.assertFalse(volume.is_outdated())
+        origin_uuid = self._get_lv_uuid(volume_origin.path)
+        snap_origin_uuid = self._get_lv_origin_uuid(volume._vid_snap)
+        self.assertEqual(origin_uuid, snap_origin_uuid)
+
+        # now make it outdated
+        volume_origin.start()
+        volume_origin.stop()
+        self.assertTrue(volume.is_outdated())
+        origin_uuid = self._get_lv_uuid(volume_origin.path)
+        self.assertNotEqual(origin_uuid, snap_origin_uuid)
+
+        volume.stop()
+        # stopped volume is never outdated
+        self.assertFalse(volume.is_outdated())
+        path = volume.path
+        self.assertFalse(os.path.exists(path), path)
+        path = '/dev/' + volume._vid_snap
+        self.assertFalse(os.path.exists(path), path)
+
+        volume.remove()
+        volume_origin.remove()
+
+    def test_100_pool_list_volumes(self):
+        config = {
+            'name': 'root',
+            'pool': self.pool.name,
+            'save_on_stop': True,
+            'rw': True,
+            'revisions_to_keep': 2,
+            'size': qubes.config.defaults['root_img_size'],
+        }
+        config2 = config.copy()
+        vm = qubes.tests.storage.TestVM(self)
+        volume1 = self.app.get_pool(self.pool.name).init_volume(vm, config)
+        volume1.create()
+        config2['name'] = 'private'
+        volume2 = self.app.get_pool(self.pool.name).init_volume(vm, config2)
+        volume2.create()
+
+        # create some revisions
+        volume1.start()
+        volume1.stop()
+
+        # and have one in dirty state
+        volume2.start()
+
+        self.assertIn(volume1, list(self.pool.volumes))
+        self.assertIn(volume2, list(self.pool.volumes))
+        volume1.remove()
+        self.assertNotIn(volume1, list(self.pool.volumes))
+        self.assertIn(volume2, list(self.pool.volumes))
+        volume2.remove()
+        self.assertNotIn(volume1, list(self.pool.volumes))
+        self.assertNotIn(volume1, list(self.pool.volumes))
 
 @skipUnlessLvmPoolExists
 class TC_01_ThinPool(ThinPoolBase, qubes.tests.SystemTestCase):
