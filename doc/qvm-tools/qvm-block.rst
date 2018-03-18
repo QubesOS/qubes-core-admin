@@ -4,7 +4,7 @@ qvm-block
 
 NAME
 ====
-qvm-block - list/set VM PCI devices.
+qvm-block - list/set VM block devices.
 
 SYNOPSIS
 ========
