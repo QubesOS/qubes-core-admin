@@ -40,7 +40,7 @@ import qubes.storage
 # properties defined in API
 volume_properties = [
     'pool', 'vid', 'size', 'usage', 'rw', 'source',
-    'save_on_stop', 'snap_on_start']
+    'save_on_stop', 'snap_on_start', 'revisions_to_keep', 'is_outdated']
 
 
 class AdminAPITestCase(qubes.tests.QubesTestCase):

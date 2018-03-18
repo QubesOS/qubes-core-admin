@@ -336,9 +336,16 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         # properties defined in API
         volume_properties = [
             'pool', 'vid', 'size', 'usage', 'rw', 'source',
-            'save_on_stop', 'snap_on_start']
-        return ''.join('{}={}\n'.format(key, getattr(volume, key)) for key in
-            volume_properties)
+            'save_on_stop', 'snap_on_start', 'revisions_to_keep', 'is_outdated']
+
+        def _serialize(value):
+            if callable(value):
+                value = value()
+            if value is None:
+                value = ''
+            return str(value)
+        return ''.join('{}={}\n'.format(key, _serialize(getattr(volume, key)))
+            for key in volume_properties)
 
     @qubes.api.method('admin.vm.volume.ListSnapshots', no_payload=True,
         scope='local', read=True)
