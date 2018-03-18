@@ -30,6 +30,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.pool.volume.Resize \
 	admin.pool.volume.Revert \
 	admin.pool.volume.Set.revisions_to_keep \
+	admin.pool.volume.Set.rw \
 	admin.pool.volume.Snapshot \
 	admin.property.Get \
 	admin.property.GetDefault \
@@ -100,6 +101,7 @@ ADMIN_API_METHODS_SIMPLE = \
 	admin.vm.volume.Resize \
 	admin.vm.volume.Revert \
 	admin.vm.volume.Set.revisions_to_keep \
+	admin.vm.volume.Set.rw \
 	admin.vm.Stats \
 	$(null)
 

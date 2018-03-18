@@ -2371,6 +2371,34 @@ class TC_00_VMs(AdminAPITestCase):
             self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
                 b'test-vm1', b'private', b'abc')
 
+    def test_680_vm_volume_set_rw(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        value = self.call_mgmt_func(b'admin.vm.volume.Set.rw',
+            b'test-vm1', b'private', b'True')
+        self.assertIsNone(value)
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [unittest.mock.call.keys(),
+            ('__getitem__', ('private',), {})])
+        self.assertEqual(self.vm.volumes['private'].rw, True)
+        self.app.save.assert_called_once_with()
+
+    def test_681_vm_volume_set_rw_invalid(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
+                b'test-vm1', b'private', b'abc')
+        self.assertFalse(self.app.save.called)
+
     def test_990_vm_unexpected_payload(self):
         methods_with_no_payload = [
             b'admin.vm.List',

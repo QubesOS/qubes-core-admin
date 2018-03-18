@@ -503,6 +503,26 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.dest.volumes[self.arg].revisions_to_keep = newvalue
         self.app.save()
 
+    @qubes.api.method('admin.vm.volume.Set.rw',
+        scope='local', write=True)
+    @asyncio.coroutine
+    def vm_volume_set_rw(self, untrusted_payload):
+        assert self.arg in self.dest.volumes.keys()
+        try:
+            newvalue = qubes.property.bool(None, None,
+                untrusted_payload.decode('ascii'))
+        except (UnicodeDecodeError, ValueError):
+            raise qubes.api.ProtocolError('Invalid value')
+        del untrusted_payload
+
+        self.fire_event_for_permission(newvalue=newvalue)
+
+        if not self.dest.is_halted():
+            raise qubes.exc.QubesVMNotHaltedError(self.dest)
+
+        self.dest.volumes[self.arg].rw = newvalue
+        self.app.save()
+
     @qubes.api.method('admin.vm.tag.List', no_payload=True,
         scope='local', read=True)
     @asyncio.coroutine
