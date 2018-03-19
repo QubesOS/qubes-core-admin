@@ -1624,7 +1624,7 @@ class TC_00_VMs(AdminAPITestCase):
         value = self.call_mgmt_func(b'admin.vm.volume.Import', b'test-vm1',
             b'private')
         self.assertEqual(value, '{} {}'.format(
-            2*2**30, '/tmp/qubes-test-dir/appvms/test-vm1/private.img'))
+            2*2**30, '/tmp/qubes-test-dir/appvms/test-vm1/private-import.img'))
         self.assertFalse(self.app.save.called)
 
     def test_511_vm_volume_import_running(self):
