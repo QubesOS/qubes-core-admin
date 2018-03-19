@@ -883,3 +883,43 @@ class VmCreationManager(object):
                 except Exception:  # pylint: disable=broad-except
                     pass
             os.rmdir(self.vm.dir_path)
+
+# pylint: disable=too-few-public-methods
+class DirectoryThinPool:
+    '''The thin pool containing the device of given filesystem'''
+    _thin_pool = {}
+
+    @classmethod
+    def _init(cls, dir_path):
+        '''Find out the thin pool containing given filesystem'''
+        if dir_path not in cls._thin_pool:
+            cls._thin_pool[dir_path] = None, None
+
+            try:
+                fs_stat = os.stat(dir_path)
+                fs_major = (fs_stat.st_dev & 0xff00) >> 8
+                fs_minor = fs_stat.st_dev & 0xff
+
+                root_table = subprocess.check_output(["dmsetup",
+                    "-j", str(fs_major), "-m", str(fs_minor),
+                    "table"])
+
+                _start, _sectors, target_type, target_args = \
+                    root_table.decode().split(" ", 3)
+                if target_type == "thin":
+                    thin_pool_devnum, _thin_pool_id = target_args.split(" ")
+                    with open("/sys/dev/block/{}/dm/name"
+                        .format(thin_pool_devnum), "r") as thin_pool_tpool_f:
+                        thin_pool_tpool = thin_pool_tpool_f.read().rstrip('\n')
+                    if thin_pool_tpool.endswith("-tpool"):
+                        volume_group, thin_pool, _tpool = \
+                            thin_pool_tpool.rsplit("-", 2)
+                        cls._thin_pool[dir_path] = volume_group, thin_pool
+            except:  # pylint: disable=bare-except
+                pass
+
+    @classmethod
+    def thin_pool(cls, dir_path):
+        '''Thin tuple (volume group, pool name) containing given filesystem'''
+        cls._init(dir_path)
+        return cls._thin_pool[dir_path]

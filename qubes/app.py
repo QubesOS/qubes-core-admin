@@ -24,21 +24,19 @@ import collections
 import errno
 import functools
 import grp
+import itertools
 import logging
 import os
 import random
-import subprocess
 import sys
 import tempfile
 import time
 import traceback
 import uuid
 
-import itertools
-import lxml.etree
-
 import jinja2
 import libvirt
+import lxml.etree
 
 try:
     import xen.lowlevel.xs  # pylint: disable=wrong-import-order
@@ -548,54 +546,6 @@ class VMCollection(object):
             'https://xkcd.com/221/',
             'http://dilbert.com/strip/2001-10-25')[random.randint(0, 1)])
 
-# pylint: disable=too-few-public-methods
-class RootThinPool:
-    '''The thin pool containing the rootfs device'''
-    _inited = False
-    _volume_group = None
-    _thin_pool = None
-
-    @classmethod
-    def _init(cls):
-        '''Find out the thin pool containing the root device'''
-        if not cls._inited:
-            cls._inited = True
-
-            try:
-                rootfs = os.stat('/')
-                root_major = (rootfs.st_dev & 0xff00) >> 8
-                root_minor = rootfs.st_dev & 0xff
-
-                root_table = subprocess.check_output(["dmsetup",
-                    "-j", str(root_major), "-m", str(root_minor),
-                    "table"])
-
-                _start, _sectors, target_type, target_args = \
-                    root_table.decode().split(" ", 3)
-                if target_type == "thin":
-                    thin_pool_devnum, _thin_pool_id = target_args.split(" ")
-                    with open("/sys/dev/block/{}/dm/name"
-                        .format(thin_pool_devnum), "r") as thin_pool_tpool_f:
-                        thin_pool_tpool = thin_pool_tpool_f.read().rstrip('\n')
-                    if thin_pool_tpool.endswith("-tpool"):
-                        volume_group, thin_pool, _tpool = \
-                            thin_pool_tpool.rsplit("-", 2)
-                        cls._volume_group = volume_group
-                        cls._thin_pool = thin_pool
-            except: # pylint: disable=bare-except
-                pass
-
-    @classmethod
-    def volume_group(cls):
-        '''Volume group of the thin pool containing the rootfs device'''
-        cls._init()
-        return cls._volume_group
-
-    @classmethod
-    def thin_pool(cls):
-        '''Thin pool name containing the rootfs device'''
-        cls._init()
-        return cls._thin_pool
 
 def _default_pool(app):
     ''' Default storage pool.
@@ -616,8 +566,8 @@ def _default_pool(app):
                 if pool.config['thin_pool'] == thin_pool:
                     return pool
         # no DEFAULT_LVM_POOL, or pool not defined
-        root_volume_group = RootThinPool.volume_group()
-        root_thin_pool = RootThinPool.thin_pool()
+        root_volume_group, root_thin_pool = \
+            qubes.storage.DirectoryThinPool.thin_pool('/')
         if root_thin_pool:
             for pool in app.pools.values():
                 if pool.config.get('driver', None) != 'lvm_thin':
@@ -1114,8 +1064,8 @@ class Qubes(qubes.PropertyHolder):
         }
         assert max(self.labels.keys()) == qubes.config.max_default_label
 
-        root_volume_group = RootThinPool.volume_group()
-        root_thin_pool = RootThinPool.thin_pool()
+        root_volume_group, root_thin_pool = \
+            qubes.storage.DirectoryThinPool.thin_pool('/')
 
         if root_thin_pool:
             self.add_pool(
