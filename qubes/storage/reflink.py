@@ -117,8 +117,7 @@ class ReflinkVolume(qubes.storage.Volume):
 
     def verify(self):
         if self.snap_on_start:
-            # pylint: disable=protected-access
-            img = self.source._path_clean
+            img = self.source._path_clean  # pylint: disable=protected-access
         elif self.save_on_stop:
             img = self._path_clean
         else:
@@ -133,20 +132,11 @@ class ReflinkVolume(qubes.storage.Volume):
         ''' Drop volume object from pool; remove volume images from
             oldest to newest; remove empty VM directory.
         '''
-        with suppress(KeyError):
-            # pylint: disable=protected-access
-            del self.pool._volumes[self]
-
+        self.pool._volumes.pop(self, None)  # pylint: disable=protected-access
         self._prune_revisions(keep=0)
         _remove_file(self._path_clean)
         _remove_file(self._path_dirty)
-
-        try:
-            _remove_empty_dir(os.path.dirname(self._path_dirty))
-        except OSError as ex:
-            if ex.errno is not errno.ENOTEMPTY:
-                raise
-
+        _remove_empty_dir(os.path.dirname(self._path_dirty))
         return self
 
     def is_outdated(self):
@@ -161,12 +151,12 @@ class ReflinkVolume(qubes.storage.Volume):
         return self.save_on_stop and os.path.exists(self._path_dirty)
 
     def start(self):
+        if self.is_dirty():  # implies self.save_on_stop
+            return self
         if self.snap_on_start:
             # pylint: disable=protected-access
             _copy_file(self.source._path_clean, self._path_clean)
-        if self.is_dirty():  # implies self.save_on_stop
-            return self
-        if self.save_on_stop or self.snap_on_start:
+        if self.snap_on_start or self.save_on_stop:
             _copy_file(self._path_clean, self._path_dirty)
         else:
             _create_sparse_file(self._path_dirty, self.size)
@@ -177,8 +167,7 @@ class ReflinkVolume(qubes.storage.Volume):
             self._commit()
         else:
             _remove_file(self._path_dirty)
-            if self.snap_on_start:
-                _remove_file(self._path_clean)
+            _remove_file(self._path_clean)
         return self
 
     def _commit(self):
@@ -223,9 +212,9 @@ class ReflinkVolume(qubes.storage.Volume):
 
         if size < self.size:
             raise qubes.storage.StoragePoolException(
-                'For your own safety, shrinking of {!s} is disabled.'
-                ' If you really know what you are doing,'
-                ' use "truncate" manually.'.format(self.vid))
+                'For your own safety, shrinking of {!s} is disabled'
+                ' ({:d} < {:d}). If you really know what you are doing,'
+                ' use "truncate" manually.'.format(self.vid, size, self.size))
 
         try:  # assume volume is not (cleanly) stopped ...
             _resize_file(self._path_dirty, size)
@@ -360,10 +349,13 @@ def _remove_file(path):
         LOGGER.info('Removed file: %s', path)
 
 def _remove_empty_dir(path):
-    with suppress(FileNotFoundError):
+    try:
         os.rmdir(path)
         _fsync_dir(os.path.dirname(path))
         LOGGER.info('Removed empty directory: %s', path)
+    except OSError as ex:
+        if ex.errno not in (errno.ENOENT, errno.ENOTEMPTY):
+            raise
 
 def _rename_file(src, dst):
     os.rename(src, dst)
@@ -378,6 +370,7 @@ def _resize_file(path, size):
     ''' Resize an existing file. '''
     with open(path, 'rb+') as file:
         file.truncate(size)
+        os.fsync(file.fileno())
 
 def _create_sparse_file(path, size):
     ''' Create an empty sparse file. '''
