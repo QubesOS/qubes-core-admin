@@ -108,6 +108,12 @@ class ReflinkPool(qubes.storage.Pool):
         statvfs = os.statvfs(self.dir_path)
         return statvfs.f_frsize * (statvfs.f_blocks - statvfs.f_bfree)
 
+    def included_in(self, app):
+        ''' Check if there is pool containing this one - either as a
+        filesystem or its LVM volume'''
+        return qubes.storage.search_pool_containing_dir(
+            [pool for pool in app.pools.values() if pool is not self],
+            self.dir_path)
 
 class ReflinkVolume(qubes.storage.Volume):
     def create(self):

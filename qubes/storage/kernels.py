@@ -24,6 +24,7 @@
 import os
 
 import qubes.exc
+import qubes.storage
 from qubes.storage import Pool, StoragePoolException, Volume
 
 
@@ -201,6 +202,12 @@ class LinuxKernel(Pool):
         if value:
             raise qubes.exc.QubesValueError(
                 'LinuxModules supports only revisions_to_keep=0')
+
+    def included_in(self, app):
+        ''' Check if there is pool containing /var/lib/qubes/vm-kernels '''
+        return qubes.storage.search_pool_containing_dir(
+            [pool for pool in app.pools.values() if pool is not self],
+            self.dir_path)
 
     @property
     def volumes(self):

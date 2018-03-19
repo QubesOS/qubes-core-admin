@@ -815,6 +815,17 @@ class Pool(object):
         '''
         raise self._not_implemented("get_volume")
 
+    def included_in(self, app):
+        ''' Check if this pool is physically included in another one
+
+        This works on best-effort basis, because one pool driver may not know
+        all the other drivers.
+
+        :param app: Qubes() object to lookup other pools in
+        :returns pool or None
+        '''
+        pass
+
     @property
     def size(self):
         ''' Storage pool size in bytes '''
@@ -864,6 +875,27 @@ def driver_parameters(name):
 def isodate(seconds=time.time()):
     ''' Helper method which returns an iso date '''
     return datetime.utcfromtimestamp(seconds).isoformat("T")
+
+def search_pool_containing_dir(pools, dir_path):
+    ''' Helper function looking for a pool containing given directory.
+
+    This is useful for implementing Pool.included_in method
+    '''
+
+    # prefer filesystem pools
+    for pool in pools:
+        if hasattr(pool, 'dir_path'):
+            if dir_path.startswith(pool.dir_path):
+                return pool
+
+    # then look for lvm
+    for pool in pools:
+        if hasattr(pool, 'thin_pool') and hasattr(pool, 'volume_group'):
+            if (pool.volume_group, pool.thin_pool) == \
+                    DirectoryThinPool.thin_pool(dir_path):
+                return pool
+
+    return None
 
 
 class VmCreationManager(object):
