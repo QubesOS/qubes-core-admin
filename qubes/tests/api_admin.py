@@ -557,6 +557,7 @@ class TC_00_VMs(AdminAPITestCase):
                 usage=102400,
                 size=204800)
         }
+        self.app.pools['pool1'].included_in.return_value = None
         value = self.call_mgmt_func(b'admin.pool.Info', b'dom0', b'pool1')
 
         self.assertEqual(value,
@@ -568,6 +569,7 @@ class TC_00_VMs(AdminAPITestCase):
             'pool1': unittest.mock.Mock(config={
                 'param1': 'value1', 'param2': 'value2'})
         }
+        self.app.pools['pool1'].included_in.return_value = None
         type(self.app.pools['pool1']).size = unittest.mock.PropertyMock(
             side_effect=NotImplementedError)
         type(self.app.pools['pool1']).usage = unittest.mock.PropertyMock(
@@ -576,6 +578,24 @@ class TC_00_VMs(AdminAPITestCase):
 
         self.assertEqual(value,
             'param1=value1\nparam2=value2\n')
+        self.assertFalse(self.app.save.called)
+
+    def test_152_pool_info_included_in(self):
+        self.app.pools = {
+            'pool1': unittest.mock.MagicMock(config={
+                'param1': 'value1',
+                'param2': 'value2'},
+                usage=102400,
+                size=204800)
+        }
+        self.app.pools['pool1'].included_in.return_value = \
+            self.app.pools['pool1']
+        self.app.pools['pool1'].__str__.return_value = 'pool1'
+        value = self.call_mgmt_func(b'admin.pool.Info', b'dom0', b'pool1')
+
+        self.assertEqual(value,
+            'param1=value1\nparam2=value2\nsize=204800\nusage=102400'
+            '\nincluded_in=pool1\n')
         self.assertFalse(self.app.save.called)
 
     @unittest.mock.patch('qubes.storage.pool_drivers')
