@@ -23,18 +23,20 @@
 
 import os
 
+import qubes.exc
 from qubes.storage import Pool, StoragePoolException, Volume
 
 
 class LinuxModules(Volume):
     ''' A volume representing a ro linux kernel '''
-    rw = False
 
     def __init__(self, target_dir, kernel_version, **kwargs):
         kwargs['vid'] = ''
         super(LinuxModules, self).__init__(**kwargs)
         self._kernel_version = kernel_version
         self.target_dir = target_dir
+        assert self.revisions_to_keep == 0
+        assert self.rw is False
 
     @property
     def vid(self):
@@ -104,6 +106,28 @@ class LinuxModules(Volume):
     def is_outdated(self):
         return False
 
+    @property
+    def revisions_to_keep(self):
+        return 0
+
+    @revisions_to_keep.setter
+    def revisions_to_keep(self, value):
+        # pylint: disable=no-self-use
+        if value:
+            raise qubes.exc.QubesValueError(
+                'LinuxModules supports only revisions_to_keep=0')
+
+    @property
+    def rw(self):
+        return False
+
+    @rw.setter
+    def rw(self, value):
+        # pylint: disable=no-self-use
+        if value:
+            raise qubes.exc.QubesValueError(
+                'LinuxModules supports only read-only volumes')
+
     def start(self):
         return self
 
@@ -131,7 +155,7 @@ class LinuxKernel(Pool):
 
     def __init__(self, name=None, dir_path=None):
         assert dir_path, 'Missing dir_path'
-        super(LinuxKernel, self).__init__(name=name)
+        super(LinuxKernel, self).__init__(name=name, revisions_to_keep=0)
         self.dir_path = dir_path
 
     def init_volume(self, vm, volume_config):
@@ -166,6 +190,17 @@ class LinuxKernel(Pool):
 
     def setup(self):
         pass
+
+    @property
+    def revisions_to_keep(self):
+        return 0
+
+    @revisions_to_keep.setter
+    def revisions_to_keep(self, value):
+        # pylint: disable=no-self-use
+        if value:
+            raise qubes.exc.QubesValueError(
+                'LinuxModules supports only revisions_to_keep=0')
 
     @property
     def volumes(self):
