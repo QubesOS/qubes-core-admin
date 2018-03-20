@@ -932,9 +932,12 @@ class DirectoryThinPool:
                 fs_major = (fs_stat.st_dev & 0xff00) >> 8
                 fs_minor = fs_stat.st_dev & 0xff
 
-                root_table = subprocess.check_output(["dmsetup",
+                sudo = []
+                if os.getuid():
+                    sudo = ['sudo']
+                root_table = subprocess.check_output(sudo + ["dmsetup",
                     "-j", str(fs_major), "-m", str(fs_minor),
-                    "table"])
+                    "table"], stderr=subprocess.DEVNULL)
 
                 _start, _sectors, target_type, target_args = \
                     root_table.decode().split(" ", 3)
