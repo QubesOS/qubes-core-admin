@@ -204,7 +204,7 @@ class SpecialTarget(RuleChoice):
 class Expire(RuleOption):
     def __init__(self, untrusted_value):
         super(Expire, self).__init__(untrusted_value)
-        self.datetime = datetime.datetime.utcfromtimestamp(int(untrusted_value))
+        self.datetime = datetime.datetime.fromtimestamp(int(untrusted_value))
 
     @property
     def rule(self):
@@ -216,7 +216,7 @@ class Expire(RuleOption):
 
     @property
     def expired(self):
-        return self.datetime < datetime.datetime.utcnow()
+        return self.datetime < datetime.datetime.now()
 
 
 class Comment(RuleOption):
@@ -546,17 +546,15 @@ class Firewall(object):
 
     def _expire_rules(self):
         '''Function called to reload expired rules'''
-        old_rules = self.rules
         self.load()
-        if self.rules != old_rules:
-            # this will both save rules skipping those expired and trigger
-            # QubesDB update; and possibly schedule another timer
-            self.save()
+        # this will both save rules skipping those expired and trigger
+        # QubesDB update; and possibly schedule another timer
+        self.save()
 
     def save(self):
         '''Save firewall rules to a file'''
         firewall_conf = os.path.join(self.vm.dir_path, self.vm.firewall_conf)
-        nearest_expire = False
+        nearest_expire = None
 
         xml_root = lxml.etree.Element('firewall', version=str(2))
 
@@ -595,7 +593,7 @@ class Firewall(object):
             # necessary must be the same as time module; calculate delay and
             # use call_later instead
             expire_when = nearest_expire - datetime.datetime.now()
-            loop.call_later(expire_when, self._expire_rules)
+            loop.call_later(expire_when.total_seconds(), self._expire_rules)
 
     def qdb_entries(self, addr_family=None):
         '''Return firewall settings serialized for QubesDB entries
