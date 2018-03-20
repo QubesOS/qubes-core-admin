@@ -1347,10 +1347,10 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
                 if any(qubes.utils.match_vm_name_with_special(vm, name)
                     for name in include_vms))
 
-            # handle exclude
-            vms_to_backup.difference_update(vm for vm in self.app.domains
-                if any(qubes.utils.match_vm_name_with_special(vm, name)
-                    for name in exclude_vms))
+        # handle exclude
+        vms_to_exclude = set(vm.name for vm in self.app.domains
+            if any(qubes.utils.match_vm_name_with_special(vm, name)
+                for name in exclude_vms))
 
         kwargs = {
             'target_vm': dest_vm,
@@ -1360,7 +1360,8 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         }
         if isinstance(compression, str):
             kwargs['compression_filter'] = compression
-        backup = qubes.backup.Backup(self.app, vms_to_backup, **kwargs)
+        backup = qubes.backup.Backup(self.app, vms_to_backup, vms_to_exclude,
+                                     **kwargs)
         return backup
 
     def _backup_progress_callback(self, profile_name, progress):

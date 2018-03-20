@@ -2003,6 +2003,7 @@ class TC_00_VMs(AdminAPITestCase):
         mock_backup.assert_called_once_with(
             self.app,
             {self.vm},
+            set(),
             target_vm=self.vm,
             target_dir='/home/user',
             compressed=True,
@@ -2038,6 +2039,7 @@ class TC_00_VMs(AdminAPITestCase):
         mock_backup.assert_called_once_with(
             self.app,
             {self.vm},
+            set(),
             target_vm=self.vm,
             target_dir='/home/user',
             compressed=True,
