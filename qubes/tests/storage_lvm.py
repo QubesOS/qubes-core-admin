@@ -27,9 +27,11 @@
 
 import os
 import subprocess
+import tempfile
 import unittest
 
 import qubes.tests
+import qubes.storage
 from qubes.storage.lvm import ThinPool, ThinVolume
 
 if 'DEFAULT_LVM_POOL' in os.environ.keys():
@@ -267,3 +269,76 @@ class TC_01_ThinPool(ThinPoolBase, qubes.tests.SystemTestCase):
                 self.assertEqual(volume.path, expected)
         with self.assertNotRaises(qubes.exc.QubesException):
             vm.start()
+
+@skipUnlessLvmPoolExists
+class TC_02_StorageHelpers(ThinPoolBase):
+    def setUp(self):
+        xml_path = '/tmp/qubes-test.xml'
+        self.app = qubes.Qubes.create_empty_store(store=xml_path,
+            clockvm=None,
+            updatevm=None,
+            offline_mode=True,
+        )
+        os.environ['QUBES_XML_PATH'] = xml_path
+        super(TC_02_StorageHelpers, self).setUp()
+        # reset cache
+        qubes.storage.DirectoryThinPool._thin_pool = {}
+
+        self.thin_dir = tempfile.TemporaryDirectory()
+        subprocess.check_call(
+            ['sudo', 'lvcreate', '-q', '-V', '32M',
+                '-T', DEFAULT_LVM_POOL, '-n',
+                'test-file-pool'], stdout=subprocess.DEVNULL)
+        self.thin_dev = '/dev/{}/test-file-pool'.format(
+            DEFAULT_LVM_POOL.split('/')[0])
+        subprocess.check_call(
+            ['sudo', 'mkfs.ext4', '-q', self.thin_dev])
+        subprocess.check_call(['sudo', 'mount', self.thin_dev,
+            self.thin_dir.name])
+        subprocess.check_call(['sudo', 'chmod', '777',
+            self.thin_dir.name])
+
+    def tearDown(self):
+        subprocess.check_call(['sudo', 'umount', self.thin_dir.name])
+        subprocess.check_call(
+            ['sudo', 'lvremove', '-q', '-f', self.thin_dev],
+            stdout = subprocess.DEVNULL)
+        self.thin_dir.cleanup()
+        super(TC_02_StorageHelpers, self).tearDown()
+        os.unlink(self.app.store)
+        del self.app
+        for attr in dir(self):
+            if isinstance(getattr(self, attr), qubes.vm.BaseVM):
+                delattr(self, attr)
+
+    def test_000_search_thin_pool(self):
+        pool = qubes.storage.search_pool_containing_dir(
+            self.app.pools.values(), self.thin_dir.name)
+        self.assertEqual(pool, self.pool)
+
+    def test_001_search_none(self):
+        pool = qubes.storage.search_pool_containing_dir(
+            self.app.pools.values(), '/tmp')
+        self.assertIsNone(pool)
+
+    def test_002_search_subdir(self):
+        subdir = os.path.join(self.thin_dir.name, 'some-dir')
+        os.mkdir(subdir)
+        pool = qubes.storage.search_pool_containing_dir(
+            self.app.pools.values(), subdir)
+        self.assertEqual(pool, self.pool)
+
+    def test_003_search_file_pool(self):
+        subdir = os.path.join(self.thin_dir.name, 'some-dir')
+        file_pool_config = {
+            'name': 'test-file-pool',
+            'driver': 'file',
+            'dir_path': subdir
+        }
+        pool2 = self.app.add_pool(**file_pool_config)
+        pool = qubes.storage.search_pool_containing_dir(
+            self.app.pools.values(), subdir)
+        self.assertEqual(pool, pool2)
+        pool = qubes.storage.search_pool_containing_dir(
+            self.app.pools.values(), self.thin_dir.name)
+        self.assertEqual(pool, self.pool)
