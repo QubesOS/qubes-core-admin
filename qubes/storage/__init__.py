@@ -828,13 +828,13 @@ class Pool(object):
 
     @property
     def size(self):
-        ''' Storage pool size in bytes '''
-        raise self._not_implemented("size")
+        ''' Storage pool size in bytes, or None if unknown '''
+        return None
 
     @property
     def usage(self):
-        ''' Space used in the pool, in bytes '''
-        raise self._not_implemented("usage")
+        ''' Space used in the pool in bytes, or None if unknown '''
+        return None
 
     def _not_implemented(self, method_name):
         ''' Helper for emitting helpful `NotImplementedError` exceptions '''
