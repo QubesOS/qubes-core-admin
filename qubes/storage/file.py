@@ -261,9 +261,10 @@ class FileVolume(qubes.storage.Volume):
         return self.path
 
     def import_volume(self, src_volume):
-        msg = "Can not import snapshot volume {!s} in to pool {!s} "
-        msg = msg.format(src_volume, self)
-        assert not src_volume.snap_on_start, msg
+        if src_volume.snap_on_start:
+            raise qubes.storage.StoragePoolException(
+                "Can not import snapshot volume {!s} in to pool {!s} ".format(
+                    src_volume, self))
         if self.save_on_stop:
             _remove_if_exists(self.path)
             copy_file(src_volume.export(), self.path)
