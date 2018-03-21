@@ -312,6 +312,48 @@ class TC_01_FileVolumes(qubes.tests.QubesTestCase):
             volume.revisions_to_keep = 2
         self.assertEqual(volume.revisions_to_keep, 1)
 
+    def test_020_import_data(self):
+        config = {
+            'name': 'root',
+            'pool': self.POOL_NAME,
+            'save_on_stop': True,
+            'rw': True,
+            'size': 1024 * 1024,
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.POOL_NAME).init_volume(vm, config)
+        volume.create()
+        import_path = volume.import_data()
+        self.assertNotEqual(volume.path, import_path)
+        with open(import_path, 'w+') as import_file:
+            import_file.write('test')
+        volume.import_data_end(True)
+        self.assertFalse(os.path.exists(import_path), import_path)
+        with open(volume.path) as volume_file:
+            volume_data = volume_file.read().strip('\0')
+        self.assertEqual(volume_data, 'test')
+
+    def test_021_import_data_fail(self):
+        config = {
+            'name': 'root',
+            'pool': self.POOL_NAME,
+            'save_on_stop': True,
+            'rw': True,
+            'size': 1024 * 1024,
+        }
+        vm = qubes.tests.storage.TestVM(self)
+        volume = self.app.get_pool(self.POOL_NAME).init_volume(vm, config)
+        volume.create()
+        import_path = volume.import_data()
+        self.assertNotEqual(volume.path, import_path)
+        with open(import_path, 'w+') as import_file:
+            import_file.write('test')
+        volume.import_data_end(False)
+        self.assertFalse(os.path.exists(import_path), import_path)
+        with open(volume.path) as volume_file:
+            volume_data = volume_file.read().strip('\0')
+        self.assertNotEqual(volume_data, 'test')
+
     def assertVolumePath(self, vm, dev_name, expected, rw=True):
         # :pylint: disable=invalid-name
         volumes = vm.volumes

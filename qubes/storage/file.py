@@ -267,17 +267,29 @@ class FileVolume(qubes.storage.Volume):
         return self.path
 
     def import_volume(self, src_volume):
-        msg = "Can not import snapshot volume {!s} in to pool {!s} "
-        msg = msg.format(src_volume, self)
-        assert not src_volume.snap_on_start, msg
+        if src_volume.snap_on_start:
+            raise qubes.storage.StoragePoolException(
+                "Can not import snapshot volume {!s} in to pool {!s} ".format(
+                    src_volume, self))
         if self.save_on_stop:
             _remove_if_exists(self.path)
             copy_file(src_volume.export(), self.path)
         return self
 
-
     def import_data(self):
-        return self.path
+        if not self.save_on_stop:
+            raise qubes.storage.StoragePoolException(
+                "Can not import into save_on_stop=False volume {!s}".format(
+                    self))
+        create_sparse_file(self.path_import, self.size)
+        return self.path_import
+
+    def import_data_end(self, success):
+        if success:
+            os.rename(self.path_import, self.path)
+        else:
+            os.unlink(self.path_import)
+        return self
 
     def reset(self):
         ''' Remove and recreate a volatile volume '''
@@ -325,6 +337,11 @@ class FileVolume(qubes.storage.Volume):
     @property
     def path_cow(self):
         img_name = self.vid + '-cow.img'
+        return os.path.join(self.dir_path, img_name)
+
+    @property
+    def path_import(self):
+        img_name = self.vid + '-import.img'
         return os.path.join(self.dir_path, img_name)
 
     def verify(self):
