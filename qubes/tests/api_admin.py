@@ -40,7 +40,7 @@ import qubes.storage
 # properties defined in API
 volume_properties = [
     'pool', 'vid', 'size', 'usage', 'rw', 'source',
-    'save_on_stop', 'snap_on_start']
+    'save_on_stop', 'snap_on_start', 'revisions_to_keep', 'is_outdated']
 
 
 class AdminAPITestCase(qubes.tests.QubesTestCase):
@@ -557,6 +557,7 @@ class TC_00_VMs(AdminAPITestCase):
                 usage=102400,
                 size=204800)
         }
+        self.app.pools['pool1'].included_in.return_value = None
         value = self.call_mgmt_func(b'admin.pool.Info', b'dom0', b'pool1')
 
         self.assertEqual(value,
@@ -566,16 +567,32 @@ class TC_00_VMs(AdminAPITestCase):
     def test_151_pool_info_unsupported_size(self):
         self.app.pools = {
             'pool1': unittest.mock.Mock(config={
-                'param1': 'value1', 'param2': 'value2'})
+                'param1': 'value1', 'param2': 'value2'},
+                size=None, usage=None),
         }
-        type(self.app.pools['pool1']).size = unittest.mock.PropertyMock(
-            side_effect=NotImplementedError)
-        type(self.app.pools['pool1']).usage = unittest.mock.PropertyMock(
-            side_effect=NotImplementedError)
+        self.app.pools['pool1'].included_in.return_value = None
         value = self.call_mgmt_func(b'admin.pool.Info', b'dom0', b'pool1')
 
         self.assertEqual(value,
             'param1=value1\nparam2=value2\n')
+        self.assertFalse(self.app.save.called)
+
+    def test_152_pool_info_included_in(self):
+        self.app.pools = {
+            'pool1': unittest.mock.MagicMock(config={
+                'param1': 'value1',
+                'param2': 'value2'},
+                usage=102400,
+                size=204800)
+        }
+        self.app.pools['pool1'].included_in.return_value = \
+            self.app.pools['pool1']
+        self.app.pools['pool1'].__str__.return_value = 'pool1'
+        value = self.call_mgmt_func(b'admin.pool.Info', b'dom0', b'pool1')
+
+        self.assertEqual(value,
+            'param1=value1\nparam2=value2\nsize=204800\nusage=102400'
+            '\nincluded_in=pool1\n')
         self.assertFalse(self.app.save.called)
 
     @unittest.mock.patch('qubes.storage.pool_drivers')
@@ -2372,6 +2389,34 @@ class TC_00_VMs(AdminAPITestCase):
         with self.assertRaises(AssertionError):
             self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
                 b'test-vm1', b'private', b'abc')
+
+    def test_680_vm_volume_set_rw(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        value = self.call_mgmt_func(b'admin.vm.volume.Set.rw',
+            b'test-vm1', b'private', b'True')
+        self.assertIsNone(value)
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [unittest.mock.call.keys(),
+            ('__getitem__', ('private',), {})])
+        self.assertEqual(self.vm.volumes['private'].rw, True)
+        self.app.save.assert_called_once_with()
+
+    def test_681_vm_volume_set_rw_invalid(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel'],
+        }
+        self.vm.volumes.configure_mock(**volumes_conf)
+        self.vm.storage = unittest.mock.Mock()
+        with self.assertRaises(AssertionError):
+            self.call_mgmt_func(b'admin.vm.volume.Set.revisions_to_keep',
+                b'test-vm1', b'private', b'abc')
+        self.assertFalse(self.app.save.called)
 
     def test_990_vm_unexpected_payload(self):
         methods_with_no_payload = [

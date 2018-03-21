@@ -336,9 +336,16 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         # properties defined in API
         volume_properties = [
             'pool', 'vid', 'size', 'usage', 'rw', 'source',
-            'save_on_stop', 'snap_on_start']
-        return ''.join('{}={}\n'.format(key, getattr(volume, key)) for key in
-            volume_properties)
+            'save_on_stop', 'snap_on_start', 'revisions_to_keep', 'is_outdated']
+
+        def _serialize(value):
+            if callable(value):
+                value = value()
+            if value is None:
+                value = ''
+            return str(value)
+        return ''.join('{}={}\n'.format(key, _serialize(getattr(volume, key)))
+            for key in volume_properties)
 
     @qubes.api.method('admin.vm.volume.ListSnapshots', no_payload=True,
         scope='local', read=True)
@@ -496,6 +503,26 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         self.dest.volumes[self.arg].revisions_to_keep = newvalue
         self.app.save()
 
+    @qubes.api.method('admin.vm.volume.Set.rw',
+        scope='local', write=True)
+    @asyncio.coroutine
+    def vm_volume_set_rw(self, untrusted_payload):
+        assert self.arg in self.dest.volumes.keys()
+        try:
+            newvalue = qubes.property.bool(None, None,
+                untrusted_payload.decode('ascii'))
+        except (UnicodeDecodeError, ValueError):
+            raise qubes.api.ProtocolError('Invalid value')
+        del untrusted_payload
+
+        self.fire_event_for_permission(newvalue=newvalue)
+
+        if not self.dest.is_halted():
+            raise qubes.exc.QubesVMNotHaltedError(self.dest)
+
+        self.dest.volumes[self.arg].rw = newvalue
+        self.app.save()
+
     @qubes.api.method('admin.vm.tag.List', no_payload=True,
         scope='local', read=True)
     @asyncio.coroutine
@@ -579,19 +606,25 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
 
         self.fire_event_for_permission(pool=pool)
 
-        size_info = ''
+        other_info = ''
+        pool_size = pool.size
+        if pool_size is not None:
+            other_info += 'size={}\n'.format(pool_size)
+
+        pool_usage = pool.usage
+        if pool_usage is not None:
+            other_info += 'usage={}\n'.format(pool_usage)
+
         try:
-            size_info += 'size={}\n'.format(pool.size)
-        except NotImplementedError:
-            pass
-        try:
-            size_info += 'usage={}\n'.format(pool.usage)
+            included_in = pool.included_in(self.app)
+            if included_in:
+                other_info += 'included_in={}\n'.format(str(included_in))
         except NotImplementedError:
             pass
 
         return ''.join('{}={}\n'.format(prop, val)
             for prop, val in sorted(pool.config.items())) + \
-            size_info
+            other_info
 
     @qubes.api.method('admin.pool.Add',
         scope='global', write=True)

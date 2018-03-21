@@ -815,15 +815,26 @@ class Pool(object):
         '''
         raise self._not_implemented("get_volume")
 
+    def included_in(self, app):
+        ''' Check if this pool is physically included in another one
+
+        This works on best-effort basis, because one pool driver may not know
+        all the other drivers.
+
+        :param app: Qubes() object to lookup other pools in
+        :returns pool or None
+        '''
+        pass
+
     @property
     def size(self):
-        ''' Storage pool size in bytes '''
-        raise self._not_implemented("size")
+        ''' Storage pool size in bytes, or None if unknown '''
+        return None
 
     @property
     def usage(self):
-        ''' Space used in the pool, in bytes '''
-        raise self._not_implemented("usage")
+        ''' Space used in the pool in bytes, or None if unknown '''
+        return None
 
     def _not_implemented(self, method_name):
         ''' Helper for emitting helpful `NotImplementedError` exceptions '''
@@ -865,6 +876,27 @@ def isodate(seconds=time.time()):
     ''' Helper method which returns an iso date '''
     return datetime.utcfromtimestamp(seconds).isoformat("T")
 
+def search_pool_containing_dir(pools, dir_path):
+    ''' Helper function looking for a pool containing given directory.
+
+    This is useful for implementing Pool.included_in method
+    '''
+
+    # prefer filesystem pools
+    for pool in pools:
+        if hasattr(pool, 'dir_path'):
+            if dir_path.startswith(pool.dir_path):
+                return pool
+
+    # then look for lvm
+    for pool in pools:
+        if hasattr(pool, 'thin_pool') and hasattr(pool, 'volume_group'):
+            if (pool.volume_group, pool.thin_pool) == \
+                    DirectoryThinPool.thin_pool(dir_path):
+                return pool
+
+    return None
+
 
 class VmCreationManager(object):
     ''' A `ContextManager` which cleans up if volume creation fails.
@@ -883,3 +915,46 @@ class VmCreationManager(object):
                 except Exception:  # pylint: disable=broad-except
                     pass
             os.rmdir(self.vm.dir_path)
+
+# pylint: disable=too-few-public-methods
+class DirectoryThinPool:
+    '''The thin pool containing the device of given filesystem'''
+    _thin_pool = {}
+
+    @classmethod
+    def _init(cls, dir_path):
+        '''Find out the thin pool containing given filesystem'''
+        if dir_path not in cls._thin_pool:
+            cls._thin_pool[dir_path] = None, None
+
+            try:
+                fs_stat = os.stat(dir_path)
+                fs_major = (fs_stat.st_dev & 0xff00) >> 8
+                fs_minor = fs_stat.st_dev & 0xff
+
+                sudo = []
+                if os.getuid():
+                    sudo = ['sudo']
+                root_table = subprocess.check_output(sudo + ["dmsetup",
+                    "-j", str(fs_major), "-m", str(fs_minor),
+                    "table"], stderr=subprocess.DEVNULL)
+
+                _start, _sectors, target_type, target_args = \
+                    root_table.decode().split(" ", 3)
+                if target_type == "thin":
+                    thin_pool_devnum, _thin_pool_id = target_args.split(" ")
+                    with open("/sys/dev/block/{}/dm/name"
+                        .format(thin_pool_devnum), "r") as thin_pool_tpool_f:
+                        thin_pool_tpool = thin_pool_tpool_f.read().rstrip('\n')
+                    if thin_pool_tpool.endswith("-tpool"):
+                        volume_group, thin_pool, _tpool = \
+                            thin_pool_tpool.rsplit("-", 2)
+                        cls._thin_pool[dir_path] = volume_group, thin_pool
+            except:  # pylint: disable=bare-except
+                pass
+
+    @classmethod
+    def thin_pool(cls, dir_path):
+        '''Thin tuple (volume group, pool name) containing given filesystem'''
+        cls._init(dir_path)
+        return cls._thin_pool[dir_path]
