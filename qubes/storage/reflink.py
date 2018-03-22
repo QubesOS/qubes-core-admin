@@ -187,25 +187,25 @@ class ReflinkVolume(qubes.storage.Volume):
         if _get_file_disk_usage(self._path_clean) == 0:
             return
         ctime = os.path.getctime(self._path_clean)
-        revision = qubes.storage.isodate(int(ctime)) + 'Z'
-        _copy_file(self._path_clean, self._path_revision(revision))
+        timestamp = qubes.storage.isodate(int(ctime))
+        _copy_file(self._path_clean,
+                   self._path_revision(self._next_revision_number, timestamp))
 
     def _prune_revisions(self, keep=None):
         if keep is None:
             keep = self.revisions_to_keep
         # pylint: disable=invalid-unary-operand-type
-        for revision in list(self.revisions.keys())[:(-keep) or None]:
-            _remove_file(self._path_revision(revision))
+        for number, timestamp in list(self.revisions.items())[:-keep or None]:
+            _remove_file(self._path_revision(number, timestamp))
 
     def revert(self, revision=None):
         if revision is None:
-            revision = list(self.revisions.keys())[-1]
-        elif not os.path.exists(self._path_revision(revision)):
-            raise qubes.storage.StoragePoolException(
-                'Missing revision {!r} for volume {!s}'.format(
-                    revision, self.vid))
+            number, timestamp = list(self.revisions.items())[-1]
+        else:
+            number, timestamp = revision, None
+        path_revision = self._path_revision(number, timestamp)
         self._add_revision()
-        _rename_file(self._path_revision(revision), self._path_clean)
+        _rename_file(path_revision, self._path_clean)
         return self
 
     def resize(self, size):
@@ -269,8 +269,10 @@ class ReflinkVolume(qubes.storage.Volume):
         self.import_data_end(True)
         return self
 
-    def _path_revision(self, revision):
-        return self._path_clean + '@' + revision
+    def _path_revision(self, number, timestamp=None):
+        if timestamp is None:
+            timestamp = self.revisions[number]
+        return self._path_clean + '.' + number + '@' + timestamp + 'Z'
 
     @property
     def _path_clean(self):
@@ -285,14 +287,19 @@ class ReflinkVolume(qubes.storage.Volume):
         return self._path_dirty
 
     @property
+    def _next_revision_number(self):
+        numbers = self.revisions.keys()
+        if numbers:
+            return str(int(list(numbers)[-1]) + 1)
+        return '1'
+
+    @property
     def revisions(self):
-        revision_to_timestamp = collections.OrderedDict()
-        prefix = self._path_revision('')
-        for filename in sorted(glob.glob(glob.escape(prefix) + '*Z')):
-            revision = filename[len(prefix):]
-            timestamp = revision[:-1]
-            revision_to_timestamp[revision] = timestamp
-        return revision_to_timestamp
+        prefix = self._path_clean + '.'
+        paths = glob.glob(glob.escape(prefix) + '*@*Z')
+        items = sorted((path[len(prefix):-1].split('@') for path in paths),
+                       key=lambda item: int(item[0]))
+        return collections.OrderedDict(items)
 
     @property
     def usage(self):
