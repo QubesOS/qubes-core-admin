@@ -300,7 +300,7 @@ class TC_06_Expire(qubes.tests.QubesTestCase):
         self.assertEqual(str(instance), '1463292452')
         self.assertEqual(instance.api_rule, 'expire=1463292452')
         self.assertEqual(instance.datetime,
-            datetime.datetime(2016, 5, 15, 6, 7, 32))
+            datetime.datetime.fromtimestamp(1463292452))
         self.assertIsNone(instance.rule)
 
     def test_001_str(self):
@@ -308,7 +308,7 @@ class TC_06_Expire(qubes.tests.QubesTestCase):
             instance = qubes.firewall.Expire('1463292452')
         self.assertEqual(str(instance), '1463292452')
         self.assertEqual(instance.datetime,
-            datetime.datetime(2016, 5, 15, 6, 7, 32))
+            datetime.datetime.fromtimestamp(1463292452))
         self.assertIsNone(instance.rule)
 
     def test_002_invalid(self):
