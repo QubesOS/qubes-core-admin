@@ -566,8 +566,10 @@ def qubes_lvm(cmd, log=logging.getLogger('qubes.storage.lvm')):
         cmd = ['sudo', 'lvm'] + lvm_cmd
     else:
         cmd = ['lvm'] + lvm_cmd
+    environ = os.environ.copy()
+    environ['LC_ALL'] = 'C.utf8'
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        close_fds=True)
+        close_fds=True, env=environ)
     out, err = p.communicate()
     return_code = p.returncode
     if out:
