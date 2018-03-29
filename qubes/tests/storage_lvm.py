@@ -164,17 +164,23 @@ class TC_00_ThinPool(ThinPoolBase):
     def test_004_size(self):
         with self.assertNotRaises(NotImplementedError):
             size = self.pool.size
+        environ = os.environ.copy()
+        environ['LC_ALL'] = 'C.utf8'
         pool_size = subprocess.check_output(['sudo', 'lvs', '--noheadings',
             '-o', 'lv_size',
-            '--units', 'b', self.pool.volume_group + '/' + self.pool.thin_pool])
+            '--units', 'b', self.pool.volume_group + '/' + self.pool.thin_pool],
+            env=environ)
         self.assertEqual(size, int(pool_size.strip()[:-1]))
 
     def test_005_usage(self):
         with self.assertNotRaises(NotImplementedError):
             usage = self.pool.usage
+        environ = os.environ.copy()
+        environ['LC_ALL'] = 'C.utf8'
         pool_info = subprocess.check_output(['sudo', 'lvs', '--noheadings',
             '-o', 'lv_size,data_percent',
-            '--units', 'b', self.pool.volume_group + '/' + self.pool.thin_pool])
+            '--units', 'b', self.pool.volume_group + '/' + self.pool.thin_pool],
+            env=environ)
         pool_size, pool_usage = pool_info.strip().split()
         pool_size = int(pool_size[:-1])
         pool_usage = float(pool_usage)

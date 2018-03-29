@@ -170,8 +170,10 @@ def init_cache(log=logging.getLogger('qubes.storage.lvm')):
            '--units', 'b', '--separator', ';']
     if os.getuid() != 0:
         cmd.insert(0, 'sudo')
+    environ = os.environ.copy()
+    environ['LC_ALL'] = 'C.utf8'
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        close_fds=True)
+        close_fds=True, env=environ)
     out, err = p.communicate()
     return_code = p.returncode
     if return_code == 0 and err:
