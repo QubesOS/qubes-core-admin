@@ -136,11 +136,8 @@ class TC_40_PVGrub(object):
 
 
 def load_tests(loader, tests, pattern):
-    for template in qubes.tests.list_templates():
-        tests.addTests(loader.loadTestsFromTestCase(
-            type(
-                'TC_40_PVGrub_' + template,
-                (TC_40_PVGrub, qubes.tests.SystemTestCase),
-                {'template': template})))
-
+    tests.addTests(loader.loadTestsFromNames(
+        qubes.tests.create_testcases_for_templates('TC_40_PVGrub',
+            TC_40_PVGrub, qubes.tests.SystemTestCase
+            globals=globals())))
     return tests

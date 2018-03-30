@@ -793,17 +793,14 @@ class TC_06_AppVMMixin(object):
 
 
 def load_tests(loader, tests, pattern):
-    for template in qubes.tests.list_templates():
-        tests.addTests(loader.loadTestsFromTestCase(
-            type(
-                'TC_05_StandaloneVM_' + template,
-                (TC_05_StandaloneVMMixin, qubes.tests.SystemTestCase),
-                {'template': template})))
-        tests.addTests(loader.loadTestsFromTestCase(
-            type(
-                'TC_06_AppVM_' + template,
-                (TC_06_AppVMMixin, qubes.tests.SystemTestCase),
-                {'template': template})))
+    tests.addTests(loader.loadTestsFromNames(
+        qubes.tests.create_testcases_for_templates('TC_05_StandaloneVM',
+            TC_05_StandaloneVMMixin, qubes.tests.SystemTestCase,
+            globals=globals())))
+    tests.addTests(loader.loadTestsFromNames(
+        qubes.tests.create_testcases_for_templates('TC_06_AppVM',
+            TC_06_AppVMMixin, qubes.tests.SystemTestCase,
+            globals=globals())))
 
     return tests
 
