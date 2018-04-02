@@ -192,7 +192,7 @@ class NetVMMixin(qubes.events.Emitter):
     def gateway6(self):
         '''Gateway (IPv6) for other domains that use this domain as netvm.'''
         if self.features.check_with_netvm('ipv6', False):
-            return 'fe80::fcff:ffff:feff:ffff' if self.provides_network else \
+            return self.visible_ip6 if self.provides_network else \
                 None
         return None
 

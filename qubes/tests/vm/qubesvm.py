@@ -993,7 +993,7 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
             expected['/qubes-ip6'] = \
                 qubes.config.qubes_ipv6_prefix.replace(':0000', '') + \
                 '::a89:3'
-            expected['/qubes-gateway6'] = 'fe80::fcff:ffff:feff:ffff'
+            expected['/qubes-gateway6'] = expected['/qubes-ip6'][:-1] + '2'
             vm.create_qdb_entries()
             self.assertEqual(test_qubesdb.data, expected)
 
@@ -1043,9 +1043,9 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         test_qubesdb.data.clear()
         with self.subTest('proxy_ipv6'):
             netvm.features['ipv6'] = True
-            expected['/qubes-netvm-gateway6'] = 'fe80::fcff:ffff:feff:ffff'
             ip6 = qubes.config.qubes_ipv6_prefix.replace(
                 ':0000', '') + '::a89:3'
+            expected['/qubes-netvm-gateway6'] = ip6[:-1] + '2'
             expected['/qubes-firewall/' + ip6] = ''
             expected['/qubes-firewall/' + ip6 + '/0000'] = 'action=accept'
             expected['/qubes-firewall/' + ip6 + '/policy'] = 'drop'
