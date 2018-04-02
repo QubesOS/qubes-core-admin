@@ -1024,7 +1024,13 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         if not self.is_running() and not self.is_paused():
             raise qubes.exc.QubesVMNotStartedError(self)
 
-        self.libvirt_domain.destroy()
+        try:
+            self.libvirt_domain.destroy()
+        except libvirt.libvirtError as e:
+            if e.get_error_code() == libvirt.VIR_ERR_OPERATION_INVALID:
+                raise qubes.exc.QubesVMNotStartedError(self)
+            else:
+                raise
 
         return self
 
