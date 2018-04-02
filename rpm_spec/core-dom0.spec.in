@@ -27,6 +27,8 @@
 %define _dracutmoddir   /usr/share/dracut/modules.d
 %endif
 
+%define backend_vmm @BACKEND_VMM@
+
 Name:		qubes-core-dom0
 Version:	@VERSION@
 Release:	1%{dist}
