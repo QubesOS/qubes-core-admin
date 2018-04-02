@@ -1015,7 +1015,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     @asyncio.coroutine
     def kill(self):
-        '''Forcefuly shutdown (destroy) domain.
+        '''Forcefully shutdown (destroy) domain.
 
         :raises qubes.exc.QubesVMNotStartedError: \
             when domain is already shut down.
