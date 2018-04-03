@@ -442,3 +442,6 @@ fi
 /etc/xdg/autostart/qrexec-policy-agent.desktop
 
 /usr/share/doc/qubes/relaxng/*.rng
+
+%changelog
+@CHANGELOG@
