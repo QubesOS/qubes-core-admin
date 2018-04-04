@@ -410,6 +410,9 @@ class QubesTestCase(unittest.TestCase):
 
         global libvirt_event_impl
 
+        # really destroy all objects that could have used loop and/or libvirt
+        gc.collect()
+
         # Check for unfinished libvirt business.
         if libvirt_event_impl is not None:
             try:
