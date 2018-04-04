@@ -23,10 +23,6 @@
 #
 
 %define _dracutmoddir	/usr/lib/dracut/modules.d
-%if %{fedora} < 17
-%define _dracutmoddir   /usr/share/dracut/modules.d
-%endif
-
 %define backend_vmm @BACKEND_VMM@
 
 Name:		qubes-core-dom0
