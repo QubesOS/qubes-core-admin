@@ -55,6 +55,14 @@ class VmNetworkingMixin(object):
             return e.returncode
         return 0
 
+    def check_nc_version(self, vm):
+        if self.run_cmd(vm, 'nc -h >/dev/null 2>&1') != 0:
+            self.skipTest('nc not installed')
+        if self.run_cmd(vm, 'nc -h 2>&1|grep -q nmap.org') == 0:
+            return NcVersion.Nmap
+        else:
+            return NcVersion.Trad
+
     def setUp(self):
         super(VmNetworkingMixin, self).setUp()
         if self.template.startswith('whonix-'):
@@ -189,10 +197,7 @@ class VmNetworkingMixin(object):
         self.testvm1.netvm = self.proxy
         self.app.save()
 
-        if self.run_cmd(self.testnetvm, 'nc -h 2>&1|grep -q nmap.org') == 0:
-            nc_version = NcVersion.Nmap
-        else:
-            nc_version = NcVersion.Trad
+        nc_version = self.check_nc_version(self.testnetvm)
 
         # block all for first
 
@@ -425,10 +430,7 @@ class VmNetworkingMixin(object):
         self.testvm1.netvm = self.proxy
         self.app.save()
 
-        if self.run_cmd(self.testnetvm, 'nc -h 2>&1|grep -q nmap.org') == 0:
-            nc_version = NcVersion.Nmap
-        else:
-            nc_version = NcVersion.Trad
+        nc_version = self.check_nc_version(self.testnetvm)
 
         # block all but ICMP and DNS
 
@@ -616,10 +618,7 @@ class VmNetworkingMixin(object):
         self.testvm1.netvm = self.proxy
         self.app.save()
 
-        if self.run_cmd(self.testnetvm, 'nc -h 2>&1|grep -q nmap.org') == 0:
-            nc_version = NcVersion.Nmap
-        else:
-            nc_version = NcVersion.Trad
+        nc_version = self.check_nc_version(self.testnetvm)
 
         # block all but ICMP and DNS
 
@@ -774,7 +773,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         self.app.save()
 
         if self.run_cmd(self.testnetvm, 'ncat -h') != 0:
-            self.skipTest('nmap ncat not installer')
+            self.skipTest('nmap ncat not installed')
 
         # block all for first
 
@@ -986,10 +985,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         self.testvm1.netvm = self.proxy
         self.app.save()
 
-        if self.run_cmd(self.testnetvm, 'nc -h 2>&1|grep -q nmap.org') == 0:
-            nc_version = NcVersion.Nmap
-        else:
-            nc_version = NcVersion.Trad
+        nc_version = self.check_nc_version(self.testnetvm)
 
         # block all but ICMP and DNS
 
