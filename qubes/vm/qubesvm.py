@@ -1438,7 +1438,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         assert self.volumes != {}
 
         if src.icon_path is not None \
-                and os.path.exists(src.dir_path) \
+                and os.path.exists(src.icon_path) \
                 and self.icon_path is not None:
             if os.path.islink(src.icon_path):
                 icon_path = os.readlink(src.icon_path)
