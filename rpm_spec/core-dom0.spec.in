@@ -22,18 +22,11 @@
 #
 #
 
-%{!?version: %define version %(cat version)}
-
-# debug_package hack should be removed when BuildArch:noarch is enabled below
-%define debug_package %{nil}
-
 %define _dracutmoddir	/usr/lib/dracut/modules.d
-%if %{fedora} < 17
-%define _dracutmoddir   /usr/share/dracut/modules.d
-%endif
+%define backend_vmm @BACKEND_VMM@
 
 Name:		qubes-core-dom0
-Version:	%{version}
+Version:	@VERSION@
 Release:	1%{dist}
 Summary:	The Qubes core files (Dom0-side)
 
@@ -111,17 +104,14 @@ Provides:	qubes-core-dom0-doc
 # Prevent preupgrade from installation (it pretend to provide distribution upgrade)
 Obsoletes:	preupgrade < 2.0
 Provides:	preupgrade = 2.0
-%define _builddir %(pwd)
+
+Source0: %{name}-%{version}.tar.gz
 
 %description
 The Qubes core files for installation on Dom0.
 
 %prep
-# we operate on the current directory, so no need to unpack anything
-# symlink is to generate useful debuginfo packages
-rm -f %{name}-%{version}
-ln -sf . %{name}-%{version}
-%setup -T -D
+%setup -q
 
 %build
 
@@ -448,3 +438,6 @@ fi
 /etc/xdg/autostart/qrexec-policy-agent.desktop
 
 /usr/share/doc/qubes/relaxng/*.rng
+
+%changelog
+@CHANGELOG@
