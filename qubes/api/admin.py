@@ -336,7 +336,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         # properties defined in API
         volume_properties = [
             'pool', 'vid', 'size', 'usage', 'rw', 'source',
-            'save_on_stop', 'snap_on_start', 'revisions_to_keep', 'is_outdated']
+            'save_on_stop', 'snap_on_start', 'revisions_to_keep']
 
         def _serialize(value):
             if callable(value):
@@ -344,8 +344,13 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
             if value is None:
                 value = ''
             return str(value)
-        return ''.join('{}={}\n'.format(key, _serialize(getattr(volume, key)))
+        info = ''.join('{}={}\n'.format(key, _serialize(getattr(volume, key)))
             for key in volume_properties)
+        try:
+            info += '\nis_outdated={}'.format(volume.is_outdated())
+        except NotImplementedError:
+            pass
+        return info
 
     @qubes.api.method('admin.vm.volume.ListSnapshots', no_payload=True,
         scope='local', read=True)

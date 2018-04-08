@@ -40,7 +40,7 @@ import qubes.storage
 # properties defined in API
 volume_properties = [
     'pool', 'vid', 'size', 'usage', 'rw', 'source',
-    'save_on_stop', 'snap_on_start', 'revisions_to_keep', 'is_outdated']
+    'save_on_stop', 'snap_on_start', 'revisions_to_keep']
 
 
 class AdminAPITestCase(qubes.tests.QubesTestCase):
@@ -355,7 +355,31 @@ class TC_00_VMs(AdminAPITestCase):
         }
         for prop in volume_properties:
             volumes_conf[
-                '__getitem__.return_value.{}'.format(prop)] = prop +'-value'
+                '__getitem__.return_value.{}'.format(prop)] = prop + '-value'
+        volumes_conf[
+            '__getitem__.return_value.is_outdated.return_value'] = False
+        self.vm.volumes.configure_mock(**volumes_conf)
+        value = self.call_mgmt_func(b'admin.vm.volume.Info', b'test-vm1',
+            b'private')
+        self.assertEqual(value,
+            ''.join('{p}={p}-value\n'.format(p=p) for p in volume_properties) +
+            '\nis_outdated=False')
+        self.assertEqual(self.vm.volumes.mock_calls,
+            [unittest.mock.call.keys(),
+             unittest.mock.call.__getattr__('__getitem__')('private'),
+             unittest.mock.call.__getattr__('__getitem__')().is_outdated()])
+
+    def test_081_vm_volume_info_unsupported_is_outdated(self):
+        self.vm.volumes = unittest.mock.MagicMock()
+        volumes_conf = {
+            'keys.return_value': ['root', 'private', 'volatile', 'kernel']
+        }
+        for prop in volume_properties:
+            volumes_conf[
+                '__getitem__.return_value.{}'.format(prop)] = prop + '-value'
+        volumes_conf[
+            '__getitem__.return_value.is_outdated.side_effect'] = \
+            NotImplementedError
         self.vm.volumes.configure_mock(**volumes_conf)
         value = self.call_mgmt_func(b'admin.vm.volume.Info', b'test-vm1',
             b'private')
@@ -363,7 +387,8 @@ class TC_00_VMs(AdminAPITestCase):
             ''.join('{p}={p}-value\n'.format(p=p) for p in volume_properties))
         self.assertEqual(self.vm.volumes.mock_calls,
             [unittest.mock.call.keys(),
-             unittest.mock.call.__getattr__('__getitem__')('private')])
+             unittest.mock.call.__getattr__('__getitem__')('private'),
+             unittest.mock.call.__getattr__('__getitem__')().is_outdated()])
 
     def test_080_vm_volume_info_invalid_volume(self):
         self.vm.volumes = unittest.mock.MagicMock()
