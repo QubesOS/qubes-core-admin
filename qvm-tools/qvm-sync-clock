@@ -27,7 +27,7 @@ from qubesadmin import Qubes
 
 def main():
     if os.geteuid() != 0:
-        sys.stderr.write('This program must be run as root to set the date.')
+        sys.stderr.write('This program must be run as root to set the date, aborting!\n')
         sys.exit(1)
     app = Qubes()
     clockvm = app.clockvm
