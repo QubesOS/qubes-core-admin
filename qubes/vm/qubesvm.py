@@ -865,6 +865,12 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 pre_event=True,
                 start_guid=start_guid, mem_required=mem_required)
 
+            for devclass in self.devices:
+                for dev in self.devices[devclass].persistent():
+                    if isinstance(dev, qubes.devices.UnknownDevice):
+                        raise qubes.exc.QubesException(
+                            '{} device {} not available'.format(devclass, dev))
+
             qmemman_client = None
             try:
                 if self.virt_mode == 'pvh' and self.kernel is None:
