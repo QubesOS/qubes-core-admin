@@ -68,7 +68,8 @@ class ThinPool(qubes.storage.Pool):
             'name': self.name,
             'volume_group': self.volume_group,
             'thin_pool': self.thin_pool,
-            'driver': ThinPool.driver
+            'driver': ThinPool.driver,
+            'revisions_to_keep': self.revisions_to_keep,
         }
 
     def destroy(self):
