@@ -65,8 +65,9 @@ class VMWrapper(object):
     def __hash__(self):
         return hash(self._vm)
 
-    def start(self):
-        return self._loop.run_until_complete(self._vm.start())
+    def start(self, start_guid=True):
+        return self._loop.run_until_complete(
+            self._vm.start(start_guid=start_guid))
 
     def shutdown(self):
         return self._loop.run_until_complete(self._vm.shutdown())
