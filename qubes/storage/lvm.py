@@ -574,6 +574,7 @@ def qubes_lvm(cmd, log=logging.getLogger('qubes.storage.lvm')):
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         close_fds=True, env=environ)
     out, err = p.communicate()
+    err = err.decode()
     return_code = p.returncode
     if out:
         log.debug(out)
@@ -581,6 +582,7 @@ def qubes_lvm(cmd, log=logging.getLogger('qubes.storage.lvm')):
         log.warning(err)
     elif return_code != 0:
         assert err, "Command exited unsuccessful, but printed nothing to stderr"
+        err = err.replace('%', '%%')
         raise qubes.storage.StoragePoolException(err)
     return True
 
