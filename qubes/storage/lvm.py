@@ -575,6 +575,11 @@ def qubes_lvm(cmd, log=logging.getLogger('qubes.storage.lvm')):
         close_fds=True, env=environ)
     out, err = p.communicate()
     err = err.decode()
+    # Filter out warning about intended over-provisioning.
+    # Upstream discussion about missing option to silence it:
+    # https://bugzilla.redhat.com/1347008
+    err = '\n'.join(line for line in err.splitlines()
+        if 'exceeds the size of thin pool' not in line)
     return_code = p.returncode
     if out:
         log.debug(out)
