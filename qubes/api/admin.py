@@ -347,7 +347,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         info = ''.join('{}={}\n'.format(key, _serialize(getattr(volume, key)))
             for key in volume_properties)
         try:
-            info += '\nis_outdated={}'.format(volume.is_outdated())
+            info += 'is_outdated={}\n'.format(volume.is_outdated())
         except NotImplementedError:
             pass
         return info

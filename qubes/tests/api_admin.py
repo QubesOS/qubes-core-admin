@@ -363,7 +363,7 @@ class TC_00_VMs(AdminAPITestCase):
             b'private')
         self.assertEqual(value,
             ''.join('{p}={p}-value\n'.format(p=p) for p in volume_properties) +
-            '\nis_outdated=False')
+            'is_outdated=False\n')
         self.assertEqual(self.vm.volumes.mock_calls,
             [unittest.mock.call.keys(),
              unittest.mock.call.__getattr__('__getitem__')('private'),
