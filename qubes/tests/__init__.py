@@ -1127,7 +1127,7 @@ def list_templates():
             _templates = ()
     return _templates
 
-def create_testcases_for_templates(name, *bases, globals, **kwds):
+def create_testcases_for_templates(name, *bases, module, **kwds):
     '''Do-it-all helper for generating per-template tests via load_tests proto
 
     This does several things:
@@ -1149,27 +1149,24 @@ def create_testcases_for_templates(name, *bases, globals, **kwds):
     ...     tests.addTests(loader.loadTestsFromNames(
     ...         qubes.tests.create_testcases_for_templates(
     ...             'TC_00_MyTests', MyTestsMixIn, qubes.tests.SystemTestCase,
-    ...             globals=globals())))
+    ...             module=sys.modules[__name__])))
 
-    *NOTE* adding ``globals=globals()`` is *mandatory*, and to allow enforcing
-    this, it uses keyword-only argument syntax, which is Python 3 only.
+    *NOTE* adding ``module=sys.modules[__name__]`` is *mandatory*, and to allow
+    enforcing this, it uses keyword-only argument syntax, which is only in
+    Python 3.
     '''
+    # Do not attempt to grab the module from traceback, since we are actually
+    # a generator and loadTestsFromNames may also be a generator, so it's not
+    # possible to correctly guess frame from stack. Explicit is better than
+    # implicit!
 
-    # NOTE globals is passed from calling function, and has slightly different
-    # semantics (no ``()``).
-    #
-    # Do not attempt to grab from traceback, since we are actually a generator
-    # and loadTestsFromNames may also be a generator, so it's not possible to
-    # correctly guess frame from stack. Explicit is better than implicit!
-
-    module = globals['__name__']
     for template in list_templates():
         clsname = name + '_' + template
         cls = type(clsname, bases, {'template': template, **kwds})
-        cls.__module__ = module
+        cls.__module__ = module.__name__
         # XXX I wonder what other __dunder__ attrs did I miss
-        globals[clsname] = cls
-        yield '.'.join((module, clsname))
+        setattr(module, clsname, cls)
+        yield '.'.join((module.__name__, clsname))
 
 def extra_info(obj):
     '''Return short info identifying object.

@@ -17,13 +17,13 @@
 #
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, see <http://www.gnu.org/licenses/>.
-import os
-import subprocess
-import json
-
-import shutil
 
 import asyncio
+import json
+import os
+import shutil
+import subprocess
+import sys
 
 import qubes.tests
 
@@ -394,6 +394,6 @@ class SaltVMTestMixin(SaltTestMixin):
 def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromNames(
         qubes.tests.create_testcases_for_templates('TC_10_VMSalt',
-            SaltVMTestMixin, qubes.tests.SystemTestCase
-            globals=globals())))
+            SaltVMTestMixin, qubes.tests.SystemTestCase,
+            module=sys.modules[__name__])))
     return tests

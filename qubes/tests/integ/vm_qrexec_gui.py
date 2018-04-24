@@ -23,6 +23,7 @@ import asyncio
 import multiprocessing
 import os
 import subprocess
+import sys
 import unittest
 
 from distutils import spawn
@@ -1014,6 +1015,6 @@ class TC_10_Generic(qubes.tests.SystemTestCase):
 def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromNames(
         qubes.tests.create_testcases_for_templates('TC_00_AppVM',
-            TC_00_AppVMMixin, qubes.tests.SystemTestCase
-            globals=globals())))
+            TC_00_AppVMMixin, qubes.tests.SystemTestCase,
+            module=sys.modules[__name__])))
     return tests

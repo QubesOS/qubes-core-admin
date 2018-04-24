@@ -18,13 +18,13 @@
 # USA.
 #
 
+import asyncio
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
-
-import asyncio
 
 import qubes
 import qubes.tests
@@ -388,6 +388,6 @@ Test package
 def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromNames(
         qubes.tests.create_testcases_for_templates('TC_00_Dom0Upgrade',
-            TC_00_Dom0UpgradeMixin, qubes.tests.SystemTestCase
-            globals=globals())))
+            TC_00_Dom0UpgradeMixin, qubes.tests.SystemTestCase,
+            module=sys.modules[__name__])))
     return tests

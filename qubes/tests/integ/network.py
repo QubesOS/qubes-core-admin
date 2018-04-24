@@ -25,8 +25,9 @@ import asyncio
 import multiprocessing
 import os
 import subprocess
-import unittest
+import sys
 import time
+import unittest
 
 import qubes.tests
 import qubes.firewall
@@ -1325,14 +1326,14 @@ SHA256:
 def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromNames(
         qubes.tests.create_testcases_for_templates('VmNetworking',
-            VmNetworkingMixin, qubes.tests.SystemTestCase
-            globals=globals())))
+            VmNetworkingMixin, qubes.tests.SystemTestCase,
+            module=sys.modules[__name__])))
     tests.addTests(loader.loadTestsFromNames(
         qubes.tests.create_testcases_for_templates('VmIPv6Networking',
-            VmIPv6NetworkingMixin, qubes.tests.SystemTestCase
-            globals=globals())))
+            VmIPv6NetworkingMixin, qubes.tests.SystemTestCase,
+            module=sys.modules[__name__])))
     tests.addTests(loader.loadTestsFromNames(
         qubes.tests.create_testcases_for_templates('VmUpdates',
-            VmUpdates, qubes.tests.SystemTestCase
-            globals=globals())))
+            VmUpdates, qubes.tests.SystemTestCase,
+            module=sys.modules[__name__])))
     return tests
