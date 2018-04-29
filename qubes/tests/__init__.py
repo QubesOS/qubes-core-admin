@@ -1130,6 +1130,47 @@ def list_templates():
             _templates = ()
     return _templates
 
+def create_testcases_for_templates(name, *bases, module, **kwds):
+    '''Do-it-all helper for generating per-template tests via load_tests proto
+
+    This does several things:
+        - creates per-template classes
+        - adds them to module's :py:func:`globals`
+        - returns an iterable suitable for passing to loader.loadTestsFromNames
+
+    TestCase classes created by this function have implicit `.template`
+    attribute, which contains name of the respective template. They are also
+    named with given prefix, underscore and template name. If template name
+    contains characters not valid as part of Python identifier, they are
+    impossible to get via standard ``.`` operator, though :py:func:`getattr` is
+    still usable.
+
+    >>> class MyTestsMixIn:
+    ...     def test_000_my_test(self):
+    ...         assert self.template.startswith('debian')
+    >>> def load_tests(loader, tests, pattern):
+    ...     tests.addTests(loader.loadTestsFromNames(
+    ...         qubes.tests.create_testcases_for_templates(
+    ...             'TC_00_MyTests', MyTestsMixIn, qubes.tests.SystemTestCase,
+    ...             module=sys.modules[__name__])))
+
+    *NOTE* adding ``module=sys.modules[__name__]`` is *mandatory*, and to allow
+    enforcing this, it uses keyword-only argument syntax, which is only in
+    Python 3.
+    '''
+    # Do not attempt to grab the module from traceback, since we are actually
+    # a generator and loadTestsFromNames may also be a generator, so it's not
+    # possible to correctly guess frame from stack. Explicit is better than
+    # implicit!
+
+    for template in list_templates():
+        clsname = name + '_' + template
+        cls = type(clsname, bases, {'template': template, **kwds})
+        cls.__module__ = module.__name__
+        # XXX I wonder what other __dunder__ attrs did I miss
+        setattr(module, clsname, cls)
+        yield '.'.join((module.__name__, clsname))
+
 def extra_info(obj):
     '''Return short info identifying object.
 

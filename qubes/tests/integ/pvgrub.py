@@ -23,8 +23,11 @@
 
 import os
 import subprocess
+import sys
 import unittest
+
 import qubes.tests
+
 @unittest.skipUnless(os.path.exists('/var/lib/qubes/vm-kernels/pvgrub2'),
                      'grub-xen package not installed')
 class TC_40_PVGrub(object):
@@ -136,11 +139,8 @@ class TC_40_PVGrub(object):
 
 
 def load_tests(loader, tests, pattern):
-    for template in qubes.tests.list_templates():
-        tests.addTests(loader.loadTestsFromTestCase(
-            type(
-                'TC_40_PVGrub_' + template,
-                (TC_40_PVGrub, qubes.tests.SystemTestCase),
-                {'template': template})))
-
+    tests.addTests(loader.loadTestsFromNames(
+        qubes.tests.create_testcases_for_templates('TC_40_PVGrub',
+            TC_40_PVGrub, qubes.tests.SystemTestCase,
+            module=sys.modules[__name__])))
     return tests
