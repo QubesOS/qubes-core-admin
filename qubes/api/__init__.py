@@ -196,6 +196,11 @@ class AbstractQubesAPI(object):
         return apply_filters(iterable,
             self.fire_event_for_permission(**kwargs))
 
+    def enforce(self, predicate):
+        '''An assert replacement, but works even with optimisations.'''
+        if not predicate:
+            raise PermissionDenied()
+
 
 class QubesDaemonProtocol(asyncio.Protocol):
     buffer_size = 65536

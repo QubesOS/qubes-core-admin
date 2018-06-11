@@ -238,9 +238,9 @@ class DeviceCollection(object):
 
         if device_assignment.bus is None:
             device_assignment.bus = self._bus
-        else:
-            assert device_assignment.bus == self._bus, \
-                "Trying to attach DeviceAssignment of a different device class"
+        elif device_assignment.bus != self._bus:
+            raise ValueError(
+                'Trying to attach DeviceAssignment of a different device class')
 
         if not device_assignment.persistent and self._vm.is_halted():
             raise qubes.exc.QubesVMNotRunningError(self._vm,

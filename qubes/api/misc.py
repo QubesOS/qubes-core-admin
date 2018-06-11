@@ -46,8 +46,8 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
         appropriate extensions. Requests not explicitly handled by some
         extension are ignored.
         '''
-        assert self.dest.name == 'dom0'
-        assert not self.arg
+        self.enforce(self.dest.name == 'dom0')
+        self.enforce(not self.arg)
 
         prefix = '/features-request/'
 
@@ -59,7 +59,7 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
         safe_set = string.ascii_letters + string.digits
         for untrusted_key in untrusted_features:
             untrusted_value = untrusted_features[untrusted_key]
-            assert all((c in safe_set) for c in untrusted_value)
+            self.enforce(all((c in safe_set) for c in untrusted_value))
 
         yield from self.src.fire_event_async('features-request',
             untrusted_features=untrusted_features)
@@ -71,8 +71,8 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
         '''
         Legacy version of qubes.FeaturesRequest, used by Qubes Windows Tools
         '''
-        assert self.dest.name == 'dom0'
-        assert not self.arg
+        self.enforce(self.dest.name == 'dom0')
+        self.enforce(not self.arg)
 
         untrusted_features = {}
         safe_set = string.ascii_letters + string.digits
@@ -83,7 +83,7 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
             if untrusted_value:
                 untrusted_value = untrusted_value.decode('ascii',
                     errors='strict')
-                assert all((c in safe_set) for c in untrusted_value)
+                self.enforce(all((c in safe_set) for c in untrusted_value))
                 untrusted_features[feature] = untrusted_value
             del untrusted_value
 
@@ -102,7 +102,7 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
         '''
 
         untrusted_update_count = untrusted_payload.strip()
-        assert untrusted_update_count.isdigit()
+        self.enforce(untrusted_update_count.isdigit())
         # now sanitized
         update_count = int(untrusted_update_count)
         del untrusted_update_count

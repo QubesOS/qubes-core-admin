@@ -280,7 +280,8 @@ class Tags(set):
     @staticmethod
     def validate_tag(tag):
         safe_set = string.ascii_letters + string.digits + '-_'
-        assert all((x in safe_set) for x in tag)
+        if not all((x in safe_set) for x in tag):
+            raise ValueError('disallowed characters')
 
 
 class BaseVM(qubes.PropertyHolder):

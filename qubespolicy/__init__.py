@@ -416,10 +416,13 @@ class PolicyAction(object):
             raise AccessDenied(
                 'denied by policy {}:{}'.format(rule.filename, rule.lineno))
         elif rule.action == Action.ask:
-            assert targets_for_ask is not None
+            if targets_for_ask is None:
+                raise AccessDenied(
+                    'invalid policy {}:{}'.format(rule.filename, rule.lineno))
         elif rule.action == Action.allow:
-            assert targets_for_ask is None
-            assert target is not None
+            if targets_for_ask is not None or target is None:
+                raise AccessDenied(
+                    'invalid policy {}:{}'.format(rule.filename, rule.lineno))
         self.action = rule.action
 
     def handle_user_response(self, response, target=None):

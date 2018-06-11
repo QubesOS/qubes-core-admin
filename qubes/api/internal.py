@@ -39,8 +39,8 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
     @qubes.api.method('internal.GetSystemInfo', no_payload=True)
     @asyncio.coroutine
     def getsysteminfo(self):
-        assert self.dest.name == 'dom0'
-        assert not self.arg
+        self.enforce(self.dest.name == 'dom0')
+        self.enforce(not self.arg)
 
         system_info = {'domains': {
             domain.name: {
@@ -64,7 +64,7 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         when actual import is finished. Response from this method is sent do
         the client (as a response for admin.vm.volume.Import call).
         '''
-        assert self.arg in self.dest.volumes.keys()
+        self.enforce(self.arg in self.dest.volumes.keys())
         success = untrusted_payload == b'ok'
 
         try:

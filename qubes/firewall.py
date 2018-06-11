@@ -39,9 +39,10 @@ class RuleOption(object):
         # subset of string.punctuation
         safe_set = string.ascii_letters + string.digits + \
                    ':;,./-_[]'
-        assert all(x in safe_set for x in str(untrusted_value))
-        value = str(untrusted_value)
-        self._value = value
+        untrusted_value = str(untrusted_value)
+        if not all(x in safe_set for x in untrusted_value):
+            raise ValueError('strange characters in rule')
+        self._value = untrusted_value
 
     @property
     def rule(self):
@@ -226,9 +227,10 @@ class Comment(RuleOption):
         # subset of string.punctuation
         safe_set = string.ascii_letters + string.digits + \
                    ':;,./-_[] '
-        assert all(x in safe_set for x in str(untrusted_value))
-        value = str(untrusted_value)
-        self._value = value
+        untrusted_value = str(untrusted_value)
+        if not all(x in safe_set for x in untrusted_value):
+            raise ValueError('strange characters comment')
+        self._value = untrusted_value
 
     @property
     def rule(self):

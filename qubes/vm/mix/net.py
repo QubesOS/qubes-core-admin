@@ -302,7 +302,9 @@ class NetVMMixin(qubes.events.Emitter):
 
         if not self.is_running():
             raise qubes.exc.QubesVMNotRunningError(self)
-        assert self.netvm is not None
+        if self.netvm is None:
+            raise qubes.exc.QubesVMError(self,
+                'netvm should not be {}'.format(self.netvm))
 
         if not self.netvm.is_running():  # pylint: disable=no-member
             # pylint: disable=no-member
@@ -319,7 +321,9 @@ class NetVMMixin(qubes.events.Emitter):
 
         if not self.is_running():
             raise qubes.exc.QubesVMNotRunningError(self)
-        assert self.netvm is not None
+        if self.netvm is None:
+            raise qubes.exc.QubesVMError(self,
+                'netvm should not be {}'.format(self.netvm))
 
         self.libvirt_domain.detachDevice(
             self.app.env.get_template('libvirt/devices/net.xml').render(
