@@ -21,6 +21,7 @@
 from unittest import mock
 
 import qubes.ext.core_features
+import qubes.ext.windows
 import qubes.tests
 
 
@@ -163,3 +164,53 @@ class TC_00_CoreFeatures(qubes.tests.QubesTestCase):
             ('features.__contains__', ('qrexec',), {}),
             ('features.__contains__', ('gui',), {}),
         ])
+
+class TC_10_WindowsFeatures(qubes.tests.QubesTestCase):
+    def setUp(self):
+        super().setUp()
+        self.ext = qubes.ext.windows.WindowsFeatures()
+        self.vm = mock.MagicMock()
+        self.features = {}
+        self.vm.configure_mock(**{
+            'features.get.side_effect': self.features.get,
+            'features.__contains__.side_effect': self.features.__contains__,
+            'features.__setitem__.side_effect': self.features.__setitem__,
+            })
+
+    def test_000_notify_tools_full(self):
+        del self.vm.template
+        self.ext.qubes_features_request(self.vm, 'features-request',
+            untrusted_features={
+                'gui': '1',
+                'version': '1',
+                'default-user': 'user',
+                'qrexec': '1',
+                'os': 'Windows'})
+        self.assertEqual(self.vm.mock_calls, [
+            ('features.__setitem__', ('os', 'Windows'), {}),
+            ('features.__setitem__', ('rpc-clipboard', True), {}),
+        ])
+
+    def test_001_notify_tools_no_qrexec(self):
+        del self.vm.template
+        self.ext.qubes_features_request(self.vm, 'features-request',
+            untrusted_features={
+                'gui': '1',
+                'version': '1',
+                'default-user': 'user',
+                'qrexec': '0',
+                'os': 'Windows'})
+        self.assertEqual(self.vm.mock_calls, [
+            ('features.__setitem__', ('os', 'Windows'), {}),
+        ])
+
+    def test_002_notify_tools_other_os(self):
+        del self.vm.template
+        self.ext.qubes_features_request(self.vm, 'features-request',
+            untrusted_features={
+                'gui': '1',
+                'version': '1',
+                'default-user': 'user',
+                'qrexec': '1',
+                'os': 'Linux'})
+        self.assertEqual(self.vm.mock_calls, [])

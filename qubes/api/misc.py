@@ -76,7 +76,8 @@ class QubesMiscAPI(qubes.api.AbstractQubesAPI):
 
         untrusted_features = {}
         safe_set = string.ascii_letters + string.digits
-        expected_features = ('qrexec', 'gui', 'default-user')
+        expected_features = ('qrexec', 'gui', 'gui-emulated', 'default-user',
+            'os')
         for feature in expected_features:
             untrusted_value = self.src.untrusted_qdb.read(
                 '/qubes-tools/' + feature)
