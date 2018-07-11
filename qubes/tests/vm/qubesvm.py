@@ -141,6 +141,50 @@ class TC_00_setters(qubes.tests.QubesTestCase):
         with self.assertRaises(ValueError):
             qubes.vm.qubesvm._setter_virt_mode(self.vm, self.prop, 'True')
 
+class TC_10_default(qubes.tests.QubesTestCase):
+    def setUp(self):
+        super().setUp()
+        self.app = TestApp()
+        self.vm = TestVM(app=self.app)
+        self.prop = TestProp()
+
+    def test_000_default_with_template_simple(self):
+        default_getter = qubes.vm.qubesvm._default_with_template('kernel',
+            'dfl-kernel')
+        self.assertEqual(default_getter(self.vm), 'dfl-kernel')
+        self.vm.template = None
+        self.assertEqual(default_getter(self.vm), 'dfl-kernel')
+        self.vm.template = unittest.mock.Mock()
+        self.vm.template.kernel = 'template-kernel'
+        self.assertEqual(default_getter(self.vm), 'template-kernel')
+
+    def test_001_default_with_template_callable(self):
+        default_getter = qubes.vm.qubesvm._default_with_template('kernel',
+            lambda x: x.app.default_kernel)
+        self.app.default_kernel = 'global-dfl-kernel'
+        self.assertEqual(default_getter(self.vm), 'global-dfl-kernel')
+        self.vm.template = None
+        self.assertEqual(default_getter(self.vm), 'global-dfl-kernel')
+        self.vm.template = unittest.mock.Mock()
+        self.vm.template.kernel = 'template-kernel'
+        self.assertEqual(default_getter(self.vm), 'template-kernel')
+
+    def test_010_default_virt_mode(self):
+        default_getter = qubes.vm.qubesvm._default_with_template('kernel',
+            lambda x: x.app.default_kernel)
+        self.assertEqual(qubes.vm.qubesvm._default_virt_mode(self.vm),
+            'pvh')
+        self.vm.template = unittest.mock.Mock()
+        self.vm.template.virt_mode = 'hvm'
+        self.assertEqual(qubes.vm.qubesvm._default_virt_mode(self.vm),
+            'hvm')
+        self.vm.template = None
+        self.assertEqual(qubes.vm.qubesvm._default_virt_mode(self.vm),
+            'pvh')
+        self.vm.devices['pci'].persistent().append('some-dev')
+        self.assertEqual(qubes.vm.qubesvm._default_virt_mode(self.vm),
+            'hvm')
+
 
 class QubesVMTestsMixin(object):
     property_no_default = object()

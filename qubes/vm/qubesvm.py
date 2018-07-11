@@ -102,7 +102,25 @@ def _setter_virt_mode(self, prop, value):
 def _default_virt_mode(self):
     if self.devices['pci'].persistent():
         return 'hvm'
-    return 'pvh'
+    try:
+        return self.template.virt_mode
+    except AttributeError:
+        return 'pvh'
+
+def _default_with_template(prop, default):
+    '''Return a callable for 'default' argument of a property. Use a value
+    from a template (if any), otherwise *default*
+    '''
+
+    def _func(self):
+        try:
+            return getattr(self.template, prop)
+        except AttributeError:
+            if callable(default):
+                return default(self)
+            return default
+
+    return _func
 
 
 class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
@@ -387,7 +405,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         type=str, setter=_setter_virt_mode,
         default=_default_virt_mode,
         doc='''Virtualisation mode: full virtualisation ("HVM"),
-            or paravirtualisation ("PV"), or hybrid ("PVH")''')
+            or paravirtualisation ("PV"), or hybrid ("PVH"). TemplateBasedVMs use its '
+            'template\'s value by default.''')
 
     installed_by_rpm = qubes.property('installed_by_rpm',
         type=bool, setter=qubes.property.bool,
@@ -397,17 +416,19 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
     memory = qubes.property('memory', type=int,
         setter=_setter_positive_int,
-        default=(lambda self:
+        default=_default_with_template('memory', lambda self:
             qubes.config.defaults[
                 'hvm_memory' if self.virt_mode == 'hvm' else 'memory']),
-        doc='Memory currently available for this VM.')
+        doc='Memory currently available for this VM. TemplateBasedVMs use its '
+            'template\'s value by default.')
 
     maxmem = qubes.property('maxmem', type=int,
         setter=_setter_positive_int,
-        default=(lambda self:
-            int(min(self.app.host.memory_total / 1024 / 2, 4000))),
+        default=_default_with_template('maxmem', (lambda self:
+            int(min(self.app.host.memory_total / 1024 / 2, 4000)))),
         doc='''Maximum amount of memory available for this VM (for the purpose
-            of the memory balancer).''')
+            of the memory balancer). TemplateBasedVMs use its '
+            'template\'s value by default.''')
 
     stubdom_mem = qubes.property('stubdom_mem', type=int,
         setter=_setter_positive_int,
@@ -417,14 +438,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     vcpus = qubes.property('vcpus',
         type=int,
         setter=_setter_positive_int,
-        default=2,
-        doc='Number of virtual CPUs for a qube')
+        default=_default_with_template('vcpus', 2),
+        doc='Number of virtual CPUs for a qube. TemplateBasedVMs use its '
+            'template\'s value by default.')
 
     # CORE2: swallowed uses_default_kernel
     kernel = qubes.property('kernel', type=str,
         setter=_setter_kernel,
-        default=(lambda self: self.app.default_kernel),
-        doc='Kernel used by this domain.')
+        default=_default_with_template('kernel',
+            lambda self: self.app.default_kernel),
+        doc='Kernel used by this domain. TemplateBasedVMs use its '
+            'template\'s value by default.')
 
     # CORE2: swallowed uses_default_kernelopts
     # pylint: disable=no-member
@@ -434,7 +458,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             if list(self.devices['pci'].persistent())
             else self.template.kernelopts if hasattr(self, 'template')
             else qubes.config.defaults['kernelopts']),
-        doc='Kernel command line passed to domain.')
+        doc='Kernel command line passed to domain. TemplateBasedVMs use its '
+            'template\'s value by default.')
 
     debug = qubes.property('debug', type=bool, default=False,
         setter=qubes.property.bool,
@@ -445,10 +470,10 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
     #     only plain property?
     default_user = qubes.property('default_user', type=str,
         # pylint: disable=no-member
-        default=(lambda self: self.template.default_user
-            if hasattr(self, 'template') else 'user'),
+        default=_default_with_template('default_user', 'user'),
         setter=_setter_default_user,
-        doc='FIXME')
+        doc='Default user to start applications as. TemplateBasedVMs use its '
+            'template\'s value by default.')
 
     # pylint: enable=no-member
 
@@ -459,7 +484,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 #       else:
 #           return self._default_user
 
-    qrexec_timeout = qubes.property('qrexec_timeout', type=int, default=60,
+    qrexec_timeout = qubes.property('qrexec_timeout', type=int,
+        default=_default_with_template('qrexec_timeout', 60),
         setter=_setter_positive_int,
         doc='''Time in seconds after which qrexec connection attempt is deemed
             failed. Operating system inside VM should be able to boot in this
