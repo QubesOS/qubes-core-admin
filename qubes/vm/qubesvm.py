@@ -176,6 +176,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             *other arguments are as in :py:meth:`start`*
 
+        .. event:: domain-start-failed (subject, event, reason)
+
+            Fired when :py:meth:`start` method fails.
+            *reason* argument is a textual error message.
+
+            Handler for this event can be asynchronous (a coroutine).
+
+            :param subject: Event emitter (the qube object)
+            :param event: Event name (``'domain-start'``)
+
+            *other arguments are as in :py:meth:`start`*
         .. event:: domain-stopped (subject, event)
 
             Fired when domain has been stopped.
