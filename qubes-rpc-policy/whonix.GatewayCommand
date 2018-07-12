@@ -1,0 +1,3 @@
+$tag:anon-gateway $tag:anon-vm allow
+$anyvm $anyvm deny        
+
