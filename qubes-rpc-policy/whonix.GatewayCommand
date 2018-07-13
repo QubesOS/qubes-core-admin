@@ -1,3 +1,4 @@
 $tag:anon-gateway $tag:anon-vm allow
+sys-whonix $tag:anon-vm allow
 $anyvm $anyvm deny        
 
