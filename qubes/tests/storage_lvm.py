@@ -84,7 +84,7 @@ class ThinPoolBase(qubes.tests.QubesTestCase):
         ''' Returns the pool matching the specified ``volume_group`` &
             ``thin_pool``, or None.
         '''
-        pools = [p for p in self.app.pools
+        pools = [p for p in self.app.pools.values()
             if issubclass(p.__class__, ThinPool)]
         for pool in pools:
             if pool.volume_group == volume_group \
