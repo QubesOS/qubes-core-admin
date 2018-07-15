@@ -1130,7 +1130,8 @@ def list_templates():
         try:
             app = qubes.Qubes()
             _templates = tuple(vm.name for vm in app.domains
-                if isinstance(vm, qubes.vm.templatevm.TemplateVM))
+                if isinstance(vm, qubes.vm.templatevm.TemplateVM) and
+                    vm.features.get('os', None) != 'Windows')
             app.close()
             del app
         except OSError:
