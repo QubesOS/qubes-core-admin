@@ -90,6 +90,12 @@ class ThinPool(qubes.storage.Pool):
 
         self._volume_objects_cache = {}
 
+    def __repr__(self):
+        return '<{} at {:#x} name={!r} volume_group={!r} thin_pool={!r}>'.\
+            format(
+                type(self).__name__, id(self),
+                self.name, self.volume_group, self.thin_pool)
+
     @property
     def config(self):
         return {
