@@ -69,7 +69,7 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         self.assertEqual(lines[0], "test")
         dispvm_name = lines[1]
         # wait for actual DispVM destruction
-        self.loop.run_until_complete(asyncio.sleep(1))
+        self.loop.run_until_complete(asyncio.sleep(5))
         self.assertNotIn(dispvm_name, self.app.domains)
 
     def test_003_cleanup_destroyed(self):
@@ -88,7 +88,7 @@ class TC_04_DispVM(qubes.tests.SystemTestCase):
         p.stdin.write(b"sudo poweroff\n")
         # do not close p.stdin on purpose - wait to automatic disconnect when
         #  domain is destroyed
-        timeout = 30
+        timeout = 70
         lines_task = asyncio.ensure_future(p.stdout.read())
         self.loop.run_until_complete(asyncio.wait_for(p.wait(), timeout))
         self.loop.run_until_complete(lines_task)
@@ -171,7 +171,7 @@ class TC_20_DispVMMixin(object):
             del dispvm
 
         # give it a time for shutdown + cleanup
-        self.loop.run_until_complete(asyncio.sleep(2))
+        self.loop.run_until_complete(asyncio.sleep(5))
 
         self.assertNotIn(dispvm_name, self.app.domains,
                           "DispVM not removed from qubes.xml")
@@ -252,7 +252,8 @@ class TC_20_DispVMMixin(object):
         while True:
             search = self.loop.run_until_complete(
                 asyncio.create_subprocess_exec(
-                    'xdotool', 'search', '--onlyvisible', '--class', 'disp*',
+                    'xdotool', 'search', '--onlyvisible', '--class',
+                    'disp[0-9]*',
                     stdout=subprocess.PIPE,
                     stderr=subprocess.DEVNULL))
             stdout, _ = self.loop.run_until_complete(search.communicate())
