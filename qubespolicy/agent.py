@@ -33,7 +33,7 @@ import qubespolicy.rpcconfirmation
 import qubespolicy.policycreateconfirmation
 # pylint: enable=wrong-import-position
 
-class PolicyAgent(object):
+class PolicyAgent:
     # pylint: disable=too-few-public-methods
     dbus = """
     <node>

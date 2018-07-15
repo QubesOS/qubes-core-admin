@@ -26,7 +26,7 @@ import textwrap
 
 import lxml.etree
 
-class Element(object):
+class Element:
     def __init__(self, schema, xml):
         self.schema = schema
         self.xml = xml
@@ -157,7 +157,7 @@ class Element(object):
             write_rst_table(stream, childtable, ('element', 'number'))
 
 
-class Schema(object):
+class Schema:
     # pylint: disable=too-few-public-methods
     nsmap = {
         'rng': 'http://relaxng.org/ns/structure/1.0',

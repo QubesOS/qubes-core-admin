@@ -518,10 +518,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 return -1
-            else:
-                self.log.exception('libvirt error code: {!r}'.format(
-                    e.get_error_code()))
-                raise
+            self.log.exception('libvirt error code: {!r}'.format(
+                e.get_error_code()))
+            raise
 
     @qubes.stateless_property
     def stubdom_xid(self):
@@ -1575,8 +1574,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             except libvirt.libvirtError as e:
                 if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                     return 'Halted'
-                else:
-                    raise
+                raise
 
         libvirt_domain = self.libvirt_domain
         if libvirt_domain is None:
@@ -1587,19 +1585,17 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                 # pylint: disable=line-too-long
                 if libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PAUSED:
                     return "Paused"
-                elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_CRASHED:
+                if libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_CRASHED:
                     return "Crashed"
-                elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_SHUTDOWN:
+                if libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_SHUTDOWN:
                     return "Halting"
-                elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_SHUTOFF:
+                if libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_SHUTOFF:
                     return "Dying"
-                elif libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PMSUSPENDED:  # nopep8
+                if libvirt_domain.state()[0] == libvirt.VIR_DOMAIN_PMSUSPENDED:  # nopep8
                     return "Suspended"
-                else:
-                    if not self.is_fully_usable():
-                        return "Transient"
-
-                    return "Running"
+                if not self.is_fully_usable():
+                    return "Transient"
+                return "Running"
 
             return 'Halted'
         except libvirt.libvirtError as e:
@@ -1639,8 +1635,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             except libvirt.libvirtError as e:
                 if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                     return False
-                else:
-                    raise
+                raise
 
         return bool(self.libvirt_domain.isActive())
 
@@ -1662,7 +1657,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
             :py:obj:`False` otherwise.
         :rtype: bool
         '''
-        if self.xid < 0:
+        if self.xid < 0:  # pylint: disable=comparison-with-callable
             return False
         return os.path.exists('/var/run/qubes/qrexec.%s' % self.name)
 
@@ -1706,10 +1701,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     libvirt.VIR_ERR_INTERNAL_ERROR):
                 return 0
 
-            else:
-                self.log.exception(
-                    'libvirt error code: {!r}'.format(e.get_error_code()))
-                raise
+            self.log.exception(
+                'libvirt error code: {!r}'.format(e.get_error_code()))
+            raise
 
     def get_mem_static_max(self):
         '''Get maximum memory available to VM.
@@ -1733,10 +1727,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     libvirt.VIR_ERR_INTERNAL_ERROR):
                 return 0
 
-            else:
-                self.log.exception(
-                    'libvirt error code: {!r}'.format(e.get_error_code()))
-                raise
+            self.log.exception(
+                'libvirt error code: {!r}'.format(e.get_error_code()))
+            raise
 
     def get_cputime(self):
         '''Get total CPU time burned by this domain since start.
@@ -1772,10 +1765,9 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                     libvirt.VIR_ERR_INTERNAL_ERROR):
                 return 0
 
-            else:
-                self.log.exception(
-                    'libvirt error code: {!r}'.format(e.get_error_code()))
-                raise
+            self.log.exception(
+                'libvirt error code: {!r}'.format(e.get_error_code()))
+            raise
 
     # miscellanous
 

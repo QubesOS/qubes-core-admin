@@ -147,12 +147,11 @@ class AdminVM(qubes.vm.BaseVM):
         if self.app.vmm.offline_mode:
             # default value passed on xen cmdline
             return 4096
-        else:
-            try:
-                return self.app.vmm.libvirt_conn.getInfo()[1]
-            except libvirt.libvirtError as e:
-                self.log.warning('Failed to get memory limit for dom0: %s', e)
-                return 4096
+        try:
+            return self.app.vmm.libvirt_conn.getInfo()[1]
+        except libvirt.libvirtError as e:
+            self.log.warning('Failed to get memory limit for dom0: %s', e)
+            return 4096
 
     def verify_files(self):
         '''Always :py:obj:`True`
@@ -181,7 +180,7 @@ class AdminVM(qubes.vm.BaseVM):
 
     @property
     def icon_path(self):
-        return None
+        pass
 
     @property
     def untrusted_qdb(self):

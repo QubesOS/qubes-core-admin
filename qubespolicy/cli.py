@@ -72,12 +72,12 @@ def main(args=None):
     if not log.handlers:
         handler = logging.handlers.SysLogHandler(address='/dev/log')
         log.addHandler(handler)
-    log_prefix = 'qrexec: {}: {} -> {}: '.format(
+    log_prefix = 'qrexec: {}: {} -> {}:'.format(
         args.service_name, args.domain, args.target)
     try:
         system_info = qubespolicy.get_system_info()
     except qubespolicy.QubesMgmtException as e:
-        log.error(log_prefix + 'error getting system info: ' + str(e))
+        log.error('%s error getting system info: %s', log_prefix, str(e))
         return 1
     try:
         try:
@@ -130,13 +130,13 @@ def main(args=None):
                 action.handle_user_response(True, response)
             else:
                 action.handle_user_response(False)
-        log.info(log_prefix + 'allowed to {}'.format(action.target))
+        log.info('%s allowed to %s', log_prefix, action.target)
         action.execute(caller_ident)
     except qubespolicy.PolicySyntaxError as e:
-        log.error(log_prefix + 'error loading policy: ' + str(e))
+        log.error('%s error loading policy: %s', log_prefix, str(e))
         return 1
     except qubespolicy.AccessDenied as e:
-        log.info(log_prefix + 'denied: ' + str(e))
+        log.info('%s denied: %s', log_prefix, str(e))
         return 1
     return 0
 

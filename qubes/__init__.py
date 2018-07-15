@@ -42,7 +42,7 @@ __license__ = 'GPLv2 or later'
 __version__ = 'R3'
 
 
-class Label(object):
+class Label:
     '''Label definition for virtual machines
 
     Label specifies colour of the padlock displayed next to VM's name.
@@ -134,7 +134,7 @@ class Label(object):
             self.icon_dispvm) + ".png"
 
 
-class property(object):  # pylint: disable=redefined-builtin,invalid-name
+class property:  # pylint: disable=redefined-builtin,invalid-name
     '''Qubes property.
 
     This class holds one property that can be saved to and loaded from
@@ -350,11 +350,10 @@ class property(object):  # pylint: disable=redefined-builtin,invalid-name
                 raise qubes.exc.QubesValueError
             if self.type is bool:
                 return self.bool(None, None, untrusted_newvalue)
-            else:
-                try:
-                    return self.type(untrusted_newvalue)
-                except ValueError:
-                    raise qubes.exc.QubesValueError
+            try:
+                return self.type(untrusted_newvalue)
+            except ValueError:
+                raise qubes.exc.QubesValueError
         else:
             # 'str' or not specified type
             try:

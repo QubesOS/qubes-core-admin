@@ -66,7 +66,7 @@ import qubes.vm.qubesvm
 import qubes.vm.templatevm
 # pylint: enable=wrong-import-position
 
-class VirDomainWrapper(object):
+class VirDomainWrapper:
     # pylint: disable=too-few-public-methods
 
     def __init__(self, connection, vm):
@@ -97,7 +97,7 @@ class VirDomainWrapper(object):
         return wrapper
 
 
-class VirConnectWrapper(object):
+class VirConnectWrapper:
     # pylint: disable=too-few-public-methods
 
     def __init__(self, uri):
@@ -134,7 +134,7 @@ class VirConnectWrapper(object):
         return wrapper
 
 
-class VMMConnection(object):
+class VMMConnection:
     '''Connection to Virtual Machine Manager (libvirt)'''
 
     def __init__(self, offline_mode=None):
@@ -229,7 +229,7 @@ class VMMConnection(object):
         self._xc = None  # and pray it will get garbage-collected
 
 
-class QubesHost(object):
+class QubesHost:
     '''Basic information about host machine
 
     :param qubes.Qubes app: Qubes application context (must have \
@@ -363,7 +363,7 @@ class QubesHost(object):
         return (current_time, current)
 
 
-class VMCollection(object):
+class VMCollection:
     '''A collection of Qubes VMs
 
     VMCollection supports ``in`` operator. You may test for ``qid``, ``name``
@@ -493,7 +493,7 @@ class VMCollection(object):
         self.app.fire_event('domain-delete', vm=vm)
 
     def __contains__(self, key):
-        return any((key == vm or key == vm.qid or key == vm.name)
+        return any((key in (vm, vm.qid, vm.name))
                    for vm in self)
 
 
@@ -557,32 +557,32 @@ def _default_pool(app):
     '''
     if 'default' in app.pools:
         return app.pools['default']
-    else:
-        if 'DEFAULT_LVM_POOL' in os.environ:
-            thin_pool = os.environ['DEFAULT_LVM_POOL']
-            for pool in app.pools.values():
-                if pool.config.get('driver', None) != 'lvm_thin':
-                    continue
-                if pool.config['thin_pool'] == thin_pool:
-                    return pool
-        # no DEFAULT_LVM_POOL, or pool not defined
-        root_volume_group, root_thin_pool = \
-            qubes.storage.DirectoryThinPool.thin_pool('/')
-        if root_thin_pool:
-            for pool in app.pools.values():
-                if pool.config.get('driver', None) != 'lvm_thin':
-                    continue
-                if (pool.config['volume_group'] == root_volume_group and
-                    pool.config['thin_pool'] == root_thin_pool):
-                    return pool
 
-        # not a thin volume? look for file pools
+    if 'DEFAULT_LVM_POOL' in os.environ:
+        thin_pool = os.environ['DEFAULT_LVM_POOL']
         for pool in app.pools.values():
-            if pool.config.get('driver', None) not in ('file', 'file-reflink'):
+            if pool.config.get('driver', None) != 'lvm_thin':
                 continue
-            if pool.config['dir_path'] == qubes.config.qubes_base_dir:
+            if pool.config['thin_pool'] == thin_pool:
                 return pool
-        raise AttributeError('Cannot determine default storage pool')
+    # no DEFAULT_LVM_POOL, or pool not defined
+    root_volume_group, root_thin_pool = \
+        qubes.storage.DirectoryThinPool.thin_pool('/')
+    if root_thin_pool:
+        for pool in app.pools.values():
+            if pool.config.get('driver', None) != 'lvm_thin':
+                continue
+            if (pool.config['volume_group'] == root_volume_group and
+                pool.config['thin_pool'] == root_thin_pool):
+                return pool
+
+    # not a thin volume? look for file pools
+    for pool in app.pools.values():
+        if pool.config.get('driver', None) not in ('file', 'file-reflink'):
+            continue
+        if pool.config['dir_path'] == qubes.config.qubes_base_dir:
+            return pool
+    raise AttributeError('Cannot determine default storage pool')
 
 def _setter_pool(app, prop, value):
     if isinstance(value, qubes.storage.Pool):

@@ -356,9 +356,9 @@ class FileVolume(qubes.storage.Volume):
     def script(self):
         if not self.snap_on_start and not self.save_on_stop:
             return None
-        elif not self.snap_on_start and self.save_on_stop:
+        if not self.snap_on_start and self.save_on_stop:
             return 'block-origin'
-        elif self.snap_on_start:
+        if self.snap_on_start:
             return 'block-snapshot'
         return None
 

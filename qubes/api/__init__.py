@@ -97,7 +97,7 @@ def apply_filters(iterable, filters):
     return iterable
 
 
-class AbstractQubesAPI(object):
+class AbstractQubesAPI:
     '''Common code for Qubes Management Protocol handling
 
     Different interfaces can expose different API call sets, however they share

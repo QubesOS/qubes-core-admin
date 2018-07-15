@@ -47,7 +47,7 @@ class StoragePoolException(qubes.exc.QubesException):
     pass
 
 
-class BlockDevice(object):
+class BlockDevice:
     ''' Represents a storage block device. '''
     # pylint: disable=too-few-public-methods
     def __init__(self, path, name, script=None, rw=True, domain=None,
@@ -62,7 +62,7 @@ class BlockDevice(object):
         self.devtype = devtype
 
 
-class Volume(object):
+class Volume:
     ''' Encapsulates all data about a volume for serialization to qubes.xml and
         libvirt config.
 
@@ -334,14 +334,14 @@ class Volume(object):
         msg = msg.format(str(self.__class__.__name__), method_name)
         return NotImplementedError(msg)
 
-class Storage(object):
+class Storage:
     ''' Class for handling VM virtual disks.
 
     This is base class for all other implementations, mostly with Xen on Linux
     in mind.
     '''
 
-    AVAILABLE_FRONTENDS = set(['xvd' + c for c in string.ascii_lowercase])
+    AVAILABLE_FRONTENDS = {'xvd' + c for c in string.ascii_lowercase}
 
     def __init__(self, vm):
         #: Domain for which we manage storage
@@ -655,9 +655,9 @@ class Storage(object):
         ''' Used device names '''
         xml = self.vm.libvirt_domain.XMLDesc()
         parsed_xml = lxml.etree.fromstring(xml)
-        return set([target.get('dev', None)
+        return {target.get('dev', None)
                     for target in parsed_xml.xpath(
-                        "//domain/devices/disk/target")])
+                        "//domain/devices/disk/target")}
 
     def export(self, volume):
         ''' Helper function to export volume (pool.export(volume))'''
@@ -688,7 +688,7 @@ class Storage(object):
         return self.vm.volumes[volume].import_data_end(success=success)
 
 
-class VolumesCollection(object):
+class VolumesCollection:
     '''Convenient collection wrapper for pool.get_volume and
     pool.list_volumes
     '''
@@ -706,8 +706,7 @@ class VolumesCollection(object):
         if isinstance(item, Volume):
             if item.pool == self._pool:
                 return self[item.vid]
-            else:
-                raise KeyError(item)
+            raise KeyError(item)
         try:
             return self._pool.get_volume(item)
         except NotImplementedError:
@@ -740,7 +739,7 @@ class VolumesCollection(object):
         return [vol for vol in self]
 
 
-class Pool(object):
+class Pool:
     ''' A Pool is used to manage different kind of volumes (File
         based/LVM/Btrfs/...).
 
@@ -760,7 +759,7 @@ class Pool(object):
     def __eq__(self, other):
         if isinstance(other, Pool):
             return self.name == other.name
-        elif isinstance(other, str):
+        if isinstance(other, str):
             return self.name == other
         return NotImplemented
 
@@ -829,12 +828,12 @@ class Pool(object):
     @property
     def size(self):
         ''' Storage pool size in bytes, or None if unknown '''
-        return None
+        pass
 
     @property
     def usage(self):
         ''' Space used in the pool in bytes, or None if unknown '''
-        return None
+        pass
 
     def _not_implemented(self, method_name):
         ''' Helper for emitting helpful `NotImplementedError` exceptions '''
@@ -898,7 +897,7 @@ def search_pool_containing_dir(pools, dir_path):
     return None
 
 
-class VmCreationManager(object):
+class VmCreationManager:
     ''' A `ContextManager` which cleans up if volume creation fails.
     '''  # pylint: disable=too-few-public-methods
     def __init__(self, vm):

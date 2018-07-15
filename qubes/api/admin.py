@@ -44,7 +44,7 @@ import qubes.vm.adminvm
 import qubes.vm.qubesvm
 
 
-class QubesMgmtEventsDispatcher(object):
+class QubesMgmtEventsDispatcher:
     def __init__(self, filters, send_event):
         self.filters = filters
         self.send_event = send_event

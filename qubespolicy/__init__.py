@@ -18,6 +18,8 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
+# pylint: disable=no-else-return,useless-object-inheritance,try-except-raise
+
 ''' Qrexec policy parser and evaluator '''
 import enum
 import itertools
