@@ -207,10 +207,10 @@ def load_tests(loader, tests, pattern):
             'qubes.tests.extra.for_template'):
         try:
             for test_case in entry.load()():
-                test.addTests(loader.loadTestsFromNames(
+                tests.addTests(loader.loadTestsFromNames(
                     qubes.tests.create_testcases_for_templates(
                         test_case.__name__, test_case,
-                        globals=sys.modules[test_case.__module__].__dict__)))
+                        module=sys.modules[test_case.__module__])))
         except Exception as err:  # pylint: disable=broad-except
             def runTest(self):
                 raise err

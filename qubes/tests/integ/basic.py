@@ -35,6 +35,8 @@ import collections
 import pkg_resources
 import shutil
 
+import sys
+
 import qubes
 import qubes.firewall
 import qubes.tests
@@ -796,11 +798,11 @@ def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromNames(
         qubes.tests.create_testcases_for_templates('TC_05_StandaloneVM',
             TC_05_StandaloneVMMixin, qubes.tests.SystemTestCase,
-            globals=globals())))
+            module=sys.modules[__name__])))
     tests.addTests(loader.loadTestsFromNames(
         qubes.tests.create_testcases_for_templates('TC_06_AppVM',
             TC_06_AppVMMixin, qubes.tests.SystemTestCase,
-            globals=globals())))
+            module=sys.modules[__name__])))
 
     return tests
 

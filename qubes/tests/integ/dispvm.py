@@ -28,6 +28,8 @@ from distutils import spawn
 
 import asyncio
 
+import sys
+
 import qubes.tests
 
 class TC_04_DispVM(qubes.tests.SystemTestCase):
@@ -285,5 +287,5 @@ def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromNames(
         qubes.tests.create_testcases_for_templates('TC_20_DispVM',
             TC_20_DispVMMixin, qubes.tests.SystemTestCase,
-            globals=globals())))
+            module=sys.modules[__name__])))
     return tests

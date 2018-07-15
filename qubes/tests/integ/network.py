@@ -1330,6 +1330,6 @@ def load_tests(loader, tests, pattern):
             module=sys.modules[__name__])))
     tests.addTests(loader.loadTestsFromNames(
         qubes.tests.create_testcases_for_templates('VmUpdates',
-            VmUpdates, qubes.tests.SystemTestCase,
+            VmUpdatesMixin, qubes.tests.SystemTestCase,
             module=sys.modules[__name__])))
     return tests

@@ -654,5 +654,5 @@ def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromNames(
         qubes.tests.create_testcases_for_templates('TC_10_BackupVM',
             TC_10_BackupVMMixin, qubes.tests.SystemTestCase,
-            globals=globals())))
+            module=sys.modules[__name__])))
     return tests
