@@ -335,7 +335,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         volume = self.dest.volumes[self.arg]
         # properties defined in API
         volume_properties = [
-            'pool', 'vid', 'size', 'usage', 'rw', 'source',
+            'pool', 'vid', 'size', 'usage', 'rw', 'source', 'path',
             'save_on_stop', 'snap_on_start', 'revisions_to_keep']
 
         def _serialize(value):

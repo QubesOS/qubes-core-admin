@@ -421,6 +421,13 @@ class QubesTestCase(unittest.TestCase):
             except asyncio.TimeoutError:
                 raise AssertionError('libvirt event impl drain timeout')
 
+        # this is stupid, but apparently it requires two passes
+        # to cleanup SIGCHLD handlers
+        self.loop.stop()
+        self.loop.run_forever()
+        self.loop.stop()
+        self.loop.run_forever()
+
         # Check there are no Tasks left.
         assert not self.loop._ready
         assert not self.loop._scheduled
