@@ -17,6 +17,7 @@
 #
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, see <http://www.gnu.org/licenses/>.
+import asyncio
 
 import qubes.ext
 
@@ -49,8 +50,9 @@ class WindowsFeatures(qubes.ext.Extension):
         if guest_os == 'Windows' and qrexec:
             vm.features['rpc-clipboard'] = True
 
-    @qubes.ext.handler('domain-add', system=True)
-    def on_domain_add(self, app, _event, vm, **kwargs):
+    @qubes.ext.handler('domain-create-on-disk')
+    @asyncio.coroutine
+    def on_domain_create_on_disk(self, vm, _event, **kwargs):
         # pylint: disable=no-self-use,unused-argument
         if getattr(vm, 'template', None) is None:
             # handle only template-based vms
@@ -61,4 +63,11 @@ class WindowsFeatures(qubes.ext.Extension):
             # ignore non-windows templates
             return
 
-        # TODO: consider copying template's root volume here
+        if vm.volumes['private'].save_on_stop:
+            # until windows tools get ability to prepare private.img on its own,
+            # copy one from the template
+            vm.log.info('Windows template - cloning private volume')
+            import_op = vm.volumes['private'].import_volume(
+                template.volumes['private'])
+            if asyncio.iscoroutine(import_op):
+                yield from import_op
