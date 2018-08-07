@@ -3,6 +3,9 @@
 
 ## Please use a single # to start your custom comments
 
+$tag:whonix-updatevm $default allow,target=sys-whonix
+$tag:whonix-updatevm $anyvm deny
+
 # Default rule for all TemplateVMs - direct the connection to sys-net
 $type:TemplateVM $default allow,target=sys-net
 
