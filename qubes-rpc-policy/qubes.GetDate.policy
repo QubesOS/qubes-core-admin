@@ -3,4 +3,5 @@
 
 ## Please use a single # to start your custom comments
 
+$tag:anon-vm	$anyvm	deny
 $anyvm	$anyvm	allow,target=dom0
