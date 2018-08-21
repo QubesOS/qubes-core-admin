@@ -42,7 +42,7 @@ def load_pci_classes():
     #       subclass        subclass_name           <-- single tab
     #               prog-if  prog-if_name   <-- two tabs
     result = {}
-    with open('/usr/share/hwdata/pci.ids') as pciids:
+    with open('/usr/share/hwdata/pci.ids', encoding='utf-8', errors='ignore') as pciids:
         class_id = None
         subclass_id = None
         for line in pciids.readlines():
