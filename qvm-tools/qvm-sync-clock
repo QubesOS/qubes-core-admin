@@ -32,6 +32,11 @@ def main():
     app = Qubes()
     clockvm = app.clockvm
 
+    if not clockvm.is_running():
+        sys.stderr.write('ClockVM {} is not running, aborting.\n'.format(
+            clockvm.name))
+        sys.exit(0)
+
     p = clockvm.run_service('qubes.GetDate')
     untrusted_date_out = p.stdout.read(25).decode('ascii', errors='strict')
     untrusted_date_out = untrusted_date_out.strip()
