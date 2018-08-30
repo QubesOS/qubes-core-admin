@@ -1298,9 +1298,9 @@ class Qubes(qubes.PropertyHolder):
                         self.log.error(
                             'Cannot remove %s, used by %s.%s',
                             vm, obj, prop.__name__)
-                        raise qubes.exc.QubesVMInUseError(vm,
-                            'Domain is in use: {!r}; details in system log'
-                                .format(vm.name))
+                        raise qubes.exc.QubesVMInUseError(vm, 'Domain is in '
+                        'use: {!r}; see /var/log/qubes/qubes.log in dom0 for '
+                        'details'.format(vm.name))
                 except AttributeError:
                     pass
 
