@@ -918,7 +918,7 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             qmemman_client = None
             try:
-                if self.virt_mode == 'pvh' and self.kernel is None:
+                if self.virt_mode == 'pvh' and not self.kernel:
                     raise qubes.exc.QubesException(
                         'virt_mode PVH require kernel to be set')
                 yield from self.storage.verify()
