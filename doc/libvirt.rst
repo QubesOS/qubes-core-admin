@@ -22,14 +22,14 @@ The distributor may put a file at
 :file:`/usr/share/qubes/template/xen-dist.xml`) to override this file. 
 User may put a file at either
 :file:`/etc/qubes/templates/libvirt/xen-user.xml` or
-:file:`/etc/qubes/templates/libvirt/by-name/<name>.xml`, where ``<name>`` is
+:file:`/etc/qubes/templates/libvirt/xen/by-name/<name>.xml`, where ``<name>`` is
 full name of the domain. Wildcards are not supported but symlinks are.
 
 Jinja has a concept of template names, which basically is the path below some
 load point, which in Qubes' case is :file:`/etc/qubes/templates` and
 :file:`/usr/share/qubes/templates`. Thus names of those templates are
 respectively ``'libvirt/xen.xml'``, ``'libvirt/xen-dist.xml'``,
-``'libvirt/xen-user.xml'`` and ``'libvirt/by-name/<name>.xml'``.
+``'libvirt/xen-user.xml'`` and ``'libvirt/xen/by-name/<name>.xml'``.
 This will be important later.
 
 .. note::
@@ -94,6 +94,9 @@ Blocks in the default template
 basic
    Contains ``<name>``, ``<uuid>``, ``<memory>``, ``<currentMemory>`` and
    ``<vcpu>`` nodes.
+
+cpu
+   ``<cpu>`` node.
 
 os
    Contents of ``<os>`` node.
