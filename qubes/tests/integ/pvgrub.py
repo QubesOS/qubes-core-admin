@@ -70,7 +70,7 @@ class TC_40_PVGrub(object):
 
     def get_kernel_version(self, vm):
         if self.template.startswith('fedora-'):
-            cmd_get_kernel_version = 'rpm -q kernel-core|sort -n|tail -1|' \
+            cmd_get_kernel_version = 'rpm -q kernel-core|sort -V|tail -1|' \
                                      'cut -d - -f 3-'
         elif self.template.startswith('debian-'):
             cmd_get_kernel_version = \

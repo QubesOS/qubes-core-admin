@@ -102,7 +102,8 @@ class ThinPool(qubes.storage.Pool):
             'name': self.name,
             'volume_group': self.volume_group,
             'thin_pool': self.thin_pool,
-            'driver': ThinPool.driver
+            'driver': ThinPool.driver,
+            'revisions_to_keep': self.revisions_to_keep,
         }
 
     def destroy(self):
@@ -702,6 +703,12 @@ def qubes_lvm(cmd, log=logging.getLogger('qubes.storage.lvm')):
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         close_fds=True, env=environ)
     out, err = p.communicate()
+    err = err.decode()
+    # Filter out warning about intended over-provisioning.
+    # Upstream discussion about missing option to silence it:
+    # https://bugzilla.redhat.com/1347008
+    err = '\n'.join(line for line in err.splitlines()
+        if 'exceeds the size of thin pool' not in line)
     return_code = p.returncode
     if out:
         log.debug(out)
@@ -709,6 +716,7 @@ def qubes_lvm(cmd, log=logging.getLogger('qubes.storage.lvm')):
         log.warning(err)
     elif return_code != 0:
         assert err, "Command exited unsuccessful, but printed nothing to stderr"
+        err = err.replace('%', '%%')
         raise qubes.storage.StoragePoolException(err)
     return True
 

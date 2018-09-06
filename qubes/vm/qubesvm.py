@@ -912,9 +912,20 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 
             self.log.info('Starting {}'.format(self.name))
 
-            yield from self.fire_event_async('domain-pre-start',
-                pre_event=True,
-                start_guid=start_guid, mem_required=mem_required)
+            try:
+                yield from self.fire_event_async('domain-pre-start',
+                    pre_event=True,
+                    start_guid=start_guid, mem_required=mem_required)
+            except Exception as exc:
+                yield from self.fire_event_async('domain-start-failed',
+                    reason=str(exc))
+                raise
+
+            for devclass in self.devices:
+                for dev in self.devices[devclass].persistent():
+                    if isinstance(dev, qubes.devices.UnknownDevice):
+                        raise qubes.exc.QubesException(
+                            '{} device {} not available'.format(devclass, dev))
 
             qmemman_client = None
             try:
