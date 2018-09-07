@@ -78,23 +78,18 @@ Expire-Date: 0
 
         cls.keyid = cls.generate_key(cls.tmpdir)
 
-        p = subprocess.Popen(['sudo', 'dd',
-                              'status=none', 'of=/etc/yum.repos.d/test.repo'],
-                             stdin=subprocess.PIPE)
-        p.stdin.write(b'''
+        with open('/etc/yum.repos.d/test.repo', 'w') as repo_file:
+            repo_file.write('''
 [test]
 name = Test
 baseurl = http://localhost:8080/
 enabled = 1
 ''')
-        p.stdin.close()
-        p.wait()
 
 
     @classmethod
     def tearDownClass(cls):
-        subprocess.check_call(['sudo', 'rm', '-f',
-                               '/etc/yum.repos.d/test.repo'])
+        os.unlink('/etc/yum.repos.d/test.repo')
 
         shutil.rmtree(cls.tmpdir)
 
@@ -113,9 +108,9 @@ enabled = 1
         self.loop.run_until_complete(self.updatevm.create_on_disk())
         self.app.updatevm = self.updatevm
         self.app.save()
-        subprocess.call(['sudo', 'rpm', '-e', self.pkg_name],
+        subprocess.call(['rpm', '-e', self.pkg_name],
                         stderr=subprocess.DEVNULL)
-        subprocess.check_call(['sudo', 'rpm', '--import',
+        subprocess.check_call(['rpm', '--import',
                                os.path.join(self.tmpdir, 'pubkey.asc')])
         self.loop.run_until_complete(self.updatevm.start())
         self.repo_running = False
@@ -128,9 +123,9 @@ enabled = 1
             del self.repo_proc
         super(TC_00_Dom0UpgradeMixin, self).tearDown()
 
-        subprocess.call(['sudo', 'rpm', '-e', self.pkg_name],
+        subprocess.call(['rpm', '-e', self.pkg_name],
             stderr=subprocess.DEVNULL)
-        subprocess.call(['sudo', 'rpm', '-e', 'gpg-pubkey-{}'.format(
+        subprocess.call(['rpm', '-e', 'gpg-pubkey-{}'.format(
             self.keyid)], stderr=subprocess.DEVNULL)
 
         for pkg in os.listdir(self.tmpdir):
@@ -165,7 +160,7 @@ Test package
              spec_path])
         pkg_path = os.path.join(dir, 'x86_64',
                                 '{}-{}-1.x86_64.rpm'.format(name, version))
-        subprocess.check_call(['sudo', 'chmod', 'go-rw', '/dev/tty'])
+        subprocess.check_call(['chmod', 'go-rw', '/dev/tty'])
         subprocess.check_call(
             ['rpm', '--quiet', '--define=_gpg_path {}'.format(dir),
              '--define=_gpg_name {}'.format("Qubes test"),
@@ -173,7 +168,7 @@ Test package
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.STDOUT)
-        subprocess.check_call(['sudo', 'chmod', 'go+rw', '/dev/tty'])
+        subprocess.check_call(['chmod', 'go+rw', '/dev/tty'])
         return pkg_path
 
     def send_pkg(self, filename):
@@ -212,7 +207,7 @@ Test package
          - "updates pending" flag is cleared
         """
         filename = self.create_pkg(self.tmpdir, self.pkg_name, '1.0')
-        subprocess.check_call(['sudo', 'rpm', '-i', filename])
+        subprocess.check_call(['rpm', '-i', filename])
         filename = self.create_pkg(self.tmpdir, self.pkg_name, '2.0')
         self.send_pkg(filename)
         open(self.update_flag_path, 'a').close()
@@ -331,7 +326,7 @@ Test package
             self.pkg_name))
 
     def test_020_install_wrong_sign(self):
-        subprocess.call(['sudo', 'rpm', '-e', 'gpg-pubkey-{}'.format(
+        subprocess.call(['rpm', '-e', 'gpg-pubkey-{}'.format(
             self.keyid)])
         filename = self.create_pkg(self.tmpdir, self.pkg_name, '1.0')
         self.send_pkg(filename)

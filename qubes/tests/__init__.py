@@ -849,7 +849,7 @@ class SystemTestCase(QubesTestCase):
         '''
         try:
             volumes = subprocess.check_output(
-                ['sudo', 'lvs', '--noheadings', '-o', 'vg_name,name',
+                ['lvs', '--noheadings', '-o', 'vg_name,name',
                     '--separator', '/']).decode()
             if ('/vm-' + prefix) not in volumes:
                 return
