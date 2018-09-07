@@ -8,10 +8,20 @@ Because all objects in Qubes' world are interconnected, there is no possibility
 to instantiate them separately. They are all loaded together and contained in
 the one ``app`` object, an instance of :py:class:`qubes.Qubes` class.
 
+Loading
+^^^^^^^
+
+The objects may come to existence in two ways: by explicit instantiation or by
+loading from XML file.
+
 The loading from XML is done in stages, because Qubes domains are dependent on
 each other in what can be even a circular dependency. Therefore some properties
-(especcialy those that refer to another domains) are loaded later. Refer to
-:py:class:`qubes.Qubes` class documentation to get description of every stage.
+(especcialy those that refer to another domains) are loaded later.
+
+.. image:: loading.svg
+
+Refer to :py:class:`qubes.Qubes` class documentation to get description of every
+stage.
 
 
 Properties
