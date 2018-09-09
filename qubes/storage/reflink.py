@@ -276,7 +276,8 @@ class ReflinkVolume(qubes.storage.Volume):
         return self
 
     def import_volume(self, src_volume):
-        self._require_save_on_stop('import_volume')
+        if not self.save_on_stop:
+            return self
         try:
             _copy_file(src_volume.export(), self._path_import)
         except:
