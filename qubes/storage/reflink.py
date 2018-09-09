@@ -121,6 +121,7 @@ class ReflinkVolume(qubes.storage.Volume):
         self._path_vid = os.path.join(self.pool.dir_path, self.vid)
         self._path_clean = self._path_vid + '.img'
         self._path_dirty = self._path_vid + '-dirty.img'
+        self._path_import = self._path_vid + '-import.img'
         self.path = self._path_dirty
 
     def create(self):
@@ -156,6 +157,7 @@ class ReflinkVolume(qubes.storage.Volume):
     def _cleanup(self):
         for tmp in glob.iglob(glob.escape(self._path_vid) + '*.img*~*'):
             _remove_file(tmp)
+        _remove_file(self._path_import)
 
     def is_outdated(self):
         if self.snap_on_start:
@@ -183,16 +185,16 @@ class ReflinkVolume(qubes.storage.Volume):
 
     def stop(self):
         if self.save_on_stop:
-            self._commit()
+            self._commit(self._path_dirty)
         else:
             _remove_file(self._path_dirty)
             _remove_file(self._path_clean)
         return self
 
-    def _commit(self):
+    def _commit(self, path_from):
         self._add_revision()
         self._prune_revisions()
-        _rename_file(self._path_dirty, self._path_clean)
+        _rename_file(path_from, self._path_clean)
 
     def _add_revision(self):
         if self.revisions_to_keep == 0:
@@ -263,20 +265,20 @@ class ReflinkVolume(qubes.storage.Volume):
 
     def import_data(self):
         self._require_save_on_stop('import_data')
-        _create_sparse_file(self._path_dirty, self.size)
-        return self._path_dirty
+        _create_sparse_file(self._path_import, self.size)
+        return self._path_import
 
     def import_data_end(self, success):
         if success:
-            self._commit()
+            self._commit(self._path_import)
         else:
-            _remove_file(self._path_dirty)
+            _remove_file(self._path_import)
         return self
 
     def import_volume(self, src_volume):
         self._require_save_on_stop('import_volume')
         try:
-            _copy_file(src_volume.export(), self._path_dirty)
+            _copy_file(src_volume.export(), self._path_import)
         except:
             self.import_data_end(False)
             raise
