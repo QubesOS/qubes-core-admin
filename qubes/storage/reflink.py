@@ -253,18 +253,16 @@ class ReflinkVolume(qubes.storage.Volume):
 
         return self
 
-    def _require_save_on_stop(self, method_name):
+    def export(self):
         if not self.save_on_stop:
             raise NotImplementedError(
-                'Cannot {}: {} is not save_on_stop'.format(
-                    method_name, self.vid))
-
-    def export(self):
-        self._require_save_on_stop('export')
+                'Cannot export: {} is not save_on_stop'.format(self.vid))
         return self._path_clean
 
     def import_data(self):
-        self._require_save_on_stop('import_data')
+        if not self.save_on_stop:
+            raise NotImplementedError(
+                'Cannot import_data: {} is not save_on_stop'.format(self.vid))
         _create_sparse_file(self._path_import, self.size)
         return self._path_import
 
