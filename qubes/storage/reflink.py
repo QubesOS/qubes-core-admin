@@ -197,6 +197,9 @@ class ReflinkVolume(qubes.storage.Volume):
             _remove_file(self._path_revision(number, timestamp))
 
     def revert(self, revision=None):
+        if self.is_dirty():
+            raise qubes.storage.StoragePoolException(
+                'Cannot revert: {} is not cleanly stopped'.format(self.vid))
         if revision is None:
             number, timestamp = list(self.revisions.items())[-1]
         else:
