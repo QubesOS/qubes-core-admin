@@ -184,8 +184,6 @@ class ReflinkVolume(qubes.storage.Volume):
     def _add_revision(self):
         if self.revisions_to_keep == 0:
             return
-        if _get_file_disk_usage(self._path_clean) == 0:
-            return
         ctime = os.path.getctime(self._path_clean)
         timestamp = qubes.storage.isodate(int(ctime))
         _copy_file(self._path_clean,
