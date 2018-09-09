@@ -379,7 +379,19 @@ class QubesTestCase(unittest.TestCase):
 
         self.loop = asyncio.get_event_loop()
         self.addCleanup(self.cleanup_loop)
+        self.addCleanup(self.cleanup_traceback)
         self.addCleanup(qubes.ext.pci._cache_get.cache_clear)
+
+    def cleanup_traceback(self):
+        '''Remove local variables reference from tracebacks to allow garbage
+        collector to clean all Qubes*() objects, otherwise file descriptors
+        held by them will leak'''
+        for test_case, exc_info in self._outcome.errors:
+            if test_case is not self:
+                continue
+            if exc_info is None:
+                continue
+            traceback.clear_frames(exc_info[2])
 
     def cleanup_gc(self):
         gc.collect()
