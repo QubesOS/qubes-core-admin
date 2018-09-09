@@ -132,7 +132,7 @@ class ReflinkVolume(qubes.storage.Volume):
         if img is None or os.path.exists(img):
             return True
         raise qubes.storage.StoragePoolException(
-            'Missing image file {!r} for volume {!s}'.format(img, self.vid))
+            'Missing image file {!r} for volume {}'.format(img, self.vid))
 
     def remove(self):
         ''' Drop volume object from pool; remove volume images from
@@ -214,12 +214,12 @@ class ReflinkVolume(qubes.storage.Volume):
         '''
         if not self.rw:
             raise qubes.storage.StoragePoolException(
-                'Cannot resize: {!s} is read-only'.format(self.vid))
+                'Cannot resize: {} is read-only'.format(self.vid))
 
         if size < self.size:
             raise qubes.storage.StoragePoolException(
-                'For your own safety, shrinking of {!s} is disabled'
-                ' ({:d} < {:d}). If you really know what you are doing,'
+                'For your own safety, shrinking of {} is disabled'
+                ' ({} < {}). If you really know what you are doing,'
                 ' use "truncate" manually.'.format(self.vid, size, self.size))
 
         try:  # assume volume is not (cleanly) stopped ...
@@ -240,7 +240,7 @@ class ReflinkVolume(qubes.storage.Volume):
     def _require_save_on_stop(self, method_name):
         if not self.save_on_stop:
             raise NotImplementedError(
-                'Cannot {!s}: {!s} is not save_on_stop'.format(
+                'Cannot {}: {} is not save_on_stop'.format(
                     method_name, self.vid))
 
     def export(self):
@@ -408,7 +408,7 @@ def _cmd(*args):
                               stdout=subprocess.PIPE,
                               stderr=subprocess.PIPE).stdout
     except subprocess.CalledProcessError as ex:
-        msg = '{!s} err={!r} out={!r}'.format(ex, ex.stderr, ex.stdout)
+        msg = '{} err={!r} out={!r}'.format(ex, ex.stderr, ex.stdout)
         raise qubes.storage.StoragePoolException(msg) from ex
 
 def is_reflink_supported(dst_dir, src_dir=None):
