@@ -116,6 +116,13 @@ class ReflinkPool(qubes.storage.Pool):
             self.dir_path)
 
 class ReflinkVolume(qubes.storage.Volume):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._path_vid = os.path.join(self.pool.dir_path, self.vid)
+        self._path_clean = self._path_vid + '.img'
+        self._path_dirty = self._path_vid + '-dirty.img'
+        self.path = self._path_dirty
+
     def create(self):
         if self.save_on_stop and not self.snap_on_start:
             _create_sparse_file(self._path_clean, self.size)
@@ -274,18 +281,6 @@ class ReflinkVolume(qubes.storage.Volume):
         if timestamp is None:
             timestamp = self.revisions[number]
         return self._path_clean + '.' + number + '@' + timestamp + 'Z'
-
-    @property
-    def _path_clean(self):
-        return os.path.join(self.pool.dir_path, self.vid + '.img')
-
-    @property
-    def _path_dirty(self):
-        return os.path.join(self.pool.dir_path, self.vid + '-dirty.img')
-
-    @property
-    def path(self):
-        return self._path_dirty
 
     @property
     def _next_revision_number(self):
