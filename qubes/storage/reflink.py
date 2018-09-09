@@ -240,10 +240,11 @@ class ReflinkVolume(qubes.storage.Volume):
 
         try:  # assume volume is not (cleanly) stopped ...
             _resize_file(self._path_dirty, size)
+            self.size = size
         except FileNotFoundError:  # ... but it actually is.
             _resize_file(self._path_clean, size)
-
-        self.size = size
+            self.size = size
+            return self
 
         # resize any corresponding loop devices
         out = _cmd('losetup', '--associated', self._path_dirty)
