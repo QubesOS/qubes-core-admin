@@ -47,7 +47,7 @@ def main():
     date_out = untrusted_date_out
     subprocess.check_call(['date', '-u', '-Iseconds', '-s', date_out],
         stdout=subprocess.DEVNULL)
-    subprocess.check_call(['hwclock', '--systohc'],
+    subprocess.check_call(['/sbin/hwclock', '--systohc'],
         stdout=subprocess.DEVNULL)
 
 if __name__ == '__main__':
