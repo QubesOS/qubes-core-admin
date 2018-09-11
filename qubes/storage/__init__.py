@@ -884,17 +884,21 @@ def search_pool_containing_dir(pools, dir_path):
     This is useful for implementing Pool.included_in method
     '''
 
+    real_dir_path = os.path.realpath(dir_path)
+
     # prefer filesystem pools
     for pool in pools:
         if hasattr(pool, 'dir_path'):
-            if dir_path.startswith(pool.dir_path):
+            pool_real_dir_path = os.path.realpath(pool.dir_path)
+            if os.path.commonpath([pool_real_dir_path, real_dir_path]) == \
+               pool_real_dir_path:
                 return pool
 
     # then look for lvm
     for pool in pools:
         if hasattr(pool, 'thin_pool') and hasattr(pool, 'volume_group'):
             if (pool.volume_group, pool.thin_pool) == \
-                    DirectoryThinPool.thin_pool(dir_path):
+                    DirectoryThinPool.thin_pool(real_dir_path):
                 return pool
 
     return None
