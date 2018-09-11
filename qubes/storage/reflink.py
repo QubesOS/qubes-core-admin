@@ -403,6 +403,13 @@ def _update_loopdev_sizes(img):
         with open('/dev/' + sys_path.split('/')[3]) as dev_io:
             fcntl.ioctl(dev_io.fileno(), LOOP_SET_CAPACITY)
 
+def _attempt_ficlone(src, dst):
+    try:
+        fcntl.ioctl(dst.fileno(), FICLONE, src.fileno())
+        return True
+    except OSError:
+        return False
+
 def _copy_file(src, dst):
     ''' Copy src to dst as a reflink if possible, sparse if not. '''
     if not os.path.exists(src):
@@ -424,9 +431,4 @@ def is_reflink_supported(dst_dir, src_dir=None):
     dst = tempfile.TemporaryFile(dir=dst_dir)
     src = tempfile.TemporaryFile(dir=src_dir)
     src.write(b'foo')  # don't let any filesystem get clever with empty files
-
-    try:
-        fcntl.ioctl(dst.fileno(), FICLONE, src.fileno())
-        return True
-    except OSError:
-        return False
+    return _attempt_ficlone(src, dst)
