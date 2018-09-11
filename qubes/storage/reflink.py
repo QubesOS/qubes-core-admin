@@ -55,7 +55,7 @@ class ReflinkPool(qubes.storage.Pool):
 
     def setup(self):
         created = _make_dir(self.dir_path)
-        if self.setup_check and not is_reflink_supported(self.dir_path):
+        if self.setup_check and not is_supported(self.dir_path):
             if created:
                 _remove_empty_dir(self.dir_path)
             raise qubes.storage.StoragePoolException(
@@ -449,7 +449,7 @@ def _copy_file(src, dst):
             raise qubes.storage.StoragePoolException(str(p))
         return False
 
-def is_reflink_supported(dst_dir, src_dir=None):
+def is_supported(dst_dir, src_dir=None):
     ''' Return whether destination directory supports reflink copies
         from source directory. (A temporary file is created in each
         directory, using O_TMPFILE if possible.)
