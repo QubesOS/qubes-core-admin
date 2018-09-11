@@ -305,6 +305,7 @@ fi
 %{python3_sitelib}/qubes/tests/init.py
 %{python3_sitelib}/qubes/tests/storage.py
 %{python3_sitelib}/qubes/tests/storage_file.py
+%{python3_sitelib}/qubes/tests/storage_reflink.py
 %{python3_sitelib}/qubes/tests/storage_kernels.py
 %{python3_sitelib}/qubes/tests/storage_lvm.py
 %{python3_sitelib}/qubes/tests/tarwriter.py
