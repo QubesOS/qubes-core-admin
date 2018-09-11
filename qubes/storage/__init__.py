@@ -874,7 +874,7 @@ def driver_parameters(name):
     return [p for p in params if p not in ignored_params]
 
 
-def isodate(seconds=time.time()):
+def isodate(seconds):
     ''' Helper method which returns an iso date '''
     return datetime.utcfromtimestamp(seconds).isoformat("T")
 
