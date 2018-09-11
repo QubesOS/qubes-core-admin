@@ -61,6 +61,7 @@ import qubes
 import qubes.ext
 import qubes.utils
 import qubes.storage
+import qubes.storage.reflink
 import qubes.vm
 import qubes.vm.adminvm
 import qubes.vm.qubesvm
@@ -553,7 +554,7 @@ def _default_pool(app):
 
     1. If there is one named 'default', use it.
     2. Check if root fs is on LVM thin - use that
-    3. Look for file-based pool pointing /var/lib/qubes
+    3. Look for file(-reflink)-based pool pointing to /var/lib/qubes
     4. Fail
     '''
     if 'default' in app.pools:
@@ -1079,6 +1080,15 @@ class Qubes(qubes.PropertyHolder):
             pool_configs[lvm_config['name']] = lvm_config
 
         for name, config in pool_configs.items():
+            if 'driver' not in config and 'dir_path' in config:
+                config['driver'] = 'file'
+                try:
+                    os.makedirs(config['dir_path'], exist_ok=True)
+                    if qubes.storage.reflink.is_supported(config['dir_path']):
+                        config['driver'] = 'file-reflink'
+                        config['setup_check'] = 'no'  # don't check twice
+                except PermissionError:  # looks like a testing environment
+                    pass  # stay with 'file'
             self.pools[name] = self._get_pool(**config)
 
         self.default_pool_kernel = 'linux-kernel'
