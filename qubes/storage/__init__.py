@@ -252,6 +252,8 @@ class Volume:
     def revert(self, revision=None):
         ''' Revert volume to previous revision
 
+        This can be implemented as a coroutine.
+
         :param revision: revision to revert volume to, see :py:attr:`revisions`
         '''
         # pylint: disable=unused-argument
@@ -616,7 +618,7 @@ class Storage:
 
     @asyncio.coroutine
     def start(self):
-        ''' Execute the start method on each pool '''
+        ''' Execute the start method on each volume '''
         futures = []
         for volume in self.vm.volumes.values():
             ret = volume.start()
@@ -631,7 +633,7 @@ class Storage:
 
     @asyncio.coroutine
     def stop(self):
-        ''' Execute the start method on each pool '''
+        ''' Execute the stop method on each volume '''
         futures = []
         for volume in self.vm.volumes.values():
             ret = volume.stop()
