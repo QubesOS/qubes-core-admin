@@ -141,7 +141,6 @@ rpms-dom0:
 all:
 	$(PYTHON) setup.py build
 	$(MAKE) -C qubes-rpc all
-#	make all -C tests
 	# Currently supported only on xen
 
 install:
@@ -158,7 +157,6 @@ endif
 	ln -s qvm-device.1.gz $(DESTDIR)/usr/share/man/man1/qvm-block.1.gz
 	ln -s qvm-device.1.gz $(DESTDIR)/usr/share/man/man1/qvm-pci.1.gz
 	ln -s qvm-device.1.gz $(DESTDIR)/usr/share/man/man1/qvm-usb.1.gz
-#	$(MAKE) install -C tests
 	$(MAKE) install -C relaxng
 	mkdir -p $(DESTDIR)/etc/qubes
 ifeq ($(BACKEND_VMM),xen)
