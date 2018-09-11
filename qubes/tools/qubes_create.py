@@ -38,7 +38,7 @@ def main(args=None):
 
     args = parser.parse_args(args)
     qubes.Qubes.create_empty_store(args.app,
-        offline_mode=args.offline_mode)
+        offline_mode=args.offline_mode).setup_pools()
     return 0
 
 
