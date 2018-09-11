@@ -274,6 +274,7 @@ class Volume:
         This include committing data if :py:attr:`save_on_stop` is set.
 
         This can be implemented as a coroutine.'''
+        raise self._not_implemented("stop")
 
     def verify(self):
         ''' Verifies the volume.
