@@ -28,7 +28,6 @@ import fcntl
 import glob
 import logging
 import os
-import re
 import subprocess
 import tempfile
 from contextlib import contextmanager, suppress
@@ -36,7 +35,8 @@ from contextlib import contextmanager, suppress
 import qubes.storage
 
 BLKSIZE = 512
-FICLONE = 1074041865  # see ioctl_ficlone manpage
+FICLONE = 1074041865        # defined in <linux/fs.h>
+LOOP_SET_CAPACITY = 0x4C07  # defined in <linux/loop.h>
 LOGGER = logging.getLogger('qubes.storage.reflink')
 
 
@@ -246,12 +246,7 @@ class ReflinkVolume(qubes.storage.Volume):
             self.size = size
             return self
 
-        # resize any corresponding loop devices
-        out = _cmd('losetup', '--associated', self._path_dirty)
-        for match in re.finditer(br'^(/dev/loop[0-9]+): ', out, re.MULTILINE):
-            loop_dev = match.group(1).decode('ascii')
-            _cmd('losetup', '--set-capacity', loop_dev)
-
+        _update_loopdev_sizes(self._path_dirty)
         return self
 
     def export(self):
@@ -394,6 +389,19 @@ def _create_sparse_file(path, size):
     with _replace_file(path) as tmp:
         tmp.truncate(size)
         LOGGER.info('Created sparse file: %s', tmp.name)
+
+def _update_loopdev_sizes(img):
+    ''' Resolve img; update the size of loop devices backed by it. '''
+    needle = os.fsencode(os.path.realpath(img)) + b'\n'
+    for sys_path in glob.iglob('/sys/block/loop[0-9]*/loop/backing_file'):
+        try:
+            with open(sys_path, 'rb') as sys_io:
+                if sys_io.read() != needle:
+                    continue
+        except FileNotFoundError:
+            continue
+        with open('/dev/' + sys_path.split('/')[3]) as dev_io:
+            fcntl.ioctl(dev_io.fileno(), LOOP_SET_CAPACITY)
 
 def _copy_file(src, dst):
     ''' Copy src to dst as a reflink if possible, sparse if not. '''
