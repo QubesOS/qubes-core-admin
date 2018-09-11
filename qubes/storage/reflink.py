@@ -409,19 +409,10 @@ def _copy_file(src, dst):
         raise FileNotFoundError(src)
     with _replace_file(dst) as tmp:
         LOGGER.info('Copying file: %s -> %s', src, tmp.name)
-        _cmd('cp', '--sparse=always', '--reflink=auto', src, tmp.name)
-
-def _cmd(*args):
-    ''' Run command until finished; return stdout (as bytes) if it
-        exited 0. Otherwise, raise a detailed StoragePoolException.
-    '''
-    try:
-        return subprocess.run(args, check=True,
-                              stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE).stdout
-    except subprocess.CalledProcessError as ex:
-        msg = '{} err={!r} out={!r}'.format(ex, ex.stderr, ex.stdout)
-        raise qubes.storage.StoragePoolException(msg) from ex
+        cmd = 'cp', '--sparse=always', '--reflink=auto', src, tmp.name
+        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if p.returncode != 0:
+            raise qubes.storage.StoragePoolException(str(p))
 
 def is_reflink_supported(dst_dir, src_dir=None):
     ''' Return whether destination directory supports reflink copies
