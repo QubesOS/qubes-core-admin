@@ -18,7 +18,7 @@
 # License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #
 
-'''qvm-create - Create new Qubes OS store'''
+'''qubes-create - Create new Qubes OS store'''
 
 import sys
 import qubes
