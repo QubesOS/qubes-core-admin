@@ -26,6 +26,7 @@ import subprocess
 import qubes.storage.lvm
 import qubes.tests
 import qubes.tests.storage_lvm
+import qubes.tests.storage_reflink
 import qubes.vm.appvm
 
 
@@ -316,6 +317,28 @@ class StorageFile(StorageTestMixin, qubes.tests.SystemTestCase):
         self.app.remove_pool('test-pool')
         shutil.rmtree(self.dir_path)
         super(StorageFile, self).tearDown()
+
+
+class StorageReflinkMixin(StorageTestMixin):
+    def tearDown(self):
+        self.app.remove_pool(self.pool.name)
+        super().tearDown()
+
+    def init_pool(self, fs_type, **kwargs):
+        name = 'test-reflink-integration-on-' + fs_type
+        dir_path = os.path.join('/var/tmp', name)
+        qubes.tests.storage_reflink.mkdir_fs(dir_path, fs_type,
+                                             cleanup_via=self.addCleanup)
+        self.pool = self.app.add_pool(name=name, dir_path=dir_path,
+                                      driver='file-reflink', **kwargs)
+
+class StorageReflinkOnBtrfs(StorageReflinkMixin, qubes.tests.SystemTestCase):
+    def init_pool(self):
+        super().init_pool('btrfs')
+
+class StorageReflinkOnExt4(StorageReflinkMixin, qubes.tests.SystemTestCase):
+    def init_pool(self):
+        super().init_pool('ext4', setup_check='no')
 
 
 @qubes.tests.storage_lvm.skipUnlessLvmPoolExists

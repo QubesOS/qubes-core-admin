@@ -22,6 +22,7 @@ import qubes.storage
 from qubes.exc import QubesException
 from qubes.storage import pool_drivers
 from qubes.storage.file import FilePool
+from qubes.storage.reflink import ReflinkPool
 from qubes.tests import SystemTestCase
 
 # :pylint: disable=invalid-name
@@ -107,10 +108,11 @@ class TC_00_Pool(SystemTestCase):
             pool_drivers())
 
     def test_002_get_pool_klass(self):
-        """ Expect the default pool to be `FilePool` """
+        """ Expect the default pool to be `FilePool` or `ReflinkPool` """
         # :pylint: disable=protected-access
         result = self.app.get_pool('varlibqubes')
-        self.assertIsInstance(result, FilePool)
+        self.assertTrue(isinstance(result, FilePool)
+                        or isinstance(result, ReflinkPool))
 
     def test_003_pool_exists_default(self):
         """ Expect the default pool to exists """

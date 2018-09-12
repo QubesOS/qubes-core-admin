@@ -252,6 +252,8 @@ class Volume:
     def revert(self, revision=None):
         ''' Revert volume to previous revision
 
+        This can be implemented as a coroutine.
+
         :param revision: revision to revert volume to, see :py:attr:`revisions`
         '''
         # pylint: disable=unused-argument
@@ -272,6 +274,7 @@ class Volume:
         This include committing data if :py:attr:`save_on_stop` is set.
 
         This can be implemented as a coroutine.'''
+        raise self._not_implemented("stop")
 
     def verify(self):
         ''' Verifies the volume.
@@ -506,8 +509,7 @@ class Storage:
             ret = volume.create()
             if asyncio.iscoroutine(ret):
                 coros.append(ret)
-        if coros:
-            yield from asyncio.wait(coros)
+        yield from _wait_and_reraise(coros)
 
         os.umask(old_umask)
 
@@ -549,7 +551,7 @@ class Storage:
 
         self.vm.volumes = {}
         with VmCreationManager(self.vm):
-            yield from asyncio.wait([self.clone_volume(src_vm, vol_name)
+            yield from _wait_and_reraise([self.clone_volume(src_vm, vol_name)
                 for vol_name in self.vm.volume_config.keys()])
 
     @property
@@ -581,11 +583,7 @@ class Storage:
             ret = volume.verify()
             if asyncio.iscoroutine(ret):
                 futures.append(ret)
-        if futures:
-            done, _ = yield from asyncio.wait(futures)
-            for task in done:
-                # re-raise any exception from async task
-                task.result()
+        yield from _wait_and_reraise(futures)
         self.vm.fire_event('domain-verify-files')
         return True
 
@@ -605,44 +603,32 @@ class Storage:
             except (IOError, OSError) as e:
                 self.vm.log.exception("Failed to remove volume %s", name, e)
 
-        if futures:
-            try:
-                done, _ = yield from asyncio.wait(futures)
-                for task in done:
-                    # re-raise any exception from async task
-                    task.result()
-            except (IOError, OSError) as e:
-                self.vm.log.exception("Failed to remove some volume", e)
+        try:
+            yield from _wait_and_reraise(futures)
+        except (IOError, OSError) as e:
+            self.vm.log.exception("Failed to remove some volume", e)
 
     @asyncio.coroutine
     def start(self):
-        ''' Execute the start method on each pool '''
+        ''' Execute the start method on each volume '''
         futures = []
         for volume in self.vm.volumes.values():
             ret = volume.start()
             if asyncio.iscoroutine(ret):
                 futures.append(ret)
 
-        if futures:
-            done, _ = yield from asyncio.wait(futures)
-            for task in done:
-                # re-raise any exception from async task
-                task.result()
+        yield from _wait_and_reraise(futures)
 
     @asyncio.coroutine
     def stop(self):
-        ''' Execute the start method on each pool '''
+        ''' Execute the stop method on each volume '''
         futures = []
         for volume in self.vm.volumes.values():
             ret = volume.stop()
             if asyncio.iscoroutine(ret):
                 futures.append(ret)
 
-        if futures:
-            done, _ = yield from asyncio.wait(futures)
-            for task in done:
-                # re-raise any exception from async task
-                task.result()
+        yield from _wait_and_reraise(futures)
 
     def unused_frontend(self):
         ''' Find an unused device name '''
@@ -842,6 +828,14 @@ class Pool:
         return NotImplementedError(msg)
 
 
+@asyncio.coroutine
+def _wait_and_reraise(futures):
+    if futures:
+        done, _ = yield from asyncio.wait(futures)
+        for task in done:  # (re-)raise first exception in line
+            task.result()
+
+
 def _sanitize_config(config):
     ''' Helper function to convert types to appropriate strings
     '''  # FIXME: find another solution for serializing basic types
@@ -871,7 +865,7 @@ def driver_parameters(name):
     return [p for p in params if p not in ignored_params]
 
 
-def isodate(seconds=time.time()):
+def isodate(seconds):
     ''' Helper method which returns an iso date '''
     return datetime.utcfromtimestamp(seconds).isoformat("T")
 
@@ -881,17 +875,21 @@ def search_pool_containing_dir(pools, dir_path):
     This is useful for implementing Pool.included_in method
     '''
 
+    real_dir_path = os.path.realpath(dir_path)
+
     # prefer filesystem pools
     for pool in pools:
         if hasattr(pool, 'dir_path'):
-            if dir_path.startswith(pool.dir_path):
+            pool_real_dir_path = os.path.realpath(pool.dir_path)
+            if os.path.commonpath([pool_real_dir_path, real_dir_path]) == \
+               pool_real_dir_path:
                 return pool
 
     # then look for lvm
     for pool in pools:
         if hasattr(pool, 'thin_pool') and hasattr(pool, 'volume_group'):
             if (pool.volume_group, pool.thin_pool) == \
-                    DirectoryThinPool.thin_pool(dir_path):
+                    DirectoryThinPool.thin_pool(real_dir_path):
                 return pool
 
     return None

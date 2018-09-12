@@ -19,6 +19,7 @@
 
 from multiprocessing import Queue
 
+import asyncio
 import os
 import shutil
 import subprocess
@@ -382,7 +383,7 @@ class TC_00_BackupCompatibility(
     def assertRestored(self, name, **kwargs):
         with self.assertNotRaises((KeyError, qubes.exc.QubesException)):
             vm = self.app.domains[name]
-            vm.storage.verify()
+            asyncio.get_event_loop().run_until_complete(vm.storage.verify())
             for prop, value in kwargs.items():
                 if prop == 'klass':
                     self.assertIsInstance(vm, value)

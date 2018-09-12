@@ -21,6 +21,7 @@
 #
 
 import collections
+import copy
 import errno
 import functools
 import grp
@@ -60,6 +61,7 @@ import qubes
 import qubes.ext
 import qubes.utils
 import qubes.storage
+import qubes.storage.reflink
 import qubes.vm
 import qubes.vm.adminvm
 import qubes.vm.qubesvm
@@ -552,7 +554,7 @@ def _default_pool(app):
 
     1. If there is one named 'default', use it.
     2. Check if root fs is on LVM thin - use that
-    3. Look for file-based pool pointing /var/lib/qubes
+    3. Look for file(-reflink)-based pool pointing to /var/lib/qubes
     4. Fail
     '''
     if 'default' in app.pools:
@@ -1064,15 +1066,29 @@ class Qubes(qubes.PropertyHolder):
         }
         assert max(self.labels.keys()) == qubes.config.max_default_label
 
+        pool_configs = copy.deepcopy(qubes.config.defaults['pool_configs'])
+
         root_volume_group, root_thin_pool = \
             qubes.storage.DirectoryThinPool.thin_pool('/')
-
         if root_thin_pool:
-            self.add_pool(
-                volume_group=root_volume_group, thin_pool=root_thin_pool,
-                name='lvm', driver='lvm_thin')
-        # pool based on /var/lib/qubes will be created here:
-        for name, config in qubes.config.defaults['pool_configs'].items():
+            lvm_config = {
+                'name': 'lvm',
+                'driver': 'lvm_thin',
+                'volume_group': root_volume_group,
+                'thin_pool': root_thin_pool
+            }
+            pool_configs[lvm_config['name']] = lvm_config
+
+        for name, config in pool_configs.items():
+            if 'driver' not in config and 'dir_path' in config:
+                config['driver'] = 'file'
+                try:
+                    os.makedirs(config['dir_path'], exist_ok=True)
+                    if qubes.storage.reflink.is_supported(config['dir_path']):
+                        config['driver'] = 'file-reflink'
+                        config['setup_check'] = 'no'  # don't check twice
+                except PermissionError:  # looks like a testing environment
+                    pass  # stay with 'file'
             self.pools[name] = self._get_pool(**config)
 
         self.default_pool_kernel = 'linux-kernel'
@@ -1169,6 +1185,11 @@ class Qubes(qubes.PropertyHolder):
             pass
 
         raise KeyError(label)
+
+    def setup_pools(self):
+        """ Run implementation specific setup for each storage pool. """
+        for pool in self.pools.values():
+            pool.setup()
 
     def add_pool(self, name, **kwargs):
         """ Add a storage pool to config."""

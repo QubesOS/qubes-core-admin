@@ -22,13 +22,14 @@
     but not required.
 '''
 
+import asyncio
 import collections
 import errno
 import fcntl
+import functools
 import glob
 import logging
 import os
-import re
 import subprocess
 import tempfile
 from contextlib import contextmanager, suppress
@@ -36,7 +37,8 @@ from contextlib import contextmanager, suppress
 import qubes.storage
 
 BLKSIZE = 512
-FICLONE = 1074041865  # see ioctl_ficlone manpage
+FICLONE = 1074041865        # defined in <linux/fs.h>
+LOOP_SET_CAPACITY = 0x4C07  # defined in <linux/loop.h>
 LOGGER = logging.getLogger('qubes.storage.reflink')
 
 
@@ -53,7 +55,7 @@ class ReflinkPool(qubes.storage.Pool):
 
     def setup(self):
         created = _make_dir(self.dir_path)
-        if self.setup_check and not is_reflink_supported(self.dir_path):
+        if self.setup_check and not is_supported(self.dir_path):
             if created:
                 _remove_empty_dir(self.dir_path)
             raise qubes.storage.StoragePoolException(
@@ -115,12 +117,37 @@ class ReflinkPool(qubes.storage.Pool):
             [pool for pool in app.pools.values() if pool is not self],
             self.dir_path)
 
+
+def _unblock(method):
+    ''' Decorator transforming a synchronous volume method into a
+        coroutine that runs the original method in the event loop's
+        thread-based default executor, under a per-volume lock.
+    '''
+    @asyncio.coroutine
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with (yield from self._lock):  # pylint: disable=protected-access
+            return (yield from asyncio.get_event_loop().run_in_executor(
+                None, functools.partial(method, self, *args, **kwargs)))
+    return wrapper
+
 class ReflinkVolume(qubes.storage.Volume):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._lock = asyncio.Lock()
+        self._path_vid = os.path.join(self.pool.dir_path, self.vid)
+        self._path_clean = self._path_vid + '.img'
+        self._path_dirty = self._path_vid + '-dirty.img'
+        self._path_import = self._path_vid + '-import.img'
+        self.path = self._path_dirty
+
+    @_unblock
     def create(self):
         if self.save_on_stop and not self.snap_on_start:
             _create_sparse_file(self._path_clean, self.size)
         return self
 
+    @_unblock
     def verify(self):
         if self.snap_on_start:
             img = self.source._path_clean  # pylint: disable=protected-access
@@ -132,18 +159,25 @@ class ReflinkVolume(qubes.storage.Volume):
         if img is None or os.path.exists(img):
             return True
         raise qubes.storage.StoragePoolException(
-            'Missing image file {!r} for volume {!s}'.format(img, self.vid))
+            'Missing image file {!r} for volume {}'.format(img, self.vid))
 
+    @_unblock
     def remove(self):
         ''' Drop volume object from pool; remove volume images from
             oldest to newest; remove empty VM directory.
         '''
         self.pool._volumes.pop(self, None)  # pylint: disable=protected-access
+        self._cleanup()
         self._prune_revisions(keep=0)
         _remove_file(self._path_clean)
         _remove_file(self._path_dirty)
         _remove_empty_dir(os.path.dirname(self._path_dirty))
         return self
+
+    def _cleanup(self):
+        for tmp in glob.iglob(glob.escape(self._path_vid) + '*.img*~*'):
+            _remove_file(tmp)
+        _remove_file(self._path_import)
 
     def is_outdated(self):
         if self.snap_on_start:
@@ -156,7 +190,9 @@ class ReflinkVolume(qubes.storage.Volume):
     def is_dirty(self):
         return self.save_on_stop and os.path.exists(self._path_dirty)
 
+    @_unblock
     def start(self):
+        self._cleanup()
         if self.is_dirty():  # implies self.save_on_stop
             return self
         if self.snap_on_start:
@@ -168,23 +204,22 @@ class ReflinkVolume(qubes.storage.Volume):
             _create_sparse_file(self._path_dirty, self.size)
         return self
 
+    @_unblock
     def stop(self):
         if self.save_on_stop:
-            self._commit()
+            self._commit(self._path_dirty)
         else:
             _remove_file(self._path_dirty)
             _remove_file(self._path_clean)
         return self
 
-    def _commit(self):
+    def _commit(self, path_from):
         self._add_revision()
         self._prune_revisions()
-        _rename_file(self._path_dirty, self._path_clean)
+        _rename_file(path_from, self._path_clean)
 
     def _add_revision(self):
         if self.revisions_to_keep == 0:
-            return
-        if _get_file_disk_usage(self._path_clean) == 0:
             return
         ctime = os.path.getctime(self._path_clean)
         timestamp = qubes.storage.isodate(int(ctime))
@@ -198,7 +233,11 @@ class ReflinkVolume(qubes.storage.Volume):
         for number, timestamp in list(self.revisions.items())[:-keep or None]:
             _remove_file(self._path_revision(number, timestamp))
 
+    @_unblock
     def revert(self, revision=None):
+        if self.is_dirty():
+            raise qubes.storage.StoragePoolException(
+                'Cannot revert: {} is not cleanly stopped'.format(self.vid))
         if revision is None:
             number, timestamp = list(self.revisions.items())[-1]
         else:
@@ -208,61 +247,58 @@ class ReflinkVolume(qubes.storage.Volume):
         _rename_file(path_revision, self._path_clean)
         return self
 
+    @_unblock
     def resize(self, size):
         ''' Expand a read-write volume image; notify any corresponding
             loop devices of the size change.
         '''
         if not self.rw:
             raise qubes.storage.StoragePoolException(
-                'Cannot resize: {!s} is read-only'.format(self.vid))
+                'Cannot resize: {} is read-only'.format(self.vid))
 
         if size < self.size:
             raise qubes.storage.StoragePoolException(
-                'For your own safety, shrinking of {!s} is disabled'
-                ' ({:d} < {:d}). If you really know what you are doing,'
+                'For your own safety, shrinking of {} is disabled'
+                ' ({} < {}). If you really know what you are doing,'
                 ' use "truncate" manually.'.format(self.vid, size, self.size))
 
         try:  # assume volume is not (cleanly) stopped ...
             _resize_file(self._path_dirty, size)
+            self.size = size
         except FileNotFoundError:  # ... but it actually is.
             _resize_file(self._path_clean, size)
+            self.size = size
+            return self
 
-        self.size = size
-
-        # resize any corresponding loop devices
-        out = _cmd('losetup', '--associated', self._path_dirty)
-        for match in re.finditer(br'^(/dev/loop[0-9]+): ', out, re.MULTILINE):
-            loop_dev = match.group(1).decode('ascii')
-            _cmd('losetup', '--set-capacity', loop_dev)
-
+        _update_loopdev_sizes(self._path_dirty)
         return self
 
-    def _require_save_on_stop(self, method_name):
+    def export(self):
         if not self.save_on_stop:
             raise NotImplementedError(
-                'Cannot {!s}: {!s} is not save_on_stop'.format(
-                    method_name, self.vid))
-
-    def export(self):
-        self._require_save_on_stop('export')
+                'Cannot export: {} is not save_on_stop'.format(self.vid))
         return self._path_clean
 
     def import_data(self):
-        self._require_save_on_stop('import_data')
-        _create_sparse_file(self._path_dirty, self.size)
-        return self._path_dirty
+        if not self.save_on_stop:
+            raise NotImplementedError(
+                'Cannot import_data: {} is not save_on_stop'.format(self.vid))
+        _create_sparse_file(self._path_import, self.size)
+        return self._path_import
 
     def import_data_end(self, success):
         if success:
-            self._commit()
+            self._commit(self._path_import)
         else:
-            _remove_file(self._path_dirty)
+            _remove_file(self._path_import)
         return self
 
+    @_unblock
     def import_volume(self, src_volume):
-        self._require_save_on_stop('import_volume')
+        if not self.save_on_stop:
+            return self
         try:
-            _copy_file(src_volume.export(), self._path_dirty)
+            _copy_file(src_volume.export(), self._path_import)
         except:
             self.import_data_end(False)
             raise
@@ -275,18 +311,6 @@ class ReflinkVolume(qubes.storage.Volume):
         return self._path_clean + '.' + number + '@' + timestamp + 'Z'
 
     @property
-    def _path_clean(self):
-        return os.path.join(self.pool.dir_path, self.vid + '.img')
-
-    @property
-    def _path_dirty(self):
-        return os.path.join(self.pool.dir_path, self.vid + '-dirty.img')
-
-    @property
-    def path(self):
-        return self._path_dirty
-
-    @property
     def _next_revision_number(self):
         numbers = self.revisions.keys()
         if numbers:
@@ -296,10 +320,10 @@ class ReflinkVolume(qubes.storage.Volume):
     @property
     def revisions(self):
         prefix = self._path_clean + '.'
-        paths = glob.glob(glob.escape(prefix) + '*@*Z')
-        items = sorted((path[len(prefix):-1].split('@') for path in paths),
-                       key=lambda item: int(item[0]))
-        return collections.OrderedDict(items)
+        paths = glob.iglob(glob.escape(prefix) + '*@*Z')
+        items = (path[len(prefix):-1].split('@') for path in paths)
+        return collections.OrderedDict(sorted(items,
+                                              key=lambda item: int(item[0])))
 
     @property
     def usage(self):
@@ -391,27 +415,41 @@ def _create_sparse_file(path, size):
         tmp.truncate(size)
         LOGGER.info('Created sparse file: %s', tmp.name)
 
+def _update_loopdev_sizes(img):
+    ''' Resolve img; update the size of loop devices backed by it. '''
+    needle = os.fsencode(os.path.realpath(img)) + b'\n'
+    for sys_path in glob.iglob('/sys/block/loop[0-9]*/loop/backing_file'):
+        try:
+            with open(sys_path, 'rb') as sys_io:
+                if sys_io.read() != needle:
+                    continue
+        except FileNotFoundError:
+            continue
+        with open('/dev/' + sys_path.split('/')[3]) as dev_io:
+            fcntl.ioctl(dev_io.fileno(), LOOP_SET_CAPACITY)
+
+def _attempt_ficlone(src, dst):
+    try:
+        fcntl.ioctl(dst.fileno(), FICLONE, src.fileno())
+        return True
+    except OSError:
+        return False
+
 def _copy_file(src, dst):
     ''' Copy src to dst as a reflink if possible, sparse if not. '''
-    if not os.path.exists(src):
-        raise FileNotFoundError(src)
-    with _replace_file(dst) as tmp:
-        LOGGER.info('Copying file: %s -> %s', src, tmp.name)
-        _cmd('cp', '--sparse=always', '--reflink=auto', src, tmp.name)
+    with _replace_file(dst) as tmp_io:
+        with open(src, 'rb') as src_io:
+            if _attempt_ficlone(src_io, tmp_io):
+                LOGGER.info('Reflinked file: %s -> %s', src, tmp_io.name)
+                return True
+        LOGGER.info('Copying file: %s -> %s', src, tmp_io.name)
+        cmd = 'cp', '--sparse=always', src, tmp_io.name
+        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if p.returncode != 0:
+            raise qubes.storage.StoragePoolException(str(p))
+        return False
 
-def _cmd(*args):
-    ''' Run command until finished; return stdout (as bytes) if it
-        exited 0. Otherwise, raise a detailed StoragePoolException.
-    '''
-    try:
-        return subprocess.run(args, check=True,
-                              stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE).stdout
-    except subprocess.CalledProcessError as ex:
-        msg = '{!s} err={!r} out={!r}'.format(ex, ex.stderr, ex.stdout)
-        raise qubes.storage.StoragePoolException(msg) from ex
-
-def is_reflink_supported(dst_dir, src_dir=None):
+def is_supported(dst_dir, src_dir=None):
     ''' Return whether destination directory supports reflink copies
         from source directory. (A temporary file is created in each
         directory, using O_TMPFILE if possible.)
@@ -421,9 +459,4 @@ def is_reflink_supported(dst_dir, src_dir=None):
     dst = tempfile.TemporaryFile(dir=dst_dir)
     src = tempfile.TemporaryFile(dir=src_dir)
     src.write(b'foo')  # don't let any filesystem get clever with empty files
-
-    try:
-        fcntl.ioctl(dst.fileno(), FICLONE, src.fileno())
-        return True
-    except OSError:
-        return False
+    return _attempt_ficlone(src, dst)
