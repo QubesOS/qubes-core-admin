@@ -114,6 +114,8 @@ class TC_00_AppVMMixin(object):
     def test_011_run_gnome_terminal(self):
         if "minimal" in self.template:
             self.skipTest("Minimal template doesn't have 'gnome-terminal'")
+        if 'whonix' in self.template:
+            self.skipTest("Whonix template doesn't have 'gnome-terminal'")
         self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.testvm1.get_power_state(), "Running")
         self.loop.run_until_complete(self.wait_for_session(self.testvm1))
@@ -786,6 +788,8 @@ class TC_00_AppVMMixin(object):
     @unittest.skipUnless(spawn.find_executable('parecord'),
                          "pulseaudio-utils not installed in dom0")
     def test_220_audio_playback(self):
+        if 'whonix-gw' in self.template:
+            self.skipTest('whonix-gw have no audio')
         self.loop.run_until_complete(self.testvm1.start())
         try:
             self.loop.run_until_complete(
@@ -847,6 +851,8 @@ class TC_00_AppVMMixin(object):
     @unittest.skipUnless(spawn.find_executable('parecord'),
                          "pulseaudio-utils not installed in dom0")
     def test_221_audio_record_muted(self):
+        if 'whonix-gw' in self.template:
+            self.skipTest('whonix-gw have no audio')
         self.loop.run_until_complete(self.testvm1.start())
         try:
             self.loop.run_until_complete(
@@ -886,6 +892,8 @@ class TC_00_AppVMMixin(object):
     @unittest.skipUnless(spawn.find_executable('parecord'),
                          "pulseaudio-utils not installed in dom0")
     def test_222_audio_record_unmuted(self):
+        if 'whonix-gw' in self.template:
+            self.skipTest('whonix-gw have no audio')
         self.loop.run_until_complete(self.testvm1.start())
         try:
             self.loop.run_until_complete(
@@ -1028,10 +1036,10 @@ int main(int argc, char **argv) {
             input=allocator_c.encode())
 
         try:
-            stdout, stderr = yield from self.testvm1.run_for_stdio(
+            yield from self.testvm1.run_for_stdio(
                 'gcc allocator.c -o allocator')
-        except subprocess.CalledProcessError:
-            self.skipTest('allocator compile failed: {}'.format(stderr))
+        except subprocess.CalledProcessError as e:
+            self.skipTest('allocator compile failed: {}'.format(e.stderr))
 
         # drop caches to have even more memory pressure
         yield from self.testvm1.run_for_stdio(
