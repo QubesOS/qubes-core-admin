@@ -24,7 +24,6 @@ from __future__ import absolute_import
 
 import asyncio
 import base64
-import errno
 import grp
 import os
 import os.path
@@ -1461,11 +1460,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
         try:
             # TODO: make it async?
             shutil.rmtree(self.dir_path)
-        except OSError as e:
-            if e.errno == errno.ENOENT:
-                pass
-            else:
-                raise
+        except FileNotFoundError:
+            pass
         yield from self.storage.remove()
 
     @asyncio.coroutine

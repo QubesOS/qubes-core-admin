@@ -22,7 +22,6 @@
 
 import collections
 import copy
-import errno
 import functools
 import grp
 import itertools
@@ -1008,8 +1007,8 @@ class Qubes(qubes.PropertyHolder):
             try:
                 fd = os.open(self._store,
                     os.O_RDWR | (os.O_CREAT * int(for_save)))
-            except OSError as e:
-                if not for_save and e.errno == errno.ENOENT:
+            except FileNotFoundError:
+                if not for_save:
                     raise qubes.exc.QubesException(
                         'Qubes XML store {!r} is missing; '
                         'use qubes-create tool'.format(self._store))
