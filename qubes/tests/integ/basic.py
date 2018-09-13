@@ -109,7 +109,10 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         # Type 'poweroff'
         subprocess.check_call(['xdotool', 'search', '--name', self.vm.name,
                                'type', 'poweroff\r'])
-        self.loop.run_until_complete(asyncio.sleep(1))
+        for _ in range(5):
+            if not self.vm.is_running():
+                break
+            self.loop.run_until_complete(asyncio.sleep(1))
         self.assertFalse(self.vm.is_running())
 
     def _test_200_on_domain_start(self, vm, event, **_kwargs):
@@ -205,6 +208,8 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         if self.test_failure_reason:
             self.fail(self.test_failure_reason)
 
+        while self.vm.get_power_state() != 'Halted':
+            self.loop.run_until_complete(asyncio.sleep(1))
         # and give a chance for both domain-shutdown handlers to execute
         self.loop.run_until_complete(asyncio.sleep(1))
 
@@ -670,7 +675,10 @@ class TC_06_AppVMMixin(object):
         # Type 'poweroff'
         subprocess.check_call(['xdotool', 'search', '--name', self.vm.name,
                                'type', 'poweroff\r'])
-        self.loop.run_until_complete(asyncio.sleep(1))
+        for _ in range(5):
+            if not self.vm.is_running():
+                break
+            self.loop.run_until_complete(asyncio.sleep(1))
         self.assertFalse(self.vm.is_running())
 
 
