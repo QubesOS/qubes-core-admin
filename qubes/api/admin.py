@@ -1099,7 +1099,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         try:
             yield from self.dest.remove_from_disk()
         except:  # pylint: disable=bare-except
-            self.app.log.exception('Error wile removing VM \'%s\' files',
+            self.app.log.exception('Error while removing VM \'%s\' files',
                 self.dest.name)
 
         self.app.save()
