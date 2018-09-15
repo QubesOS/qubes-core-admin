@@ -267,7 +267,9 @@ class TC_20_DispVMMixin(object):
                 # ignore LibreOffice splash screen and window with no title
                 # set yet
                 if window_title and not window_title.startswith("LibreOffice")\
-                        and not window_title == 'VMapp command':
+                        and not window_title == 'VMapp command' \
+                        and 'whonixcheck' not in window_title \
+                        and not window_title == 'NetworkManager Applet':
                     break
             wait_count += 1
             if wait_count > 100:
