@@ -776,7 +776,8 @@ class TC_00_AppVMMixin(object):
         if self.template.startswith('whonix-'):
             self.skipTest('qvm-sync-clock disabled for Whonix VMs')
         self.loop.run_until_complete(asyncio.wait([
-            self.testvm1.start()]))
+            self.testvm1.start(),
+            self.testvm2.start(),]))
         start_time = subprocess.check_output(['date', '-u', '+%s'])
 
         try:
@@ -786,11 +787,11 @@ class TC_00_AppVMMixin(object):
             subprocess.check_call(['sudo', 'date', '-s', '2001-01-01T12:34:56'],
                 stdout=subprocess.DEVNULL)
             self.loop.run_until_complete(
-                self.testvm1.run_for_stdio('date -s 2001-01-01T12:34:56',
+                self.testvm2.run_for_stdio('date -s 2001-01-01T12:34:56',
                     user='root'))
 
             self.loop.run_until_complete(
-                self.testvm1.run_for_stdio('qvm-sync-clock',
+                self.testvm2.run_for_stdio('qvm-sync-clock',
                     user='root'))
 
             p = self.loop.run_until_complete(
@@ -799,7 +800,7 @@ class TC_00_AppVMMixin(object):
             self.loop.run_until_complete(p.wait())
             self.assertEqual(p.returncode, 0)
             vm_time, _ = self.loop.run_until_complete(
-                self.testvm1.run_for_stdio('date -u +%s'))
+                self.testvm2.run_for_stdio('date -u +%s'))
             self.assertAlmostEquals(int(vm_time), int(start_time), delta=30)
 
             dom0_time = subprocess.check_output(['date', '-u', '+%s'])
