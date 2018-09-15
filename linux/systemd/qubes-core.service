@@ -10,10 +10,11 @@ RemainAfterExit=yes
 # Needed to avoid rebooting before all VMs have shut down.
 TimeoutStopSec=180
 ExecStart=/usr/lib/qubes/startup-misc.sh
+ExecStop=-/usr/bin/pkill qubes-guid
 ExecStop=/usr/bin/qvm-shutdown -q --all --wait
 # QubesDB daemons stop after 60s timeout in worst case; speed it up, since no
 # VMs are running now
-ExecStop=-/usr/bin/killall qubesdb-daemon
+ExecStop=-/usr/bin/pkill qubesdb-daemon
 
 [Install]
 WantedBy=multi-user.target
