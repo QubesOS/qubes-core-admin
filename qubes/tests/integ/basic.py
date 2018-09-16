@@ -109,7 +109,10 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         # Type 'poweroff'
         subprocess.check_call(['xdotool', 'search', '--name', self.vm.name,
                                'type', 'poweroff\r'])
-        self.loop.run_until_complete(asyncio.sleep(1))
+        for _ in range(5):
+            if not self.vm.is_running():
+                break
+            self.loop.run_until_complete(asyncio.sleep(1))
         self.assertFalse(self.vm.is_running())
 
     def _test_200_on_domain_start(self, vm, event, **_kwargs):
@@ -205,6 +208,8 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         if self.test_failure_reason:
             self.fail(self.test_failure_reason)
 
+        while self.vm.get_power_state() != 'Halted':
+            self.loop.run_until_complete(asyncio.sleep(1))
         # and give a chance for both domain-shutdown handlers to execute
         self.loop.run_until_complete(asyncio.sleep(1))
 
@@ -423,127 +428,6 @@ class TC_01_Properties(qubes.tests.SystemTestCase):
                 name=self.vmname, label='red')
             self.loop.run_until_complete(self.vm2.create_on_disk())
 
-
-class TC_02_QvmPrefs(qubes.tests.SystemTestCase):
-    # pylint: disable=attribute-defined-outside-init
-
-    def setUp(self):
-        super(TC_02_QvmPrefs, self).setUp()
-        self.init_default_template()
-        self.sharedopts = ['--qubesxml', qubes.tests.XMLPATH]
-
-    def setup_appvm(self):
-        self.testvm = self.app.add_new_vm(
-            qubes.vm.appvm.AppVM,
-            name=self.make_vm_name("vm"),
-            label='red')
-        self.loop.run_until_complete(self.testvm.create_on_disk())
-        self.app.save()
-
-    def setup_hvm(self):
-        self.testvm = self.app.add_new_vm(
-            qubes.vm.appvm.AppVM,
-            name=self.make_vm_name("hvm"),
-            label='red')
-        self.testvm.virt_mode = 'hvm'
-        self.loop.run_until_complete(self.testvm.create_on_disk())
-        self.app.save()
-
-    def pref_set(self, name, value, valid=True):
-        self.loop.run_until_complete(self._pref_set(name, value, valid))
-
-    @asyncio.coroutine
-    def _pref_set(self, name, value, valid=True):
-        cmd = ['qvm-prefs']
-        if value != '-D':
-            cmd.append('--')
-        cmd.extend((self.testvm.name, name, value))
-        p = yield from asyncio.create_subprocess_exec(*cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE)
-        (stdout, stderr) = yield from p.communicate()
-        if valid:
-            self.assertEqual(p.returncode, 0,
-                              "qvm-prefs .. '{}' '{}' failed: {}{}".format(
-                                  name, value, stdout, stderr
-                              ))
-        else:
-            self.assertNotEquals(p.returncode, 0,
-                                 "qvm-prefs should reject value '{}' for "
-                                 "property '{}'".format(value, name))
-
-    def pref_get(self, name):
-        self.loop.run_until_complete(self._pref_get(name))
-
-    @asyncio.coroutine
-    def _pref_get(self, name):
-        p = yield from asyncio.create_subprocess_exec(
-            'qvm-prefs', *self.sharedopts, '--', self.testvm.name, name,
-            stdout=subprocess.PIPE)
-        (stdout, _) = yield from p.communicate()
-        self.assertEqual(p.returncode, 0)
-        return stdout.strip()
-
-    bool_test_values = [
-        ('true', 'True', True),
-        ('False', 'False', True),
-        ('0', 'False', True),
-        ('1', 'True', True),
-        ('invalid', '', False)
-    ]
-
-    def execute_tests(self, name, values):
-        """
-        Helper function, which executes tests for given property.
-        :param values: list of tuples (value, expected, valid),
-        where 'value' is what should be set and 'expected' is what should
-        qvm-prefs returns as a property value and 'valid' marks valid and
-        invalid values - if it's False, qvm-prefs should reject the value
-        :return: None
-        """
-        for (value, expected, valid) in values:
-            self.pref_set(name, value, valid)
-            if valid:
-                self.assertEqual(self.pref_get(name), expected)
-
-    @unittest.skip('test not converted to core3 API')
-    def test_006_template(self):
-        templates = [tpl for tpl in self.app.domains.values() if
-            isinstance(tpl, qubes.vm.templatevm.TemplateVM)]
-        if not templates:
-            self.skipTest("No templates installed")
-        some_template = templates[0].name
-        self.setup_appvm()
-        self.execute_tests('template', [
-            (some_template, some_template, True),
-            ('invalid', '', False),
-        ])
-
-    @unittest.skip('test not converted to core3 API')
-    def test_014_pcidevs(self):
-        self.setup_appvm()
-        self.execute_tests('pcidevs', [
-            ('[]', '[]', True),
-            ('[ "00:00.0" ]', "['00:00.0']", True),
-            ('invalid', '', False),
-            ('[invalid]', '', False),
-            # TODO:
-            # ('["12:12.0"]', '', False)
-        ])
-
-    @unittest.skip('test not converted to core3 API')
-    def test_024_pv_reject_hvm_props(self):
-        self.setup_appvm()
-        self.execute_tests('guiagent_installed', [('False', '', False)])
-        self.execute_tests('qrexec_installed', [('False', '', False)])
-        self.execute_tests('drive', [('/tmp/drive.img', '', False)])
-        self.execute_tests('timezone', [('localtime', '', False)])
-
-    @unittest.skip('test not converted to core3 API')
-    def test_025_hvm_reject_pv_props(self):
-        self.setup_hvm()
-        self.execute_tests('kernel', [('default', '', False)])
-        self.execute_tests('kernelopts', [('default', '', False)])
 
 class TC_03_QvmRevertTemplateChanges(qubes.tests.SystemTestCase):
     # pylint: disable=attribute-defined-outside-init
@@ -791,7 +675,10 @@ class TC_06_AppVMMixin(object):
         # Type 'poweroff'
         subprocess.check_call(['xdotool', 'search', '--name', self.vm.name,
                                'type', 'poweroff\r'])
-        self.loop.run_until_complete(asyncio.sleep(1))
+        for _ in range(5):
+            if not self.vm.is_running():
+                break
+            self.loop.run_until_complete(asyncio.sleep(1))
         self.assertFalse(self.vm.is_running())
 
 

@@ -23,6 +23,7 @@ import subprocess
 import tempfile
 import time
 import unittest
+from contextlib import suppress
 
 from distutils import spawn
 
@@ -162,8 +163,15 @@ class TC_20_DispVMMixin(object):
                 self.enter_keys_in_window(window_title, ['Return'])
                 # Wait for window to close
                 self.wait_for_window(window_title, show=False)
-            finally:
                 p.stdin.close()
+                self.loop.run_until_complete(
+                    asyncio.wait_for(p.wait(), 30))
+            except:
+                with suppress(ProcessLookupError):
+                    p.terminate()
+                self.loop.run_until_complete(p.wait())
+                raise
+            finally:
                 del p
         finally:
             self.loop.run_until_complete(dispvm.cleanup())
@@ -267,7 +275,9 @@ class TC_20_DispVMMixin(object):
                 # ignore LibreOffice splash screen and window with no title
                 # set yet
                 if window_title and not window_title.startswith("LibreOffice")\
-                        and not window_title == 'VMapp command':
+                        and not window_title == 'VMapp command' \
+                        and 'whonixcheck' not in window_title \
+                        and not window_title == 'NetworkManager Applet':
                     break
             wait_count += 1
             if wait_count > 100:
