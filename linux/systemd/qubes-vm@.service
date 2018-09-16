@@ -2,6 +2,7 @@
 Description=Start Qubes VM %i
 Before=systemd-user-sessions.service
 After=qubesd.service qubes-meminfo-writer-dom0.service
+ConditionKernelCommandLine=!qubes.skip_autostart
 
 [Service]
 Type=oneshot
