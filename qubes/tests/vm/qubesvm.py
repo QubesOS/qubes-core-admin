@@ -459,6 +459,15 @@ class TC_90_QubesVM(QubesVMTestsMixin, qubes.tests.QubesTestCase):
         self.assertPropertyInvalidValue(vm, 'qrexec_timeout', '-2')
         self.assertPropertyInvalidValue(vm, 'qrexec_timeout', '')
 
+    def test_272_qrexec_timeout_global_changed(self):
+        self.app.default_qrexec_timeout = 123
+        vm = self.get_vm()
+        self.assertPropertyDefaultValue(vm, 'qrexec_timeout', 123)
+        self.assertPropertyValue(vm, 'qrexec_timeout', 3, 3, '3')
+        del vm.qrexec_timeout
+        self.assertPropertyDefaultValue(vm, 'qrexec_timeout', 123)
+        self.assertPropertyValue(vm, 'qrexec_timeout', '3', 3, '3')
+
     def test_280_autostart(self):
         vm = self.get_vm()
         # FIXME any better idea to not involve systemctl call at this stage?

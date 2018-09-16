@@ -718,6 +718,13 @@ class Qubes(qubes.PropertyHolder):
         setter=_setter_pool,
         doc='Default storage pool for kernel volumes')
 
+    default_qrexec_timeout = qubes.property('default_qrexec_timeout',
+        load_stage=3,
+        default=60,
+        type=int,
+        doc='''Default time in seconds after which qrexec connection attempt is
+            deemed failed''')
+
     stats_interval = qubes.property('stats_interval',
         default=3,
         type=int,
