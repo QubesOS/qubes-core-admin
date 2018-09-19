@@ -168,13 +168,14 @@ class DeviceCollection:
 
     This class emits following events on VM object:
 
-        .. event:: device-attach:<class> (device)
+        .. event:: device-attach:<class> (device, options)
 
             Fired when device is attached to a VM.
 
             Handler for this event can be asynchronous (a coroutine).
 
             :param device: :py:class:`DeviceInfo` object to be attached
+            :param options: :py:class:`dict` of attachment options
 
         .. event:: device-pre-attach:<class> (device)
 
