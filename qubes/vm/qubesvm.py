@@ -510,7 +510,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
 #           return self._default_user
 
     qrexec_timeout = qubes.property('qrexec_timeout', type=int,
-        default=_default_with_template('qrexec_timeout', 60),
+        default=_default_with_template('qrexec_timeout',
+            lambda self: self.app.default_qrexec_timeout),
         setter=_setter_positive_int,
         doc='''Time in seconds after which qrexec connection attempt is deemed
             failed. Operating system inside VM should be able to boot in this
