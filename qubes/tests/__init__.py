@@ -409,6 +409,8 @@ class QubesTestCase(unittest.TestCase):
             except ImportError:
                 pass
 
+        # do not keep leaked object references in locals()
+        leaked = bool(leaked)
         assert not leaked
 
     def cleanup_loop(self):
