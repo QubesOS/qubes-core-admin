@@ -122,6 +122,7 @@ make -C doc PYTHON=%{__python3} SPHINXBUILD=sphinx-build-%{python3_version} man
 
 make install \
     DESTDIR=$RPM_BUILD_ROOT \
+    BACKEND_VMM=%{backend_vmm} \
     UNITDIR=%{_unitdir} \
     PYTHON_SITEPATH=%{python3_sitelib} \
     SYSCONFDIR=%{_sysconfdir}
