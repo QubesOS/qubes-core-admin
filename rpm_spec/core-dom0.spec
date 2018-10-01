@@ -46,6 +46,7 @@ License:	GPL
 URL:		http://www.qubes-os.org
 BuildRequires:  ImageMagick
 BuildRequires:	systemd-units
+BuildRequires:	python
 # FIXME: Enable this and disable debug_package
 #BuildArch: noarch
 Requires(post): systemd-units
