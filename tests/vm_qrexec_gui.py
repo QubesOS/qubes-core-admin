@@ -963,6 +963,8 @@ class TC_00_AppVMMixin(qubes.tests.SystemTestsMixin):
 
         # help xdotool a little...
         time.sleep(2)
+        if proc.poll():
+            self.fail('gnome-terminal -e top exited early: {}'.format(proc.returncode))
         # get window ID
         search = subprocess.Popen(['xdotool', 'search', '--sync',
             '--onlyvisible', '--class', self.testvm1.name + ':.*erminal'],

@@ -203,7 +203,7 @@ class TC_50_MimeHandlers(qubes.tests.SystemTestsMixin):
 
     def prepare_pdf(self, filename):
         self.prepare_txt("/tmp/source.txt")
-        cmd = "convert /tmp/source.txt {}".format(filename)
+        cmd = "convert text:/tmp/source.txt {}".format(filename)
         retcode = self.source_vm.run(cmd, wait=True)
         assert retcode == 0, "Failed to run '{}'".format(cmd)
 
@@ -223,14 +223,14 @@ class TC_50_MimeHandlers(qubes.tests.SystemTestsMixin):
 
     def prepare_png(self, filename):
         self.prepare_txt("/tmp/source.txt")
-        cmd = "convert /tmp/source.txt {}".format(filename)
+        cmd = "convert text:/tmp/source.txt {}".format(filename)
         retcode = self.source_vm.run(cmd, wait=True)
         if retcode != 0:
             self.skipTest("Failed to run '{}', not installed?".format(cmd))
 
     def prepare_jpg(self, filename):
         self.prepare_txt("/tmp/source.txt")
-        cmd = "convert /tmp/source.txt {}".format(filename)
+        cmd = "convert text:/tmp/source.txt {}".format(filename)
         retcode = self.source_vm.run(cmd, wait=True)
         if retcode != 0:
             self.skipTest("Failed to run '{}', not installed?".format(cmd))
