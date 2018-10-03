@@ -391,7 +391,10 @@ class QubesTestCase(unittest.TestCase):
                 continue
             if exc_info is None:
                 continue
-            traceback.clear_frames(exc_info[2])
+            ex = exc_info[1]
+            while ex is not None:
+                traceback.clear_frames(ex.__traceback__)
+                ex = ex.__context__
 
     def cleanup_gc(self):
         gc.collect()
