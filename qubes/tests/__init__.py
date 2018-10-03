@@ -1144,6 +1144,9 @@ def list_templates():
     '''Returns tuple of template names available in the system.'''
     global _templates
     if _templates is None:
+        if 'QUBES_TEST_TEMPLATES' in os.environ:
+            _templates = os.environ['QUBES_TEST_TEMPLATES'].split()
+    if _templates is None:
         try:
             app = qubes.Qubes()
             _templates = tuple(vm.name for vm in app.domains
