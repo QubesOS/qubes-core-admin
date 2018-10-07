@@ -339,6 +339,7 @@ fi
 %{python3_sitelib}/qubes/tests/integ/backup.py
 %{python3_sitelib}/qubes/tests/integ/backupcompatibility.py
 %{python3_sitelib}/qubes/tests/integ/basic.py
+%{python3_sitelib}/qubes/tests/integ/devices_block.py
 %{python3_sitelib}/qubes/tests/integ/devices_pci.py
 %{python3_sitelib}/qubes/tests/integ/dispvm.py
 %{python3_sitelib}/qubes/tests/integ/dom0_update.py
