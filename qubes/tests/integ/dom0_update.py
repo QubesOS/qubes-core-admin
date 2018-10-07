@@ -121,6 +121,7 @@ enabled = 1
             self.repo_proc.terminate()
             self.loop.run_until_complete(self.repo_proc.wait())
             del self.repo_proc
+        self.app.updatevm = None
         super(TC_00_Dom0UpgradeMixin, self).tearDown()
 
         subprocess.call(['rpm', '-e', self.pkg_name],
