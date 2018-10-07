@@ -294,9 +294,15 @@ class TC_20_DispVMMixin(object):
             test_txt_content = test_txt_content[3:]
         self.assertEqual(test_txt_content, b"Test test 2\ntest1\n")
 
+
+def create_testcases_for_templates():
+    return qubes.tests.create_testcases_for_templates('TC_20_DispVM',
+        TC_20_DispVMMixin, qubes.tests.SystemTestCase,
+        module=sys.modules[__name__])
+
 def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromNames(
-        qubes.tests.create_testcases_for_templates('TC_20_DispVM',
-            TC_20_DispVMMixin, qubes.tests.SystemTestCase,
-            module=sys.modules[__name__])))
+        create_testcases_for_templates()))
     return tests
+
+qubes.tests.maybe_create_testcases_on_import(create_testcases_for_templates)

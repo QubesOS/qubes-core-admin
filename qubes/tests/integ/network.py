@@ -1319,17 +1319,20 @@ SHA256:
             self.assertIn(self.loop.run_until_complete(p.wait()), self.exit_code_ok,
                 '{}: {}\n{}'.format(self.update_cmd, stdout, stderr))
 
+def create_testcases_for_templates():
+    yield from qubes.tests.create_testcases_for_templates('VmNetworking',
+        VmNetworkingMixin, qubes.tests.SystemTestCase,
+        module=sys.modules[__name__])
+    yield from qubes.tests.create_testcases_for_templates('VmIPv6Networking',
+        VmIPv6NetworkingMixin, qubes.tests.SystemTestCase,
+        module=sys.modules[__name__])
+    yield from qubes.tests.create_testcases_for_templates('VmUpdates',
+        VmUpdatesMixin, qubes.tests.SystemTestCase,
+        module=sys.modules[__name__])
+
 def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromNames(
-        qubes.tests.create_testcases_for_templates('VmNetworking',
-            VmNetworkingMixin, qubes.tests.SystemTestCase,
-            module=sys.modules[__name__])))
-    tests.addTests(loader.loadTestsFromNames(
-        qubes.tests.create_testcases_for_templates('VmIPv6Networking',
-            VmIPv6NetworkingMixin, qubes.tests.SystemTestCase,
-            module=sys.modules[__name__])))
-    tests.addTests(loader.loadTestsFromNames(
-        qubes.tests.create_testcases_for_templates('VmUpdates',
-            VmUpdatesMixin, qubes.tests.SystemTestCase,
-            module=sys.modules[__name__])))
+        create_testcases_for_templates()))
     return tests
+
+qubes.tests.maybe_create_testcases_on_import(create_testcases_for_templates)

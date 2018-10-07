@@ -1193,11 +1193,28 @@ def create_testcases_for_templates(name, *bases, module, **kwds):
 
     for template in list_templates():
         clsname = name + '_' + template
+        if hasattr(module, clsname):
+            continue
         cls = type(clsname, bases, {'template': template, **kwds})
         cls.__module__ = module.__name__
         # XXX I wonder what other __dunder__ attrs did I miss
         setattr(module, clsname, cls)
         yield '.'.join((module.__name__, clsname))
+
+def maybe_create_testcases_on_import(create_testcases_gen):
+    '''If certain conditions are met, call *create_testcases_gen* to create
+    testcases for templates tests. The purpose is to use it on integration
+    tests module(s) import, so the test runner could discover tests without
+    using load tests protocol.
+
+    The conditions - any of:
+     - QUBES_TEST_TEMPLATES present in the environment (it's possible to
+     create test cases without opening qubes.xml)
+     - QUBES_TEST_LOAD_ALL present in the environment
+    '''
+    if 'QUBES_TEST_TEMPLATES' in os.environ or \
+            'QUBES_TEST_LOAD_ALL' in os.environ:
+        list(create_testcases_gen())
 
 def extra_info(obj):
     '''Return short info identifying object.

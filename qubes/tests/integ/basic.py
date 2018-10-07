@@ -681,17 +681,20 @@ class TC_06_AppVMMixin(object):
             self.loop.run_until_complete(asyncio.sleep(1))
         self.assertFalse(self.vm.is_running())
 
+def create_testcases_for_templates():
+    yield from qubes.tests.create_testcases_for_templates('TC_05_StandaloneVM',
+            TC_05_StandaloneVMMixin, qubes.tests.SystemTestCase,
+            module=sys.modules[__name__])
+    yield from qubes.tests.create_testcases_for_templates('TC_06_AppVM',
+            TC_06_AppVMMixin, qubes.tests.SystemTestCase,
+            module=sys.modules[__name__])
 
 def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromNames(
-        qubes.tests.create_testcases_for_templates('TC_05_StandaloneVM',
-            TC_05_StandaloneVMMixin, qubes.tests.SystemTestCase,
-            module=sys.modules[__name__])))
-    tests.addTests(loader.loadTestsFromNames(
-        qubes.tests.create_testcases_for_templates('TC_06_AppVM',
-            TC_06_AppVMMixin, qubes.tests.SystemTestCase,
-            module=sys.modules[__name__])))
+        create_testcases_for_templates()))
 
     return tests
+
+qubes.tests.maybe_create_testcases_on_import(create_testcases_for_templates)
 
 # vim: ts=4 sw=4 et
