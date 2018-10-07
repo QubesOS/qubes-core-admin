@@ -124,6 +124,7 @@ class TC_00_BackupCompatibility(
 
     def tearDown(self):
         self.remove_test_vms(prefix="test-")
+        self.remove_test_vms(prefix="disp-test-")
         super(TC_00_BackupCompatibility, self).tearDown()
 
     def create_whitelisted_appmenus(self, filename):
