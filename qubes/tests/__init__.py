@@ -386,9 +386,11 @@ class QubesTestCase(unittest.TestCase):
         '''Remove local variables reference from tracebacks to allow garbage
         collector to clean all Qubes*() objects, otherwise file descriptors
         held by them will leak'''
-        for test_case, exc_info in self._outcome.errors:
-            if test_case is not self:
-                continue
+        exc_infos = [e for test_case, e in self._outcome.errors
+            if test_case is self]
+        if self._outcome.expectedFailure:
+            exc_infos.append(self._outcome.expectedFailure)
+        for exc_info in exc_infos:
             if exc_info is None:
                 continue
             ex = exc_info[1]
