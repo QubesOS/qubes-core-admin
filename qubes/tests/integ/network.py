@@ -89,6 +89,7 @@ class VmNetworkingMixin(object):
             label='red')
         self.loop.run_until_complete(self.testnetvm.create_on_disk())
         self.testnetvm.provides_network = True
+        self.testnetvm.netvm = None
         self.testvm1 = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('vm1'),
             label='red')
