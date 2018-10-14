@@ -902,9 +902,16 @@ class SystemTestCase(QubesTestCase):
             self._remove_vm_qubes(vm)
 
     def remove_test_vms(self, xmlpath=XMLPATH, prefix=VMPREFIX):
-        '''Aggresively remove any domain that has name in testing namespace.
+        '''Aggressively remove any domain that has name in testing namespace.
+
+        :param prefix: name prefix of VMs to remove, can be a list of prefixes
         '''
 
+        if isinstance(prefix, str):
+            prefixes = [prefix]
+        else:
+            prefixes = prefix
+        del prefix
         # first, remove them Qubes-way
         if os.path.exists(xmlpath):
             try:
@@ -917,7 +924,7 @@ class SystemTestCase(QubesTestCase):
                 except AttributeError:
                     host_app = qubes.Qubes()
                 self.remove_vms([vm for vm in app.domains
-                    if vm.name.startswith(prefix) or
+                    if any(vm.name.startswith(prefix) for prefix in prefixes) or
                        (isinstance(vm, qubes.vm.dispvm.DispVM) and vm.name
                         not in host_app.domains)])
                 if not hasattr(self, 'host_app'):
@@ -933,7 +940,7 @@ class SystemTestCase(QubesTestCase):
         # now remove what was only in libvirt
         conn = libvirt.open(qubes.config.defaults['libvirt_uri'])
         for dom in conn.listAllDomains():
-            if dom.name().startswith(prefix):
+            if any(dom.name().startswith(prefix) for prefix in prefixes):
                 self._remove_vm_libvirt(dom)
         conn.close()
 
@@ -948,11 +955,12 @@ class SystemTestCase(QubesTestCase):
             if not os.path.exists(dirpath):
                 continue
             for name in os.listdir(dirpath):
-                if name.startswith(prefix):
+                if any(name.startswith(prefix) for prefix in prefixes):
                     vmnames.add(name)
         for vmname in vmnames:
             self._remove_vm_disk(vmname)
-        self._remove_vm_disk_lvm(prefix)
+        for prefix in prefixes:
+            self._remove_vm_disk_lvm(prefix)
 
     def qrexec_policy(self, service, source, destination, allow=True,
             action=None):

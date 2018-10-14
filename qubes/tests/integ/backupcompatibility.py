@@ -123,8 +123,10 @@ class TC_00_BackupCompatibility(
         qubes.tests.integ.backup.BackupTestsMixin, qubes.tests.SystemTestCase):
 
     def tearDown(self):
-        self.remove_test_vms(prefix="test-")
-        self.remove_test_vms(prefix="disp-test-")
+        prefixes = ["test-", "disp-test-"]
+        if 'disp-no-netvm' not in self.host_app.domains:
+            prefixes.append('disp-no-netvm')
+        self.remove_test_vms(prefix=prefixes)
         super(TC_00_BackupCompatibility, self).tearDown()
 
     def create_whitelisted_appmenus(self, filename):
