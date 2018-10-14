@@ -50,6 +50,9 @@ class VmNetworkingMixin(object):
     template = None
 
     def run_cmd(self, vm, cmd, user="root"):
+        '''
+        :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
+        '''
         try:
             self.loop.run_until_complete(vm.run_for_stdio(cmd, user=user))
         except subprocess.CalledProcessError as e:
@@ -57,6 +60,9 @@ class VmNetworkingMixin(object):
         return 0
 
     def check_nc_version(self, vm):
+        '''
+        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        '''
         if self.run_cmd(vm, 'nc -h >/dev/null 2>&1') != 0:
             self.skipTest('nc not installed')
         if self.run_cmd(vm, 'nc -h 2>&1|grep -q nmap.org') == 0:
@@ -65,6 +71,9 @@ class VmNetworkingMixin(object):
             return NcVersion.Trad
 
     def setUp(self):
+        '''
+        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        '''
         super(VmNetworkingMixin, self).setUp()
         if self.template.startswith('whonix-'):
             self.skipTest("Test not supported here - Whonix uses its own "
@@ -86,6 +95,9 @@ class VmNetworkingMixin(object):
 
 
     def configure_netvm(self):
+        '''
+        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        '''
         def run_netvm_cmd(cmd):
             if self.run_cmd(self.testnetvm, cmd) != 0:
                 self.fail("Command '%s' failed" % cmd)
@@ -113,12 +125,18 @@ class VmNetworkingMixin(object):
 
 
     def test_000_simple_networking(self):
+        '''
+        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        '''
         self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
 
 
     def test_010_simple_proxyvm(self):
+        '''
+        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        '''
         self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('proxy'),
             label='red')
@@ -144,6 +162,9 @@ class VmNetworkingMixin(object):
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
     def test_020_simple_proxyvm_nm(self):
+        '''
+        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        '''
         self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('proxy'),
             label='red')
@@ -189,6 +210,9 @@ class VmNetworkingMixin(object):
 
 
     def test_030_firewallvm_firewall(self):
+        '''
+        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        '''
         self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('proxy'),
             label='red')
@@ -290,6 +314,9 @@ class VmNetworkingMixin(object):
 
 
     def test_040_inter_vm(self):
+        '''
+        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        '''
         self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('proxy'),
             label='red')
@@ -327,7 +354,10 @@ class VmNetworkingMixin(object):
             self.ping_cmd.format(target=self.testvm1.ip)), 0)
 
     def test_050_spoof_ip(self):
-        """Test if VM IP spoofing is blocked"""
+        '''Test if VM IP spoofing is blocked
+
+        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        '''
         self.loop.run_until_complete(self.testvm1.start())
 
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
@@ -353,7 +383,10 @@ class VmNetworkingMixin(object):
         self.assertEquals(packets, '0', 'Some packet hit the INPUT rule')
 
     def test_100_late_xldevd_startup(self):
-        """Regression test for #1990"""
+        '''Regression test for #1990
+
+        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        '''
         # Simulater late xl devd startup
         cmd = "systemctl stop xendriverdomain"
         if self.run_cmd(self.testnetvm, cmd) != 0:
@@ -367,7 +400,10 @@ class VmNetworkingMixin(object):
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_ip), 0)
 
     def test_200_fake_ip_simple(self):
-        '''Test hiding VM real IP'''
+        '''Test hiding VM real IP
+
+        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        '''
         self.testvm1.features['net.fake-ip'] = '192.168.1.128'
         self.testvm1.features['net.fake-gateway'] = '192.168.1.1'
         self.testvm1.features['net.fake-netmask'] = '255.255.255.0'
@@ -398,7 +434,10 @@ class VmNetworkingMixin(object):
         self.assertNotIn(str(self.testvm1.netvm.ip), output)
 
     def test_201_fake_ip_without_gw(self):
-        '''Test hiding VM real IP'''
+        '''Test hiding VM real IP
+
+        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        '''
         self.testvm1.features['net.fake-ip'] = '192.168.1.128'
         self.app.save()
         self.loop.run_until_complete(self.testvm1.start())
@@ -417,7 +456,10 @@ class VmNetworkingMixin(object):
         self.assertNotIn(str(self.testvm1.ip), output)
 
     def test_202_fake_ip_firewall(self):
-        '''Test hiding VM real IP, firewall'''
+        '''Test hiding VM real IP, firewall
+
+        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        '''
         self.testvm1.features['net.fake-ip'] = '192.168.1.128'
         self.testvm1.features['net.fake-gateway'] = '192.168.1.1'
         self.testvm1.features['net.fake-netmask'] = '255.255.255.0'
@@ -468,7 +510,10 @@ class VmNetworkingMixin(object):
             self.loop.run_until_complete(nc.wait())
 
     def test_203_fake_ip_inter_vm_allow(self):
-        '''Access VM with "fake IP" from other VM (when firewall allows)'''
+        '''Access VM with "fake IP" from other VM (when firewall allows)
+
+        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        '''
         self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('proxy'),
             label='red')
@@ -521,7 +566,10 @@ class VmNetworkingMixin(object):
             'Packets didn\'t managed to the VM')
 
     def test_204_fake_ip_proxy(self):
-        '''Test hiding VM real IP'''
+        '''Test hiding VM real IP
+
+        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        '''
         self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('proxy'),
             label='red')
@@ -582,7 +630,10 @@ class VmNetworkingMixin(object):
         self.assertNotIn(str(self.proxy.ip), output)
 
     def test_210_custom_ip_simple(self):
-        '''Custom AppVM IP'''
+        '''Custom AppVM IP
+
+        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        '''
         self.testvm1.ip = '192.168.1.1'
         self.app.save()
         self.loop.run_until_complete(self.testvm1.start())
@@ -590,7 +641,10 @@ class VmNetworkingMixin(object):
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
 
     def test_211_custom_ip_proxy(self):
-        '''Custom ProxyVM IP'''
+        '''Custom ProxyVM IP
+
+        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        '''
         self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('proxy'),
             label='red')
@@ -607,7 +661,10 @@ class VmNetworkingMixin(object):
         self.assertEqual(self.run_cmd(self.testvm1, self.ping_name), 0)
 
     def test_212_custom_ip_firewall(self):
-        '''Custom VM IP and firewall'''
+        '''Custom VM IP and firewall
+
+        :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        '''
         self.testvm1.ip = '192.168.1.1'
 
         self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
@@ -666,6 +723,9 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         self.ping6_name = self.ping6_cmd.format(target=self.test_name)
 
     def configure_netvm(self):
+        '''
+        :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
+        '''
         self.testnetvm.features['ipv6'] = True
         super(VmIPv6NetworkingMixin, self).configure_netvm()
 
@@ -683,12 +743,18 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
             format(ip=self.test_ip, ip6=self.test_ip6, name=self.test_name))
 
     def test_500_ipv6_simple_networking(self):
+        '''
+        :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
+        '''
         self.loop.run_until_complete(self.testvm1.start())
         self.assertEqual(self.run_cmd(self.testvm1, self.ping6_ip), 0)
         self.assertEqual(self.run_cmd(self.testvm1, self.ping6_name), 0)
 
 
     def test_510_ipv6_simple_proxyvm(self):
+        '''
+        :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
+        '''
         self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('proxy'),
             label='red')
@@ -714,6 +780,9 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
     @unittest.skipUnless(spawn.find_executable('xdotool'),
                          "xdotool not installed")
     def test_520_ipv6_simple_proxyvm_nm(self):
+        '''
+        :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
+        '''
         self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('proxy'),
             label='red')
@@ -764,6 +833,9 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
 
 
     def test_530_ipv6_firewallvm_firewall(self):
+        '''
+        :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
+        '''
         self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('proxy'),
             label='red')
@@ -881,6 +953,9 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
 
 
     def test_540_ipv6_inter_vm(self):
+        '''
+        :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
+        '''
         self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('proxy'),
             label='red')
@@ -920,7 +995,10 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
 
 
     def test_550_ipv6_spoof_ip(self):
-        """Test if VM IP spoofing is blocked"""
+        '''Test if VM IP spoofing is blocked
+
+        :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
+        '''
         self.loop.run_until_complete(self.testvm1.start())
 
         self.assertEqual(self.run_cmd(self.testvm1, self.ping6_ip), 0)
@@ -949,7 +1027,10 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         self.assertEquals(packets, '0', 'Some packet hit the INPUT rule')
 
     def test_710_ipv6_custom_ip_simple(self):
-        '''Custom AppVM IP'''
+        '''Custom AppVM IP
+
+        :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
+        '''
         self.testvm1.ip6 = '2000:aaaa:bbbb::1'
         self.app.save()
         self.loop.run_until_complete(self.testvm1.start())
@@ -957,7 +1038,10 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         self.assertEqual(self.run_cmd(self.testvm1, self.ping6_name), 0)
 
     def test_711_ipv6_custom_ip_proxy(self):
-        '''Custom ProxyVM IP'''
+        '''Custom ProxyVM IP
+
+        :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
+        '''
         self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
             name=self.make_vm_name('proxy'),
             label='red')
@@ -974,7 +1058,10 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
         self.assertEqual(self.run_cmd(self.testvm1, self.ping6_name), 0)
 
     def test_712_ipv6_custom_ip_firewall(self):
-        '''Custom VM IP and firewall'''
+        '''Custom VM IP and firewall
+
+        :type self: qubes.tests.SystemTestCase | VmIPv6NetworkingMixin
+        '''
         self.testvm1.ip6 = '2000:aaaa:bbbb::1'
 
         self.proxy = self.app.add_new_vm(qubes.vm.appvm.AppVM,
@@ -1099,6 +1186,10 @@ class VmUpdatesMixin(object):
     )
 
     def run_cmd(self, vm, cmd, user="root"):
+        '''
+
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        '''
         try:
             self.loop.run_until_complete(vm.run_for_stdio(cmd))
         except subprocess.CalledProcessError as e:
@@ -1106,6 +1197,9 @@ class VmUpdatesMixin(object):
         return 0
 
     def setUp(self):
+        '''
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        '''
         if not self.template.count('debian') and \
                 not self.template.count('fedora'):
             self.skipTest("Template {} not supported by this test".format(
@@ -1142,6 +1236,9 @@ class VmUpdatesMixin(object):
         self.loop.run_until_complete(self.testvm1.create_on_disk())
 
     def test_000_simple_update(self):
+        '''
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        '''
         self.app.save()
         # reload the VM to have all the properties properly set (especially
         # default netvm)
@@ -1155,6 +1252,9 @@ class VmUpdatesMixin(object):
             '{}: {}\n{}'.format(self.update_cmd, stdout, stderr))
 
     def create_repo_apt(self):
+        '''
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        '''
         pkg_file_name = "test-pkg_1.0-1_amd64.deb"
         self.loop.run_until_complete(self.netvm_repo.run_for_stdio('''
             mkdir /tmp/apt-repo \
@@ -1209,6 +1309,9 @@ SHA256:
 '''))
 
     def create_repo_yum(self):
+        '''
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        '''
         pkg_file_name = "test-pkg-1.0-1.fc21.x86_64.rpm"
         self.loop.run_until_complete(self.netvm_repo.run_for_stdio('''
             mkdir /tmp/yum-repo \
@@ -1221,6 +1324,9 @@ SHA256:
             'createrepo /tmp/yum-repo'))
 
     def create_repo_and_serve(self):
+        '''
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        '''
         if self.template.count("debian") or self.template.count("whonix"):
             self.create_repo_apt()
             self.loop.run_until_complete(self.netvm_repo.run(
@@ -1242,6 +1348,8 @@ SHA256:
         The critical part is to use "localhost" - this will work only when
         accessed through update proxy and this is exactly what we want to
         test here.
+
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
         """
 
         if self.template.count("debian") or self.template.count("whonix"):
@@ -1266,9 +1374,11 @@ SHA256:
                 self.template))
 
     def test_010_update_via_proxy(self):
-        """
+        '''
         Test both whether updates proxy works and whether is actually used by the VM
-        """
+
+        :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        '''
         if self.template.count("minimal"):
             self.skipTest("Template {} not supported by this test".format(
                 self.template))
