@@ -211,7 +211,7 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         while self.vm.get_power_state() != 'Halted':
             self.loop.run_until_complete(asyncio.sleep(1))
         # and give a chance for both domain-shutdown handlers to execute
-        self.loop.run_until_complete(asyncio.sleep(1))
+        self.loop.run_until_complete(asyncio.sleep(3))
 
         if self.test_failure_reason:
             self.fail(self.test_failure_reason)
