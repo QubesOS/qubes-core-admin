@@ -22,8 +22,6 @@
 from distutils import spawn
 
 import asyncio
-import multiprocessing
-import os
 import subprocess
 import sys
 import time
@@ -31,13 +29,15 @@ import unittest
 
 import qubes.tests
 import qubes.firewall
+import qubes.vm.qubesvm
 import qubes.vm.appvm
 
 class NcVersion:
     Trad = 1
     Nmap = 2
 
-# noinspection PyAttributeOutsideInit
+
+# noinspection PyAttributeOutsideInit,PyPep8Naming
 class VmNetworkingMixin(object):
     test_ip = '192.168.123.45'
     test_name = 'test.example.com'
@@ -50,8 +50,12 @@ class VmNetworkingMixin(object):
     template = None
 
     def run_cmd(self, vm, cmd, user="root"):
-        '''
+        '''Run a command *cmd* in a *vm* as *user*. Return its exit code.
         :type self: qubes.tests.SystemTestCase | VmNetworkingMixin
+        :param qubes.vm.qubesvm.QubesVM vm: VM object to run command in
+        :param str cmd: command to execute
+        :param std user: user to execute command as
+        :return int: command exit code
         '''
         try:
             self.loop.run_until_complete(vm.run_for_stdio(cmd, user=user))
@@ -62,6 +66,7 @@ class VmNetworkingMixin(object):
     def check_nc_version(self, vm):
         '''
         :type self: qubes.tests.SystemTestCase | VMNetworkingMixin
+        :param vm: VM where check ncat version in
         '''
         if self.run_cmd(vm, 'nc -h >/dev/null 2>&1') != 0:
             self.skipTest('nc not installed')
@@ -535,9 +540,9 @@ class VmNetworkingMixin(object):
         self.loop.run_until_complete(self.testvm1.start())
         self.loop.run_until_complete(self.testvm2.start())
 
+        cmd = 'iptables -I FORWARD -s {} -d {} -j ACCEPT'.format(
+            self.testvm2.ip, self.testvm1.ip)
         try:
-            cmd = 'iptables -I FORWARD -s {} -d {} -j ACCEPT'.format(
-                self.testvm2.ip, self.testvm1.ip)
             self.loop.run_until_complete(self.proxy.run_for_stdio(
                 cmd, user='root'))
         except subprocess.CalledProcessError as e:
@@ -593,7 +598,7 @@ class VmNetworkingMixin(object):
             (output, _) = self.loop.run_until_complete(
                 self.proxy.run_for_stdio(
                     'ip addr show dev eth0', user='root'))
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             self.fail('ip addr show dev eth0 failed')
         output = output.decode()
         self.assertIn('192.168.1.128', output)
@@ -603,7 +608,7 @@ class VmNetworkingMixin(object):
             (output, _) = self.loop.run_until_complete(
                 self.proxy.run_for_stdio(
                     'ip route show', user='root'))
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             self.fail('ip route show failed')
         output = output.decode()
         self.assertIn('192.168.1.1', output)
@@ -613,7 +618,7 @@ class VmNetworkingMixin(object):
             (output, _) = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio(
                     'ip addr show dev eth0', user='root'))
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             self.fail('ip addr show dev eth0 failed')
         output = output.decode()
         self.assertNotIn('192.168.1.128', output)
@@ -623,7 +628,7 @@ class VmNetworkingMixin(object):
             (output, _) = self.loop.run_until_complete(
                 self.testvm1.run_for_stdio(
                     'ip route show', user='root'))
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             self.fail('ip route show failed')
         output = output.decode()
         self.assertIn('192.168.1.128', output)
@@ -712,6 +717,7 @@ class VmNetworkingMixin(object):
             nc.terminate()
             self.loop.run_until_complete(nc.wait())
 
+# noinspection PyAttributeOutsideInit,PyPep8Naming
 class VmIPv6NetworkingMixin(VmNetworkingMixin):
     test_ip6 = '2000:abcd::1'
 
@@ -903,7 +909,8 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
             # block all except target
 
             self.testvm1.firewall.rules = [
-                qubes.firewall.Rule(None, action='accept', dsthost=self.test_ip6,
+                qubes.firewall.Rule(None, action='accept',
+                    dsthost=self.test_ip6,
                     proto='tcp', dstports=1234),
             ]
             self.testvm1.firewall.save()
@@ -1109,7 +1116,7 @@ class VmIPv6NetworkingMixin(VmNetworkingMixin):
             nc.terminate()
             self.loop.run_until_complete(nc.wait())
 
-# noinspection PyAttributeOutsideInit
+# noinspection PyAttributeOutsideInit,PyPep8Naming
 class VmUpdatesMixin(object):
     """
     Tests for VM updates
@@ -1186,9 +1193,13 @@ class VmUpdatesMixin(object):
     )
 
     def run_cmd(self, vm, cmd, user="root"):
-        '''
+        '''Run a command *cmd* in a *vm* as *user*. Return its exit code.
 
         :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
+        :param qubes.vm.qubesvm.QubesVM vm: VM object to run command in
+        :param str cmd: command to execute
+        :param std user: user to execute command as
+        :return int: command exit code
         '''
         try:
             self.loop.run_until_complete(vm.run_for_stdio(cmd))
@@ -1375,7 +1386,8 @@ SHA256:
 
     def test_010_update_via_proxy(self):
         '''
-        Test both whether updates proxy works and whether is actually used by the VM
+        Test both whether updates proxy works and whether is actually used
+        by the VM
 
         :type self: qubes.tests.SystemTestCase | VmUpdatesMixin
         '''
