@@ -1142,6 +1142,9 @@ int main(int argc, char **argv) {
         # wait for damage notify - top updates every 3 sec by default
         yield from asyncio.sleep(6)
 
+        # stop changing the window content
+        subprocess.check_call(['xdotool', 'key', '--window', winid, 'd'])
+
         # now take screenshot of the window, from dom0 and VM
         # choose pnm format, as it doesn't have any useless metadata - easy
         # to compare
