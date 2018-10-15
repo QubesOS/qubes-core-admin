@@ -108,7 +108,7 @@ class TC_00_Basic(qubes.tests.SystemTestCase):
         self.assertTrue(self.vm.is_running())
         # Type 'poweroff'
         subprocess.check_call(['xdotool', 'search', '--name', self.vm.name,
-                               'type', 'poweroff\r'])
+                               'type', '--window', '%1', 'poweroff\r'])
         for _ in range(10):
             if not self.vm.is_running():
                 break
@@ -674,7 +674,7 @@ class TC_06_AppVMMixin(object):
         self.assertTrue(self.vm.is_running())
         # Type 'poweroff'
         subprocess.check_call(['xdotool', 'search', '--name', self.vm.name,
-                               'type', 'poweroff\r'])
+                               'type', '--window', '%1', 'poweroff\r'])
         for _ in range(10):
             if not self.vm.is_running():
                 break
