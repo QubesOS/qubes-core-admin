@@ -237,7 +237,7 @@ class TC_00_BackupCompatibility(
         self.create_sparse(self.fullpath(
             "vm-templates/test-template-clone/root.img"), 10*2**30)
         self.fill_image(self.fullpath(
-            "vm-templates/test-template-clone/root.img"), 1*2**30, True)
+            "vm-templates/test-template-clone/root.img"), 100*2**20, True)
         self.create_volatile_img(self.fullpath(
             "vm-templates/test-template-clone/volatile.img"))
         subprocess.check_call([
