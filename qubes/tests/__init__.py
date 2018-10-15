@@ -977,7 +977,25 @@ class SystemTestCase(QubesTestCase):
         return _QrexecPolicyContext(service, source, destination,
             allow=allow, action=action)
 
-    def wait_for_window(self, title, timeout=30, show=True):
+    @asyncio.coroutine
+    def wait_for_window_hide_coro(self, title, winid, timeout=30):
+        """
+        Wait for window do disappear
+        :param winid: window id
+        :return:
+        """
+        wait_count = 0
+        while subprocess.call(['xdotool', 'getwindowname', str(winid)],
+                stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) == 0:
+            wait_count += 1
+            if wait_count > timeout * 10:
+                self.fail("Timeout while waiting for {}({}) window to "
+                          "disappear".format(title, winid))
+            yield from asyncio.sleep(0.1)
+
+    @asyncio.coroutine
+    def wait_for_window_coro(self, title, search_class=False, timeout=30,
+            show=True):
         """
         Wait for a window with a given title. Depending on show parameter,
         it will wait for either window to show or to disappear.
@@ -986,19 +1004,59 @@ class SystemTestCase(QubesTestCase):
         :param timeout: timeout of the operation, in seconds
         :param show: if True - wait for the window to be visible,
             otherwise - to not be visible
-        :return: None
+        :param search_class: search based on window class instead of title
+        :return: window id of found window, if show=True
         """
 
-        wait_count = 0
-        while subprocess.call(['xdotool', 'search', '--name', title],
-                stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) \
-                != int(not show):
-            wait_count += 1
-            if wait_count > timeout*10:
-                self.fail("Timeout while waiting for {} window to {}".format(
-                    title, "show" if show else "hide")
-                )
-            self.loop.run_until_complete(asyncio.sleep(0.1))
+        xdotool_search = ['xdotool', 'search', '--onlyvisible']
+        if search_class:
+            xdotool_search.append('--class')
+        else:
+            xdotool_search.append('--name')
+        if show:
+            xdotool_search.append('--sync')
+        if not show:
+            try:
+                winid = subprocess.check_output(xdotool_search + [title],
+                    stderr=subprocess.DEVNULL).decode()
+            except subprocess.CalledProcessError:
+                # already gone
+                return
+            yield from self.wait_for_window_hide_coro(winid, title,
+                timeout=timeout)
+            return
+
+        winid = None
+        while not winid:
+            p = yield from asyncio.create_subprocess_exec(
+                *xdotool_search, title,
+                stderr=subprocess.DEVNULL, stdout=subprocess.PIPE)
+            try:
+                (winid, _) = yield from asyncio.wait_for(
+                    p.communicate(), timeout)
+                # don't check exit code, getting winid on stdout is enough
+                # indicator of success; specifically ignore xdotool failing
+                # with BadWindow or such - when some window appears only for a
+                # moment by xdotool didn't manage to get its properties
+            except asyncio.TimeoutError:
+                self.fail(
+                    "Timeout while waiting for {} window to show".format(title))
+        return winid.decode().strip()
+
+    def wait_for_window(self, *args, **kwargs):
+        """
+        Wait for a window with a given title. Depending on show parameter,
+        it will wait for either window to show or to disappear.
+
+        :param title: title of the window to wait for
+        :param timeout: timeout of the operation, in seconds
+        :param show: if True - wait for the window to be visible,
+            otherwise - to not be visible
+        :param search_class: search based on window class instead of title
+        :return: window id of found window, if show=True
+        """
+        return self.loop.run_until_complete(
+            self.wait_for_window_coro(*args, **kwargs))
 
     def enter_keys_in_window(self, title, keys):
         """
