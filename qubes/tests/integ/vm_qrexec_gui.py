@@ -76,32 +76,17 @@ class TC_00_AppVMMixin(object):
         self.loop.run_until_complete(self.wait_for_session(self.testvm1))
         p = self.loop.run_until_complete(self.testvm1.run('xterm'))
         try:
-            wait_count = 0
             title = 'user@{}'.format(self.testvm1.name)
             if self.template.count("whonix"):
                 title = 'user@host'
-            while subprocess.call(
-                    ['xdotool', 'search', '--name', title],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) > 0:
-                wait_count += 1
-                if wait_count > 100:
-                    self.fail("Timeout while waiting for xterm window")
-                self.loop.run_until_complete(asyncio.sleep(0.1))
+            self.wait_for_window(title)
 
             self.loop.run_until_complete(asyncio.sleep(0.5))
             subprocess.check_call(
                 ['xdotool', 'search', '--name', title,
                 'windowactivate', 'type', 'exit\n'])
 
-            wait_count = 0
-            while subprocess.call(['xdotool', 'search', '--name', title],
-                                stdout=open(os.path.devnull, 'w'),
-                                stderr=subprocess.STDOUT) == 0:
-                wait_count += 1
-                if wait_count > 100:
-                    self.fail("Timeout while waiting for xterm "
-                            "termination")
-                self.loop.run_until_complete(asyncio.sleep(0.1))
+            self.wait_for_window(title, show=False)
         finally:
             try:
                 p.terminate()
@@ -124,15 +109,7 @@ class TC_00_AppVMMixin(object):
             title = 'user@{}'.format(self.testvm1.name)
             if self.template.count("whonix"):
                 title = 'user@host'
-            wait_count = 0
-            while subprocess.call(
-                    ['xdotool', 'search', '--name', title],
-                    stdout=open(os.path.devnull, 'w'),
-                    stderr=subprocess.STDOUT) > 0:
-                wait_count += 1
-                if wait_count > 100:
-                    self.fail("Timeout while waiting for gnome-terminal window")
-                self.loop.run_until_complete(asyncio.sleep(0.1))
+            self.wait_for_window(title)
 
             self.loop.run_until_complete(asyncio.sleep(0.5))
             subprocess.check_call(
@@ -178,30 +155,14 @@ class TC_00_AppVMMixin(object):
         title = 'user@{}'.format(self.testvm1.name)
         if self.template.count("whonix"):
             title = 'user@host'
-        wait_count = 0
-        while subprocess.call(
-                ['xdotool', 'search', '--name', title],
-                stdout=open(os.path.devnull, 'w'),
-                stderr=subprocess.STDOUT) > 0:
-            wait_count += 1
-            if wait_count > 100:
-                self.fail("Timeout while waiting for xterm window")
-            self.loop.run_until_complete(asyncio.sleep(0.1))
+        self.wait_for_window(title)
 
         self.loop.run_until_complete(asyncio.sleep(0.5))
         subprocess.check_call(
             ['xdotool', 'search', '--name', title,
              'windowactivate', '--sync', 'type', 'exit\n'])
 
-        wait_count = 0
-        while subprocess.call(['xdotool', 'search', '--name', title],
-                              stdout=open(os.path.devnull, 'w'),
-                              stderr=subprocess.STDOUT) == 0:
-            wait_count += 1
-            if wait_count > 100:
-                self.fail("Timeout while waiting for xterm "
-                          "termination")
-            self.loop.run_until_complete(asyncio.sleep(0.1))
+        self.wait_for_window(title, show=False)
 
     def test_050_qrexec_simple_eof(self):
         """Test for data and EOF transmission dom0->VM"""
@@ -1111,15 +1072,12 @@ int main(int argc, char **argv) {
         proc = yield from self.testvm1.run(
             'xterm -maximized -e top')
 
-        # help xdotool a little...
-        yield from asyncio.sleep(2)
         if proc.returncode is not None:
             self.fail('xterm failed to start')
         # get window ID
-        winid = (yield from asyncio.get_event_loop().run_in_executor(None,
-            subprocess.check_output,
-            ['xdotool', 'search', '--sync', '--onlyvisible', '--class',
-                self.testvm1.name + ':xterm'])).decode()
+        winid = yield from self.wait_for_window_coro(
+            self.testvm1.name + ':xterm',
+            search_class=True)
         xprop = yield from asyncio.get_event_loop().run_in_executor(None,
             subprocess.check_output,
             ['xprop', '-notype', '-id', winid, '_QUBES_VMWINDOWID'])

@@ -255,34 +255,26 @@ class TC_20_DispVMMixin(object):
         p = self.loop.run_until_complete(
             self.testvm1.run("qvm-open-in-dvm /home/user/test.txt"))
 
-        wait_count = 0
+        # if first 5 windows isn't expected editor, there is no hope
         winid = None
-        while True:
-            search = self.loop.run_until_complete(
-                asyncio.create_subprocess_exec(
-                    'xdotool', 'search', '--onlyvisible', '--class',
-                    'disp[0-9]*',
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.DEVNULL))
-            stdout, _ = self.loop.run_until_complete(search.communicate())
-            if search.returncode == 0:
-                winid = stdout.strip()
-                # get window title
-                (window_title, _) = subprocess.Popen(
-                    ['xdotool', 'getwindowname', winid], stdout=subprocess.PIPE). \
-                    communicate()
-                window_title = window_title.decode().strip()
-                # ignore LibreOffice splash screen and window with no title
-                # set yet
-                if window_title and not window_title.startswith("LibreOffice")\
-                        and not window_title == 'VMapp command' \
-                        and 'whonixcheck' not in window_title \
-                        and not window_title == 'NetworkManager Applet':
-                    break
-            wait_count += 1
-            if wait_count > 100:
-                self.fail("Timeout while waiting for editor window")
-            self.loop.run_until_complete(asyncio.sleep(0.3))
+        for _ in range(5):
+            winid = self.wait_for_window('disp[0-9]*', search_class=True)
+            # get window title
+            (window_title, _) = subprocess.Popen(
+                ['xdotool', 'getwindowname', winid], stdout=subprocess.PIPE). \
+                communicate()
+            window_title = window_title.decode().strip()
+            # ignore LibreOffice splash screen and window with no title
+            # set yet
+            if window_title and not window_title.startswith("LibreOffice")\
+                    and not window_title == 'VMapp command' \
+                    and 'whonixcheck' not in window_title \
+                    and not window_title == 'NetworkManager Applet':
+                break
+            self.loop.run_until_complete(asyncio.sleep(1))
+            winid = None
+        if winid is None:
+            self.fail('Timeout waiting for editor window')
 
         time.sleep(0.5)
         self._handle_editor(winid)
