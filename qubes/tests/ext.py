@@ -21,6 +21,7 @@
 from unittest import mock
 
 import qubes.ext.core_features
+import qubes.ext.services
 import qubes.ext.windows
 import qubes.tests
 
@@ -214,3 +215,57 @@ class TC_10_WindowsFeatures(qubes.tests.QubesTestCase):
                 'qrexec': '1',
                 'os': 'Linux'})
         self.assertEqual(self.vm.mock_calls, [])
+
+class TC_20_Services(qubes.tests.QubesTestCase):
+    def setUp(self):
+        super().setUp()
+        self.ext = qubes.ext.services.ServicesExtension()
+        self.vm = mock.MagicMock()
+        self.features = {}
+        self.vm.configure_mock(**{
+            'is_running.return_value': True,
+            'features.get.side_effect': self.features.get,
+            'features.items.side_effect': self.features.items,
+            'features.__iter__.side_effect': self.features.__iter__,
+            'features.__contains__.side_effect': self.features.__contains__,
+            'features.__setitem__.side_effect': self.features.__setitem__,
+            'features.__delitem__.side_effect': self.features.__delitem__,
+            })
+
+    def test_000_write_to_qdb(self):
+        self.features['service.test1'] = '1'
+        self.features['service.test2'] = ''
+
+        self.ext.on_domain_qdb_create(self.vm, 'domain-qdb-create')
+        self.assertEqual(sorted(self.vm.untrusted_qdb.mock_calls), [
+            ('write', ('/qubes-service/test1', '1'), {}),
+            ('write', ('/qubes-service/test2', '0'), {}),
+        ])
+
+    def test_001_feature_set(self):
+        self.ext.on_domain_feature_set(self.vm,
+            'feature-set:service.test_no_oldvalue',
+            'service.test_no_oldvalue', '1')
+        self.ext.on_domain_feature_set(self.vm,
+            'feature-set:service.test_oldvalue',
+            'service.test_oldvalue', '1', '')
+        self.ext.on_domain_feature_set(self.vm,
+            'feature-set:service.test_disable',
+            'service.test_disable', '', '1')
+        self.ext.on_domain_feature_set(self.vm,
+            'feature-set:service.test_disable_no_oldvalue',
+            'service.test_disable_no_oldvalue', '')
+
+        self.assertEqual(sorted(self.vm.untrusted_qdb.mock_calls), sorted([
+            ('write', ('/qubes-service/test_no_oldvalue', '1'), {}),
+            ('write', ('/qubes-service/test_oldvalue', '1'), {}),
+            ('write', ('/qubes-service/test_disable', '0'), {}),
+            ('write', ('/qubes-service/test_disable_no_oldvalue', '0'), {}),
+        ]))
+
+    def test_002_feature_delete(self):
+        self.ext.on_domain_feature_delete(self.vm,
+            'feature-delete:service.test3', 'service.test3')
+        self.assertEqual(sorted(self.vm.untrusted_qdb.mock_calls), [
+            ('rm', ('/qubes-service/test3',), {}),
+        ])
