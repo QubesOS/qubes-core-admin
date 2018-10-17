@@ -1439,6 +1439,8 @@ class QubesVM(qubes.vm.mix.net.NetVMMixin, qubes.vm.BaseVM):
                                    'creation'.format(self.dir_path))
             raise
 
+        if os.path.exists(self.icon_path):
+            os.unlink(self.icon_path)
         self.log.info('Creating icon symlink: {} -> {}'.format(
             self.icon_path, self.label.icon_path))
         if hasattr(os, "symlink"):
