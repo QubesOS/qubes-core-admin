@@ -1990,7 +1990,9 @@ def _patch_pool_config(config, pool=None, pools=None):
         if not is_snapshot:
             config['pool'] = str(pools[name])
         else:
-            msg = "Can't clone a snapshot volume {!s} to pool {!s} " \
+            msg = "Snapshot volume {0!s} must be in the same pool as its " \
+                  "origin ({0!s} volume of template)," \
+                  "cannot move to pool {1!s} " \
                 .format(name, pools[name])
             raise qubes.exc.QubesException(msg)
     return config
