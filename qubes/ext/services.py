@@ -62,3 +62,40 @@ class ServicesExtension(qubes.ext.Extension):
             return
         service = feature[len('service.'):]
         vm.untrusted_qdb.rm('/qubes-service/{}'.format(service))
+
+    @qubes.ext.handler('features-request')
+    def supported_services(self, vm, event, untrusted_features):
+        '''Handle advertisement of supported services'''
+        # pylint: disable=no-self-use,unused-argument
+
+        if getattr(vm, 'template', None):
+            vm.log.warning(
+                'Ignoring qubes.FeaturesRequest from template-based VM')
+            return
+
+        new_supported_services = set()
+        for requested_service in untrusted_features:
+            if not requested_service.startswith('supported-service.'):
+                continue
+            if untrusted_features[requested_service] == '1':
+                # only allow to advertise service as supported, lack of entry
+                #  means service is not supported
+                new_supported_services.add(requested_service)
+        del untrusted_features
+
+        # if no service is supported, ignore the whole thing - do not clear
+        # all services in case of empty request (manual or such)
+        if not new_supported_services:
+            return
+
+        old_supported_services = set(
+            feat for feat in vm.features
+            if feat.startswith('supported-service.') and vm.features[feat])
+
+        for feature in new_supported_services.difference(
+                old_supported_services):
+            vm.features[feature] = True
+
+        for feature in old_supported_services.difference(
+                new_supported_services):
+            del vm.features[feature]

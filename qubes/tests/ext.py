@@ -223,6 +223,7 @@ class TC_20_Services(qubes.tests.QubesTestCase):
         self.vm = mock.MagicMock()
         self.features = {}
         self.vm.configure_mock(**{
+            'template': None,
             'is_running.return_value': True,
             'features.get.side_effect': self.features.get,
             'features.items.side_effect': self.features.items,
@@ -269,3 +270,38 @@ class TC_20_Services(qubes.tests.QubesTestCase):
         self.assertEqual(sorted(self.vm.untrusted_qdb.mock_calls), [
             ('rm', ('/qubes-service/test3',), {}),
         ])
+
+    def test_010_supported_services(self):
+        self.ext.supported_services(self.vm, 'features-request',
+            untrusted_features={
+                'supported-service.test1': '1',  # ok
+                'supported-service.test2': '0',  # ignored
+                'supported-service.test3': 'some text',  # ignored
+                'no-service': '1',  # ignored
+            })
+        self.assertEqual(self.features, {
+            'supported-service.test1': True,
+        })
+
+    def test_011_supported_services_add(self):
+        self.features['supported-service.test1'] = '1'
+        self.ext.supported_services(self.vm, 'features-request',
+            untrusted_features={
+                'supported-service.test1': '1',  # ok
+                'supported-service.test2': '1',  # ok
+            })
+        # also check if existing one is untouched
+        self.assertEqual(self.features, {
+            'supported-service.test1': '1',
+            'supported-service.test2': True,
+        })
+
+    def test_012_supported_services_remove(self):
+        self.features['supported-service.test1'] = '1'
+        self.ext.supported_services(self.vm, 'features-request',
+            untrusted_features={
+                'supported-service.test2': '1',  # ok
+            })
+        self.assertEqual(self.features, {
+            'supported-service.test2': True,
+        })
