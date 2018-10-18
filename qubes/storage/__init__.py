@@ -198,6 +198,8 @@ class Volume:
             volume data require something more than just writing to a file (
             for example connecting to some other domain, or converting data
             on the fly), the returned path may be a pipe.
+
+            This can be implemented as a coroutine.
         '''
         raise self._not_implemented("import")
 
@@ -206,6 +208,8 @@ class Volume:
         implementation to commit changes, cleanup temporary files etc.
 
         This method is called regardless the operation was successful or not.
+
+        This can be implemented as a coroutine.
 
         :param success: True if data import was successful, otherwise False
         '''
@@ -654,24 +658,34 @@ class Storage:
 
         return self.vm.volumes[volume].export()
 
+    @asyncio.coroutine
     def import_data(self, volume):
         ''' Helper function to import volume data (pool.import_data(volume))'''
         assert isinstance(volume, (Volume, str)), \
             "You need to pass a Volume or pool name as str"
         if isinstance(volume, Volume):
-            return volume.import_data()
+            ret = volume.import_data()
+        else:
+            ret = self.vm.volumes[volume].import_data()
 
-        return self.vm.volumes[volume].import_data()
+        if asyncio.iscoroutine(ret):
+            ret = yield from ret
+        return ret
 
+    @asyncio.coroutine
     def import_data_end(self, volume, success):
         ''' Helper function to finish/cleanup data import
         (pool.import_data_end( volume))'''
         assert isinstance(volume, (Volume, str)), \
             "You need to pass a Volume or pool name as str"
         if isinstance(volume, Volume):
-            return volume.import_data_end(success=success)
+            ret = volume.import_data_end(success=success)
+        else:
+            ret = self.vm.volumes[volume].import_data_end(success=success)
 
-        return self.vm.volumes[volume].import_data_end(success=success)
+        if asyncio.iscoroutine(ret):
+            ret = yield from ret
+        return ret
 
 
 class VolumesCollection:

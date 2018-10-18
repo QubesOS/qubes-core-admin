@@ -479,7 +479,7 @@ class QubesAdminAPI(qubes.api.AbstractQubesAPI):
         if not self.dest.is_halted():
             raise qubes.exc.QubesVMNotHaltedError(self.dest)
 
-        path = self.dest.storage.import_data(self.arg)
+        path = yield from self.dest.storage.import_data(self.arg)
         assert ' ' not in path
         size = self.dest.volumes[self.arg].size
 

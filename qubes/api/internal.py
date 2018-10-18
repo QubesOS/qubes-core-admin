@@ -68,7 +68,8 @@ class QubesInternalAPI(qubes.api.AbstractQubesAPI):
         success = untrusted_payload == b'ok'
 
         try:
-            self.dest.storage.import_data_end(self.arg, success=success)
+            yield from self.dest.storage.import_data_end(self.arg,
+                success=success)
         except:
             self.dest.fire_event('domain-volume-import-end', volume=self.arg,
                 success=False)
